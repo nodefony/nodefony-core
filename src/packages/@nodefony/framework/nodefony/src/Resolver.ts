@@ -228,18 +228,17 @@ class Resolver implements IResolver {
     if (!module) {
       throw new Error(`Module not found: ${tab[0]}`);
     }
+    // `getController` LÈVE sur un nom inconnu — aucune garde à poser ici.
     this.controller = module.getController(tab[1]);
-    if (!this.controller) {
-      throw new Error(`Controller not found in module: ${tab[1]}`);
-    }
-    this.action = this.getAction(tab[2]) as (...args: unknown[]) => unknown;
-    if (!this.action) {
+    const action = this.getAction(tab[2]);
+    if (!action) {
       throw new Error(`Action not found in controller ${tab[1]}: ${tab[2]}`);
     }
+    this.action = action;
     this.actionName = tab[2];
     this.resolve = true;
     // Forward interne : même résolution d'intent de session que le match direct.
-    if (this.controller) {
+    {
       this.context.sessionIntent = resolveSessionIntent(
         this.controller,
         this.actionName,
@@ -384,7 +383,8 @@ class Resolver implements IResolver {
       const area = this._areaSecurity();
       if (area !== null) await this._enforceSecurity(area);
     }
-    let controller = this.context.container?.get("controller") as Controller;
+    let controller = this.context.container?.get("controller") as
+      Controller | undefined;
     // Le pointeur "controller" du container est PARTAGÉ par la connexion (WS)
     // et réécrit par tout re-routage (invoke, forward). S'il porte une AUTRE
     // classe que celle de la route courante (connexion WS dont un message a
@@ -770,14 +770,13 @@ class Resolver implements IResolver {
     const ctx = this.context as unknown as IParamArgContext;
     return buildParamArgs(metas, {
       paramsMap,
-      request: httpCtx?.request as IParamArgContext["request"],
-      response: httpCtx?.response,
-      session: ctx?.session,
+      request: httpCtx.request as IParamArgContext["request"],
+      response: httpCtx.response,
+      session: ctx.session,
       // Pont WS-RPC : query du path INVOQUÉ (jamais celle du handshake).
       // `?? undefined` : null (hot path) → clé absente pour `resolveParamArg`.
       queryOverride: this.queryOverride ?? undefined,
-      getRequestCookies: (name?: string) =>
-        ctx?.getRequestCookies ? ctx.getRequestCookies(name) : undefined,
+      getRequestCookies: (name?: string) => ctx.getRequestCookies(name),
     });
   }
 

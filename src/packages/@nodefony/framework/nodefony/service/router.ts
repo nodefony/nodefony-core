@@ -31,7 +31,7 @@ interface MethodNotAllowedError extends Error {
 
 function collectSupportedMethods(route: Route): Set<string> {
   const set = new Set<string>();
-  const m = route.requirements?.methods as RouteRequirementMethods;
+  const m = route.requirements.methods as RouteRequirementMethods;
   if (typeof m === "string") {
     m.split(",")
       .map((s) => s.trim().toUpperCase())

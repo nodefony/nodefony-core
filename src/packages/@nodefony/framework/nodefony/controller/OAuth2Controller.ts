@@ -224,7 +224,7 @@ class OAuth2Controller extends Controller {
 
   /** Lit un paramètre de query string (GET), ou `null`. */
   #queryString(key: string): string | null {
-    const v = this.queryGet?.[key];
+    const v = (this.queryGet as Record<string, unknown> | undefined)?.[key];
     return typeof v === "string" && v.length > 0 ? v : null;
   }
 }

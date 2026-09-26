@@ -400,7 +400,7 @@ class Route implements IRoute {
       }
       throw e;
     }
-    if (map?.wildcard) {
+    if (map.wildcard) {
       map["*"] = map.wildcard;
     }
     return map;
@@ -484,7 +484,7 @@ class Route implements IRoute {
     this.methodsSet = undefined;
     this.methodsAllow = undefined;
     this.varRegexp = undefined;
-    const methods = this.requirements?.methods;
+    const methods = this.requirements.methods;
     if (typeof methods === "string") {
       const list = methods.replace(/\s/g, "").toUpperCase().split(",");
       this.methodsSet = new Set(list);
@@ -559,9 +559,9 @@ class Route implements IRoute {
    * `this.module` à `onBoot` — appel via le décorateur `@controllers` du module.
    */
   toLogLine(): string {
-    const m = Array.isArray(this.requirements?.methods)
+    const m = Array.isArray(this.requirements.methods)
       ? this.requirements.methods.join("|")
-      : this.requirements?.methods || this.method || "ANY";
+      : this.requirements.methods || this.method || "ANY";
     const method = `[${m}]`.padEnd(10);
     const ctrl = this.controller?.name || "?";
     const action = this.classMethod || this.name;
@@ -636,7 +636,7 @@ class Route implements IRoute {
     if (this.host) {
       patterns.push(this.host);
     }
-    const reqDomain = this.requirements?.domain;
+    const reqDomain = this.requirements.domain;
     if (reqDomain) {
       patterns.push(reqDomain);
     }
@@ -684,7 +684,7 @@ class Route implements IRoute {
     key: K,
     value: RouteRequirements[K],
   ): RouteRequirements[K] | undefined {
-    if (key && value) {
+    if (value) {
       this.requirements[key] = value;
       // Maintient l'invariant P3a (pré-compilés ↔ config brute).
       this.compileRequirements();

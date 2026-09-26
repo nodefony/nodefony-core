@@ -109,12 +109,12 @@ export function parseByteRange(
 ): { start: number; end: number } | "unsatisfiable" | null {
   const unit = /^\s*bytes\s*=\s*(.+)$/i.exec(range);
   if (!unit) return null;
-  const spec = (unit[1] ?? "").trim();
+  const spec = unit[1].trim();
   if (spec.includes(",")) return null;
   const parts = /^(\d*)-(\d*)$/.exec(spec);
   if (!parts) return null;
-  const first = parts[1] ?? "";
-  const last = parts[2] ?? "";
+  const first = parts[1];
+  const last = parts[2];
   if (first === "" && last === "") return null;
   if (first === "") {
     // Suffixe `bytes=-N` : les N derniers octets (§14.1.2 suffix-range).
@@ -365,7 +365,8 @@ class Controller extends Service implements IController {
     if (typeof data !== "string" || data.length === 0) {
       return;
     }
-    const response = this.response as { getHeader?: (n: string) => unknown };
+    const response = this.response as
+      { getHeader?: (n: string) => unknown } | null | undefined;
     if (typeof response?.getHeader !== "function") {
       return;
     }
@@ -398,6 +399,9 @@ class Controller extends Service implements IController {
     headers?: Record<string, string | number>,
   ) {
     this.#warnScriptWithoutNonce(data);
+    // Garde conservée : hors requête le contexte est absent ; élargir le cast
+    // changerait le type de RETOUR publié (compat).
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     return (this.context as HttpContext)?.render(
       data,
       encoding,
@@ -418,6 +422,9 @@ class Controller extends Service implements IController {
     if (status) {
       this.response?.setStatusCode(status);
     }
+    // Garde conservée : hors requête le contexte est absent ; élargir le cast
+    // changerait le type de RETOUR publié (compat).
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     return (<HttpContext | WebsocketContext>this.context)?.send(
       data as Buffer | string | null,
       encoding,
@@ -529,7 +536,8 @@ class Controller extends Service implements IController {
   }
 
   getSession(): Session | undefined | null {
-    if (this.context?.session) return this.context?.session;
+    const session = this.context?.session;
+    if (session) return session;
   }
 
   redirect(
@@ -765,8 +773,8 @@ class Controller extends Service implements IController {
       response.once("close", onResponseClose);
       streamFile.on("open", () => {
         try {
-          (this.context as HttpContext)?.writeHead(
-            contextResponse?.statusCode,
+          (this.context as HttpContext | undefined)?.writeHead(
+            contextResponse.statusCode,
             headers,
           );
           streamFile.pipe(response, { end: false });
@@ -830,7 +838,7 @@ class Controller extends Service implements IController {
     // déstructure `undefined` dès que `X` l'est — donc lève exactement le
     // TypeError que l'optional chaining prétendait éviter.
     const range = (this.request as HttpRequest | Http2Request | undefined)
-      ?.headers?.range;
+      ?.headers.range;
     const length = File.stats.size;
     let head: OutgoingHttpHeaders;
     let value: ReadStreamOptions;

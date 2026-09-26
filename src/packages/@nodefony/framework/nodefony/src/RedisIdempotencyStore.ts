@@ -249,8 +249,8 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
       return null;
     }
     try {
-      const v = JSON.parse(raw) as Entry;
-      return v && (v.s === "if" || v.s === "d") ? v : null;
+      const v = JSON.parse(raw) as { s?: unknown } | null;
+      return v && (v.s === "if" || v.s === "d") ? (v as Entry) : null;
     } catch {
       return null;
     }

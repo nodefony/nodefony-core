@@ -593,9 +593,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   // pseudo-module `core` (socle, absent de `getModules()`). `null` = inconnue.
   const resolveTarget = (key: string): { path: string; pkg: string } | null => {
     if (key === CORE_KEY) return { path: resolveCorePath(), pkg: CORE_PACKAGE };
-    const mod = kernel.getModules()[key];
+    const mod = kernel.getModules()[key] as
+      ReturnType<typeof kernel.getModules>[string] | undefined;
     if (!mod) return null;
-    return { path: mod.path, pkg: mod.getModuleName?.() ?? key };
+    return { path: mod.path, pkg: mod.getModuleName() ?? key };
   };
 
   // Dossier d'un paquet INSTALLÉ, pour ce que `getModules()` ne connaît pas.
@@ -956,9 +957,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           const mod = modules[name];
           list.push({
             key: name,
-            name: mod.getModuleName?.() ?? name,
-            version: mod.getModuleVersion?.() ?? null,
-            isApp: mod.isApp ?? false,
+            name: mod.getModuleName() ?? name,
+            version: mod.getModuleVersion() ?? null,
+            isApp: mod.isApp,
             path: relPath(mod.path),
           });
         }
@@ -978,7 +979,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const services: Array<Record<string, unknown>> = [];
         for (const name of Object.keys(modules)) {
           const mod = modules[name];
-          for (const service of mod.getServiceNames?.() ?? []) {
+          for (const service of mod.getServiceNames()) {
             services.push({
               name: service,
               module: name,
@@ -1505,7 +1506,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             coverageLines: (await readCoverage(core.path)).total?.lines ?? null,
           };
         }
-        const mod = kernel.getModules()[key];
+        const mod = kernel.getModules()[key] as
+          ReturnType<typeof kernel.getModules>[string] | undefined;
         if (!mod) {
           // Enveloppe IAdminResponse : `status` présent → reconnue par le broker.
           return {
@@ -1535,10 +1537,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         return {
           key,
           name: cfg.name,
-          version: mod.getModuleVersion?.() ?? null,
+          version: mod.getModuleVersion() ?? null,
           isApp: cfg.isApp,
           path: relPath(mod.path),
-          dependencies: mod.getDependencies?.() ?? [],
+          dependencies: mod.getDependencies(),
           services,
           config: cfg.config,
           // JSON Schema de la config (réglages documentés + flags meta) si le
@@ -1679,7 +1681,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             markdown: section.markdown,
           };
         }
-        if (request.query.outline !== undefined) {
+        if (Object.hasOwn(request.query, "outline")) {
           const { markdown, ...rest } = doc;
           return {
             ...rest,
@@ -1728,7 +1730,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             },
           };
         }
-        const limit = Number.parseInt(String(request.query.limit ?? ""), 10);
+        const limit = Number.parseInt(
+          String((request.query.limit as string | string[] | undefined) ?? ""),
+          10,
+        );
         return searchModuleDocs(docTargets(), q, {
           limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
         });
@@ -1873,9 +1878,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         testJobs.set(jobId, { status: "running", startedAt: Date.now() });
         // borne la map (16 derniers jobs)
         if (testJobs.size > 16) {
-          const oldest = [...testJobs.entries()].sort(
-            (a, b) => a[1].startedAt - b[1].startedAt,
-          )[0];
+          const oldest = [...testJobs.entries()]
+            .sort((a, b) => a[1].startedAt - b[1].startedAt)
+            .at(0);
           if (oldest) testJobs.delete(oldest[0]);
         }
         // fire-and-forget : ne PAS await (le client poll via GET ?jobId)
@@ -1910,7 +1915,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       method: "GET",
       summary: "Poll a test run by ?jobId",
       handler: (request) => {
-        const jobId = String(request.query.jobId ?? "");
+        const jobId = String(
+          (request.query.jobId as string | string[] | undefined) ?? "",
+        );
         const job = jobId ? testJobs.get(jobId) : undefined;
         if (!job)
           return { status: 404, body: { error: "Unknown jobId", jobId } };

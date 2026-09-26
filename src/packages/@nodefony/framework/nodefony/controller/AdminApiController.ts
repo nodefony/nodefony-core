@@ -59,7 +59,7 @@ class AdminApiController extends Controller {
    */
   async dispatch(...args: unknown[]) {
     const { status, headers, body } = await this.runAdmin(args);
-    if (this.context?.type?.startsWith("websocket")) {
+    if (this.context?.type.startsWith("websocket")) {
       if (status >= 400) {
         const message =
           (body as { error?: string } | null)?.error ?? "admin error";
@@ -187,20 +187,23 @@ class AdminApiController extends Controller {
     }
     const als = RequestContext.get();
     const user = als?.user ?? null;
+    // Getter typé `Record`, mais `undefined` hors requête HTTP (WebSocket).
+    const post = this.queryPost as Record<string, unknown> | undefined;
     return {
       params,
-      query: (this.query ?? {}) as Record<string, string | string[]>,
+      query: ((this.query as Record<string, unknown> | undefined) ??
+        {}) as Record<string, string | string[]>,
       // WS : le corps de la mutation est porté par l'ALS (le pont `api.request`
       // le pose — pas de corps HTTP parsé en WebSocket). HTTP : `queryPost`.
       // `als.body === undefined` (cas GET/handshake) → on retombe sur queryPost.
-      body: als?.body !== undefined ? als.body : (this.queryPost ?? null),
+      body: als?.body !== undefined ? als.body : (post ?? null),
       user,
       roles: this.extractRoles(user),
       requestId: als?.requestId,
       // Clé résolue par le helper partagé (ALS du pont WS > en-tête HTTP, bornée).
       idempotencyKey: resolveIdempotencyKey(
         als?.idempotencyKey,
-        this.context?.request?.headers?.["idempotency-key"],
+        this.context?.request?.headers["idempotency-key"],
       ),
     };
   }

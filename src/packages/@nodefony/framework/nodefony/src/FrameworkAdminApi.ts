@@ -89,7 +89,7 @@ export function createFrameworkAdminApi(
 ): IAdminApi {
   /** Normalise `requirements.methods` (string | string[]) → tableau majuscule. */
   const methodsOf = (route: Route): string[] => {
-    const m = route.requirements?.methods ?? route.method;
+    const m = route.requirements.methods ?? route.method;
     if (Array.isArray(m)) return m.map((x) => x.toUpperCase());
     if (typeof m === "string") {
       return m
@@ -183,7 +183,7 @@ export function createFrameworkAdminApi(
       case "path":
         return r.path ?? "";
       case "name":
-        return r.name ?? "";
+        return r.name;
       case "controller":
         return [r.controller, r.action].filter(Boolean).join(".");
       case "module":

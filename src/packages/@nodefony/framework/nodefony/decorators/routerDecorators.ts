@@ -1251,9 +1251,11 @@ const Query = paramDecoratorFactory("query");
  * ```
  */
 function Body(keyOrOptions?: string | { stream?: boolean }) {
-  const isOptions = typeof keyOrOptions === "object" && keyOrOptions !== null;
-  const key = isOptions ? undefined : keyOrOptions;
-  const stream = isOptions ? keyOrOptions.stream === true : false;
+  // Un appelant JavaScript peut passer `null` (`typeof null === "object"`).
+  const raw = keyOrOptions as string | { stream?: boolean } | null | undefined;
+  const isOptions = typeof raw === "object" && raw !== null;
+  const key = isOptions ? undefined : (raw ?? undefined);
+  const stream = isOptions ? raw.stream === true : false;
   return function (
     target: object,
     propertyKey: string,
@@ -1346,7 +1348,7 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
       const alsBody = RequestContext.get()?.body;
       if (alsBody !== undefined) {
         return meta.key !== undefined
-          ? (alsBody as Record<string, unknown>)?.[meta.key]
+          ? (alsBody as Record<string, unknown> | null)?.[meta.key]
           : alsBody;
       }
       const qp = ctx.request?.queryPost;

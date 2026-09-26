@@ -84,7 +84,7 @@ class TotpController extends Controller {
     if (subject === null) {
       return this.renderJson({ error: "Unauthorized" }, 401);
     }
-    const code = this.queryPost?.code;
+    const code = (this.queryPost as Record<string, unknown> | undefined)?.code;
     if (typeof code !== "string" || code.length === 0) {
       return this.renderJson({ error: "Invalid code" }, 400);
     }

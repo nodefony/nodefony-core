@@ -267,12 +267,13 @@ class WebAuthnController extends Controller {
    * cérémonie est découvrable (cf {@link WebAuthnController.loginOptions}).
    */
   #body(): { response?: unknown } {
-    return this.queryPost ?? {};
+    const post = this.queryPost as Record<string, unknown> | undefined;
+    return post ?? {};
   }
 
   /** Origine HTTP de la requête (validée par le service contre le rpID). */
   #origin(): string | undefined {
-    const origin = (this.context as ContextType).request?.headers?.origin;
+    const origin = (this.context as ContextType).request?.headers.origin;
     return typeof origin === "string" ? origin : undefined;
   }
 
@@ -296,7 +297,9 @@ class WebAuthnController extends Controller {
     }
     if (code === 409) {
       return this.renderJson(
-        { error: (e as Error).message ?? "Passkey limit reached" },
+        {
+          error: (e as { message?: string }).message ?? "Passkey limit reached",
+        },
         409,
       );
     }

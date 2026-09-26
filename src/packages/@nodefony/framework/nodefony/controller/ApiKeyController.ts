@@ -72,7 +72,8 @@ class ApiKeyController extends Controller {
     if (subject === null) {
       return this.renderJson({ error: "Unauthorized" }, 401);
     }
-    const body = (this.queryPost ?? {}) as {
+    const post = this.queryPost as Record<string, unknown> | undefined;
+    const body = (post ?? {}) as {
       name?: unknown;
       scopes?: unknown;
       expiresInDays?: unknown;

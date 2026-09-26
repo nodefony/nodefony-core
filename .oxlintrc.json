@@ -352,7 +352,8 @@
         "src/packages/@nodefony/orm-core/**",
         "src/packages/@nodefony/drizzle/**",
         "src/packages/@nodefony/mongoose/**",
-        "src/packages/@nodefony/security/**"
+        "src/packages/@nodefony/security/**",
+        "src/packages/@nodefony/framework/**"
       ],
       "rules": {
         "typescript/no-unnecessary-condition": "error"

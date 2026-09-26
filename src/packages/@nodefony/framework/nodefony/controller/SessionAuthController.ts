@@ -66,7 +66,8 @@ class SessionAuthController extends Controller {
     if (!flow) {
       return this.renderJson({ error: "Authentication unavailable" }, 503);
     }
-    const body = (this.queryPost ?? {}) as {
+    const post = this.queryPost as Record<string, unknown> | undefined;
+    const body = (post ?? {}) as {
       username?: unknown;
       password?: unknown;
     };
@@ -100,7 +101,8 @@ class SessionAuthController extends Controller {
     if (!flow) {
       return this.renderJson({ error: "Authentication unavailable" }, 503);
     }
-    const body = (this.queryPost ?? {}) as { code?: unknown };
+    const post = this.queryPost as Record<string, unknown> | undefined;
+    const body = (post ?? {}) as { code?: unknown };
     try {
       const user = await flow.completeMfaLogin(
         this.context as ContextType,

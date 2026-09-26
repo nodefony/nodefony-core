@@ -203,7 +203,7 @@ class Framework extends Module<IFrameworkConfig> {
    */
   override async onKernelRegister(): Promise<this> {
     this.options = defineFrameworkConfig(
-      (this.options as IFrameworkConfigInput) ?? {},
+      (this.options as IFrameworkConfigInput | undefined) ?? {},
     );
     return this;
   }
@@ -228,8 +228,7 @@ class Framework extends Module<IFrameworkConfig> {
    *    silencieux (le WARNING annonce la dégradation).
    */
   override async onKernelBoot(): Promise<this> {
-    const configured =
-      (this.options as IFrameworkConfig)?.idempotency?.store ?? AUTO_STORE;
+    const configured = (this.options as IFrameworkConfig).idempotency.store;
     let name = configured;
     let reason = `store explicitement configuré ("${configured}")`;
     if (name === AUTO_STORE) {
@@ -388,7 +387,7 @@ class Framework extends Module<IFrameworkConfig> {
         // vrais logs). Source unique = `config.log.dir` (défaut "logs"), sous cwd.
         const logDir = path.resolve(
           process.cwd(),
-          (this.kernel.options?.log as { dir?: string } | undefined)?.dir ??
+          (this.kernel.options.log as { dir?: string } | undefined)?.dir ??
             "logs",
         );
         broker.register(

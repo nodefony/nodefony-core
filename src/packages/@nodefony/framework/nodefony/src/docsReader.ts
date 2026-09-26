@@ -1099,8 +1099,8 @@ export function runModuleTests(
         mode,
       });
     }
-    child.stdout?.on("data", cap);
-    child.stderr?.on("data", cap);
+    child.stdout.on("data", cap);
+    child.stderr.on("data", cap);
     const timer = setTimeout(() => child.kill("SIGKILL"), 180_000);
     // Un spawn qui échoue émet `error` PUIS `close` : sans garde, le second
     // verdict écraserait le premier (silencieusement — une Promise ignore la
@@ -1110,8 +1110,8 @@ export function runModuleTests(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      child.stdout?.off("data", cap);
-      child.stderr?.off("data", cap);
+      child.stdout.off("data", cap);
+      child.stderr.off("data", cap);
       resolve(result);
     };
     child.on("error", (e) => {

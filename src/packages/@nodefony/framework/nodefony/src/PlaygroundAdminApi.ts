@@ -86,7 +86,7 @@ export interface PlaygroundController {
 
 /** Normalise `requirements.methods` (string | string[]) → tableau majuscule. */
 function methodsOf(route: Route): string[] {
-  const m = route.requirements?.methods ?? route.method;
+  const m = route.requirements.methods ?? route.method;
   if (Array.isArray(m)) return m.map((x) => x.toUpperCase());
   if (typeof m === "string") {
     return m
