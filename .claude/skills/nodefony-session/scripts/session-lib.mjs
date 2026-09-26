@@ -218,3 +218,31 @@ export function datesIn(text) {
 /** Tronque une ligne à `max` caractères visibles. */
 export const clip = (s, max = 90) =>
   s.length > max ? `${s.slice(0, max - 1)}…` : s;
+
+/**
+ * Nom du `_state` à écrire : la date du jour, suffixée de la lettre qui SUIT la
+ * plus haute déjà prise ce jour-là.
+ *
+ * Jamais « la première lettre libre » : avec `…26`, `…26c` et `…26d` sur le
+ * disque, elle rendait `…26b`, rangé AVANT les autres — et la reprise, qui prend
+ * le dernier `_state` par nom, relisait l'ancien.
+ *
+ * @param {string[]} states - noms de fichiers `_state` existants.
+ * @param {string} today - date du jour, `AAAA-MM-JJ`.
+ * @returns {string} le nom du fichier à écrire.
+ */
+export function nextStateName(states, today) {
+  const re = new RegExp(`^project_session_${today}([a-z]?)_state\\.md$`, "u");
+  let highest = null;
+  for (const name of states) {
+    const m = re.exec(name);
+    if (m && (highest === null || m[1] > highest)) highest = m[1];
+  }
+  const suffix =
+    highest === null
+      ? ""
+      : highest === ""
+        ? "b"
+        : String.fromCharCode(highest.charCodeAt(0) + 1);
+  return `project_session_${today}${suffix}_state.md`;
+}

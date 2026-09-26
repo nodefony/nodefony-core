@@ -34,6 +34,7 @@ import {
   sessionLogArgs,
   stateWrittenAt,
   uncitedWork,
+  nextStateName,
 } from "./session-lib.mjs";
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
@@ -85,14 +86,6 @@ const states = fs.existsSync(MEM)
 const readMem = (f) => (f ? fs.readFileSync(path.join(MEM, f), "utf8") : "");
 const closingState = VERIFY ? states.at(-1) : null;
 const openingState = VERIFY ? states.at(-2) : states.at(-1);
-/** Nom du `_state` à écrire : la date du jour, suffixée d'une lettre libre. */
-const nextStateName = () => {
-  for (const suffix of ["", ...Array.from("bcdefghijklmnopqrstuvwxyz")]) {
-    const name = `project_session_${today}${suffix}_state.md`;
-    if (!states.includes(name)) return name;
-  }
-  return `project_session_${today}_state.md`;
-};
 
 // ── Plage de la session : `--since`, sinon l'instant où le `_state` qui l'ouvre a
 // été écrit (cf `stateWrittenAt` : le commit du dépôt mémoire fait foi).
@@ -249,7 +242,7 @@ function prepare() {
     `À écrire : docs/session-retros/${today}-${latest ? latest.slice(0, 8) : "<id>"}.md (≤ 30 l., sans stats)`,
   );
   say(
-    `           ${path.join(MEM, nextStateName())} + son pointeur dans MEMORY.md`,
+    `           ${path.join(MEM, nextStateName(states, today))} + son pointeur dans MEMORY.md`,
   );
   if (new Date().getHours() >= 22)
     say(

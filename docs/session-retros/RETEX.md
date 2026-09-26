@@ -296,6 +296,20 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-26e] **Un `--fix` sûr pour le type n'est pas sûr pour le SENS** :
+  `no-unnecessary-boolean-literal-compare --fix` a réécrit `useMkcert !== false` en `useMkcert`,
+  qui s'inverse sur `undefined` (mkcert éteint par défaut) ; même famille, `as Row` retiré qui
+  pilotait l'inférence d'un `get<T>()`. Lot automatique jeté entier ; preuve retenue : comparer le
+  JS ÉMIS avant/après (`transpileModule`) — identique = pur typage, sinon relecture mot à mot.
+- [1× — 09-26e] **Le verdict du lint TYPÉ dépend du décor, pas du code** : un `.mjs` hors de tout
+  tsconfig est typé différemment selon le chemin passé (faux `Number(bigint)` fichier par fichier,
+  vrais constats tus depuis la racine), plusieurs chemins d'un coup rendent des comptes faux, et un
+  `dist/types` en cours de build fait voir des types `error` partout. Remède : un tsconfig qui
+  couvre chaque fichier (`.claude/`, `scripts/`), mesurer à la racine, après un build complet.
+- [1× — 09-26e] **Une garde écrite pour REFUSER l'inutile qui ne refuse rien** : `typeCycles`
+  gardait quatre cycles morts parce que la garde cherchait le nom du paquet en SOUS-CHAÎNE — un
+  `//import` commenté suffisait. La même expression d'import était quadratique (22,6 s sur une
+  ligne d'espaces, CodeQL #209). Une garde se prouve sur l'ancienne liste qu'elle devait refuser.
 - [1× — 09-26d] **Un correcteur automatique juge chaque site ISOLÉMENT** :
   `no-unnecessary-type-assertion --fix` a retiré ~600 assertions justes une à une, mais dans
   `certificates.ts` le retrait de `as ForgeModule` rendait nécessaires les assertions suivantes —

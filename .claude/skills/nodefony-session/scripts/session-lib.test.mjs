@@ -8,6 +8,7 @@ import {
   citedHashes,
   datesIn,
   firstPriority,
+  nextStateName,
   linksInSection,
   liveRetexThemes,
   modifiedOf,
@@ -202,5 +203,23 @@ describe("firstPriority — une priorité du `_state` SANS ticket ne s'enterre p
   it("pas de section Reste, ou vide → null", () => {
     expect(firstPriority("## Fait\n- x\n")).toBeNull();
     expect(firstPriority("## Reste\n\n## Autre\n- y\n")).toBeNull();
+  });
+});
+
+describe("nextStateName — le _state du jour se range APRÈS ceux qui existent", () => {
+  // Vécu : avec `09-26`, `09-26c`, `09-26d` sur le disque, la « première lettre
+  // libre » rendait `09-26b` — rangé AVANT c et d, donc la reprise (qui prend le
+  // dernier par nom) relisait l'ANCIEN état.
+  const s = (x) => `project_session_2026-09-26${x}_state.md`;
+  it("aucun _state du jour → sans lettre", () => {
+    expect(
+      nextStateName(["project_session_2026-09-25d_state.md"], "2026-09-26"),
+    ).toBe(s(""));
+  });
+  it("la lettre qui SUIT la plus haute, même avec un trou", () => {
+    expect(nextStateName([s(""), s("c"), s("d")], "2026-09-26")).toBe(s("e"));
+  });
+  it("après le _state sans lettre, vient b", () => {
+    expect(nextStateName([s("")], "2026-09-26")).toBe(s("b"));
   });
 });
