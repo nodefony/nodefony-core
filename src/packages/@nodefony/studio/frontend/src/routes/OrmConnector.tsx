@@ -925,7 +925,7 @@ export const OrmConnector = observer(() => {
           icon={<IconTable size={20} />}
           hint={`${entities.length} entité(s) déclarée(s) sur ce connecteur, ${relationCount} relation(s).`}
           hintVersion={ORM_DOC}
-          value={entities.length || orm?.entityCount || "—"}
+          value={entities.length || (orm?.entityCount ?? "—")}
           footer={
             <Group gap={4}>
               {Object.entries(
