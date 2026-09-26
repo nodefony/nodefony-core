@@ -1,6 +1,7 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
 import { RequestContext, redactSecrets } from "nodefony";
 import { MONGO_ORDER_ALIASES } from "../mongoOrder";
+import { writeCount } from "../writeCount";
 import {
   assertOrderOption,
   isFieldOperators,
@@ -430,11 +431,8 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
             },
           )
           .exec();
-        if (!doc) {
-          // upsert:true + returnDocument:after garantit un document ; garde de
-          // typage (le contrat renvoie T non-nullable).
-          throw new Error("MongooseRepository.upsert: aucun document retourné");
-        }
+        // upsert:true + returnDocument:after garantit un document : le type
+        // de retour de Mongoose le dit déjà.
         return this.#plain(doc);
       },
       () => 1,
@@ -451,9 +449,11 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
    * l'insertion — donc pas de `$setOnInsert` à doubler. Pendant exact du
    * `GREATEST(col, ?)` des adapters SQL.
    */
-  #writeDoc(update: UpdateData<T>): Record<string, Record<string, unknown>> {
+  #writeDoc(
+    update: UpdateData<T>,
+  ): Partial<Record<string, Record<string, unknown>>> {
     const $set: Record<string, unknown> = {};
-    const ops: Record<string, Record<string, unknown>> = {};
+    const ops: Partial<Record<string, Record<string, unknown>>> = {};
     for (const [field, value] of Object.entries(update)) {
       if (!isUpdateOperators(value)) {
         $set[this.#resolveField(field)] = value;
@@ -479,7 +479,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         const res = await this.#model.updateMany(filter, data, {
           session: this.#session ?? undefined,
         });
-        return res.modifiedCount ?? 0;
+        return writeCount(res.modifiedCount);
       },
       (n) => n,
     );
@@ -521,7 +521,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         const res = await this.#model.deleteMany(filter, {
           session: this.#session ?? undefined,
         });
-        return res.deletedCount ?? 0;
+        return writeCount(res.deletedCount);
       },
       (n) => n,
     );
@@ -542,7 +542,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         const res = await this.#model.deleteOne(filter, {
           session: this.#session ?? undefined,
         });
-        return (res.deletedCount ?? 0) > 0;
+        return writeCount(res.deletedCount) > 0;
       },
       (ok) => (ok ? 1 : 0),
     );

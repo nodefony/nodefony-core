@@ -350,7 +350,8 @@
       "files": [
         "src/nodefony/src/**",
         "src/packages/@nodefony/orm-core/**",
-        "src/packages/@nodefony/drizzle/**"
+        "src/packages/@nodefony/drizzle/**",
+        "src/packages/@nodefony/mongoose/**"
       ],
       "rules": {
         "typescript/no-unnecessary-condition": "error"

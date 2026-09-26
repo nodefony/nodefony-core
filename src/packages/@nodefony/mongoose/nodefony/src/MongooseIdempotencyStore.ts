@@ -13,6 +13,7 @@ import type {
 import { assertPageQuery, escapeRegExp } from "nodefony";
 import type { Connection, Model } from "mongoose";
 import type { MongooseOrm } from "./orm-core/index";
+import { writeCount } from "./writeCount";
 import {
   IDEMPOTENCY_ENTITY_NAME,
   type IdempotencyKeyRow,
@@ -269,7 +270,7 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
         },
       )
       .exec();
-    if ((result.modifiedCount ?? 0) > 0) {
+    if (writeCount(result.modifiedCount) > 0) {
       this.#dec();
     }
   }
@@ -284,7 +285,7 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
     // jamais d'effacement d'une réponse déjà mémorisée (`done`) par une autre
     // exécution.
     const result = await model.deleteOne({ _id: key, state: "if" }).exec();
-    if ((result.deletedCount ?? 0) > 0) {
+    if (writeCount(result.deletedCount) > 0) {
       this.#dec();
     }
   }
@@ -304,7 +305,7 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
       return 0; // ORM non connecté → rien à purger.
     }
     const result = await model.deleteMany({ expiresAt: { $lte: now } }).exec();
-    return result.deletedCount ?? 0;
+    return writeCount(result.deletedCount);
   }
 
   /**

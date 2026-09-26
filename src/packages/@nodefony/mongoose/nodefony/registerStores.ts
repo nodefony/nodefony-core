@@ -169,7 +169,7 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
       }
       registerTokenStore("mongoose", (ctx) => {
         const orm = resolveConnectedOrm(`tokenStore "mongoose"`);
-        const days = ctx?.config?.tokenStore?.retentionRevokedDays;
+        const days = ctx.config.tokenStore.retentionRevokedDays;
         return MongooseTokenStore.from(
           orm,
           undefined,
@@ -221,7 +221,7 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
       }
       registerAuditStore("mongoose", (ctx) => {
         const orm = resolveConnectedOrm(`audit.store "mongoose"`);
-        const days = ctx?.config?.audit?.retentionDays;
+        const days = ctx.config.audit.retentionDays;
         return MongooseAuditStore.from(
           orm,
           undefined,

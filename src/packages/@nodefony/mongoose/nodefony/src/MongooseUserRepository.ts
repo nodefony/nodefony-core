@@ -294,7 +294,9 @@ export class MongooseUserRepository implements IUserRepository {
     );
     // Tiebreaker déterministe — sauf si le tri porte DÉJÀ sur la clé, auquel cas
     // l'écraser inverserait le sens demandé.
-    sort._id ??= 1;
+    if (!Object.hasOwn(sort, "_id")) {
+      sort._id = 1;
+    }
 
     let cursor = this.#model
       .find(filter)

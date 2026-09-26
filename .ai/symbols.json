@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 874,
-    "symbols": 4353,
+    "files": 875,
+    "symbols": 4355,
     "classes": 404,
     "interfaces": 1145,
-    "types": 466,
+    "types": 467,
     "enums": 4,
-    "functions": 1899,
+    "functions": 1900,
     "constants": 435
   },
   "symbols": {
@@ -19902,6 +19902,14 @@
       "decorators": [],
       "description": "Stockage de session **Mongoose** (driver NoSQL), branché sur `@nodefony/orm-core`. Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http` — store de ses…"
     },
+    "writeCount": {
+      "name": "writeCount",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/writeCount.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Compte rendu par une écriture MongoDB (`deletedCount`, `modifiedCount`), 0 s'il manque. Le pilote le type `number`, mais le recopie de la réponse du serveur (`res.n`) : une écriture NON acquittée (…"
+    },
     "IEntityRelation": {
       "name": "IEntityRelation",
       "kind": "interface",
@@ -37963,6 +37971,11 @@
       ],
       "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+      ],
+      "writeCount": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "mongoOrder": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",

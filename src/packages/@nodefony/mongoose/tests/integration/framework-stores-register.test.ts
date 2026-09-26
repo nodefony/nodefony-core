@@ -142,7 +142,11 @@ describe("Mongoose — couverture des briques framework", () => {
       async () => {
         // C'est l'appel de la fabrique qui dit si l'entité, le connecteur et le
         // modèle s'accordent vraiment — un nom au registre ne le dit pas.
-        const audit = getAuditStoreFactory("mongoose")!({} as never);
+        // Le registre de security passe TOUJOURS une config validée : le décor
+        // la donne, au lieu d'un contexte vide que le type n'autorise pas.
+        const audit = getAuditStoreFactory("mongoose")!({
+          config: { audit: { retentionDays: 30 } },
+        } as never);
         assert.ok((await audit.listPage({ limit: 1 })).items.length >= 0);
 
         const totp = getTotpStoreFactory("mongoose")!({} as never);

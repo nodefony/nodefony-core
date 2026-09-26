@@ -69,7 +69,7 @@ class Mongoose extends Module<IMongooseConfig> {
     // en développement (fail-soft) — le refus disparaissait précisément là où la
     // faute vient d'être écrite.
     const validated: IMongooseConfig = defineMongooseConfig(
-      (this.options ?? {}) as IMongooseConfigInput,
+      this.options as IMongooseConfigInput,
     );
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le MongooseService la lit sur son module (`this.module.config`).

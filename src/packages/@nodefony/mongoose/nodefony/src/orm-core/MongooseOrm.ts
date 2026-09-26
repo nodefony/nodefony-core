@@ -197,7 +197,8 @@ export class MongooseOrm extends Orm {
           case "one-to-many": {
             // Réf sur l'enfant + virtuel populate sur le parent.
             const fk = relation.foreignKey ?? this.#foreignKey(entity.name);
-            if (!targetSchema.path(fk)) {
+            // `path()` rend `undefined` pour un chemin absent, malgré son type.
+            if ((targetSchema.path(fk) as unknown) === undefined) {
               targetSchema.add({
                 [fk]: {
                   type: mongoose.Schema.Types.ObjectId,
@@ -216,7 +217,8 @@ export class MongooseOrm extends Orm {
           case "one-to-one": {
             // Champ réf sur la source (populate par le nom du champ).
             const fk = relation.foreignKey ?? relation.field;
-            if (!sourceSchema.path(fk)) {
+            // `path()` rend `undefined` pour un chemin absent, malgré son type.
+            if ((sourceSchema.path(fk) as unknown) === undefined) {
               sourceSchema.add({
                 [fk]: {
                   type: mongoose.Schema.Types.ObjectId,
@@ -308,7 +310,7 @@ export class MongooseOrm extends Orm {
     for (const [name, model] of Object.entries(models)) {
       const audit: IIndexAudit = {
         entity: name,
-        collection: model.collection?.name ?? name,
+        collection: model.collection.name,
         missing: [],
         extra: [],
       };
@@ -433,8 +435,10 @@ export class MongooseOrm extends Orm {
       ["close", lost("mongoose: close")],
       [
         "error",
-        (e: Error) =>
-          this.connectionLost(`mongoose: ${e?.message ?? String(e)}`),
+        (e: unknown) =>
+          this.connectionLost(
+            `mongoose: ${e instanceof Error ? e.message : String(e)}`,
+          ),
       ],
       ["reconnected", (): void => this.connectionRestored()],
       ["connected", (): void => this.connectionRestored()],
@@ -515,7 +519,7 @@ export class MongooseOrm extends Orm {
           fieldPath === "_id" ||
           type.instance !== "ObjectId" ||
           typeof ref !== "string" ||
-          models[ref] === undefined
+          (models[ref] as unknown) === undefined
         ) {
           return;
         }
@@ -549,7 +553,7 @@ export class MongooseOrm extends Orm {
       );
     }
     this.#repositories ??= Object.create(null) as Record<string, IRepository>;
-    let repository = this.#repositories[name];
+    let repository = this.#repositories[name] as IRepository | undefined;
     if (repository === undefined) {
       repository = new MongooseRepository(
         model,

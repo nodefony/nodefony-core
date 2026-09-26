@@ -26,10 +26,10 @@ function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
     env.MONGODB_URI ??
     (database?.family === "mongo" ? database.url : undefined);
   if (uri) {
-    const target = config.connectors.nodefony
+    const target = Object.hasOwn(config.connectors, "nodefony")
       ? "nodefony"
-      : Object.keys(config.connectors)[0];
-    if (target && config.connectors[target]) {
+      : Object.keys(config.connectors).at(0);
+    if (target !== undefined) {
       config.connectors[target].uri = uri;
     }
   }

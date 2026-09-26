@@ -19,6 +19,14 @@ import type {
 const serviceName = "mongoose";
 
 /**
+ * Config du module telle que le service la TROUVE : peut-être partielle, voire
+ * absente (cf `#config`). Un connecteur y porte ses champs sans leurs défauts.
+ */
+type MongooseConfigView = Partial<Omit<IMongooseConfig, "connectors">> & {
+  connectors?: Record<string, Partial<IMongooseConnectorConfig>>;
+};
+
+/**
  * Service bootable du module `@nodefony/mongoose` (driver NoSQL).
  *
  * Au boot du kernel (`onBoot`), instancie un {@link MongooseOrm} (adapter
@@ -40,7 +48,7 @@ class MongooseService extends Service {
       serviceName,
       module.container as Container,
       module.notificationsCenter,
-      module.options ?? {},
+      module.options,
     );
     this.module = module;
 
@@ -74,9 +82,16 @@ class MongooseService extends Service {
     });
   }
 
-  /** Config validée (Zod) exposée par le Module (`this.module.config`). */
-  #config(): IMongooseConfig {
-    return this.module.config as IMongooseConfig;
+  /**
+   * Config du module telle que le service la TROUVE.
+   *
+   * Validée par Zod au boot du kernel ; mais le service se construit aussi hors
+   * kernel (bancs, usage direct) avec une config partielle, voire absente — et
+   * « config absente → rien à connecter » est un contrat couvert par
+   * `MongooseService.test.ts`. Le type le dit, donc chaque lecture garde.
+   */
+  #config(): MongooseConfigView | undefined {
+    return this.module.config;
   }
 
   /**
@@ -99,7 +114,7 @@ class MongooseService extends Service {
   }
 
   /** Assemble l'URI de connexion à partir de la config (`uri` ou composants). */
-  static buildUri(cfg: IMongooseConnectorConfig): string {
+  static buildUri(cfg: Partial<IMongooseConnectorConfig>): string {
     if (cfg.uri) {
       return cfg.uri;
     }
@@ -126,7 +141,7 @@ class MongooseService extends Service {
    * @returns les options à passer à la connexion, ou `undefined` s'il n'y en a aucune.
    */
   static buildConnectOptions(
-    cfg: IMongooseConnectorConfig,
+    cfg: Partial<IMongooseConnectorConfig>,
   ): ConnectOptions | undefined {
     if (cfg.autoIndex === undefined) {
       return cfg.options;
@@ -140,7 +155,7 @@ class MongooseService extends Service {
   /** Connecte un connecteur (URI + options d'auth/pool). */
   async #connectOne(
     name: string,
-    cfg: IMongooseConnectorConfig,
+    cfg: Partial<IMongooseConnectorConfig>,
     connect = true,
   ): Promise<void> {
     const uri = MongooseService.buildUri(cfg);

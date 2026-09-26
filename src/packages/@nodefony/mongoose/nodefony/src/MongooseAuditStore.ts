@@ -10,6 +10,7 @@ import type {
 } from "@nodefony/security";
 import type { Connection, Model } from "mongoose";
 import type { MongooseOrm } from "./orm-core/index";
+import { writeCount } from "./writeCount";
 import {
   AUDIT_ENTITY_NAMES,
   type AuditEventRow,
@@ -154,7 +155,9 @@ export class MongooseAuditStore implements IAuditStore {
   async listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
     assertPageQuery(query, "cursor");
     const limit = Math.min(
-      Math.max(1, query.limit ?? DEFAULT_LIMIT),
+      // `limit` est requis par le type, mais un appelant JavaScript l'omet :
+      // sans défaut, `Math.max(1, undefined)` rend `NaN`.
+      Math.max(1, (query as Partial<IAuditListQuery>).limit ?? DEFAULT_LIMIT),
       MAX_LIMIT,
     );
     const model = this.#resolveModel();
@@ -203,7 +206,7 @@ export class MongooseAuditStore implements IAuditStore {
       (doc) => doc.toObject({ virtuals: true }) as unknown as AuditEventRow,
     );
     const items = rows.map((row) => this.#toEvent(row));
-    const last = rows[rows.length - 1];
+    const last = rows.at(-1);
     return {
       items,
       limit,
@@ -240,7 +243,7 @@ export class MongooseAuditStore implements IAuditStore {
     }
     const threshold = now - this.#retentionMs;
     const result = await model.deleteMany({ ts: { $lt: threshold } }).exec();
-    return result.deletedCount ?? 0;
+    return writeCount(result.deletedCount);
   }
 
   /** Compose le filtre Mongo des critères AND ; `{}` si aucun (= tout). */
