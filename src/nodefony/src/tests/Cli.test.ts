@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import { vi } from "vitest";
 import { assert } from "chai";
 import Cli, { CliDefaultOptions } from "../Cli";
 import Command from "../command/Command";
@@ -1073,5 +1075,37 @@ describe("Cli — listeners sur process", () => {
     } finally {
       process.setMaxListeners(seuil);
     }
+  });
+});
+
+// ─── exists() — mode d'accès ─────────────────────────────────────────────────
+
+describe("Cli — exists(mode)", () => {
+  // `fs.constants.F_OK` vaut 0 : c'est le test d'EXISTENCE seule. `exists`
+  // faisait `if (!mode) mode = R_OK | W_OK` — ce 0 était remplacé, et un appel
+  // qui demandait « existe-t-il ? » exigeait lecture ET écriture. On observe le
+  // mode transmis à `fs.access` plutôt qu'un fichier en lecture seule : les
+  // permissions POSIX n'existent pas sous Windows.
+  it("mode 0 (F_OK) transmis tel quel ; absent → lecture + écriture", () => {
+    const cli = makeCli("exists-mode");
+    const vus: number[] = [];
+    const spy = vi.spyOn(fs, "access").mockImplementation(((
+      _p: fs.PathLike,
+      mode: number | undefined,
+      cb: fs.NoParamCallback,
+    ) => {
+      vus.push(mode as number);
+      cb(null);
+    }) as unknown as typeof fs.access);
+    try {
+      cli.exists("chemin-sonde", fs.constants.F_OK, () => {});
+      cli.exists("chemin-sonde", undefined, () => {});
+    } finally {
+      spy.mockRestore();
+    }
+    assert.deepStrictEqual(vus, [
+      fs.constants.F_OK,
+      fs.constants.R_OK | fs.constants.W_OK,
+    ]);
   });
 });

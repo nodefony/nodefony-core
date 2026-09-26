@@ -955,9 +955,8 @@ class Cli extends Service {
     if (!myPath) {
       throw new Error("exists no path found");
     }
-    if (!mode) {
-      mode = fs.constants.R_OK | fs.constants.W_OK;
-    }
+    // `??=`, pas `!mode` : 0 est `F_OK` (existence seule), un mode légitime.
+    mode ??= fs.constants.R_OK | fs.constants.W_OK;
     if (callback) {
       return fs.access(myPath, mode, callback);
     }
