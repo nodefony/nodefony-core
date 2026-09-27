@@ -153,10 +153,12 @@ export class Argon2idEncoder implements IPasswordEncoder {
   needsRehash(hash: string): boolean {
     const match = ARGON2_HASH_RE.exec(hash);
     if (match === null) return true;
-    if (match[1] !== "id") return true;
-    if (Number.parseInt(match[2], 10) < ARGON2_VERSION) return true;
-    const m = Number.parseInt(match[3], 10);
-    const t = Number.parseInt(match[4], 10);
+    // Groupes obligatoires du motif : les défauts ne servent qu'au typage.
+    const [, variant, version = "", memory = "", time = ""] = match;
+    if (variant !== "id") return true;
+    if (Number.parseInt(version, 10) < ARGON2_VERSION) return true;
+    const m = Number.parseInt(memory, 10);
+    const t = Number.parseInt(time, 10);
     return m < this.memoryKiB || t < this.timeCost;
   }
 }

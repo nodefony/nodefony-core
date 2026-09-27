@@ -56,10 +56,8 @@ function buildOne(spec: IEncoderSpec): IPasswordEncoder {
 export function encoderFromConfig(
   specs: readonly IEncoderSpec[],
 ): IPasswordEncoder {
-  if (specs.length === 0) {
-    return new Argon2idEncoder();
-  }
-  const [primary, ...legacy] = specs.map(buildOne);
+  // Liste vide → le défaut de déstructuration pose l'Argon2id aux défauts OWASP.
+  const [primary = new Argon2idEncoder(), ...legacy] = specs.map(buildOne);
   if (legacy.length === 0) {
     return primary;
   }

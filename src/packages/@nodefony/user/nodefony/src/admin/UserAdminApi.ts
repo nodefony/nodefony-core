@@ -518,7 +518,9 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!users) {
           return { status: 503, body: { error: "user service unavailable" } };
         }
-        const user = (await users.findById(request.params.id)) as IUser | null;
+        const user = (await users.findById(
+          request.params.id ?? "",
+        )) as IUser | null;
         if (!user) return { status: 404, body: { error: "not found" } };
         return toUserSummary(user);
       },
@@ -578,7 +580,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
           return { status: 503, body: { error: "user service unavailable" } };
         }
         const target = (await users.findById(
-          request.params.id,
+          request.params.id ?? "",
         )) as IUser | null;
         if (!target) return { status: 404, body: { error: "not found" } };
 
@@ -707,7 +709,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
           return { status: 400, body: { error: "plainPassword required" } };
         }
         const updated = await users.changePassword(
-          request.params.id,
+          request.params.id ?? "",
           plainPassword,
         );
         if (!updated) return { status: 404, body: { error: "not found" } };
@@ -715,7 +717,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
           container,
           "user.password_changed",
           adminActor(request.user).label,
-          request.params.id,
+          request.params.id ?? "",
         );
         return { ok: true };
       },
@@ -903,7 +905,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
           return { status: 503, body: { error: "user service unavailable" } };
         }
         const target = (await users.findById(
-          request.params.id,
+          request.params.id ?? "",
         )) as IUser | null;
         if (!target) return { status: 404, body: { error: "not found" } };
         const actor = adminActor(request.user);

@@ -101,12 +101,12 @@ describe("UserService — IOAuthUserProvisioner (Shadow User JIT)", () => {
     assert.deepEqual([...user.roles], ["ROLE_USER"]);
     assert.equal(created.length, 1);
     const payload = created[0];
-    assert.equal(payload.password, null);
-    const links = linksOf(payload);
+    assert.equal(payload!.password, null);
+    const links = linksOf(payload!);
     assert.equal(links.length, 1);
-    assert.equal(links[0].provider, "google");
-    assert.equal(links[0].providerId, "g-108");
-    assert.ok(links[0].createdAt instanceof Date);
+    assert.equal(links[0]!.provider, "google");
+    assert.equal(links[0]!.providerId, "g-108");
+    assert.ok(links[0]!.createdAt instanceof Date);
   });
 
   it("email absent : l'identifiant dérive du compte externe (provider:id)", async () => {

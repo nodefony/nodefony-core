@@ -256,6 +256,7 @@ export class PasswordPolicy implements IPasswordBlocklist {
     while (low <= high) {
       const middle = (low + high) >>> 1;
       const value = hashes[middle];
+      if (value === undefined) break; // hors bornes : impossible tant que low <= high
       if (value === needle) return true;
       if (value < needle) low = middle + 1;
       else high = middle - 1;

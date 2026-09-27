@@ -67,13 +67,13 @@ export function runUserPaginationContract(
       assert.equal(first.total, 25);
       assert.equal(first.items.length, 10);
       assert.equal(first.hasNext, true);
-      assert.equal(first.items[0].identifier, "user00@x");
-      assert.equal(first.items[9].identifier, "user09@x");
+      assert.equal(first.items[0]!.identifier, "user00@x");
+      assert.equal(first.items[9]!.identifier, "user09@x");
 
       const last = await repo().listPage({ limit: 10, offset: 20 });
       assert.equal(last.items.length, 5);
       assert.equal(last.hasNext, false);
-      assert.equal(last.items[0].identifier, "user20@x");
+      assert.equal(last.items[0]!.identifier, "user20@x");
     });
 
     it("filtre role = containment natif du tableau JSON roles", async () => {
@@ -94,7 +94,7 @@ export function runUserPaginationContract(
     it("filtre q = sous-chaîne insensible à la casse sur identifier", async () => {
       const page = await repo().listPage({ limit: 10, q: "USER00" });
       assert.equal(page.total, 1);
-      assert.equal(page.items[0].identifier, "user00@x");
+      assert.equal(page.items[0]!.identifier, "user00@x");
     });
 
     it("filtres combinés role + enabled → admins ACTIFS", async () => {

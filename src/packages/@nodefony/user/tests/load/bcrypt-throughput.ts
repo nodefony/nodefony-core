@@ -16,7 +16,7 @@ const N = Number(process.env.NF_BCRYPT_N ?? 32);
 
 function pct(sorted: number[], p: number): number {
   const i = Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length));
-  return sorted[i];
+  return sorted[i]!;
 }
 
 async function main(): Promise<void> {

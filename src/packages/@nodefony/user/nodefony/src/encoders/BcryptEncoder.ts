@@ -90,6 +90,7 @@ export class BcryptEncoder implements IPasswordEncoder {
   needsRehash(hash: string): boolean {
     const match = BCRYPT_HASH_RE.exec(hash);
     if (match === null) return true;
-    return Number.parseInt(match[1], 10) < this.rounds;
+    const [, rounds = ""] = match; // groupe obligatoire du motif
+    return Number.parseInt(rounds, 10) < this.rounds;
   }
 }

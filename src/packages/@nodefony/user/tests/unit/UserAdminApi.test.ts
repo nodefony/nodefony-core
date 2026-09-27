@@ -539,8 +539,8 @@ describe("UserAdminApi — CRUD + audit", () => {
     const byQ = await call(api, "GET", "users", { query: { q: "bob" } });
     const list = byQ.body as { items: IUserSummary[]; total: number };
     assert.equal(list.total, 1);
-    assert.equal(list.items[0].identifier, "bob@x");
-    assert.ok(!("password" in list.items[0]));
+    assert.equal(list.items[0]!.identifier, "bob@x");
+    assert.ok(!("password" in list.items[0]!));
   });
 
   it("GET users/{id} : 404 si introuvable", async () => {
@@ -563,8 +563,8 @@ describe("UserAdminApi — CRUD + audit", () => {
       user: { id: "a1", identifier: "admin@x" },
     });
     assert.equal(events.length, 1);
-    assert.equal(events[0].action, "user.deleted");
-    assert.equal(events[0].actor, "admin@x");
+    assert.equal(events[0]!.action, "user.deleted");
+    assert.equal(events[0]!.actor, "admin@x");
   });
 });
 
@@ -584,8 +584,8 @@ describe("UserAdminApi — émission onUserRevoked", () => {
       user: { id: "a1" },
     });
     assert.equal(fired.length, 1);
-    assert.equal(fired[0].name, "onUserRevoked");
-    assert.deepEqual(fired[0].payload, {
+    assert.equal(fired[0]!.name, "onUserRevoked");
+    assert.deepEqual(fired[0]!.payload, {
       id: "u2",
       identifier: "bob@x",
       tenantId: null,
@@ -706,9 +706,9 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
     assert.equal((await users.findById("u1"))?.password, "hash:oldsecret");
     // l'échec EST audité (signal de sécurité) — outcome failure
     assert.equal(events.length, 1);
-    assert.equal(events[0].action, "user.password_change_self");
-    assert.equal(events[0].category, "auth");
-    assert.equal(events[0].outcome, "failure");
+    assert.equal(events[0]!.action, "user.password_change_self");
+    assert.equal(events[0]!.category, "auth");
+    assert.equal(events[0]!.outcome, "failure");
   });
 
   it("200 + change le mot de passe + audit success", async () => {
@@ -724,7 +724,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
     assert.equal(status, 200);
     assert.deepEqual(body, { ok: true });
     assert.equal((await users.findById("u1"))?.password, "hash:newsecret1");
-    assert.equal(events[0].outcome, "success");
+    assert.equal(events[0]!.outcome, "success");
   });
 
   it("ANTI-IDOR : un id/identifier d'autrui dans le body/params est IGNORÉ (cible = l'appelant)", async () => {

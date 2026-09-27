@@ -50,7 +50,7 @@ describe("InMemoryUserRepository — CRUD (contrat IRepository)", () => {
       assert.equal((await r.find()).length, 2);
       const found = await r.find(crit({ identifier: "bob" }));
       assert.equal(found.length, 1);
-      assert.equal(found[0].identifier, "bob");
+      assert.equal(found[0]!.identifier, "bob");
     });
 
     it("findOne rend `null` (jamais une erreur) quand rien ne matche", async () => {
