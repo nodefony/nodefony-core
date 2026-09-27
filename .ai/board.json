@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-27T20:09:00.874Z",
+  "generatedAt": "2026-09-27T23:54:52.740Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 45,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 42,
+      "open": 44,
       "title": "10.0.0-beta"
     },
     {
@@ -390,7 +390,7 @@
       "title": "ci(release): publier aussi l'image sur GHCR, sans secret stocké",
       "url": "https://github.com/nodefony/nodefony-core/issues/259",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -476,14 +476,48 @@
       "title": "chore(bench): comparer le débit de Nodefony à celui de NestJS",
       "url": "https://github.com/nodefony/nodefony-core/issues/489",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 1.15,
       "debut": null,
       "cible": null,
-      "labels": []
+      "labels": [
+        "beta-1"
+      ]
+    },
+    {
+      "number": 506,
+      "title": "feat(framework): rendre les contrôleurs singletons par défaut",
+      "url": "https://github.com/nodefony/nodefony-core/issues/506",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 1.155,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-1"
+      ]
+    },
+    {
+      "number": 505,
+      "title": "perf(http): diviser par deux le coût CPU d'une requête",
+      "url": "https://github.com/nodefony/nodefony-core/issues/505",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 1.16,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-1"
+      ]
     },
     {
       "number": 256,
