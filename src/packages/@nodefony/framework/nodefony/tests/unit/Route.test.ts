@@ -294,6 +294,72 @@ describe("Route — matchRequirements() — methods", () => {
   });
 });
 
+// RFC 9110 §9.1 : « All general-purpose servers MUST support the methods GET and
+// HEAD ». HEAD rend la réponse de GET sans le corps (§9.3.2) : une route GET
+// l'accepte donc sans avoir à le déclarer — sinon `curl -I`, les sondes et les
+// vérificateurs de liens reçoivent un 405 sur une ressource qui existe.
+describe("Route — HEAD implicite sur une route GET (RFC 9110 §9.1)", () => {
+  it("HEAD accepté sur une route GET seule (tableau)", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["GET"] },
+    });
+    expect(() => r.match(makeCtx("/api", "HEAD"))).to.not.throw();
+  });
+
+  it("HEAD accepté sur une route GET seule (chaîne, casse libre)", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: "get, post" },
+    });
+    expect(() => r.match(makeCtx("/api", "HEAD"))).to.not.throw();
+  });
+
+  it("le 405 d'une route GET annonce HEAD dans Allow", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["GET"] },
+    });
+    let err: unknown;
+    try {
+      r.match(makeCtx("/api", "DELETE"));
+    } catch (e) {
+      err = e;
+    }
+    expect((err as HttpError).code).to.equal(405);
+    expect((err as HttpError).allow).to.equal("GET,HEAD");
+  });
+
+  it("HEAD reste refusé sur une route qui ne sert pas GET", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["POST"] },
+    });
+    let err: unknown;
+    try {
+      r.match(makeCtx("/api", "HEAD"));
+    } catch (e) {
+      err = e;
+    }
+    expect((err as HttpError).code).to.equal(405);
+    expect((err as HttpError).allow).to.equal("POST");
+  });
+
+  it("HEAD déjà déclaré n'est pas doublé dans Allow", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["GET", "HEAD"] },
+    });
+    let err: unknown;
+    try {
+      r.match(makeCtx("/api", "PUT"));
+    } catch (e) {
+      err = e;
+    }
+    expect((err as HttpError).allow).to.equal("GET,HEAD");
+  });
+});
+
 // ─── matchRequirements — methodOverride (pont WS-RPC api.request, mutations) ──
 
 describe("Route — matchRequirements() — methodOverride (mutation WS)", () => {

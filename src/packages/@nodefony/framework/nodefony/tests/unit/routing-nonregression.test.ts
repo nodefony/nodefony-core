@@ -152,9 +152,9 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
       err = e as HttpError & { allow?: string };
     }
     expect(err?.code).to.equal(405);
-    expect(err?.allow ?? "").to.equal("GET, POST");
+    expect(err?.allow ?? "").to.equal("GET, HEAD, POST"); // HEAD implicite sur GET (RFC 9110 §9.1)
     // l'en-tête Allow est posé sur la response (RFC 9110 §15.5.6)
-    expect(String(ctx.response.headers["Allow"])).to.equal("GET, POST");
+    expect(String(ctx.response.headers["Allow"])).to.equal("GET, HEAD, POST");
   });
 
   // Décision figée (lot RFC 2026-06-11) : la pseudo-méthode interne WEBSOCKET
@@ -177,7 +177,7 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
       err = e as HttpError & { allow?: string };
     }
     expect(err?.code).to.equal(405);
-    expect(err?.allow ?? "").to.equal("GET, WEBSOCKET");
+    expect(err?.allow ?? "").to.equal("GET, HEAD, WEBSOCKET");
   });
 
   it("route SANS requirements.methods → sert toutes les méthodes", () => {

@@ -13,8 +13,6 @@ import Resolver from "../src/Resolver";
 import Controller from "../src/Controller";
 import { routeExpectsBodyStream } from "../decorators/routerDecorators";
 
-type RouteRequirementMethods = string | string[] | undefined;
-
 // 🚦 PERF : « route trouvée » monte à NOTICE (jalon visible sans DEBUG) HORS
 // production seulement. En prod → DEBUG → 0 log de routage supplémentaire émis
 // par requête. Résolu 1× (1ʳᵉ requête, kernel présent), puis caché.
@@ -29,19 +27,16 @@ interface MethodNotAllowedError extends Error {
   type?: string;
 }
 
-function collectSupportedMethods(route: Route): Set<string> {
-  const set = new Set<string>();
-  const m = route.requirements.methods as RouteRequirementMethods;
-  if (typeof m === "string") {
-    m.split(",")
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean)
-      .forEach((x) => set.add(x));
-  } else if (Array.isArray(m)) {
-    m.map((s) => s.toUpperCase()).forEach((x) => set.add(x));
-  }
-  return set;
+/**
+ * Méthodes que sert une route — lues sur le `methodsSet` COMPILÉ par
+ * `Route.compileRequirements`, jamais recalculées depuis la config brute.
+ * Deux lectures de la même règle avaient divergé : la route acceptait HEAD
+ * (implicite sur GET, RFC 9110 §9.1) quand le `Allow` du 405 l'omettait.
+ */
+function collectSupportedMethods(route: Route): ReadonlySet<string> {
+  return route.methodsSet ?? NO_METHODS;
 }
+const NO_METHODS: ReadonlySet<string> = new Set();
 // Idiome TS officiel des mixins/factories de constructeur — `unknown[]` y casse
 // la contravariance des args ; `any[]` gardé volontairement (pas de la dette).
 // oxlint-disable-next-line typescript/no-explicit-any -- signature de constructeur générique — `unknown[]` casse l'assignabilité des classes concrètes

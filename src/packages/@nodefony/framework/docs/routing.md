@@ -167,10 +167,10 @@ class CatalogController extends Controller {
   }
 
   // `@route` = la forme explicite : nom choisi + contraintes libres.
-  // HEAD n'est PAS déduit de GET — il se déclare (cf Pièges).
+  // HEAD est servi d'office par toute route GET (RFC 9110 §9.1) : inutile de le déclarer.
   @route("route-catalog-files", {
     path: "/files/*",
-    requirements: { methods: ["GET", "HEAD"] },
+    requirements: { methods: ["GET"] },
   })
   async files(rest: string) {
     return this.renderJson({ rest });
@@ -376,9 +376,15 @@ qui accepte la méthode (`Router.resolve()`, `router.ts:230`).
 
 Si **aucune** route n'accepte la méthode, la **passe 2** entre en scène : elle reparcourt la table,
 collecte toutes les méthodes servies par ce chemin **sur ce vhost**, et lève un 405 dont l'en-tête
-`Allow` est l'**agrégat** (`collectSupportedMethods()`, `router.ts:31` ; en-tête posé sur la réponse,
-`router.ts:31`). C'est la conformité RFC 9110 §15.5.6 : `Allow` liste tout ce que la ressource
-accepte, pas seulement ce que la dernière route scannée acceptait.
+`Allow` est l'**agrégat** (`collectSupportedMethods()`, `router.ts:37`, qui lit le `methodsSet`
+compilé de chaque route — la MÊME source que le match). C'est la conformité RFC 9110 §15.5.6 :
+`Allow` liste tout ce que la ressource accepte, pas seulement ce que la dernière route scannée
+acceptait — `HEAD` compris dès qu'une route sert `GET`.
+
+**`HEAD` est implicite sur `GET`** (`Route.compileRequirements`, `Route.ts:502`) : RFC 9110 §9.1
+impose à tout serveur généraliste de servir `GET` et `HEAD`, et `HEAD` rend la réponse de `GET`
+sans corps (§9.3.2) — le serveur Node écarte le corps lui-même, en HTTP/1.1 comme en HTTP/2.
+L'ajout se fait à la compilation de la route : aucun coût par requête.
 
 | Requête           | Réponse                                        |
 | ----------------- | ---------------------------------------------- |
@@ -565,7 +571,8 @@ alloué par requête.
 
 | Sujet                                    | Norme             | Où le code s'y conforme                                         |
 | ---------------------------------------- | ----------------- | --------------------------------------------------------------- |
-| 405 + en-tête `Allow` agrégé             | RFC 9110 §15.5.6  | passe 2 (`collectSupportedMethods()`, `router.ts:31`)           |
+| 405 + en-tête `Allow` agrégé             | RFC 9110 §15.5.6  | passe 2 (`collectSupportedMethods()`, `router.ts:37`)           |
+| `HEAD` servi par toute route `GET`       | RFC 9110 §9.1     | `Route.compileRequirements` (`Route.ts:502`)                    |
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:327`) |
 | 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:649`)                        |
 | 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
@@ -598,7 +605,6 @@ Au boot, avec le debug actif, chaque route est aussi journalisée en une ligne
 | 404 sur toutes les routes d'un contrôleur | `@controller` évalué avant les `@route`/`@Get` de la classe | Placer `@controller` **au-dessus** de la classe, décorateurs de méthode dans la classe |
 | 404 sur une route pourtant écrite | Le fichier du contrôleur n'est jamais importé — les routes naissent à l'import | Le déclarer dans `@controllers([…])` du module |
 | `405` alors que la méthode « est déclarée » | `method: "GET"` dans `@route` n'est **pas** filtrant | Utiliser `requirements: { methods: ["GET"] }` ou `@Get` |
-| `405` sur une requête `HEAD` d'une route `@Get` | `HEAD` n'est pas déduit de `GET` : c'est une méthode distincte | Déclarer `requirements: { methods: ["GET", "HEAD"] }` |
 | Une route paramétrée avale un chemin littéral | Premier match dans l'ordre de déclaration, aucune spécificité | Déclarer le littéral **avant** le paramétré |
 | `/files/*` ne répond pas sur `/files` | Le slash final est retiré avant le matching ; le motif exige `/files/` | Déclarer une seconde route pour le chemin nu |
 | `{id}` ne capture pas `a/b` | Une variable vaut `[^/]+` — un seul segment, par construction | Utiliser un wildcard `*` si le `/` doit être capturé |

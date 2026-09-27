@@ -487,12 +487,19 @@ class Route implements IRoute {
     this.methodsAllow = undefined;
     this.varRegexp = undefined;
     const methods = this.requirements.methods;
+    let list: string[] | undefined;
     if (typeof methods === "string") {
-      const list = methods.replace(/\s/g, "").toUpperCase().split(",");
-      this.methodsSet = new Set(list);
-      this.methodsAllow = list.join(",");
+      list = methods.replace(/\s/g, "").toUpperCase().split(",");
     } else if (Array.isArray(methods)) {
-      const list = methods.map((m) => m.toUpperCase());
+      list = methods.map((m) => m.toUpperCase());
+    }
+    if (list) {
+      // RFC 9110 §9.1 : tout serveur généraliste DOIT accepter GET et HEAD, et
+      // HEAD rend la réponse de GET sans corps (§9.3.2) — le serveur Node écarte
+      // lui-même le corps. Une route GET sert donc HEAD sans le déclarer ; sans
+      // cela `curl -I`, les sondes et les vérificateurs de liens prenaient un 405.
+      // Posé ici, au boot : aucun coût par requête.
+      if (list.includes("GET") && !list.includes("HEAD")) list.push("HEAD");
       this.methodsSet = new Set(list);
       this.methodsAllow = list.join(",");
     }
