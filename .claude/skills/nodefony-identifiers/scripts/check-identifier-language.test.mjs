@@ -14,6 +14,7 @@
  * côté. Lancer : `node scripts/check-identifier-language.test.mjs`.
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -1053,6 +1054,21 @@ describe("scanRepo — sur un dépôt fabriqué", () => {
       full.exceptions.unused.length,
       DEFAULT_EXCEPTIONS.length + exceptions.length,
     );
+  });
+
+  // Le verdict ne dépend pas du poste : un dossier IGNORÉ par git (banc local)
+  // n'existe pas en CI. Le balayer faisait appliquer une exception ici et la
+  // déclarer « sans effet » là-bas — gate rouge en CI, vert en local.
+  it("un fichier ignoré par git n'est pas balayé, comme en CI", () => {
+    const root = repo({
+      ".gitignore": "src/bench/\n",
+      "src/ok.ts": "export const clean = 1;\n",
+      "src/bench/local.ts": "export function rendreRapport() {}\n",
+    });
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    const r = scanRepo({ root });
+    assert.equal(r.scanned, 1);
+    assert.deepEqual(r.findings, []);
   });
 
   it("une exception SANS EFFET fait échouer le gate, comme un identifiant", () => {

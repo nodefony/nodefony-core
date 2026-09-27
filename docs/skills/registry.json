@@ -3055,6 +3055,10 @@
             ],
             "options": [
               {
+                "flag": "--cached",
+                "help": ""
+              },
+              {
                 "flag": "--depth",
                 "help": ""
               },
@@ -3063,11 +3067,19 @@
                 "help": ""
               },
               {
+                "flag": "--exclude-standard",
+                "help": ""
+              },
+              {
                 "flag": "--help",
                 "help": ""
               },
               {
                 "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--others",
                 "help": ""
               }
             ],

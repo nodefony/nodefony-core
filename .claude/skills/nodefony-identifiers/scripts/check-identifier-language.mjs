@@ -49,6 +49,7 @@
  * @output  `fichier:ligne  identifiant  ← mot(s) français  → suggestion` ;
  *          sortie 1 dès qu'un identifiant sort, 0 sinon, 2 sur erreur d'usage.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -176,13 +177,6 @@ export const DEFAULT_EXCEPTIONS = [
     reason:
       "tables `llx_societe` / `llx_facture` du banc ORM : noms de tables et de " +
       "colonnes Dolibarr, contrat avec la base adoptée (même raison que le dossier).",
-  },
-  {
-    path: "src/modules/test/nodefony/entity/dolibarr/",
-    reason:
-      "miroir du schéma Dolibarr (ERP français) — les colonnes `datec`, " +
-      "`fk_user_creat`, `libelle` sont un CONTRAT avec la base adoptée, pas un " +
-      "choix de nommage ; le banc ORM les lit telles quelles.",
   },
   {
     path: "src/nodefony/src/cli/helpReport.ts",
@@ -1345,6 +1339,35 @@ export function readExceptionsFile(file) {
  * @param options.exceptions - exceptions, en plus des défauts
  * @returns `{ scanned, findings, exceptions: { declared, applied, absorbed, unused } }`
  */
+/**
+ * Les fichiers que git suit ou suivrait (indexés + non suivis NON ignorés),
+ * en `/` relatifs à `root` — `null` hors dépôt git.
+ *
+ * Le verdict ne doit pas dépendre du poste : un dossier ignoré (`.gitignore`)
+ * présent ici et absent en CI faisait appliquer une exception localement et la
+ * déclarer « sans effet » en CI. Vécu : `entity/dolibarr/`, banc local ignoré.
+ *
+ * @param root - racine balayée
+ * @returns l'ensemble des chemins visibles, ou `null`
+ */
+function gitVisibleFiles(root) {
+  try {
+    const out = execFileSync(
+      "git",
+      ["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+      {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    );
+    return new Set(out.split("\0").filter(Boolean));
+  } catch {
+    return null;
+  }
+}
+
 export function scanRepo({ root, paths, exceptions = [] } = {}) {
   // Un balayage PARTIEL (des fichiers nommés — le hook pre-commit) ne peut pas
   // juger qu'une exception est « sans effet » : elle vise le plus souvent un
@@ -1353,6 +1376,12 @@ export function scanRepo({ root, paths, exceptions = [] } = {}) {
   const partial = paths !== undefined;
   const files = [];
   for (const p of paths ?? ["src"]) walk(root, p, files);
+  const visible = gitVisibleFiles(root);
+  if (visible !== null) {
+    const kept = files.filter((f) => visible.has(f));
+    files.length = 0;
+    files.push(...kept);
+  }
   const raw = [];
   for (const rel of files) {
     const source = readFileSync(path.join(root, ...rel.split("/")), "utf8");
