@@ -168,6 +168,26 @@ deux séries d'un camp encadrent celles de l'autre, sinon « DANS LE BRUIT » et
 `package.json` annonce (mesuré : `fastify` 5.8.5 servi contre `^5.12.4` déclaré, **29 % d'écart**
 entre ces deux versions, imputé à tort à la machine).
 
+**Camps NestJS (NestJS 12)** — `nest-express.mjs` et `nest-fastify.mjs` (nus, comme `express.mjs`),
+`nest-fair.mjs` (Fastify, MÊME travail par requête que Nodefony en production : nonce CSP, `traceparent`
+émis, `X-Request-Id`, ALS, CORS par liste blanche, CSRF, zones du pare-feu, pas d'ETag — relevé aux
+en-têtes d'un serveur `production`, écrit selon la doc Nest pour aller le plus vite) et
+`nest-request-scope.mjs` (un service `Scope.REQUEST` : contrôleur ET service recréés à chaque requête).
+Socle commun `nest-app.mjs` : décorateurs appliqués par appel — ce que `tsc` émet, sans chargeur ni
+build à oublier.
+
+🔴 **Le travail « équitable » a UNE implémentation** : `fair-common.mjs` (nonce, `traceparent`,
+les 7 zones RÉELLES du pare-feu, CSRF), posée sur Express par `fair-express.mjs` (tous les
+`express-fair*`) et sur Fastify par `nest-fair.mjs`. Vécu : `express-fair` avait dérivé — CSP sans
+nonce, aucun `traceparent`, CORS `*`, HSTS, et un **ETag** qui hachait le corps — donc un écart publié
+qui ne comparait pas le même travail. **Avant de publier un chiffre face à un camp équitable,
+rejouer `fair-parity.mjs`** (serveur `production` au décor du banc + le camp) : il compare statut et
+en-têtes cas par cas, et échoue sur tout écart du chemin MESURÉ.
+
+```bash
+CAMP=nest-fair CAMP_URL=http://127.0.0.1:5170 node $S/fair-parity.mjs
+```
+
 **`express-fair-sqlite.mjs` — le cas APPLICATIF (lecture + écriture).** Une route triviale mesure
 le framework à 100 % du budget ; dès qu'une base entre dans la boucle, il en devient une fraction
 (mesuré : ~61 µs/req contre ~1 050). Ce camp exerce donc ce que fait un vrai service — 20 lignes

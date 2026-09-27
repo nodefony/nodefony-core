@@ -50,10 +50,7 @@
 //
 // Usage : NF_BENCH_SQLITE_DB=/chemin/bench-express.db PORT=5167 node express-fair-sqlite.mjs
 import express from "express";
-import helmet from "helmet";
-import cors from "cors";
-import { AsyncLocalStorage } from "node:async_hooks";
-import { randomUUID } from "node:crypto";
+import { installExpressFair } from "./fair-express.mjs";
 // ⚖️ L'ORM et le pilote viennent de la PASSERELLE, jamais d'un spécificateur nu
 // écrit ici : ce dossier a son propre `node_modules`, un `import "drizzle-orm"`
 // y atteindrait une SECONDE instance de drizzle, distincte de celle dont vient
@@ -129,53 +126,9 @@ const lire = db
 let writeSeq = 0;
 
 const app = express();
-app.set("env", "production");
-app.disable("x-powered-by");
 
-/* Même travail par requête qu'express-fair.mjs — voir ses commentaires. */
-const als = new AsyncLocalStorage();
-const TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
-function parseTraceparent(h) {
-  if (!h) return null;
-  const m = TRACEPARENT.exec(h);
-  return m ? { traceId: m[1], parentId: m[2], flags: m[3] } : null;
-}
-const AREAS = [
-  { name: "studio", re: /^\/nodefony\/studio/, secure: true },
-  { name: "admin-api", re: /^\/nodefony\/[a-z-]+\/api\//, secure: true },
-  { name: "test-secure", re: /^\/nodefony\/test\/secure/, secure: true },
-  { name: "documentation", re: /^\/nodefony\/documentation/, secure: false },
-  { name: "public", re: /^\//, secure: false },
-];
-function matchArea(path) {
-  for (const a of AREAS) if (a.re.test(path)) return a;
-  return null;
-}
-const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
-function csrfOk(req) {
-  if (SAFE.has(req.method)) return true;
-  const site = req.headers["sec-fetch-site"];
-  if (site) return site === "same-origin" || site === "none";
-  const origin = req.headers.origin;
-  return !origin || origin === `http://127.0.0.1:${port}`;
-}
-
-app.use(helmet());
-app.use(cors());
-app.use((req, res, next) => {
-  const store = {
-    requestId: randomUUID(),
-    traceparent: parseTraceparent(req.headers.traceparent),
-    user: null,
-  };
-  als.run(store, () => {
-    res.setHeader("X-Request-Id", store.requestId);
-    const area = matchArea(req.path);
-    if (area?.secure && !store.user) return res.status(401).end();
-    if (!csrfOk(req)) return res.status(403).end();
-    next();
-  });
-});
+const port = Number(process.env.PORT ?? 5167);
+installExpressFair(app, port);
 
 const BENCH_PATH = "/nodefony/test/bench-orm/read-write";
 const { before, after } = dummyRoutes();
@@ -218,7 +171,6 @@ app.get(BENCH_PATH.replace("/read-write", "/read-lean"), (_req, res) => {
 for (const p of after)
   app.get(p, (req, res) => res.json({ id: req.params.id }));
 
-const port = Number(process.env.PORT ?? 5167);
 app.listen(port, "127.0.0.1", () =>
   console.log(`express-fair-sqlite :${port} · base ${DB_FILE}`),
 );

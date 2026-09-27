@@ -57,15 +57,22 @@ verifier_versions() {
     # `semver` n'est pas garanti présent : on délègue la comparaison à npm, qui
     # sait lire une plage, et on ne bloque QUE sur un désaccord constaté.
     local ok
+    # 🔴 Le verdict se lit en FERMÉ : seul « oui » passe. La garde a longtemps
+    # accepté tout le reste — un `return` au niveau racine d'un `node -e`, que
+    # Node 26 refuse (« Illegal return statement »), rendait une sortie VIDE,
+    # masquée par `2>/dev/null`, et le vide passait pour conforme. Elle n'a
+    # alors mordu sur RIEN, et rien ne le signalait (#489).
     ok=$(node -e '
-      const s = (()=>{ try { return require("semver") } catch { return null } })();
-      const [p, v] = ["'"$plage"'", "'"$pose"'"];
-      if (v === "ABSENT") return console.log("non");
-      if (!s) return console.log("inconnu");
-      console.log(s.satisfies(v, p) ? "oui" : "non");
-    ' 2>/dev/null)
-    if [ "$ok" = "non" ]; then
-      echo "  ✖ $nom : installé $pose, déclaré $plage"
+      console.log((() => {
+        const s = (()=>{ try { return require("semver") } catch { return null } })();
+        const [p, v] = ["'"$plage"'", "'"$pose"'"];
+        if (v === "ABSENT") return "non";
+        if (!s) return "inconnu";
+        return s.satisfies(v, p) ? "oui" : "non";
+      })());
+    ' 2>&1)
+    if [ "$ok" != "oui" ]; then
+      echo "  ✖ $nom : installé $pose, déclaré $plage (verdict : ${ok:-vide})"
       manquant=1
     fi
   done <<<"$declares"
