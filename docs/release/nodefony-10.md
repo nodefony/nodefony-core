@@ -853,6 +853,10 @@ run, lui, reste consultable sans le tag.
    (`id=82091257` pour les deux noms), archivé (D6).
 4. Image publiée sous `nodefony/nodefony` **sur Docker Hub** — dépôt distinct du dépôt GitHub
    homonyme, et qui n'existe pas encore : il naîtra au premier push.
+   Elle part AUSSI sur **GHCR** (`ghcr.io/nodefony/nodefony`, mêmes étiquettes), par le
+   `GITHUB_TOKEN` du run — aucun secret stocké. ⚠️ Sa visibilité initiale est à **constater** au
+   premier push (la doc GitHub se contredit) : s'il naît privé, le passer public une fois
+   (Package settings), sinon `docker pull` répond `denied` aux inconnus.
    ⚠️ `nodefony/docker-nodefony` (541 pulls) garde un `latest` pointant une `7.0.0-beta.22` de
    novembre 2023 — à recaler sur une version stable de l'ère 7, ou à retirer.
 5. Après le premier run `vitrine` réussi, basculer la branche par défaut sur `main`, sinon le dépôt
