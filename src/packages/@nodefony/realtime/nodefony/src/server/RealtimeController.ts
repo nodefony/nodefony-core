@@ -545,8 +545,8 @@ export abstract class RealtimeController<
     // canal décoré n'est protégé → 0 enregistrement.
     const channelPolicies = getRealtimeChannelPolicies(this);
     if (channelPolicies) {
-      for (const name in channelPolicies) {
-        hub.registerChannelPolicy(name, channelPolicies[name]);
+      for (const [name, policy] of Object.entries(channelPolicies)) {
+        hub.registerChannelPolicy(name, policy);
       }
       // F1 (revue 0.6) — fail-LOUD : une policy de canal n'est appliquée que si un
       // frameAuthorizer est câblé (par @nodefony/security au boot des zones realtime).
@@ -594,8 +594,8 @@ export abstract class RealtimeController<
     // Politique de forward : déclare les canaux broadcast (cross-process) de cet
     // endpoint au hub (idempotent, cold-path). Défaut = aucun → tout instance-local.
     const broadcast = this.realtimeBroadcastChannels();
-    for (let i = 0; i < broadcast.length; i++) {
-      hub.markBroadcastChannel(broadcast[i]);
+    for (const channel of broadcast) {
+      hub.markBroadcastChannel(channel);
     }
 
     // Canaux full-duplex = décorateurs `@RealtimeInbound` + override `realtimeInbound()`.

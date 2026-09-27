@@ -52,24 +52,29 @@ export function parseFrontmatter(raw: string): ParsedDoc {
   // Le bloc doit être tout en haut. Tolère un éventuel BOM/espaces de tête.
   const m = /^﻿?\s*---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(raw);
   if (!m) return { meta: {}, body: raw };
+  // Les deux groupes du motif sont obligatoires : les défauts ne servent qu'au type.
+  const [, header = "", body = ""] = m;
 
   const meta: Frontmatter = {};
-  const lines = m[1].split(/\r?\n/);
+  const lines = header.split(/\r?\n/);
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i] ?? "";
     if (line.trim() === "" || line.trim().startsWith("#")) continue;
 
-    const kv = /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line);
-    if (!kv) continue;
-    const key = kv[1];
-    const value = kv[2].trim();
+    const [, key, rawValue = ""] =
+      /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line) ?? [];
+    if (key === undefined) continue;
+    const value = rawValue.trim();
 
     if (value === "") {
       // Liste en bloc : lignes suivantes indentées `- item`.
       const items: string[] = [];
-      while (i + 1 < lines.length && /^\s*-\s+/.test(lines[i + 1])) {
-        items.push(unquote(lines[++i].replace(/^\s*-\s+/, "").trim()));
+      let next = lines[i + 1];
+      while (next !== undefined && /^\s*-\s+/.test(next)) {
+        items.push(unquote(next.replace(/^\s*-\s+/, "").trim()));
+        i += 1;
+        next = lines[i + 1];
       }
       meta[key] = items; // peut rester [] (clé déclarée sans valeur)
       continue;
@@ -83,7 +88,7 @@ export function parseFrontmatter(raw: string): ParsedDoc {
     meta[key] = unquote(value);
   }
 
-  return { meta, body: m[2] };
+  return { meta, body };
 }
 
 /** Lit une clé de frontmatter en string (1er élément si liste), ou `undefined`. */
@@ -96,7 +101,7 @@ export function metaString(meta: Frontmatter, key: string): string | undefined {
 /** Lit une clé de frontmatter en string[] (wrappe un scalaire), ou `[]`. */
 export function metaList(meta: Frontmatter, key: string): string[] {
   // Clé lue d'un fichier markdown : peut manquer.
-  const v = meta[key] as Frontmatter[string] | undefined;
+  const v = meta[key];
   if (v === undefined) return [];
   return Array.isArray(v) ? v : [v];
 }

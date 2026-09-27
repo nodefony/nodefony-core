@@ -72,20 +72,22 @@ const edgesOf = (file: string): string[] => {
   for (const m of src.matchAll(re)) {
     const [, , typeKeyword, clause, spec] = m;
     if (typeKeyword) continue;
-    if (!spec.startsWith(".")) continue;
+    if (!spec!.startsWith(".")) continue;
     // `import { type A, type B } from "x"` : tous les specifiers sont des types
     // → aucune arête d'exécution. Un seul specifier de valeur suffit à en créer une.
-    const named = clause.match(/\{([^}]*)\}/);
+    const named = clause!.match(/\{([^}]*)\}/);
     if (named) {
-      const parts = named[1]
+      const parts = named[1]!
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
       const hasValue = parts.some((p) => !p.startsWith("type "));
-      const bareDefault = clause.replace(/\{[^}]*\}/, "").replace(/[,\s]/g, "");
+      const bareDefault = clause!
+        .replace(/\{[^}]*\}/, "")
+        .replace(/[,\s]/g, "");
       if (!hasValue && !bareDefault) continue;
     }
-    const target = resolve(file, spec);
+    const target = resolve(file, spec!);
     if (target) out.add(target);
   }
   return [...out];

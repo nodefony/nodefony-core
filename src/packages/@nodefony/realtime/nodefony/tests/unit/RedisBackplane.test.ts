@@ -108,8 +108,8 @@ describe("RedisBackplane (pub/sub cross-pod)", () => {
     const bp = new RedisBackplane(bus.transport(), "pod-A");
     bp.publish("nodefony:orm:health", { rps: 12 });
     expect(bus.published).to.have.lengthOf(1);
-    expect(bus.published[0].channel).to.equal(REDIS_RT_CHANNEL);
-    expect(JSON.parse(bus.published[0].message)).to.deep.equal({
+    expect(bus.published[0]!.channel).to.equal(REDIS_RT_CHANNEL);
+    expect(JSON.parse(bus.published[0]!.message)).to.deep.equal({
       channel: "nodefony:orm:health",
       payload: { rps: 12 },
       originId: "pod-A",
@@ -199,7 +199,7 @@ describe("RedisBackplane (pub/sub cross-pod)", () => {
     const bus = new FakeRedisBus();
     const bp = new RedisBackplane(bus.transport(), "pod-A", "myapp:rt");
     bp.publish("c", 1);
-    expect(bus.published[0].channel).to.equal("myapp:rt");
+    expect(bus.published[0]!.channel).to.equal("myapp:rt");
   });
 });
 

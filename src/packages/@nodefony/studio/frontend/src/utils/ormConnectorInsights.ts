@@ -471,8 +471,8 @@ export interface TimedConnEvent extends ConnEvent {
 export function timeOutages(events: readonly ConnEvent[]): TimedConnEvent[] {
   const out: TimedConnEvent[] = [];
   let lostAt: number | null = null;
-  for (let i = events.length - 1; i >= 0; i--) {
-    const e = events[i];
+  // Du plus ancien au plus récent : la liste reçue est antéchronologique.
+  for (const e of events.slice().reverse()) {
     if (e.kind === "lost") {
       lostAt ??= e.ts;
       out.push({ ...e });

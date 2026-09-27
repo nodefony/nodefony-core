@@ -127,9 +127,9 @@ describe("ScaffoldService — pilotage du générateur depuis Studio", () => {
     expect(rewritten.map((c) => path.basename(c.path))).to.deep.equal([
       "index.ts",
     ]);
-    expect(rewritten[0].previous).to.be.a("string");
-    expect(rewritten[0].previous).to.not.include("BlogController");
-    expect(rewritten[0].content).to.include("BlogController");
+    expect(rewritten[0]!.previous).to.be.a("string");
+    expect(rewritten[0]!.previous).to.not.include("BlogController");
+    expect(rewritten[0]!.content).to.include("BlogController");
   });
 
   it("un scaffold qui sera refusé est refusé DÈS la simulation", () => {
@@ -161,7 +161,7 @@ describe("ScaffoldService — pilotage du générateur depuis Studio", () => {
     expect(roots).to.not.be.empty;
     const plan = svc.preview("app", {
       name: "voisine",
-      root: roots[0].id,
+      root: roots[0]!.id,
       subPath: "",
       preset: "minimal",
       frontend: "none",
@@ -169,7 +169,7 @@ describe("ScaffoldService — pilotage du générateur depuis Studio", () => {
     // Chemin RÉEL : la destination est résolue par `realpath` (le contrôle
     // anti-lien-symbolique) — sur macOS, `/var` mène à `/private/var`.
     expect(plan.dest).to.equal(
-      path.join(realpathSync(roots[0].path), "voisine"),
+      path.join(realpathSync(roots[0]!.path), "voisine"),
     );
     expect(plan.changes.every((c) => c.kind === "create")).to.equal(true);
     expect(existsSync(plan.dest)).to.equal(false);
@@ -179,6 +179,6 @@ describe("ScaffoldService — pilotage du générateur depuis Studio", () => {
     const svc = service();
     const targets = svc.targets();
     expect(targets.map((t) => t.kind)).to.include("app");
-    expect(targets[0].dir).to.equal(project);
+    expect(targets[0]!.dir).to.equal(project);
   });
 });

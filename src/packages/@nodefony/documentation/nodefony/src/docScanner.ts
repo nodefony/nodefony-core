@@ -83,7 +83,7 @@ export async function scanDocsDir(
     mdFiles.map(async (rel): Promise<ScannedDoc> => {
       const relPosix = rel.replace(/\\/g, "/");
       const parts = relPosix.split("/");
-      const base = parts[parts.length - 1];
+      const base = parts.at(-1) ?? relPosix;
       const group = parts.slice(0, -1).join("/") || "racine";
       const absPath = join(baseDir, rel);
 

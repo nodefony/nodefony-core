@@ -645,6 +645,9 @@ class FrontendService extends Service implements IFrontendService {
       allowedHosts: true | string[] | undefined;
     },
   ): Promise<void> {
+    // Une famille naît de ses entrées : ce repli ne sert qu'au type.
+    const [first] = entries;
+    if (first === undefined) throw new FrontendNoEntriesError();
     const r = this.cfg.resilience;
     const supervisor = new ViteProcessSupervisor({
       devHost: this.cfg.devHost,
@@ -653,7 +656,7 @@ class FrontendService extends Service implements IFrontendService {
       allowedHosts: ctx.allowedHosts,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
       pipeLogs: this.cfg.pipeViteLogs,
-      cwd: entries[0].root,
+      cwd: first.root,
       backendOrigin: ctx.backendOrigin,
       https: ctx.https,
       nodeEnv: ctx.nodeEnv,

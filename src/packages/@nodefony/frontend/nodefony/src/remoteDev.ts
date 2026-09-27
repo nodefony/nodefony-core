@@ -148,7 +148,7 @@ export function originWithHostname(
   // passer (`trustedHosts: true` délègue au reverse-proxy).
   if (!/^(\[[^\]/]+\]|[A-Za-z0-9._-]+)$/.test(hostname)) return null;
   // Groupe optionnel de la regex : `undefined` quand il ne capture rien.
-  const port = m[3] as string | undefined;
+  const port = m[3];
   return `${m[1]}${hostname}${port ?? ""}`;
 }
 
@@ -190,9 +190,8 @@ export function resolveOriginTemplate(
  *   (un `{port}` dans le DERNIER label n'a pas de suffixe à wildcarder).
  */
 export function allowedHostPatternForTemplate(template: string): string | null {
-  const m = ORIGIN_TEMPLATE_RE.exec(template);
-  if (!m) return null;
-  const hostTemplate = m[2];
+  const [, , hostTemplate] = ORIGIN_TEMPLATE_RE.exec(template) ?? [];
+  if (hostTemplate === undefined) return null;
   if (!hostTemplate.includes(PORT_PLACEHOLDER)) return hostTemplate;
   const dot = hostTemplate.indexOf(".");
   if (dot === -1 || hostTemplate.slice(dot + 1).includes(PORT_PLACEHOLDER)) {

@@ -138,9 +138,9 @@ describe("ApiClient — pont API souveraine (socket)", () => {
     const out = await api.postAbsolute("/nodefony/x/api/save", { a: 1 });
     expect(out).to.deep.equal({ saved: true });
     expect(socket.mutateCalls.length).to.equal(1);
-    expect(socket.mutateCalls[0].method).to.equal("POST");
-    expect(socket.mutateCalls[0].body).to.deep.equal({ a: 1 });
-    expect(socket.mutateCalls[0].idempotencyKey).to.be.a("string").and.not
+    expect(socket.mutateCalls[0]!.method).to.equal("POST");
+    expect(socket.mutateCalls[0]!.body).to.deep.equal({ a: 1 });
+    expect(socket.mutateCalls[0]!.idempotencyKey).to.be.a("string").and.not
       .empty;
     expect(fetchMock.mock.calls.length).to.equal(0);
   });
@@ -158,7 +158,7 @@ describe("ApiClient — pont API souveraine (socket)", () => {
     // Le repli HTTP porte EXACTEMENT la clé de la tentative socket → le serveur
     // dédoublonne si la mutation avait abouti côté serveur avant la coupure.
     expect(idemHeaderOf(fetchMock.mock.calls[0])).to.equal(
-      socket.mutateCalls[0].idempotencyKey,
+      socket.mutateCalls[0]!.idempotencyKey,
     );
   });
 
@@ -252,7 +252,7 @@ describe("ApiClient — pont API souveraine (socket)", () => {
     }
     // L'erreur servie vient du chemin HTTP (1 fetch), pas d'un mapping socket.
     expect(fetchMock.mock.calls.length).to.equal(1);
-    expect(onError.mock.calls[0][0].status).to.equal(404);
+    expect(onError.mock.calls[0]![0].status).to.equal(404);
   });
 
   it("405 du pont (route GET-only, ex /stats) → fallback fetch 200 + route mémorisée HTTP-only", async () => {

@@ -174,7 +174,7 @@ function percentile(sorted: number[], p: number): number {
     sorted.length - 1,
     Math.floor((p / 100) * sorted.length),
   );
-  return sorted[idx];
+  return sorted[idx]!;
 }
 
 describe.skipIf(!NF_RUN_CLUSTER_E2E || !REDIS_UP)(

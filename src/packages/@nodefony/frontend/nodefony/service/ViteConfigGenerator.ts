@@ -71,7 +71,8 @@ export class ViteConfigGenerator {
     mode: "development" | "production",
     opts: ViteConfigGeneratorOptions = {},
   ): string {
-    if (entries.length === 0) {
+    const [first] = entries;
+    if (first === undefined) {
       throw new Error("ViteConfigGenerator: empty entries");
     }
 
@@ -149,8 +150,8 @@ export class ViteConfigGenerator {
       input[e.entryName] = toGeneratedPath(path.resolve(e.root, e.entryFile));
     }
 
-    const root = toGeneratedPath(entries[0].root);
-    const outDir = toGeneratedPath(entries[0].outDir);
+    const root = toGeneratedPath(first.root);
+    const outDir = toGeneratedPath(first.outDir);
 
     // Multi-bundle fix (P14.6) : autorise `/@fs/<abs>` pour chaque entry root.
     // Sans ça, deux consumers qui partagent la même structure (ex `frontend/src/main.tsx`)

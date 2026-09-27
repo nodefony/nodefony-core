@@ -175,9 +175,9 @@ describe("analyzeConnector — un verdict = une mesure", () => {
       orm: { ...fileDb, connected: false },
       health: health({ lastError: { message: "ECONNREFUSED", ts: 1 } }),
     });
-    expect(f[0].id).to.equal("disconnected");
-    expect(f[0].level).to.equal("critical");
-    expect(f[0].detail).to.contain("ECONNREFUSED");
+    expect(f[0]!.id).to.equal("disconnected");
+    expect(f[0]!.level).to.equal("critical");
+    expect(f[0]!.detail).to.contain("ECONNREFUSED");
   });
 
   it("des briques durables sur :memory: → critique ; sans brique → simple information", () => {
@@ -296,15 +296,15 @@ describe("analyzeConnector — un verdict = une mesure", () => {
       driver: { kind: "sql" },
     });
     expect(
-      analyzeConnector({ orm: fileDb, migrations: status("up-to-date") })[0]
+      analyzeConnector({ orm: fileDb, migrations: status("up-to-date") })[0]!
         .level,
     ).to.equal("ok");
     const late = analyzeConnector({
       orm: fileDb,
       migrations: status("pending"),
     })[0];
-    expect(late.level).to.equal("warning");
-    expect(late.command).to.equal("nodefony orm:migrate");
+    expect(late!.level).to.equal("warning");
+    expect(late!.command).to.equal("nodefony orm:migrate");
     const off = analyzeConnector({
       orm: memoryDb,
       migrations: {

@@ -100,7 +100,8 @@ export function ansiToReact(input: string): ReactNode {
     if (m.index > last) {
       parts.push(renderSpan(input.slice(last, m.index), cur, key++));
     }
-    const codes = m[1]
+    const [, rawCodes = ""] = m;
+    const codes = rawCodes
       .split(";")
       .filter((s) => s.length > 0)
       .map(Number);

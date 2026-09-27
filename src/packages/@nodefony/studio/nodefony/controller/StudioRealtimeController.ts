@@ -58,7 +58,7 @@ const SCAFFOLD_JOB_RE =
  * Bornes de cadence par canal cadencé — défaut + min/max (ms). Convention partagée avec
  * le front via {@link rateChannel}/{@link parseRate} (module isomorphe `nodefony`).
  */
-const RATE_BOUNDS: Readonly<Record<string, RateBounds>> = {
+const RATE_BOUNDS = {
   // Stats process (supervision page ET debug bar) : même ticker, canaux séparés.
   stats: { default: 1000, min: 250, max: 60000 },
   ormHealth: { default: 5000, min: 1000, max: 60000 },
@@ -70,7 +70,7 @@ const RATE_BOUNDS: Readonly<Record<string, RateBounds>> = {
   // Santé de la socket Nodefony (auto-observabilité) : backpressure + fan-out.
   // Défaut 2 s (le débit se dérive de snapshots ; trop fin = bruit, trop lent = perd les pics).
   realtimeHealth: { default: 2000, min: 500, max: 60000 },
-};
+} as const satisfies Readonly<Record<string, RateBounds>>;
 
 /**
  * StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio.
@@ -218,11 +218,10 @@ class StudioRealtimeController extends RealtimeController {
     // job produit. Le service rejoue d'abord le backlog → un abonné tardif voit TOUT
     // depuis le début, ce qui rend le terminal insensible à la course
     // « je reçois l'id / je m'abonne ».
-    const scaffoldJob = SCAFFOLD_JOB_RE.exec(channel);
-    if (scaffoldJob) {
+    const [, jobId] = SCAFFOLD_JOB_RE.exec(channel) ?? [];
+    if (jobId !== undefined) {
       const svc = this.get<ScaffoldService>("scaffold");
       if (!svc?.enabled) return null;
-      const jobId = scaffoldJob[1];
       // On relaie l'ÉVÉNEMENT (ligne ou état), pas seulement la ligne : sinon le front
       // n'apprendrait jamais par la socket qu'un job est terminé, et devrait sonder le
       // serveur en boucle alors que la connexion est déjà là.

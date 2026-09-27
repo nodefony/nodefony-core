@@ -388,7 +388,7 @@ describe.skipIf(raison !== null)(
       const result = (
         reponse.body as { result: { content: { text: string }[] } }
       ).result;
-      expect(JSON.parse(result.content[0].text)).toEqual({
+      expect(JSON.parse(result.content[0]!.text)).toEqual({
         module: "test",
         echo: "bonjour",
       });
@@ -441,7 +441,7 @@ describe.skipIf(raison !== null)(
         }
       ).result;
       expect(result.isError).toBeUndefined();
-      expect(result.content[0].text).toMatch(/@nodefony\/devkit/u);
+      expect(result.content[0]!.text).toMatch(/@nodefony\/devkit/u);
     });
 
     it("🔴 le MÊME compte, un jeton SANS scope : la lecture est REFUSÉE", async () => {
@@ -475,8 +475,8 @@ describe.skipIf(raison !== null)(
       expect(result.isError).toBe(true);
       // Le refus DIT qui est refusé et ce qui manque : sans cela, l'appelant
       // cherche une autre cible au lieu d'un meilleur jeton.
-      expect(result.content[0].text).toMatch(/ROLE_NODEFONY_ADMIN/u);
-      expect(result.content[0].text).toMatch(/admin/u);
+      expect(result.content[0]!.text).toMatch(/ROLE_NODEFONY_ADMIN/u);
+      expect(result.content[0]!.text).toMatch(/admin/u);
     });
 
     it("🔴 la garde Origin MORD sur la vraie route (DNS rebinding)", async () => {

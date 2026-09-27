@@ -106,8 +106,8 @@ describe("createSyslogBridge — coalescing (fix lag Studio)", () => {
     vi.advanceTimersByTime(100);
 
     expect(publish.mock.calls.length).to.equal(2);
-    expect((publish.mock.calls[0][1] as Frame).logs).to.deep.equal(["x"]);
-    expect((publish.mock.calls[1][1] as Frame).logs).to.deep.equal(["y", "z"]);
+    expect((publish.mock.calls[0]![1] as Frame).logs).to.deep.equal(["x"]);
+    expect((publish.mock.calls[1]![1] as Frame).logs).to.deep.equal(["y", "z"]);
     dispose();
   });
 
@@ -123,7 +123,7 @@ describe("createSyslogBridge — coalescing (fix lag Studio)", () => {
     for (const l of ["a", "b", "c", "d", "e"]) syslog.emit("onLog", l);
     vi.advanceTimersByTime(50);
 
-    const payload = publish.mock.calls[0][1] as Frame;
+    const payload = publish.mock.calls[0]![1] as Frame;
     expect(payload.logs).to.deep.equal(["c", "d", "e"]);
     expect(payload.dropped, "2 logs omis sous surcharge").to.equal(2);
     dispose();
@@ -170,7 +170,7 @@ describe("createStatsTicker — heartbeat nodefony:supervision", () => {
     expect(publish.mock.calls.length).to.equal(1);
     vi.advanceTimersByTime(1000);
     expect(publish.mock.calls.length).to.equal(2);
-    expect(publish.mock.calls[0][0]).to.equal(CHANNELS.supervision);
+    expect(publish.mock.calls[0]![0]).to.equal(CHANNELS.supervision);
     dispose();
   });
 
@@ -178,7 +178,7 @@ describe("createStatsTicker — heartbeat nodefony:supervision", () => {
     const publish = vi.fn();
     const dispose = createStatsTicker(publish, 1000);
     vi.advanceTimersByTime(1000);
-    const p = publish.mock.calls[0][1] as Record<string, unknown>;
+    const p = publish.mock.calls[0]![1] as Record<string, unknown>;
     expect(p.instanceId).to.equal(INSTANCE_ID);
     expect(p.pid).to.be.a("number");
     expect(p.uptime).to.be.a("number");

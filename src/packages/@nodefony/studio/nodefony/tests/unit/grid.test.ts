@@ -41,8 +41,8 @@ describe("grid — autoTile (Ranger / migration)", () => {
     ];
     const out = autoTile(items);
     expect(out.every((o) => o.y === 0)).to.equal(true);
-    expect(out[0].x).to.equal(0);
-    expect(out[1].x).to.be.greaterThan(out[0].x);
+    expect(out[0]!.x).to.equal(0);
+    expect(out[1]!.x).to.be.greaterThan(out[0]!.x);
   });
 
   it("retour à la ligne quand la largeur dépasse 1", () => {
@@ -51,9 +51,9 @@ describe("grid — autoTile (Ranger / migration)", () => {
       { id: "b", w: 0.6, h: 100 },
     ];
     const out = autoTile(items);
-    expect(out[0].y).to.equal(0);
-    expect(out[1].y).to.be.greaterThan(0);
-    expect(out[1].x).to.equal(0);
+    expect(out[0]!.y).to.equal(0);
+    expect(out[1]!.y).to.be.greaterThan(0);
+    expect(out[1]!.x).to.equal(0);
   });
 
   it("0 chevauchement horizontal dans une rangée + ordre conservé", () => {
@@ -65,8 +65,8 @@ describe("grid — autoTile (Ranger / migration)", () => {
     const out = autoTile(items);
     expect(out.map((o) => o.id)).to.deep.equal(["a", "b", "c"]);
     for (let i = 1; i < out.length; i++)
-      if (out[i].y === out[i - 1].y)
-        expect(out[i].x).to.be.at.least(out[i - 1].x + out[i - 1].w);
+      if (out[i]!.y === out[i - 1]!.y)
+        expect(out[i]!.x).to.be.at.least(out[i - 1]!.x + out[i - 1]!.w);
   });
 
   it("hauteur de rangée = la plus haute fenêtre de la rangée", () => {
@@ -76,6 +76,6 @@ describe("grid — autoTile (Ranger / migration)", () => {
       { id: "c", w: 0.4, h: 100 },
     ];
     const out = autoTile(items);
-    expect(out[2].y).to.be.at.least(300);
+    expect(out[2]!.y).to.be.at.least(300);
   });
 });

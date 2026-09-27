@@ -157,16 +157,16 @@ describe("vitrines — les quatre consomment le SOCLE, aucune ne le réécrit", 
     for (const { front } of VITRINES) {
       const src = lire(front, VITRINES.find((v) => v.front === front)!.page);
       const liaison = LIAISONS[front];
-      for (const jeton of liaison.jetons) {
+      for (const jeton of liaison!.jetons) {
         expect(
           src,
-          `${front} : attendu \`${jeton}\` — ${liaison.pourquoi}`,
+          `${front} : attendu \`${jeton}\` — ${liaison!.pourquoi}`,
         ).toContain(jeton);
       }
       // L'auto-observation passe par UN contrat, pas par cinq lectures à la
       // main : c'est ce qui empêche les quatre sondes de barre de diverger.
       expect(src, `${front} : la sonde lit un instantané du socle`).toContain(
-        liaison.instantane,
+        liaison!.instantane,
       );
       // L'adresse aussi vient de l'instantané. Écrite en dur, elle survivrait
       // au changement d'endpoint et mentirait — c'est le défaut qu'une vitrine
@@ -294,7 +294,7 @@ describe("vitrines — le même écran, et de quoi le comparer", () => {
       const src = lire(front, page);
       // Le bloc montré à l'écran cite les mêmes appels que ceux plus haut dans
       // le fichier : un extrait qui se périme est pire qu'aucun extrait.
-      const cite = LIAISONS[front].cite;
+      const cite = LIAISONS[front]!.cite;
       // (l'extrait affiché cite le même appel que le câblage réel, plus haut)
       const occurrences = src.split(cite).length - 1;
       expect(

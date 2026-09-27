@@ -310,7 +310,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     client.subscribe("tick");
     await flush(); // subscribe atteint le serveur + provider démarre
     expect(rt.publishers["tick"]).to.be.a("function");
-    rt.publishers["tick"]("tick", { v: 42 }); // le provider pousse
+    rt.publishers["tick"]!("tick", { v: 42 }); // le provider pousse
     await flush(); // la notification revient au client
     expect(got).to.deep.equal([{ v: 42 }]);
   });
@@ -454,7 +454,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     client.on("tick", (p) => b.push(p));
     client.subscribe("tick");
     await flush();
-    rt.publishers["tick"]("tick", { v: 1 });
+    rt.publishers["tick"]!("tick", { v: 1 });
     await flush();
     expect(a).to.deep.equal([{ v: 1 }]);
     expect(b).to.deep.equal([{ v: 1 }]);
@@ -472,7 +472,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     client.subscribe("tick");
     await flush();
     client.off("tick", hb);
-    rt.publishers["tick"]("tick", { v: 2 });
+    rt.publishers["tick"]!("tick", { v: 2 });
     await flush();
     expect(a).to.deep.equal([{ v: 2 }]);
     expect(b).to.deep.equal([]); // détaché
@@ -494,7 +494,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     client.on("*", wildcard);
     client.subscribe("tick");
     await flush();
-    rt.publishers["tick"]("tick", { v: 3 });
+    rt.publishers["tick"]!("tick", { v: 3 });
     await flush();
     expect(seen.some(([m]) => m === "tick")).to.equal(true);
   });
@@ -624,7 +624,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     // sans ce réveil, le client serait abonné à un canal que rien ne produit.
     expect(rt.publishers["owned:feed"]).to.be.a("function");
 
-    rt.publishers["owned:feed"]("owned:feed", { tick: 1 });
+    rt.publishers["owned:feed"]!("owned:feed", { tick: 1 });
     await flush();
     expect(heardClient).to.deep.equal([{ tick: 1 }]); // le client reçoit du VRAI provider
     expect(heardBack).to.deep.equal([{ tick: 1 }]); // l'écouteur serveur aussi

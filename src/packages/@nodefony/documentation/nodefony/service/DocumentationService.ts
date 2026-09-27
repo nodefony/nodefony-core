@@ -492,7 +492,9 @@ class DocumentationService extends Service {
       const readme = pages.findIndex((p) =>
         /(^|\/)readme\.md$/i.test(p.relPath),
       );
-      if (readme !== -1) refs[readme].isHub = true;
+      // `findIndex` rend -1 sans README : la lecture rend alors undefined.
+      const hub = refs[readme];
+      if (hub !== undefined) hub.isHub = true;
     }
     return refs.sort((a, b) => {
       if (a.isHub !== b.isHub) return a.isHub ? -1 : 1;

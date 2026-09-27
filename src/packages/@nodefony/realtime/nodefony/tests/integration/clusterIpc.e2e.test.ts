@@ -205,36 +205,40 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
 
     it("fan-out cross-process : publish worker A → worker B reçoit", async () => {
       const [a, b] = await spawnN(2);
-      await subscribeAll([a, b], "chat:room-1");
+      await subscribeAll([a!, b!], "chat:room-1");
 
-      a.child.send({
+      a!.child.send({
         cmd: "publish",
         channel: "chat:room-1",
         payload: "hello-from-A",
       });
 
-      const got = await b.awaitEvent(
+      const got = await b!.awaitEvent(
         (e) => e.cmd === "got" && e.channel === "chat:room-1",
       );
       expect(got.payload).toBe("hello-from-A");
-      expect(got.pid).toBe(b.pid);
-      expect(b.pid).not.toBe(a.pid); // vraiment 2 process distincts
+      expect(got.pid).toBe(b!.pid);
+      expect(b!.pid).not.toBe(a!.pid); // vraiment 2 process distincts
       expect(relay.relayedTotal).toBe(1);
     });
 
     it("fan-out N>2 workers : publish A → B et C reçoivent (rebroadcast multi)", async () => {
       const [a, b, c] = await spawnN(3);
-      await subscribeAll([a, b, c], "presence:zone-A");
+      await subscribeAll([a!, b!, c!], "presence:zone-A");
 
-      a.child.send({
+      a!.child.send({
         cmd: "publish",
         channel: "presence:zone-A",
         payload: { user: "alice", at: 42 },
       });
 
       const [gb, gc] = await Promise.all([
-        b.awaitEvent((e) => e.cmd === "got" && e.channel === "presence:zone-A"),
-        c.awaitEvent((e) => e.cmd === "got" && e.channel === "presence:zone-A"),
+        b!.awaitEvent(
+          (e) => e.cmd === "got" && e.channel === "presence:zone-A",
+        ),
+        c!.awaitEvent(
+          (e) => e.cmd === "got" && e.channel === "presence:zone-A",
+        ),
       ]);
       expect(gb.payload).toEqual({ user: "alice", at: 42 });
       expect(gc.payload).toEqual({ user: "alice", at: 42 });
@@ -243,46 +247,48 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
 
     it("anti-écho strict : worker A ne reçoit son propre publish QUE via fan-out local (jamais rebound backplane)", async () => {
       const [a, b] = await spawnN(2);
-      await subscribeAll([a, b], "chat:room-1");
+      await subscribeAll([a!, b!], "chat:room-1");
 
-      a.child.send({
+      a!.child.send({
         cmd: "publish",
         channel: "chat:room-1",
         payload: "echo-test",
       });
       // attend que B reçoive — preuve que le rebroadcast a eu lieu
-      await b.awaitEvent((e) => e.cmd === "got" && e.channel === "chat:room-1");
+      await b!.awaitEvent(
+        (e) => e.cmd === "got" && e.channel === "chat:room-1",
+      );
       // laisse une fenêtre pour qu'un éventuel echo cross-process arrive
       await new Promise((r) => setTimeout(r, 150));
 
       // Demande les stats à A : il a publié → fan-out local = 1, anti-écho cross-process = 0
-      a.child.send({ cmd: "stats" });
-      const stats = await a.awaitEvent((e) => e.cmd === "stats");
+      a!.child.send({ cmd: "stats" });
+      const stats = await a!.awaitEvent((e) => e.cmd === "stats");
       expect(stats.subs).toEqual({ "chat:room-1": 1 });
     });
 
     it("publish duplex : A→B puis B→A, chacun reçoit l'autre exactement 1 fois", async () => {
       const [a, b] = await spawnN(2);
-      await subscribeAll([a, b], "chat:duplex");
+      await subscribeAll([a!, b!], "chat:duplex");
 
-      a.child.send({
+      a!.child.send({
         cmd: "publish",
         channel: "chat:duplex",
         payload: "ping",
       });
-      await b.awaitEvent(
+      await b!.awaitEvent(
         (e) =>
           e.cmd === "got" &&
           e.channel === "chat:duplex" &&
           e.payload === "ping",
       );
 
-      b.child.send({
+      b!.child.send({
         cmd: "publish",
         channel: "chat:duplex",
         payload: "pong",
       });
-      await a.awaitEvent(
+      await a!.awaitEvent(
         (e) =>
           e.cmd === "got" &&
           e.channel === "chat:duplex" &&
@@ -290,11 +296,11 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
       );
       await new Promise((r) => setTimeout(r, 100));
 
-      a.child.send({ cmd: "stats" });
-      b.child.send({ cmd: "stats" });
+      a!.child.send({ cmd: "stats" });
+      b!.child.send({ cmd: "stats" });
       const [sa, sb] = await Promise.all([
-        a.awaitEvent((e) => e.cmd === "stats"),
-        b.awaitEvent((e) => e.cmd === "stats"),
+        a!.awaitEvent((e) => e.cmd === "stats"),
+        b!.awaitEvent((e) => e.cmd === "stats"),
       ]);
       // A a publié "ping" (fan-out local) + reçu "pong" de B = 2 livraisons
       expect(sa.subs).toEqual({ "chat:duplex": 2 });
@@ -310,25 +316,25 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E)(
       // que SEUL A subscribe → B n'a aucun sink et le canal n'est pas broadcast
       // pour A (mais le worker auto-mark à la subscribe — donc on s'appuie sur le
       // fait que B n'a PAS subscribed, donc 0 fan-out local côté B).
-      a.child.send({ cmd: "subscribe", channel: "syslog:local-A" });
-      await a.awaitEvent(
+      a!.child.send({ cmd: "subscribe", channel: "syslog:local-A" });
+      await a!.awaitEvent(
         (e) =>
           e.cmd === "ack" &&
           e.op === "subscribe" &&
           e.channel === "syslog:local-A",
       );
-      a.child.send({
+      a!.child.send({
         cmd: "publish",
         channel: "syslog:local-A",
         payload: { line: 42 },
       });
-      await a.awaitEvent((e) => e.cmd === "ack" && e.op === "publish");
+      await a!.awaitEvent((e) => e.cmd === "ack" && e.op === "publish");
       // Fenêtre pour qu'un éventuel ingress traverse l'IPC (il devrait, le canal
       // est broadcast côté A) ; mais B n'a pas de sink → 0 livraison côté B.
       await new Promise((r) => setTimeout(r, 150));
 
-      b.child.send({ cmd: "stats" });
-      const stats = await b.awaitEvent((e) => e.cmd === "stats");
+      b!.child.send({ cmd: "stats" });
+      const stats = await b!.awaitEvent((e) => e.cmd === "stats");
       expect(stats.subs).toEqual({});
     });
   },

@@ -75,7 +75,7 @@ describe("devkit — carte de visite", () => {
   it("adresse les instructions de l'app en PREMIER", () => {
     // La tête est la ressource rare : un lecteur qui s'arrête au premier item
     // doit être tombé sur celui qui compte.
-    expect(buildCard(base).doors[0].where).toBe("AGENTS.md");
+    expect(buildCard(base).doors[0]!.where).toBe("AGENTS.md");
   });
 
   it("se rend lisible au terminal, sans rien perdre", () => {

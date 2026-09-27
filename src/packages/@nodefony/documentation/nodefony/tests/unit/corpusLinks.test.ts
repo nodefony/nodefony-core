@@ -106,11 +106,11 @@ function stripCode(src: string): string {
     const m = line.match(/^\s*(`{3,})(.*)$/);
     if (fence !== null) {
       out.push("");
-      if (m && m[1].length >= fence.length && !m[2].trim()) fence = null;
+      if (m && m[1]!.length >= fence.length && !m[2]!.trim()) fence = null;
       continue;
     }
     if (m) {
-      fence = m[1];
+      fence = m[1]!;
       out.push("");
       continue;
     }
@@ -133,10 +133,10 @@ function analyze(page: { abs: string; repoRel: string }): {
   )) {
     const href = m[1];
     // Après traduction, une cible légitime est un slug (ni `/` ni `..`).
-    if (!href.includes("/") && !href.includes("..")) continue;
-    const target = resolveTarget(fromDir, href);
-    if (existsSync(join(REPO, target))) outside.push(href);
-    else broken.push(href);
+    if (!href!.includes("/") && !href!.includes("..")) continue;
+    const target = resolveTarget(fromDir, href!);
+    if (existsSync(join(REPO, target))) outside.push(href!);
+    else broken.push(href!);
   }
   return { broken, outside };
 }

@@ -51,6 +51,12 @@ const INDEX_CHECKED = [
   "src/packages/@nodefony/framework/",
   "src/packages/@nodefony/http/",
   "src/packages/@nodefony/security/",
+  "src/packages/@nodefony/devkit/",
+  "src/packages/@nodefony/documentation/",
+  "src/packages/@nodefony/frontend/",
+  "src/packages/@nodefony/realtime/",
+  // Le serveur seul : le front React du Studio a son propre tsconfig.
+  "src/packages/@nodefony/studio/tsconfig.json",
 ] as const;
 
 /** Options que `strict` allume et qu'aucun tsconfig ne doit éteindre. */

@@ -550,8 +550,8 @@ describe("RealtimeController E2E — radiographie de la porte (profil par frame)
     // La 2ᵉ frame ne traîne AUCUNE phase de la 1ʳᵉ.
     const names = collected.map((f) => f.phases.map((p) => p.name));
     expect(names[0]).to.deep.equal(names[1]);
-    expect(names[1].filter((n) => n === "action")).to.have.length(1);
-    expect(collected[0].response?.statusCode).to.equal(200);
+    expect(names[1]!.filter((n) => n === "action")).to.have.length(1);
+    expect(collected[0]!.response?.statusCode).to.equal(200);
     client.disconnect();
   });
 
@@ -566,8 +566,8 @@ describe("RealtimeController E2E — radiographie de la porte (profil par frame)
     }
     expect(data).to.deep.equal({ status: 403, requestId: "rid-test.1" });
     expect(collected).to.have.length(1);
-    expect(collected[0].response?.statusCode).to.equal(403);
-    expect(collected[0].error?.message).to.be.a("string");
+    expect(collected[0]!.response?.statusCode).to.equal(403);
+    expect(collected[0]!.error?.message).to.be.a("string");
     client.disconnect();
   });
 

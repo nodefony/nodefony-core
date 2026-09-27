@@ -348,7 +348,13 @@ declare module "@tanstack/react-table" {
   }
 }
 
-const TEXT_OPS: { value: DataGridFilterOp; label: string }[] = [
+/** Liste d'opérateurs d'un type de filtre — jamais vide : la première est le défaut. */
+type FilterOpList = [
+  { value: DataGridFilterOp; label: string },
+  ...{ value: DataGridFilterOp; label: string }[],
+];
+
+const TEXT_OPS: FilterOpList = [
   { value: "contains", label: "contient" },
   { value: "equals", label: "égal à" },
   { value: "startsWith", label: "commence par" },
@@ -356,7 +362,7 @@ const TEXT_OPS: { value: DataGridFilterOp; label: string }[] = [
   { value: "isEmpty", label: "est vide" },
   { value: "notEmpty", label: "non vide" },
 ];
-const NUMBER_OPS: { value: DataGridFilterOp; label: string }[] = [
+const NUMBER_OPS: FilterOpList = [
   { value: "=", label: "=" },
   { value: "!=", label: "≠" },
   { value: ">", label: ">" },
@@ -364,12 +370,8 @@ const NUMBER_OPS: { value: DataGridFilterOp; label: string }[] = [
   { value: "<", label: "<" },
   { value: "<=", label: "≤" },
 ];
-const SELECT_OPS: { value: DataGridFilterOp; label: string }[] = [
-  { value: "equals", label: "est" },
-];
-const MULTISELECT_OPS: { value: DataGridFilterOp; label: string }[] = [
-  { value: "in", label: "est l'un de" },
-];
+const SELECT_OPS: FilterOpList = [{ value: "equals", label: "est" }];
+const MULTISELECT_OPS: FilterOpList = [{ value: "in", label: "est l'un de" }];
 const VALUELESS: ReadonlySet<DataGridFilterOp> = new Set([
   "isEmpty",
   "notEmpty",
