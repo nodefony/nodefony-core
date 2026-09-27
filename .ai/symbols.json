@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 878,
-    "symbols": 4363,
+    "files": 879,
+    "symbols": 4365,
     "classes": 404,
     "interfaces": 1145,
     "types": 470,
     "enums": 4,
-    "functions": 1905,
-    "constants": 435
+    "functions": 1906,
+    "constants": 436
   },
   "symbols": {
     "Cli": {
@@ -29371,6 +29371,22 @@
       "module": "@nodefony/http",
       "description": "Décide si une frame doit partir vers `ws` selon la backpressure SORTANTE (serveur → client). Protège la RAM d'envoi du serveur quand le client est lent à RECEVOIR (ne lit pas assez vite → `ws.buffe…"
     },
+    "toWsCloseReason": {
+      "name": "toWsCloseReason",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsCloseReason.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Borne la raison d'une fermeture WebSocket à 123 octets UTF-8, coupée sur une frontière de caractère. `ws.close(code, reason)` LÈVE une `RangeError` au-delà de 123 octets, et la connexion n'est alor…"
+    },
+    "MAX_WS_CLOSE_REASON_BYTES": {
+      "name": "MAX_WS_CLOSE_REASON_BYTES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsCloseReason.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Taille maximale, en octets UTF-8, de la raison d'une trame Close (RFC 6455 §5.5 : charge d'une trame de contrôle ≤ 125 octets, dont 2 pour le code)."
+    },
     "binaryByteLength": {
       "name": "binaryByteLength",
       "kind": "function",
@@ -39913,6 +39929,10 @@
       ],
       "WsSendDecision": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+      ],
+      "toWsCloseReason": [
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "FrameProfile": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"

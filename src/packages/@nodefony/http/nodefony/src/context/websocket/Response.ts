@@ -9,6 +9,7 @@ import {
   type IBackpressureSocket,
   type WsSendDecision,
 } from "./wsBackpressure.js";
+import { toWsCloseReason } from "./wsCloseReason.js";
 
 // Le cookie WS a UNE seule définition : celle du contrat public. Ré-exportée ici
 // pour les consommateurs historiques de ce chemin.
@@ -217,7 +218,10 @@ class WebsocketResponse {
 
   drop(reasonCode?: number, description?: string) {
     if (this.connection && this.connection.readyState === Ws.OPEN) {
-      this.connection.close(reasonCode ?? this.statusCode, description);
+      this.connection.close(
+        reasonCode ?? this.statusCode,
+        toWsCloseReason(description),
+      );
       return;
     }
     throw new Error("Connection already closed");
@@ -227,7 +231,7 @@ class WebsocketResponse {
     if (this.connection && this.connection.readyState === Ws.OPEN) {
       this.connection.close(
         reasonCode ?? this.statusCode,
-        description ?? "closed",
+        toWsCloseReason(description ?? "closed"),
       );
       return;
     }

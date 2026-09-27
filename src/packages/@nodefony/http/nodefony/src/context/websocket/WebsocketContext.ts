@@ -8,6 +8,7 @@ import { RequestContext } from "nodefony";
 import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
+import { toWsCloseReason } from "./wsCloseReason.js";
 import { URL } from "node:url";
 import { HTTPMethod } from "../Context.js";
 import type { IResolvedRoute } from "../../../interfaces/IRouting";
@@ -638,7 +639,10 @@ export default class WebsocketContext
       const raw = typeof code === "string" ? parseInt(code, 10) : code;
       // Coercition RFC 6455 §7.4 (cf `toWsCloseCode`) : codes standard préférés,
       // jamais de code 0-999 ni de 4xxx inventé.
-      this.connection.close(toWsCloseCode(raw), message ?? "Rejected");
+      this.connection.close(
+        toWsCloseCode(raw),
+        toWsCloseReason(message ?? "Rejected"),
+      );
     }
     this.rejected = true;
   }

@@ -185,7 +185,7 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 | Auth (flux) | `http/{webauthn-bff,firewall-auth}.test.ts` · `integration/{apikey-flow,oauth2-flow,security-hooks}.test.ts` · `websockets/{ws-scope-jwt,ws-isgranted-jwt,ws-data-plane-auth}.test.ts` |
 | Proxy / IP de confiance | `unit/{trustProxy,forwarded,forwardedWiring,generateProxyConfig,domain}.test.ts` · `http/forward.test.ts` |
 | Traçage / journalisation | `unit/{trace,requestId,RequestLogger,PrettyRequestLogger,wsLogContent,Profiler,AuditLogger,FrameProfile}.test.ts` · `http/traceparent.test.ts` · `websockets/websocket-trace-logging.test.ts` |
-| WebSocket (protocole) | `websockets/{websocket,websocket-protocol,websocket-limits,websocket-fragmentation,websocket-origin,websocket-w3c,websocket-binary-broadcast}.test.ts` · `unit/{wsCloseCode,wsHeartbeat,wsBackpressure,wsConnectionCounter,WsResponsePeerGone}.test.ts` |
+| WebSocket (protocole) | `websockets/{websocket,websocket-protocol,websocket-limits,websocket-fragmentation,websocket-origin,websocket-w3c,websocket-binary-broadcast}.test.ts` · `unit/{wsCloseCode,wsCloseReason,wsHeartbeat,wsBackpressure,wsConnectionCounter,WsResponsePeerGone}.test.ts` |
 | WebSocket (pont/actions) | `websockets/{ws-bridge-radiography,ws-bridge-rendered-action}.test.ts` |
 | Statique & upload | `http/{static,fileStream,upload}.test.ts` · `unit/{UploadedFile,collectAssets,prebuiltUi}.test.ts` |
 | Routage | `routing/Router.test.ts` · `integration/domain-routing.test.ts` |
