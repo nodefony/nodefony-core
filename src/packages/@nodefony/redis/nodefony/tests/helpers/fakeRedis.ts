@@ -180,11 +180,11 @@ export class FakeRedis implements RedisClientLike {
     if (script === MONOTONIC_SET_SCRIPT) {
       const [key] = options.keys;
       const next = Number(options.arguments[0]);
-      this.#expired(key);
-      const current = this.#strings.get(key);
+      this.#expired(key!);
+      const current = this.#strings.get(key!);
       if (current === undefined || next > Number(current)) {
-        this.#purge(key);
-        this.#strings.set(key, String(next));
+        this.#purge(key!);
+        this.#strings.set(key!, String(next));
       }
       return Promise.resolve(1);
     }

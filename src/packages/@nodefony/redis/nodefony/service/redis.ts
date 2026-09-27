@@ -177,8 +177,7 @@ class RedisService extends Service {
       throw new Error(`${this.name} client "${name}" already exists`);
     }
     // Nom d'appelant : la connexion peut ne pas être déclarée.
-    const definition = config.connections[name] as
-      (typeof config.connections)[string] | undefined;
+    const definition = config.connections[name];
     if (!definition) {
       throw new Error(`${this.name} connection "${name}" undefined in config`);
     }
@@ -245,9 +244,9 @@ class RedisService extends Service {
     if (!this.#connections) {
       return;
     }
-    for (const name in this.#connections) {
+    for (const connection of Object.values(this.#connections)) {
       try {
-        await this.#connections[name].close();
+        await connection.close();
       } catch (e) {
         this.log(e, "ERROR");
       }

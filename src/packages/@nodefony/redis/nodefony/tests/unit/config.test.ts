@@ -32,7 +32,7 @@ describe("@nodefony/redis — schema (Zod)", () => {
       "publish",
       "subscribe",
     ]);
-    assert.equal(c.connections.main.database, 0);
+    assert.equal(c.connections.main!.database, 0);
   });
 
   it("applique les sous-défauts de reconnectStrategy", () => {
@@ -120,7 +120,7 @@ describe("@nodefony/redis — buildClientOptions", () => {
         main: { name: "main", database: 3, socket: { host: "override" } },
       },
     });
-    const opts = buildClientOptions(config, config.connections.main);
+    const opts = buildClientOptions(config, config.connections.main!);
     assert.equal(opts.name, "main");
     assert.equal(opts.database, 3);
     assert.equal(opts.password, "pw");
@@ -139,7 +139,7 @@ describe("@nodefony/redis — buildClientOptions", () => {
       url: "redis://h:6400",
       connections: { main: { name: "main" } },
     });
-    const opts = buildClientOptions(config, config.connections.main);
+    const opts = buildClientOptions(config, config.connections.main!);
     assert.equal(opts.url, "redis://h:6400");
     const socket = opts.socket as { host?: string };
     assert.equal(socket.host, undefined);
@@ -154,7 +154,7 @@ describe("@nodefony/redis — buildClientOptions", () => {
       },
       connections: { main: { name: "main" } },
     });
-    const opts = buildClientOptions(config, config.connections.main);
+    const opts = buildClientOptions(config, config.connections.main!);
     const strat = (
       opts.socket as { reconnectStrategy: (n: number) => number | Error }
     ).reconnectStrategy;

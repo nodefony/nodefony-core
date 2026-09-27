@@ -227,7 +227,8 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     if (
       key === "_id" ||
       paths[key] !== undefined ||
-      paths[key.split(".")[0]] !== undefined
+      // `split` rend toujours au moins un segment.
+      paths[key.split(".")[0] ?? key] !== undefined
     ) {
       return key;
     }
@@ -357,6 +358,12 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         const [doc] = await this.#model.create([data], {
           session: this.#session ?? undefined,
         });
+        // Un document demandé, un document rendu — sauf pilote défaillant.
+        if (doc === undefined) {
+          throw new Error(
+            `create: le pilote n'a rendu aucun document (${this.#model.modelName})`,
+          );
+        }
         return this.#plain(doc);
       },
       () => 1,

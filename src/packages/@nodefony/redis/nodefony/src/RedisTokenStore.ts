@@ -224,14 +224,17 @@ export class RedisTokenStore implements ITokenStore {
 
   /** Désérialise un HASH en record (`null` pour les champs absents). */
   #decode(h: Record<string, string>): IAccessTokenRecord {
-    const str = (k: string): string | null => (k in h ? h[k] : null);
+    const str = (k: string): string | null => h[k] ?? null;
     const num = (k: string): number | null => (k in h ? Number(h[k]) : null);
+    // Champ obligatoire absent (HASH tronqué) → chaîne vide, jamais un
+    // `undefined` sous un type `string`. Une empreinte vide ne vérifie rien.
+    const req = (k: string): string => h[k] ?? "";
     return {
-      id: h.id,
+      id: req("id"),
       kind: h.kind as "pat" | "refresh",
-      name: h.name,
+      name: req("name"),
       prefix: str("prefix"),
-      subjectId: h.subjectId,
+      subjectId: req("subjectId"),
       subjectType: h.subjectType as "user" | "service",
       tenantId: str("tenantId"),
       scopes: h.scopes ? (JSON.parse(h.scopes) as string[]) : [],
@@ -239,8 +242,8 @@ export class RedisTokenStore implements ITokenStore {
       resources: h.resources
         ? (JSON.parse(h.resources) as IAccessTokenRecord["resources"])
         : null,
-      secretHash: h.secretHash,
-      hashAlg: h.hashAlg,
+      secretHash: req("secretHash"),
+      hashAlg: req("hashAlg"),
       clientId: str("clientId"),
       cnf: str("cnf"),
       family: str("family"),

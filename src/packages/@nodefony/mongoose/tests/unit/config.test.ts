@@ -31,9 +31,9 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
         connectors: { app: { dbname: "app" } },
       });
       assert.equal(c.debug, true);
-      assert.equal(c.connectors.app.host, "localhost"); // défaut
-      assert.equal(c.connectors.app.port, 27017); // défaut
-      assert.equal(c.connectors.app.dbname, "app");
+      assert.equal(c.connectors.app!.host, "localhost"); // défaut
+      assert.equal(c.connectors.app!.port, 27017); // défaut
+      assert.equal(c.connectors.app!.dbname, "app");
     });
   });
 
@@ -46,9 +46,9 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
   describe("autoIndex — réglage typé du connecteur", () => {
     it("absent par défaut : le comportement de mongoose (construire) est conservé", () => {
       const c = defineMongooseConfig();
-      assert.equal(c.connectors.nodefony.autoIndex, undefined);
+      assert.equal(c.connectors.nodefony!.autoIndex, undefined);
       assert.equal(
-        MongooseService.buildConnectOptions(c.connectors.nodefony),
+        MongooseService.buildConnectOptions(c.connectors.nodefony!),
         undefined,
         "rien à poser : aucune option fabriquée pour rien",
       );
@@ -58,10 +58,13 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
       const c = defineMongooseConfig({
         connectors: { prod: { autoIndex: false } },
       });
-      assert.equal(c.connectors.prod.autoIndex, false);
-      assert.deepEqual(MongooseService.buildConnectOptions(c.connectors.prod), {
-        autoIndex: false,
-      });
+      assert.equal(c.connectors.prod!.autoIndex, false);
+      assert.deepEqual(
+        MongooseService.buildConnectOptions(c.connectors.prod!),
+        {
+          autoIndex: false,
+        },
+      );
     });
 
     it("le champ typé PRIME sur une clé homonyme du fourre-tout `options`", () => {
@@ -73,7 +76,7 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
           },
         },
       });
-      const options = MongooseService.buildConnectOptions(c.connectors.prod);
+      const options = MongooseService.buildConnectOptions(c.connectors.prod!);
       assert.equal(
         options?.autoIndex,
         false,
@@ -91,7 +94,7 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
         connectors: { prod: { options: { autoIndex: false } } },
       });
       assert.equal(
-        MongooseService.buildConnectOptions(c.connectors.prod)?.autoIndex,
+        MongooseService.buildConnectOptions(c.connectors.prod!)?.autoIndex,
         false,
       );
     });
@@ -121,7 +124,7 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
       process.env.MONGODB_URI = "mongodb://h:1/db";
       try {
         const c = defineMongooseConfig();
-        assert.equal(c.connectors.nodefony.uri, "mongodb://h:1/db");
+        assert.equal(c.connectors.nodefony!.uri, "mongodb://h:1/db");
       } finally {
         if (prev === undefined) delete process.env.MONGODB_URI;
         else process.env.MONGODB_URI = prev;
@@ -177,7 +180,7 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
         () => {
           const c = defineMongooseConfig();
           assert.equal(
-            c.connectors.nodefony.uri,
+            c.connectors.nodefony!.uri,
             "mongodb://infra:27017/appdb",
           );
         },
@@ -194,7 +197,7 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
         () => {
           const c = defineMongooseConfig();
           assert.equal(
-            c.connectors.nodefony.uri,
+            c.connectors.nodefony!.uri,
             "mongodb+srv://u:p@cluster.example.net/appdb",
           );
         },
@@ -211,7 +214,7 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
         () => {
           const c = defineMongooseConfig();
           assert.notEqual(
-            c.connectors.nodefony.uri,
+            c.connectors.nodefony!.uri,
             "postgres://u:p@db:5432/appdb",
           );
         },
@@ -227,7 +230,7 @@ describe("@nodefony/mongoose — config (Zod, Ph.2)", () => {
         },
         () => {
           const c = defineMongooseConfig();
-          assert.equal(c.connectors.nodefony.uri, "mongodb://explicite:1/db");
+          assert.equal(c.connectors.nodefony!.uri, "mongodb://explicite:1/db");
         },
       );
     });

@@ -56,7 +56,7 @@ describe("contrat utilisateur — le schéma document le rend en entier", () => 
 
   it("un défaut structuré est une FABRIQUE, jamais une valeur partagée", () => {
     for (const column of USER_COLUMNS.filter((c) => c.makeDefault)) {
-      const produced = schema[column.name].default;
+      const produced = schema[column.name]!.default;
       assert.equal(
         typeof produced,
         "function",

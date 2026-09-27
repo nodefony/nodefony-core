@@ -110,8 +110,8 @@ describe("RedisService.getClient — connexion inscrite mais jamais ouverte", ()
       "une session écrit à chaque requête : journaliser à chaque appel " +
         "noierait le journal au lieu d'alerter",
     );
-    assert.match(warnings[0][0], /indisponible/);
-    assert.match(warnings[0][0], /main/);
+    assert.match(warnings[0]![0], /indisponible/);
+    assert.match(warnings[0]![0], /main/);
   });
 
   it("annonce le rétablissement quand la connexion revient", async () => {

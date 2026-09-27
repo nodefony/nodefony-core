@@ -151,7 +151,7 @@ describe.skipIf(!URI)(
 
         const rows = await repo.find();
         assert.equal(rows.length, 1);
-        assert.equal(rows[0].session_id, "fresh");
+        assert.equal(rows[0]!.session_id, "fresh");
       });
     });
 
@@ -171,7 +171,7 @@ describe.skipIf(!URI)(
       it("describeEntity('session') : PK nommée `id` + colonnes logiques", () => {
         const cols = orm.describeEntity("session");
         const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
-        assert.equal(byName.id.primaryKey, true);
+        assert.equal(byName.id!.primaryKey, true);
         assert.equal(byName._id, undefined, "`_id` du moteur exposé");
         assert.ok(byName.session_id, "colonne session_id présente");
       });

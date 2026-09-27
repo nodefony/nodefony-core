@@ -88,10 +88,10 @@ describe.skipIf(!URI)(
         await store.append(makeAuditEvent({ id: "evt-nu", ts: 1_500_001 }));
         const page = await store.listPage({ limit: 1 });
         const [item] = page.items;
-        assert.equal(item.id, "evt-nu");
-        assert.ok(!("flags" in item), "flags ne doit pas être matérialisé");
+        assert.equal(item!.id, "evt-nu");
+        assert.ok(!("flags" in item!), "flags ne doit pas être matérialisé");
         assert.ok(
-          !("metadata" in item),
+          !("metadata" in item!),
           "metadata ne doit pas être matérialisé",
         );
       });

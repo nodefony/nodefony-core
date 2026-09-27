@@ -92,7 +92,7 @@ describe("Redis RedisTokenStore — ITokenStore + TTL natif (J4b, FakeRedis)", (
       await store.put(makeRecord({ id: "t1", name: "v2" }));
       const all = await store.findBySubject("u1");
       assert.equal(all.length, 1);
-      assert.equal(all[0].name, "v2");
+      assert.equal(all[0]!.name, "v2");
     });
 
     it("markUsed pose lastUsedAt/ip/ua ; no-op si id inconnu", async () => {
@@ -222,7 +222,7 @@ describe("Redis RedisTokenStore — ITokenStore + TTL natif (J4b, FakeRedis)", (
       CLOCK += 5_001; // s1 expire (TTL), s2 reste
       const rows = await store.findBySubject("uX");
       assert.equal(rows.length, 1);
-      assert.equal(rows[0].id, "s2");
+      assert.equal(rows[0]!.id, "s2");
     });
   });
 });

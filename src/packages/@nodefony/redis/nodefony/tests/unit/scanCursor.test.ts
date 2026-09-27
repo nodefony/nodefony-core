@@ -263,6 +263,6 @@ describe("listAll (jetons) — plafond de balayage", () => {
     const all = await store.listAll();
     assert.deepEqual(all, [], "aucun record décodable dans ce décor");
     assert.equal(notices.length, 1, "un listing tronqué se DIT");
-    assert.match(notices[0], /PARTIEL/);
+    assert.match(notices[0]!, /PARTIEL/);
   }, 5_000);
 });

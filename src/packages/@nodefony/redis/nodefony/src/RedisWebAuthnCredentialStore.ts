@@ -144,10 +144,13 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
 
   /** Désérialise un HASH en credential (`lastUsedAt`/`nickname` absents → `null`/omis). */
   #decode(h: Record<string, string>): IWebAuthnCredential {
+    // Champ obligatoire absent (HASH tronqué) → chaîne vide, jamais un
+    // `undefined` sous un type `string`. Une clé publique vide ne vérifie rien.
+    const req = (k: string): string => h[k] ?? "";
     return {
-      id: h.id,
-      userId: h.userId,
-      publicKey: h.publicKey,
+      id: req("id"),
+      userId: req("userId"),
+      publicKey: req("publicKey"),
       signCount: Number(h.signCount),
       transports: h.transports ? (JSON.parse(h.transports) as string[]) : [],
       backupEligible: h.backupEligible === "1",

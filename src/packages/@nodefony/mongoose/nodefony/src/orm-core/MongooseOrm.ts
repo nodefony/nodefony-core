@@ -553,7 +553,7 @@ export class MongooseOrm extends Orm {
       );
     }
     this.#repositories ??= Object.create(null) as Record<string, IRepository>;
-    let repository = this.#repositories[name] as IRepository | undefined;
+    let repository = this.#repositories[name];
     if (repository === undefined) {
       repository = new MongooseRepository(
         model,

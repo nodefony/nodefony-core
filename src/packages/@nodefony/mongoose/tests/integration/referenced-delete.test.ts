@@ -212,7 +212,7 @@ describe.skipIf(!URI)("suppression d'un parent référencé (MongoDB)", () => {
   it("une référence SANS index est signalée au connect(), en nommant le champ", () => {
     const hits = warnings.filter((w) => w.includes("sans index"));
     assert.equal(hits.length, 1, hits.join("\n"));
-    assert.ok(hits[0].includes("RefDraft.author"));
+    assert.ok(hits[0]!.includes("RefDraft.author"));
   });
 
   it("dans une transaction : la garde refuse, et le rollback garde le parent", async () => {

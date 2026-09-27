@@ -29,8 +29,10 @@ function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
     const target = Object.hasOwn(config.connectors, "nodefony")
       ? "nodefony"
       : Object.keys(config.connectors).at(0);
-    if (target !== undefined) {
-      config.connectors[target].uri = uri;
+    const connector =
+      target === undefined ? undefined : config.connectors[target];
+    if (connector !== undefined) {
+      connector.uri = uri;
     }
   }
   if (env.NF_MONGODB_DEBUG === "1" || env.NF_MONGODB_DEBUG === "true") {

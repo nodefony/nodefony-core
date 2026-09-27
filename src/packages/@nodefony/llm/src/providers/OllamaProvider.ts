@@ -204,8 +204,9 @@ export class OllamaProvider implements ILLMProvider {
       if (!response.ok) return false;
       const data = (await response.json()) as { models?: { name: string }[] };
       return (
-        data.models?.some((m) => m.name.startsWith(this.model.split(":")[0])) ??
-        false
+        data.models?.some((m) =>
+          m.name.startsWith(this.model.split(":")[0] ?? this.model),
+        ) ?? false
       );
     } catch {
       return false;
@@ -244,10 +245,12 @@ export class OllamaProvider implements ILLMProvider {
     const sysIdx = result.findIndex((m) => m.role === "system");
     const ctxText = `\n\n<context>\n${options.context}\n</context>`;
 
-    if (sysIdx >= 0) {
+    // `findIndex` rend -1 sans message système : la lecture rend alors undefined.
+    const system = result[sysIdx];
+    if (system !== undefined) {
       result[sysIdx] = {
-        ...result[sysIdx],
-        content: result[sysIdx].content + ctxText,
+        ...system,
+        content: system.content + ctxText,
       };
     } else {
       result.unshift({ role: "system", content: ctxText });
