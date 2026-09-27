@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 878,
-    "symbols": 4363,
+    "files": 875,
+    "symbols": 4360,
     "classes": 404,
     "interfaces": 1145,
-    "types": 470,
+    "types": 469,
     "enums": 4,
-    "functions": 1905,
+    "functions": 1903,
     "constants": 435
   },
   "symbols": {
@@ -1594,14 +1594,6 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Compose la commande portable — voir {@link IPortableSpawn}. La plateforme, la grammaire de chemins et l'interpréteur sont INJECTÉS pour la même raison que dans {@link needsShell} : la branche Windo…"
-    },
-    "isolatedGitEnv": {
-      "name": "isolatedGitEnv",
-      "kind": "function",
-      "file": "src/nodefony/src/cli/gitEnv.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Environnement d'un git lancé sur un dépôt DIFFÉRENT de celui qui l'appelle — l'application que `nodefony create` vient d'écrire, par exemple. Sans lui, un `create app` lancé depuis un hook de commi…"
     },
     "parseGitHooksArgv": {
       "name": "parseGitHooksArgv",
@@ -6648,14 +6640,6 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
-    },
-    "PartialInput": {
-      "name": "PartialInput",
-      "kind": "type",
-      "file": "src/nodefony/src/types/PartialInput.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Données d'écriture partielles telles qu'elles arrivent d'un schéma de validation : une clé peut manquer OU valoir `undefined`, et les deux disent la même chose — « ne pas toucher à ce champ ». `Par…"
     },
     "IFrameworkStoresReport": {
       "name": "IFrameworkStoresReport",
@@ -20603,14 +20587,6 @@
       "decorators": [],
       "description": "Levée par `ITransaction.savepoint()` / `rollbackTo()` sur un moteur qui ne porte PAS de savepoints (MongoDB). Refuser vaut mieux que se taire : un `rollbackTo()` rendu en no-op laissait l'appelant …"
     },
-    "omitUndefined": {
-      "name": "omitUndefined",
-      "kind": "function",
-      "file": "src/packages/@nodefony/orm-core/nodefony/src/omitUndefined.ts",
-      "exported": true,
-      "module": "@nodefony/orm-core",
-      "description": "Retire les clés qui valent `undefined` d'une donnée d'écriture partielle. `undefined` et clé absente veulent dire « ne pas toucher » : Drizzle ignore déjà une valeur `undefined`, Mongoose (≥ 6) la …"
-    },
     "Orm": {
       "name": "Orm",
       "kind": "class",
@@ -32845,10 +32821,6 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
-      "isolatedGitEnv": [
-        "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/cli/gitHooks.ts"
-      ],
       "configInconsistencies": [
         "src/nodefony/src/cli/env.ts"
       ],
@@ -37605,11 +37577,6 @@
       "isMutationMethod": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
-      "PartialInput": [
-        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/omitUndefined.ts"
-      ],
       "compileDomainPatterns": [
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
@@ -38111,9 +38078,6 @@
       "PageQuery": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
-      ],
-      "omitUndefined": [
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts"
       ],
       "ServiceWiring": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",

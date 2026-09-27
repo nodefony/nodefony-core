@@ -24,6 +24,7 @@ import {
   DEFAULT_EXCEPTIONS,
   analyzeSource,
   applyExceptions,
+  exitCodeOf,
   extractDeclaredIdentifiers,
   frenchWordOf,
   isProductionFile,
@@ -1052,6 +1053,19 @@ describe("scanRepo — sur un dépôt fabriqué", () => {
       full.exceptions.unused.length,
       DEFAULT_EXCEPTIONS.length + exceptions.length,
     );
+  });
+
+  it("une exception SANS EFFET fait échouer le gate, comme un identifiant", () => {
+    const root = repo({ "src/a/x.ts": "export const clean = 1;\n" });
+    const dead = scanRepo({
+      root,
+      paths: ["src/a/x.ts"],
+      exceptions: [{ path: "src/a/x.ts", reason: "n'absorbe rien" }],
+    });
+    assert.equal(dead.findings.length, 0);
+    assert.equal(exitCodeOf(dead), 1);
+    const clean = scanRepo({ root, paths: ["src/a/x.ts"] });
+    assert.equal(exitCodeOf(clean), 0);
   });
 });
 

@@ -255,11 +255,6 @@ export const DEFAULT_EXCEPTIONS = [
       "moitié traduite chez l'utilisateur.",
   },
   {
-    path: "src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx",
-    identifier: "Erreurs",
-    reason: "même table de poids que `health.ts` ci-dessus.",
-  },
-  {
     path: "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
     identifier: "identifiant",
     reason:
@@ -1384,6 +1379,20 @@ export function scanRepo({ root, paths, exceptions = [] } = {}) {
   };
 }
 
+/**
+ * Code de sortie du gate : 1 si un identifiant sort OU si une exception
+ * n'absorbe plus rien. Une exception morte n'est pas inoffensive : elle reste
+ * prête à absorber en silence le prochain identifiant français du même nom,
+ * dans un fichier que personne n'a relu. Le balayage partiel (hook) ne juge
+ * que les exceptions qui visent un fichier balayé — cf `scanRepo`.
+ *
+ * @param result - rendu de `scanRepo`
+ * @returns 0 ou 1
+ */
+export function exitCodeOf(result) {
+  return result.findings.length || result.exceptions.unused.length ? 1 : 0;
+}
+
 /** Rendu texte du rapport, pour un humain devant son terminal. */
 export function formatReport(result) {
   const out = [];
@@ -1434,7 +1443,7 @@ Usage : node scripts/check-identifier-language.mjs [options] [chemins…]
   --exceptions <f.json> tableau d'entrées { "path"?, "identifier"?, "reason"? } ou de noms
   --help                cette aide
 
-Sortie : 0 si aucun identifiant ne sort, 1 sinon, 2 sur erreur d'usage.
+Sortie : 0 si aucun identifiant ne sort et que toute exception absorbe quelque chose,\n1 sinon, 2 sur erreur d'usage.
 Contrôlés : .ts .tsx .mts .cts .js .jsx .mjs .cjs .vue .svelte .sh .bash, et les
 gabarits *.tpl qui portent l'une de ces extensions — la règle porte sur le CODE,
 pas sur un langage. Les scripts shell sont lus par leur propre automate.
@@ -1486,5 +1495,5 @@ if (
   // l'écriture est synchrone : le défaut ne se montrait pas, et se déclenchait
   // seulement au-delà du tampon. Poser le code laisse Node sortir de lui-même,
   // une fois la sortie écrite.
-  process.exitCode = result.findings.length ? 1 : 0;
+  process.exitCode = exitCodeOf(result);
 }
