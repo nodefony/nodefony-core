@@ -200,8 +200,19 @@ class Router extends Service implements IRequestRouter {
     this.singletonControllers ??= new Map();
     let instance = this.singletonControllers.get(ctor);
     if (!instance) {
-      instance = create();
-      this.singletonControllers.set(ctor, instance);
+      const pending = create();
+      instance = pending;
+      this.singletonControllers.set(ctor, pending);
+      // Une création rejetée (initialize() qui lève : base pas encore prête)
+      // ne reste pas en cache — sinon le contrôleur est mort jusqu'au
+      // redémarrage. Les appelants déjà en attente partagent l'échec ; la
+      // requête suivante recrée. La garde d'identité épargne une création
+      // plus récente posée entre-temps.
+      pending.catch(() => {
+        if (this.singletonControllers?.get(ctor) === pending) {
+          this.singletonControllers.delete(ctor);
+        }
+      });
     }
     // La clé EST la classe de l'instance : le lien ctor → T tient par
     // construction, mais une Map ne sait pas l'exprimer par entrée.
