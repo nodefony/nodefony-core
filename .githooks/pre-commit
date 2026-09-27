@@ -104,7 +104,12 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^src/nodefony/te
     echo "   → npm run format:templates   puis  git add src/nodefony/templates"
     exit 1
   fi
-  if ! node scripts/check-scaffold-format.mjs --raw; then
+  # `env -u GIT_INDEX_FILE` : ces étapes font du git dans des DÉCORS
+  # temporaires. Pendant un commit partiel (`git commit -- chemins`), git pose
+  # `GIT_INDEX_FILE` en chemin ABSOLU vers l'index temporaire du commit : un
+  # `git add` du décor l'hériterait et y écrirait ses fichiers (vécu :
+  # `invalid object … for package-lock.json`, commit refusé).
+  if ! env -u GIT_INDEX_FILE node scripts/check-scaffold-format.mjs --raw; then
     echo "❌ le RENDU d'un gabarit n'est pas au format — commit annulé"
     echo "   → la correction va dans le GABARIT : npm run format:scaffold -- --raw --diff"
     exit 1
@@ -126,7 +131,8 @@ fi
 if git diff --cached --name-only --diff-filter=ACMR \
    | grep -qE '^\.claude/skills/nodefony-devkit-bench/'; then
   echo "🧪 banc devkit touché → auto-contrôle des juges (~1 min 30)..."
-  if ! npm run --silent devkit:selftest -- --prove --sans bench-schema.selftest.mjs; then
+  # Même raison que le rendu des gabarits ci-dessus : décors git temporaires.
+  if ! env -u GIT_INDEX_FILE npm run --silent devkit:selftest -- --prove --sans bench-schema.selftest.mjs; then
     echo "❌ un juge du banc est cassé — commit annulé"
     echo "   → npm run devkit:selftest -- --prove   (rejouer et lire les causes)"
     exit 1

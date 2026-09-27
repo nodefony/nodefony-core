@@ -953,6 +953,35 @@ step(
   () => run("npm", ["run", "typecheck"]),
 );
 
+step(
+  "le code généré COMPILE sous les options strictes du framework",
+  "Le gabarit s'arrête à `strict` (choix de l'application) ; qui active " +
+    "`noUncheckedIndexedAccess` ou `exactOptionalPropertyTypes` — les options " +
+    "du dépôt — ne doit pas hériter d'un code engendré qui ne compile plus.",
+  () => {
+    // `tsgo` appelé DIRECTEMENT : le script `typecheck` de l'app enchaîne
+    // `tsgo … && npm run typecheck --workspaces`, et des options passées après
+    // `--` tombent sur le `npm` du second maillon, qui les refuse.
+    const strict = [
+      "--noEmit",
+      "--noUncheckedIndexedAccess",
+      "--exactOptionalPropertyTypes",
+    ];
+    run("npx", ["tsgo", ...strict]);
+    const modules = path.join(APP, "modules");
+    for (const name of existsSync(modules) ? readdirSync(modules) : []) {
+      for (const config of ["tsconfig.json", "tsconfig.tests.json"]) {
+        if (existsSync(path.join(modules, name, config)))
+          run(
+            "npx",
+            ["tsgo", ...strict, "-p", config],
+            path.join(modules, name),
+          );
+      }
+    }
+  },
+);
+
 /**
  * Les expressions de code citées dans un document que l'agent lit d'office.
  *

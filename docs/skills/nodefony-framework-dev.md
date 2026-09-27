@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-26
+updated: 2026-09-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.0.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.1.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,13 +26,13 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `2.0.0` |
+| Version | `2.1.0` |
 | Famille | Développer le framework |
-| Corps | 403 lignes |
-| Coût d'activation | ~8 738 tokens (le corps est chargé à l'invocation) |
+| Corps | 404 lignes |
+| Coût d'activation | ~8 806 tokens (le corps est chargé à l'invocation) |
 | Description | 980 / 1024 caractères |
 | Déclencheurs | 17 |
-| Ressources `references/` | 10 page(s), 85 fichiers au total |
+| Ressources `references/` | 11 page(s), 86 fichiers au total |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
@@ -78,6 +78,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 141 |
 | `references/realtime.md` | Realtime (WS/hub/RealtimeService) — référence complète (recettes + API + internals + gotchas) | 623 |
 | `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 69 |
+| `references/typage-strict.md` | Durcir le typage par cliquet — options du compilateur et codemods | 68 |
 
 _(+ 75 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 
@@ -100,7 +101,7 @@ _(+ 75 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 403 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 404 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

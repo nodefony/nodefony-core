@@ -669,7 +669,7 @@
       "name": "nodefony-devkit-bench",
       "summary": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer.",
       "family": "Autres",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "keywords": [],
       "triggers": [],
       "description": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un lecteur conclut le contraire de ce qu'on croit écrire. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\", \"un agent recommanderait-il ce framework ?\", \"que conclut un agent en lisant le dépôt ?\", \"notre accueil dit-il vrai ?\".",
@@ -1706,6 +1706,10 @@
                 "help": ""
               },
               {
+                "flag": "--exact",
+                "help": ""
+              },
+              {
                 "flag": "--force",
                 "help": ""
               },
@@ -1743,6 +1747,10 @@
               },
               {
                 "flag": "--name",
+                "help": ""
+              },
+              {
+                "flag": "--no",
                 "help": ""
               },
               {
@@ -1815,6 +1823,10 @@
               },
               {
                 "flag": "--workspace",
+                "help": ""
+              },
+              {
+                "flag": "--workspaces",
                 "help": ""
               },
               {
@@ -2405,7 +2417,7 @@
       "name": "nodefony-framework-dev",
       "summary": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
       "family": "Développer le framework",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "keywords": [
         "nodefony",
         "@nodefony/http",
@@ -2432,8 +2444,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 403,
-        "approxTokens": 8738
+        "bodyLines": 404,
+        "approxTokens": 8806
       },
       "requires": [],
       "resources": {
@@ -2447,9 +2459,10 @@
           "pagination.md",
           "portabilite.md",
           "realtime.md",
-          "security.md"
+          "security.md",
+          "typage-strict.md"
         ],
-        "referenceFilesTotal": 85,
+        "referenceFilesTotal": 86,
         "scripts": []
       },
       "related": [
@@ -2528,7 +2541,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "403",
+            "detail": "404",
             "advisory": true
           }
         ]

@@ -14,7 +14,7 @@ description: >
   "un agent recommanderait-il ce framework ?", "que conclut un agent en lisant le dépôt ?",
   "notre accueil dit-il vrai ?".
 metadata:
-  version: 1.3.0
+  version: 1.4.0
 ---
 
 # nodefony-devkit-bench — prouver ce que le scaffold produit
