@@ -22,6 +22,14 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["index.ts", "rolldown.config.ts", "nodefony/**/*.ts"],
+  "include": [
+    "index.ts",
+    "rolldown.config.ts",
+    "nodefony/**/*.ts",
+    // Outillage de test RACINE : sans propriétaire ici, un lint ciblé (lint-staged)
+    // le type sans tsconfig — tout y devient `error`, alors que le lint complet
+    // passe (il le voit par le programme d'un paquet qui l'importe).
+    "vitest.*.ts"
+  ],
   "exclude": ["node_modules", "dist", "src"]
 }
