@@ -199,7 +199,7 @@ class StudioController extends Controller {
   // pré-P6 : monté hors broker, donc sans le RBAC du data plane).
   // Le transport WEBSOCKET est déclaré EN PLUS de GET : la console appelle cette
   // route par le pont `api.request`, qui résout sur le transport de la socket.
-  // Sans cette déclaration, le Router refuse (« Method WEBSOCKET Unauthorized »,
+  // Sans cette déclaration, le Router refuse (« Method WEBSOCKET Not Allowed »,
   // 405) et le panneau perd son instantané — le RBAC ci-dessus reste évalué à
   // l'identique, le pont ne contourne aucune garde.
   @IsGranted("ROLE_SUPERVISOR")

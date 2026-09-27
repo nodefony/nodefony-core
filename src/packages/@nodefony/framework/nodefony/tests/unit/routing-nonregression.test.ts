@@ -161,7 +161,9 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
   // apparaît dans l'agrégat Allow d'un path DUPLEX (REST+WS sur le même path).
   // Légal RFC 9110 (method = token, registre extensible) et informatif : le
   // Allow révèle la surface duplex de la ressource (data plane souverain).
-  it("path duplex (GET + WEBSOCKET) → l'agrégat Allow expose la pseudo-méthode WEBSOCKET", () => {
+  // `Allow` liste des MÉTHODES HTTP (RFC 9110 §10.2.1) : WEBSOCKET est la
+  // pseudo-méthode interne du transport, un client HTTP ne peut pas l'employer.
+  it("path duplex (GET + WEBSOCKET) → l'agrégat Allow n'expose PAS la pseudo-méthode WEBSOCKET", () => {
     Router.createRoute("dup-get", {
       path: "/dup",
       requirements: { methods: ["GET"] },
@@ -177,7 +179,28 @@ describe("Routing NR — B. méthodes et 405 agrégé", () => {
       err = e as HttpError & { allow?: string };
     }
     expect(err?.code).to.equal(405);
-    expect(err?.allow ?? "").to.equal("GET, HEAD, WEBSOCKET");
+    expect(err?.allow ?? "").to.equal("GET, HEAD");
+  });
+
+  // RFC 9110 §15.5.22 : la ressource n'existe qu'en WebSocket → 426 Upgrade
+  // Required, qui DOIT porter `Upgrade` (§7.8, avec l'option `upgrade` de
+  // Connection). Un 405 « Allow: WEBSOCKET » n'indiquait rien d'employable.
+  it("route WebSocket SEULE appelée en HTTP → 426 + Upgrade: websocket", () => {
+    Router.createRoute("ws-only", {
+      path: "/ws-only",
+      requirements: { methods: ["WEBSOCKET"] },
+    });
+    const ctx = makeCtx("/ws-only", "GET");
+    let err: HttpError | undefined;
+    try {
+      makeRouter().resolve(ctx);
+    } catch (e) {
+      err = e as HttpError;
+    }
+    expect(err?.code).to.equal(426);
+    expect(String(ctx.response.headers["Upgrade"])).to.equal("websocket");
+    expect(String(ctx.response.headers["Connection"])).to.equal("Upgrade");
+    expect(ctx.response.headers["Allow"]).to.equal(undefined);
   });
 
   it("route SANS requirements.methods → sert toutes les méthodes", () => {

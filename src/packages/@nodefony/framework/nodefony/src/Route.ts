@@ -662,7 +662,9 @@ class Route implements IRoute {
       }
       // Le serveur sert ce domaine (passé la barrière trustedHosts kernel), mais
       // cette route est restreinte à un autre vhost → 403 Forbidden (RFC 9110).
-      const error = new HttpError(`Domain ${context.domain} Unauthorized`);
+      const error = new HttpError(
+        `Domain ${context.domain} Forbidden for this route`,
+      );
       error.code = 403;
       error.type = "domain";
       throw error;
@@ -741,7 +743,7 @@ class Route implements IRoute {
                 !this.methodsSet.has(methodOverride)
               ) {
                 const error = new HttpError(
-                  `Method ${methodOverride} Unauthorized`,
+                  `Method ${methodOverride} Not Allowed`,
                 );
                 error.code = 405;
                 error.type = "method";
@@ -752,7 +754,7 @@ class Route implements IRoute {
             }
             if (!this.methodsSet.has(context.method as string)) {
               const error = new HttpError(
-                `Method ${context.method} Unauthorized`,
+                `Method ${context.method} Not Allowed`,
               );
               error.code = 405;
               error.type = "method";
@@ -777,7 +779,7 @@ class Route implements IRoute {
                   (context as WebsocketContext).acceptedProtocol !== requirement
                 ) {
                   const error = new HttpError(
-                    `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`,
+                    `Protocol ${(context as WebsocketContext).acceptedProtocol} Not Supported`,
                   );
                   error.code = 1002;
                   error.type = "protocol";
@@ -785,7 +787,7 @@ class Route implements IRoute {
                 }
               } else {
                 const error = new HttpError(
-                  `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`,
+                  `Protocol ${(context as WebsocketContext).acceptedProtocol} Not Supported`,
                 );
                 error.code = 1002;
                 error.type = "protocol";

@@ -343,6 +343,19 @@ class Router extends Service implements IRequestRouter {
           m.forEach((x) => allowed.add(x));
         }
       }
+      // WEBSOCKET est la pseudo-méthode du transport, pas une méthode HTTP :
+      // elle n'a rien à faire dans `Allow` (RFC 9110 §10.2.1). `allowed` est un
+      // Set neuf, le retrait ne touche aucune route.
+      const servesWebsocket = allowed.delete("WEBSOCKET");
+      if (allowed.size === 0 && servesWebsocket) {
+        // Le chemin n'existe qu'en WebSocket : 426 Upgrade Required, qui DOIT
+        // porter `Upgrade` et l'option `upgrade` de Connection (§15.5.22, §7.8).
+        context.response?.setHeaders({
+          Upgrade: "websocket",
+          Connection: "Upgrade",
+        });
+        throw new HttpError("Upgrade Required: websocket", 426, context);
+      }
       if (allowed.size > 0) {
         const allowHeader = Array.from(allowed).join(", ");
         const err = new HttpError(

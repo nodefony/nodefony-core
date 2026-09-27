@@ -345,6 +345,16 @@ describe("Route — HEAD implicite sur une route GET (RFC 9110 §9.1)", () => {
     expect((err as HttpError).allow).to.equal("POST");
   });
 
+  it("le message d'un 405 dit « Not Allowed », jamais « Unauthorized » (le 401)", () => {
+    const r = new Route("r", {
+      path: "/api",
+      requirements: { methods: ["GET"] },
+    });
+    expect(() => r.match(makeCtx("/api", "DELETE"))).to.throw(
+      /Method DELETE Not Allowed/,
+    );
+  });
+
   it("HEAD déjà déclaré n'est pas doublé dans Allow", () => {
     const r = new Route("r", {
       path: "/api",

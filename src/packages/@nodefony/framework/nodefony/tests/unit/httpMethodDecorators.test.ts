@@ -544,7 +544,7 @@ describe("HTTP method decorators — transports déclarés par l'appelant", () =
   it("sens négatif : un transport NON déclaré reste refusé", () => {
     // L'union élargit ce que l'auteur a écrit — elle n'ouvre rien d'autre.
     //
-    // Le refus se manifeste par une LEVÉE (`Method X Unauthorized`), pas par un
+    // Le refus se manifeste par une LEVÉE (`Method X Not Allowed`), pas par un
     // retour vide : c'est exactement l'erreur que le pont `api.request`
     // remontait en `-32000 / 405`, ce qui ancre ce test au symptôme d'origine.
     @controller("/pont3")
@@ -557,7 +557,7 @@ describe("HTTP method decorators — transports déclarés par l'appelant", () =
     void Pont3Ctrl;
     const r = Router.routes.find((r) => r.name === "Pont3Ctrl::stats");
     expect(() => r?.match(ctx("/pont3/stats", "POST"))).to.throw(
-      /Method POST Unauthorized/,
+      /Method POST Not Allowed/,
     );
   });
 
