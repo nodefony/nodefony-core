@@ -128,6 +128,12 @@ function cookieValue(
 }
 
 /**
+ * Défi posé sur un 401 quand aucun authenticator de la zone n'en déclare
+ * (RFC 9110 §15.5.2). Schéma inconnu des navigateurs : aucune fenêtre de login.
+ */
+const FALLBACK_CHALLENGE = 'Session realm="nodefony"';
+
+/**
  * Orchestrateur de sécurité Nodefony — refonte 2026 (P6).
  *
  * `isSecure()` (hot-path, court-circuit si aucune zone) ne fait QUE matcher la
@@ -144,8 +150,9 @@ function cookieValue(
  * d'identité down, câblage manquant) → log ERROR serveur + 401 générique
  * (aucun détail ne fuite au client).
  *
- * Conformité : tout 401 porte un challenge `WWW-Authenticate` (RFC 7235) fourni
- * par le premier authenticator de la zone qui en déclare un.
+ * Conformité : tout 401 porte un challenge `WWW-Authenticate` (RFC 9110
+ * §15.5.2) — celui du premier authenticator de la zone qui en déclare un, sinon
+ * le défi de repli {@link FALLBACK_CHALLENGE}.
  *
  * CORS, CSRF et autorisation par décorateurs viennent se brancher en S4/S5.
  * Toutes les structures sont **lazy** (perf : une app sans zone = zéro alloc).
@@ -1219,6 +1226,11 @@ class Firewall extends Service implements IFirewall {
         return;
       }
     }
+    // Aucun authenticator de la zone ne déclare de défi (session seule, ou un
+    // authenticator applicatif) : un 401 DOIT en porter un quand même (RFC 9110
+    // §15.5.2). Un schéma que le navigateur ne connaît pas n'ouvre aucune
+    // fenêtre de connexion — seuls Basic, Digest et Negotiate en ouvrent.
+    response.setHeader("WWW-Authenticate", FALLBACK_CHALLENGE);
   }
 
   override log(

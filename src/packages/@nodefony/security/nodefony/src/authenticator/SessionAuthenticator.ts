@@ -23,9 +23,11 @@ interface ISessionCredentials {
  * démarre jamais rien lui-même. L'identité est re-résolue à CHAQUE requête
  * via {@link resolveSessionIdentity} (rôles frais, révocation immédiate).
  *
- * Pas de `challenge()` : une session absente/expirée donne un 401 nu — le
- * client web redirige vers son écran de login, jamais de popup Basic. Si la
- * zone liste aussi `userpassword`, le firewall pose SON challenge (RFC 7235).
+ * Pas de `challenge()` : sur une zone à session seule, le firewall pose son
+ * défi de repli `Session realm="nodefony"` (RFC 9110 §15.5.2 : tout 401 en
+ * porte un) — schéma inconnu des navigateurs, donc jamais de popup Basic ; le
+ * client web redirige vers son écran de login. Si la zone liste aussi
+ * `userpassword`, le firewall pose SON challenge.
  */
 export class SessionAuthenticator implements IAuthenticator {
   readonly name = "session";
