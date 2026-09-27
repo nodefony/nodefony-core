@@ -9,6 +9,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { SysExit } from "./sysexits";
+import { isolatedGitEnv } from "./gitEnv";
 import { findProjectRoot } from "./projectRoot";
 import { stripGlobalCliFlags } from "./globalFlags";
 import {
@@ -69,6 +70,7 @@ function git(args: string[], cwd: string): string | null {
   try {
     return execFileSync("git", args, {
       cwd,
+      env: isolatedGitEnv(),
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
@@ -183,6 +185,7 @@ export function installGitHooks(
   }
   if (plan.hooksPath.action === "pose") {
     execFileSync("git", ["config", "core.hooksPath", plan.hooksPath.wanted], {
+      env: isolatedGitEnv(),
       cwd: projectRoot,
       stdio: ["ignore", "ignore", "ignore"],
     });

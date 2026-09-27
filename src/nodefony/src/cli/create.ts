@@ -40,6 +40,7 @@ import {
 } from "../kernel/checks/runDoctor";
 import { isTerminal } from "../runtime/isTerminal";
 import { spawnedOutput } from "../runtime/spawnedOutput";
+import { isolatedGitEnv } from "./gitEnv";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -1098,8 +1099,10 @@ export function argvMcpWiring(
  * @returns note affichable (fait / sauté et pourquoi)
  */
 function runGitInit(dest: string, appName: string, withHooks: boolean): string {
+  // Le dépôt visé est l'application NEUVE, jamais celui qui nous a lancés.
+  const env = isolatedGitEnv();
   const git = (...args: string[]) =>
-    spawnSync("git", args, { cwd: dest, stdio: "ignore" });
+    spawnSync("git", args, { cwd: dest, stdio: "ignore", env });
   const hooksNote = (): string => {
     if (!withHooks) return "";
     try {
@@ -1136,7 +1139,7 @@ function runGitInit(dest: string, appName: string, withHooks: boolean): string {
       "-m",
       `chore: bootstrap ${appName} (nodefony create app)`,
     ],
-    { cwd: dest, stdio: "ignore" },
+    { cwd: dest, stdio: "ignore", env },
   );
   return (
     (commit.status === 0
