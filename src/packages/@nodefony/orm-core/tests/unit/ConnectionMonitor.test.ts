@@ -73,8 +73,8 @@ describe("ConnectionMonitor — observabilité per-instance des connexions", () 
       snap.events.map((e) => e.kind),
       ["restored", "lost"],
     );
-    assert.equal(snap.events[1].reason, "ECONNRESET");
-    assert.equal(snap.events[0].reason, undefined);
+    assert.equal(snap.events[1]!.reason, "ECONNRESET");
+    assert.equal(snap.events[0]!.reason, undefined);
     assert.ok(snap.lastLostAt !== null && snap.lastRestoredAt !== null);
     assert.ok(snap.lastRestoredAt >= snap.lastLostAt);
 
@@ -83,7 +83,7 @@ describe("ConnectionMonitor — observabilité per-instance des connexions", () 
     }
     const many = connectionMonitor.snapshot(n);
     assert.equal(many.events.length, 20);
-    assert.equal(many.events[0].reason, "coupure 29");
+    assert.equal(many.events[0]!.reason, "coupure 29");
     assert.equal(many.lostCount, 31);
   });
 
@@ -97,7 +97,7 @@ describe("ConnectionMonitor — observabilité per-instance des connexions", () 
     assert.equal(snap.recentErrors.length, 12); // MAX_RECENT_ERRORS
     // unshift → le plus récent en tête.
     assert.equal(snap.lastError?.message, "boom 14");
-    assert.equal(snap.recentErrors[0].message, "boom 14");
+    assert.equal(snap.recentErrors[0]!.message, "boom 14");
   });
 
   it("recordPing : fenêtre de latence min/avg/max + ring borné à 30", () => {

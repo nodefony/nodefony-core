@@ -126,8 +126,8 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     const author = g.entities.find((e) => e.name === "Author");
     assert.ok(author);
     assert.equal(author.columns.length, 2);
-    assert.equal(author.columns[0].name, "id");
-    assert.equal(author.relations[0].target, "Article");
+    assert.equal(author.columns[0]!.name, "id");
+    assert.equal(author.relations[0]!.target, "Article");
     assert.equal(author.module, "blog"); // module propriétaire propagé
   });
 
@@ -174,7 +174,7 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     assert.ok(a);
     assert.equal(a.type, "object");
     assert.equal(a.additionalProperties, false);
-    assert.equal(a.properties.id.type, "string");
+    assert.equal(a.properties.id!.type, "string");
     assert.deepEqual(a.required, ["id", "email"]); // les deux non-nullables
     // one-to-many → tableau de $ref vers Article.
     assert.deepEqual(a.properties.articles, {

@@ -74,13 +74,13 @@ describe("Orm — contrat de résilience (perte / reprise de connexion)", () => 
     r = orm.describeResilience();
     assert.equal(r.lostPending, true);
     const lost = connectionMonitor.snapshot("res-describe").events[0];
-    assert.equal(lost.kind, "lost");
-    assert.equal(lost.reason, "serveur injoignable");
+    assert.equal(lost!.kind, "lost");
+    assert.equal(lost!.reason, "serveur injoignable");
 
     orm.signalRestored();
     assert.equal(orm.describeResilience().lostPending, false);
     assert.equal(
-      connectionMonitor.snapshot("res-describe").events[0].kind,
+      connectionMonitor.snapshot("res-describe").events[0]!.kind,
       "restored",
     );
   });

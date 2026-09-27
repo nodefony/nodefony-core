@@ -90,7 +90,7 @@ describe("reportOrphanEntities — le démarrage le DIT, une fois par Kernel", (
       assert.ok(message);
       assert.equal(lines.length, 1);
       assert.match(
-        lines[0],
+        lines[0]!,
         /^WARNING .*Ghost@orphans → « never-opened-connector »/u,
       );
     } finally {

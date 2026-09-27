@@ -70,7 +70,8 @@ export class EntityRegistry {
       );
     }
     // Un seau vide est retiré par `unregister` : l'unique connecteur existe.
-    const entity = bucket[connectors[0]];
+    const only = connectors[0];
+    const entity = only === undefined ? undefined : bucket[only];
     if (entity === undefined) {
       throw new Error(`EntityRegistry: no entity registered under "${name}".`);
     }

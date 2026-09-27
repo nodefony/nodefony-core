@@ -40,7 +40,10 @@ const REQUIRED = [
  * eux. Quand elle couvre le dépôt, l'option rejoint `REQUIRED` et la liste
  * disparaît. Les gabarits (`.tpl`) entrent avec le code qu'ils engendrent.
  */
-const INDEX_CHECKED = ["src/nodefony/"] as const;
+const INDEX_CHECKED = [
+  "src/nodefony/",
+  "src/packages/@nodefony/orm-core/",
+] as const;
 
 /** Options que `strict` allume et qu'aucun tsconfig ne doit éteindre. */
 const NEVER_OFF = [...REQUIRED, "useUnknownInCatchVariables"] as const;

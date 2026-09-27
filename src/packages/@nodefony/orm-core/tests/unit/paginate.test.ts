@@ -43,10 +43,10 @@ function spyRepo(rows: Row[]): { repo: IRepository<Row>; calls: Calls } {
       calls.findCriteria.push(criteria);
       let out = filter(criteria);
       if (o?.order?.length) {
-        const [field, dir] = o.order[0];
+        const [field, dir] = o.order[0]!;
         out = [...out].sort((a, b) => {
-          const av = (a as unknown as Record<string, number>)[field];
-          const bv = (b as unknown as Record<string, number>)[field];
+          const av = (a as unknown as Record<string, number>)[field]!;
+          const bv = (b as unknown as Record<string, number>)[field]!;
           return (av < bv ? -1 : av > bv ? 1 : 0) * (dir === "DESC" ? -1 : 1);
         });
       }
@@ -86,7 +86,7 @@ describe("paginate (contrat de page portable)", () => {
     await paginate(repo, { limit: 20, offset: 0 });
     // Une seule lecture, plafonnée à limit+1 — pas 10 000 lignes matérialisées.
     assert.equal(calls.find.length, 1);
-    assert.equal(calls.find[0].limit, 21);
+    assert.equal(calls.find[0]!.limit, 21);
   });
 
   it("dernière page : hasNext=false", async () => {
@@ -130,8 +130,8 @@ describe("paginate (contrat de page portable)", () => {
     const page = await paginate(repo, { limit: 0, offset: -4 });
     assert.equal(page.limit, 1);
     assert.equal(page.offset, 0);
-    assert.equal(calls.find[0].limit, 2); // 1 + 1
-    assert.equal(calls.find[0].offset, 0);
+    assert.equal(calls.find[0]!.limit, 2); // 1 + 1
+    assert.equal(calls.find[0]!.offset, 0);
   });
 
   it("transmet order et criteria au backend (pas de tri/filtre en mémoire après coup)", async () => {
@@ -141,7 +141,7 @@ describe("paginate (contrat de page portable)", () => {
       order: [["id", "DESC"]],
       criteria: { name: "r7" },
     });
-    assert.deepEqual(calls.find[0].order, [["id", "DESC"]]);
+    assert.deepEqual(calls.find[0]!.order, [["id", "DESC"]]);
     assert.deepEqual(calls.findCriteria[0], { name: "r7" });
     // count est filtré par le même criteria (total de la collection FILTRÉE).
     assert.equal(page.total, 1);
@@ -173,7 +173,7 @@ describe("AbstractCrudService.findPage (délégation à paginate)", () => {
     );
     assert.equal(page.hasNext, true);
     assert.equal(page.total, 10);
-    assert.equal(calls.find[0].limit, 5); // limit+1 remonté jusqu'au repo
+    assert.equal(calls.find[0]!.limit, 5); // limit+1 remonté jusqu'au repo
   });
 });
 

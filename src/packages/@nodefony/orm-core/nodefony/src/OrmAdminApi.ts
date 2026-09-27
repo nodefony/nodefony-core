@@ -685,7 +685,7 @@ export function createOrmAdminApi(): IAdminApi {
       ):
         | { format: string; content: string }
         | IAdminResponse<{ error: string }> => {
-        const format = request.params.format.toLowerCase();
+        const format = (request.params.format ?? "").toLowerCase();
         const graph = buildOrmGraph(oneParam(request, "connector"));
         if (format === "dbml") {
           return { format: "dbml", content: toDbml(graph) };

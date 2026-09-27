@@ -164,9 +164,9 @@ export function escapeLikeTerm(text: string): string {
 export function likePatternToRegExp(pattern: string): RegExp {
   let source = "";
   for (let i = 0; i < pattern.length; i++) {
-    const c = pattern[i];
+    const c = pattern.charAt(i);
     if (c === LIKE_ESCAPE_CHAR && i + 1 < pattern.length) {
-      source += escapeRegExpChar(pattern[++i]);
+      source += escapeRegExpChar(pattern.charAt(++i));
     } else if (c === "%") {
       source += ".*";
     } else if (c === "_") {
@@ -222,6 +222,7 @@ export function searchCriteria<T>(
   const term = q?.trim();
   if (!term || fields.length === 0) return null;
   const likePattern = `${escapeLikeTerm(term)}%`;
-  if (fields.length === 1) return { [fields[0]]: { $like: likePattern } };
+  const only = fields.length === 1 ? fields[0] : undefined;
+  if (only !== undefined) return { [only]: { $like: likePattern } };
   return { $or: fields.map((f) => ({ [f]: { $like: likePattern } })) };
 }

@@ -229,9 +229,10 @@ class ConnectionMonitor {
     }
     const lat = s.latencies;
     let latency: ILatencyWindow = EMPTY_LATENCY;
-    if (lat?.length) {
-      let min = lat[0];
-      let max = lat[0];
+    const last = lat?.at(-1);
+    if (lat && last !== undefined) {
+      let min = last;
+      let max = last;
       let sum = 0;
       for (const v of lat) {
         if (v < min) min = v;
@@ -239,7 +240,7 @@ class ConnectionMonitor {
         sum += v;
       }
       latency = {
-        last: lat[lat.length - 1],
+        last,
         min: Math.round(min * 100) / 100,
         avg: Math.round((sum / lat.length) * 100) / 100,
         max: Math.round(max * 100) / 100,

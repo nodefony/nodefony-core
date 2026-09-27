@@ -59,8 +59,8 @@ describe("QueryFlowMonitor — sonde de débit ORM agrégée", () => {
     assert.equal(f.slowTotal, 25);
     assert.equal(f.slow.length, 20); // MAX_SLOW
     // unshift → la plus récente en tête.
-    assert.equal(f.slow[0].sql, "SELECT 24");
-    assert.equal(f.slow[0].connector, n);
+    assert.equal(f.slow[0]!.sql, "SELECT 24");
+    assert.equal(f.slow[0]!.connector, n);
   });
 
   it("slowMs configurable → change le seuil de capture", () => {

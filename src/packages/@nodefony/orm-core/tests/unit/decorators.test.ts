@@ -48,7 +48,7 @@ describe("@entity", () => {
     class UserRel {}
 
     assert.equal(getEntityMeta(UserRel)?.relations?.length, 1);
-    assert.equal(entityRegistry.get("User").relations?.[0].target, "Room");
+    assert.equal(entityRegistry.get("User").relations?.[0]!.target, "Room");
   });
 
   it("hasEntityMeta = false sur classe non décorée", () => {
