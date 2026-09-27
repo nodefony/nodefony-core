@@ -33,11 +33,11 @@
     "vite": ">=8.2.0"
   },
   "devDependencies": {
-    "@analogjs/vite-plugin-angular": "2.7.4",
+    "@analogjs/vite-plugin-angular": "2.7.5",
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
-    "@types/node": "26.6.2",
+    "@types/node": "26.6.3",
     "nodefony": "*"
   },
   "license": "Apache-2.0"

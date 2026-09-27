@@ -39,10 +39,10 @@
     "@nodefony/realtime": "*",
     "@nodefony/security": "*",
     "@nodefony/user": "*",
-    "@types/node": "26.6.2",
+    "@types/node": "26.6.3",
     "cross-env": "10.1.0",
     "nodefony": "*",
-    "vitest": "5.0.1",
+    "vitest": "5.0.2",
     "zod": "^4.6.5"
   },
   "license": "",

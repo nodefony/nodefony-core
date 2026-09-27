@@ -38,10 +38,10 @@
   "devDependencies": {
     "@nodefony/framework": "^10.0.0-alpha.9",
     "@nodefony/http": "^10.0.0-alpha.9",
-    "@types/node": "26.6.2",
-    "@vitest/coverage-v8": "5.0.1",
+    "@types/node": "26.6.3",
+    "@vitest/coverage-v8": "5.0.2",
     "nodefony": "^10.0.0-alpha.9",
-    "vitest": "5.0.1"
+    "vitest": "5.0.2"
   },
   "peerDependencies": {
     "@nodefony/framework": "^10.0.0-alpha.9",

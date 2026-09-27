@@ -40,9 +40,9 @@
     "nodefony": "^10.0.0-alpha.9"
   },
   "devDependencies": {
-    "@types/node": "26.6.2",
+    "@types/node": "26.6.3",
     "nodefony": "^10.0.0-alpha.9",
-    "vitest": "5.0.1"
+    "vitest": "5.0.2"
   },
   "repository": {
     "type": "git",

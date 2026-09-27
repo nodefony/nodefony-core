@@ -54,12 +54,12 @@
   "devDependencies": {
     "@nodefony/http": "^10.0.0-alpha.9",
     "@types/chai": "5.2.3",
-    "@types/node": "26.6.2",
-    "@vitest/coverage-v8": "5.0.1",
+    "@types/node": "26.6.3",
+    "@vitest/coverage-v8": "5.0.2",
     "chai": "6.2.2",
     "nodefony": "^10.0.0-alpha.9",
     "tsx": "4.23.15",
-    "vitest": "5.0.1"
+    "vitest": "5.0.2"
   },
   "license": "Apache-2.0",
   "readmeFilename": "README.md",
