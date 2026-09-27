@@ -519,6 +519,13 @@ jobs:
     if: vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_IMAGE == 'true' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # `packages: write` — c'est TOUT ce que GHCR demande : le `GITHUB_TOKEN` du
+    # run suffit, éphémère, borné au dépôt. Aucun secret stocké, donc rien à
+    # faire fuiter par une action tierce (#259). `contents: read` se redit :
+    # un bloc `permissions` de job REMPLACE le défaut du workflow.
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -552,6 +559,12 @@ jobs:
         with:
           username: ${{ secrets.NF_DOCKERHUB_USER }}
           password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Construire et pousser
         env:
@@ -615,7 +628,23 @@ jobs:
           MOBILE="${CANAL:-latest}"
           docker tag "nodefony/nodefony:${V}" "nodefony/nodefony:${MOBILE}"
           docker push "nodefony/nodefony:${MOBILE}"
-          echo "::notice::image poussée — ${V} et ${MOBILE}"
+
+          # GHCR : la MÊME image, re-étiquetée — pas de second build. Un second
+          # build rendrait un autre digest, que ni le contrôle d'étiquettes ni
+          # celui de matière sensible n'auraient regardé. Même règle de canal.
+          #
+          # ⚠️ VISIBILITÉ À CONSTATER au premier push : la doc GitHub se
+          # contredit (« hérite la visibilité du dépôt » pour un paquet créé par
+          # GITHUB_TOKEN, « pas la visibilité » ailleurs ; privé par défaut sinon).
+          # S'il naît privé, le passer public UNE fois (Package settings), sinon
+          # le `docker pull` d'un inconnu répond `denied`. L'étiquette
+          # `org.opencontainers.image.source` le rattache à ce dépôt.
+          GHCR="ghcr.io/nodefony/nodefony"
+          docker tag "nodefony/nodefony:${V}" "${GHCR}:${V}"
+          docker tag "nodefony/nodefony:${V}" "${GHCR}:${MOBILE}"
+          docker push "${GHCR}:${V}"
+          docker push "${GHCR}:${MOBILE}"
+          echo "::notice::image poussée — ${V} et ${MOBILE}, Docker Hub et GHCR"
 
       # LA PAGE DE L'IMAGE — Docker Hub affichait « Repository overview:
       # INCOMPLETE », c'est-à-dire rien : ni ce que l'image contient, ni comment
