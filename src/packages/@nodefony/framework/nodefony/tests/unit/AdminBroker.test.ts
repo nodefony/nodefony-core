@@ -39,7 +39,7 @@ function fakeApi(ns: string, endpoints: IAdminEndpoint[] = []): IAdminApi {
 
 function cleanupAdminRoutes(): void {
   for (let i = Router.routes.length - 1; i >= 0; i--) {
-    if (Router.routes[i].name.startsWith("admin.")) Router.routes.splice(i, 1);
+    if (Router.routes[i]!.name.startsWith("admin.")) Router.routes.splice(i, 1);
   }
 }
 

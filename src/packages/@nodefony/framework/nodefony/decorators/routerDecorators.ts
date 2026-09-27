@@ -210,8 +210,7 @@ function controller(prefix: string) {
         Record<string, RouteOptions> | undefined) ?? {};
     if (Object.keys(metadata).length !== 0) {
       let hasMagic: false | { name: string; options: RouteOptions } = false;
-      for (const name in metadata) {
-        const options = metadata[name];
+      for (const [name, options] of Object.entries(metadata)) {
         options.prefix = prefix;
         // @Domain : précédence @route({host}) > @Domain méthode > @Domain classe.
         if (options.host === undefined) {
@@ -1047,9 +1046,9 @@ function mergeCspDirectives(
   const out: Record<string, string[]> = {};
   for (const src of [a, b]) {
     if (!src) continue;
-    for (const name in src) {
+    for (const [name, values] of Object.entries(src)) {
       const list = (out[name] ??= []);
-      for (const v of src[name]) if (!list.includes(v)) list.push(v);
+      for (const v of values) if (!list.includes(v)) list.push(v);
     }
   }
   return out;

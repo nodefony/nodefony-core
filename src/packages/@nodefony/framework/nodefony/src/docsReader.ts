@@ -138,7 +138,8 @@ export function parseFrontmatter(raw: string): {
 /** Premier titre `# H1` du corps markdown, ou `null`. */
 function firstHeading(body: string): string | null {
   const m = body.match(/^#\s+(.+)$/m);
-  return m ? m[1].trim() : null;
+  const title = m?.[1];
+  return title === undefined ? null : title.trim();
 }
 
 /**
@@ -495,16 +496,21 @@ export async function searchModuleDocs(
       // qui porte les DEUX termes vaut mieux que trois qui n'en portent qu'un.
       const candidates: {
         lineNumber: number;
+        line: string;
+        folded: string;
         coverage: number;
         matchedTerm: string;
       }[] = [];
-      for (let i = 0; i < lines.length; i += 1) {
-        const carried = terms.filter((t) => foldedLines[i].includes(t));
-        if (carried.length === 0) continue;
+      for (const [i, folded] of foldedLines.entries()) {
+        const carried = terms.filter((t) => folded.includes(t));
+        const [matchedTerm] = carried;
+        if (matchedTerm === undefined) continue;
         candidates.push({
           lineNumber: i,
+          line: lines[i] ?? "",
+          folded,
           coverage: carried.length,
-          matchedTerm: carried[0],
+          matchedTerm,
         });
       }
       candidates.sort(
@@ -517,11 +523,7 @@ export async function searchModuleDocs(
         .sort((a, b) => a.lineNumber - b.lineNumber)
         .map((c) => ({
           line: c.lineNumber + 1,
-          text: snippet(
-            lines[c.lineNumber],
-            foldedLines[c.lineNumber],
-            c.matchedTerm,
-          ),
+          text: snippet(c.line, c.folded, c.matchedTerm),
         }));
 
       hits.push({
@@ -676,10 +678,10 @@ async function typeFiles(modulePath: string): Promise<string[]> {
 function declarationStart(lines: readonly string[], at: number): number {
   let start = at;
   // Le bloc TSDoc est juste au-dessus : on remonte tant qu'on est dedans.
-  if (start > 0 && lines[start - 1].trim().endsWith("*/")) {
+  if (lines[start - 1]?.trim().endsWith("*/")) {
     let i = start - 1;
-    while (i > 0 && !lines[i].trim().startsWith("/**")) i -= 1;
-    if (lines[i].trim().startsWith("/**")) start = i;
+    while (i > 0 && !lines[i]?.trim().startsWith("/**")) i -= 1;
+    if (lines[i]?.trim().startsWith("/**")) start = i;
   }
   return start;
 }
@@ -735,8 +737,9 @@ export async function readSymbolDeclaration(
     let depth = 0;
     let opened = false;
     let end = at;
-    for (let i = at; i < lines.length; i += 1) {
-      for (const ch of lines[i]) {
+    for (const [offset, line] of lines.slice(at).entries()) {
+      const i = at + offset;
+      for (const ch of line) {
         if (ch === "{") {
           depth += 1;
           opened = true;
@@ -744,7 +747,7 @@ export async function readSymbolDeclaration(
       }
       end = i;
       if (opened && depth <= 0) break;
-      if (!opened && lines[i].trimEnd().endsWith(";")) break;
+      if (!opened && line.trimEnd().endsWith(";")) break;
     }
 
     const declaration = lines.slice(start, end + 1).join("\n");

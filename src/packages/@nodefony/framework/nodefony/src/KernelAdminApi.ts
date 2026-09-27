@@ -321,9 +321,8 @@ function attributeOverrideSources(entries: IConfigEntry[]): void {
   >();
   for (const e of entries) {
     for (const key of Object.keys(e.config)) {
-      const m = /^module-(.+)$/i.exec(key);
-      if (!m) continue;
-      const targetSeg = m[1].toLowerCase();
+      const targetSeg = /^module-(.+)$/i.exec(key)?.[1]?.toLowerCase();
+      if (targetSeg === undefined) continue;
       const paths = new Set<string>();
       flattenPaths(e.config[key], "", paths);
       const arr = byTarget.get(targetSeg);
@@ -593,8 +592,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   // pseudo-module `core` (socle, absent de `getModules()`). `null` = inconnue.
   const resolveTarget = (key: string): { path: string; pkg: string } | null => {
     if (key === CORE_KEY) return { path: resolveCorePath(), pkg: CORE_PACKAGE };
-    const mod = kernel.getModules()[key] as
-      ReturnType<typeof kernel.getModules>[string] | undefined;
+    const mod = kernel.getModules()[key];
     if (!mod) return null;
     return { path: mod.path, pkg: mod.getModuleName() ?? key };
   };
@@ -953,8 +951,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             path: relPath(core.path),
           },
         ];
-        for (const name of Object.keys(modules)) {
-          const mod = modules[name];
+        for (const [name, mod] of Object.entries(modules)) {
           list.push({
             key: name,
             name: mod.getModuleName() ?? name,
@@ -977,8 +974,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // qu'on ignore quand on la pose.
         const modules = kernel.getModules();
         const services: Array<Record<string, unknown>> = [];
-        for (const name of Object.keys(modules)) {
-          const mod = modules[name];
+        for (const [name, mod] of Object.entries(modules)) {
           for (const service of mod.getServiceNames()) {
             services.push({
               name: service,
@@ -1086,7 +1082,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             // La note « secret » suit la REDACTION, pas la seule annotation
             // `.meta({ secret: true })` — une clé masquée dans `effective` sans
             // être marquée laissait croire à une valeur vide.
-            const secret = SECRET_KEY.test(path[path.length - 1]);
+            const secret = SECRET_KEY.test(path.at(-1) ?? "");
             const note =
               secret && !leaf.note.includes("secret")
                 ? [leaf.note, "secret"].filter(Boolean).join(", ")
@@ -1258,7 +1254,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             },
           };
         }
-        const key = request.params.module;
+        const key = request.params.module ?? "";
         const mod = kernel.getModules()[key] as unknown as
           ConfigModuleLike | undefined;
         if (!mod) {
@@ -1343,7 +1339,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             },
           };
         }
-        kernel.replaceModuleOptions(kernel.getModules()[key], nextOpts);
+        // Présence déjà vérifiée (404 plus haut) : la garde ne sert qu'au type.
+        const moduleInstance = kernel.getModules()[key];
+        if (moduleInstance)
+          kernel.replaceModuleOptions(moduleInstance, nextOpts);
         // 7b. Propager aux SERVICES du module. `Service` SHALLOW-clone `options` à
         // la construction (`{ ...options }`) → un scalaire top-level (ex. http
         // `headerServer`, lu par requête sur `HttpKernel.options`) ne se propage PAS
@@ -1487,7 +1486,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}",
       summary: "Detail of one module by key (http, framework, … or core)",
       handler: async (request) => {
-        const key = request.params.name;
+        const key = request.params.name ?? "";
         // Pseudo-module core : socle sans services/config/routes propres.
         if (key === CORE_KEY) {
           const core = await readCoreInfo();
@@ -1506,8 +1505,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             coverageLines: (await readCoverage(core.path)).total?.lines ?? null,
           };
         }
-        const mod = kernel.getModules()[key] as
-          ReturnType<typeof kernel.getModules>[string] | undefined;
+        const mod = kernel.getModules()[key];
         if (!mod) {
           // Enveloppe IAdminResponse : `status` présent → reconnue par le broker.
           return {
@@ -1563,7 +1561,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}/dependencies",
       summary: "Module dependencies with installed versions",
       handler: async (request) => {
-        const target = resolveTarget(request.params.name);
+        const target = resolveTarget(request.params.name ?? "");
         if (!target) {
           return {
             status: 404,
@@ -1585,7 +1583,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}/dependencies/outdated",
       summary: "Check external dependencies for updates (npm registry)",
       handler: async (request) => {
-        const target = resolveTarget(request.params.name);
+        const target = resolveTarget(request.params.name ?? "");
         if (!target) {
           return {
             status: 404,
@@ -1610,7 +1608,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}/docs",
       summary: "Documentation index of one module (markdown in <module>/docs)",
       handler: async (request) => {
-        const key = request.params.name;
+        const key = request.params.name ?? "";
         const dir = resolveDocDir(key);
         if (!dir) {
           return {
@@ -1626,7 +1624,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}/docs/{slug}",
       summary: "Raw markdown of one module doc by slug",
       handler: async (request) => {
-        const key = request.params.name;
+        const key = request.params.name ?? "";
         const dir = resolveDocDir(key);
         if (!dir) {
           return {
@@ -1634,7 +1632,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             body: { error: "Module not found", key, available: docKeys() },
           };
         }
-        const doc = await readModuleDoc(dir, request.params.slug);
+        const doc = await readModuleDoc(dir, request.params.slug ?? "");
         if (!doc) {
           // Le SOMMAIRE accompagne le refus : une page demandée sous un slug
           // approchant (« firewal » pour « firewall ») est le cas courant, et
@@ -1730,10 +1728,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             },
           };
         }
-        const limit = Number.parseInt(
-          String((request.query.limit as string | string[] | undefined) ?? ""),
-          10,
-        );
+        const limit = Number.parseInt(String(request.query.limit ?? ""), 10);
         return searchModuleDocs(docTargets(), q, {
           limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
         });
@@ -1748,7 +1743,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}/symbol/{symbol}",
       summary: "Declaration (signature + TSDoc) of one exported symbol",
       handler: async (request) => {
-        const key = request.params.name;
+        const key = request.params.name ?? "";
         const modulePath = resolveTarget(key)?.path ?? resolvePackageDir(key);
         if (!modulePath) {
           return {
@@ -1756,7 +1751,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             body: { error: "Module not found", key, available: docKeys() },
           };
         }
-        const symbol = request.params.symbol;
+        const symbol = request.params.symbol ?? "";
         const found = await readSymbolDeclaration(modulePath, symbol);
         if (!found) {
           return {
@@ -1777,7 +1772,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}/symbols",
       summary: "Exported TS symbols + TSDoc descriptions (.ai/symbols.json)",
       handler: async (request) => {
-        const key = request.params.name;
+        const key = request.params.name ?? "";
         const target = resolveTarget(key);
         if (!target) {
           return {
@@ -1798,7 +1793,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}/coverage",
       summary: "Latest test coverage report (vitest json-summary)",
       handler: async (request) => {
-        const key = request.params.name;
+        const key = request.params.name ?? "";
         const target = resolveTarget(key);
         if (!target) {
           return {
@@ -1814,7 +1809,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       path: "module/{name}/tests",
       summary: "List test files of one module",
       handler: async (request) => {
-        const key = request.params.name;
+        const key = request.params.name ?? "";
         const target = resolveTarget(key);
         if (!target) {
           return {
@@ -1846,7 +1841,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             body: { error: "Test runner disabled outside development" },
           };
         }
-        const key = request.params.name;
+        const key = request.params.name ?? "";
         const target = resolveTarget(key);
         if (!target) {
           return {
@@ -1915,9 +1910,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       method: "GET",
       summary: "Poll a test run by ?jobId",
       handler: (request) => {
-        const jobId = String(
-          (request.query.jobId as string | string[] | undefined) ?? "",
-        );
+        const jobId = String(request.query.jobId ?? "");
         const job = jobId ? testJobs.get(jobId) : undefined;
         if (!job)
           return { status: 404, body: { error: "Unknown jobId", jobId } };

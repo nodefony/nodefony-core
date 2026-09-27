@@ -75,7 +75,7 @@ function poseRoute(
 
 function nettoie(): void {
   for (let i = Router.routes.length - 1; i >= 0; i--) {
-    if (Router.routes[i].name.startsWith("rf.")) Router.routes.splice(i, 1);
+    if (Router.routes[i]!.name.startsWith("rf.")) Router.routes.splice(i, 1);
   }
 }
 

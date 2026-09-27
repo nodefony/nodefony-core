@@ -121,8 +121,8 @@ describe("Facteur d'authentification externe → audit", () => {
     // le flow — le test passerait « à vide ».
     expect(out.verified, "la cérémonie doit aboutir").to.equal(true);
     expect(calls).to.have.lengthOf(1);
-    expect(calls[0].identifier).to.equal("alice");
-    expect(calls[0].reason).to.equal("webauthn");
+    expect(calls[0]!.identifier).to.equal("alice");
+    expect(calls[0]!.reason).to.equal("webauthn");
   });
 
   it("OAuth2Controller.callback passe `oauth`", async () => {
@@ -156,7 +156,7 @@ describe("Facteur d'authentification externe → audit", () => {
     // d'abord qu'on est sur le chemin nominal.
     expect(output.redirects, "le callback doit réussir").to.deep.equal(["/ok"]);
     expect(calls).to.have.lengthOf(1);
-    expect(calls[0].identifier).to.equal("alice");
-    expect(calls[0].reason).to.equal("oauth");
+    expect(calls[0]!.identifier).to.equal("alice");
+    expect(calls[0]!.reason).to.equal("oauth");
   });
 });

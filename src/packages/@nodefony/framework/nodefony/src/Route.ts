@@ -121,11 +121,11 @@ function checkDefaultParameters(this: Route, variable: string) {
 function replaceCallback(
   this: Route,
   _match: string,
-  slash: string,
-  dot: string,
+  slash: string | undefined,
+  dot: string | undefined,
   key: string,
-  capture: string,
-  opt: string,
+  capture: string | undefined,
+  opt: string | undefined,
   _offset: number,
 ) {
   if (this.path) {
@@ -448,20 +448,22 @@ class Route implements IRoute {
     REG_ROUTE.lastIndex = 0;
     let found: RegExpExecArray | null;
     while ((found = REG_ROUTE.exec(this.path)) !== null) {
+      // Le nom `{…}` est le seul groupe obligatoire du motif.
+      const [match, slash, dot, key = "", capture, opt] = found;
       const literal = this.path.slice(from, found.index);
       this.#collectUnreachable(literal);
       pattern += compileLiteral(literal, wildcard);
       pattern += replaceCallback.call(
         this,
-        found[0],
-        found[1],
-        found[2],
-        found[3],
-        found[4],
-        found[5],
+        match,
+        slash,
+        dot,
+        key,
+        capture,
+        opt,
         found.index,
       );
-      from = found.index + found[0].length;
+      from = found.index + match.length;
     }
     const tail = this.path.slice(from);
     this.#collectUnreachable(tail);
@@ -520,10 +522,11 @@ class Route implements IRoute {
   hydrateDefaultParameters(res: RegExpMatchArray) {
     if (this.variables.length) {
       for (let i = 0; i < this.variables.length; i++) {
-        if (this.defaults[this.variables[i]]) {
+        const name = this.variables[i];
+        if (name !== undefined && this.defaults[name]) {
           if (res[i + 1] === "") {
             // valeur par défaut d'un paramètre de route = string (cf @route defaults)
-            res[i + 1] = this.defaults[this.variables[i]] as string;
+            res[i + 1] = this.defaults[name] as string;
           }
         }
       }

@@ -118,7 +118,7 @@ export function createSyslogAdminApi(
     def: number,
     max: number,
   ): number => {
-    const raw = req.query[key] as string | string[] | undefined;
+    const raw = req.query[key];
     const v = Array.isArray(raw) ? raw.at(0) : raw;
     const n = v !== undefined ? Number.parseInt(v, 10) : NaN;
     if (Number.isNaN(n) || n <= 0) return def;
@@ -609,7 +609,7 @@ export function createSyslogAdminApi(
       handler: async (
         request,
       ): Promise<LogTailResult | IAdminResponse<{ error: string }>> => {
-        const name = (request.params.name as string | undefined) ?? "";
+        const name = request.params.name ?? "";
         const file = resolveLogFile(name);
         if (!file) {
           return { status: 400, body: { error: "invalid log file name" } };

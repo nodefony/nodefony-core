@@ -265,7 +265,9 @@ describe("Admin data plane — kernel", () => {
     const r = await req("GET", "/nodefony/kernel/api/modules", auth());
     expect(r.status).to.equal(200);
     expect(r.body).to.be.an("array");
-    expect((r.body as Array<Record<string, unknown>>)[0].key).to.be.a("string");
+    expect((r.body as Array<Record<string, unknown>>)[0]!.key).to.be.a(
+      "string",
+    );
   });
 
   // ── REGRESSION: regexp param {name} + extraction ──────────────────────────
@@ -520,7 +522,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
     const adminItems = (adminSessions.body as { items: Array<{ ref: string }> })
       .items;
     expect(adminItems.length, "admin a ≥ 1 session").to.be.greaterThan(0);
-    const adminRef = adminItems[0].ref;
+    const adminRef = adminItems[0]!.ref;
     // user présente le ref d'admin (qui EXISTE) → hors de SON périmètre → 404
     // (pas 403 : la ressource est simplement introuvable dans son scope).
     const userCookie = await loginCookie("user", "secret-de-dev-42");
@@ -579,16 +581,16 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
     };
     const vueA = await vueDe(a);
     const vueB = await vueDe(b);
-    const mienne = vueA.current.ref !== vueA.items[0].ref ? vueA : vueB;
+    const mienne = vueA.current!.ref !== vueA.items[0]!.ref ? vueA : vueB;
     const temoin = mienne === vueA ? b : a;
     expect(
-      mienne.current.ref,
+      mienne.current!.ref,
       "la session courante n'est pas la première de la liste",
-    ).to.not.equal(mienne.items[0].ref);
+    ).to.not.equal(mienne.items[0]!.ref);
 
     const revoke = await req(
       "POST",
-      `/nodefony/http/api/sessions/mine/${mienne.current.ref}/revoke`,
+      `/nodefony/http/api/sessions/mine/${mienne.current!.ref}/revoke`,
       { cookie: mienne.cookie },
     );
     expect(revoke.status, "je révoque ma propre session").to.equal(200);
@@ -1068,7 +1070,7 @@ describe("Admin data plane — routes/page filtre `in` (multi-sélection)", () =
     );
     if (!multi) return; // aucune route multi-méthode montée : rien à prouver
     const one = multi.methods[0];
-    const r = await req("GET", withFilter("methods", "in", one), auth());
+    const r = await req("GET", withFilter("methods", "in", one!), auth());
     const names = (r.body as { items: { methods: string[] }[] }).items;
     expect(
       names.some((x) => x.methods.join(",") === multi.methods.join(",")),
@@ -1424,7 +1426,7 @@ describe("Data plane syslog — le vocabulaire est clos", () => {
         auth(),
       );
       expect(r.status).to.equal(200);
-      return (r.body as { rows: { uid: number }[] }).rows[0].uid;
+      return (r.body as { rows: { uid: number }[] }).rows[0]!.uid;
     };
     const asc = await first("ASC");
     const desc = await first("DESC");

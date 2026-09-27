@@ -174,8 +174,8 @@ describe("routerDecorators — @Param / @Body / @Query", () => {
       C.prototype,
       "listAll",
     );
-    expect(metas[0].source).to.equal("param");
-    expect(metas[0].key).to.be.undefined;
+    expect(metas[0]!.source).to.equal("param");
+    expect(metas[0]!.key).to.be.undefined;
   });
 
   it("@Body stores source=body with key", () => {

@@ -131,8 +131,7 @@ function invalidateRouteIndex(): void {
 function buildRouteIndex(): RouteIndex {
   const statics = new Map<string, IndexedRoute[]>();
   const dynamics: IndexedRoute[] = [];
-  for (let i = 0; i < routes.length; i++) {
-    const route = routes[i];
+  for (const [i, route] of routes.entries()) {
     const path = route.path;
     if (
       path !== undefined &&
@@ -270,13 +269,19 @@ class Router extends Service implements IRequestRouter {
     // séquence identique au scan linéaire de la table complète.
     while (li < litCount || di < dynCount) {
       let route: Route;
+      // Lecture au-delà de la fin = undefined : c'est la liste épuisée.
+      const literal = literals[li];
+      const candidate = dynamics[di];
       if (
-        li < litCount &&
-        (di >= dynCount || literals[li].pos < dynamics[di].pos)
+        literal !== undefined &&
+        (candidate === undefined || literal.pos < candidate.pos)
       ) {
-        route = literals[li++].route;
+        li++;
+        route = literal.route;
+      } else if (candidate === undefined) {
+        break;
       } else {
-        const candidate = dynamics[di++];
+        di++;
         // Pré-filtre O(longueur du préfixe) : le motif étant ancré, une route
         // dont le préfixe littéral ne débute pas le chemin ne peut PAS matcher.
         // `startsWith` coûte quelques nanosecondes là où `exec` en coûte une

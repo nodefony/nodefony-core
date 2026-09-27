@@ -198,11 +198,7 @@ class Resolver implements IResolver {
    * `Context.setMetaData()` pour exposer `msg.nodefony.route.variablesMap`.
    */
   getMatchedParams(): Record<string, unknown> {
-    const names = this.route?.variables ?? [];
-    const params: Record<string, unknown> = {};
-    for (let i = 0; i < names.length; i++) {
-      params[names[i]] = this.variables[i];
-    }
+    const params = this._zipRouteParams();
     const wildcard = (this.variables as unknown as Record<string, unknown>)[
       "*"
     ];
@@ -212,30 +208,48 @@ class Resolver implements IResolver {
     return params;
   }
 
+  /**
+   * Associe chaque nom de variable de la route à la valeur capturée au match.
+   *
+   * @returns la table nom → valeur (vide sans route)
+   */
+  private _zipRouteParams(): Record<string, unknown> {
+    const names = this.route?.variables ?? [];
+    const params: Record<string, unknown> = {};
+    // Boucle d'index : chemin de chaque requête, sans itérateur alloué.
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      if (name !== undefined) params[name] = this.variables[i];
+    }
+    return params;
+  }
+
   parsePathernController(name: string) {
-    let module: Module | undefined;
-    let tab: string[] = [];
     if (typeof name !== "string") {
       throw new Error(`Invalid name parameter: expected a string`);
     }
-    tab = name.split(":");
+    const tab = name.split(":");
+    const [moduleName = "", controllerName = "", actionName = ""] = tab;
     if (tab.length !== 3) {
       throw new Error(
         `Invalid name format: expected "module:controller:action"`,
       );
     }
-    module = this.context.kernel?.getModule(tab[0]) as Module | undefined;
+    const module = this.context.kernel?.getModule(moduleName) as
+      Module | undefined;
     if (!module) {
-      throw new Error(`Module not found: ${tab[0]}`);
+      throw new Error(`Module not found: ${moduleName}`);
     }
     // `getController` LÈVE sur un nom inconnu — aucune garde à poser ici.
-    this.controller = module.getController(tab[1]);
-    const action = this.getAction(tab[2]);
+    this.controller = module.getController(controllerName);
+    const action = this.getAction(actionName);
     if (!action) {
-      throw new Error(`Action not found in controller ${tab[1]}: ${tab[2]}`);
+      throw new Error(
+        `Action not found in controller ${controllerName}: ${actionName}`,
+      );
     }
     this.action = action;
-    this.actionName = tab[2];
+    this.actionName = actionName;
     this.resolve = true;
     // Forward interne : même résolution d'intent de session que le match direct.
     {
@@ -527,11 +541,7 @@ class Resolver implements IResolver {
     const paramCtx = context as unknown as IParamArgContext;
     const httpReq = paramCtx.request;
     // Params de route (noms → valeurs) pour le fingerprint du payload.
-    const names = this.route?.variables ?? [];
-    const params: Record<string, unknown> = {};
-    for (let i = 0; i < names.length; i++) {
-      params[names[i]] = this.variables[i];
-    }
+    const params = this._zipRouteParams();
     // Corps : posé dans l'ALS par le pont WS, sinon body HTTP parsé (queryPost).
     const body =
       als?.body !== undefined ? als.body : (httpReq?.queryPost ?? null);
@@ -563,9 +573,11 @@ class Resolver implements IResolver {
       response?.setStatusCode(status);
       if (headers) {
         for (const k in headers) {
+          const value = headers[k];
+          if (value === undefined) continue;
           (response as HttpResponse | Http2Response | null)?.setHeader(
             k,
-            headers[k],
+            value,
           );
         }
       }
@@ -698,8 +710,7 @@ class Resolver implements IResolver {
       );
     }
     const clauses = req.clauses;
-    for (let i = 0; i < clauses.length; i++) {
-      const clause = clauses[i];
+    for (const clause of clauses) {
       const subject =
         clause.subjectParam !== undefined
           ? this._resolveSubject(clause.subjectParam)
@@ -707,8 +718,8 @@ class Resolver implements IResolver {
       // OR interne : un seul attribut accordé valide la clause.
       let ok = false;
       const anyOf = clause.anyOf;
-      for (let j = 0; j < anyOf.length; j++) {
-        if (await authz.decide(token, anyOf[j], subject)) {
+      for (const attribute of anyOf) {
+        if (await authz.decide(token, attribute, subject)) {
           ok = true;
           break;
         }
@@ -759,11 +770,7 @@ class Resolver implements IResolver {
 
   private _buildParamArgs(metas: ParamMeta[]): unknown[] {
     const httpCtx = this.context as HttpContext;
-    const varNames: string[] = this.route?.variables ?? [];
-    const paramsMap: Record<string, unknown> = {};
-    for (let i = 0; i < varNames.length; i++) {
-      paramsMap[varNames[i]] = this.variables[i];
-    }
+    const paramsMap = this._zipRouteParams();
     // Le `Context` (HTTP comme WS) satisfait la forme `IParamArgContext`
     // (request/response/session/getRequestCookies). La résolution elle-même est
     // une fonction pure testée en unit (voir paramDecorators.test.ts).
@@ -794,10 +801,10 @@ class Resolver implements IResolver {
     }
     const entries = meta.headerEntries;
     if (entries) {
-      for (let i = 0; i < entries.length; i++) {
+      for (const [name, value] of entries) {
         (response as HttpResponse | Http2Response | null)?.setHeader(
-          entries[i][0],
-          entries[i][1],
+          name,
+          value,
         );
       }
     }

@@ -151,10 +151,10 @@ describe("POC souverain — ResourceController singleton (V4.2/V4.3)", () => {
       ws.addEventListener("error", () => reject(new Error("ws error")));
     });
     await done;
-    expect(replies[0].id).to.equal(1);
-    expect(replies[0].result?.id).to.equal("b1");
-    expect(replies[1].id).to.equal(2);
-    expect(replies[1].result?.id).to.equal("b3");
+    expect(replies[0]!.id).to.equal(1);
+    expect(replies[0]!.result?.id).to.equal("b1");
+    expect(replies[1]!.id).to.equal(2);
+    expect(replies[1]!.result?.id).to.equal("b3");
   });
 
   it("read-only : POST sans create → 405 (méthode non déclarée sur la route)", async () => {

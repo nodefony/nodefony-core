@@ -63,7 +63,7 @@ function makeRoute(
 
 function cleanupRoutes(): void {
   for (let i = Router.routes.length - 1; i >= 0; i--) {
-    if (Router.routes[i].name.startsWith("pg.")) Router.routes.splice(i, 1);
+    if (Router.routes[i]!.name.startsWith("pg.")) Router.routes.splice(i, 1);
   }
 }
 
@@ -95,7 +95,7 @@ describe("PlaygroundAdminApi — buildPlaygroundSnapshot()", () => {
     // Gardes — badges Studio.
     expect(action!.guards.idempotent).to.deep.equal({ required: true });
     expect(action!.guards.security).to.not.be.null;
-    expect(action!.guards.security!.clauses[0].anyOf).to.deep.equal([
+    expect(action!.guards.security!.clauses[0]!.anyOf).to.deep.equal([
       "ROLE_USER",
     ]);
     expect(action!.guards.csrfProtect).to.be.false;

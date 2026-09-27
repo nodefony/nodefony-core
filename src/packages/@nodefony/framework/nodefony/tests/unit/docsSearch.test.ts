@@ -69,7 +69,7 @@ describe("searchModuleDocs", () => {
     expect(result.scanned).to.equal(3); // le module muet n'a rien à lire
     expect(result.matched).to.equal(1);
     expect(result.hits[0]).to.include({ module: "http", slug: "sessions" });
-    expect(result.hits[0].matches[0].text).to.contain("redis");
+    expect(result.hits[0]!.matches[0]!.text).to.contain("redis");
   });
 
   it("exige TOUS les termes — un OU rendrait le corpus entier", async () => {
@@ -93,15 +93,15 @@ describe("searchModuleDocs", () => {
 
   it("classe par pertinence — un titre porteur passe devant", async () => {
     const result = await searchModuleDocs(targets(), "redis");
-    expect(result.hits[0].slug).to.equal("index"); // page « Redis »
-    expect(result.hits[0].score).to.be.greaterThan(result.hits[1].score);
+    expect(result.hits[0]!.slug).to.equal("index"); // page « Redis »
+    expect(result.hits[0]!.score).to.be.greaterThan(result.hits[1]!.score);
   });
 
   it("compte TOUTES les occurrences, même quand les extraits sont bornés", async () => {
     const result = await searchModuleDocs(targets(), "session", { perDoc: 1 });
     const hit = result.hits[0];
-    expect(hit.matches).to.have.length(1);
-    expect(hit.occurrences).to.be.greaterThan(1);
+    expect(hit!.matches).to.have.length(1);
+    expect(hit!.occurrences).to.be.greaterThan(1);
   });
 
   it("borne le nombre de pages rendues sans mentir sur le total", async () => {
@@ -309,7 +309,7 @@ describe("recherche — les EXTRAITS montrent ce qui a fait gagner la page", () 
       [{ key: "http", path: join(couv, "http") }],
       "session redis",
     );
-    const textes = result.hits[0].matches.map((m) => m.text);
+    const textes = result.hits[0]!.matches.map((m) => m.text);
     expect(textes.some((t) => t.toLowerCase().includes("redis"))).to.equal(
       true,
     );
@@ -320,7 +320,7 @@ describe("recherche — les EXTRAITS montrent ce qui a fait gagner la page", () 
       [{ key: "http", path: join(couv, "http") }],
       "session redis",
     );
-    const lignes = result.hits[0].matches.map((m) => m.line);
+    const lignes = result.hits[0]!.matches.map((m) => m.line);
     expect(lignes).to.deep.equal([...lignes].sort((a, b) => a - b));
   });
 });

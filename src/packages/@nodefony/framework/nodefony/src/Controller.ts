@@ -109,12 +109,13 @@ export function parseByteRange(
 ): { start: number; end: number } | "unsatisfiable" | null {
   const unit = /^\s*bytes\s*=\s*(.+)$/i.exec(range);
   if (!unit) return null;
-  const spec = unit[1].trim();
+  const [, rawSpec = ""] = unit;
+  const spec = rawSpec.trim();
   if (spec.includes(",")) return null;
   const parts = /^(\d*)-(\d*)$/.exec(spec);
   if (!parts) return null;
-  const first = parts[1];
-  const last = parts[2];
+  // Groupes `(\d*)` : toujours présents, vides au pire.
+  const [, first = "", last = ""] = parts;
   if (first === "" && last === "") return null;
   if (first === "") {
     // Suffixe `bytes=-N` : les N derniers octets (§14.1.2 suffix-range).
