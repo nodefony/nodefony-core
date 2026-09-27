@@ -29,8 +29,8 @@ const stripAnsi = function (val: string): string {
 // (0 alloc par appel).
 const REDIRECT_STATUS_CODES = new Set<number>([301, 302, 303, 307, 308]);
 
-// Sets module-level pour `setLength()` (0 alloc par requête).
-const NO_CONTENT_LENGTH_METHODS = new Set(["HEAD", "OPTIONS", "TRACE"]);
+// Set module-level pour `setLength()` (0 alloc par requête) : statuts qui ne
+// portent JAMAIS de Content-Length (RFC 9110 §8.6).
 const NO_CONTENT_LENGTH_STATUS = new Set([204, 304]);
 
 class HttpResponse {
@@ -388,29 +388,29 @@ class HttpResponse {
     if (this.response?.headersSent) {
       throw new Error("Headers already sended");
     }
-    const actualBody = body || this.body;
-    // Ne pas définir Content-Length si Transfer-Encoding est chunked
-    const isChunked = this.getHeader("Transfer-Encoding") === "chunked";
-    if (
-      !NO_CONTENT_LENGTH_METHODS.has(this.context.method as string) &&
-      !NO_CONTENT_LENGTH_STATUS.has(this.statusCode) &&
-      !isChunked
-    ) {
-      if (actualBody) {
-        const length = Buffer.byteLength(actualBody);
-        this.setHeader("Content-Length", String(length));
-        return length;
-      }
-      // Corps absent (streaming différé) : un Content-Length posé par le
-      // producteur du stream est conservé tel quel.
+    // Le Content-Length DÉLIMITE le message (RFC 9112 §6.3) : faux, il
+    // désynchronise la connexion. Trois règles, sans exception de méthode :
+    // - chunked : AUCUN Content-Length (RFC 9112 §6.2), même posé avant ;
+    // - 204/304 : aucun en-tête touché (RFC 9110 §8.6) ;
+    // - sinon la longueur RÉELLE, HEAD compris : le corps y est rendu comme pour
+    //   GET et Node l'écarte, et §8.6 interdit tout autre nombre que celui du
+    //   GET. OPTIONS et TRACE portent un corps (§9.3.7, §9.3.8) : leur annoncer
+    //   0 laissait le corps écrit déborder sur la réponse suivante.
+    if (this.getHeader("Transfer-Encoding") === "chunked") {
+      this.response?.removeHeader("Content-Length");
       return 0;
     }
-    // HEAD/OPTIONS/TRACE ou chunked (hors 204/304) : longueur forcée à 0
-    // (`setHeader` écrase un éventuel Content-Length préexistant).
-    if (!NO_CONTENT_LENGTH_STATUS.has(this.statusCode)) {
-      this.setHeader("Content-Length", "0");
+    if (NO_CONTENT_LENGTH_STATUS.has(this.statusCode)) {
+      return 0;
     }
-    // 204/304 : aucun en-tête touché (RFC 9110 — pas de Content-Length).
+    const actualBody = body || this.body;
+    if (actualBody) {
+      const length = Buffer.byteLength(actualBody);
+      this.setHeader("Content-Length", String(length));
+      return length;
+    }
+    // Corps absent (streaming différé) : un Content-Length posé par le
+    // producteur du stream est conservé tel quel.
     return 0;
   }
 

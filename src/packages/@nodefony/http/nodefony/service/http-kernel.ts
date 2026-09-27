@@ -908,7 +908,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (error instanceof HttpError || error instanceof nodefonyError) {
         error.code = result.status;
       }
-      context.response.setStatusCode(result.status, result.message);
+      // Phrase de raison IANA, jamais le message de l'erreur (RFC 9112 §4) : le
+      // message nommait la zone refusée ou la méthode à tout client, et HTTP/2
+      // le recopiait dans `x-status-message`. Le détail vit dans le corps.
+      // Passée EXPLICITEMENT : sans message, `setStatusCode` garderait une
+      // phrase déjà posée sur la réponse (« OK » d'avant l'erreur).
+      context.response.setStatusCode(
+        result.status,
+        http.STATUS_CODES[result.status] ?? "Unknown Error",
+      );
       if (result.headers) {
         context.response.setHeaders(result.headers);
       }

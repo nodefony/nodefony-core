@@ -281,16 +281,95 @@ describe("X-Request-Id — propagation on every response code", () => {
 
 // ─── Symbiose : reason-phrase derived from status code ───────────────────────
 
-describe("Symbiose http↔framework — status-message reflects status code", () => {
-  it("500 → status-message 'Internal Server Error'", async () => {
+// RFC 9112 §4 : la phrase de raison est une description TEXTUELLE du code — le
+// client l'ignore, HTTP/2 ne la transporte pas. Une réponse d'ERREUR porte donc
+// la phrase IANA ; le détail (nom de zone, méthode refusée) vit dans le corps.
+// Le message de l'erreur y fuyait : `401 Authentication required for area
+// "nodefony-admin"` nommait la zone à n'importe quel client anonyme.
+describe("RFC 9112 §4 — une erreur porte la phrase de raison IANA, pas son message", () => {
+  it("500 → 'Internal Server Error'", async () => {
     const r = await req("GET", "/nodefony/test/crash/sync");
-    expect(r.statusMessage).to.match(/Internal Server Error|Unknown Error|/i);
+    expect(r.status).to.equal(500);
+    expect(r.statusMessage).to.equal("Internal Server Error");
   });
 
-  it("404 → status-message contains 'Not Found' or non-empty", async () => {
+  it("404 → 'Not Found'", async () => {
     const r = await req("GET", "/nodefony/test/nope");
-    expect(r.statusMessage.length).to.be.greaterThan(0);
+    expect(r.statusMessage).to.equal("Not Found");
   });
+
+  it("405 → 'Method Not Allowed' (pas « Method DELETE Not Allowed »)", async () => {
+    const r = await req("DELETE", "/nodefony/test/als-test/state");
+    expect(r.status).to.equal(405);
+    expect(r.statusMessage).to.equal("Method Not Allowed");
+  });
+
+  it("401 d'une zone → 'Unauthorized', sans le nom de la zone", async () => {
+    const r = await req("GET", "/nodefony/kernel/api/modules");
+    expect(r.status).to.equal(401);
+    expect(r.statusMessage).to.equal("Unauthorized");
+  });
+
+  it("le détail reste dans le corps", async () => {
+    const r = await req("DELETE", "/nodefony/test/als-test/state");
+    const body = JSON.parse(r.body) as { message?: string };
+    expect(body.message).to.match(/DELETE/);
+  });
+});
+
+// RFC 9110 §15.5.2 : « The server generating a 401 response MUST send a
+// WWW-Authenticate header field containing at least one challenge ». Une zone à
+// session seule répondait un 401 NU — par crainte de la fenêtre de connexion du
+// navigateur, que seuls Basic/Digest/Negotiate déclenchent.
+describe("RFC 9110 §15.5.2 — tout 401 porte un challenge WWW-Authenticate", () => {
+  it("401 d'une zone à session seule → WWW-Authenticate présent", async () => {
+    const r = await req("GET", "/nodefony/kernel/api/modules");
+    expect(r.status).to.equal(401);
+    expect(r.headers["www-authenticate"]).to.be.a("string").and.not.equal("");
+  });
+
+  it("…et ce challenge n'ouvre pas la fenêtre du navigateur (ni Basic, ni Digest, ni Negotiate)", async () => {
+    const r = await req("GET", "/nodefony/kernel/api/modules");
+    expect(String(r.headers["www-authenticate"])).to.not.match(
+      /^(Basic|Digest|Negotiate)\b/i,
+    );
+  });
+});
+
+// RFC 9112 §6.3 : le Content-Length DÉLIMITE le message. Un corps plus long que
+// la longueur annoncée déborde sur la réponse suivante de la même connexion —
+// désynchronisation qu'un proxy partagé transforme en empoisonnement de cache.
+// OPTIONS et TRACE étaient traités comme HEAD (`Content-Length: 0`) alors que
+// Node n'écarte le corps QUE pour HEAD : le 405 JSON partait quand même.
+describe("RFC 9112 §6.3 — Content-Length exact sur OPTIONS et TRACE (pas de désynchronisation)", () => {
+  for (const method of ["OPTIONS", "TRACE"]) {
+    it(`${method} puis GET sur la MÊME connexion : chaque réponse fait exactement sa longueur`, async () => {
+      const tls = await import("node:tls");
+      const raw = await new Promise<string>((resolve, reject) => {
+        const sock = tls.connect(
+          { host: "127.0.0.1", port: 5152, rejectUnauthorized: false },
+          () => {
+            sock.write(
+              `${method} /nodefony/test/als-test/state HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n` +
+                "GET /nodefony/test/als-test/state HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+            );
+          },
+        );
+        let buf = "";
+        sock.setEncoding("latin1");
+        sock.on("data", (d: string) => (buf += d));
+        sock.on("end", () => resolve(buf));
+        sock.on("error", reject);
+      });
+      const head = raw.slice(0, raw.indexOf("\r\n\r\n"));
+      const len = Number(/content-length:\s*(\d+)/i.exec(head)?.[1] ?? NaN);
+      const next = raw.slice(head.length + 4 + len);
+      expect(
+        next.startsWith("HTTP/1.1 200"),
+        `après ${len} octets : ${JSON.stringify(next.slice(0, 40))}`,
+      ).to.equal(true);
+    });
+  }
 });
 
 // ─── RFC 7807 Problem Details — informational (current Nodefony format) ─────
