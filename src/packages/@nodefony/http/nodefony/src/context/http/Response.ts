@@ -125,18 +125,19 @@ class HttpResponse {
   }
 
   setCookies() {
-    const names = Object.keys(this.cookies);
-    if (names.length === 0) return;
+    const cookies = Object.values(this.cookies);
+    const first = cookies.at(0);
+    if (first === undefined) return;
     // 1 cookie (cas dominant) → chemin direct, comportement inchangé.
-    if (names.length === 1) {
-      return this.setCookie(this.cookies[names[0]]);
+    if (cookies.length === 1) {
+      return this.setCookie(first);
     }
     // ≥2 cookies (ex. session BFF + `csrf-token`) → UN SEUL setHeader avec un
     // TABLEAU : Node émet N lignes `Set-Cookie`. Une boucle de `setHeader` les
     // écraserait (`setHeader('Set-Cookie', str)` REMPLACE → seul le dernier survit).
     const serialized: string[] = [];
-    for (const name of names) {
-      const s = this.cookies[name].serialize();
+    for (const cookie of cookies) {
+      const s = cookie.serialize();
       this.log(`ADD COOKIE ==> ${s}`, "DEBUG");
       serialized.push(s);
     }
@@ -234,10 +235,10 @@ class HttpResponse {
     // Pas de `removeHeader` préalable : `setHeader` natif écrase (node indexe
     // les en-têtes sortants en minuscules, la casse ne crée pas de doublon).
     if (type && encoding) {
-      let mytype = mime.contentType(type);
+      const full = mime.contentType(type);
       // Get the MIME type without charset
-      if (mytype) {
-        mytype = mytype.split(";")[0];
+      if (full) {
+        const mytype = full.split(";")[0] ?? full;
         this.contentType = mytype;
         this.encoding = encoding;
         // RFC 8259 §11 : `application/json` (et tout type structuré `+json`) ne

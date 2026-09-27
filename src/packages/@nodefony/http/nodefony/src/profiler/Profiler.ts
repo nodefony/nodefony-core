@@ -171,8 +171,8 @@ function totalDuration(
   phases: ReadonlyArray<{ startMs: number; durationMs?: number }>,
 ): number | null {
   if (phases.length === 0) return null;
-  const first = phases[0];
-  if (typeof first.startMs !== "number") return null;
+  const first = phases.at(0);
+  if (first === undefined || typeof first.startMs !== "number") return null;
   let end = first.startMs;
   for (const p of phases) {
     const e = p.startMs + (p.durationMs ?? 0);
@@ -256,8 +256,9 @@ export class Profiler {
   recent(limit = 60): ProfileSummary[] {
     const out: ProfileSummary[] = [];
     const entries = [...this._buf.values()];
-    for (let i = entries.length - 1; i >= 0 && out.length < limit; i--) {
-      const e = entries[i];
+    // `entries` est une copie : l'inverser sur place ne touche pas au tampon.
+    for (const e of entries.reverse()) {
+      if (out.length >= limit) break;
       out.push({
         requestId: e.requestId,
         ts: e.ts,

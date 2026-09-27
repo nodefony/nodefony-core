@@ -41,7 +41,9 @@ export function parseTraceparent(
   if (typeof header !== "string") return null;
   const m = TRACEPARENT_RE.exec(header.trim().toLowerCase());
   if (!m) return null;
-  const [, version, traceId, parentId, flags] = m;
+  // Les quatre groupes sont obligatoires dans le motif : les défauts ne
+  // servent qu'au typage.
+  const [, version = "", traceId = "", parentId = "", flags = ""] = m;
   if (version === "ff") return null;
   if (/^0+$/.test(traceId)) return null;
   if (/^0+$/.test(parentId)) return null;

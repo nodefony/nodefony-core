@@ -289,7 +289,10 @@ export function malformedIdentifierOf(error: unknown): string | null {
     }
     if (String(candidate.code) === "22P02") {
       const match = PG_INVALID_INPUT.exec(candidate.message);
-      if (match && IDENTIFIER_COLUMN_TYPES.has(match[1])) return match[2];
+      if (match) {
+        const [, type = "", value = null] = match;
+        if (IDENTIFIER_COLUMN_TYPES.has(type)) return value;
+      }
     }
     current = candidate.cause;
   }

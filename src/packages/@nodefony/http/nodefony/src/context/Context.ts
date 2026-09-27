@@ -436,8 +436,8 @@ class Context extends Service implements IContextInterface {
     if (!this._timingEnabled || this._phaseIndex === null) return;
     const idx = this._phaseIndex.get(name);
     if (idx === undefined) return;
-    const p = this.phases[idx];
-    if (p.endMs !== undefined) return;
+    const p = this.phases.at(idx);
+    if (p === undefined || p.endMs !== undefined) return;
     p.endMs = performance.now();
     p.durationMs = p.endMs - p.startMs;
   }
@@ -623,8 +623,8 @@ class Context extends Service implements IContextInterface {
     if (n === 0) return;
     let line = "";
     let total = 0;
-    for (let i = 0; i < n; i++) {
-      const p = phases[i];
+    let i = 0;
+    for (const p of phases) {
       const d =
         p.durationMs ??
         (p.endMs !== undefined ? p.endMs - p.startMs : undefined);
@@ -635,6 +635,7 @@ class Context extends Service implements IContextInterface {
       } else {
         line += `${p.name}=…`;
       }
+      i++;
     }
     this.log(
       `TRACE phases [Σ ${total.toFixed(2)}ms] ${line}`,
@@ -657,7 +658,9 @@ class Context extends Service implements IContextInterface {
     if (name) {
       // `hasOwn` : `cookies` est un littéral — `cookies["constructor"]` rendrait
       // la fonction héritée d'`Object.prototype`.
-      return Object.hasOwn(this.cookies, name) ? this.cookies[name] : null;
+      return Object.hasOwn(this.cookies, name)
+        ? (this.cookies[name] ?? null)
+        : null;
     }
     return this.cookies;
   }
@@ -696,7 +699,9 @@ class Context extends Service implements IContextInterface {
   }
 
   getCookieSession(name: string): Cookie | null {
-    return Object.hasOwn(this.cookies, name) ? this.cookies[name] : null;
+    return Object.hasOwn(this.cookies, name)
+      ? (this.cookies[name] ?? null)
+      : null;
   }
 
   /**

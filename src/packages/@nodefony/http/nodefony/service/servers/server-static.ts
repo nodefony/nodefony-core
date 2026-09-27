@@ -143,8 +143,7 @@ class Statics extends Service {
     const frontManaged = frontend?.listEntries
       ? new Set(frontend.listEntries().map((e) => e.moduleName))
       : null;
-    for (const name in modules) {
-      const mod = modules[name];
+    for (const mod of Object.values(modules)) {
       if (mod.isApp) continue;
       // Config par module (cf {@link PublicMountOption}) : option top-level
       // du module, lue dans `mod.options`.
@@ -305,8 +304,7 @@ class Statics extends Service {
         break;
       }
     }
-    for (const server in this.servers) {
-      const ele = this.servers[server];
+    for (const ele of Object.values(this.servers)) {
       await this.getStatic(ele, request, response);
       const type = mime.lookup(pathname);
       response.setHeader("Content-Type", type as string);

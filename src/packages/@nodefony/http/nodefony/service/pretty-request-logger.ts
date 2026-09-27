@@ -119,8 +119,8 @@ function shortId(id: string): string {
 
 function computeDurationMs(phases: PhaseTiming[]): number | null {
   if (!phases.length) return null;
-  const first = phases[0];
-  if (typeof first.startMs !== "number") return null;
+  const first = phases.at(0);
+  if (first === undefined || typeof first.startMs !== "number") return null;
   return performance.now() - first.startMs;
 }
 

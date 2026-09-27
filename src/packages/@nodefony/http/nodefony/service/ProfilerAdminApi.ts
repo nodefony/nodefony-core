@@ -51,7 +51,8 @@ export function createProfilerAdminApi(profiler: Profiler): IAdminApi {
       path: "{id}",
       summary: "Full profile (phase timeline) for a requestId",
       handler: ({ params }) => {
-        const entry = profiler.get(params.id);
+        const { id = "" } = params;
+        const entry = profiler.get(id);
         if (!entry) {
           return {
             status: 404,

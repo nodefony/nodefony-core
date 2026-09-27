@@ -158,7 +158,7 @@ export function resolveFromRight(
     if (!checker.isTrusted(candidate)) {
       return candidate; // 1ᵉʳ maillon non fiable = IP cliente réelle
     }
-    const next = chain[i];
+    const next = chain[i] ?? null;
     if (next === null) {
       // Maillon obfusqué/illisible : on ne peut pas remonter plus loin de façon
       // fiable → on garde le dernier proxy de confiance (vraie IP), pas null.

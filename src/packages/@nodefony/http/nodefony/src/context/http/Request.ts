@@ -145,7 +145,7 @@ class HttpRequest {
   host: string | undefined = "";
   method: HTTPMethod;
   contentType: string | null;
-  rawContentType: Record<string, string> = {};
+  rawContentType: Record<string, string | undefined> = {};
   domain: string;
   remoteAddress: string | null | undefined = "";
   hostname: string;
@@ -616,7 +616,7 @@ class HttpRequest {
             return;
           }
           const match = reg.exec(fieldname);
-          const field = match ? match[1] : fieldname;
+          const field = match?.[1] ?? fieldname;
           const ext = filename ? path.extname(filename) : "";
           const newFilename = `${randomUUID()}${ext}`;
           const filepath = path.join(dir, newFilename);
@@ -725,7 +725,7 @@ class HttpRequest {
     value: string,
   ): void {
     const match = reg.exec(name);
-    const key = match ? match[1] : name;
+    const key = match?.[1] ?? name;
     if (key in fields) {
       const cur = fields[key];
       if (Array.isArray(cur)) {
@@ -758,8 +758,7 @@ class HttpRequest {
       default:
         throw new Error("request accepts method bad type format");
     }
-    for (let i = 0; i < this.accept.length; i++) {
-      const line = this.accept[i];
+    for (const line of this.accept) {
       if (
         (type === "*" || line.type.test(type)) &&
         (subtype === "*" || line.subtype.test(subtype))
@@ -799,17 +798,18 @@ class HttpRequest {
       const tab = request.headers["content-type"].split(";");
       if (tab.length > 1) {
         for (let i = 1; i < tab.length; i++) {
-          if (typeof tab[i] === "string") {
-            const ele = tab[i].split("=");
+          const part = tab[i];
+          if (typeof part === "string") {
+            const [rawKey = "", value] = part.split("=");
             // P8 : retire TOUT le whitespace OWS (avant : seulement la 1ʳᵉ espace).
-            const key = ele[0].replace(/\s+/g, "").toLowerCase();
-            this.rawContentType[key] = ele[1];
+            const key = rawKey.replace(/\s+/g, "").toLowerCase();
+            this.rawContentType[key] = value;
           } else {
             continue;
           }
         }
       }
-      return tab[0];
+      return tab[0] ?? null;
     }
     return null;
   }
@@ -847,10 +847,10 @@ class HttpRequest {
       return this.#url.hostname;
     }
     if (host) {
-      return host.split(":")[0];
+      return host.split(":")[0] ?? "";
     }
     if ((host = this.getHost())) {
-      return host.split(":")[0];
+      return host.split(":")[0] ?? "";
     }
     return "";
   }

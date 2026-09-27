@@ -299,10 +299,8 @@ class Certificate extends Service {
    */
   private static generateSerialHex(): string {
     const bytes = randomBytes(16);
-    bytes[0] &= 0x7f; // entier positif (DER)
-    if (bytes[0] === 0) {
-      bytes[0] = 0x01; // jamais d'octet de tête nul
-    }
+    const head = bytes.readUInt8(0) & 0x7f; // entier positif (DER)
+    bytes[0] = head === 0 ? 0x01 : head; // jamais d'octet de tête nul
     return bytes.toString("hex");
   }
 

@@ -329,8 +329,8 @@ const acceptParser = function (acc?: string): AcceptEntry[] {
   const arr = [];
   try {
     const types = acc.split(",");
-    for (let i = 0; i < types.length; i++) {
-      const type = types[i].split(";");
+    for (const segment of types) {
+      const type = segment.split(";");
       const mine = type.shift();
       if (!mine) {
         continue; // segment vide (ex. « , ,text/html ») → ignoré, jamais throw.
@@ -342,8 +342,8 @@ const acceptParser = function (acc?: string): AcceptEntry[] {
         type: acceptMatcher(ele1),
         subtype: acceptMatcher(ele2),
       };
-      for (let j = 0; j < type.length; j++) {
-        const params = type[j].split("=");
+      for (const param of type) {
+        const params = param.split("=");
         const name = params.shift();
         const value = params.shift();
         obj[name as string] =

@@ -123,8 +123,8 @@ export class FrameProfile {
   phaseEnd(name: PhaseName): void {
     if (!this.timing) return;
     for (let i = this.phases.length - 1; i >= 0; i--) {
-      const p = this.phases[i];
-      if (p.name === name && p.endMs === undefined) {
+      const p = this.phases.at(i);
+      if (p?.name === name && p.endMs === undefined) {
         p.endMs = performance.now();
         p.durationMs = p.endMs - p.startMs;
         return;

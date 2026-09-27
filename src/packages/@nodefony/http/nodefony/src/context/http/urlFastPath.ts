@@ -185,7 +185,8 @@ export function isCanonicalAuthority(
       return false;
     }
   }
-  const last = labels[labels.length - 1];
+  // `split` rend toujours au moins un label : le repli ne sert qu'au typage.
+  const last = labels.at(-1) ?? "";
   if (isDigits(last)) {
     if (labels.length !== 4) {
       return false; // `127.1`, `2130706433`, `1.2.3.4.5`…
