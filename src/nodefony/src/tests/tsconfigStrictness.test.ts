@@ -1,6 +1,6 @@
 /*
  *   Tout tsconfig du dépôt — et tout gabarit qui en engendre un — porte la
- *   MÊME rigueur de compilation.
+ *   MÊME rigueur de compilation, à `REPO_ONLY` près.
  *
  *   Les tsconfig du dépôt ne partagent aucune base (`extends`) : chaque paquet
  *   porte ses options en propre, et une option recopiée à la main finit par
@@ -9,7 +9,8 @@
  *
  *   Ce test lit chaque tsconfig RACINE (sans `extends` local) et exige les
  *   options ci-dessous ; il refuse aussi qu'un tsconfig qui en étend un autre
- *   les coupe. Les gabarits (`.tpl`) sont lus en texte : leurs balises de
+ *   les coupe. Une seule différence entre le dépôt et ses gabarits :
+ *   `REPO_ONLY`, exigé du framework et laissé au choix de l'application. Les gabarits (`.tpl`) sont lus en texte : leurs balises de
  *   modèle ne sont pas du JSON.
  */
 
@@ -33,36 +34,21 @@ const REQUIRED = [
 ] as const;
 
 /**
- * Cliquet de `noUncheckedIndexedAccess` : les paquets déjà assainis, dont
- * chaque tsconfig racine DOIT porter l'option. La liste ne fait que grandir,
- * dans l'ordre du graphe — un paquet qui lit ses voisins EN SOURCE compile
- * leurs fichiers avec ses propres options, il ne peut donc passer qu'après
- * eux. Quand elle couvre le dépôt, l'option rejoint `REQUIRED` et la liste
- * disparaît. Les gabarits (`.tpl`) entrent avec le code qu'ils engendrent.
+ * Options exigées dans chaque tsconfig racine DU DÉPÔT, mais pas dans les
+ * gabarits (`.tpl`) d'application ou de module. Le code du framework tourne
+ * chez tout le monde : un accès indexé non vérifié y devient un `undefined`
+ * chez l'utilisateur. Le code métier d'une application, lui, n'a pas à payer
+ * cette friction par défaut — `strict` y suffit, et l'option s'y active en
+ * une ligne.
  */
-const INDEX_CHECKED = [
-  "src/nodefony/",
-  "src/packages/@nodefony/orm-core/",
-  "src/packages/@nodefony/user/",
-  "src/packages/@nodefony/drizzle/",
-  "src/packages/@nodefony/llm/",
-  "src/packages/@nodefony/mongoose/",
-  "src/packages/@nodefony/redis/",
-  "src/packages/@nodefony/framework/",
-  "src/packages/@nodefony/http/",
-  "src/packages/@nodefony/security/",
-  "src/packages/@nodefony/devkit/",
-  "src/packages/@nodefony/documentation/",
-  "src/packages/@nodefony/frontend/",
-  "src/packages/@nodefony/realtime/",
-  "src/packages/@nodefony/studio/",
-  "src/modules/",
-  // La racine seule : `tsconfig.declarations.json` et l'outillage l'étendent.
-  "tsconfig.json",
-] as const;
+const REPO_ONLY = ["noUncheckedIndexedAccess"] as const;
 
 /** Options que `strict` allume et qu'aucun tsconfig ne doit éteindre. */
-const NEVER_OFF = [...REQUIRED, "useUnknownInCatchVariables"] as const;
+const NEVER_OFF = [
+  ...REQUIRED,
+  ...REPO_ONLY,
+  "useUnknownInCatchVariables",
+] as const;
 
 /**
  * Hors périmètre, avec leur motif : aucun n'est lu par un contrôle de types.
@@ -109,27 +95,18 @@ describe("tsconfig — même rigueur de compilation partout", () => {
     expect(missing).toEqual([]);
   });
 
-  it("les paquets du cliquet portent noUncheckedIndexedAccess", () => {
+  it("chaque tsconfig racine du dépôt porte les options du framework", () => {
     const missing: string[] = [];
-    let checked = 0;
     for (const file of tsconfigs) {
       if (file.endsWith(".tpl")) continue;
-      if (!INDEX_CHECKED.some((dir) => file.startsWith(dir))) continue;
       const text = read(file);
       if (text.includes('"extends"')) continue;
-      checked += 1;
-      if (optionValue(text, "noUncheckedIndexedAccess") !== "true")
-        missing.push(file);
+      for (const name of REPO_ONLY) {
+        if (optionValue(text, name) !== "true")
+          missing.push(`${file} → ${name}`);
+      }
     }
-    expect(checked).toBeGreaterThan(0);
     expect(missing).toEqual([]);
-  });
-
-  it("aucun tsconfig n'éteint noUncheckedIndexedAccess", () => {
-    const disabled = tsconfigs.filter(
-      (file) => optionValue(read(file), "noUncheckedIndexedAccess") === "false",
-    );
-    expect(disabled).toEqual([]);
   });
 
   it("aucun tsconfig n'éteint une option stricte", () => {
