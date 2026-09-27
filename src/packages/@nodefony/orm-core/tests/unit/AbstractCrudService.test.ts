@@ -235,6 +235,35 @@ describe("AbstractCrudService (générique CRUD)", () => {
       assert.equal(await svc.updateOne({ id: "ghost" }, { qty: 9 }), null);
       assert.equal(fired, false);
     });
+
+    // Un champ facultatif de Zod rend `{ name?: string | undefined }`. Un
+    // repository qui recopie ses données (`Object.assign`) écraserait `name` :
+    // la clé `undefined` doit valoir clé ABSENTE, quel que soit l'adaptateur.
+    it("une clé `undefined` ne touche pas au champ", async () => {
+      const svc = new WidgetService(new MemoryRepo());
+      const w = await svc.create({ name: "a", qty: 1 });
+      const updated = await svc.updateOne(
+        { id: w.id },
+        { name: undefined, qty: 9 },
+      );
+      assert.equal(updated?.name, "a");
+      assert.equal(updated?.qty, 9);
+    });
+
+    it("sans clé `undefined`, le repository reçoit l'objet même (aucune copie)", async () => {
+      const repo = new MemoryRepo();
+      const svc = new WidgetService(repo);
+      const w = await svc.create({ name: "a", qty: 1 });
+      let received: unknown = null;
+      const original = repo.updateOne.bind(repo);
+      repo.updateOne = (criteria, data) => {
+        received = data;
+        return original(criteria, data);
+      };
+      const data = { qty: 2 };
+      await svc.updateOne({ id: w.id }, data);
+      assert.equal(received, data);
+    });
   });
 
   describe("delete", () => {

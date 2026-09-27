@@ -3,7 +3,7 @@ import type { ControllerScope } from "./Controller";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
 import { assertPageQuery } from "nodefony";
-import type { IPage, IPageQuery } from "nodefony";
+import type { IPage, IPageQuery, PartialInput } from "nodefony";
 
 /**
  * Contrat structurel du service de ressource consommé par un
@@ -73,10 +73,10 @@ export interface IResourceService<T = unknown> {
    * de `find`.
    */
   findPage?(page: IResourcePageQuery): Promise<IPage<T>> | IPage<T>;
-  create?(data: Partial<T>): Promise<T> | T;
+  create?(data: PartialInput<T>): Promise<T> | T;
   updateOne?(
     criteria: Record<string, unknown>,
-    data: Partial<T>,
+    data: PartialInput<T>,
   ): Promise<T | null> | T | null;
   delete?(criteria: Record<string, unknown>): Promise<number> | number;
 }
@@ -236,7 +236,7 @@ class ResourceController<T = unknown> extends Controller {
   }
 
   /** Crée une entité — 501 si la ressource est read-only. */
-  protected createResource(data: Partial<T>): Promise<T> {
+  protected createResource(data: PartialInput<T>): Promise<T> {
     const resource = this.requireResource();
     if (typeof resource.create !== "function") {
       throw new HttpError(
@@ -251,7 +251,7 @@ class ResourceController<T = unknown> extends Controller {
   /** Met à jour une entité ciblée par critères — 501 si non supporté. */
   protected updateResource(
     criteria: Record<string, unknown>,
-    data: Partial<T>,
+    data: PartialInput<T>,
   ): Promise<T | null> {
     const resource = this.requireResource();
     if (typeof resource.updateOne !== "function") {

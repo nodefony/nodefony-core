@@ -1,5 +1,6 @@
 import { AbstractCrudService, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
+import type { PartialInput } from "nodefony";
 import type { <%= it.pascal %>Row } from "../entity/<%= it.pascal %>";
 import {
   create<%= it.pascal %>Schema,
@@ -66,8 +67,8 @@ export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>
    * colonne qu'on ne lui a pas ouverte.
    */
   protected override beforeCreate(
-    data: Partial<<%= it.pascal %>Row>,
-  ): Partial<<%= it.pascal %>Row> {
+    data: PartialInput<<%= it.pascal %>Row>,
+  ): PartialInput<<%= it.pascal %>Row> {
     return create<%= it.pascal %>Schema.parse(data);
   }
 
@@ -79,8 +80,8 @@ export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>
    */
   protected override beforeUpdate(
     _criteria: Record<string, unknown>,
-    data: Partial<<%= it.pascal %>Row>,
-  ): Partial<<%= it.pascal %>Row> {
+    data: PartialInput<<%= it.pascal %>Row>,
+  ): PartialInput<<%= it.pascal %>Row> {
     return update<%= it.pascal %>Schema.parse(data);
   }
 
@@ -99,11 +100,11 @@ export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>
    */
   async replace(
     id: string,
-    data: Partial<<%= it.pascal %>Row>,
+    data: PartialInput<<%= it.pascal %>Row>,
   ): Promise<<%= it.pascal %>Row | null> {
     const complete = create<%= it.pascal %>Schema.parse(
       data,
-    ) as Partial<<%= it.pascal %>Row>;
+    ) as PartialInput<<%= it.pascal %>Row>;
     return this.updateOne({ id }, complete);
   }
 }

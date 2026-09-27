@@ -519,6 +519,7 @@ export type {
   IdempotentResponse,
 } from "./types/IIdempotencyStore";
 export type { IPage, IPageQuery, ISortableSource } from "./types/IPage";
+export type { PartialInput } from "./types/PartialInput";
 export {
   assertPageQuery,
   PaginationModeError,

@@ -1,4 +1,5 @@
 import { Service } from "nodefony";
+import type { PartialInput } from "nodefony";
 import type {
   IRepository,
   Criteria,
@@ -6,6 +7,7 @@ import type {
   IPage,
   PageQuery,
 } from "../interfaces/index";
+import { omitUndefined } from "./omitUndefined";
 import { paginate } from "./paginate";
 import type { ServiceWiring } from "./serviceWiring";
 
@@ -143,12 +145,15 @@ export abstract class AbstractCrudService<
   /**
    * Crée une entité : `beforeCreate` → persistance → `afterCreate` → `onCreated`.
    *
+   * Une clé qui vaut `undefined` vaut clé absente : elle est retirée avant la
+   * persistance (cf `omitUndefined`), quel que soit l'adaptateur.
+   *
    * @param data - champs de l'entité à créer.
    * @returns l'entité persistée. Émet `onCreated`.
    */
-  async create(data: Partial<T>): Promise<T> {
+  async create(data: PartialInput<T>): Promise<T> {
     const prepared = await this.beforeCreate(data);
-    const entity = await this.repository.create(prepared);
+    const entity = await this.repository.create(omitUndefined(prepared));
     await this.afterCreate(entity);
     this.fire("onCreated", entity);
     return entity;
@@ -168,12 +173,18 @@ export abstract class AbstractCrudService<
    * on la remontera dans un service le jour où un usage métier la réclame.
    *
    * @param criteria - filtre de sélection (champ inconnu → `UnknownCriteriaField`).
-   * @param data - champs à modifier.
+   * @param data - champs à modifier ; une clé `undefined` n'est pas touchée.
    * @returns l'entité mise à jour, ou `null` si aucune ne correspond (pas d'event).
    */
-  async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
+  async updateOne(
+    criteria: Criteria<T>,
+    data: PartialInput<T>,
+  ): Promise<T | null> {
     const prepared = await this.beforeUpdate(criteria, data);
-    const updated = await this.repository.updateOne(criteria, prepared);
+    const updated = await this.repository.updateOne(
+      criteria,
+      omitUndefined(prepared),
+    );
     if (updated !== null) {
       await this.afterUpdate(updated);
       this.fire("onUpdated", updated);
@@ -209,7 +220,9 @@ export abstract class AbstractCrudService<
    * @param data - données entrantes.
    * @returns les données préparées à persister.
    */
-  protected beforeCreate(data: Partial<T>): Partial<T> | Promise<Partial<T>> {
+  protected beforeCreate(
+    data: PartialInput<T>,
+  ): PartialInput<T> | Promise<PartialInput<T>> {
     return data;
   }
 
@@ -225,8 +238,8 @@ export abstract class AbstractCrudService<
    */
   protected beforeUpdate(
     _criteria: Criteria<T>,
-    data: Partial<T>,
-  ): Partial<T> | Promise<Partial<T>> {
+    data: PartialInput<T>,
+  ): PartialInput<T> | Promise<PartialInput<T>> {
     return data;
   }
 
