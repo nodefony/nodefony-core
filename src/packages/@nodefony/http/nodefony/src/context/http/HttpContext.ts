@@ -265,7 +265,12 @@ class HttpContext extends Context implements IHttpContextInterface {
     //this.locale = this.translation.handle();
     // WARNING EVENT KERNEL
     this.fire("onRequest", this);
-    this.kernel?.fire("onRequest", this);
+    // `Kernel.fire` journalise en DEBUG avant d'émettre : sans écouteur ni
+    // debug, c'est une chaîne formatée et un appel au journal pour rien.
+    const kernel = this.kernel;
+    if (kernel && (kernel.debug || kernel.listenerCount("onRequest") > 0)) {
+      kernel.fire("onRequest", this);
+    }
     if (!this.resolver && this.router) {
       this.resolver = this.router.resolve(this);
     }

@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 489 lignes |
-| Coût d'activation | ~8 185 tokens (le corps est chargé à l'invocation) |
+| Corps | 490 lignes |
+| Coût d'activation | ~8 442 tokens (le corps est chargé à l'invocation) |
 | Description | 878 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 4 page(s) |
-| Scripts | 44 |
+| Scripts | 46 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -120,6 +120,8 @@ script, donc toujours à jour après régénération.
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
 | `scripts/prod-readiness-report.mjs` | prod-readiness-report.mjs — « Nodefony peut-il partir en production ? » | `--data` `--minutes` `--out` `--soak` `--window` | `DATA` `SOAK` |
+| `scripts/profile-analyze.mjs` | Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé | `--cpu-prof` | — |
+| `scripts/profile-cpu.sh` | Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. | `--cpu-prof` `--cpu-prof-dir` `--cpu-prof-interval` | `BENCH_PATH` `NF_PROFILE_DIR` `PORT` `XENV` |
 | `scripts/ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur. | — | `MAX` `RL_URL` `URL` |
 | `scripts/route-scan-cost.mjs` | route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et | `--diagnostic` `--json` `--measure` `--reps` `--routes` `--scale` `--target` | `JSON_OUT` |
 | `scripts/run.sh` | Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES | `--config` `--rupture` | — |
@@ -163,6 +165,7 @@ Usage :  node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs 
 node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]
 node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
 node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs
+Usage : node profile-analyze.mjs <dossier> <requêtes servies> [top=40]
 bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs
 Usage : node scaffold-ws-probe.mjs <cookie> [type] [name]
@@ -179,7 +182,7 @@ bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/load-test/scripts/ws-messages.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL`
+**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
 
 ## Conformité au standard Agent Skills
 
@@ -200,7 +203,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 489 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 490 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

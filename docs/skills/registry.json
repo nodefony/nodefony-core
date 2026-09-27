@@ -3415,8 +3415,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
       "cost": {
-        "bodyLines": 489,
-        "approxTokens": 8185
+        "bodyLines": 490,
+        "approxTokens": 8442
       },
       "requires": [
         "serveur UP",
@@ -4280,6 +4280,61 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/profile-analyze.mjs",
+            "purpose": "Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé",
+            "usage": [
+              "Usage : node profile-analyze.mjs <dossier> <requêtes servies> [top=40]"
+            ],
+            "options": [
+              {
+                "flag": "--cpu-prof",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/profile-cpu.sh",
+            "purpose": "Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--cpu-prof",
+                "help": ""
+              },
+              {
+                "flag": "--cpu-prof-dir",
+                "help": ""
+              },
+              {
+                "flag": "--cpu-prof-interval",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "BENCH_PATH",
+                "help": ""
+              },
+              {
+                "name": "NF_PROFILE_DIR",
+                "help": ""
+              },
+              {
+                "name": "PORT",
+                "help": ""
+              },
+              {
+                "name": "XENV",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/ratelimit-e2e.mjs",
             "purpose": "Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur.",
             "usage": [
@@ -4863,7 +4918,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "489",
+            "detail": "490",
             "advisory": true
           }
         ]

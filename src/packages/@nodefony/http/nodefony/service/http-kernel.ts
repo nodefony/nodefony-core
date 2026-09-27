@@ -1301,10 +1301,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // sur TOUTE réponse (h1 + compat h2) : après `finish` quand elle aboutit
       // (nextTick), seul quand le client part avant la fin. L'ancien pair
       // finish/close + flag didFinish + 2 removeListener (~2 % du profil
-      // CPU/req) se replie en 1 `once` auto-détaché, 0 removeListener.
+      // CPU/req) se replie en 1 écouteur. `on`, pas `once` : la réponse émet
+      // `close` UNE fois puis est jetée avec son écouteur — `once` coûtait une
+      // enveloppe allouée et un `removeListener` par requête, pour rien.
       // `writableEnded` (posé par end(), AVANT l'émission de finish) rejoue le
       // distinguo ex-didFinish au moment du close.
-      response.once("close", () => {
+      response.on("close", () => {
         if (!response.writableEnded) {
           // Close sans end() préalable = client parti avant la réponse complète.
           context._abortIfPending("Connection closed before response finished");

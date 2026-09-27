@@ -701,3 +701,39 @@ describe("Container › closed (#484)", () => {
     expect(scope.closed).to.equal(true);
   });
 });
+
+describe("Container.get — une seule lecture par appel", () => {
+  // `name in services` puis `services[name]` remontait DEUX fois la chaîne de
+  // prototypes d'un scope (propre → services du kernel, en mode dictionnaire),
+  // à chaque résolution — ~12 par requête HTTP.
+  class Probe extends Container {
+    hasCalls = 0;
+    spy(): void {
+      const target = this.services as object;
+      this.services = new Proxy(target, {
+        has: (t, k) => {
+          this.hasCalls++;
+          return Reflect.has(t, k);
+        },
+      }) as typeof this.services;
+    }
+  }
+
+  it("aucun test d'appartenance (`in`) : lecture directe", () => {
+    const c = new Probe();
+    c.set("a", 1);
+    c.spy();
+    expect(c.get("a")).to.equal(1);
+    expect(c.get("absent")).to.equal(null);
+    expect(c.hasCalls).to.equal(0);
+  });
+
+  it("un service hérité par un scope se lit toujours", () => {
+    const root = new Container();
+    root.addScope("request");
+    root.set("svc", "x");
+    const scope = root.enterScope("request");
+    expect(scope.get("svc")).to.equal("x");
+    expect(scope.get("toString")).to.equal(null);
+  });
+});

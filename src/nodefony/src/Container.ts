@@ -172,10 +172,10 @@ class Container implements IContainer {
   // résout (`get<HttpKernel>("HttpKernel")`) — API publique du conteneur.
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   public get<T = unknown>(name: string): T | null {
-    if (this.services && name in this.services) {
-      return this.services[name] as T;
-    }
-    return null;
+    // UNE lecture : `name in services` puis `services[name]` remontait deux
+    // fois la chaîne de prototypes d'un scope, à chaque résolution.
+    const value = this.services?.[name];
+    return value === undefined ? null : (value as T);
   }
 
   /**
