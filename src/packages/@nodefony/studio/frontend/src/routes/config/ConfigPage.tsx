@@ -51,8 +51,11 @@ import {
 import { ConfigModuleCard } from "./ConfigModuleCard";
 
 /** Méta d'affichage d'une provenance (aligné sur ConfigLayout `SOURCE_META`). */
+/** Provenance affichée pour une source absente de la table. */
+const DEFAULT_SRC = { label: "défaut", color: "gray" };
+
 const SRC: Record<string, { label: string; color: string }> = {
-  default: { label: "défaut", color: "gray" },
+  default: DEFAULT_SRC,
   app: { label: "app", color: "grape" },
   env: { label: "env", color: "teal" },
 };
@@ -191,10 +194,10 @@ export const ConfigPage = observer(() => {
           <Badge
             size="sm"
             variant="light"
-            color={SRC[r.source].color}
+            color={(SRC[r.source] ?? DEFAULT_SRC).color}
             tt="none"
           >
-            {SRC[r.source].label}
+            {(SRC[r.source] ?? DEFAULT_SRC).label}
           </Badge>
         ),
       },

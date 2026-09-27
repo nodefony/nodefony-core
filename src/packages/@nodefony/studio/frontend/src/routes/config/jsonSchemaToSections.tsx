@@ -77,12 +77,13 @@ function objectBranch(node: JsonSchemaNode): JsonSchemaNode | null {
 /** Résout le nœud schéma à un chemin pointé (via `properties` ET records). */
 function schemaAt(root: unknown, path: string): JsonSchemaNode | null {
   if (!isObj(root)) return null;
-  let node: JsonSchemaNode | null = root;
+  let node: JsonSchemaNode = root;
   for (const seg of path.split(".")) {
     const obj: JsonSchemaNode | null = objectBranch(node);
     if (!obj) return null;
-    if (obj.properties && seg in obj.properties) {
-      node = obj.properties[seg];
+    const child = obj.properties?.[seg];
+    if (child) {
+      node = child;
     } else if (isObj(obj.additionalProperties)) {
       // record (`z.record`) : toute clé suit le schéma `additionalProperties`.
       node = obj.additionalProperties;

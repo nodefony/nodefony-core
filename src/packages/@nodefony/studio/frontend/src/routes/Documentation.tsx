@@ -316,7 +316,6 @@ export const Documentation = observer(() => {
     setCollapsed((c) =>
       // Clé absente = `undefined` (section jamais repliée) : `=== false` la distingue
       // d'un `false` explicite, ce que `!c[id]` confondrait.
-      // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
       c[activeSection.id] === false ? c : { ...c, [activeSection.id]: false },
     );
   }, [activeSection]);

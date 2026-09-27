@@ -50,6 +50,7 @@ import {
 import { Legend, MiniChart } from "../../components/ui";
 import { Metric, useLiveSeries } from "./_kit";
 import { PLATFORM_CHANNELS } from "nodefony";
+import { FLOW_PALETTE, cyclicPick } from "../../utils/palette";
 
 /* ───────────────────────── Types miroir (sonde riche) ───────────────────────── */
 
@@ -619,19 +620,6 @@ interface FlowReport {
   connectors: FlowConnector[];
 }
 
-/** Palette stable des séries de débit par connecteur (assignée par index). */
-const FLOW_PALETTE = [
-  "var(--mantine-color-yellow-6)",
-  "var(--mantine-color-blue-6)",
-  "var(--mantine-color-teal-6)",
-  "var(--mantine-color-grape-6)",
-  "var(--mantine-color-orange-6)",
-  "var(--mantine-color-cyan-6)",
-];
-function paletteAt(i: number): string {
-  return FLOW_PALETTE[i % FLOW_PALETTE.length];
-}
-
 /** Débit/s PAR connecteur dérivé du delta de `total` entre 2 rapports + historique. */
 function useFlowSeries(
   report: FlowReport | null,
@@ -686,7 +674,7 @@ function OrmFlowBody({ source }: WidgetRenderProps<FlowReport>) {
     );
   const series = conns.map((cc, i) => ({
     data: hist.map((h) => h[cc.connector] ?? 0),
-    color: paletteAt(i),
+    color: cyclicPick(FLOW_PALETTE, i),
     label: cc.connector,
   }));
   const totalRate = Object.values(rates).reduce((a, v) => a + v, 0);
@@ -707,7 +695,7 @@ function OrmFlowBody({ source }: WidgetRenderProps<FlowReport>) {
       <Group gap="lg" wrap="wrap">
         {conns.map((cc, i) => (
           <Group key={cc.connector} gap={6} wrap="nowrap">
-            <Legend color={paletteAt(i)} label={cc.connector} />
+            <Legend color={cyclicPick(FLOW_PALETTE, i)} label={cc.connector} />
             <Text
               size="xs"
               c="dimmed"

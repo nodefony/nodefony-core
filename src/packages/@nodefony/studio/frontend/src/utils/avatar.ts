@@ -22,9 +22,9 @@ export function initials(profile: AvatarProfile, identifier?: string): string {
   if (g || f) return (g.charAt(0) + f.charAt(0)).toUpperCase();
   const d = (profile.displayName ?? identifier ?? "").trim();
   if (!d) return "?";
-  const parts = d.split(/\s+/).filter(Boolean);
+  const [first = "", second] = d.split(/\s+/).filter(Boolean);
   const two =
-    parts.length > 1 ? parts[0].charAt(0) + parts[1].charAt(0) : d.slice(0, 2);
+    second !== undefined ? first.charAt(0) + second.charAt(0) : d.slice(0, 2);
   return two.toUpperCase();
 }
 

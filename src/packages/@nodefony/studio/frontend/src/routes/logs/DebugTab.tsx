@@ -234,8 +234,7 @@ function DebugCard({
       else next.add(s);
       return next;
     });
-  const clear = () =>
-    setClearedUid(byModule.length ? byModule[byModule.length - 1].uid : 0);
+  const clear = () => setClearedUid(byModule.at(-1)?.uid ?? 0);
 
   const header = (
     <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
@@ -564,11 +563,11 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
         </Text>
       ) : (
         <Stack gap="sm">
-          {modules.map((m) => (
+          {Object.entries(overrides).map(([m, moduleLevel]) => (
             <DebugCard
               key={m}
               module={m}
-              level={overrides[m]}
+              level={moduleLevel}
               expireAt={expiresAt[m]}
               entries={entries}
               onTurnOff={(target) => void turnOff(target)}

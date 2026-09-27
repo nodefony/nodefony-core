@@ -106,9 +106,7 @@ function backplaneWired(bp: InstanceHealth["backplane"] | null): boolean {
 function maxSubscribers(inst: InstanceHealth | undefined): number {
   if (!inst) return 0;
   let max = 0;
-  const list = inst.channels;
-  for (let i = 0; i < list.length; i += 1) {
-    const s = list[i].subscribers;
+  for (const { subscribers: s } of inst.channels) {
     if (s > max) max = s;
   }
   return max;
@@ -422,10 +420,8 @@ export function mapProbesLive(
   let totalTicks = 0;
   const instances = rt?.instances;
   if (instances) {
-    for (let i = 0; i < instances.length; i += 1) {
-      const list = instances[i].channels;
-      for (let j = 0; j < list.length; j += 1) {
-        const stat = list[j];
+    for (const { channels } of instances) {
+      for (const stat of channels) {
         if (!isHealthChannel(stat.channel)) continue;
         probesCount += 1;
         totalTicks += stat.messages;

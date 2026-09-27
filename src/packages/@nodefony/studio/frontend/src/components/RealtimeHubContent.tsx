@@ -41,12 +41,15 @@ import type { NoticeLevel } from "nodefony";
 /** Version de la doc des fiches d'aide (`DocHint`) du popover Hub. */
 const HUB_DOC = "v1.0";
 
+/** État affiché quand la connexion est dans un état inconnu de la table. */
+const DISCONNECTED_META = { color: "gray", label: "déconnecté" };
+
 const STATE_META: Record<string, { color: string; label: string }> = {
   connected: { color: "teal", label: "connecté" },
   connecting: { color: "yellow", label: "connexion…" },
   reconnecting: { color: "yellow", label: "reconnexion…" },
   error: { color: "red", label: "erreur" },
-  disconnected: { color: "gray", label: "déconnecté" },
+  disconnected: DISCONNECTED_META,
 };
 
 /** Niveau de notice → couleur Mantine (incidents temps réel). */
@@ -237,7 +240,7 @@ export const RealtimeHubContent = observer(
     const subs = Array.from(conn.activeSubscriptions.values()).sort((a, b) =>
       a.channel.localeCompare(b.channel),
     );
-    const meta = STATE_META[conn.state] ?? STATE_META.disconnected;
+    const meta = STATE_META[conn.state] ?? DISCONNECTED_META;
     const uptime = conn.connectedAt ? fmtUptime(now - conn.connectedAt) : "—";
     const aggRate = subs.reduce((acc, s) => acc + s.rate, 0);
     const busy = conn.state === "connecting" || conn.state === "reconnecting";

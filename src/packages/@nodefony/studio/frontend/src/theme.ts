@@ -288,13 +288,16 @@ function readableShade(
   background: string,
   from: number,
 ): string | null {
-  for (let i = from; i < tuple.length; i++) {
-    if (contrastRatio(tuple[i], background) >= AA_TEXT) {
+  for (const [i, shade] of tuple.entries()) {
+    if (i < from) continue;
+    if (contrastRatio(shade, background) >= AA_TEXT) {
       return i === from ? null : `var(--mantine-color-${name}-${i})`;
     }
   }
+  const darkest = tuple.at(-1);
+  if (darkest === undefined) return null;
   for (let k = 0.1; k <= 0.8; k += 0.1) {
-    const c = darken(tuple[tuple.length - 1], k);
+    const c = darken(darkest, k);
     if (contrastRatio(c, background) >= AA_TEXT) return c;
   }
   return null;

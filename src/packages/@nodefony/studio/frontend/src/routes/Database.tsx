@@ -47,6 +47,7 @@ import {
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router";
 import { useStore } from "../stores";
+import { type NonEmptyList, cyclicPick } from "../utils/palette";
 import {
   PageLayout,
   DocHint,
@@ -120,7 +121,7 @@ const REL_LABEL: Record<RelationInfo["type"], string> = {
 const NONE = "·none·";
 
 /** Palette Mantine cyclée pour distinguer les modules dans l'ERD. */
-const MODULE_COLORS = [
+const MODULE_COLORS: NonEmptyList<string> = [
   "blue",
   "grape",
   "teal",
@@ -143,7 +144,7 @@ function moduleColor(module: string): string {
   for (let i = 0; i < module.length; i += 1) {
     h = (h * 31 + module.charCodeAt(i)) >>> 0;
   }
-  return MODULE_COLORS[h % MODULE_COLORS.length];
+  return cyclicPick(MODULE_COLORS, h);
 }
 
 /**

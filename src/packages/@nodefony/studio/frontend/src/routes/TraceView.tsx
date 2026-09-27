@@ -107,10 +107,11 @@ function parseReqLine(line: string): ReqInfo {
   const status = line.match(/^\s*[A-Z]+\s+(\d{3})\b/);
   if (status) out.status = Number(status[1]);
   const url = line.match(/(https?:\/\/[^\s]+)/i);
-  if (url) {
-    out.url = url[1];
+  const href = url?.[1];
+  if (href) {
+    out.url = href;
     try {
-      out.path = new URL(url[1]).pathname;
+      out.path = new URL(href).pathname;
     } catch {
       /* url non parsable — on garde l'URL brute */
     }
@@ -274,9 +275,9 @@ export const TraceView = observer(() => {
 
   // ── Synthèse dérivée de la trace ──
   const summary = useMemo(() => {
-    if (!logs.length) return null;
-    const first = logs[0];
-    const last = logs[logs.length - 1];
+    const [first] = logs;
+    const last = logs.at(-1);
+    if (!first || !last) return null;
     const isWs = logs.some((l) => pduProtocol(l) === "ws");
     const reqLog = logs.find((l) => l.msgid === "req");
     const req = reqLog ? parseReqLine(recordMessage(reqLog)) : {};

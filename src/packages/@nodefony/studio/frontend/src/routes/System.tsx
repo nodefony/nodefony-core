@@ -133,7 +133,7 @@ export const System = observer(() => {
 
 /** Extrait les noms de variables `{x}` d'un chemin. */
 function paramNames(path: string): string[] {
-  return Array.from(path.matchAll(/\{([^}]+)\}/g)).map((m) => m[1]);
+  return Array.from(path.matchAll(/\{([^}]+)\}/g), ([, name = ""]) => name);
 }
 
 /**

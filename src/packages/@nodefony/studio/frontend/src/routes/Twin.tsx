@@ -41,7 +41,7 @@ export const Twin = observer(() => {
   const info = data?.info ?? null;
   const connectors = data?.connectors ?? [];
   const snapshot = data?.normalized ?? null;
-  const current = stack[stack.length - 1];
+  const current = stack.at(-1) ?? "root";
   const cluster =
     !!data?.normalized?.cluster && data.normalized.instances.length > 1;
   const workers = data?.normalized?.instances.length ?? 0;

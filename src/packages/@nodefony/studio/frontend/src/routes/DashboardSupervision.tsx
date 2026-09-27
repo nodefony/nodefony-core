@@ -68,6 +68,7 @@ import {
   ensureLiveStyles,
 } from "../components/ui";
 import { PLATFORM_CHANNELS } from "nodefony";
+import { FLOW_PALETTE, cyclicPick } from "../utils/palette";
 // Indice de santé : UNE implémentation, partagée avec l'accueil (santé pod) —
 // les poids réglés ici sont ceux que l'accueil applique.
 import {
@@ -94,7 +95,7 @@ interface StatsPayload {
   cpuPercent: number;
   cpuCount: number;
   eventLoopMs: number;
-  loadavg: number[];
+  loadavg: [number, number, number];
   memory: {
     rss: number;
     heapUsed: number;
@@ -324,16 +325,6 @@ const SRC_ORM = (
     aria-label="Source : connecteur ORM"
   />
 );
-
-/** Palette stable des séries de débit par connecteur (assignée par index). */
-const FLOW_PALETTE = [
-  "var(--mantine-color-yellow-6)",
-  "var(--mantine-color-blue-6)",
-  "var(--mantine-color-teal-6)",
-  "var(--mantine-color-grape-6)",
-  "var(--mantine-color-orange-6)",
-  "var(--mantine-color-cyan-6)",
-];
 
 /** Lecture localStorage tolérante (navigation privée / quota). */
 function lsGet(k: string): string | null {
@@ -872,7 +863,7 @@ export const DashboardSupervision = observer(() => {
   const flowColorOf = (conn: string): string => {
     const idx = flowSeriesConns.indexOf(conn);
     return idx >= 0
-      ? FLOW_PALETTE[idx % FLOW_PALETTE.length]
+      ? cyclicPick(FLOW_PALETTE, idx)
       : "var(--mantine-color-gray-5)";
   };
   const connColor: string =
@@ -2002,7 +1993,7 @@ export const DashboardSupervision = observer(() => {
                 format={(v) => `${Math.round(v)}/s`}
                 series={flowSeriesConns.map((conn, i) => ({
                   data: flowHist.map((p) => p.rates[conn] ?? 0),
-                  color: FLOW_PALETTE[i % FLOW_PALETTE.length],
+                  color: cyclicPick(FLOW_PALETTE, i),
                   label: conn,
                 }))}
               />
@@ -2011,7 +2002,7 @@ export const DashboardSupervision = observer(() => {
                   <Legend
                     key={conn}
                     size={fullscreen ? "md" : "xs"}
-                    color={FLOW_PALETTE[i % FLOW_PALETTE.length]}
+                    color={cyclicPick(FLOW_PALETTE, i)}
                     label={`${conn} — ${Math.round(flowRates[conn] ?? 0)}/s`}
                   />
                 ))}
@@ -3169,9 +3160,7 @@ export const DashboardSupervision = observer(() => {
                       }
                       v={
                         stats && stats.cpuCount
-                          ? ((stats.loadavg[0] ?? 0) / stats.cpuCount).toFixed(
-                              2,
-                            )
+                          ? (stats.loadavg[0] / stats.cpuCount).toFixed(2)
                           : "—"
                       }
                       mono

@@ -146,9 +146,9 @@ function parseReplayLine(line: string, index: number): ReplayLine | null {
   const plain = stripAnsi(line);
   const m = plain.match(/^(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+([A-Z]+)\s+(.*)$/);
   if (m) {
-    const ts = clockToTs(+m[1], +m[2], +m[3], +m[4]);
-    const sev = m[5];
-    let rest = m[6];
+    const [, hh = "", mm = "", ss = "", ms = "", sev = "", tail = ""] = m;
+    const ts = clockToTs(+hh, +mm, +ss, +ms);
+    let rest = tail;
     let msgid = "";
     const sep = rest.indexOf(" : ");
     if (sep !== -1) {
@@ -274,18 +274,16 @@ export const FileReplay = observer(() => {
   /** Écart d'attente AVANT de révéler la ligne i (ms réelles, borné). */
   const deltas = useMemo(() => {
     const d = new Array<number>(total);
-    for (let i = 0; i < total; i++) {
+    let prev: number | null = null;
+    for (const [i, { ts: cur }] of lines.entries()) {
       if (i === 0) {
         d[i] = 0;
-        continue;
-      }
-      const prev = lines[i - 1].ts;
-      const cur = lines[i].ts;
-      if (prev === null || cur === null) {
+      } else if (prev === null || cur === null) {
         d[i] = FALLBACK_GAP_MS;
       } else {
         d[i] = Math.min(Math.max(cur - prev, 0), MAX_GAP_MS);
       }
+      prev = cur;
     }
     return d;
   }, [lines, total]);
@@ -293,7 +291,7 @@ export const FileReplay = observer(() => {
   /** Temps simulé écoulé jusqu'à la ligne révélée (somme des deltas). */
   const elapsedMs = useMemo(() => {
     let sum = 0;
-    for (let i = 1; i <= revealed && i < total; i++) sum += deltas[i];
+    for (let i = 1; i <= revealed && i < total; i++) sum += deltas[i] ?? 0;
     return sum;
   }, [revealed, deltas, total]);
   const totalMs = useMemo(() => deltas.reduce((a, b) => a + b, 0), [deltas]);

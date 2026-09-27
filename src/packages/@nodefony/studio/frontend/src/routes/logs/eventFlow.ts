@@ -155,7 +155,10 @@ export function flowStepsForProtocol(
     return p === protocol || p === "both";
   });
   // Tri : groupe protocole (http < both < ws) puis rang logique.
-  const rank: Record<string, number> = { http: 0, both: 1, ws: 2 };
+  const rank = { http: 0, both: 1, ws: 2 } satisfies Record<
+    (typeof FLOW_STEPS)[FlowStepId]["protocol"],
+    number
+  >;
   return ids.sort((a, b) => {
     const pa = FLOW_STEPS[a].protocol;
     const pb = FLOW_STEPS[b].protocol;

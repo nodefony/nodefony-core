@@ -186,7 +186,7 @@ export function parseUserAgent(ua: string | null): ParsedUa | null {
     const m = ua.match(
       /\b(curl|wget|python-requests|axios|node-fetch|got|httpie|postman|insomnia)\b/i,
     );
-    browser = m ? m[1] : "Robot";
+    browser = m?.[1] ?? "Robot";
   } else if (/\bEdg\//.test(ua)) browser = "Edge";
   else if (/\bOPR\/|\bOpera\b/.test(ua)) browser = "Opera";
   else if (/\bFirefox\//.test(ua)) browser = "Firefox";

@@ -489,8 +489,9 @@ export const OrmConnector = observer(() => {
   // prend le connecteur PAR DÉFAUT et l'écrit dans l'URL, plutôt que d'afficher
   // un connecteur sans nom dont les migrations répondent 404.
   useEffect(() => {
-    if (name || !orms.data?.length) return;
-    const fallback = orms.data.find((o) => o.default) ?? orms.data[0];
+    if (name) return;
+    const fallback = orms.data?.find((o) => o.default) ?? orms.data?.[0];
+    if (!fallback) return;
     setParams(
       (p) => {
         p.set("name", fallback.name);

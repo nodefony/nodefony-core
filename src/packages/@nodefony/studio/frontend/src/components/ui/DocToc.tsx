@@ -76,9 +76,10 @@ export function extractHeadings(
     if (inFence) continue;
     const m = /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line);
     if (!m) continue;
-    const level = m[1].length;
+    const [, hashes = "", title = ""] = m;
+    const level = hashes.length;
     if (level < min || level > max) continue;
-    const text = m[2].replace(/[*_`]/g, "").trim();
+    const text = title.replace(/[*_`]/g, "").trim();
     if (text) out.push({ level, text, id: slugifyHeading(text) });
   }
   return out;

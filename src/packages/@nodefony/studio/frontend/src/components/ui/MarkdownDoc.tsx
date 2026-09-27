@@ -308,8 +308,9 @@ function parseAdmonition(
     if (typeKey) return node;
     if (typeof node === "string") {
       const m = ADMONITION_RE.exec(node);
-      if (!m) return node;
-      typeKey = m[1].toLowerCase();
+      const kind = m?.[1];
+      if (!kind) return node;
+      typeKey = kind.toLowerCase();
       const cleaned = node.replace(ADMONITION_RE, "");
       return cleaned ? cleaned : null;
     }

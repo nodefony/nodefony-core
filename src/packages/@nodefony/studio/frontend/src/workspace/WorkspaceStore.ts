@@ -268,7 +268,8 @@ export class WorkspaceStore {
   deleteWorkspace(id: string): void {
     if (Object.keys(this.layouts).length <= 1 || !this.layouts[id]) return;
     delete this.layouts[id];
-    if (this.activeId === id) this.activeId = Object.keys(this.layouts)[0];
+    const [first] = Object.keys(this.layouts);
+    if (this.activeId === id && first !== undefined) this.activeId = first;
     this.persist();
   }
 
@@ -358,10 +359,11 @@ export class WorkspaceStore {
                 items: layout.items.filter(isInstance).map(normInstance),
               };
             }
-            if (Object.keys(out).length) {
+            const [first] = Object.keys(out);
+            if (first !== undefined) {
               this.layouts = out;
               const a = localStorage.getItem(ACTIVE_KEY);
-              this.activeId = a && out[a] ? a : Object.keys(out)[0];
+              this.activeId = a && out[a] ? a : first;
               return;
             }
           }

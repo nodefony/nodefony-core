@@ -812,7 +812,7 @@ export const RealtimeConsole = observer(() => {
       inN,
       outN,
       byKind: Object.entries(byKind).sort((a, b) => b[1] - a[1]),
-      last: frames.length ? frames[frames.length - 1].ts : 0,
+      last: frames.at(-1)?.ts ?? 0,
     };
   }, [frames]);
 

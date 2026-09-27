@@ -131,13 +131,15 @@ export function MiniChart({
                 strokeLinejoin="round"
                 vectorEffect="non-scaling-stroke"
               />
-              <circle
-                cx={xOf(n - 1)}
-                cy={yOf(last)}
-                r={3}
-                fill={s.color}
-                vectorEffect="non-scaling-stroke"
-              />
+              {last !== undefined && (
+                <circle
+                  cx={xOf(n - 1)}
+                  cy={yOf(last)}
+                  r={3}
+                  fill={s.color}
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
             </g>
           );
         })}

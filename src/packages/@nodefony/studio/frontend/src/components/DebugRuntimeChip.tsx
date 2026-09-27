@@ -158,7 +158,7 @@ export function DebugRuntimeChip() {
             </div>
             <Divider />
             <Stack gap={4}>
-              {modules.map((m) => (
+              {Object.entries(overrides).map(([m, level]) => (
                 <Group key={m} justify="space-between" wrap="nowrap" gap="xs">
                   <Text size="xs" fw={600} truncate>
                     {moduleLabel(m)}
@@ -168,7 +168,7 @@ export function DebugRuntimeChip() {
                     c="dimmed"
                     style={{ fontVariantNumeric: "tabular-nums" }}
                   >
-                    {sevName(overrides[m])} · {coarseRemaining(expiresAt[m])}
+                    {sevName(level)} · {coarseRemaining(expiresAt[m])}
                   </Text>
                 </Group>
               ))}

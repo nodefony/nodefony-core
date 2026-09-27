@@ -27,6 +27,7 @@ import {
 import {
   buildHealth,
   loadHealthWeights,
+  weightOf,
   type HealthResult,
 } from "../../utils/health";
 import { DefinitionList, KeyValue } from "../../components/ui";
@@ -257,7 +258,7 @@ function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
       value: p.cpuPercent,
       good: 70,
       crit: 100,
-      weight: w.CPU,
+      weight: weightOf(w, "CPU"),
       floor: 0.2,
     },
     {
@@ -265,7 +266,7 @@ function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
       value: p.eluUtilization * 100,
       good: 70,
       crit: 100,
-      weight: w["Saturation (ELU)"],
+      weight: weightOf(w, "Saturation (ELU)"),
       floor: 0.2,
     },
     {
@@ -275,7 +276,7 @@ function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
       value: p.eventLoopMs,
       good: 50,
       crit: 120,
-      weight: w["Event-loop"],
+      weight: weightOf(w, "Event-loop"),
       floor: 0.2,
     },
     {
@@ -284,7 +285,7 @@ function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
       value: heapPct,
       good: 70,
       crit: 95,
-      weight: w["Mémoire (heap)"],
+      weight: weightOf(w, "Mémoire (heap)"),
       critical: true,
     },
     {
@@ -293,7 +294,7 @@ function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
       value: orm ? orm.connectors - orm.connected : null,
       good: 0,
       crit: orm ? Math.max(1, orm.connectors) : 1,
-      weight: w.Connecteurs,
+      weight: weightOf(w, "Connecteurs"),
       critical: true,
     },
     {
@@ -302,7 +303,7 @@ function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
       value: errRate ?? null,
       good: 0,
       crit: 10,
-      weight: w.Erreurs,
+      weight: weightOf(w, "Erreurs"),
       critical: true,
     },
   ]);

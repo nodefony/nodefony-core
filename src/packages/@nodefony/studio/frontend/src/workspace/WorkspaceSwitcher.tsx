@@ -236,9 +236,10 @@ export const WorkspaceSwitcher = observer(() => {
     const i = tabs.findIndex((t) => t.id === id);
     if (i < 0) return;
     const j = i + dir;
-    if (j < 0 || j >= tabs.length) return;
+    const neighbour = tabs[j];
+    if (!neighbour) return;
     // Vers la droite : on passe DEVANT le suivant → cible = celui d'après (ou fin).
-    ws.moveWorkspace(id, dir === -1 ? tabs[j].id : (tabs[j + 1]?.id ?? null));
+    ws.moveWorkspace(id, dir === -1 ? neighbour.id : (tabs[j + 1]?.id ?? null));
   };
 
   const startRename = (id: string, label: string) => {
