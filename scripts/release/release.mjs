@@ -10,9 +10,17 @@
  *
  * Pire en lockstep : quinze paquets se publient en séquence et npm ne connaît
  * pas la transaction. Un échec au huitième laisse sept paquets en ligne qui
- * référencent sept absents — et ces sept versions sont brûlées, donc la reprise
- * se fait en 10.0.1 POUR TOUT LE LOT. D'où la règle de ce fichier : tout ce qui
- * peut être vérifié l'est AVANT le premier `publish`, jamais entre deux.
+ * référencent sept absents. Le lot se REPREND alors à la même version : relancer
+ * la même commande saute ce qui est déjà en ligne à l'identique (empreinte
+ * `dist.integrity` égale à celle du tarball) — cf `planDeReprise`. Une version
+ * n'est brûlée que si un paquet DÉJÀ en ligne doit changer ; la reprise se fait
+ * alors en version suivante POUR TOUT LE LOT. D'où la règle de ce fichier : tout
+ * ce qui peut être vérifié l'est AVANT le premier `publish`, jamais entre deux.
+ *
+ * La mise en attente npm (staged publishing) a été ÉCARTÉE (#312) : quinze
+ * approbations à deux facteurs par publication pour un mainteneur seul, un tag
+ * figé à la mise en attente, et le geste irréversible déplacé de la forge vers
+ * le poste — pour couvrir un risque que la reprise à version égale couvre déjà.
  *
  * ── LE TAG EST LA CAUSE, PAS LA CONSÉQUENCE ─────────────────────────────────
  *
@@ -81,10 +89,12 @@
  * optionnels et le post-traitement des déclarations.
  */
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import {
+  planDeReprise,
   alignerReferencesInternes,
   analyserCommits,
   perimetrePublie,
@@ -1070,14 +1080,24 @@ if (HORS_LIGNE) {
     // treize neufs. Seule une sortie 0 non vide signifie « version occupée ».
     if (v.status === 0 && v.stdout.trim()) deja.push(`${p.nom}@${VERSION}`);
   }
-  if (deja.length) {
+  if (deja.length && !PHASES.publier) {
     echouer(
       `${deja.length} version(s) DÉJÀ publiée(s) sur le registre :\n` +
         deja.map((d) => `    • ${d}`).join("\n") +
         "\n\n  Une version publiée ne se réécrit pas. Passer à la version suivante.",
     );
   }
-  dire(`✓ registre — ${VERSION} libre sur les ${paquets.length} paquets`);
+  // En publication, une version déjà occupée est le cas d'une REPRISE : le lot
+  // précédent a été coupé en route. Elle n'est pas jugée ici, faute de tarball :
+  // l'étape « plan de reprise » compare son empreinte à celle du tarball local
+  // AVANT le premier `publish`, et refuse tout le lot sur la moindre divergence.
+  if (deja.length)
+    alerter(
+      `${deja.length} version(s) déjà en ligne — reprise d'un lot interrompu ?\n` +
+        deja.map((d) => `    • ${d}`).join("\n") +
+        "\n  Leur contenu sera comparé aux tarballs avant toute publication.",
+    );
+  else dire(`✓ registre — ${VERSION} libre sur les ${paquets.length} paquets`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1500,12 +1520,59 @@ if (PHASES.publier) {
   const cwd = path.join(ROOT, "release/tarballs");
   const tagArgs = TAG_NPM ? ["--tag", TAG_NPM] : [];
 
-  // La répétition porte sur les QUATORZE avant qu'un seul ne parte. C'est la
-  // seule parade au lot partiel : npm ne connaît pas la transaction.
-  etape = "répétition de publication (--dry-run sur le lot entier)";
+  // Un lot coupé en route se REPREND à la même version : ce qui est déjà en
+  // ligne à l'identique (même `dist.integrity` que le tarball local) est sauté,
+  // ce qui est en ligne avec un AUTRE contenu refuse tout — avant le premier
+  // `publish`. Cf `planDeReprise`.
+  etape = "plan de reprise (empreintes registre ↔ tarballs)";
+  const locales = {};
+  const enLigne = {};
   for (const nom of ordre) {
     if (!tarballs[nom])
       echouer(`${nom} : aucun tarball dans le manifeste — pack incomplet.`);
+    locales[nom] =
+      "sha512-" +
+      createHash("sha512")
+        .update(readFileSync(path.join(cwd, tarballs[nom])))
+        .digest("base64");
+    const v = npm(["view", `${nom}@${VERSION}`, "dist.integrity", "--json"]);
+    // E404 (paquet ou version inconnus) = pas en ligne. Toute autre sortie
+    // non nulle est un registre injoignable : on ne devine pas, on s'arrête.
+    if (v.status !== 0) {
+      if (/E404|404 Not Found/.test(v.stderr + v.stdout)) enLigne[nom] = null;
+      else
+        echouer(
+          `${nom} : registre injoignable — impossible de savoir ce qui est en ligne.\n` +
+            (v.stderr || v.stdout || "").split("\n").slice(0, 6).join("\n"),
+        );
+    } else {
+      const brut = v.stdout.trim();
+      enLigne[nom] = brut ? String(JSON.parse(brut)) : null;
+    }
+  }
+  const plan = planDeReprise(ordre, locales, enLigne);
+  if (plan.divergents.length) {
+    echouer(
+      `${plan.divergents.length} paquet(s) en ligne en ${VERSION} avec un AUTRE contenu :\n` +
+        plan.divergents.map((n) => `    • ${n}`).join("\n") +
+        "\n\n  Cette version est réellement brûlée : rien n'a été publié. Passer à la\n" +
+        "  version suivante POUR TOUT LE LOT — le lockstep ne tolère pas un lot dépareillé.",
+    );
+  }
+  if (plan.dejaEnLigne.length)
+    dire(
+      `✓ reprise — ${plan.dejaEnLigne.length} paquet(s) déjà en ligne à l'identique, sautés : ` +
+        plan.dejaEnLigne.join(", "),
+    );
+  if (plan.aPublier.length === 0)
+    dire(
+      `✓ rien à publier — les ${ordre.length} paquets sont en ligne en ${VERSION}`,
+    );
+
+  // La répétition porte sur TOUT ce qui reste avant qu'un seul ne parte. C'est la
+  // seule parade au lot partiel : npm ne connaît pas la transaction.
+  etape = "répétition de publication (--dry-run sur le lot entier)";
+  for (const nom of plan.aPublier) {
     const d = npm(
       ["publish", tarballs[nom], "--access", "public", "--dry-run", ...tagArgs],
       { cwd },
@@ -1521,18 +1588,20 @@ if (PHASES.publier) {
       );
     }
   }
-  dire(`✓ répétition — les ${ordre.length} paquets passent le --dry-run`);
+  dire(
+    `✓ répétition — les ${plan.aPublier.length} paquets restants passent le --dry-run`,
+  );
 
   etape = "publication";
   dire(
-    `\n🔴 PUBLICATION RÉELLE de ${ordre.length} paquets en ${VERSION}` +
+    `\n🔴 PUBLICATION RÉELLE de ${plan.aPublier.length} paquets en ${VERSION}` +
       (TAG_NPM ? ` sous le tag « ${TAG_NPM} »` : " sous « latest »") +
       ".\n   npm demandera le code à deux facteurs. Une version publiée ne se retire\n" +
       "   plus passé 72 heures — et elle est brûlée à jamais.\n",
   );
 
-  const publies = [];
-  for (const nom of ordre) {
+  const publies = [...plan.dejaEnLigne];
+  for (const nom of plan.aPublier) {
     dire(`  → npm publish ${tarballs[nom]}`);
     // `--loglevel=warn` : `npm publish` énumère sinon TOUT le contenu du tarball
     // en `notice` — 800 lignes pour le seul cœur. Multiplié par quinze, la
@@ -1560,9 +1629,10 @@ if (PHASES.publier) {
       // frères absents. Et l'on DIT l'état exact — la reprise en dépend.
       echouer(
         `${nom} : publication refusée.\n` +
-          `  DÉJÀ EN LIGNE et BRÛLÉS en ${VERSION} : ${publies.join(", ") || "aucun"}\n` +
-          `  Reste : ${ordre.slice(ordre.indexOf(nom)).join(", ")}\n` +
-          "  Traiter la cause, puis reprendre à ce paquet. Si la cause exige de modifier\n" +
+          `  DÉJÀ EN LIGNE en ${VERSION} : ${publies.join(", ") || "aucun"}\n` +
+          `  Reste : ${plan.aPublier.slice(plan.aPublier.indexOf(nom)).join(", ")}\n` +
+          "  Traiter la cause, puis RELANCER LA MÊME COMMANDE : les paquets déjà en ligne\n" +
+          "  à l'identique sont sautés (plan de reprise). Si la cause exige de modifier\n" +
           "  les paquets déjà publiés, il faut passer à la version suivante POUR TOUT LE\n" +
           "  LOT — le lockstep ne tolère pas un lot dépareillé.",
       );

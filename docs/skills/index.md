@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-09-26
+updated: 2026-09-27
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -118,7 +118,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🚢", "title": "release", "href": "nodefony-release.md",
     "desc": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec.",
-    "meta": "🟢 conforme v2.0.0 · ⚙️ 1 script" }
+    "meta": "🟢 conforme v2.1.0 · ⚙️ 1 script" }
 ]
 ```
 
@@ -199,7 +199,7 @@ source: "docs/skills/index.md"
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 469 | 4 | 44 | ✅ |
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
-| [`nodefony-release`](nodefony-release.md) | 2.0.0 | 347 | 0 | 1 | ✅ |
+| [`nodefony-release`](nodefony-release.md) | 2.1.0 | 356 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.2.0 | 192 | 0 | 1 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |

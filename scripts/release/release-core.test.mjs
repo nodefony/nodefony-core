@@ -24,6 +24,7 @@ import {
   latestsRestesEnArriere,
   lireVueNpm,
   paquetsNonServis,
+  planDeReprise,
   validerOtp,
   estRefusOtp,
   trierPourRecalage,
@@ -1847,6 +1848,52 @@ describe("validerOtp — six chiffres, ou l'on nomme la confusion", () => {
     expect(validerOtp("").ok).toBe(false);
     expect(validerOtp("   ").ok).toBe(false);
     expect(validerOtp(null).ok).toBe(false);
+  });
+});
+
+describe("planDeReprise — un lot interrompu se reprend à la MÊME version", () => {
+  const ordre = ["nodefony", "@nodefony/http", "@nodefony/framework"];
+  const locales = {
+    nodefony: "sha512-A",
+    "@nodefony/http": "sha512-B",
+    "@nodefony/framework": "sha512-C",
+  };
+
+  it("rien en ligne : tout est à publier, dans l'ordre", () => {
+    expect(planDeReprise(ordre, locales, {})).toEqual({
+      aPublier: ordre,
+      dejaEnLigne: [],
+      divergents: [],
+    });
+  });
+
+  it("lot coupé après le premier : on saute celui qui est en ligne À L'IDENTIQUE", () => {
+    const plan = planDeReprise(ordre, locales, {
+      nodefony: "sha512-A",
+      "@nodefony/http": null,
+    });
+    expect(plan.dejaEnLigne).toEqual(["nodefony"]);
+    expect(plan.aPublier).toEqual(["@nodefony/http", "@nodefony/framework"]);
+    expect(plan.divergents).toEqual([]);
+  });
+
+  it("PIÈGE — même version, AUTRE contenu : divergent, jamais sauté", () => {
+    // Le cas d'une version réellement brûlée : reprendre à côté publierait un
+    // lot dont un paquet n'est pas celui qu'on a vérifié.
+    const plan = planDeReprise(ordre, locales, { nodefony: "sha512-AUTRE" });
+    expect(plan.divergents).toEqual(["nodefony"]);
+    expect(plan.dejaEnLigne).toEqual([]);
+  });
+
+  it("PIÈGE — empreinte locale inconnue : divergent, on ne saute pas sur un doute", () => {
+    const plan = planDeReprise(["x"], {}, { x: "sha512-A" });
+    expect(plan.divergents).toEqual(["x"]);
+  });
+
+  it("tout déjà en ligne à l'identique : relancer ne publie rien", () => {
+    const plan = planDeReprise(ordre, locales, { ...locales });
+    expect(plan.aPublier).toEqual([]);
+    expect(plan.dejaEnLigne).toEqual(ordre);
   });
 });
 

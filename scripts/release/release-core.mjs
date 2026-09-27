@@ -1550,6 +1550,43 @@ export function paquetsNonServis(version, vues) {
 }
 
 /**
+ * Le plan d'une publication qui peut REPRENDRE un lot interrompu, à la même version.
+ *
+ * npm ne connaît pas la transaction : un lot coupé au huitième paquet (réseau,
+ * registre en 5xx, jeton OIDC expiré) laisse sept paquets en ligne. Ils ne sont
+ * pas « brûlés » pour autant : si l'on republie les huit restants à la MÊME
+ * version, le lot redevient cohérent. Ce qui brûle une version, c'est de devoir
+ * CHANGER un paquet déjà en ligne — et ça se constate : l'empreinte `dist.integrity`
+ * du registre diffère alors de celle du tarball local.
+ *
+ * Donc, pour chaque paquet, AVANT le premier `publish` :
+ * - absent du registre → à publier ;
+ * - présent avec l'empreinte du tarball local → déjà fait, sauté ;
+ * - présent avec une AUTRE empreinte → divergent : on refuse tout le lot, rien
+ *   ne part. Aucun paquet n'est publié à côté d'un frère qu'on ne contrôle pas.
+ *
+ * Une empreinte locale inconnue vaut divergence : on ne saute jamais sur un doute.
+ *
+ * @param ordre - noms dans l'ordre topologique de publication
+ * @param locales - par paquet, l'empreinte `sha512-…` du tarball local
+ * @param enLigne - par paquet, l'empreinte publiée à cette version, ou `null`
+ *   si la version n'existe pas sur le registre
+ * @returns `{ aPublier, dejaEnLigne, divergents }`, chacun dans l'ordre reçu
+ */
+export function planDeReprise(ordre, locales, enLigne) {
+  const aPublier = [];
+  const dejaEnLigne = [];
+  const divergents = [];
+  for (const nom of ordre) {
+    const publie = enLigne[nom] ?? null;
+    if (publie === null) aPublier.push(nom);
+    else if (locales[nom] && publie === locales[nom]) dejaEnLigne.push(nom);
+    else divergents.push(nom);
+  }
+  return { aPublier, dejaEnLigne, divergents };
+}
+
+/**
  * Les paquets dont la dépréciation reste à poser — ou dont le message a changé.
  *
  * 🔴 Ce que ça évite : un mode de répétition qui rejoue sa liste à l'aveugle ne

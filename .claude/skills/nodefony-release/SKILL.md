@@ -1,7 +1,7 @@
 ---
 name: nodefony-release
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 description: >
   Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle
   commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne
@@ -75,10 +75,19 @@ Elle est **irréversible**. `npm unpublish` n'est ouvert que **72 heures**, et s
 n'en dépend — politique adoptée après `left-pad` (2016). Une version publiée par erreur est brûlée.
 
 En lockstep, c'est pire : les quinze paquets partent en séquence et **npm ne connaît pas la
-transaction**. Un échec au huitième laisse sept paquets en ligne qui référencent sept absents, et
-ces sept versions sont brûlées — la reprise se fait en `10.0.1` **pour tout le lot**. D'où la règle
-qui structure toute la chaîne : _tout ce qui peut être vérifié l'est AVANT le premier `publish`,
-jamais entre deux._
+transaction**. Un échec au huitième laisse sept paquets en ligne qui référencent sept absents.
+**Le lot se reprend à la MÊME version** : relancer la même commande (ou le job de la forge) compare,
+avant le premier `publish`, l'empreinte `dist.integrity` de chaque paquet en ligne à celle du tarball
+local (`planDeReprise`) — identique, il est sauté ; différente, TOUT le lot est refusé. Une version
+n'est brûlée que si un paquet déjà en ligne doit CHANGER : la reprise se fait alors en version
+suivante **pour tout le lot**. D'où la règle qui structure toute la chaîne : _tout ce qui peut être
+vérifié l'est AVANT le premier `publish`, jamais entre deux._
+
+**La mise en attente npm (_staged publishing_) est ÉCARTÉE** (#312) — ne pas la reproposer sans fait
+nouveau. Elle coûte quinze approbations à deux facteurs par publication (aucune approbation groupée),
+déplace le geste irréversible de la forge vers le poste, fige le dist-tag au moment de la mise en
+attente, et couvre un risque — le lot coupé en route — que la reprise à version égale couvre déjà.
+Le fait qui rouvrirait la question : une approbation GROUPÉE côté npm.
 
 ### Le tag est la CAUSE, pas la conséquence
 
@@ -203,7 +212,7 @@ constante, lui, se retrouve au `grep`.
 | npm ≥ 11.5.1, Node ≥ 22.14.0 | `ENEEDAUTH` au trusted publishing, dont le message n'évoque nulle part une version trop ancienne |
 | `src/nodefony/.ai/symbols.json` présent | il est GÉNÉRÉ et **ignoré par git** : absent de tout checkout frais, alors que `files` le déclare. Trois passes hebdomadaires du banc de release sont restées rouges sur ce seul motif — `npm run generate-symbols` |
 | Métadonnées (`repository`, `access`, `files`) | des défauts INVISIBLES dans le dépôt : npm ne valide rien à l'enregistrement du publieur de confiance, l'erreur ne sort qu'au `publish` |
-| Version libre sur le registre | découvrir la collision au huitième paquet, donc brûler les sept précédents |
+| Version libre sur le registre — ou, en publication, déjà en ligne À L'IDENTIQUE (reprise) | découvrir la collision au huitième paquet ; ou reprendre à côté d'un paquet en ligne qui n'est pas celui qu'on a vérifié |
 | Contenu des tarballs | un secret publié est public à la seconde où il est en ligne, bien avant la fenêtre de 72 h |
 | **Contenu de l'image, par COUCHES** | la `10.0.0-alpha.4` a été publiée avec une clé privée TLS. Le contrôle lit `docker save`, jamais `docker export` : l'export rend l'arborescence APLATIE, où un `COPY secret` suivi d'un `RUN rm` ne laisse rien voir — alors que la couche reste lisible par qui télécharge. Il tourne **entre** le build et le push (`release.yml`) et après chaque `build_image` du smoke (les trois presets, donc trois `.dockerignore` rendus). Sortie **2** = il n'a pas pu regarder, ce qui refuse aussi |
 | Répétition `--dry-run` sur **le lot entier** | la seule parade au lot partiel, puisque npm n'a pas de transaction |
