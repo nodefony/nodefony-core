@@ -40,7 +40,13 @@ class HttpResponse {
   statusMessage: string = "";
   flushing: boolean = false;
   encoding: BufferEncoding = "utf-8";
-  body: Buffer | null = null;
+  // Corps en DEUX formes exclusives : une chaîne reste une chaîne jusqu'à
+  // `res.end`. Node colle alors en-têtes et corps en UNE écriture ; un Buffer
+  // l'oblige à un `writev` en deux morceaux, après une copie d'encodage —
+  // ~5 µs par réponse JSON mesurés au profil, pour un octet identique sur le fil.
+  #text: string | null = null;
+  #textEncoding: BufferEncoding = "utf-8";
+  #buffer: Buffer | null = null;
   contentType: string = "application/octet-stream";
   headers: http.OutgoingHttpHeaders = {};
   timeout?: number | undefined; // miiliseconde
@@ -72,6 +78,37 @@ class HttpResponse {
     if (this.response && !this.response.hasHeader("content-type")) {
       this.response.setHeader("content-type", this.contentType);
     }
+  }
+
+  /**
+   * Corps de la réponse en octets. Un corps posé en texte n'est encodé qu'à la
+   * première lecture de cette propriété — l'envoi, lui, écrit le texte tel quel.
+   */
+  get body(): Buffer | null {
+    if (this.#text !== null) {
+      this.#buffer = Buffer.from(this.#text, this.#textEncoding);
+      this.#text = null;
+    }
+    return this.#buffer;
+  }
+
+  set body(value: Buffer | null) {
+    this.#text = null;
+    this.#buffer = value;
+  }
+
+  /**
+   * Corps tel qu'il part sur le fil : le texte s'il n'a jamais été encodé, sinon
+   * les octets — vide légal si rien n'a été posé (`write(null)` jetterait
+   * ERR_STREAM_NULL_VALUES).
+   */
+  protected get payload(): string | Buffer {
+    return this.#text ?? this.#buffer ?? "";
+  }
+
+  /** Encodage à passer avec {@link payload} (ignoré par Node pour des octets). */
+  protected get payloadEncoding(): BufferEncoding {
+    return this.#text !== null ? this.#textEncoding : this.encoding;
   }
 
   clean() {
@@ -361,9 +398,16 @@ class HttpResponse {
     return this.statusMessage || (http.STATUS_CODES[this.statusCode] as string);
   }
 
-  setBody(ele: unknown, encoding?: BufferEncoding): Buffer {
+  /**
+   * Pose le corps de la réponse : texte gardé tel quel, octets copiés sur leur
+   * seule fenêtre, tout autre valeur sérialisée en JSON.
+   *
+   * @param ele - corps à envoyer.
+   * @param encoding - encodage d'un corps texte (défaut : `this.encoding`).
+   */
+  setBody(ele: unknown, encoding?: BufferEncoding): void {
     if (typeof ele === "string") {
-      this.body = Buffer.from(ele, encoding || this.encoding);
+      this.#setText(ele, encoding || this.encoding);
     } else if (ele instanceof ArrayBuffer || ele instanceof SharedArrayBuffer) {
       this.body = Buffer.from(ele);
     } else if (ArrayBuffer.isView(ele) && ele.buffer instanceof ArrayBuffer) {
@@ -373,13 +417,20 @@ class HttpResponse {
       // On ne prend que la fenêtre de la vue.
       this.body = Buffer.from(ele.buffer, ele.byteOffset, ele.byteLength);
     } else {
+      let text: string;
       try {
-        this.body = Buffer.from(JSON.stringify(ele));
-      } catch (e) {
-        this.body = Buffer.from(String(ele));
+        text = JSON.stringify(ele);
+      } catch {
+        text = String(ele);
       }
+      this.#setText(text, "utf-8");
     }
-    return this.body;
+  }
+
+  #setText(text: string, encoding: BufferEncoding): void {
+    this.#buffer = null;
+    this.#text = text;
+    this.#textEncoding = encoding;
   }
 
   setLength(
@@ -403,9 +454,12 @@ class HttpResponse {
     if (NO_CONTENT_LENGTH_STATUS.has(this.statusCode)) {
       return 0;
     }
-    const actualBody = body || this.body;
+    const actualBody = body || this.#text || this.#buffer;
     if (actualBody) {
-      const length = Buffer.byteLength(actualBody);
+      const length =
+        typeof actualBody === "string" && actualBody === this.#text
+          ? Buffer.byteLength(actualBody, this.#textEncoding)
+          : Buffer.byteLength(actualBody);
       this.setHeader("Content-Length", String(length));
       return length;
     }
@@ -501,14 +555,15 @@ class HttpResponse {
       return this;
     }
     if (chunk) {
-      this.setBody(chunk);
+      // L'encodage demandé s'applique au texte qu'on pose — il était ignoré
+      // tant que le corps était converti en octets avant l'écriture.
+      this.setBody(chunk, encoding);
     }
     if (!this.response) {
       throw new Error(`Http Response not found`);
     }
-    // Corps VIDE légal (action qui `return ""`, 416/204…) : `res.write(null)`
-    // jetterait ERR_STREAM_NULL_VALUES → 500 pour un cas parfaitement valide.
-    this.body ??= Buffer.alloc(0);
+    // Corps VIDE légal (action qui `return ""`, 416/204…) : `payload` rend un
+    // vide plutôt que `null` — `res.write(null)` jetterait ERR_STREAM_NULL_VALUES.
     // P2.8 — Backpressure (Node `stream.Writable.write()` : retourne `false`
     // quand le buffer interne dépasse `highWaterMark` → le producteur DOIT
     // attendre l'event `'drain'` avant de réécrire). En streaming chunké
@@ -532,7 +587,7 @@ class HttpResponse {
     // streaming chunké (`flush()`, 1 écriture = 1 chunk), qui garde `write` +
     // `drain` ci-dessous. Une réponse unique n'a rien à écrire ensuite.
     if (!_flush && !this.flushing && !res.writableEnded) {
-      res.end(this.body, encoding || this.encoding);
+      res.end(this.payload, this.payloadEncoding);
       return this;
     }
     return new Promise((resolve) => {
@@ -545,8 +600,8 @@ class HttpResponse {
       };
       const onDrain = () => done();
       const ok = res.write(
-        this.body,
-        encoding || this.encoding,
+        this.payload,
+        this.payloadEncoding,
         (error: Error | null | undefined) => {
           if (error) {
             this.log(error, "ERROR");

@@ -38,15 +38,15 @@ class MockServerResponse extends EventEmitter {
 }
 
 function makeStub(res: MockServerResponse, flushing = false): HttpResponse {
-  return {
-    context: { isRedirect: false },
-    body: Buffer.from("payload"),
-    encoding: "utf-8" as BufferEncoding,
-    flushing,
-    setBody() {},
-    log() {},
-    response: res,
-  } as unknown as HttpResponse;
+  // Instance RÉELLE : le corps vit dans des champs privés, qu'un objet littéral
+  // appelé par `prototype.call` ne porte pas.
+  const r = new HttpResponse(
+    res as never,
+    { isRedirect: false, httpKernel: null, type: "http" } as never,
+  );
+  r.setBody(Buffer.from("payload"));
+  r.flushing = flushing;
+  return r;
 }
 
 const send = (stub: HttpResponse, flush: boolean) =>

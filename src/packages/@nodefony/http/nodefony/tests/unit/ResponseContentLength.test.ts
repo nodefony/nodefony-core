@@ -17,23 +17,25 @@ function stub(
   statusCode = 200,
   headers: Record<string, string> = {},
 ) {
-  const h: Record<string, string> = { ...headers };
-  const s = {
-    context: { method },
-    statusCode,
-    body: "",
-    response: {
-      headersSent: false,
-      removeHeader: (name: string) => {
-        delete h[name];
-      },
-    },
-    getHeader: (name: string) => h[name],
+  // Clés en minuscules : c'est ce que `setHeader` pose sur la réponse native.
+  const h: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) h[k.toLowerCase()] = v;
+  const res = {
+    headersSent: false,
+    getHeader: (name: string) => h[name.toLowerCase()],
     setHeader: (name: string, value: string) => {
-      h[name] = value;
+      h[name.toLowerCase()] = value;
+    },
+    removeHeader: (name: string) => {
+      delete h[name.toLowerCase()];
     },
   };
-  return { s: s as unknown as HttpResponse, h };
+  const s = new HttpResponse(
+    res as never,
+    { method, httpKernel: null, type: "http" } as never,
+  );
+  s.statusCode = statusCode;
+  return { s, h };
 }
 
 const BODY = '{"ok":true,"é":1}';
@@ -42,21 +44,21 @@ const LEN = String(Buffer.byteLength(BODY));
 describe("HttpResponse.setLength — Content-Length exact (RFC 9110 §8.6, RFC 9112 §6.2)", () => {
   it("GET : longueur réelle en octets", () => {
     const { s, h } = stub("GET");
-    HttpResponse.prototype.setLength.call(s, BODY);
-    expect(h["Content-Length"]).to.equal(LEN);
+    s.setLength(BODY);
+    expect(h["content-length"]).to.equal(LEN);
   });
 
   it("HEAD : la longueur qu'aurait eue le GET, jamais 0", () => {
     const { s, h } = stub("HEAD");
-    HttpResponse.prototype.setLength.call(s, BODY);
-    expect(h["Content-Length"]).to.equal(LEN);
+    s.setLength(BODY);
+    expect(h["content-length"]).to.equal(LEN);
   });
 
   for (const method of ["OPTIONS", "TRACE"]) {
     it(`${method} : longueur réelle du corps (il en porte un)`, () => {
       const { s, h } = stub(method, 405);
-      HttpResponse.prototype.setLength.call(s, BODY);
-      expect(h["Content-Length"]).to.equal(LEN);
+      s.setLength(BODY);
+      expect(h["content-length"]).to.equal(LEN);
     });
   }
 
@@ -65,13 +67,13 @@ describe("HttpResponse.setLength — Content-Length exact (RFC 9110 §8.6, RFC 9
       "Transfer-Encoding": "chunked",
       "Content-Length": "12",
     });
-    HttpResponse.prototype.setLength.call(s, BODY);
-    expect(h["Content-Length"]).to.equal(undefined);
+    s.setLength(BODY);
+    expect(h["content-length"]).to.equal(undefined);
   });
 
   it("204 : aucun Content-Length", () => {
     const { s, h } = stub("GET", 204);
-    HttpResponse.prototype.setLength.call(s, BODY);
-    expect(h["Content-Length"]).to.equal(undefined);
+    s.setLength(BODY);
+    expect(h["content-length"]).to.equal(undefined);
   });
 });

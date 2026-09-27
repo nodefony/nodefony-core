@@ -89,31 +89,31 @@ describe("HttpResponse — unit tests", () => {
     });
   });
 
-  describe("setBody() — coercition vers Buffer", () => {
-    it("string → Buffer du texte", () => {
+  describe("setBody() — body rend toujours des octets", () => {
+    it("string → octets du texte", () => {
       const r = makeResponse();
-      const b = r.setBody("hello");
-      expect(Buffer.isBuffer(b)).to.equal(true);
-      expect(b.toString()).to.equal("hello");
+      r.setBody("hello");
+      expect(Buffer.isBuffer(r.body)).to.equal(true);
+      expect(r.body!.toString()).to.equal("hello");
     });
 
-    it("objet → Buffer JSON", () => {
+    it("objet → octets JSON", () => {
       const r = makeResponse();
-      const b = r.setBody({ a: 1 });
-      expect(b.toString()).to.equal('{"a":1}');
+      r.setBody({ a: 1 });
+      expect(r.body!.toString()).to.equal('{"a":1}');
     });
 
     it("Buffer (ArrayBufferView) → copie", () => {
       const r = makeResponse();
-      const b = r.setBody(Buffer.from("buf"));
-      expect(b.toString()).to.equal("buf");
+      r.setBody(Buffer.from("buf"));
+      expect(r.body!.toString()).to.equal("buf");
     });
 
     it("ArrayBuffer → Buffer", () => {
       const r = makeResponse();
       const ab = new Uint8Array([65, 66, 67]).buffer; // "ABC"
-      const b = r.setBody(ab);
-      expect(b.length).to.equal(3);
+      r.setBody(ab);
+      expect(r.body!.length).to.equal(3);
     });
   });
 
