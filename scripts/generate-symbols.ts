@@ -10,7 +10,6 @@
 
 import {
   Project,
-  Node,
   SyntaxKind,
   ClassDeclaration,
   InterfaceDeclaration,
@@ -128,13 +127,6 @@ function moduleOf(relativeFile: string): string {
   // src/nodefony/...
   if (relativeFile.startsWith("src/nodefony/")) return "@nodefony/core";
   return "unknown";
-}
-
-function visibilityOf(node: Node): "public" | "protected" | "private" {
-  const text = node.getText();
-  if (/^\s*private\s/.test(text)) return "private";
-  if (/^\s*protected\s/.test(text)) return "protected";
-  return "public";
 }
 
 // Extract the leading description from a JSDoc/TSDoc block. Strips @tags and

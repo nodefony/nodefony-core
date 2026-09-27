@@ -9,6 +9,8 @@
   "compilerOptions": {
     "allowJs": true,
     "noEmit": true,
+    // Les scripts s'exécutent sous Node sans build : il exige l'extension `.ts`.
+    "allowImportingTsExtensions": true,
     "types": ["node"]
   },
   "include": ["**/*.mjs", "**/*.js", "**/*.ts"],

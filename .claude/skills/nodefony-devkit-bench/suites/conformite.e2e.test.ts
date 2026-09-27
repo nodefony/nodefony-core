@@ -76,7 +76,10 @@ beforeAll(async () => {
     // pas : il rend `false`, `cookieAdmin` reste `null`, et la garde
     // anti-suite-creuse tombe en accusant l'application. Deux rouges sur les
     // quatre systèmes, pour un nom.
-    const setup = (await import("../tests/e2e.setup")) as {
+    // Chemin résolu dans l'application où la suite est COPIÉE, pas ici : un
+    // spécificateur variable que le typecheck du dépôt ne cherche pas à résoudre.
+    const setupPath = "../tests/e2e.setup";
+    const setup = (await import(setupPath)) as {
       adminLogin?: () => Promise<string>;
       ADMIN_PASSWORD?: string;
     };

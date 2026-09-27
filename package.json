@@ -82,7 +82,8 @@
     "refs:check": "node .claude/skills/nodefony-rfc/scripts/check-amont.mjs",
     "ticket:lint": "node .claude/skills/nodefony-ticket/scripts/board-lint.mjs",
     "ticket:open": "node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck && npm run typecheck:tools",
+    "typecheck:tools": "tsgo --noEmit -p scripts/tsconfig.json && tsgo --noEmit -p .claude/tsconfig.json",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && node src/nodefony/bin/nodefony doctor"
   },
   "workspaces": [
@@ -95,6 +96,7 @@
     "@commitlint/cli": "21.2.3",
     "@commitlint/config-conventional": "21.2.3",
     "@types/node": "26.6.2",
+    "@types/picomatch": "4.0.3",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitest/coverage-v8": "5.0.1",
     "echarts": "6.1.0",
@@ -105,6 +107,7 @@
     "nodemon": "3.1.14",
     "oxlint": "1.85.0",
     "oxlint-tsgolint": "7.0.2003",
+    "picomatch": "4.0.7",
     "playwright": "1.63.0",
     "prettier": "3.9.9",
     "rolldown": "1.2.11",
@@ -203,7 +206,8 @@
       "refs:check": "Dit si une spécification vivante figée sous references/ a dérivé de son amont. Sortie 3 = dérive, 78 = réseau muet.",
       "ticket:lint": "Confronte le tableau de bord à ses règles : hors tableau, sans ordre, dépendance inversée, statut menteur.",
       "ticket:open": "Ouvre un ticket ET l'inscrit au tableau de bord d'un seul geste, champs compris.",
-      "typecheck": "Passe le typecheck sur tous les workspaces.",
+      "typecheck": "Passe le typecheck sur tous les workspaces, puis sur l'outillage du dépôt.",
+      "typecheck:tools": "Typecheck de l'outillage hors workspaces : scripts/ et .claude/ (skills, bancs).",
       "verify": "La passe complète avant de livrer : types, lint, format, tests unitaires, puis le diagnostic du framework."
     }
   },
