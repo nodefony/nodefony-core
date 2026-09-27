@@ -15,7 +15,7 @@ const ECHO = "wss://localhost:5152/nodefony/test/ws/echo";
 const wsOpts = { rejectUnauthorized: false };
 
 const percentile = (sorted: number[], p: number): number =>
-  sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
+  sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))]!;
 
 /**
  * Le prochain message — ou la raison pour laquelle il ne viendra jamais.
@@ -84,7 +84,7 @@ describe("WS latency — round-trip p50/p95/p99 (micro-frames)", () => {
     const p99 = percentile(rtts, 99);
     console.log(
       `WS RTT (n=${N}) — p50=${p50.toFixed(2)}ms p95=${p95.toFixed(2)}ms ` +
-        `p99=${p99.toFixed(2)}ms max=${rtts[N - 1].toFixed(2)}ms`,
+        `p99=${p99.toFixed(2)}ms max=${rtts[N - 1]!.toFixed(2)}ms`,
     );
     // Loopback ≪ 100 ms : borne généreuse anti-régression pathologique, CI-stable.
     expect(p99, "p99 sous une borne saine").to.be.lessThan(100);

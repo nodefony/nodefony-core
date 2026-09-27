@@ -86,7 +86,7 @@ function wsSession(path: string, messages: string[]): Promise<Json[]> {
         return reject(asError(e));
       }
       if (sent < messages.length) {
-        ws.send(messages[sent++]);
+        ws.send(messages[sent++]!);
       } else {
         ws.close();
       }
@@ -140,8 +140,8 @@ describe("#485 — portée request de l'injecteur, sur le serveur réel", () => 
     const before = await liveScopes();
     const msgs = await wsSession(`${PREFIX}/ws`, ["a", "b", "c"]);
     expect(msgs, "handshake + 3 messages").to.have.length(4);
-    const serial = msgs[0].serial as number;
-    expect(msgs[0].handshake).to.equal(true);
+    const serial = msgs[0]!.serial as number;
+    expect(msgs[0]!.handshake).to.equal(true);
     msgs.forEach((m, i) => {
       expect(m.serial, `réponse ${i} : même exemplaire`).to.equal(serial);
       expect(m.sameAsController, `réponse ${i} : celui du contrôleur`).to.equal(

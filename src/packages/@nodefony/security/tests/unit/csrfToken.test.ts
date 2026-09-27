@@ -14,8 +14,8 @@ describe("CsrfTokenManager — émission", () => {
     const t = mgr.issue();
     const parts = t.split(".");
     assert.equal(parts.length, 2);
-    assert.match(parts[0], /^[A-Za-z0-9_-]+$/);
-    assert.match(parts[1], /^[A-Za-z0-9_-]+$/);
+    assert.match(parts[0]!, /^[A-Za-z0-9_-]+$/);
+    assert.match(parts[1]!, /^[A-Za-z0-9_-]+$/);
   });
   it("deux émissions → tokens différents (nonce aléatoire)", () => {
     assert.notEqual(mgr.issue(), mgr.issue());

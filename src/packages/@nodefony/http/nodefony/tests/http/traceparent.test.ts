@@ -50,7 +50,12 @@ function parseTrace(value: string): {
   const m = TRACEPARENT_RE.exec(value);
   if (!m) return null;
   const [, version, traceId, parentId, flags] = m;
-  return { version, traceId, parentId, flags };
+  return {
+    version: version!,
+    traceId: traceId!,
+    parentId: parentId!,
+    flags: flags!,
+  };
 }
 
 describe("P2.7 — W3C traceparent (requires server)", () => {

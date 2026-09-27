@@ -200,9 +200,9 @@ class AuditService extends Service implements IAuditSink {
       .catch((error: unknown) => this.log(error, "ERROR"));
     // Notifie le live (bridge WS) seulement s'il y a des abonnés.
     if (this.#listeners !== null) {
-      for (let i = 0; i < this.#listeners.length; i++) {
+      for (const listener of this.#listeners) {
         try {
-          this.#listeners[i](event);
+          listener(event);
         } catch (error) {
           this.log(error, "ERROR");
         }

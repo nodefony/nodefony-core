@@ -53,7 +53,8 @@ const CRC_TABLE: Uint32Array = (() => {
 function crc32(input: string): number {
   let crc = 0xffffffff;
   for (let i = 0; i < input.length; i++) {
-    crc = CRC_TABLE[(crc ^ input.charCodeAt(i)) & 0xff] ^ (crc >>> 8);
+    // Index borné à 0..255 par le masque : la table en a 256.
+    crc = (CRC_TABLE[(crc ^ input.charCodeAt(i)) & 0xff] ?? 0) ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
 }

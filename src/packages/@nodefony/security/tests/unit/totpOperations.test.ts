@@ -199,10 +199,10 @@ describe("totpOperations — vérification login", () => {
     const deps = makeDeps();
     const { recovery } = await enrolled(deps);
     const r0 = recovery[0];
-    const first = await verifyTotpLogin(deps, "alice", r0);
+    const first = await verifyTotpLogin(deps, "alice", r0!);
     assert.equal(first.ok, true);
     assert.equal(first.method, "recovery");
-    assert.equal((await verifyTotpLogin(deps, "alice", r0)).ok, false); // déjà consommé
+    assert.equal((await verifyTotpLogin(deps, "alice", r0!)).ok, false); // déjà consommé
     assert.equal((await totpStatus(deps, "alice")).recoveryCodesRemaining, 9);
   });
 });

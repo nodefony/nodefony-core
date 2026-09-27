@@ -187,8 +187,8 @@ describe("ApiKeyService — listing (sans secret)", () => {
 
     const keys = await svc.listForSubject("alice");
     assert.equal(keys.length, 2);
-    assert.equal(keys[0].name, "new"); // tri desc
-    assert.equal(keys[1].name, "old");
+    assert.equal(keys[0]!.name, "new"); // tri desc
+    assert.equal(keys[1]!.name, "old");
     for (const k of keys) {
       assert.equal("secretHash" in k, false);
       assert.equal("token" in k, false);

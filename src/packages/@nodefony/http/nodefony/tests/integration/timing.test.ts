@@ -124,7 +124,7 @@ async function loginAsAdmin(): Promise<string> {
             reject(new Error(`login admin KO (status ${res.statusCode})`));
             return;
           }
-          resolve(first.split(";")[0]);
+          resolve(first.split(";")[0]!);
         });
       },
     );
@@ -158,9 +158,9 @@ describe.skipIf(IS_PROD_TARGET)(
     it("phases appear in chronological order (startMs non-decreasing)", async () => {
       const r = await getTiming();
       for (let i = 1; i < r.phases.length; i++) {
-        expect(r.phases[i].startMs).to.be.at.least(
-          r.phases[i - 1].startMs,
-          `phase[${i}].startMs (${r.phases[i].name}) must be >= phase[${i - 1}].startMs (${r.phases[i - 1].name})`,
+        expect(r.phases[i]!.startMs).to.be.at.least(
+          r.phases[i - 1]!.startMs,
+          `phase[${i}].startMs (${r.phases[i]!.name}) must be >= phase[${i - 1}].startMs (${r.phases[i - 1]!.name})`,
         );
       }
     });
@@ -203,7 +203,7 @@ describe.skipIf(IS_PROD_TARGET)(
       const r2 = await getTiming();
       expect(r1.phases.length).to.equal(r2.phases.length);
       // start times are wall-clock, so r2 should be >= r1 (perf.now is monotonic per process)
-      expect(r2.phases[0].startMs).to.be.at.least(r1.phases[0].startMs);
+      expect(r2.phases[0]!.startMs).to.be.at.least(r1.phases[0]!.startMs);
     });
   },
 );

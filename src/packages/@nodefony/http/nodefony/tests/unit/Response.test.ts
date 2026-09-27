@@ -387,8 +387,8 @@ describe("writeHead() — filet Content-Type + ligne de statut standard", () => 
     r.writeHead(404);
     expect(writeHeadCalls).to.have.length(1);
     // (statusCode, headers) — pas de statusMessage custom transmis à node
-    expect(writeHeadCalls[0][0]).to.equal(404);
-    expect(writeHeadCalls[0][1]).to.not.be.a("string");
+    expect(writeHeadCalls[0]![0]).to.equal(404);
+    expect(writeHeadCalls[0]![1]).to.not.be.a("string");
   });
 
   it("message CUSTOM : transmis assaini (3 args)", () => {
@@ -396,7 +396,7 @@ describe("writeHead() — filet Content-Type + ligne de statut standard", () => 
     r.setStatusCode(403, "Access Denied");
     r.writeHead();
     expect(writeHeadCalls).to.have.length(1);
-    expect(writeHeadCalls[0][0]).to.equal(403);
-    expect(writeHeadCalls[0][1]).to.equal("Access Denied");
+    expect(writeHeadCalls[0]![0]).to.equal(403);
+    expect(writeHeadCalls[0]![1]).to.equal("Access Denied");
   });
 });

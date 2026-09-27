@@ -166,16 +166,16 @@ describe("ApiKeyAuthenticator — clé valide", () => {
   it("met à jour lastUsedAt AVEC ip/agent — l'écriture a lieu dans onSuccess", async () => {
     const token = await seedKey();
     const before = (await store.findBySubject("alice"))[0];
-    assert.equal(before.lastUsedAt, null);
+    assert.equal(before!.lastUsedAt, null);
     const t = await auth.authenticate(new UserToken("apikey", token));
     // `authenticate` DÉCIDE, il n'écrit pas : il n'a pas le contexte, donc pas
     // l'IP — écrire ici remettrait les colonnes d'audit à null.
     assert.equal(marks, 0);
     await auth.onSuccess(provenanceCtx("1.2.3.4", "curl/8"), t);
     const after = (await store.findBySubject("alice"))[0];
-    assert.equal(typeof after.lastUsedAt, "number");
-    assert.equal(after.lastUsedIp, "1.2.3.4");
-    assert.equal(after.lastUsedUserAgent, "curl/8");
+    assert.equal(typeof after!.lastUsedAt, "number");
+    assert.equal(after!.lastUsedIp, "1.2.3.4");
+    assert.equal(after!.lastUsedUserAgent, "curl/8");
     assert.equal(marks, 1);
   });
 
@@ -191,8 +191,8 @@ describe("ApiKeyAuthenticator — clé valide", () => {
     const t = await auth.authenticate(new UserToken("apikey", token));
     await auth.onSuccess({} as unknown as ContextType, t);
     const after = (await store.findBySubject("alice"))[0];
-    assert.equal(typeof after.lastUsedAt, "number");
-    assert.equal(after.lastUsedIp, null);
+    assert.equal(typeof after!.lastUsedAt, "number");
+    assert.equal(after!.lastUsedIp, null);
     assert.equal(marks, 1);
   });
 

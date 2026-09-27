@@ -119,13 +119,13 @@ export function runWebhookPaginationContract(
       assert.equal(first.total, 12);
       assert.equal(first.items.length, 5);
       assert.equal(first.hasNext, true);
-      assert.equal(first.items[0].id, "wh-11"); // createdAt le plus récent
-      assert.equal(first.items[4].id, "wh-07");
+      assert.equal(first.items[0]!.id, "wh-11"); // createdAt le plus récent
+      assert.equal(first.items[4]!.id, "wh-07");
 
       const last = await store().listPage({ limit: 5, offset: 10 });
       assert.equal(last.items.length, 2);
       assert.equal(last.hasNext, false);
-      assert.equal(last.items[1].id, "wh-00");
+      assert.equal(last.items[1]!.id, "wh-00");
     });
 
     it("parcours complet par pages : 12 endpoints DISTINCTS, aucun perdu", async () => {
@@ -314,7 +314,7 @@ export function runWebhookPaginationContract(
       });
       assert.equal(page.items.length, 12);
       assert.equal(
-        page.items[0].id,
+        page.items[0]!.id,
         "wh-11",
         "ordre par défaut (createdAt DESC) conservé",
       );
@@ -323,10 +323,10 @@ export function runWebhookPaginationContract(
     it("la page porte les champs complets (secretEnc inclus : c'est le store, pas la vue)", async () => {
       const page = await store().listPage({ limit: 1 });
       const first = page.items[0];
-      assert.equal(first.secretEnc, "enc-wh-11");
-      assert.deepEqual([...first.events], ["ping"]); // wh-11 : ni pair, ni ×4
+      assert.equal(first!.secretEnc, "enc-wh-11");
+      assert.deepEqual([...first!.events], ["ping"]); // wh-11 : ni pair, ni ×4
 
-      assert.equal(typeof first.createdAt, "number");
+      assert.equal(typeof first!.createdAt, "number");
     });
   });
 }

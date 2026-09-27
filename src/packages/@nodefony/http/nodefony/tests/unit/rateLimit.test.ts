@@ -150,7 +150,7 @@ describe("MemoryRateLimitStore — listPage (introspection admin)", () => {
       "10.0.0.2",
       "10.0.0.3",
     ]);
-    expect(page.items[0].count).toBe(5);
+    expect(page.items[0]!.count).toBe(5);
     expect(page.total).toBe(5);
     expect(page.hasNext).toBe(true);
   });

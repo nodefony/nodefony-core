@@ -59,8 +59,8 @@ export function base32Encode(buf: Buffer): string {
   let bits = 0;
   let value = 0;
   let out = "";
-  for (let i = 0; i < buf.length; i++) {
-    value = (value << 8) | buf[i];
+  for (const byte of buf) {
+    value = (value << 8) | byte;
     bits += 8;
     while (bits >= 5) {
       out += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
@@ -83,10 +83,10 @@ export function base32Decode(input: string): Buffer {
   let bits = 0;
   let value = 0;
   const out: number[] = [];
-  for (let i = 0; i < clean.length; i++) {
-    const idx = BASE32_ALPHABET.indexOf(clean[i]);
+  for (const char of clean) {
+    const idx = BASE32_ALPHABET.indexOf(char);
     if (idx === -1) {
-      throw new Error(`base32: caractère invalide « ${clean[i]} »`);
+      throw new Error(`base32: caractère invalide « ${char} »`);
     }
     value = (value << 5) | idx;
     bits += 5;
@@ -136,12 +136,9 @@ export function hotp(
     .update(counterBuffer(counter))
     .digest();
   // Troncature dynamique (RFC 4226 §5.3) : offset = 4 bits de poids faible.
-  const offset = hs[hs.length - 1] & 0x0f;
-  const bin =
-    ((hs[offset] & 0x7f) << 24) |
-    ((hs[offset + 1] & 0xff) << 16) |
-    ((hs[offset + 2] & 0xff) << 8) |
-    (hs[offset + 3] & 0xff);
+  // Lectures bornées : `readUInt*` lève hors du tampon au lieu de rendre undefined.
+  const offset = hs.readUInt8(hs.length - 1) & 0x0f;
+  const bin = hs.readUInt32BE(offset) & 0x7fffffff;
   const mod = bin % 10 ** digits;
   return mod.toString().padStart(digits, "0");
 }
@@ -359,8 +356,8 @@ export function matchRecoveryCode(
 ): number {
   const target = Buffer.from(hashRecoveryCode(presented));
   let found = -1;
-  for (let i = 0; i < hashes.length; i++) {
-    const candidate = Buffer.from(hashes[i]);
+  for (const [i, hash] of hashes.entries()) {
+    const candidate = Buffer.from(hash);
     if (
       candidate.length === target.length &&
       timingSafeEqual(candidate, target)

@@ -249,8 +249,8 @@ class Firewall extends Service implements IFirewall {
     const names = Object.keys(areas);
     if (names.length) {
       const list: SecuredArea[] = [];
-      for (const name of names) {
-        list.push(new SecuredArea(name, areas[name]));
+      for (const [name, area] of Object.entries(areas)) {
+        list.push(new SecuredArea(name, area));
       }
       // Spécificité : pattern le plus long d'abord (déterministe, simple).
       list.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
@@ -645,7 +645,8 @@ class Firewall extends Service implements IFirewall {
   describeRoleHierarchy(): IRoleHierarchyDescription {
     const raw = this.#config?.roleHierarchy ?? {};
     const hierarchy: Record<string, string[]> = {};
-    for (const role of Object.keys(raw)) hierarchy[role] = [...raw[role]];
+    for (const [role, inherited] of Object.entries(raw))
+      hierarchy[role] = [...inherited];
     const walker = this.roleHierarchy;
     const roles = Object.keys(hierarchy).map((role) => ({
       role,
@@ -1025,7 +1026,8 @@ class Firewall extends Service implements IFirewall {
     // partageable, le navigateur bloque — 0 fuite). Le preflight reste court-circuité.
     if (corsHeaders) {
       for (const name in corsHeaders) {
-        response.setHeader(name, corsHeaders[name]);
+        const value = corsHeaders[name];
+        if (value !== undefined) response.setHeader(name, value);
       }
     }
     return isPreflight ? 204 : undefined;
@@ -1050,7 +1052,8 @@ class Firewall extends Service implements IFirewall {
     // En-têtes constants (Referrer/COOP/… + CSP statique si pas de nonce) — figés.
     const headers = sh.headers;
     for (const name in headers) {
-      response.setHeader(name, headers[name]);
+      const value = headers[name];
+      if (value !== undefined) response.setHeader(name, value);
     }
     // CSP per-route (`@Csp`, P6) : directives additionnelles posées par le Resolver
     // sur le contexte au match (`null` = cas courant → 0 composition). Lu APRÈS le

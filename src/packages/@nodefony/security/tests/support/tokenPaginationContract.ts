@@ -162,8 +162,8 @@ export function runTokenPaginationContract(
         assert.equal(first.total, 12);
         assert.equal(first.items.length, 5);
         assert.equal(first.hasNext, true);
-        assert.equal(first.items[0].id, "tok-11"); // createdAt le plus récent
-        assert.equal(first.items[4].id, "tok-07");
+        assert.equal(first.items[0]!.id, "tok-11"); // createdAt le plus récent
+        assert.equal(first.items[4]!.id, "tok-07");
 
         const last = await store().listPage({ limit: 5, offset: 10 });
         assert.equal(last.items.length, 2);

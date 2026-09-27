@@ -191,7 +191,7 @@ describe("AuthorizationService — audit", () => {
 
     await service.decide(authedToken([]), "t.veto"); // refus → audit
     assert.equal(warnings.length, 1);
-    assert.match(warnings[0], /access denied/);
+    assert.match(warnings[0]!, /access denied/);
 
     await service.decide(authedToken([]), "t.grant"); // accordé → silencieux
     assert.equal(warnings.length, 1);

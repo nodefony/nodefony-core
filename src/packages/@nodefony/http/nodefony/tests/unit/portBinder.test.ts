@@ -147,7 +147,7 @@ describe("buildBindPlan — ce que chaque serveur a le droit de prendre", () => 
 describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   it("port libre : on prend celui qu'on voulait, sans décalage", async () => {
     const port = await occupy(0); // réserve un port…
-    await new Promise<void>((r) => opened[0].close(() => r()));
+    await new Promise<void>((r) => opened[0]!.close(() => r()));
     opened = [];
 
     const srv = fresh();

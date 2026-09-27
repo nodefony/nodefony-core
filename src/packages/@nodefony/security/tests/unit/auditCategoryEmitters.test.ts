@@ -42,7 +42,7 @@ function emittedCategories(): { file: string; category: string }[] {
     for (const match of source.matchAll(/category:\s*"([a-z]+)"/g)) {
       found.push({
         file: relative(repoRoot, file).split("\\").join("/"),
-        category: match[1],
+        category: match[1]!,
       });
     }
   }

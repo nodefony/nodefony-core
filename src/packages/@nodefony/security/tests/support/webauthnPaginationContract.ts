@@ -156,13 +156,13 @@ export function runWebAuthnPaginationContract(
         assert.equal(first.total, 12);
         assert.equal(first.items.length, 5);
         assert.equal(first.hasNext, true);
-        assert.equal(first.items[0].id, "cred-11"); // createdAt le plus récent
-        assert.equal(first.items[4].id, "cred-07");
+        assert.equal(first.items[0]!.id, "cred-11"); // createdAt le plus récent
+        assert.equal(first.items[4]!.id, "cred-07");
 
         const last = await store().listPage({ limit: 5, offset: 10 });
         assert.equal(last.items.length, 2);
         assert.equal(last.hasNext, false);
-        assert.equal(last.items[1].id, "cred-00");
+        assert.equal(last.items[1]!.id, "cred-00");
       });
 
       it("parcours complet : 12 passkeys DISTINCTES, aucune perdue", async () => {

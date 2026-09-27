@@ -39,3 +39,16 @@ export function resolveJwtRuntime(jwt: ISecurityConfig["jwt"]): IJwtRuntime {
     alg: "EdDSA",
   };
 }
+
+/**
+ * Audience inscrite dans un jeton quand aucune ressource n'est demandée : la
+ * première de la liste blanche. La liste n'est jamais vide après
+ * {@link resolveJwtRuntime} ; un runtime construit à la main qui la laisserait
+ * vide retombe sur la même règle — l'application est sa propre audience.
+ *
+ * @param runtime - paramètres JWT résolus
+ * @returns l'audience par défaut
+ */
+export function defaultAudience(runtime: IJwtRuntime): string {
+  return runtime.audiences[0] ?? runtime.issuer;
+}

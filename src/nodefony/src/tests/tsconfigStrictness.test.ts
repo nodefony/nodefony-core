@@ -44,6 +44,8 @@ const INDEX_CHECKED = [
   "src/nodefony/",
   "src/packages/@nodefony/orm-core/",
   "src/packages/@nodefony/user/",
+  "src/packages/@nodefony/http/",
+  "src/packages/@nodefony/security/",
 ] as const;
 
 /** Options que `strict` allume et qu'aucun tsconfig ne doit éteindre. */

@@ -32,7 +32,11 @@ import {
 } from "../src/token/tokenStoreRegistry";
 import { recordAudit } from "../src/audit/recordAudit";
 import { JwtKeystore } from "../src/token/JwtKeystore";
-import { resolveJwtRuntime, type IJwtRuntime } from "../src/token/jwtRuntime";
+import {
+  defaultAudience,
+  resolveJwtRuntime,
+  type IJwtRuntime,
+} from "../src/token/jwtRuntime";
 import type { ITokenStore, IAccessTokenRecord } from "../contracts/ITokenStore";
 import type { IJwtKeystore } from "../contracts/IJwtKeystore";
 
@@ -403,7 +407,7 @@ class TokenService extends Service {
    *         non déclarée
    */
   #resolveAudience(runtime: IJwtRuntime, requested?: unknown): string {
-    const fallback = runtime.audiences[0];
+    const fallback = defaultAudience(runtime);
     if (requested === undefined || requested === null) return fallback;
     if (Array.isArray(requested)) {
       // Refus AVANT de regarder les valeurs : le motif du refus est le nombre.
@@ -602,7 +606,8 @@ class TokenService extends Service {
     // s'annule au bout de quelques minutes n'est pas une restriction. Un record
     // antérieur à ce champ (ou d'une autre origine) retombe sur le défaut.
     const audience =
-      (record.audience as string[] | undefined)?.at(0) ?? runtime.audiences[0];
+      (record.audience as string[] | undefined)?.at(0) ??
+      defaultAudience(runtime);
     if (resource !== undefined && resource !== null && resource !== audience) {
       // Le contrôle porte sur ce qui a été ACCORDÉ, pas sur la liste blanche : une
       // audience parfaitement déclarée reste refusée ici si ce n'est pas celle de

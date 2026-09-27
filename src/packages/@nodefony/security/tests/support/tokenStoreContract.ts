@@ -206,7 +206,7 @@ export function runTokenStoreContract(
       await store().put(makeRecord({ id: "t1", name: "renommé" }));
       const all = await store().findBySubject("u1");
       assert.equal(all.length, 1);
-      assert.equal(all[0].name, "renommé");
+      assert.equal(all[0]!.name, "renommé");
     });
 
     it("put CONCURRENT × 10 d'un record EXISTANT (rotation rejouée) : 0 rejet, 1 ligne", async () => {
@@ -230,7 +230,7 @@ export function runTokenStoreContract(
       const all = await store().findBySubject("u-conc");
       assert.equal(all.length, 1, "une seule ligne pour la PK");
       assert.ok(
-        /^writer-\d$/.test(all[0].name),
+        /^writer-\d$/.test(all[0]!.name),
         "la ligne porte l'un des écrits",
       );
     });

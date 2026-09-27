@@ -157,7 +157,7 @@ describe("STREAM LOAD — streamFile / download / media (charge)", function () {
         {
           probe: serverHeap,
           act: async (i) => {
-            await flood(paths[i % paths.length], 50);
+            await flood(paths[i % paths.length]!, 50);
           },
           warmup: 4,
           batch: 2,

@@ -74,8 +74,7 @@ class Authorization extends Service implements IAuthorizationService {
     const voters = this.#voters ?? this.#build();
     let granted = false;
     let considered = 0;
-    for (let i = 0; i < voters.length; i++) {
-      const voter = voters[i];
+    for (const voter of voters) {
       if (!voter.supports(attribute, subject)) continue;
       considered++;
       let vote: VoterVote;

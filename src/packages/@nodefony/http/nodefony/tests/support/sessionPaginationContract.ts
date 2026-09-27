@@ -559,7 +559,7 @@ export function runSessionPaginationContract(
 
     it("destroy retire la session des pages suivantes", async () => {
       const victim = orderedIds[0];
-      assert.equal(await storage().destroy(victim), true);
+      assert.equal(await storage().destroy(victim!), true);
       const { records } = await collectAll(storage(), {}, 5);
       assert.equal(records.length, 11);
       assert.ok(!records.some((r) => r.id === victim));

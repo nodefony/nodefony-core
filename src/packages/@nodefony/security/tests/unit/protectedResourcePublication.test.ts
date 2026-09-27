@@ -82,11 +82,11 @@ describe("Firewall.publishedProtectedResources — le document que le défi prom
     const published = bootFirewall(config()).publishedProtectedResources();
 
     assert.equal(published.length, 1, "une seule zone déclare une ressource");
-    assert.equal(published[0].resource, RESOURCE);
+    assert.equal(published[0]!.resource, RESOURCE);
     // 🔴 L'assertion qui compte : ce sont EXACTEMENT les émetteurs que le
     // vérificateur accepte. Une liste distincte se serait périmée en silence.
     assert.deepEqual(
-      [...published[0].authorizationServers],
+      [...published[0]!.authorizationServers],
       [ISSUER_A, ISSUER_B],
     );
   });
@@ -129,7 +129,7 @@ describe("Firewall.publishedProtectedResources — le document que le défi prom
     ).publishedProtectedResources();
 
     assert.equal(published.length, 1, "une ressource, un document");
-    assert.equal(published[0].resource, RESOURCE);
+    assert.equal(published[0]!.resource, RESOURCE);
   });
 
   it("publie une entrée par ressource DISTINCTE (plusieurs ressources par hôte — RFC 9728 §3.1)", () => {

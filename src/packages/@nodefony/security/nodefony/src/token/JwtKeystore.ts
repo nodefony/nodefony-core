@@ -57,7 +57,7 @@ export function keystoreLeaksIntoImage(dir: string): string | null {
   // manquerait précisément sur la plateforme où on l'a oublié.
   const normalized = dir.replace(/\\/gu, "/").replace(/^\.\//u, "");
   if (normalized.startsWith("/") || /^[A-Za-z]:/u.test(normalized)) return null;
-  const first = normalized.split("/")[0];
+  const [first = ""] = normalized.split("/");
   if (CLEANED_DIRS.includes(first)) return null;
   return (
     `JWT keystore: « ${dir} » n'est PAS sous ${CLEANED_DIRS.map((d) => `\`${d}/\``).join(" ni ")}, ` +
@@ -233,14 +233,15 @@ export class JwtKeystore implements IJwtKeystore {
         createdAt: stored.createdAt ?? Date.now(),
       });
     }
-    if (loaded.length === 0) {
+    const [firstKey] = loaded;
+    if (firstKey === undefined) {
       throw new Error("JwtKeystore: keyset vide");
     }
     this.#keys = loaded;
     this.#activeKid =
       keyset.active && loaded.some((k) => k.kid === keyset.active)
         ? keyset.active
-        : loaded[0].kid;
+        : firstKey.kid;
   }
 
   #parseKeyset(json: string): StoredKeyset {

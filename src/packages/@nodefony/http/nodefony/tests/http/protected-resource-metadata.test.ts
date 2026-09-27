@@ -174,7 +174,7 @@ describe.skipIf(raisonDuSaut !== null)(
 
         // C'est ICI que le trou se voyait : l'URL était conforme et rendait 404.
         // On la suit exactement comme un client conforme le ferait.
-        const url = new URL(pointer![1]);
+        const url = new URL(pointer![1]!);
         const followed = await get(`${url.pathname}${url.search}`);
         expect(
           followed.status,

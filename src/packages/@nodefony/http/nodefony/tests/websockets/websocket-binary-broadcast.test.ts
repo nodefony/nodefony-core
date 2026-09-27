@@ -149,7 +149,7 @@ describe("WEBSOCKETS BINARY", function () {
     for (const buf of bufs) ws.send(buf);
     const replies = await collecting;
     for (let i = 0; i < bufs.length; i++) {
-      expect(replies[i].equals(bufs[i])).to.be.true;
+      expect(replies[i]!.equals(bufs[i]!)).to.be.true;
     }
     await wsClose(ws);
   });
@@ -182,8 +182,8 @@ describe("WEBSOCKETS BINARY LIMITS", function () {
     for (const buf of bufs) ws.send(buf);
     const replies = await collecting;
     for (let i = 0; i < N; i++) {
-      expect(replies[i].length).to.equal(1024);
-      expect(replies[i][0]).to.equal(bufs[i][0]);
+      expect(replies[i]!.length).to.equal(1024);
+      expect(replies[i]![0]).to.equal(bufs[i]![0]);
     }
     await wsClose(ws);
   });
@@ -327,7 +327,7 @@ describe("WEBSOCKETS BROADCAST LIMITS", function () {
     await Promise.all(sockets.map(wsHandshake));
     const payload = "bc-10-" + Date.now();
     const [, ...results] = await Promise.all([
-      Promise.resolve().then(() => sockets[0].send(payload)),
+      Promise.resolve().then(() => sockets[0]!.send(payload)),
       ...sockets.map((ws) => wsNextText(ws)),
     ]);
     results.forEach((r) => expect(r).to.equal(payload));
@@ -339,7 +339,7 @@ describe("WEBSOCKETS BROADCAST LIMITS", function () {
     await Promise.all(sockets.map(wsHandshake));
     const payload = "x".repeat(64 * 1024 - 10);
     const [, ...results] = await Promise.all([
-      Promise.resolve().then(() => sockets[0].send(payload)),
+      Promise.resolve().then(() => sockets[0]!.send(payload)),
       ...sockets.map((ws) => wsNextText(ws)),
     ]);
     results.forEach((r) => expect(r).to.have.lengthOf(payload.length));
@@ -394,7 +394,7 @@ describe("WEBSOCKETS BROADCAST LIMITS", function () {
     );
 
     // All senders broadcast simultaneously
-    sockets.forEach((ws, i) => ws.send(payloads[i]));
+    sockets.forEach((ws, i) => ws.send(payloads[i]!));
     await Promise.all(allReceived);
     await Promise.all(sockets.map(wsClose));
   });

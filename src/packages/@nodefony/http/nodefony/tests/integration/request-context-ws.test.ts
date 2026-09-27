@@ -46,7 +46,7 @@ function wsSession(
         return reject(asError(e));
       }
       if (sent < messages.length) {
-        ws.send(messages[sent++]);
+        ws.send(messages[sent++]!);
       } else {
         ws.close();
       }
@@ -99,11 +99,11 @@ describe("BUG-001 — RequestContext (ALS) across WebSocket messages", function 
     ]);
     // [handshake, login-response, check-response]
     expect(msgs).to.have.length(3);
-    expect(msgs[0].alsUser, "no user at handshake").to.equal(null);
-    expect(msgs[1].alsUser, "user set during 'login' message").to.equal(
+    expect(msgs[0]!.alsUser, "no user at handshake").to.equal(null);
+    expect(msgs[1]!.alsUser, "user set during 'login' message").to.equal(
       "ws-user-42",
     );
-    expect(msgs[2].alsUser, "user persists to the next message").to.equal(
+    expect(msgs[2]!.alsUser, "user persists to the next message").to.equal(
       "ws-user-42",
     );
   });

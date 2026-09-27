@@ -109,10 +109,10 @@ export function runAuditBurstContract(harness: AuditBurstHarness): void {
       // Si ce n'était pas le cas, trier par identifiant suffirait et l'ordre
       // composite n'aurait rien à prouver.
       const collisions = written.filter(
-        (e, i) => i > 0 && e.ts === written[i - 1].ts,
+        (e, i) => i > 0 && e.ts === written[i - 1]!.ts,
       );
       const desordre = collisions.some(
-        (e, i) => i > 0 && e.id < collisions[i - 1].id,
+        (e, i) => i > 0 && e.id < collisions[i - 1]!.id,
       );
       assert.ok(
         desordre || collisions.length === 0,
@@ -163,10 +163,10 @@ export function runAuditBurstContract(harness: AuditBurstHarness): void {
         const prev = vus[i - 1];
         const cur = vus[i];
         const ordonne =
-          prev.ts > cur.ts || (prev.ts === cur.ts && prev.id > cur.id);
+          prev!.ts > cur!.ts || (prev!.ts === cur!.ts && prev!.id > cur!.id);
         assert.ok(
           ordonne,
-          `ordre rompu entre ${prev.id}@${prev.ts} et ${cur.id}@${cur.ts}`,
+          `ordre rompu entre ${prev!.id}@${prev!.ts} et ${cur!.id}@${cur!.ts}`,
         );
       }
     });
@@ -219,7 +219,7 @@ export function runAuditBurstContract(harness: AuditBurstHarness): void {
       // strictement plus ancien que la position du curseur.
       const [ts] = cursor.split(":");
       assert.ok(second.items.length > 0);
-      assert.ok(second.items[0].ts <= Number(ts));
+      assert.ok(second.items[0]!.ts <= Number(ts));
     });
   });
 }

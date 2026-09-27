@@ -60,7 +60,8 @@ export function createAuditBridge(
   const flushMs = opts.flushMs ?? 250;
   const maxBatch = opts.maxBatch ?? 200;
 
-  let ring: IAuditEvent[] | null = null; // lazy : alloué au 1ᵉʳ événement
+  // Case vide = undefined (jamais écrite, ou libérée au flush).
+  let ring: Array<IAuditEvent | undefined> | null = null; // lazy : alloué au 1ᵉʳ événement
   let head = 0; // index du plus ancien
   let count = 0; // éléments vivants
   let dropped = 0; // omis (cap dépassé) depuis le dernier flush
@@ -72,11 +73,14 @@ export function createAuditBridge(
     // `dropped` valent alors 0 : ce retour ne change rien au comportement.
     const buf = ring;
     if (buf === null || (count === 0 && dropped === 0)) return;
-    const events = new Array<IAuditEvent>(count);
-    for (let i = 0; i < count; i++) events[i] = buf[(head + i) % maxBatch];
+    const events: IAuditEvent[] = [];
+    for (let i = 0; i < count; i++) {
+      const event = buf[(head + i) % maxBatch];
+      if (event !== undefined) events.push(event);
+    }
     const d = dropped;
     // reset + libère les refs (évite de retenir des événements).
-    for (let i = 0; i < maxBatch; i++) buf[i] = undefined as never;
+    for (let i = 0; i < maxBatch; i++) buf[i] = undefined;
     head = 0;
     count = 0;
     dropped = 0;
@@ -84,7 +88,7 @@ export function createAuditBridge(
   };
 
   const onEvent = (event: IAuditEvent): void => {
-    ring ??= new Array<IAuditEvent>(maxBatch);
+    ring ??= new Array<IAuditEvent | undefined>(maxBatch);
     if (count === maxBatch) {
       ring[head] = event; // ring plein → écrase le plus ancien
       head = (head + 1) % maxBatch;

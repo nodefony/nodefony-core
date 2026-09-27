@@ -38,8 +38,8 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
   it("sans argument → wildcard par défaut */*", () => {
     const r = acceptParser();
     expect(r).to.have.length(1);
-    expect(r[0].type.test("text")).to.equal(true);
-    expect(r[0].subtype.test("html")).to.equal(true);
+    expect(r[0]!.type.test("text")).to.equal(true);
+    expect(r[0]!.subtype.test("html")).to.equal(true);
   });
 
   it("sans argument → SINGLETON (0 alloc/req, lot D) : même référence à chaque appel", () => {
@@ -54,21 +54,21 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
 
   it("type/subtype concret → regex correspondantes", () => {
     const r = acceptParser("text/html");
-    expect(r[0].type.test("text")).to.equal(true);
-    expect(r[0].subtype.test("html")).to.equal(true);
-    expect(r[0].type.test("image")).to.equal(false);
+    expect(r[0]!.type.test("text")).to.equal(true);
+    expect(r[0]!.subtype.test("html")).to.equal(true);
+    expect(r[0]!.type.test("image")).to.equal(false);
   });
 
   it("'*/*' → wildcards qui matchent tout", () => {
     const r = acceptParser("*/*");
-    expect(r[0].type.test("anything")).to.equal(true);
-    expect(r[0].subtype.test("anything")).to.equal(true);
+    expect(r[0]!.type.test("anything")).to.equal(true);
+    expect(r[0]!.subtype.test("anything")).to.equal(true);
   });
 
   it("type wildcardé 'image/*'", () => {
     const r = acceptParser("image/*");
-    expect(r[0].type.test("image")).to.equal(true);
-    expect(r[0].subtype.test("png")).to.equal(true);
+    expect(r[0]!.type.test("image")).to.equal(true);
+    expect(r[0]!.subtype.test("png")).to.equal(true);
   });
 
   it("liste multiple → un objet par type", () => {
@@ -78,14 +78,14 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
 
   it("trie par q décroissant (qualité)", () => {
     const r = acceptParser("text/html;q=0.3,application/json;q=0.9");
-    expect(r[0].subtype.test("json")).to.equal(true);
-    expect(r[1].subtype.test("html")).to.equal(true);
-    expect(r[0].q).to.equal(0.9);
+    expect(r[0]!.subtype.test("json")).to.equal(true);
+    expect(r[1]!.subtype.test("html")).to.equal(true);
+    expect(r[0]!.q).to.equal(0.9);
   });
 
   it("q par défaut = 1 quand absent (passe avant un q explicite < 1)", () => {
     const r = acceptParser("text/html,application/json;q=0.5");
-    expect(r[0].subtype.test("html")).to.equal(true);
+    expect(r[0]!.subtype.test("html")).to.equal(true);
   });
 
   // RFC 9110 §12.4.2 : `q=0` signifie « non acceptable ». Le tri faisait
@@ -93,22 +93,22 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
   // refusé passait en tête, devant ce que le client préférait.
   it("q=0 (non acceptable) trie EN DERNIER, jamais relevé à 1", () => {
     const r = acceptParser("text/html;q=0,application/json");
-    expect(r[0].subtype.test("json")).to.equal(true);
-    expect(r[1].subtype.test("html")).to.equal(true);
-    expect(r[1].q).to.equal(0);
+    expect(r[0]!.subtype.test("json")).to.equal(true);
+    expect(r[1]!.subtype.test("html")).to.equal(true);
+    expect(r[1]!.q).to.equal(0);
   });
 
   // Un `q` illisible (`parseFloat` → NaN) vaut 1, comme un `q` absent : un NaN
   // dans le comparateur rendrait un ordre indéfini.
   it("q malformé (`q=abc`) → traité comme absent (1), ordre stable", () => {
     const r = acceptParser("application/json;q=0.5,text/html;q=abc");
-    expect(r[0].subtype.test("html")).to.equal(true);
-    expect(r[1].subtype.test("json")).to.equal(true);
+    expect(r[0]!.subtype.test("html")).to.equal(true);
+    expect(r[1]!.subtype.test("json")).to.equal(true);
   });
 
   it("parse les paramètres additionnels (charset)", () => {
     const r = acceptParser("text/html;charset=utf-8");
-    expect(r[0].charset).to.equal("utf-8");
+    expect(r[0]!.charset).to.equal("utf-8");
   });
 
   // Un `Accept` est un en-tête CLIENT arbitraire : le parseur ne doit JAMAIS
@@ -118,8 +118,8 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
     let r!: ReturnType<typeof acceptParser>;
     expect(() => (r = acceptParser(";q=1"))).to.not.throw();
     expect(r).to.have.lengthOf(1);
-    expect(r[0].type.test("anything")).to.equal(true);
-    expect(r[0].subtype.test("whatever")).to.equal(true);
+    expect(r[0]!.type.test("anything")).to.equal(true);
+    expect(r[0]!.subtype.test("whatever")).to.equal(true);
   });
 
   // Régression : un token avec un métacaractère regex NON balancé (`*` en tête,
@@ -145,19 +145,19 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
     // `*x` n'est PAS le wildcard `*` → matche littéralement la chaîne "*x",
     // et RIEN d'autre (ancré) : pas d'interprétation regex.
     const r = acceptParser("*x/plain");
-    expect(r[0].type.test("*x")).to.equal(true);
-    expect(r[0].type.test("x")).to.equal(false); // pas `*` = « zéro ou plus »
-    expect(r[0].type.test("y*xz")).to.equal(false); // ancré ^…$
+    expect(r[0]!.type.test("*x")).to.equal(true);
+    expect(r[0]!.type.test("x")).to.equal(false); // pas `*` = « zéro ou plus »
+    expect(r[0]!.type.test("y*xz")).to.equal(false); // ancré ^…$
   });
 
   it("wildcard `*` (type ET sous-type) reste `.*`", () => {
     const any = acceptParser("*/*");
-    expect(any[0].type.test("application")).to.equal(true);
-    expect(any[0].subtype.test("json")).to.equal(true);
+    expect(any[0]!.type.test("application")).to.equal(true);
+    expect(any[0]!.subtype.test("json")).to.equal(true);
     const img = acceptParser("image/*");
-    expect(img[0].type.test("image")).to.equal(true);
-    expect(img[0].type.test("text")).to.equal(false); // `image` ancré ≠ substring
-    expect(img[0].subtype.test("png")).to.equal(true);
+    expect(img[0]!.type.test("image")).to.equal(true);
+    expect(img[0]!.type.test("text")).to.equal(false); // `image` ancré ≠ substring
+    expect(img[0]!.subtype.test("png")).to.equal(true);
   });
 });
 

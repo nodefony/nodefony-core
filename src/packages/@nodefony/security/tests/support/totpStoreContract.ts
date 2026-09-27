@@ -302,15 +302,15 @@ export function runTotpStoreContract(harness: TotpStoreContractHarness): void {
       );
       const page = await store().listPage({ limit: 10 });
       const [item] = page.items;
-      assert.equal(item.userId, "u-secret");
-      assert.ok(!("secretEnc" in item), "secretEnc ne doit pas être exposé");
+      assert.equal(item!.userId, "u-secret");
+      assert.ok(!("secretEnc" in item!), "secretEnc ne doit pas être exposé");
       assert.ok(
-        !("recoveryCodes" in item),
+        !("recoveryCodes" in item!),
         "les condensats ne doivent pas être exposés",
       );
       // Le NOMBRE, lui, est l'information d'exploitation (qui se verrouillera
       // au prochain changement d'appareil).
-      assert.equal(item.recoveryCodesLeft, 2);
+      assert.equal(item!.recoveryCodesLeft, 2);
       // Et rien ne fuit non plus par la sérialisation de la page entière.
       const serialise = JSON.stringify(page);
       assert.ok(!serialise.includes("TRES.SECRET"));

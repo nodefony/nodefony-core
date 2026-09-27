@@ -295,14 +295,14 @@ describe("@nodefony/http — métadonnées de champ (JSON Schema)", () => {
     const json = httpConfigJsonSchema() as {
       properties: Record<string, { reserved?: boolean }>;
     };
-    expect(json.properties.http3.reserved).to.equal(true);
+    expect(json.properties.http3!.reserved).to.equal(true);
   });
 
   it("upload : les limites busboy sont éditables à chaud (relues par requête)", () => {
     const json = httpConfigJsonSchema() as {
       properties: Record<string, SchemaNode>;
     };
-    const up = json.properties.upload.properties ?? {};
+    const up = json.properties.upload!.properties ?? {};
     for (const k of [
       "maxFileSize",
       "maxTotalFileSize",
@@ -319,7 +319,7 @@ describe("@nodefony/http — métadonnées de champ (JSON Schema)", () => {
       properties: Record<string, SchemaNode>;
     };
     const sts =
-      json.properties.securityHeaders.properties?.strictTransportSecurity;
+      json.properties.securityHeaders!.properties?.strictTransportSecurity;
     // strictTransportSecurity est nullable → branche objet dans un anyOf.
     const obj = sts?.properties
       ? sts

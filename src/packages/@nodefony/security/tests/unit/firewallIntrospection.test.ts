@@ -100,18 +100,18 @@ describe("Firewall.describe — zones", () => {
     );
     const admin = d.zones[0];
     // `RegExp.source` échappe le `/` → `^\/nodefony` (représentation regex canonique).
-    assert.equal(admin.pattern, "^\\/nodefony");
-    assert.equal(admin.security, true);
-    assert.equal(admin.mode, "first");
-    assert.deepEqual(admin.authenticators, ["session", "anonymous"]);
-    assert.equal(admin.allowsAnonymous, true);
-    assert.equal(admin.host, "localhost");
-    assert.equal(admin.realtime, true); // défaut Zero Trust
+    assert.equal(admin!.pattern, "^\\/nodefony");
+    assert.equal(admin!.security, true);
+    assert.equal(admin!.mode, "first");
+    assert.deepEqual(admin!.authenticators, ["session", "anonymous"]);
+    assert.equal(admin!.allowsAnonymous, true);
+    assert.equal(admin!.host, "localhost");
+    assert.equal(admin!.realtime, true); // défaut Zero Trust
 
     const pub = d.zones[1];
-    assert.equal(pub.security, false);
-    assert.equal(pub.allowsAnonymous, false);
-    assert.equal(pub.host, null);
+    assert.equal(pub!.security, false);
+    assert.equal(pub!.allowsAnonymous, false);
+    assert.equal(pub!.host, null);
   });
 });
 

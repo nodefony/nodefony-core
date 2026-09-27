@@ -23,10 +23,9 @@ export type CspFragment = Record<string, readonly string[]>;
 export function parseCsp(csp: string): Array<[string, string[]]> {
   const out: Array<[string, string[]]> = [];
   for (const part of csp.split(";")) {
-    const tokens = part.trim().split(/\s+/).filter(Boolean);
-    if (tokens.length === 0) continue;
-    const name = tokens[0];
-    out.push([name, tokens.slice(1)]);
+    const [name, ...sources] = part.trim().split(/\s+/).filter(Boolean);
+    if (name === undefined) continue;
+    out.push([name, sources]);
   }
   return out;
 }
@@ -65,7 +64,7 @@ export function mergeCspFragments(
   for (const fragment of fragments) {
     for (const name in fragment) {
       const additions = fragment[name];
-      if (additions.length === 0) continue;
+      if (additions === undefined || additions.length === 0) continue;
       let sources = index.get(name);
       if (!sources) {
         sources = [];

@@ -21,13 +21,15 @@ export function theilSen(xs: number[], ys: number[]): number {
   const slopes: number[] = [];
   for (let i = 0; i < xs.length; i++) {
     for (let j = i + 1; j < xs.length; j++) {
-      slopes.push((ys[j] - ys[i]) / (xs[j] - xs[i]));
+      slopes.push((ys[j]! - ys[i]!) / (xs[j]! - xs[i]!));
     }
   }
   if (slopes.length === 0) throw new Error("theilSen : au moins 2 points");
   slopes.sort((a, b) => a - b);
   const mid = slopes.length >> 1;
-  return slopes.length % 2 ? slopes[mid] : (slopes[mid - 1] + slopes[mid]) / 2;
+  return slopes.length % 2
+    ? slopes[mid]!
+    : (slopes[mid - 1]! + slopes[mid]!) / 2;
 }
 
 export interface IRetentionPlan {

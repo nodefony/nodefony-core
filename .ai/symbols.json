@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 875,
-    "symbols": 4357,
+    "symbols": 4358,
     "classes": 404,
     "interfaces": 1145,
     "types": 467,
     "enums": 4,
-    "functions": 1902,
+    "functions": 1903,
     "constants": 435
   },
   "symbols": {
@@ -27864,6 +27864,14 @@
       "module": "@nodefony/security",
       "description": "Dérive les paramètres effectifs depuis la config sécurité. `issuer` omis → `\"nodefony\"` (DEVRAIT être surchargé en prod) ; `audiences` vide → l'app est sa propre audience (`[issuer]`)."
     },
+    "defaultAudience": {
+      "name": "defaultAudience",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/jwtRuntime.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Audience inscrite dans un jeton quand aucune ressource n'est demandée : la première de la liste blanche. La liste n'est jamais vide après {@link resolveJwtRuntime} ; un runtime construit à la main …"
+    },
     "MemoryTokenStore": {
       "name": "MemoryTokenStore",
       "kind": "class",
@@ -38678,6 +38686,9 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
       "JwtKeystore": [
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
+      ],
+      "defaultAudience": [
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
       "resolveJwtRuntime": [

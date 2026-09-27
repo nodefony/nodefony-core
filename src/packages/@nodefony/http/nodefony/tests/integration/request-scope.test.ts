@@ -84,7 +84,7 @@ function wsSession(path: string, messages: string[]): Promise<Json[]> {
         return reject(asError(e));
       }
       if (sent < messages.length) {
-        ws.send(messages[sent++]);
+        ws.send(messages[sent++]!);
       } else {
         ws.close();
       }

@@ -226,8 +226,8 @@ describe("generateProxyConfig — nginx", () => {
       const end = rows.findIndex((l, i) => i > start && l === "  }");
       return rows.slice(start, end).join(" ").replace(/\s+/g, " ").trim();
     };
-    expect(body(blocks[0])).to.equal(body(blocks[1]));
-    expect(body(blocks[0])).to.include(
+    expect(body(blocks[0]!)).to.equal(body(blocks[1]!));
+    expect(body(blocks[0]!)).to.include(
       "proxy_set_header X-Forwarded-Proto $scheme;",
     );
   });

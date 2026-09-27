@@ -60,7 +60,7 @@ describe("P3.7 — Context.logPhasesVerbose()", () => {
     });
     run(s);
     expect(s.calls).to.have.lengthOf(1);
-    const [text, severity, msgid] = s.calls[0];
+    const [text, severity, msgid] = s.calls[0]!;
     expect(severity).to.equal("DEBUG");
     expect(msgid).to.equal("http TIMING");
     expect(text).to.be.a("string");
@@ -82,7 +82,7 @@ describe("P3.7 — Context.logPhasesVerbose()", () => {
     });
     run(s);
     expect(s.calls).to.have.lengthOf(1);
-    const str = s.calls[0][0] as string;
+    const str = s.calls[0]![0] as string;
     expect(str).to.contain("parse=1.00ms");
     expect(str).to.contain("action=…");
     expect(str).to.contain("Σ 1.00ms");
@@ -94,7 +94,7 @@ describe("P3.7 — Context.logPhasesVerbose()", () => {
       phases: [{ name: "render", startMs: 2, endMs: 4.5 }], // pas de durationMs
     });
     run(s);
-    const str = s.calls[0][0] as string;
+    const str = s.calls[0]![0] as string;
     expect(str).to.contain("render=2.50ms");
   });
 });

@@ -40,7 +40,7 @@ describe("FrameProfile — le profil d'UNE invocation du pont", () => {
       f1.phaseEnd("action");
       expect(f1.phases).to.have.length(1);
       expect(f2.phases).to.have.length(1);
-      expect(f1.phases[0].durationMs).to.be.a("number");
+      expect(f1.phases[0]!.durationMs).to.be.a("number");
     });
 
     it("une phase ré-entrante (même nom, 2 occurrences) est fermée dans le bon ordre", () => {
@@ -48,10 +48,10 @@ describe("FrameProfile — le profil d'UNE invocation du pont", () => {
       f.phaseStart("action");
       f.phaseStart("action"); // imbriquée (action qui en déclenche une autre)
       f.phaseEnd("action"); // ferme la PLUS RÉCENTE ouverte
-      expect(f.phases[1].durationMs).to.be.a("number");
-      expect(f.phases[0].endMs).to.equal(undefined);
+      expect(f.phases[1]!.durationMs).to.be.a("number");
+      expect(f.phases[0]!.endMs).to.equal(undefined);
       f.phaseEnd("action");
-      expect(f.phases[0].durationMs).to.be.a("number");
+      expect(f.phases[0]!.durationMs).to.be.a("number");
     });
 
     it("timing éteint → aucune phase enregistrée (0 allocation, 0 performance.now)", () => {

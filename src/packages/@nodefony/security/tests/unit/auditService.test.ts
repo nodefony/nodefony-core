@@ -263,10 +263,10 @@ describe("AuditService — actif", () => {
     const res = await svc.listPage({ limit: 100 });
     assert.equal(res.total, 1);
     const e = res.items[0];
-    assert.equal(e.action, "access.denied");
-    assert.equal(e.actor, "mallory");
-    assert.ok(typeof e.id === "string" && e.id.length > 0);
-    assert.ok(typeof e.ts === "number" && e.ts > 0);
+    assert.equal(e!.action, "access.denied");
+    assert.equal(e!.actor, "mallory");
+    assert.ok(typeof e!.id === "string" && e!.id.length > 0);
+    assert.ok(typeof e!.ts === "number" && e!.ts > 0);
   });
 
   it("ids uniques sur émissions successives", async () => {

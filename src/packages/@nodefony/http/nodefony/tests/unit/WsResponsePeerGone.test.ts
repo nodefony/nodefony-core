@@ -73,8 +73,8 @@ describe("WS Response — client parti pendant l'écriture (EPIPE et famille)", 
     );
     await expect(res.send("ping")).resolves.toBe(res);
     expect(logged).toHaveLength(1);
-    expect(logged[0].severity).toBe("DEBUG");
-    expect(String(logged[0].pci)).toContain("EPIPE");
+    expect(logged[0]!.severity).toBe("DEBUG");
+    expect(String(logged[0]!.pci)).toContain("EPIPE");
   });
 
   it("vraie erreur d'écriture (non-déconnexion) → reject + log ERROR (inchangé)", async () => {
@@ -85,7 +85,7 @@ describe("WS Response — client parti pendant l'écriture (EPIPE et famille)", 
     );
     await expect(res.send("ping")).rejects.toThrow("ENOSPC");
     expect(logged).toHaveLength(1);
-    expect(logged[0].severity).toBe("ERROR");
+    expect(logged[0]!.severity).toBe("ERROR");
   });
 
   it("send sans erreur → résolu, aucun log", async () => {

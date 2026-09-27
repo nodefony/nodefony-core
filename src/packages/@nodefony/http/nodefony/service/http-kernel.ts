@@ -581,7 +581,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     disabled: boolean;
     extra: RegExp[];
   } {
-    let policy = this._wsOriginPolicy[cfgKey] as IWsOriginPolicy | undefined;
+    let policy = this._wsOriginPolicy[cfgKey];
     if (!policy) {
       const raw = (
         this.options[cfgKey] as { allowedOrigins?: ITrustedHostsConfig }

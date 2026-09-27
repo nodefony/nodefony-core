@@ -244,9 +244,9 @@ function matchSystemPolicy(
   channel: string,
   rules: readonly ISystemChannelRule[],
 ): IChannelPolicy | null {
-  for (let i = 0; i < rules.length; i++) {
-    if (startsWithCI(channel, rules[i].prefix)) {
-      return floorReserved(channel, rules[i].policy);
+  for (const rule of rules) {
+    if (startsWithCI(channel, rule.prefix)) {
+      return floorReserved(channel, rule.policy);
     }
   }
   if (containsCI(channel, ":health") || containsCI(channel, ":stats")) {
@@ -271,8 +271,8 @@ function floorReserved(
   policy: IChannelPolicy,
 ): IChannelPolicy {
   if (policy.authenticated) return policy;
-  for (let i = 0; i < RESERVED_FLOOR_PREFIXES.length; i++) {
-    if (startsWithCI(channel, RESERVED_FLOOR_PREFIXES[i])) {
+  for (const prefix of RESERVED_FLOOR_PREFIXES) {
+    if (startsWithCI(channel, prefix)) {
       return { ...policy, authenticated: true };
     }
   }
@@ -296,8 +296,8 @@ function satisfies(
   if (policy.roles && policy.roles.length > 0) {
     const userRoles = token.getRoles();
     let granted = false;
-    for (let i = 0; i < policy.roles.length; i++) {
-      if (firewall.hasRole(userRoles, policy.roles[i])) {
+    for (const role of policy.roles) {
+      if (firewall.hasRole(userRoles, role)) {
         granted = true;
         break;
       }
@@ -307,8 +307,8 @@ function satisfies(
   if (policy.scopes && policy.scopes.length > 0) {
     const userScopes = token.getScopes();
     let granted = false;
-    for (let i = 0; i < policy.scopes.length; i++) {
-      if (userScopes.includes(policy.scopes[i])) {
+    for (const scope of policy.scopes) {
+      if (userScopes.includes(scope)) {
         granted = true;
         break;
       }

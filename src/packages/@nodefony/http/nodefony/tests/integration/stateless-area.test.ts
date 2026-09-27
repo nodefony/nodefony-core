@@ -85,7 +85,7 @@ async function sessionCookie(): Promise<string> {
   expect(res.status, "login").to.equal(200);
   const cookie = setCookiesOf(res)[0]?.split(";")[0];
   expect(cookie, "le login pose bien un cookie de session").to.be.a("string");
-  return cookie;
+  return cookie!;
 }
 
 describe("Zone stateless — la session y est ignorée", () => {

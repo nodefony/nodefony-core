@@ -169,7 +169,7 @@ async function loginAndIsolate(
     (r) => !before.has(r),
   );
   expect(fresh.length, `1 nouvelle session ${username} isolée`).to.equal(1);
-  return { cookie, ref: fresh[0] };
+  return { cookie, ref: fresh[0]! };
 }
 
 /**
@@ -345,10 +345,10 @@ describe("Provenance de session — ip/ua capturés au login (console Sessions)"
       const fresh = items.filter((i) => !before.has(i.ref));
       expect(fresh.length, "1 session fraîche isolée").to.equal(1);
       const s = fresh[0];
-      expect(s.ip, "ip capturée au login (loopback, non null)").to.be.a(
+      expect(s!.ip, "ip capturée au login (loopback, non null)").to.be.a(
         "string",
       );
-      expect(s.ua, "ua = User-Agent envoyé au login").to.equal(UA);
+      expect(s!.ua, "ua = User-Agent envoyé au login").to.equal(UA);
     } finally {
       if (cookie) await post(LOGOUT, { cookie });
     }

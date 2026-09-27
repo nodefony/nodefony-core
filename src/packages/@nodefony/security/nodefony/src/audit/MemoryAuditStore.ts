@@ -67,8 +67,7 @@ export class MemoryAuditStore implements IAuditStore {
     const limit = Math.min(Math.max(1, query.limit), MAX_LIMIT);
     // Collecte filtrée (ordre d'insertion : ancien → récent).
     const matched: IAuditEvent[] = [];
-    for (let i = 0; i < this.#events.length; i++) {
-      const event = this.#events[i];
+    for (const event of this.#events) {
       if (this.#matches(event, query)) {
         matched.push(event);
       }
@@ -134,7 +133,7 @@ export class MemoryAuditStore implements IAuditStore {
     const threshold = now - this.#retentionMs;
     let purged = 0;
     // FIFO par ts croissant : les plus vieux sont en tête → shift tant que trop vieux.
-    while (this.#events.length > 0 && this.#events[0].ts < threshold) {
+    while ((this.#events[0]?.ts ?? threshold) < threshold) {
       this.#events.shift();
       purged++;
     }

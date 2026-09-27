@@ -101,13 +101,13 @@ export function runTotpPaginationContract(
       assert.equal(first.total, 10);
       assert.equal(first.items.length, 4);
       assert.equal(first.hasNext, true);
-      assert.equal(first.items[0].userId, "u-09");
-      assert.equal(first.items[3].userId, "u-06");
+      assert.equal(first.items[0]!.userId, "u-09");
+      assert.equal(first.items[3]!.userId, "u-06");
 
       const last = await store().listPage({ limit: 4, offset: 8 });
       assert.equal(last.items.length, 2);
       assert.equal(last.hasNext, false);
-      assert.equal(last.items[1].userId, "u-00");
+      assert.equal(last.items[1]!.userId, "u-00");
     });
 
     it("parcours complet : 10 enrôlements DISTINCTS, aucun perdu", async () => {
@@ -178,9 +178,9 @@ export function runTotpPaginationContract(
 
     it("porte les paramètres cryptographiques (algorithme, digits, période)", async () => {
       const page = await store().listPage({ limit: 1 });
-      assert.equal(page.items[0].algorithm, "SHA1");
-      assert.equal(page.items[0].digits, 6);
-      assert.equal(page.items[0].period, 30);
+      assert.equal(page.items[0]!.algorithm, "SHA1");
+      assert.equal(page.items[0]!.digits, 6);
+      assert.equal(page.items[0]!.period, 30);
     });
   });
 }

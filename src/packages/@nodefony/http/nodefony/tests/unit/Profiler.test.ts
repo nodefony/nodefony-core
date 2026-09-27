@@ -80,8 +80,8 @@ describe("Profiler — unit", () => {
     for (let i = 0; i < 5; i++) p.collect(ctx({ requestId: `r${i}` }));
     const r = p.recent(3);
     expect(r).to.have.length(3);
-    expect(r[0].requestId).to.equal("r4");
-    expect(r[2].requestId).to.equal("r2");
+    expect(r[0]!.requestId).to.equal("r4");
+    expect(r[2]!.requestId).to.equal("r2");
     // résumé sans les phases
     expect((r[0] as unknown as Record<string, unknown>).phases).to.be.undefined;
   });
@@ -133,7 +133,7 @@ describe("Profiler — unit", () => {
       const q = p.get("req-1")!.queries;
       expect(q).to.have.length(2);
       expect(q![1]).to.deep.include({ sql: "SELECT 2", rows: 3 });
-      expect(q![0].connector).to.equal("drizzle");
+      expect(q![0]!.connector).to.equal("drizzle");
     });
 
     it("leaves queries undefined when no adapter pushed (empty/null)", () => {
@@ -152,7 +152,7 @@ describe("Profiler — unit", () => {
         }),
       );
       // La phase `action` court de 1 à 5 → la requête (2.5) tombe DEDANS.
-      expect(p.get("req-1")!.queries![0].startMs).to.equal(2.5);
+      expect(p.get("req-1")!.queries![0]!.startMs).to.equal(2.5);
     });
   });
 

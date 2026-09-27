@@ -40,7 +40,7 @@ function request(
 // TLS (tests sur https/5152) → cookie de session préfixé `__Host-` (RFC 6265bis).
 function sessionCookie(setCookie: string[]): string | null {
   const entry = setCookie.find((c) => c.startsWith("__Host-nodefony="));
-  return entry ? entry.split(";")[0] : null;
+  return entry ? entry.split(";")[0]! : null;
 }
 
 function wsHandshake(path: string): Promise<any> {

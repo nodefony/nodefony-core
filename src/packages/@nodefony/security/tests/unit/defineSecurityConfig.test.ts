@@ -20,26 +20,26 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
   });
 
   it("zone : session BFF par défaut (stateless=false) — JWT réservé API", () => {
-    assert.equal(config.areas.app.stateless, false);
+    assert.equal(config.areas.app!.stateless, false);
   });
 
   it("zone : mode 'first' par défaut (le 1er authenticator qui reconnaît gagne)", () => {
-    assert.equal(config.areas.app.mode, "first");
+    assert.equal(config.areas.app!.mode, "first");
   });
 
   it("zone : mode 'all' accepté (chaîne complète, ex. mtls+jwt)", () => {
     const c = defineSecurityConfig({
       areas: { admin: { pattern: "^/admin", mode: "all" } },
     });
-    assert.equal(c.areas.admin.mode, "all");
+    assert.equal(c.areas.admin!.mode, "all");
   });
 
   it("zone : Zero Trust par défaut (security=true)", () => {
-    assert.equal(config.areas.app.security, true);
+    assert.equal(config.areas.app!.security, true);
   });
 
   it("zone : realtime=true par défaut (Zero Trust — la zone ferme AUSSI le WS)", () => {
-    assert.equal(config.areas.app.realtime, true);
+    assert.equal(config.areas.app!.realtime, true);
   });
 
   it("zone : realtime=true accepté (aire data plane, verrou WS Étape 3)", () => {
@@ -48,17 +48,17 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
         nodefonyAdmin: { pattern: "^/nodefony/[^/]+/api(/|$)", realtime: true },
       },
     });
-    assert.equal(c.areas.nodefonyAdmin.realtime, true);
+    assert.equal(c.areas.nodefonyAdmin!.realtime, true);
   });
 
   it("encoder : Argon2id par défaut (m=19 MiB OWASP, t=3 RFC 9106, p=1)", () => {
     const enc = config.encoders.user;
-    assert.equal(enc.type, "argon2id");
-    assert.equal(enc.memoryKiB, 19456);
+    assert.equal(enc!.type, "argon2id");
+    assert.equal(enc!.memoryKiB, 19456);
     // t=3 (> minimum OWASP t=2) : +50 % de coût attaquant sans RAM
     // supplémentaire par hash — bench 2026-06 ~56 ms, cible 50-100 ms.
-    assert.equal(enc.timeCost, 3);
-    assert.equal(enc.parallelism, 1);
+    assert.equal(enc!.timeCost, 3);
+    assert.equal(enc!.parallelism, 1);
   });
 
   it("encoder : refuse de descendre sous le minimum OWASP (memoryKiB)", () => {
@@ -73,8 +73,8 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
     const c = defineSecurityConfig({
       encoders: { user: { type: "bcrypt", rounds: 12 } },
     });
-    assert.equal(c.encoders.user.type, "bcrypt");
-    assert.equal(c.encoders.user.rounds, 12);
+    assert.equal(c.encoders.user!.type, "bcrypt");
+    assert.equal(c.encoders.user!.rounds, 12);
   });
 
   it("csrf : Fetch Metadata = défense primaire (défaut true) + SameSite Lax", () => {

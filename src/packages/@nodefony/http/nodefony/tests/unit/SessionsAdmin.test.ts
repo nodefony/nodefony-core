@@ -299,9 +299,9 @@ describe("Sessions admin — orchestration (unit, storage mock)", () => {
     const refA = svc.sessionRef("a");
     await svc.destroyByRef(refA, "bob-admin");
     expect(events).to.have.length(1);
-    expect(events[0].action).to.equal("session.revoked");
-    expect(events[0].actor).to.equal("bob-admin");
-    expect(events[0].resource).to.equal(refA);
+    expect(events[0]!.action).to.equal("session.revoked");
+    expect(events[0]!.actor).to.equal("bob-admin");
+    expect(events[0]!.resource).to.equal(refA);
   });
 
   // ── Self-service : « MES sessions » (anti-IDOR). L'identifiant vient TOUJOURS
@@ -381,9 +381,9 @@ describe("Sessions admin — orchestration (unit, storage mock)", () => {
     });
     await svc.destroyOwnByRef("alice", svc.sessionRef("a"), "alice");
     expect(events).to.have.length(1);
-    expect(events[0].action).to.equal("session.revoked");
-    expect(events[0].actor).to.equal("alice");
-    expect(events[0].metadata?.self).to.equal(true);
+    expect(events[0]!.action).to.equal("session.revoked");
+    expect(events[0]!.actor).to.equal("alice");
+    expect(events[0]!.metadata?.self).to.equal(true);
   });
 });
 

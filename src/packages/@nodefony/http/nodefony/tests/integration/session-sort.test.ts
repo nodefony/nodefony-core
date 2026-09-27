@@ -79,7 +79,7 @@ const monotonic = (values: number[], dir: "ASC" | "DESC"): boolean =>
   values.every((v, i) => {
     if (i === 0) return true;
     const prev = values[i - 1];
-    return dir === "ASC" ? prev <= v : prev >= v;
+    return dir === "ASC" ? prev! <= v : prev! >= v;
   });
 
 let cookie = "";

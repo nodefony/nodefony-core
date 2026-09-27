@@ -22,7 +22,7 @@ function ctx(url: string, domain?: string): ContextType {
 function area(cfg: Parameters<typeof defineSecurityConfig>[0]): SecuredArea {
   const validated = defineSecurityConfig(cfg);
   const name = Object.keys(validated.areas)[0];
-  return new SecuredArea(name, validated.areas[name]);
+  return new SecuredArea(name!, validated.areas[name!]!);
 }
 
 describe("SecuredArea — propagation des champs (J3b Étape 1)", () => {

@@ -258,8 +258,7 @@ class WebsocketResponse {
     this.statusCode = status;
     if (!message) {
       // Table indexée par un code reçu : l'absence est possible.
-      const described = WS_CLOSE_DESCRIPTIONS[this.statusCode] as
-        string | undefined;
+      const described = WS_CLOSE_DESCRIPTIONS[this.statusCode];
       message = described ?? http.STATUS_CODES[this.statusCode];
     }
     this.statusMessage = message ?? "";

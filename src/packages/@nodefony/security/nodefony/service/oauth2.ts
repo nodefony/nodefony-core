@@ -57,7 +57,7 @@ const CANONICAL_LABELS: Record<string, string> = {
  * @returns le libellé à afficher sur le bouton
  */
 export function oauthDisplayLabel(name: string): string {
-  const canonical = CANONICAL_LABELS[name.toLowerCase()] as string | undefined;
+  const canonical = CANONICAL_LABELS[name.toLowerCase()];
   if (canonical !== undefined) return canonical;
   return name
     .split(/[-_.\s]+/)

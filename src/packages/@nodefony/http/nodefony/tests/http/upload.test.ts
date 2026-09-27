@@ -180,7 +180,7 @@ describe("File Upload Tests", () => {
       .that.is.a("number")
       .and.greaterThan(0);
     expect(["video/mp2t", "application/octet-stream"]).to.include(
-      uploadedFile["mimeType"],
+      uploadedFile!["mimeType"],
     );
   });
 

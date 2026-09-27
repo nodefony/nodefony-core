@@ -71,7 +71,7 @@ function wsExchange(path: string, messages: string[]): Promise<void> {
     const ws = new WebSocket(`${WSS}${path}`, wsOpts);
     let sent = 0;
     ws.on("message", () => {
-      if (sent < messages.length) ws.send(messages[sent++]);
+      if (sent < messages.length) ws.send(messages[sent++]!);
       else ws.close();
     });
     ws.once("close", () => resolve());
