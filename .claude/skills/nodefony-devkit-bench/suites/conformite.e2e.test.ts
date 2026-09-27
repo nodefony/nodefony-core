@@ -329,6 +329,7 @@ describe("e2e — le CRUD promis par une ressource générée", () => {
   it("une modification partielle (PATCH) est acceptée", async () => {
     if (collection === null || idCree === null || corpsCree === null) return;
     const [champ] = Object.keys(corpsCree);
+    if (champ === undefined) return;
     const res = await fetch(`${BASE}${collection}/${idCree}`, {
       method: "PATCH",
       headers: entetes(),

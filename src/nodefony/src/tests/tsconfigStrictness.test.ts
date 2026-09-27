@@ -57,6 +57,8 @@ const INDEX_CHECKED = [
   "src/packages/@nodefony/realtime/",
   "src/packages/@nodefony/studio/",
   "src/modules/",
+  // La racine seule : `tsconfig.declarations.json` et l'outillage l'étendent.
+  "tsconfig.json",
 ] as const;
 
 /** Options que `strict` allume et qu'aucun tsconfig ne doit éteindre. */

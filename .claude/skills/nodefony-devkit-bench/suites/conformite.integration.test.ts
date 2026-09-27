@@ -210,7 +210,7 @@ describe("intégration — le Router a monté ce que les controllers déclarent"
     // — vécu ici, où le banc retire du câblage les ressources d'un autre
     // dialecte et laisse leurs imports.
     const bloc = index.match(/@controllers\s*\(\s*\[([\s\S]*?)\]/);
-    const declares = bloc === null ? "" : bloc[1];
+    const declares = bloc?.[1] ?? "";
     const classes = readdirSync(dir)
       .filter((f) => f.endsWith("Controller.ts"))
       .map((f) => f.replace(/\.ts$/, ""))
@@ -261,14 +261,14 @@ describe("intégration — le Router a monté ce que les controllers déclarent"
     // annonce — le genre de trou qu'aucune assertion de chaîne ne voit, parce
     // que le fichier contient bien le mot « delete ».
     const parChemin = routesParChemin(routes.filter((r) => r.module === "app"));
-    const collections = [...parChemin.entries()].filter(
+    const premiere = [...parChemin.entries()].find(
       ([chemin, liste]) =>
         !chemin.includes("{") &&
         liste.some((r) => r.methods.includes("POST")) &&
         liste.some((r) => r.methods.includes("GET")),
     );
-    if (collections.length === 0) return;
-    const [chemin] = collections[0];
+    if (premiere === undefined) return;
+    const [chemin] = premiere;
     const surCollection = new Set(
       (parChemin.get(chemin) ?? []).flatMap((r) => r.methods),
     );
@@ -329,9 +329,10 @@ describe("intégration — la couche donnée, sur une vraie base", () => {
       entityRegistry.register({ ...entity, connector: ORM } as never);
       chargees.push({ nom, entity });
     }
-    if (chargees.length === 0) return;
-    const nomDeclare = chargees[0].entity.name;
-    nomEntite = typeof nomDeclare === "string" ? nomDeclare : chargees[0].nom;
+    const [premiere] = chargees;
+    if (premiere === undefined) return;
+    const nomDeclare = premiere.entity.name;
+    nomEntite = typeof nomDeclare === "string" ? nomDeclare : premiere.nom;
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
   }, 120_000);

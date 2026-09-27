@@ -275,9 +275,9 @@ describe("unit — ce que l'application déclare d'elle-même", () => {
     const fautives: string[] = [];
     for (const f of readdirSync(dir).filter((x) => x.endsWith(".ts"))) {
       const src = lire(path.join(dir, f));
-      const m = src.match(/super\(\s*["']([^"']+)["']/);
-      if (m !== null && !m[1].includes(":"))
-        fautives.push(`${f} → « ${m[1]} »`);
+      const nom = src.match(/super\(\s*["']([^"']+)["']/)?.[1];
+      if (nom !== undefined && !nom.includes(":"))
+        fautives.push(`${f} → « ${nom} »`);
     }
     expect(fautives).toEqual([]);
   });

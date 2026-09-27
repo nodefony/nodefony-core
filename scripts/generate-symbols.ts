@@ -121,7 +121,7 @@ function relPath(p: string): string {
 function moduleOf(relativeFile: string): string {
   // src/packages/@nodefony/<name>/...
   const pkgMatch = relativeFile.match(/^src\/packages\/(@nodefony\/[^/]+)/);
-  if (pkgMatch) return pkgMatch[1];
+  if (pkgMatch?.[1]) return pkgMatch[1];
   // src/modules/<name>/...
   const modMatch = relativeFile.match(/^src\/modules\/([^/]+)/);
   if (modMatch) return `modules/${modMatch[1]}`;
@@ -145,8 +145,9 @@ function tsDocOf(node: {
 }): string | undefined {
   if (typeof node.getJsDocs !== "function") return undefined;
   const docs = node.getJsDocs();
-  if (!docs.length) return undefined;
-  const raw = docs[0].getDescription().trim();
+  const [first] = docs;
+  if (!first) return undefined;
+  const raw = first.getDescription().trim();
   if (!raw) return undefined;
   // Collapse internal whitespace and strip residual leading "* " runs.
   const collapsed = raw.replace(/\s+/g, " ").replace(/^\* /, "").trim();
@@ -308,7 +309,7 @@ function extractFunction(
   };
   if (description) sym.description = description;
   if (verbose) {
-    sym.signature = f.getText().split("\n")[0].slice(0, 200);
+    sym.signature = f.getText().split("\n", 1).join("").slice(0, 200);
   }
   return sym;
 }
@@ -550,11 +551,11 @@ function generate(): void {
     const verbose = process.argv.includes("--verbose");
     let homonyms = 0;
     for (const sym of list) {
-      if (map[sym.name] === undefined) {
+      const existing = map[sym.name];
+      if (existing === undefined) {
         map[sym.name] = sym;
         continue;
       }
-      const existing = map[sym.name];
       if (existing.module === sym.module && existing.file === sym.file)
         continue; // exact dup, ignore
       const namespaced = `${sym.module}:${sym.name}`;
@@ -584,12 +585,14 @@ function generate(): void {
     for (const sym of list) {
       if (sym.extends) {
         // Strip generics: `BaseService<T>` → `BaseService`
-        const parent = sym.extends.split("<")[0].split(",")[0].trim();
+        const [head = ""] = sym.extends.split(/[<,]/, 1);
+        const parent = head.trim();
         if (parent) (extendedBy[parent] ??= []).push(sym.name);
       }
       if (sym.implements) {
         for (const iface of sym.implements) {
-          const base = iface.split("<")[0].trim();
+          const [head = ""] = iface.split("<", 1);
+          const base = head.trim();
           if (base) (implementedBy[base] ??= []).push(sym.name);
         }
       }

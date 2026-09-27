@@ -282,7 +282,10 @@ for (const [i, w] of cibles.entries()) {
       /All files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)/.exec(
         sortie,
       );
-    if (t) m = [null, +t[1], +t[2], +t[3], +t[4]];
+    if (t) {
+      const [, a = "", b = "", c = "", d = ""] = t;
+      m = [null, +a, +b, +c, +d];
+    }
   }
   const skipped = Number(/(\d+) skipped/.exec(sortie)?.[1] ?? "0");
 
