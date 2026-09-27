@@ -581,8 +581,8 @@ export function agentRoot(
   target: IAgentTarget,
   ctx: {
     projectRoot: string;
-    home?: string;
-    env?: Record<string, string | undefined>;
+    home?: string | undefined;
+    env?: Record<string, string | undefined> | undefined;
   },
 ): string {
   if (target.scope === "projet") return ctx.projectRoot;

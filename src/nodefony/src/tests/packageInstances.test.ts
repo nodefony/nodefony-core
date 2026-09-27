@@ -311,7 +311,7 @@ describe("Service — un container REFUSÉ n'est pas un container ABSENT", () =>
     // global au process, et le laisser sale contaminerait toute la suite.
     const clé = Symbol.for("nodefony.packageInstances");
     const portée = globalThis as typeof globalThis & {
-      [clé]?: { url: string; version: string }[];
+      [clé]?: { url: string; version: string }[] | undefined;
     };
     // DEUX entrées posées en clair, jamais « l'existant + une » : le
     // `beforeEach` de ce fichier VIDE le registre, si bien qu'un ajout relatif

@@ -18,9 +18,9 @@ type LogFn = (message: string, severity: string) => void;
 /** Source de clé configurée (`config.jwt.keystore`). */
 interface KeystoreSource {
   /** JWK Set (clés privées) injecté depuis l'env — source `env` (prod). */
-  readonly keySetJson?: string;
+  readonly keySetJson?: string | undefined;
   /** Dossier de persistance `keyset.json` — source `fichier` (opt-in dev/VPS). */
-  readonly dir?: string;
+  readonly dir?: string | undefined;
 }
 
 /**
@@ -223,9 +223,9 @@ export class JwtKeystore implements IJwtKeystore {
         kid: stored.kid,
         privateKey: imported,
         publicJwk: {
-          kty: stored.kty,
-          crv: stored.crv,
-          x: stored.x,
+          ...(stored.kty !== undefined && { kty: stored.kty }),
+          ...(stored.crv !== undefined && { crv: stored.crv }),
+          ...(stored.x !== undefined && { x: stored.x }),
           kid: stored.kid,
           use: "sig",
           alg: "EdDSA",

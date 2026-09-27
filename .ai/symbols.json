@@ -18808,6 +18808,14 @@
       "module": "@nodefony/http",
       "extends": null
     },
+    "computeDurationMs": {
+      "name": "computeDurationMs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Durée totale de la requête, de la première phase (`startMs`) à maintenant. `null` si le chronométrage est coupé (aucune phase enregistrée). Partagée par le journal d'audit et le journal lisible — u…"
+    },
     "severityFromStatus": {
       "name": "severityFromStatus",
       "kind": "function",
@@ -37900,6 +37908,9 @@
       "IRateLimitEntry": [
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
+      ],
+      "computeDurationMs": [
+        "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts"
       ],
       "severityFromStatus": [
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts"

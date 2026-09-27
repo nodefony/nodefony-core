@@ -51,7 +51,7 @@ describe("JwtKeystore — mémoire (défaut dev)", () => {
     );
 
     const expected = await calculateJwkThumbprint(
-      { kty: jwk!.kty, crv: jwk!.crv, x: jwk!.x },
+      { kty: jwk!.kty, crv: jwk!.crv, x: jwk!.x! },
       "sha256",
     );
     assert.equal(signing.kid, expected, "kid doit être le thumbprint RFC 7638");

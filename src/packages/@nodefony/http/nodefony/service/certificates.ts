@@ -85,19 +85,19 @@ export interface CertificateOptions {
    * est un confort de DÉVELOPPEMENT — en production, fournir un vrai certificat
    * (Let's Encrypt, ingress, reverse-proxy) : Nodefony n'est pas une CA.
    */
-  strategy?: CertStrategyConfig;
+  strategy?: CertStrategyConfig | undefined;
   selfSigned: SelfSignedOptions;
   dev: CertificateDevOptions;
-  san?: CertificateSanOptions;
+  san?: CertificateSanOptions | undefined;
   /** Permissions POSIX de la clé privée écrite (0600 = owner-only). */
-  privateKeyMode?: number;
-  path?: string;
-  keyPath?: string;
-  certPath?: string;
-  caPath?: string;
-  key?: string | Buffer;
-  cert?: string | Buffer;
-  ca?: string | Buffer;
+  privateKeyMode?: number | undefined;
+  path?: string | undefined;
+  keyPath?: string | undefined;
+  certPath?: string | undefined;
+  caPath?: string | undefined;
+  key?: string | Buffer | undefined;
+  cert?: string | Buffer | undefined;
+  ca?: string | Buffer | undefined;
 }
 
 interface filesCertType {

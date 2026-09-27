@@ -49,13 +49,13 @@ export interface ITotpListQuery extends IPageQuery {
 /** Champs mutables d'un secret TOTP (patch partiel). */
 export interface TotpSecretUpdate {
   /** Confirmation de l'enrôlement (epoch ms) — passe le secret en « actif ». */
-  confirmedAt?: number | null;
+  confirmedAt?: number | null | undefined;
   /** Stock résiduel de codes de récupération hachés (après consommation). */
-  recoveryCodes?: string[];
+  recoveryCodes?: string[] | undefined;
   /** Dernière tranche `T` validée (anti-rejeu RFC 6238 §5.2). */
-  lastUsedStep?: number;
+  lastUsedStep?: number | undefined;
   /** Horodatage du dernier usage réussi (epoch ms). */
-  lastUsedAt?: number;
+  lastUsedAt?: number | undefined;
 }
 
 /**

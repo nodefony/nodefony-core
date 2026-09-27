@@ -101,10 +101,10 @@ export interface AuditBatch {
 
 /** Filtre serveur courant (sous-ensemble utile de `IAuditListQuery`). */
 export interface AuditFilter {
-  category?: AuditCategory;
-  outcome?: AuditOutcome;
-  actor?: string;
-  action?: string;
+  category?: AuditCategory | undefined;
+  outcome?: AuditOutcome | undefined;
+  actor?: string | undefined;
+  action?: string | undefined;
   /** Fenêtre temporelle (preset) — convertie en `since` au moment du fetch. */
   period: AuditPeriod;
 }

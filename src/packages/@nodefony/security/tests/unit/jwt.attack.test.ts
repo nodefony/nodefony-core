@@ -98,7 +98,7 @@ async function mint(
   };
   const claims = {
     iss: RT.issuer,
-    aud: RT.audiences[0],
+    aud: RT.audiences[0]!,
     sub: "alice",
     jti: `jti-${Math.random()}`,
     iat: nowS(),
@@ -185,7 +185,7 @@ describe("JwtAuthenticator — matrice d'attaques (RFC 8725)", () => {
   it("alg=none forgé (§3.1)", async () => {
     const tok = `${b64({ alg: "none", typ: "at+jwt" })}.${b64({
       iss: RT.issuer,
-      aud: RT.audiences[0],
+      aud: RT.audiences[0]!,
       sub: "alice",
       jti: "x",
       iat: nowS(),
@@ -197,7 +197,7 @@ describe("JwtAuthenticator — matrice d'attaques (RFC 8725)", () => {
   it("algorithm confusion HS256 (§2.1) — clé publique comme secret HMAC", async () => {
     const tok = await new jose.SignJWT({
       iss: RT.issuer,
-      aud: RT.audiences[0],
+      aud: RT.audiences[0]!,
       sub: "alice",
       jti: "x",
       iat: nowS(),
@@ -229,7 +229,7 @@ describe("JwtAuthenticator — matrice d'attaques (RFC 8725)", () => {
     const os = await other.getSigningKey();
     const tok = await new jose.SignJWT({
       iss: RT.issuer,
-      aud: RT.audiences[0],
+      aud: RT.audiences[0]!,
       sub: "alice",
       jti: "x",
       iat: nowS(),

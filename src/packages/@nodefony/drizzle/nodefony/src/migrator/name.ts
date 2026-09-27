@@ -41,7 +41,7 @@ export type MigrationNameCheck =
        * geste qui échoue est pire que ne rien proposer, parce qu'il fait perdre
        * un aller-retour ET la confiance dans les autres suggestions.
        */
-      suggestion?: string;
+      suggestion?: string | undefined;
     };
 
 /**

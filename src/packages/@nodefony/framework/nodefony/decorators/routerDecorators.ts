@@ -401,7 +401,7 @@ export type ParamSource =
   | "user";
 export interface ParamMeta {
   source: ParamSource;
-  key?: string;
+  key?: string | undefined;
   index: number;
   /**
    * P2.9 — `@Body({ stream: true })` : injecte le **flux brut** de la requête
@@ -410,7 +410,7 @@ export interface ParamMeta {
    * pipeline saute le parse busboy/JSON pour la route concernée (cf
    * `routeExpectsBodyStream` + `handleHttp`).
    */
-  stream?: boolean;
+  stream?: boolean | undefined;
 }
 
 export interface RedirectMeta {
@@ -431,7 +431,7 @@ export interface SecurityClause {
   /** Attributs en OR — un seul accordé suffit pour valider la clause. */
   readonly anyOf: readonly string[];
   /** Nom du paramètre de route passé comme `subject` au voter (optionnel). */
-  readonly subjectParam?: string;
+  readonly subjectParam?: string | undefined;
 }
 
 /**
@@ -1299,21 +1299,24 @@ export interface IParamArgContext {
    * transport — pont WS-RPC `api.request` (`Resolver.queryOverride`). Prime
    * sur `request.queryGet` pour `@Query` uniquement (`@Req` reste le brut).
    */
-  queryOverride?: Record<string, unknown>;
-  request?: {
-    queryGet?: Record<string, unknown>;
-    queryPost?: Record<string, unknown>;
-    queryFile?: unknown[];
-    headers?: Record<string, unknown>;
-    /**
-     * P2.9 — `IncomingMessage` brut (un `Readable`) sous-jacent au wrapper
-     * `HttpRequest`. Injecté tel quel par `@Body({ stream: true })` (le pipeline
-     * n'a pas consommé/parsé ce flux). `undefined` pour les contextes WS.
-     */
-    request?: NodeJS.ReadableStream;
-  } | null;
+  queryOverride?: Record<string, unknown> | undefined;
+  request?:
+    | {
+        queryGet?: Record<string, unknown> | undefined;
+        queryPost?: Record<string, unknown> | undefined;
+        queryFile?: unknown[] | undefined;
+        headers?: Record<string, unknown> | undefined;
+        /**
+         * P2.9 — `IncomingMessage` brut (un `Readable`) sous-jacent au wrapper
+         * `HttpRequest`. Injecté tel quel par `@Body({ stream: true })` (le pipeline
+         * n'a pas consommé/parsé ce flux). `undefined` pour les contextes WS.
+         */
+        request?: NodeJS.ReadableStream | undefined;
+      }
+    | null
+    | undefined;
   response?: unknown;
-  session?: { get(key: string): unknown } | null;
+  session?: { get(key: string): unknown } | null | undefined;
   getRequestCookies(name?: string): unknown;
 }
 
@@ -1407,9 +1410,9 @@ function buildParamArgs(metas: ParamMeta[], ctx: IParamArgContext): unknown[] {
  * @returns `true` si l'action déclare un `@Body({ stream:true })`.
  */
 function routeExpectsBodyStream(routeDef: {
-  controller?: { prototype: object } | null;
-  classMethod?: string;
-  bodyStream?: boolean;
+  controller?: { prototype: object } | null | undefined;
+  classMethod?: string | undefined;
+  bodyStream?: boolean | undefined;
 }): boolean {
   if (routeDef.bodyStream === undefined) {
     let flag = false;
@@ -1668,9 +1671,9 @@ function computeActionMeta(
  * (pas d'import `Route` → 0 cycle).
  */
 function resolveActionMeta(routeDef: {
-  controller?: { prototype: object } | null;
-  classMethod?: string;
-  actionMeta?: RouteActionMeta;
+  controller?: { prototype: object } | null | undefined;
+  classMethod?: string | undefined;
+  actionMeta?: RouteActionMeta | undefined;
 }): RouteActionMeta {
   routeDef.actionMeta ??= computeActionMeta(
     routeDef.controller,

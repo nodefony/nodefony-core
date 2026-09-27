@@ -112,7 +112,9 @@ describe.skipIf(!URI)("MongooseOrm — coupure MongoDB", () => {
   });
 });
 describe.skipIf(!URI)("MongooseOrm — délais d'attente par défaut", () => {
-  const lire = (o: MongooseOrm): { selection?: number; connexion?: number } => {
+  const lire = (
+    o: MongooseOrm,
+  ): { selection?: number | undefined; connexion?: number | undefined } => {
     const cx = o.getNativeConnection<{
       getClient: () => {
         options: {

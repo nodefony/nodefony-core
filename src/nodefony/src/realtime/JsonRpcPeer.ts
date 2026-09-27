@@ -171,9 +171,9 @@ export interface JsonRpcPeerOptions<
    */
   send: (frame: unknown) => boolean | void;
   /** Notifications entrantes (`method` sans `id`) : pub/sub côté client, subscribe/unsubscribe côté serveur. */
-  onNotification?: RpcNotificationHandler<Listen>;
+  onNotification?: RpcNotificationHandler<Listen> | undefined;
   /** Erreur interne d'un handler — détail JAMAIS renvoyé au pair (loggé ici). */
-  onError?: (context: string, err: unknown) => void;
+  onError?: ((context: string, err: unknown) => void) | undefined;
   /**
    * **Seam sécurité 1/5 (P13 → P6)** — gate `beforeDispatch` appelé AVANT le
    * dispatch d'une frame entrante (request ET notification — pas les responses,
@@ -189,10 +189,9 @@ export interface JsonRpcPeerOptions<
    *
    * Branchement P6 : reading metadata `@IsGranted` du handler + voters → `boolean`.
    */
-  beforeDispatch?: (
-    frame: unknown,
-    peer: IRealtimePeer<Emit, Actions>,
-  ) => boolean;
+  beforeDispatch?:
+    | ((frame: unknown, peer: IRealtimePeer<Emit, Actions>) => boolean)
+    | undefined;
   /**
    * **Seam audit 5/5 (P13 → P6.14)** — fire-and-forget sur évènements
    * protocolaires notables (cf {@link FrameAuditReason}). Sync (pas de
@@ -207,11 +206,13 @@ export interface JsonRpcPeerOptions<
    * Branchement P6.14 : alimente le journal `AuditEventEntity` (qui agit, qui a
    * été refusé, qui appelle une méthode inconnue — traçabilité Zero Trust).
    */
-  onFrameAudit?: (
-    reason: FrameAuditReason,
-    frame: unknown,
-    peer: IRealtimePeer<Emit, Actions>,
-  ) => void;
+  onFrameAudit?:
+    | ((
+        reason: FrameAuditReason,
+        frame: unknown,
+        peer: IRealtimePeer<Emit, Actions>,
+      ) => void)
+    | undefined;
 }
 
 /**
@@ -265,7 +266,7 @@ interface PendingCall {
   reject: (reason: Error) => void;
   timer: ReturnType<typeof setTimeout> | null;
   /** Appel tracé : la promesse rend `{ result, meta }` au lieu du `result` nu. */
-  withMeta?: boolean;
+  withMeta?: boolean | undefined;
 }
 
 /** Une réponse JSON-RPC entrante (succès ou erreur). */

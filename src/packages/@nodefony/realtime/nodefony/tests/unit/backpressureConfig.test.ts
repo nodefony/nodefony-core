@@ -7,14 +7,14 @@ import {
 /** Connexion factice : `bufferedAmount` pilotable, envois et fermetures captés. */
 type FakeConn = RawWsConnection & {
   sent: string[];
-  closed: Array<{ code?: number }>;
+  closed: Array<{ code?: number | undefined }>;
   bufferedAmount: number;
   readyState: number;
 };
 
 function fakeConn(bufferedAmount: number): FakeConn {
   const sent: string[] = [];
-  const closed: Array<{ code?: number }> = [];
+  const closed: Array<{ code?: number | undefined }> = [];
   return {
     readyState: 1,
     bufferedAmount,

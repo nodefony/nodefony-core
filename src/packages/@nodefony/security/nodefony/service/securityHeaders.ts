@@ -14,11 +14,11 @@ export interface ISecurityHeadersOptions {
   csp: string;
   cspNonces: boolean;
   referrerPolicy: string;
-  coop?: string;
-  coep?: string;
-  corp?: string;
-  originAgentCluster?: boolean;
-  permissionsPolicy?: string;
+  coop?: string | undefined;
+  coep?: string | undefined;
+  corp?: string | undefined;
+  originAgentCluster?: boolean | undefined;
+  permissionsPolicy?: string | undefined;
 }
 
 /** Marqueur substitué par le nonce CSP de la requête (cf `Context.cspNonce`). */

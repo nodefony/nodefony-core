@@ -21,16 +21,16 @@ export interface EntityMetadata<S = unknown> {
   readonly connector: string;
 
   /** Module Nodefony propriétaire (regroupement graphe/ERD), si fourni. */
-  readonly module?: string;
+  readonly module?: string | undefined;
 
   /** Classification (domaine fonctionnel), axe de regroupement distinct du module. */
-  readonly domain?: string;
+  readonly domain?: string | undefined;
 
   /** Schéma natif du driver (forme libre), si fourni au décorateur. */
-  readonly schema?: S;
+  readonly schema?: S | undefined;
 
   /** Relations déclaratives vers d'autres entités. */
-  readonly relations?: ReadonlyArray<IEntityRelation>;
+  readonly relations?: ReadonlyArray<IEntityRelation> | undefined;
 
   /** Constructeur décoré (pour introspection / résolution lazy par le driver). */
   readonly target: DecoratedClass;
@@ -47,7 +47,7 @@ export interface RepositoryMetadata {
   readonly entity: string;
 
   /** Connecteur cible (lève l'ambiguïté si l'entité existe sur plusieurs connexions). */
-  readonly connector?: string;
+  readonly connector?: string | undefined;
 
   /** Constructeur décoré. */
   readonly target: DecoratedClass;

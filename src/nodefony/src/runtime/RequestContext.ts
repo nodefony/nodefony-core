@@ -20,7 +20,7 @@ export interface IProfilerQuery {
   /** Durée d'exécution en ms. */
   durationMs: number;
   /** Lignes affectées/retournées, si connu. */
-  rows?: number;
+  rows?: number | undefined;
   /** Connecteur émetteur (`drizzle`, `mongoose`…). */
   connector?: string;
 }
@@ -37,13 +37,13 @@ export interface IProfilerQuery {
  */
 export interface RequestContextPayload {
   requestId: string;
-  scheme?: string;
+  scheme?: string | undefined;
   /** Set by the security firewall after `afterAuth` (P6). */
-  userId?: string;
+  userId?: string | undefined;
   /** Set by the security firewall after `afterAuth` (P6). IUser instance. */
   user?: unknown;
   /** W3C traceparent header for OpenTelemetry compatibility (P2.7). */
-  traceparent?: string;
+  traceparent?: string | undefined;
   /**
    * Buffer de requêtes ORM du profiler — **présent uniquement en dev** quand
    * le `HttpKernel` l'alloue (profiler actif). Son absence = signal « ne pas
@@ -55,7 +55,7 @@ export interface RequestContextPayload {
    * credential). Le SQL paramétré (placeholders `?`, ex. Drizzle) est déjà
    * credential-free ; le SQL interpolé (ex. un ORM en mode `logging`) ne l'est pas.
    */
-  queries?: IProfilerQuery[];
+  queries?: IProfilerQuery[] | undefined;
   /**
    * Contexte transport courant (`HttpContext` / `WebsocketContext`), posé par
    * `HttpKernel` à l'entrée du scope (V4.1). Typé `unknown` ici : le core ne
@@ -71,7 +71,7 @@ export interface RequestContextPayload {
    * {@link RequestContext.getScope}, qui écarte un scope déjà refermé : ne pas
    * le lire directement.
    */
-  scope?: IScope;
+  scope?: IScope | undefined;
   /**
    * Corps de la requête posé par le **pont WS-RPC `api.request`** (mutations) :
    * en WebSocket il n'existe aucun corps HTTP parsé, donc le pont transporte la
@@ -87,7 +87,7 @@ export interface RequestContextPayload {
    * HTTP `Idempotency-Key`. Sert à dédoublonner un rejeu (socket qui reconnecte)
    * → cache borné scopé à l'identité. Absente = pas de dédup (GET, HTTP legacy).
    */
-  idempotencyKey?: string;
+  idempotencyKey?: string | undefined;
   /**
    * Puits de CAPTURE du rendu, posé par le **pont WS-RPC `api.request`** : une
    * action user peut répondre par un RENDU (`renderJson`/`renderView`) au lieu
@@ -99,7 +99,7 @@ export interface RequestContextPayload {
    * pont le sert ensuite en `result` RPC. Per-invocation via
    * `RequestContext.run` → zéro bleed entre frames concurrentes d'une socket.
    */
-  renderSink?: { body?: string | Buffer };
+  renderSink?: { body?: string | Buffer } | undefined;
   /**
    * Profil de l'**invocation** en cours (`FrameProfile` de `@nodefony/http`),
    * posé par le pont WS-RPC. Porte les phases et le buffer ORM de CETTE frame :

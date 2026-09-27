@@ -31,7 +31,7 @@ interface NodefonyConsoleHandle {
   /** Le noyau vivant, s'il y en a un. */
   readonly kernel?: unknown;
   /** La première socket partagée — le raccourci du cas courant. */
-  readonly socket?: RealtimeClient;
+  readonly socket?: RealtimeClient | undefined;
   /** Les sockets partagées de la page : adresse et état. */
   sockets(): Array<{ url: string; state: string }>;
   /** L'identité courante — du noyau s'il y en a un, sinon de la socket. */

@@ -41,10 +41,10 @@ export interface AuditLogEntry {
   // Presence-only flags (no values) to honor P3.4 redaction.
   hasAuthorization: boolean;
   hasCookie: boolean;
-  phases?: { name: string; durationMs: number | null }[];
-  error?: AuditErrorEntry;
+  phases?: { name: string; durationMs: number | null }[] | undefined;
+  error?: AuditErrorEntry | undefined;
   // WS-specific
-  protocol?: string | null;
+  protocol?: string | null | undefined;
 }
 
 /**
@@ -61,6 +61,20 @@ export interface AuditErrorEntry {
   stack?: string;
   /** Recursive — capped to depth 5 to avoid pathological cycles. */
   cause?: AuditErrorEntry;
+}
+
+/**
+ * Durée totale de la requête, de la première phase (`startMs`) à maintenant.
+ * `null` si le chronométrage est coupé (aucune phase enregistrée). Partagée
+ * par le journal d'audit et le journal lisible — une seule définition.
+ *
+ * @param phases - phases chronométrées du contexte
+ * @returns durée en millisecondes, ou `null`
+ */
+function computeDurationMs(phases: PhaseTiming[]): number | null {
+  const first = phases.at(0);
+  if (first === undefined || typeof first.startMs !== "number") return null;
+  return performance.now() - first.startMs;
 }
 
 /**
@@ -204,7 +218,7 @@ class JsonAuditLogger implements IRequestLogger {
       method: ctx.method,
       url: ctx.url,
       status,
-      durationMs: this.computeDurationMs(ctx.phases),
+      durationMs: computeDurationMs(ctx.phases),
       remoteAddress: ctx.remoteAddress ?? null,
       host: ctx.getHost?.() ?? null,
       userAgent: ctx.getUserAgent?.() ?? null,
@@ -255,7 +269,7 @@ class JsonAuditLogger implements IRequestLogger {
       method: ctx.method,
       url: ctx.url,
       status,
-      durationMs: this.computeDurationMs(ctx.phases),
+      durationMs: computeDurationMs(ctx.phases),
       remoteAddress: ctx.remoteAddress ?? null,
       host: ctx.getHost?.() ?? null,
       userAgent: ctx.getUserAgent?.() ?? null,
@@ -275,17 +289,6 @@ class JsonAuditLogger implements IRequestLogger {
       severity: error ? "ERROR" : "INFO",
       msgid: "audit",
     };
-  }
-
-  /**
-   * Total request duration computed from the first phase startMs to now.
-   * Returns null if timing is disabled (no phases recorded).
-   */
-  private computeDurationMs(phases: PhaseTiming[]): number | null {
-    if (!phases.length) return null;
-    const first = phases.at(0);
-    if (first === undefined || typeof first.startMs !== "number") return null;
-    return performance.now() - first.startMs;
   }
 
   /**
@@ -317,4 +320,4 @@ class JsonAuditLogger implements IRequestLogger {
 }
 
 export default JsonAuditLogger;
-export { severityFromStatus };
+export { computeDurationMs, severityFromStatus };

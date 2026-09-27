@@ -8,21 +8,21 @@ import type { ControllerConstructor, RouteRequirements } from "../src/Route.js";
 
 export interface IRoute extends IResolvedRoute {
   name: string;
-  path?: string;
-  controller?: ControllerConstructor;
-  classMethod?: string;
-  prefix?: string;
-  method?: HTTPMethod;
-  schemes?: SchemeType;
-  pattern?: RegExp;
+  path?: string | undefined;
+  controller?: ControllerConstructor | undefined;
+  classMethod?: string | undefined;
+  prefix?: string | undefined;
+  method?: HTTPMethod | undefined;
+  schemes?: SchemeType | undefined;
+  pattern?: RegExp | undefined;
   variables: unknown[];
   defaults: Partial<Record<string, unknown>>;
   requirements: Partial<RouteRequirements>;
-  hash?: string;
-  host?: string | string[];
-  hostRegexp?: RegExp[];
+  hash?: string | undefined;
+  host?: string | string[] | undefined;
+  hostRegexp?: RegExp[] | undefined;
   bypassFirewall: boolean;
-  filePath?: string;
+  filePath?: string | undefined;
 
   match(context: ContextType, cleanPath?: string): unknown[] | null | undefined;
   compile(): RegExp;

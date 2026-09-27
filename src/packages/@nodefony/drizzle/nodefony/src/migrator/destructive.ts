@@ -441,7 +441,7 @@ export function touchesExistingRows(
  */
 export function checkDataAdvice(
   connector: string,
-  target?: { dialect: string; target?: string },
+  target?: { dialect: string; target?: string | undefined },
 ): string {
   const suffixe = connector === "default" ? "" : ` --connector ${connector}`;
   const sqlite = target?.dialect === "sqlite";

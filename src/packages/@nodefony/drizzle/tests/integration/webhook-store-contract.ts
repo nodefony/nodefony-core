@@ -23,7 +23,7 @@ import { runWebhookStoreContract as runSharedWebhookStoreContract } from "../../
 export interface IWebhookStoreContractOptions {
   dialect: SqlDialect;
   connector: string;
-  connection: { filename?: string; url?: string };
+  connection: { filename?: string; url?: string | undefined };
 }
 
 export function runWebhookStoreContract(

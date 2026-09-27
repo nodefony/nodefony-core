@@ -631,7 +631,7 @@ function DocCards({
   onNavigate,
 }: {
   json: string;
-  onNavigate?: (slug: string) => boolean;
+  onNavigate?: ((slug: string) => boolean) | undefined;
 }) {
   let items: DocCardItem[] = [];
   let error: string | null = null;

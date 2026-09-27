@@ -107,7 +107,7 @@ export interface IAuditEvent {
    */
   flags?: IAuditEventFlags;
   /** Extras applicatifs libres (anti-migration) ; absents par défaut. */
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 /**

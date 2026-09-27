@@ -25,5 +25,5 @@ export type { IPage, IPageQuery } from "nodefony";
  */
 export interface PageQuery<T = unknown> extends IPageQuery {
   /** Filtre typé optionnel appliqué avant la pagination (toutes les lignes si omis). */
-  criteria?: Criteria<T>;
+  criteria?: Criteria<T> | undefined;
 }

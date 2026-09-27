@@ -50,17 +50,17 @@ export interface AdaptiveRateOptions {
   /** Cadence désirée la plus fine (ms) = bas de l'échelle. */
   readonly intervalMs: number;
   /** Cadence par défaut serveur du canal (le canal nu la vaut). */
-  readonly defaultMs?: number;
+  readonly defaultMs?: number | undefined;
   /** Échelle de cadences (ms, croissante). Dérivée ×2 jusqu'à `maxMs` si absente. */
-  readonly ladder?: number[];
+  readonly ladder?: number[] | undefined;
   /** Famine : `gap observé > k × cadence courante` ⇒ décélère. Défaut `1.8`. */
-  readonly starvationFactor?: number;
+  readonly starvationFactor?: number | undefined;
   /** Sain : `gap ≤ k × cadence` compte comme bon échantillon. Défaut `1.25`. */
-  readonly healthyFactor?: number;
+  readonly healthyFactor?: number | undefined;
   /** Nb d'échantillons sains consécutifs avant d'accélérer (AI). Défaut `4`. */
-  readonly recoveryWindow?: number;
+  readonly recoveryWindow?: number | undefined;
   /** Plafond de l'échelle dérivée (ms). Défaut `60000`. */
-  readonly maxMs?: number;
+  readonly maxMs?: number | undefined;
 }
 
 /** Construit une échelle géométrique ×2 de `intervalMs` à `maxMs` (bornes incluses). */
@@ -206,13 +206,13 @@ export interface BindAdaptiveOptions extends AdaptiveRateOptions {
    * watchdog, aucune mesure, aucun ré-abonnement). Défaut `true`. Permet à l'UI de
    * basculer adaptatif ⇄ fixe sans changer de code d'appel.
    */
-  enabled?: boolean;
+  enabled?: boolean | undefined;
   /** Notifié à chaque cadence effective (incl. `"init"`) — utile pour un badge UI. */
-  onRate?: (intervalMs: number, reason: RateChangeReason) => void;
+  onRate?: ((intervalMs: number, reason: RateChangeReason) => void) | undefined;
   /** Horloge (ms). Défaut `performance.now()`/`Date.now()`. */
-  clock?: () => number;
+  clock?: (() => number) | undefined;
   /** Planificateur du watchdog. Défaut `setInterval`/`clearInterval`. */
-  scheduler?: AdaptiveScheduler;
+  scheduler?: AdaptiveScheduler | undefined;
 }
 
 /** Poignée du canal adaptatif — cadence courante + coupure. */

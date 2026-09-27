@@ -157,7 +157,7 @@ export function nextCspNonce(): string {
 
 class Context extends Service implements IContextInterface {
   secure: boolean = false;
-  security?: ISecurityZone | null = null;
+  security?: ISecurityZone | null | undefined = null;
   cleaned: boolean = false;
   isControlledAccess: boolean = false;
   validDomain: boolean = false;
@@ -173,7 +173,8 @@ class Context extends Service implements IContextInterface {
     | http.Server
     | https.Server
     | http2.Http2SecureServer
-    | null;
+    | null
+    | undefined;
   httpKernel: HttpKernel | null;
   request: contextRequest | null = null;
   response: contextResponse | null = null;
@@ -192,7 +193,7 @@ class Context extends Service implements IContextInterface {
   }
   cookies: Cookies = {};
   error: Error | HttpError | nodefonyError | null | undefined = null;
-  sessionService?: SessionsService | null;
+  sessionService?: SessionsService | null | undefined;
   session: Session | null | undefined = null;
   cookieSession: Cookie | null | undefined = null;
   user: unknown = null;

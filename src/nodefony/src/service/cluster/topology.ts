@@ -39,11 +39,11 @@ export interface Topology {
 /** Seams de {@link resolveTopology} — tous injectables (résolution pure, testable sans FS). */
 export interface ResolveTopologyOptions {
   /** CLI `--workers <n|auto>` (chaîne Commander). Priorité MAX (override opérateur). */
-  flag?: string;
+  flag?: string | undefined;
   /** Override `NF_WORKERS` (Docker/k8s). Défaut : lecture de `process.env`. */
   env?: string;
   /** Valeur de la config app `cluster.workers` (le knob DevOps par défaut). */
-  config?: WorkersSetting;
+  config?: WorkersSetting | undefined;
 }
 
 /**

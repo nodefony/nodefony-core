@@ -80,5 +80,7 @@ export type IRealtimeConfigInput = z.input<typeof realtimeConfigSchema>;
 
 /** Config normalisée et gelée (sortie du builder, lue par `RealtimeService`). */
 export type IRealtimeConfig = IRealtimeSchemaConfig & {
-  backplane: IRealtimeSchemaConfig["backplane"] & { instance?: IBackplane };
+  backplane: IRealtimeSchemaConfig["backplane"] & {
+    instance?: IBackplane | undefined;
+  };
 };

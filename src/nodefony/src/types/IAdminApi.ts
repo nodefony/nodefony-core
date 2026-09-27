@@ -48,7 +48,7 @@ export interface IAdminRequest {
   /** Rôles résolus de l'utilisateur courant — base du contrôle d'accès. */
   roles: readonly string[];
   /** Corrélation de logs (ALS `RequestContext.getRequestId()`). */
-  requestId?: string;
+  requestId?: string | undefined;
   /**
    * Clé d'idempotence d'une **mutation** (modèle Stripe), si fournie par le
    * client (en-tête HTTP `Idempotency-Key` ou `params.idempotencyKey` du pont
@@ -56,7 +56,7 @@ export interface IAdminRequest {
    * handler ; exposée au handler pour traçabilité/audit (il peut l'ignorer).
    * `undefined` pour un GET ou une mutation HTTP legacy sans clé.
    */
-  idempotencyKey?: string;
+  idempotencyKey?: string | undefined;
 }
 
 /**

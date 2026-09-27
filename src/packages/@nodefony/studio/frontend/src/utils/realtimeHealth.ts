@@ -68,45 +68,49 @@ export interface InstanceHealth {
   messagesSentTotal: number;
   backpressure: Backpressure;
   /** Optionnel : absent si la sonde process est coupée. */
-  process?: ProcessHealth;
+  process?: ProcessHealth | undefined;
   /** Optionnel : absent si aucun driver ORM n'a branché sa sonde. */
-  orm?: OrmLeanHealth;
+  orm?: OrmLeanHealth | undefined;
   /** Optionnel : absent si la sonde n'a pu lire le syslog du kernel. */
-  errors?: InstanceErrorHealth;
+  errors?: InstanceErrorHealth | undefined;
   /** Ingress backplane refusés (canal non diffusable) — signal de sécurité. */
-  ingressRejectedTotal?: number;
+  ingressRejectedTotal?: number | undefined;
   /** Fond de panier realtime de l'instance (bus inter-process). */
   /**
    * Drivers de backplane enregistrés dans ce process (registre ouvert) — ce qu'on
    * POURRAIT brancher, là où `backplane.driver` ne dit que l'actif.
    */
-  backplaneDrivers?: string[];
-  backplane?: {
-    driver?: string;
-    kind?: string;
-    crossPod?: boolean;
-    /** Canal de transport effectif (canal Redis, topic…). */
-    channel?: string;
-    /** Identité de CE pair sur le bus (pod/process) — qui publie. */
-    originId?: string;
-    /** Messages scellés (authenticité vérifiée) — pertinent sur bus partagé. */
-    sealed?: boolean;
-    /**
-     * File d'envoi vers le bus — présente sur les transports réseau, dont les
-     * publications sont acquittées de façon asynchrone. `droppedTotal > 0` = du
-     * fan-out a été sacrifié pour tenir la mémoire du processus.
-     */
-    queue?: {
-      /** Octets publiés en attente d'acquittement (instantané). */
-      bytes?: number;
-      /** Seuil de jet ; `0` = illimité. */
-      maxBytes?: number;
-      /** Publications jetées faute de place (cumul). */
-      droppedTotal?: number;
-      /** Publications refusées par le bus (cumul). */
-      failedTotal?: number;
-    };
-  };
+  backplaneDrivers?: string[] | undefined;
+  backplane?:
+    | {
+        driver?: string | undefined;
+        kind?: string | undefined;
+        crossPod?: boolean | undefined;
+        /** Canal de transport effectif (canal Redis, topic…). */
+        channel?: string | undefined;
+        /** Identité de CE pair sur le bus (pod/process) — qui publie. */
+        originId?: string | undefined;
+        /** Messages scellés (authenticité vérifiée) — pertinent sur bus partagé. */
+        sealed?: boolean | undefined;
+        /**
+         * File d'envoi vers le bus — présente sur les transports réseau, dont les
+         * publications sont acquittées de façon asynchrone. `droppedTotal > 0` = du
+         * fan-out a été sacrifié pour tenir la mémoire du processus.
+         */
+        queue?:
+          | {
+              /** Octets publiés en attente d'acquittement (instantané). */
+              bytes?: number | undefined;
+              /** Seuil de jet ; `0` = illimité. */
+              maxBytes?: number | undefined;
+              /** Publications jetées faute de place (cumul). */
+              droppedTotal?: number | undefined;
+              /** Publications refusées par le bus (cumul). */
+              failedTotal?: number | undefined;
+            }
+          | undefined;
+      }
+    | undefined;
 }
 
 /** Totaux pod (miroir de `IRealtimeClusterHealth.totals`). */
@@ -116,15 +120,15 @@ export interface PodTotals {
   fanoutTotal: number;
   inboundTotal: number;
   /** Ingress backplane refusés, tous workers (signal de sécurité pod-wide). */
-  ingressRejectedTotal?: number;
+  ingressRejectedTotal?: number | undefined;
   connectionCount: number;
   bytesSentTotal: number;
   messagesSentTotal: number;
   backpressure: Backpressure;
   /** Agrégat ORM pod (sommes ; `maxEwmaMs` = pire worker). Absent si aucun worker ne le remonte. */
-  orm?: OrmLeanHealth;
+  orm?: OrmLeanHealth | undefined;
   /** Agrégat erreurs pod (sommes). Absent si aucun worker ne le remonte. */
-  errors?: InstanceErrorHealth;
+  errors?: InstanceErrorHealth | undefined;
 }
 
 /** Vue POD agrégée (miroir de `IRealtimeClusterHealth`). */

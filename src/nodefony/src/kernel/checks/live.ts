@@ -58,7 +58,7 @@ export interface ILiveFinding {
    */
   message: string;
   /** Le geste que le producteur propose (`nextActions[0]`), prêt à taper. */
-  action?: string;
+  action?: string | undefined;
   /** L'endpoint qui l'a dit — pour aller vérifier à la source. */
   source: string;
 }

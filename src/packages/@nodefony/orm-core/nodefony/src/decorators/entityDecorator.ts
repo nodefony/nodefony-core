@@ -31,7 +31,7 @@ export interface EntityOptions<S = unknown> {
   domain?: string;
 
   /** Schéma natif du driver (schéma Mongoose, schéma Drizzle...). */
-  schema?: S;
+  schema?: S | undefined;
 
   /** Relations déclaratives vers d'autres entités. */
   relations?: ReadonlyArray<IEntityRelation>;

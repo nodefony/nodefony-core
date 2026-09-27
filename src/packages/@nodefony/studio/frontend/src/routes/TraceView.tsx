@@ -90,12 +90,12 @@ const OUTCOME_ACCENT: Record<string, string> = {
 
 /** Infos extraites de la ligne-bilan `req` (`METHOD  STATUS URL DURÉE IP [id]`). */
 interface ReqInfo {
-  method?: string;
+  method?: string | undefined;
   status?: number;
   url?: string;
   path?: string;
-  durationMs?: string;
-  ip?: string;
+  durationMs?: string | undefined;
+  ip?: string | undefined;
 }
 
 /** Parse défensif de la ligne `req` — chaque champ est best-effort. */

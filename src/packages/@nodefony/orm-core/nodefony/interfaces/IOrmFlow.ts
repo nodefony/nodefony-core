@@ -27,7 +27,7 @@ export interface ISlowQuery {
   /** Connecteur ORM (clé du registre). */
   connector: string;
   /** SQL paramétré et redacté (absent si l'adapter ne sait pas l'extraire). */
-  sql?: string;
+  sql?: string | undefined;
 }
 
 /**

@@ -13,7 +13,10 @@ import {
 class MockTransport implements IRealtimeTransport {
   sent: string[] = [];
   connectCalls = 0;
-  closedWith: { code?: number; reason?: string } | null = null;
+  closedWith: {
+    code?: number | undefined;
+    reason?: string | undefined;
+  } | null = null;
   readyState: number = TransportState.CONNECTING;
   private _onOpen: (() => void) | null = null;
   private _onMessage: ((raw: string) => void) | null = null;

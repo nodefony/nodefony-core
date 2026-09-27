@@ -130,10 +130,10 @@ function makeIdempotencyKey(): string {
 
 export class ApiClient {
   private readonly baseUrl: string;
-  private readonly onUnauthorized?: () => void;
-  private readonly onError?: (info: ApiErrorInfo) => void;
-  private readonly socket?: ApiSocketLike;
-  private readonly socketEnabled?: () => boolean;
+  private readonly onUnauthorized?: (() => void) | undefined;
+  private readonly onError?: ((info: ApiErrorInfo) => void) | undefined;
+  private readonly socket?: ApiSocketLike | undefined;
+  private readonly socketEnabled?: (() => boolean) | undefined;
   /** Pont absent côté serveur (`-32601` reçu) → ne plus tenter de la session. */
   private socketBridgeDown = false;
   /**
@@ -333,7 +333,7 @@ export class ApiClient {
       ...init,
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body !== undefined ? JSON.stringify(body) : null,
       credentials: "same-origin",
     });
 

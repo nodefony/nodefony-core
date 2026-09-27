@@ -53,7 +53,7 @@ export function defaultConnectorFilename(
 export interface IConnectorTarget {
   dialect: SqlDialect;
   filename?: string;
-  url?: string;
+  url?: string | undefined;
 }
 
 /**

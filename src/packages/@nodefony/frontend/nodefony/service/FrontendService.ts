@@ -813,7 +813,9 @@ class FrontendService extends Service implements IFrontendService {
    *
    * @param opts.force ignore le cache de fraîcheur (rebuild systématique).
    */
-  async build(opts?: { force?: boolean }): Promise<IFrontendBuildResult> {
+  async build(opts?: {
+    force?: boolean | undefined;
+  }): Promise<IFrontendBuildResult> {
     if (this.entries.length === 0) throw new FrontendNoEntriesError();
     const vite = (await import("vite")) as {
       build: (cfg: Record<string, unknown>) => Promise<unknown>;
@@ -843,7 +845,7 @@ class FrontendService extends Service implements IFrontendService {
   async #buildEntries(
     vite: { build: (cfg: Record<string, unknown>) => Promise<unknown> },
     result: IFrontendBuildResult,
-    opts?: { force?: boolean },
+    opts?: { force?: boolean | undefined },
   ): Promise<IFrontendBuildResult> {
     for (const entry of this.entries) {
       if (!opts?.force && this.isBuildFresh(entry)) {

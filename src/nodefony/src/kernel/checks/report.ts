@@ -229,11 +229,11 @@ export interface ISkippedCheck {
   family: DoctorFamily;
   title: string;
   reason: string;
-  unlock?: string;
+  unlock?: string | undefined;
   /** Non DEMANDÉ plutôt qu'empêché — ne pèse pas sur le code de sortie. */
-  onDemand?: boolean;
+  onDemand?: boolean | undefined;
   /** SANS OBJET plutôt qu'empêché — ne pèse pas non plus. */
-  notApplicable?: boolean;
+  notApplicable?: boolean | undefined;
 }
 
 /**

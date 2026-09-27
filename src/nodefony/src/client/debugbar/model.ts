@@ -93,7 +93,7 @@ export interface FeedLog {
   /** Worker émetteur — en cluster, dit LEQUEL a parlé. */
   pid: number;
   /** Requête corrélée, quand elle est connue. */
-  requestId?: string;
+  requestId?: string | undefined;
 }
 
 /** Vue dénormalisée consommée par le rendu. */

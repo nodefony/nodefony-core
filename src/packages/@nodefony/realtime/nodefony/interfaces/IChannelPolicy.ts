@@ -19,11 +19,11 @@
  */
 export interface IChannelPolicy {
   /** Exige une connexion authentifiée (token non anonyme). */
-  readonly authenticated?: boolean;
+  readonly authenticated?: boolean | undefined;
   /** Un de ces rôles suffit (évalué AVEC la hiérarchie de rôles, côté security). */
-  readonly roles?: readonly string[];
+  readonly roles?: readonly string[] | undefined;
   /** Un de ces scopes suffit (axe API : JWT/clé API ; session BFF n'en porte pas). */
-  readonly scopes?: readonly string[];
+  readonly scopes?: readonly string[] | undefined;
 }
 
 export default IChannelPolicy;

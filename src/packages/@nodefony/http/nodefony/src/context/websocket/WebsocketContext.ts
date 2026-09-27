@@ -86,7 +86,7 @@ export default class WebsocketContext
 {
   override request: WsIncomingMessage | null;
   override response: WebsocketResponse | null = null;
-  acceptedProtocol?: string;
+  acceptedProtocol?: string | undefined;
   port: number | string;
   rejected: boolean = false;
   // BUG-003 — set once connect() has wired the close→onFinish→teardown path.

@@ -1598,7 +1598,7 @@ class Kernel extends Service implements IKernel {
    */
   private resolveModuleEntries(): {
     name: string;
-    config?: Record<string, unknown>;
+    config?: Record<string, unknown> | undefined;
   }[] {
     // Gating `policy:"dev"` sur le MODE RUNTIME (NODE_ENV-aware) — un conteneur
     // staging (NODE_ENV=production) droppe bien les modules dev. Le gating fin par

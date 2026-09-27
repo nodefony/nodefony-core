@@ -61,8 +61,8 @@ export interface IRealtimeFrame {
 
 /** Fermeture demandée par le serveur (code RFC 6455 + raison). */
 export interface IHarnessClose {
-  readonly code?: number;
-  readonly reason?: string;
+  readonly code?: number | undefined;
+  readonly reason?: string | undefined;
 }
 
 /**

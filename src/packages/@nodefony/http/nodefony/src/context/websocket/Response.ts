@@ -63,7 +63,7 @@ class WebsocketResponse {
   encoding: BufferEncoding = "utf-8";
   connection: Ws | null = null;
   statusMessage: string = "";
-  webSocketVersion?: number;
+  webSocketVersion?: number | undefined;
   cookies: Record<string, Cookie> = {};
 
   constructor(

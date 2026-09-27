@@ -10,7 +10,7 @@ export interface IdempotentResponse {
   /** Code HTTP de la réponse mémorisée. */
   status: number;
   /** En-têtes additionnels éventuels. */
-  headers?: Readonly<Record<string, string>>;
+  headers?: Readonly<Record<string, string>> | undefined;
   /** Charge utile sérialisable JSON. */
   body: unknown;
 }
@@ -66,7 +66,7 @@ export interface IIdempotencyKeyEntry {
  */
 export interface IIdempotencyListQuery extends IPageQuery {
   /** Restreint à un état. Omis = les deux. */
-  state?: "in-flight" | "done";
+  state?: "in-flight" | "done" | undefined;
 }
 
 /**

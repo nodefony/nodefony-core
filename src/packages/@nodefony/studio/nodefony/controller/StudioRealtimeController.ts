@@ -377,7 +377,7 @@ class StudioRealtimeController extends RealtimeController {
     ts: number;
     uptime: number;
     pid: number;
-    version?: string;
+    version?: string | undefined;
   } {
     return {
       pong: true,

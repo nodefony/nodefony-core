@@ -27,16 +27,16 @@ import { InfoHint } from "./StatCard";
  */
 export interface PageFilterLabel {
   /** Libellé du filtre. Défaut : son nom technique. */
-  label?: string;
+  label?: string | undefined;
   /** Bulle d'aide ⓘ à côté du libellé — dit ce que le filtre demande vraiment. */
-  hint?: string;
+  hint?: string | undefined;
   /**
    * Libellés des valeurs. Pour un booléen, les clés sont `"true"` / `"false"`
    * (défaut « Oui » / « Non ») ; pour une énumération, ses valeurs.
    */
-  values?: Record<string, string>;
+  values?: Record<string, string> | undefined;
   /** Texte d'invite d'un filtre libre (`"string"` / `"int"`). */
-  placeholder?: string;
+  placeholder?: string | undefined;
 }
 
 /** Libellés par nom de filtre. */
@@ -171,7 +171,7 @@ function FilterControl({
   nature: string | string[];
   value: string;
   onChange: (next: string) => void;
-  label?: PageFilterLabel;
+  label?: PageFilterLabel | undefined;
   debounceMs: number;
 }) {
   const title = label?.label ?? name;

@@ -1074,7 +1074,7 @@ export interface IMcpDeclareOptions {
    * silence, et son auteur chercherait la faute dans son handler — qui n'a
    * jamais été appelé.
    */
-  onSkip?: (why: string) => void;
+  onSkip?: ((why: string) => void) | undefined;
 }
 
 /** Ce qu'il faut pour ramasser les outils SERVIS à un appelant. */
@@ -1085,7 +1085,7 @@ export interface IMcpCollectOptions extends IMcpDeclareOptions {
    * Une porte sans authentification n'a rien à passer, et c'est le cas sûr :
    * l'anonyme par défaut RETIENT tout outil qui exige quoi que ce soit.
    */
-  caller?: IMcpCaller;
+  caller?: IMcpCaller | undefined;
   /**
    * Appelé pour chaque outil RETENU faute d'autorisation.
    *

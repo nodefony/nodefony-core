@@ -34,15 +34,15 @@ export interface ILatencyWindow {
  */
 export interface IOrmStorageProbe {
   /** Taille de la base (octets) — `pages × pageSize` (SQLite). */
-  sizeBytes?: number;
+  sizeBytes?: number | undefined;
   /** Nombre de pages allouées. */
-  pages?: number;
+  pages?: number | undefined;
   /** Taille d'une page (octets). */
-  pageSize?: number;
+  pageSize?: number | undefined;
   /** Mode de journalisation (SQLite : `wal`, `delete`, `memory`…). */
-  journalMode?: string;
+  journalMode?: string | undefined;
   /** Pages libres (fragmentation / espace récupérable au VACUUM). */
-  freePages?: number;
+  freePages?: number | undefined;
 }
 
 /**
@@ -51,13 +51,13 @@ export interface IOrmStorageProbe {
  */
 export interface IOrmPoolProbe {
   /** Taille max configurée du pool. */
-  size?: number;
+  size?: number | undefined;
   /** Connexions disponibles (idle). */
-  available?: number;
+  available?: number | undefined;
   /** Connexions en cours d'utilisation. */
-  borrowed?: number;
+  borrowed?: number | undefined;
   /** Demandes en attente d'une connexion. */
-  pending?: number;
+  pending?: number | undefined;
 }
 
 /**

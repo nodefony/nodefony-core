@@ -14,11 +14,11 @@ export type RealtimeKind = "channel" | "stream" | "rpc" | "binary";
  */
 export interface SubscriptionMeta {
   /** Protocole applicatif encapsulé/négocié (ex "json-rpc-2.0", "sip", "mqtt", "binary"). */
-  protocol?: string;
+  protocol?: string | undefined;
   /** Transport sous-jacent. Défaut "ws". */
-  transport?: RealtimeTransport;
+  transport?: RealtimeTransport | undefined;
   /** Nature du flux. Défaut "channel". */
-  kind?: RealtimeKind;
+  kind?: RealtimeKind | undefined;
   /**
    * Destination/pair distant du flux supervisé (ex "asterisk@pbx:5060",
    * "broker.local:1883"). Décrit la PILE complète avec `protocol`+`transport` :
@@ -26,7 +26,7 @@ export interface SubscriptionMeta {
    * Ces flux sont ouverts côté serveur (@nodefony/realtime, P13.1) et leur état
    * est poussé au hub via un canal de supervision — le navigateur ne fait pas le TCP.
    */
-  peer?: string;
+  peer?: string | undefined;
 }
 
 /**

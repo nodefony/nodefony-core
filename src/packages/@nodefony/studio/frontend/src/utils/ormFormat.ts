@@ -22,7 +22,7 @@ export const ORM_DOC = "v1.2";
 export function connectorRole(
   o: {
     default: boolean;
-    connection?: { target?: string };
+    connection?: { target?: string | undefined } | undefined;
   },
   /**
    * Nombre de briques durables RÉELLEMENT résolues sur le moteur de ce

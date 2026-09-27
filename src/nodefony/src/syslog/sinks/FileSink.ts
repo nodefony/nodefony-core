@@ -19,7 +19,7 @@ export interface FileSinkOptions {
    * d'inode → capte le gain cluster sans l'overhead du threadpool async (qui, sur
    * un fichier local rapide, l'annule). Défaut `false` (async, pour sinks lents).
    */
-  sync?: boolean;
+  sync?: boolean | undefined;
   /**
    * Écriture asynchrone employée par le drain. Défaut `fs.write`.
    *

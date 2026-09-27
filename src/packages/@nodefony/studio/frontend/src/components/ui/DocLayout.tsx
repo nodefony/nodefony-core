@@ -90,7 +90,7 @@ export interface DocLayoutProps {
   /** Corps du contenu (markdown rendu, page riche…). */
   children: ReactNode;
   /** Source markdown du sommaire « Sur cette page » (absent ⇒ pas de colonne droite). */
-  tocMarkdown?: string;
+  tocMarkdown?: string | undefined;
   mode?: "page" | "container";
   /** Hauteur en `mode="container"` (ex READER_HEIGHT). */
   height?: string;

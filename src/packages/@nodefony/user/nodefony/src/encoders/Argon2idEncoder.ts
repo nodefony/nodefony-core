@@ -6,6 +6,14 @@ import type { IPasswordEncoder } from "../../contracts/IPasswordEncoder";
 // à CHAQUE boot consommant le module, ou crash si non installée). `supports` et
 // `needsRehash` restent 100 % sync (parse regex, jamais besoin du natif).
 type Argon2Binding = typeof import("@node-rs/argon2");
+
+/**
+ * `Algorithm.Argon2id` du binding. Il est déclaré `declare const enum`, que
+ * `isolatedModules` interdit de lire : un transpileur fichier par fichier (celui
+ * du bundler) ne peut pas l'inliner. Valeur fixée par l'ABI du binding ;
+ * `Argon2idEncoder.test.ts` exige un hash `$argon2id$`, donc une dérive tombe.
+ */
+const ARGON2ID = 2 as import("@node-rs/argon2").Algorithm;
 let argon2: Argon2Binding | null = null;
 const loadArgon2 = async (): Promise<Argon2Binding> =>
   (argon2 ??= await import("@node-rs/argon2"));
@@ -21,11 +29,11 @@ const loadArgon2 = async (): Promise<Argon2Binding> =>
  */
 export interface Argon2idOptions {
   /** Mémoire par hash en KiB (défaut 19456 = 19 MiB, minimum OWASP). */
-  memoryKiB?: number;
+  memoryKiB?: number | undefined;
   /** Nombre de passes sur la mémoire (défaut 3 — voir DEFAULT_TIME_COST). */
-  timeCost?: number;
+  timeCost?: number | undefined;
   /** Nombre de threads/lanes (défaut 1 — chaque lane alloue `memoryKiB`). */
-  parallelism?: number;
+  parallelism?: number | undefined;
   // Slot réservé : `secret` (pepper) arrivera avec le SecretProvider/KMS
   // (Phase 16 cloud-native) — clé HORS base, mêlée au hash côté serveur.
 }
@@ -120,7 +128,7 @@ export class Argon2idEncoder implements IPasswordEncoder {
   async hash(plain: string): Promise<string> {
     const mod = await loadArgon2();
     return mod.hash(plain, {
-      algorithm: mod.Algorithm.Argon2id,
+      algorithm: ARGON2ID,
       memoryCost: this.memoryKiB,
       timeCost: this.timeCost,
       parallelism: this.parallelism,

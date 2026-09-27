@@ -28,7 +28,7 @@ import { nodefonyError } from "nodefony";
  */
 export class UnverifiableTokenError extends nodefonyError {
   /** Cause technique, destinée au JOURNAL — jamais au client. */
-  readonly detail?: string;
+  readonly detail?: string | undefined;
 
   /**
    * @param detail - cause technique pour le journal ; n'apparaît jamais dans le

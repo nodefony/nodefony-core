@@ -25,7 +25,7 @@ export interface IRealtimeHandshake {
   readonly remoteAddress: string;
 
   /** Origin RFC 6455 §10.2 — `undefined` si en-tête absent (clients non-browser). */
-  readonly origin?: string;
+  readonly origin?: string | undefined;
 
   /** Sous-protocoles annoncés (`Sec-WebSocket-Protocol`). `[]` si aucun. */
   readonly protocols: readonly string[];

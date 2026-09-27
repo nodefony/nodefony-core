@@ -36,7 +36,7 @@ export interface ISecuredArea extends ISecurityZone {
   readonly authenticators: readonly string[];
 
   /** Domaine/vhost de la zone (ex. `admin.exemple.com`). Omis = tous domaines. */
-  readonly host?: string;
+  readonly host?: string | undefined;
 
   /**
    * URI canonique de la ressource protégée par cette zone — l'**audience**
@@ -52,7 +52,7 @@ export interface ISecuredArea extends ISecurityZone {
    * Omise, une zone reste parfaitement utilisable par les authenticators qui
    * n'en ont pas besoin (session, mot de passe, jetons maison).
    */
-  readonly resource?: string;
+  readonly resource?: string | undefined;
 
   /**
    * Zone valable AUSSI pour le WebSocket (frames `api.request` + `subscribe`),

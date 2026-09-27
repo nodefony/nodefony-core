@@ -305,9 +305,9 @@ export interface IOAuth2ClientOptions {
    * Implémentation de `fetch` à employer — la voie pour éprouver l'échange sans
    * réseau, plutôt que de remplacer le `fetch` global du processus.
    */
-  readonly fetch?: typeof globalThis.fetch;
+  readonly fetch?: typeof globalThis.fetch | undefined;
   /** Délai d'attente de l'échange, en millisecondes. */
-  readonly timeoutMs?: number;
+  readonly timeoutMs?: number | undefined;
 }
 
 /**

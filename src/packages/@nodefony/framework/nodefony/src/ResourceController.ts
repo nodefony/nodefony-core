@@ -34,7 +34,7 @@ export interface IResourceReadOptions {
    * par la caster, et le tri se perd en silence — la pagination devient alors
    * fausse par intermittence, ce qui est pire qu'absente.
    */
-  order?: Array<[string, "ASC" | "DESC"]>;
+  order?: Array<[string, "ASC" | "DESC"]> | undefined;
   /** Associations à charger avec l'enregistrement. */
   relations?: string[];
 }

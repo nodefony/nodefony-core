@@ -39,7 +39,7 @@ export interface IRelationInfo {
   /** Champ portant la relation côté entité courante. */
   field: string;
   /** Clé étrangère (explicite ou dérivée déterministe). */
-  foreignKey?: string;
+  foreignKey?: string | undefined;
 }
 
 /** Nœud du graphe : une entité avec ses colonnes et ses relations. */
@@ -75,11 +75,11 @@ export interface IConnectionInfo {
    * `host:port/base` (serveur) ou URI redactée. **Jamais de credential** (mot de
    * passe retiré côté adapter).
    */
-  target?: string;
+  target?: string | undefined;
   /** Version du moteur/base (ex. SQLite `3.45.1`), si l'adapter peut l'obtenir. */
-  version?: string;
+  version?: string | undefined;
   /** Version de la lib ORM elle-même (ex. drizzle-orm `0.44.x`), si connue. */
-  ormVersion?: string;
+  ormVersion?: string | undefined;
 }
 
 /** Résumé d'un ORM/connecteur enregistré. */
@@ -103,7 +103,7 @@ export interface IOrmSummary {
   /** Nombre d'entités rattachées à cet ORM. */
   entityCount: number;
   /** Connexion sous-jacente (driver + cible), si l'adapter l'expose. */
-  connection?: IConnectionInfo;
+  connection?: IConnectionInfo | undefined;
 }
 
 /** Erreur de connexion horodatée (message **redacté** — jamais de credential). */
@@ -124,7 +124,7 @@ export interface IConnectionEvent {
   /** Horodatage epoch ms. */
   ts: number;
   /** Cause de la perte (credential déjà retiré) — absente pour une reprise. */
-  reason?: string;
+  reason?: string | undefined;
 }
 
 /**
@@ -167,11 +167,11 @@ export interface IConnectionHealth {
   /** Base/driver (`sqlite`, `mongodb`…). */
   driver: string;
   /** Cible lisible (chemin relatif / host:port), jamais de credential. */
-  target?: string;
+  target?: string | undefined;
   /** Version moteur. */
-  version?: string;
+  version?: string | undefined;
   /** Version lib ORM. */
-  ormVersion?: string;
+  ormVersion?: string | undefined;
   /** État courant (`isConnected`). */
   connected: boolean;
   /** Connecté depuis (epoch ms), `null` si jamais connecté. */
@@ -191,7 +191,7 @@ export interface IConnectionHealth {
   /** Pertes et reprises récentes (ring borné, plus récentes d'abord). */
   events: IConnectionEvent[];
   /** Mécanisme de détection et de reprise, si l'ORM le décrit. */
-  resilience?: IOrmResilience;
+  resilience?: IOrmResilience | undefined;
   /** Nombre total d'erreurs enregistrées (connexion + ping). */
   errorCount: number;
   /** Dernière erreur, `null` si aucune. */
@@ -209,11 +209,11 @@ export interface IConnectionHealth {
   /** Fenêtre glissante de latence (min/moy/max sur les N derniers pings). */
   latency: ILatencyWindow;
   /** Sonde de stockage (driver), si l'adapter l'expose. */
-  storage?: IOrmStorageProbe;
+  storage?: IOrmStorageProbe | undefined;
   /** Sonde de pool de connexions (driver), si l'adapter l'expose. */
-  pool?: IOrmPoolProbe;
+  pool?: IOrmPoolProbe | undefined;
   /** Métriques driver libres (clé→valeur). */
-  extra?: Record<string, string | number | boolean>;
+  extra?: Record<string, string | number | boolean> | undefined;
 }
 
 /** Graphe complet du modèle de données — réponse de `/nodefony/orm/api/graph`. */

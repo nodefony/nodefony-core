@@ -14,9 +14,9 @@ interface FileClassInterface {
   stats: fs.Stats;
   dirName: string;
   parse: path.ParsedPath;
-  encoding?: string;
-  mimeType?: string | false;
-  extention?: string | false;
+  encoding?: string | undefined;
+  mimeType?: string | false | undefined;
+  extention?: string | false | undefined;
 }
 
 const checkPath = function (myPath: string | fs.PathOrFileDescriptor): string {

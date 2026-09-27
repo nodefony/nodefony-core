@@ -239,7 +239,7 @@ export interface WriteDestination {
   /** `ITransport.name` réel (clé du toggle `setTransportEnabled`). */
   transportName?: string;
   /** Ring uniquement : capacité max (plafond `maxStack`). */
-  capacity?: number;
+  capacity?: number | undefined;
   /** Ring uniquement : remplissage courant. */
   used?: number;
 }

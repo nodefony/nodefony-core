@@ -15,7 +15,7 @@ export type MetaBagType = Record<string, unknown>;
  * - `readOnly` : la session est lue/reprise mais **jamais persistée** (0 write storage).
  */
 export interface SessionIntent {
-  readOnly?: boolean;
+  readOnly?: boolean | undefined;
 }
 
 /**
@@ -28,8 +28,8 @@ export interface ISerializedSession {
   metaBag: Record<string, unknown>;
   flashBag: Record<string, unknown>;
   user: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: Date | undefined;
+  updatedAt?: Date | undefined;
 }
 
 /**
@@ -106,7 +106,7 @@ export interface ISessionListFilter {
   /** Restreint aux sessions d'un utilisateur (pour « déconnecter partout »). */
   user?: string;
   /** Slot multi-tenant — non scopé aujourd'hui (réserve coût-0). */
-  tenantId?: string | null;
+  tenantId?: string | null | undefined;
 }
 
 /**
@@ -268,10 +268,10 @@ export interface ISession {
   cookieSession: ICookie | null | undefined;
   flashBag: FlashBagType;
   strategy: SessionStrategyType;
-  created?: Date;
-  updated?: Date;
-  user?: string;
-  lifetime?: number;
+  created?: Date | undefined;
+  updated?: Date | undefined;
+  user?: string | undefined;
+  lifetime?: number | undefined;
   storage: ISessionStorage;
 
   // Lifecycle

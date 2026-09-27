@@ -138,7 +138,7 @@ export interface ILogRecord {
   /** PID émetteur (procid RFC 5424) — groupe par worker en cluster. */
   pid: number;
   /** Corrélation requête (ALS) si présent. `undefined` ignoré par `JSON.stringify`. */
-  requestId?: string;
+  requestId?: string | undefined;
   /** Contenu brut (string/Error/objet). Narrower côté lecteur. */
   payload: unknown;
 }
@@ -171,7 +171,7 @@ export interface IPduLike {
   timeStamp: number;
   pid: number;
   payload: unknown;
-  requestId?: string;
+  requestId?: string | undefined;
 }
 
 /**

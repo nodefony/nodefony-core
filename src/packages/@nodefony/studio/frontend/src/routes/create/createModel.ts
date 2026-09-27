@@ -27,15 +27,15 @@ export interface IScaffoldQuestion {
   key: string;
   label: string;
   type: ScaffoldQuestionType;
-  choices?: IScaffoldChoice[];
+  choices?: IScaffoldChoice[] | undefined;
   /** `string[]` : défaut d'une question `list` — vide = rien de coché. */
   default: string | boolean | string[];
   /** Source d'une regex (sans flags) que la valeur doit satisfaire. */
-  pattern?: string;
+  pattern?: string | undefined;
   /** Message affiché quand `pattern` n'est pas satisfait. */
-  patternHint?: string;
+  patternHint?: string | undefined;
   /** Capacité d'environnement exigée pour poser la question (cf {@link FRONT_CAPABILITIES}). */
-  askIf?: string;
+  askIf?: string | undefined;
   /**
    * Réponse PRÉCÉDENTE exigée pour poser la question — là où `askIf` interroge
    * l'environnement, celle-ci exprime une dépendance entre deux choix du même
@@ -44,9 +44,9 @@ export interface IScaffoldQuestion {
    * Non satisfaite, le moteur ramène la valeur au défaut : l'afficher
    * annoncerait un choix que la génération ignore.
    */
-  askWhen?: { key: string; equals: string };
+  askWhen?: { key: string; equals: string } | undefined;
   /** Réglage avancé — replié par défaut (son défaut est sûr). */
-  advanced?: boolean;
+  advanced?: boolean | undefined;
 }
 
 /** Un type de scaffold servi par Studio (`module` / `controller` / `front` / `entity`). */
@@ -155,7 +155,7 @@ export interface IScaffoldCaps {
    * déclaré) : rien n'est tu. Faux = application MongoDB — la clé primaire
    * d'une entité n'a rien à choisir.
    */
-  hasSqlOrm?: boolean;
+  hasSqlOrm?: boolean | undefined;
   /**
    * Le serveur peut en déclarer d'autres. Seule une capacité déclarée FAUSSE
    * tait une question — la règle `capAllows` du moteur, confrontée à celle-ci

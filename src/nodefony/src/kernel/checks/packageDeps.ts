@@ -53,12 +53,12 @@ export interface IPackageCheckOptions {
    * distingue « assumé » de « oublié » — et une entrée qui ne correspond plus
    * à aucun import est signalée, pour que la liste ne devienne pas un folklore.
    */
-  typeCycles?: Record<string, string[]>;
+  typeCycles?: Record<string, string[]> | undefined;
   /**
    * Paquets dont on sait que les types publiés sont injoignables, en dette.
    * Même règle : une dette soldée qui reste inscrite est signalée.
    */
-  typesUnreachable?: string[];
+  typesUnreachable?: string[] | undefined;
 }
 
 export interface IPackageCheckResult {

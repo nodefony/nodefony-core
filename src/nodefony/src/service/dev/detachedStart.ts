@@ -48,24 +48,24 @@ export interface DetachedStartOptions {
   spawnCmd: string;
   spawnArgs: string[];
   /** Répertoire de travail du child (défaut `process.cwd()`). */
-  cwd?: string;
+  cwd?: string | undefined;
   /** Fichier de log du runtime détaché (stdout+stderr du child). */
   logFile: string;
   /** Plafond d'attente de readiness en secondes (défaut 120). */
-  waitSec?: number;
+  waitSec?: number | undefined;
   /** Ports dont l'écoute signe la readiness (défaut `defaultDevPorts()`). */
-  ports?: number[];
+  ports?: number[] | undefined;
   /** Path d'un GET de santé post-listen (best-effort, jamais bloquant). */
-  healthPath?: string;
+  healthPath?: string | undefined;
   /**
    * Déclarer prêt un runtime dont le boot est DÉGRADÉ (cf `ParsedDetachArgs`).
    * Défaut `false` : un module déclaré et non chargé est un échec de readiness.
    */
-  allowDegraded?: boolean;
+  allowDegraded?: boolean | undefined;
   /** Callback de progression (une ligne ~toutes les 5 s). */
-  onProgress?: (msg: string) => void;
+  onProgress?: ((msg: string) => void) | undefined;
   /** Variables d'env additionnelles pour le child. */
-  env?: Record<string, string>;
+  env?: Record<string, string> | undefined;
 }
 
 /** Résultat du lancement détaché. */
@@ -79,14 +79,14 @@ export interface DetachedStartResult {
   ports: PortState[];
   logFile: string;
   /** Résultat du health check (`"200"`, `"skipped (…)"`), absent si non demandé. */
-  health?: string;
+  health?: string | undefined;
   /**
    * Ports DEMANDÉS par la config quand l'app a dû glisser ailleurs
    * (`servers.portPolicy: "auto"`), absent sinon. Un décalage tu en silence est la
    * cause n°1 des « tout répond 404 » : le client garde le port de sa config et
    * tombe sur le serveur du voisin, qui lui répond très bien — mais autre chose.
    */
-  desiredPorts?: number[];
+  desiredPorts?: number[] | undefined;
   /**
    * Modules que le boot a IGNORÉS (`nom — motif`), lus dans le journal du runtime.
    * Renseigné quand la readiness est refusée pour boot dégradé : sans ces noms, le
@@ -104,8 +104,8 @@ export interface DetachedStartResult {
 export interface ParsedDetachArgs {
   detach: boolean;
   waitSec: number;
-  healthPath?: string;
-  logFile?: string;
+  healthPath?: string | undefined;
+  logFile?: string | undefined;
   /**
    * Accepter un boot DÉGRADÉ (un module du manifeste ignoré) comme « prêt ».
    *

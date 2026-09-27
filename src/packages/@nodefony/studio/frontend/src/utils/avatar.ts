@@ -7,12 +7,12 @@
 
 /** Sous-ensemble de `UserProfileData` nécessaire à l'avatar. */
 export interface AvatarProfile {
-  givenName?: string;
-  familyName?: string;
-  displayName?: string;
-  email?: string;
+  givenName?: string | undefined;
+  familyName?: string | undefined;
+  displayName?: string | undefined;
+  email?: string | undefined;
   /** data URL (avatar uploadé) ou URL http(s). */
-  picture?: string;
+  picture?: string | undefined;
 }
 
 /** Initiales de repli : prénom+nom, sinon displayName/identifiant (max 2 lettres). */

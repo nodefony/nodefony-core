@@ -45,9 +45,9 @@ export interface EnvVarMeta {
   /** Valeur par défaut déclarée (`undefined` si aucune). */
   readonly default?: unknown;
   /** Doc (`.describe()`), reprise telle quelle dans `.env.example`. */
-  readonly description?: string;
+  readonly description?: string | undefined;
   /** Valeurs autorisées (enum uniquement). */
-  readonly values?: readonly string[];
+  readonly values?: readonly string[] | undefined;
   /**
    * Environnements où la variable est REQUISE, même déclarée `optional`.
    *
@@ -62,7 +62,7 @@ export interface EnvVarMeta {
    * ils se comparent aux étiquettes de l'environnement courant, cf
    * {@link resolveEnvStages}.
    */
-  readonly requiredIn?: readonly string[];
+  readonly requiredIn?: readonly string[] | undefined;
 }
 
 /** {@link EnvVarMeta} + le nom de la variable (clé du catalogue). */

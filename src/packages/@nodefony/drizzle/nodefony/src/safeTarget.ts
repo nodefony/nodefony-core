@@ -38,7 +38,11 @@ import { MEMORY_DATABASE } from "./memoryDatabase";
  * @returns une désignation affichable, sans identifiant ni mot de passe.
  */
 export function describeTargetSafely(
-  target: { dialect: SqlDialect; filename?: string; url?: string },
+  target: {
+    dialect: SqlDialect;
+    filename?: string | undefined;
+    url?: string | undefined;
+  },
   cwd: string = process.cwd(),
   grammar: typeof path = path,
 ): string {

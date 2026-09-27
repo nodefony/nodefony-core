@@ -10,16 +10,18 @@
 /** Résumé d'un connecteur ORM (data plane /nodefony/orm/api/orms). */
 export interface OrmSummary {
   name: string;
-  vendor?: string;
+  vendor?: string | undefined;
   default: boolean;
   connected: boolean;
   entityCount: number;
-  connection?: {
-    driver: string;
-    target?: string;
-    version?: string;
-    ormVersion?: string;
-  };
+  connection?:
+    | {
+        driver: string;
+        target?: string | undefined;
+        version?: string | undefined;
+        ormVersion?: string | undefined;
+      }
+    | undefined;
 }
 
 /** Relation déclarée entre deux entités (graphe canonique). */
@@ -27,17 +29,17 @@ export interface EntityRel {
   type: string;
   target: string;
   field: string;
-  foreignKey?: string;
+  foreignKey?: string | undefined;
 }
 
 /** Entité du graphe canonique (/nodefony/orm/api/graph). */
 export interface EntityNode {
   name: string;
   connector: string;
-  module?: string;
-  domain?: string;
-  columns?: { name: string; type: string }[];
-  relations?: EntityRel[];
+  module?: string | undefined;
+  domain?: string | undefined;
+  columns?: { name: string; type: string }[] | undefined;
+  relations?: EntityRel[] | undefined;
 }
 
 export interface OrmGraph {
@@ -70,7 +72,7 @@ export interface ConnError {
 export interface ConnEvent {
   kind: "lost" | "restored";
   ts: number;
-  reason?: string;
+  reason?: string | undefined;
 }
 
 /** Mécanisme de résilience tel qu'il tourne (`connection/health`). */
@@ -92,20 +94,20 @@ export interface ConnHealth {
   name: string;
   vendor: string;
   driver: string;
-  target?: string;
-  version?: string;
-  ormVersion?: string;
+  target?: string | undefined;
+  version?: string | undefined;
+  ormVersion?: string | undefined;
   connected: boolean;
   connectedSince: number | null;
   uptimeMs: number | null;
   connectCount: number;
   reconnectCount: number;
   /** Absents d'un serveur antérieur à la chronologie des coupures. */
-  lostCount?: number;
-  lastLostAt?: number | null;
-  lastRestoredAt?: number | null;
-  events?: ConnEvent[];
-  resilience?: ConnResilience;
+  lostCount?: number | undefined;
+  lastLostAt?: number | null | undefined;
+  lastRestoredAt?: number | null | undefined;
+  events?: ConnEvent[] | undefined;
+  resilience?: ConnResilience | undefined;
   errorCount: number;
   lastError: ConnError | null;
   recentErrors: ConnError[];
@@ -120,20 +122,24 @@ export interface ConnHealth {
     max: number | null;
     samples: number;
   };
-  storage?: {
-    sizeBytes?: number;
-    pages?: number;
-    pageSize?: number;
-    journalMode?: string;
-    freePages?: number;
-  };
-  pool?: {
-    size?: number;
-    available?: number;
-    borrowed?: number;
-    pending?: number;
-  };
-  extra?: Record<string, string | number | boolean>;
+  storage?:
+    | {
+        sizeBytes?: number | undefined;
+        pages?: number | undefined;
+        pageSize?: number | undefined;
+        journalMode?: string | undefined;
+        freePages?: number | undefined;
+      }
+    | undefined;
+  pool?:
+    | {
+        size?: number | undefined;
+        available?: number | undefined;
+        borrowed?: number | undefined;
+        pending?: number | undefined;
+      }
+    | undefined;
+  extra?: Record<string, string | number | boolean> | undefined;
 }
 
 /** Flux d'un connecteur (canal `nodefony:orm:flow` / `GET /orm/api/flow`) — sous-ensemble consommé. */
@@ -175,7 +181,7 @@ export interface RankItem {
    * la seule aide qui n'ajoute ni bouton ni cible de survol à chaque ligne d'un
    * classement, et elle reste lue par les technologies d'assistance.
    */
-  detail?: string;
+  detail?: string | undefined;
 }
 
 // ─── Migrations (data plane `/nodefony/orm/api/migrations?connector=`) ────────
@@ -210,18 +216,22 @@ export interface MigrationSource {
   applied: number;
   pending: number;
   failed: number;
-  pendingTags?: string[];
-  drifted?: { tag: string; expected: string; actual: string }[];
-  missing?: string[];
+  pendingTags?: string[] | undefined;
+  drifted?: { tag: string; expected: string; actual: string }[] | undefined;
+  missing?: string[] | undefined;
   /** Absent quand la source ne peut pas être lue (dossier manquant). */
-  entries?: MigrationEntry[];
+  entries?: MigrationEntry[] | undefined;
 }
 
 /** Ce qui diverge entre la base et le schéma déclaré, nommé. */
 export interface MigrationDivergence {
-  missingTables?: string[];
-  blocking?: { table: string; column: string; reason?: string }[];
-  additive?: { table: string; column: string; reason?: string }[];
+  missingTables?: string[] | undefined;
+  blocking?:
+    | { table: string; column: string; reason?: string | undefined }[]
+    | undefined;
+  additive?:
+    | { table: string; column: string; reason?: string | undefined }[]
+    | undefined;
 }
 
 /** L'état complet d'un connecteur. */
@@ -229,16 +239,16 @@ export interface MigrationStatus {
   formatVersion: number;
   connector: string;
   verdict: string;
-  exitCode?: 0 | 1 | 2;
+  exitCode?: 0 | 1 | 2 | undefined;
   summary: string;
   nextActions: MigrationAction[];
   sources: MigrationSource[];
-  divergence?: MigrationDivergence;
+  divergence?: MigrationDivergence | undefined;
   driver: {
     kind: string;
-    dialect?: string;
-    ddl?: string;
-    historyTable?: string;
+    dialect?: string | undefined;
+    ddl?: string | undefined;
+    historyTable?: string | undefined;
   };
 }
 
@@ -310,38 +320,38 @@ export type MigrationApplyReply = MigrationApplied | MigrationFailure;
 export interface StoreBrick {
   brick: string;
   /** `durable` (données applicatives) ou `ephemeral` (cache, verrous…). */
-  nature?: string;
-  configured?: string;
+  nature?: string | undefined;
+  configured?: string | undefined;
   /** Moteur qui porte la brique (`drizzle`, `mongoose`, `memory`, `redis`…). */
   resolved: string;
-  available?: string[];
-  reason?: string;
-  configPath?: string;
+  available?: string[] | undefined;
+  reason?: string | undefined;
+  configPath?: string | undefined;
   /**
    * Où vivent les données — la cible du connecteur qui les porte. Publiée
    * pour un fichier local seulement : `null` pour une base réseau.
    */
-  location?: string | null;
+  location?: string | null | undefined;
   /**
    * Connecteur ORM qui porte la brique, tel que le serveur l'a résolu —
    * absent pour un store hors ORM, ou d'un serveur antérieur à sa publication.
    */
-  connector?: string | null;
-  provenance?: string;
+  connector?: string | null | undefined;
+  provenance?: string | undefined;
 }
 
 /** Une requête lente, telle que le flux la retient (SQL compris). */
 export interface SlowQuery {
   ts: number;
   durationMs: number;
-  connector?: string;
-  sql?: string;
+  connector?: string | undefined;
+  sql?: string | undefined;
 }
 
 /** Flux COMPLET d'un connecteur (`GET /nodefony/orm/api/flow`). */
 export interface FlowDetail {
   connector: string;
-  vendor?: string;
+  vendor?: string | undefined;
   total: number;
   avgMs: number | null;
   ewmaMs: number | null;

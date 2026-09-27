@@ -63,8 +63,8 @@ export interface StoreManifestHarness {
 
 /** Lit le manifeste EXACTEMENT comme le fait la console d'administration. */
 function manifest(path: string): {
-  storeKind?: string;
-  stores?: string[];
+  storeKind?: string | undefined;
+  stores?: string[] | undefined;
 } {
   const pkg = JSON.parse(readFileSync(path, "utf8")) as {
     nodefony?: { storeKind?: string; stores?: unknown };

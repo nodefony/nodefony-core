@@ -41,7 +41,7 @@ export interface DocFrontmatter {
   since?: string;
   updated?: string;
   status?: string;
-  order?: number;
+  order?: number | undefined;
   [key: string]: unknown;
 }
 
@@ -334,7 +334,7 @@ export interface DocSearchResult {
    * est rendu : annoncer une coupe qui n'a pas eu lieu ferait chercher un
    * reste inexistant.
    */
-  note?: string;
+  note?: string | undefined;
 }
 
 /** Docs rendues par défaut — au-delà, l'agent relit au lieu de décider. */
@@ -419,7 +419,7 @@ function snippet(line: string, folded: string, term: string): string {
 export async function searchModuleDocs(
   targets: readonly DocSearchTarget[],
   query: string,
-  options: { limit?: number; perDoc?: number } = {},
+  options: { limit?: number | undefined; perDoc?: number } = {},
 ): Promise<DocSearchResult> {
   const terms = fold(query)
     .split(/\s+/)

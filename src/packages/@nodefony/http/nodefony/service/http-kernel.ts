@@ -178,11 +178,11 @@ export type responseTimeoutType = "http" | "https" | "http2" | "http3";
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
 export interface WsMetaData {
-  type?: "message" | "handshake";
-  state?: WebSocketState;
-  messageType?: "utf8" | "binary";
-  protocol?: string | null;
-  id?: string;
+  type?: "message" | "handshake" | undefined;
+  state?: WebSocketState | undefined;
+  messageType?: "utf8" | "binary" | undefined;
+  protocol?: string | null | undefined;
+  id?: string | undefined;
 }
 
 /**
@@ -194,32 +194,32 @@ export interface WsMetaData {
  */
 export interface RouteMetaData {
   name: string;
-  path?: string;
+  path?: string | undefined;
   variablesMap: Record<string, unknown>;
 }
 
 export interface MetaData {
-  name?: string;
-  version?: string;
+  name?: string | undefined;
+  version?: string | undefined;
   // F-B : string (le `href`) côté HTTP — l'URL n'est plus construite pour la
   // metaData ; le WS continue de fournir son objet URL (wire identique :
   // `URL.toJSON()` sérialisait déjà en href).
-  url?: URL | string;
-  environment?: EnvironmentType;
-  debug?: DebugType;
-  token?: string;
-  method?: HTTPMethod;
-  scheme?: SchemeType;
-  requestId?: string;
-  websocket?: WsMetaData;
-  route?: RouteMetaData;
+  url?: URL | string | undefined;
+  environment?: EnvironmentType | undefined;
+  debug?: DebugType | undefined;
+  token?: string | undefined;
+  method?: HTTPMethod | undefined;
+  scheme?: SchemeType | undefined;
+  requestId?: string | undefined;
+  websocket?: WsMetaData | undefined;
+  route?: RouteMetaData | undefined;
 }
 
 export interface Data {
-  error?: Error;
+  error?: Error | undefined;
   nodefony: MetaData;
   message?: unknown;
-  code?: number;
+  code?: number | undefined;
   result: unknown;
   //stack?: string;
 }
@@ -259,12 +259,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ca: string = "";
   serverStatic: Statics | null = null;
   domain: string = "";
-  trustedHosts?: ITrustedHostsConfig;
+  trustedHosts?: ITrustedHostsConfig | undefined;
   domainCheck: boolean = false;
   regAlias: RegExp[] = [];
   module: Module;
-  httpsPort?: number;
-  httpPort?: number;
+  httpsPort?: number | undefined;
+  httpPort?: number | undefined;
   responseTimeout: {
     http: number;
     https: number;
@@ -280,9 +280,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private secContentTypeOptions: string | null = null;
   private secFrameOptions: string | null = null;
   private secHsts: string | null = null;
-  sessionService?: SessionsService | null;
-  router?: IRequestRouter | null;
-  firewall?: IFirewallGate | null;
+  sessionService?: SessionsService | null | undefined;
+  router?: IRequestRouter | null | undefined;
+  firewall?: IFirewallGate | null | undefined;
   // Singleton — zero per-request alloc. Swap via setErrorRenderer().
   private errorRenderer: IErrorRenderer = new DefaultErrorRenderer();
   // Singleton — zero per-request alloc. Swap via setRequestLogger().

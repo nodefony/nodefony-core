@@ -40,7 +40,7 @@ import { runSessionStoreContract } from "../../../http/nodefony/tests/support/se
 
 export interface ISessionStoreContractOptions {
   dialect: SqlDialect;
-  connection: { filename?: string; url?: string };
+  connection: { filename?: string; url?: string | undefined };
 }
 
 /** Manager minimal (le storage n'utilise que les timeouts session + `log`). */

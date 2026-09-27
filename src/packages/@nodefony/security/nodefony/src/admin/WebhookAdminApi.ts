@@ -52,9 +52,9 @@ interface IWebhookSecretRevealView {
 interface IWebhookRegisterAdminInput {
   url: string;
   events: readonly string[];
-  description?: string | null;
-  enabled?: boolean;
-  createdBy?: string | null;
+  description?: string | null | undefined;
+  enabled?: boolean | undefined;
+  createdBy?: string | null | undefined;
 }
 
 /** Patch de mise à jour projeté (champs mutables non sensibles). */
@@ -254,9 +254,9 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
         driver: WebhookDriver;
         store: string;
         endpoints: WebhookEndpointSummary[];
-        total?: number;
+        total?: number | undefined;
         limit: number;
-        offset?: number;
+        offset?: number | undefined;
       }> => {
         const s = svc();
         const store = container.get("webhookStore") as

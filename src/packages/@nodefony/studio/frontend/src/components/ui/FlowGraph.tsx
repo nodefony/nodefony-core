@@ -53,14 +53,14 @@ export interface LiveNodeMetric {
 /** Données live attachées à un nœud du graphe (toutes optionnelles). */
 export interface LiveNodeData {
   /** Bandeau sous le sous-titre (≤ 4 lignes recommandées). */
-  metrics?: LiveNodeMetric[];
+  metrics?: LiveNodeMetric[] | undefined;
   /** Influence la couleur du dot. */
-  status?: "ok" | "warn" | "down" | "idle";
+  status?: "ok" | "warn" | "down" | "idle" | undefined;
   /**
    * Active la pulsation du dot. Animation `opacity` SEULE (compositor),
    * coupée par `prefers-reduced-motion`.
    */
-  pulse?: boolean;
+  pulse?: boolean | undefined;
 }
 
 /** Données d'un nœud (la `dir` est injectée par FlowGraph, pas par l'appelant). */
@@ -70,12 +70,12 @@ export interface FlowNodeData extends Record<string, unknown> {
   icon: ReactNode;
   /** Clé de couleur Mantine (blue, teal, indigo…). */
   color: string;
-  emphasis?: boolean;
-  dir?: "TB" | "LR";
+  emphasis?: boolean | undefined;
+  dir?: "TB" | "LR" | undefined;
   /** Données live (injectées par FlowGraph depuis `liveNodeData[id]`). */
-  live?: LiveNodeData;
+  live?: LiveNodeData | undefined;
   /** Curseur « forable » (injecté par FlowGraph quand `onNodeClick` est fourni). */
-  clickable?: boolean;
+  clickable?: boolean | undefined;
 }
 export interface FlowGraphNode {
   id: string;

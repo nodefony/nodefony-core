@@ -72,11 +72,11 @@ export interface ICreateRequest {
   /** `true` si l'on veut seulement la page d'aide. */
   help: boolean;
   /** `undefined` seulement avec `--describe-json` (décrire TOUS les types). */
-  type?: TCreateType;
+  type?: TCreateType | undefined;
   /** Réponses partielles issues des flags (le reste : interactif ou défauts). */
   answers: TScaffoldAnswers;
   /** Dossier cible (défaut : `./<name>` une fois le nom connu). */
-  dir?: string;
+  dir?: string | undefined;
   force: boolean;
   /** `--yes` : accepter les défauts sans poser de question (même en TTY). */
   yes: boolean;
@@ -89,7 +89,7 @@ export interface ICreateRequest {
   /** `--describe-json` : décrire le scaffold en JSON et sortir (mode machine). */
   describeJson: boolean;
   /** `--answers-json <fichier|->` : source des réponses (fichier, ou `-` = stdin). */
-  answersJson?: string;
+  answersJson?: string | undefined;
 }
 
 /**

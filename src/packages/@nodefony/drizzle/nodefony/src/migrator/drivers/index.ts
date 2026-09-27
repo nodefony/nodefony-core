@@ -17,9 +17,9 @@ export interface IMigrationTarget {
   /** Dialecte du connecteur. */
   dialect: SqlDialect;
   /** Fichier SQLite (dialecte `sqlite`). */
-  filename?: string;
+  filename?: string | undefined;
   /** URL de connexion DIRECTE (dialectes `postgres` et `mysql`). */
-  url?: string;
+  url?: string | undefined;
 }
 
 /**

@@ -178,8 +178,8 @@ class Controller extends Service implements IController {
   #queryFile: unknown[] | null = null;
   #queryPost: Record<string, unknown> | null = null;
   //metaData: Data;
-  module?: Module;
-  template?: Eta | null;
+  module?: Module | undefined;
+  template?: Eta | null | undefined;
 
   /**
    * Contexte transport courant. Per-request : champ posé par `setContext`

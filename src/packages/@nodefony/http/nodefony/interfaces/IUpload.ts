@@ -29,21 +29,21 @@ export interface IParsedUploadFile {
  */
 export interface IUploadOptions {
   /** Répertoire de dépôt des fichiers temporaires. */
-  uploadDir?: string;
+  uploadDir?: string | undefined;
   /** Taille max d'UN fichier (octets) — `limits.fileSize` busboy. */
-  maxFileSize?: number;
+  maxFileSize?: number | undefined;
   /** Taille max CUMULÉE des fichiers d'une requête (octets) — appliquée par Nodefony. */
-  maxTotalFileSize?: number;
+  maxTotalFileSize?: number | undefined;
   /** Nombre max de fichiers — `limits.files` busboy. */
-  maxFiles?: number;
+  maxFiles?: number | undefined;
   /** Nombre max de champs texte — `limits.fields` busboy. */
-  maxFields?: number;
+  maxFields?: number | undefined;
   /** Taille max d'un champ texte (octets) — `limits.fieldSize` busboy. */
-  maxFieldsSize?: number;
+  maxFieldsSize?: number | undefined;
   /** Hash calculé pendant le stream (défaut `false` = aucun). */
-  hashAlgorithm?: false | "sha1" | "md5" | "sha256";
+  hashAlgorithm?: false | "sha1" | "md5" | "sha256" | undefined;
   /** Encodage par défaut des parts texte. */
-  encoding?: string;
+  encoding?: string | undefined;
 }
 
 export interface IUploadedFile {

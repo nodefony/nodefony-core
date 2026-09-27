@@ -129,17 +129,17 @@ function cookiesParser(context: ContextType) {
 class Cookie implements ICookieInterface {
   options: CookieOptionsType = {};
   name: string;
-  signed?: boolean;
+  signed?: boolean | undefined;
   value: unknown;
-  originalMaxAge?: number;
-  expires?: Date;
-  maxAge?: number;
-  path?: string;
+  originalMaxAge?: number | undefined;
+  expires?: Date | undefined;
+  maxAge?: number | undefined;
+  path?: string | undefined;
   domain: string | undefined;
-  httpOnly?: boolean;
-  secure?: boolean;
-  sameSite?: SameSiteType;
-  priority?: string;
+  httpOnly?: boolean | undefined;
+  secure?: boolean | undefined;
+  sameSite?: SameSiteType | undefined;
+  priority?: string | undefined;
 
   constructor(cookies: Cookie);
   constructor(name: string, value: unknown, options?: CookieOptionsType);

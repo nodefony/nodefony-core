@@ -109,12 +109,12 @@ export interface DrizzleOrmOptions {
    */
   dialect?: SqlDialect;
   /** Fichier SQLite (`":memory:"` par défaut) — dialecte `sqlite` uniquement. */
-  filename?: string;
+  filename?: string | undefined;
   /**
    * Chaîne de connexion (`postgres://…`, `mysql://…`) — dialectes `postgres`/
    * `mysql`. Requise pour ces dialectes.
    */
-  url?: string;
+  url?: string | undefined;
   /**
    * Container du service qui construit l'ORM — il porte le `syslog` du kernel.
    *
@@ -124,7 +124,7 @@ export interface DrizzleOrmOptions {
    * échecs des sondes, jamais le diagnostic de la reprise. Omis en usage
    * direct (bancs de test) : l'ORM reste alors autonome, comme avant.
    */
-  container?: Container;
+  container?: Container | undefined;
   /**
    * Le schéma doit-il être DÉRIVÉ du code à la connexion ?
    *
@@ -202,8 +202,8 @@ interface DDLCheck {
  * après que les deux modules ont fini de s'évaluer.
  */
 interface DDLForeignKey {
-  onDelete?: string;
-  onUpdate?: string;
+  onDelete?: string | undefined;
+  onUpdate?: string | undefined;
   getName(): string;
   reference(): {
     columns: readonly { name: string }[];

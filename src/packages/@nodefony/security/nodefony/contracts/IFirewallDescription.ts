@@ -81,11 +81,11 @@ export interface IFirewallDefensesDescription {
     frameguard: "deny" | "sameorigin";
     noSniff: boolean;
     referrerPolicy: string;
-    coop?: string;
-    coep?: string;
-    corp?: string;
-    originAgentCluster?: boolean;
-    permissionsPolicy?: string;
+    coop?: string | undefined;
+    coep?: string | undefined;
+    corp?: string | undefined;
+    originAgentCluster?: boolean | undefined;
+    permissionsPolicy?: string | undefined;
   };
   rateLimit: {
     enabled: boolean;

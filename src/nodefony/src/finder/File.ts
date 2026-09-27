@@ -3,8 +3,8 @@ import FileResult from "./FileResult";
 import fs from "node:fs";
 
 interface FileInterface extends FileClassInterface {
-  childrens?: string;
-  parent?: FileInterface;
+  childrens?: string | undefined;
+  parent?: FileInterface | undefined;
 }
 
 class File extends FileClass {

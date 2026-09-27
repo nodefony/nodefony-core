@@ -16,13 +16,13 @@ export interface IBaseUserOptions {
   /** Hash du mot de passe local, ou `null` (compte OAuth-only). Défaut : `null`. */
   password?: string | null;
   /** Compte activé. Défaut : `true`. */
-  enabled?: boolean;
+  enabled?: boolean | undefined;
   /** Compte verrouillé. Défaut : `false`. */
-  locked?: boolean;
+  locked?: boolean | undefined;
   /** Profil de rôle actif en session. Défaut : `null`. */
   currentRole?: string | null;
   /** Comptes externes liés (OAuth/OIDC). Défaut : `[]`. */
-  socialProviders?: ISocialProvider[];
+  socialProviders?: ISocialProvider[] | undefined;
   /** Métadonnées applicatives libres. Défaut : `{}`. */
   metadata?: Record<string, unknown>;
 }

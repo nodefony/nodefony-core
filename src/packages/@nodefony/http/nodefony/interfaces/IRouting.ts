@@ -12,7 +12,7 @@ export interface IResolvedRoute {
   /** Nom de la route (journalisation, diagnostic). */
   readonly name: string;
   /** Corps laissé en flux (`@Body({ stream: true })`) : le parse est sauté. */
-  readonly bodyStream?: boolean;
+  readonly bodyStream?: boolean | undefined;
 }
 
 /**
@@ -29,11 +29,11 @@ export interface IRouteResolver {
   /** `true` si une route a matché la requête. */
   resolve: boolean;
   /** Erreur levée pendant la résolution, relue par le pipeline. */
-  exception?: Error | null;
+  exception?: Error | null | undefined;
   /** Classe du controller résolu — seul son nom est lu (erreurs, journal). */
-  readonly controller?: { readonly name: string } | null;
+  readonly controller?: { readonly name: string } | null | undefined;
   /** Nom de l'action résolue. */
-  actionName?: string;
+  actionName?: string | undefined;
 
   /**
    * Rejoue le match d'une route sur un contexte (WS : handshake puis frames).

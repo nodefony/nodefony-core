@@ -382,10 +382,10 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
       ): Promise<
         | {
             keys: IApiKeyView[];
-            total?: number;
+            total?: number | undefined;
             limit: number;
-            offset?: number;
-            nextCursor?: string | null;
+            offset?: number | undefined;
+            nextCursor?: string | null | undefined;
           }
         | IAdminResponse<{ error: string }>
       > => {
@@ -510,7 +510,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
       ): Promise<{
         enabled: boolean;
         items: IWebAuthnCredentialSummary[];
-        total?: number;
+        total?: number | undefined;
         limit: number;
         offset: number;
       }> => {
@@ -646,7 +646,7 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
       ): Promise<{
         enabled: boolean;
         items: ITotpEnrollmentSummary[];
-        total?: number;
+        total?: number | undefined;
         limit: number;
         offset: number;
       }> => {

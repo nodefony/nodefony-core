@@ -106,7 +106,7 @@ export interface ILastBoot {
    * `orm:migrate`…). C'est elle qu'on relance pour reproduire — le profil seul
    * ne le dit pas.
    */
-  command?: string;
+  command?: string | undefined;
   /** Environnement résolu (`development`, `production`…). */
   environment: string;
   /** PID du process — utile en cluster pour recouper les journaux. */
@@ -152,11 +152,11 @@ export interface ILastBoot {
    * Borné (les premiers suffisent : le reste est presque toujours une
    * conséquence), et alloué SEULEMENT s'il y en a.
    */
-  criticals?: string[];
+  criticals?: string[] | undefined;
   /** Serveurs réellement en écoute (description courte). */
   serversListening?: string[];
   /** Action corrective suggérée par le bilan, quand une heuristique l'a trouvée. */
-  remediation?: string;
+  remediation?: string | undefined;
   /** La cause de l'abandon — présent uniquement si `status === "failed"`. */
   error?: {
     /** Message de l'erreur. */
@@ -167,9 +167,9 @@ export interface ILastBoot {
      * Code de sortie porté par l'erreur, quand elle en porte un. `78`
      * (EX_CONFIG) distingue une configuration fautive d'un défaut logiciel.
      */
-    exitCode?: number;
+    exitCode?: number | undefined;
     /** Pile d'appels, si l'erreur en portait une. */
-    stack?: string;
+    stack?: string | undefined;
   };
 }
 

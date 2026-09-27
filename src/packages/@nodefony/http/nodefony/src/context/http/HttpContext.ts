@@ -45,15 +45,15 @@ import uploadService from "../../../service/upload/upload-service";
  * (logs, prédicat « derrière un proxy »).
  */
 export interface ProxyType {
-  proxyServer?: string;
-  proxyProto?: string;
-  proxyScheme?: SchemeType;
-  proxyPort?: string;
-  proxyFor?: string;
-  proxyHost?: string;
-  proxyUri?: string;
-  proxyRealIp?: string;
-  proxyVia?: string;
+  proxyServer?: string | undefined;
+  proxyProto?: string | undefined;
+  proxyScheme?: SchemeType | undefined;
+  proxyPort?: string | undefined;
+  proxyFor?: string | undefined;
+  proxyHost?: string | undefined;
+  proxyUri?: string | undefined;
+  proxyRealIp?: string | undefined;
+  proxyVia?: string | undefined;
 }
 
 export type HttpRequestType = Http2Request | HttpRequest;

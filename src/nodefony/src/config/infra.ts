@@ -214,14 +214,14 @@ export interface IStoreResolution {
   /** Raison lisible (FR) de la résolution — de `resolveAutoStore` ou construite. */
   reason: string;
   /** Chemin du champ de config (ex. `"security.tokenStore.store"`) — croise la provenance de champ Studio. */
-  configPath?: string;
+  configPath?: string | undefined;
   /**
    * Emplacement PHYSIQUE lisible du store, lu depuis l'instance au boot
    * ({@link readStoreLocation}) — base SQLite pour `drizzle`. `undefined`
    * pour un store `memory` (volatil) ou un backend réseau (l'emplacement = l'infra
    * déclarée, déjà surfacée à part). Répond à « où sont écrites mes données ? » dans Studio.
    */
-  location?: string;
+  location?: string | undefined;
   /**
    * Connecteur ORM qui porte la brique, lu depuis l'instance
    * ({@link readStoreConnector}). C'est ce que le serveur SAIT : la console s'en
@@ -229,7 +229,7 @@ export interface IStoreResolution {
    * `location` (absente pour une base réseau). `undefined` pour un store qui
    * n'est porté par aucun ORM (`memory`, fichier, Redis).
    */
-  connector?: string;
+  connector?: string | undefined;
 }
 
 /**

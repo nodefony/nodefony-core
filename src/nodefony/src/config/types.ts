@@ -81,7 +81,7 @@ export interface HttpServerConfig {
    * @default 5151
    * @reactivity boot
    */
-  port?: number;
+  port?: number | undefined;
 }
 
 /** Serveur HTTPS (+ WSS hérité). */

@@ -65,7 +65,7 @@ export interface ConnectSharedOptions {
    * Adresse du serveur temps réel — la voie SIMPLE. La socket partagée de cette
    * URL est fabriquée (ou réutilisée) et connectée par {@link SharedConnection.start}.
    */
-  url?: string;
+  url?: string | undefined;
   /**
    * Socket déjà construite — la voie AVANCÉE, quand l'application possède son
    * cycle de connexion (c'est le cas de la console d'administration, qui
@@ -74,7 +74,7 @@ export interface ConnectSharedOptions {
    * Fournie, elle l'emporte sur `url` et son cycle n'est **pas** touché : ni
    * `connect`, ni `disconnect`.
    */
-  client?: ObservableClient;
+  client?: ObservableClient | undefined;
 }
 
 /** Résultat de {@link connectShared} : la socket, à qui elle appartient, et comment la démarrer. */
@@ -375,11 +375,11 @@ export function observeSnapshot(
 /** Options de {@link observeSyslog}. */
 export interface ObserveSyslogOptions {
   /** Taille max de l'anneau (les plus anciennes lignes sont évincées). Défaut 500. */
-  max?: number;
+  max?: number | undefined;
   /** Ne garder que ces sévérités (ex. `["ERROR", "CRITIC"]`). Toutes par défaut. */
-  severities?: string[];
+  severities?: string[] | undefined;
   /** Canal source. Défaut : le canal de journaux de la plateforme. */
-  channel?: string;
+  channel?: string | undefined;
 }
 
 /** Taille par défaut de l'anneau du journal. */
@@ -447,9 +447,9 @@ export function observeNotices(
 /** Options de {@link observeNoticeLog}. */
 export interface ObserveNoticeLogOptions {
   /** Taille max de l'anneau (les plus anciennes notices sont évincées). Défaut 50. */
-  max?: number;
+  max?: number | undefined;
   /** Ne garder que ces sources (ex. `["realtime"]`). Toutes par défaut. */
-  sources?: NodefonyNotice["source"][];
+  sources?: NodefonyNotice["source"][] | undefined;
 }
 
 /**

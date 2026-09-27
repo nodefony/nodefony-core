@@ -8,7 +8,7 @@ export interface DataStateProps {
   /** `true` si la donnée est chargée mais vide (liste 0 élément). */
   empty?: boolean;
   /** Relance — rendue comme bouton dans l'état erreur (et vide si fourni). */
-  onRetry?: () => void;
+  onRetry?: (() => void) | undefined;
   /** Message de l'état vide. */
   emptyMessage?: ReactNode;
   /** Hauteur min des états transitoires centrés (px). Défaut 200. */

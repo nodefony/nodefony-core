@@ -182,7 +182,7 @@ export function MiniStat({
   value: React.ReactNode;
   hint?: string;
   info?: React.ReactNode;
-  color?: MantineColor;
+  color?: MantineColor | undefined;
   /** Si fourni, la valeur FLASHE quand cette clé change (live = « ce qui bouge »). */
   flashKey?: string | number;
 }) {
@@ -229,8 +229,8 @@ export function ConnectorCard({
   orm: OrmSummary;
   entities: EntityNode[];
   countMap: Record<string, number>;
-  health?: ConnHealth;
-  flow?: ConnFlow;
+  health?: ConnHealth | undefined;
+  flow?: ConnFlow | undefined;
 }) {
   const driver = orm.connection?.driver ?? health?.driver ?? "";
   const target = orm.connection?.target ?? health?.target;

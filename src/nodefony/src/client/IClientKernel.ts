@@ -174,7 +174,7 @@ export interface IClientKernel {
   /** Récupère un service enregistré (ou `undefined` s'il n'est pas composé). */
   get<K extends keyof NodefonyClientServices>(
     name: K,
-  ): NodefonyClientServices[K];
+  ): NodefonyClientServices[K] | undefined;
   /** Enregistre un service sous son nom contractuel. */
   set<K extends keyof NodefonyClientServices>(
     name: K,

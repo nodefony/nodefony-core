@@ -38,11 +38,11 @@ export interface ForwardedElement {
 /** Résolution canonique unifiée des en-têtes forwarded. */
 export interface ResolvedProxy {
   /** Scheme effectif côté client (`http` / `https`), ou `undefined` si indéterminé. */
-  proto?: string;
+  proto?: string | undefined;
   /** Host effectif côté client (Host d'origine), ou `undefined` si non fourni. */
-  host?: string;
+  host?: string | undefined;
   /** Chaîne `for` brute (node identifiers, gauche→droite) — pour log/metadata interne. */
-  forwardedFor?: string;
+  forwardedFor?: string | undefined;
   /** IP cliente réelle, résolue from-right (toujours fiable, jamais l'IP forgée). */
   clientIp: string | null;
   /** Le header standard `Forwarded` a-t-il été la source (sinon `X-Forwarded-*`) ? */

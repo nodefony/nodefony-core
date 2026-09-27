@@ -46,13 +46,13 @@ export interface SchemaBrick {
   color: string;
   icon: ReactNode;
   pos: Pt;
-  emphasis?: boolean;
+  emphasis?: boolean | undefined;
   /** Nœud EXTERNE (hors frontière, décoratif, pas de ⓘ). */
-  external?: boolean;
+  external?: boolean | undefined;
   /** Id du sous-schéma ouvert au CLIC (forage). Absent → clic ouvre le dialog. */
-  enter?: string;
+  enter?: string | undefined;
   /** La brique a une fiche ⓘ (dialog liens/docs). */
-  info?: boolean;
+  info?: boolean | undefined;
 }
 
 export interface SchemaLink {

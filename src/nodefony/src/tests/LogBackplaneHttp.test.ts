@@ -37,7 +37,7 @@ const mk = (
 
 interface MockCall {
   url: string;
-  init?: FetchInitLike;
+  init?: FetchInitLike | undefined;
 }
 
 /** Construit un `FetchLike` factice + capture les appels. */

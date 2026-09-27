@@ -54,7 +54,7 @@ export interface LogRecord {
   /** Catégorie de message (msgid : `"KERNEL"`, `"ROUTER"`, `"AUTH"`…). */
   msgid: string;
   /** Détail libre optionnel (souvent absent côté stream). */
-  msg?: string;
+  msg?: string | undefined;
   /** Horodatage epoch ms. */
   timeStamp: number;
   /** PID émetteur (procid RFC 5424) — groupe par worker en cluster. */
@@ -62,7 +62,7 @@ export interface LogRecord {
   /** Contenu brut : string (souvent avec ANSI), Error sérialisée, ou objet. */
   payload: unknown;
   /** Corrélation log↔requête (ALS) — la clé de la **trace full-stack**. */
-  requestId?: string;
+  requestId?: string | undefined;
 }
 
 /**

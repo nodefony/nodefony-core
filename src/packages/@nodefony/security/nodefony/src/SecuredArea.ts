@@ -16,9 +16,9 @@ export class SecuredArea implements ISecuredArea {
   readonly stateless: boolean;
   readonly mode: "first" | "all";
   readonly authenticators: readonly string[];
-  readonly host?: string;
+  readonly host?: string | undefined;
   readonly realtime: boolean;
-  readonly resource?: string;
+  readonly resource?: string | undefined;
   /**
    * Rôles exigés par défaut dans la zone, ou `null` quand elle n'en exige
    * aucun. `null` plutôt qu'un tableau vide : le hot path teste une référence,

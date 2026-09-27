@@ -24,7 +24,7 @@ export class InvalidTargetError extends nodefonyError {
   /** Code d'erreur OAuth à rendre au client (RFC 6749 §5.2 / RFC 8707 §2). */
   readonly oauthError = "invalid_target";
   /** Ce que le client a demandé, tel qu'il l'a écrit — pour le journal. */
-  readonly requested?: string;
+  readonly requested?: string | undefined;
 
   /**
    * @param description - raison, destinée à `error_description` (aucune fuite :

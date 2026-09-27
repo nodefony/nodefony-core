@@ -200,21 +200,21 @@ export interface RouteOptions {
 }
 
 export interface RouteRequirements {
-  domain?: string | string[];
-  scheme?: SchemeType;
-  methods?: HTTPMethod[] | HTTPMethod;
-  protocol?: string;
+  domain?: string | string[] | undefined;
+  scheme?: SchemeType | undefined;
+  methods?: HTTPMethod[] | HTTPMethod | undefined;
+  protocol?: string | undefined;
 }
 
 class Route implements IRoute {
   name: string;
-  path?: string;
-  controller?: ControllerConstructor;
-  classMethod?: string;
-  prefix?: string;
-  method?: HTTPMethod;
-  schemes?: SchemeType;
-  pattern?: RegExp;
+  path?: string | undefined;
+  controller?: ControllerConstructor | undefined;
+  classMethod?: string | undefined;
+  prefix?: string | undefined;
+  method?: HTTPMethod | undefined;
+  schemes?: SchemeType | undefined;
+  pattern?: RegExp | undefined;
   variables: string[] = [];
   /**
    * Caractères du chemin déclaré qu'une requête ne peut PAS porter — la route
@@ -223,18 +223,18 @@ class Route implements IRoute {
    *
    * @see {@link UNREACHABLE_IN_PATHNAME}
    */
-  unreachableChars?: string[];
+  unreachableChars?: string[] | undefined;
   defaults: Partial<Record<string, unknown>> = {};
   requirements: Partial<RouteRequirements> = {};
-  hash?: string;
-  host?: string | string[];
+  hash?: string | undefined;
+  host?: string | string[] | undefined;
   /**
    * Patterns de domaine pré-compilés (host + `requirements.domain`), RegExp
    * ancrées/wildcard. Compilé UNE fois dans {@link compile} ; testé par requête
    * via {@link isDomainAllowed} (zéro alloc hot-path). `undefined` = route servie
    * sur tous les vhosts.
    */
-  hostRegexp?: RegExp[];
+  hostRegexp?: RegExp[] | undefined;
   /**
    * P3a — requirements pré-compilés au boot (0 alloc par match) :
    * `methodsSet` = méthodes autorisées normalisées UPPERCASE (lookup O(1)) ;
@@ -242,9 +242,9 @@ class Route implements IRoute {
    * `varRegexp` = requirements de variables de route (string → RegExp).
    * `this.requirements` reste la config BRUTE (hash de route + introspection).
    */
-  methodsSet?: Set<string>;
-  methodsAllow?: string;
-  varRegexp?: Record<string, RegExp>;
+  methodsSet?: Set<string> | undefined;
+  methodsAllow?: string | undefined;
+  varRegexp?: Record<string, RegExp> | undefined;
   bypassFirewall: boolean = false;
   /**
    * La route décide seule de son autorisation → la zone du firewall n'applique
@@ -257,7 +257,7 @@ class Route implements IRoute {
    * `routeExpectsBodyStream(route)` via lecture `Reflect` des `ParamMeta`, O(1)
    * ensuite). Lu en amont par `handleHttp` pour sauter le parse.
    */
-  bodyStream?: boolean;
+  bodyStream?: boolean | undefined;
   /**
    * P5 — Metadata d'action figées (`@HttpCode`/`@Header`/`@Redirect`/params/
    * session), memo au 1er hit comme {@link bodyStream} : `undefined` = pas
@@ -265,14 +265,14 @@ class Route implements IRoute {
    * ensuite → plus aucun `Reflect.getMetadata` par requête). Objet PARTAGÉ
    * entre requêtes — ne jamais muter. Posé après `generateId()` → hash stable.
    */
-  actionMeta?: RouteActionMeta;
-  filePath?: string;
+  actionMeta?: RouteActionMeta | undefined;
+  filePath?: string | undefined;
   /**
    * Module propriétaire de la route — set par `Router.setController()` à
    * `onBoot`, donc PAS disponible à la création de la route (via `@controller`)
    * qui s'évalue à l'import. Utilisé pour `toLogLine()`.
    */
-  module?: { name: string };
+  module?: { name: string } | undefined;
   constructor(name: string, obj?: RouteOptions) {
     this.name = name;
     if (obj) {

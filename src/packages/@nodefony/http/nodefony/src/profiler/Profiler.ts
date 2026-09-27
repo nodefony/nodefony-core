@@ -40,13 +40,13 @@ export interface ProfileQuery {
   /** Requête (SQL ou commande NoSQL), tronquée si volumineuse. */
   sql: string;
   /** Début relatif (`performance.now()`) — même horloge que les phases. */
-  startMs?: number;
+  startMs?: number | undefined;
   /** Durée d'exécution en ms. */
   durationMs: number;
   /** Lignes affectées/retournées, si connu. */
-  rows?: number;
+  rows?: number | undefined;
   /** Connecteur émetteur (`drizzle`, `mongoose`…). */
-  connector?: string;
+  connector?: string | undefined;
 }
 
 /**
@@ -101,9 +101,9 @@ export interface ProfileEntry {
   error: string | null;
   phases: ProfilePhase[];
   /** Requêtes ORM (SEAM futur — `undefined` tant qu'aucun adapter ne pushe). */
-  queries?: ProfileQuery[];
+  queries?: ProfileQuery[] | undefined;
   /** Traversée du firewall — `undefined` si la requête n'a croisé aucune zone. */
-  security?: ProfileSecurity;
+  security?: ProfileSecurity | undefined;
 }
 
 /** Résumé léger d'un profil pour la liste `recent` (sans les phases). */
@@ -121,54 +121,65 @@ export interface ProfileSummary {
 
 /** Forme structurelle minimale lue sur un `Context` (lecture défensive). */
 interface ProfilableContext {
-  requestId?: string;
-  type?: string;
-  scheme?: string;
-  method?: string | null;
-  url?: string;
-  remoteAddress?: string | null;
-  traceparent?: string | null;
-  error?: { message?: string } | null;
-  response?: { statusCode?: number } | null;
-  phases?: ReadonlyArray<{
-    name: string;
-    startMs: number;
-    durationMs?: number;
-  }>;
-  resolver?: {
-    route?: { name?: string } | null;
-    controller?: { name?: string } | null;
-    actionName?: string;
-  } | null;
+  requestId?: string | undefined;
+  type?: string | undefined;
+  scheme?: string | undefined;
+  method?: string | null | undefined;
+  url?: string | undefined;
+  remoteAddress?: string | null | undefined;
+  traceparent?: string | null | undefined;
+  error?: { message?: string } | null | undefined;
+  response?: { statusCode?: number } | null | undefined;
+  phases?:
+    | ReadonlyArray<{
+        name: string;
+        startMs: number;
+        durationMs?: number | undefined;
+      }>
+    | undefined;
+  resolver?:
+    | {
+        route?: { name?: string | undefined } | null;
+        controller?: { name?: string | undefined } | null | undefined;
+        actionName?: string | undefined;
+      }
+    | null
+    | undefined;
   /**
    * Buffer de requêtes ORM rempli pendant la requête (dev-only). Même tableau
    * que la payload ALS — les adapters ORM y poussent via `RequestContext`.
    * `null`/absent hors profiling.
    */
-  profilerQueries?: ProfileQuery[] | null;
+  profilerQueries?: ProfileQuery[] | null | undefined;
   /**
    * Zone firewall capturée (`SecuredArea`, posée par `Firewall.isSecure`). Lue
    * en structurel : `@nodefony/http` ne peut pas importer `@nodefony/security`.
    */
-  security?: {
-    name?: string;
-    security?: boolean;
-    mode?: string;
-    authenticators?: readonly string[];
-  } | null;
+  security?:
+    | {
+        name?: string | undefined;
+        security?: boolean | undefined;
+        mode?: string | undefined;
+        authenticators?: readonly string[] | undefined;
+      }
+    | null
+    | undefined;
   /** Décision du firewall sur cette requête (dev-only, cf `ISecurityTrace`). */
-  securityTrace?: {
-    authenticator: string | null;
-    outcome: string;
-    reason: string | null;
-    user: string | null;
-    roles: string[] | null;
-  } | null;
+  securityTrace?:
+    | {
+        authenticator: string | null;
+        outcome: string;
+        reason: string | null;
+        user: string | null;
+        roles: string[] | null;
+      }
+    | null
+    | undefined;
 }
 
 /** Durée totale = (fin de la dernière phase terminée) − (début de la 1ère). */
 function totalDuration(
-  phases: ReadonlyArray<{ startMs: number; durationMs?: number }>,
+  phases: ReadonlyArray<{ startMs: number; durationMs?: number | undefined }>,
 ): number | null {
   if (phases.length === 0) return null;
   const first = phases.at(0);

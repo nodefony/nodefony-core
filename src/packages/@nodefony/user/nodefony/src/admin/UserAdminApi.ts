@@ -152,9 +152,9 @@ interface IAuditSinkLike {
     action: string;
     outcome: "success" | "failure" | "denied";
     actor: string | null;
-    resource?: string | null;
-    reason?: string;
-    metadata?: Record<string, unknown>;
+    resource?: string | null | undefined;
+    reason?: string | undefined;
+    metadata?: Record<string, unknown> | undefined;
   }): void;
 }
 

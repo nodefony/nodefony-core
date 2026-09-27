@@ -192,7 +192,7 @@ class Pdu {
    * `pid` = quel worker, `requestId` = quelle requête. Voyage dans ring buffer +
    * `nodefony:syslog` + transports JSON (champ public sérialisé naturellement).
    */
-  public requestId?: string;
+  public requestId?: string | undefined;
 
   /**
    * Provider injectable du `requestId` courant (ALS). Branché par le barrel

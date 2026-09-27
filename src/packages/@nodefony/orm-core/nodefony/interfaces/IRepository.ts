@@ -25,23 +25,23 @@ export type OrmCriteria = Record<string, unknown>;
  */
 export interface FieldOperators<V> {
   /** Égalité stricte (équivalent à passer la valeur nue). */
-  $eq?: V;
+  $eq?: V | undefined;
   /** Différent de. */
-  $ne?: V;
+  $ne?: V | undefined;
   /** Strictement supérieur à. */
-  $gt?: V;
+  $gt?: V | undefined;
   /** Supérieur ou égal à. */
-  $gte?: V;
+  $gte?: V | undefined;
   /** Strictement inférieur à. */
-  $lt?: V;
+  $lt?: V | undefined;
   /** Inférieur ou égal à. */
-  $lte?: V;
+  $lte?: V | undefined;
   /** Appartient à l'ensemble. */
-  $in?: readonly V[];
+  $in?: readonly V[] | undefined;
   /** N'appartient pas à l'ensemble. */
-  $nin?: readonly V[];
+  $nin?: readonly V[] | undefined;
   /** Motif SQL `LIKE` (`%`/`_`) — pertinent pour les champs texte uniquement. */
-  $like?: string;
+  $like?: string | undefined;
   /**
    * Teste l'**absence de valeur** : `true` → `IS NULL`, `false` → `IS NOT NULL`
    * (Mongo : `$eq`/`$ne null`, qui couvre aussi le champ absent).
@@ -62,7 +62,7 @@ export interface FieldOperators<V> {
    * // les PAT qui ont une expiration
    * repo.find({ expiresAt: { $null: false } });
    */
-  $null?: boolean;
+  $null?: boolean | undefined;
 }
 
 /**
@@ -160,7 +160,7 @@ export type Criteria<T> = {
    * // les clés encore utilisables
    * repo.count({ revokedAt: null, $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] });
    */
-  $or?: ReadonlyArray<Criteria<T>>;
+  $or?: ReadonlyArray<Criteria<T>> | undefined;
 } & OrmCriteria;
 
 /**
@@ -191,7 +191,7 @@ export interface RepositoryReadOptions {
    * la frontière qui la reçoit (`parsePageQuery` accepte `champ:sens` en casse
    * libre), jamais au repository.
    */
-  order?: Array<[string, "ASC" | "DESC"]>;
+  order?: Array<[string, "ASC" | "DESC"]> | undefined;
 }
 
 /**

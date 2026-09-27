@@ -43,7 +43,7 @@ export interface IRealtimeAuthenticatorMatcher {
  */
 export interface ICompiledRealtimeMatcher {
   readonly pattern: RegExp;
-  readonly host?: string;
+  readonly host?: string | undefined;
   /** Le matcher capture-t-il ce handshake ? */
   match(handshake: IRealtimeHandshake): boolean;
 }

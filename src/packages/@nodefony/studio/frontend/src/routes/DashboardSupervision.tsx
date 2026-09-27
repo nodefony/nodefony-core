@@ -152,13 +152,13 @@ interface OrmConn {
   name: string;
   vendor: string;
   driver: string;
-  target?: string;
+  target?: string | undefined;
   connected: boolean;
-  entityCount?: number;
-  pingMs?: number | null;
-  pingOk?: boolean;
-  errorCount?: number;
-  reconnectCount?: number;
+  entityCount?: number | undefined;
+  pingMs?: number | null | undefined;
+  pingOk?: boolean | undefined;
+  errorCount?: number | undefined;
+  reconnectCount?: number | undefined;
 }
 /** Sous-ensemble du payload `nodefony:orm:health` (live) qu'on consomme. */
 interface OrmHealth {

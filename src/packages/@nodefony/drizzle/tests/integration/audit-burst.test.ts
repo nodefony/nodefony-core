@@ -31,7 +31,7 @@ function runOn(opts: {
   label: string;
   connector: string;
   dialect: SqlDialect;
-  connection: { filename?: string; url?: string };
+  connection: { filename?: string | undefined; url?: string | undefined };
   skip?: boolean;
 }): void {
   describe.skipIf(opts.skip ?? false)(opts.label, () => {

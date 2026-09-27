@@ -16,14 +16,14 @@ export interface IController {
   readonly route?: IRoute | null;
   request: contextRequest;
   response: HttpResponse | Http2Response | WebsocketResponse | null;
-  context?: ContextType;
+  context?: ContextType | undefined;
   session?: Session | null;
-  method?: HTTPMethod;
+  method?: HTTPMethod | undefined;
   queryGet: Record<string, unknown>;
   query: Record<string, unknown>;
   queryFile: unknown[];
   queryPost: Record<string, unknown>;
-  module?: Module;
+  module?: Module | undefined;
 
   setContext(context: ContextType): void;
   setContextJson(encoding?: BufferEncoding): unknown;

@@ -37,7 +37,7 @@ export interface IResourcePermission {
   /** Type de ressource (ex. `"repo"`, `"project"`). */
   type: string;
   /** Identifiants ciblés (omis = toutes les ressources de ce type). */
-  ids?: string[];
+  ids?: string[] | undefined;
   /** Permissions accordées sur ces ressources. */
   perms: Array<"read" | "write">;
 }
@@ -47,9 +47,9 @@ export interface ITokenUsage {
   /** Instant d'usage (epoch ms). */
   at: number;
   /** IP source, si disponible. */
-  ip?: string | null;
+  ip?: string | null | undefined;
   /** User-Agent source, si disponible. */
-  userAgent?: string | null;
+  userAgent?: string | null | undefined;
 }
 
 /**

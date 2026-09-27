@@ -103,6 +103,16 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   }
 
   /**
+   * Options de session pour les méthodes dont le type refuse `session: null`
+   * (`updateMany`, `deleteMany`, `countDocuments`…) : la clé est ABSENTE hors
+   * transaction. Un objet neuf par appel, comme le littéral qu'il remplace —
+   * Mongoose peut enrichir l'objet d'options qu'il reçoit.
+   */
+  #sessionOptions(): { session?: ClientSession } {
+    return this.#session === null ? {} : { session: this.#session };
+  }
+
+  /**
    * Tap dev-only : mesure la durée d'une opération et alimente **deux** sondes
    * complémentaires (sans surcoût quand les deux sont inactives — flags lus avant
    * toute allocation, prod = coût nul) :
@@ -356,7 +366,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       () => this.#descr("create"),
       async () => {
         const [doc] = await this.#model.create([data], {
-          session: this.#session ?? undefined,
+          session: this.#session,
         });
         // Un document demandé, un document rendu — sauf pilote défaillant.
         if (doc === undefined) {
@@ -379,7 +389,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       async () => {
         const docs = await this.#model.insertMany(
           data as Record<string, unknown>[],
-          { session: this.#session ?? undefined },
+          { session: this.#session },
         );
         return docs.map((doc) => this.#plain(doc));
       },
@@ -400,7 +410,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
             // `returnDocument: "after"` = renvoie le doc APRÈS modif (forme non
             // dépréciée de l'ancien `new: true` — Mongoose 9).
             returnDocument: "after",
-            session: this.#session ?? undefined,
+            session: this.#session,
           })
           .exec();
         return doc ? this.#plain(doc) : null;
@@ -434,7 +444,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
             {
               upsert: true,
               returnDocument: "after",
-              session: this.#session ?? undefined,
+              session: this.#session,
             },
           )
           .exec();
@@ -483,9 +493,11 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     return this.#prof(
       () => this.#descr("updateMany", filter),
       async () => {
-        const res = await this.#model.updateMany(filter, data, {
-          session: this.#session ?? undefined,
-        });
+        const res = await this.#model.updateMany(
+          filter,
+          data,
+          this.#sessionOptions(),
+        );
         return writeCount(res.modifiedCount);
       },
       (n) => n,
@@ -506,7 +518,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           .findOneAndUpdate(
             filter,
             { $inc: changes as Record<string, number> },
-            { returnDocument: "after", session: this.#session ?? undefined },
+            { returnDocument: "after", session: this.#session },
           )
           .exec();
         return doc ? this.#plain(doc) : null;
@@ -525,9 +537,10 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const removed = await this.#prof(
       () => this.#descr("deleteMany", filter),
       async () => {
-        const res = await this.#model.deleteMany(filter, {
-          session: this.#session ?? undefined,
-        });
+        const res = await this.#model.deleteMany(
+          filter,
+          this.#sessionOptions(),
+        );
         return writeCount(res.deletedCount);
       },
       (n) => n,
@@ -546,9 +559,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const removed = await this.#prof(
       () => this.#descr("deleteOne", filter),
       async () => {
-        const res = await this.#model.deleteOne(filter, {
-          session: this.#session ?? undefined,
-        });
+        const res = await this.#model.deleteOne(filter, this.#sessionOptions());
         return writeCount(res.deletedCount) > 0;
       },
       (ok) => (ok ? 1 : 0),
@@ -568,7 +579,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       () => this.#descr("findOneAndDelete", filter),
       async () => {
         const found = await this.#model
-          .findOneAndDelete(filter, { session: this.#session ?? undefined })
+          .findOneAndDelete(filter, { session: this.#session })
           .exec();
         return found ? this.#plain(found) : null;
       },
@@ -605,7 +616,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   ): Promise<unknown[] | null> {
     const referrers = this.#referrers;
     if (referrers === null) return null;
-    const session = this.#session ?? undefined;
+    const session = this.#session;
     const query = this.#model.find(filter, { _id: 1 }, { session }).lean();
     if (single) query.limit(1);
     const docs = (await query.exec()) as { _id: unknown }[];
@@ -643,13 +654,12 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
    * @param ids - `_id` des documents supprimés.
    */
   async #releaseOptional(ids: unknown[]): Promise<void> {
-    const session = this.#session ?? undefined;
     for (const referrer of this.#referrers ?? []) {
       if (referrer.required) continue;
       await referrer.model.updateMany(
         { [referrer.path]: { $in: ids } },
         { $set: { [referrer.path]: null } },
-        { session },
+        this.#sessionOptions(),
       );
     }
   }
@@ -658,10 +668,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const filter = this.#filter(criteria);
     return this.#prof(
       () => this.#descr("countDocuments", filter),
-      () =>
-        this.#model.countDocuments(filter, {
-          session: this.#session ?? undefined,
-        }),
+      () => this.#model.countDocuments(filter, this.#sessionOptions()),
     );
   }
 

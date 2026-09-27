@@ -11,8 +11,8 @@ import clc from "./colors";
 declare global {
   interface Error {
     // errno is number in ErrnoException — keep compatible
-    errno?: string | number;
-    bytesParsed?: number;
+    errno?: string | number | undefined;
+    bytesParsed?: number | undefined;
     // any : forme libre selon la source de l'erreur (ORM, natif)
     errors?: any;
     parent?: Error;
@@ -280,7 +280,7 @@ class nodefonyError extends Error {
           this.syscall = error.syscall as unknown;
           this.address = error.address as unknown;
           this.port = error.port as unknown;
-          this.stack = error.stack;
+          if (error.stack !== undefined) this.stack = error.stack;
           return errorType;
         case "ClientError":
           this.bytesParsed = error.bytesParsed;
@@ -405,7 +405,7 @@ class nodefonyError extends Error {
         if (err.code) {
           this.code = err.code as number;
         }
-        this.stack = err.stack;
+        if (err.stack !== undefined) this.stack = err.stack;
         break;
       }
       case "object": {

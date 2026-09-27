@@ -60,7 +60,7 @@ export interface IEntity<S = unknown, M = unknown> {
    * **Optionnel** : sert au regroupement dans le graphe canonique / ERD Studio.
    * Non renseigné → entité non rattachée (groupe « — » côté UI).
    */
-  readonly module?: string;
+  readonly module?: string | undefined;
 
   /**
    * **Classification** de l'entité (ex. domaine fonctionnel `"facturation"`,
@@ -69,7 +69,7 @@ export interface IEntity<S = unknown, M = unknown> {
    * base** (centaines de tables d'un même module) : l'ERD groupe/filtre par
    * `domain`. **Optionnel** ; non renseigné → retombe sur `module`.
    */
-  readonly domain?: string;
+  readonly domain?: string | undefined;
 
   /** Définition de schéma propre au driver (forme libre). */
   readonly schema: S;
@@ -83,15 +83,15 @@ export interface IEntity<S = unknown, M = unknown> {
    * schema-as-code (Drizzle) les expriment en colonnes → ce flag y est sans effet.
    * **Optionnel**, défaut `false`.
    */
-  readonly timestamps?: boolean;
+  readonly timestamps?: boolean | undefined;
 
   /** Relations déclarées vers d'autres entités (par nom logique). */
-  readonly relations?: ReadonlyArray<IEntityRelation>;
+  readonly relations?: ReadonlyArray<IEntityRelation> | undefined;
 
   /**
    * Index composites, appliqués par l'adapter qui les exprime hors schéma
    * (Mongoose `schema.index()`). Les ORM schema-as-code (Drizzle) les déclarent
    * dans leur table → ce champ y est sans effet. **Optionnel**.
    */
-  readonly indexes?: ReadonlyArray<IEntityIndex>;
+  readonly indexes?: ReadonlyArray<IEntityIndex> | undefined;
 }

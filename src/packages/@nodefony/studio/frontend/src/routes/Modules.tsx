@@ -73,10 +73,10 @@ interface ModuleRow {
 }
 interface ModuleDetail extends ModuleRow {
   dependencies: string[];
-  services?: { name: string; class: string | null }[];
-  docsCount?: number;
-  symbolsCount?: number;
-  coverageLines?: number | null;
+  services?: { name: string; class: string | null }[] | undefined;
+  docsCount?: number | undefined;
+  symbolsCount?: number | undefined;
+  coverageLines?: number | null | undefined;
 }
 
 /** Seuil couleur couverture : ≥80 teal, ≥50 jaune, sinon rouge. */
@@ -96,7 +96,7 @@ function MiniStat({
   icon: ReactNode;
   value: number | string | undefined;
   label: string;
-  color?: string;
+  color?: string | undefined;
 }) {
   return (
     <Group justify="space-between" wrap="nowrap" gap="sm">
@@ -346,7 +346,7 @@ function ModuleCard({
 }: {
   m: ModuleRow;
   cat: CatId;
-  detail?: ModuleDetail;
+  detail?: ModuleDetail | undefined;
   routeCount: number;
   onOpen: () => void;
 }) {

@@ -75,9 +75,9 @@ export interface IDocPage {
   slug: string;
   title: string;
   version?: string;
-  status?: DocStatus;
+  status?: DocStatus | undefined;
   /** Date de dernière modif (frontmatter `updated` ou dernier commit git). */
-  updated?: string;
+  updated?: string | undefined;
   /** Chemin source relatif au repo (pour traçabilité). */
   source?: string;
   /** URL « Modifier sur GitHub » assemblée serveur (jamais de chemin FS). */

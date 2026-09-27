@@ -86,7 +86,7 @@ export interface IHelpCommand {
   /** Ce qu'elle fait, en une phrase. */
   description: string;
   /** Le groupe d'intention déclaré par la commande. */
-  group?: string;
+  group?: string | undefined;
   /** Le module qui la porte, quand elle n'est pas intégrée. */
   module?: string;
   /**

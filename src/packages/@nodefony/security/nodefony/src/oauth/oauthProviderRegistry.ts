@@ -37,7 +37,7 @@ export interface IOAuthProviderContext {
    * champ, la forme serait ouverte dans le client et INATTEIGNABLE depuis une
    * application — donc absente.
    */
-  readonly clientAuthMethod?: OAuth2ClientAuthMethod;
+  readonly clientAuthMethod?: OAuth2ClientAuthMethod | undefined;
   /** URL de callback exacte (RFC 9700). */
   readonly redirectUri: string;
   /**
@@ -45,7 +45,7 @@ export interface IOAuthProviderContext {
    * `https://kc.example/realms/app`) — `undefined` pour les fournisseurs dont
    * l'émetteur est connu d'avance (Google) ou qui n'en publient pas (GitHub).
    */
-  readonly issuer?: string;
+  readonly issuer?: string | undefined;
 }
 
 /**

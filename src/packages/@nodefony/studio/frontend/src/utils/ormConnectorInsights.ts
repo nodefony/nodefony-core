@@ -95,24 +95,24 @@ export interface ConnectorFinding {
   /** Le constat chiffré — la mesure qui fonde le verdict. */
   detail: string;
   /** Onglet où se trouve le détail. */
-  tab?: ConnectorTab;
+  tab?: ConnectorTab | undefined;
   /** Commande ou geste proposé, à copier tel quel. */
-  command?: string;
+  command?: string | undefined;
 }
 
 /** Ce que {@link analyzeConnector} lit — tout est facultatif sauf le résumé. */
 export interface ConnectorInput {
   orm: OrmSummary;
   health?: ConnHealth | null;
-  bricks?: readonly StoreBrick[];
+  bricks?: readonly StoreBrick[] | undefined;
   entities?: readonly EntityNode[];
   /** Compte par entité de CE connecteur (`-1` = non comptable). */
-  rows?: ReadonlyMap<string, number>;
+  rows?: ReadonlyMap<string, number> | undefined;
   flow?: FlowDetail | null;
   /** Flux désactivé côté serveur (production) : pas de verdict de requêtes. */
-  flowEnabled?: boolean;
+  flowEnabled?: boolean | undefined;
   /** Seuil de lenteur publié par le flux (ms). */
-  slowMs?: number;
+  slowMs?: number | undefined;
   migrations?: MigrationReply | null;
 }
 

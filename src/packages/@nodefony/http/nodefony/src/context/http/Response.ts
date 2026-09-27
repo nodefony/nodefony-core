@@ -43,7 +43,7 @@ class HttpResponse {
   body: Buffer | null = null;
   contentType: string = "application/octet-stream";
   headers: http.OutgoingHttpHeaders = {};
-  timeout?: number; // miiliseconde
+  timeout?: number | undefined; // miiliseconde
   cookies: Record<string, Cookie> = {};
   constructor(
     response: http.ServerResponse | http2.Http2ServerResponse,

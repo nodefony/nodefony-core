@@ -5,15 +5,15 @@ import type { IRoute } from "./IRoute.js";
 import type { IController } from "./IController.js";
 
 export interface IResolver extends IRouteResolver {
-  injector?: Injector | null;
+  injector?: Injector | null | undefined;
   controller: ControllerConstructor | null;
-  actionName?: string;
-  action?: (...args: unknown[]) => unknown;
+  actionName?: string | undefined;
+  action?: ((...args: unknown[]) => unknown) | undefined;
   context: ContextType;
   readonly route: IRoute | null;
   resolve: boolean;
   variables: unknown[];
-  exception?: HttpError | Error | null;
+  exception?: HttpError | Error | null | undefined;
   acceptedProtocol: string | null;
   bypassFirewall: boolean;
 

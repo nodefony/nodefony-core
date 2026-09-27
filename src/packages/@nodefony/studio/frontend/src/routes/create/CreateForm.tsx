@@ -211,7 +211,7 @@ export interface CreateFormProps {
    * Type `entity` seulement : ce qu'il faut pour COMPOSER les champs et les index
    * au lieu de taper leur grammaire. Absent, ces questions restent des champs texte.
    */
-  entity?: { types: string[]; referenceable: string[] };
+  entity?: { types: string[]; referenceable: string[] } | undefined;
 }
 
 /** Le formulaire d'un type de scaffold : questions du dialogue + repli « Réglages avancés ». */

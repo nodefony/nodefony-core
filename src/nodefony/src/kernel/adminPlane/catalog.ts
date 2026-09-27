@@ -33,22 +33,24 @@ export interface IAdminCatalogEntry {
    * annoncé. Évalué à la lecture : c'est le store branché au démarrage qui
    * répond, pas une constante de compilation.
    */
-  page?: {
-    /** Champs sur lesquels `?sort=` est accepté. */
-    sortable: readonly string[];
-    /** Noms de filtre acceptés, tels que le vocabulaire de l'endpoint les nomme. */
-    filters: readonly string[];
-    /** L'endpoint honore-t-il `?q=` ? */
-    search: boolean;
-  };
+  page?:
+    | {
+        /** Champs sur lesquels `?sort=` est accepté. */
+        sortable: readonly string[];
+        /** Noms de filtre acceptés, tels que le vocabulaire de l'endpoint les nomme. */
+        filters: readonly string[];
+        /** L'endpoint honore-t-il `?q=` ? */
+        search: boolean;
+      }
+    | undefined;
 }
 
 /** Restriction de lecture du catalogue — sans effet sur ce qui est APPELABLE. */
 export interface IAdminCatalogQuery {
   /** Ne garder qu'un producteur. */
-  namespace?: string;
+  namespace?: string | undefined;
   /** Termes cherchés dans le chemin et le résumé ; espaces = termes CUMULATIFS. */
-  q?: string;
+  q?: string | undefined;
 }
 
 /**

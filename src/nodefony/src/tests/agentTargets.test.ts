@@ -367,7 +367,8 @@ describe("agents — DÉTECTER un agent sans exiger qu'il soit déjà câblé", 
  */
 describe("ai:mcp --agent — ce que l'exécution garantit", () => {
   it("🔴 la CLI de l'agent est lancée depuis la RACINE du projet", async () => {
-    const appels: { bin: string; argv: string[]; cwd?: string }[] = [];
+    const appels: { bin: string; argv: string[]; cwd?: string | undefined }[] =
+      [];
     vi.doMock("node:child_process", () => ({
       spawnSync: (bin: string, argv: string[], o: { cwd?: string }) => {
         appels.push({ bin, argv, cwd: o?.cwd });

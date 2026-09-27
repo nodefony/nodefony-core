@@ -81,7 +81,7 @@ export interface HintProps {
   /** Titre de la fiche (= le sujet documenté). */
   title: string;
   /** Version de la doc (badge d'en-tête, ex. « v1.0 »). */
-  version?: string;
+  version?: string | undefined;
   /** Résumé en une phrase (lead). */
   summary?: ReactNode;
   /** Paragraphes structurés (retrouvés tels quels dans la doc plus tard). */

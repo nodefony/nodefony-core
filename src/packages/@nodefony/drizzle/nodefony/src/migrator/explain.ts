@@ -115,15 +115,15 @@ export interface IMigrationEntryReport {
   /** Où en est cette migration pour CE connecteur. */
   status: "applied" | "pending" | "failed" | "drifted" | "missing";
   /** Début de l'application, en millisecondes — absent si jamais appliquée. */
-  appliedAt?: number;
+  appliedAt?: number | undefined;
   /** Durée de l'application, en millisecondes. */
-  durationMs?: number;
+  durationMs?: number | undefined;
   /** Ce qui l'a appliquée, tel que l'historique l'a retenu. */
-  appliedBy?: string;
+  appliedBy?: string | undefined;
   /** Déploiement qui l'a portée — groupe les migrations d'un même passage. */
-  runId?: string;
+  runId?: string | undefined;
   /** Motif de l'échec, quand elle a échoué. */
-  error?: string;
+  error?: string | undefined;
 }
 
 /**
@@ -163,7 +163,7 @@ export interface IMigrationReport {
    * Son ABSENCE est un fait, pas un oubli : sur une base conforme, il n'y a
    * rien à nommer.
    */
-  divergence?: ISchemaComparison;
+  divergence?: ISchemaComparison | undefined;
   /**
    * Ce que le passage a DÉTRUIT, nommé — présent au seul run réel qui a
    * appliqué une migration destructive, absent partout ailleurs.
@@ -174,7 +174,7 @@ export interface IMigrationReport {
    * octet de ce qu'il relit ne la mentionne. Son absence est un fait : rien
    * n'a été détruit.
    */
-  destructive?: IDestructiveFinding[];
+  destructive?: IDestructiveFinding[] | undefined;
   /** Tout ce qui est propre au pilote SQL vit ici, et nulle part ailleurs. */
   driver: {
     kind: "sql";
@@ -182,9 +182,9 @@ export interface IMigrationReport {
     ddl: string;
     historyTable: string;
     /** La base visée, sans identifiant ni mot de passe. */
-    target?: string;
+    target?: string | undefined;
     /** `true` quand la cible vient de `NF_MIGRATE_DATABASE_URL`. */
-    fromMigrateUrl?: boolean;
+    fromMigrateUrl?: boolean | undefined;
   };
 }
 

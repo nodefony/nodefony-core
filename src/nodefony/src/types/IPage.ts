@@ -27,31 +27,31 @@ export interface IPageQuery {
    * Décalage depuis le début de la collection filtrée (mode **offset**). Défaut `0`.
    * Mutuellement exclusif avec {@link IPageQuery.cursor} : un backend n'expose qu'un mode.
    */
-  offset?: number;
+  offset?: number | undefined;
 
   /**
    * Jeton de page (mode **curseur**) : ne renvoyer que les éléments situés « après »
    * lui dans l'ordre du store. Obtenu du {@link IPage.nextCursor} de la page précédente.
    */
-  cursor?: string;
+  cursor?: string | undefined;
 
   /**
    * Tri : couples `[champ, sens]`. Format **tableau** (une clé d'objet inconnue serait
    * silencieusement ignorée). Champs autorisés = définis par le store.
    */
-  order?: Array<[string, "ASC" | "DESC"]>;
+  order?: Array<[string, "ASC" | "DESC"]> | undefined;
 
   /**
    * Renvoyer le total exact ({@link IPage.total}) ou non. `true` par défaut.
    * `false` = mode « Slice » : on saute le `COUNT` coûteux, {@link IPage.hasNext} suffit.
    */
-  withTotal?: boolean;
+  withTotal?: boolean | undefined;
 
   /**
    * Recherche plein-texte best-effort — le **champ** ciblé et la sémantique (préfixe /
    * sous-chaîne / casse) sont définis par chaque store et documentés côté store.
    */
-  q?: string;
+  q?: string | undefined;
 
   /**
    * **RÉSERVÉ multi-tenant** — slot du contrat pour le scoping par tenant, appliqué
@@ -61,7 +61,7 @@ export interface IPageQuery {
    *   Présent dès maintenant pour ne pas re-changer la signature d'un contrat public
    *   propagé à tous les stores plus tard.
    */
-  tenantId?: string | null;
+  tenantId?: string | null | undefined;
 }
 
 /**
@@ -94,7 +94,7 @@ export interface ISortableSource {
    * Champs triables, en **noms publics** (ceux de l'URL), ou absent si ce
    * backend ne sait pas trier.
    */
-  readonly sortableFields?: readonly string[];
+  readonly sortableFields?: readonly string[] | undefined;
 }
 
 /**
@@ -113,7 +113,7 @@ export interface IPage<T> {
    * Total exact de la collection filtrée — présent si {@link IPageQuery.withTotal}
    * n'est pas `false` **et** que le backend sait compter à coût raisonnable.
    */
-  total?: number;
+  total?: number | undefined;
 
   /** Taille de page demandée (écho de {@link IPageQuery.limit}). */
   limit: number;

@@ -24,9 +24,9 @@ interface TaggedListener {
 /** Tags relus depuis un listener (valeurs `undefined` si non tagué). */
 export interface IListenerTags {
   /** Nom du module propriétaire du hook, ou `undefined` (listener interne/anonyme). */
-  owner?: string;
+  owner?: string | undefined;
   /** Criticité déclarée du module, ou `undefined` (→ traité comme critique par défaut). */
-  critical?: boolean;
+  critical?: boolean | undefined;
   /**
    * Nom de la FONCTION listener, quand elle en a un — repli d'identification
    * pour les hooks posés à la main (`kernel.on("onBoot", …)`), qui ne portent
@@ -34,7 +34,7 @@ export interface IListenerTags {
    * désigne personne : en production, où l'échec interrompt le boot, le seul
    * indice exploitable disparaît. `undefined` pour une lambda inline anonyme.
    */
-  name?: string;
+  name?: string | undefined;
 }
 
 /**

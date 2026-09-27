@@ -19,15 +19,15 @@ export interface DocPageHeaderProps {
   /** Titre principal de la page (h2 — la page hôte porte le h1 global). */
   title: string;
   /** Version affichée en badge (ex : "v1.2.0", "v0.1-démo"). */
-  version?: string;
+  version?: string | undefined;
   /** Statut : "stable" · "draft" · "temporary" · "experimental" · "deprecated". */
-  status?: string;
+  status?: string | undefined;
   /** Marque "à venir" — page non livrée. */
   wip?: boolean;
   /** Date ISO ou Date — rendue "Mis à jour le 27 mai 2026". */
-  updated?: string | Date;
+  updated?: string | Date | undefined;
   /** URL absolue de la source markdown ("Modifier sur GitHub"). */
-  sourceUrl?: string;
+  sourceUrl?: string | undefined;
   /** Actions à droite (filtre persona, switch live…). */
   actions?: ReactNode;
 }

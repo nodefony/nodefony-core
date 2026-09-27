@@ -108,7 +108,7 @@ interface IValidationField {
   /** Message lisible. */
   message: string;
   /** Contrôle qui a échoué (`too_small`…) — utile au client pour réagir finement. */
-  rule?: string;
+  rule?: string | undefined;
 }
 
 /**
@@ -159,7 +159,7 @@ function toValidationError(
     `Validation failed — ${summary}`,
     VALIDATION_STATUS,
   );
-  validation.stack = error.stack;
+  if (error.stack !== undefined) validation.stack = error.stack;
   (validation as nodefonyError & { fields: IValidationField[] }).fields =
     fields;
   return validation;
@@ -578,7 +578,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
         UNIQUE_VIOLATION_MESSAGE,
         CONFLICT_STATUS,
       );
-      conflict.stack = error.stack;
+      if (error.stack !== undefined) conflict.stack = error.stack;
       return new HttpError(
         conflict,
         CONFLICT_STATUS,
@@ -594,7 +594,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
         `Conflict — this resource is still referenced by ${referencedBy}`,
         CONFLICT_STATUS,
       );
-      conflict.stack = error.stack;
+      if (error.stack !== undefined) conflict.stack = error.stack;
       return new HttpError(
         conflict,
         CONFLICT_STATUS,
@@ -615,7 +615,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
           : "Bad Request — malformed identifier",
         status,
       );
-      refused.stack = error.stack;
+      if (error.stack !== undefined) refused.stack = error.stack;
       return new HttpError(refused, status, context as unknown as undefined);
     }
     // Le `code` n'est passé que s'il est numérique : `HttpError` pose

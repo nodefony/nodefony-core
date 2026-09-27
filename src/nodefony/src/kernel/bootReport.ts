@@ -27,7 +27,7 @@ export interface IBootFailure {
    */
   phase: "load" | "lifecycle" | "init";
   /** `true` si l'échec est un dépassement du timeout de boot. */
-  timedOut?: boolean;
+  timedOut?: boolean | undefined;
 }
 
 /**
@@ -52,7 +52,7 @@ export interface IBootServerInfo {
   /** Port d'écoute effectif. */
   port: number;
   /** Adresse de bind (`127.0.0.1`, `0.0.0.0`…), si connue. */
-  address?: string;
+  address?: string | undefined;
   /** URL complète d'accès (`scheme://host:port`) — cliquable au terminal. */
   url: string;
 }
@@ -112,5 +112,5 @@ export interface IBootReport {
    * npm run clean && npm run build » quand un `import()` échoue). `undefined` si
    * aucune heuristique ne matche. Source unique partagée par le log et l'écran.
    */
-  remediation?: string;
+  remediation?: string | undefined;
 }

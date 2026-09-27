@@ -218,7 +218,7 @@ function PodStat({
 }: {
   label: string;
   value: string;
-  color?: MantineColor;
+  color?: MantineColor | undefined;
 }) {
   return (
     <div>

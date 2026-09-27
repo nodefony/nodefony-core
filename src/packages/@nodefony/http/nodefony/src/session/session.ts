@@ -25,24 +25,24 @@ import type {
  * hash chiffré « maison ».
  */
 export type OptionsSessionType = {
-  name?: string;
-  cookie?: CookieOptionsType;
+  name?: string | undefined;
+  cookie?: CookieOptionsType | undefined;
   /** Strict mode : un identifiant inconnu du storage → nouvelle session (anti-fixation). */
-  strictMode?: boolean;
+  strictMode?: boolean | undefined;
   /** Lie la session à l'hôte (méta `host`) — rejette un changement d'origine. */
-  refererCheck?: boolean;
+  refererCheck?: boolean | undefined;
   /**
    * Idle timeout (NIST/OWASP, secondes) : inactivité MAX depuis la dernière
    * activité (`updatedAt`, rafraîchi par le touch). `0`/absent = pas d'expiration
    * par inactivité. Enforcement serveur ({@link Session.isValidSession} + GC).
    */
-  idleTimeoutS?: number;
+  idleTimeoutS?: number | undefined;
   /**
    * Absolute timeout (OWASP, secondes) : durée de vie MAX depuis la création,
    * indépendante de l'activité. Borne la fenêtre d'exploitation d'un identifiant
    * volé même sur session active. `0`/absent = désactivé (seul l'idle s'applique).
    */
-  absoluteTimeoutS?: number;
+  absoluteTimeoutS?: number | undefined;
 };
 
 const defaultSessionOptions: OptionsSessionType = {
@@ -83,13 +83,13 @@ class Session implements ISession {
    * aucune écriture storage.
    */
   readOnly: boolean = false;
-  context?: ContextType;
-  created?: Date;
-  updated?: Date;
+  context?: ContextType | undefined;
+  created?: Date | undefined;
+  updated?: Date | undefined;
   options: OptionsSessionType;
   cookieSession: Cookie | null = null;
-  lifetime?: number;
-  user?: string;
+  lifetime?: number | undefined;
+  user?: string | undefined;
   strategy: SessionStrategyType;
 
   // ⚠️ Objets LITTÉRAUX `{}` (PAS `Object.create(null)`) : les sacs sont sérialisés

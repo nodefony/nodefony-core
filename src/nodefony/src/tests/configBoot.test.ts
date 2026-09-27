@@ -433,7 +433,7 @@ describe("config — NF__APP__* (override env de la config app)", () => {
 
     it("override appliqué → INFO ; chemin inconnu → WARNING « did you mean »", () => {
       const k = makeKernelReal();
-      const logs: Array<{ msg: string; sev?: string }> = [];
+      const logs: Array<{ msg: string; sev?: string | undefined }> = [];
       (k as unknown as { log: (m: string, s?: string) => void }).log = (
         m: string,
         s?: string,

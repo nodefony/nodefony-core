@@ -101,7 +101,7 @@ class RevocationGuardStorage implements ISessionStorage {
    * Comme ce décorateur est posé en production dès qu'une révocation est
    * possible, l'oubli aurait désactivé le tri **partout**.
    */
-  readonly sortableFields?: readonly string[];
+  readonly sortableFields?: readonly string[] | undefined;
 
   constructor(inner: ISessionStorage) {
     this.inner = inner;

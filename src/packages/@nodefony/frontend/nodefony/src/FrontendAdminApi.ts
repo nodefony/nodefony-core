@@ -97,7 +97,7 @@ export interface IViteInstanceView {
   /** Échecs de health-check du superviseur. */
   healthFailures: number;
   /** Entrées servies — nom logique + type + version du framework UI. */
-  entries: { entryName: string; type: string; version?: string }[];
+  entries: { entryName: string; type: string; version?: string | undefined }[];
 }
 
 /** Snapshot frontend servi par l'endpoint `vite`. */
@@ -105,7 +105,7 @@ export interface IFrontendStatusView {
   /** Au moins une instance Vite `ready` (HMR actif). */
   available: boolean;
   /** Version de Vite (le builder), si résolue. */
-  vite?: string;
+  vite?: string | undefined;
   /** Instance principale (famille `default` ou la première). */
   primary: IViteInstanceView;
   /** Toutes les instances (multi-bundle). */

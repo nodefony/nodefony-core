@@ -32,7 +32,7 @@ export function UserAvatar({
   size = 64,
 }: {
   profile: AvatarProfile;
-  identifier?: string;
+  identifier?: string | undefined;
   size?: number;
 }) {
   const [gravatar, setGravatar] = useState<string | null>(null);
@@ -278,7 +278,7 @@ export function AvatarUpload({
   profile: AvatarProfile;
   identifier?: string;
   onChange: (picture: string) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }) {
   const notifications = useNotifications();
   const [src, setSrc] = useState<string | null>(null);

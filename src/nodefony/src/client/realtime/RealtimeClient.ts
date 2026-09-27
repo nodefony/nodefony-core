@@ -100,16 +100,16 @@ export type RealtimeState =
   "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
 
 export interface RealtimeOptions {
-  url?: string;
-  token?: string | null;
+  url?: string | undefined;
+  token?: string | null | undefined;
   /** Reconnexion auto. Défaut: true. */
-  autoReconnect?: boolean;
+  autoReconnect?: boolean | undefined;
   /** Délai initial entre tentatives (ms). Défaut: 1000. */
-  reconnectDelay?: number;
+  reconnectDelay?: number | undefined;
   /** Délai max entre tentatives (ms). Défaut: 30000. */
-  reconnectDelayMax?: number;
+  reconnectDelayMax?: number | undefined;
   /** Heartbeat ping interval (ms). Défaut: 30000. */
-  heartbeatInterval?: number;
+  heartbeatInterval?: number | undefined;
   /**
    * Annoncer le framework dans la console du navigateur ? Défaut : oui.
    *
@@ -119,7 +119,7 @@ export interface RealtimeOptions {
    * `false` fait taire l'annonce ET le handle, pour une application publiée qui
    * ne veut rien dans la console de ses utilisateurs.
    */
-  banner?: boolean;
+  banner?: boolean | undefined;
 }
 
 type EventHandler = (...args: unknown[]) => void;
@@ -142,9 +142,9 @@ export interface RealtimeFrame {
   /** Méthode (notification/requête) ou `response`/`error`/`stream`. */
   kind: string;
   /** id JSON-RPC (requêtes/réponses), si présent. */
-  id?: number;
+  id?: number | undefined;
   /** Canal pub/sub (`params.channel`), si présent. */
-  channel?: string;
+  channel?: string | undefined;
   /** Payload affichable — champs sensibles **redactés** (token/secret…). */
   payload: unknown;
 }

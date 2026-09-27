@@ -106,9 +106,9 @@ function NavEntry({
   active: boolean;
   rail: boolean;
   rightSection?: React.ReactNode;
-  dimmed?: boolean;
+  dimmed?: boolean | undefined;
   pinned?: boolean;
-  onTogglePin?: () => void;
+  onTogglePin?: (() => void) | undefined;
 }) {
   if (rail) {
     return (

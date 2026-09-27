@@ -17,11 +17,11 @@ export interface LiveGraphSectionProps {
   /** Composant à monter (signature `{ live?, height? }`). */
   LiveGraph: ComponentType<{ live?: boolean; height?: number }>;
   /** Hauteur du graphe (px). */
-  height?: number;
+  height?: number | undefined;
   /** Titre du bloc (défaut : « Schéma live »). */
-  title?: string;
+  title?: string | undefined;
   /** Description courte. */
-  hint?: string;
+  hint?: string | undefined;
 }
 
 export function LiveGraphSection({

@@ -104,7 +104,7 @@ function context(
 /** Extrait le contenu textuel d'un `tools/call` réussi. */
 function toolText(reply: { body: unknown }): {
   text: string;
-  isError?: boolean;
+  isError?: boolean | undefined;
 } {
   const result = (
     reply.body as {

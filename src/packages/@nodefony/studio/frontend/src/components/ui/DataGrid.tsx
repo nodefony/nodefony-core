@@ -119,28 +119,28 @@ export interface DataGridColumnFilter {
 export interface DataGridColumn<T> {
   key: string;
   header: string;
-  align?: "left" | "right";
-  sortable?: boolean;
+  align?: "left" | "right" | undefined;
+  sortable?: boolean | undefined;
   /** Active le filtre par colonne (ligne de filtres inline sous l'en-tête). */
-  filterable?: boolean;
+  filterable?: boolean | undefined;
   /**
    * Type de filtre (défaut `"text"`). `"select"` → une valeur ;
    * `"multiselect"` → plusieurs (opérateur « est l'un de »), pour une colonne
    * dont le domaine est fermé et court : méthodes HTTP, statuts, sévérités.
    */
-  filterType?: DataGridFilterType;
+  filterType?: DataGridFilterType | undefined;
   /**
    * Options des filtres `select`/`multiselect` — REQUIS en mode serveur (le
    * grid n'a qu'une page, il ne peut pas déduire le domaine) ; déduit par
    * faceting en mode client.
    */
-  filterOptions?: string[];
-  hint?: string;
-  render?: (row: T) => ReactNode;
+  filterOptions?: string[] | undefined;
+  hint?: string | undefined;
+  render?: ((row: T) => ReactNode) | undefined;
   /** Valeur scalaire — tri + recherche + filtre, et affichage par défaut. */
-  value?: (row: T) => string | number | null;
+  value?: ((row: T) => string | number | null) | undefined;
   /** Largeur initiale (px) — la colonne reste redimensionnable. */
-  size?: number;
+  size?: number | undefined;
 }
 
 export interface DataGridSort {
@@ -183,8 +183,8 @@ interface BaseProps<T> {
   pageSize?: number;
   pageSizeOptions?: number[];
   emptyMessage?: string;
-  height?: number | string;
-  initialSort?: DataGridSort;
+  height?: number | string | undefined;
+  initialSort?: DataGridSort | undefined;
   searchable?: boolean;
   searchPlaceholder?: string;
   /**
@@ -202,7 +202,7 @@ interface BaseProps<T> {
    * devrait être resynchronisé à chaque restauration — la panne exacte qu'on
    * corrige, mais dans l'autre sens.
    */
-  onSearchChange?: (term: string) => void;
+  onSearchChange?: ((term: string) => void) | undefined;
   /** Message affiché dans l'overlay de chargement (défaut « Chargement… »). */
   loadingMessage?: string;
   /** Sauvegarde/restaure l'état dans le storage navigateur (+ bouton « effacer »). */
@@ -226,7 +226,8 @@ interface BaseProps<T> {
    * visible uniquement si `selectable` ET au moins une ligne cochée. Reçoit les
    * lignes sélectionnées (`T[]`) + `clearSelection()` pour tout désélectionner.
    */
-  bulkActions?: (selectedRows: T[], clearSelection: () => void) => ReactNode;
+  bulkActions?:
+    ((selectedRows: T[], clearSelection: () => void) => ReactNode) | undefined;
 }
 
 /** Mode CLIENT : `data` complet → TanStack trie/filtre/pagine en mémoire. */
@@ -341,10 +342,10 @@ declare module "@tanstack/react-table" {
     TData extends RowData,
     TValue,
   > {
-    align?: "left" | "right";
-    filterType?: DataGridFilterType;
-    filterOptions?: string[];
-    hint?: string;
+    align?: "left" | "right" | undefined;
+    filterType?: DataGridFilterType | undefined;
+    filterOptions?: string[] | undefined;
+    hint?: string | undefined;
   }
 }
 
@@ -791,7 +792,8 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
         header: col.header,
         enableSorting: col.sortable ?? false,
         enableColumnFilter: col.filterable ?? false,
-        size: col.size,
+        // TanStack lit la PRÉSENCE de `size` : clé absente, jamais `undefined`.
+        ...(col.size !== undefined && { size: col.size }),
         filterFn: operatorFilter as FilterFn<GridFeatures, T>,
         cell: (ctx) =>
           col.render ? col.render(ctx.row.original) : valueText(ctx.getValue()),
@@ -839,7 +841,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
     manualPagination: isServer,
     manualSorting: isServer,
     manualFiltering: isServer,
-    rowCount: isServer ? serverTotal : undefined,
+    ...(isServer && { rowCount: serverTotal }),
   });
 
   const loading = isServer ? serverLoading : (props.loading ?? false);

@@ -158,8 +158,8 @@ export function SessionPolicyBadge({
   absoluteTimeoutS,
 }: {
   revocationHardened: boolean;
-  idleTimeoutS?: number | null;
-  absoluteTimeoutS?: number | null;
+  idleTimeoutS?: number | null | undefined;
+  absoluteTimeoutS?: number | null | undefined;
 }): ReactNode {
   const idle = formatDelay(idleTimeoutS);
   const absolute = formatDelay(absoluteTimeoutS);

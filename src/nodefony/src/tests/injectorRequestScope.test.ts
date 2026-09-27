@@ -27,7 +27,7 @@ import {
   Inject,
 } from "../kernel/decorators/kernelDecorator";
 
-type Logged = { pci: unknown; severity?: string };
+type Logged = { pci: unknown; severity?: string | undefined };
 const logged: Logged[] = [];
 
 // Décor d'un serveur réel : la racine porte le journal ; les scopes en héritent.

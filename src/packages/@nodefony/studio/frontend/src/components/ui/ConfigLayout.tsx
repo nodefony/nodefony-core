@@ -69,16 +69,16 @@ export type ConfigSchemaStatus = "zod" | "partial" | "none";
  * REND ce descripteur, il ne parse jamais le schéma lui-même.
  */
 export type ConfigEditControl =
-  | { kind: "select"; options: string[]; nullable?: boolean }
+  | { kind: "select"; options: string[]; nullable?: boolean | undefined }
   | { kind: "switch" }
   | {
       kind: "number";
-      min?: number;
-      max?: number;
-      integer?: boolean;
-      nullable?: boolean;
+      min?: number | undefined;
+      max?: number | undefined;
+      integer?: boolean | undefined;
+      nullable?: boolean | undefined;
     }
-  | { kind: "text"; nullable?: boolean };
+  | { kind: "text"; nullable?: boolean | undefined };
 
 /** Verdict d'une tentative d'édition live (autoritaire = serveur). */
 export interface EditResult {
@@ -92,7 +92,7 @@ export interface ConfigField {
   /** Clé (`headerServer`, `session.store`, `upload.uploadDir`…). */
   key: string;
   /** Type/forme issu du schéma Zod (`enum`, `string`, `number`, `boolean`, `url`…). */
-  type?: string;
+  type?: string | undefined;
   /** Valeurs possibles / contrainte (enum, min/max, nullable) issue de Zod. */
   constraint?: ReactNode;
   /** Valeur par défaut (schéma / framework). */
@@ -102,31 +102,31 @@ export interface ConfigField {
   /** Mutabilité runtime (du flag `runtimeMutable`). */
   mutability: ConfigMutability;
   /** Réservé à une feature future (flag `reserved`) — non lu en runtime. */
-  reserved?: boolean;
+  reserved?: boolean | undefined;
   /** Défaut dérivé du kernel (flag `kernelDerived`) — affiché « auto ». */
-  kernelDerived?: boolean;
+  kernelDerived?: boolean | undefined;
   /** Donnée sensible (flag `secret`) — masquée. */
-  secret?: boolean;
+  secret?: boolean | undefined;
   /**
    * Valeur EFFECTIVE (mode effectif). Si AUCUN champ n'en porte, l'écran reste en
    * mode schéma (colonnes effective/provenance masquées).
    */
   effective?: ReactNode;
   /** Provenance de la valeur effective (requise en mode effectif). */
-  source?: ConfigSource;
+  source?: ConfigSource | undefined;
   /** Variable d'environnement associée (12-factor). */
-  env?: string;
+  env?: string | undefined;
   /**
    * Recette d'override `NF__<SEG>__<CHEMIN>` (12-factor) — comment surcharger ce
    * champ au déploiement sans toucher au code. Rendue dans la colonne « Recette »
    * avec un bouton copier (injectée par `withOverrideKeys`).
    */
-  recipe?: string;
+  recipe?: string | undefined;
   /**
    * Contrôle d'édition à dériver (champ `runtimeMutable` non secret uniquement).
    * Absent = non éditable inline (lecture seule, recette d'override pour le reste).
    */
-  editControl?: ConfigEditControl;
+  editControl?: ConfigEditControl | undefined;
   /** Valeur courante BRUTE (initialise le contrôle d'édition). */
   editValue?: unknown;
 }
@@ -157,7 +157,8 @@ export interface ConfigLayoutProps {
    * Applique une édition : renvoie le verdict serveur (succès/refus). La page
    * branche ici son `PATCH …/config/{module}` + toast + refetch de provenance.
    */
-  onEdit?: (field: ConfigField, value: unknown) => Promise<EditResult>;
+  onEdit?:
+    ((field: ConfigField, value: unknown) => Promise<EditResult>) | undefined;
 }
 
 const SOURCE_META: Record<

@@ -106,15 +106,15 @@ function hasInitialize(
 }
 
 class Resolver implements IResolver {
-  injector?: Injector | null;
+  injector?: Injector | null | undefined;
   controller: ControllerConstructor | null = null;
-  actionName?: string;
-  action?: (...args: unknown[]) => unknown;
+  actionName?: string | undefined;
+  action?: ((...args: unknown[]) => unknown) | undefined;
   context: ContextType;
   route: Route | null = null;
   resolve: boolean = false;
   variables: unknown[] = [];
-  exception?: HttpError | Error | null;
+  exception?: HttpError | Error | null | undefined;
   acceptedProtocol: string | null = null;
   bypassFirewall: boolean = false;
   /**

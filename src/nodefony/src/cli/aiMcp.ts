@@ -643,7 +643,7 @@ function writeAgentFile(
     projectRoot: string;
     url: string;
     remove: boolean;
-    auth?: boolean;
+    auth?: boolean | undefined;
   },
 ): IDeclarationResult {
   // `path.join` sur un chemin écrit en `/` : il VOYAGE dans la table, on

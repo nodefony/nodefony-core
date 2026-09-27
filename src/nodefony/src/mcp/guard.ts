@@ -19,9 +19,9 @@ export type GuardVerdict = { allowed: true } | { allowed: false; why: string };
 /** Ce que la garde a besoin de savoir d'une requête. */
 export interface IGuardInput {
   /** En-tête `Origin`, `undefined` s'il est absent. */
-  origin?: string;
+  origin?: string | undefined;
   /** Adresse distante de la connexion (`socket.remoteAddress`). */
-  remoteAddress?: string;
+  remoteAddress?: string | undefined;
 }
 
 /** Réglages qui gouvernent les gardes (viennent de la config du module). */

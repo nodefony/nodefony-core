@@ -28,7 +28,7 @@ const existsAsync = async (p: string): Promise<boolean> => {
 };
 
 export class upload extends Service {
-  path?: string | fs.PathLike;
+  path?: string | fs.PathLike | undefined;
   module: Module;
   constructor(
     module: Module,

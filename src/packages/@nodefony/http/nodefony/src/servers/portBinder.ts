@@ -82,14 +82,16 @@ export interface BindResult {
 
 /** Forme lue de `kernel.options.servers` (lecture structurelle, pas d'import core). */
 export interface ServersPortConfig {
-  http?: { port?: number } | false;
-  https?: { port?: number } | false;
+  http?: { port?: number | undefined } | false;
+  https?: { port?: number | undefined } | false;
   portPolicy?: PortPolicy;
   portRetryAttempts?: number;
 }
 
 /** Port configuré d'un serveur, ou `0` (désactivé / non précisé → choix noyau). */
-function configuredPort(entry: { port?: number } | false | undefined): number {
+function configuredPort(
+  entry: { port?: number | undefined } | false | undefined,
+): number {
   if (!entry) return 0;
   return entry.port ?? 0;
 }

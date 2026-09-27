@@ -34,13 +34,13 @@ const jsonHttpError: JsonDescriptor = {
 };
 
 class HttpError extends NodefonyError {
-  context?: ContextType;
-  response?: HttpRsponseType;
-  request?: HttpRequestType;
-  url?: string;
-  controller?: string;
-  action?: string;
-  jsonResponse?: string;
+  context?: ContextType | undefined;
+  response?: HttpRsponseType | undefined;
+  request?: HttpRequestType | undefined;
+  url?: string | undefined;
+  controller?: string | undefined;
+  action?: string | undefined;
+  jsonResponse?: string | undefined;
   constructor(
     // `unknown` et non une union : l'union `… | any` acceptait déjà TOUT en
     // silence. Les appelants passent aussi des objets (charge JSON d'une

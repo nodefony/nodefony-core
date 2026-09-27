@@ -21,13 +21,13 @@ export interface NodefonyNotice {
   /** Sévérité d'affichage. */
   level: NoticeLevel;
   /** Titre court (gras), optionnel. */
-  title?: string;
+  title?: string | undefined;
   /** Message lisible (déjà localisé FR). */
   message: string;
   /** Origine — `realtime` (transport WS), `api` (data plane HTTP), `server` (push). */
   source: "realtime" | "api" | "server";
   /** Code corrélé : close code WS, status HTTP ou code d'erreur JSON-RPC. */
-  code?: number;
+  code?: number | undefined;
   /** Timestamp (ms epoch) de production. */
   ts: number;
 }

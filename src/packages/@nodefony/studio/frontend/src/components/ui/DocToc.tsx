@@ -88,7 +88,7 @@ export function extractHeadings(
 export interface DocTocProps {
   markdown: string;
   /** Conteneur scrollable (viewport ScrollArea) pour le scrollspy. Sinon viewport. */
-  scrollRootRef?: RefObject<HTMLElement | null>;
+  scrollRootRef?: RefObject<HTMLElement | null> | undefined;
   minLevel?: number;
   maxLevel?: number;
   /**

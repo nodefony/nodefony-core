@@ -74,12 +74,16 @@ export function buildClientOptions(
   }
 
   const socket = { ...global.socket, ...connection.socket };
+  // Clé ABSENTE, jamais `undefined` : le client redis lit la présence d'une
+  // option, pas sa valeur (`exactOptionalPropertyTypes`).
   options.socket = {
-    host: socket.host,
-    port: socket.port,
-    family: socket.family,
-    connectTimeout: socket.connectTimeout,
-    tls: socket.tls ? true : undefined,
+    ...(socket.host !== undefined && { host: socket.host }),
+    ...(socket.port !== undefined && { port: socket.port }),
+    ...(socket.family !== undefined && { family: socket.family }),
+    ...(socket.connectTimeout !== undefined && {
+      connectTimeout: socket.connectTimeout,
+    }),
+    ...(socket.tls && { tls: true as const }),
     reconnectStrategy,
   };
   return options;

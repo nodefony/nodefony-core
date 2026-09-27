@@ -106,9 +106,9 @@ export interface IMigrationVerdict {
   /** Connecteur concerné. */
   connector: string;
   /** Source de migrations concernée, quand le refus en désigne une. */
-  source?: string;
+  source?: string | undefined;
   /** Tag concerné, quand le refus en désigne un. */
-  tag?: string;
+  tag?: string | undefined;
   /** Faits constatés, sans mise en forme — de quoi rendre la phrase. */
   facts: Record<string, string | number | boolean | readonly string[]>;
   /** Ce qu'il faut faire ensuite, du plus direct au plus assumé. */

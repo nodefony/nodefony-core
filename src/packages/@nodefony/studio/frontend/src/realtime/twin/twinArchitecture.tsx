@@ -181,10 +181,10 @@ export function mapTwinArchLive(
 
 /** Un événement de log normalisé (best-effort, frontière isomorphe). */
 export interface LogPulse {
-  requestId?: string;
+  requestId?: string | undefined;
   severity: string;
   message: string;
-  module?: string;
+  module?: string | undefined;
   ts: number;
 }
 

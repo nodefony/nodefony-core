@@ -10,7 +10,7 @@ type FakeSchema = { fields: string[] };
 class FakeEntity extends Entity<FakeSchema> {
   readonly name: string;
   readonly connector: string;
-  override readonly relations?: ReadonlyArray<IEntityRelation>;
+  override readonly relations?: ReadonlyArray<IEntityRelation> | undefined;
   #schemaCalls = 0;
 
   constructor(

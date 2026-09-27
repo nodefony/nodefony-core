@@ -235,7 +235,7 @@ function AltLoginMethods({
   busy: boolean;
   disabled: boolean;
   /** Mode déjà proposé en action primaire (« rebonjour ») → masqué ici (0 doublon). */
-  exclude?: string;
+  exclude?: string | undefined;
 }) {
   // Affiche TOUT ce que le serveur envoie : lui seul lit la configuration, et
   // c'est lui qui a déjà retiré les fournisseurs déclarés `hidden` (fixtures de

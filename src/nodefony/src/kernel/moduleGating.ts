@@ -24,7 +24,7 @@ export type GateConfig = Parameters<
 /** Une entrée retenue, prête à charger. */
 export interface IModuleEntry {
   name: string;
-  config?: Record<string, unknown>;
+  config?: Record<string, unknown> | undefined;
 }
 
 /** Un module volontairement écarté, avec la raison qui le dit. */

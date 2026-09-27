@@ -45,7 +45,7 @@ export interface IContractRunOptions {
   /** Clé UNIQUE d'ORM (isole l'entité sonde dans le registre process-wide). */
   connector: string;
   /** Options de connexion (filename sqlite / url pg-mysql). */
-  connection: { filename?: string; url?: string };
+  connection: { filename?: string; url?: string | undefined };
 }
 
 /**

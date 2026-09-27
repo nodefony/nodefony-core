@@ -267,7 +267,7 @@ const REGISTRARS = [
 export async function buildDerivedDatabase(
   connector: string,
   dialect: SqlDialect,
-  connection: { filename?: string; url?: string },
+  connection: { filename?: string; url?: string | undefined },
 ): Promise<DrizzleOrm> {
   for (const register of REGISTRARS) {
     register(connector, dialect);

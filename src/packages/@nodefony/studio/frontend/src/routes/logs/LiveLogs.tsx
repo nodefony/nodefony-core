@@ -69,7 +69,7 @@ export interface LiveLogsProps {
   /** Clic sur une ligne → détail (drawer géré par l'orchestrateur). */
   onSelect: (rec: LogRecord) => void;
   /** Topologie cluster (méta backplane) → note « flux d'un seul worker ». */
-  cluster?: ClusterTopology | null;
+  cluster?: ClusterTopology | null | undefined;
 }
 
 export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {

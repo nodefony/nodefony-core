@@ -112,7 +112,7 @@ export interface LogExplorerProps {
   /** Incrémenté à chaque switch de driver → force un rechargement. */
   refreshKey?: number;
   /** Topologie cluster (méta backplane) → avertissement de vue partielle. */
-  cluster?: ClusterTopology | null;
+  cluster?: ClusterTopology | null | undefined;
 }
 
 export const LogExplorer = observer(

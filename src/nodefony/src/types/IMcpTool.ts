@@ -26,7 +26,7 @@
  */
 export interface IMcpToolResult {
   content: { type: "text"; text: string }[];
-  isError?: boolean;
+  isError?: boolean | undefined;
 }
 
 /**
@@ -69,7 +69,7 @@ export interface IMcpCaller {
    */
   roles: readonly string[];
   /** Sujet du jeton (`sub`), pour l'audit et pour filtrer les données rendues. */
-  subject?: string;
+  subject?: string | undefined;
 }
 
 /** Un outil tel que `tools/list` le publie — sans son implémentation. */
@@ -138,7 +138,7 @@ export interface IMcpTool extends IMcpToolDefinition {
    * revanche de le faire varier PAR CONNEXION : c'est pourquoi la décision se
    * prend sur les identifiants de la requête, jamais sur un état retenu.
    */
-  scopes?: readonly string[];
+  scopes?: readonly string[] | undefined;
   /**
    * Exige une identité prouvée, sans scope particulier.
    *
@@ -146,7 +146,7 @@ export interface IMcpTool extends IMcpToolDefinition {
    * {@link IMcpCaller.subject} — « mes commandes », « mes tâches ». Déclarer
    * des {@link IMcpTool.scopes} l'implique déjà.
    */
-  requiresAuth?: boolean;
+  requiresAuth?: boolean | undefined;
   /**
    * Implémentation. Un échec métier se rend en `isError`, pas en exception.
    *

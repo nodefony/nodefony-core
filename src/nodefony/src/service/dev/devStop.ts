@@ -233,7 +233,10 @@ function allRuntimesOfThisPoste(
  */
 export async function runStopReport(
   cwd: string,
-  opts: { all?: boolean; target?: string } & DevObservationDeps = {},
+  opts: {
+    all?: boolean;
+    target?: string | undefined;
+  } & DevObservationDeps = {},
 ): Promise<number> {
   const tag = `${ANSI.dim}[stop]${ANSI.reset}`;
   const write = opts.write ?? ((chunk: string) => writeSync(1, chunk));

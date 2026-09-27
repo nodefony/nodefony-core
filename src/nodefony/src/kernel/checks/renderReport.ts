@@ -204,8 +204,12 @@ export function reportIsClear(report: IDoctorReport): boolean {
  */
 export function groupByReason(
   skipped: readonly ISkippedCheck[],
-): { titles: string[]; reason: string; unlock?: string }[] {
-  const groups: { titles: string[]; reason: string; unlock?: string }[] = [];
+): { titles: string[]; reason: string; unlock?: string | undefined }[] {
+  const groups: {
+    titles: string[];
+    reason: string;
+    unlock?: string | undefined;
+  }[] = [];
   for (const check of skipped) {
     const existing = groups.find(
       (g) => g.reason === check.reason && g.unlock === check.unlock,

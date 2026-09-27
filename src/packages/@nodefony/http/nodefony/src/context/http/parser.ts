@@ -295,7 +295,7 @@ class ParserJson extends Parser {
 type AcceptEntry = {
   type: RegExp;
   subtype: RegExp;
-  q?: number;
+  q?: number | undefined;
   [key: string]: RegExp | number | string | undefined;
 };
 

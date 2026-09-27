@@ -29,7 +29,7 @@ export interface IWebAuthnCredentialSummary {
   /** Compteur de signatures (anti-clone WebAuthn §6.1.1). */
   readonly signCount: number;
   /** Nom donné à l'appareil par l'utilisateur, si renseigné. */
-  readonly nickname?: string;
+  readonly nickname?: string | undefined;
   /** Enrôlement (epoch ms). */
   readonly createdAt: number;
   /** Dernière authentification réussie (epoch ms), ou `null` = jamais servie. */

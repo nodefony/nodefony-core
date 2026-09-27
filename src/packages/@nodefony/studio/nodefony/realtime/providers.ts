@@ -25,11 +25,11 @@ export type Publish = (channel: string, payload: unknown) => void;
 
 /** Métadonnées applicatives statiques poussées avec `nodefony:supervision`. */
 export interface AppMeta {
-  name?: string;
-  version?: string;
-  env?: string;
-  debug?: boolean;
-  branch?: string;
+  name?: string | undefined;
+  version?: string | undefined;
+  env?: string | undefined;
+  debug?: boolean | undefined;
+  branch?: string | undefined;
 }
 
 /** Branche git, lue UNE seule fois (cache process). `""` si indéterminée. */

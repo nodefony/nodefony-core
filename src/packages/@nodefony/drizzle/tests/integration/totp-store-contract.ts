@@ -23,7 +23,7 @@ import { runTotpStoreContract as runSharedTotpStoreContract } from "../../../sec
 export interface ITotpStoreContractOptions {
   dialect: SqlDialect;
   connector: string;
-  connection: { filename?: string; url?: string };
+  connection: { filename?: string; url?: string | undefined };
 }
 
 export function runTotpStoreContract(opts: ITotpStoreContractOptions): void {

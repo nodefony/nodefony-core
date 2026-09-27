@@ -12,7 +12,11 @@ import { deliverWebhook } from "../../nodefony/src/webhook/webhookDelivery";
 
 let server: Server;
 let port = 0;
-let last: { headers: Record<string, unknown>; body: string; url?: string } = {
+let last: {
+  headers: Record<string, unknown>;
+  body: string;
+  url?: string | undefined;
+} = {
   headers: {},
   body: "",
 };

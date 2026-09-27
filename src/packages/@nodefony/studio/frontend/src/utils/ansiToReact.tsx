@@ -50,9 +50,9 @@ const BG: Record<number, string> = {
 };
 
 interface AnsiState {
-  fg?: string;
-  bg?: string;
-  bold?: boolean;
+  fg?: string | undefined;
+  bg?: string | undefined;
+  bold?: boolean | undefined;
 }
 
 function renderSpan(text: string, s: AnsiState, key: number): ReactNode {

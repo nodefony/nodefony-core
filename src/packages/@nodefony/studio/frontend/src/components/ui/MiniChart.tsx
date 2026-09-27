@@ -24,11 +24,11 @@ export interface MiniChartProps {
   series: MiniChartSeries[];
   height?: number;
   /** Plafond Y forcé (sinon auto = max × 1.15). */
-  max?: number;
+  max?: number | undefined;
   /** Zone rouge au-dessus de ce seuil (alerte visuelle). */
-  threshold?: number;
+  threshold?: number | undefined;
   /** Formate une valeur (axe + tooltip). Défaut = entier. */
-  format?: (v: number) => string;
+  format?: ((v: number) => string) | undefined;
 }
 
 /**

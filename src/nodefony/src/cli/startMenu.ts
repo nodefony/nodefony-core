@@ -49,7 +49,7 @@ export interface IStartMenuModuleCommand {
    * fourre-tout (« Commandes du projet »), pendant que l'aide les rangeait par
    * intention. Le même CLI se présentait donc de deux façons selon la porte.
    */
-  group?: string;
+  group?: string | undefined;
 }
 
 export interface IStartMenuInput {
@@ -82,8 +82,8 @@ export interface IStartMenuInput {
   builtinCommands?: readonly {
     name: string;
     description: string;
-    group?: string;
-    requiredArgs?: number;
+    group?: string | undefined;
+    requiredArgs?: number | undefined;
   }[];
   /**
    * Noms des scripts présents dans le `package.json` du projet. Le menu n'en
@@ -94,7 +94,7 @@ export interface IStartMenuInput {
    */
   npmScripts?: string[];
   /** Nom du projet, pour le message d'accueil. */
-  projectName?: string;
+  projectName?: string | undefined;
 }
 
 interface ICatalogEntry {

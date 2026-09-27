@@ -5,7 +5,10 @@ import { TransportState } from "nodefony";
 /** Mock d'une connexion `ws` brute (send/close/readyState). */
 function mockConn(readyState: number = TransportState.OPEN) {
   const sent: string[] = [];
-  let closed: { code?: number; reason?: string } | null = null;
+  let closed: {
+    code?: number | undefined;
+    reason?: string | undefined;
+  } | null = null;
   const conn = {
     readyState,
     send: (data: string, cb?: (err?: Error) => void) => {
@@ -82,7 +85,10 @@ function mockBpConn(
   readyState: number = TransportState.OPEN,
 ) {
   const sent: string[] = [];
-  let closed: { code?: number; reason?: string } | null = null;
+  let closed: {
+    code?: number | undefined;
+    reason?: string | undefined;
+  } | null = null;
   const conn = {
     readyState,
     bufferedAmount,

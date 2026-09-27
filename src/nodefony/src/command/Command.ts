@@ -139,7 +139,7 @@ class Command extends Service {
   public onKernelPostReady?(...args: unknown[]): Promise<void>;
   /** Cleanup / graceful shutdown — fire à `terminate()` (reçoit le code en dernier arg). */
   public onKernelTerminate?(...args: unknown[]): Promise<void>;
-  public currentCommand?: Cmd;
+  public currentCommand?: Cmd | undefined;
   private eventsRegistered: boolean = false;
   /**
    * Crée une instance de Command.

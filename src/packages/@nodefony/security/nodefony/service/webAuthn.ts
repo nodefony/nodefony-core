@@ -402,7 +402,7 @@ class WebAuthnService extends Service {
     }
     return lib.generateAuthenticationOptions({
       rpID: this.#rpID,
-      allowCredentials,
+      ...(allowCredentials !== undefined && { allowCredentials }),
       userVerification: pk.userVerification,
       timeout: pk.timeoutMs,
     });

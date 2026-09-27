@@ -45,7 +45,7 @@ export interface IDrizzleMigratorOptions extends IMigrationTarget {
   /** Registre de sources, espace de noms OUVERT. */
   sources: readonly IMigrationSource[];
   /** Délai d'attente du verrou (ms). */
-  lockTimeoutMs?: number;
+  lockTimeoutMs?: number | undefined;
   /** Qui applique — hôte du job par défaut. */
   appliedBy?: string;
   /** Horloge, injectable pour les tests. */
@@ -415,9 +415,9 @@ export class DrizzleMigrator {
    */
   async repair(
     options: {
-      source?: string;
-      updateHashes?: boolean;
-      forget?: readonly { source: string; tag: string }[];
+      source?: string | undefined;
+      updateHashes?: boolean | undefined;
+      forget?: readonly { source: string; tag: string }[] | undefined;
     } = {},
   ): Promise<{
     cleared: { source: string; tag: string }[];

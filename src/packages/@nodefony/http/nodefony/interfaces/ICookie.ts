@@ -4,15 +4,15 @@ export type SameSiteType = "Strict" | "Lax" | "None";
 export type PriorityType = "High" | "Medium" | "Low" | undefined;
 
 export interface ICookieOptions {
-  maxAge?: number;
-  path?: string;
-  domain?: string;
-  secure?: boolean;
-  expires?: Date | string | number;
-  sameSite?: SameSiteType;
-  httpOnly?: boolean;
-  signed?: boolean;
-  secret?: string;
+  maxAge?: number | undefined;
+  path?: string | undefined;
+  domain?: string | undefined;
+  secure?: boolean | undefined;
+  expires?: Date | string | number | undefined;
+  sameSite?: SameSiteType | undefined;
+  httpOnly?: boolean | undefined;
+  signed?: boolean | undefined;
+  secret?: string | undefined;
   priority?: PriorityType;
 }
 
@@ -31,16 +31,16 @@ export interface ICookie {
   name: string;
   value: unknown;
   options: ICookieOptions;
-  signed?: boolean;
-  originalMaxAge?: number;
-  expires?: Date;
-  maxAge?: number;
-  path?: string;
+  signed?: boolean | undefined;
+  originalMaxAge?: number | undefined;
+  expires?: Date | undefined;
+  maxAge?: number | undefined;
+  path?: string | undefined;
   domain?: string | undefined;
-  httpOnly?: boolean;
-  secure?: boolean;
-  sameSite?: SameSiteType;
-  priority?: string;
+  httpOnly?: boolean | undefined;
+  secure?: boolean | undefined;
+  sameSite?: SameSiteType | undefined;
+  priority?: string | undefined;
 
   setValue(value: unknown): unknown;
   toString(): string;

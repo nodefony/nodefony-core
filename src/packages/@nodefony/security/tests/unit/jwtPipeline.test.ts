@@ -108,7 +108,7 @@ async function bearer(
 ): Promise<string> {
   const token = await new jose.SignJWT({
     iss: RT.issuer,
-    aud: RT.audiences[0],
+    aud: RT.audiences[0]!,
     sub: "alice",
     jti: `jti-${Math.random()}`,
     iat: nowS(),

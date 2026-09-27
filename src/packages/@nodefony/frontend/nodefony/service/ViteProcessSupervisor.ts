@@ -74,13 +74,13 @@ export interface ViteSupervisorOptions {
    * de `devHost:port`. Dissocie ce que Vite ÉCOUTE de ce que le navigateur
    * APPELLE (forwarder Codespaces/Gitpod, `host.docker.internal`, remap).
    */
-  readonly publicOriginTemplate?: string;
+  readonly publicOriginTemplate?: string | undefined;
   /**
    * Hôtes que Vite doit accepter dans le header `Host` (`server.allowedHosts`).
    * `true` = tous. Dérivé par FrontendService de la liste `trustedHosts` http —
    * jamais maintenu ici (1 règle = 1 implémentation).
    */
-  readonly allowedHosts?: true | ReadonlyArray<string>;
+  readonly allowedHosts?: true | ReadonlyArray<string> | undefined;
   readonly startupTimeoutMs: number;
   readonly pipeLogs: boolean;
   readonly cwd: string;
@@ -94,12 +94,14 @@ export interface ViteSupervisorOptions {
    * Certificats à utiliser si Vite doit servir en HTTPS. Paths absolus vers les
    * fichiers PEM — les mêmes que Nodefony utilise pour son `server-https` (5152).
    */
-  readonly https?: {
-    readonly keyPath: string;
-    readonly certPath: string;
-  };
+  readonly https?:
+    | {
+        readonly keyPath: string;
+        readonly certPath: string;
+      }
+    | undefined;
   /** Valeur de `NODE_ENV` à propager au child Vite — généralement `kernel.environment`. */
-  readonly nodeEnv?: string;
+  readonly nodeEnv?: string | undefined;
   /**
    * Variables d'env additionnelles passées au child Vite. Les clés `VITE_*`
    * sont automatiquement exposées au browser via `import.meta.env`.

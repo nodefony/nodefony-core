@@ -223,8 +223,8 @@ class SessionsService extends Service {
   storage: ISessionStorage | null = null;
   module: Module;
   defaultSessionName: string = "nodefony";
-  secret?: Buffer;
-  iv?: Buffer;
+  secret?: Buffer | undefined;
+  iv?: Buffer | undefined;
   certificates: Certificate | null;
   // Maintenance déterministe HORS hot-path (remplace le tirage probabiliste PHP
   // gc_probability/divisor) — timer/jitter/anti-empilement/désarmement mutualisés

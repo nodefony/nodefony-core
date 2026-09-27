@@ -163,11 +163,11 @@ export function createHttpAdminApi(module: Module): IAdminApi {
 
   /** Forme minimale lue sur un service serveur (lecture défensive). */
   interface ServerLike {
-    type?: string;
-    scheme?: string;
-    protocol?: string;
-    address?: string;
-    port?: number;
+    type?: string | undefined;
+    scheme?: string | undefined;
+    protocol?: string | undefined;
+    address?: string | undefined;
+    port?: number | undefined;
     family?: string | null;
     ready?: boolean;
   }
@@ -242,7 +242,7 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         trackedCount: number;
         rejectedTotal: number;
         items: IRateLimitEntry[];
-        total?: number;
+        total?: number | undefined;
         limit: number;
         offset: number;
       }> => {
@@ -354,10 +354,10 @@ export function createHttpAdminApi(module: Module): IAdminApi {
       ): Promise<
         | {
             items: ISessionSummary[];
-            total?: number;
+            total?: number | undefined;
             limit: number;
             offset: number;
-            nextCursor?: string | null;
+            nextCursor?: string | null | undefined;
           }
         | IAdminResponse<{ error: string }>
       > => {
@@ -562,10 +562,10 @@ export function createHttpAdminApi(module: Module): IAdminApi {
       ): Promise<
         | {
             items: ISessionSummary[];
-            total?: number;
+            total?: number | undefined;
             limit: number;
             offset: number;
-            nextCursor?: string | null;
+            nextCursor?: string | null | undefined;
           }
         | IAdminResponse<{ error: string }>
       > => {

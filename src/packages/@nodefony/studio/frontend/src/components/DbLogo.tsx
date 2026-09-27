@@ -59,10 +59,10 @@ export function DbLogo({
   title,
 }: {
   /** Nom du driver/base ou du vendor ORM (insensible à la casse). */
-  name?: string;
+  name?: string | undefined;
   size?: number;
   /** Texte alternatif (a11y). */
-  title?: string;
+  title?: string | undefined;
 }) {
   const src = LOGOS[(name ?? "").toLowerCase()];
   if (!src) return null;

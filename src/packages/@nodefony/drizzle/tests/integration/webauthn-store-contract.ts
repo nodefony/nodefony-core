@@ -24,7 +24,7 @@ import { runWebAuthnStoreContract as runSharedWebAuthnStoreContract } from "../.
 export interface IWebAuthnStoreContractOptions {
   dialect: SqlDialect;
   connector: string;
-  connection: { filename?: string; url?: string };
+  connection: { filename?: string; url?: string | undefined };
 }
 
 export function runWebAuthnStoreContract(

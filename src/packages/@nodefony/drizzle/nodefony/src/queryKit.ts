@@ -206,11 +206,11 @@ function ident(dialect: SqlDialect, name: string): SQL {
 
 /** Filtres du listing utilisateur (sous-ensemble non portable de `IUserListQuery`). */
 export interface UserListFilters {
-  role?: string;
-  enabled?: boolean;
-  locked?: boolean;
-  hasSocial?: boolean;
-  q?: string;
+  role?: string | undefined;
+  enabled?: boolean | undefined;
+  locked?: boolean | undefined;
+  hasSocial?: boolean | undefined;
+  q?: string | undefined;
 }
 
 /** Fenêtre + tri résolus (le défaut `identifier ASC` est posé par l'appelant). */
@@ -377,10 +377,10 @@ export async function listUserIdsPage(
 
 /** Filtres du listing d'endpoints (sous-ensemble non portable d'`IWebhookListQuery`). */
 export interface WebhookListFilters {
-  enabled?: boolean;
-  event?: string;
-  failing?: boolean;
-  q?: string;
+  enabled?: boolean | undefined;
+  event?: string | undefined;
+  failing?: boolean | undefined;
+  q?: string | undefined;
 }
 
 /**

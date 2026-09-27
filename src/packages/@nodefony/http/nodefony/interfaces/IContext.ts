@@ -26,8 +26,8 @@ export type PhaseName =
 export interface PhaseTiming {
   name: PhaseName;
   startMs: number;
-  endMs?: number;
-  durationMs?: number;
+  endMs?: number | undefined;
+  durationMs?: number | undefined;
 }
 
 /** Issue de la traversée d'une zone firewall. */
@@ -199,7 +199,7 @@ export interface IHttpContext extends IContext {
 }
 
 export interface IWebsocketContext extends IContext {
-  acceptedProtocol?: string;
+  acceptedProtocol?: string | undefined;
   connection: unknown;
   rejected: boolean;
   port: number | string;

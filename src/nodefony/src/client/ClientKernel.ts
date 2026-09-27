@@ -105,7 +105,7 @@ export class ClientKernel implements IClientKernel {
    */
   get<K extends keyof NodefonyClientServices>(
     name: K,
-  ): NodefonyClientServices[K] {
+  ): NodefonyClientServices[K] | undefined {
     if (!this.#services) return undefined;
     return this.#services[name as string] as NodefonyClientServices[K];
   }

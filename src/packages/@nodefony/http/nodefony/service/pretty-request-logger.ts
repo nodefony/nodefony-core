@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import { logColor } from "nodefony";
-import { performance } from "node:perf_hooks";
 import type {
   IRequestLogger,
   IRequestLogEntry,
@@ -10,7 +9,7 @@ import type {
   IWebsocketContext,
   PhaseTiming,
 } from "../interfaces/IContext";
-import { severityFromStatus } from "./audit-logger";
+import { computeDurationMs, severityFromStatus } from "./audit-logger";
 
 /**
  * Pretty single-line logger for dev (P3.2) — the biggest gain for humans.
@@ -115,13 +114,6 @@ function formatDuration(ms: number | null): string {
 function shortId(id: string): string {
   // First UUID block (8 chars) is enough to disambiguate visually.
   return id.length > 8 ? id.slice(0, 8) : id;
-}
-
-function computeDurationMs(phases: PhaseTiming[]): number | null {
-  if (!phases.length) return null;
-  const first = phases.at(0);
-  if (first === undefined || typeof first.startMs !== "number") return null;
-  return performance.now() - first.startMs;
 }
 
 export default PrettyRequestLogger;

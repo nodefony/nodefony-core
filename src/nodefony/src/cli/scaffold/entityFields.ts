@@ -82,18 +82,18 @@ export interface IEntityField {
    * distinctes chez Umami) : la place perdue se paie en octets par ligne, et
    * l'absence de borne laisse passer des valeurs qu'aucune règle ne veut.
    */
-  length?: number;
+  length?: number | undefined;
   /** Chiffres significatifs d'un décimal exact (`price:decimal(12,2)` → 12). */
-  precision?: number;
+  precision?: number | undefined;
   /** Chiffres après la virgule d'un décimal exact (`price:decimal(12,2)` → 2). */
-  scale?: number;
+  scale?: number | undefined;
   /**
    * Valeur par défaut littérale, telle qu'écrite (`price:float=0` → `"0"`).
    *
    * Conservée en texte : c'est le générateur qui sait la traduire en littéral du
    * bon type, et lui seul connaît le dialecte visé.
    */
-  defaultValue?: string;
+  defaultValue?: string | undefined;
   /** `true` si `?` — la colonne accepte `NULL`. Non-null par DÉFAUT. */
   nullable: boolean;
   /** `true` si `:unique` — contrainte d'unicité. */
@@ -648,9 +648,9 @@ const enumOption = (values: readonly string[] = []): string =>
 
 /** Taille déclarée d'une colonne, telle que l'analyse l'a lue. */
 interface IColumnSize {
-  length?: number;
-  precision?: number;
-  scale?: number;
+  length?: number | undefined;
+  precision?: number | undefined;
+  scale?: number | undefined;
 }
 
 /** Longueur d'une chaîne, avec le repli historique quand rien n'est déclaré. */

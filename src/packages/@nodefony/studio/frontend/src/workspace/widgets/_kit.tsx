@@ -74,7 +74,7 @@ export function BigMetric({
   unit?: string;
   color?: string;
   series?: number[];
-  sub?: string;
+  sub?: string | undefined;
 }) {
   useEffect(ensureLiveStyles, []);
   const display = value ?? "—";
@@ -156,7 +156,7 @@ export function WorkerTile({
   pid,
   children,
 }: {
-  pid?: number;
+  pid?: number | undefined;
   children: ReactNode;
 }) {
   return (

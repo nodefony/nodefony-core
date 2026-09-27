@@ -25,8 +25,11 @@ describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", ()
       url: "ws://localhost/nodefony/api/realtime",
       autoReconnect: false,
     });
-    const calls: { method: string; params?: unknown; timeoutMs?: number }[] =
-      [];
+    const calls: {
+      method: string;
+      params?: unknown;
+      timeoutMs?: number | undefined;
+    }[] = [];
     const server: KernelPingResult = {
       pong: true,
       ts: 1_717_000_000_000,

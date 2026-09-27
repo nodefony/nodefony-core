@@ -31,7 +31,10 @@ function makeCtx(
   } = {},
 ) {
   const sent: Array<Record<string, unknown>> = [];
-  const closes: Array<{ code?: number; reason?: string }> = [];
+  const closes: Array<{
+    code?: number | undefined;
+    reason?: string | undefined;
+  }> = [];
   let onFinish: (() => void) | null = null;
   const conn = {
     readyState: OPEN,

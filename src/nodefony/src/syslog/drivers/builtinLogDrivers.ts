@@ -54,7 +54,7 @@ function jsonlPath(ctx: ILogDriverContext): string {
 export function resolveQueryDriver(
   requested: string | undefined,
   isWorker: boolean,
-  urls?: { loki?: string; opensearch?: string },
+  urls?: { loki?: string | undefined; opensearch?: string | undefined },
 ): string {
   if (requested !== undefined && requested !== "auto") return requested;
   if (urls?.loki && urls.opensearch) {

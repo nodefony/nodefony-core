@@ -3,8 +3,8 @@ import type { ServerType } from "./IContext";
 
 export interface IHttpKernel extends IServerKernel {
   domain: string;
-  httpPort?: number;
-  httpsPort?: number;
+  httpPort?: number | undefined;
+  httpsPort?: number | undefined;
 
   // Public request pipeline (called by server-http / server-https)
   handle(

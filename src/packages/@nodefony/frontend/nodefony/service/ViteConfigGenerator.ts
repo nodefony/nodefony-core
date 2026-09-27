@@ -17,7 +17,7 @@ export interface ViteConfigGeneratorOptions {
    * Origine du serveur Nodefony pour le proxy Vite (`server.proxy`).
    * Exemple : `"http://127.0.0.1:5151"`. En dev uniquement — ignoré en prod.
    */
-  readonly backendOrigin?: string;
+  readonly backendOrigin?: string | undefined;
   /**
    * Origine publique du dev server Vite — ex `"http://127.0.0.1:5173"`.
    * Définie comme `base` dans Vite, ce qui force les imports internes du
@@ -26,23 +26,25 @@ export interface ViteConfigGeneratorOptions {
    * Nodefony (5151) qui charge `/src/main.tsx` voit ses imports résolus
    * contre 5151 → 404. Active aussi `strictPort` pour garantir l'origine.
    */
-  readonly viteOrigin?: string;
+  readonly viteOrigin?: string | undefined;
   /**
    * Certificats HTTPS — paths absolus vers les fichiers PEM. Quand fourni,
    * la config Vite générée inclut `server.https: { key, cert }` (lus via
    * `fs.readFileSync` au démarrage Vite).
    */
-  readonly https?: {
-    readonly keyPath: string;
-    readonly certPath: string;
-  };
+  readonly https?:
+    | {
+        readonly keyPath: string;
+        readonly certPath: string;
+      }
+    | undefined;
   /**
    * Hôtes acceptés dans le header `Host` (`server.allowedHosts`, Vite ≥6).
    * `true` = tous. Un motif `.suffixe` couvre le domaine et ses sous-domaines.
    * Les IP et `localhost` sont toujours acceptés par Vite — cette liste ne
    * sert que les NOMS (vhosts, `host.docker.internal`, forwarders).
    */
-  readonly allowedHosts?: true | ReadonlyArray<string>;
+  readonly allowedHosts?: true | ReadonlyArray<string> | undefined;
 }
 
 /**

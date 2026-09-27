@@ -1161,7 +1161,7 @@ function DepCard({
   onClick,
 }: {
   dep: DepInfo;
-  out?: OutdatedInfo;
+  out?: OutdatedInfo | undefined;
   onClick: () => void;
 }) {
   return (

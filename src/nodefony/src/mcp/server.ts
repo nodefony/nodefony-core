@@ -79,7 +79,7 @@ export interface IMcpServerContext {
 /** En-têtes HTTP dont le protocole se sert. */
 export interface IMcpHeaders {
   /** `MCP-Protocol-Version`, absent chez un client de l'ère legacy. */
-  protocolVersion?: string;
+  protocolVersion?: string | undefined;
 }
 
 /**

@@ -159,7 +159,7 @@ function Metric({
 }: {
   label: string;
   value: string | number;
-  color?: string;
+  color?: string | undefined;
   info?: React.ReactNode;
 }) {
   return (
@@ -234,7 +234,7 @@ function WorkerCard({
   inst: InstanceHealth;
   live: boolean;
   index: number;
-  series?: WorkerSeries;
+  series?: WorkerSeries | undefined;
   /** Drill-down → page détail `/nodefony/cluster/:pid`. */
   onSelect: () => void;
 }) {

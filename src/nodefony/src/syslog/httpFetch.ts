@@ -18,10 +18,10 @@ export interface FetchResponseLike {
 
 /** Sous-ensemble des options `RequestInit` réellement utilisées. */
 export interface FetchInitLike {
-  method?: string;
-  headers?: Record<string, string>;
-  body?: string;
-  signal?: AbortSignal;
+  method?: string | undefined;
+  headers?: Record<string, string> | undefined;
+  body?: string | undefined;
+  signal?: AbortSignal | undefined;
 }
 
 /** Signature compatible `globalThis.fetch` (surface réduite). */

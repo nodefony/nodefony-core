@@ -73,7 +73,7 @@ export interface DevProcessInfo {
   /** Étiquette courte de colonne (`supervisor`, `server`, `vite`). */
   readonly label: string;
   /** Détail optionnel hors colonne (bundles d'une instance Vite : `react+vue`). */
-  readonly detail?: string;
+  readonly detail?: string | undefined;
   /** Mémoire résidente en kilo-octets (champ `rss` de `ps`). */
   readonly rssKb: number;
   /** Pourcentage CPU instantané (champ `pcpu` de `ps`). */
@@ -263,7 +263,7 @@ export interface RuntimeState {
   /** Ports EFFECTIFS (après résolution d'un éventuel conflit). */
   ports: number[];
   /** Ports DÉSIRÉS (config) — diffèrent des effectifs si `auto` a dû décaler. */
-  desiredPorts?: number[];
+  desiredPorts?: number[] | undefined;
   /**
    * Adresses à VISER, telles qu'un client doit les écrire (`http://localhost:5151`).
    *
@@ -275,7 +275,7 @@ export interface RuntimeState {
    * Absent d'un runtime antérieur à ce champ : les lecteurs retombent alors sur
    * {@link RuntimeState.ports}, qui n'a jamais cessé d'être publié.
    */
-  urls?: string[];
+  urls?: string[] | undefined;
   /** Horodatage d'écriture (`Date.now()`). */
   ts: number;
 }
@@ -623,7 +623,7 @@ export interface SupervisorLock {
    */
   reason: string;
   /** Précision libre (id de job, nom de migration…) — traçabilité. */
-  detail?: string;
+  detail?: string | undefined;
   /** Horodatage de pose (`Date.now()`) — sert à l'expiration. */
   ts: number;
 }
@@ -1443,7 +1443,7 @@ function classify(command: string): {
   mode: RuntimeMode;
   role: DevProcessRole;
   label: string;
-  detail?: string;
+  detail?: string | undefined;
 } | null {
   const cmd = command.trim();
   if (cmd.startsWith(DEV_SUPERVISOR_TITLE))

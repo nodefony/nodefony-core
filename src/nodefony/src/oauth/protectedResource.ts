@@ -89,9 +89,9 @@ export interface IProtectedResourceInput {
   /** Scopes compris par la ressource (facultatif, mais recommandé). */
   scopesSupported?: readonly string[];
   /** Nom lisible par un humain. */
-  resourceName?: string;
+  resourceName?: string | undefined;
   /** URL d'une documentation destinée à un humain. */
-  resourceDocumentation?: string;
+  resourceDocumentation?: string | undefined;
 }
 
 /**
@@ -239,11 +239,11 @@ export interface IBearerChallenge {
   /** URL du document de métadonnées — RFC 9728 §5.1. */
   resourceMetadataUrl: string;
   /** Scopes nécessaires à l'opération en cours. */
-  scopes?: readonly string[];
+  scopes?: readonly string[] | undefined;
   /** Code d'erreur, ABSENT quand la requête ne portait aucune information. */
-  error?: BearerErrorCode;
+  error?: BearerErrorCode | undefined;
   /** Explication lisible, jamais une cause fine (anti-oracle). */
-  description?: string;
+  description?: string | undefined;
 }
 
 /**
@@ -348,7 +348,7 @@ export interface IAccessPrincipal {
    */
   issuer: string;
   /** Sujet du jeton (`sub`) — pour l'audit, et pour borner ce qu'on rend. */
-  subject?: string;
+  subject?: string | undefined;
   /** Scopes réellement accordés. */
   scopes: readonly string[];
   /**
@@ -363,16 +363,16 @@ export interface IAccessPrincipal {
    *
    * ⚠️ **Secondes**, comme le claim JWT dont elle vient — pas des millisecondes.
    */
-  expiresAt?: number;
+  expiresAt?: number | undefined;
   /** Émission du jeton (`iat`), en **secondes** epoch — révocation en masse. */
-  issuedAt?: number;
+  issuedAt?: number | undefined;
   /**
    * Identifiant unique du jeton (`jti`) — révocation CIBLÉE avant terme.
    *
    * Il vient d'un émetteur étranger : il ne désigne rien dans nos registres, et
    * ne sert qu'à interroger une liste de révocation qui, elle, peut le connaître.
    */
-  tokenId?: string;
+  tokenId?: string | undefined;
 }
 
 /**

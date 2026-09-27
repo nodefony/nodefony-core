@@ -132,7 +132,6 @@ process.on("message", (raw: unknown) => {
     }
     case "quit": {
       process.exit(0);
-      break;
     }
   }
 });

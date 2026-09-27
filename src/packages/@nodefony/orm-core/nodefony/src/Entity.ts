@@ -33,7 +33,7 @@ export abstract class Entity<S = unknown, M = unknown> implements IEntity<
   model?: M;
 
   /** Relations déclarées vers d'autres entités (par nom logique). */
-  readonly relations?: ReadonlyArray<IEntityRelation>;
+  readonly relations?: ReadonlyArray<IEntityRelation> | undefined;
 
   /**
    * Construit la définition de schéma propre au driver.

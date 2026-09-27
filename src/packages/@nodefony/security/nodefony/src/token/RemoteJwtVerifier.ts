@@ -27,7 +27,7 @@ export interface ITrustedIssuer {
    * une requête au démarrage à froid. Déclaré, il fait autorité : rien n'est
    * découvert.
    */
-  jwksUri?: string;
+  jwksUri?: string | undefined;
   /**
    * Jeu de clés fourni LOCALEMENT — aucune requête, aucune découverte.
    *
@@ -65,7 +65,7 @@ export interface ITrustedIssuer {
    * réglé finement. La séparation entre jetons est déjà assurée par l'audience,
    * qui, elle, n'est pas facultative.
    */
-  typ?: string;
+  typ?: string | undefined;
   /** Claims dont la PRÉSENCE est exigée, en plus de `iss`/`aud`/`sub`. */
   requiredClaims?: readonly string[];
 }
@@ -336,11 +336,10 @@ export class RemoteJwtVerifier {
     };
     const fetchImpl = this.#options.fetch;
     if (fetchImpl) {
-      // Le symbole est la porte OFFICIELLE de jose pour cela ; le cast couvre
-      // l'écart connu entre la signature `fetch` du runtime et celle que jose
-      // décrit (documenté dans jose : « expect type-related issues »).
-      options[jose.customFetch] =
-        fetchImpl as unknown as Jose.FetchImplementation;
+      // Le symbole est la porte OFFICIELLE de jose pour cela. Sous
+      // `exactOptionalPropertyTypes`, la signature `fetch` du runtime est
+      // assignable à celle que jose décrit : aucun cast n'est plus nécessaire.
+      options[jose.customFetch] = fetchImpl;
     }
     return {
       trusted,

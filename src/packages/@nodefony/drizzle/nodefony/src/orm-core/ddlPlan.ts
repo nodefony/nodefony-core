@@ -25,9 +25,9 @@ export interface IResolvedForeignKey {
   /** Colonnes visées, dans le même ordre que {@link columns}. */
   readonly foreignColumns: readonly string[];
   /** Politique d'effacement du parent (`restrict`, `set null`, `cascade`…). */
-  readonly onDelete?: string;
+  readonly onDelete?: string | undefined;
   /** Politique de mise à jour de la clé du parent. */
-  readonly onUpdate?: string;
+  readonly onUpdate?: string | undefined;
 }
 
 /** Une table à créer, et les tables que ses clés étrangères désignent. */
