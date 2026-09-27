@@ -117,6 +117,7 @@ export function parseImageCheckArgv(
 
   for (let i = 0; i < rest.length; i += 1) {
     const word = rest[i];
+    if (word === undefined) break;
     if (word === "--help" || word === "-h") {
       req.help = true;
       continue;

@@ -157,7 +157,7 @@ describe("configuration des modules — la sévérité se choisit", () => {
         "const s = z\n  .object({})\n  .describe();",
       );
       assert.lengthOf(f, 1);
-      assert.equal(f[0].line, 2);
+      assert.equal(f[0]!.line, 2);
     });
 
     it("laisse passer les deux formes qui SONT un choix", () => {

@@ -232,6 +232,7 @@ export function parseDetachArgs(args: string[]): ParsedDetachArgs {
   };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
+    if (a === undefined) break;
     if (a === "--detach") {
       detach = true;
     } else if (a === "--allow-degraded") {
@@ -240,15 +241,15 @@ export function parseDetachArgs(args: string[]): ParsedDetachArgs {
       // `--wait` NU est la forme documentée (délai par défaut) : il ne consomme
       // l'argument suivant que si c'est un nombre de secondes.
       let v: string | undefined;
-      if (a.includes("=")) v = a.split("=")[1];
+      if (a.includes("=")) v = a.split("=")[1] ?? "";
       else if (/^\d+$/u.test(args[i + 1] ?? "")) v = args[++i];
       const n = Number.parseInt(v ?? "", 10);
       if (Number.isInteger(n) && n > 0) waitSec = n;
     } else if (a === "--health" || a.startsWith("--health=")) {
-      if (a.includes("=")) healthPath = a.split("=")[1];
+      if (a.includes("=")) healthPath = a.split("=")[1] ?? "";
       else if (valueAt(i) !== undefined) healthPath = args[++i];
     } else if (a === "--log" || a.startsWith("--log=")) {
-      if (a.includes("=")) logFile = a.split("=")[1];
+      if (a.includes("=")) logFile = a.split("=")[1] ?? "";
       else if (valueAt(i) !== undefined) logFile = args[++i];
     } else {
       relayArgs.push(a);
@@ -287,7 +288,7 @@ function tailLog(logFile: string, n = TAIL_LINES): string[] {
 /** Dernière ligne de phase du DevSupervisor (`[dev] …`) pour la progression. */
 function lastPhaseLine(logFile: string): string {
   const lines = tailLog(logFile, 40).filter((l) => l.startsWith("[dev]"));
-  return lines.length > 0 ? lines[lines.length - 1].slice(0, 70) : "";
+  return lines.at(-1)?.slice(0, 70) ?? "";
 }
 
 /**
@@ -641,6 +642,10 @@ export async function launchDetached(
  * @returns code de sortie sémantique (`EX_OK` / `EX_UNAVAILABLE` / `EX_USAGE`).
  */
 export async function runDetachedStart(argv: string[]): Promise<number> {
+  const entry = argv[1];
+  if (entry === undefined) {
+    throw new Error("runDetachedStart : argv sans script d'entrée");
+  }
   const parsed = parseDetachArgs(argv.slice(2));
   if (parsed.relayArgs.length === 0) {
     writeSync(1, "--detach exige une commande de runtime (ex: development)\n");
@@ -656,11 +661,7 @@ export async function runDetachedStart(argv: string[]): Promise<number> {
   say(`SPAWN nodefony ${parsed.relayArgs.join(" ")} (detached)`);
   const result = await launchDetached({
     spawnCmd: process.execPath,
-    spawnArgs: [
-      ...childExecArgv(process.execArgv),
-      argv[1],
-      ...parsed.relayArgs,
-    ],
+    spawnArgs: [...childExecArgv(process.execArgv), entry, ...parsed.relayArgs],
     cwd,
     logFile,
     waitSec: parsed.waitSec,

@@ -273,8 +273,7 @@ export function computeCompletions(
   words: string[],
 ): string[] {
   const validated = words.slice(0, -1);
-  for (let i = 0; i < validated.length; i++) {
-    const w = validated[i];
+  for (const [i, w] of validated.entries()) {
     if (w.startsWith("-")) continue;
     const cmd = manifest.commands.find(
       (c) => c.name === w || c.aliases.includes(w),
@@ -285,9 +284,9 @@ export function computeCompletions(
       // qui suit immédiatement un flag est sa valeur — `--preset minimal`).
       const after = validated.slice(i + 1);
       let pos = 0;
-      for (let j = 0; j < after.length; j++) {
-        if (after[j].startsWith("-")) continue;
-        if (j > 0 && after[j - 1].startsWith("-")) continue;
+      for (const [j, word] of after.entries()) {
+        if (word.startsWith("-")) continue;
+        if (after[j - 1]?.startsWith("-") === true) continue;
         pos++;
       }
       // 🔴 Le dernier mot VALIDÉ est un flag qui attend une valeur : c'est elle

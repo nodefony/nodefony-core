@@ -81,14 +81,15 @@ export async function assertNoConflictingRuntime(
     deps.getCwd,
   );
   const conflict = findRuntimeConflict(mine, intended);
-  if (conflict.length === 0) return;
+  const [first] = conflict;
+  if (first === undefined) return;
   const pids = conflict.map((p) => p.pid).join(", ");
   const held = (await (deps.probe ?? probePorts)(defaultDevPorts(cwd)))
     .filter((p) => p.listening)
     .map((p) => p.port);
   if (held.length === 0) {
     log(
-      `un runtime Nodefony ${modeLabelFr(conflict[0].mode)} de CE projet est enregistré ` +
+      `un runtime Nodefony ${modeLabelFr(first.mode)} de CE projet est enregistré ` +
         `(pid ${pids}) mais ne détient AUCUN port — résidu probable (son serveur a été ` +
         `tué). Démarrage ${modeLabelFr(intended)} MAINTENU. Pour nettoyer : nodefony stop`,
       "WARNING",
@@ -96,7 +97,7 @@ export async function assertNoConflictingRuntime(
     return;
   }
   log(
-    `⛔ un runtime Nodefony ${modeLabelFr(conflict[0].mode)} de CE projet tourne déjà ` +
+    `⛔ un runtime Nodefony ${modeLabelFr(first.mode)} de CE projet tourne déjà ` +
       `(pid ${pids}) et tient le(s) port(s) ${held.join(", ")} — démarrage ` +
       `${modeLabelFr(intended)} refusé. Arrête-le d'abord : nodefony stop`,
     "CRITIC",

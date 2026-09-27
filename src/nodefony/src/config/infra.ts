@@ -418,7 +418,7 @@ export function deriveStoreBackend(store: unknown): string {
     return "inconnu";
   }
   const match = /^(Drizzle|Mongoose|Redis|Memory|File)/.exec(name);
-  return match ? match[1].toLowerCase() : name;
+  return match?.[1]?.toLowerCase() ?? name;
 }
 
 /**

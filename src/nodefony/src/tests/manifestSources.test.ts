@@ -35,7 +35,7 @@ function lecteur(files: Record<string, string>): IManifestReader {
     exists: (f) => f in files || dirs.has(f),
     read: (f) => {
       if (!(f in files)) throw new Error(`ENOENT ${f}`);
-      return files[f];
+      return files[f]!;
     },
     listDir: (d) =>
       Object.keys(files)
@@ -84,7 +84,7 @@ describe("readManifestSources — le manifeste ET ses fragments", () => {
         [MANIFESTE]: "export default {};",
       }),
     );
-    assert.equal(sources[0].path, MANIFESTE);
+    assert.equal(sources[0]!.path, MANIFESTE);
   });
 
   it("trie les fragments par nom — deux machines doivent rendre le même rapport", () => {

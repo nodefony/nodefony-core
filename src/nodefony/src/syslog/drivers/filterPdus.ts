@@ -71,6 +71,7 @@ export function filterPdus(
   const matched: IPduLike[] = [];
   for (let i = pdus.length - 1; i >= 0; i--) {
     const pdu = pdus[i];
+    if (pdu === undefined) continue;
     if (requestId !== undefined && pdu.requestId !== requestId) continue;
     if (protocol && pduProtocol(pdu) !== protocol) continue;
     if (severities && !severities.includes(pdu.severityName.toUpperCase()))

@@ -65,17 +65,17 @@ export function outlineMarkdown(markdown: string): IMarkdownSection[] {
   const lines = markdown.split("\n");
   const sections: IMarkdownSection[] = [];
   let inFence = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    if (FENCE_RE.test(lines[i])) {
+  for (const [i, text] of lines.entries()) {
+    if (FENCE_RE.test(text)) {
       inFence = !inFence;
       continue;
     }
     if (inFence) continue;
-    const m = HEADING_RE.exec(lines[i]);
+    const m = HEADING_RE.exec(text);
     if (m) {
       sections.push({
-        level: m[1].length,
-        title: m[2].trim().replace(HEADING_CLOSING_RE, "").trim(),
+        level: (m[1] ?? "").length,
+        title: (m[2] ?? "").trim().replace(HEADING_CLOSING_RE, "").trim(),
         line: i + 1,
         chars: 0,
       });
@@ -83,16 +83,17 @@ export function outlineMarkdown(markdown: string): IMarkdownSection[] {
   }
   // Le poids d'une section = jusqu'au titre suivant de niveau ≤ au sien ; le
   // dernier va jusqu'à la fin. Calculé après coup pour n'avoir qu'un balayage.
-  for (let s = 0; s < sections.length; s += 1) {
-    const start = sections[s].line - 1;
+  for (const [s, section] of sections.entries()) {
+    const start = section.line - 1;
     let end = lines.length;
     for (let n = s + 1; n < sections.length; n += 1) {
-      if (sections[n].level <= sections[s].level) {
-        end = sections[n].line - 1;
+      const next = sections[n];
+      if (next !== undefined && next.level <= section.level) {
+        end = next.line - 1;
         break;
       }
     }
-    sections[s].chars = lines.slice(start, end).join("\n").length;
+    section.chars = lines.slice(start, end).join("\n").length;
   }
   return sections;
 }

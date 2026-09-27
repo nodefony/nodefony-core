@@ -362,7 +362,7 @@ export function parseEntityFields(input: string): IEntityField[] {
     // Énumération : `status:enum(draft,published)`.
     const enumMatch = /^enum\((.*)\)$/u.exec(parts[1] ?? "");
     if (enumMatch) {
-      const values = enumMatch[1]
+      const values = (enumMatch[1] ?? "")
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean);
@@ -405,7 +405,7 @@ export function parseEntityFields(input: string): IEntityField[] {
           `champ invalide « ${raw} » — longueur nulle (ex : title:string(200), country:char(2))`,
         );
       }
-      parts[1] = sized[1];
+      parts[1] = sized[1] ?? "";
     } else if (decimalMatch) {
       precision = Number(decimalMatch[1]);
       scale = Number(decimalMatch[2]);
@@ -1104,7 +1104,7 @@ function columnImport(
   dialect: TEntityDialect,
   type: TEntityFieldType | "ref",
 ): string {
-  return COLUMN[dialect][type]("x").split("(")[0];
+  return COLUMN[dialect][type]("x").split("(")[0] ?? "";
 }
 
 /** Tout ce dont les templates ont besoin pour rendre une entité. */
@@ -1610,7 +1610,7 @@ export function parseRowFieldNames(block: string): string[] | null {
     }
     const match = /^([A-Za-z_$][\w$]*)\??:\s*[^;{}]+;$/u.exec(line);
     if (!match) return null;
-    names.push(match[1]);
+    if (match[1] !== undefined) names.push(match[1]);
   }
   return names;
 }

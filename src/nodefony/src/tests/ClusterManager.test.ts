@@ -87,7 +87,7 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
       }
     }
     get lastMs(): number {
-      return this.tasks[this.tasks.length - 1]?.ms;
+      return this.tasks[this.tasks.length - 1]?.ms ?? Number.NaN;
     }
   }
 
@@ -147,7 +147,7 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
     it("worker mort → respawn programmé puis re-forké", () => {
       const { runtime, scheduler, mgr } = build({ workers: 2 });
       mgr.start();
-      runtime.crash(runtime.forked[0]);
+      runtime.crash(runtime.forked[0]!);
       expect(mgr.size).to.equal(1);
       expect(scheduler.lastMs).to.equal(100); // base
       scheduler.fire(0);
@@ -162,13 +162,13 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
         stableMs: 10_000,
       });
       mgr.start();
-      runtime.crash(runtime.forked[0]); // crash #1
+      runtime.crash(runtime.forked[0]!); // crash #1
       expect(scheduler.lastMs).to.equal(100);
       scheduler.fire(0); // respawn → forked[1]
-      runtime.crash(runtime.forked[1]); // crash #2
+      runtime.crash(runtime.forked[1]!); // crash #2
       expect(scheduler.lastMs).to.equal(200);
       scheduler.fire(1); // respawn → forked[2]
-      runtime.crash(runtime.forked[2]); // crash #3
+      runtime.crash(runtime.forked[2]!); // crash #3
       expect(scheduler.lastMs).to.equal(400);
     });
 
@@ -180,11 +180,11 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
         stableMs: 10_000,
       });
       mgr.start();
-      runtime.crash(runtime.forked[0]);
+      runtime.crash(runtime.forked[0]!);
       scheduler.fire(0);
-      runtime.crash(runtime.forked[1]);
+      runtime.crash(runtime.forked[1]!);
       scheduler.fire(1);
-      runtime.crash(runtime.forked[2]);
+      runtime.crash(runtime.forked[2]!);
       expect(scheduler.lastMs).to.equal(300); // 400 → capé à 300
     });
 
@@ -195,10 +195,10 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
         stableMs: 0, // tout worker compte comme stable → reset systématique
       });
       mgr.start();
-      runtime.crash(runtime.forked[0]);
+      runtime.crash(runtime.forked[0]!);
       expect(scheduler.lastMs).to.equal(100);
       scheduler.fire(0);
-      runtime.crash(runtime.forked[1]);
+      runtime.crash(runtime.forked[1]!);
       expect(scheduler.lastMs).to.equal(100); // pas 200 — réinitialisé
     });
   });
@@ -219,11 +219,11 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
       const { runtime, scheduler, exits, mgr } = build({ workers: 2 });
       mgr.start();
       mgr.shutdown();
-      runtime.exitClean(runtime.forked[0]);
-      runtime.exitClean(runtime.forked[1]);
+      runtime.exitClean(runtime.forked[0]!);
+      runtime.exitClean(runtime.forked[1]!);
       expect(mgr.size).to.equal(0);
       expect(exits).to.deep.equal([0]);
-      expect(scheduler.tasks[scheduler.tasks.length - 1].cleared).to.equal(
+      expect(scheduler.tasks[scheduler.tasks.length - 1]!.cleared).to.equal(
         true,
       );
     });
@@ -246,7 +246,7 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
       mgr.start();
       mgr.shutdown();
       const before = runtime.forked.length;
-      runtime.crash(runtime.forked[0]); // mort pendant drain
+      runtime.crash(runtime.forked[0]!); // mort pendant drain
       expect(runtime.forked.length).to.equal(before); // pas de re-fork
     });
 
@@ -262,7 +262,7 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
       mgr.start();
       mgr.shutdown();
       mgr.shutdown();
-      runtime.exitClean(runtime.forked[0]);
+      runtime.exitClean(runtime.forked[0]!);
       expect(exits).to.deep.equal([0]); // un seul exit
     });
   });

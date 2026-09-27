@@ -96,7 +96,7 @@ export default { modules: [use("@nodefony/security", security(ctx))] };`,
     );
     assert.equal(trouvés.length, 1, "la zone déplacée doit être criée aussi");
     assert.match(
-      trouvés[0].file,
+      trouvés[0]!.file,
       /security\.ts$/u,
       "le manquement doit pointer le fichier qui le PORTE — envoyer corriger " +
         "le manifeste racine ferait chercher là où il n'y a rien",
@@ -249,7 +249,7 @@ export default { modules: [...extra] };`,
     const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
     const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
     assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
-    assert.match(f[0].file, /nodefony[/\\]config[/\\]security\.ts$/u);
+    assert.match(f[0]!.file, /nodefony[/\\]config[/\\]security\.ts$/u);
   });
 });
 
@@ -350,10 +350,10 @@ describe("un fragment au nom RÉSERVÉ est signalé par doctor (#299)", () => {
     const f = r.findings.filter((x) => x.kind === "reserved-fragment-name");
     assert.strictEqual(f.length, 2, JSON.stringify(r.findings));
     const files = f.map((x) => x.file).sort();
-    assert.match(files[0], /nodefony[/\\]config[/\\]config\.ts$/u);
-    assert.match(files[1], /nodefony[/\\]config[/\\]security\.config\.ts$/u);
+    assert.match(files[0]!, /nodefony[/\\]config[/\\]config\.ts$/u);
+    assert.match(files[1]!, /nodefony[/\\]config[/\\]security\.config\.ts$/u);
     assert.match(
-      f[0].message,
+      f[0]!.message,
       /security\.ts|<module>\.ts/u,
       "le geste : renommer",
     );
@@ -394,8 +394,8 @@ describe("un fragment qui rend une config SANS `satisfies` est signalé (#285)",
     const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
     const f = r.findings.filter((x) => x.kind === "fragment-without-satisfies");
     assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
-    assert.match(f[0].file, /nodefony[/\\]config[/\\]http\.ts$/u);
-    assert.match(f[0].message, /satisfies/u, "le constat nomme le geste");
+    assert.match(f[0]!.file, /nodefony[/\\]config[/\\]http\.ts$/u);
+    assert.match(f[0]!.message, /satisfies/u, "le constat nomme le geste");
   });
 
   it("avec `satisfies`, rien n'est signalé", () => {

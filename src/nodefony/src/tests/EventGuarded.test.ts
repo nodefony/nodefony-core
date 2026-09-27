@@ -50,9 +50,9 @@ describe("Event.emitAsyncGuarded", () => {
     const r = await ev.emitAsyncGuarded("e");
     expect(seen).to.deep.equal(["a", "b"]);
     expect(r.errors).to.have.length(1);
-    expect(r.errors[0].index).to.equal(0);
-    expect(r.errors[0].timedOut).to.equal(false);
-    expect((r.errors[0].error as Error).message).to.equal("boom");
+    expect(r.errors[0]!.index).to.equal(0);
+    expect(r.errors[0]!.timedOut).to.equal(false);
+    expect((r.errors[0]!.error as Error).message).to.equal("boom");
     expect(r.results).to.deep.equal(["ok"]);
   });
 
@@ -92,7 +92,7 @@ describe("Event.emitAsyncGuarded", () => {
     });
     expect(seen).to.deep.equal(["frozen", "after"]);
     expect(r.errors).to.have.length(1);
-    expect(r.errors[0].timedOut).to.equal(true);
+    expect(r.errors[0]!.timedOut).to.equal(true);
     expect(infos[0].timedOut).to.equal(true);
     expect(r.results).to.deep.equal(["ok"]);
   });

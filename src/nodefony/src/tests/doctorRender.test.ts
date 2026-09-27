@@ -636,7 +636,7 @@ describe("doctor --help", () => {
     for (const drapeau of drapeaux) {
       assert.include(
         texte,
-        drapeau,
+        drapeau!,
         `${drapeau} est accepté mais absent de l'aide`,
       );
     }

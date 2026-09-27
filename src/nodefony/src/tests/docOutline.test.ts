@@ -50,7 +50,7 @@ describe("outlineMarkdown", () => {
   it("donne le niveau et la ligne de chaque titre", () => {
     const outline = outlineMarkdown(PAGE);
     expect(outline[2]).to.include({ level: 3, title: "Zones" });
-    expect(PAGE.split("\n")[outline[2].line - 1]).to.equal("### Zones");
+    expect(PAGE.split("\n")[outline[2]!.line - 1]).to.equal("### Zones");
   });
 
   it("pèse une section jusqu'au prochain titre de niveau ≤, sous-sections comprises", () => {
@@ -60,7 +60,7 @@ describe("outlineMarkdown", () => {
     // `Configuration` englobe `Zones` : elle pèse donc strictement plus.
     expect(config?.chars).to.be.greaterThan(zones?.chars ?? Infinity);
     // Et le document entier tient sous le titre de niveau 1.
-    expect(outline[0].chars).to.equal(PAGE.length);
+    expect(outline[0]!.chars).to.equal(PAGE.length);
   });
 
   it("rend une liste vide sur un document sans titre", () => {

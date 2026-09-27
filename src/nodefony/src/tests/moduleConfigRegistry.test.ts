@@ -74,7 +74,7 @@ function collectRegistryEntries(roots: string[]): RegistryEntry[] {
           source,
         );
       if (match) {
-        entries.push({ packageName: match[1], inputType: match[2] });
+        entries.push({ packageName: match[1]!, inputType: match[2]! });
       }
     }
   }
@@ -120,8 +120,8 @@ function collectMountedModules(source: string): Set<string> {
   const code = stripComments(source);
   const manifest = /modules\s*:\s*\[([\s\S]*)\]/u.exec(code);
   const scope = manifest ? manifest[1] : code;
-  for (const m of scope.matchAll(/"(@[\w.-]+\/[\w.-]+)"/gu)) {
-    mounted.add(m[1]);
+  for (const m of scope!.matchAll(/"(@[\w.-]+\/[\w.-]+)"/gu)) {
+    mounted.add(m[1]!);
   }
   return mounted;
 }
@@ -139,7 +139,7 @@ function collectReExportedPackages(source: string): Set<string> {
   for (const m of stripComments(source).matchAll(
     /export type \{[^}]*\} from "([^"]+)";/gu,
   )) {
-    found.add(m[1]);
+    found.add(m[1]!);
   }
   return found;
 }

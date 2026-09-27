@@ -86,9 +86,9 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
     const { client, transports } = setup();
     const p = client.connect();
     expect(transports).to.have.length(1);
-    expect(transports[0].connectCalls).to.equal(1);
+    expect(transports[0]!.connectCalls).to.equal(1);
     expect(client.state).to.equal("connecting");
-    transports[0].fireOpen();
+    transports[0]!.fireOpen();
     await p;
     expect(client.state).to.equal("connected");
     client.disconnect();
@@ -97,10 +97,10 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
   it("subscribe après ouverture → frame émise PAR le transport", async () => {
     const { client, transports } = setup();
     const p = client.connect();
-    transports[0].fireOpen();
+    transports[0]!.fireOpen();
     await p;
     client.subscribe("nodefony:dashboard");
-    const frames = transports[0].sent.map((s) => JSON.parse(s));
+    const frames = transports[0]!.sent.map((s) => JSON.parse(s));
     expect(
       frames.some(
         (f) =>
@@ -117,14 +117,14 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
       reconnectDelayMax: 4,
     });
     const p = client.connect();
-    transports[0].fireOpen();
+    transports[0]!.fireOpen();
     await p;
-    transports[0].fireClose(1006); // perte non intentionnelle
+    transports[0]!.fireClose(1006); // perte non intentionnelle
     expect(client.state).to.equal("reconnecting");
     await delay(20);
     expect(transports.length).to.equal(2); // un transport NEUF par tentative
-    expect(transports[1].connectCalls).to.equal(1);
-    transports[1].fireOpen();
+    expect(transports[1]!.connectCalls).to.equal(1);
+    transports[1]!.fireOpen();
     expect(client.state).to.equal("connected");
     client.disconnect();
   });
@@ -135,9 +135,9 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
       reconnectDelayMax: 4,
     });
     const p = client.connect();
-    transports[0].fireOpen();
+    transports[0]!.fireOpen();
     await p;
-    transports[0].fireClose(1008); // policy → définitif (anonyme ne martèle pas)
+    transports[0]!.fireClose(1008); // policy → définitif (anonyme ne martèle pas)
     expect(client.state).to.equal("error");
     await delay(20);
     expect(transports.length).to.equal(1); // aucun transport recréé
@@ -147,14 +147,14 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
   it("après un close fatal, connect() rétablit explicitement (ex. post-login)", async () => {
     const { client, transports } = setup({ reconnectDelay: 1 });
     const p = client.connect();
-    transports[0].fireOpen();
+    transports[0]!.fireOpen();
     await p;
-    transports[0].fireClose(1008);
+    transports[0]!.fireClose(1008);
     expect(client.state).to.equal("error");
     // l'app a corrigé la cause (login) → reconnexion MANUELLE
     const p2 = client.connect();
     expect(transports.length).to.equal(2);
-    transports[1].fireOpen();
+    transports[1]!.fireOpen();
     await p2;
     expect(client.state).to.equal("connected");
     client.disconnect();
@@ -163,10 +163,10 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
   it("disconnect() ferme proprement (1000) sans reconnexion", async () => {
     const { client, transports } = setup({ reconnectDelay: 1 });
     const p = client.connect();
-    transports[0].fireOpen();
+    transports[0]!.fireOpen();
     await p;
     client.disconnect();
-    expect(transports[0].closedWith?.code).to.equal(1000);
+    expect(transports[0]!.closedWith?.code).to.equal(1000);
     expect(client.state).to.equal("disconnected");
     await delay(15);
     expect(transports.length).to.equal(1); // PAS de reconnexion (intentionnel)
@@ -175,10 +175,10 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
   it("heartbeat → ping émis périodiquement via le transport", async () => {
     const { client, transports } = setup({ heartbeatInterval: 5 });
     const p = client.connect();
-    transports[0].fireOpen();
+    transports[0]!.fireOpen();
     await p;
     await delay(14);
-    const pinged = transports[0].sent
+    const pinged = transports[0]!.sent
       .map((s) => JSON.parse(s))
       .some((f) => f.method === "ping");
     expect(pinged).to.equal(true);
@@ -190,7 +190,7 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
     // Non attendue : la connexion reste CONNECTING, c'est l'état éprouvé.
     void client.connect(); // CONNECTING, pas encore OPEN
     client.emit("evt", { x: 1 });
-    expect(transports[0].sent).to.have.length(0);
+    expect(transports[0]!.sent).to.have.length(0);
     client.disconnect();
   });
 });

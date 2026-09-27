@@ -71,6 +71,6 @@ describe("bilan de boot — tableau des zones firewall", () => {
       [{ name: "open", pattern: "^\\/public", security: false }],
       "",
     );
-    assert.match(strip(lines[2]), /open\s+app\s+\^\/public\s+—\s+public/);
+    assert.match(strip(lines[2]!), /open\s+app\s+\^\/public\s+—\s+public/);
   });
 });

@@ -323,9 +323,10 @@ export async function runStopReport(
   // l'arrêt annonçait alors « déjà arrêté » pendant qu'un serveur continuait d'écouter.
   // Le fichier d'état du projet, lui, dit la vérité — et ne désigne QUE ce projet.
   const byState = observed.supported ? [] : discoverFromRuntimeState(cwd);
-  if (byState.length > 0) {
+  const [firstState] = byState;
+  if (firstState !== undefined) {
     write(
-      `${tag} observation des process indisponible ici — runtime retrouvé par son fichier d'état (pid ${byState[0].pid}).\n`,
+      `${tag} observation des process indisponible ici — runtime retrouvé par son fichier d'état (pid ${firstState.pid}).\n`,
     );
   }
   const before = scoped.mine.length > 0 ? scoped.mine : byState;

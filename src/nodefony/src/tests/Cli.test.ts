@@ -465,7 +465,7 @@ describe("Cli — commandes standalone — options et alias", () => {
     const cli = makeCli("arg-vis");
     const cmd = cli.addCommand(EchoCommand) as EchoCommand;
     assert.ok(cmd.command.registeredArguments.length > 0);
-    assert.strictEqual(cmd.command.registeredArguments[0].name(), "message");
+    assert.strictEqual(cmd.command.registeredArguments[0]!.name(), "message");
   });
 });
 
@@ -983,7 +983,7 @@ describe("Cli — signal handler idempotent", () => {
       (cli as any).handleSignals();
       const ours = process
         .listeners("SIGTERM")
-        .filter((l) => !before["SIGTERM"].has(l));
+        .filter((l) => !before["SIGTERM"]!.has(l));
       assert.lengthOf(ours, 1, "un seul listener SIGTERM ajouté");
       const handler = ours[0] as () => void;
 
@@ -1009,7 +1009,7 @@ describe("Cli — signal handler idempotent", () => {
       // retirer UNIQUEMENT les listeners ajoutés par ce cli
       for (const s of SIGNALS) {
         for (const l of process.listeners(s)) {
-          if (!before[s].has(l)) process.removeListener(s, l as never);
+          if (!before[s]!.has(l)) process.removeListener(s, l as never);
         }
       }
     }
@@ -1068,7 +1068,7 @@ describe("Cli — listeners sur process", () => {
       assert.strictEqual(rendus, N * WATCHED.length, "tous rendus, comptés");
       assert.strictEqual(posés(), avant, "aucun listener ne survit à son Cli");
       assert.strictEqual(
-        clis[0].releaseProcessListeners(),
+        clis[0]!.releaseProcessListeners(),
         0,
         "idempotent : un second appel ne retire rien",
       );

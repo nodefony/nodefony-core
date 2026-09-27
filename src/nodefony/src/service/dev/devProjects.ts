@@ -229,7 +229,8 @@ export function resolveProjectTarget(
         (p) => p.name === arg || grammar.basename(p.root) === arg,
       );
 
-  if (matches.length === 1) return { ok: true, project: matches[0] };
+  const [only] = matches;
+  if (matches.length === 1 && only) return { ok: true, project: only };
   if (matches.length === 0)
     return { ok: false, reason: "inconnu", candidates: projects };
   return { ok: false, reason: "ambigu", candidates: matches };

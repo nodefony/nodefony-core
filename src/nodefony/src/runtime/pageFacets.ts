@@ -84,8 +84,8 @@ export async function countFacets<S extends Readonly<Record<string, object>>>(
   );
 
   const out = {} as FacetCounts<S>;
-  for (let i = 0; i < names.length; i++) {
-    out[names[i]] = values[i];
+  for (const [i, name] of names.entries()) {
+    out[name] = values[i] ?? null;
   }
   return out;
 }

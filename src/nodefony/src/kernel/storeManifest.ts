@@ -121,12 +121,12 @@ export function findStoreOrderFault(
 ): IStoreOrderFault | null {
   let consumerIndex = -1;
   let consumer = "";
-  for (let i = 0; i < entries.length; i++) {
-    const manifest = entries[i]?.manifest;
+  for (const [i, entry] of entries.entries()) {
+    const manifest = entry.manifest;
     if (!manifest) continue;
     if (consumerIndex === -1 && manifest.consumesStores) {
       consumerIndex = i;
-      consumer = entries[i].name;
+      consumer = entry.name;
       continue;
     }
     if (
@@ -135,7 +135,7 @@ export function findStoreOrderFault(
       manifest.storeKind === "durable"
     ) {
       return {
-        provider: entries[i].name,
+        provider: entry.name,
         providerIndex: i,
         consumer,
         consumerIndex,

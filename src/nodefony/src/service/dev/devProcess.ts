@@ -801,8 +801,8 @@ export function parseTasklistImage(out: string): string | null {
   for (const raw of out.split("\n")) {
     const line = raw.trim();
     if (!line.startsWith('"')) continue; // phrase INFO:/ERROR: → pas une ligne de données
-    const m = /^"([^"]+)","(\d+)"/.exec(line);
-    if (m) return m[1];
+    const name = /^"([^"]+)","(\d+)"/.exec(line)?.[1];
+    if (name !== undefined) return name;
   }
   return null;
 }
@@ -1370,9 +1370,9 @@ function parseEtime(etime: string): number {
   let h = 0;
   let m = 0;
   let s = 0;
-  if (parts.length === 3) [h, m, s] = parts;
-  else if (parts.length === 2) [m, s] = parts;
-  else if (parts.length === 1) [s] = parts;
+  if (parts.length === 3) [h = 0, m = 0, s = 0] = parts;
+  else if (parts.length === 2) [m = 0, s = 0] = parts;
+  else if (parts.length === 1) [s = 0] = parts;
   return days * 86400 + h * 3600 + m * 60 + s;
 }
 
@@ -1391,7 +1391,7 @@ export function formatUptime(sec: number): string {
 /** Extrait le détail d'un titre Vite (`nodefony-vite[studio]` → `studio`). */
 function viteEntries(command: string): string {
   const m = command.match(/nodefony-vite\[([^\]]*)\]/);
-  return m ? m[1] : "";
+  return m?.[1] ?? "";
 }
 
 /** Regex d'une ligne `ps -o pid=,ppid=,rss=,pcpu=,etime=,command=`. */
@@ -1406,18 +1406,20 @@ const PS_ROW_RE = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d.,]+)\s+(\S+)\s+(.*)$/;
 export function parsePsRow(line: string): DevProcessInfo | null {
   const m = line.match(PS_ROW_RE);
   if (!m) return null;
-  const c = classify(m[6]);
+  const [, pid = "", ppid = "", rss = "", cpu = "", etime = "", command = ""] =
+    m;
+  const c = classify(command);
   if (!c) return null;
   return {
-    pid: Number.parseInt(m[1], 10),
-    ppid: Number.parseInt(m[2], 10),
+    pid: Number.parseInt(pid, 10),
+    ppid: Number.parseInt(ppid, 10),
     mode: c.mode,
     role: c.role,
     label: c.label,
     detail: c.detail,
-    rssKb: Number.parseInt(m[3], 10),
-    cpu: Number.parseFloat(m[4].replace(",", ".")),
-    uptimeSec: parseEtime(m[5]),
+    rssKb: Number.parseInt(rss, 10),
+    cpu: Number.parseFloat(cpu.replace(",", ".")),
+    uptimeSec: parseEtime(etime),
   };
 }
 

@@ -370,6 +370,7 @@ function textFor(question: IScaffoldQuestion): string {
  */
 export function optionsFor(type: TScaffoldType): IUsageEntry[] {
   const [spec] = getScaffoldSpec(type);
+  if (spec === undefined) return [];
   const byFlag = new Map<string, IUsageEntry>();
   for (const q of spec.questions) {
     if (q.key === "name") continue;

@@ -764,7 +764,7 @@ function renderSummary(
             `    ${ANSI.dim}les process du haut sont ceux de CE projet ; le${pluriel} voisin${pluriel} n'${voisins.length > 1 ? "en font" : "en fait"} pas partie${ANSI.reset}`,
             `    ${ANSI.dim}et ${voisins.length > 1 ? "ne sont" : "n'est"} ni compté${pluriel} dans la synthèse, ni arrêté${pluriel} par ${ANSI.reset}${ANSI.cyan}nodefony stop${ANSI.reset}${ANSI.dim}.${ANSI.reset}`,
           ]),
-    `    ${ANSI.dim}arrêter ${report.inProject ? "un voisin" : "l'un d'eux"}, sans changer de dossier : ${ANSI.reset}${ANSI.cyan}nodefony stop ${voisins[0].name}${ANSI.reset}`,
+    `    ${ANSI.dim}arrêter ${report.inProject ? "un voisin" : "l'un d'eux"}, sans changer de dossier : ${ANSI.reset}${ANSI.cyan}nodefony stop ${voisins[0]?.name ?? ""}${ANSI.reset}`,
   );
 }
 

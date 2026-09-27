@@ -180,9 +180,9 @@ export function runIdempotencyPaginationContract(
 
     it("porte une échéance exploitable", async () => {
       const page = await store().listPage({ limit: 1 });
-      assert.equal(typeof page.items[0].expiresAtMs, "number");
+      assert.equal(typeof page.items[0]!.expiresAtMs, "number");
       assert.ok(
-        page.items[0].expiresAtMs > 0,
+        page.items[0]!.expiresAtMs > 0,
         "une clé vivante a une échéance future",
       );
     });

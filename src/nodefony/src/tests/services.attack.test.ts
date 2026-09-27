@@ -130,7 +130,7 @@ describe("RED-TEAM @services — intégrité du boot", () => {
       "un service sauté doit être AGRÉGÉ au BootReport — c'est ce qui fait dire " +
         "« boot DÉGRADÉ » au superviseur au lieu de « UP »",
     );
-    assert.match(report.modulesSkipped[0].reason, /boom/);
+    assert.match(report.modulesSkipped[0]!.reason, /boom/);
   });
 
   it("F3 — le service dont la construction échoue ne doit PAS être au container", async () => {

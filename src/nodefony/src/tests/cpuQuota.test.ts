@@ -13,7 +13,7 @@ import {
 describe("cluster / cpuQuota (cgroup-aware worker count)", () => {
   /** Fabrique un lecteur factice à partir d'une map path → contenu. */
   const reader = (files: Record<string, string>): FileReader => {
-    return (path) => (path in files ? files[path] : null);
+    return (path) => (path in files ? files[path] : null)!;
   };
 
   describe("readCgroupCpuQuota — cgroup v2 (cpu.max)", () => {

@@ -104,7 +104,7 @@ describe("Log Backplane — câblage config → Kernel → driver actif", () => 
     assert.ok(d?.capabilities.query, "le driver actif doit être queryable");
     const r = await d.query!({});
     assert.strictEqual(r.total, 2);
-    assert.strictEqual(r.rows[0].payload, "omega"); // récent d'abord
+    assert.strictEqual(r.rows[0]!.payload, "omega"); // récent d'abord
   });
 
   it("`log.dir` → le driver `file` dérive son JSONL sous ce répertoire", async () => {
@@ -117,7 +117,7 @@ describe("Log Backplane — câblage config → Kernel → driver actif", () => 
     k.initializeLog();
     const r = await getActiveLogDriver()!.query!({});
     assert.strictEqual(r.total, 1);
-    assert.strictEqual(r.rows[0].payload, "sous-dir");
+    assert.strictEqual(r.rows[0]!.payload, "sous-dir");
   });
 
   it("`log.queryFile.maxScanBytes` → borne la lecture du driver actif (anti-OOM)", async () => {
@@ -139,7 +139,7 @@ describe("Log Backplane — câblage config → Kernel → driver actif", () => 
     k.initializeLog();
     const r = await getActiveLogDriver()!.query!({});
     // Seule la dernière ligne tient dans la fenêtre → borne honorée.
-    assert.strictEqual(r.rows[0].payload, "l6");
+    assert.strictEqual(r.rows[0]!.payload, "l6");
     assert.ok(r.total <= 2, `attendu ≤ 2 lignes scannées, obtenu ${r.total}`);
   });
 });

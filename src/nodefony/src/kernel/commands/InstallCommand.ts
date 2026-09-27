@@ -20,8 +20,7 @@ class Install extends Command {
   override async generate(options?: { force?: boolean }): Promise<this> {
     const modules = this.kernel?.getModules();
     if (modules) {
-      for (const moduleName in modules) {
-        const module = modules[moduleName];
+      for (const module of Object.values(modules)) {
         await module.install(options?.force);
       }
     }

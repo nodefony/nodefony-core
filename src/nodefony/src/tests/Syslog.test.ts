@@ -172,8 +172,8 @@ describe("NODEFONY SYSLOG", () => {
           assert.strict.equal(pdu.msgid, "");
           assert.strict.equal(pdu.msg, "");
         }
-        assert.strict.equal(global.syslog.ringStack[0].payload, 0);
-        assert.strict.equal(global.syslog.ringStack[99].payload, 99);
+        assert.strict.equal(global.syslog.ringStack[0]!.payload, 0);
+        assert.strict.equal(global.syslog.ringStack[99]!.payload, 99);
         assert.strict.equal(global.syslog.missed, 0);
         assert.strict.equal(global.syslog.invalid, 0);
         assert.strict.equal(global.syslog.valid, 100);
@@ -190,8 +190,8 @@ describe("NODEFONY SYSLOG", () => {
           global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
         }
         assert.strict.equal(global.syslog.ringStack.length, 100);
-        assert.strict.equal(global.syslog.ringStack[0].payload, 900);
-        assert.strict.equal(global.syslog.ringStack[99].payload, 999);
+        assert.strict.equal(global.syslog.ringStack[0]!.payload, 900);
+        assert.strict.equal(global.syslog.ringStack[99]!.payload, 999);
         assert.strict.equal(global.syslog.missed, 0);
         assert.strict.equal(global.syslog.invalid, 0);
         assert.strict.equal(global.syslog.valid, 1100);
@@ -209,13 +209,13 @@ describe("NODEFONY SYSLOG", () => {
         res = global.syslog.getLogStack(0, 10);
         //assert.strict.equal((res?[0] as Pdu[] ).payload, 900);
         assert.strict.equal((res as Pdu[])[0]?.payload, 900);
-        assert.strict.equal((res as Pdu[])[9].payload, 909);
+        assert.strict.equal((res as Pdu[])[9]!.payload, 909);
         res = global.syslog.getLogStack(0);
-        assert.strict.equal((res as Pdu[])[0].payload, 900);
-        assert.strict.equal((res as Pdu[])[99].payload, 999);
+        assert.strict.equal((res as Pdu[])[0]!.payload, 900);
+        assert.strict.equal((res as Pdu[])[99]!.payload, 999);
         res = global.syslog.getLogStack(50);
-        assert.strict.equal((res as Pdu[])[0].payload, 950);
-        assert.strict.equal((res as Pdu[])[49].payload, 999);
+        assert.strict.equal((res as Pdu[])[0]!.payload, 950);
+        assert.strict.equal((res as Pdu[])[49]!.payload, 999);
         res = global.syslog.getLogStack(10, 10);
         assert.strict.equal((res as Pdu).payload, 989);
         done();
@@ -815,7 +815,7 @@ describe("NODEFONY SYSLOG", () => {
         Syslog.flushOutput();
         // 1 seul write coalescé contenant les 2 lignes
         assert.strictEqual(chunks.length, 1);
-        assert.ok(chunks[0].includes("buf-a") && chunks[0].includes("buf-b"));
+        assert.ok(chunks[0]!.includes("buf-a") && chunks[0]!.includes("buf-b"));
       } finally {
         process.stdout.write = orig;
       }
@@ -832,7 +832,7 @@ describe("NODEFONY SYSLOG", () => {
         Syslog.setOutputBuffering(false);
         Syslog.rawLog(new Pdu("imm-a", "INFO"));
         assert.strictEqual(chunks.length, 1);
-        assert.ok(chunks[0].includes("imm-a"));
+        assert.ok(chunks[0]!.includes("imm-a"));
       } finally {
         process.stdout.write = orig;
       }
@@ -857,10 +857,10 @@ describe("NODEFONY SYSLOG", () => {
         assert.strictEqual(out.length, 0);
         Syslog.rawLog(new Pdu("boom", "ERROR")); // stderr immédiat
         assert.strictEqual(err.length, 1);
-        assert.ok(err[0].includes("boom"));
+        assert.ok(err[0]!.includes("boom"));
         // le stdout en attente est flushé AVANT l'erreur (ordre préservé en 2>&1)
         assert.strictEqual(out.length, 1);
-        assert.ok(out[0].includes("info-pending"));
+        assert.ok(out[0]!.includes("info-pending"));
       } finally {
         process.stdout.write = oOut;
         process.stderr.write = oErr;
@@ -896,7 +896,7 @@ describe("NODEFONY SYSLOG", () => {
         Syslog.overrideConsole(inst);
         console.log("test override");
         assert.strict.equal(inst.ringStack.length, 1);
-        assert.strict.equal(inst.ringStack[0].payload, "test override");
+        assert.strict.equal(inst.ringStack[0]!.payload, "test override");
         done();
       }));
 
@@ -905,7 +905,7 @@ describe("NODEFONY SYSLOG", () => {
         const inst = new Syslog({ maxStack: 10 });
         Syslog.overrideConsole(inst);
         console.error("critical");
-        assert.strict.equal(inst.ringStack[0].severity, 3);
+        assert.strict.equal(inst.ringStack[0]!.severity, 3);
         done();
       }));
 
@@ -914,7 +914,7 @@ describe("NODEFONY SYSLOG", () => {
         const inst = new Syslog({ maxStack: 10 });
         Syslog.overrideConsole(inst);
         console.warn("careful");
-        assert.strict.equal(inst.ringStack[0].severity, 4);
+        assert.strict.equal(inst.ringStack[0]!.severity, 4);
         done();
       }));
 
@@ -923,7 +923,7 @@ describe("NODEFONY SYSLOG", () => {
         const inst = new Syslog({ maxStack: 10 });
         Syslog.overrideConsole(inst);
         console.info("fyi");
-        assert.strict.equal(inst.ringStack[0].severity, 6);
+        assert.strict.equal(inst.ringStack[0]!.severity, 6);
         done();
       }));
 
@@ -933,7 +933,7 @@ describe("NODEFONY SYSLOG", () => {
         Syslog.overrideConsole(inst);
         Syslog.overrideConsole(inst);
         assert.strict.equal(inst.ringStack.length, 1);
-        assert.strict.equal(inst.ringStack[0].severity, 4); // WARNING
+        assert.strict.equal(inst.ringStack[0]!.severity, 4); // WARNING
         done();
       }));
 
@@ -949,7 +949,7 @@ describe("NODEFONY SYSLOG", () => {
         const inst = new Syslog({ maxStack: 10, overrideConsole: true });
         console.log("via settings");
         assert.strict.equal(inst.ringStack.length, 1);
-        assert.strict.equal(inst.ringStack[0].payload, "via settings");
+        assert.strict.equal(inst.ringStack[0]!.payload, "via settings");
         done();
       }));
 
@@ -958,7 +958,7 @@ describe("NODEFONY SYSLOG", () => {
         const inst = new Syslog({ maxStack: 10 });
         Syslog.overrideConsole(inst);
         console.log("a", "b", 3);
-        assert.deepStrictEqual(inst.ringStack[0].payload, ["a", "b", 3]);
+        assert.deepStrictEqual(inst.ringStack[0]!.payload, ["a", "b", 3]);
         done();
       }));
   });
@@ -1259,8 +1259,8 @@ describe("NODEFONY SYSLOG", () => {
       await t.send(pdu2);
       const lines = fs.readFileSync(tmpFile, "utf8").trim().split("\n");
       assert.strict.equal(lines.length, 2);
-      assert.strict.equal(JSON.parse(lines[0]).payload, "first");
-      assert.strict.equal(JSON.parse(lines[1]).payload, "second");
+      assert.strict.equal(JSON.parse(lines[0]!).payload, "first");
+      assert.strict.equal(JSON.parse(lines[1]!).payload, "second");
     });
 
     it("send() rejects on bad path (fire → onTransportError)", () =>
@@ -1433,8 +1433,8 @@ describe("NODEFONY SYSLOG", () => {
       await new Promise((r) => setImmediate(r));
       const stack = parent.ringStack;
       assert.strict.equal(stack.length, 1);
-      assert.strict.equal(stack[0].payload, "forwarded");
-      assert.strict.equal(stack[0].severityName, "WARNING");
+      assert.strict.equal(stack[0]!.payload, "forwarded");
+      assert.strict.equal(stack[0]!.severityName, "WARNING");
     });
 
     it("forwarded Pdu is the same object (no copy)", async () => {
@@ -1474,8 +1474,8 @@ describe("NODEFONY SYSLOG", () => {
         ];
         console.table(data);
         assert.strict.equal(inst.ringStack.length, 1);
-        assert.strict.equal(inst.ringStack[0].severityName, "INFO");
-        assert.deepStrictEqual(inst.ringStack[0].payload, data);
+        assert.strict.equal(inst.ringStack[0]!.severityName, "INFO");
+        assert.deepStrictEqual(inst.ringStack[0]!.payload, data);
         done();
       }));
 
@@ -1486,8 +1486,8 @@ describe("NODEFONY SYSLOG", () => {
         const obj = { x: 42, nested: { y: true } };
         console.dir(obj);
         assert.strict.equal(inst.ringStack.length, 1);
-        assert.strict.equal(inst.ringStack[0].severityName, "DEBUG");
-        assert.deepStrictEqual(inst.ringStack[0].payload, obj);
+        assert.strict.equal(inst.ringStack[0]!.severityName, "DEBUG");
+        assert.deepStrictEqual(inst.ringStack[0]!.payload, obj);
         done();
       }));
 
@@ -1524,8 +1524,8 @@ describe("NODEFONY SYSLOG", () => {
         s.log("d", "INFO"); // écrase "a"
         const stack = s.ringStack;
         assert.strict.equal(stack.length, 3);
-        assert.strict.equal(stack[0].payload, "b");
-        assert.strict.equal(stack[2].payload, "d");
+        assert.strict.equal(stack[0]!.payload, "b");
+        assert.strict.equal(stack[2]!.payload, "d");
         done();
       }));
 
@@ -1754,8 +1754,8 @@ describe("NODEFONY SYSLOG", () => {
         const dest = new Syslog({ maxStack: 10 });
         dest.loadStack(json);
         assert.strict.equal(dest.ringStack.length, 2);
-        assert.strict.equal(dest.ringStack[0].payload, "first");
-        assert.strict.equal(dest.ringStack[1].payload, "second");
+        assert.strict.equal(dest.ringStack[0]!.payload, "first");
+        assert.strict.equal(dest.ringStack[1]!.payload, "second");
         done();
       }));
   });
@@ -2320,7 +2320,7 @@ describe("SYSLOG — per-module debug override (runtime, hot)", () => {
       sl.setDebugOverride("A", "DEBUG", 60_000);
       sl.setDebugOverride("B", "DEBUG"); // permanent (sans ttl)
       const exp = sl.getDebugOverrideExpiry();
-      assert.ok(exp.A > 0, "A (ttl) a une échéance");
+      assert.ok(exp.A! > 0, "A (ttl) a une échéance");
       assert.strictEqual(exp.B, undefined, "B (permanent) sans échéance");
       sl.clearDebugOverride("A");
       assert.deepStrictEqual(
@@ -2338,7 +2338,7 @@ describe("SYSLOG — per-module debug override (runtime, hot)", () => {
     try {
       const sl = new Syslog({ moduleName: "T2" });
       sl.setDebugOverride("A", "DEBUG", 60_000);
-      assert.ok(sl.getDebugOverrideExpiry().A > 0);
+      assert.ok(sl.getDebugOverrideExpiry().A! > 0);
       sl.setDebugOverride("A", "DEBUG"); // re-pose SANS ttl → redevient permanent
       assert.strictEqual(sl.getDebugOverrideExpiry().A, undefined);
     } finally {

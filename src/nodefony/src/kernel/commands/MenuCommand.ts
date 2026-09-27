@@ -355,7 +355,7 @@ class Menu extends Command {
     // ci-dessous ne rejoue pas argv — seul le re-parse commander porte
     // l'argument jusqu'à la commande. On passe donc directement par lui.
     if (response.includes(" ")) {
-      const [name, ...args] = response.split(" ");
+      const [name = "", ...args] = response.split(" ");
       // Même règle que le respawn ci-dessus, sans changer de process : la
       // commande vient d'un CHOIX, elle doit pouvoir demander ce qui lui
       // manque. (`interaction()` par défaut rend ses arguments, désormais

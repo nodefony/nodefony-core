@@ -1247,7 +1247,7 @@ function lastStartup(
 
   /** Le titre du bloc, replié comme n'importe quelle autre phrase. */
   const title = (text: string, teinte: (t: string) => string): string[] => {
-    const [premiere, ...suite] = wrap(text, width, BODY);
+    const [premiere = "", ...suite] = wrap(text, width, BODY);
     return [
       teinte(`${ITEM}${stateSymbol(state)}  ${premiere.trimStart()}`),
       ...suite.map(teinte),
@@ -1490,7 +1490,7 @@ function passedCheckCount(report: IDoctorReport): number {
   // Dérivé de la source unique : une famille ajoutée est comptée sans qu'on ait
   // à y penser — la liste écrite en dur ici ignorait l'étage 2.
   for (const family of COUNTED_FAMILIES) {
-    if (report.execution[family]?.ran) n++;
+    if (report.execution[family].ran) n++;
   }
   return n;
 }

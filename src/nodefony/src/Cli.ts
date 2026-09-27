@@ -780,7 +780,9 @@ class Cli extends Service {
 
   public getCommand(name: string): Command | null {
     // Dictionnaire creux : le type prétend chaque clé présente.
-    return Object.hasOwn(this.commands, name) ? this.commands[name] : null;
+    return Object.hasOwn(this.commands, name)
+      ? (this.commands[name] ?? null)
+      : null;
   }
 
   showHelp(quit: boolean, context: HelpContext | undefined): void | never {
@@ -810,8 +812,8 @@ class Cli extends Service {
     const table = new Table(
       extend({}, defaultTableCli, options) as TableConstructorOptions,
     );
-    for (let i = 0; i < datas.length; i++) {
-      table.push(datas[i]);
+    for (const row of datas) {
+      table.push(row);
     }
     if (syslog) {
       syslog.log(`\n${table.toString()}`);
@@ -901,7 +903,7 @@ class Cli extends Service {
     };
     return (format || "YYYY-MM-DD HH:mm:ss").replace(
       /YYYY|SSS|MM|DD|HH|mm|ss/g,
-      (t) => map[t],
+      (t) => map[t] ?? t,
     );
   }
 
@@ -995,8 +997,8 @@ class Cli extends Service {
 
   stopTimer(name: string) {
     if (!name) {
-      for (const timer in this.timers) {
-        this.stopTimer(this.timers[timer]);
+      for (const timer of Object.keys(this.timers)) {
+        this.stopTimer(timer);
       }
     }
     try {

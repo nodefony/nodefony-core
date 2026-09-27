@@ -197,36 +197,36 @@ describe("Kernel — Events bitmask", () => {
 
   it("setCommandComplete sans command → retourne false", () => {
     const k = mkKernel();
-    assert.strictEqual(k.setCommandComplete(Events.onStart), false);
+    assert.strictEqual(k.setCommandComplete(Events.onStart!), false);
   });
 
   it("setCommandComplete met à jour progress via OR", () => {
     const k = mkKernel();
     const before = k.progress;
-    k.setCommandComplete(Events.onStart);
+    k.setCommandComplete(Events.onStart!);
     // progress doit maintenant avoir le bit onStart en plus
-    assert.ok((k.progress & Events.onStart) !== 0);
+    assert.ok((k.progress & Events.onStart!) !== 0);
     // bit onInit déjà présent depuis le constructeur
-    assert.ok((k.progress & Events.onInit) !== 0);
+    assert.ok((k.progress & Events.onInit!) !== 0);
     // progress a augmenté
     assert.ok(k.progress >= before);
   });
 
   it("isCommandComplete sans command → toujours false", () => {
     const k = mkKernel();
-    assert.strictEqual(k.isCommandComplete(Events.onInit), false);
-    assert.strictEqual(k.isCommandComplete(Events.onStart), false);
-    assert.strictEqual(k.isCommandComplete(Events.onTerminate), false);
+    assert.strictEqual(k.isCommandComplete(Events.onInit!), false);
+    assert.strictEqual(k.isCommandComplete(Events.onStart!), false);
+    assert.strictEqual(k.isCommandComplete(Events.onTerminate!), false);
   });
 
   it("progress accumule plusieurs bits", () => {
     const k = mkKernel();
-    k.setCommandComplete(Events.onStart);
-    k.setCommandComplete(Events.onRegister);
-    k.setCommandComplete(Events.onBoot);
-    assert.ok((k.progress & Events.onStart) !== 0);
-    assert.ok((k.progress & Events.onRegister) !== 0);
-    assert.ok((k.progress & Events.onBoot) !== 0);
+    k.setCommandComplete(Events.onStart!);
+    k.setCommandComplete(Events.onRegister!);
+    k.setCommandComplete(Events.onBoot!);
+    assert.ok((k.progress & Events.onStart!) !== 0);
+    assert.ok((k.progress & Events.onRegister!) !== 0);
+    assert.ok((k.progress & Events.onBoot!) !== 0);
   });
 
   it("tous les bits de Events sont uniques (pas de chevauchement)", () => {
@@ -640,7 +640,7 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
     const k = mkKernel();
     const result = k.interfacesFilter({ type: "local" });
     for (const name of Object.keys(result)) {
-      for (const info of result[name]) {
+      for (const info of result[name]!) {
         assert.strictEqual(info.internal, true);
       }
     }
@@ -650,7 +650,7 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
     const k = mkKernel();
     const result = k.interfacesFilter({ type: "external" });
     for (const name of Object.keys(result)) {
-      for (const info of result[name]) {
+      for (const info of result[name]!) {
         assert.strictEqual(info.internal, false);
       }
     }
@@ -660,7 +660,7 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
     const k = mkKernel();
     const result = k.interfacesFilter({ family: "IPv4" });
     for (const name of Object.keys(result)) {
-      for (const info of result[name]) {
+      for (const info of result[name]!) {
         assert.strictEqual(info.family, "IPv4");
       }
     }
@@ -670,7 +670,7 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
     const k = mkKernel();
     const result = k.interfacesFilter({ family: "IPv6" });
     for (const name of Object.keys(result)) {
-      for (const info of result[name]) {
+      for (const info of result[name]!) {
         assert.strictEqual(info.family, "IPv6");
       }
     }
@@ -685,7 +685,7 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
     });
     // Chaque entrée doit vérifier (internal || family=IPv4)
     for (const name of Object.keys(result)) {
-      for (const info of result[name]) {
+      for (const info of result[name]!) {
         assert.ok(info.internal || info.family === "IPv4");
       }
     }
@@ -699,7 +699,7 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
       condition: "&&",
     });
     for (const name of Object.keys(result)) {
-      for (const info of result[name]) {
+      for (const info of result[name]!) {
         assert.strictEqual(info.internal, false);
         assert.strictEqual(info.family, "IPv4");
       }
@@ -1203,15 +1203,15 @@ describe("Kernel — edge cases", () => {
     // Sans type ni family, matchType=false, matchFamily=false → aucun résultat
     // (les deux matchs sont false, condition && → false → aucune entrée poussée)
     for (const name of Object.keys(withEmpty)) {
-      assert.strictEqual(withEmpty[name].length, 0);
+      assert.strictEqual(withEmpty[name]!.length, 0);
     }
   });
 
   it("setCommandComplete → progress est cumulatif (idempotent sur le même bit)", () => {
     const k = mkKernel();
-    k.setCommandComplete(Events.onStart);
+    k.setCommandComplete(Events.onStart!);
     const p1 = k.progress;
-    k.setCommandComplete(Events.onStart); // même bit, deuxième fois
+    k.setCommandComplete(Events.onStart!); // même bit, deuxième fois
     const p2 = k.progress;
     assert.strictEqual(p1, p2, "OR idempotent sur le même bit");
   });

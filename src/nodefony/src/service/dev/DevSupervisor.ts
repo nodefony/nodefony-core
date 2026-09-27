@@ -733,8 +733,8 @@ export class DevSupervisor {
 
       // 1a. Conflit cross-mode de CE projet → REFUS fail-loud. On ne tue JAMAIS
       //     un prod/cluster automatiquement (il est intentionnel — bench, démo).
-      if (conflictHere.mine.length > 0) {
-        const first = conflictHere.mine[0];
+      const first = conflictHere.mine[0];
+      if (first !== undefined) {
         const otherMode = first.mode === "cluster" ? "cluster" : "production";
         const pids = conflictHere.mine.map((p) => p.pid).join(", ");
         this.#log(

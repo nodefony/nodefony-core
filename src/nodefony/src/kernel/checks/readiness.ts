@@ -180,7 +180,7 @@ export function declaredModules(source: string): string[] {
   for (const [, name] of withoutComments(source).matchAll(
     /\buse\(\s*["'`]([^"'`]+)["'`]/gu,
   )) {
-    names.add(name);
+    if (name !== undefined) names.add(name);
   }
   return [...names];
 }

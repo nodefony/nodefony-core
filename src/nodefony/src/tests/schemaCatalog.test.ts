@@ -77,7 +77,7 @@ describe("catalogue des réglages d'un schéma de configuration", () => {
       catalogue.map((l) => l.key),
       ["http"],
     );
-    assert.equal(catalogue[0].type, "object");
+    assert.equal(catalogue[0]!.type, "object");
   });
 
   it("rend une énumération par ses VALEURS, pas par son type", () => {
@@ -89,7 +89,7 @@ describe("catalogue des réglages d'un schéma de configuration", () => {
         hash: { type: "string", enum: ["sha256", "sha384", "sha512"] },
       },
     });
-    assert.equal(hash.type, "sha256|sha384|sha512");
+    assert.equal(hash!.type, "sha256|sha384|sha512");
   });
 
   it("porte la description du schéma, et la chaîne vide quand il n'y en a pas", () => {
@@ -100,8 +100,8 @@ describe("catalogue des réglages d'un schéma de configuration", () => {
         sans: { type: "string" },
       },
     });
-    assert.equal(catalogue[0].description, "Ce que fait la clé.");
-    assert.equal(catalogue[1].description, "");
+    assert.equal(catalogue[0]!.description, "Ce que fait la clé.");
+    assert.equal(catalogue[1]!.description, "");
   });
 
   it("distingue « défaut absent » de « défaut nul »", () => {
@@ -116,9 +116,9 @@ describe("catalogue des réglages d'un schéma de configuration", () => {
         absent: { type: "number" },
       },
     });
-    assert.isTrue("default" in catalogue[0]);
-    assert.strictEqual(catalogue[0].default, null);
-    assert.isFalse("default" in catalogue[1]);
+    assert.isTrue("default" in catalogue[0]!);
+    assert.strictEqual(catalogue[0]!.default, null);
+    assert.isFalse("default" in catalogue[1]!);
   });
 
   it("nomme les métadonnées Nodefony — c'est ce qui évite de régler un champ INERTE", () => {

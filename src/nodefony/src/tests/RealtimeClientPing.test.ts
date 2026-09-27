@@ -46,8 +46,8 @@ describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", ()
     const r = await client.ping();
 
     expect(calls).to.have.length(1);
-    expect(calls[0].method).to.equal("nodefony:kernel:ping");
-    expect(calls[0].params).to.equal(undefined);
+    expect(calls[0]!.method).to.equal("nodefony:kernel:ping");
+    expect(calls[0]!.params).to.equal(undefined);
     // payload serveur conservé tel quel…
     expect(r.pong).to.equal(true);
     expect(r.ts).to.equal(server.ts);

@@ -234,7 +234,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
       auth: true,
     });
     const entree = serversOf(plan.document)[MCP_SERVER_KEY];
-    expect(entree.headers?.Authorization).toBe("Bearer ${NF_MCP_TOKEN}");
+    expect(entree!.headers?.Authorization).toBe("Bearer ${NF_MCP_TOKEN}");
     const texte = JSON.stringify(plan.document);
     expect(texte).not.toMatch(/eyJ|Bearer [A-Za-z0-9._-]{20,}/u);
   });
@@ -254,7 +254,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     };
     const plan = planMcpConfig(existing, "http://localhost:5151/nodefony/mcp");
     expect(
-      serversOf(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
+      serversOf(plan.document)[MCP_SERVER_KEY]!.headers?.Authorization,
     ).toBe("Bearer ${NF_MCP_TOKEN}");
     expect(plan.action).toBe("inchange");
   });
@@ -274,7 +274,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     });
     // Repasser en anonyme est un choix qui doit PRENDRE : laisser l'en-tête
     // ferait échouer la connexion avec un jeton expiré, sans dire pourquoi.
-    expect(serversOf(plan.document)[MCP_SERVER_KEY].headers).toBeUndefined();
+    expect(serversOf(plan.document)[MCP_SERVER_KEY]!.headers).toBeUndefined();
     expect(plan.action).toBe("remplace");
   });
 
@@ -675,14 +675,14 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
     // Même racine que `.mcp.json`, mais PAS la même forme de variable : `${VAR}`
     // y serait pris à la lettre.
     expect(
-      serversOf(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
+      serversOf(plan.document)[MCP_SERVER_KEY]!.headers?.Authorization,
     ).toBe("Bearer ${env:NF_MCP_TOKEN}");
   });
 
   it("🔴 .mcp.json garde sa forme historique — la grammaire par défaut ne bouge pas", () => {
     const plan = planMcpConfig(null, url, { auth: true });
     expect(
-      serversOf(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
+      serversOf(plan.document)[MCP_SERVER_KEY]!.headers?.Authorization,
     ).toBe("Bearer ${NF_MCP_TOKEN}");
   });
 
@@ -734,8 +734,8 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
         projectRoot: racine,
         auth: true,
       });
-      expect(verdict.state).toBe("fichier-agent");
-      expect(verdict.inProject).toBe(true);
+      expect(verdict!.state).toBe("fichier-agent");
+      expect(verdict!.inProject).toBe(true);
       const ecrit = JSON.parse(
         readFileSync(path.join(racine, ".vscode", "mcp.json"), "utf8"),
       ) as IMcpConfigDocument;
@@ -796,7 +796,7 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
       });
       // Annoncer un retrait qui n'a rien retiré est le défaut mesuré chez un
       // agent piloté par CLI : on ne le reproduit pas ici.
-      expect(verdict.state).toBe("sans-effet");
+      expect(verdict!.state).toBe("sans-effet");
     } finally {
       rmSync(racine, { recursive: true, force: true });
     }

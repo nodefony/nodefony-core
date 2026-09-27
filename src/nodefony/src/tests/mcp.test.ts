@@ -111,7 +111,7 @@ function toolText(reply: { body: unknown }): {
       result: { content: { text: string }[]; isError?: boolean };
     }
   ).result;
-  return { text: result.content[0].text, isError: result.isError };
+  return { text: result.content[0]!.text, isError: result.isError };
 }
 
 /** Un module minimal qui déclare des outils — ce que fait une application. */
@@ -358,7 +358,7 @@ describe("MCP — le protocole", () => {
       deps: deps(),
     });
     expect(tools).toHaveLength(1);
-    expect(tools[0].name).toBe("nodefony_inspect");
+    expect(tools[0]!.name).toBe("nodefony_inspect");
   });
 
   it("tools/call lit un sujet par le plan d'administration", async () => {
@@ -749,7 +749,7 @@ describe("MCP — le REGISTRE d'outils (ce qu'une application ajoute)", () => {
 
     it("un outil SANS exigence reste public — rien ne change pour lui", () => {
       const { tools } = servis();
-      expect(tools[0].name).toBe("shop_stock");
+      expect(tools[0]!.name).toBe("shop_stock");
     });
 
     it("🔴 `initialize` ANNONCE qu'il existe des réservés, sans les nommer", async () => {
@@ -1215,12 +1215,12 @@ describe("MCP — les outils de diagnostic", () => {
       config[m] = { valeur: "y".repeat(20_000), provenance: "défaut" };
     }
     const { content } = mcpText(config);
-    const rendu = JSON.parse(content[0].text) as {
+    const rendu = JSON.parse(content[0]!.text) as {
       keys: string[];
       note?: string;
     };
     expect(rendu.keys).toEqual(["http", "framework", "security", "orm"]);
-    expect(content[0].text.length).toBeLessThan(4_000);
+    expect(content[0]!.text.length).toBeLessThan(4_000);
     expect(rendu.note).toBeTruthy();
   });
 
@@ -1230,12 +1230,12 @@ describe("MCP — les outils de diagnostic", () => {
     // paierait la garde sur 100 % des appels pour 1 % de gros sujets — et tout
     // consommateur qui parse la donnée casserait.
     const petit = [{ name: "@nodefony/http", version: "10.0.0" }];
-    expect(JSON.parse(mcpText(petit).content[0].text)).toEqual(petit);
-    expect(JSON.parse(mcpText({ app: "banc" }).content[0].text)).toEqual({
+    expect(JSON.parse(mcpText(petit).content[0]!.text)).toEqual(petit);
+    expect(JSON.parse(mcpText({ app: "banc" }).content[0]!.text)).toEqual({
       app: "banc",
     });
     // Une chaîne reste une chaîne — c'est déjà une réponse rédigée.
-    expect(mcpText("tout va bien").content[0].text).toBe("tout va bien");
+    expect(mcpText("tout va bien").content[0]!.text).toBe("tout va bien");
   });
 
   it("🔴 la NOTE se lit AVANT les entrées, et le `count` est désigné comme la source du NOMBRE", () => {
@@ -1255,7 +1255,7 @@ describe("MCP — les outils de diagnostic", () => {
       action: "index",
       module: "test",
     }));
-    const texte = mcpText(routes).content[0].text;
+    const texte = mcpText(routes).content[0]!.text;
     const rendu = JSON.parse(texte) as {
       count: number;
       note: string;
@@ -1281,7 +1281,7 @@ describe("MCP — les outils de diagnostic", () => {
     const enorme = Array.from({ length: 40_000 }, (_, i) => ({
       name: `entrée-numéro-${i}-avec-un-nom-assez-long-pour-peser`,
     }));
-    const rendu = JSON.parse(mcpText(enorme).content[0].text) as {
+    const rendu = JSON.parse(mcpText(enorme).content[0]!.text) as {
       count: number;
       items: unknown[];
       note?: string;
@@ -1378,7 +1378,7 @@ describe("outil docs", () => {
     }).docs;
     const result = await tool.handler(args, OPERATEUR);
     return {
-      texte: result.content[0].text,
+      texte: result.content[0]!.text,
       isError: result.isError === true,
     };
   }
@@ -1443,7 +1443,7 @@ describe("outil docs", () => {
     const tool = builtinMcpTools({ ...deps(), broker: undefined }).docs;
     const result = await tool.handler({ query: "session" }, OPERATEUR);
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("kernel");
+    expect(result.content[0]!.text).toContain("kernel");
   });
 });
 

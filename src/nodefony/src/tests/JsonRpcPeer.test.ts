@@ -107,7 +107,7 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
         },
       ]);
       expect(errs).to.have.length(1); // le détail est loggé serveur, pas envoyé
-      expect((errs[0].err as Error).message).to.equal("secret interne");
+      expect((errs[0]!.err as Error).message).to.equal("secret interne");
     });
 
     it("REQUÊTE entrante à id STRING → réponse avec le même id string", async () => {
@@ -339,7 +339,7 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
         },
       ]);
       expect(audits).to.have.length(1);
-      expect(audits[0].reason).to.equal("denied");
+      expect(audits[0]!.reason).to.equal("denied");
     });
 
     it("refuse une NOTIFICATION → drop silencieux + audit 'denied', onNotification NON appelé", () => {
@@ -443,8 +443,8 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       });
       peer.receive({ jsonrpc: "2.0", id: 7, method: "ghost" });
       expect(audits).to.have.length(1);
-      expect(audits[0].reason).to.equal("method_not_found");
-      expect(audits[0].peer).to.equal(peer);
+      expect(audits[0]!.reason).to.equal("method_not_found");
+      expect(audits[0]!.peer).to.equal(peer);
     });
 
     it("fire 'internal_error' quand un handler throw", async () => {

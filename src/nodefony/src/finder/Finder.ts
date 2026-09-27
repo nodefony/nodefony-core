@@ -87,7 +87,7 @@ const checkMatch = function (
   if (!test) {
     result.push(info);
     if (info.type) {
-      this.totals[info.type]++;
+      this.totals[info.type] = (this.totals[info.type] ?? 0) + 1;
       this.fire(`on${info.type}`, info, this);
     }
     return true;
@@ -118,7 +118,8 @@ const checkMatch = function (
   }
   if (match) {
     result.push(info);
-    this.totals[info.type as string]++;
+    this.totals[info.type as string] =
+      (this.totals[info.type as string] ?? 0) + 1;
     this.fire(`on${info.type}`, info, this);
     return true;
   }
@@ -126,7 +127,8 @@ const checkMatch = function (
     case "Directory":
     case "symbolicLink":
       result.push(info);
-      this.totals[info.type as string]++;
+      this.totals[info.type as string] =
+        (this.totals[info.type as string] ?? 0) + 1;
       this.fire(`on${info.type}`, info, this);
       return true;
     case undefined:
@@ -164,8 +166,8 @@ async function parser(
       // remplace les N `new File()` synchrones (lstatSync) d'affilée qui gelaient
       // l'event-loop sur les gros dossiers et la récursion profonde.
       const paths: string[] = [];
-      for (let i = 0; i < res.length; i++) {
-        paths.push(path.resolve(file.path as string, res[i]));
+      for (const entry of res) {
+        paths.push(path.resolve(file.path as string, entry));
       }
       const infos = await Promise.all(paths.map((p) => File.from(p, parent)));
       for (const info of infos) {

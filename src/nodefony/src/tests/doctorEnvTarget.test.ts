@@ -73,16 +73,16 @@ describe("--env : lecture de la ligne de commande", () => {
 describe("le rapport d'environnement, sous l'environnement VISÉ", () => {
   it("ici, le secret absent n'est PAS un manquement", () => {
     const v = rapport({ NODE_ENV: "development" }).vars[0];
-    assert.isFalse(v.required);
-    assert.isFalse(v.missing);
+    assert.isFalse(v!.required);
+    assert.isFalse(v!.missing);
   });
 
   it("visé production, le MÊME poste le déclare manquant", () => {
     const r = rapport({ NODE_ENV: "development" }, "production");
     assert.equal(r.targetEnv, "production");
     assert.deepEqual([...r.stages], ["production"]);
-    assert.isTrue(r.vars[0].required);
-    assert.isTrue(r.vars[0].missing);
+    assert.isTrue(r.vars[0]!.required);
+    assert.isTrue(r.vars[0]!.missing);
   });
 
   it("une valeur présente suffit, où qu'on regarde", () => {
@@ -90,7 +90,7 @@ describe("le rapport d'environnement, sous l'environnement VISÉ", () => {
       { NODE_ENV: "development", NF_CSRF_SECRET: "s3cr3t" },
       "production",
     );
-    assert.isFalse(r.vars[0].missing);
+    assert.isFalse(r.vars[0]!.missing);
   });
 
   // PIÈGE : viser un environnement doit REMPLACER les étiquettes d'ici. Les
@@ -111,7 +111,7 @@ describe("le rapport d'environnement, sous l'environnement VISÉ", () => {
       ],
       targetEnv: "production",
     });
-    assert.isFalse(r.vars[0].missing);
+    assert.isFalse(r.vars[0]!.missing);
   });
 
   // La déclaration est RENDUE, même là où elle ne mord pas : c'est ce qui
@@ -119,7 +119,7 @@ describe("le rapport d'environnement, sous l'environnement VISÉ", () => {
   // du seul fait qu'elle manque ici.
   it("expose la déclaration `requiredIn` à ses lecteurs", () => {
     assert.deepEqual(
-      [...(rapport({}).vars[0].requiredIn ?? [])],
+      [...(rapport({}).vars[0]!.requiredIn ?? [])],
       ["production"],
     );
   });
@@ -132,7 +132,7 @@ describe("le rapport d'environnement, sous l'environnement VISÉ", () => {
       { NODE_ENV: "development", NF_CSRF_SECRET: "" },
       "production",
     );
-    assert.isTrue(r.vars[0].missing);
+    assert.isTrue(r.vars[0]!.missing);
   });
 });
 

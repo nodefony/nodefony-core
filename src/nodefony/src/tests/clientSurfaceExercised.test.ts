@@ -57,13 +57,13 @@ function publishedInterfaces(barrel: string): string[] {
     const declaring = path.resolve(path.dirname(barrel), `${block[2]}.ts`);
     if (!existsSync(declaring)) continue;
     const code = readFileSync(declaring, "utf8");
-    const body = block[1]
+    const body = block[1]!
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/\/\/[^\n]*/g, "");
     for (const raw of body.split(",")) {
       const name = raw
         .trim()
-        .split(/\s+as\s+/)[0]
+        .split(/\s+as\s+/)[0]!
         .trim();
       if (!name) continue;
       if (new RegExp(`\\binterface\\s+${name}\\b`).test(code)) found.push(name);

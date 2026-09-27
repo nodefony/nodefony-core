@@ -251,15 +251,20 @@ function composeDefaults(): Map<string, string> {
     const root = dirname(fileURLToPath(import.meta.url));
 
     const yaml = readFileSync(join(root, COMPOSE_FILE), "utf8");
-    for (const m of yaml.matchAll(/\$\{([A-Z_]+):-([^}]*)\}/g)) {
-      values.set(m[1], m[2]);
+    for (const [, key = "", fallback = ""] of yaml.matchAll(
+      /\$\{([A-Z_]+):-([^}]*)\}/g,
+    )) {
+      values.set(key, fallback);
     }
     // `docker/.env` gagne sur les `:-défaut`, exactement comme pour compose.
     const envFile = join(root, "docker", ".env");
     if (existsSync(envFile)) {
       for (const line of readFileSync(envFile, "utf8").split("\n")) {
         const m = /^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/.exec(line);
-        if (m) values.set(m[1], m[2].replace(/^["']|["']$/g, ""));
+        if (m) {
+          const [, key = "", raw = ""] = m;
+          values.set(key, raw.replace(/^["']|["']$/g, ""));
+        }
       }
     }
   } catch {

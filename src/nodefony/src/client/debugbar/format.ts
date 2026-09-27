@@ -86,7 +86,8 @@ export function sparklinePoints(
   const step = width / (n - 1);
   let out = "";
   for (let i = 0; i < n; i++) {
-    const v = Number.isFinite(values[i]) ? values[i] : 0;
+    const raw = values[i] ?? 0;
+    const v = Number.isFinite(raw) ? raw : 0;
     const ratio = Math.min(1, Math.max(0, v / ceil));
     const x = Math.round(i * step * 100) / 100;
     const y = Math.round((height - ratio * height) * 100) / 100;

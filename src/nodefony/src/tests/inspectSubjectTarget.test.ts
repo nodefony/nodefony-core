@@ -32,7 +32,7 @@ describe("inspect — la cible d'un sujet est consommée ou refusée", () => {
   it("le sujet `routes` DÉCLARE son filtre, sinon la cible ne traverse pas", () => {
     // Le point de câblage exact : sans cette clé, `readAdminSubject` ne pose
     // aucune query et l'endpoint rend le dump entier — le défaut d'origine.
-    expect(INSPECT_SUBJECTS.routes.filter).to.equal("q");
+    expect(INSPECT_SUBJECTS.routes!.filter).to.equal("q");
   });
 
   it("refuse une cible donnée à un sujet qui n'en consomme aucune", async () => {

@@ -266,7 +266,7 @@ class Command extends Service {
   isComplete(): boolean {
     if (this.kernel) {
       return this.kernel.isCommandComplete(
-        this.kernel.Events[this.kernelEvent],
+        this.kernel.Events[this.kernelEvent] ?? 0,
       );
     }
     throw new Error(`Kernel not found`);

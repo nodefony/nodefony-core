@@ -414,7 +414,7 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
       0,
     );
     // Et la racine rendue mène bien aux ports que ce projet publie.
-    assert.deepStrictEqual(readRuntimeState(racines[0])?.ports, [5153, 5154]);
+    assert.deepStrictEqual(readRuntimeState(racines[0]!)?.ports, [5153, 5154]);
   });
 
   it("HORS projet, le rapport ne parle jamais de « ce projet »", async () => {
@@ -527,7 +527,7 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
         procs: procsJumeaux,
       }),
       getCwd: (pid: number) =>
-        pid === procsJumeaux[0].pid ? jumeaux[0] : jumeaux[1],
+        pid === procsJumeaux[0]!.pid ? jumeaux[0]! : jumeaux[1]!,
       probe: async (): Promise<PortState[]> => busyPorts,
       write: (s) => (out += s),
       target: "monapp",
@@ -539,7 +539,7 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
       `le refus doit compter les homonymes :\n${plain}`,
     );
     assert.ok(
-      plain.includes(jumeaux[0]) && plain.includes(jumeaux[1]),
+      plain.includes(jumeaux[0]!) && plain.includes(jumeaux[1]!),
       `les deux racines doivent être données pour trancher :\n${plain}`,
     );
   });

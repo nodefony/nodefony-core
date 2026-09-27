@@ -380,30 +380,30 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const spec = getScaffoldSpec();
       const round = JSON.parse(JSON.stringify(spec)) as typeof spec;
       assert.deepEqual(round, spec);
-      assert.equal(spec[0].type, "app");
-      assert.isAtLeast(spec[0].questions.length, 4);
+      assert.equal(spec[0]!.type, "app");
+      assert.isAtLeast(spec[0]!.questions.length, 4);
     });
 
     it("resolveAnswers : défauts, pattern, choix, askIf", () => {
       const [spec] = getScaffoldSpec("app");
       const caps = { hasCheckout: false };
-      const ok = resolveAnswers(spec, { name: "mon-app" }, caps);
+      const ok = resolveAnswers(spec!, { name: "mon-app" }, caps);
       assert.equal(ok.preset, "complete");
       assert.equal(ok.frontend, "none");
       assert.equal(ok.link, false); // askIf hasCheckout=false → forcé false
       assert.throws(
-        () => resolveAnswers(spec, { name: "Bad_Name" }, caps),
+        () => resolveAnswers(spec!, { name: "Bad_Name" }, caps),
         /kebab-case/,
       );
       assert.throws(
-        () => resolveAnswers(spec, { name: "x", preset: "big" }, caps),
+        () => resolveAnswers(spec!, { name: "x", preset: "big" }, caps),
         /preset invalide/,
       );
       assert.throws(
         // `solid` n'est ni un preset @nodefony/frontend ni un scaffold — le
         // contrat refuse ce que le moteur ne rend pas. Vaut pour toute valeur
         // hors de la liste des frontends réellement générables.
-        () => resolveAnswers(spec, { name: "x", frontend: "solid" }, caps),
+        () => resolveAnswers(spec!, { name: "x", frontend: "solid" }, caps),
         /frontend invalide/,
       );
     });
@@ -442,7 +442,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.isTrue(existsSync(path.join(dest, f)), `manque ${f}`);
       }
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.equal(pkg["dependencies"]["nodefony"], `^${version}`);
+      assert.equal(pkg["dependencies"]!["nodefony"], `^${version}`);
       assert.property(pkg["dependencies"], "@nodefony/drizzle");
       // Le hachage de mot de passe est un chemin PAR DÉFAUT (argon2id, RFC
       // 9106) et le provisionnement seede un compte au boot. `@nodefony/user`
@@ -454,7 +454,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.property(pkg["dependencies"], "@node-rs/argon2");
       assert.property(pkg["scripts"], "infra:up");
       // Sans front, le build reste back seul (pas de frontend:build fantôme).
-      assert.notInclude(pkg["scripts"]["build"], "frontend:build");
+      assert.notInclude(pkg["scripts"]!["build"], "frontend:build");
       // Les DEUX verbes de diagnostic, jamais l'un sans l'autre : `check` est
       // statique (répond sur une app cassée), `inspect` est runtime (ce qui est
       // VRAIMENT monté). Un agent les apprend ensemble, et n'en exposer qu'un
@@ -473,7 +473,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // devDependencies du gabarit, et un script qui échoue au premier usage
       // est pire qu'un script absent.
       assert.property(pkg["scripts"], "clean");
-      assert.notInclude(pkg["scripts"]["clean"], "rimraf");
+      assert.notInclude(pkg["scripts"]!["clean"], "rimraf");
       // `verify` : UNE commande qui enchaîne les gates. Mesuré au banc de
       // découvrabilité (tâche 13) — un agent a livré du code qui ne compilait
       // pas sans avoir lancé le typecheck une seule fois, alors que les quatre
@@ -496,7 +496,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "doctor",
       ]) {
         assert.include(
-          pkg["scripts"]["verify"],
+          pkg["scripts"]!["verify"],
           gate,
           `verify doit enchaîner « ${gate} »`,
         );
@@ -508,7 +508,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       // Le gate LENT reste dehors : un `verify` qui boote l'app ne serait plus
       // lancé, et on aurait remplacé quatre gates oubliés par un seul.
-      assert.notInclude(pkg["scripts"]["verify"], "e2e");
+      assert.notInclude(pkg["scripts"]!["verify"], "e2e");
       assertNoEtaResidue(dest);
       assert.isEmpty(r.linked);
     });
@@ -564,15 +564,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         const m = local.match(new RegExp(`^${k}=(.+)$`, "m"));
         assert.isNotNull(m, `clé ${k} absente de .env.local`);
         // 32 octets base64 = 44 caractères — le format AES-256-GCM attendu.
-        assert.lengthOf(m[1], 44);
-        values.push(m[1]);
+        assert.lengthOf(m[1]!, 44);
+        values.push(m[1]!);
       }
       assert.lengthOf(new Set(values), 3, "les 3 clés doivent être distinctes");
       // Deux apps générées ne partagent JAMAIS une clé (aléatoire par projet).
       const dest2 = path.join(tmp, "sec2");
       scaffold(dest2, { name: "sec2" });
       const local2 = readFileSync(path.join(dest2, ".env.local"), "utf8");
-      assert.notInclude(local2, values[0]);
+      assert.notInclude(local2, values[0]!);
       // Le .env COMMITÉ ne porte AUCUNE valeur de secret ; le .gitignore exclut *.local.
       const dotenv = readFileSync(path.join(dest, ".env"), "utf8");
       for (const v of values) assert.notInclude(dotenv, v);
@@ -1128,12 +1128,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         readFileSync(path.join(dest, "package.json"), "utf8"),
       ).scripts as Record<string, string>;
       assert.isBelow(
-        scripts.verify.indexOf("npm run build"),
-        scripts.verify.indexOf("npm run doctor"),
+        scripts.verify!.indexOf("npm run build"),
+        scripts.verify!.indexOf("npm run doctor"),
         "verify doit CONSTRUIRE avant d'appeler le docteur",
       );
       assert.notEqual(
-        scripts.verify.indexOf("npm run build"),
+        scripts.verify!.indexOf("npm run build"),
         -1,
         "verify ne construit rien : le docteur refusera l'application",
       );
@@ -1265,10 +1265,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isAtLeast(etages.length, 4, "les étages du frontal ont disparu");
       const dernier = etages[etages.length - 1];
       assert.isUndefined(
-        dernier[2],
-        `le dernier étage est nommé « ${dernier[2]} » : "docker build ." ne produirait plus l'image de l'application`,
+        dernier![2],
+        `le dernier étage est nommé « ${dernier![2]} » : "docker build ." ne produirait plus l'image de l'application`,
       );
-      assert.include(dernier[1], "node:", "le dernier étage n'est plus Node");
+      assert.include(dernier![1], "node:", "le dernier étage n'est plus Node");
       assert.include(dockerfile, "AS proxyconf");
       assert.include(dockerfile, "AS edge");
     });
@@ -1997,7 +1997,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("preset minimal : la question ne s'applique pas → la réponse retombe à sqlite", () => {
       const [spec] = getScaffoldSpec("app");
       const answers = resolveAnswers(
-        spec,
+        spec!,
         { name: "x", preset: "minimal", database: "postgres" },
         { hasCheckout: false },
       );
@@ -2005,7 +2005,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // fichier où s'écrire, et laisserait croire à un choix appliqué.
       assert.equal(answers.database, "sqlite");
       assert.equal(
-        resolveAnswers(spec, { name: "x" }, { hasCheckout: false }).database,
+        resolveAnswers(spec!, { name: "x" }, { hasCheckout: false }).database,
         "sqlite",
       );
     });
@@ -2015,7 +2015,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.throws(
         () =>
           resolveAnswers(
-            spec,
+            spec!,
             { name: "x", database: "oracle" },
             { hasCheckout: false },
           ),
@@ -2329,7 +2329,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           1,
           `${anonymes.length} étages sans nom — "docker build ." ne produirait plus l'image attendue`,
         );
-        assert.match(anonymes[0][1], /^node:/u);
+        assert.match(anonymes[0]![1]!, /^node:/u);
 
         // 🔴 La BASE elle-même, et pas seulement sa forme. C'est un choix
         // MESURÉ sur les images FINALES (application comprise) : Alpine rend
@@ -2350,7 +2350,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "l'étage de construction a changé de base — si c'est voulu, la mesure qui le justifie doit être refaite (docker scout sur l'image FINALE) et ce test mis à jour avec elle",
         );
         assert.equal(
-          anonymes[0][1],
+          anonymes[0]![1],
           "node:24-alpine",
           "l'étage d'exécution a changé de base — c'est LUI qu'on déploie",
         );
@@ -2924,7 +2924,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // `npm run build` produit l'app ENTIÈRE : back (rolldown) + front (vite
       // → public/dist). Sans ce chaînage, `npm start` servait une page blanche
       // (vécu) — l'utilisateur n'a qu'UN geste de build à connaître.
-      assert.include(pkg["scripts"]["build"], "nodefony frontend:build");
+      assert.include(pkg["scripts"]!["build"], "nodefony frontend:build");
       // L'entry se déclare dans le fichier PARTAGÉ avec `create front` — pas
       // inlinée dans l'index : l'app et un module écrivent le même geste.
       const registrar = readFileSync(
@@ -3023,7 +3023,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         for (const m of texte.matchAll(
           /["'`]((?:\$\{[^}]*\})?\/[^"'`\s]*\/realtime)["'`]/gu,
         )) {
-          const citee = m[1].replace(/^\$\{[^}]*\}/u, "");
+          const citee = m[1]!.replace(/^\$\{[^}]*\}/u, "");
           assert.isTrue(
             reelles.has(citee),
             `${page} enseigne « ${citee} », qu'aucune route ne monte — ` +
@@ -3050,7 +3050,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       for (const m of conseils) {
         assert.isTrue(
-          reelles.has(m[1]),
+          reelles.has(m[1]!),
           `RealtimeClient conseille « ${m[1]} », qu'aucune route ne monte`,
         );
       }
@@ -3336,15 +3336,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
       const [first, ...others] = [...rendered.values()];
       for (const other of others) {
-        assert.equal(other.showcase, first.showcase, "la feuille a divergé");
+        assert.equal(other.showcase, first!.showcase, "la feuille a divergé");
       }
       const used = new Set(
-        [...first.showcase.matchAll(/var\((--nf-[\w-]+)\)/gu)].map((m) => m[1]),
+        [...first!.showcase.matchAll(/var\((--nf-[\w-]+)\)/gu)].map(
+          (m) => m[1],
+        ),
       );
       // Les variables de palette sont définies par la feuille elle-même ; ne
       // restent à la charge de l'accent que celles qui portent la couleur.
       const fromAccent = [...used].filter(
-        (v) => !first.showcase.includes(`${v}:`),
+        (v) => !first!.showcase.includes(`${v}:`),
       );
       assert.isNotEmpty(
         fromAccent,
@@ -3396,11 +3398,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             const spec = m[1] ?? m[2];
             // Un specifier relatif portant une extension que tsc ne compile pas.
             if (
-              /^\.{1,2}\//u.test(spec) &&
-              /\.\w+$/u.test(spec) &&
-              !/\.(ts|tsx)$/u.test(spec)
+              /^\.{1,2}\//u.test(spec!) &&
+              /\.\w+$/u.test(spec!) &&
+              !/\.(ts|tsx)$/u.test(spec!)
             ) {
-              imports.push(spec);
+              imports.push(spec!);
             }
           }
         }
@@ -3991,10 +3993,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const pkg = readJson(path.join(dest, "package.json"));
       // Le diagnostic qui INTERROGE l'app (migrations, zones) — celui qui ne
       // lit pas que des fichiers.
-      assert.include(pkg.scripts["doctor:live"], "--live");
+      assert.include(pkg.scripts!["doctor:live"], "--live");
       // `npm audit` borné à la PRODUCTION : les outils de développement ne
       // partent pas dans l'image, leurs alertes n'y atteignent personne.
-      assert.include(pkg.scripts["audit:deps"], "--omit=dev");
+      assert.include(pkg.scripts!["audit:deps"], "--omit=dev");
     });
 
     it("aucun script ne porte un chemin node_modules EN DUR", () => {
@@ -4006,7 +4008,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // dossiers, il casse partout à la fois, et le seul symptôme est un module
       // introuvable. Les trois sondes du navigateur étaient dans ce cas ; elles
       // passent par `nodefony see`, qui résout et NOMME ce qui manque.
-      for (const [nom, cmd] of Object.entries(scripts))
+      for (const [nom, cmd] of Object.entries(scripts!))
         assert.notInclude(
           cmd,
           "node_modules",
@@ -4360,7 +4362,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             texte,
           );
         return m
-          ? { pattern: m[1], auth: m[2].replace(/\s/gu, ""), stateless: m[3] }
+          ? { pattern: m[1], auth: m[2]!.replace(/\s/gu, ""), stateless: m[3] }
           : null;
       };
       const zoneConfig = zone(configGeneree);
@@ -4379,7 +4381,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "le skill protect-route et nodefony.config.ts doivent montrer la MÊME zone machine",
       );
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.include(pkg["scripts"]["test:e2e"], "-c vitest.e2e.config.ts");
+      assert.include(pkg["scripts"]!["test:e2e"], "-c vitest.e2e.config.ts");
       // Le test e2e n'a plus AUCUNE gate d'environnement : invoqué = exécuté.
       const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
       assert.notInclude(e2e, "RUN_E2E");
@@ -4426,7 +4428,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // token synchronizer — en silence, tests verts.
       const config = manifesteComplet(dest);
       const bloc = (texte: string) =>
-        /csrf:\s*\{[^}]*?secret:\s*([^,\n}]+)/u.exec(texte)?.[1].trim() ?? null;
+        /csrf:\s*\{[^}]*?secret:\s*([^,\n}]+)/u.exec(texte)?.[1]!.trim() ??
+        null;
       const secretConfig = bloc(config);
       const secretAgents = bloc(agents);
       assert.isNotNull(
@@ -5339,8 +5342,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(pkg.scripts["test"], "--workspaces");
       // Le build des modules passe AVANT celui de l'app.
       assert.isTrue(
-        pkg.scripts["build"].indexOf("--workspaces") <
-          pkg.scripts["build"].indexOf("rolldown"),
+        pkg.scripts["build"]!.indexOf("--workspaces") <
+          pkg.scripts["build"]!.indexOf("rolldown"),
       );
     });
 
@@ -5357,7 +5360,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.deepEqual(pkg.workspaces, ["modules/*"]);
       for (const script of ["build", "typecheck", "test"]) {
         assert.equal(
-          (pkg.scripts[script].match(/--workspaces/gu) ?? []).length,
+          (pkg.scripts[script]!.match(/--workspaces/gu) ?? []).length,
           1,
           `script ${script} chaîné deux fois`,
         );
@@ -5429,7 +5432,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // La version suit celle de la RACINE : les paquets d'un dépôt avancent
         // ensemble, ils ne démarrent pas chacun à 0.1.0.
         assert.equal(pkg["version"] as unknown as string, "7.3.1");
-        assert.include(pkg["scripts"]["build"], "tsconfig.declarations.json");
+        assert.include(pkg["scripts"]!["build"], "tsconfig.declarations.json");
         for (const f of [
           "tsconfig.declarations.json",
           "tsconfig.tests.json",
@@ -5748,8 +5751,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("spec module : questions JSON-able, défauts sûrs (contrat des 3 fronts)", () => {
       const [spec] = getScaffoldSpec("module");
-      assert.equal(spec.type, "module");
-      const keys = spec.questions.map((q) => q.key);
+      assert.equal(spec!.type, "module");
+      const keys = spec!.questions.map((q) => q.key);
       assert.deepEqual(keys, [
         "name",
         "description",
@@ -5759,7 +5762,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "frontend",
       ]);
       const answers = resolveAnswers(
-        spec,
+        spec!,
         { name: "blog" },
         {
           hasCheckout: false,
@@ -5775,7 +5778,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
       assert.throws(
         () =>
-          resolveAnswers(spec, { name: "Blog Post" }, { hasCheckout: false }),
+          resolveAnswers(spec!, { name: "Blog Post" }, { hasCheckout: false }),
         /kebab-case/u,
       );
     });
@@ -5924,19 +5927,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
       const avant = readJson(path.join(dest, "package.json"));
       assert.notInclude(
-        avant["scripts"]["build"] ?? "",
+        avant["scripts"]!["build"] ?? "",
         "frontend:build",
         "décor : l'app témoin doit naître SANS l'étape front",
       );
       front(dest, { name: "board", frontend: "react" });
       const apres = readJson(path.join(dest, "package.json"));
       assert.include(
-        apres["scripts"]["build"] ?? "",
+        apres["scripts"]!["build"] ?? "",
         "&& nodefony frontend:build",
         "le bundle de production du front n'entre pas dans `npm run build`",
       );
       // Ce que l'utilisateur avait déjà dans son script reste devant.
-      assert.include(apres["scripts"]["build"] ?? "", "rolldown");
+      assert.include(apres["scripts"]!["build"] ?? "", "rolldown");
     });
 
     it("la capacité se CONSTATE dans le manifeste — sans realtime, pas de promesse", () => {
@@ -6951,7 +6954,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const legacy = app("eapp-ormdep-legacy");
       const legacyPath = path.join(legacy, "package.json");
       const legacyPkg = readJson(legacyPath);
-      delete legacyPkg["dependencies"]["drizzle-orm"];
+      delete legacyPkg["dependencies"]!["drizzle-orm"];
       writeFileSync(legacyPath, `${JSON.stringify(legacyPkg, null, 2)}\n`);
 
       const r = entity(legacy, { name: "Post", fields: "title:string" });
@@ -7336,14 +7339,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ctx.connectors.map((c) => c.name),
         ["default"],
       );
-      assert.equal(ctx.connectors[0].dialect, "sqlite");
+      assert.equal(ctx.connectors[0]!.dialect, "sqlite");
 
       // Les entités existantes : c'est ce que `ref:` peut viser.
       const appTarget = ctx.targets.find((t) => t.kind === "app");
       assert.isDefined(appTarget);
-      assert.include(ctx.entities[appTarget.name], "Author");
+      assert.include(ctx.entities[appTarget.name]!, "Author");
       // Le schéma Zod n'est pas une entité — il ne doit pas polluer les choix.
-      assert.notInclude(ctx.entities[appTarget.name], "Author.schema");
+      assert.notInclude(ctx.entities[appTarget.name]!, "Author.schema");
 
       // La traduction par moteur est MONTRÉE : c'est elle qui guide le choix.
       const json = ctx.columnTypes.find((t) => t.type === "json");
@@ -7441,7 +7444,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
         // Et la question du formulaire le propose, sans changer le défaut.
         const question = hydrateQuestion(
-          getScaffoldSpec("entity")[0].questions.find(
+          getScaffoldSpec("entity")[0]!.questions.find(
             (q) => q.key === "connector",
           )!,
           getScaffoldContext(dest),
@@ -7635,7 +7638,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = app("depsrap");
       const manifeste = path.join(dest, "package.json");
       const pkg = readJson(manifeste);
-      delete pkg["dependencies"]["drizzle-orm"];
+      delete pkg["dependencies"]!["drizzle-orm"];
       writeFileSync(manifeste, `${JSON.stringify(pkg, null, 2)}\n`);
 
       const res = entity(dest, { name: "Ticket", fields: "label:string" });
@@ -8867,8 +8870,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ["index.ts"],
       );
       const [wire] = rewritten;
-      assert.include(wire.previous ?? "", "@controllers([");
-      const added = diffLines(wire.previous ?? "", wire.content)
+      assert.include(wire!.previous ?? "", "@controllers([");
+      const added = diffLines(wire!.previous ?? "", wire!.content)
         .filter((l) => l.kind === "add")
         .map((l) => l.text);
       assert.isTrue(
@@ -9023,7 +9026,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         for (const m of text.matchAll(
           /"((?:@[a-z0-9-]+\/)?[a-z0-9.-]+)"\s*:/gu,
         )) {
-          declared.add(m[1]);
+          declared.add(m[1]!);
         }
       }
       for (const front of Object.values(FRONTEND_PARAMS)) {
@@ -9050,15 +9053,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         const source = readFileSync(abs, "utf8");
         for (const m of source.matchAll(IMPORTS)) {
           const spec = m[1] ?? m[2];
-          if (spec.startsWith("node:")) {
+          if (spec!.startsWith("node:")) {
             continue;
           }
           // `@scope/nom/sous-chemin` → `@scope/nom` ; `nom/sous` → `nom`.
-          const parts = spec.split("/");
-          const pkg = spec.startsWith("@")
+          const parts = spec!.split("/");
+          const pkg = spec!.startsWith("@")
             ? parts.slice(0, 2).join("/")
             : parts[0];
-          if (!declared.has(pkg)) {
+          if (!declared.has(pkg!)) {
             phantoms.push(`${path.relative(templates, abs)} → ${spec}`);
           }
         }
@@ -9094,7 +9097,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const workspaces = resolveLocalWorkspaces(findPackageRoot());
       assert.isNotNull(workspaces);
       assert.equal(workspaces["nodefony"], findPackageRoot());
-      assert.isTrue(existsSync(workspaces["@nodefony/http"]));
+      assert.isTrue(existsSync(workspaces["@nodefony/http"]!));
       assert.isNull(resolveLocalWorkspaces(tmp));
     });
 
@@ -9124,8 +9127,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       writer.commit();
       assert.deepEqual(linked, ["@nodefony/http", "nodefony"]);
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.equal(pkg["dependencies"]["nodefony"], "file:/repo/src/nodefony");
-      assert.equal(pkg["dependencies"]["zod"], zodDuDecor);
+      assert.equal(pkg["dependencies"]!["nodefony"], "file:/repo/src/nodefony");
+      assert.equal(pkg["dependencies"]!["zod"], zodDuDecor);
     });
 
     it("runScaffold link:true : app câblée sur le checkout", async () => {
@@ -9133,12 +9136,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const r = scaffold(dest, { name: "linked-app", link: true });
       assert.isNotEmpty(r.linked);
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.match(pkg["dependencies"]["nodefony"], /^file:.*src\/nodefony$/);
+      assert.match(pkg["dependencies"]!["nodefony"]!, /^file:.*src\/nodefony$/);
       // La version se LIT au catalogue, elle ne se recopie pas : littéralisée,
       // cette assertion tombe à chaque montée de dépendance et fait passer une
       // maintenance de routine pour une régression du scaffold.
       assert.equal(
-        pkg["dependencies"]["zod"],
+        pkg["dependencies"]!["zod"],
         (await import("../cli/scaffold/versions")).SCAFFOLD_VERSIONS["zod"],
       );
     });
@@ -9172,7 +9175,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // · agents → ENTRÉE (aucun : rien n'est jamais coché par défaut)
       feedAnswers(input, output, ["demo", "2", "2", "o", ""]);
       const answers = await askMissing(
-        spec,
+        spec!,
         {},
         { hasCheckout: true },
         input,
@@ -9196,7 +9199,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // arrive entre deux `question()`.
       feedAnswers(input, output, ["", ""]);
       const answers = await askMissing(
-        spec,
+        spec!,
         { name: "demo", preset: "minimal" },
         { hasCheckout: false },
         input,
@@ -9226,7 +9229,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.equal(code, SysExit.OK);
       assert.isTrue(existsSync(path.join(dest, "compose.yaml")));
       const pkg = readJson(path.join(dest, "package.json"));
-      assert.equal(pkg["dependencies"]["nodefony"], `^${version}`); // pas de link implicite
+      assert.equal(pkg["dependencies"]!["nodefony"], `^${version}`); // pas de link implicite
     });
 
     it("--dry-run : plan affiché, disque intact, ni install ni git", async () => {
@@ -9458,7 +9461,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
   it("un agent à CLI coché → ai:mcp le nomme, dans l'app NEUVE, en mode authentifié", () => {
     assert.isAtLeast(parCli.length, 1, "fixture : au moins un agent à CLI");
-    const cle = parCli[0].key;
+    const cle = parCli[0]!.key;
     assert.deepEqual(argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app"), [
       "ai:mcp",
       "--cwd",
@@ -9475,14 +9478,14 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
       1,
       "fixture : au moins un agent servi par fichier",
     );
-    const argv = argvMcpWiring([parFichier[0].key], AGENT_TARGETS, "/tmp/app");
+    const argv = argvMcpWiring([parFichier[0]!.key], AGENT_TARGETS, "/tmp/app");
     assert.isNotNull(argv);
-    assert.deepEqual(argv?.slice(-2), ["--agent", parFichier[0].key]);
+    assert.deepEqual(argv?.slice(-2), ["--agent", parFichier[0]!.key]);
     assert.notInclude(argv ?? [], "none");
   });
 
   it("le jeton se DÉBRANCHE par l'appel, et seulement sur demande", () => {
-    const cle = parFichier[0].key;
+    const cle = parFichier[0]!.key;
     assert.include(
       argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app", { token: false }) ?? [],
       "--no-token",
@@ -9509,8 +9512,8 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
   it("un agent NON coché ne part jamais dans l'appel", () => {
     if (parCli.length < 2) return;
-    const argv = argvMcpWiring([parCli[0].key], AGENT_TARGETS, "/tmp/app");
-    assert.notInclude(argv?.join(" ") ?? "", parCli[1].key);
+    const argv = argvMcpWiring([parCli[0]!.key], AGENT_TARGETS, "/tmp/app");
+    assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.key);
   });
 
   it("des agents choisis + app installée ET construite → on câble, jeton compris", () => {
@@ -9959,7 +9962,7 @@ describe("create app — le dialogue d'un vrai terminal", () => {
 
   const question = (cle: string): IScaffoldTypeSpec["questions"][number] => {
     const [spec] = getScaffoldSpec("app");
-    const q = spec.questions.find((x) => x.key === cle);
+    const q = spec!.questions.find((x) => x.key === cle);
     assert.isDefined(q, `question ${cle} absente de la spec`);
     return q;
   };
@@ -9973,11 +9976,11 @@ describe("create app — le dialogue d'un vrai terminal", () => {
     // permet à la génération d'en câbler deux.
     assert.deepEqual(reponse, ["claude-code", "cursor"]);
     assert.lengthOf(appels, 1);
-    assert.equal(appels[0].kind, "checkbox");
+    assert.equal(appels[0]!.kind, "checkbox");
     // Et rien n'est coché d'avance : câbler un agent écrit dans la
     // configuration d'un autre outil.
     assert.isTrue(
-      appels[0].choices.every(
+      appels[0]!.choices.every(
         (c) => (c as { checked?: boolean }).checked !== true,
       ),
     );
@@ -9986,16 +9989,16 @@ describe("create app — le dialogue d'un vrai terminal", () => {
   it("🔴 un choix unique montre son DÉFAUT, pas seulement sa position", async () => {
     const { prompts, appels } = doubleInvites({ select: "sqlite" });
     await askRich(prompts, question("database"));
-    assert.equal(appels[0].kind, "select");
-    const parDefaut = appels[0].choices.filter((c) =>
+    assert.equal(appels[0]!.kind, "select");
+    const parDefaut = appels[0]!.choices.filter((c) =>
       c.name.includes("défaut"),
     );
     // UN seul, et c'est celui que la spec déclare : marquer deux lignes ne
     // dirait plus rien.
     assert.lengthOf(parDefaut, 1);
-    assert.include(parDefaut[0].name, "sqlite");
+    assert.include(parDefaut[0]!.name, "sqlite");
     // Le `hint` passe en description — il cesse d'allonger chaque ligne.
-    assert.isTrue(appels[0].choices.some((c) => Boolean(c.description)));
+    assert.isTrue(appels[0]!.choices.some((c) => Boolean(c.description)));
   });
 
   it("🔴 la validation de la spec vaut AUSSI dans le terminal riche", async () => {
@@ -10087,7 +10090,7 @@ describe("create app — ce qu'un agent emporte de la génération", () => {
 describe("create app — choisir un moteur frontend sans oracle", () => {
   const questionFrontend = (): IScaffoldTypeSpec["questions"][number] => {
     const [spec] = getScaffoldSpec("app");
-    const q = spec.questions.find((x) => x.key === "frontend");
+    const q = spec!.questions.find((x) => x.key === "frontend");
     assert.isDefined(q);
     return q;
   };
@@ -10128,7 +10131,7 @@ describe("create app — choisir un moteur frontend sans oracle", () => {
     const json = JSON.parse(JSON.stringify({ types: [spec] })) as {
       types: IScaffoldTypeSpec[];
     };
-    const q = json.types[0].questions.find((x) => x.key === "frontend");
+    const q = json.types[0]!.questions.find((x) => x.key === "frontend");
     assert.isDefined(q?.note);
     assert.match(q.note, /se change/u);
   });

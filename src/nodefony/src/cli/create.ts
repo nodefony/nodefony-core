@@ -119,6 +119,7 @@ export function parseCreateArgv(
   let help = false;
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
+    if (word === undefined) break;
     if (word === "--help" || word === "-h") {
       // Une commande qui répond « option inconnue : --help » apprend au
       // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.
@@ -462,6 +463,11 @@ function readAnswersJson(source: string, type: TCreateType): TScaffoldAnswers {
     throw new Error("--answers-json : un objet de réponses est attendu");
   }
   const [spec] = getScaffoldSpec(type);
+  if (spec === undefined) {
+    throw new Error(
+      `--answers-json : aucune question déclarée pour « ${type} »`,
+    );
+  }
   const known = new Set(spec.questions.map((q) => q.key));
   const answers: TScaffoldAnswers = {};
   for (const [key, value] of Object.entries(parsed)) {
@@ -1206,6 +1212,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   const interactive = isTerminal(process.stdin) && !parsed.yes;
   if (interactive) {
     const [spec] = getScaffoldSpec(type);
+    if (spec === undefined) {
+      process.stderr.write(
+        `create: aucune question déclarée pour « ${type} »\n`,
+      );
+      return SysExit.USAGE;
+    }
     // Le contexte du projet transforme les questions dont les réponses valides
     // n'existent QUE dans ce projet (connecteurs déclarés, entités présentes) en
     // choix réels — au lieu d'un champ libre où une faute de frappe ne se voit

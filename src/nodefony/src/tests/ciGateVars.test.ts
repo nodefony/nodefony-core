@@ -59,7 +59,7 @@ const varNames = (yaml: string): Set<string> => {
   const names = new Set<string>();
   for (const line of yaml.split("\n")) {
     const m = /^\s{2,}([A-Z][A-Z0-9_]*)\s*:/.exec(line);
-    if (m) names.add(m[1]);
+    if (m) names.add(m[1]!);
   }
   return names;
 };
@@ -125,7 +125,7 @@ describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => 
     const blocs: string[][] = [];
     for (const ligne of lignes) {
       if (STEPS.test(ligne)) blocs.push([]);
-      if (blocs.length > 0) blocs[blocs.length - 1].push(ligne);
+      if (blocs.length > 0) blocs[blocs.length - 1]!.push(ligne);
     }
 
     for (const bloc of blocs) {
@@ -168,7 +168,7 @@ describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => 
       );
       if (!garde) continue;
 
-      const nom = STEPS.exec(bloc[0])?.[1] ?? "?";
+      const nom = STEPS.exec(bloc[0]!)?.[1] ?? "?";
       it(`${file} — « ${nom} » (${espace})`, () => {
         assert.include(
           texte,
@@ -221,7 +221,7 @@ describe("Workflows à liste blanche — les actions locales sont déclarées", 
         const declare = (
           contenu.match(
             new RegExp(
-              `"${action.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\*\\*"`,
+              `"${action!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\*\\*"`,
               "g",
             ),
           ) ?? []

@@ -373,8 +373,8 @@ describe("config — NF__APP__* (override env de la config app)", () => {
       assert.deepStrictEqual(merged, before);
       assert.strictEqual(report.applied.length, 0);
       assert.strictEqual(report.warnings.length, 1);
-      assert.match(report.warnings[0], /chemin "domainn" inconnu/);
-      assert.match(report.warnings[0], /vouliez-vous dire « domain »/);
+      assert.match(report.warnings[0]!, /chemin "domainn" inconnu/);
+      assert.match(report.warnings[0]!, /vouliez-vous dire « domain »/);
     });
 
     it("marque le drapeau secret pour un chemin sensible", () => {
@@ -384,7 +384,7 @@ describe("config — NF__APP__* (override env de la config app)", () => {
       (merged as { token?: string }).token = "default";
       const report = applyAppEnvOverrides(merged, { NF__APP__TOKEN: "s3cr3t" });
       assert.strictEqual(report.applied.length, 1);
-      assert.strictEqual(report.applied[0].secret, true);
+      assert.strictEqual(report.applied[0]!.secret, true);
     });
   });
 

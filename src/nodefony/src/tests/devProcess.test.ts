@@ -224,8 +224,8 @@ describe("devProcess — détection de mode & conflit (gardes anti-collision)", 
     ];
     const conflict = findRuntimeConflict(procs, "dev");
     assert.strictEqual(conflict.length, 1);
-    assert.strictEqual(conflict[0].pid, 3);
-    assert.strictEqual(conflict[0].mode, "prod");
+    assert.strictEqual(conflict[0]!.pid, 3);
+    assert.strictEqual(conflict[0]!.mode, "prod");
   });
 
   it("findRuntimeConflict(prod) : un dev qui tourne bloque le démarrage prod", () => {
@@ -235,7 +235,7 @@ describe("devProcess — détection de mode & conflit (gardes anti-collision)", 
     );
     // Le superviseur dev est un conflit ; le Vite (enfant) est exclu.
     assert.strictEqual(conflict.length, 1);
-    assert.strictEqual(conflict[0].role, "supervisor");
+    assert.strictEqual(conflict[0]!.role, "supervisor");
   });
 
   it("ligne vide / header → null", () => {
@@ -523,7 +523,7 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
       ["supervisor", "server"],
     );
     // Un superviseur vivant signe un runtime de développement.
-    assert.strictEqual(found[1].mode, "dev");
+    assert.strictEqual(found[1]!.mode, "dev");
   });
 
   it("discoverFromRuntimeState sans superviseur → serveur SEUL, en mode prod", () => {
@@ -533,7 +533,7 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
       found.map((p) => p.role),
       ["server"],
     );
-    assert.strictEqual(found[0].mode, "prod");
+    assert.strictEqual(found[0]!.mode, "prod");
   });
 
   it("discoverFromRuntimeState retrouve le runtime SANS observer les process", () => {
@@ -545,8 +545,8 @@ describe("devProcess — state file runtime (ports effectifs)", () => {
     writeRuntimeState(cwd, { pid: process.pid, ports: [5153, 5154] });
     const found = discoverFromRuntimeState(cwd);
     assert.strictEqual(found.length, 1);
-    assert.strictEqual(found[0].pid, process.pid);
-    assert.strictEqual(found[0].role, "server");
+    assert.strictEqual(found[0]!.pid, process.pid);
+    assert.strictEqual(found[0]!.role, "server");
   });
 
   it("discoverFromRuntimeState : aucun état → rien (jamais un PID inventé)", () => {
@@ -806,7 +806,7 @@ describe("scopeAllToNodefonyProjects — seconde preuve avant un kill sans proje
       () => true,
     );
     assert.deepStrictEqual(kept, []);
-    assert.strictEqual(rejected[0].why, "cwd illisible");
+    assert.strictEqual(rejected[0]!.why, "cwd illisible");
   });
 
   it("Vite dans un SOUS-dossier du projet → gardé (racine remontée)", () => {
@@ -851,7 +851,7 @@ describe("signalProcessGroup — le verdict, pas l'intention", () => {
       },
     });
     assert.strictEqual(outcome, "forced-tree");
-    assert.deepStrictEqual(ran[0].args, ["/PID", "4212", "/T", "/F"]);
+    assert.deepStrictEqual(ran[0]!.args, ["/PID", "4212", "/T", "/F"]);
     assert.deepStrictEqual(killed, []); // l'enfant direct n'est PAS visé séparément
   });
 

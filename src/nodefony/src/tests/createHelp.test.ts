@@ -51,7 +51,7 @@ describe("create --help — une page par type, dérivée de la spec", () => {
     for (const type of TYPES) {
       const [spec] = getScaffoldSpec(type);
       const page = rendu(usagePageFor(type)).join("\n");
-      for (const q of spec.questions) {
+      for (const q of spec!.questions) {
         if (q.key === "name") continue; // positionnel, il est au synopsis
         if (!page.includes(flagFor(q))) manquants.push(`${type}.${q.key}`);
       }
@@ -67,7 +67,7 @@ describe("create --help — une page par type, dérivée de la spec", () => {
     // Le cas concret : les moteurs frontend. Si l'un est ajouté à `spec.ts` et
     // que l'aide ne bouge pas, c'est qu'une seconde liste est réapparue.
     const [spec] = getScaffoldSpec("app");
-    const frontend = spec.questions.find((q) => q.key === "frontend");
+    const frontend = spec!.questions.find((q) => q.key === "frontend");
     assert.isDefined(frontend);
     const terme = optionsFor("app").find((o) =>
       o.term.startsWith("--frontend"),
@@ -104,7 +104,7 @@ describe("create --help — une page par type, dérivée de la spec", () => {
     const fautifs: string[] = [];
     for (const type of TYPES) {
       const [spec] = getScaffoldSpec(type);
-      for (const q of spec.questions) {
+      for (const q of spec!.questions) {
         if (q.type !== "boolean") continue;
         const nie = flagFor(q).startsWith("--no-");
         if ((q.default === true) !== nie) {

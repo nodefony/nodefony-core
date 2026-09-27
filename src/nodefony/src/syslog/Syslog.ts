@@ -391,9 +391,11 @@ const conditionsObj: Conditions = {
     // Forme posée par `sanitizeConditions` : nom → valeur de sévérité.
     const data = condition.data as Record<string, number | string>;
     for (const sev in data) {
+      const value = data[sev];
       if (
+        value !== undefined &&
         condition.operator &&
-        operators[condition.operator](pdu.severity, data[sev])
+        operators[condition.operator](pdu.severity, value)
       ) {
         return true;
       }
@@ -421,7 +423,9 @@ const logicCondition: LogicCondition = {
   "&&": (myConditions: ConditionSetting, pdu: Pdu): boolean => {
     let res = false;
     for (const ele in myConditions) {
-      res = conditionsObj[ele](pdu, myConditions[ele] as ConditionSetting);
+      const check = conditionsObj[ele];
+      // Une clé sans contrôle ne correspond à rien (jamais un appel sur `undefined`).
+      res = check ? check(pdu, myConditions[ele] as ConditionSetting) : false;
       if (!res) break;
     }
     return res;
@@ -429,7 +433,9 @@ const logicCondition: LogicCondition = {
   "||": (myConditions: ConditionSetting, pdu: Pdu): boolean => {
     let res = false;
     for (const ele in myConditions) {
-      res = conditionsObj[ele](pdu, myConditions[ele] as ConditionSetting);
+      const check = conditionsObj[ele];
+      // Une clé sans contrôle ne correspond à rien (jamais un appel sur `undefined`).
+      res = check ? check(pdu, myConditions[ele] as ConditionSetting) : false;
       if (res) break;
     }
     return res;
@@ -548,8 +554,8 @@ const sanitizeConditions = function (
           const res = checkFormatSeverity(condi.data);
           const bySeverity: Record<string, unknown> = {};
           condi.data = bySeverity;
-          for (let i = 0; i < res.length; i++) {
-            const mySeverity = Pdu.severityToString(res[i]);
+          for (const severity of res) {
+            const mySeverity = Pdu.severityToString(severity);
             if (mySeverity) {
               bySeverity[mySeverity] = sysLogSeverity[mySeverity as Severity];
             } else {
@@ -1315,7 +1321,8 @@ class Syslog extends Event implements ISyslog {
       return stack.slice(start);
     }
     if (start === end) {
-      return stack[stack.length - start - 1];
+      // Hors bornes : `undefined`, comme `last()` sur un tampon vide ci-dessus.
+      return stack[stack.length - start - 1] as Pdu;
     }
     return stack.slice(start, end);
   }
@@ -1440,10 +1447,11 @@ class Syslog extends Event implements ISyslog {
     // REMPLACE l'existant → destination la plus récente, jamais de doublon.
     // Boot-only (hors hot path : le dispatch `_fireTransports` est inchangé).
     const idx = this._transports.findIndex((t) => t.name === transport.name);
-    if (idx === -1) {
+    const current = idx === -1 ? undefined : this._transports[idx];
+    if (current === undefined) {
       this._transports.push(transport);
-    } else if (this._transports[idx] !== transport) {
-      this._closeTransport(this._transports[idx]);
+    } else if (current !== transport) {
+      this._closeTransport(current);
       this._transports[idx] = transport;
     }
     return this;

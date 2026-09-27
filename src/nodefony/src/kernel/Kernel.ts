@@ -311,7 +311,9 @@ type NodefonyStartType = "CONSOLE" | "NODEFONY" | "NODEFONY_CONSOLE";
 
 type EventsType = Record<string, number>;
 
-const Events: Readonly<EventsType> = Object.freeze({
+// Clés LITTÉRALES : `Events.onBoot` est un `number`, jamais `undefined`. Le champ
+// public `kernel.Events` reste lisible par nom dynamique (`EventsType`).
+const Events = Object.freeze({
   onInit: 1 << 0,
   onPreStart: 1 << 1,
   onStart: 1 << 2,
@@ -325,7 +327,7 @@ const Events: Readonly<EventsType> = Object.freeze({
   onTerminate: 1 << 10,
 });
 
-export type KernelEventsType = keyof typeof Events;
+export type KernelEventsType = keyof EventsType;
 
 /**
  * Durée de vie d'un run : `"oneshot"` = fait sa tâche puis le process sort (build,
@@ -1281,8 +1283,7 @@ class Kernel extends Service implements IKernel {
           string,
           IModuleConfigEntry
         >;
-        for (const name in this.modules) {
-          const mod = this.modules[name];
+        for (const mod of Object.values(this.modules)) {
           freezeConfigTree(mod.options);
           const packageName = mod.getModuleName();
           if (packageName) {
@@ -1846,7 +1847,13 @@ class Kernel extends Service implements IKernel {
     return mod;
   }
 
-  getModule(name: string): Module {
+  /**
+   * Module enregistré sous ce nom.
+   *
+   * @param name - clé du module (`kernel.modules`)
+   * @returns le module, ou `undefined` s'il n'est pas enregistré.
+   */
+  getModule(name: string): Module | undefined {
     return this.modules[name];
   }
   getModules(): Record<string, Module> {
@@ -1869,8 +1876,8 @@ class Kernel extends Service implements IKernel {
    * premier → configure les modules avant qu'ils ne se valident). Idempotent.
    */
   private applyModuleConfigOverrides(): void {
-    for (const name in this.modules) {
-      this.modules[name].readOverrideModuleConfig();
+    for (const mod of Object.values(this.modules)) {
+      mod.readOverrideModuleConfig();
     }
     // Override env générique `NF__<MODULE>__<CHEMIN>` APRÈS le merge de l'app
     // (précédence ADR-0006 D5 : env > app) et AVANT la validation Zod du module.
@@ -1967,8 +1974,7 @@ class Kernel extends Service implements IKernel {
    * path ; le message inclut la `description` du champ, qui nomme la remplaçante.
    */
   private warnReservedConfigKeys(): void {
-    for (const name in this.modules) {
-      const mod = this.modules[name];
+    for (const mod of Object.values(this.modules)) {
       const schema = mod.configSchema();
       if (!schema) continue;
       const hits = findSetReservedKeys(schema, mod.options);
@@ -2727,13 +2733,13 @@ class Kernel extends Service implements IKernel {
     return isSubclassOf(subclass, Module);
   }
 
-  getEventName(event: number): string {
-    return Object.keys(Events).find((key) => Events[key] === event) as string;
+  getEventName(event: number): string | undefined {
+    return Object.entries(Events).find(([, value]) => value === event)?.[0];
   }
 
   setCommandComplete(progress: number): boolean {
     const index = this.getEventName(progress);
-    this.progress |= Events[index];
+    this.progress |= index === undefined ? 0 : progress;
     return this.isCommandComplete(progress);
   }
 
@@ -2743,7 +2749,7 @@ class Kernel extends Service implements IKernel {
       const int: number = Events[this.command.kernelEvent];
       const res = !!(this.progress & int);
       this.log(
-        `Ckeck Command event : ${this.getEventName(int)}   Progress:  ${index}  :  Complete : ${res}`,
+        `Ckeck Command event : ${String(this.getEventName(int))}   Progress:  ${String(index)}  :  Complete : ${res}`,
         "DEBUG",
         `COMMAND ${this.command.name}`,
       );
@@ -4137,9 +4143,10 @@ class Kernel extends Service implements IKernel {
         };
       }
       const interfaces: NetworkInterface = {};
-      for (const myinterface in this.interfaces) {
-        interfaces[myinterface] = [];
-        for (const infos of this.interfaces[myinterface]) {
+      for (const [myinterface, list] of Object.entries(this.interfaces)) {
+        const kept: os.NetworkInterfaceInfo[] = [];
+        interfaces[myinterface] = kept;
+        for (const infos of list) {
           let matchType = false;
           let matchFamily = false;
           for (const filter in filters) {
@@ -4163,8 +4170,7 @@ class Kernel extends Service implements IKernel {
                 break;
             }
           }
-          if (condition(matchType, matchFamily))
-            interfaces[myinterface].push(infos);
+          if (condition(matchType, matchFamily)) kept.push(infos);
         }
       }
       return interfaces;
@@ -4202,12 +4208,12 @@ class Kernel extends Service implements IKernel {
     };
     const res: NetworkInterface = this.interfacesFilter(filter);
     const ele: os.NetworkInterfaceInfo[] = [];
-    for (const myinterface in res) {
-      for (const info of res[myinterface]) {
+    for (const list of Object.values(res)) {
+      for (const info of list) {
         ele.push(info);
       }
     }
-    return ele[0] || undefined;
+    return ele[0];
   }
 
   // async getProjectName(): Promise<string> {

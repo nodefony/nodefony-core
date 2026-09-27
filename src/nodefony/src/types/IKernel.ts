@@ -129,7 +129,7 @@ export interface IKernel extends IService {
   isModule(subclass: unknown): boolean;
   addModule(Mod: unknown, ...args: unknown[]): Promise<IModule>;
   loadModule(nameOrPath: string): Promise<IModule>;
-  getModule(name: string): IModule;
+  getModule(name: string): IModule | undefined;
   getModules(): Record<string, IModule>;
   /**
    * Remplace la configuration FIGÉE d'un module (édition à chaud en

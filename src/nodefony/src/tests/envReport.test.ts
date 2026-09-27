@@ -67,10 +67,10 @@ describe("rapport d'environnement (nodefony env)", () => {
       catalog: [meta("NF_PORT", { kind: "number" })],
     });
     const port = report.vars[0];
-    assert.equal(port.origin, ".env.local");
-    assert.equal(port.value, "5152");
+    assert.equal(port!.origin, ".env.local");
+    assert.equal(port!.value, "5152");
     // Le piège n°1 : la variable EST écrite dans `.env`, et n'a aucun effet.
-    assert.deepEqual(port.shadowed, [{ source: ".env", value: "3000" }]);
+    assert.deepEqual(port!.shadowed, [{ source: ".env", value: "3000" }]);
   });
 
   it("le shell gagne, et le fichier qui le contredit est signalé masqué", () => {
@@ -81,8 +81,8 @@ describe("rapport d'environnement (nodefony env)", () => {
       files: [{ source: ".env.local", vars: { NF_PORT: "5152" } }],
       catalog: [meta("NF_PORT", { kind: "number" })],
     });
-    assert.equal(report.vars[0].origin, "process.env");
-    assert.deepEqual(report.vars[0].shadowed, [
+    assert.equal(report.vars[0]!.origin, "process.env");
+    assert.deepEqual(report.vars[0]!.shadowed, [
       { source: ".env.local", value: "5152" },
     ]);
   });
@@ -101,9 +101,9 @@ describe("rapport d'environnement (nodefony env)", () => {
     const missing = report.vars.filter((v) => v.missing).map((v) => v.name);
     // Un défaut ou l'optionnalité suffisent à ne PAS être manquante.
     assert.deepEqual(missing, ["NF_DATABASE_URL"]);
-    assert.isTrue(report.vars[0].required);
-    assert.isFalse(report.vars[1].required);
-    assert.isFalse(report.vars[2].required);
+    assert.isTrue(report.vars[0]!.required);
+    assert.isFalse(report.vars[1]!.required);
+    assert.isFalse(report.vars[2]!.required);
   });
 
   it("ne rend JAMAIS la valeur d'un secret, sans mentir sur sa présence", () => {
@@ -116,11 +116,11 @@ describe("rapport d'environnement (nodefony env)", () => {
       catalog: [meta("NF_TOTP_KEY")],
     });
     const v = report.vars[0];
-    assert.isTrue(v.secret);
+    assert.isTrue(v!.secret);
     assert.notInclude(JSON.stringify(report), "s3cr3t-en-clair");
     // Masquée, mais on voit qu'elle est là, d'où elle vient et sa longueur.
-    assert.include(String(v.value), "15 car.");
-    assert.equal(v.origin, ".env.local");
+    assert.include(String(v!.value), "15 car.");
+    assert.equal(v!.origin, ".env.local");
   });
 
   it("distingue une surcharge NF__ d'une variable déclarée", () => {
@@ -140,7 +140,7 @@ describe("rapport d'environnement (nodefony env)", () => {
       report.overrides.map((o) => `${o.module}.${o.path.join(".")}`),
       ["http.servers.https.port", "security.jwt.secret"],
     );
-    assert.equal(report.overrides[0].value, "8443");
+    assert.equal(report.overrides[0]!.value, "8443");
     // Un chemin qui porte un secret est masqué comme une variable secrète.
     assert.notInclude(JSON.stringify(report.overrides[1]), "abc");
     // Et surtout : elles ne polluent pas la liste des variables INCONNUES.
@@ -198,7 +198,7 @@ describe("rapport d'environnement (nodefony env)", () => {
       ["NF_CLI_DELEGATED", "NF_MCP_TOKEN", "NF_MODE_START"],
     );
     // Chacune DIT qui la pose — sinon la section n'est qu'une liste de noms.
-    assert.isNotEmpty(report.reserved[0].role);
+    assert.isNotEmpty(report.reserved[0]!.role);
     // Une variable réservée ABSENTE de l'environnement n'est pas inventée.
     assert.notInclude(
       report.reserved.map((r) => r.name),
@@ -227,8 +227,8 @@ describe("rapport d'environnement (nodefony env)", () => {
     });
     assert.isFalse(report.catalogAvailable);
     assert.deepEqual(report.vars, []);
-    assert.equal(report.levels[1].source, ".env");
-    assert.isTrue(report.levels[1].exists);
+    assert.equal(report.levels[1]!.source, ".env");
+    assert.isTrue(report.levels[1]!.exists);
     // Un rapport partiel qui ne dit pas qu'il est partiel se lit comme complet.
     assert.match(report.notes.join(" "), /catalogue des variables illisible/u);
   });

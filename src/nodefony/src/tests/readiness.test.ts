@@ -70,21 +70,21 @@ describe("check — état d'installation et environnement", () => {
     installe("@nodefony/http");
     const r = await checkReadiness({ projectRoot: dir });
     assert.deepEqual(kinds(r.findings), ["module-not-installed"]);
-    assert.include(r.findings[0].message, "@acme/blog");
+    assert.include(r.findings[0]!.message, "@acme/blog");
     // Le geste qui répare, pas seulement le constat.
-    assert.include(r.findings[0].message, "npm install @acme/blog");
+    assert.include(r.findings[0]!.message, "npm install @acme/blog");
     // Et la CONSÉQUENCE doit être vraie. Ce message a longtemps annoncé « le
     // démarrage échouera à l'import » : mesuré sur une application réelle, le
     // Kernel écarte le module en fail-soft, les ports s'ouvrent, et le bilan
     // dit « BOOT dégradé ». Un diagnostic qui envoie chercher un crash
     // inexistant coûte plus cher que pas de diagnostic du tout.
     assert.notInclude(
-      r.findings[0].message,
+      r.findings[0]!.message,
       "échouera",
       "le boot ne s'arrête PAS sur un module absent (fail-soft) — ne pas annoncer un crash",
     );
     assert.include(
-      r.findings[0].message,
+      r.findings[0]!.message,
       "AMPUTÉE",
       "le message doit nommer la vraie conséquence : l'app démarre sans ce module",
     );
@@ -104,7 +104,7 @@ describe("check — état d'installation et environnement", () => {
     installe("presente");
     const r = await checkReadiness({ projectRoot: dir });
     assert.deepEqual(kinds(r.findings), ["dep-not-installed"]);
-    assert.include(r.findings[0].message, "drizzle");
+    assert.include(r.findings[0]!.message, "drizzle");
   });
 
   it("se TAIT quand `node_modules` n'existe pas du tout", async () => {
@@ -134,9 +134,9 @@ describe("check — état d'installation et environnement", () => {
       probe: { probed: [5151, 5152], busy: [5151], ownedByUs: false },
     });
     assert.deepEqual(kinds(r.findings), ["port-busy"]);
-    assert.include(r.findings[0].message, "5151");
-    assert.include(r.findings[0].message, "EADDRINUSE");
-    assert.include(r.findings[0].message, "nodefony status");
+    assert.include(r.findings[0]!.message, "5151");
+    assert.include(r.findings[0]!.message, "EADDRINUSE");
+    assert.include(r.findings[0]!.message, "nodefony status");
     assert.deepEqual(r.portsShifting, []);
   });
 
@@ -162,7 +162,7 @@ describe("check — état d'installation et environnement", () => {
       probe: { probed: [5151, 5152], busy: [5151], ownedByUs: false },
     });
     assert.deepEqual(kinds(r.findings), ["port-busy"]);
-    assert.include(r.findings[0].message, "strict");
+    assert.include(r.findings[0]!.message, "strict");
   });
 
   it("une infra DÉCLARÉE et injoignable est SIGNALÉE, avec ses limites", async () => {
@@ -186,12 +186,12 @@ describe("check — état d'installation et environnement", () => {
       },
     });
     assert.deepEqual(kinds(r.findings), ["infra-unreachable"]);
-    assert.include(r.findings[0].message, "NF_DATABASE_URL");
-    assert.include(r.findings[0].message, "base-absente.invalid:5432");
-    assert.include(r.findings[0].message, "ENOTFOUND");
+    assert.include(r.findings[0]!.message, "NF_DATABASE_URL");
+    assert.include(r.findings[0]!.message, "base-absente.invalid:5432");
+    assert.include(r.findings[0]!.message, "ENOTFOUND");
     // Une sonde qui prétend plus qu'elle ne mesure ment : elle constate qu'un
     // port répond, pas qu'on peut s'y authentifier.
-    assert.include(r.findings[0].message, "NON vérifiés");
+    assert.include(r.findings[0]!.message, "NON vérifiés");
     assert.strictEqual(r.infraProbed, 1);
   });
 

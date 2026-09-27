@@ -182,6 +182,6 @@ describe("defineEnv — le BOOT refuse ce qui manquera là où on va", () => {
 
   it("le catalogue expose `requiredIn` à ses lecteurs", () => {
     const env = defineEnv(catalog, { NODE_ENV: "development" });
-    assert.deepStrictEqual(getEnvCatalog(env)[0].requiredIn, ["production"]);
+    assert.deepStrictEqual(getEnvCatalog(env)[0]!.requiredIn, ["production"]);
   });
 });

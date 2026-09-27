@@ -48,19 +48,17 @@ function makeKernelStub() {
       addModuleCalls.push(Ctor);
     },
     once(event: string, fn: () => Promise<unknown>): void {
-      if (!events[event]) events[event] = [];
-      events[event].push(fn);
+      (events[event] ??= []).push(fn);
     },
     prependOnceListener(event: string, fn: () => Promise<unknown>): void {
-      if (!events[event]) events[event] = [];
-      events[event].unshift(fn);
+      (events[event] ??= []).unshift(fn);
     },
     getModule(_name: string) {
       return undefined;
     },
     events,
     async fireEvent(event: string): Promise<void> {
-      for (const fn of events[event] || []) {
+      for (const fn of events[event] ?? []) {
         await fn();
       }
     },

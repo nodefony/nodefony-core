@@ -278,7 +278,7 @@ describe("Portée request — nettoyage à la fermeture du scope", () => {
     );
     const errors = logged.filter((l) => l.severity === "ERROR");
     expect(errors).to.have.length(1);
-    expect(String(errors[0].pci)).to.match(/rsFaulty.*boom-clean/);
+    expect(String(errors[0]!.pci)).to.match(/rsFaulty.*boom-clean/);
   });
 
   // Débrancher : le `catch` posé sur la promesse d'un `clean()` asynchrone —
@@ -296,7 +296,7 @@ describe("Portée request — nettoyage à la fermeture du scope", () => {
     await tick();
     const errors = logged.filter((l) => l.severity === "ERROR");
     expect(errors).to.have.length(1);
-    expect(String(errors[0].pci)).to.match(/rsAsyncFaulty.*boom-async/);
+    expect(String(errors[0]!.pci)).to.match(/rsAsyncFaulty.*boom-async/);
   });
 
   it("own() refuse un scope déjà fermé — l'objet ne serait jamais nettoyé", () => {

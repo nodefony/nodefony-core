@@ -28,7 +28,7 @@ describe("Nodefony.generateSortableId — UUID v7", () => {
     const id = Nodefony.generateSortableId();
     assert.strictEqual(id[14], "7", "nibble de version");
     assert.ok(
-      ["8", "9", "a", "b"].includes(id[19]),
+      ["8", "9", "a", "b"].includes(id[19]!),
       `variant RFC attendu, reçu « ${id[19]} »`,
     );
   });

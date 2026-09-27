@@ -451,7 +451,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         r.ports.map((p) => p.port),
         [real],
       );
-      assert.strictEqual(r.ports[0].listening, true);
+      assert.strictEqual(r.ports[0]!.listening, true);
     } finally {
       await killDetached(childPid);
       fs.rmSync(log, { force: true });

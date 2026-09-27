@@ -357,7 +357,9 @@ function flattenZodIssues(
     const branches = (issue as { errors?: z.core.$ZodIssue[][] }).errors;
     if (issue.code === "invalid_union" && branches?.length) {
       const best =
-        branches.find((b) => b.some((i) => i.path.length > 0)) ?? branches[0];
+        branches.find((b) => b.some((i) => i.path.length > 0)) ??
+        branches[0] ??
+        [];
       out.push(...flattenZodIssues(best, path));
       continue;
     }

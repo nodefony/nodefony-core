@@ -174,7 +174,7 @@ export function readSkillHeader(
 ): { name: string; summary: string } | null {
   const block = /^---\r?\n([\s\S]*?)\r?\n---/u.exec(src);
   if (block === null) return null;
-  const fm = block[1];
+  const fm = block[1] ?? "";
   const name = /^name:[ \t]*(\S.*)$/mu.exec(fm)?.[1]?.trim();
   if (name === undefined || name === "") return null;
 

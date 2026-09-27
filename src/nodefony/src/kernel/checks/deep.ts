@@ -260,15 +260,15 @@ export function firstUsefulLine(stderr: string, stdout: string): string {
     /^(?:npm (?:notice|warn|WARN|ERR!)\b|>\s|\$\s|yarn run |pnpm )/u;
   const streams = [stderr, stdout];
   for (const f of streams) {
-    const useful = f
+    const first = f
       .split("\n")
       .map((l) => l.trim())
-      .filter((l) => l.length > 0 && !bruit.test(l));
-    if (useful.length > 0) return clamp(useful[0]);
+      .find((l) => l.length > 0 && !bruit.test(l));
+    if (first !== undefined) return clamp(first);
   }
   for (const f of streams) {
-    const lines = f.split("\n").filter((l) => l.trim().length > 0);
-    if (lines.length > 0) return clamp(lines[0].trim());
+    const first = f.split("\n").find((l) => l.trim().length > 0);
+    if (first !== undefined) return clamp(first.trim());
   }
   return "";
 }

@@ -93,9 +93,9 @@ describe("client/syslog — transport montant", () => {
     expect(pub.sent).toHaveLength(0); // rien n'est parti avant la fenêtre
     vi.advanceTimersByTime(2000);
     expect(pub.sent).toHaveLength(1);
-    expect(pub.sent[0].channel).toBe(PLATFORM_INBOUND.syslogUplink);
-    expect(pub.sent[0].batch.entries).toHaveLength(3);
-    expect(pub.sent[0].batch.pageId).toBe(getPageId());
+    expect(pub.sent[0]!.channel).toBe(PLATFORM_INBOUND.syslogUplink);
+    expect(pub.sent[0]!.batch.entries).toHaveLength(3);
+    expect(pub.sent[0]!.batch.pageId).toBe(getPageId());
     dispose();
   });
 
@@ -106,7 +106,7 @@ describe("client/syslog — transport montant", () => {
     syslog.log("info", "INFO");
     syslog.log("avertissement", "WARNING");
     vi.advanceTimersByTime(2000);
-    expect(pub.sent[0].batch.entries.map((e) => e.severityName)).toEqual([
+    expect(pub.sent[0]!.batch.entries.map((e) => e.severityName)).toEqual([
       "WARNING",
     ]);
     dispose();
@@ -123,7 +123,7 @@ describe("client/syslog — transport montant", () => {
     expect(pub.sent).toHaveLength(0);
     syslog.log("b", "ERROR");
     expect(pub.sent).toHaveLength(1); // parti sans que le minuteur ait couru
-    expect(pub.sent[0].batch.entries).toHaveLength(2);
+    expect(pub.sent[0]!.batch.entries).toHaveLength(2);
     dispose();
   });
 
@@ -139,9 +139,9 @@ describe("client/syslog — transport montant", () => {
     syslog.log("milieu", "ERROR");
     syslog.log("recente", "ERROR");
     vi.advanceTimersByTime(2000);
-    const batch = pub.sent[0].batch;
+    const batch = pub.sent[0]!.batch;
     expect(batch.entries).toHaveLength(2);
-    expect(batch.entries[0].payload).toBe("milieu");
+    expect(batch.entries[0]!.payload).toBe("milieu");
     expect(batch.dropped).toBe(1);
     dispose();
   });
@@ -151,7 +151,7 @@ describe("client/syslog — transport montant", () => {
     const dispose = installSyslogUplink({ syslog, publisher: pub });
     syslog.log(new Error("ça casse"), "ERROR");
     vi.advanceTimersByTime(2000);
-    const payload = pub.sent[0].batch.entries[0].payload as {
+    const payload = pub.sent[0]!.batch.entries[0]!.payload as {
       name: string;
       message: string;
       stack?: string;
@@ -170,9 +170,9 @@ describe("client/syslog — transport montant", () => {
     withRequestId("rid-7", () => syslog.log("dedans", "ERROR"));
     syslog.log("dehors", "ERROR");
     vi.advanceTimersByTime(2000);
-    const [a, b] = pub.sent[0].batch.entries;
-    expect(a.requestId).toBe("rid-7");
-    expect(b.requestId).toBeUndefined();
+    const [a, b] = pub.sent[0]!.batch.entries;
+    expect(a!.requestId).toBe("rid-7");
+    expect(b!.requestId).toBeUndefined();
     dispose();
     disposeProvider();
   });
@@ -183,8 +183,8 @@ describe("client/syslog — transport montant", () => {
     syslog.log("envoi impossible", "ERROR", UPLINK_MSGID);
     syslog.log("vraie erreur", "ERROR");
     vi.advanceTimersByTime(2000);
-    expect(pub.sent[0].batch.entries).toHaveLength(1);
-    expect(pub.sent[0].batch.entries[0].payload).toBe("vraie erreur");
+    expect(pub.sent[0]!.batch.entries).toHaveLength(1);
+    expect(pub.sent[0]!.batch.entries[0]!.payload).toBe("vraie erreur");
     dispose();
   });
 
@@ -210,7 +210,7 @@ describe("client/syslog — transport montant", () => {
     dispose();
     expect(syslog.listenerCount("onLog")).toBe(0);
     expect(pub.sent).toHaveLength(1);
-    expect(pub.sent[0].batch.entries[0].payload).toBe("dernier souffle");
+    expect(pub.sent[0]!.batch.entries[0]!.payload).toBe("dernier souffle");
     // Plus rien ne remonte après le retrait.
     syslog.log("après", "ERROR");
     vi.advanceTimersByTime(5000);
@@ -257,10 +257,10 @@ describe("client/syslog — capture des erreurs du navigateur", () => {
       }),
     );
     expect(seen).toHaveLength(1);
-    expect(seen[0].severityName).toBe("ERROR");
-    expect(seen[0].msgid).toBe(BROWSER_ERROR_MSGID);
-    expect(seen[0].msg).toBe("https://x/app.js:12:3");
-    expect(seen[0].payload).toBe(err);
+    expect(seen[0]!.severityName).toBe("ERROR");
+    expect(seen[0]!.msgid).toBe(BROWSER_ERROR_MSGID);
+    expect(seen[0]!.msg).toBe("https://x/app.js:12:3");
+    expect(seen[0]!.payload).toBe(err);
     dispose();
   });
 
@@ -272,7 +272,7 @@ describe("client/syslog — capture des erreurs du navigateur", () => {
       }),
     );
     expect(seen).toHaveLength(1);
-    expect(seen[0].msgid).toBe(BROWSER_REJECTION_MSGID);
+    expect(seen[0]!.msgid).toBe(BROWSER_REJECTION_MSGID);
     dispose();
   });
 

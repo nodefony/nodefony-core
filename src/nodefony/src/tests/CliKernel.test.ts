@@ -436,7 +436,7 @@ describe("CliKernel — initSyslog()", () => {
     } as any;
 
     const argv = process.argv;
-    process.argv = [argv[0], argv[1], "inspect", "routes", "--json"];
+    process.argv = [argv[0]!, argv[1]!, "inspect", "routes", "--json"];
     try {
       cli.initSyslog("development", false);
 

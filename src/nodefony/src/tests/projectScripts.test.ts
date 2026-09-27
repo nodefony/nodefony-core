@@ -25,7 +25,7 @@ describe("projectScripts — lire les scripts d'un manifeste", () => {
       description: "Compile tous les paquets.",
     });
     assert.equal(
-      scripts[1].description,
+      scripts[1]!.description,
       null,
       "non déclaré → null, pas une chaîne vide",
     );
@@ -46,8 +46,8 @@ describe("projectScripts — lire les scripts d'un manifeste", () => {
       scripts: { a: "x", b: "y" },
       nodefony: { scripts: { a: "", b: "   " } },
     });
-    assert.equal(scripts[0].description, null);
-    assert.equal(scripts[1].description, null);
+    assert.equal(scripts[0]!.description, null);
+    assert.equal(scripts[1]!.description, null);
   });
 
   it("ne lève sur aucune forme aberrante", () => {
@@ -185,7 +185,7 @@ describe("projectScripts — le classement est DÉRIVÉ, pas déclaré", () => {
       }),
     );
     assert.deepEqual(
-      groupes[0].scripts.map((s) => s.name),
+      groupes[0]!.scripts.map((s) => s.name),
       ["build", "build:all", "build:core"],
     );
   });

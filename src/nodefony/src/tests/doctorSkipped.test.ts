@@ -184,7 +184,7 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
       freshness: { ran: false },
     });
     assert.lengthOf(sautes, 1);
-    assert.isNotEmpty(sautes[0].reason);
+    assert.isNotEmpty(sautes[0]!.reason);
   });
 
   it("l'ordre de lecture est celui du rapport, pas celui de l'objet", () => {

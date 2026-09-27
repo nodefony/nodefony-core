@@ -192,6 +192,7 @@ export function parseSymbolsArgv(
   };
   for (let i = 0; i < rest.length; i++) {
     const word = rest[i];
+    if (word === undefined) break;
     if (word === "--help" || word === "-h") {
       // Une commande qui répond « option inconnue : --help » apprend au
       // lecteur à ne plus croire le pied de l'aide, qui promet ce drapeau.

@@ -772,12 +772,12 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     // à la question « ce service existera-t-il au démarrage ? ».
     const declaredServices = new Set<string>();
     for (const content of sources.values()) {
-      for (const [, list] of content.matchAll(SERVICES_LIST_RE)) {
-        for (const [, name] of list.matchAll(/\b(\w+)\b/gu)) {
+      for (const [, list = ""] of content.matchAll(SERVICES_LIST_RE)) {
+        for (const [, name = ""] of list.matchAll(/\b(\w+)\b/gu)) {
           declaredServices.add(name);
         }
       }
-      for (const [, name] of content.matchAll(IMPERATIVE_RE)) {
+      for (const [, name = ""] of content.matchAll(IMPERATIVE_RE)) {
         declaredServices.add(name);
       }
     }
@@ -785,7 +785,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     for (const [file, content] of sources) {
       // Un service se cherche PARTOUT dans la cible : contrairement à une
       // entité ou un controller, son emplacement n'est pas conventionnel.
-      for (const [, isAbstract, symbol] of content.matchAll(SERVICE_RE)) {
+      for (const [, isAbstract, symbol = ""] of content.matchAll(SERVICE_RE)) {
         if (isAbstract) continue;
         // Compté qu'il soit déclaré ou non : `scanned` dit ce que le contrôle a
         // REGARDÉ. Ne compter que les fautifs ferait passer « 0 manquement sur
@@ -863,7 +863,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       // Les hooks se cherchent dans tout fichier qui déclare un module — c'est
       // l'`index.ts` en général, mais rien ne l'impose.
       if (EXTENDS_MODULE_RE.test(content)) {
-        for (const [, hook] of content.matchAll(HOOK_DECL_RE)) {
+        for (const [, hook = ""] of content.matchAll(HOOK_DECL_RE)) {
           if (HOOKS_MODULE.has(hook)) continue;
           findings.push({
             kind: "hook-lifecycle-inconnu",
@@ -899,7 +899,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       }
 
       if (inEntities) {
-        for (const [, symbol] of content.matchAll(ENTITY_RE)) {
+        for (const [, symbol = ""] of content.matchAll(ENTITY_RE)) {
           if (!referencedElsewhere(symbol, file, sources)) {
             findings.push({
               kind: "orphan-entity",
@@ -952,7 +952,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       }
 
       if (inControllers) {
-        for (const [, symbol] of content.matchAll(CONTROLLER_RE)) {
+        for (const [, symbol = ""] of content.matchAll(CONTROLLER_RE)) {
           if (!referencedElsewhere(symbol, file, sources)) {
             findings.push({
               kind: "orphan-controller",

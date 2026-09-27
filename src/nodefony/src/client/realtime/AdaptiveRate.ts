@@ -77,6 +77,8 @@ function deriveLadder(intervalMs: number, maxMs: number): number[] {
 
 export class AdaptiveRate {
   private readonly ladder: number[];
+  /** Cadence la plus lente — repli si `idx` sortait de l'échelle. */
+  private readonly slowest: number;
   private readonly starvationFactor: number;
   private readonly healthyFactor: number;
   private readonly recoveryWindow: number;
@@ -94,6 +96,7 @@ export class AdaptiveRate {
         ? [...options.ladder].sort((a, b) => a - b)
         : deriveLadder(options.intervalMs, Math.max(options.intervalMs, maxMs));
     this.ladder = ladder;
+    this.slowest = ladder[ladder.length - 1] ?? maxMs;
     this.starvationFactor = options.starvationFactor ?? 1.8;
     this.healthyFactor = options.healthyFactor ?? 1.25;
     this.recoveryWindow = options.recoveryWindow ?? 4;
@@ -101,7 +104,7 @@ export class AdaptiveRate {
 
   /** Cadence courante (ms). */
   current(): number {
-    return this.ladder[this.idx];
+    return this.ladder[this.idx] ?? this.slowest;
   }
 
   /** Décale d'un cran vers le grossier (MD) ; renvoie `true` si la cadence a changé. */

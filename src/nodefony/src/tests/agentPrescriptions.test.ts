@@ -41,7 +41,7 @@ const clesDesFragments = (): Set<string> => {
       const source = readFileSync(path.join(dir, fichier), "utf8");
       for (const ligne of source.split("\n")) {
         const m = /^\s*([A-Za-z][\w]{3,}):/u.exec(ligne);
-        if (m) cles.add(m[1]);
+        if (m) cles.add(m[1]!);
       }
     }
   }

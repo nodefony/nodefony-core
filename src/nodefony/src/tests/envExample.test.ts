@@ -38,18 +38,18 @@ describe("defineEnv — introspection (getEnvCatalog)", () => {
     const cat = getEnvCatalog(env);
     assert.strictEqual(cat.length, 4);
     const by = Object.fromEntries(cat.map((m) => [m.name, m]));
-    assert.strictEqual(by.NF_DRIVER.kind, "enum");
-    assert.deepStrictEqual(by.NF_DRIVER.values, ["stdout", "file"]);
-    assert.strictEqual(by.NF_DRIVER.default, "stdout");
-    assert.strictEqual(by.NF_DRIVER.optional, false);
-    assert.strictEqual(by.NF_DRIVER.description, "Sink de log.");
-    assert.strictEqual(by.NF_SYNC.kind, "boolean");
-    assert.strictEqual(by.NF_SYNC.default, false);
-    assert.strictEqual(by.NF_PORT.kind, "number");
-    assert.strictEqual(by.NF_PORT.optional, true);
-    assert.strictEqual(by.NF_PORT.default, undefined);
-    assert.strictEqual(by.NF_URL.kind, "string");
-    assert.strictEqual(by.NF_URL.optional, true);
+    assert.strictEqual(by.NF_DRIVER!.kind, "enum");
+    assert.deepStrictEqual(by.NF_DRIVER!.values, ["stdout", "file"]);
+    assert.strictEqual(by.NF_DRIVER!.default, "stdout");
+    assert.strictEqual(by.NF_DRIVER!.optional, false);
+    assert.strictEqual(by.NF_DRIVER!.description, "Sink de log.");
+    assert.strictEqual(by.NF_SYNC!.kind, "boolean");
+    assert.strictEqual(by.NF_SYNC!.default, false);
+    assert.strictEqual(by.NF_PORT!.kind, "number");
+    assert.strictEqual(by.NF_PORT!.optional, true);
+    assert.strictEqual(by.NF_PORT!.default, undefined);
+    assert.strictEqual(by.NF_URL!.kind, "string");
+    assert.strictEqual(by.NF_URL!.optional, true);
   });
 
   it("le catalogue est NON-énumérable (n'altère pas les valeurs de `env`)", () => {

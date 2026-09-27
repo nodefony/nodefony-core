@@ -201,7 +201,10 @@ async function ask(
         // Un TABLEAU, jamais une chaîne à virgules : le moteur garde chaque
         // valeur d'une question `list` ENTIÈRE et ne re-découpe rien — « a,b »
         // y deviendrait UNE valeur nommée « a,b », que personne ne verrait.
-        return [...new Set(nums)].map((n) => choices[n - 1].value);
+        return [...new Set(nums)].flatMap((n) => {
+          const choice = choices[n - 1];
+          return choice ? [choice.value] : [];
+        });
       }
       out.write(
         `  → numéros entre 1 et ${spec.choices.length}, ou ENTRÉE pour aucun\n`,
@@ -222,8 +225,10 @@ async function ask(
         return String(spec.default);
       }
       const n = Number.parseInt(t, 10);
-      if (Number.isInteger(n) && n >= 1 && n <= spec.choices.length) {
-        return spec.choices[n - 1].value;
+      const choice =
+        Number.isInteger(n) && n >= 1 ? spec.choices[n - 1] : undefined;
+      if (choice !== undefined) {
+        return choice.value;
       }
       out.write(`  → réponse entre 1 et ${spec.choices.length}\n`);
     }

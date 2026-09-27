@@ -313,7 +313,7 @@ describe("Container › log()", () => {
     try {
       assert.doesNotThrow(() => c.log("test pci"));
       expect(warnings).to.have.length(1);
-      expect(warnings[0][0]).to.include("[Container]");
+      expect(warnings[0]![0]).to.include("[Container]");
     } finally {
       console.warn = original;
     }

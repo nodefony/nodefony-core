@@ -54,9 +54,9 @@ describe("envOverride — parseNfEnvOverrides", () => {
       NF__SECURITY__JWT__ACCESSTTLS: "300",
     });
     assert.strictEqual(out.length, 1);
-    assert.strictEqual(out[0].moduleSeg, "security");
-    assert.deepStrictEqual(out[0].path, ["jwt", "accessttls"]);
-    assert.strictEqual(out[0].value, 300);
+    assert.strictEqual(out[0]!.moduleSeg, "security");
+    assert.deepStrictEqual(out[0]!.path, ["jwt", "accessttls"]);
+    assert.strictEqual(out[0]!.value, 300);
   });
   it("ignore les clés hors préfixe et les NF__X sans champ", () => {
     const out = parseNfEnvOverrides({
@@ -66,9 +66,9 @@ describe("envOverride — parseNfEnvOverrides", () => {
       NF__HTTP__SERVERS__HTTPS__PORT: "8443",
     });
     assert.strictEqual(out.length, 1);
-    assert.strictEqual(out[0].moduleSeg, "http");
-    assert.deepStrictEqual(out[0].path, ["servers", "https", "port"]);
-    assert.strictEqual(out[0].value, 8443);
+    assert.strictEqual(out[0]!.moduleSeg, "http");
+    assert.deepStrictEqual(out[0]!.path, ["servers", "https", "port"]);
+    assert.strictEqual(out[0]!.value, 8443);
   });
 });
 
@@ -568,8 +568,8 @@ describe("envOverride — message enrichi (module/chemin proche)", () => {
       { NF__SECURTY__JWT__ACCESSTTLS: "300" },
     );
     assert.strictEqual(w.length, 1);
-    assert.match(w[0], /module "securty" introuvable/);
-    assert.match(w[0], /vouliez-vous dire « security »/);
+    assert.match(w[0]!, /module "securty" introuvable/);
+    assert.match(w[0]!, /vouliez-vous dire « security »/);
   });
 
   it("chemin mal tapé → segment fautif + clé proche + clés disponibles", () => {
@@ -583,9 +583,9 @@ describe("envOverride — message enrichi (module/chemin proche)", () => {
       { NF__SECURITY__JWT__ACCESSTL: "300" },
     );
     assert.strictEqual(w.length, 1);
-    assert.match(w[0], /chemin "jwt\.accesstl" inconnu/);
-    assert.match(w[0], /vouliez-vous dire « accessTtlS »/);
-    assert.match(w[0], /clés: accessTtlS, refreshTtlS/);
+    assert.match(w[0]!, /chemin "jwt\.accesstl" inconnu/);
+    assert.match(w[0]!, /vouliez-vous dire « accessTtlS »/);
+    assert.match(w[0]!, /clés: accessTtlS, refreshTtlS/);
   });
 });
 
@@ -679,13 +679,13 @@ describe("envOverride — fail-closed (NF__* invalide rejeté par la validation 
       const r = await k.fireLifecycle("onRegister", k);
       assert.strictEqual(r.errors.length, 1);
       assert.match(
-        (r.errors[0].error as Error).message,
+        (r.errors[0]!.error as Error).message,
         /port doit être un nombre/,
       );
     });
     const report = k.getBootReport();
     assert.strictEqual(report.modulesSkipped.length, 1);
-    assert.strictEqual(report.modulesSkipped[0].module, "@nodefony/valcfg");
+    assert.strictEqual(report.modulesSkipped[0]!.module, "@nodefony/valcfg");
   });
 });
 

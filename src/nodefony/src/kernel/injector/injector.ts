@@ -349,11 +349,13 @@ class Injector extends Service {
     // entre requêtes — on refuse, même pendant une requête. Une racine
     // transient sans détenteur appartient à son appelant : acceptée.
     for (let i = stack.length - 1; i >= 0; i--) {
-      const lifetime = Injector._lifetimeOf(stack[i]);
+      const holder = stack[i];
+      if (holder === undefined) continue;
+      const lifetime = Injector._lifetimeOf(holder);
       if (lifetime === "transient") continue;
       if (lifetime === "singleton") {
         throw Injector._captiveError(
-          stack[i].name,
+          holder.name,
           serviceName,
           `${namesOf(stack)} → ${serviceName}`,
         );
@@ -476,7 +478,7 @@ class Injector extends Service {
         if (path !== null) {
           throw Injector._captiveError(
             ctor.name,
-            path[path.length - 1],
+            path[path.length - 1] ?? "",
             path.join(" → "),
           );
         }

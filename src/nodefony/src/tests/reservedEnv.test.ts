@@ -98,11 +98,11 @@ describe("registre des variables réservées au framework", () => {
       for (const m of src.matchAll(/process\.env\.(NF_[A-Z0-9_]+)/gu)) {
         const nom = m[1];
         // `NF__MODULE__CHEMIN` est une surcharge de config, jamais une variable.
-        if (nom.startsWith("NF__")) continue;
-        if (Object.hasOwn(RESERVED_ENV, nom)) continue;
+        if (nom!.startsWith("NF__")) continue;
+        if (Object.hasOwn(RESERVED_ENV, nom!)) continue;
         if (duCatalogue.has(nom)) continue;
-        if (FAMILLES_DU_DEPOT.some((r) => r.test(nom))) continue;
-        orphelines.add(nom);
+        if (FAMILLES_DU_DEPOT.some((r) => r.test(nom!))) continue;
+        orphelines.add(nom!);
       }
     }
 
@@ -126,7 +126,7 @@ describe("registre des variables réservées au framework", () => {
       if (fichier.endsWith(path.join("config", "reservedEnv.ts"))) continue;
       const src = readFileSync(fichier, "utf8");
       for (const m of src.matchAll(/(?:process\.env\.)?(NF_[A-Z0-9_]+)/gu))
-        lues.add(m[1]);
+        lues.add(m[1]!);
     }
     const mortes = Object.keys(RESERVED_ENV).filter((n) => !lues.has(n));
     assert.deepEqual(

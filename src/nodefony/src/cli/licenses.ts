@@ -374,7 +374,7 @@ export function templateRuntimeDeps(file: string): string[] {
   if (start === -1) return [];
   const block = source.slice(start, source.indexOf("\n  },", start));
   const names = [...block.matchAll(/"([a-z@][a-zA-Z0-9@/_.-]*)"\s*:/g)].map(
-    (m) => m[1],
+    (m) => m[1] ?? "",
   );
   return [...new Set(names)]
     .filter(

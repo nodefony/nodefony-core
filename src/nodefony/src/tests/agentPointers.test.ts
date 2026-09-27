@@ -119,7 +119,7 @@ describe("le pointeur écrit par ai:mcp est conforme au formateur de l'app", () 
     try {
       const written = writeAgentPointers(dir, ["claude"], "demo");
       expect(written.length, "un pointeur écrit").toBeGreaterThan(0);
-      const body = readFileSync(path.join(dir, written[0]), "utf8");
+      const body = readFileSync(path.join(dir, written[0]!), "utf8");
       const lines = body.split("\n");
       expect(lines[0], "le titre").toMatch(/^#\s/u);
       expect(

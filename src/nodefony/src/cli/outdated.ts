@@ -130,15 +130,14 @@ export function aggregateOutdated(report: NpmOutdatedReport): IOutdatedSummary {
   const ahead: IOutdatedPackage[] = [];
   let rawEntries = 0;
 
-  for (const name of Object.keys(report)) {
-    const raw = report[name];
+  for (const [name, raw] of Object.entries(report)) {
     const entries = Array.isArray(raw) ? raw : [raw];
-    if (!entries.length) {
+    const head = entries[0];
+    if (head === undefined) {
       continue;
     }
     rawEntries += entries.length;
 
-    const head = entries[0];
     const current = head.current ?? null;
     const dependents = [
       ...new Set(

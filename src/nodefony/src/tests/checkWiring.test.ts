@@ -109,9 +109,9 @@ class App extends Module {}`,
     });
     const f = desaccords(dir);
     assert.strictEqual(f.length, 1, JSON.stringify(f));
-    assert.ok(f[0]?.message.includes("slug"), f[0]?.message);
+    assert.ok(f[0]?.message.includes("slug"), f[0]?.message ?? "");
     // Le fichier NOMMÉ est le contrat, pas l'entité : c'est lui qu'on corrige.
-    assert.ok(f[0]?.file.endsWith("Post.schema.ts"), f[0]?.file);
+    assert.ok(f[0]?.file.endsWith("Post.schema.ts"), f[0]?.file ?? "");
   });
 
   it("le MÊME champ rendu obligatoire au contrat → plus rien à signaler", () => {
@@ -160,11 +160,11 @@ class App extends Module {}`,
     });
     const r = checkWiring({ roots: [dir], cwd: dir });
     assert.strictEqual(r.findings.length, 1);
-    assert.strictEqual(r.findings[0].kind, "orphan-entity");
+    assert.strictEqual(r.findings[0]!.kind, "orphan-entity");
     // Le message doit porter le geste, pas seulement le constat.
-    assert.match(r.findings[0].message, /@entities\(\[PostEntity\]\)/u);
+    assert.match(r.findings[0]!.message, /@entities\(\[PostEntity\]\)/u);
     assert.strictEqual(
-      r.findings[0].file,
+      r.findings[0]!.file,
       path.join("nodefony", "entity", "Post.ts"),
     );
   });
@@ -181,7 +181,7 @@ entityRegistry.register(PostEntity);`,
     });
     const r = checkWiring({ roots: [dir], cwd: dir });
     assert.strictEqual(r.findings.length, 1);
-    assert.strictEqual(r.findings[0].kind, "orphan-entity");
+    assert.strictEqual(r.findings[0]!.kind, "orphan-entity");
   });
 
   it("enregistrée IMPÉRATIVEMENT → rien à signaler", () => {
@@ -209,8 +209,8 @@ class App extends Module {}`,
     });
     const r = checkWiring({ roots: [dir], cwd: dir });
     assert.strictEqual(r.findings.length, 1);
-    assert.strictEqual(r.findings[0].kind, "reserved-entity");
-    assert.match(r.findings[0].message, /ne démarrera plus/u);
+    assert.strictEqual(r.findings[0]!.kind, "reserved-entity");
+    assert.match(r.findings[0]!.message, /ne démarrera plus/u);
   });
 
   it("l'entité `User` de l'application n'est PAS une dépossession", () => {
@@ -234,8 +234,8 @@ class App extends Module {}`,
     });
     const r = checkWiring({ roots: [dir], cwd: dir });
     assert.strictEqual(r.findings.length, 1);
-    assert.strictEqual(r.findings[0].kind, "orphan-controller");
-    assert.match(r.findings[0].message, /404/u);
+    assert.strictEqual(r.findings[0]!.kind, "orphan-controller");
+    assert.match(r.findings[0]!.message, /404/u);
   });
 
   it("déclaré dans @controllers([…]) → rien à signaler", () => {
@@ -262,9 +262,9 @@ class App extends Module {}`,
     });
     const r = checkWiring({ roots: [dir], cwd: dir });
     assert.strictEqual(r.findings.length, 1, JSON.stringify(r.findings));
-    assert.strictEqual(r.findings[0].kind, "route-colon-param");
+    assert.strictEqual(r.findings[0]!.kind, "route-colon-param");
     // Le message porte le GESTE — le chemin corrigé, pas seulement le constat.
-    assert.match(r.findings[0].message, /"\/api\/authors\/\{handle\}"/u);
+    assert.match(r.findings[0]!.message, /"\/api\/authors\/\{handle\}"/u);
   });
 
   it("la forme `{param}` du framework → rien à signaler", () => {
@@ -312,7 +312,7 @@ class App extends Module {}`,
     });
     const r = checkWiring({ roots: [dir], cwd: dir });
     assert.strictEqual(r.findings.length, 1, JSON.stringify(r.findings));
-    assert.strictEqual(r.findings[0].kind, "route-colon-param");
+    assert.strictEqual(r.findings[0]!.kind, "route-colon-param");
   });
 
   it("la réponse écrite à la main est nommée — les TROIS façons d'en sortir", () => {
@@ -428,8 +428,8 @@ class App extends Module {}`,
     });
     const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
     assert.strictEqual(r.findings.length, 1, JSON.stringify(r.findings));
-    assert.strictEqual(r.findings[0].kind, "missing-brick");
-    assert.match(r.findings[0].message, /@nodefony\/realtime/u);
+    assert.strictEqual(r.findings[0]!.kind, "missing-brick");
+    assert.match(r.findings[0]!.message, /@nodefony\/realtime/u);
   });
 
   it("la même classe, la brique déclarée → rien à signaler", () => {
@@ -521,8 +521,8 @@ class App extends Module {}`,
       projectRoot: pose,
     });
     assert.strictEqual(mord.findings.length, 1, JSON.stringify(mord.findings));
-    assert.strictEqual(mord.findings[0].kind, "missing-brick");
-    assert.match(mord.findings[0].message, /@nodefony\/security/u);
+    assert.strictEqual(mord.findings[0]!.kind, "missing-brick");
+    assert.match(mord.findings[0]!.message, /@nodefony\/security/u);
   });
 
   /*
@@ -547,7 +547,7 @@ use("@nodefony/framework", {});`,
     });
     const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
     assert.strictEqual(r.findings.length, 1, JSON.stringify(r.findings));
-    assert.strictEqual(r.findings[0].kind, "missing-brick");
+    assert.strictEqual(r.findings[0]!.kind, "missing-brick");
   });
 });
 
@@ -614,7 +614,7 @@ class App extends Module {}`,
     const r = checkWiring({ roots: [dir], cwd: dir });
     const service = r.findings.filter((f) => f.kind === "orphan-service");
     assert.strictEqual(service.length, 1, JSON.stringify(r.findings));
-    assert.match(service[0].message, /@services\(\[DiscountService\]\)/u);
+    assert.match(service[0]!.message, /@services\(\[DiscountService\]\)/u);
   });
 
   it("enregistré à la MAIN → rien à signaler", () => {
@@ -679,7 +679,7 @@ class App extends Module {
     const r = checkWiring({ roots: [dir], cwd: dir });
     const f = r.findings.filter((x) => x.kind === "hook-lifecycle-inconnu");
     assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
-    assert.match(f[0].message, /onKernelBooted/u);
+    assert.match(f[0]!.message, /onKernelBooted/u);
   });
 
   it("les trois hooks légitimes → rien à signaler", () => {
@@ -777,8 +777,8 @@ ${areas}
     const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
     const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
     assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
-    assert.match(f[0].message, /\^\/api\/account"/u);
-    assert.strictEqual(f[0].file, "nodefony.config.ts");
+    assert.match(f[0]!.message, /\^\/api\/account"/u);
+    assert.strictEqual(f[0]!.file, "nodefony.config.ts");
   });
 
   it("couvre le préfixe → rien à signaler", () => {
@@ -830,7 +830,7 @@ ${areas}
     const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
     const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
     assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
-    assert.match(f[0].message, /\^\/api\/account"/u);
+    assert.match(f[0]!.message, /\^\/api\/account"/u);
   });
 
   it("ancre de fin → signalé : la zone ne couvre aucune route sœur", () => {
@@ -925,7 +925,7 @@ describe("check — l'ORDRE des magasins, jugé À FROID", () => {
     try {
       const f = fautes(dir);
       assert.strictEqual(f.length, 1, JSON.stringify(f));
-      const msg = f[0].message;
+      const msg = f[0]!.message;
       assert.ok(msg.includes("@acme/orm"), msg);
       assert.ok(msg.includes("@acme/security"), msg);
       assert.ok(msg.includes("Remède"), msg);
@@ -933,7 +933,7 @@ describe("check — l'ORDRE des magasins, jugé À FROID", () => {
       // démarrage qui n'a pas eu lieu.
       assert.ok(!msg.includes("refusé"), msg);
       // Le fichier désigné doit être celui qu'on ÉDITE pour corriger.
-      assert.strictEqual(f[0].file, "nodefony.config.ts");
+      assert.strictEqual(f[0]!.file, "nodefony.config.ts");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

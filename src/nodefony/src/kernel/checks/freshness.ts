@@ -123,7 +123,7 @@ export function requiredNodeMajor(engines: unknown): number | null {
   const brut = (engines as { node?: unknown }).node;
   if (typeof brut !== "string") return null;
   const m = /(\d+)/u.exec(brut);
-  return m ? Number.parseInt(m[1], 10) : null;
+  return m?.[1] === undefined ? null : Number.parseInt(m[1], 10);
 }
 
 /**

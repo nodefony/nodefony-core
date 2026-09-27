@@ -24,6 +24,7 @@
     "strict": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
     "declaration": true,
     "declarationDir": "dist/client/types",
     "noImplicitOverride": true,

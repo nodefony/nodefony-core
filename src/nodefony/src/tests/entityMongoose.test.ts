@@ -296,7 +296,7 @@ describe("create entity — choix de l'ORM et refus des options SQL", () => {
   it("les défauts de la spec passent — un appel sans option SQL n'est pas refusé", () => {
     const [spec] = getScaffoldSpec("entity");
     const defaults = Object.fromEntries(
-      spec.questions.map((q) => [q.key, q.default]),
+      spec!.questions.map((q) => [q.key, q.default]),
     );
     assert.doesNotThrow(() => assertNoSqlOnlyOptions(defaults, "Post"));
     assert.doesNotThrow(() =>
@@ -350,7 +350,7 @@ describe("create entity — ce que le dialogue demande dépend du projet", () =>
     writeFileSync(path.join(dir, "package.json"), pkg);
     return dir;
   };
-  const idQuestion = getScaffoldSpec("entity")[0].questions.find(
+  const idQuestion = getScaffoldSpec("entity")[0]!.questions.find(
     (q) => q.key === "id",
   );
 
@@ -640,7 +640,7 @@ describe("create entity — correctifs de l'audit, aux limites", () => {
 
   it("la liste des options SQL vient de la SPEC — refusée, annotée et tue d'une source", () => {
     const [spec] = getScaffoldSpec("entity");
-    const sqlOnly = spec.questions
+    const sqlOnly = spec!.questions
       .filter((q) => q.askIf === "hasSqlOrm")
       .map((q) => q.key)
       .sort();

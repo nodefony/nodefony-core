@@ -134,7 +134,7 @@ export function extractSkippedModules(journal: string): string[] {
     /MODULE LOAD: échec non bloquant \(fail-soft\) de "([^"]+)" — (.*)$/gmu;
   const vus = new Set<string>();
   for (const m of withoutColors.matchAll(pattern)) {
-    vus.add(`${m[1]} — ${m[2].trim()}`);
+    vus.add(`${m[1] ?? ""} — ${(m[2] ?? "").trim()}`);
   }
   return [...vus];
 }

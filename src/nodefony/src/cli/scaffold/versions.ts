@@ -115,15 +115,26 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/compiler-cli": "~22.2.0",
 };
 
+/**
+ * Version d'un paquet du catalogue — lève si le paquet n'y figure pas.
+ *
+ * @param name - nom npm du paquet
+ * @returns la plage de version épinglée
+ * @throws Si le catalogue ne connaît pas ce paquet.
+ */
+export function versionOf(name: string): string {
+  const v = SCAFFOLD_VERSIONS[name];
+  if (!v) {
+    throw new Error(`version absente du catalogue scaffold : ${name}`);
+  }
+  return v;
+}
+
 /** Sous-ensemble du catalogue (helper des tables par framework). */
 export function pick(...names: string[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const n of names) {
-    const v = SCAFFOLD_VERSIONS[n];
-    if (!v) {
-      throw new Error(`version absente du catalogue scaffold : ${n}`);
-    }
-    out[n] = v;
+    out[n] = versionOf(n);
   }
   return out;
 }

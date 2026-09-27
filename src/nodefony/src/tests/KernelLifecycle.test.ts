@@ -663,11 +663,11 @@ describe("Kernel lifecycle — arrêt par command", () => {
 
   it("command.kernelEvent='onPreStart' — bits accumulés dans progress", () => {
     const k = mkKernel();
-    k.setCommandComplete(Events.onStart);
-    k.setCommandComplete(Events.onRegister);
-    assert.ok((k.progress & Events.onStart) !== 0);
-    assert.ok((k.progress & Events.onRegister) !== 0);
-    assert.ok((k.progress & Events.onBoot) === 0);
+    k.setCommandComplete(Events.onStart!);
+    k.setCommandComplete(Events.onRegister!);
+    assert.ok((k.progress & Events.onStart!) !== 0);
+    assert.ok((k.progress & Events.onRegister!) !== 0);
+    assert.ok((k.progress & Events.onBoot!) === 0);
   });
 
   it("terminate() appelé quand setCommandComplete retourne true", async () => {
@@ -736,7 +736,7 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     const r = await k.fireLifecycle("onBoot", k);
     assert.strictEqual(r.errors.length, 1);
     assert.strictEqual(r.stopped, false);
-    assert.match((r.errors[0].error as Error).message, /boom in onBoot/);
+    assert.match((r.errors[0]!.error as Error).message, /boom in onBoot/);
   });
 
   it("dev: un hook qui throw n'empêche pas les hooks suivants (fail-soft)", async () => {
@@ -761,7 +761,7 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
       k.on("onBoot", () => new Promise(() => {})); // ne se résout jamais
       const r = await k.fireLifecycle("onBoot", k);
       assert.strictEqual(r.errors.length, 1);
-      assert.strictEqual(r.errors[0].timedOut, true);
+      assert.strictEqual(r.errors[0]!.timedOut, true);
     } finally {
       if (prev === undefined) delete process.env.NF_BOOT_TIMEOUT_MS;
       else process.env.NF_BOOT_TIMEOUT_MS = prev;
@@ -1075,7 +1075,7 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
       1,
       `journalisée ${hits.length} fois :\n${hits.join("\n")}`,
     );
-    assert.ok(hits[0]?.includes("boot interrompu"), hits[0]);
+    assert.ok(hits[0]?.includes("boot interrompu"), hits[0]!);
   });
 
   // Le pendant qui borne la décision : une erreur ORDINAIRE d'un module optionnel
@@ -1292,7 +1292,7 @@ describe("Kernel — BootReport (verdict de boot)", () => {
     const r = k.getBootReport();
     assert.strictEqual(r.healthy, true);
     assert.strictEqual(r.serversListening.length, 2);
-    assert.strictEqual(r.serversListening[0].port, 5151);
+    assert.strictEqual(r.serversListening[0]!.port, 5151);
   });
 
   it("modules ignorés mais serveurs up = DÉGRADÉ mais healthy", () => {
@@ -1307,7 +1307,7 @@ describe("Kernel — BootReport (verdict de boot)", () => {
     const r = k.getBootReport();
     assert.strictEqual(r.healthy, true); // un serveur écoute → vivant
     assert.strictEqual(r.modulesSkipped.length, 1);
-    assert.strictEqual(r.modulesSkipped[0].module, "@scope/peripheral");
+    assert.strictEqual(r.modulesSkipped[0]!.module, "@scope/peripheral");
   });
 
   it("remediation : « Cannot find package » → indice dist périmé", () => {
@@ -1362,8 +1362,8 @@ describe("Kernel — BootReport (verdict de boot)", () => {
     assert.deepStrictEqual(loaded, ["@scope/good1", "@scope/good2"]);
     const r = k.getBootReport();
     assert.strictEqual(r.modulesSkipped.length, 1);
-    assert.strictEqual(r.modulesSkipped[0].module, "@scope/bad");
-    assert.strictEqual(r.modulesSkipped[0].phase, "load");
+    assert.strictEqual(r.modulesSkipped[0]!.module, "@scope/bad");
+    assert.strictEqual(r.modulesSkipped[0]!.phase, "load");
   });
 
   // ── Bilan de boot — skips motivés (gating) + journal WARNING/ERROR ────────────
@@ -1393,8 +1393,8 @@ describe("Kernel — BootReport (verdict de boot)", () => {
       );
       const r = k.getBootReport();
       assert.strictEqual(r.modulesGated.length, 1);
-      assert.strictEqual(r.modulesGated[0].module, "@scope/devtool");
-      assert.match(r.modulesGated[0].reason, /policy "dev"/);
+      assert.strictEqual(r.modulesGated[0]!.module, "@scope/devtool");
+      assert.match(r.modulesGated[0]!.reason, /policy "dev"/);
     } finally {
       process.env.NODE_ENV = prev;
     }
@@ -1413,8 +1413,8 @@ describe("Kernel — BootReport (verdict de boot)", () => {
     );
     const r = k.getBootReport();
     assert.strictEqual(r.modulesGated.length, 1);
-    assert.strictEqual(r.modulesGated[0].module, "@scope/gated");
-    assert.match(r.modulesGated[0].reason, /when\(config\)/);
+    assert.strictEqual(r.modulesGated[0]!.module, "@scope/gated");
+    assert.match(r.modulesGated[0]!.reason, /when\(config\)/);
   });
 
   it("resolveModuleEntries rappelée → pas de doublon dans modulesGated", () => {

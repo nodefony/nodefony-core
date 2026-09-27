@@ -63,32 +63,40 @@ export function diffLines(before: string, after: string): IDiffLine[] {
   // lcs[i][j] = longueur de la plus longue sous-séquence commune de a[i…] et b[j…].
   const width = b.length + 1;
   const lcs = new Uint32Array((a.length + 1) * width);
+  // Hors bornes, la table vaut 0 : c'est la ligne/colonne sentinelle.
+  const cell = (k: number): number => lcs[k] ?? 0;
   for (let i = a.length - 1; i >= 0; i--) {
     for (let j = b.length - 1; j >= 0; j--) {
       lcs[i * width + j] =
         a[i] === b[j]
-          ? lcs[(i + 1) * width + j + 1] + 1
-          : Math.max(lcs[(i + 1) * width + j], lcs[i * width + j + 1]);
+          ? cell((i + 1) * width + j + 1) + 1
+          : Math.max(cell((i + 1) * width + j), cell(i * width + j + 1));
     }
   }
   const diff: IDiffLine[] = [];
   let i = 0;
   let j = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i] === b[j]) {
-      diff.push({ kind: "keep", text: a[i++] });
+  for (;;) {
+    const x = a[i];
+    const y = b[j];
+    if (x === undefined || y === undefined) break;
+    if (x === y) {
+      diff.push({ kind: "keep", text: x });
+      i++;
       j++;
-    } else if (lcs[(i + 1) * width + j] >= lcs[i * width + j + 1]) {
-      diff.push({ kind: "remove", text: a[i++] });
+    } else if (cell((i + 1) * width + j) >= cell(i * width + j + 1)) {
+      diff.push({ kind: "remove", text: x });
+      i++;
     } else {
-      diff.push({ kind: "add", text: b[j++] });
+      diff.push({ kind: "add", text: y });
+      j++;
     }
   }
-  while (i < a.length) {
-    diff.push({ kind: "remove", text: a[i++] });
+  for (const text of a.slice(i)) {
+    diff.push({ kind: "remove", text });
   }
-  while (j < b.length) {
-    diff.push({ kind: "add", text: b[j++] });
+  for (const text of b.slice(j)) {
+    diff.push({ kind: "add", text });
   }
   return diff;
 }

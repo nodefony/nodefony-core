@@ -97,7 +97,7 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
       JSON.stringify({ jsonrpc: "2.0", id: "abc-7", method: "client:x" }),
     );
     expect(out).to.have.length(1);
-    expect(out[0].id).to.equal("abc-7");
+    expect(out[0]!.id).to.equal("abc-7");
     client.disconnect();
   });
 

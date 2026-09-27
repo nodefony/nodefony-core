@@ -65,12 +65,12 @@ describe("devProjects — table des projets", () => {
       deps,
     );
     assert.strictEqual(table.length, 2);
-    assert.strictEqual(table[0].root, ROOT_MOI);
-    assert.strictEqual(table[0].current, true);
-    assert.strictEqual(table[0].procs.length, 2);
-    assert.deepStrictEqual([...table[0].ports], [5151, 5152]);
-    assert.strictEqual(table[1].current, false);
-    assert.deepStrictEqual([...table[1].ports], [5153, 5154]);
+    assert.strictEqual(table[0]!.root, ROOT_MOI);
+    assert.strictEqual(table[0]!.current, true);
+    assert.strictEqual(table[0]!.procs.length, 2);
+    assert.deepStrictEqual([...table[0]!.ports], [5151, 5152]);
+    assert.strictEqual(table[1]!.current, false);
+    assert.deepStrictEqual([...table[1]!.ports], [5153, 5154]);
   });
 
   it("n'invente pas de nom : un package.json muet rend le nom du DOSSIER, et le DIT", () => {
@@ -82,8 +82,8 @@ describe("devProjects — table des projets", () => {
       deps,
     );
     assert.strictEqual(table.length, 1);
-    assert.strictEqual(table[0].name, "monapp");
-    assert.strictEqual(table[0].nameSource, "dossier");
+    assert.strictEqual(table[0]!.name, "monapp");
+    assert.strictEqual(table[0]!.nameSource, "dossier");
   });
 
   it("rattache un Vite d'un sous-dossier à la racine de son projet", () => {
@@ -98,7 +98,7 @@ describe("devProjects — table des projets", () => {
       deps,
     );
     assert.strictEqual(table.length, 1);
-    assert.strictEqual(table[0].procs.length, 2);
+    assert.strictEqual(table[0]!.procs.length, 2);
   });
 
   it("omet le projet courant quand il ne tourne pas", () => {

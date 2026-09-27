@@ -91,7 +91,7 @@ export function resolveModuleLayout(
     .map((w) => SCOPED_WORKSPACE_RE.exec(w))
     .find((m) => m !== null);
   if (scoped) {
-    const [, prefix, scope] = scoped;
+    const [, prefix = "", scope = ""] = scoped;
     return {
       kind: "packages",
       createDir: `${prefix}/${scope}`,

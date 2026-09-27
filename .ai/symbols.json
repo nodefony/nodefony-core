@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 875,
-    "symbols": 4356,
+    "symbols": 4357,
     "classes": 404,
     "interfaces": 1145,
     "types": 467,
     "enums": 4,
-    "functions": 1901,
+    "functions": 1902,
     "constants": 435
   },
   "symbols": {
@@ -7901,6 +7901,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Refuse un champ métier obligatoire qui n'aurait aucune valeur par défaut. Le framework CRÉE des utilisateurs sans connaître ces champs — au semis d'un administrateur, à la première connexion par un…"
+    },
+    "versionOf": {
+      "name": "versionOf",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/versions.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Version d'un paquet du catalogue — lève si le paquet n'y figure pas."
     },
     "pick": {
       "name": "pick",
@@ -34474,6 +34482,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "SCAFFOLD_VERSIONS": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "versionOf": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "formatScaffoldOutput": [

@@ -32,6 +32,16 @@ const REQUIRED = [
   "noFallthroughCasesInSwitch",
 ] as const;
 
+/**
+ * Cliquet de `noUncheckedIndexedAccess` : les paquets déjà assainis, dont
+ * chaque tsconfig racine DOIT porter l'option. La liste ne fait que grandir,
+ * dans l'ordre du graphe — un paquet qui lit ses voisins EN SOURCE compile
+ * leurs fichiers avec ses propres options, il ne peut donc passer qu'après
+ * eux. Quand elle couvre le dépôt, l'option rejoint `REQUIRED` et la liste
+ * disparaît. Les gabarits (`.tpl`) entrent avec le code qu'ils engendrent.
+ */
+const INDEX_CHECKED = ["src/nodefony/"] as const;
+
 /** Options que `strict` allume et qu'aucun tsconfig ne doit éteindre. */
 const NEVER_OFF = [...REQUIRED, "useUnknownInCatchVariables"] as const;
 
@@ -78,6 +88,29 @@ describe("tsconfig — même rigueur de compilation partout", () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it("les paquets du cliquet portent noUncheckedIndexedAccess", () => {
+    const missing: string[] = [];
+    let checked = 0;
+    for (const file of tsconfigs) {
+      if (file.endsWith(".tpl")) continue;
+      if (!INDEX_CHECKED.some((dir) => file.startsWith(dir))) continue;
+      const text = read(file);
+      if (text.includes('"extends"')) continue;
+      checked += 1;
+      if (optionValue(text, "noUncheckedIndexedAccess") !== "true")
+        missing.push(file);
+    }
+    expect(checked).toBeGreaterThan(0);
+    expect(missing).toEqual([]);
+  });
+
+  it("aucun tsconfig n'éteint noUncheckedIndexedAccess", () => {
+    const disabled = tsconfigs.filter(
+      (file) => optionValue(read(file), "noUncheckedIndexedAccess") === "false",
+    );
+    expect(disabled).toEqual([]);
   });
 
   it("aucun tsconfig n'éteint une option stricte", () => {

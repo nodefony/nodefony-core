@@ -35,17 +35,17 @@ describe("scaffold — analyse des champs", () => {
     const fields = parseEntityFields(
       "slug:string:unique bio:text? views:int:index",
     );
-    assert.strictEqual(fields[0].unique, true);
-    assert.strictEqual(fields[0].nullable, false);
-    assert.strictEqual(fields[1].nullable, true);
-    assert.strictEqual(fields[2].indexed, true);
-    assert.strictEqual(fields[2].type, "int");
+    assert.strictEqual(fields[0]!.unique, true);
+    assert.strictEqual(fields[0]!.nullable, false);
+    assert.strictEqual(fields[1]!.nullable, true);
+    assert.strictEqual(fields[2]!.indexed, true);
+    assert.strictEqual(fields[2]!.type, "int");
   });
 
   it("une colonne nullable peut être unique (email:string?:unique)", () => {
     const a = parseEntityFields("email:string?:unique")[0];
-    assert.strictEqual(a.nullable, true);
-    assert.strictEqual(a.unique, true);
+    assert.strictEqual(a!.nullable, true);
+    assert.strictEqual(a!.unique, true);
   });
 
   // Le suffixe `!` veut dire « non-null » dans toutes les grammaires que nos
@@ -112,8 +112,8 @@ describe("scaffold — analyse des champs", () => {
 
   it("relation : author:ref:User", () => {
     const [f] = parseEntityFields("author:ref:User");
-    assert.strictEqual(f.type, "ref");
-    assert.strictEqual(f.target, "User");
+    assert.strictEqual(f!.type, "ref");
+    assert.strictEqual(f!.target, "User");
   });
 
   it("une colonne de relation est INDEXÉE d'office (c'est par elle qu'on joint)", () => {
@@ -121,12 +121,12 @@ describe("scaffold — analyse des champs", () => {
     // jointure écrite ensuite : sans index, chacune balaie la table — et ça ne
     // se voit jamais sur les dix lignes du développement.
     const [f] = parseEntityFields("author:ref:User");
-    assert.strictEqual(f.indexed, true);
+    assert.strictEqual(f!.indexed, true);
     // `:unique` pose DÉJÀ un index : en ajouter un second serait du poids
     // mort à l'écriture, sans un seul lecteur de plus.
     const [u] = parseEntityFields("owner:ref:User:unique");
-    assert.strictEqual(u.unique, true);
-    assert.strictEqual(u.indexed, false);
+    assert.strictEqual(u!.unique, true);
+    assert.strictEqual(u!.indexed, false);
   });
 
   it("l'index de relation est bien ÉMIS dans la table générée", () => {
@@ -169,26 +169,26 @@ describe("scaffold — analyse des champs", () => {
 
   it("énumération : status:enum(draft,published)", () => {
     const [f] = parseEntityFields("status:enum(draft,published)");
-    assert.strictEqual(f.type, "enum");
-    assert.deepStrictEqual(f.values, ["draft", "published"]);
-    assert.strictEqual(f.nullable, false);
+    assert.strictEqual(f!.type, "enum");
+    assert.deepStrictEqual(f!.values, ["draft", "published"]);
+    assert.strictEqual(f!.nullable, false);
   });
 
   it("énumération avec modificateurs et défaut", () => {
     const [f] = parseEntityFields("status:enum(draft,published)?=draft:index");
-    assert.deepStrictEqual(f.values, ["draft", "published"]);
-    assert.strictEqual(f.defaultValue, "draft");
-    assert.strictEqual(f.nullable, true);
-    assert.strictEqual(f.indexed, true);
+    assert.deepStrictEqual(f!.values, ["draft", "published"]);
+    assert.strictEqual(f!.defaultValue, "draft");
+    assert.strictEqual(f!.nullable, true);
+    assert.strictEqual(f!.indexed, true);
   });
 
   it("valeurs par défaut : nombre, booléen, texte", () => {
     const fields = parseEntityFields(
       "views:int=0 ok:bool=true tag:string=neuf",
     );
-    assert.strictEqual(fields[0].defaultValue, "0");
-    assert.strictEqual(fields[1].defaultValue, "true");
-    assert.strictEqual(fields[2].defaultValue, "neuf");
+    assert.strictEqual(fields[0]!.defaultValue, "0");
+    assert.strictEqual(fields[1]!.defaultValue, "true");
+    assert.strictEqual(fields[2]!.defaultValue, "neuf");
   });
 
   it("un défaut incohérent est refusé AVANT d'écrire du code faux", () => {
@@ -617,13 +617,13 @@ describe("scaffold — index de table (plusieurs colonnes)", () => {
 
   it("l'ordre des colonnes est conservé — il décide des requêtes servies", () => {
     const [idx] = parseEntityIndexes(["siteId,createdAt"], fields, opts);
-    assert.deepStrictEqual(idx.columns, ["siteId", "createdAt"]);
-    assert.strictEqual(idx.unique, false);
+    assert.deepStrictEqual(idx!.columns, ["siteId", "createdAt"]);
+    assert.strictEqual(idx!.unique, false);
   });
 
   it("une colonne implicite est indexable (createdAt, id)", () => {
     const [idx] = parseEntityIndexes(["id,createdAt"], fields, opts);
-    assert.deepStrictEqual(idx.columns, ["id", "createdAt"]);
+    assert.deepStrictEqual(idx!.columns, ["id", "createdAt"]);
   });
 
   it("colonne inconnue → refus AVANT d'écrire, avec les noms disponibles", () => {
@@ -919,7 +919,7 @@ describe("scaffold — la référence vers User suit la clé de l'identité", ()
 
   it("l'échantillon et le filtre suivent la même règle", () => {
     const f = fields[0];
-    assert.strictEqual(typeof sampleValue(f, "serial").fixed, "string");
+    assert.strictEqual(typeof sampleValue(f!, "serial").fixed, "string");
     assert.strictEqual(refTargetsSerial("User", "serial"), false);
     assert.strictEqual(refTargetsSerial("Author", "serial"), true);
   });
@@ -938,7 +938,7 @@ describe("scaffold — la référence vers User suit la clé de l'identité", ()
  *   ici à la contrainte réelle. Un type ajouté sans sa valeur d'exemple tombera.
  */
 describe("scaffold — l'échantillon respecte le schéma", () => {
-  const field = (spec: string): IEntityField => parseEntityFields(spec)[0];
+  const field = (spec: string): IEntityField => parseEntityFields(spec)[0]!;
 
   it("décimal : la valeur s'écrit comme un décimal", () => {
     const { fixed } = sampleValue(field("price:decimal(12,2)"), "uuid7");

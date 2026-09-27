@@ -67,7 +67,7 @@ export function orderServicesByDependencies(
     for (const depName of Injector.dependencyNamesOf(entry)) {
       const j = indexByName.get(depName);
       if (j === undefined || j === i) continue;
-      dependsOn[i].add(j);
+      dependsOn[i]?.add(j);
       hasEdge = true;
     }
   });
@@ -82,7 +82,7 @@ export function orderServicesByDependencies(
     let picked = -1;
     for (const i of remaining) {
       let ready = true;
-      for (const dep of dependsOn[i]) {
+      for (const dep of dependsOn[i] ?? []) {
         if (remaining.has(dep)) {
           ready = false;
           break;
@@ -97,7 +97,7 @@ export function orderServicesByDependencies(
       const cycle = [...remaining]
         .map((i) => {
           const e = entries[i];
-          return typeof e === "string" ? e : e.name;
+          return typeof e === "string" ? e : (e?.name ?? "");
         })
         .join(" → ");
       throw new Error(
@@ -105,7 +105,8 @@ export function orderServicesByDependencies(
           `Services are instantiated in dependency order; a cycle has no valid order.`,
       );
     }
-    ordered.push(entries[picked]);
+    const entry = entries[picked];
+    if (entry !== undefined) ordered.push(entry);
     remaining.delete(picked);
   }
   return ordered;

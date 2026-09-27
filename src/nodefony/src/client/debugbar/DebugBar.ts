@@ -1552,8 +1552,13 @@ export class DebugBar {
     row.dataset.rid = e.requestId ?? "";
     const sel = e.requestId && e.requestId === this.selectedRid;
     row.className = `net-row${sel ? " sel" : ""}${isNetError(e) ? " err" : ""}`;
-    const [m, path, rid, status, dur] =
-      row.children as unknown as HTMLElement[];
+    const [m, path, rid, status, dur] = row.children as unknown as [
+      HTMLElement,
+      HTMLElement,
+      HTMLElement,
+      HTMLElement,
+      HTMLElement,
+    ];
     m.className = `net-method ${methodClass(e.method)}`;
     m.textContent = e.method;
     path.textContent = e.path;
@@ -1910,7 +1915,7 @@ export class DebugBar {
       const rows: string[] = [];
       for (let i = feed.length - 1; i >= 0; i--) {
         const l = feed[i];
-        if (this.feedMatch(l)) rows.push(this.feedRow(l));
+        if (l !== undefined && this.feedMatch(l)) rows.push(this.feedRow(l));
       }
       node.innerHTML =
         rows.length === 0
@@ -1932,7 +1937,7 @@ export class DebugBar {
     let html = "";
     for (let i = feed.length - 1; i >= feed.length - added; i--) {
       const l = feed[i];
-      if (this.feedMatch(l)) html += this.feedRow(l);
+      if (l !== undefined && this.feedMatch(l)) html += this.feedRow(l);
     }
     if (html === "") return;
     const empty = node.querySelector(".empty");

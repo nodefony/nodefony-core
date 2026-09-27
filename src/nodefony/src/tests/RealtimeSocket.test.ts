@@ -72,9 +72,9 @@ async function openClient(): Promise<{
     },
   );
   const p = client.connect();
-  transports[0].fireOpen();
+  transports[0]!.fireOpen();
   await p;
-  return { client, transport: transports[0] };
+  return { client, transport: transports[0]! };
 }
 
 describe("RealtimeClient — conformité IRealtimeSocket (la socket Nodefony)", () => {

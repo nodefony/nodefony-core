@@ -100,7 +100,7 @@ export function parseNfEnvOverrides(env: NodeJS.ProcessEnv): NfEnvOverride[] {
     if (segs.length < 2) continue;
     const raw = env[envKey];
     if (raw === undefined) continue;
-    const [moduleSeg, ...path] = segs;
+    const [moduleSeg = "", ...path] = segs;
     out.push({
       envKey,
       moduleSeg: moduleSeg.toLowerCase(),
@@ -223,13 +223,13 @@ export function declaredTypeAtPath(
     return null;
   }
   let node = schema as Record<string, unknown>;
-  for (let i = 0; i < path.length; i++) {
+  for (const segment of path) {
     const props = node.properties;
     if (props === null || typeof props !== "object") {
       return null;
     }
     const bag = props as Record<string, unknown>;
-    const key = resolveKey(bag, path[i]);
+    const key = resolveKey(bag, segment);
     if (key === null) {
       return null;
     }
@@ -310,15 +310,15 @@ export function applyResolvedPath(
   const declaredType =
     schema === undefined ? null : declaredTypeAtPath(schema, path);
   let node: Record<string, unknown> = target;
-  for (let i = 0; i < path.length - 1; i++) {
-    const key = resolveKey(node, path[i]);
+  for (const segment of path.slice(0, -1)) {
+    const key = resolveKey(node, segment);
     if (key === null) {
       // Le conteneur manque. On ne le crée QUE si le schéma déclare la feuille :
       // sans cette condition on fabriquerait l'arborescence d'une faute de
       // frappe, et la surcharge paraîtrait appliquée jusqu'à disparaître au parse.
       if (declaredType === null) return false;
       const neuf: Record<string, unknown> = {};
-      node[path[i]] = neuf;
+      node[segment] = neuf;
       node = neuf;
       continue;
     }
@@ -329,6 +329,7 @@ export function applyResolvedPath(
     node = next as Record<string, unknown>;
   }
   const leafKey = path[path.length - 1];
+  if (leafKey === undefined) return false;
   const leaf = resolveKey(node, leafKey);
   if (leaf === null) {
     if (declaredType === null) return false;
@@ -365,8 +366,8 @@ export function withResolvedPath(
 ): Record<string, unknown> | null {
   const copy: Record<string, unknown> = { ...target };
   let node = copy;
-  for (let i = 0; i < path.length - 1; i++) {
-    const key = resolveKey(node, path[i]);
+  for (const segment of path.slice(0, -1)) {
+    const key = resolveKey(node, segment);
     if (key === null) break;
     const next = node[key];
     if (typeof next !== "object" || next === null || Array.isArray(next)) {
@@ -400,8 +401,8 @@ export function readResolvedPath(
 ): unknown {
   if (path.length === 0) return undefined;
   let node: Record<string, unknown> = target;
-  for (let i = 0; i < path.length - 1; i++) {
-    const key = resolveKey(node, path[i]);
+  for (const segment of path.slice(0, -1)) {
+    const key = resolveKey(node, segment);
     if (key === null) return undefined;
     const next = node[key];
     if (typeof next !== "object" || next === null || Array.isArray(next)) {
@@ -409,7 +410,9 @@ export function readResolvedPath(
     }
     node = next as Record<string, unknown>;
   }
-  const leaf = resolveKey(node, path[path.length - 1]);
+  const leafSegment = path[path.length - 1];
+  if (leafSegment === undefined) return undefined;
+  const leaf = resolveKey(node, leafSegment);
   return leaf === null ? undefined : node[leaf];
 }
 
@@ -439,11 +442,15 @@ export function editDistance(a: string, b: string): number {
     curr[0] = i;
     for (let j = 1; j <= n; j++) {
       const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
-      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      curr[j] = Math.min(
+        (prev[j] ?? 0) + 1,
+        (curr[j - 1] ?? 0) + 1,
+        (prev[j - 1] ?? 0) + cost,
+      );
     }
     [prev, curr] = [curr, prev];
   }
-  return prev[n];
+  return prev[n] ?? 0;
 }
 
 /**
@@ -504,16 +511,16 @@ export function diagnoseResolveFailure(
 ): ResolveFailure | null {
   if (path.length === 0) return null;
   let node: Record<string, unknown> = target;
-  for (let i = 0; i < path.length; i++) {
-    const key = resolveKey(node, path[i]);
+  for (const [i, segment] of path.entries()) {
+    const key = resolveKey(node, segment);
     if (key === null) {
-      return { index: i, segment: path[i], available: Object.keys(node) };
+      return { index: i, segment, available: Object.keys(node) };
     }
     if (i < path.length - 1) {
       const next = node[key];
       if (typeof next !== "object" || next === null || Array.isArray(next)) {
         // segment intermédiaire qui ne mène pas à un objet traversable
-        return { index: i, segment: path[i], available: Object.keys(node) };
+        return { index: i, segment, available: Object.keys(node) };
       }
       node = next as Record<string, unknown>;
     }

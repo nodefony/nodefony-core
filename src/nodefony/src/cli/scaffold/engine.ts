@@ -78,7 +78,7 @@ import {
   userContractFields,
   assertUserFieldsAreFillable,
 } from "./userContractSource";
-import { pick, SCAFFOLD_VERSIONS } from "./versions";
+import { pick, SCAFFOLD_VERSIONS, versionOf } from "./versions";
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
 import {
@@ -806,7 +806,7 @@ function renderLayer(
     let relDir = path.relative(srcDir, entry.parentPath);
     const segments = relDir.split(path.sep);
     // `split` rend toujours au moins un segment (« » pour la racine).
-    const mapped = DIR_RENAMES[segments[0]];
+    const mapped = DIR_RENAMES[segments[0] ?? ""];
     if (mapped) {
       relDir = path.join(mapped, ...segments.slice(1));
     }
@@ -1411,7 +1411,7 @@ export function hydrateQuestion(
 export function listTargets(
   projectRoot: string,
   writer: ScaffoldWriter = new ScaffoldWriter(),
-): IScaffoldTarget[] {
+): [IScaffoldTarget, ...IScaffoldTarget[]] {
   const readName = (dir: string): string | null => {
     try {
       const pkg = JSON.parse(writer.read(path.join(dir, "package.json"))) as {
@@ -1431,7 +1431,7 @@ export function listTargets(
     // Racine sans manifeste lisible : le layout par défaut (`modules/`) reste
     // la bonne réponse — c'est celui d'une app.
   }
-  const targets: IScaffoldTarget[] = [
+  const targets: [IScaffoldTarget, ...IScaffoldTarget[]] = [
     {
       kind: "app",
       name: rootManifest.name ?? path.basename(projectRoot),
@@ -1501,8 +1501,9 @@ function resolveScaffoldTarget(
     return exact;
   }
   const short = modules.filter((t) => path.basename(t.dir) === moduleName);
-  if (short.length === 1) {
-    return short[0];
+  const [only] = short;
+  if (short.length === 1 && only) {
+    return only;
   }
   if (short.length > 1) {
     throw new Error(
@@ -1521,7 +1522,7 @@ export function toPascalCase(name: string): string {
   return name
     .split(/[-_\s]+/u)
     .filter(Boolean)
-    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join("");
 }
 
@@ -1695,7 +1696,7 @@ export function wireDecoratorList(
   const decoRe = decoratorListRe(decorator);
   const match = decoRe.exec(withImport);
   if (match?.index !== undefined) {
-    const list = match[2].trim();
+    const list = (match[2] ?? "").trim();
     const wired = withImport.replace(
       decoRe,
       `$1@${decorator}([${list ? `${list.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
@@ -1976,7 +1977,8 @@ function dispatchScaffold(
       dest,
       {
         pascal: EXAMPLE_SERVICE,
-        camel: EXAMPLE_SERVICE[0].toLowerCase() + EXAMPLE_SERVICE.slice(1),
+        camel:
+          EXAMPLE_SERVICE.charAt(0).toLowerCase() + EXAMPLE_SERVICE.slice(1),
         inject: null,
         description: `Service ${EXAMPLE_SERVICE} de ${String(answers.name)}`,
       },
@@ -2407,7 +2409,7 @@ export function wireRoleHierarchy(
   // plusieurs lignes — et une application qui déclare cinq rôles y arrive vite.
   // Sans ce trim, on écrirait `[…"ROLE_USER",, "ROLE_X"]` : un manifeste qui ne
   // compile plus, produit par la commande censée le câbler.
-  const inner = admin[2].replace(/,\s*$/u, "");
+  const inner = (admin[2] ?? "").replace(/,\s*$/u, "");
   const separator = inner.trim().length > 0 ? ", " : "";
   const replacement = `${admin[1]}${inner}${separator}"${role}"${admin[3]}`;
   const patchedBody =
@@ -2618,7 +2620,7 @@ function runModuleScaffold(
     pkgName,
     appName,
     pascal,
-    camel: pascal[0].toLowerCase() + pascal.slice(1),
+    camel: pascal.charAt(0).toLowerCase() + pascal.slice(1),
     upper: name.replaceAll("-", "_").toUpperCase(),
     description: String(answers.description) || `Module ${name} de ${appName}`,
     nodefonyVersion: version,
@@ -3094,7 +3096,7 @@ function runServiceScaffold(
   const base = String(answers.name).replace(/[-_]?[Ss]ervice$/u, "");
   const pascal = toPascalCase(base);
   const nameClass = `${pascal}Service`;
-  const camel = pascal[0].toLowerCase() + pascal.slice(1);
+  const camel = pascal.charAt(0).toLowerCase() + pascal.slice(1);
 
   // La combinaison se refuse AVANT toute résolution : un service d'accès aux
   // données reçoit son dépôt par le constructeur, il n'y a pas de place pour
@@ -3154,7 +3156,7 @@ function runServiceScaffold(
     inject = {
       pascal: found.pascal,
       key: found.key,
-      camel: found.key[0].toLowerCase() + found.key.slice(1),
+      camel: found.key.charAt(0).toLowerCase() + found.key.slice(1),
       method,
     };
   }
@@ -3201,7 +3203,7 @@ function runServiceScaffold(
     notes.push(
       `DI   ${inject.pascal} est injecté par le CONSTRUCTEUR — dépendance déclarée, ordonnée par le conteneur`,
     );
-  } else if (existing.length > 0) {
+  } else if (existing[0] !== undefined) {
     // La note APPREND le geste, au seul moment où il est applicable : la cible
     // porte déjà un service, donc l'injection a un sens ici et maintenant.
     // Mesuré au banc : `@inject` n'existait qu'en commentaire dans les gabarits,
@@ -3441,7 +3443,7 @@ function findCallableMethod(source: string): string | null {
   const re =
     /^ {2}(?:public\s+)?(?:async\s+)?([a-z][A-Za-z0-9_]*)\s*\(([^)]*)\)/gmu;
   for (const m of source.matchAll(re)) {
-    const [, name, params] = m;
+    const [, name = "", params = ""] = m;
     if (name === "constructor" || name === "init" || name === "if") {
       continue;
     }
@@ -3568,7 +3570,7 @@ function findTargetService(
         `(--service <Nom>) — ${names}`,
     );
   }
-  return callables[0];
+  return callables[0] ?? null;
 }
 
 /**
@@ -3804,8 +3806,8 @@ export function filterProbe(fields: readonly IEntityField[]): {
         otherJson: "false",
       };
     }
-    if (f.type === "enum" && (f.values?.length ?? 0) >= 2) {
-      const [a, b] = f.values as string[];
+    const [a, b] = f.type === "enum" ? (f.values ?? []) : [];
+    if (a !== undefined && b !== undefined) {
       return {
         name: f.name,
         match: a,
@@ -4063,7 +4065,7 @@ function declaresDialect(
   let match: RegExpExecArray | null;
   while ((match = entry.exec(block)) !== null) {
     if (match[1] !== connector) continue;
-    return /dialect\s*:\s*["'](\w+)["']/u.test(match[2]);
+    return /dialect\s*:\s*["'](\w+)["']/u.test(match[2] ?? "");
   }
   return false;
 }
@@ -4219,7 +4221,7 @@ function readConnectors(
     const entry = /(\w+)\s*:\s*\{([^{}]*)\}/gu;
     let match: RegExpExecArray | null;
     while ((match = entry.exec(block)) !== null) {
-      const [, name, body] = match;
+      const [, name, body = ""] = match;
       if (!name) continue;
       const ddl = /ddl\s*:\s*["'](\w+)["']/u.exec(body)?.[1];
       connectors.push({
@@ -4363,7 +4365,7 @@ function runEntityScaffold(
         Record<string, string>
       >;
       rootManifest[section] ??= {};
-      rootManifest[section][dep] = SCAFFOLD_VERSIONS[dep];
+      rootManifest[section][dep] = versionOf(dep);
       depsAdded.push(dep);
       ormRuntimeNote.push(
         `dépendance manquante ajoutée au package.json : ${dep}@${SCAFFOLD_VERSIONS[dep]} ` +
@@ -5279,7 +5281,7 @@ export function findModuleClassAnchor(source: string): number | undefined {
   for (;;) {
     // Blancs qui séparent le décorateur de ce qui le suit.
     let end = at - 1;
-    while (end >= 0 && /\s/u.test(source[end])) {
+    while (end >= 0 && /\s/u.test(source.charAt(end))) {
       end--;
     }
     if (end < 0 || source[end] !== ")") {
@@ -5304,7 +5306,7 @@ export function findModuleClassAnchor(source: string): number | undefined {
     }
     // `@nom` collé à l'ouvrante, sinon ce n'est pas un décorateur.
     let name = open - 1;
-    while (name >= 0 && /[\w.]/u.test(source[name])) {
+    while (name >= 0 && /[\w.]/u.test(source.charAt(name))) {
       name--;
     }
     if (name < 0 || source[name] !== "@" || name === open - 1) {
@@ -5371,7 +5373,7 @@ export function wireEntitiesDecorator(
   if (listRe.test(source)) {
     const withImport =
       source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
-    const current = (listRe.exec(withImport) as RegExpExecArray)[2].trim();
+    const current = (listRe.exec(withImport)?.[2] ?? "").trim();
     const wired = withImport.replace(
       listRe,
       `$1@entities([${current ? `${current.replace(/,\s*$/u, "")}, ` : ""}${className}])`,
@@ -5587,7 +5589,8 @@ function runFrontScaffold(
     tokens,
   );
   for (let i = brandLayerStart; i < written.length; i += 1) {
-    written[i] = path.join("frontend", written[i]);
+    const file = written[i];
+    if (file !== undefined) written[i] = path.join("frontend", file);
   }
   // La page du moteur — MÊME gabarit que `create app --frontend` (source unique).
   renderLayer(
