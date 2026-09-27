@@ -73,11 +73,16 @@ export function repairRebuildCopy(
   const dropped: string[] = [];
   const repaired = sql.replace(REBUILD_COPY, (...args: unknown[]): string => {
     const match = args[0] as string;
-    const groups = args[args.length - 1] as Record<string, string> | undefined;
+    // Aucun groupe n'est facultatif dans `REBUILD_COPY` : tous sont capturés.
+    const groups = args[args.length - 1] as
+      | Record<
+          "head" | "into" | "middle" | "select" | "tail" | "source",
+          string
+        >
+      | undefined;
     if (groups === undefined) {
       return match;
     }
-    // Aucun groupe n'est facultatif dans `REBUILD_COPY` : tous sont capturés.
     const { head, into, middle, select, tail, source } = groups;
     const known = columnsOf(source);
     if (known === null) {
@@ -94,15 +99,17 @@ export function repairRebuildCopy(
     const keptInto: string[] = [];
     const keptSelect: string[] = [];
     const removed: string[] = [];
-    for (let i = 0; i < intoColumns.length; i++) {
-      const target = bareName(intoColumns[i]);
-      const read = bareName(selectColumns[i]);
+    for (const [i, intoColumn] of intoColumns.entries()) {
+      // Longueurs égales vérifiées plus haut : la colonne lue existe.
+      const selectColumn = selectColumns[i] ?? "";
+      const target = bareName(intoColumn);
+      const read = bareName(selectColumn);
       if (target === null || read === null) {
         return match;
       }
       if (carried.has(read)) {
-        keptInto.push(intoColumns[i]);
-        keptSelect.push(selectColumns[i]);
+        keptInto.push(intoColumn);
+        keptSelect.push(selectColumn);
       } else {
         removed.push(`${source}.${read}`);
       }

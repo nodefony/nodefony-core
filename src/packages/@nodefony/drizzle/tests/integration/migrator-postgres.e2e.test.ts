@@ -209,7 +209,7 @@ describe.skipIf(!PG_URL)("Applicateur de migrations (postgres)", () => {
   });
 
   it("laisse un état NET après un échec à mi-course, et trace le marqueur", async () => {
-    await appendMigration(sources[0].dir, "postgres", {
+    await appendMigration(sources[0]!.dir, "postgres", {
       tag: "0001_casse",
       statements: [
         `CREATE TABLE nf_gadget (id text PRIMARY KEY)`,

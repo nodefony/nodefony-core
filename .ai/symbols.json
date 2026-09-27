@@ -3,10 +3,10 @@
   "repoRoot": ".",
   "stats": {
     "files": 875,
-    "symbols": 4358,
+    "symbols": 4360,
     "classes": 404,
     "interfaces": 1145,
-    "types": 467,
+    "types": 469,
     "enums": 4,
     "functions": 1903,
     "constants": 435
@@ -31282,12 +31282,6 @@
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts"
       ],
-      "IDrizzleConnectorConfig": [
-        "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/connectorTarget.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
-      ],
       "OrmGenerate": [
         "src/packages/@nodefony/drizzle/index.ts"
       ],
@@ -36751,6 +36745,10 @@
       "DdlMode": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "IDrizzleConnectorConfig": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/connectorTarget.ts"
       ],
       "assertPageQuery": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",

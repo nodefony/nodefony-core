@@ -45,7 +45,11 @@ export const MODULE_ROOT = path.resolve(
  * application sont écrites en Drizzle natif, donc dans UN dialecte — `orm:generate`
  * n'en produit qu'un, celui de son connecteur.
  */
-export const DIALECTS: readonly SqlDialect[] = ["sqlite", "postgres", "mysql"];
+export const DIALECTS: readonly [SqlDialect, ...SqlDialect[]] = [
+  "sqlite",
+  "postgres",
+  "mysql",
+];
 
 /** Chemin du journal d'un dialecte. */
 export const journalPath = (dialect: SqlDialect): string =>

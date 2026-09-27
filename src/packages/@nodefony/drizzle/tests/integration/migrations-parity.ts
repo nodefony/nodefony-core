@@ -154,7 +154,7 @@ export function groupIndexes(
     });
   }
   for (const table of Object.keys(out)) {
-    out[table].sort((a, b) =>
+    out[table]!.sort((a, b) =>
       `${a.unique}|${a.columns.join(",")}`.localeCompare(
         `${b.unique}|${b.columns.join(",")}`,
       ),
@@ -208,23 +208,23 @@ export function assertSchemasMatch(
       const m = mCols[name];
       const d = dCols[name];
       assert.equal(
-        normalizeType(m.type),
-        normalizeType(d.type),
-        `[${dialect}] ${table}.${name} : type « ${m.type} » après migration, ` +
-          `« ${d.type} » en développement — les deux chemins ne construisent ` +
+        normalizeType(m!.type),
+        normalizeType(d!.type),
+        `[${dialect}] ${table}.${name} : type « ${m!.type} » après migration, ` +
+          `« ${d!.type} » en développement — les deux chemins ne construisent ` +
           `pas la même colonne.`,
       );
       assert.equal(
-        m.notNull,
-        d.notNull,
+        m!.notNull,
+        d!.notNull,
         `[${dialect}] ${table}.${name} : nullabilité divergente ` +
-          `(migré notNull=${m.notNull}, dérivé notNull=${d.notNull}).`,
+          `(migré notNull=${m!.notNull}, dérivé notNull=${d!.notNull}).`,
       );
       assert.equal(
-        m.primaryKey,
-        d.primaryKey,
+        m!.primaryKey,
+        d!.primaryKey,
         `[${dialect}] ${table}.${name} : appartenance à la clé primaire ` +
-          `divergente (migré=${m.primaryKey}, dérivé=${d.primaryKey}).`,
+          `divergente (migré=${m!.primaryKey}, dérivé=${d!.primaryKey}).`,
       );
     }
 

@@ -618,14 +618,14 @@ function summaryOf(
     }
     case "drift": {
       const parts: string[] = [];
-      if (plan.drifted.length > 0) {
-        const d = plan.drifted[0];
+      const [d] = plan.drifted;
+      if (d !== undefined) {
         parts.push(
           `le fichier « ${d.source}/${d.tag} » a été modifié APRÈS avoir été appliqué (son empreinte a changé)`,
         );
       }
-      if (plan.missing.length > 0) {
-        const m = plan.missing[0];
+      const [m] = plan.missing;
+      if (m !== undefined) {
         parts.push(
           `la migration « ${m.source}/${m.tag} » est enregistrée comme appliquée mais son fichier n'existe plus`,
         );
@@ -633,7 +633,11 @@ function summaryOf(
       return `Le connecteur « ${c} » ne concorde plus avec son historique : ${parts.join(" ; ")}.`;
     }
     case "failed": {
-      const f = plan.failed[0];
+      const [f] = plan.failed;
+      // Le verdict « failed » naît d'une liste non vide : ce repli ne sert qu'au type.
+      if (f === undefined) {
+        return `Le connecteur « ${c} » porte une migration qui n'a pas abouti.`;
+      }
       const when = f.startedAt
         ? new Date(f.startedAt).toISOString()
         : "à une date inconnue";

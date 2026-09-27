@@ -203,7 +203,7 @@ describe("migrations — la base visée est celle que l'application utilise", ()
     const target = resolveConnectorTarget(
       fauxKernel("/app"),
       "default",
-      cfg.connectors.default,
+      cfg.connectors.default!,
     );
     assert.equal(target.filename, ":memory:");
   });

@@ -390,28 +390,31 @@ describe("Échelle — volume sur un modèle de facturation", () => {
     const lignes = db.all(sql.raw(requeteRapport(50))) as LigneRapport[];
 
     assert.ok(lignes.length > 0, "le rapport ne rend rien");
-    assert.equal(lignes[0].rang, 1, "la première ligne doit porter le rang 1");
+    assert.equal(lignes[0]!.rang, 1, "la première ligne doit porter le rang 1");
 
     const centimes = (n: number): number => Math.round(n * 100);
     for (let i = 0; i < lignes.length; i++) {
       const l = lignes[i];
       // Garde-fou de cohérence seulement : sur un tri décroissant tronqué, cette
       // ligne ne peut pas tomber. Le HAVING est éprouvé par le cas dédié.
-      assert.ok(l.ca > 100, `HAVING franchi : tiers ${l.tiers_id} à ${l.ca}`);
+      assert.ok(
+        l!.ca > 100,
+        `HAVING franchi : tiers ${l!.tiers_id} à ${l!.ca}`,
+      );
       // Cohérence arithmétique de la colonne dérivée, au centime.
       assert.equal(
-        centimes(l.reste),
-        centimes(l.ca) - centimes(l.regle),
-        `reste incohérent pour le tiers ${l.tiers_id}`,
+        centimes(l!.reste),
+        centimes(l!.ca) - centimes(l!.regle),
+        `reste incohérent pour le tiers ${l!.tiers_id}`,
       );
-      assert.ok(l.nb_factures >= 1);
+      assert.ok(l!.nb_factures >= 1);
       assert.ok(
-        /^2026-\d{2}-\d{2}$/.test(l.derniere),
-        `date corrélée mal formée : ${l.derniere}`,
+        /^2026-\d{2}-\d{2}$/.test(l!.derniere),
+        `date corrélée mal formée : ${l!.derniere}`,
       );
       if (i > 0) {
         assert.ok(
-          lignes[i - 1].ca >= l.ca,
+          lignes[i - 1]!.ca >= l!.ca,
           "le tri par chiffre d'affaires décroissant est cassé",
         );
       }
@@ -503,14 +506,14 @@ describe("Échelle — volume sur un modèle de facturation", () => {
       .select({ n: count() })
       .from(factureTable)
       .where(inArray(factureTable.tiersId, ids))
-      .all()[0].n;
+      .all()[0]!.n;
     // Le MÊME ensemble par un autre chemin d'exécution. Un `COUNT(*) >= 0` ne
     // pourrait pas démentir une liaison qui tronque ses paramètres — celui-ci si.
     const parIntervalle = db
       .select({ n: count() })
       .from(factureTable)
       .where(lte(factureTable.tiersId, cible))
-      .all()[0].n;
+      .all()[0]!.n;
 
     assert.equal(parLiaison, parIntervalle);
     assert.ok(
@@ -646,7 +649,7 @@ describe("Échelle — largeur du schéma", () => {
     // passerait pour un succès.
     db.run(sql`BEGIN`);
     for (let i = 0; i < 5; i++) {
-      db.insert(tablesLarges[i])
+      db.insert(tablesLarges[i]!)
         .values({ id: 100, parentId: 99, label: `chaîne ${i}`, montant: i })
         .run();
     }
@@ -665,8 +668,8 @@ describe("Échelle — largeur du schéma", () => {
     ) as Array<{ l0: string; l4: string; somme: number }>;
 
     assert.equal(lignes.length, 1, "la jointure à cinq tables ne rend rien");
-    assert.equal(lignes[0].l0, "chaîne 0");
-    assert.equal(lignes[0].l4, "chaîne 4");
-    assert.equal(lignes[0].somme, 4); // 0 + 4
+    assert.equal(lignes[0]!.l0, "chaîne 0");
+    assert.equal(lignes[0]!.l4, "chaîne 4");
+    assert.equal(lignes[0]!.somme, 4); // 0 + 4
   });
 });

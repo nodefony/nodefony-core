@@ -391,15 +391,15 @@ const BLOCKING_PATTERNS: readonly IAuditPattern[] = [
     detect: (code) => {
       const added = [
         ...code.matchAll(/\bADD\s+(?:COLUMN\s+)?[`"']?(\w+)[`"']?/gi),
-      ].map((m) => m[1].toLowerCase());
+      ].flatMap(([, name]) => (name === undefined ? [] : [name.toLowerCase()]));
       if (added.length === 0) {
         return false;
       }
       // La colonne visée par l'index, telle qu'écrite entre les parenthèses.
       return [
         ...code.matchAll(/\bCREATE\s+UNIQUE\s+INDEX\b[^;\n]*?\(([^)]*)\)/gi),
-      ].some((m) =>
-        m[1]
+      ].some(([, columns = ""]) =>
+        columns
           .split(",")
           .map((c) => c.trim().replace(/[`"']/g, "").toLowerCase())
           .some((c) => added.includes(c)),
@@ -487,7 +487,8 @@ export function topLevelAwaitFailure(
     /(?:^|\n)[^\S\n]*(\S[^\n]*?\.[cm]?[jt]sx?):(\d+):\d+: ERROR: Top-level await is currently not supported with the \\?"cjs\\?" output format/u.exec(
       plain,
     );
-  return m ? { file: m[1], line: Number(m[2]) } : null;
+  const [, file, line] = m ?? [];
+  return file === undefined ? null : { file, line: Number(line) };
 }
 
 /**

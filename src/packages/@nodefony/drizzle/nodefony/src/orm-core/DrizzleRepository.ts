@@ -461,10 +461,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         const branches = value
           .map((branch) => this.#where(branch as Criteria<T>))
           .filter((branch): branch is SQL => branch !== undefined);
-        if (branches.length > 0) {
-          conds.push(
-            branches.length === 1 ? branches[0] : (or(...branches) as SQL),
-          );
+        const [first, ...rest] = branches;
+        if (first !== undefined) {
+          conds.push(rest.length === 0 ? first : (or(first, ...rest) as SQL));
         }
         continue;
       }
@@ -700,7 +699,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       return;
     }
     for (const name of relations) {
-      const rel = this.#relations[name] as DrizzleResolvedRelation | undefined;
+      const rel = this.#relations[name];
       if (!rel) {
         throw new Error(
           `DrizzleRepository(${name}): relation "${name}" non déclarée.`,
@@ -1010,7 +1009,10 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   /** WHERE d'égalité sur la PK (valeurs plates lues par nom de colonne). */
   #pkWhere(pk: DrizzleColumn[], values: Record<string, unknown>): SQL {
     const conds = pk.map((col) => eq(col, values[col.name]));
-    return conds.length === 1 ? conds[0] : (and(...conds) as SQL);
+    const [first, ...rest] = conds;
+    return first !== undefined && rest.length === 0
+      ? first
+      : (and(...conds) as SQL);
   }
 
   /** SELECT d'UNE ligne par valeurs de PK (relecture post-mutation mysql). */

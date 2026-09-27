@@ -99,7 +99,7 @@ describe("auditMigrationSql — ce qui détruit, ce qui verrouille", () => {
           `non détecté sur ${dialect}`,
         );
         assert.match(
-          a.destructive[0].todo,
+          a.destructive[0]!.todo,
           /renomm/i,
           "le message doit ORIENTER vers le renommage, pas seulement refuser",
         );
@@ -142,7 +142,7 @@ describe("auditMigrationSql — ce qui détruit, ce qui verrouille", () => {
       );
       assert.deepEqual(ids(a.blocking), ["create-index-not-concurrent"]);
       assert.equal(a.destructive.length, 0, "un index ne détruit rien");
-      assert.match(a.blocking[0].todo, /CONCURRENTLY/);
+      assert.match(a.blocking[0]!.todo, /CONCURRENTLY/);
     });
 
     it("CONCURRENTLY présent : plus rien à signaler", () => {

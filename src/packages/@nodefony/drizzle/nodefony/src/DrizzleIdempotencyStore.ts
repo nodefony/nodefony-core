@@ -48,6 +48,9 @@ const DEFAULT_LEASE_MS = 60_000;
 /** Rétention par défaut d'une réponse mémorisée : 10 min (rejeu plausible). */
 const DEFAULT_TTL_MS = 600_000;
 
+/** Colonnes lues par le store, par nom logique. */
+type IdempotencyColumns = Record<"key" | "state" | "expiresAt", SQLiteColumn>;
+
 /**
  * Store d'idempotence **Drizzle** (driver `better-sqlite3` en test, Postgres/MySQL
  * en prod) — implémentation SQL d'{@link IIdempotencyStore} (contrat au CORE) pour
@@ -110,7 +113,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
   readonly #table: DrizzleTable;
   /** Colonnes par nom logique, vue canonique (les specs colKit partagent les
    *  NOMS entre dialectes → les builders restent dialecte-agnostiques). */
-  readonly #c: Record<string, SQLiteColumn>;
+  readonly #c: IdempotencyColumns;
   /** `true` si la table injectée est la variante MySQL → `begin` route sur la
    *  réservation `ON DUPLICATE KEY UPDATE` du queryKit (pas de RETURNING). */
   readonly #mysql: boolean;
@@ -148,7 +151,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
     this.#connector = connector;
     this.#resolveDb = resolveDb;
     this.#table = table;
-    this.#c = execTable(table) as unknown as Record<string, SQLiteColumn>;
+    this.#c = execTable(table) as unknown as IdempotencyColumns;
     this.#mysql = is(table, MySqlTable);
     this.#now = now;
     this.#leaseMs = leaseMs;

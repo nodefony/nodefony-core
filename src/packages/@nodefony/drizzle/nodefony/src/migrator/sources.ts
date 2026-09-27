@@ -566,9 +566,9 @@ function scanLine(
  */
 function delimiteurDollar(line: string, debut: number): string | null {
   let i = debut + 1;
-  while (i < line.length && /[A-Za-z0-9_]/.test(line[i])) {
+  while (i < line.length && /[A-Za-z0-9_]/.test(line.charAt(i))) {
     // Un tag ne commence pas par un chiffre — `$1` est un paramètre.
-    if (i === debut + 1 && /[0-9]/.test(line[i])) {
+    if (i === debut + 1 && /[0-9]/.test(line.charAt(i))) {
       return null;
     }
     i += 1;
@@ -593,8 +593,8 @@ export function createdTables(files: readonly IMigrationFile[]): string[] {
     /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"']?([A-Za-z0-9_$]+)[`"']?/gi;
   for (const file of files) {
     for (const statement of file.statements) {
-      for (const match of statement.matchAll(pattern)) {
-        found.add(match[1]);
+      for (const [, table] of statement.matchAll(pattern)) {
+        if (table !== undefined) found.add(table);
       }
     }
   }

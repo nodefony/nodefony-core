@@ -667,7 +667,7 @@ class OrmGenerate extends OrmMigrateCommand {
         formatVersion: MIGRATION_FORMAT_VERSION,
         connector,
         generated: true,
-        tag: added[added.length - 1],
+        tag: added.at(-1) ?? null,
         files: written,
         warnings,
         unreadable,

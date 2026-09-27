@@ -33,6 +33,12 @@ const MAX_LIMIT = 500;
 /** Séparateur du curseur composite `<ts>:<id>` (cf `#parseCursor`). */
 const CURSOR_SEPARATOR = ":";
 
+/** Colonnes lues par le store, par nom logique. */
+type AuditColumns = Record<
+  "ts" | "id" | "category" | "outcome" | "actor" | "action" | "requestId",
+  SQLiteColumn
+>;
+
 /**
  * Journal d'audit **Drizzle** (driver `better-sqlite3` en test, Postgres/MySQL en
  * prod) — implémentation SQL d'{@link IAuditStore} (append-only, tamper-evident)
@@ -66,7 +72,7 @@ export class DrizzleAuditStore implements IAuditStore {
   readonly #table: DrizzleTable;
   /** Colonnes par nom logique, vue canonique (les specs colKit partagent les
    *  NOMS entre dialectes → le query builder reste dialecte-agnostique). */
-  readonly #c: Record<string, SQLiteColumn>;
+  readonly #c: AuditColumns;
   readonly #now: () => number;
   readonly #retentionMs: number;
   readonly #location: string | undefined;
@@ -90,7 +96,7 @@ export class DrizzleAuditStore implements IAuditStore {
     this.#resolveDb = resolveDb;
     this.#table = table;
     // Accès colonne par nom logique (gotcha module : vue Record de la table).
-    this.#c = execTable(table) as unknown as Record<string, SQLiteColumn>;
+    this.#c = execTable(table) as unknown as AuditColumns;
     this.#now = now;
     this.#retentionMs = retentionMs;
     this.#location = location;

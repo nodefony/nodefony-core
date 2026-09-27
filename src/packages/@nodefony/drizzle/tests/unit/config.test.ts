@@ -27,7 +27,7 @@ describe("@nodefony/drizzle — config (Zod, alignement ORM 2026-06)", () => {
       const c = defineDrizzleConfig({
         connectors: { default: { filename: ":memory:" } },
       });
-      assert.equal(c.connectors.default.filename, ":memory:");
+      assert.equal(c.connectors.default!.filename, ":memory:");
     });
   });
 
@@ -59,8 +59,8 @@ describe("@nodefony/drizzle — config (Zod, alignement ORM 2026-06)", () => {
     it("NF_DATABASE_URL=sqlite:… → filename du connecteur primaire `default`", () => {
       withEnv({ NF_DATABASE_URL: "sqlite:/tmp/app.db" }, () => {
         const c = defineDrizzleConfig();
-        assert.equal(c.connectors.default.dialect, "sqlite");
-        assert.equal(c.connectors.default.filename, "/tmp/app.db");
+        assert.equal(c.connectors.default!.dialect, "sqlite");
+        assert.equal(c.connectors.default!.filename, "/tmp/app.db");
       });
     });
 
@@ -69,16 +69,16 @@ describe("@nodefony/drizzle — config (Zod, alignement ORM 2026-06)", () => {
         const c = defineDrizzleConfig({
           connectors: { default: { filename: ":memory:" } },
         });
-        assert.equal(c.connectors.default.dialect, "postgres");
-        assert.equal(c.connectors.default.url, "postgres://u:p@h:5432/db");
-        assert.equal(c.connectors.default.filename, undefined);
+        assert.equal(c.connectors.default!.dialect, "postgres");
+        assert.equal(c.connectors.default!.url, "postgres://u:p@h:5432/db");
+        assert.equal(c.connectors.default!.filename, undefined);
       });
     });
 
     it("alias plateforme DATABASE_URL honoré (NF_ absent)", () => {
       withEnv({ DATABASE_URL: "sqlite::memory:" }, () => {
         const c = defineDrizzleConfig();
-        assert.equal(c.connectors.default.filename, ":memory:");
+        assert.equal(c.connectors.default!.filename, ":memory:");
       });
     });
 

@@ -177,7 +177,7 @@ describe("Drizzle adapter — charge / limites / mémoire (P7.4)", () => {
       `      ↳ eager-load 2000 parents (${rooms ? 6000 : 0} enfants): ${ms.toFixed(0)}ms`,
     );
     assert.equal(loaded.length, 2_000);
-    assert.equal(loaded[0].rooms?.length, 3);
+    assert.equal(loaded[0]!.rooms?.length, 3);
     assert.equal(await rooms.count(), 6_000);
   });
 

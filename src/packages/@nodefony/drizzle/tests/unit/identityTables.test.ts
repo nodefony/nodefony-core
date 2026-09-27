@@ -44,7 +44,7 @@ describe("identityTablesAmong — ce qui ne se reconstitue pas", () => {
     // C'est ce nom qui sera affiché à l'utilisateur et cité dans un `COUNT(*)` :
     // rendre celui de la liste enverrait interroger une table qui n'existe pas.
     const [premiere] = identityTablesAmong(["user"]);
-    assert.equal(premiere.table, "user");
+    assert.equal(premiere!.table, "user");
   });
 
   it("ne retient RIEN de ce qui se reconstitue", () => {
@@ -68,25 +68,25 @@ describe("identityTablesAmong — ce qui ne se reconstitue pas", () => {
     // C'est le cas normal d'une application fraîche : son semis repose l'admin
     // à chaque démarrage. Une garde qui se lève ici s'apprend à être contournée.
     const [user] = identityTablesAmong(["User"]);
-    assert.equal(user.reseededRows, 1);
+    assert.equal(user!.reseededRows, 1);
     assert.equal(
-      rowsWorthKeeping(user, 1),
+      rowsWorthKeeping(user!, 1),
       false,
       "un seul compte : rien à perdre",
     );
     assert.equal(
-      rowsWorthKeeping(user, 2),
+      rowsWorthKeeping(user!, 2),
       true,
       "deux comptes : du travail humain",
     );
-    assert.equal(rowsWorthKeeping(user, 0), false);
+    assert.equal(rowsWorthKeeping(user!, 0), false);
   });
 
   it("une passkey compte DÈS la première — rien ne la repose", () => {
     const [passkey] = identityTablesAmong(["webauthn_credential"]);
-    assert.equal(passkey.reseededRows, 0);
-    assert.equal(rowsWorthKeeping(passkey, 1), true);
-    assert.equal(rowsWorthKeeping(passkey, 0), false);
+    assert.equal(passkey!.reseededRows, 0);
+    assert.equal(rowsWorthKeeping(passkey!, 1), true);
+    assert.equal(rowsWorthKeeping(passkey!, 0), false);
   });
 
   it("chaque table d'identité existe TOUJOURS dans la table du cœur", () => {

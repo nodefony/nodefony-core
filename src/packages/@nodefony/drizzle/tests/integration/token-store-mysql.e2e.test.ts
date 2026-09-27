@@ -121,8 +121,12 @@ describe.skipIf(!MYSQL_URL)(
       );
       const all = await store.listAll();
       assert.equal(all.length, 1, "toujours 1 seule ligne (l'invariant tient)");
-      assert.equal(all[0].id, "d1", "l'id de la ligne en conflit est CONSERVÉ");
-      assert.equal(all[0].name, "INTRUS", "…mais ses champs sont ÉCRASÉS");
+      assert.equal(
+        all[0]!.id,
+        "d1",
+        "l'id de la ligne en conflit est CONSERVÉ",
+      );
+      assert.equal(all[0]!.name, "INTRUS", "…mais ses champs sont ÉCRASÉS");
       assert.equal(
         await store.findById("d2"),
         null,

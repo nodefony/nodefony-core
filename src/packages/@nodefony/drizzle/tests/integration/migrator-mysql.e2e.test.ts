@@ -213,7 +213,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
   });
 
   it("laisse un état PARTIEL après un échec — le DDL n'est pas transactionnel", async () => {
-    await appendMigration(sources[0].dir, "mysql", {
+    await appendMigration(sources[0]!.dir, "mysql", {
       tag: "0001_casse",
       statements: [
         "CREATE TABLE nf_mig_gadget (id varchar(64) NOT NULL, PRIMARY KEY (id))",

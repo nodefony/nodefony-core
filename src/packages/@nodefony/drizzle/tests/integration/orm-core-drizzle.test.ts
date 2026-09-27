@@ -149,7 +149,7 @@ describe("orm-core ↔ Drizzle adapter (P7.4)", () => {
 
     const ownerRooms = await rooms.find({ userId: owner.id });
     assert.equal(ownerRooms.length, 2);
-    assert.equal(ownerRooms[0].userId, owner.id);
+    assert.equal(ownerRooms[0]!.userId, owner.id);
   });
 
   // ── Fuite #1 résolue : eager-load PORTABLE via options.relations ──────────

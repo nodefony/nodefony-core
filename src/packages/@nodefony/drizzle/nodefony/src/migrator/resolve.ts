@@ -9,10 +9,7 @@ import type {
   MigrationCheckMode,
   SqlDialect,
 } from "../../config/config";
-import type {
-  IDrizzleConfig,
-  IDrizzleConnectorConfig,
-} from "../../interfaces/IDrizzleConfig";
+import type { IDrizzleConfig } from "../../interfaces/IDrizzleConfig";
 import { resolveConnectorTarget } from "../connectorTarget";
 import { DrizzleMigrator } from "./DrizzleMigrator";
 import { connectorMigrationsDir, defaultMigrationSources } from "./paths";
@@ -443,8 +440,7 @@ export function resolveConnector(
   kernel: Kernel | null,
   options: { allowMigrateUrl?: boolean } = {},
 ): IConnectorResolution {
-  const declared = config.connectors[connector] as
-    IDrizzleConnectorConfig | undefined;
+  const declared = config.connectors[connector];
   if (!declared) {
     if (ormRegistry.has(connector)) {
       const owner = describeOwner(connector);

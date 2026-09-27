@@ -81,12 +81,12 @@ describe.skipIf(!PG_URL)(
         ["pg-a2", "pg-a1"], // ts DESC
       );
       const rich = page.items[0];
-      assert.deepEqual(rich.flags, { hasCookie: true });
-      assert.deepEqual(rich.metadata, { zone: "admin", n: 3 });
-      assert.equal(rich.ts, 200, "epoch ms exact via bigint mode number");
+      assert.deepEqual(rich!.flags, { hasCookie: true });
+      assert.deepEqual(rich!.metadata, { zone: "admin", n: 3 });
+      assert.equal(rich!.ts, 200, "epoch ms exact via bigint mode number");
       const bare = page.items[1];
-      assert.equal(bare.flags, undefined, "NULL PG → champ absent");
-      assert.equal(bare.metadata, undefined);
+      assert.equal(bare!.flags, undefined, "NULL PG → champ absent");
+      assert.equal(bare!.metadata, undefined);
     });
 
     it("filtres AND (category + since/until) + total sous filtre", async () => {

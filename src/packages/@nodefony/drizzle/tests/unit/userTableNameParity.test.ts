@@ -63,7 +63,7 @@ describe("nom de la table des utilisateurs — une source, trois lecteurs", () =
       ),
     ].map((m) => m[1]);
     const fautifs = litteraux.filter(
-      (nom) => nom.toLowerCase() === USER_TABLE_NAME.toLowerCase(),
+      (nom) => nom!.toLowerCase() === USER_TABLE_NAME.toLowerCase(),
     );
     assert.deepEqual(
       fautifs,

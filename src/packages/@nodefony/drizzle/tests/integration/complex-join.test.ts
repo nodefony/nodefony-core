@@ -167,19 +167,19 @@ describe("Drizzle adapter — jointure très complexe via trappe native (P7.4)",
     assert.equal(rows.length, 2);
 
     const a = rows[0];
-    assert.equal(a.id, memberA.id);
-    assert.equal(a.rnk, 1);
-    assert.equal(a.owned_channels, 2);
-    assert.equal(a.msg_count, 3);
-    assert.equal(a.busy_channels, 1); // seul ch1 (3 msg) ≥ 2 ; ch2 (1 msg) non
-    assert.equal(a.last_ts, 1_002);
+    assert.equal(a!.id, memberA.id);
+    assert.equal(a!.rnk, 1);
+    assert.equal(a!.owned_channels, 2);
+    assert.equal(a!.msg_count, 3);
+    assert.equal(a!.busy_channels, 1); // seul ch1 (3 msg) ≥ 2 ; ch2 (1 msg) non
+    assert.equal(a!.last_ts, 1_002);
 
     const b = rows[1];
-    assert.equal(b.id, memberB.id);
-    assert.equal(b.rnk, 2);
-    assert.equal(b.owned_channels, 1);
-    assert.equal(b.msg_count, 1);
-    assert.equal(b.busy_channels, 0); // ch3 a 0 message
+    assert.equal(b!.id, memberB.id);
+    assert.equal(b!.rnk, 2);
+    assert.equal(b!.owned_channels, 1);
+    assert.equal(b!.msg_count, 1);
+    assert.equal(b!.busy_channels, 0); // ch3 a 0 message
 
     // memberC jamais présent (filtré par âge + absence de message).
     assert.equal(
