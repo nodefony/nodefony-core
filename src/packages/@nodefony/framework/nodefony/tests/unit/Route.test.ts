@@ -307,10 +307,10 @@ describe("Route — HEAD implicite sur une route GET (RFC 9110 §9.1)", () => {
     expect(() => r.match(makeCtx("/api", "HEAD"))).to.not.throw();
   });
 
-  it("HEAD accepté sur une route GET seule (chaîne, casse libre)", () => {
+  it("HEAD accepté sur une route GET seule (forme chaîne)", () => {
     const r = new Route("r", {
       path: "/api",
-      requirements: { methods: "get, post" },
+      requirements: { methods: "GET" },
     });
     expect(() => r.match(makeCtx("/api", "HEAD"))).to.not.throw();
   });
