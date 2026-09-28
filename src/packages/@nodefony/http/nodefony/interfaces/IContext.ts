@@ -1,4 +1,5 @@
 import type { URL } from "node:url";
+import type { MaybePromise } from "nodefony";
 import type { ICookie } from "./ICookie";
 import type { ISession } from "./ISession";
 import type { HTTPMethodType } from "./IRequest";
@@ -178,7 +179,12 @@ export interface IHttpContext extends IContext {
   proxy: object | null;
   isRedirect: boolean;
 
-  handle(): Promise<object>;
+  /**
+   * Sert la requête — synchrone quand l'action et son rendu le sont.
+   *
+   * @returns le résultat du rendu, ou sa promesse dès qu'une étape attend.
+   */
+  handle(): MaybePromise<object>;
   render(
     chunk: unknown,
     encoding?: BufferEncoding,

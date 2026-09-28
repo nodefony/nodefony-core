@@ -144,12 +144,9 @@ class ServerHttps extends Service {
 
         this.server.on(
           "request",
+          // `onHttpRequest` ne lève ni ne rejette jamais : rien à rattraper ici.
           (request: http.IncomingMessage, response: http.ServerResponse) => {
-            this.httpKernel
-              .onHttpRequest(request, response, this.type)
-              .catch(() => {
-                return;
-              });
+            void this.httpKernel.onHttpRequest(request, response, this.type);
           },
         );
 
@@ -244,14 +241,11 @@ class ServerHttps extends Service {
           if (request.socket instanceof TLSSocket) {
             alpnProtocol = request.socket.alpnProtocol;
           }
+          // `onHttpRequest` ne lève ni ne rejette jamais : rien à rattraper ici.
           if (alpnProtocol === "h2") {
-            void this.httpKernel
-              .onHttpRequest(request, response, "http2")
-              .catch(() => {});
+            void this.httpKernel.onHttpRequest(request, response, "http2");
           } else {
-            void this.httpKernel
-              .onHttpRequest(request, response, "https")
-              .catch(() => {});
+            void this.httpKernel.onHttpRequest(request, response, "https");
           }
         });
         // LISTEN — repli de port en `auto` (défaut dev), même politique que la

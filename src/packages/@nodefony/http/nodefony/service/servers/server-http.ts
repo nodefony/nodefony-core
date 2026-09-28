@@ -107,12 +107,9 @@ class ServerHttp extends Service {
         if (this.options.keepAliveTimeout) {
           this.server.keepAliveTimeout = this.options.keepAliveTimeout;
         }
+        // `onHttpRequest` ne lève ni ne rejette jamais : rien à rattraper ici.
         this.server.on("request", (request, response) => {
-          void this.httpKernel
-            .onHttpRequest(request, response, this.type)
-            .catch(() => {
-              return;
-            });
+          void this.httpKernel.onHttpRequest(request, response, this.type);
         });
         this.module.fire("onCreateServer", this.type, this);
         // LISTEN — en `portPolicy: "auto"` (défaut dev), un port occupé fait

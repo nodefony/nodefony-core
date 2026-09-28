@@ -14,7 +14,7 @@
 | --- | ---: |
 | Infrastructure | 10 |
 | Interrupteur de coût | 5 |
-| Décor de banc | 36 |
+| Décor de banc | 37 |
 | Runtime produit | 75 |
 
 ## Décor de banc
@@ -87,6 +87,12 @@ rien : elle change ce qui est EXÉCUTÉ.
 | `NF_BENCH_WS_BYTES` | Taille en octets de chaque trame émise par le banc de contre-pression WebSocket. | entier — défaut 16384 | Le banc émet des trames de 16 Kio. |
 | `NF_BENCH_WS_FRAMES` | Nombre de trames émises d'un bloc par le banc de contre-pression WebSocket. | entier — défaut 400 | Le banc émet 400 trames. |
 
+### budget de Promises (#505)
+
+| Variable | Rôle | Valeurs | Absente ⇒ |
+| --- | --- | --- | --- |
+| `NF_PROMISE_COUNTER_PORT` | Port où le compteur de Promises préchargé (`promiseCounter.mjs`, `promise-sites.mjs`) sert son total — la garde du budget de Promises le lit. | port — défaut 5199 | Le compteur écoute sur 5199 ; si ce port est pris, il se tait en le disant, et la garde échoue « compteur injoignable » au lieu de mesurer. |
+
 ### coupure réelle de base
 
 | Variable | Rôle | Valeurs | Absente ⇒ |
@@ -145,14 +151,14 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 
 | Variable | Premier site |
 | --- | --- |
-| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2912` |
+| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2913` |
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:80` |
-| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:731` |
+| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:741` |
 | `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:467` |
-| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3181` |
-| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3193` |
+| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3182` |
+| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3194` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
 | `NF_BROWSER_ACTION_PARAMS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:44` |
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:89` |
@@ -188,7 +194,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DATABASE_URL` | `src/modules/test/nodefony/entity/benchOrm.ts:59` |
 | `NF_DEPS_REGISTRY` | `scripts/check-deps-latest.mjs:77` |
 | `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:74` |
-| `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:1030` |
+| `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:1031` |
 | `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:748` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:209` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:208` |
@@ -198,13 +204,13 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:50` |
 | `NF_HUB_SOURCE` | `scripts/release/hub-description.mjs:63` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:38` |
-| `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:752` |
+| `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:753` |
 | `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:62` |
 | `NF_MONGODB_DEBUG` | `src/packages/@nodefony/mongoose/tests/unit/config.test.ts:135` |
 | `NF_NO_TTY` | `src/nodefony/src/cli/scaffold/interactive.ts:84` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
-| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:143` |
+| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:147` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/service/dev/devProcess.ts:760` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/service/dev/devProcess.ts:760` |
@@ -216,7 +222,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:20` |
 | `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:22` |
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:80` |
-| `NF_START` | `src/nodefony/src/kernel/Kernel.ts:615` |
+| `NF_START` | `src/nodefony/src/kernel/Kernel.ts:616` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
 | `NF_X` | `scripts/env-snapshot.ts:123` |

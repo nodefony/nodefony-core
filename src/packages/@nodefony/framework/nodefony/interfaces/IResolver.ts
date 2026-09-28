@@ -1,5 +1,5 @@
 import type { ContextType, HttpError, IRouteResolver } from "@nodefony/http";
-import type { Injector } from "nodefony";
+import type { Injector, MaybePromise } from "nodefony";
 import type { ControllerConstructor } from "../src/Route.js";
 import type { IRoute } from "./IRoute.js";
 import type { IController } from "./IController.js";
@@ -21,7 +21,7 @@ export interface IResolver extends IRouteResolver {
   getMatchedParams(): Record<string, unknown>;
   parsePathernController(name: string): void;
   getAction(name: string): ((...args: unknown[]) => unknown) | null;
-  newController(context?: ContextType): Promise<IController | object>;
-  callController(data?: unknown[], reload?: boolean): Promise<unknown>;
-  returnController(result: unknown): Promise<unknown>;
+  newController(context?: ContextType): MaybePromise<IController | object>;
+  callController(data?: unknown[], reload?: boolean): MaybePromise<unknown>;
+  returnController(result: unknown): MaybePromise<unknown>;
 }

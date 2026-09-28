@@ -96,6 +96,15 @@ const parse = {
   DELETE: true,
 };
 
+/**
+ * La méthode porte-t-elle un corps à lire ? La règle a UNE implémentation : le
+ * choix « lire le corps » (`parseRequest`) et le choix « rien à attendre »
+ * (`initialize`) la lisent tous deux ici.
+ */
+function hasRequestBody(method: string): boolean {
+  return method in parse;
+}
+
 declare module "url" {
   interface URL {
     query: QS.ParsedQs;
@@ -354,10 +363,32 @@ class HttpRequest {
     return this.context.fireAsync("onRequestEnd", this);
   }
 
-  // Valeur de résolution non consommée (awaited pour le séquençage dans
-  // http-kernel) : les branches renvoient soit le parser, soit le résultat de
-  // `fireAsync("onRequestEnd")` (unknown) → type honnête = Promise<unknown>.
-  async initialize(): Promise<unknown> {
+  /**
+   * Lit le corps de la requête, s'il y en a un, puis émet `onRequestEnd`.
+   *
+   * Le contrat de retour dit ce qui reste à ATTENDRE :
+   * - `undefined` — la méthode ne porte pas de corps (GET, HEAD, OPTIONS…) et
+   *   aucun écouteur `onRequestEnd` ne rend de promesse : tout est fait, de
+   *   façon SYNCHRONE ;
+   * - une `Promise` — le corps arrive du socket (POST, PUT, PATCH, DELETE), ou
+   *   un écouteur `onRequestEnd` est à attendre. Sa valeur n'est consommée par
+   *   personne : elle ne sert qu'au séquençage.
+   *
+   * L'appelant n'attend donc que ce qui attend vraiment
+   * (`const pending = request.initialize(); if (pending) await pending;`) : un
+   * `await` inconditionnel reportait le pipeline d'une micro-tâche, et la
+   * chaîne de promesses coûtait ~6 évènements asynchrones à un GET qui n'avait
+   * rien à lire (#505).
+   *
+   * Ne lève jamais de façon synchrone : un corps refusé (413) ou illisible rompt
+   * la promesse rendue, comme avant.
+   *
+   * @returns `undefined` quand tout est fait, sinon la promesse à attendre.
+   */
+  initialize(): Promise<unknown> | undefined {
+    if (!hasRequestBody(this.method)) {
+      return this.endWithoutBody();
+    }
     return this.parseRequest().then(async (parser) => {
       if (
         parser instanceof ParserXml ||
@@ -384,20 +415,30 @@ class HttpRequest {
         return requestEnd;
       }
       if (!parser) {
-        let requestEnd: Promise<unknown> | false;
-        try {
-          if (this.context.finished) {
-            return;
-          }
-          this.context.requestEnded = true;
-          requestEnd = this.fireRequestEnd();
-        } catch (error) {
-          return this.context.httpKernel?.onError(error as Error, this.context);
-        }
-        return requestEnd;
+        return this.endWithoutBody();
       }
       return parser;
     });
+  }
+
+  /**
+   * Fin d'une requête SANS corps à lire : la marque terminée et émet
+   * `onRequestEnd`. Synchrone — ne rend une promesse que lorsqu'un écouteur
+   * `onRequestEnd` est à attendre, ou quand l'émission lève (celle d'`onError`).
+   *
+   * @returns `undefined` quand tout est fait, sinon la promesse à attendre.
+   */
+  private endWithoutBody(): Promise<unknown> | undefined {
+    if (this.context.finished) {
+      return undefined;
+    }
+    try {
+      this.context.requestEnded = true;
+      const requestEnd = this.fireRequestEnd();
+      return requestEnd === false ? undefined : requestEnd;
+    } catch (error) {
+      return this.context.httpKernel?.onError(error as Error, this.context);
+    }
   }
 
   /**
@@ -449,7 +490,7 @@ class HttpRequest {
   // `new Promise(async …)`) : un throw du constructeur de parser remonte
   // proprement au lieu de laisser la promesse pendante.
   async parseRequest(): Promise<ParserType | null> {
-    if (!(this.method in parse)) {
+    if (!hasRequestBody(this.method)) {
       return this.parser;
     }
     this.readBodyLimits();

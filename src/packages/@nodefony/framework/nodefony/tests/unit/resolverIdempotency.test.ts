@@ -131,9 +131,12 @@ function makeResolver(opts: {
   return r;
 }
 
-async function caught(p: Promise<unknown>): Promise<{ code?: number } | null> {
+// Reçoit l'APPEL, pas sa promesse : une action peut échouer de façon
+// synchrone (le Resolver rend une valeur OU une promesse, #505) — l'exception
+// serait sinon levée avant même d'entrer ici.
+async function caught(call: () => unknown): Promise<{ code?: number } | null> {
   try {
-    await p;
+    await call();
     return null;
   } catch (e) {
     return e as { code?: number };
@@ -149,7 +152,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     const r = makeResolver({ action: "create", store: makeStore() });
     const err = await RequestContext.run(
       { requestId: "t", user: { username: "alice" } },
-      () => caught(r.callController()),
+      () => caught(() => r.callController()),
     );
     expect(err?.code).to.equal(400);
     expect(execCount).to.equal(0);
@@ -197,7 +200,10 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
         idempotencyKey: "k1",
         body: { a: 2 },
       },
-      () => caught(makeResolver({ action: "create", store }).callController()),
+      () =>
+        caught(() =>
+          makeResolver({ action: "create", store }).callController(),
+        ),
     );
     expect(err?.code).to.equal(422);
     expect(execCount).to.equal(1);
@@ -282,7 +288,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     r.methodOverride = "POST";
     const err = await RequestContext.run(
       { requestId: "t", user: { username: "alice" } },
-      () => caught(r.callController()),
+      () => caught(() => r.callController()),
     );
     expect(err?.code).to.equal(400);
     expect(execCount).to.equal(0);

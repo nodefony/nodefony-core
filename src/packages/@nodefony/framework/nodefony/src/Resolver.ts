@@ -8,9 +8,11 @@ import {
   RequestContext,
   nodefonyError,
   identityHint,
+  thenMaybe,
+  finallyMaybe,
   //inject,
 } from "nodefony";
-import type { IIdempotencyStore } from "nodefony";
+import type { IIdempotencyStore, MaybePromise } from "nodefony";
 import type { IResolver } from "../interfaces/index.js";
 //import Router from "../service/router";
 import {
@@ -106,6 +108,16 @@ function hasInitialize(
 ): controller is Controller & { initialize(): unknown } {
   return typeof Reflect.get(controller, "initialize") === "function";
 }
+
+/**
+ * Ce qu'une action a rendu, AVANT rendu sur le transport : sa valeur brute
+ * (éventuellement une promesse, que le rendu démêle) et la redirection
+ * déclarée par `@Redirect`.
+ */
+type ActionOutcome = {
+  result: unknown;
+  redirectMeta: RedirectMeta | undefined;
+};
 
 class Resolver implements IResolver {
   injector?: Injector | null | undefined;
@@ -280,7 +292,21 @@ class Resolver implements IResolver {
       : null;
   }
 
-  async newController(context?: ContextType): Promise<Controller> {
+  /**
+   * L'instance du controller de la route, posée sur le container du contexte.
+   *
+   * Singleton (le défaut) : l'instance partagée du cache du Router — rendue
+   * DIRECTEMENT une fois créée, sans promesse à attendre (#505). Portée
+   * `request` : une instance neuve, synchrone tant que son `initialize()` ne
+   * rend pas de promesse.
+   *
+   * @param context - le contexte à injecter (celui du résolveur par défaut).
+   * @returns l'instance, ou la promesse de l'instance quand sa création attend
+   *   (`initialize()` asynchrone).
+   * @throws de façon SYNCHRONE si la route n'a pas de controller, ou si sa
+   *   construction lève ; un `initialize()` qui échoue rompt la promesse rendue.
+   */
+  newController(context?: ContextType): MaybePromise<Controller> {
     if (!this.controller) {
       throw new Error(`Route Controller not found`);
     }
@@ -288,22 +314,21 @@ class Resolver implements IResolver {
     // Controller) : lecture directe, 0 Reflect. Singleton → instance partagée
     // depuis le cache kernel-scoped du Router (la promesse est cachée AVANT le
     // 1er await : les requêtes concurrentes de la création n'instancient pas).
+    let created: MaybePromise<Controller>;
     if (
       (this.controller as unknown as typeof Controller).scope === "singleton"
     ) {
       const router = this.context.router;
-      const controller = router
-        ? await router.getSingletonController(this.controller, () =>
+      created = router
+        ? router.getSingletonController(this.controller, () =>
             this._createController(context),
           )
         : // Pas de Router (harness de test) → dégradé per-request, sans cache.
-          await this._createController(context);
-      this._pinController(controller);
-      return controller;
+          this._createController(context);
+    } else {
+      created = this._createController(context);
     }
-    const controller = await this._createController(context);
-    this._pinController(controller);
-    return controller;
+    return thenMaybe(created, (controller) => this._pinController(controller));
   }
 
   /**
@@ -315,10 +340,14 @@ class Resolver implements IResolver {
    * la sert (le hub). L'écraser par la cible de l'appel faisait échouer le test
    * `instanceof` au message suivant — le hub était RÉINSTANCIÉ (DI +
    * `initialize()`) à chaque frame qui suivait un `api.request`.
+   *
+   * @returns le controller reçu, pour enchaîner.
    */
-  private _pinController(controller: Controller): void {
-    if (this.messageInvocation) return;
-    this.context.container?.set("controller", controller);
+  private _pinController(controller: Controller): Controller {
+    if (!this.messageInvocation) {
+      this.context.container?.set("controller", controller);
+    }
+    return controller;
   }
 
   /**
@@ -327,8 +356,14 @@ class Resolver implements IResolver {
    * requête dans `executeAction`) puis `initialize()`. Pour un singleton,
    * `initialize()` n'est donc appelé qu'UNE fois, à la création (sémantique
    * boot) — le per-request y lit l'ALS s'il a besoin de la requête.
+   *
+   * @returns le controller prêt ; sa promesse seulement quand `initialize()`
+   *   en rend une.
+   * @throws de façon SYNCHRONE ce que lèvent la DI, le constructeur ou un
+   *   `initialize()` synchrone ; un `initialize()` asynchrone qui échoue rompt
+   *   la promesse rendue.
    */
-  private async _createController(context?: ContextType): Promise<Controller> {
+  private _createController(context?: ContextType): MaybePromise<Controller> {
     // Phase `initialize` — la MISE EN PLACE du controller : résolution DI
     // (dépendances du constructeur) + hook `initialize()` (où les controllers
     // ouvrent leur session, chargent un contexte métier…). C'est du temps réel,
@@ -337,36 +372,49 @@ class Resolver implements IResolver {
     // n'apparaîtra donc que là, ce qui est la vérité.
     const ctx = context ?? this.context;
     ctx.phaseStart("initialize");
-    try {
-      const controller = this.injector?.instantiate<Controller>(
-        this.controller as ControllerConstructor,
-        ctx,
-      );
-      if (!controller) {
-        throw new Error(`Route Controller not found`);
-      }
-      if (this.controller?.prototype.module) {
-        controller.module = this.controller.prototype.module;
-      }
-      if (hasInitialize(controller)) {
-        await controller.initialize();
-      }
-      // Filet de DÉVELOPPEMENT : un singleton sert toutes les requêtes, donc
-      // une écriture sur l'un de ses champs, à partir d'ici, fuirait vers la
-      // suivante. Posé APRÈS `initialize()`, qui prépare légitimement un état
-      // de démarrage. Jamais hors développement : les champs y deviennent des
-      // accesseurs, un coût que la production ne paie pas.
-      if (
-        (this.controller as unknown as typeof Controller).scope ===
-          "singleton" &&
-        isDevelopment(ctx.kernel?.environment)
-      ) {
-        guardSingletonState(controller, controller.constructor.name);
-      }
-      return controller;
-    } finally {
-      ctx.phaseEnd("initialize");
+    return finallyMaybe(
+      () => {
+        const controller = this.injector?.instantiate<Controller>(
+          this.controller as ControllerConstructor,
+          ctx,
+        );
+        if (!controller) {
+          throw new Error(`Route Controller not found`);
+        }
+        if (this.controller?.prototype.module) {
+          controller.module = this.controller.prototype.module;
+        }
+        const initialized = hasInitialize(controller)
+          ? controller.initialize()
+          : undefined;
+        return thenMaybe(initialized, () =>
+          this._guardSingleton(controller, ctx),
+        );
+      },
+      () => ctx.phaseEnd("initialize"),
+    );
+  }
+
+  /**
+   * Filet de DÉVELOPPEMENT : un singleton sert toutes les requêtes, donc une
+   * écriture sur l'un de ses champs, à partir d'ici, fuirait vers la suivante.
+   * Posé APRÈS `initialize()`, qui prépare légitimement un état de démarrage.
+   * Jamais hors développement : les champs y deviennent des accesseurs, un coût
+   * que la production ne paie pas.
+   *
+   * @returns le controller reçu, pour enchaîner.
+   */
+  private _guardSingleton(
+    controller: Controller,
+    ctx: ContextType,
+  ): Controller {
+    if (
+      (this.controller as unknown as typeof Controller).scope === "singleton" &&
+      isDevelopment(ctx.kernel?.environment)
+    ) {
+      guardSingletonState(controller, controller.constructor.name);
     }
+    return controller;
   }
 
   /**
@@ -377,15 +425,23 @@ class Resolver implements IResolver {
    * (`{ id, result }`, champ GraphQL…). Le pipeline HTTP/WS normal passe par
    * {@link callController} (= `executeAction` + rendu).
    *
+   * Synchrone tant que rien n'est à attendre (#505) : la garde d'autorisation
+   * n'est attendue que sur une route gardée, l'instance que si elle est à
+   * créer. La valeur de l'action est rendue BRUTE — une promesse si l'action
+   * est asynchrone ; c'est le rendu qui la démêle.
+   *
    * @param data - args supplémentaires (message WS brut legacy) concaténés aux variables de route.
    * @param reload - force `newController()` (le container peut déjà porter un AUTRE controller).
-   * @returns la valeur retournée par l'action + son `RedirectMeta` éventuel.
+   * @returns la valeur retournée par l'action + son `RedirectMeta` éventuel —
+   *   ou la promesse de ce couple quand la garde ou la création attendent.
+   * @throws de façon SYNCHRONE ce que lève une action synchrone (ou l'absence
+   *   d'action) ; un refus d'autorisation rompt la promesse rendue.
    */
-  async executeAction(
+  executeAction(
     data?: unknown[],
     reload: boolean = false,
     metaArg?: RouteActionMeta,
-  ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
+  ): MaybePromise<ActionOutcome> {
     // P5 : metadata d'action figées (memo, 0 Reflect/req) — hoisté en tête car
     // la GARDE d'autorisation (P6 J7) s'évalue AVANT toute instanciation.
     // `metaArg` : si `callController` l'a DÉJÀ résolu (hot path), on le réutilise
@@ -398,45 +454,99 @@ class Resolver implements IResolver {
     // SECURITY — @IsGranted AVANT newController : un 403 court-circuite
     // l'instanciation DI + initialize() (Zero Trust). `security === null`
     // (route non gardée, 99 %) → 0 lookup, 0 await, 0 alloc.
-    //
-    // ⚠️ Vrai du trajet HTTP SEULEMENT. Le kernel y arme la route sans instancier
-    // (`http-kernel.ts` `prepareFrontController`), donc ce court-circuit est celui
-    // de bout en bout. En **WebSocket**, le controller est instancié au HANDSHAKE
-    // — avant qu'une frame ne soit gardée : sur ce transport, un refus n'évite
-    // ni la DI ni `initialize()`, qui ont déjà tourné.
-    if (meta.security !== null) {
-      await this._enforceSecurity(meta.security);
+    const guarded = this._enforceActionSecurity(meta);
+    if (guarded !== undefined) {
+      return guarded.then(() => this._acquireAndInvoke(meta, data, reload));
     }
-    // Filet de la ZONE : une route dont personne n'a décidé le RÔLE hérite de
-    // celui de sa zone du firewall, au lieu d'être ouverte à tout compte
-    // authentifié. `null` sur l'immense majorité des routes (aucune zone, ou
-    // zone sans rôle) → 0 await, 0 alloc.
-    //
+    return this._acquireAndInvoke(meta, data, reload);
+  }
+
+  /**
+   * Les gardes d'autorisation d'une action : `@IsGranted`/`@RequireScope`, puis
+   * le filet de la ZONE quand aucune garde n'a décidé du RÔLE.
+   *
+   * ⚠️ Vrai du trajet HTTP SEULEMENT. Le kernel y arme la route sans instancier
+   * (`http-kernel.ts` `prepareFrontController`), donc ce court-circuit est celui
+   * de bout en bout. En **WebSocket**, le controller est instancié au HANDSHAKE
+   * — avant qu'une frame ne soit gardée : sur ce transport, un refus n'évite
+   * ni la DI ni `initialize()`, qui ont déjà tourné.
+   *
+   * @returns `undefined` quand la route n'est pas gardée (le cas nominal : ni
+   *   lookup, ni attente) ; sinon la promesse du verdict, rompue par un refus.
+   */
+  private _enforceActionSecurity(
+    meta: RouteActionMeta,
+  ): Promise<void> | undefined {
+    if (meta.security === null) {
+      return this._enforceAreaSecurity();
+    }
+    const granted = this._enforceSecurity(meta.security);
     // ⚠️ La condition porte sur `hasRoleClause`, PAS sur la simple présence
     // d'une garde. Un `@RequireScope` seul garde bien l'action — mais sur un
     // AUTRE axe : le voter de scope accorde sans condition à une session
     // humaine, puisqu'il ne contraint que les clés déléguées. Traiter cette
     // garde comme une décision d'identité rendait la route accessible à
     // n'importe quel compte connecté dans une zone pourtant fermée.
-    if (meta.security === null || !meta.security.hasRoleClause) {
-      const area = this._areaSecurity();
-      if (area !== null) await this._enforceSecurity(area);
-    }
-    let controller = this.context.container?.get("controller") as
+    return meta.security.hasRoleClause
+      ? granted
+      : granted.then(() => this._enforceAreaSecurity());
+  }
+
+  /**
+   * Filet de la ZONE : une route dont personne n'a décidé le RÔLE hérite de
+   * celui de sa zone du firewall, au lieu d'être ouverte à tout compte
+   * authentifié.
+   *
+   * @returns `undefined` sur l'immense majorité des routes (aucune zone, ou
+   *   zone sans rôle) ; sinon la promesse du verdict.
+   */
+  private _enforceAreaSecurity(): Promise<void> | undefined {
+    const area = this._areaSecurity();
+    return area !== null ? this._enforceSecurity(area) : undefined;
+  }
+
+  /**
+   * L'instance qui sert l'action — celle déjà posée sur le container quand
+   * c'est la bonne classe, sinon une création —, puis l'action elle-même.
+   * N'attend que la création, et seulement quand elle attend.
+   */
+  private _acquireAndInvoke(
+    meta: RouteActionMeta,
+    data: unknown[] | undefined,
+    reload: boolean,
+  ): MaybePromise<ActionOutcome> {
+    const pinned = this.context.container?.get("controller") as
       Controller | undefined;
     // Le pointeur "controller" du container est PARTAGÉ par la connexion (WS)
     // et réécrit par tout re-routage (invoke, forward). S'il porte une AUTRE
     // classe que celle de la route courante (connexion WS dont un message a
     // invoké une autre action), le réutiliser chercherait `actionName` sur la
     // mauvaise instance → "Route Action not found". Court-circuité par
-    // `!controller` sur le hot path HTTP (container de requête vierge) → 0 coût.
+    // `!pinned` sur le hot path HTTP (container de requête vierge) → 0 coût.
     if (
-      !controller ||
+      !pinned ||
       reload ||
-      (this.controller && !(controller instanceof this.controller))
+      (this.controller && !(pinned instanceof this.controller))
     ) {
-      controller = await this.newController();
+      return thenMaybe(this.newController(), (controller) =>
+        this._invokeAction(controller, meta, data),
+      );
     }
+    return this._invokeAction(pinned, meta, data);
+  }
+
+  /**
+   * Appelle l'action sur l'instance : état de requête (portée `request`
+   * seulement), arguments, méta de réponse (`@HttpCode`, `@Header`), puis
+   * l'appel — synchrone, sa valeur rendue brute.
+   *
+   * @throws de façon SYNCHRONE ce que lève l'action, ou l'absence d'action.
+   */
+  private _invokeAction(
+    controller: Controller,
+    meta: RouteActionMeta,
+    data: unknown[] | undefined,
+  ): ActionOutcome {
     // V4.3 — `module` est posé à la création (`_createController`), plus par
     // requête. `setRoute` (write per-request sur l'instance) est SKIPPÉ pour
     // un singleton — data race sinon ; son getter `route` dérive du Resolver
@@ -482,7 +592,22 @@ class Resolver implements IResolver {
     throw new Error(`Route Action not found`);
   }
 
-  async callController(data?: unknown[], reload: boolean = false) {
+  /**
+   * Exécute l'action PUIS rend sa valeur sur le transport.
+   *
+   * Synchrone de bout en bout quand rien n'attend — route non gardée,
+   * controller déjà créé, action synchrone, rendu synchrone (#505).
+   *
+   * @param data - args supplémentaires (message WS brut legacy).
+   * @param reload - force une nouvelle instance (forward).
+   * @returns le résultat du rendu, ou sa promesse dès qu'une étape attend.
+   * @throws de façon SYNCHRONE ce que lève une étape synchrone (action,
+   *   construction) ; les échecs asynchrones rompent la promesse rendue.
+   */
+  callController(
+    data?: unknown[],
+    reload: boolean = false,
+  ): MaybePromise<unknown> {
     // P5/P6.8 — meta d'action résolu UNE seule fois ici (memo O(1) : lecture du
     // champ figé `route.actionMeta`) puis PASSÉ à `executeAction` → zéro double
     // résolution sur le hot path. `idempotent === null` sur la quasi-totalité des
@@ -493,11 +618,13 @@ class Resolver implements IResolver {
       : computeActionMeta(this.controller, this.actionName);
     // Pas de try/catch re-throw (no-op) : les erreurs de l'action remontent
     // seules jusqu'à HttpKernel.onError. callController = exécuter PUIS rendre.
-    const { result, redirectMeta } =
+    const outcome =
       meta.idempotent !== null
-        ? await this._callWithIdempotency(meta, data, reload)
-        : await this.executeAction(data, reload, meta);
-    return this._handleRedirect(result, redirectMeta);
+        ? this._callWithIdempotency(meta, data, reload)
+        : this.executeAction(data, reload, meta);
+    return thenMaybe(outcome, (done) =>
+      this._handleRedirect(done.result, done.redirectMeta),
+    );
   }
 
   /**
@@ -550,7 +677,7 @@ class Resolver implements IResolver {
     meta: RouteActionMeta,
     data?: unknown[],
     reload: boolean = false,
-  ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
+  ): Promise<ActionOutcome> {
     const context = this.context;
     // No-op sur méthode sûre → flux normal (l'action décorée peut être un GET
     // si `@Idempotent` est posé sur la classe : seules les mutations sont gatées).
@@ -835,14 +962,32 @@ class Resolver implements IResolver {
     }
   }
 
-  private async _handleRedirect(
+  /**
+   * Applique `@Redirect` à la valeur de l'action, puis la rend.
+   *
+   * Sans `@Redirect` (le cas nominal), rend directement. Avec, la valeur est
+   * attendue seulement si c'est une promesse — une action synchrone qui rend
+   * `undefined` redirige sans suspension.
+   *
+   * @returns le résultat du rendu, ou sa promesse.
+   */
+  private _handleRedirect(
     actionResult: unknown,
     redirectMeta: RedirectMeta | undefined,
-  ): Promise<unknown> {
+  ): MaybePromise<unknown> {
     if (!redirectMeta) {
       return this.returnController(actionResult);
     }
-    const resolved = await Promise.resolve(actionResult);
+    return thenMaybe(actionResult, (resolved) =>
+      this._redirectOrReturn(resolved, redirectMeta),
+    );
+  }
+
+  /** Suite de {@link _handleRedirect}, la valeur de l'action connue. */
+  private _redirectOrReturn(
+    resolved: unknown,
+    redirectMeta: RedirectMeta,
+  ): MaybePromise<unknown> {
     if (
       resolved !== null &&
       resolved !== undefined &&
@@ -866,7 +1011,21 @@ class Resolver implements IResolver {
     return this.returnController(resolved);
   }
 
-  async returnController(result: unknown): Promise<unknown> {
+  /**
+   * Rend la valeur d'une action sur le transport, selon sa nature : promesse
+   * (démêlée puis re-rendue), texte, Buffer, réponse déjà construite, scalaire
+   * ou objet (auto-JSON), rien (l'action envoie elle-même).
+   *
+   * Pas `async` : l'envelopper dans une promesse de plus ne changeait rien au
+   * rendu, et coûtait une suspension à chaque requête (#505). La valeur n'est
+   * attendue que si c'en est une.
+   *
+   * @param result - la valeur rendue par l'action.
+   * @returns ce que rend l'envoi (souvent sa promesse), ou `undefined` quand il
+   *   n'y a rien à envoyer.
+   * @throws de façon SYNCHRONE ce que lève un envoi synchrone.
+   */
+  returnController(result: unknown): MaybePromise<unknown> {
     const type = typeOf(result);
     // `switch (true)` : chaque `case` est une expression booléenne, jamais le
     // littéral `true` — la règle réclame un `case true` qui n'a pas de sens ici,

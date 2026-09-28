@@ -10,6 +10,8 @@ import {
   isFunction,
   isRegExp,
   isPromise,
+  thenMaybe,
+  finallyMaybe,
   isContainer,
   isSubclassOf,
   typeOf,
@@ -702,6 +704,150 @@ describe("isPromise", () => {
   it("string → false", () => expect(isPromise("hello")).to.be.false);
   it("async function → false (function, pas promesse)", () => {
     expect(isPromise(async () => {})).to.be.false;
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// thenMaybe / finallyMaybe — le contrat de RETOUR « valeur ou Promise » (#505)
+//
+// Ce que ces tests fixent n'est pas la valeur calculée, c'est la FORME du
+// retour : synchrone quand rien n'est attendu, promesse sinon, et l'erreur au
+// bon endroit (exception synchrone d'un côté, rejet de l'autre). Un pipeline
+// qui s'appuie sur ces deux fonctions hérite de ce contrat — un écart ici
+// change le moment où la suite s'exécute, sans que le résultat final le dise.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("thenMaybe — un `.then` qui reste synchrone quand rien n'est attendu", () => {
+  it("valeur connue → `next` appelé TOUT DE SUITE, résultat synchrone", () => {
+    const seen: number[] = [];
+    const result = thenMaybe(2, (v) => {
+      seen.push(v);
+      return v * 10;
+    });
+    expect(seen, "next doit avoir tourné avant le retour").to.deep.equal([2]);
+    expect(result).to.equal(20);
+    expect(isPromise(result)).to.be.false;
+  });
+
+  it("valeur connue, `next` asynchrone → la promesse de `next`, rendue telle quelle", async () => {
+    const pending = Promise.resolve("fait");
+    const result = thenMaybe(1, () => pending);
+    expect(result).to.equal(pending);
+    expect(await result).to.equal("fait");
+  });
+
+  it("promesse → `next` n'est PAS appelé avant son règlement ; une Promise est rendue", async () => {
+    const seen: number[] = [];
+    const result = thenMaybe(Promise.resolve(3), (v) => {
+      seen.push(v);
+      return v + 1;
+    });
+    expect(result).to.be.instanceOf(Promise);
+    expect(seen, "next ne doit pas tourner sur une valeur encore attendue").to
+      .be.empty;
+    expect(await result).to.equal(4);
+    expect(seen).to.deep.equal([3]);
+  });
+
+  it("valeur connue, `next` lève → exception SYNCHRONE (pas un rejet)", () => {
+    const boom = new Error("boom");
+    expect(() =>
+      thenMaybe(1, () => {
+        throw boom;
+      }),
+    ).to.throw(boom);
+  });
+
+  it("promesse, `next` lève → la Promise rendue est rompue par cette erreur", async () => {
+    const boom = new Error("boom");
+    const result = thenMaybe(Promise.resolve(1), () => {
+      throw boom;
+    });
+    let caught: unknown = null;
+    await Promise.resolve(result).catch((e: unknown) => (caught = e));
+    expect(caught).to.equal(boom);
+  });
+
+  it("promesse rompue → rejet transmis, `next` jamais appelé", async () => {
+    const boom = new Error("rompue");
+    let called = false;
+    const result = thenMaybe(Promise.reject(boom), () => {
+      called = true;
+    });
+    let caught: unknown = null;
+    await Promise.resolve(result).catch((e: unknown) => (caught = e));
+    expect(caught).to.equal(boom);
+    expect(called).to.be.false;
+  });
+
+  it("thenable étranger → attendu, et normalisé en Promise native", async () => {
+    // Un thenable MINIMAL (le seul `then`, sans rien rendre) — la forme d'une
+    // promesse d'une autre bibliothèque, pas celle d'une Promise native.
+    const foreign = {
+      // oxlint-disable-next-line no-thenable
+      then: (resolve: (v: number) => void) => resolve(7),
+    } as unknown as PromiseLike<number>;
+    const result = thenMaybe(foreign, (v) => v * 2);
+    expect(result).to.be.instanceOf(Promise);
+    expect(await result).to.equal(14);
+  });
+});
+
+describe("finallyMaybe — le `try/finally` d'une étape asynchrone seulement quand elle attend", () => {
+  it("valeur connue → `onSettled` AVANT le retour, résultat synchrone", () => {
+    const order: string[] = [];
+    const result = finallyMaybe(
+      () => {
+        order.push("step");
+        return 5;
+      },
+      () => order.push("settled"),
+    );
+    expect(order).to.deep.equal(["step", "settled"]);
+    expect(result).to.equal(5);
+    expect(isPromise(result)).to.be.false;
+  });
+
+  it("exception synchrone → `onSettled` appelé, puis la MÊME erreur relevée", () => {
+    const boom = new Error("boom");
+    let settled = false;
+    expect(() =>
+      finallyMaybe(
+        () => {
+          throw boom;
+        },
+        () => (settled = true),
+      ),
+    ).to.throw(boom);
+    expect(settled).to.be.true;
+  });
+
+  it("promesse tenue → `onSettled` seulement au règlement, valeur transmise", async () => {
+    let settled = false;
+    let release!: (v: string) => void;
+    const step = new Promise<string>((r) => (release = r));
+    const result = finallyMaybe(
+      () => step,
+      () => (settled = true),
+    );
+    expect(result).to.be.instanceOf(Promise);
+    expect(settled, "rien n'est encore réglé").to.be.false;
+    release("ok");
+    expect(await result).to.equal("ok");
+    expect(settled).to.be.true;
+  });
+
+  it("promesse rompue → `onSettled` appelé, rejet transmis tel quel", async () => {
+    const boom = new Error("rompue");
+    let settled = false;
+    const result = finallyMaybe(
+      () => Promise.reject(boom),
+      () => (settled = true),
+    );
+    let caught: unknown = null;
+    await Promise.resolve(result).catch((e: unknown) => (caught = e));
+    expect(caught).to.equal(boom);
+    expect(settled).to.be.true;
   });
 });
 

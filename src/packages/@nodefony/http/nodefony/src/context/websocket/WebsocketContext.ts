@@ -36,6 +36,29 @@ export interface IWsRequestExtension {
 export type WsIncomingMessage = IncomingMessage & IWsRequestExtension;
 
 import type { IWebsocketContext as IWebsocketContextInterface } from "../../../interfaces/IContext";
+import type { IRouteResolver } from "../../../interfaces/IRouting";
+
+/**
+ * Appelle l'action résolue et rend TOUJOURS une promesse.
+ *
+ * `callController` rend une valeur ou une promesse, et peut lever de façon
+ * synchrone (#505). Démarré dans l'exécuteur d'une promesse, l'appel transforme
+ * une exception synchrone en REJET : les deux sites WS la traitent comme avant
+ * — le handshake par son `catch` de fermeture RFC 6455, le message en la
+ * rendant à l'appelant sans passer par le `catch` 1011.
+ *
+ * @param resolver - le résolveur de la connexion.
+ * @param data - les arguments de l'action (message reçu).
+ * @returns la promesse du rendu, rompue par toute erreur de l'action.
+ */
+function callAsPromise(
+  resolver: IRouteResolver,
+  data?: unknown[],
+): Promise<unknown> {
+  return new Promise<unknown>((resolve) => {
+    resolve(resolver.callController(data));
+  });
+}
 
 /**
  * Coerce un code (applicatif / HTTP / WS) en code de fermeture WebSocket VALIDE
@@ -304,8 +327,10 @@ export default class WebsocketContext
           },
         },
       });
-      await this.resolver
-        .callController(data)
+      // Toujours une promesse (cf `callAsPromise`) : une exception synchrone de
+      // l'action passe par le MÊME `catch` qui ferme la socket avec son code
+      // (RFC 6455) — sans quoi elle remonterait sans fermeture ni rejet.
+      await callAsPromise(this.resolver, data)
         .then(async () => {
           await this.saveSession().then((session) => {
             if (session) {
@@ -504,9 +529,11 @@ export default class WebsocketContext
         });
         // Promesse rendue SANS `await` (voulu) : une erreur du contrôleur ne
         // passe pas par le `catch` ci-dessous, qui fermerait la socket en 1011
-        // — seul un échec de routage/de `onMessage` la ferme.
+        // — seul un échec de routage/de `onMessage` la ferme. `callAsPromise`
+        // garde cette règle quand l'action lève de façon SYNCHRONE : l'exception
+        // devient un rejet rendu, jamais attrapé ici.
         // oxlint-disable-next-line typescript/return-await
-        return this.resolver.callController([message]);
+        return callAsPromise(this.resolver, [message]);
       } else if (!this.rejected) {
         this.reject(4004, "Not Found");
         this.rejected = true;

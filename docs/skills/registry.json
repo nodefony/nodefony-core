@@ -4363,6 +4363,20 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/promise-sites.mjs",
+            "purpose": "Carte des sites de création des Promises d'UNE requête (#505) — préchargé par",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_PROMISE_COUNTER_PORT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/ratelimit-e2e.mjs",
             "purpose": "Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur.",
             "usage": [

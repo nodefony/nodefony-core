@@ -326,6 +326,8 @@ export {
   extend,
   typeOf,
   isPromise,
+  thenMaybe,
+  finallyMaybe,
   isEmptyObject,
   isPlainObject,
   isUndefined,
@@ -336,6 +338,7 @@ export {
   stripTrailingSlashes,
   escapeRegExp,
 } from "./Tools";
+export type { MaybePromise } from "./Tools";
 
 // ─── Config (defineConfig — back-only, zod peerDep core, D1) ──────────────────
 // Absent du barrel browser (src/client/index.ts) → 0 zod côté client.

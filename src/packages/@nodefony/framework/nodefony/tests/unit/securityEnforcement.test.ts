@@ -85,11 +85,14 @@ function makeResolver(opts: {
   return r;
 }
 
+// Reçoit l'APPEL, pas sa promesse : une action peut échouer de façon
+// synchrone (le Resolver rend une valeur OU une promesse, #505) — l'exception
+// serait sinon levée avant même d'entrer ici.
 async function caught(
-  p: Promise<unknown>,
+  call: () => unknown,
 ): Promise<{ code?: number; message?: string } | null> {
   try {
-    await p;
+    await call();
     return null;
   } catch (e) {
     return e as { code?: number; message?: string };
@@ -103,7 +106,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
       decide: async () => false,
     });
     const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
-      caught(r.executeAction()),
+      caught(() => r.executeAction()),
     );
     expect(err?.code).to.equal(403);
   });
@@ -121,7 +124,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
       kernel: { environment: "development", modules: { security: {} } },
     });
     const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
-      caught(r.executeAction()),
+      caught(() => r.executeAction()),
     );
     expect(err?.code).to.equal(403);
     expect(err?.message).to.contain("@IsGranted");
@@ -137,7 +140,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
     // RequestContext sans `token` : ce n'est pas un manque de droits, c'est
     // qu'aucune identité n'a été résolue — deux pannes distinctes, deux phrases.
     const err = await RequestContext.run({ requestId: "t" }, () =>
-      caught(r.executeAction()),
+      caught(() => r.executeAction()),
     );
     expect(err?.code).to.equal(403);
     expect(err?.message).to.contain("identité");
@@ -151,7 +154,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
       kernel: { environment: "production", modules: { security: {} } },
     });
     const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
-      caught(r.executeAction()),
+      caught(() => r.executeAction()),
     );
     expect(err?.code).to.equal(403);
     expect(err?.message).to.equal("Access denied");
@@ -168,7 +171,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
   it("fail-closed : route gardée mais moteur authorization absent → 403", async () => {
     const r = makeResolver({ security: ROLE_CLAUSE }); // pas de decide → pas de service
     const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
-      caught(r.executeAction()),
+      caught(() => r.executeAction()),
     );
     expect(err?.code).to.equal(403);
   });
@@ -177,7 +180,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
     const r = makeResolver({ security: ROLE_CLAUSE, decide: async () => true });
     // RequestContext sans `token` → fail-closed.
     const err = await RequestContext.run({ requestId: "t" }, () =>
-      caught(r.executeAction()),
+      caught(() => r.executeAction()),
     );
     expect(err?.code).to.equal(403);
   });
@@ -202,7 +205,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
       decide: async (_t, attr) => attr === "ROLE_USER", // ROLE_ADMIN refusé
     });
     const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
-      caught(r.executeAction()),
+      caught(() => r.executeAction()),
     );
     expect(err?.code).to.equal(403);
   });
@@ -270,7 +273,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
     r.newController = async () =>
       Object.create(ForwardCtrl.prototype) as ForwardCtrl;
     const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
-      caught(r.executeAction()),
+      caught(() => r.executeAction()),
     );
     expect(err?.code).to.equal(403); // garde appliquée même sans route mémoïsée
   });

@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 881,
-    "symbols": 4380,
+    "symbols": 4386,
     "classes": 404,
     "interfaces": 1148,
-    "types": 470,
+    "types": 472,
     "enums": 4,
-    "functions": 1913,
-    "constants": 441
+    "functions": 1915,
+    "constants": 443
   },
   "symbols": {
     "Cli": {
@@ -241,6 +241,14 @@
       ],
       "decorators": []
     },
+    "MaybePromise": {
+      "name": "MaybePromise",
+      "kind": "type",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une valeur déjà connue, ou la promesse de cette valeur — le type de retour d'une étape qui n'est asynchrone que lorsqu'elle attend réellement (un corps à lire, une base, un hook qui rend une promes…"
+    },
     "isArray": {
       "name": "isArray",
       "kind": "const",
@@ -319,6 +327,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Vérifie qu'une valeur est une `Promise` ou un thenable (duck-typing `.then`). Accepte les promesses natives ET les bibliothèques tierces (Bluebird, etc.) qui implémentent le protocole Promises/A+."
+    },
+    "thenMaybe": {
+      "name": "thenMaybe",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Enchaîne `onResolved` sur une valeur qui peut être déjà connue ou encore attendue — un `.then` qui reste SYNCHRONE quand il n'y a rien à attendre. Pourquoi pas `await` : un `await` sur une valeur d…"
+    },
+    "finallyMaybe": {
+      "name": "finallyMaybe",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Exécute `step`, puis `onSettled` quoi qu'il arrive — le `try/finally` d'une étape qui n'est asynchrone que lorsqu'elle attend. `onSettled` part immédiatement après une valeur ou une exception synch…"
     },
     "isSubclassOf": {
       "name": "isSubclassOf",
@@ -33175,7 +33199,9 @@
       ],
       "isPromise": [
         "src/nodefony/src/client/index.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "isSubclassOf": [
         "src/nodefony/src/client/index.ts",
@@ -37532,7 +37558,17 @@
       "IRouteResolver": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "MaybePromise": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IRouting.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "IController": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
@@ -37722,6 +37758,15 @@
       "identityHint": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "thenMaybe": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+      ],
+      "finallyMaybe": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"

@@ -244,12 +244,82 @@ const isError = (it: unknown): it is Error => it instanceof Error;
  * @param obj - valeur à tester.
  * @returns `true` si `obj instanceof Promise` ou `typeof obj.then === "function"`.
  */
-const isPromise = (obj: unknown): boolean => {
+const isPromise = (obj: unknown): obj is PromiseLike<unknown> => {
   if (obj instanceof Promise) return true;
   if (!obj || (typeof obj !== "object" && typeof obj !== "function")) {
     return false;
   }
   return "then" in obj && typeof obj.then === "function";
+};
+
+/**
+ * Une valeur déjà connue, ou la promesse de cette valeur — le type de retour
+ * d'une étape qui n'est asynchrone que lorsqu'elle attend réellement (un corps
+ * à lire, une base, un hook qui rend une promesse).
+ */
+type MaybePromise<T> = T | Promise<T>;
+
+/**
+ * Enchaîne `onResolved` sur une valeur qui peut être déjà connue ou encore attendue —
+ * un `.then` qui reste SYNCHRONE quand il n'y a rien à attendre.
+ *
+ * Pourquoi pas `await` : un `await` sur une valeur déjà connue crée une
+ * Promise, suspend la fonction et reporte la suite d'une micro-tâche, pour un
+ * résultat identique. Sur le chemin d'une requête, ces suspensions sans objet
+ * se comptaient par dizaines (#505). Ici, `onResolved` est appelé directement quand
+ * `value` n'est pas une promesse ; `then` n'intervient que quand elle en est une.
+ *
+ * Toute valeur « thenable » (duck-typing d'{@link isPromise}) est attendue : une
+ * promesse d'une autre bibliothèque est normalisée en Promise native.
+ *
+ * @param value - la valeur, ou la promesse de cette valeur.
+ * @param onResolved - la suite ; elle peut rendre une valeur ou une promesse.
+ * @returns le résultat de `onResolved` : synchrone si `value` et `onResolved`
+ *   le sont, une Promise sinon.
+ * @throws ce que `onResolved` lève, quand `value` était synchrone — sinon
+ *   l'erreur devient le rejet de la Promise rendue.
+ */
+const thenMaybe = <T, U>(
+  value: T | PromiseLike<T>,
+  onResolved: (resolved: T) => MaybePromise<U>,
+): MaybePromise<U> => {
+  if (isPromise(value)) {
+    // `Promise.resolve` rend la promesse native elle-même (aucune allocation)
+    // et n'enveloppe qu'un thenable étranger.
+    return (Promise.resolve(value) as Promise<T>).then(onResolved);
+  }
+  return onResolved(value);
+};
+
+/**
+ * Exécute `step`, puis `onSettled` quoi qu'il arrive — le `try/finally` d'une
+ * étape qui n'est asynchrone que lorsqu'elle attend.
+ *
+ * `onSettled` part immédiatement après une valeur ou une exception synchrones ;
+ * après le règlement (tenu OU rompu) quand `step` rend une promesse. Le
+ * résultat, l'exception ou le rejet de `step` sont transmis tels quels.
+ *
+ * @param step - l'étape à exécuter.
+ * @param onSettled - ce qui doit suivre dans tous les cas (fin de phase…).
+ * @returns le résultat de `step`, dans la forme où il est venu.
+ * @throws ce que `step` lève de façon synchrone, après `onSettled`.
+ */
+const finallyMaybe = <T>(
+  step: () => MaybePromise<T>,
+  onSettled: () => void,
+): MaybePromise<T> => {
+  let result: MaybePromise<T>;
+  try {
+    result = step();
+  } catch (error) {
+    onSettled();
+    throw error;
+  }
+  if (isPromise(result)) {
+    return (Promise.resolve(result) as Promise<T>).finally(onSettled);
+  }
+  onSettled();
+  return result;
 };
 
 /**
@@ -327,7 +397,10 @@ export {
   isFunction,
   isArray,
   isPromise,
+  thenMaybe,
+  finallyMaybe,
   isSubclassOf,
   stripTrailingSlashes,
   escapeRegExp,
 };
+export type { MaybePromise };

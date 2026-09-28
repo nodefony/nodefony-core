@@ -461,12 +461,28 @@ class Context extends Service implements IContextInterface {
     this._afterResponseFns.push(boundFn);
   }
 
-  async _runAfterResponse(): Promise<void> {
-    if (this._afterResponseFired) return;
+  /**
+   * Exécute les hooks `onAfterResponse`, une seule fois, dans l'ordre
+   * d'enregistrement ; un hook qui lève est journalisé sans arrêter les suivants.
+   *
+   * @returns `undefined` quand aucun hook n'est enregistré (le cas nominal) ou
+   *   qu'ils ont déjà tourné : rien à attendre, le démontage continue sans
+   *   suspension. Une `Promise` sinon, réglée quand le dernier hook a fini — elle
+   *   ne rejette jamais.
+   */
+  _runAfterResponse(): Promise<void> | undefined {
+    if (this._afterResponseFired) return undefined;
     this._afterResponseFired = true;
     const fns = this._afterResponseFns;
-    if (fns === null || fns.length === 0) return;
+    if (fns === null || fns.length === 0) return undefined;
     this._afterResponseFns = null;
+    return this.runAfterResponseHooks(fns);
+  }
+
+  /** Boucle des hooks `onAfterResponse` — séquentielle, erreurs journalisées. */
+  private async runAfterResponseHooks(
+    fns: AfterResponseHandler[],
+  ): Promise<void> {
     for (const fn of fns) {
       try {
         await fn(this);

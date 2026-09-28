@@ -252,6 +252,13 @@ export const BENCH_DECOR: Record<string, IEnvDeclaration> = {
     absent: "La mesure porte sur 5000 messages.",
     group: "banc cluster temps réel",
   },
+  NF_PROMISE_COUNTER_PORT: {
+    what: "Port où le compteur de Promises préchargé (`promiseCounter.mjs`, `promise-sites.mjs`) sert son total — la garde du budget de Promises le lit.",
+    values: "port — défaut 5199",
+    absent:
+      "Le compteur écoute sur 5199 ; si ce port est pris, il se tait en le disant, et la garde échoue « compteur injoignable » au lieu de mesurer.",
+    group: "budget de Promises (#505)",
+  },
   NF_RT_CHANNEL: {
     what: "Canal temps réel sur lequel les exemplaires du banc cluster se parlent.",
     values: "nom de canal — défaut `nodefony:rt:e2e`",

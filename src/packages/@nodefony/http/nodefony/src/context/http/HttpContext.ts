@@ -16,6 +16,7 @@ import {
   Container,
   typeOf,
   Scope,
+  thenMaybe,
   //Service,
   //Severity,
   //Msgid,
@@ -23,6 +24,7 @@ import {
   //Pdu,
   //KernelEventsType,
 } from "nodefony";
+import type { MaybePromise } from "nodefony";
 import HttpRequest from "./Request";
 import HttpResponse from "./Response";
 import Http2Request from "../http2/Request";
@@ -248,14 +250,22 @@ class HttpContext extends Context implements IHttpContextInterface {
     return req.scheme as SchemeType;
   }
 
-  // P7 — fonction async directe (plus de `new Promise(async executor)` : un
-  // throw de l'executor y était avalé par le constructeur Promise → rejet
-  // silencieux/pendu selon le timing).
-  async handle(/*data*/): Promise<this> {
+  /**
+   * Sert la requête : délai de réponse, hooks `onRequest`, puis l'action
+   * résolue et son rendu (`resolver.callController()`).
+   *
+   * Pas `async` : synchrone quand l'action et son rendu le sont, rien n'y est
+   * alors attendu (#505).
+   *
+   * @returns ce que rend `callController()` — le résultat du rendu, pas le
+   *   contexte (comportement historique, conservé) —, ou sa promesse. Sur une
+   *   redirection déjà posée : le contexte, une fois l'envoi fait.
+   * @throws HttpError 404, de façon SYNCHRONE, quand aucune route ne résout.
+   */
+  handle(/*data*/): MaybePromise<this> {
     this.setTimeout();
     if (this.isRedirect) {
-      await this.send();
-      return this;
+      return thenMaybe(this.send(), () => this);
     }
     // NB perf : pas de copie des paramètres de requête dans le scope DI. Les décorateurs
     // @Query/@Param/@Body lisent `ctx.request.queryGet/queryPost/queryFile`
@@ -276,8 +286,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     }
     if (this.resolver?.resolve) {
       this.setMetaData();
-      const ret = await this.resolver.callController();
-      return ret as this;
+      return this.resolver.callController() as MaybePromise<this>;
     }
     throw new HttpError("", 404, this);
   }

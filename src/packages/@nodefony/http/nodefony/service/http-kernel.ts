@@ -13,7 +13,11 @@ import {
   GcScheduler,
   writeRuntimeState,
   servedUrl,
+  isPromise,
+  thenMaybe,
+  finallyMaybe,
 } from "nodefony";
+import type { MaybePromise } from "nodefony";
 import type { IRouteResolver, IRequestRouter } from "../interfaces/IRouting";
 import HttpError from "../src/errors/httpError";
 import {
@@ -166,6 +170,12 @@ const perfProbe: IPerfProbe | null =
 if (perfProbe) {
   (globalThis as unknown as Record<string, unknown>).__nfPerfProbe = perfProbe;
 }
+
+/**
+ * Règlement ignoré d'une promesse dont personne n'attend l'issue — UNE fonction
+ * de module, jamais une fermeture allouée par requête.
+ */
+const ignoreSettled = (): void => undefined;
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -739,7 +749,17 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // "default" → keep DefaultRequestLogger already set as field default.
   }
 
-  async handle(
+  /**
+   * Ouvre le scope `request` de la requête et la confie au pipeline HTTP.
+   *
+   * Pas `async` : rien n'y est attendu — la fonction rend directement la
+   * promesse du pipeline, sans l'envelopper dans une seconde (#505).
+   *
+   * @returns la promesse du contexte servi (celle de {@link handleHttp}).
+   * @throws de façon synchrone si le scope `request` n'est pas déclaré — faute
+   *   de configuration ; l'appelant ({@link onHttpRequest}) l'absorbe.
+   */
+  handle(
     request: httpRequest,
     response: httpResponse | null,
     type: ServerType,
@@ -779,16 +799,19 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * elle, exécute du code utilisateur (`initialize()`) et résout des dépendances
    * DI : elle n'a rien à faire avant que la requête soit autorisée.
    *
+   * Synchrone : le match est un calcul pur, rien n'y est attendu (#505).
+   *
    * @param checkFirewall - calcule `context.secure` (zone protégée) ; laissé à
    *   `false` par un appelant qui l'a déjà tranché.
+   * @returns le résolveur de la route, posé sur `context.resolver`.
    * @throws HttpError 404 quand aucune route ne matche, ou l'exception portée
-   *   par le résolveur (405…) — inchangé, et toujours avant le firewall : une
-   *   route inexistante ne devient pas un 401.
+   *   par le résolveur (405…) — de façon SYNCHRONE, et toujours avant le
+   *   firewall : une route inexistante ne devient pas un 401.
    */
-  async prepareFrontController(
+  prepareFrontController(
     context: ContextType,
     checkFirewall: boolean = true,
-  ): Promise<IRouteResolver> {
+  ): IRouteResolver {
     if (!this.router) {
       throw new Error("kernel HTTP not ready");
     }
@@ -833,7 +856,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     context: ContextType,
     checkFirewall: boolean = true,
   ): Promise<object> {
-    const resolver = await this.prepareFrontController(context, checkFirewall);
+    const resolver = this.prepareFrontController(context, checkFirewall);
     return resolver.newController(context);
   }
 
@@ -969,11 +992,48 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     );
   }
 
-  async onHttpRequest(
+  /**
+   * Point d'entrée d'une requête HTTP, appelé par les serveurs depuis leur
+   * écouteur `request`.
+   *
+   * Ne lève et ne rejette JAMAIS : dans un écouteur d'événement, une exception
+   * deviendrait une erreur non capturée du processus. Ce qui échappe au
+   * pipeline a déjà été traité — rendu au client par `onError`, qui journalise
+   * en CRITIC l'échec de son propre rendu avant de le relever. C'était le
+   * `.catch` vide des serveurs ; il vit désormais ici, une seule fois.
+   *
+   * @returns `undefined` quand la requête est servie sans pipeline (sonde de
+   *   santé, 429) ; sinon la promesse de la fin du pipeline — elle ne rejette
+   *   pas, et personne n'est tenu de l'attendre.
+   */
+  onHttpRequest(
     request: httpRequest,
     response: httpResponse,
     type: ServerType,
-  ): Promise<unknown> {
+  ): Promise<void> | undefined {
+    let pipeline: MaybePromise<unknown>;
+    try {
+      pipeline = this.dispatchHttpRequest(request, response, type);
+    } catch {
+      return undefined;
+    }
+    return isPromise(pipeline)
+      ? Promise.resolve(pipeline).then(ignoreSettled, ignoreSettled)
+      : undefined;
+  }
+
+  /**
+   * Le travail d'{@link onHttpRequest} : en-têtes de transport, sondes de
+   * santé, rate-limit, hook `onServerRequest`, puis le pipeline.
+   *
+   * @returns `undefined` quand la requête est servie ici ; sinon la promesse du
+   *   pipeline.
+   */
+  private dispatchHttpRequest(
+    request: httpRequest,
+    response: httpResponse,
+    type: ServerType,
+  ): MaybePromise<unknown> {
     // `headerServer: null` = NE PAS exposer l'identité du framework (anti-fingerprint
     // OWASP, recommandé en prod) → on N'ÉMET PAS l'en-tête (sinon `setHeader` enverrait
     // le littéral "null", qui n'efface rien). Une string vide est traitée pareil.
@@ -1057,8 +1117,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // devenu un FALLBACK du 404 dans `handleHttp` (après le route-match). Le point
     // d'entrée se limite au hook `onServerRequest` (guardé 0-listener) puis délègue
     // au pipeline. Une requête qui matche une route ne touche plus le disque.
-    if (this.listenerCount("onServerRequest"))
-      await this.fireAsync("onServerRequest", request, response, type);
+    if (this.listenerCount("onServerRequest")) {
+      return this.fireAsync("onServerRequest", request, response, type).then(
+        () => this.handle(request, response, type),
+      );
+    }
     return this.handle(request, response, type);
   }
 
@@ -1171,12 +1234,18 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * session (lazy). Remplace l'ancien `sessionAutoStart` global « démarre sur
    * toutes les routes » (le moteur du ×23).
    *
+   * Le contrat de retour suit ce qui est réellement attendu : `null` tout de
+   * suite quand aucune session n'est à ouvrir (le cas nominal — ni intent, ni
+   * cookie), la promesse de la session seulement quand le store est interrogé
+   * (#505).
+   *
    * @param context - contexte HTTP/HTTP2/WS courant.
-   * @returns la session active, ou `null` si la requête n'en requiert aucune.
+   * @returns `null` si la requête n'en requiert aucune ; sinon la promesse de
+   *   la session active.
    */
-  async startSession(
+  startSession(
     context: WebsocketContext | HttpContext,
-  ): Promise<Session | null> {
+  ): MaybePromise<Session | null> {
     if (!this.sessionService) {
       return null;
     }
@@ -1214,24 +1283,31 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (!intent && !context.hasSession()) {
       return null;
     }
-    const session = await this.sessionService.start(context, intent?.readOnly);
     // Le lien identité↔session n'est PAS ici : c'est `@nodefony/security` qui,
     // au login, régénère l'identifiant (`AuthFlow.#openSession()` →
     // `session.regenerateId()`, anti session-fixation OWASP). Ce point de code
     // n'ouvre que la session, sans rien savoir de l'identité.
-    return session;
+    return this.sessionService.start(context, intent?.readOnly);
   }
 
   /**
-   * Teardown post-réponse — fire-and-forget depuis le `once("close")` posé par
-   * `createHttpContext` (un seul fire possible : once auto-détaché). Loggue la
-   * requête, draine les hooks afterResponse/onFinish, libère le scope DI.
+   * Teardown post-réponse — fire-and-forget depuis l'écouteur `close` posé par
+   * `createHttpContext`. Loggue la requête, draine les hooks
+   * afterResponse/onFinish, libère le scope DI.
+   *
+   * Synchrone dans le cas nominal — aucun hook `onAfterResponse`, aucun écouteur
+   * `onFinish` : rien n'y est attendu (#505). Ne lève et ne rejette jamais —
+   * l'appelant est un écouteur d'événement : une faute est journalisée, et le
+   * scope TOUJOURS libéré.
+   *
+   * @returns `undefined` quand le démontage est terminé ; sinon la promesse de
+   *   sa fin, qui ne rejette pas.
    */
-  private async teardownHttp(
+  private teardownHttp(
     context: HttpContext,
     scope: Scope,
-  ): Promise<void> {
-    if (context.finished) return;
+  ): Promise<void> | undefined {
+    if (context.finished) return undefined;
     try {
       // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
       // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
@@ -1252,31 +1328,68 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       context.logPhasesVerbose();
       // Snapshot dev-only AVANT clean() (la donnée disparaît après).
       this.profiler?.collect(context);
-      await context._runAfterResponse();
+      const afterResponse = context._runAfterResponse();
       // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
       // listener que si un controller a posé un hook → 0 microtask sinon.
+      if (afterResponse !== undefined || context.listenerCount("onFinish")) {
+        return this.finishTeardownHttp(context, scope, afterResponse);
+      }
+      this.releaseHttpContext(context, scope);
+    } catch (e) {
+      this.failTeardownHttp(e, context, scope);
+    }
+    return undefined;
+  }
+
+  /**
+   * Suite ASYNCHRONE du démontage, quand il y a des hooks à attendre :
+   * `onAfterResponse` puis `onFinish`, avant de libérer le contexte. Ne rejette
+   * jamais (cf {@link teardownHttp}).
+   */
+  private async finishTeardownHttp(
+    context: HttpContext,
+    scope: Scope,
+    afterResponse: Promise<void> | undefined,
+  ): Promise<void> {
+    try {
+      if (afterResponse !== undefined) await afterResponse;
       if (context.listenerCount("onFinish"))
         await context.fireAsync("onFinish", context);
-      context.finished = true;
-      if (perfProbe) {
-        const t0 = process.hrtime.bigint();
-        this.container?.leaveScope(scope);
-        perfProbe.leaveScopeNs += Number(process.hrtime.bigint() - t0);
-      } else {
-        this.container?.leaveScope(scope);
-      }
-      context.clean();
+      this.releaseHttpContext(context, scope);
     } catch (e) {
-      // R2 — teardown est fire-and-forget (`void this.teardownHttp(...)`) : un
-      // throw ici (hook onFinish / afterResponse) serait un unhandledRejection
-      // process-wide. On loggue, et on GARANTIT la libération du scope DI
-      // (sinon le scope `request` fuit à chaque hook qui throw).
-      this.log(e, "ERROR", "TEARDOWN");
-      if (!context.finished) {
-        context.finished = true;
-        this.container?.leaveScope(scope);
-        context.clean();
-      }
+      this.failTeardownHttp(e, context, scope);
+    }
+  }
+
+  /** Fin d'un contexte HTTP : marqué fini, scope DI libéré, contexte nettoyé. */
+  private releaseHttpContext(context: HttpContext, scope: Scope): void {
+    context.finished = true;
+    if (perfProbe) {
+      const t0 = process.hrtime.bigint();
+      this.container?.leaveScope(scope);
+      perfProbe.leaveScopeNs += Number(process.hrtime.bigint() - t0);
+    } else {
+      this.container?.leaveScope(scope);
+    }
+    context.clean();
+  }
+
+  /**
+   * R2 — le démontage est fire-and-forget : un throw (hook onFinish /
+   * afterResponse) serait une erreur non capturée du processus. On journalise,
+   * et on GARANTIT la libération du scope DI (sinon le scope `request` fuit à
+   * chaque hook qui lève).
+   */
+  private failTeardownHttp(
+    e: unknown,
+    context: HttpContext,
+    scope: Scope,
+  ): void {
+    this.log(e, "ERROR", "TEARDOWN");
+    if (!context.finished) {
+      context.finished = true;
+      this.container?.leaveScope(scope);
+      context.clean();
     }
   }
 
@@ -1367,7 +1480,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       const httpContext: HttpContext = context;
       // P1.4 — enter ALS scope so requestId is propagated to every
       // downstream async hop (logs, ORM, security decorators, etc.).
-      return await RequestContext.run(
+      const served = RequestContext.run(
         {
           requestId: context.requestId,
           scheme: context.scheme,
@@ -1381,98 +1494,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // littéral déjà alloué : aucune allocation.
           scope,
         },
-        async (): Promise<HttpContext> => {
-          // CORS (P6 J5) — AVANT le routing : un preflight `OPTIONS` n'a pas de
-          // route déclarée → le router lèverait un 405. `handleCors` pose les
-          // en-têtes `Access-Control-*` (requête réelle, puis on poursuit) ou
-          // renvoie 204 (preflight) → court-circuit total : ni routing, ni parse,
-          // ni firewall (le preflight ne s'authentifie pas — Fetch Standard).
-          // HTTP only : le WebSocket n'a pas de CORS (origine vérifiée au handshake).
-          if (this.firewall?.handleCors(httpContext) === 204) {
-            httpContext.response.writeHead(204);
-            // `end()` rend une promesse : l'attendre fait remonter son rejet au
-            // `catch` du pipeline au lieu d'un rejet non géré (préflight seul).
-            await httpContext.response.end();
-            return httpContext;
-          }
-          // #494 — premier point DANS la bulle ALS : le scope de la requête est
-          // lisible, rien n'a encore été lu du corps. C'est ici qu'une
-          // application reconnaît l'organisation (nom d'hôte, en-tête…) et pose
-          // son calque de configuration (`overlayConfig`), qui s'applique alors
-          // aux quotas de corps et d'envoi. Compté d'abord : sans écouteur, ni
-          // émission ni microtâche sur le chemin de requête.
-          if (this.kernel && this.kernel.listenerCount("onRequestScope") > 0) {
-            await this.kernel.fireAsync("onRequestScope", context);
-          }
-          // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
-          // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand
-          // l'action attend le flux brut (`@Body({ stream:true })` → le controller
-          // pipe le Readable lui-même, sans pic mémoire). Le résolveur est RÉUTILISÉ
-          // par handleFrontController (pas de double match → net ~0 perf). resolve()
-          // ne throw jamais (pose `resolver.exception`) ; route non matchée → parse
-          // normal (comportement 404 inchangé). Isolé HTTP : handleWebsocket ne
-          // parse aucun body. Ordre des hooks P6 (beforeResolve/firewall) inchangé.
-          httpContext.phaseStart("resolve");
-          httpContext.resolver = this.router
-            ? this.router.resolve(httpContext)
-            : null;
-          httpContext.phaseEnd("resolve");
-          // En-têtes de sécurité APPLICATIFS (P6 J5 — CSP/Referrer/COOP…), posés
-          // APRÈS le resolve (P6 @Csp) → le Resolver a posé `ctx.cspDirectives`
-          // depuis `@Csp` de la route, que `applySecurityHeaders` fusionne dans le
-          // CSP. Toujours AVANT le fallback static + le `writeHead` → présents sur
-          // toute réponse (succès, 404/405, fichier statique). Le preflight CORS a
-          // court-circuité plus haut (204). Complète le socle transport (nosniff/
-          // frame/HSTS) posé à `onHttpRequest`. No-op si security absent/désactivé.
-          this.firewall?.applySecurityHeaders(httpContext);
-          // ROUTER-FIRST (façon Express) : aucune route matchée → FALLBACK static.
-          // `serverStatic.handle` reste PENDING si un fichier est servi (court-circuit
-          // total — response.end → `onFinish` → teardown déjà wired par
-          // createHttpContext) ; il RESOLVE si aucun fichier → on poursuit le pipeline
-          // jusqu'au 404. Bénéfice : une requête qui matche une route ne paie plus le
-          // fs.stat/path.normalize de serve-static (≈ +26 % RPS sur les routes API).
-          if (
-            this.serverStatic &&
-            httpContext.resolver?.resolve !== true &&
-            !httpContext.resolver?.exception &&
-            (asServersConfig(this.kernel?.options.servers)?.statics ||
-              this.kernel?.options.statics ||
-              this.serverStatic.hasMounts())
-          ) {
-            // Le Context a déjà posé le Content-Type par défaut
-            // (application/octet-stream) ; `serve-static` ne l'écrase PAS s'il
-            // existe → on le retire pour qu'il pose le vrai type du fichier
-            // (image/x-icon, video/webm…). En static-first aucun CT n'était
-            // pré-posé : on restaure ce comportement.
-            response.removeHeader("Content-Type");
-            await this.serverStatic
-              .handle(request, response)
-              .catch(() => undefined);
-          }
-          const streamBody =
-            httpContext.resolver?.resolve === true &&
-            httpContext.resolver.route?.bodyStream === true;
-          httpContext.phaseStart("parse");
-          try {
-            if (!streamBody) {
-              await httpContext.request.initialize();
-            }
-            // streamBody : body laissé en flux brut (Readable) pour @Body({stream})
-          } finally {
-            httpContext.phaseEnd("parse");
-          }
-          const ctx = await this.onRequestEnd(httpContext);
-          if (ctx instanceof Context) {
-            ctx.phaseStart("action");
-            try {
-              return await ctx.handle();
-            } finally {
-              ctx.phaseEnd("action");
-            }
-          }
-          return httpContext;
-        },
+        () => this.runHttpPipeline(httpContext, request, response),
       );
+      // Attendu SEULEMENT quand une étape a rendu une promesse : un GET servi
+      // par une action synchrone traverse le pipeline sans suspension (#505).
+      return isPromise(served) ? await served : served;
     } catch (e) {
       if (context === null) {
         // Le contexte n'a pas pu se construire : le `once("close")` qui mène à
@@ -1488,10 +1514,158 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
   }
 
-  async onRequestEnd(
+  /**
+   * Le trajet d'une requête HTTP DANS la bulle ALS : CORS, calque de
+   * configuration, route, en-têtes de sécurité, repli statique, corps, gardes,
+   * action.
+   *
+   * Chaque étape rend sa valeur, ou une promesse quand elle attend réellement
+   * (préflight à terminer, hook asynchrone, fichier statique, corps à lire,
+   * session, pare-feu, action asynchrone) — et la suite ne s'enchaîne par
+   * `then` que dans ce cas. Un `await` sur une valeur déjà connue suspendait le
+   * pipeline pour rien : ~50 évènements asynchrones par GET (#505).
+   *
+   * @returns le contexte servi, ou la promesse de ce contexte.
+   * @throws l'erreur d'une étape synchrone — {@link handleHttp} la traite comme
+   *   un rejet (même `catch`, même `onError`).
+   */
+  private runHttpPipeline(
+    httpContext: HttpContext,
+    request: httpRequest,
+    response: httpResponse,
+  ): MaybePromise<HttpContext> {
+    // CORS (P6 J5) — AVANT le routing : un preflight `OPTIONS` n'a pas de
+    // route déclarée → le router lèverait un 405. `handleCors` pose les
+    // en-têtes `Access-Control-*` (requête réelle, puis on poursuit) ou
+    // renvoie 204 (preflight) → court-circuit total : ni routing, ni parse,
+    // ni firewall (le preflight ne s'authentifie pas — Fetch Standard).
+    // HTTP only : le WebSocket n'a pas de CORS (origine vérifiée au handshake).
+    if (this.firewall?.handleCors(httpContext) === 204) {
+      httpContext.response.writeHead(204);
+      // `end()` rend une promesse : la rendre fait remonter son rejet au
+      // `catch` du pipeline au lieu d'un rejet non géré (préflight seul).
+      return httpContext.response.end().then(() => httpContext);
+    }
+    // #494 — premier point DANS la bulle ALS : le scope de la requête est
+    // lisible, rien n'a encore été lu du corps. C'est ici qu'une
+    // application reconnaît l'organisation (nom d'hôte, en-tête…) et pose
+    // son calque de configuration (`overlayConfig`), qui s'applique alors
+    // aux quotas de corps et d'envoi. Compté d'abord : sans écouteur, ni
+    // émission ni microtâche sur le chemin de requête.
+    if (this.kernel && this.kernel.listenerCount("onRequestScope") > 0) {
+      return this.kernel
+        .fireAsync("onRequestScope", httpContext)
+        .then(() => this.routeHttpRequest(httpContext, request, response));
+    }
+    return this.routeHttpRequest(httpContext, request, response);
+  }
+
+  /**
+   * Route, en-têtes de sécurité applicatifs, repli statique — puis le corps.
+   * N'attend que le repli statique, et seulement quand aucune route ne matche.
+   */
+  private routeHttpRequest(
+    httpContext: HttpContext,
+    request: httpRequest,
+    response: httpResponse,
+  ): MaybePromise<HttpContext> {
+    // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
+    // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand
+    // l'action attend le flux brut (`@Body({ stream:true })` → le controller
+    // pipe le Readable lui-même, sans pic mémoire). Le résolveur est RÉUTILISÉ
+    // par handleFrontController (pas de double match → net ~0 perf). resolve()
+    // ne throw jamais (pose `resolver.exception`) ; route non matchée → parse
+    // normal (comportement 404 inchangé). Isolé HTTP : handleWebsocket ne
+    // parse aucun body. Ordre des hooks P6 (beforeResolve/firewall) inchangé.
+    httpContext.phaseStart("resolve");
+    httpContext.resolver = this.router
+      ? this.router.resolve(httpContext)
+      : null;
+    httpContext.phaseEnd("resolve");
+    // En-têtes de sécurité APPLICATIFS (P6 J5 — CSP/Referrer/COOP…), posés
+    // APRÈS le resolve (P6 @Csp) → le Resolver a posé `ctx.cspDirectives`
+    // depuis `@Csp` de la route, que `applySecurityHeaders` fusionne dans le
+    // CSP. Toujours AVANT le fallback static + le `writeHead` → présents sur
+    // toute réponse (succès, 404/405, fichier statique). Le preflight CORS a
+    // court-circuité plus haut (204). Complète le socle transport (nosniff/
+    // frame/HSTS) posé à `onHttpRequest`. No-op si security absent/désactivé.
+    this.firewall?.applySecurityHeaders(httpContext);
+    // ROUTER-FIRST (façon Express) : aucune route matchée → FALLBACK static.
+    // `serverStatic.handle` reste PENDING si un fichier est servi (court-circuit
+    // total — response.end → `onFinish` → teardown déjà wired par
+    // createHttpContext) ; il RESOLVE si aucun fichier → on poursuit le pipeline
+    // jusqu'au 404. Bénéfice : une requête qui matche une route ne paie plus le
+    // fs.stat/path.normalize de serve-static (≈ +26 % RPS sur les routes API).
+    if (
+      this.serverStatic &&
+      httpContext.resolver?.resolve !== true &&
+      !httpContext.resolver?.exception &&
+      (asServersConfig(this.kernel?.options.servers)?.statics ||
+        this.kernel?.options.statics ||
+        this.serverStatic.hasMounts())
+    ) {
+      // Le Context a déjà posé le Content-Type par défaut
+      // (application/octet-stream) ; `serve-static` ne l'écrase PAS s'il
+      // existe → on le retire pour qu'il pose le vrai type du fichier
+      // (image/x-icon, video/webm…). En static-first aucun CT n'était
+      // pré-posé : on restaure ce comportement.
+      response.removeHeader("Content-Type");
+      return this.serverStatic
+        .handle(request, response)
+        .catch(() => undefined)
+        .then(() => this.serveHttpRequest(httpContext));
+    }
+    return this.serveHttpRequest(httpContext);
+  }
+
+  /**
+   * Le corps — lu seulement s'il y en a un à lire —, puis les gardes
+   * ({@link onRequestEnd}) et l'action. Chacun n'est attendu que s'il attend.
+   */
+  private serveHttpRequest(
+    httpContext: HttpContext,
+  ): MaybePromise<HttpContext> {
+    const streamBody =
+      httpContext.resolver?.resolve === true &&
+      httpContext.resolver.route?.bodyStream === true;
+    httpContext.phaseStart("parse");
+    // streamBody : body laissé en flux brut (Readable) pour @Body({stream}).
+    const parsed = finallyMaybe(
+      () => (streamBody ? undefined : httpContext.request.initialize()),
+      () => httpContext.phaseEnd("parse"),
+    );
+    return thenMaybe(parsed, () =>
+      thenMaybe(this.onRequestEnd(httpContext), (guarded) => {
+        guarded.phaseStart("action");
+        return finallyMaybe(
+          () => guarded.handle(),
+          () => guarded.phaseEnd("action"),
+        );
+      }),
+    );
+  }
+
+  /**
+   * Les gardes d'une requête HTTP, corps lu : en-têtes de scheme, domaine, hook
+   * `beforeResolve`, armement de la route, CSRF, session, pare-feu — dans cet
+   * ordre.
+   *
+   * Synchrone tant qu'aucune garde n'attend (#505) : le hook `beforeResolve`
+   * n'est attendu que s'il a un écouteur, la session que si la requête en
+   * ouvre une, le pare-feu que sur une zone protégée ou à accès contrôlé.
+   *
+   * @param context - le contexte de la requête.
+   * @param error - une erreur survenue en amont : relevée telle quelle.
+   * @returns le contexte une fois les gardes passées, ou la promesse de ce
+   *   contexte quand une garde attend.
+   * @throws de façon SYNCHRONE l'erreur reçue, l'exception du résolveur (404,
+   *   405…) et le refus CSRF ; un refus du pare-feu ou de session rompt la
+   *   promesse rendue.
+   */
+  onRequestEnd(
     context: HttpContext,
     error?: Error | null,
-  ): Promise<HttpContext | number> {
+  ): MaybePromise<HttpContext> {
     // EVENT
     if (error) {
       throw error;
@@ -1513,8 +1687,19 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // SECURITY HOOK — beforeResolve (P1.7)
     // Fires before route is resolved. Security can pre-load session/token here.
     // Guard 0-listener (cf onCreateContext) : 0 microtask sans security.
-    if (this.listenerCount("beforeResolve"))
-      await this.fireAsync("beforeResolve", context);
+    if (this.listenerCount("beforeResolve")) {
+      return this.fireAsync("beforeResolve", context).then(() =>
+        this.armAndGuard(context),
+      );
+    }
+    return this.armAndGuard(context);
+  }
+
+  /**
+   * Suite d'{@link onRequestEnd} : armement de la route, CSRF, session, puis
+   * pare-feu. Synchrone tant que ni la session ni le pare-feu n'attendent.
+   */
+  private armAndGuard(context: HttpContext): MaybePromise<HttpContext> {
     // FRONT CONTROLLER — on ARME seulement (route + zone). Le controller n'est
     // PAS instancié ici : son constructeur DI et son hook `initialize()` sont du
     // code qui s'exécute, et rien ne doit s'exécuter avant que la requête ait
@@ -1522,7 +1707,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // instancie elle-même au bon moment (`Resolver.executeAction`). Un anonyme
     // rejeté ne paie donc ni la DI ni `initialize()`. Le WebSocket garde
     // l'instanciation au handshake (cf `handleFrontController`).
-    await this.prepareFrontController(context);
+    this.prepareFrontController(context);
     // CSRF (P6 J5) — défense globale : toute mutation cross-site (POST/PUT/PATCH/
     // DELETE) est rejetée (403), zone ou non, AVANT de charger session/auth (rejet
     // précoce). No-op sur les méthodes sûres. Le resolver est posé par
@@ -1532,28 +1717,40 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // session REPRISE (cookie L1) pour ré-authentifier sans credential. Lazy
     // inchangé (ni intent de route ni cookie entrant → 0 session, 0 coût) ;
     // le point d'activation reste unique (`startSession`).
-    await this.startSession(context);
-    // FIREWALL
-    if (context.secure || context.isControlledAccess) {
-      context.phaseStart("firewall");
+    return thenMaybe(this.startSession(context), () =>
+      // FIREWALL — seulement sur une zone protégée ou à accès contrôlé : hors
+      // zone, rien n'est attendu et la requête continue sans suspension.
+      context.secure || context.isControlledAccess
+        ? this.runFirewall(context)
+        : context,
+    );
+  }
+
+  /**
+   * Le pare-feu d'une requête en zone protégée : `handleSecurity`, puis les
+   * hooks `afterAuth` (succès) ou `onAuthFailure` (refus, relevé ensuite).
+   *
+   * @returns la promesse du contexte autorisé.
+   * @throws (rejet) le refus du pare-feu, après `onAuthFailure`.
+   */
+  private async runFirewall(context: HttpContext): Promise<HttpContext> {
+    context.phaseStart("firewall");
+    try {
       try {
-        try {
-          await this.firewall?.handleSecurity(context);
-          // SECURITY HOOK — afterAuth (P1.7) — only on success
-          // Guard 0-listener (cf onCreateContext) : 0 microtask sans security.
-          if (this.listenerCount("afterAuth"))
-            await this.fireAsync("afterAuth", context);
-        } catch (authError) {
-          // SECURITY HOOK — onAuthFailure (P1.7)
-          await this.fireAsync("onAuthFailure", context, authError).catch(
-            (e: unknown) => this.log(e, "ERROR", "onAuthFailure"),
-          );
-          throw authError;
-        }
-      } finally {
-        context.phaseEnd("firewall");
+        await this.firewall?.handleSecurity(context);
+        // SECURITY HOOK — afterAuth (P1.7) — only on success
+        // Guard 0-listener (cf onCreateContext) : 0 microtask sans security.
+        if (this.listenerCount("afterAuth"))
+          await this.fireAsync("afterAuth", context);
+      } catch (authError) {
+        // SECURITY HOOK — onAuthFailure (P1.7)
+        await this.fireAsync("onAuthFailure", context, authError).catch(
+          (e: unknown) => this.log(e, "ERROR", "onAuthFailure"),
+        );
+        throw authError;
       }
-      return context;
+    } finally {
+      context.phaseEnd("firewall");
     }
     return context;
   }

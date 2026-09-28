@@ -5,8 +5,9 @@ import {
   Injector,
   //inject,
   injectable,
+  isPromise,
 } from "nodefony";
-import type { DefaultOptionsService } from "nodefony";
+import type { DefaultOptionsService, MaybePromise } from "nodefony";
 import Route, { RouteOptions } from "../src/Route";
 import { ContextType, HttpError, isDomainAllowed } from "@nodefony/http";
 import type { IRequestRouter } from "@nodefony/http";
@@ -169,7 +170,7 @@ class Router extends Service implements IRequestRouter {
   // `== null` couvre `null` ET `undefined` (proxy sans champ).
   private singletonControllers: Map<
     new (...args: never[]) => object,
-    Promise<object>
+    MaybePromise<object>
   > | null = null;
   constructor(
     module: Module,
@@ -185,39 +186,61 @@ class Router extends Service implements IRequestRouter {
 
   /**
    * Retourne l'instance singleton d'une classe controller `@Scope("singleton")`,
-   * en la créant au premier appel via `create`. On cache la **promesse** (pas
-   * l'instance) : N requêtes concurrentes pendant la création (`initialize()`
-   * async) attendent le MÊME travail — jamais deux instances (race de création
-   * éliminée structurellement).
+   * en la créant au premier appel via `create`.
+   *
+   * Tant que la création est en cours (`initialize()` async), c'est la
+   * **promesse** qui est en cache : N requêtes concurrentes attendent le MÊME
+   * travail — jamais deux instances (race de création éliminée
+   * structurellement). Dès que l'instance est prête, elle REMPLACE la promesse :
+   * les requêtes suivantes la reçoivent directement, au lieu d'attendre à
+   * chaque fois une promesse déjà tenue (#505).
    *
    * @param ctor - la classe controller (clé du cache).
    * @param create - fabrique exécutée une seule fois (instantiate + initialize).
-   * @returns la promesse de l'instance partagée.
+   * @returns l'instance partagée quand elle existe — ou que `create` la rend
+   *   sans rien attendre —, sinon la promesse de sa création.
+   * @throws ce que `create` lève de façon synchrone ; rien n'est alors mis en
+   *   cache, la requête suivante recrée.
    */
   getSingletonController<T extends object>(
     ctor: new (...args: never[]) => T,
-    create: () => Promise<T>,
-  ): Promise<T> {
+    create: () => MaybePromise<T>,
+  ): MaybePromise<T> {
     this.singletonControllers ??= new Map();
-    let instance = this.singletonControllers.get(ctor);
-    if (!instance) {
-      const pending = create();
-      instance = pending;
-      this.singletonControllers.set(ctor, pending);
-      // Une création rejetée (initialize() qui lève : base pas encore prête)
-      // ne reste pas en cache — sinon le contrôleur est mort jusqu'au
-      // redémarrage. Les appelants déjà en attente partagent l'échec ; la
-      // requête suivante recrée. La garde d'identité épargne une création
-      // plus récente posée entre-temps.
-      pending.catch(() => {
+    const cached = this.singletonControllers.get(ctor);
+    if (cached !== undefined) {
+      // La clé EST la classe de l'instance : le lien ctor → T tient par
+      // construction, mais une Map ne sait pas l'exprimer par entrée.
+      return cached as MaybePromise<T>;
+    }
+    const created = create();
+    if (!isPromise(created)) {
+      this.singletonControllers.set(ctor, created);
+      return created;
+    }
+    // `Promise.resolve` rend la promesse native elle-même (aucune allocation) et
+    // n'enveloppe qu'un thenable étranger.
+    const pending = Promise.resolve(created) as Promise<T>;
+    this.singletonControllers.set(ctor, pending);
+    pending.then(
+      (instance) => {
+        // La garde d'identité épargne une création plus récente posée
+        // entre-temps (éviction après un échec, puis recréation).
+        if (this.singletonControllers?.get(ctor) === pending) {
+          this.singletonControllers.set(ctor, instance);
+        }
+      },
+      () => {
+        // Une création rejetée (initialize() qui lève : base pas encore prête)
+        // ne reste pas en cache — sinon le contrôleur est mort jusqu'au
+        // redémarrage. Les appelants déjà en attente partagent l'échec ; la
+        // requête suivante recrée.
         if (this.singletonControllers?.get(ctor) === pending) {
           this.singletonControllers.delete(ctor);
         }
-      });
-    }
-    // La clé EST la classe de l'instance : le lien ctor → T tient par
-    // construction, mais une Map ne sait pas l'exprimer par entrée.
-    return instance as Promise<T>;
+      },
+    );
+    return pending;
   }
 
   /**

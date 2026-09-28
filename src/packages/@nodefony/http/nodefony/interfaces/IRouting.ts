@@ -1,3 +1,4 @@
+import type { MaybePromise } from "nodefony";
 import type { ContextType } from "../service/http-kernel";
 
 /**
@@ -51,17 +52,19 @@ export interface IRouteResolver {
    * Instancie le controller résolu — le pipeline ne fait que le transmettre.
    *
    * @param context - le contexte de la requête
-   * @returns l'instance du controller
+   * @returns l'instance du controller — directement quand elle existe déjà ou
+   *   se construit sans rien attendre, sinon la promesse de sa création
    */
-  newController(context?: ContextType): Promise<object>;
+  newController(context?: ContextType): MaybePromise<object>;
   /**
-   * Exécute l'action résolue.
+   * Exécute l'action résolue, puis rend sa valeur sur le transport.
    *
    * @param data - arguments supplémentaires de l'action
    * @param reload - rejouer depuis l'instance en cache (forward)
-   * @returns le résultat de l'action
+   * @returns le résultat du rendu — synchrone quand ni l'action ni le rendu
+   *   n'attendent, sinon sa promesse
    */
-  callController(data?: unknown[], reload?: boolean): Promise<unknown>;
+  callController(data?: unknown[], reload?: boolean): MaybePromise<unknown>;
 }
 
 /**
@@ -87,11 +90,12 @@ export interface IRequestRouter {
    *
    * @param ctor - la classe du controller (clé du cache)
    * @param create - fabrique exécutée au premier appel
-   * @returns la promesse de l'instance partagée
+   * @returns l'instance partagée une fois créée ; la promesse de sa création
+   *   tant qu'elle est en cours
    */
   getSingletonController<T extends object>(
     // `never[]` : toute classe, quels que soient ses paramètres, s'y assigne.
     ctor: new (...args: never[]) => T,
-    create: () => Promise<T>,
-  ): Promise<T>;
+    create: () => MaybePromise<T>,
+  ): MaybePromise<T>;
 }
