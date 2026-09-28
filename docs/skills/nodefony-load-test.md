@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-27
+updated: 2026-09-28
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD).
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **0/1** recommandé (SHOULD).
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 490 lignes |
-| Coût d'activation | ~8 442 tokens (le corps est chargé à l'invocation) |
-| Description | 878 / 1024 caractères |
-| Déclencheurs | 14 |
-| Ressources `references/` | 4 page(s) |
-| Scripts | 46 |
+| Corps | 505 lignes |
+| Coût d'activation | ~8 617 tokens (le corps est chargé à l'invocation) |
+| Description | 986 / 1024 caractères |
+| Déclencheurs | 16 |
+| Ressources `references/` | 5 page(s) |
+| Scripts | 48 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -54,7 +54,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`test de charge` · `stress` · `benchmark` · `combien de connexions` · `jusqu'à la rupture` · `RPS` · `latence p99` · `est-ce que ça tient la charge ?` · `combien de pods ?` · `c'est plus rapide ?` · `quel est l'impact perf de ce changement ?` · `mesurer avant/après` · `dimensionner` · `prouver que c'est plus rapide`
+`test de charge` · `stress` · `benchmark` · `combien de connexions` · `jusqu'à la rupture` · `RPS` · `latence p99` · `est-ce que ça tient la charge ?` · `combien de pods ?` · `c'est plus rapide ?` · `impact perf de ce changement ?` · `mesurer avant/après` · `dimensionner` · `pourquoi plus lent que X` · `où part le CPU d'une requête` · `profiler`
 
 ## Ce que contient le corps
 
@@ -62,6 +62,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Niveau 2 — Scripts client standalone (exploration)
 - Niveau 3 — A/B perf MONO PROD (coût du pipeline par requête)
 - Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
+- 🚨 RÈGLE N°0 — le coût d'une requête se juge COMPARÉ, avant tout audit
 - 🚨 RÈGLE N°1 — aucun chiffre sans contrôle de validité
 - 🚨 RÈGLE N°1 bis — LATENCE et BLOCAGE sont deux grandeurs ; une seule plafonne un process
 - 🚨 RÈGLE N°1 ter — la machine doit être CALME, et le thermal ne suffit pas
@@ -79,7 +80,8 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 146 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 184 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 185 |
+| `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 39 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
 
@@ -121,6 +123,8 @@ script, donc toujours à jour après régénération.
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
 | `scripts/prod-readiness-report.mjs` | prod-readiness-report.mjs — « Nodefony peut-il partir en production ? » | `--data` `--minutes` `--out` `--soak` `--window` | `DATA` `SOAK` |
 | `scripts/profile-analyze.mjs` | Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé | `--cpu-prof` | — |
+| `scripts/profile-compare.mjs` | Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à | — | — |
+| `scripts/profile-compare.sh` | « Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le | — | `NF_PROFILE_DIR` |
 | `scripts/profile-cpu.sh` | Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. | `--cpu-prof` `--cpu-prof-dir` `--cpu-prof-interval` | `BENCH_PATH` `NF_PROFILE_DIR` `PORT` `XENV` |
 | `scripts/ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur. | — | `MAX` `RL_URL` `URL` |
 | `scripts/route-scan-cost.mjs` | route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et | `--diagnostic` `--json` `--measure` `--reps` `--routes` `--scale` `--target` | `JSON_OUT` |
@@ -165,7 +169,8 @@ Usage :  node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs 
 node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]
 node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
 node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs
-Usage : node profile-analyze.mjs <dossier> <requêtes servies> [top=40]
+Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40]
+Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25]
 bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs
 Usage : node scaffold-ws-probe.mjs <cookie> [type] [name]
@@ -196,14 +201,14 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 878 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 986 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 490 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 505 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-27",
+  "generatedAt": "2026-09-28",
   "count": 36,
   "conformant": 36,
   "skills": [
@@ -3408,15 +3408,17 @@
         "est-ce que ça tient la charge ?",
         "combien de pods ?",
         "c'est plus rapide ?",
-        "quel est l'impact perf de ce changement ?",
+        "impact perf de ce changement ?",
         "mesurer avant/après",
         "dimensionner",
-        "prouver que c'est plus rapide"
+        "pourquoi plus lent que X",
+        "où part le CPU d'une requête",
+        "profiler"
       ],
-      "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"quel est l'impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"prouver que c'est plus rapide\".",
+      "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code.",
       "cost": {
-        "bodyLines": 490,
-        "approxTokens": 8442
+        "bodyLines": 505,
+        "approxTokens": 8617
       },
       "requires": [
         "serveur UP",
@@ -3428,10 +3430,11 @@
         "references": [
           "ab-perf-mono-prod.md",
           "catalogue.md",
+          "profil-compare.md",
           "protocoles-bancs-charge.md",
           "reperes-empiriques.md"
         ],
-        "referenceFilesTotal": 4,
+        "referenceFilesTotal": 5,
         "scripts": [
           {
             "path": "scripts/aimd-demo.mjs",
@@ -4283,7 +4286,7 @@
             "path": "scripts/profile-analyze.mjs",
             "purpose": "Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé",
             "usage": [
-              "Usage : node profile-analyze.mjs <dossier> <requêtes servies> [top=40]"
+              "Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40]"
             ],
             "options": [
               {
@@ -4292,6 +4295,31 @@
               }
             ],
             "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/profile-compare.mjs",
+            "purpose": "Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à",
+            "usage": [
+              "Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25]"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/profile-compare.sh",
+            "purpose": "« Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_PROFILE_DIR",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -4876,7 +4904,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "878",
+            "detail": "986",
             "advisory": false
           },
           {
@@ -4917,8 +4945,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": true,
-            "detail": "490",
+            "ok": false,
+            "detail": "505",
             "advisory": true
           }
         ]
