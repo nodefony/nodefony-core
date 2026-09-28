@@ -323,3 +323,53 @@ describe("HttpKernel.teardownHttp — ne lève jamais, libère TOUJOURS le scope
     expect(container.scopeCount("request")).to.equal(0);
   });
 });
+
+describe("HttpKernel.handleHttp — le contexte servi, sans promesse quand rien n'attend", () => {
+  function makeServing(serve: () => unknown): Loose {
+    const context = { id: "ctx" };
+    return makeKernel({
+      createHttpContext: () => context,
+      serveHttpContext: serve,
+      onError: vi.fn(() => Promise.resolve("rendu d'erreur")),
+      container: { leaveScope: vi.fn() },
+      _context: context,
+    });
+  }
+
+  it("pipeline synchrone → le contexte, pas une promesse", () => {
+    const kernel = makeServing(() => "servi");
+    expect(call(kernel, "handleHttp", {}, {}, {}, "http")).to.equal("servi");
+    expect(kernel.onError).not.toHaveBeenCalled();
+  });
+
+  it("étape qui lève en synchrone → promesse d'`onError`", async () => {
+    const error = new Error("sync");
+    const kernel = makeServing(() => {
+      throw error;
+    });
+    const out = call(kernel, "handleHttp", {}, {}, {}, "http");
+    expect(isThenable(out)).to.equal(true);
+    expect(await out).to.equal("rendu d'erreur");
+    expect(kernel.onError).toHaveBeenCalledWith(error, kernel._context);
+  });
+
+  it("étape qui rejette → promesse d'`onError`", async () => {
+    const error = new Error("async");
+    const kernel = makeServing(() => Promise.reject(error));
+    expect(await call(kernel, "handleHttp", {}, {}, {}, "http")).to.equal(
+      "rendu d'erreur",
+    );
+    expect(kernel.onError).toHaveBeenCalledWith(error, kernel._context);
+  });
+
+  it("contexte impossible à construire → scope libéré, puis `onError`", async () => {
+    const kernel = makeServing(() => "servi");
+    kernel.createHttpContext = () => {
+      throw new Error("ctor");
+    };
+    await call(kernel, "handleHttp", "scope", {}, {}, "http");
+    expect(
+      (kernel.container as { leaveScope: unknown }).leaveScope,
+    ).toHaveBeenCalledWith("scope");
+  });
+});

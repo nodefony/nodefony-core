@@ -185,13 +185,24 @@ export interface IHttpContext extends IContext {
    * @returns le résultat du rendu, ou sa promesse dès qu'une étape attend.
    */
   handle(): MaybePromise<object>;
+  /**
+   * Sérialise puis envoie — synchrone quand l'envoi l'est.
+   *
+   * @returns la réponse, ou sa promesse dès qu'une étape attend.
+   */
   render(
     chunk: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: Record<string, string | number>,
-  ): Promise<object>;
-  send(chunk?: unknown, encoding?: BufferEncoding): Promise<object>;
+  ): MaybePromise<object>;
+  /**
+   * Envoie la réponse — synchrone sans session à sauver, sans hook `onSend`,
+   * pour une réponse unique.
+   *
+   * @returns la réponse, ou sa promesse dès qu'une étape attend.
+   */
+  send(chunk?: unknown, encoding?: BufferEncoding): MaybePromise<object>;
   end(): Promise<object>;
   redirect(
     url: string,

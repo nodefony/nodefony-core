@@ -7,7 +7,7 @@ import type {
   Session,
   ContextType,
 } from "@nodefony/http";
-import type { Module, FileClass } from "nodefony";
+import type { Module, FileClass, MaybePromise } from "nodefony";
 import type { OutgoingHttpHeaders } from "node:http";
 import type { ReadStream } from "node:fs";
 import type { IRoute } from "./IRoute.js";
@@ -28,18 +28,20 @@ export interface IController {
   setContext(context: ContextType): void;
   setContextJson(encoding?: BufferEncoding): unknown;
   setContextHtml(encoding?: BufferEncoding): unknown;
+  /** Rend une donnée — la réponse, ou sa promesse quand l'envoi attend. */
   render(
     data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: Record<string, string | number>,
-  ): Promise<unknown>;
+  ): MaybePromise<unknown>;
+  /** Envoie une donnée sérialisée — la réponse, ou sa promesse quand l'envoi attend. */
   renderResponse(
     data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: OutgoingHttpHeaders,
-  ): Promise<HttpResponse | Http2Response | WebsocketResponse>;
+  ): MaybePromise<HttpResponse | Http2Response | WebsocketResponse>;
   renderView(
     path: string,
     param?: Record<string, unknown>,
@@ -50,7 +52,7 @@ export interface IController {
     obj: unknown,
     status?: string | number,
     headers?: OutgoingHttpHeaders,
-  ): Promise<unknown>;
+  ): MaybePromise<unknown>;
   setRoute(route: IRoute): IRoute;
   getSession(): Session | undefined | null;
   redirect(

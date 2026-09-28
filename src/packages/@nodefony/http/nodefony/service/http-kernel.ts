@@ -752,10 +752,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   /**
    * Ouvre le scope `request` de la requête et la confie au pipeline HTTP.
    *
-   * Pas `async` : rien n'y est attendu — la fonction rend directement la
-   * promesse du pipeline, sans l'envelopper dans une seconde (#505).
+   * Pas `async` : rien n'y est attendu — la fonction rend directement ce que
+   * rend le pipeline, sans l'envelopper dans une promesse (#505).
    *
-   * @returns la promesse du contexte servi (celle de {@link handleHttp}).
+   * @returns le contexte servi, ou sa promesse (celle de {@link handleHttp}).
    * @throws de façon synchrone si le scope `request` n'est pas déclaré — faute
    *   de configuration ; l'appelant ({@link onHttpRequest}) l'absorbe.
    */
@@ -763,7 +763,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     request: httpRequest,
     response: httpResponse | null,
     type: ServerType,
-  ): Promise<HttpContext> {
+  ): MaybePromise<HttpContext> {
     let scope: Scope | undefined;
     if (perfProbe) {
       const t0 = process.hrtime.bigint();
@@ -1443,75 +1443,108 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
   }
 
-  async handleHttp(
+  /**
+   * Crée le contexte HTTP de la requête et la sert dans sa bulle ALS ; toute
+   * erreur — synchrone ou rejet — passe par {@link onError}.
+   *
+   * Pas `async` : un GET servi par une action synchrone traverse le pipeline
+   * sans une seule promesse (#505). Une promesse seulement quand une étape
+   * attend, ou quand l'erreur est rendue (`onError`).
+   *
+   * @returns le contexte servi, ou sa promesse.
+   */
+  handleHttp(
     scope: Scope,
     request: httpRequest,
     response: httpResponse,
     type: ServerType,
-  ): Promise<HttpContext> {
+  ): MaybePromise<HttpContext> {
     let context: HttpContext | null = null;
     try {
       context = this.createHttpContext(scope, request, response, type);
-      // Hot path : `fireAsync` est une fonction async → `await` crée 1 Promise +
-      // 1 microtask MÊME à 0 listener (emitAsync court-circuite l'alloc des
-      // listeners mais pas le wrapper async). En prod sans @nodefony/security ces
-      // seams (onCreateContext/beforeResolve/afterAuth) n'ont aucun listener →
+      const created = context;
+      // Hot path : `fireAsync` est une fonction async → 1 Promise + 1 microtask
+      // MÊME à 0 listener. En prod sans @nodefony/security ces seams
+      // (onCreateContext/beforeResolve/afterAuth) n'ont aucun listener →
       // guard `listenerCount` (O(1), 0 alloc) pour ne RIEN scheduler.
-      if (this.listenerCount("onCreateContext"))
-        await this.fireAsync("onCreateContext", context);
-      // P2.7 — W3C traceparent: honor incoming valid header, generate a
-      // fresh one otherwise. Resolved BEFORE entering the ALS scope so
-      // it propagates with `requestId` to every downstream hop.
-      context.traceparent = resolveTraceparent(
-        (request.headers as Record<string, string | string[] | undefined>)
-          .traceparent as string | undefined,
-      );
-      // Dev-only — allocate the ORM query buffer when the profiler is active
-      // (null in prod → 0 alloc). Threaded into the ALS payload so ORM
-      // adapters push transparently, and onto the context so `collect()`
-      // reads the same array at teardown (outside the ALS bubble).
-      const profilerQueries = this.profiler ? [] : null;
-      context.profilerQueries = profilerQueries;
-      // Témoin de radiographie : le firewall le lit pour décider d'allouer (ou
-      // non) sa trace de décision. Booléen → 0 alloc en prod.
-      context.profiling = profilerQueries !== null;
-      // Référence non nulle capturée par la closure ALS (le rétrécissement de
-      // `let context` ne traverse pas la fonction fléchée) : 0 alloc.
-      const httpContext: HttpContext = context;
-      // P1.4 — enter ALS scope so requestId is propagated to every
-      // downstream async hop (logs, ORM, security decorators, etc.).
-      const served = RequestContext.run(
-        {
-          requestId: context.requestId,
-          scheme: context.scheme,
-          traceparent: context.traceparent,
-          queries: profilerQueries ?? undefined,
-          // V4.1 — le contexte transport voyage dans l'ALS : les controllers
-          // singleton (stateless) le retrouvent sans le porter sur `this`.
-          context,
-          // Le scope DI de la requête (`context.container`), rendu par
-          // `RequestContext.getScope()`. Une propriété de plus dans ce
-          // littéral déjà alloué : aucune allocation.
-          scope,
-        },
-        () => this.runHttpPipeline(httpContext, request, response),
-      );
-      // Attendu SEULEMENT quand une étape a rendu une promesse : un GET servi
-      // par une action synchrone traverse le pipeline sans suspension (#505).
-      return isPromise(served) ? await served : served;
+      const served = this.listenerCount("onCreateContext")
+        ? this.fireAsync("onCreateContext", created).then(() =>
+            this.serveHttpContext(created, scope, request, response),
+          )
+        : this.serveHttpContext(created, scope, request, response);
+      if (!isPromise(served)) return served;
+      return served.catch((e: unknown) => this.failHttp(e, created, scope));
     } catch (e) {
-      if (context === null) {
-        // Le contexte n'a pas pu se construire : le `once("close")` qui mène à
-        // `teardownHttp` → `leaveScope` n'a jamais été posé. Sans ceci, le scope
-        // resterait épinglé dans le bucket `request` (miroir de
-        // `releaseOrphanWsScope`).
-        this.container?.leaveScope(scope);
-      }
-      return (await this.onError(
-        e as Error,
-        context as ContextType,
-      )) as HttpContext;
+      return this.failHttp(e, context, scope);
     }
+  }
+
+  /**
+   * Traceparent, tampon du profileur, puis le pipeline dans la bulle ALS de la
+   * requête (`RequestContext.run`).
+   */
+  private serveHttpContext(
+    context: HttpContext,
+    scope: Scope,
+    request: httpRequest,
+    response: httpResponse,
+  ): MaybePromise<HttpContext> {
+    // P2.7 — W3C traceparent: honor incoming valid header, generate a
+    // fresh one otherwise. Resolved BEFORE entering the ALS scope so
+    // it propagates with `requestId` to every downstream hop.
+    context.traceparent = resolveTraceparent(
+      (request.headers as Record<string, string | string[] | undefined>)
+        .traceparent as string | undefined,
+    );
+    // Dev-only — allocate the ORM query buffer when the profiler is active
+    // (null in prod → 0 alloc). Threaded into the ALS payload so ORM
+    // adapters push transparently, and onto the context so `collect()`
+    // reads the same array at teardown (outside the ALS bubble).
+    const profilerQueries = this.profiler ? [] : null;
+    context.profilerQueries = profilerQueries;
+    // Témoin de radiographie : le firewall le lit pour décider d'allouer (ou
+    // non) sa trace de décision. Booléen → 0 alloc en prod.
+    context.profiling = profilerQueries !== null;
+    // P1.4 — enter ALS scope so requestId is propagated to every
+    // downstream async hop (logs, ORM, security decorators, etc.).
+    return RequestContext.run(
+      {
+        requestId: context.requestId,
+        scheme: context.scheme,
+        traceparent: context.traceparent,
+        queries: profilerQueries ?? undefined,
+        // V4.1 — le contexte transport voyage dans l'ALS : les controllers
+        // singleton (stateless) le retrouvent sans le porter sur `this`.
+        context,
+        // Le scope DI de la requête (`context.container`), rendu par
+        // `RequestContext.getScope()`. Une propriété de plus dans ce
+        // littéral déjà alloué : aucune allocation.
+        scope,
+      },
+      () => this.runHttpPipeline(context, request, response),
+    );
+  }
+
+  /**
+   * Chemin d'erreur de {@link handleHttp} : libère le scope d'un contexte qui
+   * n'a pas pu se construire, puis rend l'erreur au client (`onError`).
+   */
+  private failHttp(
+    e: unknown,
+    context: HttpContext | null,
+    scope: Scope,
+  ): Promise<HttpContext> {
+    if (context === null) {
+      // Le contexte n'a pas pu se construire : le `once("close")` qui mène à
+      // `teardownHttp` → `leaveScope` n'a jamais été posé. Sans ceci, le scope
+      // resterait épinglé dans le bucket `request` (miroir de
+      // `releaseOrphanWsScope`).
+      this.container?.leaveScope(scope);
+    }
+    return this.onError(
+      e as Error,
+      context as ContextType,
+    ) as Promise<HttpContext>;
   }
 
   /**
@@ -1542,9 +1575,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // HTTP only : le WebSocket n'a pas de CORS (origine vérifiée au handshake).
     if (this.firewall?.handleCors(httpContext) === 204) {
       httpContext.response.writeHead(204);
-      // `end()` rend une promesse : la rendre fait remonter son rejet au
-      // `catch` du pipeline au lieu d'un rejet non géré (préflight seul).
-      return httpContext.response.end().then(() => httpContext);
+      // `end()` est synchrone : une exception remonte au `catch` du pipeline.
+      return thenMaybe(httpContext.response.end(), () => httpContext);
     }
     // #494 — premier point DANS la bulle ALS : le scope de la requête est
     // lisible, rien n'a encore été lu du corps. C'est ici qu'une

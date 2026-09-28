@@ -1,4 +1,6 @@
 import http2 from "node:http2";
+import { thenMaybe } from "nodefony";
+import type { MaybePromise } from "nodefony";
 import http from "node:http";
 import HttpContext from "../http/HttpContext";
 import HttpResponse from "../http/Response";
@@ -120,24 +122,27 @@ class Http2Response extends HttpResponse {
     }
   }
 
-  // P7 — async direct. Corrige au passage un hang du chemin fallback : l'ancien
-  // `return super.send(...)` DANS l'executor d'un `new Promise` n'appelait
-  // jamais resolve → promesse externe pendue à vie quand `this.stream` absent.
-  override async send(
+  /**
+   * Écrit le corps sur le flux HTTP/2. Synchrone pour une redirection, un flux
+   * fermé ou le repli HTTP/1 ; une promesse quand le corps est écrit sur le
+   * flux, réglée par le rappel d'écriture (#505).
+   *
+   * @returns la réponse, ou sa promesse.
+   */
+  override send(
     chunk?: unknown,
     encoding?: BufferEncoding,
     _flush: boolean = false,
-  ): Promise<Http2Response> {
+  ): MaybePromise<Http2Response> {
     if (this.context.isRedirect) {
       if (this.stream && !this.stream.headersSent) {
         this.writeHead();
       }
-      await this.end();
-      return this;
+      return thenMaybe(this.end(), () => this);
     }
     const stream = this.stream;
     if (!stream) {
-      return (await super.send(chunk, encoding)) as Http2Response;
+      return super.send(chunk, encoding) as MaybePromise<Http2Response>;
     }
     // Stream fermé/non-writable (client abandonné, write-after-end) :
     // résoudre sans écrire → évite ERR_STREAM_WRITE_AFTER_END (CRITIC).
@@ -160,24 +165,24 @@ class Http2Response extends HttpResponse {
     });
   }
 
+  /**
+   * Termine le flux HTTP/2 (ou la réponse de repli) — synchrone (#505).
+   *
+   * @returns le flux terminé.
+   * @throws de façon SYNCHRONE ce que lève la fin du flux.
+   */
   override end(
     chunk?: string | Buffer,
     encoding?: BufferEncoding,
-  ): Promise<http.ServerResponse | http2.ServerHttp2Stream> {
-    return new Promise((resolve, reject) => {
-      try {
-        if (this.stream) {
-          // Stream déjà fermé/détruit : ne pas re-appeler end().
-          if (this.stream.destroyed || this.stream.closed) {
-            return resolve(this.stream);
-          }
-          return resolve(this.stream.end(chunk, encoding || this.encoding));
-        }
-        return resolve(super.end(chunk, encoding));
-      } catch (e) {
-        return reject(e instanceof Error ? e : new Error(String(e)));
+  ): MaybePromise<http.ServerResponse | http2.ServerHttp2Stream> {
+    if (this.stream) {
+      // Stream déjà fermé/détruit : ne pas re-appeler end().
+      if (this.stream.destroyed || this.stream.closed) {
+        return this.stream;
       }
-    });
+      return this.stream.end(chunk, encoding || this.encoding);
+    }
+    return super.end(chunk, encoding);
   }
 
   override getStatusMessage(code?: number | string): string {

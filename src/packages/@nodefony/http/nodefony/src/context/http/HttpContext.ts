@@ -17,6 +17,8 @@ import {
   typeOf,
   Scope,
   thenMaybe,
+  finallyMaybe,
+  isPromise,
   //Service,
   //Severity,
   //Msgid,
@@ -339,15 +341,19 @@ class HttpContext extends Context implements IHttpContextInterface {
     }
   }
 
-  async render(
+  /**
+   * Sérialise la donnée selon son type (JSON, HTML, texte), pose statut et
+   * en-têtes, puis l'envoie ({@link send}). Synchrone quand l'envoi l'est (#505).
+   *
+   * @returns la réponse, ou sa promesse.
+   * @throws de façon SYNCHRONE ce que lèvent la sérialisation ou l'envoi.
+   */
+  render(
     chunk: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: Record<string, string | number>,
-  ): Promise<
-    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
-    Http2Response | HttpResponse
-  > {
+  ): MaybePromise<Http2Response | HttpResponse> {
     let data = chunk;
     // JSON déclaré → sérialisé tel quel ; sinon (HTML ou indéterminé) le type
     // de la donnée décide. `if` plutôt qu'un `switch (true)` : même aiguillage.
@@ -397,13 +403,25 @@ class HttpContext extends Context implements IHttpContextInterface {
       });
   }
 
-  async send(
+  /**
+   * Envoie la réponse : session sauvée, hook `onSend`, en-têtes, corps, puis
+   * fin de la réponse.
+   *
+   * Synchrone dans le cas nominal — aucune session ouverte, aucun écouteur
+   * `onSend`, réponse unique : rien n'y est à attendre (#505). Une promesse
+   * seulement quand une étape attend réellement (écriture du store de session,
+   * hook asynchrone, streaming chunké, flux HTTP/2).
+   *
+   * @param chunk - le corps ; absent, le corps déjà posé sur la réponse.
+   * @param encoding - l'encodage d'un corps texte.
+   * @returns la réponse, ou sa promesse.
+   * @throws de façon SYNCHRONE `Response Already sended` quand la réponse est
+   *   déjà partie, et ce que lève une étape synchrone de l'envoi.
+   */
+  send(
     chunk?: unknown,
     encoding?: BufferEncoding,
-  ): Promise<
-    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
-    Http2Response | HttpResponse
-  > {
+  ): MaybePromise<Http2Response | HttpResponse> {
     // Client closed the socket while the controller was still running.
     // `teardown()` (http-kernel.createHttpContext) flipped `finished` before
     // the controller's catch block could call `renderJson(...)`. Nothing can
@@ -413,73 +431,105 @@ class HttpContext extends Context implements IHttpContextInterface {
       return this.response;
     }
     if (this.sended || this.finished || this.response.isHeaderSent()) {
-      return new Promise((_resolve, reject) => {
-        return reject(new Error("Response Already sended"));
-      });
+      throw new Error("Response Already sended");
     }
     // Phase `send` — l'envoi n'est PAS gratuit : il porte `saveSession()` (écriture
     // du store : SQLite/Redis — de loin le premier poste d'une requête authentifiée),
     // le hook `onSend`, le `writeHead` et le `write`. Sans elle, le waterfall
     // s'arrêtait à la fin de l'action et ce temps-là n'était imputé à personne.
-    // Timing éteint (production) → chemin nominal STRICTEMENT inchangé : pas de
-    // `try/finally` autour de la chaîne (une microtask de plus par requête).
-    if (!this.timingEnabled) return this.#doSend(chunk, encoding);
+    // Timing éteint (production) → chemin nominal STRICTEMENT inchangé.
+    if (!this.timingEnabled) return this.doSend(chunk, encoding);
     this.phaseStart("send");
-    try {
-      return await this.#doSend(chunk, encoding);
-    } finally {
-      this.phaseEnd("send");
-    }
+    return finallyMaybe(
+      () => this.doSend(chunk, encoding),
+      () => this.phaseEnd("send"),
+    );
   }
 
-  async #doSend(
+  /**
+   * Le travail de {@link send}, journalisé en ERROR quand il échoue — de façon
+   * synchrone ou par rejet, selon l'étape qui échoue.
+   */
+  private doSend(
     chunk?: unknown,
     encoding?: BufferEncoding,
-  ): Promise<Http2Response | HttpResponse> {
+  ): MaybePromise<Http2Response | HttpResponse> {
+    let sent: MaybePromise<Http2Response | HttpResponse>;
     try {
-      // Sans session démarrée, il n'y a rien à sauver : sauter l'aller-retour
-      // service (2 Promises/req sur le chemin anonyme). Le service refait le
-      // même check (`sessions-service.ts` saveSession) — lui reste la source
-      // de la logique dirty/touch, ici on évite seulement l'appel à vide.
-      let body = chunk;
-      if (this.session != null) {
-        try {
-          await this.saveSession();
-        } catch (e) {
-          // 🔴 Une requête reçoit TOUJOURS une réponse. La sauvegarde a lieu
-          // juste avant `writeHead()` : relancer ici — ce que faisait le
-          // `catch` englobant — laissait la socket ouverte, et le client
-          // attendait son propre délai sans qu'aucun journal ne nomme la
-          // cause. C'est le pire mode de défaillance possible pour une
-          // application déployée : l'exploitant cherche du côté du réseau.
-          const failure = describeSessionStoreFailure(e);
-          this.log(failure.message, "CRITIC", "SESSION-STORE");
-          this.response.statusCode = failure.statusCode;
-          body = failure.body;
-        }
-      }
-      if (body) {
-        this.response.setBody(body);
-      }
-      // Hook utilisateur — aucun listener dans le cas nominal : le check évite
-      // l'appel async lui-même (fireAsync + emitAsync = 2 Promises), pas
-      // seulement la boucle (déjà court-circuitée dans Event.emitAsync).
-      if (this.listenerCount("onSend") > 0) {
-        await this.fireAsync("onSend", this.response, this);
-      }
-      try {
-        this.writeHead();
-      } catch (e) {
-        this.log(e, "WARNING");
-      }
-      if (this.isRedirect) {
-        return await this.close();
-      }
-      return await this.write(body, encoding);
+      sent = this.sendSteps(chunk, encoding);
     } catch (error) {
       this.log(error, "ERROR");
       throw error;
     }
+    if (!isPromise(sent)) return sent;
+    return sent.catch((error: unknown) => {
+      this.log(error, "ERROR");
+      throw error;
+    });
+  }
+
+  /** Session, puis hook `onSend`, puis en-têtes et corps — chacun attendu seulement s'il attend. */
+  private sendSteps(
+    chunk?: unknown,
+    encoding?: BufferEncoding,
+  ): MaybePromise<Http2Response | HttpResponse> {
+    // Sans session démarrée, il n'y a rien à sauver : sauter l'aller-retour
+    // service (2 Promises/req sur le chemin anonyme). Le service refait le
+    // même check (`sessions-service.ts` saveSession) — lui reste la source
+    // de la logique dirty/touch, ici on évite seulement l'appel à vide.
+    if (this.session != null) {
+      return this.saveSession().then(
+        () => this.emitAndWrite(chunk, encoding),
+        (e: unknown) => {
+          // 🔴 Une requête reçoit TOUJOURS une réponse. La sauvegarde a lieu
+          // juste avant `writeHead()` : relancer ici laissait la socket
+          // ouverte, et le client attendait son propre délai sans qu'aucun
+          // journal ne nomme la cause. C'est le pire mode de défaillance
+          // possible pour une application déployée : l'exploitant cherche du
+          // côté du réseau.
+          const failure = describeSessionStoreFailure(e);
+          this.log(failure.message, "CRITIC", "SESSION-STORE");
+          this.response.statusCode = failure.statusCode;
+          return this.emitAndWrite(failure.body, encoding);
+        },
+      );
+    }
+    return this.emitAndWrite(chunk, encoding);
+  }
+
+  /** Hook `onSend` (attendu seulement s'il a un écouteur), puis en-têtes et corps. */
+  private emitAndWrite(
+    body: unknown,
+    encoding?: BufferEncoding,
+  ): MaybePromise<Http2Response | HttpResponse> {
+    if (body) {
+      this.response.setBody(body);
+    }
+    // Hook utilisateur — aucun listener dans le cas nominal : le check évite
+    // l'appel async lui-même (fireAsync + emitAsync = 2 Promises), pas
+    // seulement la boucle (déjà court-circuitée dans Event.emitAsync).
+    if (this.listenerCount("onSend") > 0) {
+      return this.fireAsync("onSend", this.response, this).then(() =>
+        this.writeHeadAndBody(body, encoding),
+      );
+    }
+    return this.writeHeadAndBody(body, encoding);
+  }
+
+  /** En-têtes, puis corps — ou la seule fin de réponse pour une redirection. */
+  private writeHeadAndBody(
+    body: unknown,
+    encoding?: BufferEncoding,
+  ): MaybePromise<Http2Response | HttpResponse> {
+    try {
+      this.writeHead();
+    } catch (e) {
+      this.log(e, "WARNING");
+    }
+    if (this.isRedirect) {
+      return this.close();
+    }
+    return this.write(body, encoding);
   }
 
   writeHead(
@@ -506,35 +556,52 @@ class HttpContext extends Context implements IHttpContextInterface {
     this.response.writeHead(statusCode, headers);
   }
 
-  async write(
+  /**
+   * Écrit le corps, puis termine la requête ({@link close}). Synchrone pour une
+   * réponse unique (#505).
+   *
+   * @returns la réponse, ou sa promesse quand l'écriture attend.
+   */
+  write(
     chunk: unknown,
     encoding?: BufferEncoding,
     _flush: boolean = false,
-  ): Promise<
-    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
-    Http2Response | HttpResponse
-  > {
-    await this.response
-      .send(chunk, encoding || this.response.encoding)
-      .then(() => {
+  ): MaybePromise<Http2Response | HttpResponse> {
+    return thenMaybe(
+      this.response.send(chunk, encoding || this.response.encoding),
+      () => {
         this.sended = true;
-      });
-    // END REQUEST
-    return this.close();
+        // END REQUEST
+        return this.close();
+      },
+    );
   }
 
   flush(chunk: unknown, encoding: BufferEncoding) {
     return this.response.flush(chunk, encoding);
   }
 
-  async close(): Promise<
-    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
-    Http2Response | HttpResponse
-  > {
-    // Même garde que `onSend` (#doSend) : hook utilisateur, 0 listener nominal.
+  /**
+   * Termine la requête : hook `onClose`, puis fin de la réponse si l'envoi ne
+   * l'a pas déjà faite. Synchrone sans écouteur `onClose` (#505).
+   *
+   * @returns la réponse, ou sa promesse quand le hook attend.
+   */
+  close(): MaybePromise<Http2Response | HttpResponse> {
+    // Le démontage (écouteur `close` de la réponse Node) a déjà libéré le
+    // contexte : sur un chemin qui a attendu (flux chunké, HTTP/2), la réponse
+    // a pu se fermer entre l'écriture et ici. Plus rien à terminer — et le
+    // centre de notifications, libéré avec le contexte, n'est plus lisible.
+    if (this.finished) return this.response;
+    // Même garde que `onSend` : hook utilisateur, 0 listener nominal.
     if (this.listenerCount("onClose") > 0) {
-      await this.fireAsync("onClose", this);
+      return this.fireAsync("onClose", this).then(() => this.endResponse());
     }
+    return this.endResponse();
+  }
+
+  /** Fin de la réponse, sauf si l'envoi l'a déjà terminée. */
+  private endResponse(): MaybePromise<Http2Response | HttpResponse> {
     // END REQUEST
     // `send()` termine désormais la réponse UNIQUE d'un seul `end(body)` (cf
     // Response.send) : rappeler `end()` ici poserait un second appel sur un flux
@@ -542,7 +609,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     // d'économiser. Le chemin chunké (`flush()`), lui, n'a pas terminé : il
     // passe toujours par ici.
     if (this.response.response?.writableEnded) return this.response;
-    return this.response.end().then(() => this.response);
+    return thenMaybe(this.response.end(), () => this.response);
   }
 
   redirect(

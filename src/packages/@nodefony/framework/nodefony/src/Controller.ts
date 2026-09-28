@@ -9,6 +9,7 @@ import {
   //inject,
   FileClass,
 } from "nodefony";
+import type { MaybePromise } from "nodefony";
 import type { IController } from "../interfaces/index.js";
 import Route from "./Route";
 import Router from "../service/router";
@@ -482,12 +483,23 @@ class Controller extends Service implements IController {
     );
   }
 
-  async render(
+  /**
+   * Rend une donnée sur la réponse de la requête courante (JSON, HTML ou
+   * texte selon son type).
+   *
+   * Synchrone quand l'envoi l'est — réponse unique, sans session à sauver ni
+   * hook d'envoi (#505). Un `await` reste valable dans tous les cas ; un
+   * `.then` chaîné ne l'est plus : la valeur n'est une promesse que quand
+   * l'envoi attend.
+   *
+   * @returns la réponse, ou sa promesse.
+   */
+  render(
     data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: Record<string, string | number>,
-  ) {
+  ): MaybePromise<Http2Response | HttpResponse> {
     this.#warnScriptWithoutNonce(data);
     // Garde conservée : hors requête le contexte est absent ; élargir le cast
     // changerait le type de RETOUR publié (compat).
@@ -500,12 +512,20 @@ class Controller extends Service implements IController {
     );
   }
 
+  /**
+   * Envoie une donnée déjà sérialisée sur le transport de la requête (HTTP ou
+   * WebSocket), après statut et en-têtes éventuels.
+   *
+   * Synchrone quand l'envoi l'est (#505) — cf {@link render}.
+   *
+   * @returns la réponse, ou sa promesse.
+   */
   renderResponse(
     data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: OutgoingHttpHeaders,
-  ): Promise<Http2Response | HttpResponse> | Promise<WebsocketResponse> {
+  ): MaybePromise<Http2Response | HttpResponse | WebsocketResponse> {
     if (headers) {
       this.response?.setHeaders(headers);
     }
@@ -599,11 +619,18 @@ class Controller extends Service implements IController {
     };
   }
 
-  async renderJson(
+  /**
+   * Sérialise en JSON puis envoie ({@link renderResponse}). Synchrone quand
+   * l'envoi l'est (#505).
+   *
+   * @returns la réponse, ou sa promesse.
+   * @throws de façon SYNCHRONE ce que lève `JSON.stringify` (cycle, BigInt).
+   */
+  renderJson(
     obj: unknown,
     status?: string | number,
     headers?: OutgoingHttpHeaders,
-  ) {
+  ): MaybePromise<Http2Response | HttpResponse | WebsocketResponse> {
     const data = JSON.stringify(obj);
     this.setContextJson();
     return this.renderResponse(data, "utf8", status, headers);

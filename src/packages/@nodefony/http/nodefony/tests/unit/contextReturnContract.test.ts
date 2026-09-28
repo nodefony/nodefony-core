@@ -19,6 +19,7 @@ import { expect, vi } from "vitest";
 import Context from "../../src/context/Context.js";
 import HttpContext from "../../src/context/http/HttpContext.js";
 import WebsocketContext from "../../src/context/websocket/WebsocketContext.js";
+import HttpResponse from "../../src/context/http/Response.js";
 import HttpError from "../../src/errors/httpError.js";
 
 type Loose = Record<string, unknown>;
@@ -130,6 +131,100 @@ describe("HttpContext.handle — rend ce que rend l'action", () => {
     );
     expect(await context.handle()).to.equal(context);
     expect(callController).not.toHaveBeenCalled();
+  });
+});
+
+describe("HttpContext.send — l'API d'envoi, synchrone dans le cas nominal", () => {
+  function makeSending(extra: Loose = {}): HttpContext & Loose {
+    const nodeResponse = { writableEnded: false };
+    const response = {
+      response: nodeResponse,
+      encoding: "utf8",
+      statusCode: 200,
+      isHeaderSent: () => false,
+      setBody: vi.fn(),
+      send: vi.fn(() => {
+        nodeResponse.writableEnded = true;
+        return response;
+      }),
+      end: vi.fn(() => nodeResponse),
+    };
+    return make(HttpContext.prototype, {
+      finished: false,
+      sended: false,
+      isRedirect: false,
+      session: null,
+      _timingEnabled: false,
+      response,
+      listenerCount: () => 0,
+      writeHead: vi.fn(),
+      log: vi.fn(),
+      ...extra,
+    });
+  }
+
+  it("ni session, ni hook, réponse unique → la réponse, pas une promesse", () => {
+    const context = makeSending();
+    const out = context.send("corps");
+    expect(isThenable(out)).to.equal(false);
+    expect(out).to.equal(context.response);
+    expect(context.sended).to.equal(true);
+  });
+
+  it("session ouverte → promesse (écriture du store), la réponse part après", async () => {
+    const context = makeSending({
+      session: {},
+      saveSession: () => Promise.resolve(null),
+    });
+    const out = context.send("corps");
+    expect(isThenable(out)).to.equal(true);
+    expect(await out).to.equal(context.response);
+    expect(context.sended).to.equal(true);
+  });
+
+  it("réponse déjà partie → `Response Already sended` levée en SYNCHRONE", () => {
+    const context = makeSending({ sended: true });
+    expect(() => context.send("corps")).to.throw("Response Already sended");
+  });
+
+  it("close() sur un contexte déjà démonté → la réponse, sans relire le contexte libéré", () => {
+    // Vécu : sur un chemin qui attend, le démontage (écouteur `close` de la
+    // réponse Node) libérait le contexte AVANT `close()`, qui lisait alors
+    // `listenerCount` sur un centre de notifications nul — une exception par
+    // requête, avalée en DEBUG par `onError`.
+    const context = makeSending({
+      finished: true,
+      listenerCount: () => {
+        throw new Error("notificationsCenter not initialized");
+      },
+    });
+    expect(context.close()).to.equal(context.response);
+  });
+});
+
+describe("HttpResponse.send — réponse unique terminée d'un seul appel", () => {
+  it("rend la réponse elle-même, en synchrone, après `end(corps)`", () => {
+    const end = vi.fn();
+    const response = make(HttpResponse.prototype, {
+      context: { isRedirect: false },
+      flushing: false,
+      setBody: vi.fn(),
+      response: { writableEnded: false, end },
+    });
+    // `payload` est un accesseur sur des champs `#` : masqué sur l'instance.
+    Object.defineProperty(response, "payload", { value: "corps" });
+    Object.defineProperty(response, "payloadEncoding", { value: "utf8" });
+    const out = response.send("corps");
+    expect(out).to.equal(response);
+    expect(end).toHaveBeenCalledOnce();
+  });
+
+  it("réponse Node absente → levée en SYNCHRONE", () => {
+    const response = make(HttpResponse.prototype, {
+      context: { isRedirect: false },
+      response: null,
+    });
+    expect(() => response.end()).to.throw("response not found");
   });
 });
 

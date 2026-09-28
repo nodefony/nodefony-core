@@ -1,4 +1,4 @@
-import type { IServerKernel } from "nodefony";
+import type { IServerKernel, MaybePromise } from "nodefony";
 import type { ServerType } from "./IContext";
 
 export interface IHttpKernel extends IServerKernel {
@@ -6,12 +6,16 @@ export interface IHttpKernel extends IServerKernel {
   httpPort?: number | undefined;
   httpsPort?: number | undefined;
 
-  // Public request pipeline (called by server-http / server-https)
+  /**
+   * Pipeline public d'une requête (appelé par les serveurs HTTP/HTTPS).
+   *
+   * @returns le contexte servi, ou sa promesse dès qu'une étape attend.
+   */
   handle(
     request: unknown,
     response: unknown,
     type: ServerType,
-  ): Promise<unknown>;
+  ): MaybePromise<unknown>;
 
   // context typed as object: implementation uses ContextType (WebsocketContext | HttpContext | Context)
   handleFrontController(

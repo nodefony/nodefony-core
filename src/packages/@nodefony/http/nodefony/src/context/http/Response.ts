@@ -1,7 +1,16 @@
 import http, { OutgoingHttpHeaders, OutgoingHttpHeader } from "node:http";
 import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
-import { typeOf, Pci, Pdu, Message, Severity, Msgid } from "nodefony";
+import {
+  typeOf,
+  thenMaybe,
+  Pci,
+  Pdu,
+  Message,
+  Severity,
+  Msgid,
+} from "nodefony";
+import type { MaybePromise } from "nodefony";
 import mime from "mime-types";
 import { responseTimeoutType } from "../../../service/http-kernel";
 import Cookie from "../../cookies/cookie";
@@ -539,20 +548,29 @@ class HttpResponse {
     return this.send(chunk, encoding, true);
   }
 
-  // P7 — la partie async (redirect/end) vit AVANT le `new Promise` ; l'executor
-  // redevient synchrone (plus de `new Promise(async …)` dont les throws étaient
-  // avalés par le constructeur Promise).
-  async send(
+  /**
+   * Écrit le corps sur le flux et, pour une réponse unique, la termine.
+   *
+   * Synchrone pour une réponse unique ou une redirection : `end(corps)` est un
+   * appel synchrone de Node, rien n'y est à attendre (#505). Une promesse
+   * seulement en streaming chunké (`flush()`), réglée quand le flux accepte
+   * l'écriture suivante (`drain`) — c'est la contre-pression.
+   *
+   * @param chunk - le corps (posé par `setBody`) ; absent, le corps déjà posé.
+   * @param encoding - l'encodage d'un corps texte.
+   * @returns la réponse, ou sa promesse en streaming chunké.
+   * @throws de façon SYNCHRONE quand la réponse Node n'existe plus.
+   */
+  send(
     chunk?: unknown,
     encoding?: BufferEncoding,
     _flush: boolean = false,
-  ): Promise<HttpResponse> {
+  ): MaybePromise<HttpResponse> {
     if (this.context.isRedirect) {
       if (!this.response?.headersSent) {
         this.writeHead();
       }
-      await this.end();
-      return this;
+      return thenMaybe(this.end(), () => this);
     }
     if (chunk) {
       // L'encodage demandé s'applique au texte qu'on pose — il était ignoré
@@ -618,10 +636,10 @@ class HttpResponse {
     });
   }
 
-  async write(
+  write(
     chunk?: unknown,
     encoding?: BufferEncoding,
-  ): Promise<HttpResponse> {
+  ): MaybePromise<HttpResponse> {
     return this.send(chunk, encoding || this.encoding);
   }
 
@@ -629,21 +647,23 @@ class HttpResponse {
     return this.response?.writeContinue();
   }
 
-  async end(
+  /**
+   * Termine la réponse Node — un appel synchrone, rien n'y est à attendre (#505).
+   *
+   * @returns le flux terminé (valeur de `ServerResponse.end`).
+   * @throws de façon SYNCHRONE quand la réponse Node n'existe plus.
+   */
+  end(
     chunk?: string | Buffer,
     encoding?: BufferEncoding,
-  ): Promise<http.ServerResponse | http2.ServerHttp2Stream> {
-    return new Promise((resolve, reject) => {
-      if (this.response) {
-        return resolve(
-          (this.response as http.ServerResponse).end(
-            chunk,
-            encoding || this.encoding,
-          ),
-        );
-      }
-      return reject(new Error(`response not found`));
-    });
+  ): MaybePromise<http.ServerResponse | http2.ServerHttp2Stream> {
+    if (!this.response) {
+      throw new Error(`response not found`);
+    }
+    return (this.response as http.ServerResponse).end(
+      chunk,
+      encoding || this.encoding,
+    );
   }
 
   getHeader(name: string): string | number | string[] | undefined {

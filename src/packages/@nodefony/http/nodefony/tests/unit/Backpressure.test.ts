@@ -50,8 +50,10 @@ function makeStub(res: MockServerResponse): HttpResponse {
 }
 
 function send(stub: HttpResponse): Promise<HttpResponse> {
-  // flush=true → branche streaming
-  return HttpResponse.prototype.send.call(stub, undefined, "utf-8", true);
+  // flush=true → branche streaming (toujours une promesse : la contre-pression)
+  return Promise.resolve(
+    HttpResponse.prototype.send.call(stub, undefined, "utf-8", true),
+  );
 }
 
 const settle = () => new Promise((r) => setImmediate(r));

@@ -237,3 +237,30 @@ describe("Resolver.returnController — n'attend que ce qui est une promesse", (
     expect(await out).to.equal(SENT);
   });
 });
+
+describe("Controller.renderJson — l'API d'envoi, sans promesse ajoutée", () => {
+  function makeController(send: () => unknown): Controller {
+    const ctrl = Object.create(Ctrl.prototype) as Controller;
+    // `context` est un accesseur sur un champ `#` : masqué sur l'instance.
+    Object.defineProperty(ctrl, "context", {
+      value: { send: vi.fn(send), setContextJson: vi.fn() },
+    });
+    return ctrl;
+  }
+
+  it("envoi synchrone → sa valeur, pas une promesse", () => {
+    const ctrl = makeController(() => SENT);
+    expect(ctrl.renderJson({ ok: true })).to.equal(SENT);
+  });
+
+  it("envoi qui attend → sa promesse, telle quelle", () => {
+    const pending = Promise.resolve(SENT);
+    const ctrl = makeController(() => pending);
+    expect(ctrl.renderJson({ ok: true })).to.equal(pending);
+  });
+
+  it("donnée non sérialisable → levée en SYNCHRONE", () => {
+    const ctrl = makeController(() => SENT);
+    expect(() => ctrl.renderJson({ n: 1n })).to.throw(TypeError);
+  });
+});
