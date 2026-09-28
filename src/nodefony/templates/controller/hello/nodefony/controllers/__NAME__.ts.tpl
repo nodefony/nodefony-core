@@ -39,19 +39,30 @@ import type { ContextType } from "@nodefony/http";
     super("<%= it.kebab %>", context);
   }
 
-  // ── `initialize()` — le constructeur ASYNCHRONE du controller ──────────────
-  // Un `constructor` ne peut pas être `async` : tout ce qui demande un `await`
-  // avant l'action se fait ici. Le hook est optionnel — ne l'écris que si tu en
-  // as besoin.
+  // ── Portée : UNE instance pour TOUTES les requêtes ─────────────────────────
+  // Un controller est un SINGLETON (le défaut) : construit à sa première
+  // requête, puis partagé par toutes les suivantes, concurrentes comprises. Il
+  // ne porte que du CODE. L'état d'une requête arrive par les arguments décorés
+  // (`@Param`, `@Query`, `@Body`, `@CurrentUser`…) et par les helpers
+  // (`this.context`, `this.renderJson`…), qui retrouvent la requête EN COURS.
+  // N'écris jamais un état de requête sur `this` (`this.user = …`) : il fuirait
+  // vers la requête suivante — en développement, le framework le refuse.
   //
+  // ── `initialize()` — la mise en place, UNE fois ────────────────────────────
+  // Un `constructor` ne peut pas être `async` : ce qui demande un `await` avant
+  // la première requête se fait ici (un cache, une table de référence). Le hook
+  // est optionnel, et il tourne UNE fois, à la création — jamais par requête.
+  //
+  //   labels: Map<string, string> | null = null;
   //   async initialize(): Promise<this> {
-  //     this.setContextJson();                        // format de sortie
-  //     const user = RequestContext.getUser();        // identité déjà résolue
-  //     this.prefs = await this.get("prefs").load(user.identifier);
+  //     this.labels = await this.get("labels").loadAll();  // état de démarrage
   //     return this;
   //   }
   //
-  // Quand il tourne :
+  // Besoin de préparer CHAQUE requête (un cookie, un format de sortie), ou
+  // d'injecter au constructeur un service de portée `request` ? Déclare
+  // `@Scope("request")` sur la classe : une instance par requête — par
+  // connexion en WebSocket —, et `initialize()` tourne alors à chacune :
   //  • en HTTP — APRÈS le firewall et la garde `@IsGranted` : l'identité est
   //    résolue, et rien ne s'exécute pour un appelant qui sera rejeté ;
   //  • en WebSocket — AVANT l'accept du handshake, donc avant le firewall :

@@ -40,6 +40,7 @@ import {
 import fs, { createReadStream, ReadStream } from "node:fs";
 import { promisify } from "node:util";
 import Eta from "../service/Eta";
+import { isDevelopment, singletonWriteMessage } from "./singletonGuard";
 const fsClose = promisify(fs.close);
 
 interface ReadStreamWithFD extends ReadStream {
@@ -132,16 +133,32 @@ export function parseByteRange(
 }
 
 /**
- * Scope d'instanciation d'un controller (V4.3).
+ * Portée d'instanciation d'un contrôleur.
  *
- * - `"request"` (défaut) : une instance par requête — l'état per-request peut
- *   vivre sur `this` (legacy sûr, zéro breaking).
- * - `"singleton"` (opt-in via `@Scope`) : UNE instance partagée par toutes les
- *   requêtes — réservé aux controllers **stateless** (état uniquement via
- *   arguments décorés + ALS). Un champ mutable par requête sur `this` y serait
- *   une data race silencieuse entre requêtes concurrentes.
+ * - `"singleton"` (le défaut) : UNE instance par classe, construite à la
+ *   première requête et partagée par toutes les suivantes, concurrentes
+ *   comprises. Le contrôleur ne porte que du CODE : l'état de la requête
+ *   arrive par les arguments décorés (`@Param`, `@Query`, `@Body`…) et par les
+ *   helpers, qui retrouvent la requête courante dans l'ALS. Écrire un état de
+ *   requête sur `this` le ferait fuir vers la requête suivante — les
+ *   accesseurs d'état le refusent, et le développement refuse toute écriture
+ *   sur un champ (cf `singletonGuard.ts`).
+ * - `"request"` (option explicite, `@Scope("request")`) : une instance par
+ *   requête — par CONNEXION en WebSocket. Pour un contrôleur qui injecte un
+ *   service de portée `request` à son constructeur, prépare chaque requête
+ *   dans `initialize()`, ou garde un état sur `this`.
  */
 export type ControllerScope = "request" | "singleton";
+
+/**
+ * Ce qu'un contrôleur singleton lit du résolveur d'un appel du pont
+ * `api.request` — clé `resolver` de `RequestContext` : la route et la query du
+ * chemin INVOQUÉ.
+ */
+interface IInvocationResolver {
+  readonly route?: unknown;
+  readonly queryOverride?: Record<string, unknown> | null;
+}
 
 /**
  * Garantit une `Error` comme motif de rejet : une valeur levée par un tiers
@@ -157,17 +174,32 @@ function asError(e: unknown): Error {
 class Controller extends Service implements IController {
   static prefix: string = "/";
   /**
-   * Scope d'instanciation de la classe — `"request"` par défaut, `"singleton"`
-   * posé par le décorateur `@Scope` (statique hérité, lu via `new.target` au
-   * constructor et par le Resolver : 0 Reflect). Cf {@link ControllerScope}.
+   * Portée d'instanciation de la classe — `"singleton"` par défaut,
+   * `"request"` posé par le décorateur `@Scope` (statique hérité, lu via
+   * `new.target` au constructeur et par le Resolver : 0 Reflect).
+   * Cf {@link ControllerScope}.
    */
-  static scope: ControllerScope = "request";
-  // V4.1 — état per-request en champs SHADOW privés (null par défaut, 0 alloc :
-  // remplace 4 snapshots `{}`/`[]` alloués par construction). Les accessors
-  // publics dérivent du `context` LIVE (`shadow ?? dérivation`) : plus de
-  // re-snapshot `once("onRequestEnd")` — la valeur est toujours fraîche, et un
-  // listener par requête disparaît. Les setters absorbent les écritures
-  // userland/tests (champ shadow prioritaire, comportement legacy intact).
+  static scope: ControllerScope = "singleton";
+
+  /**
+   * Vérifie que la portée de la classe est admise par sa lignée. Appelée à
+   * l'enregistrement du contrôleur (`Router.setController`), donc au
+   * démarrage.
+   *
+   * N'impose rien par défaut. Une classe de base qui n'admet qu'une portée la
+   * fait respecter ici — `RealtimeController`, lié à SA connexion par
+   * construction, refuse le singleton.
+   *
+   * @throws BootConfigurationError quand la portée déclarée est refusée.
+   */
+  static assertScope(): void {
+    // Toute portée est admise par défaut.
+  }
+  // État de requête en champs SHADOW privés (null par défaut, 0 alloc). Les
+  // accesseurs publics dérivent du `context` LIVE (`shadow ?? dérivation`) :
+  // la valeur est toujours fraîche. Les setters n'existent que pour un
+  // contrôleur PAR REQUÊTE — sur un singleton, l'écriture est refusée
+  // (`#assertPerRequest`) : elle fuirait vers la requête suivante.
   #context: ContextType | null = null;
   #route: Route | null = null;
   #request: contextRequest = null;
@@ -182,32 +214,55 @@ class Controller extends Service implements IController {
   template?: Eta | null | undefined;
 
   /**
-   * Contexte transport courant. Per-request : champ posé par `setContext`
-   * (constructor) — coût d'accès inchangé. Singleton stateless (V4.3) : champ
-   * jamais posé → lecture de l'ALS `RequestContext` (le `HttpKernel` y place
-   * le contexte à l'entrée du scope, V4.1) — chaque appel de helper retrouve
-   * LA requête en cours, jamais celle d'une requête concurrente.
+   * Refuse d'écrire un état de requête sur un contrôleur singleton : la valeur
+   * serait lue par la requête suivante. Coût nul sur le chemin chaud — ces
+   * accesseurs n'y sont jamais écrits.
+   *
+   * @param member - le membre écrit, pour le message.
+   * @throws TypeError qui nomme le contrôleur, le membre et le remède.
+   */
+  #assertPerRequest(member: string): void {
+    const ctor = this.constructor as typeof Controller;
+    if (ctor.scope === "singleton") {
+      throw new TypeError(singletonWriteMessage(ctor.name, member));
+    }
+  }
+
+  /**
+   * Contexte transport courant. Par requête : champ posé par `setContext`
+   * (constructeur). Singleton : champ jamais posé → lecture de l'ALS
+   * `RequestContext`, où le `HttpKernel` place le contexte à l'entrée de la
+   * requête — chaque helper retrouve LA requête en cours, jamais une requête
+   * concurrente.
    */
   get context(): ContextType | undefined {
     return this.#context ?? RequestContext.getContext<ContextType>();
   }
   set context(context: ContextType | undefined) {
+    this.#assertPerRequest("context");
     this.#context = context ?? null;
   }
 
   /**
-   * Route matchée. Per-request : posée par le Resolver via `setRoute`.
-   * Sans champ (singleton) : dérive du Resolver de la requête courante
-   * (`context.resolver`), donc toujours la route de CETTE requête.
+   * Route de l'appel en cours. Par requête : posée par le Resolver
+   * (`setRoute`). Singleton : celle du résolveur de l'APPEL quand le pont
+   * `api.request` en a posé un dans l'ALS (clé `resolver` — un résolveur par
+   * appel, jamais rangé sur le contexte de la connexion), sinon celle du
+   * contexte.
    */
   get route(): Route | null {
-    // `context.resolver` est typé par le contrat de `@nodefony/http`, qui ne
-    // connaît pas `Route` ; seul le Router de ce paquet le pose, donc la route
-    // est bien une `Route`.
+    // Les résolveurs sont typés par le contrat de `@nodefony/http`, qui ne
+    // connaît pas `Route` ; seul le Router de ce paquet les produit, donc la
+    // route est bien une `Route`.
+    if (this.#route !== null) return this.#route;
+    if (this.#context !== null) {
+      return (this.#context.resolver?.route as Route | undefined) ?? null;
+    }
+    const store = RequestContext.get();
     return (
-      this.#route ??
-      (this.context?.resolver?.route as Route | undefined) ??
-      null
+      (((store?.resolver as IInvocationResolver | undefined)?.route ??
+        (store?.context as ContextType | undefined)?.resolver?.route) as
+        Route | undefined) ?? null
     );
   }
 
@@ -215,6 +270,7 @@ class Controller extends Service implements IController {
     return this.#request ?? this.context?.request ?? null;
   }
   set request(request: contextRequest) {
+    this.#assertPerRequest("request");
     this.#request = request;
   }
 
@@ -224,6 +280,7 @@ class Controller extends Service implements IController {
   set response(
     response: HttpResponse | Http2Response | WebsocketResponse | null,
   ) {
+    this.#assertPerRequest("response");
     this.#response = response;
   }
 
@@ -233,24 +290,51 @@ class Controller extends Service implements IController {
     );
   }
   set method(method: HTTPMethod | undefined) {
+    this.#assertPerRequest("method");
     this.#method = method ?? null;
   }
 
+  /**
+   * Query string de l'appel en cours — pour un singleton invoqué par le pont
+   * `api.request`, celle du chemin INVOQUÉ (résolveur d'appel dans l'ALS), pas
+   * celle du handshake de la connexion. Une seule lecture de l'ALS.
+   */
   get queryGet(): Record<string, unknown> {
-    return (this.#queryGet ??
-      (this.context?.request as HttpRequest | Http2Request | null)
-        ?.queryGet) as Record<string, unknown>;
+    if (this.#queryGet !== null) return this.#queryGet;
+    if (this.#context !== null) {
+      return (this.#context.request as HttpRequest | Http2Request | null)
+        ?.queryGet as Record<string, unknown>;
+    }
+    const store = RequestContext.get();
+    return ((store?.resolver as IInvocationResolver | undefined)
+      ?.queryOverride ??
+      (
+        (store?.context as ContextType | undefined)?.request as
+          HttpRequest | Http2Request | null | undefined
+      )?.queryGet) as Record<string, unknown>;
   }
   set queryGet(value: Record<string, unknown>) {
+    this.#assertPerRequest("queryGet");
     this.#queryGet = value;
   }
 
+  /** Comme {@link queryGet}, pour la query fusionnée (`query`). */
   get query(): Record<string, unknown> {
-    return (this.#query ??
-      (this.context?.request as HttpRequest | Http2Request | null)
-        ?.query) as Record<string, unknown>;
+    if (this.#query !== null) return this.#query;
+    if (this.#context !== null) {
+      return (this.#context.request as HttpRequest | Http2Request | null)
+        ?.query as Record<string, unknown>;
+    }
+    const store = RequestContext.get();
+    return ((store?.resolver as IInvocationResolver | undefined)
+      ?.queryOverride ??
+      (
+        (store?.context as ContextType | undefined)?.request as
+          HttpRequest | Http2Request | null | undefined
+      )?.query) as Record<string, unknown>;
   }
   set query(value: Record<string, unknown>) {
+    this.#assertPerRequest("query");
     this.#query = value;
   }
 
@@ -260,6 +344,7 @@ class Controller extends Service implements IController {
         ?.queryFile) as unknown[];
   }
   set queryFile(value: unknown[]) {
+    this.#assertPerRequest("queryFile");
     this.#queryFile = value;
   }
 
@@ -269,6 +354,7 @@ class Controller extends Service implements IController {
         ?.queryPost) as Record<string, unknown>;
   }
   set queryPost(value: Record<string, unknown>) {
+    this.#assertPerRequest("queryPost");
     this.#queryPost = value;
   }
 
@@ -285,6 +371,7 @@ class Controller extends Service implements IController {
     return this.queryPost;
   }
   set body(value: Record<string, unknown>) {
+    this.#assertPerRequest("body");
     this.queryPost = value;
   }
 
@@ -303,12 +390,12 @@ class Controller extends Service implements IController {
     context: ContextType,
     //@inject("HttpKernel") private httpKernel?: HttpKernel
   ) {
-    // V4.3 — `new.target` lit le statique `scope` de la classe la plus dérivée
-    // (posé par `@Scope("singleton")`, hérité sinon). Singleton : bindé au
-    // container du KERNEL — celui de la requête est `clean()`é au teardown,
-    // le capturer = `this.get()` sur un container mort dès la requête suivante.
-    // Et AUCUNE capture per-request (pas de `setContext`) : l'état de la
-    // requête arrive par l'ALS (V4.1), jamais par `this`.
+    // `new.target` lit le statique `scope` de la classe la plus dérivée (posé
+    // par `@Scope`, hérité sinon — singleton par défaut). Singleton : lié au
+    // conteneur du KERNEL — celui de la requête est `clean()`é à la fin de la
+    // requête, le capturer = `this.get()` sur un conteneur mort dès la
+    // suivante. Et AUCUNE capture de la requête (pas de `setContext`) : son
+    // état arrive par l'ALS, jamais par `this`.
     const singleton = new.target.scope === "singleton";
     const kernel = singleton ? context.kernel : null;
     super(
@@ -324,10 +411,16 @@ class Controller extends Service implements IController {
     }
   }
 
+  /**
+   * Lie l'instance au contexte de SA requête — contrôleur par requête
+   * seulement : tout l'état de la requête (`request`, `response`, `method`,
+   * `query*`) en dérive ensuite, toujours frais.
+   *
+   * @param context - le contexte de la requête servie par cette instance.
+   * @throws TypeError sur un singleton, qui sert toutes les requêtes.
+   */
   setContext(context: ContextType) {
-    // V4.1 — un seul write : tout l'état per-request (request/response/method/
-    // query*) dérive du context via les accessors, toujours frais (le
-    // re-snapshot `once("onRequestEnd")` n'a plus de raison d'être).
+    this.#assertPerRequest("context");
     this.#context = context;
   }
 
@@ -356,11 +449,7 @@ class Controller extends Service implements IController {
    * @returns rien — cette sonde n'échoue jamais et ne change aucune réponse.
    */
   #warnScriptWithoutNonce(data: unknown): void {
-    const kernel = this.context?.kernel;
-    if (
-      kernel?.environment !== "development" &&
-      kernel?.environment !== "dev"
-    ) {
+    if (!isDevelopment(this.context?.kernel?.environment)) {
       return;
     }
     if (typeof data !== "string" || data.length === 0) {
@@ -528,10 +617,12 @@ class Controller extends Service implements IController {
    *
    * @param route - route matchée, ou `null`.
    * @returns la route posée.
+   * @throws TypeError sur un singleton : sa route se lit dans l'appel en cours.
    */
   setRoute(route: Route): Route;
   setRoute(route: Route | null): Route | null;
   setRoute(route: Route | null): Route | null {
+    this.#assertPerRequest("route");
     this.#route = route;
     return route;
   }
@@ -712,6 +803,12 @@ class Controller extends Service implements IController {
     headers?: OutgoingHttpHeaders,
     options: ReadStreamOptions | undefined = {},
   ): Promise<ReadStream> {
+    // Le contexte est lu UNE fois, ici, dans la bulle de la requête : les
+    // écouteurs du flux ci-dessous peuvent s'exécuter hors d'elle — un client
+    // qui raccroche pendant que le flux attend émet `close` depuis le contexte
+    // de la SOCKET — et un singleton n'y retrouverait plus sa requête dans
+    // l'ALS. Le contexte ne serait alors jamais terminé.
+    const context = this.context as HttpContext | undefined;
     if (!this.response) {
       throw new Error(`response not found`);
     }
@@ -775,10 +872,7 @@ class Controller extends Service implements IController {
       response.once("close", onResponseClose);
       streamFile.on("open", () => {
         try {
-          (this.context as HttpContext | undefined)?.writeHead(
-            contextResponse.statusCode,
-            headers,
-          );
+          context?.writeHead(contextResponse.statusCode, headers);
           streamFile.pipe(response, { end: false });
         } catch (e) {
           this.log(e, "ERROR");
@@ -790,9 +884,8 @@ class Controller extends Service implements IController {
       // `Promise.resolve` : un contexte dont `end()` est synchrone (doublure,
       // transport tiers) reste accepté ; une promesse native passe telle quelle.
       const endContext = (): void => {
-        const ctx = this.context as HttpContext | undefined;
-        if (ctx && !ctx.finished) {
-          Promise.resolve(ctx.end()).catch((e: unknown) => {
+        if (context && !context.finished) {
+          Promise.resolve(context.end()).catch((e: unknown) => {
             this.log(e, "ERROR");
           });
         }

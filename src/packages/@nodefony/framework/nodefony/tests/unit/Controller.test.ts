@@ -4,6 +4,7 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import { Container, Event } from "nodefony";
 import Controller from "../../src/Controller.js";
+import { Scope } from "../../decorators/routerDecorators.js";
 import type Route from "../../src/Route.js";
 import type { ContextType, HttpResponse } from "@nodefony/http";
 
@@ -23,6 +24,14 @@ interface HarnessOptions {
   /** Valeur de `Content-Security-Policy` déjà posée sur la réponse. */
   csp?: string;
 }
+
+/**
+ * Contrôleur PAR REQUÊTE : ce fichier éprouve l'API qu'un contrôleur tient de
+ * SA requête (contexte reçu au constructeur, accesseurs inscriptibles). Le
+ * singleton, lui, est éprouvé par `singletonDefault.test.ts`.
+ */
+@Scope("request")
+class HarnessController extends Controller {}
 
 // Harnais : on construit un VRAI Controller (Container + Event réels) pour que
 // setContext / get / once / log / le pipeline de stream fonctionnent comme en
@@ -124,7 +133,7 @@ function makeController(opts: HarnessOptions = {}) {
   if (opts.router) ctx.container.set("router", opts.router);
 
   const context = ctx as unknown as ContextType;
-  const c = new Controller("test-ctrl", context);
+  const c = new HarnessController("test-ctrl", context);
   c.response = response as unknown as HttpResponse;
   return { c, calls, ctx, response };
 }

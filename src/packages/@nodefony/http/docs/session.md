@@ -587,7 +587,7 @@ Trois barrières superposées :
 
 Les signatures vivent dans `.ai/symbols.json` (jamais recopiées ici). Voici les usages réels.
 
-**Depuis un contrôleur** — `this.session` est un getter sur le contexte (`Controller.ts:296`) ; un
+**Depuis un contrôleur** — `this.session` est un getter sur le contexte (`Controller.ts:384`) ; un
 paramètre `@Session()` suffit à déclarer l'intent.
 
 | Besoin                           | Appel                                | Effet                                                   |

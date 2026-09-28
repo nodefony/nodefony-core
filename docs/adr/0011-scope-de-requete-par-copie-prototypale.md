@@ -59,7 +59,7 @@ du registre **avant** de le nettoyer.
 **2. Le scope est atteignable par l'ALS.** Le contexte asynchrone de la requête porte le scope
 (champ `scope`), posé par le kernel HTTP et par le pont `api.request` du temps réel.
 `RequestContext.getScope()` (`RequestContext.ts:232`) le rend, ou `undefined` ;
-`RequestContext.requireScope()` (`RequestContext.ts:246`) lève en nommant l'une des trois causes
+`RequestContext.requireScope()` (`RequestContext.ts:259`) lève en nommant l'une des trois causes
 (aucune requête, bulle sans scope, scope refermé). Un scope refermé n'est jamais rendu.
 
 **3. Une portée `request` pour les services.** `@injectable({ scope: "request" })` (`DIScope`,

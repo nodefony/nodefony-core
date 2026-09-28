@@ -87,8 +87,8 @@ Une « portée » répond à quatre questions. Les voici pour chaque durée de v
 | service `transient`               | **une par résolution**                | celui qui l'a demandée   | quand plus rien ne la référence           | `@inject("nom")`                                           |
 | service `request`                 | **une par requête** (créée si besoin) | la requête qui l'a créée | à la fin de la requête (`clean()` appelé) | `@inject("nom")`, ou `RequestContext.getScope()?.get(nom)` |
 | objet posé à la main sur le scope | une, posée par ton code               | la requête qui l'a posée | à la fin de la requête (sans `clean()`)   | `RequestContext.getScope()?.get(nom)`                      |
-| contrôleur (défaut)               | **un par requête**                    | la requête qu'il sert    | à la fin de la requête                    | construit par le routeur                                   |
-| contrôleur `@Scope("singleton")`  | **un** pour toute l'application       | toutes les requêtes      | à l'arrêt de l'application                | construit par le routeur, mis en cache                     |
+| contrôleur (défaut, singleton)    | **un** pour toute l'application       | toutes les requêtes      | à l'arrêt de l'application                | construit par le routeur à sa 1re requête, mis en cache    |
+| contrôleur `@Scope("request")`    | **un par requête** (par connexion WS) | la requête qu'il sert    | à la fin de la requête                    | construit par le routeur                                   |
 
 > [!IMPORTANT]
 > **En WebSocket, « la requête » est la CONNEXION.** Un scope est ouvert au handshake et refermé à la
@@ -100,13 +100,13 @@ Une « portée » répond à quatre questions. Les voici pour chaque durée de v
 
 Le mot est surchargé dans Nodefony. Les confondre produit des bugs qui ne plantent pas.
 
-| Ce qu'on écrit                          | Ce que ça règle                                           | Où c'est implémenté                                                               |
-| --------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `@injectable({ scope: "request" })`     | la **durée de vie** d'un service (`DIScope`)              | `DIScope` (`injector.ts:27`)                                                      |
-| `RequestContext.getScope()`             | le **calque** de la requête en cours (un `Scope`)         | `RequestContext.getScope()` (`RequestContext.ts:232`)                             |
-| `Injector.getScope("nom")`              | la durée de vie **déclarée** d'un service — pas un calque | `Injector.getScope()` (`injector.ts:132`)                                         |
-| `@Scope("singleton")` sur un contrôleur | un contrôleur partagé au lieu d'un par requête            | `Scope()` (`routerDecorators.ts:777`)                                             |
-| `@RequireScope("users:write")`          | une **permission** — rien à voir avec l'injection         | autorisation ([firewall](../../src/packages/@nodefony/security/docs/firewall.md)) |
+| Ce qu'on écrit                        | Ce que ça règle                                           | Où c'est implémenté                                                               |
+| ------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `@injectable({ scope: "request" })`   | la **durée de vie** d'un service (`DIScope`)              | `DIScope` (`injector.ts:27`)                                                      |
+| `RequestContext.getScope()`           | le **calque** de la requête en cours (un `Scope`)         | `RequestContext.getScope()` (`RequestContext.ts:232`)                             |
+| `Injector.getScope("nom")`            | la durée de vie **déclarée** d'un service — pas un calque | `Injector.getScope()` (`injector.ts:132`)                                         |
+| `@Scope("request")` sur un contrôleur | un contrôleur par requête au lieu d'une instance partagée | `Scope()` (`routerDecorators.ts:795`)                                             |
+| `@RequireScope("users:write")`        | une **permission** — rien à voir avec l'injection         | autorisation ([firewall](../../src/packages/@nodefony/security/docs/firewall.md)) |
 
 Les quatre premières parlent de durée de vie ; la cinquième est un faux ami — c'est un droit
 d'accès.
@@ -124,7 +124,7 @@ le contrôleur qui l'injecte **et** par une fonction qui ne reçoit rien.
 ```typescript
 import { Service, injectable, inject, RequestContext } from "nodefony";
 import type { Scope } from "nodefony";
-import { Controller, controller, Get } from "@nodefony/framework";
+import { Controller, controller, Get, Scope } from "@nodefony/framework";
 import type { Context, HttpContext } from "@nodefony/http";
 
 // ── nodefony/services/TenantContext.ts ──────────────────────────────────────
@@ -157,6 +157,10 @@ function currentTenantLabel(): string {
 }
 
 // ── nodefony/controllers/MeController.ts ────────────────────────────────────
+// Il injecte un service `request` : il doit être par requête lui aussi. Un
+// contrôleur singleton — le défaut — qui le tenterait serait refusé au
+// démarrage (dépendance captive).
+@Scope("request")
 @controller("/api/me")
 class MeController extends Controller {
   constructor(
@@ -197,9 +201,10 @@ autour d'une attente, montre qu'une variable de module est écrasée par l'autre
 lui, rend à chacune la sienne.
 
 > [!TIP]
-> Le contrôleur est lui aussi **neuf à chaque requête** (défaut `"request"`, `Controller.scope`,
-> `Controller.ts:163`) : c'est ce qui lui permet d'injecter un service `request`. Un contrôleur
-> `@Scope("singleton")` qui le tenterait est refusé **au démarrage**.
+> Un contrôleur est un **singleton** par défaut (`Controller.scope`, `Controller.ts:182`) : il ne
+> peut donc pas injecter un service `request` — ce serait une dépendance captive, refusée **au
+> démarrage**. D'où le `@Scope("request")` de `MeController` : une instance par requête, qui reçoit
+> le calque de SA requête.
 
 ## 📖 Lexique
 
@@ -296,7 +301,8 @@ Choisir en cinq secondes, puis lire la section correspondante.
 | un objet jetable, sans état partagé                      | `@injectable({ scope: "transient" })`     | **1 par résolution**               |
 | un objet qui naît et meurt avec la requête               | `@injectable({ scope: "request" })`       | **1 par requête**, puis nettoyé    |
 | une donnée de la requête, lue partout                    | `RequestContext` (voir ci-dessous)        | aucune instance : une donnée       |
-| un contrôleur sans état, partagé (performance)           | `@Scope("singleton")` sur la classe       | **1** pour la vie de l'application |
+| un contrôleur (le cas courant, sans état)                | rien : le défaut est `singleton`          | **1** pour la vie de l'application |
+| un contrôleur qui injecte un service `request`           | `@Scope("request")` sur la classe         | **1 par requête** (par connexion)  |
 
 ### `singleton` — une instance, partagée par toute l'application
 
@@ -384,35 +390,55 @@ Tu n'ouvres jamais un scope toi-même dans une application : le pipeline le fait
   lève (`leaveScope`, `http-kernel.ts:1256`).
 - **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:1615`),
   refermé à la fermeture de la socket.
-- Le pipeline y pose `context` (`set("context")`, `Context.ts:310`) puis `controller` (`Resolver.ts:280`). Le
+- Le pipeline y pose `context` (`set("context")`, `Context.ts:310`) puis `controller` (`Resolver.ts:294`). Le
   `resolver` n'y est **pas** : c'est un champ du contexte (`context.resolver`).
 
-### `@Scope("singleton")` — le contrôleur partagé, sous contrat strict
+### Le contrôleur singleton — le défaut, sous contrat strict
 
-Un contrôleur est **neuf par requête** par défaut. Le décorateur `Scope()`
-(`routerDecorators.ts:777`) permet d'en partager un seul, mis en cache par le routeur
-(`Router.getSingletonController()`, `router.ts:201`).
+Un contrôleur est un **singleton** par défaut : construit à sa première requête, mis en cache par
+le routeur (`Router.getSingletonController()`, `router.ts:197`), puis partagé par toutes les
+requêtes, concurrentes comprises. Son `initialize()` tourne une fois, à la création.
 
-Le gain est réel — plus d'instanciation ni d'`initialize()` par requête — mais le **contrat est
-strict** : l'action ne lit ni n'écrit **aucun** état de requête sur `this`. Tout passe par les
-arguments décorés et les helpers, qui retrouvent la requête courante par l'ALS. Et il ne peut pas
-injecter de service `request` : c'est une dépendance captive, refusée au démarrage.
+Le **contrat est strict** : l'action ne lit ni n'écrit **aucun** état de requête sur `this`. Tout
+passe par les arguments décorés et les helpers, qui retrouvent la requête courante par l'ALS — y
+compris la route et la query d'un appel du pont `api.request`, qui a son propre résolveur. Et il ne
+peut pas injecter de service `request` : c'est une dépendance captive, refusée au démarrage.
+
+Deux filets rendent la faute visible au lieu de la laisser fuir :
+
+- les accesseurs d'état (`this.query = …`, `this.context = …`, `setRoute()`…) **lèvent** sur un
+  singleton, dans tous les environnements ;
+- **en développement**, toute écriture sur un champ de l'instance lève aussi, en nommant le
+  contrôleur, le champ et le remède (`guardSingletonState()`, `singletonGuard.ts:71`).
 
 > [!CAUTION]
-> Un champ muté par requête sur un contrôleur `@Scope("singleton")` est une **concurrence
-> silencieuse** entre deux requêtes. Rien ne plante ; deux utilisateurs se marchent dessus. Le
-> défaut par requête reste le bon choix tant que le profil ne prouve pas le contraire.
+> Ce que les filets ne voient pas : un champ `#privé`, et la mutation d'un objet tenu par un champ
+> (`this.cache.set(…)`). Là, rien ne plante et deux utilisateurs se marchent dessus. Même
+> prudence pour un callback qui s'exécute HORS de la bulle de la requête — écouteur d'un émetteur,
+> minuteur armé ailleurs : il n'y retrouve pas `this.context`. Lire le contexte AVANT, dans une
+> variable.
+
+### `@Scope("request")` — une instance par requête
+
+Le décorateur `Scope()` (`routerDecorators.ts:795`) rend à une classe une instance par requête —
+par CONNEXION en WebSocket. À déclarer quand le contrôleur injecte un service `request` à son
+constructeur, prépare chaque requête dans `initialize()`, ou garde un état sur `this`.
+
+`RealtimeController` l'est par construction (`RealtimeController.ts:173`), et refuse le singleton au
+démarrage : son pair JSON-RPC et `notifyClient`/`requestClient` désignent la connexion par
+l'instance.
 
 ### Portées et concurrence — le tableau qui rassure
 
-| Élément                          | Où il vit                       | Partagé entre requêtes ?                  | Nettoyé quand ?                 |
-| -------------------------------- | ------------------------------- | ----------------------------------------- | ------------------------------- |
-| `syslog`, `router`, `firewall`   | conteneur du kernel             | **oui** — lus à travers le calque         | à l'arrêt (`clean()` du kernel) |
-| service `singleton`              | conteneur du kernel (mémorisé)  | **oui**                                   | à l'arrêt                       |
-| service `transient`              | nulle part — neuf à chaque fois | **non**                                   | quand plus rien ne le référence |
-| service `request`                | scope de la requête             | **non** — sauf messages d'une même socket | `leaveScope` → son `clean()`    |
-| contrôleur, `context`            | scope de la requête             | **non**                                   | `leaveScope` en fin de requête  |
-| contrôleur `@Scope("singleton")` | cache du routeur                | **oui** — d'où le contrat sans état       | à l'arrêt                       |
+| Élément                        | Où il vit                       | Partagé entre requêtes ?                  | Nettoyé quand ?                 |
+| ------------------------------ | ------------------------------- | ----------------------------------------- | ------------------------------- |
+| `syslog`, `router`, `firewall` | conteneur du kernel             | **oui** — lus à travers le calque         | à l'arrêt (`clean()` du kernel) |
+| service `singleton`            | conteneur du kernel (mémorisé)  | **oui**                                   | à l'arrêt                       |
+| service `transient`            | nulle part — neuf à chaque fois | **non**                                   | quand plus rien ne le référence |
+| service `request`              | scope de la requête             | **non** — sauf messages d'une même socket | `leaveScope` → son `clean()`    |
+| contrôleur (défaut, singleton) | cache du routeur                | **oui** — d'où le contrat sans état       | à l'arrêt                       |
+| contrôleur `@Scope("request")` | scope de la requête             | **non**                                   | `leaveScope` en fin de requête  |
+| `context`                      | scope de la requête             | **non**                                   | `leaveScope` en fin de requête  |
 
 ### Situation 1 — « je veux un service partagé par toute l'application »
 
@@ -463,7 +489,9 @@ class AppModule extends Module {}
 
 Trois outils, du plus simple au plus outillé :
 
-1. **Dans un contrôleur**, `this` EST déjà l'état de la requête : il est neuf à chaque requête.
+1. **Dans un contrôleur `@Scope("request")`**, `this` EST l'état de la requête : il est neuf à
+   chaque requête. Un contrôleur singleton — le défaut — ne l'est PAS : son état de requête passe
+   par les arguments décorés (`@Param`, `@Query`, `@Body`…).
 2. **Une donnée lue partout** (le client reconnu, un identifiant de corrélation) : la poser dans le
    contexte asynchrone (`RequestContext.set("tenantId", id)`) et la lire à l'appel
    (`RequestContext.get()?.tenantId`), depuis un singleton compris. Le détail :
@@ -540,7 +568,7 @@ requête — un service, un écouteur, une fonction utilitaire.
 | `RequestContext.requireScope()` | le scope ouvert, ou **lève** en nommant la cause | le code qui n'a pas de sens hors d'une requête |
 
 `getScope()` (`RequestContext.ts:232`) rend `undefined` dans trois cas, et `requireScope()`
-(`RequestContext.ts:246`) les **distingue** dans son message, parce que chacun appelle un geste
+(`RequestContext.ts:259`) les **distingue** dans son message, parce que chacun appelle un geste
 différent :
 
 1. **aucune requête en cours** — démarrage, commande en ligne, minuterie armée hors requête ;
@@ -712,7 +740,9 @@ pour voir une fuite venir.
 | service reconstruit, cache vide, **aucun plantage**           | nom `@inject` ≠ clé du conteneur, résolution avant apprentissage                                                 | vérifier le `super(nom)` réel ; déclarer le service par `@services`                 |
 | deux instances d'un `singleton` en test                       | pas de kernel, donc nulle part où mémoriser                                                                      | attendu hors kernel ; monter un kernel de test si l'unicité est testée              |
 | état d'une requête visible dans une autre                     | écriture sur le conteneur du kernel au lieu du scope, ou variable de module                                      | `RequestContext.requireScope().set(…)`, ou un service `request`                     |
-| « dépendance captive » au démarrage                           | un singleton (ou un contrôleur `@Scope("singleton")`) dépend d'un service `request`                              | passer le détenteur en `request` ou `transient`, ou lire à l'appel par `getScope()` |
+| « dépendance captive » au démarrage                           | un singleton — service, ou contrôleur sans `@Scope("request")` — dépend d'un service `request`                   | passer le détenteur en `request` ou `transient`, ou lire à l'appel par `getScope()` |
+| « Contrôleur … : écriture de « this.x » refusée »             | un état de requête écrit sur un contrôleur singleton (le défaut)                                                 | argument décoré, service `request`, ou `@Scope("request")` sur la classe            |
+| « Contrôleur temps réel … déclaré @Scope("singleton") »       | un `RealtimeController` vit par connexion, par construction                                                      | retirer `@Scope("singleton")`                                                       |
 | « résolu hors d'une requête ouverte »                         | service `request` résolu au démarrage, en commande, ou après la réponse                                          | le résoudre dans la requête ; lire ce qu'il faut avant que la réponse parte         |
 | « la clé … est déjà occupée »                                 | service `request` nommé comme un objet du pipeline ou un service du kernel, ou objet quelconque posé sous sa clé | renommer le service ; poser une instance de sa classe                               |
 | faux posé sur le scope ignoré                                 | nom du `@injectable` ≠ nom du `super()`                                                                          | donner le même nom aux deux                                                         |
@@ -721,7 +751,7 @@ pour voir une fuite venir.
 | `Scope "X" not declared`                                      | `enterScope("X")` sans `addScope("X")` au démarrage                                                              | déclarer le scope au démarrage                                                      |
 | fuite mémoire, `scopeCount` qui monte                         | `leaveScope` jamais appelé (pipeline court-circuité)                                                             | le kernel le fait à toutes les sorties — ne pas contourner le démontage             |
 | `Circular dependency detected: A → B → A`                     | cycle de résolution                                                                                              | casser le cycle, ou résoudre à l'appel                                              |
-| deux utilisateurs voient les données de l'autre               | champ muté sur un contrôleur `@Scope("singleton")`                                                               | retirer l'état de `this`, ou revenir au défaut par requête                          |
+| deux utilisateurs voient les données de l'autre               | état muté sur un contrôleur singleton que les filets ne voient pas (`#privé`, objet muté)                        | retirer l'état de `this`, ou déclarer `@Scope("request")`                           |
 | `@inject()` sans nom ne résout rien                           | `design:paramtypes` absent selon le mode d'exécution                                                             | toujours nommer : `@inject("catalog")`                                              |
 
 ## 📡 Observabilité

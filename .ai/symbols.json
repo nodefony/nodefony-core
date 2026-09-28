@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 880,
-    "symbols": 4376,
+    "files": 881,
+    "symbols": 4380,
     "classes": 404,
-    "interfaces": 1147,
+    "interfaces": 1148,
     "types": 470,
     "enums": 4,
-    "functions": 1910,
+    "functions": 1913,
     "constants": 441
   },
   "symbols": {
@@ -14036,9 +14036,10 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
+        "Scope",
         "controller"
       ],
-      "description": "Bancs de la portée `request` de l'injecteur (#485) sur le serveur réel. Contrôleur de portée request (le défaut) : il peut recevoir des services `request` par son constructeur."
+      "description": "Bancs de la portée `request` de l'injecteur (#485) sur le serveur réel. Contrôleur de portée request, DÉCLARÉE (le défaut est le singleton) : il peut recevoir des services `request` par son constru…"
     },
     "RestController": {
       "name": "RestController",
@@ -14396,6 +14397,7 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
+        "Scope",
         "controller"
       ],
       "description": "Banc d'intégration de la ZONE PROTÉGÉE `test-secure` (P6 J1). Politique de routes EXPLICITE : tout `/nodefony/test/secure/*` est capturé par la zone firewall `test-secure` (`nodefony.config.ts`, au…"
@@ -16686,7 +16688,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Déclare le scope d'instanciation d'un controller (V4.3) — pose le statique `scope` de la classe (hérité de `Controller`, défaut `\"request\"`). Lu par le constructor de `Controller` (`new.target`) et…"
+      "description": "Déclare la portée d'instanciation d'un contrôleur — pose le statique `scope` de la classe (hérité de `Controller`, défaut `\"singleton\"`). Lu par le constructeur de `Controller` (`new.target`) et pa…"
     },
     "UseSession": {
       "name": "UseSession",
@@ -17208,7 +17210,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Scope d'instanciation d'un controller (V4.3). - `\"request\"` (défaut) : une instance par requête — l'état per-request peut vivre sur `this` (legacy sûr, zéro breaking). - `\"singleton\"` (opt-in via `…"
+      "description": "Portée d'instanciation d'un contrôleur. - `\"singleton\"` (le défaut) : UNE instance par classe, construite à la première requête et partagée par toutes les suivantes, concurrentes comprises. Le cont…"
     },
     "parseByteRange": {
       "name": "parseByteRange",
@@ -17872,6 +17874,30 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "P6.8 — **Découverte au boot** : scanne TOUTES les routes montées (`Router.routes`) et agrège les scopes déclarés par `@RequireScope`, **regroupés par API** (préfixe avant `:`). C'est la source du f…"
+    },
+    "isDevelopment": {
+      "name": "isDevelopment",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/singletonGuard.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Filets d'un contrôleur **singleton** — le défaut : UNE instance par classe, partagée par toutes les requêtes, concurrentes comprises. Un singleton ne peut porter aucun état de requête sur `this` : …"
+    },
+    "singletonWriteMessage": {
+      "name": "singletonWriteMessage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/singletonGuard.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Message d'une écriture refusée sur un contrôleur singleton : il nomme la classe, le membre, la raison du refus et les deux remèdes."
+    },
+    "guardSingletonState": {
+      "name": "guardSingletonState",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/singletonGuard.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "En développement, fait lever toute écriture sur un champ d'un contrôleur singleton, avec un message qui nomme le contrôleur, le champ et le remède. Chaque propriété PROPRE inscriptible devient un a…"
     },
     "SyslogAdminApiOptions": {
       "name": "SyslogAdminApiOptions",
@@ -30441,6 +30467,10 @@
         "HttpKernel",
         "SessionsService"
       ],
+      "Scope": [
+        "RequestScopeController",
+        "SecureController"
+      ],
       "entity": [
         "SessionEntity"
       ]
@@ -30968,6 +30998,8 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/modules/test/nodefony/controller/requestProbe.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
@@ -33328,6 +33360,7 @@
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/requestProbe.ts",
         "src/modules/test/nodefony/controller/RequestScopeController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
@@ -33689,8 +33722,8 @@
         "src/nodefony/src/kernel/injector/serviceOrder.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/RequestScopeController.ts",
-        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "isClusterMessage": [
@@ -33790,7 +33823,8 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
-        "src/packages/@nodefony/user/nodefony/src/userContract.ts"
+        "src/packages/@nodefony/user/nodefony/src/userContract.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "findStoreOrderFault": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -35997,6 +36031,7 @@
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/AnonymousAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ApiKeyAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
@@ -37465,7 +37500,9 @@
       ],
       "ControllerScope": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
-        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts"
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "ControllerConstructor": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
@@ -37533,6 +37570,13 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
+      "isDevelopment": [
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "singletonWriteMessage": [
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
       ],
       "resolveSymbolsFile": [
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
@@ -37681,6 +37725,9 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "IResolver": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "guardSingletonState": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "buildParamArgs": [

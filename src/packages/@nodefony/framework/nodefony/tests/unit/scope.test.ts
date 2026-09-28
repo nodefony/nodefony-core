@@ -9,8 +9,8 @@ import type Route from "../../src/Route.js";
 import type { ControllerConstructor } from "../../src/Route.js";
 import type { ContextType } from "@nodefony/http";
 
-// V4.3 — @Scope("singleton") opt-in : une instance partagée pour les
-// controllers stateless ; défaut per-request INCHANGÉ. On teste la mécanique
+// Portée des contrôleurs : singleton par défaut (une instance partagée),
+// `@Scope("request")` pour une instance par requête. On teste la mécanique
 // complète : statique hérité, ctor sans capture, cache Router (promesse =
 // anti-race de création), skip setRoute, fallback sans Router.
 
@@ -74,6 +74,7 @@ function makeSingletonClass() {
   return SingletonCtrl;
 }
 
+@Scope("request")
 class RequestCtrl extends Controller {
   constructor(context: ContextType) {
     super("request-ctrl", context);
@@ -101,16 +102,17 @@ function makeResolver(
 }
 
 describe("Controller — static scope (V4.3)", () => {
-  it("defaults to 'request' and is inherited", () => {
-    expect(Controller.scope).to.equal("request");
-    expect(RequestCtrl.scope).to.equal("request");
+  it("defaults to 'singleton' and is inherited", () => {
+    class Plain extends Controller {}
+    expect(Controller.scope).to.equal("singleton");
+    expect(Plain.scope).to.equal("singleton");
   });
 
-  it("@Scope('singleton') sets the static on the class only", () => {
+  it("@Scope sets the static on the class only", () => {
     const S = makeSingletonClass();
     expect(S.scope).to.equal("singleton");
-    expect(Controller.scope).to.equal("request");
     expect(RequestCtrl.scope).to.equal("request");
+    expect(Controller.scope).to.equal("singleton");
   });
 
   it("singleton ctor captures NO per-request state (context from ALS only)", () => {

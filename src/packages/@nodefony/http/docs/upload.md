@@ -327,11 +327,11 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 | `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1232`)             |
 | `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1223`)                       |
 | `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1326`)               |
-| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:256`) |
-| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:265`) |
+| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:341`) |
+| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:351`) |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
-(`routerDecorators.ts:1283`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
+(`routerDecorators.ts:1287`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
 `IParsedUploadFile` viennent de `@nodefony/http` (`interfaces/IUpload.ts:49`, `interfaces/IUpload.ts:7`).
 
 ### Un fichier uploadé — `UploadedFile`

@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import { Container } from "nodefony";
+import { Container, RequestContext } from "nodefony";
 import OAuth2Controller from "../../controller/OAuth2Controller.js";
 import WebAuthnController from "../../controller/WebAuthnController.js";
 import type { ContextType } from "@nodefony/http";
@@ -22,6 +22,11 @@ import type { ContextType } from "@nodefony/http";
  * réclame du contexte que le `container` et le `notificationsCenter` — les
  * dépendances arrivent donc par le container, comme en production, et seules les
  * sorties HTTP (`renderJson`/`redirect`) sont neutralisées.
+ *
+ * Ces contrôleurs sont des SINGLETONS (le défaut) : ils ne gardent pas le
+ * contexte reçu à la construction, et le retrouvent dans la bulle ALS de la
+ * requête — celle que le kernel ouvre pour chacune. L'action s'appelle donc
+ * dans une bulle qui porte le contexte, comme en production.
  */
 
 type Call = { identifier: unknown; reason: unknown };
@@ -115,7 +120,10 @@ describe("Facteur d'authentification externe → audit", () => {
       configurable: true,
     });
 
-    const out = (await ctrl.loginVerify()) as { verified?: boolean };
+    const out = (await RequestContext.run(
+      { requestId: "audit-webauthn", context },
+      () => ctrl.loginVerify(),
+    )) as { verified?: boolean };
 
     // Garde-fou : sans challenge lisible le controller sort en 400 SANS appeler
     // le flow — le test passerait « à vide ».
@@ -150,7 +158,9 @@ describe("Facteur d'authentification externe → audit", () => {
       configurable: true,
     });
 
-    await ctrl.callback("google");
+    await RequestContext.run({ requestId: "audit-oauth", context }, () =>
+      ctrl.callback("google"),
+    );
 
     // Un `state` mal lu redirigerait vers `/ko` SANS appeler le flow : on vérifie
     // d'abord qu'on est sur le chemin nominal.

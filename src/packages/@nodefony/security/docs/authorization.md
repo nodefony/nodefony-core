@@ -362,12 +362,12 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:903`)                                             |
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:424-433`)                              |
-| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1572`)                          |
+| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1579`)                          |
 | décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1544`)                         |
 | `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:754-758`)                                  |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:1002`)         |
 | `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:953`) |
-| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1279`)                                |
+| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1283`)                                |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
 403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:672-677`). Le
@@ -511,7 +511,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 
 ## 🔌 HTTP et WebSocket — une garde, N transports
 
-- **La même garde** : `Resolver.executeAction()` (`Resolver.ts:335`) est le point unique
+- **La même garde** : `Resolver.executeAction()` (`Resolver.ts:372`) est le point unique
   d'enforcement — pipeline HTTP classique **et** invoke WS-RPC (pont `api.request`). Un
   `@IsGranted` protège donc l'action quel que soit le transport (prouvé bout en bout par le banc
   `ws-isgranted-jwt`).
@@ -541,8 +541,8 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 ## ⚡ Performance & mémoire
 
 - **Hot path à coût nul** : une route non gardée porte `security: null` → 0 lookup, 0 await, 0
-  alloc (`Resolver.ts:358`) ; l'exigence est **figée une fois** par route et partagée entre
-  requêtes (`SecurityRequirement`, `routerDecorators.ts:448`).
+  alloc (`Resolver.ts:371`) ; l'exigence est **figée une fois** par route et partagée entre
+  requêtes (`SecurityRequirement`, `routerDecorators.ts:444`).
 - **`decide()` sans allocation** : itération en place des voters (`authorization.ts:70-72`),
   instanciés **une seule fois** au boot (`authorization.ts:70`).
 - **`hasRole()` O(1)** : hiérarchie aplatie au boot, rien de récursif par requête

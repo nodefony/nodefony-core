@@ -2,15 +2,16 @@
 // ─── Contrôleur captif refusé AU DÉMARRAGE (#485) ────────────────────────────
 //
 // Un contrôleur n'est construit qu'à sa première requête. Sans analyse au
-// boot, un `@Scope("singleton")` qui réclame un service de portée `request`
-// démarrerait vert, puis rendrait 500 à la première requête qui l'atteint —
-// ou pire, garderait l'exemplaire de cette requête pour toutes les suivantes.
-// `@controllers` fait lire son graphe de dépendances déclarées par
-// `Injector.assertNoCaptiveDependency` à l'enregistrement : la faute arrête
-// le démarrage, en `BootConfigurationError`, même pour un module optionnel.
+// boot, un singleton qui réclame un service de portée `request` démarrerait
+// vert, puis rendrait 500 à la première requête qui l'atteint — ou pire,
+// garderait l'exemplaire de cette requête pour toutes les suivantes.
+// `@controllers` enregistre par `Router.setController`, qui lit le graphe de
+// dépendances déclarées par `Injector.assertNoCaptiveDependency` : la faute
+// arrête le démarrage, en `BootConfigurationError`, même pour un module
+// optionnel.
 //
 // Débrancher : l'appel `Injector.assertNoCaptiveDependency` dans
-// `initDecoratorControllers` (routerDecorators.ts).
+// `Router.setController` (service/router.ts).
 //
 import { expect } from "chai";
 import { fileURLToPath } from "node:url";
@@ -55,7 +56,7 @@ class CaptiveController extends Controller {
 ControllerLifetime("singleton")(CaptiveController);
 inject("FwTenant")(CaptiveController, undefined, 1);
 
-/** Portée par requête (le défaut) : il PEUT recevoir un service request. */
+/** Portée par requête DÉCLARÉE : il PEUT recevoir un service request. */
 class RequestController extends Controller {
   constructor(
     context: ContextType,
@@ -64,6 +65,7 @@ class RequestController extends Controller {
     super("RequestController", context);
   }
 }
+ControllerLifetime("request")(RequestController);
 inject("FwTenant")(RequestController, undefined, 1);
 
 @controllers([CaptiveController])

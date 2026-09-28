@@ -2,6 +2,7 @@ import {
   Service,
   Module,
   Container,
+  Injector,
   //inject,
   injectable,
 } from "nodefony";
@@ -441,10 +442,35 @@ class Router extends Service implements IRequestRouter {
     invalidateRouteIndex();
     return routenew;
   }
+  /**
+   * Enregistre une classe contrôleur pour un module — l'entonnoir UNIQUE : le
+   * décorateur `@controllers` y passe, comme les contrôleurs internes que le
+   * framework enregistre directement (plan d'administration, OAuth,
+   * WebAuthn…).
+   *
+   * C'est donc ICI que se refusent, au démarrage, les fautes de déclaration
+   * qu'un contrôleur ne révélerait qu'à sa première requête : une dépendance
+   * captive (un singleton qui détient un service de portée `request`), et une
+   * portée que sa classe de base n'admet pas (`Controller.assertScope`).
+   *
+   * @param myconstructor - la classe contrôleur.
+   * @param module - le module qui la porte.
+   * @returns la classe, rangée sous `module:Classe`.
+   * @throws BootConfigurationError sur une dépendance captive ou une portée
+   *   refusée — fatale dans tous les environnements.
+   */
   static setController(
     myconstructor: TypeController<Controller>,
     module: Module,
   ): TypeController<Controller> {
+    // Graphe lu sur les DÉCLARATIONS, rien d'instancié : un contrôleur n'est
+    // construit qu'à sa première requête, et sans cette analyse un singleton
+    // qui réclame un service `request` démarrerait vert puis rendrait 500 —
+    // ou garderait l'exemplaire d'une requête pour toutes les suivantes.
+    Injector.assertNoCaptiveDependency(myconstructor);
+    // Lu par typage structurel, comme `scope` par le Resolver : une classe
+    // qui n'hérite pas de `Controller` ne déclare aucune contrainte.
+    (myconstructor as { assertScope?: () => void }).assertScope?.();
     Object.defineProperty(myconstructor.prototype, "module", {
       value: module,
       writable: false,

@@ -15,6 +15,8 @@
 import { expect } from "chai";
 import "reflect-metadata";
 import Router from "../../service/router.js";
+import Controller from "../../src/Controller.js";
+import { Scope } from "../../decorators/routerDecorators.js";
 import type Route from "../../src/Route.js";
 import { createFrameworkAdminApi } from "../../src/FrameworkAdminApi.js";
 import type { IAdminEndpoint, IAdminRequest } from "nodefony";
@@ -111,6 +113,36 @@ describe("framework/routes — le dump plat est restreint par ?q=", () => {
     });
   });
   afterEach(nettoie);
+
+  it("porte la portée du contrôleur de chaque route — la colonne scope de inspect routes", async () => {
+    // Défaut HÉRITÉ de `Controller` : singleton. Déclarée : par requête.
+    class SharedCtrl extends Controller {
+      show() {}
+    }
+    @Scope("request")
+    class PerRequestCtrl extends Controller {
+      show() {}
+    }
+    poseRoute("rf.shared", {
+      path: "/rf/shared",
+      classMethod: "show",
+      ctor: SharedCtrl,
+    });
+    poseRoute("rf.perRequest", {
+      path: "/rf/per-request",
+      classMethod: "show",
+      ctor: PerRequestCtrl,
+    });
+    const rows = (await dump(sansFiltre)) as {
+      name: string;
+      scope: string | null;
+    }[];
+    const scopeOf = (name: string) => rows.find((r) => r.name === name)?.scope;
+    expect(scopeOf("rf.shared")).to.equal("singleton");
+    expect(scopeOf("rf.perRequest")).to.equal("request");
+    // Une classe qui n'hérite pas de `Controller` ne déclare aucune portée.
+    expect(scopeOf("rf.login")).to.equal(null);
+  });
 
   it("rend le dump ENTIER quand aucune cible n'est donnée", async () => {
     expect(aNous(await dump(sansFiltre))).to.have.members([

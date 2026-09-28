@@ -136,7 +136,7 @@ l'instance du contrôleur au handshake, ce qui donne accès au noyau, aux servic
 connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
-`IRealtimeWelcome` (`RealtimeController.ts:8`) — et se lit côté client par
+`IRealtimeWelcome` (`RealtimeController.ts:12`) — et se lit côté client par
 `RealtimeClient.serverMethods` (`RealtimeClient.ts:597`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
@@ -277,7 +277,7 @@ Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par 
 | Voie                                                   | Quand la choisir                                            |
 | ------------------------------------------------------ | ----------------------------------------------------------- |
 | `@RealtimeAction("nom")` (`realtimeDecorators.ts:101`) | le cas courant — un nom fixe, une méthode, déclaratif       |
-| `realtimeActions()` (`RealtimeController.ts:186`)      | la table est **calculée** (noms dynamiques, boucle, config) |
+| `realtimeActions()` (`RealtimeController.ts:236`)      | la table est **calculée** (noms dynamiques, boucle, config) |
 
 Les deux sont fusionnées au handshake, et **l'override gagne** en cas de conflit de nom : une
 classe peut ainsi remplacer une action héritée sans toucher au parent
@@ -510,8 +510,8 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:878`). Il est **désactivé par défaut** et s'active en surchargeant
-`realtimeApiRequest()` (`RealtimeController.ts:219`).
+(`RealtimeController.ts:927`). Il est **désactivé par défaut** et s'active en surchargeant
+`realtimeApiRequest()` (`RealtimeController.ts:276`).
 
 ```ts ignore
 const modules = await socket.request("/nodefony/kernel/api/modules");

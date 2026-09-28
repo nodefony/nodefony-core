@@ -245,9 +245,17 @@ describe.skipIf(IS_PROD_TARGET)(
       throw new Error(`profil introuvable pour ${id}`);
     }
 
-    it("le profil porte 'initialize' et 'send', FERMÉES (le waterfall va jusqu'au fil)", async () => {
+    // `initialize` mesure la MISE EN PLACE du contrôleur (injection +
+    // `initialize()`). Un contrôleur par requête la paie à chaque requête ; un
+    // singleton — le défaut — ne la paie qu'à sa création. Le profil dit donc
+    // la vérité dans les deux cas, et ces deux tests la verrouillent.
+    it("contrôleur PAR REQUÊTE : le profil porte 'initialize' et 'send', FERMÉES (le waterfall va jusqu'au fil)", async () => {
       const cookie = await loginAsAdmin();
-      const phases = await profileOf("/nodefony/test/timing", cookie);
+      // `RequestScopeController` est déclaré `@Scope("request")`.
+      const phases = await profileOf(
+        "/nodefony/test/request-scope/probe",
+        cookie,
+      );
       const names = phases.map((p) => p.name);
       expect(names, `phases vues: ${names.join(", ")}`).to.include(
         "initialize",
@@ -256,6 +264,23 @@ describe.skipIf(IS_PROD_TARGET)(
       // Fermées = mesurées (une phase ouverte au teardown serait un bug d'appairage).
       for (const n of ["initialize", "action", "send"]) {
         const p = phases.find((x) => x.name === n)!;
+        expect(p.durationMs, `${n}.durationMs`).to.be.a("number");
+        expect(p.durationMs!).to.be.at.least(0);
+      }
+    });
+
+    it("contrôleur SINGLETON déjà construit : aucune phase 'initialize', 'action' et 'send' FERMÉES", async () => {
+      const cookie = await loginAsAdmin();
+      // Première requête : construit le singleton (ou le trouve déjà construit).
+      await profileOf("/nodefony/test/timing", cookie);
+      const phases = await profileOf("/nodefony/test/timing", cookie);
+      const names = phases.map((p) => p.name);
+      expect(names, `phases vues: ${names.join(", ")}`).to.not.include(
+        "initialize",
+      );
+      for (const n of ["action", "send"]) {
+        const p = phases.find((x) => x.name === n)!;
+        expect(p, `phase ${n} absente — vues: ${names.join(", ")}`).to.exist;
         expect(p.durationMs, `${n}.durationMs`).to.be.a("number");
         expect(p.durationMs!).to.be.at.least(0);
       }

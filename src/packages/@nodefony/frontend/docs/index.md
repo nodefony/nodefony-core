@@ -667,7 +667,7 @@ l'état. Une page dégradée reste une page.
 ### Les helpers de vue
 
 Si tu rends une vue Eta plutôt qu'une chaîne, trois helpers sont déjà dans tes variables locales
-(`Controller.withFrontendLocals()`, `Controller.ts:465`) — inspirés des helpers d'assets de Symfony :
+(`Controller.withFrontendLocals()`, `Controller.ts:562`) — inspirés des helpers d'assets de Symfony :
 
 ```html
 <%~ frontendDocument("shop") %>

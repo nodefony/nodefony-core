@@ -13,7 +13,7 @@ import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
 import type { ControllerScope } from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
-import { Injector, Module, RequestContext } from "nodefony";
+import { Module, RequestContext } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
 import type { HTTPMethod, SessionIntent } from "@nodefony/http";
 
@@ -130,12 +130,9 @@ function controllers(
       }
       async initDecoratorControllers() {
         const log = (contr: TypeController<Controller>) => {
-          // Dépendance captive refusée AU DÉMARRAGE : un contrôleur n'est
-          // construit qu'à sa première requête — sans cette analyse, un
-          // `@Scope("singleton")` qui réclame un service `request` démarrerait
-          // vert puis rendrait 500. Graphe lu sur les déclarations, rien
-          // d'instancié ; `BootConfigurationError`, fatale dans tous les modes.
-          Injector.assertNoCaptiveDependency(contr);
+          // Refus au démarrage (dépendance captive, portée refusée) : porté
+          // par `Router.setController`, l'entonnoir que les contrôleurs
+          // internes empruntent aussi.
           Router.setController(contr, this);
           this.log(`ADD CONTROLLER : ${contr.name}`, "DEBUG");
           // Le log des routes DOIT être émis depuis `this` (le module) — pas
@@ -769,25 +766,31 @@ function BypassFirewall(
 // ── Scope decorator (classe) ────────────────────────────────────────────────
 
 /**
- * Déclare le scope d'instanciation d'un controller (V4.3) — pose le statique
- * `scope` de la classe (hérité de `Controller`, défaut `"request"`). Lu par le
- * constructor de `Controller` (`new.target`) et par le `Resolver` : 0 Reflect.
+ * Déclare la portée d'instanciation d'un contrôleur — pose le statique `scope`
+ * de la classe (hérité de `Controller`, défaut `"singleton"`). Lu par le
+ * constructeur de `Controller` (`new.target`) et par le `Resolver` : 0 Reflect.
  *
- * `@Scope("singleton")` : UNE instance partagée par toutes les requêtes
- * (cache kernel-scoped sur le Router, `initialize()` appelé 1× à la création).
- * **Contrat stateless strict** : l'action ne lit/n'écrit AUCUN état par requête
- * sur `this` — tout passe par les arguments décorés (`@Param`/`@Body`…) et les
- * helpers, qui retrouvent la requête courante via l'ALS (V4.1). Un champ muté
- * par requête sur un singleton = data race silencieuse entre deux requêtes
- * concurrentes. Le défaut per-request reste inchangé (0 breaking legacy).
+ * `@Scope("request")` : une instance par requête — par CONNEXION en
+ * WebSocket. À déclarer quand le contrôleur injecte un service de portée
+ * `request` à son constructeur (un singleton qui le tente est refusé au
+ * démarrage), prépare chaque requête dans `initialize()`, ou garde un état
+ * sur `this`.
+ *
+ * `@Scope("singleton")` redit le défaut : UNE instance partagée par toutes les
+ * requêtes (cache du Router, `initialize()` appelé une fois, à la création).
+ * **Contrat sans état** : l'action ne lit ni n'écrit aucun état de requête sur
+ * `this` — tout passe par les arguments décorés (`@Param`/`@Body`…) et les
+ * helpers, qui retrouvent la requête courante dans l'ALS. Les accesseurs
+ * d'état refusent l'écriture, et le développement refuse toute écriture sur
+ * un champ.
  *
  * ⚠️ Homonyme : le core `nodefony` exporte aussi `Scope` (le scope DI du
  * `Container`) — celui-ci s'importe depuis `@nodefony/framework`.
  *
  * @example
- * \@Scope("singleton")
- * \@controller("/api/books")
- * class BookController extends ResourceController { ... }
+ * \@Scope("request")
+ * \@controller("/me")
+ * class MeController extends Controller { ... }
  */
 function Scope(scope: ControllerScope) {
   return function (target: { scope?: ControllerScope }): void {

@@ -6,6 +6,7 @@ import {
   Get,
   IsGranted,
   CurrentUser,
+  Scope,
 } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import { recordInitializeRun } from "./initializeProbe";
@@ -20,6 +21,10 @@ import { recordInitializeRun } from "./initializeProbe";
  * de ces actions n'est atteinte : le firewall répond 401 (+ `WWW-Authenticate`)
  * AVANT le controller. Le reste du module test reste public.
  */
+// Par requête : le mouchard de `initialize()` compte les requêtes qui
+// atteignent le contrôleur — la preuve qu'une requête refusée (401/403) n'y
+// arrive jamais. En singleton, il ne compterait que la première.
+@Scope("request")
 @controller("/nodefony/test/secure")
 class SecureController extends Controller {
   constructor(context: ContextType) {

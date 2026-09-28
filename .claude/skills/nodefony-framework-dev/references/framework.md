@@ -192,8 +192,9 @@ Champs : `controller`, `actionName`, `action`, `route`, `variables: unknown[]` (
 ## API — `Controller`
 
 `Controller extends Service implements IController` (`nodefony/src/Controller.ts:112`). Statiques :
-`prefix = "/"` ; **`scope: ControllerScope = "request"`** (`"request"|"singleton"`, posé par `@Scope`,
-lu via `new.target`).
+`prefix = "/"` ; **`scope: ControllerScope = "singleton"`** (`"request"|"singleton"`, posé par `@Scope`,
+lu via `new.target`) ; `assertScope()` (statique, appelé par `Router.setController` — une base qui
+n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le singleton).
 
 **Getters/setters per-request (V4.1)** — dérivent du `context` LIVE (`shadow ?? context.x`), 0 alloc :
 `context` (`Controller.ts:146`, retombe sur `RequestContext.getContext()` pour un singleton), `route`
@@ -596,5 +597,7 @@ code)` puis `returnController(undefined)` (un objet `{url, statusCode?}` retourn
   décorateur controller s'importe depuis `@nodefony/framework`.
 - **`extractControllerFilePath`** (`routerDecorators.ts:207`) : regex stack-trace `controllers?/.*\.js`
   → ne capture le `filePath` d'une route qu'avec des fichiers **compilés `.js`** (no-op en ts-node).
-- **Singleton stateless strict** : `@Scope("singleton")` / `ResourceController` → JAMAIS `this.x=…` par
-  requête (data race). Rétrograder en `static scope="request"` si état per-request requis.
+- **Singleton par défaut, stateless strict** : JAMAIS `this.x=…` par requête (data race) — les setters
+  d'état lèvent partout, tout champ lève en dev (`singletonGuard.ts`). Déclarer `@Scope("request")`
+  si état par requête, service `request` injecté, ou `initialize()` qui prépare chaque requête.
+  Callback hors bulle ALS (émetteur préexistant, minuteur) : lire `this.context` AVANT, en local.

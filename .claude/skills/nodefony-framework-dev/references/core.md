@@ -71,7 +71,7 @@ CLASSE : la clé container est **apprise** quand `addService` pose l'instance, d
 - **`singleton` (défaut) = UNE instance**, mémoïsée au container. `"transient"` → toujours un new.
   `"request"` → UNE instance par requête (par CONNEXION en WS), rangée sur le scope DI de la
   requête, ctor `(scope, ...deps)`, `clean()` LIFO à la fermeture. Un détenteur singleton
-  (service, contrôleur `@Scope("singleton")`) est refusé : `BootConfigurationError`.
+  (service, ou contrôleur sans `@Scope("request")` — le défaut) est refusé : `BootConfigurationError`.
 - ⚠️ **Une dépendance ne reçoit JAMAIS les arguments de son parent** : elle se résout (container),
   elle ne s'hérite pas. Donc un service résolu **comme dépendance** n'a pas d'arguments — s'il exige
   son module, il ne doit être atteint qu'après avoir été posé (c'est le rôle de `@services`).

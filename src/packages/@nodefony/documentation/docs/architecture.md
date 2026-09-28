@@ -267,8 +267,8 @@ Chaque couche ne connaît que sa voisine du dessous, et la plus volatile est la 
 | Service       | `DocumentationService` — le seul stateful                         | scanner, cacher, indexer, résoudre                   | qui l'appelle, et par quel transport |
 | Briques pures | `frontmatter` · `slug` · `docScanner` · `linkResolver` · `search` | une transformation, sans état ni Kernel              | qu'un serveur existe                 |
 
-Le contrôleur est **réinstancié à chaque requête** : il ne peut donc rien retenir, et c'est
-voulu. Le service est un singleton par process ; il porte l'index caché (`#cache`,
+Le contrôleur est un **singleton** (le défaut des contrôleurs) : une seule instance sert
+toutes les requêtes, et il ne retient rien sur `this` — c'est voulu. Le service est un singleton par process ; il porte l'index caché (`#cache`,
 `DocumentationService.ts:138`) et le registre des variables (`#vars`,
 `DocumentationService.ts:140`), tous deux à `null` tant que personne n'a rien demandé.
 

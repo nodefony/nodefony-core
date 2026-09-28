@@ -124,7 +124,7 @@ le corps de la requête (`http-kernel.ts:1408`). C'est ce qui permet à une acti
 brut plutôt qu'un corps déjà chargé en mémoire — et ce qui évite de payer le disque sur une route qui
 n'est pas un fichier.
 
-**3. Tout tourne dans une bulle.** `RequestContext.run()` (`RequestContext.ts:175`) ouvre un
+**3. Tout tourne dans une bulle.** `RequestContext.run()` (`RequestContext.ts:185`) ouvre un
 `AsyncLocalStorage` autour de la suite du pipeline. Chaque saut asynchrone en aval — log, requête ORM,
 décorateur de sécurité — retrouve `requestId`, `traceparent` et le contexte, **sans** qu'on les passe
 en paramètre.
@@ -299,14 +299,14 @@ MATCHER la route — `prepareFrontController()` (`http-kernel.ts:789`) pose `ses
 `bypassFirewall`, que le point session et le firewall lisent juste après, et rien de plus. La
 construction de l'instance et l'appel d'`initialize()` exécutent du code utilisateur et résolvent
 des dépendances : ils vivent dans `Resolver.executeAction()`, **après** la garde `@IsGranted`
-(`Resolver.ts:327`), donc après CSRF, session et firewall. Un 403 court-circuite l'instanciation —
+(`Resolver.ts:372`), donc après CSRF, session et firewall. Un 403 court-circuite l'instanciation —
 c'est ce qui rend la garde réellement Zero Trust, et non un contrôle posé sur un objet déjà
 construit.
 
 ### Du retour d'action à l'octet
 
 La valeur que retourne ton action n'est pas envoyée telle quelle :
-`Resolver.returnController()` (`Resolver.ts:827`) la normalise.
+`Resolver.returnController()` (`Resolver.ts:857`) la normalise.
 
 | Ce que l'action retourne      | Ce qui part sur le fil                              |
 | ----------------------------- | --------------------------------------------------- |
@@ -534,7 +534,7 @@ où ; les pages dédiées disent comment.
 | Session               | avant le firewall (`http-kernel.ts:1288`)              | l'authenticator de session lit la session reprise                      |
 | Firewall              | juste avant l'action (`firewall.ts:561`)               | la zone dépend de la route, donc du routage                            |
 | Idempotence           | dans l'appel d'action (`Resolver.ts:506`)              | seules les actions `@Idempotent` dévient — coût nul ailleurs           |
-| Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:349`)        | un 403 ne doit pas exécuter une ligne de ton action                    |
+| Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:362`)        | un 403 ne doit pas exécuter une ligne de ton action                    |
 | Origin WebSocket      | au handshake (`http-kernel.ts:509`)                    | l'anti-CSWSH remplace le CORS, absent des WebSockets                   |
 
 Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·

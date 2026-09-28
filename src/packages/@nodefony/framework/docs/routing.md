@@ -104,7 +104,7 @@ contrôleur.
 O(1) ; les chemins **dynamiques** restent un scan regex (`buildRouteIndex()`, `router.ts:130`). À la
 résolution, les deux flux sont fusionnés **par position d'insertion** — la séquence de candidats est
 exactement celle du scan linéaire complet, moins les littérales d'un autre chemin, qui ne pouvaient de
-toute façon pas correspondre (`Router.resolve()`, `router.ts:221`). C'est cette équivalence que fige le
+toute façon pas correspondre (`Router.resolve()`, `router.ts:237`). C'est cette équivalence que fige le
 banc de non-régression : un refacto du routeur doit le repasser à l'identique.
 
 **Une seule table pour HTTP et WebSocket.** Il n'y a pas de « routeur WS » séparé : une action WS est
@@ -263,9 +263,9 @@ que chaque forme **produit dans la table**.
 | `@route(nom, options)`                    | **le tien** (stable, réutilisable) | `requirements.methods` (libre)   | WebSocket, multi-méthodes, contraintes fines |
 
 - Les décorateurs de méthode HTTP délèguent tous à `@route` avec un nom auto `Classe::methode`, et
-  posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:493`).
+  posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:489`).
 - `@All` n'émet **aucun** requirement de méthode : la route sert alors GET, POST, DELETE… et ne peut
-  donc jamais produire un 405 sur la méthode (`All()`, `routerDecorators.ts:552`).
+  donc jamais produire un 405 sur la méthode (`All()`, `routerDecorators.ts:548`).
 - `@route` est la forme complète : elle seule permet `protocol` (sous-protocole WS), un nom lisible, et
   des requirements par variable.
 
@@ -360,7 +360,7 @@ le suit — un `@All("*")` déclaré tôt masque le reste du contrôleur.
 > [!TIP]
 > Une exception utile : dans un contrôleur, une route dont le chemin vaut **exactement** `"*"` est
 > repoussée **en dernier** au moment du montage — la capture-tout d'un contrôleur ne masque donc jamais
-> ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts:257`). Ça ne
+> ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts:253`). Ça ne
 > vaut **que** pour `"*"` seul : `/files/*` reste ordonné comme les autres.
 
 ### Situation 2 — le même chemin, deux méthodes
@@ -399,7 +399,7 @@ au lieu de participer au match (`Route.matchHostname()`, `Route.ts:649`). Le poi
 l'**ordre des vérifications** : le domaine est vérifié **avant** la méthode. Sans cela, une route d'un
 autre vhost pourrait répondre 405 en révélant SES méthodes — une fuite d'information cross-domaine
 (`Route.match()`, `Route.ts:327`). La passe 2 applique la même règle : les routes d'un autre vhost sont
-exclues du calcul de `Allow` (`isDomainAllowed`, `router.ts:341`).
+exclues du calcul de `Allow` (`isDomainAllowed`, `router.ts:352`).
 
 Si une autre route du même chemin sert **tous** les vhosts, le scan continue jusqu'à elle : le 403
 n'interrompt pas la recherche, il ne conclut que s'il ne reste aucune candidate.
@@ -488,7 +488,7 @@ Trois niveaux de préfixe coexistent, et un seul est à ta main.
    lui-même.
 2. **Le module propriétaire** — il n'ajoute **aucun** préfixe d'URL. `@controllers([…])` enregistre la
    classe au boot et propage le nom du module sur les routes déjà créées, pour l'introspection et les
-   logs (`Router.setController()`, `router.ts:421`). Un module tiers et ton app peuvent porter deux
+   logs (`Router.setController()`, `router.ts:462`). Un module tiers et ton app peuvent porter deux
    contrôleurs homonymes sans collision : la clé du registre est `module:Classe` (`router.ts:164`).
 3. **Le data plane d'administration** — réservé, non négociable : `/nodefony/<namespace>/api/<endpoint>`
    (`AdminBroker.resolvePath()`, `AdminBroker.ts:99`). Trois segments minimum, pour ne jamais entrer en
@@ -508,10 +508,10 @@ d'une route — il survit à un changement de chemin.
 | Besoin                                   | Comment                                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------- |
 | Retrouver une route par son nom          | `router.getRoutes("ma-route")` → l'objet `Route` (`router.ts:326`)        |
-| Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:391`)              |
-| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:380`) |
-| Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:569`)          |
-| Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:400`)                       |
+| Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:415`)              |
+| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:415`) |
+| Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:670`)          |
+| Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:424`)                       |
 
 **Il n'existe pas de générateur d'URL inverse côté serveur** (pas de `path("ma-route", {id})` à la
 Symfony). Le chemin déclaré est lisible sur l'objet `Route` (`route.path`), et la substitution des
@@ -521,7 +521,7 @@ chemin ; pour un appel interne, utilise `forward()`.
 
 **`forward()` n'est pas une redirection** : il résout `module:Controller:action` et exécute l'action
 dans le **même** contexte de requête, sans repasser par le réseau (`Resolver.parsePathernController()`,
-`Resolver.ts:215`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
+`Resolver.ts:228`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
 
 ## 🧰 API publique
 

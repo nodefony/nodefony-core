@@ -434,7 +434,7 @@ des canaux d'état, où seul le dernier instantané compte.
 Chaque canal ouvert coûte un producteur côté hub, un minuteur le plus souvent, et une entrée de table
 côté connexion. Sans borne, **un seul** client peut s'abonner jusqu'à épuiser la mémoire du
 processus. Le plafond est vérifié à chaque abonnement (`RealtimeController.startChannel()`,
-`RealtimeController.ts:746`).
+`RealtimeController.ts:793`).
 
 Quatre propriétés qui décident du bon réglage :
 

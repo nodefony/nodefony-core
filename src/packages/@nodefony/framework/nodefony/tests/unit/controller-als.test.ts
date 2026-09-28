@@ -1,15 +1,16 @@
 import { expect } from "chai";
 import { Container, Event, RequestContext } from "nodefony";
 import Controller from "../../src/Controller.js";
+import { Scope } from "../../decorators/routerDecorators.js";
 import type Route from "../../src/Route.js";
 import type Resolver from "../../src/Resolver.js";
 import type { ContextType } from "@nodefony/http";
 
-// V4.1 — équivalence `this.context` (champ shadow) vs ALS `RequestContext`.
-// Un controller per-request porte son context (comportement legacy intact) ;
-// un controller SANS champ (futur singleton V4.3) doit retrouver le context de
-// LA requête courante via l'ALS — request/response/method/query*/route/session
-// dérivent alors du payload de la bulle, jamais d'une autre requête.
+// Équivalence `this.context` (champ shadow) vs ALS `RequestContext`. Un
+// contrôleur PAR REQUÊTE porte son contexte ; un SINGLETON (le défaut) n'en
+// porte aucun et doit retrouver le contexte de LA requête courante via l'ALS —
+// request/response/method/query*/route/session dérivent alors du payload de
+// la bulle, jamais d'une autre requête.
 
 interface FakeCalls {
   send: unknown[];
@@ -50,12 +51,15 @@ function makeContext(tag: string) {
   return { ctx: ctx as unknown as ContextType, calls, route };
 }
 
+/** Contrôleur par requête : il porte le contexte reçu à sa construction. */
+@Scope("request")
+class PerRequestController extends Controller {}
+
 function makeDetachedController(bootTag: string) {
-  // Construit avec un context (le ctor l'exige) PUIS détaché : champ shadow
-  // remis à null → tous les accessors doivent retomber sur l'ALS.
+  // Un singleton (le défaut) reçoit un contexte à sa construction — le ctor
+  // l'exige — mais ne le GARDE pas : tous les accesseurs retombent sur l'ALS.
   const boot = makeContext(bootTag);
   const c = new Controller("als-ctrl", boot.ctx);
-  c.context = undefined;
   return { c, boot };
 }
 
@@ -77,9 +81,9 @@ describe("Controller — ALS fallback (V4.1)", () => {
     });
   });
 
-  it("prefers the instance field over the ALS (per-request legacy unchanged)", () => {
+  it("prefers the instance field over the ALS (per-request controller)", () => {
     const own = makeContext("own");
-    const c = new Controller("field-ctrl", own.ctx);
+    const c = new PerRequestController("field-ctrl", own.ctx);
     const other = makeContext("other");
     RequestContext.run({ requestId: "r2", context: other.ctx }, () => {
       expect(c.context).to.equal(own.ctx);
@@ -99,15 +103,27 @@ describe("Controller — ALS fallback (V4.1)", () => {
     expect(c.route).to.equal(null);
   });
 
-  it("setRoute shadows the resolver route of the ALS context", () => {
+  it("setRoute is refused on a singleton — its route comes from the call in progress", () => {
     const { c } = makeDetachedController("boot");
     const { ctx } = makeContext("als");
     const forced = { name: "forced" } as unknown as Route;
     RequestContext.run({ requestId: "r3", context: ctx }, () => {
       expect((c.route as Route).name).to.equal("route-als");
-      c.setRoute(forced);
-      expect(c.route).to.equal(forced);
+      expect(() => c.setRoute(forced)).to.throw(
+        TypeError,
+        /@Scope\("request"\)/,
+      );
+      expect((c.route as Route).name).to.equal("route-als");
     });
+  });
+
+  it("setRoute shadows the context route on a per-request controller", () => {
+    const own = makeContext("own");
+    const c = new PerRequestController("field-ctrl", own.ctx);
+    const forced = { name: "forced" } as unknown as Route;
+    expect((c.route as Route).name).to.equal("route-own");
+    c.setRoute(forced);
+    expect(c.route).to.equal(forced);
   });
 
   it("isolates two concurrent ALS scopes on the SAME instance (no bleed)", async () => {

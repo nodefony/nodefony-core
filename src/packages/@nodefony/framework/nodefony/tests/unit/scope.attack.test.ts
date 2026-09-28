@@ -81,6 +81,7 @@ class VictimSingleton extends Controller {
   }
 }
 
+@Scope("request")
 class PerRequestCtrl extends Controller {
   constructor(context: ContextType) {
     super("per-request", context);

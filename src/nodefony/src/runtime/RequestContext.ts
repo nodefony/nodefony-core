@@ -110,6 +110,18 @@ export interface RequestContextPayload {
    * sont actifs.
    */
   invocation?: unknown;
+  /**
+   * Résolution de l'**appel** en cours quand elle n'est pas celle du contexte :
+   * le pont WS-RPC `api.request` crée un résolveur PAR APPEL, sans le ranger
+   * sur `context.resolver` — qui reste celui de la connexion, partagé par tous
+   * ses messages. Un contrôleur singleton y lit la route et la query de CET
+   * appel (`Controller.route`, `query`, `queryGet`) ; sans elle, il lirait
+   * celles de la connexion. Typé `unknown` (le core ne connaît pas
+   * `@nodefony/framework`). Se pose dans la charge d'un `RequestContext.run`
+   * propre à l'appel, jamais par {@link RequestContext.set} : le store d'une
+   * connexion WebSocket est partagé par ses messages concurrents.
+   */
+  resolver?: unknown;
   [key: string]: unknown;
 }
 

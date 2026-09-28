@@ -1,4 +1,5 @@
 import {
+  BootConfigurationError,
   JsonRpcPeer,
   PLATFORM_INBOUND,
   RpcError,
@@ -20,10 +21,14 @@ import {
   type ActionParams,
   type ActionResult,
 } from "nodefony";
-import type { WebsocketContext, ProfiledResolver } from "@nodefony/http";
+import type {
+  ContextType,
+  WebsocketContext,
+  ProfiledResolver,
+} from "@nodefony/http";
 import { readBackpressureOptions } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
-import type { Router } from "@nodefony/framework";
+import type { ControllerScope, Router } from "@nodefony/framework";
 import { createSyslogUplinkHandler } from "./syslogUplink";
 import {
   WsConnectionTransport,
@@ -157,6 +162,49 @@ export abstract class RealtimeController<
   extends Controller
   implements IRealtimeController
 {
+  /**
+   * Une instance PAR CONNEXION, par construction — le défaut `singleton` des
+   * contrôleurs ne s'applique pas ici. Le pair JSON-RPC de la connexion capture
+   * l'instance du handshake, et {@link notifyClient} / {@link requestClient}
+   * désignent « CETTE connexion » par l'instance : partagée, ils liraient
+   * l'ALS de celui qui ÉMET (un écouteur du hub, un minuteur), donc une autre
+   * connexion, ou aucune. Cf {@link assertScope}.
+   */
+  static override scope: ControllerScope = "request";
+
+  /**
+   * Refuse qu'une sous-classe se déclare singleton — au démarrage
+   * (`Router.setController`), et au constructeur pour qui construit par `new`
+   * hors du routeur (harnais de test). Sans ce refus, la socket s'ouvrirait
+   * sans jamais émettre `realtime:welcome` : une panne indiscernable d'un
+   * incident réseau.
+   *
+   * @throws BootConfigurationError si la classe se déclare `@Scope("singleton")`.
+   */
+  static override assertScope(): void {
+    if (this.scope === "singleton") {
+      throw new BootConfigurationError(
+        `Contrôleur temps réel « ${this.name} » déclaré @Scope("singleton") : ` +
+          "un RealtimeController vit PAR CONNEXION — son pair JSON-RPC et " +
+          "notifyClient/requestClient désignent la connexion par l'instance. " +
+          'Retirer @Scope("singleton") : la portée d\'un RealtimeController ' +
+          "est request (une instance par connexion).",
+      );
+    }
+  }
+
+  /**
+   * @param name - nom du service (celui de la classe, par convention).
+   * @param context - le contexte de la connexion.
+   * @throws BootConfigurationError si la classe se déclare singleton.
+   */
+  constructor(name: string, context: ContextType) {
+    // AVANT `super` : aucune instance à moitié construite pour une classe
+    // refusée.
+    new.target.assertScope();
+    super(name, context);
+  }
+
   /**
    * Map des factories de canaux EXACT, lue depuis les décorateurs `@RealtimeChannel`
    * au handshake (cold-path) et mémoïsée par instance. `null` = pas de décorateur
@@ -1018,6 +1066,12 @@ export abstract class RealtimeController<
           userId: token.getUserIdentifier(),
           // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
           context: ctx,
+          // Le résolveur de CET appel : un contrôleur singleton y lit la route
+          // et la query du chemin INVOQUÉ. `ctx.resolver`, lui, reste celui de
+          // la connexion — partagé par tous ses messages. Posé dans cette charge
+          // (une bulle par appel), jamais par `RequestContext.set` : deux
+          // appels concurrents de la même socket ne se voient pas.
+          resolver,
           // Le scope de la CONNEXION, pour `RequestContext.getScope()`. Un
           // `instanceof` et non un cast : sans conteneur de kernel,
           // `ctx.container` est un Container RACINE, que getScope() ne doit

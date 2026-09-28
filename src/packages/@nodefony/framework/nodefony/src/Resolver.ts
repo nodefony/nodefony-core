@@ -25,6 +25,7 @@ import {
 } from "@nodefony/http";
 import Route, { ControllerConstructor } from "./Route.js";
 import Controller from "./Controller";
+import { guardSingletonState, isDevelopment } from "./singletonGuard";
 import {
   buildParamArgs,
   resolveSessionIntent,
@@ -337,6 +338,18 @@ class Resolver implements IResolver {
       }
       if (hasInitialize(controller)) {
         await controller.initialize();
+      }
+      // Filet de DÉVELOPPEMENT : un singleton sert toutes les requêtes, donc
+      // une écriture sur l'un de ses champs, à partir d'ici, fuirait vers la
+      // suivante. Posé APRÈS `initialize()`, qui prépare légitimement un état
+      // de démarrage. Jamais hors développement : les champs y deviennent des
+      // accesseurs, un coût que la production ne paie pas.
+      if (
+        (this.controller as unknown as typeof Controller).scope ===
+          "singleton" &&
+        isDevelopment(ctx.kernel?.environment)
+      ) {
+        guardSingletonState(controller, controller.constructor.name);
       }
       return controller;
     } finally {

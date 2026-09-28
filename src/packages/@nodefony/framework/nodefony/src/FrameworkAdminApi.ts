@@ -9,6 +9,7 @@ import type {
 } from "nodefony";
 import Router from "../service/router";
 import type Route from "./Route";
+import type { ControllerScope } from "./Controller";
 import type { IAdminBroker } from "../interfaces/IAdminBroker";
 import { createPlaygroundEndpoints } from "./PlaygroundAdminApi";
 
@@ -106,6 +107,11 @@ export function createFrameworkAdminApi(
     methods: methodsOf(route),
     controller: route.controller?.name ?? null,
     action: route.classMethod ?? null,
+    // Portée du contrôleur : une instance partagée (`singleton`, le défaut)
+    // ou une par requête — par connexion en WebSocket (`request`).
+    scope:
+      (route.controller as { scope?: ControllerScope } | null | undefined)
+        ?.scope ?? null,
     module: route.module?.name ?? null,
     host: route.host ?? null,
     bypassFirewall: route.bypassFirewall,

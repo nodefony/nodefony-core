@@ -1,6 +1,7 @@
 import { Controller, route, controller } from "@nodefony/framework";
 import type { Router } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
+import { RequestContext } from "nodefony";
 
 /**
  * POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE (mais valide la BRIQUE).
@@ -63,7 +64,14 @@ class PocInvokeController extends Controller {
     // `reload = true` IMPÉRATIF : le container partagé porte déjà CE controller
     // (PocInvokeController) sous "controller" → sans reload, on réutiliserait
     // l'instance courante (sans `byAuthor`) → "Route Action not found".
-    const { result } = await resolver.executeAction(undefined, true);
+    // Une bulle PAR APPEL, qui porte le résolveur de cet appel — même patron
+    // que le pont `api.request` : une cible singleton y lit la route et la
+    // query du chemin invoqué, pas celles de la connexion.
+    const store = RequestContext.get();
+    const { result } = await RequestContext.run(
+      { ...store, requestId: store?.requestId ?? ctx.requestId, resolver },
+      () => resolver.executeAction(undefined, true),
+    );
     // La valeur brute peut être un THENABLE (action async — ex. helpers
     // `ResourceController` V4.2) : le pont déballe avant d'envelopper, comme
     // `returnController` le fait pour REST.

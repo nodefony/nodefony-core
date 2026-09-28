@@ -1,4 +1,4 @@
-import { Controller, route, Get, controller } from "@nodefony/framework";
+import { Controller, route, Get, controller, Scope } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import { Injector, RequestContext, inject } from "nodefony";
 import {
@@ -11,9 +11,11 @@ import {
 
 /**
  * Bancs de la portée `request` de l'injecteur (#485) sur le serveur réel.
- * Contrôleur de portée request (le défaut) : il peut recevoir des services
- * `request` par son constructeur.
+ * Contrôleur de portée request, DÉCLARÉE (le défaut est le singleton) : il
+ * peut recevoir des services `request` par son constructeur — un singleton
+ * qui le tenterait serait refusé au démarrage.
  */
+@Scope("request")
 @controller("/nodefony/test/request-scope")
 class RequestScopeController extends Controller {
   constructor(
