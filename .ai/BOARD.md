@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-28 15:17** (UTC).
+> Empreinte prise le **2026-09-28 16:56** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,9 +21,9 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████░░░░░` 52% | 46 | 43 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█████░░░░░` 53% | 48 | 42 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 32 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 5 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `█░░░░░░░░░` 9% | 1 | 10 | — |
@@ -35,18 +35,16 @@
 
 Ordre 1.05 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-12 → 10-12
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 43 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 42 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 43 ouverts
+## Jalon 10.0.0-beta — 42 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 1.05 | P2 — décision | 1 | 2026-10-12 → 10-12 | #259 | ci(release): publier aussi l'image sur GHCR, sans secret stocké |
-| 1.15 | P1 — figé à la création | 1 | — | #489 | chore(bench): comparer le débit de Nodefony à celui de NestJS |
-| 1.16 | P1 — figé à la création | 3 | — | #505 | perf(http): diviser par deux le coût CPU d'une requête |
 | 2.01 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #215 | fix(build): réparer le contrôle de format du code généré |
 | 2.02 | P2 — décision | 1 | 2026-10-14 → 10-14 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 2.03 | P1 — figé à la création | 1 | 2026-10-15 → 10-15 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
@@ -79,6 +77,7 @@ Ordre 1.05 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-12 �
 | 5.09 | P0 — bloque le reste | 1 | 2026-11-18 → 11-18 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
 | 5.1 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
 | 5.11 | P2 — décision | 1 | 2026-11-20 → 11-20 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
+| 5.12 | P2 — décision | 1 | — | #507 | test(bench): ajouter NestJS au banc ORM, avec un POST validé |
 | 6.01 | P2 — décision | 7 | 2026-11-23 → 12-01 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
 | 6.02 | P2 — décision | 1 | 2026-11-23 → 11-23 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
 | 6.03 | P2 — décision | 1 | 2026-11-24 → 11-24 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
@@ -95,7 +94,7 @@ Ordre 1.05 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-12 �
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.1.0 — 31 ouverts
+## Jalon 10.1.0 — 32 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -130,6 +129,7 @@ Ordre 1.05 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-12 �
 | 150.6 | P2 — décision | 1 | 2026-11-16 → 12-15 | #403 | test(perf): mesurer le banc ORM applicatif sur les trois dialectes |
 | 154 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #234 | fix(session): enregistrer le stockage Redis au demarrage |
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
+| 156 | P2 — décision | 2 | — | #508 | perf(http): trouver où Nodefony attend quand NestJS sert |
 
 ## Jalon 10.2.0 — 28 ouverts
 
