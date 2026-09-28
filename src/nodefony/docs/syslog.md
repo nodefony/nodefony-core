@@ -275,10 +275,10 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
 5. **Ring buffer** — `pushStack()` (`Syslog.ts:1152`) range le Pdu dans le `CircularBuffer`
    (`Syslog.ts:273`) et incrémente les compteurs de santé (`valid`, `errorTotal`, `criticTotal`).
 6. **Diffusion** — `fire("onLog")` alimente les listeners (dont l'impression console) ; le fan-out
-   transports n'est parcouru que s'il y en a au moins un (`_fireTransports`, `Syslog.ts:1548`), et
+   transports n'est parcouru que s'il y en a au moins un (`_fireTransports`, `Syslog.ts:1553`), et
    seulement pour les Pdu `ACCEPTED`.
-7. **Écriture** — `Syslog.rawLog()` (`Syslog.ts:1659`) formate la ligne via `Syslog.wrapper()`
-   (`Syslog.ts:1575`) puis la remet au coalescing, qui la donne au sink actif.
+7. **Écriture** — `Syslog.rawLog()` (`Syslog.ts:1666`) formate la ligne via `Syslog.wrapper()`
+   (`Syslog.ts:1580`) puis la remet au coalescing, qui la donne au sink actif.
 
 ### Le ring buffer — mémoire bornée, relecture O(1)
 
@@ -293,13 +293,13 @@ avance la tête (`Syslog.ts:284`), `toArray()` restitue l'ordre FIFO du plus anc
   en préservant les Pdu existants.
 - Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:779`) : les compteurs de
   santé continuent d'être tenus, mais plus rien n'est retenu en RAM.
-- Lecture : le getter `ringStack` (`Syslog.ts:752`), et `getLogStack()` (`Syslog.ts:1305`) dont
+- Lecture : le getter `ringStack` (`Syslog.ts:758`), et `getLogStack()` (`Syslog.ts:1305`) dont
   l'appel **sans argument** renvoie le dernier Pdu en O(1) sans matérialiser le tableau.
 
 ### Le filtrage conditionnel des listeners
 
-Un listener peut n'écouter qu'une partie du flux, via `listenWithConditions()` (`Syslog.ts:1397`,
-alias de `filter()`, `Syslog.ts:1386`) : conditions sur `severity`, `msgid` ou `date`, combinées en
+Un listener peut n'écouter qu'une partie du flux, via `listenWithConditions()` (`Syslog.ts:1401`,
+alias de `filter()`, `Syslog.ts:1390`) : conditions sur `severity`, `msgid` ou `date`, combinées en
 `&&` (défaut) ou `||`. C'est ce mécanisme qui branche l'impression console au boot — `init()`
 (`Syslog.ts:836`) attache un unique listener « sévérité ≤ 6, ou ≤ 7 si debug », après avoir purgé
 les précédents (idempotence).
@@ -437,9 +437,9 @@ coûte réellement le reste du pipeline.
 
 Un transport reçoit le `Pdu` entier et l'envoie où il veut. Contrat minimal : un `name` et un
 `send(pdu): Promise<void>`, plus un `close()` facultatif que le `Syslog` appelle quand il retire ou
-remplace le transport (un échec part sur `onTransportCloseError`). Ils sont ajoutés (`addTransport()`, `Syslog.ts:1434`, dédupliqué **par
-nom**), listés (`listTransports()`, `Syslog.ts:1492`) et activés/désactivés à chaud
-(`setTransportEnabled()`, `Syslog.ts:1516` — un transport désactivé est **retiré** de la boucle,
+remplace le transport (un échec part sur `onTransportCloseError`). Ils sont ajoutés (`addTransport()`, `Syslog.ts:1438`, dédupliqué **par
+nom**), listés (`listTransports()`, `Syslog.ts:1512`) et activés/désactivés à chaud
+(`setTransportEnabled()`, `Syslog.ts:1536` — un transport désactivé est **retiré** de la boucle,
 donc sans surcoût). Une erreur d'envoi déclenche `onTransportError` : elle ne fait jamais tomber la
 requête.
 
@@ -716,7 +716,7 @@ kernel.syslog?.addTransport(new SlackTransport());
 ```
 
 Une exception levée dans `send` **ne casse rien** : elle est captée et republiée en
-`onTransportError` (`Syslog.ts:1535`). Pour un volume réel, étends plutôt
+`onTransportError` (`Syslog.ts:1556`). Pour un volume réel, étends plutôt
 `BatchingHttpTransport` (`BatchingHttpTransport.ts:47`) : la file, l'abandon et le vidage sont déjà
 faits.
 
@@ -750,7 +750,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | -------------------------- | ---------------- | ------------------------------------------------------ |
 | Sévérités 0–7              | RFC 5424 §6.2.1  | `SysLogSeverity` (`Pdu.ts:27`)                         |
 | Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:184`)                    |
-| Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:303`) |
+| Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:313`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
 | Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2898`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |
@@ -798,7 +798,7 @@ et le pilotage du debug ciblé.
 | `log.maxStack` refusé par TypeScript              | Absent du type public `LogConfig` (`types.ts:189`)            | Non réglable depuis l'app : 100 par défaut, 2000 en développement.            |
 | Codes de couleur dans un fichier de log           | Sortie non-TTY mal détectée                                   | La couleur est résolue au boot ; vérifier `NO_COLOR`/`FORCE_COLOR`.           |
 | Vue « incomplète » en cluster                     | Driver de relecture **local** — il ne lit que son process     | `queryDriver: "cluster-file"` (défaut d'un worker), ou Loki/OpenSearch.       |
-| Deux fois la même ligne dans le JSONL             | Deux transports de même nom empilés par deux boots successifs | Déjà traité : `addTransport` **remplace** par nom (`Syslog.ts:1434`).         |
+| Deux fois la même ligne dans le JSONL             | Deux transports de même nom empilés par deux boots successifs | Déjà traité : `addTransport` **remplace** par nom (`Syslog.ts:1438`).         |
 | Lignes perdues lors d'un `SIGKILL`                | Le buffer de tick n'est pas vidé (non interceptable)          | Perte bornée à un tick ; les sévérités ≤ 3 sont écrites en durable immédiat.  |
 | Boot en erreur : `queryDriver` ambigu             | Loki **et** OpenSearch déclarés sans choix explicite          | Préciser `queryDriver: "loki"` ou `"opensearch"` (`builtinLogDrivers.ts:54`). |
 | La sortie est noyée par une boucle qui journalise | Aucune garde de débit                                         | Activer `rateLimit` / `burstLimit` sur le `Syslog` concerné.                  |

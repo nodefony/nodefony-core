@@ -109,7 +109,7 @@ banc de non-régression : un refacto du routeur doit le repasser à l'identique.
 
 **Une seule table pour HTTP et WebSocket.** Il n'y a pas de « routeur WS » séparé : une action WS est
 une route dont les méthodes déclarées contiennent `WEBSOCKET` (`Route.matchRequirements()`,
-`Route.ts:708`). C'est le différenciateur du framework — le même contrôleur, le même contexte, les
+`Route.ts:720`). C'est le différenciateur du framework — le même contrôleur, le même contexte, les
 mêmes décorateurs.
 
 **Le routeur passe avant les fichiers statiques.** Une requête qui correspond à une route ne paie
@@ -307,7 +307,7 @@ Et trois comportements qui surprennent la première fois :
 C'est le mécanisme le moins évident, et le plus utile. Déclarer un `defaults` pour une variable change
 le motif compilé : le segment devient facultatif (`[^/]*`) **et son slash aussi** (`/?`), puis la valeur
 par défaut est réinjectée quand la capture est vide (`checkDefaultParameters()`, `Route.ts:99` ·
-`Route.hydrateDefaultParameters()`, `Route.ts:521`).
+`Route.hydrateDefaultParameters()`, `Route.ts:529`).
 
 ```ts ignore
 @route("route-page", { path: "/page/{slug}", defaults: { slug: "home" } })
@@ -381,7 +381,7 @@ compilé de chaque route — la MÊME source que le match). C'est la conformité
 `Allow` liste tout ce que la ressource accepte, pas seulement ce que la dernière route scannée
 acceptait — `HEAD` compris dès qu'une route sert `GET`.
 
-**`HEAD` est implicite sur `GET`** (`Route.compileRequirements`, `Route.ts:502`) : RFC 9110 §9.1
+**`HEAD` est implicite sur `GET`** (`Route.compileRequirements`, `Route.ts:485`) : RFC 9110 §9.1
 impose à tout serveur généraliste de servir `GET` et `HEAD`, et `HEAD` rend la réponse de `GET`
 sans corps (§9.3.2) — le serveur Node écarte le corps lui-même, en HTTP/1.1 comme en HTTP/2.
 L'ajout se fait à la compilation de la route : aucun coût par requête.
@@ -395,7 +395,7 @@ L'ajout se fait à la compilation de la route : aucun coût par requête.
 ### Situation 3 — une route réservée à un domaine
 
 Une route restreinte par `@Domain` est **invisible** aux requêtes des autres vhosts : elle lève un 403
-au lieu de participer au match (`Route.matchHostname()`, `Route.ts:649`). Le point de sécurité est
+au lieu de participer au match (`Route.matchHostname()`, `Route.ts:658`). Le point de sécurité est
 l'**ordre des vérifications** : le domaine est vérifié **avant** la méthode. Sans cela, une route d'un
 autre vhost pourrait répondre 405 en révélant SES méthodes — une fuite d'information cross-domaine
 (`Route.match()`, `Route.ts:327`). La passe 2 applique la même règle : les routes d'un autre vhost sont
@@ -424,7 +424,7 @@ Ce qui change par rapport au HTTP :
   inconnu ou un sous-protocole non conforme ferme la connexion **sans jamais l'ouvrir**.
 - **Le sous-protocole est un requirement de route.** Un `protocol` déclaré et non satisfait lève une
   erreur de code **1002** (Protocol Error, RFC 6455 §7.4) au lieu d'un statut HTTP
-  (`acceptedProtocol`, `Route.ts:758`).
+  (`acceptedProtocol`, `Route.ts:779`).
 - **Le 405 ne s'applique pas au WebSocket.** La passe 2 est réservée au HTTP : sur un contexte WS,
   l'exception d'origine est préservée (`Router.resolve()`, `router.ts:230`).
 - **Un `Resolver` par connexion, réutilisé à chaque frame.** Il est créé au handshake, puis chaque
@@ -457,7 +457,7 @@ jamais muté (`Router.resolve()`, `router.ts:230`). Détails côté socket :
 
 `@Domain` restreint une méthode (ou tout un contrôleur) à un ou plusieurs noms d'hôte. Les motifs
 acceptent l'exact (`"marseille.fr"`) et le joker d'un label (`"*.cdn.example.com"`), compilés une fois
-au boot en expressions ancrées (`Route.compileHost()`, `Route.ts:635`).
+au boot en expressions ancrées (`Route.compileHost()`, `Route.ts:644`).
 
 ```ts ignore
 @controller("/")
@@ -471,12 +471,12 @@ class MarseilleController extends Controller {
 Précédence, du plus fort au plus faible : `@route({ host })` › `@Domain` sur la méthode › `@Domain` sur
 la classe (`controller()`, `routerDecorators.ts:189`). Une route sans domaine est servie sur **tous** les
 vhosts, et ne coûte rien au matching (`hostRegexp` absent → aucun test, `Route.matchHostname()`,
-`Route.ts:649`).
+`Route.ts:658`).
 
 > [!WARNING]
 > `@Domain` déclare quels vhosts une route **sert** ; il ne remplace pas la barrière d'entrée. Un
 > `Host` inconnu du serveur est rejeté en amont (421 Misdirected Request, `checkValidDomain()`,
-> `http-kernel.ts:1815`) via la liste `trustedHosts` de `@nodefony/http`.
+> `http-kernel.ts:1821`) via la liste `trustedHosts` de `@nodefony/http`.
 
 ## Préfixes — contrôleur, module, data plane
 
@@ -484,7 +484,7 @@ Trois niveaux de préfixe coexistent, et un seul est à ta main.
 
 1. **Le préfixe de contrôleur** — `@controller("/api/catalog")` est concaténé devant le chemin de
    chaque route de la classe, puis le chemin est normalisé : les `//` sont réduits et le slash final
-   retiré (`Route.setPattern()`, `Route.ts:610`). Un chemin vide (`@Get("")`) désigne donc le préfixe
+   retiré (`Route.setPattern()`, `Route.ts:619`). Un chemin vide (`@Get("")`) désigne donc le préfixe
    lui-même.
 2. **Le module propriétaire** — il n'ajoute **aucun** préfixe d'URL. `@controllers([…])` enregistre la
    classe au boot et propage le nom du module sur les routes déjà créées, pour l'introspection et les
@@ -535,7 +535,7 @@ modules qui montent des routes dynamiquement). Signatures complètes : `.ai/symb
 | `router.resolve(context)`                  | Le cœur : rend un `Resolver` (`resolve === true` si trouvé).            |
 | `router.getRoutes(nom)` · `removeRoutes()` | Introspection et démontage.                                             |
 | `Route#path` · `#variables` · `#pattern`   | Ce que la route déclare, après compilation.                             |
-| `Route#toObject()` · `#toLogLine()`        | Sérialisation pour l'API admin · ligne de log lisible (`Route.ts:554`). |
+| `Route#toObject()` · `#toLogLine()`        | Sérialisation pour l'API admin · ligne de log lisible (`Route.ts:571`). |
 | `Resolver#route` · `#variables`            | Ce que la requête courante a matché.                                    |
 | `Resolver#getMatchedParams()`              | Les variables en `nom → valeur` (`Resolver.ts:200`).                    |
 
@@ -572,12 +572,12 @@ alloué par requête.
 | Sujet                                    | Norme             | Où le code s'y conforme                                         |
 | ---------------------------------------- | ----------------- | --------------------------------------------------------------- |
 | 405 + en-tête `Allow` agrégé             | RFC 9110 §15.5.6  | passe 2 (`collectSupportedMethods()`, `router.ts:37`)           |
-| `HEAD` servi par toute route `GET`       | RFC 9110 §9.1     | `Route.compileRequirements` (`Route.ts:502`)                    |
+| `HEAD` servi par toute route `GET`       | RFC 9110 §9.1     | `Route.compileRequirements` (`Route.ts:485`)                    |
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:327`) |
-| 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:649`)                        |
+| 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:658`)                        |
 | 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
-| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1815`)                    |
-| Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:708`)                    |
+| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1821`)                    |
+| Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:720`)                    |
 | Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:79`)                                      |
 
 ## 📡 Observabilité — Studio
@@ -595,7 +595,7 @@ La table de routes est introspectable en ligne, sans lire le code :
   donc il n'est monté qu'en développement (`PlaygroundAdminApi.ts`).
 
 Au boot, avec le debug actif, chaque route est aussi journalisée en une ligne
-`[MÉTHODES] chemin → @module/Controller.action` (`Route.toLogLine()`, `Route.ts:554`).
+`[MÉTHODES] chemin → @module/Controller.action` (`Route.toLogLine()`, `Route.ts:571`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 

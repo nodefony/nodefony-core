@@ -344,7 +344,7 @@ canal exotique.
 Ne concerne, là aussi, que les transports **partagés**. Un bus pub/sub ne dit pas _qui_ a publié :
 sans secret, tout ce qui atterrit sur le canal — venu d'un pod ou d'un tiers qui sait écrire dans ce
 Redis — est traité comme un message légitime. Poser un secret fait porter à chaque message un sceau
-HMAC-SHA256, vérifié à l'arrivée (`openBackplaneEnvelope()`, `envelope.ts:96`) : un message non
+HMAC-SHA256, vérifié à l'arrivée (`openBackplaneEnvelope()`, `envelope.ts:112`) : un message non
 scellé, altéré ou repointé vers un autre canal est **ignoré**, sans exception possible.
 
 Le secret doit être **identique sur tous les pods** — c'est lui qui les reconnaît entre eux. En

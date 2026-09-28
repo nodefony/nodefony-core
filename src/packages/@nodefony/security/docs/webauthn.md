@@ -54,7 +54,7 @@ flowchart LR
 Le défi vit **hors du service**, en session BFF, posé par le controller
 (`WebAuthnController.registerOptions()`, `WebAuthnController.ts:113`). Chaque `verify*` reçoit
 l'`expectedChallenge` qu'il a émis, et le controller **l'invalide dès sa lecture**
-(`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:277`) : un défi ne sert qu'une fois.
+(`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:281`) : un défi ne sert qu'une fois.
 
 ## 📖 Lexique
 
@@ -90,7 +90,7 @@ Quatre failles fermées **par construction** :
 2. **Fuite de base** — le serveur ne stocke que des clés **publiques** (`IWebAuthnCredential.publicKey`,
    `IWebAuthnCredential.ts:16`). Une base volée ne donne aucun accès.
 3. **Rejeu** — le défi est à usage unique, invalidé en session dès sa lecture
-   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:277`).
+   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:281`).
 4. **Clonage d'authenticator** — le `signCount` doit croître ; une régression signale une copie
    (`IWebAuthnCredential.signCount`, `IWebAuthnCredential.ts:22`).
 
@@ -114,7 +114,7 @@ Trois partis pris assumés :
 - **Le stockage est pluggable** (`IWebAuthnCredentialStore`, `IWebAuthnCredentialStore.ts:75`) :
   mémoire par défaut, ORM ou Redis en production, avec le **même banc de contrat** pour tous.
 - **Les endpoints sont fournis**, pas à réécrire (`mountWebAuthnRoutes()`,
-  `WebAuthnController.ts:308`) : c'est là que vivent les gardes délicates (session du défi, usage
+  `WebAuthnController.ts:314`) : c'est là que vivent les gardes délicates (session du défi, usage
   unique, messages uniformes, anti-IDOR).
 
 ## 🚀 Démarrage rapide
@@ -155,7 +155,7 @@ export default defineConfig(() => ({
 ### 2. Les endpoints BFF sont FOURNIS
 
 Dès que `@nodefony/security` est chargé, le framework monte six routes
-(`mountWebAuthnRoutes()`, `WebAuthnController.ts:308`) :
+(`mountWebAuthnRoutes()`, `WebAuthnController.ts:314`) :
 
 | Route (`POST` sauf mention)                        | Rôle                                          | Firewall                  |
 | -------------------------------------------------- | --------------------------------------------- | ------------------------- |

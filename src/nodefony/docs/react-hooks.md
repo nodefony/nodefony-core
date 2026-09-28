@@ -425,7 +425,7 @@ points — `STATS_SERIES_POINTS` (`client/realtime/RealtimeClient.ts:131`) —, 
 
 > [!WARNING]
 > Ce hook ne se rafraîchit **pas** tout seul après sa première valeur. Le client réutilise le même
-> objet de statistiques et le mute en place (`trackFrame()`, `client/realtime/RealtimeClient.ts:991`) :
+> objet de statistiques et le mute en place (`trackFrame()`, `client/realtime/RealtimeClient.ts:996`) :
 > l'état React reçoit une référence identique, et React court-circuite le rendu. La valeur affichée
 > n'est correcte que si le composant se re-rend pour une autre raison. Pour un VU-mètre fiable,
 > compte toi-même sur `useNodefonyChannel()`.
@@ -633,7 +633,7 @@ Studio.
 | `Module 'nodefony' has no exported member 'RealtimeClient'`  | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app                                      | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]` |
 | Rien n'arrive et l'état reste `disconnected`                 | Les hooks s'abonnent mais ne connectent pas                                                                 | Appeler `socket.connect()` une fois (`client/realtime/RealtimeClient.ts:389`) |
 | Un `subscribe`/`unsubscribe`/`subscribe` par montage         | StrictMode double le montage ; le comptage est symétrique                                                   | Comportement attendu en développement ; absent en production                  |
-| Le débit de `useNodefonyChannelStats()` reste figé           | `trackFrame()` mute le même objet de stats (`client/realtime/RealtimeClient.ts:991`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                   |
+| Le débit de `useNodefonyChannelStats()` reste figé           | `trackFrame()` mute le même objet de stats (`client/realtime/RealtimeClient.ts:996`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                   |
 | `useNodefonySyslog({ severities })` ne rend rien             | Le filtre compare un champ numérique à des noms (`client/react/index.ts:373`)                               | Filtrer au rendu sur `severityName` (`Pdu.ts:180`)                            |
 | L'abonnement se refait à chaque frappe                       | Le nom du canal est recalculé et passé dans `deps`                                                          | Ne mettre dans `deps` que ce qui doit vraiment ré-abonner                     |
 | Changer un réglage AIMD ne change rien                       | Les options sont capturées par référence (`client/react/index.ts:192`)                                      | Passer par `desiredMs`/`enabled`, ou ajouter la valeur aux `deps`             |

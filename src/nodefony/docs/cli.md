@@ -268,8 +268,8 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 ## 🏗️ Échafauder — `create`
 
 `create` prend un **type** en argument — **sept** (`app | module | controller | service | front |
-entity | command`, `CREATE_TYPES`, `create.ts:43`) — et route vers un moteur de scaffold unique
-(`runCreateCommand()`, `create.ts:1146`) :
+entity | command`, `CREATE_TYPES`, `create.ts:61`) — et route vers un moteur de scaffold unique
+(`runCreateCommand()`, `create.ts:1158`) :
 
 ```bash
 nodefony create app mon-app --preset complete --frontend react   # nouveau projet
@@ -314,10 +314,10 @@ Trois comportements de `create entity` qui surprennent si on ne les connaît pas
 
 Le squelette est en [Démarrage rapide](#-démarrage-rapide) ; voici les leviers.
 
-**`generate()` est l'action.** On la surcharge (`command/Command.ts:421`) ; elle reçoit les arguments
+**`generate()` est l'action.** On la surcharge (`command/Command.ts:436`) ; elle reçoit les arguments
 positionnels déclarés par `addArgument()`, et l'instance Commander en dernier paramètre. Les hooks de
 cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la demande par `setEvents()`
-(`command/Command.ts:191`), idempotent.
+(`command/Command.ts:198`), idempotent.
 
 **`kernelEvent` = jusqu'où booter.** C'est le choix structurant :
 
@@ -329,7 +329,7 @@ cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la deman
 
 **Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:656`) —
 il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:560`). Hors module, un
-outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:777`). Dans les deux cas,
+outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:771`). Dans les deux cas,
 `addCommand` **instancie** la commande et l'enregistre sous le nom porté par son constructeur.
 
 ## ⚙️ La complétion shell

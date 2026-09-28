@@ -104,7 +104,7 @@ Le mot est surchargé dans Nodefony. Les confondre produit des bugs qui ne plant
 | ------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `@injectable({ scope: "request" })`   | la **durée de vie** d'un service (`DIScope`)              | `DIScope` (`injector.ts:27`)                                                      |
 | `RequestContext.getScope()`           | le **calque** de la requête en cours (un `Scope`)         | `RequestContext.getScope()` (`RequestContext.ts:232`)                             |
-| `Injector.getScope("nom")`            | la durée de vie **déclarée** d'un service — pas un calque | `Injector.getScope()` (`injector.ts:132`)                                         |
+| `Injector.getScope("nom")`            | la durée de vie **déclarée** d'un service — pas un calque | `Injector.getScope()` (`injector.ts:137`)                                         |
 | `@Scope("request")` sur un contrôleur | un contrôleur par requête au lieu d'une instance partagée | `Scope()` (`routerDecorators.ts:795`)                                             |
 | `@RequireScope("users:write")`        | une **permission** — rien à voir avec l'injection         | autorisation ([firewall](../../src/packages/@nodefony/security/docs/firewall.md)) |
 
@@ -309,7 +309,7 @@ Choisir en cinq secondes, puis lire la section correspondante.
 La portée par **défaut**. C'est ce que tu veux dès qu'un service porte un état qui n'a de sens
 qu'unique : un cache, un compteur, une connexion, un pool.
 
-La résolution suit un ordre précis (`Injector._resolveWithStack()`, `injector.ts:241`) :
+La résolution suit un ordre précis (`Injector._resolveWithStack()`, `injector.ts:257`) :
 
 1. le nom écrit dans `@inject` retrouve la **classe** au registre ;
 2. la classe dit **où** son instance vit — clé apprise à la pose
@@ -634,7 +634,7 @@ recevoir son `context` en premier argument, et ses `@inject` ensuite.
 ### L'injection par propriété — présente dans le moteur, pas dans la surface publique
 
 Le moteur applique une injection après construction (`Injector._applyPropertyInjection()`,
-`injector.ts:525`), alimentée par le décorateur `Inject` majuscule. **Préférer l'injection par
+`injector.ts:533`), alimentée par le décorateur `Inject` majuscule. **Préférer l'injection par
 constructeur** : elle est explicite, couverte, et c'est elle que le tri des services sait ordonner.
 
 ### Garde-fous du moteur
@@ -645,7 +645,7 @@ constructeur** : elle est explicite, couverte, et c'est elle que le tri des serv
   argument et que son constructeur casse, l'erreur nomme le demandeur et **la cause probable** — un
   ordre de déclaration.
 - **Dépendance captive** : refusée au démarrage et à la résolution, avec le chemin complet et trois
-  remèdes (`Injector._captiveError()`, `injector.ts:428`).
+  remèdes (`Injector._captiveError()`, `injector.ts:436`).
 
 ### Le cycle de vie, selon la portée
 

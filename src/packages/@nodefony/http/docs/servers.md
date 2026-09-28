@@ -122,13 +122,13 @@ les probes.
 
 **Un port TLS qui parle deux protocoles.** Quand `servers.https.protocol` vaut `"2.0"` (le défaut),
 Nodefony crée un serveur HTTP/2 sécurisé avec `allowHTTP1: true` (`ServerHttps.createServerH2()`,
-`server-https.ts:192`) : les clients modernes négocient `h2` par ALPN, les autres restent en HTTP/1.1
+`server-https.ts:187`) : les clients modernes négocient `h2` par ALPN, les autres restent en HTTP/1.1
 **sur le même port**. Le protocole effectif est relu socket par socket pour taguer le contexte
 (`server-https.ts:222`).
 
 **Le WebSocket n'est jamais un citoyen de seconde zone.** Il est adossé au serveur HTTP porteur
 (`server-websocket.ts:80`), passe par le **même** rate-limit d'IP que les requêtes HTTP — un upgrade
-_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1613`) —, hérite de la même
+_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1619`) —, hérite de la même
 session et du même firewall, et se ferme avec le même soin qu'une réponse HTTP.
 
 > [!NOTE]
@@ -264,7 +264,7 @@ en écoute — le récap de développement liste HTTP, HTTP/2, WS et WSS dans ce
 ```
 
 Hors écran animé (production, CI, `--debug`), ce sont les bannières par serveur qui sortent
-(`ServerHttp.showBanner()`, `server-http.ts:248`, appelées par le kernel — `Kernel.ts:561`) :
+(`ServerHttp.showBanner()`, `server-http.ts:242`, appelées par le kernel — `Kernel.ts:561`) :
 
 ```text
 Server Listen on http://127.0.0.1:5151 Family: IPv4 Protocol : 1.1
@@ -327,7 +327,7 @@ Choisir en cinq secondes :
 | `server-websocket-secure` | `wss://` — 5152     | `server-https` actif      | WebSocket adossé au serveur TLS.                   |
 | `server-static`           | (aucun port propre) | toujours enregistré       | Fichiers statiques, en **repli** après le routing. |
 
-L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1056`) : chaque serveur est
+L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1065`) : chaque serveur est
 consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:1062`).
 Les serveurs WebSocket ne sont montés que si leur porteur l'a été.
 
@@ -350,7 +350,7 @@ Le plus simple, et celui qui porte le trafic en cloud-native. `ServerHttp.create
 Deux branches dans un seul service, choisies sur `servers.https.protocol` (`server-https.ts:100`) :
 
 - **`"2.0"` (défaut)** → `http2.createSecureServer` avec `allowHTTP1: true`
-  (`ServerHttps.createServerH2()`, `server-https.ts:192`). Les bornes anti-DoS HTTP/2 ne sont posées
+  (`ServerHttps.createServerH2()`, `server-https.ts:187`). Les bornes anti-DoS HTTP/2 ne sont posées
   **que si elles sont configurées**, pour ne pas écraser les défauts de Node
   (`maxSessionMemory`, `server-https.ts:215`).
   Les erreurs de session et de flux sont journalisées sans tuer le serveur
@@ -375,7 +375,7 @@ automatiquement un éventuel décalage de port.
   réglages **forcés** par Nodefony : `server` et `clientTracking: true`, requis par `broadcast()` et par
   le battement de cœur (`server-websocket.ts:80`).
 - **Keep-alive** armé à la création (`startHeartbeat()`, `server-websocket.ts:87`) et par connexion
-  (`trackPong()`, `server-websocket.ts:107`).
+  (`trackPong()`, `server-websocket.ts:103`).
 - **Arrêt** : il s'inscrit en tête des écouteurs de terminaison
   (`prependOnceListener`, `server-websocket.ts:91`) — l'ordre
   compte, voir la section Arrêt gracieux.
@@ -513,11 +513,11 @@ détails d'implémentation valent d'être connus, parce qu'ils expliquent des co
    sont sautés d'emblée (`buildBindPlan()`, `portBinder.ts:105`, réservation `portBinder.ts:105`).
 3. **Le gestionnaire d'erreur durable est posé APRÈS le bind.** Attaché avant, il verrait passer les
    `EADDRINUSE` de repli et terminerait le kernel en croyant à une panne
-   (`ServerHttp.attachErrorHandler()`, `server-http.ts:205`).
+   (`ServerHttp.attachErrorHandler()`, `server-http.ts:199`).
 
 Quand le bind échoue pour de bon — `strict`, ou tous les replis épuisés, ou une erreur qui n'est pas un
 conflit de port — c'est **fatal** : message explicite puis terminaison du processus
-(`ServerHttp.reportBindError()`, `server-http.ts:218`). Un serveur qui n'écoute pas ne doit jamais
+(`ServerHttp.reportBindError()`, `server-http.ts:212`). Un serveur qui n'écoute pas ne doit jamais
 laisser un processus se croire démarré.
 
 ### Le corollaire : les ports effectifs sont publiés
@@ -596,7 +596,7 @@ invalid »). Celui de Nodefony respecte les règles qui comptent :
 ### Régénération automatique
 
 Un certificat présent sur disque n'est pas forcément **adéquat**. `Certificate.isCertAdequate()`
-(`certificates.ts:583`) le régénère s'il est expiré, s'il est signé en SHA-1, ou si son SAN ne couvre
+(`certificates.ts:579`) le régénère s'il est expiré, s'il est signé en SHA-1, ou si son SAN ne couvre
 plus les noms requis — le dernier cas est celui qui sauve : changer le domaine d'écoute sans ce
 contrôle laisserait un certificat obsolète en place indéfiniment.
 
@@ -626,7 +626,7 @@ requête. La résolution de l'IP cliente remonte la chaîne **de droite à gauch
 
 Barrière testée **avant le routage**, contre l'injection d'en-tête `Host`. Le domaine canonique du
 kernel est toujours accepté, plus le loopback en développement (`HttpKernel.compileAlias()`,
-`http-kernel.ts:957`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
+`http-kernel.ts:964`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
 d'un seul niveau, `*.cdn.example.com`) ; `true` désactive la barrière — à réserver au cas où le proxy
 filtre déjà le `Host` (`config.ts:974`).
 
@@ -658,7 +658,7 @@ redémarrer le pod **en plein drain** par le kubelet, et casserait précisément
 protéger.
 
 Implémentation : court-circuit **total** du pipeline dans `HttpKernel.onHttpRequest()`
-(`http-kernel.ts:965`) — pas de contexte, pas de portée DI, pas de session, pas de journal par sonde,
+(`http-kernel.ts:972`) — pas de contexte, pas de portée DI, pas de session, pas de journal par sonde,
 réponses pré-allouées (`HttpKernel.#respondHealth()`, `http-kernel.ts:497`). Et surtout : **avant le
 rate-limit**. Un kubelet qui reçoit un `429` croit le pod mort → cascade de redémarrages.
 
@@ -784,9 +784,9 @@ processus à l'arrêt.
 
 L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** compteur de rate-limit par
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
-(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1613`). Le `101` étant déjà émis par `ws`, un `429`
+(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1619`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
-(`rateLimiter`, `http-kernel.ts:1637`), sans
+(`rateLimiter`, `http-kernel.ts:1644`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :
@@ -834,8 +834,8 @@ demande le backplane realtime.
 
 | Domaine                               | Norme              | Ancrage                                                                    |
 | ------------------------------------- | ------------------ | -------------------------------------------------------------------------- |
-| HTTP/1.1 (sémantique, message)        | RFC 9110, 9112     | `node:http` + pipeline `HttpKernel.onHttpRequest()` (`http-kernel.ts:965`) |
-| HTTP/2                                | RFC 9113           | `ServerHttps.createServerH2()` (`server-https.ts:192`)                     |
+| HTTP/1.1 (sémantique, message)        | RFC 9110, 9112     | `node:http` + pipeline `HttpKernel.onHttpRequest()` (`http-kernel.ts:972`) |
+| HTTP/2                                | RFC 9113           | `ServerHttps.createServerH2()` (`server-https.ts:187`)                     |
 | HTTP/2 Rapid Reset                    | CVE-2023-44487     | `maxConcurrentStreams` (`config.ts:355`)                                   |
 | En-têtes trop volumineux → 431        | RFC 6585 §5        | `handleClientError()` (`clientError.ts:15`)                                |
 | WebSocket — protocole                 | RFC 6455           | `ws@8` + options (`config.ts:496`)                                         |
@@ -886,7 +886,7 @@ l'origine du transport.
 
 `proxy:generate` mérite un mot : la configuration nginx/HAProxy est **dérivée** des domaines de
 confiance, des ports effectifs et des dossiers statiques montés — donc elle ne diverge pas du code. Le
-résumé de certificat vient de `Certificate.describe()` (`certificates.ts:866`), source unique partagée
+résumé de certificat vient de `Certificate.describe()` (`certificates.ts:862`), source unique partagée
 par la commande, le boot et un futur écran d'administration.
 
 **Runtime.** `nodefony status` et `nodefony stop` lisent les ports effectifs publiés au boot ; ils

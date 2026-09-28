@@ -228,7 +228,7 @@ La disposition est enregistrée dans le **stockage local du navigateur**
 
 Une fois des bureaux enregistrés, ce sont **eux** qui font foi : les modèles ne sont semés qu'au tout
 premier lancement, puis ils ne servent plus qu'à la création d'un nouveau bureau
-(`load()`, `WorkspaceStore.ts:335`). Une création, un renommage ou une suppression ne sera jamais
+(`load()`, `WorkspaceStore.ts:340`). Une création, un renommage ou une suppression ne sera jamais
 écrasé par un modèle.
 
 ## 🗂️ Le catalogue de blocs

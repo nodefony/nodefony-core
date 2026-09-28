@@ -571,7 +571,7 @@ les processus meurent.
 | Situation                  | Réponse                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts:301`)               |
-| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:719`)         |
+| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:729`)         |
 | Vite ne répond plus (gelé) | sonde périodique ; après N échecs, Vite est tué pour être relancé (`ViteProcessSupervisor.ts:787`)    |
 | Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                             |
 | Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts:266`) |
@@ -593,7 +593,7 @@ incompréhensibles :
   repayant l'attente de démarrage à chaque essai.
 
 Les écouteurs attachés au processus enfant sont suivis puis retirés à chaque mort
-(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:975`) : sans cela, les relances successives les
+(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:984`) : sans cela, les relances successives les
 accumuleraient jusqu'à l'avertissement de fuite.
 
 ## 🧰 API publique
@@ -699,7 +699,7 @@ et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole
 Quatre comportements à connaître :
 
 - **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts:879`) — le scan est borné au dossier front et saute
+  (`isBuildFresh()`, `FrontendService.ts:886`) — le scan est borné au dossier front et saute
   `node_modules`. Relancer un déploiement ne recompile pas tout.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
@@ -829,7 +829,7 @@ Sur le chemin chaud du rendu, trois précautions :
 - le **manifeste** est lu une fois par dossier de sortie, jamais par requête ;
 - l'**`index.html`** est mis en cache en production (relu en développement, où la fraîcheur prime) ;
 - les **écouteurs** du processus enfant sont suivis et retirés à chaque mort
-  (`trackListener()`, `ViteProcessSupervisor.ts:967`) — sans quoi les relances les accumuleraient.
+  (`trackListener()`, `ViteProcessSupervisor.ts:974`) — sans quoi les relances les accumuleraient.
 
 La sonde de vie coûte une requête HTTP toutes les trente secondes par famille. Elle est désactivable
 (`healthCheckIntervalMs: 0`) si ce budget te gêne, au prix de la détection d'un Vite gelé.

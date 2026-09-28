@@ -323,7 +323,7 @@ sequenceDiagram
 ```
 
 `Firewall.handleCors()` (`firewall.ts:1007`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1324`), à la ligne `http-kernel.ts:1324` — **avant le routing**. La raison est
+(`http-kernel.ts:1333`), à la ligne `http-kernel.ts:1333` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.
@@ -428,7 +428,7 @@ Le coût par requête est donc :
 ## 📡 Observabilité — Studio
 
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
-`Firewall.describe()` (`firewall.ts:549`), qui délègue à `Firewall.#describeDefenses()`
+`Firewall.describe()` (`firewall.ts:555`), qui délègue à `Firewall.#describeDefenses()`
 (`firewall.ts:591`). La projection CORS y expose `origins`, `credentials`, `methods`,
 `allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:610`) — aucun secret ne transite par
 cette surface.

@@ -118,7 +118,7 @@ politiques.**
   `security/nodefony/config/config.ts:109`). L'opt-out est explicite ; un opt-in aurait été
   _fail-open_ (une zone qui oublie le flag laisserait le WS anonyme).
 - Le verrou de frame consulte la **même** fonction de match que le HTTP, `Firewall.matchPath()`
-  (`firewall.ts:712`), et la **même** hiérarchie de rôles, `Firewall.hasRole()`
+  (`firewall.ts:719`), et la **même** hiérarchie de rôles, `Firewall.hasRole()`
   (`firewall.ts:482`). Invariant par construction : `api.request {path}` n'accorde jamais plus que
   `GET {path}`.
 - L'identité du handshake est celle du firewall HTTP : `FirewallRealtimeAuthenticator`

@@ -274,7 +274,7 @@ toutes les requêtes, et il ne retient rien sur `this` — c'est voulu. Le servi
 
 ### Le scan — trois sources, et une qui surprend
 
-`#scanAll()` (`DocumentationService.ts:324`) interroge le disque dans cet ordre :
+`#scanAll()` (`DocumentationService.ts:320`) interroge le disque dans cet ordre :
 
 | Source                    | Où                                             | Pourquoi                                                                        |
 | ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -284,7 +284,7 @@ toutes les requêtes, et il ne retient rien sur `this` — c'est voulu. Le servi
 
 La troisième mérite l'explication. Un module qu'on n'a pas encore activé est précisément
 celui dont on lit la doc : pour décider de l'activer. `#installedDocDirs()`
-(`DocumentationService.ts:386`) parcourt donc le scope npm et **dédoublonne** avec les
+(`DocumentationService.ts:382`) parcourt donc le scope npm et **dédoublonne** avec les
 modules déjà chargés. Ses chemins sont résolus en real-path : en dépôt workspace,
 `node_modules/@nodefony/x` est un lien vers la source, et c'est la source qui doit indexer —
 sinon un même fichier aurait deux chemins, et les liens entre pages ne se résoudraient plus.
@@ -316,7 +316,7 @@ dépendances transitives pour ça.
 **Non supporté, volontairement** : objets imbriqués, multi-lignes `|` / `>`, ancres YAML.
 Une ligne mal formée est simplement sautée — elle ne fait jamais échouer la page.
 
-Le service ne consomme ensuite qu'une poignée de clés. `getPage()` (`DocumentationService.ts:244`)
+Le service ne consomme ensuite qu'une poignée de clés. `getPage()` (`DocumentationService.ts:240`)
 en lit cinq pour rendre une page — `title`, `version` (défaut `"doc"`), `status`, `updated`,
 `source` — et l'index y ajoute `audience` (filtre de vue) et `navTitle` (libellé court de la
 navigation, lu au scan par `scanDocsDir()` avec repli sur `title`). **Toutes les autres clés sont
@@ -374,8 +374,8 @@ sur GitHub, dans ton éditeur, dans une revue de diff. Mais le portail ne navigu
 chemin — il navigue par slug.
 
 Le pont, c'est une table `chemin repo → slug` construite au scan (`#ensureCache()`,
-`DocumentationService.ts:298`) et appliquée à la lecture par `#resolveLinks()`
-(`DocumentationService.ts:282`). **Seul le serveur peut le faire** : le client reçoit
+`DocumentationService.ts:294`) et appliquée à la lecture par `#resolveLinks()`
+(`DocumentationService.ts:278`). **Seul le serveur peut le faire** : le client reçoit
 `../../../../../docs/index.md` sans le moindre moyen de savoir à quel fichier ça correspond —
 il ne connaît ni l'arborescence du dépôt, ni le point de départ de la page.
 
@@ -402,12 +402,12 @@ lien interne.
 Un tri purement alphabétique enterre `index.md` au milieu de ses propres pages : pour la
 sécurité, entre `headers` et `lexique`. Le point d'entrée devient invisible.
 
-`#orderPages()` (`DocumentationService.ts:486`) trie donc en deux temps : le hub d'abord, le
+`#orderPages()` (`DocumentationService.ts:482`) trie donc en deux temps : le hub d'abord, le
 reste par titre. Un hub est reconnu à son nom de fichier — `index.md`, à n'importe quelle
 profondeur — et le drapeau `isHub` (`IDocPageRef`, `IDocumentation.ts:24`) remonte jusqu'à
 l'interface, où le portail s'en sert pour choisir la page d'atterrissage d'une section.
 
-Les sections elles-mêmes (`#buildSections()`, `DocumentationService.ts:410`) viennent du
+Les sections elles-mêmes (`#buildSections()`, `DocumentationService.ts:406`) viennent du
 **dossier parent** du fichier, jamais d'une clé `section` du frontmatter. Seuls les groupes
 DÉCLARÉS descendent dans le menu, dans l'ordre où ils sont écrits (`ROOT_GROUPS`,
 `DocumentationService.ts:89`) : un dossier de `docs/` absent de cette liste — décisions
@@ -419,7 +419,7 @@ libellé « Pour commencer ». Les sections de module sont préfixées `mod-`, c
 
 ### Le cache — l'index, pas le contenu
 
-`#ensureCache()` (`DocumentationService.ts:298`) sert son instantané tant qu'il est dans le
+`#ensureCache()` (`DocumentationService.ts:294`) sert son instantané tant qu'il est dans le
 TTL, et rescanne sinon. Ce qui est caché tient dans `CacheEntry`
 (`DocumentationService.ts:113`) : l'arbre, l'index `slug → doc`, et la table `chemin → slug`.
 
@@ -428,7 +428,7 @@ simple : le coût est celui d'une lecture froide sur un chemin d'administration,
 contrepartie serait de servir un Markdown périmé à quelqu'un qui vient justement de le
 corriger.
 
-`invalidate()` (`DocumentationService.ts:177`) remet le cache à `null` — c'est la porte de
+`invalidate()` (`DocumentationService.ts:173`) remet le cache à `null` — c'est la porte de
 sortie quand un outil sait, lui, que le disque a bougé.
 
 ## ⚙️ Configuration
@@ -503,7 +503,7 @@ double-encodage, normalisation Unicode…).
 
 La parade est un **changement de nature**, doublé d'un garde :
 
-1. **Allowlist par construction.** `getPage()` (`DocumentationService.ts:244`) cherche une
+1. **Allowlist par construction.** `getPage()` (`DocumentationService.ts:240`) cherche une
    entrée par **égalité de slug** dans l'index, puis lit l'`absPath` mémorisé au scan
    (`ScannedDoc`, `docScanner.ts:11`). Le slug n'est jamais concaténé à un chemin. Un slug
    inconnu ne mène nulle part, quelle que soit sa forme.
@@ -567,7 +567,7 @@ entièrement lisible dans ses deux réponses.
 ## 🧩 Extension — trois points d'accroche
 
 **1. Une variable `{{ }}`** — le point d'extension du contenu. `registerVar()`
-(`DocumentationService.ts:172`) accepte un fournisseur **synchrone** qui rend une chaîne
+(`DocumentationService.ts:168`) accepte un fournisseur **synchrone** qui rend une chaîne
 (l'exemple du Démarrage rapide). Le module en enregistre trois lui-même au `onKernelReady`
 (`index.ts:78`) : `version`, `branch`, `commit`.
 

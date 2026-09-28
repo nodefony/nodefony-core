@@ -290,7 +290,7 @@ démarrage raté, la connexion existe, le client existe — mais il est fermé.
 Prenons une lecture de session. Elle traverse exactement quatre gestes :
 
 1. Le store résout le service **paresseusement**, au premier accès seulement :
-   `RedisSessionStorage.#client()` (`SessionStorage.ts:96`) mémorise le service puis demande
+   `RedisSessionStorage.#client()` (`SessionStorage.ts:89`) mémorise le service puis demande
    `getClient("main")` à chaque appel. La résolution tardive est nécessaire — l'ordre de démarrage
    des modules n'est pas garanti, le store est construit avant que Redis soit prêt.
 2. `RedisService.getClient()` (`redis.ts:220`) rend le client de la connexion nommée, ou `null`.
@@ -485,7 +485,7 @@ Tous les stores commencent par le même geste : demander le client, et se replie
 garde ne se déclenche que dans deux situations exactes :
 
 - **avant** l'initialisation du service — la carte des connexions vaut encore `null` ;
-- **après** `RedisService.closeConnections()` (`redis.ts:247`), qui remet la carte à `null`.
+- **après** `RedisService.closeConnections()` (`redis.ts:243`), qui remet la carte à `null`.
 
 Il ne se déclenche **pas** après un `connect()` raté. Puisque la connexion est inscrite dans
 `#connections` avant d'être ouverte (`redis.ts:76`) et que `Connection.create()` affecte son client
@@ -506,7 +506,7 @@ ClientClosedError: The client is closed
 ### Moment 4 — l'arrêt
 
 Le service s'abonne une fois pour toutes à la fin de vie du kernel dans son constructeur
-(`redis.ts:247`). `closeConnections()` (`redis.ts:247`) ferme chaque connexion, avale et journalise les
+(`redis.ts:243`). `closeConnections()` (`redis.ts:243`) ferme chaque connexion, avale et journalise les
 échecs individuels, puis libère la carte. `Connection.close()` (`Connection.ts:146`) appelle la
 fermeture gracieuse du client — qui draine les commandes en vol — puis retire **explicitement** les
 cinq écouteurs via `Connection.#removeListeners()`, dans un bloc `finally` (`Connection.ts:122`).

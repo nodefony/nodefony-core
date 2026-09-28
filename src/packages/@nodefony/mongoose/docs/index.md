@@ -492,8 +492,8 @@ global de Mongoose : c'est ce qui permet à plusieurs bases — voire plusieurs 
 le même processus.
 
 Le service orchestre ce cycle de bout en bout : il ouvre une connexion par connecteur déclaré au
-démarrage (`MongooseService.connectAll()` (`MongooseService.ts:89`)) et referme tout à l'arrêt
-(`MongooseService.disconnectAll()` (`MongooseService.ts:195`)). Le module se déclare **non critique**
+démarrage (`MongooseService.connectAll()` (`MongooseService.ts:104`)) et referme tout à l'arrêt
+(`MongooseService.disconnectAll()` (`MongooseService.ts:210`)). Le module se déclare **non critique**
 (`Mongoose.critical` (`mongoose/index.ts:48`)) : une base injoignable ne tue pas le processus —
 l'application monte quand même, l'échec est journalisé, et c'est l'orchestrateur qui relèvera Mongo.
 
@@ -508,7 +508,7 @@ l'application monte quand même, l'échec est journalisé, et c'est l'orchestrat
 
 `repo.find({ views: { $gte: 10 } }, { limit: 20 })` traverse quatre étapes :
 
-1. **Traduction du critère** (`MongooseRepository.#filter()` (`MongooseRepository.ts:244`)) : chaque
+1. **Traduction du critère** (`MongooseRepository.#filter()` (`MongooseRepository.ts:256`)) : chaque
    champ est résolu (`id` devient `_id`), chaque opérateur portable est converti.
 2. **Validation du champ** (`MongooseRepository.#resolveField()` (`MongooseRepository.ts:222`)) : un
    champ absent du schéma lève `UnknownCriteriaField` — plutôt que de renvoyer zéro résultat sans
@@ -543,8 +543,8 @@ drivers. Les signatures exactes vivent dans le graphe généré
 | `withTransaction` | rejouer les mêmes opérations dans une transaction | ajoute la `session` à chaque opération |
 
 Les écritures qui « lisent puis écrivent » sont **atomiques par construction**
-(`MongooseRepository.upsert()` (`MongooseRepository.ts:405`),
-`MongooseRepository.increment()` (`MongooseRepository.ts:491`)) : un seul aller-retour, la
+(`MongooseRepository.upsert()` (`MongooseRepository.ts:422`),
+`MongooseRepository.increment()` (`MongooseRepository.ts:507`)) : un seul aller-retour, la
 comparaison est faite par le serveur. Ce n'est pas une optimisation cosmétique — c'est ce qui évite
 que deux requêtes simultanées lisent le même état et s'écrasent mutuellement.
 

@@ -250,9 +250,9 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:49-57`). 
 1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:571`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la
    famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:577-591`).
-3. Expiration `expiresAt` vérifiée (`tokenService.ts:705`).
+3. Expiration `expiresAt` vérifiée (`tokenService.ts:711`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
-   `#resolveUserForRefresh()` (`tokenService.ts:764`).
+   `#resolveUserForRefresh()` (`tokenService.ts:770`).
 5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus
    (`tokenService.ts:600`).
 6. **Rotation** : nouveau refresh (même famille), l'ancien chaîné `replacedBy` + révoqué
@@ -359,7 +359,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 ### `redis` — cluster, TTL natif
 
 - Enregistré par le module redis (`redis/nodefony/registerStores.ts:75`).
-- TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts:308`) — l'expiration ne
+- TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts:41`) — l'expiration ne
   dépend pas du gc.
 - Listing par `SCAN` : curseur opaque `skip:scanCursor`, `decodeCursor()`
   (`RedisTokenStore.ts:428`) — sans ordre global ni total, capacité réduite **assumée**.
@@ -458,7 +458,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:366-425`) et `token
 
 ## ⚡ Performance & mémoire
 
-- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:738`)
+- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:744`)
   — le boot ne paie rien si le JWT n'est jamais sollicité ; keystore mémoïsé pareil.
 - **Rien sur le hot path requête** : émission et rotation sont des endpoints cold-path ; la
   vérification (hot path) vit chez le `JwtAuthenticator`.

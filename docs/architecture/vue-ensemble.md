@@ -403,9 +403,9 @@ Les décorateurs, l'ordre d'instanciation et les pièges de portée →
 ## 🔐 La sécurité en un coup d'œil
 
 Le pare-feu applicatif de `@nodefony/security` raisonne par **zones** : un motif d'URL, une politique.
-`Firewall.matchPath()` (`firewall.ts:712`) rattache la requête à la zone dont le motif est le plus
-spécifique ; `Firewall.isSecure()` (`firewall.ts:721`) répond « protégée ou non » sur le chemin chaud ;
-`Firewall.handleSecurity()` (`firewall.ts:754`) ne travaille que sur zone protégée.
+`Firewall.matchPath()` (`firewall.ts:719`) rattache la requête à la zone dont le motif est le plus
+spécifique ; `Firewall.isSecure()` (`firewall.ts:728`) répond « protégée ou non » sur le chemin chaud ;
+`Firewall.handleSecurity()` (`firewall.ts:761`) ne travaille que sur zone protégée.
 
 ```mermaid
 flowchart TD
@@ -510,13 +510,13 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 | Domaine                      | Norme                          | Ancrage code                                              |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
 | Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:327`)                          |
-| Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:754`)           |
+| Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:761`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:55`)              |
 | Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1361`)           |
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1524`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
 | Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:172`) · `Service.log()` (`Service.ts:300`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1324`)         |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1333`)         |
 
 ## ⚡ Performance & mémoire
 
@@ -525,7 +525,7 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:62`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1351`) ; le nonce CSP
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1360`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.

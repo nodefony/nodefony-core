@@ -317,7 +317,7 @@ anti-avalanche en cluster. Chaque
 tour appelle la purge du contrat — `gc()`, voisin de `listPage()` dans le même contrat
 (`IAuditStore.ts:59`) — qui supprime les événements plus vieux que la fenêtre : un `DELETE` par seuil
 côté SQL (`DrizzleAuditStore.ts:256`), un défilement de file tant que l'événement de tête dépasse le
-`threshold` côté mémoire (`MemoryAuditStore.ts:138`).
+`threshold` côté mémoire (`MemoryAuditStore.ts:133`).
 
 Ce qu'on observe dans les logs : `audit gc — 1284 événement(s) purgé(s)` en niveau DEBUG.
 
@@ -332,7 +332,7 @@ La base est indisponible pendant trente secondes. Que se passe-t-il ?
 
 Le choix de Nodefony est explicite : **le métier passe avant la trace**. L'écriture part en
 fire-and-forget — `append()` sans `await`, échec absorbé en log ERROR (`auditService.ts:199`) ; côté SQL, si l'ORM n'est
-pas connecté, `append()` est un no-op assumé (`DrizzleAuditStore.ts:146`). Un login n'échoue jamais
+pas connecté, `append()` est un no-op assumé (`DrizzleAuditStore.ts:152`). Un login n'échoue jamais
 parce que le journal est cassé.
 
 > [!WARNING]
@@ -382,7 +382,7 @@ Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non auto
 ### `auth` — la chaîne d'authentification
 
 Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recordAuth()`
-(`firewall.ts:900`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
+(`firewall.ts:907`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
 
 - `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:781`) ;
 - `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:807`) ;
@@ -465,7 +465,7 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:900`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:352`).
+(`firewall.ts:907`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:358`).
 Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:333`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et
@@ -485,7 +485,7 @@ alloué qu'au premier événement reçu (`auditBridge.ts:62`) ; son minuteur est
 Le pont applique en plus un **coalescing borné** : au plus une frame WS toutes les 250 ms
 (`auditBridge.ts:59`), tampon plafonné à 200 événements (`auditBridge.ts:60`). Sous une rafale
 d'échecs de login, le tampon écrase les plus anciens et compte les omis dans `dropped`
-(`auditBridge.ts:79`) — la console affiche un récapitulatif au lieu de se figer. Superviser ne doit
+(`auditBridge.ts:86`) — la console affiche un récapitulatif au lieu de se figer. Superviser ne doit
 jamais faire tomber ce qu'on supervise.
 
 ## ⚙️ Configuration
@@ -572,7 +572,7 @@ tiennent identiquement :
 
 Le `total` est **refusable** (`withTotal: false`) : un `COUNT` filtré sur une rétention longue se
 paie (`IAuditStore.ts:59`). `hasNext` et `nextCursor` restent fiables dans les deux cas, grâce à une
-ligne de garde `limit + 1` (`DrizzleAuditStore.ts:198`).
+ligne de garde `limit + 1` (`DrizzleAuditStore.ts:225`).
 
 ## Entité de persistance et dialectes pris en charge
 

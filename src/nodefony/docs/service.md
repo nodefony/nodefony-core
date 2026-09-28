@@ -307,7 +307,7 @@ sequenceDiagram
   Note over S: syslog / nc / container / kernel = null
 ```
 
-`Service.clean()` (`Service.ts:270`) ne retire les écouteurs que si le bus est **partagé** : sur un
+`Service.clean()` (`Service.ts:280`) ne retire les écouteurs que si le bus est **partagé** : sur un
 bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a rien à décrocher.
 
 ### Cycle de vie
@@ -317,9 +317,9 @@ bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a ri
 | --- | --- | --- |
 | Naissance | `new Service(name, container, nc, options)` | câblage des trois broches, écouteurs de config attachés |
 | Démarrage | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts:109`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à sa création (une fois pour un singleton, à chaque requête sous `@Scope("request")`) |
-| Journal | `Service.initSyslog()` (`Service.ts:250`) | démarre la sortie console (environnement + verbosité + filtres) |
+| Journal | `Service.initSyslog()` (`Service.ts:260`) | démarre la sortie console (environnement + verbosité + filtres) |
 | Vie | `log` / `fire` / `on` / `get` | délégation vers syslog, bus et container |
-| Destruction | `Service.clean()` (`Service.ts:270`) | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide |
+| Destruction | `Service.clean()` (`Service.ts:280`) | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide |
 | Destruction+ | `clean(true)` | appelle en plus `Syslog.reset()` — les transports sont fermés |
 
 `clean()` est **idempotent** : le rappeler ne lève pas.
@@ -364,7 +364,7 @@ tomber le process à cause du journal. Sévérités et transports : [syslog](sys
 | `emitAsyncGuarded(name, options?, …)` | `Service.ts:394` | isole chaque écouteur — **boot / jobs uniquement**              |
 | `on` / `once` / `addListener`         | `Service.ts:403` | **trackés** → retirés par `clean()`                             |
 | `off` / `removeListener`              | `Service.ts:465` | retirent aussi l'entrée de suivi                                |
-| `listen(name, listener)`              | `Service.ts:408` | bind sur `this`, **non tracké** — renvoie un déclencheur        |
+| `listen(name, listener)`              | `Service.ts:416` | bind sur `this`, **non tracké** — renvoie un déclencheur        |
 | `settingsToListen(settings, ctx)`     | `Service.ts:451` | câble les clés `onXxx` d'un objet de config                     |
 | `removeAllListeners(name?)`           | `Service.ts:472` | ⚠️ sur un bus partagé, vide **aussi** les écouteurs des voisins |
 
@@ -416,7 +416,7 @@ restent lisibles via `this.options` — c'est le canal de configuration d'un ser
 Une clé d'options qui commence par `on` suivi d'au moins un caractère est câblée comme écouteur. Mais
 **pas par le même chemin** selon la forme du bus :
 
-- **bus partagé** → `Service.attachConfiguredListeners()` (`Service.ts:231`) passe par `this.on`,
+- **bus partagé** → `Service.attachConfiguredListeners()` (`Service.ts:241`) passe par `this.on`,
   donc l'écouteur est **tracké** et `clean()` le retirera ;
 - **bus dédié** → c'est le constructeur d'`Event` qui appelle `Event.settingsToListen()`
   (`Event.ts:192`), lequel utilise `Event.listen()` (`Event.ts:216`) : l'écouteur est **bindé, non
@@ -543,10 +543,10 @@ Les services d'un module sont introspectables sans lire le code :
 | Symptôme                                                | Cause (dans le code)                                                              | Correction                                                                  |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service        | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts:335`)   |
-| `off()` ne retire rien                                  | `Service.listen()` (`Service.ts:408`) **bind** — la référence posée diffère       | retirer via le déclencheur renvoyé, jamais l'original                       |
+| `off()` ne retire rien                                  | `Service.listen()` (`Service.ts:416`) **bind** — la référence posée diffère       | retirer via le déclencheur renvoyé, jamais l'original                       |
 | Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:472`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
-| `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts:270`)                        | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur  |
-| `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts:270`)                                       | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                  |
+| `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts:280`)                        | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur  |
+| `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts:280`)                                       | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                  |
 | Avertissement `MaxListeners` à 11 abonnés               | le défaut annoncé (20) n'est pas appliqué (`Service.ts:17`)                       | passer `{ events: { nbListeners: N } }` explicitement                       |
 | Le déclencheur de `listen()` passe un argument en trop  | `Event.listen()` (`Event.ts:216`) préfixe les arguments par le nom de l'événement | lire le 1ᵉʳ argument comme le nom, ou émettre via `fire()`                  |
 | Écouteurs asynchrones exécutés l'un après l'autre       | `emitAsync` est **séquentiel par design** (`Event.ts:248`)                        | comportement attendu ; paralléliser **dans** l'écouteur si besoin           |

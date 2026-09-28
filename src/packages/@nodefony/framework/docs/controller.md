@@ -198,7 +198,7 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 
 | #   | Étape                                   | Où                                                  |
 | --- | --------------------------------------- | --------------------------------------------------- |
-| 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:1324`)          |
+| 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:807`)           |
 | 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1418`)    |
 | 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1449`                               |
 | 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:789`)   |
@@ -321,7 +321,7 @@ action se tromperait d'objet.
 > `@Scope("request")`, chaque requête HTTP repart d'une instance neuve ; un singleton, lui, refuse
 > tout état de requête sur `this`.
 
-Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1773`)
+Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1779`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
 (`http-kernel.ts:1168`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).
@@ -454,7 +454,7 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
 > RFC 9110 §15.4 (301, 302, 303, 307, 308) retombe sur 302 avec un log d'avertissement
-> (`Response.redirect()`, `Response.ts:611`). Un 301 par défaut piégeait : les navigateurs le mettent
+> (`Response.redirect()`, `Response.ts:666`). Un 301 par défaut piégeait : les navigateurs le mettent
 > en cache de façon quasi irréversible.
 
 ## 📁 Servir un fichier — téléchargement et flux média
@@ -598,7 +598,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:1002`)                          |
 | Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:107`)                       |
 | Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:503`)              |
-| Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:534`)                  |
+| Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:666`)                  |
 | Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:936`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                  |
 | Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:518`)                  |

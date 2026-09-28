@@ -274,7 +274,7 @@ une fuite qui attend son heure ; le controller généré plafonne (défaut 25, m
 
 **`@Redirect` envoie via `returnController(undefined)`** — ne jamais `return` directement après `context.redirect()` dans Resolver, sinon la réponse n'est pas envoyée.
 
-**`Response.redirect()` default = 301** — sans status explicite, la réponse est 301 (pas 302). Toujours passer le code explicitement : `this.redirect(url, 302)`.
+**`Response.redirect()` défaut = 302** (liste blanche RFC 9110 §15.4 : 301/302/303/307/308) — statut absent ou hors liste → 302 + log WARNING. Un 301 ne sort que s'il est demandé (cache navigateur quasi permanent).
 
 ## Types exportés (index.ts)
 

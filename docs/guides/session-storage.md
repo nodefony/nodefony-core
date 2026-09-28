@@ -45,7 +45,7 @@ ajouter un pilote **ne touche pas** `@nodefony/http`. La résolution du nom est 
 
 Le registre et sa résolution vivent dans `SessionsService.registerStorage()`
 (`sessions-service.ts:196`), `SessionsService.getStorage()` (`sessions-service.ts:205`) et
-`SessionsService.storageHandlers()` (`sessions-service.ts:210`) ; le stockage intégré s'enregistre
+`SessionsService.storageHandlers()` (`sessions-service.ts:214`) ; le stockage intégré s'enregistre
 en fin de fichier (`registerStorage("memory")`, `sessions-service.ts:196`).
 
 ## Choisir le backend — un seul réglage

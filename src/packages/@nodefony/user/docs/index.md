@@ -577,7 +577,7 @@ premier `hash`/`verify` (`Argon2idEncoder.ts:140`) : une app qui n'authentifie q
 jeton ne les charge jamais.
 
 > [!TIP]
-> **Pourquoi `DEFAULT_TIME_COST` vaut 3 et non le minimum OWASP `t=2`** (`Argon2idEncoder.ts:39`) : une passe
+> **Pourquoi `DEFAULT_TIME_COST` vaut 3 et non le minimum OWASP `t=2`** (`Argon2idEncoder.ts:47`) : une passe
 > de plus renchérit l'attaquant d'environ 50 % **sans augmenter la RAM par hash**. Or c'est la
 > mémoire, multipliée par le nombre de hachages simultanés, qui est le vrai budget anti-déni de
 > service. Durcir par `t` est l'ajustement le moins risqué.

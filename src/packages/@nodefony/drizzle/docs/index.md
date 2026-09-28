@@ -365,7 +365,7 @@ Table dérivée de `drizzleConfigSchema` (`config.ts:136`) et de `SQL_DIALECTS` 
 
 **`filename` est volontairement sans défaut.** Le chemin dépend du kernel, qui n'existe pas quand le
 schéma est évalué. Il est résolu **au démarrage** par `DrizzleService.#defaultFilename()`
-(`DrizzleService.ts:202`) vers `<app>/var/databases/nodefony-<connecteur>.db` — sous `var/`, le dossier
+(`DrizzleService.ts:230`) vers `<app>/var/databases/nodefony-<connecteur>.db` — sous `var/`, le dossier
 commun des données runtime : « où sont mes données ? » a une réponse unique, un seul chemin à
 sauvegarder et à ignorer dans git.
 
@@ -406,13 +406,13 @@ use("@nodefony/drizzle", {
 
 > [!WARNING]
 > Une URL de connexion **porte un mot de passe**. Le module ne la journalise jamais telle quelle :
-> `redactUrl()` (`DrizzleService.ts:86`) remplace le mot de passe par `***` avant tout log de
+> `redactUrl()` (`DrizzleService.ts:99`) remplace le mot de passe par `***` avant tout log de
 > démarrage, et la sonde d'administration applique la même règle.
 
 ### Quand la connexion échoue, le démarrage échoue
 
 Un connecteur **déclaré** qui ne se connecte pas lève une `BootConfigurationError`
-(`DrizzleService.ts:340`) — en développement **comme** en production. Ce n'est pas une sévérité
+(`DrizzleService.ts:368`) — en développement **comme** en production. Ce n'est pas une sévérité
 gratuite : une infrastructure déclarée mais injoignable ne se répare pas en continuant. Un serveur qui
 démarrerait « vivant » avec ses stores morts accepterait des requêtes pour échouer plus tard, la cause
 noyée dans un avertissement. Le message d'erreur nomme le connecteur, le dialecte, la cible rédigée et
@@ -420,7 +420,7 @@ la piste à vérifier.
 
 Pour les dialectes réseau, la connexion fait un **ping réel** au démarrage : les pools `pg` et `mysql2`
 sont paresseux, sans ce `SELECT 1` une base morte « se connecterait » et n'échouerait qu'à la première
-requête métier (`#connectPostgres()`, `DrizzleOrm.ts:1193` · `#connectMysql()`, `DrizzleOrm.ts:1504`).
+requête métier (`#connectPostgres()`, `DrizzleOrm.ts:1193` · `#connectMysql()`, `DrizzleOrm.ts:1514`).
 
 ## Dialectes — une base par déploiement, un seul code
 
@@ -467,7 +467,7 @@ En MySQL, les verbes « qui rendent la ligne écrite » (`create`, `updateOne`, 
 `findOneAndDelete`) se décomposent en sélection de la cible → mutation bornée par la clé primaire **avec
 le critère revérifié dans le `WHERE`** → relecture. Deux à trois allers-retours au lieu d'un : c'est le
 prix du dialecte, payé **uniquement** en MySQL. Une course perdue rend `null`, jamais une mutation hors
-critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:1119`).
+critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:1105`).
 
 Le SQL brut nécessaire aux entités du framework est lui aussi routé par dialecte, dans un seul fichier
 (`queryKit.ts`) : recherche dans une colonne JSON (`findUserIdBySocialProvider()`, `queryKit.ts:76`),
@@ -507,7 +507,7 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 | Pièce                  | Rôle                                                                   | Ancre                                                        |
 | ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `Drizzle` (le module)  | valide la config, déclare le schéma framework, monte le data plane     | `index.ts` du module                                         |
-| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:186`                      |
+| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:214`                      |
 | `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:214`                                          |
 | `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts:146`                                   |
 | `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts:70`                                   |
@@ -559,7 +559,7 @@ await posts.count({ views: { $gte: 10 } });
 
 Les opérateurs (`$eq $ne $gt $gte $lt $lte $in $nin $like`) sont **ceux d'orm-core**, identiques sur
 tous les drivers ; la traduction en `eq()`/`inArray()` se fait dans `#where()`
-(`DrizzleRepository.ts:420`). Leur référence complète est dans
+(`DrizzleRepository.ts:445`). Leur référence complète est dans
 [la page d'orm-core](../../orm-core/docs/index.md).
 
 `$like` est émis avec sa clause `ESCAPE '\'` (`likeSql.ts`), ce qui rend un `%` ou un `_` **littéral**
@@ -571,10 +571,10 @@ Deux points de comportement qui évitent des surprises :
 
 - **« au plus une ligne »** est garanti par construction pour `updateOne`/`deleteOne`/`increment` :
   la mutation est bornée par la clé primaire découverte de la table, jamais par un `LIMIT` sur un
-  `UPDATE` (`#pickOne()`, `DrizzleRepository.ts:259`). C'est ce qui rend ces verbes portables — MySQL
+  `UPDATE` (`#pickOne()`, `DrizzleRepository.ts:284`). C'est ce qui rend ces verbes portables — MySQL
   interdit la forme naïve.
 - **l'eager-load est manuel** : une requête `IN (…)` par relation déclarée, puis regroupement en
-  mémoire (`#populate()`, `DrizzleRepository.ts:690`). Choix assumé — pas de couche de relations à
+  mémoire (`#populate()`, `DrizzleRepository.ts:694`). Choix assumé — pas de couche de relations à
   déclarer une seconde fois, et le comportement est le même sur les trois dialectes.
 
 ### Transactions — une connexion dédiée, jamais le pool
@@ -718,7 +718,7 @@ le framework résout ses stores avant que l'ORM ne soit connecté — et parce q
 l'arrêt** avant que les serveurs HTTP n'aient fini de vider leurs requêtes en vol. Handle absent =
 dégradation annoncée, pas un plantage : le `SessionStorage` rend une session vide et ignore les
 écritures (`#repo()`, `SessionStorage.ts:86`), le store d'idempotence laisse passer la mutation sans
-dédup (`begin()`, `DrizzleIdempotencyStore.ts:220`).
+dédup (`begin()`, `DrizzleIdempotencyStore.ts:225`).
 
 **SQL n'a pas de TTL.** Contrairement à Redis, rien n'expire tout seul : chaque store expose un `gc()`
 applicatif qui supprime les lignes échues, déclenché par un minuteur hors du chemin chaud —
@@ -735,7 +735,7 @@ c'est ce qui interdit de conclure « nouvelle mutation » hors d'une réservatio
 en deux instructions au verdict non ambigu (`reserveIdempotencyKeyMysql()`, `queryKit.ts:152`).
 
 **Le journal d'audit** pagine par un curseur **composite auto-portant** `<horodatage>:<id>` sur un ordre
-total, plutôt que par un identifiant seul (`listPage()`, `DrizzleAuditStore.ts:169`). Deux gains : plus
+total, plutôt que par un identifiant seul (`listPage()`, `DrizzleAuditStore.ts:175`). Deux gains : plus
 d'aller-retour pour résoudre le curseur, et une pagination qui ne rembobine pas à la première page si
 l'événement de référence a été purgé entre deux appels.
 
@@ -851,7 +851,7 @@ l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`,
 ## ⚡ Performance & mémoire
 
 **La sonde de requêtes ne coûte rien quand elle est éteinte.** Chaque exécution passe par un point de
-mesure unique (`#prof()`, `DrizzleRepository.ts:330`) qui alimente deux consommateurs — le profileur
+mesure unique (`#prof()`, `DrizzleRepository.ts:355`) qui alimente deux consommateurs — le profileur
 par requête (barre de debug) et l'agrégat de flux. Les deux sont gardés par un drapeau : si aucun n'est
 actif, la fonction rend le constructeur de requête tel quel, sans allocation. Le flux est **désactivé
 en production** par défaut.

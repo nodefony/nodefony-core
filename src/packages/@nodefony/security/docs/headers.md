@@ -123,7 +123,7 @@ fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage*
   se contente de la parcourir et de la poser : zéro concaténation, zéro objet créé.
 - Côté transport, même principe : `HttpKernel.computeSecurityHeaderCaches()`
   (`http-kernel.ts:348`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
-  boot ; `onHttpRequest` (`http-kernel.ts:965`) ne fait plus que trois `setHeader`.
+  boot ; `onHttpRequest` (`http-kernel.ts:972`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
   (`Context.ts:253`) ne génère ses 128 bits (`randomBytes(16)` en base64) qu'à la première lecture,
   puis mémoïse. Une réponse qui n'a aucun script inline à signer ne paie aucun appel crypto.
@@ -275,7 +275,7 @@ privilégient `frame-ancestors`, `X-Frame-Options` reste le filet pour les ancie
 victime est capté par ton interface.
 
 Posé par le **transport** depuis un cache calculé au boot — `secFrameOptions`
-(`http-kernel.ts:982`) — et configuré côté `@nodefony/http` avec `frameOptions`
+(`http-kernel.ts:989`) — et configuré côté `@nodefony/http` avec `frameOptions`
 (`http/nodefony/config/config.ts:136`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
 s'auto-encadre. C'est un des trois en-têtes que security **ne ré-émet pas** : il doit valoir aussi
 pour un HTML statique servi directement depuis `public/`.
@@ -287,7 +287,7 @@ pour un HTML statique servi directement depuis `public/`.
 avec tes cookies.
 
 Valeur unique reconnue : `nosniff`, posée depuis le cache `secContentTypeOptions`
-(`http-kernel.ts:979`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
+(`http-kernel.ts:986`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
 vient précisément des fichiers servis hors pipeline applicatif — un banc live le prouve sur une 404
 (`security-headers.test.ts:38`).
 
@@ -300,7 +300,7 @@ La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
 (`http-kernel.ts:348`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
-de serveur (`http-kernel.ts:985`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
+de serveur (`http-kernel.ts:992`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
 soit ignoré : l'émettre sur du HTTP simple ne ferait que polluer. Défaut : un an, sous-domaines
 inclus.
 
@@ -502,10 +502,10 @@ Trois propriétés à retenir :
 
 - **Aucun couplage** : la résolution par nom de service évite un cycle de dépendances, et
   `registerCspOrigins` est optionnel — un module fonctionne dans une app **sans** security.
-- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1090`) retire le fragment et
+- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1099`) retire le fragment et
   reconstruit le CSP de base. C'est ce que fait `@nodefony/frontend` à l'arrêt du serveur Vite.
 - **Idempotent** : la reconstruction repart **toujours** du `headers.csp` d'origine
-  (`firewall.ts:1104`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
+  (`firewall.ts:1113`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
   enregistrements.
 
 L'exemple de référence vit dans le framework : en développement, `@nodefony/frontend` déclare les
@@ -523,7 +523,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Champ structuré booléen              | RFC 8941                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:267`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
-| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:979`)               |
+| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:986`)               |
 | Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:348`)       |
 
 ## ⚡ Performance & mémoire
@@ -550,7 +550,7 @@ dans le périmètre du gate mémoire, qu'il ne peut structurellement pas dégrad
 L'écran **Firewall** de Studio affiche la section « En-têtes de sécurité » — pilotée par
 `headers.enabled` (`FirewallDefenses.tsx:219`) — avec le CSP effectif, l'état du nonce par requête, la
 Referrer-Policy et les valeurs d'isolation. Les données
-viennent de `Firewall.describe()` (`firewall.ts:549`), qui projette la config **sans aucun secret**,
+viennent de `Firewall.describe()` (`firewall.ts:555`), qui projette la config **sans aucun secret**,
 exposée par `GET /nodefony/security/api/firewall`.
 
 L'onglet **Configuration** de Studio rend les mêmes options depuis le schéma Zod — chaque champ y

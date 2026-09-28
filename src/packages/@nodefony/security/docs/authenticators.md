@@ -105,7 +105,7 @@ totalement agnostique de la stratégie :
 ### Le registre pluggable
 
 Les authenticators sont résolus par **nom** : `Firewall.#instantiateAuthenticators()`
-(`firewall.ts:429`) interroge `getAuthenticatorFactory()` (`authenticatorRegistry.ts:59`) — jamais
+(`firewall.ts:435`) interroge `getAuthenticatorFactory()` (`authenticatorRegistry.ts:59`) — jamais
 un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggable ».
 
 - Les **six builtins HTTP** (`anonymous`, `userpassword`, `session`, `jwt`, `external-jwt`, `apikey`)
@@ -116,7 +116,7 @@ un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggabl
 - La fabrique ne fait que **construire** ; les résolutions de services coûteuses (`users`,
   `tokenStore`, keystore) restent **lazy** dans l'instance (cold path).
 - Un nom inconnu en config = boot **fail-closed** — `#configError` posé + log CRITIC
-  (`firewall.ts:582`) : jamais de zone « protégée » silencieusement ouverte à cause d'une
+  (`firewall.ts:588`) : jamais de zone « protégée » silencieusement ouverte à cause d'une
   faute de frappe.
 
 ## 🚀 Démarrage rapide
@@ -228,7 +228,7 @@ Le seul authenticator autorisé à produire un token **non authentifié** sans d
   si preuve présente, sinon visiteur anonyme accepté ». En mode `all`, utile en **dernier** :
   « canal prouvé (ex. mTLS), identité utilisateur optionnelle ».
 - Sans lui, zone protégée + aucune preuve = 401 : la défense en profondeur du firewall n'accepte un
-  token non authentifié que si `anonymous` est le maillon déclaré (`firewall.ts:827`).
+  token non authentifié que si `anonymous` est le maillon déclaré (`firewall.ts:850`).
 - **Faille fermée** : l'anonymat _implicite_ — ici il est un choix explicite et auditable, jamais un
   défaut.
 
@@ -409,7 +409,7 @@ paresse : c'est une **défense anti-énumération / anti-oracle**.
 Distinguer « compte inconnu » de « mot de passe faux », ou « token expiré » de « signature
 invalide », donnerait à un attaquant une sonde. La cause fine part **toujours** en log d'audit ; le
 client n'obtient qu'un 401 + son challenge — posé par le firewall, premier maillon de la zone qui
-en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1207`).
+en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1216`).
 
 ## 🧩 Ajouter un authenticator maison
 
@@ -435,7 +435,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
-| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1207`) |
+| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1216`) |
 | Bearer | RFC 6750 | `readBearerHeader()` (`runtime/bearer.ts:68`, cœur) — une porte UNIQUE au cœur, plus une constante par authenticator |
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |
@@ -463,7 +463,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Symptôme | Cause (dans le code) | Correction |
 | --- | --- | --- |
-| 401 systématique sur une zone protégée | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:827`) | Ajouter `anonymous` en dernier si l'anonymat est voulu |
+| 401 systématique sur une zone protégée | Aucune preuve + `anonymous` non listé — Zero Trust (`firewall.ts:850`) | Ajouter `anonymous` en dernier si l'anonymat est voulu |
 | 401 générique + log ERROR « service `users` » | Câblage : pas de `UserService` au container (`authenticatorRegistry.ts:85-88`) | Enregistrer un `UserService` au boot de l'app |
 | JWT rejeté alors qu'il « semble » valide | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`) | Émettre via le `TokenService` (mêmes iss/aud/typ) |
 | Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`) | Un PAT est révoqué immédiatement ; vérifier `revokedAt` |

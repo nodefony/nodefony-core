@@ -267,7 +267,7 @@ ainsi qu'une application lit une base métier et écrit dans une base d'archives
 L'adresse se donne de deux façons, jamais les deux à la fois utilement :
 
 - **En pièces détachées** — `host`, `port`, `dbname` : lisible, adapté au développement. Le service
-  les assemble en `mongodb://hôte:port/base` (`MongooseService.buildUri()` (`MongooseService.ts:102`)).
+  les assemble en `mongodb://hôte:port/base` (`MongooseService.buildUri()` (`MongooseService.ts:117`)).
 - **En une URI** — `uri` (`config.ts:41`) : la seule forme capable d'exprimer un replica set, un
   `mongodb+srv`, des options de requête. **Dès qu'`uri` est présent, les trois autres champs ne sont
   plus lus du tout.**
@@ -295,7 +295,7 @@ publique** de ton application : le changer déplace des entités.
 ### `options` — ce que Mongoose sait faire et Nodefony ne re-décrit pas
 
 `options` (`config.ts:86`) est transmis tel quel au driver
-(`MongooseService.#connectOne()` (`MongooseService.ts:141`)). On y met tout ce qui touche au
+(`MongooseService.#connectOne()` (`MongooseService.ts:156`)). On y met tout ce qui touche au
 **transport** plutôt qu'à l'adresse : taille du pool, délais, TLS, identifiants séparés.
 
 ```typescript
@@ -320,7 +320,7 @@ description des options du driver.
 
 ### `debug` — voir passer les requêtes
 
-`debug` (`config.ts:100`) active la trace intégrée de Mongoose (`connectAll()` (`MongooseService.ts:81`)).
+`debug` (`config.ts:100`) active la trace intégrée de Mongoose (`connectAll()` (`MongooseService.ts:104`)).
 Chaque opération part sur la sortie standard, avec sa collection, son filtre et ses champs.
 
 C'est un **réglage de processus, pas de connecteur** : il vaut pour toutes les connexions à la fois.
@@ -549,9 +549,9 @@ use("@nodefony/mongoose", {
 ```
 
 Les deux connexions s'ouvrent en série au démarrage, dans l'ordre de déclaration
-(`connectAll()` (`MongooseService.ts:81`)), et se ferment toutes à l'arrêt
-(`disconnectAll()` (`MongooseService.ts:195`)). Un service peut demander l'une ou l'autre par son nom
-(`getOrm()` (`MongooseService.ts:203`)), mais l'usage courant reste le registre d'ORM.
+(`connectAll()` (`MongooseService.ts:104`)), et se ferment toutes à l'arrêt
+(`disconnectAll()` (`MongooseService.ts:210`)). Un service peut demander l'une ou l'autre par son nom
+(`getOrm()` (`MongooseService.ts:218`)), mais l'usage courant reste le registre d'ORM.
 
 ## 🔐 Le secret de connexion
 
@@ -697,7 +697,7 @@ vaut mieux qu'une erreur 500 et un rejet non capturé. À l'inverse, une entité
 La configuration ne se contente pas d'être validée : elle se **montre**.
 
 - Le module publie son schéma en JSON Schema (`Mongoose.configSchema()` (`mongoose/index.ts:55`) →
-  `mongooseConfigJsonSchema()` (`defineModuleConfig.ts:72`)). C'est ce qui permet à Studio d'afficher
+  `mongooseConfigJsonSchema()` (`defineModuleConfig.ts:78`)). C'est ce qui permet à Studio d'afficher
   chaque clé avec son type, son défaut et son texte d'aide — sans qu'une seule ligne de description
   soit recopiée quelque part.
 - L'écran `/nodefony/config` montre la configuration **effective** après toutes les couches, et la

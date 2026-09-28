@@ -250,7 +250,7 @@ MODULE billing   100 HT → 105.5 EUR       # msgid = « MODULE <nom> », automa
 ```
 
 Le `msgid` de la dernière ligne est `MODULE billing` sans qu'on l'ait écrit : `Module.log()`
-(`Module.ts:745`) le remplit par défaut, là où un `Service` nu emploie son seul nom. Le taux appliqué
+(`Module.ts:740`) le remplit par défaut, là où un `Service` nu emploie son seul nom. Le taux appliqué
 est **0.055** et non 0.2 — la config du manifeste a écrasé le défaut du constructeur.
 
 Et la commande est là :
@@ -610,7 +610,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | Mon hook n'est jamais appelé                              | Propriété fléchée, ou nom approximatif                                           | Méthode de prototype nommée exactement (`Module.ts:235`)             |
 | Le boot casse **en production seulement**                 | Écouteur de phase posé à la main → non tagué → critique par défaut               | Déclarer un hook de module (`Module.ts:236`)                         |
 | Journal de boot : échec de `"(anonyme)"`                  | Même cause : aucun propriétaire à nommer (`Kernel.ts:3224`)                      | Idem — le hook porte l'identité                                      |
-| `Error("Kernel not ready")` sur `addCommand`              | `kernel.cli` absent — module hors invocation CLI (`Module.ts:678`)               | N'appeler `addCommand` que dans un module chargé par le CLI          |
+| `Error("Kernel not ready")` sur `addCommand`              | `kernel.cli` absent — module hors invocation CLI (`Module.ts:691`)               | N'appeler `addCommand` que dans un module chargé par le CLI          |
 | Ma commande de module n'apparaît pas                      | `addCommand` appelé dans un hook, trop tard                                      | La poser dans le **constructeur**, comme les modules du framework    |
 | `import { Inject } from "nodefony"` échoue                | Le décorateur de propriété n'est pas ré-exporté par le paquet                    | Injection par constructeur : `@inject("nom")`                        |
 | `@injectable({ singleton: true })` sans effet             | La clé n'existe pas — elle est acceptée puis **ignorée**                         | `{ scope: "singleton" }` (défaut) ou `{ scope: "transient" }`        |

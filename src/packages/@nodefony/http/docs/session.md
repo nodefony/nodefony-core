@@ -122,7 +122,7 @@ défaut** dans Nodefony :
   l'identifiant (`AuthFlow` — voir plus bas).
 - **Exploitation prolongée d'un identifiant volé.** Une session maintenue artificiellement vivante
   resterait exploitable indéfiniment. → l'**absolute timeout** borne l'âge depuis la création et n'est
-  **jamais** prolongé (`Session.isValidSession()`, `session.ts:366`), en plus de l'idle timeout.
+  **jamais** prolongé (`Session.isValidSession()`, `session.ts:371`), en plus de l'idle timeout.
 
 > [!IMPORTANT]
 > Le cookie **ne chiffre rien** et n'a pas à le faire : il ne porte qu'un numéro. La sécurité repose
@@ -135,7 +135,7 @@ Quatre partis pris, chacun vérifiable dans le code.
 
 **1. Le cookie ne transporte que l'identifiant.** `Session.getSession()` lit la **valeur brute** du
 cookie, sans déchiffrement (`session.ts:160`) ; l'identifiant vient de `Session.generateId()`
-(`session.ts:226`). Modèle BFF : le web reste sur un cookie opaque, le JWT est réservé aux API et aux
+(`session.ts:231`). Modèle BFF : le web reste sur un cookie opaque, le JWT est réservé aux API et aux
 agents (voir [Firewall](../../security/docs/firewall.md)).
 
 **2. La session est paresseuse.** Elle n'existe que si une route la demande — `@UseSession`, ou la
@@ -144,7 +144,7 @@ seule présence d'un paramètre `@Session` — ou si un cookie arrive déjà : c
 ni `Set-Cookie`**.
 
 **3. Un seul modèle d'état pour le web et le temps réel.** Le même `startSession()` sert
-`HttpKernel.onRequestEnd()` (`http-kernel.ts:1482`) et `HttpKernel.onConnect()` (`http-kernel.ts:1773`) ;
+`HttpKernel.onRequestEnd()` (`http-kernel.ts:1491`) et `HttpKernel.onConnect()` (`http-kernel.ts:1779`) ;
 l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:421`).
 
 **4. L'administration ne voit jamais un identifiant.** Un opérateur manipule une `ref`, HMAC tronqué
@@ -385,7 +385,7 @@ Ici l'expiration **idle** est portée par Redis lui-même : `SET … EX` pose le
 (`@nodefony/redis/nodefony/src/SessionStorage.ts:168`) — aucun balayage périodique.
 
 L'absolute timeout, lui, n'est pas exprimable par un TTL glissant : il reste honoré **à la lecture**
-par `Session.isValidSession()` (`session.ts:366`). Une entrée trop vieille peut donc survivre côté
+par `Session.isValidSession()` (`session.ts:371`). Une entrée trop vieille peut donc survivre côté
 Redis jusqu'à son TTL idle, mais elle est **refusée à la reprise**.
 
 Capacités réduites, annoncées et non simulées : la pagination est **par curseur** (pas de `total`, pas
@@ -439,8 +439,8 @@ sequenceDiagram
 → `resume()` (`session.ts:177`), sinon `create()` (`session.ts:204`) qui tire un identifiant CSPRNG,
 pose le cookie et marque la session à persister.
 
-**Validation à la reprise.** `Session.isValidSession()` (`session.ts:366`) applique l'**absolute**
-(âge depuis `created`) puis l'**idle** (depuis `updated`). Échec → `invalidate()` (`session.ts:284`)
+**Validation à la reprise.** `Session.isValidSession()` (`session.ts:371`) applique l'**absolute**
+(âge depuis `created`) puis l'**idle** (depuis `updated`). Échec → `invalidate()` (`session.ts:290`)
 détruit l'entrée et recrée une session vierge.
 
 > [!WARNING]
@@ -449,7 +449,7 @@ détruit l'entrée et recrée une session vierge.
 > **idle** ne sont alors **pas** évaluées. Tant que ce comportement n'est pas corrigé, ne pas
 > activer `refererCheck` quand l'expiration des sessions compte — c'est-à-dire presque toujours.
 
-**Écriture minimale.** `SessionsService.saveSession()` (`sessions-service.ts:452`) n'écrit **que** si la
+**Écriture minimale.** `SessionsService.saveSession()` (`sessions-service.ts:463`) n'écrit **que** si la
 session est `dirty` et non `readOnly` ; sinon il appelle `Session.touchIfNeeded()` (`session.ts:421`),
 qui prolonge l'idle **sans réécrire le blob**, et seulement au-delà d'une demi-vie d'idle
 (`session.ts:445`). Une requête de lecture coûte donc au pire un `UPDATE` d'horodatage toutes les
@@ -503,7 +503,7 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 <!-- prettier-ignore -->
 | Aspect | HTTP | WebSocket |
 | --- | --- | --- |
-| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1482`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1773`) |
+| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1491`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1779`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
 | Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1566`) |
@@ -540,15 +540,15 @@ affiche.
 
 | Surface                  | Méthode                                         | Portée                                      |
 | ------------------------ | ----------------------------------------------- | ------------------------------------------- |
-| Déconnexion locale       | `Session.destroy()` (`session.ts:300`)          | la session courante + pierre tombale        |
-| Révocation par un admin  | `destroyByRef()` (`sessions-service.ts:734`)    | une session désignée par sa `ref` publique  |
-| « Déconnecter partout »  | `destroyByUser()` (`sessions-service.ts:764`)   | toutes les sessions d'un utilisateur        |
-| « Mes appareils » (self) | `destroyOwnByRef()` (`sessions-service.ts:861`) | une session, **restreinte au propriétaire** |
+| Déconnexion locale       | `Session.destroy()` (`session.ts:306`)          | la session courante + pierre tombale        |
+| Révocation par un admin  | `destroyByRef()` (`sessions-service.ts:745`)    | une session désignée par sa `ref` publique  |
+| « Déconnecter partout »  | `destroyByUser()` (`sessions-service.ts:775`)   | toutes les sessions d'un utilisateur        |
+| « Mes appareils » (self) | `destroyOwnByRef()` (`sessions-service.ts:872`) | une session, **restreinte au propriétaire** |
 
 Deux finesses valent d'être connues.
 
 `destroyByUser()` ne fait pas un seul passage : il **repasse jusqu'à ce qu'un passage complet ne
-détruise plus rien** (`sessions-service.ts:764`), car supprimer en parcourant décale les rangs sous un
+détruise plus rien** (`sessions-service.ts:775`), car supprimer en parcourant décale les rangs sous un
 curseur offset. Une révocation « partout » qui en laisserait une n'est pas une imprécision, c'est une
 faille — on rend donc la main avec la preuve, pas l'espoir.
 
@@ -566,7 +566,7 @@ Trois barrières superposées :
    **liste blanche** : `ref`, `user`, `authenticated`, `ip`, `ua`, dates. Jamais un `delete` après coup.
 3. La `ref` elle-même est un HMAC tronqué non réversible (`computeSessionRef()`,
    `sessions-service.ts:100`) ; la clé est dérivée du certificat au boot et n'est jamais sérialisée
-   (`SessionsService.sessionRef()`, `sessions-service.ts:553`).
+   (`SessionsService.sessionRef()`, `sessions-service.ts:564`).
 
 ### Récapitulatif des défenses actives par défaut
 
@@ -576,12 +576,12 @@ Trois barrières superposées :
 | Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:714`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `cookieDefaultSettings` (`cookie.ts:39`)           |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:177`)              |
-| Identifiant deviné                | 32 octets CSPRNG (43 caractères base64url)        | `Session.generateId()` (`session.ts:226`)          |
+| Identifiant deviné                | 32 octets CSPRNG (43 caractères base64url)        | `Session.generateId()` (`session.ts:231`)          |
 | Session volée exploitée longtemps | absolute timeout, jamais prolongé                 | `absoluteTimeoutS` à la reprise (`session.ts:388`) |
 | Session oubliée ouverte           | idle timeout glissant                             | `idleTimeoutS` à la reprise (`session.ts:401`)     |
 | Résurrection après révocation     | pierre tombale 5 min sur `write` **et** `touch`   | `RevocationGuardStorage.ts:127-171`                |
 | Fuite d'identifiant en admin      | `ref` HMAC + projection en liste blanche          | `toSessionSummary()` (`sessions-service.ts:112`)   |
-| IDOR sur « mes sessions »         | périmètre depuis l'identité ALS, jamais du client | `destroyOwnByRef()` (`sessions-service.ts:861`)    |
+| IDOR sur « mes sessions »         | périmètre depuis l'identité ALS, jamais du client | `destroyOwnByRef()` (`sessions-service.ts:872`)    |
 
 ## 🧰 API publique
 
@@ -595,7 +595,7 @@ paramètre `@Session()` suffit à déclarer l'intent.
 | Lire une valeur                  | `session.get("panier")`              | `null` si absente — jamais `undefined`.                 |
 | Écrire une valeur                | `session.set("panier", items)`       | Marque la session `dirty` → écriture en fin de requête. |
 | Message « une seule lecture »    | `session.setFlashBag("notice", "…")` | Consommé (et effacé) au premier `getFlashBag`.          |
-| Lire ce message                  | `session.getFlashBag("notice")`      | Rend la valeur puis la supprime (`session.ts:525`).     |
+| Lire ce message                  | `session.getFlashBag("notice")`      | Rend la valeur puis la supprime (`session.ts:530`).     |
 | Métadonnée technique             | `session.getMetaBag("ip")`           | ip / ua / host / remoteAddress posés à la création.     |
 | Se déconnecter                   | `await session.destroy(true)`        | Détruit l'entrée store **et** efface le cookie.         |
 | Renouveler l'identifiant         | `session.regenerateId()`             | Nouvel identifiant, état conservé (`session.ts:236`).   |

@@ -453,7 +453,7 @@ déjà Postgres mais pas Redis obtient la dédup cross-pod **sans nouvelle infra
 
 - **Réservation atomique en UNE instruction** — un `INSERT` avec
   `onConflictDoUpdate` (`DrizzleIdempotencyStore.ts:234`) dont la garde `setWhere` ne réécrit que si
-  l'entrée est morte (`DrizzleIdempotencyStore.ts:264`). Le `returning` ne rend une ligne que si
+  l'entrée est morte (`DrizzleIdempotencyStore.ts:269`). Le `returning` ne rend une ligne que si
   l'INSERT a passé (clé neuve) ou si le `DO UPDATE` a **volé** une entrée expirée → `fresh`. Zéro
   ligne = contention → on lit l'état réel.
 - **Invariant capital** : le store ne renvoie **jamais** `fresh` hors réservation atomique gagnée.
@@ -464,8 +464,8 @@ déjà Postgres mais pas Redis obtient la dédup cross-pod **sans nouvelle infra
   (`DrizzleIdempotencyStore.ts:233`), qui la reconstruit en deux instructions chacune atomique.
 - **Pas de TTL natif** → `gc()` (`DrizzleIdempotencyStore.ts:318`) = `DELETE WHERE expiresAt <= now`.
   C'est le **seul** store qui expose `gc`, donc le seul que le framework planifie (voir plus bas).
-- **Mutations conditionnelles** : `complete()` (`DrizzleIdempotencyStore.ts:296`) et `abort()`
-  (`DrizzleIdempotencyStore.ts:314`) portent `WHERE state = 'if'` — jamais d'écrasement d'une réponse
+- **Mutations conditionnelles** : `complete()` (`DrizzleIdempotencyStore.ts:301`) et `abort()`
+  (`DrizzleIdempotencyStore.ts:319`) portent `WHERE state = 'if'` — jamais d'écrasement d'une réponse
   déjà mémorisée, jamais de résurrection d'une clé libérée. `complete` ne touche pas `fingerprint`.
 - **Résolution lazy + dégradation gracieuse** : le handle Drizzle est résolu à **chaque** appel
   (`DrizzleIdempotencyStore.from()`, `DrizzleIdempotencyStore.ts:191`). ORM non connecté → `begin`
