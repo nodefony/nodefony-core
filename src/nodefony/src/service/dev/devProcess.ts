@@ -1337,6 +1337,12 @@ export function formatForeignRuntimes(
  * `launchDetached` ratait alors le port contesté — un faux READY, le défaut même
  * qu'il existe pour empêcher. Reporter le verdict d'un `setImmediate` (qui passe
  * après la lecture des entrées/sorties) laisse le `connect` arrivé l'emporter.
+ *
+ * Ce report ne suffit pas quand l'appel `connect()` lui-même n'est parti qu'APRÈS
+ * le blocage : la connexion n'a alors eu aucun temps, et le délai, armé à la
+ * création, est déjà échu (mesuré : 59 ports occupés sur 300 déclarés libres, CPU
+ * saturé). Le délai mesure donc le temps réellement OFFERT : un minuteur qui se
+ * déclenche avec plus d'un délai de retard rouvre une fenêtre complète, une fois.
  */
 export function isPortListening(
   port: number,
@@ -1355,7 +1361,18 @@ export function isPortListening(
     };
     socket.once("connect", () => settle(true)); // quelqu'un répond → à l'écoute
     socket.once("error", () => settle(false)); // refusé / injoignable → muet
-    socket.setTimeout(timeoutMs, () => setImmediate(() => settle(false)));
+    const armedAt = Date.now();
+    let rearmed = false;
+    // `setTimeout(ms, cb)` pose `cb` en `once` : le réarmement le repasse.
+    const onTimeout = (): void => {
+      if (!rearmed && Date.now() - armedAt > 2 * timeoutMs) {
+        rearmed = true; // boucle bloquée : la connexion n'a pas eu son délai
+        socket.setTimeout(timeoutMs, onTimeout);
+        return;
+      }
+      setImmediate(() => settle(false));
+    };
+    socket.setTimeout(timeoutMs, onTimeout);
   });
 }
 
