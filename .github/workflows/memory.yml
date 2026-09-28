@@ -185,7 +185,7 @@ jobs:
         env:
           NF_GATES_EXPECT: "Memory leaks — HTTP,Memory leaks — WebSocket"
         shell: bash
-        run: node scripts/ci/run-watched.mjs npm run test:load
+        run: node ../../../../scripts/ci/run-watched.mjs npm run test:load
 
       # `always()` : c'est en ÉCHEC que ce résumé sert le plus. Il dit de combien
       # le seuil a été franchi — un dépassement de quelques Mo se lit comme du
