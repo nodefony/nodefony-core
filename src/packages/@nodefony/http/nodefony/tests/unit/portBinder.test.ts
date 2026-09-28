@@ -42,6 +42,18 @@ function occupy(port = 0): Promise<number> {
   });
 }
 
+/**
+ * Occupe un port libre qui laisse `room` ports au-dessus de lui : un cas qui
+ * explore `port + k` échouait en `RangeError` quand le noyau tirait un port
+ * éphémère au plafond (65535).
+ */
+async function occupyWithRoom(room: number): Promise<number> {
+  for (;;) {
+    const port = await occupy(0);
+    if (port + room <= 65535) return port;
+  }
+}
+
 /** Un serveur HTTP neuf, prêt à binder (jamais écouté). */
 function fresh(): http.Server {
   const srv = http.createServer();
@@ -146,7 +158,7 @@ describe("buildBindPlan — ce que chaque serveur a le droit de prendre", () => 
 
 describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   it("port libre : on prend celui qu'on voulait, sans décalage", async () => {
-    const port = await occupy(0); // réserve un port…
+    const port = await occupyWithRoom(16); // réserve un port…
     await new Promise<void>((r) => opened[0]!.close(() => r()));
     opened = [];
 
@@ -161,7 +173,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   });
 
   it("port OCCUPÉ : glisse au suivant et DIT d'où il vient", async () => {
-    const taken = await occupy(0);
+    const taken = await occupyWithRoom(16);
 
     const srv = fresh();
     const res = await bindWithFallback(srv as unknown as Listenable, HOST, {
@@ -176,7 +188,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   });
 
   it("SAUTE un port réservé même s'il est libre (ne vole pas l'autre serveur)", async () => {
-    const taken = await occupy(0);
+    const taken = await occupyWithRoom(16);
     const reserved = taken + 1; // libre, mais promis à l'autre serveur
 
     const srv = fresh();
@@ -190,7 +202,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   });
 
   it("enjambe PLUSIEURS ports occupés d'affilée", async () => {
-    const p1 = await occupy(0);
+    const p1 = await occupyWithRoom(16);
     // Les deux suivants aussi (best-effort : si l'un est déjà pris, tant mieux).
     await occupy(p1 + 1).catch(() => undefined);
     await occupy(p1 + 2).catch(() => undefined);
@@ -272,7 +284,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   });
 
   it("`attempts: 0` (STRICT) : port pris ⇒ EADDRINUSE, jamais de glissement", async () => {
-    const taken = await occupy(0);
+    const taken = await occupyWithRoom(16);
 
     const srv = fresh();
     let code: string | undefined;
@@ -290,8 +302,28 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     expect(srv.listening).to.equal(false); // et rien n'écoute
   });
 
+  it("PLAFOND des ports : rejette sur le conflit, jamais en RangeError", async () => {
+    // 65535 occupé — par nous si le noyau l'accorde, sinon il l'est déjà.
+    await occupy(65535).catch(() => undefined);
+    const srv = fresh();
+    let error: NodeJS.ErrnoException | undefined;
+    try {
+      await bindWithFallback(srv as unknown as Listenable, HOST, {
+        desired: 65535,
+        reserved: [],
+        attempts: 5,
+      });
+      expect.fail("le repli n'a nulle part où aller au-delà de 65535");
+    } catch (e) {
+      error = e as NodeJS.ErrnoException;
+    }
+    expect(error).to.not.be.instanceOf(RangeError);
+    expect(["EADDRINUSE", "EACCES"]).to.include(error?.code);
+    expect(srv.listening).to.equal(false);
+  });
+
   it("essais ÉPUISÉS : rejette (le repli n'est pas infini)", async () => {
-    const base = await occupy(0);
+    const base = await occupyWithRoom(16);
     // Occupe la fenêtre entière que le binder va explorer : base, base+1, base+2.
     // Les `catch` ne sont pas décoratifs : un port de la fenêtre peut être
     // INDISPONIBLE sans que nous l'ayons pris — c'est ce que la suite mesure.
@@ -364,7 +396,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const baseError = ref.listenerCount("error");
     const baseListening = ref.listenerCount("listening");
 
-    const p1 = await occupy(0);
+    const p1 = await occupyWithRoom(16);
     await occupy(p1 + 1).catch(() => undefined);
     await occupy(p1 + 2).catch(() => undefined);
 
@@ -387,7 +419,7 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     const baseError = ref.listenerCount("error");
     const baseListening = ref.listenerCount("listening");
 
-    const taken = await occupy(0);
+    const taken = await occupyWithRoom(16);
     const srv = fresh();
     await bindWithFallback(srv as unknown as Listenable, HOST, {
       desired: taken,
@@ -403,8 +435,8 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     // Le cas réel : 5151 et 5152 pris par une autre app → http glisse, puis https
     // glisse à son tour et tombe sur le port que http vient de prendre → il
     // reglisse. Le bind atomique le résout tout seul, sans coordination.
-    const a = await occupy(0);
-    const b = await occupy(0);
+    const a = await occupyWithRoom(16);
+    const b = await occupyWithRoom(16);
 
     const s1 = fresh();
     const r1 = await bindWithFallback(s1 as unknown as Listenable, HOST, {
@@ -451,7 +483,7 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
   }
 
   it("un port servi en loopback fait GLISSER l'écoute demandée sur toutes les interfaces", async () => {
-    const taken = await occupy(0); // 127.0.0.1:taken
+    const taken = await occupyWithRoom(16); // 127.0.0.1:taken
     const srv = fresh();
     const res = await bindWithFallback(
       srv as unknown as Listenable,
@@ -469,7 +501,7 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
   it("en STRICT, le même conflit REFUSE le démarrage au lieu d'écouter dans le vide", async () => {
     // C'est le pire des deux mondes qu'on ferme ici : un pod déclaré sain que
     // personne n'atteint. En strict le port est un contrat, donc on échoue.
-    const taken = await occupy(0);
+    const taken = await occupyWithRoom(16);
     const srv = fresh();
     let code: string | undefined;
     await bindWithFallback(srv as unknown as Listenable, "0.0.0.0", {
@@ -505,7 +537,7 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
   });
 
   it("un port libre n'invente AUCUN conflit (pas de glissement fantôme)", async () => {
-    const free = await occupy(0); // puis libéré juste après
+    const free = await occupyWithRoom(16); // puis libéré juste après
     await new Promise<void>((r) => opened.pop()?.close(() => r()));
     const srv = fresh();
     const res = await bindWithFallback(

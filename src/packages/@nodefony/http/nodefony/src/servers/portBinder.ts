@@ -218,6 +218,9 @@ function portConflictError(
   return error;
 }
 
+/** Plus grand numéro de port TCP (RFC 793) : au-delà, `listen` lève un `RangeError`. */
+const MAX_PORT = 65535;
+
 /** Prochain candidat : incrémente, en sautant ce que les autres serveurs veulent. */
 function nextCandidate(from: number, reserved: readonly number[]): number {
   let port = from + 1;
@@ -327,6 +330,11 @@ export async function bindWithFallback(
     // Port 0 = le noyau alloue : il ne peut pas être « déjà pris ».
     if (plan.desired === 0 || used >= plan.attempts) throw failure;
     used += 1;
-    candidate = nextCandidate(candidate, plan.reserved);
+    const next = nextCandidate(candidate, plan.reserved);
+    // Plafond atteint : le repli s'arrête sur l'échec du DERNIER port essayé,
+    // qui nomme la cause (port occupé). Continuer ferait lever `listen` sur un
+    // numéro invalide — un `RangeError` qui ne dit rien du conflit.
+    if (next > MAX_PORT) throw failure;
+    candidate = next;
   }
 }

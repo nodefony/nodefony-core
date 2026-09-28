@@ -33201,7 +33201,8 @@
         "src/nodefony/src/client/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "isSubclassOf": [
         "src/nodefony/src/client/index.ts",
@@ -37550,6 +37551,20 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "MaybePromise": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IRouting.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
+      ],
       "IRoute": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
@@ -37560,15 +37575,6 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "MaybePromise": [
-        "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
-        "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/IRouting.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "IController": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
@@ -37762,11 +37768,14 @@
       "thenMaybe": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
       ],
       "finallyMaybe": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
