@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/http",
-  "version": "10.0.0-alpha.9",
+  "version": "10.0.0-beta.1",
   "description": "Serveurs HTTP, HTTPS, HTTP/2 et WebSocket natifs pour Nodefony : sessions, contextes de requête, certificats TLS",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",
@@ -76,7 +76,7 @@
     "@types/xml2js": "0.4.14",
     "@vitest/coverage-v8": "5.0.2",
     "chai": "6.2.2",
-    "nodefony": "^10.0.0-alpha.9",
+    "nodefony": "^10.0.0-beta.1",
     "tsx": "4.23.15",
     "vitest": "5.0.2"
   },
@@ -84,7 +84,7 @@
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {
-    "nodefony": "^10.0.0-alpha.9",
+    "nodefony": "^10.0.0-beta.1",
     "zod": "^4.6.5"
   },
   "files": [

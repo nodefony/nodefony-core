@@ -8,6 +8,68 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-beta.1 - 2026-09-28
+
+### Changed
+
+- **framework (breaking):** rendre les contrôleurs singletons par défaut ; un contrôleur qui garde un état de requête sur `this`, prépare la requête dans `initialize()` ou injecte un service de portée `request` doit déclarer `@Scope("request")` (63453581e)
+- **http,framework (breaking):** faire rendre `MaybePromise<T>` au lieu de `Promise<T>` à `send`, `render`, `write`, `close`, `end`, `renderResponse`, `renderJson` et `HttpKernel.handle` ; `await` reste valable, un `.then()` chaîné sur leur retour s'écrit `Promise.resolve(x).then(…)` (16a559eb5)
+- **http (breaking):** lever `Response Already sended` quand `HttpContext.send` vise une réponse déjà partie, au lieu de rendre une promesse rompue (16a559eb5)
+- **core (breaking):** geler en profondeur les `options` de chaque module à la fin de `onReady` ; une écriture après le démarrage lève, l'édition à chaud passe par `IKernel.replaceModuleOptions` (1457d0e47, 7fb2b5b69)
+- **core (breaking):** changer le type `Scopes` en `Map<string, Set<IScope>>` et faire rendre un `ReadonlySet<IScope>` à `Container.addScope()` ; `Container.id` n'est plus assignable (36f834631)
+- **core (breaking):** étendre `IScope` de `closed`, `hasOwn()` et `own()`, et `DIScope` de `"request"` ; un implémenteur externe ou un `switch` exhaustif doit les couvrir (ca37ca339, 36f834631)
+- **http:** servir un GET sans aucune Promise sur le chemin synchrone, et écrire un corps texte en une seule écriture (efcf5afb9, a30c4c3da, 421bf93e6)
+- **types:** passer tous les paquets publiés sous le typage strict, sans cycle de types entre le cœur, http, framework et security (d003f55d9, 2d4462ea3, 6e957afb9, 12beed71b, a3313c922, f778ff954, 53b6dc11e, 7f30ffd8b)
+
+### Added
+
+- **core:** ajouter la portée `request` aux services injectables, atteignable par `RequestContext.getScope()` (ca37ca339, 790e478b7, ea00abbbd)
+- **framework:** refuser au démarrage un contrôleur singleton qui dépend d'un service de portée `request` (aaa2ddf40)
+- **core:** poser un calque de configuration propre à une requête (2c40408d3)
+- **http:** surcharger par requête les quotas de corps et d'envoi (a7760d24d)
+- **orm-core:** traiter une clé `undefined` comme absente dans les écritures CRUD (97bccdf59)
+- **scaffold:** donner aux applications générées le typage strict du framework, et enseigner la portée `request` à leurs agents (33cd65d13, 3ac9b4239)
+- **cli:** afficher la bannière de la marque au démarrage et en tête du menu (fd9f62dd1)
+
+### Removed
+
+- **core (breaking):** retirer l'arbre de paramètres du conteneur — `setParameters`, `getParameters`, `freezeParameters` de `Container`, `Scope`, `Service` et de leurs interfaces, les types `DynamicParam` et `ProtoParameters`, le 2ᵉ argument `deep` du constructeur de `Container` ; un module lit sa configuration dans `this.options` (f88798caa)
+- **http (breaking):** retirer le champ `HttpContext.csrf`, jamais affecté (7f30ffd8b)
+
+### Fixed
+
+- **framework:** servir HEAD sur toute route GET, comme l'exige la RFC 9110 (4c77e43a7)
+- **framework:** répondre 426 à une route WebSocket appelée en HTTP (89c8496fd)
+- **framework:** évincer un contrôleur singleton dont la création échoue (5ebea7a3c)
+- **http:** corriger le 500 d'un média servi en HTTP/2 (en-tête en double) (521e566ad)
+- **http:** rendre la longueur exacte et la phrase de raison IANA sur les réponses d'erreur (3969ce66f)
+- **http:** borner la raison de fermeture WebSocket à 123 octets (d00ce9c76)
+- **http:** trier en dernier un type refusé par `q=0` dans l'en-tête `Accept` (07b9b3f4a)
+- **http:** appliquer les expirations de session même quand `refererCheck` est actif (c2d4c7887)
+- **http:** arrêter le repli de port au plafond 65535 (2f03a7a8e)
+- **realtime:** fermer en 1011 un handshake en échec, sans réinstancier le hub (2ba8a4469)
+- **security:** porter un challenge `WWW-Authenticate` sur tout 401 (9ea0aa1ab)
+- **security:** corriger les quatre alertes CodeQL ouvertes (737d25a31)
+- **security:** ranger les événements d'audit authn et log dans des catégories du contrat (4abd84a69)
+- **core:** corriger la fuite de paramètres et l'imbrication du scope de requête (d256429a4, 9af206c2a)
+- **core:** écrire le journal fichier par un seul flux borné, dans l'ordre (b2a1cf387)
+- **syslog:** garder la sévérité 0 (EMERGENCY) et ne plus déborder la pile sur une sévérité inconnue (ebf46c7d4, cbe85c16b)
+- **cli:** ne plus déclarer libre un port occupé quand la boucle d'événements a bloqué (8c3b6fdec)
+- **cli:** empêcher le git de `create` de se rediriger vers le dépôt appelant (860fb9a58)
+- **cli:** refuser les options que `status` et `stop` ne déclarent pas, sans laisser `--wait` avaler la suivante (1cff11bb5, 30621cc61)
+- **cli:** accepter le mode `F_OK` (0) dans `Cli.exists` (1bbf32f2e)
+- **nodefony:** laisser cohabiter un lancement qui déclare ses propres ports (db95a4409)
+- **doctor:** ne plus annoncer deux problèmes inexistants sur une application fraîche (b1e5b5706)
+- **inspect:** ne plus prendre un nom hérité d'`Object.prototype` pour un sujet (ed51e3a7a)
+- **documentation:** préfixer `NF_` les variables `DOCS_REPO_URL` et `DOCS_REPO_BRANCH` (e6f57baa3)
+- **scaffold:** faire repasser au code généré le lint typé, et ne plus écrire `unknown | null` pour un champ json facultatif (0afe816e8, 5e220161b)
+- **scaffold:** lire l'identité e2e dans `nodefony/testing`, et dire que les champs d'entité se séparent par des espaces (c533f77fd, afafd1946)
+- **studio:** rendre l'ERD lisible sans relation, ouvrir les pages ORM sans paramètre, afficher 0 entité au lieu de « — » (4dccbf1e5, 853fccf75)
+- **studio:** traduire le filtre de connexion de l'écran des sessions (15cf1cc52)
+- **types:** corriger ce que `await-thenable` et `no-misused-spread` ont trouvé (59d42a87d)
+
+<!-- Surface publique mesurée depuis 10.0.0-alpha.9 (npm) : 12 rupture(s) écrite(s) ci-dessus, 88 déclaration(s) de types à relire sur 1933. Détail : npm run release:api-diff -- --from 10.0.0-alpha.9 --details -->
+
 ## 10.0.0-alpha.9 - 2026-09-25
 
 ### Changed
