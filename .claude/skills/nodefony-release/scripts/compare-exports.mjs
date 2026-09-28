@@ -13,23 +13,17 @@
  *
  * Sortie : exit 0 si identiques (ou mode liste), exit 1 + diff sinon.
  */
-import { execFileSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
-import path from "node:path";
 import process from "node:process";
+import { listRuntimeExports } from "../../../../scripts/release/api-diff-core.mjs";
 
+// Lecture des exports : UNE implémentation, celle du produit (scripts/release/api-diff-core.mjs).
 function exportsOf(entry) {
-  const url = pathToFileURL(path.resolve(entry)).href;
-  const out = execFileSync(
-    process.execPath,
-    [
-      "-e",
-      "import(process.argv[1]).then(m=>console.log(JSON.stringify(Object.keys(m).sort()))).catch(e=>{console.error(e.message);process.exit(2)})",
-      url,
-    ],
-    { encoding: "utf8" },
-  );
-  return JSON.parse(out);
+  const keys = listRuntimeExports(entry);
+  if (!Array.isArray(keys)) {
+    console.error(keys.error);
+    process.exit(2);
+  }
+  return keys;
 }
 
 const [a, b] = process.argv.slice(2);

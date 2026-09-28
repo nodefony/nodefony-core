@@ -368,5 +368,14 @@ builds exportent réellement, par **import réel dans des process isolés** — 
 (compter les fichiers émis ment : chunks vides, granularité de tree-shaking). Sentinelle héritée de la
 migration de bundler, à relancer dès qu'on touche à la chaîne de build ou à un `index.ts` public.
 
+**Ruptures depuis la dernière publication** — outils du PRODUIT, dans `scripts/release/` :
+`npm run release:api-diff -- [--from <version>] [--details]` compare les tarballs npm publiés
+au `dist` local (sous-chemins, exports d'exécution, exports de types, membre par membre) et classe
+chaque déclaration : ajout, ou à relire (membre retiré/modifié, membre requis ajouté à une
+interface). `npm run release:types-rigor -- [--from <version>]` mesure la densité de `any`
+des `.d.ts` publiés contre NestJS et Fastify. À lancer AVANT d'écrire le changelog d'une release :
+chaque retrait qu'il nomme va sous `Removed`. Ce qu'ils ne voient pas : le COMPORTEMENT (code
+d'erreur, défaut inversé) — il se lit dans les commits `!`.
+
 > Deux builds du même paquet chargés dans un seul process explosent sur les registres globaux
 > (« entity déjà enregistrée ») : d'où l'isolation.
