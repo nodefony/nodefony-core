@@ -450,11 +450,14 @@ describe("Contrôleur singleton — streamFile", () => {
     // n'est plus alors en vol. Sans cette attente, `fs.ReadStream` retarde sa
     // fermeture jusqu'au retour de la lecture en cours — lancée DANS la bulle
     // — et le chemin fautif n'est jamais exercé (vu : test vert sur le code
-    // fautif).
-    for (let i = 0; i < 1000; i++) {
+    // fautif). Borne en TEMPS, pas en tours : mille `setImmediate` durent
+    // quelques millisecondes, moins qu'une lecture disque sur un exécuteur de
+    // CI chargé (vu : tampon vide à l'assertion, sur ubuntu).
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
       const s = source as Readable | null;
       if (s !== null && s.readableLength >= s.readableHighWaterMark) break;
-      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setTimeout(r, 1));
     }
     const filled = source as Readable | null;
     expect(filled?.readableLength).to.be.at.least(16);

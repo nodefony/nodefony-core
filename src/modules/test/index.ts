@@ -203,12 +203,13 @@ class Test extends Module {
     if (broker && !broker.has("test")) {
       broker.register(createTestAdminApi());
     }
-    // Jamais en production : le module n'y entre que par la dérogation des bancs
-    // (`NF_WITH_DEV_MODULES`), et un écouteur `onRequestScope` y ferait payer à
+    // Jamais sous le banc ORM : un écouteur `onRequestScope` y ferait payer à
     // CHAQUE requête mesurée un `fireAsync` que le camp témoin ne paie pas —
-    // biais mesuré contre nous sur les bancs ORM. Les tests du calque tournent
-    // sur le serveur de développement.
-    if (this.kernel && this.kernel.environment !== "production") {
+    // biais mesuré contre nous (47 → 44 Promises par requête). Le critère est le
+    // drapeau du banc, PAS l'environnement : l'intégration de la CI tourne elle
+    // aussi en production, sous la même dérogation `NF_WITH_DEV_MODULES` que les
+    // bancs, et c'est elle qui éprouve le calque (`config-overlay.test.ts`).
+    if (this.kernel && !BENCH_ORM) {
       this.kernel.on("onRequestScope", overlayProbe);
     }
     return this;
