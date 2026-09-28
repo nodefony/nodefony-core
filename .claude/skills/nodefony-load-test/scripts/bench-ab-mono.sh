@@ -18,6 +18,7 @@
 #     concerne pas (vécu : 7 survivants de 3 lots différents dans /tmp).
 #   Variables d'ajustement (env du script) :
 #     BENCH_URL (défaut http://127.0.0.1:5151/nodefony/kernel/bench)
+#     BENCH_METHOD / BENCH_BODY (POST avec corps JSON — cf bench-request.sh)
 #     BENCH_HEADER (header HTTP passé à wrk ET au check de cible — ex
 #       BENCH_HEADER="Cookie: nodefony=abc" pour bencher une route AUTHENTIFIÉE ;
 #       sans lui la cible répond 401/302 et le check refuse de mesurer)
@@ -150,10 +151,10 @@ cooldown() {
 # cible en #31) — passer alors `BENCH_URL` explicitement.
 URL="${BENCH_URL:-http://127.0.0.1:5151/nodefony/kernel/bench}"
 DUR="${BENCH_DUR:-10}"; CONN="${BENCH_CONN:-128}"; THREADS="${BENCH_THREADS:-4}"
-# Header optionnel (route authentifiée). Array vide + set -u : bash 3.2 (macOS)
-# jette « unbound variable » sur "${a[@]}" vide → expansion conditionnelle.
-WRK_HDR=()
-[ -n "${BENCH_HEADER:-}" ] && WRK_HDR=(-H "$BENCH_HEADER")
+# Requête (méthode, corps, en-tête d'une route authentifiée) — implémentation
+# PARTAGÉE avec bench-frameworks/bench.sh : les deux camps envoient la même.
+. "$(dirname "${BASH_SOURCE[0]}")/bench-request.sh"
+bench_request_args
 
 command -v wrk >/dev/null 2>&1 || { echo "❌ wrk absent (brew install wrk)"; exit 1; }
 
@@ -221,7 +222,7 @@ node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.
 # tape du 404 publie un chiffre FLATTEUR, et un A/B dont un côté est en 404 conclut
 # à l'ENVERS. Le piège est réel ici — la route de bench vit dans un module `policy:"dev"`,
 # donc absente en production tant qu'on ne l'a pas rebasculée (cf en-tête).
-CODE=$(curl -s -o /dev/null -w '%{http_code}' ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL")
+CODE=$(curl -s -o /dev/null -w '%{http_code}' ${CURL_REQ[@]+"${CURL_REQ[@]}"} "$URL")
 if [ "$CODE" != "200" ]; then
   echo "❌ $LABEL: la cible répond $CODE (attendu 200) — AUCUNE mesure ne serait valide."
   echo "   URL: $URL"
@@ -246,7 +247,7 @@ warn_if_throttled
 # (vécu : 5 s insuffisant après 130 s de pause → run 1 à −11 %).
 WARMUP="${BENCH_WARMUP:-5}"
 [ "$COOLED" = "1" ] && WARMUP=$((WARMUP * 2))
-wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" >/dev/null 2>&1
+wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" ${WRK_REQ[@]+"${WRK_REQ[@]}"} "$URL" >/dev/null 2>&1
 echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE · régime: $REGIME"
 
 # Sonde in-situ (`NF_PERF_PROBE=1` passé en KEY=VAL) : remise à zéro APRÈS le
@@ -291,7 +292,7 @@ for i in 1 2 3; do
   # systématiquement le plus bas, série après série. Allonger le warmup ne changeait
   # rien (40 s : même motif), ce qui écarte le rodage du JIT. Même pause pour les trois.
   sleep 10
-  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" --latency ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" 2>/dev/null)
+  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" --latency ${WRK_REQ[@]+"${WRK_REQ[@]}"} "$URL" 2>/dev/null)
   R=$(printf '%s' "$OUT" | grep "Requests/sec" | awk '{print $2}')
   L50=$(lat_ms "$(lat_pct "$OUT" 50)")
   L99=$(lat_ms "$(lat_pct "$OUT" 99)")

@@ -154,6 +154,26 @@ app.get(BENCH_PATH, (_req, res) => {
   res.json({ lus: rows.length, seq, maj: maj ? 1 : 0 });
 });
 
+// Miroir de `BenchOrmController.readWriteBody` : même travail, valeurs écrites
+// lues dans un JSON posté. `express.json()` sur CETTE route seulement — le
+// parseur de Nodefony ne s'exerce, lui aussi, que sur une requête qui a un corps.
+app.post(BENCH_PATH + "-body", express.json(), (req, res) => {
+  const rows = lire.all();
+  const seq = ++writeSeq;
+  const cible = rows[0];
+  const ht = req.body?.total_ht ?? 100;
+  const ttc = req.body?.total_ttc ?? 120;
+  const maj = cible?.rowid
+    ? db
+        .update(llx_facture)
+        .set({ total_ht: ht + (seq % 100), total_ttc: ttc + (seq % 100) })
+        .where(eq(llx_facture.rowid, cible.rowid))
+        .returning()
+        .get()
+    : null;
+  res.json({ lus: rows.length, seq, maj: maj ? 1 : 0 });
+});
+
 // ── Décomposition du budget — miroirs EXACTS des routes de `BenchOrmController`
 // La seule façon de dire où passe un écart est de le mesurer étage par étage :
 // `/read-lean` (SQL seul), `/read` (+ sérialisation des 20 lignes), `/read-write`

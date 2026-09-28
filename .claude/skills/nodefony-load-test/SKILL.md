@@ -209,6 +209,10 @@ BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus \
   bash $S/bench-pairs.sh express-fair-sqlite nodefony-orm 5167
 ```
 
+**Avec un CORPS** : `BENCH_PATH=…/read-write-body BENCH_METHOD=POST BENCH_BODY='{"total_ht":200,"total_ttc":240}'`
+— le chemin où le pipeline retrouve ses Promises (lecture du corps), qu'aucun GET n'exerce ; la
+requête des deux camps a UNE implémentation, `scripts/bench-request.sh`.
+
 ⚠️ **25 connexions et des runs de 30 s**, pas 128 et 10 s : un pilote synchrone sérialise (au-delà
 de la saturation on mesure une file), et chaque requête écrit sur disque — la journalisation de
 SQLite pose ses points de reprise à des instants imprévisibles, qu'une fenêtre courte capte au

@@ -31925,6 +31925,7 @@
       ],
       "Post": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
@@ -32041,6 +32042,7 @@
       ],
       "Body": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/BenchOrmController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",

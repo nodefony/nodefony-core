@@ -48,6 +48,7 @@
     ".claude/skills/nodefony-load-test/scripts/poc-bench.mjs",
     ".claude/skills/nodefony-load-test/scripts/poc-hmr-perf.mjs",
     ".claude/skills/nodefony-load-test/scripts/profile-compare.sh",
+    ".claude/skills/nodefony-load-test/scripts/promise-map.mjs",
     ".claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs",
     ".claude/skills/nodefony-load-test/scripts/scaffold-ws-probe.mjs",
     ".claude/skills/nodefony-load-test/scripts/totp-mfa-attack-e2e.mjs",

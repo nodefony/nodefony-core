@@ -22,6 +22,9 @@ DUR="${BENCH_DUR:-10}"; CONN="${BENCH_CONN:-128}"; THREADS="${BENCH_THREADS:-4}"
 LABEL="$APP${EXTRA:+-$(echo "$EXTRA" | tr ' =' '--')}"
 
 command -v wrk >/dev/null 2>&1 || { echo "❌ wrk absent"; exit 1; }
+# Requête (méthode, corps) — implémentation PARTAGÉE avec bench-ab-mono.sh.
+. "$DIR/../scripts/bench-request.sh"
+bench_request_args
 
 # port propre — via la garde partagée : `lsof -ti tcp:PORT` NU vise aussi les
 # CLIENTS du port et n'épargne pas le lanceur (cf `../scripts/kill-guard.sh`,
@@ -38,7 +41,7 @@ PID=$(env $ENVS node "$DIR/$APP.mjs" >/tmp/nf-bench-fw.log 2>&1 & echo $!)
 node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect($PORT,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>10000){console.error('BOOT TIMEOUT');process.exit(1)}setTimeout(p,200)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { echo "$LABEL: BOOT FAIL"; cat /tmp/nf-bench-fw.log; exit 1; }
 
 # sanity : la route répond bien 200 + JSON attendu
-BODY=$(curl -s "$URL")
+BODY=$(curl -s ${CURL_REQ[@]+"${CURL_REQ[@]}"} "$URL")
 # Le contrôle porte sur un champ ATTENDU du corps, pas seulement sur un code 200 :
 # une route qui répond 200 avec un corps vide (table absente, filtre qui ne rend
 # rien) se mesurerait comme un succès, et plus vite qu'un vrai travail.
@@ -60,7 +63,7 @@ WAITED=30   # la garde attend au minimum deux constats espacés → warmup doubl
 THERM_BEFORE=$(therm); CPU_REGIME=$(cpu_regime); HYPERVISEUR=$(hyperviseur)
 WARMUP="${BENCH_WARMUP:-5}"
 [ "$WAITED" -gt 0 ] && WARMUP=$((WARMUP * 2))   # la pause endort le process idle
-wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" "$URL" >/dev/null 2>&1
+wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" ${WRK_REQ[@]+"${WRK_REQ[@]}"} "$URL" >/dev/null 2>&1
 echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE · régime: $CPU_REGIME · hyperviseur: $HYPERVISEUR"
 # Le sanity ci-dessus prouve la cible AVANT la charge ; il ne dit rien de ce qui se
 # passe PENDANT. Un serveur peut répondre 200 à froid puis partir en 500 sous 128
@@ -90,7 +93,7 @@ for i in 1 2 3; do
 # rien (40 s : même motif), ce qui écarte le rodage du JIT. La MÊME pause pour les
 # trois runs est la seule façon de comparer trois mesures comparables.
   sleep 10
-  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" --latency "$URL" 2>/dev/null)
+  OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" --latency ${WRK_REQ[@]+"${WRK_REQ[@]}"} "$URL" 2>/dev/null)
   R=$(printf '%s' "$OUT" | grep "Requests/sec" | awk '{print $2}')
   L50=$(lat_ms "$(lat_pct "$OUT" 50)")
   L99=$(lat_ms "$(lat_pct "$OUT" 99)")

@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 505 lignes |
-| Coût d'activation | ~8 617 tokens (le corps est chargé à l'invocation) |
+| Corps | 509 lignes |
+| Coût d'activation | ~8 688 tokens (le corps est chargé à l'invocation) |
 | Description | 986 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 49 |
+| Scripts | 51 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 146 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 186 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 187 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 39 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -95,8 +95,9 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/aimd-demo.mjs` | aimd-demo — démonstration LISIBLE et déterministe de la cadence adaptative (AIMD). | — | `DIST` |
 | `scripts/app-download-probe.mjs` | `binaryType` par défaut de `ws` = "nodebuffer" : `raw` est toujours un `Buffer` ici. | — | — |
-| `scripts/bench-ab-mono.sh` | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE. | `--latency` `--show-toplevel` | `BENCH_CONN` `BENCH_DUR` `BENCH_HEADER` `BENCH_INDEX_TARGET` `BENCH_THERM_TARGET` `BENCH_THREADS` `BENCH_URL` `BENCH_WARMUP` |
+| `scripts/bench-ab-mono.sh` | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE. | `--latency` `--show-toplevel` | `BENCH_CONN` `BENCH_DUR` `BENCH_INDEX_TARGET` `BENCH_THERM_TARGET` `BENCH_THREADS` `BENCH_URL` `BENCH_WARMUP` |
 | `scripts/bench-report.mjs` | Rapport HTML d'un (ou plusieurs) résultats de banc — pour un HUMAIN qui décide. | — | `OUT` |
+| `scripts/bench-request.sh` | La requête d'un banc — UNE implémentation, sourcée par `bench-ab-mono.sh` | `--data` | `BENCH_BODY` `BENCH_HEADER` `BENCH_METHOD` |
 | `scripts/boot-bench.mjs` | boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que | `--workers` | — |
 | `scripts/boot-profile.mjs` | boot-profile.mjs — AUDIT fin du boot Nodefony. Capture la sortie horodatée d'un boot | `--workers` | — |
 | `scripts/capacity-html.mjs` | capacity-html.mjs — rendu du rapport de capacité. | `--accent` `--dim` `--rupture` | `PAYLOAD` `REPEAT` |
@@ -126,6 +127,7 @@ script, donc toujours à jour après régénération.
 | `scripts/profile-compare.mjs` | Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à | — | — |
 | `scripts/profile-compare.sh` | « Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le | — | `NF_PROFILE_DIR` |
 | `scripts/profile-cpu.sh` | Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. | `--cpu-prof` `--cpu-prof-dir` `--cpu-prof-interval` | `BENCH_PATH` `NF_PROFILE_DIR` `PORT` `XENV` |
+| `scripts/promise-map.mjs` | Carte des Promises d'UNE requête — OÙ chacune naît, pile par pile. | `--body` `--method` | `COUNTER_PORT` `PORT` |
 | `scripts/promise-sites.mjs` | Carte des sites de création des Promises d'UNE requête (#505) — préchargé par | — | `NF_PROMISE_COUNTER_PORT` |
 | `scripts/ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur. | — | `MAX` `RL_URL` `URL` |
 | `scripts/route-scan-cost.mjs` | route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et | `--diagnostic` `--json` `--measure` `--reps` `--routes` `--scale` `--target` | `JSON_OUT` |
@@ -172,6 +174,7 @@ node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx
 node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs
 Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40]
 Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25]
+node promise-map.mjs [url] [--method POST] [--body '{"a":1}'] [KEY=VAL …]
 bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs
 Usage : node scaffold-ws-probe.mjs <cookie> [type] [name]
@@ -188,7 +191,7 @@ bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/load-test/scripts/ws-messages.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
 
 ## Conformité au standard Agent Skills
 
@@ -209,7 +212,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 505 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 509 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

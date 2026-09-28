@@ -1,4 +1,4 @@
-import { Controller, controller, Get } from "@nodefony/framework";
+import { Body, Controller, controller, Get, Post } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import { ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
@@ -21,8 +21,9 @@ function repo(name: string): IRepository<Record<string, unknown>> {
  * better-sqlite3) sur le corpus Dolibarr seedé, JAMAIS le driver nu : c'est le
  * chemin framework qu'on profile.
  *
- * Routes toutes en GET : `wrk` sans script Lua — moins de pièces dans le
- * harnais de mesure. La route n'existe que le temps d'un banc.
+ * Routes en GET (`wrk` sans script Lua — moins de pièces dans le harnais),
+ * sauf `/read-write-body`, dont le corps EST l'objet de la mesure. La route
+ * n'existe que le temps d'un banc.
  */
 @controller("/nodefony/test/bench-orm")
 class BenchOrmController extends Controller {
@@ -105,6 +106,43 @@ class BenchOrmController extends Controller {
       ? await repo("llx_facture").updateOne(
           { rowid: target.rowid },
           { total_ht: 100 + (seq % 100), total_ttc: 120 + (seq % 100) },
+        )
+      : null;
+    return this.renderJson({
+      lus: rows.length,
+      seq,
+      maj: maj ? 1 : 0,
+    });
+  }
+
+  /**
+   * Le cas APPLICATIF avec un CORPS : `/read-write`, mais les valeurs écrites
+   * arrivent dans un JSON posté (`{ total_ht, total_ttc }`).
+   *
+   * Pourquoi une route à part plutôt que la même en POST : un GET ne traverse
+   * jamais la lecture du corps, étape asynchrone par nature (le flux de la
+   * requête), qui est aussi celle où le pipeline retrouve ses Promises. C'est ce
+   * chemin — le plus fréquent d'une application qui écrit — que cette route
+   * mesure. Même lecture, même `UPDATE` de la ligne lue que `/read-write` ; seule
+   * l'origine des valeurs change. Miroir exact : `express-fair-sqlite`.
+   */
+  @Post("/read-write-body")
+  async readWriteBody(
+    @Body() body?: { total_ht?: number; total_ttc?: number },
+  ) {
+    const rows = await repo("llx_facture").find(
+      { fk_user_author: BENCH_READ_USER },
+      { limit: 20 },
+    );
+    const seq = ++writeSeq;
+    const target = rows[0] as { rowid?: number } | undefined;
+    const maj = target?.rowid
+      ? await repo("llx_facture").updateOne(
+          { rowid: target.rowid },
+          {
+            total_ht: (body?.total_ht ?? 100) + (seq % 100),
+            total_ttc: (body?.total_ttc ?? 120) + (seq % 100),
+          },
         )
       : null;
     return this.renderJson({
