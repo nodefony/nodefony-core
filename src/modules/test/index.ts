@@ -203,7 +203,14 @@ class Test extends Module {
     if (broker && !broker.has("test")) {
       broker.register(createTestAdminApi());
     }
-    this.kernel?.on("onRequestScope", overlayProbe);
+    // Jamais en production : le module n'y entre que par la dérogation des bancs
+    // (`NF_WITH_DEV_MODULES`), et un écouteur `onRequestScope` y ferait payer à
+    // CHAQUE requête mesurée un `fireAsync` que le camp témoin ne paie pas —
+    // biais mesuré contre nous sur les bancs ORM. Les tests du calque tournent
+    // sur le serveur de développement.
+    if (this.kernel && this.kernel.environment !== "production") {
+      this.kernel.on("onRequestScope", overlayProbe);
+    }
     return this;
   }
 
