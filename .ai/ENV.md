@@ -212,8 +212,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
 | `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:147` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
-| `NF_PORT` | `src/nodefony/src/service/dev/devProcess.ts:760` |
-| `NF_PORT_HTTPS` | `src/nodefony/src/service/dev/devProcess.ts:760` |
+| `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:367` |
+| `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:368` |
 | `NF_README_ROOT` | `scripts/release/readme-gate.mjs:97` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:56` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:50` |

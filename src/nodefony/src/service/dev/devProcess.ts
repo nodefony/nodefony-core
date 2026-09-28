@@ -757,11 +757,25 @@ export function defaultDevPorts(cwd: string = process.cwd()): number[] {
   if (state && state.ports.length > 0) return [...state.ports];
   // Ce que l'application DÉCLARE. On ne sonde QUE ce qui est déclaré : compléter
   // avec un port par défaut reviendrait à surveiller celui d'un voisin.
-  const declares = [process.env.NF_PORT, process.env.NF_PORT_HTTPS]
-    .map((v) => Number.parseInt(v ?? "", 10))
-    .filter((n) => Number.isInteger(n) && n > 0);
+  const declares = declaredPorts();
   if (declares.length > 0) return declares;
   return [...FALLBACK_DEV_PORTS];
+}
+
+/**
+ * Les ports que CE processus déclare par son environnement (`NF_PORT`,
+ * `NF_PORT_HTTPS`) — ceux qu'il écoutera, par opposition à ceux qu'un runtime
+ * déjà en marche a publiés.
+ *
+ * @param env - l'environnement lu (défaut : `process.env`).
+ * @returns les ports déclarés valides, ou une liste vide.
+ */
+export function declaredPorts(
+  env: Record<string, string | undefined> = process.env,
+): number[] {
+  return [env.NF_PORT, env.NF_PORT_HTTPS]
+    .map((v) => Number.parseInt(v ?? "", 10))
+    .filter((n) => Number.isInteger(n) && n > 0);
 }
 
 /** Lit le PID du superviseur depuis le pidfile, ou `null` si absent / illisible. */

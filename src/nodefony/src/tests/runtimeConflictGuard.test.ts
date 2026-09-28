@@ -33,6 +33,7 @@ interface Run {
 async function runGuard(
   held: readonly number[],
   procs: DevProcessInfo[] = [supervisor()],
+  declared: readonly number[] = [],
 ): Promise<Run> {
   const cwd = process.cwd();
   const out: Run = { exits: [], logs: [] };
@@ -46,6 +47,7 @@ async function runGuard(
       discover: () => procs,
       getCwd: () => cwd,
       probe: probeHolding(held),
+      declared,
       exit: (code: number) => {
         out.exits.push(code);
       },
@@ -67,6 +69,26 @@ describe("garde anti-collision runtime — la collision se CONSTATE", () => {
     expect(logs[0]?.msg).toContain("AUCUN port");
     expect(logs[0]?.msg).toContain("MAINTENU");
     expect(logs[0]?.msg).toContain("4242");
+  });
+
+  it("un lancement qui DÉCLARE d'autres ports cohabite (exemplaire jetable d'une suite)", async () => {
+    const { exits, logs } = await runGuard(
+      [5151, 5152],
+      undefined,
+      [5397, 5396],
+    );
+
+    expect(exits).toEqual([]);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]?.sev).toBe("WARNING");
+    expect(logs[0]?.msg).toContain("5397");
+    expect(logs[0]?.msg).toContain("MAINTENU");
+  });
+
+  it("un lancement qui déclare un port TENU est refusé", async () => {
+    const { exits } = await runGuard([5151, 5152], undefined, [5151]);
+
+    expect(exits).toEqual([SysExit.UNAVAILABLE]);
   });
 
   it("un runtime dev qui TIENT un port refuse la production, et nomme le port", async () => {

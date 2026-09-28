@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 881,
-    "symbols": 4386,
+    "symbols": 4387,
     "classes": 404,
     "interfaces": 1148,
     "types": 472,
     "enums": 4,
-    "functions": 1915,
+    "functions": 1916,
     "constants": 443
   },
   "symbols": {
@@ -12545,6 +12545,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ports serveur à SONDER (`status`, `stop`, readiness, attente de libération). Ordre de vérité, du plus fiable au moins fiable : 1. `NF_DEV_PORTS` — override explicite de l'opérateur, il gagne toujou…"
+    },
+    "declaredPorts": {
+      "name": "declaredPorts",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les ports que CE processus déclare par son environnement (`NF_PORT`, `NF_PORT_HTTPS`) — ceux qu'il écoutera, par opposition à ceux qu'un runtime déjà en marche a publiés."
     },
     "readSupervisorPid": {
       "name": "readSupervisorPid",
@@ -35549,6 +35557,9 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
       ],
       "Topology": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
+      ],
+      "declaredPorts": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
       ],
       "discoverDevProcesses": [

@@ -7,6 +7,7 @@ import {
 } from "../../service/cluster/clusterMaster";
 import { Topology } from "../../service/cluster/topology";
 import {
+  declaredPorts,
   defaultDevPorts,
   discoverDevProcesses,
   findRuntimeConflict,
@@ -42,6 +43,8 @@ export interface RuntimeConflictDeps {
   probe?: (ports: readonly number[]) => Promise<PortState[]>;
   /** Sortie du process en cas de refus (défaut : `process.exit`). */
   exit?: (code: number) => void;
+  /** Ports que CE lancement déclare écouter (défaut : `declaredPorts()`). */
+  declared?: readonly number[];
 }
 
 /**
@@ -92,6 +95,22 @@ export async function assertNoConflictingRuntime(
       `un runtime Nodefony ${modeLabelFr(first.mode)} de CE projet est enregistré ` +
         `(pid ${pids}) mais ne détient AUCUN port — résidu probable (son serveur a été ` +
         `tué). Démarrage ${modeLabelFr(intended)} MAINTENU. Pour nettoyer : nodefony stop`,
+      "WARNING",
+    );
+    return;
+  }
+  // Un lancement qui DÉCLARE ses propres ports, disjoints de ceux tenus, ne
+  // collisionne pas : c'est l'exemplaire jetable d'une suite (`startSpareApp`),
+  // lancé à côté du serveur qu'elle teste. Le refus porte sur une collision, pas
+  // sur une cohabitation — et un port déclaré pris par un tiers garde son filet
+  // natif (`EADDRINUSE`).
+  const declared = deps.declared ?? declaredPorts();
+  if (declared.length > 0 && !declared.some((port) => held.includes(port))) {
+    log(
+      `un runtime Nodefony ${modeLabelFr(first.mode)} de CE projet tient le(s) ` +
+        `port(s) ${held.join(", ")} (pid ${pids}) ; ce démarrage ` +
+        `${modeLabelFr(intended)} déclare le(s) port(s) ${declared.join(", ")} — ` +
+        `aucune collision, démarrage MAINTENU.`,
       "WARNING",
     );
     return;
