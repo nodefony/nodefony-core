@@ -292,6 +292,45 @@ jobs:
           npm run release -- --version "${{ steps.v.outputs.version }}" \
             ${CANAL:+--npm-tag "$CANAL"} --publish
 
+      # 🔴 Un `publish` RÉUSSI n'est pas un paquet SERVI. Les jobs suivants
+      # (vitrine, image) installent depuis le registre dès que celui-ci rend la
+      # main — vécu à la 10.0.0-beta.1 : `npm install` à 18:14:23, paquet
+      # `@nodefony/user` servi à 18:15:32, ERESOLVE « Found: @nodefony/user@undefined »
+      # sur les deux jobs. On interroge donc le registre comme `npm install` le
+      # fait (métadonnées ABRÉGÉES, `application/vnd.npm.install-v1+json`, dont le
+      # cache se rafraîchit à part de `npm view`), et on exige DEUX lectures
+      # complètes consécutives : les nœuds du CDN ne se mettent pas à jour ensemble.
+      - name: Attendre que le registre SERVE les 15 paquets
+        if: steps.v.outputs.publier == 'oui' && vars.NF_RELEASE_ARMED == 'true'
+        timeout-minutes: 15
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          NOMS="$(npm query .workspace | node -e '
+            const ws = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            console.log(ws.filter((w) => !w.private).map((w) => w.name).join(" "))')"
+          echo "attendus : $NOMS"
+          ok=0
+          for essai in $(seq 1 60); do
+            manquants="$(node -e '
+              const [v, ...noms] = process.argv.slice(1);
+              Promise.all(noms.map(async (n) => {
+                const r = await fetch("https://registry.npmjs.org/" + n.replace("/", "%2f"),
+                  { headers: { accept: "application/vnd.npm.install-v1+json" } });
+                const doc = r.ok ? await r.json() : {};
+                return doc.versions?.[v] ? null : n;
+              })).then((m) => console.log(m.filter(Boolean).join(" ")));
+            ' "$VERSION" $NOMS)"
+            if [ -z "$manquants" ]; then
+              ok=$((ok + 1)); [ "$ok" -ge 2 ] && break
+            else
+              ok=0; echo "essai $essai — pas encore servis : $manquants"
+            fi
+            sleep 10
+          done
+          [ "$ok" -ge 2 ] || { echo "::error::le registre ne sert pas encore $VERSION : $manquants"; exit 1; }
+          echo "::notice::les paquets $VERSION sont servis par le registre"
+
       - name: RIEN n'a été publié — et ce que ce vert ne prouve pas
         if: steps.v.outputs.publier != 'oui' || vars.NF_RELEASE_ARMED != 'true'
         run: |
