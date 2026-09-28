@@ -162,7 +162,7 @@ jobs:
       # sont fabriqués depuis `dist/`. Sans build, le banc éprouverait un
       # artefact périmé et rendrait un vert sans valeur.
       - name: Build workspaces (turbo)
-        run: npm run build
+        run: node scripts/ci/run-watched.mjs npm run build
 
       # Le graphe symbolique est GÉNÉRÉ, et `src/nodefony/.ai/` est IGNORÉ par
       # git : il existe sur le poste qui vient de commiter — le hook pre-commit

@@ -126,7 +126,7 @@ jobs:
       # Seul prérequis de ces bancs : ils importent les paquets construits.
       - name: Build workspaces
         shell: bash
-        run: npm run build
+        run: node scripts/ci/run-watched.mjs npm run build
 
       # Une ÉTAPE PAR PREUVE, et non une boucle : le journal doit nommer celle qui
       # tombe. Un lot qui échoue en bloc oblige à relire la sortie entière pour

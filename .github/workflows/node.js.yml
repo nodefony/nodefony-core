@@ -146,7 +146,7 @@ jobs:
         run: npm run build:front
 
       - name: Typecheck
-        run: npm run typecheck
+        run: node scripts/ci/run-watched.mjs npm run typecheck
         continue-on-error: false
 
       # Bloquant sur les erreurs ET sur les avertissements (`--deny-warnings`).
