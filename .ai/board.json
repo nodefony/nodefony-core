@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T10:23:59.322Z",
+  "generatedAt": "2026-09-28T12:17:38.232Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -492,7 +492,7 @@
       "title": "feat(framework): rendre les contrôleurs singletons par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/506",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
