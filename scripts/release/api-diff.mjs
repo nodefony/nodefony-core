@@ -5,9 +5,12 @@
  * exports à l'exécution, exports de types, et membre par membre.
  *
  * Usage :
- *   node scripts/release/api-diff.mjs                    # contre la dernière version publiée
- *   node scripts/release/api-diff.mjs --from 10.0.0-alpha.9
- *   node scripts/release/api-diff.mjs --details          # + le texte avant/après de chaque changement à relire
+ *   npm run release:api-diff                              # contre la dernière version publiée
+ *   npm run release:api-diff -- --from 10.0.0-alpha.9
+ *   npm run release:api-diff -- --details                 # + le texte avant/après de chaque changement à relire
+ *
+ * `npm run release` appelle la même mesure (`measureApiDiff`) pour écrire les
+ * retraits dans le brouillon du CHANGELOG.
  *
  * Préalable : un `dist` complet (`npm run build`) — c'est lui qu'on compare.
  *
@@ -28,7 +31,7 @@ import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   changedMemberTexts,
   classifyDeclaration,
@@ -43,12 +46,6 @@ const ROOT = path.resolve(
   "..",
   "..",
 );
-const args = process.argv.slice(2);
-const option = (name) => {
-  const i = args.indexOf(name);
-  return i === -1 ? null : (args[i + 1] ?? null);
-};
-const showDetails = args.includes("--details");
 
 const run = (command, cwd = ROOT) =>
   execSync(command, {
@@ -58,43 +55,34 @@ const run = (command, cwd = ROOT) =>
   });
 const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 
-const workspaces = JSON.parse(run("npm query .workspace --json")).filter(
-  (w) => !w.private,
-);
-if (workspaces.length === 0) {
-  console.error("Aucun workspace publiable trouvé.");
-  process.exit(2);
+/** Workspaces publiables — résolus par npm, comme `pack-all.mjs`. */
+export function publishableWorkspaces(root = ROOT) {
+  return JSON.parse(run("npm query .workspace --json", root)).filter(
+    (w) => !w.private,
+  );
 }
 
-// La référence par défaut : la dernière version publiée — le `dist` local a
-// avancé depuis, même quand le manifeste porte encore son numéro.
-const core = workspaces.find((w) => w.name === "nodefony") ?? workspaces[0];
-let from = option("--from");
-if (!from) {
-  const published = JSON.parse(run(`npm view ${core.name} versions --json`));
-  from = published.at(-1) ?? null;
+/** Dernière version publiée d'un paquet, ou `null`. */
+export function latestPublished(name, root = ROOT) {
+  return (
+    JSON.parse(run(`npm view ${name} versions --json`, root)).at(-1) ?? null
+  );
 }
-if (!from) {
-  console.error(`Aucune version publiée de ${core.name} à comparer.`);
-  process.exit(2);
-}
-
-const outDir = path.join(ROOT, "tmp", "api-diff", from);
-fs.mkdirSync(outDir, { recursive: true });
 
 /** Dépaquette le tarball publié d'un paquet ; `null` s'il n'existe pas à cette version. */
-function fetchPublished(name, localLocation) {
+function fetchPublished({ name, location, from, outDir, root }) {
   const target = path.join(outDir, name.replace(/[/@]/g, "_"));
   const packageDir = path.join(target, "package");
   if (!fs.existsSync(path.join(packageDir, "package.json"))) {
     try {
-      run(`npm view ${name}@${from} version`);
+      run(`npm view ${name}@${from} version`, root);
     } catch {
       return null;
     }
     fs.mkdirSync(target, { recursive: true });
     const tarball = run(
       `npm pack ${name}@${from} --pack-destination "${target}" --silent`,
+      root,
     )
       .trim()
       .split("\n")
@@ -102,7 +90,7 @@ function fetchPublished(name, localLocation) {
     run(`tar -xzf "${tarball}" -C "${target}"`, target);
     fs.rmSync(path.join(target, tarball), { force: true });
   }
-  const localModules = path.join(ROOT, localLocation, "node_modules");
+  const localModules = path.join(root, location, "node_modules");
   const link = path.join(packageDir, "node_modules");
   // "junction" : un lien de dossier qui ne demande aucun droit particulier sous Windows.
   if (fs.existsSync(localModules) && !fs.existsSync(link))
@@ -110,143 +98,207 @@ function fetchPublished(name, localLocation) {
   return packageDir;
 }
 
-const report = { from, to: core.version, packages: {} };
-const totals = {
-  declarations: 0,
-  changed: 0,
-  review: 0,
-  removedTypes: 0,
-  removedRuntime: 0,
-  removedSubpaths: 0,
-};
-
-for (const workspace of workspaces) {
-  const localDir = path.join(ROOT, workspace.location);
-  const publishedDir = fetchPublished(workspace.name, workspace.location);
-  if (!publishedDir) {
-    report.packages[workspace.name] = { absentFromReference: true };
-    continue;
-  }
-  const before = exportEntries(
-    readJson(path.join(publishedDir, "package.json")),
-    publishedDir,
-  );
-  const after = exportEntries(
-    readJson(path.join(localDir, "package.json")),
-    localDir,
-  );
-  const entry = {
-    subpaths: diffNames(Object.keys(before), Object.keys(after)),
-    entries: {},
+/**
+ * Mesure la surface publique d'une version publiée contre le `dist` local.
+ *
+ * @param options.from - version publiée de référence.
+ * @param options.root - racine du dépôt.
+ * @param options.workspaces - workspaces publiables (`npm query .workspace`).
+ * @returns `{ report, totals, reportFile }` — le rapport est aussi écrit sur disque.
+ */
+export function measureApiDiff({
+  from,
+  root = ROOT,
+  workspaces = publishableWorkspaces(root),
+}) {
+  const outDir = path.join(root, "tmp", "api-diff", from);
+  fs.mkdirSync(outDir, { recursive: true });
+  const core = workspaces.find((w) => w.name === "nodefony") ?? workspaces[0];
+  const report = { from, to: core?.version ?? null, packages: {} };
+  const totals = {
+    declarations: 0,
+    changed: 0,
+    review: 0,
+    removedTypes: 0,
+    removedRuntime: 0,
+    removedSubpaths: 0,
+    unmeasured: 0,
   };
-  totals.removedSubpaths += entry.subpaths.removed.length;
 
-  for (const subpath of Object.keys(before).filter((k) => k in after)) {
-    const result = {};
-    const { js: jsA, dts: dtsA } = before[subpath];
-    const { js: jsB, dts: dtsB } = after[subpath];
-    if (jsA && jsB) {
-      const a = listRuntimeExports(jsA);
-      const b = listRuntimeExports(jsB);
-      result.runtime =
-        Array.isArray(a) && Array.isArray(b)
-          ? { count: [a.length, b.length], ...diffNames(a, b) }
-          : { errorBefore: a.error, errorAfter: b.error };
-      totals.removedRuntime += result.runtime.removed?.length ?? 0;
+  for (const workspace of workspaces) {
+    const localDir = path.join(root, workspace.location);
+    const publishedDir = fetchPublished({
+      name: workspace.name,
+      location: workspace.location,
+      from,
+      outDir,
+      root,
+    });
+    if (!publishedDir) {
+      report.packages[workspace.name] = { absentFromReference: true };
+      continue;
     }
-    if (dtsA && dtsB) {
-      const a = readTypeDeclarations(dtsA);
-      const b = readTypeDeclarations(dtsB);
-      const names = diffNames(Object.keys(a), Object.keys(b));
-      const common = Object.keys(a).filter((k) => k in b);
-      const declarations = [];
-      for (const name of common) {
-        if (a[name] === b[name]) continue;
-        const c = classifyDeclaration(a[name], b[name]);
-        if (c.category === "unchanged") continue;
-        declarations.push({
-          name,
-          ...c,
-          ...(c.category === "review" &&
-          (c.kind === "class" || c.kind === "interface")
-            ? { memberTexts: changedMemberTexts(a[name], b[name], c.changed) }
-            : c.category === "review"
-              ? { before: a[name], after: b[name] }
-              : {}),
-        });
+    const before = exportEntries(
+      readJson(path.join(publishedDir, "package.json")),
+      publishedDir,
+    );
+    const after = exportEntries(
+      readJson(path.join(localDir, "package.json")),
+      localDir,
+    );
+    const entry = {
+      subpaths: diffNames(Object.keys(before), Object.keys(after)),
+      entries: {},
+    };
+    totals.removedSubpaths += entry.subpaths.removed.length;
+
+    for (const subpath of Object.keys(before).filter((k) => k in after)) {
+      const result = {};
+      const { js: jsA, dts: dtsA } = before[subpath];
+      const { js: jsB, dts: dtsB } = after[subpath];
+      if (jsA && jsB) {
+        const a = listRuntimeExports(jsA);
+        const b = listRuntimeExports(jsB);
+        if (Array.isArray(a) && Array.isArray(b)) {
+          result.runtime = { count: [a.length, b.length], ...diffNames(a, b) };
+          totals.removedRuntime += result.runtime.removed.length;
+        } else {
+          result.runtime = { errorBefore: a.error, errorAfter: b.error };
+          totals.unmeasured++;
+        }
       }
-      result.types = {
-        count: [Object.keys(a).length, Object.keys(b).length],
-        ...names,
-        declarations,
-      };
-      totals.declarations += common.length;
-      totals.changed += declarations.length;
-      totals.review += declarations.filter(
-        (d) => d.category !== "additive",
-      ).length;
-      totals.removedTypes += names.removed.length;
+      if (dtsA && dtsB) {
+        const a = readTypeDeclarations(dtsA);
+        const b = readTypeDeclarations(dtsB);
+        const names = diffNames(Object.keys(a), Object.keys(b));
+        const common = Object.keys(a).filter((k) => k in b);
+        const declarations = [];
+        for (const name of common) {
+          if (a[name] === b[name]) continue;
+          const c = classifyDeclaration(a[name], b[name]);
+          if (c.category === "unchanged") continue;
+          const isShape = c.kind === "class" || c.kind === "interface";
+          declarations.push({
+            name,
+            ...c,
+            ...(c.category !== "review"
+              ? {}
+              : isShape
+                ? {
+                    memberTexts: changedMemberTexts(
+                      a[name],
+                      b[name],
+                      c.changed,
+                    ),
+                  }
+                : { before: a[name], after: b[name] }),
+          });
+        }
+        result.types = {
+          count: [Object.keys(a).length, Object.keys(b).length],
+          ...names,
+          declarations,
+        };
+        totals.declarations += common.length;
+        totals.changed += declarations.length;
+        totals.review += declarations.filter(
+          (d) => d.category !== "additive",
+        ).length;
+        totals.removedTypes += names.removed.length;
+      }
+      entry.entries[subpath] = result;
     }
-    entry.entries[subpath] = result;
+    report.packages[workspace.name] = entry;
   }
-  report.packages[workspace.name] = entry;
+
+  const reportFile = path.join(outDir, "report.json");
+  fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
+  return { report, totals, reportFile };
 }
 
-const reportFile = path.join(outDir, "report.json");
-fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
-
-console.log(
-  `Surface publique : ${from} (npm) → ${core.version} (dist local)\n`,
-);
-for (const [name, entry] of Object.entries(report.packages)) {
-  if (entry.absentFromReference) {
-    console.log(`${name} : absent de ${from}, rien à comparer`);
-    continue;
-  }
-  const lines = [];
-  if (entry.subpaths.removed.length)
-    lines.push(`  sous-chemins RETIRÉS : ${entry.subpaths.removed.join(", ")}`);
-  for (const [subpath, r] of Object.entries(entry.entries)) {
-    if (r.runtime?.errorBefore || r.runtime?.errorAfter)
+function printReport({ report, totals, reportFile }, showDetails) {
+  console.log(
+    `Surface publique : ${report.from} (npm) → ${report.to} (dist local)\n`,
+  );
+  for (const [name, entry] of Object.entries(report.packages)) {
+    if (entry.absentFromReference) {
+      console.log(`${name} : absent de ${report.from}, rien à comparer`);
+      continue;
+    }
+    const lines = [];
+    if (entry.subpaths.removed.length)
       lines.push(
-        `  ${subpath} exécution NON MESURÉE : ${r.runtime.errorBefore ?? r.runtime.errorAfter}`,
+        `  sous-chemins RETIRÉS : ${entry.subpaths.removed.join(", ")}`,
       );
-    if (r.runtime?.removed?.length)
-      lines.push(
-        `  ${subpath} exports RETIRÉS : ${r.runtime.removed.join(", ")}`,
-      );
-    if (r.types?.removed.length)
-      lines.push(`  ${subpath} types RETIRÉS : ${r.types.removed.join(", ")}`);
-    for (const d of r.types?.declarations ?? []) {
-      if (d.category === "additive") continue;
-      const parts = [];
-      if (d.removed.length)
-        parts.push(`membres retirés ${d.removed.join(", ")}`);
-      if (d.addedRequired.length)
-        parts.push(`membres requis ajoutés ${d.addedRequired.join(", ")}`);
-      if (d.changed.length)
-        parts.push(`${d.changed.length} membre(s) modifié(s)`);
-      if (d.headerChanged) parts.push("en-tête changé");
-      if (d.category === "kind-changed")
-        parts.push("genre de déclaration changé");
-      lines.push(
-        `  ${subpath} ${d.name} [${d.kind}] ${parts.join(" · ") || "modifié"}`,
-      );
-      if (showDetails) {
-        for (const m of d.memberTexts ?? [])
-          lines.push(`      - ${m.before}\n      + ${m.after}`);
-        if (d.before) lines.push(`      - ${d.before}\n      + ${d.after}`);
+    for (const [subpath, r] of Object.entries(entry.entries)) {
+      if (r.runtime?.errorBefore || r.runtime?.errorAfter)
+        lines.push(
+          `  ${subpath} exécution NON MESURÉE : ${r.runtime.errorBefore ?? r.runtime.errorAfter}`,
+        );
+      if (r.runtime?.removed?.length)
+        lines.push(
+          `  ${subpath} exports RETIRÉS : ${r.runtime.removed.join(", ")}`,
+        );
+      if (r.types?.removed.length)
+        lines.push(
+          `  ${subpath} types RETIRÉS : ${r.types.removed.join(", ")}`,
+        );
+      for (const d of r.types?.declarations ?? []) {
+        if (d.category === "additive") continue;
+        const parts = [];
+        if (d.removed.length)
+          parts.push(`membres retirés ${d.removed.join(", ")}`);
+        if (d.addedRequired.length)
+          parts.push(`membres requis ajoutés ${d.addedRequired.join(", ")}`);
+        if (d.changed.length)
+          parts.push(`${d.changed.length} membre(s) modifié(s)`);
+        if (d.headerChanged) parts.push("en-tête changé");
+        if (d.category === "kind-changed")
+          parts.push("genre de déclaration changé");
+        lines.push(
+          `  ${subpath} ${d.name} [${d.kind}] ${parts.join(" · ") || "modifié"}`,
+        );
+        if (showDetails) {
+          for (const m of d.memberTexts ?? [])
+            lines.push(`      - ${m.before}\n      + ${m.after}`);
+          if (d.before) lines.push(`      - ${d.before}\n      + ${d.after}`);
+        }
       }
     }
+    console.log(`${name} : ${lines.length ? "" : "aucun changement à relire"}`);
+    for (const l of lines) console.log(l);
   }
-  console.log(`${name} : ${lines.length ? "" : "aucun changement à relire"}`);
-  for (const l of lines) console.log(l);
+  console.log(
+    `\nTotal : ${totals.changed}/${totals.declarations} déclarations de types modifiées, dont ${totals.review} à relire` +
+      ` · retirés : ${totals.removedSubpaths} sous-chemin(s), ${totals.removedRuntime} export(s) d'exécution, ${totals.removedTypes} type(s)` +
+      (totals.unmeasured
+        ? ` · ${totals.unmeasured} entrée(s) NON MESURÉE(S) à l'exécution`
+        : ""),
+  );
+  console.log(`Rapport complet : ${path.relative(ROOT, reportFile)}`);
+  console.log(
+    "Non mesuré ici : le comportement (codes, défauts) — lire les commits `!` et le changelog.",
+  );
 }
-console.log(
-  `\nTotal : ${totals.changed}/${totals.declarations} déclarations de types modifiées, dont ${totals.review} à relire` +
-    ` · retirés : ${totals.removedSubpaths} sous-chemin(s), ${totals.removedRuntime} export(s) d'exécution, ${totals.removedTypes} type(s)`,
-);
-console.log(`Rapport complet : ${path.relative(ROOT, reportFile)}`);
-console.log(
-  "Non mesuré ici : le comportement (codes, défauts) — lire les commits `!` et le changelog.",
-);
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
+  const args = process.argv.slice(2);
+  const i = args.indexOf("--from");
+  const workspaces = publishableWorkspaces();
+  if (workspaces.length === 0) {
+    console.error("Aucun workspace publiable trouvé.");
+    process.exit(2);
+  }
+  // La référence par défaut : la dernière version publiée — le `dist` local a
+  // avancé depuis, même quand le manifeste porte encore son numéro.
+  const core = workspaces.find((w) => w.name === "nodefony") ?? workspaces[0];
+  const from = (i === -1 ? null : args[i + 1]) ?? latestPublished(core.name);
+  if (!from) {
+    console.error(`Aucune version publiée de ${core.name} à comparer.`);
+    process.exit(2);
+  }
+  printReport(measureApiDiff({ from, workspaces }), args.includes("--details"));
+}

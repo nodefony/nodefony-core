@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  apiDiffChangelogEntries,
   classifyDeclaration,
   countTypeLooseness,
   diffNames,
@@ -130,5 +131,59 @@ describe("countTypeLooseness", () => {
       declarations: 2,
       declarationsWithAny: 1,
     });
+  });
+});
+
+describe("apiDiffChangelogEntries", () => {
+  const report = {
+    packages: {
+      nodefony: {
+        subpaths: { removed: ["./old"], added: [] },
+        entries: {
+          ".": {
+            runtime: { removed: ["a"], added: [] },
+            types: {
+              removed: ["a", "T"],
+              added: [],
+              declarations: [
+                {
+                  name: "Service",
+                  removed: ["getParameters"],
+                  addedRequired: [],
+                  changed: ["set"],
+                },
+                {
+                  name: "IScope",
+                  removed: [],
+                  addedRequired: ["own"],
+                  changed: [],
+                },
+              ],
+            },
+          },
+        },
+      },
+      "@nodefony/redis": { absentFromReference: true },
+    },
+  };
+
+  it("un retrait devient une entrée Removed marquée rupture, sans doublon exécution/types", () => {
+    const { removed } = apiDiffChangelogEntries(report);
+    expect(removed.map((e) => e.texte)).toEqual([
+      "retirer le sous-chemin d'import `nodefony/old` (mesuré par release:api-diff)",
+      "retirer `T`, `a` de `nodefony` (mesuré par release:api-diff)",
+      "retirer `Service.getParameters` de `nodefony` (mesuré par release:api-diff)",
+    ]);
+    expect(removed.every((e) => e.rupture && e.portee === "nodefony")).toBe(
+      true,
+    );
+  });
+
+  it("un membre requis ajouté devient une entrée Changed ; un membre modifié n'en devient pas une", () => {
+    const { changed } = apiDiffChangelogEntries(report);
+    expect(changed).toHaveLength(1);
+    expect(changed[0].texte).toContain(
+      "`IScope` (`nodefony`) exige désormais `own`",
+    );
   });
 });

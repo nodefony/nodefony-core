@@ -124,6 +124,8 @@ import {
   MAX_BUFFER_GIT,
   PAQUETS_HISTORIQUES,
 } from "./release-core.mjs";
+import { apiDiffChangelogEntries } from "./api-diff-core.mjs";
+import { latestPublished, measureApiDiff } from "./api-diff.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -1196,11 +1198,58 @@ if (!(PUBLIER && !ECRIRE)) {
   // `ruptures` ne se passe plus au rendu : chaque entrée porte son propre
   // marqueur, ce qui permet de la remonter EN TÊTE DE SA CATÉGORIE comme la
   // spec l'exige — une liste séparée ne pouvait pas le faire.
-  section = rendreChangelog({
-    version: VERSION,
-    date: new Date().toISOString().slice(0, 10),
-    groupes: analyse.groupes,
-  });
+  // La surface publique MESURÉE, pas seulement annoncée : un retrait qu'aucun
+  // commit n'a marqué `!` casse l'utilisateur autant qu'un retrait annoncé. La
+  // référence est la dernière version PUBLIÉE (ce que les gens ont installé),
+  // comparée au `dist` local — d'où l'exigence d'un build complet avant.
+  // Common Changelog n'admet que quatre rubriques : les retraits vont sous
+  // Removed, les membres requis ajoutés sous Changed ; le reste de la mesure
+  // (déclarations à relire) va dans le commentaire du brouillon.
+  let noteSurface;
+  try {
+    const coeur = paquets.find((p) => p.nom === "nodefony") ?? paquets[0];
+    const reference = latestPublished(coeur.nom, ROOT);
+    if (!reference) throw new Error(`aucune version publiée de ${coeur.nom}`);
+    const mesure = measureApiDiff({ from: reference, root: ROOT });
+    const entrees = apiDiffChangelogEntries(mesure.report);
+    for (const [rubrique, liste] of [
+      ["Removed", entrees.removed],
+      ["Changed", entrees.changed],
+    ]) {
+      if (!liste.length) continue;
+      const cible = analyse.groupes.get(rubrique) ?? [];
+      analyse.groupes.set(rubrique, cible.concat(liste));
+      ruptures = ruptures.concat(liste);
+    }
+    const t = mesure.totals;
+    noteSurface =
+      `<!-- Surface publique mesurée depuis ${reference} (npm) : ` +
+      `${entrees.removed.length + entrees.changed.length} rupture(s) écrite(s) ci-dessus, ` +
+      `${t.review} déclaration(s) de types à relire sur ${t.declarations}` +
+      (t.unmeasured
+        ? `, ${t.unmeasured} entrée(s) NON MESURÉE(S) à l'exécution`
+        : "") +
+      `. Détail : npm run release:api-diff -- --from ${reference} --details -->`;
+    dire(
+      `✓ surface publique — ${entrees.removed.length + entrees.changed.length} rupture(s) mesurée(s) depuis ${reference}, ${t.review} déclaration(s) à relire`,
+    );
+  } catch (erreur) {
+    const raison = String(erreur?.message ?? erreur).split("\n")[0];
+    noteSurface = `<!-- Surface publique NON MESURÉE : ${raison} — lancer npm run release:api-diff -->`;
+    alerter(
+      `surface publique NON mesurée — ${raison}\n    Le brouillon ne liste que les ruptures ANNONCÉES par les commits.`,
+    );
+  }
+
+  section =
+    rendreChangelog({
+      version: VERSION,
+      date: new Date().toISOString().slice(0, 10),
+      groupes: analyse.groupes,
+    }) +
+    "\n" +
+    noteSurface +
+    "\n";
 
   dire(
     `✓ changelog — ${commits.length} commits depuis ${dernierTag}` +

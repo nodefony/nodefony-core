@@ -346,3 +346,56 @@ export function countTypeLooseness(sourceText) {
   visit(sf, null);
   return counts;
 }
+
+const quote = (names) => names.map((n) => `\`${n}\``).join(", ");
+
+/**
+ * Traduit un rapport de mesure en entrées de CHANGELOG, à la forme de celles
+ * que `analyserCommits` rend (`{ portee, texte, sha, rupture }`).
+ *
+ * Seul ce qui CASSE un consommateur devient une entrée : sous-chemin, export
+ * ou type retiré, membre retiré (→ `Removed`), membre requis ajouté à une
+ * interface (→ `Changed`). Les membres MODIFIÉS restent au rapport : leur
+ * verdict demande un humain, et une entrée par signature noierait le reste.
+ *
+ * @param report - le rapport de `measureApiDiff`.
+ * @returns `{ removed, changed }`, deux listes d'entrées marquées rupture.
+ */
+export function apiDiffChangelogEntries(report) {
+  const removed = [];
+  const changed = [];
+  const suffix = " (mesuré par release:api-diff)";
+  for (const [name, entry] of Object.entries(report.packages)) {
+    if (entry.absentFromReference) continue;
+    const portee = name.replace(/^@nodefony\//, "");
+    const spec = (subpath) =>
+      subpath === "." ? name : `${name}${subpath.slice(1)}`;
+    const push = (list, texte) =>
+      list.push({ portee, texte: texte + suffix, sha: "", rupture: true });
+    for (const subpath of entry.subpaths.removed)
+      push(removed, `retirer le sous-chemin d'import \`${spec(subpath)}\``);
+    for (const [subpath, r] of Object.entries(entry.entries)) {
+      const names = [
+        ...new Set([
+          ...(r.runtime?.removed ?? []),
+          ...(r.types?.removed ?? []),
+        ]),
+      ].sort();
+      if (names.length)
+        push(removed, `retirer ${quote(names)} de \`${spec(subpath)}\``);
+      for (const d of r.types?.declarations ?? []) {
+        if (d.removed.length)
+          push(
+            removed,
+            `retirer ${quote(d.removed.map((m) => `${d.name}.${m}`))} de \`${spec(subpath)}\``,
+          );
+        if (d.addedRequired.length)
+          push(
+            changed,
+            `\`${d.name}\` (\`${spec(subpath)}\`) exige désormais ${quote(d.addedRequired)} : un implémenteur doit les fournir`,
+          );
+      }
+    }
+  }
+  return { removed, changed };
+}
