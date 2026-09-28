@@ -197,6 +197,13 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: npm run format:scaffold
 
+      # Le banc ci-dessous ne génère QUE `--frontend vue` : sans ce gate, les
+      # fronts react, angular et svelte ne passaient ni typecheck ni lint avant
+      # publication (vécu : 10.0.0-beta.1, vu par la seule CI de la vitrine).
+      - name: Gate — chaque front généré passe-t-il ses propres contrôles ?
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/check-scaffold-frontends.mjs
+
       # Le banc, en décor ISOLÉ (pas de `--link` : le mode lié laisse la
       # résolution de modules remonter au monorepo et rend invisible toute la
       # famille « dépendance manquante du gabarit »).

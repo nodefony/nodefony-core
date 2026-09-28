@@ -79,10 +79,16 @@ function LiveCard() {
   const state = useNodefonyState();
   const last = useNodefonyChannelData<LiveEvent>("live:events");
   const [pong, setPong] = useState<string | null>(null);
+  // Un gestionnaire de clic ne rend rien à React : la promesse qu'il lance
+  // doit donc porter SES erreurs, sinon un échec devient un rejet non géré.
   const ping = async () => {
     const t0 = performance.now();
-    await live.request("live:ping", {});
-    setPong(`pong en ${Math.round(performance.now() - t0)} ms`);
+    try {
+      await live.request("live:ping", {});
+      setPong(`pong en ${Math.round(performance.now() - t0)} ms`);
+    } catch (e: unknown) {
+      setPong(`échec : ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
   // Ce que CETTE page envoie, TOUTES les pages abonnées le reçoivent : ouvrir
   // un second onglet et cliquer suffit à le voir. C'est ce partage qui fait
@@ -110,7 +116,7 @@ function LiveCard() {
           </>
         )}
       </p>
-      <button onClick={ping}>RPC live:ping</button>{" "}
+      <button onClick={() => void ping()}>RPC live:ping</button>{" "}
       <button onClick={say}>envoyer sur le canal</button>
       {pong && <span className="nf-dim"> {pong}</span>}
     </div>
@@ -132,64 +138,78 @@ function LiveCard() {
 <% } %>
   // Rappelé après login/logout : la zone firewall `main` (^/api) résout
   // l'identité par requête → `who` change sans recharger la page.
-  const refreshHello = () =>
-    fetch("/api/hello")
-      .then((r) => r.json())
-      .then((j) => {
-        const d = (j.result ?? j) as ApiData; // Nodefony wrappe `{ result }`
-        setData(d);
-<% if (it.complete) { %>        // Connecté → la route PROTÉGÉE prend le relais (zone `secure`,
-        // ^/api/secure : sans session le firewall répond 401 avant le controller).
-        if (d.who && d.who !== "anonyme") {
-          fetch("/api/secure/hello", { credentials: "same-origin" })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((s) =>
-              setSecureData(s ? ((s.result ?? s) as SecureData) : null),
-            )
-            .catch(() => setSecureData(null));
-        } else {
+  // Ne rejette jamais : l'erreur finit à l'écran, ce qui permet de l'appeler
+  // sans l'attendre (`void refreshHello()`).
+  const refreshHello = async (): Promise<void> => {
+    try {
+      const r = await fetch("/api/hello");
+      const j = (await r.json()) as { result?: ApiData };
+      const d = j.result ?? (j as ApiData); // Nodefony wrappe `{ result }`
+      setData(d);
+<% if (it.complete) { %>      // Connecté → la route PROTÉGÉE prend le relais (zone `secure`,
+      // ^/api/secure : sans session le firewall répond 401 avant le controller).
+      if (d.who && d.who !== "anonyme") {
+        try {
+          const s = await fetch("/api/secure/hello", {
+            credentials: "same-origin",
+          });
+          const sj = s.ok
+            ? ((await s.json()) as { result?: SecureData })
+            : null;
+          setSecureData(sj ? (sj.result ?? (sj as SecureData)) : null);
+        } catch {
           setSecureData(null);
         }
-<% } %>        // Un `then` REND une valeur — sinon le lint de l'application
-        // GÉNÉRÉE la refuse (`promise/always-return`).
-        return d;
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      } else {
+        setSecureData(null);
+      }
+<% } %>    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 <% if (it.complete) { %>
   // Flux session BFF du framework (cookie opaque HttpOnly — le front ne voit
   // jamais de token) : mêmes endpoints que le login de la console /nodefony.
   const doLogin = async () => {
     setAuthMsg(null);
-    const r = await fetch("/nodefony/security/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ username, password }),
-    });
-    const j = (await r.json()) as {
-      result?: { user?: { username?: string } };
-      user?: { username?: string };
-    };
-    if (!r.ok) {
-      setAuthMsg("identifiants invalides");
-      return;
+    try {
+      const r = await fetch("/nodefony/security/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ username, password }),
+      });
+      const j = (await r.json()) as {
+        result?: { user?: { username?: string } };
+        user?: { username?: string };
+      };
+      if (!r.ok) {
+        setAuthMsg("identifiants invalides");
+        return;
+      }
+      const u = j.result?.user ?? j.user;
+      setAuthMsg(`session ouverte — ${u?.username ?? username}`);
+      await refreshHello();
+    } catch (e: unknown) {
+      setAuthMsg(`échec : ${e instanceof Error ? e.message : String(e)}`);
     }
-    const u = j.result?.user ?? j.user;
-    setAuthMsg(`session ouverte — ${u?.username ?? username}`);
-    refreshHello();
   };
 
   const doLogout = async () => {
-    await fetch("/nodefony/security/api/auth/logout", {
-      method: "POST",
-      credentials: "same-origin",
-    });
-    setAuthMsg("session fermée");
-    refreshHello();
+    try {
+      await fetch("/nodefony/security/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      setAuthMsg("session fermée");
+      await refreshHello();
+    } catch (e: unknown) {
+      setAuthMsg(`échec : ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 <% } %>
   useEffect(() => {
-    refreshHello();
+    void refreshHello();
 <% if (it.complete) { %><% } else { %>
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
@@ -355,7 +375,7 @@ function LiveCard() {
               <span>
                 connecté — <strong>{data.who}</strong>
               </span>{" "}
-              <button onClick={doLogout}>Se déconnecter</button>
+              <button onClick={() => void doLogout()}>Se déconnecter</button>
             </>
           ) : (
             <>
@@ -369,11 +389,13 @@ function LiveCard() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && doLogin()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void doLogin();
+                }}
                 autoComplete="current-password"
                 aria-label="mot de passe"
               />{" "}
-              <button onClick={doLogin}>Se connecter</button>
+              <button onClick={() => void doLogin()}>Se connecter</button>
             </>
           )}
           {authMsg && <p className="nf-dim">{authMsg}</p>}

@@ -40,10 +40,11 @@ import { pathToFileURL } from "node:url";
 import type { ScaffoldWriter } from "./writer.js";
 
 /**
- * Extensions confiées à prettier. Volontairement restreinte à ce que le dépôt
- * formate lui-même : une extension exotique (`.svelte`, `.vue`) demanderait un
- * plugin que le projet n'a pas forcément, et prettier échouerait fichier par
- * fichier pour rien.
+ * Extensions confiées à prettier : celles qu'il lit SANS plugin. `.vue` en est
+ * — prettier l'analyse nativement, et le `format:check` de l'application le
+ * vérifie : l'exclure livrait un `App.vue` que ce contrôle refusait. `.svelte`
+ * n'en est pas (il exige `prettier-plugin-svelte`, que le projet n'a pas
+ * forcément) ; prettier l'ignore alors aussi au contrôle.
  */
 const FORMATABLES = new Set([
   ".ts",
@@ -54,6 +55,7 @@ const FORMATABLES = new Set([
   ".mjs",
   ".cjs",
   ".jsx",
+  ".vue",
   ".json",
   ".jsonc",
   ".md",

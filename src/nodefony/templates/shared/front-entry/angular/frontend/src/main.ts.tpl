@@ -14,4 +14,4 @@ bootstrapApplication(AppComponent, {
     provideZonelessChangeDetection(),
 <% if (it.complete) { %>    provideNodefony({ url: "/api/live/realtime" }),
 <% } %>  ],
-}).catch((err) => console.error(err));
+}).catch((err: unknown) => console.error(err));

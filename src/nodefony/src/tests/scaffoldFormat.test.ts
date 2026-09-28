@@ -172,4 +172,21 @@ describe("formatScaffoldOutput", () => {
     expect(bilan.pending).toBe(0);
     expect(writer.read(cible)).toBe(MAL_FORME);
   });
+
+  it("met en forme un composant .vue — prettier le lit sans plugin", () => {
+    const dir = projet(true);
+    const writer = new ScaffoldWriter();
+    // Exclu, il partait tel quel — et le `format:check` de l'application
+    // générée, qui lit `.vue`, le refusait (front vue de la 10.0.0-beta.1).
+    const cible = path.join(dir, "App.vue");
+    const malForme =
+      '<script setup lang="ts">\nconst a = {b:1}\n</script>\n<template><div><span>x</span></div></template>\n';
+    writer.write(cible, malForme);
+
+    const bilan = formatScaffoldOutput(writer, dir);
+
+    expect(bilan.formatted).toBe(1);
+    expect(writer.read(cible)).not.toBe(malForme);
+    expect(writer.read(cible)).toContain("const a = { b: 1 };");
+  });
 });

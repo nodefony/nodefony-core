@@ -268,7 +268,7 @@ export class AppComponent implements OnInit, OnDestroy {
   last = injectNodefonyChannelData<LiveEvent>("live:events");
   pingMs = signal<number | null>(null);
   /** La socket elle-même — pour ce qu'on lui DIT (`emit`, `request`). */
-  #live = injectNodefony();
+  readonly #live = injectNodefony();
 <% } else { %>  wsLog = signal<string[]>([]);
   #ws: WebSocket | null = null;
 <% } %>  stringify = (v: unknown) => JSON.stringify(v, null, 2);
@@ -279,7 +279,7 @@ export class AppComponent implements OnInit, OnDestroy {
     fetch("/api/hello")
       .then((r) => r.json())
       .then((j: { result?: ApiData } & ApiData) => {
-        const d = (j.result ?? j) as ApiData; // Nodefony wrappe `{ result }`
+        const d = j.result ?? j; // Nodefony wrappe `{ result }`
         this.data.set(d);
 <% if (it.complete) { %>        // Connecté → la route PROTÉGÉE prend le relais (zone `secure`,
         // ^/api/secure : sans session le firewall répond 401 avant le controller).
@@ -289,7 +289,7 @@ export class AppComponent implements OnInit, OnDestroy {
             // Le corps d'un `then` REND une valeur : un bloc muet est signalé
             // par le lint (`promise/always-return`) dans l'application générée.
             .then((s: ({ result?: SecureData } & SecureData) | null) =>
-              this.secureData.set(s ? ((s.result ?? s) as SecureData) : null),
+              this.secureData.set(s ? (s.result ?? s) : null),
             )
             .catch(() => this.secureData.set(null));
         } else {
