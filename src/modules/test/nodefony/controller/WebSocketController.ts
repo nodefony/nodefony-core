@@ -2,7 +2,6 @@ import { resolve } from "node:path";
 import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { WebsocketContext } from "@nodefony/http";
-import { Cookie } from "@nodefony/http";
 //import { inject, Fetch, Error } from "nodefony";
 
 @controller("/nodefony/test/ws")
@@ -16,19 +15,9 @@ class WebsocketController extends Controller {
     return this.context as WebsocketContext | undefined;
   }
 
-  async initialize(): Promise<this> {
-    // PAS de startSession() global ici : il s'appliquait à TOUTES les routes WS
-    // (echo/broadcast/binary/index…) qui n'ont aucun besoin de session. Sous
-    // charge (ex broadcast flood), chaque connexion persistait une session SQLite
-    // au onFinish → tempête d'INSERT + collisions `session_id must be unique`
-    // (write() = findOne+create non atomique). La session n'est démarrée que sur
-    // la route qui la teste réellement (`/cookie`).
-    if (!this.context?.getRequestCookies("websocket")) {
-      let mycookis = new Cookie("websocket", "test");
-      this.context?.setCookie(mycookis);
-    }
-    return this;
-  }
+  // Aucun `initialize()` : un cookie posé ici n'atteindrait jamais le client
+  // (`WebsocketResponse.setCookie` est vide), et la session n'est ouverte que
+  // par la route qui l'exerce (`/cookie`).
 
   @route("route-websocket-index", {
     path: "",

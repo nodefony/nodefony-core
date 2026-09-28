@@ -301,9 +301,24 @@ export abstract class RealtimeController<
     if (!ctx) return;
     if (message == null) {
       // Fire-and-forget — l'auth WS peut être async (cookie JWT → vérif sig…).
-      // Erreurs déjà gérées dans `onHandshake` (close socket + log). Ce `void`
-      // évite un unhandled rejection si quelque chose throw au-delà du catch.
-      void this.onHandshake(ctx);
+      // `onHandshake` ne rattrape que les refus ATTENDUS (Origin 4003, auth 4001).
+      // Toute autre exception (hook d'authenticator, abonnement, `onConnect`
+      // utilisateur…) laissait la socket OUVERTE et MUETTE : jamais de welcome,
+      // le client attend sans fin — et le rejet n'était rattrapé par personne.
+      // On la ferme en 1011 (RFC 6455 §7.4.1, « condition inattendue ») : code
+      // NON définitif côté client (`shouldReconnect`), une panne transitoire se
+      // rétablit par la boucle de reconnexion ; une faute déterministe, elle,
+      // se lit dans le journal ERROR, pas dans une socket silencieuse.
+      this.onHandshake(ctx).catch((e: unknown) => {
+        this.log(
+          `WS realtime handshake failed: ${e instanceof Error ? e.message : String(e)}`,
+          "ERROR",
+        );
+        (ctx.connection as RawWsConnection | null)?.close(
+          1011,
+          "internal error",
+        );
+      });
       return;
     }
     (ctx as unknown as RealtimeHolder).__nfRealtime?.transport.feed(
@@ -617,7 +632,14 @@ export abstract class RealtimeController<
     // Le hub est sans dépendance : il ne sait pas journaliser. On lui prête donc
     // notre journal, et il tire l'alerte au premier refus — une fermeture muette
     // ferait chercher longtemps pourquoi un tableau de bord reste vide.
-    hub.onPlatformNotice((message, severity) => this.log(message, severity));
+    // La closure ne capture PAS `this` : le hub vit tout le process, et un
+    // contrôleur est PAR CONNEXION — capturer `this.log` retenait la dernière
+    // instance (et son contexte de connexion fermée) jusqu'au handshake suivant.
+    const noticeSyslog = this.syslog;
+    const noticeName = this.name;
+    hub.onPlatformNotice((message, severity) => {
+      noticeSyslog?.log(message, severity, noticeName);
+    });
 
     // Sonde socket : la connexion (= ce transport) entre au registre du hub. La
     // backpressure (`bufferedAmount`) vit sur la connexion brute → seul le transport

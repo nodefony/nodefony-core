@@ -13701,7 +13701,7 @@
       "file": "src/modules/test/nodefony/controller/AlsController.ts",
       "exported": true,
       "module": "modules/test",
-      "description": "Shared observation state for the ALS propagation integration tests (BUG-001 WS messages, BUG-002 onAfterResponse). Module-level singleton — controllers are scoped per request, so the captured value…"
+      "description": "Shared observation state for the ALS propagation integration tests (BUG-001 WS messages, BUG-002 onAfterResponse). Module-level — a controller is a shared singleton whose `this` refuses per-request…"
     },
     "IBackpressureProbe": {
       "name": "IBackpressureProbe",
@@ -17782,7 +17782,7 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null,
-      "description": "Interface-marqueur du hook **per-request** d'un {@link Controller} : `initialize` est appelé par le {@link Resolver} à CHAQUE requête, avant l'action (hot path — jamais gardé/borné, contrairement a…"
+      "description": "Interface-marqueur du hook d'initialisation d'un {@link Controller} : `initialize` est appelé par le {@link Resolver} à la création de l'instance, avant l'action — UNE fois pour un singleton (défau…"
     },
     "ResourceController": {
       "name": "ResourceController",
@@ -32033,7 +32033,6 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
-        "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",

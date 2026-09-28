@@ -8,14 +8,11 @@ class GraphQlController extends Controller {
     super("GraphQlController", context);
   }
 
-  async initialize(): Promise<this> {
-    this.setContextJson();
-    return this;
-  }
-
+  // Le mode JSON se pose PAR requête, dans l'action : dans `initialize()`, il ne
+  // toucherait que la requête qui crée ce singleton.
   @route("index-graphql", { path: "" })
   index() {
-    return this.render({});
+    return this.renderJson({});
   }
 }
 

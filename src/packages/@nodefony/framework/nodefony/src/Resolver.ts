@@ -63,9 +63,10 @@ interface IAuthorizer {
 //import { ServiceConstructor } from "nodefony";
 
 /**
- * Interface-marqueur du hook **per-request** d'un {@link Controller} : `initialize`
- * est appelé par le {@link Resolver} à CHAQUE requête, avant l'action (hot path —
- * jamais gardé/borné, contrairement au boot des services). Distinct du hook de boot
+ * Interface-marqueur du hook d'initialisation d'un {@link Controller} : `initialize`
+ * est appelé par le {@link Resolver} à la création de l'instance, avant l'action —
+ * UNE fois pour un singleton (défaut), à CHAQUE requête sous `@Scope("request")`
+ * (jamais gardé/borné, contrairement au boot des services). Distinct du hook de boot
  * `ServiceWithInit` (singleton, 1× au démarrage).
  *
  * @remarks Signature alignée sur l'appel réel `controller.initialize()` (sans arg) ;
@@ -297,16 +298,27 @@ class Resolver implements IResolver {
           )
         : // Pas de Router (harness de test) → dégradé per-request, sans cache.
           await this._createController(context);
-      // Pointeur posé sur le container de REQUÊTE : un message WS suivant ou
-      // un forward (`reload`) retrouve l'instance par le chemin existant.
-      this.context.container?.set("controller", controller);
+      this._pinController(controller);
       return controller;
     }
     const controller = await this._createController(context);
-    // Cache per-CONTEXT (pas per-Resolver) : un message WS suivant ou un
-    // forward (`reload`) retrouve l'instance via le container partagé.
-    this.context.container?.set("controller", controller);
+    this._pinController(controller);
     return controller;
+  }
+
+  /**
+   * Pose le pointeur `"controller"` sur le container du contexte : un message
+   * WS suivant ou un forward (`reload`) retrouve l'instance par ce chemin.
+   *
+   * SAUF pour une invocation par message (pont `api.request`) : le container
+   * est alors celui de la CONNEXION, et son pointeur désigne le contrôleur qui
+   * la sert (le hub). L'écraser par la cible de l'appel faisait échouer le test
+   * `instanceof` au message suivant — le hub était RÉINSTANCIÉ (DI +
+   * `initialize()`) à chaque frame qui suivait un `api.request`.
+   */
+  private _pinController(controller: Controller): void {
+    if (this.messageInvocation) return;
+    this.context.container?.set("controller", controller);
   }
 
   /**

@@ -406,6 +406,54 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       expect(sent).to.have.length(0); // pas de welcome
     });
 
+    it("une exception INATTENDUE au handshake ferme la socket en 1011 au lieu de la laisser muette", async () => {
+      class Broken extends TestRt {
+        errors: string[] = [];
+        protected override realtimeActions(): Record<string, RpcActionHandler> {
+          throw new Error("actions en panne");
+        }
+        override log(pci: unknown, severity?: unknown): never {
+          this.errors.push(`${String(severity)}:${String(pci)}`);
+          return undefined as never;
+        }
+      }
+      const { ctx, sent, closes } = makeCtx();
+      const rt = new Broken(ctx);
+      rt.feed(null);
+      await flush();
+      expect(closes).to.deep.equal([{ code: 1011, reason: "internal error" }]);
+      expect(sent).to.have.length(0); // pas de welcome
+      expect(rt.errors).to.have.length(1);
+      expect(rt.errors[0]).to.match(/^ERROR:.*actions en panne/);
+    });
+
+    it("l'alerte de plateforme ne passe pas par l'instance du contrôleur (aucune rétention d'une connexion fermée)", () => {
+      class Spy extends TestRt {
+        viaInstance: string[] = [];
+        override log(pci: unknown): never {
+          this.viaInstance.push(String(pci));
+          return undefined as never;
+        }
+      }
+      const received: string[] = [];
+      const { ctx, fireFinish } = makeCtx();
+      const rt = new Spy(ctx);
+      rt.syslog = {
+        log: (pci: unknown) => received.push(String(pci)),
+      } as unknown as typeof rt.syslog;
+      rt.feed(null);
+      fireFinish();
+      // Plancher système : sans module de sécurité, un canal de plateforme est
+      // refusé — et le hub tire son alerte par le notificateur posé au handshake.
+      getRealtimeHub().subscribeClient(
+        "nodefony:syslog",
+        () => {},
+        () => () => {},
+      );
+      expect(received).to.have.length(1);
+      expect(rt.viaInstance).to.not.include(received[0]);
+    });
+
     it("supports()=false → fallback anonyme (pas de close, welcome envoyé)", async () => {
       const auth: IRealtimeAuthenticator = {
         name: "fake_jwt",
