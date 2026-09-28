@@ -9,19 +9,28 @@
  */
 import { expect } from "chai";
 import { EventEmitter } from "node:events";
-import { vi } from "vitest";
+import { beforeAll, vi } from "vitest";
 import { Container } from "nodefony";
-import HttpKernel from "../../service/http-kernel.js";
+import type HttpKernelType from "../../service/http-kernel.js";
 
-vi.mock("../../src/context/http/HttpContext", () => ({
-  default: class {
-    sended = false;
-    response = { statusCode: 200 };
-    _abortIfPending() {}
-  },
-}));
+// La suite tourne en `isolate: false` : un autre fichier a pu charger le VRAI
+// HttpContext avant celui-ci, et un `vi.mock` hissé ne remplace pas un module
+// déjà en cache (rouge en CI, vert en local selon l'ordre des fichiers). On
+// purge le cache, on pose le faux, PUIS on importe le noyau.
+let HttpKernel: typeof HttpKernelType;
+beforeAll(async () => {
+  vi.resetModules();
+  vi.doMock("../../src/context/http/HttpContext", () => ({
+    default: class {
+      sended = false;
+      response = { statusCode: 200 };
+      _abortIfPending() {}
+    },
+  }));
+  HttpKernel = (await import("../../service/http-kernel.js")).default;
+});
 
-type CreateHttpContext = HttpKernel["createHttpContext"];
+type CreateHttpContext = HttpKernelType["createHttpContext"];
 
 function setup() {
   const container = new Container();
@@ -37,7 +46,7 @@ function setup() {
   };
   response.writableEnded = true;
   HttpKernel.prototype.createHttpContext.call(
-    kernel as unknown as HttpKernel,
+    kernel as unknown as HttpKernelType,
     scope,
     {} as Parameters<CreateHttpContext>[1],
     response as unknown as Parameters<CreateHttpContext>[2],
