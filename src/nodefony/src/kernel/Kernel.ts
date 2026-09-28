@@ -449,10 +449,11 @@ export interface FilterInterface {
  *
  * C'est LE hook standard : ne pas réinventer `boot()`/`connect()`/`onConnect()`.
  * Hook **optionnel** (pas de méthode no-op forcée sur {@link Service} : éviterait
- * une microtask par service sans init — règle perf). Distinct du hook
- * **per-request** des controllers (`ControllerWithInitialize.initialize`, hot
- * path, non gardé) : les deux noms restent volontairement disjoints (`init` =
- * boot une fois ; `initialize` = par requête) — pas de collision sur un
+ * une microtask par service sans init — règle perf). Distinct du hook de
+ * création des controllers (`ControllerWithInitialize.initialize`, non gardé) :
+ * les deux noms restent volontairement disjoints (`init` = boot une fois ;
+ * `initialize` = création du contrôleur, par requête sous `@Scope("request")`)
+ * — pas de collision sur un
  * Controller qui est aussi un Service.
  *
  * @remarks `owner` = le {@link Module} (service de module) ou le {@link Kernel}

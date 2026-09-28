@@ -323,9 +323,9 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 ### Le boot — une chaîne de phases, jamais un big-bang
 
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
-(`Events`, `Kernel.ts:313`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
+(`Events`, `Kernel.ts:322`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
-`Kernel.start()` (`Kernel.ts:774`), `Kernel.boot()` (`Kernel.ts:1244`), `Kernel.onReady()`
+`Kernel.start()` (`Kernel.ts:803`), `Kernel.boot()` (`Kernel.ts:1244`), `Kernel.onReady()`
 (`Kernel.ts:1274`) et `Kernel.initServers()` (`Kernel.ts:1382`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
@@ -457,7 +457,7 @@ alors plus une propriété fragile de ton fichier d'entrée.
 `@Body`, `@Query`), l'injection de dépendances, les gardes d'autorisation, l'idée de modules. Une
 garde `@IsGranted` s'applique **avant** l'instanciation du contrôleur, au niveau du résolveur — même
 contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:502`) enveloppe
-l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:708`) tranche, fail-closed en 403.
+l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:719`) tranche, fail-closed en 403.
 
 **Ce qui change.** Deux choses. D'abord, **pas de gateway WebSocket séparée** : là où Nest te
 demande un `@WebSocketGateway()` distinct de tes contrôleurs, Nodefony te fait déclarer le transport

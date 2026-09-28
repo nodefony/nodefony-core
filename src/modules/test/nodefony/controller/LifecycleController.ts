@@ -10,7 +10,7 @@ import { Context } from "@nodefony/http";
  *   → HttpContext.handle() reject → HttpKernel.onError → coherent 500 (no hang).
  *
  * Kept in a dedicated controller so the throw cannot poison the shared
- * DefaultController (whose `initialize()` starts the session for every route).
+ * DefaultController, which every other test route goes through.
  */
 @controller("/nodefony/test/lifecycle")
 class LifecycleController extends Controller {

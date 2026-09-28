@@ -17,24 +17,25 @@ coverageFiles: Controller.ts,Resolver.ts
 # Controller — le code de ta route
 
 > Une fois la route trouvée, quelqu'un doit **faire le travail** : c'est le contrôleur. Nodefony
-> l'instancie par requête (DI compris), appelle ton action, puis traduit ce que tu **retournes** en
+> l'instancie (DI compris) — une fois par défaut, à chaque requête sous `@Scope("request")` —, appelle ton action, puis traduit ce que tu **retournes** en
 > réponse HTTP ou en frame WebSocket. Cette page décrit ce qui se passe **dans** le contrôleur : de
 > quoi il hérite, son cycle de vie réel (dont `initialize()`), d'où viennent `request`/`response`/
 > `session`, comment répondre, comment échouer proprement. Tout est ancré sur le code.
 
 📍 [Documentation](../../../../../docs/index.md) › [Framework](index.md) › **Controller**
 
-## 🧠 Le modèle mental — un objet jetable entre deux mondes
+## 🧠 Le modèle mental — du code partagé entre deux mondes
 
-Un contrôleur n'est **pas** un serveur ni un service partagé : par défaut c'est un **objet jetable**,
-construit pour UNE requête et abandonné à la fin. Il vit entre deux mondes qu'il ne connaît pas :
+Par défaut, un contrôleur est un **singleton** : construit à sa première requête, puis partagé par
+toutes les suivantes, concurrentes comprises. Il ne porte que du **code** ; l'état d'une requête
+lui arrive par les arguments décorés et les helpers, qui retrouvent la requête EN COURS. Il vit entre deux mondes qu'il ne connaît pas :
 le **transport** (le contexte HTTP ou WebSocket, fourni par `@nodefony/http`) et le **container**
 (tes services, fournis par le DI).
 
 ```mermaid
 flowchart LR
   RT["Router<br/>route trouvée"] --> RS["Resolver<br/>par requête"]
-  RS -->|"instantiate + DI"| CT["TON Controller<br/>extends Controller"]
+  RS -->|"instantiate + DI<br/>(une fois si singleton)"| CT["TON Controller<br/>extends Controller"]
   CT -->|"initialize()"| CT
   RS -->|"action(...args)"| CT
   CT -->|"return valeur"| RC["returnController<br/>traduit le retour"]
@@ -95,7 +96,8 @@ interface CatalogService {
 
 @controller("/api/catalog")
 class CatalogController extends Controller {
-  // Champ per-requête : sûr ici, car le scope par défaut est UNE instance par requête.
+  // Posé UNE fois dans `initialize()` : le contrôleur est un singleton par défaut,
+  // partagé par toutes les requêtes — ce champ ne doit plus changer ensuite.
   private catalog: CatalogService | null = null;
 
   // Le contexte de la requête est le SEUL argument obligatoire ; le nom passé à
@@ -104,8 +106,9 @@ class CatalogController extends Controller {
     super("catalog", context);
   }
 
-  // Hook optionnel, appelé à CHAQUE requête juste après l'instanciation.
-  // Voir « Le cycle de vie » : ici, ni session ni utilisateur ne sont encore résolus.
+  // Hook optionnel, appelé UNE fois, à la création du singleton (à chaque requête
+  // sous `@Scope("request")`). Voir « Le cycle de vie » : ni session ni
+  // utilisateur n'y sont résolus.
   async initialize(): Promise<this> {
     this.catalog = this.get<CatalogService>("catalog");
     return this;
@@ -219,25 +222,29 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 C'est **sa raison d'être** : un `constructor` ne peut pas être `async`, et la résolution DI est
 synchrone. Tout ce qui demande un `await` à la mise en place de l'instance n'a pas d'autre endroit
 où aller. Le hook est **optionnel** — le Resolver ne l'appelle que s'il existe
-(`Resolver._createController()`, `Resolver.ts:305`). Son contrat est décrit par
+(`Resolver._createController()`, `Resolver.ts:330`). Son contrat est décrit par
 `ControllerWithInitialize` (`Resolver.ts:72`) : aucun argument, retour `Promise<this>`.
+
+> [!IMPORTANT]
+> **Sur un contrôleur singleton — le défaut —, `initialize()` tourne UNE fois**, à la création, dans
+> le contexte de la requête qui l'a déclenchée ; l'instance sert ensuite toutes les autres. Tout ce
+> qui dépend de LA requête (identité, cookie, mode de rendu) y serait figé pour tout le monde : sa
+> place est dans l'action. Sous `@Scope("request")`, le hook retrouve sa sémantique par requête.
 
 ```typescript
 async initialize(): Promise<this> {
-  this.setContextJson();                                   // forme de la réponse
-  const user = RequestContext.getUser();                   // identité déjà résolue
-  this.prefs = await this.get<Prefs>("prefs").load(user.identifier);
+  this.catalog = this.get<CatalogService>("catalog");      // service résolu une fois
+  this.defaults = await this.get<Prefs>("prefs").loadDefaults(); // préchauffage partagé
   return this;                                             // toujours rendre `this`
 }
 ```
 
-| Dans `initialize()`, tu peux…                                                            | Ce qui n'a rien à y faire                                                                                  |
-| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Un `await` de mise en place : charger des préférences, ouvrir une ressource, précalculer | Une **décision d'autorisation** — c'est `@IsGranted`, évalué avant, et un 403 n'arrive jamais jusqu'ici    |
-| Résoudre des services (`this.get("catalog")`)                                            | Un travail qu'**une seule action sur cinq** utilise : il serait payé par toutes → fais-le dans l'action    |
-| Lire l'identité (`RequestContext.getUser()`) — le firewall est passé                     | Un effet de bord **par requête** qu'un rechargement ferait deux fois (compteur, envoi) sans idempotence    |
-| Poser un cookie ou un en-tête (`this.context?.setCookie()`) — rien n'est encore écrit    | Une écriture longue qui bloque : la phase `initialize` est chronométrée, elle apparaîtra dans la debug bar |
-| Choisir un mode de rendu (`this.setContextHtml()`)                                       | Lire `this.session` sans l'avoir demandée : elle reste **lazy** (`@UseSession`, cf plus bas)               |
+| Dans `initialize()` d'un singleton, tu peux…                                                       | Ce qui n'a rien à y faire                                                                                                  |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Un `await` de mise en place : ouvrir une ressource, précalculer, préchauffer                       | Une **décision d'autorisation** — c'est `@IsGranted`, évalué avant, et un 403 n'arrive jamais jusqu'ici                    |
+| Résoudre des services (`this.get("catalog")`)                                                      | Lire l'identité, poser un cookie, choisir un mode de rendu : c'est l'état d'UNE requête → l'action, ou `@Scope("request")` |
+| Poser des champs de démarrage sur `this` — le filet de développement ne les garde qu'APRÈS le hook | Écrire sur `this` ensuite : en développement, l'écriture lève (l'état fuirait vers la requête suivante)                    |
+| —                                                                                                  | Une écriture longue qui bloque : la phase `initialize` est chronométrée, elle apparaîtra dans la debug bar                 |
 
 > [!NOTE]
 > **La session ne s'ouvre pas ici.** Nodefony a un point d'activation **unique**
@@ -250,7 +257,10 @@ async initialize(): Promise<this> {
 Si ton `initialize()` lève, l'exception remonte le pipeline et sort en réponse d'erreur cohérente :
 **500 JSON**, serveur toujours sain. C'est prouvé par une sonde dédiée du dépôt
 (`LifecycleController.initialize()`, `LifecycleController.ts:21`, exercée par
-`lifecycle-init-crash.test.ts`). Aucune requête pendue, aucun timeout muet.
+`lifecycle-init-crash.test.ts`). Aucune requête pendue, aucun timeout muet. Pour un singleton,
+une création en échec ne reste pas en cache : la requête suivante recrée l'instance
+(`Router.getSingletonController()`, `router.ts:197`) — une base pas encore prête au premier appel ne
+tue pas le contrôleur jusqu'au redémarrage.
 
 ### Les phases mesurées
 
@@ -307,8 +317,9 @@ action se tromperait d'objet.
 
 > [!WARNING]
 > **Sur une connexion WS, `this` survit aux frames.** Un champ écrit à la frame 1 est encore là à la
-> frame 2 — pratique pour un état de conversation, piège si tu comptais sur une instance neuve. En
-> HTTP, l'inverse : chaque requête repart d'une instance vierge.
+> frame 2 — pratique pour un état de conversation, piège si tu comptais sur une instance neuve. Sous
+> `@Scope("request")`, chaque requête HTTP repart d'une instance neuve ; un singleton, lui, refuse
+> tout état de requête sur `this`.
 
 Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1773`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
@@ -401,18 +412,18 @@ de ce que tu as retourné :
 | --- | --- | --- |
 | Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts:830-840` |
 | Une `string` | Envoyée telle quelle en corps | `Resolver.ts:711` |
-| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts:883` |
+| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts:936` |
 | Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts:734` |
-| Un `Buffer` | Envoyé brut | `Resolver.ts:867` |
+| Un `Buffer` | Envoyé brut | `Resolver.ts:900` |
 | Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:581` |
-| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:991`) |
-| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:964` |
-| Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:906-913` |
+| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:1002`) |
+| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:981` |
+| Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:942-951` |
 
 > [!WARNING]
 > **Le piège n° 1 : `return null` sur un statut à corps.** Le framework l'interprète comme « je
 > répondrai moi-même » et attend — jusqu'au timeout. La distinction se fait sur le **statut** :
-> `NO_BODY_STATUS` (`Resolver.ts:991`) contient 204, 205 et 304. Donc un `@Delete` qui fait
+> `NO_BODY_STATUS` (`Resolver.ts:1002`) contient 204, 205 et 304. Donc un `@Delete` qui fait
 > `@HttpCode(204)` puis `return null` répond bien 204 vide ; le même `return null` sans `@HttpCode`
 > laisse la requête pendue.
 
@@ -513,7 +524,7 @@ c'est un **rejet** de handshake.
 
 > [!NOTE]
 > Les erreurs de ton action remontent **seules** : le Resolver n'enveloppe pas l'appel dans un
-> `try/catch` inutile (`Resolver.ts:444-445`). Inutile d'attraper pour re-lever — sauf si tu veux
+> `try/catch` inutile (`Resolver.ts:493-494`). Inutile d'attraper pour re-lever — sauf si tu veux
 > vraiment traduire l'erreur en un autre statut.
 
 ## 🧩 Services injectés — trois façons
@@ -574,9 +585,9 @@ code du framework applique — et attend de toi — les règles suivantes :
   (`Controller.ts:574`).
 - **Métadonnées d'action figées** : `@HttpCode`, `@Header`, les paramètres décorés et l'intention de
   session sont calculés **une fois** par route puis mémorisés, au lieu d'être relus par `Reflect` à
-  chaque requête (`resolveActionMeta()` appelé en `Resolver.ts:469`).
+  chaque requête (`resolveActionMeta()` appelé en `Resolver.ts:491`).
 - **Gardes payées seulement si présentes** : sans `@IsGranted`, la vérification d'autorisation est
-  un test de nullité (`Resolver.ts:381`) — 0 lookup, 0 `await`, 0 allocation.
+  un test de nullité (`Resolver.ts:406`) — 0 lookup, 0 `await`, 0 allocation.
 - **Ta part du contrat** : pas de structure allouée « au cas où » dans le constructeur ni dans
   `initialize()`. Une valeur utile à 5 % des requêtes s'alloue à la demande.
 
@@ -584,11 +595,11 @@ code du framework applique — et attend de toi — les règles suivantes :
 
 | Domaine                          | Norme                    | Comment le code s'y conforme                                   |
 | -------------------------------- | ------------------------ | -------------------------------------------------------------- |
-| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:991`)                           |
+| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:1002`)                          |
 | Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:107`)                       |
 | Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:503`)              |
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:534`)                  |
-| Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:892`), vérifié par le banc `auto-json` |
+| Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:936`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                  |
 | Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:518`)                  |
 
@@ -607,13 +618,13 @@ code du framework applique — et attend de toi — les règles suivantes :
 <!-- prettier-ignore -->
 | Symptôme | Cause (dans le code) | Correction |
 | --- | --- | --- |
-| La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts:919`) | Retourner une valeur, ou poser `@HttpCode(204)` |
-| Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:919`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
+| La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts:981`) | Retourner une valeur, ou poser `@HttpCode(204)` |
+| Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:951`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
 | `Route Action not found` | L'action porte un nom déjà utilisé par un membre de `Controller` | Renommer : `session`, `request`, `response`, `context`, `route`, `method`, `query*`, `get`, `set`, `render*`, `redirect`, `forward` sont réservés |
 | `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts:1210`) | Lire la session dans l'action, pas dans le hook |
 | Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1715`) | Déplacer l'effet de bord dans l'action |
 | Redirection permanente non voulue | Un statut invalide retombe sur 302, un `301` explicite reste 301 | Passer le code voulu : `this.redirect(url, 302)` |
-| WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée — par TOUTES les connexions en singleton (le défaut), par toute la connexion en `@Scope("request")` (`Resolver.ts:400`) | Porter l'état par message, ou sur le contexte de la connexion |
+| WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée — par TOUTES les connexions en singleton (le défaut), par toute la connexion en `@Scope("request")` (`Resolver.ts:805`) | Porter l'état par message, ou sur le contexte de la connexion |
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |
 | Contrôleur singleton : données d'un autre utilisateur | État muté que les filets ne voient pas (`#privé`, objet muté) sur l'instance partagée | Passer par les arguments décorés, ou déclarer `@Scope("request")` |
 | « Contrôleur … : écriture de « this.x » refusée » | Un état de requête écrit sur un singleton (le défaut) | Argument décoré, service `request`, ou `@Scope("request")` sur la classe |

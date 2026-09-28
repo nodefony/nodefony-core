@@ -102,7 +102,7 @@ framework garantit que l'ORM y est.
 Trois décisions structurent tout le reste.
 
 **1. Les phases sont un jeu figé.** Les événements de cycle de vie sont un bitmask gelé de onze
-valeurs — `Events` (`Kernel.ts:313`). La chaîne réelle est
+valeurs — `Events` (`Kernel.ts:322`). La chaîne réelle est
 `start() → preRegister() → boot() → onReady() → initServers()`, chaque maillon appelant le suivant.
 
 **2. Un hook de module ne peut pas geler le boot.** Les phases sensibles passent par
@@ -360,7 +360,7 @@ repli — sans quoi le journal écrivait « (anonyme) » et ne désignait person
 l'information compte le plus (en production, au moment où le boot s'arrête). `critical: false` reste
 silencieux : c'est une décision assumée, et un avertissement qu'on apprend à ignorer ne protège plus.
 
-L'arbitrage est fait par `Kernel.isBootErrorFatal()` (`Kernel.ts:3199`). Une exception : une erreur de
+L'arbitrage est fait par `Kernel.isBootErrorFatal()` (`Kernel.ts:3221`). Une exception : une erreur de
 **configuration** (`BootConfigurationError`) est fatale **même en développement** — un serveur vivant
 avec une config non honorée est un piège, pas un confort.
 
@@ -430,9 +430,9 @@ affiche les valeurs par défaut du framework et suggère exactement ce cas. Avec
 | #   | Événement        | Déclenché par                         | Ancrage          | Ce qui devient vrai                       |
 | --- | ---------------- | ------------------------------------- | ---------------- | ----------------------------------------- |
 | 1   | `onInit`         | constructeur                          | `Kernel.ts:314`  | le kernel existe, le container aussi      |
-| 2   | `onPreStart`     | `Kernel.start()`                      | `Kernel.ts:774`  | `tmp/` et `var/` garantis, log initialisé |
+| 2   | `onPreStart`     | `Kernel.start()`                      | `Kernel.ts:803`  | `tmp/` et `var/` garantis, log initialisé |
 | —   | (chargement app) | `Kernel.loadApp()`                    | `Kernel.ts:2403` | **config résolue + validée**              |
-| 3   | `onStart`        | `Kernel.start()`                      | `Kernel.ts:774`  | profil d'exécution figé                   |
+| 3   | `onStart`        | `Kernel.start()`                      | `Kernel.ts:803`  | profil d'exécution figé                   |
 | 4   | `onPreRegister`  | `Kernel.preRegister()`                | `Kernel.ts:1116` | **modules du manifeste chargés**          |
 | —   | (surcharges)     | `Kernel.applyModuleConfigOverrides()` | `Kernel.ts:1876` | `Module-*` puis `NF__*` appliqués         |
 | 5   | `onRegister`     | `Kernel.preRegister()`                | `Kernel.ts:1116` | configs de module **validées et gelées**  |
@@ -532,12 +532,12 @@ Un boot naïf attend chaque hook indéfiniment. Il suffit d'un `init` qui **pend
 hors ligne qui ne rejette jamais, un store bloqué — pour que le process reste figé jusqu'au `SIGKILL`
 de l'orchestrateur. Nodefony borne ça sur trois axes.
 
-- **Timeout par écouteur** — `NF_BOOT_TIMEOUT_MS` (`Kernel.ts:3160`), sinon **20 s en
+- **Timeout par écouteur** — `NF_BOOT_TIMEOUT_MS` (`Kernel.ts:3182`), sinon **20 s en
   développement, 60 s en production**. Large à dessein : il borne la pendaison infinie, pas la
   lenteur normale.
-- **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:3172`), un
+- **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:3194`), un
   `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:3964`).
-- **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:3199`) : fatal si le
+- **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:3221`) : fatal si le
   module est critique **et** (on est en production **ou** c'est une erreur de configuration) ; sinon
   `WARNING` et le boot continue.
 
@@ -604,7 +604,7 @@ serveurs HTTP en écouteur normal — donc en dernier. C'est nécessaire : le dr
 sockets promues en WebSocket **sans** trame de fermeture, il faut donc que les WS aient déjà dit au
 revoir (`createDrainTerminator()`, `serverShutdown.ts:25`).
 
-Le tout est borné par une **échéance globale** : `DEFAULT_SHUTDOWN_DEADLINE` (`Kernel.ts:249`), 15 s
+Le tout est borné par une **échéance globale** : `DEFAULT_SHUTDOWN_DEADLINE` (`Kernel.ts:256`), 15 s
 par défaut, choisi inférieur au délai de grâce d'un orchestrateur. Si un écouteur pend — flux SSE
 ouvert, store bloqué, module tiers — l'échéance gagne la course (`Kernel.ts:2858`), on logue en
 `CRITIC` et on **force la sortie en code 1**. Jamais de process zombie qui attend un `SIGKILL`
@@ -623,7 +623,7 @@ Deux mécanismes, à ne pas confondre.
 
 **Le profil d'exécution** — `IRunProfile` (`Kernel.ts:344`) — décrit ce dont le run a besoin :
 `{ servers, lifetime, interactive }`. Le défaut est console pur : `CONSOLE_RUN_PROFILE`
-(`Kernel.ts:377`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:1025`).
+(`Kernel.ts:386`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:1025`).
 
 **La phase cible** — chaque commande déclare la phase qui lui suffit. Dès qu'elle est atteinte,
 `Kernel.setCommandComplete()` (`Kernel.ts:2741`) coupe la chaîne et `Kernel.finishOrPark()`
@@ -653,7 +653,7 @@ démarre jamais un serveur par accident.
 
 ## Cluster et multi-process
 
-Le multi-process n'ajoute **aucune phase**. `Kernel.initCluster()` (`Kernel.ts:3099`) est appelé
+Le multi-process n'ajoute **aucune phase**. `Kernel.initCluster()` (`Kernel.ts:3108`) est appelé
 pendant `preRegister()` (`Kernel.ts:1116`) et se contente de constater le rôle du process — primaire ou
 travailleur — pour émettre `onCluster` et brancher le canal de messages inter-process.
 

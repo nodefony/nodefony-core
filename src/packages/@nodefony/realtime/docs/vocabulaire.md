@@ -438,7 +438,7 @@ contrôleur** que celle servie en REST, avec **la même garde**. Le pont n'attei
 déclarent explicitement le transport WebSocket — aucun contournement possible.
 
 `realtimeApiRequest()` (`RealtimeController.ts:276`), mise en œuvre `invokeApiRequest()`
-(`RealtimeController.ts:927`). Désactivé par défaut.
+(`RealtimeController.ts:949`). Désactivé par défaut.
 
 ## 🔌 Le protocole et le transport — ce qui passe sur le fil
 

@@ -33,7 +33,7 @@ function loadDebugbarBundle(): string | false {
 }
 
 // Module-level counter used by P1.2 onAfterResponse integration tests.
-// Lives outside the controller class because controllers are scoped per request.
+// Lives outside the controller: a singleton controller refuses per-request state on `this`.
 const afterResponseState = {
   count: 0,
   multiCount: 0,
@@ -84,8 +84,8 @@ export const securityHooksState = {
 
 // Context hooks (onSend/onClose) observation state — garde que les gardes
 // zéro-listener du pipeline (HttpContext #doSend/close) n'éteignent PAS un
-// hook réellement écouté. Singleton module-level : les controllers sont
-// scopés par requête.
+// hook réellement écouté. Module-level : un contrôleur singleton
+// refuse l'état de requête sur `this`.
 const contextHooksState = {
   onSendCount: 0,
   onCloseCount: 0,

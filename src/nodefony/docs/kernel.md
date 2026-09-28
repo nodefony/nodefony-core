@@ -424,8 +424,8 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
 | `getModule(nom)` | `Kernel.ts:1854` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1857` | la table complète, **par référence** (ne pas la muter) |
-| `modules`        | `Kernel.ts:616`  | le même objet, en accès direct                         |
+| `getModules()`   | `Kernel.ts:1863` | la table complète, **par référence** (ne pas la muter) |
+| `modules`        | `Kernel.ts:624`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
 `undefined`, pas une erreur. Le tester est donc à ta charge — c'est aussi le bon moyen de rendre une
@@ -438,7 +438,7 @@ un conteneur neuf ou un premier boot ne les ont pas.
 
 | Membre   | Ancre           | Ce qu'on y met                                                                   |
 | -------- | --------------- | -------------------------------------------------------------------------------- |
-| `path`   | `Kernel.ts:576` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
+| `path`   | `Kernel.ts:586` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
 | `varDir` | `Kernel.ts:628` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
 | `tmpDir` | `Kernel.ts:622` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
 
@@ -454,8 +454,8 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | Membre                      | Ancre            | Note                                                                   |
 | --------------------------- | ---------------- | ---------------------------------------------------------------------- |
 | `options`                   | —                | La config de l'app, résolue et validée au chargement de celle-ci.      |
-| `environment`               | `Kernel.ts:420`  | Le mode **moteur** : `"development"` ou `"production"`.                |
-| `domain`                    | `Kernel.ts:630`  | Le nom d'hôte retenu, résolu au boot.                                  |
+| `environment`               | `Kernel.ts:429`  | Le mode **moteur** : `"development"` ou `"production"`.                |
+| `domain`                    | `Kernel.ts:638`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
 | `getBootReport()`           | `Kernel.ts:3408` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
@@ -493,8 +493,8 @@ même chose.
 
 | Émetteur                | Ancre            | Comportement                                                     | Employé pour           |
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
-| `fire(nom, …)`          | `Kernel.ts:3143` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
-| `fireAsync(nom, …)`     | `Kernel.ts:3162` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
+| `fire(nom, …)`          | `Kernel.ts:3147` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
+| `fireAsync(nom, …)`     | `Kernel.ts:3166` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
 | `fireLifecycle(nom, …)` | `Kernel.ts:3896` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
@@ -506,7 +506,7 @@ La règle de choix tient en une ligne : **si le résultat de l'écouteur t'impor
 timer, aucune allocation par requête. La résilience du boot ne se paie pas au prix de la requête.
 
 > [!NOTE]
-> Les trois émetteurs journalisent une ligne `DEBUG` par événement émis (`Kernel.ts:3062`). Utile
+> Les trois émetteurs journalisent une ligne `DEBUG` par événement émis (`Kernel.ts:3148`). Utile
 > pour suivre un boot ; c'est aussi pourquoi un `NF__DEBUG` large rend le démarrage très bavard.
 
 ### Le piège du listener non tagué
@@ -619,8 +619,8 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | Config du module ignorée                                  | Défauts du constructeur écrasés par `use()` puis par l'environnement             | Comportement voulu — lire `this.config`, pas les défauts écrits      |
 | Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:401`)                         | Charger le module, ou retirer la clé                                 |
 | `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:134`)                    | Déplacer le réglage dans `onKernelStart()`                           |
-| Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:3143`)                         | `fireAsync()` si le résultat compte                                  |
-| Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:3062`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |
+| Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:3147`)                         | `fireAsync()` si le résultat compte                                  |
+| Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:3148`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |
 | Fichier de config qui plante à l'import                   | Kernel déréférencé au premier niveau                                             | `defineConfig((ctx) => …)` ou getter paresseux                       |
 
 ## 🧪 Tests & couverture

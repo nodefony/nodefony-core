@@ -568,7 +568,7 @@ Les points de passage, dans l'ordre du code :
    lisent l'environnement au boot, il doit donc déjà être là.
 2. **`Kernel.buildConfigContext()`** (`Kernel.ts:2049`) fabrique `ctx`. Le catalogue `env` exporté par
    l'app y est branché (`Kernel.ts:1146`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
-3. **`descriptor.resolve(ctx)`** (`Kernel.ts:2468`) enchaîne merge, overrides `NF__APP__*` et
+3. **`descriptor.resolve(ctx)`** (`Kernel.ts:4340`) enchaîne merge, overrides `NF__APP__*` et
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
    est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:106`)
@@ -591,7 +591,7 @@ s'y branchent via `resolveAutoStore()` (`infra.ts:297`).
 La doctrine est explicite : `auto` ne choisit que parmi les backends **réellement enregistrés**, et
 tout repli est **annoncé**, jamais silencieux. Une valeur explicite ne passe jamais par `auto`. La
 résolution effective de chaque brique est enregistrée au boot (`Kernel.registerStoreResolution()`,
-`Kernel.ts:2124`) — donc consultable après coup, plutôt que devinée.
+`Kernel.ts:2136`) — donc consultable après coup, plutôt que devinée.
 
 ### Quand la config est invalide — le boot s'arrête proprement
 

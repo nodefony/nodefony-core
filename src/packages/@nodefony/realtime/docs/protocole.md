@@ -337,10 +337,10 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 
 | Méthode            | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
-| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:507` |
+| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:522` |
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:775` |
 | `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:882`     |
-| `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:950` |
+| `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:972` |
 | `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:736` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:693` |
 | `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:496` |
@@ -349,7 +349,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 
 > [!TIP]
 > **L'accueil est ta carte du territoire.** `methods` et `channels` sont construits à partir de ce
-> que l'endpoint expose réellement (`RealtimeController.ts:688`) : un client peut activer ou griser
+> que l'endpoint expose réellement (`RealtimeController.ts:710`) : un client peut activer ou griser
 > ses commandes sans rien coder en dur. Côté navigateur, ils se lisent en `socket.serverMethods` et
 > `socket.serverChannels`.
 
@@ -364,7 +364,7 @@ Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma 
 > n'attend jamais de réponse.
 
 `subscribe` et `unsubscribe` ne sont **pas** des actions enregistrées : elles sont traitées dans
-`onRealtimeNotification()` (`RealtimeController.ts:762`). Envoyées avec un `id`, elles seraient
+`onRealtimeNotification()` (`RealtimeController.ts:784`). Envoyées avec un `id`, elles seraient
 classées « requête », ne trouveraient aucun handler et récolteraient un `-32601`.
 
 ## Une conversation type, de bout en bout
@@ -402,7 +402,7 @@ de `RpcError`.
 | `-32603` | même méthode (`JsonRpcPeer.ts:528`)                        | le handler a levé une exception **ordinaire**       | `internal error` — générique, rien d'autre     |
 | `-32001` | le refus du verrou de frame (`JsonRpcPeer.ts:400`)         | `beforeDispatch` a dit non **sur une requête**      | `unauthorized`, sans jamais dire pourquoi      |
 | `-32000` | défaut du constructeur de `RpcError` (`JsonRpcPeer.ts:74`) | le handler expose volontairement son refus          | le message ET le `data` choisis par le handler |
-| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts:765`)  | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
+| `-32602` | le pont API, via `RpcError` (`RealtimeController.ts:787`)  | `api.request` appelé avec un `params.path` invalide | message explicite (l'appel est malformé)       |
 
 Et un échec qui n'est **pas** une frame : l'expiration. `startCall()` ne reçoit rien dans le délai
 imparti, supprime l'entrée en attente et rejette localement avec `RPC timeout: <méthode>`

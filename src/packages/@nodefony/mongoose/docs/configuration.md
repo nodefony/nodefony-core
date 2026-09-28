@@ -665,7 +665,7 @@ coûteux à diagnostiquer qu'un serveur qui refuse de démarrer.
 
 Le cas courant : la config est parfaite, mais Mongo n'est pas joignable — conteneur pas encore prêt,
 réseau coupé, identifiants périmés. Le comportement **dépend de l'environnement**, arbitré par la
-politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:3199`)) :
+politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:3221`)) :
 
 | Environnement       | Ce qui se passe                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------- |

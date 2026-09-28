@@ -90,7 +90,7 @@ export class OrderService extends Service {
   }
 }
 
-// 2. Depuis un controller (per-request) — par la clé container
+// 2. Depuis un controller (singleton par défaut) — par la clé container
 class OrderController extends Controller {
   async index() {
     const users = this.kernel.get<UserService>("userService");

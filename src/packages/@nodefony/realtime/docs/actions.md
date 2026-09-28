@@ -510,7 +510,7 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:927`). Il est **désactivé par défaut** et s'active en surchargeant
+(`RealtimeController.ts:949`). Il est **désactivé par défaut** et s'active en surchargeant
 `realtimeApiRequest()` (`RealtimeController.ts:276`).
 
 ```ts ignore

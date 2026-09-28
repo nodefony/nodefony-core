@@ -4,9 +4,9 @@ import { RequestContext } from "nodefony";
 
 /**
  * Shared observation state for the ALS propagation integration tests
- * (BUG-001 WS messages, BUG-002 onAfterResponse). Module-level singleton —
- * controllers are scoped per request, so the captured values must live
- * outside the instance. Read back over HTTP via `/als-test/state`.
+ * (BUG-001 WS messages, BUG-002 onAfterResponse). Module-level — a controller
+ * is a shared singleton whose `this` refuses per-request writes, so the
+ * captured values must live outside the instance. Read back over HTTP via `/als-test/state`.
  */
 export const alsTestState = {
   // BUG-002 HTTP — requestId seen by an after-response hook, keyed by ctx id.
@@ -39,7 +39,7 @@ type ContextEmitter = {
 /**
  * Traceur des contextes HTTP : chaque contexte créé est inscrit dans un
  * `FinalizationRegistry`, qui le décompte quand le ramasse-miettes l'a
- * réclamé. Module-level : il survit aux contrôleurs, qui sont par requête.
+ * réclamé. Module-level : un contrôleur singleton refuse l'état de requête sur `this`.
  *
  * Le compte est tenu par ÉPOQUE : `mark()` ouvre une époque neuve, et seuls les
  * contextes nés depuis y sont comptés. Sans cela, la base d'une boucle compte

@@ -154,10 +154,10 @@ class PipelineController extends Controller {
     super("PipelineController", context);
   }
 
-  // `initialize()` fait partie de la RÉSOLUTION : il tourne AVANT la session
-  // et AVANT le firewall. N'y suppose jamais un utilisateur authentifié.
+  // `initialize()` tourne UNE fois, à la création du singleton (défaut) : rien
+  // de propre à une requête ici — ni identité, ni route, ni session.
   async initialize(): Promise<this> {
-    this.log(`résolution de ${this.route?.name}`, "DEBUG");
+    this.log("PipelineController créé", "DEBUG");
     return this;
   }
 
@@ -534,7 +534,7 @@ où ; les pages dédiées disent comment.
 | Session               | avant le firewall (`http-kernel.ts:1288`)              | l'authenticator de session lit la session reprise                      |
 | Firewall              | juste avant l'action (`firewall.ts:561`)               | la zone dépend de la route, donc du routage                            |
 | Idempotence           | dans l'appel d'action (`Resolver.ts:506`)              | seules les actions `@Idempotent` dévient — coût nul ailleurs           |
-| Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:362`)        | un 403 ne doit pas exécuter une ligne de ton action                    |
+| Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:406`)        | un 403 ne doit pas exécuter une ligne de ton action                    |
 | Origin WebSocket      | au handshake (`http-kernel.ts:509`)                    | l'anti-CSWSH remplace le CORS, absent des WebSockets                   |
 
 Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
@@ -603,7 +603,7 @@ indicatif.
 | Mon hook ne voit pas les fichiers statiques            | Le statique est un repli du 404 : il court-circuite la suite du pipeline    | Servir l'actif par une route si une politique doit s'y appliquer             |
 | Un fichier « privé » est accessible sans être connecté | Idem : le firewall n'est pas atteint sur un fichier servi                   | Sortir l'actif du dossier public, le streamer depuis un contrôleur protégé   |
 | La requête pend puis meurt en 408                      | L'action a retourné une valeur non rendable (instance de classe, `void`)    | Retourner un objet, une chaîne, un nombre, un `Buffer` — ou envoyer soi-même |
-| `initialize()` ne voit ni session ni utilisateur       | Il tourne à la résolution, **avant** session et firewall                    | Déplacer la logique dans l'action, ou lire `context.user` là                 |
+| `initialize()` voit l'utilisateur d'une AUTRE requête  | Singleton (défaut) : il ne tourne qu'une fois, pour la requête qui l'a créé | Lire l'identité dans l'action, ou déclarer `@Scope("request")`               |
 | 499 dans les logs                                      | Le client a coupé avant la réponse                                          | Normal ; jamais écrit sur le fil, uniquement observé                         |
 | Ma WebSocket est fermée en 1008 dès le handshake       | Origine tierce refusée (anti-CSWSH)                                         | Déclarer l'origine dans la politique WebSocket du serveur                    |
 | Ma WebSocket est fermée en 1013                        | Débit de handshakes ou nombre de connexions par IP au-delà du quota         | Réduire la reconnexion agressive côté client ; revoir les bornes             |

@@ -1600,7 +1600,7 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 | Les trois décorateurs | `RealtimeAction()` (`realtimeDecorators.ts:101`), `RealtimeChannel()` (`realtimeDecorators.ts:192`), `RealtimeInbound()` (`realtimeDecorators.ts:231`) |
 | La porte WebSocket | `RealtimeController.handleRealtime()` (`RealtimeController.ts:299`) |
 | Le pont HTTP ⇄ WebSocket | `RealtimeController.realtimeApiRequest()` (`RealtimeController.ts:276`) |
-| L'abonnement et son cycle de vie | `RealtimeHub.subscribe()` (`RealtimeHub.ts:462`), `RealtimeController.startChannel()` (`RealtimeController.ts:793`) |
+| L'abonnement et son cycle de vie | `RealtimeHub.subscribe()` (`RealtimeHub.ts:462`), `RealtimeController.startChannel()` (`RealtimeController.ts:815`) |
 | La publication et le fan-out | `RealtimeHub.publish()` (`RealtimeHub.ts:604`), réinjection locale `RealtimeHub.publishLocal()` (`RealtimeHub.ts:623`) |
 | Les canaux diffusables | `RealtimeBroadcast` (`realtimeDecorators.ts:342`), `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`) |
 | Le branchement du backplane | `RealtimeHub.setBackplane()` (`RealtimeHub.ts:714`), registre `registerBackplaneDriver()` (`backplaneRegistry.ts:55`), cloison `resolveBackplaneOriginId()` (`originId.ts:24`) |

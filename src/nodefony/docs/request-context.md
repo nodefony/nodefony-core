@@ -295,7 +295,7 @@ les autres par une signature d'index. Chaque couche y dépose ce qui la concerne
 | `queries`         | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
 | `invocation`      | le pont WS-RPC                     | profil de **la trame** en cours (phases + requêtes ORM)                     |
 | `body`            | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
-| `idempotencyKey`  | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:546`)                                |
+| `idempotencyKey`  | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:578`)                                |
 | `renderSink`      | le pont WS-RPC                     | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
 
 Les couches supérieures exposent ces clés sous une forme **typée**, à préférer quand elle existe :
@@ -304,7 +304,7 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
 | l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1283` |
 | le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:238`        |
-| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:362`          |
+| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:406`          |
 
 ## 🔌 Où la bulle est ouverte
 
@@ -318,7 +318,7 @@ qui ouvre quoi.
 | --- | --- | --- |
 | HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1324`) | CORS, routage, firewall, ton action, rendu |
 | WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1661`) | poignée de main, firewall, **et toutes les trames** |
-| WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:1010`) | **une** invocation : corps, clé d'idempotence, profil |
+| WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:949`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:520`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Les trois premières bulles portent le scope DI de la requête (`scope`, rendu par `getScope()`) ;
@@ -429,7 +429,7 @@ jeton complet** — rôles, périmètres, attributs (`firewall.ts:632`). Quatre 
    met une identité **déjà vérifiée**, jamais un authentifiant (mot de passe, secret brut).
 2. **Lire l'identité n'est pas autoriser.** `getUser()` rend `unknown` : c'est un transport, pas une
    décision. L'autorisation passe par le firewall et ses décorateurs, qui lisent le **jeton**
-   (`Resolver.ts:681`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
+   (`Resolver.ts:724`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
 3. **Une identité de WebSocket peut vieillir.** La bulle de connexion porte l'identité captée à la
    poignée de main, et la connexion peut durer des heures — alors que la session, elle, peut être
    révoquée entre-temps. C'est pourquoi le pont WS-RPC **revalide** l'identité à chaque invocation

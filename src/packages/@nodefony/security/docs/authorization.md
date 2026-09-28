@@ -364,16 +364,16 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:424-433`)                              |
 | empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1579`)                          |
 | décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1544`)                         |
-| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:754-758`)                                  |
+| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:789`)                                      |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:1002`)         |
 | `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:953`) |
 | `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1283`)                                |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
-403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:672-677`). Le
+403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:406-408`). Le
 même `executeAction` sert le pipeline HTTP **et** l'invoke WS-RPC : une garde, tous les
 transports. L'enforcement déroule chaque clause : OR interne via un `decide()` par attribut, AND
-entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:672-702`).
+entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:719`).
 
 > [!IMPORTANT]
 > **Fail-closed intégral** : route gardée mais moteur `authorization` absent (module security non
@@ -541,7 +541,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 ## ⚡ Performance & mémoire
 
 - **Hot path à coût nul** : une route non gardée porte `security: null` → 0 lookup, 0 await, 0
-  alloc (`Resolver.ts:371`) ; l'exigence est **figée une fois** par route et partagée entre
+  alloc (`Resolver.ts:406`) ; l'exigence est **figée une fois** par route et partagée entre
   requêtes (`SecurityRequirement`, `routerDecorators.ts:444`).
 - **`decide()` sans allocation** : itération en place des voters (`authorization.ts:70-72`),
   instanciés **une seule fois** au boot (`authorization.ts:70`).

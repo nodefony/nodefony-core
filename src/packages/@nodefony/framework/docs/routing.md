@@ -509,7 +509,7 @@ d'une route — il survit à un changement de chemin.
 | ---------------------------------------- | ------------------------------------------------------------------------- |
 | Retrouver une route par son nom          | `router.getRoutes("ma-route")` → l'objet `Route` (`router.ts:326`)        |
 | Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:415`)              |
-| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:415`) |
+| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:404`) |
 | Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:670`)          |
 | Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:424`)                       |
 
@@ -565,7 +565,7 @@ alloué par requête.
   n'est même construite (`routeNoticePromoted`, `router.ts:306`).
 - **Métadonnées d'action mémoïsées par route** au premier passage (`@HttpCode`, `@Header`, `@Redirect`,
   paramètres, intention de session) : plus aucune lecture `Reflect` par requête
-  (`resolveActionMeta`, `Resolver.ts:469`).
+  (`resolveActionMeta`, `Resolver.ts:491`).
 
 ## 📜 Normes appliquées
 

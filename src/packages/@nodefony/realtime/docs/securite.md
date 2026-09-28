@@ -295,7 +295,7 @@ n'est jamais traitée.
 `RealtimeController.onHandshake()` (`RealtimeController.ts:374`) exécute, une fois par connexion :
 
 1. Construction d'un DTO neutre `IRealtimeHandshake` par `buildHandshakeFromContext()`
-   (`RealtimeController.ts:1176`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
+   (`RealtimeController.ts:1198`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
    dépendance à `@nodefony/security` dans le contrat.
 2. Contrôle d'origine (verrou 1).
 3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:961`) :
@@ -321,7 +321,7 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 - `host` optionnel → comparaison **stricte** (insensible à la casse) sur l'en-tête `Host`, sans
   wildcard.
 - Le match porte sur le **path**, query comprise, jamais sur l'URL absolue : `handshakePath()`
-  (`RealtimeController.ts:1228`) extrait `pathname + search` du `WebsocketContext.url`, qui est
+  (`RealtimeController.ts:1250`) extrait `pathname + search` du `WebsocketContext.url`, qui est
   absolu. Sans cette extraction, un matcher `^/nodefony/…` ne se déclencherait jamais.
 
 `@nodefony/security` enregistre ces matchers automatiquement dans `Firewall.#wireRealtime()`
@@ -536,7 +536,7 @@ C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:279`) : san
 évaluée — ni métier, ni système. `nodefony:syslog` redevient un canal ordinaire.
 
 Deuxième subtilité : `beforeDispatch` n'est branché sur une connexion que si le verrou est **déjà**
-posé au moment de son handshake (`RealtimeController.ts:477`, via
+posé au moment de son handshake (`RealtimeController.ts:504`, via
 `RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:1058`). Choix de performance délibéré (un hub
 non sécurisé garde un coût nul par frame), mais avec une conséquence : **une connexion ouverte avant
 la pose du verrou n'est jamais gardée**, et ce jusqu'à sa fermeture. En fonctionnement normal le
@@ -600,7 +600,7 @@ Nodefony ferme l'écart par deux mécanismes de granularité différente.
 
 | Surface                     | Re-validation        | Fenêtre d'exposition | Où                                                                    |
 | --------------------------- | -------------------- | -------------------- | --------------------------------------------------------------------- |
-| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:927`) |
+| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:949`) |
 | `subscribe` / flux de canal | **périodique**, 30 s | ≤ 30 s               | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:826`)            |
 
 **Sur `api.request`**, `token.isValid()` est appelé avant l'exécution de l'action ; identité périmée
@@ -608,7 +608,7 @@ ou changée → `-32000` avec `status: 401`, et le client bascule sur un `fetch`
 courant. Une erreur de re-validation vaut refus (fail-closed).
 
 **Sur les canaux**, le hub n'inscrit au registre de révocation que les connexions dont le token porte
-`isValid` (`RealtimeController.ts:634`) — anonymes et JWT n'y entrent jamais, coût nul.
+`isValid` (`RealtimeController.ts:659`) — anonymes et JWT n'y entrent jamais, coût nul.
 `RealtimeHub.registerRevocable()` (`RealtimeHub.ts:794`) démarre un `setInterval` `unref` au premier
 inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Période :
 `REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:111`), 30 s, alignée sur le heartbeat WS.
@@ -652,7 +652,7 @@ pas** borné.
 Chaque canal ouvert coûte un provider, un ticker et une entrée de Map. Sans borne, une connexion
 peut abonner jusqu'à l'OOM — un déni de service mémoire déclenché par **un seul** client.
 
-`RealtimeController.startChannel()` (`RealtimeController.ts:793`) refuse au-delà de
+`RealtimeController.startChannel()` (`RealtimeController.ts:815`) refuse au-delà de
 `limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:142`), défaut **256**,
 `null` pour illimité. Points prouvés par `realtimeChannelCap.attack.test.ts` :
 

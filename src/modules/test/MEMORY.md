@@ -76,7 +76,7 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 
 ## Session
 
-DefaultController + RestController : `initialize()` → `this.startSession("test")`.
+DefaultController + RestController : session par `@UseSession()` sur la classe (aucun `initialize()`).
 RestController injecte `@inject("session")`.
 
 ## Sécurité (banc P6)

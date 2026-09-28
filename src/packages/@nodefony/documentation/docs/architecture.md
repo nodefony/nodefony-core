@@ -543,7 +543,7 @@ par seconde. La discipline reste la même.
   comparaison de dates), pas par un `setInterval` qui tournerait au repos.
 - **Une seule lecture par page servie.** Frontmatter, variables et liens sont traités sur la
   même chaîne, en un passage chacun.
-- **Rien n'est retenu entre deux requêtes HTTP.** Le contrôleur est réinstancié et sans état ;
+- **Rien n'est retenu entre deux requêtes HTTP.** Le contrôleur est un singleton qui ne garde rien sur `this` ;
   la mémoire du module est bornée par la taille de l'index, pas par le trafic.
 
 Le seul vrai facteur de coût est le **nombre de fichiers scannés**, multiplié par la fréquence
