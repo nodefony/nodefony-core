@@ -1,4 +1,10 @@
-import { logColor, setLogColor, resolveColorEnabled } from "../syslog/logColor";
+import {
+  logColor,
+  setLogColor,
+  resolveColorEnabled,
+  isLogColorEnabled,
+} from "../syslog/logColor";
+import { renderBrand, resolveBrandCharset } from "../cli/brand";
 import cluster from "node:cluster";
 import fs from "node:fs";
 import os from "node:os";
@@ -1023,13 +1029,10 @@ class Kernel extends Service implements IKernel {
     const devSplash =
       this.environment === "development" && process.env.NF_DEV_CHILD === "1";
     if (this.cli && devSplash) {
-      await this.cli.showAsciify(this.projectName).catch((e: unknown) => {
-        this.log(e, "WARNING");
-      });
-      // Header consolidé (version + env + meta) juste SOUS l'ASCII, AVANT tout log de
-      // boot → ordre stable dans tous les modes dev (animé / debug / non-TTY). Couleurs
-      // gatées TTY par logColor. initCluster() ne ré-imprime PAS logEnv (reporterOwnsHeader),
-      // ni la ligne « Version … ». Le BootReporter ne pose que la checklist (✓/spinner).
+      // Bannière (logo + mot + encart version/env/meta), AVANT tout log de boot →
+      // ordre stable dans tous les modes dev (animé / debug / non-TTY). Précalculée :
+      // plus de figlet au démarrage. initCluster() ne ré-imprime PAS logEnv
+      // (reporterOwnsHeader). Le BootReporter ne pose que la checklist (✓/spinner).
       this.printDevHeader();
       this.reporterOwnsHeader = true;
     }
@@ -3023,9 +3026,9 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
-   * Header de boot dev consolidé, imprimé juste sous l'ASCII (dev-only) : nom +
-   * version + environnement + meta (`cluster · platform · node · pid`). Remplace la
-   * ligne « Version … » et le banner « SERVER … » bruts. Couleurs gatées TTY (logColor).
+   * Bannière de boot dev (dev-only) : logo, mot « nodefony » et encart — version,
+   * application et environnement, runtime, topologie. Rendue par `renderBrand`
+   * (précalculée, sans figlet) ; couleurs gatées comme les journaux (logColor).
    */
   private printDevHeader(): void {
     let version = "";
@@ -3035,30 +3038,37 @@ class Kernel extends Service implements IKernel {
     } catch {
       /* commander sans version définie — ignore */
     }
-    const meta = [
-      this.typeCluster,
-      process.platform,
-      `node ${process.version}`,
-      `pid ${process.pid}`,
-      // Rappel du volet TTY (découvrabilité) : interactif possible SSI interactive && tty.
-      `tty ${this.isTTY ? "yes" : "no"}`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    const tag = version ? ` ${logColor.blackBright(`v${version}`)}` : "";
-    const env = `   ${logColor.green(this.environment)}`;
     // Axe DÉPLOIEMENT (APP_ENV / NF_ENV) affiché seulement s'il DIFFÈRE du
     // mode runtime — sinon redondant. Lu DIRECTEMENT depuis l'env (ambient) car le
     // header s'imprime avant que `setEnv` n'ait résolu `appEnvironment`. Cf deux axes.
     const appEnv = process.env.APP_ENV || process.env.NF_ENV;
-    const deploy =
+    const env =
       appEnv && appEnv !== this.environment
-        ? ` ${logColor.blackBright("·")} ${logColor.magenta(appEnv)}`
-        : "";
-    console.log(
-      `  ${logColor.cyan("⬢")} ${logColor.cyanBold("Nodefony")}${tag}${env}${deploy}`,
+        ? `${this.environment} · ${appEnv}`
+        : this.environment;
+    const rows = [
+      { label: "app", value: `${this.projectName} · ${env}` },
+      {
+        label: "node",
+        value: `${process.version} · ${process.platform} · pid ${process.pid}`,
+      },
+      // Rappel du volet TTY (découvrabilité) : interactif possible SSI interactive && tty.
+      {
+        label: "mode",
+        value: [this.typeCluster, this.isTTY ? "tty" : "sans tty"]
+          .filter(Boolean)
+          .join(" · "),
+      },
+    ];
+    process.stdout.write(
+      renderBrand({
+        ...(version ? { version } : {}),
+        rows,
+        columns: process.stdout.columns || 80,
+        color: isLogColorEnabled(),
+        charset: resolveBrandCharset(process.platform, process.env),
+      }),
     );
-    console.log(`  ${logColor.blackBright(meta)}\n`);
   }
 
   logEnv(): string {

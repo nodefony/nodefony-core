@@ -16,11 +16,12 @@ import { readCliManifest } from "../../cli/completion";
 import { portableSpawn } from "../../cli/execPortable";
 import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
 import { resolveColorEnabled } from "../../syslog/logColor";
+import { renderBrand, resolveBrandCharset } from "../../cli/brand";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
-  // L'en-tête du menu est UNE ligne sobre (posée par interaction) — pas
-  // l'ascii-art : un menu se lit, il ne s'annonce pas.
+  // L'en-tête du menu est la bannière de la marque (posée par interaction),
+  // précalculée — pas l'ascii-art figlet du nom de l'application.
   showBanner: false,
   kernelEvent: "onStart",
 };
@@ -240,13 +241,28 @@ class Menu extends Command {
       builtinCommands: this.builtinCommands(),
       npmScripts: this.npmScriptsFromPackageJson(),
     });
-    const version = this.kernel?.version ? ` v${this.kernel.version}` : "";
-    process.stdout.write(
-      `\n${this.#bold(this.kernel?.projectName ?? "nodefony")}${this.#dim(version)}\n`,
-    );
+    const banner = renderBrand({
+      ...(this.kernel?.version ? { version: this.kernel.version } : {}),
+      rows: [
+        {
+          label: "app",
+          value: this.kernel?.trunk ? this.kernel.projectName : "hors projet",
+        },
+        {
+          label: "node",
+          value: `${process.version} · ${process.platform}`,
+        },
+      ],
+      columns: process.stdout.columns || 80,
+      color: this.#color,
+      charset: resolveBrandCharset(process.platform, process.env),
+    });
+    process.stdout.write(banner);
+    // La liste garde sa place : la bannière est retranchée de la hauteur utile.
+    const bannerLines = banner.split("\n").length - 1;
     const pageSize = Math.max(
       8,
-      Math.min(items.length + 8, (process.stdout.rows || 24) - 6),
+      Math.min(items.length + 8, (process.stdout.rows || 24) - 6 - bannerLines),
     );
     const selected = await this.prompts
       .search<string>({

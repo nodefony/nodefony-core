@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 879,
-    "symbols": 4364,
+    "files": 880,
+    "symbols": 4376,
     "classes": 404,
-    "interfaces": 1145,
-    "types": 469,
+    "interfaces": 1147,
+    "types": 470,
     "enums": 4,
-    "functions": 1906,
-    "constants": 436
+    "functions": 1910,
+    "constants": 441
   },
   "symbols": {
     "Cli": {
@@ -1120,6 +1120,87 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le MIROIR pour Claude Code — parce que le pari « c'est aux clients d'ajouter `.agents/skills/` » a été MESURÉ perdu. Constaté sur une application générée (claude-code 2.1.238, mode headless) : les …"
+    },
+    "IBrandRow": {
+      "name": "IBrandRow",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une ligne de l'encart : une étiquette courte et sa valeur."
+    },
+    "IBrandOptions": {
+      "name": "IBrandOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que `renderBrand` compose."
+    },
+    "BrandCharset": {
+      "name": "BrandCharset",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Jeu de caractères que le terminal sait afficher."
+    },
+    "renderBrand": {
+      "name": "renderBrand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose la bannière pour la largeur donnée. - large : logo, mot et encart côte à côte ; - moyen : logo et mot, l'encart dessous ; - étroit : le seul titre et l'encart — jamais une ligne coupée."
+    },
+    "resolveBrandCharset": {
+      "name": "resolveBrandCharset",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Jeu de caractères à employer. Hors Windows, tout terminal courant a le braille. Sous Windows, seuls Windows Terminal (`WT_SESSION`) et les terminaux intégrés qui se déclarent (`TERM_PROGRAM`, VS Co…"
+    },
+    "BRAND_LOGO": {
+      "name": "BRAND_LOGO",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'identité visuelle du terminal : le logo Nodefony (trois arcs emboîtés — bleu, vert, bleu ciel) et le mot « nodefony », avec un encart d'informations. Tout est PRÉCALCULÉ : ces lignes sont des con…"
+    },
+    "BRAND_LOGO_COLORS": {
+      "name": "BRAND_LOGO_COLORS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Couleur de chaque caractère du logo : `b` arc extérieur bleu, `g` vert, `c` bleu ciel."
+    },
+    "BRAND_LOGO_ASCII": {
+      "name": "BRAND_LOGO_ASCII",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le même logo en ASCII pur, pour une console dont la police n'a pas le braille (Consolas, police par défaut de la console Windows classique)."
+    },
+    "BRAND_LOGO_ASCII_COLORS": {
+      "name": "BRAND_LOGO_ASCII_COLORS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "BRAND_WORDMARK": {
+      "name": "BRAND_WORDMARK",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/brand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le mot « nodefony » : police figlet Standard, lettres à pleine largeur, figé ici."
     },
     "parseCardArgv": {
       "name": "parseCardArgv",
@@ -33506,6 +33587,18 @@
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
+      "isLogColorEnabled": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/syslog/Syslog.ts"
+      ],
+      "renderBrand": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
+      "resolveBrandCharset": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts"
+      ],
       "engineModeOf": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/checks/gating.ts"
@@ -34032,9 +34125,6 @@
       "ISyslog": [
         "src/nodefony/src/syslog/Syslog.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
-      ],
-      "isLogColorEnabled": [
-        "src/nodefony/src/syslog/Syslog.ts"
       ],
       "nodefonyBin": [
         "src/nodefony/src/testing/index.ts"
