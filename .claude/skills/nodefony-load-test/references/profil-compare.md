@@ -39,28 +39,15 @@ Les règles qui en découlent :
 
 ## Ce que le profil ne voit pas — `wait-compare.sh` et `native-sample.mjs`
 
-Le profil V8 échantillonne le JavaScript ; il ne dit ni si le process ATTEND, ni
-ce que coûtent le C++ de Node, les builtins et le runtime V8 hors fonction nommée.
-Mesuré sur #508 : il comptait ~36 µs/req là où le fil principal en brûlait ~60–90,
-annonçait la parité d'une passe à l'autre puis 119 %, et **sur-attribuait les
-petites fonctions d'un facteur ~15** (8,5 µs prêtés au traitement du `Host`, 0,5 µs
-au micro-banc). Deux instruments complètent :
+Le profil V8 échantillonne le JavaScript ; il ne dit ni si le process ATTEND, ni ce que coûtent
+le C++ de Node, les builtins et le runtime V8. Mesuré sur #508 : il comptait ~36 µs/req là où le
+fil principal en brûlait ~60–90, annonçait la parité d'une passe à l'autre puis 119 %, et
+**sur-attribuait les petites fonctions d'un facteur ~15**. Conséquences :
 
-```bash
-S=.claude/skills/nodefony-load-test/scripts
-bash $S/wait-compare.sh nest-fair 3                    # sonde wait-probe.mjs, paires alternées
-NF_NATIVE_SAMPLE=1 NF_WAIT_DIR=tmp/wait-native bash $S/wait-compare.sh nest-fair 2
-node $S/native-sample.mjs <capA> <rpsA> <capB> <rpsB>  # écart par famille native, puis par frame
-```
+- un levier de quelques µs se juge au **CPU du fil principal par requête** (`wait-compare.sh`,
+  dispersion < 1 %), pas au profil ni au débit ;
+- une famille native (builtins, chaînes, noyau…) se découpe par `native-sample.mjs` ;
+- le profil garde un rôle : NOMMER la fonction JS — puis la convertir en ns par un micro-banc.
 
-- **`wait-compare.sh`** (+ `wait-probe.mjs`, `wait-analyze.mjs`) : ELU, CPU du FIL
-  principal contre process, GC, tours libuv, écritures socket, changements de
-  contexte — ramenés à la requête. Le **CPU du fil par requête** a une dispersion
-  < 1 % (résolution ~0,7 µs) : c'est l'arbitre A/B d'un levier de quelques µs, bien
-  plus fin que le débit (±8 %) et que le profil.
-- **`native-sample.mjs`** relit `sample` (macOS, sans root) : toute la pile du fil
-  principal, par famille (JIT, builtins, chaînes, runtime, noyau, parseur, GC).
-  Les frames JIT sont anonymes : pour NOMMER la fonction JS, revenir au profil,
-  puis **convertir en ns par un micro-banc** avant d'y croire.
-- `sample` suspend le fil à chaque relevé : le débit du run baisse, également pour
-  les deux camps — il ATTRIBUE, il ne chiffre pas.
+Mode d'emploi, lecture de chaque ligne et pièges : [`catalogue.md`](catalogue.md)
+§ « Mesurer ce que le profil ne voit pas ».

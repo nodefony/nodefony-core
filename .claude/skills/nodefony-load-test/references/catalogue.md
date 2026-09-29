@@ -1,6 +1,6 @@
 # Catalogue des scripts — ce que chacun prouve
 
-> Les trente et un scripts de `scripts/`, avec **ce qu'ils prouvent** et comment les lancer. Le corps
+> Les scripts de `scripts/`, avec **ce qu'ils prouvent** et comment les lancer. Le corps
 > du skill détaille les bancs de charge les plus utilisés ; cette page couvre **tous** les autres,
 > qui restaient introuvables autrement qu'en listant le dossier.
 >
@@ -52,6 +52,8 @@ lancement depuis un sous-dossier, qui ferait booter un « projet fantôme ».
 | `route-scan-cost.mjs`     | —             | combien de `Route.match` chaque requête paie, ce que ce scan coûte, et comment il grandit à N routes                                                                                                                                                                                                   |
 | `db-backend-cost.mjs`     | —             | ce qu'un pilote de base coûte au serveur : latence, blocage de la boucle, et ce qui plafonne vraiment                                                                                                                                                                                                  |
 | `profile-compare.sh`      | —             | **« comparé à quoi ? »** — profils `--cpu-prof` de Nodefony et du témoin `nest-fair`, écart poste par poste en µs/req (`profile-cpu.sh`, `profile-analyze.mjs`, `profile-compare.mjs`)                                                                                                                 |
+| `wait-compare.sh`         | —             | **ce que le profil ne voit pas** — occupation de la boucle, CPU du FIL principal contre process, GC, tours libuv, écritures socket, changements de contexte, en µs/req, Nodefony contre un témoin en paires alternées (`wait-probe.mjs` préchargé, `wait-analyze.mjs`) — § dédié plus bas              |
+| `native-sample.mjs`       | —             | relit une capture `sample` (macOS) : temps PROPRE du fil principal par famille native (JIT, builtins, chaînes, runtime V8, noyau, parseur HTTP, GC) et par frame, en µs/req — seul ou en écart A − B                                                                                                   |
 | `promise-sites.mjs`       | —             | OÙ naissent les Promises d'UNE requête : préchargé (`node --import`), rend la pile de chaque création — compte « Promises + `await` », à comparer au témoin mesuré pareil (garde : `promise-budget.test.ts`)                                                                                           |
 | `promise-map.mjs`         | —             | le PILOTE de `promise-sites.mjs` : app de secours `production` (ports 5396-5398, cohabite avec le dev), chauffe, puis la pile de chaque Promise d'UNE requête — GET ou `--method POST --body '<json>'`, décor par `KEY=VAL` (`NF_BENCH_ORM=1 NF_WITH_DEV_MODULES=1`) ; exit 1 si la cible répond ≥ 400 |
 | `boot-bench.mjs`          | —             | temps de démarrage d'un mode, du spawn à l'écoute, et nombre de kernels instanciés                                                                                                                                                                                                                     |
@@ -175,6 +177,84 @@ chacun, jamais le même :
 > ⚠️ **Ne jamais lancer les destructeurs (`graceful-shutdown`, `cluster-*`) dans le même lot que
 > les autres bancs C** : ils tuent ou prennent les ports du serveur dev → les suivants tombent en
 > `ECONNREFUSED` (faux « KO »). Isoler les destructeurs, ou relancer le serveur après.
+
+## Mesurer ce que le profil ne voit pas — `wait-compare.sh`, `native-sample.mjs`
+
+**Quand** : le profil comparé (`profile-compare.sh`) ne suffit plus — il annonce une parité que
+le débit dément, ou désigne une petite fonction dont le coût paraît invraisemblable. Le profileur
+V8 n'échantillonne que le JavaScript : il ne voit ni l'ATTENTE, ni le C++ de Node, ni le runtime
+V8, et il **sur-attribue les petites fonctions** (mesuré sur #508 : 8,5 µs/req prêtés au
+traitement du `Host`, 0,5 µs au micro-banc — facteur ~15).
+
+### `wait-compare.sh [témoin=nest-fair] [paires=3]`
+
+```bash
+bash .claude/skills/nodefony-load-test/scripts/wait-compare.sh nest-fair 3
+# + la pile native pendant la même fenêtre :
+NF_NATIVE_SAMPLE=1 NF_WAIT_DIR=tmp/wait-native bash .claude/skills/nodefony-load-test/scripts/wait-compare.sh nest-fair 2
+```
+
+Décor posé par le script, identique à `profile-compare.sh` : ports 5151/5161 libérés, serveur
+`production` (`NF_LOG_DRIVER=null`, `NF_BENCH_ROUTE=1`, route de banc par dérogation
+`NF_WITH_DEV_MODULES`), garde `attendre_machine_calme` avant chaque run, cible prouvée en `200`,
+chauffe `wrk` non comptée, puis la fenêtre mesurée (`BENCH_DUR`, défaut 20 s, `BENCH_CONN` 128).
+Paires ALTERNÉES Nodefony / témoin. Un run se refuse (exit 1) sur cible ≠ 200, réponse non-2xx
+sous charge ou sonde muette.
+
+Mécanique : `wait-probe.mjs` est préchargé (`node --import`) dans les DEUX camps ; un premier
+`SIGUSR2` ouvre la fenêtre, un second la ferme et écrit `<pid>.json` dans `NF_WAIT_PROBE_OUT`.
+Sortie : `tmp/wait/<camp>-<n>/{<pid>.json, wrk.txt, server.log}` puis le tableau de
+`wait-analyze.mjs` (médiane par camp, écart, ratio, colonne « séparé » = les séries des deux
+camps ne se chevauchent pas).
+
+| Ligne du tableau               | Source                                 | Ce qu'elle tranche                                                                                    |
+| ------------------------------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| occupation boucle (ELU %)      | `performance.eventLoopUtilization`     | ~100 % = le fil est SATURÉ, rien n'attend ; nettement moins = il attend quelque chose — chercher quoi |
+| CPU fil principal µs/req       | `process.threadCpuUsage`               | **l'arbitre A/B** : dispersion < 1 % (~0,7 µs), bien plus fin que le débit (±8 %) et que le profil    |
+| dont user / système            | idem                                   | système = noyau (écritures, lectures, `kevent`) ; user = JS + C++ + V8                                |
+| CPU process / autres fils      | `process.cpuUsage` − fil               | GC parallèle, pool libuv — un majorant, jamais un plafond de débit                                    |
+| GC µs/req, GC / 1000 req       | `PerformanceObserver` `gc`             | le ramasse-miettes du fil ; détail par genre sous le tableau                                          |
+| tours de boucle / req          | `performance.nodeTiming.uvMetricsInfo` | ≪ 1 sous saturation (des dizaines de requêtes par tour) ; ≥ 1 = la requête enjambe plusieurs tours    |
+| écritures socket / req, writev | `net.Socket#_writeGeneric` instrumenté | le proxy des appels système d'écriture (`dtruss` exige root) ; 1 = en-têtes et corps en un seul envoi |
+| chgts contexte                 | `process.resourceUsage`                | involontaires = préemption par l'OS (machine chargée) ; volontaires = attente bloquante               |
+
+Pièges :
+
+- La sonde coûte un compteur par écriture et par requête, **pareil pour les deux camps** : les
+  ABSOLUS sont légèrement majorés, les ÉCARTS non. Le débit d'un run sondé ne se publie pas.
+- Les absolus varient d'une heure à l'autre (mesuré : 11 000 puis 16 000 req/s, ratio stable
+  0,77–0,79) — on compare dans la même série, jamais deux séries entre elles.
+- Le `wait` d'un pilote shell qui lance le serveur en `&` attend AUSSI le serveur : n'attendre
+  que le PID visé (vécu : interblocage de 25 min).
+
+### `native-sample.mjs <capture> <rps> [<captureB> <rpsB> [top]]`
+
+```bash
+S=.claude/skills/nodefony-load-test/scripts; D=tmp/wait-native
+rps() { awk '/Requests\/sec/{print $2}' $D/$1/wrk.txt; }
+node $S/native-sample.mjs $D/nodefony-1/native.sample.txt $(rps nodefony-1) \
+                          $D/nest-fair-1/native.sample.txt $(rps nest-fair-1) 30
+```
+
+Il parcourt l'arbre d'appels du FIL PRINCIPAL de la capture (`sample <pid> 10 -file …`, outil
+macOS livré, sans root pour ses propres process), calcule le temps PROPRE de chaque frame
+(échantillons − enfants), puis convertit en µs/req — le fil étant saturé, 1 s de fil = `rps`
+requêtes. Rend : le total, le tableau par **famille**, puis les frames triées par écart absolu.
+Importable (`parseMainThread`, `family`) pour un tri ad hoc.
+
+| Famille                                 | Ce qu'elle contient                                                          |
+| --------------------------------------- | ---------------------------------------------------------------------------- |
+| JS compilé (JIT)                        | frames `???` : code JS optimisé, ANONYME ici — le nommer au profil V8        |
+| V8 builtins                             | `Builtins_*` appelés par le JS : ICs mégamorphiques, `join`, regex, `new`…   |
+| V8 chaînes (internement, casse, JSON)   | `StringTable` (clés calculées), `toLowerCase`, `JSON.stringify`, aplatissage |
+| V8 runtime (objets lents)               | `Runtime_*`, dictionnaires — objets passés en mode dictionnaire, `delete`    |
+| noyau (appels système)                  | `libsystem_kernel` : `write`, `read`, `kevent`                               |
+| parseur HTTP, libuv, Node C++, GC, libc | le reste de la pile native                                                   |
+
+Pièges : `sample` suspend le fil à chaque relevé — il ATTRIBUE, il ne chiffre pas ; la
+catégorisation est par motif de nom, donc une frame nouvelle peut tomber en « V8 autre » (la
+regarder avant de conclure) ; et tout poste désigné se **convertit en ns par un micro-banc**
+(`scripts/micro/`) avant d'ouvrir un chantier.
 
 ## Variables communes
 
