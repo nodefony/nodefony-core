@@ -47,7 +47,7 @@ d'expérience. **Rien de tout cela n'entre dans une application.**
 
 **Pour évaluer le framework** — « est-ce une bonne base pour mon projet ? » :
 [`README.md`](README.md), puis [`docs/index.md`](docs/index.md), puis générer une
-application (`npm create nodefony@alpha <app>`) et lire ce qu'elle contient. Ne pas
+application (`npm create nodefony@beta <app>`) et lire ce qu'elle contient. Ne pas
 descendre dans `src/` : la question ne s'y trouve pas.
 
 **Pour travailler sur le framework** : tout le reste de ce fichier.
@@ -68,7 +68,7 @@ projet — pas sur le poids d'une application, mesuré ci-dessus.
 |                           |                                                                                                                                                                                                                                                                                                                                            |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Version**               | `10.0.0` (`package.json`)                                                                                                                                                                                                                                                                                                                  |
-| **Publication npm**       | **préversion `10.0.0-alpha.9`**, les quinze paquets, sous le canal `alpha` SEULEMENT — `npm install nodefony` sert toujours `nodefony@7.0.2` (JavaScript). Les `@nodefony/*-bundle` de l'ère 7 sont dépréciés                                                                                                                              |
+| **Publication npm**       | **préversion `10.0.0-beta.1`**, les quinze paquets, sous le canal `beta` SEULEMENT — `npm install nodefony` sert toujours `nodefony@7.0.2` (JavaScript). Les `@nodefony/*-bundle` de l'ère 7 sont dépréciés                                                                                                                                |
 | **Branche par défaut**    | `main` — elle porte la **dernière publication** et n'avance qu'aux releases                                                                                                                                                                                                                                                                |
 | **Branche de travail**    | `dev` — **c'est là que vit le code courant** ; `main` ne le reçoit qu'à la publication suivante                                                                                                                                                                                                                                            |
 | **Tests**                 | ~7 700 quand toute l'infrastructure répond (`npm run test:all`)                                                                                                                                                                                                                                                                            |
@@ -89,7 +89,7 @@ qui consomme le framework, ce qui permet de l'éprouver en marchant.
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `src/nodefony/`                 | le cœur — `Kernel`, conteneur d'injection, services, journalisation, CLI                                                |
 | `src/packages/@nodefony/`       | les 20 paquets du framework — `http`, `framework`, `security`, `frontend`, `studio`, `orm-core`, `drizzle`, `realtime`… |
-| `src/packages/create-nodefony/` | la porte d'entrée : `npm create nodefony@alpha <app>`                                                                   |
+| `src/packages/create-nodefony/` | la porte d'entrée : `npm create nodefony@beta <app>`                                                                    |
 | `src/modules/`                  | les modules d'épreuve montés par l'application racine (`test`, quatre bancs de frontends, `mediasoup`)                  |
 | `scripts/`                      | les automates du dépôt — contrôles, bancs, chaîne de publication (`scripts/release/`)                                   |
 | `docs/`                         | la documentation humaine : guides, décisions d'architecture (`adr/`), performance, `index.md`                           |

@@ -54,10 +54,10 @@ publier, prévenez — un accord vaut mieux qu'une surprise de part et d'autre.
 
 | Version                                              | État                                                                                              |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `10.x` (branche TypeScript)                          | **en préversion**, publiée sur npm sous le canal `alpha` — les rapports sont bienvenus            |
+| `10.x` (branche TypeScript)                          | **en préversion**, publiée sur npm sous le canal `beta` — les rapports sont bienvenus             |
 | `nodefony` ≤ `7.x` (framework JavaScript historique) | **dépréciée** — plus aucun correctif, de sécurité ou autre ; la réécriture TypeScript la remplace |
 
-⚠️ Une préversion n'est pas un jouet : `npm i nodefony@alpha` installe du code qui tourne. Les
+⚠️ Une préversion n'est pas un jouet : `npm i nodefony@beta` installe du code qui tourne. Les
 rapports la concernant sont traités comme les autres — c'est même le moment où ils coûtent le moins
 cher à corriger. En revanche, **le canal `latest` sert encore la série 7**, dépréciée : si vous
 auditez « nodefony » sans préciser de canal, vérifiez d'abord quelle version vous avez en main

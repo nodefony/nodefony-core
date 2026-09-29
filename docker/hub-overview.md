@@ -16,7 +16,7 @@ Le framework, lui, s'installe depuis npm ; le code vit sur GitHub.
 ## Lancer
 
 ```bash
-docker run --rm -p 5151:5151 nodefony/nodefony:alpha
+docker run --rm -p 5151:5151 nodefony/nodefony:beta
 ```
 
 L'application répond sur <http://127.0.0.1:5151>. La console d'administration est
@@ -27,10 +27,11 @@ externe n'est requis pour ce premier essai.
 
 ## Étiquettes disponibles
 
-| Étiquette        | Ce qu'elle désigne                                  |
-| ---------------- | --------------------------------------------------- |
-| `10.0.0-alpha.9` | une publication précise — c'est celle à figer en CI |
-| `alpha`          | la dernière préversion du canal `alpha` (mobile)    |
+| Étiquette       | Ce qu'elle désigne                                             |
+| --------------- | -------------------------------------------------------------- |
+| `10.0.0-beta.1` | une publication précise — c'est celle à figer en CI            |
+| `beta`          | la dernière préversion du canal `beta` (mobile)                |
+| `alpha`         | l'ancien canal, figé sur `10.0.0-alpha.9` — ne plus l'employer |
 
 **`latest` n'existe pas, et c'est délibéré** : la ligne 10 est en préversion.
 Tirer une étiquette mobile sans le savoir est la façon la plus simple de voir une
@@ -39,13 +40,14 @@ image changer sous ses pieds.
 ## Ce que cette image ne promet pas
 
 C'est une **préversion** : ni la stabilité des interfaces, ni la compatibilité
-entre deux alphas. Elle n'est pas destinée à porter une charge de production —
+entre deux bêtas — une rupture y reste possible, et chacune est annoncée en tête du
+CHANGELOG. Elle n'est pas destinée à porter une charge de production —
 elle montre une topologie qui fonctionne, et sert de point de départ.
 
 Pour une application à soi, le chemin est le générateur, pas cette image :
 
 ```bash
-npm create nodefony@alpha mon-app
+npm create nodefony@beta mon-app
 cd mon-app
 npm run dev
 ```
@@ -66,10 +68,10 @@ d'orthographier en casse mixte dans un fichier d'environnement.
 
 ```bash
 # Le module « http », clé « trustProxy »
-docker run -e NF__HTTP__TRUSTPROXY=true -p 5151:5151 nodefony/nodefony:alpha
+docker run -e NF__HTTP__TRUSTPROXY=true -p 5151:5151 nodefony/nodefony:beta
 
 # Un chemin imbriqué : module « security », section « jwt », clé « accessTtls »
-docker run -e NF__SECURITY__JWT__ACCESSTTLS=900 nodefony/nodefony:alpha
+docker run -e NF__SECURITY__JWT__ACCESSTTLS=900 nodefony/nodefony:beta
 ```
 
 Trois propriétés qui comptent, et qui distinguent ce mécanisme d'un simple
@@ -101,7 +103,7 @@ forme `NF_` gagne quand les deux sont présentes.
 ```bash
 docker run -e NF_DATABASE_URL="postgres://user:mdp@hote:5432/base" \
            -e NF_REDIS_URL="redis://hote:6379" \
-           -p 5151:5151 nodefony/nodefony:alpha
+           -p 5151:5151 nodefony/nodefony:beta
 ```
 
 **Sans aucune de ces variables**, l'application tourne sur SQLite, en un seul
@@ -216,7 +218,7 @@ Chaque image porte les étiquettes OCI normées, et un contrôle refuse la
 publication si l'une d'elles est vide ou fausse :
 
 ```bash
-docker inspect nodefony/nodefony:alpha \
+docker inspect nodefony/nodefony:beta \
   --format '{{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 

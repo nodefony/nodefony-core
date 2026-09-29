@@ -19,11 +19,11 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 > **Ce paquet est le CŒUR du framework** — noyau, injection de dépendances, modules, journalisation,
 > interface en ligne de commande. Il s'installe rarement seul : une application le reçoit par
-> `npm create nodefony@alpha`, et les autres paquets (`@nodefony/http`, `@nodefony/framework`,
+> `npm create nodefony@beta`, et les autres paquets (`@nodefony/http`, `@nodefony/framework`,
 > `@nodefony/security`…) le déclarent en dépendance de pair.
 
 ```bash
-npm install nodefony@alpha
+npm install nodefony@beta
 ```
 
 > Le dist-tag est OBLIGATOIRE tant que la série 10 est en préversion : `latest` sert encore la
@@ -94,7 +94,7 @@ HTTP est celle que voit la socket.
 ## Démarrer
 
 ```bash
-npm create nodefony@alpha mon-app
+npm create nodefony@beta mon-app
 ```
 
 Puis, dans le dossier créé : `npm run dev`.
