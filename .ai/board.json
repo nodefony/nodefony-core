@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T18:21:38.141Z",
+  "generatedAt": "2026-09-29T20:13:47.804Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 48,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 42,
+      "open": 44,
       "title": "10.0.0-beta"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 32,
+      "open": 31,
       "title": "10.1.0"
     }
   ],
@@ -294,6 +294,22 @@
       "labels": []
     },
     {
+      "number": 508,
+      "title": "perf(http): trouver où Nodefony attend quand NestJS sert",
+      "url": "https://github.com/nodefony/nodefony-core/issues/508",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 1.01,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
       "number": 496,
       "title": "refactor(types): sortir chaque paquet de la surcharge qui éteint le typage strict",
       "url": "https://github.com/nodefony/nodefony-core/issues/496",
@@ -352,6 +368,22 @@
       ]
     },
     {
+      "number": 509,
+      "title": "docs(perf): republier les mesures de performance, prises avant l'optimisation #505",
+      "url": "https://github.com/nodefony/nodefony-core/issues/509",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": null,
+      "jours": null,
+      "ordre": 1.02,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-1"
+      ]
+    },
+    {
       "number": 312,
       "title": "chore(release): rendre le lot de publication annulable",
       "url": "https://github.com/nodefony/nodefony-core/issues/312",
@@ -398,7 +430,7 @@
       "debut": "2026-10-12",
       "cible": "2026-10-12",
       "labels": [
-        "beta-1"
+        "beta-2"
       ]
     },
     {
@@ -6593,20 +6625,6 @@
       "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 1,
-      "ordre": 156,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
-      "number": 508,
-      "title": "perf(http): trouver où Nodefony attend quand NestJS sert",
-      "url": "https://github.com/nodefony/nodefony-core/issues/508",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 2,
       "ordre": 156,
       "debut": null,
       "cible": null,
