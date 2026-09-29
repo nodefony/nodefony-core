@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-28",
+  "generatedAt": "2026-09-29",
   "count": 36,
   "conformant": 36,
   "skills": [
@@ -4172,6 +4172,63 @@
               }
             ],
             "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/perf-campaign.sh",
+            "purpose": "Campagne de mesure PUBLIABLE, sans surveillance — la matière de",
+            "usage": [
+              "bash perf-campaign.sh [--at HH:MM] [--out DIR] [--soak-min 90] [--tries 3]"
+            ],
+            "options": [
+              {
+                "flag": "--at",
+                "help": ""
+              },
+              {
+                "flag": "--conn",
+                "help": ""
+              },
+              {
+                "flag": "--minutes",
+                "help": ""
+              },
+              {
+                "flag": "--out",
+                "help": ""
+              },
+              {
+                "flag": "--porcelain",
+                "help": ""
+              },
+              {
+                "flag": "--short",
+                "help": ""
+              },
+              {
+                "flag": "--soak-min",
+                "help": ""
+              },
+              {
+                "flag": "--tries",
+                "help": ""
+              },
+              {
+                "flag": "--window",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "SOAK_MIN",
+                "help": ""
+              },
+              {
+                "name": "TRIES",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
