@@ -4185,6 +4185,14 @@
               {
                 "flag": "--cpu-prof",
                 "help": ""
+              },
+              {
+                "flag": "--perf-basic-prof",
+                "help": ""
+              },
+              {
+                "flag": "--prof",
+                "help": ""
               }
             ],
             "env": [],
@@ -4862,7 +4870,16 @@
             "path": "scripts/wait-compare.sh",
             "purpose": "« Où Nodefony ATTEND-il quand le témoin sert ? » — même décor que",
             "usage": [],
-            "options": [],
+            "options": [
+              {
+                "flag": "--interpreted-frames-native",
+                "help": ""
+              },
+              {
+                "flag": "--perf-basic-prof",
+                "help": ""
+              }
+            ],
             "env": [
               {
                 "name": "BENCH_CONN",

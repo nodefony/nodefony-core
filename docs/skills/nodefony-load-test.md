@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 146 |
-| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 268 |
+| `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 287 |
 | `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 54 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
@@ -119,7 +119,7 @@ script, donc toujours à jour après régénération.
 | `scripts/kill-guard.sh` | Garde de mise à mort des bancs — À SOURCER, jamais à exécuter. | — | — |
 | `scripts/log-sink-contention.mjs` | Microbench ISOLÉ du driver de sink de log (LB.W / axe W2). | — | `DIR` `JSON_OUT` `LINES` `ONLY` `RUNS` `VARIANT` `WARMUP` `WID` `WORKERS` |
 | `scripts/machine-regime.sh` | RÉGIME MACHINE — l'état du processeur au moment d'une mesure. | `--format` | — |
-| `scripts/native-sample.mjs` | Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE | `--cpu-prof` | — |
+| `scripts/native-sample.mjs` | Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE | `--cpu-prof` `--perf-basic-prof` `--prof` | — |
 | `scripts/perf-campaign.sh` | Campagne de mesure PUBLIABLE, sans surveillance — la matière de | `--at` `--conn` `--minutes` `--out` `--porcelain` `--short` `--soak-min` `--tries` `--window` | `SOAK_MIN` `TRIES` |
 | `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | `OUT` |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
@@ -141,7 +141,7 @@ script, donc toujours à jour après régénération.
 | `scripts/totp-mfa-e2e.mjs` | Banc e2e 2FA TOTP step-up (P6.17) — VRAI serveur, sans navigateur. | — | — |
 | `scripts/users-admin-factors-e2e.mjs` | Banc e2e — RESET ADMIN des facteurs forts d'un utilisateur (P6.15) — VRAI | — | — |
 | `scripts/wait-analyze.mjs` | Relit les fenêtres de `wait-probe.mjs` (via `wait-compare.sh`) et rend, par | `--json` | — |
-| `scripts/wait-compare.sh` | « Où Nodefony ATTEND-il quand le témoin sert ? » — même décor que | — | `BENCH_CONN` `BENCH_DUR` `BENCH_PATH` `NF_NATIVE_SAMPLE` `NF_WAIT_DIR` |
+| `scripts/wait-compare.sh` | « Où Nodefony ATTEND-il quand le témoin sert ? » — même décor que | `--interpreted-frames-native` `--perf-basic-prof` | `BENCH_CONN` `BENCH_DUR` `BENCH_PATH` `NF_NATIVE_SAMPLE` `NF_WAIT_DIR` |
 | `scripts/wait-probe.mjs` | Sonde « où part le temps HORS du JavaScript » — préchargée dans un serveur | — | `NF_WAIT_PROBE_OUT` |
 | `scripts/webhooks-dataplane-e2e.mjs` | Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF, | — | — |
 | `scripts/ws-backpressure-e2e.mjs` | Contre-pression WebSocket SORTANTE (serveur → client) sur une VRAIE socket. | — | `BASE` `HOST` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `URL` `WS_URL` |

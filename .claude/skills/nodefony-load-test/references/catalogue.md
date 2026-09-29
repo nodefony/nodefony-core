@@ -239,12 +239,31 @@ node $S/native-sample.mjs $D/nodefony-1/native.sample.txt $(rps nodefony-1) \
 Il parcourt l'arbre d'appels du FIL PRINCIPAL de la capture (`sample <pid> 10 -file …`, outil
 macOS livré, sans root pour ses propres process), calcule le temps PROPRE de chaque frame
 (échantillons − enfants), puis convertit en µs/req — le fil étant saturé, 1 s de fil = `rps`
-requêtes. Rend : le total, le tableau par **famille**, puis les frames triées par écart absolu.
-Importable (`parseMainThread`, `family`) pour un tri ad hoc.
+requêtes. Rend : le total, le tableau par **famille**, les frames triées par écart absolu, puis,
+**par camp**, « QUI paie » : chaque fonction JS avec son temps propre PLUS le natif qu'elle a
+appelé (builtins, chaînes, `setHeader` de Node…), et les trois familles qui dominent.
+Importable (`parseMainThread`, `family`, `loadPerfMap`) pour un tri ad hoc.
+
+**Nommer les fonctions JS** : `sample` ne voit les frames JIT que comme `???  [0x…]`. Sous
+`NF_NATIVE_SAMPLE=1`, `wait-compare.sh` démarre Node avec `--perf-basic-prof
+--interpreted-frames-native-stack` et copie `/tmp/perf-<pid>.map` (adresse, taille, nom de chaque
+code compilé) en `perf.map` à côté de la capture ; `native-sample.mjs` la lit s'il la trouve.
+Sans elle, pas d'imputation (le script le dit). Les deux camps n'ont pas les mêmes fonctions :
+« qui paie » se lit en DEUX listes, jamais en écart fonction par fonction.
+
+⚠️ **Une fonction optimisée absorbe ses appelés INLINÉS.** Mesuré : `applySecurityHeaders` à
+10,2 µs/req sur une paire, 6,0 sur la suivante — selon que TurboFan y a inliné `setHeader` ou non ;
+côté témoin, `_on` de Fastify portait 20 µs sur une paire. « Qui paie » se lit donc « à partir
+d'où » : additionner la CHAÎNE (appelant + appelés visibles), comparer sur ≥ 2 paires, et ne
+jamais conclure sur une ligne isolée.
+
+`node --prof` (+ `--prof-process`) nomme aussi les appelants, mais **ne convient pas sous macOS** :
+les builtins embarqués dans le binaire y sont imputés à un faux symbole C++ (mesuré : 58 % des
+ticks sur `node::ProcessEmitWarningGeneric`, avec ou sans `--mac`).
 
 | Famille                                 | Ce qu'elle contient                                                          |
 | --------------------------------------- | ---------------------------------------------------------------------------- |
-| JS compilé (JIT)                        | frames `???` : code JS optimisé, ANONYME ici — le nommer au profil V8        |
+| JS (nommé) / JIT non nommé              | temps propre du JS ; `???` restant = adresse absente de `perf.map`           |
 | V8 builtins                             | `Builtins_*` appelés par le JS : ICs mégamorphiques, `join`, regex, `new`…   |
 | V8 chaînes (internement, casse, JSON)   | `StringTable` (clés calculées), `toLowerCase`, `JSON.stringify`, aplatissage |
 | V8 runtime (objets lents)               | `Runtime_*`, dictionnaires — objets passés en mode dictionnaire, `delete`    |

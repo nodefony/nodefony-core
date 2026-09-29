@@ -11,7 +11,8 @@
 #
 # Usage : wait-compare.sh [témoin=nest-fair] [paires=3]
 # NF_NATIVE_SAMPLE=1 : capture aussi la pile NATIVE (`sample`, macOS) pendant la
-#   fenêtre → relire avec `native-sample.mjs` (le JS seul ne voit pas tout le CPU).
+#   fenêtre, et la table `perf.map` qui nomme les fonctions JS → relire avec
+#   `native-sample.mjs`, qui impute chaque coût natif à la fonction JS appelante.
 # Sortie : tmp/wait/<camp>-<n>/{<pid>.json,wrk.txt} + le tableau (wait-analyze.mjs).
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
@@ -31,12 +32,17 @@ node src/nodefony/bin/nodefony stop >/dev/null 2>&1 || true
 run() {
   local label=$1 port=$2 xenv=$3; shift 3
   local sampler=""
+  # Sous NF_NATIVE_SAMPLE : la table adresse → fonction JS (`/tmp/perf-<pid>.map`)
+  # qui NOMME les frames JIT anonymes de `sample` ; les frames interprétées
+  # reçoivent chacune leur trampoline, donc leur nom aussi.
+  local perf_flags=""
+  [ -n "${NF_NATIVE_SAMPLE:-}" ] && perf_flags="--perf-basic-prof --interpreted-frames-native-stack"
   local out="$BASE/$label" url="http://127.0.0.1:$port${BENCH_PATH:-/nodefony/test/als-test/state}"
   rm -rf "$out"; mkdir -p "$out"
   attendre_machine_calme
   env NODE_ENV=production NF_LOG_DRIVER=null NF_BENCH_ROUTE=1 $xenv PORT=$port \
     NF_WAIT_PROBE_OUT="$out" \
-    node --import "$DIR/wait-probe.mjs" "$@" >"$out/server.log" 2>&1 &
+    node --import "$DIR/wait-probe.mjs" $perf_flags "$@" >"$out/server.log" 2>&1 &
   local pid=$!
   for _ in $(seq 1 150); do curl -s -o /dev/null "$url" && break; sleep 0.2; done
   local code; code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
@@ -58,6 +64,9 @@ run() {
   for _ in $(seq 1 50); do ls "$out"/*.json >/dev/null 2>&1 && break; sleep 0.1; done
   kill -INT $pid; for _ in $(seq 1 50); do kill -0 $pid 2>/dev/null || break; sleep 0.2; done
   kill -0 $pid 2>/dev/null && { kill -TERM $pid; sleep 2; }
+  if [ -n "$perf_flags" ] && [ -f "/tmp/perf-$pid.map" ]; then
+    mv "/tmp/perf-$pid.map" "$out/perf.map"
+  fi
   if grep -q "Non-2xx" "$out/wrk.txt"; then echo "❌ $label : non-2xx sous charge — invalide"; return 1; fi
   ls "$out"/*.json >/dev/null 2>&1 || { echo "❌ $label : la sonde n'a rien écrit"; return 1; }
   echo "$label : $(awk '/Requests\/sec/ {print $2}' "$out/wrk.txt") req/s"
