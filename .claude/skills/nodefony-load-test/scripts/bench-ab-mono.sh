@@ -223,8 +223,8 @@ node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.
 # à l'ENVERS. Le piège est réel ici — la route de bench vit dans un module `policy:"dev"`,
 # donc absente en production tant qu'on ne l'a pas rebasculée (cf en-tête).
 CODE=$(curl -s -o /dev/null -w '%{http_code}' ${CURL_REQ[@]+"${CURL_REQ[@]}"} "$URL")
-if [ "$CODE" != "200" ]; then
-  echo "❌ $LABEL: la cible répond $CODE (attendu 200) — AUCUNE mesure ne serait valide."
+if [ "$CODE" != "${BENCH_EXPECT_STATUS:-200}" ]; then
+  echo "❌ $LABEL: la cible répond $CODE (attendu ${BENCH_EXPECT_STATUS:-200}) — AUCUNE mesure ne serait valide."
   echo "   URL: $URL"
   echo "   Si c'est un 404 : le module @nodefony/test est en policy:\"dev\" donc absent"
   echo "   en production → passer temporairement à policy:\"optional\" + npm run build."
@@ -297,11 +297,9 @@ for i in 1 2 3; do
   L50=$(lat_ms "$(lat_pct "$OUT" 50)")
   L99=$(lat_ms "$(lat_pct "$OUT" 99)")
   P50+=("$L50"); P99+=("$L99")
-  # wrk n'affiche cette ligne QUE s'il y a eu des réponses hors 2xx/3xx.
-  NON2XX=$(printf '%s' "$OUT" | grep "Non-2xx or 3xx responses" | awk '{print $NF}')
-  ERRS=$(printf '%s' "$OUT" | grep "Socket errors" || true)
-  if [ -n "$NON2XX" ] || [ -n "$ERRS" ]; then
-    echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms  ⚠ INVALIDE — ${NON2XX:-0} réponses hors 2xx/3xx ${ERRS:+· $ERRS}"
+  INVALID=$(bench_run_invalid "$OUT")
+  if [ -n "$INVALID" ]; then
+    echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms  ⚠ INVALIDE — $INVALID"
     BAD=1
   else
     echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms"

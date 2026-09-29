@@ -46,6 +46,10 @@ BODY=$(curl -s ${CURL_REQ[@]+"${CURL_REQ[@]}"} "$URL")
 # une route qui répond 200 avec un corps vide (table absente, filtre qui ne rend
 # rien) se mesurerait comme un succès, et plus vite qu'un vrai travail.
 echo "$BODY" | grep -q "${BENCH_EXPECT:-wsHookFireCount}" || { echo "❌ $LABEL: payload inattendu (attendu « ${BENCH_EXPECT:-wsHookFireCount} ») : $BODY"; kill -9 "$PID"; exit 1; }
+# …et sur le STATUT, comme `bench-ab-mono.sh` le fait pour Nodefony : un 500 dont
+# le corps contiendrait le champ attendu passerait sinon pour la cible.
+CODE=$(curl -s -o /dev/null -w '%{http_code}' ${CURL_REQ[@]+"${CURL_REQ[@]}"} "$URL")
+[ "$CODE" = "${BENCH_EXPECT_STATUS:-200}" ] || { echo "❌ $LABEL: la cible répond $CODE (attendu ${BENCH_EXPECT_STATUS:-200})"; kill -9 "$PID"; exit 1; }
 
 echo "=== $LABEL (port $PORT, wrk -t$THREADS -c$CONN -d${DUR}s) ==="
 
@@ -98,10 +102,9 @@ for i in 1 2 3; do
   L50=$(lat_ms "$(lat_pct "$OUT" 50)")
   L99=$(lat_ms "$(lat_pct "$OUT" 99)")
   P50+=("$L50"); P99+=("$L99")
-  NON2XX=$(printf '%s' "$OUT" | grep "Non-2xx or 3xx responses" | awk '{print $NF}')
-  ERRS=$(printf '%s' "$OUT" | grep "Socket errors" || true)
-  if [ -n "$NON2XX" ] || [ -n "$ERRS" ]; then
-    echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms  ⚠ INVALIDE — ${NON2XX:-0} hors 2xx/3xx ${ERRS:+· $ERRS}"
+  INVALID=$(bench_run_invalid "$OUT")
+  if [ -n "$INVALID" ]; then
+    echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms  ⚠ INVALIDE — $INVALID"
     BAD=1
   else
     echo "  run $i: $R RPS · p50 ${L50}ms · p99 ${L99}ms"

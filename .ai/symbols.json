@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 881,
-    "symbols": 4387,
+    "symbols": 4388,
     "classes": 404,
     "interfaces": 1148,
     "types": 472,
     "enums": 4,
-    "functions": 1916,
+    "functions": 1917,
     "constants": 443
   },
   "symbols": {

@@ -15,6 +15,13 @@
  *     node src/nodefony/bin/nodefony production            # :5151
  *   NODE_ENV=production PORT=5170 node .claude/skills/nodefony-load-test/bench-frameworks/<camp>.mjs
  *   CAMP=<camp> node .claude/skills/nodefony-load-test/bench-frameworks/fair-parity.mjs
+ *
+ * Banc ORM (#507) — `PARITY_ROUTES=orm` remplace la matrice par celle des routes
+ * `bench-orm` (serveur `NF_BENCH_ORM=1`, camps `*-fair-sqlite`) : lecture +
+ * écriture, POST validé 200 ET 422, POST cross-site. Ces cas comparent EN PLUS
+ * le `Content-Type` et la FORME du corps — clés triées, et pour le 422 la liste
+ * triée des messages : un camp qui rendrait une erreur plus courte sérialiserait
+ * moins, et l'écart mesuré serait celui du format.
  */
 const NF = process.env.NF_URL ?? "http://127.0.0.1:5151";
 const CAMP = process.env.CAMP ?? "camp";
@@ -77,6 +84,70 @@ const CASES = [
   { name: "route paramétrée", path: "/nodefony/test/dummy-b3/42" },
 ];
 
+const ORM = "/nodefony/test/bench-orm";
+const SAME_ORIGIN = {
+  "sec-fetch-site": "same-origin",
+  "content-type": "application/json",
+};
+const ORM_CASES = [
+  { hot: true, shape: true, name: "GET read-write", path: `${ORM}/read-write` },
+  { hot: true, shape: true, name: "GET read-lean", path: `${ORM}/read-lean` },
+  {
+    hot: true,
+    shape: true,
+    name: "POST validé — corps valide (200)",
+    path: `${ORM}/read-write-valid`,
+    method: "POST",
+    headers: SAME_ORIGIN,
+    body: '{"total_ht":200,"total_ttc":240,"ref":"FA-1"}',
+  },
+  {
+    hot: true,
+    shape: true,
+    name: "POST validé — corps invalide (422)",
+    path: `${ORM}/read-write-valid`,
+    method: "POST",
+    headers: SAME_ORIGIN,
+    body: '{"total_ht":-1,"total_ttc":"x","ref":"0123456789012345678901234567890"}',
+  },
+  {
+    hot: true,
+    shape: true,
+    name: "POST validé — règle croisée ttc < ht (422)",
+    path: `${ORM}/read-write-valid`,
+    method: "POST",
+    headers: SAME_ORIGIN,
+    body: '{"total_ht":10,"total_ttc":5}',
+  },
+  {
+    hot: true,
+    name: "POST validé — cross-site (403)",
+    path: `${ORM}/read-write-valid`,
+    method: "POST",
+    headers: { ...SAME_ORIGIN, "sec-fetch-site": "cross-site" },
+    body: '{"total_ht":200,"total_ttc":240}',
+  },
+];
+
+/**
+ * Forme d'un corps JSON : ses clés triées, et pour une liste de messages
+ * d'erreur, les messages triés — les VALEURS (séquence, lignes lues) varient
+ * d'un appel à l'autre, la forme non.
+ */
+function bodyShape(text) {
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return `non-JSON(${text.length} o)`;
+  }
+  if (typeof json !== "object" || json === null) return typeof json;
+  const keys = Object.keys(json).sort().join(",");
+  return Array.isArray(json.message)
+    ? `${keys} | ${[...json.message].sort().join(" ; ")}`
+    : keys;
+}
+
 /** En-têtes surveillés, et la façon de comparer leur valeur. */
 const WATCH = {
   "content-security-policy": (v) =>
@@ -111,15 +182,28 @@ async function probe(base, c) {
     body: c.body,
     redirect: "manual",
   });
-  await res.arrayBuffer();
+  const text = await res.text();
   const out = { status: res.status };
+  if (c.shape) {
+    // Le TYPE de média, sans ses paramètres : `charset=utf-8` est une
+    // convention d'Express et de Fastify que Nodefony n'écrit pas (JSON est
+    // UTF-8 par définition, RFC 8259 §8.1) — quinze octets d'en-tête, pas un
+    // travail différent. Un type différent, lui, en serait un.
+    out["content-type"] = res.headers
+      .get("content-type")
+      ?.split(";")[0]
+      ?.trim()
+      .toLowerCase();
+    out.body = bodyShape(text);
+  }
   for (const [h, norm] of Object.entries(WATCH))
     out[h] = norm(res.headers.get(h) ?? undefined) ?? "—";
   return out;
 }
 
 let diffs = 0;
-for (const c of CASES) {
+const matrix = process.env.PARITY_ROUTES === "orm" ? ORM_CASES : CASES;
+for (const c of matrix) {
   const [a, b] = await Promise.all([probe(NF, c), probe(CAMP_URL, c)]);
   const lines = [];
   for (const k of Object.keys(a)) {

@@ -181,7 +181,7 @@ build à oublier.
 
 🔴 **Le travail « équitable » a UNE implémentation** : `fair-common.mjs` (nonce, `traceparent`,
 les 7 zones RÉELLES du pare-feu, CSRF), posée sur Express par `fair-express.mjs` (tous les
-`express-fair*`) et sur Fastify par `nest-fair.mjs`. Vécu : `express-fair` avait dérivé — CSP sans
+`express-fair*`) et sur Fastify par `fair-nest.mjs` (`nest-fair`, `nest-fair-sqlite`). Vécu : `express-fair` avait dérivé — CSP sans
 nonce, aucun `traceparent`, CORS `*`, HSTS, et un **ETag** qui hachait le corps — donc un écart publié
 qui ne comparait pas le même travail. **Avant de publier un chiffre face à un camp équitable,
 rejouer `fair-parity.mjs`** (serveur `production` au décor du banc + le camp) : il compare statut et
@@ -213,11 +213,19 @@ BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus \
 **Avec un CORPS** : `BENCH_PATH=…/read-write-body BENCH_METHOD=POST BENCH_BODY='{"total_ht":200,"total_ttc":240}'`
 — le chemin où le pipeline retrouve ses Promises (lecture du corps), qu'aucun GET n'exerce ; la
 requête des deux camps a UNE implémentation, `scripts/bench-request.sh`.
+**Face à NestJS, et un POST VALIDÉ** : `nest-fair-sqlite.mjs` (même décor, `orm-sqlite-common.mjs`
+partagé avec le camp Express) ; route `…/read-write-valid` dans les trois camps (validation à la
+main chez Nodefony et Express, `ValidationPipe` chez Nest, mêmes messages). `BENCH_HEADER='Sec-Fetch-Site: same-origin'`
+fait TOURNER la garde de mutation ; `BENCH_EXPECT_STATUS=422` mesure le chemin d'erreur — wrk compte
+alors tout AUTRE statut (`bench_run_invalid`). Parité : `PARITY_ROUTES=orm node fair-parity.mjs`
+compare aussi le type de média et la forme du corps, messages 422 compris.
 
 ⚠️ **25 connexions et des runs de 30 s**, pas 128 et 10 s : un pilote synchrone sérialise (au-delà
 de la saturation on mesure une file), et chaque requête écrit sur disque — la journalisation de
 SQLite pose ses points de reprise à des instants imprévisibles, qu'une fenêtre courte capte au
-hasard. On allonge la fenêtre, **jamais** le seuil de dispersion.
+hasard. On allonge la fenêtre, **jamais** le seuil de dispersion. Mesuré face à NestJS : à 30 s,
+sept séries d'écriture sur huit refusées (dispersion 7 à 10,6 %), runs le plus souvent CROISSANTS
+dans une série — 30 s ne suffit plus sur ce décor ; commencer à `BENCH_DUR=60`.
 
 🔴 **UNE SEULE INSTANCE DE L'ORM PAR CAMP — la garde « même version » ne suffit pas.**
 Les camps ORM importaient `drizzle-orm` par spécificateur nu, donc depuis le `node_modules` de

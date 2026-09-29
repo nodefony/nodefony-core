@@ -36,30 +36,15 @@
  *
  * Usage : NODE_ENV=production PORT=5164 node nest-fair.mjs
  */
-import helmet from "@fastify/helmet";
 import { FastifyAdapter } from "@nestjs/platform-fastify";
-import { HELMET_OPTIONS, als, perRequest } from "./fair-common.mjs";
+import { installNestFair } from "./fair-nest.mjs";
 import { start } from "./nest-app.mjs";
 
 const port = Number(process.env.PORT ?? 5164);
-const SELF = `http://127.0.0.1:${port}`;
 
-async function setup(app) {
-  await app.register(helmet, HELMET_OPTIONS);
-  app.enableCors({ origin: [SELF] });
-
-  const fastify = app.getHttpAdapter().getInstance();
-  fastify.addHook("onRequest", (req, reply, done) => {
-    const work = perRequest(req.method, req.url, req.headers);
-    reply.headers(work.headers);
-    if (work.status) return reply.code(work.status).send();
-    als.run(work.store, done);
-  });
-}
-
-start(new FastifyAdapter({ logger: false }), "nest-fair", false, setup).catch(
-  (/** @type {unknown} */ e) => {
-    console.error(e);
-    process.exit(1);
-  },
-);
+start(new FastifyAdapter({ logger: false }), "nest-fair", false, (app) =>
+  installNestFair(app, port),
+).catch((/** @type {unknown} */ e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -16,6 +16,48 @@ function repo(name: string): IRepository<Record<string, unknown>> {
 }
 
 /**
+ * Valide le corps de `/read-write-valid` — mêmes règles et mêmes messages que
+ * `class-validator` chez le camp NestJS du banc (#507).
+ *
+ * @param body - corps JSON reçu
+ * @returns la liste des violations, vide si le corps est valide
+ */
+function validateInvoice(body: unknown): string[] {
+  const errors: string[] = [];
+  const b = (typeof body === "object" && body !== null ? body : {}) as Record<
+    string,
+    unknown
+  >;
+  const ht = b["total_ht"];
+  const ttc = b["total_ttc"];
+  const ref = b["ref"];
+  const htOk = typeof ht === "number" && Number.isFinite(ht);
+  if (!htOk) {
+    errors.push(
+      "total_ht must be a number conforming to the specified constraints",
+    );
+  }
+  if (!(typeof ht === "number" && ht >= 0)) {
+    errors.push("total_ht must not be less than 0");
+  }
+  if (!(typeof ttc === "number" && Number.isFinite(ttc))) {
+    errors.push(
+      "total_ttc must be a number conforming to the specified constraints",
+    );
+  }
+  if (!(typeof ttc === "number" && htOk && ttc >= ht)) {
+    errors.push("total_ttc must be greater than or equal to total_ht");
+  }
+  if (ref !== undefined && ref !== null) {
+    if (typeof ref !== "string") errors.push("ref must be a string");
+    if (!(typeof ref === "string" && ref.length <= 30)) {
+      errors.push("ref must be shorter than or equal to 30 characters");
+    }
+  }
+  return errors;
+}
+
+/**
  * Banc du cycle ORM (opt-in `NF_BENCH_ORM=1`, monté par l'index du module) —
  * traverse la couche framework complète (repository orm-core → Drizzle →
  * better-sqlite3) sur le corpus Dolibarr seedé, JAMAIS le driver nu : c'est le
@@ -142,6 +184,56 @@ class BenchOrmController extends Controller {
           {
             total_ht: (body?.total_ht ?? 100) + (seq % 100),
             total_ttc: (body?.total_ttc ?? 120) + (seq % 100),
+          },
+        )
+      : null;
+    return this.renderJson({
+      lus: rows.length,
+      seq,
+      maj: maj ? 1 : 0,
+    });
+  }
+
+  /**
+   * Le POST RÉALISTE : `/read-write-body`, mais le corps est VALIDÉ, et un corps
+   * invalide rend **422** sans toucher à la base (#507).
+   *
+   * Règles, identiques dans les trois camps du banc (`express-fair-sqlite`,
+   * `nest-fair-sqlite` par `ValidationPipe`) : `total_ht` nombre ≥ 0, `total_ttc`
+   * nombre ≥ `total_ht`, `ref` facultatif, chaîne de 30 caractères au plus. Le
+   * corps d'erreur prend la forme que rend NestJS (`statusCode`, `error`,
+   * `message[]`) : trois formes différentes feraient sérialiser des volumes
+   * différents, et l'écart mesuré serait celui du format.
+   *
+   * La validation est écrite à la main : Nodefony n'a pas de validation
+   * déclarative du corps, et c'est ce qu'un utilisateur écrirait aujourd'hui.
+   */
+  @Post("/read-write-valid")
+  async readWriteValid(@Body() body?: unknown) {
+    const errors = validateInvoice(body);
+    if (errors.length > 0) {
+      return this.renderJson(
+        {
+          statusCode: 422,
+          error: "Unprocessable Entity",
+          message: errors,
+        },
+        422,
+      );
+    }
+    const valid = body as { total_ht: number; total_ttc: number };
+    const rows = await repo("llx_facture").find(
+      { fk_user_author: BENCH_READ_USER },
+      { limit: 20 },
+    );
+    const seq = ++writeSeq;
+    const target = rows[0] as { rowid?: number } | undefined;
+    const maj = target?.rowid
+      ? await repo("llx_facture").updateOne(
+          { rowid: target.rowid },
+          {
+            total_ht: valid.total_ht + (seq % 100),
+            total_ttc: valid.total_ttc + (seq % 100),
           },
         )
       : null;

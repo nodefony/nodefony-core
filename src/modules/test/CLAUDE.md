@@ -189,6 +189,9 @@ se faire sur le MÊME canal (http/https) que le banc.
 | `/read`                                | 20 factures `WHERE fk_user_author = 7`, rows entières                  |
 | `/read-lean`                           | même SELECT, réponse `{n}` — isole le coût JSON par soustraction       |
 | `/write`                               | INSERT facture FK user+societe (`ref: BENCH-<seq>`)                    |
+| `/read-write`                          | 20 lignes lues puis `UPDATE … RETURNING` de la ligne lue               |
+| `/read-write-body` (POST)              | idem, valeurs lues dans le corps JSON, sans validation                 |
+| `/read-write-valid` (POST)             | idem, corps VALIDÉ ; invalide → 422 `{statusCode,error,message[]}`     |
 | `/reset`                               | DELETE des `BENCH-%` — AVANT chaque run d'écriture                     |
 | `/status`                              | comptes (preuve « cible valide » avant mesure)                         |
 | `/nodefony/test/secure/bench-orm/read` | même lecture DERRIÈRE le firewall (zone `test-secure`) = cycle complet |

@@ -105,13 +105,19 @@ export function buildModule(requestScope = false) {
  * @param label - nom du camp, affiché au démarrage
  * @param requestScope - voir {@link buildModule}
  * @param setup - réglages de l'application AVANT l'écoute (plugins, hooks)
+ * @param rootModule - module racine, à la place de {@link buildModule} (camps
+ *   dont les routes ne sont pas celles de `payload.mjs`, ex. `nest-fair-sqlite`)
  */
-export async function start(adapter, label, requestScope = false, setup) {
+export async function start(
+  adapter,
+  label,
+  requestScope = false,
+  setup,
+  rootModule = buildModule(requestScope),
+) {
   const app = adapter
-    ? await NestFactory.create(buildModule(requestScope), adapter, {
-        logger: false,
-      })
-    : await NestFactory.create(buildModule(requestScope), { logger: false });
+    ? await NestFactory.create(rootModule, adapter, { logger: false })
+    : await NestFactory.create(rootModule, { logger: false });
   if (setup) await setup(app);
   const port = Number(process.env.PORT ?? 5164);
   await app.listen(port, "127.0.0.1");

@@ -3417,8 +3417,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code.",
       "cost": {
-        "bodyLines": 510,
-        "approxTokens": 8754
+        "bodyLines": 518,
+        "approxTokens": 8963
       },
       "requires": [
         "serveur UP",
@@ -3487,6 +3487,10 @@
                 "help": ""
               },
               {
+                "name": "BENCH_EXPECT_STATUS",
+                "help": ""
+              },
+              {
                 "name": "BENCH_INDEX_TARGET",
                 "help": ""
               },
@@ -3539,6 +3543,10 @@
             "env": [
               {
                 "name": "BENCH_BODY",
+                "help": ""
+              },
+              {
+                "name": "BENCH_EXPECT_STATUS",
                 "help": ""
               },
               {
@@ -5183,7 +5191,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "510",
+            "detail": "518",
             "advisory": true
           }
         ]
