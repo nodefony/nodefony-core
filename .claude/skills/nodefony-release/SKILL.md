@@ -231,6 +231,26 @@ npm, le disque). Le verdict d'existence d'un chemin est **injecté**, si bien qu
 `pack-all.mjs` **appelle** `auditerMetadonnees` du même cœur : une seule implémentation de la
 règle, deux points d'entrée — le pack doit refuser tout seul, car il s'utilise sans `release.mjs`.
 
+### Ce que la chaîne ne fait PAS — à faire à la main, dans cet ordre
+
+Payé à la `10.0.0-beta.1`, chaque ligne une fois :
+
+- **Avant d'estampiller : `git fetch` puis `origin/main` DANS `dev`.** Le job `accueil` pousse sur
+  `main` après chaque publication, sans redescendre dans `dev` : `--promouvoir` échoue alors sur un
+  push refusé (non-fast-forward). Fusionner `origin/main` dans `dev` d'abord.
+- **Pendant `--promouvoir` : ne pas annuler les runs `dev` du même commit avant que ceux de `main`
+  aient CONCLU.** La garde ne pardonne un run annulé que si un run du même workflow a rendu un
+  verdict ; sinon l'annulation compte ROUGE.
+- **Changement de CANAL (alpha → beta → stable) : prose à la main.** `accueil-gate --basculer`
+  porte les versions d'un cran à l'autre, jamais le canal : il reste vert tant que l'ancien canal
+  sert encore sa version. README, `AGENTS.md`, `SECURITY.md`, `docker/hub-overview.md`, README de
+  `nodefony` et `create-nodefony` — sur `main`, puis `main` dans `dev` (#47).
+- **Après le tag : `npm run release -- --dist-tags --publish`** depuis le poste (2FA) — le
+  `latest` d'un paquet né en préversion reste sur son premier cran.
+- **`docs/performance/data/<version>.json` n'est jamais remesuré par la forge** : vérifier que sa
+  `provenance.headCommit` décrit encore le code publié, sinon campagne de nuit
+  (`nodefony-load-test`, `perf-campaign.sh`).
+
 ## 4. ÉPROUVER — l'installation vierge
 
 ```bash
