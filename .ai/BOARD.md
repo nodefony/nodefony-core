@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-29 20:13** (UTC).
+> Empreinte prise le **2026-09-29 22:04** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -33,20 +33,28 @@
 
 **#508 — perf(http): trouver où Nodefony attend quand NestJS sert**
 
-Ordre 1.01 · P2 — décision · 2 j · jalon 10.0.0-beta · frise —
+Ordre 2.001 · P2 — décision · 2 j · jalon 10.0.0-beta · frise —
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 44 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
+## Jalon outillage-agents — 2 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
+| 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
+
 ## Jalon 10.0.0-beta — 44 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 1.01 | P2 — décision | 2 | — | #508 | perf(http): trouver où Nodefony attend quand NestJS sert |
-| 1.02 | — | — | — | #509 | docs(perf): republier les mesures de performance, prises avant l'optimisation #505 |
-| 1.05 | P2 — décision | 1 | 2026-10-12 → 10-12 | #259 | ci(release): publier aussi l'image sur GHCR, sans secret stocké |
+| 2.001 | P2 — décision | 2 | — | #508 | perf(http): trouver où Nodefony attend quand NestJS sert |
+| 2.002 | P2 — décision | 1 | — | #507 | test(bench): ajouter NestJS au banc ORM, avec un POST validé |
+| 2.003 | — | — | — | #509 | docs(perf): republier les mesures de performance, prises avant l'optimisation #505 |
+| 2.004 | P2 — décision | 1 | 2026-10-12 → 10-12 | #259 | ci(release): publier aussi l'image sur GHCR, sans secret stocké |
 | 2.01 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #215 | fix(build): réparer le contrôle de format du code généré |
 | 2.02 | P2 — décision | 1 | 2026-10-14 → 10-14 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 2.03 | P1 — figé à la création | 1 | 2026-10-15 → 10-15 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
@@ -79,7 +87,6 @@ Ordre 1.01 · P2 — décision · 2 j · jalon 10.0.0-beta · frise —
 | 5.09 | P0 — bloque le reste | 1 | 2026-11-18 → 11-18 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
 | 5.1 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
 | 5.11 | P2 — décision | 1 | 2026-11-20 → 11-20 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
-| 5.12 | P2 — décision | 1 | — | #507 | test(bench): ajouter NestJS au banc ORM, avec un POST validé |
 | 6.01 | P2 — décision | 7 | 2026-11-23 → 12-01 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
 | 6.02 | P2 — décision | 1 | 2026-11-23 → 11-23 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
 | 6.03 | P2 — décision | 1 | 2026-11-24 → 11-24 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
@@ -88,13 +95,6 @@ Ordre 1.01 · P2 — décision · 2 j · jalon 10.0.0-beta · frise —
 | 6.06 | P1 — figé à la création | 3 | 2026-11-27 → 12-01 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 6.07 | P1 — figé à la création | 0.5 | 2026-09-25 → 12-01 | #479 | ci: empêcher un process détaché de figer les jobs Windows après leur succès |
 | 6.08 | P1 — figé à la création | 2 | — | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
-
-## Jalon outillage-agents — 2 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
-| 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
 ## Jalon 10.1.0 — 31 ouverts
 

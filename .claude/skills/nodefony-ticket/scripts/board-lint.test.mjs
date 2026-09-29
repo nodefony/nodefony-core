@@ -169,6 +169,51 @@ describe("lintBoard — chaque incohérence est vue", () => {
     expect(codes(findings)).not.toContain("ORDRE-DOUBLON");
   });
 
+  it("LOT-ORDRE : un ordre 1.x sous le label beta-2 — l'ordre et le lot se contredisent", () => {
+    const findings = lintBoard({
+      items: [sain(1, { ordre: 1.01 }), sain(2, { ordre: 2.01 })],
+      issues: [
+        issueSaine(1, { labels: ["beta-2"] }),
+        issueSaine(2, { labels: ["beta-2"] }),
+      ],
+      now: MAINTENANT,
+    });
+    expect(
+      findings.filter((f) => f.code === "LOT-ORDRE").map((f) => f.n),
+    ).toEqual([1]);
+  });
+
+  it("SANS-LOT : jalon découpé en lots, un item rangé sans label de lot", () => {
+    const findings = lintBoard({
+      items: [sain(1, { ordre: 2.01 }), sain(2, { ordre: 2.02 })],
+      issues: [issueSaine(1, { labels: ["beta-2"] }), issueSaine(2)],
+      now: MAINTENANT,
+    });
+    expect(
+      findings.filter((f) => f.code === "SANS-LOT").map((f) => f.n),
+    ).toEqual([2]);
+  });
+
+  it("un jalon SANS aucun lot n'exige pas de label de lot", () => {
+    const findings = lintBoard({
+      items: [sain(1, { ordre: 1 }), sain(2, { ordre: 2 })],
+      issues: [issueSaine(1), issueSaine(2)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("SANS-LOT");
+    expect(codes(findings)).not.toContain("LOT-ORDRE");
+  });
+
+  it("LOT-PUBLIE : un ticket ouvert dans un lot dont la version est déjà publiée", () => {
+    const findings = lintBoard({
+      items: [sain(1, { ordre: 1.02 })],
+      issues: [issueSaine(1, { labels: ["beta-1"] })],
+      publies: [1],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).toContain("LOT-PUBLIE");
+  });
+
   it("DEPENDANCE-INVERSEE : le socle est rangé après ce qui s'y branche", () => {
     const findings = lintBoard({
       items: [sain(10, { ordre: 1 }), sain(20, { ordre: 5 })],

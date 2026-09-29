@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T20:13:47.804Z",
+  "generatedAt": "2026-09-29T22:04:29.299Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -294,22 +294,6 @@
       "labels": []
     },
     {
-      "number": 508,
-      "title": "perf(http): trouver où Nodefony attend quand NestJS sert",
-      "url": "https://github.com/nodefony/nodefony-core/issues/508",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 1.01,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-2"
-      ]
-    },
-    {
       "number": 496,
       "title": "refactor(types): sortir chaque paquet de la surcharge qui éteint le typage strict",
       "url": "https://github.com/nodefony/nodefony-core/issues/496",
@@ -368,22 +352,6 @@
       ]
     },
     {
-      "number": 509,
-      "title": "docs(perf): republier les mesures de performance, prises avant l'optimisation #505",
-      "url": "https://github.com/nodefony/nodefony-core/issues/509",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": null,
-      "jours": null,
-      "ordre": 1.02,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-1"
-      ]
-    },
-    {
       "number": 312,
       "title": "chore(release): rendre le lot de publication annulable",
       "url": "https://github.com/nodefony/nodefony-core/issues/312",
@@ -415,22 +383,6 @@
       "labels": [
         "irrattrapable",
         "beta-1"
-      ]
-    },
-    {
-      "number": 259,
-      "title": "ci(release): publier aussi l'image sur GHCR, sans secret stocké",
-      "url": "https://github.com/nodefony/nodefony-core/issues/259",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 1.05,
-      "debut": "2026-10-12",
-      "cible": "2026-10-12",
-      "labels": [
-        "beta-2"
       ]
     },
     {
@@ -869,6 +821,70 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 508,
+      "title": "perf(http): trouver où Nodefony attend quand NestJS sert",
+      "url": "https://github.com/nodefony/nodefony-core/issues/508",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 2.001,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 507,
+      "title": "test(bench): ajouter NestJS au banc ORM, avec un POST validé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/507",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 2.002,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 509,
+      "title": "docs(perf): republier les mesures de performance, prises avant l'optimisation #505",
+      "url": "https://github.com/nodefony/nodefony-core/issues/509",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": null,
+      "jours": null,
+      "ordre": 2.003,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 259,
+      "title": "ci(release): publier aussi l'image sur GHCR, sans secret stocké",
+      "url": "https://github.com/nodefony/nodefony-core/issues/259",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 2.004,
+      "debut": "2026-10-12",
+      "cible": "2026-10-12",
+      "labels": [
+        "beta-2"
+      ]
     },
     {
       "number": 215,
@@ -2022,7 +2038,9 @@
       "ordre": 4.075,
       "debut": null,
       "cible": null,
-      "labels": []
+      "labels": [
+        "beta-4"
+      ]
     },
     {
       "number": 427,
@@ -2052,7 +2070,9 @@
       "ordre": 4.09,
       "debut": "2026-11-05",
       "cible": "2026-11-05",
-      "labels": []
+      "labels": [
+        "beta-4"
+      ]
     },
     {
       "number": 157,
@@ -2112,7 +2132,9 @@
       "ordre": 4.1,
       "debut": null,
       "cible": null,
-      "labels": []
+      "labels": [
+        "beta-4"
+      ]
     },
     {
       "number": 463,
@@ -2991,22 +3013,6 @@
       ]
     },
     {
-      "number": 507,
-      "title": "test(bench): ajouter NestJS au banc ORM, avec un POST validé",
-      "url": "https://github.com/nodefony/nodefony-core/issues/507",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.12,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
       "number": 35,
       "title": "feat(client): faire remonter les journaux du navigateur au serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/35",
@@ -3438,7 +3444,9 @@
       "ordre": 6.08,
       "debut": null,
       "cible": null,
-      "labels": []
+      "labels": [
+        "beta-6"
+      ]
     },
     {
       "number": 180,

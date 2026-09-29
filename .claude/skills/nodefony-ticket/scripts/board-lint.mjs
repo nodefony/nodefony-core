@@ -100,6 +100,7 @@ export function parseBefore(body) {
  * @param entree.items - items du tableau, `{ n, title, milestone, ordre, jours, prio, status, parent, type }`
  * @param entree.issues - issues OUVERTES du dépôt, `{ n, title, milestone, labels, dependsOn }`
  * @param entree.commits - par numéro de ticket, les commits qui le citent `{ sha, date, subject }`
+ * @param entree.publies - numéros N des `10.x.y-beta.N` déjà étiquetées (tags git), injectés
  * @param entree.now - instant de référence, injecté pour que le test ne dépende pas du calendrier
  * @returns les constats, erreurs d'abord, chacun avec son code, son ticket et son geste
  */
@@ -109,6 +110,7 @@ export function lintBoard({
   commits = {},
   vitrine = [],
   alertes = [],
+  publies = [],
   now = new Date(),
 }) {
   const findings = [];
@@ -232,6 +234,56 @@ export function lintBoard({
         .join(", ")} dans « ${ms} » — l'ordre ne tranche plus`,
       "donner un rang distinct à chacun",
     );
+  }
+
+  // E4bis — l'ordre et le lot sont DEUX champs pour une même décision : la partie
+  // entière de l'ordre EST le numéro du lot `beta-N`. Rien ne les liait, si bien
+  // qu'un ticket remonté en tête (ordre 1.x) gardait son ancien lot `beta-5` —
+  // proposé en premier par `board-next`, publié en dernier par le label. Vécu :
+  // #507 remonté à 1.015 sous `beta-5`, #508 à 1.01 sous `beta-2`, et #509 resté
+  // `beta-1` après la publication de la beta.1.
+  const lotDe = (issue) => {
+    const lots = (issue.labels ?? [])
+      .map((l) => /^beta-(\d+)$/.exec(l)?.[1])
+      .filter(Boolean)
+      .map(Number);
+    return lots.length === 1 ? lots[0] : null;
+  };
+  const publiesSet = new Set(publies);
+  const jalonsEnLots = new Set(
+    issues.filter((i) => lotDe(i) !== null).map((i) => i.milestone),
+  );
+  for (const issue of issues) {
+    const moi = parItem.get(issue.n);
+    const lot = lotDe(issue);
+    if (lot !== null && publiesSet.has(lot)) {
+      add(
+        "erreur",
+        "LOT-PUBLIE",
+        issue.n,
+        `label « beta-${lot} » alors que la beta.${lot} est déjà publiée — le lot ne peut plus rien livrer`,
+        `gh issue edit ${issue.n} --remove-label beta-${lot} --add-label beta-<N suivant>  (et l'ordre N.xx qui va avec)`,
+      );
+    }
+    if (!moi || typeof moi.ordre !== "number") continue;
+    if (lot === null) {
+      if (!jalonsEnLots.has(issue.milestone)) continue;
+      add(
+        "erreur",
+        "SANS-LOT",
+        issue.n,
+        `ordre ${moi.ordre} dans « ${issue.milestone} », découpé en lots, mais aucun label beta-N — ne part avec aucune publication`,
+        `gh issue edit ${issue.n} --add-label beta-${Math.floor(moi.ordre)}`,
+      );
+    } else if (Math.floor(moi.ordre) !== lot) {
+      add(
+        "erreur",
+        "LOT-ORDRE",
+        issue.n,
+        `ordre ${moi.ordre} mais label « beta-${lot} » — la partie entière de l'ordre est le lot : proposé au rang ${Math.floor(moi.ordre)}, publié avec la beta.${lot}`,
+        `aligner l'un sur l'autre : ordre ${lot}.xx, ou label beta-${Math.floor(moi.ordre)}`,
+      );
+    }
   }
 
   // E5 — une dépendance placée APRÈS son dépendant est un ordre qui ment.
@@ -622,6 +674,22 @@ function readAlertes() {
   }
 }
 
+/**
+ * Numéros des beta déjà publiées, lus sur les tags git `v*-beta.N` — le tag est
+ * posé par la chaîne de publication, c'est le fait observable.
+ */
+function readPublishedBetas() {
+  try {
+    return sh("git", ["tag", "-l", "v*-beta.*"])
+      .split("\n")
+      .map((t) => /-beta\.(\d+)$/.exec(t)?.[1])
+      .filter(Boolean)
+      .map(Number);
+  } catch {
+    return [];
+  }
+}
+
 function readIssues() {
   const brut = sh("gh", [
     "issue",
@@ -805,6 +873,7 @@ if (estAppelDirect) {
     commits: readCommits(enCours),
     vitrine: readVitrine(),
     alertes: readAlertes(),
+    publies: readPublishedBetas(),
   });
 
   const incidents = findings.some((f) => f.severity === "erreur")

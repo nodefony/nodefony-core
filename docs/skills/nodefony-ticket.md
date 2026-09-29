@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-26
+updated: 2026-09-29
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -82,7 +82,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/lexique.md` | Lexique des tickets — source unique | 126 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 259 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 267 |
 
 
 ## Scripts embarqués

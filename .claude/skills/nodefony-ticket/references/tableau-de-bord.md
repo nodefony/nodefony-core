@@ -58,6 +58,9 @@ arbitrage sans bonne réponse mécanique :
 | `LABEL-DOUBLE-JALON`           | un label porte le nom d'un jalon — deux instruments confondus, le double se périme                |
 | `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                                    |
 | `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                               |
+| `LOT-ORDRE`                    | ordre `N.xx` sous un label `beta-M` (M ≠ N) — proposé à un rang, publié avec un autre lot         |
+| `SANS-LOT`                     | rangé dans un jalon découpé en lots, sans label `beta-N` — ne part avec aucune publication        |
+| `LOT-PUBLIE`                   | label `beta-N` alors que `…-beta.N` est déjà étiquetée — un lot publié ne livre plus rien         |
 | `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle                  |
 | `CONTRAINTE-INVERSEE`          | « à faire AVANT #N » non respecté — la contrainte que le tableau n'a aucun champ pour dire        |
 | `STATUT-MENTEUR`               | « En cours » sans commit de travail depuis 14 j (les commits de pilotage ne comptent pas)         |
@@ -156,6 +159,11 @@ la publication répond (« publier sans les mains », « ce que l'installeur re�
 
 Le champ `Ordre` reste ce qu'il est — les **dépendances**. Les deux se superposent sans se
 remplacer : l'ordre dit ce qui passe avant quoi, le label dit ce qui sort ensemble.
+
+🔴 **La partie entière de l'ordre EST le numéro du lot** : `beta-2` ⇔ ordre `2.xx`. Remonter un
+ticket, c'est changer les DEUX — l'ordre seul le fait proposer en tête et publier avec son ancien
+lot. Une beta publiée ferme son lot : ce qui y reste ouvert passe au lot suivant. `ticket:lint`
+le refuse (`LOT-ORDRE`, `SANS-LOT`, `LOT-PUBLIE`).
 
 ### L'ordre VISUEL de la grille se pose, le GROUPEMENT non
 
