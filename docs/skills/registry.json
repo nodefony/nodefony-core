@@ -3418,7 +3418,7 @@
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code.",
       "cost": {
         "bodyLines": 509,
-        "approxTokens": 8688
+        "approxTokens": 8716
       },
       "requires": [
         "serveur UP",
@@ -4176,6 +4176,22 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/native-sample.mjs",
+            "purpose": "Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE",
+            "usage": [
+              "node native-sample.mjs <capture> <rps>                      # un camp"
+            ],
+            "options": [
+              {
+                "flag": "--cpu-prof",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/perf-campaign.sh",
             "purpose": "Campagne de mesure PUBLIABLE, sans surveillance — la matière de",
             "usage": [
@@ -4823,6 +4839,66 @@
             ],
             "options": [],
             "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/wait-analyze.mjs",
+            "purpose": "Relit les fenêtres de `wait-probe.mjs` (via `wait-compare.sh`) et rend, par",
+            "usage": [
+              "Usage : node wait-analyze.mjs <dossier> <campA> <campB> [--json <fichier>]"
+            ],
+            "options": [
+              {
+                "flag": "--json",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/wait-compare.sh",
+            "purpose": "« Où Nodefony ATTEND-il quand le témoin sert ? » — même décor que",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "BENCH_CONN",
+                "help": ""
+              },
+              {
+                "name": "BENCH_DUR",
+                "help": ""
+              },
+              {
+                "name": "BENCH_PATH",
+                "help": ""
+              },
+              {
+                "name": "NF_NATIVE_SAMPLE",
+                "help": ""
+              },
+              {
+                "name": "NF_WAIT_DIR",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/wait-probe.mjs",
+            "purpose": "Sonde « où part le temps HORS du JavaScript » — préchargée dans un serveur",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_WAIT_PROBE_OUT",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },

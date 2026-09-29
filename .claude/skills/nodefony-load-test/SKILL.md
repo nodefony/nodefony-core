@@ -285,7 +285,7 @@ bash .claude/skills/nodefony-load-test/scripts/profile-compare.sh   # Nodefony v
 Pas d'audit ni de sous-agent sur la perf du pipeline sans ce tableau en entrée · témoin prouvé
 équivalent par `fair-parity.mjs` · un levier de quelques µs se juge au PROFIL, pas au débit (±8 %
 de bruit) · deux profils d'heures différentes ne se comparent pas en absolu.
-**Lecture des trois tableaux, pièges et cas vécus : [`references/profil-compare.md`](references/profil-compare.md).**
+**Lecture des trois tableaux, pièges, cas vécus — et ce que le profil ne voit PAS (attente, natif, sur-attribution ×15 ; `wait-compare.sh`, `native-sample.mjs`) : [`references/profil-compare.md`](references/profil-compare.md).**
 
 ## 🚨 RÈGLE N°1 — aucun chiffre sans contrôle de validité
 

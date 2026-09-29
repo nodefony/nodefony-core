@@ -29,11 +29,11 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
 | Corps | 509 lignes |
-| Coût d'activation | ~8 688 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 716 tokens (le corps est chargé à l'invocation) |
 | Description | 986 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 52 |
+| Scripts | 56 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -81,7 +81,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 146 |
 | `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 188 |
-| `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 39 |
+| `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 67 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
 
@@ -119,6 +119,7 @@ script, donc toujours à jour après régénération.
 | `scripts/kill-guard.sh` | Garde de mise à mort des bancs — À SOURCER, jamais à exécuter. | — | — |
 | `scripts/log-sink-contention.mjs` | Microbench ISOLÉ du driver de sink de log (LB.W / axe W2). | — | `DIR` `JSON_OUT` `LINES` `ONLY` `RUNS` `VARIANT` `WARMUP` `WID` `WORKERS` |
 | `scripts/machine-regime.sh` | RÉGIME MACHINE — l'état du processeur au moment d'une mesure. | `--format` | — |
+| `scripts/native-sample.mjs` | Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE | `--cpu-prof` | — |
 | `scripts/perf-campaign.sh` | Campagne de mesure PUBLIABLE, sans surveillance — la matière de | `--at` `--conn` `--minutes` `--out` `--porcelain` `--short` `--soak-min` `--tries` `--window` | `SOAK_MIN` `TRIES` |
 | `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | `OUT` |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
@@ -139,6 +140,9 @@ script, donc toujours à jour après régénération.
 | `scripts/totp-mfa-attack-e2e.mjs` | Banc ADVERSARIAL 2FA TOTP (P6.17) — red team / blue team, VRAI serveur. | — | — |
 | `scripts/totp-mfa-e2e.mjs` | Banc e2e 2FA TOTP step-up (P6.17) — VRAI serveur, sans navigateur. | — | — |
 | `scripts/users-admin-factors-e2e.mjs` | Banc e2e — RESET ADMIN des facteurs forts d'un utilisateur (P6.15) — VRAI | — | — |
+| `scripts/wait-analyze.mjs` | Relit les fenêtres de `wait-probe.mjs` (via `wait-compare.sh`) et rend, par | `--json` | — |
+| `scripts/wait-compare.sh` | « Où Nodefony ATTEND-il quand le témoin sert ? » — même décor que | — | `BENCH_CONN` `BENCH_DUR` `BENCH_PATH` `NF_NATIVE_SAMPLE` `NF_WAIT_DIR` |
+| `scripts/wait-probe.mjs` | Sonde « où part le temps HORS du JavaScript » — préchargée dans un serveur | — | `NF_WAIT_PROBE_OUT` |
 | `scripts/webhooks-dataplane-e2e.mjs` | Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF, | — | — |
 | `scripts/ws-backpressure-e2e.mjs` | Contre-pression WebSocket SORTANTE (serveur → client) sur une VRAIE socket. | — | `BASE` `HOST` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `URL` `WS_URL` |
 | `scripts/ws-conn-cap-e2e.mjs` | Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c | — | `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
@@ -169,6 +173,7 @@ node .claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/idempotency-postgres-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/idempotency-userland-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
+node native-sample.mjs <capture> <rps>                      # un camp
 bash perf-campaign.sh [--at HH:MM] [--out DIR] [--soak-min 90] [--tries 3]
 Usage :  node .claude/skills/nodefony-load-test/scripts/perf-dossier-report.mjs [sortie.html]
 node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]
@@ -185,6 +190,7 @@ node .claude/skills/nodefony-load-test/scripts/supervision-stress.mjs
 Lancement : node .claude/skills/nodefony-load-test/scripts/totp-mfa-attack-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/totp-mfa-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/users-admin-factors-e2e.mjs
+Usage : node wait-analyze.mjs <dossier> <campA> <campB> [--json <fichier>]
 node .claude/skills/nodefony-load-test/scripts/webhooks-dataplane-e2e.mjs
 bash .claude/skills/nodefony-start-server/start.sh
 NF__HTTP__WSMAXCONNECTIONSPERIP=3 bash .claude/skills/nodefony-start-server/start.sh
@@ -193,7 +199,7 @@ bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/load-test/scripts/ws-messages.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_STEPS` · `NF_WAIT` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
 
 ## Conformité au standard Agent Skills
 
