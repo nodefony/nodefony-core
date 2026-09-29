@@ -227,14 +227,21 @@ Pièges :
 - Le `wait` d'un pilote shell qui lance le serveur en `&` attend AUSSI le serveur : n'attendre
   que le PID visé (vécu : interblocage de 25 min).
 
-### `native-sample.mjs <capture> <rps> [<captureB> <rpsB> [top]]`
+### `native-sample.mjs` — qui paie, en µs/req
+
+La forme usuelle ne se tape pas : `NF_NATIVE_SAMPLE=1 wait-compare.sh` l'appelle en fin de
+campagne sur TOUTES les paires, moyennées (`NF_NATIVE_TOP` règle la longueur des listes). À la main :
 
 ```bash
-S=.claude/skills/nodefony-load-test/scripts; D=tmp/wait-native
-rps() { awk '/Requests\/sec/{print $2}' $D/$1/wrk.txt; }
-node $S/native-sample.mjs $D/nodefony-1/native.sample.txt $(rps nodefony-1) \
-                          $D/nest-fair-1/native.sample.txt $(rps nest-fair-1) 30
+S=.claude/skills/nodefony-load-test/scripts
+node $S/native-sample.mjs --dir tmp/wait-native nodefony nest-fair 40   # toutes les paires, moyennées
+node $S/native-sample.mjs <capture> <rps>                               # une capture seule
+node $S/native-sample.mjs <capA> <rpsA> <capB> <rpsB> [top]             # deux captures
 ```
+
+Éprouvé par `native-sample.test.mjs` (capture miniature écrite à la main : temps propre, nommage,
+imputation, moyenne) — `npx vitest run .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs`.
+Un changement du format de `sample` ou de `perf.map` doit le faire tomber, pas fausser un banc.
 
 Il parcourt l'arbre d'appels du FIL PRINCIPAL de la capture (`sample <pid> 10 -file …`, outil
 macOS livré, sans root pour ses propres process), calcule le temps PROPRE de chaque frame

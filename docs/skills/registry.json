@@ -3417,8 +3417,8 @@
       ],
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code.",
       "cost": {
-        "bodyLines": 509,
-        "approxTokens": 8716
+        "bodyLines": 510,
+        "approxTokens": 8754
       },
       "requires": [
         "serveur UP",
@@ -4187,6 +4187,10 @@
                 "help": ""
               },
               {
+                "flag": "--dir",
+                "help": ""
+              },
+              {
                 "flag": "--perf-basic-prof",
                 "help": ""
               },
@@ -4195,6 +4199,15 @@
                 "help": ""
               }
             ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/native-sample.test.mjs",
+            "purpose": "Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture",
+            "usage": [],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -4872,6 +4885,10 @@
             "usage": [],
             "options": [
               {
+                "flag": "--dir",
+                "help": ""
+              },
+              {
                 "flag": "--interpreted-frames-native",
                 "help": ""
               },
@@ -4895,6 +4912,10 @@
               },
               {
                 "name": "NF_NATIVE_SAMPLE",
+                "help": ""
+              },
+              {
+                "name": "NF_NATIVE_TOP",
                 "help": ""
               },
               {
@@ -5162,7 +5183,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "509",
+            "detail": "510",
             "advisory": true
           }
         ]

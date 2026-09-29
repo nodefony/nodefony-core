@@ -15,6 +15,8 @@
 // Usage :
 //   node native-sample.mjs <capture> <rps>                      # un camp
 //   node native-sample.mjs <capA> <rpsA> <capB> <rpsB> [top=40]  # écart A − B
+//   node native-sample.mjs --dir tmp/wait-native nodefony nest-fair [top]
+//        # TOUTES les paires rangées par wait-compare.sh, moyennées — la forme usuelle
 // Table perf : `<dossier de la capture>/perf.map` si présente (wait-compare.sh
 // l'y copie sous NF_NATIVE_SAMPLE=1).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -164,11 +166,120 @@ const breakdown = (S, k) =>
     )
     .join(" · ");
 
+/**
+ * Toutes les captures d'un camp sous `base` (`<camp>-<n>/native.sample.txt` +
+ * `wrk.txt`, rangées par `wait-compare.sh`) → MOYENNE en µs/req par famille et
+ * par fonction JS payeuse. Une paire isolée ne se lit pas : l'inlining déplace
+ * le coût d'une fonction à l'autre d'un run au suivant.
+ *
+ * @returns `{ runs, usPerReq, fam: Map<famille, µs>, owner: Map<fonction, µs>,
+ *   ownerFam: Map<fonction, Map<famille, µs>>, named }` ; `runs` = 0 si rien.
+ */
+export function summarizeCamp(base, camp) {
+  const dirs = fs.existsSync(base)
+    ? fs
+        .readdirSync(base)
+        .filter((d) => new RegExp(`^${camp}-\\d+$`).test(d))
+        .map((d) => path.join(base, d))
+        .filter((d) => fs.existsSync(path.join(d, "native.sample.txt")))
+    : [];
+  const out = {
+    runs: dirs.length,
+    usPerReq: 0,
+    fam: new Map(),
+    owner: new Map(),
+    ownerFam: new Map(),
+    named: dirs.length > 0,
+  };
+  const add = (map, k, v) => map.set(k, (map.get(k) ?? 0) + v / dirs.length);
+  for (const dir of dirs) {
+    const wrk = fs.readFileSync(path.join(dir, "wrk.txt"), "utf8");
+    const rps = Number(/Requests\/sec:\s+([\d.]+)/.exec(wrk)?.[1] ?? NaN);
+    if (!(rps > 0)) throw new Error(`débit illisible dans ${dir}/wrk.txt`);
+    const S = summarize(path.join(dir, "native.sample.txt"), rps);
+    out.named &&= S.named;
+    out.usPerReq += S.usPerReq / dirs.length;
+    for (const [k, v] of S.fam) add(out.fam, k, S.toUs(v));
+    for (const [k, byFam] of S.callers) {
+      let f = out.ownerFam.get(k);
+      if (!f) out.ownerFam.set(k, (f = new Map()));
+      for (const [fk, n] of byFam) {
+        add(f, fk, S.toUs(n));
+        add(out.owner, k, S.toUs(n));
+      }
+    }
+  }
+  return out;
+}
+
+/** Rapport `--dir` : familles côte à côte, puis « qui paie » par camp. */
+function reportCamps(base, campA, campB, top) {
+  const A = summarizeCamp(base, campA);
+  const B = summarizeCamp(base, campB);
+  for (const [c, S] of [
+    [campA, A],
+    [campB, B],
+  ])
+    if (S.runs === 0) {
+      console.error(`❌ aucune capture pour « ${c} » sous ${base}`);
+      process.exit(1);
+    }
+  console.log(
+    `${campA} : ${A.usPerReq.toFixed(1)} µs/req (${A.runs} runs) · ${campB} : ${B.usPerReq.toFixed(1)} µs/req (${B.runs} runs) · écart ${(A.usPerReq - B.usPerReq).toFixed(1)}\n`,
+  );
+  console.log(`${campA.padStart(9)} ${campB.padStart(9)}    écart  famille`);
+  const fams = new Set([...A.fam.keys(), ...B.fam.keys()]);
+  for (const k of [...fams].sort(
+    (x, y) =>
+      (B.fam.get(x) ?? 0) -
+      (A.fam.get(x) ?? 0) -
+      ((B.fam.get(y) ?? 0) - (A.fam.get(y) ?? 0)),
+  )) {
+    const a = A.fam.get(k) ?? 0;
+    const b = B.fam.get(k) ?? 0;
+    console.log(`${fmt(a)}   ${fmt(b)} ${fmt(a - b)}  ${k}`);
+  }
+  for (const [c, S] of [
+    [campA, A],
+    [campB, B],
+  ]) {
+    if (!S.named) {
+      console.log(`\n(${c} : perf.map absente — imputation indisponible)`);
+      continue;
+    }
+    console.log(
+      `\n${c} — QUI paie : fonction JS, propre + natif appelé, moyenne (top ${top})`,
+    );
+    let cum = 0;
+    for (const [k, v] of [...S.owner]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, top)) {
+      cum += v;
+      const parts = [...(S.ownerFam.get(k) ?? new Map())]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([f, n]) => `${n.toFixed(2)} ${f}`)
+        .join(" · ");
+      console.log(
+        `${fmt(v)} µs ${cum.toFixed(1).padStart(6)}  ${k.slice(0, 100)}   [${parts}]`,
+      );
+    }
+  }
+}
+
 const isMain = import.meta.url === `file://${process.argv[1]}`;
 const args = isMain ? process.argv.slice(2) : null;
 const fmt = (x) => x.toFixed(2).padStart(7);
 if (!args) {
   // importé comme bibliothèque
+} else if (args[0] === "--dir") {
+  if (args.length < 4) {
+    console.error(
+      "usage : native-sample.mjs --dir <dossier> <campA> <campB> [top=40]",
+    );
+    process.exit(2);
+  }
+  reportCamps(args[1], args[2], args[3], Number(args[4] ?? 40));
 } else if (args.length === 2) {
   const s = summarize(args[0], Number(args[1]));
   console.log(
@@ -235,7 +346,7 @@ if (!args) {
   }
 } else {
   console.error(
-    "usage : native-sample.mjs <capture> <rps> [<captureB> <rpsB> [top]]",
+    "usage : native-sample.mjs <capture> <rps> [<captureB> <rpsB> [top]] | --dir <dossier> <campA> <campB> [top]",
   );
   process.exit(2);
 }

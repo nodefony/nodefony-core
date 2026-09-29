@@ -64,6 +64,7 @@ run() {
   for _ in $(seq 1 50); do ls "$out"/*.json >/dev/null 2>&1 && break; sleep 0.1; done
   kill -INT $pid; for _ in $(seq 1 50); do kill -0 $pid 2>/dev/null || break; sleep 0.2; done
   kill -0 $pid 2>/dev/null && { kill -TERM $pid; sleep 2; }
+  # Toujours déplacer la table (même run refusé plus bas) : /tmp ne garde rien.
   if [ -n "$perf_flags" ] && [ -f "/tmp/perf-$pid.map" ]; then
     mv "/tmp/perf-$pid.map" "$out/perf.map"
   fi
@@ -78,3 +79,7 @@ for i in $(seq 1 "$PAIRS"); do
   run "$WITNESS-$i" 5161 "" "$DIR/../bench-frameworks/$WITNESS.mjs" || exit 1
 done
 node "$DIR/wait-analyze.mjs" "$BASE" nodefony "$WITNESS"
+if [ -n "${NF_NATIVE_SAMPLE:-}" ]; then
+  echo ""
+  node "$DIR/native-sample.mjs" --dir "$BASE" nodefony "$WITNESS" "${NF_NATIVE_TOP:-40}"
+fi
