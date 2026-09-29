@@ -632,7 +632,22 @@ jobs:
             --label org.opencontainers.image.description="Application Nodefony de démonstration, générée par « nodefony create app --preset complete » au tag ${V}" \
             --label org.opencontainers.image.source="https://github.com/nodefony/nodefony-core" \
             --label org.opencontainers.image.licenses="Apache-2.0" \
-            -t "nodefony/nodefony:${V}" .
+            -t "nf-demo-app:${V}" .
+
+          # 🔴 LA BASE DE LA DÉMO NAÎT MIGRÉE. L'image embarque sa base SQLite :
+          # sans migration, elle démarrait sur une base vierge et `/readyz`
+          # restait à 503 — « 2 migrations à appliquer » — pendant que la page
+          # de l'image promettait un `docker run` qui sert (vu à la beta.1, sur
+          # Docker Hub comme sur GHCR). Migrer au BUILD, pas au démarrage : la
+          # doctrine du framework veut les migrations AVANT les exemplaires,
+          # jamais au boot d'un process, et ici la base vit DANS l'image. Le
+          # gabarit, lui, ne change pas : une application réelle garde sa base
+          # hors de l'image et son job de migration (`deploy/migrate-job.yaml`).
+          # Les étiquettes OCI de la couche précédente sont héritées.
+          docker build -t "nodefony/nodefony:${V}" - <<EOF
+          FROM nf-demo-app:${V}
+          RUN node_modules/.bin/nodefony orm:migrate
+          EOF
 
           # AVANT le push, comme le contrôle de matière sensible : une image
           # poussée est publique, et ses étiquettes voyagent avec elle.
@@ -655,6 +670,27 @@ jobs:
             echo "::error::l'image embarque de la matière sensible — publication refusée"
             exit 1
           }
+
+          # L'image SERT-elle ? Le job la construisait, contrôlait ses couches
+          # et ses étiquettes — et ne la démarrait jamais : une image à 503
+          # permanent est partie de l'alpha.6 à la beta.1 sans qu'une étape le
+          # voie. On la lance comme la page de l'image le dit, sans rien lui
+          # fournir, et on exige `/readyz` à 200 dans un délai borné.
+          docker run -d --name nf-demo-readyz -p 5151:5151 "nodefony/nodefony:${V}"
+          code=000
+          for _ in $(seq 1 45); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5151/readyz || true)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          if [ "$code" != "200" ]; then
+            docker logs nf-demo-readyz 2>&1 | tail -40
+            docker rm -f nf-demo-readyz >/dev/null
+            echo "::error::l'image ne sert pas — /readyz répond ${code} après 90 s. Publication refusée."
+            exit 1
+          fi
+          docker rm -f nf-demo-readyz >/dev/null
+          echo "::notice::l'image sert — /readyz 200"
 
           docker push "nodefony/nodefony:${V}"
 

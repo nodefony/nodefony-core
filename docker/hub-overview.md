@@ -22,8 +22,10 @@ docker run --rm -p 5151:5151 nodefony/nodefony:beta
 L'application répond sur <http://127.0.0.1:5151>. La console d'administration est
 sous `/nodefony`.
 
-Elle embarque SQLite et applique ses migrations au démarrage : aucun service
-externe n'est requis pour ce premier essai.
+Elle embarque SQLite, déjà migrée à la construction de l'image : aucun service
+externe n'est requis pour ce premier essai. Une application réelle garde, elle, sa
+base hors de l'image, et applique ses migrations par un job AVANT de démarrer ses
+exemplaires.
 
 ## Étiquettes disponibles
 
