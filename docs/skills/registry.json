@@ -4191,6 +4191,10 @@
             ],
             "options": [
               {
+                "flag": "--accept-noise",
+                "help": ""
+              },
+              {
                 "flag": "--cpu-prof",
                 "help": ""
               },
@@ -4207,7 +4211,12 @@
                 "help": ""
               }
             ],
-            "env": [],
+            "env": [
+              {
+                "name": "MAX_DISPERSION",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -4215,7 +4224,16 @@
             "path": "scripts/native-sample.test.mjs",
             "purpose": "Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture",
             "usage": [],
-            "options": [],
+            "options": [
+              {
+                "flag": "--accept-noise",
+                "help": ""
+              },
+              {
+                "flag": "--dir",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false

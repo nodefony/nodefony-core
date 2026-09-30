@@ -16,7 +16,9 @@
 //   node native-sample.mjs <capture> <rps>                      # un camp
 //   node native-sample.mjs <capA> <rpsA> <capB> <rpsB> [top=40]  # écart A − B
 //   node native-sample.mjs --dir tmp/wait-native nodefony nest-fair [top]
-//        # TOUTES les paires rangées par wait-compare.sh, moyennées — la forme usuelle
+//        # TOUTES les paires rangées par wait-compare.sh, moyennées — la forme usuelle.
+//        # Refuse (code 3) si le débit des runs d'un camp diverge de plus de 3 %
+//        # (`--accept-noise` pour lire quand même, sans en tirer de chiffre).
 // Table perf : `<dossier de la capture>/perf.map` si présente (wait-compare.sh
 // l'y copie sous NF_NATIVE_SAMPLE=1).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -187,6 +189,19 @@ const breakdown = (S, k) =>
     )
     .join(" · ");
 
+/** Dispersion d'une série de débits : (max − min) / médiane. */
+export function rpsDispersion(list) {
+  const s = [...list].sort((a, b) => a - b);
+  return (s.at(-1) - s[0]) / s[s.length >> 1];
+}
+
+/**
+ * Au-delà, les µs/req d'un camp mélangent des états de machine différents :
+ * même seuil que `bench-ab-mono.sh`. Vécu : deux paires à 16 803 puis
+ * 9 651 req/s moyennées sans un mot — un plan entier en est sorti.
+ */
+const MAX_DISPERSION = 0.03;
+
 /**
  * Toutes les captures d'un camp sous `base` (`<camp>-<n>/native.sample.txt` +
  * `wrk.txt`, rangées par `wait-compare.sh`) → MOYENNE en µs/req par famille et
@@ -206,6 +221,7 @@ export function summarizeCamp(base, camp) {
     : [];
   const out = {
     runs: dirs.length,
+    rps: [],
     usPerReq: 0,
     fam: new Map(),
     owner: new Map(),
@@ -217,6 +233,7 @@ export function summarizeCamp(base, camp) {
     const wrk = fs.readFileSync(path.join(dir, "wrk.txt"), "utf8");
     const rps = Number(/Requests\/sec:\s+([\d.]+)/.exec(wrk)?.[1] ?? NaN);
     if (!(rps > 0)) throw new Error(`débit illisible dans ${dir}/wrk.txt`);
+    out.rps.push(rps);
     const S = summarize(path.join(dir, "native.sample.txt"), rps);
     out.named &&= S.named;
     out.usPerReq += S.usPerReq / dirs.length;
@@ -234,7 +251,7 @@ export function summarizeCamp(base, camp) {
 }
 
 /** Rapport `--dir` : familles côte à côte, puis « qui paie » par camp. */
-function reportCamps(base, campA, campB, top) {
+function reportCamps(base, campA, campB, top, acceptNoise) {
   const A = summarizeCamp(base, campA);
   const B = summarizeCamp(base, campB);
   for (const [c, S] of [
@@ -245,6 +262,26 @@ function reportCamps(base, campA, campB, top) {
       console.error(`❌ aucune capture pour « ${c} » sous ${base}`);
       process.exit(1);
     }
+  let noisy = false;
+  for (const [c, S] of [
+    [campA, A],
+    [campB, B],
+  ]) {
+    const d = S.runs > 1 ? rpsDispersion(S.rps) : 0;
+    const line = `${c} : ${S.rps.map((r) => r.toFixed(0)).join(" · ")} req/s — dispersion ${(d * 100).toFixed(1)} %`;
+    if (d > MAX_DISPERSION) {
+      noisy = true;
+      console.error(`⚠️  ${line} (> ${MAX_DISPERSION * 100} %)`);
+    } else console.log(line);
+  }
+  if (noisy && !acceptNoise) {
+    console.error(
+      "⛔ DANS LE BRUIT — les runs d'un camp n'ont pas tourné dans le même état de machine ;" +
+        " un poste de quelques µs ne se lit pas là-dedans. Recapturer (machine calme)," +
+        " ou --accept-noise pour lire quand même, SANS en tirer de chiffre.",
+    );
+    process.exit(3);
+  }
   console.log(
     `${campA} : ${A.usPerReq.toFixed(1)} µs/req (${A.runs} runs) · ${campB} : ${B.usPerReq.toFixed(1)} µs/req (${B.runs} runs) · écart ${(A.usPerReq - B.usPerReq).toFixed(1)}\n`,
   );
@@ -294,13 +331,15 @@ const fmt = (x) => x.toFixed(2).padStart(7);
 if (!args) {
   // importé comme bibliothèque
 } else if (args[0] === "--dir") {
-  if (args.length < 4) {
+  const acceptNoise = args.includes("--accept-noise");
+  const pos = args.filter((a) => a !== "--accept-noise");
+  if (pos.length < 4) {
     console.error(
-      "usage : native-sample.mjs --dir <dossier> <campA> <campB> [top=40]",
+      "usage : native-sample.mjs --dir <dossier> <campA> <campB> [top=40] [--accept-noise]",
     );
     process.exit(2);
   }
-  reportCamps(args[1], args[2], args[3], Number(args[4] ?? 40));
+  reportCamps(pos[1], pos[2], pos[3], Number(pos[4] ?? 40), acceptNoise);
 } else if (args.length === 2) {
   const s = summarize(args[0], Number(args[1]));
   console.log(

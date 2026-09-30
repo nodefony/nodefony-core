@@ -3,6 +3,7 @@
 // au premier ancêtre JS, moyenne par camp. Un changement du format de `sample`
 // ou de la table perf doit faire tomber ce test, pas fausser un banc en silence.
 //   npx vitest run .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,6 +12,7 @@ import {
   family,
   loadPerfMap,
   parseMainThread,
+  rpsDispersion,
   summarizeCamp,
 } from "./native-sample.mjs";
 
@@ -131,5 +133,38 @@ describe("native-sample", () => {
     stage(base, "x", 1, 1000);
     stage(base, "x", 2, 1000, false);
     expect(summarizeCamp(base, "x").named).toBe(false);
+  });
+
+  it("REFUSE de conclure quand le débit des runs d'un camp diverge", () => {
+    // Vécu : deux paires à 16 803 puis 9 651 req/s, moyennées en silence —
+    // le plan de #508 en est sorti, avec des postes de 1–2 µs lus dans le bruit.
+    expect(rpsDispersion([1000, 1010, 990])).toBeCloseTo(0.02);
+    expect(rpsDispersion([16803, 9651])).toBeCloseTo(0.4256, 3);
+    const base = path.join(tmp, "bruit");
+    for (const [n, rps] of [
+      [1, 1000],
+      [2, 500],
+    ]) {
+      stage(base, "a", n, rps);
+      stage(base, "b", n, 1000);
+    }
+    expect(summarizeCamp(base, "a").rps).toEqual([1000, 500]);
+    const cli = (...extra) =>
+      spawnSync(
+        process.execPath,
+        [
+          path.join(import.meta.dirname, "native-sample.mjs"),
+          "--dir",
+          base,
+          "a",
+          "b",
+          ...extra,
+        ],
+        { encoding: "utf8" },
+      );
+    const refused = cli();
+    expect(refused.status).toBe(3);
+    expect(refused.stderr).toMatch(/DANS LE BRUIT/);
+    expect(cli("5", "--accept-noise").status).toBe(0);
   });
 });
