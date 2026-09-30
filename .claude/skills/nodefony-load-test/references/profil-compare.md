@@ -48,6 +48,11 @@ fil principal en brûlait ~60–90, annonçait la parité d'une passe à l'autre
   dispersion < 1 %), pas au profil ni au débit ;
 - une famille native (builtins, chaînes, noyau…) se découpe par `native-sample.mjs` ;
 - le profil garde un rôle : NOMMER la fonction JS — puis la convertir en ns par un micro-banc.
+- les accès **mégamorphes** (coût diffus, invisible à un micro-banc monomorphe) se COMPTENT
+  par `node --log-ic` puis `scripts/ic-sites.mjs <v8.log> [top] [filtre]` : sites basculés en `N`,
+  rattachés au code par horodatage. Comptage, donc insensible au thermal ;
+- une capture native dont le débit diverge entre runs (> 3 %) est REFUSÉE par `native-sample.mjs`
+  (code 3) : un poste de 1–2 µs ne se lit pas dans ce bruit.
 
 Mode d'emploi, lecture de chaque ligne et pièges : [`catalogue.md`](catalogue.md)
 § « Mesurer ce que le profil ne voit pas ».

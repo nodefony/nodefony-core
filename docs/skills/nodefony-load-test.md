@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 986 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 57 |
+| Scripts | 58 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -81,7 +81,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | --- | --: |
 | `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 146 |
 | `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 294 |
-| `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 54 |
+| `references/profil-compare.md` | Profil comparé — le coût d'une requête face à un témoin équitable | 59 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
 
@@ -113,6 +113,7 @@ script, donc toujours à jour après régénération.
 | `scripts/graceful-shutdown-e2e.mjs` | Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur. | `--detach` `--wait` | `HTTP_SLOW_URL` `PORT` `WS_URL` |
 | `scripts/http-load.mjs` | Stress HTTP — N requêtes avec concurrence C sur une route Nodefony. | — | `BODY` `METHOD` `URL` `URL_STR` |
 | `scripts/hub-load.mjs` | Charge de la SOCKET Nodefony côté HUB (RealtimeHub) — fait bouger le panneau | — | `BASE` `BATCH` `HOLD` `HOLD_MS` `HOST` `HTTP_PATH` `HTTP_RPS` `MODE` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `WS_URL` |
+| `scripts/ic-sites.mjs` | Lit un journal V8 `--log-ic` et rend les sites d'accès aux propriétés qui ont | `--log-ic` `--logfile` `--no-logfile-per-isolate` | — |
 | `scripts/idempotency-cluster-e2e.mjs` | Banc CROSS-WORKER de l'idempotence distribuée Redis (cluster multi-process, P6.8) — sans navigateur. | `--detach` `--wait` `--workers` | — |
 | `scripts/idempotency-postgres-e2e.mjs` | Banc CROSS-POD de l'idempotence distribuée Drizzle/PostgreSQL (axe 3, P6.8) — sans navigateur. | `--profile` | `CONC` `PG_URL` `ROUNDS` |
 | `scripts/idempotency-userland-e2e.mjs` | Banc e2e USERLAND @Idempotent contre un VRAI Redis (single-pod, P6.8) — sans navigateur. | — | — |
@@ -170,6 +171,7 @@ node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/graceful-shutdown-e2e.mjs
 node .claude/skills/load-test/scripts/http-load.mjs
 bash .claude/skills/nodefony-load-test/scripts/run.sh hub
+node ic-sites.mjs <v8.log> [top=40] [filtre=regex sur le fichier]
 node .claude/skills/nodefony-load-test/scripts/idempotency-cluster-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/idempotency-postgres-e2e.mjs
 node .claude/skills/nodefony-load-test/scripts/idempotency-userland-e2e.mjs

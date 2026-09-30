@@ -4049,6 +4049,30 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/ic-sites.mjs",
+            "purpose": "Lit un journal V8 `--log-ic` et rend les sites d'accès aux propriétés qui ont",
+            "usage": [
+              "node ic-sites.mjs <v8.log> [top=40] [filtre=regex sur le fichier]"
+            ],
+            "options": [
+              {
+                "flag": "--log-ic",
+                "help": ""
+              },
+              {
+                "flag": "--logfile",
+                "help": ""
+              },
+              {
+                "flag": "--no-logfile-per-isolate",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/idempotency-cluster-e2e.mjs",
             "purpose": "Banc CROSS-WORKER de l'idempotence distribuée Redis (cluster multi-process, P6.8) — sans navigateur.",
             "usage": [
