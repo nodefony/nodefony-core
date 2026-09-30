@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T20:32:42.418Z",
+  "generatedAt": "2026-09-30T23:04:17.490Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 48,
+      "closed": 49,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 44,
+      "open": 43,
       "title": "10.0.0-beta"
     },
     {
@@ -826,8 +826,8 @@
       "number": 508,
       "title": "perf(http): trouver où Nodefony attend quand NestJS sert",
       "url": "https://github.com/nodefony/nodefony-core/issues/508",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
