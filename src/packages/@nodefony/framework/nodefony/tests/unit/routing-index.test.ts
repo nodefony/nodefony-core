@@ -300,3 +300,84 @@ describe("Routing index — le pré-filtre OPÈRE (pas seulement : ne casse rien
     expect(calls).to.equal(6);
   });
 });
+
+describe("Routing index — raccourci littéral (le motif n'est pas exécuté)", () => {
+  // Témoin : `String.prototype.match` passe par `exec` de la RegExp — une
+  // propriété propre `exec` sur le motif de la route compte ses exécutions.
+  function countExec(route: Route): () => number {
+    const pattern = route.pattern as RegExp;
+    const original = RegExp.prototype.exec;
+    let calls = 0;
+    pattern.exec = function (this: RegExp, s: string) {
+      calls++;
+      return original.call(this, s);
+    };
+    return () => calls;
+  }
+
+  it("chemin identique à la lettre : route servie, motif jamais exécuté, aucune capture", () => {
+    const route = Router.createRoute("lit", { path: "/test/json" });
+    const calls = countExec(route);
+    const resolver = makeRouter().resolve(makeCtx("/test/json"));
+    expect(resolver.route?.name).to.equal("lit");
+    expect(
+      Array.from(resolver.variables as unknown as unknown[]),
+    ).to.deep.equal([]);
+    expect(calls()).to.equal(0);
+  });
+
+  it("variante de casse : servie, mais jugée par le motif (drapeau i)", () => {
+    const route = Router.createRoute("lit", { path: "/test/json" });
+    const calls = countExec(route);
+    expect(makeRouter().resolve(makeCtx("/TEST/Json")).route?.name).to.equal(
+      "lit",
+    );
+    expect(calls()).to.equal(1);
+  });
+
+  it("signe Kelvin (U+212A) : la clé minuscule le confond avec k, le motif le refuse", () => {
+    Router.createRoute("k", { path: "/k" });
+    const resolver = makeRouter().resolve(makeCtx("/"), "/K");
+    expect(resolver.resolve).to.equal(false);
+  });
+
+  it("littérale avec défaut positionnel : le motif s'exécute et le défaut reste capturé", () => {
+    const route = Router.createRoute("def", {
+      path: "/with/default",
+      defaults: { name: "home" },
+    });
+    const calls = countExec(route);
+    const resolver = makeRouter().resolve(makeCtx("/with/default"));
+    expect(resolver.route?.name).to.equal("def");
+    expect(calls()).to.equal(1);
+    expect(
+      Array.from(resolver.variables as unknown as unknown[]),
+    ).to.deep.equal(["home"]);
+  });
+
+  it("l'hôte reste vérifié sur le raccourci : route d'un autre vhost → 403", () => {
+    Router.createRoute("vhost", { path: "/vhost/only", host: "example.com" });
+    expect(() => makeRouter().resolve(makeCtx("/vhost/only"))).to.throw(
+      /Forbidden/,
+    );
+    expect(
+      makeRouter().resolve(makeCtx("/vhost/only", "GET", "example.com")).route
+        ?.name,
+    ).to.equal("vhost");
+  });
+
+  it("les exigences restent appliquées sur le raccourci : GET sur une route POST → 405", () => {
+    const route = Router.createRoute("post-only", {
+      path: "/only/post",
+      requirements: { methods: ["POST"] },
+    });
+    const calls = countExec(route);
+    expect(() => makeRouter().resolve(makeCtx("/only/post", "GET"))).to.throw(
+      /Not Allowed/,
+    );
+    expect(calls()).to.be.greaterThan(0); // pass 2 (Allow) teste le motif
+    expect(
+      makeRouter().resolve(makeCtx("/only/post", "POST")).route?.name,
+    ).to.equal("post-only");
+  });
+});

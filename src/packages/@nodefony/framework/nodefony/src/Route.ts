@@ -326,7 +326,26 @@ class Route implements IRoute {
     return stripTrailingSlashes((reqUrl as URL).pathname);
   }
 
-  match(context: ContextType, cleanPath?: string, methodOverride?: string) {
+  /**
+   * Confronte la requête à cette route : chemin, hôte, puis exigences.
+   *
+   * @param context - contexte HTTP/WS courant.
+   * @param cleanPath - pathname déjà normalisé par l'appelant (sinon recalculé).
+   * @param methodOverride - méthode logique du pont WS-RPC (cf `Resolver`).
+   * @param literal - l'appelant GARANTIT que le chemin de la route ne porte
+   *   aucune syntaxe de motif (`{}`, `*`…) — c'est le cas d'une route trouvée
+   *   par l'index des littérales du `Router`. Le motif n'est alors pas exécuté
+   *   quand le chemin est identique à la lettre.
+   * @returns les valeurs capturées (tableau + accès par nom), ou `null`/`undefined`
+   *   quand le chemin ne correspond pas.
+   * @throws 403/405/1002 quand le chemin correspond mais pas l'hôte ou les exigences.
+   */
+  match(
+    context: ContextType,
+    cleanPath?: string,
+    methodOverride?: string,
+    literal?: boolean,
+  ) {
     let res;
     // F-B : plus de lecture `context.request.url` en garde — l'accès (getter
     // paresseux HTTP) construirait l'URL à chaque Route.match. L'absence
@@ -335,6 +354,20 @@ class Route implements IRoute {
       // L5a perf : réutilise le pathname normalisé UNE fois par requête
       // (Router.resolve) au lieu de le recalculer pour CHAQUE route scannée.
       const url = cleanPath ?? Route.cleanPathname(context);
+      if (
+        literal === true &&
+        url === this.path &&
+        !this.#hasPositionalDefaults()
+      ) {
+        // Littérale identique à la lettre : `^chemin$` (drapeau i) la
+        // reconnaîtrait forcément et ne capturerait rien. On saute l'exécution
+        // du motif, la copie `slice(1)` et sa fermeture — ~75 ns par requête.
+        // Une variante de casse (ou le signe Kelvin, qui se minusculise en
+        // `k`) ne passe pas ici : elle reste jugée par le motif.
+        this.matchHostname(context);
+        this.matchRequirements(context, methodOverride);
+        return [] as unknown as (string | null)[] & Record<string, unknown>;
+      }
       if (url !== undefined) {
         res = url.match(this.pattern);
       }
@@ -524,6 +557,16 @@ class Route implements IRoute {
           compiled;
       }
     }
+  }
+
+  // Vrai quand une route SANS variable a des défauts autres que `controller` :
+  // `hydrateDefaultParameters` les ajoute alors aux captures, et le résultat du
+  // match n'est plus vide — le raccourci littéral ne s'applique pas.
+  #hasPositionalDefaults(): boolean {
+    for (const def in this.defaults) {
+      if (def !== "controller") return true;
+    }
+    return false;
   }
 
   hydrateDefaultParameters(res: RegExpMatchArray) {

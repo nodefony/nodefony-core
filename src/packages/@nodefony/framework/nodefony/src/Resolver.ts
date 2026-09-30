@@ -167,11 +167,17 @@ class Resolver implements IResolver {
     this.injector = context.container?.get<Injector>("injector") ?? null;
   }
 
-  match(route: Route, context: ContextType, cleanPath?: string) {
+  match(
+    route: Route,
+    context: ContextType,
+    cleanPath?: string,
+    literal?: boolean,
+  ) {
     const match = route.match(
       context,
       cleanPath,
       this.methodOverride ?? undefined,
+      literal,
     );
     if (match) {
       this.variables = match;

@@ -299,6 +299,9 @@ class Router extends Service implements IRequestRouter {
     // séquence identique au scan linéaire de la table complète.
     while (li < litCount || di < dynCount) {
       let route: Route;
+      // Vraie pour une candidate de l'index des littérales : son chemin ne
+      // porte aucune syntaxe de motif (cf `Route.match`, paramètre `literal`).
+      let fromLiterals = false;
       // Lecture au-delà de la fin = undefined : c'est la liste épuisée.
       const literal = literals[li];
       const candidate = dynamics[di];
@@ -308,6 +311,7 @@ class Router extends Service implements IRequestRouter {
       ) {
         li++;
         route = literal.route;
+        fromLiterals = true;
       } else if (candidate === undefined) {
         break;
       } else {
@@ -328,7 +332,7 @@ class Router extends Service implements IRequestRouter {
         route = candidate.route;
       }
       try {
-        if (resolver.match(route, context, cleanPath)) {
+        if (resolver.match(route, context, cleanPath, fromLiterals)) {
           // « route trouvée » = jalon notable (NOTICE hors prod). En prod :
           // AUCUN appel — le Pdu DEBUG était gaté par le seuil Syslog (T2) mais
           // la template string était quand même construite par requête (L1 :
