@@ -345,25 +345,42 @@ describe("urlFastPath — isCanonicalAuthority, équivalence avec la version à 
     const ports = ["", ":5151", ":80", ":443", ":0", ":"];
     let checked = 0;
     const diverging: string[] = [];
-    const walk = (prefix: string, depth: number): void => {
-      if (depth > 0) {
-        for (const port of ports) {
-          const host = prefix + port;
-          for (const scheme of ["http", "https"]) {
-            if (isCanonicalAuthority(host, scheme) !== oracle(host, scheme)) {
-              diverging.push(`${JSON.stringify(host)} (${scheme})`);
-            }
-            checked++;
+    const check = (prefix: string): void => {
+      for (const port of ports) {
+        const host = prefix + port;
+        for (const scheme of ["http", "https"]) {
+          if (isCanonicalAuthority(host, scheme) !== oracle(host, scheme)) {
+            diverging.push(`${JSON.stringify(host)} (${scheme})`);
           }
+          checked++;
         }
       }
-      if (depth === 5) return;
+    };
+    const walk = (prefix: string, depth: number): void => {
+      if (depth > 0) check(prefix);
+      // 4 labels au plus sur l'alphabet complet (~41 000 autorités) : le
+      // 5ᵉ label sur ce même arbre passait 3 millions de verdicts et 6 s sur
+      // les runners de CI. Les 5 labels ont leur propre couche, plus bas.
+      if (depth === 4) return;
       // au-delà de 3 labels, on restreint l'alphabet pour borner le corpus
-      const alphabet = depth >= 3 ? ["", "1", "01", "255", "256", "a"] : parts;
+      const alphabet = depth >= 3 ? SMALL : parts;
       for (const p of alphabet)
         walk(depth === 0 ? p : `${prefix}.${p}`, depth + 1);
     };
+    const SMALL = ["", "1", "01", "255", "256", "a"];
     walk("", 0);
+    // 5 labels, alphabet réduit à chaque rang (6⁵ = 7 776 autorités) : seule
+    // couche différentielle où `1.2.3.4.5` et ses voisins sont confrontés à
+    // l'oracle — le compte de labels d'une adresse numérique ne se juge qu'ici.
+    const five = (prefix: string, depth: number): void => {
+      if (depth === 5) {
+        check(prefix);
+        return;
+      }
+      for (const p of SMALL)
+        five(depth === 0 ? p : `${prefix}.${p}`, depth + 1);
+    };
+    five("", 0);
     expect(diverging.slice(0, 20)).to.deep.equal([]);
     expect(checked).to.be.greaterThan(100_000);
   });
