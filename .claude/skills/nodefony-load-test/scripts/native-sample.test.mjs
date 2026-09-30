@@ -50,6 +50,30 @@ describe("native-sample", () => {
     expect(loadPerfMap(path.join(tmp, "absente.map"))).toBeNull();
   });
 
+  it("sur une adresse RÉUTILISÉE par V8, rend le DERNIER nom écrit", () => {
+    // La table n'est qu'ajoutée : du code libéré puis réalloué laisse l'ancienne
+    // entrée en place. Vécu : 35 % des échantillons d'un camp imputés à une
+    // fonction morte (`_on` au lieu de `writeHead`).
+    const file = path.join(tmp, "reuse.map");
+    fs.writeFileSync(
+      file,
+      [
+        "2000 100 JS:*'oldFn file:///a/src/x.js:1:1",
+        "2080 40 JS:*'newFn file:///a/src/x.js:2:1",
+        "3000 10 JS:*'oldG file:///a/src/x.js:3:1",
+        "2ff0 40 JS:*'newG file:///a/src/x.js:4:1",
+        "",
+      ].join("\n"),
+    );
+    const r = loadPerfMap(file);
+    expect(r(0x2010)).toBe("JS: oldFn src/x.js:1:1"); // hors du recouvrement
+    for (const a of [0x2080, 0x2090, 0x20bf])
+      expect(r(a)).toBe("JS: newFn src/x.js:2:1");
+    expect(r(0x20c0)).toBe("JS: oldFn src/x.js:1:1");
+    expect(r(0x3005)).toBe("JS: newG src/x.js:4:1");
+    expect(r(0x2ff5)).toBe("JS: newG src/x.js:4:1");
+  });
+
   it("rend le temps PROPRE du seul fil principal", () => {
     const { self, total } = parseMainThread(
       path.join(dir, "native.sample.txt"),

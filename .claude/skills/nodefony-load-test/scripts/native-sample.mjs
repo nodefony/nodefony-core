@@ -27,31 +27,52 @@ import path from "node:path";
  * Charge une table `perf-<pid>.map` → résolveur adresse → nom JS (sans le
  * marqueur de palier `~ ^ + *`, pour qu'une fonction garde UN nom quel que soit
  * son niveau d'optimisation), ou `null` si la table est absente.
+ *
+ * La table n'est qu'AJOUTÉE : quand V8 libère du code puis réalloue la même
+ * adresse (désoptimisation, réoptimisation, collecte), l'ancienne entrée reste
+ * et chevauche la nouvelle. Le nom retenu est celui de la DERNIÈRE entrée écrite
+ * qui couvre l'adresse — une dichotomie sur des intervalles supposés disjoints
+ * rendait un nom arbitraire (mesuré : 35 % des échantillons d'un camp imputés
+ * à une fonction morte). Approximation résiduelle : une entrée écrite APRÈS la
+ * capture gagne aussi ; la table est copiée juste après, l'écart est marginal.
  */
 export function loadPerfMap(file) {
   if (!fs.existsSync(file)) return null;
-  const entries = [];
+  const entries = []; // [début, fin, nom, rang d'écriture]
+  let maxLen = 0;
   for (const line of fs.readFileSync(file, "utf8").split("\n")) {
     const m = /^([0-9a-f]+) ([0-9a-f]+) (.*)$/.exec(line);
     if (!m) continue;
     const start = Number.parseInt(m[1], 16);
+    const len = Number.parseInt(m[2], 16);
     const name = m[3]
       .replace(/^JS:[~^+*]?'?/, "JS: ")
       .replace(/file:\/\/\S*?\/(src|node_modules)\//, "$1/");
-    entries.push([start, start + Number.parseInt(m[2], 16), name]);
+    entries.push([start, start + len, name, entries.length]);
+    if (len > maxLen) maxLen = len;
   }
   entries.sort((a, b) => a[0] - b[0]);
+  const memo = new Map();
   return (addr) => {
+    const hit = memo.get(addr);
+    if (hit !== undefined) return hit;
+    // dernière entrée dont le début est ≤ addr, puis remontée tant qu'une
+    // entrée peut encore couvrir addr (aucune n'est plus longue que maxLen)
     let lo = 0;
     let hi = entries.length - 1;
     while (lo <= hi) {
       const mid = (lo + hi) >> 1;
-      const e = entries[mid];
-      if (addr < e[0]) hi = mid - 1;
-      else if (addr >= e[1]) lo = mid + 1;
-      else return e[2];
+      if (entries[mid][0] <= addr) lo = mid + 1;
+      else hi = mid - 1;
     }
-    return null;
+    let best = null;
+    for (let k = hi; k >= 0 && entries[k][0] > addr - maxLen; k--) {
+      const e = entries[k];
+      if (addr < e[1] && (best === null || e[3] > best[3])) best = e;
+    }
+    const name = best ? best[2] : null;
+    memo.set(addr, name);
+    return name;
   };
 }
 
