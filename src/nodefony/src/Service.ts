@@ -42,6 +42,16 @@ function perfMark(field: string): void {
   }
 }
 
+// Même règle que `Event.settingsToListen` (`/^on(.*)$/` sur les clés
+// propres) : des options qui portent un écouteur exigent le bus tout de suite.
+// `for…in` plutôt que `Object.keys` : aucune allocation sur un objet vide.
+function hasListenerSettings(options: object): boolean {
+  for (const key in options) {
+    if (Object.hasOwn(options, key) && key.startsWith("on")) return true;
+  }
+  return false;
+}
+
 const defaultSyslogSettings: SyslogDefaultSettings = {
   moduleName: "SERVICE ",
   defaultSeverity: "INFO",
@@ -91,17 +101,47 @@ class Service implements IService {
   #trackedListeners: Map<string | symbol, EventListener[]> | null = null;
   // true si #nc est un Event externe partagé (pas auto-créé).
   #sharedNc = false;
+  // Bus DÛ mais pas encore construit : true tant que personne ne s'y est
+  // abonné ni ne l'a demandé. Un `Context` (un par requête) n'y abonne
+  // presque jamais rien — construire l'`Event` d'office coûtait une
+  // allocation par requête pour un bus que seul `fire("onRequest")`
+  // interrogeait, à vide. Cf `#materializeNc`.
+  #lazyNc = false;
+  // Plafond d'abonnés à poser sur le bus au moment où il naît.
+  readonly #lazyNcMax: number = 0;
 
+  /**
+   * Bus d'événements du service. Un bus DÛ mais pas encore construit naît à
+   * cette lecture : qui lit le bus le reçoit, toujours le même.
+   */
   get notificationsCenter(): Event | undefined {
+    if (this.#nc === undefined && this.#lazyNc) return this.#materializeNc();
     return this.#nc;
   }
 
   // Getter privé avec guard — élimine le if/throw dupliqué sur les 18 méthodes events.
   private get nc(): Event {
-    if (!this.#nc) {
+    if (this.#nc === undefined) {
+      if (this.#lazyNc) return this.#materializeNc();
       throw new Error(`${this.name}: notificationsCenter not initialized`);
     }
     return this.#nc;
+  }
+
+  // Construit le bus dû, À L'IDENTIQUE de ce que faisait le constructeur :
+  // même `Event(options, this, options)`, même plafond.
+  #materializeNc(): Event {
+    this.#lazyNc = false;
+    const nc = new Event(this.options, this, this.options);
+    if (this.#lazyNcMax) nc.setMaxListeners(this.#lazyNcMax);
+    this.#nc = nc;
+    return nc;
+  }
+
+  // Vrai quand le bus n'existe pas ENCORE : aucun abonné possible, donc les
+  // lectures et émissions peuvent répondre sans le construire.
+  #noBusYet(): boolean {
+    return this.#nc === undefined && this.#lazyNc;
   }
 
   /**
@@ -118,7 +158,7 @@ class Service implements IService {
     name: string,
     container?: Container,
     notificationsCenter?: Event | false | null,
-    options: DefaultOptionsService = {},
+    options?: DefaultOptionsService,
   ) {
     if (PERF_PROBE_SUB) perfMark("svcStartNs");
     this.name = name;
@@ -168,9 +208,18 @@ class Service implements IService {
     // post-ctor (mutation de hidden class V8) ET le spread des défauts :
     // l'écrasement shallow du défaut (`events` fourni remplace TOUT le défaut)
     // est reproduit par `effectiveEvents` chez les deux lecteurs plus bas.
-    const { events: evOpts, ...svcOptions } = options;
-    const effectiveEvents = evOpts ?? defaultOptions.events;
-    this.options = svcOptions;
+    // Sans options (le cas de chaque `Context`), un littéral neuf suffit : le
+    // rest-destructuring coûtait une copie par exclusion pour ne rien copier.
+    let effectiveEvents: DefaultOptionsService["events"];
+    if (options === undefined) {
+      options = {};
+      effectiveEvents = defaultOptions.events;
+      this.options = {};
+    } else {
+      const { events: evOpts, ...svcOptions } = options;
+      effectiveEvents = evOpts ?? defaultOptions.events;
+      this.options = svcOptions;
+    }
     if (PERF_PROBE_SUB) perfMark("svcOptsNs");
     this.kernel = this.container.get<IKernel>("kernel");
     this.syslog = this.container.get<Syslog>("syslog");
@@ -213,19 +262,23 @@ class Service implements IService {
         this.#nc.setMaxListeners(wanted);
       }
     } else if (notificationsCenter !== false) {
-      this.#nc = new Event(this.options, this, this.options);
-      if (effectiveEvents?.nbListeners) {
-        this.#nc.setMaxListeners(effectiveEvents.nbListeners);
-      }
-      // Jamais sur un Scope : un Context en construit un par requête, et
-      // personne ne relit ce bus dans un scope — le seul lecteur
+      this.#lazyNcMax = effectiveEvents?.nbListeners ?? 0;
+      // Jamais publié sur un Scope : un Context en construit un par requête,
+      // et personne ne relit ce bus dans un scope — le seul lecteur
       // (`server-static`) lit le conteneur du MODULE. Le bus reste porté par
       // le Service (`notificationsCenter`).
-      if (
+      const published =
         !(this.container instanceof Scope) &&
-        (!this.kernel || this.kernel.container !== this.container)
-      ) {
-        this.container.set("notificationsCenter", this.#nc);
+        (!this.kernel || this.kernel.container !== this.container);
+      // Un bus que personne ne peut atteindre sans passer par ce service
+      // naît à la première demande. Deux cas le veulent construit TOUT DE
+      // SUITE : publié dans le conteneur (d'autres le lisent par là), ou des
+      // écouteurs `onXxx` à brancher depuis les options.
+      if (published || hasListenerSettings(this.options)) {
+        this.#materializeNc();
+        if (published) this.container.set("notificationsCenter", this.#nc);
+      } else {
+        this.#lazyNc = true;
       }
     }
 
@@ -293,6 +346,7 @@ class Service implements IService {
     }
     this.syslog = null;
     this.#nc = undefined;
+    this.#lazyNc = false;
     this.container = null;
     this.kernel = null;
   }
@@ -364,26 +418,32 @@ class Service implements IService {
 
   /** Liste les noms d'événements ayant au moins un listener. */
   eventNames(): (string | symbol)[] {
+    if (this.#noBusYet()) return [];
     return this.nc.eventNames();
   }
 
   /** Alias `emit` — émet l'événement de manière synchrone. */
   fire(eventName: string | symbol, ...args: unknown[]): boolean {
+    // `"error"` sans abonné LÈVE (contrat EventEmitter) : il passe par le bus.
+    if (eventName !== "error" && this.#noBusYet()) return false;
     return this.nc.emit(eventName, ...args);
   }
 
   /** Émet l'événement et attend que tous les listeners async résolvent. */
   fireAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
+    if (this.#noBusYet()) return Promise.resolve(false);
     return this.nc.emitAsync(eventName, ...args);
   }
 
   /** Émet l'événement (API EventEmitter standard). */
   emit(eventName: string | symbol, ...args: unknown[]): boolean {
+    if (eventName !== "error" && this.#noBusYet()) return false;
     return this.nc.emit(eventName, ...args);
   }
 
   /** Émet et attend les listeners async — équivalent de {@link fireAsync}. */
   emitAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
+    if (this.#noBusYet()) return Promise.resolve(false);
     return this.nc.emitAsync(eventName, ...args);
   }
 
@@ -503,6 +563,7 @@ class Service implements IService {
 
   /** Nombre de listeners attachés à un événement (filtré sur `listener` si fourni). */
   listenerCount(eventName: string | symbol, listener?: EventListener): number {
+    if (this.#noBusYet()) return 0;
     return this.nc.listenerCount(eventName, listener);
   }
 

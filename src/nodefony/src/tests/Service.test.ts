@@ -1,6 +1,7 @@
 import assert from "node:assert";
+import { vi } from "vitest";
 import Service, { EventListener } from "../Service";
-import Container from "../Container";
+import Container, { Scope } from "../Container";
 import Event from "../Event";
 import Syslog from "../syslog/Syslog";
 import Pdu, {
@@ -569,6 +570,110 @@ describe("Service — events", () => {
       () => service.on("x", () => {}),
       /notificationsCenter not initialized/,
     );
+  });
+});
+
+// ─── Bus paresseux (scope de requête) ─────────────────────────────────────────
+// Un Service construit dans un Scope (chaque `Context`) ne publie son bus nulle
+// part : il ne le construit qu'à la première demande. `setMaxListeners(20)`
+// (le défaut) n'est appelé qu'à cette naissance — c'est le témoin observable.
+
+describe("Service — bus paresseux dans un scope", () => {
+  let root: Container;
+  let scope: Scope;
+  beforeEach(() => {
+    root = new Container();
+    root.set("syslog", new Syslog());
+    root.addScope("request");
+    scope = root.enterScope("request");
+  });
+  afterEach(() => {
+    root.leaveScope(scope);
+    vi.restoreAllMocks();
+  });
+
+  it("émettre et compter sans abonné ne construit pas le bus", async () => {
+    const born = vi.spyOn(Event.prototype, "setMaxListeners");
+    const svc = new Service("ctx", scope);
+    assert.strictEqual(svc.fire("onRequest", svc), false);
+    assert.strictEqual(svc.emit("onRequest"), false);
+    assert.strictEqual(svc.listenerCount("onFinish"), 0);
+    assert.deepStrictEqual(svc.eventNames(), []);
+    assert.strictEqual(await svc.fireAsync("onSend"), false);
+    assert.strictEqual(await svc.emitAsync("onClose"), false);
+    assert.strictEqual(born.mock.calls.length, 0);
+  });
+
+  it("le premier abonnement construit le bus, avec le plafond par défaut", () => {
+    const born = vi.spyOn(Event.prototype, "setMaxListeners");
+    const svc = new Service("ctx", scope);
+    const got: unknown[] = [];
+    svc.on("onFinish", (v) => got.push(v));
+    assert.deepStrictEqual(born.mock.calls, [[20]]);
+    assert.strictEqual(svc.listenerCount("onFinish"), 1);
+    assert.strictEqual(svc.fire("onFinish", 42), true);
+    assert.deepStrictEqual(got, [42]);
+    assert.strictEqual(svc.getMaxListeners(), 20);
+  });
+
+  it("lire notificationsCenter rend un bus, toujours le même, qui voit les abonnés du service", () => {
+    const svc = new Service("ctx", scope);
+    const nc = svc.notificationsCenter;
+    assert.ok(nc instanceof Event);
+    assert.strictEqual(svc.notificationsCenter, nc);
+    svc.on("x", () => {});
+    assert.strictEqual(nc.listenerCount("x"), 1);
+  });
+
+  it("un abonné posé SUR notificationsCenter est vu par fire()", () => {
+    const svc = new Service("ctx", scope);
+    let hit = 0;
+    svc.notificationsCenter?.on("x", () => hit++);
+    assert.strictEqual(svc.fire("x"), true);
+    assert.strictEqual(hit, 1);
+  });
+
+  it('emit("error") sans abonné lève toujours (contrat EventEmitter)', () => {
+    const svc = new Service("ctx", scope);
+    const boom = new Error("boom");
+    assert.throws(() => svc.emit("error", boom), /boom/);
+    assert.throws(() => svc.fire("error", boom), /boom/);
+  });
+
+  it("des options onXxx construisent le bus tout de suite et branchent l'écouteur", () => {
+    let hit = 0;
+    const svc = new Service("ctx", scope, undefined, {
+      onReady: () => hit++,
+    } as unknown as ConstructorParameters<typeof Service>[3]);
+    assert.strictEqual(svc.listenerCount("onReady"), 1);
+    svc.fire("onReady");
+    assert.strictEqual(hit, 1);
+  });
+
+  it("le bus n'est jamais publié dans le scope", () => {
+    const svc = new Service("ctx", scope);
+    svc.on("x", () => {});
+    assert.strictEqual(Object.hasOwn(scope, "notificationsCenter"), false);
+    assert.strictEqual(svc.get("notificationsCenter"), null);
+  });
+
+  it("après clean(), plus de bus : les émissions lèvent comme avant", () => {
+    const svc = new Service("ctx", scope);
+    svc.clean();
+    assert.throws(() => svc.fire("x"), /notificationsCenter not initialized/);
+    assert.throws(
+      () => svc.listenerCount("x"),
+      /notificationsCenter not initialized/,
+    );
+    assert.strictEqual(svc.notificationsCenter, undefined);
+  });
+
+  it("hors scope, le bus reste construit et publié dès la construction", () => {
+    const c = new Container();
+    const born = vi.spyOn(Event.prototype, "setMaxListeners");
+    const svc = new Service("mod", c);
+    assert.deepStrictEqual(born.mock.calls, [[20]]);
+    assert.strictEqual(c.get("notificationsCenter"), svc.notificationsCenter);
   });
 });
 
