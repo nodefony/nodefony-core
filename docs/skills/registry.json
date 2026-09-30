@@ -3971,6 +3971,15 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/decor-probe.mjs",
+            "purpose": "Garde de DÉCOR d'un banc de débit Nodefony — préchargée (`node --import`)",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/graceful-shutdown-e2e.mjs",
             "purpose": "Banc e2e du GRACEFUL SHUTDOWN (@nodefony/http, trous 1+3 revue 0.7) — sans navigateur.",
             "usage": [
@@ -4849,6 +4858,57 @@
               },
               {
                 "name": "WINDOWS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/span-analyze.mjs",
+            "purpose": "Relit les fenêtres de `span-probe.mjs` (via `span-run.sh`) et rend, par",
+            "usage": [
+              "Usage : node span-analyze.mjs <dossier>"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/span-probe.mjs",
+            "purpose": "Chronométrage IN SITU des appels d'un étage du pipeline — préchargé dans le",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_SPAN_PROBE_OUT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/span-run.sh",
+            "purpose": "Chronométrage in situ d'un étage (`span-probe.mjs`) sur le serveur Nodefony",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "BENCH_CONN",
+                "help": ""
+              },
+              {
+                "name": "BENCH_DUR",
+                "help": ""
+              },
+              {
+                "name": "BENCH_PATH",
+                "help": ""
+              },
+              {
+                "name": "NF_SPAN_DIR",
                 "help": ""
               }
             ],

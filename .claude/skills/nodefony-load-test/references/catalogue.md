@@ -213,6 +213,18 @@ Un run refuse (exit 1) si la ligne `cut-probe: <étage>` manque au journal du se
 coupe non posée mesurerait la requête complète sous un faux nom. ⚠️ Le JIT d'un serveur coupé
 voit un autre programme : un étage sous ~1 µs ne se lit pas.
 
+**Chronométrage in situ** — `span-run.sh [runs=3]` : quand une coupe est instable (le JIT
+d'un serveur coupé n'est plus celui du serveur complet), `span-probe.mjs` enveloppe les appels
+d'un étage sur le serveur COMPLET et rend leur temps inclusif en ns/req (`span-analyze.mjs`),
+enveloppe étalonnée, plus l'INVENTAIRE des écouteurs du Kernel et de HttpKernel. Deux appels
+qui ne s'emboîtent pas (enfant plus cher que son parent) désignent une frontière ASYNCHRONE.
+
+**Garde de décor** — `decor-probe.mjs`, préchargé dans tout serveur Nodefony de
+`wait-compare.sh` et `span-run.sh` : refus (code 3, ligne `decor-probe: REFUS` au journal) si
+un hook du chemin de requête (`onRequestScope`, `onServerRequest`, `onCreateContext`,
+`beforeResolve`) a un écouteur — un seul rend chaque requête asynchrone. Le module test coupe
+les siens sous `NF_BENCH_ROUTE`.
+
 Mécanique : `wait-probe.mjs` est préchargé (`node --import`) dans les DEUX camps ; un premier
 `SIGUSR2` ouvre la fenêtre, un second la ferme et écrit `<pid>.json` dans `NF_WAIT_PROBE_OUT`.
 Sortie : `tmp/wait/<camp>-<n>/{<pid>.json, wrk.txt, server.log}` puis le tableau de

@@ -295,7 +295,14 @@ class Test extends Module {
         capabilities: { write: false, query: false, stream: true },
       });
     }
-    const httpKernel = this.kernel?.get<HttpKernel>("HttpKernel");
+    // Témoins des hooks de sécurité (`security-hooks.test.ts`). Même règle que
+    // l'écouteur `onRequestScope` ci-dessus : `beforeResolve` tire sur CHAQUE
+    // requête, et un seul écouteur fait passer tout GET par `fireAsync` (une
+    // Promise, une microtâche) — un coût qu'une application sans ce hook ne
+    // paie pas, imputé à Nodefony sur les bancs de débit (#508).
+    const httpKernel = BENCH_ROUTE
+      ? undefined
+      : this.kernel?.get<HttpKernel>("HttpKernel");
     if (httpKernel) {
       httpKernel.on("beforeResolve", () => {
         securityHooksState.beforeResolveCount++;

@@ -50,7 +50,17 @@ run() {
   for _ in $(seq 1 150); do curl -s -o /dev/null "$url" && break; sleep 0.2; done
   local code; code=$(curl -s -D "$out/headers.txt" -o /dev/null -w '%{http_code}' "$url")
   if [ "$code" != "200" ]; then
-    echo "❌ $label : $url répond $code — rien ne serait valide"; kill -INT $pid; return 1
+    echo "❌ $label : $url répond $code — rien ne serait valide"
+    grep -o 'decor-probe: REFUS.*' "$out/server.log"
+    kill -INT $pid 2>/dev/null; return 1
+  fi
+  # Serveur Nodefony : la garde de décor a rendu son verdict à la 1re requête.
+  if [[ "$label" != "$WITNESS"-* ]]; then
+    for _ in $(seq 1 20); do grep -q "decor-probe:" "$out/server.log" && break; sleep 0.1; done
+    if ! grep -q "decor-probe: ok" "$out/server.log"; then
+      echo "❌ $label : décor refusé — $(grep -o 'decor-probe:.*' "$out/server.log" || echo 'garde absente')"
+      kill -INT $pid 2>/dev/null; return 1
+    fi
   fi
   wrk -t4 -c"$CONN" -d10s "$url" >/dev/null
   kill -USR2 $pid
@@ -83,10 +93,11 @@ run() {
 NF_ENV="NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=30"
 for i in $(seq 1 "$PAIRS"); do
   cut=""
-  run "nodefony-$i" 5151 "$NF_ENV" src/nodefony/bin/nodefony production || exit 1
+  run "nodefony-$i" 5151 "$NF_ENV" --import "$DIR/decor-probe.mjs" \
+    src/nodefony/bin/nodefony production || exit 1
   for cut in ${NF_WAIT_CUTS:-}; do
     run "cut-$cut-$i" 5151 "$NF_ENV NF_BENCH_CUT=$cut NODE_OPTIONS=--import=$DIR/cut-probe.mjs" \
-      src/nodefony/bin/nodefony production || exit 1
+      --import "$DIR/decor-probe.mjs" src/nodefony/bin/nodefony production || exit 1
   done
   cut=""
   run "$WITNESS-$i" 5161 "" "$DIR/../bench-frameworks/$WITNESS.mjs" || exit 1
