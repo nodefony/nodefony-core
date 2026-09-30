@@ -87,16 +87,17 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > coût réel) — **tout % de profil se convertit en ns AVANT d'ouvrir un lot**. Ils mentent dans
 > l'autre sens (tas froid, sites d'appel monomorphes) : l'arbitre reste la sonde in-situ.
 >
-> | Micro-banc                      | Ce qu'il isole                                                                                                    |
-> | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-> | `micro/micro-enterscope.mjs`    | entrée/sortie d'une portée DI sur un conteneur peuplé (dist du cœur)                                              |
-> | `micro/micro-request-scope.mjs` | l'injection par requête : un contrôleur construit par l'injecteur, et le surcoût d'un service de portée `request` |
-> | `micro/micro-extend.mjs`        | le coût de `Tools.extend` face au spread et à une version mémoïsée                                                |
-> | `micro/micro-route-scan.mjs`    | le scan des motifs sur la table RÉELLE de l'app (`NF_ROUTES_JSON`)                                                |
-> | `micro/micro-route-scale.mjs`   | la même chose à N croissant : la COURBE, de 136 à 2 400 routes                                                    |
-> | `micro/micro-host.mjs`          | le traitement de l'en-tête `Host` (port, forme canonique, domaines) — `split` 197 ns contre `indexOf`+`slice` 25  |
-> | `micro/micro-header-values.mjs` | la fabrication des valeurs d'en-têtes : Content-Type, traceparent, CSP à nonce, hostname — avant/après            |
-> | `micro/micro-service-bus.mjs`   | un `Service` construit dans un scope de requête (chaque `Context`) + son bus interrogé sans abonné — avant/après  |
+> | Micro-banc                      | Ce qu'il isole                                                                                                        |
+> | ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+> | `micro/micro-enterscope.mjs`    | entrée/sortie d'une portée DI sur un conteneur peuplé (dist du cœur)                                                  |
+> | `micro/micro-request-scope.mjs` | l'injection par requête : un contrôleur construit par l'injecteur, et le surcoût d'un service de portée `request`     |
+> | `micro/micro-extend.mjs`        | le coût de `Tools.extend` face au spread et à une version mémoïsée                                                    |
+> | `micro/micro-route-scan.mjs`    | le scan des motifs sur la table RÉELLE de l'app (`NF_ROUTES_JSON`)                                                    |
+> | `micro/micro-route-scale.mjs`   | la même chose à N croissant : la COURBE, de 136 à 2 400 routes                                                        |
+> | `micro/micro-host.mjs`          | le traitement de l'en-tête `Host` (port, forme canonique, domaines) — `split` 197 ns contre `indexOf`+`slice` 25      |
+> | `micro/micro-header-values.mjs` | la fabrication des valeurs d'en-têtes : Content-Type, traceparent, CSP à nonce, hostname — avant/après                |
+> | `micro/micro-service-bus.mjs`   | un `Service` construit dans un scope de requête (chaque `Context`) + son bus interrogé sans abonné — avant/après      |
+> | `micro/micro-write-head.mjs`    | N `setHeader` + `writeHead` contre un objet remis à `writeHead` — ~210 ns/en-tête payés par Node dans les DEUX formes |
 >
 > **Rapport du dossier de performance** : `scripts/perf-dossier-report.mjs` rend en une page HTML
 > autonome ce que `docs/performance/` établit en Markdown (graphes, schémas, calculateur de pods).
