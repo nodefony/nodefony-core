@@ -3862,6 +3862,45 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/cut-analyze.mjs",
+            "purpose": "Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`)",
+            "usage": [
+              "Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial]"
+            ],
+            "options": [
+              {
+                "flag": "--partial",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "KEY",
+                "help": ""
+              },
+              {
+                "name": "MAX_SPREAD",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/cut-probe.mjs",
+            "purpose": "Bissection par COURT-CIRCUIT du pipeline HTTP — préchargée dans le serveur",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_BENCH_CUT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/db-backend-cost.mjs",
             "purpose": "db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non",
             "usage": [],
@@ -4969,10 +5008,23 @@
                 "help": ""
               },
               {
+                "name": "NF_WAIT_CUTS",
+                "help": ""
+              },
+              {
                 "name": "NF_WAIT_DIR",
                 "help": ""
               }
             ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/wait-lib.mjs",
+            "purpose": "Lecture des fenêtres de `wait-probe.mjs` — partagée par `wait-analyze.mjs`",
+            "usage": [],
+            "options": [],
+            "env": [],
             "output": "",
             "selfDocumented": false
           },

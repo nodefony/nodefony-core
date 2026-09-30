@@ -201,6 +201,18 @@ chauffe `wrk` non comptée, puis la fenêtre mesurée (`BENCH_DUR`, défaut 20 s
 Paires ALTERNÉES Nodefony / témoin. Un run se refuse (exit 1) sur cible ≠ 200, réponse non-2xx
 sous charge ou sonde muette.
 
+**Bissection par court-circuit** — `NF_WAIT_CUTS="entry context pipeline route action"` :
+chaque manche sert AUSSI Nodefony coupé à chacun de ces étages (`cut-probe.mjs` préchargé par
+`NODE_OPTIONS`, `NF_BENCH_CUT=<étage>`, qui remplace UNE méthode de `HttpKernel` / `HttpContext`
+par une réponse immédiate au même corps). Les étages sont cumulatifs — `entry` = serveur Node
+seul, `context` + scope DI et `HttpContext`, `pipeline` + ALS et CORS, `route` + routeur et
+en-têtes de sécurité, `action` + corps et gardes ; le complet ajoute l'action et le rendu.
+`cut-analyze.mjs` rend, par étage : cumul, dispersion, débit, nombre d'en-têtes émis (~210 ns
+chacun, `micro-write-head.mjs`) et coût = coupe(k) − coupe(k−1) calculé dans chaque manche.
+Un run refuse (exit 1) si la ligne `cut-probe: <étage>` manque au journal du serveur : une
+coupe non posée mesurerait la requête complète sous un faux nom. ⚠️ Le JIT d'un serveur coupé
+voit un autre programme : un étage sous ~1 µs ne se lit pas.
+
 Mécanique : `wait-probe.mjs` est préchargé (`node --import`) dans les DEUX camps ; un premier
 `SIGUSR2` ouvre la fenêtre, un second la ferme et écrit `<pid>.json` dans `NF_WAIT_PROBE_OUT`.
 Sortie : `tmp/wait/<camp>-<n>/{<pid>.json, wrk.txt, server.log}` puis le tableau de

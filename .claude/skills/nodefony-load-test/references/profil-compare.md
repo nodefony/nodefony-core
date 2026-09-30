@@ -53,6 +53,12 @@ fil principal en brûlait ~60–90, annonçait la parité d'une passe à l'autre
   rattachés au code par horodatage. Comptage, donc insensible au thermal ;
 - une capture native dont le débit diverge entre runs (> 3 %) est REFUSÉE par `native-sample.mjs`
   (code 3) : un poste de 1–2 µs ne se lit pas dans ce bruit.
+- un écart **DIFFUS** (aucun poste ne domine) se localise par **bissection par court-circuit** :
+  `NF_WAIT_CUTS="entry context pipeline route action" wait-compare.sh` sert, dans chaque
+  manche, Nodefony coupé à chaque étage (`cut-probe.mjs`, préchargé — rien dans le produit) ;
+  `cut-analyze.mjs` rend le coût de chaque étage = différence de deux coupes voisines DANS la
+  manche, « BRUIT » si les manches ne s'accordent pas sur le signe, code 3 si une coupe
+  disperse > 3 %.
 
 Mode d'emploi, lecture de chaque ligne et pièges : [`catalogue.md`](catalogue.md)
 § « Mesurer ce que le profil ne voit pas ».
