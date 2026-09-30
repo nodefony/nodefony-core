@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import fs from "node:fs";
 import path from "node:path";
-import { loadRuns, median } from "./wait-lib.mjs";
+import { loadRuns, median, preemptedRuns } from "./wait-lib.mjs";
 
 const partial = process.argv.includes("--partial");
 const [base, witness, ...cuts] = process.argv
@@ -65,10 +65,13 @@ for (const s of stages) {
   s.rps = median([...s.runs.values()].map((r) => r["débit (wrk, req/s)"]));
   s.headers = headerCount(`${s.camp}-${[...s.runs.keys()][0]}`);
 }
-const wMed =
-  partial && !hasRun(witness)
-    ? NaN
-    : median(loadRuns(base, witness).map((r) => r[KEY]));
+const W = partial && !hasRun(witness) ? [] : loadRuns(base, witness);
+const wMed = W.length > 0 ? median(W.map((r) => r[KEY])) : NaN;
+// Runs préemptés par un autre processus : ils se DISENT, et refusent le tableau.
+const preempted = [
+  ...stages.flatMap((s) => preemptedRuns([...s.runs.values()])),
+  ...(W.length > 0 ? preemptedRuns(W) : []),
+];
 
 const fmt = (x) => (Number.isFinite(x) ? x.toFixed(2) : "—");
 const rounds = Math.max(...stages.map((s) => s.runs.size));
@@ -109,6 +112,11 @@ const full = stages.find((s) => s.camp === "nodefony")?.med ?? NaN;
 console.log(
   `\nÉcart complet − témoin : ${fmt(full - wMed)} µs/req (ratio ${(full / wMed).toFixed(3)})`,
 );
+for (const p of preempted)
+  console.log(
+    `❌ ${p.run} PRÉEMPTÉ — ${p.value.toFixed(1)} chgts de contexte invol./1000 req contre ${p.calm.toFixed(1)} au plus calme de son camp : rejouer`,
+  );
+refused ||= preempted.length > 0;
 if (refused && !partial) {
   console.log(
     `❌ au moins une coupe disperse au-delà de ${MAX_SPREAD * 100} % — tableau INDICATIF, ne pas conclure`,

@@ -47,6 +47,7 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-header-values.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-host.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-request-scope.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-zone-match.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scale.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scan.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-service-bus.mjs",

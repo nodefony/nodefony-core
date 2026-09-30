@@ -6,7 +6,7 @@
 // Dossiers attendus : <dossier>/<camp>-<n>/<pid>.json
 // ─────────────────────────────────────────────────────────────────────────────
 import fs from "node:fs";
-import { loadRuns, median } from "./wait-lib.mjs";
+import { loadRuns, median, preemptedRuns } from "./wait-lib.mjs";
 
 const [base, campA, campB] = process.argv.slice(2);
 const jsonIdx = process.argv.indexOf("--json");
@@ -76,3 +76,11 @@ if (jsonOut)
     jsonOut,
     JSON.stringify({ campA, campB, A, B, rows }, null, 2),
   );
+const preempted = [...preemptedRuns(A), ...preemptedRuns(B)];
+if (preempted.length > 0) {
+  for (const p of preempted)
+    console.log(
+      `❌ ${p.run} PRÉEMPTÉ — ${p.value.toFixed(1)} chgts de contexte invol./1000 req contre ${p.calm.toFixed(1)} au plus calme de son camp : rejouer`,
+    );
+  process.exit(3);
+}

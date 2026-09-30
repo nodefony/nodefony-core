@@ -64,3 +64,26 @@ export function loadRuns(base, camp) {
   }
   return runs;
 }
+
+const CTX_KEY = "chgts contexte invol. / 1000 req";
+
+/**
+ * Runs PRÉEMPTÉS : plus de 2× les changements de contexte involontaires du run
+ * le plus calme de leur camp (et au moins +5 pour 1000 requêtes). Un autre
+ * processus a pris le CPU pendant la fenêtre — le travail coûte alors plus
+ * cher, noyau compris, sans que le code y soit pour rien. La garde « machine
+ * calme » (thermal, indexeur) ne voit pas cette charge ; vécu sur #508 :
+ * 22,7 contre 10,8 pour 1000 req, +11 % de CPU/req, run pris pour un étage.
+ *
+ * Référence = le MINIMUM du camp, pas la médiane : sur 2 ou 3 runs, un seul
+ * run pollué déplace la médiane.
+ *
+ * @param runs - les runs d'UN camp (`loadRuns`).
+ * @returns les runs à refuser, chacun avec sa valeur et la référence.
+ */
+export function preemptedRuns(runs) {
+  const calm = Math.min(...runs.map((r) => r[CTX_KEY]));
+  return runs
+    .filter((r) => r[CTX_KEY] > 2 * calm && r[CTX_KEY] - calm >= 5)
+    .map((r) => ({ run: r.run, value: r[CTX_KEY], calm }));
+}
