@@ -1287,7 +1287,18 @@ ${r.stderr}`,
         );
         // 2. Le superviseur l'a ANNONCÉ dans son journal — c'est tout l'objet :
         //    ce que l'on ne dit pas, on le cherche.
-        const journal = fs.readFileSync(log, "utf8");
+        //    L'annonce SUIT le verdict de boot du superviseur (re-sondes de
+        //    `livez`, `DevSupervisor`), alors que `--wait` rend la main dès que
+        //    l'état publié et `livez` répondent : lue une seule fois, elle
+        //    manquait parfois au journal (vécu en CI). On l'attend, borné.
+        let journal = fs.readFileSync(log, "utf8");
+        for (
+          const until = Date.now() + 15000;
+          !journal.includes("PORTS DÉCALÉS") && Date.now() < until;
+          journal = fs.readFileSync(log, "utf8")
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
         const queue = journal.replace(/\x1b\[[0-9;]*m/g, "").slice(-4000);
         assert.match(
           journal,
