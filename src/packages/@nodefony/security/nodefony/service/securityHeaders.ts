@@ -44,6 +44,11 @@ export class SecurityHeaders {
   // CSP dynamique (nonce/req) : segments pré-split autour de `{{nonce}}`, joints par
   // requête avec le nonce réel. `null` = CSP statique (dans `#headers`) → 0 alloc/req.
   readonly #cspParts: readonly string[] | null;
+  // Cas courant (#508) : UN seul `{{nonce}}` (CSP par défaut) → deux
+  // segments, recomposés par `prefix + nonce + suffix` au lieu d'un `join`
+  // (~85 ns de moins par requête). `null` quand le CSP porte 0 ou ≥ 2 placeholders.
+  readonly #cspPrefix: string | null;
+  readonly #cspSuffix: string;
   // CSP de base BRUT (avec `{{nonce}}` éventuel, non purgé) — conservé pour
   // `cspForExtra` (merge des directives `@Csp` d'une route). Vide si aucun CSP.
   readonly #cspRaw: string;
@@ -76,6 +81,13 @@ export class SecurityHeaders {
     if (o.permissionsPolicy) h["Permissions-Policy"] = o.permissionsPolicy;
     this.#headers = Object.freeze(h);
     this.#cspParts = cspParts ? Object.freeze(cspParts) : null;
+    if (cspParts?.length === 2) {
+      this.#cspPrefix = cspParts[0] ?? "";
+      this.#cspSuffix = cspParts[1] ?? "";
+    } else {
+      this.#cspPrefix = null;
+      this.#cspSuffix = "";
+    }
     this.#cspRaw = o.csp;
   }
 
@@ -91,13 +103,17 @@ export class SecurityHeaders {
 
   /**
    * Recompose le CSP en injectant le `nonce` de la requête aux emplacements
-   * `{{nonce}}`. 1 `join` (segments pré-split au boot). Le nonce est base64 (jamais
+   * `{{nonce}}` : une concaténation s'il n'y en a qu'un, un `join` sinon (segments
+   * pré-split au boot). Le nonce est base64 (jamais
    * `'`/`;`/espace) → aucune évasion possible du token CSP.
    *
    * @param nonce - nonce base64 de la requête (`Context.cspNonce`).
    * @returns la valeur `Content-Security-Policy` à poser sur la réponse.
    */
   cspFor(nonce: string): string {
+    if (this.#cspPrefix !== null) {
+      return this.#cspPrefix + nonce + this.#cspSuffix;
+    }
     return (this.#cspParts as readonly string[]).join(nonce);
   }
 

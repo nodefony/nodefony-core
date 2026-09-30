@@ -178,36 +178,68 @@ export function isCanonicalAuthority(
     }
   }
   // Labels : jamais vides ; si le DERNIER est numérique, seule la
-  // dotted-quad IPv4 canonique traverse WHATWG à l'identique.
-  const labels = name.split(".");
-  for (const label of labels) {
-    if (label.length === 0) {
-      return false;
+  // dotted-quad IPv4 canonique traverse WHATWG à l'identique. Parcours des
+  // codes, sans `split(".")` : pas de tableau ni de sous-chaînes par requête
+  // (~150 ns, #508).
+  let labels = 1;
+  let start = 0;
+  for (let i = 0; i < name.length; i++) {
+    if (name.charCodeAt(i) === DOT) {
+      if (i === start) {
+        return false; // label vide (`a..b`, `.a`)
+      }
+      labels++;
+      start = i + 1;
     }
   }
-  // `split` rend toujours au moins un label : le repli ne sert qu'au typage.
-  const last = labels.at(-1) ?? "";
-  if (isDigits(last)) {
-    if (labels.length !== 4) {
+  if (start === name.length) {
+    return false; // dernier label vide (`a.`)
+  }
+  if (isDigitsFrom(name, start)) {
+    if (labels !== 4) {
       return false; // `127.1`, `2130706433`, `1.2.3.4.5`…
     }
-    for (const label of labels) {
-      if (!isDigits(label) || label.length > 3) {
-        return false; // `0x7f.0.0.1` et toute forme hex/octale
-      }
-      if (label.length > 1 && label.charCodeAt(0) === 0x30) {
-        return false; // zéro de tête (`010.0.0.1` = forme octale WHATWG)
-      }
-      if (Number(label) > 255) {
-        return false;
-      }
-    }
+    return isCanonicalDottedQuad(name);
   }
   return true;
 }
 
-function isDigits(s: string): boolean {
-  for (let i = 0; i < s.length; i++) {
+/**
+ * Les quatre labels (non vides, déjà comptés) forment-ils une dotted-quad
+ * canonique ? Chacun : chiffres seuls, 3 au plus, sans zéro de tête, ≤ 255.
+ */
+function isCanonicalDottedQuad(name: string): boolean {
+  let start = 0;
+  for (let i = 0; i <= name.length; i++) {
+    if (i < name.length && name.charCodeAt(i) !== DOT) {
+      continue;
+    }
+    const len = i - start;
+    if (len > 3) {
+      return false; // `0x7f.0.0.1` et toute forme hex/octale longue
+    }
+    if (len > 1 && name.charCodeAt(start) === 0x30) {
+      return false; // zéro de tête (`010.0.0.1` = forme octale WHATWG)
+    }
+    let value = 0;
+    for (let k = start; k < i; k++) {
+      const c = name.charCodeAt(k);
+      if (c < 0x30 || c > 0x39) {
+        return false; // `0x7f.0.0.1` et toute forme hex
+      }
+      value = value * 10 + (c - 0x30);
+    }
+    if (value > 255) {
+      return false;
+    }
+    start = i + 1;
+  }
+  return true;
+}
+
+/** `s` ne contient-elle que des chiffres ASCII à partir de `from` ? */
+function isDigitsFrom(s: string, from: number): boolean {
+  for (let i = from; i < s.length; i++) {
     const c = s.charCodeAt(i);
     if (c < 0x30 || c > 0x39) {
       return false;

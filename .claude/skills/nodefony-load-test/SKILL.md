@@ -95,6 +95,7 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > | `micro/micro-route-scan.mjs`    | le scan des motifs sur la table RÉELLE de l'app (`NF_ROUTES_JSON`)                                                |
 > | `micro/micro-route-scale.mjs`   | la même chose à N croissant : la COURBE, de 136 à 2 400 routes                                                    |
 > | `micro/micro-host.mjs`          | le traitement de l'en-tête `Host` (port, forme canonique, domaines) — `split` 197 ns contre `indexOf`+`slice` 25  |
+> | `micro/micro-header-values.mjs` | la fabrication des valeurs d'en-têtes : Content-Type, traceparent, CSP à nonce, hostname — avant/après            |
 >
 > **Rapport du dossier de performance** : `scripts/perf-dossier-report.mjs` rend en une page HTML
 > autonome ce que `docs/performance/` établit en Markdown (graphes, schémas, calculateur de pods).

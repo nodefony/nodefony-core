@@ -88,7 +88,9 @@ export function resolveTraceparent(header: string | undefined | null): string {
     const newSpanId = randomHex(8);
     return `${parsed.version}-${parsed.traceId}-${newSpanId}-${parsed.flags}`;
   }
-  const traceId = randomHex(16);
-  const parentId = randomHex(8);
-  return `00-${traceId}-${parentId}-01`;
+  // Un seul tirage de 24 octets (traceId 16 + parentId 8), découpé en deux :
+  // un `toString("hex")` au lieu de deux (#508). Les deux moitiés sont
+  // des octets DISTINCTS du pool — jamais de recouvrement.
+  const hex = randomHex(24);
+  return `00-${hex.slice(0, 32)}-${hex.slice(32)}-01`;
 }

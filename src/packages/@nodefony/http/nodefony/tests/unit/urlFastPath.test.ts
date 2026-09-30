@@ -260,3 +260,132 @@ describe("urlFastPath — isCanonicalAuthority", () => {
     }
   });
 });
+
+// #508 — le décompte des labels ne passe plus par `split(".")`. L'oracle est
+// l'implémentation d'AVANT, recopiée telle quelle : sur un corpus combinatoire
+// (labels numériques, zéros de tête, hex, vides, ports) et un fuzz déterministe,
+// le verdict doit être IDENTIQUE — la moindre divergence ouvre ou ferme le
+// fast-path sur une autorité que WHATWG transformerait.
+describe("urlFastPath — isCanonicalAuthority, équivalence avec la version à split (#508)", () => {
+  const ORACLE_HOST_SAFE = new Uint8Array(128);
+  for (let c = 0; c < 128; c++) {
+    if (/[a-z0-9\-._]/.test(String.fromCharCode(c))) ORACLE_HOST_SAFE[c] = 1;
+  }
+  const oracleIsDigits = (s: string): boolean => {
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c < 0x30 || c > 0x39) return false;
+    }
+    return true;
+  };
+  function oracle(host: unknown, scheme: string): boolean {
+    if (typeof host !== "string" || host.length === 0) return false;
+    let colon = -1;
+    for (let i = 0; i < host.length; i++) {
+      const c = host.charCodeAt(i);
+      if (c === 0x3a) {
+        if (colon !== -1) return false;
+        colon = i;
+        continue;
+      }
+      if (
+        c >= 128 ||
+        (colon === -1 ? ORACLE_HOST_SAFE[c] === 0 : c < 0x30 || c > 0x39)
+      ) {
+        return false;
+      }
+    }
+    const name = colon === -1 ? host : host.slice(0, colon);
+    if (name.length === 0) return false;
+    if (colon !== -1) {
+      const port = host.slice(colon + 1);
+      if (port.length === 0 || port.charCodeAt(0) === 0x30) return false;
+      if (
+        (scheme === "https" && port === "443") ||
+        (scheme === "http" && port === "80")
+      ) {
+        return false;
+      }
+    }
+    const labels = name.split(".");
+    for (const label of labels) if (label.length === 0) return false;
+    const last = labels.at(-1) ?? "";
+    if (oracleIsDigits(last)) {
+      if (labels.length !== 4) return false;
+      for (const label of labels) {
+        if (!oracleIsDigits(label) || label.length > 3) return false;
+        if (label.length > 1 && label.charCodeAt(0) === 0x30) return false;
+        if (Number(label) > 255) return false;
+      }
+    }
+    return true;
+  }
+
+  it("corpus combinatoire : 1 à 5 labels, avec et sans port", () => {
+    const parts = [
+      "",
+      "0",
+      "00",
+      "1",
+      "01",
+      "9",
+      "10",
+      "99",
+      "100",
+      "255",
+      "256",
+      "999",
+      "1000",
+      "a",
+      "0x7f",
+      "1a",
+      "a-b",
+      "_",
+    ];
+    const ports = ["", ":5151", ":80", ":443", ":0", ":"];
+    let checked = 0;
+    const diverging: string[] = [];
+    const walk = (prefix: string, depth: number): void => {
+      if (depth > 0) {
+        for (const port of ports) {
+          const host = prefix + port;
+          for (const scheme of ["http", "https"]) {
+            if (isCanonicalAuthority(host, scheme) !== oracle(host, scheme)) {
+              diverging.push(`${JSON.stringify(host)} (${scheme})`);
+            }
+            checked++;
+          }
+        }
+      }
+      if (depth === 5) return;
+      // au-delà de 3 labels, on restreint l'alphabet pour borner le corpus
+      const alphabet = depth >= 3 ? ["", "1", "01", "255", "256", "a"] : parts;
+      for (const p of alphabet)
+        walk(depth === 0 ? p : `${prefix}.${p}`, depth + 1);
+    };
+    walk("", 0);
+    expect(diverging.slice(0, 20)).to.deep.equal([]);
+    expect(checked).to.be.greaterThan(100_000);
+  });
+
+  it("fuzz déterministe : 50 000 autorités tirées dans « 0-9 . a x : - »", () => {
+    let seed = 0x508b5;
+    const rand = (): number => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed;
+    };
+    const alphabet = "0123456789..ax:-";
+    const diverging: string[] = [];
+    for (let n = 0; n < 50_000; n++) {
+      const len = rand() % 16;
+      let host = "";
+      for (let i = 0; i < len; i++) host += alphabet[rand() % alphabet.length];
+      for (const scheme of ["http", "https"]) {
+        if (isCanonicalAuthority(host, scheme) !== oracle(host, scheme)) {
+          diverging.push(`${JSON.stringify(host)} (${scheme})`);
+        }
+      }
+    }
+    expect(diverging.slice(0, 20)).to.deep.equal([]);
+  });
+});

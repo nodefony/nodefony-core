@@ -260,6 +260,13 @@ Plafond de trafic **par IP** sur TOUTES les routes HTTP — **≠ `security.rate
   (équivalence exhaustive par caractère vs `new URL`) + `tests/http/url-fastpath.attack.test.ts`
   (red-team : 7 formes d'évasion → 401 exact, réciproque liveness → 200).
 - **Écrire une URL** : passer par `setUrl()`, qui resynchronise `sUrl`/`pathname`/`search`/`scheme`.
+- **Nom d'hôte** : découpé UNE fois au ctor (`hostnameOf` = avant le 1ᵉʳ `:`, champ privé
+  `#rawHostname` + sa source `#rawHostSource`). `getHostName()` garde son ordre : `#url.hostname`
+  (réécrit par `setUrl`/getter `url`) > argument > en-tête RELU — le cache n'est servi que si
+  l'en-tête relu est la même chaîne que la source. Jamais comparer à `this.host` (public,
+  réassignable). Preuve : `tests/unit/requestHostname.test.ts` + différentiel `urlFastPath.test.ts`.
+- **`setContentType`** : résolution `mime-types` mémorisée (`resolveContentType`, Map bornée à 64).
+  Seules les résolutions POSITIVES entrent : une app peut enrichir `mime.types` à chaud.
   Poser `request.url` seul laisserait le routing sur l'ancien chemin.
 - **HTTP/2** : `getRawTarget()` (`:path`) et `resolveScheme()` (`:scheme`) sont les deux seuls
   overrides — `getFullUrl` est commun.

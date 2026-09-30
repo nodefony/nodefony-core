@@ -42,6 +42,54 @@ const REDIRECT_STATUS_CODES = new Set<number>([301, 302, 303, 307, 308]);
 // portent JAMAIS de Content-Length (RFC 9110 §8.6).
 const NO_CONTENT_LENGTH_STATUS = new Set([204, 304]);
 
+/** Résolution MIME d'un type demandé à `setContentType`, mémorisée par {@link resolveContentType}. */
+interface IResolvedContentType {
+  /** Valeur de `mime.contentType(type)` (charset par défaut compris). */
+  readonly full: string;
+  /** `full` sans paramètre (tout ce qui précède le premier `;`). */
+  readonly bare: string;
+  /** Valeur de `mime.charset(full)`. */
+  readonly charset: string | false;
+}
+
+// `mime.contentType` + `split(";")` coûtaient ~0,5 µs par réponse (#508)
+// pour une poignée de types toujours les mêmes. Les deux fonctions de
+// `mime-types` sont pures de leur entrée : une résolution POSITIVE ne change
+// jamais (`mime-db` n'est pas réécrit). Un refus n'est PAS mémorisé — une
+// application peut enrichir `mime.types` à chaud, et un type inconnu ne doit
+// pas le rester. Borné : au-delà, on résout sans mémoriser (un nom de fichier
+// venu du client ne fait pas grossir la table).
+const CONTENT_TYPE_CACHE_MAX = 64;
+const contentTypeCache = new Map<string, IResolvedContentType>();
+
+/**
+ * Résout `type` (extension ou type MIME) comme `mime.contentType`, avec
+ * mémorisation bornée des résolutions positives.
+ *
+ * @param type - extension (`json`) ou type MIME (`text/html`).
+ * @returns la résolution, ou `null` si `mime-types` ne connaît pas le type.
+ */
+function resolveContentType(type: string): IResolvedContentType | null {
+  const hit = contentTypeCache.get(type);
+  if (hit !== undefined) {
+    return hit;
+  }
+  const full = mime.contentType(type);
+  if (!full) {
+    return null;
+  }
+  const semi = full.indexOf(";");
+  const resolved: IResolvedContentType = {
+    full,
+    bare: semi === -1 ? full : full.slice(0, semi),
+    charset: mime.charset(full),
+  };
+  if (contentTypeCache.size < CONTENT_TYPE_CACHE_MAX) {
+    contentTypeCache.set(type, resolved);
+  }
+  return resolved;
+}
+
 class HttpResponse {
   context: HttpContext;
   response: http.ServerResponse | http2.Http2ServerResponse | null;
@@ -281,10 +329,10 @@ class HttpResponse {
     // Pas de `removeHeader` préalable : `setHeader` natif écrase (node indexe
     // les en-têtes sortants en minuscules, la casse ne crée pas de doublon).
     if (type && encoding) {
-      const full = mime.contentType(type);
+      const resolved = resolveContentType(type);
       // Get the MIME type without charset
-      if (full) {
-        const mytype = full.split(";")[0] ?? full;
+      if (resolved) {
+        const mytype = resolved.bare;
         this.contentType = mytype;
         this.encoding = encoding;
         // RFC 8259 §11 : `application/json` (et tout type structuré `+json`) ne
@@ -297,10 +345,11 @@ class HttpResponse {
       }
     }
     if (type && !encoding) {
-      const mytype = mime.contentType(type);
-      if (mytype) {
+      const resolved = resolveContentType(type);
+      if (resolved) {
+        const mytype = resolved.full;
         this.contentType = mytype;
-        let charset = mime.charset(this.contentType);
+        const charset = resolved.charset;
         if (charset) {
           this.encoding = charset as BufferEncoding;
         }

@@ -139,6 +139,18 @@ function perfMark(field: string): void {
   }
 }
 
+/**
+ * Nom d'hôte d'une autorité brute (`host[:port]`) : tout ce qui précède le
+ * premier `:`. Même résultat que `host.split(":")[0]`, sans tableau (#508).
+ */
+function hostnameOf(host: string | undefined): string {
+  if (!host) {
+    return "";
+  }
+  const colon = host.indexOf(":");
+  return colon === -1 ? host : host.slice(0, colon);
+}
+
 class HttpRequest {
   context: HttpContext;
   request: http.IncomingMessage | http2.Http2ServerRequest;
@@ -150,6 +162,11 @@ class HttpRequest {
   // host…) force la construction IMMÉDIATE au ctor — le routing et le
   // firewall ne matchent alors que la forme normalisée, comme avant.
   #url: URL | null = null;
+  // Nom d'hôte brut calculé UNE fois au ctor depuis `this.host` : `getHostName()`
+  // (appelé par `getDomain` et par `HttpContext`) le relit au lieu de redécouper
+  // l'en-tête — tant que l'en-tête relu est la même chaîne (#508).
+  readonly #rawHostname: string;
+  readonly #rawHostSource: string | undefined;
   headers: http.IncomingHttpHeaders = {};
   host: string | undefined = "";
   method: HTTPMethod;
@@ -289,7 +306,11 @@ class HttpRequest {
     if (PERF_PROBE_SUB) perfMark("reqProxyNs");
     this.method = this.getMethod();
     this.host = this.getHost();
-    this.hostname = this.getHostName(this.host);
+    // `#url` est encore null ici : `getHostName(this.host)` rendait exactement
+    // ce découpage brut.
+    this.#rawHostSource = this.host;
+    this.#rawHostname = hostnameOf(this.host);
+    this.hostname = this.#rawHostname;
     this.sUrl = this.getFullUrl(request); // pose aussi this.scheme
     // F-B : découpe fast-path — admise SEULEMENT si scheme, autorité ET target
     // traversent le parse WHATWG à l'identique (cf urlFastPath). Sinon, vrai
@@ -888,12 +909,13 @@ class HttpRequest {
       return this.#url.hostname;
     }
     if (host) {
-      return host.split(":")[0] ?? "";
+      return hostnameOf(host);
     }
-    if ((host = this.getHost())) {
-      return host.split(":")[0] ?? "";
-    }
-    return "";
+    host = this.getHost();
+    // Même chaîne que celle découpée au ctor → même résultat, déjà calculé
+    // (comparé à la SOURCE privée, pas à `this.host`, que du code tiers peut
+    // réassigner).
+    return host === this.#rawHostSource ? this.#rawHostname : hostnameOf(host);
   }
 
   getHost(): string | undefined {

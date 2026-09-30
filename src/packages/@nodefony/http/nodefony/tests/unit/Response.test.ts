@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import http from "node:http";
+import mime from "mime-types";
 import HttpResponse from "../../src/context/http/Response.js";
 import Cookie from "../../src/cookies/cookie.js";
 import type HttpContext from "../../src/context/http/HttpContext.js";
@@ -86,6 +87,92 @@ describe("HttpResponse — unit tests", () => {
       const r = makeResponse();
       r.setContentType();
       expect(String(r.getHeader("Content-Type"))).to.match(/charset=/);
+    });
+  });
+
+  // #508 — la résolution MIME est mémorisée. L'oracle est l'algorithme
+  // d'AVANT, recopié tel quel : chaque appel (à froid, puis servi par le cache)
+  // doit rendre le même en-tête et les mêmes champs.
+  describe("setContentType() — mémorisation de la résolution MIME (#508)", () => {
+    function oracle(type: string, encoding?: BufferEncoding) {
+      if (encoding) {
+        const full = mime.contentType(type);
+        if (!full) return null;
+        const mytype = full.split(";")[0] ?? full;
+        const header =
+          mytype === "application/json" || mytype.endsWith("+json")
+            ? mytype
+            : `${mytype}; charset=${encoding}`;
+        return { header, contentType: mytype, encoding };
+      }
+      const mytype = mime.contentType(type);
+      if (!mytype) return null;
+      const charset = mime.charset(mytype);
+      return {
+        header: mytype,
+        contentType: mytype,
+        encoding: charset || undefined,
+      };
+    }
+    const types = [
+      "json",
+      "html",
+      "txt",
+      "css",
+      "js",
+      "svg",
+      "png",
+      "application/json",
+      "application/ld+json",
+      "application/problem+json",
+      "text/html",
+      "text/plain; charset=latin1",
+      "text/event-stream",
+      "application/octet-stream",
+    ];
+    for (const encoding of ["utf-8", undefined] as const) {
+      for (const type of types) {
+        it(`${type} (${encoding ?? "sans encodage"}) — identique à froid et depuis le cache`, () => {
+          const want = oracle(type, encoding);
+          expect(want, "type connu de mime-types").to.not.equal(null);
+          for (let pass = 0; pass < 2; pass++) {
+            const r = makeResponse();
+            r.setContentType(type, encoding);
+            expect(r.getHeader("Content-Type")).to.equal(want?.header);
+            expect(r.contentType).to.equal(want?.contentType);
+            if (want?.encoding) expect(r.encoding).to.equal(want.encoding);
+          }
+        });
+      }
+    }
+
+    it("un type inconnu n'est PAS mémorisé : enregistré ensuite, il se résout", () => {
+      const ext = "nfb1unknown";
+      const r = makeResponse();
+      r.setContentType(ext, "utf-8");
+      // repli : contentType courant (text/plain par défaut), pas le type demandé
+      expect(String(r.getHeader("Content-Type"))).to.not.include("x-nfb1");
+      mime.types[ext] = "application/x-nfb1";
+      try {
+        const r2 = makeResponse();
+        r2.setContentType(ext, "utf-8");
+        expect(r2.getHeader("Content-Type")).to.equal(
+          "application/x-nfb1; charset=utf-8",
+        );
+      } finally {
+        delete mime.types[ext];
+      }
+    });
+
+    it("au-delà de la borne, la résolution reste juste (sans mémoriser)", () => {
+      const exts = Object.keys(mime.types).slice(0, 200);
+      for (const ext of exts) {
+        const r = makeResponse();
+        r.setContentType(ext, "utf-8");
+        expect(r.getHeader("Content-Type"), ext).to.equal(
+          oracle(ext, "utf-8")?.header,
+        );
+      }
     });
   });
 

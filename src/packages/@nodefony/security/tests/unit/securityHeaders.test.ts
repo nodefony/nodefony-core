@@ -99,6 +99,25 @@ describe("SecurityHeaders — nonce CSP par requête (étape B)", () => {
       "default-src 'self'; script-src 'self' 'nonce-AbC123=='",
     );
   });
+  // #508 — un seul placeholder passe par `prefix + nonce + suffix`, plusieurs
+  // par `join` : les deux chemins doivent rendre la substitution de TOUS les
+  // emplacements, placeholder en tête ou en fin compris.
+  for (const csp of [
+    NONCE_CSP,
+    "{{nonce}} default-src 'self'",
+    "script-src 'nonce-{{nonce}}'",
+    "script-src 'nonce-{{nonce}}'; style-src 'nonce-{{nonce}}'",
+    "a {{nonce}} b {{nonce}} c {{nonce}}",
+  ]) {
+    it(`cspFor substitue chaque placeholder — « ${csp} »`, () => {
+      const sh = make({ csp, cspNonces: true });
+      assert.equal(
+        sh.cspFor("N0nce=="),
+        csp.replaceAll("{{nonce}}", "N0nce=="),
+      );
+      assert.equal(sh.cspFor("autre"), csp.replaceAll("{{nonce}}", "autre"));
+    });
+  }
   it("nonces différents → CSP différents (unicité par requête)", () => {
     const sh = make({ csp: NONCE_CSP, cspNonces: true });
     assert.notEqual(sh.cspFor("aaa"), sh.cspFor("bbb"));

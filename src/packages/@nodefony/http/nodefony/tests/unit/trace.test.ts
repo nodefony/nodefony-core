@@ -130,4 +130,26 @@ describe("resolveTraceparent — frontière de requête (P2.7)", () => {
     const b = parseTraceparent(resolveTraceparent(null));
     expect(a?.traceId).to.not.equal(b?.traceId);
   });
+
+  // #508 — traceId et parentId sont découpés dans UN tirage de 24 octets.
+  // Une découpe qui se recouvrirait rendrait un parentId égal à une moitié du
+  // traceId, avec un format pourtant valide. 1 000 tirages traversent plusieurs
+  // recharges du pool (4 096 octets).
+  it("traceId et parentId sont des octets indépendants, à travers les recharges du pool", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 1000; i++) {
+      const out = resolveTraceparent(null);
+      expect(out).to.match(TP_RE);
+      const p = parseTraceparent(out);
+      expect(p).to.not.equal(null);
+      const traceId = p?.traceId ?? "";
+      const parentId = p?.parentId ?? "";
+      expect(parentId).to.not.equal(traceId.slice(0, 16));
+      expect(parentId).to.not.equal(traceId.slice(16));
+      expect(seen.has(traceId), "traceId répété").to.equal(false);
+      expect(seen.has(parentId), "parentId répété").to.equal(false);
+      seen.add(traceId);
+      seen.add(parentId);
+    }
+  });
 });
