@@ -97,6 +97,12 @@ const BENCH_WS_BACKPRESSURE = process.env.NF_BENCH_WS_BACKPRESSURE === "1";
 const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
 
 /**
+ * Drapeau posé par TOUS les bancs de débit (`wait-compare.sh`,
+ * `bench-ab-mono.sh`, `bench-pairs.sh`) — jamais par l'intégration de la CI.
+ */
+const BENCH_ROUTE = process.env.NF_BENCH_ROUTE === "1";
+
+/**
  * Banc du calque de configuration (#494) : un en-tête de TEST pose, pour la
  * requête qui le porte, un calque sur le plafond du corps. Il prouve sur le
  * serveur réel que le point d'accroche `onRequestScope` est dans la bulle ALS
@@ -203,13 +209,16 @@ class Test extends Module {
     if (broker && !broker.has("test")) {
       broker.register(createTestAdminApi());
     }
-    // Jamais sous le banc ORM : un écouteur `onRequestScope` y ferait payer à
+    // Jamais sous un banc : un écouteur `onRequestScope` y ferait payer à
     // CHAQUE requête mesurée un `fireAsync` que le camp témoin ne paie pas —
-    // biais mesuré contre nous (47 → 44 Promises par requête). Le critère est le
+    // et, sur un GET, rendrait ASYNCHRONE tout le pipeline qui suit (le
+    // chemin sans Promise n'était alors jamais mesuré). Biais mesuré contre
+    // nous (47 → 44 Promises par requête sur le banc ORM). Le critère est le
     // drapeau du banc, PAS l'environnement : l'intégration de la CI tourne elle
     // aussi en production, sous la même dérogation `NF_WITH_DEV_MODULES` que les
-    // bancs, et c'est elle qui éprouve le calque (`config-overlay.test.ts`).
-    if (this.kernel && !BENCH_ORM) {
+    // bancs, SANS drapeau de banc — c'est elle qui éprouve le calque
+    // (`config-overlay.test.ts`).
+    if (this.kernel && !BENCH_ORM && !BENCH_ROUTE) {
       this.kernel.on("onRequestScope", overlayProbe);
     }
     return this;
