@@ -4,6 +4,13 @@ import { usageCatalog, usagePageFor } from "./scaffold/help";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { portableSpawn } from "./execPortable";
+import {
+  isPackageManagerName,
+  packageManagerCommandLines,
+  packageManagerExecArgs,
+  resolvePackageManager,
+} from "./packageManager";
+import type { PackageManagerName } from "../Cli";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 // Les sept listes de choix ont disparu d'ici AVEC la section qui les recopiait :
@@ -166,6 +173,9 @@ export function parseCreateArgv(
       answers.preset = rest[++i];
     } else if (word === "--frontend") {
       answers.frontend = rest[++i];
+    } else if (word === "--package-manager") {
+      // Validée par la spec (question `choice`), comme `--frontend`.
+      answers.packageManager = rest[++i];
     } else if (word === "--database") {
       answers.database = rest[++i];
     } else if (word === "--kind") {
@@ -578,18 +588,23 @@ function poseThirdPartyNotices(dest: string, installed: boolean): string {
 }
 
 /**
- * `npm install` dans l'app générée (sortie streamée — le dev voit npm
- * travailler, pas un silence de 60 s). Échec = code retourné, l'appelant
- * décide (l'app EST générée : on n'échoue pas tout le create pour un réseau).
+ * `<gestionnaire> install` dans l'app générée (sortie streamée — le dev voit
+ * l'outil travailler, pas un silence de 60 s). Échec = code retourné,
+ * l'appelant décide (l'app EST générée : on n'échoue pas tout le create pour un
+ * réseau).
+ *
+ * @param dest - racine du projet
+ * @param pm - gestionnaire retenu : un projet n'en a qu'un, en mélanger deux
+ *   corrompt `node_modules`
  */
-function runInstall(dest: string): boolean {
-  process.stdout.write(`\n⏳ npm install (${path.basename(dest)})…\n`);
+function runInstall(dest: string, pm: PackageManagerName): boolean {
+  process.stdout.write(`\n⏳ ${pm} install (${path.basename(dest)})…\n`);
   // Sous Windows, `npm` est un `.cmd` que Node refuse de lancer nu — et le
   // lancer par `shell: true` avec des arguments imprime une dépréciation
   // (DEP0190) avec sa pile dans le transcript. `portableSpawn` compose la
   // ligne pour `cmd.exe` lui-même ; sans lui, le workspace n'est jamais lié et
   // le module devient introuvable au boot — visible seulement en 404.
-  const cmd = portableSpawn("npm", ["install"]);
+  const cmd = portableSpawn(pm, ["install"]);
   const r = spawnSync(cmd.file, cmd.args, {
     cwd: dest,
     stdio: "inherit",
@@ -677,9 +692,9 @@ export type CreateStepOutcome = "skipped" | "succeeded" | "failed";
  * `npm run dev` échoue. Suit l'install (pas de node_modules = pas de build) ;
  * `dist/` est gitignoré → n'entre pas dans le premier commit.
  */
-function runBuild(dest: string): boolean {
-  process.stdout.write(`\n⏳ npm run build (${path.basename(dest)})…\n`);
-  const cmd = portableSpawn("npm", ["run", "build"]);
+function runBuild(dest: string, pm: PackageManagerName): boolean {
+  process.stdout.write(`\n⏳ ${pm} run build (${path.basename(dest)})…\n`);
+  const cmd = portableSpawn(pm, ["run", "build"]);
   const r = spawnSync(cmd.file, cmd.args, {
     cwd: dest,
     stdio: "inherit",
@@ -765,6 +780,7 @@ function appDeclareUnOrm(dest: string): boolean {
  */
 function runInitialMigration(
   dest: string,
+  pm: PackageManagerName,
 ): { written: boolean; note: string; databaseUnreachable: boolean } | null {
   // Ici on va EXÉCUTER : c'est donc l'installation qu'on constate, pas la
   // déclaration. Le manifeste dit l'intention, `node_modules` dit le moyen.
@@ -773,14 +789,10 @@ function runInitialMigration(
     return null;
   }
   process.stdout.write(`\n⏳ migration initiale (orm:generate)…\n`);
-  const generate = portableSpawn("npm", [
-    "exec",
-    "--",
-    "nodefony",
-    "orm:generate",
-    "--name",
-    "init",
-  ]);
+  const generate = portableSpawn(
+    pm,
+    packageManagerExecArgs(pm, "nodefony", ["orm:generate", "--name", "init"]),
+  );
   const r = spawnSync(generate.file, generate.args, {
     cwd: dest,
     encoding: "utf8",
@@ -810,12 +822,10 @@ function runInitialMigration(
     // décor que l'écriture (`production` + `NF_STORE=memory`) : le mode `none`
     // empêche le démarrage de fabriquer quoi que ce soit, et c'est bien la
     // MIGRATION qui crée les tables.
-    const migrate = portableSpawn("npm", [
-      "exec",
-      "--",
-      "nodefony",
-      "orm:migrate",
-    ]);
+    const migrate = portableSpawn(
+      pm,
+      packageManagerExecArgs(pm, "nodefony", ["orm:migrate"]),
+    );
     const applique = spawnSync(migrate.file, migrate.args, {
       cwd: dest,
       encoding: "utf8",
@@ -1212,9 +1222,28 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       return SysExit.USAGE;
     }
   }
+  // Le gestionnaire PROPOSÉ à `create app` est celui qui a lancé la commande
+  // (`pnpm create nodefony` → pnpm) — la même décision que partout ailleurs,
+  // jamais une seconde lecture de l'agent. Hors projet, il n'y a ni config ni
+  // verrou : seul l'agent répond, sinon npm.
+  const launchedBy = resolvePackageManager().name;
   const interactive = isTerminal(process.stdin) && !parsed.yes;
   if (interactive) {
-    const [spec] = getScaffoldSpec(type);
+    const [declared] = getScaffoldSpec(type);
+    // Le défaut de la spec est STATIQUE (elle se sert aussi en JSON) ; le
+    // dialogue, lui, propose le gestionnaire constaté.
+    const spec =
+      declared === undefined || type !== "app"
+        ? declared
+        : {
+            ...declared,
+            questions: declared.questions.map((q) =>
+              // Copie, jamais mutation : la spec est partagée par le processus.
+              q.key === "packageManager"
+                ? Object.assign({}, q, { default: launchedBy })
+                : q,
+            ),
+          };
     if (spec === undefined) {
       process.stderr.write(
         `create: aucune question déclarée pour « ${type} »\n`,
@@ -1284,6 +1313,9 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // Non-interactif : le câblage checkout ne s'active JAMAIS implicitement —
     // un script qui veut le mode dev framework le dit (`--link`).
     answers.link ??= false;
+    if (type === "app") {
+      answers.packageManager ??= launchedBy;
+    }
   }
   if (answers.name === undefined || answers.name === "") {
     return printUsageError(pageFor(type), "nom requis");
@@ -1334,6 +1366,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // package ») — l'install n'est donc pas un confort, c'est ce qui rend le
     // module chargeable. Le build suit : le runtime charge `dist/index.js`.
     const projectRoot = findProjectRoot(process.cwd());
+    // Le gestionnaire du PROJET (verrou, sinon agent) : le moteur a pris la
+    // même décision pour déclarer — ou non — le module en `workspace:*`.
+    const pm = resolvePackageManager({ dir: projectRoot ?? undefined }).name;
+    const cmd = packageManagerCommandLines(pm);
     if (!parsed.install) {
       // Le chemin annoncé est celui où le module a RÉELLEMENT atterri (il dépend
       // du layout du dépôt) — pas `modules/` en dur, qui enverrait chercher un
@@ -1343,15 +1379,15 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         : String(answers.name);
       process.stdout.write(
         `\nProchaines étapes (--no-install) :\n` +
-          `  npm install        # symlinke ${where} (workspace)\n` +
-          `  npm run build\n`,
+          `  ${cmd.install.padEnd(16)} # symlinke ${where} (workspace)\n` +
+          `  ${cmd.run("build")}\n`,
       );
       return SysExit.OK;
     }
-    const installed = projectRoot !== null && runInstall(projectRoot);
+    const installed = projectRoot !== null && runInstall(projectRoot, pm);
     if (!installed) {
       process.stdout.write(
-        `⚠ npm install a échoué — relance-le à la racine de l'app (le module ne sera pas chargeable avant)\n`,
+        `⚠ ${cmd.install} a échoué — relance-le à la racine de l'app (le module ne sera pas chargeable avant)\n`,
       );
       return SysExit.OK;
     }
@@ -1361,11 +1397,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // `inspect`, les gates et la production ignoraient un module pourtant
     // annoncé « installé et construit » — mesuré au banc (tâche 28).
     runFormat(projectRoot, result.files);
-    const built = runBuild(projectRoot);
+    const built = runBuild(projectRoot, pm);
     process.stdout.write(
       built
         ? `\n✔ module installé (workspace), module et application construits — un serveur dev le rechargera au prochain redémarrage\n`
-        : `\n⚠ npm run build a échoué à la racine — corrige puis relance-le (le runtime charge le dist de l'app)\n`,
+        : `\n⚠ ${cmd.run("build")} a échoué à la racine — corrige puis relance-le (le runtime charge le dist de l'app)\n`,
     );
     return SysExit.OK;
   }
@@ -1384,17 +1420,24 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     const addedDeps = result.depsAdded ?? [];
     if (parsed.install && addedDeps.length > 0) {
       const root = findProjectRoot(process.cwd());
-      const pose = root !== null && runInstall(root);
+      const pm = resolvePackageManager({ dir: root ?? undefined }).name;
+      const pose = root !== null && runInstall(root, pm);
       process.stdout.write(
         pose
           ? `\n✔ dépendance(s) installée(s) : ${addedDeps.join(", ")}\n`
-          : `\n⚠ npm install a échoué — relance-le à la racine du projet ` +
+          : `\n⚠ l'installation a échoué — relance-la à la racine du projet ` +
               `(${addedDeps.join(", ")} est déclaré mais absent de node_modules)\n`,
       );
     } else if (addedDeps.length > 0) {
       process.stdout.write(
         `\n⚠ ${addedDeps.join(", ")} ajouté(s) au package.json et NON installé(s) ` +
-          `(--no-install) → lance \`npm install\`\n`,
+          `(--no-install) → lance \`${
+            packageManagerCommandLines(
+              resolvePackageManager({
+                dir: findProjectRoot(process.cwd()) ?? undefined,
+              }).name,
+            ).install
+          }\`\n`,
       );
     }
     // In-project : pas de git — le projet existe. En dev, le superviseur
@@ -1423,10 +1466,15 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   //    commit, dist/ gitignoré). Opt-out : --no-install (saute aussi le build,
   //    qui exige node_modules) / --no-git. Un échec n'annule pas le create
   //    (l'app est là) — il est DIT et les étapes manuelles réaffichées.
-  const installed = parsed.install ? runInstall(result.dest) : false;
+  // Validé par la spec (question `choice`) avant toute écriture.
+  const pm = isPackageManagerName(answers.packageManager)
+    ? answers.packageManager
+    : launchedBy;
+  const cmd = packageManagerCommandLines(pm);
+  const installed = parsed.install ? runInstall(result.dest, pm) : false;
   if (parsed.install && !installed) {
     process.stdout.write(
-      `⚠ npm install a échoué — relance-le à la main dans ${relDest}/\n`,
+      `⚠ ${cmd.install} a échoué — relance-le à la main dans ${relDest}/\n`,
     );
   }
   // AVANT le build : le build produit `dist/`, que le formateur n'a pas à
@@ -1435,10 +1483,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (installed) {
     runFormat(result.dest, result.files);
   }
-  const built = installed ? runBuild(result.dest) : false;
+  const built = installed ? runBuild(result.dest, pm) : false;
   if (installed && !built) {
     process.stdout.write(
-      `⚠ npm run build a échoué — relance-le à la main dans ${relDest}/\n`,
+      `⚠ ${cmd.run("build")} a échoué — relance-le à la main dans ${relDest}/\n`,
     );
   }
   // AVANT git : la migration entre dans le commit initial, comme le lockfile —
@@ -1447,7 +1495,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   let migrationWritten = false;
   let databaseUnreachable = false;
   if (built) {
-    const migration = runInitialMigration(result.dest);
+    const migration = runInitialMigration(result.dest, pm);
     if (migration !== null) {
       migrationWritten = migration.written;
       databaseUnreachable = migration.databaseUnreachable;
@@ -1524,10 +1572,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   process.stdout.write(
     `\nProchaines étapes :\n` +
       `  cd ${relDest}\n` +
-      (installed ? "" : `  npm install\n`) +
-      (built ? "" : `  npm run build\n`) +
+      (installed ? "" : `  ${cmd.install}\n`) +
+      (built ? "" : `  ${cmd.run("build")}\n`) +
       (needsInfra
-        ? `  npm run infra:up   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
+        ? `  ${cmd.run("infra:up")}   # docker : ${String(answers.database)} + Redis (NF_DATABASE_URL pointe dessus)\n`
         : "") +
       // La migration de la table `User` : l'application la DÉCLARE, et sans
       // elle rien ne la crée en production, où le schéma appartient aux
@@ -1544,8 +1592,8 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // mi-chemin — précisément le défaut que le commentaire ci-dessus décrit,
       // et que ce bloc était censé fermer.
       (!migrationWritten && appDeclareUnOrm(result.dest)
-        ? `  npx nodefony orm:generate --name init   # écrit la migration de ta table User\n` +
-          `  npx nodefony orm:migrate                # l'APPLIQUE — sans elle, aucune table\n`
+        ? `  ${cmd.exec("nodefony")} orm:generate --name init   # écrit la migration de ta table User\n` +
+          `  ${cmd.exec("nodefony")} orm:migrate                # l'APPLIQUE — sans elle, aucune table\n`
         : "") +
       // La console d'administration n'existe QUE si le préset l'a installée, et
       // le port n'est pas garanti : `portPolicy: "auto"` prend le suivant libre
@@ -1565,12 +1613,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // `@nodefony/frontend`. En `minimal`, `create front` refuse la cible —
       // annoncer un geste qui échoue est pire que se taire.
       (answers.preset === "complete" && answers.frontend === "none"
-        ? `  npx nodefony create front --frontend <${FRONTEND_CHOICES.filter(
+        ? `  ${cmd.exec("nodefony")} create front --frontend <${FRONTEND_CHOICES.filter(
             (c) => c !== "none",
           ).join("|")}>\n` +
           `                     # page, connexion et temps réel LIVRÉS — ne les écris pas à la main\n`
         : "") +
-      `  npm run dev        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
+      `  ${cmd.run("dev")}        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
       (answers.preset === "complete"
         ? `                     # console d'administration : /nodefony — admin/admin en dev\n`
         : "") +
@@ -1578,12 +1626,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // qu'il a été décliné : il se nomme. Une capacité qu'on n'atteint pas
       // n'existe pas.
       (mcpNote !== ""
-        ? `  npx nodefony ai:mcp # câbler ton agent IA (porte MCP + jeton)\n`
+        ? `  ${cmd.exec("nodefony")} ai:mcp # câbler ton agent IA (porte MCP + jeton)\n`
         : "") +
       // Porte câblée, jeton NON posé : la commande qui l'émet, et sa condition
       // — elle démarre l'application, donc ouvre la connexion à la base.
       (tokenNote !== ""
-        ? `  npx nodefony security:token --write   # jeton MCP — la base doit répondre (après infra:up)\n`
+        ? `  ${cmd.exec("nodefony")} security:token --write   # jeton MCP — la base doit répondre (après infra:up)\n`
         : ""),
   );
   // ⭐ Ce qu'un AGENT emporte, placé LÀ OÙ IL PASSE — la sortie de la commande

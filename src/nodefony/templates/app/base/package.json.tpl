@@ -9,7 +9,7 @@
   "engines": {
     "node": ">=24.0.0"
   },
-<% if (it.complete && it.dialect === "sqlite") { %>  "allowScripts": {
+<% if (it.packageManager === "npm" && it.complete && it.dialect === "sqlite") { %>  "allowScripts": {
     "better-sqlite3": false
   },
 <% } %>  "scripts": {
@@ -104,10 +104,13 @@
 <% } } %>    "typescript": "<%= it.pkg["typescript"] %>",
     "vitest": "<%= it.pkg["vitest"] %>",
     "@vitest/coverage-v8": "<%= it.pkg["@vitest/coverage-v8"] %>"
-  },
+  }<% if (it.packageManager === "yarn") { %>,
+  "resolutions": {
+    "@esbuild-kit/core-utils/esbuild": "<%= it.pkg["esbuild"] %>"
+  }<% } else if (it.packageManager !== "pnpm") { %>,
   "overrides": {
     "@esbuild-kit/core-utils": {
       "esbuild": "<%= it.pkg["esbuild"] %>"
     }
-  }
+  }<% } %>
 }

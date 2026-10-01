@@ -45,6 +45,11 @@ const ETA_OPTIONS = {
  */
 const EXAMPLE_SERVICE = "Greeting";
 import { findProjectRoot } from "../projectRoot";
+import {
+  isPackageManagerName,
+  needsWorkspaceProtocol,
+  resolvePackageManager,
+} from "../packageManager";
 // L'infra déclarée et l'ordre de la cascade `.env` ont chacun UNE
 // implémentation, celle qu'exécute le kernel. Le scaffold les emprunte : une
 // seconde lecture divergerait au premier alias ou au premier fichier ajouté.
@@ -1871,6 +1876,12 @@ function dispatchScaffold(
     pascal: toPascalCase(String(answers.name)),
     entryName: answers.name,
     nodefonyVersion: version,
+    // Gestionnaire de paquets choisi : il décide du fichier de workspace
+    // (`pnpm-workspace.yaml`) et du champ qui porte les overrides — chaque
+    // outil ne lit que le sien, et un override ignoré ne prévient pas.
+    packageManager: isPackageManagerName(answers.packageManager)
+      ? answers.packageManager
+      : "npm",
     // Catalogue de versions tierces (source unique — cf versions.ts).
     pkg: SCAFFOLD_VERSIONS,
     preset,
@@ -2223,6 +2234,42 @@ export function ensureWorkspaces(
     writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
   return changed;
+}
+
+/**
+ * Déclare un module local dans les dépendances de l'app (`workspace:*`).
+ *
+ * Réservé aux gestionnaires qui l'exigent (cf `needsWorkspaceProtocol`).
+ * Idempotent : une déclaration existante, quelle que soit sa forme, est laissée
+ * à l'utilisateur.
+ *
+ * @param projectRoot - racine de l'app
+ * @param pkgName - nom du paquet du module (`@app/blog`)
+ * @param writer - transaction du scaffold
+ * @returns true si le `package.json` de l'app a été modifié.
+ */
+export function declareWorkspaceDependency(
+  projectRoot: string,
+  pkgName: string,
+  writer: ScaffoldWriter,
+): boolean {
+  const manifestPath = path.join(projectRoot, "package.json");
+  const manifest = JSON.parse(writer.read(manifestPath)) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  if (
+    manifest.dependencies?.[pkgName] !== undefined ||
+    manifest.devDependencies?.[pkgName] !== undefined
+  ) {
+    return false;
+  }
+  manifest.dependencies = {
+    ...manifest.dependencies,
+    [pkgName]: "workspace:*",
+  };
+  writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  return true;
 }
 
 /**
@@ -2798,6 +2845,22 @@ function runModuleScaffold(
     notes.push(
       "package.json de l'app : workspaces modules/* + scripts build/typecheck/test chaînés",
     );
+  }
+  // pnpm et bun ne lient un module du workspace à la racine que si elle le
+  // DÉCLARE — sans quoi `import("@app/blog")` échoue au boot. npm et yarn 1
+  // refusent ce protocole : la décision suit le gestionnaire du projet, la
+  // même qu'à l'installation qui suit.
+  if (
+    layout.kind === "modules" &&
+    needsWorkspaceProtocol(
+      resolvePackageManager({
+        dir: projectRoot,
+        exists: (file) => writer.exists(file),
+      }).name,
+    ) &&
+    declareWorkspaceDependency(projectRoot, pkgName, writer)
+  ) {
+    notes.push(`package.json de l'app : "${pkgName}": "workspace:*"`);
   }
   const manifestNote = wireModuleManifest(
     path.join(projectRoot, "nodefony.config.ts"),

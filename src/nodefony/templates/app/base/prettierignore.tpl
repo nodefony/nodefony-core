@@ -20,6 +20,9 @@ tmp/
 
 # Lockfiles & minifiés : ni lisibles ni à relire.
 package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
 **/*.min.js
 **/*.min.css
 

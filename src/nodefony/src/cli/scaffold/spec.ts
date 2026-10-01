@@ -19,6 +19,7 @@
 
 /** Une question de scaffold — champ `pattern` en string (JSON-able, validation partagée). */
 import { AGENT_TARGETS } from "../agentTargets";
+import { PACKAGE_MANAGERS } from "../packageManager";
 
 /**
  * Capacités de l'environnement, telles que le MOTEUR les voit — ce qu'un front
@@ -412,6 +413,30 @@ const APP_SPEC: IScaffoldTypeSpec = {
         "ce que l'équipe connaît, l'existant, un système de design imposé — " +
         "aucun critère ne tranche ici : prends le défaut.",
       default: "none",
+    },
+    {
+      key: "packageManager",
+      label: "Gestionnaire de paquets",
+      type: "choice",
+      choices: choicesOf(PACKAGE_MANAGERS, {
+        npm: { label: "npm", hint: "livré avec Node" },
+        pnpm: {
+          label: "pnpm",
+          hint: "pnpm-workspace.yaml posé (modules, builds autorisés)",
+        },
+        yarn: { label: "yarn" },
+        bun: { label: "bun" },
+      }),
+      // Le défaut STATIQUE est npm ; `create app` le remplace par le
+      // gestionnaire qui l'a lancé (`npm_config_user_agent`, cf
+      // `resolvePackageManager`) — `pnpm create nodefony` propose pnpm. Ce
+      // choix décide de ce que l'app ÉCRIT (fichier de workspace, overrides au
+      // format de l'outil) et de ce que `create` LANCE ensuite.
+      note:
+        "Par défaut, celui qui a lancé la commande (`pnpm create nodefony` → " +
+        "pnpm), sinon npm. Il décide de ce que l'app écrit pour lui " +
+        "(`pnpm-workspace.yaml`, overrides) et de l'outil qui installe et construit.",
+      default: "npm",
     },
     {
       key: "link",

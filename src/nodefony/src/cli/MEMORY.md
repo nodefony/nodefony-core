@@ -260,6 +260,15 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
   avertit SANS bloquer ⇒ 2ᵉ `npm install` mort sur « find Python » ; npm 12 bloque. Le refus
   explicite est honoré par les deux. `minimal` n'a pas la clé (pas de drizzle, donc pas le paquet).
   Le `--ignore-scripts` du `Dockerfile.tpl` couvre l'IMAGE, pas le poste du développeur.
+- Gestionnaire de paquets : `cli/packageManager.ts` = SEULE décision (`resolvePackageManager` :
+  config > verrou > `npm_config_user_agent` > npm) + les gestes par outil (`packageManagerExecArgs`,
+  `packageManagerCommandLines`, `needsWorkspaceProtocol`). Question `packageManager` de `create app`
+  (`--package-manager`) : défaut STATIQUE `npm` dans la spec, remplacé au dialogue/non-interactif par
+  le lanceur. Gabarit : `allowScripts` + `overrides` au package.json (npm, bun) · `resolutions` (yarn)
+  · TOUT dans `pnpm-workspace.yaml` (pnpm ≥ 11 ignore le champ `pnpm` ; `packages: modules/*`,
+  `allowBuilds`, `strictDepBuilds: false`, overrides `a>b`). `create module` : `"@app/x":
+"workspace:*"` à la racine sous pnpm/bun seulement — npm le refuse (`EUNSUPPORTEDPROTOCOL`).
+  Install/build/migration de `create` passent par le gestionnaire, jamais `npm` en dur.
 
 ## Deps
 

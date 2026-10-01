@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 882,
-    "symbols": 4402,
+    "symbols": 4406,
     "classes": 404,
     "interfaces": 1150,
     "types": 474,
     "enums": 4,
-    "functions": 1925,
+    "functions": 1929,
     "constants": 445
   },
   "symbols": {
@@ -2233,6 +2233,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Désigne le gestionnaire de paquets d'un projet (cf l'ordre des sources en tête de fichier)."
+    },
+    "packageManagerExecArgs": {
+      "name": "packageManagerExecArgs",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Arguments qui lancent un BINAIRE installé dans le projet (`nodefony`, `vitest`…). Quatre formes, parce que les quatre gestionnaires n'en partagent aucune : `npm exec --` (sans le `--`, npm lit les …"
+    },
+    "packageManagerCommandLines": {
+      "name": "packageManagerCommandLines",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lignes de commande à AFFICHER pour un gestionnaire — ce qu'on conseille à l'utilisateur doit être ce que son outil accepte, et sortir de la même règle que ce qu'on exécute ({@link packageManagerExe…"
+    },
+    "needsWorkspaceProtocol": {
+      "name": "needsWorkspaceProtocol",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un gestionnaire ne lie-t-il un module du workspace à la racine que si la racine le DÉCLARE (`\"@app/blog\": \"workspace:*\"`) ? pnpm et bun : oui — sans la déclaration, `import(\"@app/blog\")` échoue au …"
     },
     "PACKAGE_MANAGERS": {
       "name": "PACKAGE_MANAGERS",
@@ -7255,6 +7279,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Déclare `modules/*` en workspaces npm de l'app et branche les scripts sur eux. POURQUOI c'est indispensable : le Kernel charge un module par son NOM (`import(\"@app/blog\")`, cf `Kernel.loadModule`) …"
+    },
+    "declareWorkspaceDependency": {
+      "name": "declareWorkspaceDependency",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déclare un module local dans les dépendances de l'app (`workspace:*`). Réservé aux gestionnaires qui l'exigent (cf `needsWorkspaceProtocol`). Idempotent : une déclaration existante, quelle que soit…"
     },
     "wireModuleManifest": {
       "name": "wireModuleManifest",
@@ -32973,6 +33005,27 @@
       "usagePageFor": [
         "src/nodefony/src/cli/create.ts"
       ],
+      "isPackageManagerName": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "packageManagerCommandLines": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "packageManagerExecArgs": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "resolvePackageManager": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "PackageManagerName": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/packageManager.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "capAllows": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/interactive.ts"
@@ -33181,11 +33234,6 @@
       ],
       "groupCommands": [
         "src/nodefony/src/cli/manPage.ts"
-      ],
-      "PackageManagerName": [
-        "src/nodefony/src/cli/packageManager.ts",
-        "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "MENU_GROUP_LABELS": [
         "src/nodefony/src/cli/startMenu.ts"
@@ -33536,9 +33584,6 @@
         "src/nodefony/src/service/cluster/topology.ts"
       ],
       "CliDefaultOptions": [
-        "src/nodefony/src/kernel/CliKernel.ts"
-      ],
-      "resolvePackageManager": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "CONSOLE_RUN_PROFILE": [
@@ -34683,6 +34728,9 @@
       "pointeursInstructions": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "needsWorkspaceProtocol": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "resolveModuleLayout": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -34879,6 +34927,9 @@
       "IScaffoldContext": [
         "src/nodefony/src/cli/scaffold/interactive.ts",
         "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
+      ],
+      "PACKAGE_MANAGERS": [
+        "src/nodefony/src/cli/scaffold/spec.ts"
       ],
       "inject": [
         "src/nodefony/src/client/angular/index.ts",

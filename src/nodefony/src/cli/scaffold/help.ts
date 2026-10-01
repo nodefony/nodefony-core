@@ -131,6 +131,10 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
         text: "http et framework seuls, sans toucher au réseau",
       },
       {
+        term: "nodefony create app atelier --package-manager pnpm",
+        text: "installée et construite par pnpm, `pnpm-workspace.yaml` compris",
+      },
+      {
         term: "nodefony create app demo --agents claude,cursor",
         text: "câble en plus la configuration de ces deux agents",
       },

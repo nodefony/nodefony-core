@@ -9183,9 +9183,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const [spec] = getScaffoldSpec("app");
       const input = new PassThrough();
       const output = new PassThrough();
-      // name → "demo" · preset → 2 (minimal) · frontend → 2 (react) · link → o
+      // name → "demo" · preset → 2 (minimal) · frontend → 2 (react)
+      // · packageManager → 2 (pnpm) · link → o
       // · agents → ENTRÉE (aucun : rien n'est jamais coché par défaut)
-      feedAnswers(input, output, ["demo", "2", "2", "o", ""]);
+      feedAnswers(input, output, ["demo", "2", "2", "2", "o", ""]);
       const answers = await askMissing(
         spec!,
         {},
@@ -9197,6 +9198,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         name: "demo",
         preset: "minimal",
         frontend: "react",
+        packageManager: "pnpm",
         link: true,
         agents: [],
       });
@@ -9206,10 +9208,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const [spec] = getScaffoldSpec("app");
       const input = new PassThrough();
       const output = new PassThrough();
-      // frontend, puis agents : deux entrées vides = les deux défauts (none,
-      // aucun). Au RYTHME des invites — readline ne met pas en file ce qui
-      // arrive entre deux `question()`.
-      feedAnswers(input, output, ["", ""]);
+      // frontend, gestionnaire, puis agents : trois entrées vides = les trois
+      // défauts (none, npm, aucun). Au RYTHME des invites — readline ne met pas
+      // en file ce qui arrive entre deux `question()`.
+      feedAnswers(input, output, ["", "", ""]);
       const answers = await askMissing(
         spec!,
         { name: "demo", preset: "minimal" },
@@ -9218,6 +9220,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         output,
       );
       assert.equal(answers.frontend, "none");
+      assert.equal(answers.packageManager, "npm");
       assert.deepEqual(answers.agents, []); // ENTRÉE = aucun agent, rien d'écrit
       assert.isUndefined(answers.link); // askIf non satisfait → jamais posée
     });

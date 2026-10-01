@@ -115,3 +115,70 @@ export function resolvePackageManager(
   }
   return { name: "npm", source: "default" };
 }
+
+/**
+ * Arguments qui lancent un BINAIRE installé dans le projet (`nodefony`, `vitest`…).
+ *
+ * Quatre formes, parce que les quatre gestionnaires n'en partagent aucune :
+ * `npm exec --` (sans le `--`, npm lit les options du binaire comme les
+ * siennes), `pnpm exec`, et `run` pour yarn et bun, qui résolvent un nom
+ * absent des scripts dans `node_modules/.bin`. `bun x` est écarté : il
+ * TÉLÉCHARGE ce qu'il ne trouve pas, là où l'on veut l'échec franc d'un binaire
+ * que le projet n'a pas installé.
+ *
+ * @param name - gestionnaire du projet
+ * @param bin - binaire à lancer
+ * @param args - ses arguments, transmis tels quels
+ * @returns les arguments à donner au gestionnaire (sans son nom)
+ */
+export function packageManagerExecArgs(
+  name: PackageManagerName,
+  bin: string,
+  args: readonly string[] = [],
+): string[] {
+  switch (name) {
+    case "npm":
+      return ["exec", "--", bin, ...args];
+    case "pnpm":
+      return ["exec", bin, ...args];
+    case "yarn":
+    case "bun":
+      return ["run", bin, ...args];
+  }
+}
+
+/**
+ * Lignes de commande à AFFICHER pour un gestionnaire — ce qu'on conseille à
+ * l'utilisateur doit être ce que son outil accepte, et sortir de la même règle
+ * que ce qu'on exécute ({@link packageManagerExecArgs}).
+ *
+ * @param name - gestionnaire du projet
+ * @returns les trois gestes : installer, lancer un script, lancer un binaire
+ */
+export function packageManagerCommandLines(name: PackageManagerName): {
+  install: string;
+  run: (script: string) => string;
+  exec: (bin: string) => string;
+} {
+  return {
+    install: `${name} install`,
+    run: (script) => `${name} run ${script}`,
+    exec: (bin) => [name, ...packageManagerExecArgs(name, bin)].join(" "),
+  };
+}
+
+/**
+ * Un gestionnaire ne lie-t-il un module du workspace à la racine que si la
+ * racine le DÉCLARE (`"@app/blog": "workspace:*"`) ?
+ *
+ * pnpm et bun : oui — sans la déclaration, `import("@app/blog")` échoue au
+ * boot et le typecheck tombe sur « Cannot find module ». npm et yarn 1 lient
+ * tout workspace d'office, et REFUSENT le protocole `workspace:` (npm :
+ * `EUNSUPPORTEDPROTOCOL`) : la déclaration y serait une panne, pas un filet.
+ *
+ * @param name - gestionnaire du projet
+ * @returns vrai s'il faut déclarer le module dans les dépendances racine
+ */
+export function needsWorkspaceProtocol(name: PackageManagerName): boolean {
+  return name === "pnpm" || name === "bun";
+}
