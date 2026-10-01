@@ -4387,6 +4387,10 @@
             ],
             "options": [
               {
+                "flag": "--absent",
+                "help": ""
+              },
+              {
                 "flag": "--allow-missing",
                 "help": ""
               },

@@ -51,6 +51,15 @@ if (!CAMPAIGN || !DATA) {
   );
   process.exit(64);
 }
+// `--absent <étape>=<raison>` : une pièce volontairement NON publiée. Elle ne
+// bloque pas `--write`, et sa raison entre dans `notMeasured` — une absence se
+// déclare dans le fichier publié, elle ne s'oublie pas.
+const ABSENT = Object.fromEntries(
+  all("absent").map((r) => {
+    const [k, ...v] = r.split("=");
+    return [k, v.join("=")];
+  }),
+);
 const REUSE = Object.fromEntries(
   all("reuse").map((r) => {
     const [k, ...v] = r.split("=");
@@ -105,11 +114,6 @@ if (drift.length) {
   );
   process.exit(1);
 }
-const endHead = log.match(/HEAD en fin de campagne : (\S+)/)?.[1];
-if (endHead && endHead !== headCommit)
-  console.warn(
-    `⚠️ HEAD a bougé PENDANT la campagne (${headCommit} → ${endHead}) : le code mesuré n'est pas un seul commit`,
-  );
 const dirtyTree = log.includes("arbre NON propre");
 const measuredAt = (() => {
   const m = path.basename(CAMPAIGN).match(/(\d{4}-\d{2}-\d{2})/);
@@ -199,7 +203,8 @@ function pair(name, campA, campB) {
     const rapport = txt.match(/rapport \S+ : ([\d.]+) %/);
     const nette = txt.includes("SÉPARATION NETTE");
     const bruit = txt.includes("DANS LE BRUIT");
-    if (!rapport || (!nette && !bruit)) continue;
+    const sousResolution = txt.includes("SOUS LA RÉSOLUTION");
+    if (!rapport || (!nette && !bruit && !sousResolution)) continue;
     const dir = path.join(CAMPAIGN, `${name}-try${t}`);
     const camp = (c) => {
       const files = [1, 2].map((r) =>
@@ -210,7 +215,12 @@ function pair(name, campA, campB) {
     return {
       name,
       rapportPct: Number(rapport[1]),
-      separation: nette ? "nette" : "dans le bruit",
+      // Le verdict « SÉPARÉ MAIS SOUS LA RÉSOLUTION » ne classe rien.
+      separation: sousResolution
+        ? "sous la résolution"
+        : nette
+          ? "nette"
+          : "dans le bruit",
       tries: t,
       // Test nul : les deux camps portent le MÊME nom de fichier, la seconde
       // série écrase la première — seuls le rapport et le verdict valent.
@@ -218,7 +228,8 @@ function pair(name, campA, campB) {
         campA === campB ? {} : { [campA]: camp(campA), [campB]: camp(campB) },
     };
   }
-  missing.push(`${name} (${campA} ↔ ${campB}) : aucun essai conclusif`);
+  if (!(name in ABSENT))
+    missing.push(`${name} (${campA} ↔ ${campB}) : aucun essai conclusif`);
   return null;
 }
 
@@ -385,6 +396,10 @@ data.applicativeNest = {
 if (cpuThread)
   data.cpuThread = { ...cpuThread, commit: headCommit, measuredAt };
 if (soak) data.soak = soak;
+data.notMeasured = [
+  ...(data.notMeasured ?? []).filter((n) => !(n.quoi in ABSENT)),
+  ...Object.entries(ABSENT).map(([quoi, pourquoi]) => ({ quoi, pourquoi })),
+];
 
 // ── récapitulatif : ce qu'on publierait ─────────────────────────────────────
 const nb = (v, n = 1) =>

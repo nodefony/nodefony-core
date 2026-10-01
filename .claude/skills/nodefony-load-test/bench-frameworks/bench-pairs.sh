@@ -139,12 +139,29 @@ mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
   fi
 }
 
+# Une série sans médiane est REFUSÉE (preuve de dispersion rangée) ou en ÉCHEC
+# (boot, cible, contenu, erreurs wrk). Les confondre coûte cher : vécu, un POST
+# dont le banc attendait le contenu d'une autre route s'affichait « REFUSÉE
+# (dispersion) », et la campagne rejouait trois fois une paire qui ne pouvait
+# QUE échouer. Un échec sort en code 1 : rejouer ne le corrigera pas.
+ECHEC=0
+etat() { # camp rang médiane
+  if [ -n "$3" ]; then echo "$3"
+  elif [ -f "/tmp/nf-bench-$1-p$2.refused.json" ]; then echo "REFUSÉE (dispersion)"
+  else ECHEC=1; echo "ÉCHEC — voir /tmp/nf-bench-$1-p$2.log"; fi
+}
 echo "── paires alternées : $A ↔ $B ──"
-A1=$(mesurer "$A" 1); echo "  $A  série 1 : ${A1:-REFUSÉE (dispersion)}"
-B1=$(mesurer "$B" 1); echo "  $B  série 1 : ${B1:-REFUSÉE (dispersion)}"
-A2=$(mesurer "$A" 2); echo "  $A  série 2 : ${A2:-REFUSÉE (dispersion)}"
-B2=$(mesurer "$B" 2); echo "  $B  série 2 : ${B2:-REFUSÉE (dispersion)}"
+A1=$(mesurer "$A" 1); echo "  $A  série 1 : $(etat "$A" 1 "$A1")"; [ -n "$A1" ] || [ -f "/tmp/nf-bench-$A-p1.refused.json" ] || ECHEC=1
+B1=$(mesurer "$B" 1); echo "  $B  série 1 : $(etat "$B" 1 "$B1")"; [ -n "$B1" ] || [ -f "/tmp/nf-bench-$B-p1.refused.json" ] || ECHEC=1
+A2=$(mesurer "$A" 2); echo "  $A  série 2 : $(etat "$A" 2 "$A2")"; [ -n "$A2" ] || [ -f "/tmp/nf-bench-$A-p2.refused.json" ] || ECHEC=1
+B2=$(mesurer "$B" 2); echo "  $B  série 2 : $(etat "$B" 2 "$B2")"; [ -n "$B2" ] || [ -f "/tmp/nf-bench-$B-p2.refused.json" ] || ECHEC=1
 echo ""
+
+if [ "$ECHEC" = 1 ]; then
+  echo "❌ ÉCHEC DU BANC — au moins une série n'a rien mesuré (ni médiane, ni preuve de dispersion)."
+  echo "   Lire le journal de la série : la cause est dans le décor, pas dans la machine."
+  exit 1
+fi
 
 if [ -z "$A1" ] || [ -z "$A2" ] || [ -z "$B1" ] || [ -z "$B2" ]; then
   echo "❌ INCONCLUSIF — au moins une série a été refusée pour dispersion."
@@ -155,7 +172,7 @@ fi
 
 # ── Verdict : SÉPARATION, jamais un simple écart de médianes ─────────────────
 node -e '
-const [a1, b1, a2, b2, A, B] = process.argv.slice(1);
+const [a1, b1, a2, b2, A, B, minEffect] = process.argv.slice(1);
 const a = [ +a1, +a2 ].sort((x, y) => x - y);
 const b = [ +b1, +b2 ].sort((x, y) => x - y);
 const medA = (a[0] + a[1]) / 2, medB = (b[0] + b[1]) / 2;
@@ -167,7 +184,16 @@ console.log(`  ${B} : ${b[0].toFixed(0)} … ${b[1].toFixed(0)}  (écart inter-s
 console.log("");
 console.log(`  rapport ${A}/${B} : ${(medA / medB * 100).toFixed(1)} %  (${ecart >= 0 ? "+" : ""}${ecart.toFixed(1)} %)`);
 console.log("");
-if (separe) {
+// Seuil d’effet minimal : la séparation seule ne suffit pas. Vécu au test nul —
+// un camp contre LUI-MÊME a rendu 99,1 %, séries séparées : quand les séries
+// sont serrées, le critère de séparation « classe » un écart que la résolution
+// du banc (±3 %) ne permet pas d’affirmer. Le protocole publié exige les DEUX.
+if (separe && Math.abs(ecart) < +minEffect) {
+  console.log(`  ⚠ SÉPARÉ MAIS SOUS LA RÉSOLUTION — écart de ${Math.abs(ecart).toFixed(1)} % < ${minEffect} %.`);
+  console.log("     Les séries ne se chevauchent pas, mais l’écart est plus petit que ce que");
+  console.log("     ce banc sait affirmer. Il ne CLASSE rien (BENCH_MIN_EFFECT).");
+  process.exitCode = 3;
+} else if (separe) {
   console.log(`  ✅ SÉPARATION NETTE — les deux séries de ${medA > medB ? A : B} sont au-dessus`);
   console.log("     des deux séries de l’autre. Le classement tient.");
 } else {
@@ -176,4 +202,4 @@ if (separe) {
   console.log("     Un écart de médianes sans séparation des séries n’est pas un résultat.");
   process.exitCode = 3;
 }
-' "$A1" "$B1" "$A2" "$B2" "$A" "$B"
+' "$A1" "$B1" "$A2" "$B2" "$A" "$B" "${BENCH_MIN_EFFECT:-3}"

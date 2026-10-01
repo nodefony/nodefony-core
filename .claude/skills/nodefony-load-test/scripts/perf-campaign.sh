@@ -155,11 +155,11 @@ orm() { # nom témoin [VAR=val…] — paire ORM au décor ci-dessus
     bash -c "$(declare -f log want pair); OUT='$OUT' LOG='$LOG' TRIES='$TRIES' PAIRS='$PAIRS' ONLY='$ONLY'; pair '$name' '$camp' nodefony-orm 5167"
 }
 RW="BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus"
-VALID=(BENCH_PATH=/nodefony/test/bench-orm/read-write-valid BENCH_METHOD=POST
+VALID=(BENCH_PATH=/nodefony/test/bench-orm/read-write-valid BENCH_METHOD=POST BENCH_EXPECT=lus
   "BENCH_HEADER=Sec-Fetch-Site: same-origin" 'BENCH_BODY={"total_ht":200,"total_ttc":240,"ref":"FA-1"}')
 # Corps invalide : les QUATRE violations du jeu de parité, pour que le chemin
 # d'erreur sérialise la liste complète dans les trois camps.
-INVALID=(BENCH_PATH=/nodefony/test/bench-orm/read-write-valid BENCH_METHOD=POST BENCH_EXPECT_STATUS=422
+INVALID=(BENCH_PATH=/nodefony/test/bench-orm/read-write-valid BENCH_METHOD=POST BENCH_EXPECT_STATUS=422 BENCH_EXPECT=Unprocessable
   "BENCH_HEADER=Sec-Fetch-Site: same-origin" 'BENCH_BODY={"total_ht":-1,"total_ttc":"x","ref":"0123456789012345678901234567890"}')
 orm applicatif express-fair-sqlite $RW
 orm applicatif-nest nest-fair-sqlite $RW

@@ -126,7 +126,7 @@ script, donc toujours à jour après régénération.
 | `scripts/native-sample.mjs` | Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE | `--accept-noise` `--cpu-prof` `--dir` `--perf-basic-prof` `--prof` | `MAX_DISPERSION` |
 | `scripts/native-sample.test.mjs` | Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture | `--accept-noise` `--dir` | — |
 | `scripts/perf-campaign.sh` | Campagne de mesure PUBLIABLE, sans surveillance — la matière de | `--at` `--conn` `--minutes` `--only` `--out` `--porcelain` `--short` `--soak-min` `--tries` `--window` | `NF_PARITY_CAMPS` `ONLY` `SOAK_MIN` `TRIES` |
-| `scripts/perf-compose.mjs` | Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne | `--allow-missing` `--campaign` `--data` `--json` `--only` `--quiet` `--reuse` `--soak` `--version` `--write` | `CAMPAIGN` `DATA` |
+| `scripts/perf-compose.mjs` | Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne | `--absent` `--allow-missing` `--campaign` `--data` `--json` `--only` `--quiet` `--reuse` `--soak` `--version` `--write` | `CAMPAIGN` `DATA` |
 | `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | `OUT` |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : | `--file` `--gap-ms` `--iterations` `--vite-url` | — |
