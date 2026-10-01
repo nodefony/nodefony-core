@@ -87,7 +87,9 @@ jobs:
       # publier.
       fail-fast: false
       matrix:
-        scenario: [base, front, studio]
+        # `cluster` : `cluster -w N` n'a gardé qu'UN worker en vie de l'alpha.6
+        # à la beta.1 incluse, sans qu'aucun banc ne le voie avant publication.
+        scenario: [base, front, studio, cluster]
     steps:
       - uses: actions/checkout@v7
 

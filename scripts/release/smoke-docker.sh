@@ -27,6 +27,9 @@
 #            sous musl : la base jointe par son NOM de service — la seule chose
 #            qu'Alpine pouvait casser —, les migrations appliquées, et la suite
 #            e2e générée jouée DANS un conteneur Alpine
+#   cluster — l'image lancée avec `NF_WORKERS=4` sur sa base SQLite NEUVE : les
+#            quatre workers démarrent ensemble (WAL et port partagé), aucun ne
+#            meurt, et le trafic les atteint TOUS
 #   pm     — les TROIS autres gestionnaires (`pm:pnpm|yarn|bun`), chacun avec
 #            SON gabarit : installation depuis les tarballs, build, typecheck,
 #            `create module`, migration, puis l'image construite par le
@@ -34,7 +37,7 @@
 #            cinq autres scénarios. Exige l'outil sur l'hôte.
 #
 # Usage (racine repo) :
-#   npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|pm]
+#   npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|pm]
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 set -euo pipefail
 
@@ -55,12 +58,12 @@ SCENARIO="all"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scenario) SCENARIO="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,35p' "$0"; exit 0 ;;
     *) echo "option inconnue : $1" >&2; exit 64 ;;
   esac
 done
 case "$SCENARIO" in
-  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql|pm|pm:pnpm|pm:yarn|pm:bun) ;;
+  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql|cluster|pm|pm:pnpm|pm:yarn|pm:bun) ;;
   *) echo "scénario inconnu : $SCENARIO" >&2; exit 64 ;;
 esac
 # `sql` se DÉCOUPE par moteur, et ce n'est pas un raffinement : le job de forge
@@ -1372,6 +1375,109 @@ YML
   done
 
   ok "TROIS moteurs serveurs éprouvés sous musl : postgres, mariadb, mysql"
+fi
+
+# ═══ SCÉNARIO « cluster » — N workers sur une base SQLite NEUVE ══════════════
+#
+# Deux défauts vécus qu'aucun banc ne voyait, parce qu'un seul worker suffit à
+# répondre et que les bancs démarraient sur une base déjà existante :
+#   - la sonde de conflit de port prenait le worker VOISIN pour un intrus : un
+#     seul worker vivait, les autres bouclaient en relance (« port déjà servi ») ;
+#   - deux workers qui passent la base neuve en WAL au même instant : SQLITE_BUSY
+#     immédiat, le worker tombe au démarrage.
+# Les deux se voient ICI : la base de l'image est vide, les workers démarrent
+# ensemble, et l'on exige que le trafic les atteigne TOUS — pas qu'un seul
+# réponde.
+
+if runs cluster; then
+  CAPP="$WORK/cluster"
+  CIMG="nodefony-smoke-cluster:smoke"
+  CCTN="nf-smoke-cluster"; CONTAINERS="$CONTAINERS $CCTN"
+  CPORT=15191
+  CWORKERS=4
+
+  step "[cluster] create app — preset complet (SQLite)"
+  scaffold_app "smokecluster" "$CAPP" "complete" "none"
+  rewrite_deps "$CAPP"
+  write_initial_migration "$CAPP"
+  build_image "$CAPP" "$CIMG"
+
+  step "[cluster] run — NF_WORKERS=$CWORKERS sur la base neuve de l'image"
+  docker rm -f "$CCTN" >/dev/null 2>&1 || true
+  docker run -d --name "$CCTN" -e NF_WORKERS="$CWORKERS" -p "$CPORT:5151" "$CIMG" >/dev/null
+  # Chaque worker annonce son écoute HTTP : on attend les N, pas le premier.
+  listening=0
+  for _ in $(seq 1 90); do
+    listening=$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g' | grep -c "server-http.*Server Listen" || true)
+    [ "$listening" -ge "$CWORKERS" ] && break
+    sleep 1
+  done
+  CLOGS="$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g')"
+  [ "$listening" -ge "$CWORKERS" ] \
+    || { echo "$CLOGS" | tail -40; fail "$listening worker(s) à l'écoute sur $CWORKERS attendus"; }
+  ok "$CWORKERS workers à l'écoute"
+  for motif in "died" "SQLITE_BUSY" "déjà servi"; do
+    if contient "$CLOGS" "$motif"; then
+      echo "$CLOGS" | grep -n -- "$motif" | sed -n 1,10p || true
+      fail "« $motif » dans les journaux du cluster — un worker est tombé au démarrage"
+    fi
+  done
+  ok "aucun worker tombé (ni relance, ni SQLITE_BUSY, ni conflit de port)"
+
+  migrate_in "$CCTN"
+  wait_ready "$CCTN" "$CPORT"
+  ok "readyz → 200"
+
+  # Le maître répartit les connexions : chaque requête ouvre la sienne. Le PID
+  # en tête de chaque ligne de journal dit QUI a servi.
+  for _ in $(seq 1 $((CWORKERS * 10))); do
+    curl -s -o /dev/null "http://127.0.0.1:$CPORT/nodefony/kernel/api/livez" || true
+  done
+  sleep 1
+  SERVED=$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g' \
+    | awk '/api\/livez/ {print $1}' | sort -u | wc -l | tr -d ' ')
+  [ "$SERVED" -ge "$CWORKERS" ] \
+    || fail "trafic servi par $SERVED worker(s) sur $CWORKERS — les autres ne servent pas"
+  ok "trafic réparti sur $SERVED workers"
+
+  # 🔴 L'épreuve DÉTERMINISTE. Au démarrage, des workers rapides sondent tous
+  # le port avant que le premier n'écoute : la sonde de conflit ne voit
+  # personne, et le défaut peut se cacher (constaté sous Linux). Un worker
+  # RELANCÉ, lui, sonde pendant que ses frères écoutent — toujours. Il doit
+  # revenir et servir ; sinon le cluster perd un worker à chaque incident, pour
+  # de bon.
+  step "[cluster] un worker tué revient, et sert"
+  VICTIM=$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g' \
+    | awk '/api\/livez/ {print $1}' | sort -u | sed -n 1p)
+  [ -n "$VICTIM" ] || fail "aucun PID de worker relevé dans les journaux"
+  BEFORE=$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g' | grep -c "server-http.*Server Listen" || true)
+  docker exec "$CCTN" kill -9 "$VICTIM" || fail "kill du worker $VICTIM"
+  relisten=0
+  for _ in $(seq 1 60); do
+    relisten=$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g' | grep -c "server-http.*Server Listen" || true)
+    [ "$relisten" -gt "$BEFORE" ] && break
+    sleep 1
+  done
+  [ "$relisten" -gt "$BEFORE" ] \
+    || { docker logs "$CCTN" 2>&1 | tail -30; fail "le worker relancé n'écoute pas (tué : $VICTIM)"; }
+  sleep 3
+  AFTER_LOGS="$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g')"
+  if contient "$AFTER_LOGS" "déjà servi"; then
+    echo "$AFTER_LOGS" | grep -n "déjà servi" | sed -n 1,5p || true
+    fail "le worker relancé s'est cru en conflit avec ses frères"
+  fi
+  MARK=$(echo "$AFTER_LOGS" | grep -c "api/livez" || true)
+  for _ in $(seq 1 $((CWORKERS * 10))); do
+    curl -s -o /dev/null "http://127.0.0.1:$CPORT/nodefony/kernel/api/livez" || true
+  done
+  sleep 1
+  SERVED=$(docker logs "$CCTN" 2>&1 | sed $'s/\033\[[0-9;]*m//g' | awk '/api\/livez/ {print $1}' \
+    | tail -n +$((MARK + 1)) | sort -u | awk -v v="$VICTIM" '$0 != v' | wc -l | tr -d ' ')
+  [ "$SERVED" -ge "$CWORKERS" ] \
+    || fail "après la relance, trafic servi par $SERVED worker(s) sur $CWORKERS"
+  ok "worker $VICTIM tué, relancé, et le trafic atteint de nouveau $SERVED workers"
+  docker rm -f "$CCTN" >/dev/null 2>&1 || true
+  docker rmi -f "$CIMG" >/dev/null 2>&1 || true
 fi
 
 # ═══ SCÉNARIO « pm » — pnpm, yarn et bun, chacun avec SON gabarit ═══════════
