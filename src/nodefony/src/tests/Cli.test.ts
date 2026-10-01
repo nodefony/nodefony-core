@@ -899,31 +899,38 @@ describe("Cli — existsSync / getCommandManager", () => {
 
   it("getCommandManager('npm') → 'npm' sur non-Windows", () => {
     if (process.platform !== "win32") {
+      // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée reste éprouvée tant qu'elle existe
       assert.strictEqual(cli.getCommandManager("npm"), "npm");
     } else {
+      // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée reste éprouvée tant qu'elle existe
       assert.strictEqual(cli.getCommandManager("npm"), "npm.cmd");
     }
   });
 
   it("getCommandManager('pnpm') → 'pnpm' (ou 'pnpm.cmd' sur Windows)", () => {
+    // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée reste éprouvée tant qu'elle existe
     const result = cli.getCommandManager("pnpm");
     assert.ok(result === "pnpm" || result === "pnpm.cmd");
   });
 
   it("getCommandManager('yarn') → 'yarn' (ou 'yarn.cmd' sur Windows)", () => {
+    // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée reste éprouvée tant qu'elle existe
     const result = cli.getCommandManager("yarn");
     assert.ok(result === "yarn" || result === "yarn.cmd");
   });
 
   it("getCommandManager('unknown') → throw 'bad manager'", () => {
+    // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée reste éprouvée tant qu'elle existe
     assert.throws(() => cli.getCommandManager("unknown"), /bad manager/);
   });
 
-  it("getCommandManager('bun') → throw (non supporté)", () => {
-    assert.throws(() => cli.getCommandManager("bun"));
+  it("getCommandManager('bun') → 'bun' (binaire natif, sans shim .cmd)", () => {
+    // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée reste éprouvée tant qu'elle existe
+    assert.strictEqual(cli.getCommandManager("bun"), "bun");
   });
 
   it("getCommandManager('') → throw", () => {
+    // oxlint-disable-next-line typescript/no-deprecated -- l'API dépréciée reste éprouvée tant qu'elle existe
     assert.throws(() => cli.getCommandManager(""));
   });
 });

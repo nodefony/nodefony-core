@@ -262,7 +262,7 @@ pris, handler absent, déclaration qui lève) → écarté + `onSkip`, jamais si
 - `this.runProfile = {servers:false,lifetime:"oneshot",interactive:false}` (défaut console).
 - `this.packageManager = this.pnpm` (défaut).
 
-**setPackageManager(mgr?)**: `"yarn"` → yarn, `"pnpm"` → pnpm, `undefined`/autre → npm.
+**setPackageManager(mgr?, dir?)**: délègue à `resolvePackageManager` (`cli/packageManager.ts`, SEULE décision) : config > verrou de `dir` (`pnpm-lock.yaml`/`yarn.lock`/`bun.lock[b]`/`package-lock.json`) > `npm_config_user_agent` > npm. `bun` a son lanceur (plus de repli muet). Kernel passe `this.path`. Config SANS défaut (`defaults.ts`) : un défaut posé masquerait le verrou.
 
 **setRunProfile(profile)**: pose `IRunProfile {servers,lifetime,interactive}` (ex `setType`) ; recopié dans `kernel.runProfile` à `onStart`. `isConsole()`=`!servers`. Ne pilote PAS le montage serveur (= `kernelEvent`+`HttpKernel`) ni le park. Cf `project_kernel_runmodes_introspection`.
 

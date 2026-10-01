@@ -6,6 +6,7 @@ import Pdu from "../syslog/Pdu";
 import { SysExit } from "../cli/sysexits";
 import { toImportSpecifier } from "./resolveModuleEntry";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
+import { resolvePackageManager } from "../cli/packageManager";
 import Kernel, {
   IRunProfile,
   CONSOLE_RUN_PROFILE,
@@ -122,7 +123,7 @@ class CliKernel extends Cli {
   // Référence de MÉTHODE gardée telle quelle (identité éprouvée par les tests) :
   // toujours appelée comme `cli.packageManager(…)`, donc avec le bon `this`.
   // oxlint-disable-next-line typescript/unbound-method
-  public packageManager: PackageManager = this.pnpm;
+  public packageManager: PackageManager = this.npm;
   /**
    * Boot SILENCIEUX : pour les commandes CLI utilitaires (help global, commandes
    * de module type `frontend:status`) dont la sortie doit être propre — les logs
@@ -144,15 +145,22 @@ class CliKernel extends Cli {
   }
 
   /**
-   * Sélectionne le package manager pour les commandes `install`/`outdated`.
+   * Sélectionne le lanceur du gestionnaire de paquets (`nodefony install`).
    *
-   * @param manager - `"npm"` / `"yarn"` / `"pnpm"`. Défaut = `this.options.packageManager` (pnpm).
+   * Le choix est délégué à {@link resolvePackageManager} — configuration, puis
+   * fichier de verrou de `dir`, puis `npm_config_user_agent`, puis npm — seule
+   * implémentation de cette décision dans le framework.
+   *
+   * @param manager - valeur `packageManager` de la configuration, si posée
+   * @param dir - racine du projet, où chercher un fichier de verrou
    * @returns la méthode package manager retenue — à appeler sur ce CLI (non liée).
    */
   setPackageManager(
     manager: PackageManagerName | undefined = this.options.packageManager,
+    dir?: string,
   ): PackageManager {
-    switch (manager) {
+    const resolved = resolvePackageManager({ configured: manager, dir });
+    switch (resolved.name) {
       // Références de MÉTHODE (cf le champ `packageManager`) : appelées comme
       // `cli.packageManager(…)`, jamais détachées.
       case "yarn":
@@ -163,10 +171,11 @@ class CliKernel extends Cli {
         // oxlint-disable-next-line typescript/unbound-method
         this.packageManager = this.pnpm;
         break;
-      // `bun` n'a pas de lanceur dédié : il passe par npm, comme l'absence.
-      case "npm":
       case "bun":
-      case undefined:
+        // oxlint-disable-next-line typescript/unbound-method
+        this.packageManager = this.bun;
+        break;
+      case "npm":
       default:
         // oxlint-disable-next-line typescript/unbound-method
         this.packageManager = this.npm;

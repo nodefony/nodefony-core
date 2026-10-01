@@ -82,7 +82,7 @@ cli.commander?.exitOverride(); // évite process.exit sur commande inconnue
 
 **setProcessTitle(name?)**: lowercase + suppression espaces → `process.title`. Sans arg → `this.name`.
 **existsSync(p)**: throw si `!p`. Retourne `fs.existsSync(p)`.
-**getCommandManager(mgr)**: `"npm"|"yarn"|"pnpm"` → string (`.cmd` sur win32). Sinon throw `"bad manager"`.
+**getCommandManager(mgr)** `@deprecated` : `"npm"|"yarn"|"pnpm"|"bun"` → string (`.cmd` sur win32, sauf bun). Sinon throw `"bad manager"`. `.cmd` NON lançable par `spawn` sans shell (CVE-2024-27980) → `runPackageManager` passe par `portableSpawn`.
 **getEmoji(name)**: `get(name)` si name fourni, sinon `random().emoji`.
 **createProgress(size)** → `clui.Progress`. **getSpinner(msg, design?)** → `clui.Spinner`. **createSparkline(values, suffix)** → throw si `!values`. **displayTable(datas, opts, syslog?)** → `Table` cli-table3.
 **setPid()** → `this.pid = process.pid`, retourne pid.

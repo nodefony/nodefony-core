@@ -2533,7 +2533,7 @@ class Kernel extends Service implements IKernel {
       });
     }
     this.initializeLog();
-    this.cli?.setPackageManager(this.options.packageManager);
+    this.cli?.setPackageManager(this.options.packageManager, this.path);
     this.core = await this.isCore();
 
     this.app.package = await this.app.getPackageJson();

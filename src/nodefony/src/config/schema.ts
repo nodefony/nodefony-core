@@ -251,8 +251,8 @@ export const appConfigSchema = z.object({
     .enum(["npm", "yarn", "pnpm", "bun"])
     .optional()
     .describe(
-      "Gestionnaire de paquets utilisé par les commandes (install/outdated). " +
-        "Défaut : `npm`.",
+      "Gestionnaire de paquets utilisé par `nodefony install`. Absent : déduit " +
+        "du fichier de verrou du projet, puis de `npm_config_user_agent`, puis npm.",
     ),
   domain: z
     .string()

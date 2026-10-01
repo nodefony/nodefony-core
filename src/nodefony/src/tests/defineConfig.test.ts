@@ -42,7 +42,6 @@ const GOLDEN_DEFAULTS = {
   modules: [],
   locale: "en_en",
   templating: "eta",
-  packageManager: "npm",
   // Deadline globale du shutdown (0.7) — filet anti-listener-pendu de terminate.
   shutdownDeadline: 15_000,
   domain: "localhost",
@@ -98,7 +97,8 @@ describe("config — defineConfig (moteur Lot 1)", () => {
       assert.strictEqual(serverOf(r.servers?.https).protocol, "2.0");
       assert.strictEqual(r.log?.active, true);
       assert.strictEqual(r.domain, "localhost");
-      assert.strictEqual(r.packageManager, "npm");
+      // Pas de défaut : sans choix écrit, le verrou du projet décide.
+      assert.strictEqual(r.packageManager, undefined);
     });
 
     it("servers.https: false accepté (TLS à l'ingress) — remplace l'objet défaut au merge", () => {

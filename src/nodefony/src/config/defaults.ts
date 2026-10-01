@@ -38,7 +38,8 @@ export const defaultAppConfig: ResolvedAppConfig = {
   // ── Application ──
   locale: "en_en",
   templating: "eta",
-  packageManager: "npm",
+  // Pas de défaut ici : sans choix écrit, le gestionnaire se DÉDUIT du verrou
+  // (cf `resolvePackageManager`) — un défaut posé masquerait le projet pnpm.
 
   // ── Cycle de vie ──
   // Deadline GLOBALE du shutdown : filet anti-listener-pendu de Kernel.terminate

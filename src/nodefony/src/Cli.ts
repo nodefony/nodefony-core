@@ -38,6 +38,7 @@ import Command from "./command/Command";
 import { DebugType, EnvironmentType } from "./types/globals";
 import Syslog from "./syslog/Syslog";
 import Kernel from "./kernel/Kernel";
+import { portableSpawn } from "./cli/execPortable";
 
 type FigletModule = (typeof import("figlet"))["default"];
 let figletModule: FigletModule | null = null;
@@ -1017,6 +1018,17 @@ class Cli extends Service {
     }
   }
 
+  /**
+   * Nom de l'exécutable d'un gestionnaire de paquets sur cette plateforme.
+   *
+   * @deprecated Le nom rendu sous Windows (`npm.cmd`) ne se lance plus par
+   *   `spawn` sans shell depuis Node 18.20 / 20.12 (CVE-2024-27980) :
+   *   composer la commande avec `portableSpawn(manager, args)`, comme le fait
+   *   `runPackageManager`.
+   * @param manager - `"npm"` / `"yarn"` / `"pnpm"` / `"bun"`
+   * @returns le nom à lancer
+   * @throws Si le gestionnaire est inconnu.
+   */
   getCommandManager(manager: string) {
     if (process.platform === "win32") {
       switch (manager) {
@@ -1026,6 +1038,9 @@ class Cli extends Service {
           return "yarn.cmd";
         case "pnpm":
           return "pnpm.cmd";
+        // bun s'installe en binaire natif (`bun.exe`), sans shim `.cmd`.
+        case "bun":
+          return "bun";
         default:
           throw new Error(`bad manager : ${manager}`);
       }
@@ -1037,6 +1052,8 @@ class Cli extends Service {
           return "yarn";
         case "pnpm":
           return "pnpm";
+        case "bun":
+          return "bun";
         default:
           throw new Error(`bad manager : ${manager}`);
       }
@@ -1087,14 +1104,17 @@ class Cli extends Service {
         //   ? this.commander.opts().debug || false
         //   : false;
         this.log(`Command : ${manager} ${argv.join(" ")} in cwd : ${cwd}`);
-        const exe = this.getCommandManager(manager);
+        // `portableSpawn` : sous Windows, `npm`/`pnpm`/`yarn` sont des shims
+        // `.cmd` que `spawn` refuse sans shell (CVE-2024-27980).
+        const cmd = portableSpawn(manager, argv);
         this.spawn(
-          exe,
-          argv,
+          cmd.file,
+          cmd.args,
           {
             cwd,
             env: process.env,
             stdio: "inherit",
+            windowsVerbatimArguments: cmd.windowsVerbatimArguments,
           },
           (code: number) => {
             process.env.NODE_ENV = currentenv;
@@ -1148,6 +1168,14 @@ class Cli extends Service {
     env: EnvironmentType = "dev",
   ) {
     return this.runPackageManager(argv, cwd, env, "pnpm");
+  }
+
+  async bun(
+    argv: string[] = [],
+    cwd = path.resolve("."),
+    env: EnvironmentType = "dev",
+  ) {
+    return this.runPackageManager(argv, cwd, env, "bun");
   }
 
   spawn(

@@ -1,6 +1,7 @@
 import assert from "node:assert";
 import path from "node:path";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import os from "node:os";
 import CliKernel from "../kernel/CliKernel";
 import Kernel, { CONSOLE_RUN_PROFILE } from "../kernel/Kernel";
@@ -71,9 +72,8 @@ describe("CliKernel — constructor", () => {
     assert.strictEqual(cli.kernel, null);
   });
 
-  it("packageManager par défaut = this.pnpm", () => {
-    // CliKernel déclare: public packageManager: PackageManager = this.pnpm
-    assert.strictEqual(cli.packageManager, (cli as any).pnpm);
+  it("packageManager par défaut = this.npm (celui que livre Node)", () => {
+    assert.strictEqual(cli.packageManager, (cli as any).npm);
   });
 
   it("environment défini depuis le paramètre", () => {
@@ -182,10 +182,31 @@ describe("CliKernel — setPackageManager()", () => {
     assert.strictEqual(cli.packageManager, (cli as any).npm);
   });
 
-  it("undefined → branch default → npm", () => {
-    // options.packageManager non défini → manager=undefined → default case
-    cli.setPackageManager(undefined);
-    assert.strictEqual(cli.packageManager, (cli as any).npm);
+  it("'bun' → packageManager = this.bun (plus de repli muet sur npm)", () => {
+    cli.setPackageManager("bun");
+    assert.strictEqual(cli.packageManager, (cli as any).bun);
+  });
+
+  it("non configuré → le VERROU du projet décide (pnpm-lock.yaml → pnpm)", () => {
+    const dir = fsSync.mkdtempSync(path.join(os.tmpdir(), "nf-pm-"));
+    try {
+      fsSync.writeFileSync(path.join(dir, "pnpm-lock.yaml"), "");
+      cli.setPackageManager(undefined, dir);
+      assert.strictEqual(cli.packageManager, (cli as any).pnpm);
+    } finally {
+      fsSync.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("configuré → la configuration gagne sur le verrou", () => {
+    const dir = fsSync.mkdtempSync(path.join(os.tmpdir(), "nf-pm-"));
+    try {
+      fsSync.writeFileSync(path.join(dir, "pnpm-lock.yaml"), "");
+      cli.setPackageManager("yarn", dir);
+      assert.strictEqual(cli.packageManager, (cli as any).yarn);
+    } finally {
+      fsSync.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("retourne la fonction PackageManager", () => {
