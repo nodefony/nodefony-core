@@ -53,7 +53,6 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scan.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-service-bus.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-write-head.mjs",
-    ".claude/skills/nodefony-load-test/scripts/perf-campaign.sh",
     ".claude/skills/nodefony-load-test/scripts/poc-bench.mjs",
     ".claude/skills/nodefony-load-test/scripts/poc-hmr-perf.mjs",
     ".claude/skills/nodefony-load-test/scripts/profile-compare.sh",

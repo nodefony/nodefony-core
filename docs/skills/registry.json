@@ -4380,6 +4380,67 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/perf-compose.mjs",
+            "purpose": "Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne",
+            "usage": [
+              "node perf-compose.mjs --campaign tmp/perf-campaign-<date> \\"
+            ],
+            "options": [
+              {
+                "flag": "--allow-missing",
+                "help": ""
+              },
+              {
+                "flag": "--campaign",
+                "help": ""
+              },
+              {
+                "flag": "--data",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--only",
+                "help": ""
+              },
+              {
+                "flag": "--quiet",
+                "help": ""
+              },
+              {
+                "flag": "--reuse",
+                "help": ""
+              },
+              {
+                "flag": "--soak",
+                "help": ""
+              },
+              {
+                "flag": "--version",
+                "help": ""
+              },
+              {
+                "flag": "--write",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "CAMPAIGN",
+                "help": ""
+              },
+              {
+                "name": "DATA",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/perf-dossier-report.mjs",
             "purpose": "Rapport HTML de synthèse — dossier Performance de Nodefony.",
             "usage": [
@@ -4476,11 +4537,23 @@
             ],
             "options": [
               {
+                "flag": "--at",
+                "help": ""
+              },
+              {
+                "flag": "--campaign",
+                "help": ""
+              },
+              {
                 "flag": "--data",
                 "help": ""
               },
               {
                 "flag": "--minutes",
+                "help": ""
+              },
+              {
+                "flag": "--only",
                 "help": ""
               },
               {

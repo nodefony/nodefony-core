@@ -67,7 +67,7 @@ const GENERATOR = path.join(
 // raconte COMMENT on l'a su : le profilage, les lots gardés, celui qui a été
 // annulé par son propre A/B, et les instruments qui ont menti. Un verdict seul se
 // lit comme une plaquette ; la méthode seule, personne ne l'ouvre. Ses données
-// sont déclarées dans son générateur et couvrent le chantier jusqu'au 2026-08-07 —
+// sont déclarées dans son générateur et couvrent le chantier jusqu'à sa date de fin —
 // il porte sa propre table de chronologie, ce qui lui permet de cohabiter avec des
 // mesures plus récentes sans les contredire.
 const DOSSIER = path.join(
@@ -281,6 +281,14 @@ function chiffresCles(d) {
   const ref = f?.[d.comparison.reference];
   const soak = d.soak;
   const out = [];
+  // Le rapport publié est celui de la PAIRE alternée (rapport imprimé = A/B,
+  // Nodefony en B) — jamais deux médianes prises dans des fenêtres distinctes.
+  const pairShare = (camp) => {
+    const p = d.comparison?.pairs?.find(
+      (x) => x.paire === `${camp} ↔ nodefony`,
+    );
+    return p ? 10000 / p.rapportPct : null;
+  };
 
   const nb = (v, n = 0) =>
     v == null
@@ -293,8 +301,9 @@ function chiffresCles(d) {
   out.push(
     section(
       "Ce que Nodefony encaisse",
-      `<p class="lead">Une route qui fait un vrai travail applicatif, servie par le pipeline complet —
-sécurité, session, routage, contexte asynchrone. Médiane de ${d.provenance?.protocol?.runs ?? 3} tirs
+      `<p class="lead">Une route qui ne fait AUCUN travail applicatif, servie par le pipeline complet —
+sécurité, routage, contexte asynchrone, en-têtes : le pire cas pour un framework, puisqu'il y pèse
+100 % du budget. Médiane de ${d.provenance?.protocol?.runs ?? 3} tirs
 de ${d.provenance?.protocol?.durationSec ?? 10} s à ${d.provenance?.protocol?.connections ?? 64}
 connexions.</p>` +
         cards(
@@ -319,8 +328,13 @@ connexions.</p>` +
             },
             ref && {
               k: "Face à Express équipé",
-              v: `${Math.round((nf.med / ref.med) * 100)} %`,
+              v: `${Math.round(pairShare("express-fair") ?? (nf.med / ref.med) * 100)} %`,
               sub: "du débit d'un Express qui fait le MÊME travail",
+            },
+            pairShare("nest-fair") != null && {
+              k: "Face à NestJS équipé",
+              v: `${Math.round(pairShare("nest-fair"))} %`,
+              sub: "du débit d'un NestJS qui fait le MÊME travail",
             },
             soak && {
               k: "Tenue dans le temps",
@@ -569,8 +583,11 @@ profilage, les lots gardés, <strong>celui qui a été annulé par son propre A/
 instruments qui ont menti avant qu'on s'en aperçoive, et ce qu'un chemin virtualisé interdit de
 conclure.</p>` +
         note(
-          `Ce dossier couvre le chantier jusqu'au 2026-08-07 ; chaque chiffre y porte l'état du code
-auquel il correspond. Les mesures d'une version publiée, elles, sont dans le tableau ci-dessus.`,
+          `Ce dossier raconte le chantier jusqu'au 2026-08-07 ; chaque chiffre y porte l'état du code
+auquel il correspond. La suite — un GET sans promesse, les contrôleurs en instance unique, le
+budget d'une requête face à NestJS, le chemin ORM — est dans
+<a href="https://github.com/nodefony/nodefony-core/blob/dev/docs/performance/analyses.md">Où part le temps</a>.
+Les mesures d'une version publiée, elles, sont dans le tableau ci-dessus.`,
         ),
     ),
   );

@@ -1,8 +1,9 @@
 /**
  * prod-readiness-report.mjs — « Nodefony peut-il partir en production ? »
  *
- * Agrège les TROIS mesures qui répondent à cette question et rien d'autre :
- *   1. le comparatif inter-frameworks (à travail égal), pour situer le débit ;
+ * Agrège les mesures qui répondent à cette question et rien d'autre :
+ *   1. le comparatif inter-frameworks (à travail égal), face à Express ET à
+ *      NestJS équipés, sur une route triviale puis avec une base de données ;
  *   2. le soak, pour la tenue dans la durée (fuite mémoire, dérive du débit) ;
  *   3. le banc de capacité, pour dimensionner un pod.
  *
@@ -98,15 +99,24 @@ const FRAMEWORKS = [
     note: "ALS, CORS, en-têtes de sécurité, CSRF, traceparent, zones",
   },
   {
+    // Facultatif : un jeu versionné antérieur à son entrée ne le porte pas, et
+    // l'absence se DIT dans la page au lieu de faire tomber le rendu.
+    id: "nest-fair",
+    label: "NestJS équipé",
+    note: "Fastify + les mêmes garanties, décorateurs et injection NestJS",
+    optional: true,
+  },
+  {
     id: "nodefony",
     label: "Nodefony",
     note: "le même travail, intégré au pipeline",
   },
 ];
-const bench = FRAMEWORKS.map((f) => {
+const bench = FRAMEWORKS.flatMap((f) => {
   const d = dataset
     ? (dataset.comparison?.frameworks?.[f.id] ?? null)
     : readJson(`/tmp/nf-bench-${f.id}.json`);
+  if (!d && f.optional) return [];
   if (!d)
     throw new Error(
       dataset
@@ -116,11 +126,30 @@ const bench = FRAMEWORKS.map((f) => {
   // ⚠️ `d` d'abord : le JSON du banc porte un champ `label` ("bare", "express-fair")
   // qui écraserait le libellé lisible de `f` si l'ordre était inversé. Vu à l'écran,
   // pas au typecheck — deux objets qui partagent une clé ne lèvent rien.
-  return Object.assign({}, d, f);
+  return [Object.assign({}, d, f)];
 });
 const ref = bench.find((b) => b.id === "express-fair");
+const nest = bench.find((b) => b.id === "nest-fair") ?? null;
+// Les RAPPORTS se lisent paire par paire : chaque camp n'est comparable qu'au
+// camp avec lequel il a alterné. Les absolus du graphe viennent de fenêtres
+// distinctes ; le rapport d'une paire, lui, porte sa propre séparation.
+const pairs = dataset?.comparison?.pairs ?? [];
+const pairOf = (a, b) => pairs.find((p) => p.paire === `${a} ↔ ${b}`) ?? null;
+const nestPair = pairOf("nest-fair", "nodefony");
+const nullPair = pairs.find((p) => p.role === "test nul") ?? null;
+/** Part de Nodefony dans une paire où il est le camp B (rapport imprimé = A/B). */
+const shareOfB = (p) => (p ? 10000 / p.rapportPct : null);
+const applicative = dataset?.applicative ?? null;
+const nestOrm = dataset?.applicativeNest?.cases ?? [];
+const cpuThread = dataset?.cpuThread ?? null;
+const cpuRow = cpuThread?.rows?.find((r) =>
+  r.metric.startsWith("CPU fil principal"),
+);
 const nf = bench.find((b) => b.id === "nodefony");
-const ratioRps = (nf.med / ref.med) * 100;
+const paire1 = pairOf("express-fair", "nodefony");
+// Le rapport publié est celui de la PAIRE (mêmes fenêtres alternées) ; à défaut
+// d'une paire nommée, celui des médianes.
+const ratioRps = paire1 ? shareOfB(paire1) : (nf.med / ref.med) * 100;
 const deltaP99 = nf.medP99Ms - ref.medP99Ms;
 
 // ── 2. soak ────────────────────────────────────────────────────────────────
@@ -254,6 +283,19 @@ const verdict = section(
       v: `${fmt.dec(ratioRps, 0)} %`,
       sub: "du débit d'Express équipé des mêmes middlewares",
     },
+    ...(nestPair
+      ? [
+          {
+            k: "Face à NestJS équipé",
+            v: `${fmt.dec(shareOfB(nestPair), 0)} %`,
+            sub: `du débit d'un NestJS qui fait le même travail${
+              cpuRow
+                ? ` · CPU du fil par requête ×${fmt.dec(cpuRow.ratio, 2)}`
+                : ""
+            }`,
+          },
+        ]
+      : []),
     {
       k: "Latence p99",
       v: fmt.dec(nf.medP99Ms, 2),
@@ -379,6 +421,49 @@ const comparatif = section(
       { sortable: true, id: "tbl-fw" },
     ) +
     csvExport("tbl-fw", "nodefony-comparatif.csv") +
+    (pairs.length
+      ? `<h3>Les rapports, paire par paire</h3>
+   <p>Chaque ligne oppose deux camps mesurés en <strong>alternance</strong> (A₁ B₁ A₂ B₂) : c'est le
+   seul rapport qui tienne, les absolus du tableau ci-dessus venant de fenêtres différentes. Un
+   écart ne classe que si les deux séries d'un camp encadrent celles de l'autre.</p>` +
+        table(
+          [
+            { label: "Paire (A ↔ B)" },
+            { label: "A / B", align: "right", strong: true },
+            { label: "Séparation" },
+            { label: "Lecture", dim: true },
+          ],
+          pairs.map((p) => [
+            p.paire,
+            `${fmt.dec(p.rapportPct, 1)} %`,
+            p.separation === "nette"
+              ? "nette"
+              : `<strong>dans le bruit</strong>`,
+            p.role === "test nul"
+              ? "test nul — le banc ne doit voir AUCUN écart entre un camp et lui-même"
+              : p.paire.endsWith("↔ nodefony")
+                ? `Nodefony à ${fmt.dec(shareOfB(p), 1)} % de ce camp`
+                : "prix du service rendu, hors Nodefony",
+          ]),
+          { id: "tbl-pairs" },
+        )
+      : "") +
+    (cpuRow
+      ? note(
+          `<strong>L'arbitre des écarts fins : le CPU du fil principal par requête</strong>, mesuré sans
+       profileur en ${cpuThread.A?.length ?? 3} paires alternées face à NestJS équipé —
+       ${fmt.dec(cpuRow.nodefony, 1)} µs contre ${fmt.dec(cpuRow["nest-fair"], 1)} µs, soit
+       <strong>×${fmt.dec(cpuRow.ratio, 2)}</strong> (${cpuRow.separated ? "séparé" : "non séparé"}).
+       Le débit agrège le noyau, les autres fils et la machine ; cette grandeur ne garde que le
+       travail que le framework impose au fil qui sert les requêtes, à moins de 1 % de dispersion.`,
+        )
+      : "") +
+    (nullPair?.separation === "nette"
+      ? warn(
+          `Le test nul a rendu une SÉPARATION (${fmt.dec(nullPair.rapportPct, 1)} %) : le banc voit un
+       écart entre un camp et lui-même. Les rapports de cette page sont à lire avec cette réserve.`,
+        )
+      : "") +
     note(
       `La ligne qui compte est <strong>Express équipé</strong>, pas Express nu : comparer un pipeline
        complet à un <code>res.json()</code> revient à comparer une berline équipée à un kart. L'écart
@@ -386,6 +471,85 @@ const comparatif = section(
        ${fmt.int(ref.med)} req/s) chiffre le prix de ces fonctionnalités, indépendamment de Nodefony.`,
     ),
 );
+
+/**
+ * Le cas applicatif : une lecture de 20 lignes puis l'UPDATE de la ligne lue,
+ * à ORM, pilote, schéma et base égaux. Chaque ligne porte SON commit : une
+ * pièce réutilisée d'une autre séance ne prend pas la provenance de la campagne.
+ */
+const orm = applicative
+  ? (() => {
+      const exp = applicative.frameworks?.["express-fair-sqlite"];
+      const nfo = applicative.frameworks?.["nodefony-orm"];
+      const rows = [];
+      if (exp && nfo)
+        rows.push([
+          "Express équipé + drizzle",
+          "GET lecture + écriture",
+          `${fmt.int(exp.med)} · ${fmt.int(nfo.med)}`,
+          `<strong>${fmt.dec(applicative.rapportPct, 1)} %</strong>`,
+          applicative.separation,
+          `${fmt.dec(exp.medP99Ms, 1)} · ${fmt.dec(nfo.medP99Ms, 1)}`,
+          `<code>${prov?.headCommit ?? "?"}</code>`,
+        ]);
+      const LABEL = {
+        "read-write": "GET lecture + écriture",
+        "post-valid": "POST validé (200)",
+        "post-422": "POST invalide (422)",
+      };
+      for (const c of nestOrm) {
+        const w = c.frameworks?.["nest-fair-sqlite"];
+        const n = c.frameworks?.["nodefony-orm"];
+        rows.push([
+          "NestJS équipé + drizzle",
+          LABEL[c.id] ?? c.id,
+          w && n
+            ? `${fmt.int(w.med)} · ${fmt.int(n.med)}`
+            : (c.rpsRanges ?? "—"),
+          `<strong>${fmt.dec(c.rapportPct, 1)} %</strong>`,
+          c.separation,
+          w && n
+            ? `${fmt.dec(w.medP99Ms, 1)} · ${fmt.dec(n.medP99Ms, 1)}`
+            : (c.p99Ms ?? "—"),
+          `<code>${c.commit}</code>${c.source ? ` <span title="${c.source}">ⓘ</span>` : ""}`,
+        ]);
+      }
+      return section(
+        "Avec une base de données",
+        `<p>Une route qui ne fait rien ne ressemble à aucun logiciel. Ce banc exerce ce que fait un vrai
+   service : <strong>lire un état, puis l'écrire</strong> — 20 lignes lues avec leurs clés étrangères,
+   puis la mise à jour de la ligne lue, sur 10 000 factures SQLite. Les camps utilisent le
+   <strong>même ORM, le même pilote, le même schéma</strong> et chacun sa copie de la même base.
+   25 connexions (le pilote est synchrone : au-delà, on mesure une file), tirs de
+   ${applicative.frameworks?.["nodefony-orm"]?.durSec ?? 60} s.</p>` +
+          table(
+            [
+              { label: "Témoin" },
+              { label: "Requête" },
+              { label: "req/s (témoin · Nodefony)", align: "right" },
+              { label: "Nodefony / témoin", align: "right" },
+              { label: "Séparation" },
+              {
+                label: "p99 ms (témoin · Nodefony)",
+                align: "right",
+                dim: true,
+              },
+              { label: "Commit mesuré", dim: true },
+            ],
+            rows,
+            { id: "tbl-orm" },
+          ) +
+          csvExport("tbl-orm", "nodefony-applicatif.csv") +
+          note(
+            `Le budget d'une requête passe de quelques dizaines de microsecondes (route triviale) à près
+       d'une milliseconde : <strong>la base domine</strong>, et l'écart entre frameworks devient une
+       fraction de ce budget. Sur le POST invalide, aucune base n'est touchée — c'est la validation et
+       la sérialisation de l'erreur qui sont comparées. À débit égal le p99 suit le débit : à
+       25 connexions fixes, la latence est inversement proportionnelle au débit.`,
+          ),
+      );
+    })()
+  : null;
 
 const tenue = section(
   "Ce que la durée révèle",
@@ -765,10 +929,14 @@ const decor = section(
       ],
     ],
   ) +
-    `<pre><code># comparatif (une ligne par pile)
-BENCH_CONN=64 bash .claude/skills/nodefony-load-test/bench-frameworks/bench.sh &lt;bare|fastify|express|express-fair&gt; 5161
-BENCH_CONN=64 BENCH_URL=${nf.url} \\
-  bash .claude/skills/nodefony-load-test/scripts/bench-ab-mono.sh nodefony NF_WITH_DEV_MODULES=1
+    `<pre><code># toute la campagne publiée (parité, paires, ORM, CPU du fil, soak)
+caffeinate -dims bash .claude/skills/nodefony-load-test/scripts/perf-campaign.sh --at 01:30
+# une pièce seule, ex. le face-à-face NestJS
+bash .claude/skills/nodefony-load-test/scripts/perf-campaign.sh --only "parite nest-fair"
+# une paire à la main (alternance A₁ B₁ A₂ B₂ + verdict de séparation)
+BENCH_CONN=64 BENCH_WARMUP=20 bash .claude/skills/nodefony-load-test/bench-frameworks/bench-pairs.sh nest-fair nodefony
+# le fichier publié, composé depuis le dossier de campagne
+node .claude/skills/nodefony-load-test/scripts/perf-compose.mjs --campaign tmp/perf-campaign-&lt;date&gt; --data docs/performance/data/&lt;version&gt;.json
 
 # tenue dans la durée
 node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes ${soak.minutes} --window ${soak.windowSec}
@@ -802,8 +970,17 @@ const PAGES = [
   {
     slug: "comparatif",
     titre: "Où se situe Nodefony",
-    quoi: "le débit face à un Express qui fait le même travail",
+    quoi: "le débit face à Express et NestJS qui font le même travail",
   },
+  ...(orm
+    ? [
+        {
+          slug: "applicatif",
+          titre: "Avec une base de données",
+          quoi: "lecture et écriture SQLite, face à Express et NestJS équipés",
+        },
+      ]
+    : []),
   {
     slug: "duree",
     titre: "La tenue dans la durée",
@@ -854,7 +1031,7 @@ const pied = (courant) =>
  * oblige à ouvrir pour savoir, et c'est exactement ce qu'on cherche à éviter.
  */
 const sommaire = section(
-  "Le dossier, en quatre pages",
+  `Le dossier, en ${PAGES.length - 1} pages`,
   cards(
     PAGES.filter((x) => x.slug !== "").map((x) => ({
       k: x.titre,
@@ -867,6 +1044,7 @@ const sommaire = section(
 const corps = {
   "": [printButton() + deckControls(), verdict, sommaire, limites],
   comparatif: [comparatif],
+  ...(orm ? { applicatif: [orm] } : {}),
   duree: [tenue],
   dimensionner: [capacite],
   methode: [decor],
@@ -875,6 +1053,7 @@ const corps = {
 const titres = {
   "": "Nodefony peut-il partir en production ?",
   comparatif: "Où se situe Nodefony",
+  applicatif: "Avec une base de données",
   duree: "La tenue dans la durée",
   dimensionner: "Dimensionner un pod",
   methode: "Méthode et décor",
@@ -883,7 +1062,9 @@ const titres = {
 const soustitres = {
   "": "Trois mesures — débit à travail égal, tenue dans la durée, dimensionnement d'un pod — et ce qu'elles ne prouvent pas.",
   comparatif:
-    "Le débit, face à un serveur nu et face à un Express muni des mêmes garanties.",
+    "Le débit, face à un serveur nu et face à Express et NestJS munis des mêmes garanties.",
+  applicatif:
+    "Une lecture et une écriture par requête, à ORM, pilote et base égaux.",
   duree:
     "Ce qu'un banc de dix secondes ne peut pas voir : la mémoire et le débit sur la durée.",
   dimensionner:
@@ -904,7 +1085,17 @@ for (const page of PAGES) {
     // Les données ne sont embarquées QUE sur l'accueil (cf le commentaire
     // ci-dessus) : cinq copies pèseraient cinq fois et divergeraient un jour.
     ...(page.slug === ""
-      ? { data: { comparatif: bench, soak, capacite: CAP } }
+      ? {
+          data: {
+            comparatif: bench,
+            paires: pairs,
+            applicatif: applicative?.frameworks ?? null,
+            applicatifNest: nestOrm,
+            cpuFil: cpuThread?.rows ?? null,
+            soak,
+            capacite: CAP,
+          },
+        }
       : {}),
   });
   const cible =
