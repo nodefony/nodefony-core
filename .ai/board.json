@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T20:00:15.816Z",
+  "generatedAt": "2026-10-01T20:39:40.858Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 54,
+      "closed": 55,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 39,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -956,7 +956,7 @@
       "title": "test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun",
       "url": "https://github.com/nodefony/nodefony-core/issues/294",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -971,8 +971,8 @@
       "number": 351,
       "title": "fix(bundler): garder le framework hors du bundle d'un module",
       "url": "https://github.com/nodefony/nodefony-core/issues/351",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
