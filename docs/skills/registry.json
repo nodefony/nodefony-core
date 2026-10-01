@@ -4330,6 +4330,10 @@
                 "help": ""
               },
               {
+                "flag": "--only",
+                "help": ""
+              },
+              {
                 "flag": "--out",
                 "help": ""
               },
@@ -4355,6 +4359,14 @@
               }
             ],
             "env": [
+              {
+                "name": "NF_PARITY_CAMPS",
+                "help": ""
+              },
+              {
+                "name": "ONLY",
+                "help": ""
+              },
               {
                 "name": "SOAK_MIN",
                 "help": ""
