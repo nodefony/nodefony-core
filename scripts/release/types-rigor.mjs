@@ -13,12 +13,12 @@
  * options du compilateur et les assertions (`as unknown as`) vivent dans les
  * sources, que npm ne transporte pas — hors de portée ici.
  */
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { countTypeLooseness } from "./api-diff-core.mjs";
+import { runPortable } from "./api-diff.mjs";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -35,12 +35,6 @@ const peers = (option("--peers") ?? "@nestjs/common,@nestjs/core,fastify")
   .filter(Boolean);
 const from = option("--from");
 const outDir = path.join(ROOT, "tmp", "types-rigor");
-const run = (command, cwd = ROOT) =>
-  execSync(command, {
-    cwd,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
 
 function declarationFiles(dir, acc = []) {
   if (!fs.existsSync(dir)) return acc;
@@ -60,13 +54,17 @@ function fetchPackage(spec) {
   const packageDir = path.join(target, "package");
   if (!fs.existsSync(packageDir)) {
     fs.mkdirSync(target, { recursive: true });
-    const tarball = run(
-      `npm pack ${spec} --pack-destination "${target}" --silent`,
-    )
+    const tarball = runPortable("npm", [
+      "pack",
+      spec,
+      "--pack-destination",
+      target,
+      "--silent",
+    ])
       .trim()
       .split("\n")
       .pop();
-    run(`tar -xzf "${tarball}" -C "${target}"`, target);
+    runPortable("tar", ["-xzf", tarball, "-C", target], target);
     fs.rmSync(path.join(target, tarball), { force: true });
   }
   return packageDir;
@@ -98,9 +96,9 @@ function measure(label, dirs) {
   return { label, ...total };
 }
 
-const workspaces = JSON.parse(run("npm query .workspace --json")).filter(
-  (w) => !w.private,
-);
+const workspaces = JSON.parse(
+  runPortable("npm", ["query", ".workspace", "--json"]),
+).filter((w) => !w.private);
 const rows = [];
 if (from)
   rows.push(

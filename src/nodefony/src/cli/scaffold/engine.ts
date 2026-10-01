@@ -5776,8 +5776,9 @@ export function wireKernelBootCall(
     `  }\n`;
   // Fin de classe = la dernière `}` AVANT `export default` (layout des index
   // générés par create app/module). Introuvable → geste manuel, jamais un
-  // fichier corrompu.
-  const closer = /\n\}\s*\n+export default /u.exec(withImport);
+  // fichier corrompu. Chaque tour du groupe consomme EXACTEMENT un saut de
+  // ligne : `\s*\n+` se disputait les mêmes `\n` (temps quadratique, CodeQL).
+  const closer = /\n\}(?:[^\S\n]*\n)+export default /u.exec(withImport);
   if (closer?.index === undefined) {
     writer.write(indexPath, withImport);
     return (

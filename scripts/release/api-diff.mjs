@@ -27,7 +27,7 @@
  * Sortie : résumé sur stdout, rapport complet `tmp/api-diff/<version>/report.json`.
  * Code : 0 = mesure faite (ruptures ou non), 2 = mesure impossible.
  */
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -47,25 +47,50 @@ const ROOT = path.resolve(
   "..",
 );
 
-const run = (command, cwd = ROOT) =>
-  execSync(command, {
+// Les arguments viennent de la ligne de commande (`--from`, `--peers`) : ils ne
+// passent JAMAIS par un shell. `portableSpawn` (cœur) lance la commande telle
+// quelle, et sous Windows quote chaque argument pour `cmd.exe` — ou le refuse.
+let portableSpawn;
+try {
+  ({ portableSpawn } = await import("nodefony"));
+} catch {
+  throw new Error(
+    "impossible de charger `nodefony` — le cœur n'est pas bâti. → npm run build",
+  );
+}
+
+/**
+ * Lance `command args…` sans shell et rend sa sortie standard.
+ *
+ * @param command - l'exécutable (`npm`, `tar`).
+ * @param args - ses arguments, un par élément — jamais concaténés.
+ * @param cwd - dossier d'exécution.
+ * @returns la sortie standard, en texte.
+ */
+export function runPortable(command, args, cwd = ROOT) {
+  const spawn = portableSpawn(command, args);
+  return execFileSync(spawn.file, spawn.args, {
     cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    windowsVerbatimArguments: spawn.windowsVerbatimArguments,
   });
+}
 const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 
 /** Workspaces publiables — résolus par npm, comme `pack-all.mjs`. */
 export function publishableWorkspaces(root = ROOT) {
-  return JSON.parse(run("npm query .workspace --json", root)).filter(
-    (w) => !w.private,
-  );
+  return JSON.parse(
+    runPortable("npm", ["query", ".workspace", "--json"], root),
+  ).filter((w) => !w.private);
 }
 
 /** Dernière version publiée d'un paquet, ou `null`. */
 export function latestPublished(name, root = ROOT) {
   return (
-    JSON.parse(run(`npm view ${name} versions --json`, root)).at(-1) ?? null
+    JSON.parse(
+      runPortable("npm", ["view", name, "versions", "--json"], root),
+    ).at(-1) ?? null
   );
 }
 
@@ -75,19 +100,20 @@ function fetchPublished({ name, location, from, outDir, root }) {
   const packageDir = path.join(target, "package");
   if (!fs.existsSync(path.join(packageDir, "package.json"))) {
     try {
-      run(`npm view ${name}@${from} version`, root);
+      runPortable("npm", ["view", `${name}@${from}`, "version"], root);
     } catch {
       return null;
     }
     fs.mkdirSync(target, { recursive: true });
-    const tarball = run(
-      `npm pack ${name}@${from} --pack-destination "${target}" --silent`,
+    const tarball = runPortable(
+      "npm",
+      ["pack", `${name}@${from}`, "--pack-destination", target, "--silent"],
       root,
     )
       .trim()
       .split("\n")
       .pop();
-    run(`tar -xzf "${tarball}" -C "${target}"`, target);
+    runPortable("tar", ["-xzf", tarball, "-C", target], target);
     fs.rmSync(path.join(target, tarball), { force: true });
   }
   const localModules = path.join(root, location, "node_modules");

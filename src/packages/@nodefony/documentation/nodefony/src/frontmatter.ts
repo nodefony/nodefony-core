@@ -62,8 +62,10 @@ export function parseFrontmatter(raw: string): ParsedDoc {
     const line = lines[i] ?? "";
     if (line.trim() === "" || line.trim().startsWith("#")) continue;
 
+    // Pas de `\s*` après `:` : il se disputait les espaces avec `(.*)`, et la
+    // valeur est rognée juste après de toute façon (CodeQL, ReDoS).
     const [, key, rawValue = ""] =
-      /^([A-Za-z][\w-]*)\s*:\s*(.*)$/.exec(line) ?? [];
+      /^([A-Za-z][\w-]*)\s*:(.*)$/.exec(line) ?? [];
     if (key === undefined) continue;
     const value = rawValue.trim();
 

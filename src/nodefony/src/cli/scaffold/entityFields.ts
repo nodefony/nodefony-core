@@ -249,7 +249,9 @@ export function parseEntityFields(input: string): IEntityField[] {
     // devkit, tâche 0) : l'agent a dû deviner. Les virgules d'un `enum(a,b)`
     // ou d'un `decimal(10,2)` sont hors de cause — on les retire avant de
     // chercher.
-    if (/,\s*[A-Za-z_]\w*:/u.test(raw.replace(/\([^)]*\)/gu, ""))) {
+    // `[^()]` et non `[^)]` : une suite de `(` sans `)` relançait un balayage
+    // jusqu'au bout depuis CHACUNE (temps quadratique, CodeQL).
+    if (/,\s*[A-Za-z_]\w*:/u.test(raw.replace(/\([^()]*\)/gu, ""))) {
       throw new EntityFieldError(
         `champ invalide « ${raw} » — les champs se séparent par des ESPACES, ` +
           `pas par des virgules (ex : title:string author:ref:User)`,
