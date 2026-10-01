@@ -43,6 +43,7 @@
  * Un décalage est TOUJOURS annoncé (`onShift`) : une app qui écoute ailleurs que
  * là où on l'attend sans le dire est une dégradation silencieuse.
  */
+import cluster from "node:cluster";
 import type { AddressInfo } from "node:net";
 import { isPortListening, resolvePortPolicy } from "nodefony";
 import type { PortPolicy } from "nodefony";
@@ -260,6 +261,15 @@ function isPortUnavailable(code: string | undefined, port: number): boolean {
  * handler d'erreur durable s'installe APRÈS, sur le serveur qui écoute — sinon il
  * verrait passer les `EADDRINUSE` de repli et croirait à une panne).
  *
+ * @param server - serveur à mettre en écoute.
+ * @param host - hôte passé à `listen`.
+ * @param plan - port désiré et nombre de replis permis.
+ * @param probe - sonde de présence (injectée par le banc).
+ * @param sharedListener - vrai dans un worker `node:cluster` : le port y est
+ *   PARTAGÉ par le maître, et un voisin qui y répond est un frère, pas un
+ *   conflit. Sans cette exception, `nodefony cluster -w N` ne gardait qu'un
+ *   worker en vie — les autres mouraient sur « port déjà servi » et
+ *   bouclaient en relance.
  * @returns l'adresse obtenue + le port désiré si un décalage a eu lieu.
  * @throws l'erreur de `listen` : soit un code qui ne dit pas « ce port est pris »
  *   (`ENOTFOUND`, `EACCES` sous 1024 — cf `isPortUnavailable`), soit un port
@@ -270,6 +280,7 @@ export async function bindWithFallback(
   host: string,
   plan: BindPlan,
   probe: PortListeningProbe = isPortListening,
+  sharedListener: boolean = cluster.isWorker,
 ): Promise<BindResult> {
   let candidate = plan.desired;
   let used = 0;
@@ -308,7 +319,7 @@ export async function bindWithFallback(
     //
     // Rien à constater sur le port 0 : aucune adresse n'y est revendiquée.
     const conflict =
-      plan.desired === 0 || candidate !== plan.desired
+      sharedListener || plan.desired === 0 || candidate !== plan.desired
         ? null
         : await detectPortConflict(candidate, host, probe);
     const failure: (Error & { code?: string }) | null = conflict

@@ -516,6 +516,44 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
     expect(srv.listening).to.equal(false);
   });
 
+  // `nodefony cluster -w N` : le maître PARTAGE le port entre ses workers. Le
+  // premier worker répond déjà quand le second sonde — un frère, pas un
+  // intrus. Sans l'exception, un seul worker survivait, les autres bouclaient
+  // en relance sur « port déjà servi ».
+  it("dans un worker de cluster, un voisin sur le port est un FRÈRE : écoute en STRICT", async () => {
+    const free = await new Promise<number>((resolve) => {
+      const probeSrv = net.createServer();
+      probeSrv.listen(0, "127.0.0.1", () => {
+        const port = (probeSrv.address() as AddressInfo).port;
+        probeSrv.close(() => resolve(port));
+      });
+    });
+    const busy = (): Promise<boolean> => Promise.resolve(true);
+    const plan = { desired: free, reserved: [], attempts: 0 };
+    // Le décor mord : la même sonde, hors cluster, refuse.
+    let code: string | undefined;
+    await bindWithFallback(
+      fresh() as unknown as Listenable,
+      "0.0.0.0",
+      plan,
+      busy,
+      false,
+    ).catch((error: unknown) => {
+      const c: unknown = (error as { code?: unknown }).code;
+      code = typeof c === "string" ? c : undefined;
+    });
+    expect(code).to.equal("EADDRINUSE");
+    const res = await bindWithFallback(
+      fresh() as unknown as Listenable,
+      "0.0.0.0",
+      plan,
+      busy,
+      true,
+    );
+    expect(res.address.port).to.equal(free);
+    expect(res.shiftedFrom).to.equal(null);
+  });
+
   it("le conflit se voit aussi entre FAMILLES d'adresses (`::1` tenu, v4 demandée)", async () => {
     let taken: number;
     try {
