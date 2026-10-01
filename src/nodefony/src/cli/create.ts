@@ -364,6 +364,14 @@ export function parseCreateArgv(
   };
 }
 
+/** Lignes de commande d'un gestionnaire, cf `packageManagerCommandLines`. */
+type TCommandLines = ReturnType<typeof packageManagerCommandLines>;
+
+/** `npm exec -- nodefony`, `pnpm exec nodefony`… — défaut npm. */
+function nodefonyBinLine(manager: PackageManagerName = "npm"): string {
+  return packageManagerCommandLines(manager).exec("nodefony");
+}
+
 /**
  * Le type demandé, LU DANS L'ARGV — y compris quand l'analyse a échoué.
  *
@@ -561,21 +569,26 @@ export function renderDryRun(
  * et mentirait d'autant plus qu'il aurait l'air officiel.
  *
  * @param dest - racine de l'app générée.
- * @param installed - vrai si `npm install` a réussi ; sans arbre installé, npm
- *   ne peut rien inventorier et le relevé n'est pas écrit.
+ * @param installed - vrai si l'installation a réussi ; sans arbre installé,
+ *   rien ne peut être inventorié et le relevé n'est pas écrit.
+ * @param cmd - lignes de commande du gestionnaire de l'app, pour les gestes nommés.
  * @returns la note à afficher. Ne lève JAMAIS : une application entièrement
  *   générée ne s'annule pas parce qu'un relevé n'a pas pu être composé.
  */
-function poseThirdPartyNotices(dest: string, installed: boolean): string {
+function poseThirdPartyNotices(
+  dest: string,
+  installed: boolean,
+  cmd: TCommandLines,
+): string {
   if (!installed) {
-    return `non écrit (rien d'installé) → npm install puis npm run licenses:write`;
+    return `non écrit (rien d'installé) → ${cmd.install} puis ${cmd.run("licenses:write")}`;
   }
   try {
     const survey = surveyLicenses(dest);
     writeFileSync(path.join(dest, NOTICES_FILE), renderNotices(survey), "utf8");
     const refusal =
       survey.refused.length > 0
-        ? ` — ⚠ ${survey.refused.length} licence(s) hors liste, cf npm run licenses`
+        ? ` — ⚠ ${survey.refused.length} licence(s) hors liste, cf ${cmd.run("licenses")}`
         : "";
     return `${NOTICES_FILE} — ${survey.packages.length} paquets${refusal}`;
   } catch (e) {
@@ -583,7 +596,7 @@ function poseThirdPartyNotices(dest: string, installed: boolean): string {
       e instanceof LicenseInventoryError
         ? "npm n'a pas pu inventorier l'arbre"
         : (e as Error).message;
-    return `non écrit (${cause}) → npm run licenses:write`;
+    return `non écrit (${cause}) → ${cmd.run("licenses:write")}`;
   }
 }
 
@@ -942,21 +955,22 @@ export function migrationFailureCause(
  * personne n'apprend un verbe absent.
  *
  * @param dest - racine de l'app générée.
+ * @param cmd - lignes de commande du gestionnaire de l'app, pour les gestes nommés.
  * @returns la note à afficher. Ne lève JAMAIS : une application entièrement
  *   générée ne s'annule pas parce qu'un dossier de skills est illisible.
  */
-function poseSkillPointers(dest: string): string {
+function poseSkillPointers(dest: string, cmd: TCommandLines): string {
   try {
     const plan = syncSkillPointers(dest);
     if (plan.skills.length === 0) {
-      return `aucun skill livré par les paquets installés → npx nodefony ai:sync après un npm install`;
+      return `aucun skill livré par les paquets installés → ${cmd.exec("nodefony")} ai:sync après un ${cmd.install}`;
     }
     return (
       `${plan.skills.length} dans ${plan.directory}/ ` +
       `(${plan.skills.map((s) => s.name).join(", ")}) — commite-les`
     );
   } catch (e) {
-    return `non posés (${(e as Error).message}) → npx nodefony ai:sync`;
+    return `non posés (${(e as Error).message}) → ${cmd.exec("nodefony")} ai:sync`;
   }
 }
 
@@ -1016,6 +1030,8 @@ export function mcpWiringPlan(ctx: {
    * stacks pour une cause qu'on venait d'afficher.
    */
   databaseUnreachable?: boolean;
+  /** Gestionnaire de l'app : les gestes à rejouer se nomment dans SA syntaxe. */
+  manager?: PackageManagerName;
 }):
   | { propose: true; token: boolean; pattern?: string }
   | { propose: false; pattern: string } {
@@ -1027,7 +1043,7 @@ export function mcpWiringPlan(ctx: {
       propose: false,
       pattern:
         "agents choisis mais app ni installée ni construite — " +
-        "l'émission du jeton démarre le kernel ; à rejouer : npx nodefony ai:mcp",
+        `l'émission du jeton démarre le kernel ; à rejouer : ${nodefonyBinLine(ctx.manager)} ai:mcp`,
     };
   }
   if (ctx.databaseUnreachable === true) {
@@ -1036,7 +1052,7 @@ export function mcpWiringPlan(ctx: {
       token: false,
       pattern:
         "jeton MCP NON émis : la base ne répond pas, et security:token en a " +
-        "besoin — après infra:up : npx nodefony security:token --write",
+        `besoin — après infra:up : ${nodefonyBinLine(ctx.manager)} security:token --write`,
     };
   }
   return { propose: true, token: true };
@@ -1108,7 +1124,12 @@ export function argvMcpWiring(
  *
  * @returns note affichable (fait / sauté et pourquoi)
  */
-function runGitInit(dest: string, appName: string, withHooks: boolean): string {
+function runGitInit(
+  dest: string,
+  appName: string,
+  withHooks: boolean,
+  cmd: TCommandLines,
+): string {
   // Le dépôt visé est l'application NEUVE, jamais celui qui nous a lancés.
   const env = isolatedGitEnv();
   const git = (...args: string[]) =>
@@ -1119,7 +1140,7 @@ function runGitInit(dest: string, appName: string, withHooks: boolean): string {
       const plan = installGitHooks(dest);
       if (plan === null) return " · hooks non posés (hors dépôt git)";
       return plan.refused
-        ? " · hooks REFUSÉS (existant préservé — npx nodefony git:hooks pour le détail)"
+        ? ` · hooks REFUSÉS (existant préservé — ${cmd.exec("nodefony")} git:hooks pour le détail)`
         : ` · hooks natifs posés (${GIT_HOOKS_DIR}/ + core.hooksPath)`;
     } catch (e) {
       return ` · hooks non posés (${(e as Error).message})`;
@@ -1449,7 +1470,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         // elle serait un contresens (l'utilisateur chercherait une route).
         `\n\n${type === "command" ? "Câblage" : "Endpoints"} :\n` +
         (result.notes ?? []).map((n) => `  ${n}`).join("\n") +
-        `\n\nServeur dev lancé → rebuild automatique ; sinon : npm run build\n`,
+        `\n\nServeur dev lancé → rebuild automatique ; sinon : ${packageManagerCommandLines(resolvePackageManager({ dir: findProjectRoot(process.cwd()) ?? undefined }).name).run("build")}\n`,
     );
     return SysExit.OK;
   }
@@ -1505,11 +1526,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // AVANT git : le relevé entre dans le commit initial, comme le lockfile — il
   // décrit ce que l'application redistribue, donc il appartient à son dépôt.
   process.stdout.write(
-    `\n⚖️ licences tierces : ${poseThirdPartyNotices(result.dest, installed)}\n`,
+    `\n⚖️ licences tierces : ${poseThirdPartyNotices(result.dest, installed, cmd)}\n`,
   );
   // AVANT git : ces pointeurs entrent dans le premier commit, comme le lockfile.
   process.stdout.write(
-    `\n🤖 skills d'agent : ${poseSkillPointers(result.dest)}\n`,
+    `\n🤖 skills d'agent : ${poseSkillPointers(result.dest, cmd)}\n`,
   );
   // Le câblage MCP AUSSI avant git : le `.mcp.json` est un fichier de PROJET —
   // versionné, lu tel quel par les agents qui suivent le dépôt — il a donc sa
@@ -1526,6 +1547,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     installed,
     built,
     databaseUnreachable,
+    manager: pm,
   });
   let mcpNote = wiring.propose ? "" : wiring.pattern;
   // Le jeton n'a PAS été posé — débranché sur base morte, ou l'émission a
@@ -1547,8 +1569,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         tokenNote = wiring.pattern ?? "";
       } else if (code !== (SysExit.OK as number)) {
         // `ai:mcp` a déjà dit pourquoi ; ici on retient que le geste reste à faire.
-        tokenNote =
-          "jeton MCP NON posé — relance : npx nodefony security:token --write";
+        tokenNote = `jeton MCP NON posé — relance : ${cmd.exec("nodefony")} security:token --write`;
       }
     }
   }
@@ -1559,7 +1580,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     process.stdout.write(`🔌 agents IA : ${tokenNote}\n`);
   }
   const gitNote = parsed.git
-    ? runGitInit(result.dest, String(answers.name), answers.gitHooks === true)
+    ? runGitInit(
+        result.dest,
+        String(answers.name),
+        answers.gitHooks === true,
+        cmd,
+      )
     : "sauté (--no-git)";
   process.stdout.write(`🌱 git : ${gitNote}\n`);
   // Une base docker a été retenue : `.env` déclare `NF_DATABASE_URL` dessus, donc

@@ -10,7 +10,7 @@
 import { describe, it } from "vitest";
 import assert from "node:assert";
 import path from "node:path";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { parseDoctorArgv } from "../kernel/checks/runDoctor";
 import {
@@ -137,6 +137,20 @@ describe("doctor --deep — les paquets en retard", () => {
     assert.match(reason, /registre npm n'a pas répondu/u);
   });
 
+  it("un projet qui n'est pas géré par npm : rien n'est lancé, et c'est DIT", async () => {
+    // Le document de `npm outdated` lu sur l'arbre de pnpm inventerait des
+    // retards et des absences. Aucun exécuteur injecté : c'est le vrai.
+    const racine = projetAvec({});
+    try {
+      writeFileSync(path.join(racine, "pnpm-lock.yaml"), "", "utf8");
+      const { summary, reason } = await readOutdated(racine);
+      assert.equal(summary, null);
+      assert.match(reason, /ne lit que npm, et ce projet est géré par pnpm/u);
+    } finally {
+      rmSync(racine, { recursive: true, force: true });
+    }
+  });
+
   it("une sortie VIDE veut dire « rien en retard », pas « rien lu »", async () => {
     // `npm outdated` n'écrit rien quand tout est à jour. Confondre ce silence
     // avec une panne ferait annoncer un angle mort sur l'application la plus
@@ -235,6 +249,24 @@ describe("verifyChainSteps — les gardes que le projet DÉCLARE", () => {
     assert.deepEqual(verifyChainSteps(racine), {
       steps: ["typecheck", "lint", "format:check", "test", "build"],
       unhandled: [],
+    });
+  });
+
+  it("lit aussi la chaîne d'un projet pnpm ou bun — `bun test` n'est PAS le script", () => {
+    // Le gabarit écrit `verify` avec le gestionnaire du projet.
+    assert.deepEqual(
+      verifyChainSteps(
+        projetAvec({
+          verify: "bun run typecheck && bun run test && pnpm run lint",
+        }),
+      ),
+      { steps: ["typecheck", "test", "lint"], unhandled: [] },
+    );
+    // `bun test` lance le testeur de bun, pas le script `test` : le lancer en
+    // `bun run test` jugerait une autre commande que celle écrite.
+    assert.deepEqual(verifyChainSteps(projetAvec({ verify: "bun test" })), {
+      steps: [],
+      unhandled: ["bun test"],
     });
   });
 

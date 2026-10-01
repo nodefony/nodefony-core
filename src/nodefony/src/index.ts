@@ -63,6 +63,14 @@ export { askPasswordMasked } from "./cli/promptPassword";
 // framework (modules, bancs, outillage) qui la subissent autant que lui.
 export { needsShell, portableSpawn } from "./cli/execPortable";
 export type { IPortableSpawn } from "./cli/execPortable";
+// Le gestionnaire de paquets du projet — UNE résolution, appelée aussi par les
+// modules qui lancent un binaire du projet (tests depuis la console, builds).
+export {
+  resolvePackageManager,
+  packageManagerExecArgs,
+  packageManagerCommandLines,
+} from "./cli/packageManager";
+export type { IPackageManagerResolution } from "./cli/packageManager";
 // Le chemin du lanceur, résolu par le MANIFESTE — même motif : un shim
 // `create-*`, un banc ou un script de déploiement ne doivent jamais deviner
 // `node_modules/.bin/nodefony`, qui n'existe pas sous Windows.

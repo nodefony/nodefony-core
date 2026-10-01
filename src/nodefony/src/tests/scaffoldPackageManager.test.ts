@@ -6,11 +6,17 @@ import { version } from "../../package.json";
 import { parseCreateArgv } from "../cli/create";
 import {
   PACKAGE_MANAGERS,
+  hasWorkspaceRun,
   needsWorkspaceProtocol,
   packageManagerCommandLines,
   packageManagerExecArgs,
+  packageManagerWorkspaceRun,
 } from "../cli/packageManager";
-import { runScaffold, type TScaffoldAnswers } from "../cli/scaffold/engine";
+import {
+  ensureWorkspaces,
+  runScaffold,
+  type TScaffoldAnswers,
+} from "../cli/scaffold/engine";
 
 // #294 — le gestionnaire de paquets choisi à `create app` décide de ce que
 // l'application ÉCRIT : chaque outil ne lit que son propre fichier, et un
@@ -89,6 +95,72 @@ describe("gestionnaire de paquets — commandes", () => {
         ),
       /packageManager invalide « cargo »/u,
     );
+  });
+});
+
+describe("gestionnaire de paquets — parcourir les modules du workspace", () => {
+  it("une forme par gestionnaire, et aucune ne passe par `npm run` chez bun", () => {
+    assert.equal(
+      packageManagerWorkspaceRun("npm", "build"),
+      "npm run build --workspaces --if-present",
+    );
+    assert.equal(
+      packageManagerWorkspaceRun("pnpm", "build"),
+      "pnpm -r --if-present run build",
+    );
+    assert.equal(
+      packageManagerWorkspaceRun("yarn", "build"),
+      "yarn workspaces run build",
+    );
+    // bun réécrit `npm run` en `bun run` et ignore `--workspaces` : le
+    // `build` de la racine se relançait lui-même, sans fin (constaté, bun 1.4).
+    const bun = packageManagerWorkspaceRun("bun", "build");
+    assert.equal(bun, "bun run --filter './modules/*' build");
+    assert.notInclude(bun, "npm");
+  });
+
+  it("chaque forme se reconnaît — le câblage ne greffe jamais une 2ᵉ délégation", () => {
+    for (const pm of PACKAGE_MANAGERS) {
+      assert.isTrue(
+        hasWorkspaceRun(`${packageManagerWorkspaceRun(pm, "test")} && x`),
+        pm,
+      );
+    }
+    assert.isFalse(hasWorkspaceRun("rolldown -c rolldown.config.ts"));
+    assert.isFalse(hasWorkspaceRun("pnpm run build"));
+    assert.isFalse(hasWorkspaceRun("bun run --filter '*' build"));
+  });
+
+  it("un projet passé de pnpm à npm garde sa délégation, sans en ajouter", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-pm-ws-"));
+    try {
+      const build = `${packageManagerWorkspaceRun("pnpm", "build")} && rolldown -c`;
+      fs.writeFileSync(
+        path.join(dir, "package.json"),
+        JSON.stringify({ workspaces: ["modules/*"], scripts: { build } }),
+      );
+      const files = new Map<string, string>();
+      const writer = {
+        read: (f: string) => files.get(f) ?? fs.readFileSync(f, "utf8"),
+        write: (f: string, c: string) => void files.set(f, c),
+      } as unknown as Parameters<typeof ensureWorkspaces>[1];
+      assert.isFalse(ensureWorkspaces(dir, writer, "npm"));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("l'audit des dépendances de production parle la syntaxe de chacun", () => {
+    assert.equal(
+      packageManagerCommandLines("npm").audit,
+      "npm audit --omit=dev",
+    );
+    assert.equal(packageManagerCommandLines("pnpm").audit, "pnpm audit --prod");
+    assert.equal(
+      packageManagerCommandLines("yarn").audit,
+      "yarn audit --groups dependencies",
+    );
+    assert.equal(packageManagerCommandLines("bun").audit, "bun audit");
   });
 });
 
@@ -187,4 +259,56 @@ describe("create app / create module — gabarit par gestionnaire", () => {
     ]);
     assert.notProperty(module(dest, "yarn"), "@app-yarn/blog");
   });
+
+  // Les scripts de l'app appellent d'autres scripts : sous bun, un `npm run`
+  // y est réécrit, et `--workspaces` ignoré → boucle infinie au premier build.
+  for (const [pm, lockfile] of [
+    ["npm", "package-lock.json"],
+    ["pnpm", "pnpm-lock.yaml"],
+    ["yarn", "yarn.lock"],
+    ["bun", "bun.lock"],
+  ] as const) {
+    it(`${pm} : les scripts de l'app et leur délégation aux modules parlent ${pm}`, () => {
+      const dest = path.join(tmp, `scripts-${pm}`);
+      runScaffold(
+        {
+          type: "app",
+          answers: { name: `s-${pm}`, preset: "minimal", packageManager: pm },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      fs.writeFileSync(path.join(dest, lockfile), "");
+      const before = readJson(path.join(dest, "package.json"))[
+        "scripts"
+      ] as Record<string, string>;
+      assert.equal(before["audit:deps"], packageManagerCommandLines(pm).audit);
+      for (const step of ["typecheck", "lint", "test", "build", "doctor"]) {
+        assert.include(before["verify"], `${pm} run ${step}`, step);
+      }
+      assert.match(
+        before["test:e2e"]!,
+        new RegExp(`^${pm} run build && `, "u"),
+      );
+      if (pm !== "npm") {
+        assert.notMatch(JSON.stringify(before), /\bnpm (run|test|audit)\b/u);
+      }
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const after = readJson(path.join(dest, "package.json"))[
+        "scripts"
+      ] as Record<string, string>;
+      for (const step of ["build", "typecheck", "test"]) {
+        assert.include(after[step], packageManagerWorkspaceRun(pm, step), step);
+      }
+    });
+  }
 });

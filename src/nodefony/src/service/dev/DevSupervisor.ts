@@ -15,6 +15,12 @@ import path from "node:path";
 import readline from "node:readline";
 import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
+import { portableSpawn } from "../../cli/execPortable";
+import {
+  packageManagerExecArgs,
+  resolvePackageManager,
+} from "../../cli/packageManager";
+import type { PackageManagerName } from "../../Cli";
 import { waitBootVerdict } from "./bootVerdict";
 import {
   clearRuntimeState,
@@ -227,6 +233,8 @@ const delay = (ms: number): Promise<void> =>
  */
 export class DevSupervisor {
   readonly #cwd: string;
+  /** Gestionnaire de paquets du projet, résolu au premier build. */
+  #packageManager: PackageManagerName | null = null;
   readonly #paths: readonly string[];
   readonly #debounceMs: number;
   readonly #childEnvKey: string;
@@ -437,16 +445,43 @@ export class DevSupervisor {
   ): Promise<{ ok: boolean; output: string }> {
     return new Promise((resolve) => {
       let output = "";
-      const p = spawn(cmd, args as string[], {
+      // `portableSpawn` : sous Windows le gestionnaire est un `.cmd`, et
+      // `shell: true` concaténerait les arguments sans les échapper (DEP0190).
+      const run = portableSpawn(cmd, args);
+      const p = spawn(run.file, run.args, {
         cwd: this.#cwd,
         stdio: ["ignore", "pipe", "pipe"],
-        shell: process.platform === "win32",
+        windowsVerbatimArguments: run.windowsVerbatimArguments,
       });
       p.stdout.on("data", (d: Buffer) => (output += d.toString()));
       p.stderr.on("data", (d: Buffer) => (output += d.toString()));
       p.once("exit", (code) => resolve({ ok: code === 0, output }));
       p.once("error", () => resolve({ ok: false, output }));
     });
+  }
+
+  /**
+   * Commande qui lance un BINAIRE du projet (`turbo`, `rolldown`) par son
+   * gestionnaire de paquets, résolu une fois : `npx` n'existe pas chez bun,
+   * et sous pnpm il irait chercher hors de l'arbre que le verrou décrit.
+   */
+  #binCommand(
+    bin: string,
+    args: readonly string[],
+  ): [cmd: string, args: string[]] {
+    this.#packageManager ??= resolvePackageManager({ dir: this.#cwd }).name;
+    return [
+      this.#packageManager,
+      packageManagerExecArgs(this.#packageManager, bin, args),
+    ];
+  }
+
+  /** {@link #runCaptured} sur un binaire du projet (cf {@link #binCommand}). */
+  #runBin(
+    bin: string,
+    args: readonly string[],
+  ): Promise<{ ok: boolean; output: string }> {
+    return this.#runCaptured(...this.#binCommand(bin, args));
   }
 
   /** Déverse la sortie d'un build qui a échoué (après avoir figé le spinner). */
@@ -536,17 +571,13 @@ export class DevSupervisor {
         : "Vérification du framework (turbo)",
     );
 
-    const ws = await this.#runCaptured("npx", ["turbo", "run", "build"]);
+    const ws = await this.#runBin("turbo", ["run", "build"]);
     if (!ws.ok) errors.push(ws.output);
 
     let rootOk = true;
     if (this.#rootDistStale()) {
       this.#spinLabel = "Build de l'app (rolldown)";
-      const root = await this.#runCaptured("npx", [
-        "rolldown",
-        "-c",
-        "rolldown.config.ts",
-      ]);
+      const root = await this.#runBin("rolldown", ["-c", "rolldown.config.ts"]);
       rootOk = root.ok;
       if (!root.ok) errors.push(root.output);
     }
@@ -560,8 +591,7 @@ export class DevSupervisor {
     if (missing.length > 0) {
       this.#spinLabel = `Rebuild forcé : ${missing.join(", ")}`;
       const filters = missing.flatMap((n) => ["--filter", n]);
-      const forced = await this.#runCaptured("npx", [
-        "turbo",
+      const forced = await this.#runBin("turbo", [
         "run",
         "build",
         "--force",
@@ -619,11 +649,7 @@ export class DevSupervisor {
         ? "Rebuild de l'app (rolldown)"
         : "Premier build de l'app (rolldown)",
     );
-    const res = await this.#runCaptured("npx", [
-      "rolldown",
-      "-c",
-      "rolldown.config.ts",
-    ]);
+    const res = await this.#runBin("rolldown", ["-c", "rolldown.config.ts"]);
     if (res.ok) {
       this.#stopSpin(
         `${ANSI.green}✓${ANSI.reset}`,
@@ -1233,7 +1259,9 @@ export class DevSupervisor {
     // son build relève du rolldown de l'app, pas d'un orchestrateur absent.
     if (this.#standalone) {
       this.#log("rebuild app (rolldown -c)…", "yellow");
-      return this.#run("npx", ["rolldown", "-c", "rolldown.config.ts"]);
+      return this.#run(
+        ...this.#binCommand("rolldown", ["-c", "rolldown.config.ts"]),
+      );
     }
     const pkgs = new Set<string>();
     let rootTouched = false;
@@ -1247,13 +1275,21 @@ export class DevSupervisor {
     if (pkgs.size > 0) {
       const filters = [...pkgs].flatMap((p) => ["--filter", `${p}...`]);
       this.#log(`⚙ rebuild ${[...pkgs].join(", ")}…`, "yellow");
-      if (!(await this.#run("npx", ["turbo", "run", "build", ...filters])))
+      if (
+        !(await this.#run(
+          ...this.#binCommand("turbo", ["run", "build", ...filters]),
+        ))
+      )
         return false;
     }
     // 2. App racine (l'app dépend des workspaces → après turbo).
     if (rootTouched || pkgs.size === 0) {
       this.#log("rebuild app racine (rolldown -c)…", "yellow");
-      if (!(await this.#run("npx", ["rolldown", "-c", "rolldown.config.ts"])))
+      if (
+        !(await this.#run(
+          ...this.#binCommand("rolldown", ["-c", "rolldown.config.ts"]),
+        ))
+      )
         return false;
     }
     return true;
@@ -1262,10 +1298,11 @@ export class DevSupervisor {
   /** Spawn une commande de build, résout `true` si code de sortie 0. */
   #run(cmd: string, args: readonly string[]): Promise<boolean> {
     return new Promise((resolve) => {
-      const p = spawn(cmd, args as string[], {
+      const run = portableSpawn(cmd, args);
+      const p = spawn(run.file, run.args, {
         cwd: this.#cwd,
         stdio: "inherit",
-        shell: process.platform === "win32",
+        windowsVerbatimArguments: run.windowsVerbatimArguments,
       });
       p.once("exit", (code) => resolve(code === 0));
       p.once("error", () => resolve(false));

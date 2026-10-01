@@ -162,13 +162,73 @@ export function packageManagerCommandLines(name: PackageManagerName): {
   add: (pkg: string) => string;
   run: (script: string) => string;
   exec: (bin: string) => string;
+  /** Audit des dépendances de PRODUCTION ; bun n'a pas de filtre, il audite tout. */
+  audit: string;
 } {
   return {
     install: `${name} install`,
     add: (pkg) => `${name} ${name === "npm" ? "install" : "add"} ${pkg}`,
     run: (script) => `${name} run ${script}`,
     exec: (bin) => [name, ...packageManagerExecArgs(name, bin)].join(" "),
+    audit: {
+      npm: "npm audit --omit=dev",
+      pnpm: "pnpm audit --prod",
+      yarn: "yarn audit --groups dependencies",
+      bun: "bun audit",
+    }[name],
   };
+}
+
+/**
+ * Ligne de script qui lance `script` dans chaque module du workspace
+ * (`modules/*`), sans échouer sur un module qui ne le déclare pas.
+ *
+ * Une forme par gestionnaire, parce qu'aucune ne se transpose :
+ *
+ * - **bun** RÉÉCRIT `npm run` en `bun run` dans les scripts, et ignore
+ *   `--workspaces` : `npm run build --workspaces` y relance le `build` de la
+ *   RACINE, qui se relance lui-même, sans fin. Il lui faut `--filter`, borné
+ *   au dossier des modules (un filtre `*` attraperait la racine) ;
+ * - **pnpm** : `-r` exclut la racine par défaut ;
+ * - **yarn 1** n'a pas d'`--if-present` : un module sans le script échoue
+ *   franchement. Le gabarit de module déclare `build`, `typecheck` et `test`.
+ *
+ * Pas de commande `nodefony` pour ce parcours : elle démarrerait le noyau, qui
+ * charge les modules dont elle doit justement bâtir le `dist`, et chaque
+ * `build` paierait ce démarrage.
+ *
+ * @param name - gestionnaire du projet
+ * @param script - script à lancer dans chaque module
+ * @returns la ligne à écrire dans un script du `package.json` racine
+ */
+export function packageManagerWorkspaceRun(
+  name: PackageManagerName,
+  script: string,
+): string {
+  switch (name) {
+    case "npm":
+      return `npm run ${script} --workspaces --if-present`;
+    case "pnpm":
+      return `pnpm -r --if-present run ${script}`;
+    case "yarn":
+      return `yarn workspaces run ${script}`;
+    case "bun":
+      return `bun run --filter './modules/*' ${script}`;
+  }
+}
+
+/**
+ * Le script délègue-t-il DÉJÀ aux modules, sous l'une des quatre formes de
+ * {@link packageManagerWorkspaceRun} ? Rend le câblage idempotent même après
+ * un changement de gestionnaire : on ne greffe pas une seconde délégation.
+ *
+ * @param line - ligne de script du `package.json` racine
+ * @returns vrai si une délégation aux modules y figure
+ */
+export function hasWorkspaceRun(line: string): boolean {
+  return /--workspaces\b|\bpnpm\s+-r\b|\byarn\s+workspaces\s+run\b|--filter\s+'\.\/modules\/\*'/u.test(
+    line,
+  );
 }
 
 /**

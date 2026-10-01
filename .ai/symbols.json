@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 883,
-    "symbols": 4412,
+    "symbols": 4416,
     "classes": 404,
     "interfaces": 1153,
-    "types": 474,
+    "types": 475,
     "enums": 4,
-    "functions": 1932,
+    "functions": 1935,
     "constants": 445
   },
   "symbols": {
@@ -2249,6 +2249,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lignes de commande à AFFICHER pour un gestionnaire — ce qu'on conseille à l'utilisateur doit être ce que son outil accepte, et sortir de la même règle que ce qu'on exécute ({@link packageManagerExe…"
+    },
+    "packageManagerWorkspaceRun": {
+      "name": "packageManagerWorkspaceRun",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ligne de script qui lance `script` dans chaque module du workspace (`modules/*`), sans échouer sur un module qui ne le déclare pas. Une forme par gestionnaire, parce qu'aucune ne se transpose : - *…"
+    },
+    "hasWorkspaceRun": {
+      "name": "hasWorkspaceRun",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le script délègue-t-il DÉJÀ aux modules, sous l'une des quatre formes de {@link packageManagerWorkspaceRun} ? Rend le câblage idempotent même après un changement de gestionnaire : on ne greffe pas …"
     },
     "needsWorkspaceProtocol": {
       "name": "needsWorkspaceProtocol",
@@ -7278,7 +7294,7 @@
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Déclare `modules/*` en workspaces npm de l'app et branche les scripts sur eux. POURQUOI c'est indispensable : le Kernel charge un module par son NOM (`import(\"@app/blog\")`, cf `Kernel.loadModule`) …"
+      "description": "Déclare `modules/*` en workspaces de l'app et branche les scripts sur eux, sous la forme que le gestionnaire du projet exécute (cf `packageManagerWorkspaceRun`). POURQUOI c'est indispensable : le K…"
     },
     "declareWorkspaceDependency": {
       "name": "declareWorkspaceDependency",
@@ -17638,7 +17654,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Lance les tests d'un module et renvoie un résumé (pass/fail/durée + tail). - 1 fichier (module vitest) → `npx vitest run <file>` (rapide, pass/fail). - sinon → `npm run coverage` (suite complète + …"
+      "description": "Lance les tests d'un module et renvoie un résumé (pass/fail/durée + tail). - 1 fichier (module vitest) → `vitest run <file>` (rapide, pass/fail). - sinon → le script `coverage` (suite complète + re…"
     },
     "resolveCorePath": {
       "name": "resolveCorePath",
@@ -30986,8 +31002,11 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/licenses.ts",
         "src/nodefony/src/cli/see.ts",
+        "src/nodefony/src/kernel/checks/deep.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts",
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "styleText": [
@@ -33046,25 +33065,35 @@
       ],
       "packageManagerCommandLines": [
         "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/deep.ts",
         "src/nodefony/src/kernel/checks/managerDrift.ts",
-        "src/nodefony/src/kernel/checks/readiness.ts"
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
       ],
       "packageManagerExecArgs": [
-        "src/nodefony/src/cli/create.ts"
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts",
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
       ],
       "resolvePackageManager": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/deep.ts",
         "src/nodefony/src/kernel/checks/managerDrift.ts",
-        "src/nodefony/src/kernel/checks/readiness.ts"
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts",
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
       ],
       "PackageManagerName": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/packageManager.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/checks/managerDrift.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/managerDrift.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "capAllows": [
         "src/nodefony/src/cli/create.ts",
@@ -34768,9 +34797,15 @@
       "pointeursInstructions": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "hasWorkspaceRun": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "needsWorkspaceProtocol": [
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/managerDrift.ts"
+      ],
+      "packageManagerWorkspaceRun": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "resolveModuleLayout": [
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -37807,6 +37842,9 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
       ],
       "resolveSymbolsFile": [
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
+      ],
+      "IPackageManagerResolution": [
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
       ],
       "parsePageQuery": [

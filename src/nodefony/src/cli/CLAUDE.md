@@ -582,7 +582,10 @@ catalogue aux manifests du monorepo (même MAJEURE exigée).
 `config/config.ts` + builder `defineModuleConfig.ts` + `docs/` + tests vitest ;
 `AGENTS.md` local **toujours rendu** — précédence « le plus proche gagne »). Câble l'app :
 `workspaces: ["modules/*"]` + scripts `build`/`typecheck`/`test` chaînés
-(`npm run X --workspaces --if-present`, build des modules AVANT l'app) + `use("@<app>/<name>", {})`
+(forme du gestionnaire du projet — `packageManagerWorkspaceRun` : `npm run X --workspaces
+--if-present`, `pnpm -r --if-present run X`, `yarn workspaces run X`, `bun run --filter
+'./modules/*' X` ; bun réécrit `npm run` et ignore `--workspaces` → boucle infinie ; build des
+modules AVANT l'app) + `use("@<app>/<name>", {})`
 dans le manifeste `modules` (insertion GARDÉE : crochet fermant APPARIÉ, ancre absente = note
 actionnable). **Zéro template dupliqué** : le controller et le front sont rendus par les
 scaffolds `controller`/`front` EXISTANTS, ciblés sur le module (`--module`). Gardes AVANT

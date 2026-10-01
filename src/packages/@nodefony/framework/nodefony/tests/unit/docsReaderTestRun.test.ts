@@ -30,18 +30,28 @@ describe("docsReader.testRunCommand — ce que Studio lance pour un module", () 
   });
 
   it("un fichier → vitest le reçoit en FILTRE positionnel, jamais derrière `--`", () => {
-    const c = testRunCommand(vitestModule, "tests/unit/x.test.ts");
-    expect(c.cmd).to.equal("npx");
+    const c = testRunCommand(vitestModule, "tests/unit/x.test.ts", "pnpm");
+    expect(c.cmd).to.equal("pnpm");
     // `--` ferait tourner la suite ENTIÈRE : vitest ignore ce qui le suit.
     expect(c.args).to.not.include("--");
-    expect(c.args).to.deep.equal(["vitest", "run", "tests/unit/x.test.ts"]);
+    expect(c.args).to.deep.equal([
+      "exec",
+      "vitest",
+      "run",
+      "tests/unit/x.test.ts",
+    ]);
     expect(c.mode).to.equal("vitest run tests/unit/x.test.ts");
   });
 
   it("sans fichier → run-all, reporters coverage forcés vers .coverage", () => {
-    const c = testRunCommand(vitestModule);
-    expect(c.cmd).to.equal("npx");
-    expect(c.args.slice(0, 3)).to.deep.equal(["vitest", "run", "--coverage"]);
+    const c = testRunCommand(vitestModule, undefined, "pnpm");
+    expect(c.cmd).to.equal("pnpm");
+    expect(c.args.slice(0, 4)).to.deep.equal([
+      "exec",
+      "vitest",
+      "run",
+      "--coverage",
+    ]);
     expect(c.args).to.include("--coverage.reporter=json-summary");
     expect(c.args).to.include("--coverage.reportsDirectory=.coverage");
     expect(c.args).to.not.include("--");
@@ -49,14 +59,27 @@ describe("docsReader.testRunCommand — ce que Studio lance pour un module", () 
   });
 
   it("sans vitest.config.ts (le cœur) → son script coverage, fichier demandé ou non", () => {
-    expect(testRunCommand(coreLike)).to.deep.equal({
+    expect(testRunCommand(coreLike, undefined, "npm")).to.deep.equal({
       cmd: "npm",
       args: ["run", "coverage"],
       mode: "npm run coverage (suite complète)",
     });
-    expect(testRunCommand(coreLike, "src/tests/x.test.ts").args).to.deep.equal([
+    expect(
+      testRunCommand(coreLike, "src/tests/x.test.ts", "bun").args,
+    ).to.deep.equal(["run", "coverage"]);
+  });
+
+  it("le gestionnaire est celui du PROJET : son verrou décide, pas `npx`", () => {
+    // `npx` n'existe pas chez bun ; sous npm, `npm exec --` est sa forme, et
+    // le `--` y protège les options de vitest, jamais un filtre de fichier.
+    writeFileSync(join(vitestModule, "bun.lock"), "");
+    const c = testRunCommand(vitestModule, "tests/unit/x.test.ts");
+    expect(c.cmd).to.equal("bun");
+    expect(c.args).to.deep.equal([
       "run",
-      "coverage",
+      "vitest",
+      "run",
+      "tests/unit/x.test.ts",
     ]);
   });
 });

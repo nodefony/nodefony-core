@@ -4,7 +4,15 @@ import { join, dirname, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import { findProjectRoot, resolveSymbolsFile } from "nodefony";
+import {
+  findProjectRoot,
+  packageManagerCommandLines,
+  packageManagerExecArgs,
+  portableSpawn,
+  resolvePackageManager,
+  resolveSymbolsFile,
+} from "nodefony";
+import type { IPackageManagerResolution } from "nodefony";
 
 const execFileAsync = promisify(execFile);
 
@@ -1027,54 +1035,65 @@ export interface TestRunCommand {
  *   config du module (la liste `reporter` dupliquée par module divergeait).
  * - sinon (cœur : monocart, pas de `vitest.config.ts`) → `npm run coverage`.
  *
+ * Le binaire et le script passent par le gestionnaire de paquets du PROJET :
+ * `npx` n'existe pas chez bun, et sous pnpm il chercherait hors de l'arbre que
+ * le verrou décrit.
+ *
  * @param modulePath - racine du module (où vit `vitest.config.ts`)
  * @param file - chemin relatif d'UN fichier de test, déjà validé par l'appelant
+ * @param manager - gestionnaire du projet ; défaut : résolu depuis la racine
+ *   de l'application qui contient le module
  * @returns commande, arguments en tableau (spawn sans shell) et libellé du mode
  */
 export function testRunCommand(
   modulePath: string,
   file?: string,
+  manager: IPackageManagerResolution["name"] = resolvePackageManager({
+    dir: findProjectRoot(modulePath) ?? modulePath,
+  }).name,
 ): TestRunCommand {
   const hasVitest = existsSync(join(modulePath, "vitest.config.ts"));
   if (file && hasVitest) {
     return {
-      cmd: "npx",
-      args: ["vitest", "run", file],
+      cmd: manager,
+      args: packageManagerExecArgs(manager, "vitest", ["run", file]),
       mode: `vitest run ${file}`,
     };
   }
   if (hasVitest) {
     return {
-      cmd: "npx",
-      args: [
-        "vitest",
+      cmd: manager,
+      args: packageManagerExecArgs(manager, "vitest", [
         "run",
         "--coverage",
         "--coverage.reporter=text-summary",
         "--coverage.reporter=json-summary",
         "--coverage.reporter=lcov",
         "--coverage.reportsDirectory=.coverage",
-      ],
+      ]),
       mode: "vitest run --coverage (reporters forcés)",
     };
   }
   return {
-    cmd: "npm",
+    cmd: manager,
     args: ["run", "coverage"],
-    mode: "npm run coverage (suite complète)",
+    mode: `${packageManagerCommandLines(manager).run("coverage")} (suite complète)`,
   };
 }
 
 /**
  * Lance les tests d'un module et renvoie un résumé (pass/fail/durée + tail).
  *
- * - 1 fichier (module vitest) → `npx vitest run <file>` (rapide, pass/fail).
- * - sinon → `npm run coverage` (suite complète + refresh coverage ; marche
- *   pour vitest comme pour monocart/core).
+ * - 1 fichier (module vitest) → `vitest run <file>` (rapide, pass/fail).
+ * - sinon → le script `coverage` (suite complète + refresh coverage ; marche
+ *   pour vitest comme pour le cœur).
+ * Les deux par le gestionnaire du projet (cf {@link testRunCommand}).
  *
  * ⚠️ EXÉCUTE un process — appelé UNIQUEMENT derrière le garde dev-only de
- * l'endpoint (cf KernelAdminApi). spawn sans shell + args en tableau (pas
- * d'injection shell). `file` validé en amont (suffixe .test.ts, pas de `..`).
+ * l'endpoint (cf KernelAdminApi). `portableSpawn` : jamais de `shell`, args
+ * en tableau (pas d'injection), et le `.cmd` du gestionnaire se lance sous
+ * Windows — un `spawn("npx")` nu y rendait `ENOENT`. `file` validé en amont
+ * (suffixe .test.ts, pas de `..`).
  */
 export function runModuleTests(
   modulePath: string,
@@ -1090,7 +1109,12 @@ export function runModuleTests(
     };
     let child;
     try {
-      child = spawn(cmd, args, { cwd: modulePath, env: process.env });
+      const run = portableSpawn(cmd, args);
+      child = spawn(run.file, run.args, {
+        cwd: modulePath,
+        env: process.env,
+        windowsVerbatimArguments: run.windowsVerbatimArguments,
+      });
     } catch (e) {
       return resolve({
         ok: false,

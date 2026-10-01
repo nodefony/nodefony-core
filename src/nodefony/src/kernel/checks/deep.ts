@@ -29,6 +29,11 @@
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { portableSpawn } from "../../cli/execPortable";
+import {
+  packageManagerCommandLines,
+  resolvePackageManager,
+} from "../../cli/packageManager";
 import { aggregateOutdated, type IOutdatedSummary } from "../../cli/outdated";
 import type { NpmOutdatedReport } from "../../cli/outdated";
 
@@ -222,8 +227,11 @@ export function verifyChainSteps(projectRoot: string): {
   for (const raw of chain.split("&&")) {
     const piece = raw.trim();
     if (piece.length === 0) continue;
-    // `npm run <x>`, `npm test`, et leurs variantes pnpm/yarn : même grammaire.
-    const named = /^(?:npm|pnpm|yarn)\s+run\s+([\w:.-]+)/u.exec(piece);
+    // `npm run <x>`, `npm test`, et leurs variantes pnpm/yarn/bun : même
+    // grammaire — le gabarit écrit `verify` avec le gestionnaire du projet.
+    const named = /^(?:npm|pnpm|yarn|bun)\s+run\s+([\w:.-]+)/u.exec(piece);
+    // Pas de forme courte chez bun : `bun test` lance SON testeur, pas le
+    // script `test` du projet.
     const shorthand = /^(?:npm|pnpm|yarn)\s+(test|start)\b/u.exec(piece);
     const step = named?.[1] ?? shorthand?.[1];
     if (step === undefined) {
@@ -296,7 +304,7 @@ export async function runVerifySteps(
   projectRoot: string,
   steps: readonly string[],
   run: (step: string) => IStepRun | Promise<IStepRun> = (step) =>
-    runNpmScript(projectRoot, step),
+    runProjectScript(projectRoot, step),
   report?: DeepReporter,
 ): Promise<IVerifyStepResult[]> {
   const { present } = declaredSteps(projectRoot, steps);
@@ -319,7 +327,7 @@ export async function runVerifySteps(
         detail:
           `interrompu après ${Math.round(r.ms / 1000)} s — la borne de CE contrôle ` +
           `(${Math.round(timeoutForStep(step) / 1000)} s) était trop courte, ce qui ne dit rien du projet. ` +
-          `Relance l'étape seule : npm run ${step}`,
+          `Relance l'étape seule : ${packageManagerCommandLines(resolvePackageManager({ dir: projectRoot }).name).run(step)}`,
       });
       continue;
     }
@@ -352,7 +360,8 @@ export interface IStepRun {
 }
 
 /**
- * Lance un script npm du projet, borné dans le temps — de façon ASYNCHRONE.
+ * Lance un script du projet par SON gestionnaire de paquets, borné dans le
+ * temps — de façon ASYNCHRONE.
  *
  * 🔴 **`spawnSync` est ce qui empêchait toute animation, et rien ne le disait.**
  * Un appel synchrone bloque la boucle d'évènements de Node : aucun `setInterval`
@@ -369,18 +378,24 @@ export interface IStepRun {
  * @param step - le script npm à lancer.
  * @returns son code de sortie (`null` = tué par la borne), ses flux et sa durée.
  */
-function runNpmScript(projectRoot: string, step: string): Promise<IStepRun> {
+function runProjectScript(
+  projectRoot: string,
+  step: string,
+): Promise<IStepRun> {
   const timeout = timeoutForStep(step);
   const startedAt = Date.now();
   return new Promise<IStepRun>((resolve) => {
-    const child = spawn("npm", ["run", step], {
+    // `portableSpawn` : sous Windows le gestionnaire est un `.cmd`, que Node
+    // refuse d'exécuter sans shell (CVE-2024-27980) — il rend `ENOENT`, qui se
+    // lit « npm n'est pas installé » sur une machine où il l'est.
+    const run = portableSpawn(
+      resolvePackageManager({ dir: projectRoot }).name,
+      ["run", step],
+    );
+    const child = spawn(run.file, run.args, {
       cwd: projectRoot,
       timeout,
-      // `shell` sous Windows : `npm` y est un `.cmd`, que Node refuse
-      // d'exécuter sans shell depuis le correctif de CVE-2024-27980 — et il
-      // rend `ENOENT`, qui se lit « npm n'est pas installé » sur une machine
-      // où il l'est.
-      shell: process.platform === "win32",
+      windowsVerbatimArguments: run.windowsVerbatimArguments,
     });
     let stdout = "";
     let stderr = "";
@@ -433,6 +448,15 @@ export async function readOutdated(
       outcome,
       ms: Date.now() - debut,
     });
+  if (r.unsupported !== undefined) {
+    annoncer("unavailable");
+    return {
+      summary: null,
+      reason:
+        `le relevé des retards ne lit que npm, et ce projet est géré par ` +
+        `${r.unsupported} — rien n'en est déduit`,
+    };
+  }
   if (r.failed) {
     annoncer("unavailable");
     return {
@@ -468,22 +492,32 @@ export async function readOutdated(
 export interface IOutdatedRun {
   stdout: string;
   failed: boolean;
+  /** Gestionnaire du projet quand ce n'est pas npm : aucune interrogation lancée. */
+  unsupported?: string;
 }
 
 /**
  * Interroge le registre, borné — le réseau ne se laisse pas attendre.
  *
- * Asynchrone pour la MÊME raison que {@link runNpmScript} : un `spawnSync` fige
+ * Asynchrone pour la MÊME raison que {@link runProjectScript} : un `spawnSync` fige
  * la boucle d'évènements, donc l'animation de l'attente. Corriger un seul des
  * deux appels aurait laissé le tourniquet immobile pendant les trente secondes
  * de cette étape-ci — une moitié de correctif qu'on aurait crue entière.
  */
 function runNpmOutdated(projectRoot: string): Promise<IOutdatedRun> {
+  // Le document de `npm outdated` est le seul que l'agrégation sait lire ;
+  // lancé sur l'arbre d'un autre gestionnaire, npm rendrait des retards et des
+  // absences qui n'existent pas. On le DIT plutôt que de le deviner.
+  const manager = resolvePackageManager({ dir: projectRoot }).name;
+  if (manager !== "npm") {
+    return Promise.resolve({ stdout: "", failed: false, unsupported: manager });
+  }
   return new Promise<IOutdatedRun>((resolve) => {
-    const child = spawn("npm", ["outdated", "--json"], {
+    const run = portableSpawn("npm", ["outdated", "--json"]);
+    const child = spawn(run.file, run.args, {
       cwd: projectRoot,
       timeout: NETWORK_TIMEOUT_MS,
-      shell: process.platform === "win32",
+      windowsVerbatimArguments: run.windowsVerbatimArguments,
     });
     let stdout = "";
     child.stdout.setEncoding("utf8");

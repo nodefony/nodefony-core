@@ -46,10 +46,14 @@ const ETA_OPTIONS = {
 const EXAMPLE_SERVICE = "Greeting";
 import { findProjectRoot } from "../projectRoot";
 import {
+  hasWorkspaceRun,
   isPackageManagerName,
   needsWorkspaceProtocol,
+  packageManagerCommandLines,
+  packageManagerWorkspaceRun,
   resolvePackageManager,
 } from "../packageManager";
+import type { PackageManagerName } from "../../Cli";
 // L'infra déclarée et l'ordre de la cascade `.env` ont chacun UNE
 // implémentation, celle qu'exécute le kernel. Le scaffold les emprunte : une
 // seconde lecture divergerait au premier alias ou au premier fichier ajouté.
@@ -1843,6 +1847,11 @@ function dispatchScaffold(
     String(answers.name),
   );
   const license = String(answers.license);
+  const packageManager: PackageManagerName = isPackageManagerName(
+    answers.packageManager,
+  )
+    ? answers.packageManager
+    : "npm";
   const data = {
     appName: answers.name,
     // Identifiant SPDX rendu dans le manifeste ET choix du gabarit de LICENSE :
@@ -1879,9 +1888,11 @@ function dispatchScaffold(
     // Gestionnaire de paquets choisi : il décide du fichier de workspace
     // (`pnpm-workspace.yaml`) et du champ qui porte les overrides — chaque
     // outil ne lit que le sien, et un override ignoré ne prévient pas.
-    packageManager: isPackageManagerName(answers.packageManager)
-      ? answers.packageManager
-      : "npm",
+    packageManager,
+    // Les scripts qui en appellent d'autres passent par le MÊME gestionnaire :
+    // bun réécrit `npm run` à sa façon, et un audit a une syntaxe par outil.
+    pmRun: `${packageManager} run`,
+    pmAudit: packageManagerCommandLines(packageManager).audit,
     // Catalogue de versions tierces (source unique — cf versions.ts).
     pkg: SCAFFOLD_VERSIONS,
     preset,
@@ -2182,7 +2193,9 @@ function dispatchScaffold(
 }
 
 /**
- * Déclare `modules/*` en workspaces npm de l'app et branche les scripts sur eux.
+ * Déclare `modules/*` en workspaces de l'app et branche les scripts sur eux,
+ * sous la forme que le gestionnaire du projet exécute (cf
+ * `packageManagerWorkspaceRun`).
  *
  * POURQUOI c'est indispensable : le Kernel charge un module par son NOM
  * (`import("@app/blog")`, cf `Kernel.loadModule`) — pas par un chemin. Sans le
@@ -2193,11 +2206,15 @@ function dispatchScaffold(
  *
  * Idempotent — relancé pour le 2ᵉ module, il ne touche plus à rien.
  *
+ * @param projectRoot - racine de l'app
+ * @param writer - transaction du scaffold
+ * @param packageManager - gestionnaire du projet
  * @returns true si le `package.json` de l'app a été modifié.
  */
 export function ensureWorkspaces(
   projectRoot: string,
   writer: ScaffoldWriter,
+  packageManager: PackageManagerName = "npm",
 ): boolean {
   const manifestPath = path.join(projectRoot, "package.json");
   const manifest = JSON.parse(writer.read(manifestPath)) as {
@@ -2220,10 +2237,10 @@ export function ensureWorkspaces(
   };
   for (const [name, when] of Object.entries(CHAIN)) {
     const script = scripts[name];
-    if (!script || script.includes("--workspaces")) {
+    if (!script || hasWorkspaceRun(script)) {
       continue;
     }
-    const delegated = `npm run ${name} --workspaces --if-present`;
+    const delegated = packageManagerWorkspaceRun(packageManager, name);
     scripts[name] =
       when === "before"
         ? `${delegated} && ${script}`
@@ -2841,7 +2858,16 @@ function runModuleScaffold(
   // Un dépôt qui déclare DÉJÀ son dossier de modules en workspace a sa propre
   // chaîne de construction (turbo, nx…) : y greffer `npm run … --workspaces`
   // la doublerait. On ne câble que ce qui manque.
-  if (!layout.workspaceDeclared && ensureWorkspaces(projectRoot, writer)) {
+  // Gestionnaire du projet, lu UNE fois : il décide de la forme des scripts
+  // délégués et du protocole `workspace:*`, comme de l'installation qui suit.
+  const packageManager = resolvePackageManager({
+    dir: projectRoot,
+    exists: (file) => writer.exists(file),
+  }).name;
+  if (
+    !layout.workspaceDeclared &&
+    ensureWorkspaces(projectRoot, writer, packageManager)
+  ) {
     notes.push(
       "package.json de l'app : workspaces modules/* + scripts build/typecheck/test chaînés",
     );
@@ -2852,12 +2878,7 @@ function runModuleScaffold(
   // même qu'à l'installation qui suit.
   if (
     layout.kind === "modules" &&
-    needsWorkspaceProtocol(
-      resolvePackageManager({
-        dir: projectRoot,
-        exists: (file) => writer.exists(file),
-      }).name,
-    ) &&
+    needsWorkspaceProtocol(packageManager) &&
     declareWorkspaceDependency(projectRoot, pkgName, writer)
   ) {
     notes.push(`package.json de l'app : "${pkgName}": "workspace:*"`);
