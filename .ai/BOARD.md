@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-01 08:24** (UTC).
+> Empreinte prise le **2026-10-01 08:44** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -33,7 +33,7 @@
 
 **#510 — perf(orm): réduire le surcoût par requête du chemin ORM**
 
-Ordre 2.0025 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
+Ordre 2.0025 · P2 — décision · 1 j · jalon 10.0.0-beta · frise 2026-10-01 → 10-01
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 43 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -51,49 +51,49 @@ Ordre 2.0025 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 2.0025 | P2 — décision | 1 | — | #510 | perf(orm): réduire le surcoût par requête du chemin ORM |
-| 2.003 | — | — | — | #509 | docs(perf): republier les mesures de performance, prises avant l'optimisation #505 |
-| 2.004 | P2 — décision | 1 | 2026-10-12 → 10-12 | #259 | ci(release): publier aussi l'image sur GHCR, sans secret stocké |
-| 2.01 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #215 | fix(build): réparer le contrôle de format du code généré |
-| 2.02 | P2 — décision | 1 | 2026-10-14 → 10-14 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
-| 2.03 | P1 — figé à la création | 1 | 2026-10-15 → 10-15 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
-| 2.04 | P1 — figé à la création | 1 | 2026-10-16 → 10-16 | #294 | test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun |
-| 2.05 | P1 — figé à la création | 1 | 2026-10-19 → 10-19 | #351 | fix(bundler): garder le framework hors du bundle d'un module |
-| 2.06 | P2 — décision | 0.5 | 2026-10-20 → 10-20 | #425 | fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab |
-| 3.01 | P1 — figé à la création | 3 | 2026-10-21 → 10-23 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
-| 3.02 | P0 — bloque le reste | 1 | 2026-10-22 → 10-22 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
-| 3.03 | P1 — figé à la création | 1 | 2026-10-23 → 10-23 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
-| 3.04 | P2 — décision | 1 | 2026-10-26 → 10-26 | #272 | docs(security): documenter le branchement d'un Keycloak, du realm au premier login |
-| 3.05 | P1 — figé à la création | 1 | — | #478 | feat(security): fournir aux pods de production une clé de signature partagée |
-| 4.01 | P2 — décision | 0.5 | 2026-10-27 → 10-27 | #396 | fix(orm): refuser orm:generate si une entité n'a pas pu être lue |
-| 4.02 | P1 — figé à la création | 0.5 | 2026-10-28 → 10-28 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
-| 4.03 | P1 — figé à la création | 1 | 2026-10-29 → 10-29 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
-| 4.04 | P1 — figé à la création | 1 | 2026-10-30 → 10-30 | #314 | fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas |
-| 4.05 | P2 — décision | 1 | 2026-11-02 → 11-02 | #352 | fix(http): empêcher un frontal de retenir un flux d'événements |
-| 4.06 | P2 — décision | 1 | 2026-11-03 → 11-03 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
-| 4.07 | P2 — décision | 1 | 2026-11-04 → 11-04 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
-| 4.075 | P2 — décision | 1 | — | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
-| 4.08 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows |
-| 4.09 | P1 — figé à la création | 1 | 2026-11-05 → 11-05 | #451 | fix(client): cesser d'ignorer en silence les trames binaires reçues |
-| 4.1 | P2 — décision | 1 | — | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
-| 5.01 | P2 — décision | 1 | 2026-11-06 → 11-06 | #159 | docs(api): publier une référence d'API générée par paquet |
-| 5.02 | P2 — décision | 1 | 2026-11-09 → 11-09 | #359 | docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé |
-| 5.03 | P2 — décision | 1 | 2026-11-10 → 11-10 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
-| 5.04 | P2 — décision | 1 | 2026-11-11 → 11-11 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
-| 5.06 | P2 — décision | 0.5 | 2026-11-13 → 11-13 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
-| 5.07 | P2 — décision | 0.5 | 2026-11-16 → 11-16 | #400 | docs(tests): sortir les boots CLI du lot dit non disruptif |
-| 5.08 | P1 — figé à la création | 1 | 2026-11-17 → 11-17 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
-| 5.09 | P0 — bloque le reste | 1 | 2026-11-18 → 11-18 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
-| 5.1 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
-| 5.11 | P2 — décision | 1 | 2026-11-20 → 11-20 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
-| 6.01 | P2 — décision | 7 | 2026-11-23 → 12-01 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 6.02 | P2 — décision | 1 | 2026-11-23 → 11-23 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 6.03 | P2 — décision | 1 | 2026-11-24 → 11-24 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 6.04 | P1 — figé à la création | 1 | 2026-11-25 → 11-25 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 6.05 | P1 — figé à la création | 1 | 2026-11-26 → 11-26 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 6.06 | P1 — figé à la création | 3 | 2026-11-27 → 12-01 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
-| 6.07 | P1 — figé à la création | 0.5 | 2026-09-25 → 12-01 | #479 | ci: empêcher un process détaché de figer les jobs Windows après leur succès |
-| 6.08 | P1 — figé à la création | 2 | — | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
+| 2.0025 | P2 — décision | 1 | 2026-10-01 → 10-01 | #510 | perf(orm): réduire le surcoût par requête du chemin ORM |
+| 2.003 | — | — | 2026-10-02 → 10-02 | #509 | docs(perf): republier les mesures de performance, prises avant l'optimisation #505 |
+| 2.004 | P2 — décision | 1 | 2026-10-05 → 10-05 | #259 | ci(release): publier aussi l'image sur GHCR, sans secret stocké |
+| 2.01 | P1 — figé à la création | 1 | 2026-10-06 → 10-06 | #215 | fix(build): réparer le contrôle de format du code généré |
+| 2.02 | P2 — décision | 1 | 2026-10-07 → 10-07 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
+| 2.03 | P1 — figé à la création | 1 | 2026-10-08 → 10-08 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
+| 2.04 | P1 — figé à la création | 1 | 2026-10-09 → 10-09 | #294 | test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun |
+| 2.05 | P1 — figé à la création | 1 | 2026-10-12 → 10-12 | #351 | fix(bundler): garder le framework hors du bundle d'un module |
+| 2.06 | P2 — décision | 0.5 | 2026-10-13 → 10-13 | #425 | fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab |
+| 3.01 | P1 — figé à la création | 3 | 2026-10-14 → 10-16 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
+| 3.02 | P0 — bloque le reste | 1 | 2026-10-14 → 10-14 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
+| 3.03 | P1 — figé à la création | 1 | 2026-10-15 → 10-15 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
+| 3.04 | P2 — décision | 1 | 2026-10-16 → 10-16 | #272 | docs(security): documenter le branchement d'un Keycloak, du realm au premier login |
+| 3.05 | P1 — figé à la création | 1 | 2026-10-19 → 10-19 | #478 | feat(security): fournir aux pods de production une clé de signature partagée |
+| 4.01 | P2 — décision | 0.5 | 2026-10-20 → 10-20 | #396 | fix(orm): refuser orm:generate si une entité n'a pas pu être lue |
+| 4.02 | P1 — figé à la création | 0.5 | 2026-10-21 → 10-21 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
+| 4.03 | P1 — figé à la création | 1 | 2026-10-22 → 10-22 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
+| 4.04 | P1 — figé à la création | 1 | 2026-10-23 → 10-23 | #314 | fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas |
+| 4.05 | P2 — décision | 1 | 2026-10-26 → 10-26 | #352 | fix(http): empêcher un frontal de retenir un flux d'événements |
+| 4.06 | P2 — décision | 1 | 2026-10-27 → 10-27 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
+| 4.07 | P2 — décision | 1 | 2026-10-28 → 10-28 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
+| 4.075 | P2 — décision | 1 | 2026-10-29 → 10-29 | #480 | feat(cli): afficher la doc de la commande sous toute erreur d'usage |
+| 4.08 | P2 — décision | 0.5 | 2026-10-30 → 10-30 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows |
+| 4.09 | P1 — figé à la création | 1 | 2026-11-02 → 11-02 | #451 | fix(client): cesser d'ignorer en silence les trames binaires reçues |
+| 4.1 | P2 — décision | 1 | 2026-11-03 → 11-03 | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
+| 5.01 | P2 — décision | 1 | 2026-11-04 → 11-04 | #159 | docs(api): publier une référence d'API générée par paquet |
+| 5.02 | P2 — décision | 1 | 2026-11-05 → 11-05 | #359 | docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé |
+| 5.03 | P2 — décision | 1 | 2026-11-06 → 11-06 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
+| 5.04 | P2 — décision | 1 | 2026-11-09 → 11-09 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
+| 5.06 | P2 — décision | 0.5 | 2026-11-10 → 11-10 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
+| 5.07 | P2 — décision | 0.5 | 2026-11-11 → 11-11 | #400 | docs(tests): sortir les boots CLI du lot dit non disruptif |
+| 5.08 | P1 — figé à la création | 1 | 2026-11-12 → 11-12 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
+| 5.09 | P0 — bloque le reste | 1 | 2026-11-13 → 11-13 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
+| 5.1 | P2 — décision | 0.5 | 2026-11-16 → 11-16 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
+| 5.11 | P2 — décision | 1 | 2026-11-17 → 11-17 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
+| 6.01 | P2 — décision | 7 | 2026-11-18 → 11-26 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 6.02 | P2 — décision | 1 | 2026-11-18 → 11-18 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 6.03 | P2 — décision | 1 | 2026-11-19 → 11-19 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 6.04 | P1 — figé à la création | 1 | 2026-11-20 → 11-20 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 6.05 | P1 — figé à la création | 1 | 2026-11-23 → 11-23 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 6.06 | P1 — figé à la création | 3 | 2026-11-24 → 11-26 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
+| 6.07 | P1 — figé à la création | 0.5 | 2026-11-25 → 11-25 | #479 | ci: empêcher un process détaché de figer les jobs Windows après leur succès |
+| 6.08 | P1 — figé à la création | 2 | 2026-11-26 → 11-27 | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
 
 ## Jalon 10.1.0 — 31 ouverts
 
@@ -108,13 +108,13 @@ Ordre 2.0025 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 | 20 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #87 | test(mail): éprouver l'envoi contre un vrai serveur de test |
 | 21 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #88 | docs(mail): documenter la configuration et le premier envoi |
 | 46 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #349 | feat(cli): ajouter une brique à une application déjà générée |
-| 46.5 | P1 — figé à la création | 1 | — | #462 | feat(cli): ajouter mcp:stdio pour les agents qui lancent leur serveur |
+| 46.5 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #462 | feat(cli): ajouter mcp:stdio pour les agents qui lancent leur serveur |
 | 100 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 110 | P2 — décision | 3 | 2026-11-16 → 12-15 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
 | 113 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #78 | test(core): remplacer les seuils absolus des tests de performance |
 | 115 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #66 | feat(orm): exposer et borner la taille du pool de connexions |
 | 116 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #67 | feat(orm): capturer le contexte des requêtes qui échouent |
-| 116.5 | P2 — décision | 1 | 2026-09-25 → 09-25 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
+| 116.5 | P2 — décision | 1 | 2026-11-16 → 12-15 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
 | 120 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #72 | test(http): mesurer la tenue mémoire sur plusieurs heures |
 | 121 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
 | 134 | P2 — décision | 1 | 2026-11-16 → 12-15 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
