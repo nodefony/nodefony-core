@@ -76,6 +76,7 @@ import { planTableCreation, explainOmittedForeignKeys } from "./ddlPlan";
 import type { IResolvedForeignKey } from "./ddlPlan";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 import { MEMORY_DATABASE } from "../memoryDatabase";
+import { enableWriteAheadLog } from "../sqliteJournal";
 
 /**
  * État interne du pool `mysql2` (INTERNE, best-effort) — ce que le driver ne
@@ -880,8 +881,14 @@ export class DrizzleOrm extends Orm {
     // `synchronous=NORMAL` = compromis sûr+rapide recommandé AVEC WAL. Sans objet sur
     // `:memory:` (pas de fichier journal) → gaté sur un fichier réel.
     if (this.#filename !== MEMORY_DATABASE) {
-      client.pragma("journal_mode = WAL");
-      client.pragma("synchronous = NORMAL");
+      // Tolère les ouvertures concurrentes d'une base neuve (app + migration,
+      // workers d'un cluster) — cf `enableWriteAheadLog`.
+      try {
+        await enableWriteAheadLog(client);
+      } catch (e) {
+        client.close();
+        throw e;
+      }
     }
     // 🔴 Sans ce réglage, les clés étrangères sont DÉCORATIVES : SQLite les
     // écrit dans le schéma, les relit, et n'empêche rien. Le réglage porte sur la

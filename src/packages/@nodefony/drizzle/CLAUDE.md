@@ -113,6 +113,13 @@ Deux usages :
   s'écrivent toutes en minuscules (`catalog.ts:66`, garde `schema-reconcile-dialects.e2e.test.ts`).
 - 🔴 **`grep` sans `-a` rend un faux « rien trouvé »** sur nos fichiers accentués (il les prend
   pour du binaire et se tait). Un contrôle qui en conclut « le symbole n'existe plus » est faux.
+- 🔴 **Passer en WAL une base SQLite NEUVE ouverte par plusieurs processus = `SQLITE_BUSY`
+  IMMÉDIAT** (verrou exclusif ; impasse de deux lecteurs, le `timeout` de connexion n'y joue pas).
+  App + `orm:migrate` par `docker exec`, workers de `cluster -w N` : 23/40 ouvertures
+  synchronisées échouaient. Les deux ouvreurs passent par `enableWriteAheadLog`
+  (`nodefony/src/sqliteJournal.ts`) : lit le mode (persistant, seul le premier bascule), réessaie
+  le conflit sous échéance. Aucun banc ne l'attrapait : tests mono-processus, bancs multi-instances
+  sur PG/MySQL ou sur une base déjà en WAL — une sonde non SYNCHRONISÉE rend 0/30.
 - `better-sqlite3` = natif (compile via node-gyp) ; OK sur Node 26 (prebuild 12.x).
 - `db.query.*` (API relationnelle Drizzle) **non** utilisée → typage générique
   sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.

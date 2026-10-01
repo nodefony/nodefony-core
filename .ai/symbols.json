@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 883,
-    "symbols": 4421,
+    "files": 884,
+    "symbols": 4426,
     "classes": 404,
-    "interfaces": 1155,
+    "interfaces": 1157,
     "types": 475,
     "enums": 4,
-    "functions": 1937,
-    "constants": 446
+    "functions": 1939,
+    "constants": 447
   },
   "symbols": {
     "Cli": {
@@ -16395,6 +16395,48 @@
       ],
       "decorators": [],
       "description": "Stockage de session **Drizzle** (driver `better-sqlite3`), branché sur `@nodefony/orm-core`. Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http` — st…"
+    },
+    "ISqlitePragmaClient": {
+      "name": "ISqlitePragmaClient",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/sqliteJournal.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Mise en WAL d'une base SQLite — UNE implémentation, appelée par les deux ouvreurs de fichier du paquet : l'adapter ORM (`DrizzleOrm`) et le pilote de migration (`sqliteDriver`). Une base migrée pui…"
+    },
+    "IWriteAheadLogOptions": {
+      "name": "IWriteAheadLogOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/sqliteJournal.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Réglages de la mise en WAL — injectables pour l'éprouver sans attendre."
+    },
+    "isSqliteBusy": {
+      "name": "isSqliteBusy",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/sqliteJournal.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'erreur est-elle un conflit de verrou, qui se règle en réessayant ?"
+    },
+    "enableWriteAheadLog": {
+      "name": "enableWriteAheadLog",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/sqliteJournal.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Passe la base en WAL (`synchronous = NORMAL`), en tolérant les ouvertures CONCURRENTES d'une base neuve. Basculer en WAL exige un verrou exclusif. Deux processus qui ouvrent la même base neuve au m…"
+    },
+    "WAL_DEADLINE_MS": {
+      "name": "WAL_DEADLINE_MS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/sqliteJournal.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Échéance par défaut : au-delà, une base occupée l'est pour de bon."
     },
     "IFrameworkConfig": {
       "name": "IFrameworkConfig",
@@ -39740,6 +39782,10 @@
       ],
       "IResolvedForeignKey": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "enableWriteAheadLog": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
       ],
       "assertOrderOption": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
