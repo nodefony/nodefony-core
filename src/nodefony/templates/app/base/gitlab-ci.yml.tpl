@@ -26,9 +26,9 @@ verify:
   cache:
     key:
       files:
-        - package-lock.json
+        - <%= it.toolchain.lockfile %>
     paths:
-      - .npm/
+      - <%= it.toolchain.projectCacheDir %>/
 <% if (it.db) { %>  # La base retenue à la création — même image que le compose (même
   # catalogue du générateur). ⚠️ Sur GitLab, un service se joint par son
   # ALIAS, jamais par l'adresse locale du `.env` (il tourne dans un autre
@@ -55,7 +55,8 @@ verify:
     MYSQL_PASSWORD: <%= it.appName %>-dev
     MYSQL_DATABASE: <%= it.appName %>
 <% } %><% } %>  script:
-    - npm ci --cache .npm --prefer-offline
+<% if (it.toolchain.bootstrap) { %>    - <%= it.toolchain.bootstrap %>
+<% } %>    - <%= it.toolchain.projectCachedInstall %>
 <% if (it.mongo) { %>    # Le jeu de réplicas s'initie ICI, par le pilote de l'application : un
     # service GitLab ne se prête pas à un `exec`. Prêt = un PRIMAIRE élu, pas
     # seulement initié — une écriture pendant l'élection échoue.
@@ -80,9 +81,9 @@ verify:
       process.exit(1);
       JS
 <% } %>    # typecheck + lint + tests + `nodefony doctor` — l'ordre du script.
-    - npm run verify
+    - <%= it.pmRun %> verify
     # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
-    - npm run test:e2e
+    - <%= it.pmRun %> test:e2e
 
 # 🔴 L'IMAGE est l'artefact qu'on PUBLIE, et le seul que rien ne regardait.
 # Un secret qui y entre est public : une couche reste téléchargeable même quand
@@ -120,9 +121,9 @@ image-check:
   cache:
     key:
       files:
-        - package-lock.json
+        - <%= it.toolchain.lockfile %>
     paths:
-      - .npm/
+      - <%= it.toolchain.projectCacheDir %>/
   before_script:
     # Le CLIENT seul — le démon est le service ci-dessus. Le nom du paquet a
     # changé selon les versions de Debian : on tente les deux plutôt que de
@@ -132,9 +133,10 @@ image-check:
       apt-get install -y -qq --no-install-recommends docker-cli
       || apt-get install -y -qq --no-install-recommends docker.io
   script:
-    - npm ci --cache .npm --prefer-offline
+<% if (it.toolchain.bootstrap) { %>    - <%= it.toolchain.bootstrap %>
+<% } %>    - <%= it.toolchain.projectCachedInstall %>
     - docker build -t <%= it.appName %>:ci .
     # `nodefony image:check` lit les COUCHES et refuse par un code non nul. Un
     # contrôle qui n'a pas PU regarder (démon injoignable, couche illisible)
     # sort en 69, pas en 0 : ce job échoue alors, ce qui est voulu.
-    - npx nodefony image:check <%= it.appName %>:ci
+    - <%= it.pmExec("nodefony") %> image:check <%= it.appName %>:ci

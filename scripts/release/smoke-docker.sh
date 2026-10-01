@@ -27,9 +27,14 @@
 #            sous musl : la base jointe par son NOM de service — la seule chose
 #            qu'Alpine pouvait casser —, les migrations appliquées, et la suite
 #            e2e générée jouée DANS un conteneur Alpine
+#   pm     — les TROIS autres gestionnaires (`pm:pnpm|yarn|bun`), chacun avec
+#            SON gabarit : installation depuis les tarballs, build, typecheck,
+#            `create module`, migration, puis l'image construite par le
+#            Dockerfile généré pour lui et `/readyz`. npm est éprouvé par les
+#            cinq autres scénarios. Exige l'outil sur l'hôte.
 #
 # Usage (racine repo) :
-#   npm run release:smoke -- [--scenario all|base|front|studio|edge|sql]
+#   npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|pm]
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 set -euo pipefail
 
@@ -50,12 +55,12 @@ SCENARIO="all"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scenario) SCENARIO="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
     *) echo "option inconnue : $1" >&2; exit 64 ;;
   esac
 done
 case "$SCENARIO" in
-  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql) ;;
+  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql|pm|pm:pnpm|pm:yarn|pm:bun) ;;
   *) echo "scénario inconnu : $SCENARIO" >&2; exit 64 ;;
 esac
 # `sql` se DÉCOUPE par moteur, et ce n'est pas un raffinement : le job de forge
@@ -122,10 +127,11 @@ assert_app_conforme() { # dir quoi
 # omis, la commande n'est pas passée du tout : c'est le générateur qui décide
 # alors, et le banc ne doit pas se substituer à son défaut — le jour où il
 # change, les quatre autres scénarios doivent suivre sans qu'on y touche.
-scaffold_app() { # nom dir preset frontend [database]
-  local name="$1" dir="$2" preset="$3" front="$4" db="${5:-}"
+scaffold_app() { # nom dir preset frontend [database] [gestionnaire]
+  local name="$1" dir="$2" preset="$3" front="$4" db="${5:-}" pm="${6:-}"
   local db_opt=()
   [ -n "$db" ] && db_opt=(--database "$db")
+  [ -n "$pm" ] && db_opt+=(--package-manager "$pm")
   # 🔴 `"${db_opt[@]+"${db_opt[@]}"}"` et non `"${db_opt[@]}"` : sous `set -u`,
   # le bash 3.2 que macOS livre encore traite un tableau VIDE comme une variable
   # non définie et tue le script — `db_opt[@]: unbound variable` —, là où bash 5
@@ -139,7 +145,7 @@ scaffold_app() { # nom dir preset frontend [database]
     --no-install --no-git > "$WORK/.scaffold-$name.out" 2>&1 \
     || { tail -30 "$WORK/.scaffold-$name.out"; fail "nodefony create app ($preset/$front${db:+/db=$db})"; }
   assert_app_conforme "$dir" "nodefony create app"
-  ok "app « $name » générée ($preset / front=$front${db:+ / database=$db})"
+  ok "app « $name » générée ($preset / front=$front${db:+ / database=$db}${pm:+ / $pm})"
 }
 
 # L'identité que la suite e2e générée présentera — lue à SA source, la
@@ -154,13 +160,22 @@ e2e_admin_password() { # dir (dépendances installées)
 
 # Pointe les dépendances du framework vers les tarballs : l'installation qui
 # suivra n'aura jamais vu le dépôt.
-rewrite_deps() { # dir
+#
+# Le 2ᵉ argument (gestionnaire, hors npm) ÉPINGLE en plus chaque paquet du
+# framework sur son tarball, dans le champ que CE gestionnaire lit : un module
+# local (`create module`) déclare `nodefony` en PAIR, et pnpm résout ce pair au
+# REGISTRE — où la même version existe déjà. Deux copies du même numéro, l'une
+# du tarball, l'autre publiée : le noyau refuse de démarrer (duplicité de
+# paquet). Chez un utilisateur, tout vient du registre et la copie est unique ;
+# c'est le DÉCOR du banc qui mélange deux sources.
+rewrite_deps() { # dir [gestionnaire]
   local dir="$1"
   rm -rf "$dir/tarballs"
   cp -R "$ROOT/release/tarballs" "$dir/tarballs"
   node -e '
 const fs = require("node:fs");
 const app = process.argv[1];
+const pm = process.argv[2] || "npm";
 const manifest = JSON.parse(fs.readFileSync(app + "/tarballs/manifest.json", "utf8"));
 const p = app + "/package.json";
 const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -171,9 +186,27 @@ for (const block of ["dependencies", "devDependencies"]) {
   }
 }
 if (n === 0) { throw new Error("aucune dep réécrite — le manifeste ne recouvre pas le package.json généré"); }
+const pins = Object.fromEntries(
+  Object.entries(manifest)
+    .filter(([name]) => name !== "create-nodefony")
+    .map(([name, tgz]) => [name, "file:./tarballs/" + tgz]),
+);
+if (pm === "pnpm") {
+  // pnpm ne lit ses overrides que dans pnpm-workspace.yaml.
+  const y = app + "/pnpm-workspace.yaml";
+  let yaml = fs.readFileSync(y, "utf8");
+  if (!/^overrides:$/mu.test(yaml)) { yaml += "\noverrides:\n"; }
+  const lines = Object.entries(pins).map(([k, v]) => "  \"" + k + "\": \"" + v + "\"").join("\n");
+  yaml = yaml.replace(/^overrides:\n/mu, "overrides:\n" + lines + "\n");
+  fs.writeFileSync(y, yaml);
+} else if (pm === "yarn") {
+  pkg.resolutions = { ...(pkg.resolutions ?? {}), ...pins };
+} else if (pm === "bun") {
+  pkg.overrides = { ...(pkg.overrides ?? {}), ...pins };
+}
 fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
-process.stdout.write("deps réécrites : " + n + "\n");
-' "$dir" || fail "réécriture des dépendances"
+process.stdout.write("deps réécrites : " + n + (pm === "npm" ? "" : " · épinglées (" + pm + ")") + "\n");
+' "$dir" "${2:-}" || fail "réécriture des dépendances"
 }
 
 # Joue, CÔTÉ HÔTE, ce que le produit prescrit à qui a généré son application
@@ -1339,6 +1372,120 @@ YML
   done
 
   ok "TROIS moteurs serveurs éprouvés sous musl : postgres, mariadb, mysql"
+fi
+
+# ═══ SCÉNARIO « pm » — pnpm, yarn et bun, chacun avec SON gabarit ═══════════
+#
+# Une application générée pour pnpm, yarn ou bun n'était éprouvée par RIEN :
+# les cinq scénarios ci-dessus génèrent pour npm. Or chaque gestionnaire a son
+# fichier de workspace, son champ d'overrides, son verrou, sa syntaxe de
+# délégation aux modules — et le Dockerfile comme la CI généraient du npm en
+# dur (`npm ci` sans `package-lock.json`, `npm prune` qui refuse
+# `workspace:*`). Vécu à la reconnaissance : pnpm recevait l'ancien Nodefony
+# JavaScript du registre, bun bouclait sur son propre `build`.
+#
+# Les commandes jouées ici SORTENT DU PRODUIT INSTALLÉ (`packageManagerToolchain`,
+# `packageManagerCommandLines` du tarball) : le banc ne recopie aucune syntaxe,
+# il exécute celle que le gabarit écrit pour l'utilisateur.
+
+# Ligne de commande d'un gestionnaire, rendue par la règle du paquet INSTALLÉ.
+pm_line() { # gestionnaire clé [argument]
+  (cd "$SCAFFOLDER" && node --input-type=module -e '
+const [pm, key, arg] = process.argv.slice(1);
+const m = await import("nodefony");
+if (typeof m.packageManagerToolchain !== "function") {
+  throw new Error("le tarball nodefony n exporte pas packageManagerToolchain");
+}
+const lines = { ...m.packageManagerCommandLines(pm), ...m.packageManagerToolchain(pm) };
+const v = lines[key];
+if (v === undefined || v === null) { throw new Error("clé inconnue : " + key); }
+process.stdout.write(typeof v === "function" ? v(arg) : String(v));
+' "$@")
+}
+
+if runs pm; then
+  case "$SCENARIO" in
+    pm:*) PM_LIST="${SCENARIO#pm:}" ;;
+    *) PM_LIST="pnpm yarn bun" ;;
+  esac
+  PM_PORT=15181
+  for PM in $PM_LIST; do
+    PAPP="$WORK/pm-$PM"
+    PIMG="nodefony-smoke-pm-$PM:smoke"
+    PCTN="nf-smoke-pm-$PM"; CONTAINERS="$CONTAINERS $PCTN"
+
+    step "[pm:$PM] outil présent sur l'hôte"
+    command -v "$PM" >/dev/null 2>&1 \
+      || fail "$PM absent de l'hôte — le scénario l'exige (la forge l'installe avant)"
+    ok "$PM $( (cd "$WORK" && "$PM" --version) 2>/dev/null)"
+
+    step "[pm:$PM] create app — preset complet, --package-manager $PM"
+    scaffold_app "smokepm$PM" "$PAPP" "complete" "none" "" "$PM"
+    rewrite_deps "$PAPP" "$PM"
+
+    step "[pm:$PM] install · build · typecheck (poste de dev)"
+    (cd "$PAPP" && sh -c "$(pm_line "$PM" install)") > "$WORK/.pm-$PM-install.out" 2>&1 \
+      || { tail -30 "$WORK/.pm-$PM-install.out"; fail "$PM install"; }
+    LOCK="$(pm_line "$PM" lockfile)"
+    [ -f "$PAPP/$LOCK" ] || fail "$PM install n'a pas écrit $LOCK"
+    ok "dépendances installées, $LOCK écrit"
+
+    # 🔴 La PROVENANCE, pas seulement la présence : la version des tarballs peut
+    # exister sur le registre, et un gestionnaire qui résout un paquet interne
+    # là-bas plutôt que dans `tarballs/` installe — et le banc éprouve alors
+    # le paquet publié, pas celui qu'on s'apprête à publier. Le marqueur est
+    # un export que seul le build courant porte.
+    (cd "$PAPP" && node --input-type=module -e '
+const m = await import("nodefony");
+process.exit(typeof m.packageManagerToolchain === "function" ? 0 : 1);') \
+      || fail "$PM : le nodefony installé n'est PAS celui des tarballs (résolu au registre ?)"
+    ok "nodefony résolu depuis les tarballs (marqueur du build courant présent)"
+
+    for script in build typecheck; do
+      (cd "$PAPP" && sh -c "$(pm_line "$PM" run "$script")") > "$WORK/.pm-$PM-$script.out" 2>&1 \
+        || { tail -30 "$WORK/.pm-$PM-$script.out"; fail "$PM run $script"; }
+      ok "$PM run $script"
+    done
+
+    step "[pm:$PM] create module — lié au workspace, installé et bâti par $PM"
+    (cd "$PAPP" && sh -c "$(pm_line "$PM" exec nodefony) create module blog --yes") \
+      > "$WORK/.pm-$PM-module.out" 2>&1 \
+      || { tail -30 "$WORK/.pm-$PM-module.out"; fail "$PM : create module"; }
+    (cd "$PAPP" && sh -c "$(pm_line "$PM" run typecheck)") > "$WORK/.pm-$PM-typecheck2.out" 2>&1 \
+      || { tail -30 "$WORK/.pm-$PM-typecheck2.out"; fail "$PM : typecheck après create module"; }
+    ok "module « blog » généré, et l'application compile avec lui"
+
+    step "[pm:$PM] migration initiale (écrite au poste, elle voyage dans l'image)"
+    (cd "$PAPP" && NODE_ENV=production NF_STORE=memory \
+      sh -c "$(pm_line "$PM" exec nodefony) orm:generate --name init") > "$WORK/.pm-$PM-generate.out" 2>&1 \
+      || { tail -30 "$WORK/.pm-$PM-generate.out"; fail "$PM : orm:generate"; }
+    n=$(find "$PAPP/migrations" -name '*.sql' 2>/dev/null | wc -l | tr -d ' ')
+    [ "$n" -ge 1 ] || fail "$PM : orm:generate sorti en 0 sans écrire de .sql"
+    ok "migration initiale écrite ($n fichier(s) .sql)"
+
+    step "[pm:$PM] image — le Dockerfile généré pour $PM, verrou présent"
+    grep -q "$(pm_line "$PM" imageInstall)" "$PAPP/Dockerfile" \
+      || fail "le Dockerfile généré n'installe pas par $PM"
+    build_image "$PAPP" "$PIMG"
+    # La toolchain de développement ne descend pas dans l'image : l'élagage
+    # propre au gestionnaire a mordu.
+    for tool in vitest typescript drizzle-kit; do
+      docker run --rm --entrypoint sh "$PIMG" -c "test ! -e node_modules/$tool" \
+        || fail "$PM : $tool présent dans l'image — l'élagage n'a pas eu lieu"
+    done
+    ok "dépendances de développement absentes de l'image (élagage $PM)"
+
+    step "[pm:$PM] run — migrations, puis /readyz"
+    docker rm -f "$PCTN" >/dev/null 2>&1 || true
+    docker run -d --name "$PCTN" -p "$PM_PORT:5151" "$PIMG" >/dev/null
+    migrate_in "$PCTN"
+    wait_ready "$PCTN" "$PM_PORT"
+    ok "readyz → 200 (application $PM, module local compris)"
+    docker rm -f "$PCTN" >/dev/null 2>&1 || true
+    docker rmi -f "$PIMG" >/dev/null 2>&1 || true
+    PM_PORT=$((PM_PORT + 1))
+  done
+  ok "gestionnaires éprouvés : $PM_LIST"
 fi
 
 cleanup

@@ -74,14 +74,20 @@ jobs:
 <% } %><% } %>    steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
+<% if (it.toolchain.githubSetup) { %>      # <%= it.packageManager %> n'est pas sur l'exécuteur : il se pose AVANT `setup-node`,
+      # dont le cache le suppose installé.
+      - uses: <%= it.toolchain.githubSetup.uses %>
+        with:
+          <%= it.toolchain.githubSetup.versionInput %>: "<%= it.toolchain.githubSetup.version %>"
+
+<% } %>      - uses: actions/setup-node@v7
         with:
           # Le plancher des `engines` du framework — la forge éprouve la
           # version la plus ANCIENNE qu'on prétend servir.
           node-version: 24
-          cache: npm
-
-      - run: npm ci
+<% if (it.toolchain.setupNodeCache) { %>          cache: <%= it.toolchain.setupNodeCache %>
+<% } %>
+      - run: <%= it.toolchain.frozenInstall %>
 <% if (it.mongo) { %>
       # MongoDB en jeu de réplicas — en ÉTAPE et non en `services:`, qui ne
       # laisse pas choisir la commande du serveur, or elle porte `--replSet`.
@@ -127,10 +133,10 @@ jobs:
           SQL
 <% } %><% } %>
       # typecheck + lint + tests + build + `nodefony doctor` — l'ordre du script.
-      - run: npm run verify
+      - run: <%= it.pmRun %> verify
 
       # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
-      - run: npm run test:e2e
+      - run: <%= it.pmRun %> test:e2e
 
       # 🔴 L'IMAGE est le seul artefact que rien ne regardait, et c'est celui
       # qu'on PUBLIE. Un secret qui y entre est public : une couche reste
@@ -150,7 +156,7 @@ jobs:
       # Un contrôle qui n'a pas PU regarder (démon injoignable, couche illisible)
       # sort en 69, pas en 0 : cette étape échoue alors, ce qui est voulu.
       - name: Contrôler l'image (aucun secret embarqué)
-        run: npx nodefony image:check <%= it.appName %>:ci
+        run: <%= it.pmExec("nodefony") %> image:check <%= it.appName %>:ci
 
       # Un démarrage raté en forge ne laisse RIEN à lire sans ceci : les
       # journaux de l'application vivent sous `var/`, que le dépôt ignore.

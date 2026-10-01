@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# Cache du gestionnaire de paquets gardé dans le projet par la CI GitLab.
+<%= it.toolchain.projectCacheDir %>/
 var/
 public/dist/
 *.log

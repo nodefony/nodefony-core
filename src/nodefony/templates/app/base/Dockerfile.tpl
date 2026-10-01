@@ -109,11 +109,18 @@ COPY . ./
 # dans une image qu'on publie. Le repli n'est pas une commodité : un gabarit ne
 # peut pas supposer le verrou, qui naît du premier `npm install` du développeur
 # et n'existe donc pas dans une application fraîchement créée.
-RUN --mount=type=cache,target=/root/.npm \
-    if [ -f package-lock.json ]; then \
-      npm ci --ignore-scripts --no-audit --no-fund; \
+#
+# Le gestionnaire est celui choisi à la création (<%= it.packageManager %>) : chaque outil a
+# son verrou, son cache et sa syntaxe, et aucun ne lit le verrou d'un autre.
+<% if (it.toolchain.bootstrap) { %># <%= it.packageManager %> n'est pas livré avec l'image Node : il s'installe ici, dans
+# l'étage de construction seul — l'image finale n'en a pas besoin, c'est Node
+# qui exécute l'application.
+RUN <%= it.toolchain.bootstrap %>
+<% } %>RUN --mount=type=cache,target=<%= it.toolchain.imageCacheDir %> \
+    if [ -f <%= it.toolchain.lockfile %> ]; then \
+      <%= it.toolchain.imageInstall %>; \
     else \
-      npm install --ignore-scripts --no-audit --no-fund; \
+      <%= it.toolchain.imageInstallUnlocked %>; \
     fi
 
 # Le build passe par le script de l'application (`rolldown`, plus le build du
@@ -149,7 +156,11 @@ RUN --mount=type=cache,target=/root/.npm \
 #
 # Effacer ici fonctionne parce que les couches de cet étage ne descendent PAS
 # dans l'image finale : seul l'état final de `/app` est copié.
-RUN npm run build && npm prune --omit=dev \
+#
+# Le cache du gestionnaire est monté ici AUSSI : un élagage qui réinstalle
+# (yarn 1, bun) y relit ses paquets au lieu de les retélécharger.
+RUN --mount=type=cache,target=<%= it.toolchain.imageCacheDir %> \
+    <%= it.pmRun %> build && <%= it.toolchain.prune %> \
  && rm -rf nodefony/config/certificates var tmp
 
 # ── Frontal nginx (profil `edge`) — DEUX étages qui ne descendent JAMAIS dans

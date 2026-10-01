@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 883,
-    "symbols": 4416,
+    "symbols": 4420,
     "classes": 404,
-    "interfaces": 1153,
+    "interfaces": 1155,
     "types": 475,
     "enums": 4,
-    "functions": 1935,
-    "constants": 445
+    "functions": 1936,
+    "constants": 446
   },
   "symbols": {
     "Cli": {
@@ -2202,6 +2202,24 @@
       "extends": null,
       "description": "Gestionnaire retenu, et la source qui l'a désigné."
     },
+    "IPackageManagerGithubSetup": {
+      "name": "IPackageManagerGithubSetup",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Action GitHub qui pose l'outil sur l'exécuteur, avant `setup-node`."
+    },
+    "IPackageManagerToolchain": {
+      "name": "IPackageManagerToolchain",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'une chaîne d'INTÉGRATION (forge, image de conteneur) doit écrire pour un gestionnaire — UNE règle, lue par les gabarits CI et le `Dockerfile`."
+    },
     "PackageManagerSource": {
       "name": "PackageManagerSource",
       "kind": "type",
@@ -2274,6 +2292,14 @@
       "module": "@nodefony/core",
       "description": "Un gestionnaire ne lie-t-il un module du workspace à la racine que si la racine le DÉCLARE (`\"@app/blog\": \"workspace:*\"`) ? pnpm et bun : oui — sans la déclaration, `import(\"@app/blog\")` échoue au …"
     },
+    "packageManagerToolchain": {
+      "name": "packageManagerToolchain",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commandes d'installation, de cache et d'élagage d'un gestionnaire, pour la forge et pour l'image. Aucune ne se transpose : `npm ci` exige `package-lock.json`, `npm prune` refuse le protocole `works…"
+    },
     "PACKAGE_MANAGERS": {
       "name": "PACKAGE_MANAGERS",
       "kind": "const",
@@ -2289,6 +2315,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Fichiers de verrou, par ordre de priorité. Deux verrous côte à côte sont une anomalie ; le premier listé l'emporte, de façon stable."
+    },
+    "PACKAGE_MANAGER_TOOL_MAJOR": {
+      "name": "PACKAGE_MANAGER_TOOL_MAJOR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Majeure de l'outil que les gabarits d'une application supposent, quand il n'est pas livré avec l'image Node : pnpm 11 a déplacé ses réglages dans `pnpm-workspace.yaml` (`allowBuilds`), que le gabar…"
     },
     "LiveLine": {
       "name": "LiveLine",
@@ -34803,6 +34837,9 @@
       "needsWorkspaceProtocol": [
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/managerDrift.ts"
+      ],
+      "packageManagerToolchain": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "packageManagerWorkspaceRun": [
         "src/nodefony/src/cli/scaffold/engine.ts"

@@ -69,8 +69,13 @@ export {
   resolvePackageManager,
   packageManagerExecArgs,
   packageManagerCommandLines,
+  packageManagerToolchain,
 } from "./cli/packageManager";
-export type { IPackageManagerResolution } from "./cli/packageManager";
+export type {
+  IPackageManagerResolution,
+  IPackageManagerToolchain,
+  IPackageManagerGithubSetup,
+} from "./cli/packageManager";
 // Le chemin du lanceur, résolu par le MANIFESTE — même motif : un shim
 // `create-*`, un banc ou un script de déploiement ne doivent jamais deviner
 // `node_modules/.bin/nodefony`, qui n'existe pas sous Windows.

@@ -210,12 +210,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
+<% if (it.toolchain.githubSetup) { %>      # <%= it.packageManager %> n'est pas sur l'exécuteur : il se pose AVANT `setup-node`,
+      # dont le cache le suppose installé.
+      - uses: <%= it.toolchain.githubSetup.uses %>
+        with:
+          <%= it.toolchain.githubSetup.versionInput %>: "<%= it.toolchain.githubSetup.version %>"
+
+<% } %>      - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
-
-      - run: npm ci
+<% if (it.toolchain.setupNodeCache) { %>          cache: <%= it.toolchain.setupNodeCache %>
+<% } %>
+      - run: <%= it.toolchain.frozenInstall %>
 
       # BÂTIR AVANT d'appeler le CLI, et pourquoi ce n'est pas facultatif.
       # `nodefony http:certificates` est une commande de MODULE : elle exige une
@@ -224,7 +230,7 @@ jobs:
       # détecté mais NON CONSTRUIT » — une garde délibérée, pas un incident.
       # Le job voisin ne tombe pas sur ce cas seulement parce que `compose up
       # --build` bâtit pour lui, DANS l'image ; ici, rien ne le fait à sa place.
-      - run: npm run build
+      - run: <%= it.pmRun %> build
 
       # Le frontal MONTE un certificat, il ne l'embarque jamais : une clé privée
       # gravée dans une image reste lisible par qui la télécharge, même effacée
@@ -234,7 +240,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx nodefony http:certificates
+          <%= it.pmExec("nodefony") %> http:certificates
           for pem in fullchain.pem privkey.pem; do
             test -f "nodefony/config/certificates/server/$pem" \
               || { echo "::error::certificat absent : nodefony/config/certificates/server/$pem"; exit 1; }
@@ -350,7 +356,7 @@ jobs:
         env:
           NF_E2E_BASE_URL: https://localhost:${{ env.EDGE_TLS_PORT }}
           NODE_EXTRA_CA_CERTS: nodefony/config/certificates/ca/nodefony-root-ca.crt.pem
-        run: npm run test:e2e
+        run: <%= it.pmRun %> test:e2e
 <% if (it.front) { %>
       # 🔴 Un 200 ne dit PAS que la page marche. La configuration du frontal
       # REMPLACE le `nginx.conf` de l'image : sans `mime.types`, nginx sert tout

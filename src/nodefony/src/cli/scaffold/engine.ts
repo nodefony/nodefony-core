@@ -50,6 +50,7 @@ import {
   isPackageManagerName,
   needsWorkspaceProtocol,
   packageManagerCommandLines,
+  packageManagerToolchain,
   packageManagerWorkspaceRun,
   resolvePackageManager,
 } from "../packageManager";
@@ -1893,6 +1894,10 @@ function dispatchScaffold(
     // bun réécrit `npm run` à sa façon, et un audit a une syntaxe par outil.
     pmRun: `${packageManager} run`,
     pmAudit: packageManagerCommandLines(packageManager).audit,
+    pmExec: packageManagerCommandLines(packageManager).exec,
+    // Installation, cache et élagage de la forge et de l'image : `npm ci`
+    // exige `package-lock.json`, et `npm prune` refuse `workspace:*`.
+    toolchain: packageManagerToolchain(packageManager),
     // Catalogue de versions tierces (source unique — cf versions.ts).
     pkg: SCAFFOLD_VERSIONS,
     preset,

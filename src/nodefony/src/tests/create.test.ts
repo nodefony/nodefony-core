@@ -1158,7 +1158,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // construction rendrait le contrôle muet, garder le seul contrôle le
       // ferait échouer sur une image absente.
       assert.include(ci, "docker build -t cisqlite:ci .");
-      assert.include(ci, "npx nodefony image:check cisqlite:ci");
+      assert.include(ci, "npm exec -- nodefony image:check cisqlite:ci");
       // Le pendant GitLab : même filet, et pas d'exécution sur étiquette.
       assert.match(
         readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8"),
@@ -1191,7 +1191,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.match(gitlab, /image-check:[\s\S]*?\n {2}image: node:24\n/u);
       assert.include(gitlab, "docker:28-dind");
       assert.include(gitlab, "docker build -t cisqlite:ci .");
-      assert.include(gitlab, "npx nodefony image:check cisqlite:ci");
+      assert.include(gitlab, "npm exec -- nodefony image:check cisqlite:ci");
       assertNoEtaResidue(dest);
     });
 
@@ -1473,7 +1473,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(prod, "npm run test:e2e");
       // Le certificat se MONTE, donc il faut le fabriquer avant de lever la
       // topologie — sans lui le frontal ne démarre pas, sur un message nginx.
-      assert.include(prod, "npx nodefony http:certificates");
+      assert.include(prod, "npm exec -- nodefony http:certificates");
       // Une borne, sinon un démarrage qui pend consomme le quota six heures.
       assert.match(prod, /\n {4}timeout-minutes: \d+\n/u);
       // Retirable d'un seul `rm` : le filet de base vit dans l'AUTRE fichier.

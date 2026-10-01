@@ -7,6 +7,10 @@
 **/node_modules
 **/dist
 
+# Cache du gestionnaire que la CI GitLab garde DANS le projet : le job qui
+# construit l'image l'a rempli juste avant, et il n'a rien à faire dans une image.
+<%= it.toolchain.projectCacheDir %>/
+
 # Écritures du runtime — propres à une machine, et sans valeur dans une image.
 # ⚠️ Les journaux FICHIER ne vont PAS sous `var/` : le driver `file` écrit dans
 # `log.dir`, dont le défaut est `logs/` (`Kernel.ts`). Et un motif sans `**/`

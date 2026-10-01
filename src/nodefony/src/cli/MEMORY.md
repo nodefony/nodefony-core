@@ -269,6 +269,14 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
   `allowBuilds`, `strictDepBuilds: false`, overrides `a>b`). `create module` : `"@app/x":
 "workspace:*"` à la racine sous pnpm/bun seulement — npm le refuse (`EUNSUPPORTEDPROTOCOL`).
   Install/build/migration de `create` passent par le gestionnaire, jamais `npm` en dur.
+  Forge + image : `packageManagerToolchain(pm)` (verrou, install stricte, cache `setup-node`, action
+  d'outil, amorçage `npm i -g <outil>@<majeure>` glibc ET musl, cache image/projet, élagage) → gabarit
+  `it.toolchain` (Dockerfile, ci.yml, production.yml, gitlab-ci, `.dockerignore`/`.gitignore`).
+  `PACKAGE_MANAGER_TOOL_MAJOR` = pnpm 12, bun 1 ; yarn 1 + npm livrés par `node:*`. Copie de ces
+  majeures dans `release-smoke.yml` verrouillée par test. `pnpm prune --prod` laisse un shim
+  `.bin/vite` orphelin (paquet bien retiré). Preuve réelle : `release:smoke -- --scenario pm[:pnpm|yarn|bun]`
+  (banc épingle les tarballs par champ du gestionnaire : sinon le PAIR `nodefony` d'un module local
+  se résout au registre, même version, et le noyau refuse la double copie).
 
 ## Deps
 

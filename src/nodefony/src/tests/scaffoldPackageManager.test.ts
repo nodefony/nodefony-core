@@ -2,14 +2,18 @@ import { afterAll, assert, beforeAll, describe, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { version } from "../../package.json";
 import { parseCreateArgv } from "../cli/create";
 import {
+  LOCKFILES,
   PACKAGE_MANAGERS,
+  PACKAGE_MANAGER_TOOL_MAJOR,
   hasWorkspaceRun,
   needsWorkspaceProtocol,
   packageManagerCommandLines,
   packageManagerExecArgs,
+  packageManagerToolchain,
   packageManagerWorkspaceRun,
 } from "../cli/packageManager";
 import {
@@ -309,6 +313,161 @@ describe("create app / create module — gabarit par gestionnaire", () => {
       for (const step of ["build", "typecheck", "test"]) {
         assert.include(after[step], packageManagerWorkspaceRun(pm, step), step);
       }
+    });
+  }
+});
+
+// #294 lot 4 — la forge et l'image parlaient npm en dur : `npm ci` sans
+// `package-lock.json` échoue, et `npm prune` refuse le `workspace:*` qu'une
+// application pnpm ou bun déclare. Chaque fichier rendu doit parler le
+// gestionnaire choisi, et SEULEMENT lui.
+describe("forge et image — rendues pour le gestionnaire choisi", () => {
+  let tmp = "";
+  beforeAll(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "nf-pm-ci-"));
+  });
+  afterAll(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("le verrou de la chaîne est celui que la résolution reconnaît", () => {
+    for (const pm of PACKAGE_MANAGERS) {
+      const lock = packageManagerToolchain(pm).lockfile;
+      assert.deepInclude(LOCKFILES, [lock, pm], pm);
+    }
+  });
+
+  // Le banc de publication installe l'outil sur l'exécuteur avec la MÊME
+  // majeure que le gabarit — la frontière de paquets impose la copie, ce
+  // test l'empêche de dériver.
+  it("le banc de la forge éprouve les majeures que le gabarit suppose", () => {
+    const workflow = fs.readFileSync(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "../../../../.github/workflows/release-smoke.yml",
+      ),
+      "utf8",
+    );
+    for (const pm of ["pnpm", "bun"] as const) {
+      const setup = packageManagerToolchain(pm).githubSetup;
+      assert.isNotNull(setup, pm);
+      assert.include(workflow, `uses: ${setup!.uses}`, pm);
+      assert.include(
+        workflow,
+        `${setup!.versionInput}: "${setup!.version}"`,
+        pm,
+      );
+      assert.include(setup!.version, PACKAGE_MANAGER_TOOL_MAJOR[pm], pm);
+    }
+  });
+
+  /** Lignes exécutées d'un fichier rendu — les commentaires expliquent npm. */
+  const executed = (file: string): string[] =>
+    fs
+      .readFileSync(file, "utf8")
+      .split("\n")
+      .filter((line) => !/^\s*#/u.test(line));
+
+  for (const pm of PACKAGE_MANAGERS) {
+    it(`${pm} : Dockerfile, GitHub, GitLab et exclusions parlent ${pm}`, () => {
+      const dest = path.join(tmp, pm);
+      runScaffold(
+        {
+          type: "app",
+          answers: {
+            name: `ci-${pm}`,
+            preset: "complete",
+            database: "sqlite",
+            packageManager: pm,
+          },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const tc = packageManagerToolchain(pm);
+      const exec = packageManagerCommandLines(pm).exec("nodefony");
+
+      const docker = executed(path.join(dest, "Dockerfile")).join("\n");
+      assert.include(docker, `--mount=type=cache,target=${tc.imageCacheDir}`);
+      assert.include(docker, `if [ -f ${tc.lockfile} ]; then`);
+      assert.include(docker, `${tc.imageInstall};`);
+      assert.include(docker, `${tc.imageInstallUnlocked};`);
+      assert.include(
+        docker,
+        `RUN --mount=type=cache,target=${tc.imageCacheDir} \\\n    ${pm} run build && ${tc.prune} \\\n`,
+      );
+      if (tc.bootstrap === null) {
+        assert.notInclude(docker, "npm install -g");
+      } else {
+        assert.include(docker, `RUN ${tc.bootstrap}\n`);
+      }
+
+      const github = executed(path.join(dest, ".github/workflows/ci.yml"));
+      const prod = executed(
+        path.join(dest, ".github/workflows/production.yml"),
+      );
+      for (const wf of [github, prod]) {
+        const text = wf.join("\n");
+        assert.include(text, `      - run: ${tc.frozenInstall}\n`);
+        if (tc.setupNodeCache === null) {
+          assert.notMatch(text, /^ {10}cache: /mu);
+        } else {
+          assert.include(text, `\n          cache: ${tc.setupNodeCache}\n`);
+        }
+        if (tc.githubSetup === null) {
+          assert.notInclude(text, "action-setup");
+          assert.notInclude(text, "setup-bun");
+        } else {
+          // AVANT setup-node, dont le cache suppose l'outil installé.
+          assert.isBelow(
+            text.indexOf(`uses: ${tc.githubSetup.uses}`),
+            text.indexOf("uses: actions/setup-node@"),
+          );
+          assert.include(
+            text,
+            `${tc.githubSetup.versionInput}: "${tc.githubSetup.version}"`,
+          );
+        }
+      }
+      assert.include(github.join("\n"), `run: ${pm} run verify`);
+      assert.include(github.join("\n"), `run: ${exec} image:check ci-${pm}:ci`);
+      assert.include(prod.join("\n"), `run: ${pm} run build`);
+      assert.include(prod.join("\n"), `${exec} http:certificates`);
+
+      const gitlab = executed(path.join(dest, ".gitlab-ci.yml"));
+      const gl = gitlab.join("\n");
+      assert.include(gl, `        - ${tc.lockfile}\n`);
+      assert.include(gl, `      - ${tc.projectCacheDir}/\n`);
+      assert.include(gl, `    - ${tc.projectCachedInstall}\n`);
+      assert.include(gl, `    - ${pm} run verify\n`);
+      assert.include(gl, `    - ${exec} image:check ci-${pm}:ci`);
+
+      for (const ignore of [".dockerignore", ".gitignore"]) {
+        assert.include(
+          fs.readFileSync(path.join(dest, ignore), "utf8"),
+          `\n${tc.projectCacheDir}/\n`,
+          ignore,
+        );
+      }
+
+      // Hors npm : plus une ligne EXÉCUTÉE ne parle npm, sauf celle qui
+      // installe l'outil lui-même.
+      if (pm !== "npm") {
+        for (const line of [
+          ...docker.split("\n"),
+          ...github,
+          ...prod,
+          ...gitlab,
+        ]) {
+          if (tc.bootstrap !== null && line.includes(tc.bootstrap)) continue;
+          assert.notMatch(line, /\b(npm|npx)\b/u, line);
+        }
+      }
+      assert.notInclude(
+        [docker, ...github, ...prod, ...gitlab].join("\n"),
+        "<%",
+      );
     });
   }
 });

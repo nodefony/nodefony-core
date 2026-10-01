@@ -37,7 +37,19 @@ on:
         type: choice
         default: all
         options:
-          [all, base, front, studio, edge, sql:postgres, sql:mariadb, sql:mysql]
+          [
+            all,
+            base,
+            front,
+            studio,
+            edge,
+            sql:postgres,
+            sql:mariadb,
+            sql:mysql,
+            pm:pnpm,
+            pm:yarn,
+            pm:bun,
+          ]
   # Et une passe hebdomadaire : un gate qu'on ne lance que « quand on y pense »
   # est un gate qui pourrit — celui-ci éprouve une surface qui dérive sans
   # qu'aucun test du dépôt ne s'en aperçoive.
@@ -84,13 +96,16 @@ jobs:
         # `true` au lieu de la liste — `fromJSON` échoue alors sur une valeur
         # qui n'a rien à voir avec le sujet.
         #
+        # `pm` est découpé PAR GESTIONNAIRE pour la même raison que `sql` :
+        # chacun installe, bâtit et construit son image.
+        #
         # Sur `schedule`, `github.event.inputs.scenario` est nul ; la
         # comparaison lâche de GitHub coerce nul et chaîne vide vers 0, si bien
         # que les deux passent par la même branche « tous ».
         scenario: >-
           ${{ fromJSON(
             (github.event.inputs.scenario == null || github.event.inputs.scenario == 'all')
-              && '["base","front","studio","edge","sql:postgres","sql:mariadb","sql:mysql"]'
+              && '["base","front","studio","edge","sql:postgres","sql:mariadb","sql:mysql","pm:pnpm","pm:yarn","pm:bun"]'
               || format('["{0}"]', github.event.inputs.scenario)
           ) }}
     steps:
@@ -105,6 +120,21 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+
+      # Le scénario `pm` installe l'application AVEC le gestionnaire éprouvé,
+      # sur l'hôte : il doit y être. yarn 1 est déjà sur l'exécuteur. Les
+      # majeures sont celles que le gabarit suppose (`PACKAGE_MANAGER_TOOL_MAJOR`).
+      - name: pnpm (scénario pm:pnpm)
+        if: matrix.scenario == 'pm:pnpm'
+        uses: pnpm/action-setup@v6
+        with:
+          version: "12"
+
+      - name: bun (scénario pm:bun)
+        if: matrix.scenario == 'pm:bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.x"
 
       # Prérequis EXPLICITE du banc : il empaquette depuis `dist/`. Sans build,
       # il éprouverait un artefact périmé et rendrait un vert sans valeur — le

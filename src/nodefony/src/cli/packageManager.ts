@@ -246,3 +246,149 @@ export function hasWorkspaceRun(line: string): boolean {
 export function needsWorkspaceProtocol(name: PackageManagerName): boolean {
   return name === "pnpm" || name === "bun";
 }
+
+/**
+ * Majeure de l'outil que les gabarits d'une application supposent, quand il
+ * n'est pas livré avec l'image Node : pnpm 11 a déplacé ses réglages dans
+ * `pnpm-workspace.yaml` (`allowBuilds`), que le gabarit écrit ; bun 1 lit
+ * `bun.lock`. yarn 1 et npm viennent avec les images `node:*` et les
+ * exécuteurs de la forge — le gabarit (`resolutions`, `yarn workspaces run`)
+ * est écrit pour yarn 1, pas pour ses successeurs.
+ */
+export const PACKAGE_MANAGER_TOOL_MAJOR: Readonly<
+  Record<"pnpm" | "bun", string>
+> = { pnpm: "12", bun: "1" };
+
+/** Action GitHub qui pose l'outil sur l'exécuteur, avant `setup-node`. */
+export interface IPackageManagerGithubSetup {
+  /** `pnpm/action-setup@v6`, `oven-sh/setup-bun@v2`. */
+  uses: string;
+  /** Nom de l'entrée qui porte la version (`version`, `bun-version`). */
+  versionInput: string;
+  version: string;
+}
+
+/**
+ * Ce qu'une chaîne d'INTÉGRATION (forge, image de conteneur) doit écrire pour
+ * un gestionnaire — UNE règle, lue par les gabarits CI et le `Dockerfile`.
+ */
+export interface IPackageManagerToolchain {
+  /** Verrou que le gestionnaire écrit, et que la chaîne exige. */
+  lockfile: string;
+  /** Installation stricte : refuse un verrou désaccordé du `package.json`. */
+  frozenInstall: string;
+  /** Valeur `cache:` de `actions/setup-node`, `null` s'il ne connaît pas l'outil. */
+  setupNodeCache: "npm" | "pnpm" | "yarn" | null;
+  /** Action qui installe l'outil sur l'exécuteur GitHub, `null` s'il y est déjà. */
+  githubSetup: IPackageManagerGithubSetup | null;
+  /** Commande qui installe l'outil dans une image `node:*`, `null` s'il y est déjà. */
+  bootstrap: string | null;
+  /** Dossier de cache dans l'image (montage BuildKit). */
+  imageCacheDir: string;
+  /** Dossier de cache RELATIF au projet (GitLab ne garde que l'arbre du job). */
+  projectCacheDir: string;
+  /** Installation stricte qui écrit son cache dans {@link projectCacheDir}. */
+  projectCachedInstall: string;
+  /** Installation de l'image, sans scripts, verrou présent. */
+  imageInstall: string;
+  /** Même chose sans verrou (application fraîche, jamais installée). */
+  imageInstallUnlocked: string;
+  /** Retire les dépendances de développement d'un arbre installé. */
+  prune: string;
+}
+
+/**
+ * Commandes d'installation, de cache et d'élagage d'un gestionnaire, pour la
+ * forge et pour l'image.
+ *
+ * Aucune ne se transpose : `npm ci` exige `package-lock.json`, `npm prune`
+ * refuse le protocole `workspace:*` qu'une application pnpm ou bun déclare
+ * (`EUNSUPPORTEDPROTOCOL`), et chaque outil a son dossier de cache. Les
+ * scripts d'installation restent coupés dans l'image (`--ignore-scripts`) :
+ * les paquets natifs d'une application Nodefony embarquent leurs binaires.
+ *
+ * @param name - gestionnaire du projet
+ * @returns les lignes à écrire dans les gabarits d'intégration
+ */
+export function packageManagerToolchain(
+  name: PackageManagerName,
+): IPackageManagerToolchain {
+  switch (name) {
+    case "npm":
+      return {
+        lockfile: "package-lock.json",
+        frozenInstall: "npm ci",
+        setupNodeCache: "npm",
+        githubSetup: null,
+        bootstrap: null,
+        imageCacheDir: "/root/.npm",
+        projectCacheDir: ".npm",
+        projectCachedInstall: "npm ci --cache .npm --prefer-offline",
+        imageInstall: "npm ci --ignore-scripts --no-audit --no-fund",
+        imageInstallUnlocked:
+          "npm install --ignore-scripts --no-audit --no-fund",
+        prune: "npm prune --omit=dev",
+      };
+    case "pnpm":
+      return {
+        lockfile: "pnpm-lock.yaml",
+        frozenInstall: "pnpm install --frozen-lockfile",
+        setupNodeCache: "pnpm",
+        githubSetup: {
+          uses: "pnpm/action-setup@v6",
+          versionInput: "version",
+          version: PACKAGE_MANAGER_TOOL_MAJOR.pnpm,
+        },
+        bootstrap: `npm install -g --no-audit --no-fund pnpm@${PACKAGE_MANAGER_TOOL_MAJOR.pnpm}`,
+        imageCacheDir: "/root/.local/share/pnpm/store",
+        projectCacheDir: ".pnpm-store",
+        projectCachedInstall:
+          "pnpm install --frozen-lockfile --store-dir .pnpm-store",
+        imageInstall: "pnpm install --frozen-lockfile --ignore-scripts",
+        imageInstallUnlocked: "pnpm install --ignore-scripts",
+        prune: "pnpm prune --prod --ignore-scripts",
+      };
+    case "yarn":
+      return {
+        lockfile: "yarn.lock",
+        frozenInstall: "yarn install --frozen-lockfile",
+        setupNodeCache: "yarn",
+        githubSetup: null,
+        bootstrap: null,
+        imageCacheDir: "/usr/local/share/.cache/yarn",
+        projectCacheDir: ".yarn-cache",
+        projectCachedInstall:
+          "yarn install --frozen-lockfile --cache-folder .yarn-cache",
+        imageInstall:
+          "yarn install --frozen-lockfile --ignore-scripts --non-interactive",
+        imageInstallUnlocked: "yarn install --ignore-scripts --non-interactive",
+        // yarn 1 n'a pas de `prune` : on réinstalle en production, ce qui
+        // retire les dépendances de développement de l'arbre.
+        prune:
+          "yarn install --production --frozen-lockfile --ignore-scripts --non-interactive",
+      };
+    case "bun":
+      return {
+        lockfile: "bun.lock",
+        frozenInstall: "bun install --frozen-lockfile",
+        setupNodeCache: null,
+        githubSetup: {
+          uses: "oven-sh/setup-bun@v2",
+          versionInput: "bun-version",
+          version: `${PACKAGE_MANAGER_TOOL_MAJOR.bun}.x`,
+        },
+        bootstrap: `npm install -g --no-audit --no-fund bun@${PACKAGE_MANAGER_TOOL_MAJOR.bun}`,
+        imageCacheDir: "/root/.bun/install/cache",
+        projectCacheDir: ".bun-cache",
+        projectCachedInstall:
+          "BUN_INSTALL_CACHE_DIR=.bun-cache bun install --frozen-lockfile",
+        imageInstall: "bun install --frozen-lockfile --ignore-scripts",
+        imageInstallUnlocked: "bun install --ignore-scripts",
+        // bun n'a pas de `prune`, et `install --production` sur un arbre
+        // DÉJÀ installé n'en retire rien (constaté : vitest restait dans
+        // l'image). On repart d'un arbre vide, depuis le cache.
+        prune:
+          "rm -rf node_modules modules/*/node_modules && bun install --production --frozen-lockfile --ignore-scripts",
+      };
+  }
+}
