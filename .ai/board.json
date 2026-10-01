@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T23:06:02.325Z",
+  "generatedAt": "2026-10-01T08:24:38.604Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 49,
+      "closed": 50,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 43,
@@ -842,8 +842,8 @@
       "number": 507,
       "title": "test(bench): ajouter NestJS au banc ORM, avec un POST validé",
       "url": "https://github.com/nodefony/nodefony-core/issues/507",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -853,6 +853,20 @@
       "labels": [
         "beta-2"
       ]
+    },
+    {
+      "number": 510,
+      "title": "perf(orm): réduire le surcoût par requête du chemin ORM",
+      "url": "https://github.com/nodefony/nodefony-core/issues/510",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 2.0025,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 509,
