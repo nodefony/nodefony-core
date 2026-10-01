@@ -47,7 +47,7 @@
     "esm"
   ],
   "dependencies": {
-    "redis": "6.2.1",
+    "redis": "6.3.0",
     "tslib": "2.8.1"
   },
   "devDependencies": {
@@ -55,9 +55,9 @@
     "@nodefony/http": "^10.0.0-beta.1",
     "@nodefony/security": "^10.0.0-beta.1",
     "@types/node": "26.6.3",
-    "@vitest/coverage-v8": "5.0.2",
+    "@vitest/coverage-v8": "5.0.3",
     "nodefony": "^10.0.0-beta.1",
-    "vitest": "5.0.2"
+    "vitest": "5.0.3"
   },
   "peerDependencies": {
     "@nodefony/framework": "^10.0.0-beta.1",
