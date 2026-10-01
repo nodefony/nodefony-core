@@ -106,7 +106,13 @@ function appAvecPrettier(): string {
 }
 
 /**
- * Ce que `prettier --check` dit du fichier — vide si conforme.
+ * Les fichiers que `prettier --check` refuse, chacun avec son verdict — vide si
+ * tous sont conformes.
+ *
+ * UN SEUL process pour tous les chemins : le formateur en accepte plusieurs, et
+ * démarrer un Node par fichier (sa configuration rechargée à chaque fois)
+ * faisait sauter le délai de 30 s sous la charge d'une passe complète — un
+ * rouge qui ne disait rien du scaffold.
  *
  * 🔴 Le chemin est RELATIF au projet, jamais absolu. Prettier lancé avec un
  * `cwd` donné et un chemin absolu SORTANT de ce répertoire répond « All matched
@@ -115,17 +121,28 @@ function appAvecPrettier(): string {
  * contrôles complaisants d'un coup, tous verts sur une mesure qui ne mordait
  * pas.
  */
-function nonConforme(relatif: string): string {
+function nonConformes(relatifs: readonly string[]): string[] {
   try {
-    execFileSync(process.execPath, [PRETTIER_JS, "--check", relatif], {
+    execFileSync(process.execPath, [PRETTIER_JS, "--check", ...relatifs], {
       cwd: racine,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
-    return "";
+    return [];
   } catch (e) {
     const err = e as { stdout?: string; stderr?: string };
-    return `${err.stdout ?? ""}${err.stderr ?? ""}`.trim() || "non conforme";
+    const sortie = `${err.stdout ?? ""}${err.stderr ?? ""}`;
+    const refuses = sortie
+      .split("\n")
+      .filter(
+        (l) => l.startsWith("[warn] ") && !l.includes("Code style issues"),
+      )
+      .map((l) => `${l.slice("[warn] ".length).trim()} — non conforme`);
+    // Un échec sans fichier nommé (configuration illisible, chemin introuvable)
+    // n'est PAS un « tout va bien » : il accuse le lot entier, sortie comprise.
+    return refuses.length > 0
+      ? refuses
+      : [`${relatifs.join(", ")} — ${sortie.trim() || "échec du formateur"}`];
   }
 }
 
@@ -143,38 +160,27 @@ describe("Scaffold — la FORME de ce que chaque type rend vraiment", () => {
       path.join(racine, "cobaye-forme.ts"),
       "export const a = {b:1,   c:2};\n",
     );
-    assert.notEqual(
-      nonConforme("cobaye-forme.ts"),
-      "",
+    assert.deepEqual(
+      nonConformes(["index.ts", "cobaye-forme.ts"]),
+      ["cobaye-forme.ts — non conforme"],
       "un fichier volontairement mal formé doit être REFUSÉ — sinon le " +
-        "contrôle ci-dessous passerait sur un formateur injoignable",
+        "contrôle ci-dessous passerait sur un formateur injoignable — et, " +
+        "en lot, SEUL le fichier fautif doit être nommé",
     );
     rmSync(path.join(racine, "cobaye-forme.ts"));
   });
 
-  // Plafond PROPRE, plus large que les 30 s du fichier de configuration : ce cas
-  // lance le formateur en SOUS-PROCESS une fois par fichier contrôlé, et il ne
-  // mesure aucune durée. Isolé, le fichier entier passe en ~5 s ; dans la passe
-  // complète, ce seul cas est sorti en `Test timed out in 30000ms`, les `spawn`
-  // du formateur entrant en concurrence avec 138 autres fichiers. Relever le
-  // plafond GLOBAL masquerait de vrais blocages ailleurs — c'est donc ici que
-  // la tolérance se pose, à l'endroit qui la justifie.
   it("l'application générée est elle-même conforme", () => {
-    const fautifs: string[] = [];
-    for (const f of ["index.ts", "nodefony.config.ts", "env.ts"]) {
-      const p = path.join(racine, f);
-      // Un `continue` sur fichier absent avait masqué un décor entièrement
-      // vide : le cas passait sans avoir rien contrôlé. Une absence est un
-      // échec, pas un saut.
-      if (!existsSync(p)) {
-        fautifs.push(`${f} — ABSENT de l'application générée`);
-        continue;
-      }
-      const verdict = nonConforme(f);
-      if (verdict) fautifs.push(`${f} — ${verdict}`);
-    }
+    const attendus = ["index.ts", "nodefony.config.ts", "env.ts"];
+    // Une absence est un échec, pas un saut : un `continue` sur fichier absent
+    // avait masqué un décor entièrement vide — le cas passait sans rien contrôler.
+    const fautifs = attendus
+      .filter((f) => !existsSync(path.join(racine, f)))
+      .map((f) => `${f} — ABSENT de l'application générée`);
+    const presents = attendus.filter((f) => existsSync(path.join(racine, f)));
+    if (presents.length > 0) fautifs.push(...nonConformes(presents));
     assert.deepEqual(fautifs, [], "fichiers d'application non conformes");
-  }, 90_000);
+  });
 
   for (const { type, nom } of TYPES) {
     it(`create ${type} rend du code que le formateur du projet accepte`, () => {
@@ -189,23 +195,13 @@ describe("Scaffold — la FORME de ce que chaque type rend vraiment", () => {
         `create ${type} n'a rendu aucun fichier formatable — le cas ne prouve rien`,
       );
 
-      const fautifs: string[] = [];
-      for (const f of rendus) {
-        const verdict = nonConforme(f);
-        if (verdict) fautifs.push(`${f} — ${verdict}`);
-      }
+      const fautifs = nonConformes(rendus);
       assert.deepEqual(
         fautifs,
         [],
         `create ${type} rend ${fautifs.length} fichier(s) non conforme(s)`,
       );
-      // Même budget que les cas voisins : ce test lance le SCAFFOLD puis le
-      // FORMATEUR du projet, deux process qui n'ont aucune raison de tenir dans
-      // les 30 secondes par défaut sur une machine occupée. Constaté sur une
-      // passe complète — 5 s isolé, dépassement à 30 s quand un build et un
-      // navigateur tournaient à côté. Un budget trop juste ne trouve pas de
-      // défaut : il en invente un, et on apprend à ignorer le rouge.
-    }, 90_000);
+    });
   }
 
   it("un nom LONG ne fait pas déborder la largeur permise", () => {
@@ -218,11 +214,9 @@ describe("Scaffold — la FORME de ce que chaque type rend vraiment", () => {
       { type: "service", answers: { name: nom }, dir: racine, force: true },
       version,
     );
-    const fautifs = resultat.files
-      .filter((f) => FORMATABLES.test(f))
-      .map((f) => ({ f, v: nonConforme(f) }))
-      .filter((x) => x.v)
-      .map((x) => `${x.f} — ${x.v}`);
+    const rendus = resultat.files.filter((f) => FORMATABLES.test(f));
+    assert.isAbove(rendus.length, 0, "aucun fichier formatable rendu");
+    const fautifs = nonConformes(rendus);
     assert.deepEqual(fautifs, [], "un nom long produit du code non conforme");
   });
 });
