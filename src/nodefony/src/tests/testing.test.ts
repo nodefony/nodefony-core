@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { inject, injectable } from "../kernel/decorators/kernelDecorator";
 import Service from "../Service";
 import Container from "../Container";

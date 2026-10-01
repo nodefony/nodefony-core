@@ -11,7 +11,7 @@
  * ce qui le rend d'autant plus discret.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import { performance } from "node:perf_hooks";
 
 import { ansiToReact } from "../../../frontend/src/utils/ansiToReact";

@@ -12,7 +12,7 @@
  * Routes créées sur le Router statique → nettoyage par préfixe en `afterEach`,
  * même technique que `PlaygroundAdminApi.test`.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import "reflect-metadata";
 import Router from "../../service/router.js";
 import Controller from "../../src/Controller.js";

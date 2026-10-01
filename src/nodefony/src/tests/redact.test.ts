@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { redactSecrets } from "../index";
 
 describe("redactSecrets — masquage défense-en-profondeur", () => {

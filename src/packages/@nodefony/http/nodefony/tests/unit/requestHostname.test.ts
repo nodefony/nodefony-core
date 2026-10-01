@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import type http from "node:http";
 import { describe, it } from "vitest";
 import HttpRequest from "../../src/context/http/Request.js";

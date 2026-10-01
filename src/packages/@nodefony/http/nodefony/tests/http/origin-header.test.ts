@@ -12,7 +12,7 @@
  * requête (même pattern que le WS) — la requête répond 200, et l'origine
  * opaque n'est jamais un motif de crash.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };

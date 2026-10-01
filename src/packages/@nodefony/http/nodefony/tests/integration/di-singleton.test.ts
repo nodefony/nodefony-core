@@ -18,7 +18,7 @@
  *
  * Serveur live : 127.0.0.1:5151 (HTTP).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 
 const BASE = { hostname: "127.0.0.1", port: 5151 };

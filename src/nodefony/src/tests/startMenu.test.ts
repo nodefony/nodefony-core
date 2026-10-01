@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   buildStartMenu,
   buildInspectMenu,

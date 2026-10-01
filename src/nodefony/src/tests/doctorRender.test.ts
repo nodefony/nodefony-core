@@ -16,7 +16,7 @@
  *    ne se lit pas.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   renderReport,
   groupByReason,

@@ -7,7 +7,7 @@
  *
  * Live server: wss://localhost:5152 + 127.0.0.1:5152 (HTTPS).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 import { drainTo } from "../helpers/scopeDrain.js";

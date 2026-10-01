@@ -6,7 +6,7 @@
  * écraserait en silence la configuration du module pour la requête.
  * Débrancher : retirer `overlayField(…)` autour d'un champ → le 1ᵉʳ bloc tombe.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { httpOverlaySchema } from "../../config/config.js";
 
 describe("httpOverlaySchema — liste blanche de @nodefony/http (#494)", () => {

@@ -16,7 +16,7 @@
  * VU ROUGE : retirer le `try/catch` autour de `saveSession()` dans
  * `HttpContext.#doSend` fait expirer le premier cas — la socket reste ouverte.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { describe, it } from "vitest";
 import https from "node:https";
 

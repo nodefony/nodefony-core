@@ -14,7 +14,7 @@
  * because it intentionally exhausts loopback ephemeral ports (~16k) and is
  * disruptive to the host machine.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 import { drainTo } from "../helpers/scopeDrain.js";

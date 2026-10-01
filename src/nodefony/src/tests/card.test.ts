@@ -11,7 +11,7 @@
  * (elle ferait croire que le gating `policy`/`when` a déjà eu lieu).
  */
 import { describe, it, beforeEach, afterEach } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

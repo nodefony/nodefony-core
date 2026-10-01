@@ -16,7 +16,7 @@
  *   → token posé sur le peer         (realtime hub)
  *   → api.request {path gardé}       → garde @IsGranted (Resolver)  ≡  HTTP.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 

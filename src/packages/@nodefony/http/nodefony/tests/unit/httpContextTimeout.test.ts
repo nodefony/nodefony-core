@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import HttpContext from "../../src/context/http/HttpContext.js";
 
 // T3 (profil delta vs Express) — mécanisme socket-timeout de HttpContext.setTimeout :

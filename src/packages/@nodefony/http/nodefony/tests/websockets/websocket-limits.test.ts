@@ -1,4 +1,4 @@
-import { expect, assert } from "chai";
+import { expect, assert } from "vitest";
 import WebSocket from "ws";
 import { asError, rawDataText } from "../helpers/wsText";
 

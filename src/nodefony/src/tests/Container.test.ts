@@ -1,4 +1,4 @@
-import { expect, assert } from "chai";
+import { expect, assert } from "vitest";
 import Container, { Scope } from "../Container";
 
 class ServiceA {

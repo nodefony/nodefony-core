@@ -11,7 +11,7 @@
  * Requires: server on 5152 (HTTPS) + users `admin/secret-de-dev-42` (module test).
  * Start: /start-server
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const HTTPS_BASE = {

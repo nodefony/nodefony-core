@@ -13,7 +13,7 @@
  *   GET /scope — `getScope() === context.container` + hook onAfterResponse
  *   WS  /ws    — `alsScopeIsContainer` au handshake et à chaque message
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 import { asError, rawDataText } from "../helpers/wsText";

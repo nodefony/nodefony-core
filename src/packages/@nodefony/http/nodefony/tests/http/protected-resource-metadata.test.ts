@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 import https from "node:https";
 

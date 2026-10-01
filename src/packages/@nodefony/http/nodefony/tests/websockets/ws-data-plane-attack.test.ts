@@ -29,7 +29,7 @@
  * wss://5152 (PAS ws://5151) : le cookie `__Host-` n'existe qu'en contexte
  * sécurisé → login ET WS sur le MÊME scheme pour que le nom de cookie matche.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 

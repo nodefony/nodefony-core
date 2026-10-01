@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 
 // R3 (vague 5) — Host hors `trustedHosts` → 421 Misdirected Request

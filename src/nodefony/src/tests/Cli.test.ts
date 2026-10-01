@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { vi } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import Cli, { CliDefaultOptions } from "../Cli";
 import Command from "../command/Command";
 

@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { afterEach, describe, it, vi } from "vitest";
 import { installNetworkInterceptor } from "../client/debugbar/network";
 

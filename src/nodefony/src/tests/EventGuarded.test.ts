@@ -3,7 +3,7 @@
  *   Résilience de boot — Event.emitAsyncGuarded + optimisation emitAsync (hot path)
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import Event from "../Event";
 
 function tick(): Promise<void> {

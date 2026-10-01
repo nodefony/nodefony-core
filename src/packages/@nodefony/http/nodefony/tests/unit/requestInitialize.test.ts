@@ -19,7 +19,7 @@
  * Débrancher : rendre `initialize()` de nouveau `async`, ou lui faire toujours
  * emprunter `parseRequest()` — les cas « undefined » rougissent.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Event, isPromise } from "nodefony";
 import HttpRequest from "../../src/context/http/Request.js";
 

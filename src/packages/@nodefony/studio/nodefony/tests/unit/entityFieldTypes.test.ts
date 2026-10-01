@@ -7,7 +7,7 @@
  * lien. Afficher l'inverse ferait proposer un geste que le générateur refuse.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   capsForConnector,
   engineFor,

@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container, Event, RequestContext } from "nodefony";
 import type { Injector } from "nodefony";
 import Controller from "../../src/Controller.js";

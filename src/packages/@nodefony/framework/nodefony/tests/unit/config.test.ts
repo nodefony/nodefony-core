@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { frameworkConfigSchema } from "../../config/config.js";
 import { frameworkConfigJsonSchema } from "../../config/defineModuleConfig.js";
 

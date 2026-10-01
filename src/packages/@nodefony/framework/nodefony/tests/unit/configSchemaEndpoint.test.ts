@@ -8,7 +8,7 @@
  * NOMMÉ d'un module inconnu, qui est la seule façon de distinguer une faute de
  * frappe d'un module réellement sans configuration.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { createKernelAdminApi } from "../../src/KernelAdminApi.js";
 import type { IKernel, IAdminRequest, IAdminResponse } from "nodefony";
 

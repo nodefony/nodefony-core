@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   getScaffoldContext,
   getScaffoldSpec,

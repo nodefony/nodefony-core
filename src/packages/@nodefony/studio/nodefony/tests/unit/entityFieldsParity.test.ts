@@ -8,7 +8,7 @@
  * ligne — type, facultatif, unicité, index, taille, cible, valeurs, défaut.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   ENTITY_FIELD_TYPES,
   formatEntityField,

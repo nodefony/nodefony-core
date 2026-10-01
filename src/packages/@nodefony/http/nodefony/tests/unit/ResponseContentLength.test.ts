@@ -9,7 +9,7 @@
  *   écrit déborde sur la réponse suivante ;
  * - `Transfer-Encoding: chunked` : AUCUN Content-Length.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import HttpResponse from "../../src/context/http/Response";
 
 function stub(

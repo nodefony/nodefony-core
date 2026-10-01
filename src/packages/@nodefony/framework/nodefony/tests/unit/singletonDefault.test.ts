@@ -23,7 +23,7 @@
 // accesseurs `route`/`query`/`queryGet` ; (6) la capture du contexte en tête
 // de `streamFile`.
 //
-import { expect } from "chai";
+import { expect } from "vitest";
 import { fileURLToPath } from "node:url";
 import { PassThrough, type Readable } from "node:stream";
 import {

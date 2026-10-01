@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect } from "chai";
+import { expect } from "vitest";
 import ViteBuilder, { resolveDedupe } from "../../src/builders/ViteBuilder.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
 

@@ -27,7 +27,7 @@
  * erreur, c'est tout le problème.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 

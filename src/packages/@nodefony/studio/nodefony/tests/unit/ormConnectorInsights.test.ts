@@ -3,7 +3,7 @@
  * rattachement des briques au BON connecteur, et verdicts fondés sur une mesure.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   analyzeConnector,
   attributeBricks,

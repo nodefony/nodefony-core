@@ -1,5 +1,5 @@
 import { describe, it, beforeAll, afterAll } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   mkdirSync,
   mkdtempSync,

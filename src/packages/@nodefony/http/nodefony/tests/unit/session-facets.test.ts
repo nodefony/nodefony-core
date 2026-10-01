@@ -8,7 +8,7 @@
  *   corrigent ça — le compte ignore la fenêtre, et l'inconnu n'est pas zéro.
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { facetDimensions } from "nodefony";
 import type { Module, IAdminEndpoint, IAdminRequest } from "nodefony";
 import {

@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 import mime from "mime-types";
 import HttpResponse from "../../src/context/http/Response.js";

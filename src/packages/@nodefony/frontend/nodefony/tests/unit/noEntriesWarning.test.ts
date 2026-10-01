@@ -19,7 +19,7 @@
  * capter le rappel `onServersReady`, le seul point d'entrée de la branche.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container, FRONTEND_CHOICES } from "nodefony";
 import FrontendService from "../../service/FrontendService";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";

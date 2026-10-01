@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { JsonRpcPeer, RpcError, RpcEnvelope } from "../realtime/JsonRpcPeer";
 import type {
   ActionsMap,

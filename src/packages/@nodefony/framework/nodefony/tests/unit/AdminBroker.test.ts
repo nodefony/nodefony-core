@@ -6,7 +6,7 @@
  * un proxy `Object.create` + init manuelle des champs (même technique que
  * Router.test.ts) pour tester la logique sans booter un kernel.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import AdminBroker from "../../service/AdminBroker.js";
 import Router from "../../service/router.js";
 import type { IAdminApi, IAdminEndpoint } from "nodefony";

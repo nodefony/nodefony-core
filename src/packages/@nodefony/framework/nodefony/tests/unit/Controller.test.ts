@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { PassThrough } from "node:stream";

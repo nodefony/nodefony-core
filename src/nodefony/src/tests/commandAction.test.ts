@@ -3,7 +3,7 @@
  *   L'action d'une commande n'est PAS bornée par le délai de démarrage
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { EventEmitter } from "node:events";
 import Event from "../Event";
 import {

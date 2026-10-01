@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { createKernelAdminApi } from "../../src/KernelAdminApi.js";
 import { freezeConfigTree } from "nodefony";
 import type { IKernel, IAdminRequest, IAdminResponse } from "nodefony";

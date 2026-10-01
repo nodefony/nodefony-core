@@ -4,7 +4,7 @@
  *   Maintenance hors hot-path — GcScheduler (timer + jitter + anti-empilement)
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { afterEach, vi } from "vitest";
 import { GcScheduler } from "../runtime/GcScheduler";
 

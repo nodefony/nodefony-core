@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { type Module } from "nodefony";
 import pkg from "node-forge";
 import fs from "node:fs/promises";

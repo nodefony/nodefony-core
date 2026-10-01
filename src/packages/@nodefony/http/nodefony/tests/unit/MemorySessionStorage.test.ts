@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { vi } from "vitest";
 import MemorySessionStorage from "../../src/session/storage/MemorySessionStorage.js";
 import type { ISerializedSession } from "../../interfaces/ISession.js";

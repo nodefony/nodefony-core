@@ -7,7 +7,7 @@
  * `parseFilters`), sans clé inventée. Logique pure → déterministe, aucun DOM.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   toPageParams,
   withoutColumnFilters,

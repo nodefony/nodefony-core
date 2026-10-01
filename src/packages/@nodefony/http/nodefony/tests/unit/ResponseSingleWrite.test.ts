@@ -16,7 +16,7 @@
  * à écrire ensuite. Les deux branches sont donc vérifiées ICI, côte à côte :
  * séparées, on corrigerait l'une en cassant l'autre sans le voir.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { EventEmitter } from "node:events";
 import HttpResponse from "../../src/context/http/Response";
 

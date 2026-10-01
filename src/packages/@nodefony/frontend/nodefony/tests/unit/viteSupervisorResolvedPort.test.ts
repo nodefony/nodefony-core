@@ -22,7 +22,7 @@
  * qu'on verrouille, et il n'existe qu'avant tout démarrage.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ViteProcessSupervisor } from "../../service/ViteProcessSupervisor";

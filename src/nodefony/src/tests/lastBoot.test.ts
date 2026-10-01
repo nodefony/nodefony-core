@@ -8,7 +8,7 @@
  * ou s'il fait tomber le contrôle qui le lit, il ne reste rien.
  */
 import { describe, it, beforeEach, afterEach } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   mkdtempSync,
   rmSync,

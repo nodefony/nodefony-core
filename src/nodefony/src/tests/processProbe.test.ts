@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { ProcessProbe } from "../service/cluster/processProbe";
 
 /**

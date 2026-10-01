@@ -13,7 +13,7 @@
  * l'utilisateur exécute.
  */
 import { describe, it, beforeEach, afterEach } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

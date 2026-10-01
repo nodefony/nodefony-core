@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Profiler } from "../../src/profiler/Profiler.js";
 
 /** Construit un Context-like minimal pour `collect`. */

@@ -5,7 +5,7 @@
  * serveur). Les décorateurs sont appliqués **manuellement** (fonction appelée
  * directement, pas la syntaxe `@`) → robuste vis-à-vis du transpileur de test.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import "reflect-metadata";
 import { Readable } from "node:stream";
 import {

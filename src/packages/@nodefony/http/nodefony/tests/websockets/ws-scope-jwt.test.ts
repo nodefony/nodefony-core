@@ -23,7 +23,7 @@
  *   → FirewallRealtimeAuthenticator    (type + scopes RÉELS repris du jeton)
  *   → api.request {route scopée}       → ScopeVoter  ≡  HTTP.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 

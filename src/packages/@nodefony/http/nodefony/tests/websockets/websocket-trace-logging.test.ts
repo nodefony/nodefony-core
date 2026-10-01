@@ -12,7 +12,7 @@
  * (driver actif = memory en dev → on interroge un requestId FRAIS juste après
  * l'envoi, avant toute éviction du ring, avec quelques relances).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import WebSocket from "ws";
 import https from "node:https";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";

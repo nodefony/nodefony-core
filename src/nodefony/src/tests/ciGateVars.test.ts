@@ -20,7 +20,7 @@
  * et un port qui change n'est pas une divergence de contrat.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { DATABASE_PARAMS } from "../cli/scaffold/engine";

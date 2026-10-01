@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import Route from "../../src/Route.js";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";

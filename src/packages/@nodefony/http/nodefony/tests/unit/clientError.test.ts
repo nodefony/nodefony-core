@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import type { Socket } from "node:net";
 import { handleClientError } from "../../service/servers/clientError.js";
 

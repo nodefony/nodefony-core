@@ -8,7 +8,7 @@
  * pathologique sans flaker sur une CI chargée). Logge les percentiles réels.
  * G3 — comble le trou « latence non mesurée » du durcissement WebSocket.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import WebSocket from "ws";
 
 const ECHO = "wss://localhost:5152/nodefony/test/ws/echo";

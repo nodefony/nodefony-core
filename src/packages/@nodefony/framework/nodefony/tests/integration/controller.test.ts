@@ -4,7 +4,7 @@
  * Requires: server running on 5151 (plain HTTP) and 5152 (HTTPS)
  * Start: /start-nodefony-server  (or skill in CLAUDE.md)
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 import https from "node:https";
 

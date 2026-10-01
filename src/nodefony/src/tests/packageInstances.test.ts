@@ -1,5 +1,5 @@
 import { describe, it, beforeEach, afterEach } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 
 import {
   registerPackageInstance,

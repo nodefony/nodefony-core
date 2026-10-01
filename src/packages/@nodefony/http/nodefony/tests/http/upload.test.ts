@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import path from "node:path";
 import https from "node:https";
 import fs from "node:fs";

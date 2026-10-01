@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import Router from "../../service/router.js";
 
 // Un contrôleur singleton dont la création ÉCHOUE (initialize() qui lève :

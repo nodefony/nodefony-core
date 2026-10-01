@@ -16,7 +16,7 @@
  * Le fournisseur `test-oidc` est déterministe (zéro réseau). Requires: server on
  * 5152 (HTTPS). Start: /start-server
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };

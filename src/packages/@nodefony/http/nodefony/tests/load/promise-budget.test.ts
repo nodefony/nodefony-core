@@ -33,7 +33,7 @@
  * Débrancher pour le voir rougir : rendre de nouveau `async` une étape rendue
  * synchrone (`HttpContext.send`, `HttpKernel.handleHttp`…).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { startSpareApp } from "nodefony/testing";

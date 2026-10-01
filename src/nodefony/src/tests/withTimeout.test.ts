@@ -4,7 +4,7 @@
  *   Résilience de boot — util withTimeout / TimeoutError
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 
 describe("withTimeout", () => {

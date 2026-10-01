@@ -3,7 +3,7 @@
  *   Ce que l'aide globale PROMET, chaque commande autonome doit l'accepter
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { isGlobalCliFlag, stripGlobalCliFlags } from "../cli/globalFlags";
 import { parseCreateArgv } from "../cli/create";
 import { parseCardArgv } from "../cli/card";

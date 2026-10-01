@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { FrameProfile } from "../../src/profiler/FrameProfile";
 import { Profiler } from "../../src/profiler/Profiler";
 

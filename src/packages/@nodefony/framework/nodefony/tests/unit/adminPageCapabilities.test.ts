@@ -8,7 +8,7 @@
  * aucun, une base SQL en offre quatre). Ce banc éprouve que le catalogue publie
  * la donnée, et surtout qu'il l'ÉVALUE à la lecture plutôt que de la figer.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { createFrameworkAdminApi } from "../../src/FrameworkAdminApi.js";
 import type {
   IAdminApi,

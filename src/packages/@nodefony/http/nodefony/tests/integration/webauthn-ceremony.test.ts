@@ -20,7 +20,7 @@
  * `npm run test:all` (Drizzle) et `npm run test:all -- --mongo`.
  */
 import { beforeAll, afterAll } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import {
   createHash,

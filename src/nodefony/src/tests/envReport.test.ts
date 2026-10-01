@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { buildEnvReport } from "../cli/envReport";
 import { envFileOrder } from "../runtime/loadEnv";
 import type { NamedEnvVarMeta } from "../config/defineEnv";

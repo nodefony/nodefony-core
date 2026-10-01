@@ -10,7 +10,7 @@
 // Chaque bloc nomme ce qu'il faut débrancher pour le voir tomber.
 //
 import "reflect-metadata";
-import { expect } from "chai";
+import { expect } from "vitest";
 import { fileURLToPath } from "node:url";
 import { AsyncResource } from "node:async_hooks";
 import Injector from "../kernel/injector/injector";

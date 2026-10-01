@@ -29,7 +29,7 @@
  * de savoir où va la section. Il refuse uniquement l'ABSENCE de choix.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 

@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { performance } from "node:perf_hooks";
 import Container from "../Container";
 import {

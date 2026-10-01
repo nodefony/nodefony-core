@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import { knownRoles } from "../../../frontend/src/routes/roles/rolesModel";
 
 const FRONT = path.resolve(

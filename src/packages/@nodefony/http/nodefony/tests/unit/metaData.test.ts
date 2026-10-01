@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import type { Data } from "../../service/http-kernel.js";
 import {
   buildMetaData,

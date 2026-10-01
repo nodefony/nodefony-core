@@ -9,7 +9,7 @@
  * quoi qu'il arrive, et l'étage 2 devient un état d'exécution lisible.
  */
 import { describe, it, beforeEach, afterEach } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

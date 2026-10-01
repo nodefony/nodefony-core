@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import SessionsService from "../../service/sessions/sessions-service";
 import type {
   ISessionStorage,

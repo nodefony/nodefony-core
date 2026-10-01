@@ -14,7 +14,7 @@
  *     rendent chacun la route et la query de LEUR chemin — identiques au GET
  *     REST du même chemin.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 

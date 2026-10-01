@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container, Event, RequestContext } from "nodefony";
 import Controller from "../../src/Controller.js";
 import { Scope } from "../../decorators/routerDecorators.js";

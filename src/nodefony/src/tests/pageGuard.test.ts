@@ -3,7 +3,7 @@
  *   assertPageQuery — la garde de mode d'un listPage (offset ⊕ curseur)
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   assertPageQuery,
   CursorOrderError,

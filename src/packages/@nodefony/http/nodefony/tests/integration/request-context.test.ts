@@ -8,7 +8,7 @@
  *
  * Live server: 127.0.0.1:5152 (HTTPS).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };

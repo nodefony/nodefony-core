@@ -3,7 +3,7 @@
  *   compareByOrder — le tri en mémoire partagé du contrat de page
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { compareByOrder, pickOrder } from "../runtime/pageSort";
 
 interface Row {

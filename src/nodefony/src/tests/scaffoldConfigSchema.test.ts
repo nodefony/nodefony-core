@@ -9,7 +9,7 @@
  *
  * Lit l'application RENDUE, pas le gabarit.
  */
-import { assert } from "chai";
+import { assert } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

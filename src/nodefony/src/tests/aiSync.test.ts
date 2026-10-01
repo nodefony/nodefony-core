@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { expect as chaiExpect } from "chai";
+import { expect as chaiExpect } from "vitest";
 import {
   mkdtempSync,
   readdirSync,

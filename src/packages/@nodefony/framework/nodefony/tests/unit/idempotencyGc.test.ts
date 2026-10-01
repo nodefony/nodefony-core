@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import type { IIdempotencyStore } from "nodefony";
 import { scheduleIdempotencyGc } from "../../src/idempotencyGc.js";
 import { emptyIdempotencyPage } from "../support/idempotencyDoubles";

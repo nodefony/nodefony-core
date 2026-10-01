@@ -14,7 +14,7 @@
  * CI-stable cases assert lossless delivery + a sane throughput floor. The
  * unbounded "until it breaks" flood is gated behind NF_RUN_WS_RUPTURE=1.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 import {

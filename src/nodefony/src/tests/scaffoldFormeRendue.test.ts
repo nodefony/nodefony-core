@@ -21,7 +21,7 @@
  * est donc LIÉ (jamais copié : dix mégaoctets par cas coûteraient plus que
  * toute la suite), et un cas sentinelle vérifie que ce prêt fonctionne.
  */
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   mkdtempSync,
   mkdirSync,

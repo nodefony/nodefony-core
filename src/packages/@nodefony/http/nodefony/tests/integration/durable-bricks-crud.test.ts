@@ -27,7 +27,7 @@
  * différente : `npm run test:all` (Drizzle) et `npm run test:all -- --mongo`.
  */
 import { beforeAll, afterAll } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import { totpCode, base32Decode } from "@nodefony/security";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";

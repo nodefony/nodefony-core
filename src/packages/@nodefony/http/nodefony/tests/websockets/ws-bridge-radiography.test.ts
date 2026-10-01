@@ -17,7 +17,7 @@
  *  3. deux frames de la MÊME socket → deux profils DISTINCTS (pas de cumul) ;
  *  4. un refus (404) est profilé aussi, et son id voyage dans `error.data`.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";

@@ -11,7 +11,7 @@
 // le harnais ne voit plus aucune frame), ou le corps de
 // `RealtimeController.assertScope` (plus aucun refus).
 //
-import { expect } from "chai";
+import { expect } from "vitest";
 import "reflect-metadata";
 import { BootConfigurationError } from "nodefony";
 import type { Module } from "nodefony";

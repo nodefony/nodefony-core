@@ -11,7 +11,7 @@
  * sources qui exigerait un projet sur disque ne s'éprouverait qu'avec lui.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   controllerPrefix,
   declaredRoutePaths,

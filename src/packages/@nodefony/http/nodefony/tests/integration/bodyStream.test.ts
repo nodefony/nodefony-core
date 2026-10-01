@@ -7,7 +7,7 @@
  * Live server : route POST /nodefony/test/decorators/body-stream (renvoie
  * `{ isReadable, bytes, parsedKeys }`). Couvre HTTP/1 clair (5151) + TLS (5152).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 import https from "node:https";
 import { asError } from "../helpers/wsText";

@@ -6,7 +6,7 @@
  * Le 403 (authentifié mais non autorisé) PROUVE que la garde est distincte de
  * l'authentification (401). Requires: server on 5151/5152.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 
 const BASE = { hostname: "localhost", port: 5151 };

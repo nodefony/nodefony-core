@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import HttpError from "../../src/errors/httpError.js";
 
 describe("HttpError — unit tests", () => {

@@ -9,7 +9,7 @@
  * The Test module registers listeners in its onKernelReady() and increments
  * shared counters. We probe via /nodefony/test/hooks/state and /nodefony/test/hooks/reset.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };

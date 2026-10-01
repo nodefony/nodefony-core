@@ -16,8 +16,8 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * Compat tests mocha+chai existants sans réécriture :
  *  - `globals: true` → describe/it/before/after/beforeEach/afterEach globaux.
  *  - `import "mocha"` aliasé vers un shim vide.
- *  - `import { expect } from "chai"` : chai marche tel quel (alias global vitest
- *    expect non utilisé puisque l'expect chai est importé explicitement).
+ *  - `import { expect } from "vitest"` : le chai EMBARQUÉ par vitest (pas de
+ *    dépendance `chai` directe).
  *  - reflect-metadata chargé au setup (decorators).
  *  - @nodefony/mongoose aliasé vers le stub (crash kernel.path).
  */

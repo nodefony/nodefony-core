@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import "reflect-metadata";
 import { RequestContext } from "nodefony";
 import {

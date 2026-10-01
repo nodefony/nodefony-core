@@ -1,6 +1,6 @@
 import http from "node:http";
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 describe("ROUTER TESTS", function () {

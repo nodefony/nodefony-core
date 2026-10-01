@@ -12,7 +12,7 @@
  * Ces cas lisent l'application RENDUE par le moteur, pas les gabarits : c'est
  * l'écart entre les deux qui a produit le ticket.
  */
-import { assert } from "chai";
+import { assert } from "vitest";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

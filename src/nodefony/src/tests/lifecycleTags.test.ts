@@ -4,7 +4,7 @@
  *   Résilience de boot — tags owner/critical sur les listeners lifecycle
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { EventEmitter } from "node:events";
 import { tagListener, readListenerTags } from "../kernel/lifecycleTags";
 

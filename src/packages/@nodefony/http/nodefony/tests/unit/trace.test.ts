@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { parseTraceparent, resolveTraceparent } from "../../service/trace.js";
 
 // W3C Trace Context — https://www.w3.org/TR/trace-context/

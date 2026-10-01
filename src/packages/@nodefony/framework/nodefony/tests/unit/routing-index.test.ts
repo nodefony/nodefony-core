@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Pdu } from "nodefony";
 import Router from "../../service/router.js";
 import Route from "../../src/Route.js";

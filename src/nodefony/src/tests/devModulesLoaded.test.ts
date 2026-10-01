@@ -8,7 +8,7 @@
  * chargé, son connecteur non — huit entités orphelines.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { devModulesLoaded, gateModuleManifest } from "../kernel/moduleGating";
 
 describe("devModulesLoaded — le verdict du gating, publié à la configuration", () => {

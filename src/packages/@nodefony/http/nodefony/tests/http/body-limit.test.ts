@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 
 // B1 — limite de taille du corps NON-multipart (maxBodySize, défaut 1 MiB).

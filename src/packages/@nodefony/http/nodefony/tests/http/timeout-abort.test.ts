@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 
 // P2.5 — request timeout integrated with the Nodefony pipeline + AbortSignal.

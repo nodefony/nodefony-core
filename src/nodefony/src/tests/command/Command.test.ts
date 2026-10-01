@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { expect } from "chai";
+import { expect } from "vitest";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import Cli from "../../Cli";
 

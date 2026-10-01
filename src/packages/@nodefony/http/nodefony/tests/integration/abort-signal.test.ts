@@ -12,7 +12,7 @@
  *   GET /nodefony/test/abort/state  — returns { abortedCount, completedCount, lastAbortReason }
  *   GET /nodefony/test/abort/reset  — resets counters
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };

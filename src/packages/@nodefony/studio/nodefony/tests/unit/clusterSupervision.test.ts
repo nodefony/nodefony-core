@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { mapInstanceToSupervision } from "../../realtime/clusterSupervision";
 import type { IRealtimeHealth } from "@nodefony/realtime";
 import type { IProcessHealth, IProcessRich } from "nodefony";

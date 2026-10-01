@@ -13,7 +13,7 @@
 // Débrancher : l'appel `Injector.assertNoCaptiveDependency` dans
 // `Router.setController` (service/router.ts).
 //
-import { expect } from "chai";
+import { expect } from "vitest";
 import { fileURLToPath } from "node:url";
 import {
   BootConfigurationError,

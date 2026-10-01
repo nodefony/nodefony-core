@@ -13,7 +13,7 @@
  *   MOCHA STYLE
  */
 
-import { assert } from "chai";
+import { assert } from "vitest";
 import { EventEmitter } from "../client/shim/events";
 
 // Surface contractuelle = méthodes EventEmitter appelées par Event.ts + Service.ts

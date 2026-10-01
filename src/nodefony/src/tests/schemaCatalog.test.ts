@@ -11,7 +11,7 @@
  * cohérence de la lecture avec elle-même.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { flattenConfigSchema } from "../config/schemaCatalog";
 
 describe("catalogue des réglages d'un schéma de configuration", () => {

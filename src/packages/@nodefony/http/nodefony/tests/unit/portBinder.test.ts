@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import net from "node:net";
 import http from "node:http";
 import type { AddressInfo } from "node:net";

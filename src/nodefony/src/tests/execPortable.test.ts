@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { needsShell, portableSpawn } from "../cli/execPortable";

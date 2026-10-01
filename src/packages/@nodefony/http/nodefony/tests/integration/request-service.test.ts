@@ -13,7 +13,7 @@
  *   GET /nodefony/test/request-scope/state        — clean() reçus, et leur ordre
  *   WS  /nodefony/test/request-scope/ws           — résolution à chaque message
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 import { drainTo } from "../helpers/scopeDrain.js";

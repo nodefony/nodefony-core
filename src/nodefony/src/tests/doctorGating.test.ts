@@ -12,7 +12,7 @@
  * continue.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {

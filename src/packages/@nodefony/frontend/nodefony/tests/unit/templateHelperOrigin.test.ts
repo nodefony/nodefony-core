@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import path from "node:path";
-import { expect } from "chai";
+import { expect } from "vitest";
 import TemplateHelper from "../../src/template/TemplateHelper.js";
 import type {
   IViteSupervisor,

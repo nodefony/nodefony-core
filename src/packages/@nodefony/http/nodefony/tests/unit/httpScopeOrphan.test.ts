@@ -13,7 +13,7 @@
  * du core, `HttpContext` remplacé par un constructeur qui lève. On passe par
  * le vrai `createHttpContext` et le vrai `catch` de `handleHttp`.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { vi } from "vitest";
 import { Container } from "nodefony";
 import HttpKernel from "../../service/http-kernel.js";

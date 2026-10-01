@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { resolveModuleLayout } from "../cli/scaffold/moduleLayout";
 
 /**

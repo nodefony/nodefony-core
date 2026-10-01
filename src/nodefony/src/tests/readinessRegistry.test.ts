@@ -6,7 +6,7 @@ import {
   beforeEach,
   afterEach,
 } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import os from "node:os";
 import path from "node:path";
 import {

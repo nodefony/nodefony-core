@@ -3,7 +3,7 @@
  *   countFacets — compter plusieurs facettes d'une collection, sans en dériver
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { countFacets, UNKNOWN_COUNT } from "../runtime/pageFacets";
 import type { IFacetSpec } from "../runtime/pageFacets";
 

@@ -1,4 +1,4 @@
-import { assert } from "chai";
+import { assert } from "vitest";
 import WebSocket from "ws";
 import { asError, rawDataText } from "../helpers/wsText";
 

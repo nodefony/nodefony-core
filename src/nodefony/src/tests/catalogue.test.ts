@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

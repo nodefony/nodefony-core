@@ -9,7 +9,7 @@
  * cf RÈGLE perf+mémoire). Exclu de la non-régression (boucles réseau lourdes) →
  * lancé via `vitest.load.config.ts` (npm run test:load). Serveur live : 127.0.0.1:5152 (HTTPS).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import {
   THRESHOLDS,

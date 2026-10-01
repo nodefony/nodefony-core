@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { nextCspNonce } from "../../src/context/Context.js";
 
 // Le cas DISCRIMINANT du pool amorti est l'ÉPUISEMENT : 4096 o / 16 o = 256

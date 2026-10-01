@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { toWsCloseCode } from "../../src/context/websocket/WebsocketContext.js";
 
 // Conformité RFC 6455 §7.4 des codes de fermeture WebSocket.

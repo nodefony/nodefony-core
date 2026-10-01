@@ -7,7 +7,7 @@
  * enveloppe allouée puis un `removeListener` au déclenchement (~3 µs/req au
  * profil sous charge).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { EventEmitter } from "node:events";
 import { beforeAll, vi } from "vitest";
 import { Container } from "nodefony";

@@ -8,7 +8,7 @@
  * le terminal posait. Ce test les confronte sur toutes les combinaisons.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import { capAllows, type TScaffoldCap } from "nodefony";
 import { isQuestionVisible } from "../../../frontend/src/routes/create/createModel";
 

@@ -23,7 +23,7 @@
  * `nodefony.com` dans /etc/hosts. Variables → `PROXY_GATE` de `vitest.gates.ts`.
  * Sans elles, la suite se saute — et le rapporteur de gates le DIT.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";

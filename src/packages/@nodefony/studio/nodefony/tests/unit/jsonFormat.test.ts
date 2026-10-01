@@ -6,7 +6,7 @@
  * défensif (le rendu d'un message WebSocket en dépend).
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   jsonKind,
   isExpandable,

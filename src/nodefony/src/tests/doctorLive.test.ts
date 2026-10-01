@@ -12,7 +12,7 @@
  * migration » — on ne lui a pas demandé, et ça doit se lire dans le rapport.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {

@@ -5,7 +5,7 @@
  *
  */
 
-import { assert, expect } from "chai";
+import { assert, expect } from "vitest";
 import { EventEmitter } from "node:events";
 import Event, { create, notification } from "../Event";
 import { isPromise } from "../Tools";

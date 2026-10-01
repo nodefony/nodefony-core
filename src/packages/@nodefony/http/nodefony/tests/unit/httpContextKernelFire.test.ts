@@ -6,7 +6,7 @@
  * formatée et un appel au journal, à chaque requête, pour un événement que
  * personne n'écoute. En debug, la trace reste : c'est elle qu'on vient y lire.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { vi } from "vitest";
 import HttpContext from "../../src/context/http/HttpContext.js";
 

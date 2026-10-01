@@ -13,7 +13,7 @@
  *     WS-RPC `invoke` (path porté par le message) sans être réécrite.
  *  4. read-only : helpers d'écriture absents du service → 501 (pas un crash).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 
 const BASE = { hostname: "127.0.0.1", port: 5151 };

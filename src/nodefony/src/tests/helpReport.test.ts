@@ -7,7 +7,7 @@
  * apparaissaient quelque part — il serait passé sur une page illisible.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   groupCommands,
   HELP_GROUPS,

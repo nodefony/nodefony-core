@@ -22,7 +22,7 @@
  *    son POST a répondu 405 — scope par méthode).
  */
 import { describe, it, vi, beforeEach, afterEach } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   ApiClient,
   ApiError,

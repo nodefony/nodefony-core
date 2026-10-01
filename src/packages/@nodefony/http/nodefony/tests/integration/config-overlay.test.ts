@@ -11,7 +11,7 @@
  * Débrancher : retirer le `fireAsync("onRequestScope")` de `http-kernel.ts`,
  * ou refaire lire `maxBodySize` au constructeur de `Request` → le 2ᵉ bloc tombe.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };

@@ -8,7 +8,7 @@
  * (validé en intégration) ; ici on vérifie qu'en `false` la méthode n'alloue/ne
  * logge RIEN (coût nul prod), et qu'en `true` le format est correct.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import Context from "../../src/context/Context";
 import type { PhaseTiming } from "../../interfaces/IContext";
 

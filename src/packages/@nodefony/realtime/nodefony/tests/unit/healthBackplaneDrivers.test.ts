@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 // Import du BARREL du module, pas seulement du registre : les drivers natifs
 // s'enregistrent au chargement du module (`index.ts`), exactement comme en runtime.
 // Importer le registre seul donnerait un registre vide — et un test qui prouve le

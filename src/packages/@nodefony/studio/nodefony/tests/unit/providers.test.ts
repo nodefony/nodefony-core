@@ -13,7 +13,7 @@
  *  - dispose() détache le listener ET désarme le timer (zéro fuite — règle perf).
  */
 import { describe, it, vi, beforeEach, afterEach } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import {
   createSyslogBridge,
   createStatsTicker,

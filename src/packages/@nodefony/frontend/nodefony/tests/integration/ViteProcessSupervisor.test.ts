@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import http from "node:http";

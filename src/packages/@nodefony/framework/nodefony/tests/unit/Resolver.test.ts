@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container } from "nodefony";
 import Resolver from "../../src/Resolver.js";
 import type Route from "../../src/Route.js";

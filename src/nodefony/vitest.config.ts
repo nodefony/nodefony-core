@@ -21,7 +21,8 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *  - `globals: true` → `describe`/`it`/`beforeEach`/`afterEach` globaux (comme mocha).
  *  - `import "mocha"` (et `import { describe, it } from "vitest"`) aliasé vers le shim
  *    `vitest-mocha-shim.mjs` (re-export des équivalents vitest).
- *  - `import { assert, expect } from "chai"` : chai (lib d'assertion) reste tel quel.
+ *  - `import { assert, expect } from "vitest"` : le chai EMBARQUÉ par vitest (pas de
+ *    dépendance `chai` directe).
  *  - reflect-metadata (decorators), alias `before`/`after`→`beforeAll`/`afterAll` et
  *    le perf-skip OPT-IN (`NF_RUN_PERF=1`) sont portés dans `src/tests/vitest.setup.ts`.
  *

@@ -10,7 +10,7 @@
  * contrôles, doit donner le même verdict d'inventaire.
  */
 import { describe, it, beforeEach, afterEach } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   mkdirSync,
   mkdtempSync,

@@ -9,7 +9,7 @@
  * qui fuit). Test en isolation via `HttpResponse.prototype.send.call(stub)` +
  * un mock minimal de `ServerResponse` (pas de serveur).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { EventEmitter } from "node:events";
 import HttpResponse from "../../src/context/http/Response";
 

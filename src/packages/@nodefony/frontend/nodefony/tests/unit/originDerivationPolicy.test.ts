@@ -22,7 +22,7 @@
  * renommage doit casser ce banc BRUYAMMENT plutôt que le rendre complaisant.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container } from "nodefony";
 import FrontendService from "../../service/FrontendService";
 

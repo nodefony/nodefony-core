@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container, RequestContext } from "nodefony";
 import OAuth2Controller from "../../controller/OAuth2Controller.js";
 import WebAuthnController from "../../controller/WebAuthnController.js";

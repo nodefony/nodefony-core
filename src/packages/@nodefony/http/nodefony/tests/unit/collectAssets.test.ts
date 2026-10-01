@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { join } from "node:path";
 import { planAssetPublish } from "../../src/assets/collectAssets.js";
 

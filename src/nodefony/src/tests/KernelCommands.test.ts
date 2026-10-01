@@ -5,7 +5,7 @@
  */
 
 import assert from "node:assert";
-import { expect } from "chai";
+import { expect } from "vitest";
 import { vi } from "vitest";
 import CliKernel from "../kernel/CliKernel";
 import Command from "../command/Command";

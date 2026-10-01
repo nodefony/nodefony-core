@@ -17,7 +17,7 @@
  * Ils ne remplacent pas le typecheck : ils empêchent qu'on lui retire les yeux.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

@@ -7,7 +7,7 @@
  * on lui donne exactement les octets qui doivent être rejetés, et on vérifie ce
  * qui sort.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { unbiasedIndices } from "../../nodefony/src/totp/totpCrypto";
 
 /** Source déterministe : rend les octets fournis, en boucle. */

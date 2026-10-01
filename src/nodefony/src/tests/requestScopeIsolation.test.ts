@@ -15,7 +15,7 @@
 // Chaque bloc nomme ce qu'il faut débrancher pour le voir tomber.
 //
 import "reflect-metadata";
-import { expect } from "chai";
+import { expect } from "vitest";
 import Injector from "../kernel/injector/injector";
 import Service from "../Service";
 import Container, { Scope } from "../Container";

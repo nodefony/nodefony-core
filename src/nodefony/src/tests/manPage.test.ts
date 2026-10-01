@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { assert as chai } from "chai";
+import { assert as chai } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { escapeRoff, renderManPage } from "../cli/manPage";

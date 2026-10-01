@@ -11,7 +11,7 @@
  * Live server: 5152 (HTTPS/HTTP2). On force le vhost via le `hostname` de connexion
  * (loopback) → Node pose `Host: <hostname>:5152` → `context.domain` = <hostname>.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 function get(

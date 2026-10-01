@@ -3,7 +3,7 @@
  * Integration tests — @Param / @Body / @Query + queryGet fix
  * Requires: server on 5151/5152
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import http from "node:http";
 
 const BASE = { hostname: "localhost", port: 5151 };

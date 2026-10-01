@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import Session, { OptionsSessionType } from "../../src/session/session.js";
 import type {
   ISessionStorage,

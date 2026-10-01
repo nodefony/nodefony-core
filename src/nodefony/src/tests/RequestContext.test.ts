@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { RequestContext, Container } from "../index";
 
 const tick = () => new Promise((r) => setTimeout(r, 5));

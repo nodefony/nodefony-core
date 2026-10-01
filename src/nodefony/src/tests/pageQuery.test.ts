@@ -3,7 +3,7 @@
  *   parsePageQuery — LE traducteur d'une requête de page (contrat IPageQuery)
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { parsePageQuery, PageQueryError } from "../runtime/pageQuery";
 
 describe("parsePageQuery — bornes de limit", () => {

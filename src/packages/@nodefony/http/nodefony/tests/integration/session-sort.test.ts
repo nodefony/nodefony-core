@@ -12,7 +12,7 @@
  * Requires: server running on 5152 (https). Start: /start-server
  * Fixtures dev : admin/secret-de-dev-42 (ROLE_NODEFONY_ADMIN).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };

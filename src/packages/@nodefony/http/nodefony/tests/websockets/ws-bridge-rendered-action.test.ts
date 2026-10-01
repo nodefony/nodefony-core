@@ -18,7 +18,7 @@
  *  2. AUCUNE frame hors-protocole (sans `id` ni `method`) pendant l'appel ;
  *  3. contrôle positif : la même action en GET REST sert le même payload.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 

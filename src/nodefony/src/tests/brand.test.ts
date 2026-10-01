@@ -5,7 +5,7 @@
  * que la console Windows classique ne sait pas afficher.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   BRAND_LOGO,
   BRAND_LOGO_ASCII,

@@ -12,7 +12,7 @@
  * du core en guise de contexte → `listenerCount`/`fireAsync` réels, zéro
  * serveur. On ne teste QUE la garde, pas le parsing.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Event } from "nodefony";
 import HttpRequest from "../../src/context/http/Request.js";
 

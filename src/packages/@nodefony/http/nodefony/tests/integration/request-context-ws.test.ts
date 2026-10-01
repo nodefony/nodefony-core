@@ -15,7 +15,7 @@
  *   WS /nodefony/test/als-test/ws       — echoes ALS requestId/user/traceparent
  *   WS /nodefony/test/als-test/ws/user  — "login" sets user, persists to next msg
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import WebSocket from "ws";
 import { asError, rawDataText } from "../helpers/wsText";
 

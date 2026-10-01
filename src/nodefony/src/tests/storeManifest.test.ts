@@ -11,7 +11,7 @@
  * donc ces cas tournent sans paquet installé, sans disque et sans noyau.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { withoutComments } from "../kernel/checks/sourceText";

@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { BootConfigurationError } from "nodefony";
 import { httpConfigSchema } from "../../config/config.js";
 import {

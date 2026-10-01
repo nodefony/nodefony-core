@@ -14,7 +14,7 @@
  * Live server: wss://localhost:5152 + 127.0.0.1:5152 (HTTPS).
  * Routes: src/modules/test/.../AlsController.ts (prefix /nodefony/test/als-test)
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 

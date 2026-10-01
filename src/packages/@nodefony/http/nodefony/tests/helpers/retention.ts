@@ -5,7 +5,7 @@
  * 🔴 SOURCE UNIQUE des seuils mémoire du dépôt : les documents (CLAUDE.md,
  * skills, guides) renvoient à ce fichier, ils ne recopient pas ces valeurs.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import { measureRetention, type IRetentionPlan } from "./heapSlope.js";
 import { asError } from "./wsText";

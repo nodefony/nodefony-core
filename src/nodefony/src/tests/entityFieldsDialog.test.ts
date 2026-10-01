@@ -6,7 +6,7 @@
  * tapée et laisse l'analyseur juger ; le DIALOGUE réel (`askMissing`, readline
  * sur flux simulés) passe par le compositeur pour la question `fields`.
  */
-import { assert } from "chai";
+import { assert } from "vitest";
 import { PassThrough } from "node:stream";
 import { describe, it } from "vitest";
 import {

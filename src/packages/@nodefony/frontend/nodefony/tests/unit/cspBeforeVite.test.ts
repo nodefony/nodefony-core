@@ -21,7 +21,7 @@
  * de surface publique, et un renommage doit casser ce banc bruyamment.
  */
 import { describe, it } from "vitest";
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container } from "nodefony";
 import FrontendService from "../../service/FrontendService";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";

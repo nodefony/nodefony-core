@@ -30,7 +30,7 @@
  * la plateforme INJECTÉE — c'est ainsi qu'on éprouve Windows sans Windows).
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 

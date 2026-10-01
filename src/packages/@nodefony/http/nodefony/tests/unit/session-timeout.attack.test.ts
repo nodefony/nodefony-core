@@ -7,7 +7,7 @@
  * implémentation vulnérable. L'invariant central : le touch prolonge l'idle mais
  * JAMAIS l'absolute, et ne ressuscite JAMAIS une session révoquée.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { vi } from "vitest";
 import Session, { OptionsSessionType } from "../../src/session/session.js";
 import MemorySessionStorage from "../../src/session/storage/MemorySessionStorage.js";

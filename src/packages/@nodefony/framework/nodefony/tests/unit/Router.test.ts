@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Module } from "nodefony";
 import Router, { type TypeController } from "../../service/router.js";
 import Route, { type ControllerConstructor } from "../../src/Route.js";

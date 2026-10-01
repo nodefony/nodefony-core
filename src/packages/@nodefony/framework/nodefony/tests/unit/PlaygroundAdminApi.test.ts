@@ -7,7 +7,7 @@
  * `playground/routes` que sur opt-in dev). Routes créées sur le Router statique
  * → cleanup par préfixe en afterEach (même technique qu'AdminBroker.test).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import "reflect-metadata";
 import Router from "../../service/router.js";
 import type Route from "../../src/Route.js";

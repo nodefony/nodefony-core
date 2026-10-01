@@ -13,7 +13,7 @@
  * Débrancher : ne plus remplacer la promesse par l'instance une fois tenue —
  * le cas « instance rendue directement » rougit.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { isPromise } from "nodefony";
 import Router from "../../service/router.js";
 

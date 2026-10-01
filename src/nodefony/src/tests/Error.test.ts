@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import assert from "node:assert";
 import { nodefonyError, registerErrorAdapter } from "../index";
 

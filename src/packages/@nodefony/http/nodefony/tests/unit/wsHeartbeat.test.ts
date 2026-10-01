@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import Ws, { WebSocketServer } from "ws";
 import type { AddressInfo } from "node:net";
 import {

@@ -13,7 +13,7 @@
  * Sémantique alignée sur `draft-ietf-httpapi-idempotency-key-header-06` §2.6/§2.7
  * (fresh / replay / in-flight=409 / mismatch=422).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import MemoryIdempotencyStore from "../../service/IdempotencyStore.js";
 import type { IdempotentResponse } from "../../interfaces/IIdempotencyStore.js";
 import { runIdempotencyPaginationContract } from "../../../../../../nodefony/src/tests/support/idempotencyPaginationContract";

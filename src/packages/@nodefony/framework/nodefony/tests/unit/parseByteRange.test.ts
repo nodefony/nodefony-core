@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { parseByteRange } from "../../src/Controller";
 
 // R1 (vague 5) — parsing du header `Range` mono-plage (RFC 9110 §14.1.2).

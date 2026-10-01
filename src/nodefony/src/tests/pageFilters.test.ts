@@ -3,7 +3,7 @@
  *   parseFilters — LE lecteur de filtres d'un point d'entrée paginé
  */
 
-import { expect } from "chai";
+import { expect } from "vitest";
 import { parseFilters } from "../runtime/pageFilters";
 import type { IFilterSpec } from "../runtime/pageFilters";
 import { PageQueryError, PAGE_QUERY_KEYS } from "../runtime/pageQuery";

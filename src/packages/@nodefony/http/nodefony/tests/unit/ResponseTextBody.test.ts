@@ -4,7 +4,7 @@
  * morceaux après une copie d'encodage. Le contrat public ne bouge pas : `body`
  * rend toujours des octets, `Content-Length` compte toujours des octets.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import HttpResponse from "../../src/context/http/Response";
 
 function make() {

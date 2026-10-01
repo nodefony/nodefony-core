@@ -8,7 +8,7 @@
  *
  * Serveur live requis : 5152 (HTTPS/WSS).
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 import WebSocket from "ws";
 import { asError } from "../helpers/wsText";

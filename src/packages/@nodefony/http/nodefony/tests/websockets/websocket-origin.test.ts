@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import WebSocket from "ws";
 import { asError } from "../helpers/wsText";
 

@@ -9,7 +9,7 @@
  * faire brûler du temps sur la boucle d'événements — unique — en envoyant des
  * espaces.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import { bearerToken } from "../../nodefony/src/authenticator/bearer";
 
 describe("bearerToken — extraction du porteur (RFC 9110 §5.6.3)", () => {

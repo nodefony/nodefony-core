@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Nodefony } from "nodefony";
 import DefaultErrorRenderer, {
   schemaMismatchOf,

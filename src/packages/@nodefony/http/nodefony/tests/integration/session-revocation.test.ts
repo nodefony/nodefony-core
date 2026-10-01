@@ -17,7 +17,7 @@
  * Fixtures dev : admin/secret-de-dev-42 (ROLE_NODEFONY_ADMIN), user/secret-de-dev-42 (ROLE_USER).
  * https://5152 : le cookie de session BFF (`__Host-`) exige un contexte sécurisé.
  */
-import { expect } from "chai";
+import { expect } from "vitest";
 import https from "node:https";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };

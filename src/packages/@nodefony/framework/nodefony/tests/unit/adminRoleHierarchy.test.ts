@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container, RequestContext } from "nodefony";
 import AdminApiController from "../../controller/AdminApiController.js";
 import type { ContextType } from "@nodefony/http";

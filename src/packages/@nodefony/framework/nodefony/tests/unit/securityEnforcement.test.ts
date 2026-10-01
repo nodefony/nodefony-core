@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import { Container, RequestContext } from "nodefony";
 import Controller from "../../src/Controller.js";
 import Resolver from "../../src/Resolver.js";

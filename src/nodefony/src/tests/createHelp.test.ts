@@ -17,7 +17,7 @@
  * c'est ici qu'il en gagne un.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import {
   usageCatalog,
   usagePageFor,

@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect } from "vitest";
 import Cookie from "../../src/cookies/cookie.js";
 
 describe("Cookie — unit tests", () => {

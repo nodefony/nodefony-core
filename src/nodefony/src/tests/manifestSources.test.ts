@@ -14,7 +14,7 @@
  * booterait ne prouverait pas le bon chemin de code.
  */
 import { describe, it } from "vitest";
-import { assert } from "chai";
+import { assert } from "vitest";
 import path from "node:path";
 import {
   readManifestSources,

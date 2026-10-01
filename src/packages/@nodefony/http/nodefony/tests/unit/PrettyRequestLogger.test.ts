@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { expect } from "chai";
+import { expect } from "vitest";
 import PrettyRequestLogger from "../../service/pretty-request-logger.js";
 
 function fakeHttpContext(
