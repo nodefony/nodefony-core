@@ -194,10 +194,15 @@ describe("parseDetachArgs — parse + strip anti-récursion", () => {
 /**
  * Tue un child factice détaché (leader de son groupe).
  *
- * À appeler depuis un `finally`, JAMAIS en fin de corps de test : ces children
- * tournent sur un `setInterval(() => {}, 1 << 30)` — une assertion qui échoue
- * avant le nettoyage en laisse un immortel sur la machine. Vécu : un résidu
- * découvert plus d'un jour après le run qui l'avait engendré.
+ * À appeler depuis un `finally`, JAMAIS en fin de corps de test : une assertion
+ * qui échoue avant le nettoyage laisserait le child vivant.
+ *
+ * Le `finally` ne couvre pas tout : un Ctrl+C, ou un worker tué, l'empêche de
+ * tourner — et le child, leader de son PROPRE groupe, ne reçoit pas le signal du
+ * terminal. D'où la seconde ceinture : chaque child se termine seul au bout de
+ * 3 minutes (`setTimeout(() => process.exit(0), 180_000)`), bien au-delà du plus
+ * long test (90 s). Vécu : avec un `setInterval(() => {}, 1 << 30)`, un résidu
+ * a tourné plus de trois jours après le run qui l'avait engendré.
  *
  * Tolérant par construction (pid absent, process déjà mort) — un nettoyage ne
  * doit jamais masquer l'échec qu'il suit.
@@ -319,7 +324,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
           net.createServer().listen(${p2}, "127.0.0.1");
           console.log("listening");
         }, 300);
-        setInterval(() => {}, 1 << 30);
+        setTimeout(() => process.exit(0), 180_000);
       `;
       const r = await launchDetached({
         spawnCmd: process.execPath,
@@ -360,7 +365,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       const script = `
         const net = require("node:net");
         setTimeout(() => net.createServer().listen(${p1}, "127.0.0.1"), 300);
-        setInterval(() => {}, 1 << 30);
+        setTimeout(() => process.exit(0), 180_000);
       `;
       const r = await launchDetached({
         spawnCmd: process.execPath,
@@ -425,7 +430,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
             }));
           });
         }, 300);
-        setInterval(() => {}, 1 << 30);
+        setTimeout(() => process.exit(0), 180_000);
       `;
       const r = await launchDetached({
         spawnCmd: process.execPath,
@@ -507,7 +512,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
             pid: process.pid, ports: [${contested}], desiredPorts: [${contested}], ts: Date.now(),
           }));
         }, 300);
-        setInterval(() => {}, 1 << 30);
+        setTimeout(() => process.exit(0), 180_000);
       `;
       const r = await launchDetached({
         spawnCmd: process.execPath,
@@ -573,7 +578,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       // ports vient du tiers.
       const r = await launchDetached({
         spawnCmd: process.execPath,
-        spawnArgs: ["-e", "setInterval(() => {}, 1 << 30);"],
+        spawnArgs: ["-e", "setTimeout(() => process.exit(0), 180_000);"],
         logFile: log,
         cwd,
         ports: [conv1, conv2],
@@ -624,7 +629,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
             }));
           });
         }, 300);
-        setInterval(() => {}, 1 << 30);
+        setTimeout(() => process.exit(0), 180_000);
       `;
       const r = await launchDetached({
         spawnCmd: process.execPath,
@@ -688,7 +693,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
             }));
           });
         }, 300);
-        setInterval(() => {}, 1 << 30);
+        setTimeout(() => process.exit(0), 180_000);
       `;
       const r = await launchDetached({
         spawnCmd: process.execPath,
@@ -746,7 +751,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     let childPid: number | undefined;
     try {
       // Child vivant qui n'ouvre JAMAIS le port.
-      const script = `setInterval(() => {}, 1 << 30);`;
+      const script = `setTimeout(() => process.exit(0), 180_000);`;
       const r = await launchDetached({
         spawnCmd: process.execPath,
         spawnArgs: ["-e", script],
@@ -818,7 +823,7 @@ describe("l'environnement du child détaché — ce qui ne franchit PAS le spawn
         console.log("DELEGATED=" + String(process.env.${DELEGATED_ENV}));
         console.log("DETACH_CHILD=" + String(process.env.${DETACH_CHILD_ENV}));
         net.createServer().listen(${p1}, "127.0.0.1");
-        setInterval(() => {}, 1 << 30);
+        setTimeout(() => process.exit(0), 180_000);
       `;
       const r = await launchDetached({
         spawnCmd: process.execPath,
