@@ -92,6 +92,50 @@ export function parseBefore(body) {
 }
 
 /**
+ * Lit le lot `beta-N` porté par les labels d'un ticket.
+ *
+ * @param labels - noms des labels du ticket
+ * @returns N si exactement un label `beta-N`, `null` sinon (aucun, ou plusieurs)
+ */
+export function lotOf(labels) {
+  const lots = (labels ?? [])
+    .map((l) => /^beta-(\d+)$/.exec(l)?.[1])
+    .filter(Boolean)
+    .map(Number);
+  return lots.length === 1 ? lots[0] : null;
+}
+
+/**
+ * Lot `beta-N` qu'un ordre désigne : la partie entière de l'ordre EST le lot.
+ *
+ * @param ordre - champ `Ordre` du tableau de bord
+ * @returns le numéro du lot
+ */
+export function lotForOrdre(ordre) {
+  return Math.floor(ordre);
+}
+
+/**
+ * Décide du geste sur le label de lot d'un ticket qu'on vient d'ouvrir — la
+ * même règle que `SANS-LOT` / `LOT-ORDRE`, appliquée À LA SOURCE au lieu d'être
+ * constatée après coup par `ticket:lint`.
+ *
+ * @param entree.ordre - ordre posé, `undefined` s'il n'y en a pas
+ * @param entree.labels - labels déjà posés sur le ticket
+ * @param entree.milestoneEnLots - le jalon est-il découpé en lots `beta-N` ?
+ * @returns `{ geste: "aucun" }`, `{ geste: "poser", label }` ou
+ *   `{ geste: "signaler", lot, attendu }` (contradiction qu'on n'écrase pas)
+ */
+export function lotAction({ ordre, labels, milestoneEnLots }) {
+  if (typeof ordre !== "number" || !milestoneEnLots) return { geste: "aucun" };
+  const lot = lotOf(labels);
+  const attendu = lotForOrdre(ordre);
+  if (lot === null) return { geste: "poser", label: `beta-${attendu}` };
+  if (lot !== attendu) return { geste: "signaler", lot, attendu };
+  return { geste: "aucun" };
+}
+
+/**
  * Confronte l'état du tableau de bord aux règles de pilotage du dépôt.
  *
  * Chaque contrôle a un verdict binaire et une preuve : aucun n'exige de jugement,
@@ -242,13 +286,7 @@ export function lintBoard({
   // proposé en premier par `board-next`, publié en dernier par le label. Vécu :
   // #507 remonté à 1.015 sous `beta-5`, #508 à 1.01 sous `beta-2`, et #509 resté
   // `beta-1` après la publication de la beta.1.
-  const lotDe = (issue) => {
-    const lots = (issue.labels ?? [])
-      .map((l) => /^beta-(\d+)$/.exec(l)?.[1])
-      .filter(Boolean)
-      .map(Number);
-    return lots.length === 1 ? lots[0] : null;
-  };
+  const lotDe = (issue) => lotOf(issue.labels);
   const publiesSet = new Set(publies);
   const jalonsEnLots = new Set(
     issues.filter((i) => lotDe(i) !== null).map((i) => i.milestone),
@@ -273,9 +311,9 @@ export function lintBoard({
         "SANS-LOT",
         issue.n,
         `ordre ${moi.ordre} dans « ${issue.milestone} », découpé en lots, mais aucun label beta-N — ne part avec aucune publication`,
-        `gh issue edit ${issue.n} --add-label beta-${Math.floor(moi.ordre)}`,
+        `gh issue edit ${issue.n} --add-label beta-${lotForOrdre(moi.ordre)}`,
       );
-    } else if (Math.floor(moi.ordre) !== lot) {
+    } else if (lotForOrdre(moi.ordre) !== lot) {
       add(
         "erreur",
         "LOT-ORDRE",

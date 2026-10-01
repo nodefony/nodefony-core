@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-30",
+  "generatedAt": "2026-10-01",
   "count": 36,
   "conformant": 36,
   "skills": [
@@ -7300,7 +7300,7 @@
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\".",
       "cost": {
         "bodyLines": 430,
-        "approxTokens": 8339
+        "approxTokens": 8365
       },
       "requires": [
         "redis"
@@ -7673,6 +7673,10 @@
             ],
             "options": [
               {
+                "flag": "--add-label",
+                "help": ""
+              },
+              {
                 "flag": "--assignee",
                 "help": ""
               },
@@ -7713,6 +7717,10 @@
                 "help": ""
               },
               {
+                "flag": "--limit",
+                "help": ""
+              },
+              {
                 "flag": "--milestone",
                 "help": ""
               },
@@ -7746,6 +7754,10 @@
               },
               {
                 "flag": "--single-select-option-id",
+                "help": ""
+              },
+              {
+                "flag": "--state",
                 "help": ""
               },
               {

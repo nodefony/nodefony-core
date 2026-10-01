@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-29
+updated: 2026-10-01
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Version | `1.8.0` |
 | Famille | Autres |
 | Corps | 430 lignes |
-| Coût d'activation | ~8 339 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 365 tokens (le corps est chargé à l'invocation) |
 | Description | 998 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 7 page(s) |
@@ -104,7 +104,7 @@ script, donc toujours à jour après régénération.
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--comment` `--format` `--grep` `--name-only` `--reverse` `--since` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | `--format` `--grep` `--no-verify` `--reverse` | — |
 | `scripts/ticket-effort.mjs` | ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a | `--format` `--grep` `--json` `--limit` `--paginate` `--since` `--slurp` `--state` | `OWNER` `REPO` |
-| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--assignee` `--backlog` `--body-file` `--cl` `--field-id` `--format` `--id` `--jours` `--json` `--label` `--milestone` `--number` `--ordre` `--owner` `--parent` `--priorite` `--project-id` `--repo` `--single-select-option-id` `--title` `--type` `--url` | `OWNER` `REPO` |
+| `scripts/ticket-open.mjs` | Ouvre un ticket ET l'inscrit au tableau de bord, d'un seul geste. | `--add-label` `--assignee` `--backlog` `--body-file` `--cl` `--field-id` `--format` `--id` `--jours` `--json` `--label` `--limit` `--milestone` `--number` `--ordre` `--owner` `--parent` `--priorite` `--project-id` `--repo` `--single-select-option-id` `--state` `--title` `--type` `--url` | `OWNER` `REPO` |
 | `scripts/ticket-open.test.mjs` | Suite de la dérivation d'ordre d'un sous-ticket. | — | — |
 | `scripts/ticket-progress.mjs` | Passe en « In Progress » les tickets qu'un commit vient de citer sans les fermer. | `--field-id` `--format` `--id` `--owner` `--project-id` `--single-select-option-id` | `OWNER` |
 | `scripts/ticket-progress.test.mjs` | Suite du marquage automatique « In Progress ». | — | — |

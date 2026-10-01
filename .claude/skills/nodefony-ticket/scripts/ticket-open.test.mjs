@@ -13,6 +13,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { deriveOrdre, parentTypeAction, siblingRank } from "./ticket-open.mjs";
+import { lotAction } from "./board-lint.mjs";
 
 describe("ordre dérivé d'un sous-ticket", () => {
   it("le premier enfant prend le premier dixième du parent", () => {
@@ -151,5 +152,31 @@ describe("rang d'un sous-ticket compté après sa création", () => {
   });
   it("un compte nul (lecture vide) ne rend pas de rang négatif", () => {
     expect(siblingRank(0)).to.equal(0);
+  });
+});
+
+describe("lotAction — le lot beta-N se pose À L'OUVERTURE (vécu : #510 ouvert à 2.0025 sans beta-2)", () => {
+  it("jalon découpé en lots, aucun label de lot → pose beta-<partie entière de l'ordre>", () => {
+    expect(
+      lotAction({ ordre: 2.0025, labels: [], milestoneEnLots: true }),
+    ).to.deep.equal({ geste: "poser", label: "beta-2" });
+  });
+  it("label de lot cohérent avec l'ordre → aucun geste", () => {
+    expect(
+      lotAction({ ordre: 2.0025, labels: ["beta-2"], milestoneEnLots: true }),
+    ).to.deep.equal({ geste: "aucun" });
+  });
+  it("label contredit par l'ordre → signalé, jamais écrasé", () => {
+    expect(
+      lotAction({ ordre: 1.5, labels: ["beta-3"], milestoneEnLots: true }),
+    ).to.deep.equal({ geste: "signaler", lot: 3, attendu: 1 });
+  });
+  it("jalon SANS lots, ou ordre absent → aucun geste", () => {
+    expect(
+      lotAction({ ordre: 2.5, labels: [], milestoneEnLots: false }).geste,
+    ).to.equal("aucun");
+    expect(
+      lotAction({ ordre: undefined, labels: [], milestoneEnLots: true }).geste,
+    ).to.equal("aucun");
   });
 });

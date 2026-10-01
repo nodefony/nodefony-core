@@ -328,7 +328,7 @@ d'ordonner ou d'estimer.
 **Ce qu'il faut savoir sans l'ouvrir** :
 
 - 🔴 **`gh issue create` n'inscrit PAS le ticket au tableau de bord.** Ouvrir par la commande du
-  dépôt — `npm run ticket:open` — qui crée, inscrit et pose les champs d'un seul geste.
+  dépôt — `npm run ticket:open` — qui crée, inscrit et pose les champs d'un seul geste — y compris le lot `beta-N`, déduit de la partie entière de l'ordre quand le jalon est découpé en lots.
 - **L'estimation en jours ne prédit rien** : ce qui prédit le reste-à-faire est le **nombre** de
   tickets ouverts, pas la somme de leurs jours. Découper un ticket en trois le rend trois fois plus
   cher, chacun repayant son chargement de contexte.

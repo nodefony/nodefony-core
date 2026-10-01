@@ -42,6 +42,7 @@
  * tête. Un remplissage mécanique ressemble à un arbitrage et n'en est pas un.
  */
 import { execFileSync } from "node:child_process";
+import { lotAction, lotOf } from "./board-lint.mjs";
 
 const OWNER = "nodefony";
 const REPO = "nodefony-core";
@@ -194,6 +195,36 @@ export function nombreDeSousTickets(numero) {
     )}){subIssues(first:1){totalCount}}}}`,
   ]);
   return JSON.parse(out)?.data?.repository?.issue?.subIssues?.totalCount ?? 0;
+}
+
+/**
+ * Dit si un jalon est découpé en lots : au moins un ticket ouvert y porte un `beta-N`.
+ *
+ * @remarks Même définition que `jalonsEnLots` de `board-lint` (issues ouvertes).
+ * `gh issue list` pagine jusqu'à `--limit` ; un jalon dépassant mille tickets
+ * ouverts serait tronqué — ordre de grandeur actuel : quelques dizaines.
+ *
+ * @param milestone - titre du jalon
+ * @returns `true` si le jalon porte des lots
+ */
+export function jalonEnLots(milestone) {
+  const out = sh("gh", [
+    "issue",
+    "list",
+    "--repo",
+    `${OWNER}/${REPO}`,
+    "--milestone",
+    milestone,
+    "--state",
+    "open",
+    "--limit",
+    "1000",
+    "--json",
+    "labels",
+  ]);
+  return JSON.parse(out).some(
+    (i) => lotOf(i.labels.map((l) => l.name)) !== null,
+  );
 }
 
 if (process.argv[1]?.endsWith("ticket-open.mjs")) {
@@ -356,6 +387,32 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
   }
   if (ordre !== undefined) {
     setNumber("Ordre", ordre);
+    // LE LOT — la partie entière de l'ordre EST le lot `beta-N` d'un jalon
+    // découpé en lots. Constaté seulement par `ticket:lint` (SANS-LOT), il
+    // restait oublié à l'ouverture : vécu sur #510, ouvert à 2.0025 sans `beta-2`.
+    const lot = lotAction({
+      ordre,
+      labels: args.label,
+      milestoneEnLots:
+        !args.backlog && args.milestone ? jalonEnLots(args.milestone) : false,
+    });
+    if (lot.geste === "poser") {
+      sh("gh", [
+        "issue",
+        "edit",
+        number,
+        "--repo",
+        `${OWNER}/${REPO}`,
+        "--add-label",
+        lot.label,
+      ]);
+      console.log(`lot posé : ${lot.label} (partie entière de l'ordre)`);
+    } else if (lot.geste === "signaler") {
+      console.error(
+        `⚠️ label beta-${lot.lot} mais ordre ${ordre} → lot ${lot.attendu} : ` +
+          "aligner l'un sur l'autre (LOT-ORDRE)",
+      );
+    }
   } else {
     console.error(
       "⚠️ ordre NON posé : cet item tombera en fin de tri et ne sera jamais " +
