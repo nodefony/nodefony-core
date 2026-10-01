@@ -49,6 +49,7 @@ import {
   FRONTEND_PARAMS,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
+import { frameworkPeerRange } from "../cli/scaffold/versions";
 import { checkPackageDeps } from "../kernel/checks/packageDeps";
 import {
   diskManifestReader,
@@ -6000,6 +6001,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const pkg = readJson(path.join(dest, "modules", "blog", "package.json"));
       assert.property(pkg["peerDependencies"], "@nodefony/frontend");
       assert.include((r.notes ?? []).join("\n"), "@nodefony/frontend");
+      // TOUTES les peers du module — celles du gabarit (`nodefony`, `framework`,
+      // `http`) comme celle que `create front` ajoute — portent la plage de la
+      // version qui scaffolde. `*` ne couvre aucune préversion : pendant une
+      // bêta, pnpm installait alors l'ancien Nodefony 7 pour le module.
+      const peers = Object.entries(
+        pkg["peerDependencies"] as Record<string, string>,
+      ).filter(([dep]) => dep === "nodefony" || dep.startsWith("@nodefony/"));
+      assert.isAtLeast(peers.length, 4);
+      for (const [dep, range] of peers) {
+        assert.equal(range, frameworkPeerRange(version), dep);
+      }
     });
 
     it("app SANS la brique : la garde mord toujours (rien à poser depuis rien)", () => {
@@ -6247,7 +6259,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
               peerDependencies: Record<string, string>;
             }
           ).peerDependencies["@nodefony/user"],
-          "*",
+          frameworkPeerRange(version),
         );
       });
 

@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 881,
-    "symbols": 4394,
+    "files": 882,
+    "symbols": 4402,
     "classes": 404,
-    "interfaces": 1149,
-    "types": 473,
+    "interfaces": 1150,
+    "types": 474,
     "enums": 4,
-    "functions": 1921,
-    "constants": 443
+    "functions": 1925,
+    "constants": 445
   },
   "symbols": {
     "Cli": {
@@ -2192,6 +2192,63 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Compose la phrase d'en-tête qui dit ce qui a été trouvé — et ce qui a été agrégé. Nommer le nombre d'entrées brutes n'est pas décoratif : c'est ce qui explique pourquoi la sortie tient en quelques …"
+    },
+    "IPackageManagerResolution": {
+      "name": "IPackageManagerResolution",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Gestionnaire retenu, et la source qui l'a désigné."
+    },
+    "PackageManagerSource": {
+      "name": "PackageManagerSource",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "D'où vient le gestionnaire retenu."
+    },
+    "isPackageManagerName": {
+      "name": "isPackageManagerName",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Garde de type : la valeur est-elle un gestionnaire pris en charge ?"
+    },
+    "packageManagerFromUserAgent": {
+      "name": "packageManagerFromUserAgent",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le gestionnaire dans un `npm_config_user_agent` (`pnpm/12.6.0 npm/? …`)."
+    },
+    "resolvePackageManager": {
+      "name": "resolvePackageManager",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Désigne le gestionnaire de paquets d'un projet (cf l'ordre des sources en tête de fichier)."
+    },
+    "PACKAGE_MANAGERS": {
+      "name": "PACKAGE_MANAGERS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Gestionnaires pris en charge, dans l'ordre où l'aide les cite."
+    },
+    "LOCKFILES": {
+      "name": "LOCKFILES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fichiers de verrou, par ordre de priorité. Deux verrous côte à côte sont une anomalie ; le premier listé l'emporte, de façon stable."
     },
     "LiveLine": {
       "name": "LiveLine",
@@ -8038,6 +8095,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Sous-ensemble du catalogue (helper des tables par framework)."
+    },
+    "frameworkPeerRange": {
+      "name": "frameworkPeerRange",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/versions.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Plage par laquelle un module local déclare un paquet du framework en `peerDependencies` : `^<version du scaffolder>`, jamais `*`. `*` ne couvre AUCUNE préversion (semver : « any non-prerelease vers…"
     },
     "SCAFFOLD_VERSIONS": {
       "name": "SCAFFOLD_VERSIONS",
@@ -30850,6 +30915,15 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
       ],
+      "portableSpawn": [
+        "src/nodefony/src/Cli.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/licenses.ts",
+        "src/nodefony/src/cli/see.ts",
+        "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/MenuCommand.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
       "styleText": [
         "src/nodefony/src/colors.ts"
       ],
@@ -32899,14 +32973,6 @@
       "usagePageFor": [
         "src/nodefony/src/cli/create.ts"
       ],
-      "portableSpawn": [
-        "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/cli/licenses.ts",
-        "src/nodefony/src/cli/see.ts",
-        "src/nodefony/src/kernel/commands/BuildCommand.ts",
-        "src/nodefony/src/kernel/commands/MenuCommand.ts",
-        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
-      ],
       "capAllows": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/interactive.ts"
@@ -33115,6 +33181,11 @@
       ],
       "groupCommands": [
         "src/nodefony/src/cli/manPage.ts"
+      ],
+      "PackageManagerName": [
+        "src/nodefony/src/cli/packageManager.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "MENU_GROUP_LABELS": [
         "src/nodefony/src/cli/startMenu.ts"
@@ -33467,9 +33538,8 @@
       "CliDefaultOptions": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
-      "PackageManagerName": [
-        "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
+      "resolvePackageManager": [
+        "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "CONSOLE_RUN_PROFILE": [
         "src/nodefony/src/kernel/CliKernel.ts"
@@ -34690,6 +34760,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "assertUserFieldsAreFillable": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "frameworkPeerRange": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "pick": [

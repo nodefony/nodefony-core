@@ -138,3 +138,21 @@ export function pick(...names: string[]): Record<string, string> {
   }
   return out;
 }
+
+/**
+ * Plage par laquelle un module local déclare un paquet du framework en
+ * `peerDependencies` : `^<version du scaffolder>`, jamais `*`.
+ *
+ * `*` ne couvre AUCUNE préversion (semver : « any non-prerelease version
+ * satisfies ») : pendant une bêta, la peer refusait le `nodefony` de
+ * l'application. npm passait par le hissage ; pnpm, qui résout chaque paquet
+ * du workspace pour son compte, installait le dernier STABLE du registre —
+ * l'ancien Nodefony 7 en JavaScript. `^10.0.0-beta.1` couvre les bêtas
+ * suivantes ET la 10.x stable : la même majeure que l'application.
+ *
+ * @param nodefonyVersion - version du paquet `nodefony` qui scaffolde
+ * @returns la plage à écrire dans le `package.json` du module
+ */
+export function frameworkPeerRange(nodefonyVersion: string): string {
+  return `^${nodefonyVersion}`;
+}

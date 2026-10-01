@@ -78,7 +78,12 @@ import {
   userContractFields,
   assertUserFieldsAreFillable,
 } from "./userContractSource";
-import { pick, SCAFFOLD_VERSIONS, versionOf } from "./versions";
+import {
+  frameworkPeerRange,
+  pick,
+  SCAFFOLD_VERSIONS,
+  versionOf,
+} from "./versions";
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
 import {
@@ -736,7 +741,7 @@ export function resolveAnswers(
 }
 
 /**
- * Déclare en `peerDependencies: "*"` chaque paquet Nodefony que les fichiers
+ * Déclare en `peerDependencies` chaque paquet Nodefony que les fichiers
  * écrits dans un MODULE importent sans que son manifeste le porte.
  *
  * Un module est un workspace : il déclare ses briques, l'application les
@@ -748,6 +753,8 @@ export function resolveAnswers(
  * @param dir - racine du module (celle de son `package.json`)
  * @param manifest - manifeste du module, déjà lu ; complété en place
  * @param files - fichiers écrits, relatifs à `dir`
+ * @param peerRange - plage écrite pour chaque peer ajoutée
+ *   (`frameworkPeerRange` — jamais `*`, qui refuse les préversions)
  * @param required - briques dont le code dépend SANS les importer (le module
  *   ORM qui sert le connecteur d'un schéma Mongoose, écrit en littéral)
  * @returns vrai si le manifeste a été réécrit
@@ -757,6 +764,7 @@ function declareImportedPeers(
   manifest: Record<string, Record<string, string>>,
   files: readonly string[],
   writer: ScaffoldWriter,
+  peerRange: string,
   required: readonly string[] = [],
 ): boolean {
   const own = (manifest["name"] as unknown as string | undefined) ?? "";
@@ -774,7 +782,7 @@ function declareImportedPeers(
   }
   if (missing.size === 0) return false;
   const peer = (manifest["peerDependencies"] ??= {});
-  for (const dep of [...missing].sort()) peer[dep] = "*";
+  for (const dep of [...missing].sort()) peer[dep] = peerRange;
   writer.write(
     path.join(dir, "package.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
@@ -1794,7 +1802,13 @@ function dispatchScaffold(
     return runModuleScaffold(request, answers, packageRoot, version, writer);
   }
   if (request.type === "controller") {
-    return runControllerScaffold(request, answers, packageRoot, writer);
+    return runControllerScaffold(
+      request,
+      answers,
+      packageRoot,
+      version,
+      writer,
+    );
   }
   if (request.type === "service") {
     return runServiceScaffold(request, answers, packageRoot, writer);
@@ -1803,7 +1817,7 @@ function dispatchScaffold(
     return runFrontScaffold(request, answers, packageRoot, version, writer);
   }
   if (request.type === "entity") {
-    return runEntityScaffold(request, answers, packageRoot, writer);
+    return runEntityScaffold(request, answers, packageRoot, version, writer);
   }
   if (request.type === "command") {
     return runCommandScaffold(request, answers, packageRoot, writer);
@@ -2624,6 +2638,7 @@ function runModuleScaffold(
     upper: name.replaceAll("-", "_").toUpperCase(),
     description: String(answers.description) || `Module ${name} de ${appName}`,
     nodefonyVersion: version,
+    peerRange: frameworkPeerRange(version),
     pkg: SCAFFOLD_VERSIONS,
     service: answers.service === true,
     command: answers.command === true,
@@ -2863,6 +2878,7 @@ function runControllerScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
   packageRoot: string,
+  nodefonyVersion: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
   const projectRoot = findProjectRoot(request.dir);
@@ -2977,7 +2993,13 @@ function runControllerScaffold(
   written.push("index.ts");
   if (
     target.kind === "module" &&
-    declareImportedPeers(target.dir, manifest, written, writer)
+    declareImportedPeers(
+      target.dir,
+      manifest,
+      written,
+      writer,
+      frameworkPeerRange(nodefonyVersion),
+    )
   ) {
     written.push("package.json");
   }
@@ -4278,6 +4300,7 @@ function runEntityScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
   packageRoot: string,
+  nodefonyVersion: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
   const projectRoot = findProjectRoot(request.dir);
@@ -4297,7 +4320,7 @@ function runEntityScaffold(
   // pas. On refuse AVANT d'écrire, avec le geste exact.
   //
   // ⚠️ La brique se cherche dans l'APP, pas seulement dans la cible : un module est un
-  // workspace de l'app et déclare les paquets Nodefony en `peerDependencies: "*"` —
+  // workspace de l'app et déclare les paquets Nodefony en `peerDependencies` —
   // c'est l'app qui les installe et qui charge le module ORM (manifeste `modules`).
   // Exiger la dep dans le module rendait `--module` inutilisable (vécu).
   const manifestPath = path.join(target.dir, "package.json");
@@ -5122,16 +5145,20 @@ function runEntityScaffold(
     );
   }
 
-  // Un MODULE déclare les briques Nodefony qu'il importe en `peerDependencies: "*"`
+  // Un MODULE déclare les briques Nodefony qu'il importe en `peerDependencies`
   // (l'app les installe — c'est le pattern posé par `create module`). Les fichiers
   // générés importent orm-core (defineEntity, service) et drizzle (tests) : sans ces
   // deux entrées, le module compilerait « par chance », via le hoisting de l'app.
   if (
     target.kind === "module" &&
-    declareImportedPeers(target.dir, manifest, written, writer, [
-      "@nodefony/orm-core",
-      ORM_MODULE[orm],
-    ])
+    declareImportedPeers(
+      target.dir,
+      manifest,
+      written,
+      writer,
+      frameworkPeerRange(nodefonyVersion),
+      ["@nodefony/orm-core", ORM_MODULE[orm]],
+    )
   ) {
     written.push("package.json");
   }
@@ -5666,7 +5693,9 @@ function runFrontScaffold(
   // PEER (comme les autres du gabarit de module), jamais en dependency — rien
   // ne s'installe dans un workspace pour son compte propre.
   if (addFrontendPeer) {
-    addDeps("peerDependencies", { "@nodefony/frontend": "*" });
+    addDeps("peerDependencies", {
+      "@nodefony/frontend": frameworkPeerRange(nodefonyVersion),
+    });
   }
   // Le bundle de PRODUCTION du front doit entrer dans `npm run build`. Le
   // gabarit du manifeste ne pose `&& nodefony frontend:build` que si l'app naît

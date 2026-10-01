@@ -32,19 +32,19 @@
     "test": "vitest run"
   },
 <% } %>  "peerDependencies": {
-    "nodefony": "*",
-    "@nodefony/framework": "*",
-<% if (it.needsRealtime) { %>    "@nodefony/realtime": "*",
-<% } %><% if (it.front) { %>    "@nodefony/frontend": "*",
+    "nodefony": "<%= it.peerRange %>",
+    "@nodefony/framework": "<%= it.peerRange %>",
+<% if (it.needsRealtime) { %>    "@nodefony/realtime": "<%= it.peerRange %>",
+<% } %><% if (it.front) { %>    "@nodefony/frontend": "<%= it.peerRange %>",
 <% } %><% if (it.publishable) { %>    "zod": "<%= it.pkg["zod"] %>",
-<% } %>    "@nodefony/http": "*"
+<% } %>    "@nodefony/http": "<%= it.peerRange %>"
   },
 <% if (it.publishable) { %>  "devDependencies": {
-    "nodefony": "*",
-    "@nodefony/framework": "*",
-<% if (it.needsRealtime) { %>    "@nodefony/realtime": "*",
-<% } %><% if (it.front) { %>    "@nodefony/frontend": "*",
-<% } %>    "@nodefony/http": "*"
+    "nodefony": "<%= it.peerRange %>",
+    "@nodefony/framework": "<%= it.peerRange %>",
+<% if (it.needsRealtime) { %>    "@nodefony/realtime": "<%= it.peerRange %>",
+<% } %><% if (it.front) { %>    "@nodefony/frontend": "<%= it.peerRange %>",
+<% } %>    "@nodefony/http": "<%= it.peerRange %>"
   },
   "dependencies": {
     "tslib": "<%= it.pkg["tslib"] %>"
