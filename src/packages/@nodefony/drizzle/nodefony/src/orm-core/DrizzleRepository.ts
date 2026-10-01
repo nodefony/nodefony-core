@@ -91,6 +91,36 @@ const PREPARED_CACHE_MAX = 128;
 /** Séquence des noms de prepared statements (PG les exige uniques par process). */
 let preparedNameSeq = 0;
 
+/** Comparaison scalaire d'un critère : opérateur portable → prédicat Drizzle. */
+type Comparison = readonly [
+  "$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte",
+  (left: DrizzleColumn, right: unknown) => SQL,
+];
+
+/**
+ * Les comparaisons scalaires, dans l'ordre où elles entrent dans le `WHERE`.
+ *
+ * UNE table pour le chemin direct (`#pushOperators`) ET le chemin préparé
+ * (`#buildPreparedSelect`) : deux listes recopiées finiraient par traduire le
+ * même critère en deux SQL différents, selon que la forme est en cache ou non.
+ * Leur texte SQL ne dépend que de l'opérateur, jamais de la valeur — c'est ce
+ * qui les rend préparables (≠ `$in`/`$nin`, dont le SQL suit la cardinalité).
+ */
+const COMPARISONS: readonly Comparison[] = [
+  ["$eq", eq],
+  ["$ne", ne],
+  ["$gt", gt],
+  ["$gte", gte],
+  ["$lt", lt],
+  ["$lte", lte],
+];
+
+/** Opérateurs qu'une forme préparée sait rendre : les comparaisons et `$null`. */
+const PREPARABLE_OPERATORS: ReadonlySet<string> = new Set([
+  ...COMPARISONS.map(([op]) => op),
+  "$null",
+]);
+
 /**
  * Surface d'exécution d'un SELECT préparé — commune aux trois dialectes :
  * `execute(placeholderValues)` résout les `sql.placeholder()` via
@@ -280,9 +310,23 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    *
    * Fallback sans PK déclarée : `rowid` (SQLite-only — toutes les entités
    * framework ont une PK ; une table d'app sans PK est un cas sqlite assumé).
+   *
+   * Court-circuit : un critère qui fixe TOUTES les colonnes de la PK par une
+   * égalité désigne déjà au plus une ligne — le `WHERE` nu suffit, et la
+   * sous-requête n'est plus payée. Elle coûtait ~60 µs par UPDATE en SQLite
+   * (recompilation d'un SQL plus long + table dérivée matérialisée, mesuré par
+   * `scripts/micro/micro-update-pick.mjs` du skill `nodefony-load-test`), soit
+   * l'essentiel de l'écart du banc ORM face à NestJS (#510).
+   *
+   * @param criteria - critère portable de la mutation.
+   * @returns le prédicat qui borne la mutation à au plus une ligne.
    */
-  #pickOne(where: SQL | undefined): SQL {
+  #pickOne(criteria?: Criteria<T>): SQL {
+    const where = this.#where(criteria);
     const pk = this.#pkColumns();
+    if (where && pk && this.#pinsPrimaryKey(pk, criteria)) {
+      return where;
+    }
     if (!pk) {
       return where
         ? sql`rowid in (select rowid from ${this.#table} where ${where} limit 1)`
@@ -300,6 +344,40 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const target =
       pk.length === 1 && first ? sql`${first}` : sql`(${qualified})`;
     return sql`${target} in (select ${output} from (${inner}) as picked)`;
+  }
+
+  /**
+   * Vrai si le critère fixe chaque colonne de la PK par une égalité à une
+   * valeur (ni `null`, ni opérateur, ni branche de `$or`) — l'unicité de la
+   * PK garantit alors « au plus une ligne » sans sous-requête.
+   *
+   * @param pk - colonnes de la PK (au plus 31 : masque de bits).
+   * @param criteria - critère portable de la mutation.
+   */
+  #pinsPrimaryKey(pk: DrizzleColumn[], criteria?: Criteria<T>): boolean {
+    if (criteria === undefined || pk.length > 31) {
+      return false;
+    }
+    // `Object.entries`, comme `#where` : une clé HÉRITÉE ne doit pas compter
+    // comme fixée alors que le WHERE ne la porte pas — l'UPDATE toucherait
+    // alors plusieurs lignes.
+    let pinned = 0;
+    for (const [field, value] of Object.entries(criteria)) {
+      if (
+        field === "$or" ||
+        value === null ||
+        value === undefined ||
+        isFieldOperators(value)
+      ) {
+        continue;
+      }
+      const col = this.#col(this.#table, field);
+      const i = col === undefined ? -1 : pk.indexOf(col);
+      if (i !== -1) {
+        pinned |= 1 << i;
+      }
+    }
+    return pinned === (1 << pk.length) - 1;
   }
 
   /**
@@ -421,12 +499,10 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     col: DrizzleColumn,
     ops: FieldOperators<unknown>,
   ): void {
-    if (ops.$eq !== undefined) conds.push(eq(col, ops.$eq));
-    if (ops.$ne !== undefined) conds.push(ne(col, ops.$ne));
-    if (ops.$gt !== undefined) conds.push(gt(col, ops.$gt));
-    if (ops.$gte !== undefined) conds.push(gte(col, ops.$gte));
-    if (ops.$lt !== undefined) conds.push(lt(col, ops.$lt));
-    if (ops.$lte !== undefined) conds.push(lte(col, ops.$lte));
+    for (const [op, compare] of COMPARISONS) {
+      const value = ops[op];
+      if (value !== undefined) conds.push(compare(col, value));
+    }
     if (ops.$in !== undefined) conds.push(inArray(col, [...ops.$in]));
     if (ops.$nin !== undefined) conds.push(notInArray(col, [...ops.$nin]));
     // `LIKE … ESCAPE '\'` plutôt que le `like()` de Drizzle, qui n'émet aucune
@@ -495,8 +571,14 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    * présence de limit/offset. Les VALEURS n'en font jamais partie : elles
    * deviennent des placeholders (`p<i>`, `lim`, `off`) bindés à l'exécution.
    *
-   * Repli (`null`) par construction : `$or` et opérateurs riches (le SQL varie
-   * avec la cardinalité — `$in` — ou la combinaison d'opérateurs), valeur
+   * Les comparaisons scalaires ({@link COMPARISONS}) et `$null` entrent dans la
+   * forme : la COMBINAISON d'opérateurs d'un champ fait partie de la clé, leurs
+   * valeurs deviennent des placeholders `p<i>$<op>`. C'est le chemin des
+   * lectures bornées dans le temps (`expiresAt: { $gt: now }` — la révocation
+   * des jetons, lue à chaque requête authentifiée).
+   *
+   * Repli (`null`) par construction : `$or`, `$in`/`$nin` (le SQL suit la
+   * cardinalité), `$like` (clause d'échappement propre au dialecte), valeur
    * `undefined` (le chemin actuel la rejette, même contrat), transaction
    * (cf ctor), cache plein ({@link PREPARED_CACHE_MAX}).
    */
@@ -509,8 +591,33 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (criteria) {
       let i = 0;
       for (const [field, value] of Object.entries(criteria)) {
-        if (field === "$or" || value === undefined || isFieldOperators(value)) {
+        if (field === "$or" || value === undefined) {
           return null;
+        }
+        if (isFieldOperators(value)) {
+          // Les comparaisons et `$null` entrent dans la forme ; `$in`/`$nin`/
+          // `$like` restent sur le chemin direct (repli `null`).
+          let ops = "";
+          for (const op in value) {
+            if (!PREPARABLE_OPERATORS.has(op)) {
+              return null;
+            }
+          }
+          for (const [op] of COMPARISONS) {
+            const operand = value[op];
+            if (operand !== undefined) {
+              ops += op;
+              params[`p${i}${op}`] = operand;
+            }
+          }
+          // La VALEUR de `$null` décide du texte (IS NULL / IS NOT NULL) :
+          // elle appartient à la forme, jamais aux paramètres.
+          if (value.$null !== undefined) {
+            ops += value.$null ? "$null1" : "$null0";
+          }
+          key += `${field}\x04${ops}\x00`;
+          i++;
+          continue;
         }
         if (value === null) {
           key += `${field}\x01\x00`;
@@ -559,6 +666,22 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       let i = 0;
       for (const [field, value] of Object.entries(criteria)) {
         const col = this.#requireCol(field);
+        if (isFieldOperators(value)) {
+          // Même table et même ordre que `#pushOperators` — la forme a déjà
+          // écarté tout opérateur hors de `PREPARABLE_OPERATORS`.
+          for (const [op, compare] of COMPARISONS) {
+            if (value[op] !== undefined) {
+              conds.push(
+                compare(col, sql.param(sql.placeholder(`p${i}${op}`), col)),
+              );
+            }
+          }
+          if (value.$null !== undefined) {
+            conds.push(value.$null ? isNull(col) : isNotNull(col));
+          }
+          i++;
+          continue;
+        }
         // `sql.param(placeholder, col)` et JAMAIS `eq(col, placeholder)` nu :
         // `bindIfParam` EXCLUT les Placeholder du wrapping Param, donc le nu
         // serait résolu SANS le `mapToDriverValue` de la colonne (un array json
@@ -811,7 +934,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     // - `#pickOne` garantit « au plus une » ligne via la PK découverte (forme
     //   portable sqlite/pg/mysql — cf. sa doc) ;
     // - RETURNING rend la ligne réellement persistée.
-    const pick = this.#pickOne(this.#where(criteria));
+    const pick = this.#pickOne(criteria);
     const rows = await this.#prof(
       this.#db
         .update(execTable(this.#table))
@@ -942,7 +1065,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (this.#dialect === "mysql") {
       return this.#mysqlUpdateOneReturning(setObj, criteria);
     }
-    const pick = this.#pickOne(this.#where(criteria));
+    const pick = this.#pickOne(criteria);
     const rows = await this.#prof(
       this.#db
         .update(execTable(this.#table))
@@ -980,7 +1103,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   async #deleteOneReturning(
     criteria: Criteria<T>,
   ): Promise<Record<string, unknown>[]> {
-    const pick = this.#pickOne(this.#where(criteria));
+    const pick = this.#pickOne(criteria);
     return this.#prof(
       this.#db.delete(execTable(this.#table)).where(pick).returning(),
     );

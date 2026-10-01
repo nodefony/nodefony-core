@@ -197,6 +197,61 @@ describe("DrizzleRepository — SELECT préparés mémoïsés (sqlite)", () => {
     assert.deepEqual(or.map((r) => r.name).sort(), ["alice", "eve"]);
   });
 
+  it("comparaisons scalaires préparées : UNE compilation, bornes RE-BINDÉES, parité avec le chemin direct", async () => {
+    const window = (lo: number, hi: number) =>
+      repo.find({ age: { $gt: lo, $lte: hi } }, { order: [["age", "ASC"]] });
+    const a = await window(25, 35);
+    const b = await window(30, 40);
+    const c = await window(25, 35);
+    // Débranché (opérateurs en repli), chaque appel recompile → 3.
+    assert.equal(probeSelects(), 1, "même combinaison d'opérateurs = 1 forme");
+    assert.deepEqual(
+      a.map((r) => r.age),
+      [30, 35],
+    );
+    assert.deepEqual(
+      b.map((r) => r.age),
+      [35, 40],
+      "bornes re-bindées, jamais figées à la 1re exécution",
+    );
+    assert.deepEqual(c, a);
+    const direct = await orm.transaction(async (tx) =>
+      repo
+        .withTransaction(tx)
+        .find({ age: { $gt: 25, $lte: 35 } }, { order: [["age", "ASC"]] }),
+    );
+    assert.deepEqual(direct, a, "parité préparé / chemin direct");
+  });
+
+  it("la COMBINAISON d'opérateurs et la valeur de $null font la forme ; $ne binde par la colonne (bool)", async () => {
+    const gt = await repo.find({ age: { $gt: 30 } });
+    const gte = await repo.find({ age: { $gte: 30 } });
+    const noted = await repo.find({ note: { $null: false } });
+    const unnoted = await repo.find({ note: { $null: true } });
+    assert.equal(
+      probeSelects(),
+      4,
+      "$gt / $gte / IS NOT NULL / IS NULL = 4 formes",
+    );
+    assert.deepEqual(gt.map((r) => r.age).sort(), [35, 40]);
+    assert.deepEqual(gte.map((r) => r.age).sort(), [30, 35, 40]);
+    assert.deepEqual(noted.map((r) => r.name).sort(), ["alice", "chloé"]);
+    assert.deepEqual(unnoted.map((r) => r.name).sort(), ["bob", "dan", "eve"]);
+    // `false` doit partir en 0 (mapToDriverValue du bool), sinon 0 ligne.
+    const inactive = await repo.find({ active: { $ne: true } });
+    assert.deepEqual(
+      inactive.map((r) => r.name),
+      ["eve"],
+    );
+  });
+
+  it("$in mêlé à une comparaison sur le même champ = REPLI (la forme entière)", async () => {
+    await repo.find({ age: { $gt: 20, $in: [25, 30] } });
+    const again = await repo.find({ age: { $gt: 20, $in: [25, 30] } });
+    assert.equal(probeSelects(), 2, "repli : chaque exécution recompile");
+    assert.deepEqual(again.map((r) => r.name).sort(), ["alice", "bob", "dan"]);
+  });
+
   it("transaction = REPLI (handle éphémère) — et rend EXACTEMENT ce que rend le chemin préparé", async () => {
     const viaPrepared = await repo.find({ age: 25 }, { limit: 20 });
     prepareCalls = [];

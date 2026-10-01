@@ -293,7 +293,10 @@ mode:date` MySQL (pas `timestamp` : borné 2038, timezone de session — le pool
 - **Repository portable** : `#pickOne` borne `updateOne`/`increment`/`deleteOne`/`findOneAndDelete`
   à « au plus une » via la **PK découverte** (lazy, mémoïsée), forme unique 3 dialectes :
   `pk IN (SELECT pk FROM (SELECT pk … LIMIT 1) AS picked)` (table dérivée = requise par MySQL —
-  LIMIT-in-IN interdit + ERROR 1093 ; PK composite = row-values). `rowid` = **fallback seulement**
+  LIMIT-in-IN interdit + ERROR 1093 ; PK composite = row-values). **Court-circuit** : un critère
+  qui fixe TOUTE la PK par égalité (`#pinsPrimaryKey`, clés PROPRES seulement, comme `#where`) rend
+  le `WHERE` nu — la sous-requête coûtait ~60 µs/UPDATE en SQLite (`micro-update-pick.mjs`).
+  `rowid` = **fallback seulement**
   (table sans PK, sqlite-only assumé — en mysql : erreur actionnable, la relecture exige une PK).
   Compteurs normalisés `#affected` (`changes` better-sqlite3 / `rowCount` pg / tuple
   `[ResultSetHeader{affectedRows}]` mysql2). Le repo porte son **`#dialect`** (5ᵉ arg ctor,

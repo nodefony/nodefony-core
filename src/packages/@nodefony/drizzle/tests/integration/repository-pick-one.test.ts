@@ -202,6 +202,111 @@ describe("DrizzleRepository #pickOne — forme PK portable (S1 multi-dialecte)",
     });
   });
 
+  describe("court-circuit : critère qui FIXE la PK → WHERE nu, sans sous-requête (#510)", () => {
+    /** Le seul UPDATE/DELETE émis pendant `fn`. */
+    async function mutationSql(
+      verb: "update" | "delete",
+      fn: () => Promise<void>,
+    ): Promise<string> {
+      const sqls = await captureSql(fn);
+      const found = sqls.find((s) => new RegExp(`^\\s*${verb}`, "i").test(s));
+      assert.ok(found, `${verb} attendu : ${JSON.stringify(sqls)}`);
+      return found;
+    }
+
+    it("updateOne / increment / deleteOne par PK exacte n'émettent plus « picked »", async () => {
+      await seedGroup("short");
+      const upd = await mutationSql("update", async () => {
+        const row = await repo().updateOne({ id: "short-2" }, { note: "pk" });
+        assert.equal(row?.id, "short-2");
+      });
+      assert.ok(!/picked/i.test(upd), `sous-requête superflue : ${upd}`);
+      assert.match(upd, /where "pickone_probe"\."id" = \?/i);
+      const inc = await mutationSql("update", async () => {
+        assert.equal(
+          (await repo().increment({ id: "short-1" }, { counter: 2 }))?.counter,
+          2,
+        );
+      });
+      assert.ok(!/picked/i.test(inc), inc);
+      const del = await mutationSql("delete", async () => {
+        assert.equal(await repo().deleteOne({ id: "short-3" }), true);
+      });
+      assert.ok(!/picked/i.test(del), del);
+      assert.equal((await repo().findOne({ id: "short-1" }))?.note, null);
+      assert.equal(await repo().count({ grp: "short" }), 2);
+    });
+
+    it("PK + champ supplémentaire : court-circuit, et un champ qui ne matche pas rend null", async () => {
+      await seedGroup("extra");
+      const upd = await mutationSql("update", async () => {
+        assert.equal(
+          await repo().updateOne(
+            { id: "extra-1", grp: "autre" },
+            { note: "x" },
+          ),
+          null,
+        );
+      });
+      assert.ok(!/picked/i.test(upd), upd);
+      assert.equal(await repo().count({ grp: "extra", note: "x" }), 0);
+    });
+
+    it("PK par opérateur, dans un $or, ou HÉRITÉE : la sous-requête reste", async () => {
+      await seedGroup("keep");
+      const viaOp = await mutationSql("update", async () => {
+        await repo().updateOne(
+          { id: { $in: ["keep-1", "keep-2"] } },
+          { note: "op" },
+        );
+      });
+      assert.match(viaOp, /as picked/i);
+      const viaOr = await mutationSql("update", async () => {
+        await repo().updateOne(
+          { $or: [{ id: "keep-1" }, { id: "keep-2" }] },
+          { note: "or" },
+        );
+      });
+      assert.match(viaOr, /as picked/i);
+      // Une clé de PK HÉRITÉE n'entre pas dans le WHERE (`Object.entries`) :
+      // la compter comme fixée laisserait l'UPDATE toucher tout le groupe.
+      const inherited = Object.assign(
+        Object.create({ id: "keep-1" }) as Record<string, unknown>,
+        { grp: "keep" },
+      ) as Partial<ProbeRow>;
+      const viaProto = await mutationSql("update", async () => {
+        await repo().updateOne(inherited, { note: "proto" });
+      });
+      assert.match(viaProto, /as picked/i);
+      assert.equal(await repo().count({ grp: "keep", note: "proto" }), 1);
+    });
+
+    it("PK composite : fixée en entier → court-circuit ; fixée à moitié → sous-requête", async () => {
+      const compRepo = (): IRepository<CompositeRow> =>
+        orm.getRepository<CompositeRow>("pickone_composite");
+      await compRepo().createMany([
+        { tenant: "c1", slot: 1, payload: null },
+        { tenant: "c1", slot: 2, payload: null },
+      ]);
+      const full = await mutationSql("update", async () => {
+        const row = await compRepo().updateOne(
+          { tenant: "c1", slot: 2 },
+          { payload: "full" },
+        );
+        assert.equal(row?.slot, 2);
+      });
+      assert.ok(!/picked/i.test(full), full);
+      const half = await mutationSql("update", async () => {
+        await compRepo().updateOne({ slot: 1 }, { payload: "half" });
+      });
+      assert.match(half, /as picked/i);
+      assert.equal(
+        await compRepo().count({ tenant: "c1", payload: "full" }),
+        1,
+      );
+    });
+  });
+
   describe("fallback sans PK déclarée (rowid, SQLite-only assumé)", () => {
     const noPkRepo = (): IRepository<NoPkRow> =>
       orm.getRepository<NoPkRow>("pickone_nopk");
