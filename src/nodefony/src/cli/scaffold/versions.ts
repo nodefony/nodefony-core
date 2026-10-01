@@ -37,13 +37,13 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // CHOISI, et lui seul. Sans cette déclaration, npm n'avertit personne de son
   // absence et l'application meurt au premier accès.
   "better-sqlite3": "13.0.3",
-  pg: "8.23.0",
-  mysql2: "3.24.4",
+  pg: "8.23.1",
+  mysql2: "3.24.5",
   // Pilote MongoDB, en dépendance de DÉVELOPPEMENT d'une application MongoDB :
   // seul le décor e2e l'importe, pour vider sa base avant la suite — Mongoose
   // n'a pas de `orm:reset`. Même version que celle de `@nodefony/mongoose`,
   // sinon npm en installe deux et la suite parle à un autre client que l'app.
-  mongodb: "7.6.0",
+  mongodb: "7.7.0",
   // L'outil qui ÉCRIT les migrations, piloté par `nodefony orm:generate`. Aucun
   // code ne l'importe : c'est une dépendance de DÉVELOPPEMENT, et elle n'a rien
   // à faire dans une image de production, qui APPLIQUE des migrations déjà
@@ -75,21 +75,21 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@node-rs/argon2": "^2.2.1",
   "@types/node": "^26.6.3",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-  oxlint: "^1.85.0",
+  oxlint: "^1.86.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2003",
   prettier: "^3.9.9",
-  rolldown: "^1.2.11",
+  rolldown: "^1.2.12",
   typescript: "^6.0.3",
-  vitest: "^5.0.2",
+  vitest: "^5.0.3",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
   // `coverage:setup` : elle pèse 60 Ko, quand playwright et lighthouse — eux
   // restés à la demande — pèsent 5 et 21 Mo. Un installateur pour 60 Ko est une
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
-  "@vitest/coverage-v8": "5.0.2",
+  "@vitest/coverage-v8": "5.0.3",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
-  vite: "^8.3.1",
+  vite: "^8.3.2",
   react: "^19.3.0",
   "react-dom": "^19.3.0",
   "@vitejs/plugin-react": "^6.1.1",
@@ -107,12 +107,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Un caret laisserait une application générée tirer la mineure suivante
   // avant qu'analogjs l'ait suivie. Monter les deux ENSEMBLE, et prouver par
   // `frontend-families.test.ts` sur le serveur de développement.
-  "@angular/core": "~22.2.0",
-  "@angular/common": "~22.2.0",
-  "@angular/platform-browser": "~22.2.0",
+  "@angular/core": "~22.2.1",
+  "@angular/common": "~22.2.1",
+  "@angular/platform-browser": "~22.2.1",
   "@analogjs/vite-plugin-angular": "^2.7.5",
-  "@angular/build": "~22.2.0",
-  "@angular/compiler-cli": "~22.2.0",
+  "@angular/build": "~22.2.1",
+  "@angular/compiler-cli": "~22.2.1",
 };
 
 /**
