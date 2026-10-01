@@ -25,7 +25,13 @@
  *   node scripts/check-scaffold-format.mjs --diff     # montre ce que prettier changerait
  *   node scripts/check-scaffold-format.mjs --raw      # le seul régime sans installation (~5 s)
  */
-import { mkdtempSync, rmSync, mkdirSync, readFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -199,22 +205,45 @@ for (const variant of RETENUES) {
   // avec le prettier DU PROJET, après l'installation. Ce gate garde ce qui lui
   // reste à garder — la forme des GABARITS eux-mêmes, que seule la variante
   // « rendu brut » ci-dessus lui rend encore visible.
+  let wantCount = 0;
   const pascal = variant.app
     .split(/[^a-zA-Z0-9]+/u)
     .filter(Boolean)
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join("");
+  // 🔴 CHAQUE bloc de différence est jugé, jamais le premier seul. Une version
+  // antérieure ne regardait que la PREMIÈRE ligne divergente : un fichier dont
+  // l'en-tête dépend du nom était alors excusé EN ENTIER, et tout défaut écrit
+  // plus bas dans son gabarit passait (vu : une ligne mal formée ajoutée à
+  // `AppController.ts.tpl`, rendu « conforme »). La comparaison est un vrai diff
+  // (`git diff --no-index`) : une comparaison ligne à ligne par index se décale
+  // dès que prettier éclate ou fusionne une ligne.
   const structurel = (f) => {
     const want = spawnSync(PRETTIER, [f], { cwd: dest, encoding: "utf8" });
-    const got = readFileSync(path.join(dest, f), "utf8").split("\n");
-    const b = (want.stdout ?? "").split("\n");
-    for (let i = 0; i < Math.max(got.length, b.length); i++) {
-      if (got[i] === b[i]) continue;
-      // La PREMIÈRE divergence décide : c'est elle que prettier a voulu changer.
-      const ligne = `${got[i] ?? ""}${b[i] ?? ""}`;
-      return ligne.includes(variant.app) || ligne.includes(pascal);
+    const wantFile = path.join(dir, `want-${wantCount++}`);
+    writeFileSync(wantFile, want.stdout ?? "");
+    const diff = spawnSync(
+      "git",
+      ["diff", "--no-index", "--no-color", "-U0", path.join(dest, f), wantFile],
+      { encoding: "utf8" },
+    );
+    const hunks = [];
+    for (const line of (diff.stdout ?? "").split("\n")) {
+      if (line.startsWith("@@")) hunks.push([]);
+      else if (
+        hunks.length > 0 &&
+        /^[-+]/u.test(line) &&
+        !line.startsWith("---") &&
+        !line.startsWith("+++")
+      )
+        hunks.at(-1).push(line);
     }
-    return false;
+    return (
+      hunks.length > 0 &&
+      hunks.every((hunk) =>
+        hunk.some((l) => l.includes(variant.app) || l.includes(pascal)),
+      )
+    );
   };
   const attendus = offenders.filter(structurel);
   const vrais = offenders.filter((f) => !attendus.includes(f));
