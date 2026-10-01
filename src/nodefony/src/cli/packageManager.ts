@@ -153,15 +153,19 @@ export function packageManagerExecArgs(
  * que ce qu'on exécute ({@link packageManagerExecArgs}).
  *
  * @param name - gestionnaire du projet
- * @returns les trois gestes : installer, lancer un script, lancer un binaire
+ * @returns les gestes : installer l'arbre, ajouter un paquet, lancer un
+ *   script, lancer un binaire
  */
 export function packageManagerCommandLines(name: PackageManagerName): {
   install: string;
+  /** `npm install x` ; `add` chez les trois autres — yarn 1 refuse `install x`. */
+  add: (pkg: string) => string;
   run: (script: string) => string;
   exec: (bin: string) => string;
 } {
   return {
     install: `${name} install`,
+    add: (pkg) => `${name} ${name === "npm" ? "install" : "add"} ${pkg}`,
     run: (script) => `${name} run ${script}`,
     exec: (bin) => [name, ...packageManagerExecArgs(name, bin)].join(" "),
   };

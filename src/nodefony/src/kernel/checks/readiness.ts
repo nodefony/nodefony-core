@@ -17,7 +17,10 @@
  *   paquet absent : le Kernel échoue à l'import, très loin de la cause ;
  * - une **dépendance déclarée non installée** — un `npm install` oublié après un
  *   changement de branche ; l'erreur ne parle que du premier import rencontré ;
- * - un **port déjà tenu** par un processus tiers.
+ * - un **port déjà tenu** par un processus tiers ;
+ * - un **projet qui contredit son gestionnaire de paquets** — passé de npm à
+ *   pnpm ou bun sans régénérer : module local non lié, override ignoré
+ *   (`managerDrift.ts`).
  *
  * ## Deux principes que ces règles ne doivent JAMAIS enfreindre
  *
@@ -43,6 +46,11 @@ import {
   readManifestCode,
   diskManifestReader,
 } from "./sourceText";
+import { checkManagerDrift, declaredPackageManager } from "./managerDrift";
+import {
+  packageManagerCommandLines,
+  resolvePackageManager,
+} from "../../cli/packageManager";
 
 /** Un manquement qui empêche — ou empêchera — l'application de démarrer. */
 export interface IReadinessFinding {
@@ -52,7 +60,9 @@ export interface IReadinessFinding {
     | "module-not-installed"
     | "dep-not-installed"
     | "port-busy"
-    | "infra-unreachable";
+    | "infra-unreachable"
+    /** Le projet contredit son gestionnaire de paquets (cf `managerDrift.ts`). */
+    | "package-manager";
   /** Phrase actionnable : ce qui manque, et le geste qui le répare. */
   message: string;
   /** Fichier qui porte la déclaration, relatif à la racine (si pertinent). */
@@ -284,6 +294,15 @@ export async function checkReadiness(input: {
   // Le manifeste ET ses fragments : un `use()` extrait dans `nodefony/config/`
   // doit être vu, sinon « brique déclarée mais non installée » se tait.
   const manifestCode = readManifestCode(projectRoot, diskManifestReader);
+  // Le geste d'installation se dit dans la langue du gestionnaire du projet —
+  // la même décision que `nodefony install`, configuration comprise.
+  const configured = declaredPackageManager(manifestCode);
+  const commands = packageManagerCommandLines(
+    resolvePackageManager({
+      configured: configured ?? undefined,
+      dir: projectRoot,
+    }).name,
+  );
   if (manifestCode !== "") {
     for (const name of declaredModules(manifestCode)) {
       if (isModuleResolvable(projectRoot, name)) continue;
@@ -300,7 +319,7 @@ export async function checkReadiness(input: {
           `(ni dans node_modules, ni dans modules/) — le boot ne s'arrêtera PAS : ` +
           `le module est écarté (fail-soft) et l'application démarre AMPUTÉE de ` +
           `ce qu'il apporte, sans erreur au point d'usage : ` +
-          `npm install ${name}, ou retirer la ligne du manifeste`,
+          `${commands.add(name)}, ou retirer la ligne du manifeste`,
         file: "nodefony.config.ts",
       });
     }
@@ -331,11 +350,18 @@ export async function checkReadiness(input: {
           kind: "dep-not-installed",
           message:
             `${name} est déclaré dans package.json mais ABSENT de node_modules — ` +
-            `l'erreur au démarrage ne nommera que le premier import rencontré : npm install`,
+            `l'erreur au démarrage ne nommera que le premier import rencontré : ${commands.install}`,
           file: "package.json",
         });
       }
     }
+  }
+
+  // ─── 3 bis. Le projet suit-il SON gestionnaire de paquets ? ───────────────
+  // Passer de npm à pnpm ou bun sans régénérer laisse des fichiers que le
+  // nouvel outil ne lit pas : un module non lié se paie au démarrage.
+  for (const f of checkManagerDrift({ projectRoot, configured })) {
+    findings.push({ kind: "package-manager", ...f });
   }
 
   // ─── 4. Ports déjà tenus ──────────────────────────────────────────────────

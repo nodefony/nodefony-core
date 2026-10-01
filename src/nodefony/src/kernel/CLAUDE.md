@@ -147,7 +147,8 @@ class DevCommand extends Command {
 
 ### Package manager
 
-`this.packageManager = this.pnpm` par défaut. `setPackageManager("npm" | "yarn" | "pnpm")`.
+`setPackageManager(configured?, dir?)` délègue à `resolvePackageManager` (`cli/packageManager.ts`) :
+config > verrou de `dir` > `npm_config_user_agent` > npm. Quatre lanceurs : npm, pnpm, yarn, bun.
 
 ## Commands — pattern Command
 

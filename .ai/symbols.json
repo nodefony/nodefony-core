@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 882,
-    "symbols": 4406,
+    "files": 883,
+    "symbols": 4412,
     "classes": 404,
-    "interfaces": 1150,
+    "interfaces": 1153,
     "types": 474,
     "enums": 4,
-    "functions": 1929,
+    "functions": 1932,
     "constants": 445
   },
   "symbols": {
@@ -10345,6 +10345,40 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les familles que seul un boot peut renseigner. UNE liste, dont le type se dérive : quand la troisième est arrivée, le compte « 2 » était écrit en dur dans trois tests et dans `liveNotRun`, qui les …"
+    },
+    "IManagerDriftFinding": {
+      "name": "IManagerDriftFinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/managerDrift.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un écart entre le projet et son gestionnaire de paquets."
+    },
+    "IManagerDriftFs": {
+      "name": "IManagerDriftFs",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/managerDrift.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Accès disque, injectables pour l'épreuve."
+    },
+    "checkManagerDrift": {
+      "name": "checkManagerDrift",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/managerDrift.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Confronte le projet à son gestionnaire de paquets."
+    },
+    "declaredPackageManager": {
+      "name": "declaredPackageManager",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/managerDrift.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le `packageManager` déclaré dans le code du manifeste de configuration."
     },
     "IPackageFinding": {
       "name": "IPackageFinding",
@@ -33007,10 +33041,13 @@
       ],
       "isPackageManagerName": [
         "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/managerDrift.ts"
       ],
       "packageManagerCommandLines": [
-        "src/nodefony/src/cli/create.ts"
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/checks/managerDrift.ts",
+        "src/nodefony/src/kernel/checks/readiness.ts"
       ],
       "packageManagerExecArgs": [
         "src/nodefony/src/cli/create.ts"
@@ -33018,13 +33055,16 @@
       "resolvePackageManager": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/managerDrift.ts",
+        "src/nodefony/src/kernel/checks/readiness.ts"
       ],
       "PackageManagerName": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/packageManager.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/managerDrift.ts"
       ],
       "capAllows": [
         "src/nodefony/src/cli/create.ts",
@@ -34729,7 +34769,8 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "needsWorkspaceProtocol": [
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/managerDrift.ts"
       ],
       "resolveModuleLayout": [
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -35330,6 +35371,9 @@
       "IProvidedService": [
         "src/nodefony/src/kernel/checks/live.ts"
       ],
+      "LOCKFILES": [
+        "src/nodefony/src/kernel/checks/managerDrift.ts"
+      ],
       "collectSources": [
         "src/nodefony/src/kernel/checks/packageDeps.ts",
         "src/nodefony/src/kernel/checks/surface.ts",
@@ -35362,6 +35406,12 @@
         "src/nodefony/src/kernel/checks/surface.ts",
         "src/nodefony/src/kernel/checks/wiring.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
+      ],
+      "checkManagerDrift": [
+        "src/nodefony/src/kernel/checks/readiness.ts"
+      ],
+      "declaredPackageManager": [
+        "src/nodefony/src/kernel/checks/readiness.ts"
       ],
       "pluralize": [
         "src/nodefony/src/kernel/checks/renderReport.ts"

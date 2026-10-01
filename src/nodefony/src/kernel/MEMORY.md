@@ -36,6 +36,14 @@ started → preRegistered → registered → booted → ready → postReady
   leur PROPRE état d'exécution sans compter comme familles → `COUNTED_FAMILIES` s'en dérive.
   🔴 Ne jamais réécrire ces listes en dur : le compteur du bilan, le filtre du sommaire et le
   dédoublonnage des sautés en dépendent tous les trois.
+- `managerDrift.ts` = règle `package-manager` de `readiness` : le projet contredit-il SON
+  gestionnaire (app passée de npm à pnpm/bun sans régénérer) ? Deux verrous, `node_modules` d'un
+  autre outil (`.modules.yaml`/`.package-lock.json`/`.yarn-integrity` ; bun n'a pas de marqueur →
+  jamais désigné), config ≠ verrou, module local sans `workspace:*` (pnpm/bun), `workspace:` sous
+  npm/yarn 1 (`.yarnrc.yml` = yarn ≥ 2, toléré), `overrides`/`allowScripts` ignorés par pnpm,
+  `overrides` sous yarn, `resolutions` sous npm. Muet sans verrou ni `packageManager` en config —
+  sinon il jugerait le projet sur l'outil qui a lancé `doctor`. Les gestes d'installation de
+  `readiness` parlent le gestionnaire du projet (`packageManagerCommandLines`).
 - `runCheck.ts` = collecte (`collectDoctorReport`) + verdict (`renderDoctorReport`) + `usage`.
   Les sondes (ports, git) sont INJECTÉES comme verdicts `{supported, …}`, jamais mesurées dans
   la règle — sinon la branche qui compte n'est pas éprouvable.
