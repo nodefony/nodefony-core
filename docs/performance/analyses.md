@@ -85,6 +85,11 @@ ascendante pour attribuer chaque poste à son appelant réel.
 | Minuteurs (3 armements par requête)                 |  1,6 % |  1,5 % |     ≈2 | 1/3 prouvé supprimable          |
 | Ramasse-miettes                                     | 0,98 % | 1,08 % |     ≈1 | **réfuté comme goulot**         |
 
+> 🔬 **Ces pourcentages sont ceux du profil V8, et il ne sert plus d'arbitre.** Il ne voit que le
+> temps passé en JavaScript et gonfle les petites fonctions ; il a servi ici à **désigner** des
+> postes, que chaque lot a ensuite pesés au micro-banc et en A/B. Pourquoi il a perdu ce rôle, et
+> ce qui l'a remplacé : [le cinquième instrument faux](methode.md#le-cinquième--le-profil-v8-pris-pour-un-arbitre).
+
 Le profil a été doublé d'une **sonde de comptage** — pas une mesure de temps, un compte exact sur
 107 618 requêtes :
 
@@ -99,7 +104,8 @@ Le profil a été doublé d'une **sonde de comptage** — pas une mesure de temp
 | Écouteurs attachés | 4,0 | fermeture ×2 · fin · terminé — majoritairement internes à Node |
 | `res.write` + `res.end` | 2,0 | deux écritures logiques par requête |
 
-Un compte de ce genre ne dépend ni de la machine, ni de la charge, ni de l'instrument. C'est lui
+Ces comptes décrivent l'état **d'avant les lots** ; les lots A→D, puis l'API d'envoi synchrone,
+les ont fait tomber. Un compte de ce genre ne dépend ni de la machine, ni de la charge, ni de l'instrument. C'est lui
 qui a rendu les corrections évidentes : trois armements de délai par requête quand un seul a du
 sens, deux poses et deux retraits du même en-tête, une copie intégrale des en-têtes pour répondre
 à une question que le natif traite en temps constant.
@@ -144,6 +150,9 @@ quand aucune session n'a démarré.
 
 Le gain isolé mesure ~0,4 µs par requête au micro-banc — **sous la résolution du banc ce soir-là**.
 Verdict rendu tel quel : structurel, gardé en le disant, aucun gain de débit revendiqué.
+
+Ce lot a depuis été **dépassé** : un GET ne crée plus aucune promesse du tout
+([Lot G](#lot-g--un-get-sans-promesse-et-les-contrôleurs-en-instance-unique)).
 
 ### Lot D — l'URL et un bug de disponibilité
 
@@ -349,6 +358,64 @@ quel : aucun gain n'est revendiqué là où la mesure n'en montre pas.
 Le renouvellement de connexions s'est révélé être une métrique **à rampe** — recyclage des ports
 et pression mémoire font monter la mesure au fil des répétitions. Trois répétitions ne convergent
 pas. Un verdict de gain sur cet axe demanderait des séries longues et une fenêtre glissante.
+
+### Lot G — un GET sans promesse, et les contrôleurs en instance unique
+
+Deux changements de contrat, livrés avant la première bêta parce qu'ils **cassent** du code
+applicatif — et qu'une rupture se fait à la majeure, jamais après.
+
+**L'envoi devient synchrone quand rien n'attend.** `render`, `renderResponse` et `renderJson`
+rendent désormais une valeur **ou** une promesse : synchrone quand l'envoi n'a rien à attendre,
+promesse sinon. Un `await` reste correct dans les deux cas ; un `.then` chaîné ne l'est plus. Le
+chemin d'une requête GET de la cible de banc ne crée plus **aucune** promesse. Mesuré par A/B de
+Nodefony contre lui-même, paires alternées : **+6,3 % au minimum**, toutes les séries « après »
+au-dessus des séries « avant », et le 99ᵉ centile de 58 ms ramené entre 34 et 46.
+
+**Les contrôleurs deviennent des singletons par défaut.** Une instance par classe, créée une fois,
+au lieu d'une instance par requête : la fabrique ne coûte plus rien sur le chemin chaud. Le
+contexte de la requête se lit par le stockage asynchrone local, plus sur l'instance. Le code qui
+garde un état de requête sur `this` déclare `@Scope("request")` ; en développement, un filet
+transforme chaque champ propre d'un singleton en accesseur qui lève, pour que l'erreur se voie à
+la première requête et non en production, sous concurrence. La garde a été éprouvée par
+**mutation** : le défaut basculé seul fait tomber 198 tests, tous dans une famille prédite.
+
+Cette piste était classée « écartée, version majeure » dans la table des pistes de ce dossier :
+la version majeure est celle-ci.
+
+### Lot H — face à NestJS, le budget d'une requête triviale
+
+Le dossier comparait Nodefony à Express ; la question « pourquoi pas NestJS ? » restait sans
+mesure. Un témoin **NestJS équipé** a été construit — Fastify, plus les mêmes garanties que
+Nodefony : contexte asynchrone et identifiant de requête, `traceparent`, CORS, en-têtes de
+sécurité, contrôle des méta-données de récupération, zones — et sa parité est contrôlée avant
+chaque campagne.
+
+La première mesure donnait **×1,26** de CPU du fil par requête, puis ×1,16 après deux lots de
+rabotage du pipeline — sur deux jours différents, donc sans que l'écart entre les deux soit
+attribuable aux seuls lots. Avant d'optimiser plus loin, une **bissection par court-circuit** a été menée — et
+c'est le **banc** qu'elle a corrigé d'abord :
+
+| Ce qui gonflait l'écart                  | Comment il a été trouvé                                                                 |
+| ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| le module de test écoutait deux points d'extension du chemin de requête | deux temps mesurés dans le serveur réel qui ne s'emboîtaient pas — l'enfant plus long que le parent : une frontière asynchrone |
+| un run préempté par un autre processus   | invisible aux gardes thermique et d'indexeur ; visible au compte des changements de contexte involontaires |
+
+Les deux sont désormais **refusés par l'instrument**. Machine refroidie, aucun run préempté :
+**46,0 µs de fil par requête contre 43,0 — ×1,07, séparé**, dont +2,1 µs en espace utilisateur
+et +0,7 dans le noyau. C'est sur ce chiffre que le chantier a été fermé.
+
+Le budget d'une requête, lu aux bornes de la bissection :
+
+| Étage                                         | µs de fil par requête |
+| --------------------------------------------- | --------------------: |
+| Node nu (analyse HTTP, socket, écriture)      |                   ~27 |
+| contexte, stockage asynchrone, routeur, en-têtes |                ~15 |
+| gardes de sécurité                            |                    ~2 |
+| action et rendu                               |                    ~1 |
+
+Une limite d'instrument a été établie en route : **couper au milieu de la chaîne change ce que V8
+compile**. Les coupes intermédiaires oscillaient de 4 à 11 µs d'une manche à l'autre ; seules les
+bornes tiennent, et le détail d'un étage se lit en chronométrant le serveur réel.
 
 ### Où en est le pipeline
 
@@ -690,9 +757,11 @@ Profil échantillonné fenêtré sur trente secondes de charge, attribution par 
 | `@nodefony/orm-core` | **0,9** |
 | `@nodefony/security` + module de test + adaptateur | **0,8** |
 
-**La couche d'abstraction ORM de Nodefony pèse moins de 2,5 % du CPU.** Ce n'est pas une bonne
-nouvelle qu'on s'accorde : c'est un résultat qui **ferme** une piste. Optimiser l'adaptateur
-n'aurait rien rendu.
+**Selon ce profil, la couche d'abstraction ORM de Nodefony pèse moins de 2,5 % du CPU
+JavaScript.** C'est un chiffre de profil V8 : il ne voit ni le noyau ni le code natif, et il a
+suffi à orienter le chantier vers la construction des requêtes — pas à clore la question. Face à
+NestJS, sur le même ORM, la mesure au fil a montré qu'un écart subsistait bien sur ce chemin
+([plus bas](#face-à-nestjs--le-cycle-applicatif-et-où-part-lécart)).
 
 Le détail par fonction désigne le vrai coupable :
 
@@ -817,8 +886,6 @@ comptage des appels, estimation des coûts. Elle a orienté le chantier, et elle
 l'essentiel. La table ci-dessous est conservée telle qu'elle a été établie par le profilage
 runtime — c'est la seule partie de ce rapport initial qui garde une valeur, et c'est la plus utile.
 
-#
-
 C'est la raison pour laquelle cette page est conservée. Le profilage runtime a tranché ainsi :
 
 | Affirmation de cette page                | Verdict de la mesure                                              |
@@ -912,14 +979,13 @@ quelqu'un qui ne sait pas qu'elle l'a été.
 | **Câblage figé des dépendances** (lot F-D) | A/B en directions opposées entre deux paires, moyenne −0,4 % : bruit. Code annulé. | Un profil qui réimpute plus de 3 µs aux résolutions, ou une fabrique restructurée |
 | **Mise en commun des portées d'injection** | Risque de fuite d'état entre requêtes | Rien à ce jour — le risque n'est pas compensable par le gain |
 | **Bus d'événements paresseux sur le service** | Casse un contrat consommé par le service de fichiers statiques, pour ~0,3 µs | Un motif d'écartement relu et invalidé |
-| **Contrôleurs en instance unique par défaut** | Rupture de compatibilité : du code applicatif porte son état de requête sur l'instance | Une version majeure, avec migration annoncée |
 | **Mise en commun des identifiants de requête** | `randomUUID` possède déjà un cache d'entropie interne — gain douteux | Une mesure préalable, pas une intuition |
 
 ### Les pistes ORM non entamées
 
 | Piste                                     | État                                                                                                                                         |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mise à jour et insertion-ou-remplacement  | Non mémoïsées. Hors du chemin chaud des bancs actuels ; à rejuger si un profil les réimpute                                                  |
+| Mise à jour et insertion-ou-remplacement  | Non préparées. Ouvert (#511, 10.1.0). Pièges relevés : valeurs par défaut calculées figées à la préparation, colonnes JSON à passer en paramètre, nom de requête unique sous PostgreSQL |
 | Index sur les clés étrangères au scaffold | **Question produit** : le générateur d'entités doit-il indexer les clés étrangères par défaut ? Le corpus de banc ne l'était pas             |
 | A/B MySQL du lot préparé                  | Non mesuré. La lecture du source établit qu'il n'y a **aucune préparation au niveau du protocole** — le gain attendu est purement JavaScript |
 
@@ -947,8 +1013,11 @@ serait dépenser sans rendement, et le profilage l'a établi poste par poste :
 | Ramasse-miettes | ~1 % | Mesuré, **réfuté comme goulot** par trois instruments concordants |
 | Portée d'injection par requête | ~2 µs/req | C'est le mécanisme, et il a été mesuré : il ne coûte pas ce que le profil lui imputait |
 
-Un socle d'environ 45 à 50 µs par requête relève de Node et de l'architecture : un serveur
-`node:http` nu, sur le même décor, coûte déjà ~28 µs par requête.
+Les parts de ce tableau viennent du profil V8 : elles désignent des postes structurels, elles ne
+les pèsent pas. Le poids, lui, se lit sur le fil : un serveur `node:http` nu coûte déjà **~27 µs
+de fil par requête** sur cette machine, Nodefony ~46, NestJS équipé ~43
+([Lot H](#lot-h--face-à-nestjs-le-budget-dune-requête-triviale)). Les ~19 µs du framework
+portent le contexte, le stockage asynchrone, le routage, les en-têtes de sécurité et les gardes.
 
 Aller significativement plus bas ne serait plus de l'optimisation mais un **choix
 d'architecture** — un contexte allégé, moins riche, avec les fonctionnalités mises en option.
@@ -958,7 +1027,20 @@ C'est une décision de produit, pas un lot de performance, et elle n'est pas pri
 
 Tous les bancs cités sont versionnés dans `.claude/skills/nodefony-load-test/`, avec leur
 protocole, leurs variables d'environnement et leurs gardes. Chaque page indique l'instrument qui
-produit ses chiffres.
+produit ses chiffres ; [la méthode](methode.md#les-instruments--qui-mesure-quoi) dit à quelle
+question chacun répond.
+
+```bash
+# toute la campagne publiée : parité, paires, base de données, CPU du fil, tenue
+caffeinate -dims bash .claude/skills/nodefony-load-test/scripts/perf-campaign.sh --at 01:30
+# une seule pièce, par exemple le face-à-face NestJS sur la route triviale
+bash .claude/skills/nodefony-load-test/scripts/perf-campaign.sh --only "parite nest-fair"
+# l'écart fin, au CPU du fil principal par requête
+bash .claude/skills/nodefony-load-test/scripts/wait-compare.sh nest-fair 3
+# le fichier publié, recomposé depuis les séries brutes
+node .claude/skills/nodefony-load-test/scripts/perf-compose.mjs \
+  --campaign tmp/perf-campaign-<date> --data docs/performance/data/10.0.0.json
+```
 
 Un chiffre publié se re-audite volontiers. La règle interne est explicite : **quand une mesure est
 remise en question, c'est la mesure qu'on rejoue, pas l'argument qu'on renforce.** Deux verdicts
@@ -976,7 +1058,7 @@ Le vocabulaire général — débit, dispersion, blocage, structurel, accidentel
 | **Temps propre**                | Temps passé **dans** une fonction, hors de ses appelées. C'est ce qu'on additionne ; le temps total, non.                          |
 | **Lecture ascendante**          | Attribution d'un poste à ses appelants réels, plutôt qu'à la fonction où l'échantillon est tombé.                                  |
 | **Micro-banc**                  | Mesure d'un mécanisme isolé, hors du serveur. Précis sur la mécanique, optimiste sur le réel (tas froid, caches propres).          |
-| **Sonde in-situ**               | Compteurs placés **dans** le serveur réel sous charge. L'arbitre entre un profil et un micro-banc.                                 |
+| **Sonde in-situ**               | Compteurs placés **dans** le serveur réel sous charge. L'arbitre entre un profil et un micro-banc pour attribuer un coût **à l'intérieur** de Nodefony ; entre deux camps, l'arbitre est le CPU du fil. |
 | **Chemin rapide / repli**       | Traitement court quand l'entrée est triviale, retour au traitement complet sinon. La sûreté vit dans la condition de repli.        |
 | **Motif de route**              | Expression régulière compilée à partir d'un chemin déclaré. Le scan consiste à en exécuter un par route candidate.                 |
 | **Pré-filtre de préfixe**       | Test bon marché qui écarte une route avant d'exécuter son motif.                                                                   |
@@ -1007,7 +1089,10 @@ Le vocabulaire général — débit, dispersion, blocage, structurel, accidentel
   pourcentage de CPU occupé a surestimé un coût réel d'un facteur 25 à 30. Convertir en
   nanosecondes par un micro-banc **avant** d'ouvrir un chantier.
 - **Un micro-banc isolé ment dans l'autre sens** — tas froid, sites d'appel monomorphes. L'arbitre
-  est la sonde placée dans le serveur réel sous charge.
+  est la sonde placée dans le serveur réel sous charge ; face à un autre framework, c'est le CPU
+  du fil principal par requête, en paires alternées.
+- **Un gain de micro-banc ne passe jamais entier au banc.** ~60 µs isolés sur le chemin ORM, 35 à
+  45 µs retrouvés dans le cycle complet. Il ne se publie qu'après l'A/B du produit contre lui-même.
 - **Un champ de classe masque un accesseur de sous-classe.** Conséquence directe de la sémantique
   des champs de classe : ils sont des propriétés propres de l'instance.
 - **Un pré-filtre inerte passe tous les tests de non-régression.** Il faut un test qui prouve que
@@ -1021,8 +1106,11 @@ Le vocabulaire général — débit, dispersion, blocage, structurel, accidentel
   mesurer** si l'installé ne correspond pas au déclaré.
 - **Un échauffement donné à l'un et pas à l'autre inverse un classement serré.** Les deux scripts
   de banc partagent le même protocole et doivent rester alignés.
-- **Fastify est mesuré sans son sérialiseur rapide**, comme les autres, pour comparer la même
-  opération. Avec, il irait plus vite — c'est une option, pas le défaut.
+- **Fastify nu est hors du comparatif publié** : à ~41 000 req/s il sature ce que cette machine
+  mesure proprement, et il ne rend pas le service comparé. Le témoin NestJS, lui, tourne sur
+  Fastify — équipé des mêmes garanties que Nodefony.
+- **Un témoin équitable ne l'est que tant qu'il passe la parité.** La campagne s'arrête si l'un
+  d'eux cesse de rendre les mêmes statuts, en-têtes et corps.
 - **Une comparaison entre deux fenêtres n'existe pas.** Les lignes d'un même tableau viennent de
   la même fenêtre de mesure ; aucune ne se compare à une ligne d'un autre tableau.
 - **Un camp plus rapide que le serveur nu de référence est un signal d'alarme**, pas un exploit :

@@ -30,7 +30,7 @@ tests: none
 > décidés **avant** de regarder le résultat, et le vocabulaire qui permet de lire les autres
 > pages du dossier sans se tromper de grandeur.
 >
-> Elle porte aussi les **instruments qui ont menti** et les **deux grandeurs qu'on confond** —
+> Elle porte aussi les **cinq instruments qui ont menti** et les **deux grandeurs qu'on confond** —
 > latence et blocage. Ce ne sont pas des annexes : ce sont les deux sources de verdicts faux les
 > plus fréquentes de ce dossier.
 
@@ -43,8 +43,9 @@ n'est qu'une façon commode de lire ce travail à l'envers.
 
 D'où le dispositif retenu, et ses trois choix :
 
-**Un seul processus.** Un serveur mono-processus sous charge est **borné par le CPU**
-(~119 % d'un cœur observé). Son débit reflète donc directement le coût par requête : diviser
+**Un seul processus.** Un serveur mono-processus sous charge est **borné par le CPU** : sa boucle
+d'événements est occupée 100 % du temps (ELU 1,00), dans tous les camps comparés. Son débit
+reflète donc directement le coût par requête : diviser
 une optimisation par le nombre de cœurs la rendrait invisible. Un banc en cluster mesure autre
 chose — la co-location du générateur de charge et des workers sur la même machine — et ne sait
 pas montrer un gain de CPU par requête.
@@ -82,18 +83,24 @@ Commun à toutes les mesures du dossier :
 Et ce qui **change d'une famille de bancs à l'autre** — parce qu'une comparaison ne vit qu'à
 l'intérieur d'une famille :
 
-| Famille de bancs               | Node    | Charge        | Cible                                      | Table de routes |
-| ------------------------------ | ------- | ------------- | ------------------------------------------ | --------------- |
-| Pipeline HTTP (A/B et profils) | v26.5.0 | `-c128`, 10 s | cible de banc du framework                 | 136             |
-| Comparatif de frameworks       | v26.5.0 | `-c128`, 10 s | route équivalente répliquée par chaque app | 186             |
-| ORM et bases de données        | v26.7.0 | `-c25`, 7 s   | routes de banc ORM, corpus réaliste        | 186             |
+| Famille de bancs                         | Node     | Charge                                  | Cible                                                      |
+| ---------------------------------------- | -------- | --------------------------------------- | ---------------------------------------------------------- |
+| Comparatif publié — route triviale       | v26.10.0 | `-c64`, échauffement 20 s, 3 × 10 s     | `/nodefony/test/als-test/state`, répliquée par chaque camp |
+| Comparatif publié — base de données      | v26.10.0 | `-c25`, échauffement 20 s, 3 × 60 s     | routes `bench-orm`, 10 000 factures SQLite                 |
+| CPU du fil principal par requête         | v26.10.0 | `-c64`, 3 paires alternées              | même route triviale, face à NestJS équipé                  |
+| Historique — lots du pipeline, escalier  | v26.5 à 26.8 | `-c128` ou `-c25`, 7 à 10 s         | cible de banc du framework, routes ORM                     |
+
+Les deux premières lignes sont celles de la [page publiée](index.md) : même machine, même version
+de Node, même commit, même campagne. La dernière couvre les chapitres historiques
+d'[Où part le temps](analyses.md) — chacun porte sa fenêtre, et ne se compare qu'à l'intérieur
+d'elle-même.
 
 > **Machine portable de 2018, sujette au bridage thermique.** C'est un défaut pour publier des
 > absolus, et un avantage pour concevoir un protocole : tous les pièges de mesure s'y manifestent
 > avec une amplitude qu'une machine de salle serveur masquerait. Plusieurs gardes décrites plus
 > bas n'existent que parce que cette machine les a rendues nécessaires.
 
-> **Pourquoi 25 connexions sur les bancs ORM et 128 sur le pipeline.** Au-delà de la saturation,
+> **Pourquoi 25 connexions sur les bancs ORM et 64 sur la route triviale.** Au-delà de la saturation,
 > la concurrence supplémentaire ne produit plus du débit mais de la file d'attente — et sur un
 > magasin synchrone, elle produit des expirations. Mesurer une route ORM à 128 connexions revient
 > à mesurer une file. Le détail est dans [la boucle d'événements](#la-boucle-dévénements--latence-et-blocage-sont-deux-grandeurs).
@@ -149,6 +156,48 @@ Le critère est **engagé avant la mesure**. C'est ce qui a permis de rejeter un
 (`F-D`, décrit dans [le pipeline HTTP](analyses.md)) après l'avoir écrit, testé et prouvé
 correct : son A/B rendait des directions opposées entre deux paires, moyenne −0,4 %. Le code a
 été annulé.
+
+### Entre deux frameworks — la parité d'abord, l'alternance ensuite
+
+Comparer deux frameworks reprend le même protocole, A et B devenant deux camps : **A₁ B₁ A₂ B₂**,
+trois runs par série, échauffement non compté, refus au-delà de 3 % de dispersion. Le verdict
+porte sur la **séparation** — les deux séries d'un camp toutes deux au-dessus des deux séries de
+l'autre — jamais sur un écart de médianes. Un rapport sans séparation est publié « dans le
+bruit », et il ne classe rien.
+
+Deux contrôles précèdent la première mesure :
+
+- **La parité observable.** `fair-parity.mjs` interroge les deux serveurs avec la même matrice
+  de requêtes — sans en-tête, `traceparent` valide et invalide, origine connue et inconnue,
+  pré-vol CORS, POST inter-sites, zone protégée, route inconnue, `HEAD`, et pour la base : corps
+  valide, corps invalide, règle croisée — et compare statut, présence de chaque en-tête surveillé,
+  forme des valeurs dynamiques, type de média et forme du corps. Un témoin qui renverrait une
+  erreur plus courte sérialiserait moins, et l'écart mesuré serait celui du format. **La
+  campagne s'arrête si un seul témoin ne passe plus** ; cette garde a été vue mordre sur un
+  Express nu.
+- **Le test nul.** Le même camp contre lui-même, dans le même protocole. Il doit rendre « dans le
+  bruit » : une séparation entre un camp et lui-même dirait que la position dans l'alternance
+  suffit à classer.
+
+### L'arbitre des écarts fins — le CPU du fil principal par requête
+
+Le débit a une résolution d'environ 3 % sur cette machine. En dessous, il ne départage rien, et
+l'ELU non plus : deux camps saturés affichent tous deux 1,00. L'arbitre des écarts de quelques
+microsecondes est le **temps CPU consommé par le fil principal, ramené à la requête** —
+`wait-compare.sh`, qui précharge la sonde `wait-probe.mjs` dans les deux camps, encadre la fenêtre
+de charge et lit le compteur du fil lui-même, pas celui du processus.
+
+Il ne garde que le travail que le framework impose au fil qui sert les requêtes : le noyau, les
+autres fils, la machine sortent de la mesure. Sa dispersion reste sous 1 %, là où le débit flotte
+de 3 %. Il se joue lui aussi en paires alternées, et deux gardes le complètent :
+
+| Garde                     | Ce qu'elle refuse                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Décor** (`decor-probe`) | un serveur dont le module de test écoute un point d'extension du chemin de requête — coût que l'application réelle ne paie pas |
+| **Préemption**            | un run qui a subi plus de deux fois les changements de contexte involontaires du run le plus calme de son camp |
+
+Ce n'est pas `process.cpuUsage()`, qui compte **tous** les fils (voir
+[les instruments faux](#les-quatre-instruments-faux--une-seule-question)).
 
 ### Les gardes de décor
 
@@ -255,6 +304,35 @@ défaut d'instrument n'intervient — et la réponse est nette (voir
 [la boucle d'événements](#la-boucle-dévénements--latence-et-blocage-sont-deux-grandeurs)).
 
 > **Quand plusieurs mesures fines se contredisent, changer d'échelle plutôt que d'instrument.**
+
+### Le cinquième — le profil V8 pris pour un arbitre
+
+Une autre question, le même vice. Pour attribuer l'écart entre Nodefony et NestJS sur une route
+triviale, le profil échantillonné de V8 (`--cpu-prof`) a servi d'arbitre, poste par poste. Il ne
+pouvait pas l'être :
+
+- il **ne voit pas** le temps passé hors de JavaScript — appels système, code natif de Node,
+  environ 40 % du CPU d'une requête sur cette route ;
+- il **gonfle** les petites fonctions, jusqu'à quinze fois leur coût réel au micro-banc ;
+- sous macOS, son cousin `node --prof` effondre la majorité des échantillons natifs sur un faux
+  symbole du chargement de l'instantané : le détail natif y est **inexploitable**.
+
+Le plan d'optimisation bâti sur ce profil a dû être retiré. La capture native qui devait le
+compléter avait ses propres défauts, trouvés en route : des adresses réutilisées par le
+compilateur à la volée imputaient un tiers des échantillons du témoin à la mauvaise fonction, et
+deux captures prises à 42 % et 26 % de dispersion de débit avaient fondé des conclusions. Les deux
+défauts sont désormais refusés par l'instrument lui-même.
+
+Ce qui a tranché : **le CPU du fil principal par requête**, en paires alternées
+([l'arbitre des écarts fins](#larbitre-des-écarts-fins--le-cpu-du-fil-principal-par-requête)),
+puis une **bissection par court-circuit** — le même serveur arrêté à chaque étage du pipeline,
+chaque coupe mesurée contre le témoin. Elle a d'abord révélé que l'écart venait en partie **du
+banc** : le module de test écoutait deux points d'extension du chemin de requête, ce qui rendait
+chaque GET asynchrone — un coût qu'aucune application sans ces écouteurs ne paie. Une garde de
+décor refuse depuis de mesurer un tel serveur.
+
+> **Un profil désigne, il ne pèse pas.** Il dit où regarder ; le poids se lit sur le fil, et
+> l'attribution par court-circuit ou par chronométrage dans le serveur réel.
 
 ### Les deux explications réfutées — dont la correction de la première
 
@@ -497,6 +575,25 @@ et c'est le défaut de développement du framework. Dès qu'il y a plusieurs nœ
 concurrence réelle sur une table vivante — un magasin asynchrone est le bon choix, et l'argument
 n'est pas « c'est plus rapide » mais « ça ne sérialise pas ».
 
+## Les instruments — qui mesure quoi
+
+Tous versionnés dans `.claude/skills/nodefony-load-test/`. Chacun répond à **une** question ; le
+prendre pour un autre est la façon la plus courante de produire un chiffre faux.
+
+| Instrument                         | La question à laquelle il répond                                                  | Ce qu'il ne dit pas                                     |
+| ---------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `bench-pairs.sh`                   | A est-il plus rapide que B, et l'écart dépasse-t-il le bruit ?                    | où part la différence                                   |
+| `fair-parity.mjs`                  | les deux camps rendent-ils le même travail observable ?                           | combien ce travail coûte                                |
+| `wait-compare.sh` + `wait-probe.mjs` | combien de CPU du fil principal chaque camp paie-t-il par requête ?             | dans quelle fonction                                    |
+| `wait-analyze.mjs`                 | relit les fenêtres de la sonde : médianes par camp, écart, séparation, préemption | —                                                       |
+| `native-sample.mjs`                | qui paie le temps natif, imputé à la fonction JavaScript appelante (macOS)        | un coût fiable sous la microseconde                     |
+| `cut-probe.mjs` · `cut-analyze.mjs` | combien coûte chaque étage du pipeline (bissection par court-circuit)            | le détail à l'intérieur d'un étage                      |
+| `span-probe.mjs` · `span-run.sh`   | combien dure un bloc précis, chronométré dans le serveur réel                     | l'écart avec le témoin, qu'il ne mesure pas             |
+| `profile-compare.sh`               | où le JavaScript de chaque camp passe son temps (profil V8 comparé)              | le temps natif et noyau — désigne, ne pèse pas          |
+| `soak.mjs`                         | le processus accumule-t-il quelque chose sur la durée ?                           | ce qui se passerait au-delà de la durée jouée           |
+| `perf-campaign.sh`                 | joue toute la campagne publiée, rejoue une paire refusée, s'arrête si la parité casse | —                                                   |
+| `perf-compose.mjs`                 | compose le fichier publié depuis les séries brutes, avec la provenance du journal | le récit, qui reste un geste d'auteur                   |
+
 ## Lexique
 
 | Terme                              | Ce qu'il désigne ici                                                                                                                                              |
@@ -511,7 +608,12 @@ n'est pas « c'est plus rapide » mais « ça ne sérialise pas ».
 | **Régime CPU**                     | Secteur, batterie, ou mode basse consommation. macOS l'active **seul** sur batterie et bride l'accélération du processeur — facteur 1,62 mesuré à code identique. |
 | **Hyperviseur**                    | Machine virtuelle active sur l'hôte. Elle réserve des cœurs **même sans conteneur en marche**, et la charge moyenne ne la voit pas.                               |
 | **Veille douce**                   | Mise en sommeil d'un processus inactif par le système. Elle coûte ~13 % au run suivant.                                                                           |
-| **ELU** (_event loop utilization_) | Part du temps où la boucle d'événements travaille au lieu d'attendre. Un ELU à 1,00 dit « saturé » ; c'est la mesure de saturation, jamais `ps`.                  |
+| **ELU** (_event loop utilization_) | Part du temps où la boucle d'événements travaille au lieu d'attendre. Un ELU à 1,00 dit « saturé » ; c'est la mesure de saturation, jamais `ps`. Il ne départage pas deux camps saturés tous deux. |
+| **CPU du fil par requête**         | Temps CPU du seul fil principal, divisé par les requêtes servies. L'arbitre des écarts de quelques microsecondes : dispersion sous 1 %, là où le débit flotte de 3 %. |
+| **Pile native**                    | Capture de la pile d'appels par le système (`sample` sous macOS), JavaScript compris grâce à la table d'adresses de V8. Elle voit le noyau et le code natif, que le profil V8 ignore. |
+| **Bissection par court-circuit**   | Le même serveur arrêté à chaque étage du pipeline ; la différence entre deux coupes est le coût de l'étage. Seules les coupes aux bornes tiennent : couper au milieu change ce que V8 compile. |
+| **Test nul**                       | Un camp mesuré contre lui-même. Il doit rendre « dans le bruit » ; sinon, c'est le banc qui classe. |
+| **Parité observable**              | Deux camps qui rendent les mêmes statuts, en-têtes et corps sur la même matrice de requêtes. Sans elle, on compare deux périmètres. |
 | **Boucle d'événements**            | Le fil unique qui exécute le code applicatif. Tout ce qui s'y passe est sérialisé.                                                                                |
 | **CPU de boucle**                  | Temps de calcul qu'une opération consomme **sur ce fil**. C'est lui qui plafonne un processus.                                                                    |
 | **Blocage**                        | Temps pendant lequel la boucle d'événements **ne peut rien faire d'autre**. C'est cette grandeur qui plafonne un processus.                                       |
@@ -533,11 +635,17 @@ n'est pas « c'est plus rapide » mais « ça ne sérialise pas ».
 
 **Ceux du protocole.**
 
-- **Un pourcentage de profil n'est pas un pourcentage de budget.** Un profil échantillonné
-  rapporte du CPU **occupé** ; quand une part du temps de requête part en attente, les deux
-  échelles divergent. Trois fois de suite, un poste imputé à 18–31 µs par le profil s'est révélé
-  valoir 0,6–1,3 µs au micro-banc — un écart de facteur 25 à 30. **Tout pourcentage de profil se
-  convertit en nanosecondes par un micro-banc avant d'ouvrir un chantier.**
+- **Un pourcentage de profil n'est pas un pourcentage de budget.** Le profil V8 ne voit que le
+  temps passé en JavaScript : les appels système et le code natif — environ 40 % d'une requête
+  triviale — lui échappent, et il gonfle les petites fonctions. Trois fois de suite, un poste
+  imputé à 18–31 µs par le profil s'est révélé valoir 0,6–1,3 µs au micro-banc — un écart de
+  facteur 25 à 30. **Tout pourcentage de profil se convertit en nanosecondes par un micro-banc
+  avant d'ouvrir un chantier, et un écart entre camps se juge au CPU du fil, jamais au profil.**
+- **Un écouteur posé par le banc fait partie de ce qu'il mesure.** Un module de test qui écoute
+  un point d'extension du chemin de requête rend chaque requête asynchrone ; le banc mesurait
+  alors un coût qu'aucune application sans cet écouteur ne paie. La garde de décor le refuse.
+- **Un run préempté ressemble à un run lent.** Ni la garde thermique ni celle de l'indexeur ne le
+  voient ; le compte des changements de contexte involontaires, si.
 - **Un compte, lui, ne ment pas.** « 43 exécutions de motif de route par requête » est exact,
   déterministe, et ne dépend ni de la machine ni de l'instrument. Quand un diagnostic peut se
   poser en compte plutôt qu'en durée, le préférer.

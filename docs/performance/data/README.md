@@ -8,7 +8,7 @@ section: "Performance"
 audience: [developer, devops]
 tags: [performance, mesure, release, reproductibilite]
 status: stable
-updated: "2026-08-24"
+updated: "2026-10-02"
 source: "docs/performance/data/"
 ---
 
@@ -38,22 +38,29 @@ elle ne fait que **rendre** ce dossier (`scripts/build-perf-site.mjs`).
 | Bloc         | Ce qu'il porte                                                                                                                           |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `provenance` | date, **commit** du code mesuré, machine, version de Node, protocole (outil, warmup, durée, connexions, nombre de runs, mode du serveur) |
-| `comparison` | un camp par framework, avec ses runs bruts, sa médiane, ses percentiles, sa dispersion, et le relevé thermique du poste                  |
+| `comparison` | un camp par framework (route triviale), avec ses runs bruts, sa médiane, ses percentiles, sa dispersion, le relevé thermique ; `pairs` porte le rapport et la séparation de **chaque paire alternée**, test nul compris |
+| `applicative` | le cas applicatif face à Express équipé : 20 lignes lues puis l'`UPDATE` de la ligne lue, sur SQLite, à ORM et pilote égaux       |
+| `applicativeNest` | le même banc face à NestJS équipé — GET, POST validé, POST invalide (422) ; **chaque cas porte son commit**, une pièce réutilisée d'une autre séance garde sa provenance |
+| `cpuThread`  | le CPU du fil principal par requête face à NestJS équipé (`wait-compare.sh`) — l'arbitre des écarts sous la résolution du débit     |
 | `soak`       | les **échantillons complets** d'une charge longue — jamais un résumé : la pente et le plateau se recalculent au rendu                    |
 
 `comparison.reference` désigne le camp qui sert d'étalon. C'est `express-fair` — un Express muni
 des mêmes intergiciels — parce que comparer un pipeline complet à un serveur nu ne compare pas le
-même travail.
+même travail. Le second étalon, `nest-fair`, est un NestJS sur Fastify muni des mêmes garanties.
 
 ## Ajouter la mesure d'une version
 
 ```bash
-# 1. le comparatif, sur une machine au repos (cf skill `nodefony-load-test`)
-#    → dépose /tmp/nf-bench-<camp>.json pour les cinq camps
-# 2. la charge longue — les échantillons, pas le résumé
-node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 20 --out tmp/soak.json
-# 3. composer docs/performance/data/<version>.json (provenance + comparison + soak)
-# 4. rendre, et REGARDER la page avant de la publier
+# 1. la campagne, sur une machine au repos — parité des témoins, paires, base de
+#    données, CPU du fil, tenue : 'caffeinate' empêche la veille pendant la nuit
+caffeinate -dims bash .claude/skills/nodefony-load-test/scripts/perf-campaign.sh --at 01:30
+#    une pièce manquante se rejoue seule : --only "nest-fair applicatif"
+# 2. composer le fichier depuis les séries BRUTES (aperçu, puis --write) — les
+#    chiffres et la provenance ; le récit reste à écrire à la main
+node .claude/skills/nodefony-load-test/scripts/perf-compose.mjs \
+  --campaign tmp/perf-campaign-<date> --data docs/performance/data/<version>.json \
+  --soak tmp/perf-campaign-<date>/soak.json
+# 3. rendre, et REGARDER la page avant de la publier
 node scripts/build-perf-site.mjs --out dist-perf-site
 ```
 
