@@ -1,5 +1,9 @@
 import { assert } from "vitest";
-import type { RolldownOptions } from "rolldown";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { rolldown } from "rolldown";
+import type { OutputOptions, RolldownOptions } from "rolldown";
 import {
   defineNodefonyRolldownConfig,
   nodefonyExternalMatcher,
@@ -133,6 +137,80 @@ describe("nodefony/bundler — socle rolldown partagé (subpath publiable)", () 
       // Opt-in : un outDir qui héberge d'autres sorties serait vidé avec.
       assert.isFalse(out(off)?.cleanDir);
       assert.isTrue(out(on)?.cleanDir);
+    });
+
+    it("externalDeps : un @nodefony/* NON déclaré reste externe (singleton non dédoublé)", () => {
+      const auto = defineNodefonyRolldownConfig({
+        input: { index: "./index.ts" },
+        externalDeps: true,
+      }).external as (id: string) => boolean;
+      const explicit = defineNodefonyRolldownConfig({
+        input: { index: "./index.ts" },
+      }).external as (id: string) => boolean;
+      assert.isTrue(auto("@nodefony/orm-core"));
+      assert.isTrue(auto("@nodefony/orm-core/sub"));
+      assert.isFalse(
+        auto("@nodefonyx/other"),
+        "portée exacte, pas un préfixe nu",
+      );
+      // Liste explicite des paquets du dépôt : inchangée, auditée ailleurs.
+      assert.isFalse(explicit("@nodefony/orm-core"));
+    });
+
+    it("build réel : le dist d'un module ne recopie pas un @nodefony/* oublié des peers", async () => {
+      // Décor autonome : un faux paquet de la portée dans un node_modules jetable —
+      // ne dépend du build d'aucun autre paquet du dépôt.
+      const root = mkdtempSync(path.join(tmpdir(), "nf-bundler-"));
+      try {
+        const pkgDir = path.join(root, "node_modules", "@nodefony", "fake");
+        mkdirSync(pkgDir, { recursive: true });
+        writeFileSync(
+          path.join(pkgDir, "package.json"),
+          JSON.stringify({
+            name: "@nodefony/fake",
+            type: "module",
+            main: "index.js",
+          }),
+        );
+        writeFileSync(
+          path.join(pkgDir, "index.js"),
+          'export const registry = new Map([["marker", "fake-singleton"]]);\n',
+        );
+        const entry = path.join(root, "index.js");
+        writeFileSync(entry, 'export { registry } from "@nodefony/fake";\n');
+
+        const emit = async (externalDeps: boolean): Promise<string> => {
+          const {
+            input: _i,
+            output,
+            ...config
+          } = defineNodefonyRolldownConfig({
+            input: { index: entry },
+            externalDeps,
+          });
+          const bundle = await rolldown({
+            ...config,
+            input: { index: entry },
+            cwd: root,
+          });
+          const out = await bundle.generate({
+            ...(output as OutputOptions),
+            preserveModulesRoot: root,
+          });
+          await bundle.close();
+          return out.output
+            .map((c) => ("code" in c ? `// ${c.fileName}\n${c.code}` : ""))
+            .join("\n");
+        };
+
+        // Témoin : sans la règle, le paquet est bien résolu ET recopié — le décor mord.
+        assert.include(await emit(false), "fake-singleton");
+        const code = await emit(true);
+        assert.notInclude(code, "fake-singleton");
+        assert.include(code, '"@nodefony/fake"');
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
     });
 
     it("externalDeps par défaut OFF (liste explicite des packages du repo)", () => {

@@ -35,6 +35,8 @@ export interface INodefonyRolldownOptions {
    * `package.json` courant (défaut `false`). Mode recommandé pour une APPLICATION :
    * son runtime vient de `node_modules`, rien à bundler. Les packages du framework
    * gardent leur liste `external` explicite (auditée par `nodefony-check-externals`).
+   * Dans ce mode, tout `@nodefony/*` est externe même s'il n'est pas déclaré :
+   * recopié, il dédoublerait les singletons du framework.
    */
   externalDeps?: boolean;
   /** Entrées explicites — remplace le glob par défaut (`index.ts` + `nodefony/**∕*.ts`). */
@@ -83,6 +85,9 @@ export function nodefonyExternalMatcher(
       (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
     );
 }
+
+/** Portée npm des paquets du framework — jamais recopiée par un build `externalDeps`. */
+const FRAMEWORK_SCOPE = "@nodefony/";
 
 /**
  * Treeshake commun : les externes sont sans effet de bord (équivalent
@@ -159,11 +164,19 @@ export function defineNodefonyRolldownConfig(
         : []),
     ]),
   ];
+  const matcher = nodefonyExternalMatcher(external);
 
   return defineConfig({
     input: opts.input ?? nodefonyInput(opts.globPatterns),
     platform: opts.platform ?? "node",
-    external: nodefonyExternalMatcher(external),
+    // `externalDeps` : un `@nodefony/*` importé mais OUBLIÉ du manifeste reste
+    // externe quand même. Le recopier dédoublerait ses singletons (`ormRegistry`,
+    // registres d'entités…) sans aucune erreur ; externe, l'oubli se paie au pire
+    // d'un `ERR_MODULE_NOT_FOUND` franc. Les paquets du dépôt (liste explicite)
+    // ne sont pas concernés.
+    external: opts.externalDeps
+      ? (id: string): boolean => id.startsWith(FRAMEWORK_SCOPE) || matcher(id)
+      : matcher,
     treeshake: nodefonyTreeshake,
     output: {
       dir: opts.outDir ?? "dist",

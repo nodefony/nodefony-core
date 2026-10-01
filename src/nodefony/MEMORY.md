@@ -425,7 +425,7 @@ SAUF le core qui importe sa SOURCE en relatif (`./src/bundler/index` — œuf-po
 avant son propre build). Prérequis des consommateurs = core buildé (ordre turbo ; un build isolé
 après clean TOTAL échoue au chargement de config → builder le core d'abord). Une app utilise :
 `import { defineNodefonyRolldownConfig } from "nodefony/bundler"` + `externalDeps: true`
-(externalise `dependencies`+`peerDependencies` de SON package.json — les packages du repo gardent
+(externalise `dependencies`+`peerDependencies` de SON package.json, + TOUT `@nodefony/*` même non déclaré (anti-dédoublement de singleton) — les packages du repo gardent
 leur liste explicite auditée par `nodefony-check-externals`). Entrée rolldown SÉPARÉE
 (`dist/node/bundler/index.js`), JAMAIS réexportée par `src/index.ts` (elle importe `rolldown`,
 peerDep OPTIONNELLE). Invariants gravés : nom propre toujours externe (anti self-import),
