@@ -33101,6 +33101,7 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/deep.ts",
+        "src/nodefony/src/kernel/checks/guards.ts",
         "src/nodefony/src/kernel/checks/managerDrift.ts",
         "src/nodefony/src/kernel/checks/readiness.ts",
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
@@ -33115,6 +33116,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/deep.ts",
+        "src/nodefony/src/kernel/checks/guards.ts",
         "src/nodefony/src/kernel/checks/managerDrift.ts",
         "src/nodefony/src/kernel/checks/readiness.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts",

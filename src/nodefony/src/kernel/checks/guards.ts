@@ -20,6 +20,10 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  packageManagerCommandLines,
+  resolvePackageManager,
+} from "../../cli/packageManager";
 
 /** Une garde décrochée. */
 export interface IGuardFinding {
@@ -265,7 +269,9 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
           "aucune chaîne `verify` : rien n'enchaîne " +
           `${VERIFY_STEPS.join(", ")} en une seule commande — c'est celle ` +
           "qu'une forge appelle, et celle qu'on tape avant de publier. " +
-          `→ \`npm pkg set scripts.verify="${VERIFY_STEPS.map((e) => `npm run ${e}`).join(" && ")}"\``,
+          // `npm pkg set` vaut pour tous : npm vient avec Node et n'écrit
+          // que le manifeste. La CHAÎNE, elle, parle le gestionnaire du projet.
+          `→ \`npm pkg set scripts.verify="${VERIFY_STEPS.map((e) => packageManagerCommandLines(resolvePackageManager({ dir: options.projectRoot }).name).run(e)).join(" && ")}"\``,
       });
     } else if (missing.length > 0) {
       findings.push({

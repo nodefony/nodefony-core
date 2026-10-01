@@ -1235,7 +1235,7 @@ export function countCheckFindings(report: IDoctorReport): number {
  * @returns la ligne à écrire, sans retour chariot, ou `null`.
  */
 export function progressLine(e: IDeepProgress, p: IPalette): string | null {
-  const quoi = e.step === "outdated" ? "npm outdated" : `npm run ${e.step}`;
+  const quoi = e.command;
   if (e.phase === "start") return p.dim(`  … ${quoi}`);
   const seconds = e.ms === undefined ? "" : ` (${(e.ms / 1000).toFixed(1)} s)`;
   switch (e.outcome) {
@@ -1301,7 +1301,7 @@ export function reporterProgression(
       })
     : null;
   return (e) => {
-    const label = e.step === "outdated" ? "npm outdated" : `npm run ${e.step}`;
+    const label = e.command;
     if (spinner !== null) {
       // La ligne figée par `stop()` est celle-là même qu'écrit le mode non
       // animé : les deux rendus disent le MÊME verdict, seule l'attente diffère.

@@ -121,6 +121,23 @@ const VARIANTS = [
     app: "probe",
     answers: ["--preset", "complete", "--frontend", "react", "--no-install"],
   },
+  // Chaque gestionnaire rend ses PROPRES fichiers (`pnpm-workspace.yaml`,
+  // `resolutions`, scripts, CI, Dockerfile) : la variante npm ne les voit pas.
+  // Vécu : un `pnpm-workspace.yaml` frais échouait au `format:check` de
+  // l'application — donc à son `verify`, en CI comme au poste.
+  ...["pnpm", "yarn", "bun"].map((pm) => ({
+    name: `complete (${pm}, rendu brut, sans installation)`,
+    app: "probe",
+    answers: [
+      "--preset",
+      "complete",
+      "--frontend",
+      "none",
+      "--package-manager",
+      pm,
+      "--no-install",
+    ],
+  })),
 ];
 
 let failed = 0;

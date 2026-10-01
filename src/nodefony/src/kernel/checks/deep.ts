@@ -99,11 +99,23 @@ const NETWORK_TIMEOUT_MS = 30_000;
 export interface IDeepProgress {
   /** Le nom du script, ou `outdated` pour l'interrogation du registre. */
   step: string;
+  /**
+   * La commande telle que l'utilisateur la taperait, dans la syntaxe de SON
+   * gestionnaire (`pnpm run lint`) — c'est elle qu'on affiche.
+   */
+  command: string;
   phase: "start" | "done";
   /** Renseignés sur `done` seulement. */
   outcome?: IVerifyStepResult["outcome"] | "ok" | "unavailable";
   ms?: number;
 }
+
+/**
+ * Le relevé des retards n'interroge que npm, quel que soit le gestionnaire
+ * du projet (il le DIT quand ce n'est pas le sien) : la commande affichée est
+ * donc celle-là.
+ */
+const OUTDATED_COMMAND = "npm outdated";
 
 /** Ce qui reçoit les annonces — `undefined` quand personne n'écoute. */
 export type DeepReporter = (event: IDeepProgress) => void;
@@ -112,6 +124,8 @@ export type DeepReporter = (event: IDeepProgress) => void;
 export interface IVerifyStepResult {
   /** Le nom du script, tel qu'il figure dans `scripts` du manifeste. */
   step: string;
+  /** La commande à relancer, dans la syntaxe du gestionnaire du projet. */
+  command: string;
   /**
    * Ce qui s'est passé.
    *
@@ -308,40 +322,47 @@ export async function runVerifySteps(
   report?: DeepReporter,
 ): Promise<IVerifyStepResult[]> {
   const { present } = declaredSteps(projectRoot, steps);
+  const lines = packageManagerCommandLines(
+    resolvePackageManager({ dir: projectRoot }).name,
+  );
   const results: IVerifyStepResult[] = [];
   for (const step of steps) {
+    const command = lines.run(step);
     if (!present.includes(step)) {
       // Un script absent n'est pas ANNONCÉ : rien n'a été lancé, et prévenir
       // qu'on ne lance pas quelque chose ajoute du bruit à une attente.
-      results.push({ step, outcome: "absent", ms: 0 });
+      results.push({ step, command, outcome: "absent", ms: 0 });
       continue;
     }
-    report?.({ step, phase: "start" });
+    report?.({ step, command, phase: "start" });
     const r = await run(step);
     if (r.status === null) {
-      report?.({ step, phase: "done", outcome: "timeout", ms: r.ms });
+      report?.({ step, command, phase: "done", outcome: "timeout", ms: r.ms });
       results.push({
         step,
+        command,
         outcome: "timeout",
         ms: r.ms,
         detail:
           `interrompu après ${Math.round(r.ms / 1000)} s — la borne de CE contrôle ` +
           `(${Math.round(timeoutForStep(step) / 1000)} s) était trop courte, ce qui ne dit rien du projet. ` +
-          `Relance l'étape seule : ${packageManagerCommandLines(resolvePackageManager({ dir: projectRoot }).name).run(step)}`,
+          `Relance l'étape seule : ${command}`,
       });
       continue;
     }
     report?.({
       step,
+      command,
       phase: "done",
       outcome: r.status === 0 ? "passed" : "failed",
       ms: r.ms,
     });
     results.push(
       r.status === 0
-        ? { step, outcome: "passed", ms: r.ms }
+        ? { step, command, outcome: "passed", ms: r.ms }
         : {
             step,
+            command,
             outcome: "failed",
             ms: r.ms,
             detail: firstUsefulLine(r.stderr, r.stdout),
@@ -439,11 +460,12 @@ export async function readOutdated(
   report?: DeepReporter,
 ): Promise<{ summary: IOutdatedSummary | null; reason: string }> {
   const debut = Date.now();
-  report?.({ step: "outdated", phase: "start" });
+  report?.({ step: "outdated", command: OUTDATED_COMMAND, phase: "start" });
   const r = await run();
   const annoncer = (outcome: "ok" | "unavailable"): void =>
     report?.({
       step: "outdated",
+      command: OUTDATED_COMMAND,
       phase: "done",
       outcome,
       ms: Date.now() - debut,

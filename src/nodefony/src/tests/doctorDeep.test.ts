@@ -12,13 +12,15 @@ import assert from "node:assert";
 import path from "node:path";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { parseDoctorArgv } from "../kernel/checks/runDoctor";
+import { parseDoctorArgv, progressLine } from "../kernel/checks/runDoctor";
+import { createPalette } from "../kernel/checks/report";
 import {
   declaredSteps,
   firstUsefulLine,
   readOutdated,
   runVerifySteps,
   verifyChainSteps,
+  type IDeepProgress,
 } from "../kernel/checks/deep";
 
 /** Un projet jetable dont le manifeste déclare les scripts qu'on lui donne. */
@@ -320,4 +322,48 @@ describe("verifyChainSteps — les gardes que le projet DÉCLARE", () => {
     });
     assert.deepEqual(verifyChainSteps(racine).steps, ["typecheck", "test"]);
   });
+});
+
+// #294 — `--deep` LANÇAIT déjà les gardes par le gestionnaire du projet, mais
+// les ANNONÇAIT en npm : « ✗ npm run format:check » dans un projet pnpm, et le
+// conseil « relance-le seul » donnait une commande que le projet ne tape pas.
+describe("doctor --deep — la commande affichée parle le gestionnaire du projet", () => {
+  for (const [lock, pm] of [
+    ["pnpm-lock.yaml", "pnpm"],
+    ["yarn.lock", "yarn"],
+    ["bun.lock", "bun"],
+    ["package-lock.json", "npm"],
+  ] as const) {
+    it(`${pm} : annonces, verdicts et ligne de progression`, async () => {
+      const racine = projetAvec({ lint: "oxlint", test: "vitest" });
+      writeFileSync(path.join(racine, lock), "", "utf8");
+      const events: IDeepProgress[] = [];
+      const r = await runVerifySteps(
+        racine,
+        ["lint", "test", "typecheck"],
+        (step) => ({
+          status: step === "lint" ? 1 : 0,
+          stderr: "x",
+          stdout: "",
+          ms: 1,
+        }),
+        (e) => events.push(e),
+      );
+      for (const step of ["lint", "test", "typecheck"]) {
+        assert.equal(
+          r.find((x) => x.step === step)?.command,
+          `${pm} run ${step}`,
+        );
+      }
+      assert.ok(events.length > 0);
+      for (const e of events) assert.equal(e.command, `${pm} run ${e.step}`);
+      const done = events.find((e) => e.step === "lint" && e.phase === "done");
+      assert.ok(done);
+      assert.match(
+        progressLine(done, createPalette(false)) ?? "",
+        new RegExp(`${pm} run lint`, "u"),
+      );
+      rmSync(racine, { recursive: true, force: true });
+    });
+  }
 });

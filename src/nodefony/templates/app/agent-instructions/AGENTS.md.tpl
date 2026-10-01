@@ -425,7 +425,6 @@ qu'elles n'existent pas, et n'en réécris aucune à la main.
 <% } %>
 Chaque brique ajoutée apporte AUSSI ses commandes, ses docs et parfois ses skills :
 redemande `npx nodefony --help`, puis `npx nodefony ai:sync`.
-
 <% } %>
 ## Le savoir-faire du framework vit dans les skills, pas dans ce fichier
 

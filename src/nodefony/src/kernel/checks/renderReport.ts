@@ -1138,12 +1138,12 @@ function findingGroups(
               ? // Un dépassement de borne n'a pas « échoué » : il n'a pas eu
                 // lieu. Le geste n'est donc pas « corrige ton projet » mais
                 // « donne-lui le temps, ou lance-le toi-même ».
-                `\`npm run ${st.step}\` n'a PAS pu être contrôlé — interrompu par la borne ` +
+                `\`${st.command}\` n'a PAS pu être contrôlé — interrompu par la borne ` +
                 `après ${Math.round(st.ms / 1000)} s` +
-                `\n  → lance-le seul, sans borne : \`npm run ${st.step}\``
-              : `\`npm run ${st.step}\` a échoué (${Math.round(st.ms / 1000)} s)` +
+                `\n  → lance-le seul, sans borne : \`${st.command}\``
+              : `\`${st.command}\` a échoué (${Math.round(st.ms / 1000)} s)` +
                 (st.detail ? ` :\n  ${st.detail}` : "") +
-                `\n  → relance-le seul pour voir la sortie entière : \`npm run ${st.step}\``,
+                `\n  → relance-le seul pour voir la sortie entière : \`${st.command}\``,
         })),
     },
     // L'étage 2 en dernier : il n'existe que sur une application qui a démarré,
