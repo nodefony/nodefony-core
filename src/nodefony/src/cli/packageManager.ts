@@ -148,6 +148,25 @@ export function packageManagerExecArgs(
 }
 
 /**
+ * Arguments d'une installation qui SUIT une modification du manifeste
+ * (`create app`, `create module`, une dépendance ajoutée).
+ *
+ * pnpm fige le verrou dès que `CI` est posé (`frozen-lockfile` par défaut) :
+ * l'installation qui doit justement l'accorder au manifeste qu'on vient
+ * d'écrire échoue alors sur `ERR_PNPM_OUTDATED_LOCKFILE` — vécu sur la forge,
+ * au premier `create module`. npm, yarn 1 et bun ne figent pas sans qu'on le
+ * demande.
+ *
+ * @param name - gestionnaire du projet
+ * @returns les arguments à donner au gestionnaire (sans son nom)
+ */
+export function packageManagerUpdateInstallArgs(
+  name: PackageManagerName,
+): string[] {
+  return name === "pnpm" ? ["install", "--no-frozen-lockfile"] : ["install"];
+}
+
+/**
  * Lignes de commande à AFFICHER pour un gestionnaire — ce qu'on conseille à
  * l'utilisateur doit être ce que son outil accepte, et sortir de la même règle
  * que ce qu'on exécute ({@link packageManagerExecArgs}).

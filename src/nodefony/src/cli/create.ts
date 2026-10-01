@@ -7,6 +7,7 @@ import { portableSpawn } from "./execPortable";
 import {
   isPackageManagerName,
   packageManagerCommandLines,
+  packageManagerUpdateInstallArgs,
   packageManagerExecArgs,
   resolvePackageManager,
 } from "./packageManager";
@@ -617,7 +618,7 @@ function runInstall(dest: string, pm: PackageManagerName): boolean {
   // (DEP0190) avec sa pile dans le transcript. `portableSpawn` compose la
   // ligne pour `cmd.exe` lui-même ; sans lui, le workspace n'est jamais lié et
   // le module devient introuvable au boot — visible seulement en 404.
-  const cmd = portableSpawn(pm, ["install"]);
+  const cmd = portableSpawn(pm, packageManagerUpdateInstallArgs(pm));
   const r = spawnSync(cmd.file, cmd.args, {
     cwd: dest,
     stdio: "inherit",
@@ -1410,7 +1411,9 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       process.stdout.write(
         `⚠ ${cmd.install} a échoué — relance-le à la racine de l'app (le module ne sera pas chargeable avant)\n`,
       );
-      return SysExit.OK;
+      // Le module est écrit, mais il n'est PAS chargeable : le code de sortie
+      // le dit, comme pour `create app` (cf {@link createExitCode}).
+      return createExitCode("failed", "skipped");
     }
     // Le build se lance à la RACINE (script chaîné : modules puis app), jamais
     // dans le seul module : le `use(...)` posé dans `nodefony.config.ts` ne vit
@@ -1424,7 +1427,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         ? `\n✔ module installé (workspace), module et application construits — un serveur dev le rechargera au prochain redémarrage\n`
         : `\n⚠ ${cmd.run("build")} a échoué à la racine — corrige puis relance-le (le runtime charge le dist de l'app)\n`,
     );
-    return SysExit.OK;
+    return createExitCode("succeeded", built ? "succeeded" : "failed");
   }
   if (type !== "app") {
     // Une dépendance AJOUTÉE au manifeste se pose aussi dans `node_modules`.
@@ -1436,13 +1439,16 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     // agents sur trois l'ont installé à la main. Le générateur sait le faire,
     // c'est donc à lui de le faire.
     //
-    // Non bloquant, comme le reste de la post-génération : le code est écrit,
-    // un réseau absent ne doit pas transformer une génération réussie en échec.
+    // Le code écrit RESTE écrit si l'installation échoue, mais le code de
+    // sortie le dit (cf {@link createExitCode}) : un agent ou une chaîne qui
+    // enchaîne `orm:generate` doit apprendre que l'outil manque.
     const addedDeps = result.depsAdded ?? [];
+    let depsInstall: CreateStepOutcome = "skipped";
     if (parsed.install && addedDeps.length > 0) {
       const root = findProjectRoot(process.cwd());
       const pm = resolvePackageManager({ dir: root ?? undefined }).name;
       const pose = root !== null && runInstall(root, pm);
+      depsInstall = pose ? "succeeded" : "failed";
       process.stdout.write(
         pose
           ? `\n✔ dépendance(s) installée(s) : ${addedDeps.join(", ")}\n`
@@ -1472,7 +1478,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         (result.notes ?? []).map((n) => `  ${n}`).join("\n") +
         `\n\nServeur dev lancé → rebuild automatique ; sinon : ${packageManagerCommandLines(resolvePackageManager({ dir: findProjectRoot(process.cwd()) ?? undefined }).name).run("build")}\n`,
     );
-    return SysExit.OK;
+    return createExitCode(depsInstall, "skipped");
   }
   const linkNote = result.linked.length
     ? `\n🔗 link : ${result.linked.length} paquets nodefony câblés en file: sur le checkout local ` +

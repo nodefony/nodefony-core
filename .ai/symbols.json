@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 883,
-    "symbols": 4420,
+    "symbols": 4421,
     "classes": 404,
     "interfaces": 1155,
     "types": 475,
     "enums": 4,
-    "functions": 1936,
+    "functions": 1937,
     "constants": 446
   },
   "symbols": {
@@ -2259,6 +2259,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Arguments qui lancent un BINAIRE installé dans le projet (`nodefony`, `vitest`…). Quatre formes, parce que les quatre gestionnaires n'en partagent aucune : `npm exec --` (sans le `--`, npm lit les …"
+    },
+    "packageManagerUpdateInstallArgs": {
+      "name": "packageManagerUpdateInstallArgs",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/packageManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Arguments d'une installation qui SUIT une modification du manifeste (`create app`, `create module`, une dépendance ajoutée). pnpm fige le verrou dès que `CI` est posé (`frozen-lockfile` par défaut)…"
     },
     "packageManagerCommandLines": {
       "name": "packageManagerCommandLines",
@@ -33105,6 +33113,9 @@
         "src/nodefony/src/kernel/checks/managerDrift.ts",
         "src/nodefony/src/kernel/checks/readiness.ts",
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
+      ],
+      "packageManagerUpdateInstallArgs": [
+        "src/nodefony/src/cli/create.ts"
       ],
       "packageManagerExecArgs": [
         "src/nodefony/src/cli/create.ts",

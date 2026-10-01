@@ -123,11 +123,17 @@ function appAvecPrettier(): string {
  */
 function nonConformes(relatifs: readonly string[]): string[] {
   try {
-    execFileSync(process.execPath, [PRETTIER_JS, "--check", ...relatifs], {
-      cwd: racine,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    // `--no-color` : sous `FORCE_COLOR` (la forge), `[warn]` arrive coloré et
+    // n'est plus reconnu — vécu, rouge sur les huit jobs de tests unitaires.
+    execFileSync(
+      process.execPath,
+      [PRETTIER_JS, "--check", "--no-color", ...relatifs],
+      {
+        cwd: racine,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
     return [];
   } catch (e) {
     const err = e as { stdout?: string; stderr?: string };

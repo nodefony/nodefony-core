@@ -14,6 +14,7 @@ import {
   packageManagerCommandLines,
   packageManagerExecArgs,
   packageManagerToolchain,
+  packageManagerUpdateInstallArgs,
   packageManagerWorkspaceRun,
 } from "../cli/packageManager";
 import {
@@ -60,6 +61,18 @@ describe("gestionnaire de paquets — commandes", () => {
         packageManagerCommandLines(pm).exec("nodefony"),
         [pm, ...packageManagerExecArgs(pm, "nodefony")].join(" "),
       );
+    }
+  });
+
+  // Sous `CI`, pnpm fige le verrou : l'installation qui suit un `create
+  // module` (manifeste modifié) tombait sur ERR_PNPM_OUTDATED_LOCKFILE.
+  it("une installation qui SUIT un manifeste modifié ne fige jamais le verrou", () => {
+    assert.deepEqual(packageManagerUpdateInstallArgs("pnpm"), [
+      "install",
+      "--no-frozen-lockfile",
+    ]);
+    for (const pm of ["npm", "yarn", "bun"] as const) {
+      assert.deepEqual(packageManagerUpdateInstallArgs(pm), ["install"], pm);
     }
   });
 

@@ -198,7 +198,10 @@ for (const variant of RETENUES) {
     continue;
   }
 
-  const check = spawnSync(PRETTIER, ["--check", "."], {
+  // 🔴 `--no-color` : sous `FORCE_COLOR` (posé par la forge), prettier écrit
+  // `[\x1b[33mwarn\x1b[39m]`, aucune ligne ne commence plus par `[warn] `, et
+  // le gate concluait « conforme » sur un rendu qui ne l'était pas.
+  const check = spawnSync(PRETTIER, ["--check", "--no-color", "."], {
     cwd: dest,
     encoding: "utf8",
   });
@@ -206,6 +209,23 @@ for (const variant of RETENUES) {
     .split("\n")
     .filter((l) => l.startsWith("[warn] ") && !l.includes("Code style issues"))
     .map((l) => l.slice("[warn] ".length).trim());
+  // Un refus que la lecture ne sait pas attribuer n'est PAS un vert : la
+  // sortie a changé de forme, ou prettier n'a pas pu lire le projet.
+  if (check.status !== 0 && offenders.length === 0) {
+    failed++;
+    console.error(
+      `✗ ${variant.name} — prettier refuse (code ${check.status}) sans nommer de fichier :`,
+    );
+    console.error(
+      (check.stderr || check.stdout || "")
+        .trim()
+        .split("\n")
+        .slice(-12)
+        .join("\n"),
+    );
+    if (!KEEP) rmSync(dir, { recursive: true, force: true });
+    continue;
+  }
 
   // Une non-conformité STRUCTURELLE se CONSTATE, elle ne se déclare pas dans une
   // liste : sa première ligne fautive porte le nom de l'application. C'est la
