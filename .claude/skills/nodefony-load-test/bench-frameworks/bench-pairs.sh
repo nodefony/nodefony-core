@@ -101,11 +101,15 @@ echo ""
 # framework (TTL), qu'on règle assez large pour couvrir les quatre séries.
 mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
   local camp="$1" rang="$2"
+  # La sortie de chaque série se GARDE : jetée, un échec autre que la dispersion
+  # (boot, cible, sonde, erreurs wrk) s'affichait « REFUSÉE (dispersion) » sans
+  # aucune trace pour le diagnostiquer.
+  local log="/tmp/nf-bench-$camp-p$rang.log"
   if [ "$camp" = "nodefony" ]; then
     BENCH_URL="${NODEFONY_URL:-http://127.0.0.1:5151/nodefony/test/als-test/state}" \
       bash "$DIR/../scripts/bench-ab-mono.sh" nodefony \
       NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN="${NODEFONY_TTL_MIN:-120}" \
-      >/dev/null 2>&1
+      >"$log" 2>&1
   elif [ "$camp" = "nodefony-orm" ]; then
     # Le cas APPLICATIF : une lecture et une écriture par requête, sur le corpus
     # seedé (`NF_BENCH_ORM=1`). Même route, même travail que `express-fair-sqlite` —
@@ -115,15 +119,18 @@ mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
       bash "$DIR/../scripts/bench-ab-mono.sh" nodefony-orm \
       NF_BENCH_ORM=1 NF_WITH_DEV_MODULES=1 \
       NF_WITH_DEV_MODULES_TTL_MIN="${NODEFONY_TTL_MIN:-120}" \
-      >/dev/null 2>&1
+      >"$log" 2>&1
   else
-    bash "$DIR/bench.sh" "$camp" "$PORT" >/dev/null 2>&1
+    bash "$DIR/bench.sh" "$camp" "$PORT" >"$log" 2>&1
   fi
   # La preuve d'un refus se range comme une mesure : sans rang, la série 2
   # écraserait le diagnostic de la série 1 et on rejouerait sans rien savoir.
   [ -f "/tmp/nf-bench-$camp.refused.json" ] &&
     mv "/tmp/nf-bench-$camp.refused.json" "/tmp/nf-bench-$camp-p$rang.refused.json"
   local med="/tmp/nf-bench-$camp.med"
+  # Ni médiane ni preuve de refus : la série a ÉCHOUÉ, ce n'est pas de la dispersion.
+  [ -f "$med" ] || [ -f "/tmp/nf-bench-$camp-p$rang.refused.json" ] ||
+    echo "ÉCHEC — voir $log" >&2
   if [ -f "$med" ]; then
     cat "$med"
     mv "$med" "/tmp/nf-bench-$camp-p$rang.med" 2>/dev/null

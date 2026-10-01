@@ -8,7 +8,8 @@
 # Usage : profile-cpu.sh <label> <port> <cmd…>   (écrit <dossier>/rps : débit servi)
 #   profile-cpu.sh nodefony 5151 src/nodefony/bin/nodefony production
 #   profile-cpu.sh nest-fair 5161 .claude/skills/nodefony-load-test/bench-frameworks/nest-fair.mjs
-# Env : NF_PROFILE_DIR (défaut tmp/profiles), XENV (variables passées au serveur,
+# Env : NF_PROFILE_DIR (défaut tmp/profiles), BENCH_CONN (128 ; 25 sur un banc ORM
+#   synchrone, au-delà on profile une file), BENCH_DUR (20 s), XENV (variables passées au serveur,
 #   ex. « NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=30 » pour la route de
 #   banc de @nodefony/test, absente en production sinon — un 404 se profile aussi).
 # ⚠️ Toujours en production : `phaseStart/phaseEnd` ne sont actifs qu'ailleurs,
@@ -27,8 +28,8 @@ PID=$!
 for _ in $(seq 1 150); do curl -s -o /dev/null "$URL" && break; sleep 0.2; done
 CODE=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
 [ "$CODE" = "200" ] || { echo "❌ $URL répond $CODE — rien ne serait valide"; kill -INT $PID; exit 1; }
-wrk -t4 -c128 -d10s "$URL" >/dev/null
-wrk -t4 -c128 -d20s "$URL" > "$OUT/wrk.txt"
+wrk -t4 -c"${BENCH_CONN:-128}" -d10s "$URL" >/dev/null
+wrk -t4 -c"${BENCH_CONN:-128}" -d"${BENCH_DUR:-20}"s "$URL" > "$OUT/wrk.txt"
 grep -E "Requests/sec|Latency|Non-2xx" "$OUT/wrk.txt"
 # Le débit SERVI fixe le dénominateur de profile-analyze (µs par requête).
 # Une réponse non-2xx coûte moins qu'une vraie : le profil serait faux.

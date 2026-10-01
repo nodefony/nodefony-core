@@ -4558,6 +4558,14 @@
             ],
             "env": [
               {
+                "name": "BENCH_CONN",
+                "help": ""
+              },
+              {
+                "name": "BENCH_DUR",
+                "help": ""
+              },
+              {
                 "name": "BENCH_PATH",
                 "help": ""
               },

@@ -133,7 +133,7 @@ script, donc toujours à jour après régénération.
 | `scripts/profile-analyze.mjs` | Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé | `--cpu-prof` | — |
 | `scripts/profile-compare.mjs` | Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à | — | — |
 | `scripts/profile-compare.sh` | « Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le | — | `NF_PROFILE_DIR` |
-| `scripts/profile-cpu.sh` | Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. | `--cpu-prof` `--cpu-prof-dir` `--cpu-prof-interval` | `BENCH_PATH` `NF_PROFILE_DIR` `PORT` `XENV` |
+| `scripts/profile-cpu.sh` | Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. | `--cpu-prof` `--cpu-prof-dir` `--cpu-prof-interval` | `BENCH_CONN` `BENCH_DUR` `BENCH_PATH` `NF_PROFILE_DIR` `PORT` `XENV` |
 | `scripts/promise-map.mjs` | Carte des Promises d'UNE requête — OÙ chacune naît, pile par pile. | `--body` `--method` | `COUNTER_PORT` `PORT` |
 | `scripts/promise-sites.mjs` | Carte des sites de création des Promises d'UNE requête (#505) — préchargé par | — | `NF_PROMISE_COUNTER_PORT` |
 | `scripts/ratelimit-e2e.mjs` | Banc e2e du RATE-LIMIT GÉNÉRAL par IP (@nodefony/http, P0.3) — sans navigateur. | — | `MAX` `RL_URL` `URL` |
