@@ -889,6 +889,66 @@ export function detecterSuspectsImage(fichiers) {
 }
 
 /**
+ * Fichiers TEXTE dont la garde de contenu lit l'intérieur — le reste (images,
+ * polices, binaires natifs) n'a ni carte de sources ni consigne d'agent.
+ */
+export const EXTENSIONS_INSPECTEES =
+  /\.(m?js|cjs|css|md|mdx|tpl|json|ts|mts|cts|html|ya?ml|txt)$/i;
+
+// Contrôles bidirectionnels (Trojan Source, CVE-2021-42574), caractères de
+// format invisibles et balises Unicode (ASCII « smuggling »). Le ZWJ (U+200D)
+// et le sélecteur de variante (U+FE0F) sont TOLÉRÉS : ils composent les emoji
+// des titres (🧑‍⚖️), et les refuser apprendrait à ignorer l'alerte.
+const INVISIBLES = /[​‌‎‏‪-‮⁠-⁤⁦-⁩﻿]|[\u{E0000}-\u{E007F}]/u;
+const LUS_PAR_UN_AGENT = /\.(md|mdx|tpl)$/i;
+
+/**
+ * Ce que le CONTENU d'un fichier publié ne doit pas porter — le complément de
+ * {@link detecterSuspects}, qui ne juge que les noms.
+ *
+ * - **carte de sources** (`.map`, `sourceMappingURL`) : elle publie le source
+ *   et les chemins de la machine de build ; le défaut du dépôt est
+ *   `sourcemap: false`, cette garde l'IMPOSE au lieu de le supposer.
+ * - **chemin absolu de la machine de build** (`racines`, ex. le dépôt et le
+ *   dossier personnel) : une fuite d'arborescence, et un `dist` qui ne marche
+ *   que chez nous. Les racines sont DONNÉES, pas devinées : un motif générique
+ *   (`/home/…`) mordrait sur les exemples de la doc.
+ * - **caractère invisible dans ce qu'un agent LIT** (`.md`, gabarits) : une
+ *   consigne cachée dans un `AGENTS.md` ou un skill publié voyage dans toutes
+ *   les applications. Le JS est exclu : des bibliothèques embarquées (KaTeX)
+ *   portent légitimement ces caractères dans leurs chaînes.
+ *
+ * @param chemin - chemin du fichier DANS le tarball, séparateur `/`
+ * @param texte - contenu, ou `null` si le fichier n'est pas inspecté
+ * @param racines - chemins absolus qui ne doivent apparaître nulle part
+ * @returns les motifs de refus, vide si rien
+ */
+export function detecterContenuSuspect(chemin, texte, racines = []) {
+  const motifs = [];
+  if (/\.map$/i.test(chemin)) motifs.push("carte de sources publiée");
+  if (texte === null) return motifs;
+  if (/^\s*\/[/*][#@]\s*sourceMappingURL=/m.test(texte))
+    motifs.push("référence sourceMappingURL");
+  for (const r of racines) {
+    if (r && texte.includes(r)) motifs.push(`chemin de build « ${r} »`);
+  }
+  if (LUS_PAR_UN_AGENT.test(chemin)) {
+    const m = INVISIBLES.exec(
+      texte.charCodeAt(0) === 0xfeff ? texte.slice(1) : texte,
+    );
+    if (m) {
+      const cp = m[0]
+        .codePointAt(0)
+        ?.toString(16)
+        .toUpperCase()
+        .padStart(4, "0");
+      motifs.push(`caractère invisible U+${cp}`);
+    }
+  }
+  return motifs;
+}
+
+/**
  * Ce que la passe fait vraiment, à partir des seuls drapeaux.
  *
  * 🔴 PUBLIER N'IMPLIQUE PAS ÉCRIRE. Préparer et publier sont deux gestes, à

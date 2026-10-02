@@ -42,8 +42,10 @@ import {
   LONGUEUR_MIN_DESCRIPTION,
   FICHIERS_LICENCE,
   comparerVersions,
+  detecterContenuSuspect,
   detecterSuspects,
   detecterSuspectsImage,
+  EXTENSIONS_INSPECTEES,
   phasesDeLaPasse,
   fusionnerChangelog,
   ordreTopologique,
@@ -2119,5 +2121,71 @@ describe("analyserCommits — périmètre publié (#275)", () => {
     ]);
     expect(sansFichiers.ecartes).toBe(0);
     expect(sansPredicat.ecartes).toBe(0);
+  });
+});
+
+describe("detecterContenuSuspect — ce que le CONTENU publié ne doit pas porter", () => {
+  const RACINES = ["/Users/build/nodefony-core", "/Users/build"];
+
+  it("refuse une carte de sources, même sans lire son contenu", () => {
+    expect(detecterContenuSuspect("p/dist/index.js.map", null)).toEqual([
+      "carte de sources publiée",
+    ]);
+  });
+
+  it.each([
+    "//# sourceMappingURL=index.js.map",
+    "//@ sourceMappingURL=data:application/json;base64,e30=",
+    "/*# sourceMappingURL=style.css.map */",
+  ])("refuse la référence « %s »", (ligne) => {
+    expect(
+      detecterContenuSuspect("p/dist/a.js", `export {};\n${ligne}\n`),
+    ).toContain("référence sourceMappingURL");
+  });
+
+  it("refuse un chemin absolu de la machine de build", () => {
+    const m = detecterContenuSuspect(
+      "p/dist/a.js",
+      'const f = "/Users/build/nodefony-core/src/a.ts";',
+      RACINES,
+    );
+    expect(m).toContain("chemin de build « /Users/build/nodefony-core »");
+  });
+
+  it.each([
+    ["contrôle bidi U+202E", "a‮b"],
+    ["isolat bidi U+2066", "a⁦b"],
+    ["espace sans chasse U+200B", "a​b"],
+    ["balise Unicode U+E0041", "a\u{E0041}b"],
+    ["BOM au milieu U+FEFF", "a﻿b"],
+  ])("refuse dans un .md : %s", (_, texte) => {
+    expect(detecterContenuSuspect("p/AGENTS.md", texte)[0]).toMatch(
+      /caractère invisible/,
+    );
+    expect(
+      detecterContenuSuspect("p/templates/app/AGENTS.md.tpl", texte)[0],
+    ).toMatch(/caractère invisible/);
+  });
+
+  it("tolère ce qui compose un emoji, et le BOM de tête", () => {
+    expect(detecterContenuSuspect("p/docs/a.md", "## 🧑‍⚖️ Titre")).toEqual([]);
+    expect(detecterContenuSuspect("p/docs/a.md", "﻿# Titre")).toEqual([]);
+  });
+
+  it("n'inspecte pas l'invisible dans le JS (bibliothèques embarquées)", () => {
+    expect(detecterContenuSuspect("p/dist/katex.js", 'x="‪"')).toEqual([]);
+  });
+
+  it("contrôle positif : un fichier ordinaire passe", () => {
+    expect(
+      detecterContenuSuspect("p/dist/a.js", "export const a = 1;\n", RACINES),
+    ).toEqual([]);
+  });
+
+  it("les extensions inspectées couvrent le code, la doc et les gabarits", () => {
+    for (const f of ["a.js", "a.mjs", "a.d.ts", "a.md", "x.ts.tpl", "a.json"])
+      expect(EXTENSIONS_INSPECTEES.test(f), f).toBe(true);
+    for (const f of ["a.png", "a.woff2", "a.node"])
+      expect(EXTENSIONS_INSPECTEES.test(f), f).toBe(false);
   });
 });

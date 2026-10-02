@@ -13,17 +13,25 @@
 //
 // Usage (racine repo) : npm run release:pack
 // Prérequis : `npm run build` (dist/ + dist/types/ à jour sur tous les packages).
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import {
   readFileSync,
   writeFileSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
+  readdirSync,
   rmSync,
 } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fixDtsExtensions } from "./fix-dts-extensions.mjs";
-import { auditerMetadonnees, ciblesDeTypes } from "./release-core.mjs";
+import {
+  auditerMetadonnees,
+  ciblesDeTypes,
+  detecterContenuSuspect,
+  EXTENSIONS_INSPECTEES,
+} from "./release-core.mjs";
 
 // `release/` → `scripts/` → racine du dépôt. Ce script fait partie du PRODUIT :
 // la chaîne de publication ne peut pas dépendre de l'outillage d'agent, qui se
@@ -239,4 +247,50 @@ if (failures.length) {
 }
 console.log(
   `\n${Object.keys(manifest).length} tarballs → release/tarballs/ (+ manifest.json)`,
+);
+
+// ── Ce que le CONTENU publié porte ─────────────────────────────────────────
+// Les noms sont jugés par `release.mjs` (`detecterSuspects`) ; ici, l'intérieur
+// des fichiers : cartes de sources, chemins de cette machine, caractères
+// invisibles dans ce qu'un agent lit. Le tarball est DÉPAQUETÉ — c'est
+// l'artefact reçu qu'on juge. Placé dans `pack-all` parce que tout chemin vers
+// npm y passe : la release, le smoke de la forge, le pack local.
+const racines = [ROOT, ROOT.replaceAll("\\", "/")];
+const alertes = [];
+for (const [nom, tgz] of Object.entries(manifest)) {
+  const dossier = mkdtempSync(path.join(os.tmpdir(), "nf-pack-"));
+  try {
+    const x = spawnSync("tar", ["-xzf", path.join(OUT, tgz), "-C", dossier], {
+      encoding: "utf8",
+    });
+    if (x.status !== 0) {
+      // Une inspection qui n'a pas eu lieu n'est jamais concluante.
+      alertes.push(`${nom} : extraction impossible — contenu NON inspecté`);
+      continue;
+    }
+    for (const e of readdirSync(dossier, {
+      recursive: true,
+      withFileTypes: true,
+    })) {
+      if (!e.isFile()) continue;
+      const absolu = path.join(e.parentPath, e.name);
+      const relatif = path.relative(dossier, absolu).split(path.sep).join("/");
+      const texte = EXTENSIONS_INSPECTEES.test(relatif)
+        ? readFileSync(absolu, "utf8")
+        : null;
+      for (const motif of detecterContenuSuspect(relatif, texte, racines))
+        alertes.push(`${nom} : ${relatif} — ${motif}`);
+    }
+  } finally {
+    rmSync(dossier, { recursive: true, force: true });
+  }
+}
+if (alertes.length) {
+  console.error(
+    `\n✗ CONTENU PUBLIÉ SUSPECT (${alertes.length}) :\n  - ${alertes.join("\n  - ")}`,
+  );
+  process.exit(1);
+}
+console.log(
+  `✓ contenu inspecté — ${Object.keys(manifest).length} tarballs dépaquetés, 0 carte de sources, 0 chemin de build, 0 invisible lu par un agent`,
 );
