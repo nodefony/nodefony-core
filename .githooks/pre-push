@@ -12,4 +12,18 @@
 # module @nodefony/user / @nodefony/orm-core » → `git push` bloqué (friction vue 3×).
 # Builder TOUT avant lève la race (caché → ~qq s si à jour). `npx` : un hook git
 # n'a pas node_modules/.bin dans son PATH. Bypass d'urgence : git push --no-verify.
+#
+# FORMAT des fichiers POUSSÉS : le pre-commit (lint-staged) ne voit ni un commit
+# `--no-verify`, ni un cherry-pick, ni un rebase — vécu : un WIP --no-verify
+# repris par cherry-pick a rougi la CI (`format:check`). Le push est le dernier
+# point de passage commun ; seuls les fichiers du diff amont..HEAD sont lus.
+if git rev-parse --verify -q '@{u}' >/dev/null; then
+  pushed=$(git diff --name-only --diff-filter=ACMR '@{u}' HEAD)
+  if [ -n "$pushed" ]; then
+    echo "$pushed" | tr '\n' '\0' | xargs -0 npx prettier --check --ignore-unknown --no-error-on-unmatched-pattern || {
+      echo "pre-push : fichiers poussés non formatés — npx prettier --write <fichier>, puis commit." >&2
+      exit 1
+    }
+  fi
+fi
 npx turbo run build && npm run typecheck
