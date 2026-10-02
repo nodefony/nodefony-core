@@ -663,7 +663,18 @@ step(
             `(${directes.length} déclarée(s) par l'app, ${indirectes.length} en overrides)\n`,
         );
       }
-      run("npm", ["install", "drizzle-orm@0.45.2", "--no-audit", "--no-fund"]);
+      // `drizzle-orm` est LIÉ à l'exemplaire du dépôt — celui que résolvent les
+      // paquets liés —, jamais réinstallé. Deux raisons, payées toutes deux :
+      // un littéral (`drizzle-orm@0.45.2`) a survécu au relèvement en 0.45.3
+      // et rouvert le doublon ; puis, à version ÉGALE, deux copies physiques
+      // refusent toujours de compiler ensemble — les colonnes Drizzle sont des
+      // classes à membres privés, que TypeScript compare par identité.
+      run("npm", [
+        "install",
+        `drizzle-orm@file:${path.join(REPO, "node_modules", "drizzle-orm")}`,
+        "--no-audit",
+        "--no-fund",
+      ]);
 
       // 🔴 CONSTATER, pas supposer. L'épinglage ci-dessus peut échouer sans un
       // mot — une pair déclarée par un paquet non lié, un `overrides` qu'npm

@@ -310,10 +310,32 @@ export function assertPeerUnique(repo, app) {
       : []),
   ].filter((p) => existsSync(path.join(p, "package.json")));
 
+  // Deux familles divergent de la même façon. Les pairs, d'abord. Puis toute
+  // dépendance ORDINAIRE d'un paquet lié que l'application déclare AUSSI en
+  // direct : le paquet lié la résout dans le dépôt, l'application dans son
+  // propre `node_modules` — deux exemplaires, exactement comme une pair.
+  // Vécu : `drizzle-orm` (dépendance de `@nodefony/drizzle`, que l'entité
+  // générée importe en direct) installé en 0.45.2 par une ligne écrite en dur
+  // du banc, face au 0.45.3 du dépôt — et cette sonde, qui ne regardait que
+  // les pairs, rendait vert.
+  const appPkg = lire(path.join(app, "package.json"));
+  const declareesParApp = new Set([
+    ...Object.keys(appPkg?.dependencies ?? {}),
+    ...Object.keys(appPkg?.devDependencies ?? {}),
+  ]);
+  // ⚠️ La règle ci-dessous (même VERSION) ne suffit pas pour une bibliothèque
+  // à classes à membres privés, que TypeScript compare par identité : deux
+  // copies de `drizzle-orm` 0.45.3 refusent de compiler ensemble. Le banc le
+  // règle à la source en LIANT `drizzle-orm` à l'exemplaire du dépôt. Exiger
+  // ici le même exemplaire pour TOUTE dépendance partagée rendrait la sonde
+  // rouge en permanence (`zod`, deux copies de même version, compile très bien).
   const pairs = new Set();
   for (const p of paquets) {
     const pkg = lire(path.join(p, "package.json"));
     for (const nom of Object.keys(pkg?.peerDependencies ?? {})) pairs.add(nom);
+    for (const nom of Object.keys(pkg?.dependencies ?? {})) {
+      if (declareesParApp.has(nom)) pairs.add(nom);
+    }
   }
 
   for (const nom of [...pairs].sort()) {
@@ -335,8 +357,8 @@ export function assertPeerUnique(repo, app) {
   const ok = doublons.length === 0;
   facts.push(
     ok
-      ? `✅ dépendances de pair accordées avec le dépôt (${pairs.size} examinée(s))`
-      : `❌ DÉCOR : ${doublons.length} dépendance(s) de pair DIVERGENTE(s) — ` +
+      ? `✅ dépendances partagées accordées avec le dépôt (${pairs.size} examinée(s))`
+      : `❌ DÉCOR : ${doublons.length} dépendance(s) partagée(s) DIVERGENTE(s) — ` +
           doublons
             .map((d) => `${d.nom} (app ${d.app} ≠ dépôt ${d.repo})`)
             .join(", "),
