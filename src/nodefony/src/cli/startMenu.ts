@@ -137,6 +137,12 @@ export const START_MENU_CATALOG: readonly ICatalogEntry[] = [
     when: "Pour coder : rechargement automatique à chaque sauvegarde, HMR côté front. Ctrl+C pour arrêter.",
   },
   {
+    value: "debug",
+    contexts: ["project"],
+    group: { project: menuGroup("LANCER"), outside: null },
+    when: "Comme development, débogueur ouvert dans le serveur (port 9229) : chrome://inspect ou « Attach » de l'éditeur, points d'arrêt dans les .ts.",
+  },
+  {
     value: "production",
     contexts: ["project"],
     group: { project: menuGroup("LANCER"), outside: null },

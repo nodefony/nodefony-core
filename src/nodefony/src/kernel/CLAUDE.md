@@ -186,7 +186,8 @@ class MyCommand extends Command {
 | Command | Alias | Status |
 | --- | --- | --- |
 | `Start` | — | ✅ |
-| `Dev` | `dev` | ✅ |
+| `Dev` | `dev` | ✅ — `--inspect[-brk][=[hôte:]port]` ouvre le débogueur dans le serveur |
+| `Debug` | — | ✅ sous-classe de `Dev` : débogueur ouvert par défaut (9229) |
 | `Build` | — | ✅ |
 | `Prod` | `prod` | ✅ foreground cloud-native (topologie `--workers`) |
 | `Cluster` | — | ✅ cgroup-aware + respawn backoff + graceful shutdown |

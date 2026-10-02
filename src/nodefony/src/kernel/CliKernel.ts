@@ -15,6 +15,7 @@ import Kernel, {
 import Command from "../command/Command";
 import Menu from "./commands/MenuCommand";
 import Dev from "./commands/DevCommand";
+import Debug from "./commands/DebugCommand";
 import Build from "./commands/BuildCommand";
 import Prod from "./commands/ProdCommand";
 import Cluster from "./commands/ClusterCommand";
@@ -386,6 +387,7 @@ class CliKernel extends Cli {
     const DETACHABLE = new Set([
       "development",
       "dev",
+      "debug",
       "production",
       "prod",
       "cluster",
@@ -579,6 +581,7 @@ class CliKernel extends Cli {
       return;
     }
     this.addCommand(Dev);
+    this.addCommand(Debug);
     this.addCommand(Prod);
     this.addCommand(Cluster);
     this.addCommand(Build);

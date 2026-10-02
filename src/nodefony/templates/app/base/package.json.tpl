@@ -15,6 +15,7 @@
 <% } %>  "scripts": {
     "prepare": "node --eval \"const f=require('node:fs');if(f.existsSync('.githooks'))try{require('node:child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
     "dev": "nodefony development",
+    "debug": "nodefony debug",
     "build": "rolldown -c rolldown.config.ts<% if (it.front) { %> && nodefony frontend:build<% } %>",
     "start": "nodefony production",
     "stop": "nodefony stop",
@@ -43,6 +44,7 @@
     "scripts": {
       "prepare": "Branche les hooks git du projet, s'il y en a. Lancé par le gestionnaire de paquets à l'installation.",
       "dev": "Démarre l'application en développement (rechargement à chaud).",
+      "debug": "Comme dev, débogueur ouvert dans le serveur (port 9229) : points d'arrêt dans les .ts.",
       "build": "Compile l'application<% if (it.front) { %>, bundles frontend compris<% } %>.",
       "start": "Démarre l'application en production, au premier plan.",
       "stop": "Arrête proprement l'application qui tourne.",

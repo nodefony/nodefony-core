@@ -72,7 +72,7 @@ export const MENU_GROUP_LABELS: Record<string, string> = {
  * alphabétique — un module tiers ne peut pas être classé par nous.
  */
 const ORDER_IN_GROUP: Partial<Record<string, readonly string[]>> = {
-  LANCER: ["development", "production", "cluster", "status", "stop"],
+  LANCER: ["development", "debug", "production", "cluster", "status", "stop"],
   COMPRENDRE: ["card", "doctor", "inspect", "env", "symbols"],
   "GÉNÉRER ET CONSTRUIRE": ["create", "build", "install", "outdated"],
 };

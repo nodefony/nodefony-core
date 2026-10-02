@@ -46,6 +46,19 @@ describe("detectEnvironmentFromArgv — seule la COMMANDE exprime une intention"
     assert.equal(detectEnvironmentFromArgv(["development"]), "development");
   });
 
+  it("`debug` est le développement — en premier mot seulement", () => {
+    assert.equal(detectEnvironmentFromArgv(["debug"]), "development");
+    assert.equal(
+      detectEnvironmentFromArgv(["debug", "--inspect=9333"]),
+      "development",
+    );
+    // Un service nommé `debug` n'exprime aucun mode.
+    assert.strictEqual(
+      detectEnvironmentFromArgv(["create", "service", "debug"]),
+      undefined,
+    );
+  });
+
   it("une commande utilitaire n'exprime rien", () => {
     assert.strictEqual(detectEnvironmentFromArgv(["doctor"]), undefined);
     assert.strictEqual(detectEnvironmentFromArgv([]), undefined);

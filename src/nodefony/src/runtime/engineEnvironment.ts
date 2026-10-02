@@ -106,12 +106,17 @@ export function defaultEngineEnvironment(
 export function detectEnvironmentFromArgv(
   argv: string[],
 ): EnvironmentType | undefined {
+  let firstWord = true;
   for (const a of argv) {
     // La première option clôt les mots de commande : tout ce qui suit est un
     // drapeau ou la VALEUR d'un drapeau, jamais une intention de mode.
     // `break` et non `return` : la sortie unique reste en bas de la fonction.
     if (a.startsWith("-")) break;
     if (a === "development" || a === "dev") return "development";
+    // `debug` = le développement, débogueur ouvert. Seulement en PREMIER mot :
+    // c'est un nom courant, et `create service debug` n'exprime aucun mode.
+    if (a === "debug" && firstWord) return "development";
+    firstWord = false;
     // `start` est un ALIAS de `production` (`ProdCommand.alias("start")`) : sans
     // lui, `nodefony start` n'exprimait AUCUNE intention et ne devait son mode
     // qu'au défaut de classe du Kernel. Il tombait du bon côté par accident —

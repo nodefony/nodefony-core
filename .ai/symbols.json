@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 885,
-    "symbols": 4429,
-    "classes": 404,
-    "interfaces": 1157,
+    "files": 887,
+    "symbols": 4433,
+    "classes": 405,
+    "interfaces": 1158,
     "types": 475,
     "enums": 4,
-    "functions": 1941,
+    "functions": 1943,
     "constants": 448
   },
   "symbols": {
@@ -11393,6 +11393,17 @@
       "decorators": [],
       "description": "Commande `nodefony create <type> <name>` — scaffold d'un projet Nodefony depuis les templates shippés (`templates/<type>/`). En pratique l'invocation directe est interceptée par le fast-path STANDA…"
     },
+    "Debug": {
+      "name": "Debug",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/DebugCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Dev",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony debug` — le mode développement, débogueur prêt en une commande. Même pipeline que `development` (build avec sourcemaps, superviseur, rechargement automatique, `--no-watch`, `--de…"
+    },
     "Dev": {
       "name": "Dev",
       "kind": "class",
@@ -12418,6 +12429,31 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Marqueur env anti-récursion : posé sur le child pour couper tout re-détachement."
+    },
+    "IDevInspectRequest": {
+      "name": "IDevInspectRequest",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devInspector.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Inspecteur demandé par `--inspect` / `--inspect-brk` sur la commande de développement."
+    },
+    "parseInspectArgs": {
+      "name": "parseInspectArgs",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devInspector.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit `--inspect[-brk][=[hôte:]port]` dans les arguments de la commande — et non dans ceux de `node`. Pourquoi une option de NODEFONY : un `--inspect` posé pour `node` (ou dans `NODE_OPTIONS`) est pr…"
+    },
+    "openDevInspector": {
+      "name": "openDevInspector",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devInspector.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ouvre l'inspecteur DANS le process serveur, avant le chargement de l'application. Appelée par l'enfant supervisé (donc rouverte à chaque redémarrage, sur le même port) et par `--no-watch`. Un inspe…"
     },
     "DevProcessInfo": {
       "name": "DevProcessInfo",
@@ -30172,6 +30208,9 @@
         "SecurityUserList",
         "SecurityUserPassword"
       ],
+      "Dev": [
+        "Debug"
+      ],
       "IClusterMessage": [
         "IClusterProbeCtl",
         "IClusterProbeEnrich"
@@ -33600,6 +33639,7 @@
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/CompletionCommand.ts",
         "src/nodefony/src/kernel/commands/CreateCommand.ts",
+        "src/nodefony/src/kernel/commands/DebugCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
@@ -33781,6 +33821,10 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Dev": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/DebugCommand.ts"
+      ],
+      "Debug": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Build": [
@@ -35815,10 +35859,20 @@
       "PRESET_CHOICES": [
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
+      "IDevInspectRequest": [
+        "src/nodefony/src/kernel/commands/DebugCommand.ts",
+        "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
       "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "enableDevSourceMaps": [
+        "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
+      "openDevInspector": [
+        "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
+      "parseInspectArgs": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "attachLive": [
@@ -36117,6 +36171,9 @@
         "src/nodefony/src/service/dev/devStop.ts"
       ],
       "Stats": [
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "childExecArgv": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "readSupervisorSuspension": [

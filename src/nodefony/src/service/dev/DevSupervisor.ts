@@ -22,6 +22,7 @@ import {
 } from "../../cli/packageManager";
 import type { PackageManagerName } from "../../Cli";
 import { waitBootVerdict } from "./bootVerdict";
+import { childExecArgv } from "./detachedStart";
 import {
   clearRuntimeState,
   defaultDevPorts,
@@ -575,6 +576,17 @@ export class DevSupervisor {
    * d'outillage ne BLOQUE pas le boot (fail-soft sur la disponibilité) mais est
    * signalé bruyamment.
    */
+  /**
+   * Bâtit ce qui est périmé, SANS superviser — le démarrage de `--no-watch`.
+   *
+   * Même garantie que l'enfant supervisé (pas de boot sur un `dist` périmé ou sans
+   * maps), par la même implémentation. Un échec n'interrompt pas le démarrage : il
+   * est annoncé avec sa sortie, et le serveur part sur le `dist` existant.
+   */
+  ensureBuilt(): Promise<void> {
+    return this.#ensureBuilt();
+  }
+
   async #ensureBuilt(): Promise<void> {
     if (this.#standalone) {
       return this.#ensureBuiltStandalone();
@@ -967,16 +979,23 @@ export class DevSupervisor {
     // suivant (il ferait « prêt » avant même que l'enfant n'ait bindé). L'enfant
     // le réécrira quand il écoutera VRAIMENT.
     clearRuntimeState(this.#cwd);
-    const child = spawn(process.execPath, process.argv.slice(1), {
-      cwd: this.#cwd,
-      env: { ...process.env, [this.#childEnvKey]: "1" },
-      stdio: "inherit",
-      // POSIX : leader de groupe → `kill(-pid)` emporte le groupe entier (Vite
-      // inclus) au restart. Windows : pas de groupes, et le rattachement est ce
-      // qui rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher
-      // y couperait le lien de parenté, seul chemin vers les Vite.
-      detached: process.platform !== "win32",
-    });
+    // Les drapeaux `node` du superviseur suivent le serveur (`--expose-gc`,
+    // `--max-old-space-size`, `--import`…) — même règle que le runtime détaché.
+    // Sauf l'inspection : le serveur ouvre la sienne (`--inspect` de la commande).
+    const child = spawn(
+      process.execPath,
+      [...childExecArgv(process.execArgv), ...process.argv.slice(1)],
+      {
+        cwd: this.#cwd,
+        env: { ...process.env, [this.#childEnvKey]: "1" },
+        stdio: "inherit",
+        // POSIX : leader de groupe → `kill(-pid)` emporte le groupe entier (Vite
+        // inclus) au restart. Windows : pas de groupes, et le rattachement est ce
+        // qui rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher
+        // y couperait le lien de parenté, seul chemin vers les Vite.
+        detached: process.platform !== "win32",
+      },
+    );
     this.#child = child;
     child.once("exit", (code, signal) => {
       // Restart sollicité : `#killChild` a déjà mis `#child` à null avant l'exit.

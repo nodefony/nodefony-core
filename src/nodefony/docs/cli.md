@@ -76,6 +76,7 @@ Toutes les commandes s'exécutent **depuis la racine du projet** (celle qui port
 
 ```bash
 npx nodefony development     # serveur de dev : Vite/HMR + redémarrage auto (alias : dev)
+npx nodefony debug           # idem, débogueur ouvert dans le serveur (127.0.0.1:9229)
 npx nodefony build           # construit tous les paquets (alias : compile)
 npx nodefony production -w 4 # runtime prod, 4 workers, au premier plan (cloud-native)
 npx nodefony status          # les process en cours (dev/prod/cluster), sans rien démarrer
@@ -195,7 +196,8 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 <!-- prettier-ignore -->
 | Commande | Alias | Ce qu'elle fait | Arrêt | Classe |
 | --- | --- | --- | --- | --- |
-| `development` | `dev` | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`) | `onPostReady` | `DevCommand.ts:26` |
+| `development` | `dev` | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`) | `onPostReady` | `DevCommand.ts:46` |
+| `debug` | — | `development` + débogueur ouvert DANS le serveur, rouvert à chaque rechargement (`--inspect=<port>`, `--inspect-brk`) | `onPostReady` | `DebugCommand.ts:17` |
 | `production` | `prod` | Runtime prod au premier plan ; topologie via `-w, --workers` | `onPostReady` | `ProdCommand.ts:37` |
 | `cluster` | — | Cluster de N workers (cgroup-aware, respawn) — `-w, --workers` | `onPostReady` | `ClusterCommand.ts:36` |
 | `inspect` | — | **L'état RÉEL de l'app** : `routes` · `modules` · `services` · `config` · `stores` · `entities` · `graph`, `--json` — sans ouvrir de port | `onPostReady` | `InspectCommand.ts:136` |

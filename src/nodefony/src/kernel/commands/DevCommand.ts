@@ -3,6 +3,11 @@ import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
 import BootReporter from "../../service/dev/BootReporter";
 import { enableDevSourceMaps } from "../../service/dev/sourceMaps";
+import {
+  openDevInspector,
+  parseInspectArgs,
+  type IDevInspectRequest,
+} from "../../service/dev/devInspector";
 
 const options: OptionsCommandInterface = {
   helpGroup: "LANCER",
@@ -41,14 +46,19 @@ export function isWatchDisabled(args: readonly string[]): boolean {
 class Dev extends Command {
   #reporter: BootReporter | null = null;
 
-  constructor(cli: CliKernel) {
-    super(
-      "development",
-      "démarre en développement, rechargement automatique",
-      cli,
-      options,
-    );
-    this.alias("dev");
+  /**
+   * @param cli - le CLI hôte.
+   * @param name - nom de la commande ; une sous-classe ({@link Debug}) en change
+   *   l'intention sans dupliquer le pipeline.
+   * @param description - ligne d'aide.
+   */
+  constructor(
+    cli: CliKernel,
+    name = "development",
+    description = "démarre en développement, rechargement automatique",
+  ) {
+    super(name, description, cli, options);
+    if (name === "development") this.alias("dev");
     // Options du lancement DÉTACHÉ — consommées par le fast-path standalone de
     // CliKernel.start (detachedStart.ts), déclarées ici pour le help + pour que
     // commander ne les rejette pas si le fast-path est court-circuité.
@@ -63,6 +73,16 @@ class Dev extends Command {
       "--no-watch",
       "développement SANS superviseur : un seul process, aucun rechargement automatique",
     );
+    // Lues par `parseInspectArgs` sur argv, dans le SERVEUR : déclarées pour le help
+    // et pour que commander ne les rejette pas.
+    this.addOption(
+      "--inspect [host:port]",
+      "ouvre le débogueur dans le serveur (défaut 127.0.0.1:9229)",
+    );
+    this.addOption(
+      "--inspect-brk [host:port]",
+      "idem, et attend le débogueur avant de charger l'application",
+    );
   }
 
   /**
@@ -74,12 +94,31 @@ class Dev extends Command {
    * → marqueurs statiques + logs bruts (cf {@link BootReporter}).
    */
   override async onKernelPreStart(): Promise<void> {
-    if (process.env[CHILD_ENV] !== "1" && !isWatchDisabled(process.argv))
-      return;
+    const supervised = process.env[CHILD_ENV] === "1";
+    if (!supervised && !isWatchDisabled(process.argv)) return;
+    if (!supervised) {
+      // `--no-watch` : personne n'a bâti avant nous. Même garantie que l'enfant
+      // supervisé — jamais de boot sur un `dist` périmé ou sans maps —, par la même
+      // implémentation, AVANT que `loadApp` n'importe l'application.
+      const { default: DevSupervisor } =
+        await import("../../service/dev/DevSupervisor");
+      await new DevSupervisor({
+        cwd: process.cwd(),
+        childEnvKey: CHILD_ENV,
+      }).ensureBuilt();
+    }
     // Piles d'appels vers le `.ts` de l'application (maps du build de dev). ICI et
     // pas à `onKernelStart` : Node n'analyse les maps que des fichiers chargés APRÈS
     // l'activation, et `loadApp` importe l'application entre les deux hooks.
     enableDevSourceMaps();
+    // Débogueur du SERVEUR — ici pour la même raison que les maps : avant `loadApp`,
+    // sans quoi `--inspect-brk` s'arrêterait après le chargement de l'application.
+    const inspect = parseInspectArgs(process.argv) ?? this.defaultInspect();
+    if (inspect) {
+      const opened = openDevInspector(inspect);
+      if (opened.supported) this.onInspectorOpened(opened.url);
+      else this.log(`débogueur non ouvert : ${opened.reason}`, "WARNING");
+    }
     const kernel = this.kernel as Kernel | null;
     if (!kernel) return;
     this.#reporter = new BootReporter(kernel, {
@@ -91,6 +130,22 @@ class Dev extends Command {
     });
     this.#reporter.attach();
   }
+
+  /**
+   * Inspecteur ouvert SANS option `--inspect` — aucun en développement.
+   *
+   * @returns la demande par défaut, ou `null`.
+   */
+  protected defaultInspect(): IDevInspectRequest | null {
+    return null;
+  }
+
+  /**
+   * Appelée une fois l'inspecteur ouvert (Node a déjà annoncé son URL).
+   *
+   * @param _url - URL WebSocket du débogueur.
+   */
+  protected onInspectorOpened(_url: string): void {}
 
   override async onKernelStart(): Promise<void> {
     this.cli.environment = "development";

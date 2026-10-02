@@ -44,6 +44,7 @@ describe("startMenu — composition pure du menu interactif", () => {
     // Les gestes du quotidien — leur ABSENCE était le défaut n°1 de l'audit.
     for (const expected of [
       "development",
+      "debug",
       "production",
       "cluster",
       "status",

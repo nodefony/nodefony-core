@@ -242,10 +242,12 @@ npx nodefony production --detach --wait   # boot réel en arrière-plan ; rend l
 
 **Déboguer** : en développement, les piles d'appels pointent vers les `.ts` de l'application (le
 build de dev émet ses sourcemaps et le serveur les lit ; `npm run build`, lui, n'en émet pas — une
-pile de production pointe vers `dist/`). Pour un point d'arrêt :
-`NODE_OPTIONS=--inspect npx nodefony development --no-watch`, sur un `dist` bâti par `npm run dev`,
-puis `chrome://inspect` ou le débogueur de l'éditeur. Sous `npm run dev`, l'inspecteur est pris par le
-superviseur et non par le serveur : le point d'arrêt ne s'arrête jamais.
+pile de production pointe vers `dist/`). Pour un point d'arrêt : `npm run debug` (= `nodefony debug` :
+le mode développement, débogueur ouvert sur `127.0.0.1:9229`), puis `chrome://inspect` ou « Attach »
+dans l'éditeur. `--inspect=<port>` change le port, `--inspect-brk` arrête avant le chargement de
+l'application ; `nodefony development --inspect` fait la même chose. C'est le SERVEUR qui ouvre
+l'inspecteur, et il le rouvre à chaque rechargement ; marche aussi avec `--no-watch`. ⚠️ Jamais `NODE_OPTIONS=--inspect` :
+le premier process node de la chaîne (`npx`, `npm`) prend le port, et le serveur ne s'arrête jamais.
 
 **Arrête ce que tu démarres.** Un serveur laissé derrière garde les ports : le run suivant échoue
 sur une erreur qui ne parle jamais de lui (`EADDRINUSE`) — ou pire, un test interroge l'ANCIENNE
