@@ -3636,10 +3636,6 @@
                 "help": ""
               },
               {
-                "flag": "--http-reqs",
-                "help": ""
-              },
-              {
                 "flag": "--json",
                 "help": ""
               },
@@ -3649,6 +3645,10 @@
               },
               {
                 "flag": "--rupture",
+                "help": ""
+              },
+              {
+                "flag": "--seconds",
                 "help": ""
               },
               {
@@ -3675,6 +3675,18 @@
               },
               {
                 "name": "JSON_OUT",
+                "help": ""
+              },
+              {
+                "name": "MAX_SPREAD",
+                "help": ""
+              },
+              {
+                "name": "MIN_ELU_SAMPLES",
+                "help": ""
+              },
+              {
+                "name": "MIN_R2",
                 "help": ""
               },
               {
@@ -4415,7 +4427,15 @@
                 "help": ""
               },
               {
+                "flag": "--capacity",
+                "help": ""
+              },
+              {
                 "flag": "--data",
+                "help": ""
+              },
+              {
+                "flag": "--format",
                 "help": ""
               },
               {
@@ -4566,6 +4586,10 @@
               },
               {
                 "flag": "--data",
+                "help": ""
+              },
+              {
+                "flag": "--json",
                 "help": ""
               },
               {

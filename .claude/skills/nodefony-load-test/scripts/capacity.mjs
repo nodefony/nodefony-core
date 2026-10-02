@@ -35,7 +35,7 @@
  * Usage :
  *   node .claude/skills/nodefony-load-test/scripts/capacity.mjs
  *   node ... capacity.mjs --out docs/audits/capacity-2026-07.md
- *   node ... capacity.mjs --sockets 500 --http-reqs 3000 --skip-ws
+ *   node ... capacity.mjs --sockets 500 --seconds 8 --skip-ws
  *   node ... capacity.mjs --json tmp/capacity.json   # les constantes, pour perf-compose
  *
  * `--json` écrit les mesures BRUTES avec leur décor (mode, commit, paramètres) :
@@ -61,14 +61,26 @@ const num = (n, d) => Number(arg(n, d));
 
 const SOCKETS = num("sockets", 800);
 const CLIENTS = num("clients", 8);
-const FRAMES = num("frames", 4000);
 const FANOUT = num("fanout", 100);
 const HTTP_CONC = num("http-conc", 50);
-const HTTP_REQS = num("http-reqs", 5000);
 const PAYLOAD = num("payload", 5); // octets par frame WS — CHANGE TOUT (cf rapport)
 const REPEAT = num("repeat", 3); // répétitions → médiane + dispersion
+// Chaque mesure de débit dure un TEMPS FIXE, pas un nombre de messages. Bornée
+// par un compte, une rafale d'écho durait ~1 s et une diffusion ~30 ms — moins
+// que la fenêtre de `/stats` (150 ms) : l'ELU moyenné portait sur des fenêtres
+// au repos (vécu : 0,00 et 0,11, d'où des plafonds de 8,8 M msg/s).
+const SECONDS = num("seconds", 5);
+// Relevés d'ELU exigés PENDANT la charge, sinon l'ELU est déclaré non mesuré.
+const MIN_ELU_SAMPLES = 5;
+// Dispersion max (max − min) / médiane d'une constante publiable. Une constante
+// de dimensionnement n'est pas un A/B (seuil 3 %) mais ±18 % ne dimensionne rien.
+const MAX_SPREAD = 0.1;
+// Pente RSS rejetée sous ce R² : le RSS rend de la mémoire au système par à-coups.
+const MIN_R2 = 0.9;
 const OUT = arg("out", null);
 const JSON_OUT = arg("json", null);
+// UNE fenêtre glissante pour tous les flux : au-delà, on mesure une file.
+const WINDOW = 16;
 
 const HOST = process.env.NF_HOST ?? "127.0.0.1";
 const PTLS = Number(process.env.NF_PORT_HTTPS ?? 5152);
@@ -187,7 +199,12 @@ function eluSampler() {
     while (running) {
       try {
         const s = await stats();
-        if (s?.elu) seen.push({ u: s.elu.utilization, cpu: s.cpuPercent });
+        if (s?.elu)
+          seen.push({
+            u: s.elu.utilization,
+            cpu: s.cpuPercent,
+            at: performance.now(),
+          });
       } catch {
         /* le serveur est occupé : on retentera */
       }
@@ -195,15 +212,23 @@ function eluSampler() {
     }
   })();
   return {
-    async stop() {
+    /**
+     * Ne garde que les relevés dont la fenêtre tombe ENTIÈREMENT dans la charge
+     * `[from, to]` (un relevé couvre les ~150 ms qui précèdent sa réponse). Un
+     * relevé reçu après la rafale décrit le repos : le compter fabriquait un ELU
+     * bas et un plafond extrapolé absurde.
+     */
+    async stop(from, to) {
       running = false;
       await loop;
-      if (!seen.length) return { elu: null, cpuPercent: null, samples: 0 };
-      const avg = (f) => seen.reduce((s, x) => s + f(x), 0) / seen.length;
+      const kept = seen.filter((x) => x.at >= from + 200 && x.at <= to);
+      if (kept.length < MIN_ELU_SAMPLES)
+        return { elu: null, cpuPercent: null, samples: kept.length };
+      const avg = (f) => kept.reduce((s, x) => s + f(x), 0) / kept.length;
       return {
         elu: avg((x) => x.u),
         cpuPercent: avg((x) => x.cpu),
-        samples: seen.length,
+        samples: kept.length,
       };
     },
   };
@@ -329,7 +354,7 @@ async function ramPerSocket(url, nMax, label) {
     steps,
     heapKB: heap.slope / 1024,
     heapR2: heap.r2,
-    rssKB: rss.slope / 1024,
+    rssKB: rss.r2 >= MIN_R2 ? rss.slope / 1024 : null,
     rssR2: rss.r2,
     heapPts: heapPts.map((p) => ({ x: p.x, y: p.y / 1048576 })),
     rssPts: rssPts.map((p) => ({ x: p.x, y: p.y / 1048576 })),
@@ -343,21 +368,25 @@ async function wsThroughput(url, label) {
   const frame = "x".repeat(PAYLOAD);
   const sampler = eluSampler();
   const t0 = performance.now();
+  const deadline = t0 + SECONDS * 1000;
+  let total = 0;
   await Promise.all(
     socks.map(
       (ws) =>
         new Promise((resolve) => {
-          let got = 0;
-          if (STUDIO) {
-            // Le hub ne renvoie pas l'écho d'une frame nue : on mesure LA PORTE
-            // réelle de la production — le pont `api.request` (aller-retour RPC
-            // complet : resolve + identité + action). Le coût par message y est
-            // donc plus élevé qu'un echo : ce n'est pas la même unité de travail,
-            // et le rapport le dit.
-            let sent = 0;
-            const fire = () => {
-              if (sent >= FRAMES) return;
-              sent++;
+          // Fenêtre glissante de WINDOW messages en vol : un nouveau part à
+          // chaque retour, jusqu'à l'échéance ; on attend ensuite le dernier
+          // retour. Inonder d'un coup mesurait une file, pas un débit.
+          let inFlight = 0;
+          let sent = 0;
+          const fire = () => {
+            sent++;
+            inFlight++;
+            if (STUDIO) {
+              // Le hub ne renvoie pas l'écho d'une frame nue : on mesure LA PORTE
+              // réelle de la production — le pont `api.request` (aller-retour RPC
+              // complet : resolve + identité + action). Ce n'est pas la même unité
+              // de travail qu'un écho, et le rapport le dit.
               ws.send(
                 JSON.stringify({
                   jsonrpc: "2.0",
@@ -366,29 +395,27 @@ async function wsThroughput(url, label) {
                   params: { path: "/nodefony/studio/api/health" },
                 }),
               );
-            };
-            ws.on("message", () => {
-              if (++got >= FRAMES) return resolve();
-              fire();
-            });
-            for (let i = 0; i < Math.min(16, FRAMES); i++) fire(); // fenêtre glissante
-            return;
-          }
+            } else ws.send(frame);
+          };
           ws.on("message", () => {
-            if (++got >= FRAMES) resolve();
+            inFlight--;
+            total++;
+            if (performance.now() < deadline) fire();
+            else if (inFlight === 0) resolve();
           });
-          for (let i = 0; i < FRAMES; i++) ws.send(frame);
+          for (let i = 0; i < WINDOW; i++) fire();
         }),
     ),
   );
-  const secs = (performance.now() - t0) / 1000;
-  const { elu, cpuPercent } = await sampler.stop();
+  const t1 = performance.now();
+  const { elu, cpuPercent, samples } = await sampler.stop(t0, deadline);
   for (const s of socks) s.terminate();
-  const observed = (CLIENTS * FRAMES) / secs;
+  const observed = total / ((t1 - t0) / 1000);
   return {
     label,
     observed,
     elu,
+    eluSamples: samples,
     cpuPercent,
     ceiling: elu ? observed / elu : null,
   };
@@ -397,27 +424,37 @@ async function wsThroughput(url, label) {
 async function wsFanout() {
   const socks = await openFleet(BROADCAST, FANOUT, 25);
   await sleep(600);
-  const FR = 200;
-  const counters = socks.map(() => 0);
-  const done = Promise.all(
-    socks.map(
-      (ws, i) =>
-        new Promise((resolve) => {
-          ws.on("message", () => {
-            if (++counters[i] >= FR) resolve();
-          });
-        }),
-    ),
-  );
+  // Le DERNIER abonné sert de témoin : une diffusion part quand il a reçu la
+  // précédente (fenêtre glissante), jusqu'à l'échéance. Chaque frame publiée
+  // est livrée aux FANOUT sockets ; on compte les livraisons réelles.
+  const sentinel = socks[socks.length - 1];
+  let delivered = 0;
+  for (const ws of socks) ws.on("message", () => delivered++);
   const sampler = eluSampler();
   const t0 = performance.now();
-  for (let f = 0; f < FR; f++) socks[0].send(`b-${f}`);
-  await done;
-  const secs = (performance.now() - t0) / 1000;
-  const { elu } = await sampler.stop();
+  const deadline = t0 + SECONDS * 1000;
+  let published = 0;
+  let seen = 0;
+  await new Promise((resolve) => {
+    const fire = () => socks[0].send(`b-${published++}`);
+    sentinel.on("message", () => {
+      seen++;
+      if (performance.now() < deadline) fire();
+      else if (seen === published) resolve();
+    });
+    for (let i = 0; i < WINDOW; i++) fire();
+  });
+  const t1 = performance.now();
+  const { elu, samples } = await sampler.stop(t0, deadline);
   for (const s of socks) s.terminate();
-  const observed = (FANOUT * FR) / secs;
-  return { n: FANOUT, observed, elu, ceiling: elu ? observed / elu : null };
+  const observed = delivered / ((t1 - t0) / 1000);
+  return {
+    n: FANOUT,
+    observed,
+    elu,
+    eluSamples: samples,
+    ceiling: elu ? observed / elu : null,
+  };
 }
 
 // ── C. Débit HTTP (http/1.1 clair, https/1.1, h2) ──────────────────────────
@@ -467,19 +504,20 @@ async function h1Bench(tls, label) {
   lat.sort((a, b) => a - b);
   const sampler = eluSampler();
   const t0 = performance.now();
+  const deadline = t0 + SECONDS * 1000;
   let done = 0;
   await Promise.all(
     Array.from({ length: HTTP_CONC }, async () => {
-      while (done < HTTP_REQS) {
-        done++;
+      while (performance.now() < deadline) {
         await h1Once(agent, tls);
+        done++;
       }
     }),
   );
   const secs = (performance.now() - t0) / 1000;
-  const { elu, cpuPercent } = await sampler.stop();
+  const { elu, cpuPercent, samples } = await sampler.stop(t0, deadline);
   agent.destroy();
-  const observed = HTTP_REQS / secs;
+  const observed = done / secs;
   return {
     label,
     observed,
@@ -487,6 +525,7 @@ async function h1Bench(tls, label) {
     p95: pct(lat, 0.95),
     p99: pct(lat, 0.99),
     elu,
+    eluSamples: samples,
     cpuPercent,
     ceiling: elu ? observed / elu : null,
   };
@@ -533,19 +572,20 @@ async function h2Bench() {
   lat.sort((a, b) => a - b);
   const sampler = eluSampler();
   const t0 = performance.now();
+  const deadline = t0 + SECONDS * 1000;
   let done = 0;
   await Promise.all(
     Array.from({ length: HTTP_CONC }, async () => {
-      while (done < HTTP_REQS) {
-        done++;
+      while (performance.now() < deadline) {
         await h2Once(session);
+        done++;
       }
     }),
   );
   const secs = (performance.now() - t0) / 1000;
-  const { elu, cpuPercent } = await sampler.stop();
+  const { elu, cpuPercent, samples } = await sampler.stop(t0, deadline);
   session.close();
-  const observed = HTTP_REQS / secs;
+  const observed = done / secs;
   return {
     label: "h2 (multiplexé, 1 connexion)",
     observed,
@@ -553,6 +593,7 @@ async function h2Bench() {
     p95: pct(lat, 0.95),
     p99: pct(lat, 0.99),
     elu,
+    eluSamples: samples,
     cpuPercent,
     ceiling: elu ? observed / elu : null,
   };
@@ -621,12 +662,17 @@ async function repeated(fn, key) {
   const base = runs.find((r) => r[key] === median) ?? runs[0];
   const spread =
     vals.length > 1 ? (vals[vals.length - 1] - vals[0]) / median : 0;
+  // Une constante n'est PUBLIABLE que si ses runs concordent ET que son ELU a
+  // été mesuré pendant la charge. Sinon elle se rend, mais marquée : un banc qui
+  // n'a pas mesuré se tait, il ne répond pas un chiffre.
+  const eluOk = runs.every((r) => !("elu" in r) || r.elu !== null);
   return {
     ...base,
     [key]: median,
     min: vals[0],
     max: vals[vals.length - 1],
     spread,
+    valid: spread <= MAX_SPREAD && eluOk,
   };
 }
 
@@ -683,7 +729,9 @@ const f2 = (x) => (x === null || x === undefined ? "—" : x.toFixed(2));
 const us = (rate) => (rate ? `${(1e6 / rate).toFixed(0)} µs` : "—");
 /** Dispersion des runs — un chiffre sans son incertitude est un piège. */
 const spread = (r) =>
-  r?.spread === undefined ? "—" : `±${Math.round(r.spread * 50)}%`;
+  r?.spread === undefined
+    ? "—"
+    : `±${Math.round(r.spread * 50)}%${r.valid === false ? " ✗" : ""}`;
 
 const lines = [];
 const say = (s = "") => {
@@ -698,11 +746,11 @@ if (R.ram.length) {
     "A. RAM par socket — pente d'une régression sur paliers (R² = qualité de l'ajustement)",
   );
   say(
-    "   transport                      heap/socket        RSS/socket (à retenir)",
+    `   transport                      heap/socket (retenu)   RSS/socket (rejeté si R² < ${MIN_R2})`,
   );
   for (const r of R.ram)
     say(
-      `   ${r.label.padEnd(30)} ${(r.heapKB.toFixed(1) + " KB (R²" + r.heapR2.toFixed(2) + ")").padEnd(18)} ${r.rssKB.toFixed(1)} KB (R²${r.rssR2.toFixed(2)})`,
+      `   ${r.label.padEnd(30)} ${(r.heapKB.toFixed(1) + " KB (R²" + r.heapR2.toFixed(2) + ")").padEnd(18)} ${r.rssKB === null ? "rejeté" : r.rssKB.toFixed(1) + " KB"} (R²${r.rssR2.toFixed(2)})`,
     );
   say("");
 }
@@ -726,7 +774,9 @@ if (R.ws.length) {
 }
 
 if (R.http.length) {
-  say(`C. Débit HTTP — route session-free, 0 ORM · médiane de ${REPEAT} runs`);
+  say(
+    `C. Débit HTTP — ${ROUTE} · ${SECONDS} s × ${REPEAT} runs · latence À VIDE (une requête à la fois)`,
+  );
   say(
     "   transport                      médiane      écart   p50/p95/p99 (ms)     ELU    plafond",
   );
@@ -737,6 +787,10 @@ if (R.http.length) {
   say("");
 }
 
+say(
+  `✗ = NON publiable : runs dispersés au-delà de ±${MAX_SPREAD * 50} %, ou ELU non relevé pendant la charge (< ${MIN_ELU_SAMPLES} relevés).`,
+);
+say("");
 say("D. Coût unitaire (temps de boucle consommé)");
 for (const w of R.ws)
   say(`   1 message ${w.label.padEnd(22)} ≈ ${us(w.ceiling)}`);
@@ -763,15 +817,18 @@ if (JSON_OUT) {
         measuredAt: new Date().toISOString().slice(0, 10),
         headCommit,
         target: TARGET,
+        route: ROUTE,
         params: {
           SOCKETS,
           CLIENTS,
-          FRAMES,
           FANOUT,
           HTTP_CONC,
-          HTTP_REQS,
+          SECONDS,
+          WINDOW,
           PAYLOAD,
           REPEAT,
+          MAX_SPREAD,
+          MIN_R2,
         },
         ...R,
       },
