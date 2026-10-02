@@ -278,6 +278,79 @@ export const PACKAGE_MANAGER_TOOL_MAJOR: Readonly<
   Record<"pnpm" | "bun", string>
 > = { pnpm: "12", bun: "1" };
 
+/**
+ * Délai de décantation, en jours, qu'une application générée impose à ses
+ * dépendances : une version publiée depuis moins longtemps n'est pas installée,
+ * le gestionnaire retient la précédente.
+ *
+ * Un paquet compromis (compte de mainteneur volé) est presque toujours repéré
+ * et retiré en quelques heures ; ne jamais l'installer le jour de sa sortie
+ * retire l'application de cette fenêtre. Sous verrou (`npm ci`,
+ * `--frozen-lockfile`) le délai ne joue pas : il ne filtre que la RÉSOLUTION.
+ */
+export const RELEASE_AGE_DAYS = 3;
+
+/**
+ * Paquets EXEMPTÉS du délai : ceux du framework. Une application créée le jour
+ * d'une publication réclame cette version précise — sans exemption, elle ne
+ * s'installerait pas pendant {@link RELEASE_AGE_DAYS} jours. L'exemption ne
+ * couvre que le paquet NOMMÉ, jamais ses dépendances tierces.
+ */
+export const RELEASE_AGE_EXCLUDES: readonly string[] = [
+  "nodefony",
+  "@nodefony/*",
+  "create-nodefony",
+];
+
+/** Le délai de décantation, exprimé dans le fichier et l'unité d'UN outil. */
+export interface IReleaseAgePolicy {
+  /** Fichier du projet qui porte le réglage. */
+  file: ".npmrc" | "pnpm-workspace.yaml" | "bunfig.toml";
+  /** Délai dans l'unité que l'outil lit. */
+  value: number;
+  /** Unité de `value` — chaque outil a la sienne, et une erreur ne prévient pas. */
+  unit: "days" | "minutes" | "seconds";
+  /** Motifs exemptés ({@link RELEASE_AGE_EXCLUDES}). */
+  excludes: readonly string[];
+}
+
+/**
+ * Traduit {@link RELEASE_AGE_DAYS} dans la grammaire d'un gestionnaire.
+ *
+ * Constaté sur chaque outil (un délai de 30 jours refuse une version récente,
+ * l'exemption la laisse passer) : npm ≥ 11.17 (`min-release-age`, jours, et
+ * `min-release-age-exclude`), pnpm 12 (`minimumReleaseAge`, minutes), bun
+ * (`minimumReleaseAge`, secondes). yarn 1 n'a aucun réglage de ce genre.
+ *
+ * @param name - gestionnaire du projet
+ * @returns la règle à écrire, ou `null` quand l'outil ne sait pas l'appliquer
+ */
+export function packageManagerReleaseAge(
+  name: PackageManagerName,
+): IReleaseAgePolicy | null {
+  const excludes = RELEASE_AGE_EXCLUDES;
+  switch (name) {
+    case "npm":
+      return { file: ".npmrc", value: RELEASE_AGE_DAYS, unit: "days", excludes };
+    case "pnpm":
+      return {
+        file: "pnpm-workspace.yaml",
+        value: RELEASE_AGE_DAYS * 24 * 60,
+        unit: "minutes",
+        excludes,
+      };
+    case "bun":
+      return {
+        file: "bunfig.toml",
+        value: RELEASE_AGE_DAYS * 24 * 60 * 60,
+        unit: "seconds",
+        excludes,
+      };
+    case "yarn":
+      return null;
+  }
+}
+
 /** Action GitHub qui pose l'outil sur l'exécuteur, avant `setup-node`. */
 export interface IPackageManagerGithubSetup {
   /**

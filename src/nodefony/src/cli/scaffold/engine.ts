@@ -51,6 +51,8 @@ import {
   needsWorkspaceProtocol,
   packageManagerCommandLines,
   packageManagerToolchain,
+  packageManagerReleaseAge,
+  RELEASE_AGE_DAYS,
   packageManagerWorkspaceRun,
   resolvePackageManager,
 } from "../packageManager";
@@ -207,6 +209,7 @@ const RENAMES: Record<string, string> = {
   "oxlintrc.json": ".oxlintrc.json",
   "prettierrc.json": ".prettierrc.json",
   "gitlab-ci.yml": ".gitlab-ci.yml",
+  npmrc: ".npmrc",
   env: ".env",
   "env.local": ".env.local",
 };
@@ -1895,6 +1898,10 @@ function dispatchScaffold(
     pmRun: `${packageManager} run`,
     pmAudit: packageManagerCommandLines(packageManager).audit,
     pmExec: packageManagerCommandLines(packageManager).exec,
+    // Délai de décantation des dépendances, dans le fichier et l'unité de
+    // l'outil (`null` sous yarn 1, qui n'en a pas) — cf packageManagerReleaseAge.
+    releaseAge: packageManagerReleaseAge(packageManager),
+    releaseAgeDays: RELEASE_AGE_DAYS,
     // Installation, cache et élagage de la forge et de l'image : `npm ci`
     // exige `package-lock.json`, et `npm prune` refuse `workspace:*`.
     toolchain: packageManagerToolchain(packageManager),

@@ -20,6 +20,18 @@ allowBuilds:
 # Approuver un build : `pnpm approve-builds`.
 strictDepBuilds: false
 
+# Délai de décantation, en MINUTES (<%= it.releaseAge.value %> = <%= it.releaseAgeDays %> jours) : pnpm
+# n'installe pas une version publiée depuis moins longtemps. Un paquet piégé
+# (compte de mainteneur volé) est presque toujours retiré dans ce délai. Sous
+# verrou (`--frozen-lockfile`) le délai ne joue pas. Le framework est exempté :
+# une application créée le jour d'une publication réclame cette version
+# précise — l'exemption ne couvre pas ses dépendances.
+minimumReleaseAge: <%= it.releaseAge.value %>
+
+minimumReleaseAgeExclude:
+<% for (const pattern of it.releaseAge.excludes) { %>  - "<%= pattern %>"
+<% } %>
+
 overrides:
   "@esbuild-kit/core-utils>esbuild": "<%= it.pkg["esbuild"] %>"
 <% } %>

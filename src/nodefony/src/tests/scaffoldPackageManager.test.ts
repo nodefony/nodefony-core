@@ -191,8 +191,8 @@ describe("create app / create module — gabarit par gestionnaire", () => {
   });
 
   /** App complète sqlite (le cas qui porte `allowScripts`) + son verrou. */
-  const app = (pm: string, lockfile: string): string => {
-    const dest = path.join(tmp, pm);
+  const app = (pm: string, lockfile: string, dir = pm): string => {
+    const dest = path.join(tmp, dir);
     runScaffold(
       {
         type: "app",
@@ -275,6 +275,71 @@ describe("create app / create module — gabarit par gestionnaire", () => {
       "@esbuild-kit/core-utils/esbuild",
     ]);
     assert.notProperty(module(dest, "yarn"), "@app-yarn/blog");
+  });
+
+  // Délai de décantation : chaque outil a SON fichier et SON unité, et une
+  // erreur d'unité ou de clé ne prévient pas — l'outil ignore, ou bloque tout.
+  // Les valeurs attendues sont écrites en dur, pas recalculées depuis la
+  // constante : c'est la conversion qu'on éprouve.
+  describe("délai de décantation (min-release-age)", () => {
+    const read = (dest: string, file: string): string | null =>
+      fs.existsSync(path.join(dest, file))
+        ? fs.readFileSync(path.join(dest, file), "utf8")
+        : null;
+    const ruleFiles = [".npmrc", "bunfig.toml"];
+
+    it("npm : .npmrc — 3 jours, framework exempté, aucun jeton", () => {
+      const dest = app("npm", "package-lock.json", "age-npm");
+      const npmrc = read(dest, ".npmrc");
+      assert.isNotNull(npmrc);
+      assert.match(npmrc ?? "", /^min-release-age=3$/mu);
+      const excluded = [
+        ...(npmrc ?? "").matchAll(/^min-release-age-exclude\[\]=(.+)$/gmu),
+      ].map((m) => m[1]);
+      assert.deepEqual(excluded, [
+        "nodefony",
+        "@nodefony/*",
+        "create-nodefony",
+      ]);
+      assert.match(
+        npmrc ?? "",
+        /^min-release-age-exclude\[\]=nodefony\nmin-release-age-exclude\[\]=@nodefony\/\*\nmin-release-age-exclude\[\]=create-nodefony\n/mu,
+      );
+      assert.notMatch(npmrc ?? "", /^[^#]*_authToken/mu);
+      assert.isNull(read(dest, "bunfig.toml"));
+    });
+
+    it("pnpm : pnpm-workspace.yaml — 4320 minutes, framework exempté", () => {
+      const dest = app("pnpm", "pnpm-lock.yaml", "age-pnpm");
+      const yaml = read(dest, "pnpm-workspace.yaml") ?? "";
+      assert.match(yaml, /^minimumReleaseAge: 4320$/mu);
+      assert.match(
+        yaml,
+        /^minimumReleaseAgeExclude:\n {2}- "nodefony"\n {2}- "@nodefony\/\*"\n {2}- "create-nodefony"\n/mu,
+      );
+      for (const file of ruleFiles) {
+        assert.isNull(read(dest, file), file);
+      }
+    });
+
+    it("bun : bunfig.toml — 259200 secondes, framework exempté", () => {
+      const dest = app("bun", "bun.lock", "age-bun");
+      const toml = read(dest, "bunfig.toml") ?? "";
+      assert.match(toml, /^\[install\]$/mu);
+      assert.match(toml, /^minimumReleaseAge = 259200$/mu);
+      assert.match(
+        toml,
+        /^minimumReleaseAgeExcludes = \["nodefony", "@nodefony\/\*", "create-nodefony"\]$/mu,
+      );
+      assert.isNull(read(dest, ".npmrc"));
+    });
+
+    it("yarn 1 : aucun réglage — l'outil n'en a pas", () => {
+      const dest = app("yarn", "yarn.lock", "age-yarn");
+      for (const file of [...ruleFiles, "pnpm-workspace.yaml"]) {
+        assert.isNull(read(dest, file), file);
+      }
+    });
   });
 
   // Les scripts de l'app appellent d'autres scripts : sous bun, un `npm run`

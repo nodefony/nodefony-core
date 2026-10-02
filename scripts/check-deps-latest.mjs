@@ -63,6 +63,12 @@ import {
   reconcilie,
   plusHauteSatisfaisante,
 } from "./lib/reconcile-versions.mjs";
+import {
+  RELEASE_AGE_DAYS,
+  immatureRange,
+  isReleaseAgeExempt,
+} from "./lib/release-age.mjs";
+import { CHAMPS_DEPENDANCES } from "./release/release-core.mjs";
 
 // 🔴 Deux points d'injection, et ils n'existent que pour une raison : SANS eux,
 // rien de ce contrôle ne se teste. Le script déduit sa racine de son propre
@@ -175,6 +181,22 @@ const manifests = execFileSync("git", ["ls-files", "*package.json"], {
 /** pkg → { specs: Map<spec, sites[]> } */
 const wanted = new Map();
 
+/**
+ * Ce qui PART chez l'utilisateur, soumis au délai de décantation de ses
+ * gabarits : pkg → Map<spec, sites[]>. Les dépendances d'un paquet publié
+ * (`CHAMPS_DEPENDANCES`, pas `devDependencies`) et le catalogue du scaffold.
+ * Le reste du dépôt n'atteint jamais un installateur — le contrôler ferait
+ * crier la garde sur ce qui ne casse rien.
+ */
+const shipped = new Map();
+function noteShipped(name, spec, site) {
+  if (isReleaseAgeExempt(name)) return;
+  if (!shipped.has(name)) shipped.set(name, new Map());
+  const specs = shipped.get(name);
+  if (!specs.has(spec)) specs.set(spec, []);
+  specs.get(spec).push(site);
+}
+
 /** Manifestes que le contrôle n'a PAS pu lire — comptés, jamais tus. */
 const illisibles = [];
 
@@ -206,6 +228,11 @@ for (const rel of manifests) {
       const specs = wanted.get(name);
       if (!specs.has(spec)) specs.set(spec, []);
       specs.get(spec).push(`${rel}#${field}`);
+      // `private: true` est le critère que npm applique lui-même pour refuser
+      // une publication ; la racine du dépôt est une application de dev.
+      if (json.private !== true && CHAMPS_DEPENDANCES.includes(field)) {
+        noteShipped(name, spec, `${rel}#${field}`);
+      }
     }
   }
 }
@@ -243,6 +270,7 @@ try {
     const specs = wanted.get(name);
     if (!specs.has(spec)) specs.set(spec, []);
     specs.get(spec).push(`${CATALOGUE_SCAFFOLD}#SCAFFOLD_VERSIONS`);
+    noteShipped(name, spec, `${CATALOGUE_SCAFFOLD}#SCAFFOLD_VERSIONS`);
   }
   // Un catalogue présent mais dont RIEN n'est ressorti est le même trou que le
   // catalogue absent, en plus silencieux : le fichier existe, la lecture réussit,
@@ -727,13 +755,76 @@ if (failed.length) {
   );
 }
 
+// ── 4ter. Délai de décantation — ce qu'un installateur REFUSERA ─────────────
+//
+// Les gabarits d'application posent `min-release-age` : le gestionnaire de
+// l'utilisateur refuse toute version publiée depuis moins de RELEASE_AGE_DAYS
+// jours. Une version trop jeune exigée ici — catalogue du scaffold, dépendance
+// d'un paquet publié — casse `create app` chez lui pendant que le dépôt reste
+// vert : son installation se fait sous verrou, sans délai. Vécu à l'écriture de
+// cette garde : onze entrées du catalogue montées la veille.
+//
+// Le document COMPLET du registre est nécessaire : l'abrégé ne porte aucune
+// date. Il n'est demandé que pour les paquets livrés.
+const ageCutoff = Date.now() - RELEASE_AGE_DAYS * 86_400_000;
+const immature = [];
+/** Paquets livrés dont l'âge n'a pas pu être lu — nommés, jamais absous. */
+const ageUnchecked = [];
+const shippedNames = [...shipped.keys()].sort();
+async function checkAge(name) {
+  try {
+    const res = await fetch(`${REGISTRY}/${name.replaceAll("/", "%2F")}`);
+    if (!res.ok) {
+      ageUnchecked.push(`${name}: HTTP ${res.status}`);
+      return;
+    }
+    const times = (await res.json())?.time;
+    for (const [spec, sites] of shipped.get(name)) {
+      const verdict = immatureRange(times, spec, ageCutoff);
+      if (verdict) immature.push({ name, spec, ...verdict, sites });
+    }
+  } catch (e) {
+    ageUnchecked.push(`${name}: ${e.message}`);
+  }
+}
+for (let i = 0; i < shippedNames.length; i += CONCURRENCY) {
+  await Promise.all(shippedNames.slice(i, i + CONCURRENCY).map(checkAge));
+}
+immature.sort((a, b) => a.name.localeCompare(b.name));
+if (!AS_JSON && immature.length) {
+  process.stdout.write(
+    `\n⏳ TROP-JEUNE (information) — ${immature.length} version(s) livrée(s) publiée(s) depuis moins de ${RELEASE_AGE_DAYS} jours.\n` +
+      `   Sans effet sur le dépôt ; une PUBLICATION les refusera tant qu'elles n'ont pas mûri\n` +
+      `   (une application générée, sous min-release-age, ne pourrait pas les installer).\n`,
+  );
+  for (const r of immature) {
+    const sites = r.sites.length === 1 ? r.sites[0] : `${r.sites.length} sites`;
+    process.stdout.write(
+      `   ${r.name}@${r.spec} — ${r.version} publiée ${r.publishedAt.slice(0, 16)} — ${sites}\n`,
+    );
+  }
+}
+if (ageUnchecked.length) {
+  process.stderr.write(
+    `\n⚠️ délai de décantation NON VÉRIFIÉ pour ${ageUnchecked.length} paquet(s) livré(s) :\n  ${ageUnchecked.join("\n  ")}\n`,
+  );
+}
+
 // Le document lisible par une machine porte MAINTENANT le verdict : `divergent`
 // est ce qui décide de l'échec sous `--gate`, l'omettre obligeait son lecteur à
 // rejouer le rapport pour savoir s'il devait s'inquiéter.
 if (AS_JSON) {
   process.stdout.write(
     `${JSON.stringify(
-      { rows, divergent, illisibles, failed, scanned: names.length },
+      {
+        rows,
+        divergent,
+        immature,
+        ageUnchecked,
+        illisibles,
+        failed,
+        scanned: names.length,
+      },
       null,
       2,
     )}\n`,
@@ -756,6 +847,11 @@ if (AS_JSON) {
 //                    conciliable sur le papier ne veut pas dire unifié dans
 //                    l'arbre : npm ne redescend pas une copie déjà posée.
 //  - PEER-EXACT    : un peer figé fait échouer l'installation d'un tiers.
+// TROP-JEUNE n'en fait PAS partie : le dépôt monte ses dépendances le jour de
+// leur sortie, exprès — c'est ainsi que les tests voient une régression tout de
+// suite, et aucun utilisateur n'est exposé tant que rien n'est publié. Le délai
+// ne mord qu'à la PUBLICATION (`release.mjs`), seul moment où ces versions
+// partent chez quelqu'un.
 // Une divergence CONCILIABLE ne fait rien échouer : npm dédoublonne, et crier
 // dessus rendrait le contrôle assez bruyant pour être désarmé.
 //
