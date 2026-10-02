@@ -19,13 +19,37 @@ const COVERAGE = path.join(REPO, "tmp/doc-work/coverage");
 // PAS partie — brancher le contrôle sans ce drapeau l'aurait laissé ne jamais
 // tourner, ce qui est la façon la plus discrète de n'avoir aucun gate.
 const seulementInstructions = process.argv.includes("--instructions");
-const cibles = process.argv.slice(2).filter((a) => a !== "--instructions");
-if (!cibles.length) {
-  console.error("usage: node doc-lint.mjs <fichier.md|dossier ...>");
+// `--published` juge le corpus PUBLIÉ — celui que garde la forge. Sur le dépôt
+// entier, le contrôle échoue à juste titre sur des documents de pilotage (livre
+// blanc, plan de release) qui ne suivent pas ce standard : un `npm run doc:lint`
+// rouge par construction n'apprend qu'à être ignoré. Le périmètre est DIT par
+// `build-docs-site.mjs --list`, jamais recopié ici — une seconde règle de
+// publication divergerait de la première en silence.
+const seulementPubliees = process.argv.includes("--published");
+const cibles = process.argv
+  .slice(2)
+  .filter((a) => a !== "--instructions" && a !== "--published");
+if (!cibles.length && !seulementPubliees) {
+  console.error(
+    "usage: node doc-lint.mjs <fichier.md|dossier ...> | --published",
+  );
   process.exit(2);
 }
 
-const files = seulementInstructions ? [] : resoudreCorpus(cibles);
+const pagesPubliees = () =>
+  execSync(
+    `"${process.execPath}" "${path.join(REPO, "scripts", "build-docs-site.mjs")}" --list`,
+    { cwd: REPO, encoding: "utf8" },
+  )
+    .split(/\r?\n/u)
+    .filter(Boolean)
+    .map((p) => path.relative(process.cwd(), path.join(REPO, p)));
+
+const files = seulementInstructions
+  ? []
+  : seulementPubliees
+    ? [...pagesPubliees(), ...resoudreCorpus(cibles)]
+    : resoudreCorpus(cibles);
 if (!files.length && !seulementInstructions) {
   console.error(`aucune page .md sous : ${cibles.join(", ")}`);
   process.exit(2);

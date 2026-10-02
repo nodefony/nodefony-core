@@ -2268,6 +2268,10 @@
                 "help": ""
               },
               {
+                "flag": "--published",
+                "help": ""
+              },
+              {
                 "flag": "--show-toplevel",
                 "help": ""
               }

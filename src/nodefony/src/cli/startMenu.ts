@@ -375,9 +375,9 @@ export const NPM_SCRIPT_CATALOG: readonly {
   },
   {
     script: "doc:lint",
-    summary: "les pages de doc sont-elles complètes ?",
+    summary: "les pages PUBLIÉES sont-elles complètes ?",
     group: "Qualité — doc et pilotage (npm run)",
-    when: "La « definition of done » d'une page : frontmatter, sections attendues, liens vivants, ancres. Cinq régimes selon la nature de la page (brique, hub, glossaire, index, décision).",
+    when: "La « definition of done » des pages que le site publie — le périmètre exact de la CI : frontmatter, sections attendues, liens vivants, ancres. Cinq régimes selon la nature de la page (brique, hub, glossaire, index, décision). Une page non publiée se juge en la nommant : node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs <page.md>.",
   },
   {
     script: "check:lang",
