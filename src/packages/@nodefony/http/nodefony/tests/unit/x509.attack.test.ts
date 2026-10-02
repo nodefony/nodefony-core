@@ -6,6 +6,7 @@ import {
   distinguishedNameField,
   ipAddressBytes,
   parseSubjectAltName,
+  signatureAlgorithmName,
   signatureAlgorithmOid,
 } from "../../service/x509.js";
 
@@ -181,5 +182,82 @@ describe("red-team x509 — IP de config", () => {
   it("contrôle positif : v4 et v6", () => {
     expect(ipAddressBytes("127.0.0.1")).toEqual(Buffer.from([127, 0, 0, 1]));
     expect(ipAddressBytes("::1").length).toBe(16);
+  });
+});
+
+/**
+ * Red-team #20 (passe 2, code-first) — les branches que la passe 1 n'a pas
+ * touchées : encodage des noms à la FABRICATION, entrées SAN d'autres types,
+ * valeurs citées malformées, attributs de config invalides.
+ */
+describe("red-team x509 — passe 2 : fabrication depuis la config", () => {
+  for (const [label, dns] of [
+    // `ascii` de Node garde l'octet BAS : U+012E devient « . » — le certificat
+    // couvrirait `evil.localhost`, un nom que personne n'a configuré.
+    ["octet haut tronqué en « . »", "evil\u012Elocalhost"],
+    ["IDN non converti en punycode", "café.test"],
+    ["retour à la ligne", "a\nb.test"],
+    ["octet nul", "a\u0000.test"],
+    ["vide", ""],
+  ] as const) {
+    it(`dNSName ${label} : refus NOMMÉ, jamais un autre nom couvert`, async () => {
+      await expect(
+        realCert([{ shortName: "CN", value: "x" }], [dns]),
+      ).rejects.toThrow(/SAN/u);
+    });
+  }
+
+  it("contrôle positif : un dNSName ASCII (joker compris) est couvert tel quel", async () => {
+    const cert = await realCert(
+      [{ shortName: "CN", value: "x" }],
+      ["*.xn--caf-dma.test"],
+    );
+    expect(parseSubjectAltName(cert.subjectAltName).dns).toEqual([
+      "*.xn--caf-dma.test",
+    ]);
+  });
+
+  it("attribut inconnu ou sans valeur : refus nommé", async () => {
+    await expect(
+      realCert([{ name: "pwned", value: "x" }], ["x"]),
+    ).rejects.toThrow(/inconnu : 'pwned'/u);
+    await expect(realCert([{ shortName: "CN" }], ["x"])).rejects.toThrow(
+      /sans valeur/u,
+    );
+  });
+
+  it("OID pointé et emailAddress (IA5String) : relus par Node", async () => {
+    const cert = await realCert(
+      [
+        { type: "2.5.4.3", value: "par-oid" },
+        { name: "emailAddress", value: "a@b.test" },
+      ],
+      ["x"],
+    );
+    expect(distinguishedNameField(cert.subject, "CN")).toBe("par-oid");
+    expect(cert.subject).toContain("a@b.test");
+  });
+});
+
+describe("red-team x509 — passe 2 : lectures", () => {
+  it("SAN : URI, email, entrée sans « : » et citation malformée ne deviennent ni DNS ni IP", () => {
+    const san = parseSubjectAltName(
+      'URI:https://localhost, email:localhost, localhost, IP Address:127.0.0.1, DNS:"a\\',
+    );
+    expect(san.dns).toEqual([]);
+    expect(san.ip).toEqual(["127.0.0.1"]);
+    expect(parseSubjectAltName(undefined)).toEqual({ dns: [], ip: [] });
+  });
+
+  it("OID de signature inconnu : rendu tel quel, jamais un nom inventé", () => {
+    expect(signatureAlgorithmName("1.2.3.4")).toBe("1.2.3.4");
+    expect(signatureAlgorithmName("toString")).toBe("toString");
+    expect(signatureAlgorithmName("1.2.840.113549.1.1.11")).toBe(
+      "sha256WithRSAEncryption",
+    );
+  });
+
+  it("DN : clé absente → null", () => {
+    expect(distinguishedNameField("CN=a\nO=b", "OU")).toBeNull();
   });
 });

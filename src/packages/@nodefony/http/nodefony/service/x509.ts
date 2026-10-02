@@ -246,6 +246,23 @@ export function ipAddressBytes(ip: string): Buffer {
   return out;
 }
 
+/**
+ * Octets d'un SAN `dNSName` — IA5String (RFC 5280 §4.2.1.6).
+ *
+ * 🔴 Jamais `Buffer.from(nom, "ascii")` : Node y garde l'octet BAS de chaque
+ * caractère, et `evil\u012Elocalhost` devient `evil.localhost` — un certificat
+ * qui couvre un nom que personne n'a configuré. Hors ASCII imprimable, le nom
+ * est REFUSÉ (un IDN s'écrit en punycode, `xn--…`).
+ */
+function dnsNameBytes(dns: string): Buffer {
+  if (!/^[\x20-\x7e]+$/u.test(dns)) {
+    throw new Error(
+      `Nom DNS invalide pour un SAN : ${JSON.stringify(dns)} — ASCII imprimable seulement (un nom international s'écrit en punycode, xn--…).`,
+    );
+  }
+  return Buffer.from(dns, "ascii");
+}
+
 function extension(oid: string, critical: boolean, value: Buffer): Buffer {
   return critical
     ? sequence(objectIdentifier(oid), DER_TRUE, octetString(value))
@@ -432,7 +449,7 @@ export async function createSelfSignedCertificate(
   const name = distinguishedName(spec.attributes);
 
   const altNames = [
-    ...spec.dns.map((dns) => tlv(0x82, Buffer.from(dns, "ascii"))),
+    ...spec.dns.map((dns) => tlv(0x82, dnsNameBytes(dns))),
     ...spec.ip.map((ip) => tlv(0x87, ipAddressBytes(ip))),
   ];
   const extensions: Buffer[] = [
