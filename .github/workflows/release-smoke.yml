@@ -57,9 +57,10 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+# Relancer le banc ne TUE pas celui qui tourne : la nouvelle exécution attend.
 concurrency:
   group: release-smoke-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   smoke:

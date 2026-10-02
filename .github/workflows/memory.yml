@@ -79,9 +79,13 @@ on:
       - ".github/actions/nodefony-server/**"
   workflow_dispatch:
 
+# 🔴 Un push n'en annule JAMAIS un autre : chaque push garde son verdict. La CI est
+# gratuite (dépôt public) ; un run annulé, lui, s'affiche comme des jobs arrêtés net
+# et laisse un commit sans verdict — la garde de publication le compte ROUGE. Seule
+# une pull request remplace sa propre exécution : là, la précédente est caduque.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

@@ -103,8 +103,10 @@ concurrency:
   # Le groupe porte le contexte appelant : sans cela, l'appel depuis une release
   # ANNULERAIT le préflight mensuel en cours — ou serait annulé par lui, ce qui
   # ferait échouer la publication pour une raison sans rapport avec elle.
+  # Une relance ATTEND la précédente, elle ne la tue pas : un préflight arrêté
+  # net ne dit rien, et c'est la publication qu'il garde.
   group: release-preflight-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read

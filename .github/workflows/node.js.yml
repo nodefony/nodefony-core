@@ -27,9 +27,13 @@ on:
 # verdict est indiscernable d'un commit vert quand on remonte le journal pour
 # trouver quand une régression est entrée. Ailleurs, seul le dernier état
 # compte, et libérer la file est plus utile que d'archiver un résultat périmé.
+# 🔴 Un push n'en annule JAMAIS un autre : chaque push garde son verdict. La CI est
+# gratuite (dépôt public) ; un run annulé, lui, s'affiche comme des jobs arrêtés net
+# et laisse un commit sans verdict — la garde de publication le compte ROUGE. Seule
+# une pull request remplace sa propre exécution : là, la précédente est caduque.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Le jeton du workflow ne peut QUE lire le dépôt. Aucun de ces jobs ne publie,
 # ne commente ni n'écrit quoi que ce soit ; sans ce bloc, le jeton hérite des
@@ -277,10 +281,10 @@ jobs:
 
       # Un tag d'action se DÉPLACE ; un SHA non. Couvre la forge ET les
       # workflows que chaque application générée exécutera.
-      - name: Gate — actions GitHub épinglées par SHA (dépôt + gabarits)
+      - name: Gate — actions épinglées par SHA (dépôt + gabarits) · aucune annulation de CI
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         shell: bash
-        run: npx vitest run scripts/ci/actions-pinned.test.mjs
+        run: npx vitest run scripts/ci/actions-pinned.test.mjs scripts/ci/no-cancel.test.mjs
 
       - name: Gate — licences des dépendances de production
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
