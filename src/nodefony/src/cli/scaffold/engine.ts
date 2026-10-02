@@ -276,6 +276,10 @@ export const FRONTEND_PARAMS: Record<
   {
     type: string;
     entry: string;
+    /** Ce que le `tsconfig` de la cible inclut pour que le typecheck VOIE le front. */
+    tsInclude: string;
+    /** L'option `jsx` exigée par le moteur, ou `null`. */
+    tsJsx: string | null;
     mountNode: string;
     deps: Record<string, string>;
     devDeps: Record<string, string>;
@@ -285,6 +289,8 @@ export const FRONTEND_PARAMS: Record<
   react: {
     type: "react19",
     entry: "./frontend/src/main.tsx",
+    tsInclude: "frontend/src/**/*",
+    tsJsx: "react-jsx",
     mountNode: '<div id="root"></div>',
     deps: {},
     devDeps: pick(
@@ -304,6 +310,8 @@ export const FRONTEND_PARAMS: Record<
   vue: {
     type: "vue3",
     entry: "./frontend/src/main.ts",
+    tsInclude: "frontend/src/**/*.ts",
+    tsJsx: null,
     mountNode: '<div id="app"></div>',
     deps: {},
     devDeps: pick("vue", "vite", "@vitejs/plugin-vue"),
@@ -316,6 +324,8 @@ export const FRONTEND_PARAMS: Record<
   angular: {
     type: "angular",
     entry: "./frontend/src/main.ts",
+    tsInclude: "frontend/src/**/*.ts",
+    tsJsx: null,
     mountNode: "<app-root></app-root>",
     deps: {},
     devDeps: pick(
@@ -336,6 +346,8 @@ export const FRONTEND_PARAMS: Record<
   svelte: {
     type: "svelte5",
     entry: "./frontend/src/main.ts",
+    tsInclude: "frontend/src/**/*.ts",
+    tsJsx: null,
     mountNode: '<div id="app"></div>',
     deps: {},
     devDeps: pick("svelte", "vite", "@sveltejs/vite-plugin-svelte"),
@@ -5552,6 +5564,88 @@ export function wireEntitiesDecorator(
  *   l'app, et exiger une édition manuelle du `package.json` revenait à demander
  *   à la main ce que ce scaffold existe pour écrire.
  */
+/**
+ * Fait couvrir un front AJOUTÉ par le `tsconfig.json` de sa cible, comme si
+ * elle était née avec : entrée `include`, option `jsx` du moteur, et les types
+ * `vite/client` pour une application.
+ *
+ * Sans elle, `create front` sur une application née sans front livrait des
+ * `.tsx` que `npm run typecheck` ne lisait pas, et que le lint typé lisait sans
+ * `lib` — `toSorted()`, exigé par ce même lint, y devenait une erreur (#515).
+ *
+ * Le fichier porte des commentaires : il est édité par motifs ciblés, jamais
+ * réécrit par `JSON.parse`. Une entrée qui ne peut pas être posée (fichier
+ * remanié à la main) est NOMMÉE dans la note rendue, jamais sautée en silence.
+ *
+ * @param tsconfigPath - le `tsconfig.json` de la cible
+ * @param needs - ce que le moteur exige ({@link FRONTEND_PARAMS})
+ * @param writer - l'écrivain transactionnel du scaffold
+ * @returns `changed` si le fichier a été réécrit, et la note des manques
+ */
+function wireFrontTsconfig(
+  tsconfigPath: string,
+  needs: { include: string; jsx: string | null; viteTypes: boolean },
+  writer: ScaffoldWriter,
+): { changed: boolean; note: string | null } {
+  const missing: string[] = [];
+  const wanted = [
+    `"${needs.include}" dans include`,
+    ...(needs.jsx === null ? [] : [`"jsx": "${needs.jsx}"`]),
+    ...(needs.viteTypes ? [`"vite/client" dans types`] : []),
+  ];
+  if (!writer.exists(tsconfigPath)) {
+    return {
+      changed: false,
+      note: `tsconfig.json introuvable — à poser pour que le typecheck voie le front : ${wanted.join(", ")}`,
+    };
+  }
+  let src = writer.read(tsconfigPath);
+  const before = src;
+  // Ajoute une valeur à un tableau de chaînes nommé, vide ou non, sans
+  // laisser de virgule finale (le fichier doit rester du JSON valide).
+  const addToArray = (key: string, value: string, first: boolean): boolean => {
+    const re = new RegExp(`("${key}"\\s*:\\s*\\[)([^\\]]*)(\\])`, "u");
+    const m = re.exec(src);
+    if (m === null) return false;
+    const inner = (m[2] ?? "").trim();
+    const items =
+      inner === ""
+        ? `"${value}"`
+        : first
+          ? `"${value}", ${inner}`
+          : `${inner}, "${value}"`;
+    src = src.replace(re, `$1${items}$3`);
+    return true;
+  };
+  if (!src.includes(`"${needs.include}"`)) {
+    if (!addToArray("include", needs.include, true)) {
+      missing.push(`"${needs.include}" dans include`);
+    }
+  }
+  if (needs.jsx !== null && !/"jsx"\s*:/u.test(src)) {
+    const co = /("compilerOptions"\s*:\s*\{)/u;
+    if (co.test(src)) {
+      src = src.replace(co, `$1\n    "jsx": "${needs.jsx}",`);
+    } else {
+      missing.push(`"jsx": "${needs.jsx}"`);
+    }
+  }
+  if (needs.viteTypes && !src.includes(`"vite/client"`)) {
+    if (!addToArray("types", "vite/client", false)) {
+      missing.push(`"vite/client" dans types`);
+    }
+  }
+  const changed = src !== before;
+  if (changed) writer.write(tsconfigPath, src);
+  return {
+    changed,
+    note:
+      missing.length === 0
+        ? null
+        : `tsconfig.json : à poser à la main pour que le typecheck voie le front — ${missing.join(", ")}`,
+  };
+}
+
 function runFrontScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
@@ -5810,6 +5904,19 @@ function runFrontScaffold(
     writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     written.push("package.json");
   }
+  // Le typecheck et le lint typé doivent VOIR le front ajouté, comme si la
+  // cible était née avec (#515). `vite/client` : le gabarit d'application le
+  // pose, celui de module non — on reproduit chacun, sans rien inventer.
+  const tsWire = wireFrontTsconfig(
+    path.join(target.dir, "tsconfig.json"),
+    {
+      include: front.tsInclude,
+      jsx: front.tsJsx,
+      viteTypes: target.kind === "app",
+    },
+    writer,
+  );
+  if (tsWire.changed) written.push("tsconfig.json");
   const indexPath = path.join(target.dir, "index.ts");
   wireDecoratorList(
     indexPath,
@@ -5851,6 +5958,7 @@ function runFrontScaffold(
       ? [`deps ajoutées : ${added.join(", ")} → lance npm install`]
       : []),
     ...(wireNote ? [wireNote] : []),
+    ...(tsWire.note ? [tsWire.note] : []),
   ];
   return { dest: target.dir, files: written.sort(), linked: [], notes };
 }

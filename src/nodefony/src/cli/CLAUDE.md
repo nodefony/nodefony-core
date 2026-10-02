@@ -559,7 +559,11 @@ que `create app`, zéro dérive), entry minimale du framework, controller de pag
 registrar `register<Name>Entry` (fichier dédié documenté) ; wiring AUTO
 `@controllers` + hook `onKernelBoot` (inséré si absent — un hook EXISTANT n'est
 jamais édité : note actionnable) ; deps du framework ajoutées au package.json si
-absentes. Gardes : cible avec `frontend/index.html` → throw ; `@nodefony/frontend`
+absentes ; **`tsconfig.json` de la cible complété comme si elle était née avec ce
+front** (`wireFrontTsconfig` : entrée `include`, `jsx` du moteur, `vite/client` pour
+une app — règle portée par `FRONTEND_PARAMS.tsInclude/tsJsx`, éprouvée contre une
+app NÉE avec le moteur). Sans lui, le typecheck ne lisait pas le front et le lint
+typé le lisait sans `lib` (#515). Une entrée impossible à poser est NOMMÉE en note. Gardes : cible avec `frontend/index.html` → throw ; `@nodefony/frontend`
 absent de l'**APPLICATION** → throw actionnable. Absent du seul **module** visé, il
 y est POSÉ en peer : un module local est un workspace, rien ne s'y installe pour
 son compte propre, et exiger une édition manuelle du `package.json` revenait à

@@ -5833,6 +5833,69 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
     });
 
+    // Le tsconfig d'une app née SANS front ne couvrait pas `frontend/` : après
+    // `create front`, `npm run typecheck` ne vérifiait pas une ligne du front, et
+    // le lint typé le lisait sans `lib` — `toSorted()`, que ce même lint exige,
+    // y était une erreur (#515, essai Copilot). La référence n'est pas une liste
+    // recopiée ici : c'est le tsconfig d'une app NÉE avec ce moteur.
+    for (const engine of ["react", "vue", "angular", "svelte"] as const) {
+      it(`🔴 create front ${engine} : le tsconfig couvre le front, comme une app née avec`, () => {
+        const tsconfigFront = (dir: string) => {
+          const raw = readFileSync(path.join(dir, "tsconfig.json"), "utf8");
+          const parsed = JSON.parse(raw.replace(/^\s*\/\/.*$/gmu, "")) as {
+            include: string[];
+            compilerOptions: { jsx?: string; types?: string[] };
+          };
+          return {
+            include: parsed.include.filter((i) => i.startsWith("frontend/")),
+            jsx: parsed.compilerOptions.jsx ?? null,
+            types: [...(parsed.compilerOptions.types ?? [])].sort(),
+          };
+        };
+        const born = path.join(tmp, `tsborn-${engine}`);
+        scaffold(born, {
+          name: `tsborn${engine}`,
+          preset: "complete",
+          frontend: engine,
+        });
+        const late = path.join(tmp, `tslate-${engine}`);
+        scaffold(late, {
+          name: `tslate${engine}`,
+          preset: "complete",
+          frontend: "none",
+        });
+        front(late, { name: "web", frontend: engine });
+        const attendu = tsconfigFront(born);
+        assert.isNotEmpty(
+          attendu.include,
+          "témoin : l'app née avec le front le couvre",
+        );
+        assert.deepEqual(tsconfigFront(late), attendu);
+      });
+    }
+
+    it("🔴 create front : un tsconfig remanié sans `include` est NOMMÉ, jamais sauté", () => {
+      const dest = path.join(tmp, "tsmanual");
+      scaffold(dest, {
+        name: "tsmanual",
+        preset: "complete",
+        frontend: "none",
+      });
+      // Un projet qui compile par `files` au lieu d'`include` : rien à compléter.
+      writeFileSync(
+        path.join(dest, "tsconfig.json"),
+        '{\n  "compilerOptions": { "types": ["node"] },\n  "files": ["index.ts"]\n}\n',
+      );
+      const r = front(dest, { name: "web", frontend: "react" });
+      const notes = (r.notes ?? []).join("\n");
+      assert.include(notes, "tsconfig.json");
+      assert.include(notes, '"frontend/src/**/*" dans include');
+      // Ce qui POUVAIT être posé l'a été : jsx et vite/client.
+      const ts = readFileSync(path.join(dest, "tsconfig.json"), "utf8");
+      assert.include(ts, '"jsx": "react-jsx"');
+      assert.include(ts, '"vite/client"');
+    });
+
     // La porte nomme le sous-chemin client du moteur front (`nodefony/vue`,
     // `nodefony/react`). Une app née `--frontend none` n'en nommait aucun, et
     // `create front` ne la rafraîchissait pas : elle mentait à vie. Vécu sur un
