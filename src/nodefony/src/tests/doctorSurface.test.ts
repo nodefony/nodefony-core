@@ -11,7 +11,13 @@
  */
 import { describe, it, beforeEach, afterEach } from "vitest";
 import { assert } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -250,6 +256,42 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
     assert.equal(r.findings[0]?.kind, "entity-other-dialect");
     assert.include(r.findings[0]?.message ?? "", "postgres");
     assert.include(r.findings[0]?.message ?? "", "sqlite");
+  });
+
+  /*
+   *   La forme reconnue ne se décide pas ici : c'est celle que le GABARIT
+   *   écrit. Le banc lit donc le gabarit lui-même — une forme recopiée dans le
+   *   test restait verte pendant que le générateur passait à
+   *   `as const satisfies SqlDialect`, et la garde redevenait morte sur toute
+   *   application fraîche.
+   */
+  it("🔴 l'entité User que le GABARIT écrit est reconnue, pour chaque moteur", () => {
+    const gabarit = readFileSync(
+      path.resolve(
+        import.meta.dirname,
+        "../../templates/app/complete/nodefony/entity/User.ts.tpl",
+      ),
+      "utf8",
+    );
+    assert.include(
+      gabarit,
+      "<%= it.dialect %>",
+      "le gabarit a changé de forme",
+    );
+    for (const moteur of ["postgres", "mysql"]) {
+      poser(
+        "nodefony/entity/User.ts",
+        gabarit.replaceAll("<%= it.dialect %>", moteur),
+      );
+      const r = controler();
+      assert.equal(
+        r.entitiesScanned,
+        1,
+        `${moteur} : l'entité doit être COMPTÉE`,
+      );
+      assert.lengthOf(r.findings, 1, moteur);
+      assert.include(r.findings[0]?.message ?? "", moteur);
+    }
   });
 
   it("le même dialecte en valeur, accordé à la base, reste muet", () => {

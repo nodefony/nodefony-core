@@ -17,7 +17,8 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { resolveEnvCascade } from "../../runtime/loadEnv";
-import { checkSurface } from "./surface";
+import { checkSurface, entityDialectMismatches } from "./surface";
+import type { IEntityDialectScan, SqlDialectName } from "./surface";
 
 /** Dossiers qui CONTIENNENT des cibles, par opposition à en être une. */
 const TARGET_CONTAINERS = ["modules", "src/modules", "src/packages/@nodefony"];
@@ -98,6 +99,29 @@ export function declaredDialectExceptions(cwd: string): string[] {
     // Pas de manifeste lisible : aucune exception, et ce n'est pas une erreur.
     return [];
   }
+}
+
+/**
+ * Les entités du PROJET qu'un connecteur de ce dialecte ne saurait pas servir.
+ *
+ * Même périmètre et mêmes exceptions que `doctor` : c'est ce qui permet au
+ * démarrage de refuser un repli sur un moteur que l'application ne parle pas,
+ * avec le verdict exact que le diagnostic rendrait.
+ *
+ * @param projectRoot - la racine de l'application.
+ * @param dialect - le dialecte que le connecteur s'apprête à ouvrir.
+ * @returns les entités hors dialecte, chemins relatifs à `projectRoot`.
+ */
+export function projectEntityDialectMismatches(
+  projectRoot: string,
+  dialect: SqlDialectName,
+): IEntityDialectScan {
+  return entityDialectMismatches({
+    roots: wiringTargets(projectRoot),
+    cwd: projectRoot,
+    dialect,
+    exceptions: declaredDialectExceptions(projectRoot),
+  });
 }
 
 /** Une valeur effective que l'état du projet contredit. */

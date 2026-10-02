@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 889,
-    "symbols": 4477,
+    "symbols": 4483,
     "classes": 405,
-    "interfaces": 1165,
+    "interfaces": 1167,
     "types": 478,
     "enums": 4,
-    "functions": 1974,
+    "functions": 1978,
     "constants": 451
   },
   "symbols": {
@@ -10570,6 +10570,14 @@
       "module": "@nodefony/core",
       "description": "Les divergences de dialecte que le projet ASSUME, déclarées dans son `package.json` (`nodefony.doctor.entityDialect`). Elles se lisent ici parce que tout appelant doit les respecter : avertir là où…"
     },
+    "projectEntityDialectMismatches": {
+      "name": "projectEntityDialectMismatches",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/projectScope.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les entités du PROJET qu'un connecteur de ce dialecte ne saurait pas servir. Même périmètre et mêmes exceptions que `doctor` : c'est ce qui permet au démarrage de refuser un repli sur un moteur que…"
+    },
     "configInconsistencies": {
       "name": "configInconsistencies",
       "kind": "function",
@@ -11227,6 +11235,24 @@
       "module": "@nodefony/core",
       "extends": null
     },
+    "IEntityDialectMismatch": {
+      "name": "IEntityDialectMismatch",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une entité écrite pour d'autres moteurs que celui du connecteur."
+    },
+    "IEntityDialectScan": {
+      "name": "IEntityDialectScan",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le relevé des entités a trouvé."
+    },
     "OpeningKind": {
       "name": "OpeningKind",
       "kind": "type",
@@ -11282,6 +11308,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Réécrit un chemin en séparateurs `/`, quelle que soit sa grammaire d'origine. 🔴 **Axiome 2 : normaliser AVANT de filtrer ou comparer.** Une exception de dialecte est un chemin qui VOYAGE — elle vi…"
+    },
+    "entityDialectMismatches": {
+      "name": "entityDialectMismatches",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/surface.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les entités qu'un connecteur de ce dialecte ne saurait pas servir. LA règle « entité ↔ dialecte », seule implémentation : `doctor` la rend en manquement, le démarrage de Drizzle s'en sert pour refu…"
     },
     "checkSurface": {
       "name": "checkSurface",
@@ -15603,6 +15637,22 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/drizzle"
+    },
+    "primaryConnectorName": {
+      "name": "primaryConnectorName",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Le connecteur que l'infrastructure déclarée configure : `default`, sinon le premier déclaré. Une seule règle pour deux lecteurs — la surcharge par l'environnement et la détection du repli : s'ils v…"
+    },
+    "isDialectFallback": {
+      "name": "isDialectFallback",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce connecteur tient-il son dialecte du seul DÉFAUT du schéma ? Vrai quand rien ne l'a choisi : ni l'infrastructure déclarée (`NF_DATABASE_URL`, alias `DATABASE_URL`), ni l'application, qui n'a écri…"
     },
     "defineDrizzleConfig": {
       "name": "defineDrizzleConfig",
@@ -32010,7 +32060,8 @@
       ],
       "IDrizzleConfigInput": [
         "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts"
+        "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "OrmGenerate": [
         "src/packages/@nodefony/drizzle/index.ts"
@@ -35823,6 +35874,15 @@
         "src/nodefony/src/kernel/checks/projectScope.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
+      "entityDialectMismatches": [
+        "src/nodefony/src/kernel/checks/projectScope.ts"
+      ],
+      "IEntityDialectScan": [
+        "src/nodefony/src/kernel/checks/projectScope.ts"
+      ],
+      "SqlDialectName": [
+        "src/nodefony/src/kernel/checks/projectScope.ts"
+      ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
@@ -37544,6 +37604,9 @@
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
       ],
+      "projectEntityDialectMismatches": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
@@ -37609,6 +37672,9 @@
       "DdlMode": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "isDialectFallback": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "IDrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",

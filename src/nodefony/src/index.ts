@@ -959,6 +959,15 @@ export {
   countCheckFindings,
 } from "./kernel/checks/runDoctor";
 export type { IDoctorReport } from "./kernel/checks/runDoctor";
+// La règle « entité ↔ dialecte » de `doctor`, publiée pour que le démarrage de
+// `@nodefony/drizzle` refuse un repli sur un moteur que les entités ne parlent
+// pas — en l'APPELANT, jamais en la recopiant.
+export { projectEntityDialectMismatches } from "./kernel/checks/projectScope";
+export type {
+  IEntityDialectMismatch,
+  IEntityDialectScan,
+  SqlDialectName,
+} from "./kernel/checks/surface";
 // Nom de la config Vite que le superviseur de dev RÉÉCRIT à chaque démarrage :
 // `@nodefony/frontend` l'écrit, `doctor` l'écarte des sources du front.
 export { GENERATED_VITE_CONFIG_FILE } from "./kernel/checks/freshness";

@@ -11,6 +11,59 @@ import type {
 } from "../interfaces/IDrizzleConfig";
 
 /**
+ * Le connecteur que l'infrastructure déclarée configure : `default`, sinon le
+ * premier déclaré.
+ *
+ * Une seule règle pour deux lecteurs — la surcharge par l'environnement et la
+ * détection du repli : s'ils visaient deux connecteurs différents, l'un
+ * pourrait être annoncé « replié » alors que l'URL a pris sur l'autre.
+ *
+ * @param connectors - les connecteurs validés.
+ * @returns le nom du connecteur principal, `undefined` s'il n'y en a aucun.
+ */
+export function primaryConnectorName(
+  connectors: Readonly<Record<string, unknown>>,
+): string | undefined {
+  return Object.hasOwn(connectors, "default")
+    ? "default"
+    : Object.keys(connectors)[0];
+}
+
+/**
+ * Ce connecteur tient-il son dialecte du seul DÉFAUT du schéma ?
+ *
+ * Vrai quand rien ne l'a choisi : ni l'infrastructure déclarée
+ * (`NF_DATABASE_URL`, alias `DATABASE_URL`), ni l'application, qui n'a écrit
+ * pour lui ni `dialect`, ni `filename`, ni `url`. Après le parse, ce défaut est
+ * indiscernable d'un `dialect: "sqlite"` écrit — d'où la comparaison à ce que
+ * l'application a DÉCLARÉ.
+ *
+ * Seul le connecteur principal peut se replier : c'est le seul que
+ * l'infrastructure aurait configuré.
+ *
+ * @param name - le connecteur examiné.
+ * @param connectors - les connecteurs validés.
+ * @param declared - ce que l'application a écrit elle-même.
+ * @param env - l'environnement d'où l'infrastructure est lue.
+ * @returns `true` si le connecteur ouvrirait sqlite par défaut.
+ */
+export function isDialectFallback(
+  name: string,
+  connectors: Readonly<Record<string, unknown>>,
+  declared: IDrizzleConfigInput,
+  env: Record<string, string | undefined>,
+): boolean {
+  if (name !== primaryConnectorName(connectors)) return false;
+  if (resolveInfra(env).database?.family === "sql") return false;
+  const written = declared.connectors?.[name];
+  return (
+    written?.dialect === undefined &&
+    written?.filename === undefined &&
+    written?.url === undefined
+  );
+}
+
+/**
  * Applique la surcharge par variables d'environnement APRÈS le parse Zod.
  *
  * Le schéma reste pur ; l'env est une couche explicite par-dessus. Précédence :
@@ -39,9 +92,7 @@ function applyEnvOverrides(
     return config;
   }
   if (database?.family === "sql" && database.dialect) {
-    const target = Object.hasOwn(config.connectors, "default")
-      ? "default"
-      : Object.keys(config.connectors)[0];
+    const target = primaryConnectorName(config.connectors);
     const connector = target ? config.connectors[target] : undefined;
     if (connector) {
       connector.dialect = database.dialect;

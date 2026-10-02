@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   Service,
   BootConfigurationError,
+  projectEntityDialectMismatches,
   runNeedsExternalServices,
 } from "nodefony";
 import type { Container, Kernel, Module } from "nodefony";
@@ -41,8 +42,10 @@ import {
   summarizeDestructive,
 } from "../src/migrator/destructive";
 import type { DdlMode } from "../config/config";
+import { isDialectFallback } from "../config/defineModuleConfig";
 import type {
   IDrizzleConfig,
+  IDrizzleConfigInput,
   IDrizzleConnectorConfig,
 } from "../interfaces/IDrizzleConfig";
 
@@ -235,6 +238,38 @@ class DrizzleService extends Service {
     return defaultConnectorFilename(this.kernel as Kernel | null, name);
   }
 
+  /**
+   * Refuse un repli sur sqlite que les entités de l'application ne parlent pas.
+   *
+   * Une table Drizzle est écrite pour UN dialecte : une application générée
+   * pour postgres ne fonctionne pas en sqlite, quel que soit le pilote
+   * installé. Sans ce refus, le repli échouait plus loin sur un pilote absent
+   * (`better-sqlite3`), qui désigne une dépendance alors que la cause est une
+   * variable d'environnement manquante.
+   *
+   * La règle est celle de `doctor` (`projectEntityDialectMismatches`),
+   * APPELÉE : même périmètre, mêmes exceptions déclarées.
+   *
+   * @param name - le connecteur qui s'apprête à se replier.
+   * @throws BootConfigurationError si une entité n'est écrite que pour un
+   *   autre moteur.
+   */
+  #refuseForeignFallback(name: string): void {
+    const root = (this.kernel as Kernel | null)?.path;
+    if (!root) return;
+    const { mismatches } = projectEntityDialectMismatches(root, "sqlite");
+    if (mismatches.length === 0) return;
+    const wrote = [...new Set(mismatches.flatMap((m) => m.wrote))].join(", ");
+    const files = mismatches.map((m) => m.file).join(", ");
+    throw new BootConfigurationError(
+      `Drizzle : le connecteur "${name}" se replierait sur sqlite — aucune base ` +
+        `n'est déclarée (NF_DATABASE_URL absente, aucun \`dialect\` écrit) — ` +
+        `alors que l'application est écrite pour ${wrote} (${files}). Une table ` +
+        `Drizzle ne change pas de dialecte : poser NF_DATABASE_URL vers la base ` +
+        `${wrote} (fichier .env), ou réécrire ces entités pour sqlite.`,
+    );
+  }
+
   /** Connecte un connecteur (crée le dossier de la base SQLite si nécessaire). */
   async #connectOne(
     name: string,
@@ -242,6 +277,17 @@ class DrizzleService extends Service {
     connect = true,
   ): Promise<void> {
     const dialect = cfg.dialect ?? "sqlite";
+    // Un repli ne se constate qu'au moment d'OUVRIR : un run sans connexion
+    // n'ouvre aucune base, il n'y a rien à refuser ni à annoncer.
+    const fallback =
+      connect &&
+      isDialectFallback(
+        name,
+        this.#config()?.connectors ?? {},
+        (this.module.appOptions ?? {}) as IDrizzleConfigInput,
+        process.env,
+      );
+    if (fallback) this.#refuseForeignFallback(name);
     // 🔴 Dès que l'application VERSIONNE des migrations, elles font foi — même
     // en développement. Sans cette bascule, deux fabricants du même schéma
     // cohabitent : le DDL dérivé crée la table, puis la première migration
@@ -263,6 +309,15 @@ class DrizzleService extends Service {
     if (dialect === "sqlite") {
       // `filename` optionnel (schéma pur) → résolu ici via le kernel si omis.
       filename = cfg.filename ?? this.#defaultFilename(name);
+      // 🔴 Un repli qui ne se dit pas est indiscernable d'une configuration
+      // qui a pris : l'exploitant croirait parler à la base qu'il a en tête.
+      if (fallback) {
+        this.log(
+          `Drizzle « ${name} » : aucune base déclarée (NF_DATABASE_URL absente, ` +
+            `aucun \`dialect\` écrit) — repli sur sqlite, fichier ${filename}`,
+          "INFO",
+        );
+      }
       if (filename !== MEMORY_DATABASE) {
         fs.mkdirSync(path.dirname(filename), { recursive: true });
       }

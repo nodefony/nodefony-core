@@ -120,13 +120,18 @@ const DRIZZLE_CORE_RE = /["']drizzle-orm\/(sqlite|pg|mysql)-core["']/gu;
  * contrôle qui sait dire « cette entité est écrite pour un autre moteur que ta
  * base » ne s'exerçait sur RIEN.
  *
+ * Deux écritures de la même déclaration : annotée (`const D: SqlDialect = "mysql"`)
+ * et vérifiée (`const D = "postgres" as const satisfies SqlDialect`, celle du
+ * gabarit). Le banc lit le gabarit lui-même : la forme recopiée dans un test
+ * restait verte pendant que le générateur changeait d'écriture.
+ *
  * La DÉCLARATION est exigée (`const`/`let`/`var`), et non la simple annotation :
  * `dialect: SqlDialect = "sqlite"` est un paramètre par défaut, écrit dans les
  * entités du framework lui-même — le compter accuserait ces fichiers dès qu'un
  * projet tourne sur un autre moteur.
  */
 const DIALECT_VALUE_RE =
-  /\b(?:const|let|var)\s+\w+\s*:\s*SqlDialect\s*=\s*["'`](sqlite|postgres|mysql)["'`]/gu;
+  /\b(?:const|let|var)\s+\w+\s*(?::\s*SqlDialect\s*=\s*["'`](sqlite|postgres|mysql)["'`]|=\s*["'`](sqlite|postgres|mysql)["'`]\s*(?:as\s+const\s+)?satisfies\s+SqlDialect\b)/gu;
 
 /** Le dialecte de Nodefony pour un segment d'import Drizzle. */
 const DIALECT_OF_IMPORT: Partial<Record<string, SqlDialectName>> = {
@@ -320,7 +325,7 @@ const SOURCE_EXT = new Set([".ts", ".mts", ".cts"]);
  * du dépôt ferait accuser ce qui n'est pas une entité : l'adaptateur ORM
  * lui-même importe les trois dialectes, et c'est son travail.
  */
-const ENTITY_DIR = `${path.sep}nodefony${path.sep}entity${path.sep}`;
+const ENTITY_DIR = ["nodefony", "entity"] as const;
 
 /** Les sources d'une cible, sans jamais entrer dans un `dist/`. */
 function sources(root: string): string[] {
@@ -395,6 +400,88 @@ export function toPortablePath(
   return rawPath.split(sep).join("/").split("\\").join("/");
 }
 
+/** Une entité écrite pour d'autres moteurs que celui du connecteur. */
+export interface IEntityDialectMismatch {
+  /** Le fichier de l'entité, relatif à la racine analysée. */
+  file: string;
+  /** Les moteurs pour lesquels elle est écrite — aucun n'est le connecteur. */
+  wrote: SqlDialectName[];
+}
+
+/** Ce que le relevé des entités a trouvé. */
+export interface IEntityDialectScan {
+  mismatches: IEntityDialectMismatch[];
+  /** Entités relevées, tous dialectes confondus. */
+  entitiesScanned: number;
+}
+
+/**
+ * Les entités qu'un connecteur de ce dialecte ne saurait pas servir.
+ *
+ * LA règle « entité ↔ dialecte », seule implémentation : `doctor` la rend en
+ * manquement, le démarrage de Drizzle s'en sert pour refuser un repli sur un
+ * moteur que l'application ne parle pas. Elle ne lit que
+ * `<cible>/nodefony/entity/**` — là où le producteur cherche ses entités, et
+ * ce qui la rend assez bon marché pour tourner au démarrage.
+ *
+ * @param options - cibles, racine des chemins rendus, dialecte du connecteur,
+ *   et divergences que le projet ASSUME (`nodefony.doctor.entityDialect`).
+ * @returns les entités hors dialecte, et le nombre d'entités relevées.
+ */
+export function entityDialectMismatches(options: {
+  roots: readonly string[];
+  cwd: string;
+  dialect: SqlDialectName | null;
+  exceptions?: readonly string[];
+}): IEntityDialectScan {
+  const { roots, cwd, dialect } = options;
+  const exceptions = (options.exceptions ?? []).map((e) => toPortablePath(e));
+  const mismatches: IEntityDialectMismatch[] = [];
+  let entitiesScanned = 0;
+  const seen = new Set<string>();
+  for (const root of roots) {
+    const dir = path.join(root, ...ENTITY_DIR);
+    if (!statSync(dir, { throwIfNoEntry: false })) continue;
+    for (const file of sources(dir)) {
+      if (seen.has(file)) continue;
+      seen.add(file);
+      let clean: string;
+      try {
+        clean = withoutComments(readFileSync(file, "utf8"));
+      } catch {
+        continue;
+      }
+      // Deux façons d'écrire pour quel moteur on écrit, et les deux comptent :
+      // l'import direct (entité écrite à la main, ou par `create entity`) et
+      // le dialecte déclaré en valeur (gabarit d'application, qui passe par
+      // une fabrique du framework). N'en reconnaître qu'une déplace l'angle
+      // mort au lieu de le fermer.
+      const imported = new Set<SqlDialectName>();
+      let m: RegExpExecArray | null;
+      DRIZZLE_CORE_RE.lastIndex = 0;
+      while ((m = DRIZZLE_CORE_RE.exec(clean)) !== null) {
+        const found = DIALECT_OF_IMPORT[m.at(1) ?? ""];
+        if (found) imported.add(found);
+      }
+      DIALECT_VALUE_RE.lastIndex = 0;
+      while ((m = DIALECT_VALUE_RE.exec(clean)) !== null) {
+        const found = (m[1] ?? m[2]) as SqlDialectName | undefined;
+        if (found) imported.add(found);
+      }
+      if (imported.size === 0) continue;
+      entitiesScanned++;
+      if (!dialect || imported.has(dialect)) continue;
+      const relative = path.relative(cwd, file);
+      // Le projet a DÉCLARÉ que cette divergence est voulue : un dépôt qui
+      // porte un banc multi-moteurs ne doit pas être condamné pour cela.
+      if (exceptions.some((e) => toPortablePath(relative).includes(e)))
+        continue;
+      mismatches.push({ file: relative, wrote: [...imported] });
+    }
+  }
+  return { mismatches, entitiesScanned };
+}
+
 /**
  * Relève la surface ouverte et les entités hors dialecte.
  *
@@ -403,13 +490,9 @@ export function toPortablePath(
  */
 export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
   const { roots, cwd, projectRoot, env } = options;
-  const exceptions = (options.dialectExceptions ?? []).map((e) =>
-    toPortablePath(e),
-  );
   const findings: ISurfaceFinding[] = [];
   const openings: IOpening[] = [];
   let scanned = 0;
-  let entitiesScanned = 0;
 
   const read = (file: string): string => {
     try {
@@ -498,45 +581,26 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
           openings,
         );
       }
-
-      // Le dialecte ne se contrôle que là où le producteur CHERCHE ses
-      // entités : ailleurs, un import des trois moteurs est légitime.
-      if (!file.includes(ENTITY_DIR)) continue;
-      // Deux façons d'écrire pour quel moteur on écrit, et les deux comptent :
-      // l'import direct (entité écrite à la main, ou par `create entity`) et
-      // le dialecte déclaré en valeur (gabarit d'application, qui passe par
-      // une fabrique du framework). N'en reconnaître qu'une déplace l'angle
-      // mort au lieu de le fermer.
-      DRIZZLE_CORE_RE.lastIndex = 0;
-      const imported = new Set<SqlDialectName>();
-      let m: RegExpExecArray | null;
-      while ((m = DRIZZLE_CORE_RE.exec(clean)) !== null) {
-        const found = DIALECT_OF_IMPORT[m.at(1) ?? ""];
-        if (found) imported.add(found);
-      }
-      DIALECT_VALUE_RE.lastIndex = 0;
-      while ((m = DIALECT_VALUE_RE.exec(clean)) !== null) {
-        const found = m[1] as SqlDialectName | undefined;
-        if (found) imported.add(found);
-      }
-      if (imported.size === 0) continue;
-      entitiesScanned++;
-      if (!dialect) continue;
-      if (imported.has(dialect)) continue;
-      // Le projet a DÉCLARÉ que cette divergence est voulue : un dépôt qui
-      // porte un banc multi-moteurs ne doit pas être condamné pour cela.
-      if (exceptions.some((e) => toPortablePath(relative).includes(e)))
-        continue;
-      const wrote = [...imported].join(", ");
-      findings.push({
-        kind: "entity-other-dialect",
-        file: relative,
-        message:
-          `cette entité est écrite pour ${wrote}, alors que le connecteur est ` +
-          `${dialect} (${from}) — l'outil de migration l'ÉCARTE en silence, la ` +
-          `table ne sera jamais créée, et la première requête répondra 500`,
-      });
     }
+  }
+
+  // Les entités se relèvent par la fonction PARTAGÉE avec le démarrage de
+  // Drizzle : le diagnostic et le refus de repli ne peuvent pas diverger.
+  const { mismatches, entitiesScanned } = entityDialectMismatches({
+    roots,
+    cwd,
+    dialect,
+    exceptions: options.dialectExceptions ?? [],
+  });
+  for (const { file, wrote } of mismatches) {
+    findings.push({
+      kind: "entity-other-dialect",
+      file,
+      message:
+        `cette entité est écrite pour ${wrote.join(", ")}, alors que le connecteur est ` +
+        `${dialect} (${from}) — l'outil de migration l'ÉCARTE en silence, la ` +
+        `table ne sera jamais créée, et la première requête répondra 500`,
+    });
   }
 
   return {
