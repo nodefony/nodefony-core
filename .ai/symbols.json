@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 884,
-    "symbols": 4426,
+    "symbols": 4427,
     "classes": 404,
     "interfaces": 1157,
     "types": 475,
     "enums": 4,
-    "functions": 1939,
+    "functions": 1940,
     "constants": 447
   },
   "symbols": {
@@ -23188,6 +23188,14 @@
       "module": "@nodefony/studio",
       "description": "Ce qui transite sur le canal `nodefony:scaffold:job@<id>`. Deux natures, et pas une seule : une ligne de terminal **et** l'état du job. Sans le second, le front n'aurait aucun moyen d'apprendre par…"
     },
+    "stepCommand": {
+      "name": "stepCommand",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Commande d'une étape de l'allowlist, lancée par le gestionnaire de paquets de l'application où elle tourne — même résolution que la CLI (`create.ts`). Une application pnpm, yarn ou bun ne doit pas …"
+    },
     "fetchAdminEndpoint": {
       "name": "fetchAdminEndpoint",
       "kind": "function",
@@ -33157,7 +33165,8 @@
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
       ],
       "packageManagerUpdateInstallArgs": [
-        "src/nodefony/src/cli/create.ts"
+        "src/nodefony/src/cli/create.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "packageManagerExecArgs": [
         "src/nodefony/src/cli/create.ts",
@@ -33173,7 +33182,8 @@
         "src/nodefony/src/kernel/checks/managerDrift.ts",
         "src/nodefony/src/kernel/checks/readiness.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts",
-        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"
+        "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "PackageManagerName": [
         "src/nodefony/src/cli/create.ts",

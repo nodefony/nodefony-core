@@ -13,6 +13,8 @@ import path from "node:path";
 import {
   Service,
   portableSpawn,
+  resolvePackageManager,
+  packageManagerUpdateInstallArgs,
   argvMcpWiring,
   AGENT_TARGETS,
   runScaffold,
@@ -48,6 +50,33 @@ import {
  */
 export { SCAFFOLD_STEPS };
 export type ScaffoldStep = TScaffoldStep;
+
+/**
+ * Commande d'une étape de l'allowlist, lancée par le gestionnaire de paquets de
+ * l'application où elle tourne — même résolution que la CLI (`create.ts`).
+ *
+ * Une application pnpm, yarn ou bun ne doit pas se voir installer par npm : il
+ * poserait un second fichier de verrou à côté du sien.
+ *
+ * @param step - étape demandée (filtrée par l'allowlist)
+ * @param cwd - dossier de l'application, où chercher son fichier de verrou
+ * @returns le gestionnaire et ses arguments, ou `null` pour une étape inconnue
+ */
+export function stepCommand(
+  step: ScaffoldStep,
+  cwd: string,
+): { pm: string; args: readonly string[] } | null {
+  const args = SCAFFOLD_STEP_COMMANDS[step] as
+    (typeof SCAFFOLD_STEP_COMMANDS)[ScaffoldStep] | undefined;
+  if (!args) return null;
+  const pm = resolvePackageManager({ dir: cwd }).name;
+  // L'installation SUIT une écriture du manifeste : même arguments que la CLI
+  // (pnpm fige sinon le verrou sous `CI` et refuse de l'accorder).
+  return {
+    pm,
+    args: step === "install" ? packageManagerUpdateInstallArgs(pm) : args,
+  };
+}
 
 /** Nature d'une ligne du terminal — pilote la couleur côté front. */
 export type ScaffoldStream = "info" | "out" | "err" | "ok" | "fail";
@@ -693,13 +722,14 @@ class ScaffoldService extends Service {
       await this.#wireAgents(job, stepCwd, answers);
     }
     if (type === "app") {
+      const pm = resolvePackageManager({ dir: stepCwd }).name;
       this.#emit(job, "ok", `Application prête : ${stepCwd}`);
       this.#emit(
         job,
         "info",
         steps.includes("install")
-          ? "Lance-la : cd <dossier> && npm run dev"
-          : "Prochaine étape : cd <dossier> && npm install && npm run dev",
+          ? `Lance-la : cd <dossier> && ${pm} run dev`
+          : `Prochaine étape : cd <dossier> && ${pm} install && ${pm} run dev`,
       );
     } else if (steps.includes("build")) {
       this.#emit(
@@ -808,16 +838,16 @@ class ScaffoldService extends Service {
   #spawnStep(job: IJob, step: ScaffoldStep, cwd: string): Promise<boolean> {
     // Défense en profondeur : l'allowlist est filtrée par le contrôleur, mais
     // `start()` est public — une étape inconnue ne doit jamais atteindre `spawn`.
-    const args = SCAFFOLD_STEP_COMMANDS[step] as
-      (typeof SCAFFOLD_STEP_COMMANDS)[ScaffoldStep] | undefined;
-    if (!args) {
+    const command = stepCommand(step, cwd);
+    if (!command) {
       this.#emit(job, "fail", `étape inconnue: ${step}`);
       return Promise.resolve(false);
     }
-    this.#emit(job, "info", `$ npm ${args.join(" ")}`);
+    const { pm, args } = command;
+    this.#emit(job, "info", `$ ${pm} ${args.join(" ")}`);
 
     return new Promise<boolean>((resolve) => {
-      const cmd = portableSpawn("npm", args);
+      const cmd = portableSpawn(pm, args);
       const child = spawn(cmd.file, cmd.args, {
         cwd,
         env: process.env,
@@ -847,19 +877,23 @@ class ScaffoldService extends Service {
       pipe(child.stderr, "err");
 
       child.once("error", (err) => {
-        this.#emit(job, "fail", `npm introuvable ou illisible: ${err.message}`);
+        this.#emit(
+          job,
+          "fail",
+          `${pm} introuvable ou illisible: ${err.message}`,
+        );
         resolve(false);
       });
       child.once("close", (code) => {
         job.child = null;
         if (code === 0) {
-          this.#emit(job, "ok", `npm ${args.join(" ")} — terminé`);
+          this.#emit(job, "ok", `${pm} ${args.join(" ")} — terminé`);
           resolve(true);
         } else {
           this.#emit(
             job,
             "fail",
-            `npm ${args.join(" ")} — échec (code ${code})`,
+            `${pm} ${args.join(" ")} — échec (code ${code})`,
           );
           resolve(false);
         }

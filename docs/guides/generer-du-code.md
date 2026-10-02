@@ -7,7 +7,7 @@ topic: scaffold
 audience: [developer]
 tags: [scaffold, cli, generateur, agent, dry-run, studio, guide]
 status: stable
-updated: 2026-07-24
+updated: 2026-10-02
 source: src/nodefony/src/cli/scaffold/engine.ts
 related: project_cli_scaffold_design, project_devkit_ai_kit
 ---
@@ -304,10 +304,12 @@ n'existe pas de seconde implémentation qui pourrait dériver. Il sert le
 formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 **préview** du plan avant d'exécuter (`preview()`,
 `ScaffoldService.ts:333`), puis streame la progression du travail — écriture,
-`npm install`, construction — sur un canal temps réel.
+installation des dépendances, construction — sur un canal temps réel. Les étapes
+partent par le gestionnaire de paquets de l'application (npm, pnpm, yarn ou bun, lu
+à son fichier de verrou), comme en ligne de commande.
 
 > [!WARNING]
-> Ces routes écrivent sur le disque et lancent `npm`. Elles répondent **403 hors
+> Ces routes écrivent sur le disque et lancent le gestionnaire de paquets. Elles répondent **403 hors
 > développement**, quel que soit le rôle : le refus est prononcé côté serveur, pas
 > en masquant une entrée de menu. Les étapes exécutables sont une liste fermée —
 > le client coche un identifiant d'étape, il n'envoie jamais une ligne de commande.
@@ -348,7 +350,7 @@ formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 | `aucun projet Nodefony ici` | Les types in-project remontent aux `nodefony.config.ts` depuis le dossier courant — vous êtes en dehors. | Se placer dans l'application, ou créer d'abord `nodefony create app`. |
 | `X est déjà référencé dans index.ts` | Un contrôleur ou une entité porte déjà ce nom dans la cible. | Choisir un autre nom. Rien n'a été écrit : le projet est intact. |
 | `@controllers([...]) introuvable` | L'`index.ts` de la cible n'a plus le décorateur où insérer la classe. | Le message donne l'édition exacte à faire à la main. Le fichier généré n'a pas été posé — pas d'orphelin. |
-| Le module créé n'est pas chargé au démarrage | Un module est un **workspace npm** : sans `npm install`, le lien n'existe pas et le kernel ne le résout pas par son nom. | Lancer `npm install` à la racine de l'application, puis `npm run build`. |
+| Le module créé n'est pas chargé au démarrage | Un module est un **workspace** de l'application : sans installation, le lien n'existe pas et le kernel ne le résout pas par son nom. | Lancer l'installation à la racine de l'application (`npm install`, ou `pnpm install`, `yarn`, `bun install`), puis `npm run build` (ou son équivalent). |
 | `npm run typecheck` échoue en `TS2882` sur un import de feuille de style | TypeScript ne connaît pas les fichiers que Vite sait importer. | `"types": ["node", "vite/client"]` dans le `tsconfig.json` — le scaffold le pose déjà quand il génère un front. |
 | Une entité modifiée ne change pas la table | En développement, seule une colonne qui accepte le vide est rattrapée ; une colonne obligatoire ne l'est jamais. | `nodefony orm:reset` en développement, ou `nodefony orm:generate --name <nom>` puis `nodefony orm:migrate` — jamais à la main. |
 

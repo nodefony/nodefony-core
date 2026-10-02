@@ -68,6 +68,7 @@ export type { IPortableSpawn } from "./cli/execPortable";
 export {
   resolvePackageManager,
   packageManagerExecArgs,
+  packageManagerUpdateInstallArgs,
   packageManagerCommandLines,
   packageManagerToolchain,
 } from "./cli/packageManager";

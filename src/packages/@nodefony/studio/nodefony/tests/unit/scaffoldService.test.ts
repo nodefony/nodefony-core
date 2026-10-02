@@ -27,11 +27,12 @@ import {
   existsSync,
   readFileSync,
   realpathSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Container, runScaffold } from "nodefony";
-import ScaffoldService from "../../service/ScaffoldService";
+import ScaffoldService, { stepCommand } from "../../service/ScaffoldService";
 
 /**
  * Module factice : le service ne lit du module que `kernel` (environnement,
@@ -180,5 +181,40 @@ describe("ScaffoldService — pilotage du générateur depuis Studio", () => {
     const targets = svc.targets();
     expect(targets.map((t) => t.kind)).to.include("app");
     expect(targets[0]!.dir).to.equal(project);
+  });
+});
+
+describe("ScaffoldService — étapes lancées par le gestionnaire de l'application", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "nf-studio-pm-"));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  // Studio lançait `npm` en dur : une app pnpm, yarn ou bun recevait un second
+  // fichier de verrou. Le gestionnaire se lit au verrou de l'application.
+  for (const [lock, pm] of [
+    ["pnpm-lock.yaml", "pnpm"],
+    ["yarn.lock", "yarn"],
+    ["bun.lock", "bun"],
+    ["package-lock.json", "npm"],
+  ] as const) {
+    it(`${lock} → les étapes partent par ${pm}`, () => {
+      writeFileSync(path.join(dir, lock), "");
+      expect(stepCommand("build", dir)).to.deep.equal({
+        pm,
+        args: ["run", "build"],
+      });
+    });
+  }
+
+  it("l'installation reprend les arguments de la CLI (pnpm ne fige pas le verrou)", () => {
+    writeFileSync(path.join(dir, "pnpm-lock.yaml"), "");
+    expect(stepCommand("install", dir)?.args).to.deep.equal([
+      "install",
+      "--no-frozen-lockfile",
+    ]);
   });
 });
