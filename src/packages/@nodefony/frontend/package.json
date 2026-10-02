@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/frontend",
-  "version": "10.0.0-beta.1",
+  "version": "10.0.0-beta.2",
   "description": "Construction et rechargement à chaud des frontends de chaque module Nodefony — Vite intégré, multi-framework (React, Vue, Angular, Svelte)",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "type": "module",
@@ -36,18 +36,18 @@
     "esm"
   ],
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-beta.1",
-    "@nodefony/http": "^10.0.0-beta.1",
-    "nodefony": "^10.0.0-beta.1",
+    "@nodefony/framework": "^10.0.0-beta.2",
+    "@nodefony/http": "^10.0.0-beta.2",
+    "nodefony": "^10.0.0-beta.2",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.0-beta.1",
-    "@nodefony/http": "^10.0.0-beta.1",
+    "@nodefony/framework": "^10.0.0-beta.2",
+    "@nodefony/http": "^10.0.0-beta.2",
     "@types/chai": "5.2.3",
     "@types/node": "26.6.3",
     "@vitest/coverage-v8": "5.0.3",
-    "nodefony": "^10.0.0-beta.1",
+    "nodefony": "^10.0.0-beta.2",
     "vite": "8.3.2",
     "vitest": "5.0.3"
   },

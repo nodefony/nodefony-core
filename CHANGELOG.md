@@ -8,6 +8,49 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-beta.2 - 2026-10-02
+
+### Changed
+
+- **orm (breaking):** Rendre zéro ligne pour un filtre `$or: []`, sur Drizzle comme sur Mongoose — il rendait toute la table (#20) (3f5b695de)
+- **core:** Ne construire le bus d'événements d'un service de requête qu'à sa première demande (#508) (ffc9e84aa)
+- **framework:** Servir une route littérale sans exécuter son motif d'expression régulière (#508) (7f82b96e2)
+- **http:** Retirer quatre allocations du traitement de chaque requête, sans changer de comportement (#508) (6fe0b6f87)
+- **orm:** Supprimer une recompilation de requête superflue sur le chemin Drizzle (#510) (f08d8c9de)
+
+### Added
+
+- **cli:** Ajouter `nodefony debug`, qui ouvre le débogueur Node dans le serveur en une commande (4bebbfacd)
+- **cli:** Ajouter `create app --package-manager` pour générer une application npm, pnpm, yarn ou bun (#294) (f76685011)
+- **cli:** Lancer scripts et processus par le gestionnaire de paquets du projet, résolu en un seul endroit (#294) (50aa33739, 6eacc64ea)
+- **scaffold:** Générer la forge et l'image Docker dans le gestionnaire de paquets de l'application (#294) (7a0fc8b86)
+- **doctor:** Signaler une version de Node qui porte des failles déjà corrigées (#20) (6dac3df00)
+- **doctor:** Signaler un projet qui contredit son gestionnaire de paquets déclaré (#294) (00925eff4)
+
+### Removed
+
+- **http:** Retirer la dépendance `node-forge` — le certificat auto-signé de développement est fabriqué par `node:crypto` (b9f9cf60e)
+
+### Fixed
+
+- **orm:** Empêcher une clé du prototype de franchir la liste blanche des champs (771d0b298)
+- **http:** Refuser un nom DNS hors ASCII dans le certificat de développement, au lieu de le changer en un autre nom (#20) (a800a9cb4)
+- **http:** Laisser les workers de `nodefony cluster` partager leur port — le cluster tournait sur un seul worker (78e5d82e6)
+- **drizzle:** Passer en mode WAL une base SQLite ouverte par plusieurs processus (5647db9bc)
+- **security:** Corriger les alertes CodeQL d'expression régulière exponentielle et d'injection de commande (63d5018e3)
+- **bundler:** Ne plus recopier un paquet `@nodefony/*` dans le `dist` d'un module (#351) (9cac73df0)
+- **doctor:** Neutraliser les octets de contrôle de la liste des versions Node avant de les afficher (#20) (74397d5d1)
+- **doctor:** Annoncer les bonnes gardes et formater les gabarits pour pnpm, yarn et bun (#294) (4153f871e)
+- **cli:** Ne plus ignorer en silence `--inspect <hôte:port>`, et avertir quand le débogueur est exposé (9ef5e522e)
+- **cli:** Déboguer le `.ts` de l'application en développement, pas son `dist` (f65d319c3)
+- **cli:** Arrêter tous les minuteurs sans lever quand `stopTimer()` est appelé sans nom (7e8f35d80)
+- **cli:** Installer les dépendances de `create module` sous CI et rendre son échec visible (3c48bb509)
+- **scaffold:** Déclarer le framework en `^<version>` dans un module généré, jamais en `*` (#294) (8fc558381)
+- **scaffold:** Aligner les versions des gabarits sur les dépendances du framework (5b4194976)
+- **scaffold:** Faire passer à chaque front généré ses propres contrôles (81e8d262d)
+- **studio:** Lancer les étapes du générateur par le gestionnaire de paquets de l'application (1cb760ac2)
+- **docker:** Mettre le frontal nginx en 1.30 — la 1.27 ne reçoit plus de correctifs (2ad9bef49)
+
 ## 10.0.0-beta.1 - 2026-09-28
 
 ### Changed
