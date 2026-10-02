@@ -535,18 +535,25 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     for (const [field, value] of Object.entries(criteria)) {
       // Disjonction : chaque branche est un critère complet, traduit par la même
       // fonction (donc les opérateurs riches et le `IS NULL` y valent aussi).
-      // Une branche vide serait toujours vraie et rendrait le `OR` inutile —
-      // elle est écartée, et un `$or` entièrement vide ne pose rien.
+      // 🔴 Logique booléenne, pas commodité : une disjonction VIDE est FAUSSE
+      // (aucune ligne) — un `$or` bâti sur une liste d'appartenance vide
+      // (équipes, droits) rendait jusqu'ici TOUTE la table. Une branche vide
+      // est VRAIE : la disjonction entière l'est, elle ne pose rien.
       if (field === "$or") {
         if (!Array.isArray(value)) {
           throw new Error(
             `DrizzleRepository(${getTableName(this.#table)}): $or attend un tableau de critères.`,
           );
         }
-        const branches = value
-          .map((branch) => this.#where(branch as Criteria<T>))
-          .filter((branch): branch is SQL => branch !== undefined);
-        const [first, ...rest] = branches;
+        if (value.length === 0) {
+          conds.push(sql`1 = 0`);
+          continue;
+        }
+        const branches = value.map((branch) =>
+          this.#where(branch as Criteria<T>),
+        );
+        if (branches.some((branch) => branch === undefined)) continue;
+        const [first, ...rest] = branches as SQL[];
         if (first !== undefined) {
           conds.push(rest.length === 0 ? first : (or(first, ...rest) as SQL));
         }

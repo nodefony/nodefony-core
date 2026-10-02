@@ -31,6 +31,11 @@ Consommé par les **deux** drivers existants (`@nodefony/drizzle` — défaut �
   SQL = `likePatternToRegExp` (Mongo, mémoire). Un adapter SQL DOIT émettre la
   clause `ESCAPE` — sans elle, PG/MySQL appliquent déjà `\` et SQLite non, soit
   trois sémantiques pour un opérateur portable.
+- **`$or` = logique booléenne, jamais commodité** : `$or: []` est FAUX (0 ligne), une
+  branche `{}` est VRAIE (la disjonction entière l'est). Un `$or` bâti sur une liste
+  d'appartenance vide qui rendrait « tout » = échec OUVERT. Mongo refuse `$or: []` → l'adapter
+  écrit le faux autrement (`_id ∈ ∅`). Prouvé sur les 4 moteurs par le contrat partagé
+  `tests/support/repositoryContract.ts`.
 
 ## Interdits
 

@@ -211,6 +211,29 @@ describe.skipIf(!URI)(
       }
     });
 
+    it("red-team : `$or: []` (disjonction vide = FAUX) ne rend aucun document ; une branche vide la rend VRAIE", async () => {
+      await users.delete({});
+      await users.create({ email: "or-a@x.io", age: 30 });
+      await users.create({ email: "or-b@x.io", age: 40 });
+      try {
+        // Filtre d'appartenance bâti sur une liste VIDE : jamais toute la collection.
+        assert.equal((await users.find({ $or: [] } as never)).length, 0);
+        assert.equal(await users.count({ $or: [] } as never), 0);
+        assert.equal(
+          (await users.find({ age: 30, $or: [] } as never)).length,
+          0,
+        );
+        // Contrôle : `{}` est vrai, la disjonction aussi.
+        assert.equal(
+          (await users.find({ $or: [{ email: "zz@x.io" }, {}] } as never))
+            .length,
+          2,
+        );
+      } finally {
+        await users.delete({});
+      }
+    });
+
     it("order strict : forme mal formée → InvalidOrderOption (parité stricte avec Drizzle)", async () => {
       await users.delete({});
       await users.createMany([

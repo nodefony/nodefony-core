@@ -252,18 +252,26 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const out: Record<string, unknown> = {};
     for (const [field, value] of Object.entries(criteria)) {
       // Disjonction : chaque branche est un critère complet, traduit par la même
-      // fonction (donc `id`→`_id` et les opérateurs riches y valent aussi). Une
-      // branche vide serait toujours vraie ; un `$or` sans branche ne pose rien.
+      // fonction (donc `id`→`_id` et les opérateurs riches y valent aussi).
+      // 🔴 Logique booléenne, même contrat que Drizzle : une disjonction VIDE
+      // est FAUSSE — un `$or` bâti sur une liste d'appartenance vide rendait
+      // jusqu'ici TOUTE la collection. Mongo refusant `$or: []`, le faux
+      // s'écrit `_id ∈ ∅`. Une branche vide est VRAIE : la disjonction aussi.
       if (field === "$or") {
         if (!Array.isArray(value)) {
           throw new TypeError(
             `MongooseRepository(${this.#model.modelName}): $or attend un tableau de critères.`,
           );
         }
-        const branches = value
-          .map((branch) => this.#filter(branch as Criteria<T>))
-          .filter((f) => Object.keys(f).length > 0);
-        if (branches.length > 0) out.$or = branches;
+        if (value.length === 0) {
+          out.$and = [{ _id: { $in: [] } }];
+          continue;
+        }
+        const branches = value.map((branch) =>
+          this.#filter(branch as Criteria<T>),
+        );
+        if (branches.some((f) => Object.keys(f).length === 0)) continue;
+        out.$or = branches;
         continue;
       }
       const key = this.#resolveField(field);

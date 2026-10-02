@@ -162,6 +162,34 @@ export function runRepositoryContract(
     );
   });
 
+  it("find : `$or` vide = FAUX (0 ligne), branche vide = VRAI — jamais « toute la table » par une liste vide", async () => {
+    await seed();
+    // Filtre d'appartenance bâti sur une liste VIDE (équipes, droits) : rendre
+    // toute la table serait un échec OUVERT. Logique booléenne sur les 4 moteurs.
+    const empty = { $or: [] } as unknown as Record<string, unknown>;
+    assert.equal((await repo.find(empty)).length, 0);
+    assert.equal(await repo.count(empty), 0);
+    assert.equal((await repo.find({ age: 25, ...empty })).length, 0);
+    const page = await paginate(repo, {
+      limit: 10,
+      criteria: empty,
+      order: [["score", "ASC"]],
+    });
+    assert.equal(page.items.length, 0);
+    assert.equal(page.total, 0, "paginate : le COUNT suit le même critère");
+    const anyBranch = { $or: [{ name: "nobody" }, {}] } as unknown as Record<
+      string,
+      unknown
+    >;
+    assert.equal((await repo.find(anyBranch)).length, 4, "`{}` est vrai");
+    assert.equal(
+      (await repo.find({ $or: [{ age: 25 }, { name: "alice" }] } as never))
+        .length,
+      3,
+      "contrôle positif : disjonction ordinaire",
+    );
+  });
+
   it("find : `$like` échappé — un joker rendu LITTÉRAL, même réponse sur les 3 moteurs", async () => {
     // LE défaut cross-dialecte du contrat : sans clause `ESCAPE` émise,
     // PostgreSQL et MySQL appliquaient déjà l'antislash quand SQLite cherchait
