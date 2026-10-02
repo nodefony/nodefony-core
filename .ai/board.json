@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T10:22:14.740Z",
+  "generatedAt": "2026-10-02T11:14:03.911Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 56,
+      "closed": 57,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 37,
@@ -831,6 +831,22 @@
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
+      "ordre": 2.001,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 512,
+      "title": "fix(cli): déboguer le .ts de l'application en développement, pas son dist",
+      "url": "https://github.com/nodefony/nodefony-core/issues/512",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
       "ordre": 2.001,
       "debut": null,
       "cible": null,
