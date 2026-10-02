@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T17:19:15.154Z",
+  "generatedAt": "2026-10-02T19:21:13.460Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 60,
+      "closed": 61,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 34,
+      "open": 35,
       "title": "10.0.0-beta"
     },
     {
@@ -1626,6 +1626,38 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 514,
+      "title": "fix(realtime): donner l'identité de l'appelant aux actions temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/514",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.005,
+      "debut": "2026-10-03",
+      "cible": "2026-10-03",
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 515,
+      "title": "fix(cli): faire couvrir par le typecheck le front de create front",
+      "url": "https://github.com/nodefony/nodefony-core/issues/515",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.006,
+      "debut": "2026-10-04",
+      "cible": "2026-10-04",
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 268,
