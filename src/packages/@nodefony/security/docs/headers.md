@@ -125,7 +125,7 @@ fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage*
   (`http-kernel.ts:358`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
   boot ; `onHttpRequest` (`http-kernel.ts:1009`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
-  (`Context.ts:253`) ne génère ses 128 bits (`randomBytes(16)` en base64) qu'à la première lecture,
+  (`Context.ts:253`) ne tire ses 128 bits (16 octets CSPRNG, en base64) d'un pool amorti (`randomFillSync`, 4 Ko pour 256 nonces) qu'à la première lecture,
   puis mémoïse. Une réponse qui n'a aucun script inline à signer ne paie aucun appel crypto.
 
 Le second parti pris est la **séparation d'autorité** décrite plus haut : un seul émetteur par
@@ -533,7 +533,7 @@ Le coût est concentré au boot, par construction :
 - **En-têtes constants** : une seule table, gelée (`securityHeaders.ts:77`). Par requête, une boucle
   `for…in` sur un objet de 1 à 6 entrées et autant de `setHeader`. Aucune allocation.
 - **CSP statique** : rien de plus — la chaîne est dans la table.
-- **CSP à nonce** : `randomBytes(16)` plus un `join` par requête. C'est le seul coût variable, et il
+- **CSP à nonce** : un tirage dans le pool plus une concaténation `préfixe + nonce + suffixe` par requête. C'est le seul coût variable, et il
   n'existe **que** si le CSP porte un placeholder : `hasNonce` (`securityHeaders.ts:100`)
   court-circuite entièrement ce chemin sinon. La paresse de `Context.cspNonce` (`Context.ts:253`)
   protège en plus les chemins internes qui n'atteignent jamais le firewall.

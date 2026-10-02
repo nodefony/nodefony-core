@@ -73,11 +73,11 @@ le plus long gagne, pas le premier déclaré (`firewall.ts:257`).
 
 ### Dans une app `nodefony create app`, le firewall est DÉJÀ actif
 
-Le scaffold déclare deux zones dans `nodefony.config.ts` — c'est la forme canonique (un **objet par
+Le scaffold déclare trois zones (`main`, `secure`, `machine`) dans `nodefony/config/security.ts`, importé par `nodefony.config.ts` ; en voici deux — c'est la forme canonique (un **objet par
 nom**, validé Zod au boot : `areas: z.record(...)`, `config.ts:1126-1127`) :
 
 ```typescript
-// nodefony.config.ts (extrait généré par `nodefony create app`)
+// nodefony/config/security.ts (extrait généré par `nodefony create app`)
 use("@nodefony/security", {
   areas: {
     // Zone de TES routes : `session` PUIS `anonymous` → identifié si cookie,
@@ -151,7 +151,7 @@ curl -si http://localhost:5151/api/secure/account/me | head -1
 
 # 2) Login BFF (compte dev seedé admin/nodefony-dev-42) → cookie de session
 curl -si -c /tmp/jar -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin"}' \
+  -d '{"username":"admin","password":"nodefony-dev-42"}' \
   http://localhost:5151/nodefony/security/api/auth/login | head -1
 # HTTP/1.1 200 OK
 
@@ -463,12 +463,12 @@ inchangé : la zone n'exige qu'une identité.
 C'est un **défaut**, pas une exclusivité. Quatre cas gardent la main, et chacun est une déclaration
 explicite du code — jamais un contournement :
 
-| Ce qui décide à la place                               | Pourquoi                                                                                                              |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Une **garde d'action** (`@IsGranted`, `@RequireScope`) | L'action a déjà dit ce qu'elle exige. Sans cela, une page réservée à l'exploitant deviendrait inatteignable pour lui. |
-| Une route **`selfGuarded`**                            | Elle tranche son autorisation dans son code — typiquement parce qu'elle ne sert QUE le porteur courant.               |
-| Un **`bypassFirewall`**                                | La route EST le mécanisme d'authentification : lui imposer un rôle serait un verrou dont la clé est à l'intérieur.    |
-| L'**ouverture d'une connexion WebSocket**              | Une connexion n'accède à rien ; ce sont les frames qui accèdent, et chacune est gardée pour son compte.               |
+| Ce qui décide à la place                  | Pourquoi                                                                                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Une **garde de rôle** (`@IsGranted`)      | L'action a déjà dit quel rôle elle exige (un `@RequireScope` seul ne dispense pas du rôle de zone). Sans cela, une page réservée à l'exploitant deviendrait inatteignable pour lui. |
+| Une route **`areaRoleExempt`**            | Elle tranche son autorisation dans son code — typiquement parce qu'elle ne sert QUE le porteur courant.                                                                             |
+| Un **`bypassFirewall`**                   | La route EST le mécanisme d'authentification : lui imposer un rôle serait un verrou dont la clé est à l'intérieur.                                                                  |
+| L'**ouverture d'une connexion WebSocket** | Une connexion n'accède à rien ; ce sont les frames qui accèdent, et chacune est gardée pour son compte.                                                                             |
 
 Le dernier cas mérite d'être compris, parce qu'il pourrait passer pour un trou. Il n'en est pas un :
 une frame `api.request {path}` **repasse par la même décision** que la requête HTTP équivalente.
@@ -477,7 +477,7 @@ que la porte HTTP refuse. Ce que la dispense évite, c'est qu'un compte sans rô
 puisse plus ouvrir **aucune** socket, et perde du même coup le self-service dont il est le seul
 destinataire.
 
-> ⚠️ **`selfGuarded` n'est pas un interrupteur pour faire taire un refus.** Le poser sur une route
+> ⚠️ **`areaRoleExempt` n'est pas un interrupteur pour faire taire un refus.** Le poser sur une route
 > qui ne décide de rien la rend accessible à tout compte connecté, en silence. Il se justifie par ce
 > que fait le CODE de l'action : scoper au porteur courant, ou résoudre un rôle par point d'entrée.
 > Dans le doute, une garde d'action explicite est toujours préférable.
@@ -505,7 +505,7 @@ registerVoterFactory(
 //   l'utilisateur est-il propriétaire/membre du `subject` ? GRANT / DENY / ABSTAIN.
 ```
 
-Le voter est **découvert automatiquement** par l'`AuthorizationService` — aucun changement dans le
+Le voter est **découvert automatiquement** par le service `authorization` — aucun changement dans le
 cœur (`registerVoterFactory()`, `voterRegistry.ts:40`). Pourquoi un registre et pas un scan DI des
 `@injectable` : les interfaces TS sont **effacées à la compilation** — rien à scanner ; le registre
 **est** le marqueur explicite (TSDoc du registre, `voterRegistry.ts:6-16`). Trois axes (rôles,
@@ -553,16 +553,16 @@ ne paie quasiment rien.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                 | Cause (dans le code)                                    | Correction                                                      |
-| ---------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------- |
-| Boot rejette la config (`areas`)         | `areas` déclaré en **tableau** — c'est un objet par nom | `areas: { monNom: { pattern, authenticators } }`                |
-| Boot « authenticator inconnu »           | Nom absent du registre (fail-closed)                    | Corriger le nom / enregistrer l'authenticator                   |
-| 401 alors qu'un credential est envoyé    | Mode `first` : credential invalide échoue sans fallback | Vérifier le format/authenticator attendu                        |
-| Route « publique » ne voit jamais l'user | Hors zone, l'identité n'est **jamais** résolue          | Couvrir la route par une zone `["session", "anonymous"]`        |
-| API : JWT et clé API se marchent dessus  | —                                                       | Rien à faire : discriminés par la forme (`a.b.c` vs `prefix_…`) |
-| JWT révoqué encore accepté               | Auto-portage : révocation = état serveur                | S'assurer que `tokenStore` porte la denylist/`invalidBefore`    |
-| WS : révocation pas immédiate            | Jeton figé au handshake (asymétrie assumée)             | Effet à la reconnexion ; pour l'immédiat, canal JWT (J4)        |
-| 429 au login                             | Throttle NIST (backoff par identifiant)                 | Respecter `Retry-After` ; attendu sous attaque                  |
+| Symptôme                                 | Cause (dans le code)                                    | Correction                                                                      |
+| ---------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Boot rejette la config (`areas`)         | `areas` déclaré en **tableau** — c'est un objet par nom | `areas: { monNom: { pattern, authenticators } }`                                |
+| Boot « authenticator inconnu »           | Nom absent du registre (fail-closed)                    | Corriger le nom / enregistrer l'authenticator                                   |
+| 401 alors qu'un credential est envoyé    | Mode `first` : credential invalide échoue sans fallback | Vérifier le format/authenticator attendu                                        |
+| Route « publique » ne voit jamais l'user | Hors zone, l'identité n'est **jamais** résolue          | Couvrir la route par une zone `["session", "anonymous"]`                        |
+| API : JWT et clé API se marchent dessus  | —                                                       | Rien à faire : discriminés par la forme (`a.b.c` vs `prefix_…`)                 |
+| JWT révoqué encore accepté               | Auto-portage : révocation = état serveur                | S'assurer que `tokenStore` porte la denylist/`invalidBefore`                    |
+| WS : révocation pas immédiate            | Jeton figé au handshake (asymétrie assumée)             | Effet en une fenêtre (tick du hub + avant chaque `api.request`, fermeture 4001) |
+| 429 au login                             | Throttle NIST (backoff par identifiant)                 | Respecter `Retry-After` ; attendu sous attaque                                  |
 
 ## 📡 Observabilité — Studio
 

@@ -134,7 +134,7 @@ chaque appel du front.
 ### 1. La config — dans `nodefony.config.ts`
 
 ```typescript
-// nodefony.config.ts (extrait généré par `nodefony create app`, puis complété)
+// nodefony/config/security.ts (extrait généré par `nodefony create app`, puis complété)
 use("@nodefony/security", {
   cors: {
     // Allowlist EXACTE : scheme + host + port. Un sous-domaine n'est PAS inclus.

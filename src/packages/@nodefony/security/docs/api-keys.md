@@ -137,7 +137,7 @@ protégerait que des secrets faibles, et coûterait sur le chemin chaud.
 
 ### 1. Déclarer la zone machine et les règles d'émission
 
-Dans une app générée par `nodefony create app`, tout se déclare dans `nodefony.config.ts`. Une zone
+Dans une app générée par `nodefony create app`, tout se déclare dans la config du module — `nodefony/config/security.ts`, importé par `nodefony.config.ts`. Une zone
 dont les authenticators contiennent `apikey` exige un `Authorization: Bearer nf_…` valide :
 
 ```typescript

@@ -135,7 +135,8 @@ lourds s'enregistrent depuis **leur** module. Un
 ## 🚀 Démarrage rapide
 
 Dans une app générée par `nodefony create app`, l'audit est **déjà actif** (`enabled: true` par
-défaut, `config.ts:729`) sur un store mémoire. Voici le parcours complet : configurer, émettre,
+défaut, `config.ts:729`) sur le store que résout `auto` : la base SQLite locale de l'application
+générée, la mémoire seulement si aucun ORM n'est chargé. Voici le parcours complet : configurer, émettre,
 relire.
 
 ### 1. Choisir où le journal est écrit
@@ -265,7 +266,7 @@ Les critères se **combinent en ET** et sont traduits par `parseAuditQuery()`
 | `requestId` | tous les événements d'**une seule requête**     | `requestId=req-7c1e`        |
 | `since`     | borne basse d'horodatage, epoch ms **inclus**   | `since=1763503200000`       |
 | `until`     | borne haute d'horodatage, epoch ms **inclus**   | `until=1763524800000`       |
-| `limit`     | taille de page (défaut 100, **plafonné à 500**) | `limit=200`                 |
+| `limit`     | taille de page (défaut 100, **plafonné à 200**) | `limit=200`                 |
 | `cursor`    | le `nextCursor` de la page précédente           | `cursor=1763548800123:9f-1` |
 
 ```bash
@@ -496,7 +497,7 @@ Table dérivée du schéma Zod `auditSchema` (`config.ts:883`), rattaché à la 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
 | `enabled`       | `boolean` | `true`   | `false` → `record()` no-op à coût nul, `listPage()` page vide, endpoint admin en 503 |
-| `store`         | `string`  | `"auto"` | nom résolu par le registre : `auto`, `memory`, `drizzle`                             |
+| `store`         | `string`  | `"auto"` | nom résolu par le registre : `auto`, `memory`, `drizzle`, `mongoose`                 |
 | `retentionDays` | `number`  | `365`    | fenêtre de conservation ; au-delà, la purge horaire supprime                         |
 | `immutable`     | `boolean` | `true`   | déclaré au schéma — voir l'avertissement ci-dessous                                  |
 | `stream`        | `boolean` | `true`   | déclaré au schéma — voir l'avertissement ci-dessous                                  |
@@ -514,7 +515,8 @@ enregistrés (`auditService.ts:96`, logique `resolveAutoStore()` dans `infra.ts:
 
 1. `NF_STORE` posée et le backend est enregistré pour l'audit → il gagne (levier de banc de charge) ;
 2. sinon, une base est déclarée (`NF_DATABASE_URL`) → `drizzle`, ou `mongoose` selon la famille ;
-3. sinon, repli **annoncé** sur `memory` — la décision est loggée en INFO, jamais silencieuse.
+3. sinon, un backend local persistant réellement chargé (`drizzle` = SQLite, puis `mongoose`) ;
+4. sinon, repli **annoncé** sur `memory` (volatil) — la décision est loggée en INFO, jamais silencieuse.
 
 La résolution finale est publiée au kernel (`auditService.ts:145`), ce qui alimente l'écran des stores
 de Studio : configuré, résolu, disponible, motif, emplacement physique.
@@ -702,10 +704,10 @@ webhook. Détail des souscriptions, de la signature et des relivraisons → [web
 | Journal vide après un redémarrage                   | Store `memory` : volatile et per-pod (`MemoryAuditStore.ts:37`)   | `audit.store: "drizzle"` (ou déclarer `NF_DATABASE_URL`)   |
 | Un pod voit des événements, l'autre non             | Store `memory` non partagé                                        | Store durable partagé                                      |
 | Le boot échoue en production sur l'audit            | Store **explicite** inconnu, fail-closed (`auditService.ts:115`)  | Corriger le nom, ou charger l'adapter qui l'enregistre     |
-| `limit=5000` ne rend que 500 événements             | Plafond du store (`MemoryAuditStore.ts:12`)                       | Paginer avec `nextCursor`, jamais gonfler `limit`          |
+| `limit=5000` ne rend que 200 événements             | Plafond de l'endpoint (`parsePageQuery`, `pageQuery.ts:77`)       | Paginer avec `nextCursor`, jamais gonfler `limit`          |
 | La page 2 répète ou saute des événements            | Pagination réimplémentée en offset                                | Repasser le `nextCursor` reçu — le curseur est opaque      |
-| Filtre `?category=authen` sans effet                | Catégorie inconnue **ignorée** (`SecurityAdminApi.ts:191`)        | Utiliser une valeur de l'union (`auth`, `authz`, `token`…) |
-| Le paramètre `q` ne filtre rien                     | Non appliqué sur ce journal (`IAuditStore.ts:20`)                 | Filtrer par `category`/`actor`/`action`/`requestId`        |
+| `?category=authen` renvoie 400                      | Valeur hors union refusée (`PageQueryError`)                      | Utiliser une valeur de l'union (`auth`, `authz`, `token`…) |
+| Le paramètre `q` renvoie 400                        | Recherche plein texte non supportée sur ce journal                | Filtrer par `category`/`actor`/`action`/`requestId`        |
 | `stream: false` ne coupe pas le live                | Drapeau non lu ; le live suit `#listeners` (`auditService.ts:55`) | Retirer le rôle admin, ou ne pas exposer le canal          |
 | Trous dans le journal pendant une panne de base     | Écriture best-effort (`auditService.ts:199`)                      | Store à haute disponibilité si la conformité l'exige       |
 | Aucun `login.success` alors que les logins marchent | Le succès du **firewall** est muet ; `login.success` vient du BFF | Filtrer `action=login.success`, pas `category=auth` seul   |

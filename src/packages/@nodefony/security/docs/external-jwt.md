@@ -123,11 +123,12 @@ concernent d'après la liste d'émetteurs, puis délègue la vérification au se
 La liste sert donc à deux choses : router, et dire dans quel espace de noms lire le sujet.
 
 ```ts
-firewall: {
+areas: {
   api: {
     pattern: "^/api",
     stateless: true,
     authenticators: ["external-jwt"],
+    resource: "https://api.example.com",
   },
 }
 ```

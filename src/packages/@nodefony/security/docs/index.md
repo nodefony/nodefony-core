@@ -43,7 +43,7 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 **Je découvre la sécurité Nodefony** — comprendre le modèle avant de configurer quoi que ce soit.
 
 1. [Firewall](firewall.md) — zones, Zero Trust, la chaîne de décision. **Tout part d'ici.**
-2. [Authenticators](authenticators.md) — les six façons de prouver **qui** appelle.
+2. [Authenticators](authenticators.md) — les sept façons de prouver **qui** appelle.
 3. [Autorisation](authorization.md) — rôles, scopes, voters : **ce qu'il a le droit** de faire.
 4. [Jetons](tokens.md) — ce qui matérialise une identité prouvée, et comment on la révoque.
 
@@ -98,7 +98,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
     "desc": "Le pare-feu applicatif : trois questions pour chaque requête — est-ce une zone protégée ? qui es-tu ? as-tu le droit ? Le chemin chaud (détecter) est séparé du chemin froid (décider), donc une route publique ne paie rien.",
     "meta": "à lire en premier — toutes les autres briques s'y branchent" },
   { "icon": "🪪", "title": "authenticators", "href": "authenticators.md",
-    "desc": "Prouver qui appelle : six stratégies au même contrat — session, userpassword, jwt, apikey, anonymous, firewall-realtime — qui se composent dans l'ordre au sein d'une zone.",
+    "desc": "Prouver qui appelle : sept stratégies au même contrat — session, userpassword, jwt, external-jwt, apikey, anonymous, firewall-realtime — qui se composent dans l'ordre au sein d'une zone.",
     "meta": "commence par « Ordre et modes » : les pièges de configuration sont là" },
   { "icon": "⚖️", "title": "authorization", "href": "authorization.md",
     "desc": "Décider des droits : rôles hiérarchisés, scopes, et voters métier qui portent le vrai pouvoir applicatif. Le jury vote, la stratégie tranche.",
@@ -167,7 +167,7 @@ un mot de passe parce qu'il est perdu ou compromis.
 ## ⚙️ Configuration
 
 Un seul point d'entrée : `use("@nodefony/security", { … })` dans `nodefony.config.ts`, validé par Zod
-au boot. Blocs : `areas` (zones + authenticators), `cors`, `csrf`, `headers`, `loginThrottle`
+au boot. Blocs : `areas` (zones + authenticators), `cors`, `csrf`, `headers`, `rateLimit`
 (backoff NIST), puis un bloc par brique (`jwt`, `apiKeys`, `totp`, `webhooks`, `audit`, `passkeys`,
 `oauth2`). **Chaque page de brique détaille son bloc**, avec une table dérivée du schéma.
 

@@ -185,7 +185,7 @@ curl -si http://localhost:5151/api/v1/whoami | grep -E "^(HTTP|WWW)"
 
 # 2) Web — login BFF (compte dev seedé admin/nodefony-dev-42) → cookie de session
 curl -si -c /tmp/jar -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin"}' \
+  -d '{"username":"admin","password":"nodefony-dev-42"}' \
   http://localhost:5151/nodefony/security/api/auth/login | head -1
 # HTTP/1.1 200 OK
 
@@ -349,7 +349,7 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
 
 > [!NOTE]
 > **Asymétrie de révocation HTTP↔WS (assumée)** : le jeton realtime est figé au handshake (les
-> frames lisent un cache O(1)) → une révocation prend effet **à la reconnexion**, pas à la frame
+> frames lisent un cache O(1)) → une révocation prend effet **en une fenêtre** (tick du hub, et devant chaque `api.request`), pas à la frame
 > suivante. C'est l'état de l'art (Socket.IO/Phoenix figent aussi au handshake) ; la révocation
 > immédiate forte passe par le JWT + un canal « token révoqué ».
 
