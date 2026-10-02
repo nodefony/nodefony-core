@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T19:21:13.460Z",
+  "generatedAt": "2026-10-02T20:15:34.184Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 61,
+      "closed": 62,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 35,
@@ -1631,8 +1631,8 @@
       "number": 514,
       "title": "fix(realtime): donner l'identité de l'appelant aux actions temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/514",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1653,6 +1653,22 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 3.006,
+      "debut": "2026-10-04",
+      "cible": "2026-10-04",
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 516,
+      "title": "fix(devkit-bench): appliquer les migrations avant de démarrer la production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/516",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 3.007,
       "debut": "2026-10-04",
       "cible": "2026-10-04",
       "labels": [
