@@ -42,7 +42,8 @@ const FETCH_TIMEOUT_MS = 3000;
 
 /** `v24.10.0` → `[24, 10, 0]`, ou `null` si la forme n'est pas reconnue. */
 function parseVersion(version: string): [number, number, number] | null {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)$/u.exec(version.trim());
+  // Forme EXACTE, sans `trim()` : un `\r` toléré ici réécrirait la ligne affichée.
+  const m = /^v?(\d+)\.(\d+)\.(\d+)$/u.exec(version);
   if (!m) return null;
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
@@ -91,11 +92,25 @@ export function assessNodeSecurity(
   return { current, securityReleases, latest };
 }
 
-/** Garde la forme utile d'une entrée de la liste, ou `null`. */
+/** Date de publication telle que la liste officielle l'écrit. */
+const RELEASE_DATE = /^\d{4}-\d{2}-\d{2}$/u;
+
+/** Tout ce qu'un terminal peut interpréter comme une commande : C0, DEL, C1. */
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/gu;
+
+/**
+ * Garde la forme utile d'une entrée de la liste, ou `null`.
+ *
+ * 🔴 La version et la date finissent dans un TERMINAL : une source hostile
+ * (miroir compromis) y glisserait une séquence d'échappement — effacer
+ * l'écran, réécrire le titre, poser un lien trompeur. Elles ne passent donc
+ * que dans leur forme EXACTE, jamais « nettoyées ».
+ */
 function toRelease(entry: unknown): INodeRelease | null {
   if (typeof entry !== "object" || entry === null) return null;
   const { version, date, security } = entry as Record<string, unknown>;
   if (typeof version !== "string" || typeof date !== "string") return null;
+  if (!parseVersion(version) || !RELEASE_DATE.test(date)) return null;
   return { version, date, security: security === true };
 }
 
@@ -142,7 +157,11 @@ export async function loadNodeReleases(
     }
     return { ok: true, releases };
   } catch (error) {
-    const why = error instanceof Error ? error.message : String(error);
+    // Le message de `JSON.parse` recopie un extrait du corps reçu : ses octets
+    // de contrôle n'atteignent pas le terminal.
+    const why = (
+      error instanceof Error ? error.message : String(error)
+    ).replace(CONTROL_CHARS, "?");
     return { ok: false, reason: `${source} injoignable (${why})` };
   }
 }

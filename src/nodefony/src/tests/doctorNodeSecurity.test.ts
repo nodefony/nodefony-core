@@ -106,3 +106,136 @@ describe("doctor — sécurité de Node, sans réseau", () => {
     }
   });
 });
+
+/**
+ * Red-team (#20, passe 2) : la liste des publications est la SEULE entrée
+ * réseau de `doctor`, et ce qu'elle porte finit dans un TERMINAL. Un miroir
+ * (`NF_NODE_DIST_URL`) compromis ou fantaisiste ne doit ni y écrire une
+ * séquence de contrôle (titre, effacement, lien OSC 8 trompeur), ni faire
+ * compter pour « sécurité » ce qui n'en a que l'apparence.
+ */
+describe("doctor — sécurité de Node, source hostile", () => {
+  // C0, DEL et C1 : tout ce qu'un terminal peut interpréter comme une commande.
+  const CONTROL = /[\u0000-\u001f\u007f-\u009f]/u;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "nf-node-sec-red-"));
+  afterAll(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+  const source = (name: string, body: string): string => {
+    const file = path.join(tmp, name);
+    fs.writeFileSync(file, body);
+    return file;
+  };
+
+  it("une date porteuse de séquences d'échappement est écartée : rien n'atteint le terminal", async () => {
+    const r = await loadNodeReleases(
+      source(
+        "esc-date.json",
+        JSON.stringify([
+          {
+            version: "v24.99.0",
+            date: "\u001b]0;pwned\u0007\u001b[2J",
+            security: true,
+          },
+          { version: "v24.98.0", date: "2026-09-01", security: true },
+        ]),
+      ),
+    );
+    assert.isTrue(r.ok);
+    const gap = assessNodeSecurity("v24.10.0", r.ok ? r.releases : []);
+    assert.isNotNull(gap);
+    assert.equal(
+      gap?.latest.version,
+      "v24.98.0",
+      "l'entrée à date hostile ne doit pas devenir la cible",
+    );
+    assert.notMatch(nodeSecurityMessage(gap!), CONTROL);
+  });
+
+  it("une version entourée de retours chariot (réécriture de ligne) est écartée", async () => {
+    const r = await loadNodeReleases(
+      source(
+        "cr-version.json",
+        JSON.stringify([
+          { version: "\rv24.99.0\n", date: "2026-09-02", security: true },
+          { version: "v24.98.0", date: "2026-09-01", security: true },
+        ]),
+      ),
+    );
+    const gap = assessNodeSecurity("v24.10.0", r.ok ? r.releases : []);
+    assert.equal(gap?.latest.version, "v24.98.0");
+    assert.notMatch(nodeSecurityMessage(gap!), CONTROL);
+  });
+
+  it("un corps illisible ne recopie pas ses octets de contrôle dans la raison affichée", async () => {
+    const r = await loadNodeReleases(
+      source("esc-body.json", "\u001b]0;pwned\u0007 not json"),
+    );
+    assert.isFalse(r.ok);
+    if (!r.ok) assert.notMatch(r.reason, CONTROL);
+  });
+
+  it("forme inconnue (objet) et liste sans aucune entrée lisible : une RAISON, pas un quitus", async () => {
+    const obj = await loadNodeReleases(
+      source("obj.json", JSON.stringify({ v: 1 })),
+    );
+    assert.isFalse(obj.ok);
+    if (!obj.ok) assert.include(obj.reason, "forme inconnue");
+    const junk = await loadNodeReleases(
+      source(
+        "junk.json",
+        JSON.stringify([null, 3, "v24.1.0", { version: 24, date: "x" }]),
+      ),
+    );
+    assert.isFalse(junk.ok);
+    if (!junk.ok) assert.include(junk.reason, "aucune publication lisible");
+  });
+
+  it('`security: "true"` (chaîne) n\'est pas un correctif de sécurité', async () => {
+    const r = await loadNodeReleases(
+      source(
+        "str-security.json",
+        JSON.stringify([
+          { version: "v24.11.0", date: "2026-02-01", security: "true" },
+        ]),
+      ),
+    );
+    assert.isTrue(r.ok);
+    assert.isNull(assessNodeSecurity("v24.10.0", r.ok ? r.releases : []));
+  });
+
+  it("un miroir HTTP en erreur rend son statut, et un miroir sain est lu", async () => {
+    const http = await import("node:http");
+    const server = http.createServer((req, res) => {
+      if (req.url === "/ok.json") {
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify([
+            { version: "v24.11.0", date: "2026-02-01", security: true },
+          ]),
+        );
+        return;
+      }
+      res.statusCode = 503;
+      res.end();
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const { port } = server.address() as import("node:net").AddressInfo;
+    try {
+      const down = await loadNodeReleases(
+        `http://127.0.0.1:${port}/index.json`,
+      );
+      assert.isFalse(down.ok);
+      if (!down.ok) assert.include(down.reason, "HTTP 503");
+      const ok = await loadNodeReleases(`http://127.0.0.1:${port}/ok.json`);
+      assert.isTrue(ok.ok, "contrôle positif : un miroir sain est lu");
+      assert.isNotNull(
+        assessNodeSecurity("v24.10.0", ok.ok ? ok.releases : []),
+      );
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+});

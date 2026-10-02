@@ -92,6 +92,75 @@ describe("openDevInspector — dans un vrai process", () => {
     assert.match(out.url ?? "", /^ws:\/\/127\.0\.0\.1:\d+\//u);
     assert.match(res.stderr, /Debugger listening on ws:\/\/127\.0\.0\.1:/u);
   });
+
+  // Les échecs se CONSTATENT et se rendent — le serveur de dev démarre quand
+  // même, sans débogueur ouvert là où personne ne l'a demandé.
+  const attempt = (
+    req: string,
+  ): { supported: boolean; reason?: string; url?: string } => {
+    const script =
+      `const m = await import(${JSON.stringify(helper)});` +
+      `const inspector = await import("node:inspector");` +
+      `const r = m.openDevInspector(${req});` +
+      `process.stdout.write(JSON.stringify(r));` +
+      `inspector.close();`;
+    const res = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", script],
+      {
+        encoding: "utf8",
+        env: { ...process.env, NODE_OPTIONS: "" },
+      },
+    );
+    assert.strictEqual(res.status, 0, res.stderr);
+    return JSON.parse(res.stdout) as {
+      supported: boolean;
+      reason?: string;
+      url?: string;
+    };
+  };
+
+  it("hôte introuvable → non ouvert, dit comme tel (Node ne lève pas)", () => {
+    const r = attempt(
+      `{ host: "nf-introuvable.invalid", port: 0, wait: false }`,
+    );
+    assert.deepStrictEqual(r, {
+      supported: false,
+      reason: "inspecteur non ouvert",
+    });
+  });
+
+  it("port hors plage (requête non passée par le parseur) → la raison de Node, pas une exception", () => {
+    const r = attempt(`{ host: "127.0.0.1", port: 70000, wait: false }`);
+    assert.strictEqual(r.supported, false);
+    assert.match(r.reason ?? "", /port/iu);
+  });
+
+  it("un inspecteur déjà ouvert (node --inspect direct) est conservé tel quel", () => {
+    const script =
+      `const inspector = await import("node:inspector");` +
+      `inspector.open(0, "127.0.0.1", false);` +
+      `const before = inspector.url();` +
+      `const m = await import(${JSON.stringify(helper)});` +
+      `const r = m.openDevInspector({ host: "0.0.0.0", port: 0, wait: false });` +
+      `process.stdout.write(JSON.stringify({ before, r }));` +
+      `inspector.close();`;
+    const res = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", script],
+      {
+        encoding: "utf8",
+        env: { ...process.env, NODE_OPTIONS: "" },
+      },
+    );
+    assert.strictEqual(res.status, 0, res.stderr);
+    const { before, r } = JSON.parse(res.stdout) as {
+      before: string;
+      r: { supported: boolean; url: string };
+    };
+    // Pas de seconde ouverture sur 0.0.0.0 : l'URL est celle de la boucle locale.
+    assert.deepStrictEqual(r, { supported: true, url: before });
+  });
 });
 
 describe("--inspect — la valeur après un ESPACE (forme annoncée par l'aide)", () => {
