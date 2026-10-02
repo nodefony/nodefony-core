@@ -301,6 +301,25 @@ C'est la brique centrale du subpath. `RealtimeClient` (`client/realtime/Realtime
 implémente le contrat de socket isomorphe **et** le contrat de pair JSON-RPC : il sait donc à la fois
 recevoir des messages poussés et **répondre** à des requêtes venues du serveur.
 
+### Les options du constructeur
+
+`new RealtimeClient(options)` et `RealtimeClient.shared(options)` prennent le même objet,
+`RealtimeOptions` (`client/realtime/RealtimeClient.ts:102`). Toutes les clés sont facultatives ;
+seule l'adresse doit être connue au moment de `connect()`.
+
+| Option              | Défaut  | Effet                                                                                                                                                                                                                      |
+| ------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`RealtimeClient.ts:398`). |
+| `token`             | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`RealtimeClient.ts:1216`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.        |
+| `autoReconnect`     | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`RealtimeClient.ts:1269`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                |
+| `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec (`RealtimeClient.ts:1283`).                                                                                                                            |
+| `reconnectDelayMax` | `30000` | Plafond de ce délai (ms) (`RealtimeClient.ts:1284`).                                                                                                                                                                       |
+| `heartbeatInterval` | `30000` | Intervalle du ping qui maintient la connexion et en mesure l'aller-retour (ms) (`RealtimeClient.ts:1302`).                                                                                                                 |
+| `banner`            | `true`  | Annonce du framework dans la console et handle `nodefony` (`RealtimeClient.ts:286`). `false` pour une application publiée qui ne veut rien dans la console de ses utilisateurs.                                            |
+
+⚠️ Avec `shared()`, les options ne s'appliquent qu'à la **première** création pour une URL : les
+appels suivants rendent l'instance existante, réglages compris.
+
 ### Ouvrir, perdre, retrouver la connexion
 
 ```mermaid

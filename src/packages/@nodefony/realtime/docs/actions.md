@@ -596,6 +596,55 @@ vivent dans la carte de l'aperçu, régénérée depuis les résultats réels, j
   fan-out, pas celui des appels corrélés). Pour en monter un, voir le skill
   `nodefony-load-test` ; pour la mémoire, `nodefony-check-memory-health`.
 
+### Éprouver SON action — le harnais, identité comprise
+
+Une application teste ses actions sans serveur ni navigateur avec `createRealtimeHarness`
+(`@nodefony/realtime/testing`, `nodefony/testing/index.ts:206`) : il monte le contrôleur sur une
+fausse connexion, envoie les frames qu'un client enverrait et rend celles qui sortent. Sans option,
+la connexion est **anonyme** — le repli Zero Trust. Une action qui lit `@CurrentUser()` s'éprouve
+donc avec l'identité qu'aurait posée le pare-feu au handshake, passée en `identity`
+(`nodefony/testing/index.ts:93`) :
+
+```ts ignore
+import { describe, it, expect, afterEach } from "vitest";
+import { getRealtimeHub } from "@nodefony/realtime";
+import type { IRealtimeToken } from "@nodefony/realtime";
+import { createRealtimeHarness } from "@nodefony/realtime/testing";
+import ChatController from "../nodefony/controllers/ChatController";
+
+describe("ChatController — actions", () => {
+  afterEach(() => getRealtimeHub().clear());
+
+  it("l'action reçoit son appelant par @CurrentUser", async () => {
+    const alice = { identifier: "alice" };
+    const attributes = new Map<string, unknown>([["user", alice]]);
+    const identity: IRealtimeToken = {
+      type: "session",
+      getUserIdentifier: () => alice.identifier,
+      isAuthenticated: () => true,
+      getRoles: () => ["ROLE_USER"],
+      getScopes: () => [],
+      getAttribute: <T>(key: string) => attributes.get(key) as T | undefined,
+    };
+    const h = createRealtimeHarness((ctx) => new ChatController(ctx), {
+      identity,
+    });
+    await h.connect();
+    const me = await h.call<{ identifier: string }>("chat:whoami");
+    expect(me.identifier).toBe("alice");
+    h.dispose();
+  });
+});
+```
+
+C'est l'attribut `user` du jeton que `@CurrentUser()` rend. Pour éprouver un **refus** (`@IsGranted`,
+`policy` de canal), il faut en plus le verrou de frame de `@nodefony/security`, passé en
+`frameAuthorizer` : `@nodefony/realtime` ne connaît pas la sécurité, et sans ce verrou une règle
+déclarée n'est appliquée par personne — en test comme en production. La table des membres du
+harnais et l'exemple de refus sont dans le `README.md` du paquet, section « Tester un controller ».
+`nodefony create controller --kind realtime` génère ce test, identité comprise, quand l'application
+porte la sécurité.
+
 Couverture : `npm run coverage` dans `@nodefony/realtime`.
 
 ## 🔗 Pour aller plus loin
