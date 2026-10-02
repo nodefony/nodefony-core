@@ -718,8 +718,8 @@ code qui **appelle le builder lui-même** (un `Module` sur mesure, une intégrat
 programmatique). Une application qui configure via `use("@nodefony/realtime", …)` **ne
 l'atteint pas** : elle ne construit pas la config (le module appelle
 `defineRealtimeConfig(this.options)` sans second argument, `index.ts:216`), et une
-instance posée dans l'objet de config est retirée par la validation Zod (elle n'est pas
-au schéma). Pour une app, la voie « instance » est l'option 2 ci-dessus.
+instance posée dans l'objet de config est refusée par la validation Zod (clé inconnue du
+schéma strict). Pour une app, la voie « instance » est l'option 2 ci-dessus.
 
 Le registre s'introspecte : `listBackplaneDrivers()` (`backplaneRegistry.ts:68`) rend les
 noms disponibles — c'est ce que le message d'erreur affiche quand un driver déclaré est
@@ -824,25 +824,25 @@ désabonné.
 
 **Le vrai point de vigilance est la back-pressure**, pas le processeur : une file d'envoi
 non bornée multipliée par le nombre de clients, c'est la panne mémoire — et le multiplexage
-concentre le risque. D'où les deux seuils du transport, le comptage des consommateurs lents
+concentre le risque. D'où les réglages de contre-pression du transport, le comptage des consommateurs lents
 dans la sonde, et le plafond de canaux par connexion.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                       | Cause                                                                      | Correction                                                                  |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Le chat marche en local, plus rien en cluster                  | le canal n'est pas déclaré broadcast (défaut : instance-local)             | déclarer le préfixe avec `@RealtimeBroadcast`                               |
-| Le client ne reçoit rien alors qu'il a un handler `on(...)`    | `on` reçoit, `subscribe` demande — il faut les **deux**                    | appeler `socket.subscribe(canal)`                                           |
-| Chaque message arrive **en double** en cluster                 | `publishLocal` court-circuité, ou `originId` non unique entre pods         | ne jamais republier une arrivée backplane ; vérifier `NF_POD_NAME`/hostname |
-| Deux applications se parlent sur un Redis mutualisé            | même canal dérivé (le numéro de base Redis ne cloisonne pas le pub/sub)    | poser un `backplane.namespace` explicite et distinct                        |
-| Producteur planté après le départ du premier abonné            | la fabrique a capturé le contexte de la connexion créatrice                | ne capturer que des valeurs à longue durée de vie                           |
-| Abonnement refusé avec `realtime:denied` motif `limit`         | plafond de canaux par connexion atteint (256 par défaut)                   | regrouper les canaux, ou relever le plafond en connaissance de cause        |
-| Fermeture `1013` sur un client lent                            | file d'envoi ≥ 8 MiB, jugée irrécupérable                                  | attendu ; le client se reconnecte et se resynchronise                       |
-| Fermeture `4001` en cours de session                           | identité révoquée, détectée par le tick de re-validation                   | se réauthentifier ; le comportement est voulu                               |
-| Frames envoyées juste après `connect()` perdues                | le transport n'est pas branché tant que le handshake n'est pas fini        | attendre `realtime:welcome` (`RealtimeClient` le fait déjà)                 |
-| Avertissement « channel policies … NOT enforced » au démarrage | des canaux déclarent une politique sans décideur câblé                     | charger `@nodefony/security` avec une zone realtime                         |
-| `ServerRealtimeSocket.request()` rejette systématiquement      | un handle posé sur le hub n'a pas d'interlocuteur unique                   | utiliser `RealtimeController.requestClient()` pour un appel ciblé           |
-| `TS2550: RegExp.escape does not exist` à la compilation        | `lib` du tsconfig sous ES2025 (les paquets exposent leurs types en source) | `"lib": ["ESNext", …]`, comme le tsconfig généré par `nodefony create app`  |
+| Symptôme                                                       | Cause                                                                                    | Correction                                                                  |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Le chat marche en local, plus rien en cluster                  | le canal n'est pas déclaré broadcast (défaut : instance-local)                           | déclarer le préfixe avec `@RealtimeBroadcast`                               |
+| Le client ne reçoit rien alors qu'il a un handler `on(...)`    | `on` reçoit, `subscribe` demande — il faut les **deux**                                  | appeler `socket.subscribe(canal)`                                           |
+| Chaque message arrive **en double** en cluster                 | `publishLocal` court-circuité, ou `originId` non unique entre pods                       | ne jamais republier une arrivée backplane ; vérifier `NF_POD_NAME`/hostname |
+| Deux applications se parlent sur un Redis mutualisé            | même canal dérivé (le numéro de base Redis ne cloisonne pas le pub/sub)                  | poser un `backplane.namespace` explicite et distinct                        |
+| Producteur planté après le départ du premier abonné            | la fabrique a capturé le contexte de la connexion créatrice                              | ne capturer que des valeurs à longue durée de vie                           |
+| Abonnement refusé avec `realtime:denied` motif `limit`         | plafond de canaux par connexion atteint (256 par défaut)                                 | regrouper les canaux, ou relever le plafond en connaissance de cause        |
+| Fermeture `1013` sur un client lent                            | file au-delà de `websocket.maxBackpressure` (4 MiB) pendant 1000 frames jetées d'affilée | attendu ; le client se reconnecte et se resynchronise                       |
+| Fermeture `4001` en cours de session                           | identité révoquée, détectée par le tick de re-validation                                 | se réauthentifier ; le comportement est voulu                               |
+| Frames envoyées juste après `connect()` perdues                | le transport n'est pas branché tant que le handshake n'est pas fini                      | attendre `realtime:welcome` (`RealtimeClient` le fait déjà)                 |
+| Avertissement « channel policies … NOT enforced » au démarrage | des canaux déclarent une politique sans décideur câblé                                   | charger `@nodefony/security` avec une zone realtime                         |
+| `ServerRealtimeSocket.request()` rejette systématiquement      | un handle posé sur le hub n'a pas d'interlocuteur unique                                 | utiliser `RealtimeController.requestClient()` pour un appel ciblé           |
+| `TS2550: RegExp.escape does not exist` à la compilation        | `lib` du tsconfig sous ES2025 (les paquets exposent leurs types en source)               | `"lib": ["ESNext", …]`, comme le tsconfig généré par `nodefony create app`  |
 
 ## 🧪 Tests & couverture
 

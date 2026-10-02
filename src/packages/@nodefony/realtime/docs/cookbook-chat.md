@@ -1496,7 +1496,7 @@ pour lire ta propre sortie :
 | `backpressure.maxBufferedAmount` | La **pire** file d'envoi observée à l'instant de la mesure. C'est l'indicateur d'alerte. |
 | `backpressure.slowConsumers` | Combien de connexions dépassent le seuil de consommateur lent. |
 | `backpressure.drops` | Messages abandonnés faute de pouvoir être livrés. |
-| `backplane` | Présent uniquement si un relais est branché : son driver, son type, s'il traverse les processus. |
+| `backplane` | Toujours présent : carte d'identité du relais (driver, nature, `crossPod`) ; sans relais, descripteur `local` / `loopback`. |
 
 Deux lectures suffisent à diagnostiquer :
 
@@ -1546,12 +1546,14 @@ Ce qui est couvert, par nature de test :
 - **Unitaires** — le hub (abonnement, fan-out, cycle de vie des providers), les décorateurs et leurs
   métadonnées, le registre de drivers de backplane, le contrôleur, le service, le transport
   WebSocket, la validation de configuration, la dérivation de l'identifiant d'origine.
-- **Tests d'attaque** (`*.attack.test.ts`) — trois scénarios verrouillés en non-régression : le
-  plafond de canaux par connexion, la révocation d'une session en cours de connexion, et le cas
-  d'une politique de canal déclarée **sans** gardien branché (la dégradation doit rester bruyante).
+- **Tests d'attaque** (`*.attack.test.ts`) — quatre scénarios verrouillés en non-régression : le
+  plafond de canaux par connexion, la révocation d'une session en cours de connexion, le cas
+  d'une politique de canal déclarée **sans** gardien branché (la dégradation doit rester bruyante),
+  et l'injection par le bus (un pair ne pousse pas sur un canal non diffusable, un message forgé sur
+  un bus scellé est ignoré).
 - **Intégration de bout en bout** (`*.e2e.test.ts`) — le cheminement complet sur boucle locale, les
-  chemins de contrôleur, l'autorisation de canal, le branchement du firewall, et le cluster IPC avec
-  de vrais processus enfants.
+  chemins de contrôleur, l'autorisation de canal, le branchement du firewall. Le cluster IPC, avec
+  de vrais processus enfants, se lance à part : `npm run test:cluster` avec `NF_RUN_CLUSTER_E2E=1`.
 - **Cluster Redis** — exercé de bout en bout, mais **conditionné à la présence d'un Redis**. Sans
   lui, ces cas sont ignorés, et un test ignoré compte comme réussi : ne conclus pas d'un « tout est
   vert » que le chemin Redis a été vérifié chez toi.

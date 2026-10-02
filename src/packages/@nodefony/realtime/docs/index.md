@@ -304,7 +304,7 @@ jamais recopiées ici : elles divergeraient en silence.
 ## ⚙️ Configuration
 
 Un seul point d'entrée : `use("@nodefony/realtime", { … })` dans `nodefony.config.ts`, validé au boot
-contre le schéma du module (`realtimeConfigSchema`, `config.ts:259`). Cinq blocs :
+contre le schéma du module (`realtimeConfigSchema`, `config.ts:259`). Six blocs :
 
 - `backplane` — le driver de fan-out et son espace de nommage. Ce cloisonnement devient
   indispensable dès que **deux déploiements partagent le même Redis** : sans lui, leurs publications
@@ -313,6 +313,7 @@ contre le schéma du module (`realtimeConfigSchema`, `config.ts:259`). Cinq bloc
 - `limits` — le plafond de canaux par connexion, garde anti-saturation mémoire.
 - `slowConsumer` — le seuil à partir duquel un client trop lent est signalé par la sonde.
 - `cluster.probe` — la sonde agrégée du pod, en mode multi-workers.
+- `clientLogs` — la réception des journaux du navigateur (canal montant), fermée par défaut.
 
 Chaque bloc, ses valeurs d'usine et les situations qui justifient d'en changer sont détaillés dans
 [Configuration](./configuration.md).
@@ -333,24 +334,25 @@ Les compteurs sont régénérés depuis vitest, jamais figés dans cette prose. 
 ici, c'est **ce que les suites prouvent** — et ce qu'elles ne prouvent qu'à condition d'avoir
 l'infrastructure sous la main.
 
-| Type            | Où                              | Ce qui est prouvé                                                 |
-| --------------- | ------------------------------- | ----------------------------------------------------------------- |
-| Unitaire        | `nodefony/tests/unit/**`        | hub, registre de drivers, schéma de configuration, décorateurs    |
-| Intégration     | `nodefony/tests/integration/**` | socket réelle : abonnements, chemins de contrôleur, autorisation  |
-| Multi-processus | `clusterIpc.e2e.test.ts`        | fan-out entre workers, sans aucune infrastructure externe         |
-| Cross-machine   | `redisCluster.e2e.test.ts`      | fan-out entre pods via pub/sub Redis                              |
-| Tests d'attaque | `*.attack.test.ts`              | plafond de canaux, révocation d'identité, politique non appliquée |
+| Type            | Où                              | Ce qui est prouvé                                                                       |
+| --------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
+| Unitaire        | `nodefony/tests/unit/**`        | hub, registre de drivers, schéma de configuration, décorateurs                          |
+| Intégration     | `nodefony/tests/integration/**` | socket réelle : abonnements, chemins de contrôleur, autorisation                        |
+| Multi-processus | `clusterIpc.e2e.test.ts`        | fan-out entre workers, sans infrastructure externe (`npm run test:cluster`)             |
+| Cross-machine   | `redisCluster.e2e.test.ts`      | fan-out entre pods via pub/sub Redis                                                    |
+| Tests d'attaque | `*.attack.test.ts`              | plafond de canaux, révocation d'identité, politique non appliquée, injection sur le bus |
 
 > [!WARNING]
 > **Une suite verte ne prouve rien sur le fan-out cross-machine.** Le banc Redis est doublement
 > conditionnel : il ne s'exécute que si tu le demandes (`NF_RUN_CLUSTER_E2E=1`), et il se **saute** de
 > lui-même si aucun Redis n'est joignable. Or un test sauté compte comme un succès — on peut donc
 > lire « tout est vert » sur une suite qui n'a jamais ouvert une seule connexion. Le fan-out entre
-> workers d'un même pod, lui, ne demande aucune infrastructure et tourne toujours.
+> workers d'un même pod ne demande aucune infrastructure externe, mais ne tourne que dans
+> `npm run test:cluster` avec `NF_RUN_CLUSTER_E2E=1`.
 >
 > ```bash
 > # Le seul run qui prouve réellement le fan-out entre machines.
-> NF_RUN_CLUSTER_E2E=1 NF_REDIS_PASSWORD=nodefony-dev npm test
+> NF_RUN_CLUSTER_E2E=1 NF_REDIS_PASSWORD=nodefony-dev npm run test:cluster
 > ```
 
 ## 🔗 Pour aller plus loin

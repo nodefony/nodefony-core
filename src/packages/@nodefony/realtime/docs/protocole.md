@@ -348,8 +348,9 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | `<action>`         | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:101` |
 
 > [!TIP]
-> **L'accueil est ta carte du territoire.** `methods` et `channels` sont construits à partir de ce
-> que l'endpoint expose réellement (`RealtimeController.ts:710`) : un client peut activer ou griser
+> **L'accueil est ta carte du territoire.** `channels` ne liste que les canaux que ce visiteur
+> pourrait obtenir (filtrés par le même verrou que `subscribe`), `methods` les actions de l'endpoint
+> (`RealtimeController.ts:710`) : un client peut activer ou griser
 > ses commandes sans rien coder en dur. Côté navigateur, ils se lisent en `socket.serverMethods` et
 > `socket.serverChannels`.
 
@@ -437,8 +438,10 @@ radicalement :
 
 `IRealtimeDenied` (`RealtimeEventMap.ts:269`) porte `channel` et `reason` — plus un `detail` optionnel, posé hors production seulement — et le motif
 est **générique**. Jamais « il te manque `ROLE_ADMIN` » : ce serait un oracle d'autorisation, un
-attaquant y lirait la carte des droits. Deux motifs circulent : `forbidden` (le verrou a dit non) et
-`limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:811`). Côté client,
+attaquant y lirait la carte des droits. Trois motifs circulent : `forbidden` (le verrou a dit non),
+`limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:811`) et `unknown`
+(aucun producteur ne sert ce nom — jamais un oracle : un canal gardé rend `forbidden`, qu'il existe ou
+non). Côté client,
 `onDenied()` (`RealtimeClient.ts:469`) branche un handler dessus.
 
 > [!CAUTION]

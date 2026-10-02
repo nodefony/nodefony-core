@@ -524,18 +524,18 @@ passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit 
 
 ## ⚠️ Pièges
 
-| Symptôme                                                     | Cause                                                                              | Correction                                                                         |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `RPC timeout: <méthode>` alors que le serveur a bien répondu | le handler dure plus que 30 s, le défaut                                           | passer le délai en **3ᵉ argument** : `request(m, p, 120_000)`                      |
-| Le client attend indéfiniment, aucune erreur                 | le handler ne rend jamais (il publie au lieu de retourner) — pas de frame `result` | toujours `return` une valeur ; publier **en plus**, jamais **à la place**          |
-| `-32601 method not found`                                    | nom mal orthographié, ou action déclarée sur un **autre** endpoint                 | vérifier `socket.serverMethods` — c'est la liste réelle de CETTE connexion         |
-| `-32603 internal error` sans détail                          | un `throw` ordinaire est rendu opaque au client (Zero Trust)                       | lever une `RpcError` avec un code et un message publiables                         |
-| `-32001 unauthorized` sur une action légitime                | le nom commence par `nodefony:`, le namespace réservé à la plateforme              | renommer hors de `nodefony:`, ou obtenir `ROLE_NODEFONY_ADMIN`                     |
-| Une action sensible est appelable par un anonyme             | une action applicative est **libre** tant qu'aucune politique ne la couvre         | ajouter une règle de préfixe (`security/nodefony/config/config.ts:906`)            |
-| Un travail relancé crée deux jobs                            | action non idempotente rejouée après une reconnexion                               | action compagnon d'annulation, ou identifiant fourni par l'appelant + mémorisation |
-| `abort()` introuvable sur la socket                          | il n'existe pas — et n'arrêterait pas le serveur de toute façon                    | exposer une action d'annulation qui prend l'identifiant du travail                 |
-| Les premières lignes d'un job manquent                       | abonnement au canal après le début de la production, sans historique rejoué        | s'abonner **avant** de lancer, ou faire rejouer l'historique par le producteur     |
-| Toutes les `Promise` rejettent d'un coup                     | la connexion s'est fermée : `dispose()` vide la table des appels en attente        | attendu ; relancer après reconnexion, l'appel n'a pas survécu                      |
+| Symptôme                                                            | Cause                                                                              | Correction                                                                                   |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `RPC timeout: <méthode>` alors que le serveur a bien répondu        | le handler dure plus que 30 s, le défaut                                           | passer le délai en **3ᵉ argument** : `request(m, p, 120_000)`                                |
+| Le client attend indéfiniment, aucune erreur                        | le handler ne rend jamais (il publie au lieu de retourner) — pas de frame `result` | toujours `return` une valeur ; publier **en plus**, jamais **à la place**                    |
+| `-32601 method not found`                                           | nom mal orthographié, ou action déclarée sur un **autre** endpoint                 | vérifier `socket.serverMethods` — c'est la liste réelle de CETTE connexion                   |
+| `-32603 internal error` sans détail                                 | un `throw` ordinaire est rendu opaque au client (Zero Trust)                       | lever une `RpcError` avec un code et un message publiables                                   |
+| `-32001 unauthorized` sur une action légitime                       | le nom commence par `nodefony:`, le namespace réservé à la plateforme              | renommer hors de `nodefony:`, ou obtenir `ROLE_NODEFONY_ADMIN`                               |
+| Une action est refusée à un anonyme alors qu'on la croyait publique | une action est fermée par défaut (`{ authenticated: true }`)                       | déclarer `{ authenticated: false }` pour l'ouvrir ; un rôle se pose par une règle de préfixe |
+| Un travail relancé crée deux jobs                                   | action non idempotente rejouée après une reconnexion                               | action compagnon d'annulation, ou identifiant fourni par l'appelant + mémorisation           |
+| `abort()` introuvable sur la socket                                 | il n'existe pas — et n'arrêterait pas le serveur de toute façon                    | exposer une action d'annulation qui prend l'identifiant du travail                           |
+| Les premières lignes d'un job manquent                              | abonnement au canal après le début de la production, sans historique rejoué        | s'abonner **avant** de lancer, ou faire rejouer l'historique par le producteur               |
+| Toutes les `Promise` rejettent d'un coup                            | la connexion s'est fermée : `dispose()` vide la table des appels en attente        | attendu ; relancer après reconnexion, l'appel n'a pas survécu                                |
 
 ## 🧪 Tests & couverture
 

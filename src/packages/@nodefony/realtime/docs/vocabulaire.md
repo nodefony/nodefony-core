@@ -31,7 +31,7 @@ source: "src/packages/@nodefony/realtime/docs/vocabulaire.md"
 # Vocabulaire — le lexique de la socket Nodefony
 
 > Cette page est le **dictionnaire** du temps réel Nodefony : chaque mot y a une définition, une
-> raison d'être ce mot-là, et le symbole du code qui l'incarne. Les cinq autres pages du module
+> raison d'être ce mot-là, et le symbole du code qui l'incarne. Les huit autres pages du module
 > l'emploient sans le redéfinir. Règle de lecture : quand une discussion realtime s'embrouille,
 > demande-toi **de quoi on parle — de la prise, de l'autocom, ou du fond de panier ?** Neuf fois
 > sur dix, la confusion tenait à un seul mot.
@@ -302,7 +302,7 @@ front**. Une différence assumée : `request()` n'y est pas supporté — au-des
 ### `accueil` (welcome) — la première frame
 
 La notification `realtime:welcome`, poussée par le serveur juste après le handshake. Elle annonce le
-protocole, les canaux et actions **découvrables** de l'endpoint, et l'identité résolue. Un client
+protocole, les canaux que ce visiteur peut obtenir, les actions de l'endpoint, et l'identité résolue. Un client
 attend cette frame avant de pousser quoi que ce soit.
 
 `IRealtimeWelcome` (`RealtimeEventMap.ts:231`).
@@ -829,8 +829,8 @@ l'aperçu, régénérée depuis vitest et jamais figée ici :
 - **intégration** : le driver Redis contre un serveur réel ;
 - **bout en bout** : boucle locale, chemins de contrôleur, autorisation de canal, câblage du
   pare-feu, cluster par communication inter-process, cluster Redis ;
-- **attaque** : plafond de canaux, révocation, politique non appliquée — les trois pièges de sécurité
-  du lexique ont chacun leur banc hostile.
+- **attaque** : plafond de canaux, révocation, politique non appliquée, injection par le bus — les
+  pièges de sécurité du lexique ont chacun leur banc hostile.
 
 Couverture : `npm run coverage` dans `@nodefony/realtime`.
 

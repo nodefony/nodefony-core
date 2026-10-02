@@ -93,16 +93,16 @@ Les étapes 1 et 2 appartiennent à `@nodefony/http` et `@nodefony/security` : l
 Une WebSocket authentifiée est une cible de choix : elle porte une identité, vit longtemps et
 diffuse en continu.
 
-| Attaque                                                                                                | Ce qui la bloque                                                       | Où                                                           |
-| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **CSWSH** — `evil.com` fait `new WebSocket("wss://app.exemple.com/rt")`, le navigateur joint le cookie | Contrôle d'`Origin` same-origin par défaut, puis allowlist stricte     | `@nodefony/http` transport, puis `csrf.checkOrigin` realtime |
-| **Écoute des flux internes** — un visiteur s'abonne à `nodefony:syslog` et lit les logs du pod         | Plancher des namespaces réservés (authentifié + `ROLE_NODEFONY_ADMIN`) | Verrou de frame `@nodefony/security`                         |
-| **Élévation par canal métier** — un `ROLE_USER` s'abonne au canal admin d'un autre module              | Policy déclarée sur le canal, évaluée avec la hiérarchie de rôles      | `@RealtimeChannel(name, { roles })` + verrou de frame        |
-| **Pont API plus permissif que REST** — `api.request {path}` pour contourner un 401 HTTP                | Re-match de la MÊME zone firewall que `GET {path}`                     | Verrou de frame, surface `api.request`                       |
-| **Socket zombie** — un admin se déconnecte, sa socket continue de diffuser                             | Re-validation périodique de l'identité, fermeture `4001`               | Tick de révocation du hub                                    |
-| **DoS mémoire par abonnements** — une connexion ouvre des milliers de canaux                           | Plafond de canaux par connexion (256 par défaut)                       | `limits.maxChannelsPerConnection`                            |
-| **DoS mémoire par lenteur** — un client ne lit pas, la file d'envoi enfle jusqu'à l'OOM                | Jet de frames à 1 MiB, fermeture `1013` à 8 MiB                        | Back-pressure du transport WS                                |
-| **Oracle d'autorisation** — sonder les canaux pour cartographier les droits                            | Motif de refus **générique** (`forbidden`), jamais le détail           | `realtime:denied`                                            |
+| Attaque                                                                                                | Ce qui la bloque                                                           | Où                                                           |
+| ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **CSWSH** — `evil.com` fait `new WebSocket("wss://app.exemple.com/rt")`, le navigateur joint le cookie | Contrôle d'`Origin` same-origin par défaut, puis allowlist stricte         | `@nodefony/http` transport, puis `csrf.checkOrigin` realtime |
+| **Écoute des flux internes** — un visiteur s'abonne à `nodefony:syslog` et lit les logs du pod         | Plancher des namespaces réservés (authentifié + `ROLE_NODEFONY_ADMIN`)     | Verrou de frame `@nodefony/security`                         |
+| **Élévation par canal métier** — un `ROLE_USER` s'abonne au canal admin d'un autre module              | Policy déclarée sur le canal, évaluée avec la hiérarchie de rôles          | `@RealtimeChannel(name, { roles })` + verrou de frame        |
+| **Pont API plus permissif que REST** — `api.request {path}` pour contourner un 401 HTTP                | Re-match de la MÊME zone firewall que `GET {path}`                         | Verrou de frame, surface `api.request`                       |
+| **Socket zombie** — un admin se déconnecte, sa socket continue de diffuser                             | Re-validation périodique de l'identité, fermeture `4001`                   | Tick de révocation du hub                                    |
+| **DoS mémoire par abonnements** — une connexion ouvre des milliers de canaux                           | Plafond de canaux par connexion (256 par défaut)                           | `limits.maxChannelsPerConnection`                            |
+| **DoS mémoire par lenteur** — un client ne lit pas, la file d'envoi enfle jusqu'à l'OOM                | Jet de frames au-delà de 4 MiB, fermeture `1013` après 1000 jets d'affilée | Back-pressure du transport WS                                |
+| **Oracle d'autorisation** — sonder les canaux pour cartographier les droits                            | Motif de refus **générique** (`forbidden`), jamais le détail               | `realtime:denied`                                            |
 
 > [!IMPORTANT]
 > Les lignes 2 à 5 supposent `@nodefony/security` chargé **avec au moins une zone protégée**. Sans
@@ -517,12 +517,16 @@ politique déclarée, alors que ce module en déclare pour d'autres canaux. […
 
 Deux façons de fermer, selon l'intention :
 
-- **le canal doit être gardé** → l'exposer sous un nom déclaré (un canal par nom exact), ou porter
-  la vérification **dans la fabrique** elle-même, qui reçoit le nom demandé et peut refuser (`null`) ;
+- **la famille doit être gardée** → déclarer un **motif** : `@RealtimeChannel("chat:room:*", { roles })`
+  garde tous les canaux de la famille ; l'avertissement propose le motif à écrire et se tait dès
+  qu'un motif couvre le canal ;
+- **le canal doit être gardé seul** → l'exposer sous un nom déclaré (un canal par nom exact), ou
+  porter la vérification **dans la fabrique** elle-même, qui reçoit le nom demandé et peut refuser
+  (`null`) ;
 - **le canal est public** → rien à faire, l'avertissement dit seulement qu'il n'est pas gardé.
 
-> Une déclaration par **motif** (`chat:*`) lèverait la limite ; elle n'existe pas encore et ne se
-> conçoit pas seule — elle fait partie d'un chantier plus large sur les canaux à membres.
+> Le nom exact l'emporte sur un motif ; entre deux motifs, le plus spécifique gagne. Un `*` dans un
+> nom souscrit est refusé : il désigne un motif de politique, jamais un canal.
 
 ### ⚠️ La condition d'activation — le point critique
 
@@ -693,7 +697,7 @@ au défaut de la librairie `ws`.
 | Limite de **fréquence** des frames entrantes | Un client authentifié peut inonder le peer ; seul le coût CPU le freine |
 | Limite de **connexions par IP ou par utilisateur** | Rien n'empêche N sockets par client au niveau du module |
 | Plafond **global** de canaux du process | Le plafond est par connexion ; M connexions × 256 canaux reste possible |
-| Seuils de back-pressure **configurables** | `slowConsumer.bytes` ne pilote que le **comptage** de la sonde, pas les seuils de drop/close (`WsConnectionTransport` est construit sans override, `RealtimeController.ts:421`) |
+| Seuils de back-pressure dans ce module | aucun réglage dans `@nodefony/realtime` : ils se règlent sur le serveur WebSocket de `@nodefony/http` (`websocket.maxBackpressure`, `.backpressureCloseAfterDrops`) |
 
 ## ⚙️ Configuration de sécurité
 
@@ -795,7 +799,7 @@ n'est pas appliquée.
 | Un admin déconnecté garde ses flux pendant une dizaine de secondes       | Le tick de révocation est périodique (30 s), pas immédiat                                              | Comportement attendu ; pour une coupure immédiate, fermer la socket côté serveur                      |
 | Une session révoquée ne ferme **jamais** la socket                       | La session n'était pas lisible au handshake → revalidateur `null`, `isValid()` répond toujours `true`  | Vérifier que le handshake traverse bien la zone (session chargée avant le controller realtime)        |
 | Le client se croit abonné, ne reçoit rien                                | Refus d'autorisation, plafond atteint, **ou nom de canal sans producteur** (pas de réponse RPC)        | Écouter `realtime:denied` : `forbidden` (droits), `limit` (borne), `unknown` (le nom ne désigne rien) |
-| `slowConsumer.bytes` augmenté, les frames sont toujours jetées à 1 MiB   | Cette clé pilote le **comptage** de la sonde, pas les seuils de drop/close du transport                | Les seuils de back-pressure ne sont pas configurables aujourd'hui                                     |
+| `slowConsumer.bytes` augmenté, les frames sont toujours jetées à 4 MiB   | Cette clé pilote le **comptage** de la sonde, pas les seuils de drop/close du transport                | Régler `websocket.maxBackpressure` / `.backpressureCloseAfterDrops` dans `@nodefony/http`             |
 | Deux déploiements se parlent en cross-talk                               | Pas de `backplane.namespace` sur un Redis mutualisé (la base Redis ne cloisonne pas le pub/sub)        | Poser un `namespace` explicite par déploiement                                                        |
 | Le fan-out cross-pod s'arrête après avoir posé un secret                 | `backplane.secret` différent d'un pod à l'autre : les messages sont scellés, aucun ne se vérifie       | Le **même** secret sur tous les pods (`NF_REALTIME_BACKPLANE_SECRET`) ; suivre `ingressRejectedTotal` |
 | Un canal broadcast ne reçoit rien des autres pods                        | Le préfixe n'est pas déclaré côté receveur → l'entrée refuse le canal (compté)                         | Déclarer le préfixe (`broadcast` du controller) sur **tous** les pods, pas seulement l'émetteur       |

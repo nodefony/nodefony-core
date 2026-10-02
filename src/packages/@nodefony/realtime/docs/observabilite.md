@@ -447,7 +447,8 @@ après fusion et validation — la seule vue qui dit ce qui s'applique, plutôt 
 
 > [!CAUTION]
 > `slowConsumer.bytes` ne pilote **que la métrique**. Les seuils qui jettent une frame ou ferment une
-> connexion sont des constantes du transport. Baisser cette clé rend le signalement plus précoce ; ça
+> connexion se règlent côté `@nodefony/http` (`websocket.maxBackpressure`, `.backpressurePolicy`,
+> `.backpressureCloseAfterDrops`). Baisser cette clé rend le signalement plus précoce ; ça
 > ne change rien au comportement de la socket.
 
 Couper la sonde cluster est un **contournement total**, pas une mise en sourdine : sans elle, il n'y a
@@ -552,7 +553,7 @@ aux sondes qui instrumentent chaque opération et se paient donc à l'usage.
 | `publishTotal` grimpe, `fanoutTotal` stagne                                  | Tu publies dans le vide : personne n'est abonné au canal visé                                                         | Comparer le nom publié et le nom souscrit — presque toujours une faute de frappe                      |
 | Deux appels consécutifs à `/api/health` donnent des chiffres contradictoires | En cluster, la requête tombe sur un worker au hasard et rend une vue per-instance                                     | Lire le champ `cluster` ; si absent, la sonde pod est coupée ou en démarrage à froid                  |
 | La mémoire du processus grimpe sans fuite apparente                          | Une sonde alloue à chaque tick, ou un client lent fait grossir la file d'envoi                                        | Lire `backpressure.totalBufferedAmount` ; simplifier le corps du tick                                 |
-| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                  | Cette clé pilote le **comptage** de la sonde ; les seuils d'action sont des constantes du transport                   | Rien à régler : ce comportement n'est pas configurable                                                |
+| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                  | Cette clé pilote le **comptage** de la sonde ; les seuils d'action sont ceux du serveur WebSocket                     | Régler `maxBackpressure` / `backpressureCloseAfterDrops` dans `@nodefony/http`                        |
 | La cadence demandée n'est pas respectée                                      | Elle a été **ramenée dans les bornes** du canal, silencieusement                                                      | Lire les bornes du canal ; vérifier le nom réellement souscrit dans `channels[]`                      |
 | Deux abonnés au même canal, deux minuteurs                                   | Ils ont demandé des cadences différentes — un canal cadencé est distinct par cadence                                  | Laisser la cadence par défaut (aucun suffixe) quand elle convient : les abonnés partagent un minuteur |
 | Rien n'est visible alors que le trafic est réel                              | La sonde n'observe **jamais** ce à quoi personne n'est abonné : un canal sans abonné n'existe pas                     | Ouvrir l'écran ou s'abonner ; c'est le comportement voulu, pas une panne                              |
@@ -566,7 +567,7 @@ infrastructure, puisque la sonde est une lecture pure.
 | Suite | Ce qui est prouvé |
 | --- | --- |
 | `RealtimeHub.test.ts` | Hub vide → instantané à zéro ; abonnés et publications par canal ; `publishTotal` vs `fanoutTotal` ; comptage des consommateurs lents et `maxBufferedAmount` ; sortie du registre à la déconnexion ; frames entrantes ; descripteur `local` du backplane |
-| `WsConnectionTransport.test.ts` | Les deux seuils de contre-pression : abandon « le dernier gagne », puis fermeture `1013` |
+| `WsConnectionTransport.test.ts` | Les seuils de contre-pression : abandon « le dernier gagne », puis fermeture `1013` |
 | `ClusterProbeClient.test.ts` | Fusion pod (sommes vs maximum), report périodique et cache du snapshot, forage `enrich`/`rich`, repli per-instance quand la sonde est absente |
 
 **Ce qui manque, et qu'il faut savoir** : il n'existe pas de banc de charge dédié à la sonde

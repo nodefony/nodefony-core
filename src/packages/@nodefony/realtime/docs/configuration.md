@@ -29,7 +29,7 @@ source: "src/packages/@nodefony/realtime/docs/configuration.md"
 
 # Configuration — le fond de panier, les bornes, la porte d'entrée
 
-> Le module temps réel expose **six réglages**, pas un de plus. Un seul décide vraiment de quelque
+> Le module temps réel expose **sept blocs de réglages**, pas un de plus. Un seul décide vraiment de quelque
 > chose : le **driver de backplane**, c'est-à-dire la façon dont deux processus de ton application se
 > transmettent une publication. Les autres bornent la connexion et gardent la porte. Cette page les
 > donne tous, avec leur valeur d'usine lue dans le schéma, l'effet observable de chacun, et les trois
@@ -140,10 +140,9 @@ Le module **augmente le registre de types** (`index.ts:167`) : `use("@nodefony/r
 propose ses clés en autocomplétion et **refuse** une clé inconnue à la compilation.
 
 > [!IMPORTANT]
-> C'est ce filet qui compte, bien plus que le confort d'écriture. Sans lui, une faute de frappe ne se
-> verrait ni à l'écriture ni au démarrage : le schéma **retire** les clés inconnues sans se plaindre.
-> `slowConsummer: { bytes: 4096 }` donnerait le défaut, en silence. Avec l'augmentation, la même
-> faute ne compile pas.
+> Ce filet attrape la faute dès l'écriture. Le schéma, lui, est strict : une clé inconnue arrête le
+> démarrage (`BootConfigurationError`, avec le chemin complet de la clé). `slowConsummer: { bytes:
+4096 }` est donc refusé au boot ; avec l'augmentation, la même faute ne compile même pas.
 
 ## 🚀 Démarrage rapide
 
@@ -257,7 +256,7 @@ regarder quand un message ne traverse pas.
 
 ## ⚙️ Le schéma, clé par clé
 
-Six blocs, douze clés au total. Le tableau donne la vérité complète ; les sections qui suivent
+Sept blocs, seize clés au total. Le tableau donne la vérité complète ; les sections qui suivent
 expliquent quand et pourquoi en changer.
 
 <!-- prettier-ignore -->
@@ -274,10 +273,16 @@ expliquent quand et pourquoi en changer.
 | `csrf.checkOrigin.enabled` | `boolean` | `false` | active le contrôle d'`Origin` à l'ouverture de la socket |
 | `csrf.checkOrigin.allowList` | `string[]` | `[]` | origines acceptées, **comparaison exacte**. Vide + activé = tout est refusé |
 | `csrf.checkOrigin.allowMissingOrigin` | `boolean` | `false` | accepter une ouverture sans en-tête `Origin` (clients non-navigateur) |
+| `clientLogs.enabled` | `boolean` | `false` | accepte les journaux du navigateur sur le canal montant `nodefony:syslog:uplink`. Surface d'écriture, fermée par défaut ; une connexion anonyme ne pousse rien |
+| `clientLogs.maxEntriesPerBatch` | `number` | `50` | entrées acceptées par lot |
+| `clientLogs.maxEntriesPerWindow` | `number` | `300` | entrées acceptées par fenêtre de débit |
+| `clientLogs.windowMs` | `number` | `10000` | durée de la fenêtre de débit, en ms |
+| `clientLogs.maxStringLength` | `number` | `4096` | longueur maximale d'une chaîne reçue |
 
 C'est **tout**. Il n'existe ni réglage de ping, ni de cadence, ni de fréquence d'échantillonnage de
-la sonde, ni de seuil de contre-pression configurable : ces comportements existent, mais leurs
-valeurs sont des constantes du code, pas des clés.
+la sonde : ces comportements existent, mais leurs valeurs sont des constantes du code. Les seuils de
+contre-pression, eux, se règlent sur le serveur WebSocket de `@nodefony/http`
+(`websocket.maxBackpressure`, `.backpressurePolicy`, `.backpressureCloseAfterDrops`).
 
 ### `enabled` — le module au repos
 
@@ -645,8 +650,8 @@ présente court-circuite la sélection par nom.
 > Le builder accepte aussi une instance en second argument (`defineRealtimeConfig(config, {
 backplane })`), et la documentation d'architecture présente cette voie. En pratique elle n'est pas
 > atteignable depuis `nodefony.config.ts` : le module appelle le builder avec la seule configuration
-> fusionnée (`src/packages/@nodefony/realtime/index.ts:216`), et le schéma Zod **retire** toute clé
-> qu'il ne connaît pas — dont une instance de classe. Pour brancher un objet déjà construit, utilise
+> fusionnée (`src/packages/@nodefony/realtime/index.ts:216`), et le schéma Zod est strict : une clé
+> inconnue, dont une instance de classe posée dans `backplane`, fait échouer le boot. Pour brancher un objet déjà construit, utilise
 > le service `realtimeBackplane`.
 
 Le détail du contrat, de l'anti-écho et du cycle de vie d'un driver est dans
@@ -714,7 +719,7 @@ import { defineRealtimeConfig } from "@nodefony/realtime";
 
 const cfg = defineRealtimeConfig({ backplane: { driver: "redis" } });
 // cfg.limits.maxChannelsPerConnection === 256 — les sections omises gardent leurs défauts.
-// Une valeur invalide lève une ZodError, avec le chemin exact du champ fautif.
+// Une valeur invalide ou une clé inconnue lève une BootConfigurationError, avec le chemin exact du champ fautif.
 ```
 
 `realtimeConfigJsonSchema()` (`defineModuleConfig.ts:69`) produit le schéma JSON du module, chaque
@@ -748,16 +753,16 @@ Trois endroits, par ordre de fiabilité décroissante.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                                            | Cause                                                                                                                | Correction                                                                                 |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Un message n'arrive qu'à la moitié des clients, sans aucune erreur                  | plusieurs répliques avec `driver: "loopback"`                                                                        | passer à `redis` et déclarer `@nodefony/redis` dans le manifeste                           |
-| Driver `redis` configuré, journal `RealtimeHub reste local`                         | module `@nodefony/redis` absent du manifeste, ou connexions `publish`/`subscribe` indisponibles                      | déclarer le module ; vérifier que Redis répond                                             |
-| Le fan-out traverse, mais des messages d'un autre environnement arrivent            | `backplane.namespace` non posé : deux déploiements de la même application dérivent le même canal                     | poser un namespace explicite et distinct par environnement                                 |
-| Une clé écrite dans `use()` n'a aucun effet                                         | nom de clé fautif : le registre de types n'étant pas augmenté, l'éditeur ne corrige pas, et Zod **retire** l'inconnu | relire la configuration effective dans Studio, onglet Config                               |
-| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                         | cette clé ne pilote que le **comptage** de la sonde                                                                  | régler `websocketSecure.maxBackpressure` / `.backpressureCloseAfterDrops` (@nodefony/http) |
-| Toutes les connexions tombent en `4003` après activation du contrôle d'origine      | `allowList` vide, ou origine non identique au caractère près (port, schéma, sous-domaine)                            | inscrire l'origine exacte ; un client non-navigateur relève de `allowMissingOrigin`        |
-| `enabled: false` posé « pour désactiver », et la garde d'origine ne s'applique plus | le service devient inerte et ne pose plus les politiques sur le hub                                                  | retirer le module du manifeste plutôt que l'éteindre                                       |
-| Le plafond de canaux semble ignoré en test                                          | il ne l'est pas : le hub porte le même défaut de 256 sans configuration (`RealtimeHub.ts:217`)                       | vérifier le motif de refus `realtime:denied` côté client                                   |
+| Symptôme                                                                            | Cause                                                                                            | Correction                                                                                 |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Un message n'arrive qu'à la moitié des clients, sans aucune erreur                  | plusieurs répliques avec `driver: "loopback"`                                                    | passer à `redis` et déclarer `@nodefony/redis` dans le manifeste                           |
+| Driver `redis` configuré, journal `RealtimeHub reste local`                         | module `@nodefony/redis` absent du manifeste, ou connexions `publish`/`subscribe` indisponibles  | déclarer le module ; vérifier que Redis répond                                             |
+| Le fan-out traverse, mais des messages d'un autre environnement arrivent            | `backplane.namespace` non posé : deux déploiements de la même application dérivent le même canal | poser un namespace explicite et distinct par environnement                                 |
+| Le démarrage échoue avec `clé inconnue : …`                                         | clé absente du schéma strict (faute de frappe, ou clé retirée)                                   | corriger ou retirer la clé que nomme le message                                            |
+| Baisser `slowConsumer.bytes` ne ferme pas les clients lents                         | cette clé ne pilote que le **comptage** de la sonde                                              | régler `websocketSecure.maxBackpressure` / `.backpressureCloseAfterDrops` (@nodefony/http) |
+| Toutes les connexions tombent en `4003` après activation du contrôle d'origine      | `allowList` vide, ou origine non identique au caractère près (port, schéma, sous-domaine)        | inscrire l'origine exacte ; un client non-navigateur relève de `allowMissingOrigin`        |
+| `enabled: false` posé « pour désactiver », et la garde d'origine ne s'applique plus | le service devient inerte et ne pose plus les politiques sur le hub                              | retirer le module du manifeste plutôt que l'éteindre                                       |
+| Le plafond de canaux semble ignoré en test                                          | il ne l'est pas : le hub porte le même défaut de 256 sans configuration (`RealtimeHub.ts:217`)   | vérifier le motif de refus `realtime:denied` côté client                                   |
 
 ## 🧪 Tests & couverture
 
@@ -778,12 +783,12 @@ qui compte ici, c'est **ce que les suites prouvent sur la configuration**.
 > **Un run vert ne prouve pas le fan-out entre machines.** Le banc Redis est doublement conditionnel :
 > il n'est lancé que sur demande, et il se **saute** de lui-même si aucun Redis ne répond. Un test
 > sauté compte comme un succès — on peut donc lire « tout est vert » sur une suite qui n'a jamais
-> ouvert une connexion. Le fan-out entre workers, lui, ne demande rien et tourne toujours.
+> ouvert une connexion. Le fan-out entre workers ne demande aucune infrastructure externe, mais ne tourne que dans `npm run test:cluster` (avec `NF_RUN_CLUSTER_E2E=1`).
 >
 > ```bash
 > cd src/packages/@nodefony/realtime
-> npm test                                              # unitaires + IPC entre workers
-> NF_RUN_CLUSTER_E2E=1 NF_REDIS_PASSWORD=nodefony-dev npm test # + le fan-out entre machines
+> npm test                                              # unitaires et intégration
+> NF_RUN_CLUSTER_E2E=1 NF_REDIS_PASSWORD=nodefony-dev npm run test:cluster # IPC entre workers + fan-out entre machines
 > npm run coverage                                      # couverture (vitest, v8)
 > ```
 
