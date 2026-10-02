@@ -27,8 +27,16 @@ import type {
   ProfiledResolver,
 } from "@nodefony/http";
 import { readBackpressureOptions } from "@nodefony/http";
-import { Controller } from "@nodefony/framework";
-import type { ControllerScope, Router } from "@nodefony/framework";
+import {
+  Controller,
+  buildContextParamArgs,
+  getParamArgsMeta,
+} from "@nodefony/framework";
+import type {
+  ControllerScope,
+  IParamArgSource,
+  Router,
+} from "@nodefony/framework";
 import { createSyslogUplinkHandler } from "./syslogUplink";
 import {
   WsConnectionTransport,
@@ -54,9 +62,16 @@ import {
   getRealtimeChannelPolicies,
   DEFAULT_ACTION_POLICY,
   type RealtimeChannelFactory,
+  type RealtimeActionWrapper,
 } from "../../decorators/realtimeDecorators";
 import { welcomeEnv } from "./welcomeEnv";
 import { deniedDetail } from "./deniedDetail";
+
+/**
+ * Une action RPC n'a ni variables de route ni URL : `@Param` et `@Query` y
+ * lisent cet objet vide.
+ */
+const NO_ROUTE_PARAMS: Record<string, unknown> = Object.freeze({});
 
 /**
  * Statut HTTP-équivalent d'une erreur survenue pendant une invocation du pont.
@@ -572,7 +587,10 @@ export abstract class RealtimeController<
     });
     // Actions = décorateurs `@RealtimeAction` + override `realtimeActions()`. L'override
     // gagne en cas de conflit (un user peut volontairement écraser un décorateur hérité).
-    const decoratedActions = getRealtimeActions(this);
+    const decoratedActions = getRealtimeActions(
+      this,
+      this.actionParamsWrapper(ctx),
+    );
     const allActions: Record<string, RpcActionHandler> = {
       ...decoratedActions,
       ...this.realtimeActions(),
@@ -925,6 +943,48 @@ export abstract class RealtimeController<
         : `WS subscribe refusé (aucun producteur pour ce canal) → ${channel}`,
       "DEBUG",
     );
+  }
+
+  /**
+   * Enveloppe des actions `@RealtimeAction` dont un paramètre est décoré
+   * (`@Body`, `@CurrentUser`…) : l'action reçoit ses arguments comme une route,
+   * résolus par la fonction du framework et non par une copie.
+   *
+   * L'identité ne change PAS : un message est déjà traité dans la bulle
+   * `RequestContext` du handshake (`WebsocketContext` lie son écouteur par
+   * `AsyncResource.bind`), où le pare-feu a posé `user` et `token`. La bulle
+   * ouverte ici HÉRITE de ce store et n'y ajoute que la charge (`body`, que
+   * `@Body` lit dans l'ALS comme pour `api.request`) — une écriture
+   * `RequestContext.set()` dans l'action reste ainsi propre à l'appel.
+   *
+   * Une action sans paramètre décoré est rendue telle quelle : rien ne change
+   * pour elle, ni comportement ni coût. Les métadonnées se lisent ICI, une fois
+   * par connexion.
+   *
+   * @param ctx - le contexte de la connexion
+   * @returns l'enveloppe passée à {@link getRealtimeActions}
+   */
+  private actionParamsWrapper(ctx: WebsocketContext): RealtimeActionWrapper {
+    const proto = Object.getPrototypeOf(this) as object;
+    return (method, propertyKey) => {
+      const metas = getParamArgsMeta(proto, propertyKey);
+      if (metas === null) return method;
+      return (params: unknown) =>
+        RequestContext.run(
+          { requestId: ctx.requestId, ...RequestContext.get(), body: params },
+          () =>
+            method(
+              ...buildContextParamArgs(
+                metas,
+                ctx as unknown as IParamArgSource,
+                NO_ROUTE_PARAMS,
+                // Une action n'a pas d'URL : `@Query` y lit un objet vide,
+                // jamais la query du handshake.
+                NO_ROUTE_PARAMS,
+              ),
+            ),
+        );
+    };
   }
 
   /**

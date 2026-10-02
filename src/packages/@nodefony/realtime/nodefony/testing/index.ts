@@ -29,7 +29,7 @@
  *
  * @packageDocumentation
  */
-import type { IRealtimeDenied } from "nodefony";
+import { RequestContext, type IRealtimeDenied } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import type { RealtimeController } from "../src/server/RealtimeController";
 import {
@@ -263,8 +263,26 @@ export function createRealtimeHarness<C extends RealtimeController>(
 
   let nextId = 1;
 
+  // En production, chaque message est traité DANS la bulle `RequestContext` du
+  // handshake (`WebsocketContext` lie son écouteur par `AsyncResource.bind`),
+  // où le pare-feu a posé l'utilisateur et le jeton. Le harnais la reproduit :
+  // sans elle, `RequestContext.getUser()` et `@CurrentUser` rendraient
+  // `undefined` en test alors qu'ils répondent en production.
+  const identity = options.identity;
+  const handshakeStore =
+    identity === undefined
+      ? { requestId: "realtime-harness" }
+      : {
+          requestId: "realtime-harness",
+          token: identity,
+          user: identity.getAttribute("user"),
+          userId: identity.getUserIdentifier(),
+        };
+
   const feed = async (frame: Record<string, unknown> | null): Promise<void> => {
-    bridge.handleRealtime(frame === null ? null : JSON.stringify(frame));
+    RequestContext.run(handshakeStore, () => {
+      bridge.handleRealtime(frame === null ? null : JSON.stringify(frame));
+    });
     await tick();
   };
 

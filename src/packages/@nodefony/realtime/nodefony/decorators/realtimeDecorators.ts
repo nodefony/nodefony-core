@@ -245,9 +245,32 @@ export function RealtimeInbound(
   };
 }
 
-/** Lecture (lazy, au handshake) du registre des actions décorées. */
+/**
+ * Méthode d'action liée à son instance, appelable avec ses arguments réels —
+ * plusieurs quand ses paramètres sont décorés (`@Body`, `@CurrentUser`…).
+ */
+export type RealtimeActionMethod = (...args: unknown[]) => unknown;
+
+/**
+ * Enveloppe posée sur une action décorée au handshake : reçoit la méthode liée
+ * et son nom de propriété, rend le handler JSON-RPC à enregistrer.
+ */
+export type RealtimeActionWrapper = (
+  method: RealtimeActionMethod,
+  propertyKey: string | symbol,
+) => RpcActionHandler;
+
+/**
+ * Lecture (lazy, au handshake) du registre des actions décorées.
+ *
+ * @param instance - le contrôleur de la connexion
+ * @param wrap - enveloppe optionnelle de chaque action (résolution des
+ *   paramètres décorés) ; sans elle, l'action reçoit la charge JSON-RPC brute
+ * @returns les handlers par nom d'action, ou `null` si aucune n'est décorée
+ */
 export function getRealtimeActions(
   instance: object,
+  wrap?: RealtimeActionWrapper,
 ): Record<string, RpcActionHandler> | null {
   const map = Reflect.getMetadata(ACTIONS_KEY, instance.constructor) as
     Record<string, string | symbol> | undefined;
@@ -256,7 +279,8 @@ export function getRealtimeActions(
   for (const [name, prop] of Object.entries(map)) {
     const fn = (instance as Record<string | symbol, unknown>)[prop];
     if (typeof fn === "function") {
-      out[name] = (fn as RpcActionHandler).bind(instance);
+      const bound = (fn as RealtimeActionMethod).bind(instance);
+      out[name] = wrap !== undefined ? wrap(bound, prop) : bound;
     }
   }
   return out;

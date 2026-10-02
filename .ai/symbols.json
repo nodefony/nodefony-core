@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 889,
-    "symbols": 4469,
+    "symbols": 4474,
     "classes": 405,
-    "interfaces": 1163,
-    "types": 476,
+    "interfaces": 1164,
+    "types": 478,
     "enums": 4,
-    "functions": 1970,
+    "functions": 1972,
     "constants": 451
   },
   "symbols": {
@@ -16975,6 +16975,15 @@
       "extends": null,
       "description": "Contexte structurel minimal nécessaire pour résoudre les arguments injectés par les décorateurs de paramètre. Volontairement découplé de `HttpContext` (typage par forme) → la résolution est une fon…"
     },
+    "IParamArgSource": {
+      "name": "IParamArgSource",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Ce qu'un `Context` — HTTP comme WebSocket — offre à la résolution des paramètres décorés. Forme structurelle : le framework n'importe pas les classes de contexte pour la lire."
+    },
     "RouteActionMeta": {
       "name": "RouteActionMeta",
       "kind": "interface",
@@ -17166,6 +17175,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Construit le tableau d'arguments d'une action à partir des métadonnées de paramètres décorés. Chaque valeur est placée à son `index` déclaré (les trous restent `undefined`). Fonction pure — aucun e…"
+    },
+    "buildContextParamArgs": {
+      "name": "buildContextParamArgs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Résout les paramètres décorés d'une action depuis un `Context` — la mise en forme UNIQUE, appelée par le Resolver (routes HTTP et WS) comme par les actions `@RealtimeAction`, pour qu'un décorateur …"
+    },
+    "getParamArgsMeta": {
+      "name": "getParamArgsMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Les paramètres décorés d'une méthode (`@Body`, `@CurrentUser`…), ou `null` si elle n'en porte aucun. Lecture `Reflect` : à faire une fois, hors du chemin de chaque requête."
     },
     "routeExpectsBodyStream": {
       "name": "routeExpectsBodyStream",
@@ -21574,6 +21599,22 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Factory d'un provider de canal — appelée par la base au 1ᵉʳ `subscribe`. Signature alignée sur {@link RealtimeController.createRealtimeChannel} (la méthode override historique) pour qu'une migratio…"
+    },
+    "RealtimeActionMethod": {
+      "name": "RealtimeActionMethod",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Méthode d'action liée à son instance, appelable avec ses arguments réels — plusieurs quand ses paramètres sont décorés (`@Body`, `@CurrentUser`…)."
+    },
+    "RealtimeActionWrapper": {
+      "name": "RealtimeActionWrapper",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Enveloppe posée sur une action décorée au handshake : reçoit la méthode liée et son nom de propriété, rend le handler JSON-RPC à enregistrer."
     },
     "RealtimeAction": {
       "name": "RealtimeAction",
@@ -32586,6 +32627,14 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts"
       ],
+      "buildContextParamArgs": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "getParamArgsMeta": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
       "defineFrontendConfig": [
         "src/packages/@nodefony/frontend/index.ts"
       ],
@@ -33924,6 +33973,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
@@ -40362,6 +40412,9 @@
       "ProfiledResolver": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
+      "IParamArgSource": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
       "createSyslogUplinkHandler": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
@@ -40399,6 +40452,9 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "RealtimeChannelFactory": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "RealtimeActionWrapper": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "welcomeEnv": [

@@ -118,6 +118,8 @@ import {
   UploadedFile,
   UploadedFiles,
   routeExpectsBodyStream,
+  buildContextParamArgs,
+  getParamArgsMeta,
 } from "./nodefony/decorators/routerDecorators";
 
 // ── Driver d'idempotence DISTRIBUÉ `redis` (builtin) ─────────────────────────
@@ -567,6 +569,8 @@ export {
   UploadedFile,
   UploadedFiles,
   routeExpectsBodyStream,
+  buildContextParamArgs,
+  getParamArgsMeta,
   graphql,
   registerIdempotencyStore,
   getIdempotencyStoreFactory,
@@ -581,6 +585,8 @@ export type {
   SecurityClause,
   SecurityRequirement,
   CspDirectives,
+  IParamArgSource,
+  ParamMeta,
 } from "./nodefony/decorators/routerDecorators";
 export type { ControllerScope } from "./nodefony/src/Controller";
 export type { FrameworkAdminApiOptions } from "./nodefony/src/FrameworkAdminApi";

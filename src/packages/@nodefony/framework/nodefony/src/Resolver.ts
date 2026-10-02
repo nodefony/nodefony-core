@@ -926,12 +926,16 @@ class Resolver implements IResolver {
     return idx === -1 ? undefined : this.variables[idx];
   }
 
-  private _buildParamArgs(metas: ParamMeta[]): unknown[] {
+  private _buildParamArgs(metas: readonly ParamMeta[]): unknown[] {
     const httpCtx = this.context as HttpContext;
     const paramsMap = this._zipRouteParams();
     // Le `Context` (HTTP comme WS) satisfait la forme `IParamArgContext`
     // (request/response/session/getRequestCookies). La résolution elle-même est
     // une fonction pure testée en unit (voir paramDecorators.test.ts).
+    // ⚠️ Même mise en forme que `buildContextParamArgs` (actions
+    // `@RealtimeAction`), gardée EN LIGNE ici : l'appel de plus coûtait ~4 ns
+    // sur chaque requête à paramètres décorés. L'équivalence des deux est
+    // tenue par un test (`contextParamArgs.test.ts`).
     const ctx = this.context as unknown as IParamArgContext;
     return buildParamArgs(metas, {
       paramsMap,

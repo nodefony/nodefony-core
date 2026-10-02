@@ -1394,12 +1394,81 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
  * @param ctx - contexte de requête (forme structurelle minimale)
  * @returns arguments positionnels à spread dans l'action
  */
-function buildParamArgs(metas: ParamMeta[], ctx: IParamArgContext): unknown[] {
+function buildParamArgs(
+  metas: readonly ParamMeta[],
+  ctx: IParamArgContext,
+): unknown[] {
   const result: unknown[] = [];
   for (const meta of metas) {
     result[meta.index] = resolveParamArg(meta, ctx);
   }
   return result;
+}
+
+/**
+ * Ce qu'un `Context` — HTTP comme WebSocket — offre à la résolution des
+ * paramètres décorés. Forme structurelle : le framework n'importe pas les
+ * classes de contexte pour la lire.
+ */
+export interface IParamArgSource {
+  /** La requête du contexte (HTTP, ou l'upgrade d'une connexion WS). */
+  readonly request?: unknown;
+  /** La réponse du contexte. */
+  readonly response?: unknown;
+  /** La session, quand le contexte en porte une. */
+  readonly session?: unknown;
+  /** Lit un cookie de la requête, ou tous sans argument. */
+  getRequestCookies(name?: string): unknown;
+}
+
+/**
+ * Résout les paramètres décorés d'une action depuis un `Context` — la mise en
+ * forme UNIQUE, appelée par le Resolver (routes HTTP et WS) comme par les
+ * actions `@RealtimeAction`, pour qu'un décorateur ne puisse pas prendre deux
+ * sens selon le transport.
+ *
+ * Le corps d'un appel WebSocket voyage dans l'ALS (`RequestContext` clé
+ * `body`) et `@CurrentUser` y lit l'utilisateur : l'appelant pose la bulle,
+ * cette fonction n'en crée aucune.
+ *
+ * @param metas - paramètres décorés de l'action ({@link getParamArgsMeta})
+ * @param context - le contexte de la requête ou de la connexion
+ * @param paramsMap - variables de route nommées (vide hors route)
+ * @param queryOverride - query de l'invocation quand elle ne vient pas de l'URL
+ * @returns arguments positionnels à passer à l'action
+ */
+export function buildContextParamArgs(
+  metas: readonly ParamMeta[],
+  context: IParamArgSource,
+  paramsMap: Record<string, unknown>,
+  queryOverride?: Record<string, unknown>,
+): unknown[] {
+  return buildParamArgs(metas, {
+    paramsMap,
+    request: context.request as IParamArgContext["request"],
+    response: context.response,
+    session: context.session as IParamArgContext["session"],
+    queryOverride,
+    getRequestCookies: (name?: string) => context.getRequestCookies(name),
+  });
+}
+
+/**
+ * Les paramètres décorés d'une méthode (`@Body`, `@CurrentUser`…), ou `null`
+ * si elle n'en porte aucun. Lecture `Reflect` : à faire une fois, hors du
+ * chemin de chaque requête.
+ *
+ * @param proto - le prototype de la classe
+ * @param method - le nom de la méthode
+ * @returns les métadonnées, ou `null` — une action sans décorateur ne paie rien
+ */
+export function getParamArgsMeta(
+  proto: object,
+  method: string | symbol,
+): readonly ParamMeta[] | null {
+  const metas = Reflect.getMetadata(PARAM_ARGS_METADATA, proto, method) as
+    ParamMeta[] | undefined;
+  return metas !== undefined && metas.length > 0 ? metas : null;
 }
 
 /**
@@ -1442,7 +1511,7 @@ function routeExpectsBodyStream(routeDef: {
  */
 export interface RouteActionMeta {
   /** Paramètres décorés (`@Param`/`@Body`/`@Query`…) — `null` si aucun. */
-  paramsMeta: ParamMeta[] | null;
+  paramsMeta: readonly ParamMeta[] | null;
   /** `@Redirect` de l'action — `null` si absent. */
   redirectMeta: RedirectMeta | null;
   /** `@HttpCode` de l'action — `null` si absent. */
@@ -1637,8 +1706,6 @@ function computeActionMeta(
     return EMPTY_ACTION_META;
   }
   const proto = ctor.prototype;
-  const params = Reflect.getMetadata(PARAM_ARGS_METADATA, proto, method) as
-    ParamMeta[] | undefined;
   const redirect = Reflect.getMetadata(REDIRECT_METADATA, proto, method) as
     RedirectMeta | undefined;
   const httpCode = Reflect.getMetadata(HTTP_CODE_METADATA, proto, method) as
@@ -1646,7 +1713,7 @@ function computeActionMeta(
   const headers = Reflect.getMetadata(HEADERS_METADATA, proto, method) as
     Record<string, string> | undefined;
   return {
-    paramsMeta: params && params.length > 0 ? params : null,
+    paramsMeta: getParamArgsMeta(proto, method),
     redirectMeta: redirect ?? null,
     httpCode: httpCode ?? null,
     headerEntries: headers ? Object.entries(headers) : null,
