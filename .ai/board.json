@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T14:52:23.167Z",
+  "generatedAt": "2026-10-02T15:46:39.982Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 57,
+      "closed": 58,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -955,8 +955,8 @@
       "number": 20,
       "title": "test(security): attaquer les paquets publiés avant leur sortie",
       "url": "https://github.com/nodefony/nodefony-core/issues/20",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
