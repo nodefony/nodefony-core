@@ -114,7 +114,7 @@ défaut** dans Nodefony :
 
 - **Vol du cookie (hijacking).** Un script injecté (XSS) ou un réseau en clair capte le cookie et
   rejoue la session. → `HttpOnly` et `Secure` sont à `true` par défaut (`sessionCookieSchema`,
-  `config.ts:748-755`), et le nom du cookie prend le préfixe `__Host-` dès que le transport est TLS
+  `config.ts:752-755`), et le nom du cookie prend le préfixe `__Host-` dès que le transport est TLS
   (`Context.getSessionCookieName()`, `Context.ts:733`).
 - **Fixation.** L'attaquant pose lui-même un identifiant dans le navigateur de la victime, attend
   qu'elle se connecte, puis réutilise **le même** identifiant. → double défense : `strictMode` rejette
@@ -278,8 +278,8 @@ faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:733`).
 
 ## ⚙️ Configuration
 
-Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:782`) et son sous-schéma
-`sessionCookieSchema` (`config.ts:748`).
+Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:786`) et son sous-schéma
+`sessionCookieSchema` (`config.ts:752`).
 
 | Option              | Type    | Défaut       | Effet                                                                                    |
 | ------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------- |
@@ -572,7 +572,7 @@ Trois barrières superposées :
 
 | Menace                            | Défense                                           | Ancrage                                            |
 | --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
-| Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:748`)            |
+| Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:752`)            |
 | Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:733`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `cookieDefaultSettings` (`cookie.ts:39`)           |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:177`)              |

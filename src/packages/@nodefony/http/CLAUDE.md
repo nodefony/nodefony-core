@@ -31,7 +31,7 @@ src/packages/@nodefony/http/
     ├── interfaces/                 ← IContext, IHttpKernel, IRequest, IResponse, ICookie, ISession, IUpload
     ├── service/
     │   ├── http-kernel.ts          ← orchestrateur central — routing, firewall, erreurs
-    │   ├── certificates.ts         ← génération/chargement TLS (node-forge)
+    │   ├── certificates.ts         ← génération/chargement TLS (+ x509.ts : DER, node:crypto)
     │   ├── sessions/sessions-service.ts
     │   ├── upload/upload-service.ts  ← @fastify/busboy
     │   └── servers/

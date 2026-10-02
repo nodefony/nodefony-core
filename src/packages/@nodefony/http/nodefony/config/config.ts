@@ -385,8 +385,11 @@ const selfSignedAttrSchema = z
     name: z.string().optional(),
     value: z.string().optional(),
     shortName: z.string().optional(),
+    type: z.string().optional(),
   })
-  .describe("Champ de sujet/issuer node-forge (CertificateField).");
+  .describe(
+    "Attribut du sujet/émetteur : `name` (commonName…), `shortName` (CN…) ou `type` (OID), et `value`.",
+  );
 
 const selfSignedSchema = z
   .strictObject({
@@ -433,8 +436,8 @@ const selfSignedSchema = z
       }),
   })
   .describe(
-    "Génération du certificat AUTO-SIGNÉ (node-forge, JavaScript pur — aucun " +
-      "binaire externe n'est invoqué). Ces réglages ne valent QUE pour la " +
+    "Génération du certificat AUTO-SIGNÉ (node:crypto — aucun binaire externe " +
+      "ni dépendance tierce). Ces réglages ne valent QUE pour la " +
       "stratégie `selfsigned` : sous `mkcert` (défaut en développement) ils sont " +
       "ignorés — mkcert ne reçoit que les noms d'hôtes — et sous " +
       '`strategy: "explicit"` le certificat est fourni, donc rien n\'est généré.',

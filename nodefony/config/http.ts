@@ -27,7 +27,7 @@ export const httpConfig = (ctx: ConfigContext<typeof env>) =>
     https: { rejectUnauthorized: !ctx.isDev },
     // Certificat TLS (HTTPS/WSS). DEV : génération auto — mkcert (CA locale
     // trustée → 0 warning navigateur, HMR Vite) si dispo, sinon auto-signé
-    // node-forge (SHA-256). PROD : fournir un VRAI certificat (Let's Encrypt,
+    // (node:crypto, SHA-256). PROD : fournir un VRAI certificat (Let's Encrypt,
     // ingress k8s, reverse-proxy edge) — Nodefony n'est PAS une autorité de
     // certification ; la génération reste un confort de DÉVELOPPEMENT.
     // (Re)génération / inspection manuelle : `nodefony certificates [--force]`.

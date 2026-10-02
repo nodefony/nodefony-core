@@ -12,7 +12,6 @@ export default defineNodefonyRolldownConfig({
     "qs",
     "serve-static",
     "ws",
-    "node-forge",
     "http-terminator",
     "mime-types",
     "xml2js",

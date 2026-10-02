@@ -11,10 +11,10 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 
 | Licence | Paquets | Ce qu'elle impose |
 | --- | ---: | --- |
-| MIT | 432 | garder la notice et le texte de la licence |
+| MIT | 433 | garder la notice et le texte de la licence |
 | Apache-2.0 | 60 | garder la notice et le fichier NOTICE ; signaler les fichiers modifiés (brevets concédés) |
 | ISC | 21 | garder la notice et le texte de la licence |
-| BSD-3-Clause | 17 | garder la notice ; ne pas invoquer le nom des auteurs pour promouvoir |
+| BSD-3-Clause | 16 | garder la notice ; ne pas invoquer le nom des auteurs pour promouvoir |
 | BSD-2-Clause | 13 | garder la notice et le texte de la licence |
 | MPL-2.0 | 3 | copyleft de FICHIER : un fichier MPL modifié reste MPL ; le reste du produit est libre |
 | MIT-0 | 2 | rien — attribution non exigée |
@@ -36,14 +36,14 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | --- | --- | --- |
 | `@ampproject/remapping` | 2.3.0 | Apache-2.0 |
 | `@analogjs/vite-plugin-angular` | 2.7.5 | MIT |
-| `@angular-devkit/architect` | 0.2202.0 | MIT |
-| `@angular-devkit/core` | 22.2.0 | MIT |
-| `@angular/build` | 22.2.0 | MIT |
-| `@angular/common` | 22.2.0 | MIT |
-| `@angular/compiler` | 22.2.0 | MIT |
-| `@angular/compiler-cli` | 22.2.0 | MIT |
-| `@angular/core` | 22.2.0 | MIT |
-| `@angular/platform-browser` | 22.2.0 | MIT |
+| `@angular-devkit/architect` | 0.2202.1 | MIT |
+| `@angular-devkit/core` | 22.2.1 | MIT |
+| `@angular/build` | 22.2.1 | MIT |
+| `@angular/common` | 22.2.1 | MIT |
+| `@angular/compiler` | 22.2.1 | MIT |
+| `@angular/compiler-cli` | 22.2.1 | MIT |
+| `@angular/core` | 22.2.1 | MIT |
+| `@angular/platform-browser` | 22.2.1 | MIT |
 | `@apm-js-collab/code-transformer` | 0.18.1 | Apache-2.0 |
 | `@apm-js-collab/code-transformer-bundler-plugins` | 0.7.4 | MIT |
 | `@apm-js-collab/tracing-hooks` | 0.13.0 | Apache-2.0 |
@@ -64,6 +64,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `@babel/helpers` | 8.0.5 | MIT |
 | `@babel/parser` | 8.0.6 | MIT |
 | `@babel/parser` | 7.29.8 | MIT |
+| `@babel/parser` | 7.29.9 | MIT |
 | `@babel/template` | 8.0.0 | MIT |
 | `@babel/traverse` | 8.0.6 | MIT |
 | `@babel/types` | 8.0.6 | MIT |
@@ -86,9 +87,9 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `@formatjs/icu-messageformat-parser` | 2.11.4 | MIT |
 | `@formatjs/icu-skeleton-parser` | 1.8.16 | MIT |
 | `@formatjs/intl-localematcher` | 0.6.2 | MIT |
-| `@graphql-tools/merge` | 9.2.4 | MIT |
-| `@graphql-tools/schema` | 10.1.1 | MIT |
-| `@graphql-tools/utils` | 12.0.1 | MIT |
+| `@graphql-tools/merge` | 9.2.6 | MIT |
+| `@graphql-tools/schema` | 10.1.3 | MIT |
+| `@graphql-tools/utils` | 12.0.3 | MIT |
 | `@graphql-typed-document-node/core` | 3.2.0 | MIT |
 | `@harperfast/extended-iterable` | 1.0.3 | Apache-2.0 |
 | `@hexagon/base64` | 1.1.28 | MIT |
@@ -116,7 +117,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `@jridgewell/trace-mapping` | 0.3.31 | MIT |
 | `@levischuck/tiny-cbor` | 0.2.11 | MIT |
 | `@lmdb/lmdb-darwin-x64` | 3.5.6 | MIT |
-| `@mongodb-js/saslprep` | 1.4.13 | MIT |
+| `@mongodb-js/saslprep` | 1.5.5 | MIT |
 | `@msgpackr-extract/msgpackr-extract-darwin-x64` | 3.0.4 | MIT |
 | `@napi-rs/nice` | 1.1.1 | MIT |
 | `@napi-rs/nice-darwin-x64` | 1.1.1 | MIT |
@@ -148,7 +149,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `@oxc-project/types` | 0.150.0 | MIT |
 | `@oxc-project/types` | 0.149.0 | MIT |
 | `@oxc-project/types` | 0.121.0 | MIT |
-| `@oxc-project/types` | 0.151.0 | MIT |
+| `@oxc-project/types` | 0.152.0 | MIT |
 | `@parcel/watcher` | 2.6.0 | MIT |
 | `@parcel/watcher-darwin-x64` | 2.6.0 | MIT |
 | `@paulirish/trace_engine` | 0.0.65 | BSD-3-Clause |
@@ -168,13 +169,13 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `@peculiar/utils` | 2.0.3 | MIT |
 | `@peculiar/x509` | 2.1.0 | MIT |
 | `@puppeteer/browsers` | 3.2.2 | Apache-2.0 |
-| `@redis/bloom` | 6.2.1 | MIT |
-| `@redis/client` | 6.2.1 | MIT |
-| `@redis/json` | 6.2.1 | MIT |
-| `@redis/search` | 6.2.1 | MIT |
-| `@redis/time-series` | 6.2.1 | MIT |
+| `@redis/bloom` | 6.3.0 | MIT |
+| `@redis/client` | 6.3.0 | MIT |
+| `@redis/json` | 6.3.0 | MIT |
+| `@redis/search` | 6.3.0 | MIT |
+| `@redis/time-series` | 6.3.0 | MIT |
 | `@rolldown/binding-darwin-x64` | 1.2.8 | MIT |
-| `@rolldown/binding-darwin-x64` | 1.2.11 | MIT |
+| `@rolldown/binding-darwin-x64` | 1.2.12 | MIT |
 | `@rolldown/pluginutils` | 1.0.1 | MIT |
 | `@sentry/conventions` | 0.16.0 | MIT |
 | `@sentry/core` | 10.69.0 | MIT |
@@ -198,11 +199,11 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `@vitejs/plugin-basic-ssl` | 2.3.0 | MIT |
 | `@vitejs/plugin-react` | 6.1.1 | MIT |
 | `@vitejs/plugin-vue` | 6.0.9 | MIT |
-| `@vitest/coverage-v8` | 5.0.2 | MIT |
-| `@vitest/istanbul-lib-coverage` | 1.0.1 | MIT |
-| `@vitest/istanbul-lib-report` | 1.0.1 | MIT |
-| `@vitest/mocker` | 5.0.2 | MIT |
-| `@vitest/spy` | 5.0.2 | MIT |
+| `@vitest/coverage-v8` | 5.0.3 | MIT |
+| `@vitest/istanbul-lib-coverage` | 1.0.2 | MIT |
+| `@vitest/istanbul-lib-report` | 1.0.2 | MIT |
+| `@vitest/mocker` | 5.0.3 | MIT |
+| `@vitest/spy` | 5.0.3 | MIT |
 | `@vue/compiler-core` | 3.5.43 | MIT |
 | `@vue/compiler-dom` | 3.5.43 | MIT |
 | `@vue/compiler-sfc` | 3.5.43 | MIT |
@@ -212,7 +213,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `@vue/runtime-dom` | 3.5.43 | MIT |
 | `@vue/server-renderer` | 3.5.43 | MIT |
 | `@vue/shared` | 3.5.43 | MIT |
-| `@whatwg-node/promise-helpers` | 1.3.2 | MIT |
+| `@whatwg-node/promise-helpers` | 2.0.0 | MIT |
 | `acorn` | 8.18.0 | MIT |
 | `agent-base` | 9.0.0 | MIT |
 | `ajv` | 8.20.0 | MIT |
@@ -226,7 +227,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `aria-query` | 5.3.1 | Apache-2.0 |
 | `asn1js` | 3.0.10 | BSD-3-Clause |
 | `assertion-error` | 2.0.1 | MIT |
-| `ast-v8-to-istanbul` | 1.0.5 | MIT |
+| `ast-v8-to-istanbul` | 1.0.7 | MIT |
 | `astring` | 1.9.0 | MIT |
 | `atomically` | 2.1.1 | MIT |
 | `aws-ssl-profiles` | 1.1.2 | MIT |
@@ -238,12 +239,12 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `bidi-js` | 1.1.0 | MIT |
 | `boolbase` | 2.0.0 | ISC |
 | `browserslist` | 4.28.8 | MIT |
-| `bson` | 7.3.1 | Apache-2.0 |
+| `bson` | 7.3.3 | Apache-2.0 |
 | `buffer-from` | 1.1.2 | MIT |
 | `call-bind-apply-helpers` | 1.0.2 | MIT |
 | `call-bound` | 1.0.4 | MIT |
 | `caniuse-lite` | 1.0.30001809 | CC-BY-4.0 |
-| `chai` | 6.2.2 | MIT |
+| `chai` | 6.3.0 | MIT |
 | `chardet` | 2.2.0 | MIT |
 | `chokidar` | 5.0.0 | MIT |
 | `chrome-launcher` | 1.2.1 | Apache-2.0 |
@@ -256,7 +257,6 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `cliui` | 9.0.1 | ISC |
 | `cliui` | 8.0.1 | ISC |
 | `clsx` | 2.1.1 | MIT |
-| `cluster-key-slot` | 1.1.2 | Apache-2.0 |
 | `color-convert` | 2.0.1 | MIT |
 | `color-name` | 1.1.4 | MIT |
 | `colorjs.io` | 0.7.1 | MIT |
@@ -280,7 +280,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `delay` | 5.0.0 | MIT |
 | `depd` | 2.0.0 | MIT |
 | `detect-libc` | 2.1.2 | Apache-2.0 |
-| `devalue` | 5.9.2 | MIT |
+| `devalue` | 5.9.4 | MIT |
 | `devtools-protocol` | 0.0.1687809 | BSD-3-Clause |
 | `devtools-protocol` | 0.0.1680125 | BSD-3-Clause |
 | `dom-serializer` | 3.1.1 | MIT |
@@ -322,7 +322,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `fast-printf` | 1.6.10 | BSD-3-Clause |
 | `fast-string-truncated-width` | 3.0.3 | MIT |
 | `fast-string-width` | 3.0.2 | MIT |
-| `fast-uri` | 3.1.7 | BSD-3-Clause |
+| `fast-uri` | 3.1.8 | BSD-3-Clause |
 | `fast-wrap-ansi` | 0.2.2 | MIT |
 | `fdir` | 6.5.0 | MIT |
 | `figlet` | 1.12.0 | MIT |
@@ -393,7 +393,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `magic-string` | 1.4.1 | MIT |
 | `magic-string` | 1.4.2 | MIT |
 | `magic-string` | 0.30.21 | MIT |
-| `magicast` | 0.5.4 | MIT |
+| `magicast` | 0.5.5 | MIT |
 | `marky` | 1.3.0 | Apache-2.0 |
 | `math-intrinsics` | 1.1.0 | MIT |
 | `mdn-data` | 2.27.1 | CC0-1.0 |
@@ -406,8 +406,9 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `modern-tar` | 0.8.5 | MIT |
 | `module-details-from-path` | 1.0.4 | MIT |
 | `mongodb` | 7.6.0 | Apache-2.0 |
+| `mongodb` | 7.7.0 | Apache-2.0 |
 | `mongodb-connection-string-url` | 7.0.2 | Apache-2.0 |
-| `mongoose` | 9.10.2 | MIT |
+| `mongoose` | 9.10.3 | MIT |
 | `mpath` | 0.9.0 | MIT |
 | `mquery` | 6.0.0 | MIT |
 | `mrmime` | 2.0.1 | MIT |
@@ -415,13 +416,12 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `msgpackr` | 1.12.1 | MIT |
 | `msgpackr-extract` | 3.0.4 | MIT |
 | `mute-stream` | 3.0.0 | ISC |
-| `mysql2` | 3.24.4 | MIT |
+| `mysql2` | 3.24.5 | MIT |
 | `named-placeholders` | 1.1.6 | MIT |
 | `nanoid` | 3.3.18 | MIT |
 | `node-addon-api` | 7.1.1 | MIT |
 | `node-addon-api` | 8.9.2 | MIT |
 | `node-addon-api` | 6.1.0 | MIT |
-| `node-forge` | 1.4.0 | (BSD-3-Clause OR GPL-2.0) |
 | `node-gyp-build-optional-packages` | 5.2.2 | MIT |
 | `node-releases` | 2.0.53 | MIT |
 | `nodefony` | 10.0.0-beta.1 | Apache-2.0 |
@@ -442,12 +442,12 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `parse5-sax-parser` | 8.0.0 | MIT |
 | `parseurl` | 1.3.3 | MIT |
 | `pend` | 1.2.0 | MIT |
-| `pg` | 8.23.0 | MIT |
-| `pg-cloudflare` | 1.4.0 | MIT |
-| `pg-connection-string` | 2.14.0 | MIT |
+| `pg` | 8.23.1 | MIT |
+| `pg-cloudflare` | 1.4.1 | MIT |
+| `pg-connection-string` | 2.14.1 | MIT |
 | `pg-int8` | 1.0.1 | ISC |
 | `pg-pool` | 3.14.0 | MIT |
-| `pg-protocol` | 1.16.0 | MIT |
+| `pg-protocol` | 1.16.1 | MIT |
 | `pg-types` | 2.2.0 | MIT |
 | `pgpass` | 1.0.5 | MIT |
 | `picocolors` | 1.1.1 | ISC |
@@ -472,7 +472,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `react` | 19.3.0 | MIT |
 | `react-dom` | 19.3.0 | MIT |
 | `readdirp` | 5.1.1 | MIT |
-| `redis` | 6.2.1 | MIT |
+| `redis` | 6.3.0 | MIT |
 | `reflect-metadata` | 0.2.2 | Apache-2.0 |
 | `require-directory` | 2.1.1 | MIT |
 | `require-from-string` | 2.0.2 | MIT |
@@ -481,7 +481,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `roarr` | 7.21.7 | BSD-3-Clause |
 | `robots-parser` | 3.0.1 | MIT |
 | `rolldown` | 1.2.8 | MIT |
-| `rolldown` | 1.2.11 | MIT |
+| `rolldown` | 1.2.12 | MIT |
 | `rxjs` | 7.8.2 | Apache-2.0 |
 | `safe-stable-stringify` | 2.5.0 | MIT |
 | `safer-buffer` | 2.1.2 | MIT |
@@ -513,7 +513,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `split2` | 4.2.0 | ISC |
 | `sql-escaper` | 1.5.1 | MIT |
 | `statuses` | 2.0.2 | MIT |
-| `std-env` | 4.2.0 | MIT |
+| `std-env` | 4.3.0 | MIT |
 | `string-width` | 4.2.3 | MIT |
 | `string-width` | 7.2.0 | MIT |
 | `string-width` | 8.2.2 | MIT |
@@ -529,7 +529,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `tinybench` | 6.2.0 | MIT |
 | `tinyexec` | 1.3.0 | MIT |
 | `tinyglobby` | 0.2.17 | MIT |
-| `tinyrainbow` | 3.1.1 | MIT |
+| `tinyrainbow` | 3.2.0 | MIT |
 | `tldts` | 7.4.13 | MIT |
 | `tldts-core` | 7.4.13 | MIT |
 | `tldts-icann` | 7.4.13 | MIT |
@@ -551,8 +551,8 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `varint` | 6.0.0 | MIT |
 | `verkit` | 0.3.2 | MIT |
 | `vite` | 8.3.0 | MIT |
-| `vite` | 8.3.1 | MIT |
-| `vitest` | 5.0.2 | MIT |
+| `vite` | 8.3.2 | MIT |
+| `vitest` | 5.0.3 | MIT |
 | `vue` | 3.5.43 | MIT |
 | `w3c-xmlserializer` | 6.0.0 | MIT |
 | `weak-lru-cache` | 1.2.2 | MIT |
@@ -565,7 +565,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `whatwg-url` | 17.1.2 | MIT |
 | `whatwg-url` | 14.2.0 | MIT |
 | `when-exit` | 2.1.5 | MIT |
-| `why-is-node-running` | 3.2.2 | MIT |
+| `why-is-node-running` | 3.2.1 | MIT |
 | `wrap-ansi` | 9.0.2 | MIT |
 | `wrap-ansi` | 7.0.0 | MIT |
 | `wrap-ansi` | 10.0.2 | MIT |

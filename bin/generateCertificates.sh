@@ -5,7 +5,7 @@
 # Le certificat de développement est généré automatiquement par le service
 # `certificates` (@nodefony/http) : mkcert (CA locale TRUSTÉE → HTTPS sans erreur
 # navigateur, HMR cross-origin/WSS) si disponible, sinon fallback auto-signé
-# node-forge. Rien à lancer à la main pour un dev HTTPS standard.
+# (node:crypto). Rien à lancer à la main pour un dev HTTPS standard.
 #
 # Ce script reste pour les cas avancés : PKI maison COMPLÈTE et OFFLINE
 # (root CA + intermediate CA + cert serveur + cert CLIENT mTLS + ca-chain +

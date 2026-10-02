@@ -1,23 +1,33 @@
-// node-forge n'est importé QUE pour ses TYPES (effacés à la compilation). Le
-// module runtime est chargé paresseusement (voir `loadForge`) — il n'est JAMAIS
-// chargé en production avec un certificat fourni (`explicit`).
-import type pkg from "node-forge";
 import { Service, Module, Container, extend } from "nodefony";
 import fs from "node:fs/promises";
 import path, { resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { randomBytes } from "node:crypto";
+import {
+  generateKeyPair,
+  randomBytes,
+  X509Certificate,
+  type KeyObject,
+} from "node:crypto";
 import { asServersConfig } from "../src/servers/kernelServers";
+import {
+  createSelfSignedCertificate,
+  distinguishedNameField,
+  parseSubjectAltName,
+  SHA1_WITH_RSA_OID,
+  signatureAlgorithmName,
+  signatureAlgorithmOid,
+  type ICertificateAttribute,
+} from "./x509";
 
 const execFileAsync = promisify(execFile);
+const generateKeyPairAsync = promisify(generateKeyPair);
 
-/**
- * Type-valeur du backend node-forge runtime (objet `.pki`/`.md`). L'import type
- * `pkg` sert pour les namespaces de types (`pkg.pki.Certificate`) ; `ForgeModule`
- * pour la valeur chargée dynamiquement (node-forge est un module `export =`).
- */
-type ForgeModule = typeof import("node-forge");
+/** Paire de clés RSA du certificat auto-signé. */
+export interface IRsaKeyPair {
+  privateKey: KeyObject;
+  publicKey: KeyObject;
+}
 
 /**
  * Vrai si `host` est une IP littérale (IPv4 `n.n.n.n` ou IPv6 — contient `:`).
@@ -37,8 +47,8 @@ export type CertStrategyConfig = "auto" | "mkcert" | "selfsigned" | "explicit";
 type CertStrategy = "explicit" | "mkcert" | "selfsigned";
 
 /**
- * Options de génération du certificat AUTO-SIGNÉ (node-forge, JavaScript pur —
- * aucun binaire externe n'est invoqué).
+ * Options de génération du certificat AUTO-SIGNÉ (`node:crypto` — aucun
+ * binaire externe ni aucune dépendance tierce).
  *
  * ⚠️ Portée : ces réglages ne valent QUE pour la stratégie `selfsigned`. Sous
  * `mkcert` (le défaut en développement) ils sont ignorés — mkcert ne reçoit que
@@ -55,7 +65,7 @@ export interface SelfSignedOptions {
   /** Recul de `notBefore` (minutes) — tolérance au décalage d'horloge client. */
   backdateMinutes: number;
   /** Attributs du sujet/issuer (commonName, organizationName…). */
-  attrs: pkg.pki.CertificateField[];
+  attrs: ICertificateAttribute[];
 }
 
 /** Options de génération du certificat TLS en mode développement. */
@@ -64,7 +74,7 @@ export interface CertificateDevOptions {
    * Préférer `mkcert` (CA locale ajoutée au trust store système) pour générer
    * le certificat de dev. Donne un HTTPS sans erreur navigateur — indispensable
    * pour les sous-ressources cross-origin (Vite) et le WSS du HMR.
-   * Si `mkcert` est absent, on retombe sur un auto-signé node-forge (non trusté).
+   * Si `mkcert` est absent, on retombe sur un auto-signé (non trusté).
    * Ignoré hors `development`.
    */
   useMkcert: boolean;
@@ -105,13 +115,6 @@ interface filesCertType {
   variable: string | Buffer | null;
 }
 
-/** Entrée subjectAltName node-forge — type 2 = DNS, type 7 = IP. */
-interface AltName {
-  type: number;
-  value?: string;
-  ip?: string;
-}
-
 /** Résumé introspectable du certificat serveur (CLI + futur endpoint Studio). */
 export interface CertificateInfo {
   /** Stratégie effective ayant fourni le certificat. */
@@ -148,21 +151,11 @@ const defaultOptions: CertificateOptions = {
 };
 
 /**
- * Valeur texte d'un champ de certificat node-forge (`getField` rend `any`),
- * ou `null` si le champ est absent.
- */
-function certFieldValue(field: unknown): string | null {
-  if (field === null || typeof field !== "object") return null;
-  const value: unknown = (field as { value?: unknown }).value;
-  return typeof value === "string" ? value : String(value);
-}
-
-/**
  * Service de fourniture du certificat TLS du serveur HTTPS/WSS.
  *
  * Trois stratégies : `explicit` (certificat fourni en config — le cas de
  * PRODUCTION), `mkcert` (CA locale trustée, confort de dev) et `selfsigned`
- * (auto-signé node-forge, secours). La génération est réservée au
+ * (auto-signé, secours). La génération est réservée au
  * DÉVELOPPEMENT : en production sans certificat fourni, le service crie un
  * avertissement (Nodefony n'est pas une autorité de certification).
  *
@@ -175,8 +168,7 @@ function certFieldValue(field: unknown): string | null {
 class Certificate extends Service {
   module: Module;
   files: filesCertType[] = [];
-  keysPair: pkg.pki.rsa.KeyPair | null = null;
-  certForge: pkg.pki.Certificate | null = null;
+  keysPair: IRsaKeyPair | null = null;
   ca: Buffer | string | null = "";
   key: Buffer | string | null = "";
   cert: Buffer | string | null = "";
@@ -187,14 +179,6 @@ class Certificate extends Service {
 
   /** CAROOT résolu de mkcert (null tant que non détecté / indisponible). */
   private mkcertCaRoot: string | null = null;
-
-  /**
-   * Backend crypto node-forge, chargé PARESSEUSEMENT. La génération de
-   * certificat est un confort de DÉVELOPPEMENT : en production avec un
-   * certificat fourni (`strategy: "explicit"`), cette grosse dépendance n'est
-   * jamais importée (règle perf-mémoire — pas de dep chargée « au cas où »).
-   */
-  private forge: ForgeModule | null = null;
 
   path: string = resolve(".", "nodefony", "config", "certificates");
   serverPath: string = resolve(this.path, "server");
@@ -228,27 +212,6 @@ class Certificate extends Service {
   /** Vrai en environnement de développement (mkcert réservé à ce mode). */
   private isDev(): boolean {
     return this.kernel?.environment === "development";
-  }
-
-  /**
-   * Charge node-forge à la demande (idempotent) — uniquement sur le chemin de
-   * GÉNÉRATION (selfsigned / mkcert / inspection). Le chemin `explicit` (prod)
-   * ne l'appelle jamais.
-   */
-  async loadForge(): Promise<ForgeModule> {
-    // node-forge = module `export =` → la valeur est sous `.default`.
-    this.forge ??= (await import("node-forge")).default;
-    return this.forge;
-  }
-
-  /** Accès au backend forge déjà chargé (lève si `loadForge` n'a pas été appelé). */
-  private get forgeLib(): ForgeModule {
-    if (!this.forge) {
-      throw new Error(
-        "node-forge non chargé — appeler loadForge() avant toute génération.",
-      );
-    }
-    return this.forge;
   }
 
   /**
@@ -349,7 +312,7 @@ class Certificate extends Service {
   /**
    * Génère (ou recharge) le certificat serveur selon la stratégie résolue :
    * `explicit` (fourni en config / prod), `mkcert` (dev, CA trustée) ou
-   * `selfsigned` (auto-signé node-forge, secours). Régénère automatiquement si
+   * `selfsigned` (auto-signé, secours). Régénère automatiquement si
    * le certificat présent sur disque n'est pas adéquat pour la stratégie active
    * (expiré, SHA-1, SAN incomplet).
    *
@@ -363,14 +326,10 @@ class Certificate extends Service {
     await this.ensureDirectoriesExist();
     const strategy = await this.resolveStrategy();
 
-    // Prod / config : certificat fourni explicitement — chargé tel quel,
-    // SANS node-forge (la grosse dépendance reste hors du process en prod).
+    // Prod / config : certificat fourni explicitement — chargé tel quel.
     if (strategy === "explicit") {
       return this.loadExplicitCert();
     }
-
-    // À partir d'ici on GÉNÈRE (dev) → on charge node-forge paresseusement.
-    await this.loadForge();
 
     const anyFileExists = await this.checkCertificates();
     if (anyFileExists && !force && (await this.isCertAdequate(strategy))) {
@@ -380,13 +339,10 @@ class Certificate extends Service {
     if (strategy === "mkcert") {
       await this.generateWithMkcert();
     } else {
-      this.keysPair = this.generateKeys();
-      this.certForge = this.createCertificate();
-      this.setExtension();
-      this.sign();
+      this.keysPair = await this.generateKeys();
       this.key = this.generatePrivateKeyPem();
       this.publicKeyPem = this.generatePublickeyPem();
-      const certPem = this.generateCertPem();
+      const certPem = await this.createCertificate();
       this.cert = certPem;
       // Auto-signé = sa propre ancre de confiance (pin). On l'écrit dans `ca/`
       // comme le fait mkcert → un script peut faire une requête VÉRIFIÉE
@@ -407,7 +363,7 @@ class Certificate extends Service {
    *   erreur si absents.
    * - `mkcert` : dev + binaire mkcert + CA locale présents. Forcé hors dev →
    *   retombe sur `selfsigned` avec avertissement.
-   * - `selfsigned` : auto-signé node-forge (fallback). En PRODUCTION, crie un
+   * - `selfsigned` : auto-signé (fallback). En PRODUCTION, crie un
    *   avertissement : la génération n'est pas le rôle d'un serveur de prod.
    */
   private async resolveStrategy(): Promise<CertStrategy> {
@@ -439,7 +395,7 @@ class Certificate extends Service {
           (requested === "mkcert"
             ? "strategy='mkcert' mais mkcert introuvable — "
             : "mkcert introuvable — ") +
-            "fallback certificat auto-signé node-forge (non trusté). " +
+            "fallback certificat auto-signé (non trusté). " +
             "`brew install mkcert nss && mkcert -install` pour un HTTPS dev sans erreur (HMR cross-origin/WSS).",
           "WARNING",
         );
@@ -553,11 +509,11 @@ class Certificate extends Service {
       "utf8",
     );
     const certPem = await fs.readFile(this.certPath, "utf8");
-    const { pki } = this.forgeLib;
     // Clé publique dérivée du certificat (mkcert ne l'émet pas séparément).
-    const publicKeyPem = pki.publicKeyToPem(
-      pki.certificateFromPem(certPem).publicKey,
-    );
+    const publicKeyPem = new X509Certificate(certPem).publicKey.export({
+      type: "spki",
+      format: "pem",
+    });
     await fs.writeFile(this.publicKeyPath, publicKeyPem, "utf8");
     await fs.writeFile(this.fullchainPath, `${certPem}${rootCaPem}`, "utf8");
     await fs.writeFile(this.caPath, rootCaPem, "utf8");
@@ -578,38 +534,29 @@ class Certificate extends Service {
    */
   private async isCertAdequate(strategy: CertStrategy): Promise<boolean> {
     try {
-      const { pki } = this.forgeLib;
-      const certPem = await fs.readFile(this.certPath, "utf8");
-      const cert = pki.certificateFromPem(certPem);
-      if (cert.validity.notAfter.getTime() <= Date.now()) {
+      const cert = new X509Certificate(await fs.readFile(this.certPath));
+      if (cert.validToDate.getTime() <= Date.now()) {
         return false;
       }
       // Le SAN doit couvrir les noms requis QUELLE QUE SOIT la stratégie — sinon
       // un changement de SAN (NF_BIND_ALL → nodefony.com) ne régénérerait jamais.
-      const ext: { altNames?: AltName[] } | undefined =
-        cert.getExtension("subjectAltName");
-      if (!ext || !this.sanCovers(ext.altNames ?? [])) {
+      if (!this.sanCovers(parseSubjectAltName(cert.subjectAltName).dns)) {
         return false;
       }
       if (strategy === "mkcert") {
-        const org = certFieldValue(cert.issuer.getField("O"));
+        const org = distinguishedNameField(cert.issuer, "O");
         return org !== null && /mkcert/i.test(org);
       }
       // selfsigned : un ancien cert SHA-1 doit être régénéré.
-      return cert.signatureOid !== pki.oids.sha1WithRSAEncryption;
+      return signatureAlgorithmOid(cert.raw) !== SHA1_WITH_RSA_OID;
     } catch {
       return false;
     }
   }
 
   /** Le SAN présent couvre-t-il tous les noms DNS requis (RFC 6125) ? */
-  private sanCovers(present: AltName[]): boolean {
-    const presentDns = new Set(
-      present
-        .filter((p) => p.type === 2 && p.value)
-        .map((p) => p.value as string),
-    );
-    return this.sanDnsNames().every((name) => presentDns.has(name));
+  private sanCovers(presentDns: string[]): boolean {
+    return this.sanDnsNames().every((name) => presentDns.includes(name));
   }
 
   /** Charge un certificat fourni en config (chemin fichier ou Buffer). */
@@ -745,119 +692,68 @@ class Certificate extends Service {
     }
   }
 
-  generateKeys(): pkg.pki.rsa.KeyPair {
-    // Générer une paire de clés
-    return this.forgeLib.pki.rsa.generateKeyPair(
-      this.certOptions.selfSigned.size,
-    );
+  /** Génère la paire RSA (taille configurée) hors de la boucle d'événements. */
+  async generateKeys(): Promise<IRsaKeyPair> {
+    return generateKeyPairAsync("rsa", {
+      modulusLength: this.certOptions.selfSigned.size,
+    });
   }
+
+  /** Clé privée en PEM PKCS#1 (`BEGIN RSA PRIVATE KEY`). */
   generatePrivateKeyPem(): Buffer {
     if (this.keysPair) {
       return Buffer.from(
-        this.forgeLib.pki.privateKeyToPem(this.keysPair.privateKey),
+        this.keysPair.privateKey.export({ type: "pkcs1", format: "pem" }),
       );
     }
-    throw new Error(`pki.rsa.KeyPair  not found`);
-  }
-  generatePublickeyPem(): Buffer {
-    if (this.keysPair)
-      return Buffer.from(
-        this.forgeLib.pki.publicKeyToPem(this.keysPair.publicKey),
-      );
-    throw new Error(`pki.rsa.KeyPair  not found`);
-  }
-  generateCertPem(): Buffer {
-    if (this.certForge) {
-      return Buffer.from(this.forgeLib.pki.certificateToPem(this.certForge));
-    }
-    throw new Error(`pki.Certificate  not found`);
+    throw new Error(`KeyPair not found`);
   }
 
-  createCertificate(): pkg.pki.Certificate {
+  /** Clé publique en PEM SPKI (`BEGIN PUBLIC KEY`). */
+  generatePublickeyPem(): Buffer {
+    if (this.keysPair) {
+      return Buffer.from(
+        this.keysPair.publicKey.export({ type: "spki", format: "pem" }),
+      );
+    }
+    throw new Error(`KeyPair not found`);
+  }
+
+  /**
+   * Fabrique et signe le certificat auto-signé avec la paire courante.
+   *
+   * Série aléatoire unique (RFC 5280 §4.1.2.2), `notBefore` reculé (décalage
+   * d'horloge du client), SAN DNS + IP (config explicite sinon dérivé), signé
+   * avec le hachage configuré — jamais SHA-1 (collision SHAttered 2017,
+   * CA/Browser Forum depuis 2016).
+   *
+   * @returns le certificat en PEM
+   * @throws Si la paire de clés n'a pas été générée
+   */
+  async createCertificate(): Promise<Buffer> {
     if (!this.keysPair) {
       throw new Error(`KeyPair  not found`);
     }
     const o = this.certOptions.selfSigned;
-    const cert = this.forgeLib.pki.createCertificate();
-    cert.publicKey = this.keysPair.publicKey;
-    // Série aléatoire unique (RFC 5280 §4.1.2.2) — plus de série fixe.
-    cert.serialNumber = Certificate.generateSerialHex();
-    // notBefore reculé : tolère le décalage d'horloge du client (clock skew).
-    const backdateMs = o.backdateMinutes * 60_000;
-    const start = Date.now() - backdateMs;
-    cert.validity.notBefore = new Date(start);
-    cert.validity.notAfter = new Date(start + o.validityDays * 86_400_000);
-    cert.setSubject(o.attrs);
-    cert.setIssuer(o.attrs);
-    return cert;
-  }
-
-  /** subjectAltName de l'auto-signé : DNS + IP (config explicite sinon dérivé). */
-  private altNames(): AltName[] {
-    const out: AltName[] = [];
-    for (const dns of this.sanDnsNames()) {
-      out.push({ type: 2, value: dns });
-    }
-    for (const ip of this.sanIps()) {
-      out.push({ type: 7, ip });
-    }
-    return out;
-  }
-
-  setExtension(): void {
-    if (!this.certForge) {
-      throw new Error(`pki.Certificate  not found`);
-    }
-    this.certForge.setExtensions([
-      {
-        // Certificat serveur feuille, PAS une autorité de certification.
-        name: "basicConstraints",
-        cA: false,
-      },
-      {
-        name: "keyUsage",
-        digitalSignature: true,
-        keyEncipherment: true,
-      },
-      {
-        // Indispensable pour l'usage TLS serveur côté navigateurs récents.
-        name: "extKeyUsage",
-        serverAuth: true,
-        clientAuth: true,
-      },
-      {
-        // SAN requis : Chrome ignore le commonName depuis RFC 2818.
-        name: "subjectAltName",
-        altNames: this.altNames(),
-      },
-      {
-        // RFC 5280 §4.2.1.2 — dérivé de la clé publique par node-forge.
-        // (AKI §4.2.1.1 omis : facultatif pour un certificat auto-signé.)
-        name: "subjectKeyIdentifier",
-      },
-    ]);
-  }
-
-  /**
-   * Signe le certificat avec le hachage configuré (SHA-256 par défaut).
-   * SHA-1 est INTERDIT (collision SHAttered 2017, CA/Browser Forum depuis 2016) :
-   * `node-forge` signe en SHA-1 par défaut si on ne passe pas de digest → on en
-   * passe toujours un.
-   */
-  sign(): void {
-    if (!this.certForge || !this.keysPair) {
-      throw new Error(`pki.rsa.KeyPair or pki.Certificate  not found`);
-    }
-    this.certForge.sign(
-      this.keysPair.privateKey,
-      this.digestFor(this.certOptions.selfSigned.hash),
-    );
+    const start = Date.now() - o.backdateMinutes * 60_000;
+    const pem = await createSelfSignedCertificate({
+      privateKey: this.keysPair.privateKey,
+      publicKey: this.keysPair.publicKey,
+      serialHex: Certificate.generateSerialHex(),
+      notBefore: new Date(start),
+      notAfter: new Date(start + o.validityDays * 86_400_000),
+      attributes: o.attrs,
+      dns: this.sanDnsNames(),
+      ip: this.sanIps(),
+      hash: this.allowedHash(o.hash),
+    });
+    return Buffer.from(pem);
   }
 
   /**
    * Résumé introspectable du certificat serveur courant — réutilisé par la
    * commande CLI `certificates` et un futur endpoint d'admin Studio (parité
-   * CLI ↔ Web). Parse le certificat chargé (charge node-forge à la demande).
+   * CLI ↔ Web).
    */
   async describe(): Promise<CertificateInfo> {
     const info: CertificateInfo = {
@@ -875,23 +771,23 @@ class Certificate extends Service {
     if (!this.cert) {
       return info;
     }
-    const { pki } = await this.loadForge();
     try {
-      const cert = pki.certificateFromPem(this.cert.toString());
-      info.serial = cert.serialNumber;
-      info.validFrom = cert.validity.notBefore.toISOString();
-      info.validTo = cert.validity.notAfter.toISOString();
-      info.signatureAlgorithm = this.oidName(cert.signatureOid, pki);
-      const cn = certFieldValue(cert.subject.getField("CN"));
+      const cert = new X509Certificate(this.cert);
+      info.serial = cert.serialNumber.toLowerCase();
+      info.validFrom = cert.validFromDate.toISOString();
+      info.validTo = cert.validToDate.toISOString();
+      info.signatureAlgorithm = signatureAlgorithmName(
+        signatureAlgorithmOid(cert.raw),
+      );
+      const cn = cert.subject
+        ? distinguishedNameField(cert.subject, "CN")
+        : null;
       if (cn !== null) {
         info.commonName = cn;
       }
-      const ext: { altNames?: AltName[] } | undefined =
-        cert.getExtension("subjectAltName");
-      if (ext?.altNames) {
-        info.san = ext.altNames.map((a) =>
-          a.type === 7 ? (a.ip ?? "") : (a.value ?? ""),
-        );
+      const san = parseSubjectAltName(cert.subjectAltName);
+      if (san.dns.length > 0 || san.ip.length > 0) {
+        info.san = [...san.dns, ...san.ip];
       }
     } catch {
       // Certificat illisible (fourni externe au format inattendu) → résumé partiel.
@@ -899,21 +795,13 @@ class Certificate extends Service {
     return info;
   }
 
-  /** Nom lisible de l'OID d'algorithme de signature. */
-  private oidName(oid: string, pki: ForgeModule["pki"]): string {
-    return (pki.oids as Record<string, string>)[oid] ?? oid;
-  }
-
-  /** Digest node-forge correspondant au hachage configuré (jamais SHA-1). */
-  private digestFor(hash: CertHash): pkg.md.MessageDigest {
-    const { md } = this.forgeLib;
+  /** Hachage configuré, ramené à SHA-256 s'il sort du contrat (jamais SHA-1). */
+  private allowedHash(hash: CertHash): CertHash {
     switch (hash) {
       case "sha512":
-        return md.sha512.create();
       case "sha384":
-        return md.sha384.create();
       case "sha256":
-        return md.sha256.create();
+        return hash;
       default: {
         // Valeur hors contrat (config non validée) : relue en `string` pour le
         // message — le type l'a épuisée (`never`).
@@ -922,7 +810,7 @@ class Certificate extends Service {
           `Hachage '${refused}' refusé (SHA-1 interdit) → SHA-256.`,
           "WARNING",
         );
-        return md.sha256.create();
+        return "sha256";
       }
     }
   }

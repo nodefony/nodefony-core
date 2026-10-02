@@ -103,15 +103,22 @@ La reconnaissance « table absente » couvre les trois dialectes (aucun code d'e
 ## Certificates TLS — service + CLI
 
 `service/certificates.ts` = fourniture du cert HTTPS/WSS. **Génération = DEV** (mkcert>auto-signé) ;
-**prod = `explicit`** (cert fourni, sinon WARNING fort — Nodefony ≠ CA de prod). `node-forge` chargé
-**lazy** (`loadForge`, `await import`) → JAMAIS importé en prod avec cert explicite.
+**prod = `explicit`** (cert fourni, sinon WARNING fort — Nodefony ≠ CA de prod). **0 dépendance
+crypto tierce** : `service/x509.ts` encode le TBSCertificate en DER (RFC 5280) + `crypto.sign` ;
+lecture par `X509Certificate`. node-forge RETIRÉ (GHSA-86w9-cpqp-85rv, aucun correctif → `npm audit`
+rouge chez tout installeur). Ne pas le réintroduire.
 
 - **Stratégies** (`certificates.strategy`) : `auto` (défaut : mkcert si dispo en dev → CA trustée HMR,
   sinon `selfsigned`) | `mkcert` | `selfsigned` | `explicit` (`key`/`cert`/`ca` fournis).
-- **Conformité auto-signé** : SHA-256 (jamais SHA-1 — node-forge `sign()` SANS digest = SHA-1 par
-  défaut, piège), serial **`crypto.randomBytes(16)`** 128 bits (RFC 5280 §4.1.2.2, ≠ `01` fixe),
+- **Conformité auto-signé** : SHA-256 (jamais SHA-1 ; `allowedHash` ramène toute valeur hors contrat
+  à SHA-256), serial **`crypto.randomBytes(16)`** 128 bits (RFC 5280 §4.1.2.2, ≠ `01` fixe),
   privkey **0600** + dossier 0700, `notBefore` backdaté (`backdateMinutes`), **SKI** (RFC 5280 §4.2.1.2),
-  SAN = vérité d'hôte (RFC 6125 ; CN ignoré). IP littérale → `iPAddress` jamais `dNSName`.
+  SAN = vérité d'hôte (RFC 6125 ; CN ignoré). IP littérale → `iPAddress` jamais `dNSName`. Sujet vide
+  → SAN **critique** (RFC 5280 §4.2.1.6). Clé privée PEM **PKCS#1**, publique **SPKI**.
+- **x509.ts gotchas** : `X509Certificate.signatureAlgorithmOid` absent du plancher Node 24 → OID lu
+  dans le DER (`signatureAlgorithmOid(raw)`) ; `subject` vaut `undefined` si sujet vide ; `serialNumber`
+  rendu SANS l'octet de signe (0x00 de tête) ; criticité d'extension non exposée par Node → assert sur
+  les octets DER (test). Attribut de sujet inconnu → erreur qui le NOMME.
 - **SAN** : `certificates.san {dns,ip}` ; vide = dérivé kernel (`localhost`+`domain`, `0.0.0.0` exclu).
   Banc reverse-proxy : `nodefony.config.ts` met `nodefony.com` quand `NF_BIND_ALL`.
 - **Reload** : `isCertAdequate` régénère si expiré / SHA-1 / SAN incomplet.
@@ -604,7 +611,6 @@ http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHtt
 - `ws@8` — ESM : `import { WebSocketServer } from 'ws'` (jamais `Ws` default, jamais `Ws.Server`)
 - `@fastify/busboy@3` — upload
 - `serve-static@2` — static files
-- `node-forge@1` — TLS/certificates
 
 ## Interfaces exportées
 

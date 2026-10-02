@@ -106,7 +106,7 @@ Trois choix structurent l'implémentation, et chacun est un compromis assumé.
 
 **Désactivé par défaut — opt-in explicite.** En cloud-native, le plafond par IP est souvent mieux placé
 à l'**ingress/gateway** (il voit tout le trafic, tous les pods, et rejette avant le coût TLS). Le module
-laisse donc `rateLimit` désarmé par défaut (`config.ts:1065`) : `null` tant qu'on ne l'active pas → **0
+laisse donc `rateLimit` désarmé par défaut (`config.ts:1069`) : `null` tant qu'on ne l'active pas → **0
 coût** sur le chemin chaud. On l'active quand on n'a **pas** d'edge devant soi (bare-metal, VPS), ou en
 défense en profondeur.
 

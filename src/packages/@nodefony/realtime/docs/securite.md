@@ -680,7 +680,7 @@ canaux). `WsConnectionTransport.send()` (`WsConnectionTransport.ts:82`) applique
 
 | `bufferedAmount`                                                                                 | Action                                                                                                                      |
 | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| > `websocket.maxBackpressure` — 4 MiB par défaut (`http`, `http/nodefony/config/config.ts:1044`) | politique `websocket.backpressurePolicy` : `drop` (défaut) jette la frame — canaux d'état, le prochain snapshot la remplace |
+| > `websocket.maxBackpressure` — 4 MiB par défaut (`http`, `http/nodefony/config/config.ts:1048`) | politique `websocket.backpressurePolicy` : `drop` (défaut) jette la frame — canaux d'état, le prochain snapshot la remplace |
 | `websocket.backpressureCloseAfterDrops` drops CONSÉCUTIFS — 1000 par défaut                      | `close(1013)` « Try Again Later » ; le client se reconnecte et resynchronise                                                |
 
 ### Taille des messages entrants

@@ -1,13 +1,24 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import { type Module } from "nodefony";
-import pkg from "node-forge";
+import { generateKeyPairSync, X509Certificate } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import Certificate from "../../service/certificates.js";
+import tls from "node:tls";
+import type { AddressInfo } from "node:net";
+import Certificate, { type IRsaKeyPair } from "../../service/certificates.js";
+import {
+  createSelfSignedCertificate,
+  ipAddressBytes,
+  parseSubjectAltName,
+  signatureAlgorithmOid,
+} from "../../service/x509.js";
 
-const { pki } = pkg;
+const SHA1_RSA = "1.2.840.113549.1.1.5";
+const SHA256_RSA = "1.2.840.113549.1.1.11";
+const SHA512_RSA = "1.2.840.113549.1.1.13";
+const SAN_CRITICAL = Buffer.from("0603551d110101ff", "hex");
 
 /**
  * Instancie le service certificates avec un module factice (kernel absent →
@@ -36,32 +47,32 @@ function setPaths(c: Certificate, dir: string): void {
 
 describe("certificates — conformité crypto de l'auto-signé", () => {
   // Une seule paire de clés (keygen RSA coûteux) réutilisée par les assertions.
-  let sharedKeys: pkg.pki.rsa.KeyPair;
-  let parsed: pkg.pki.Certificate;
-  let firstSerial: string;
+  let sharedKeys: IRsaKeyPair;
+  let pem: Buffer;
+  let parsed: X509Certificate;
 
   beforeAll(async () => {
     const c = makeCert({
       selfSigned: { attrs: [{ name: "commonName", value: "nodefony.com" }] },
-      san: { dns: ["nodefony.com", "localhost"], ip: ["127.0.0.1"] },
+      san: { dns: ["nodefony.com", "localhost"], ip: ["127.0.0.1", "::1"] },
     });
-    await c.loadForge();
-    sharedKeys = c.generateKeys();
+    sharedKeys = await c.generateKeys();
     c.keysPair = sharedKeys;
-    c.certForge = c.createCertificate();
-    firstSerial = c.certForge.serialNumber;
-    c.setExtension();
-    c.sign();
-    parsed = pki.certificateFromPem(c.generateCertPem().toString());
+    pem = await c.createCertificate();
+    parsed = new X509Certificate(pem);
+  });
+
+  it("porte une signature qui se VÉRIFIE par sa propre clé (DER bien formé)", () => {
+    expect(parsed.verify(parsed.publicKey)).to.equal(true);
+    expect(parsed.checkPrivateKey(sharedKeys.privateKey)).to.equal(true);
   });
 
   it("signe en SHA-256 (jamais SHA-1)", () => {
-    expect(parsed.signatureOid).to.equal(pki.oids.sha256WithRSAEncryption);
-    expect(parsed.signatureOid).to.not.equal(pki.oids.sha1WithRSAEncryption);
+    expect(signatureAlgorithmOid(parsed.raw)).to.equal(SHA256_RSA);
   });
 
   it("numéro de série aléatoire ≥ 64 bits, jamais la valeur fixe '01'", () => {
-    expect(parsed.serialNumber).to.match(/^[0-9a-f]+$/);
+    expect(parsed.serialNumber).to.match(/^[0-9A-F]+$/);
     expect(parsed.serialNumber).to.not.equal("01");
     // ≥ 16 hex = ≥ 8 octets = ≥ 64 bits (on en génère 16 octets = 128 bits).
     expect(parsed.serialNumber.length).to.be.greaterThanOrEqual(16);
@@ -69,51 +80,136 @@ describe("certificates — conformité crypto de l'auto-signé", () => {
 
   it("génère un série DIFFÉRENT à chaque certificat (unicité RFC 5280)", async () => {
     const c = makeCert();
-    await c.loadForge();
     c.keysPair = sharedKeys;
-    const second = c.createCertificate().serialNumber;
-    expect(second).to.not.equal(firstSerial);
+    const second = new X509Certificate(await c.createCertificate());
+    expect(second.serialNumber).to.not.equal(parsed.serialNumber);
   });
 
-  it("porte un SAN couvrant les noms DNS demandés (RFC 6125)", () => {
-    const ext = parsed.getExtension("subjectAltName") as {
-      altNames: { type: number; value?: string }[];
-    };
-    const dns = ext.altNames.filter((a) => a.type === 2).map((a) => a.value);
-    expect(dns).to.include("nodefony.com");
-    expect(dns).to.include("localhost");
+  it("porte un SAN couvrant les noms DNS et IP demandés (RFC 6125)", () => {
+    expect(parsed.checkHost("nodefony.com")).to.equal("nodefony.com");
+    expect(parsed.checkHost("localhost")).to.equal("localhost");
+    expect(parsed.checkIP("127.0.0.1")).to.equal("127.0.0.1");
+    expect(parsed.checkIP("::1")).to.equal("::1");
+    expect(parsed.checkHost("autre.example")).to.equal(undefined);
   });
 
-  it("est un certificat feuille (basicConstraints cA=false) avec SKI", () => {
-    const bc = parsed.getExtension("basicConstraints") as { cA?: boolean };
-    expect(bc.cA).to.equal(false);
-    expect(parsed.getExtension("subjectKeyIdentifier")).to.be.ok;
+  it("est un certificat feuille (cA=false), usage serveur, avec SKI", () => {
+    expect(parsed.ca).to.equal(false);
+    expect(parsed.keyUsage).to.include("1.3.6.1.5.5.7.3.1"); // serverAuth
+    expect(parsed.subject).to.equal("CN=nodefony.com");
+    expect(parsed.issuer).to.equal(parsed.subject); // auto-signé
+    // Sujet présent : le SAN n'a pas à être critique.
+    expect(parsed.raw.includes(SAN_CRITICAL)).to.equal(false);
+    expect(parsed.toLegacyObject().ext_key_usage).to.be.ok;
   });
 
   it("recule notBefore et applique une validité ~365 jours", () => {
     const now = Date.now();
-    expect(parsed.validity.notBefore.getTime()).to.be.lessThanOrEqual(now);
-    // backdaté d'au plus ~10 min
-    expect(parsed.validity.notBefore.getTime()).to.be.greaterThan(
-      now - 10 * 60_000,
-    );
-    const spanDays =
-      (parsed.validity.notAfter.getTime() -
-        parsed.validity.notBefore.getTime()) /
-      86_400_000;
+    const notBefore = parsed.validFromDate.getTime();
+    // Le DER est à la seconde : 1 s de tolérance vers le haut.
+    expect(notBefore).to.be.lessThanOrEqual(now + 1000);
+    expect(notBefore).to.be.greaterThan(now - 10 * 60_000);
+    const spanDays = (parsed.validToDate.getTime() - notBefore) / 86_400_000;
     expect(spanDays).to.be.greaterThan(364);
     expect(spanDays).to.be.lessThan(366);
   });
 
   it("respecte le hachage configuré (sha512)", async () => {
     const c = makeCert({ selfSigned: { hash: "sha512" } });
-    await c.loadForge();
     c.keysPair = sharedKeys;
-    c.certForge = c.createCertificate();
-    c.setExtension();
-    c.sign();
-    const re = pki.certificateFromPem(c.generateCertPem().toString());
-    expect(re.signatureOid).to.equal(pki.oids.sha512WithRSAEncryption);
+    const re = new X509Certificate(await c.createCertificate());
+    expect(signatureAlgorithmOid(re.raw)).to.equal(SHA512_RSA);
+    expect(re.verify(re.publicKey)).to.equal(true);
+  });
+
+  it("refuse un attribut de sujet inconnu en le NOMMANT", async () => {
+    const c = makeCert({
+      selfSigned: { attrs: [{ name: "commonNom", value: "x" }] },
+    });
+    c.keysPair = sharedKeys;
+    await expect(c.createCertificate()).rejects.toThrow(/commonNom/);
+  });
+
+  // La preuve qui compte : un vrai client TLS, contrôle ACTIVÉ, accepte le
+  // certificat pour `localhost` en le prenant pour ancre de confiance.
+  it("est accepté par une poignée de main TLS VÉRIFIÉE (hôte localhost)", async () => {
+    const server = tls.createServer(
+      {
+        key: sharedKeys.privateKey.export({ type: "pkcs1", format: "pem" }),
+        cert: pem,
+      },
+      (socket) => socket.end(),
+    );
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    try {
+      const { port } = server.address() as AddressInfo;
+      const authorized = await new Promise<boolean>((resolve, reject) => {
+        const socket = tls.connect(
+          { host: "127.0.0.1", port, servername: "localhost", ca: pem },
+          () => {
+            resolve(socket.authorized);
+            socket.destroy();
+          },
+        );
+        socket.on("error", reject);
+      });
+      expect(authorized).to.equal(true);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+});
+
+describe("x509 — encodage pur", () => {
+  it("encode IPv4 et IPv6 (compressé, IPv4 embarquée) en octets réseau", () => {
+    expect([...ipAddressBytes("127.0.0.1")]).to.deep.equal([127, 0, 0, 1]);
+    expect(ipAddressBytes("::1").toString("hex")).to.equal(
+      "00000000000000000000000000000001",
+    );
+    expect(ipAddressBytes("2001:db8::1").toString("hex")).to.equal(
+      "20010db8000000000000000000000001",
+    );
+    expect(ipAddressBytes("::ffff:192.0.2.1").toString("hex")).to.equal(
+      "00000000000000000000ffffc0000201",
+    );
+    expect(() => ipAddressBytes("pas-une-ip")).to.throw(/invalide/);
+  });
+
+  it("lit le SAN tel que Node le rend", () => {
+    expect(
+      parseSubjectAltName("DNS:localhost, DNS:a.b, IP Address:127.0.0.1"),
+    ).to.deep.equal({ dns: ["localhost", "a.b"], ip: ["127.0.0.1"] });
+    expect(parseSubjectAltName(undefined)).to.deep.equal({ dns: [], ip: [] });
+  });
+
+  it("sujet vide → SAN CRITIQUE (RFC 5280 §4.2.1.6), série à bit de tête préfixée", async () => {
+    const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+    });
+    const pem = await createSelfSignedCertificate({
+      privateKey,
+      publicKey,
+      serialHex: "ff00", // bit de poids fort à 1 → un 0x00 doit le précéder
+      notBefore: new Date("2049-12-31T23:59:59Z"),
+      notAfter: new Date("2050-01-01T00:00:01Z"), // bascule GeneralizedTime
+      attributes: [],
+      dns: ["localhost"],
+      ip: [],
+      hash: "sha256",
+    });
+    const x = new X509Certificate(pem);
+    expect(x.verify(x.publicKey)).to.equal(true);
+    expect(x.subject).to.equal(undefined);
+    // Lu POSITIF : sans le 0x00 de tête, le même DER serait un entier négatif.
+    expect(x.serialNumber).to.equal("FF00");
+    expect(x.validToDate.toISOString()).to.equal("2050-01-01T00:00:01.000Z");
+    expect(x.validFromDate.toISOString()).to.equal("2049-12-31T23:59:59.000Z");
+    expect(x.toLegacyObject().subjectaltname).to.equal("DNS:localhost");
+    // Node n'expose pas le drapeau « critique » : lu dans le DER — OID
+    // subjectAltName (06 03 55 1d 11) suivi de BOOLEAN TRUE (01 01 ff).
+    expect(x.raw.includes(SAN_CRITICAL)).to.equal(true);
   });
 });
 
@@ -224,44 +320,48 @@ describe("certificates — écriture sécurisée + stratégies", () => {
     try {
       const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
       setPaths(c, dir);
-      // Écrit un cert SHA-1 (signature par défaut node-forge) + fichiers requis.
-      const keys = pki.rsa.generateKeyPair(2048);
-      const old = pki.createCertificate();
-      old.publicKey = keys.publicKey;
-      old.serialNumber = "01";
-      old.validity.notBefore = new Date(Date.now() - 86_400_000);
-      old.validity.notAfter = new Date(Date.now() + 86_400_000 * 365);
-      const attrs = [{ name: "commonName", value: "localhost" }];
-      old.setSubject(attrs);
-      old.setIssuer(attrs);
-      old.setExtensions([
-        { name: "subjectAltName", altNames: [{ type: 2, value: "localhost" }] },
-      ]);
-      old.sign(keys.privateKey); // SHA-1 (pas de digest passé)
+      // Écrit un cert SHA-1 + fichiers requis.
+      const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+      });
+      const certPem = await createSelfSignedCertificate({
+        privateKey,
+        publicKey,
+        serialHex: "01",
+        notBefore: new Date(Date.now() - 86_400_000),
+        notAfter: new Date(Date.now() + 86_400_000 * 365),
+        attributes: [{ name: "commonName", value: "localhost" }],
+        dns: ["localhost"],
+        ip: [],
+        hash: "sha1",
+      });
+      expect(signatureAlgorithmOid(new X509Certificate(certPem).raw)).to.equal(
+        SHA1_RSA,
+      );
       await fs.mkdir(c.serverPath, { recursive: true });
-      const certPem = pki.certificateToPem(old);
       await fs.writeFile(c.certPath, certPem);
       await fs.writeFile(
         c.privateKeyPath,
-        pki.privateKeyToPem(keys.privateKey),
+        privateKey.export({ type: "pkcs1", format: "pem" }),
       );
-      await fs.writeFile(c.publicKeyPath, pki.publicKeyToPem(keys.publicKey));
+      await fs.writeFile(
+        c.publicKeyPath,
+        publicKey.export({ type: "spki", format: "pem" }),
+      );
       await fs.writeFile(c.fullchainPath, certPem);
 
       // Reload sans force : SHA-1 = inadéquat → régénération en SHA-256.
       await c.generateServerCertificates();
-      const re = pki.certificateFromPem(await fs.readFile(c.certPath, "utf8"));
-      expect(re.signatureOid).to.equal(pki.oids.sha256WithRSAEncryption);
+      const re = new X509Certificate(await fs.readFile(c.certPath));
+      expect(signatureAlgorithmOid(re.raw)).to.equal(SHA256_RSA);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }
     // DEUX paires RSA 2048 : celle du décor, puis celle que le code régénère — les
     // autres cas du fichier mutualisent une paire unique, une régénération ne le
-    // peut pas. node-forge calcule en JavaScript pur : le coût ne dépend d'aucune
-    // accélération matérielle, seulement du CPU — ~0,4 s ici, plus de 5 s sur un
-    // runner Windows d'intégration continue, où le budget par défaut expirait. Le
-    // budget est donc EXPLICITE et large : il ne se paie que dans le cas lent, et
-    // aucune assertion n'a été touchée pour autant.
+    // peut pas. La génération RSA est probabiliste (recherche de premiers) : sa
+    // durée varie d'un tirage à l'autre et d'un runner à l'autre. Le budget est
+    // donc EXPLICITE et large : il ne se paie que dans le cas lent.
   }, 60_000);
 });
 

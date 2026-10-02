@@ -47,7 +47,6 @@ class Certificates extends Command {
       );
       return this;
     }
-    await service.loadForge();
     await service.generateServerCertificates(Boolean(opts.force));
     const info = await service.describe();
     if (opts.json) {
