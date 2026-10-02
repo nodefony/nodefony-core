@@ -1006,6 +1006,53 @@ export function describeDiscovery(
   return out;
 }
 
+/** Le refus d'une génération VIDE dont la découverte a buté sur un fichier. */
+export interface IUnreadableRefusal {
+  /** Le constat, fichiers et causes nommés. */
+  message: string;
+  /** Pourquoi c'est un refus, et où chercher. */
+  hint: string;
+}
+
+/**
+ * Une génération qui n'écrit RIEN alors qu'un fichier d'entité n'a pas pu être
+ * lu est-elle un succès ? Non : elle se refuse.
+ *
+ * Le fichier illisible n'a jamais enregistré son entité — le registre ignore
+ * donc qu'elle manque, et la garde des entités orphelines reste muette. On a
+ * demandé une migration, on n'en a pas eu, et la cause la plus probable est
+ * ce fichier : rendre `✓` et un code nul ferait passer, dans une chaîne `&&`
+ * ou une intégration continue, un schéma qui part en production SANS sa table.
+ *
+ * Quand une migration EST écrite, l'illisible reste un avertissement : le
+ * fichier peut porter l'entité d'un autre ORM ou un brouillon, et retenir une
+ * migration complète par ailleurs ne protégerait rien.
+ *
+ * @param generated - une migration a-t-elle été écrite ?
+ * @param unreadable - fichiers d'entités que l'import n'a pas su lire.
+ * @returns le refus à rendre, ou `null` si rien ne l'appelle.
+ */
+export function unreadableRefusal(
+  generated: boolean,
+  unreadable: readonly { file: string; cause: string }[],
+): IUnreadableRefusal | null {
+  if (generated || unreadable.length === 0) {
+    return null;
+  }
+  return {
+    message:
+      `Aucune migration écrite, et ${unreadable.length} fichier(s) d'entités n'ont pas pu être lus :\n` +
+      unreadable.map((u) => `  • ${u.file} — ${u.cause}`).join("\n"),
+    hint:
+      "Rien n'a été écrit, et ce n'est pas un « schéma inchangé » : une entité " +
+      "portée par un fichier qui ne s'importe pas est INVISIBLE pour la " +
+      "génération, et sa table ne partirait dans aucune migration. Corrige la " +
+      "cause nommée (le plus souvent un paquet absent des dépendances), puis " +
+      "relance. Si ce fichier n'est pas une entité de ce connecteur, sors-le de " +
+      "« nodefony/entity/ ».",
+  };
+}
+
 /**
  * Rendu humain d'un REFUS de l'applicateur.
  *

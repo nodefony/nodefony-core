@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 889,
-    "symbols": 4475,
+    "symbols": 4477,
     "classes": 405,
-    "interfaces": 1164,
+    "interfaces": 1165,
     "types": 478,
     "enums": 4,
-    "functions": 1973,
+    "functions": 1974,
     "constants": 451
   },
   "symbols": {
@@ -24585,6 +24585,15 @@
       "extends": null,
       "description": "Codes ANSI, neutralisés hors terminal (un `| jq` ne doit rien recevoir)."
     },
+    "IUnreadableRefusal": {
+      "name": "IUnreadableRefusal",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Le refus d'une génération VIDE dont la découverte a buté sur un fichier."
+    },
     "MigrationVerdictName": {
       "name": "MigrationVerdictName",
       "kind": "type",
@@ -24672,6 +24681,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Rendu humain de ce que la DÉCOUVERTE des entités a vu. Bloc court, posé sous les refus dont la cause peut être un schéma déclaré amputé : un fichier illisible, une table écrite pour un autre moteur…"
+    },
+    "unreadableRefusal": {
+      "name": "unreadableRefusal",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Une génération qui n'écrit RIEN alors qu'un fichier d'entité n'a pas pu être lu est-elle un succès ? Non : elle se refuse. Le fichier illisible n'a jamais enregistré son entité — le registre ignore…"
     },
     "renderRefusal": {
       "name": "renderRefusal",
@@ -37296,6 +37313,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/adopt.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "unreadableRefusal": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
       ],
       "OrmMigrateCommand": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",

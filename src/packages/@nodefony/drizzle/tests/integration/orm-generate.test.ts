@@ -20,6 +20,7 @@ import {
 import {
   describeDiscovery,
   styleFor,
+  unreadableRefusal,
 } from "../../nodefony/src/migrator/explain";
 
 /**
@@ -543,5 +544,37 @@ describe("ce que la découverte a vu — le bloc posé sous un refus", () => {
       /SUPPRIMÉE/,
       "zéro table déclarée rend TOUTE migration destructive",
     );
+  });
+});
+
+describe("une génération VIDE sur un fichier illisible n'est pas un succès (#396)", () => {
+  const illisible = [
+    {
+      file: "nodefony/entity/Message.ts",
+      cause: "Cannot find package 'drizzle-zod'",
+    },
+  ];
+
+  it("rien d'écrit + un fichier illisible : REFUS, qui nomme le fichier et sa cause", () => {
+    const refus = unreadableRefusal(false, illisible);
+    assert.ok(
+      refus !== null,
+      "un ✓ et un code nul feraient partir la production SANS la table",
+    );
+    assert.match(
+      refus.message,
+      /Message\.ts — Cannot find package 'drizzle-zod'/,
+    );
+    assert.match(refus.hint, /pas un « schéma inchangé »/);
+  });
+
+  it("une migration ÉCRITE malgré un fichier illisible reste un avertissement", () => {
+    // Le fichier peut porter l'entité d'un autre ORM, ou un brouillon :
+    // retenir une migration complète par ailleurs ne protège rien.
+    assert.equal(unreadableRefusal(true, illisible), null);
+  });
+
+  it("rien d'écrit sans fichier illisible : le schéma n'a vraiment pas bougé", () => {
+    assert.equal(unreadableRefusal(false, []), null);
   });
 });

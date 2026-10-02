@@ -56,6 +56,7 @@ import {
   EXIT,
   MIGRATION_FORMAT_VERSION,
   action,
+  unreadableRefusal,
 } from "../src/migrator/explain";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
@@ -577,6 +578,20 @@ class OrmGenerate extends OrmMigrateCommand {
             ),
             action(`nodefony orm:migrate --connector ${connector}`),
           ],
+          opts.json,
+          EXIT.actionRequired,
+        );
+        return this;
+      }
+      // Rien d'écrit ET un fichier illisible : pas un « schéma inchangé ».
+      const refusal = unreadableRefusal(false, unreadable);
+      if (refusal !== null) {
+        this.fail(
+          connector,
+          "NF_GENERATE_UNREADABLE_ENTITY",
+          refusal.message,
+          refusal.hint,
+          [action(`nodefony orm:generate --name ${name}`)],
           opts.json,
           EXIT.actionRequired,
         );

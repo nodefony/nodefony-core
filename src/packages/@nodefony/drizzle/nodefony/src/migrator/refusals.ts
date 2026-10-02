@@ -51,6 +51,8 @@ export type CommandFailureCode =
   | "NF_GENERATE_NAME"
   /** Une entité enregistrée qu'aucun fichier découvert ne fournit. */
   | "NF_GENERATE_MISSING_ENTITY"
+  /** Rien d'écrit, et un fichier d'entités n'a pas pu être lu : pas un « schéma inchangé ». */
+  | "NF_GENERATE_UNREADABLE_ENTITY"
   /** Un fichier de l'application fournit une table qui appartient au framework. */
   | "NF_GENERATE_FRAMEWORK_TABLE"
   /** La migration produite DÉTRUIT des données, et personne ne l'a dit. */
