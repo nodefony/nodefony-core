@@ -7,7 +7,8 @@ import {
 <% if (it.roleGuard) { %>  IsGranted,
 <% } %>} from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
-
+<% if (it.hasSecurity) { %>import type { IUser } from "@nodefony/user";
+<% } %>
 /**
  * <%= it.nameClass %> — UN controller, DEUX protocoles (le différenciateur
  * Nodefony) : HTTP et WebSocket sont co-citoyens du même contexte controller,
@@ -79,7 +80,7 @@ import type { ContextType } from "@nodefony/http";
   // `@CurrentUser()` injecte l'utilisateur posé dans l'ALS par le firewall.
   // `identifier` = identifiant fonctionnel ; l'anonyme est un VRAI user
   // (AnonymousUser, identifier "anon."), jamais null en zone firewall.
-  async index(@CurrentUser() user?: { identifier?: string }) {
+  async index(@CurrentUser() user?: <% if (it.hasSecurity) { %>IUser<% } else { %>{ identifier?: string }<% } %>) {
     const identifier = user?.identifier;
     // Condition nommée : TypeScript en garde le rétrécissement, `identifier`
     // est une chaîne dans la branche vraie — aucun `!` à affirmer.
@@ -125,9 +126,9 @@ import type { ContextType } from "@nodefony/http";
    * ouverte à tous : un exemple qui enseigne le contraire de ce qu'il montre.
    */
   @route("<%= it.kebab %>-secure", { path: "/secure/hello", method: "GET" })
-  async secureHello(@CurrentUser() user?: { identifier?: string }) {
+  async secureHello(@CurrentUser() user: IUser) {
     return this.renderJson({
-      message: `Bonjour ${user?.identifier ?? "?"}`,
+      message: `Bonjour ${user.identifier}`,
       zone: "secure",
       pid: process.pid,
     });

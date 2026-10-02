@@ -143,7 +143,7 @@ interface IItem {
   @Idempotent()
   create(
     @Body() payload: { name?: string },
-    @CurrentUser() user?: { identifier?: string },
+    @CurrentUser() user?: <% if (it.hasSecurity) { %>IUser<% } else { %>{ identifier?: string }<% } %>,
   ) {
     const item: IItem = {
       id: randomUUID(),

@@ -2564,6 +2564,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, 'hello: "happ"');
       // Route protégée : seulement quand une zone `secure` existe (preset complete).
       assert.include(src, 'path: "/secure/hello"');
+      // L'utilisateur se type par le contrat de `@nodefony/user`, présent avec
+      // la sécurité : un type structurel recopié divergerait du vrai `IUser`.
+      // Sous la zone `secure`, il est garanti (401 avant l'action) → non optionnel.
+      assert.include(src, 'import type { IUser } from "@nodefony/user";');
+      assert.include(src, "@CurrentUser() user?: IUser");
+      assert.include(src, "secureHello(@CurrentUser() user: IUser)");
+      assert.notInclude(src, "identifier?: string");
       // Le test e2e généré interroge cette route et compare ce payload : les
       // deux templates doivent rester d'accord.
       const e2e = readFileSync(path.join(dest, "tests", "e2e.test.ts"), "utf8");
@@ -2579,6 +2586,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, 'path: "/hello"');
       assert.notInclude(src, "/secure/hello");
       assert.notInclude(src, 'zone: "secure"');
+      // Sans security, `@nodefony/user` n'est pas installé : l'importer
+      // casserait la compilation de l'app neuve.
+      assert.notInclude(src, "@nodefony/user");
+      assert.include(src, "@CurrentUser() user?: { identifier?: string }");
     });
 
     it("create controller --kind hello : index à la racine de SON préfixe, pas de route protégée", () => {

@@ -186,6 +186,7 @@ import {
   CurrentUser,
 } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
+import type { IUser } from "@nodefony/user";
 
 @controller("/api")
 class HelloController extends Controller {
@@ -196,7 +197,7 @@ class HelloController extends Controller {
   // Route HTTP classique. `@CurrentUser()` injecte l'utilisateur résolu par la
   // zone firewall qui couvre ce chemin — hors zone, il n'est jamais résolu.
   @route("hello-index", { path: "/hello", method: "GET" })
-  async index(@CurrentUser() user?: { identifier?: string }) {
+  async index(@CurrentUser() user?: IUser) {
     return this.renderJson({
       hello: "mon-app",
       who: user?.identifier ?? "anonyme",

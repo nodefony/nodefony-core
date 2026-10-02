@@ -114,6 +114,7 @@ import {
   CurrentUser,
 } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
+import type { IUser } from "@nodefony/user";
 
 @controller("/api/blog")
 class BlogController extends Controller {
@@ -122,7 +123,7 @@ class BlogController extends Controller {
   }
 
   @route("blog-index", { path: "", method: "GET" })
-  async index(@CurrentUser() user?: { identifier?: string }) {
+  async index(@CurrentUser() user?: IUser) {
     // L'anonyme est un VRAI utilisateur (identifiant "anon."), jamais null.
     const authenticated = !!user?.identifier && user.identifier !== "anon.";
     return this.renderJson({

@@ -847,6 +847,7 @@ fonctionnent :
 // modules/chat/nodefony/controllers/ChatController.ts
 // → remplace `@RealtimeInbound("chat:send")` par une ACTION
 import { Body, CurrentUser, IsGranted } from "@nodefony/framework";
+import type { IUser } from "@nodefony/user";
 
 /**
  * L'envoi devient une action, joignable en POST HTTP comme par la socket.
@@ -860,7 +861,7 @@ import { Body, CurrentUser, IsGranted } from "@nodefony/framework";
 @IsGranted(["ROLE_USER"])
 async send(
   @Body() payload: { text?: string },
-  @CurrentUser() user?: { identifier?: string },
+  @CurrentUser() user: IUser,
 ) {
   const text = typeof payload?.text === "string" ? payload.text.trim() : "";
   if (text.length === 0 || text.length > 2000) {
@@ -869,7 +870,7 @@ async send(
 
   // L'auteur vient du SERVEUR. Le client ne peut plus mentir dessus.
   const message: ChatMessage = {
-    author: user?.identifier ?? "inconnu",
+    author: user.identifier,
     text,
     sentAt: Date.now(),
   };
@@ -1218,6 +1219,7 @@ import {
 import type { RealtimePublish } from "@nodefony/realtime";
 import { HttpError } from "@nodefony/http";
 import type { ContextType, IUploadedFile } from "@nodefony/http";
+import type { IUser } from "@nodefony/user";
 
 /** Un message tel qu'il circule sur le canal du salon. */
 export interface ChatMessage {
@@ -1288,14 +1290,14 @@ class ChatController extends RealtimeController {
   @IsGranted(["ROLE_USER"])
   async send(
     @Body() payload: { text?: string },
-    @CurrentUser() user?: { identifier?: string },
+    @CurrentUser() user: IUser,
   ): Promise<{ ok: true; sentAt: number }> {
     const text = typeof payload?.text === "string" ? payload.text.trim() : "";
     if (text.length === 0 || text.length > 2000) {
       throw new HttpError("message vide ou trop long", 400);
     }
     const message: ChatMessage = {
-      author: user?.identifier ?? "inconnu",
+      author: user.identifier,
       text,
       sentAt: Date.now(),
     };
@@ -1312,13 +1314,13 @@ class ChatController extends RealtimeController {
   @IsGranted(["ROLE_USER"])
   async upload(
     @UploadedFile() file?: IUploadedFile,
-    @CurrentUser() user?: { identifier?: string },
+    @CurrentUser() user: IUser,
   ): Promise<{ ok: true; filename: string; size: number }> {
     if (!file) {
       throw new HttpError("aucun fichier reçu", 400);
     }
     const announcement: ChatAttachment = {
-      author: user?.identifier ?? "inconnu",
+      author: user.identifier,
       filename: file.filename,
       size: file.size,
       mimeType: file.mimeType,

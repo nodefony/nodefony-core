@@ -2000,6 +2000,9 @@ function dispatchScaffold(
       // Route protégée seulement si le manifeste généré déclare la zone
       // `secure` — c'est le preset complete qui embarque @nodefony/security.
       secureRoute: preset === "complete",
+      // `@CurrentUser()` se type `IUser` dès que l'app porte la sécurité (et
+      // donc `@nodefony/user`) ; sans elle, ce paquet n'est pas installé.
+      hasSecurity: preset === "complete",
     },
     written,
     writer,
