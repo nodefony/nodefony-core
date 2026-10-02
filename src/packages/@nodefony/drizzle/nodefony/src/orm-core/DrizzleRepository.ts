@@ -226,9 +226,18 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     this.#transactional = transactional;
   }
 
-  /** Colonne Drizzle d'une table par nom logique ; `undefined` si elle n'existe pas. */
+  /**
+   * Colonne Drizzle d'une table par nom logique ; `undefined` si elle n'existe pas.
+   *
+   * 🔴 `Object.hasOwn` sur l'objet des COLONNES, jamais `table[name]` : le nom
+   * vient souvent de la requête (`?sort=`), et une clé héritée du prototype
+   * (`constructor`, `__proto__`, `toString`) ne vaut pas `undefined` — elle
+   * franchissait la liste blanche et cassait plus loin dans le pilote.
+   * `getTableColumns` rend l'objet tel quel, sans copie.
+   */
   #col(table: DrizzleTable, name: string): DrizzleColumn | undefined {
-    return (table as unknown as TableColumns)[name];
+    const columns = getTableColumns(table) as unknown as TableColumns;
+    return Object.hasOwn(columns, name) ? columns[name] : undefined;
   }
 
   /**

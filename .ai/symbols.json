@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 888,
-    "symbols": 4456,
+    "symbols": 4455,
     "classes": 405,
     "interfaces": 1161,
     "types": 475,
     "enums": 4,
-    "functions": 1962,
+    "functions": 1961,
     "constants": 449
   },
   "symbols": {
@@ -40173,9 +40173,6 @@
       ],
       "MongooseTransaction": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
-      ],
-      "MONGO_ORDER_ALIASES": [
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "likePatternToRegExp": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"

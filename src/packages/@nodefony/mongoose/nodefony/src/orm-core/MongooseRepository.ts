@@ -1,6 +1,5 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
 import { RequestContext, redactSecrets } from "nodefony";
-import { MONGO_ORDER_ALIASES } from "../mongoOrder";
 import { writeCount } from "../writeCount";
 import {
   assertOrderOption,
@@ -47,19 +46,6 @@ export interface IMongooseReferrer {
    * SQL généré, qui déduit l'effacement de la nullabilité de la colonne.
    */
   readonly required: boolean;
-}
-
-/**
- * Clé Mongo d'un champ de TRI — `id` public → `_id` au repos.
- *
- * Mongo ne se plaint pas d'un tri sur un champ absent : il rend les documents
- * dans un ordre arbitraire. `id` n'est qu'un virtuel de lecture ; sans cette
- * traduction, `order: [["id", "DESC"]]` — le départage du tri par défaut de
- * tout CRUD généré — serait silencieusement inerte ici et correct en SQL. Même
- * table que les stores Mongo ({@link MONGO_ORDER_ALIASES}).
- */
-function sortKey(field: string): string {
-  return MONGO_ORDER_ALIASES[field] ?? field;
 }
 
 /**
@@ -226,7 +212,11 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
    * donnait 0 résultat silencieux — et divergeait de Drizzle qui, lui, renvoyait
    * tout). Échoue tôt et pareil sur les deux drivers.
    *
-   * @param field - clé brute du critère.
+   * Sert AUSSI au tri : Mongo ne se plaint pas d'un `sort` sur un champ absent
+   * — il rend un ordre arbitraire, là où Drizzle refuse. `id` (virtuel de
+   * lecture) y devient `_id`, le départage du tri par défaut d'un CRUD généré.
+   *
+   * @param field - clé brute du critère ou du tri.
    * @returns la clé Mongo résolue.
    * @throws UnknownCriteriaField si le champ n'existe pas sur le schéma.
    */
@@ -234,11 +224,13 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const key = field === "id" ? "_id" : field;
     const paths = this.#model.schema.paths as Record<string, unknown>;
     // `_id` toujours valide ; chemin direct ; ou chemin imbriqué (`a.b` → racine `a`).
+    // 🔴 `Object.hasOwn`, jamais `paths[key] !== undefined` : une clé héritée du
+    // prototype (`constructor`, `__proto__`) franchissait la liste blanche.
     if (
       key === "_id" ||
-      paths[key] !== undefined ||
+      Object.hasOwn(paths, key) ||
       // `split` rend toujours au moins un segment.
-      paths[key.split(".")[0] ?? key] !== undefined
+      Object.hasOwn(paths, key.split(".")[0] ?? key)
     ) {
       return key;
     }
@@ -311,7 +303,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           query = query.sort(
             Object.fromEntries(
               options.order.map(([field, dir]) => [
-                sortKey(field),
+                this.#resolveField(field),
                 dir === "DESC" ? -1 : 1,
               ]),
             ),
@@ -348,7 +340,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           query = query.sort(
             Object.fromEntries(
               options.order.map(([field, dir]) => [
-                sortKey(field),
+                this.#resolveField(field),
                 dir === "DESC" ? -1 : 1,
               ]),
             ),

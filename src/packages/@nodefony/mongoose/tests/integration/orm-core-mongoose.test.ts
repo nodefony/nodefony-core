@@ -184,6 +184,33 @@ describe.skipIf(!URI)(
       await users.delete({}); // cleanup — ne pas polluer les tests suivants
     });
 
+    it("red-team : une clé du prototype n'est pas un champ (critère, tri, distinct)", async () => {
+      // `paths[key] !== undefined` laissait passer `constructor`/`__proto__` :
+      // la liste blanche du schéma doit refuser comme pour tout champ inconnu.
+      for (const key of [
+        "constructor",
+        "__proto__",
+        "toString",
+        "constructor.name",
+      ]) {
+        await assert.rejects(
+          users.find(JSON.parse(`{"${key}": 1}`)),
+          /Unknown criteria field/,
+          `critère ${key}`,
+        );
+        await assert.rejects(
+          users.find({}, { order: [[key, "ASC"]] } as never),
+          /Unknown criteria field/,
+          `tri ${key}`,
+        );
+        await assert.rejects(
+          users.countDistinct(key as never),
+          /Unknown criteria field/,
+          `distinct ${key}`,
+        );
+      }
+    });
+
     it("order strict : forme mal formée → InvalidOrderOption (parité stricte avec Drizzle)", async () => {
       await users.delete({});
       await users.createMany([

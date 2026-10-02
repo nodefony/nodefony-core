@@ -4,7 +4,11 @@
  */
 
 import { expect } from "vitest";
-import { compareByOrder, pickOrder } from "../runtime/pageSort";
+import {
+  compareByOrder,
+  pickOrder,
+  renameOrderFields,
+} from "../runtime/pageSort";
 
 interface Row {
   id: string;
@@ -162,5 +166,38 @@ describe("pickOrder — ce qui n'est pas déclaré ne trie pas", () => {
     ];
     pickOrder(input, ALLOWED, FALLBACK);
     expect(input).to.have.lengthOf(2);
+  });
+});
+
+describe("renameOrderFields — seules les clés PROPRES sont des alias", () => {
+  it("traduit un alias déclaré, laisse passer le reste", () => {
+    expect(
+      renameOrderFields(
+        [
+          ["id", "DESC"],
+          ["name", "ASC"],
+        ],
+        { id: "_id" },
+      ),
+    ).to.deep.equal([
+      ["_id", "DESC"],
+      ["name", "ASC"],
+    ]);
+  });
+
+  it("une clé du prototype reste un nom de champ, jamais une fonction", () => {
+    const out = renameOrderFields(
+      [
+        ["constructor", "ASC"],
+        ["toString", "DESC"],
+        ["__proto__", "ASC"],
+      ],
+      { id: "_id" },
+    );
+    expect(out.map(([f]) => f)).to.deep.equal([
+      "constructor",
+      "toString",
+      "__proto__",
+    ]);
   });
 });

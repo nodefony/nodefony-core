@@ -55,7 +55,11 @@ export function renameOrderFields(
   order: NonNullable<IPageQuery["order"]>,
   aliases: Readonly<Record<string, string>>,
 ): NonNullable<IPageQuery["order"]> {
-  return order.map(([field, dir]) => [aliases[field] ?? field, dir]);
+  // `hasOwn` : une clé du prototype (`constructor`) n'est pas un alias.
+  return order.map(([field, dir]) => [
+    Object.hasOwn(aliases, field) ? (aliases[field] as string) : field,
+    dir,
+  ]);
 }
 
 /**
