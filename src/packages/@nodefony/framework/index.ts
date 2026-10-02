@@ -410,7 +410,8 @@ class Framework extends Module<IFrameworkConfig> {
       mountSessionAuthRoutes(this);
     }
     // P6 J4 — émission/rotation JWT : routes montées seulement si le service
-    // `tokenService` est présent (security chargé + JWT activé). 404 sinon.
+    // `tokenService` est présent (security chargé). Sans security : 404 ; JWT
+    // désactivé : les routes existent et répondent 503 (`isEnabled()`).
     if (this.kernel?.container?.get("tokenService")) {
       mountTokenAuthRoutes(this);
       // Rôle ÉMETTEUR (RFC 8414) : publier ses clés et dire où elles sont —
@@ -451,12 +452,13 @@ class Framework extends Module<IFrameworkConfig> {
       }
     }
     // P6 J9 — cérémonies WebAuthn/passkeys : routes montées seulement si le
-    // service `webauthn` est présent (security chargé + passkeys activés).
+    // service `webauthn` est présent (security chargé) ; désactivé → 503.
     if (this.kernel?.container?.get("webauthn")) {
       mountWebAuthnRoutes(this);
     }
     // P6 J9 — social login OAuth2 : routes montées seulement si le service
-    // `oauth2` est présent (security chargé + ≥1 provider configuré). 404 sinon.
+    // `oauth2` est présent (security chargé). Sans security : 404 ; aucun
+    // fournisseur prêt : 503 (`isEnabled()`).
     if (this.kernel?.container?.get("oauth2")) {
       mountOAuth2Routes(this);
     }
@@ -468,13 +470,15 @@ class Framework extends Module<IFrameworkConfig> {
       mountBenchRoutes(this);
     }
     // P6.12 — gestion des clés API (PAT) : routes montées seulement si le service
-    // `apiKeys` est présent (security chargé + clés activées). 404 sinon. Ces
+    // `apiKeys` est présent (security chargé). Sans security : 404 ; clés
+    // désactivées : 503 (`isEnabled()`). Ces
     // routes sont PROTÉGÉES par la zone data plane (session), pas bypassées.
     if (this.kernel?.container?.get("apiKeys")) {
       mountApiKeyRoutes(this);
     }
     // P6.17 — self-service 2FA TOTP : routes montées seulement si le service
-    // `totp` est présent (security chargé + 2FA activé). 404 sinon. Protégées par
+    // `totp` est présent (security chargé). Sans security : 404 ; 2FA
+    // désactivé : 503 (`isEnabled()`). Protégées par
     // la zone data plane (session BFF), pas bypassées.
     if (this.kernel?.container?.get("totp")) {
       mountTotpRoutes(this);

@@ -25,7 +25,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-10-02
 source: "src/packages/@nodefony/security/docs/tokens.md"
 ---
 
@@ -142,8 +142,9 @@ le framework monte deux routes (`mountTokenAuthRoutes()`, `TokenAuthController.t
 - `POST /nodefony/security/api/token/refresh` — body `{refresh_token}` → rotation.
 
 > [!IMPORTANT]
-> Ces routes n'existent **que si** le service `tokenService` est présent — sinon 404, zéro surface
-> (`TokenAuthController.ts:46-48`). Elles sont `bypassFirewall: true` (`TokenAuthController.ts:145`) :
+> Ces routes n'existent **que si** `@nodefony/security` est chargé — sinon 404, zéro surface
+> (`framework/index.ts:415`). Module chargé mais JWT désactivé : elles existent et répondent
+> `503 Token issuance unavailable` (`TokenAuthController.ts:69`). Elles sont `bypassFirewall: true` (`TokenAuthController.ts:145`) :
 > elles SONT le mécanisme d'émission — protégées, obtenir un token exigerait d'être déjà
 > authentifié (deadlock). Le JWT part en **réponse JSON** (Bearer), jamais en cookie ni en URL.
 

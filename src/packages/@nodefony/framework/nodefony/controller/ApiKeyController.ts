@@ -52,7 +52,8 @@ let mounted = false;
  * zone data plane `^/nodefony/[^/]+/api(/|$)` → **session BFF requise**. Le porteur
  * est TOUJOURS l'utilisateur courant (`authFlow.me`), jamais un paramètre — on ne
  * crée/révoque jamais une clé pour autrui. Montés seulement si le service `apiKeys`
- * existe (security chargé + clés activées) → 404, zéro surface, sinon.
+ * existe (security chargé) — sans security, 404 et zéro surface ; clés
+ * désactivées, les routes répondent 503.
  *
  * Erreurs mappées par DUCK-TYPING sur `code` (400/409/503) — framework ne peut pas
  * importer les classes d'erreur de security.

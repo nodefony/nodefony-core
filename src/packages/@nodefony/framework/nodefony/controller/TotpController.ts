@@ -53,7 +53,8 @@ let mounted = false;
  * plane `^/nodefony/[^/]+/api(/|$)` → **session BFF requise**. Le sujet est
  * TOUJOURS l'utilisateur courant (`authFlow.me`), jamais un paramètre — on n'active
  * /ne désactive jamais le 2FA d'autrui (anti-IDOR). Montés seulement si le service
- * `totp` existe (security chargé + 2FA activé) → 404, zéro surface, sinon.
+ * `totp` existe (security chargé) — sans security, 404 et zéro surface ; 2FA
+ * désactivé, les routes répondent 503.
  */
 class TotpController extends Controller {
   constructor(context: ContextType) {

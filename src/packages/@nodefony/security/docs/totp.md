@@ -212,7 +212,7 @@ Et côté login, deux routes du flux de session BFF (`mountSessionAuthRoutes()`,
 > [!WARNING]
 > Les routes `totp/*` **n'ont pas** `bypassFirewall` (`TotpController.ts:52`) : elles vivent dans la
 > zone data plane et exigent une session BFF. Le sujet est **toujours** l'utilisateur courant, lu
-> depuis la session (`TotpController.#currentSubject()`, `TotpController.ts:138`) — jamais un
+> depuis la session (`TotpController.#currentSubject()`, `TotpController.ts:142`) — jamais un
 > paramètre : on n'active ni ne désactive le 2FA d'autrui (anti-IDOR).
 
 ### 4. Ce qu'on observe

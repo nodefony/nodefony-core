@@ -45,8 +45,8 @@ function parseScope(scope: unknown): string[] | undefined {
  *  - `POST /nodefony/security/api/token/refresh` — body `{refresh_token}` → rotation
  *
  * Montés par le module framework UNIQUEMENT si le service `tokenService` existe
- * (module security chargé + JWT activé) — sans lui, les routes n'existent pas
- * (404, zéro surface).
+ * (module security chargé) — sans lui, les routes n'existent pas (404, zéro
+ * surface). JWT désactivé ou store indisponible : les routes répondent 503.
  *
  * Le JWT part en **réponse JSON** (Bearer), JAMAIS en cookie ni en URL (anti
  * fuite / non-révocable). Erreurs mappées par DUCK-TYPING sur `code` (401/429) —
