@@ -200,14 +200,14 @@ Le processus n'accumule rien.
 
 Toutes les lignes du tableau viennent **d'un seul run**, le 2 octobre 2026, sur Node v26.10.0.
 
-| Grandeur                          | Mesure                                       | Lecture                                                      |
-| --------------------------------- | -------------------------------------------- | ------------------------------------------------------------ |
-| Tas JS (`heapUsed`)               | 45,6 → 46,0 MB · pente +0,1 MB/h (R² 0,03)   | **plat** — aucune fuite JS                                   |
-| **Empreinte système** (macOS)     | **160 → 162 MB** · pente +1,7 MB/h (R² 0,24) | **plate** — rien n'est retenu                                |
-| dont pages **réutilisables**      | 7,9 → 8,2 MB                                 | stables                                                      |
-| Mémoire résidente (`rss`)         | 214,8 → 216,8 MB · pente +2,0 MB/h (R² 0,31) | **plate** — 0,4 MB d'écart, sous le bruit du ramasse-miettes |
-| Descripteurs (sockets, minuteurs) | 5 → 5, aucun type en hausse                  | rien ne s'accumule                                           |
-| Débit                             | 18 494 → 18 454 rps (**−0,2 %**)             | aucune érosion                                               |
+| Grandeur                          | Mesure                                       | Lecture                                                           |
+| --------------------------------- | -------------------------------------------- | ----------------------------------------------------------------- |
+| Tas JS (`heapUsed`)               | 45,6 → 46,0 MB · pente +0,1 MB/h (R² 0,03)   | **plat** — aucune fuite JS                                        |
+| **Empreinte système** (macOS)     | **160 → 162 MB** · pente +1,7 MB/h (R² 0,24) | **plate** — rien n'est retenu                                     |
+| dont pages **réutilisables**      | 7,9 → 8,2 MB                                 | stables                                                           |
+| Mémoire résidente (`rss`)         | 214,8 → 216,8 MB · pente +2,0 MB/h (R² 0,31) | **plate** — 2 MB d'écart, sous le bruit du ramasse-miettes (8 MB) |
+| Descripteurs (sockets, minuteurs) | 5 → 5, aucun type en hausse                  | rien ne s'accumule                                                |
+| Débit                             | 18 494 → 18 454 rps (**−0,2 %**)             | aucune érosion                                                    |
 
 Rapportée à la charge, la consommation vaut **0,021 MB par million de requêtes**, sur l'empreinte
 comme sur `rss`. C'est la grandeur qui se transpose d'une machine à l'autre, contrairement aux MB/h,

@@ -2556,6 +2556,7 @@
     "rssMbPerMillionReq": 0.021,
     "observedMinutes": 87.6,
     "amplitudeMb": 0.4,
+    "noiseMb": 8,
     "verdict": "clean"
   },
   "applicativeNest": {
