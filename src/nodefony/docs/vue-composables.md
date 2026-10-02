@@ -238,7 +238,7 @@ démontage trancherait les requêtes en vol des autres consommateurs.
   client non réactif, canal réactif qui déplace l'abonnement, et surtout **le démontage qui rend
   l'abonnement au serveur** — compté sur les trames émises, seul juge d'une fuite.
 - **La surface publiée** est tenue par `clientSubpathSurface.types.test.ts` : ce que les composables
-  rendent doit pouvoir être **nommé** par un consommateur, et les trois subpaths parlent des mêmes
+  rendent doit pouvoir être **nommé** par un consommateur, et les quatre subpaths parlent des mêmes
   types, pas de jumeaux.
 - **Aucun test de rendu** ne monte de composant réel : le harnais utilise `app.runWithContext` et
   `effectScope`, qui donnent exactement ce qu'un composant donne à un composable, sans DOM.

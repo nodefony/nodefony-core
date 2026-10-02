@@ -117,13 +117,13 @@ deux hubs temps réel qui ne se parlent pas.
 
 ## Temps réel & interface
 
-| Paquet                    | Prends-le quand…                                                                                                                      | Ne le prends pas si…                                                        |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `@nodefony/realtime`      | le serveur doit **pousser** : une connexion qui multiplexe N canaux bidirectionnels, actions RPC, backplane cluster                   | un simple echo WebSocket suffit — `@nodefony/http` le fait déjà             |
-| `@nodefony/frontend`      | l'application sert une interface Vite (React, Vue, Angular), en rechargement à chaud en développement et pré-construite en production | l'application n'est qu'une API                                              |
-| `@nodefony/studio`        | tu veux voir l'intérieur en marche : routes, services, configuration, sessions, journaux, en **développement**                        | production — c'est un outil de développement, pas un tableau de bord public |
-| `@nodefony/documentation` | tu publies des pages de documentation servies par l'application elle-même                                                             | tu écris de la documentation lue seulement dans le dépôt                    |
-| `@nodefony/devkit`        | tu développes l'application **avec un agent** : carte de visite de l'application, portes de découverte de l'outillage                 | production — ce qu'il expose n'y est plus une aide, mais une divulgation    |
+| Paquet                    | Prends-le quand…                                                                                                                              | Ne le prends pas si…                                                        |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `@nodefony/realtime`      | le serveur doit **pousser** : une connexion qui multiplexe N canaux bidirectionnels, actions RPC, backplane cluster                           | un simple echo WebSocket suffit — `@nodefony/http` le fait déjà             |
+| `@nodefony/frontend`      | l'application sert une interface Vite (React, Vue, Angular, Svelte), en rechargement à chaud en développement et pré-construite en production | l'application n'est qu'une API                                              |
+| `@nodefony/studio`        | tu veux voir l'intérieur en marche : routes, services, configuration, sessions, journaux, en **développement**                                | production — c'est un outil de développement, pas un tableau de bord public |
+| `@nodefony/documentation` | tu publies des pages de documentation servies par l'application elle-même                                                                     | tu écris de la documentation lue seulement dans le dépôt                    |
+| `@nodefony/devkit`        | tu développes l'application **avec un agent** : carte de visite de l'application, portes de découverte de l'outillage                         | production — ce qu'il expose n'y est plus une aide, mais une divulgation    |
 
 `@nodefony/studio` tire `@nodefony/frontend` : le déclarer suffit à avoir les deux.
 

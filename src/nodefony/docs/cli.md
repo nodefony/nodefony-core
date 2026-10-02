@@ -203,7 +203,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 | `install` | — | `install` sur tous les modules — `-f/--force` | `onRegister` | `InstallCommand.ts:9` |
 | `outdated` | — | `outdated` sur tous les modules | `onRegister` | `OutdatedCommand.ts:9` |
 | `start` | — | **Alias de `prod`** (il n'y a plus de commande propre) | `onStart` | `ProdCommand.ts:49` |
-| `check` | **`doctor`** | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot` | `DoctorCommand.ts:37` |
+| `doctor` | — | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot` | `DoctorCommand.ts:37` |
 | `env` | — | Cascade des `.env`, valeurs effectives et **provenance** de chacune (**0 boot**) | `0 boot` | `EnvCommand.ts:36` |
 | `status` | — | Introspecte les process dev/prod/cluster (**0 boot**) | `0 boot` | `StatusCommand.ts:20` |
 | `stop` | — | Arrête proprement les runtimes du projet (**0 boot**) — `--all` | `0 boot` | `StopCommand.ts:20` |
@@ -223,14 +223,13 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 `status` et `stop` sont détournées vers leur exécution réelle **avant** tout boot
 (`CliKernel.ts:229`, via `isStandaloneDevCommand`) — leur `generate()` n'est qu'un filet.
 
-**`check`/`doctor` et `env` prennent le même raccourci, et pour une raison qui se retient**
+**`doctor` et `env` prennent le même raccourci, et pour une raison qui se retient**
 (`CliKernel.ts:94` et `:239`) : on lance ces deux commandes précisément quand l'application **ne
 démarre plus**. Les faire booter les rendrait muettes au seul moment où elles servent — et le
-rapport se noierait sous le journal du Kernel. `doctor` devait donc partager ce fast-path : sans
-lui, commander ne le voit pas parmi les intégrées avant le chargement des modules, et l'alias
+rapport se noierait sous le journal du Kernel. `doctor` prend donc ce fast-path : sans lui, il
 partirait en dispatch différé, c'est-à-dire en boot.
 
-> **Deux verbes à retenir, et leur frontière** : `check` (ou `doctor`) est **statique** — il ne lit
+> **Deux verbes à retenir, et leur frontière** : `doctor` est **statique** — il ne lit
 > que des fichiers, donc il fonctionne sur une application cassée. `inspect` est **runtime** — il
 > boote sans serveur et rend ce que l'application est VRAIMENT, pas ce que son code laisse croire.
 
@@ -289,7 +288,7 @@ partagée par trois fronts : le CLI rapide (flags), le CLI interactif (readline)
 Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
 
 Le détail de chaque scaffold (options, gabarits, presets) vit dans les skills dédiés : `create app`
-(preset `complete`/`minimal`, front React/Vue/Angular), `create module`, `create entity`. En résumé —
+(preset `complete`/`minimal`, front React/Vue/Angular/Svelte), `create module`, `create entity`. En résumé —
 `create app` et `create entity` **exécutent** ce qu'ils génèrent au boot suivant (la table naît en
 `CREATE TABLE IF NOT EXISTS`). Ajouter ensuite un champ **qui accepte le vide** le pose au boot
 suivant ; un champ **obligatoire** ne l'est jamais — il faudrait inventer la valeur des lignes déjà

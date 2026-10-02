@@ -229,7 +229,7 @@ export default defineConfig((ctx) => ({
 
 ## Les sévérités RFC 5424
 
-Huit niveaux normalisés, plus une extension maison pour le CLI. L'enum `SysLogSeverity`
+Huit niveaux normalisés (RFC 5424), et rien d'autre. L'enum `SysLogSeverity`
 (`Pdu.ts:27`) est la source unique :
 
 | #   | Nom         | Quand l'employer                                | Sortie |
@@ -795,7 +795,7 @@ et le pilotage du debug ciblé.
 | `pdu.severity === "INFO"` est faux                | `severity` est un **nombre**                                  | Comparer `pdu.severityName`, ou `pdu.severity === 6`.                         |
 | Les `DEBUG` n'apparaissent plus en production     | Gate d'entrée posée à `INFO` par le Kernel (`Kernel.ts:1932`) | `NF__DEBUG=MODULE`, ou `PATCH /nodefony/kernel/api/log/level`.                |
 | Un override de debug ne change rien               | Pas de gate globale (développement) → tout passe déjà         | Normal. L'override ne fait que **relever** un seuil existant.                 |
-| `log.maxStack` refusé par TypeScript              | Absent du type public `LogConfig` (`types.ts:189`)            | Non réglable depuis l'app : 100 par défaut, 2000 en développement.            |
+| `log.maxStack` sans effet                         | N'agit que sur le driver `memory`, au boot                    | Le poser dans `log: { maxStack: N }` ; défaut 100, 2000 en développement.     |
 | Codes de couleur dans un fichier de log           | Sortie non-TTY mal détectée                                   | La couleur est résolue au boot ; vérifier `NO_COLOR`/`FORCE_COLOR`.           |
 | Vue « incomplète » en cluster                     | Driver de relecture **local** — il ne lit que son process     | `queryDriver: "cluster-file"` (défaut d'un worker), ou Loki/OpenSearch.       |
 | Deux fois la même ligne dans le JSONL             | Deux transports de même nom empilés par deux boots successifs | Déjà traité : `addTransport` **remplace** par nom (`Syslog.ts:1438`).         |

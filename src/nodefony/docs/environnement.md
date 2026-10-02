@@ -117,7 +117,7 @@ exposerait la console d'administration d'un serveur.
 **Le défaut ne gouverne jamais un serveur.** `nodefony development`, `nodefony production`
 (alias `start`, `prod`) et `nodefony cluster` posent leur mode eux-mêmes, et il n'existe pas
 d'autre façon d'en démarrer un. Le défaut ne concerne donc que les commandes utilitaires —
-`inspect`, `check`, `env`, `security:*`.
+`inspect`, `doctor`, `env`, `security:*`.
 
 > ⚠️ **Le piège à connaître : une commande utilitaire ne tourne PAS dans le mode du serveur que
 > vous avez lancé.** Chacune démarre son propre noyau. Si votre serveur tourne par
@@ -283,9 +283,9 @@ l'une d'elles est pire que de ne rien afficher : on croit le rapport, et on cher
 - **Un `.env.local` n'est jamais committé.** C'est la règle qui rend les secrets tenables ; le
   `.gitignore` généré l'applique dès la création de l'application. Un secret dans `.env` part
   dans le dépôt.
-- **Le catalogue exige un build.** `nodefony env` lit les variables déclarées dans le `dist/` de
-  l'application. Sans build, la cascade reste exacte et le rapport **dit** que la liste manque —
-  il ne se tait pas.
+- **Le catalogue se lit dans `env.ts`.** `nodefony env` importe d'abord le source `env.ts` (Node ≥ 24
+  l'exécute nativement), puis `dist/index.js` en repli. Si aucun des deux n'est lisible, la cascade
+  reste exacte et le rapport **dit** que la liste manque — il ne se tait pas.
 
 ## 📖 Lexique
 

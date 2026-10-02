@@ -662,10 +662,11 @@ Ce qui **est** couvert — les invariants dont les hooks dépendent entièrement
 
 Ce qui **manque**, et qu'il faut savoir avant de s'appuyer sur cette page :
 
-- **Aucun test de rendu React.** Il n'existe pas de suite montant un composant sous
-  `NodefonyProvider` — ni bibliothèque de test de rendu dans le dépôt. Le cycle montage/démontage, le
-  comportement en StrictMode et l'absence de re-rendu superflu sont raisonnés sur le code, pas
-  exercés.
+- **Les hooks de canal ne sont pas exercés en rendu.** Seuls `NodefonyProvider` et `useNodefony`
+  sont montés réellement (`NodefonyProvider.test.ts`, jsdom : une socket par URL, cycle d'une socket
+  fournie respecté). Aucune suite ne monte un composant qui utilise `useNodefonyChannel*` : le cycle
+  montage/démontage, le comportement en StrictMode et l'absence de re-rendu superflu restent
+  raisonnés sur le code.
 - **Cinq hooks n'ont aucun consommateur** dans le dépôt : `useNodefonyIdentity`,
   `useNodefonyChannelStats`, `useNodefonySyslog`, `useNodefonyNotifications` et
   `useNodefonyNoticeLog`. C'est précisément là que se logent les deux défauts signalés plus haut — un

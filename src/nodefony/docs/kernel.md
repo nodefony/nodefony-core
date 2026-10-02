@@ -556,14 +556,14 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 
 ### Ce qu'il apporte
 
-| Membre                  | Ancre               | Rôle                                                                  |
-| ----------------------- | ------------------- | --------------------------------------------------------------------- |
-| `runProfile`            | `CliKernel.ts:118`  | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
-| `setRunProfile(profil)` | `CliKernel.ts:1038` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
-| `packageManager`        | `CliKernel.ts:125`  | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
-| `addCommand(Ctor)`      | `CliKernel.ts:1081` | Enregistre une commande intégrée (les modules passent par `Module`).  |
-| `quietBoot`             | `CliKernel.ts:128`  | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
-| `parseCommand(argv?)`   | `CliKernel.ts:199`  | Analyse Commander synchrone.                                          |
+| Membre                  | Ancre               | Rôle                                                                                          |
+| ----------------------- | ------------------- | --------------------------------------------------------------------------------------------- |
+| `runProfile`            | `CliKernel.ts:118`  | `{ servers, lifetime, interactive }` — ce dont le run a besoin.                               |
+| `setRunProfile(profil)` | `CliKernel.ts:1038` | Déclaré par une commande ; recopié dans le kernel à `onStart`.                                |
+| `packageManager`        | `CliKernel.ts:125`  | `npm` par défaut (config, puis fichier de verrou, puis user-agent) ; `pnpm` / `yarn` / `bun`. |
+| `addCommand(Ctor)`      | `CliKernel.ts:1081` | Enregistre une commande intégrée (les modules passent par `Module`).                          |
+| `quietBoot`             | `CliKernel.ts:128`  | Boot silencieux : seules les erreurs sortent. Pour une sortie propre.                         |
+| `parseCommand(argv?)`   | `CliKernel.ts:199`  | Analyse Commander synchrone.                                                                  |
 
 Le défaut de `runProfile` est **console pur** : `{ servers: false, lifetime: "oneshot" }`. Une
 commande n'ouvre donc aucun port tant qu'elle ne le demande pas — un `nodefony build` ne démarre

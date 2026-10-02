@@ -72,7 +72,7 @@ Trois idées portent toute la page :
 | Hot path | Le chemin parcouru à **chaque** requête HTTP/WS — la moindre allocation y coûte cher. |
 | Microtask | Unité d'ordonnancement d'une `Promise` : un `await` inutile en alloue une pour rien. |
 | Émission gardée | `emitAsyncGuarded` — chaque écouteur est isolé (try/catch + délai maximal), les échecs sont collectés. |
-| Scope DI | `singleton` (une instance mémoïsée) ou `transient` (une neuve à chaque résolution). |
+| Scope DI | `singleton` (une instance mémoïsée), `transient` (une neuve à chaque résolution) ou `request` (une par requête, par connexion en WebSocket). |
 | Tri topologique | Calcul de l'ordre d'instanciation depuis les dépendances déclarées, au lieu de le lire dans une liste. |
 | BootReport | Bilan de démarrage : ce qui a été chargé, ce qui a été ignoré, pourquoi. Fait dire « boot DÉGRADÉ ». |
 | Fail-soft / fail-loud | Continuer malgré la panne / refuser de continuer en silence. Nodefony fait les deux, jamais en cachette. |
@@ -243,14 +243,13 @@ initialized`) et `set()` lève aussi (`container not initialized`) — mais `get
 3. **Kernel + syslog** — récupérés depuis le container ; si le syslog manque, un `Syslog` est créé
    avec `moduleName = this.name` puis **posé au container** pour les suivants (`Service.ts:116`).
 4. **Bus** — les trois formes ci-dessous (`Service.ts:116`).
-5. **Nettoyage des options** — la clé `events` est **supprimée** de `options` après usage
-   (`Service.ts:215`).
+5. **Écartement des options** — la clé `events` n'est jamais recopiée dans `this.options` : elle
+   est lue puis écartée par rest-destructuring (`Service.ts:219`).
 
 > [!WARNING]
-> L'étape 5 utilise `delete` et **pas** `= undefined`, volontairement : des consommateurs parcourent
-> `for (… in this.options)` et appellent `.path` sur chaque valeur — ils supposent la clé **absente**.
-> Le gain de _hidden class_ V8 d'un `= undefined` serait annulé par les gardes `if (!v) continue` à
-> ajouter partout.
+> L'étape 5 écarte `events` à la construction plutôt que de la supprimer après coup par `delete`
+> (qui ferait muter la _hidden class_ V8) : des consommateurs parcourent `for (… in this.options)` et
+> appellent `.path` sur chaque valeur — ils supposent la clé **absente**.
 
 ### Les trois formes de bus — trois situations réelles
 
@@ -400,7 +399,7 @@ restent lisibles via `this.options` — c'est le canal de configuration d'un ser
 
 | Option               | Type                    | Défaut effectif    | Effet                                                                   |
 | -------------------- | ----------------------- | ------------------ | ----------------------------------------------------------------------- |
-| `events.nbListeners` | `number`                | **10** (Node)      | limite d'écouteurs avant l'avertissement `MaxListeners`                 |
+| `events.nbListeners` | `number`                | **20**             | limite d'écouteurs avant l'avertissement `MaxListeners`                 |
 | `syslog`             | `SyslogDefaultSettings` | `moduleName: name` | réglages du `Syslog` **créé** par ce service (ignoré s'il en hérite un) |
 | `onXxx`              | `function`              | —                  | écouteur auto-attaché à l'événement `Xxx` (convention `/^on(.+)$/`)     |
 | _(toute autre clé)_  | libre                   | —                  | config propre au service, lisible dans `this.options`                   |
@@ -547,12 +546,12 @@ Les services d'un module sont introspectables sans lire le code :
 | Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:531`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
 | `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts:333`)                        | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur  |
 | `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts:333`)                                       | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                  |
-| Avertissement `MaxListeners` à 11 abonnés               | le défaut annoncé (20) n'est pas appliqué (`Service.ts:17`)                       | passer `{ events: { nbListeners: N } }` explicitement                       |
+| Avertissement `MaxListeners` à 11 abonnés               | `events` fourni sans `nbListeners` : l'objet remplace tout le défaut (20)         | redonner `nbListeners` dans `events`                                        |
 | Le déclencheur de `listen()` passe un argument en trop  | `Event.listen()` (`Event.ts:216`) préfixe les arguments par le nom de l'événement | lire le 1ᵉʳ argument comme le nom, ou émettre via `fire()`                  |
 | Écouteurs asynchrones exécutés l'un après l'autre       | `emitAsync` est **séquentiel par design** (`Event.ts:248`)                        | comportement attendu ; paralléliser **dans** l'écouteur si besoin           |
 | Le service est reconstruit, son cache vide              | clé container ≠ nom `@injectable`, pont non appris (`injector.ts:88`)             | passer par `Module.addService()` — jamais un `new` manuel                   |
 | Un service déclaré n'est pas au container après le boot | sa construction a échoué, fail-soft **annoncé** (`Module.ts:365`)                 | lire le BootReport / les ERROR de démarrage ; en prod le boot aurait échoué |
-| `options.events` introuvable après construction         | la clé est **supprimée** volontairement (`Service.ts:19`)                         | lire la valeur avant, ou la conserver sous une autre clé                    |
+| `options.events` introuvable après construction         | la clé est **écartée** volontairement (`Service.ts:219`)                          | lire la valeur avant, ou la conserver sous une autre clé                    |
 
 ## 🧪 Tests & couverture
 

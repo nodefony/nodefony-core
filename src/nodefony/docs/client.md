@@ -152,8 +152,9 @@ Deux choix méritent d'être explicités, parce qu'ils se voient dans ton bundle
 - **Les subpaths ne sont jamais réexportés depuis le barrel principal.** Importer `nodefony/client`
   ne tire ni React, ni la barre de debug. C'est ce qui permet à la barre de peser **zéro octet** en
   production : personne ne l'importe.
-- **React est une dépendance externe, jamais empaquetée.** `clientExternal` (`rolldown.config.ts:94`)
-  marque `react`/`react-dom` comme externes : c'est **ton** React qui sera utilisé, donc pas de double
+- **React, Vue, Angular et Svelte sont des dépendances externes, jamais empaquetées.** `clientExternal`
+  (`rolldown.config.ts:94`) marque `react`/`react-dom`, `vue`, `@angular/*` et `svelte` comme
+  externes : c'est **ton** runtime qui sera utilisé, donc pas de double
   instance et pas de règle des hooks violée.
 
 Le compromis assumé : côté navigateur, quelques API Node manquent. Nodefony ne charge pas de
@@ -521,19 +522,18 @@ savoir **où sont les limites** : ce sont des shims, pas des implémentations co
 d'événements ne distingue pas un écouteur « une fois » d'un écouteur ordinaire, et ne gère pas
 l'événement `error` spécial de Node.
 
-### Le kernel client — un contrat qui n'est pas encore publié
+### Le kernel client
 
 `IClientKernel` (`client/IClientKernel.ts:172`) décrit le futur chef d'orchestre de la couche
 technique d'une application front : composition de services, cycle de vie navigateur, changement
 d'identité. Le registre de services `NodefonyClientServices` (`client/IClientKernel.ts:100`) s'étend
 par augmentation de module, comme le registre de configuration côté serveur.
 
-**Tu ne peux pas encore l'importer**, et c'est délibéré : il a d'abord été publié en types seulement,
-puis retiré de la surface avant que la 10.0.0 ne le gèle. Personne ne l'implémentait, donc le
-compilateur ne l'avait jamais vérifié — et il portait deux défauts que la première implémentation
-aurait révélés. Une fois publié, les corriger aurait demandé une version majeure ; l'ajouter une
-fois qu'une application réelle l'exerce ne demandera qu'une mineure. La spécification, elle, vaut
-toujours : elle est dans le dépôt, et l'ADR-0007 en donne les onze décisions.
+`ClientKernel` et `createClientKernel` sont publiés par `nodefony/client`, avec les types
+`IClientKernel`, `ClientKernelOptions`, `ClientKernelState`, `ClientKernelEvent`, `ClientIdentity` et
+`NodefonyClientServices` (`client/index.ts:81`). Le noyau compose les services techniques d'une
+application front (socket, journal, cycle d'identité) sans posséder le rendu, le routage ni l'état
+métier ; Studio compose les siens par lui. L'ADR-0007 en donne les onze décisions.
 
 ## 🏗️ Comment la lib arrive dans ton bundle
 
@@ -547,7 +547,7 @@ comme n'importe quel paquet du dossier `node_modules`. Trois points valent d'êt
    de la racine du projet. Le générateur de configuration ajoute le dossier de la lib cliente à la
    liste autorisée (`ViteConfigGenerator.ts:135`), sans quoi une application liée en développement
    verrait la barre répondre en refus d'accès.
-3. **En production, seul ce que tu importes part.** Les quatre subpaths sont des entrées séparées :
+3. **En production, seul ce que tu importes part.** Les sous-chemins (`client`, `roles`, `debugbar`, `react`, `vue`, `svelte`, `angular`) sont des entrées séparées :
    ce que tu n'importes pas n'est pas dans le bundle.
 
 Le détail du builder, du rechargement à chaud et du rendu de la page côté serveur est dans
@@ -585,8 +585,8 @@ exécutés **hors navigateur** — c'est l'injection de transport qui le permet.
   `RealtimeClientIdentity.test.ts`).
 - **Le protocole lui-même** : corrélation d'identifiants, délais, erreurs, flux en morceaux, actions
   entrantes (`JsonRpcPeer.test.ts` — 30 cas, le plus fourni).
-- **Les types comme test** : deux fichiers vérifient des propriétés de typage, dont la limite connue
-  de la surcharge historique de `request` (`RealtimeClient.types.test.ts`,
+- **Les types comme test** : deux fichiers vérifient des propriétés de typage, dont l'inférence
+  de `params` et du résultat de `request` depuis le contrat `Actions` (`RealtimeClient.types.test.ts`,
   `JsonRpcPeer.types.test.ts`).
 - **Les notices et les codes de fermeture** : la table RFC 6455 cas par cas, le silence sur les
   fermetures propres, la reconnectabilité (`RealtimeNotice.test.ts` — 19 cas).
