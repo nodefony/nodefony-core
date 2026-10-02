@@ -334,10 +334,12 @@ C'est le champ le plus discret et le plus structurant (`frameworkEntities` (`con
 défaut `true`, le module fait deux choses de plus qu'ouvrir des connexions, dès son enregistrement et
 **avant** que la connexion ne s'ouvre (`Mongoose.onKernelRegister()` (`mongoose/index.ts:65`)) :
 
-1. il **déclare les entités du framework** sur le connecteur `nodefony` — jetons, passkeys, webhooks —
+1. il **déclare les entités du framework** sur le connecteur `nodefony` — jetons, passkeys, TOTP,
+   audit, webhooks, idempotence —
    pour que leurs modèles soient compilés au moment de la connexion ;
 2. il **enregistre les fabriques** correspondantes dans les registres de `@nodefony/security`, ce qui
-   rend le nom `"mongoose"` sélectionnable dans `tokenStore`, `passkeys`, `webhooks`
+   rend le nom `"mongoose"` sélectionnable dans `tokenStore`, `passkeys`, `totp`, `audit`, `webhooks`
+   et `idempotency`
    (`registerMongooseFrameworkStores()` (`registerStores.ts:126`)).
 
 Le passer à `false` transforme le module en **pur driver de données** : tes entités à toi, rien
@@ -667,22 +669,19 @@ Le cas courant : la config est parfaite, mais Mongo n'est pas joignable — cont
 réseau coupé, identifiants périmés. Le comportement **dépend de l'environnement**, arbitré par la
 politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:3221`)) :
 
-| Environnement       | Ce qui se passe                                                                        |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| Développement, test | `WARNING`, l'échec est agrégé au bilan de démarrage, **le serveur démarre quand même** |
-| Production          | L'échec **interrompt le démarrage** : le processus sort en erreur                      |
+| Environnement                         | Ce qui se passe                                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Développement, test **et production** | `WARNING`, l'échec est agrégé au bilan de démarrage, **le serveur démarre quand même** (module `critical = false`) |
+| Toute configuration invalide          | Fatale partout : une `BootConfigurationError` ne se répare pas en attendant                                        |
 
-Ce n'est pas une inconséquence : en développement, tu veux ton serveur debout pour travailler sur le
-reste ; en production, un pod qui répond sans sa base est un piège — l'orchestrateur doit le voir
-tomber pour le relancer, et c'est le modèle cloud-native que le framework applique partout.
+Un pod qui démarre sans sa base n'est pas pour autant mis en service à l'aveugle : c'est la sonde de
+disponibilité (`/readyz`) qui dit à l'orchestrateur de ne pas lui envoyer de trafic.
 
 > [!IMPORTANT]
-> **Le module est déclaré non critique** (`Mongoose.critical` (`mongoose/index.ts:48`)), et cette
-> déclaration protège bien ses **hooks de module** — mais l'ouverture de la connexion, elle, est faite
-> par un écouteur `onBoot` posé par le service, qui ne porte pas cette étiquette
-> (`MongooseService.ts:41`). En production, une base injoignable interrompt donc
-> le démarrage. Si tu attends l'inverse — un serveur qui démarre sans sa base et se rattrape plus
-> tard — ne compte pas dessus : prévois une sonde de disponibilité côté orchestrateur.
+> **Le module est déclaré non critique** (`Mongoose.critical` (`mongoose/index.ts:48`)), et l'ouverture
+> de la connexion est posée par `module.hookKernel("onBoot", …)` (`MongooseService.ts:59`), donc
+> couverte par cette étiquette : même en production, une base injoignable n'interrompt pas le
+> démarrage. Prévois une sonde de disponibilité côté orchestrateur.
 
 ### Pendant l'arrêt du serveur
 
@@ -739,9 +738,8 @@ jamais figés ici.
   bancs) : l'assemblage d'URI, l'ouverture et la fermeture des connexions, puis tout le reste du
   module — contrat ORM, session, jetons, passkeys, webhooks, utilisateurs.
 
-Ce qui **n'est pas** couvert, dit franchement : la surcharge par l'infra déclarée
-(`NF_DATABASE_URL`/`DATABASE_URL`) n'a pas de test unitaire propre à ce module — seule la variable
-dédiée `MONGODB_URI` en a un. Il n'y a pas non plus de test de charge ni de mesure mémoire dédiés au
+La branche infra (`NF_DATABASE_URL` de famille mongo) et `MONGODB_URI` ont chacune un test unitaire
+(`tests/unit/config.test.ts`). Ce qui **n'est pas** couvert, dit franchement : il n'y a pas de test de charge ni de mesure mémoire dédiés au
 driver.
 
 > [!WARNING]
@@ -753,9 +751,9 @@ driver.
 > que la base était là : soit `NF_MONGO_TEST_URI` pointe un conteneur
 > (`docker run -p 27017:27017 mongo:7`), soit le serveur en mémoire a démarré.
 >
-> Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module
-> **n'y déclare pas de porte** : ses sauts sont donc silencieux, là où les suites SQL et Redis
-> annoncent en fin de course ce qu'elles n'ont pas joué.
+> Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module y
+> déclare sa porte `MONGO_GATE` : le rapporteur de fin de course nomme la cible Mongo non exercée, avec
+> la commande exacte pour la monter.
 
 Couverture : `npm run coverage` dans `@nodefony/mongoose`.
 

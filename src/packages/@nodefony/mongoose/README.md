@@ -55,18 +55,19 @@ durables sont portées, aucune ne retombe sur un autre backend. C'est la propri�
 de choisir sa base — un backend durable est un chemin complet, ou il oblige à en rapatrier un
 second pour une seule brique.
 
-| Brique       | Ce qu'elle range                          | Comment l'activer                                           |
-| ------------ | ----------------------------------------- | ----------------------------------------------------------- |
-| Session      | sessions HTTP                             | `use("@nodefony/http", { session: { store: "mongoose" } })` |
-| Utilisateurs | l'annuaire                                | `NF_USER_STORE=mongoose`                                    |
-| Jetons       | rafraîchissement, clés d'API, révocations | `tokenStore: { store: "mongoose" }`                         |
-| Passkeys     | credentials WebAuthn                      | `passkeys: { store: "mongoose" }`                           |
-| TOTP         | secrets du second facteur                 | `totp: { store: "mongoose" }`                               |
-| Audit        | journal de sécurité append-only           | `audit: { store: "mongoose" }`                              |
-| Webhooks     | endpoints notifiés                        | `webhooks: { store: "mongoose" }`                           |
-| Idempotence  | dédoublonnage des mutations rejouées      | `NF_IDEMPOTENCY_STORE=mongoose`                             |
+| Brique       | Ce qu'elle range                          | Comment l'activer                                                    |
+| ------------ | ----------------------------------------- | -------------------------------------------------------------------- |
+| Session      | sessions HTTP                             | `use("@nodefony/http", { session: { store: "mongoose" } })`          |
+| Utilisateurs | l'annuaire                                | `provisionUsers` → `MongooseUserRepository.from(orm)`                |
+| Jetons       | rafraîchissement, clés d'API, révocations | `tokenStore: { store: "mongoose" }`                                  |
+| Passkeys     | credentials WebAuthn                      | `passkeys: { store: "mongoose" }`                                    |
+| TOTP         | secrets du second facteur                 | `totp: { store: "mongoose" }`                                        |
+| Audit        | journal de sécurité append-only           | `audit: { store: "mongoose" }`                                       |
+| Webhooks     | endpoints notifiés                        | `webhooks: { store: "mongoose" }`                                    |
+| Idempotence  | dédoublonnage des mutations rejouées      | `use("@nodefony/framework", { idempotency: { store: "mongoose" } })` |
 
-Les quatre dernières colonnes de configuration vivent sous `use("@nodefony/security", …)`.
+Les configurations des jetons, passkeys, TOTP, audit et webhooks vivent sous
+`use("@nodefony/security", …)`.
 **Rien d'autre à écrire** : charger le module suffit à rendre ces backends sélectionnables, et
 `store: "auto"` (le défaut) les choisit tout seul dès qu'une infra Mongo est déclarée
 (`NF_DATABASE_URL=mongodb://…`).

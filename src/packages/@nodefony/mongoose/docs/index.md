@@ -30,8 +30,8 @@ coverageFiles: MongooseOrm.ts,MongooseRepository.ts,SessionStorage.ts,MongooseTo
 
 > Le module qui fait parler ton application à **MongoDB**. Il ouvre les connexions au démarrage,
 > compile tes schémas en modèles, et te rend des **repositories portables** : le même code métier
-> tourne sur Mongo ou sur SQL. Il fournit aussi cinq **briques du framework** prêtes à l'emploi sur
-> Mongo — sessions, utilisateurs, jetons, passkeys, webhooks. Ce qu'il ne porte pas, il le dit :
+> tourne sur Mongo ou sur SQL. Il fournit aussi huit **briques du framework** prêtes à l'emploi sur
+> Mongo — sessions, utilisateurs, jetons, passkeys, TOTP, audit, webhooks, idempotence. Ce qu'il ne porte pas, il le dit :
 > la couverture est **adaptée à la vocation de MongoDB**, jamais une course à la parité avec SQL.
 
 📍 [Documentation](../../../../../docs/index.md) › **MongoDB (Mongoose)**
@@ -139,7 +139,7 @@ flowchart TD
   ENT["Tes entités<br/>defineEntity + @entities"] --> MODEL
 
   SESS["session"] -.->|store: mongoose| MR
-  TOK["tokens · passkeys · webhooks"] -.->|store: mongoose| MR
+  TOK["tokens · passkeys · totp · audit · webhooks · idempotence"] -.->|store: mongoose| MR
   USR["users"] -.->|provisionUsers| MR
 ```
 
@@ -231,12 +231,12 @@ réellement chargés :
 | Ta situation                                            | Ce que `auto` choisit                                    |
 | ------------------------------------------------------- | -------------------------------------------------------- |
 | `NF_DATABASE_URL=mongodb://…` + module mongoose chargé  | `mongoose` — « infra database (mongodb) »                |
-| Idem, mais pour une brique que mongoose ne porte pas    | repli annoncé (`memory`), avec la **raison** dans le log |
+| Une brique que le backend d'infra ne porte pas          | repli annoncé (`memory`), avec la **raison** dans le log |
 | Aucune infra déclarée, mongoose chargé (et pas drizzle) | `mongoose` — backend local persistant                    |
 | `NF_REDIS_URL` déclaré, brique non durable (session…)   | `redis` d'abord (le cache passe avant la base)           |
 
 Rien n'est jamais dégradé en silence : la raison du choix est journalisée. Et si tu nommes
-**explicitement** un store qui n'existe pas (`audit: { store: "mongoose" }`), l'échec est franc —
+**explicitement** un store qui n'existe pas (`audit: { store: "mongo" }`), l'échec est franc —
 boot avorté en production, brique désactivée avec un log `CRITIC` en développement. Un store durable
 ne retombe **jamais** en mémoire sans le dire.
 
@@ -469,7 +469,7 @@ sequenceDiagram
 
   K->>M: onKernelRegister
   M->>M: valider la config (Zod) + geler
-  M->>M: déclarer les entités framework<br/>(tokens · passkeys · webhooks)
+  M->>M: déclarer les entités framework<br/>(tokens · passkeys · totp · audit · webhooks · idempotence)
   M->>M: déclarer "mongoose" comme backend utilisateur
   K->>M: onKernelBoot
   M->>M: monter le data plane ORM + l'adapter d'erreurs
@@ -570,8 +570,8 @@ await articles.find({ publishedAt: { $null: true } }); // jamais publié
 ```
 
 > [!WARNING]
-> Un critère ne combine **qu'une condition par champ** (c'est un ET de champs). Pour un `$or`, une
-> agrégation, une recherche plein texte ou un index composé : passe par
+> Un critère ne combine **qu'une condition par champ** (c'est un ET de champs ; la disjonction se
+> dit `$or: [...]`). Pour une agrégation, une recherche plein texte ou un index composé : passe par
 > [la trappe native](#la-trappe-native--quand-le-contrat-ne-suffit-plus). C'est prévu, pas subi.
 
 ### Relations — sans clé étrangère
@@ -874,10 +874,10 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
 | `ORM "nodefony" introuvable` au montage d'un store           | `@nodefony/security` chargé **avant** `@nodefony/mongoose`                    | Mettre le driver **avant** dans `modules` (`registerStores.ts:64`)                |
 | `no entity model registered under "X"`                       | Entité déclarée après la connexion (les modèles sont compilés au `connect`)   | Déclarer via `@entities` (phase `onRegister`), jamais à `onBoot`                  |
 | `UnknownCriteriaField` sur un champ pourtant présent en base | Le champ n'est pas dans le **schéma** déclaré                                 | L'ajouter au schéma, ou passer par la connexion native                            |
-| Un critère renvoie tout au lieu de filtrer                   | Deux conditions posées sur le **même champ** (le critère est un ET de champs) | Passer par une requête native (`$or`, agrégation)                                 |
+| Un critère renvoie tout au lieu de filtrer                   | Deux conditions posées sur le **même champ** (le critère est un ET de champs) | `$or: [...]`, ou une requête native (agrégation)                                  |
 | `many-to-many non portable`                                  | Refus explicite : pas de traduction unique en Mongo                           | Déclarer la relation via la connexion native                                      |
 | Les sessions disparaissent au redémarrage                    | `session.store` resté sur `memory`                                            | `session: { store: "mongoose" }`, ou déclarer `NF_DATABASE_URL` et laisser `auto` |
-| `audit store "mongoose" inconnu` — boot avorté en production | Brique **non portée** par Mongo, sélectionnée explicitement                   | Laisser `auto` (repli annoncé) ou choisir un backend qui la porte                 |
+| `audit store "xxx" inconnu` — boot avorté en production      | Nom de store inexistant, ou `frameworkEntities: false`                        | Corriger le nom, ou laisser `auto`                                                |
 | Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts:89`)        |
 | Un champ écrit se relit `undefined`, sans aucune erreur      | Il n'est pas dans le **schéma** : Mongoose est strict et l'écarte en silence  | L'ajouter au schéma de l'entité — le type TypeScript seul ne suffit pas           |
 | Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `NF_MONGO_TEST_URI` sur un conteneur Mongo                                |
@@ -908,9 +908,8 @@ couverts en amont, dans les modules qui possèdent les contrats.
 > bien là : soit `NF_MONGO_TEST_URI` pointe sur un conteneur (`docker run -p 27017:27017 mongo:7`), soit
 > le serveur en mémoire a démarré. Les bancs de transaction exigent en plus un **replica set**.
 >
-> Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module
-> n'y déclare pas encore sa porte : ses sauts sont donc **silencieux**, alors que les suites SQL et
-> Redis affichent en fin de course ce qu'elles n'ont pas joué.
+> Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module y
+> déclare sa porte `MONGO_GATE` : le rapporteur de fin de course nomme la cible Mongo non exercée.
 
 Couverture : `npm run coverage` dans `@nodefony/mongoose` (rapport lisible aussi dans Studio).
 

@@ -119,10 +119,9 @@ export const mongooseConfigSchema = z
       .default(true)
       .describe(
         "Déclare le schéma framework sur le connecteur `nodefony` (tokens, " +
-          "webauthn, webhooks — modèles compilés au connect) et rend les stores " +
-          "correspondants sélectionnables par nom (`mongoose`). Couverture " +
-          "partielle assumée : PAS d'audit ni d'idempotence mongoose. " +
-          "`false` = module data-only.",
+          "webauthn, totp, audit, webhooks, idempotence — modèles compilés au " +
+          "connect) et rend les stores correspondants sélectionnables par nom " +
+          "(`mongoose`). `false` = module data-only.",
       ),
   })
   .describe("Configuration de @nodefony/mongoose.");
