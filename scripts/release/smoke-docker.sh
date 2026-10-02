@@ -11,7 +11,7 @@
 # `create-nodefony` installé depuis SON tarball. C'est le premier paquet qu'un
 # inconnu exécute (`npm create nodefony <app>`), et il n'était éprouvé par rien.
 #
-# CINQ scénarios, sélectionnables :
+# SEPT scénarios, sélectionnables :
 #
 #   base   — app minimale sans front : sondes, node PID 1, drain au SIGTERM
 #   front  — app à frontend React : tags `/_assets/…` servis, et les DEUX
