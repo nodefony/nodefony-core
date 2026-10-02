@@ -83,7 +83,7 @@ export class RequestStamp extends Service {
 ```
 
 Le détail — les trois durées de vie, l'accès par `RequestContext`, les pièges :
-[Injection & portées](docs/architecture/injection-portees.md).
+[Injection & portées](https://nodefony.github.io/nodefony-core/docs/architecture/injection-portees/).
 
 Les frontends ne sont pas laissés dehors. Nodefony pilote **Vite** : en développement il démarre
 les serveurs de développement — React, Vue, Angular, Svelte —, les surveille, relaie leur rechargement à
@@ -397,7 +397,7 @@ charge continue et 97,5 millions de requêtes laissent **le tas, l'empreinte mé
 plats** : 0,021 Mo par million de requêtes. La page de mesures de la version courante —
 **[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
 tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
-chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](docs/performance/index.md) donne le
+chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](https://nodefony.github.io/nodefony-core/performance/) donne le
 protocole, les scripts qui rejouent chaque chiffre et les instruments qui ont menti avant qu'on
 s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est transposable.
 
