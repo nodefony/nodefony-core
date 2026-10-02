@@ -5440,6 +5440,38 @@
             ],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "scripts/ws-tls-batching.mjs",
+            "purpose": "ws-tls-batching.mjs — pourquoi l'écho WebSocket sort plus RAPIDE en TLS qu'en",
+            "usage": [
+              "node .claude/skills/nodefony-load-test/scripts/ws-tls-batching.mjs"
+            ],
+            "options": [],
+            "env": [
+              {
+                "name": "CLIENTS",
+                "help": ""
+              },
+              {
+                "name": "PAYLOAD",
+                "help": ""
+              },
+              {
+                "name": "RUNS",
+                "help": ""
+              },
+              {
+                "name": "WINDOW",
+                "help": ""
+              },
+              {
+                "name": "WS_BATCH_PAYLOAD",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },

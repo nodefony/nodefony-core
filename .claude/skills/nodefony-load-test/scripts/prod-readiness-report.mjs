@@ -887,8 +887,13 @@ const capacite = section(
          capEchoClear &&
          capEchoClear.observed < capEchoTls.observed
            ? `<p>L'écho WebSocket <strong>en clair</strong> sort plus lent qu'en TLS sur ce banc
-       (${fmt.int(capEchoClear.observed)} contre ${fmt.int(capEchoTls.observed)} msg/s). La cause n'est
-       pas établie : à lire comme un ordre de grandeur, pas comme un gain du TLS.</p>`
+       (${fmt.int(capEchoClear.observed)} contre ${fmt.int(capEchoTls.observed)} msg/s). Ce n'est pas un
+       gain du TLS, c'est un effet de ce micro-banc — messages de 5 octets, seize en vol par socket —
+       reproduit sur un serveur <code>ws</code> nu, sans Nodefony : le déchiffrement remet au
+       serveur des blocs d'environ <strong>7 messages par lecture</strong>, contre 2,5 en clair, où
+       chaque petit segment réveille le serveur presque seul. Le coût fixe d'une lecture domine.
+       Avec des messages de 4 Ko, le clair repasse devant (~45 000 contre ~40 000 msg/s, séries
+       séparées). Preuve rejouable : <code>ws-tls-batching.mjs</code>.</p>`
            : ""
        }`
     : `<p><strong>Constantes non mesurées pour cette version</strong> : aucun relevé de
