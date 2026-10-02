@@ -75,7 +75,10 @@ fi
 # n'appelle passait donc ici pour se faire refuser vingt minutes plus tard en
 # forge. Une règle appliquée à un seul de ses frères n'est pas appliquée — et
 # l'ensemble coûte UNE seconde, ce qui ne laisse aucun argument à l'asymétrie.
-if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^\.claude/skills/'; then
+# Les DEUX racines que lit `skills-doc.mjs` : les skills du dépôt ET ceux que
+# devkit PUBLIE — surveiller la première seule a laissé partir une fiche
+# périmée de `nodefony-dev` jusqu'en CI.
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^(\.claude/skills/|src/packages/@nodefony/devkit/skills/)'; then
   if ! npm run --silent skills:check; then
     echo "   → corriger ci-dessus (fiches : npm run skills:doc puis git add docs/skills)"
     exit 1
