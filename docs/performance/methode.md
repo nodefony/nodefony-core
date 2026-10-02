@@ -197,7 +197,7 @@ de 3 %. Il se joue lui aussi en paires alternées, et deux gardes le complètent
 | **Préemption**            | un run qui a subi plus de deux fois les changements de contexte involontaires du run le plus calme de son camp                 |
 
 Ce n'est pas `process.cpuUsage()`, qui compte **tous** les fils (voir
-[les instruments faux](#les-quatre-instruments-faux--une-seule-question)).
+[les instruments faux](#cinq-instruments-faux--un-même-vice)).
 
 ### Les gardes de décor
 
@@ -264,7 +264,7 @@ D'où la règle qui organise tout le reste : **l'instrument est le premier suspe
 qu'il juge.** Et son corollaire, plus dur : **suspecter son propre diff** — la ligne qui échoue est
 souvent celle qu'on vient d'ajouter.
 
-### Les quatre instruments faux — une seule question
+### Cinq instruments faux — un même vice
 
 La question était : « qui bloque la boucle d'événements, SQLite ou PostgreSQL ? ». Quatre
 instruments y ont répondu, tous faux, tous du même vice — mesurer autre chose que ce qu'on croit.
