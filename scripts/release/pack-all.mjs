@@ -260,7 +260,10 @@ const alertes = [];
 for (const [nom, tgz] of Object.entries(manifest)) {
   const dossier = mkdtempSync(path.join(os.tmpdir(), "nf-pack-"));
   try {
-    const x = spawnSync("tar", ["-xzf", path.join(OUT, tgz), "-C", dossier], {
+    // Archive en nom RELATIF (cwd) : GNU tar — celui de Git Bash sous Windows —
+    // lit `C:\…` passé à `-f` comme `hôte:chemin` distant.
+    const x = spawnSync("tar", ["-xzf", tgz, "-C", dossier], {
+      cwd: OUT,
       encoding: "utf8",
     });
     if (x.status !== 0) {
