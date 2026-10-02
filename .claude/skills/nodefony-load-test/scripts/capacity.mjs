@@ -36,6 +36,12 @@
  *   node .claude/skills/nodefony-load-test/scripts/capacity.mjs
  *   node ... capacity.mjs --out docs/audits/capacity-2026-07.md
  *   node ... capacity.mjs --sockets 500 --http-reqs 3000 --skip-ws
+ *   node ... capacity.mjs --json tmp/capacity.json   # les constantes, pour perf-compose
+ *
+ * `--json` écrit les mesures BRUTES avec leur décor (mode, commit, paramètres) :
+ * c'est la seule voie par laquelle ces constantes entrent dans la page publiée
+ * (`perf-compose.mjs --capacity`). Recopiées à la main depuis la console, elles
+ * avaient vieilli de deux chantiers de performance sans que rien ne le dise.
  */
 import https from "node:https";
 import http from "node:http";
@@ -62,12 +68,13 @@ const HTTP_REQS = num("http-reqs", 5000);
 const PAYLOAD = num("payload", 5); // octets par frame WS — CHANGE TOUT (cf rapport)
 const REPEAT = num("repeat", 3); // répétitions → médiane + dispersion
 const OUT = arg("out", null);
+const JSON_OUT = arg("json", null);
 
 const HOST = process.env.NF_HOST ?? "127.0.0.1";
 const PTLS = Number(process.env.NF_PORT_HTTPS ?? 5152);
 const PCLR = Number(process.env.NF_PORT ?? 5151);
 const USER = process.env.NF_ADMIN_USER ?? "admin";
-const PASS = process.env.NF_ADMIN_PASSWORD ?? "secret";
+const PASS = process.env.NF_ADMIN_PASSWORD ?? "secret-de-dev-42"; // DEV_FIXTURE_PASSWORD (provisionUsers.ts)
 
 /**
  * CIBLES — paramétrables, parce que la PRODUCTION n'expose pas les mêmes routes.
@@ -738,6 +745,42 @@ if (R.fanout)
 for (const h of R.http)
   say(`   1 requête ${h.label.padEnd(22)} ≈ ${us(h.ceiling)}`);
 say("");
+
+if (JSON_OUT) {
+  const { execFileSync } = await import("node:child_process");
+  let headCommit = null;
+  try {
+    headCommit = execFileSync("git", ["rev-parse", "--short=8", "HEAD"], {
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    /* hors dépôt : le commit reste inconnu, et le JSON le dit (null) */
+  }
+  writeFileSync(
+    JSON_OUT,
+    `${JSON.stringify(
+      {
+        measuredAt: new Date().toISOString().slice(0, 10),
+        headCommit,
+        target: TARGET,
+        params: {
+          SOCKETS,
+          CLIENTS,
+          FRAMES,
+          FANOUT,
+          HTTP_CONC,
+          HTTP_REQS,
+          PAYLOAD,
+          REPEAT,
+        },
+        ...R,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  console.log(`Constantes JSON : ${JSON_OUT}\n`);
+}
 
 // ── rapport HTML ───────────────────────────────────────────────────────────
 // HTML et pas Markdown : ce rapport sert à DÉCIDER (combien de pods, quelle RAM,

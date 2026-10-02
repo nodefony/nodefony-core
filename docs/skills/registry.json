@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-01",
+  "generatedAt": "2026-10-02",
   "count": 36,
   "conformant": 36,
   "skills": [
@@ -3632,7 +3632,15 @@
             ],
             "options": [
               {
+                "flag": "--capacity",
+                "help": ""
+              },
+              {
                 "flag": "--http-reqs",
+                "help": ""
+              },
+              {
+                "flag": "--json",
                 "help": ""
               },
               {
@@ -3641,6 +3649,10 @@
               },
               {
                 "flag": "--rupture",
+                "help": ""
+              },
+              {
+                "flag": "--short",
                 "help": ""
               },
               {
@@ -3659,6 +3671,10 @@
             "env": [
               {
                 "name": "HOST",
+                "help": ""
+              },
+              {
+                "name": "JSON_OUT",
                 "help": ""
               },
               {
@@ -5105,7 +5121,16 @@
               "node .claude/skills/nodefony-load-test/scripts/users-admin-factors-e2e.mjs"
             ],
             "options": [],
-            "env": [],
+            "env": [
+              {
+                "name": "NF_ADMIN_PASSWORD",
+                "help": ""
+              },
+              {
+                "name": "NF_USER_PASSWORD",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },
@@ -5206,7 +5231,16 @@
               "node .claude/skills/nodefony-load-test/scripts/webhooks-dataplane-e2e.mjs"
             ],
             "options": [],
-            "env": [],
+            "env": [
+              {
+                "name": "NF_ADMIN_PASSWORD",
+                "help": ""
+              },
+              {
+                "name": "NF_USER_PASSWORD",
+                "help": ""
+              }
+            ],
             "output": "",
             "selfDocumented": false
           },

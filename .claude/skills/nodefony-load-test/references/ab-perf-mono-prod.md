@@ -106,7 +106,7 @@ bash .claude/skills/nodefony-start-server/start.sh                   # défaut =
 # Login → cookie de session, puis wrk (baseline + route session DANS LE MÊME run) :
 JAR=$(mktemp); curl -sk -c "$JAR" -X POST \
   https://127.0.0.1:5152/nodefony/security/api/auth/login \
-  -H 'Content-Type: application/json' -d '{"username":"admin","password":"secret"}' -o /dev/null
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"secret-de-dev-42"}' -o /dev/null
 COOKIE=$(awk 'NF>=7 && $6 ~ /nodefony/ {print $6"="$7}' "$JAR" | head -1)
 wrk -t4 -c25 -d8s https://127.0.0.1:5152/nodefony/test/als-test/state              # contrôle session-free 0-ORM
 wrk -t4 -c25 -d8s -H "Cookie: $COOKIE" https://127.0.0.1:5152/nodefony/security/api/auth/me  # reprise session/req

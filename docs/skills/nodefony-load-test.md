@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-01
+updated: 2026-10-02
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -101,7 +101,7 @@ script, donc toujours à jour après régénération.
 | `scripts/boot-bench.mjs` | boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que | `--workers` | — |
 | `scripts/boot-profile.mjs` | boot-profile.mjs — AUDIT fin du boot Nodefony. Capture la sortie horodatée d'un boot | `--workers` | — |
 | `scripts/capacity-html.mjs` | capacity-html.mjs — rendu du rapport de capacité. | `--accent` `--dim` `--rupture` | `PAYLOAD` `REPEAT` |
-| `scripts/capacity.mjs` | capacity.mjs — BANC DE CAPACITÉ + rapport de dimensionnement. | `--http-reqs` `--out` `--rupture` `--skip-ws` `--sockets` `--target` | `HOST` `NF_ADMIN_PASSWORD` `NF_ADMIN_USER` `NF_HOST` `NF_PORT` `NF_PORT_HTTPS` `OUT` `PAYLOAD` `PCLR` `PTLS` `REPEAT` `ROUTE` |
+| `scripts/capacity.mjs` | capacity.mjs — BANC DE CAPACITÉ + rapport de dimensionnement. | `--capacity` `--http-reqs` `--json` `--out` `--rupture` `--short` `--skip-ws` `--sockets` `--target` | `HOST` `JSON_OUT` `NF_ADMIN_PASSWORD` `NF_ADMIN_USER` `NF_HOST` `NF_PORT` `NF_PORT_HTTPS` `OUT` `PAYLOAD` `PCLR` `PTLS` `REPEAT` `ROUTE` |
 | `scripts/cluster-health-endpoint-e2e.mjs` | Preuve BOUT-EN-BOUT de la forme JSON de l'ENDPOINT santé en mode cluster — ce que le | — | `E2E_ROLE` `SETTLE` |
 | `scripts/cluster-ipc.mjs` | Bench du FIL IPC du backplane cluster Nodefony (mode sans PM2) — mesure le coût RÉEL | — | `BATCH` `BENCH_ROLE` `CHANNEL` `DURATION` `MODE` `PAYLOAD` `RATE` `WORKERS` |
 | `scripts/cluster-orm-rich-e2e.mjs` | Preuve BOUT-EN-BOUT du RELAIS ORM RICHE @pid (drill cluster, facette "orm") — sans navigateur. | — | `E2E_ROLE` `SETTLE` |
@@ -148,12 +148,12 @@ script, donc toujours à jour après régénération.
 | `scripts/supervision-stress.mjs` | STRESS COMBINÉ « supervision » — pousse SIMULTANÉMENT 3 lanes (HTTP + WebSocket | — | `BATCH` `ERR_RUPTURE` `HOST` `HTTP_PATH` `HTTP_STEP` `MSG_HZ` `ORM_PATH` `ORM_STEP` `PORT` `STAGES` `STAGE_MS` `WS_PATH` `WS_STEP` |
 | `scripts/totp-mfa-attack-e2e.mjs` | Banc ADVERSARIAL 2FA TOTP (P6.17) — red team / blue team, VRAI serveur. | — | — |
 | `scripts/totp-mfa-e2e.mjs` | Banc e2e 2FA TOTP step-up (P6.17) — VRAI serveur, sans navigateur. | — | — |
-| `scripts/users-admin-factors-e2e.mjs` | Banc e2e — RESET ADMIN des facteurs forts d'un utilisateur (P6.15) — VRAI | — | — |
+| `scripts/users-admin-factors-e2e.mjs` | Banc e2e — RESET ADMIN des facteurs forts d'un utilisateur (P6.15) — VRAI | — | `NF_ADMIN_PASSWORD` `NF_USER_PASSWORD` |
 | `scripts/wait-analyze.mjs` | Relit les fenêtres de `wait-probe.mjs` (via `wait-compare.sh`) et rend, par | `--json` | — |
 | `scripts/wait-compare.sh` | « Où Nodefony ATTEND-il quand le témoin sert ? » — même décor que | `--dir` `--interpreted-frames-native` `--perf-basic-prof` | `BENCH_CONN` `BENCH_DUR` `BENCH_PATH` `NF_NATIVE_SAMPLE` `NF_NATIVE_TOP` `NF_WAIT_CUTS` `NF_WAIT_DIR` |
 | `scripts/wait-lib.mjs` | Lecture des fenêtres de `wait-probe.mjs` — partagée par `wait-analyze.mjs` | — | — |
 | `scripts/wait-probe.mjs` | Sonde « où part le temps HORS du JavaScript » — préchargée dans un serveur | — | `NF_WAIT_PROBE_OUT` |
-| `scripts/webhooks-dataplane-e2e.mjs` | Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF, | — | — |
+| `scripts/webhooks-dataplane-e2e.mjs` | Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF, | — | `NF_ADMIN_PASSWORD` `NF_USER_PASSWORD` |
 | `scripts/ws-backpressure-e2e.mjs` | Contre-pression WebSocket SORTANTE (serveur → client) sur une VRAIE socket. | — | `BASE` `HOST` `NODE_TLS_REJECT_UNAUTHORIZED` `PORT` `URL` `WS_URL` |
 | `scripts/ws-conn-cap-e2e.mjs` | Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c | — | `NODE_TLS_REJECT_UNAUTHORIZED` `WS_URL` |
 | `scripts/ws-connections.mjs` | Stress WS — AXE 1 : nombre de connexions simultanées (combien de sockets un | `--pending` | `BATCH` `CAP` `HEAP_URL` `HOLD_MS` `STEP` `WS_URL` |
@@ -213,7 +213,7 @@ bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/load-test/scripts/ws-messages.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_CUT` · `NF_DATABASE_URL` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_STEPS` · `NF_WAIT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_CUT` · `NF_DATABASE_URL` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
 
 ## Conformité au standard Agent Skills
 

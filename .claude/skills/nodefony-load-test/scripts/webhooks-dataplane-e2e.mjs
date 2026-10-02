@@ -16,8 +16,15 @@ import https from "node:https";
 const BASE = "https://localhost:5152";
 const A = "/nodefony/security/api/auth";
 const WH = "/nodefony/security/api/webhooks";
-const ADMIN = { u: "admin", p: "secret" };
-const USER = { u: "user", p: "secret" };
+// Mêmes variables et même repli que le serveur (DEV_FIXTURE_PASSWORD, provisionUsers.ts).
+const ADMIN = {
+  u: "admin",
+  p: process.env.NF_ADMIN_PASSWORD ?? "secret-de-dev-42",
+};
+const USER = {
+  u: "user",
+  p: process.env.NF_USER_PASSWORD ?? "secret-de-dev-42",
+};
 
 function req(agent, method, path, body) {
   return new Promise((resolve, reject) => {
