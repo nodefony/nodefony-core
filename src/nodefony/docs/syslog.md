@@ -260,7 +260,7 @@ Points de vigilance, tous vérifiables au code :
 
 Le parcours du schéma d'ouverture, étape par étape et ancré :
 
-1. **Point d'entrée applicatif** — `Service.log()` (`Service.ts:300`) remplit `msgid` avec le nom du
+1. **Point d'entrée applicatif** — `Service.log()` (`Service.ts:364`) remplit `msgid` avec le nom du
    service si tu ne le fournis pas, et garantit qu'un log ne lève **jamais** (un logger qui casse la
    requête serait pire que pas de log).
 2. **Gate de sévérité** — `Syslog.log()` (`Syslog.ts:1180`) compare la sévérité au seuil effectif
@@ -268,7 +268,7 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
    `Pdu` singleton réutilisé est renvoyé pour honorer le contrat de type, rien d'autre n'existe.
 3. **Garde de débit** — si `rateLimit` est activé, seuls les `burstLimit` premiers logs de la
    fenêtre passent ; les autres incrémentent `missed` et repartent en `DROPPED`.
-4. **Création du `Pdu`** (`Pdu.ts:172`) — horodatage `Date.now()` sans objet `Date`, `uid`
+4. **Création du `Pdu`** (`Pdu.ts:170`) — horodatage `Date.now()` sans objet `Date`, `uid`
    incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:184`), type du payload
    déduit par un `fastTypeOf()` inline (`Pdu.ts:141`), et `requestId` lu via un fournisseur
    injectable (`Pdu.ts:197`).
@@ -750,7 +750,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | -------------------------- | ---------------- | ------------------------------------------------------ |
 | Sévérités 0–7              | RFC 5424 §6.2.1  | `SysLogSeverity` (`Pdu.ts:27`)                         |
 | Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:184`)                    |
-| Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:313`) |
+| Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:367`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
 | Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2898`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |

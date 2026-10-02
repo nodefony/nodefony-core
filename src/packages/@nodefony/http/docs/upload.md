@@ -62,10 +62,10 @@ flowchart TD
 
 Trois idées portent tout le reste :
 
-1. **Le `Content-Type` décide, pas la méthode.** `parseRequest()` (`context/http/Request.ts:451`)
+1. **Le `Content-Type` décide, pas la méthode.** `parseRequest()` (`context/http/Request.ts:513`)
    aiguille vers `ParserJson` / `ParserQs` / `ParserXml` / **busboy** / parser brut selon l'en-tête.
 2. **Seul le multipart écrit sur disque.** Les fichiers sont **streamés** au fil de l'eau vers un
-   fichier temporaire (`parseMultipart()`, `context/http/Request.ts:523`) — jamais bufferisés en RAM.
+   fichier temporaire (`parseMultipart()`, `context/http/Request.ts:585`) — jamais bufferisés en RAM.
    JSON / urlencoded / XML restent en mémoire (petits corps).
 3. **Deux budgets distincts, jamais confondus.** Le corps **non-multipart** est borné par `maxBodySize`
    (défaut **1 MiB**) ; le multipart a **ses propres** limites busboy (`maxFileSize`, `maxTotalFileSize`,
@@ -117,16 +117,16 @@ Trois choix structurent l'implémentation, et chacun a une raison de sécurité 
 
 **Le multipart ne touche jamais la RAM.** Là où l'ancien chemin bufferisait le corps entier, busboy lit
 le flux et écrit chaque fichier au fil de l'eau dans le dossier temporaire (`streamMultipart()`,
-`context/http/Request.ts:564`). Un upload de 1 Go ne coûte donc pas 1 Go de heap — seuls les petits
+`context/http/Request.ts:626`). Un upload de 1 Go ne coûte donc pas 1 Go de heap — seuls les petits
 champs texte restent en mémoire. C'est ce qui rend un endpoint d'upload public tenable.
 
 **Le nom du fichier temporaire n'est jamais celui du client.** Chaque fichier reçu est écrit sous un nom
-`randomUUID()` + extension d'origine (`context/http/Request.ts:627`) : un nom malveillant
+`randomUUID()` + extension d'origine (`context/http/Request.ts:683`) : un nom malveillant
 (`../../etc/passwd`) ne peut pas influencer le **chemin** d'écriture. Le nom d'origine est conservé en
 **métadonnée** (`filename`), pas dans le chemin.
 
 **Deux budgets, secure-by-default.** Le corps non-multipart est plafonné à **1 MiB** par défaut
-(`maxBodySize`, `http/nodefony/config/config.ts:1026`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
+(`maxBodySize`, `http/nodefony/config/config.ts:1027`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
 multipart, lui, a ses propres bornes busboy (par fichier, cumul, nombre) qui coupent le flux et
 nettoient les temporaires déjà posés au moindre dépassement (`context/http/Request.ts:481`).
 
@@ -257,19 +257,19 @@ sequenceDiagram
 Les points d'implémentation qui expliquent des comportements surprenants :
 
 1. **L'aiguillage lit le `Content-Type`, pas la méthode** — `parseRequest()`
-   (`context/http/Request.ts:451`). `PATCH` porte un corps comme `POST`/`PUT` : il figure dans la table
+   (`context/http/Request.ts:513`). `PATCH` porte un corps comme `POST`/`PUT` : il figure dans la table
    des méthodes parsées (`context/http/Request.ts:94`) — l'oubli laissait tout `PATCH` avec un corps vide.
 2. **Le multipart draine sur un `finish`, après flush de tous les writes** — `streamMultipart()`
-   (`context/http/Request.ts:564`) accumule les `Promise` d'écriture disque et ne résout `{ fields, files }`
+   (`context/http/Request.ts:626`) accumule les `Promise` d'écriture disque et ne résout `{ fields, files }`
    qu'une fois tous les fichiers fermés (`bb.on("finish")`, `context/http/Request.ts:707`).
 3. **Une limite dépassée nettoie les temporaires déjà posés** — `abort()`
-   (`context/http/Request.ts:584`) délie le flux, détruit les write-streams ouverts et `unlink` les temp
-   déjà écrits (`context/http/Request.ts:601`) avant de rejeter en `413` : pas d'orphelins sur le disque.
+   (`context/http/Request.ts:646`) délie le flux, détruit les write-streams ouverts et `unlink` les temp
+   déjà écrits (`context/http/Request.ts:64`) avant de rejeter en `413` : pas d'orphelins sur le disque.
 4. **Les autres formats drainent AVANT de concaténer** — la base `Parser.parse()` attend `end`
    (`context/http/parser.ts:111`) avant `Buffer.concat` : sans ce drain, `ParserQs`/`ParserXml`
    lisaient un corps partiel → `queryPost` vide (bug de régression, cf tests).
 5. **Un multipart sans boundary exploitable ne crashe pas** — `new Busboy()` lève **synchroniquement** ;
-   c'est rattrapé et on bascule sur le `Parser` brut (`context/http/Request.ts:375`).
+   c'est rattrapé et on bascule sur le `Parser` brut (`context/http/Request.ts:417`).
 
 ## ⚙️ Configuration — deux budgets, jamais confondus
 
@@ -283,10 +283,10 @@ non-multipart n'écoute pas `upload.*`.
 | `maxBodySize` | octets | `1_048_576` (1 MiB) | Plafond d'un corps **JSON / urlencoded / XML / brut** → `413`. `0` = illimité. |
 
 Deux rideaux, tous deux `runtimeMutable` (éditable à chaud) : un **pré-check** sur `Content-Length`
-qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:428`), puis un **compteur
+qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:490`), puis un **compteur
 en streaming** qui coupe le socket si le corps déborde sans `Content-Length` honnête — chunked ou
 menteur (`Parser.write()`, `context/http/parser.ts:33`, dépassement `context/http/parser.ts:33`).
-Champ `maxBodySize` du schéma : `config/config.ts:1026`.
+Champ `maxBodySize` du schéma : `config/config.ts:1027`.
 
 **Par requête** : `maxBodySize` et les limites `upload.*` (hors `uploadDir`) sont sur la liste blanche
 du calque de configuration — une application peut les changer pour une requête
@@ -300,14 +300,14 @@ Table dérivée de `uploadSchema` (`config/config.ts:159`). Toutes les bornes so
 
 | Option             | Type                             | Défaut                 | Effet                                                                                               |
 | ------------------ | -------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
-| `uploadDir`        | chemin                           | `""` → `kernel.tmpDir` | Dossier de dépôt des temporaires. Vide = temp du kernel (`config/config.ts:146`).                   |
-| `maxFileSize`      | octets                           | `524_288_000` (500 MB) | Taille max d'**UN** fichier (busboy `limits.fileSize`) → `413` (`config/config.ts:155`).            |
-| `maxTotalFileSize` | octets                           | `524_288_000` (500 MB) | Taille **CUMULÉE** des fichiers d'une requête (compteur Nodefony) → `413` (`config/config.ts:167`). |
-| `maxFiles`         | entier                           | `1000`                 | Nombre max de fichiers (busboy `limits.files`) → `413` (`config/config.ts:179`).                    |
-| `maxFields`        | entier                           | `1000`                 | Nombre max de champs texte (busboy `limits.fields`) → `413` (`config/config.ts:190`).               |
-| `maxFieldsSize`    | octets                           | `2_097_152` (2 MB)     | Taille max d'un champ texte (busboy `limits.fieldSize`) (`config/config.ts:201`).                   |
-| `hashAlgorithm`    | `false` \| `sha256`/`sha1`/`md5` | `false`                | Hash calculé pendant le stream (intégrité) (`config/config.ts:212`).                                |
-| `encoding`         | chaîne                           | `"utf-8"`              | Encodage par défaut des champs texte (busboy `defCharset`) (`config/config.ts:219`).                |
+| `uploadDir`        | chemin                           | `""` → `kernel.tmpDir` | Dossier de dépôt des temporaires. Vide = temp du kernel (`config/config.ts:162`).                   |
+| `maxFileSize`      | octets                           | `524_288_000` (500 MB) | Taille max d'**UN** fichier (busboy `limits.fileSize`) → `413` (`config/config.ts:171`).            |
+| `maxTotalFileSize` | octets                           | `524_288_000` (500 MB) | Taille **CUMULÉE** des fichiers d'une requête (compteur Nodefony) → `413` (`config/config.ts:183`). |
+| `maxFiles`         | entier                           | `1000`                 | Nombre max de fichiers (busboy `limits.files`) → `413` (`config/config.ts:195`).                    |
+| `maxFields`        | entier                           | `1000`                 | Nombre max de champs texte (busboy `limits.fields`) → `413` (`config/config.ts:206`).               |
+| `maxFieldsSize`    | octets                           | `2_097_152` (2 MB)     | Taille max d'un champ texte (busboy `limits.fieldSize`) (`config/config.ts:217`).                   |
+| `hashAlgorithm`    | `false` \| `sha256`/`sha1`/`md5` | `false`                | Hash calculé pendant le stream (intégrité) (`config/config.ts:228`).                                |
+| `encoding`         | chaîne                           | `"utf-8"`              | Encodage par défaut des champs texte (busboy `defCharset`) (`config/config.ts:235`).                |
 
 > [!WARNING]
 > `uploadDir` vide est **résolu au boot** sur le répertoire temporaire du kernel par le builder de config
@@ -376,9 +376,9 @@ piégé. Les défenses en place, et **ce qui reste à ta charge**.
 <!-- prettier-ignore -->
 | Menace | Défense côté framework | À ta charge |
 | --- | --- | --- |
-| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:627`). | La **destination** de `move()` (voir avertissement). |
+| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:683`). | La **destination** de `move()` (voir avertissement). |
 | **Saturation RAM** | Multipart streamé (jamais bufferisé) ; corps non-multipart borné (`maxBodySize`). | Resserrer `maxBodySize` selon l'endpoint. |
-| **Saturation disque** | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts:584`). | Purger les temp non déplacés (TTL / cron). |
+| **Saturation disque** | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts:646`). | Purger les temp non déplacés (TTL / cron). |
 | **DoS par quantité** | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts:754`). | — |
 | **Type de fichier hostile** | `mimeType` **déclaré** est exposé tel quel. | Valider le type/contenu réel (le MIME client est déclaratif). |
 
@@ -396,7 +396,7 @@ Le parsing du corps est sur le chemin de chaque requête écrivante — les choi
 - **Multipart en flux pur** — plus de double-bufferisation : busboy écrit sur disque au fil de l'eau,
   seuls les champs texte restent en mémoire (`context/http/Request.ts:400`).
 - **Rejet AVANT lecture** — le pré-check `Content-Length` renvoie `413` sans lire un octet
-  (`context/http/Request.ts:400`) ; le compteur streaming **libère immédiatement** la RAM déjà
+  (`context/http/Request.ts:466`) ; le compteur streaming **libère immédiatement** la RAM déjà
   bufferisée au dépassement (`context/http/parser.ts:43`).
 - **`stat` non bloquant** — `UploadedFile.create()` résout les stats du fichier en async
   (`service/upload/upload-service.ts:130`), plus de `lstatSync` par fichier uploadé.
@@ -412,12 +412,12 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 
 | Domaine                            | Norme                            | Ancrage                                                       |
 | ---------------------------------- | -------------------------------- | ------------------------------------------------------------- |
-| Formulaire avec fichiers           | RFC 7578 (`multipart/form-data`) | `parseMultipart()` via busboy (`context/http/Request.ts:523`) |
-| Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:428`)          |
+| Formulaire avec fichiers           | RFC 7578 (`multipart/form-data`) | `parseMultipart()` via busboy (`context/http/Request.ts:585`) |
+| Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:490`)          |
 | 413 en streaming (chunked/menteur) | RFC 9110 §15.5.14                | `Parser.write()` (`context/http/parser.ts:33`)                |
 | Bornes multipart → 413             | RFC 9110 §15.5.14                | `stream.on("limit")` (`context/http/Request.ts:481`)          |
-| Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:627`)                |
-| Charset du corps honoré            | RFC 9110 (Content-Type)          | `getCharset()` (`context/http/Request.ts:824`)                |
+| Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:683`)                |
+| Charset du corps honoré            | RFC 9110 (Content-Type)          | `getCharset()` (`context/http/Request.ts:886`)                |
 
 ## ⚠️ Pièges
 
@@ -430,8 +430,8 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 | Un fichier écrit `../../etc/…` après un `move`          | `move(dossier)` utilise le nom **client** (`upload-service.ts:197`) | Passer une cible complète, ou `path.basename(file.filename)`                                       |
 | Des fichiers temporaires s'accumulent dans `uploadDir`  | Le contrôleur ne déplace jamais le temp                             | Appeler `moveAsync()` (ou purger l'ancien temp par TTL)                                            |
 | `queryPost` vide sur `PATCH`                            | Déjà géré : `PATCH` est dans la table des méthodes parsées          | Aucune — corps `PATCH` parsé comme `POST` (`context/http/Request.ts:93`)                           |
-| Corps `latin1` mal décodé                               | Déjà géré : le `charset=` du `Content-Type` est honoré              | Aucune — `getCharset()` normalise (`context/http/Request.ts:824`)                                  |
-| `multipart` sans boundary fait planter                  | `new Busboy()` throw synchrone                                      | Déjà géré : bascule sur le parser brut (`context/http/Request.ts:502`)                             |
+| Corps `latin1` mal décodé                               | Déjà géré : le `charset=` du `Content-Type` est honoré              | Aucune — `getCharset()` normalise (`context/http/Request.ts:886`)                                  |
+| `multipart` sans boundary fait planter                  | `new Busboy()` throw synchrone                                      | Déjà géré : bascule sur le parser brut (`context/http/Request.ts:521`)                             |
 
 ## 🧪 Tests & couverture
 

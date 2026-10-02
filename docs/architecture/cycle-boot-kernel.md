@@ -623,7 +623,7 @@ Deux mécanismes, à ne pas confondre.
 
 **Le profil d'exécution** — `IRunProfile` (`Kernel.ts:344`) — décrit ce dont le run a besoin :
 `{ servers, lifetime, interactive }`. Le défaut est console pur : `CONSOLE_RUN_PROFILE`
-(`Kernel.ts:386`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:1025`).
+(`Kernel.ts:386`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:1038`).
 
 **La phase cible** — chaque commande déclare la phase qui lui suffit. Dès qu'elle est atteinte,
 `Kernel.setCommandComplete()` (`Kernel.ts:2741`) coupe la chaîne et `Kernel.finishOrPark()`

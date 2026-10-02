@@ -112,12 +112,12 @@ un `requestId`, un `traceparent` et un contrat de logger **uniques** couvrent le
 
 **Le `requestId` est un citoyen du contexte, pas un décor.** Il naît dans le constructeur de base
 `Context.requestId = randomUUID()` (`Context.ts:244`), voyage dans l'ALS via `RequestContext.run(...)`
-(`http-kernel.ts:455` pour HTTP, `http-kernel.ts:455` pour WS), et se lit de n'importe où avec
+(`http-kernel.ts:1510` pour HTTP, `http-kernel.ts:1929` pour WS), et se lit de n'importe où avec
 `RequestContext.getRequestId()` — un controller, un service, un adapter ORM, sans jamais le threader.
 
 **La ligne de bilan est branchable.** Le kernel ne code pas un format en dur : il consulte un
 `IRequestLogger` (`IRequestLogger.ts:25`) résolu au boot depuis la config (`applyRequestLoggerFromConfig`,
-`http-kernel.ts:682`), remplaçable à chaud par `httpKernel.setRequestLogger(...)` (`http-kernel.ts:888`).
+`http-kernel.ts:682`), remplaçable à chaud par `httpKernel.setRequestLogger(...)` (`http-kernel.ts:910`).
 Trois formateurs sont livrés ; un quatrième maison s'écrit en implémentant l'interface.
 
 **Zero Trust sur l'entrée cliente.** Un `X-Request-Id` fourni par le client finit réfléchi en réponse,
@@ -226,16 +226,16 @@ GET  200 /trace/whoami 3.1ms 127.0.0.1                   [demo-abc]
 | ------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Génération          | `Context.requestId = randomUUID()` (`Context.ts:244`)               | UUID v4 posé dans le constructeur de base — HTTP **et** WS.                                                                                                                             |
 | Adoption HTTP       | `sanitizeRequestId(headers["x-request-id"])` (`HttpContext.ts:158`) | Remplace l'UUID **si** la valeur cliente est sûre, sinon on garde l'UUID.                                                                                                               |
-| Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts:139`)   | Même validation, stable sur toute la durée de la socket (handshake → close).                                                                                                            |
-| Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:191`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                                                                                                                                       |
+| Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts:162`)   | Même validation, stable sur toute la durée de la socket (handshake → close).                                                                                                            |
+| Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:248`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                                                                                                                                       |
 | Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts:71`) | Sinon les réponses du port 5152 sortiraient sans corrélation.                                                                                                                           |
-| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:455`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                                                                                                                                      |
-| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:455`)       | Handshake **et** messages : la bulle ouverte à la connexion est reliée à chaque message par `AsyncResource.bind`, sinon l'identité résolue au handshake se perdrait au premier message. |
+| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:1510`)      | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                                                                                                                                      |
+| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:1929`)      | Handshake **et** messages : la bulle ouverte à la connexion est reliée à chaque message par `AsyncResource.bind`, sinon l'identité résolue au handshake se perdrait au premier message. |
 | Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts:262`)          | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur.                                                                                                            |
 
 > [!IMPORTANT]
 > Les logs de **fin** de requête (bilan `req`, `onClose`) sont émis **hors** de la bulle ALS (déjà
-> refermée). L'override `Context.log()` (`Context.ts:520`) rouvre alors une micro-bulle depuis
+> refermée). L'override `Context.log()` (`Context.ts:535`) rouvre alors une micro-bulle depuis
 > `this.requestId` pour que le `Pdu` capture quand même la corrélation — sinon la ligne d'entrée d'une
 > trace serait la seule à ne PAS porter son `requestId`.
 
@@ -249,15 +249,15 @@ Nodefony implémente **W3C Trace Context** (le code s'y réfère explicitement, 
 - La validation refuse `version=ff` et un `traceId`/`spanId` tout-à-zéro — `parseTraceparent()`
   (`trace.ts:38`), conforme à la spec (le récepteur NE DOIT PAS propager ces valeurs).
 
-Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse HTTP (`context/http/Response.ts:494`). Côté
+Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse HTTP (`context/http/Response.ts:551`). Côté
 **WebSocket**, il est propagé en ALS mais **pas** réfléchi dans la réponse de handshake — la bibliothèque
 `ws` n'expose pas proprement ce chemin (`http-kernel.ts:1419`) ; la corrélation reste visible côté serveur.
 
 ### Le contrat de logger — `IRequestLogger`
 
 Le kernel tient un `IRequestLogger` singleton (`http-kernel.ts:289`) et lui délègue le rendu de la ligne
-de bilan, au teardown, via `Context.logRequest()` (`Context.ts:595`) côté HTTP et
-`WebsocketContext.logRequest()` (`WebsocketContext.ts:209`) côté WS. Le contrat a trois méthodes
+de bilan, au teardown, via `Context.logRequest()` (`Context.ts:608`) côté HTTP et
+`WebsocketContext.logRequest()` (`WebsocketContext.ts:233`) côté WS. Le contrat a trois méthodes
 (`IRequestLogger.ts:25`) :
 
 - `renderHttp(context, error?)` → `{ text, severity, msgid }` remis à `context.log()`.
@@ -337,7 +337,7 @@ Singleton sans état, 0 allocation par requête (`request-logger.ts:21`). Conser
 ### Écrire son propre formateur
 
 Implémenter `IRequestLogger` (`IRequestLogger.ts:25`) et l'injecter — NCSA Common Log Format, syslog RFC
-5424 texte, OpenTelemetry logs… `httpKernel.setRequestLogger(monLogger)` (`http-kernel.ts:888`). Les trois
+5424 texte, OpenTelemetry logs… `httpKernel.setRequestLogger(monLogger)` (`http-kernel.ts:910`). Les trois
 formateurs et le type sont exportés depuis `@nodefony/http` (`index.ts:221`).
 
 ## 🔐 Sécurité
@@ -418,9 +418,9 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 | Symptôme                                            | Cause                                                               | Correction                                                                         |
 | --------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Le `X-Request-Id` que j'envoie n'est pas réfléchi   | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur |
-| Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts:520`)           |
+| Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts:535`)           |
 | Réponse HTTP/2 sans `x-request-id`                  | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts:106`) — le port 5152 réfléchit aussi                 |
-| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts:1698`)                |
+| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts:1915`)                |
 | Frame WS binaire loggée en `{"0":..,"1":..}`        | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts:63`)                           |
 | Le format de log ne change pas malgré la config     | Un `setRequestLogger(...)` programmatique gagne sur la config       | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler       |
 | Logs d'audit trop volumineux en prod                | `stack` sérialisée, ou 100 % des 2xx audités                        | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`           |

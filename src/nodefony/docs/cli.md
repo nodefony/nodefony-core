@@ -55,7 +55,7 @@ qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`deve
 va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
 
 **Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
-le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:568`). Les **commandes de
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:577`). Les **commandes de
 module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
 elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
 
@@ -189,7 +189,7 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Vingt-trois commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:568`),
+Vingt-trois commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:577`),
 plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
 <!-- prettier-ignore -->
@@ -221,7 +221,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 | `menu` | — | Menu interactif : les commandes utiles ici | `onStart` | `MenuCommand.ts` |
 
 `status` et `stop` sont détournées vers leur exécution réelle **avant** tout boot
-(`CliKernel.ts:212`, via `isStandaloneDevCommand`) — leur `generate()` n'est qu'un filet.
+(`CliKernel.ts:229`, via `isStandaloneDevCommand`) — leur `generate()` n'est qu'un filet.
 
 **`check`/`doctor` et `env` prennent le même raccourci, et pour une raison qui se retient**
 (`CliKernel.ts:94` et `:239`) : on lance ces deux commandes précisément quand l'application **ne
@@ -269,7 +269,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 
 `create` prend un **type** en argument — **sept** (`app | module | controller | service | front |
 entity | command`, `CREATE_TYPES`, `create.ts:61`) — et route vers un moteur de scaffold unique
-(`runCreateCommand()`, `create.ts:1158`) :
+(`runCreateCommand()`, `create.ts:1190`) :
 
 ```bash
 nodefony create app mon-app --preset complete --frontend react   # nouveau projet
@@ -284,7 +284,7 @@ nodefony create command import --phase onReady                    # commande CLI
 > marche, et elle reste **invisible au conteneur**. Sans générateur de commande, il n'a aucun
 > modèle et invente. Un type de scaffold manquant ne se voit pas — il se paie en code inventé.
 
-Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:1141`),
+Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:1167`),
 partagée par trois fronts : le CLI rapide (flags), le CLI interactif (readline), et un futur formulaire
 Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
 
@@ -344,7 +344,7 @@ nodefony completion install zsh       # installation gérée (bloc idempotent da
 
 Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
 suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
-`CliKernel.writeCompletionManifest()`, `CliKernel.ts:605`) ; hors projet, le repli est la liste des
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:614`) ; hors projet, le repli est la liste des
 intégrées en mémoire.
 
 ## 🩺 Codes de sortie

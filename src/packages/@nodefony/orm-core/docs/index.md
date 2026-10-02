@@ -610,7 +610,7 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
-`DrizzleRepository.upsert()` (`DrizzleRepository.ts:866`) et `MongooseRepository.upsert()`
+`DrizzleRepository.upsert()` (`DrizzleRepository.ts:986`) et `MongooseRepository.upsert()`
 (`MongooseRepository.ts:422`).
 
 | Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`                         |
@@ -620,7 +620,7 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Eager-load `{ relations }`             | oui                                 | oui (`populate`)                             |
 | Transactions                           | oui                                 | oui (replica set requis par Mongo)           |
 | Savepoints (rollback partiel)          | oui                                 | non — refusés (`SavepointNotSupportedError`) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1971`)          | oui (`MongooseOrm.ts:649`)                   |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1982`)          | oui (`MongooseOrm.ts:649`)                   |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                                   |
 | Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1873`)          | oui (`MongooseOrm.ts:617`)                   |
 

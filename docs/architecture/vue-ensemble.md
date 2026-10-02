@@ -124,15 +124,15 @@ L'affirmation se vérifie à trois endroits du code, pas dans un slogan.
 deux de `Context` — l'objet qui transporte session, utilisateur, identifiant de requête et décision
 du firewall :
 
-| Transport | Classe                                   | Ancrage                  |
-| --------- | ---------------------------------------- | ------------------------ |
-| Commun    | `class Context extends Service`          | `Context.ts:158`         |
-| HTTP/2    | `class HttpContext extends Context`      | `HttpContext.ts:77`      |
-| WebSocket | `class WebsocketContext extends Context` | `WebsocketContext.ts:83` |
+| Transport | Classe                                   | Ancrage                   |
+| --------- | ---------------------------------------- | ------------------------- |
+| Commun    | `class Context extends Service`          | `Context.ts:158`          |
+| HTTP/2    | `class HttpContext extends Context`      | `HttpContext.ts:77`       |
+| WebSocket | `class WebsocketContext extends Context` | `WebsocketContext.ts:108` |
 
 **2. Les deux traversent le même résolveur.** `HttpContext.handle()` appelle `router.resolve(this)`
 puis `resolver.callController()` (`HttpContext.ts:206`) ; `WebsocketContext.handle()` fait exactement
-la même chaîne, en passant en plus les données de la trame (`WebsocketContext.ts:271`). Un seul
+la même chaîne, en passant en plus les données de la trame (`WebsocketContext.ts:297`). Un seul
 `Router` (`router.ts:164`), un seul `Resolver` (`Resolver.ts:86`).
 
 **3. Une route déclare ses transports, elle ne choisit pas son monde.** Le transport est une
@@ -299,7 +299,7 @@ Commence par sa page si tu veux comprendre « pourquoi tout hérite de la même 
 
 Serveurs HTTP/1.1, HTTP/2, HTTPS et WebSocket, contextes de requête, sessions, certificats TLS. C'est
 ici que naît le `Context` que ton contrôleur reçoit, et ici que vit le pipeline unique
-(`HttpKernel`, `http-kernel.ts:246`). À lire quand tu touches au transport, aux sessions ou aux
+(`HttpKernel`, `http-kernel.ts:256`). À lire quand tu touches au transport, aux sessions ou aux
 en-têtes.
 
 ### [`@nodefony/framework`](../../src/packages/@nodefony/framework/docs/index.md) — écrire des routes
@@ -365,7 +365,7 @@ flowchart LR
 Les points d'ancrage, dans l'ordre réel (`http-kernel.ts`) : `HttpKernel.onHttpRequest()` (`:819`)
 reçoit la requête et pose le socle d'en-têtes ; `HttpKernel.handle()` ouvre le scope
 (`enterScope("request")`, `:636`) ; `HttpKernel.createHttpContext()` (`:1078`) construit le contexte
-et pose **un unique** `response.once("close")` (`:1093`) qui déclenchera le teardown ;
+et pose **un unique** `response.on("close")` (`:1093`) qui déclenchera le teardown ;
 `HttpKernel.handleHttp()` (`:1117`) entre dans la bulle `RequestContext.run` (`:1151`), applique CORS
 (`:1168`), résout la route puis pose les en-têtes de sécurité (`:1193`) ; `HttpKernel.onRequestEnd()`
 (`:1250`) enchaîne CSRF (`:1283`), session (`HttpKernel.startSession()`, `:1006`) et firewall
@@ -375,7 +375,7 @@ Côté WebSocket, la même partition : `HttpKernel.onWebsocketRequest()` (`:1353
 ouvre le scope, `HttpKernel.createWebsocketContext()` (`:1315`) pose un `once("onFinish")` (`:1322`)
 qui sauvegarde la session et libère le scope, `HttpKernel.onConnect()` (`:1515`) vérifie l'origine
 (`HttpKernel.checkWebsocketOrigin()`, `:509` — la garde anti-CSWSH) puis passe la main au firewall et
-au contrôleur. À la fermeture, `toWsCloseCode()` (`WebsocketContext.ts:55`) traduit un statut HTTP en
+au contrôleur. À la fermeture, `toWsCloseCode()` (`WebsocketContext.ts:79`) traduit un statut HTTP en
 code de fermeture conforme RFC 6455 §7.4 — un 401 devient un `1008`.
 
 Le pas-à-pas exhaustif, avec le détail de chaque garde →
@@ -456,8 +456,8 @@ alors plus une propriété fragile de ton fichier d'entrée.
 **Ce qui se ressemble.** Beaucoup : les contrôleurs à décorateurs (`@controller`, `@Get`, `@Param`,
 `@Body`, `@Query`), l'injection de dépendances, les gardes d'autorisation, l'idée de modules. Une
 garde `@IsGranted` s'applique **avant** l'instanciation du contrôleur, au niveau du résolveur — même
-contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:502`) enveloppe
-l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:719`) tranche, fail-closed en 403.
+contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:647`) enveloppe
+l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:853`) tranche, fail-closed en 403.
 
 **Ce qui change.** Deux choses. D'abord, **pas de gateway WebSocket séparée** : là où Nest te
 demande un `@WebSocketGateway()` distinct de tes contrôleurs, Nodefony te fait déclarer le transport
@@ -509,14 +509,14 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 
 | Domaine                      | Norme                          | Ancrage code                                              |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
-| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:327`)                          |
+| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:343`)                          |
 | Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:761`)           |
-| Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:55`)              |
-| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1361`)           |
-| Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1524`)          |
+| Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:79`)              |
+| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1576`)           |
+| Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1747`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
-| Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:172`) · `Service.log()` (`Service.ts:300`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1333`)         |
+| Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:170`) · `Service.log()` (`Service.ts:364`) |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1456`)         |
 
 ## ⚡ Performance & mémoire
 
@@ -525,12 +525,12 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:62`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1360`) ; le nonce CSP
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1503`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.
 - **Un seul écouteur de fin de requête.** `createHttpContext()` pose un unique
-  `response.once("close")` (`http-kernel.ts:1218`) qui déclenche le teardown : pas de paire
+  `response.on("close")` (`http-kernel.ts:1422`) qui déclenche le teardown : pas de paire
   `finish`/`close` à démonter à la main.
 
 Ces choix sont **mesurés**, pas postulés. La suite `memory.test.ts` mesure les octets retenus par

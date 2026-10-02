@@ -44,7 +44,7 @@ flowchart LR
 Deux idées à retenir :
 
 1. **Le contrôleur lit le fichier, le moteur ne fait que rendre une chaîne.** `renderView()` résout le
-   chemin, lit l'octet, puis passe la **source** à Eta (`Controller.renderView()`, `Controller.ts:524`).
+   chemin, lit l'octet, puis passe la **source** à Eta (`Controller.renderView()`, `Controller.ts:544`).
    Il n'y a **pas** de dossier `views/` magique connu du moteur.
 2. **L'échappement est automatique.** Une donnée interpolée par `<%= %>` est neutralisée (`<` devient
    `&lt;`) avant d'entrer dans le HTML — c'est la protection XSS, active par défaut
@@ -218,15 +218,15 @@ sequenceDiagram
 
 | #   | Étape                                        | Où                                                            |
 | --- | -------------------------------------------- | ------------------------------------------------------------- |
-| 1   | Résolution + lecture async du fichier        | `FileClass` dans `renderView()` (`Controller.ts:524`)         |
+| 1   | Résolution + lecture async du fichier        | `FileClass` dans `renderView()` (`Controller.ts:544`)         |
 | 2   | Ouverture de la phase mesurée `render`       | `phaseStart("render")` (`Controller.ts:485`)                  |
 | 3   | Injection des aides frontend dans les locals | `withFrontendLocals()` (`Controller.ts:562`)                  |
 | 4   | Rendu de la source par le moteur             | `Eta.render()` → `renderStringAsync` (`Eta.ts:51`)            |
-| 5   | `Content-Type: text/html` puis envoi         | `setContextHtml()` + `renderResponse()` (`Controller.ts:503`) |
+| 5   | `Content-Type: text/html` puis envoi         | `setContextHtml()` + `renderResponse()` (`Controller.ts:523`) |
 
 Le point notable de l'étape 3 : `withFrontendLocals()` ajoute automatiquement `frontendTags`,
 `frontendDocument` et `asset` aux locals **si** le service `frontend` est présent — et **tes** valeurs
-priment (spread `param` en dernier, `Controller.ts:526`). Si le module frontend n'est pas chargé, la
+priment (spread `param` en dernier, `Controller.ts:546`). Si le module frontend n'est pas chargé, la
 fonction retourne les locals inchangés : zéro couplage dur.
 
 ## 🔐 Sécurité — échappement HTML et XSS
@@ -270,7 +270,7 @@ scaffold). Les deux sont **asynchrones** (I/O non bloquante).
 | ----------------------------------- | ------------------------------------------------------- | ------------------- |
 | `renderView(path, locals, status?)` | Rendre une vue `.eta` (lit le fichier + aides frontend) | `Controller.ts:524` |
 | `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts:485` |
-| `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:602` |
+| `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:629` |
 
 Les signatures exactes vivent dans le graphe symbolique `.ai/symbols.json` — jamais recopiées ici.
 
@@ -309,7 +309,7 @@ c'est le différenciateur Nodefony : une classe, deux transports, le même moteu
 | Domaine            | Norme / référence       | Comment le code s'y conforme                                          |
 | ------------------ | ----------------------- | --------------------------------------------------------------------- |
 | Neutralisation XSS | OWASP — Output Encoding | échappement HTML par défaut (`autoEscape`, `Eta.ts:16`)               |
-| Type de média HTML | `text/html`             | posé par `setContextHtml()` dans `renderView()` (`Controller.ts:524`) |
+| Type de média HTML | `text/html`             | posé par `setContextHtml()` dans `renderView()` (`Controller.ts:544`) |
 | I/O non bloquante  | Node.js async fs        | lecture async du fichier (`readFile`, `Eta.ts:71`)                    |
 
 ## ⚡ Performance et mémoire
@@ -344,7 +344,7 @@ template), et le framework l'isole pour ça :
 | `<%= it.name %>` requis alors qu'on attend `<%= name %>` | `useWith` mal compris — Nodefony l'active (`Eta.ts:17`), les locals sont nus       | Écrire `<%= name %>` directement                                           |
 | Modif de template ignorée en prod                        | `cache: true` en production (`Template.ts:20`)                                     | Redémarrer le pod ; en dev le cache est off, recompile à chaud             |
 | La réponse d'erreur n'est pas ma vue Eta                 | Les erreurs rendent du JSON, pas un template (`error-renderer.ts:109`)             | Pour une page d'erreur HTML, rendre explicitement une vue dans un handler  |
-| `renderView()` rejette et logge une ERROR                | Fichier introuvable ou template invalide (le `catch` re-lève, `Controller.ts:524`) | Vérifier le chemin résolu (`resolve(module.path, …)`)                      |
+| `renderView()` rejette et logge une ERROR                | Fichier introuvable ou template invalide (le `catch` re-lève, `Controller.ts:544`) | Vérifier le chemin résolu (`resolve(module.path, …)`)                      |
 
 ## 🧪 Tests et couverture
 

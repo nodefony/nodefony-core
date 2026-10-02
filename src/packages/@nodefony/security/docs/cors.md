@@ -323,7 +323,7 @@ sequenceDiagram
 ```
 
 `Firewall.handleCors()` (`firewall.ts:1007`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1333`), à la ligne `http-kernel.ts:1333` — **avant le routing**. La raison est
+(`http-kernel.ts:1456`), à la ligne `http-kernel.ts:1456` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.
@@ -354,7 +354,7 @@ Deux nuances utiles :
   `Access-Control-Request-Headers` du client (`cors.ts:78`). Ce que tu déclares est ce qui est annoncé,
   point. Un en-tête custom non déclaré fait échouer le preflight côté navigateur.
 - **Les fichiers statiques sont couverts.** `handleCors` s'exécute avant le fallback `serve-static`
-  (`http-kernel.ts:1382`) : une police ou une image servie cross-origin reçoit les mêmes en-têtes que
+  (`http-kernel.ts:1630`) : une police ou une image servie cross-origin reçoit les mêmes en-têtes que
   tes routes.
 
 Le contrat est publié dans l'interface du firewall (`IFirewall.ts:35`) : `number | undefined` — `204`

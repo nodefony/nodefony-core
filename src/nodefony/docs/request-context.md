@@ -251,7 +251,7 @@ INFO    http        : GET /api/invoices/INV-42 200 — 12 ms
 
 Les trois lignes portent **le même** `requestId`, bien qu'aucune ne se le soit transmis : le
 journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:207`), branché sur
-`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:981`). C'est ce qui
+`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:315`). C'est ce qui
 rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md).
 
 ## 🧰 API publique
@@ -295,7 +295,7 @@ les autres par une signature d'index. Chaque couche y dépose ce qui la concerne
 | `queries`         | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
 | `invocation`      | le pont WS-RPC                     | profil de **la trame** en cours (phases + requêtes ORM)                     |
 | `body`            | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
-| `idempotencyKey`  | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:578`)                                |
+| `idempotencyKey`  | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:712`)                                |
 | `renderSink`      | le pont WS-RPC                     | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
 
 Les couches supérieures exposent ces clés sous une forme **typée**, à préférer quand elle existe :
@@ -304,7 +304,7 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
 | l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1283` |
 | le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:238`        |
-| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:406`          |
+| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:471`          |
 
 ## 🔌 Où la bulle est ouverte
 
@@ -316,10 +316,10 @@ qui ouvre quoi.
 <!-- prettier-ignore -->
 | Transport | Ouverte par | Ce que la bulle couvre |
 | --- | --- | --- |
-| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1333`) | CORS, routage, firewall, ton action, rendu |
-| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1667`) | poignée de main, firewall, **et toutes les trames** |
+| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1456`) | CORS, routage, firewall, ton action, rendu |
+| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1896`) | poignée de main, firewall, **et toutes les trames** |
 | WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:949`) | **une** invocation : corps, clé d'idempotence, profil |
-| Fin de réponse (journal) | `Context.log()` (`Context.ts:520`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
+| Fin de réponse (journal) | `Context.log()` (`Context.ts:535`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Les trois premières bulles portent le scope DI de la requête (`scope`, rendu par `getScope()`) ;
 la micro-bulle de journal, non — elle n'enveloppe qu'une écriture de fin de requête.
@@ -328,7 +328,7 @@ Deux points méritent d'être connus.
 
 **La bulle WebSocket survit aux trames.** Une trame arrive dans un tick d'event-loop bien
 postérieur à la poignée de main : elle serait hors bulle. `WebsocketContext.connect()`
-(`WebsocketContext.ts:234`) branche donc `message`, `close` et `error` à travers
+(`WebsocketContext.ts:257`) branche donc `message`, `close` et `error` à travers
 `AsyncResource.bind` (`WebsocketContext.ts:243`) — la bulle est photographiée au branchement, donc
 depuis l'intérieur, et restaurée à chaque appel.
 
@@ -360,7 +360,7 @@ Deux lectures possibles, et elles ne sont **pas** équivalentes :
   (`RequestContext.ts:295`) — le chemin simple, quand tout se passe dans la bulle.
 - **capturer la référence** du buffer une fois (`RequestContext.get()?.queries`) puis pousser
   dedans — le chemin **robuste**, celui des adapters livrés : `DrizzleRepository.#prof()`
-  (`DrizzleRepository.ts:355`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:118`).
+  (`DrizzleRepository.ts:433`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:129`).
 
 > [!WARNING]
 > **Ne relis jamais l'ALS après un `await` qui traverse un pool.** Un pilote de base de données peut
@@ -429,7 +429,7 @@ jeton complet** — rôles, périmètres, attributs (`firewall.ts:632`). Quatre 
    met une identité **déjà vérifiée**, jamais un authentifiant (mot de passe, secret brut).
 2. **Lire l'identité n'est pas autoriser.** `getUser()` rend `unknown` : c'est un transport, pas une
    décision. L'autorisation passe par le firewall et ses décorateurs, qui lisent le **jeton**
-   (`Resolver.ts:724`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
+   (`Resolver.ts:849`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
 3. **Une identité de WebSocket peut vieillir.** La bulle de connexion porte l'identité captée à la
    poignée de main, et la connexion peut durer des heures — alors que la session, elle, peut être
    révoquée entre-temps. C'est pourquoi le pont WS-RPC **revalide** l'identité à chaque invocation
@@ -452,7 +452,7 @@ Le premier est de loin le plus fréquent, et il ne produit **aucune erreur** —
 > il s'exécute dans un autre tick d'event-loop, hors bulle, et tout rend `undefined`.
 
 C'est ainsi que le framework le fait pour toi aux deux endroits qui comptent : les événements de
-socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:234`) et les rappels d'après-réponse
+socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:257`) et les rappels d'après-réponse
 dans `Context.onAfterResponse()` (`Context.ts:445`). Si tu branches **ton** écouteur sur une socket
 ou une minuterie, la règle est à toi de l'appliquer.
 
