@@ -479,7 +479,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:366-425`) et `token
 
 | Symptôme                                      | Cause (dans le code)                                           | Correction                                               |
 | --------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
-| 404 sur `/nodefony/security/api/token`        | Routes montées seulement si `tokenService` existe              | Charger `@nodefony/security` + `jwt.enabled: true`       |
+| 404 sur `/nodefony/security/api/token`        | Module `@nodefony/security` non chargé                         | Charger `@nodefony/security` + `jwt.enabled: true`       |
 | 503 « Token issuance unavailable »            | Service non initialisé (JWT désactivé, store indisponible)     | Vérifier config `jwt`/`tokenStore` + logs de boot        |
 | Refresh tokens invalidés à chaque redémarrage | Keystore en mémoire (aucune source configurée)                 | `jwt.keystore.keySetJson` (prod) ou `dir` (dev)          |
 | JWT rejeté après un déploiement multi-pod     | Clés différentes par pod (pas de clé partagée)                 | Provisionner `keySetJson` hors-bande (même clé partout)  |

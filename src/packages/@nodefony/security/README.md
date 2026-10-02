@@ -25,7 +25,7 @@ Consomme [`@nodefony/user`](https://www.npmjs.com/package/@nodefony/user).
   (cookie opaque BFF, révocable, `HttpOnly; Secure; SameSite`) ; les **API/agents** portent leur
   preuve à chaque requête (**JWT** signé / clé API). Jamais « full stateless » : la session reste
   la fondation web (révocation immédiate), le JWT est réservé au sans-état machine-à-machine.
-- **Config type-safe** : schéma **Zod** (18 sections, tout `enabled`), **introspectable** (Studio
+- **Config type-safe** : schéma **Zod** (19 sections, la plupart désactivables par `enabled`), **introspectable** (Studio
   génère son formulaire d'édition). L'app configure via `use("@nodefony/security", { … })`.
 - **En-têtes natifs** (sans la lib `helmet`) — 0 dépendance, nonce CSP par requête.
 
@@ -67,7 +67,8 @@ export default defineConfig((ctx) => ({
 
 > Une zone se déclare idéalement **par module** (override `module-security`, dans la config du
 > module) pour vivre au plus près de ses routes. Authenticators fournis : `anonymous`, `session`,
-> `userpassword`, `jwt`, `apikey`, `webauthn`, plus les providers OAuth2. La chaîne est validée
+> `userpassword`, `jwt`, `external-jwt`, `apikey`. WebAuthn, OAuth2 et TOTP n'en sont pas : ils
+> ouvrent une session BFF, que l'authenticator `session` identifie ensuite. La chaîne est validée
 > au boot (`mode: "first"` par défaut = le premier qui reconnaît authentifie ; `"all"` = tous
 > requis, ex. mTLS + JWT). Config invalide → firewall **fail-closed** (tout rejeté).
 
@@ -117,7 +118,7 @@ csrf: {
 > ouvrir la lecture CORS des réponses au JavaScript tiers. Une origine listée dans `cors.origins` est
 > toutefois aussi acceptée (ce que CORS autorise explicitement n'est pas du CSRF).
 
-Le token synchronizer renforcé (`@CsrfProtect` / `@CsrfExempt`) arrive à l'étape suivante.
+Le token synchronizer renforcé s'active par route avec `@CsrfProtect` ; `@CsrfExempt` en exclut une route.
 
 ### CORS — l'inverse du CSRF
 
@@ -141,8 +142,9 @@ const schema = securityConfigJsonSchema(); // JSON Schema → formulaire d'édit
 ## Journal d'audit (événements de sécurité)
 
 Le journal trace les **transitions d'état** de sécurité (login, refus, jeton émis/révoqué, verrou
-WS) — distinct du log de trafic (1 PDU/requête). Émission **explicite** par point sensible ; le
-**chemin de succès reste muet** (le volume n'est pas un signal), seul l'échec/refus émet (cold-path)
+WS) — distinct du log de trafic (1 PDU/requête). Émission **explicite** par point sensible, sur les
+chemins froids (login, logout, émission ou révocation de jeton, refus) ; jamais par requête nominale :
+le trafic courant ne passe pas par l'audit (cold-path)
 → aucun coût ajouté au hot-path nominal. Activé par défaut (`audit.enabled`, OWASP A09), coût nul si
 désactivé. Lecture : `GET /nodefony/security/api/audit/events` (RBAC `ROLE_NODEFONY_ADMIN`).
 

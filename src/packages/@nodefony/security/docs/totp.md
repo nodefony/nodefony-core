@@ -190,8 +190,9 @@ export default defineConfig<typeof env>((ctx) => ({
 
 ### 3. Les endpoints sont FOURNIS — tu n'écris aucun controller
 
-`mountTotpRoutes()` (`TotpController.ts:154`) monte quatre routes self-service, **et seulement si**
-le service `totp` existe (security chargé + 2FA activé) — sinon zéro surface, 404 :
+`mountTotpRoutes()` (`TotpController.ts:154`) monte quatre routes self-service dès que
+`@nodefony/security` est chargé (le service `totp` est alors toujours enregistré). 2FA désactivé, ou
+service non initialisé : elles répondent `503 2FA unavailable` :
 
 | Route                                      | Corps      | Réponse                                        |
 | ------------------------------------------ | ---------- | ---------------------------------------------- |
@@ -455,17 +456,17 @@ La saisie est tolérante — casse et tirets ignorés à la normalisation (`totp
 La section `totp` du schéma Zod (`config.ts:1144`) — validée au boot, donc une valeur hors bornes
 échoue **au démarrage**, pas au premier login :
 
-| Option          | Type                         | Défaut | Effet                                                              |
-| --------------- | ---------------------------- | ------ | ------------------------------------------------------------------ |
-| `enabled`       | `boolean`                    | `true` | Coupe le 2FA : service inerte, routes non montées (`totp.ts:101`). |
-| `issuer`        | `string?`                    | —      | Nom affiché dans l'app d'authentification. Omis = nom de l'app.    |
-| `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:551`).         |
-| `digits`        | `int` 6–8                    | `6`    | Longueur du code (RFC 4226 §5.3 : 6 minimum).                      |
-| `period`        | `int` > 0                    | `30`   | Durée de vie d'un code, en secondes.                               |
-| `window`        | `int` ≥ 0                    | `1`    | Tolérance de dérive, en pas (`config.ts:572`).                     |
-| `recoveryCodes` | `int` > 0                    | `10`   | Nombre de codes générés à l'activation (`config.ts:580`).          |
-| `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:588`).           |
-| `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:594`).                |
+| Option          | Type                         | Défaut | Effet                                                           |
+| --------------- | ---------------------------- | ------ | --------------------------------------------------------------- |
+| `enabled`       | `boolean`                    | `true` | Coupe le 2FA : service inerte, routes en `503` (`totp.ts:101`). |
+| `issuer`        | `string?`                    | —      | Nom affiché dans l'app d'authentification. Omis = nom de l'app. |
+| `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:551`).      |
+| `digits`        | `int` 6–8                    | `6`    | Longueur du code (RFC 4226 §5.3 : 6 minimum).                   |
+| `period`        | `int` > 0                    | `30`   | Durée de vie d'un code, en secondes.                            |
+| `window`        | `int` ≥ 0                    | `1`    | Tolérance de dérive, en pas (`config.ts:572`).                  |
+| `recoveryCodes` | `int` > 0                    | `10`   | Nombre de codes générés à l'activation (`config.ts:580`).       |
+| `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:588`).        |
+| `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:594`).             |
 
 ### Situation 1 — un utilisateur active la 2FA sur son compte
 

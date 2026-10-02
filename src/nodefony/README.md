@@ -169,10 +169,10 @@ Point d'accès au kernel depuis n'importe où dans l'application.
 ```typescript
 import { Nodefony } from "nodefony";
 
-Nodefony.version; // "10.0.0"
+Nodefony.version; // version du paquet installé, ex. "10.0.0-beta.1"
 Nodefony.getKernel(); // Kernel | null (null avant boot)
 Nodefony.generateId(); // UUID v4
-Nodefony.generateV5Id(name); // UUID v5
+Nodefony.generateSortableId(); // UUID v7 (ordonné dans le temps)
 ```
 
 ---
@@ -213,7 +213,7 @@ new Service(
 | ---------------------------- | ---------------------- | ---------------------------------------------- |
 | `container`                  | `new Container()`      | Container DI partagé ou auto-créé              |
 | `notificationsCenter`        | `new Event()`          | `false` = pas d'events ; `Event` = partagé     |
-| `options.events.nbListeners` | 10                     | Nb max de listeners (propagé si Event partagé) |
+| `options.events.nbListeners` | 20                     | Nb max de listeners (propagé si Event partagé) |
 | `options.syslog`             | `{ moduleName: name }` | Config du Syslog interne                       |
 
 ### Extension (pattern typique)
@@ -276,7 +276,7 @@ svc.removeAllListeners("myEvent"); // vide un event spécifique
 svc.eventNames(); // ['myEvent', ...]
 svc.listenerCount("myEvent"); // 2
 svc.listeners("myEvent"); // [fn1, fn2]
-svc.getMaxListeners(); // 10
+svc.getMaxListeners(); // 20 par défaut
 svc.setMaxListeners(50);
 
 // Auto-wire via options (clés onFoo)
@@ -375,7 +375,7 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 
 | Comportement                         | Détail                                                         |
 | ------------------------------------ | -------------------------------------------------------------- |
-| `events.nbListeners` ignoré          | Seulement appliqué si Event partagé passé au constructeur      |
+| `events.nbListeners` sur bus partagé | Relève le plafond d'un `Event` partagé, ne l'abaisse jamais    |
 | `pdu.severity` vs `pdu.severityName` | Numérique vs string — utiliser `severityName` pour comparer    |
 | `"CRITIC"` pas `"CRITICAL"`          | Nom exact dans l'enum SysLogSeverity                           |
 | `removeAllListeners()`               | Corrigé — `(undefined)` ne vidait pas (bug `arguments.length`) |

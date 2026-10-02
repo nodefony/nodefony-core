@@ -23,7 +23,7 @@ Wraps `fs.lstatSync` to provide typed metadata, MIME detection, and sync/async I
 ### Constructor
 
 ```typescript
-import FileClass from "@nodefony/core/FileClass";
+import { FileClass } from "nodefony";
 
 const f = new FileClass("/path/to/file.ts");
 // or relative path (resolved from process.cwd())
@@ -97,7 +97,7 @@ Async recursive directory traverser with event support.
 ### Basic usage
 
 ```typescript
-import Finder from "@nodefony/core/finder/Finder";
+import { Finder } from "nodefony";
 
 const finder = new Finder({ recurse: true, depth: 5 });
 const result = await finder.in("/path/to/dir");
@@ -176,7 +176,7 @@ const r2 = finder.checkPath(["/a", "/b"]); // FileResult with 2 entries
 `FileResult extends Result extends Array` — array of `File` objects with helpers.
 
 ```typescript
-import FileResult from "@nodefony/core/finder/FileResult";
+import { FileResult } from "nodefony";
 
 const result: FileResult = await finder.in("/path");
 

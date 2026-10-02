@@ -6,11 +6,11 @@ Résolution automatique des dépendances entre services via decorators TypeScrip
 
 ## Vue d'ensemble
 
-| Decorator                    | Cible                  | Rôle                                          |
-| ---------------------------- | ---------------------- | --------------------------------------------- |
-| `@injectable(name?, scope?)` | Classe                 | Enregistre le service dans le registre global |
-| `@inject("name")`            | Paramètre constructeur | Injection explicite par nom                   |
-| `@Inject("name")`            | Propriété de classe    | Injection post-construction par nom           |
+| Decorator                     | Cible                  | Rôle                                          |
+| ----------------------------- | ---------------------- | --------------------------------------------- |
+| `@injectable(nameOrOptions?)` | Classe                 | Enregistre le service dans le registre global |
+| `@inject("name")`             | Paramètre constructeur | Injection explicite par nom                   |
+| `@Inject("name")`             | Propriété de classe    | Injection post-construction par nom           |
 
 Deux fichiers :
 
@@ -22,9 +22,7 @@ Deux fichiers :
 ## 1. Enregistrer un service — `@injectable`
 
 ```typescript
-import { injectable } from "@nodefony/core/decorators";
-import Service from "@nodefony/core/Service";
-import Container from "@nodefony/core/Container";
+import { injectable, Service, Container } from "nodefony";
 
 @injectable()
 class AuthService extends Service {
@@ -89,7 +87,7 @@ export class Tenant extends Service {
   l'instance de la première requête pour toutes les suivantes. Refus en `BootConfigurationError`
   qui nomme les deux et le chemin, **au démarrage** : le graphe des dépendances déclarées de
   chaque contrôleur (`@controllers`) et de chaque service `request` déclaré est analysé, sans
-  rien instancier — un contrôleur `@Scope("singleton")` ou un singleton paresseux qu'ils
+  rien instancier — un contrôleur (singleton par défaut, sauf `@Scope("request")`) ou un singleton paresseux qu'ils
   atteignent arrête le boot. La même règle refuse encore à la résolution ce qu'aucune
   déclaration ne montrait. Un service `transient` prend la durée de vie de celui qui le
   détient ; une classe **sans portée déclarée est un singleton**.
@@ -179,7 +177,7 @@ Séquence interne :
 
 ---
 
-## 4. Auto-injection par type (rollup/prod uniquement)
+## 4. Auto-injection par type (build rolldown/prod uniquement)
 
 Quand `emitDecoratorMetadata: true`, TypeScript émet les types des paramètres.
 Injector les lit via `design:paramtypes` — aucun `@inject` nécessaire.
@@ -196,10 +194,10 @@ class ReportService extends Service {
 }
 ```
 
-| Environnement                   | `design:paramtypes` | Auto-injection                  |
-| ------------------------------- | ------------------- | ------------------------------- |
-| Rollup (prod, rollup.config.ts) | ✅ émis             | ✅ fonctionne                   |
-| tsx (tests)                     | ❌ absent           | ❌ utiliser `@inject` explicite |
+| Environnement                       | `design:paramtypes` | Auto-injection                  |
+| ----------------------------------- | ------------------- | ------------------------------- |
+| Rolldown (prod, rolldown.config.ts) | ✅ émis             | ✅ fonctionne                   |
+| tsx (tests)                         | ❌ absent           | ❌ utiliser `@inject` explicite |
 
 ---
 

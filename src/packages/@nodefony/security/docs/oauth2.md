@@ -147,9 +147,10 @@ c'est l'authenticator `session` qui identifie chaque requête, comme après un m
 dans le module (`OAuth2Client`, `oauth2Client.ts:321`), et `jose` — seul recours externe, pour lire les claims de
 l'ID token — est importé **paresseusement**. Les fournisseurs sont construits au premier login puis
 mémoïsés (`OAuth2Service.#resolveProvider()`, `oauth2.ts:296`) : c'est là, une seule fois par
-processus, que les points d'entrée d'un émetteur OIDC sont découverts. Les routes ne sont montées
-que si le service existe (`framework/index.ts:460`) : sans social login configuré, la surface HTTP
-est **404**, pas « désactivée ».
+processus, que les points d'entrée d'un émetteur OIDC sont découverts. Les routes sont montées dès
+que `@nodefony/security` est chargé (`framework/index.ts:460`) : sans social login configuré,
+`…/providers` rend une liste vide, `authorize` rend `404 Unknown provider`, et `authorize`/`callback`
+rendent `503 OAuth unavailable` quand `oauth2.enabled` vaut `false`.
 
 Au boot, la config est validée et les fournisseurs configurés sont confrontés au registre : un nom
 inconnu produit un **WARNING, pas un échec fatal** — `OAuth2Service.#build()` confronte les noms
@@ -215,8 +216,8 @@ export default defineConfig<typeof env>((ctx) => ({
 ### Les routes sont FOURNIES — tu n'écris aucun controller
 
 `mountOAuth2Routes()` (`OAuth2Controller.ts:234`) monte trois routes sous
-`/nodefony/security/api/oauth2` (`OAuth2Controller.ts:236`), et **seulement si** le service `oauth2`
-est présent (`framework/index.ts:460`) :
+`/nodefony/security/api/oauth2` (`OAuth2Controller.ts:236`) dès que le service `oauth2` est
+enregistré, c'est-à-dire dès que `@nodefony/security` est chargé (`framework/index.ts:460`) :
 
 | Route                        | Rôle                                                                  |
 | ---------------------------- | --------------------------------------------------------------------- |
@@ -488,14 +489,14 @@ que le mapping du profil. Exemple sans réseau dans le dépôt :
 Section `oauth2` du schéma Zod (`config.ts:1155`), branchée sur la config du module
 (`config.ts:1155`). Table dérivée du schéma — les défauts sont ceux du code.
 
-| Option            | Type                 | Défaut          | Effet                                                      |
-| ----------------- | -------------------- | --------------- | ---------------------------------------------------------- |
-| `enabled`         | booléen              | `true`          | Coupe le social login ; les routes ne montent pas.         |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:1048`). |
-| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:1054`). |
-| `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                     |
-| `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).         |
-| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:1070`).                   |
+| Option            | Type                 | Défaut          | Effet                                                       |
+| ----------------- | -------------------- | --------------- | ----------------------------------------------------------- |
+| `enabled`         | booléen              | `true`          | Coupe le social login : `authorize`/`callback` rendent 503. |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:1048`).  |
+| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:1054`).  |
+| `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                      |
+| `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).          |
+| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:1070`).                    |
 
 Par fournisseur (`oauthProviderSchema`, `config.ts:954`) :
 
@@ -608,15 +609,17 @@ session ouverte apparaît dans l'écran **Sessions** (IP et agent capturés à l
 provisionné dans l'écran **Users**, avec ses rôles réels.
 
 > [!NOTE]
-> L'événement d'audit du login social porte la raison par défaut `federated`
-> (`authFlow.ts:218`) : le controller n'affine pas le facteur. Pour distinguer OAuth de WebAuthn dans
-> un filtre d'audit, s'appuyer sur le contexte de la requête plutôt que sur cette seule valeur.
+> L'événement d'audit du login social porte la raison `oauth` : le controller la passe à
+> `AuthFlow.establishSessionFor()` (`OAuth2Controller.ts:194`), comme WebAuthn passe `webauthn`.
+> `federated` n'est que la valeur par défaut d'un appelant qui n'a pas nommé son facteur
+> (`authFlow.ts:215`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
 | Symptôme                                          | Cause (dans le code)                                                          | Correction                                                          |
 | ------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `404` sur `…/oauth2/…`                            | Service `oauth2` absent (module non chargé / `enabled: false`)                | Charger `@nodefony/security` et activer `oauth2`                    |
+| `404` sur `…/oauth2/…`                            | Module `@nodefony/security` non chargé, ou nom de fournisseur inconnu         | Charger `@nodefony/security` ; vérifier le nom du fournisseur       |
+| `503 OAuth unavailable`                           | `oauth2.enabled: false`, ou boot du service échoué                            | Activer `oauth2` ; lire le WARNING de boot                          |
 | WARNING « inconnu du registre » au boot           | Nom configuré sans fabrique (`oauth2.ts:149-155`)                             | `registerOAuthProvider()` au chargement du module, ou builtin       |
 | `404` « Unknown provider » sur `authorize`        | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:14`)            | Vérifier le nom exact **et** la présence des secrets                |
 | Bouton absent de l'écran de login                 | Secrets manquants → fournisseur non monté (spread conditionnel)               | Renseigner `clientId`/`clientSecret` dans l'env                     |

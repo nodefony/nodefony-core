@@ -251,7 +251,7 @@ import { Buffer } from "node:buffer";
 // prettier-ignore
 import { Controller, controller, Post, Body, Headers, BypassFirewall } from "@nodefony/framework";
 
-const SECRET = (process.env.NODEFONY_HOOK_SECRET ?? "").replace(/^whsec_/, "");
+const SECRET = (process.env.NF_HOOK_SECRET ?? "").replace(/^whsec_/, "");
 
 @controller("/hooks")
 class HookMiniController extends Controller {
@@ -308,7 +308,7 @@ import { Buffer } from "node:buffer";
 import { Controller, controller, Post, Body, Headers, BypassFirewall } from "@nodefony/framework";
 
 /** Secret `whsec_…` donné par l'émetteur — via l'environnement, jamais en dur. */
-const SECRET = process.env.NODEFONY_HOOK_SECRET ?? "";
+const SECRET = process.env.NF_HOOK_SECRET ?? "";
 /** Fenêtre anti-rejeu (s) : un message plus vieux est refusé. */
 const TOLERANCE_S = 300;
 
@@ -956,21 +956,21 @@ secret, et sait **simuler des pannes** pour observer retries et auto-désactivat
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                | Cause (dans le code)                                                                                            | Correction                                                                   |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Boot : « webhooks désactivés » en production            | Aucune `encryptionKey` — fail-safe (`webhooks.ts:299`)                                                          | `npx nodefony security:secrets` puis câbler `NF_WEBHOOK_KEY`                 |
-| Après redémarrage, les signatures ne valident plus      | Clé **éphémère** de dev : les secrets stockés sont illisibles                                                   | Poser une `encryptionKey` stable ; tourner les secrets des endpoints         |
-| `422` à la création d'un endpoint                       | `assertPublicUrl()` refuse la cible (IP interne, schéma, userinfo)                                              | Viser une URL publique en `https://` ; en dev, `denyPrivateIps: false`       |
-| Rien n'arrive alors que l'endpoint est actif            | Aucun `auditService` → dispatcher inactif (`webhooks.ts:191`)                                                   | Vérifier que l'audit est activé ; le CRUD seul ne livre rien                 |
-| Un événement « métier » n'arrive jamais                 | La source est le **journal d'audit**, pas un bus applicatif                                                     | S'abonner à une action d'audit existante                                     |
-| Signature invalide côté récepteur                       | Corps re-sérialisé avant le HMAC, ou en-tête `webhook-id`/`-timestamp` ignoré                                   | Lire le corps **brut** ; signer `{id}.{timestamp}.{body}`                    |
-| Le récepteur voit deux fois le même événement           | Un retry rejoue le **même** `webhook-id`                                                                        | Dédupliquer par `webhook-id` côté récepteur                                  |
-| Endpoint passé `enabled: false` tout seul               | 20 échecs consécutifs → auto-désactivation (`webhooks.ts:565`)                                                  | Réparer la destination, puis `PATCH … {"enabled":true}`                      |
-| Livraisons « abandonnées » dans les logs                | File pleine (`maxQueue`) — best-effort assumé                                                                   | Augmenter `maxQueue`/`maxConcurrent`, ou réduire le volume souscrit          |
-| Un `302` vers l'interne n'est pas suivi                 | **Voulu** : `node:http(s)` ne suit jamais les 3xx                                                               | Rien à corriger — configurer l'URL finale côté destinataire                  |
-| Le secret a été perdu                                   | Il n'est montré qu'à la création/rotation                                                                       | `POST …/reveal` (audité) ou rotation + redéploiement chez le tiers           |
-| Après un redémarrage, plus aucun endpoint               | `store: "memory"` — registre volatil et par pod                                                                 | Déclarer une infra durable (`store: "auto"` suffit alors)                    |
-| Multi-pod : un endpoint créé ne livre que depuis un pod | Le snapshot n'est chargé qu'au boot (`webhooks.ts:325`) ; les pods qui n'ont pas vu l'écriture gardent l'ancien | Redémarrage tournant après une mutation, ou router l'admin sur tous les pods |
+| Symptôme                                                                       | Cause (dans le code)                                                                                       | Correction                                                             |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Boot : « webhooks désactivés » en production                                   | Aucune `encryptionKey` — fail-safe (`webhooks.ts:299`)                                                     | `npx nodefony security:secrets` puis câbler `NF_WEBHOOK_KEY`           |
+| Après redémarrage, les signatures ne valident plus                             | Clé **éphémère** de dev : les secrets stockés sont illisibles                                              | Poser une `encryptionKey` stable ; tourner les secrets des endpoints   |
+| `422` à la création d'un endpoint                                              | `assertPublicUrl()` refuse la cible (IP interne, schéma, userinfo)                                         | Viser une URL publique en `https://` ; en dev, `denyPrivateIps: false` |
+| Rien n'arrive alors que l'endpoint est actif                                   | Aucun `auditService` → dispatcher inactif (`webhooks.ts:191`)                                              | Vérifier que l'audit est activé ; le CRUD seul ne livre rien           |
+| Un événement « métier » n'arrive jamais                                        | La source est le **journal d'audit**, pas un bus applicatif                                                | S'abonner à une action d'audit existante                               |
+| Signature invalide côté récepteur                                              | Corps re-sérialisé avant le HMAC, ou en-tête `webhook-id`/`-timestamp` ignoré                              | Lire le corps **brut** ; signer `{id}.{timestamp}.{body}`              |
+| Le récepteur voit deux fois le même événement                                  | Un retry rejoue le **même** `webhook-id`                                                                   | Dédupliquer par `webhook-id` côté récepteur                            |
+| Endpoint passé `enabled: false` tout seul                                      | 20 échecs consécutifs → auto-désactivation (`webhooks.ts:565`)                                             | Réparer la destination, puis `PATCH … {"enabled":true}`                |
+| Livraisons « abandonnées » dans les logs                                       | File pleine (`maxQueue`) — best-effort assumé                                                              | Augmenter `maxQueue`/`maxConcurrent`, ou réduire le volume souscrit    |
+| Un `302` vers l'interne n'est pas suivi                                        | **Voulu** : `node:http(s)` ne suit jamais les 3xx                                                          | Rien à corriger — configurer l'URL finale côté destinataire            |
+| Le secret a été perdu                                                          | Il n'est montré qu'à la création/rotation                                                                  | `POST …/reveal` (audité) ou rotation + redéploiement chez le tiers     |
+| Après un redémarrage, plus aucun endpoint                                      | `store: "memory"` — registre volatil et par pod                                                            | Déclarer une infra durable (`store: "auto"` suffit alors)              |
+| Multi-pod : un endpoint créé ne livre pas tout de suite depuis les autres pods | Le snapshot est relu après `webhooks.snapshotTtlS` (30 s par défaut, `webhooks.ts:406`), pas immédiatement | Attendre au plus `snapshotTtlS`, ou le baisser                         |
 
 ## 🧪 Tests & couverture
 
@@ -983,7 +983,7 @@ depuis vitest, jamais figés ici :
   historique, bornes de perf, arrêt) ; `webhookSignature` (vecteur officiel Standard Webhooks,
   altération du corps/id/timestamp) ; `webhookDelivery` (pin d'IP, non-suivi des 3xx, timeout,
   politique de protocole, capture du corps de réponse) ; `webhookStore` (CRUD mémoire + copie
-  défensive) ; `webhookAdminApi` (les 8 endpoints, rôles, `400`/`404`/`422`/`503`, audit des
+  défensive) ; `webhookAdminApi` (les 9 endpoints, rôles, `400`/`404`/`422`/`503`, audit des
   mutations) ; `webhookPagination` (harnais du banc de contrat sur le store mémoire).
 - **attaque (red-team)** — `webhookSsrf.attack.test.ts` : matrice threat-first dérivée d'OWASP SSRF
   et de CAPEC-664 (IPv4-mapped IPv6 sous 7 notations, confusion `userinfo`, IP encodée

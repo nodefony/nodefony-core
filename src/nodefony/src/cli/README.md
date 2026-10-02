@@ -10,8 +10,8 @@
 - Intégration Commander.js : options globales `-i/-d/-v`, sous-commandes, alias
 - Mode **standalone** : commandes exécutables sans kernel (utile pour les CLIs autonomes)
 - Mode **kernel** : commandes déclenchées par les événements lifecycle du kernel
-- UI intégrée : Progress, Spinner, Sparkline, Table (via `clui`, `cli-table3`)
-- Utilitaires : semver, timers, niceBytes/niceUptime/niceDate, shelljs, emojis
+- UI intégrée : tableaux (`cli-table3`) ; barre de progression et attente via `ProgressBar` (voir `docs/progression.md`)
+- Utilitaires : semver, timers, niceBytes/niceUptime/niceDate, spawn/spawnSync, gestionnaires de paquets (npm, pnpm, yarn, bun)
 - Gestion signaux (`SIGINT`, `SIGTERM`, etc.), rejets de promesses non gérées
 
 ---
@@ -19,8 +19,7 @@
 ## Installation
 
 ```bash
-import Cli, { CliDefaultOptions } from "@nodefony/core";
-import Command from "@nodefony/core"; // ou depuis le chemin direct
+import { Cli, Command } from "nodefony";
 ```
 
 ---
@@ -51,7 +50,6 @@ class BuildCommand extends Command {
   constructor(cli: Cli) {
     super("build", "Build the project", cli, {
       showBanner: false,
-      progress: false,
     });
     this.addArgument("<target>", "Build target");
     this.addOption("-p, --prod", "Production mode");
@@ -149,18 +147,18 @@ new Cli(name: string, container: Container | null, event: Event | false, options
 
 #### Options clés (`CliDefaultOptions`)
 
-| Option             | Type              | Défaut         | Description                     |
-| ------------------ | ----------------- | -------------- | ------------------------------- |
-| `version`          | `string`          | `"1.0.0"`      | Version affichée par `-v`       |
-| `autostart`        | `boolean`         | `true`         | Lance `onStart` automatiquement |
-| `asciify`          | `boolean`         | `true`         | Affiche le nom en ASCII art     |
-| `clear`            | `boolean`         | `true`         | Efface le terminal au démarrage |
-| `signals`          | `boolean`         | `true`         | Gère SIGINT/SIGTERM/etc.        |
-| `autoLogger`       | `boolean`         | `true`         | Initialise le syslog            |
-| `promiseRejection` | `boolean`         | `true`         | Capture les rejets non gérés    |
-| `commander`        | `boolean`         | `true`         | Active Commander.js             |
-| `pid`              | `boolean`         | `false`        | Stocke le PID du processus      |
-| `environment`      | `EnvironmentType` | `"production"` | Environnement courant           |
+| Option             | Type              | Défaut    | Description                                                                                              |
+| ------------------ | ----------------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `version`          | `string`          | `"1.0.0"` | Version affichée par `-v`                                                                                |
+| `autostart`        | `boolean`         | `true`    | Lance `onStart` automatiquement                                                                          |
+| `asciify`          | `boolean`         | `true`    | Affiche le nom en ASCII art                                                                              |
+| `clear`            | `boolean`         | `true`    | Efface le terminal au démarrage                                                                          |
+| `signals`          | `boolean`         | `true`    | Gère SIGINT/SIGTERM/etc.                                                                                 |
+| `autoLogger`       | `boolean`         | `true`    | Initialise le syslog                                                                                     |
+| `promiseRejection` | `boolean`         | `true`    | Capture les rejets non gérés                                                                             |
+| `commander`        | `boolean`         | `true`    | Active Commander.js                                                                                      |
+| `pid`              | `boolean`         | `false`   | Stocke le PID du processus                                                                               |
+| `environment`      | `EnvironmentType` | voir note | `NODE_ENV` s'il est posé ; sinon `"development"` (NODE_ENV absent) ou `"production"` (valeur non moteur) |
 
 #### Méthodes Commander
 
@@ -188,7 +186,7 @@ cli.startTimer(name: string): void             // throw si doublon
 cli.stopTimer(name: string): void              // throw si inconnu; null/undefined → tout arrêter
 cli.setProcessTitle(name?: string): string     // lowercase, sans espaces
 cli.existsSync(path): boolean                  // throw si path falsy
-cli.getCommandManager(manager: string): string // "npm"|"yarn"|"pnpm" → string
+cli.getCommandManager(manager: string): string // "npm"|"yarn"|"pnpm"|"bun" — déprécié : portableSpawn()
 cli.setPid(): number
 cli.showBanner(): string | null                // null si pas de version
 cli.logEnv(): string
@@ -197,26 +195,16 @@ Cli.niceBytes(x: string | number): string      // "1.0 KB", "10 KB", etc.
 Cli.niceUptime(date, suffix?): string          // "a few seconds ago"
 Cli.niceDate(date, format?): string            // moment.format()
 
-cli.createProgress(size: number): Progress
-cli.getSpinner(msg: string, design?: string[]): Spinner
-cli.createSparkline(values: number[], suffix: string): string  // throw si !values
 cli.displayTable(datas: any[], options, syslog?): Table
-
-cli.getEmoji(name?: string): string | undefined
 ```
 
 #### Filesystem / Shell
 
 ```typescript
 cli.existsSync(path): boolean
+cli.exists(path, mode?, callback?): boolean
 cli.createDirectory(path, mode?, force?): Promise<FileClass>
-cli.rm(...files)
-cli.cp(options, source, dest)
-cli.cd(dir?)
-cli.ln(options, source, dest)
-cli.mkdir(...dirs)
-cli.ls(...paths)
-cli.chmod(...)
+cli.npm(argv, cwd, env?) / cli.pnpm(…) / cli.yarn(…) / cli.bun(…)
 cli.spawn(command, args, options, close?): Promise<...>
 cli.spawnSync(command, args, options): SpawnSyncReturns<string>
 ```
@@ -233,12 +221,12 @@ new Command(name: string, description: string, cli: Cli | CliKernel, options?: O
 
 #### Options (`OptionsCommandInterface`)
 
-| Option         | Type                  | Défaut         | Description                    |
-| -------------- | --------------------- | -------------- | ------------------------------ |
-| `showBanner`   | `boolean`             | `true`         | Affiche ASCII art au démarrage |
-| `progress`     | `boolean`             | `false`        | Active la barre de progression |
-| `sizeProgress` | `number`              | `100`          | Taille de la progress bar      |
-| `kernelEvent`  | `keyof typeof Events` | `"onRegister"` | Événement kernel déclencheur   |
+| Option        | Type                           | Défaut         | Description                                                       |
+| ------------- | ------------------------------ | -------------- | ----------------------------------------------------------------- |
+| `showBanner`  | `boolean`                      | `true`         | Affiche ASCII art au démarrage                                    |
+| `kernelEvent` | `KernelEventKey`               | `"onRegister"` | Événement kernel déclencheur                                      |
+| `lifetime`    | `"oneshot"` \| `"longrunning"` | `"oneshot"`    | `longrunning` = daemon console : le Kernel parke au lieu de finir |
+| `runProfile`  | `IRunProfile`                  | —              | Profil d'exécution déclaré (serveurs, boot silencieux…)           |
 
 #### Méthodes à override
 

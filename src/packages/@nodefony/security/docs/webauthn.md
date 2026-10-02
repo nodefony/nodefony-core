@@ -217,7 +217,7 @@ export async function enrollPasskey(): Promise<string> {
   return out.credentialId;
 }
 
-/** Se connecter sans mot de passe. `username` omis = passkey découvrable. */
+/** Se connecter sans mot de passe : un anonyme reçoit toujours un défi découvrable. */
 export async function loginWithPasskey(
   username?: string,
 ): Promise<{ username: string }> {
@@ -404,15 +404,16 @@ sans champ à remplir.
 passkeys: { residentKey: "required" }, // la passkey DOIT être découvrable
 ```
 
-Et côté client, **n'envoie pas** `username` à `login/options` : `allowCredentials` est alors omis et
-le navigateur propose les comptes qu'il connaît. C'est aussi la variante la plus sobre côté vie
-privée — voir la section suivante.
+Côté client, rien à faire de plus : le serveur **ignore** tout `username` posté par un anonyme.
+`allowCredentials` est omis et le navigateur propose les comptes qu'il connaît. Le ciblage ne vient
+jamais du corps de la requête, seulement de la session (`WebAuthnController.loginOptions()`,
+`WebAuthnController.ts:171`).
 
-| Ce que le client envoie à `login/options` | Ce que renvoie le serveur                       | Conséquence                                      |
-| ----------------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
-| `{}`                                      | défi seul, **sans** `allowCredentials`          | l'authenticator propose ses comptes              |
-| `{"username":"alice"}` (alice a 3 clés)   | défi + `allowCredentials` de **3** identifiants | ciblage — mais l'anonyme apprend qu'ils existent |
-| `{"username":"fantome"}`                  | défi + `allowCredentials: []` (200, jamais 404) | pas d'erreur révélatrice — mais liste vide       |
+| Qui appelle `login/options`             | Ce que renvoie le serveur                            | Conséquence                                 |
+| --------------------------------------- | ---------------------------------------------------- | ------------------------------------------- |
+| anonyme, `{}`                           | défi seul, **sans** `allowCredentials`               | l'authenticator propose ses comptes         |
+| anonyme, `{"username":"alice"}`         | identique : le `username` est ignoré                 | aucun ciblage, rien à apprendre sur `alice` |
+| session authentifiée (ré-auth, step-up) | défi + `allowCredentials` des clés **de ce porteur** | ciblage de ses propres passkeys             |
 
 ## 🛡️ `rpId` et origines — l'ancre anti-phishing
 
@@ -439,14 +440,16 @@ est ignoré, sans jamais ouvrir à un domaine tiers) ; en dernier recours `https
 
 ## 🔐 Le point à ne pas rater — plafond d'enrôlement et `login/options` ouvert
 
-`login/options` est **accessible à un anonyme** (`bypassFirewall`) et accepte un `username`
-(`WebAuthnController.ts:168`). C'est nécessaire — on ne peut pas exiger d'être connecté pour se
-connecter — mais cela ouvre deux surfaces qu'il faut regarder en face.
+`login/options` est **accessible à un anonyme** (`bypassFirewall`). C'est nécessaire — on ne peut
+pas exiger d'être connecté pour se connecter. Le ciblage, lui, ne vient jamais du corps : un anonyme
+reçoit toujours un défi découvrable, et seule une session authentifiée cible ses propres passkeys
+(`WebAuthnController.loginOptions()`, `WebAuthnController.ts:171`). Deux surfaces restent à
+regarder en face.
 
 ### Amplification : bornée par le plafond, pas par une pagination
 
-Avec un `username`, le serveur charge **toutes** les passkeys du porteur pour construire
-`allowCredentials` (`webAuthn.ts:399`). Cet appel `findByUser` est **volontairement non paginé** —
+Pour une session authentifiée, le serveur charge **toutes** les passkeys du porteur pour construire
+`allowCredentials` (`WebAuthnService.generateAuthenticationOptions()`, `webAuthn.ts:389`). Cet appel `findByUser` est **volontairement non paginé** —
 `allowCredentials` doit être complet ou il est faux : un authenticator absent de la liste ne peut pas
 répondre, et le protocole n'offre aucune « page suivante » (`IWebAuthnCredentialStore.ts:88`).
 
@@ -460,22 +463,17 @@ Ce qui borne donc cette lecture, c'est **`passkeys.maxPerUser`** (défaut 20, `c
   (3 comptages, 0 chargement) ;
 - retirer un appareil **libère une place** : le plafond est une borne, pas un compteur qui dérive.
 
-### Énumération : le statut est uniforme, la liste ne l'est pas
+### Énumération : rien ne distingue deux comptes
 
-Un compte inexistant reçoit **200 + un défi**, exactement comme un compte réel — le test d'attaque E3
-(`webauthn-attack.test.ts`) verrouille ce point. Aucun 404, aucun message différencié, aucune latence
-de recherche de mot de passe.
+Un anonyme reçoit **toujours le même défi découvrable**, sans `allowCredentials`, qu'il poste ou non
+un `username` : aucun statut, aucune liste, aucune latence ne dit si un compte existe ou porte une
+passkey, et l'appel ne touche même pas le store. C'est le remède que la spécification W3C WebAuthn
+propose contre la fuite des identifiants de credentials ; `webauthnLoginOptionsPrivacy.test.ts` le
+verrouille.
 
-Mais `allowCredentials` reflète la réalité : **vide** pour un identifiant sans passkey, **peuplé** (et
-portant les identifiants de credentials) pour un porteur enrôlé. Un anonyme peut donc distinguer
-« cet identifiant a au moins une passkey » de « il n'en a pas ».
-
-> [!WARNING]
-> C'est le comportement standard d'un `login/options` avec identifiant, et la parade est
-> architecturale : **ne transmets pas `username`**. Avec `residentKey: "required"` et un client qui
-> poste `{}`, `allowCredentials` est omis, aucun état de compte ne transparaît, et l'appel ne touche
-> même pas le store. Si ton UX exige la saisie d'un identifiant, place un rate-limit devant
-> `login/options` — le firewall ne le protège pas, c'est une route en `bypassFirewall`.
+> [!NOTE]
+> `login/options` reste une route en `bypassFirewall` : le firewall ne la protège pas. Un rate-limit
+> en amont reste de bonne hygiène, pour borner le coût des défis émis.
 
 Les autres gardes de cette surface, toutes couvertes par des tests d'attaque :
 
@@ -680,19 +678,18 @@ requête. Le code en tire trois conséquences.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                             | Cause (dans le code)                                                       | Correction                                                     |
-| ---------------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `409` à l'enrôlement                                 | Plafond `passkeys.maxPerUser` atteint (`webAuthn.ts:355`)                  | Retirer un appareil, ou relever `maxPerUser`                   |
-| `400 No challenge` au `verify`                       | Défi absent : déjà consommé, ou pas de cookie renvoyé                      | Un défi = un `verify` ; envoyer le cookie (`credentials`)      |
-| `401` systématique en production                     | Origine hors liste blanche, ou `rpId` ≠ domaine servi                      | Renseigner `passkeys.origins` + `rpId` enregistrable           |
-| Passkey KO en dev sur `127.0.0.1`                    | Une IP n'est pas un `rpId` valide → repli `localhost`                      | Accéder par `https://localhost:<port>`                         |
-| Passkeys d'un sous-domaine inutilisables sur l'autre | `rpId` unique, résolu au boot, pas de résolution par `Host`                | Choisir un `rpId` parent commun (`example.com`)                |
-| Login refusé après restauration d'une sauvegarde     | `signCount` régressif → clone suspecté (§6.1.1)                            | Comportement voulu — ré-enrôler l'appareil                     |
-| Tout le monde verrouillé dehors après un déploiement | `store` resté en `memory` : credentials volatils (`webAuthn.ts:183`)       | Déclarer une infra durable ; le `WARNING` boot le disait       |
-| `503 WebAuthn unavailable`                           | `passkeys.enabled: false` ou boot du service échoué                        | Activer `passkeys` ; vérifier le store configuré               |
-| Un anonyme distingue les comptes à passkey           | `allowCredentials` peuplé vs vide sur `login/options`                      | Ne pas envoyer `username` (usernameless) ; rate-limit la route |
-| `total` absent du listing admin                      | Backend curseur (Redis) → `countCredentials()` rend `-1`                   | Paginer par `nextCursor`, ne pas afficher de total             |
-| Passkeys orphelines après renommage d'un compte      | `userId` = `me.username` figé à l'enrôlement (`WebAuthnController.ts:109`) | Ne pas renommer, ou ré-enrôler après renommage                 |
+| Symptôme                                             | Cause (dans le code)                                                       | Correction                                                |
+| ---------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `409` à l'enrôlement                                 | Plafond `passkeys.maxPerUser` atteint (`webAuthn.ts:355`)                  | Retirer un appareil, ou relever `maxPerUser`              |
+| `400 No challenge` au `verify`                       | Défi absent : déjà consommé, ou pas de cookie renvoyé                      | Un défi = un `verify` ; envoyer le cookie (`credentials`) |
+| `401` systématique en production                     | Origine hors liste blanche, ou `rpId` ≠ domaine servi                      | Renseigner `passkeys.origins` + `rpId` enregistrable      |
+| Passkey KO en dev sur `127.0.0.1`                    | Une IP n'est pas un `rpId` valide → repli `localhost`                      | Accéder par `https://localhost:<port>`                    |
+| Passkeys d'un sous-domaine inutilisables sur l'autre | `rpId` unique, résolu au boot, pas de résolution par `Host`                | Choisir un `rpId` parent commun (`example.com`)           |
+| Login refusé après restauration d'une sauvegarde     | `signCount` régressif → clone suspecté (§6.1.1)                            | Comportement voulu — ré-enrôler l'appareil                |
+| Tout le monde verrouillé dehors après un déploiement | `store` resté en `memory` : credentials volatils (`webAuthn.ts:183`)       | Déclarer une infra durable ; le `WARNING` boot le disait  |
+| `503 WebAuthn unavailable`                           | `passkeys.enabled: false` ou boot du service échoué                        | Activer `passkeys` ; vérifier le store configuré          |
+| `total` absent du listing admin                      | Backend curseur (Redis) → `countCredentials()` rend `-1`                   | Paginer par `nextCursor`, ne pas afficher de total        |
+| Passkeys orphelines après renommage d'un compte      | `userId` = `me.username` figé à l'enrôlement (`WebAuthnController.ts:109`) | Ne pas renommer, ou ré-enrôler après renommage            |
 
 ## 🧪 Tests & couverture
 

@@ -24,8 +24,7 @@ Système de logging structuré pour Nodefony. Buffer circulaire FIFO, filtrage c
 ## Installation
 
 ```typescript
-import Syslog from "@nodefony/core/syslog/Syslog";
-import Pdu from "@nodefony/core/syslog/Pdu";
+import { Syslog, Pdu } from "nodefony";
 ```
 
 ---
@@ -216,7 +215,7 @@ Syslog.rawLog(pdu, "[PID 1234]"); // préfixe optionnel
 | severity ≤ 3 (ERROR+)        | `process.stderr`                              |
 | severity > 3                 | `process.stdout`                              |
 
-> `rawLog` est la base du futur **Transport Layer** (planifié — voir les tickets du dépôt).
+> `rawLog` est la base des transports console, fichier et HTTP (voir « Transport Layer » ci-dessous).
 
 ---
 
@@ -230,13 +229,19 @@ Envoie chaque `Pdu` vers des destinations externes (fichier, HTTP, console) de f
 interface ITransport {
   readonly name: string;
   send(pdu: Pdu): Promise<void>;
+  close?(): Promise<void>;
 }
 ```
 
 ### Ajouter / retirer un transport
 
 ```typescript
-import { ConsoleTransport, FileTransport, HttpTransport } from "@nodefony/core";
+import {
+  ConsoleTransport,
+  FileTransport,
+  HttpTransport,
+  SyslogTransport,
+} from "nodefony";
 
 const syslog = new Syslog({ moduleName: "APP" });
 
@@ -269,8 +274,7 @@ syslog.removeTransport(file);
 ### Transport personnalisé
 
 ```typescript
-import type { ITransport } from "@nodefony/core";
-import type Pdu from "@nodefony/core";
+import type { ITransport, Pdu } from "nodefony";
 
 class MyTransport implements ITransport {
   readonly name = "my-transport";
@@ -292,12 +296,12 @@ syslog.on("onTransportError", (err: Error, pdu: Pdu) => {
 
 ### Règles de comportement
 
-| Règle                    | Détail                                          |
-| ------------------------ | ----------------------------------------------- |
-| `log()` reste synchrone  | Les transports sont fire-and-forget             |
-| DROPPED → non envoyé     | Seuls les PDU `ACCEPTED` passent aux transports |
-| Même instance ajoutée 2× | Dédupliquée — `send()` appelé une seule fois    |
-| Erreur transport         | `onTransportError(err, pdu)` — pas de crash     |
+| Règle                   | Détail                                          |
+| ----------------------- | ----------------------------------------------- |
+| `log()` reste synchrone | Les transports sont fire-and-forget             |
+| DROPPED → non envoyé    | Seuls les PDU `ACCEPTED` passent aux transports |
+| Même `name` ajouté 2×   | Le nouveau remplace l'ancien, qui est fermé     |
+| Erreur transport        | `onTransportError(err, pdu)` — pas de crash     |
 
 ---
 

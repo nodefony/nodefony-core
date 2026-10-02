@@ -1,4 +1,4 @@
-# Kernel — @nodefony/core
+# Kernel — nodefony
 
 Orchestrateur principal du framework Nodefony. Gère le lifecycle complet, le DI, les modules, le réseau et la CLI.
 
@@ -36,7 +36,7 @@ onInit → onPreStart → onStart → onPreRegister → onRegister
 **Bitmask Events** (frozen, exporté) :
 
 ```typescript
-import { Events } from "@nodefony/core";
+// bitmask lu via kernel.Events (non exporté par l'index de "nodefony")
 // onInit=1, onPreStart=2, onStart=4, ..., onTerminate=1024
 ```
 
@@ -60,7 +60,7 @@ kernel.setEnv("development"); // this.environment = "development"
 kernel.setNodeEnv("production"); // process.env.NODE_ENV = "production"
 ```
 
-`"dev"` et `"development"` sont équivalents. Tout autre valeur → `"production"`.
+`setEnv(env)` résout le mode runtime : `NODE_ENV` (ambiant) prime sur l'argument, puis l'environnement courant. `"dev"` et `"development"` sont équivalents ; toute autre valeur est repliée sur `"production"`.
 
 ### Modules
 
@@ -219,7 +219,7 @@ const svc = await module.loadService("./path/to/service.js");
 }
 ```
 
-`readOverrideModuleConfig()` est appelé automatiquement au `onPreBoot`.
+`readOverrideModuleConfig()` est appelé par le Kernel (`applyModuleConfigOverrides`) entre `onPreRegister` et `onRegister`, avant la validation de la config des modules.
 
 ### Package.json
 
@@ -242,7 +242,7 @@ module.addCommand(MyCommand); // kernel.cli requis
 ### Package manager
 
 ```typescript
-await module.install(); // npm/pnpm/yarn install
+await module.install(); // install via le gestionnaire résolu (npm/pnpm/yarn/bun)
 await module.install(true); // install --force
 await module.outdated(); // check outdated
 ```
@@ -278,7 +278,7 @@ await cli.start();
 ### Package manager
 
 ```typescript
-cli.setPackageManager("pnpm"); // "yarn" | "pnpm" | default=npm
+cli.setPackageManager("pnpm", dir?); // "npm"|"yarn"|"pnpm"|"bun" ; sans argument : config, puis fichier de verrou, puis user-agent, puis npm
 // cli.packageManager est désormais cli.pnpm
 ```
 
@@ -290,7 +290,7 @@ cli.parseCommand(process.argv);
 await cli.parseCommandAsync(process.argv);
 ```
 
-**7 commandes enregistrées par `start()`** : `start`, `dev`, `build`, `prod`, `cluster`, `install`, `outdated`.
+**Commandes natives** enregistrées par `registerBuiltinCommands()` : `dev`, `prod`, `cluster`, `build`, `install`, `outdated`, `licenses`, `menu`, `status`, `stop`, `completion`, `create`, `doctor`, `env`, `card`, `symbols`, `scripts`, `inspect`, `see`, `image`, `ai:sync`, `ai:mcp`, `git-hooks`. La liste exacte fait foi : `nodefony --help`.
 
 ### niceBytes (static)
 
@@ -298,7 +298,7 @@ await cli.parseCommandAsync(process.argv);
 CliKernel.niceBytes(1024); // "1.0 KB"
 CliKernel.niceBytes(10240); // "10 KB"
 CliKernel.niceBytes(1048576); // "1.0 MB"
-CliKernel.niceBytes(0); // "0 Bytes"
+CliKernel.niceBytes(0); // "0 bytes"
 ```
 
 ### initSyslog
@@ -362,8 +362,7 @@ await cli.terminate(0);
 ## Tests
 
 ```bash
-cd src/nodefony && npm test
-# 571 tests ✅ (Kernel: 111, Module: 74, CliKernel: 71)
+cd src/nodefony && npm test   # vitest run
 ```
 
 Tests dans `src/nodefony/src/tests/Kernel.test.ts`, `Module.test.ts`, `CliKernel.test.ts`.
