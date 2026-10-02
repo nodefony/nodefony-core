@@ -72,7 +72,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 <% } %><% } %>    steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
 <% if (it.toolchain.githubSetup) { %>      # <%= it.packageManager %> n'est pas sur l'exécuteur : il se pose AVANT `setup-node`,
       # dont le cache le suppose installé.
@@ -80,7 +80,7 @@ jobs:
         with:
           <%= it.toolchain.githubSetup.versionInput %>: "<%= it.toolchain.githubSetup.version %>"
 
-<% } %>      - uses: actions/setup-node@v7
+<% } %>      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           # Le plancher des `engines` du framework — la forge éprouve la
           # version la plus ANCIENNE qu'on prétend servir.
@@ -163,7 +163,7 @@ jobs:
       # Sans cette étape, un e2e rouge s'instruit à l'aveugle.
       - name: Journaux de l'application (en cas d'échec seulement)
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: journaux-<%= it.appName %>
           path: var/

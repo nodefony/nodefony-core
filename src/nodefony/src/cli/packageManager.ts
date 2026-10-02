@@ -280,7 +280,11 @@ export const PACKAGE_MANAGER_TOOL_MAJOR: Readonly<
 
 /** Action GitHub qui pose l'outil sur l'exécuteur, avant `setup-node`. */
 export interface IPackageManagerGithubSetup {
-  /** `pnpm/action-setup@v6`, `oven-sh/setup-bun@v2`. */
+  /**
+   * Référence ÉPINGLÉE par SHA de commit, suivie de sa version en commentaire
+   * YAML (`owner/action@<sha> # vX.Y.Z`) : un tag se déplace, un SHA non — et
+   * le commentaire est ce que Dependabot relit pour proposer la montée.
+   */
   uses: string;
   /** Nom de l'entrée qui porte la version (`version`, `bun-version`). */
   versionInput: string;
@@ -354,7 +358,7 @@ export function packageManagerToolchain(
         frozenInstall: "pnpm install --frozen-lockfile",
         setupNodeCache: "pnpm",
         githubSetup: {
-          uses: "pnpm/action-setup@v6",
+          uses: "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10",
           versionInput: "version",
           version: PACKAGE_MANAGER_TOOL_MAJOR.pnpm,
         },
@@ -392,7 +396,7 @@ export function packageManagerToolchain(
         frozenInstall: "bun install --frozen-lockfile",
         setupNodeCache: null,
         githubSetup: {
-          uses: "oven-sh/setup-bun@v2",
+          uses: "oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0",
           versionInput: "bun-version",
           version: `${PACKAGE_MANAGER_TOOL_MAJOR.bun}.x`,
         },

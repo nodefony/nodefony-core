@@ -100,10 +100,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
@@ -274,6 +274,13 @@ jobs:
       - name: Gate — le lanceur de la forge rend la main et nomme les détachés
         shell: bash
         run: npx vitest run scripts/ci/run-watched.test.mjs
+
+      # Un tag d'action se DÉPLACE ; un SHA non. Couvre la forge ET les
+      # workflows que chaque application générée exécutera.
+      - name: Gate — actions GitHub épinglées par SHA (dépôt + gabarits)
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: npx vitest run scripts/ci/actions-pinned.test.mjs
 
       - name: Gate — licences des dépendances de production
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
@@ -592,10 +599,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
@@ -657,10 +664,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
@@ -763,10 +770,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
@@ -975,7 +982,7 @@ jobs:
 
       - name: Upload server log on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nodefony-server-log-${{ matrix.os }}-node${{ matrix.node-version }}-${{ matrix.mode }}
           # Les deux décors, sinon un échec de la seconde passe s'analyse à l'aveugle.
@@ -1055,10 +1062,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 26.x
           cache: "npm"
@@ -1099,7 +1106,7 @@ jobs:
 
       - name: Journal du serveur (échec)
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nodefony-server-log-decor-${{ matrix.decor }}
           path: nodefony-server.log

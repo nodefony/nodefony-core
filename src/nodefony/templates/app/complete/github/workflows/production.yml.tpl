@@ -53,7 +53,7 @@ jobs:
     env:
       APP_PORT: "5251"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Les secrets que la PRODUCTION exige, posés comme un exploitant le fait :
       # par l'environnement du service, jamais dans l'image (`.dockerignore`
@@ -208,7 +208,7 @@ jobs:
     env:
       EDGE_TLS_PORT: "8443"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
 <% if (it.toolchain.githubSetup) { %>      # <%= it.packageManager %> n'est pas sur l'exécuteur : il se pose AVANT `setup-node`,
       # dont le cache le suppose installé.
@@ -216,7 +216,7 @@ jobs:
         with:
           <%= it.toolchain.githubSetup.versionInput %>: "<%= it.toolchain.githubSetup.version %>"
 
-<% } %>      - uses: actions/setup-node@v7
+<% } %>      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
 <% if (it.toolchain.setupNodeCache) { %>          cache: <%= it.toolchain.setupNodeCache %>
