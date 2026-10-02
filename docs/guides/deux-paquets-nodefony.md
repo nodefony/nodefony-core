@@ -205,7 +205,7 @@ Ce qui garde ce comportement, et ce que chaque test prouve :
 ## 🔗 Pour aller plus loin
 
 - ⬆️ **Retour au hub** : [Guides](README.md) · [Toute la documentation](../index.md)
-- ⚙️ **Ce que la configuration promet, et ce qu'elle retire en silence** :
+- ⚙️ **Ce que la configuration promet, et ce qu'elle refuse** :
   [`configuration.md`](./configuration.md)
 - 🤝 **Ce qui casse en montant de version** :
   [`compatibilite.md`](./compatibilite.md)

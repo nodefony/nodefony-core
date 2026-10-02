@@ -146,8 +146,8 @@ curl --cacert docker/certs/ca.pem --resolve nodefony.com:8443:127.0.0.1 \
 
 > ⚠️ **Statiques non offloadés** par ce banc : Nodefony sert N répertoires
 > `public/` (racine + un par module) → un montage volume unique serait un trou.
-> L'offload correct (montages + `location` par module + domaines) relève du futur
-> générateur de config CLI (`nodefony proxy:generate`). Ici nginx proxifie tout.
+> Ici nginx proxifie tout. L'offload correct (montages + `location` par module + domaines) est
+> produit par `nodefony proxy:generate nginx --assets-root <dir>`, après `nodefony assets:publish`.
 
 ### La suite automatisée — `reverse-proxy.test.ts`
 

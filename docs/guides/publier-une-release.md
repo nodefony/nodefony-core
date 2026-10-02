@@ -25,10 +25,10 @@ related: scripts/release/, .github/workflows/release.yml, docs/release/nodefony-
 
 ```bash
 # 1. RÉPÉTITION — ne touche aucun fichier, dit ce qui changerait
-npm run release -- --version 10.0.0 --from v9.9.9
+npm run release -- --version 10.0.0
 
 # 2. APPLIQUER — estampille les 15 manifestes, écrit un BROUILLON de changelog
-npm run release -- --version 10.0.0 --from v9.9.9 --write
+npm run release -- --version 10.0.0 --write
 
 # 3. RELIRE ET RÉÉCRIRE CHANGELOG.md  ← le seul geste que rien n'automatise
 # 4. Commiter, puis POSER LE TAG — c'est lui qui déclenche la publication
@@ -133,7 +133,7 @@ et le problème est précisément dans ce qui **n'y est plus** une fois empaquet
 ### Ce qu'il fait
 
 ```bash
-npm run release:smoke                       # les trois scénarios
+npm run release:smoke                       # tous les scénarios
 npm run release:smoke -- --scenario base    # un seul (docker build se paie en minutes)
 ```
 
@@ -148,13 +148,17 @@ Le décor est donc **généré, jamais copié**. Deux conséquences qu'aucun aut
 **gabarits** sont éprouvés tels qu'ils seront publiés — un fichier oublié dans `files` ne se voit
 d'aucune autre façon — et le banc suit le générateur au lieu de dériver d'un dossier figé.
 
-### Les trois scénarios, et ce que chacun seul peut voir
+### Les scénarios, et ce que chacun seul peut voir
 
-| Scénario | Décor                 | Ce qu'il prouve                                                                                                                                                          |
-| -------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `base`   | `minimal`, sans front | `/readyz` et `/livez`, **node en PID 1** constaté à l'exécution, requête en vol drainée pendant `docker stop`, sortie 0, `SHUTDOWN` journalisé                           |
-| `front`  | `minimal` + React     | les tags `/_assets/…` du build dans la page · `public/dist` effacé **avec** vite → reconstruit au boot et annoncé · la même absence **dans l'image** → le backend survit |
-| `studio` | `complete`, Studio    | l'UI **pré-buildée** du paquet est servie : `/nodefony` en 200, puis un asset **pris dans la page** en 200 — un 404 ici signifie `dist/frontend` absent du tarball       |
+| Scénario  | Décor                        | Ce qu'il prouve                                                                                                                                                          |
+| --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `base`    | `minimal`, sans front        | `/readyz` et `/livez`, **node en PID 1** constaté à l'exécution, requête en vol drainée pendant `docker stop`, sortie 0, `SHUTDOWN` journalisé                           |
+| `front`   | `minimal` + React            | les tags `/_assets/…` du build dans la page · `public/dist` effacé **avec** vite → reconstruit au boot et annoncé · la même absence **dans l'image** → le backend survit |
+| `studio`  | `complete`, Studio           | l'UI **pré-buildée** du paquet est servie : `/nodefony` en 200, puis un asset **pris dans la page** en 200 — un 404 ici signifie `dist/frontend` absent du tarball       |
+| `edge`    | derrière nginx               | la topologie de production : `trustProxy`, statiques servis sans passer par Node                                                                                         |
+| `sql`     | PostgreSQL, MariaDB, MySQL   | migrations et suite e2e de l'application générée, dans un conteneur Alpine (`sql:postgres`, `sql:mariadb`, `sql:mysql`)                                                  |
+| `cluster` | `NF_WORKERS=4`, SQLite neuve | les quatre workers démarrent et reçoivent du trafic, et un worker tué revient                                                                                            |
+| `pm`      | pnpm, yarn, bun              | install depuis les tarballs, build, `create module`, migration, image du Dockerfile généré, `/readyz` (`pm:pnpm`, `pm:yarn`, `pm:bun` ; l'outil doit être sur l'hôte)    |
 
 L'URL de l'asset n'est jamais écrite à la main : elle est extraite de la page servie. Une URL
 littérale deviendrait fausse au premier changement de nommage, et le banc accuserait le tarball
@@ -165,7 +169,7 @@ pour un motif sans rapport.
 ## La forge — `release.yml`
 
 ```
-tag v10.*  ─►  épreuve (3 scénarios)  ─►  publication npm
+tag v10.*  ─►  épreuve (base, front, studio, cluster) + accès + garde main  ─►  publication npm
                                        ├─►  vitrine nodefony/nodefony
                                        │       └─►  verdict de SA chaîne
                                        ├─►  image docker
@@ -225,9 +229,9 @@ Trois contraintes, chacune payée d'un `ENEEDAUTH` qui n'en dit pas la cause :
 
 > ⚠️ **La première publication ne peut pas passer par l'OIDC.** Le publieur de confiance se déclare
 > dans les réglages d'un paquet **qui existe déjà**, et npm n'a pas de « publieur en attente ». Les
-> treize `@nodefony/*` n'ont jamais été publiés : ils naissent à la main, depuis le poste du
-> mainteneur, avec le code à deux facteurs — `npm run release -- --version <v> --publish`. Les
-> publieurs se déclarent **ensuite**, sur chacun des quinze.
+> paquets existent depuis la `10.0.0-alpha.1` : ce cas ne revient que pour un paquet **ajouté** au
+> lot, qui naît à la main, depuis le poste du mainteneur, avec le code à deux facteurs —
+> `npm run release -- --version <v> --publish`. Son publieur de confiance se déclare **ensuite**.
 
 > ⚠️ **Un vert ne prouve pas que l'authentification fonctionne.** En `--dry-run`, npm n'émet qu'un
 > **avertissement** quand les identifiants manquent ; `ENEEDAUTH` n'est levé que hors dry-run
@@ -292,8 +296,9 @@ un mauvais changelog. La réécriture est le geste humain de la release, et le s
 
 Les points 3 et 4 réclament tous deux le **code à deux facteurs**, depuis le poste : le trusted
 publishing ne couvre que `publish`. `npm login` d'abord (`npm whoami` répond `E401` sans session),
-puis `--otp <code>` sur la commande — sinon npm réclame le code une fois par paquet, soit une
-trentaine de saisies pour les deux lots.
+puis la commande : le code est **demandé une fois** sur l'entrée standard (il ne traîne ni dans
+l'historique du shell ni dans `ps`), et redemandé s'il expire en cours de lot. Répondre vide laisse
+npm le réclamer une fois par paquet. `--otp <code>` reste accepté sans terminal, sans reprise possible.
 
 > ⚠️ **`--otp` attend un code d'application d'authentification, et une clé de sécurité n'en produit
 > aucun.** Sur npmjs.com, _Manage Two-Factor Authentication_ distingue les **security keys**

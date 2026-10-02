@@ -156,8 +156,8 @@ Il vaut mieux le savoir avant d'essayer :
 - **Enregistrer trop tard.** Un `register…` appelé après le démarrage du noyau n'est jamais lu : la
   configuration a déjà résolu son nom. Enregistrez au chargement de votre module.
 - **Croire qu'une instance passée en configuration sera retenue.** Les schémas de configuration
-  sont validés par Zod, qui **retire** ce qu'il ne connaît pas : une instance placée dans un objet
-  de configuration disparaît sans message. Passez par le registre, ou par un service du conteneur
+  sont validés strictement par Zod : une instance placée dans un objet de configuration est refusée
+  au démarrage (clé inconnue ou type invalide). Passez par le registre, ou par un service du conteneur
   d'injection.
 - **Un nom déjà pris.** Réenregistrer un nom natif le remplace, silencieusement. Choisissez un nom
   à vous.

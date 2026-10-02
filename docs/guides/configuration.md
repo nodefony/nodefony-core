@@ -27,7 +27,7 @@ Votre `nodefony.config.ts` ne contient donc QUE vos écarts.
 
 ## Vue d'ensemble — comprendre TOUTE la config en 1 minute
 
-La config se lit sur **trois couches**, classées par une **échelle de précédence unique** (le plus bas perd, le plus haut gagne) :
+La config se lit sur **quatre couches**, classées par une **échelle de précédence unique** (le plus bas perd, le plus haut gagne) :
 
 | #   | Couche                 | Qui décide | Où                                                                                 |
 | --- | ---------------------- | ---------- | ---------------------------------------------------------------------------------- |
@@ -93,7 +93,7 @@ export const env = defineEnv({
     default: "stdout",
   }),
   NF_LOG_FILE_SYNC: envBoolean({ default: false }),
-  LOKI_URL: envString({ optional: true }),
+  NF_LOKI_URL: envString({ optional: true }),
 });
 ```
 
@@ -149,8 +149,9 @@ Seul le sous-dossier `cluster/` fait exception : il est lu par chemin par le pro
 
 > ⚠️ **Extraire SANS `satisfies` désarme le typage**, et le désarme en silence. Le contrôle des
 > propriétés en excès de TypeScript ne porte que sur un **littéral écrit au point où le type est
-> attendu** : dès que le bloc part dans une fonction, une clé mal orthographiée compile — puis Zod
-> la retire au boot sans un mot, et le module démarre sur son défaut. Aucun helper ne peut
+> attendu** : dès que le bloc part dans une fonction, une clé mal orthographiée compile — et la faute
+> n'apparaît qu'au démarrage, quand le schéma strict du module la refuse : tard, et sans la ligne de
+> code fautive. Aucun helper ne peut
 > rattraper ça : le typage contextuel du retour ne déclenche jamais le contrôle. **Seul `satisfies`
 > sur le littéral le fait.**
 >
@@ -186,7 +187,7 @@ Ce que le `satisfies` attrape, vérifié sur ce dépôt :
 
 ```typescript
 // ❌ TS2561 — « trustProxi n'existe pas… vouliez-vous écrire trustProxy ? »
-//    Sans `satisfies`, ce MÊME fichier compile, et Zod retire la clé au boot.
+//    Sans `satisfies`, ce MÊME fichier compile ; la faute n'apparaît qu'au boot (BootConfigurationError).
 trustProxi: true;
 
 // ❌ TS2353 — `servers` appartient à la config de l'APPLICATION, pas au module.
@@ -206,14 +207,15 @@ l'environnement s'écrit `() => ({ … }) satisfies …`, et le manifeste l'appe
 n'est pas un détail de style — `noUnusedParameters` refuse un paramètre inutilisé, et la signature
 dit ainsi, à la lecture, si ce bloc dépend ou non de l'environnement.
 
-**Ce dépôt s'applique la forme à lui-même** : il est une application Nodefony, et ses six modules
+**Ce dépôt s'applique la forme à lui-même** : il est une application Nodefony, et ses sept modules
 configurés portent chacun leur fragment sous [`nodefony/config/`](../../nodefony/config/) —
-`http.ts`, `framework.ts`, `realtime.ts`, `security.ts`, `studio.ts`, `devkit.ts`. Son manifeste
+`http.ts`, `framework.ts`, `realtime.ts`, `security.ts`, `studio.ts`, `devkit.ts`, `drizzle.ts`. Son manifeste
 est passé de 570 à 215 lignes sans qu'aucune valeur effective ne bouge : `nodefony inspect config
 --json` rend le même objet, au caractère près, avant et après.
 
 Une application générée reçoit la même forme, sur les blocs qui la méritent :
-`nodefony/config/devkit.ts` partout, et `nodefony/config/security.ts` avec le preset complet.
+`nodefony/config/devkit.ts` partout, et avec le preset complet `nodefony/config/security.ts` et
+`nodefony/config/drizzle.ts` (ou `mongoose.ts` sur MongoDB).
 
 ## L'écoute : ports et TLS
 
@@ -242,13 +244,15 @@ héritent tous deux). C'est le cas nominal en cloud.
 
 ## La console Studio en production
 
-Studio est déclaré `policy: "dev"` par le scaffold : c'est une surface d'**administration**
-(introspection de la config, des sessions, des logs), et elle disparaît de la production.
+Studio est déclaré `policy: "mandatory"` par le scaffold : la console d'**administration**
+(introspection de la config, des sessions, des logs) existe aussi en production, là où l'application
+tourne. Un `policy: "dev"` la ferait disparaître de la production sans un mot.
 
-L'y garder est un choix **assumé**, en deux gestes qui vont ensemble : protéger `/nodefony` par une
-zone du firewall, **puis** passer la policy à `"mandatory"`. Un `"optional"` fonctionnerait aussi,
-mais dirait moins l'intention — une console d'admin volontairement exposée n'est pas un défaut de
-configuration.
+Ce qui est clos : le data plane (`/nodefony/<module>/api/…`) exige une session, par la zone
+`nodefony-admin` que pose `@nodefony/framework`. Ce qui ne l'est pas encore : la page elle-même, qu'un
+anonyme peut afficher (tous ses appels reçoivent 401). Pour la fermer, ajoutez une zone dans
+`nodefony/config/security.ts` : `nodefonyUi: { pattern: "^/nodefony(/|$)", authenticators:
+["session"] }` — le pattern le plus long gagne, le data plane garde la sienne.
 
 La molette `ui` décide de la livraison de l'interface : `"static"` (épinglé par le scaffold) sert
 les assets pré-buildés du paquet npm — Studio marche sans rien recompiler. `"auto"` / `"vite"`
@@ -301,9 +305,9 @@ declare module "nodefony" {
 obligerait alors l'app à réécrire toute la configuration du module.
 
 **Ce que l'augmentation évite vraiment.** Sans elle, `use()` accepte `Record<string, unknown>` : une
-clé **mal orthographiée compile**, puis Zod la retire au boot **sans un mot**. La configuration a
-l'air prise en compte, elle ne l'est pas — et rien, ni au build ni au démarrage, ne le signale.
-L'augmentation transforme cette panne silencieuse en erreur de compilation :
+clé **mal orthographiée compile**, puis le schéma strict du module la refuse au démarrage. La faute
+est donc attrapée, mais tard, sur la machine qui démarre, et sans la ligne de code fautive.
+L'augmentation l'avance à la compilation :
 
 ```typescript
 use("@nodefony/redis", { enabledd: false });
@@ -528,10 +532,10 @@ projet ni du framework. C'est le modèle Spring Boot starter / Symfony bundle, t
 
 ## ⚠️ Pièges
 
-- **Une clé qu'un module n'a pas déclarée est retirée en silence.** La validation ne se contente
-  pas de refuser l'invalide : elle **écarte l'inconnu**. Une faute de frappe ne lève donc pas
-  d'erreur, la valeur disparaît — d'où l'intérêt de passer par `use()`, qui la fait échouer à la
-  compilation plutôt qu'au silence.
+- **Une clé qu'un module n'a pas déclarée fait échouer le démarrage.** Les schémas des modules sont
+  stricts (`z.strictObject`) : une faute de frappe lève une `BootConfigurationError` qui la nomme.
+  `use()` avance l'erreur à la compilation. Seule la racine de la configuration d'application écarte
+  encore une clé inconnue au lieu de la refuser.
 - **Ne jamais déréférencer le kernel à l'évaluation d'un fichier de configuration.** Il n'existe pas
   encore au moment de l'import : le module devient non importable et non testable. Utilisez un
   accesseur (`get filename() { … }`), résolu à la lecture.

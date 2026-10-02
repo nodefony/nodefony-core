@@ -28,7 +28,7 @@ interface.
     "desc": "Un fichier racine qui grandit par composition, et un seul lecteur de l'environnement. Le réglage qui ne prend pas vient presque toujours d'ici.",
     "meta": "commence par là" },
   { "icon": "🏗️", "title": "Générer du code", "href": "generer-du-code.md",
-    "desc": "`nodefony create` : cinq types d'objets, un aperçu avant d'écrire quoi que ce soit, et le pilotage depuis un agent.",
+    "desc": "`nodefony create` : sept types d'objets, un aperçu avant d'écrire quoi que ce soit, et le pilotage depuis un agent.",
     "meta": "ne pas écrire ce qu'une commande produit" },
   { "icon": "⚛️", "title": "Frontend React", "href": "frontend-react.md",
     "desc": "Greffer une interface React 19 sur un module existant : deux serveurs en développement, un seul en production, et le rechargement à chaud entre les deux.",

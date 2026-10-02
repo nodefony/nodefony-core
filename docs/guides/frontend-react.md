@@ -207,7 +207,7 @@ class ShopFrontController extends Controller {
 export default ShopFrontController;
 ```
 
-> **Pourquoi `setHeader` avant `render` ?** Le pipeline Nodefony écrit les headers `helmet` quand la response est envoyée. Le `setHeader` du controller, exécuté plus tôt, n'est pas écrasé.
+> **Le CSP est posé par le pare-feu** (`@nodefony/security`), qui déclare les origines Vite et émet un seul en-tête avec le nonce de la requête : ne le réécrivez pas dans le contrôleur, vous écraseriez le nonce.
 
 ## Étape 6 — Frontend React
 
@@ -282,7 +282,7 @@ Puis lancer le serveur dev :
 
 ```bash
 # Via le skill (recommandé) :
-/start-nodefony-server
+/start-server
 
 # Ou manuellement :
 npx nodefony development
@@ -321,7 +321,7 @@ Si la page reload entièrement (state perdu) → c'est un full reload, pas du HM
 npx nodefony frontend:build
 ```
 
-Génère `src/modules/shop-front/public/dist/manifest.json` + assets fingerprintés. En mode prod, le `TemplateHelper.renderProdTags()` lit le manifest pour injecter les bons chemins (⚠️ pas encore implémenté à date du 2026-05-18 — tracking issue à venir).
+Génère `src/modules/shop-front/public/dist/manifest.json` + assets fingerprintés. En production, `svc.renderTags()` lit le `manifest.json` et injecte les assets fingerprintés (JS, CSS, preloads), préfixés par `publicPath` ou `assetBaseUrl`.
 
 ## Pièges récurrents (à connaître)
 

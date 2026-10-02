@@ -95,20 +95,22 @@ réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autr
 <!-- prettier-ignore -->
 | Workflow | Job | Ce qu'il prouve | Décor |
 | --- | --- | --- | --- |
-| `node.js.yml` | Vérifications | types, lint, audit des dépendances, conformité des skills | — |
+| `node.js.yml` | Statique + gates du dépôt | types, lint, audit des dépendances, conformité des skills — **3 systèmes × 2 versions de Node** | — |
 | `node.js.yml` | Tests unit | suites unitaires, **3 systèmes × 2 versions de Node** | — |
 | `node.js.yml` | Filet CLI | le binaire `nodefony` démarre vraiment (`NF_RUN_CLI_BOOT`) | — |
 | `node.js.yml` | Tests intégration | pipeline HTTP/WS sur serveur réel, dont le câblage du 429 (backoff NIST) | serveur **dev ET production** |
 | `node.js.yml` | Décor | l'application démarrée sur **PostgreSQL, MariaDB, MongoDB** (en parallèle) : `/readyz` à 200, chaque entité a son connecteur ouvert, la pastille « défaut » suit les briques durables, aucun `default` Drizzle sur MongoDB | la base du décor, serveur dev |
-| `orm.yml` | Stores | drizzle sur **sqlite + PostgreSQL + MySQL**, redis, orm-core | PostgreSQL, MariaDB, Redis |
+| `orm.yml` | Stores | drizzle sur **sqlite + PostgreSQL + MySQL**, redis, mongoose, orm-core, gate du juge de schéma | PostgreSQL, MariaDB, Redis, MongoDB |
 | `orm.yml` | Socket distribuée | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83 | Redis, `NF_RUN_CLUSTER_E2E` |
+| `orm.yml` | Backplane de logs | écriture LogQL, `_bulk` et `_search` acceptés par de vrais serveurs | Loki, OpenSearch |
+| `orm.yml` | Coupures réelles de base | le produit survit à une base qui tombe en cours de route | PostgreSQL, MySQL, MongoDB, `NF_RUN_DB_OUTAGE` |
 | `memory.yml` | Charge, fuites et scopes | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux | serveur `--expose-gc` |
 | `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
 | `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) ; puis le même banc sur les **autres moteurs** (une application par moteur, ubuntu) — MongoDB compris, où les étapes propres aux entités SQL sont annoncées sautées | PostgreSQL, MySQL, MongoDB en jeu de réplicas (job `dialectes`) |
 | `codeql.yml` | Analyze | analyse statique de sécurité | — |
 | `soak.yml` | Charge continue et RSS | la mémoire RÉSIDENTE sous trente minutes de charge — ce que le gate mémoire, qui mesure le tas sur mille requêtes, ne voit pas ; publie le coût par million de requêtes servies, pas encore un gate (aucun seuil étalonné par plateforme) — hebdomadaire + manuel | serveur `--expose-gc` + `wrk`, ubuntu |
 | `secrets.yml` | Aucun secret dans l'arbre | `gitleaks` sur l'arbre ET l'historique — le scanner se prouve d'abord sur un témoin planté | — |
-| `release-smoke.yml` | Installation vierge | les tarballs s'installent et tiennent debout chez celui qui installe (`base`/`front`/`studio`) — manuel + hebdomadaire | conteneurs docker |
+| `release-smoke.yml` | Installation vierge | les tarballs s'installent et tiennent debout chez celui qui installe (`base`, `front`, `studio`, `edge`, `sql`, `cluster`, `pm`) — manuel + hebdomadaire | conteneurs docker |
 | `release-preflight.yml` | OIDC · outils · jeton · docker | les ACCÈS de publication existent avant d'en avoir besoin (identité, versions minimales, quota) | — |
 | `pages.yml` | build · deploy | le site public (accueil, documentation, mesures, qualité) se rend depuis les sources versionnées. Il tourne à chaque `push` touchant une page, et **sur appel de `release.yml`** — il n'a AUCUN déclencheur `release`, qui ne tirerait jamais (le `GITHUB_TOKEN` ne déclenche pas de workflow) ; le déploiement, lui, n'a lieu que depuis `main` | — |
 
@@ -180,7 +182,7 @@ exemption invisible est une exemption qu'on n'ôte jamais.
 ```yaml
 - name: Run unit tests (turbo)
   env:
-    NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,NF_REDIS_TEST_URL,NF_MONGO_TEST_URI
+    NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,NF_REDIS_URL,NF_REDIS_TEST_URL,NF_MONGO_TEST_URI
   run: npm test
 ```
 
@@ -282,7 +284,7 @@ npm test
 # boot d'un worker plus lent que le budget d'attente du master.
 cd src/packages/@nodefony/realtime
 NF_RUN_CLUSTER_E2E=1 \
-REDIS_URL=redis://:nodefony-dev@127.0.0.1:6379 \
+NF_REDIS_URL=redis://:nodefony-dev@127.0.0.1:6379 \
 NF_REDIS_TEST_URL=redis://:nodefony-dev@127.0.0.1:6379/15 \
 npm test
 NF_RUN_CLUSTER_E2E=1 \
@@ -331,7 +333,6 @@ Un choix énoncé n'est pas un oubli. Ce qui suit est délibérément dehors :
 | --- | --- |
 | Bancs de performance (`NF_RUN_PERF`) | une latence dépend du voisin de runner ; un seuil non déterministe est un futur rouge stérile |
 | Sondes de rupture WebSocket (`NF_RUN_WS_RUPTURE`) | elles épuisent les ports éphémères de l'hôte |
-| Loki, OpenSearch (`LogBackplaneE2E`) | décor à monter à la forge — et `test:all` n'importe pas leurs gates, donc même une machine qui FAIT tourner les deux conteneurs les saute en silence. Reporté APRÈS la release (décision 2026-07-27) |
 | `idempotency-cluster-e2e` | tape sur le serveur de développement : sa place est avec les bancs à serveur partagé |
 | Les preuves à décor opt-in (un serveur par plafond) | coût de montage disproportionné pour ce qu'elles ajoutent à chaque poussée |
 | Banc reverse-proxy (`reverse-proxy.test.ts`) | décor à DEUX versants — conteneurs `--profile proxy`, serveur en `NF_BIND_ALL=1`, certificats dérivés, `nodefony.com` résolu côté client. Un montage automatique à moitié réussi rendrait le vert menteur qu'on passe ce guide à combattre : il se lance à la main (`PROXY_GATE`, mode d'emploi dans `docker/README.md`) |

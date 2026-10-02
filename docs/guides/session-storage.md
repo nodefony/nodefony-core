@@ -54,12 +54,15 @@ La clé `session.store` du module http sélectionne le stockage par son **nom**
 (`config.ts:795`) :
 
 ```typescript
-// nodefony/config/modules/http-config.ts (surcharge applicative)
-export default {
-  session: {
-    store: "auto", // "auto" | "memory" | "drizzle" | "mongoose" | "redis"
-  },
-};
+// nodefony/config/http.ts (fragment, passé à use("@nodefony/http", …) par le manifeste)
+import type { IHttpConfigInput } from "@nodefony/http";
+
+export const httpConfig = () =>
+  ({
+    session: {
+      store: "auto", // "auto" | "memory" | "drizzle" | "mongoose" | "redis"
+    },
+  }) satisfies IHttpConfigInput;
 ```
 
 | Nom        | Fourni par           | Ce que ça range                                           |
@@ -119,30 +122,32 @@ kernel.on("onSessionStorageReady", (handler) => {
 1. Implémenter le contrat `ISessionStorage` (`@nodefony/http`) :
 
 ```typescript
-import type { ISessionStorage } from "@nodefony/http";
+import type { ISessionStorage, ISerializedSession } from "@nodefony/http";
 
 class S3SessionStorage implements ISessionStorage {
-  read(id: string): Promise<unknown> {
+  read(id: string): Promise<ISerializedSession> {
     /* … */
   }
-  write(id: string, data: unknown, ctx: string): Promise<unknown> {
+  write(id: string, data: ISerializedSession): Promise<ISerializedSession> {
     /* … */
   }
-  start(id: string, ctx: string): Promise<unknown> {
+  start(id: string): Promise<ISerializedSession> {
     /* … */
   }
-  open(ctx: string): Promise<number> {
+  open(): Promise<number> {
     /* … */
   }
   close(): boolean {
     /* … */
   }
-  destroy(id: string, ctx: string): Promise<boolean> {
+  destroy(id: string): Promise<boolean> {
     /* … */
   }
-  gc(maxlifetime: number, ctx: string): Promise<void> {
+  // Deux bornes NIST : inactivité, et durée absolue depuis l'ouverture.
+  gc(idleSeconds?: number, absoluteSeconds?: number): Promise<void> {
     /* … */
   }
+  // Optionnelles : touch, listAll, listPage, countSessions, countDistinctUsers.
 }
 ```
 

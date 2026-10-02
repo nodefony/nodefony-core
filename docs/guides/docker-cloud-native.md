@@ -125,7 +125,7 @@ changer sont en tête du `Dockerfile` généré, et sur la page publique de l'im
   tue les requêtes en vol sans la moindre trace.
 - **Un process au premier plan**, jamais de superviseur dans l'image : la montée
   en charge vient des répliques de l'orchestrateur. Pour un VPS multi-cœurs sans
-  orchestrateur, `CMD ["npx","nodefony","cluster","-w","4"]` reste le seul cas où
+  orchestrateur, `CMD ["node_modules/.bin/nodefony","cluster","-w","4"]` reste le seul cas où
   plusieurs process partagent un conteneur.
 
 ## Kubernetes — probes & timeouts

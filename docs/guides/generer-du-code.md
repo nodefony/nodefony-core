@@ -153,7 +153,7 @@ curl http://127.0.0.1:5151/api/blog
 # {"hello":"blog","pid":12345,"who":"anonyme"}
 ```
 
-## Les cinq choses qu'on peut créer
+## Les sept choses qu'on peut créer
 
 | Type         | Ce que ça pose                                                                                                                                                              | Où                        |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
@@ -162,6 +162,8 @@ curl http://127.0.0.1:5151/api/blog
 | `controller` | Une classe de contrôleur, dans l'une des cinq saveurs (`hello`, `rest`, `duplex`, `realtime`, `example`), câblée à sa cible. `--role ROLE_X` le réserve à une habilitation. | Application **ou** module |
 | `front`      | Un frontend Vite : coquille HTML, point de montage, contrôleur de page, déclaration d'entrée.                                                                               | Application **ou** module |
 | `entity`     | La chaîne de persistance complète : table du dialecte (ou schéma Mongoose sur MongoDB), schémas d'entrée, service CRUD, contrôleur REST + socket, tests.                    | Application **ou** module |
+| `service`    | Un service injectable (`@injectable`) : la logique métier, réutilisable par un contrôleur, une commande ou un autre module. Peut injecter un service existant de la cible.  | Application **ou** module |
+| `command`    | Une commande CLI `nodefony <nom>:<action>`, avec la phase de démarrage où elle s'exécute.                                                                                   | Application **ou** module |
 
 Le détail des drapeaux de chaque type est dans `nodefony create --help`, et sous
 forme lisible par une machine dans `--describe-json` (voir plus bas).
@@ -264,7 +266,7 @@ est automatiquement sûre, où qu'elle soit placée.
 
 ## Piloter le générateur depuis un agent ou un script
 
-Deux drapeaux suffisent, et ils fonctionnent pour les cinq types.
+Deux drapeaux suffisent, et ils fonctionnent pour les sept types.
 
 **Se faire décrire l'outil** — types, questions, valeurs permises, défauts,
 capacités de l'environnement, et les cibles du projet courant si l'on est dans
@@ -348,7 +350,7 @@ formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 | `@controllers([...]) introuvable` | L'`index.ts` de la cible n'a plus le décorateur où insérer la classe. | Le message donne l'édition exacte à faire à la main. Le fichier généré n'a pas été posé — pas d'orphelin. |
 | Le module créé n'est pas chargé au démarrage | Un module est un **workspace npm** : sans `npm install`, le lien n'existe pas et le kernel ne le résout pas par son nom. | Lancer `npm install` à la racine de l'application, puis `npm run build`. |
 | `npm run typecheck` échoue en `TS2882` sur un import de feuille de style | TypeScript ne connaît pas les fichiers que Vite sait importer. | `"types": ["node", "vite/client"]` dans le `tsconfig.json` — le scaffold le pose déjà quand il génère un front. |
-| Une entité modifiée ne change pas la table | Le mode développement crée la table, il ne l'altère jamais. | Supprimer la base de développement, ou écrire la migration à la main. |
+| Une entité modifiée ne change pas la table | En développement, seule une colonne qui accepte le vide est rattrapée ; une colonne obligatoire ne l'est jamais. | `nodefony orm:reset` en développement, ou `nodefony orm:generate --name <nom>` puis `nodefony orm:migrate` — jamais à la main. |
 
 ## Tests
 
@@ -357,7 +359,7 @@ compteurs exacts vivent dans la carte de l'aperçu, régénérée depuis vitest,
 
 | Suite                                                          | Ce qu'elle verrouille                                                                                                                                                                                       |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/nodefony/src/tests/create.test.ts`                        | Analyse des drapeaux, spec déclarative, moteur sur les cinq types (2 presets × 4 frontends), front interactif sur flux factices, mode machine, simulation, **intégrité après refus**, catalogue de versions |
+| `src/nodefony/src/tests/create.test.ts`                        | Analyse des drapeaux, spec déclarative, moteur sur les sept types (2 presets × 4 frontends), front interactif sur flux factices, mode machine, simulation, **intégrité après refus**, catalogue de versions |
 | `src/nodefony/src/tests/entityFields.test.ts`                  | Grammaire des champs d'entité et sa traduction dans les trois dialectes — module pur, testable sans disque                                                                                                  |
 | `src/nodefony/src/tests/scaffoldDestination.test.ts`           | Où une application a le droit de naître : recomposition sous une racine autorisée, refus de toute traversée                                                                                                 |
 | `@nodefony/studio/nodefony/tests/unit/scaffoldService.test.ts` | Refus hors développement, préview qui ne touche pas au disque, distinction créé/réécrit, refus du moteur répercuté                                                                                          |
