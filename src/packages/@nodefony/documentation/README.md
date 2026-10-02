@@ -51,6 +51,7 @@ use("@nodefony/documentation", {
 | `enabled` | `true` | Active le data plane au boot |
 | `scan.rootDir` | `"docs"` | Dossier de doc transverse, relatif à `kernel.path` |
 | `scan.includeModules` | `true` | Scanne aussi les `<module>/docs/*.md` |
+| `scan.includeInstalled` | `true` | Scanne aussi la doc des paquets `@nodefony/*` installés mais non chargés (`node_modules/@nodefony/*/docs`) |
 | `scan.exclude` | `["session-retros","node_modules","dist"]` | Segments de chemin ignorés |
 | `repo.url` | dépôt nodefony-core | Base du lien « Modifier sur GitHub » (URL publique) |
 | `repo.branch` | _(auto)_ | Branche du lien ; si omise → branche git réelle (`GitService`) |
@@ -61,6 +62,13 @@ use("@nodefony/documentation", {
 `NF_DOCS_REPO_URL`, `NF_DOCS_REPO_BRANCH`.
 
 ## API HTTP
+
+Les trois routes exigent `ROLE_DEV` ou `ROLE_SUPERVISOR`.
+
+### `GET /nodefony/documentation/api/search?q=`
+
+Recherche dans les titres et les corps ; rend des extraits situés autour du terme trouvé
+(`IDocSearchResult`).
 
 ### `GET /nodefony/documentation/api/tree`
 

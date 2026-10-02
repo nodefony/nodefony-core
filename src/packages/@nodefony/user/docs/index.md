@@ -152,7 +152,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 ```nodefony-cards
 [
   { "icon": "📇", "title": "IUser", "href": "#-larchitecture-interne--trois-couches-étanches",
-    "desc": "Le contrat minimal — cinq membres, pas un de plus : id (UUID), identifier (email ou login), roles (tableau plat), hasRole(), isActive(), isLocked(). Aucun credential, aucun champ de persistance : c'est LE type que manipulent le framework, les décorateurs, Studio et les adapters ORM.",
+    "desc": "Le contrat minimal — six membres, pas un de plus : id (UUID), identifier (email ou login), roles (tableau plat), hasRole(), isActive(), isLocked(). Aucun credential, aucun champ de persistance : c'est LE type que manipulent le framework, les décorateurs, Studio et les adapters ORM.",
     "meta": "volontairement pauvre : plus il est petit, moins il coûte à faire circuler et à remplacer" },
   { "icon": "🔒", "title": "IPasswordAuthenticatedUser", "href": "#le-split-credential--le-hash-ne-circule-pas",
     "desc": "Le contrat qui voit le hash : une extension à un seul champ, readonly password. C'est la pièce d'architecture centrale — les consommateurs qui n'ont aucune raison de voir un credential (affichage, autorisation, logs) ne reçoivent que IUser.",
@@ -1054,15 +1054,15 @@ propriétaire légitime dehors.
 Le module vit majoritairement **hors du chemin chaud** : un `BaseUser` est instancié à
 l'authentification, pas à chaque requête. Les points qui comptent :
 
-| Point               | Décision                                                       | Ancre                     |
-| ------------------- | -------------------------------------------------------------- | ------------------------- |
-| Utilisateur anonyme | singleton gelé + rôles partagés gelés → 0 allocation/requête   | `AnonymousUser.ts:44`     |
-| Bindings natifs     | import dynamique au 1er usage → 0 chargement si non utilisés   | `BcryptEncoder.ts:10`     |
-| Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache     | `UserService.ts:374`      |
-| Blocklist           | `null` par défaut → aucun coût tant qu'elle n'est pas branchée | `UserService.ts:83`       |
-| Listing             | pagination **native au store**, jamais de `find()` complet     | `IUserRepository.ts:121`  |
-| Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes           | `IUserRepository.ts:131`  |
-| Registre de stores  | `Set` allouée au premier enregistrement                        | `userStoreRegistry.ts:16` |
+| Point               | Décision                                                                                                        | Ancre                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| Utilisateur anonyme | singleton gelé + rôles partagés gelés → 0 allocation/requête                                                    | `AnonymousUser.ts:44`     |
+| Bindings natifs     | import dynamique au 1er usage → 0 chargement si non utilisés                                                    | `BcryptEncoder.ts:10`     |
+| Hash leurre         | calculé **paresseusement** au 1er échec, puis mis en cache                                                      | `UserService.ts:374`      |
+| Blocklist           | `PasswordPolicy` posée d'office ; la liste embarquée n'est chargée qu'au premier contrôle ; `null` la désactive | `UserService.ts:90`       |
+| Listing             | pagination **native au store**, jamais de `find()` complet                                                      | `IUserRepository.ts:121`  |
+| Garde-fou admin     | `COUNT` natif, pas un chargement de tous les comptes                                                            | `IUserRepository.ts:131`  |
+| Registre de stores  | `Set` allouée au premier enregistrement                                                                         | `userStoreRegistry.ts:16` |
 
 **Le vrai budget, c'est la mémoire du hachage.** Avec les défauts Argon2id, chaque vérification
 mobilise 19 MiB. Vingt logins simultanés, c'est ~380 MiB transitoires. Dimensionne en conséquence, et

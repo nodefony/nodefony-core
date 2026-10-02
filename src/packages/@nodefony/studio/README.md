@@ -4,7 +4,7 @@
 d'introspection et de supervision du framework : modules, services (DI), routes, config, logs,
 santé runtime, cluster, ORM, realtime.
 
-Frontend **React 19 + Mantine v9 + MobX**, servi par `@nodefony/frontend` (Vite). Application admin embarquée : le paquet ne publie pas de types, il n'est pas destiné à être
+Frontend **React 19 + Mantine v9 + MobX**, servi par `@nodefony/frontend` (Vite). Application admin embarquée : le paquet publie ses déclarations (`dist/types`) pour l'intégration, mais il n'est pas destiné à être
 consommé comme librairie.
 
 > Docs IA (dans le dépôt) : [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/studio/CLAUDE.md) · [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/studio/MEMORY.md) · [`docs/`](./docs).

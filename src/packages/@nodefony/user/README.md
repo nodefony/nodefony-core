@@ -72,10 +72,12 @@ const users = new UserService(userRepository, encoder); // dépôt injecté
 
 const u = await users.createUser({
   identifier: "jane@x.io",
-  plainPassword: "s3cret",
+  plainPassword: "correct-horse-battery",
 });
-const auth = await users.authenticate("jane@x.io", "s3cret"); // IUser | null
-await users.changePassword(u.id, "nouveau"); // seul chemin du credential
+const auth = await users.authenticate("jane@x.io", "correct-horse-battery"); // IUser | null
+await users.changePassword(u.id, "un-autre-secret-long"); // seul chemin du credential
+// La politique par défaut (PasswordPolicy : 10 caractères minimum, ~10 000 mots de passe
+// courants refusés) s'applique à la création et au changement : WeakPasswordError sinon.
 ```
 
 `UserService` étend `AbstractCrudService` (`@nodefony/orm-core`) : il hérite du CRUD générique
@@ -112,7 +114,7 @@ Module de l'espace de travail `nodefony-core`. Dépendances de pair : `nodefony`
 `BcryptEncoder`).
 
 ```bash
-npm install @nodefony/user@alpha
+npm install @nodefony/user@beta
 ```
 
 ## Licence

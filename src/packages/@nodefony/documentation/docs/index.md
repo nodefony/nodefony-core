@@ -45,7 +45,7 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
    dans le module ou à la racine. C'est la première décision, et celle qu'on défait le plus mal :
    déplacer une page change son identifiant, donc tous les liens qui y menaient.
 2. [Démarrage rapide](#-démarrage-rapide) — déclarer le module, écrire la page, la voir apparaître.
-   L'étape 2 porte le **contrat de frontmatter** : les six clés réellement lues par le serveur.
+   L'étape 2 porte le **contrat de frontmatter** : les sept clés réellement lues par le serveur.
 3. [Ce que le module apporte](#-ce-que-le-module-apporte) — les quatre propriétés qui expliquent
    pourquoi une page atterrit où elle atterrit, et pourquoi un `index.md` ouvre toujours sa section.
 4. [Architecture interne](./architecture.md) — le trajet complet du fichier au portail, si tu veux

@@ -75,10 +75,13 @@ navigateur — d'où la commande, qui reste la porte utile.
 npx nodefony ai:mcp        # écrit .mcp.json ; --dry-run pour voir sans écrire
 ```
 
-Quatre outils : **`nodefony_inspect`** (ce qui est monté), **`nodefony_check`**
-(ce qui manque), **`nodefony_symbols`** (ce qu'une API du framework signifie),
-**`nodefony_card`** (par où commencer). Ce sont les mêmes briques que les
-commandes du même nom — une source, plusieurs portes.
+Sept outils : **`nodefony_inspect`** (ce qui est monté), **`nodefony_check`**
+(ce qui manque — la commande s'appelle `doctor`), **`nodefony_symbols`** (ce qu'une
+API du framework signifie), **`nodefony_card`** (par où commencer),
+**`nodefony_docs`** (la documentation des modules installés), **`nodefony_admin_list`**
+et **`nodefony_admin_call`** (lectures du data plane d'administration, jeton porteur
+du scope `admin:read` exigé). Ce sont les mêmes briques que les commandes — une
+source, plusieurs portes.
 
 **Ce n'est pas un process de plus.** Depuis la révision `2026-07-28` du transport
 « Streamable HTTP », un serveur MCP est un simple endpoint `POST` sans session :
@@ -162,7 +165,7 @@ connaît pas encore.
 
 ### Vos propres outils
 
-Ces quatre-là décrivent le framework ; ils ne savent rien de votre métier. Tout
+Ces outils intégrés décrivent le framework ; ils ne savent rien de votre métier. Tout
 module de votre application peut publier les siens en implémentant
 `getMcpTools(): IMcpTool[]` :
 
@@ -203,12 +206,13 @@ c'est fermé par défaut, et c'est voulu. Détail et pièges :
 
 ## Les skills d'agent
 
-Le paquet livre six **skills** au format [Agent Skills](https://agentskills.io)
+Le paquet livre huit **skills** au format [Agent Skills](https://agentskills.io)
 — la marche à suivre complète pour les tâches où un agent, sans eux, inventerait
 du code : créer une ressource REST, ajouter un service injectable, réserver une
 route à qui est habilité, ouvrir un canal temps réel, faire évoluer le schéma
-d'une base sans la détruire, et voir puis MESURER un écran dans un navigateur
-piloté. Ils sont lus par tout client conforme (Claude Code, Cursor, Copilot,
+d'une base sans la détruire, voir puis MESURER un écran dans un navigateur
+piloté — plus un skill qui conduit toute tâche de développement et un qui décrit
+l'exploitation en conteneur. Ils sont lus par tout client conforme (Claude Code, Cursor, Copilot,
 VS Code, Codex, Goose…).
 
 `nodefony create app` les met à disposition à la création. Après un
@@ -225,10 +229,12 @@ npx nodefony ai:sync            # --dry-run pour voir sans écrire, --json pour 
   = nodefony-add-realtime-channel  @nodefony/devkit
   = nodefony-add-service           @nodefony/devkit
   = nodefony-browser               @nodefony/devkit
+  = nodefony-dev                   @nodefony/devkit
+  = nodefony-devops                @nodefony/devkit
   = nodefony-migrate-schema        @nodefony/devkit
   = nodefony-protect-route         @nodefony/devkit
 
-  0 posé(s) · 0 mis à jour · 6 inchangé(s)
+  0 posé(s) · 0 mis à jour · 8 inchangé(s)
 ```
 
 **Le préfixe `nodefony-` vous laisse la place.** Ces pointeurs arrivent dans
@@ -262,9 +268,14 @@ plus aucun paquet ne livre est **signalé, jamais supprimé** — vous avez pu e
 
 ## Configuration
 
-| Clé       | Type      | Défaut | Rôle                   |
-| --------- | --------- | ------ | ---------------------- |
-| `enabled` | `boolean` | `true` | Interrupteur du module |
+| Clé                  | Type       | Défaut          | Rôle                                                  |
+| -------------------- | ---------- | --------------- | ----------------------------------------------------- |
+| `enabled`            | `boolean`  | `true`          | Interrupteur du module                                |
+| `mcp.enabled`        | `boolean`  | `true`          | Interrupteur de la porte MCP                          |
+| `mcp.allowedOrigins` | `string[]` | `[]`            | Origines navigateur admises sur la porte MCP          |
+| `mcp.allowRemote`    | `boolean`  | `false`         | Accepte un client hors de la boucle locale            |
+| `mcp.tools`          | `string[]` | les sept outils | Outils exposés                                        |
+| `mcp.authorization`  | objet      | —               | Autorisation OAuth de la porte (voir `docs/index.md`) |
 
 La source unique est le schéma Zod de `nodefony/config/config.ts` : c'est lui qui
 porte les défauts, les descriptions et la validation. Une clé inconnue ou mal

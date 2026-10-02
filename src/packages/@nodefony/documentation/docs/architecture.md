@@ -108,10 +108,11 @@ ne bougent pas ensemble.
 
 Nodefony prend l'autre bout du problème : la doc est **servie par l'application elle-même**,
 en direct, depuis les fichiers du dépôt. Le module ne compile rien, ne rend rien, ne cache
-aucun contenu. Il répond à deux questions, et à deux seulement :
+aucun contenu. Il répond à trois questions :
 
 1. **Qu'est-ce qu'il y a à lire ?** → l'index, avec ses sections et ses pages.
 2. **Donne-moi cette page-là.** → le Markdown, métadonnées à part, prêt à afficher.
+3. **Où est-ce expliqué ?** → la recherche dans les titres et les corps, avec des extraits situés.
 
 C'est ce que veut dire **headless** (`Documentation` — `index.ts:44`) : la sortie est du JSON
 (`IDocPage`, `IDocumentation.ts:74`), et trois consommateurs très différents s'en servent —
@@ -552,7 +553,7 @@ production, les 30 secondes par défaut le rendent négligeable.
 
 ## 📡 Observabilité — Studio
 
-- **Le portail** (`/nodefony/documentation`) consomme les deux routes : arbre à gauche,
+- **Le portail** (`/nodefony/documentation`) consomme les trois routes : arbre à gauche,
   sommaire à droite, page au centre. C'est le premier endroit où vérifier qu'une nouvelle page
   est bien indexée, bien rangée, et que ses liens cliquent.
 - **La carte du module** (`/nodefony/modules/documentation`) montre sa doc, ses symboles, ses
@@ -562,7 +563,7 @@ production, les 30 secondes par défaut le rendent négligeable.
   Une page qui « n'apparaît pas » se diagnostique là, en une ligne.
 
 Le module n'expose **rien de plus** : pas de compteur, pas de sonde. Ce qu'il fait est déjà
-entièrement lisible dans ses deux réponses.
+entièrement lisible dans ses trois réponses.
 
 ## 🧩 Extension — trois points d'accroche
 
@@ -582,36 +583,37 @@ ligne change côté serveur.
 
 ## ⚠️ Pièges
 
-| Symptôme                                                      | Cause                                                                                          | Correction                                                              |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Une nouvelle page n'apparaît pas                              | l'index est encore dans son TTL (30 s par défaut)                                              | attendre, ou poser `cache.ttlMs: 0` en développement                    |
-| Une page reste introuvable même après rescan                  | son dossier porte un segment exclu (`node_modules`, `dist`, `session-retros`)                  | déplacer la page, ou ajuster `scan.exclude` (`config.ts:75`)            |
-| `audience` sans effet, page visible par tous                  | valeur hors `DocAudience` — silencieusement filtrée (`#toPageRef()`)                           | n'utiliser que `developer` · `devops` · `supervisor` · `admin`          |
-| `status` absent de l'arbre alors qu'il est écrit              | valeur hors `DocStatus` — ramenée à « absent » (`#coerceStatus()`)                             | s'en tenir aux cinq statuts du contrat                                  |
-| La date de la page ne s'affiche pas                           | clé `last-updated` au lieu de `updated` — le service ne lit que `updated`                      | renommer la clé en `updated`                                            |
-| Un lien relatif reste inerte dans le portail                  | la cible n'est pas indexée (`CLAUDE.md`, `MEMORY.md`, fichier supprimé) → laissée telle quelle | lier une page de doc, ou accepter le lien inerte                        |
-| Un lien de card ne mène nulle part                            | `href` d'une fence typée mal compté (le JSON est traduit comme le markdown, mais pas deviné)   | vérifier le chemin relatif ; le banc de corpus l'attrape                |
-| Une ancre `#section` marche sur GitHub, morte dans le portail | divergence entre `slugifyHeading()` (`DocToc.tsx:54`) et le gate `anchor-inpage`               | garder les deux implémentations identiques — accents conservés          |
-| Le bouton « voir la source » pointe vers un mauvais fichier   | le frontmatter `source:` **écrase** le chemin réel dans `#buildSourceUrl()`                    | tenir `source:` à jour, ou l'omettre pour laisser le chemin réel gagner |
-| Le lien source pointe vers une branche absente en production  | pas de `.git` lisible dans le conteneur → repli sur `main`                                     | poser `NF_DOCS_REPO_BRANCH` (ou `repo.branch`)                          |
-| Une clé de frontmatter n'a aucun effet                        | seules `title` · `audience` · `version` · `status` · `updated` · `source` sont consommées      | comportement voulu : les autres clés servent au RAG                     |
-| Un frontmatter multi-lignes (`                                | `) casse le titre                                                                              | non supporté par le parseur plat (`frontmatter.ts:51`)                  | rester en YAML plat : scalaire ou liste |
+| Symptôme                                                      | Cause                                                                                                  | Correction                                                              |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Une nouvelle page n'apparaît pas                              | l'index est encore dans son TTL (30 s par défaut)                                                      | attendre, ou poser `cache.ttlMs: 0` en développement                    |
+| Une page reste introuvable même après rescan                  | son dossier porte un segment exclu (`node_modules`, `dist`, `session-retros`)                          | déplacer la page, ou ajuster `scan.exclude` (`config.ts:75`)            |
+| `audience` sans effet, page visible par tous                  | valeur hors `DocAudience` — silencieusement filtrée (`#toPageRef()`)                                   | n'utiliser que `developer` · `devops` · `supervisor` · `admin`          |
+| `status` absent de l'arbre alors qu'il est écrit              | valeur hors `DocStatus` — ramenée à « absent » (`#coerceStatus()`)                                     | s'en tenir aux cinq statuts du contrat                                  |
+| La date de la page ne s'affiche pas                           | clé `last-updated` au lieu de `updated` — le service ne lit que `updated`                              | renommer la clé en `updated`                                            |
+| Un lien relatif reste inerte dans le portail                  | la cible n'est pas indexée (`CLAUDE.md`, `MEMORY.md`, fichier supprimé) → laissée telle quelle         | lier une page de doc, ou accepter le lien inerte                        |
+| Un lien de card ne mène nulle part                            | `href` d'une fence typée mal compté (le JSON est traduit comme le markdown, mais pas deviné)           | vérifier le chemin relatif ; le banc de corpus l'attrape                |
+| Une ancre `#section` marche sur GitHub, morte dans le portail | divergence entre `slugifyHeading()` (`DocToc.tsx:54`) et le gate `anchor-inpage`                       | garder les deux implémentations identiques — accents conservés          |
+| Le bouton « voir la source » pointe vers un mauvais fichier   | le frontmatter `source:` **écrase** le chemin réel dans `#buildSourceUrl()`                            | tenir `source:` à jour, ou l'omettre pour laisser le chemin réel gagner |
+| Le lien source pointe vers une branche absente en production  | pas de `.git` lisible dans le conteneur → repli sur `main`                                             | poser `NF_DOCS_REPO_BRANCH` (ou `repo.branch`)                          |
+| Une clé de frontmatter n'a aucun effet                        | seules `title` · `navTitle` · `audience` · `version` · `status` · `updated` · `source` sont consommées | comportement voulu : les autres clés servent au RAG                     |
+| Un frontmatter multi-lignes (`                                | `) casse le titre                                                                                      | non supporté par le parseur plat (`frontmatter.ts:51`)                  | rester en YAML plat : scalaire ou liste |
 
 ## 🧪 Tests & couverture
 
-Sept fichiers, tous **unitaires** : les briques pures se testent sans serveur, sans Kernel et
+Huit fichiers, tous **unitaires** : les briques pures se testent sans serveur, sans Kernel et
 sans conteneur — c'est précisément la raison de les avoir isolées. Les compteurs exacts vivent
 dans la carte de l'aperçu, régénérés depuis les résultats réels.
 
-| Banc                    | Ce qui est réellement exercé                                                                                    |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `frontmatter.test.ts`   | scalaires, guillemets, listes inline et en bloc, clé vide, commentaires, BOM, CRLF, ligne mal formée            |
-| `slug.test.ts`          | forme des slugs racine et module, et surtout les **refus** : vide, > 512, octet nul, `/`, `\`, `..`, `%`        |
-| `docScanner.test.ts`    | dossier absent → `[]`, filtre `.md`, segments exclus, tri, groupe, titre humanisé, tag de source                |
-| `linkResolver.test.ts`  | lien plat, remontée profonde, module voisin, ancre préservée, cible non indexée, fences typées                  |
-| `search-parity.test.ts` | la recherche sérialisée pour le site public ne référence rien hors de son corps : même classement qu'au portail |
-| `search-redos.test.ts`  | aucune expression de la recherche ne devient quadratique sur un corpus hostile                                  |
-| `corpusLinks.test.ts`   | le **corpus réel** du dépôt : liens morts, unicité des slugs, hubs atteignables                                 |
+| Banc                    | Ce qui est réellement exercé                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `frontmatter.test.ts`   | scalaires, guillemets, listes inline et en bloc, clé vide, commentaires, BOM, CRLF, ligne mal formée             |
+| `slug.test.ts`          | forme des slugs racine et module, et surtout les **refus** : vide, > 512, octet nul, `/`, `\`, `..`, `%`         |
+| `docScanner.test.ts`    | dossier absent → `[]`, filtre `.md`, segments exclus, tri, groupe, titre humanisé, tag de source                 |
+| `linkResolver.test.ts`  | lien plat, remontée profonde, module voisin, ancre préservée, cible non indexée, fences typées                   |
+| `search-parity.test.ts` | la recherche sérialisée pour le site public ne référence rien hors de son corps : même classement qu'au portail  |
+| `search-redos.test.ts`  | aucune expression de la recherche ne devient quadratique sur un corpus hostile                                   |
+| `corpusLinks.test.ts`   | le **corpus réel** du dépôt : liens morts, unicité des slugs, hubs atteignables                                  |
+| `configEnv.test.ts`     | surcharge de `repo.url` / `repo.branch` par `NF_DOCS_REPO_URL` / `NF_DOCS_REPO_BRANCH`, appliquée après le parse |
 
 Le dernier mérite qu'on s'y arrête. Les autres travaillent sur un index fabriqué ; celui-là
 parcourt les vraies pages et attrape ce qu'aucun double ne peut voir : un `../` mal compté,
@@ -628,7 +630,7 @@ peut que rétrécir.
 
 - **Ni le service ni le contrôleur n'ont de test unitaire** : ils dépendent du Kernel et du
   conteneur. Le cache, le dédoublonnage des paquets installés, la résolution des variables et
-  les réponses HTTP sont vérifiés en **intégration sur serveur réel** (`curl` sur les deux
+  les réponses HTTP sont vérifiés en **intégration sur serveur réel** (`curl` sur les trois
   routes), pas par cette suite.
 - **Pas de banc de charge ni de test mémoire dédiés** — le module vit sur un chemin froid.
   Pour dimensionner, le skill `nodefony-load-test` ; pour la mémoire du pipeline,
@@ -644,7 +646,7 @@ Couverture : `npm run coverage` dans `@nodefony/documentation`.
 - 📐 **La décision fondatrice** : [ADR-0001 — emplacement hybride de la doc](../../../../../docs/adr/0001-docs-modules-emplacement-hybride.md)
 - 🖥️ **Le consommateur** : [Studio — l'application d'administration](../../studio/docs/index.md)
 - 🧰 **Écrire le contrôleur qui consomme le data plane** : [Controller](../../framework/docs/controller.md)
-- 🔐 **Le rôle exigé par les deux routes** : [Autorisation](../../security/docs/authorization.md)
+- 🔐 **Le rôle exigé par les trois routes** : [Autorisation](../../security/docs/authorization.md)
 - ⚙️ **Où la config du module est validée** : [Configuration](../../../../../docs/architecture/configuration.md) ·
   [cycle de démarrage du kernel](../../../../../docs/architecture/cycle-boot-kernel.md)
 - Les signatures exactes ne sont jamais recopiées ici : elles vivent dans le graphe symbolique

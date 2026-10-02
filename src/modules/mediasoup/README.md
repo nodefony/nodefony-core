@@ -49,7 +49,7 @@ durcir `@nodefony/orm-core` — puis le modèle servira tel quel à la vraie imp
 | Signaling temps réel | **`@nodefony/realtime`** / Core isomorphe `nodefony` (JSON-RPC 2.0) | ws brut |
 | SFU média (P15) | **mediasoup** (Worker/Router/**PlainTransport RTP** + SIP/Asterisk pour agent IA vocal) | WebRtcTransport navigateur |
 | Enregistrement (P15) | **ffmpeg / gstreamer** workers | identique |
-| API admin | data plane `/nodefony/mediasoup/api/*` (Studio) | — |
+| API | `GET /mediasoup/api/data` ; ERD par le data plane ORM `/nodefony/orm/api/*` | — |
 | Process | **cloud-native** (1 pod = 1 process) | pm2 (déprécié) |
 | Client | subpaths Core `nodefony/*` (isomorphe) | nodefony-client |
 
@@ -101,7 +101,7 @@ curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?connector=me
         ▼              │              │  etag(uuid)│            │ start/end│
  ┌────────────┐   ┌────┴───────┐      └────────────┘   roomId ─►│  (json)  │
  │ RoomMember │──►│   Room     │◄───────────────────────────────┘
- │ (jonction) │   │ name (pk)  │
+ │ (jonction) │   │ id (pk)    │
  └────────────┘   │ type ENUM  │
                   └────────────┘
 ```
@@ -110,7 +110,7 @@ curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?connector=me
 | Entité | PK | Champs notables | Relations (FK) |
 | --- | --- | --- | --- |
 | **User** | `id` (uuid) | identifier, password, `roles` (json), enabled, locked… _(table `@nodefony/user`)_ | cible de RoomMember, Calendar, Event |
-| **Room** | `name` (text) | `type` (ENUM WEBRTC), `access` (ENUM private/public), secure, locked, stickyCookie | cible de RoomMember, Event |
+| **Room** | `id` (uuid) | `name` (text, **unique**), `type` (ENUM WEBRTC), `access` (ENUM private/public), secure, locked, stickyCookie | cible de RoomMember, Event |
 | **RoomMember** | `id` (uuid) | role, joinedAt | **N-1 Room** (`roomId`) + **N-1 User** (`userId`) → **= jonction N-N** |
 | **Calendar** | `id` (uuid) | `etag` (uuid unique), summary, `conferenceProperties` (json), `defaultReminders` (json), isPrimary, hidden | **N-1 User** (`creatorId`) |
 | **Event** | `id` (uuid) | `start`/`end`/`recurrence`/`attendees`/`organizer` (json), status, visibility, timezone, `deletedAt` (soft-delete) | **N-1 Calendar** (`calendarId`) + **N-1 Room** (`roomId`, nullable) + **N-1 User** (`creatorId`) + **N-1 Event** (`parentEventId`, **auto-référence**) |
@@ -135,7 +135,7 @@ curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?connector=me
 Ce que ce modèle permet de couvrir (à écrire dans `tests/` — tests **scénario/intégration**, les
 tests unitaires génériques restant dans `@nodefony/orm-core`) :
 
-- **CRUD portable** sur PK `string` (Room) **et** UUID (les autres).
+- **CRUD portable** sur PK UUID (toutes les entités) et sur une clé métier unique (`Room.name`).
 - **Relations N-1** multiples sur une même entité (`Event` → Calendar + Room + User).
 - **Jonction N-N** via `RoomMember` : ajout/retrait de membres, unicité (room, user).
 - **Eager-load** portable (`{ relations: [...] }`) : charger une `Room` + ses `members`, un `Event` + son `calendar`/`creator`.

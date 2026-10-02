@@ -7,8 +7,6 @@ Generic multi-model LLM provider interface for Nodefony.
 | Provider           | Mode      | Embeddings | Streaming |
 | ------------------ | --------- | ---------- | --------- |
 | Claude (Anthropic) | cloud     | ❌         | ✅        |
-| Gemini (Google)    | cloud     | ✅         | ✅        |
-| OpenAI             | cloud     | ✅         | ✅        |
 | Ollama             | sovereign | ✅         | ✅        |
 
 ## Usage

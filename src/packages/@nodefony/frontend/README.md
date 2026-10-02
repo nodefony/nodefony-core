@@ -21,16 +21,17 @@ Vite a besoin d'un event-loop et d'un tas V8 pour compiler/HMR. L'exécuter **in
 
 ### 1. Activer `@nodefony/frontend` dans l'app
 
-Dans `index.ts` racine :
+Dans `nodefony.config.ts` :
 
 ```ts
-@modules([
-  "@nodefony/http",
-  "@nodefony/framework",
-  "@nodefony/frontend",       // ← avant ton module consumer
-  "@nodefony/mon-module",
-])
-class App extends Module { ... }
+export default defineConfig(() => ({
+  modules: [
+    "@nodefony/http",
+    "@nodefony/framework",
+    "@nodefony/frontend", // ← avant ton module consumer
+    "@nodefony/mon-module",
+  ],
+}));
 ```
 
 > **Ordre important** : `@nodefony/frontend` doit être déclaré AVANT les modules qui appellent `registerEntry()` — sinon le service `frontend` n'existe pas dans le DI Container au moment du `onKernelBoot()` du consumer.
@@ -163,7 +164,7 @@ Le superviseur Vite démarre automatiquement sur l'event `onServersReady` du ker
 
 ```
 INFO frontend : registered entry: my-module (react19) from "my-module"
-INFO frontend : vite dev server ready on 127.0.0.1:5173
+INFO frontend : vite [default] ready on 127.0.0.1:5173
 ```
 
 Va sur `http://127.0.0.1:5151/my-route/` — Nodefony rend l'HTML, le browser tape Vite (5173) pour les assets, HMR fonctionne en édition de `App.tsx`.
@@ -239,12 +240,13 @@ svc.on("frontend:ready", (status) => {
 
 ```ts
 interface IFrontendService {
-  registerEntry(module, declaration): IResolvedFrontendEntry;
   listEntries(): ReadonlyArray<IResolvedFrontendEntry>;
   status(): IViteSupervisorStatus;
+  statusAll(): ReadonlyArray<{ family: string; status: IViteSupervisorStatus }>;
   startDev(): Promise<void>; // appelé auto par onServersReady
   stopDev(): Promise<void>;
-  build(): Promise<void>; // vite.build() in-proc
+  // vite.build() par entrée ; bilan construits / ignorés / en échec
+  build(opts?: { force?: boolean }): Promise<IFrontendBuildResult>;
   // `nonce` = `Context.cspNonce` ; `requestHost` = `Context.domain` (sans port),
   // dont l'origine des assets est dérivée en développement.
   renderTags(entryName, nonce?, requestHost?): string;
@@ -253,20 +255,18 @@ interface IFrontendService {
 }
 ```
 
+`registerEntry(module, declaration)` est porté par la classe `FrontendService`, pas par l'interface.
+
 ---
 
 ## Troubleshooting
 
 ### Page blanche, scripts bloqués par CSP
 
-Le helmet de `@nodefony/security` pose `script-src 'self'` par défaut. Override dans le controller :
-
-```ts
-this.context.response.setHeader(
-  "Content-Security-Policy",
-  svc.getCspDirectives(),
-);
-```
+En développement, le service déclare les origines Vite au pare-feu (`@nodefony/security`) une fois
+Vite prêt, et ce dernier émet UN seul en-tête CSP avec le nonce de la requête. Vérifie que tu passes
+`this.context?.cspNonce` à `svc.renderTags(…)` / `renderDocument(…)`, et ne réécris jamais l'en-tête
+dans le contrôleur : tu écraserais le nonce.
 
 ### `Unexpected token '<'` sur `fetch("/api/...")`
 
@@ -319,7 +319,7 @@ FrontendService.startDev()
    ↓
 ViteProcessSupervisor.start()
    ├─ écrit vite.config.generated.mjs (proxy, https, base, env)
-   ├─ spawn("npx", ["vite", "--config", ...])
+   ├─ spawn(node, [vite.js, "--config", ...])   (repli npx si le binaire n'est pas résolu)
    ├─ parse stdout "Local: https://host:port" → state = "ready"
    ├─ attach exit handler (auto-restart si crash inattendu)
    └─ start health check loop (ping HTTP périodique)

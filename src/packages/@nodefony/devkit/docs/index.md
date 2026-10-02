@@ -198,7 +198,7 @@ convient.
 
 ### Ajouter VOS outils — ce que l'agent ne peut pas deviner
 
-Les quatre outils ci-dessus décrivent le framework. Ils ne savent rien de votre
+Les outils intégrés ci-dessus décrivent le framework. Ils ne savent rien de votre
 métier — et c'est précisément ce qu'un agent invente le plus mal. N'importe quel
 module de votre application peut donc en publier :
 
