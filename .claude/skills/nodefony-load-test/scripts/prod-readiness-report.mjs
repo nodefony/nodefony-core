@@ -250,19 +250,30 @@ const rssFlat =
   Number.isFinite(rssDeltaMb) &&
   Math.abs(rssDeltaMb) < soak.noiseMb;
 
-// ── 3. capacité (relevé console de capacity.mjs — pas de JSON produit) ────
-const CAP = {
-  env: "development (profiler ACTIF ⇒ borne basse)",
-  p50: 0.33,
-  p95: 0.45,
-  p99: 0.54,
-  rps: 3067,
-  elu: 0.9,
-  loopUsPerReq: 293,
-  wsRamKb: 12.8,
-  wsEcho: 9208,
-  wsFanout: 398604,
-};
+// ── 3. capacité — `capacity.mjs --json`, composé dans le jeu par perf-compose ──
+// JAMAIS recopiée à la main : la copie précédente (relevé console en mode
+// développement, profileur actif) a survécu à deux chantiers de performance et
+// affichait 3 067 req/s à côté des 21 700 de la même page. Une constante que
+// l'instrument a marquée non valide (runs dispersés, ELU non relevé pendant la
+// charge) n'est PAS affichée : un banc qui n'a pas mesuré se tait.
+const capacity = dataset?.capacity ?? null;
+const validOf = (r) => (r?.valid ? r : null);
+const capRamTls = validOf(
+  capacity?.ram?.find((r) => r.label.startsWith("wss")),
+);
+const capRamClear = validOf(
+  capacity?.ram?.find((r) => r.label.startsWith("ws ")),
+);
+const capEchoTls = validOf(
+  capacity?.ws?.find((w) => w.label.startsWith("wss")),
+);
+const capEchoClear = validOf(
+  capacity?.ws?.find((w) => w.label.startsWith("ws ")),
+);
+const capFanout = validOf(capacity?.fanout);
+const capHttps = validOf(
+  capacity?.http?.find((h) => h.label.startsWith("https")),
+);
 
 // 🔴 LE DÉCOR D'UNE MESURE NE VIENT PAS DE LA MACHINE QUI L'AFFICHE.
 // Ces deux champs se lisaient sur la machine du RENDU (`process.version`, `sysctl`).
@@ -824,37 +835,66 @@ const tenue = section(
     ),
 );
 
+const capaciteCards = [
+  capRamTls && {
+    k: "RAM par socket WebSocket",
+    v: fmt.dec(capRamTls.heapKB, 1),
+    unit: "Ko",
+    sub: `tas retenu, TLS terminé par Node${capRamClear ? ` · ${fmt.dec(capRamClear.heapKB, 1)} Ko si le TLS est terminé en amont` : ""}`,
+  },
+  capHttps && {
+    k: "Latence à vide (HTTPS)",
+    v: `${fmt.dec(capHttps.p50, 2)} / ${fmt.dec(capHttps.p95, 2)} / ${fmt.dec(capHttps.p99, 2)}`,
+    unit: "ms",
+    sub: "p50 / p95 / p99, une requête à la fois",
+  },
+  cpuRow && {
+    k: "CPU du fil principal",
+    v: fmt.dec(cpuRow.nodefony, 1),
+    unit: "µs/req",
+    sub: `face à ${fmt.dec(cpuRow["nest-fair"], 1)} µs/req chez NestJS équipé`,
+  },
+  (capEchoTls || capEchoClear) && {
+    k: "Écho WebSocket",
+    v: fmt.int((capEchoTls ?? capEchoClear).observed),
+    unit: "msg/s",
+    sub: [
+      capEchoTls ? "en TLS" : "en clair",
+      capEchoTls && capEchoClear
+        ? `${fmt.int(capEchoClear.observed)} msg/s en clair`
+        : null,
+      capFanout
+        ? `diffusion 1→${capFanout.n} : ${fmt.int(capFanout.observed)} livraisons/s`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  },
+].filter(Boolean);
+
 const capacite = section(
   "Les constantes d'un pod",
-  `<p>Constantes relevées par <code>capacity.mjs</code> en <strong>${CAP.env}</strong> — le profileur et
-   le chronométrage y sont actifs, donc ces chiffres sont une <strong>borne basse</strong> : en
-   production ils montent.</p>` +
-    cards([
-      {
-        k: "Latence à charge modérée",
-        v: `${fmt.dec(CAP.p50, 2)} / ${fmt.dec(CAP.p95, 2)} / ${fmt.dec(CAP.p99, 2)}`,
-        unit: "ms",
-        sub: "p50 / p95 / p99",
-      },
-      {
-        k: "Boucle consommée",
-        v: CAP.loopUsPerReq,
-        unit: "µs/req",
-        sub: "temps de boucle par requête HTTP",
-      },
-      {
-        k: "RAM par socket WS",
-        v: fmt.dec(CAP.wsRamKb, 1),
-        unit: "KB",
-        sub: "TLS terminé par Node",
-      },
-      {
-        k: "Écho WebSocket",
-        v: fmt.int(CAP.wsEcho),
-        unit: "msg/s",
-        sub: `diffusion 1→100 : ${fmt.int(CAP.wsFanout)} livraisons/s`,
-      },
-    ]) +
+  (capacity
+    ? `<p>Mesurées par <code>capacity.mjs</code> en <strong>${capacity.mode ?? "?"}</strong>, Node
+       ${capacity.node ?? "?"}, commit <code>${capacity.headCommit ?? "?"}</code>, le
+       ${capacity.measuredAt} : ${capacity.repeat} runs de ${capacity.params?.SECONDS ?? "?"} s par
+       constante, serveur saturé (ELU relevé pendant la charge). Une constante dont les runs
+       divergent de plus de ±${Math.round((capacity.params?.MAX_SPREAD ?? 0) * 50)} %, ou dont l'ELU n'a pas été relevé, n'est
+       pas affichée. Le CPU du fil principal vient de la campagne de comparaison, pas de ce banc ;
+       le débit HTTP d'un pod aussi — ce banc charge le serveur depuis un client Node, plus lent
+       que <code>wrk</code>, et son débit HTTP n'est pas publié.</p>${
+         capEchoTls &&
+         capEchoClear &&
+         capEchoClear.observed < capEchoTls.observed
+           ? `<p>L'écho WebSocket <strong>en clair</strong> sort plus lent qu'en TLS sur ce banc
+       (${fmt.int(capEchoClear.observed)} contre ${fmt.int(capEchoTls.observed)} msg/s). La cause n'est
+       pas établie : à lire comme un ordre de grandeur, pas comme un gain du TLS.</p>`
+           : ""
+       }`
+    : `<p><strong>Constantes non mesurées pour cette version</strong> : aucun relevé de
+       <code>capacity.mjs</code> n'a été composé dans le jeu de données. Le calculateur n'ajoute
+       alors aucune mémoire par socket.</p>`) +
+    (capaciteCards.length ? cards(capaciteCards) : "") +
     calculator({
       id: "pods",
       inputs: [
@@ -891,7 +931,7 @@ const capacite = section(
       constants: {
         RPS_POD: Math.round(nf.med),
         RSS_BASE: Math.round(kept[kept.length - 1].rssMb),
-        WS_KB: CAP.wsRamKb,
+        WS_KB: capRamTls ? Math.round(capRamTls.heapKB * 10) / 10 : 0,
       },
       compute: `(v, K) => {
         const util = Math.min(Math.max(v.marge, 10), 100) / 100;
@@ -985,8 +1025,8 @@ node .claude/skills/nodefony-load-test/scripts/perf-compose.mjs --campaign tmp/p
 # tenue dans la durée
 node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes ${soak.minutes} --window ${soak.windowSec}
 
-# capacité
-node .claude/skills/nodefony-load-test/scripts/capacity.mjs
+# capacité — serveur de PRODUCTION (NF_BENCH_ROUTE=1, modules de banc autorisés)
+node .claude/skills/nodefony-load-test/scripts/capacity.mjs --http-path /nodefony/kernel/bench --seconds 8 --json tmp/capacity.json
 
 # cette page
 node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs</code></pre>`,
@@ -1137,7 +1177,7 @@ for (const page of PAGES) {
             applicatifNest: nestOrm,
             cpuFil: cpuThread?.rows ?? null,
             soak,
-            capacite: CAP,
+            capacite: capacity,
           },
         }
       : {}),

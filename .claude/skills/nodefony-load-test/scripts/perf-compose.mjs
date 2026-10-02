@@ -11,13 +11,15 @@
 //
 // Ce qu'il réécrit : `provenance` (date, commit, Node, protocole), les mesures
 // de `comparison`, d'`applicative`, le bloc `applicativeNest`, `cpuThread`, et
-// `soak` si `--soak` est donné. Ce qu'il NE touche PAS : les blocs de récit
+// `soak` si `--soak` est donné, `capacity` si `--capacity` l'est (sortie de
+// `capacity.mjs --json`). Ce qu'il NE touche PAS : les blocs de récit
 // (`why`, `equite`, `cause`, `notMeasured`…), qui restent un geste d'auteur.
 //
 // Usage :
 //   node perf-compose.mjs --campaign tmp/perf-campaign-<date> \
 //     --data docs/performance/data/10.0.0.json [--version <v>] \
-//     [--soak <soak.json>] [--reuse <étape>=<dossier>]… [--write]
+//     [--soak <soak.json>] [--capacity <capacity.json>]
+//     [--reuse <étape>=<dossier>]… [--write]
 // Sans `--write`, rend le récapitulatif SANS écrire : on montre les chiffres
 // avant de les publier.
 //
@@ -273,6 +275,53 @@ if (existsSync(cpuDir)) {
 const soakFile = opt("soak");
 const soak = soakFile ? readJson(soakFile) : null;
 
+// Constantes d'un pod : le relevé garde SA provenance (date, commit, mode),
+// comme le soak — il n'emprunte pas celle de la campagne. Le commit de
+// l'INSTRUMENT est relevé à part : un instrument corrigé après la mesure
+// rendrait sinon un chiffre qu'il ne sait plus produire.
+const capacityFile = opt("capacity");
+let capacity = null;
+if (capacityFile) {
+  const raw = readJson(capacityFile);
+  if (raw.env?.env !== "production")
+    missing.push(
+      `capacité : relevé en « ${raw.env?.env} » — seule la production dimensionne un pod`,
+    );
+  let instrumentCommit = null;
+  try {
+    instrumentCommit =
+      execFileSync(
+        "git",
+        [
+          "log",
+          "-1",
+          "--format=%h",
+          "--",
+          ".claude/skills/nodefony-load-test/scripts/capacity.mjs",
+        ],
+        { encoding: "utf8" },
+      ).trim() || null;
+  } catch {
+    /* hors dépôt : l'instrument reste non daté, le champ le dit (null) */
+  }
+  capacity = {
+    measuredAt: raw.measuredAt,
+    headCommit: raw.headCommit,
+    instrumentCommit,
+    mode: raw.env?.env ?? null,
+    node: raw.env?.node ?? null,
+    cores: raw.env?.cores ?? null,
+    route: raw.route ?? null,
+    repeat: raw.repeat,
+    params: raw.params,
+    rssIdleMb: raw.env?.rssIdleMB ?? null,
+    ram: raw.ram,
+    ws: raw.ws,
+    fanout: raw.fanout,
+    http: raw.http,
+  };
+}
+
 // ── composition ─────────────────────────────────────────────────────────────
 const data = readJson(DATA);
 const ratio = (s, r) => Math.round((s / r) * 1000) / 10;
@@ -396,6 +445,7 @@ data.applicativeNest = {
 if (cpuThread)
   data.cpuThread = { ...cpuThread, commit: headCommit, measuredAt };
 if (soak) data.soak = soak;
+if (capacity) data.capacity = capacity;
 data.notMeasured = [
   ...(data.notMeasured ?? []).filter((n) => !(n.quoi in ABSENT)),
   ...Object.entries(ABSENT).map(([quoi, pourquoi]) => ({ quoi, pourquoi })),

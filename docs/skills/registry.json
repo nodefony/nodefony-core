@@ -4589,6 +4589,10 @@
                 "help": ""
               },
               {
+                "flag": "--http-path",
+                "help": ""
+              },
+              {
                 "flag": "--json",
                 "help": ""
               },
@@ -4602,6 +4606,10 @@
               },
               {
                 "flag": "--out",
+                "help": ""
+              },
+              {
+                "flag": "--seconds",
                 "help": ""
               },
               {

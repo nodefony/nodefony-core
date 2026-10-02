@@ -35,14 +35,15 @@ elle ne fait que **rendre** ce dossier (`scripts/build-perf-site.mjs`).
 
 ## Ce que contient un fichier
 
-| Bloc              | Ce qu'il porte                                                                                                                                                                                                          |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `provenance`      | date, **commit** du code mesuré, machine, version de Node, protocole (outil, warmup, durée, connexions, nombre de runs, mode du serveur)                                                                                |
-| `comparison`      | un camp par framework (route triviale), avec ses runs bruts, sa médiane, ses percentiles, sa dispersion, le relevé thermique ; `pairs` porte le rapport et la séparation de **chaque paire alternée**, test nul compris |
-| `applicative`     | le cas applicatif face à Express équipé : 20 lignes lues puis l'`UPDATE` de la ligne lue, sur SQLite, à ORM et pilote égaux                                                                                             |
-| `applicativeNest` | le même banc face à NestJS équipé — GET, POST validé, POST invalide (422) ; **chaque cas porte son commit**, une pièce réutilisée d'une autre séance garde sa provenance                                                |
-| `cpuThread`       | le CPU du fil principal par requête face à NestJS équipé (`wait-compare.sh`) — l'arbitre des écarts sous la résolution du débit                                                                                         |
-| `soak`            | les **échantillons complets** d'une charge longue — jamais un résumé : la pente et le plateau se recalculent au rendu                                                                                                   |
+| Bloc              | Ce qu'il porte                                                                                                                                                                                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provenance`      | date, **commit** du code mesuré, machine, version de Node, protocole (outil, warmup, durée, connexions, nombre de runs, mode du serveur)                                                                                                                                                 |
+| `comparison`      | un camp par framework (route triviale), avec ses runs bruts, sa médiane, ses percentiles, sa dispersion, le relevé thermique ; `pairs` porte le rapport et la séparation de **chaque paire alternée**, test nul compris                                                                  |
+| `applicative`     | le cas applicatif face à Express équipé : 20 lignes lues puis l'`UPDATE` de la ligne lue, sur SQLite, à ORM et pilote égaux                                                                                                                                                              |
+| `applicativeNest` | le même banc face à NestJS équipé — GET, POST validé, POST invalide (422) ; **chaque cas porte son commit**, une pièce réutilisée d'une autre séance garde sa provenance                                                                                                                 |
+| `cpuThread`       | le CPU du fil principal par requête face à NestJS équipé (`wait-compare.sh`) — l'arbitre des écarts sous la résolution du débit                                                                                                                                                          |
+| `soak`            | les **échantillons complets** d'une charge longue — jamais un résumé : la pente et le plateau se recalculent au rendu                                                                                                                                                                    |
+| `capacity`        | les constantes d'un pod (`capacity.mjs --json`, en **production**) : RAM par socket WebSocket, débits d'écho et de diffusion, latence à vide — chaque constante porte son verdict `valid` (runs concordants, ELU relevé pendant la charge) ; une constante non valide n'est pas affichée |
 
 `comparison.reference` désigne le camp qui sert d'étalon. C'est `express-fair` — un Express muni
 des mêmes intergiciels — parce que comparer un pipeline complet à un serveur nu ne compare pas le
@@ -59,7 +60,13 @@ caffeinate -dims bash .claude/skills/nodefony-load-test/scripts/perf-campaign.sh
 #    chiffres et la provenance ; le récit reste à écrire à la main
 node .claude/skills/nodefony-load-test/scripts/perf-compose.mjs \
   --campaign tmp/perf-campaign-<date> --data docs/performance/data/<version>.json \
-  --soak tmp/perf-campaign-<date>/soak.json
+  --soak tmp/perf-campaign-<date>/soak.json --capacity tmp/capacity.json
+#    les constantes d'un pod, sur un serveur de PRODUCTION (route de banc, comptes
+#    seedés, modules de banc autorisés) : relevé à part, avec sa propre provenance
+#    NF_BENCH_ROUTE=1 NF_ADMIN_PASSWORD=… NF_WITH_DEV_MODULES=1 NODE_OPTIONS=--expose-gc \
+#      npx nodefony production --detach --wait
+#    node .claude/skills/nodefony-load-test/scripts/capacity.mjs \
+#      --http-path /nodefony/kernel/bench --seconds 8 --json tmp/capacity.json
 # 3. rendre, et REGARDER la page avant de la publier
 node scripts/build-perf-site.mjs --out dist-perf-site
 ```
