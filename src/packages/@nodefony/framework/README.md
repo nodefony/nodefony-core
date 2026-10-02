@@ -6,7 +6,7 @@ sert **HTTP et WebSocket dans le même contexte**, nativement.
 
 > Docs IA (dans le dépôt) : [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/framework/CLAUDE.md) (instructions session) · [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/framework/MEMORY.md)
 > (internals concis) · [`docs/`](./docs) (concepts). `@nodefony/http` ne peut PAS importer
-> ce module (dépendance circulaire) — l'accès se fait via `(context as any)?.resolver`.
+> ce module (dépendance circulaire) — l'accès se fait via `context.resolver`, typé par le contrat `IRouteResolver` (défini par http, implémenté par framework).
 
 ## Rôle
 

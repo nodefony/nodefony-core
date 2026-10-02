@@ -259,7 +259,7 @@ curl -si -b /tmp/jar -X POST http://localhost:5151/api/books \
 # 4) Méthode non déclarée pour ce chemin → 405 avec l'agrégat des méthodes
 curl -si -X PUT http://localhost:5151/api/books/42 | head -2
 # HTTP/1.1 405 Method Not Allowed
-# Allow: GET, DELETE
+# Allow: GET, HEAD, DELETE
 ```
 
 ## 🧰 La table de référence — toute la surface décorateur
@@ -542,15 +542,16 @@ héritées de la classe.
 
 ### Cycle de la requête — session et anti-rejeu
 
-| Décorateur                           | Cible | Effet                                                                                                      | Ancre                             |
-| ------------------------------------ | ----- | ---------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `@UseSession({ readOnly?, eager? })` | dual  | Déclare le besoin d'une session serveur ; **méthode > classe** (`UseSession()`, `routerDecorators.ts:800`) | `@UseSession({ readOnly: true })` |
-| `@Idempotent({ required? })`         | dual  | Protège une mutation du double effet via `Idempotency-Key` (`Idempotent()`, `routerDecorators.ts:1171`)    | `@Idempotent()`                   |
+| Décorateur                   | Cible | Effet                                                                                                      | Ancre                             |
+| ---------------------------- | ----- | ---------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `@UseSession({ readOnly? })` | dual  | Déclare le besoin d'une session serveur ; **méthode > classe** (`UseSession()`, `routerDecorators.ts:800`) | `@UseSession({ readOnly: true })` |
+| `@Idempotent({ required? })` | dual  | Protège une mutation du double effet via `Idempotency-Key` (`Idempotent()`, `routerDecorators.ts:1171`)    | `@Idempotent()`                   |
 
 **`@UseSession` est la seule façon d'ouvrir une session** (avec un paramètre `@Session`, ou la reprise
 d'un cookie existant). Il n'existe plus de « démarrer partout » global : une route qui ne déclare rien
-ne coûte aucune lecture de stockage. Les deux options sont `readOnly` (lire sans jamais persister —
-zéro écriture) et `eager` (activer tôt, pour régénérer l'identifiant juste après une authentification).
+ne coûte aucune lecture de stockage. Une seule option : `readOnly` (lire sans jamais persister —
+zéro écriture). La régénération de l'identifiant après authentification est faite par le login
+(`AuthFlow`), pas par une option du décorateur.
 La forme exacte est celle de `SessionIntent` (`ISession.ts:18`).
 
 **`@Idempotent` est strict par défaut** : une mutation sans `Idempotency-Key` reçoit **400**. Le mode

@@ -504,9 +504,11 @@ WARNING  Port 5151 déjà occupé → HTTP écoute sur 5153.
 Le décalage est **toujours annoncé** (`server-http.ts:130`) : jamais de dégradation silencieuse. Trois
 détails d'implémentation valent d'être connus, parce qu'ils expliquent des comportements surprenants.
 
-1. **On retente au `listen()`, jamais après une sonde.** Demander « le port est-il libre ? » puis
-   binder est une course : entre la réponse et le bind, un autre processus peut prendre le port. Le
-   `listen()` est atomique — on retente donc sur l'échec réel (`bindWithFallback()`,
+1. **Le repli se décide au `listen()`, qui est atomique.** Une seule sonde le précède, sur le port
+   désiré : elle détecte un serveur déjà présent sur la boucle locale, que le noyau accorderait quand
+   même à un `0.0.0.0` (`detectPortConflict`). Elle est **sautée dans un worker de cluster**
+   (`cluster.isWorker`) : le port y est partagé par le maître, et le voisin qui répond est un frère,
+   pas un intrus. La course résiduelle retombe sur `EADDRINUSE` (`bindWithFallback()`,
    `portBinder.ts:263`).
 2. **Le port de l'autre serveur est réservé.** Si HTTP est chassé de 5151, incrémenter naïvement le
    ferait voler 5152 à HTTPS, qui se décalerait à son tour. Les ports convoités par les autres serveurs
@@ -526,7 +528,8 @@ Si le port peut glisser, alors « le serveur écoute sur 5151 » n'est plus une 
 convention — et `nodefony status`, `nodefony stop` ou l'attente de disponibilité sonderaient un port
 que personne n'écoute. `HttpKernel.publishRuntimePorts()` (`http-kernel.ts:1195`) écrit donc la
 topologie réelle (pid, ports obtenus, ports désirés) dans un fichier d'état, **dans tous les
-environnements** : une application qui déclare son port via `PORT` (PaaS) sort aussi de la convention,
+environnements** : une application qui déclare son port (`NF_PORT`, `NF_PORT_HTTPS` ou `servers.http.port`) sort
+aussi de la convention,
 même en `strict`. L'écriture est au mieux-effort — une image en lecture seule ne fait jamais tomber un
 serveur qui, lui, écoute très bien.
 

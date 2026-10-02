@@ -389,7 +389,7 @@ L'ajout se fait à la compilation de la route : aucun coût par requête.
 | Requête           | Réponse                                        |
 | ----------------- | ---------------------------------------------- |
 | `DELETE /book/42` | 200 — la 2ᵉ route accepte                      |
-| `PATCH /book/42`  | **405**, `Allow: GET, DELETE`                  |
+| `PATCH /book/42`  | **405**, `Allow: GET, HEAD, DELETE`            |
 | `GET /inexistant` | pas d'exception — repli statique, puis **404** |
 
 ### Situation 3 — une route réservée à un domaine
@@ -439,8 +439,9 @@ Déclarer `methods: ["GET", "WEBSOCKET"]` rend une action joignable par les deux
 que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.mountAll()` →
 `Router.createRoute()`, `AdminBroker.ts:125`). Deux conséquences :
 
-- **La pseudo-méthode `WEBSOCKET` apparaît dans l'agrégat `Allow`** d'un chemin duplex — décision
-  assumée : c'est un jeton d'extension légal, et il révèle la surface duplex de la ressource
+- **La pseudo-méthode `WEBSOCKET` n'apparaît jamais dans `Allow`** : ce n'est pas une méthode HTTP
+  (RFC 9110 §10.2.1), elle est retirée de l'agrégat. Un chemin qui n'existe qu'en WebSocket, appelé
+  en HTTP, répond `426 Upgrade Required` avec `Upgrade: websocket` plutôt qu'un 405
   (`routing-nonregression.test.ts:164`).
 - **Une invocation WS d'une mutation doit dire quelle méthode logique elle vise.** Sur une socket,
   `context.method` vaut toujours `WEBSOCKET` : insuffisant pour distinguer un GET d'un POST sur le même

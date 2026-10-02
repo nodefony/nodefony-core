@@ -125,8 +125,10 @@ se périmeraient en silence.
 ## ⚙️ Configuration
 
 Tout se déclare dans `nodefony.config.ts` via `use("@nodefony/http", { … })`. Les blocs Zod
-(`nodefony/config/config.ts`) couvrent : `servers` (ports, transport, TLS, HTTP/2), `session` et
-`cookie`, `trustProxy`, `certificates`, `upload`, le rate-limit et les fichiers statiques. Chaque page
+(`nodefony/config/config.ts`) couvrent : `http`, `https`, `http2` (transport, TLS), `websocket` / `websocketSecure`, `session`
+(dont `session.cookie`), `trustProxy` et `trustedHosts`, `certificates`, `upload` et `maxBodySize`,
+`rateLimit`, `health` et `statics`. La topologie (`servers` : ports, protocole, politique de port) est
+un bloc de la configuration d'application, pas de ce module. Chaque page
 de brique détaille son bloc et ses défauts réels.
 
 ## 📜 Normes appliquées

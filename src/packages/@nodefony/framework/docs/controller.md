@@ -363,9 +363,9 @@ Deux corollaires :
 - `this.getSession()` (`Controller.ts:657`) ne « démarre » rien : il retourne la session existante,
   ou `undefined`.
 
-Les messages flash s'appuient dessus : `setFlashBag()`/`addFlash()` (`Controller.ts:693`) et
-`getFlashBag()` (`Controller.ts:677`) journalisent une **erreur** et retournent `null` si aucune
-session n'est active — pas de crash, mais rien n'est mémorisé.
+Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts:677`)
+journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts:693`)
+retournent `null` sans rien journaliser — pas de crash, mais rien n'est mémorisé.
 
 ### Contrôleur singleton — le défaut : `this` n'est pas à toi
 

@@ -472,7 +472,7 @@ déjà Postgres mais pas Redis obtient la dédup cross-pod **sans nouvelle infra
   renvoie `fresh` (sans dédup), le reste est no-op.
 
 Le câblage est **automatique** : charger `@nodefony/drizzle` enregistre l'entité **et** la fabrique
-(`registerStores.ts:316`). Activation = `store: "drizzle"` (ou `NF_IDEMPOTENCY_STORE=drizzle`), rien
+(`registerStores.ts:316`). Activation = `store: "drizzle"` (ou `NF_STORE=drizzle`, qui force toutes les briques `auto`), rien
 d'autre à écrire.
 
 ### Le GC — armé pour un seul store

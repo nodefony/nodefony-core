@@ -6,7 +6,7 @@ pipeline de contexte/controller.
 
 > Docs IA (dans le dépôt) : [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/http/CLAUDE.md) · [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/http/MEMORY.md) · [`docs/`](./docs).
 > Règle dure : ce module ne peut PAS importer `@nodefony/framework` (cycle) — accès au resolver
-> via `(context as any)?.resolver`.
+> via `context.resolver`, typé par le contrat `IRouteResolver` que ce module définit.
 
 ## Serveurs
 
@@ -26,10 +26,12 @@ serveur → http-kernel.handle() → rate-limit IP → createContext()
    → Router.resolve()                (match avant le parse du body)
    → Firewall.applySecurityHeaders() → fallback statique si aucune route
    → parse du body
-   → handleFrontController() (Resolver.resolve → controller + initialize())
+   → prepareFrontController()        (route + zone armées, AUCUNE instanciation)
    → Firewall.enforceCsrf() → startSession() → Firewall.handleSecurity()
-   → action du controller → Response.send()
+   → @IsGranted → instanciation DI + initialize() → action du controller → Response.send()
 ```
+
+En WebSocket, le contrôleur est instancié au handshake (`handleFrontController()`), avant le pare-feu.
 
 Chaque contexte (HTTP + WS) porte un `requestId` (UUID v4, ou `X-Request-Id` client),
 réinjecté dans la réponse et corrélé dans les logs via AsyncLocalStorage.

@@ -74,7 +74,7 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
     "desc": "Une table ordonnée où le premier motif qui correspond gagne : l'arbitrage sans score de spécificité, la partition littéral/dynamique qui accélère sans changer la sémantique, le 405 et son en-tête Allow, les vhosts, le duplex HTTP+WebSocket sur un même chemin.",
     "meta": "deux routes se disputent, ou un 404/405 surprend" },
   { "icon": "🔁", "title": "idempotence", "href": "idempotence.md",
-    "desc": "@Idempotent, la clé d'idempotence, les trois stores et leurs capacités réelles, le GC des entrées expirées, et ce que le client observe quand il rejoue la même clé.",
+    "desc": "@Idempotent, la clé d'idempotence, les quatre stores (mémoire, Redis, SQL, MongoDB) et leurs capacités réelles, le GC des entrées expirées, et ce que le client observe quand il rejoue la même clé.",
     "meta": "paiement, commande, tout effet non rejouable" },
   { "icon": "🛡️", "title": "admin", "href": "admin.md",
     "desc": "Le data plane d'administration : comment un module déclare son API d'admin via AdminBroker, la convention de route /nodefony/<ns>/api/*, le RBAC fail-closed (ROLE_NODEFONY_ADMIN), le duplex HTTP/WebSocket, le catalogue et le Playground.",
