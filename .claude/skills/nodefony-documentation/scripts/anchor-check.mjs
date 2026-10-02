@@ -77,6 +77,13 @@ function resolveCandidates(ref, moduleRoot) {
     const suffix = allFiles.filter(
       (f) => f.endsWith(ref) || f.endsWith("/" + ref),
     );
+    // Même priorité au module de la page que pour un nom nu : sans elle,
+    // `config/config.ts:155` cité depuis http/docs se validait contre la
+    // config d'un AUTRE module, pourvu qu'une de ses lignes colle.
+    if (suffix.length > 1 && moduleRoot) {
+      const inModule = suffix.filter((f) => f.startsWith(moduleRoot));
+      if (inModule.length) return inModule;
+    }
     if (suffix.length) return suffix;
     // dernier recours : basename du chemin
     ref = path.basename(ref);
