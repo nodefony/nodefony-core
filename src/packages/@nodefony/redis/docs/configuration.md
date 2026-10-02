@@ -28,7 +28,7 @@ coverageModule: redis
 # Configuration de @nodefony/redis
 
 > Une seule question à trancher : **quelle machine Redis, et comment y entrer**. Tout le reste a un
-> défaut sûr. Cette page donne la liste complète des clés avec leur valeur d'usine réelle, les quatre
+> défaut sûr. Cette page donne la liste complète des clés avec leur valeur d'usine réelle, les cinq
 > variables d'environnement et l'ordre exact dans lequel elles gagnent, puis six situations de
 > déploiement — du poste de développement au service managé chiffré. Ce que le module fait _dedans_
 > avec ces valeurs (cycle des connexions, reconnexion, dégradation) est décrit par la page voisine,
@@ -391,7 +391,7 @@ connections: {
 
 ## Variables d'environnement et ordre de précédence
 
-### Les quatre variables lues
+### Les cinq variables lues
 
 Toutes sont appliquées **après** la validation, par `applyEnvOverrides()`
 (`defineModuleConfig.ts:23`).
@@ -402,6 +402,7 @@ Toutes sont appliquées **après** la validation, par `applyEnvOverrides()`
 | `NF_REDIS_HOST`                 | `globalOptions.socket.host` | Posée telle quelle, sans validation supplémentaire.                                                 |
 | `NF_REDIS_PORT`                 | `globalOptions.socket.port` | **Ignorée en silence** si ce n'est pas un entier de `1` à `65535`.                                  |
 | `NF_REDIS_PASSWORD`             | `globalOptions.password`    | Le seul chemin recommandé pour le secret : jamais dans un fichier versionné.                        |
+| `NF_REDIS_KEY_NAMESPACE`        | `keyNamespace`              | Prioritaire sur la config ; cloison de déploiement.                                                 |
 
 `REDIS_URL` est accepté comme **alias de plateforme** parce que c'est le nom que posent la plupart des
 hébergeurs. Quand les deux existent, la variable préfixée gagne — le préfixe `NF_` sert précisément à
@@ -686,8 +687,8 @@ C'est un défaut de configuration : rien à chercher côté réseau.
 même, en état dégradé annoncé. Chaque connexion est tentée indépendamment et journalisée en `ERROR`
 par `RedisService.init()` (`redis.ts:123`) : une connexion en échec n'empêche pas les suivantes.
 
-Ce que ce démarrage dégradé implique côté appelants — pourquoi le garde `if (!client)` des stores ne
-suffit pas après une ouverture ratée, ce que devient une commande pendant une reconnexion — est
+Ce que ce démarrage dégradé implique côté appelants — pourquoi le garde `if (!client)` des stores couvre
+aussi une ouverture ratée, ce que devient une commande pendant une reconnexion — est
 détaillé dans [Architecture interne](./architecture.md), section « Résilience ». C'est la lecture à
 faire avant une mise en production.
 
@@ -696,7 +697,7 @@ faire avant une mise en production.
 <!-- prettier-ignore -->
 | Symptôme | Cause | Correction |
 | --- | --- | --- |
-| Une clé de configuration n'a aucun effet, aucune erreur | Clé inconnue du schéma : la validation Zod **écarte** les clés qu'elle ne connaît pas | Vérifier l'orthographe dans les tables ci-dessus ; contrôler la cible effective (§ Démarrage rapide) |
+| Le démarrage échoue avec `configuration invalide — <chemin>` | Clé inconnue (faute de frappe) : le schéma est strict | Corriger l'orthographe d'après les tables ci-dessus |
 | L'hôte configuré est ignoré | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts:45`) ne pose plus host/port | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL |
 | `NF_REDIS_PORT` semble sans effet | Valeur non entière ou hors `1..65535` : `applyEnvOverrides()` (`defineModuleConfig.ts:24`) l'ignore | Corriger la valeur — l'ignorance est silencieuse par conception |
 | Toutes les connexions atterrissent sur la même base | L'URL porte un chemin (`…/2`) qui écrase le `database` de chaque connexion | Déclarer l'URL sans chemin et laisser `database` cloisonner |
@@ -707,7 +708,6 @@ faire avant une mise en production.
 | Le module démarre mais n'ouvre rien | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:123`)) | Le réactiver, ou retirer le module du manifeste |
 | Le formulaire Studio annonce `maxRetries: 0` en développement | Le JSON Schema décrit le schéma, pas la superposition d'exécution | Lire la configuration effective du service |
 | Une valeur changée à chaud ne prend pas | La configuration est **gelée** après le démarrage (`defineRedisConfig()` (`defineModuleConfig.ts:103`)) | Redémarrer le process |
-| L'auto-complétion ne propose aucune clé dans `use()` | Le module ne s'inscrit pas au registre de types des configurations de modules | S'appuyer sur les tables de cette page ; une clé fautive ne sera pas signalée à la compilation |
 
 ## 📡 Observabilité — Studio
 

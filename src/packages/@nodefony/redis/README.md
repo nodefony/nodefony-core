@@ -10,7 +10,7 @@ sessions, files d'attente, compteurs, verrous, pub/sub — c'est vous qui décid
 
 ## Installation
 
-Module workspace du monorepo Nodefony. Déclaré dans `@modules()` racine.
+Module workspace du monorepo Nodefony. Déclaré dans le manifeste `modules` de `nodefony.config.ts`.
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d   # Redis 7, password "nodefony-dev"
@@ -53,13 +53,14 @@ export default {
 
 ### Variables d'environnement
 
-| Variable            | Effet                                                    |
-| ------------------- | -------------------------------------------------------- |
-| `NF_REDIS_URL`      | URL complète `redis[s]://…` — **la forme qui l'emporte** |
-| `REDIS_URL`         | même effet, alias posé par les hébergeurs — lu en SECOND |
-| `NF_REDIS_HOST`     | hôte du serveur                                          |
-| `NF_REDIS_PORT`     | port (validé)                                            |
-| `NF_REDIS_PASSWORD` | mot de passe (jamais committé)                           |
+| Variable                 | Effet                                                    |
+| ------------------------ | -------------------------------------------------------- |
+| `NF_REDIS_URL`           | URL complète `redis[s]://…` — **la forme qui l'emporte** |
+| `REDIS_URL`              | même effet, alias posé par les hébergeurs — lu en SECOND |
+| `NF_REDIS_HOST`          | hôte du serveur                                          |
+| `NF_REDIS_PORT`          | port (validé)                                            |
+| `NF_REDIS_PASSWORD`      | mot de passe (jamais committé)                           |
+| `NF_REDIS_KEY_NAMESPACE` | cloison des clés de cette application (prioritaire)      |
 
 Si les deux URL sont posées, **`NF_REDIS_URL` gagne** : c'est votre réglage, il passe
 devant celui que la plateforme d'hébergement a injecté.
