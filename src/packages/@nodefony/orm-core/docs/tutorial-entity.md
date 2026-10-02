@@ -285,14 +285,15 @@ fichier, sans rien contourner.
 
 Deux conséquences du DDL dérivé au boot, à connaître dès maintenant :
 
-- la table est créée par un `CREATE TABLE IF NOT EXISTS` — **modifier le schéma n'altère pas une
-  table déjà créée** (aucun `ALTER` n'est émis) ;
-- les **index** déclarés et les `DEFAULT` **SQL** ne sont pas émis. D'où les défauts posés côté
-  JavaScript (`$defaultFn`), qui s'appliquent quoi qu'il arrive.
+- la table est créée par un `CREATE TABLE IF NOT EXISTS`, avec ses index et ses clés étrangères ;
+  au démarrage suivant, seule une colonne ajoutée qui **accepte le vide** est rattrapée — une colonne
+  obligatoire ne l'est jamais ;
+- les `DEFAULT` **SQL** ne sont pas émis. D'où les défauts posés côté JavaScript (`$defaultFn`), qui
+  s'appliquent quoi qu'il arrive.
 
 > [!TIP]
-> En développement, la façon la plus rapide de prendre en compte une colonne ajoutée est de
-> supprimer le fichier SQLite et de redémarrer. En production, cela relève d'une migration.
+> En développement, une colonne obligatoire ajoutée se prend en compte par `nodefony orm:reset`. En
+> production, cela relève d'une migration (`orm:generate`, puis `orm:migrate`).
 
 ### Étape 3 — déclarer l'entité
 
@@ -465,8 +466,8 @@ Sur une ligne dont on sait qu'elle **existe**, ils sont inutiles :
 
 ### Ce que le critère ne couvre pas
 
-Les `OR` logiques, les sous-requêtes, les agrégats et les jointures arbitraires n'en font pas
-partie. Ce n'est pas un oubli : c'est la limite de ce qui se porte d'un moteur SQL à MongoDB. La
+Les sous-requêtes, les agrégats et les jointures arbitraires n'en font pas partie (la disjonction,
+elle, s'exprime par `$or: [...]`). Ce n'est pas un oubli : c'est la limite de ce qui se porte d'un moteur SQL à MongoDB. La
 sortie est `IOrm.getNativeConnection()` (`IOrm.ts:51`), qui rend la connexion brute du driver.
 
 Un champ absent de l'entité lève `UnknownCriteriaField` (`errors.ts:23`), et le message liste les
@@ -530,8 +531,8 @@ d'administration, la primitive est `AbstractCrudService.findPage()` (`AbstractCr
 | `posts.update is not a function`                              | la méthode `update()` n'existe pas dans le contrat                                               | `updateOne` pour une ligne (`IRepository.ts:269`), `updateMany` pour un lot (`IRepository.ts:312`)       |
 | « no entity registered under "Post" » au premier appel        | le fichier d'entité est importé, mais `defineEntity()` est **sans effet de bord**                | ajouter l'entité à `@entities([...])` sur le module (`entitiesDecorator.ts:56`)                          |
 | La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec l'ouverture du connecteur                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:56`)                     |
-| Une colonne ajoutée au schéma reste absente de la table       | le DDL du boot est un `CREATE TABLE IF NOT EXISTS` : aucun `ALTER` n'est émis                    | supprimer la base de développement et redémarrer, ou passer par une migration                            |
-| Un `DEFAULT` SQL ou un index déclaré n'apparaît pas           | le DDL dérivé ne les émet pas                                                                    | poser le défaut côté JavaScript (`$defaultFn`) ; créer l'index par migration                             |
+| Une colonne ajoutée au schéma reste absente de la table       | colonne **obligatoire** : le rattrapage de développement n'ajoute que les colonnes facultatives  | `nodefony orm:reset` en développement, ou `orm:generate` puis `orm:migrate`                              |
+| Un `DEFAULT` SQL déclaré n'apparaît pas                       | le DDL dérivé ne l'émet pas                                                                      | poser le défaut côté JavaScript (`$defaultFn`)                                                           |
 | Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                        | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts:65`)                    |
 | `UnknownCriteriaField` sur un champ qui « existe pourtant »   | faute de frappe, ou champ calculé absent du schéma                                               | lire les champs connus dans le message ; pour du natif, passer par `getNativeConnection()`               |
 | `connector: "sqlite"` ne trouve aucune connexion              | `connector` nomme une **connexion**, pas un moteur                                               | mettre la clé de `connectors` (`"default"`) ; le moteur est le `dialect` de la config                    |

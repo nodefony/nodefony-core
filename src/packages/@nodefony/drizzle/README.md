@@ -4,14 +4,15 @@ Adapter [Drizzle ORM](https://orm.drizzle.team/) pour Nodefony, branché sur
 [`@nodefony/orm-core`](https://www.npmjs.com/package/@nodefony/orm-core). driver concret du socle multi-ORM (avec
 `@nodefony/mongoose`), **type-safe-first**.
 
-> Driver de référence : `better-sqlite3` (tests, embarqué). Pour Postgres/MySQL,
+> Driver SQLite : `better-sqlite3` (dépendance de pair optionnelle, à installer avec le dialecte
+> `sqlite`). Pour Postgres/MySQL,
 > changer le client et le constructeur de table (`pgTable`/`mysqlTable`) — le
 > contrat `IRepository` reste identique.
 
 ## Installation
 
 ```bash
-npm install @nodefony/drizzle@alpha drizzle-orm better-sqlite3
+npm install @nodefony/drizzle@beta drizzle-orm better-sqlite3
 ```
 
 ## Utilisation comme module Nodefony (bootable)
@@ -43,8 +44,8 @@ l'override générique `NF__DRIZZLE__<CHEMIN>`. Sans `filename`, un connecteur S
 Au runtime, l'ORM est récupérable via le registre :
 
 ```typescript
-import { OrmRegistry } from "@nodefony/orm-core";
-const orm = OrmRegistry.get("default");
+import { ormRegistry } from "@nodefony/orm-core";
+const orm = ormRegistry.get("default");
 const users = orm.getRepository("User");
 ```
 
@@ -83,7 +84,7 @@ const users = orm.getRepository<{ id: string; email: string; age: number }>(
 const u = await users.create({ email: "a@b.c", age: 30 });
 await users.findOne({ id: u.id });
 await users.find(); // tous
-await users.update({ id: u.id }, { age: 31 });
+await users.updateOne({ id: u.id }, { age: 31 });
 await users.delete({ id: u.id });
 await users.count();
 ```
@@ -101,7 +102,8 @@ await users.find({ age: { $ne: 30 } });
 await users.find({ email: { $like: "u2%" } }); // sémantique SQL (`%`, `_`)
 ```
 
-Opérateurs supportés : `$eq $ne $gt $gte $lt $lte $in $nin $like`. Une valeur nue
+Opérateurs supportés : `$eq $ne $gt $gte $lt $lte $in $nin $like $null`, et `$or` pour une
+disjonction. Une valeur nue
 (`{ email: "a@b.c" }`) = égalité.
 
 ## Relations & eager-load
@@ -153,7 +155,7 @@ const rows = db.all(sql`SELECT ... JOIN ...`);
 ## Notes
 
 - **Dev/test** : le schéma SQLite est créé automatiquement (DDL dérivé des tables).
-  **Production** : utiliser `drizzle-kit` pour les migrations.
+  **Production** : `nodefony orm:generate` puis `nodefony orm:migrate` (voir `docs/migrations.md`).
 - `better-sqlite3` est **synchrone** : les transactions sont pilotées manuellement
   (`BEGIN`/`COMMIT`/`ROLLBACK`) pour rester compatibles avec le contrat async.
 

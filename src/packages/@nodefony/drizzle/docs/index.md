@@ -200,7 +200,7 @@ Le tableau pour situer en cinq secondes ; les cards en dessous pour savoir où l
     "desc": "Ce qui reste identique (les noms de colonnes, le contrat du repository) et ce qui diverge, avec la raison : types epoch/date/JSON, absence de `RETURNING` en MySQL, `OFFSET` sans `LIMIT`.",
     "meta": "à lire avant de changer de base, pas après le premier incident" },
   { "icon": "🚧", "title": "migrations", "href": "#migrations--deux-chemins-un-seul-schéma",
-    "desc": "En développement, les tables sont créées au démarrage par un DDL dérivé de tes schémas. Ce DDL ne fait aucun `ALTER`, n'émet ni `DEFAULT` SQL ni index : la section dit ce que ça implique en production, et ce que le framework ne fournit pas encore.",
+    "desc": "En développement, les tables sont créées au démarrage par un DDL dérivé de tes schémas : index et clés étrangères compris, aucun `DEFAULT` SQL, et seules les colonnes facultatives ajoutées sont rattrapées. La section dit ce que ça implique en production.",
     "meta": "le point à ne pas rater avant le premier déploiement" }
 ]
 ```
@@ -353,13 +353,18 @@ importable et testable sans serveur.
 
 ### Les options
 
-| Option                    | Type                                | Défaut             | Effet                                                                  |
-| ------------------------- | ----------------------------------- | ------------------ | ---------------------------------------------------------------------- |
-| `connectors`              | `Record<string, Connector>`         | `{ default: {…} }` | Les connexions, indexées par nom (= clé du registre des ORM).          |
-| `connectors.<n>.dialect`  | `"sqlite" \| "postgres" \| "mysql"` | `"sqlite"`         | Choisit le driver (`better-sqlite3` / `pg` / `mysql2`).                |
-| `connectors.<n>.filename` | `string`                            | _résolu au boot_   | Fichier SQLite. `:memory:` = base éphémère. Ignoré hors `sqlite`.      |
-| `connectors.<n>.url`      | `string`                            | —                  | Chaîne de connexion `postgres://…` / `mysql://…`. **Porte un secret.** |
-| `frameworkEntities`       | `boolean`                           | `true`             | Déclare (ou non) le schéma des huit briques durables sur `default`.    |
+| Option                     | Type                                | Défaut              | Effet                                                                                                  |
+| -------------------------- | ----------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `connectors`               | `Record<string, Connector>`         | `{ default: {…} }`  | Les connexions, indexées par nom (= clé du registre des ORM).                                          |
+| `connectors.<n>.dialect`   | `"sqlite" \| "postgres" \| "mysql"` | `"sqlite"`          | Choisit le driver (`better-sqlite3` / `pg` / `mysql2`).                                                |
+| `connectors.<n>.filename`  | `string`                            | _résolu au boot_    | Fichier SQLite. `:memory:` = base éphémère. Ignoré hors `sqlite`.                                      |
+| `connectors.<n>.url`       | `string`                            | —                   | Chaîne de connexion `postgres://…` / `mysql://…`. **Porte un secret.**                                 |
+| `connectors.<n>.ddl`       | `"auto" \| "migrate" \| "none"`     | _par environnement_ | `auto` en développement et en test (`migrate` dès que l'app versionne une migration), `none` ailleurs. |
+| `migrations.dir`           | `string`                            | `"migrations"`      | Dossier des migrations versionnées.                                                                    |
+| `migrations.check`         | `"fail" \| "warn" \| "off"`         | _par environnement_ | Schéma en retard : `fail` retient `/readyz` (production), `warn` ailleurs.                             |
+| `migrations.lockTimeoutMs` | `number`                            | `30000`             | Attente du verrou de migration entre exemplaires.                                                      |
+| `migrations.divergence`    | `"report" \| "fail" \| "off"`       | `"report"`          | Conduite face à une migration appliquée qui a changé depuis.                                           |
+| `frameworkEntities`        | `boolean`                           | `true`              | Déclare (ou non) le schéma des huit briques durables sur `default`.                                    |
 
 Table dérivée de `drizzleConfigSchema` (`config.ts:136`) et de `SQL_DIALECTS` (`config.ts:37`).
 
@@ -426,14 +431,15 @@ requête métier (`#connectPostgres()`, `DrizzleOrm.ts:1206` · `#connectMysql()
 
 Trois dialectes au même contrat. Le tableau dit ce qu'il faut installer et ce qu'on obtient.
 
-| Dialecte   | Driver           | Statut du paquet           | Cible                                      | Configuration |
-| ---------- | ---------------- | -------------------------- | ------------------------------------------ | ------------- |
-| `sqlite`   | `better-sqlite3` | **dépendance** (fournie)   | développement, tests, production mono-nœud | `filename`    |
-| `postgres` | `pg`             | dépendance **optionnelle** | production multi-pod (recommandé)          | `url`         |
-| `mysql`    | `mysql2`         | dépendance **optionnelle** | production — **MySQL 8.4 et MariaDB 11.4** | `url`         |
+| Dialecte   | Driver           | Statut du paquet                   | Cible                                      | Configuration |
+| ---------- | ---------------- | ---------------------------------- | ------------------------------------------ | ------------- |
+| `sqlite`   | `better-sqlite3` | dépendance de pair **optionnelle** | développement, tests, production mono-nœud | `filename`    |
+| `postgres` | `pg`             | dépendance de pair **optionnelle** | production multi-pod (recommandé)          | `url`         |
+| `mysql`    | `mysql2`         | dépendance de pair **optionnelle** | production — **MySQL 8.4 et MariaDB 11.4** | `url`         |
 
-Les drivers réseau sont chargés **paresseusement** au moment de la connexion : une application SQLite
-ne paie ni l'installation ni le chargement de `pg`/`mysql2`.
+Les trois drivers sont des dépendances de pair optionnelles, posées par le scaffold pour le dialecte
+choisi et chargées **paresseusement** à la connexion : une application n'installe, et ne charge, que
+le pilote de son dialecte.
 
 ### Ce qui ne change pas
 
@@ -518,12 +524,17 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 ### Le DDL dérivé — comment les tables apparaissent
 
 Drizzle ne « synchronise » pas un schéma. L'adapter dérive lui-même un `CREATE TABLE IF NOT EXISTS`
-depuis chaque table déclarée (`#buildCreateTable()`, `DrizzleOrm.ts:509`) et l'exécute à la connexion.
-Trois conséquences à connaître **avant** de dépendre de ce mécanisme :
+depuis chaque table déclarée (`#buildCreateTable()`, `DrizzleOrm.ts:509`) et l'exécute à la connexion
+**quand le connecteur est en `ddl: "auto"`** — le défaut en développement et en test ; en production
+le défaut est `none`, et un travail extérieur lance `orm:migrate`. Trois conséquences à connaître
+**avant** de dépendre de ce mécanisme :
 
-1. il **crée**, il ne **modifie** pas — aucun `ALTER` n'est émis ;
-2. il n'émet **ni `DEFAULT` SQL ni index** — d'où la règle des défauts en `$defaultFn` ;
-3. il ne connaît que les colonnes, les clés primaires, `NOT NULL` et `UNIQUE`.
+1. il **crée** les tables, leurs index et leurs clés étrangères ; il ne rattrape ensuite que les
+   colonnes ajoutées qui **acceptent le vide** — jamais une colonne obligatoire, jamais une
+   suppression ;
+2. il n'émet **aucun `DEFAULT` SQL** — d'où la règle des défauts en `$defaultFn` ;
+3. pour tout le reste (renommer, rendre obligatoire, supprimer), c'est une migration
+   (`orm:generate`, `orm:migrate`).
 
 C'est un confort de développement, pas un outil de migration. La suite est dans
 [Migrations](#migrations--deux-chemins-un-seul-schéma).
@@ -570,8 +581,9 @@ lui-même en SQLite : le même critère ne rendait pas les mêmes lignes selon l
 Deux points de comportement qui évitent des surprises :
 
 - **« au plus une ligne »** est garanti par construction pour `updateOne`/`deleteOne`/`increment` :
-  la mutation est bornée par la clé primaire découverte de la table, jamais par un `LIMIT` sur un
-  `UPDATE` (`#pickOne()`, `DrizzleRepository.ts:324`). C'est ce qui rend ces verbes portables — MySQL
+  la mutation est bornée à une ligne : `WHERE <pk> = ?` quand le critère fixe toute la clé primaire,
+  sinon `WHERE pk IN (SELECT pk FROM (SELECT pk … LIMIT 1) AS picked)` — jamais un `LIMIT` sur
+  l'`UPDATE` lui-même (`#pickOne()`, `DrizzleRepository.ts:324`). C'est ce qui rend ces verbes portables — MySQL
   interdit la forme naïve.
 - **l'eager-load est manuel** : une requête `IN (…)` par relation déclarée, puis regroupement en
   mémoire (`#populate()`, `DrizzleRepository.ts:817`). Choix assumé — pas de couche de relations à
@@ -875,8 +887,7 @@ connexions. Les chiffres vivent dans la sortie du banc, pas ici — ils dépende
 | -------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Une écriture dans `transaction()` n'est pas annulée                  | repository obtenu par `getRepository()` → passe par le **pool**, hors tx   | `repo.withTransaction(tx)` — le seul moyen d'entrer dans la transaction   |
 | `NOT NULL constraint failed` sur une colonne pourtant « par défaut » | `.default()` SQL : le DDL dérivé ne l'émet pas                             | poser le défaut côté JS : `$defaultFn(() => …)`                           |
-| Colonne ajoutée, table inchangée                                     | le DDL dérivé **ne fait aucun `ALTER`**                                    | supprimer la base de dev, ou passer par `drizzle-kit`                     |
-| Index déclaré, absent en base                                        | les index ne sortent que via `drizzle-kit`                                 | migration `drizzle-kit` en production                                     |
+| Colonne **obligatoire** ajoutée, table inchangée                     | le rattrapage de développement n'ajoute que les colonnes facultatives      | `nodefony orm:reset` (dev), ou `orm:generate` puis `orm:migrate`          |
 | Le démarrage échoue sur le connecteur                                | infra déclarée injoignable → `BootConfigurationError` (voulu)              | corriger l'URL / démarrer la base / retirer le connecteur                 |
 | `cannot start a transaction within a transaction` (SQLite)           | deux `BEGIN` concurrents sur la connexion unique                           | rien à faire : la file d'attente interne les sérialise                    |
 | Une entité fonctionne en SQLite, échoue en PostgreSQL                | table Drizzle **figée** sur un dialecte, posée sur le connecteur `default` | fixer l'entité sur son propre connecteur SQLite, ou la porter au dialecte |
@@ -941,7 +952,7 @@ npm run test:load   # charge, limites, mémoire
 - 🧭 **L'abstraction au-dessus** : [`@nodefony/orm-core`](../../orm-core/docs/index.md) — contrats
   `IOrm`/`IRepository`/`ITransaction`, `Criteria` et opérateurs riches, registres. À lire pour tout ce
   qui est **portable** ; cette page-ci ne documente que le driver SQL.
-- 🗄️ **Déployer un schéma** : [Migrations de schéma](migrations.md) — les cinq commandes, le
+- 🗄️ **Déployer un schéma** : [Migrations de schéma](migrations.md) — les six commandes, le
   rattrapage de développement, le travail d'orchestrateur et l'expansion/contraction.
 - 📗 **Tutoriel** : [créer une entité pas à pas](../../orm-core/docs/tutorial-entity.md)
 - 🧩 **L'autre driver** : [`@nodefony/mongoose`](../../mongoose/docs/index.md) — même contrat, MongoDB.

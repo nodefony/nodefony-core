@@ -5,8 +5,8 @@ plusieurs ORM dans le même processus — par exemple Drizzle pour SQL et Mongoo
 derrière une API portable, avec une trappe vers le driver natif pour les cas que l'abstraction ne
 couvre pas.
 
-> Bibliothèque pure : ce module n'expose pas de classe `Module` et n'est pas listé dans
-> `@modules()`. Ce sont les **drivers** (`@nodefony/drizzle`, `@nodefony/mongoose`…) qui sont des
+> Bibliothèque pure : ce module n'expose pas de classe `Module` et n'est pas listé dans le
+> manifeste `modules` de `nodefony.config.ts`. Ce sont les **drivers** (`@nodefony/drizzle`, `@nodefony/mongoose`…) qui sont des
 > modules Nodefony et qui s'enregistrent eux-mêmes dans l'`OrmRegistry`.
 
 ## Quel ORM par défaut ?
@@ -36,13 +36,13 @@ d'imposer plusieurs ORM simultanés.
 
 ## Contrats exposés
 
-| Interface        | Rôle                                                                      |
-| ---------------- | ------------------------------------------------------------------------- |
-| `IOrm`           | Instance ORM (connexion logique) : `connect`, `repository`, `transaction` |
-| `IEntity<S,M>`   | Entité enregistrée : nom logique, connecteur cible, schéma, modèle natif  |
-| `IRepository<T>` | CRUD portable : `find`/`findOne`/`create`/`update`/`delete`/`count`       |
-| `ITransaction`   | Unité de travail : `commit`/`rollback`/`savepoint`/`rollbackTo`           |
-| `Criteria<T>`    | Filtre typé par champ et opérateurs riches ; `OrmCriteria` = échappatoire |
+| Interface        | Rôle                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `IOrm`           | Instance ORM (connexion logique) : `connect`, `getRepository`, `transaction`                              |
+| `IEntity<S,M>`   | Entité enregistrée : nom logique, connecteur cible, schéma, modèle natif                                  |
+| `IRepository<T>` | CRUD portable (15 verbes) : `find`/`findOne`/`create`/`updateOne`/`updateMany`/`upsert`/`delete`/`count`… |
+| `ITransaction`   | Unité de travail : `commit`/`rollback`/`savepoint`/`rollbackTo`                                           |
+| `Criteria<T>`    | Filtre typé par champ et opérateurs riches ; `OrmCriteria` = échappatoire                                 |
 
 ### Critères riches (opérateurs typés)
 
@@ -70,7 +70,7 @@ fenêtrage. C'est le garde-fou qui empêche l'abstraction de devenir un plafond.
 ## Exemple
 
 ```typescript
-import { OrmRegistry } from "@nodefony/orm-core";
+import { ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 
 interface User {
@@ -78,14 +78,16 @@ interface User {
   email: string;
 }
 
-const orm = OrmRegistry.get("db_principale");
+const orm = ormRegistry.get("db_principale");
 const users: IRepository<User> = orm.getRepository<User>("User");
 
 const created = await users.create({ email: "a@b.c" });
 const found = await users.findOne({ email: "a@b.c" });
 
 await orm.transaction(async (tx) => {
-  await users.update({ id: created.id }, { email: "x@y.z" });
+  await users
+    .withTransaction(tx)
+    .updateOne({ id: created.id }, { email: "x@y.z" });
   // validation automatique si la fonction résout, annulation si elle rejette
 });
 ```

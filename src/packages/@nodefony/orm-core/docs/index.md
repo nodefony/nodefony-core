@@ -540,8 +540,8 @@ raisonnement, et le compilateur la refuse.
 JSON ou un sous-document (`{ meta: { auteur: "…" } }`) reste donc une égalité — c'est ce qui évite
 qu'une donnée métier soit prise pour une requête.
 
-**Ce que le critère ne couvre pas** : les `OR` logiques, les sous-requêtes, les agrégats, les
-jointures arbitraires. Ce n'est pas un oubli — c'est la limite du portable, et la sortie est
+**Ce que le critère ne couvre pas** : les sous-requêtes, les agrégats, les jointures arbitraires
+(la disjonction, elle, s'exprime par `$or: [...]`, portable). Ce n'est pas un oubli — c'est la limite du portable, et la sortie est
 `getNativeConnection()`. L'erreur `UnknownCriteriaField` (`errors.ts:23`) le dit d'ailleurs
 explicitement dans son message, avec la liste des champs connus de l'entité (diagnostic d'une faute
 de frappe).
@@ -621,7 +621,7 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Transactions                           | oui                                 | oui (replica set requis par Mongo)           |
 | Savepoints (rollback partiel)          | oui                                 | non — refusés (`SavepointNotSupportedError`) |
 | Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1982`)          | oui (`MongooseOrm.ts:649`)                   |
-| Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                                   |
+| Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | oui — alimente `queryFlowMonitor`            |
 | Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1873`)          | oui (`MongooseOrm.ts:617`)                   |
 
 **Les « stores » du framework** : chaque adapter déclare ce qu'il porte dans son `package.json`, clé
@@ -691,19 +691,22 @@ rendent sûr en production :
   observe, et le débit par seconde est **dérivé côté lecteur** (delta entre deux relevés), donc rien
   n'est muté à la lecture.
 
-Le data plane `/nodefony/orm/api/*` (`createOrmAdminApi()`, `OrmAdminApi.ts:541`) expose huit points
+Le data plane `/nodefony/orm/api/*` (`createOrmAdminApi()`, `OrmAdminApi.ts:541`) expose onze points
 d'entrée, tous filtrables par `?connector=` :
 
-| Point d'entrée      | Ce qu'il rend                                                     |
-| ------------------- | ----------------------------------------------------------------- |
-| `orms`              | les connecteurs, leur état, leur nombre d'entités                 |
-| `entities`          | le modèle complet : colonnes + relations                          |
-| `entity/{name}`     | une entité (404 si inconnue)                                      |
-| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:227`)     |
-| `counts`            | le nombre de lignes par entité — un `COUNT(*)` par table          |
-| `connection/health` | état, latence, erreurs, reconnexions, sondes                      |
-| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:360`) |
-| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:395`) ou `jsonschema`         |
+| Point d'entrée      | Ce qu'il rend                                                      |
+| ------------------- | ------------------------------------------------------------------ |
+| `orms`              | les connecteurs, leur état, leur nombre d'entités                  |
+| `entities`          | le modèle complet : colonnes + relations                           |
+| `entity/{name}`     | une entité (404 si inconnue)                                       |
+| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:227`)      |
+| `counts`            | le nombre de lignes par entité — un `COUNT(*)` par table           |
+| `connection/health` | état, latence, erreurs, reconnexions, sondes                       |
+| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:360`)  |
+| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:395`) ou `jsonschema`          |
+| `migrations`        | l'état des migrations (même objet que `orm:migrate:status --json`) |
+| `migrations/plan`   | le SQL en attente                                                  |
+| `migrations/apply`  | applique les migrations (développement seulement)                  |
 
 Ce graphe canonique est **la pièce maîtresse**, pas le diagramme : c'est une donnée sérialisable qui
 sert à la fois l'ERD de Studio, un export vers un outil tiers, et le contexte d'un agent IA
@@ -743,7 +746,7 @@ deux, et pas de course).
 | Un objet de critère est pris pour une égalité (colonne JSON)  | comportement **voulu** : une valeur n'est un filtre que si **toutes** ses clés sont des opérateurs | c'est la protection ; pour filtrer dedans, passer au natif (`criteria.ts:42`)               |
 | `onOrmReady` ne part plus après un ajout dans l'adapter       | `connect()` a été surchargé                                                                        | surcharger `onConnect()` (`Orm.ts:363`), jamais `connect()`                                 |
 | Une entité déclarée dans un module reste invisible            | le module embarque sa **propre copie** du registre (singleton dédoublé)                            | externaliser `@nodefony/orm-core` dans le `rolldown.config.ts` du module                    |
-| Rien dans `flow` alors que la base travaille                  | la sonde est éteinte hors développement, ou le driver n'a pas de tap                               | `NF_ORM_FLOW=1` (`ormWiring.ts:96`) ; le tap n'est câblé que côté Drizzle                   |
+| Rien dans `flow` alors que la base travaille                  | la sonde est éteinte hors développement, ou le driver n'a pas de tap                               | `NF_ORM_FLOW=1` (`ormWiring.ts:96`) ; les deux drivers officiels ont un tap                 |
 
 ## 🧪 Tests & couverture
 
