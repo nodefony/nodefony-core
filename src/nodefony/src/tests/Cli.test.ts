@@ -726,6 +726,16 @@ describe("Cli — timers", () => {
     assert.throws(() => cli.stopTimer("unkn-timer"), /not exist/);
   });
 
+  it("stopTimer() sans nom → arrête TOUS les timers, sans lever", () => {
+    const cli = makeCli("timer-all");
+    cli.startTimer("a");
+    cli.startTimer("b");
+    // La branche « sans nom » arrêtait tout PUIS retombait sur la recherche
+    // du nom — `undefined in timers` étant faux, elle levait « not exist ».
+    assert.doesNotThrow(() => cli.stopTimer());
+    assert.deepEqual(Object.keys(cli.timers), []);
+  });
+
   it("startTimer puis re-stopTimer → throw", () => {
     const cli = makeCli("timer5");
     cli.startTimer("once");
@@ -745,20 +755,17 @@ describe("Cli — timers", () => {
     );
   });
 
-  it("stopTimer(null) → boucle sur les timers actifs PUIS throw (bug connu: pas de return après la boucle)", () => {
-    // Comportement réel : !name → entre dans la boucle, mais pas de return.
-    // Après la boucle, tombe dans le try avec null → throw "not exist"
+  it("stopTimer(null) → arrête les timers actifs, sans lever", () => {
     const cli = makeCli("timer7");
     cli.startTimer("a");
     cli.startTimer("b");
-    // La boucle arrête "a" et "b", mais ensuite throw car null not in timers
-    assert.throws(() => cli.stopTimer(null as any), /not exist/);
+    assert.doesNotThrow(() => cli.stopTimer(null));
+    assert.deepEqual(Object.keys(cli.timers), []);
   });
 
-  it("stopTimer(undefined) → throw (même comportement — undefined not in timers)", () => {
+  it("stopTimer(undefined) sans timer actif → ne lève pas", () => {
     const cli = makeCli("timer8");
-    // Pas de timer actif — !undefined → boucle vide, puis try: undefined not in {} → throw
-    assert.throws(() => cli.stopTimer(undefined as any), /not exist/);
+    assert.doesNotThrow(() => cli.stopTimer(undefined));
   });
 });
 

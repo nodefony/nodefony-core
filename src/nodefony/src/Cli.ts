@@ -996,11 +996,18 @@ class Cli extends Service {
     }
   }
 
-  stopTimer(name: string) {
+  /**
+   * Arrête un timer et affiche le temps écoulé ; sans nom, arrête tous les timers.
+   *
+   * @param name - timer à arrêter ; omis (ou vide) → tous les timers en cours
+   * @throws Quand `name` désigne un timer qui n'a pas été démarré
+   */
+  stopTimer(name?: string | null) {
     if (!name) {
       for (const timer of Object.keys(this.timers)) {
         this.stopTimer(timer);
       }
+      return;
     }
     try {
       if (name in this.timers) {

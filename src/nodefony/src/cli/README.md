@@ -183,7 +183,7 @@ cli.getCommand(name: string): Command | null
 ```typescript
 cli.checkVersion(v?: string | null): string    // throw si invalide (semver)
 cli.startTimer(name: string): void             // throw si doublon
-cli.stopTimer(name: string): void              // throw si inconnu; null/undefined → tout arrêter
+cli.stopTimer(name?: string | null): void      // throw si inconnu; omis/null → tout arrêter
 cli.setProcessTitle(name?: string): string     // lowercase, sans espaces
 cli.existsSync(path): boolean                  // throw si path falsy
 cli.getCommandManager(manager: string): string // "npm"|"yarn"|"pnpm"|"bun" — déprécié : portableSpawn()
