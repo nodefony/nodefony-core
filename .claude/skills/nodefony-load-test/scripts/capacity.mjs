@@ -754,7 +754,7 @@ if (R.ram.length) {
   );
   for (const r of R.ram)
     say(
-      `   ${r.label.padEnd(30)} ${(r.heapKB.toFixed(1) + " KB (R²" + r.heapR2.toFixed(2) + ")").padEnd(18)} ${r.rssKB === null ? "rejeté" : r.rssKB.toFixed(1) + " KB"} (R²${r.rssR2.toFixed(2)})`,
+      `   ${r.label.padEnd(30)} ${(r.heapKB.toFixed(1) + " KB (R²" + r.heapR2.toFixed(2) + ") " + spread(r)).padEnd(22)} ${r.rssKB === null ? "rejeté" : r.rssKB.toFixed(1) + " KB"} (R²${r.rssR2.toFixed(2)})`,
     );
   say("");
 }

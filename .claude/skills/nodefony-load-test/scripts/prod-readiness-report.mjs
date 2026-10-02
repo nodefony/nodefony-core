@@ -271,6 +271,12 @@ const capEchoClear = validOf(
   capacity?.ws?.find((w) => w.label.startsWith("ws ")),
 );
 const capFanout = validOf(capacity?.fanout);
+// La mesure TLS brute, même NON valide : on n'en publie pas la valeur, mais on
+// DIT qu'elle n'est pas publiable et pourquoi (étendue de ses runs).
+const rawRamTls = capacity?.ram?.find((r) => r.label.startsWith("wss")) ?? null;
+// La mémoire par socket retenue par le calculateur : la mesure TLS si elle est
+// valide, sinon celle du TLS terminé en amont — et la page dit laquelle.
+const ramForCalc = capRamTls ?? capRamClear;
 const capHttps = validOf(
   capacity?.http?.find((h) => h.label.startsWith("https")),
 );
@@ -842,6 +848,13 @@ const capaciteCards = [
     unit: "Ko",
     sub: `tas retenu, TLS terminé par Node${capRamClear ? ` · ${fmt.dec(capRamClear.heapKB, 1)} Ko si le TLS est terminé en amont` : ""}`,
   },
+  !capRamTls &&
+    capRamClear && {
+      k: "RAM par socket WebSocket",
+      v: fmt.dec(capRamClear.heapKB, 1),
+      unit: "Ko",
+      sub: `tas retenu, TLS terminé en amont${rawRamTls ? ` · TLS terminé par Node : non publiable (runs de ${fmt.dec(rawRamTls.min, 1)} à ${fmt.dec(rawRamTls.max, 1)} Ko)` : ""}`,
+    },
   capHttps && {
     k: "Latence à vide (HTTPS)",
     v: `${fmt.dec(capHttps.p50, 2)} / ${fmt.dec(capHttps.p95, 2)} / ${fmt.dec(capHttps.p99, 2)}`,
@@ -878,7 +891,7 @@ const capacite = section(
     ? `<p>Mesurées par <code>capacity.mjs</code> en <strong>${capacity.mode ?? "?"}</strong>, Node
        ${capacity.node ?? "?"}, commit <code>${capacity.headCommit ?? "?"}</code>, le
        ${capacity.measuredAt} : ${capacity.repeat} runs de ${capacity.params?.SECONDS ?? "?"} s par
-       constante, serveur saturé (ELU relevé pendant la charge). Une constante dont les runs
+       constante, messages WebSocket de ${fmt.int(capacity.params?.PAYLOAD ?? 0)} octets, serveur saturé (ELU relevé pendant la charge). Une constante dont les runs
        divergent de plus de ±${Math.round((capacity.params?.MAX_SPREAD ?? 0) * 50)} %, ou dont l'ELU n'a pas été relevé, n'est
        pas affichée. Le CPU du fil principal vient de la campagne de comparaison, pas de ce banc ;
        le débit HTTP d'un pod aussi — ce banc charge le serveur depuis un client Node, plus lent
@@ -888,11 +901,13 @@ const capacite = section(
          capEchoClear.observed < capEchoTls.observed
            ? `<p>L'écho WebSocket <strong>en clair</strong> sort plus lent qu'en TLS sur ce banc
        (${fmt.int(capEchoClear.observed)} contre ${fmt.int(capEchoTls.observed)} msg/s). Ce n'est pas un
-       gain du TLS, c'est un effet de ce micro-banc — messages de 5 octets, seize en vol par socket —
-       reproduit sur un serveur <code>ws</code> nu, sans Nodefony : le déchiffrement remet au
-       serveur des blocs d'environ <strong>7 messages par lecture</strong>, contre 2,5 en clair, où
-       chaque petit segment réveille le serveur presque seul. Le coût fixe d'une lecture domine.
-       Avec des messages de 4 Ko, le clair repasse devant (~45 000 contre ~40 000 msg/s, séries
+       gain du TLS : c'est la façon dont Node lit un trafic en rafale (ici ${capacity.params?.WINDOW}
+       messages en vol par socket), reproduite sur un serveur <code>ws</code> nu, sans Nodefony. Le
+       déchiffrement remet au serveur des blocs qui portent plusieurs messages ; en clair, chaque
+       segment le réveille presque seul — un appel système, un rappel, une analyse de trame. Mesuré
+       sur le serveur nu, en messages par lecture : <strong>6,8 contre 2,4</strong> à 5 octets,
+       <strong>5,4 contre 2,2</strong> à 1 Ko. Le coût fixe d'une lecture domine tant que les
+       messages sont petits ; à 4 Ko le clair repasse devant (~45 000 contre ~40 000 msg/s, séries
        séparées). Preuve rejouable : <code>ws-tls-batching.mjs</code>.</p>`
            : ""
        }`
@@ -936,7 +951,7 @@ const capacite = section(
       constants: {
         RPS_POD: Math.round(nf.med),
         RSS_BASE: Math.round(kept[kept.length - 1].rssMb),
-        WS_KB: capRamTls ? Math.round(capRamTls.heapKB * 10) / 10 : 0,
+        WS_KB: ramForCalc ? Math.round(ramForCalc.heapKB * 10) / 10 : 0,
       },
       compute: `(v, K) => {
         const util = Math.min(Math.max(v.marge, 10), 100) / 100;
@@ -962,7 +977,11 @@ const capacite = section(
       }`,
     }) +
     note(
-      `Le débit par pod (<strong>${fmt.int(nf.med)} req/s</strong>) vient du comparatif ci-dessus, mesuré
+      `${
+        ramForCalc && !capRamTls
+          ? `La mémoire par socket retenue est celle du TLS terminé en amont : la mesure avec TLS terminé par Node n'est pas publiable pour cette version. `
+          : ""
+      }Le débit par pod (<strong>${fmt.int(nf.med)} req/s</strong>) vient du comparatif ci-dessus, mesuré
        sur une route sans base de données. Une route qui lit et écrit une base — le banc applicatif,
        vingt lectures puis une écriture SQLite — descend à ~${fmt.int(applicative?.frameworks?.["nodefony-orm"]?.med ?? 0)} req/s sur ce même
        poste : c'est la base qui borne. Pour dimensionner un déploiement réel, refaire la mesure sur

@@ -14,9 +14,12 @@
  * ~2,5 en clair, et ~5,7 µs de boucle par message contre ~10,5. Le déchiffrement
  * remet des blocs qui portent plusieurs trames ; en clair chaque petit segment
  * réveille le serveur presque seul — un appel système, un rappel JS, une analyse
- * de trame pour 2,5 messages. Le coût FIXE par lecture domine sur des messages
- * de 5 octets : c'est un artefact du micro-banc, pas un gain du TLS. Sur des
- * messages réels, le chiffrement coûte et le clair reprend l'avantage.
+ * de trame pour 2,5 messages. Le coût FIXE par lecture domine tant que les
+ * messages sont petits : ce n'est pas un gain du TLS, c'est la lecture d'un
+ * trafic en rafale. Messages par lecture, TLS contre clair : 6,8 / 2,4 à
+ * 5 octets, 5,4 / 2,2 à 1 Ko (TLS encore devant, ~88 000 contre ~65-77 000
+ * msg/s) ; à 4 Ko le chiffrement coûte plus que le regroupement ne rapporte et
+ * le clair repasse devant (~45 000 contre ~40 000). Bascule entre 1 et 4 Ko.
  *
  * Usage (depuis la racine du dépôt) :
  *   node .claude/skills/nodefony-load-test/scripts/ws-tls-batching.mjs
