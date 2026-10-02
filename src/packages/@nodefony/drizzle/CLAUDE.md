@@ -123,7 +123,9 @@ Deux usages :
 - `better-sqlite3` = natif (compile via node-gyp) ; OK sur Node 26 (prebuild 12.x).
 - `db.query.*` (API relationnelle Drizzle) **non** utilisée → typage générique
   sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.
-- Colonne d'une table : `(table as unknown as Record<string,SQLiteColumn>)[name]`.
+- 🔴 Colonne d'une table par nom : `Object.hasOwn(getTableColumns(table), name)`, JAMAIS
+  `table[name]` — le nom vient souvent de la requête (`?sort=`) et `constructor`/`__proto__`
+  franchissaient la liste blanche (`#col`, banc `order-criteria.attack.test.ts`).
 - `OFFSET` SQLite exige un `LIMIT` → `limit(-1)` si seul l'offset est posé.
 - **Runner = Vitest** (migré de Mocha, cf `feedback_test_framework_vitest`).
   `vitest` vient de la **racine** ; tests en `globals:true` + `node:assert` (aucun import
