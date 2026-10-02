@@ -23,7 +23,6 @@ import {
   readdirSync,
   rmSync,
 } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fixDtsExtensions } from "./fix-dts-extensions.mjs";
 import {
@@ -258,17 +257,27 @@ console.log(
 const racines = [ROOT, ROOT.replaceAll("\\", "/")];
 const alertes = [];
 for (const [nom, tgz] of Object.entries(manifest)) {
-  const dossier = mkdtempSync(path.join(os.tmpdir(), "nf-pack-"));
+  // Extraction SOUS `release/tarballs/`, tous arguments RELATIFS (cwd) : sous
+  // Windows, un chemin absolu porte un `C:` que GNU tar (celui de Git Bash) lit
+  // comme `hôte:chemin`, et la forge range le dépôt sur `D:` quand le dossier
+  // temporaire est sur `C:` — aucun chemin relatif ne relie deux lecteurs.
+  const relatifDossier = path.relative(
+    OUT,
+    mkdtempSync(path.join(OUT, ".inspect-")),
+  );
+  const dossier = path.join(OUT, relatifDossier);
   try {
-    // Archive en nom RELATIF (cwd) : GNU tar — celui de Git Bash sous Windows —
-    // lit `C:\…` passé à `-f` comme `hôte:chemin` distant.
-    const x = spawnSync("tar", ["-xzf", tgz, "-C", dossier], {
+    const x = spawnSync("tar", ["-xzf", tgz, "-C", relatifDossier], {
       cwd: OUT,
       encoding: "utf8",
     });
     if (x.status !== 0) {
-      // Une inspection qui n'a pas eu lieu n'est jamais concluante.
-      alertes.push(`${nom} : extraction impossible — contenu NON inspecté`);
+      // Une inspection qui n'a pas eu lieu n'est jamais concluante — et elle
+      // dit POURQUOI, sinon la forge échoue sans diagnostic.
+      const cause = (x.stderr || x.error?.message || `code ${x.status}`).trim();
+      alertes.push(
+        `${nom} : extraction impossible (${cause}) — contenu NON inspecté`,
+      );
       continue;
     }
     for (const e of readdirSync(dossier, {
