@@ -1470,21 +1470,23 @@ sqlOnly(
   "Le geste du développeur après une entité : `orm:generate`. Sans lui, la " +
     "production démarre sur une base sans tables applicatives.",
   () => {
-    // 🔴 Le refus attendu, et son geste de sortie — les deux comptent.
+    // Deux réponses possibles du produit, et les deux comptent.
     //
-    // À ce point, la base de développement EXISTE et porte déjà les tables :
-    // toute commande de l'application démarre un kernel, et en développement le
-    // DDL `auto` matérialise le schéma. Demander alors la PREMIÈRE migration,
-    // c'est demander un « CREATE TABLE » de tables qui existent — la garde
-    // d'adoption le refuse, à raison : le fichier serait inapplicable, et
-    // l'adopter graverait un schéma que la base n'a pas.
+    // L'application générée VERSIONNE déjà une migration (`0000_init`, la
+    // table `User`) : en développement, le démarrage applique donc les
+    // migrations (`ddl: migrate`, `resolveDdlMode`) et ne dérive PAS les tables
+    // des entités créées depuis. La base n'a pas `posts`, et `orm:generate`
+    // ÉCRIT la première migration applicative (constaté en décor `--link`).
+    // L'appliquer est le geste du DÉPLOIEMENT, fait par l'étape production.
+    // ⚠️ Le décor isolé, lui, passe par la branche REFUS ci-dessous : les deux
+    // branches sont donc exercées, et l'étape production les suit toutes deux.
     //
-    // Ce banc ne contourne donc pas le refus : il le CONSTATE, puis fait le
-    // geste que le produit prescrit dans sa propre sortie. C'est le parcours
-    // réel d'un développeur qui a laissé le mode développement fabriquer sa
-    // base — et il vaut mieux que l'ancien, qui ne prouvait qu'une génération
-    // sur une base vide : ici, un refus qui n'offrirait pas d'issue ferait
-    // tomber l'étape.
+    // Si une base portait déjà ces tables (DDL `auto` écrit dans la config,
+    // ou base fabriquée avant la première migration), demander la première
+    // migration reviendrait à créer des tables qui existent — la garde
+    // d'adoption le refuse, à raison. Le banc ne contourne pas ce refus : il le
+    // CONSTATE, puis fait le geste que le produit prescrit dans sa propre
+    // sortie ; un refus qui n'offrirait pas d'issue ferait tomber l'étape.
     // `run` JETTE sur un code non nul — or ici l'échec est une réponse
     // possible du produit, pas une panne. On exécute donc à la main pour LIRE
     // le refus au lieu de le subir.
@@ -1764,6 +1766,25 @@ step(
     "n'y apparaît qu'au déploiement, quand plus personne ne regarde.",
   () => {
     const env = { NF_ADMIN_PASSWORD: MOT_DE_PASSE_POSE };
+    // 🔴 Les migrations AVANT les exemplaires — le patron de déploiement, celui
+    // du service `migrate` du `compose.yaml` généré : une étape à part, en
+    // production, qui se termine. La production n'applique RIEN elle-même
+    // (`ddl: none`) ; sans ce geste, `/api/posts` rend 500 sur `no such table`
+    // et l'étape tombe pour une raison de banc, masquant ce qu'elle garde.
+    // `NODE_ENV=production` n'est pas décoratif : en développement, le boot du
+    // kernel applique déjà les migrations (`ddl: migrate`) AVANT la commande,
+    // qui n'aurait alors plus rien à prouver.
+    if (!MONGO) {
+      const migre = run(process.execPath, [BIN, "orm:migrate"], APP, {
+        ...env,
+        NODE_ENV: "production",
+      });
+      if (!/\bapp\s+\d+ appliquées?\s+·\s+0 en attente/u.test(migre)) {
+        throw new Error(
+          `orm:migrate n'a pas mis l'application à jour — sortie :\n${migre}`,
+        );
+      }
+    }
     run(process.execPath, [BIN, "production", "--detach", "--wait"], APP, env);
     try {
       // `--wait` dit que le serveur écoute ; il ne dit pas qu'il RÉPOND. Le
