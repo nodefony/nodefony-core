@@ -9,7 +9,7 @@ tags:
   [tutoriel, demarrage, create-app, controller, entite, temps-reel, onboarding]
 version: "doc"
 status: stable
-updated: 2026-09-26
+updated: 2026-10-02
 source: "docs/tutoriels/premiere-application.md"
 tests: none
 ---
@@ -116,9 +116,14 @@ Teste le canal WebSocket (installe `wscat` si besoin : `npm i -g wscat`) :
 
 ```bash
 wscat -c ws://127.0.0.1:5151/api/echo
+< {"handshake":true}
 > bonjour
 < {"echo":"bonjour"}
 ```
+
+Le premier message arrive **sans que tu aies rien envoyé** : à l'ouverture de la connexion, la méthode
+est appelée une première fois sans message, et répond `{"handshake":true}`. Chaque message envoyé
+ensuite repasse par la même méthode.
 
 Le message repasse par le même contrôle d'accès que la requête HTTP. Tu n'as rien câblé de spécial :
 une méthode marquée `methods: ["WEBSOCKET"]` suffit.
@@ -229,26 +234,29 @@ en train de servir ».
 
 ## 6. Persister des données — une entité
 
-Pour stocker des données, il faut un module de base de données. Ajoute l'ORM par défaut (Drizzle,
-adossé à SQLite en développement) au tableau `modules` de `nodefony.config.ts` :
-
-```ts
-modules: [
-  "@nodefony/http",
-  "@nodefony/framework",
-  "@nodefony/drizzle", // ← l'ORM ; SQLite en dev, aucun serveur à installer
-],
-```
-
-Installe la dépendance, puis échafaude une entité `Article` avec deux champs — le scaffold génère la
-table, le service de validation, le controller CRUD et ses tests :
+Pour stocker des données, il faut un module de base de données. Installe l'ORM par défaut (Drizzle)
+et le pilote SQLite — l'ORM sert aussi PostgreSQL et MySQL, il n'impose donc aucun pilote :
 
 ```bash
-npm install
+npm install @nodefony/drizzle better-sqlite3
+```
+
+Puis ajoute une ligne au tableau `modules` de `nodefony.config.ts`, juste après le framework — garde
+les entrées déjà présentes :
+
+```ts
+    "@nodefony/framework",
+    "@nodefony/drizzle", // ← l'ORM ; SQLite en dev, aucun serveur à installer
+```
+
+Échafaude ensuite une entité `Article` avec deux champs — le scaffold génère la table, le service de
+validation, le controller CRUD et ses tests :
+
+```bash
 npx nodefony create entity Article title:string body:text --route /api/articles
 ```
 
-Relance le serveur (`npm run dev`) : au démarrage, la table `article` est créée
+Relance le serveur (`npm run dev`) : au démarrage, la table `articles` est créée
 (`CREATE TABLE IF NOT EXISTS`). Ton CRUD REST répond maintenant sur `/api/articles` :
 
 ```bash
@@ -270,12 +278,12 @@ Le même controller sert aussi ces lectures en **WebSocket** (les méthodes de l
 
 ## ⚠️ Pièges (les erreurs de début)
 
-| Symptôme                                     | Cause                                                                                              | Correction                                                                                                    |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `404` sur `/api/hello`                       | Serveur lancé depuis un sous-dossier (« projet fantôme »)                                          | Lance **depuis la racine** de `mon-app` (là où est `nodefony.config.ts`).                                     |
-| Une route ajoutée n'apparaît pas             | Le `dist/` est périmé                                                                              | Le superviseur reconstruit seul en dev ; sinon `npm run build` puis relance.                                  |
-| `create entity` refuse de s'exécuter         | aucun ORM dans le projet                                                                           | Ajoute `@nodefony/drizzle` (SQL) ou `@nodefony/mongoose` (MongoDB) à `modules` + `npm install`, puis relance. |
-| Les `curl` sur 5151 n'atteignent pas ton app | Une autre app tenait 5151 : en dev, Nodefony prend le port libre suivant et l'annonce au démarrage | Lire le port annoncé, ou `npx nodefony stop` sur l'autre app.                                                 |
+| Symptôme                                     | Cause                                                                                              | Correction                                                                                              |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `404` sur `/api/hello`                       | Serveur lancé depuis un sous-dossier (« projet fantôme »)                                          | Lance **depuis la racine** de `mon-app` (là où est `nodefony.config.ts`).                               |
+| Une route ajoutée n'apparaît pas             | Le `dist/` est périmé                                                                              | Le superviseur reconstruit seul en dev ; sinon `npm run build` puis relance.                            |
+| `create entity` refuse de s'exécuter         | aucun ORM dans le projet                                                                           | `npm install @nodefony/drizzle better-sqlite3`, ajoute `"@nodefony/drizzle"` à `modules`, puis relance. |
+| Les `curl` sur 5151 n'atteignent pas ton app | Une autre app tenait 5151 : en dev, Nodefony prend le port libre suivant et l'annonce au démarrage | Lire le port annoncé, ou `npx nodefony stop` sur l'autre app.                                           |
 
 ## 🔗 Pour aller plus loin
 
