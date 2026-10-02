@@ -230,7 +230,7 @@ RUN mkdir -p /srv/assets \
       --out /srv/nginx.conf \
  && grep -q "upstream nodefony" /srv/nginx.conf
 
-FROM nginx:1.27-alpine AS edge
+FROM nginx:1.30-alpine AS edge
 
 # Les chemins sont les MÊMES que dans l'étage qui a généré la configuration :
 # elle nomme `/srv/assets`, c'est donc là que l'arbre doit atterrir.

@@ -357,7 +357,7 @@ services:
   # ⚠️ Prérequis : `trustProxy` doit couvrir l'IP de la gateway Docker vue par
   # le serveur (cf README — sinon X-Forwarded-* ignorés et IP = la gateway).
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.30-alpine
     container_name: nodefony-nginx
     restart: unless-stopped
     profiles: ["proxy"]

@@ -11,7 +11,7 @@ du frontal ne sort que si tu le demandes explicitement.
 | ----------- | ------------------- | --------------------------------------------------------------------- | ----------------------------- |
 | `build`     | `node:24-alpine`    | Installe, compile, élague les dépendances de développement            | seulement son `/app`          |
 | `proxyconf` | hérite de `build`   | **Dérive** la configuration nginx et rassemble les fichiers statiques | non — étage intermédiaire     |
-| `edge`      | `nginx:1.27-alpine` | Le frontal, avec la configuration dérivée ci-dessus                   | non — cible séparée           |
+| `edge`      | `nginx:1.30-alpine` | Le frontal, avec la configuration dérivée ci-dessus                   | non — cible séparée           |
 | _(final)_   | `node:24-alpine`    | L'application en production                                           | **oui**                       |
 
 ```bash
