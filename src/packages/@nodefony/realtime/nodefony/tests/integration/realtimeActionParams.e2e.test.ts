@@ -68,7 +68,7 @@ class ChatRt extends RealtimeController {
 
   /** Une action n'a pas d'URL : `@Query` ne lit pas celle du handshake. */
   @RealtimeAction("chat:query")
-  query(@Query() query?: Record<string, unknown>) {
+  readQuery(@Query() query?: Record<string, unknown>) {
     return { query: query ?? null };
   }
 
@@ -87,7 +87,10 @@ const mkToken = (user: IAppUser = alice): IRealtimeToken => ({
   isAuthenticated: () => true,
   getRoles: () => ["ROLE_USER"],
   getScopes: () => [],
-  getAttribute: (name: string) => (name === "user" ? user : undefined),
+  // Signature générique imposée par le contrat `IRealtimeToken`.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
+  getAttribute: <T>(key: string) =>
+    (key === "user" ? user : undefined) as T | undefined,
 });
 
 describe("@RealtimeAction — paramètres décorés", () => {
