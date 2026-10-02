@@ -1241,6 +1241,9 @@ writeFileSync(
       rssMbPerMillionReq: tooShort ? null : +rssPerMreq.toFixed(3),
       observedMinutes: +observedMin.toFixed(1),
       amplitudeMb: +amplitude.toFixed(1),
+      // Le seuil sous lequel l'amplitude est du bruit de GC : publié avec la mesure,
+      // pour qu'un lecteur (rapport, page) n'ait pas à le recopier.
+      noiseMb: MIN_AMPLITUDE_MB,
       // `tronque` PRIME sur tout le reste : on ne peut pas acquitter (ni
       // condamner) sur un run qui n'a pas eu lieu.
       //

@@ -151,6 +151,12 @@ const paire1 = pairOf("express-fair", "nodefony");
 // d'une paire nommée, celui des médianes.
 const ratioRps = paire1 ? shareOfB(paire1) : (nf.med / ref.med) * 100;
 const deltaP99 = nf.medP99Ms - ref.medP99Ms;
+/**
+ * Un écart SIGNÉ, lisible : « +0,20 » ou « −0,20 ». Préfixer un `+` à la main
+ * rendait « +-0,20 » dès que Nodefony passait devant.
+ */
+const signed = (v, digits) =>
+  `${v < 0 ? "−" : "+"}${fmt.dec(Math.abs(v), digits)}`;
 
 // ── 2. soak ────────────────────────────────────────────────────────────────
 // Le soak est l'un des TROIS piliers de la question posée par cette page : sans lui,
@@ -233,6 +239,16 @@ const rssPts = kept.map((s) => ({ x: s.atSec, y: s.rssMb }));
 const rssSlopeAll = slopePerHour(rssPts);
 const rssSlopeLate = slopePerHour(rssPts.slice(Math.floor(rssPts.length / 2)));
 const isPlateau = rssSlopeAll > 5 && rssSlopeLate < rssSlopeAll / 3;
+// Run propre dont l'écart de RSS observé (première → dernière fenêtre retenue)
+// reste sous le bruit du GC : aucune pente à lire. Le seuil vient du soak
+// lui-même (`noiseMb`), jamais recopié ici. ⚠️ `amplitudeMb` est l'écart du TAS,
+// pas du RSS : ne pas les confondre.
+const rssDeltaMb = soak.rssKeptLastMb - soak.rssKeptFirstMb;
+const rssFlat =
+  soak.verdict === "clean" &&
+  Number.isFinite(soak.noiseMb) &&
+  Number.isFinite(rssDeltaMb) &&
+  Math.abs(rssDeltaMb) < soak.noiseMb;
 
 // ── 3. capacité (relevé console de capacity.mjs — pas de JSON produit) ────
 const CAP = {
@@ -280,17 +296,17 @@ const verdict = section(
   cards([
     {
       k: "Débit, à travail égal",
-      v: `${fmt.dec(ratioRps, 0)} %`,
+      v: `${fmt.dec(ratioRps, 1)} %`,
       sub: "du débit d'Express équipé des mêmes middlewares",
     },
     ...(nestPair
       ? [
           {
             k: "Face à NestJS équipé",
-            v: `${fmt.dec(shareOfB(nestPair), 0)} %`,
+            v: `${fmt.dec(shareOfB(nestPair), 1)} %`,
             sub: `du débit d'un NestJS qui fait le même travail${
               cpuRow
-                ? ` · CPU du fil par requête ×${fmt.dec(cpuRow.ratio, 2)}`
+                ? ` · CPU du fil par requête ×${fmt.dec(cpuRow.ratio, 3)}`
                 : ""
             }`,
           },
@@ -300,7 +316,7 @@ const verdict = section(
       k: "Latence p99",
       v: fmt.dec(nf.medP99Ms, 2),
       unit: "ms",
-      sub: `soit +${fmt.dec(deltaP99, 2)} ms face à cette même référence`,
+      sub: `soit ${signed(deltaP99, 2)} ms face à cette même référence`,
     },
     {
       k: "Fuite mémoire",
@@ -331,8 +347,15 @@ const verdict = section(
     `<p><strong>La performance n'est pas le point faible de Nodefony.</strong> À travail égal — c'est-à-dire
      face à un Express muni des mêmes middlewares (scope ALS, CORS, en-têtes de sécurité, contrôle CSRF,
      corrélation <code>traceparent</code>, zones de pare-feu) — le framework rend
-     <strong>${fmt.dec(ratioRps, 0)} %</strong> du débit pour <strong>+${fmt.dec(deltaP99, 2)} ms</strong>
-     de p99. L'écart avec un serveur nu ne mesure pas une lenteur : il mesure le travail que le serveur nu
+     <strong>${fmt.dec(ratioRps, 1)} %</strong> du débit pour <strong>${signed(deltaP99, 2)} ms</strong>
+     de p99${
+       nestPair
+         ? `, et <strong>${fmt.dec(shareOfB(nestPair), 1)} %</strong> de celui d'un NestJS qui fait le
+     même travail : la même zone, pour une résolution de banc de ${
+       nullPair ? fmt.dec(Math.abs(nullPair.rapportPct - 100), 0) : "3"
+     } %`
+         : ""
+     }. L'écart avec un serveur nu ne mesure pas une lenteur : il mesure le travail que le serveur nu
      ne fait pas.</p>
      <p>Sur ${Math.round(soak.observedMinutes ?? soak.minutes)} minutes de charge continue, ${
        tasMonte
@@ -453,7 +476,7 @@ const comparatif = section(
           `<strong>L'arbitre des écarts fins : le CPU du fil principal par requête</strong>, mesuré sans
        profileur en ${cpuThread.A?.length ?? 3} paires alternées face à NestJS équipé —
        ${fmt.dec(cpuRow.nodefony, 1)} µs contre ${fmt.dec(cpuRow["nest-fair"], 1)} µs, soit
-       <strong>×${fmt.dec(cpuRow.ratio, 2)}</strong> (${cpuRow.separated ? "séparé" : "non séparé"}).
+       <strong>×${fmt.dec(cpuRow.ratio, 3)}</strong> (${cpuRow.separated ? "séparé" : "non séparé"}).
        Le débit agrège le noyau, les autres fils et la machine ; cette grandeur ne garde que le
        travail que le framework impose au fil qui sert les requêtes, à moins de 1 % de dispersion.`,
         )
@@ -543,8 +566,12 @@ const orm = applicative
           note(
             `Le budget d'une requête passe de quelques dizaines de microsecondes (route triviale) à près
        d'une milliseconde : <strong>la base domine</strong>, et l'écart entre frameworks devient une
-       fraction de ce budget. Sur le POST invalide, aucune base n'est touchée — c'est la validation et
-       la sérialisation de l'erreur qui sont comparées. À débit égal le p99 suit le débit : à
+       fraction de ce budget.${
+         nestOrm.some((c) => c.id === "post-422")
+           ? ` Sur le POST invalide, aucune base n'est touchée — c'est la validation et
+       la sérialisation de l'erreur qui sont comparées.`
+           : ""
+       } À débit égal le p99 suit le débit : à
        25 connexions fixes, la latence est inversement proportionnelle au débit.`,
           ),
       );
@@ -753,16 +780,26 @@ const tenue = section(
         // confirmé, et les deux libellés se lisaient pareil. Quand on frôle le seuil
         // — ici 8,16 contre 8,10 MB/h, 0,7 % d'écart — le rendu le DIT, plutôt que de
         // trancher dans un sens ou dans l'autre sur du bruit.
-        sub: isPlateau
-          ? "plateau confirmé"
-          : rssSlopeLate < rssSlopeAll / 2.5
-            ? `palier NON confirmé — ${fmt.dec(rssSlopeLate, 1)} MB/h en seconde moitié, tout près du seuil`
-            : "monte encore — à observer plus longtemps",
+        // Un run propre dont l'écart total tient sous le bruit du ramasse-miettes
+        // n'a pas de pente à lire : « monte encore » y affirmait une montée de
+        // 0,4 MB sur 88 minutes.
+        sub: rssFlat
+          ? `plat — ${fmt.dec(rssDeltaMb, 1)} MB d'écart, sous le bruit du ramasse-miettes (${fmt.dec(soak.noiseMb, 0)} MB)`
+          : isPlateau
+            ? "plateau confirmé"
+            : rssSlopeLate < rssSlopeAll / 2.5
+              ? `palier NON confirmé — ${fmt.dec(rssSlopeLate, 1)} MB/h en seconde moitié, tout près du seuil`
+              : "monte encore — à observer plus longtemps",
       },
       {
         k: "Dérive du débit",
         v: `${soak.rpsDriftPct >= 0 ? "+" : ""}${fmt.dec(soak.rpsDriftPct, 1)} %`,
-        sub: "il monte — aucune érosion",
+        sub:
+          soak.rpsDriftPct >= 1
+            ? "il monte — aucune érosion"
+            : soak.rpsDriftPct > -1
+              ? "stable — aucune érosion"
+              : "il baisse — à examiner",
       },
       {
         k: "p99 sur la durée",
@@ -772,11 +809,18 @@ const tenue = section(
       },
     ]) +
     note(
-      `<strong>Le RSS monte, et c'est normal.</strong> Le tas, lui, est plat : aucun objet JavaScript
+      rssFlat
+        ? `<strong>Rien ne monte.</strong> Le tas est plat (${fmt.dec(soak.amplitudeMb, 1)} MB d'écart), le RSS
+       aussi : ${fmt.dec(rssDeltaMb, 1)} MB d'écart en ${Math.round(soak.observedMinutes ?? soak.minutes)} minutes, soit
+       ${fmt.dec(soak.rssMbPerMillionReq, 3)} MB par million de requêtes servies — la grandeur qui se
+       compare d'une machine à l'autre, contrairement aux MB/h, qui suivent le débit.`
+        : `<strong>Le RSS monte, et c'est normal.</strong> Le tas, lui, est plat : aucun objet JavaScript
        n'est retenu. Un RSS qui croît puis se stabilise, c'est l'allocateur qui ne rend pas ses arènes au
-       système. La distinction se fait en découpant la série : la pente s'effondre sur la seconde moitié
-       (${fmt.dec(rssSlopeLate, 1)} MB/h contre ${fmt.dec(rssSlopeAll, 1)} MB/h globalement). Une vraie fuite garde sa pente jusqu'au
-       bout — c'est ce qui la définit.`,
+       système. La distinction se fait en découpant la série : ${
+         rssSlopeLate < rssSlopeAll / 2.5
+           ? `la pente s'effondre sur la seconde moitié (${fmt.dec(rssSlopeLate, 1)} MB/h contre ${fmt.dec(rssSlopeAll, 1)} MB/h globalement)`
+           : `ici elle ne s'effondre pas sur la seconde moitié (${fmt.dec(rssSlopeLate, 1)} MB/h contre ${fmt.dec(rssSlopeAll, 1)} MB/h globalement) : à observer plus longtemps`
+       }. Une vraie fuite garde sa pente jusqu'au bout — c'est ce qui la définit.`,
     ),
 );
 
@@ -788,7 +832,7 @@ const capacite = section(
     cards([
       {
         k: "Latence à charge modérée",
-        v: `${CAP.p50} / ${CAP.p95} / ${CAP.p99}`,
+        v: `${fmt.dec(CAP.p50, 2)} / ${fmt.dec(CAP.p95, 2)} / ${fmt.dec(CAP.p99, 2)}`,
         unit: "ms",
         sub: "p50 / p95 / p99",
       },
@@ -800,7 +844,7 @@ const capacite = section(
       },
       {
         k: "RAM par socket WS",
-        v: CAP.wsRamKb,
+        v: fmt.dec(CAP.wsRamKb, 1),
         unit: "KB",
         sub: "TLS terminé par Node",
       },
@@ -874,10 +918,10 @@ const capacite = section(
     }) +
     note(
       `Le débit par pod (<strong>${fmt.int(nf.med)} req/s</strong>) vient du comparatif ci-dessus, mesuré
-       sur une route sans base de données. Une route qui interroge PostgreSQL descend autour de
-       1 400–1 600 req/s sur ce même poste — mais derrière Docker Desktop, dont le surcoût de
-       virtualisation mesuré est d'un facteur 3,7. Pour dimensionner un déploiement réel, refaire la
-       mesure sur la cible.`,
+       sur une route sans base de données. Une route qui lit et écrit une base — le banc applicatif,
+       vingt lectures puis une écriture SQLite — descend à ~${fmt.int(applicative?.frameworks?.["nodefony-orm"]?.med ?? 0)} req/s sur ce même
+       poste : c'est la base qui borne. Pour dimensionner un déploiement réel, refaire la mesure sur
+       la cible, avec sa base.`,
     ),
 );
 
@@ -891,7 +935,7 @@ const limites = section(
            grossières. Une fuite lente — quelques mégaoctets par heure — resterait invisible ici et
            tuerait un pod au bout d'une semaine.</li>
        <li><strong>Aucune valeur ABSOLUE n'est transposable.</strong> Poste de développement, macOS,
-           ${cpus} cœurs logiques, base de données derrière Docker Desktop. Les comparaisons
+           ${cpus} cœurs logiques, base SQLite dans le processus. Les comparaisons
            <em>à l'intérieur</em> de cette page sont valides (même décor des deux côtés) ; les chiffres
            bruts, non.</li>
        <li><strong>Le multi-pod sous trafic réel n'est pas couvert ici</strong> — fan-out entre pods,
