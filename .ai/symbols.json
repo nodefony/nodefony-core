@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 888,
-    "symbols": 4455,
+    "symbols": 4456,
     "classes": 405,
     "interfaces": 1161,
     "types": 475,
     "enums": 4,
-    "functions": 1961,
+    "functions": 1962,
     "constants": 449
   },
   "symbols": {
@@ -12446,6 +12446,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit `--inspect[-brk][=[hôte:]port]` dans les arguments de la commande — et non dans ceux de `node`. Pourquoi une option de NODEFONY : un `--inspect` posé pour `node` (ou dans `NODE_OPTIONS`) est pr…"
+    },
+    "isLoopbackHost": {
+      "name": "isLoopbackHost",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devInspector.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Dit si une interface d'écoute reste sur la boucle locale. 🔴 Un inspecteur joignable depuis le réseau EXÉCUTE le code de quiconque s'y connecte (le protocole permet `Runtime.evaluate`) : hors boucl…"
     },
     "openDevInspector": {
       "name": "openDevInspector",
@@ -35958,6 +35966,9 @@
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "enableDevSourceMaps": [
+        "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
+      "isLoopbackHost": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "openDevInspector": [

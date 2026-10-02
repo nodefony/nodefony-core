@@ -31,11 +31,19 @@ const INSPECT_ARG = /^--inspect(-brk)?(?:=(.*))?$/u;
 export function parseInspectArgs(
   args: readonly string[],
 ): IDevInspectRequest | null {
-  for (const arg of args) {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] ?? "";
     const m = INSPECT_ARG.exec(arg);
     if (!m) continue;
     const wait = m[1] === "-brk";
-    const value = m[2];
+    let value = m[2];
+    // Forme à ESPACE — celle que l'aide annonce (`--inspect [host:port]`) : la
+    // valeur suit, sauf si c'est une autre option. Sans ceci elle était JETÉE en
+    // silence et le débogueur s'ouvrait ailleurs que demandé.
+    const next = args[i + 1];
+    if (value === undefined && next !== undefined && !next.startsWith("-")) {
+      value = next;
+    }
     if (value === undefined || value === "") {
       return { host: DEFAULT_HOST, port: DEFAULT_PORT, wait };
     }
@@ -56,6 +64,21 @@ export function parseInspectArgs(
     return { host, port, wait };
   }
   return null;
+}
+
+/**
+ * Dit si une interface d'écoute reste sur la boucle locale.
+ *
+ * 🔴 Un inspecteur joignable depuis le réseau EXÉCUTE le code de quiconque s'y
+ * connecte (le protocole permet `Runtime.evaluate`) : hors boucle locale, il
+ * faut le dire à voix haute. Pur : l'appelant décide quoi afficher.
+ *
+ * @param host - hôte demandé (`127.0.0.1`, `::1`, `0.0.0.0`…).
+ * @returns `true` si seule la machine locale peut joindre l'inspecteur.
+ */
+export function isLoopbackHost(host: string): boolean {
+  const h = host.replace(/^\[(.*)\]$/u, "$1").toLowerCase();
+  return h === "localhost" || h === "::1" || /^127\.\d+\.\d+\.\d+$/u.test(h);
 }
 
 /**

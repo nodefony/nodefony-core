@@ -4,6 +4,7 @@ import Kernel from "../Kernel";
 import BootReporter from "../../service/dev/BootReporter";
 import { enableDevSourceMaps } from "../../service/dev/sourceMaps";
 import {
+  isLoopbackHost,
   openDevInspector,
   parseInspectArgs,
   type IDevInspectRequest,
@@ -116,6 +117,14 @@ class Dev extends Command {
     const inspect = parseInspectArgs(process.argv) ?? this.defaultInspect();
     if (inspect) {
       const opened = openDevInspector(inspect);
+      if (opened.supported && !isLoopbackHost(inspect.host)) {
+        // Sur stderr, sans condition de verbosité : ce n'est pas un détail.
+        process.stderr.write(
+          `⚠️  [debug] débogueur EXPOSÉ sur ${inspect.host}:${inspect.port} — ` +
+            `quiconque joint ce port exécute du code dans le serveur. ` +
+            `À réserver à un conteneur dont le port n'est publié que sur 127.0.0.1.\n`,
+        );
+      }
       if (opened.supported) this.onInspectorOpened(opened.url);
       else this.log(`débogueur non ouvert : ${opened.reason}`, "WARNING");
     }
