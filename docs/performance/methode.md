@@ -1,7 +1,7 @@
 ---
 title: "Méthode de mesure — comment un chiffre devient une mesure"
 navTitle: Méthode de mesure
-updated: 2026-09-14
+updated: 2026-10-02
 lang: fr
 module: "global"
 topic: perf-methode
@@ -83,12 +83,12 @@ Commun à toutes les mesures du dossier :
 Et ce qui **change d'une famille de bancs à l'autre** — parce qu'une comparaison ne vit qu'à
 l'intérieur d'une famille :
 
-| Famille de bancs                         | Node     | Charge                                  | Cible                                                      |
-| ---------------------------------------- | -------- | --------------------------------------- | ---------------------------------------------------------- |
-| Comparatif publié — route triviale       | v26.10.0 | `-c64`, échauffement 20 s, 3 × 10 s     | `/nodefony/test/als-test/state`, répliquée par chaque camp |
-| Comparatif publié — base de données      | v26.10.0 | `-c25`, échauffement 20 s, 3 × 60 s     | routes `bench-orm`, 10 000 factures SQLite                 |
-| CPU du fil principal par requête         | v26.10.0 | `-c64`, 3 paires alternées              | même route triviale, face à NestJS équipé                  |
-| Historique — lots du pipeline, escalier  | v26.5 à 26.8 | `-c128` ou `-c25`, 7 à 10 s         | cible de banc du framework, routes ORM                     |
+| Famille de bancs                        | Node         | Charge                              | Cible                                                      |
+| --------------------------------------- | ------------ | ----------------------------------- | ---------------------------------------------------------- |
+| Comparatif publié — route triviale      | v26.10.0     | `-c64`, échauffement 20 s, 3 × 10 s | `/nodefony/test/als-test/state`, répliquée par chaque camp |
+| Comparatif publié — base de données     | v26.10.0     | `-c25`, échauffement 20 s, 3 × 60 s | routes `bench-orm`, 10 000 factures SQLite                 |
+| CPU du fil principal par requête        | v26.10.0     | `-c64`, 3 paires alternées          | même route triviale, face à NestJS équipé                  |
+| Historique — lots du pipeline, escalier | v26.5 à 26.8 | `-c128` ou `-c25`, 7 à 10 s         | cible de banc du framework, routes ORM                     |
 
 Les deux premières lignes sont celles de la [page publiée](index.md) : même machine, même version
 de Node, même commit, même campagne. La dernière couvre les chapitres historiques
@@ -191,10 +191,10 @@ Il ne garde que le travail que le framework impose au fil qui sert les requêtes
 autres fils, la machine sortent de la mesure. Sa dispersion reste sous 1 %, là où le débit flotte
 de 3 %. Il se joue lui aussi en paires alternées, et deux gardes le complètent :
 
-| Garde                     | Ce qu'elle refuse                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Garde                     | Ce qu'elle refuse                                                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | **Décor** (`decor-probe`) | un serveur dont le module de test écoute un point d'extension du chemin de requête — coût que l'application réelle ne paie pas |
-| **Préemption**            | un run qui a subi plus de deux fois les changements de contexte involontaires du run le plus calme de son camp |
+| **Préemption**            | un run qui a subi plus de deux fois les changements de contexte involontaires du run le plus calme de son camp                 |
 
 Ce n'est pas `process.cpuUsage()`, qui compte **tous** les fils (voir
 [les instruments faux](#les-quatre-instruments-faux--une-seule-question)).
@@ -580,56 +580,56 @@ n'est pas « c'est plus rapide » mais « ça ne sérialise pas ».
 Tous versionnés dans `.claude/skills/nodefony-load-test/`. Chacun répond à **une** question ; le
 prendre pour un autre est la façon la plus courante de produire un chiffre faux.
 
-| Instrument                         | La question à laquelle il répond                                                  | Ce qu'il ne dit pas                                     |
-| ---------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `bench-pairs.sh`                   | A est-il plus rapide que B, et l'écart dépasse-t-il le bruit ?                    | où part la différence                                   |
-| `fair-parity.mjs`                  | les deux camps rendent-ils le même travail observable ?                           | combien ce travail coûte                                |
-| `wait-compare.sh` + `wait-probe.mjs` | combien de CPU du fil principal chaque camp paie-t-il par requête ?             | dans quelle fonction                                    |
-| `wait-analyze.mjs`                 | relit les fenêtres de la sonde : médianes par camp, écart, séparation, préemption | —                                                       |
-| `native-sample.mjs`                | qui paie le temps natif, imputé à la fonction JavaScript appelante (macOS)        | un coût fiable sous la microseconde                     |
-| `cut-probe.mjs` · `cut-analyze.mjs` | combien coûte chaque étage du pipeline (bissection par court-circuit)            | le détail à l'intérieur d'un étage                      |
-| `span-probe.mjs` · `span-run.sh`   | combien dure un bloc précis, chronométré dans le serveur réel                     | l'écart avec le témoin, qu'il ne mesure pas             |
-| `profile-compare.sh`               | où le JavaScript de chaque camp passe son temps (profil V8 comparé)              | le temps natif et noyau — désigne, ne pèse pas          |
-| `soak.mjs`                         | le processus accumule-t-il quelque chose sur la durée ?                           | ce qui se passerait au-delà de la durée jouée           |
-| `perf-campaign.sh`                 | joue toute la campagne publiée, rejoue une paire refusée, s'arrête si la parité casse | —                                                   |
-| `perf-compose.mjs`                 | compose le fichier publié depuis les séries brutes, avec la provenance du journal | le récit, qui reste un geste d'auteur                   |
+| Instrument                           | La question à laquelle il répond                                                      | Ce qu'il ne dit pas                            |
+| ------------------------------------ | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `bench-pairs.sh`                     | A est-il plus rapide que B, et l'écart dépasse-t-il le bruit ?                        | où part la différence                          |
+| `fair-parity.mjs`                    | les deux camps rendent-ils le même travail observable ?                               | combien ce travail coûte                       |
+| `wait-compare.sh` + `wait-probe.mjs` | combien de CPU du fil principal chaque camp paie-t-il par requête ?                   | dans quelle fonction                           |
+| `wait-analyze.mjs`                   | relit les fenêtres de la sonde : médianes par camp, écart, séparation, préemption     | —                                              |
+| `native-sample.mjs`                  | qui paie le temps natif, imputé à la fonction JavaScript appelante (macOS)            | un coût fiable sous la microseconde            |
+| `cut-probe.mjs` · `cut-analyze.mjs`  | combien coûte chaque étage du pipeline (bissection par court-circuit)                 | le détail à l'intérieur d'un étage             |
+| `span-probe.mjs` · `span-run.sh`     | combien dure un bloc précis, chronométré dans le serveur réel                         | l'écart avec le témoin, qu'il ne mesure pas    |
+| `profile-compare.sh`                 | où le JavaScript de chaque camp passe son temps (profil V8 comparé)                   | le temps natif et noyau — désigne, ne pèse pas |
+| `soak.mjs`                           | le processus accumule-t-il quelque chose sur la durée ?                               | ce qui se passerait au-delà de la durée jouée  |
+| `perf-campaign.sh`                   | joue toute la campagne publiée, rejoue une paire refusée, s'arrête si la parité casse | —                                              |
+| `perf-compose.mjs`                   | compose le fichier publié depuis les séries brutes, avec la provenance du journal     | le récit, qui reste un geste d'auteur          |
 
 ## Lexique
 
-| Terme                              | Ce qu'il désigne ici                                                                                                                                              |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **RPS**                            | Requêtes servies par seconde, succès uniquement. Toujours accompagné de son décor.                                                                                |
-| **µs/req**                         | Budget d'une requête, soit `1 000 000 / RPS`. C'est la grandeur qu'on additionne et qu'on décompose ; le RPS, non.                                                |
-| **p50 / p99**                      | Latences médiane et au 99ᵉ centile. Le p99 dit ce que subit la requête malchanceuse — il révèle la sérialisation là où la moyenne la cache.                       |
-| **Dispersion**                     | `(max − min) / médiane` sur les runs d'une série. Au-delà de 3 %, la série ne tranche rien.                                                                       |
-| **Séparation**                     | Les deux séries d'un camp toutes deux au-dessus des deux séries de l'autre. Sans elle, un écart de médianes ne classe rien.                                       |
-| **Concordance inter-séries**       | Écart entre les médianes de deux séries indépendantes. Critère de repli quand la dispersion intra-série est structurellement impassable.                          |
-| **Niveau thermique**               | `machdep.xcpm.cpu_thermal_level` sur macOS — indicateur du bridage en cours. Une série qui chauffe peut **inverser** un verdict.                                  |
-| **Régime CPU**                     | Secteur, batterie, ou mode basse consommation. macOS l'active **seul** sur batterie et bride l'accélération du processeur — facteur 1,62 mesuré à code identique. |
-| **Hyperviseur**                    | Machine virtuelle active sur l'hôte. Elle réserve des cœurs **même sans conteneur en marche**, et la charge moyenne ne la voit pas.                               |
-| **Veille douce**                   | Mise en sommeil d'un processus inactif par le système. Elle coûte ~13 % au run suivant.                                                                           |
+| Terme                              | Ce qu'il désigne ici                                                                                                                                                                               |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **RPS**                            | Requêtes servies par seconde, succès uniquement. Toujours accompagné de son décor.                                                                                                                 |
+| **µs/req**                         | Budget d'une requête, soit `1 000 000 / RPS`. C'est la grandeur qu'on additionne et qu'on décompose ; le RPS, non.                                                                                 |
+| **p50 / p99**                      | Latences médiane et au 99ᵉ centile. Le p99 dit ce que subit la requête malchanceuse — il révèle la sérialisation là où la moyenne la cache.                                                        |
+| **Dispersion**                     | `(max − min) / médiane` sur les runs d'une série. Au-delà de 3 %, la série ne tranche rien.                                                                                                        |
+| **Séparation**                     | Les deux séries d'un camp toutes deux au-dessus des deux séries de l'autre. Sans elle, un écart de médianes ne classe rien.                                                                        |
+| **Concordance inter-séries**       | Écart entre les médianes de deux séries indépendantes. Critère de repli quand la dispersion intra-série est structurellement impassable.                                                           |
+| **Niveau thermique**               | `machdep.xcpm.cpu_thermal_level` sur macOS — indicateur du bridage en cours. Une série qui chauffe peut **inverser** un verdict.                                                                   |
+| **Régime CPU**                     | Secteur, batterie, ou mode basse consommation. macOS l'active **seul** sur batterie et bride l'accélération du processeur — facteur 1,62 mesuré à code identique.                                  |
+| **Hyperviseur**                    | Machine virtuelle active sur l'hôte. Elle réserve des cœurs **même sans conteneur en marche**, et la charge moyenne ne la voit pas.                                                                |
+| **Veille douce**                   | Mise en sommeil d'un processus inactif par le système. Elle coûte ~13 % au run suivant.                                                                                                            |
 | **ELU** (_event loop utilization_) | Part du temps où la boucle d'événements travaille au lieu d'attendre. Un ELU à 1,00 dit « saturé » ; c'est la mesure de saturation, jamais `ps`. Il ne départage pas deux camps saturés tous deux. |
-| **CPU du fil par requête**         | Temps CPU du seul fil principal, divisé par les requêtes servies. L'arbitre des écarts de quelques microsecondes : dispersion sous 1 %, là où le débit flotte de 3 %. |
-| **Pile native**                    | Capture de la pile d'appels par le système (`sample` sous macOS), JavaScript compris grâce à la table d'adresses de V8. Elle voit le noyau et le code natif, que le profil V8 ignore. |
-| **Bissection par court-circuit**   | Le même serveur arrêté à chaque étage du pipeline ; la différence entre deux coupes est le coût de l'étage. Seules les coupes aux bornes tiennent : couper au milieu change ce que V8 compile. |
-| **Test nul**                       | Un camp mesuré contre lui-même. Il doit rendre « dans le bruit » ; sinon, c'est le banc qui classe. |
-| **Parité observable**              | Deux camps qui rendent les mêmes statuts, en-têtes et corps sur la même matrice de requêtes. Sans elle, on compare deux périmètres. |
-| **Boucle d'événements**            | Le fil unique qui exécute le code applicatif. Tout ce qui s'y passe est sérialisé.                                                                                |
-| **CPU de boucle**                  | Temps de calcul qu'une opération consomme **sur ce fil**. C'est lui qui plafonne un processus.                                                                    |
-| **Blocage**                        | Temps pendant lequel la boucle d'événements **ne peut rien faire d'autre**. C'est cette grandeur qui plafonne un processus.                                       |
-| **Latence**                        | Temps d'attente d'une réponse. Elle **ne plafonne rien** si elle se passe hors de la boucle.                                                                      |
-| **Pilote synchrone**               | Il exécute la requête sur le fil applicatif : sa latence **est** son blocage.                                                                                     |
-| **Pilote asynchrone**              | Il rend la main pendant l'attente : son attente ne coûte aucun débit tant qu'il reste du travail à servir.                                                        |
-| **Rappel armé**                    | Un `setImmediate` programmé avant l'opération à juger. Son **retard** mesure le blocage, sans instrument fin.                                                     |
-| **Sérialisation**                  | Mise en file de requêtes derrière une opération bloquante. Elle épargne la médiane et détruit le 99ᵉ centile.                                                     |
-| **Plafond théorique**              | `1 s ÷ CPU de boucle par requête`. Une borne haute, jamais un débit observé.                                                                                      |
-| **Granularité d'un minuteur**      | Plus petit délai qu'un minuteur sait rendre. En dessous, on mesure le minuteur, pas le phénomène.                                                                 |
-| **Résolution d'un instrument**     | Plus petit écart qu'il sait distinguer. Un instrument sous sa résolution rend **son propre plancher**, pas un zéro.                                               |
-| **Majorant**                       | Valeur garantie supérieure à la vraie. `process.cpuUsage()` en est un : il compte tous les fils.                                                                  |
-| **Audit adversarial**              | Relecture menée pour **réfuter** une conclusion, avec obligation de produire commande et sortie pour chaque affirmation.                                          |
-| **Congestion molle**               | Plafond qui varie d'un jour à l'autre et cède quand on ajoute des connexions — donc pas une butée de ressource.                                                   |
-| **Structurel**                     | Coût qui découle du design (contexte unifié, injection de dépendances, sécurité par défaut). On l'assume ou l'on change d'architecture.                           |
-| **Accidentel**                     | Travail fait pour rien. C'est la cible légitime d'une optimisation.                                                                                               |
+| **CPU du fil par requête**         | Temps CPU du seul fil principal, divisé par les requêtes servies. L'arbitre des écarts de quelques microsecondes : dispersion sous 1 %, là où le débit flotte de 3 %.                              |
+| **Pile native**                    | Capture de la pile d'appels par le système (`sample` sous macOS), JavaScript compris grâce à la table d'adresses de V8. Elle voit le noyau et le code natif, que le profil V8 ignore.              |
+| **Bissection par court-circuit**   | Le même serveur arrêté à chaque étage du pipeline ; la différence entre deux coupes est le coût de l'étage. Seules les coupes aux bornes tiennent : couper au milieu change ce que V8 compile.     |
+| **Test nul**                       | Un camp mesuré contre lui-même. Il doit rendre « dans le bruit » ; sinon, c'est le banc qui classe.                                                                                                |
+| **Parité observable**              | Deux camps qui rendent les mêmes statuts, en-têtes et corps sur la même matrice de requêtes. Sans elle, on compare deux périmètres.                                                                |
+| **Boucle d'événements**            | Le fil unique qui exécute le code applicatif. Tout ce qui s'y passe est sérialisé.                                                                                                                 |
+| **CPU de boucle**                  | Temps de calcul qu'une opération consomme **sur ce fil**. C'est lui qui plafonne un processus.                                                                                                     |
+| **Blocage**                        | Temps pendant lequel la boucle d'événements **ne peut rien faire d'autre**. C'est cette grandeur qui plafonne un processus.                                                                        |
+| **Latence**                        | Temps d'attente d'une réponse. Elle **ne plafonne rien** si elle se passe hors de la boucle.                                                                                                       |
+| **Pilote synchrone**               | Il exécute la requête sur le fil applicatif : sa latence **est** son blocage.                                                                                                                      |
+| **Pilote asynchrone**              | Il rend la main pendant l'attente : son attente ne coûte aucun débit tant qu'il reste du travail à servir.                                                                                         |
+| **Rappel armé**                    | Un `setImmediate` programmé avant l'opération à juger. Son **retard** mesure le blocage, sans instrument fin.                                                                                      |
+| **Sérialisation**                  | Mise en file de requêtes derrière une opération bloquante. Elle épargne la médiane et détruit le 99ᵉ centile.                                                                                      |
+| **Plafond théorique**              | `1 s ÷ CPU de boucle par requête`. Une borne haute, jamais un débit observé.                                                                                                                       |
+| **Granularité d'un minuteur**      | Plus petit délai qu'un minuteur sait rendre. En dessous, on mesure le minuteur, pas le phénomène.                                                                                                  |
+| **Résolution d'un instrument**     | Plus petit écart qu'il sait distinguer. Un instrument sous sa résolution rend **son propre plancher**, pas un zéro.                                                                                |
+| **Majorant**                       | Valeur garantie supérieure à la vraie. `process.cpuUsage()` en est un : il compte tous les fils.                                                                                                   |
+| **Audit adversarial**              | Relecture menée pour **réfuter** une conclusion, avec obligation de produire commande et sortie pour chaque affirmation.                                                                           |
+| **Congestion molle**               | Plafond qui varie d'un jour à l'autre et cède quand on ajoute des connexions — donc pas une butée de ressource.                                                                                    |
+| **Structurel**                     | Coût qui découle du design (contexte unifié, injection de dépendances, sécurité par défaut). On l'assume ou l'on change d'architecture.                                                            |
+| **Accidentel**                     | Travail fait pour rien. C'est la cible légitime d'une optimisation.                                                                                                                                |
 
 ## Pièges
 

@@ -1,7 +1,7 @@
 ---
 title: "Performance — les chiffres, et ce qu'ils valent"
 navTitle: Performance
-updated: 2026-09-17
+updated: 2026-10-02
 lang: fr
 module: "global"
 topic: perf-index
@@ -46,28 +46,35 @@ source: "docs/performance/"
 
 ## Le chiffre qu'il faut regarder en premier
 
-**Un framework ne coûte pas la même chose selon ce que l'application fait.** C'est la seule
-manière lisible de présenter un écart, et c'est l'inverse de ce que fait un classement.
+**À travail égal, Nodefony est dans la même zone que les serveurs qui rendent le même service.**
+Ce dossier ne cherche pas de gagnant : il répond à la question « Nodefony tient-il la route ? », en
+le comparant à Express et à NestJS **équipés pour rendre le même service** que lui par requête —
+contexte asynchrone, identifiant de requête, traçage W3C, CORS, en-têtes de sécurité, contrôle
+d'origine, zones du pare-feu.
 
 Sur une route qui ne fait **rien** — pas de base, pas de session, juste le trajet complet du
-pipeline — le framework est **100 % du budget** de la requête. C'est le pire cas possible pour
-Nodefony, et c'est celui que mesurent la plupart des comparatifs publiés :
+pipeline —, le framework est 100 % du budget de la requête. C'est le cas le plus exigeant pour lui :
 
-| Camp               |   Débit médian | Écart inter-séries | Rapport / Express équipé |
-| ------------------ | -------------: | -----------------: | -----------------------: |
-| Express « équipé » | **16 098 rps** |              0,3 % |                    100 % |
-| **Nodefony**       | **14 508 rps** |              1,3 % |               **90,1 %** |
+| Paire mesurée (A ↔ B)          | Nodefony / l'autre | Séparation             |
+| ------------------------------ | -----------------: | ---------------------- |
+| Express équipé ↔ Nodefony      |        **112,7 %** | nette                  |
+| NestJS équipé ↔ Nodefony       |         **93,6 %** | nette                  |
+| Nodefony ↔ Nodefony (test nul) |            103,0 % | **sous la résolution** |
 
-> Séparation **nette** — les deux séries de chaque camp encadrent celles de l'autre, donc le
-> classement tient. Sans cette séparation, un écart de médianes ne classerait rien.
+> La dernière ligne est la garantie de sérieux du tableau : le même serveur mesuré contre lui-même
+> s'écarte de 3 %. C'est la **résolution réelle** du banc. Les trois serveurs qui rendent le même
+> service tiennent dans ±7 % — la même zone.
 
 Dès qu'une application fait le travail pour lequel elle existe — lire une base, l'écrire —, le
-framework devient une **fraction** du budget : d'environ 61 µs sur ~970 µs, soit moins de 7 %.
-C'est la mesure qui répond à « le framework sera-t-il mon goulot ? ».
+framework devient une **fraction** du budget : ~46 µs sur ~895 µs par requête. Les écarts y passent
+à la limite de la résolution : **96,7 %** d'Express équipé, **95,9 %** de NestJS équipé, au même ORM
+et au même pilote. C'est la mesure qui répond à « le framework sera-t-il mon goulot ? ».
 
-**Le rapport entre camps, lui, ne bouge pas pour autant** — il reste autour de 90 % dans les deux
-cas, et cette page l'énonce plus bas sans l'arrondir en sa faveur. Le framework pèse peu dans le
-budget d'une requête réelle ; il n'en devient pas gratuit.
+> 🔬 **La version précédente de cette page publiait 90,1 % face à Express équipé.** Le témoin Express
+> faisait alors **plus** que Nodefony (`ETag`, HSTS sur une connexion en clair, zones inutilisées).
+> Ramené au même travail, il est passé de ~16 100 à ~19 100 requêtes par seconde ; Nodefony, de
+> ~14 500 à ~21 700 (lots du pipeline, Node 26.10). Le nouveau chiffre n'est donc pas d'abord une
+> progression : c'est d'abord une mesure juste.
 
 ## Le décor, sans lequel ces chiffres ne valent rien
 
@@ -76,11 +83,11 @@ budget d'une requête réelle ; il n'en devient pas gratuit.
 | Processeur           | Intel Core i9-8950HK @ 2,90 GHz — 6 cœurs physiques, 12 logiques               |
 | Mémoire              | 32 Go                                                                          |
 | Système              | macOS 15.7.7 (Darwin 24.6)                                                     |
-| **Node**             | **v26.8.1**                                                                    |
+| **Node**             | **v26.10.0**                                                                   |
 | Régime CPU           | secteur, mode basse consommation **désactivé** (`AC Power/lpm=0`)              |
 | **Hyperviseur**      | **éteint** — aucune machine virtuelle ne réserve de cœur                       |
 | Serveur              | mono-processus, `NODE_ENV=production`, boucle locale, journalisation coupée    |
-| Générateur de charge | `wrk` 4.2.0, `-t4`, échauffement 15 s non compté, 3 runs, médiane              |
+| Générateur de charge | `wrk` 4.2.0, `-t4 -c64`, échauffement 40 s non compté, 3 runs de 10 s, médiane |
 | Protocole            | **paires alternées** `A₁ B₁ A₂ B₂`, série refusée au-delà de 3 % de dispersion |
 
 🔴 **La version de Node fait partie du décor, au même titre que la machine.** Entre Node 26.7.0 et
@@ -100,12 +107,15 @@ donc basses pour tout le monde, points de comparaison compris. **Seuls les rappo
 exploitables**, à décor identique et dans la même fenêtre de mesure. Un chiffre de ce dossier ne
 se cite pas hors de son contexte.
 
-Deux repères utiles pour situer un absolu, mesurés dans la même fenêtre :
+Les absolus de la campagne, pour situer un ordre de grandeur (médiane de deux séries de trois runs) :
 
-| Repère                     |      Débit | Ce qu'il dit                                         |
-| -------------------------- | ---------: | ---------------------------------------------------- |
-| `node:http` nu, 186 routes | 37 471 rps | le plafond de la machine pour ce payload             |
-| Express « équipé »         | 16 456 rps | le prix du service rendu, quel que soit le framework |
+| Camp                       |      Débit | p50 / p99 (64 connexions) | Ce qu'il dit                                  |
+| -------------------------- | ---------: | ------------------------- | --------------------------------------------- |
+| `node:http` nu, 186 routes | 43 217 rps | 1,5 / 2,1 ms              | le plafond de la machine pour ce payload      |
+| NestJS « équipé »          | 23 511 rps | 2,6 / 4,2 ms              | le même service, sur Fastify                  |
+| **Nodefony**               | 21 686 rps | 2,9 / 4,4 ms              | le service complet du framework               |
+| Express nu                 | 20 088 rps | 3,1 / 4,3 ms              | Express sans aucun service                    |
+| Express « équipé »         | 19 235 rps | 3,3 / 4,6 ms              | le même service : ~5 % de moins qu'Express nu |
 
 > ⚠️ **Un camp plus rapide que le serveur nu est un signal d'alarme, pas un exploit.** Au-delà de
 > ~35 000 rps sur cette machine, le générateur de charge entre en concurrence avec le serveur sur
@@ -122,10 +132,10 @@ Le premier chiffre à regarder n'est pas un rapport entre camps, c'est le **budg
 
 | Route                      | Budget par requête | Ce qui domine               |
 | -------------------------- | -----------------: | --------------------------- |
-| triviale (pipeline seul)   |         **~61 µs** | le framework, à 100 %       |
-| lecture + écriture en base |      **~1 050 µs** | la **base**, à plus de 90 % |
+| triviale (pipeline seul)   |         **~46 µs** | le framework, à 100 %       |
+| lecture + écriture en base |        **~895 µs** | la **base**, à plus de 90 % |
 
-**Un facteur 17.** C'est la mesure qui répond à la question « le framework est-il mon goulot ? » :
+**Un facteur 19.** C'est la mesure qui répond à la question « le framework est-il mon goulot ? » :
 dès qu'une application fait le travail pour lequel elle existe, le choix du framework devient une
 fraction de son budget. Une comparaison faite sur une route triviale mesure donc ce qui compte le
 moins.
@@ -139,7 +149,7 @@ moins.
 | **SQLite**, pas PostgreSQL            | une base en conteneur fait mesurer la virtualisation réseau — facteur 3,7 sur ce dépôt. SQLite vit dans le processus : plus de chemin virtualisé, et un chiffre qu'un tiers peut reproduire                              |
 | **25 connexions**, pas 128            | un pilote synchrone sérialise : au-delà de la saturation, la concurrence produit une file d'attente, pas du débit                                                                                                        |
 | bases **séparées**, même seed         | les deux camps écrivent ; partager un fichier ferait subir à l'un les écritures de l'autre, et l'ordre de passage déciderait du résultat                                                                                 |
-| runs de **30 s**                      | chaque requête écrit sur disque, et la journalisation de SQLite pose ses points de reprise à des instants imprévisibles. Un run court capte ce bruit ; on allonge la fenêtre plutôt que d'élargir le seuil de dispersion |
+| runs de **60 s**                      | chaque requête écrit sur disque, et la journalisation de SQLite pose ses points de reprise à des instants imprévisibles. Un run court capte ce bruit ; on allonge la fenêtre plutôt que d'élargir le seuil de dispersion |
 
 ### Ce que le banc compare exactement
 
@@ -147,26 +157,29 @@ Les deux camps utilisent **le même ORM à la même version** et **le même pilo
 version** — la garde du banc refuse de mesurer si l'installé ne correspond pas au déclaré. Ils
 rendent le **même résultat** (la ligne persistée). Ce qui diffère est la **couche d'accès** :
 
-|                          | Camp témoin                       | Nodefony                                                                                       |
-| ------------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------- |
-| ORM                      | drizzle, accédé **directement**   | drizzle, accédé **via le repository** d'`orm-core`                                             |
-| Le `WHERE` de l'écriture | écrit par le développeur          | composé pour garantir « au plus une ligne » **portablement** entre SQLite, PostgreSQL et MySQL |
-| SQL émis                 | `UPDATE … WHERE pk = ? RETURNING` | `UPDATE … WHERE pk IN (SELECT … LIMIT 1) RETURNING`                                            |
+|                          | Camp témoin                       | Nodefony                                                                                                           |
+| ------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| ORM                      | drizzle, accédé **directement**   | drizzle, accédé **via le repository** d'`orm-core`                                                                 |
+| Le `WHERE` de l'écriture | écrit par le développeur          | composé pour garantir « au plus une ligne » **portablement** entre SQLite, PostgreSQL et MySQL                     |
+| SQL émis                 | `UPDATE … WHERE pk = ? RETURNING` | `UPDATE … WHERE pk = ? RETURNING` quand le critère fixe la clé primaire — sinon `… WHERE pk IN (SELECT … LIMIT 1)` |
 
 Ce que ce banc mesure n'est donc pas « un ORM contre du SQL écrit à la main », mais **le prix de
 l'abstraction portable** : ce que coûte une API générique qui doit rendre le même contrat sur
-trois dialectes.
+trois dialectes. Sur ce banc, le critère fixe la clé primaire : les deux camps émettent le même
+SQL.
 
-Le rapport entre les deux camps, paire complète et séparation nette :
+Le rapport entre les camps, paires complètes et séparation nette :
 
-| Camp                         |  Débit médian | Écart inter-séries | Rapport / Express équipé |
-| ---------------------------- | ------------: | -----------------: | -----------------------: |
-| Express « équipé » + drizzle | **1 134 rps** |              3,3 % |                    100 % |
-| **Nodefony** + `orm-core`    | **1 031 rps** |              0,2 % |               **90,9 %** |
+| Camp                         | Débit médian | Écart inter-séries | Nodefony / l'autre |
+| ---------------------------- | -----------: | -----------------: | -----------------: |
+| Express « équipé » + drizzle |    1 154 rps |              0,5 % |         **96,7 %** |
+| NestJS « équipé » + drizzle  |    1 166 rps |              0,1 % |         **95,9 %** |
+| **Nodefony** + `orm-core`    |    1 117 rps |        0,1 à 1,2 % |                  — |
 
-**Quasiment le même rapport que sur une route qui ne fait rien** (90,1 %). Le coût du framework ne
-se dilue donc pas dans le travail utile, contrairement à ce que ce dossier a d'abord annoncé : il
-reste une part à peu près constante du budget.
+**La même zone, à la limite de la résolution du banc** (3 %) : sur un cycle applicatif, le coût du
+framework se fond dans celui de la base. Le face-à-face avec NestJS a été mesuré la veille de la
+campagne, sur un code produit identique ; sa provenance est gardée à part dans le fichier de
+données.
 
 > 🔬 **Une première campagne avait publié 145,9 %** — Nodefony devant. Ce renversement était un
 > **défaut du banc**, pas un résultat : le camp témoin chargeait deux instances distinctes de
@@ -179,72 +192,53 @@ reste une part à peu près constante du budget.
 > n'est pas versionné (schéma issu d'un logiciel sous licence GPLv3). C'est le défaut même que
 > cette version corrige pour les autres chiffres, et il est ouvert pour celui-ci.
 
-## La tenue dans la durée — et le compteur qu'il ne faut pas lire
+## La tenue dans la durée — rien ne s'accumule
 
-Un banc de dix secondes ne voit pas une fuite lente. Celui-ci a tourné **88 minutes** sous trafic
-continu, dans le décor de cette campagne (hyperviseur éteint, Node v26.8.1), pour 64,3 millions de
-requêtes servies. Le processus n'accumule rien.
+Un banc de dix secondes ne voit pas une fuite lente. Celui-ci a tenu **88 minutes** sous trafic
+continu (64 connexions, ~18 500 requêtes par seconde), pour **97,5 millions de requêtes** servies.
+Le processus n'accumule rien.
 
-Toutes les lignes du tableau viennent **d'un seul run** : durée, empreinte, descripteurs et
-ventilation. La version précédente de cette page composait la durée d'une campagne avec l'empreinte
-d'une autre — les deux disaient vrai, mais une composition n'est pas une mesure, et rien sur la page
-ne disait où passait la couture.
+Toutes les lignes du tableau viennent **d'un seul run**, le 2 octobre 2026, sur Node v26.10.0.
 
-| Grandeur                          | Mesure                                         | Lecture                               |
-| --------------------------------- | ---------------------------------------------- | ------------------------------------- |
-| Tas JS (`heapUsed`)               | 43,9 → 44,7 MB · pente +0,2 MB/h (R² 0,41)     | **plat** — aucune fuite JS            |
-| **Empreinte système** (macOS)     | **162 → 166 MB** · pente +3,8 MB/h (R² 0,67)   | **plate** — rien n'est retenu         |
-| dont pages **réutilisables**      | 37 → 177 MB · +84,1 MB/h (R² 0,98)             | **96 % de ce que `rss` affiche**      |
-| Mémoire résidente (`rss`)         | 245,3 → 389,9 MB · +87,8 MB/h (R² 0,98)        | ⚠️ **compte les pages réutilisables** |
-| Blocs natifs injoignables         | 37 blocs, **3 216 octets** sur 20,7 M requêtes | rien                                  |
-| Descripteurs (sockets, minuteurs) | 5 → 5, aucun type en hausse                    | rien ne s'accumule                    |
-| Débit                             | 11 964 → 12 458 rps (**+4,1 %**)               | aucune érosion — le débit MONTE       |
-| Empreinte système (Linux)         | 23,6 M requêtes → **+1,5 MB** (R² 0,28)        | **plate** — aucune tendance           |
+| Grandeur                          | Mesure                                       | Lecture                                                      |
+| --------------------------------- | -------------------------------------------- | ------------------------------------------------------------ |
+| Tas JS (`heapUsed`)               | 45,6 → 46,0 MB · pente +0,1 MB/h (R² 0,03)   | **plat** — aucune fuite JS                                   |
+| **Empreinte système** (macOS)     | **160 → 162 MB** · pente +1,7 MB/h (R² 0,24) | **plate** — rien n'est retenu                                |
+| dont pages **réutilisables**      | 7,9 → 8,2 MB                                 | stables                                                      |
+| Mémoire résidente (`rss`)         | 214,8 → 216,8 MB · pente +2,0 MB/h (R² 0,31) | **plate** — 0,4 MB d'écart, sous le bruit du ramasse-miettes |
+| Descripteurs (sockets, minuteurs) | 5 → 5, aucun type en hausse                  | rien ne s'accumule                                           |
+| Débit                             | 18 494 → 18 454 rps (**−0,2 %**)             | aucune érosion                                               |
 
-**Pourquoi deux chiffres pour une seule mémoire.** Sous macOS, `process.memoryUsage().rss` rend
-`resident_size`, qui **compte les pages que l'allocateur a déjà rendues au noyau** par
-`MADV_FREE_REUSABLE` : elles restent physiquement présentes tant qu'aucune pression mémoire ne les
-réclame, mais elles n'appartiennent plus au processus. `phys_footprint` — le compteur que le noyau
-utilise pour décider d'évincer — les exclut. C'est lui qui dit la consommation réelle, et il ne
-bouge pas.
+Rapportée à la charge, la consommation vaut **0,021 MB par million de requêtes**, sur l'empreinte
+comme sur `rss`. C'est la grandeur qui se transpose d'une machine à l'autre, contrairement aux MB/h,
+qui suivent le débit.
 
-La ventilation le nomme sans ambiguïté : la hausse tient entièrement dans la colonne
-_Reclaimable_ de la zone `MALLOC_MEDIUM`, pendant que la mémoire sale de l'allocateur reste fixe à
-40 MB et que toutes les autres zones sont plates. Le résident **propre** — pages mappées et
-partageables — ne bouge pas non plus : 44 MB au début, 44 MB à la fin.
+**Pourquoi l'empreinte système d'abord.** Sous macOS, `process.memoryUsage().rss` rend
+`resident_size`, qui **compte les pages que l'allocateur a déjà rendues au noyau** : elles restent
+physiquement présentes tant qu'aucune pression mémoire ne les réclame, mais n'appartiennent plus au
+processus. `phys_footprint` — le compteur que le noyau utilise pour décider d'évincer — les exclut :
+c'est lui qui dit la consommation réelle. Sur Node 26.8, ces pages réutilisables gonflaient `rss` de
+plus de 2 MB par million de requêtes, et ce dossier a publié pendant trois semaines une « rampe »
+qui n'en était pas une. Sur Node 26.10, leur stock ne bouge plus et `rss` reste plat lui aussi ; la
+raison de ce changement n'est pas établie, et elle est sans conséquence sur la consommation.
 
-Rapportée à la charge, la consommation réelle vaut **0,062 MB par million de requêtes** sous macOS
-et **0,064 sous Linux** — c'est la grandeur qui se transpose d'une machine à l'autre, contrairement
-aux MB/h, qui suivent le débit. Les deux systèmes consomment donc la **même** chose ; seul le
-compteur `rss` les sépare, et il ne mesure pas une consommation.
-
-Le même rapport calculé sur `rss` vaut 2,25 MB par million de requêtes. C'est l'ordre de grandeur
-qu'ont rendu les trois campagnes successives — 2,05, 2,25 et 2,62 — dont la dernière avait été lue
-comme une régression d'un facteur 4,8. Elle n'en était pas une : c'est le régime normal de ce
-compteur sur macOS, et sa variance.
-
-> 🔬 **Ce dossier a publié l'inverse pendant trois semaines, et le dit.** Le banc ne relevait que
-> `rss` : il a conclu à une rampe de +108,6 MB/h « sans plateau », un ticket P0 a été ouvert
-> dessus, et la mesure qui tranche — l'empreinte du noyau — n'avait jamais été prise. Elle l'est
-> désormais à chaque fenêtre, et c'est elle qui fonde le verdict ; `rss` reste publié à côté, parce
-> que l'écart entre les deux est lui-même une information.
->
-> Ce qui reste hors de portée de ce banc : le comportement au-delà de 90 minutes, et la raison pour
-> laquelle le stock de pages réutilisables varie d'une version de Node à l'autre — sans effet sur
-> la consommation, donc sans conséquence connue.
+> ⚠️ **Ce run a tourné machine virtuelle allumée** (8 cœurs réservés), contrairement à la campagne
+> de débit. Cela peut abaisser le débit absolu, pas fabriquer une fuite. Et **90 minutes ne
+> prouvent pas trois jours** : ce banc élimine les fuites grossières, pas les lentes.
 
 ## Ce que ce dossier établit
 
-| Question                                                 | Réponse mesurée                                                                                                                                                                                                                                                                      |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture                                                                                                                                                                                  |
-| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                                                                                                                                                                                                      |
-| L'écart avec Express sur une route qui ne fait rien ?    | **×1,11** — et il reste le même sur une route qui interroge une base                                                                                                                                                                                                                 |
-| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes                                                                                                                                                                                              |
-| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                                                                                                                                                                                        |
-| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                                                                                                                                                                              |
-| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport.** Un décor sale : 1,5 point. Une double instance de module dans le camp adverse : **+58,8 % de son débit sur SQLite, +83,4 % sur PostgreSQL**                                                                                                       |
-| **Le processus tient-il dans la durée ?**                | **Oui** — 90 min de charge laissent le tas plat (44,2 → 45,7 MB) ET l'empreinte système plate (164 → 164 MB). Le `rss` monte, mais **93 % de sa hausse est du résident déjà rendu au noyau** ; `leaks` ne trouve que 3 Ko sur 20,7 M de requêtes, et Linux ne montre aucune tendance |
+| Question                                                 | Réponse mesurée                                                                                                                                     |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nodefony tient-il la route face à Express et NestJS ?    | **Oui, à travail égal** : 93,6 à 112,7 % sur une route vide, 95,9 à 96,7 % sur un cycle applicatif — la même zone                                   |
+| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — ~46 µs sur ~895 µs par requête dès qu'une base entre dans le budget                                               |
+| Combien coûte le service rendu par requête ?             | ~5 % de débit pour Express quand on le lui fait rendre aussi                                                                                        |
+| Quelle est la résolution du banc ?                       | **~3 %** — le même serveur mesuré contre lui-même ; un écart plus petit ne se publie pas                                                            |
+| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — même coût par requête que NestJS sur le cycle applicatif, moins de 1 % du CPU sur une route vide                            |
+| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                                                       |
+| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                                             |
+| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport.** Une double instance de module dans le camp adverse : **+58,8 % de son débit sur SQLite, +83,4 % sur PostgreSQL** |
+| **Le processus tient-il dans la durée ?**                | **Oui** — 88 min et 97,5 M de requêtes : tas, empreinte système et `rss` plats, 0,021 MB par million de requêtes                                    |
 
 ## Les trois pages
 
@@ -275,17 +269,20 @@ Tout ce qui suit est versionné dans `.claude/skills/nodefony-load-test/`.
 # 0. Le décor AVANT tout : l'hyperviseur doit être éteint (0 = éteint)
 docker info --format '{{.NCPU}}'
 
-# 1. Comparatif en PAIRES ALTERNÉES — le seul protocole qui classe deux camps
+# 1. Toute la campagne publiée : parité des témoins, paires, base, CPU du fil, tenue
+caffeinate -dims bash .claude/skills/nodefony-load-test/scripts/perf-campaign.sh --at 01:30
+
+# 2. Une seule paire, en PAIRES ALTERNÉES — le seul protocole qui sépare deux camps
 BENCH_CONN=64 BENCH_WARMUP=15 \
   bash .claude/skills/nodefony-load-test/bench-frameworks/bench-pairs.sh express-fair nodefony
 
-# 2. Le cas applicatif : une lecture ET une écriture par requête, à ORM et pilote égaux
+# 3. Le cas applicatif : une lecture ET une écriture par requête, à ORM et pilote égaux
 BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus \
   NF_BENCH_SQLITE_DB=/tmp/bench-express.db BENCH_CONN=25 BENCH_WARMUP=15 \
   bash .claude/skills/nodefony-load-test/bench-frameworks/bench-pairs.sh \
     express-fair-sqlite nodefony-orm 5167
 
-# 3. Tenue dans la durée — une PENTE, jamais un delta début/fin
+# 4. Tenue dans la durée — une PENTE, jamais un delta début/fin
 node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 90 --window 60 --skip 3
 ```
 
@@ -295,6 +292,7 @@ les versions installées ne correspondent pas à celles déclarées.
 
 ## Pour aller plus loin
 
+- 🧭 [Par où commencer](../demarrer.md) — les parcours guidés de la documentation
 - 📚 [Toute la documentation](../index.md)
 - 📐 [Méthode de mesure](methode.md) — le protocole et les instruments qui ont menti
 - 🔬 [Où part le temps](analyses.md) — le budget d'une requête, décomposé

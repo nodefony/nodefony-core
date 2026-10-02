@@ -389,11 +389,12 @@ réelle (`npm run test:all`), et le dépôt versionne des seuils de fuite mémoi
 opposables à chaque exécution.
 
 **Ce que ça donne en charge.** À travail égal — mêmes journaux, même contexte de requête, mêmes
-en-têtes de sécurité, même protection CSRF — un processus rend **~90 % du débit d'un Express muni
-des mêmes intergiciels** (14 508 requêtes/s, p99 6,75 ms sur la machine de référence), et cet écart
-reste le même sur une route qui interroge une base. Quatre-vingt-dix minutes de charge continue
-laissent **le tas et l'empreinte mémoire plats** — le `rss` affiché par macOS monte, mais 93 % de
-sa hausse est du résident que l'allocateur a déjà rendu au noyau, et sous Linux il ne monte pas. La page de mesures de la version courante —
+en-têtes de sécurité, même protection CSRF —, Nodefony se tient **dans la même zone qu'Express et
+NestJS munis des mêmes intergiciels** : entre 93,6 et 112,7 % de leur débit sur une route qui ne
+fait rien (21 686 requêtes/s, p99 4,4 ms sur la machine de référence), entre 95,9 et 96,7 % sur une
+route qui lit et écrit une base — pour une résolution de banc de 3 %. Quatre-vingt-huit minutes de
+charge continue et 97,5 millions de requêtes laissent **le tas, l'empreinte mémoire et le `rss`
+plats** : 0,021 Mo par million de requêtes. La page de mesures de la version courante —
 **[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
 tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
 chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](docs/performance/index.md) donne le

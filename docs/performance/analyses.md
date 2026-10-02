@@ -1,7 +1,7 @@
 ---
 title: "Où part le temps — pipeline, comparaisons, bases de données"
 navTitle: Où part le temps
-updated: 2026-09-14
+updated: 2026-10-02
 lang: fr
 module: "global"
 topic: perf-analyses
@@ -14,6 +14,8 @@ tests: none
 ---
 
 📍 [Documentation](../index.md) › [Performance](index.md) › **Où part le temps**
+
+## La vision — une question, quatre angles
 
 > Cette page répond à une seule question, sous quatre angles : **où part le temps d'une requête**.
 > Dans le pipeline HTTP d'abord — ce qui est structurel et ce qui est du travail fait pour rien.
@@ -395,23 +397,24 @@ rabotage du pipeline — sur deux jours différents, donc sans que l'écart entr
 attribuable aux seuls lots. Avant d'optimiser plus loin, une **bissection par court-circuit** a été menée — et
 c'est le **banc** qu'elle a corrigé d'abord :
 
-| Ce qui gonflait l'écart                  | Comment il a été trouvé                                                                 |
-| ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| Ce qui gonflait l'écart                                                 | Comment il a été trouvé                                                                                                        |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | le module de test écoutait deux points d'extension du chemin de requête | deux temps mesurés dans le serveur réel qui ne s'emboîtaient pas — l'enfant plus long que le parent : une frontière asynchrone |
-| un run préempté par un autre processus   | invisible aux gardes thermique et d'indexeur ; visible au compte des changements de contexte involontaires |
+| un run préempté par un autre processus                                  | invisible aux gardes thermique et d'indexeur ; visible au compte des changements de contexte involontaires                     |
 
 Les deux sont désormais **refusés par l'instrument**. Machine refroidie, aucun run préempté :
 **46,0 µs de fil par requête contre 43,0 — ×1,07, séparé**, dont +2,1 µs en espace utilisateur
-et +0,7 dans le noyau. C'est sur ce chiffre que le chantier a été fermé.
+et +0,7 dans le noyau. C'est sur ce chiffre que le chantier a été fermé, et la campagne publiée l'a
+retrouvé : **45,7 contre 42,9 µs, ×1,065**, séparé.
 
 Le budget d'une requête, lu aux bornes de la bissection :
 
-| Étage                                         | µs de fil par requête |
-| --------------------------------------------- | --------------------: |
-| Node nu (analyse HTTP, socket, écriture)      |                   ~27 |
-| contexte, stockage asynchrone, routeur, en-têtes |                ~15 |
-| gardes de sécurité                            |                    ~2 |
-| action et rendu                               |                    ~1 |
+| Étage                                            | µs de fil par requête |
+| ------------------------------------------------ | --------------------: |
+| Node nu (analyse HTTP, socket, écriture)         |                   ~27 |
+| contexte, stockage asynchrone, routeur, en-têtes |                   ~15 |
+| gardes de sécurité                               |                    ~2 |
+| action et rendu                                  |                    ~1 |
 
 Une limite d'instrument a été établie en route : **couper au milieu de la chaîne change ce que V8
 compile**. Les coupes intermédiaires oscillaient de 4 à 11 µs d'une manche à l'autre ; seules les
@@ -419,14 +422,11 @@ bornes tiennent, et le détail d'un étage se lit en chronométrant le serveur r
 
 ### Où en est le pipeline
 
-Sur la fenêtre de mesure la plus récente, la cible de banc rend **~13 400 requêtes par seconde**
-en mono-processus, contre ~9 750 avant le chantier — les deux mesurés dans leurs fenêtres
-respectives, avec le même protocole.
-
-Ce que ce chiffre ne dit pas, et qui est écrit dans [Ce qui reste ouvert](#ce-qui-reste-ouvert) : la
-comparaison avec les autres frameworks n'a **pas** été rejouée dans cette fenêtre. Les rapports
-publiés dans [Face aux autres](#face-aux-autres--trois-niveaux-déquité) datent d'une fenêtre antérieure aux lots F, et
-deux fenêtres ne se comparent pas.
+Dans la campagne publiée (1ᵉʳ octobre 2026, Node 26.10.0), la cible de banc rend **~21 700 requêtes
+par seconde** en mono-processus, soit **~46 µs de fil par requête**. Les ~13 400 de la fenêtre
+précédente ne s'y comparent pas terme à terme : entre les deux, il y a les lots G et H, un banc
+corrigé et une version de Node. Le comparatif avec les autres frameworks a été rejoué **dans la même
+campagne** — c'est l'objet de la partie suivante.
 
 ## Face aux autres — trois niveaux d'équité
 
@@ -451,50 +451,53 @@ Le décor est identique aux trois niveaux : même charge utile JSON, **mêmes 18
 cible en position 31, mode production, journalisation coupée des deux côtés, même générateur de
 charge, même fenêtre de mesure.
 
-### Niveau 1 — pipeline contre pipeline
+### Niveau 1 — ce que coûte un serveur qui ne rend aucun service
 
-| Cible          | RPS médian | Dispersion | Rapport vs Nodefony |
-| -------------- | ---------: | ---------: | ------------------: |
-| `node:http` nu |     37 770 |      0,7 % |               ×3,23 |
-| Fastify        |     33 024 |      0,5 % |               ×2,82 |
-| Express        |     18 845 |      2,0 % |               ×1,61 |
-| **Nodefony**   | **11 702** |      0,8 % |                   — |
+Deux repères, mesurés en paires alternées dans la même campagne, situent le prix du service avant
+toute comparaison de frameworks :
 
-Aucun des points de comparaison ne fait quoi que ce soit de particulier — au sens littéral :
+| Paire mesurée (A ↔ B)           |       A / B | Ce qu'elle dit                                                          |
+| ------------------------------- | ----------: | ----------------------------------------------------------------------- |
+| `node:http` nu ↔ Express équipé | **228,5 %** | le plafond de cette machine pour ce payload, quand rien n'est rendu     |
+| Express nu ↔ Express équipé     | **105,5 %** | ce que coûte à Express le service que Nodefony rend : **~5 %** du débit |
+
+Aucun des deux camps nus ne fait quoi que ce soit de particulier — au sens littéral :
 
 ```js
-// fastify.mjs — sans schéma de sérialisation rapide (JSON.stringify, comme les autres)
-app.get(BENCH_PATH, async () => state);
-
 // express.mjs
 app.get(BENCH_PATH, (_req, res) => res.json(state));
 ```
 
-> ⚠️ **Ces mesures datent d'une fenêtre antérieure aux derniers lots du pipeline.** Nodefony y
-> valait 11 702 RPS ; l'état livré mesure ~13 400 dans une fenêtre ultérieure. Deux fenêtres ne se
-> comparent pas — le comparatif reste donc **à rejouer sur l'état actuel**, et il l'est dans
-> [Ce qui reste ouvert](#ce-qui-reste-ouvert). Les rapports ci-dessus sont valides **entre eux**, à la
-> date de leur mesure.
+Fastify n'est plus mesuré : à ~41 000 requêtes par seconde il sature ce que cette machine mesure
+proprement, et surtout il n'informe pas la question posée ici — Nodefony se compare à ce qu'un
+développeur écrirait pour rendre le **même** service. Le banc reste disponible pour qui voudra le
+rejouer.
 
 ### Niveau 2 — à service égal
 
-Le banc « équitable » ajoute à Express les middlewares qui rendent le travail que Nodefony rend
-par requête : le stockage asynchrone local et l'identifiant de requête, la corrélation de traçage,
-les partages d'origine, les en-têtes de sécurité, la protection contre la falsification de requête
-par méta-données, et la mise en correspondance des zones.
+Le banc « équitable » ajoute à Express, puis à NestJS, les intergiciels qui rendent le travail que
+Nodefony rend par requête : le stockage asynchrone local et l'identifiant de requête, la corrélation
+de traçage, les partages d'origine, les en-têtes de sécurité, la protection contre la falsification
+de requête par méta-données, et la mise en correspondance des zones. Leur parité est contrôlée par
+un instrument (`fair-parity.mjs`) **avant** chaque campagne, sur les quatre témoins.
 
-| Cible                             | RPS médian |
-| --------------------------------- | ---------: |
-| `node:http` nu                    |     37 161 |
-| Express nu                        |     18 497 |
-| **Express équipé** (même travail) | **14 891** |
-| Nodefony                          |     11 512 |
+| Paire mesurée (A ↔ B)          | Nodefony / l'autre | Séparation             |
+| ------------------------------ | -----------------: | ---------------------- |
+| Express équipé ↔ Nodefony      |        **112,7 %** | nette                  |
+| NestJS équipé ↔ Nodefony       |         **93,6 %** | nette                  |
+| Nodefony ↔ Nodefony (test nul) |            103,0 % | **sous la résolution** |
 
-Deux verdicts :
+La dernière ligne est la garantie de sérieux du tableau : le même serveur, mesuré contre lui-même
+avec le même protocole, s'écarte de 3 %. **La résolution réelle du banc est donc d'environ 3 %**, et
+les trois serveurs qui rendent le même service tiennent dans une bande de ±7 % autour de Nodefony.
+C'est la même zone.
 
-- **Le prix de ces fonctionnalités est de −19,5 % pour Express.** Ce n'est pas un coût de
-  framework, c'est le coût du travail lui-même : quelqu'un doit le payer.
-- **L'écart honnête tombe à ×1,29.**
+> 🔬 **La version précédente de ce dossier publiait −19,5 % pour le prix du service chez Express, et
+> Nodefony à 90,1 % d'Express équipé.** Le témoin Express faisait alors **plus** que Nodefony —
+> `ETag`, HSTS sur une connexion en clair, zones qu'aucune route n'utilisait. Ramené au même travail,
+> il est passé de ~16 100 à ~19 100 requêtes par seconde, et le prix du service est tombé à ~5 %. Le
+> nouveau rapport n'est donc pas d'abord une progression : c'est d'abord une mesure juste. Nodefony,
+> lui, est passé de ~14 500 à ~21 700 requêtes par seconde (lots G et H, Node 26.10).
 
 ### La preuve d'équité — ce que la cible ne fait pas
 
@@ -518,7 +521,7 @@ qu'on a pensé à compter. Une fenêtre de repos témoin de dix secondes discrim
 **Et l'instrument lui-même a été vérifié mordant** : une écriture témoin par une autre connexion
 fait bien bouger la valeur. Le « 0 » n'a été cru qu'après ce rouge.
 
-Ce qui reste **volontairement** dans l'écart de 1,29 : les effets de second ordre — pression sur
+Ce qui reste **volontairement** dans l'écart mesuré : les effets de second ordre — pression sur
 les caches d'instructions, débit d'allocation, ramasse-miettes. C'est le prix réel d'un contexte
 riche, et il n'est pas soustrait.
 
@@ -551,7 +554,7 @@ Les verdicts, dans l'ordre où ils comptent :
 - **À parité d'ORM mais sans aucun middleware Express : ~90 %** d'un Express nu — c'est-à-dire
   d'un serveur qui ne rend ni pare-feu, ni session, ni audit, ni corrélation.
 - **Le prix des middlewares Express sur une route ORM n'est plus que de −2,4 %** (1 801 nu contre
-  1 758 équipé), là où il valait −19,5 % sur une route sans base. **L'ORM dilue tout.**
+  1 758 équipé), là où il vaut ~5 % sur une route sans base. **L'ORM dilue tout.**
 
 ### Le recoupement qui valide la mesure
 
@@ -566,12 +569,14 @@ qui se reproduit à l'identique chez un tiers n'est pas un artefact de banc.
 ### Le banc SQLite — et ce qu'un banc peut mesurer à la place d'un framework
 
 Le banc applicatif SQLite — vingt lignes lues, puis l'`UPDATE` de la ligne lue — donne Nodefony à
-**90,9 %** du débit d'un Express équipé du même ORM : **1 030,5 req/s contre 1 133,7**, séparation
-nette, dispersions de série entre 0,4 % et 1,5 %.
+**96,7 %** du débit d'un Express équipé du même ORM (**1 116,9 req/s contre 1 154,5**) et à
+**95,9 %** de NestJS équipé (**1 118,2 contre 1 166,4**), séparation nette dans les deux cas, mais à
+la limite de la résolution du banc. Le détail du face-à-face avec NestJS est [plus bas](#face-à-nestjs--le-cycle-applicatif-et-où-part-lécart).
 
-Ce chiffre en remplace un autre. Une première campagne avait publié **145,9 %** — le seul point du
-dossier où le classement s'inversait. Ce renversement n'existe pas : c'était un défaut du banc, et
-il jouait en notre faveur.
+Ces chiffres en remplacent deux autres. Une première campagne avait publié **145,9 %** — le seul
+point du dossier où le rapport s'inversait. Ce renversement n'existait pas : c'était un défaut du
+banc, et il jouait en notre faveur ; c'est l'histoire racontée ci-dessous. La campagne suivante
+publiait **90,9 %**, avant le lot ORM de #510 et sur Node 26.8.
 
 #### Ce que le banc mesurait à la place d'un ORM
 
@@ -647,25 +652,22 @@ nus remontent jusqu'à la racine, exactement comme le fait le schéma.
 
 ### Ce que ces trois niveaux disent
 
-**L'écart est STABLE autour de 10 %, que la route travaille ou non.** C'est une thèse plus
-modeste que celle que ce dossier a portée, et c'est celle que les mesures soutiennent.
+**À travail égal, Nodefony est dans la même zone que les serveurs qui rendent le même service.**
+C'est la seule thèse que les mesures soutiennent, et elle tient sur une route qui ne fait rien
+comme sur un cycle applicatif complet :
 
-Les deux seuls points mesurés sous le protocole courant — paires alternées, gardes thermique et
-d'indexeur, Node 26.8 — se lisent ensemble :
+| Ce que fait l'application                                   | Nodefony / Express équipé | Nodefony / NestJS équipé |
+| ----------------------------------------------------------- | ------------------------: | -----------------------: |
+| Route triviale (aucune base)                                |                   112,7 % |                   93,6 % |
+| Cycle applicatif complet (20 lectures + 1 écriture, SQLite) |                    96,7 % |                   95,9 % |
 
-| Ce que fait l'application                           | Nodefony / Express équipé | Écart |
-| --------------------------------------------------- | ------------------------: | ----: |
-| Route triviale (aucune base)                        |                    90,1 % | ×1,11 |
-| Cycle applicatif complet (20 lectures + 1 écriture) |                **90,9 %** | ×1,10 |
+Toutes les paires sont séparées, et toutes tiennent dans ±7 % — pour une résolution de banc de 3 %.
+Sur le cycle applicatif, les deux écarts sont à la limite de cette résolution : le framework y pèse
+~46 µs sur ~895 µs de budget par requête, et la base porte le reste.
 
-**Le coût du framework ne se dilue pas dans le travail utile — ou si peu que la mesure ne le
-distingue pas.** Le tableau précédent annonçait ×1,61 → ×1,29 → ×1,07, un escalier descendant ;
-ses trois marches venaient de fenêtres et de décors différents, et sa dernière était portée par le
-banc PostgreSQL, dont le camp témoin souffrait du défaut décrit plus haut.
-
-> ⚠️ **Le ×1,07 (≈ 93 %) plus haut dans cette page est RETIRÉ.** Son camp témoin
-> (`express-fair-drizzle.mjs`) chargeait lui aussi deux instances de drizzle — et l'effet y est
-> **plus grand que sur SQLite**, parce que la route PostgreSQL rend `{n}` (le SQL y pèse moins,
+> ⚠️ **Le ×1,07 (≈ 93 %) du banc PostgreSQL, plus haut dans cette page, est RETIRÉ.** Son camp
+> témoin (`express-fair-drizzle.mjs`) chargeait lui aussi deux instances de drizzle — et l'effet y
+> est **plus grand que sur SQLite**, parce que la route PostgreSQL rend `{n}` (le SQL y pèse moins,
 > donc la mise en objet des lignes pèse davantage) et que son pilote, asynchrone, ne bloque pas la
 > boucle : tout le CPU reste disponible pour le surcoût.
 >
@@ -681,9 +683,9 @@ banc PostgreSQL, dont le camp témoin souffrait du défaut décrit plus haut.
 > de paramètres qui ne sont plus connus ; les rapporter à ce biais donnerait un nombre d'allure
 > précise que rien ne mesure.
 
-**Ce qui n'est pas revendiqué, et ne le sera pas** : Nodefony n'est pas « plus performant » en
-absolu. Sur une route qui ne fait rien, il est plus lent, et le dossier le publie en première
-ligne. Ce qui est démontré, c'est que **le prix du service rendu est comparable à celui que
+**Ce qui n'est pas revendiqué, et ne le sera pas** : aucun classement. Un serveur `node:http` nu
+va deux fois plus vite que tous les camps qui rendent un service, et c'est normal. Ce qui est
+démontré, c'est que **le prix du service rendu par Nodefony est du même ordre que celui que
 n'importe qui paierait pour rendre le même service**, et qu'il cesse d'être discriminant dès
 qu'une requête SQL entre dans le budget.
 
@@ -879,6 +881,59 @@ rien tant qu'il y a d'autres requêtes à servir.
 Autrement dit : après ce lot, **ce qui borne une route ORM n'est ni le framework ni la base, c'est
 le pilote**.
 
+### Face à NestJS — le cycle applicatif, et où part l'écart
+
+Le banc applicatif SQLite — vingt lignes lues, puis l'`UPDATE` de la ligne lue — a été rejoué face
+à **NestJS équipé** (`nest-fair-sqlite` : Fastify, même travail de sécurité que Nodefony, même ORM,
+même pilote, même schéma, même base), en paires alternées, après le lot ORM de #510.
+
+| Camp          | Série 1 | Série 2 | Écart inter-séries |     p50 |     p99 |
+| ------------- | ------: | ------: | -----------------: | ------: | ------: |
+| NestJS équipé | 1 165,5 | 1 167,2 |              0,1 % | 19,8 ms | 40,1 ms |
+| **Nodefony**  | 1 111,6 | 1 124,8 |              1,2 % | 20,6 ms | 41,9 ms |
+
+**Nodefony fait 95,9 % de NestJS**, séparation nette : les deux séries de NestJS au-dessus des deux
+séries de Nodefony. En budget, ~894 µs par requête contre ~857 : **~37 µs d'écart sur un cycle de
+~900 µs**.
+
+> Une première passe dans la même journée, garde thermique à 45, a été **refusée** : trois séries
+> sur quatre au-dessus de 3 % de dispersion, chaque fois un seul run décroché pendant que la
+> machine chauffait. Elle n'est pas retenue, et aucun de ses chiffres n'est cité.
+
+#### Où part l'écart — trois instruments, trois réponses
+
+**Le profil V8 ne voit rien.** CPU JavaScript par requête : 899 µs pour Nodefony, 909 pour NestJS.
+Drizzle et `better-sqlite3` en prennent ~800 dans les deux camps ; le code du framework pèse
+~20 µs chez Nodefony, ~8 chez NestJS. Les postes qui diffèrent sont hors JavaScript.
+
+**Le CPU du fil principal tranche.** Mesuré sans profileur, trois paires alternées :
+
+| Par requête (médianes) | Nodefony | NestJS |      Écart | Séparé |
+| ---------------------- | -------: | -----: | ---------: | :----: |
+| CPU du fil principal   |   902 µs | 884 µs | **+18 µs** |  oui   |
+| CPU du process entier  |   927 µs | 926 µs |    +1,5 µs |  non   |
+| Ramasse-miettes        |   8,2 µs | 8,2 µs |          0 |  non   |
+| Collectes / 1 000 req. |     14,2 |   14,5 |          ≈ |   —    |
+
+Deux conclusions. **L'écart réel est de ~18 µs de fil principal**, le reste de l'écart de débit
+tenant à ce que NestJS fait porter plus de travail à ses autres fils. Et **le ramasse-miettes n'y
+est pour rien** : même coût par requête des deux côtés.
+
+**La capture native découpe ces 18 µs en familles qui se compensent** : appels système +31 µs
+(exécution SQLite, écriture de la réponse), builtins V8 +43 µs, libc et allocateur −71 µs — NestJS
+compile son `UPDATE` à chaque requête, ce que Nodefony mémoïse. L'imputation fine des builtins n'est
+pas établie : elle figure dans [Ce qui reste ouvert](#ce-qui-reste-ouvert).
+
+#### Ce que #510 a rendu
+
+| Geste                                                            | Mesure                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `UPDATE` sans sous-requête quand le critère fixe la clé primaire | **+3,7 à 5,3 %** de débit, A/B Nodefony contre lui-même             |
+| Comparaisons (`$eq`…`$lte`, `$null`) dans le cache des SELECT    | 71,9 → **10,1 µs** sur la forme d'une liste de révocation de jetons |
+
+Le gain d'un micro-banc ne passe jamais entier au banc : ~60 µs isolés, 35 à 45 µs retrouvés dans
+le cycle complet. Il ne se publie qu'après l'A/B du produit contre lui-même.
+
 ## L'analyse initiale, et ce qu'elle avait faux
 
 Le dossier a commencé par une **analyse statique** du pipeline, sans exécution : lecture du code,
@@ -917,19 +972,20 @@ regarder pour le prendre en défaut.
 
 ### Les trous de mesure
 
-### Le comparatif inter-frameworks n'a pas été rejoué sur l'état actuel
+### Ce que le comparatif publié ne couvre pas
 
-C'est le trou principal, et il est structurel dans la façon dont le chantier s'est déroulé.
+Le comparatif a été rejoué intégralement dans la campagne publiée — tous les camps dans la même
+fenêtre, avec le protocole complet. Restent hors de lui, et déclarés comme tels dans le fichier de
+données (`notMeasured`) :
 
-Les rapports publiés dans [Face aux autres](#face-aux-autres--trois-niveaux-déquité) — ×3,23 face à `node:http` nu, ×2,82
-face à Fastify, ×1,61 face à Express — ont été mesurés dans une fenêtre où Nodefony valait
-11 702 requêtes par seconde. Trois lots ont été livrés **depuis**, pour un gain de l'ordre de
-+14 % cumulés, et l'état actuel mesure ~13 400 dans une fenêtre ultérieure.
-
-**Ces deux fenêtres ne se comparent pas** — la règle vaut pour nous comme pour les autres. Le
-comparatif doit donc être rejoué **intégralement**, les quatre participants dans la même soirée,
-avec le protocole complet. Tant que ce n'est pas fait, les rapports publiés sont valides entre eux
-à la date de leur mesure, et **sous-estiment** vraisemblablement l'état livré.
+- **le POST validé face à NestJS** : la paire a été refusée deux fois, à 3,2 % de dispersion pour un
+  seuil de 3 % ; la tendance (~95 %) n'est pas publiable ;
+- **le POST invalide (422) face à NestJS** : non rejoué dans cette campagne ; la dernière mesure
+  (90,1 %) date d'un code antérieur ;
+- **Fastify** : hors périmètre, par décision (voir [Niveau 1](#niveau-1--ce-que-coûte-un-serveur-qui-ne-rend-aucun-service)) ;
+- **le duel PostgreSQL** : retiré, à refaire avec un camp Nodefony PostgreSQL (#403) ;
+- **l'imputation des builtins V8** dans l'écart ORM face à NestJS (+43 µs en capture native) ;
+- **la tenue au-delà de 90 minutes** : le banc de durée écarte les fuites grossières, pas les lentes.
 
 ### Aucun absolu PostgreSQL de ce dépôt n'est transposable
 
@@ -983,11 +1039,11 @@ quelqu'un qui ne sait pas qu'elle l'a été.
 
 ### Les pistes ORM non entamées
 
-| Piste                                     | État                                                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Piste                                     | État                                                                                                                                                                                    |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Mise à jour et insertion-ou-remplacement  | Non préparées. Ouvert (#511, 10.1.0). Pièges relevés : valeurs par défaut calculées figées à la préparation, colonnes JSON à passer en paramètre, nom de requête unique sous PostgreSQL |
-| Index sur les clés étrangères au scaffold | **Question produit** : le générateur d'entités doit-il indexer les clés étrangères par défaut ? Le corpus de banc ne l'était pas             |
-| A/B MySQL du lot préparé                  | Non mesuré. La lecture du source établit qu'il n'y a **aucune préparation au niveau du protocole** — le gain attendu est purement JavaScript |
+| Index sur les clés étrangères au scaffold | **Question produit** : le générateur d'entités doit-il indexer les clés étrangères par défaut ? Le corpus de banc ne l'était pas                                                        |
+| A/B MySQL du lot préparé                  | Non mesuré. La lecture du source établit qu'il n'y a **aucune préparation au niveau du protocole** — le gain attendu est purement JavaScript                                            |
 
 ### Un geste local en attente
 
@@ -1052,34 +1108,34 @@ sur un calcul de débit.
 Le vocabulaire général — débit, dispersion, blocage, structurel, accidentel — est défini dans
 [Méthode de mesure](methode.md#lexique). Ci-dessous, ce qui est propre aux analyses.
 
-| Terme                           | Ce qu'il désigne ici                                                                                                               |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Profil échantillonné**        | Relevé périodique de la pile d'appels. Il désigne des postes, il ne les chiffre pas à la microseconde près.                        |
-| **Temps propre**                | Temps passé **dans** une fonction, hors de ses appelées. C'est ce qu'on additionne ; le temps total, non.                          |
-| **Lecture ascendante**          | Attribution d'un poste à ses appelants réels, plutôt qu'à la fonction où l'échantillon est tombé.                                  |
-| **Micro-banc**                  | Mesure d'un mécanisme isolé, hors du serveur. Précis sur la mécanique, optimiste sur le réel (tas froid, caches propres).          |
+| Terme                           | Ce qu'il désigne ici                                                                                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Profil échantillonné**        | Relevé périodique de la pile d'appels. Il désigne des postes, il ne les chiffre pas à la microseconde près.                                                                                             |
+| **Temps propre**                | Temps passé **dans** une fonction, hors de ses appelées. C'est ce qu'on additionne ; le temps total, non.                                                                                               |
+| **Lecture ascendante**          | Attribution d'un poste à ses appelants réels, plutôt qu'à la fonction où l'échantillon est tombé.                                                                                                       |
+| **Micro-banc**                  | Mesure d'un mécanisme isolé, hors du serveur. Précis sur la mécanique, optimiste sur le réel (tas froid, caches propres).                                                                               |
 | **Sonde in-situ**               | Compteurs placés **dans** le serveur réel sous charge. L'arbitre entre un profil et un micro-banc pour attribuer un coût **à l'intérieur** de Nodefony ; entre deux camps, l'arbitre est le CPU du fil. |
-| **Chemin rapide / repli**       | Traitement court quand l'entrée est triviale, retour au traitement complet sinon. La sûreté vit dans la condition de repli.        |
-| **Motif de route**              | Expression régulière compilée à partir d'un chemin déclaré. Le scan consiste à en exécuter un par route candidate.                 |
-| **Pré-filtre de préfixe**       | Test bon marché qui écarte une route avant d'exécuter son motif.                                                                   |
-| **Équité d'un banc**            | Les deux participants font le **même travail** par requête. Sans elle, on mesure une différence de périmètre.                      |
-| **Express « équipé »**          | Express plus les middlewares qui rendent le service que Nodefony rend par défaut.                                                  |
-| **Travail dormant**             | Traitement qu'une cible pourrait exécuter sans qu'on le sache (session, audit, chronométrage). Prouvé absent des cibles comparées. |
-| **Prix des fonctionnalités**    | Écart entre un serveur nu et le même serveur rendant le service. Il est payé quel que soit le framework.                           |
-| **Recoupement croisé**          | Reproduire un résultat sur un système indépendant. Un gain qui se reproduit ailleurs n'est pas un artefact.                        |
-| **Prédiction engagée**          | Résultat attendu écrit **avant** de mesurer. Il rend la mesure réfutable.                                                          |
-| **Escalier**                    | Suite de routes n'ajoutant **qu'une** chose chacune. La différence entre deux marches est le coût de ce qu'on a ajouté.            |
-| **Additivité**                  | Contrôle de validité d'un escalier : la somme des marches doit rendre la marche complète. Sinon on mesure autre chose.             |
-| **Forme de requête**            | Ce qui identifie une requête indépendamment de ses **valeurs** : champs filtrés, comparaisons à `null`, tri, limite.               |
-| **Requête préparée**            | Requête compilée une fois, exécutée ensuite avec des valeurs re-liées.                                                             |
-| **Requête nommée** (PostgreSQL) | Forme de requête préparée dont le plan est mis en cache **par connexion** du pool — d'où l'échauffement obligatoire.               |
-| **Emplacement réservé**         | Marqueur de valeur dans une requête préparée. Il court-circuite la conversion de valeurs s'il est employé nu.                      |
-| **Repli**                       | Chemin de construction classique, conservé pour les cas que le cache de forme ne couvre pas.                                       |
-| **Transposable**                | Se dit d'un chiffre qui garde son sens hors de son décor. Un rapport l'est souvent ; un absolu, rarement.                          |
-| **Condition de réouverture**    | Le fait précis qui justifierait de reprendre une piste écartée. Sans elle, l'écartement ne tient pas.                              |
-| **Métrique à rampe**            | Grandeur qui dérive au fil des répétitions d'une même série. Elle ne converge pas en trois runs.                                   |
-| **Qualité d'ajustement** (R²)   | Mesure de la fidélité d'un modèle aux points observés. Trop basse, elle signale une **absence** de résultat.                       |
-| **Socle structurel**            | Part du coût par requête qui relève de Node et de l'architecture, non d'un défaut d'implémentation.                                |
+| **Chemin rapide / repli**       | Traitement court quand l'entrée est triviale, retour au traitement complet sinon. La sûreté vit dans la condition de repli.                                                                             |
+| **Motif de route**              | Expression régulière compilée à partir d'un chemin déclaré. Le scan consiste à en exécuter un par route candidate.                                                                                      |
+| **Pré-filtre de préfixe**       | Test bon marché qui écarte une route avant d'exécuter son motif.                                                                                                                                        |
+| **Équité d'un banc**            | Les deux participants font le **même travail** par requête. Sans elle, on mesure une différence de périmètre.                                                                                           |
+| **Express « équipé »**          | Express plus les middlewares qui rendent le service que Nodefony rend par défaut.                                                                                                                       |
+| **Travail dormant**             | Traitement qu'une cible pourrait exécuter sans qu'on le sache (session, audit, chronométrage). Prouvé absent des cibles comparées.                                                                      |
+| **Prix des fonctionnalités**    | Écart entre un serveur nu et le même serveur rendant le service. Il est payé quel que soit le framework.                                                                                                |
+| **Recoupement croisé**          | Reproduire un résultat sur un système indépendant. Un gain qui se reproduit ailleurs n'est pas un artefact.                                                                                             |
+| **Prédiction engagée**          | Résultat attendu écrit **avant** de mesurer. Il rend la mesure réfutable.                                                                                                                               |
+| **Escalier**                    | Suite de routes n'ajoutant **qu'une** chose chacune. La différence entre deux marches est le coût de ce qu'on a ajouté.                                                                                 |
+| **Additivité**                  | Contrôle de validité d'un escalier : la somme des marches doit rendre la marche complète. Sinon on mesure autre chose.                                                                                  |
+| **Forme de requête**            | Ce qui identifie une requête indépendamment de ses **valeurs** : champs filtrés, comparaisons à `null`, tri, limite.                                                                                    |
+| **Requête préparée**            | Requête compilée une fois, exécutée ensuite avec des valeurs re-liées.                                                                                                                                  |
+| **Requête nommée** (PostgreSQL) | Forme de requête préparée dont le plan est mis en cache **par connexion** du pool — d'où l'échauffement obligatoire.                                                                                    |
+| **Emplacement réservé**         | Marqueur de valeur dans une requête préparée. Il court-circuite la conversion de valeurs s'il est employé nu.                                                                                           |
+| **Repli**                       | Chemin de construction classique, conservé pour les cas que le cache de forme ne couvre pas.                                                                                                            |
+| **Transposable**                | Se dit d'un chiffre qui garde son sens hors de son décor. Un rapport l'est souvent ; un absolu, rarement.                                                                                               |
+| **Condition de réouverture**    | Le fait précis qui justifierait de reprendre une piste écartée. Sans elle, l'écartement ne tient pas.                                                                                                   |
+| **Métrique à rampe**            | Grandeur qui dérive au fil des répétitions d'une même série. Elle ne converge pas en trois runs.                                                                                                        |
+| **Qualité d'ajustement** (R²)   | Mesure de la fidélité d'un modèle aux points observés. Trop basse, elle signale une **absence** de résultat.                                                                                            |
+| **Socle structurel**            | Part du coût par requête qui relève de Node et de l'architecture, non d'un défaut d'implémentation.                                                                                                     |
 
 ## Pièges
 
