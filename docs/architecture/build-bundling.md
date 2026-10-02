@@ -144,7 +144,11 @@ import { defineNodefonyRolldownConfig } from "nodefony/bundler";
 // `externalDeps` externalise TOUT ce que le package.json déclare (dependencies
 // + peerDependencies) : le runtime d'une app vient de node_modules, il n'y a
 // rien à recopier dans le bundle. Seul TON code est compilé.
-export default defineNodefonyRolldownConfig({ externalDeps: true });
+// `cleanDir` vide `dist/` juste avant l'écriture : `dist/` appartient au seul build backend.
+export default defineNodefonyRolldownConfig({
+  externalDeps: true,
+  cleanDir: true,
+});
 ```
 
 ### Le fichier de build d'un paquet du framework

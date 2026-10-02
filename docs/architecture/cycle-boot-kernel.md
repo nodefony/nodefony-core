@@ -661,7 +661,9 @@ Chaque travailleur boote donc **le cycle complet, indépendamment**. Conséquenc
 `onKernelReady` qui écrit en base tournera **une fois par travailleur**. Ce qui doit être unique
 (migration, tâche planifiée) se garde explicitement, ou se sort du process applicatif.
 
-La supervision de process, elle, est déléguée à l'orchestrateur — un process Node = un conteneur.
+Par défaut, un process Node = un conteneur, et la supervision revient à l'orchestrateur. Sur un hôte
+sans orchestrateur, `nodefony cluster -w N` ajoute un maître qui supervise N workers (relance avec
+backoff, arrêt drainé) ; chaque worker joue le cycle complet.
 Voir [Docker & cloud-native](../guides/docker-cloud-native.md).
 
 ## ⚠️ Pièges

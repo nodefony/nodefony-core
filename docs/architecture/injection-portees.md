@@ -123,7 +123,7 @@ le contrôleur qui l'injecte **et** par une fonction qui ne reçoit rien.
 
 ```typescript
 import { Service, injectable, inject, RequestContext } from "nodefony";
-import type { Scope } from "nodefony";
+import type { Scope as DiScope } from "nodefony";
 import { Controller, controller, Get, Scope } from "@nodefony/framework";
 import type { Context, HttpContext } from "@nodefony/http";
 
@@ -135,7 +135,7 @@ class TenantContext extends Service {
   readonly id: string;
 
   // Un service `request` reçoit le scope de la requête en premier argument.
-  constructor(scope: Scope) {
+  constructor(scope: DiScope) {
     // Le MÊME nom qu'au décorateur : c'est la clé de l'exemplaire sur le calque.
     super("tenantContext", scope, false);
     const header =

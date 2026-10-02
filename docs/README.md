@@ -10,14 +10,14 @@ updated: 2026-05-29
 
 # Documentation Nodefony
 
-> Documentation **humaine** du framework. Complète les `CLAUDE.md` (instructions IA) et `MEMORY.md` (mémoire IA bas niveau) déjà présents à la racine et dans chaque module.
+> Documentation **humaine** du framework. Complète le `CLAUDE.md` racine (instructions IA) et les `CLAUDE.md` + `MEMORY.md` (mémoire IA bas niveau) de chaque module.
 
 ## Audiences
 
 | Cible                 | Source de vérité                                            | Caractère                           |
 | --------------------- | ----------------------------------------------------------- | ----------------------------------- |
 | Humain                | Ce dossier (`docs/`) + `README.md` des modules              | Exemples complets, guides pas-à-pas |
-| IA session            | `CLAUDE.md` + `MEMORY.md` racine/module                     | Règles, gotchas, mots-clés          |
+| IA session            | `CLAUDE.md` racine + `CLAUDE.md`/`MEMORY.md` par module     | Règles, gotchas, mots-clés          |
 | IA RAG futur (Vision) | Ce dossier (`docs/`) + TSDoc extrait via `generate-symbols` | Texte indexable                     |
 
 ## Structure
@@ -25,12 +25,23 @@ updated: 2026-05-29
 ```
 docs/
 ├── README.md          ← ce fichier (index + conventions)
-├── adr/               ← Architecture Decision Records (décisions figées, immuables)
+├── index.md           ← accueil du site de documentation
+├── demarrer.md        ← par où commencer (parcours par profil)
+├── lexique.md         ← vocabulaire transverse
+├── tutoriels/         ← première application, pas à pas
+├── guides/            ← how-to : configuration, Docker, Kubernetes, CI, release…
 ├── architecture/      ← concepts transverses : boot, DI, configuration, pipeline, build, realtime
-├── guides/            ← how-to : frontend React, session storage…
+├── performance/       ← mesures publiées, méthode, analyses (site /performance/)
+├── qualite/           ← données du rapport qualité publié
+├── adr/               ← Architecture Decision Records (décisions figées, immuables)
+├── api/               ← conception de la couche API (brouillon)
+├── devkit/            ← bancs de l'outillage agent
+├── skills/            ← fiches publiques des skills
 ├── ia/                ← vision IA : livre-blanc-couche-ia.md (source unique)
 ├── release/           ← notes de version (nodefony-10)
-├── session-retros/    ← retex de session datés (matière première des CONSOLIDATION-*)
+├── assets/            ← images de la documentation
+├── outillage-agents.md← état des lieux de l'outillage des agents
+├── session-retros/    ← retex de session datés (archive, plus alimentée)
 └── archives/          ← docs périmés conservés pour l'historique (PROGRESS.md…)
 ```
 
@@ -192,7 +203,6 @@ Pas de hook bloquant pour l'instant : la règle est documentaire. Vision (Phase 
 ## Liens externes
 
 - `CLAUDE.md` (racine) — règles globales du projet
-- `MEMORY.md` (racine) — index des mémoires IA par module
 - `.claude/skills/nodefony-inspect/SKILL.md` — graphe symbolique, signatures, config d'un module, diff
 - `.ai/BOARD.md` (généré) — les tickets ouverts et leur ordre
 - `docs/adr/` — les décisions d'architecture et leur pourquoi

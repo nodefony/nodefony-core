@@ -346,7 +346,9 @@ flowchart LR
   IN["Requête entrante"] --> SC["enterScope('request')<br/>un sous-annuaire jetable"]
   SC --> CX["Création du Context<br/>(HttpContext ou WebsocketContext)"]
   CX --> ALS["Bulle ALS<br/>requestId · trace · contexte"]
-  ALS --> DEF["Défenses<br/>CORS · en-têtes · CSRF"]
+  ALS --> DEF["Défenses<br/>CORS · en-têtes"]
+  DEF --> RT["Router.resolve<br/>route matchée"]
+  RT --> BODY["Corps parsé<br/>puis CSRF"]
 ```
 
 Puis l'identité, et seulement ensuite votre code :
@@ -354,7 +356,7 @@ Puis l'identité, et seulement ensuite votre code :
 ```mermaid
 flowchart LR
   SESS["Session (paresseuse)"] --> FWD{"Zone protégée ?"}
-  FWD -->|non| RES["Router → Resolver"]
+  FWD -->|non| RES["Resolver → action"]
   FWD -->|oui| AUTH["Firewall<br/>identité + droits"]
   AUTH --> RES
   RES --> CTRL["Ton contrôleur"]
@@ -442,7 +444,7 @@ retombe sur le service de fichiers statiques (`http-kernel.ts:1193` et suivantes
 un `express.static()` placé en fin de chaîne.
 
 **Ce qui change.** Il n'y a pas de `app.use(middleware)` empilable à volonté. Le pipeline est **fixe
-et ordonné** (défenses → session → firewall → routage → contrôleur), et tu t'y greffes par des points
+et ordonné** (en-têtes et CORS → routage → corps → CSRF → session → firewall → contrôleur), et tu t'y greffes par des points
 d'accroche nommés : `onCreateContext`, `beforeResolve`, `afterAuth`, `onAuthFailure`. Ces seams sont
 gardés par `listenerCount` — sans écouteur, ils ne créent **aucune** microtask.
 
@@ -494,16 +496,16 @@ centaines entrelacées : chaque requête y reçoit son propre conteneur, par cha
 
 Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres, avec leur facture.
 
-| Parti pris                                  | Ce qu'il apporte                                                     | Ce qu'il coûte                                                                       |
-| ------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Pipeline fixe** plutôt que middlewares    | Ordre garanti, défenses jamais contournées par erreur                | Moins de liberté d'insertion : il faut passer par un seam ou un décorateur           |
-| **HTTP et WS dans le même contexte**        | Une session, un firewall, un journal pour les deux                   | Le socle transport est plus gros qu'un simple serveur HTTP                           |
-| **Node.js natif** (`node:http`, `ws`)       | Zéro couche d'abstraction exotique, conformité RFC directe           | Pas de gains « magiques » d'un runtime alternatif                                    |
-| **Zero Trust par défaut** sur zone protégée | Aucune route protégée n'est ouverte par oubli                        | Une route publique dans une zone doit lister `anonymous` — sinon 401 surprenant      |
-| **Modules déclarés** (manifeste ordonné)    | Chargement prévisible, filtrable par environnement, lisible en revue | Rien n'est découvert tout seul : un module oublié dans le manifeste n'existe pas     |
-| **TypeScript strict, ESM uniquement**       | Types réels de bout en bout, tree-shaking                            | Pas de `require()`, pas de dépendance CommonJS non convertie                         |
-| **1 process = 1 conteneur** (cloud-native)  | Scaling délégué à l'orchestrateur, logs vers la sortie standard      | Pas de superviseur de process intégré : c'est k8s, systemd ou Docker qui redémarre   |
-| **Allocation paresseuse partout**           | Coût par requête très bas sur les chemins non utilisés               | Le code interne est plus verbeux (gardes `listenerCount`, initialisations différées) |
+| Parti pris                                  | Ce qu'il apporte                                                     | Ce qu'il coûte                                                                               |
+| ------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Pipeline fixe** plutôt que middlewares    | Ordre garanti, défenses jamais contournées par erreur                | Moins de liberté d'insertion : il faut passer par un seam ou un décorateur                   |
+| **HTTP et WS dans le même contexte**        | Une session, un firewall, un journal pour les deux                   | Le socle transport est plus gros qu'un simple serveur HTTP                                   |
+| **Node.js natif** (`node:http`, `ws`)       | Zéro couche d'abstraction exotique, conformité RFC directe           | Pas de gains « magiques » d'un runtime alternatif                                            |
+| **Zero Trust par défaut** sur zone protégée | Aucune route protégée n'est ouverte par oubli                        | Une route publique dans une zone doit lister `anonymous` — sinon 401 surprenant              |
+| **Modules déclarés** (manifeste ordonné)    | Chargement prévisible, filtrable par environnement, lisible en revue | Rien n'est découvert tout seul : un module oublié dans le manifeste n'existe pas             |
+| **TypeScript strict, ESM uniquement**       | Types réels de bout en bout, tree-shaking                            | Pas de `require()`, pas de dépendance CommonJS non convertie                                 |
+| **1 process = 1 conteneur** par défaut      | Scaling délégué à l'orchestrateur, logs vers la sortie standard      | Sans orchestrateur, `nodefony cluster -w N` relance N workers ; sinon k8s, systemd ou Docker |
+| **Allocation paresseuse partout**           | Coût par requête très bas sur les chemins non utilisés               | Le code interne est plus verbeux (gardes `listenerCount`, initialisations différées)         |
 
 ## 📜 Normes appliquées
 

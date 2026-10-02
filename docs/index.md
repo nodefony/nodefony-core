@@ -104,7 +104,7 @@ Un contrat commun, plusieurs implémentations. Écris contre le contrat, choisis
     "desc": "La socket Nodefony : une connexion qui multiplexe N canaux bidirectionnels, avec backplane.",
     "meta": "le différenciateur" },
   { "icon": "🎨", "title": "@nodefony/frontend", "href": "../src/packages/@nodefony/frontend/docs/index.md",
-    "desc": "Build Vite, rechargement à chaud, multi-framework (React, Vue, Angular).", "meta": "servir une SPA" },
+    "desc": "Build Vite, rechargement à chaud, multi-framework (React, Vue, Angular, Svelte).", "meta": "servir une SPA" },
   { "icon": "🛠️", "title": "@nodefony/studio", "href": "../src/packages/@nodefony/studio/docs/index.md",
     "desc": "L'administration web du framework : voir l'intérieur en marche.", "meta": "introspection" },
   { "icon": "📘", "title": "@nodefony/documentation", "href": "../src/packages/@nodefony/documentation/docs/index.md",

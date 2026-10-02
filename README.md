@@ -86,7 +86,7 @@ Le détail — les trois durées de vie, l'accès par `RequestContext`, les piè
 [Injection & portées](docs/architecture/injection-portees.md).
 
 Les frontends ne sont pas laissés dehors. Nodefony pilote **Vite** : en développement il démarre
-les serveurs de développement — React, Vue, Angular —, les surveille, relaie leur rechargement à
+les serveurs de développement — React, Vue, Angular, Svelte —, les surveille, relaie leur rechargement à
 chaud et sert leurs pages ; en production il construit les bundles et les distribue. Une
 application peut en porter plusieurs, chacun monté sur sa route.
 
@@ -112,7 +112,7 @@ réécriture sont donc structurels, et chacun ferme une porte :
 | **ESM** exclusivement                    | la double résolution CommonJS/ESM et ses pièges de chargement |
 | Décorateurs plutôt que convention        | qu'une route existe sans être déclarée là où on la lit        |
 | Configuration **validée** au boot        | qu'une clé mal orthographiée soit ignorée sans un mot         |
-| Un processus = une instance              | la supervision maison ; l'échelle revient à l'orchestrateur   |
+| Un processus = une instance, par défaut  | une supervision imposée ; l'échelle revient à l'orchestrateur |
 
 La version 10 est l'aboutissement de cette réécriture. Ce n'est pas un portage : c'est le même
 projet, repensé pour ce que Node.js et TypeScript sont devenus.
@@ -364,12 +364,13 @@ Aucun outil sur étagère ne connaît ces surfaces : il faut concevoir les attaq
 | [`@nodefony/frontend`](src/packages/@nodefony/frontend) | Construction et rechargement à chaud des frontends de chaque module |
 | [`@nodefony/studio`](src/packages/@nodefony/studio) | Console d'administration |
 
-Un processus Node égale une instance : pas de superviseur maison, le passage à l'échelle revient à
-l'orchestrateur, et les journaux partent sur la sortie standard.
+Par défaut, un processus Node égale une instance : le passage à l'échelle revient à l'orchestrateur,
+et les journaux partent sur la sortie standard. Sans orchestrateur, `nodefony cluster -w N` démarre N
+workers isolés, relancés s'ils tombent.
 
 ## Où aller ensuite
 
-- [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) — quatre parcours selon ce que vous venez faire
+- [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) — cinq parcours selon ce que vous venez faire
 - [Documentation](https://nodefony.github.io/nodefony-core/docs/) · [Guides](https://nodefony.github.io/nodefony-core/docs/guides/) · [Première application](https://nodefony.github.io/nodefony-core/docs/tutoriels/premiere-application/)
 - [L'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/) — ce que le framework est, et ce que ses partis pris coûtent
 - [Performance](https://nodefony.github.io/nodefony-core/performance/) — ce qui a été mesuré, avec quel

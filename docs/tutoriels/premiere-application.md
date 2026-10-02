@@ -47,7 +47,7 @@ Les mots qui reviennent (le vocabulaire complet est dans le [lexique général](
 | **service**         | Une classe de logique réutilisable, que le framework construit et te donne (`@inject`).         |
 | **scope**           | Le conteneur propre à UNE requête : un calque posé sur celui de l'application, jeté à la fin.   |
 | **entité**          | Une table de base de données décrite en TypeScript, avec son service et son CRUD.               |
-| **HMR**             | Hot Module Replacement : le serveur de dev recharge ton code à chaud, sans redémarrage manuel.  |
+| **superviseur**     | Le processus de dev qui reconstruit ton code et relance le serveur à chaque sauvegarde.         |
 | **zone / firewall** | Un préfixe d'URL et sa politique de sécurité (ici `^/api`, visiteur « anonyme » autorisé).      |
 
 ## 1. Créer l'application
@@ -102,7 +102,8 @@ curl http://127.0.0.1:5151/api/hello
 
 Tu es « anonyme » parce que la route est publique — la zone `^/api` autorise le visiteur non connecté,
 et `@CurrentUser()` te rend alors un utilisateur anonyme (jamais `null`). Laisse le serveur tourner :
-grâce au **HMR**, chaque modification de code que tu vas faire est prise en compte à chaud.
+grâce au **superviseur de développement**, chaque modification de code est reconstruite et le serveur
+relancé automatiquement.
 
 ## 3. Le différenciateur — HTTP et WebSocket dans le même controller
 
@@ -135,7 +136,8 @@ async ping() {
 }
 ```
 
-Sauvegarde. Le HMR recharge tout seul — pas de redémarrage. Vérifie :
+Sauvegarde. Le superviseur reconstruit et relance le serveur tout seul, en quelques secondes — rien à
+relancer à la main. Vérifie :
 
 ```bash
 curl http://127.0.0.1:5151/api/ping
@@ -174,12 +176,18 @@ export class RequestStamp extends Service {
 ```
 
 Puis demande-le dans le constructeur de `HelloController`, et ajoute une route qui attend un peu —
-comme le ferait une vraie requête SQL :
+comme le ferait une vraie requête SQL. Un contrôleur est un **singleton** par défaut : une seule
+instance sert toutes les requêtes. Celui-ci reçoit un service par requête, il doit donc devenir lui
+aussi **par requête** — sinon le démarrage le refuse, en nommant les deux classes :
 
 ```ts
 // dans nodefony/controllers/HelloController.ts
 import { inject, RequestContext } from "nodefony";
+import { Scope } from "@nodefony/framework"; // à ajouter à l'import existant
 import { RequestStamp } from "../service/RequestStamp";
+
+// … au-dessus de la classe, sous `@controller(…)` :
+@Scope("request") // une instance par requête, comme le service qu'elle reçoit
 
 // … le constructeur de la classe reçoit le service en plus du contexte :
 constructor(
@@ -262,12 +270,12 @@ Le même controller sert aussi ces lectures en **WebSocket** (les méthodes de l
 
 ## ⚠️ Pièges (les erreurs de début)
 
-| Symptôme                             | Cause                                                     | Correction                                                                                                    |
-| ------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `404` sur `/api/hello`               | Serveur lancé depuis un sous-dossier (« projet fantôme ») | Lance **depuis la racine** de `mon-app` (là où est `nodefony.config.ts`).                                     |
-| Une route ajoutée n'apparaît pas     | Le `dist/` est périmé                                     | Le HMR suffit en dev ; sinon `npm run build` puis relance.                                                    |
-| `create entity` refuse de s'exécuter | aucun ORM dans le projet                                  | Ajoute `@nodefony/drizzle` (SQL) ou `@nodefony/mongoose` (MongoDB) à `modules` + `npm install`, puis relance. |
-| Le port 5151 est déjà pris           | Un serveur tourne déjà                                    | `npx nodefony stop`, ou change le port dans `nodefony.config.ts`.                                             |
+| Symptôme                                     | Cause                                                                                              | Correction                                                                                                    |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `404` sur `/api/hello`                       | Serveur lancé depuis un sous-dossier (« projet fantôme »)                                          | Lance **depuis la racine** de `mon-app` (là où est `nodefony.config.ts`).                                     |
+| Une route ajoutée n'apparaît pas             | Le `dist/` est périmé                                                                              | Le superviseur reconstruit seul en dev ; sinon `npm run build` puis relance.                                  |
+| `create entity` refuse de s'exécuter         | aucun ORM dans le projet                                                                           | Ajoute `@nodefony/drizzle` (SQL) ou `@nodefony/mongoose` (MongoDB) à `modules` + `npm install`, puis relance. |
+| Les `curl` sur 5151 n'atteignent pas ton app | Une autre app tenait 5151 : en dev, Nodefony prend le port libre suivant et l'annonce au démarrage | Lire le port annoncé, ou `npx nodefony stop` sur l'autre app.                                                 |
 
 ## 🔗 Pour aller plus loin
 

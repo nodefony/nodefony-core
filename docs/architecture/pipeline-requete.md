@@ -396,7 +396,7 @@ une fois, au boot du module.
 // dans le module de ton app — hook onKernelReady : tout est construit
 override async onKernelReady(): Promise<this> {
   const httpKernel = this.get<HttpKernel>("HttpKernel");
-  // Tiré AVANT le routage, à chaque requête HTTP (et au handshake WS).
+  // Tiré après le parse du corps, avant CSRF, session et firewall (en WS : avant la résolution de route).
   httpKernel?.on("beforeResolve", (context: ContextType) => {
     this.log(`entrée ${context.method} ${context.url}`, "INFO");
   });
@@ -406,14 +406,14 @@ override async onKernelReady(): Promise<this> {
 
 Choisir son point d'accroche en cinq secondes :
 
-| Tu veux…                                           | Point d'accroche            | Ce qui est déjà vrai                        |
-| -------------------------------------------------- | --------------------------- | ------------------------------------------- |
-| voir la requête brute, avant toute allocation      | `onServerRequest`           | rien — juste `request`/`response`           |
-| enrichir le contexte dès sa création               | `onCreateContext`           | le contexte existe, l'ALS n'est pas ouverte |
-| agir avant le routage                              | `beforeResolve`             | l'ALS est ouverte, corps parsé              |
-| réagir à une authentification réussie              | `afterAuth`                 | `context.user` est résolu                   |
-| réagir à un refus d'authentification               | `onAuthFailure`             | l'erreur d'auth est disponible              |
-| faire quelque chose après la réponse (une requête) | `context.onAfterResponse()` | la réponse est partie                       |
+| Tu veux…                                           | Point d'accroche            | Ce qui est déjà vrai                         |
+| -------------------------------------------------- | --------------------------- | -------------------------------------------- |
+| voir la requête brute, avant toute allocation      | `onServerRequest`           | rien — juste `request`/`response`            |
+| enrichir le contexte dès sa création               | `onCreateContext`           | le contexte existe, l'ALS n'est pas ouverte  |
+| agir avant CSRF, session et firewall               | `beforeResolve`             | route déjà matchée, ALS ouverte, corps parsé |
+| réagir à une authentification réussie              | `afterAuth`                 | `context.user` est résolu                    |
+| réagir à un refus d'authentification               | `onAuthFailure`             | l'erreur d'auth est disponible               |
+| faire quelque chose après la réponse (une requête) | `context.onAfterResponse()` | la réponse est partie                        |
 
 > [!WARNING]
 > Sur le chemin HTTP, trois de ces événements ne sont émis **que s'ils ont un abonné**
