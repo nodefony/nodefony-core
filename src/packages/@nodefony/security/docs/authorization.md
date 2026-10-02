@@ -362,8 +362,8 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:903`)                                             |
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:424-433`)                              |
-| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1579`)                          |
-| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1544`)                         |
+| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1648`)                          |
+| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1620`)                         |
 | `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:923`)                                      |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:1002`)         |
 | `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:953`) |

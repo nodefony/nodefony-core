@@ -52,7 +52,7 @@ flowchart TD
 2. **Au montage**, `controller()` (`routerDecorators.ts:189`) relit ces métadonnées et fabrique les
    objets `Route` ; `controllers()` (`routerDecorators.ts:111`) accroche le contrôleur au module sur
    le hook `onBoot` du kernel.
-3. **À la première requête** de chaque route, `resolveActionMeta()` (`routerDecorators.ts:1669`)
+3. **À la première requête** de chaque route, `resolveActionMeta()` (`routerDecorators.ts:1743`)
    consolide toutes les étiquettes de l'action en **un objet figé** posé sur la route. Les requêtes
    suivantes ne lisent plus aucune métadonnée.
 
@@ -132,8 +132,8 @@ payer est visible : une route gardée alors que le module `security` est absent 
 une erreur de démarrage (fail-closed, `Resolver.ts:860`).
 
 **2 — Tout est figé une fois, puis relu en O(1).** Les métadonnées de l'action sont consolidées au
-premier passage dans `computeActionMeta()` (`routerDecorators.ts:1632`) puis gelées sur la route.
-L'objet `RouteActionMeta` (`routerDecorators.ts:1436`) est **partagé par toutes les requêtes** — le
+premier passage dans `computeActionMeta()` (`routerDecorators.ts:1701`) puis gelées sur la route.
+L'objet `RouteActionMeta` (`routerDecorators.ts:1512`) est **partagé par toutes les requêtes** — le
 framework ne le mute jamais, et ton code non plus. Une action non décorée obtient des champs à `null`,
 ce qui vaut **zéro branche** dans le chemin chaud.
 
@@ -377,7 +377,7 @@ l'intent, exactement comme `@UseSession()`. Une route sans l'un ni l'autre ne pa
 **`@Body({ stream: true })` court-circuite le parsing.** Pour un gros téléversement (vidéo,
 sauvegarde), on injecte le **flux brut** de la requête au lieu du corps chargé en mémoire ; le
 pipeline saute alors le parsing pour cette route, décision prise en amont par
-`routeExpectsBodyStream()` (`routerDecorators.ts:1408`) :
+`routeExpectsBodyStream()` (`routerDecorators.ts:1484`) :
 
 ```typescript
 @Post("/upload")
@@ -495,7 +495,7 @@ Sept décorateurs, **tous duals** (classe ou méthode) et **tous sans logique** 
 #### Rôles et scopes — deux axes, un seul verdict
 
 `@IsGranted` et `@RequireScope` écrivent dans **deux jeux de métadonnées distincts**, puis
-`computeSecurityRequirement()` (`routerDecorators.ts:1544`) les fusionne en une exigence unique dont
+`computeSecurityRequirement()` (`routerDecorators.ts:1620`) les fusionne en une exigence unique dont
 toutes les clauses sont en **ET**. Une seule chaîne d'application côté `Resolver`, deux jurés
 différents côté `security` (le voteur de rôles, le voteur de scopes).
 
@@ -643,11 +643,11 @@ pas toutes identiques — c'est la source d'erreur n°1.
 | `@Domain` | option `host` de la route > méthode > classe | `controller()` (`routerDecorators.ts:189`) |
 | `@BypassFirewall` | **cumulatif** : `true` de la route, de la méthode ou de la classe suffit | `routerDecorators.ts:750` |
 | `@UseSession` | méthode > classe (fusion des champs) | `resolveSessionIntent()` (`routerDecorators.ts:858`) |
-| `@Idempotent` | méthode > classe | `computeIdempotent()` (`routerDecorators.ts:1606`) |
-| `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode | `computeSecurityRequirement()` (`routerDecorators.ts:1544`) |
+| `@Idempotent` | méthode > classe | `computeIdempotent()` (`routerDecorators.ts:1682`) |
+| `@IsGranted` / `@RequireScope` | **cumul en ET** : classe **plus** méthode | `computeSecurityRequirement()` (`routerDecorators.ts:1620`) |
 | `@Anonymous` | méthode → annule tout ce que la classe a posé | `routerDecorators.ts:953` |
 | `@Csp` | fusion **additive** classe + méthode (sources concaténées) | `mergeCspDirectives()` (`routerDecorators.ts:1043`) |
-| `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit | `computeActionMeta()` (`routerDecorators.ts:1632`) |
+| `@CsrfProtect` / `@CsrfExempt` | OU logique : classe **ou** méthode suffit | `computeActionMeta()` (`routerDecorators.ts:1701`) |
 | `@Header` | s'empile (plusieurs en-têtes) ; même clé → dernier écrit gagne | `Header()` (`routerDecorators.ts:603`) |
 | `@HttpCode` | un seul par action (le dernier posé écrase) | `HttpCode()` (`routerDecorators.ts:582`) |
 
@@ -692,7 +692,7 @@ sequenceDiagram
   RS->>RS: requêtes suivantes : lecture O(1), 0 Reflect
 ```
 
-Le snapshot `RouteActionMeta` (`routerDecorators.ts:1436`) regroupe **tout** ce que les décorateurs
+Le snapshot `RouteActionMeta` (`routerDecorators.ts:1512`) regroupe **tout** ce que les décorateurs
 ont dit de l'action :
 
 <!-- prettier-ignore -->
@@ -715,7 +715,7 @@ contrôleur et n'exécute pas son `initialize()`. Puis viennent les arguments
 (`_buildParamArgs()`, `Resolver.ts:929`), les métadonnées de réponse
 (`_applyResponseMeta()`, `Resolver.ts:955`), l'action, et enfin la redirection éventuelle.
 
-Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1520`) parcourt
+Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1596`) parcourt
 les routes au démarrage pour bâtir le **catalogue des scopes déclarés** — le formulaire de création
 de clés API dans Studio propose les scopes réellement utilisés par le code, jamais une liste
 maintenue à part.
@@ -724,15 +724,15 @@ maintenue à part.
 
 Un décorateur non employé doit coûter **zéro**. C'est tenu par trois mécanismes vérifiables :
 
-- **Lecture unique.** `resolveActionMeta()` (`routerDecorators.ts:1669`) mémorise le snapshot sur la
+- **Lecture unique.** `resolveActionMeta()` (`routerDecorators.ts:1743`) mémorise le snapshot sur la
   route au premier passage — ensuite, plus aucun appel `Reflect.getMetadata` ni `Object.entries` par
   requête. Le même schéma vaut pour la détection du flux brut
-  (`routeExpectsBodyStream()`, `routerDecorators.ts:1408`).
+  (`routeExpectsBodyStream()`, `routerDecorators.ts:1484`).
 - **`null` plutôt que structure vide.** Une action sans garde a `security: null` : le `Resolver` teste
   un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:486`). Idem
   pour `idempotent`, `cspDirectives`, `paramsMeta`.
 - **Objets gelés et partagés.** Les exigences de sécurité et d'idempotence sont créées **une fois** et
-  `Object.freeze`-ées (`routerDecorators.ts:1496`, `:1340`) : une seule instance pour la durée de vie
+  `Object.freeze`-ées (`routerDecorators.ts:1647`, `:1696`) : une seule instance pour la durée de vie
   du processus, quelle que soit la charge. Corollaire : ne les mute jamais.
 
 Coût résiduel côté montage seulement : la reconstruction de la pile d'appels dans `route()`

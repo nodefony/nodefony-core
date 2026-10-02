@@ -119,7 +119,7 @@ Quatre propriétés, toutes vérifiables dans le code — c'est ce qui justifie 
 WebSocket brute.
 
 **Un contrôleur temps réel est un contrôleur.** `RealtimeController`
-(`RealtimeController.ts:144`) étend le `Controller` du framework : il se déclare avec les mêmes
+(`RealtimeController.ts:173`) étend le `Controller` du framework : il se déclare avec les mêmes
 décorateurs de route, reçoit la même injection, passe par le même pare-feu. HTTP et WebSocket ne sont
 pas deux applications à écrire deux fois, mais deux entrées du même pipeline.
 
@@ -143,7 +143,7 @@ toucher au cœur.
 > [!IMPORTANT]
 > **Rien ne franchit la frontière du processus sans intention explicite.** Par défaut, un canal reste
 > local. Il faut le déclarer diffusable (`@RealtimeBroadcast`,
-> `realtimeDecorators.ts:342`) pour qu'il emprunte le backplane. C'est volontaire : un canal
+> `realtimeDecorators.ts:366`) pour qu'il emprunte le backplane. C'est volontaire : un canal
 > d'observation qui décrit l'état d'**un** pod n'aurait aucun sens répliqué sur les autres.
 
 Le module se déclare par ailleurs **non critique** (`Realtime.critical`, `index.ts:144`) et son

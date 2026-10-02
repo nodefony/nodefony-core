@@ -508,7 +508,7 @@ l'application monte quand même, l'échec est journalisé, et c'est l'orchestrat
 
 `repo.find({ views: { $gte: 10 } }, { limit: 20 })` traverse quatre étapes :
 
-1. **Traduction du critère** (`MongooseRepository.#filter()` (`MongooseRepository.ts:256`)) : chaque
+1. **Traduction du critère** (`MongooseRepository.#filter()` (`MongooseRepository.ts:248`)) : chaque
    champ est résolu (`id` devient `_id`), chaque opérateur portable est converti.
 2. **Validation du champ** (`MongooseRepository.#resolveField()` (`MongooseRepository.ts:222`)) : un
    champ absent du schéma lève `UnknownCriteriaField` — plutôt que de renvoyer zéro résultat sans

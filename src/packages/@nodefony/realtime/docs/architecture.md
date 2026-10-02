@@ -126,7 +126,7 @@ Nodefony étiquette avec **JSON-RPC 2.0**, une norme publique plutôt qu'un form
 Le point remarquable : le **même** moteur de protocole tourne des deux côtés du fil. La
 classe `JsonRpcPeer` (`JsonRpcPeer.ts:271`) est du code isomorphe du cœur — le navigateur
 l'exécute dans `RealtimeClient`, le serveur l'instancie une fois par connexion dans
-`RealtimeController.onHandshake()` (`RealtimeController.ts:374`). Le serveur peut donc
+`RealtimeController.onHandshake()` (`RealtimeController.ts:404`). Le serveur peut donc
 appeler le client, pas seulement l'inverse : c'est du vrai duplex, pas un aller-retour
 déguisé.
 
@@ -141,7 +141,7 @@ Trois partis pris distinguent cette pile d'un simple « serveur WebSocket ».
 et explicite : `ServerRealtimeSocket.request()` (`ServerRealtimeSocket.ts:131`) **rejette
 toujours** — un handle posé sur le hub n'a pas d'interlocuteur unique, puisque le hub est
 multi-clients. Pour un appel serveur→client ciblé, on passe par la connexion :
-`RealtimeController.requestClient()` (`RealtimeController.ts:329`).
+`RealtimeController.requestClient()` (`RealtimeController.ts:359`).
 
 **Un provider par canal, pas un par client.** Si mille onglets s'abonnent au même canal de
 santé, le calcul ne doit tourner qu'une fois. Le hub crée le producteur au **premier**
@@ -388,7 +388,7 @@ Le schéma ci-dessous rend ces étages vivants : active le temps réel et il res
 
 ## 🔌 Le cycle de vie d'une connexion
 
-Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:374`), appelé
+Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:404`), appelé
 une seule fois par connexion, en chemin froid.
 
 ```mermaid
@@ -431,7 +431,7 @@ Les étapes, dans l'ordre exact du code :
    jeton disparaît avec le peer, sans fuite.
 4. **Enregistrement des actions** — celles des décorateurs `@RealtimeAction`, puis celles
    de la surcharge `realtimeActions()`, qui gagne en cas de conflit. Le pont API
-   `api.request` n'est ajouté que si `realtimeApiRequest()` (`RealtimeController.ts:276`)
+   `api.request` n'est ajouté que si `realtimeApiRequest()` (`RealtimeController.ts:291`)
    rend `true`.
 5. **Inscription aux registres** : sonde de connexion, révocation périodique si le jeton
    est révocable, préfixes de canaux broadcast, canaux entrants.
@@ -439,7 +439,7 @@ Les étapes, dans l'ordre exact du code :
    l'identité résolue (type, authentifié ou non, rôles, portées). Le client sait **qui il
    est** sans appeler la moindre route.
 
-À la fermeture, un unique `onFinish` (`RealtimeController.ts:715`) fait le ménage complet :
+À la fermeture, un unique `onFinish` (`RealtimeController.ts:733`) fait le ménage complet :
 désabonnement de chaque canal tenu, retrait des deux registres, `fireClose()` du transport,
 `dispose()` du peer. C'est ce qui garantit qu'aucun minuteur ni écouteur ne survit à une
 déconnexion.
@@ -510,7 +510,7 @@ une connexion fautive n'interrompt pas la diffusion aux autres.
 ### Le forward est OPT-IN — le défaut est l'isolement
 
 Par défaut, **aucun canal ne traverse le backplane**. Il faut déclarer un préfixe, via
-`@RealtimeBroadcast` sur ton contrôleur (`realtimeDecorators.ts:342`) ou
+`@RealtimeBroadcast` sur ton contrôleur (`realtimeDecorators.ts:366`) ou
 directement `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`).
 
 Trois raisons à ce choix, qui prend à contre-pied la plupart des bibliothèques temps réel :

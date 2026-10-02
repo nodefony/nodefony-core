@@ -125,9 +125,9 @@ vers un autre service — et le consommateur ne voit jamais la différence
 (`IRealtimeChannel`, `IRealtimeSocket.ts:87`).
 
 **`contrôleur` est le même mot qu'en HTTP.** Un endpoint temps réel est un contrôleur qui étend
-`RealtimeController` (`RealtimeController.ts:144`) et porte une route WebSocket : HTTP et WebSocket
+`RealtimeController` (`RealtimeController.ts:173`) et porte une route WebSocket : HTTP et WebSocket
 vivent dans le **même contexte de contrôleur**. C'est ce qui permet au pont `api.request`
-(`RealtimeController.realtimeApiRequest()`, `RealtimeController.ts:276`) de rejouer sur la socket
+(`RealtimeController.realtimeApiRequest()`, `RealtimeController.ts:291`) de rejouer sur la socket
 **la même action** que celle servie en REST.
 
 ## 🚀 Démarrage rapide — les mots en situation
@@ -270,7 +270,7 @@ Un handler qui lève une erreur rend un `-32603` **générique** ; seule une `Rp
 
 Un canal où le **client a le droit d'émettre** vers le serveur. Défaut sûr : **aucun**. Un canal
 n'accepte d'entrée que déclaré explicitement, par `@RealtimeInbound` (`realtimeDecorators.ts:231`) ou
-par l'override `realtimeInbound()` (`RealtimeController.ts:262`).
+par l'override `realtimeInbound()` (`RealtimeController.ts:277`).
 
 Le handler reçoit `(params, reply)` — `params` vient du réseau, donc **jamais fiable** :
 `RealtimeInboundHandler` (`IRealtimeController.ts:16`).
@@ -297,7 +297,7 @@ importable **sans** aucune dépendance serveur, ce qui est la condition de l'iso
 (`ServerRealtimeSocket.ts:223`) : un service métier tient un handle et publie **comme une page
 front**. Une différence assumée : `request()` n'y est pas supporté — au-dessus du hub il n'y a pas
 **un** pair mais N clients. Pour un appel serveur → un client précis, c'est `requestClient()`
-(`RealtimeController.ts:329`).
+(`RealtimeController.ts:359`).
 
 ### `accueil` (welcome) — la première frame
 
@@ -404,7 +404,7 @@ déclaration se fait par **préfixe**, ce qui couvre les variantes de cadence (`
 `chat:room-42:1000`).
 
 `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`), déclaré côté contrôleur par
-`@RealtimeBroadcast` (`realtimeDecorators.ts:342`).
+`@RealtimeBroadcast` (`realtimeDecorators.ts:366`).
 
 ### `canal instance-local` — le défaut
 
@@ -419,7 +419,7 @@ Politique de forward du hub — `#broadcastPrefixes` (`RealtimeHub.ts:393`).
 La classe de base d'un endpoint : elle porte tout le protocole (handshake, accueil, discrimination
 des frames, cycle de vie des canaux) et ne laisse au métier que ses canaux et ses actions.
 
-`RealtimeController` (`RealtimeController.ts:144`), point d'entrée `handleRealtime()`
+`RealtimeController` (`RealtimeController.ts:173`), point d'entrée `handleRealtime()`
 (`RealtimeController.ts:299`). C'est un **contrôleur** au sens habituel de Nodefony : la même classe
 peut porter des routes HTTP.
 
@@ -437,8 +437,8 @@ L'option qui expose la méthode `api.request { path }` : la connexion rejoue **l
 contrôleur** que celle servie en REST, avec **la même garde**. Le pont n'atteint que les routes qui
 déclarent explicitement le transport WebSocket — aucun contournement possible.
 
-`realtimeApiRequest()` (`RealtimeController.ts:276`), mise en œuvre `invokeApiRequest()`
-(`RealtimeController.ts:949`). Désactivé par défaut.
+`realtimeApiRequest()` (`RealtimeController.ts:291`), mise en œuvre `invokeApiRequest()`
+(`RealtimeController.ts:1009`). Désactivé par défaut.
 
 ## 🔌 Le protocole et le transport — ce qui passe sur le fil
 
@@ -630,7 +630,7 @@ l'authenticator tourne et que l'identité est figée. Tout ce qui coûte cher se
 frame.
 
 DTO neutre `IRealtimeHandshake` (`IRealtimeHandshake.ts:14`) — en-têtes, cookies, URL, origine,
-sous-protocoles. Traitement dans `onHandshake()` (`RealtimeController.ts:374`).
+sous-protocoles. Traitement dans `onHandshake()` (`RealtimeController.ts:404`).
 
 ### `authenticator` — du handshake à l'identité
 
@@ -802,7 +802,7 @@ elle-même par le même chemin que les autres modules.
 | Symptôme                                                           | Cause — le mot pris pour un autre                                                                                     | Correction                                                                              |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | « Je suis abonné mais je ne reçois rien »                          | `subscribe` confondu avec `on` : le flux est demandé, aucun écouteur ne le lit                                        | Les deux : `subscribe(canal)` **et** `on(canal, handler)` (`IRealtimeSocket.ts:131`)    |
-| « Ça marche en local, plus rien dès qu'on passe à plusieurs pods » | canal resté **instance-local** — le défaut. Traverser le process est une capacité qu'on **demande**                   | Déclarer le préfixe dans `@RealtimeBroadcast` (`realtimeDecorators.ts:342`)             |
+| « Ça marche en local, plus rien dès qu'on passe à plusieurs pods » | canal resté **instance-local** — le défaut. Traverser le process est une capacité qu'on **demande**                   | Déclarer le préfixe dans `@RealtimeBroadcast` (`realtimeDecorators.ts:366`)             |
 | « Le client publie, le serveur ignore »                            | canal non déclaré **entrant**. Un client ne peut rien pousser tant qu'aucun handler n'existe                          | `@RealtimeInbound("mon:canal")` (`realtimeDecorators.ts:231`)                           |
 | Deux déploiements se mélangent sur un même serveur Redis           | pas de **cloison** — le numéro de base ne cloisonne pas le pub/sub                                                    | Poser `backplane.namespace` (`config.ts:59`)                                            |
 | Le fan-out disparaît entre conteneurs identiques                   | **origine** dérivée du seul identifiant de processus : deux conteneurs sont tous deux le n° 1, l'anti-écho avale tout | `resolveBackplaneOriginId()` (`originId.ts:24`) dérive du pod ou de l'hôte              |

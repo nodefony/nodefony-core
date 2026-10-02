@@ -473,7 +473,7 @@ En MySQL, les verbes « qui rendent la ligne écrite » (`create`, `updateOne`, 
 `findOneAndDelete`) se décomposent en sélection de la cible → mutation bornée par la clé primaire **avec
 le critère revérifié dans le `WHERE`** → relecture. Deux à trois allers-retours au lieu d'un : c'est le
 prix du dialecte, payé **uniquement** en MySQL. Une course perdue rend `null`, jamais une mutation hors
-critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:1228`).
+critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:1244`).
 
 Le SQL brut nécessaire aux entités du framework est lui aussi routé par dialecte, dans un seul fichier
 (`queryKit.ts`) : recherche dans une colonne JSON (`findUserIdBySocialProvider()`, `queryKit.ts:76`),
@@ -570,7 +570,7 @@ await posts.count({ views: { $gte: 10 } });
 
 Les opérateurs (`$eq $ne $gt $gte $lt $lte $in $nin $like`) sont **ceux d'orm-core**, identiques sur
 tous les drivers ; la traduction en `eq()`/`inArray()` se fait dans `#where()`
-(`DrizzleRepository.ts:521`). Leur référence complète est dans
+(`DrizzleRepository.ts:530`). Leur référence complète est dans
 [la page d'orm-core](../../orm-core/docs/index.md).
 
 `$like` est émis avec sa clause `ESCAPE '\'` (`likeSql.ts`), ce qui rend un `%` ou un `_` **littéral**
@@ -586,7 +586,7 @@ Deux points de comportement qui évitent des surprises :
   l'`UPDATE` lui-même (`#pickOne()`, `DrizzleRepository.ts:324`). C'est ce qui rend ces verbes portables — MySQL
   interdit la forme naïve.
 - **l'eager-load est manuel** : une requête `IN (…)` par relation déclarée, puis regroupement en
-  mémoire (`#populate()`, `DrizzleRepository.ts:817`). Choix assumé — pas de couche de relations à
+  mémoire (`#populate()`, `DrizzleRepository.ts:833`). Choix assumé — pas de couche de relations à
   déclarer une seconde fois, et le comportement est le même sur les trois dialectes.
 
 ### Transactions — une connexion dédiée, jamais le pool

@@ -357,7 +357,7 @@ destination est bâtie avec `filename` — d'où l'avertissement de sécurité c
 Pour piper directement un très gros corps (vidéo, backup) vers le disque ou S3 sans passer par busboy ni
 par la RAM, `@Body({ stream: true })` court-circuite le parse et injecte l'`IncomingMessage` brut (un
 `Readable`). Le pipeline sait le sauter en amont via `routeExpectsBodyStream()`
-(`routerDecorators.ts:1408`), mémoïsé sur la route.
+(`routerDecorators.ts:1484`), mémoïsé sur la route.
 
 ```ts
 // fragment — le contrôleur pipe le flux lui-même (0 parse, 0 pic RAM)

@@ -148,7 +148,7 @@ export default ProfileController;
 
 (Wiring : `@controllers([ProfileController])` dans le module de l'app — `nodefony create controller`
 le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les actions : les marqueurs
-`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1650-1655`.)
+`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1725-1729`.)
 
 ### Comment le front obtient — puis rejoue — le token
 

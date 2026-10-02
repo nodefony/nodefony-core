@@ -277,7 +277,7 @@ Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par 
 | Voie                                                   | Quand la choisir                                            |
 | ------------------------------------------------------ | ----------------------------------------------------------- |
 | `@RealtimeAction("nom")` (`realtimeDecorators.ts:101`) | le cas courant — un nom fixe, une méthode, déclaratif       |
-| `realtimeActions()` (`RealtimeController.ts:236`)      | la table est **calculée** (noms dynamiques, boucle, config) |
+| `realtimeActions()` (`RealtimeController.ts:251`)      | la table est **calculée** (noms dynamiques, boucle, config) |
 
 Les deux sont fusionnées au handshake, et **l'override gagne** en cas de conflit de nom : une
 classe peut ainsi remplacer une action héritée sans toucher au parent
@@ -374,6 +374,43 @@ use("@nodefony/security", {
   ],
 });
 ```
+
+### Savoir QUI appelle — `@CurrentUser` et les paramètres décorés
+
+Une action authentifiée sait que l'appelant est identifié ; elle peut aussi savoir **qui** il est.
+Les décorateurs de paramètres d'une route y prennent le même sens
+(`actionParamsWrapper`, `RealtimeController.ts:967`) :
+
+```ts ignore
+import { Body, CurrentUser } from "@nodefony/framework";
+import type { IUser } from "@nodefony/user";
+
+// Le client : socket.request("chat:send", { text: "salut" })
+@RealtimeAction("chat:send")
+send(@Body("text") text: string, @CurrentUser() user: IUser) {
+  // L'auteur vient du SERVEUR : le client ne peut pas mentir dessus.
+  return { author: user.identifier, text };
+}
+```
+
+| Décorateur                                | Ce qu'il reçoit dans une action                             |
+| ----------------------------------------- | ----------------------------------------------------------- |
+| `@Body()` / `@Body("clé")`                | la charge de l'appel (`params`), ou l'une de ses clés       |
+| `@CurrentUser()`                          | l'utilisateur de la connexion, `undefined` pour un anonyme  |
+| `@Query()` / `@Param()`                   | un objet vide — une action n'a ni URL ni variables de route |
+| `@Headers()` / `@Cookie()` / `@Session()` | ceux de la requête d'ouverture de la socket                 |
+
+Une action **sans** paramètre décoré reçoit la charge brute en premier argument, comme avant —
+rien ne change pour elle, ni comportement ni coût.
+
+> [!IMPORTANT]
+> **L'identité est celle de l'ouverture de la socket.** Elle n'est pas relue à chaque appel : le
+> hub la revalide toutes les 30 secondes (`REVOCATION_REVALIDATE_MS`, `RealtimeHub.ts:112`) et
+> ferme la socket en `4001` si la session est morte (`RealtimeHub.ts:842`). Après une
+> déconnexion, une action peut donc encore voir l'ancien utilisateur pendant cette fenêtre. Pour
+> une écriture sensible — paiement, droits, suppression — passe par une route
+> `POST + WEBSOCKET` appelée par `socket.mutate()` : ce pont revalide l'identité à **chaque**
+> appel et porte la clé d'idempotence.
 
 ### La règle DEV-only
 
@@ -510,8 +547,8 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:949`). Il est **désactivé par défaut** et s'active en surchargeant
-`realtimeApiRequest()` (`RealtimeController.ts:276`).
+(`RealtimeController.ts:1009`). Il est **désactivé par défaut** et s'active en surchargeant
+`realtimeApiRequest()` (`RealtimeController.ts:291`).
 
 ```ts ignore
 const modules = await socket.request("/nodefony/kernel/api/modules");
