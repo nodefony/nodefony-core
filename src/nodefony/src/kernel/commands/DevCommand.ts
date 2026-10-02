@@ -2,6 +2,7 @@ import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
 import BootReporter from "../../service/dev/BootReporter";
+import { enableDevSourceMaps } from "../../service/dev/sourceMaps";
 
 const options: OptionsCommandInterface = {
   helpGroup: "LANCER",
@@ -66,7 +67,8 @@ class Dev extends Command {
 
   /**
    * Boot de rêve dev : checklist animée par phase (spinner + ✓/✗) à la place du mur
-   * de logs. Branché AVANT `loadApp` (gros import) pour couvrir le gap de feedback.
+   * de logs, et piles d'appels traduites vers les sources `.ts`. Branché AVANT
+   * `loadApp` (gros import) pour couvrir le gap de feedback.
    * **Enfant supervisé uniquement** (`NF_DEV_CHILD=1`) : le superviseur parent
    * ne boote pas de serveur → aucun affichage. Animation TTY non-debug ; debug/non-TTY
    * → marqueurs statiques + logs bruts (cf {@link BootReporter}).
@@ -74,6 +76,10 @@ class Dev extends Command {
   override async onKernelPreStart(): Promise<void> {
     if (process.env[CHILD_ENV] !== "1" && !isWatchDisabled(process.argv))
       return;
+    // Piles d'appels vers le `.ts` de l'application (maps du build de dev). ICI et
+    // pas à `onKernelStart` : Node n'analyse les maps que des fichiers chargés APRÈS
+    // l'activation, et `loadApp` importe l'application entre les deux hooks.
+    enableDevSourceMaps();
     const kernel = this.kernel as Kernel | null;
     if (!kernel) return;
     this.#reporter = new BootReporter(kernel, {

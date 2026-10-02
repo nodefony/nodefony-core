@@ -70,6 +70,24 @@ const ANSI = {
   reset: "\x1b[0m",
 };
 
+/**
+ * Arguments du build de l'application en DÉVELOPPEMENT — le `rolldown -c` de
+ * `npm run build`, plus `--sourcemap`.
+ *
+ * Le socle `nodefony/bundler` n'émet pas de sourcemaps par défaut : c'est le bon
+ * défaut pour un build de production et pour les paquets publiés. Mais en
+ * développement, le serveur exécute `dist/` : sans maps, une pile d'appels pointe
+ * vers le `.js` compilé (lignes décalées) et un point d'arrêt posé dans le `.ts`
+ * ne s'arrête jamais. Le drapeau CLI SURCHARGE la config, donc une application
+ * déjà générée en profite sans toucher à son `rolldown.config.ts`, et le build de
+ * production (`npm run build`) reste sans maps.
+ */
+export const APP_DEV_BUILD_ARGS: readonly string[] = Object.freeze([
+  "-c",
+  "rolldown.config.ts",
+  "--sourcemap",
+]);
+
 /** Frames braille du spinner de build (mêmes que le BootReporter enfant). */
 const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
@@ -577,7 +595,7 @@ export class DevSupervisor {
     let rootOk = true;
     if (this.#rootDistStale()) {
       this.#spinLabel = "Build de l'app (rolldown)";
-      const root = await this.#runBin("rolldown", ["-c", "rolldown.config.ts"]);
+      const root = await this.#runBin("rolldown", APP_DEV_BUILD_ARGS);
       rootOk = root.ok;
       if (!root.ok) errors.push(root.output);
     }
@@ -649,7 +667,7 @@ export class DevSupervisor {
         ? "Rebuild de l'app (rolldown)"
         : "Premier build de l'app (rolldown)",
     );
-    const res = await this.#runBin("rolldown", ["-c", "rolldown.config.ts"]);
+    const res = await this.#runBin("rolldown", APP_DEV_BUILD_ARGS);
     if (res.ok) {
       this.#stopSpin(
         `${ANSI.green}✓${ANSI.reset}`,
@@ -684,6 +702,9 @@ export class DevSupervisor {
   #rootDistStale(): boolean {
     const dist = path.join(this.#cwd, "dist", "index.js");
     if (!existsSync(dist)) return true;
+    // Un dist SANS maps vient de `npm run build` (production) : le dev le rebâtit,
+    // sinon les piles d'appels restent sur le `.js` jusqu'à la première édition.
+    if (!existsSync(`${dist}.map`)) return true;
     let distMtime: number;
     try {
       distMtime = statSync(dist).mtimeMs;
@@ -1259,9 +1280,7 @@ export class DevSupervisor {
     // son build relève du rolldown de l'app, pas d'un orchestrateur absent.
     if (this.#standalone) {
       this.#log("rebuild app (rolldown -c)…", "yellow");
-      return this.#run(
-        ...this.#binCommand("rolldown", ["-c", "rolldown.config.ts"]),
-      );
+      return this.#run(...this.#binCommand("rolldown", APP_DEV_BUILD_ARGS));
     }
     const pkgs = new Set<string>();
     let rootTouched = false;
@@ -1286,9 +1305,7 @@ export class DevSupervisor {
     if (rootTouched || pkgs.size === 0) {
       this.#log("rebuild app racine (rolldown -c)…", "yellow");
       if (
-        !(await this.#run(
-          ...this.#binCommand("rolldown", ["-c", "rolldown.config.ts"]),
-        ))
+        !(await this.#run(...this.#binCommand("rolldown", APP_DEV_BUILD_ARGS)))
       )
         return false;
     }

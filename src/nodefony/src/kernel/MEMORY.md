@@ -194,6 +194,7 @@ Spec figée par `src/tests/resolveModuleEntry.test.ts` (6 tests, dont la régres
 - `setPath(path)` → résout vers répertoire
 - `setEvents()` → wire hooks lifecycle
 - ⚠️ watch runtime write-only RETIRÉ : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart, `src/service/dev/DevSupervisor.ts`) : parent spawn enfant `NF_DEV_CHILD=1` en **leader de groupe** (`detached`), watch backend (frontend exclu → HMR Vite intact), rebuild ciblé turbo+rolldown, **group-kill** au restart (tue Vite, 0 orphelin) + attente ports libres (anti-EADDRINUSE) + retry crash borné. Activé par `DevCommand`
+- **Sourcemaps de dev** : `DevSupervisor` bâtit l'app avec `APP_DEV_BUILD_ARGS` (`rolldown -c … --sourcemap` — le drapeau CLI SURCHARGE le `sourcemap:false` de `nodefony/bundler`, donc les apps déjà générées en profitent) ; un `dist/index.js` sans `.map` est jugé périmé (rebâti). Lecture : `enableDevSourceMaps()` (`service/dev/sourceMaps.ts`, `module.setSourceMapsSupport`) dans `DevCommand.onKernelPreStart` — ⚠️ PAS `onKernelStart` : Node n'analyse que les fichiers chargés APRÈS l'activation, et `loadApp` (`Kernel.ts` entre `onPreStart` et `onStart`) importe l'app entre les deux. Couvre enfant supervisé ET `--no-watch`. Prod (`npm run build`, `production`) : ni maps ni lecture. Limite : `--inspect` n'est pas relayé à l'enfant supervisé → point d'arrêt = `--no-watch`.
 - `options` : config du module, figée en profondeur à la fin de `onReady` (`freezeConfigTree`) — se complète au boot, jamais après
 
 **setPath(p)**:

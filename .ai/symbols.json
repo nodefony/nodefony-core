@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 884,
-    "symbols": 4427,
+    "files": 885,
+    "symbols": 4429,
     "classes": 404,
     "interfaces": 1157,
     "types": 475,
     "enums": 4,
-    "functions": 1940,
-    "constants": 447
+    "functions": 1941,
+    "constants": 448
   },
   "symbols": {
     "Cli": {
@@ -13222,6 +13222,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend une erreur du watcher NON FATALE : la signale et poursuit la surveillance. Le watch est un **capteur**, pas une garantie : un dossier qui disparaît pendant son scan, un lien symbolique cassé, …"
+    },
+    "APP_DEV_BUILD_ARGS": {
+      "name": "APP_DEV_BUILD_ARGS",
+      "kind": "const",
+      "file": "src/nodefony/src/service/dev/DevSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Arguments du build de l'application en DÉVELOPPEMENT — le `rolldown -c` de `npm run build`, plus `--sourcemap`. Le socle `nodefony/bundler` n'émet pas de sourcemaps par défaut : c'est le bon défaut…"
+    },
+    "enableDevSourceMaps": {
+      "name": "enableDevSourceMaps",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/sourceMaps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit les piles d'appels du serveur de développement vers les sources `.ts`. En développement, le serveur exécute le `dist/` de l'application, bâti avec ses maps (`APP_DEV_BUILD_ARGS`). À appeler…"
     },
     "resolveQueryDriver": {
       "name": "resolveQueryDriver",
@@ -35800,6 +35816,9 @@
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "BootReporter": [
+        "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
+      "enableDevSourceMaps": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "attachLive": [

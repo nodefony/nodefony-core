@@ -277,6 +277,12 @@ npx nodefony inspect config --json   # la config EFFECTIVE, et d'où vient chaqu
 `card` et `symbols` répondent même sur une app pas construite, sans aucune variable
 posée ; `inspect` boote sans ouvrir un port.
 
+**Déboguer** : en développement, une pile d'appels pointe vers TON `.ts` — le build
+de dev porte ses sourcemaps, `npm run build` n'en émet pas. Point d'arrêt :
+`NODE_OPTIONS=--inspect npx nodefony development --no-watch` (sur un `dist` bâti par
+`npm run dev`), puis `chrome://inspect` ou le débogueur de l'éditeur. Sous `npm run dev`,
+l'inspecteur revient au superviseur, pas au serveur : le point d'arrêt ne s'arrête pas.
+
 🔴 **Ce que rend `inspect` ENGLOBE tes sources et les dépasse** : les modules installés
 montent leurs propres routes, une app qui en définit une poignée en expose plus d'une
 centaine. Un **écart d'un ordre de grandeur** n'est donc PAS une anomalie — compter dans
