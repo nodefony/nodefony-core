@@ -47,7 +47,7 @@ derrière les commandes npm qui font autorité :
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, manifeste tel quel |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 | `npm run release:image-gate -- <image>` | `scripts/release/image-gate.mjs` | REFUSE une image porteuse d'un secret, couche par couche |
-| `npm run release -- --version <v> --promouvoir` | `scripts/release/release.mjs` | Les QUATRE gestes mécaniques entre l'estampille et le tag. Ne tague jamais |
+| `npm run release -- --version <v> --promouvoir` | `scripts/release/release.mjs` | Les gestes mécaniques entre l'estampille et le tag (un seul push). Ne tague jamais |
 | `npm run release -- --deprecate [--publish]` | `scripts/release/release.mjs` | Les paquets historiques, APRÈS la publication |
 | `npm run release -- --dist-tags [--publish]` | `scripts/release/release.mjs` | Le `latest` resté sur la préversion précédente |
 
@@ -113,8 +113,10 @@ Il n'existe pas encore quand on pousse le travail : **attendre le vert de la bra
 d'estampiller est donc une attente sur un commit qui ne sera jamais publié.** La faute a été
 commise, et elle coûte un cycle de forge entier.
 
-L'ordre juste est : estampiller → relire le changelog → `--promouvoir`, qui commite, pousse,
-fait avancer la branche de publication et attend le verdict **sur ce commit-là**. Une seule
+L'ordre juste est : estampiller → relire le changelog → `--promouvoir`, qui commite, fait
+avancer la branche de publication (`push dev:main`, et **rien d'autre**) et attend le verdict
+**sur ce commit-là**. `dev` n'est PAS poussée : tous les workflows se déclenchent sur `main` ET
+`dev`, pousser les deux rejouait toute la CI sur le même sha. Elle part avec le push suivant. Une seule
 attente, au seul endroit où elle prouve quelque chose. Ne pas retaper ces gestes à la main :
 leur ORDRE est ce qui compte, et c'est précisément ce qu'une consigne écrite ne garantit pas.
 

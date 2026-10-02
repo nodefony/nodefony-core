@@ -1283,6 +1283,33 @@ export function avisDeBranche({
 }
 
 /**
+ * Ce que `--promouvoir` POUSSE : la seule branche de publication, jamais deux
+ * fois le même commit.
+ *
+ * Tous les workflows de la forge se déclenchent sur `main` ET sur `dev`.
+ * Pousser `dev` puis `dev:main` faisait donc tourner TOUTE la CI deux fois sur
+ * le même sha, alors que `garde-main` n'en lit qu'une (par `head_sha`, quelle
+ * que soit la branche). La branche de travail n'est pas poussée : elle désigne
+ * déjà ce commit, et partira avec le prochain push ordinaire, dont la CI aurait
+ * tourné de toute façon. Si la poussée échoue, rien n'est publié — il n'y a
+ * donc aucune trace à laisser sur la branche de travail.
+ *
+ * @param {{branche: string, branchePublication: string}} p
+ * @returns {{refspec: string, brancheEnAttente: string | null}} la référence à
+ *   pousser vers `origin`, et la branche de travail laissée en avance locale
+ *   (`null` quand on promeut depuis la branche de publication elle-même).
+ */
+export function planDePromotion({ branche, branchePublication }) {
+  if (branche === branchePublication) {
+    return { refspec: branchePublication, brancheEnAttente: null };
+  }
+  return {
+    refspec: `${branche}:${branchePublication}`,
+    brancheEnAttente: branche,
+  };
+}
+
+/**
  * Les workflows du commit tagué qui NE bloquent PAS la publication.
  *
  * 🔴 Liste d'EXCLUSIONS, jamais liste d'inclusions : un workflow neuf doit

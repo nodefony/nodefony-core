@@ -116,6 +116,7 @@ import {
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
   avisDeBranche,
+  planDePromotion,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -617,9 +618,9 @@ const git = (...args) =>
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // 🔴 POURQUOI CE MODE EXISTE. Le « RESTE À FAIRE » dictait six étapes qu'un
-// humain — ou un agent — retapait à la main, alors que QUATRE d'entre elles sont
-// purement mécaniques : commiter l'estampille, pousser la branche de travail,
-// faire avancer la branche de publication, et attendre le verdict de la forge.
+// humain — ou un agent — retapait à la main, alors que trois d'entre elles sont
+// purement mécaniques : commiter l'estampille, faire avancer la branche de
+// publication (seule poussée), et attendre le verdict de la forge.
 // Leur ORDRE est critique, et c'est précisément ce que des instructions écrites
 // ne garantissent pas : la garde `garde-main` juge la CI du commit TAGUÉ, donc
 // attendre le vert de la branche AVANT d'estampiller est une attente inutile sur
@@ -712,21 +713,26 @@ if (PROMOUVOIR) {
 
   const sha = git("rev-parse", "HEAD");
 
-  // (3) et (4) La branche de travail, PUIS la branche de publication. L'ordre
-  // compte : pousser d'abord la branche de travail laisse une trace auditable
-  // même si la suite échoue.
-  git("push", "origin", branche);
-  dire(`✓ ${branche} poussée — ${sha.slice(0, 8)}`);
-
-  if (branche !== BRANCHE_PUBLICATION) {
-    git("push", "origin", `${branche}:${BRANCHE_PUBLICATION}`);
+  // (3) Pousser la SEULE branche de publication — jamais deux fois le même
+  // commit : la règle et son pourquoi vivent dans `planDePromotion`.
+  const plan = planDePromotion({
+    branche,
+    branchePublication: BRANCHE_PUBLICATION,
+  });
+  git("push", "origin", plan.refspec);
+  if (plan.brancheEnAttente) {
     // Pousser `<branche>:<pub>` avance la branche DISTANTE et laisse la locale
     // où elle était. Un `main` local en retard fait ensuite mentir tout ce qui
     // l'interroge — d'où ce rapatriement, qui n'est pas du rangement.
     git("fetch", "origin", `${BRANCHE_PUBLICATION}:${BRANCHE_PUBLICATION}`);
-    dire(`✓ ${BRANCHE_PUBLICATION} avancée sur ${sha.slice(0, 8)}`);
+    dire(
+      `✓ ${BRANCHE_PUBLICATION} avancée sur ${sha.slice(0, 8)}\n` +
+        `  · ${plan.brancheEnAttente} NON poussée, délibérément : elle partira avec le\n` +
+        "    prochain push ordinaire — la pousser maintenant rejouerait toute la CI\n" +
+        "    sur le même commit.",
+    );
   } else {
-    dire(`· déjà sur ${BRANCHE_PUBLICATION} — rien à avancer`);
+    dire(`✓ ${BRANCHE_PUBLICATION} poussée — ${sha.slice(0, 8)}`);
   }
 
   // (5) Le verdict de la forge, sur CE commit — celui que le tag désignera.

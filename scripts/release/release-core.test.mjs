@@ -31,6 +31,7 @@ import {
   messageDeDepreciation,
   refusDePublicationHorsBranche,
   avisDeBranche,
+  planDePromotion,
   verdictCiDuCommit,
   WORKFLOWS_NON_BLOQUANTS,
   MAX_BUFFER_GIT,
@@ -2187,5 +2188,31 @@ describe("detecterContenuSuspect — ce que le CONTENU publié ne doit pas porte
       expect(EXTENSIONS_INSPECTEES.test(f), f).toBe(true);
     for (const f of ["a.png", "a.woff2", "a.node"])
       expect(EXTENSIONS_INSPECTEES.test(f), f).toBe(false);
+  });
+});
+
+describe("promotion — un seul push, jamais deux fois le même commit", () => {
+  it("depuis la branche de travail, ne pousse QUE la branche de publication", () => {
+    expect(
+      planDePromotion({ branche: "dev", branchePublication: "main" }),
+    ).toEqual({ refspec: "dev:main", brancheEnAttente: "dev" });
+  });
+
+  it("depuis la branche de publication, la pousse telle quelle", () => {
+    expect(
+      planDePromotion({ branche: "main", branchePublication: "main" }),
+    ).toEqual({ refspec: "main", brancheEnAttente: null });
+  });
+
+  it("release.mjs ne pousse qu'UNE fois — la forge se déclenche sur main ET dev", () => {
+    // Deux `push` (dev, puis dev:main) faisaient tourner toute la CI deux fois
+    // sur le même sha. Le compte se lit dans la source : c'est le geste, pas le
+    // plan, qui coûte.
+    const source = readFileSync(
+      path.join(import.meta.dirname, "release.mjs"),
+      "utf8",
+    );
+    const pushes = source.match(/git\(\s*"push"/g) ?? [];
+    expect(pushes).toHaveLength(1);
   });
 });
