@@ -1,15 +1,7 @@
-/src/*
-!/src/types/
-
-/tests
-/dist/tests
-/dist/types/rollup.config.d.ts
-
-node_modules
-.github/**/*
-/bin/tests
-
-rollup.config.ts
-tsconfig.base.json
-tsconfig.json
-.eslintrc.cjs
+# Le contenu publié est décidé par `files` (package.json), et par lui seul :
+# ce fichier ne retire rien au tarball (constaté, `npm pack --dry-run`).
+#
+# Il reste un garde-fou : si `files` disparaissait, npm se rabattrait sur
+# `.gitignore`, qui exclut `dist/`. Ne pas y ajouter de motif non ancré
+# (`tests`, `*.test.ts`) : il viderait `templates/**/tests/`, que les
+# applications générées reçoivent.
