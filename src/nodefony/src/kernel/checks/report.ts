@@ -102,6 +102,17 @@ export interface IExecution {
    * cesse seulement de compter comme un manquement de couverture.
    */
   notApplicable?: boolean;
+  /**
+   * `true` quand ce contrôle dépend d'un service EXTÉRIEUR (la liste officielle
+   * des publications de Node) qui n'a pas répondu.
+   *
+   * Ni empêché par l'application, ni sans objet : le poste n'a simplement pas
+   * de réseau. Le faire peser sur le code de sortie ferait échouer `doctor`
+   * dans toute forge isolée d'Internet (`CI` arme `--strict`) pour une
+   * raison qui n'est pas un défaut de l'application. Il reste affiché en
+   * « NON CONTRÔLÉ », avec sa raison — jamais un quitus.
+   */
+  advisory?: boolean;
 }
 
 /**
@@ -113,6 +124,8 @@ export interface IExecution {
  */
 export type DoctorFamily =
   | "freshness"
+  /** Sous-règle de `freshness` — un Node qui porte des failles déjà corrigées. */
+  | "nodeSecurity"
   | "readiness"
   | "envCatalog"
   /** Sous-règle de `readiness` — un `.env*.local` versionné, que seul git sait dire. */
@@ -145,6 +158,7 @@ export type DoctorFamily =
  */
 export const TITLES: Record<DoctorFamily, string> = {
   freshness: "Fraîcheur du build",
+  nodeSecurity: "Sécurité de Node",
   readiness: "Prêt à démarrer",
   envCatalog: "Variables déclarées",
   envTracked: "Secrets hors de git",
@@ -169,6 +183,7 @@ export const TITLES: Record<DoctorFamily, string> = {
  */
 export const FAMILIES: readonly DoctorFamily[] = [
   "freshness",
+  "nodeSecurity",
   "readiness",
   "envCatalog",
   "envTracked",
@@ -191,8 +206,9 @@ export const FAMILIES: readonly DoctorFamily[] = [
 ];
 
 /**
- * Les SOUS-RÈGLES de `readiness` — des contrôles à part entière, mais qui ne
- * sont pas des familles.
+ * Les SOUS-RÈGLES — des contrôles à part entière, mais qui ne sont pas des
+ * familles. Chacune est rangée sous la famille qui la porte (sa clé → son
+ * parent).
  *
  * Elles ont besoin de leur propre état d'exécution (leur silence peut ne rien
  * prouver : catalogue illisible, pas de dépôt git), sans quoi elles seraient
@@ -204,11 +220,32 @@ export const FAMILIES: readonly DoctorFamily[] = [
  * endroits — le compteur du bilan, le filtre du sommaire, et le dédoublonnage
  * des contrôles sautés.
  */
-export const SUBRULES: readonly DoctorFamily[] = ["envCatalog", "envTracked"];
+export const SUBRULE_PARENT: Readonly<
+  Partial<Record<DoctorFamily, DoctorFamily>>
+> = {
+  envCatalog: "readiness",
+  envTracked: "readiness",
+  nodeSecurity: "freshness",
+};
 
-/** `true` si cette famille est une sous-règle de `readiness`. */
+/** Les sous-règles, dérivées de {@link SUBRULE_PARENT}. */
+export const SUBRULES: readonly DoctorFamily[] = Object.keys(
+  SUBRULE_PARENT,
+) as DoctorFamily[];
+
+/** `true` si cette famille est une sous-règle d'une autre. */
 export function isSubrule(family: DoctorFamily): boolean {
-  return SUBRULES.includes(family);
+  return SUBRULE_PARENT[family] !== undefined;
+}
+
+/**
+ * La famille qui porte une sous-règle.
+ *
+ * @param family - une sous-règle.
+ * @returns son parent, ou `undefined` pour une famille.
+ */
+export function subruleParent(family: DoctorFamily): DoctorFamily | undefined {
+  return SUBRULE_PARENT[family];
 }
 
 /**
@@ -234,6 +271,8 @@ export interface ISkippedCheck {
   onDemand?: boolean | undefined;
   /** SANS OBJET plutôt qu'empêché — ne pèse pas non plus. */
   notApplicable?: boolean | undefined;
+  /** CONSULTATIF (service extérieur muet) — ne pèse pas non plus. */
+  advisory?: boolean | undefined;
 }
 
 /**
@@ -259,7 +298,7 @@ export interface ISkippedCheck {
 export function preventedChecks(
   skipped: readonly ISkippedCheck[],
 ): ISkippedCheck[] {
-  return skipped.filter((s) => !s.onDemand && !s.notApplicable);
+  return skipped.filter((s) => !s.onDemand && !s.notApplicable && !s.advisory);
 }
 
 /**
@@ -291,17 +330,19 @@ export function skippedChecks(
       short: "état absent",
     };
     if (state.ran) continue;
-    // Une SOUS-RÈGLE de `readiness` : quand la famille entière a été sautée,
+    // Une SOUS-RÈGLE : quand la famille qui la porte a été sautée,
     // ses règles le sont forcément aussi, et l'annoncer une seconde fois ferait
     // compter deux angles morts là où il n'y en a qu'un. L'état brut, lui,
     // reste exact dans `execution` — c'est le RAPPORT qui dédoublonne, pas la
     // mesure.
-    if (isSubrule(family) && !execution.readiness?.ran) continue;
+    const parent = subruleParent(family);
+    if (parent && !execution[parent]?.ran) continue;
     skipped.push({
       family,
       title: TITLES[family],
       ...(state.onDemand ? { onDemand: true } : {}),
       ...(state.notApplicable ? { notApplicable: true } : {}),
+      ...(state.advisory ? { advisory: true } : {}),
       reason: state.reason ?? "raison non précisée",
       unlock: state.unlock,
     });

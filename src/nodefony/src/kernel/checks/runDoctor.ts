@@ -30,6 +30,11 @@ import {
   type ITrackedEnvProbe,
 } from "./readiness";
 import { checkFreshness, type IFreshnessResult } from "./freshness";
+import {
+  assessNodeSecurity,
+  loadNodeReleases,
+  type INodeSecurityGap,
+} from "./nodeSecurity";
 import { appEnvironment, wiringTargets } from "./projectScope";
 import { checkSurface, type ISurfaceResult } from "./surface";
 import { checkGuards, VERIFY_STEPS, type IGuardResult } from "./guards";
@@ -763,6 +768,13 @@ export interface IDoctorReport {
   /** Écarts entre ce qui est ÉCRIT et ce qui s'EXÉCUTERA (build, plancher Node). */
   freshness: IFreshnessResult;
   /**
+   * Le Node de ce poste porte-t-il des failles déjà corrigées ? Une
+   * INFORMATION hors verdict : `null` quand il est à jour, ou quand la liste
+   * officielle n'a pas pu être lue (`execution.nodeSecurity` le dit).
+   * Facultatif : un rapport produit avant ce champ reste lisible.
+   */
+  nodeSecurity?: INodeSecurityGap | null;
+  /**
    * Ce qui est atteignable SANS authentification, et les entités hors dialecte.
    *
    * L'inventaire des ouvertures est une INFORMATION : chacune est légitime
@@ -982,6 +994,15 @@ export async function collectDoctorReport(
     ? checkFreshness(projectRoot)
     : { findings: [], notComparable: true };
 
+  // Sécurité du runtime : la liste officielle des publications, lue au réseau
+  // (délai court). Seulement dans une application, comme la fraîcheur dont elle
+  // est la sous-règle. Injoignable ⇒ CONSULTATIF, jamais un échec de `doctor`.
+  const nodeReleases = projectRoot ? await loadNodeReleases() : null;
+  const nodeSecurity =
+    nodeReleases?.ok === true
+      ? assessNodeSecurity(process.version, nodeReleases.releases)
+      : null;
+
   // Hors d'une application, les quatre familles sont sautées pour UNE seule
   // cause. Leur donner chacune une raison différente (« aucun package.json »,
   // « aucune classe ») décrirait les CONSÉQUENCES et ferait croire à quatre
@@ -1000,6 +1021,7 @@ export async function collectDoctorReport(
     scanned,
     findings,
     freshness,
+    nodeSecurity,
     surface,
     guards,
     wiring: {
@@ -1024,6 +1046,22 @@ export async function collectDoctorReport(
                 "a rien à confronter",
               short: "rien à comparer",
               unlock: "construis l'application (`npm run build`)",
+            }
+          : { ran: true },
+      nodeSecurity: !projectRoot
+        ? outsideProject
+        : nodeReleases?.ok === false
+          ? {
+              ran: false,
+              advisory: true,
+              reason:
+                `la liste officielle des publications de Node n'a pas pu être ` +
+                `lue (${nodeReleases.reason}) : impossible de dire si ce Node ` +
+                "porte des failles déjà corrigées",
+              short: "liste injoignable",
+              unlock:
+                "réseau, ou `NF_NODE_DIST_URL` vers un miroir ou un fichier " +
+                "`index.json`",
             }
           : { ran: true },
       readiness: projectRoot ? { ran: true } : outsideProject,

@@ -32,8 +32,8 @@ started → preRegistered → registered → booted → ready → postReady
 **`nodefony doctor` — `kernel/checks/`** (fast-path, zéro boot ; `--live` seul démarre) :
 
 - `report.ts` = types + PEINTURE + helpers de mise en page (purs). `FAMILLES` est la source
-  unique de l'ordre ; `SUBRULES` (`envCatalog`, `envTracked`) = règles de `readiness` qui portent
-  leur PROPRE état d'exécution sans compter comme familles → `COUNTED_FAMILIES` s'en dérive.
+  unique de l'ordre ; `SUBRULE_PARENT` (sous-règle → famille : `envCatalog`, `envTracked` → `readiness` ;
+  `nodeSecurity` → `freshness`) = règles qui portent leur PROPRE état d'exécution sans compter comme familles → `COUNTED_FAMILIES` s'en dérive.
   🔴 Ne jamais réécrire ces listes en dur : le compteur du bilan, le filtre du sommaire et le
   dédoublonnage des sautés en dépendent tous les trois.
 - `managerDrift.ts` = règle `package-manager` de `readiness` : le projet contredit-il SON
@@ -471,3 +471,9 @@ Redéfini localement — import circulaire `IKernel→Kernel→Command→IKernel
 - `interfacesFilter({})` → tous vides (ni type ni family spécifiés → matchs false, condition && → false)
 - `getDependencies()` : devDependencies exclus, doublons possibles si dep dans deux sections
 - `Command.setEvents()` : `eventsRegistered` guard ajouté — idempotent
+- `nodeSecurity` (`checks/nodeSecurity.ts`) : Node de CE poste en retard d'une publication de
+  sécurité de SA série → section « SÉCURITÉ DE NODE », INFORMATION hors verdict (relever `engines`
+  = rupture). Source = `nodejs.org/dist/index.json` (champ `security`), jamais une table écrite ;
+  `NF_NODE_DIST_URL` = URL miroir OU chemin de fichier. Injoignable ⇒ état `advisory` : affiché
+  NON CONTRÔLÉ, ne condamne JAMAIS sous `--strict` (`preventedChecks` l'écarte comme `onDemand`/
+  `notApplicable`). Le setup vitest du cœur pose une liste factice : aucune suite ne touche le réseau.

@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 888,
-    "symbols": 4456,
+    "files": 889,
+    "symbols": 4468,
     "classes": 405,
-    "interfaces": 1161,
-    "types": 475,
+    "interfaces": 1163,
+    "types": 476,
     "enums": 4,
-    "functions": 1962,
-    "constants": 449
+    "functions": 1969,
+    "constants": 451
   },
   "symbols": {
     "Cli": {
@@ -10438,6 +10438,64 @@
       "module": "@nodefony/core",
       "description": "Lit le `packageManager` déclaré dans le code du manifeste de configuration."
     },
+    "INodeRelease": {
+      "name": "INodeRelease",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/nodeSecurity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une publication de Node, telle que la liste officielle la décrit."
+    },
+    "INodeSecurityGap": {
+      "name": "INodeSecurityGap",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/nodeSecurity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le constat : ce Node a des failles corrigées depuis."
+    },
+    "NodeReleasesResult": {
+      "name": "NodeReleasesResult",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/checks/nodeSecurity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résultat d'une lecture de la liste : les publications, ou la raison d'échec."
+    },
+    "assessNodeSecurity": {
+      "name": "assessNodeSecurity",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/nodeSecurity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Confronte une version de Node à la liste officielle des publications. Fonction PURE : la liste est injectée, la version aussi — une règle qui lit `process.version` ne s'éprouve que sur la version q…"
+    },
+    "loadNodeReleases": {
+      "name": "loadNodeReleases",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/nodeSecurity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit la liste officielle des publications de Node. La source se règle par `NF_NODE_DIST_URL` : une URL (miroir d'entreprise) ou un CHEMIN de fichier (poste sans accès à Internet, banc de test). Défa…"
+    },
+    "nodeSecurityMessage": {
+      "name": "nodeSecurityMessage",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/nodeSecurity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La phrase du constat : la faille, puis le geste."
+    },
+    "NODE_DIST_INDEX": {
+      "name": "NODE_DIST_INDEX",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/nodeSecurity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Adresse par défaut de la liste officielle des publications."
+    },
     "IPackageFinding": {
       "name": "IPackageFinding",
       "kind": "interface",
@@ -10730,7 +10788,15 @@
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "`true` si cette famille est une sous-règle de `readiness`."
+      "description": "`true` si cette famille est une sous-règle d'une autre."
+    },
+    "subruleParent": {
+      "name": "subruleParent",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La famille qui porte une sous-règle."
     },
     "preventedChecks": {
       "name": "preventedChecks",
@@ -10884,13 +10950,21 @@
       "module": "@nodefony/core",
       "description": "L'ordre de lecture des familles — celui du sommaire ET du détail. L'ordre n'est pas cosmétique : la fraîcheur d'abord, parce qu'un build en retard rend faux tout ce qui suit ; puis ce qui empêche d…"
     },
+    "SUBRULE_PARENT": {
+      "name": "SUBRULE_PARENT",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/report.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les SOUS-RÈGLES — des contrôles à part entière, mais qui ne sont pas des familles. Chacune est rangée sous la famille qui la porte (sa clé → son parent). Elles ont besoin de leur propre état d'exéc…"
+    },
     "SUBRULES": {
       "name": "SUBRULES",
       "kind": "const",
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Les SOUS-RÈGLES de `readiness` — des contrôles à part entière, mais qui ne sont pas des familles. Elles ont besoin de leur propre état d'exécution (leur silence peut ne rien prouver : catalogue ill…"
+      "description": "Les sous-règles, dérivées de {@link SUBRULE_PARENT}."
     },
     "COUNTED_FAMILIES": {
       "name": "COUNTED_FAMILIES",
@@ -35731,6 +35805,9 @@
         "src/nodefony/src/kernel/checks/renderReport.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
+      "subruleParent": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
       "summaryLine": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
@@ -35758,6 +35835,9 @@
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "ISummaryLine": [
+        "src/nodefony/src/kernel/checks/renderReport.ts"
+      ],
+      "nodeSecurityMessage": [
         "src/nodefony/src/kernel/checks/renderReport.ts"
       ],
       "formatAge": [
@@ -35809,6 +35889,15 @@
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "IFreshnessResult": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "assessNodeSecurity": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "loadNodeReleases": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "INodeSecurityGap": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "appEnvironment": [

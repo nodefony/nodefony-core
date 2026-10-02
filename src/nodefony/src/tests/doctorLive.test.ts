@@ -302,6 +302,7 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
       freshness: { ran: true },
       readiness: { ran: true },
       envCatalog: { ran: true },
+      nodeSecurity: { ran: true },
       envTracked: { ran: true },
       // Étage 3 : ce décor n'exerce pas `--deep`, et son absence se DIT — un
       // contrôle non lancé rendu en vert serait le seul mensonge que ce

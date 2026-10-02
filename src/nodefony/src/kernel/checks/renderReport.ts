@@ -30,6 +30,7 @@ import {
   FAMILIES,
   COUNTED_FAMILIES,
   isSubrule,
+  subruleParent,
   sectionTitle,
   summaryLine,
   wrap,
@@ -43,6 +44,7 @@ import {
   type ISummaryLine,
   type IPalette,
 } from "./report";
+import { nodeSecurityMessage } from "./nodeSecurity";
 import { formatAge, lastBootFileFor, type ILastBoot } from "./lastBoot";
 // Type SEUL : élidé à la compilation, donc aucune arête d'import à l'exécution
 // entre la collecte et son rendu.
@@ -298,6 +300,20 @@ export function renderReport(
       )) {
         lines.push(p.dim(l));
       }
+    }
+  }
+
+  if (report.nodeSecurity) {
+    // Une INFORMATION : l'application démarre, et relever `engines` pour
+    // l'interdire serait une rupture. Le service rendu est de NOMMER la
+    // version qui corrige.
+    section("SÉCURITÉ DE NODE", p.warning);
+    for (const [i, l] of wrap(
+      nodeSecurityMessage(report.nodeSecurity),
+      width,
+      BODY,
+    ).entries()) {
+      lines.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
     }
   }
 
@@ -804,6 +820,9 @@ function renderSummary(
     // Idem : ses manquements sont RAPPORTÉS par `readiness` (c'est sa liste),
     // et cette ligne n'existe que pour dire qu'on n'a pas pu regarder.
     envTracked: { n: 0, text: "" },
+    // Ses constats sont RAPPORTÉS par `freshness` (même liste) ; la ligne
+    // n'existe que pour dire que la liste officielle n'a pas pu être lue.
+    nodeSecurity: { n: 0, text: "" },
     deps: {
       n: findings.length,
       text:
@@ -940,11 +959,13 @@ function renderSummary(
   // bas : deux ordres différents pour les mêmes contrôles, et le lecteur cesse
   // de faire le lien entre le sommaire et le détail.
   const lines: ISummaryLine[] = FAMILIES.filter(
-    // Une sous-règle de `readiness` n'a pas de ligne à elle tant qu'elle a pu
+    // Une sous-règle n'a pas de ligne à elle tant qu'elle a pu
     // jouer : le sommaire dirait deux fois la même chose. Elle n'apparaît que
     // pour ÉNONCER son angle mort — et seulement si la famille, elle, a bien
     // regardé (sinon le même trou serait compté deux fois).
-    (f) => !isSubrule(f) || (!execution[f]?.ran && execution.readiness?.ran),
+    (f) =>
+      !isSubrule(f) ||
+      (!execution[f]?.ran && execution[subruleParent(f) ?? f]?.ran === true),
   ).map((f) => line(f, detail[f].n, detail[f].text));
 
   const titleWidth = Math.max(...lines.map((l) => l.title.length));
