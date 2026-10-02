@@ -303,7 +303,7 @@ L'écran « Créer » de l'administration web (`/nodefony/create`) passe par le 
 n'existe pas de seconde implémentation qui pourrait dériver. Il sert le
 formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 **préview** du plan avant d'exécuter (`preview()`,
-`ScaffoldService.ts:333`), puis streame la progression du travail — écriture,
+`ScaffoldService.ts:364`), puis streame la progression du travail — écriture,
 installation des dépendances, construction — sur un canal temps réel. Les étapes
 partent par le gestionnaire de paquets de l'application (npm, pnpm, yarn ou bun, lu
 à son fichier de verrou), comme en ligne de commande.

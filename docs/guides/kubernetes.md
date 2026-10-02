@@ -19,7 +19,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-09-06
+updated: 2026-10-02
 source: "docs/guides/kubernetes.md"
 ---
 
@@ -214,11 +214,17 @@ spec:
 exemplaires appliqueraient la même migration en concurrence. Le Job passe une fois, et le
 déploiement ne démarre que s'il a réussi.
 
-Et si un pod démarre avec un schéma en retard, il peut **retenir sa mise en service** plutôt que de
-servir des erreurs : `kernel.setReadiness("schema", false, "3 migrations en attente")`
-(`Kernel.ts:3510`) fait répondre
-`503` à `/readyz` sans redéploiement, et l'ancien exemplaire continue de servir. Le geste complet et
-ses règles vivent dans [servers](../../src/packages/@nodefony/http/docs/servers.md).
+Et si un pod démarre avec un schéma en retard, **il retient sa mise en service de lui-même** au
+lieu de servir des erreurs. Avec Drizzle, c'est le défaut en production (`migrations.check: "fail"`,
+`config.ts:160`) : le module compare la base à ses migrations, inscrit le contributeur
+`drizzle:schema:<connecteur>` (`DrizzleService.ts:603`), et `/readyz` répond `503` tant que des
+migrations restent à appliquer — `/livez` reste vert, l'ancien exemplaire continue de servir. La
+sonde est rejouée toutes les 15 secondes : le pod devient disponible tout seul une fois le Job
+passé, sans redéploiement. Hors production, le défaut est `warn` (journalisé, le trafic passe).
+
+Pour un état que le framework ne connaît pas (un cache froid, un service tiers), le même mécanisme
+s'appelle à la main : `kernel.setReadiness(nom, false, raison)` (`Kernel.ts:3538`). Ses règles
+vivent dans [servers](../../src/packages/@nodefony/http/docs/servers.md).
 
 ## Mise à l'échelle
 

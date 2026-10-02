@@ -485,7 +485,7 @@ prudente est donc de **s'abonner avant** de lancer l'appel.
 
 Nodefony a choisi la garantie côté serveur plutôt que la discipline côté client : le producteur du
 canal **rejoue son historique** au nouvel abonné, de sorte qu'un arrivant tardif voit tout depuis
-le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts:425`). C'est ce qui autorise le front
+le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts:456`). C'est ce qui autorise le front
 à faire l'appel d'abord et à s'abonner ensuite, sans rien perdre.
 
 > [!TIP]
