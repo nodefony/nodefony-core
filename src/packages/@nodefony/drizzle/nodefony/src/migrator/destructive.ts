@@ -387,10 +387,14 @@ export function summarizeDestructive(
  *
  * Un lot purement `CREATE TABLE` ne pose pas la question : il n'y avait rien
  * avant. C'est ce qui distingue un schéma initial d'une évolution.
+ *
+ * 🔴 `UPDATE` exige son `SET` : drizzle-kit écrit `ON UPDATE no action` dans
+ * CHAQUE clé étrangère, et un motif nu tenait tout schéma initial à relations
+ * pour une évolution de tables peuplées.
  */
 const ROW_TOUCHING_PATTERNS: readonly RegExp[] = [
   /\bALTER\s+TABLE\b/i,
-  /\bUPDATE\s+/i,
+  /\bUPDATE\s+\S+\s+SET\b/i,
   /\bINSERT\s+INTO\b/i,
   /\bDELETE\s+FROM\b/i,
 ];

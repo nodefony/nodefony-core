@@ -30,6 +30,22 @@ describe("après une migration réussie — vérifier sans détruire", () => {
       );
     });
 
+    it("une clé étrangère et ses clauses ON UPDATE / ON DELETE ne sont pas des écritures", () => {
+      // Vécu sur le banc de vérité : tout schéma initial portant une relation
+      // déclenchait le conseil « tables peuplées » — `\bUPDATE\s+` mordait sur
+      // la clause référentielle que drizzle-kit écrit dans chaque CREATE TABLE.
+      assert.equal(
+        touchesExistingRows(
+          lot(
+            "CREATE TABLE `posts` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`author` text NOT NULL,\n\t" +
+              "FOREIGN KEY (`author`) REFERENCES `authors`(`id`) ON UPDATE no action ON DELETE restrict\n);",
+            'CREATE TABLE "notes" ("id" text, "owner" text REFERENCES "User"("id") ON UPDATE CASCADE ON DELETE SET NULL)',
+          ),
+        ),
+        false,
+      );
+    });
+
     it("ALTER TABLE : une table qui existait déjà, donc des lignes", () => {
       assert.equal(
         touchesExistingRows(lot("ALTER TABLE `articles` ADD `slug` text")),
