@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-02 20:15** (UTC).
+> Empreinte prise le **2026-10-02 20:40** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████░░░░` 64% | 62 | 35 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 66% | 64 | 33 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 134 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 32 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#516 — fix(devkit-bench): appliquer les migrations avant de démarrer la production**
+**#268 — feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe**
 
-Ordre 3.007 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-10-04 → 10-04
+Ordre 3.01 · P1 — figé à la création · 3 j · jalon 10.0.0-beta · frise 2026-10-05 → 10-07
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 35 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 33 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -47,17 +47,15 @@ Ordre 3.007 · P2 — décision · 0.5 j · jalon 10.0.0-beta · frise 2026-10-0
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 35 ouverts
+## Jalon 10.0.0-beta — 33 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 3.007 | P2 — décision | 0.5 | 2026-10-04 → 10-04 | #516 | fix(devkit-bench): appliquer les migrations avant de démarrer la production |
 | 3.01 | P1 — figé à la création | 3 | 2026-10-05 → 10-07 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 3.02 | P0 — bloque le reste | 1 | 2026-10-05 → 10-05 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
 | 3.03 | P1 — figé à la création | 1 | 2026-10-06 → 10-06 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
 | 3.04 | P2 — décision | 1 | 2026-10-07 → 10-07 | #272 | docs(security): documenter le branchement d'un Keycloak, du realm au premier login |
 | 3.05 | P1 — figé à la création | 1 | 2026-10-08 → 10-08 | #478 | feat(security): fournir aux pods de production une clé de signature partagée |
-| 4.01 | P2 — décision | 0.5 | 2026-10-09 → 10-09 | #396 | fix(orm): refuser orm:generate si une entité n'a pas pu être lue |
 | 4.02 | P1 — figé à la création | 0.5 | 2026-10-12 → 10-12 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
 | 4.03 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
 | 4.04 | P1 — figé à la création | 1 | 2026-10-14 → 10-14 | #314 | fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas |
