@@ -1,4 +1,10 @@
-<% if (it.roleGuard) { %>import { route, controller, IsGranted } from "@nodefony/framework";
+<% if (it.roleGuard) { %>import {
+  route,
+  controller,
+  IsGranted,
+  CurrentUser,
+} from "@nodefony/framework";
+<% } else if (it.hasSecurity) { %>import { route, controller, CurrentUser } from "@nodefony/framework";
 <% } else { %>import { route, controller } from "@nodefony/framework";
 <% } %>
 import {
@@ -9,7 +15,8 @@ import {
 } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
 import type { ContextType } from "@nodefony/http";
-
+<% if (it.hasSecurity) { %>import type { IUser } from "@nodefony/user";
+<% } %>
 /**
  * La diffusion du canal, tant qu'au moins un client écoute. `null` dès le départ
  * du dernier abonné : un pod sans spectateur ne retient rien, et ne publie rien.
@@ -102,6 +109,17 @@ let publishToChannel: RealtimePublish | null = null;
       rssBytes: process.memoryUsage().rss,
       ts: Date.now(),
     };
+  }
+
+  /**
+   * Action AUTHENTIFIÉE (défaut d'une action) qui sait QUI l'appelle :
+   * `@CurrentUser()` reçoit l'utilisateur de la connexion, comme sur une route.
+   * L'identité vient du serveur — jamais un champ que le client déclare.
+   * C'est la forme à reprendre pour toute action qui écrit au nom de quelqu'un.
+   */
+  @RealtimeAction("<%= it.channel %>:whoami")
+  whoami(@CurrentUser() user: IUser) {
+    return { identifier: user.identifier };
   }
 
 <% } %>  /**

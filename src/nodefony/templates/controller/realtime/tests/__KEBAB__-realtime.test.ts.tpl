@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { getRealtimeHub } from "@nodefony/realtime";
-import { createRealtimeHarness } from "@nodefony/realtime/testing";
+<% if (it.hasSecurity) { %>import type { IRealtimeToken } from "@nodefony/realtime";
+<% } %>import { createRealtimeHarness } from "@nodefony/realtime/testing";
 import <%= it.nameClass %> from "../nodefony/controllers/<%= it.nameClass %>";
 
 /**
@@ -76,4 +77,30 @@ describe("<%= it.nameClass %> — socket", () => {
     expect(h.denials()).toMatchObject([{ reason: "unknown" }]);
     h.dispose();
   });
-});
+<% if (it.hasSecurity) { %>
+  it("une action authentifiée reçoit son appelant par @CurrentUser", async () => {
+    // L'identité qu'aurait posée le pare-feu au handshake. Une action qui
+    // écrit au nom de quelqu'un doit avoir CE test : sans lui, un appelant
+    // introuvable ne se voit qu'en production.
+    const alice = { identifier: "alice" };
+    const attributes = new Map<string, unknown>([["user", alice]]);
+    const identity: IRealtimeToken = {
+      type: "session",
+      getUserIdentifier: () => alice.identifier,
+      isAuthenticated: () => true,
+      getRoles: () => ["ROLE_USER"],
+      getScopes: () => [],
+      // Signature générique imposée par le contrat `IRealtimeToken` — même
+      // dérogation que les jetons du framework.
+      // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
+      getAttribute: <T>(key: string) => attributes.get(key) as T | undefined,
+    };
+    const h = createRealtimeHarness((ctx) => new <%= it.nameClass %>(ctx), {
+      identity,
+    });
+    await h.connect();
+    const me = await h.call<{ identifier: string }>("<%= it.channel %>:whoami");
+    expect(me.identifier).toBe("alice");
+    h.dispose();
+  });
+<% } %>});
