@@ -238,9 +238,6 @@ Payé à la `10.0.0-beta.1`, chaque ligne une fois :
 - **Avant d'estampiller : `git fetch` puis `origin/main` DANS `dev`.** Le job `accueil` pousse sur
   `main` après chaque publication, sans redescendre dans `dev` : `--promouvoir` échoue alors sur un
   push refusé (non-fast-forward). Fusionner `origin/main` dans `dev` d'abord.
-- **Pendant `--promouvoir` : ne pas annuler les runs `dev` du même commit avant que ceux de `main`
-  aient CONCLU.** La garde ne pardonne un run annulé que si un run du même workflow a rendu un
-  verdict ; sinon l'annulation compte ROUGE.
 - **Changement de CANAL (alpha → beta → stable) : prose à la main.** `accueil-gate --basculer`
   porte les versions d'un cran à l'autre, jamais le canal : il reste vert tant que l'ancien canal
   sert encore sa version. README, `AGENTS.md`, `SECURITY.md`, `docker/hub-overview.md`, README de

@@ -80,4 +80,17 @@ if printf '%s' "$cmd" | grep -qE '(^|[;&|(])[[:space:]]*git([[:space:]]+[^[:spac
   deny "REFUS — \`git push --force\` réécrit l'historique DISTANT ; rien dans l'état local ne dit si quelqu'un a déjà tiré les commits écrasés. Ce geste se fait à la main, par l'utilisateur, jamais par un agent."
 fi
 
+# 4. Un agent n'ARRÊTE jamais une exécution de CI. Vécu à la release 10.0.0-beta.1 : l'agent
+#    a annulé en boucle les runs `dev` du commit qu'il publiait (« ils doublent ceux de
+#    `main` ») — sous le jeton de l'utilisateur, donc affiché « canceled by @<user> » : des
+#    jobs qui s'arrêtent d'un coup, au pire moment, sans que personne ne l'ait demandé.
+#    Une annulation n'économise rien (la CI est gratuite) et coûte un verdict : la garde de
+#    publication compte un `cancelled` ROUGE. Supprimer un run ou couper un workflow efface
+#    le verdict de la même façon. Lire, attendre et RELANCER restent libres ; l'arrêt, s'il
+#    le faut vraiment (job figé), se fait à la main dans l'interface.
+if printf '%s' "$cmd" | grep -qE '(^|[;&|(]|do)[[:space:]]*gh[[:space:]]+(run[[:space:]]+(cancel|delete)|workflow[[:space:]]+disable)([[:space:]]|$|;)' ||
+  printf '%s' "$cmd" | grep -qE '(^|[;&|(]|do)[[:space:]]*gh[[:space:]]+api[[:space:]].*actions/runs/[^[:space:]]*/(force-)?cancel([[:space:]]|$)'; then
+  deny "REFUS — un agent n'arrête, ne supprime ni ne désactive JAMAIS une exécution de CI. Elle tourne sous le jeton de l'utilisateur (« canceled by @… ») : des jobs qui s'arrêtent d'un coup, et un commit qui perd son verdict — la garde de publication compte un \`cancelled\` ROUGE. La CI est gratuite : laisser finir. Pour attendre : \`gh run watch\` ; pour rejouer : \`gh run rerun\`. Un job réellement figé s'arrête À LA MAIN, par l'utilisateur, dans l'interface GitHub."
+fi
+
 exit 0

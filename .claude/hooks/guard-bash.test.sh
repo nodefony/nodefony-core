@@ -55,6 +55,20 @@ for c in 'git stash list' 'git stash show -p' 'git status --short' 'git log -6' 
 echo "=== push --force — refus inconditionnel (l'historique distant, lui, n'a pas d'état local) ==="
 for c in 'git push --force origin main' 'git push -f' 'git push --force-with-lease'; do t deny "$c"; done
 
+echo "=== CI — un agent n'arrête JAMAIS une exécution (refus inconditionnel) ==="
+for c in 'gh run cancel 36459961370' 'gh run cancel' \
+  'for id in 1 2; do gh run cancel $id >/dev/null 2>&1; done' \
+  'cd /Users/cci/repository/nodefony-core && gh run cancel 1' \
+  'gh api -X POST repos/nodefony/nodefony-core/actions/runs/1/cancel' \
+  'gh api --method POST repos/o/r/actions/runs/1/force-cancel' \
+  'gh run delete 1' 'gh workflow disable node.js.yml'; do t deny "$c"; done
+
+echo "=== CI — lire, attendre, relancer : doivent PASSER ==="
+for c in 'gh run list --branch dev' 'gh run view 1 --log-failed' 'gh run watch 1' \
+  'gh run rerun 1 --failed' 'gh workflow run release-smoke.yml --ref dev' \
+  'gh run list --status cancelled' 'gh api repos/o/r/actions/runs?head_sha=abc' \
+  'gh workflow enable node.js.yml'; do t PASSE "$c"; done
+
 echo "=== non-régression règles 1 et 2 ==="
 t deny 'rg -rn toto src/'
 t deny 'cd src/packages && ls'
