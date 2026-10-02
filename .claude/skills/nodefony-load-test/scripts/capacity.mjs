@@ -63,7 +63,11 @@ const SOCKETS = num("sockets", 800);
 const CLIENTS = num("clients", 8);
 const FANOUT = num("fanout", 100);
 const HTTP_CONC = num("http-conc", 50);
-const PAYLOAD = num("payload", 5); // octets par frame WS — CHANGE TOUT (cf rapport)
+// Octets par frame WS — CHANGE TOUT. 1 Ko par défaut : à 5 octets, le coût fixe
+// d'une LECTURE du socket domine, et le TLS (qui remet ~7 trames par lecture
+// contre ~2,5 en clair) sortait plus RAPIDE que le clair — un artefact, prouvé
+// sur un serveur `ws` nu par `ws-tls-batching.mjs`.
+const PAYLOAD = num("payload", 1024);
 const REPEAT = num("repeat", 3); // répétitions → médiane + dispersion
 // Chaque mesure de débit dure un TEMPS FIXE, pas un nombre de messages. Bornée
 // par un compte, une rafale d'écho durait ~1 s et une diffusion ~30 ms — moins
@@ -436,7 +440,7 @@ async function wsFanout() {
   let published = 0;
   let seen = 0;
   await new Promise((resolve) => {
-    const fire = () => socks[0].send(`b-${published++}`);
+    const fire = () => socks[0].send(`b-${published++}-`.padEnd(PAYLOAD, "x"));
     sentinel.on("message", () => {
       seen++;
       if (performance.now() < deadline) fire();
