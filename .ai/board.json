@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T08:03:15.124Z",
+  "generatedAt": "2026-10-03T09:57:20.236Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 68,
+      "closed": 69,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 31,
+      "open": 39,
       "title": "10.0.0-beta"
     },
     {
@@ -1683,7 +1683,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 3,
+      "jours": 14,
       "ordre": 3.01,
       "debut": "2026-10-05",
       "cible": "2026-10-07",
@@ -1798,6 +1798,22 @@
       "labels": []
     },
     {
+      "number": 526,
+      "title": "fix(frontend): afficher en développement les images importées par un front",
+      "url": "https://github.com/nodefony/nodefony-core/issues/526",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.3,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 149,
       "title": "fix(cli): émettre un défaut SQL sur les colonnes générées",
       "url": "https://github.com/nodefony/nodefony-core/issues/149",
@@ -1868,6 +1884,22 @@
       "labels": []
     },
     {
+      "number": 527,
+      "title": "feat(brand): redessiner le logo Nodefony en vectoriel net à toute taille",
+      "url": "https://github.com/nodefony/nodefony-core/issues/527",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.4,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 144,
       "title": "feat(orm): refuser au démarrage un utilisateur incomplet",
       "url": "https://github.com/nodefony/nodefony-core/issues/144",
@@ -1900,11 +1932,123 @@
       "title": "fix(security): fermer aussi la session Keycloak à la déconnexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/517",
       "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 3.5,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 519,
+      "title": "feat(security): dériver les rôles de l'application des rôles Keycloak",
+      "url": "https://github.com/nodefony/nodefony-core/issues/519",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 3.51,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 520,
+      "title": "feat(cli): dériver le realm et le thème Keycloak de l'application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/520",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 3.52,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 521,
+      "title": "feat(security): joindre Keycloak par un certificat ou une adresse interne",
+      "url": "https://github.com/nodefony/nodefony-core/issues/521",
+      "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
-      "ordre": 3.5,
+      "ordre": 3.53,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 522,
+      "title": "feat(studio): ajouter un écran Identité pour les fournisseurs de connexion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/522",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 3.54,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 523,
+      "title": "feat(security): guider la connexion Keycloak et brancher plusieurs realms",
+      "url": "https://github.com/nodefony/nodefony-core/issues/523",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.55,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 524,
+      "title": "feat(security): lier un compte existant à Keycloak et exporter les comptes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/524",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 3.56,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 525,
+      "title": "test(security): compléter les bancs Keycloak réels",
+      "url": "https://github.com/nodefony/nodefony-core/issues/525",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.57,
       "debut": null,
       "cible": null,
       "labels": [
@@ -1929,8 +2073,8 @@
       "number": 518,
       "title": "feat(cli): générer la chaîne Keycloak dans une application neuve",
       "url": "https://github.com/nodefony/nodefony-core/issues/518",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
