@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useAuth, useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
 import { normalize, type HealthPayload } from "../utils/realtimeHealth";
+import { useIsAdmin } from "../auth/roles";
 import type { WidgetRuntimeContext } from "./types";
 
 /**
@@ -17,11 +18,19 @@ export function useWidgetRuntime(): {
   const store = useStore();
   const ui = useUi();
   const auth = useAuth();
+  // Le plan d'administration du temps réel est réservé aux administrateurs :
+  // un autre compte n'en recevrait qu'un 403 en console. Sans lui, le bureau
+  // retombe sur une instance unique, hors cluster.
+  const isAdmin = useIsAdmin();
   const health = useResource(
     useCallback(
       () =>
-        store.api.getAbsolute<HealthPayload>("/nodefony/realtime/api/health"),
-      [store],
+        isAdmin
+          ? store.api.getAbsolute<HealthPayload>(
+              "/nodefony/realtime/api/health",
+            )
+          : Promise.resolve(null),
+      [store, isAdmin],
     ),
   );
   const norm = normalize(health.data);

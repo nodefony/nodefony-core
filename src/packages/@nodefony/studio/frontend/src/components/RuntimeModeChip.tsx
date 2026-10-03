@@ -33,6 +33,7 @@ import {
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
+import { useIsAdmin } from "../auth/roles";
 import { DefinitionList, KeyValue } from "./ui";
 
 /** Identité runtime renvoyée par `/nodefony/kernel/api/info` (miroir local). */
@@ -98,12 +99,17 @@ export function RuntimeModeChip() {
   // Fond de panier Realtime — module séparé (cycle interdit framework→realtime)
   // → lu depuis son propre data plane. Optionnel : 404 si realtime absent → la
   // ligne se masque (dégradation propre).
+  // Réservé aux administrateurs (plan d'administration) : un autre compte
+  // n'en recevrait qu'un 403 — la ligne se masque comme si realtime manquait.
+  const isAdmin = useIsAdmin();
   const rtFetcher = useCallback(
     () =>
-      store.api.getAbsolute<RealtimeBackplaneLite>(
-        "/nodefony/realtime/api/health",
-      ),
-    [store],
+      isAdmin
+        ? store.api.getAbsolute<RealtimeBackplaneLite>(
+            "/nodefony/realtime/api/health",
+          )
+        : Promise.resolve(null),
+    [store, isAdmin],
   );
   const { data: rt, reload: reloadRt } = useResource(rtFetcher);
 
