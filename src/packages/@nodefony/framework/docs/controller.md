@@ -199,12 +199,12 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | #   | Étape                                   | Où                                                  |
 | --- | --------------------------------------- | --------------------------------------------------- |
 | 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:807`)           |
-| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1624`)    |
-| 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1606`                               |
-| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:811`)   |
-| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1747`)    |
-| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1246`) |
-| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1772`) |
+| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1691`)    |
+| 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1678`                               |
+| 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:864`)   |
+| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1819`)    |
+| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1299`) |
+| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1834`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:446`)      |
 | 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:446`)      |
 | 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:382`)       |
@@ -321,9 +321,9 @@ action se tromperait d'objet.
 > `@Scope("request")`, chaque requête HTTP repart d'une instance neuve ; un singleton, lui, refuse
 > tout état de requête sur `this`.
 
-Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:2008`)
+Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:2052`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
-(`http-kernel.ts:1246`), avant l'acceptation de la socket, et avant le firewall
+(`http-kernel.ts:1299`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).
 
 ## 🧠 D'où viennent `request`, `response`, `session`
@@ -506,7 +506,7 @@ throw new nodefonyError("Article introuvable", 404); // statut porté par l'erre
 throw new HttpError("Not Found", 404, this.context); // variante enrichie du contexte
 ```
 
-L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:918`), qui délègue la mise en
+L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:971`), qui délègue la mise en
 forme au rendeur d'erreurs. Ce qui en sort :
 
 - **statut normalisé** — un code absent (ou l'ancien quirk `200`) devient **500**
@@ -622,7 +622,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:1117`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
 | `Route Action not found` | L'action porte un nom déjà utilisé par un membre de `Controller` | Renommer : `session`, `request`, `response`, `context`, `route`, `method`, `query*`, `get`, `set`, `render*`, `redirect`, `forward` sont réservés |
 | `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts:1752`) | Lire la session dans l'action, pas dans le hook |
-| Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1772`) | Déplacer l'effet de bord dans l'action |
+| Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1834`) | Déplacer l'effet de bord dans l'action |
 | Redirection permanente non voulue | Un statut invalide retombe sur 302, un `301` explicite reste 301 | Passer le code voulu : `this.redirect(url, 302)` |
 | WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée — par TOUTES les connexions en singleton (le défaut), par toute la connexion en `@Scope("request")` (`Resolver.ts:805`) | Porter l'état par message, ou sur le contexte de la connexion |
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |

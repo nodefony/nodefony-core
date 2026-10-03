@@ -261,7 +261,7 @@ Nodefony pose **deux barrières successives**, à deux étages différents.
 | Allowlist stricte    | `@nodefony/realtime` | **inactif** (`enabled: false`)      | configurable  | `close 4003` |
 
 **Barrière 1 — transport, active sans rien faire.** `HttpKernel.checkWebsocketOrigin()`
-(`http-kernel.ts:621`) exige que l'`Origin` du handshake corresponde au `Host` servi, avec tolérance
+(`http-kernel.ts:712`) exige que l'`Origin` du handshake corresponde au `Host` servi, avec tolérance
 loopback en développement et une allowlist optionnelle (`allowedOrigins`,
 `http/nodefony/config/config.ts:552`) acceptant le hostname exact ou un wildcard à un label. Une
 requête **sans** `Origin` est acceptée : un attaquant non-navigateur n'a pas besoin de CSWSH.

@@ -58,7 +58,7 @@ Trois idées suffisent pour raisonner :
 1. **Un montage = un préfixe → une origine.** `"/billing/"` → `http://127.0.0.1:8080`. Le préfixe le
    plus long gagne (`ReverseProxy.match()`, `reverse-proxy.ts:229`).
 2. **L'aiguillage passe AVANT le routage.** Une route attrape-tout de l'application ne peut pas
-   avaler un préfixe monté (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1634`).
+   avaler un préfixe monté (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1653`).
 3. **Sans montage, il ne coûte rien.** Le pipeline lit un champ (`mounts === null`) et passe son
    chemin (`ReverseProxy.mounts`, `reverse-proxy.ts:174`).
 
@@ -424,7 +424,7 @@ une connexion à usage unique, sans recréer de pool que personne ne fermerait.
 - **Quotas maintenus** : rate-limit par IP sur les requêtes relayées ; mêmes bornes par IP pour un
   upgrade relayé que pour un upgrade servi, plus `maxSockets` tunnels par amont.
 - **Barrière d'hôte maintenue** : un `Host` hors `trustedHosts` n'est jamais relayé ; il suit le
-  pipeline jusqu'au 421, comme toute requête (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1634`).
+  pipeline jusqu'au 421, comme toute requête (`HttpKernel.routeHttpRequest()`, `http-kernel.ts:1653`).
 - **Chemins ambigus refusés**, pas normalisés : `.`, `..`, `\`, octet nul et leurs formes encodées
   `%2e`, `%2f`, `%5c`, `%00`, `%25` (`isAmbiguousPath()`, `rules.ts:229`).
 - **Chaîne de confiance** : `Forwarded`, `X-Forwarded-*` et `X-Real-IP` d'un client direct sont

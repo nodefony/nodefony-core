@@ -116,7 +116,7 @@ Trois décisions structurent le reste.
 
 **1. Le rejet coûte moins cher que l'acceptation.** Probes de santé, rate-limit et cap de connexions
 sont traités **avant** toute allocation de contexte, de scope DI ou de bulle ALS
-(`HttpKernel.onHttpRequest()`, `http-kernel.ts:1009`). Un flood est refusé au prix d'une recherche dans
+(`HttpKernel.onHttpRequest()`, `http-kernel.ts:1062`). Un flood est refusé au prix d'une recherche dans
 une `Map`.
 
 **2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:260`) est appelé **avant** de lire
@@ -262,25 +262,25 @@ Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque
 
 | #   | Étape                  | Ancrage                                                      | Ce qui devient vrai                                              |
 | --- | ---------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------- |
-| 1   | `onHttpRequest()`      | `http-kernel.ts:1009`                                        | en-têtes de transport posés (nosniff, frame, HSTS)               |
-| 2   | probes de santé        | `HttpKernel.#respondHealth()` (`http-kernel.ts:508`)         | `/livez` et `/readyz` répondent **sans** entrer dans le pipeline |
+| 1   | `onHttpRequest()`      | `http-kernel.ts:1062`                                        | en-têtes de transport posés (nosniff, frame, HSTS)               |
+| 2   | probes de santé        | `HttpKernel.#respondHealth()` (`http-kernel.ts:538`)         | `/livez` et `/readyz` répondent **sans** entrer dans le pipeline |
 | 3   | rate-limit par IP      | `http-kernel.ts:865`                                         | un flood est rejeté en 429, **sans** contexte ni scope           |
-| 4   | `handle()`             | `HttpKernel.handle()` (`http-kernel.ts:762`)                 | le **scope DI « request »** est ouvert                           |
-| 5   | `createHttpContext()`  | `http-kernel.ts:1396`                                        | le contexte existe ; le teardown est armé (`on("close")`)        |
-| 6   | `traceparent`          | `http-kernel.ts:1514`                                        | la trace W3C est résolue (héritée ou générée)                    |
-| 7   | `RequestContext.run()` | `http-kernel.ts:1510`                                        | **la bulle ALS est ouverte** — `requestId` propagé partout       |
+| 4   | `handle()`             | `HttpKernel.handle()` (`http-kernel.ts:815`)                 | le **scope DI « request »** est ouvert                           |
+| 5   | `createHttpContext()`  | `http-kernel.ts:1449`                                        | le contexte existe ; le teardown est armé (`on("close")`)        |
+| 6   | `traceparent`          | `http-kernel.ts:1568`                                        | la trace W3C est résolue (héritée ou générée)                    |
+| 7   | `RequestContext.run()` | `http-kernel.ts:496`                                         | **la bulle ALS est ouverte** — `requestId` propagé partout       |
 | 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:1007`)                 | un **preflight** répond 204 et **sort** du pipeline              |
 | 9   | routage                | `Router.resolve()` (`router.ts:260`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
 | 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1045`)       | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
-| 11  | fallback statique      | `serverStatic` (`http-kernel.ts:270`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
-| 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1278`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
-| 13  | `onRequestEnd()`       | `http-kernel.ts:1697`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
-| 14  | front controller       | `HttpKernel.prepareFrontController()` (`http-kernel.ts:811`) | la route est **matchée** ; rien n'est instancié encore           |
+| 11  | fallback statique      | `serverStatic` (`http-kernel.ts:276`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
+| 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1451`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
+| 13  | `onRequestEnd()`       | `http-kernel.ts:1769`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
+| 14  | front controller       | `HttpKernel.prepareFrontController()` (`http-kernel.ts:864`) | la route est **matchée** ; rien n'est instancié encore           |
 | 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:948`)                 | une mutation cross-site est refusée (403)                        |
-| 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1246`)          | `context.session` existe **si** la route ou un cookie l'exige    |
+| 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1299`)          | `context.session` existe **si** la route ou un cookie l'exige    |
 | 17  | firewall               | `Firewall.handleSecurity()` (`firewall.ts:761`)              | `context.user` est résolu — ou 401/403                           |
-| 18  | action                 | `HttpContext.handle()` (`HttpContext.ts:257`)                | **ton code s'exécute**, la valeur retournée est rendue           |
-| 19  | teardown               | `HttpKernel.teardownHttp()` (`http-kernel.ts:1306`)          | log, profil, hooks d'après-réponse, **scope libéré**             |
+| 18  | action                 | `HttpContext.handle()` (`HttpContext.ts:287`)                | **ton code s'exécute**, la valeur retournée est rendue           |
+| 19  | teardown               | `HttpKernel.teardownHttp()` (`http-kernel.ts:1359`)          | log, profil, hooks d'après-réponse, **scope libéré**             |
 
 ### Trois ordres qui surprennent (et pourquoi ils sont ainsi)
 
@@ -295,7 +295,7 @@ faute de route qu'il essaie le disque (`http-kernel.ts:1200`). Une route d'API n
 — voir la mise en situation dédiée.
 
 **Ton contrôleur n'est instancié qu'une fois la requête autorisée.** L'étape 14 se contente de
-MATCHER la route — `prepareFrontController()` (`http-kernel.ts:811`) pose `sessionIntent` et
+MATCHER la route — `prepareFrontController()` (`http-kernel.ts:864`) pose `sessionIntent` et
 `bypassFirewall`, que le point session et le firewall lisent juste après, et rien de plus. La
 construction de l'instance et l'appel d'`initialize()` exécutent du code utilisateur et résolvent
 des dépendances : ils vivent dans `Resolver.executeAction()`, **après** la garde `@IsGranted`
@@ -350,11 +350,11 @@ sequenceDiagram
 
 | #   | Étape                  | Ancrage                                                        | Ce qui devient vrai                                    |
 | --- | ---------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
-| 1   | `onWebsocketRequest()` | `http-kernel.ts:1848`                                          | rate-limit du handshake (close **1013**) et cap par IP |
-| 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1791`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
+| 1   | `onWebsocketRequest()` | `http-kernel.ts:1920`                                          | rate-limit du handshake (close **1013**) et cap par IP |
+| 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1863`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
 | 3   | bulle ALS              | `http-kernel.ts:1645`                                          | ouverte pour le handshake **et** toutes les trames     |
-| 4   | hôte + Origin          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:621`)     | origine tierce refusée → close **1008** (anti-CSWSH)   |
-| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:2008`)               | route et protocole vérifiés **avant** l'accept         |
+| 4   | hôte + Origin          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)     | origine tierce refusée → close **1008** (anti-CSWSH)   |
+| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:2052`)               | route et protocole vérifiés **avant** l'accept         |
 | 6   | session                | `http-kernel.ts:1550`                                          | même point d'activation unique qu'en HTTP              |
 | 7   | `connect()`            | `WebsocketContext.connect()` (`WebsocketContext.ts:257`)       | listeners `close`/`error`/`message` branchés           |
 | 8   | firewall               | `http-kernel.ts:1450`                                          | mêmes zones, mêmes rôles qu'en HTTP                    |
@@ -462,10 +462,10 @@ flowchart TD
   OE -->|contexte WS non accepté| WR["reject — le handshake échoue"]
 ```
 
-Côté HTTP, `HttpKernel.onError()` (`http-kernel.ts:918`) délègue à un **rendu remplaçable** : le
+Côté HTTP, `HttpKernel.onError()` (`http-kernel.ts:971`) délègue à un **rendu remplaçable** : le
 statut est normalisé (une erreur sans code devient 500), les en-têtes sont posés, puis le corps est
 rendu — sauf si le client est déjà parti ou si l'envoi a commencé (`http-kernel.ts:773`). Tu peux
-substituer ton propre rendu via `HttpKernel.setErrorRenderer()` (`http-kernel.ts:898`), par exemple
+substituer ton propre rendu via `HttpKernel.setErrorRenderer()` (`http-kernel.ts:951`), par exemple
 pour émettre du `application/problem+json`.
 
 Côté WebSocket, il n'existe pas de « statut » : il faut un **code de fermeture** valide, et la plage
@@ -515,7 +515,7 @@ raison est concrète : cette valeur repart dans un en-tête et dans les logs —
 serait une injection de logs.
 
 Pour relier ta requête à une trace **distribuée**, l'en-tête W3C `traceparent` suit le même chemin :
-honoré s'il arrive, généré sinon (`http-kernel.ts:1514`), et réfléchi dans la réponse
+honoré s'il arrive, généré sinon (`http-kernel.ts:1568`), et réfléchi dans la réponse
 (`Response.ts:386`).
 
 ## 🔐 Où s'insèrent les défenses
@@ -549,7 +549,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | Domaine                      | Norme             | Ancrage                                                 |
 | ---------------------------- | ----------------- | ------------------------------------------------------- |
 | Codes de fermeture WebSocket | RFC 6455 §7.4     | `toWsCloseCode()` (`WebsocketContext.ts:79`)            |
-| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:2050`) |
+| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:2094`) |
 | Message de statut US-ASCII   | RFC 7230 §3.1.2   | `Response.writeHead()` (`Response.ts:529`)              |
 | Valeurs d'en-tête sûres      | RFC 9110 §5.5     | `sanitizeRequestId()` (`requestId.ts:38`)               |
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |
@@ -574,7 +574,7 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
 - **Chronométrage désactivé par défaut en production** : sans lui, `phases` est un tableau gelé
   partagé et `phaseStart`/`phaseEnd` sont des no-ops (`Context.ts:435`).
 - **Le délai d'inactivité est armé par socket, pas par requête** —
-  `HttpContext.setTimeout()` (`HttpContext.ts:296`) : en keep-alive, ré-armer un minuteur à chaque
+  `HttpContext.setTimeout()` (`HttpContext.ts:316`) : en keep-alive, ré-armer un minuteur à chaque
   requête coûtait pour une valeur constante.
 - **Session paresseuse** : ni intention de route ni cookie entrant → aucune session, aucune écriture
   (`http-kernel.ts:1014`).
@@ -592,7 +592,7 @@ indicatif.
   profil, identifié `<requestId de la connexion>.<n° de trame>`
   (`WebsocketContext.beginFrame()`, `WebsocketContext.ts:451`).
 - **Journal d'accès** : format remplaçable via `HttpKernel.setRequestLogger()`
-  (`http-kernel.ts:910`) — JSON d'audit, ligne lisible, ou le tien.
+  (`http-kernel.ts:963`) — JSON d'audit, ligne lisible, ou le tien.
 - **Détail phase par phase** dans les logs : opt-in `timing.verbose`
   (`Context.logPhasesVerbose()`, `Context.ts:636`).
 

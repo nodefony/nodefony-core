@@ -128,7 +128,7 @@ Nodefony crée un serveur HTTP/2 sécurisé avec `allowHTTP1: true` (`ServerHttp
 
 **Le WebSocket n'est jamais un citoyen de seconde zone.** Il est adossé au serveur HTTP porteur
 (`server-websocket.ts:80`), passe par le **même** rate-limit d'IP que les requêtes HTTP — un upgrade
-_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1848`) —, hérite de la même
+_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1920`) —, hérite de la même
 session et du même firewall, et se ferme avec le même soin qu'une réponse HTTP.
 
 > [!NOTE]
@@ -327,7 +327,7 @@ Choisir en cinq secondes :
 | `server-websocket-secure` | `wss://` — 5152     | `server-https` actif      | WebSocket adossé au serveur TLS.                   |
 | `server-static`           | (aucun port propre) | toujours enregistré       | Fichiers statiques, en **repli** après le routing. |
 
-L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1128`) : chaque serveur est
+L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1181`) : chaque serveur est
 consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:1139`).
 Les serveurs WebSocket ne sont montés que si leur porteur l'a été.
 
@@ -526,7 +526,7 @@ laisser un processus se croire démarré.
 
 Si le port peut glisser, alors « le serveur écoute sur 5151 » n'est plus une vérité mais une
 convention — et `nodefony status`, `nodefony stop` ou l'attente de disponibilité sonderaient un port
-que personne n'écoute. `HttpKernel.publishRuntimePorts()` (`http-kernel.ts:1195`) écrit donc la
+que personne n'écoute. `HttpKernel.publishRuntimePorts()` (`http-kernel.ts:1248`) écrit donc la
 topologie réelle (pid, ports obtenus, ports désirés) dans un fichier d'état, **dans tous les
 environnements** : une application qui déclare son port (`NF_PORT`, `NF_PORT_HTTPS` ou `servers.http.port`) sort
 aussi de la convention,
@@ -621,7 +621,7 @@ sont ignorés** (`config.ts:965`), et l'IP retenue est celle de la socket réell
 | `"loopback"`, `"linklocal"`, `"uniquelocal"` | Préréglages de plages privées.                                     |
 
 La politique est compilée **une seule fois** au premier usage (`HttpKernel.getTrustProxyChecker()`,
-`http-kernel.ts:573`, via `buildTrustProxy()`, `trustProxy.ts:103`) : aucune structure allouée par
+`http-kernel.ts:604`, via `buildTrustProxy()`, `trustProxy.ts:103`) : aucune structure allouée par
 requête. La résolution de l'IP cliente remonte la chaîne **de droite à gauche** depuis la socket réelle
 (`resolveForwarded()`, `forwarded.ts:253`) — conforme RFC 7239 et à la recommandation OWASP.
 
@@ -629,7 +629,7 @@ requête. La résolution de l'IP cliente remonte la chaîne **de droite à gauch
 
 Barrière testée **avant le routage**, contre l'injection d'en-tête `Host`. Le domaine canonique du
 kernel est toujours accepté, plus le loopback en développement (`HttpKernel.compileAlias()`,
-`http-kernel.ts:987`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
+`http-kernel.ts:1040`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
 d'un seul niveau, `*.cdn.example.com`) ; `true` désactive la barrière — à réserver au cas où le proxy
 filtre déjà le `Host` (`config.ts:974`).
 
@@ -638,7 +638,7 @@ filtre déjà le `Host` (`config.ts:974`).
 Les navigateurs **n'appliquent pas CORS aux WebSockets**. Sans contrôle, une page tierce peut ouvrir un
 WS authentifié par le cookie de session de la victime (CSWSH, OWASP WSTG-CLNT-10). Nodefony exige donc
 par défaut que l'`Origin` du handshake corresponde au `Host` servi
-(`HttpKernel.checkWebsocketOrigin()`, `http-kernel.ts:621`), avec tolérance loopback en développement
+(`HttpKernel.checkWebsocketOrigin()`, `http-kernel.ts:712`), avec tolérance loopback en développement
 et allowlist explicite pour les SPA cross-origine. Un refus se solde par une fermeture **1008 (Policy
 Violation)**, jamais par un code HTTP.
 
@@ -661,8 +661,8 @@ redémarrer le pod **en plein drain** par le kubelet, et casserait précisément
 protéger.
 
 Implémentation : court-circuit **total** du pipeline dans `HttpKernel.onHttpRequest()`
-(`http-kernel.ts:1009`) — pas de contexte, pas de portée DI, pas de session, pas de journal par sonde,
-réponses pré-allouées (`HttpKernel.#respondHealth()`, `http-kernel.ts:508`). Et surtout : **avant le
+(`http-kernel.ts:1062`) — pas de contexte, pas de portée DI, pas de session, pas de journal par sonde,
+réponses pré-allouées (`HttpKernel.#respondHealth()`, `http-kernel.ts:538`). Et surtout : **avant le
 rate-limit**. Un kubelet qui reçoit un `429` croit le pod mort → cascade de redémarrages.
 
 | Option          | Type   | Défaut    | Effet                                                                  |
@@ -731,7 +731,7 @@ sequenceDiagram
 ```
 
 **Étape 1 — la disponibilité bascule en premier.** L'écouteur est posé à `onPostReady` pour être
-inséré **en tête** et donc s'exécuter **en premier** (`http-kernel.ts:550`). `readyz` répond `503`, le
+inséré **en tête** et donc s'exécuter **en premier** (`http-kernel.ts:575`). `readyz` répond `503`, le
 load balancer cesse d'envoyer du trafic, et `shutdownDelay` laisse à cette information le temps de se
 propager.
 
@@ -787,7 +787,7 @@ processus à l'arrêt.
 
 L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** compteur de rate-limit par
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
-(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1848`). Le `101` étant déjà émis par `ws`, un `429`
+(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1920`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
 (`rateLimiter`, `http-kernel.ts:1863`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
@@ -837,7 +837,7 @@ demande le backplane realtime.
 
 | Domaine                               | Norme              | Ancrage                                                                     |
 | ------------------------------------- | ------------------ | --------------------------------------------------------------------------- |
-| HTTP/1.1 (sémantique, message)        | RFC 9110, 9112     | `node:http` + pipeline `HttpKernel.onHttpRequest()` (`http-kernel.ts:1009`) |
+| HTTP/1.1 (sémantique, message)        | RFC 9110, 9112     | `node:http` + pipeline `HttpKernel.onHttpRequest()` (`http-kernel.ts:1062`) |
 | HTTP/2                                | RFC 9113           | `ServerHttps.createServerH2()` (`server-https.ts:187`)                      |
 | HTTP/2 Rapid Reset                    | CVE-2023-44487     | `maxConcurrentStreams` (`config.ts:355`)                                    |
 | En-têtes trop volumineux → 431        | RFC 6585 §5        | `handleClientError()` (`clientError.ts:15`)                                 |
@@ -846,7 +846,7 @@ demande le backplane realtime.
 | WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:543`)                                              |
 | WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:623`)                                      |
 | WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:567`)                                       |
-| CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:621`)                  |
+| CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)                  |
 | En-têtes forwarded                    | RFC 7239           | `resolveForwarded()` (`forwarded.ts:253`)                                   |
 | Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:263`)                   |
 | Certificat — identité par le SAN      | RFC 6125           | `sanSchema` (`config.ts:446`)                                               |
