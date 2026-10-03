@@ -404,6 +404,15 @@
       "src/nodefony/src/tests/detachedStart.test.ts"
     ]
   },
+  "keycloak": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/oauth2Service.test.ts",
+      "src/packages/@nodefony/security/tests/unit/oauthProviders.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/integration/oauth2-keycloak.test.ts"
+    ]
+  },
   "mongoose": {
     "globs": ["src/packages/@nodefony/mongoose/tests/**/*.test.ts"]
   },

@@ -400,6 +400,8 @@ obligatoires d'OpenID Connect Core §3.1.3.7 : `iss`, `aud`, `exp`, et un `sub` 
 Même helper, mais l'**issuer** (URL du realm) sert à la fois à découvrir les points d'entrée et à
 valider l'`iss`. Il est donc **obligatoire**, et déclaré comme tel au registre
 (`requiresIssuer: true`) : sans lui, le démarrage est refusé en nommant la clé.
+Créer le realm et le client, lire l'émetteur, réussir le premier login : la page
+[Keycloak](keycloak.md) fait le chemin entier.
 
 ### `oidc` — n'importe quel serveur OpenID Connect
 

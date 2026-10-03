@@ -60,8 +60,9 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 
 1. [Authenticators](authenticators.md) — la session BFF, et pourquoi le login est **déjà fourni**.
 2. [OAuth2](oauth2.md) — « se connecter avec GitHub/Google » et le Shadow User.
-3. [WebAuthn / passkeys](webauthn.md) — se connecter sans mot de passe, résistant au phishing.
-4. [TOTP](totp.md) — le second facteur classique, et l'élévation de privilège (step-up).
+3. [Keycloak](keycloak.md) — brancher l'annuaire de l'entreprise, du realm au premier login.
+4. [WebAuthn / passkeys](webauthn.md) — se connecter sans mot de passe, résistant au phishing.
+5. [TOTP](totp.md) — le second facteur classique, et l'élévation de privilège (step-up).
 
 **J'audite avant une mise en production** — la passe qu'on regrette de ne pas avoir faite.
 
@@ -87,6 +88,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 | [CORS](cors.md)                         | lecture cross-origine de tes réponses         | ton front est sur un autre domaine               |
 | [En-têtes](headers.md)                  | CSP, HSTS, COOP/COEP, Referrer-Policy         | tu sers du HTML à un navigateur                  |
 | [OAuth2](oauth2.md)                     | login social + provisionnement d'identité     | « se connecter avec … »                          |
+| [Keycloak](keycloak.md)                 | connexion par l'annuaire auto-hébergé         | tes comptes vivent dans un realm Keycloak        |
 | [WebAuthn](webauthn.md)                 | passkeys, connexion résistante au phishing    | tu veux supprimer les mots de passe              |
 | [TOTP](totp.md)                         | second facteur temporel + step-up             | 2FA, ou re-preuve avant une action sensible      |
 | [Webhooks](webhooks.md)                 | notifier un tiers, signé et sans SSRF         | un système externe doit réagir à tes événements  |
