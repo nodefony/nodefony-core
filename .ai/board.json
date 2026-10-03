@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T21:43:38.148Z",
+  "generatedAt": "2026-10-03T22:21:52.601Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 72,
+      "closed": 73,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -1947,8 +1947,8 @@
       "number": 517,
       "title": "fix(security): fermer aussi la session Keycloak à la déconnexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/517",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
