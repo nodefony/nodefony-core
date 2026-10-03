@@ -14,11 +14,6 @@ import { FrontendPresetUnknownError } from "../src/errors/FrontendError";
  */
 export interface ViteConfigGeneratorOptions {
   /**
-   * Origine du serveur Nodefony pour le proxy Vite (`server.proxy`).
-   * Exemple : `"http://127.0.0.1:5151"`. En dev uniquement — ignoré en prod.
-   */
-  readonly backendOrigin?: string | undefined;
-  /**
    * Chemin de base Vite en développement — `/_vite/<famille>/`
    * (`devBasePath`). Émis comme `base` : Vite préfixe alors TOUTES ses URLs
    * (modules, assets, `url()` CSS, socket HMR), et Nodefony relaie ce préfixe
@@ -61,11 +56,9 @@ export class ViteConfigGenerator {
   /**
    * Construit le content `.mjs` à écrire à côté de `index.html` du module.
    *
-   * Si `opts.backendOrigin` est fourni en mode `development`, agrège les
-   * `apiProxyPaths` de toutes les entries et génère un `server.proxy` qui
-   * forward chaque préfixe vers le backend Nodefony. Sans ça, les fetch
-   * relatifs depuis l'app servie par Vite atterrissent sur Vite et reçoivent
-   * un SPA-fallback HTML (cause classique de `Unexpected token '<'`).
+   * Aucun `server.proxy` : la page est rendue par Nodefony et ses appels d'API
+   * partent sur sa propre origine ; Vite ne reçoit que ce que le relais
+   * `/_vite/<famille>/` lui transmet (#528).
    */
   toMjs(
     entries: ReadonlyArray<IResolvedFrontendEntry>,
@@ -197,32 +190,6 @@ export class ViteConfigGenerator {
       .map((d) => `    ${JSON.stringify(d)},`)
       .join("\n");
 
-    // Agrège tous les apiProxyPaths déclarés par les entries.
-    // Set pour dédupliquer si deux modules déclarent le même préfixe.
-    const proxyPaths = new Set<string>();
-    if (mode === "development" && opts.backendOrigin) {
-      for (const e of entries) {
-        for (const p of e.apiProxyPaths) proxyPaths.add(p);
-      }
-      // Data-plane admin/profiler TOUJOURS proxifié (convention
-      // `/nodefony/<module>/api/*`) : la debug bar dev (auto-injectée) fetch
-      // `/nodefony/profiler/api/{requestId}`, et Studio consomme `/nodefony/
-      // <module>/api/*`. Sans ça, sur une page servie par Vite ces fetch
-      // tombent sur le fallback SPA (HTML) → clic profiler « mort ». Regex
-      // Vite (clé `^…`) → couvre tous les modules, présents et futurs.
-      proxyPaths.add("^/nodefony/[^/]+/api");
-    }
-    const proxyLines =
-      proxyPaths.size > 0
-        ? Array.from(proxyPaths)
-            .map(
-              (p) =>
-                `      ${JSON.stringify(p)}: { target: ${JSON.stringify(
-                  opts.backendOrigin,
-                )}, changeOrigin: false, secure: false, ws: true },`,
-            )
-            .join("\n")
-        : "";
     // strictPort : le superviseur choisit le port (repli, bloc par famille) et
     // annonce ce port dans les URLs et le CSP. Un Vite qui sauterait de lui-même
     // sur un autre port servirait des URLs fausses, en silence.
@@ -262,15 +229,7 @@ ${fsAllowLines}
     // `clientPort` omis valent `null` (donc la déduction s'active), et côté
     // client un `hmrPort` absent ARME un repli direct en cas d'échec de
     // connexion — le fixer désarme ce filet.
-    const serverBlock =
-      proxyPaths.size > 0
-        ? `  server: {
-    strictPort: ${strictPort},
-${httpsLines}${fsBlock}    proxy: {
-${proxyLines}
-    },
-  },`
-        : `  server: {
+    const serverBlock = `  server: {
     strictPort: ${strictPort},
 ${httpsLines}${fsBlock}  },`;
 

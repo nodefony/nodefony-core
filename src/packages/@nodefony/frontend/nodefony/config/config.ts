@@ -190,31 +190,6 @@ export const frontendConfigSchema = z
         "Propage les logs Vite vers le syslog Nodefony (sinon ils restent dans le " +
           "stdout du process enfant uniquement).",
       ),
-    backendHost: z
-      .string()
-      .default("127.0.0.1")
-      .describe(
-        "Host du serveur Nodefony cible du proxy Vite (`server.proxy`). Quand le " +
-          'navigateur fait `fetch("/api/...")` depuis la page servie par Vite, ' +
-          "Vite proxifie vers `${backendProtocol}://${backendHost}:${backendPort}`.",
-      ),
-    backendPort: z
-      .number()
-      .int()
-      .positive()
-      .default(5151)
-      .describe(
-        "Port du serveur Nodefony cible du proxy Vite. HTTP par défaut (5151, " +
-          "config par défaut de `@nodefony/http`). Ajuster si l'app surcharge.",
-      ),
-    backendProtocol: z
-      .enum(["http", "https"])
-      .default("http")
-      .describe(
-        "Protocole du proxy Vite vers Nodefony. `http` par défaut — `https` pour " +
-          "proxifier vers le serveur HTTPS Nodefony (5152). Avec `https` et un " +
-          "certificat self-signed, prévoir `secure: false` côté proxy.",
-      ),
     https: z
       .boolean()
       .default(false)

@@ -2140,8 +2140,8 @@ function dispatchScaffold(
     );
     // Déclaration de l'entry auprès du FrontendService — UN fichier documenté,
     // le même pour une app et pour un module. L'app l'inlinait dans son
-    // `index.ts` : deux rédactions du même geste, dont une seule portait le
-    // TSDoc qui explique `apiProxyPaths` (le piège n°1 du dev multi-origine).
+    // `index.ts` : deux rédactions du même geste, dont une seule portait son
+    // TSDoc.
     renderLayer(
       eta,
       path.join(packageRoot, "templates", "shared", "front-registrar"),

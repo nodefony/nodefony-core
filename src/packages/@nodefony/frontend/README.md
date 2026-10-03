@@ -182,12 +182,6 @@ const config = {
     autoStartInDevelopment: true, // démarre Vite en env=development
     pipeViteLogs: true, // logs Vite dans syslog Nodefony
 
-    // Proxy de Vite → Nodefony : ne sert que si une page est servie par Vite
-    // lui-même (apiProxyPaths). Une page rendue par Nodefony n'en a pas besoin.
-    backendHost: "127.0.0.1",
-    backendPort: 5151,
-    backendProtocol: "http", // http | https
-
     // Variables d'env passées à Vite (les VITE_* sont exposées au browser)
     viteEnv: {
       VITE_API_BASE: "/api/v1",
@@ -215,12 +209,12 @@ Tout est optionnel — les defaults fonctionnent out-of-the-box.
 
 `FrontendService` est un `Service` Nodefony (donc un `EventEmitter`). Tu peux écouter :
 
-| Event               | Payload                      | Quand                                   |
-| ------------------- | ---------------------------- | --------------------------------------- |
-| `frontend:starting` | `{ backendOrigin, entries }` | Juste avant le spawn Vite               |
-| `frontend:ready`    | `IViteSupervisorStatus`      | Vite a annoncé `Local:` dans son stdout |
-| `frontend:error`    | `Error`                      | Spawn ou ready timeout échoué           |
-| `frontend:stopped`  | (rien)                       | Après `stop()` propre (SIGINT envoyé)   |
+| Event               | Payload                 | Quand                                   |
+| ------------------- | ----------------------- | --------------------------------------- |
+| `frontend:starting` | `{ entries }`           | Juste avant le spawn Vite               |
+| `frontend:ready`    | `IViteSupervisorStatus` | Vite a annoncé `Local:` dans son stdout |
+| `frontend:error`    | `Error`                 | Spawn ou ready timeout échoué           |
+| `frontend:stopped`  | (rien)                  | Après `stop()` propre (SIGINT envoyé)   |
 
 Exemple :
 
@@ -268,11 +262,7 @@ dans le contrôleur : tu écraserais le nonce.
 
 ### `Unexpected token '<'` sur `fetch("/api/...")`
 
-La page est ouverte sur le port de Vite, qui sert son SPA-fallback HTML pour les routes inconnues. Ouvre-la par Nodefony (le `fetch` part alors vers lui) ; sinon, déclare le préfixe dans `apiProxyPaths` :
-
-```ts
-svc.registerEntry(this, { ..., apiProxyPaths: ["/my/api"] });
-```
+La page est ouverte sur le port de Vite, qui sert son SPA-fallback HTML pour les routes inconnues. Ouvre-la par Nodefony : le `fetch` part alors vers lui, sur l'origine de la page. Il n'y a pas de proxy d'API à déclarer — `apiProxyPaths` et les options `backendHost`/`backendPort`/`backendProtocol` ont été retirés.
 
 ### `@vitejs/plugin-react can't detect preamble`
 

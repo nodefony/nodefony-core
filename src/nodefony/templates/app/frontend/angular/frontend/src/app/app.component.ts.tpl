@@ -50,9 +50,8 @@ interface LiveEvent {
  *    logo, slogan, 3 piliers du framework) ;
  *  - preuves INTERACTIVES : fetch HTTP, echo WebSocket live sur le MÊME
  *    controller (le différenciateur Nodefony), compteur HMR.
- * Composant racine standalone (zoneless). `/api` est proxifié vers Nodefony
- * par `apiProxyPaths` (cf registerEntry) — sans lui, Vite répondrait son
- * SPA-fallback HTML au lieu du JSON.
+ * Composant racine standalone (zoneless). `/api` est appelé sur l'origine de
+ * la page, donc directement sur Nodefony — aucun proxy à déclarer.
  */
 @Component({
   selector: "app-root",

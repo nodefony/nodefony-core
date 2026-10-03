@@ -91,11 +91,6 @@ export interface ViteSupervisorOptions {
   readonly cwd: string;
   readonly logger: IViteSupervisorLogger;
   /**
-   * Origine du serveur Nodefony pour `server.proxy` côté Vite — ex `"http://127.0.0.1:5151"`.
-   * Quand fourni, les paths `apiProxyPaths` des entries sont proxifiés vers ce backend.
-   */
-  readonly backendOrigin?: string;
-  /**
    * Certificats à utiliser si Vite doit servir en HTTPS. Paths absolus vers les
    * fichiers PEM — les mêmes que Nodefony utilise pour son `server-https` (5152).
    */
@@ -444,7 +439,6 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     const viteOrigin = `${scheme}://${browserReachableHost(this.opts.devHost)}:${port}`;
     this.resolvedOrigin = viteOrigin;
     const content = this.generator.toMjs(this.entries, "development", {
-      backendOrigin: this.opts.backendOrigin,
       devBase: this.opts.devBase,
       https: this.opts.https,
     });

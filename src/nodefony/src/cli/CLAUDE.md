@@ -764,7 +764,8 @@ tools/loki+grafana, préfixé `<appName>` — cf § base SQL ci-dessous) ·
 this.context?.cspNonce)` — la CSP est émise par le firewall, le controller ne
 fait que propager le nonce ; `getCspDirectives` N'EXISTE PAS) · `frontend/{react,
 vue,angular}/` (entry+App par framework, `registerEntry` type `react19|vue3|
-angular` + `apiProxyPaths: ["/api"]` dans `index.ts` à `onKernelBoot`, tsconfig
+angular` dans `nodefony/frontend/register<Pascal>Entry.ts` à `onKernelBoot`, sans
+`apiProxyPaths` (retiré : la page appelle son API sur sa propre origine), tsconfig
 jsx pour react, `tsconfig.app.json` pour angular). Presets : `complete` = vitrine
 totale (drizzle sqlite auto, realtime, security, frontend+studio dev, redis gated) ;
 `minimal` = http+framework (+ `@nodefony/frontend` si un framework front est choisi).

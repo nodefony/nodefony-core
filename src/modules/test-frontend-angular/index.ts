@@ -39,8 +39,6 @@ class TestFrontendAngular extends Module {
       root: "./frontend",
       outDir: "./public/dist",
       name: "test-frontend-angular",
-      // fetch("/angular/api/data") depuis l'app Angular servie par Vite → proxy backend.
-      apiProxyPaths: ["/angular/api"],
     });
     return this;
   }

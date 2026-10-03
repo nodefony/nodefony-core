@@ -32,7 +32,6 @@ function makeEntry(
     entryFile: "src/main.ts",
     outDir: OUT_DIR,
     publicPath: PUBLIC_PATH,
-    apiProxyPaths: [],
     ...overrides,
   };
 }

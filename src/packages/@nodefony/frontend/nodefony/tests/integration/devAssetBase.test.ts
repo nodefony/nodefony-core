@@ -82,7 +82,6 @@ function entry(
     entryFile,
     outDir: path.join(ROOT, "dist"),
     publicPath: "/_assets/fixture-526/",
-    apiProxyPaths: [],
   };
 }
 

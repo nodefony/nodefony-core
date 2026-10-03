@@ -142,9 +142,10 @@ class FrontendService extends Service implements IFrontendService {
   async init(): Promise<this> {
     this.log(`MODULE frontend service init`, "DEBUG");
 
-    // Hook `onServersReady` (pas `onReady`) — Vite ne doit spawner qu'APRÈS que
-    // les 4 serveurs Nodefony (HTTP/HTTPS/WS/WSS) écoutent, sinon le proxy Vite
-    // tape un backend qui n'est pas encore prêt et les premiers fetch échouent.
+    // Hook `onServersReady` (pas `onReady`) — Vite démarre APRÈS que les
+    // serveurs Nodefony écoutent : rien ne peut lui être relayé avant (le relais
+    // `/_vite/` vit dans leur pipeline), et le lancer ensuite ne retarde pas
+    // l'ouverture des ports — Vite compile pendant que Nodefony sert déjà.
     this.kernel?.once("onServersReady", async () => {
       // Helpers de template `frontendTags`/`frontendDocument` : injectés par
       // render dans les locals Eta (`Controller.withFrontendLocals`) — pas de
@@ -266,7 +267,6 @@ class FrontendService extends Service implements IFrontendService {
       publicPath: normalizePublicPath(
         declaration.publicPath ?? `/_assets/${entryName}`,
       ),
-      apiProxyPaths: declaration.apiProxyPaths ?? [],
     };
     this.entries.push(entry);
     this.log(
@@ -332,7 +332,6 @@ class FrontendService extends Service implements IFrontendService {
       return;
     }
 
-    const backendOrigin = `${this.cfg.backendProtocol}://${this.cfg.backendHost}:${this.resolveBackendPort()}`;
     // Options publiées que le relais a rendues sans objet (#528) : acceptées,
     // sans effet, et DITES — un réglage qui ne fait plus rien en silence
     // laisse chercher pourquoi il ne fait rien.
@@ -358,7 +357,7 @@ class FrontendService extends Service implements IFrontendService {
     // par l'origine de la page (#528).
     this.#registerCsp();
 
-    this.fire("frontend:starting", { backendOrigin, entries: this.entries });
+    this.fire("frontend:starting", { entries: this.entries });
 
     // Progression pour la barre de boot (core `BootReporter`). La jauge compte les
     // BUNDLES (entries, = `onFrontendStart.bundles`), PAS les familles : une famille
@@ -373,7 +372,6 @@ class FrontendService extends Service implements IFrontendService {
         const familyEntries = groups.get(family) ?? [];
         const famSize = familyEntries.length;
         return this.startFamily(family, familyEntries, port, {
-          backendOrigin,
           nodeEnv,
           extraEnv,
         }).finally(() => {
@@ -408,33 +406,6 @@ class FrontendService extends Service implements IFrontendService {
     this.fire("frontend:ready", this.status());
   }
 
-  /**
-   * Port backend que Vite doit proxifier — le port RÉELLEMENT écouté, pas celui
-   * qu'on espérait.
-   *
-   * `config.backendPort` (5151) n'est qu'une intention : avec
-   * `servers.portPolicy: "auto"`, un port occupé fait glisser l'écoute du backend
-   * (5151 → 5153). Un proxy figé sur 5151 enverrait alors les appels API du front
-   * vers le serveur d'une AUTRE app — au mieux des 404, au pire les données du
-   * voisin. On lit donc le port sur le serveur lui-même.
-   *
-   * Résolution par NOM (`server-http`), jamais par import : `@nodefony/frontend`
-   * ne dépend pas de `@nodefony/http` (cycle via la config d'app).
-   */
-  private resolveBackendPort(): number {
-    const server = this.container?.get("server-http") as
-      { port?: number; active?: boolean } | undefined;
-    const real = server?.active && server.port ? server.port : 0;
-    if (real > 0 && real !== this.cfg.backendPort) {
-      this.log(
-        `backend à l'écoute sur ${real} (et non ${this.cfg.backendPort}) — ` +
-          `le proxy Vite suit le port réel`,
-        "INFO",
-      );
-    }
-    return real > 0 ? real : this.cfg.backendPort;
-  }
-
   /** Regroupe les entries par famille d'isolation + remplit l'index inverse. */
   private groupEntriesByFamily(): Map<string, IResolvedFrontendEntry[]> {
     const groups = new Map<string, IResolvedFrontendEntry[]>();
@@ -459,7 +430,6 @@ class FrontendService extends Service implements IFrontendService {
     entries: ReadonlyArray<IResolvedFrontendEntry>,
     port: number,
     ctx: {
-      backendOrigin: string;
       nodeEnv: string | undefined;
       extraEnv: Record<string, string>;
     },
@@ -476,7 +446,6 @@ class FrontendService extends Service implements IFrontendService {
       startupTimeoutMs: this.cfg.startupTimeoutMs,
       pipeLogs: this.cfg.pipeViteLogs,
       cwd: first.root,
-      backendOrigin: ctx.backendOrigin,
       nodeEnv: ctx.nodeEnv,
       extraEnv: ctx.extraEnv,
       autoRestart: r.autoRestart,

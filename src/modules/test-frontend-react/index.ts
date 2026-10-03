@@ -40,9 +40,6 @@ class TestFrontendReact extends Module {
       root: "./frontend",
       outDir: "./public/dist",
       name: "test-frontend-react",
-      // Sans ça, fetch("/react/api/data") depuis l'app servie par Vite tape
-      // Vite (qui retourne son SPA-fallback HTML) → erreur JSON dans le browser.
-      apiProxyPaths: ["/react/api"],
     });
     return this;
   }

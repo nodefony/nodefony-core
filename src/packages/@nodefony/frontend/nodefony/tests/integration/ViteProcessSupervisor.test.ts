@@ -26,7 +26,6 @@ function makeEntry(): IResolvedFrontendEntry {
     entryFile: "src/main.ts",
     outDir: path.resolve(FIXTURE_ROOT, "dist"),
     publicPath: "/_assets/fixture/",
-    apiProxyPaths: [],
   };
 }
 

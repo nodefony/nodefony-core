@@ -41,9 +41,6 @@ class TestFrontendVue extends Module {
       root: "./frontend",
       outDir: "./public/dist",
       name: "test-frontend-vue",
-      // Sans ça, fetch("/vue/api/data") depuis l'app servie par Vite tape
-      // Vite (SPA-fallback HTML) → erreur JSON dans le browser.
-      apiProxyPaths: ["/vue/api"],
     });
     return this;
   }

@@ -27,8 +27,9 @@ source: "docs/guides/frontend-react.md"
 Pendant le développement, **deux** serveurs tournent : Nodefony sert votre application, Vite sert
 les modules du frontend et pousse le rechargement à chaud. Le visiteur, lui, n'en voit qu'un seul :
 Nodefony rend la page, y insère les balises du frontend (`FrontendService.renderTags()`,
-`FrontendService.ts:834`) — servies sur l'origine de la page et relayées vers Vite —, et laisse Vite mandater vers l'API les chemins que le module a déclarés
-(`apiProxyPaths`, `IFrontBuilder.ts:34`). En production il n'y a plus qu'un serveur : les fichiers
+`FrontendService.ts:803`) — servies sur l'origine de la page et relayées vers Vite
+(`FrontendService.mountDevProxy()`, `FrontendService.ts:499`). Les appels d'API de la page
+partent sur cette même origine, donc directement vers tes contrôleurs. En production il n'y a plus qu'un serveur : les fichiers
 sont bâtis, et les mêmes balises pointent vers eux.
 
 Un module déclare son frontend une seule fois, par `FrontendService.registerEntry()`
@@ -122,8 +123,6 @@ class ShopFront extends Module {
       root: "./frontend",
       outDir: "./public/dist",
       name: "shop-front",
-      // ⚠️ apiProxyPaths : sans ça, fetch backend = HTML SPA-fallback
-      apiProxyPaths: ["/shop-front/api"],
     });
     return this;
   }
@@ -256,7 +255,7 @@ export function App() {
   const [data, setData] = useState<ApiData | null>(null);
 
   useEffect(() => {
-    // fetch relatif → Vite proxifie vers Nodefony grâce à apiProxyPaths.
+    // fetch relatif → origine de la page, donc directement Nodefony.
     fetch("/shop-front/api/data")
       .then((r) => r.json())
       .then((json) => setData((json.result ?? json) as ApiData));
@@ -325,15 +324,15 @@ Génère `src/modules/shop-front/public/dist/manifest.json` + assets fingerprint
 
 ## Pièges récurrents (à connaître)
 
-| Symptôme                                               | Cause                           | Fix                                                            |
-| ------------------------------------------------------ | ------------------------------- | -------------------------------------------------------------- |
-| `ERROR @nodefony/frontend service unavailable`         | Ordre du manifeste `modules`    | Déclarer `@nodefony/frontend` AVANT le module consumer         |
-| Page blanche, `Refused to load script ... blocked:csp` | Un controller réécrit le CSP    | Le laisser au firewall : il déclare déjà les origines Vite     |
-| Assets sur `127.0.0.1` depuis une AUTRE machine        | Hôte hors `trustedHosts`        | L'y ajouter en dev : la même liste ouvre 421, Vite, CSP, rendu |
-| `Unexpected token '<'` sur `fetch("/api/...")`         | Vite sert SPA-fallback HTML     | Déclarer `apiProxyPaths` dans `registerEntry`                  |
-| `@vitejs/plugin-react can't detect preamble`           | Preamble manquant               | Toujours utiliser `svc.renderTags(name)`                       |
-| Cache navigateur après modif CSP                       | Browser cache                   | **Cmd+Shift+R** (hard reload)                                  |
-| Modules React introuvables                             | Cert HTTPS Vite refusé sur 5173 | Visiter `https://127.0.0.1:5173/` une fois et accepter le cert |
+| Symptôme                                               | Cause                            | Fix                                                            |
+| ------------------------------------------------------ | -------------------------------- | -------------------------------------------------------------- |
+| `ERROR @nodefony/frontend service unavailable`         | Ordre du manifeste `modules`     | Déclarer `@nodefony/frontend` AVANT le module consumer         |
+| Page blanche, `Refused to load script ... blocked:csp` | Un controller réécrit le CSP     | Le laisser au firewall : il déclare déjà les origines Vite     |
+| Assets sur `127.0.0.1` depuis une AUTRE machine        | Hôte hors `trustedHosts`         | L'y ajouter en dev : la même liste ouvre 421, Vite, CSP, rendu |
+| `Unexpected token '<'` sur `fetch("/api/...")`         | page ouverte sur le port de Vite | Ouvrir la page par Nodefony                                    |
+| `@vitejs/plugin-react can't detect preamble`           | Preamble manquant                | Toujours utiliser `svc.renderTags(name)`                       |
+| Cache navigateur après modif CSP                       | Browser cache                    | **Cmd+Shift+R** (hard reload)                                  |
+| Modules React introuvables                             | Cert HTTPS Vite refusé sur 5173  | Visiter `https://127.0.0.1:5173/` une fois et accepter le cert |
 
 ## 📖 Lexique
 

@@ -112,7 +112,6 @@ describe("aucune interface web posée — ce que le démarrage en dit", () => {
       entryFile: "src/main.tsx",
       outDir: "/tmp/dist",
       publicPath: "/_assets/test/",
-      apiProxyPaths: [],
     });
     let demarre = false;
     (service as unknown as { startDev: unknown }).startDev = async () => {

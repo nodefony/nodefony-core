@@ -22,10 +22,9 @@ import type { FrontendService } from "@nodefony/frontend";
  *    ne JAMAIS recopier des balises <script> à la main dans la coquille.
  *
  * ── Les appels API de la page ─────────────────────────────────────────────
- * En dev, la page est servie par Vite (autre origine) : les chemins déclarés
- * dans `apiProxyPaths` (cf `registerEntry`) sont re-proxifiés vers Nodefony —
- * sans eux, `fetch("/api/...")` recevrait le SPA-fallback HTML de Vite au
- * lieu du JSON. En prod, même origine : le proxy disparaît tout seul.
+ * La page est rendue par Nodefony ; en dev, ses modules lui parviennent par la
+ * même origine (`/_vite/…`, relayé à Vite). Un `fetch("/api/...")` atteint donc
+ * directement ce controller, en dev comme en prod — aucun proxy à déclarer.
  */
 @controller("")
 class <%= it.nameClass %> extends Controller {

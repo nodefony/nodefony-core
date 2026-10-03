@@ -47,8 +47,6 @@ class Mediasoup extends Module {
         root: "./frontend",
         outDir: "./public/dist",
         name: "mediasoup",
-        // Sans ça, fetch("/mediasoup/api/...") tombe sur le SPA-fallback HTML de Vite.
-        apiProxyPaths: ["/mediasoup/api"],
       });
     } else {
       this.log(

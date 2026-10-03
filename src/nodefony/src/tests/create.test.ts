@@ -3328,7 +3328,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(registrar, 'type: "react19"');
-      assert.include(registrar, "apiProxyPaths");
+      // Plus de proxy d'API à déclarer : la page appelle son API sur sa propre
+      // origine (relais `/_vite/`, #528) — `apiProxyPaths` est déprécié.
+      assert.notInclude(registrar, "apiProxyPaths");
       assert.include(registrar, 'name: "rapp"');
       const index = readFileSync(path.join(dest, "index.ts"), "utf8");
       assert.include(index, "registerRappEntry(this);");

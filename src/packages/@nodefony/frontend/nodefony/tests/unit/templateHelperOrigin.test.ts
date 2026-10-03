@@ -25,7 +25,6 @@ const entry: IResolvedFrontendEntry = {
   entryFile: "src/main.tsx",
   outDir: "/abs/studio/public/dist",
   publicPath: "/_assets/studio/",
-  apiProxyPaths: [],
 };
 
 function supervisorWith(

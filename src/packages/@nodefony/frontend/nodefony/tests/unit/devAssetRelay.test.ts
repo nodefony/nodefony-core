@@ -17,6 +17,7 @@
 import { describe, it, expect } from "vitest";
 import { Container } from "nodefony";
 import FrontendService from "../../service/FrontendService";
+import { frontendConfigSchema } from "../../config/config";
 import TemplateHelper from "../../src/template/TemplateHelper.js";
 import { devBasePath, DEV_BASE_ROOT } from "../../src/isolationGroups.js";
 import type {
@@ -33,7 +34,6 @@ const entry: IResolvedFrontendEntry = {
   entryFile: "src/main.tsx",
   outDir: "/abs/app/public/dist",
   publicPath: "/_assets/app/",
-  apiProxyPaths: [],
 };
 
 function supervisorWith(
@@ -284,4 +284,19 @@ describe("FrontendService — options publiées rendues sans objet", () => {
   it("défauts : aucun avertissement", () => {
     expect(warnings({})).to.have.length(0);
   });
+});
+
+describe("proxy de Vite retiré — ses clés de configuration sont refusées", () => {
+  // `apiProxyPaths` et `backend*` ne réglaient que le proxy de Vite, qu'aucune
+  // requête n'atteint plus (#528). Retirés avant la 10.0.0 : une clé restée
+  // dans une configuration interrompt le boot EN LA NOMMANT (schéma strict),
+  // au lieu d'être ignorée sans un mot.
+  for (const key of ["backendHost", "backendPort", "backendProtocol"]) {
+    it(`\`${key}\` : refusée, et nommée`, () => {
+      const value = key === "backendPort" ? 5151 : "http";
+      const r = frontendConfigSchema.safeParse({ [key]: value });
+      expect(r.success).to.equal(false);
+      expect(JSON.stringify(r.error?.issues)).to.include(key);
+    });
+  }
 });

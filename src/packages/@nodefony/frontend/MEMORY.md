@@ -37,9 +37,9 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 
 ## Pipeline
 
-1. consumer module → `frontendService.registerEntry(this, { type, entry, apiProxyPaths })` dans onKernelBoot()
+1. consumer module → `frontendService.registerEntry(this, { type, entry })` dans onKernelBoot()
 2. kernel.**onServersReady** + env=development + autoStart → service.startDev() (PAS onReady — Vite après que les servers Nodefony écoutent)
-3. startDev → `#registerCsp()` puis par famille : `mountDevProxy(devBasePath(famille))` → generator.toMjs (`base: /_vite/<famille>/`, strictPort toujours en dev, proxy API) → writeFileSync → supervisor.start (spawn vite)
+3. startDev → `#registerCsp()` puis par famille : `mountDevProxy(devBasePath(famille))` → generator.toMjs (`base: /_vite/<famille>/`, strictPort toujours en dev, AUCUN `server.proxy`) → writeFileSync → supervisor.start (spawn vite)
 4. browser → controller rend HTML → TemplateHelper.renderTags injecte `<script>` (+ React preamble pour react19)
 5. browser → Nodefony `/_vite/<famille>/…` (HTTP ET upgrade WS du HMR) → proxy inverse → Vite `127.0.0.1:<port>`. Le navigateur ne voit jamais le port Vite.
 6. kernel.onTerminate → supervisor.stop (idempotent) → SIGINT + SIGKILL 3s
@@ -55,9 +55,6 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
   defaultRoot: "./frontend",
   startupTimeoutMs: 30_000,
   pipeViteLogs: true,
-  backendHost: "127.0.0.1",
-  backendPort: 5151,
-  backendProtocol: "http",  // http | https
   https: false,             // partage certs Nodefony (server-https 5152)
   viteEnv: {},              // VITE_* exposé browser via import.meta.env
   resilience: {             // toutes optionnelles, defaults supervisor
@@ -109,13 +106,13 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - Container.get("frontend") = name passé au constructor Service (pas le className).
 - CSP (dev) : `FrontendService.#registerCsp()` déclare le fragment Vite au firewall `@nodefony/security` via `registerCspOrigins("frontend", #viteCspFragment())` (résolu PAR NOM = anti-cycle) → le firewall émet **UN seul** CSP (origines mergées + **nonce par requête**, propagé par `renderDocument(entry, nonce)`). Plus de hack `setHeader`/`getCspDirectives` (supprimés). Fragment Vite (`#viteCspFragment`) : `'self'` dans CHAQUE directive (connect/style/img/font/worker n'héritent pas de `default-src`), `'unsafe-eval'` (React Fast Refresh, non couvert par le nonce), `worker-src 'self' blob:`, `blob:`/`data:` sur connect/img. Jamais émis en prod.
 - **CSP posée AVANT le 1er spawn Vite** (`startDev` → `#registerCsp()`) : `startDev` part sur `onServersReady` — les serveurs écoutent DÉJÀ, et un CSP est FIGÉ pour la durée de la page. Le fragment ne nomme AUCUNE origine ni aucun port (tout passe par l'origine de la page) : il ne dépend donc plus de ce que Vite résoudra — `'self'` couvre aussi le `ws(s):` de même hôte (CSP 3). Verrou : `unit/cspBeforeVite.test.ts`.
-- Proxy Vite : en dev, `ViteConfigGenerator` ajoute **TOUJOURS** la regex `^/nodefony/[^/]+/api` au `server.proxy` (en plus des `apiProxyPaths` déclarés) → le data-plane admin/profiler (`/nodefony/<module>/api/*`) est toujours proxifié vers le backend, sinon la debug bar auto-injectée fetch `/nodefony/profiler/api` tombe sur le fallback SPA Vite (HTML) → clic « mort ».
+- Pas de `server.proxy` Vite (ni `apiProxyPaths`, ni `backend*` — retirés) : la page est rendue par Nodefony, ses `fetch` partent sur sa propre origine ; Vite ne reçoit que ce que le relais `/_vite/<famille>/` lui transmet. Une clé `backend*` restée en config → boot refusé, clé nommée (schéma strict).
 - `process.kill(child.pid)` tue `npx` (parent), pas Vite. Pour tuer Vite réel dans tests : `lsof -ti:port -sTCP:LISTEN`.
 - Test crash auto-restart : `pidListeningOn(port)` puis SIGKILL ; attendre `state==="ready"` + `pid !== nodefonyPidBefore` + `restartCount === 1`.
 
 ## Events (Service EventEmitter)
 
-- `frontend:starting` (payload `{ backendOrigin, entries }`) — avant spawn
+- `frontend:starting` (payload `{ entries }`) — avant spawn
 - `frontend:ready` (payload `IViteSupervisorStatus`) — Vite ready
 - `frontend:error` (payload `Error`) — spawn/timeout fail
 - `frontend:stopped` (no payload) — après stop() propre

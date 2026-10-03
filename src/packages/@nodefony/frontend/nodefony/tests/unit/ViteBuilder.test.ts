@@ -11,7 +11,6 @@ const entry: IResolvedFrontendEntry = {
   entryFile: "src/main.ts",
   outDir: "/abs/path/to/public/dist",
   publicPath: "/_assets/test-mod/",
-  apiProxyPaths: [],
 };
 
 describe("ViteBuilder — base CDN (assetBaseUrl)", () => {

@@ -25,13 +25,6 @@ export interface IFrontendModuleDeclaration {
    * au build ET de mount prefix au serveur statique → les deux restent alignés.
    */
   readonly publicPath?: string;
-  /**
-   * Préfixes de paths à proxifier depuis Vite vers Nodefony (dev only).
-   * Sans ça, un `fetch("/poc/api/data")` depuis l'app React servie par Vite
-   * tape Vite (qui retourne son index.html SPA-fallback) au lieu du backend.
-   * Exemple : `["/poc/api", "/nodefony"]`.
-   */
-  readonly apiProxyPaths?: ReadonlyArray<string>;
 }
 
 /**
@@ -49,8 +42,6 @@ export interface IResolvedFrontendEntry {
    * — `base` Vite en prod + mount prefix du serveur statique.
    */
   readonly publicPath: string;
-  /** Préfixes à proxifier vers Nodefony (résolus depuis la déclaration). */
-  readonly apiProxyPaths: ReadonlyArray<string>;
 }
 
 /**

@@ -10,7 +10,6 @@ const baseEntry: IResolvedFrontendEntry = {
   entryFile: "src/main.tsx",
   outDir: "/abs/path/to/public/dist",
   publicPath: "/_assets/test-mod/",
-  apiProxyPaths: [],
 };
 
 describe("ViteConfigGenerator — toMjs()", () => {
@@ -106,25 +105,14 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.include('"admin":');
   });
 
-  it("emits server.proxy when backendOrigin + apiProxyPaths fournis (dev)", () => {
-    const out = gen.toMjs(
-      [{ ...baseEntry, apiProxyPaths: ["/api", "/poc"] }],
-      "development",
-      { backendOrigin: "http://127.0.0.1:5151" },
-    );
-    expect(out).to.include("proxy: {");
-    expect(out).to.include('"/api":');
-    expect(out).to.include('"/poc":');
-    expect(out).to.include('"http://127.0.0.1:5151"');
-  });
-
-  it("ne génère PAS de proxy en mode production même avec apiProxyPaths", () => {
-    const out = gen.toMjs(
-      [{ ...baseEntry, apiProxyPaths: ["/api"] }],
-      "production",
-      { backendOrigin: "http://127.0.0.1:5151" },
-    );
-    expect(out).to.not.include("proxy: {");
+  // La page est rendue par Nodefony et appelle son API sur sa propre origine ;
+  // Vite ne reçoit que ce que le relais `/_vite/<famille>/` lui transmet. Un
+  // `server.proxy` n'aurait plus aucune requête à voir (#528).
+  it("n'émet aucun server.proxy, ni en dev ni en prod", () => {
+    for (const mode of ["development", "production"] as const) {
+      const out = gen.toMjs([baseEntry], mode, { devBase: "/_vite/default/" });
+      expect(out, mode).to.not.include("proxy");
+    }
   });
 
   it("emits base = chemin réservé de la famille + strictPort (dev, #526)", () => {
@@ -173,19 +161,6 @@ describe("ViteConfigGenerator — toMjs()", () => {
     });
     expect(out).to.not.include('import fs from "node:fs"');
     expect(out).to.not.include("https: {");
-  });
-
-  it("déduplique les apiProxyPaths d'entries multiples", () => {
-    const out = gen.toMjs(
-      [
-        { ...baseEntry, apiProxyPaths: ["/api"] },
-        { ...baseEntry, entryName: "b", apiProxyPaths: ["/api", "/poc"] },
-      ],
-      "development",
-      { backendOrigin: "http://127.0.0.1:5151" },
-    );
-    const apiOccurrences = (out.match(/"\/api":/g) ?? []).length;
-    expect(apiOccurrences).to.equal(1);
   });
 
   // --- Multi-bundle fix (P14.6) -------------------------------------------
@@ -258,14 +233,9 @@ describe("ViteConfigGenerator — toMjs()", () => {
   // barrières de Vite (DNS-rebinding, CORS restreint depuis CVE-2025-24010)
   // restent à leur réglage le plus strict.
   it("n'émet ni allowedHosts ni cors ni hmr : défauts stricts de Vite intacts", () => {
-    const out = gen.toMjs(
-      [{ ...baseEntry, apiProxyPaths: ["/api"] }],
-      "development",
-      {
-        backendOrigin: "http://127.0.0.1:5151",
-        devBase: "/_vite/default/",
-      },
-    );
+    const out = gen.toMjs([baseEntry], "development", {
+      devBase: "/_vite/default/",
+    });
     expect(out).to.not.include("allowedHosts");
     expect(out).to.not.include("cors");
     // Régression gardée : le client Vite déduit son socket de l'URL qui l'a
@@ -277,7 +247,7 @@ describe("ViteConfigGenerator — toMjs()", () => {
     // La config reste par ailleurs complète : sans ces lignes, les absences
     // ci-dessus seraient vraies sur une sortie vide.
     expect(out).to.include('base: "/_vite/default/"');
-    expect(out).to.include("proxy: {");
+    expect(out).to.include("fs: {");
     expect(out).to.include("strictPort: true");
   });
 

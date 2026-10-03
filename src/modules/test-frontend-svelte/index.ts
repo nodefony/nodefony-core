@@ -42,9 +42,6 @@ class TestFrontendSvelte extends Module {
       root: "./frontend",
       outDir: "./public/dist",
       name: "test-frontend-svelte",
-      // Sans ça, fetch("/svelte/api/data") depuis l'app servie par Vite tape
-      // Vite (SPA-fallback HTML) → erreur JSON dans le browser.
-      apiProxyPaths: ["/svelte/api"],
     });
     return this;
   }

@@ -510,7 +510,7 @@ Trois propriétés à retenir :
 
 L'exemple de référence vit dans le framework : en développement, `@nodefony/frontend` déclare les
 origines du serveur Vite et `'unsafe-eval'` (exigé par le Fast Refresh de React) via
-`FrontendService.#viteCspFragment()` (`FrontendService.ts:1034`) — ce qui explique qu'un CSP observé
+`FrontendService.#viteCspFragment()` (`FrontendService.ts:844`) — ce qui explique qu'un CSP observé
 en dev soit plus large qu'en production, où ce fragment n'existe pas.
 
 ## 📜 Normes appliquées
