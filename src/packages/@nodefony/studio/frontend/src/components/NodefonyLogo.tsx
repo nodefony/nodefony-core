@@ -1,6 +1,6 @@
 /**
- * Logo officiel Nodefony (arcs bleu/vert/cyan, PNG 41×64, transparent : lisible
- * sur thème clair comme sombre).
+ * Logo officiel Nodefony (arcs bleu/vert/cyan, vectoriel, transparent : net à
+ * toute taille et sur écran haute densité, lisible sur thème clair comme sombre).
  *
  * Importé depuis le paquet `nodefony` — SOURCE UNIQUE du logo, que le site de
  * documentation, les rapports, le thème Keycloak et les applications générées
@@ -9,9 +9,10 @@
  * Un import d'URL ordinaire : en développement, l'URL que Vite rend
  * (`/_vite/<famille>/@fs/…`) est relative à la page, servie par Nodefony, qui
  * la relaie vers Vite (`@nodefony/frontend`, `devBasePath`) ; en production,
- * elle sort du build sous le `publicPath` de la console.
+ * Vite l'inline en data-URI (moins de 4 Ko) — c'est le BUILD qui le fait, la
+ * source n'en porte aucune copie.
  */
-import logoUrl from "nodefony/assets/nodefony-logo.png";
+import logoUrl from "nodefony/assets/nodefony-logo.svg";
 
 /** URL du logo — le favicon de la console la reprend (`main.tsx`). */
 export const NODEFONY_LOGO_URL: string = logoUrl;

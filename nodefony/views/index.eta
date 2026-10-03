@@ -185,7 +185,8 @@
       .card:hover { border-color: var(--accent, var(--cyan)); box-shadow: var(--shadow-hover); }
       @media (prefers-reduced-motion: no-preference) { .card:hover { transform: translateY(-3px); } }
       .card .ic { color: var(--accent, var(--blue)); display: inline-flex; height: 34px; align-items: center; }
-      .card .ic svg, .card .ic img { height: 30px; width: 30px; }
+      .card .ic svg { height: 30px; width: 30px; }
+      .card .ic img { height: 30px; width: auto; }
       .card h3 { margin: 10px 0 4px; font-size: 1.08rem; }
       .card p { margin: 0; color: var(--muted); font-size: 0.88rem; }
       .card .go { margin-top: 12px; font-size: 0.82rem; color: var(--accent, var(--blue)); font-weight: 600; }

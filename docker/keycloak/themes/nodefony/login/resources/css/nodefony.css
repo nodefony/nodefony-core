@@ -171,9 +171,17 @@
   height: 16px;
 }
 
+/* La hauteur se pose ICI, pas seulement dans l'attribut `height` du gabarit :
+   la feuille de PatternFly rend `height: auto` aux images, et le logo
+   s'afficherait alors à sa taille naturelle (256 px). */
 .nf-logo {
   display: block;
   width: auto;
+  height: 42px;
+}
+
+.nf-compact-brand .nf-logo {
+  height: 30px;
 }
 
 /* ── Panneau du formulaire ──────────────────────────────────────────────── */

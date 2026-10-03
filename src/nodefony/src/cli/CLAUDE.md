@@ -873,7 +873,8 @@ UTF-8 corromprait l'image sans erreur ; le plan (`changes()`) le rend en `encodi
 simulation l'annonce sans diff. Les vitrines IMPORTENT le logo du paquet dans `brand.ts`
 (`import logoUrl from "nodefony/assets/nodefony-logo.png"`) : chaque app générée exerce dès sa
 naissance le chemin des assets importés — relais `/_vite/<famille>/` en dev (#526), fichier à
-empreinte en prod. Une URL `src="/…"` écrite dans un gabarit Vue/Svelte casse le build de
+empreinte en prod — le PNG, pas le SVG : Vite inlinerait le SVG (< 4 Ko) et la vitrine
+n'exercerait plus ce chemin. Une URL `src="/…"` écrite dans un gabarit Vue/Svelte casse le build de
 production : une image passe par un import (ou une liaison). Gate : `src/tests/brandAssets.test.ts` (SVG vectoriel pur aux trois couleurs ;
 empreintes du manifeste = fichiers, donc SVG modifié sans régénération ou dérivé retouché =
 rouge ; copies déclarées du dépôt identiques aux dérivés ; aucune autre copie, data-URI ni tracé

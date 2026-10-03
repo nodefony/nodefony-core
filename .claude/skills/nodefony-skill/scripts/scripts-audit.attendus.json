@@ -76,6 +76,7 @@
     ".claude/skills/nodefony-start-server/stop.sh",
     ".claude/skills/nodefony-ticket/scripts/francise.mjs",
     ".claude/skills/nodefony-ticket/scripts/pose-lexique.mjs",
+    "scripts/brand-assets.mjs",
     "scripts/check-package-deps.mjs",
     "scripts/check-platform-channels.mjs",
     "scripts/generate-password-blocklist.mjs",

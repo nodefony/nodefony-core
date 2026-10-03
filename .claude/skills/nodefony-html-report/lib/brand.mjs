@@ -7,7 +7,8 @@
  *
  * ── UNE SEULE SOURCE POUR LE LOGO ───────────────────────────────────────────
  * Le logo officiel Nodefony vit dans le paquet `nodefony` :
- * `src/nodefony/assets/nodefony-logo.png` (publié, `nodefony/assets/…`).
+ * `src/nodefony/assets/nodefony-logo.svg` (publié, `nodefony/assets/…`) —
+ * vectoriel, donc net à toute taille, à l'écran comme à l'impression.
  * On le LIT depuis là plutôt que d'en recopier le base64 : deux copies d'un même
  * asset finissent toujours par diverger (on change le logo d'un côté, et les
  * rapports continuent de porter l'ancien pendant des mois, sans que personne ne
@@ -22,7 +23,7 @@ import { fileURLToPath } from "node:url";
  * Source de vérité : le fichier du paquet `nodefony`.
  * Chemin relatif à CE fichier : `lib/` → skill → `skills/` → `.claude/` → racine.
  */
-const LOGO_SOURCE = "../../../../src/nodefony/assets/nodefony-logo.png";
+const LOGO_SOURCE = "../../../../src/nodefony/assets/nodefony-logo.svg";
 
 /** Copie de secours : un « N » vectoriel aux couleurs de la marque. */
 const FALLBACK_LOGO =
@@ -34,7 +35,7 @@ const FALLBACK_LOGO =
 function loadLogo() {
   try {
     const path = fileURLToPath(new URL(LOGO_SOURCE, import.meta.url));
-    return `data:image/png;base64,${readFileSync(path).toString("base64")}`;
+    return `data:image/svg+xml;base64,${readFileSync(path).toString("base64")}`;
   } catch (e) {
     console.warn(
       `[brand] logo officiel illisible (${e.message}) → repli sur le logo de secours.`,

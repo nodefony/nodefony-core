@@ -278,9 +278,11 @@ Par défaut, tout rapport porte la marque **Nodefony** : logo + nom + accroche e
 pied à côté de la provenance. C'est le premier et le dernier chose que voit quelqu'un qui rouvre un
 PDF six mois plus tard — d'où le rappel en bas, collé à la commande et à la date.
 
-- **Le logo est lu à sa source** (`NodefonyLogo.tsx`, le composant de Studio), jamais recopié : deux
-  copies d'un même asset finissent toujours par diverger, et les rapports porteraient l'ancien logo
-  pendant des mois sans que personne ne le remarque. Si la source devient introuvable, `brand.mjs`
+- **Le logo est lu à sa source** (`src/nodefony/assets/nodefony-logo.svg`, vectoriel — net à tout
+  zoom et à l'impression), jamais recopié : deux copies d'un même asset finissent toujours par
+  diverger, et les rapports porteraient l'ancien logo pendant des mois sans que personne ne le
+  remarque. Le PNG et le favicon du paquet en DÉRIVENT par `node scripts/brand-assets.mjs` : pour
+  changer la marque, on modifie le SVG et on relance — jamais un dérivé. Si la source devient introuvable, `brand.mjs`
   bascule sur un logo de secours **et l'annonce dans la console** — il ne rend jamais un rapport sans
   marque en silence.
 - **C'est un data-URI**, donc le rapport reste autonome hors ligne (aucune requête réseau).

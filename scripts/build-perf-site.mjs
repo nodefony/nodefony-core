@@ -614,7 +614,7 @@ writeFileSync(
     // La marque ramène à l'accueil du site, comme partout ailleurs : cette page
     // est publiée à côté de la documentation, pas toute seule.
     brand: { ...NODEFONY_BRAND, href: "../" },
-    head: `<link rel="icon" href="../favicon.png">`,
+    head: `<link rel="icon" href="../favicon.svg" type="image/svg+xml">`,
 
     sections,
     style:

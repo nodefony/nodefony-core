@@ -9,7 +9,7 @@ import { NODEFONY_LOGO_URL } from "./components/NodefonyLogo";
 // demande `/favicon.ico` et journalise un 404 sur chaque page.
 const icon = document.createElement("link");
 icon.rel = "icon";
-icon.type = "image/png";
+icon.type = "image/svg+xml";
 icon.href = NODEFONY_LOGO_URL;
 document.head.append(icon);
 

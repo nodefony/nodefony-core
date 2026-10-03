@@ -947,7 +947,7 @@ const html = doc({
     `<meta name="description" content="Nodefony — framework Node.js fullstack en TypeScript : ` +
     `un serveur HTTP/HTTP2 et un serveur WebSocket qui partagent le même contexte de contrôleur, ` +
     `une injection de dépendances, un noyau de modules et une couche de sécurité complète.">\n` +
-    `<link rel="icon" href="./favicon.png">`,
+    `<link rel="icon" href="./favicon.svg" type="image/svg+xml">`,
   // 🔴 NI une colonne étroite, NI toute la largeur — les deux sont faux ici.
   //
   // Cette page a d'abord été publiée en pleine largeur, au motif qu'une porte

@@ -166,7 +166,7 @@
   <#assign nfRealmLabel = (realm.displayName?has_content)?then(realm.displayName, realm.name)>
   <aside class="nf-hero">
     <div class="nf-hero-brand">
-      <img src="${url.resourcesPath}/img/logo.png" alt="" class="nf-logo" width="27" height="42"/>
+      <img src="${url.resourcesPath}/img/logo.png" alt="" class="nf-logo" width="26" height="42"/>
       <span class="nf-hero-name"><#if realm.displayNameHtml?has_content>${kcSanitize(realm.displayNameHtml)?no_esc}<#else>${nfRealmLabel}</#if></span>
     </div>
     <div class="nf-hero-body">
