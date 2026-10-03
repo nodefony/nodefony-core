@@ -1028,21 +1028,35 @@ export interface IUnreadableRefusal {
  * fichier peut porter l'entité d'un autre ORM ou un brouillon, et retenir une
  * migration complète par ailleurs ne protégerait rien.
  *
+ * Un fichier qui n'importe RIEN de Drizzle ne compte pas non plus : il ne peut
+ * pas déclarer une table Drizzle, donc il ne cache rien à cette génération.
+ * C'est le cas d'une entité Mongoose décorée (`@entity` sur une classe), que le
+ * retrait de types de Node ne sait pas lire — sans ce tri, sa seule présence
+ * refusait toute génération vide d'une application qui mêle les deux ORM.
+ *
  * @param generated - une migration a-t-elle été écrite ?
  * @param unreadable - fichiers d'entités que l'import n'a pas su lire.
  * @returns le refus à rendre, ou `null` si rien ne l'appelle.
  */
 export function unreadableRefusal(
   generated: boolean,
-  unreadable: readonly { file: string; cause: string }[],
+  unreadable: readonly {
+    file: string;
+    cause: string;
+    importsDrizzle: boolean;
+  }[],
 ): IUnreadableRefusal | null {
-  if (generated || unreadable.length === 0) {
+  if (generated) {
+    return null;
+  }
+  const hiding = unreadable.filter((u) => u.importsDrizzle);
+  if (hiding.length === 0) {
     return null;
   }
   return {
     message:
-      `Aucune migration écrite, et ${unreadable.length} fichier(s) d'entités n'ont pas pu être lus :\n` +
-      unreadable.map((u) => `  • ${u.file} — ${u.cause}`).join("\n"),
+      `Aucune migration écrite, et ${hiding.length} fichier(s) d'entités n'ont pas pu être lus :\n` +
+      hiding.map((u) => `  • ${u.file} — ${u.cause}`).join("\n"),
     hint:
       "Rien n'a été écrit, et ce n'est pas un « schéma inchangé » : une entité " +
       "portée par un fichier qui ne s'importe pas est INVISIBLE pour la " +

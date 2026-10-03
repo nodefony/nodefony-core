@@ -60,6 +60,31 @@ export interface IUnreadableEntityFile {
   file: string;
   /** La cause, telle que l'import l'a rendue. */
   cause: string;
+  /**
+   * Le fichier importe-t-il Drizzle ? Sans aucun import de Drizzle, il ne peut
+   * pas déclarer une table Drizzle : son illisibilité ne cache rien à cette
+   * génération (entité d'un autre ORM — Mongoose et ses décorateurs, que le
+   * retrait de types de Node ne sait pas lire).
+   */
+  importsDrizzle: boolean;
+}
+
+/** Spécificateur d'import qui désigne Drizzle — le paquet ou l'adaptateur Nodefony. */
+const DRIZZLE_IMPORT =
+  /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)["'](?:drizzle-orm|@nodefony\/drizzle)(?:\/[^"']*)?["']/u;
+
+/**
+ * Le source d'un fichier importe-t-il Drizzle ?
+ *
+ * Lu sur le TEXTE, parce que c'est précisément le fichier qui n'a pas pu
+ * s'importer. Un faux positif (un commentaire qui cite l'import) ne fait que
+ * conserver le refus — le sens sûr.
+ *
+ * @param source - contenu du fichier d'entité.
+ * @returns `true` si un import statique, dynamique ou de bord cite Drizzle.
+ */
+export function importsDrizzle(source: string): boolean {
+  return DRIZZLE_IMPORT.test(source);
 }
 
 /** Résultat d'une découverte : ce qui a été lu, et ce qui a résisté. */
@@ -150,9 +175,13 @@ export async function collectTables(
           unknown
         >;
       } catch (e) {
+        // Illisible au point de ne pas se lire du tout : on le compte comme
+        // Drizzle — le refus est le sens sûr.
+        const source = await fs.readFile(file, "utf8").catch(() => null);
         unreadable.push({
           file,
           cause: e instanceof Error ? e.message : String(e),
+          importsDrizzle: source === null || importsDrizzle(source),
         });
         continue;
       }

@@ -22,6 +22,7 @@ import {
   styleFor,
   unreadableRefusal,
 } from "../../nodefony/src/migrator/explain";
+import { importsDrizzle } from "../../nodefony/src/migrator/appSchema";
 
 /**
  * Ce que `nodefony orm:generate` fait AVANT et APRÈS l'outil tiers — la partie
@@ -552,8 +553,16 @@ describe("une génération VIDE sur un fichier illisible n'est pas un succès (#
     {
       file: "nodefony/entity/Message.ts",
       cause: "Cannot find package 'drizzle-zod'",
+      importsDrizzle: true,
     },
   ];
+  // L'entité d'un AUTRE ORM : Mongoose décorée, illisible pour le retrait de
+  // types de Node — et sans aucun import de Drizzle.
+  const etrangere = {
+    file: "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
+    cause: "Invalid or unexpected token",
+    importsDrizzle: false,
+  };
 
   it("rien d'écrit + un fichier illisible : REFUS, qui nomme le fichier et sa cause", () => {
     const refus = unreadableRefusal(false, illisible);
@@ -576,5 +585,35 @@ describe("une génération VIDE sur un fichier illisible n'est pas un succès (#
 
   it("rien d'écrit sans fichier illisible : le schéma n'a vraiment pas bougé", () => {
     assert.equal(unreadableRefusal(false, []), null);
+  });
+
+  it("🔴 un fichier illisible qui n'importe RIEN de Drizzle ne refuse pas — il ne peut cacher aucune table", () => {
+    assert.equal(unreadableRefusal(false, [etrangere]), null);
+  });
+
+  it("…mais à côté d'une entité Drizzle illisible, le refus tient et ne nomme QU'ELLE", () => {
+    const refus = unreadableRefusal(false, [etrangere, ...illisible]);
+    assert.ok(refus !== null);
+    assert.match(refus.message, /1 fichier\(s\)/);
+    assert.match(refus.message, /Message\.ts/);
+    assert.doesNotMatch(refus.message, /sessionEntity/);
+  });
+
+  it("reconnaît un import de Drizzle sous toutes ses formes, et pas un autre ORM", () => {
+    for (const src of [
+      'import { sqliteTable } from "drizzle-orm/sqlite-core";',
+      "import { defineEntity } from '@nodefony/drizzle';",
+      'const m = await import("drizzle-orm");',
+      'import "@nodefony/drizzle/colKit";',
+    ]) {
+      assert.equal(importsDrizzle(src), true, src);
+    }
+    for (const src of [
+      'import type { SchemaDefinition } from "mongoose";\nimport { entity } from "@nodefony/orm-core";',
+      'import { x } from "drizzle-orm-extra";',
+      'import { y } from "@nodefony/drizzle-tools";',
+    ]) {
+      assert.equal(importsDrizzle(src), false, src);
+    }
   });
 });

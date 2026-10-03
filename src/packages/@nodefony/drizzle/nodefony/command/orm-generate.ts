@@ -348,6 +348,7 @@ class OrmGenerate extends OrmMigrateCommand {
     const unreadable: IUnreadableEntityFile[] = rawUnreadable.map((u) => ({
       file: relative(u.file),
       cause: u.cause,
+      importsDrizzle: u.importsDrizzle,
     }));
     const frameworkRoot = path.dirname(await frameworkMigrationsDir());
     const belongsToFramework = (file: string): boolean =>
