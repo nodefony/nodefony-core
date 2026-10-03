@@ -365,7 +365,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 - Listing par `SCAN` : curseur opaque `skip:scanCursor`, `decodeCursor()`
   (`RedisTokenStore.ts:428`) — sans ordre global ni total, capacité réduite **assumée**.
 - `countTokens()` renvoie `-1` : un comptage exact exigerait un SCAN complet O(N), refusé
-  (`RedisTokenStore.ts:483`).
+  (`RedisTokenStore.ts:475`).
 
 ### Le record — une seule table pour PAT et refresh
 

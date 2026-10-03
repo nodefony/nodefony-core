@@ -33,7 +33,7 @@ source: "src/packages/@nodefony/security/docs/oauth2.md"
 > connecté à **ton** application. Nodefony orchestre ce voyage avec la posture **OAuth 2.1**
 > (RFC 9700) : Authorization Code, PKCE, `state` anti-CSRF, `iss` anti-mix-up. Point clé :
 > **aucun jeton n'atteint le navigateur** — le retour produit une **session BFF**, exactement la même
-> qu'un login par mot de passe. Ancré sur `OAuth2Service` (`oauth2.ts:116`) et le controller BFF
+> qu'un login par mot de passe. Ancré sur `OAuth2Service` (`oauth2.ts:175`) et le controller BFF
 > `OAuth2Controller` (`OAuth2Controller.ts:89`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **OAuth2**
@@ -114,10 +114,10 @@ qui les ferme ici :
   de session opaque (`OAuth2Controller.ts:192`).
 - **Interception du `code`** — un `code` capté (log de proxy, historique, redirection ouverte) est
   échangeable par l'attaquant. _Fermé par **PKCE**_ : l'échange exige le `code_verifier` resté en
-  session (`OAuth2Service.createAuthorization()`, `oauth2.ts:232-238`).
+  session (`OAuth2Service.createAuthorization()`, `oauth2.ts:323-330`).
 - **CSRF de login** — un tiers force ta victime à terminer **son** flux à lui : elle se retrouve
   connectée sur le compte de l'attaquant, qui lit ensuite ce qu'elle y dépose. _Fermé par le `state`_
-  comparé au retour (`OAuth2Controller.callback()`, `OAuth2Controller.ts:150-158`).
+  comparé au retour (`OAuth2Controller.callback()`, `OAuth2Controller.ts:198-227`).
 - **Mix-up d'IdP** — un `code` obtenu chez un fournisseur malveillant est présenté au callback d'un
   fournisseur de confiance. _Fermé par la vérification de l'`iss`_ (`oauth2.ts:265-273`) **et** par
   l'exigence « même fournisseur qu'à l'aller » côté controller (`OAuth2Controller.ts:170`).
@@ -133,7 +133,7 @@ Trois partis pris, tous vérifiables au code.
 
 **Le service ne touche ni HTTP ni session.** `OAuth2Service` rend à l'appelant les éléments à
 persister (`url`, `state`, `codeVerifier`) et un simple `{ identifier }` en sortie
-(`IOAuthAuthorization`, `oauth2.ts:82`). Conséquence pratique : la logique OAuth se teste **sans
+(`IOAuthAuthorization`, `oauth2.ts:89`). Conséquence pratique : la logique OAuth se teste **sans
 serveur**, comme `AuthFlow`. Le transport (cookies, redirections 302) vit dans le controller BFF.
 
 **Le login social finit exactement comme un login classique.** Le callback appelle
@@ -145,16 +145,26 @@ c'est l'authenticator `session` qui identifie chaque requête, comme après un m
 
 **Coût nul quand on ne s'en sert pas.** Aucune dépendance tierce : le client OAuth 2.0 est écrit
 dans le module (`OAuth2Client`, `oauth2Client.ts:321`), et `jose` — seul recours externe, pour lire les claims de
-l'ID token — est importé **paresseusement**. Les fournisseurs sont construits au premier login puis
-mémoïsés (`OAuth2Service.#resolveProvider()`, `oauth2.ts:296`) : c'est là, une seule fois par
-processus, que les points d'entrée d'un émetteur OIDC sont découverts. Les routes sont montées dès
+l'ID token — est importé **paresseusement**. Les fournisseurs sont construits une fois puis
+mémoïsés (`OAuth2Service.#resolveProvider()`) : c'est là, une seule fois par processus, que les
+points d'entrée d'un émetteur OIDC sont découverts. Un run qui sert (ports ouverts) les construit
+dès le boot, sans l'attendre ; une commande console ne touche jamais le réseau.
+
+**Une configuration fausse se montre au démarrage, pas au premier clic.** Au boot, l'`issuer` de
+chaque fournisseur est confronté à ce que sa fabrique exige (`checkProviderIssuer()`,
+`oauth2.ts`) : absent alors que la fabrique l'a déclaré requis, ou qui n'est pas une URL d'émetteur
+valide (https, sans requête ni fragment — RFC 8414 §2), il **interrompt le démarrage** en nommant
+la clé (`security.oauth2.providers.<nom>.issuer`). Un émetteur **injoignable**, lui, n'est pas une
+faute de configuration : le boot continue, un WARNING le nomme, et son bouton quitte l'écran de
+connexion — le flux `authorize` reste ouvert. Une nouvelle tentative part au plus toutes les 30 s
+pendant que l'écran est affiché ; le bouton revient dès qu'elle réussit. Les routes sont montées dès
 que `@nodefony/security` est chargé (`framework/index.ts:460`) : sans social login configuré,
 `…/providers` rend une liste vide, `authorize` rend `404 Unknown provider`, et `authorize`/`callback`
 rendent `503 OAuth unavailable` quand `oauth2.enabled` vaut `false`.
 
 Au boot, la config est validée et les fournisseurs configurés sont confrontés au registre : un nom
 inconnu produit un **WARNING, pas un échec fatal** — `OAuth2Service.#build()` confronte les noms
-configurés à `listOAuthProviders()` (`oauth2.ts:135-155`) et le
+configurés à `listOAuthProviders()` (`oauth2.ts:200-221`) et le
 reste de l'application démarre, le bouton correspondant n'apparaît simplement pas.
 
 ## 🚀 Démarrage rapide
@@ -215,7 +225,7 @@ export default defineConfig<typeof env>((ctx) => ({
 
 ### Les routes sont FOURNIES — tu n'écris aucun controller
 
-`mountOAuth2Routes()` (`OAuth2Controller.ts:234`) monte trois routes sous
+`mountOAuth2Routes()` (`OAuth2Controller.ts:302`) monte trois routes sous
 `/nodefony/security/api/oauth2` (`OAuth2Controller.ts:236`) dès que le service `oauth2` est
 enregistré, c'est-à-dire dès que `@nodefony/security` est chargé (`framework/index.ts:460`) :
 
@@ -234,7 +244,7 @@ Ton écran de login n'a donc qu'un lien à poser :
 ```
 
 > [!WARNING]
-> Ces routes portent `bypassFirewall: true` (`OAuth2Controller.ts:262`) — elles **sont** le mécanisme
+> Ces routes portent `bypassFirewall: true` (`OAuth2Controller.ts:330`) — elles **sont** le mécanisme
 > d'authentification : l'utilisateur est anonyme pendant tout l'aller-retour. Les protéger créerait
 > un interblocage (il faudrait être connecté pour pouvoir se connecter). La session anonyme ne porte
 > que `state`/`code_verifier`, et son ID est **régénéré** à la promotion.
@@ -269,20 +279,20 @@ Séquence identique prouvée de bout en bout sur serveur réel par `oauth2-flow.
 
 ### Étape 1 — `createAuthorization(provider)`
 
-`OAuth2Service.createAuthorization()` (`oauth2.ts:232`) fabrique trois choses :
+`OAuth2Service.createAuthorization()` (`oauth2.ts:323`) fabrique trois choses :
 
 1. un **`state`** aléatoire (anti-CSRF) ;
 2. un **`code_verifier`** — **seulement si** le fournisseur pratique PKCE (`usesPkce`,
-   `oauth2.ts:235-237`) ; `null` sinon (GitHub) ;
+   `oauth2.ts:326-328`) ; `null` sinon (GitHub) ;
 3. l'**URL d'autorisation** construite par l'adaptateur du fournisseur, avec les scopes effectifs
    (ceux de la config, sinon les scopes par défaut du fournisseur, `oauth2.ts:321`).
 
 Le controller pose les trois valeurs en session, **persiste** (`session.save()` — pas seulement en
-mémoire, `OAuth2Controller.ts:145`), puis redirige en 302.
+mémoire, `OAuth2Controller.ts:40`), puis redirige en 302.
 
 ### Étape 2 — le retour, validé avant tout appel réseau
 
-`OAuth2Controller.callback()` (`OAuth2Controller.ts:150`) travaille dans cet ordre, et l'ordre est la
+`OAuth2Controller.callback()` (`OAuth2Controller.ts:198`) travaille dans cet ordre, et l'ordre est la
 défense :
 
 1. **lire l'état de session, puis l'invalider immédiatement** (`OAuth2Controller.ts:158-166`) — le
@@ -294,15 +304,15 @@ défense :
 
 ### Étape 3 — `exchangeAndProvision(provider, code, verifier, iss)`
 
-`OAuth2Service.exchangeAndProvision()` (`oauth2.ts:254`) enchaîne :
+`OAuth2Service.exchangeAndProvision()` (`oauth2.ts:345`) enchaîne :
 
 1. **anti-mix-up** — si le fournisseur annonce un émetteur attendu, l'`iss` reçu doit correspondre,
    et un `iss` **absent** est un rejet, pas une tolérance (`oauth2.ts:265-273`) ;
 2. **échange** du `code` sur le canal serveur, avec le `code_verifier`
-   (`validateAuthorizationCode`, `oauth2.ts:274`), puis lecture du profil (`fetchProfile`,
-   `oauth2.ts:275`) ;
+   (`validateAuthorizationCode`, `oauth2.ts:347`), puis lecture du profil (`fetchProfile`,
+   `oauth2.ts:366`) ;
 3. **provisionnement** du Shadow User avec la politique effective — rôles par défaut surchargeables
-   **par fournisseur** (`oauth2.ts:279-280`), `allowSignup` global (`oauth2.ts:283`).
+   **par fournisseur** (`oauth2.ts:372-373`), `allowSignup` global (`oauth2.ts:376`).
 
 Toute erreur de cette étape est convertie en **échec uniforme** par le controller (`302
 failureRedirect`, `OAuth2Controller.ts:198-209`) : le client ne distingue pas un `iss` invalide d'un
@@ -355,7 +365,7 @@ authentification, pas autorisation » (`oauth2.ts:279-283`, `config.ts:1048-1053
 ### Brancher sa propre politique
 
 Le provisioner est le service `users` **s'il implémente la capability**, détecté par duck-typing
-(`OAuth2Service.#resolveProvisioner()`, `oauth2.ts:327-333`). S'il ne l'implémente pas, le login
+(`OAuth2Service.#resolveProvisioner()`, `oauth2.ts:461-467`). S'il ne l'implémente pas, le login
 **échoue** — jamais de création silencieuse par défaut. Une application qui veut sa propre politique
 (quota d'inscriptions, allowlist de domaines e-mail, rattachement à un tenant) implémente
 `provisionOAuthUser()` sur son service `users` : le profil normalisé `IOAuthProfile`
@@ -379,7 +389,7 @@ Quatre sont livrés, résolus par nom via le registre `oauthProviderRegistry.ts:
 
 Construit par le helper générique `createOidcProvider()` (`oidc.ts:106`) : PKCE systématique
 (`usesPkce: true`, `oidc.ts:114`), émetteur figé `https://accounts.google.com`
-(`oauthProviderRegistry.ts:90`). Ses points d'entrée ne sont **pas** écrits en dur : ils sont
+(`oauthProviderRegistry.ts:129`). Ses points d'entrée ne sont **pas** écrits en dur : ils sont
 demandés à l'émetteur (RFC 8414, cf. « Découverte » plus bas). Le profil se lit dans l'**ID token** —
 claims standard `sub`, `email`, `email_verified`, `name` (`oidc.ts:146`), après les contrôles
 obligatoires d'OpenID Connect Core §3.1.3.7 : `iss`, `aud`, `exp`, et un `sub` non vide
@@ -388,12 +398,12 @@ obligatoires d'OpenID Connect Core §3.1.3.7 : `iss`, `aud`, `exp`, et un `sub` 
 ### `keycloak` — OIDC self-hosted, l'émetteur vient de ta config
 
 Même helper, mais l'**issuer** (URL du realm) sert à la fois à découvrir les points d'entrée et à
-valider l'`iss` (`oauthProviderRegistry.ts:95-97`). Il est donc **obligatoire** : sans lui, la fabrique
-lève au premier login avec un message explicite.
+valider l'`iss`. Il est donc **obligatoire**, et déclaré comme tel au registre
+(`requiresIssuer: true`) : sans lui, le démarrage est refusé en nommant la clé.
 
 ### `oidc` — n'importe quel serveur OpenID Connect
 
-La même mécanique, sans nom de marque : l'entrée `oidc` (`oauthProviderRegistry.ts:101`) prend
+La même mécanique, sans nom de marque : l'entrée `oidc` (`oauthProviderRegistry.ts:142`) prend
 l'émetteur de sa configuration et n'a besoin de rien d'autre. C'est elle qui rend inutile une classe
 par fournisseur.
 
@@ -455,8 +465,8 @@ primaire est souvent privé — l'adaptateur bascule alors sur `/user/emails` et
 
 **Tout serveur OpenID Connect conforme est déjà supporté** — Auth0, Okta, Authentik, Entra
 mono-locataire… — sans une ligne de code propre. Le builtin `oidc` suffit quand il n'y en a qu'un ;
-pour en nommer plusieurs, `registerOAuthProvider()` (`oauthProviderRegistry.ts:68`) au chargement de
-ton module (avant le `onBoot` du service) :
+pour en nommer plusieurs, `registerOAuthProvider()` au chargement de ton module (avant le
+`onBoot` du service) :
 
 ```typescript ignore
 import {
@@ -466,8 +476,12 @@ import {
 
 // Le nom sert de clé de configuration ET de `provider` du Shadow User ;
 // l'émetteur vient de la config (`oauth2.providers.microsoft.issuer`).
-registerOAuthProvider("microsoft", (ctx) =>
-  createDiscoveredOidcProvider("microsoft", ctx),
+registerOAuthProvider(
+  "microsoft",
+  (ctx) => createDiscoveredOidcProvider("microsoft", ctx),
+  // Déclarer l'émetteur requis : son oubli refuse le démarrage au lieu
+  // d'échouer au premier clic.
+  { requiresIssuer: true },
 );
 ```
 
@@ -508,7 +522,7 @@ Par fournisseur (`oauthProviderSchema`, `config.ts:954`) :
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
 | `clientAuthMethod` |  | Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). Omis = `client_secret_basic`, ce que la RFC demande de préférer. Poser `client_secret_post` quand le serveur l'EXIGE — il le publie dans `token_endpoint_auth_methods_supported`. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
-| `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:279-283`). |
+| `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:372-376`). |
 
 Les surcharges par fournisseur permettent la cohabitation : un IdP de recette garde ses redirections
 et ses rôles pendant qu'un IdP de production pointe ailleurs.
@@ -518,7 +532,7 @@ et ses rôles pendant qu'un IdP de production pointe ailleurs.
 ### Les jetons du fournisseur ne sont pas conservés
 
 C'est un choix, et il a des conséquences à connaître. Les jetons obtenus à l'échange vivent dans la
-portée locale de l'échange (`validateAuthorizationCode` puis `fetchProfile`, `oauth2.ts:274-275`) :
+portée locale de l'échange (`validateAuthorizationCode` puis `fetchProfile`, `oauth2.ts:365-366`) :
 ils ne sont ni retournés, ni mis en
 session, ni persistés. Le profil normalisé qui traverse le système n'en contient aucun
 (`IOAuthUserProvisioner.ts:8-10`).
@@ -556,7 +570,7 @@ ou détruire les sessions), pas chez le fournisseur.
 | Élévation de privilège par re-login                | Rôles posés à la création, jamais réécrits              | `oauth.attack.test.ts:123` (A2)  |
 | Collision d'identifiants entre fournisseurs        | Clé = `provider` + `providerId`                         | `oauth.attack.test.ts:155` (A3)  |
 | Interception du `code`                             | PKCE : `code_verifier` exigé, refus si absent           | `oauthProviders.test.ts:79`      |
-| Création de compte non voulue                      | Provisioner absent (`provisionOAuthUser`) → fail-closed | `oauth2Service.test.ts:266`      |
+| Création de compte non voulue                      | Provisioner absent (`provisionOAuthUser`) → fail-closed | `oauth2Service.test.ts:56`       |
 
 ## 📜 Normes appliquées
 
@@ -564,7 +578,7 @@ ou détruire les sessions), pas chez le fournisseur.
 | --------------------------------- | ------------------------ | --------------------------------------------------------------------- |
 | Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:85`) |
 | PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:58`) · `oidc.ts:104-111`               |
-| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:116`) · `oauth2Schema` (`config.ts:1040`) |
+| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:175`) · `oauth2Schema` (`config.ts:1040`) |
 | Anti-mix-up (`iss`)               | RFC 9207                 | `issuerPolicy` (`IOAuthProvider.ts:65`) · `oauth2.ts:265-273`         |
 | Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:975`)                                       |
 | Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:127-145`)                   |
@@ -610,29 +624,30 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 
 > [!NOTE]
 > L'événement d'audit du login social porte la raison `oauth` : le controller la passe à
-> `AuthFlow.establishSessionFor()` (`OAuth2Controller.ts:194`), comme WebAuthn passe `webauthn`.
+> `AuthFlow.establishSessionFor()` (`OAuth2Controller.ts:50`), comme WebAuthn passe `webauthn`.
 > `federated` n'est que la valeur par défaut d'un appelant qui n'a pas nommé son facteur
 > (`authFlow.ts:215`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                          | Cause (dans le code)                                                          | Correction                                                          |
-| ------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `404` sur `…/oauth2/…`                            | Module `@nodefony/security` non chargé, ou nom de fournisseur inconnu         | Charger `@nodefony/security` ; vérifier le nom du fournisseur       |
-| `503 OAuth unavailable`                           | `oauth2.enabled: false`, ou boot du service échoué                            | Activer `oauth2` ; lire le WARNING de boot                          |
-| WARNING « inconnu du registre » au boot           | Nom configuré sans fabrique (`oauth2.ts:149-155`)                             | `registerOAuthProvider()` au chargement du module, ou builtin       |
-| `404` « Unknown provider » sur `authorize`        | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:14`)            | Vérifier le nom exact **et** la présence des secrets                |
-| Bouton absent de l'écran de login                 | Secrets manquants → fournisseur non monté (spread conditionnel)               | Renseigner `clientId`/`clientSecret` dans l'env                     |
-| `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:975`)          | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
-| Retour systématique sur `failureRedirect`         | `state`/`verifier` absents (cookie perdu entre les deux requêtes)             | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
-| Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:163-165`)              | Refaire le flux depuis `authorize` — comportement attendu           |
-| `OAuth issuer mismatch`                           | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:265-273`)                         | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
-| Keycloak : erreur dès le premier login            | `issuer` absent en config (`oidc.ts:176-181`)                                 | Renseigner l'URL du realm                                           |
-| « provisioning indisponible »                     | `users` n'implémente pas la capability (`oauth2.ts:327-333`)                  | Implémenter `provisionOAuthUser()` sur le service `users`           |
-| Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:374`)             | Activer `allowSignup` ou lier le compte au préalable                |
-| Doublon de compte pour un utilisateur existant    | Aucune liaison auto par e-mail (choix de sécurité)                            | Rattacher explicitement, utilisateur connecté                       |
-| Rôle attendu absent après re-login                | Rôles posés à la **création** seulement (`UserService.ts:405`)                | Modifier les rôles en base ; `defaultRoles` ne réécrit rien         |
-| Jeton du fournisseur introuvable côté application | `IOAuthProfile` n'en porte aucun, par choix (`IOAuthUserProvisioner.ts:8-10`) | Le capturer dans son propre `fetchProfile()` et le stocker soi-même |
+| Symptôme                                          | Cause (dans le code)                                                               | Correction                                                          |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `404` sur `…/oauth2/…`                            | Module `@nodefony/security` non chargé, ou nom de fournisseur inconnu              | Charger `@nodefony/security` ; vérifier le nom du fournisseur       |
+| `503 OAuth unavailable`                           | `oauth2.enabled: false`, ou boot du service échoué                                 | Activer `oauth2` ; lire le WARNING de boot                          |
+| WARNING « inconnu du registre » au boot           | Nom configuré sans fabrique (`OAuth2Service.#build()`)                             | `registerOAuthProvider()` au chargement du module, ou builtin       |
+| `404` « Unknown provider » sur `authorize`        | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:14`)                 | Vérifier le nom exact **et** la présence des secrets                |
+| Bouton absent de l'écran de login                 | Secrets manquants → fournisseur non monté (spread conditionnel)                    | Renseigner `clientId`/`clientSecret` dans l'env                     |
+| Bouton absent + WARNING « indisponible » au boot  | Émetteur injoignable à la construction (`OAuth2Service.#resolveProvider()`)        | Démarrer le serveur d'autorisation ; le bouton revient sous 30 s    |
+| `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:975`)               | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
+| Retour systématique sur `failureRedirect`         | `state`/`verifier` absents (cookie perdu entre les deux requêtes)                  | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
+| Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:163-165`)                   | Refaire le flux depuis `authorize` — comportement attendu           |
+| `OAuth issuer mismatch`                           | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:265-273`)                              | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
+| Boot refusé : `….providers.<nom>.issuer`          | Émetteur absent (fabrique `requiresIssuer`) ou mal formé (`checkProviderIssuer()`) | Renseigner l'URL https du realm / de l'émetteur                     |
+| « provisioning indisponible »                     | `users` n'implémente pas la capability (`oauth2.ts:461-467`)                       | Implémenter `provisionOAuthUser()` sur le service `users`           |
+| Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:374`)                  | Activer `allowSignup` ou lier le compte au préalable                |
+| Doublon de compte pour un utilisateur existant    | Aucune liaison auto par e-mail (choix de sécurité)                                 | Rattacher explicitement, utilisateur connecté                       |
+| Rôle attendu absent après re-login                | Rôles posés à la **création** seulement (`UserService.ts:405`)                     | Modifier les rôles en base ; `defaultRoles` ne réécrit rien         |
+| Jeton du fournisseur introuvable côté application | `IOAuthProfile` n'en porte aucun, par choix (`IOAuthUserProvisioner.ts:8-10`)      | Le capturer dans son propre `fetchProfile()` et le stocker soi-même |
 
 ## 🧪 Tests & couverture
 

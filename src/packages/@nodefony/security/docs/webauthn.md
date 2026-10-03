@@ -573,7 +573,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
   l'enregistrement (`RedisWebAuthnCredentialStore.ts:219`).
 - Listing par `SCAN`, curseur composite `skip:scanCursor` (`RedisWebAuthnCredentialStore.ts:257`) :
   **ni ordre global ni total**, pages de taille variable — capacité réduite **déclarée**, pas un
-  défaut. `countCredentials()` renvoie `-1` (`RedisWebAuthnCredentialStore.ts:330`).
+  défaut. `countCredentials()` renvoie `-1` (`RedisWebAuthnCredentialStore.ts:321`).
 
 ### Brancher son propre store
 

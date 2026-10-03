@@ -330,7 +330,7 @@ zone est un simple `Bearer` (`challenge()`, `ApiKeyAuthenticator.ts:205`).
 
 L'authenticator n'est jamais instancié à la main : le firewall le construit depuis le registre, en
 lui injectant la config effective — `registerAuthenticatorFactory("apikey")`
-(`authenticatorRegistry.ts:137`), qui lit `prefix` et `lastUsedThrottleS`
+(`authenticatorRegistry.ts:52`), qui lit `prefix` et `lastUsedThrottleS`
 (`authenticatorRegistry.ts:143`). Conséquence pratique : changer `apiKeys.prefix` change **à la
 fois** l'émission et la reconnaissance — les anciennes clés ne sont plus reconnues.
 
