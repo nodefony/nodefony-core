@@ -47,13 +47,19 @@ type ContextEmitter = {
  * l'écart qui en résulte est NÉGATIF (−1 à −3 mesurés) et masquerait autant de
  * contextes retenus.
  */
+/** Valeur tenue par la sentinelle : aucune époque n'est négative. */
+const SENTINEL = -1;
+
 const contextTracker = {
   armed: false,
   epoch: 0,
   created: 0,
   finalized: 0,
+  /** Rappels de la sentinelle vus — barrière de {@link gcSettled}. */
+  sentinels: 0,
   registry: new FinalizationRegistry<number>((epoch) => {
-    if (epoch === contextTracker.epoch) contextTracker.finalized++;
+    if (epoch === SENTINEL) contextTracker.sentinels++;
+    else if (epoch === contextTracker.epoch) contextTracker.finalized++;
   }),
   onCreate: (context: object): void => {
     contextTracker.created++;
@@ -65,6 +71,29 @@ const contextTracker = {
     contextTracker.finalized = 0;
   },
 };
+
+/**
+ * Force un GC et attend que SA passe de nettoyage ait tourné. Le GC ne fait
+ * que PLANIFIER les rappels de finalisation : relire le compte au tick suivant
+ * le rend parfois périmé (2,7 % des relevés mesurés hors charge, tous les
+ * objets libérés comptés vivants). Une sentinelle inscrite dans le MÊME
+ * registre juste avant le GC est réclamée par lui : son rappel vu, ceux des
+ * contextes libérés par ce GC l'ont été aussi (même passe de nettoyage).
+ *
+ * @returns `false` si la passe n'a pas été vue dans le délai (sans `--expose-gc`).
+ */
+async function gcSettled(gc: () => void): Promise<boolean> {
+  const seen = contextTracker.sentinels;
+  ((): void => {
+    contextTracker.registry.register({}, SENTINEL);
+  })();
+  gc();
+  const t0 = Date.now();
+  while (contextTracker.sentinels === seen && Date.now() - t0 < 1000) {
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  return contextTracker.sentinels !== seen;
+}
 
 function armContextTracker(kernel: ContextEmitter | undefined): boolean {
   if (!kernel) return false;
@@ -248,19 +277,21 @@ class AlsController extends Controller {
 
   @Get("/contexts")
   async contexts() {
-    // Le GC forcé ne fait que PLANIFIER les rappels de finalisation, et un
-    // objet réclamé peut en libérer d'autres au GC suivant : on alterne GC et
-    // retour à la boucle jusqu'à ce que le compte ne bouge plus (borné). Une
-    // base lue trop tôt compte encore les contextes du test précédent, et
-    // l'écart qui en résulte, NÉGATIF, masquerait autant de contextes retenus.
+    // Un objet réclamé peut en libérer d'autres au GC suivant : GC + attente
+    // de SA passe de nettoyage (`gcSettled`), jusqu'à ce que le compte ne
+    // bouge plus (borné). Une base lue trop tôt compte encore les contextes du
+    // test précédent, et l'écart qui en résulte, NÉGATIF, masquerait autant de
+    // contextes retenus.
     const gc = (globalThis as { gc?: () => void }).gc;
     let previous = -1;
+    let settled = gc !== undefined;
     for (let i = 0; i < 5 && previous !== contextTracker.finalized; i++) {
       previous = contextTracker.finalized;
-      gc?.();
-      await new Promise((r) => setTimeout(r, 0));
+      if (gc === undefined) break;
+      settled = (await gcSettled(gc)) && settled;
     }
     return this.renderJson({
+      settled,
       armed: contextTracker.armed,
       epoch: contextTracker.epoch,
       created: contextTracker.created,

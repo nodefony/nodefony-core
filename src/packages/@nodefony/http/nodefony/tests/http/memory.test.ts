@@ -229,6 +229,11 @@ const contextsReleased = async (quoi: string): Promise<void> => {
     "témoin : le traceur est armé et voit le contexte de sa propre requête",
   ).to.be.at.least(0);
   console.log(`[contexts] ${quoi} : ${delta} contexte(s) encore vivant(s)`);
+  // Détail relevé SEULEMENT sur un rouge — ce qu'un flake CI doit dire de
+  // lui-même : `created` au-delà de la boucle = client extérieur ; plus d'un
+  // socket côté client = un socket inactif qui garde son dernier contexte ;
+  // `settled: false` = passe de nettoyage du GC non vue (relevé douteux).
+  const detail = delta > 0 ? await contextsDetail() : "";
   expect(
     delta,
     `${quoi} : ${delta} contexte(s) HTTP de la boucle jamais réclamé(s) par ` +
@@ -237,9 +242,22 @@ const contextsReleased = async (quoi: string): Promise<void> => {
       "TOUS les contextes nés depuis la marque : un client MCP qui sonde " +
       "`/nodefony/mcp` chaque seconde suffit, avec un compte qui varie d'un " +
       "run à l'autre). `lsof -nP -iTCP:5151 -sTCP:ESTABLISHED` et " +
-      "`lsof -nP -iTCP:5152 -sTCP:ESTABLISHED` les nomment.",
+      "`lsof -nP -iTCP:5152 -sTCP:ESTABLISHED` les nomment." +
+      detail,
   ).to.be.at.most(0);
 };
+
+/** Relevé brut de la sonde + sockets du client, pour le message d'un rouge. */
+async function contextsDetail(): Promise<string> {
+  const r = await get("/nodefony/test/als-test/contexts");
+  const count = (pool: NodeJS.ReadOnlyDict<unknown[]>): number =>
+    Object.values(pool).reduce((n, list) => n + (list?.length ?? 0), 0);
+  const agent = https.globalAgent;
+  return (
+    ` — sonde ${JSON.stringify(r)} · sockets client : ` +
+    `${count(agent.sockets)} actif(s), ${count(agent.freeSockets)} libre(s)`
+  );
+}
 
 /**
  * Asserte que les services `request` nés depuis la marque, ET les scopes qui
