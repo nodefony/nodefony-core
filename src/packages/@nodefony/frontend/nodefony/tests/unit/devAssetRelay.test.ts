@@ -130,6 +130,32 @@ describe("TemplateHelper.devTarget — cible LOCALE du proxy", () => {
       undefined,
     );
   });
+
+  it.each([
+    "starting",
+    "restarting",
+    "crashed",
+    "errored",
+    "stopping",
+    "stopped",
+  ] as const)(
+    "Vite %s, port encore connu → rien à relayer (le port a pu passer au Vite d'une autre app)",
+    (state) => {
+      const helper = new TemplateHelper(
+        supervisorWith({ state, port: 5173 }),
+        "development",
+      );
+      expect(helper.devTarget()).to.equal(undefined);
+    },
+  );
+
+  it("Vite en compilation → relayé (il sert)", () => {
+    const helper = new TemplateHelper(
+      supervisorWith({ state: "compiling" }),
+      "development",
+    );
+    expect(helper.devTarget()).to.equal("http://127.0.0.1:5173");
+  });
 });
 
 interface IMountOptions {

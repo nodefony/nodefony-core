@@ -77,14 +77,24 @@ export class TemplateHelper {
    * monte sur `/_vite/<famille>/` (#528). Jamais annoncée au navigateur : la
    * page ne connaît que sa propre origine, Vite reste sur la boucle locale.
    *
+   * 🔴 Seul un Vite qui SERT (`ready`, `compiling`) est une cible. Un port
+   * retenu par une instance tombée ou en redémarrage peut avoir été repris
+   * par le Vite d'une AUTRE application de la machine (même préfixe
+   * `/_vite/<famille>/`) : relayer vers lui servirait les sources de l'autre
+   * application à cette page. Le superviseur quitte `ready` dès l'`exit` de
+   * son processus — avant qu'un autre ne puisse reprendre le port.
+   *
    * @returns l'origine (`http://127.0.0.1:5173`), ou `undefined` sans
-   *   superviseur ou tant que Vite n'a pas résolu son port (rien à relayer :
-   *   la requête suit son chemin normal)
+   *   superviseur, tant que Vite n'a pas résolu son port, ou quand il ne sert
+   *   pas (rien à relayer : la requête suit son chemin normal)
    */
   devTarget(): string | undefined {
     if (!this.supervisor) return undefined;
     const status = this.supervisor.status();
     if (status.port === null) return undefined;
+    if (status.state !== "ready" && status.state !== "compiling") {
+      return undefined;
+    }
     return (
       status.origin ??
       `${status.https ? "https" : "http"}://${status.host}:${status.port}`
