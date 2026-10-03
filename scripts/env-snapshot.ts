@@ -56,6 +56,7 @@ import {
   LOKI_GATE,
   OPENSEARCH_GATE,
   PROXY_GATE,
+  KEYCLOAK_GATE,
   gateEnv,
   type EnvGate,
 } from "../vitest.gates";
@@ -193,6 +194,7 @@ const GATES: ReadonlyArray<{ gate: EnvGate }> = [
   { gate: LOKI_GATE },
   { gate: OPENSEARCH_GATE },
   { gate: PROXY_GATE },
+  { gate: KEYCLOAK_GATE },
 ];
 
 /**

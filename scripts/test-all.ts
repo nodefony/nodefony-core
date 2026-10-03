@@ -57,6 +57,7 @@ import {
   MONGO_GATE,
   LOKI_GATE,
   OPENSEARCH_GATE,
+  KEYCLOAK_GATE,
   MYSQL_COMMUNITY_GATE,
   MONGO_BOOT_GATE,
   gateEnv,
@@ -79,6 +80,9 @@ const GATES: readonly EnvGate[] = [
   MONGO_GATE,
   LOKI_GATE,
   OPENSEARCH_GATE,
+  // Le serveur de banc hérite de ces variables (posées avant son démarrage) :
+  // c'est par elles qu'il déclare son fournisseur `keycloak`.
+  KEYCLOAK_GATE,
 ];
 
 // ── Présentation ────────────────────────────────────────────────────────────

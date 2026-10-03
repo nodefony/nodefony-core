@@ -91,6 +91,18 @@ export default {
         realtime: false,
         resource: "https://api.foreign.example/v1",
       },
+      // #269 — jetons d'un VRAI Keycloak (profil `keycloak` du compose). La
+      // ressource est l'audience que le realm inscrit par mapper sur ses deux
+      // clients (`docker/keycloak/import/realm-nodefony.json`). Le banc y vérifie
+      // que la personne connectée par le navigateur retrouve SON compte en
+      // présentant son jeton à l'API — pas un second.
+      "test-keycloak": {
+        pattern: "^/nodefony/test/keycloak",
+        authenticators: ["external-jwt"],
+        stateless: true,
+        realtime: false,
+        resource: "https://localhost:5152/nodefony/test/keycloak",
+      },
     },
     // 🔴 `jwt.audiences` a QUITTÉ ce fichier — il vit dans `nodefony.config.ts`,
     // à la racine. Une audience est une liste blanche de ressources que
@@ -132,6 +144,15 @@ export default {
           // le défaut « prefixed » s'applique, et c'est lui qui empêche un
           // annuaire tiers de réclamer un compte local homonyme.
           subjectMapping: "subject",
+        },
+        // 3. Le realm du profil `keycloak` (port `KEYCLOAK_PORT`, 8444 par
+        //    défaut). Ici et pas dans l'application : `extend` fusionne les
+        //    tableaux case par case, une entrée `issuers` de l'app serait écrasée
+        //    par celles de ce module. Découverte paresseuse — sans Keycloak en
+        //    marche, rien n'est joint tant qu'aucun jeton ne s'en réclame.
+        {
+          issuer: "https://localhost:8444/realms/nodefony",
+          algorithms: ["RS256"],
         },
       ],
       timeoutMs: 1000,

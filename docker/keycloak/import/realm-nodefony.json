@@ -1,6 +1,6 @@
 {
   "realm": "nodefony",
-  "displayName": "Nodefony (dev)",
+  "displayName": "Nodefony SSO",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
@@ -77,6 +77,7 @@
   ],
   "users": [
     {
+      "id": "e5d1ca21-4a48-4e0a-9949-32f91c7b5b98",
       "username": "alice",
       "enabled": true,
       "email": "alice@nodefony.test",

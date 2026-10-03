@@ -47,6 +47,11 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 - `test-self-external` → `/nodefony/test/self-external/{whoami,scoped/read}` (`SelfExternalController`) :
   l'app est son PROPRE émetteur de confiance (découvrable RFC 8414, aucun `jwksUri` déclaré ⇒ découverte
   réelle) ⇒ éprouve le **SUCCÈS** + `@RequireScope("selfext:read")`.
+- `test-keycloak` → `/nodefony/test/keycloak/whoami` (`KeycloakApiController`) : `resource`
+  `https://localhost:5152/nodefony/test/keycloak` (audience posée par mapper dans le realm), émetteur
+  `https://localhost:8444/realms/nodefony` (RS256, découverte paresseuse — sans Keycloak, rien n'est joint).
+  Banc `http/…/integration/oauth2-keycloak.test.ts`, cible `KEYCLOAK_GATE` : même personne ⇒ même compte
+  qu'au login BFF.
 - `test-foreign-audience` → `/nodefony/test/foreign-audience/whoami` (même fichier) : `resource`
   DIFFÉRENTE ⇒ le MÊME jeton valide est refusé (RFC 8707). Préfixe DISJOINT (deux zones qui se
   recouvrent feraient dépendre le verdict de l'ORDRE de déclaration).

@@ -302,6 +302,9 @@ services:
   # confidentiel `nodefony-dev` (PKCE S256) + utilisateur `alice` / `alice-dev`. Un realm qui
   # existe déjà n'est PAS réimporté — les retouches faites dans la console survivent au
   # redémarrage ; `down -v` repart du fichier.
+  # L'`id` d'alice est ÉCRIT dans le fichier : c'est son `sub`. Laissé à Keycloak, il change
+  # à chaque réimport, et le compte que l'application a créé à la connexion précédente garde
+  # l'ancien lien — la connexion suivante est alors refusée (identifiant déjà pris).
   #
   # 🔴 HTTPS OBLIGATOIRE, même en dev : Nodefony refuse tout émetteur et tout point d'entrée en
   # `http` (`canonicalIssuer` au cœur, `metadata.ts` côté security). Ce n'est pas du zèle : l'ID

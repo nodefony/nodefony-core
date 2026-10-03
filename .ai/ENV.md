@@ -12,7 +12,7 @@
 
 | Famille | Variables |
 | --- | ---: |
-| Infrastructure | 10 |
+| Infrastructure | 13 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 37 |
 | Runtime produit | 76 |
@@ -122,6 +122,9 @@ déclarée n'a pas été exercée.
 
 | Variable | Cible |
 | --- | --- |
+| `NF_KEYCLOAK_CLIENT_ID` | Keycloak (connexion OpenID Connect réelle) |
+| `NF_KEYCLOAK_CLIENT_SECRET` | Keycloak (connexion OpenID Connect réelle) |
+| `NF_KEYCLOAK_ISSUER` | Keycloak (connexion OpenID Connect réelle) |
 | `NF_LOKI_TEST_URL` | Loki (serveur réel) |
 | `NF_MONGO_TEST_URI` | MongoDB (replica set) |
 | `NF_MYSQL_URL` | MySQL Community |
@@ -156,7 +159,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:80` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:741` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:103` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:105` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3182` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3194` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
@@ -226,5 +229,5 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:616` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
-| `NF_X` | `scripts/env-snapshot.ts:123` |
+| `NF_X` | `scripts/env-snapshot.ts:124` |
 

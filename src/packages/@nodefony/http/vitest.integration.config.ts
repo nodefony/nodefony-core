@@ -1,6 +1,6 @@
 import { defineConfig, configDefaults } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { gateReporter } from "../../../../vitest.gates.ts";
+import { gateReporter, KEYCLOAK_GATE } from "../../../../vitest.gates.ts";
 import type { GateExpectation } from "../../../../vitest.gates.ts";
 import { transformCache } from "../../../../vitest.perf.ts";
 
@@ -46,6 +46,17 @@ const TOKEN_PROOFS: readonly string[] = [
 ];
 
 /**
+ * Les preuves du banc Keycloak (`oauth2-keycloak.test.ts`) : le flux de connexion
+ * complet, la même personne retrouvant le même compte par l'API, et un refus
+ * PKCE rendu par le serveur — pas par un double.
+ */
+const KEYCLOAK_PROOFS: readonly string[] = [
+  "flux BFF Keycloak",
+  "désigne le MÊME compte que sa session",
+  "invalid_grant rendu PAR Keycloak",
+];
+
+/**
  * L'attente de la passe, décidée au MOMENT DU RAPPORT — le mode du serveur visé
  * n'est connu qu'après la sonde du `globalSetup`, donc bien après la lecture de
  * ce fichier.
@@ -67,6 +78,9 @@ function modeExpectations(): GateExpectation[] {
       proof: prod ? PROD_ONLY_PROOFS : DEV_ONLY_PROOFS,
     },
     { label: "preuves de jetons (émetteur, audience)", proof: TOKEN_PROOFS },
+    // Keycloak RÉEL : le décor (variables) ET la preuve qu'il a servi — une
+    // variable posée vers un realm muet laisserait le banc se sauter en vert.
+    { gate: KEYCLOAK_GATE, proof: KEYCLOAK_PROOFS },
   ];
 }
 

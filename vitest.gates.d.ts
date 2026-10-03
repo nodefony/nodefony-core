@@ -244,6 +244,12 @@ export declare const OPENSEARCH_GATE: EnvGate;
  */
 export declare const PROXY_GATE: EnvGate;
 /**
+ * Keycloak RÉEL — le seul décor où le client OAuth du framework rencontre un
+ * vrai point de jeton. Décor à deux versants : le banc lit ces variables, et le
+ * SERVEUR doit porter les mêmes pour déclarer son fournisseur `keycloak`.
+ */
+export declare const KEYCLOAK_GATE: EnvGate;
+/**
  * Ce qu'une suite doit avoir exercé pour que son vert veuille dire quelque chose.
  *
  * Trois façons de l'exprimer, combinables :

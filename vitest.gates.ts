@@ -470,6 +470,76 @@ export const PROXY_GATE: EnvGate = {
     "`nodefony.com` dans /etc/hosts côté client.",
 };
 
+/** Realm importé par le profil `keycloak` — source unique de ses identifiants. */
+const KEYCLOAK_REALM_FILE = join(
+  "docker",
+  "keycloak",
+  "import",
+  "realm-nodefony.json",
+);
+
+/**
+ * Le secret d'un client du realm importé, lu dans le fichier que Keycloak charge
+ * lui-même : le recopier ici le ferait diverger du serveur au premier changement.
+ */
+function realmClientSecret(clientId: string, fallback: string): string {
+  try {
+    const root = dirname(fileURLToPath(import.meta.url));
+    const realm: unknown = JSON.parse(
+      readFileSync(join(root, KEYCLOAK_REALM_FILE), "utf8"),
+    );
+    const clients =
+      typeof realm === "object" && realm !== null && "clients" in realm
+        ? realm.clients
+        : null;
+    if (Array.isArray(clients)) {
+      for (const c of clients as unknown[]) {
+        if (
+          typeof c === "object" &&
+          c !== null &&
+          "clientId" in c &&
+          c.clientId === clientId &&
+          "secret" in c &&
+          typeof c.secret === "string"
+        ) {
+          return c.secret;
+        }
+      }
+    }
+  } catch {
+    // Realm absent (paquet publié, checkout partiel) : informer sans échouer.
+  }
+  return fallback;
+}
+
+/**
+ * Keycloak RÉEL — le seul décor où le client OAuth du framework rencontre un
+ * vrai point de jeton : authentification cliente, métadonnées, claims de l'ID
+ * token et refus PKCE y viennent d'un produit que personne n'a simulé.
+ *
+ * Deux versants, comme le proxy : le processus de TEST lit ces variables (banc
+ * `oauth2-keycloak.test.ts`), et le SERVEUR doit porter les mêmes — c'est par
+ * elles que l'application déclare son fournisseur `keycloak`
+ * (`nodefony/config/security.ts`). Le serveur doit aussi faire confiance à la CA
+ * de développement (`NODE_EXTRA_CA_CERTS`, posé par `start.sh`) : Keycloak sert
+ * le certificat de l'application.
+ */
+export const KEYCLOAK_GATE: EnvGate = {
+  label: "Keycloak (connexion OpenID Connect réelle)",
+  service: { name: "keycloak", profile: "keycloak" },
+  values: () => ({
+    NF_KEYCLOAK_ISSUER: `https://localhost:${fromCompose("KEYCLOAK_PORT", "8444")}/realms/nodefony`,
+    NF_KEYCLOAK_CLIENT_ID: "nodefony-dev",
+    NF_KEYCLOAK_CLIENT_SECRET: realmClientSecret(
+      "nodefony-dev",
+      "nodefony-dev-keycloak-secret",
+    ),
+  }),
+  note:
+    "Le SERVEUR doit être démarré avec les mêmes variables (`.env.local`) — " +
+    "sans elles il ne déclare pas le fournisseur `keycloak` et le banc rend 404.",
+};
+
 /** Les variables manquantes (ou vides) d'une gate ; `[]` = gate satisfaite. */
 function missingVars(gate: EnvGate): string[] {
   return gateEnv(gate).filter((name) => isBlank(name));

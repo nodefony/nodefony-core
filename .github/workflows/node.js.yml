@@ -771,6 +771,16 @@ jobs:
       # répondant alors 429 même avec le bon mot de passe. Le backoff reste prouvé
       # unitairement ; son câblage se rejoue avec la variable à `true`.
       NF__SECURITY__RATELIMIT__ENABLED: "false"
+      # Keycloak RÉEL (cible `KEYCLOAK_GATE`, banc `oauth2-keycloak.test.ts`) :
+      # conteneur docker, donc les seules lignes Linux — les runners macOS et
+      # Windows n'ont pas de docker. Les mêmes variables servent au SERVEUR (qui
+      # déclare alors son fournisseur `keycloak`) et au banc. Valeurs du realm
+      # importé (`docker/keycloak/import/realm-nodefony.json`), secret de DEV.
+      # Ailleurs, l'absence est ÉNONCÉE (`NF_GATES_ALLOW`), jamais oubliée.
+      NF_KEYCLOAK_ISSUER: ${{ matrix.os == 'ubuntu-latest' && 'https://localhost:8444/realms/nodefony' || '' }}
+      NF_KEYCLOAK_CLIENT_ID: ${{ matrix.os == 'ubuntu-latest' && 'nodefony-dev' || '' }}
+      NF_KEYCLOAK_CLIENT_SECRET: ${{ matrix.os == 'ubuntu-latest' && 'nodefony-dev-keycloak-secret' || '' }}
+      NF_GATES_ALLOW: ${{ matrix.os != 'ubuntu-latest' && 'NF_KEYCLOAK_ISSUER' || '' }}
 
     steps:
       - name: Checkout
@@ -898,6 +908,15 @@ jobs:
       # démarrage du process, un fichier apparu après ne serait jamais vu.
       - name: Générer le certificat de développement (pour l'ancre TLS ci-dessous)
         run: node node_modules/nodefony/bin/nodefony http:certificates
+
+      # Keycloak sert le certificat que l'étape précédente vient de fabriquer
+      # (`KEYCLOAK_TLS_DIR` par défaut) : il ne démarre qu'APRÈS elle. `--wait`
+      # attend la sonde `/health/ready` du compose. Le conteneur tourne sous
+      # l'uid du runner, seul lecteur de la clé privée (0600).
+      - name: Démarrer Keycloak (realm importé)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: KEYCLOAK_UID="$(id -u)" docker compose -f docker/docker-compose.yml --profile keycloak up -d --wait keycloak
 
       - name: Start Nodefony server (detached, fail-fast)
         uses: ./.github/actions/nodefony-server

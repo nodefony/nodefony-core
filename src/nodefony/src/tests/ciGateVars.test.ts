@@ -31,6 +31,7 @@ import {
   MONGO_GATE,
   LOKI_GATE,
   OPENSEARCH_GATE,
+  KEYCLOAK_GATE,
   gateEnv,
   type EnvGate,
 } from "../../../../vitest.gates";
@@ -46,6 +47,7 @@ const GATES: readonly EnvGate[] = [
   MONGO_GATE,
   LOKI_GATE,
   OPENSEARCH_GATE,
+  KEYCLOAK_GATE,
 ];
 
 /**
