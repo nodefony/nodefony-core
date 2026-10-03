@@ -1,0 +1,600 @@
+/*
+ * Thème de connexion Nodefony — l'écran Keycloak aux couleurs de Studio.
+ *
+ * Source des valeurs : la console d'administration elle-même
+ * (`@nodefony/studio/frontend/src/theme.ts` — teintes `brand`, police système ;
+ * `layouts/AuthLayout.tsx` — dégradé et halos du panneau de marque). Mesurées au
+ * navigateur sur Studio en sombre : bouton principal brand-4 (#4792cd), boutons
+ * secondaires #2e2e2e, panneau #242424.
+ *
+ * Seules des VARIABLES et l'enveloppe sont posées ici : les composants
+ * PatternFly du thème parent (`keycloak.v2`) gardent leur structure.
+ */
+
+.nf-body {
+  /* Teintes `brand` de Studio (theme.ts, nodefonyBlue). */
+  --nf-brand-4: #4792cd;
+  --nf-brand-5: #217bc3;
+  --nf-brand-6: #0067ba;
+  --nf-brand-7: #00579c;
+  --nf-brand-8: #00467e;
+  --nf-brand-9: #003864;
+
+  /* Schéma CLAIR (défaut) — valeurs du thème Mantine de Studio. */
+  --nf-panel: #ffffff;
+  --nf-heading: #212529;
+  --nf-text: #343a40;
+  --nf-muted: #6c757d;
+  --nf-border: #ced4da;
+  --nf-input: #ffffff;
+  --nf-secondary: #ffffff;
+  --nf-secondary-hover: #f1f3f5;
+  --nf-primary: var(--nf-brand-6);
+  --nf-primary-hover: var(--nf-brand-7);
+  --nf-focus: var(--nf-brand-6);
+  --nf-radius: 8px;
+  --nf-font:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+
+  /* PatternFly reprend la police et la couleur de lien de la marque. */
+  --pf-v5-global--FontFamily--text: var(--nf-font);
+  --pf-v5-global--FontFamily--heading: var(--nf-font);
+  --pf-v5-global--link--Color: var(--nf-primary);
+  --pf-v5-global--link--Color--hover: var(--nf-primary-hover);
+  --pf-v5-global--primary-color--100: var(--nf-primary);
+  --pf-v5-global--primary-color--200: var(--nf-primary-hover);
+
+  margin: 0;
+  background: var(--nf-panel);
+  color: var(--nf-text);
+  font-family: var(--nf-font);
+}
+
+/* Schéma SOMBRE — basculé par le parent (`kcDarkModeClass`) selon le système. */
+.pf-v5-theme-dark .nf-body {
+  --nf-panel: #242424;
+  --nf-heading: #ffffff;
+  --nf-text: #c9c9c9;
+  --nf-muted: #8f8f8f;
+  --nf-border: #424242;
+  --nf-input: #2e2e2e;
+  --nf-secondary: #2e2e2e;
+  --nf-secondary-hover: #383838;
+  /* brand-6, PAS brand-4 : blanc sur #4792cd = 3,35:1 (sous AA 4,5:1) —
+     défaut mesuré aussi sur Studio. Blanc sur #0067ba = 5,75:1. */
+  --nf-primary: var(--nf-brand-6);
+  --nf-primary-hover: var(--nf-brand-7);
+  --nf-focus: var(--nf-brand-4);
+}
+
+/* Le parent pose un fond « polygones » sur le body : il n'a rien à faire ici. */
+.login-pf body.nf-body {
+  background: var(--nf-panel);
+}
+
+/* ── Enveloppe : deux panneaux, comme Studio ─────────────────────────────── */
+
+.nf-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.nf-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 48px;
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at 26% 16%,
+      rgba(255, 255, 255, 0.16),
+      transparent 46%
+    ),
+    radial-gradient(
+      circle at 88% 92%,
+      rgba(255, 255, 255, 0.08),
+      transparent 42%
+    ),
+    linear-gradient(
+      140deg,
+      var(--nf-brand-9) 0%,
+      var(--nf-brand-8) 45%,
+      var(--nf-brand-6) 100%
+    );
+}
+
+.nf-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.nf-hero-name {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.nf-hero-body {
+  max-width: 470px;
+}
+
+.nf-hero-title {
+  margin: 0 0 16px;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.nf-hero-lead {
+  margin: 0 0 32px;
+  font-size: 18px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.nf-features {
+  display: grid;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nf-features li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.nf-features strong {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.nf-features small {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.nf-glass {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--nf-radius);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.nf-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+}
+
+.nf-hero-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  /* 0,82 et non 0,65 (valeur de Studio) : sur la zone la plus sombre du
+     dégradé (#00579c), 0,65 donne ~4,1:1 — sous AA pour 12 px. */
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.nf-hero-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+}
+
+.nf-hero-footer a:hover {
+  color: #ffffff;
+}
+
+.nf-hero-footer .nf-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.nf-logo {
+  display: block;
+  width: auto;
+}
+
+/* ── Panneau du formulaire ──────────────────────────────────────────────── */
+
+.nf-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  background: var(--nf-panel);
+}
+
+.nf-body .pf-v5-c-login {
+  min-height: auto;
+  padding: 0;
+  background: transparent;
+}
+
+.nf-body .pf-v5-c-login__container {
+  grid-template-columns: min(400px, 100%);
+  grid-template-areas: "header" "main";
+  padding: 0;
+}
+
+/* Logo compact : seulement quand le panneau de marque est masqué. */
+.nf-body .pf-v5-c-login__header {
+  display: none;
+}
+
+.nf-compact-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--nf-heading);
+}
+
+.nf-body .pf-v5-c-login__main {
+  background: transparent;
+  box-shadow: none;
+}
+
+.nf-body .pf-v5-c-login__main-header {
+  border-top: 0;
+  padding: 0 0 8px;
+}
+
+.nf-body .pf-v5-c-login__main-body,
+.nf-body .pf-v5-c-login__main-footer {
+  padding-inline: 0;
+}
+
+.nf-body #kc-page-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--nf-heading);
+}
+
+.nf-subtitle {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--nf-muted);
+}
+
+.nf-body .pf-v5-c-form__label-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--nf-heading);
+}
+
+/* Champs : bordure pleine et coins arrondis, comme les champs Mantine. */
+.nf-body .pf-v5-c-form-control {
+  --pf-v5-c-form-control--BackgroundColor: var(--nf-input);
+  --pf-v5-c-form-control--Color: var(--nf-heading);
+  min-height: 42px;
+  border-radius: var(--nf-radius);
+}
+
+.nf-body .pf-v5-c-form-control::before {
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+}
+
+.nf-body .pf-v5-c-form-control > input,
+.nf-body .pf-v5-c-form-control > select {
+  min-height: 40px;
+}
+
+/* PatternFly trace son focus par un trait bas en ::after — Mantine, par la
+   bordure seule. Garder les deux donnait un double trait. */
+.nf-body .pf-v5-c-form-control::after {
+  display: none;
+}
+
+.nf-body .pf-v5-c-form-control:focus-within::before {
+  border-color: var(--nf-focus);
+}
+
+/* Sélecteur de langue : assez large pour « Français » sans troncature. */
+.nf-body .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control {
+  min-width: 132px;
+}
+
+.nf-body .pf-v5-c-form-control.pf-m-error::before {
+  border-color: var(--pf-v5-global--danger-color--100);
+}
+
+/* Champ mot de passe : le bouton « œil » prolonge le champ. */
+.nf-body
+  .pf-v5-c-input-group
+  .pf-v5-c-input-group__item:first-child
+  .pf-v5-c-form-control,
+.nf-body
+  .pf-v5-c-input-group
+  .pf-v5-c-input-group__item:first-child
+  .pf-v5-c-form-control::before {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.nf-body .pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  min-height: 42px;
+  border: 1px solid var(--nf-border);
+  border-inline-start: 0;
+  border-radius: 0 var(--nf-radius) var(--nf-radius) 0;
+  background: var(--nf-input);
+  color: var(--nf-muted);
+}
+
+.nf-body .pf-v5-c-input-group .pf-v5-c-button.pf-m-control::after {
+  border: 0;
+}
+
+/* Boutons : plein bleu pour l'action, bordé pour les secondaires. */
+.nf-body .pf-v5-c-button.pf-m-primary {
+  min-height: 42px;
+  border-radius: var(--nf-radius);
+  background: var(--nf-primary);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.nf-body .pf-v5-c-button.pf-m-primary:hover,
+.nf-body .pf-v5-c-button.pf-m-primary:focus-visible {
+  background: var(--nf-primary-hover);
+}
+
+.nf-body .pf-v5-c-button.pf-m-secondary {
+  min-height: 42px;
+  border-radius: var(--nf-radius);
+  background: var(--nf-secondary);
+  color: var(--nf-heading);
+}
+
+.nf-body .pf-v5-c-button.pf-m-secondary::after {
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+}
+
+.nf-body .pf-v5-c-button.pf-m-secondary:hover {
+  background: var(--nf-secondary-hover);
+}
+
+.nf-body .pf-v5-c-button:focus-visible {
+  outline: 2px solid var(--nf-focus);
+  outline-offset: 2px;
+}
+
+/* ── Petits écrans : le panneau de marque cède la place ─────────────────── */
+
+@media (max-width: 61.99em) {
+  .nf-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nf-hero {
+    display: none;
+  }
+
+  .nf-body .pf-v5-c-login__header {
+    display: block;
+    padding: 0 0 24px;
+  }
+
+  .nf-panel {
+    align-items: flex-start;
+    padding: 40px 16px;
+  }
+}
+
+/* ── SSO : badge, pastille, pied de panneau ─────────────────────────────── */
+
+.nf-body .pf-v5-c-login__main-header {
+  display: block;
+  padding: 0 0 28px;
+}
+
+.nf-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.nf-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  margin-bottom: 10px;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--nf-focus) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--nf-focus) 12%, transparent);
+  color: var(--nf-eyebrow);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nf-eyebrow .nf-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.nf-body {
+  --nf-eyebrow: var(--nf-brand-7);
+}
+
+.pf-v5-theme-dark .nf-body {
+  --nf-eyebrow: #9ec5e5;
+}
+
+.nf-subtitle {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.nf-pill {
+  display: inline-block;
+  margin-bottom: 20px;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nf-panel {
+  flex-direction: column;
+  gap: 40px;
+}
+
+.nf-panel-footer {
+  display: grid;
+  gap: 10px;
+  width: min(400px, 100%);
+  padding-top: 20px;
+  border-top: 1px solid var(--nf-border);
+  font-size: 13px;
+  color: var(--nf-muted);
+}
+
+.nf-panel-footer > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nf-panel-footer .nf-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.nf-dot {
+  width: 8px;
+  height: 8px;
+  margin-inline: 4px;
+  border-radius: 50%;
+  background: #12b886;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #12b886 25%, transparent);
+}
+
+/* ── Langue : repliée dans le coin, comme un réglage, pas comme un titre ── */
+
+.nf-body .pf-v5-c-login__main-header-utilities {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  z-index: 1;
+}
+
+.nf-body .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control {
+  min-width: 0;
+  min-height: 34px;
+  font-size: 13px;
+}
+
+.nf-body .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control > select {
+  min-height: 32px;
+  padding-inline-start: 10px;
+}
+
+/* ── Formulaire : rythme, icônes, focus ─────────────────────────────────── */
+
+.nf-body .pf-v5-c-form {
+  gap: 18px;
+}
+
+.nf-body .pf-v5-c-form-control:focus-within::before {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nf-focus) 28%, transparent);
+}
+
+.nf-body #username,
+.nf-body #password {
+  padding-inline-start: 40px;
+  background-repeat: no-repeat;
+  background-position: 12px center;
+  background-size: 18px 18px;
+}
+
+.nf-body #username {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238f8f8f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0'/%3E%3Cpath d='M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2'/%3E%3C/svg%3E");
+}
+
+.nf-body #password {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238f8f8f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6'/%3E%3Cpath d='M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");
+}
+
+/* Bouton principal : la flèche de Studio (« Continuer → »). */
+.nf-body #kc-login {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* PatternFly dessine la bordure des boutons dans `::after`, en position
+   absolue : la flèche doit rendre la position au flux, sinon elle se colle
+   au coin haut-gauche. */
+.nf-body #kc-login::after {
+  content: "";
+  position: static;
+  inset: auto;
+  border: 0;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l14 0'/%3E%3Cpath d='M13 18l6 -6'/%3E%3Cpath d='M13 6l6 6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l14 0'/%3E%3Cpath d='M13 18l6 -6'/%3E%3Cpath d='M13 6l6 6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  transition: transform 0.15s ease;
+}
+
+.nf-body #kc-login:hover::after {
+  transform: translateX(3px);
+}
+
+/* « Se souvenir de moi » : case à la couleur de la marque. */
+.nf-body .pf-v5-c-check__input {
+  accent-color: var(--nf-primary);
+  width: 16px;
+  height: 16px;
+}
+
+.nf-body .pf-v5-c-check__label {
+  font-size: 14px;
+  color: var(--nf-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-body #kc-login::after {
+    transition: none;
+  }
+}

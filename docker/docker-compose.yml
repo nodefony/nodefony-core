@@ -353,6 +353,9 @@ services:
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ./keycloak/import:/opt/keycloak/data/import:ro
+      # Thème de connexion aux couleurs de Studio (`loginTheme` du realm). `start-dev`
+      # ne met pas les thèmes en cache : une retouche se voit au rechargement.
+      - ./keycloak/themes/nodefony:/opt/keycloak/themes/nodefony:ro
       - ${KEYCLOAK_TLS_DIR:-../nodefony/config/certificates/server}:/opt/keycloak/conf/tls:ro
     healthcheck:
       # L'image n'a ni curl ni wget : la sonde passe par le /dev/tcp de bash

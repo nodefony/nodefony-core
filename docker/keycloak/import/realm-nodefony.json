@@ -5,6 +5,10 @@
   "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
+  "loginTheme": "nodefony",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["fr", "en"],
+  "defaultLocale": "fr",
   "clients": [
     {
       "clientId": "nodefony-dev",
@@ -85,5 +89,6 @@
         }
       ]
     }
-  ]
+  ],
+  "rememberMe": true
 }
