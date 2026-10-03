@@ -45,6 +45,34 @@ describe("WEBSOCKET ORIGIN — anti-CSWSH (B4, requires server)", () => {
     8000,
   );
 
+  // `domainCheck: true` (nodefony.config.ts) — le handshake passe par le même
+  // contrôle de domaine que le HTTP : Host hors `trustedHosts` → 421, rendu
+  // 1008 au client. Sans ce contrôle, le WebSocket était la porte dérobée de
+  // la barrière Host (le HTTP rendait 421, le socket s'ouvrait).
+  it(
+    "Host hors trustedHosts → close 1008 (contrôle de domaine au handshake)",
+    () =>
+      new Promise<void>((resolve, reject) => {
+        ws = new WebSocket(ROUTE, {
+          ...wsOpts,
+          headers: { Host: "evil.example:5152" },
+        });
+        // Comme le refus d'Origin : `ws` rend le 101 avant `handleWebsocket`,
+        // le refus arrive en close 1008 sans que le controller ait tourné.
+        ws.on("close", (code, reason) => {
+          try {
+            expect(code).to.equal(1008);
+            expect(String(reason)).to.match(/Misdirected/);
+            resolve();
+          } catch (e) {
+            reject(asError(e));
+          }
+        });
+        ws.on("error", () => undefined);
+      }),
+    8000,
+  );
+
   it(
     "Same-origin (Origin == Host) → connexion acceptée",
     () =>

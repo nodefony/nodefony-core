@@ -281,7 +281,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   reverseProxy: ReverseProxy | null = null;
   domain: string = "";
   trustedHosts?: ITrustedHostsConfig | undefined;
-  domainCheck: boolean = false;
+  /**
+   * Contrôle de domaine actif (`domainCheck` de la config d'application) —
+   * lu à la source, pour le HTTP comme pour le handshake WebSocket.
+   */
+  get domainCheck(): boolean {
+    return this.kernel?.options.domainCheck === true;
+  }
   regAlias: RegExp[] = [];
   module: Module;
   httpsPort?: number | undefined;
@@ -1645,7 +1651,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (
       this.reverseProxy !== null &&
       this.reverseProxy.mounts !== null &&
-      (httpContext.validDomain || !this.kernel?.options.domainCheck)
+      (httpContext.validDomain || !this.domainCheck)
     ) {
       const relayed = this.reverseProxy.forward(
         request,
@@ -1766,7 +1772,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       context.response.setHeaders(schemeHeaders);
     }
     // DOMAIN VALID
-    if (this.kernel?.options.domainCheck) {
+    if (this.domainCheck) {
       this.checkValidDomain(context);
     }
     // SECURITY HOOK — beforeResolve (P1.7)
