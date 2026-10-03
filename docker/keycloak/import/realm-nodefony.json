@@ -12,7 +12,7 @@
   "clients": [
     {
       "clientId": "nodefony-dev",
-      "name": "Nodefony — application de développement",
+      "name": "Nodefony Studio (dev)",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": false,
