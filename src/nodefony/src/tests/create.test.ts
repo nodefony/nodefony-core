@@ -1553,6 +1553,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           path.join("public", "nodefony-logo.png"),
           path.join("public", "favicon.ico"),
         ]);
+        // Le README de l'application montre SON fichier, en relatif : il
+        // s'affiche sur le dépôt de l'utilisateur et hors ligne, sans dépendre
+        // de la branche principale de Nodefony.
+        assert.include(
+          readFileSync(path.join(dest, "README.md"), "utf8"),
+          '<img src="public/nodefony-logo.png" alt="Nodefony" height="72">',
+        );
       });
     }
 
