@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T04:48:15.479Z",
+  "generatedAt": "2026-10-03T08:03:15.124Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 66,
+      "closed": 68,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 32,
+      "open": 31,
       "title": "10.0.0-beta"
     },
     {
@@ -1711,8 +1711,8 @@
       "number": 270,
       "title": "fix(security): refuser au démarrage une configuration de fournisseur incomplète",
       "url": "https://github.com/nodefony/nodefony-core/issues/270",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1727,8 +1727,8 @@
       "number": 272,
       "title": "docs(security): documenter le branchement d'un Keycloak, du realm au premier login",
       "url": "https://github.com/nodefony/nodefony-core/issues/272",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1924,6 +1924,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 518,
+      "title": "feat(cli): générer la chaîne Keycloak dans une application neuve",
+      "url": "https://github.com/nodefony/nodefony-core/issues/518",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.6,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 146,
