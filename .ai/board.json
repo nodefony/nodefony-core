@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T20:46:58.567Z",
+  "generatedAt": "2026-10-03T01:31:47.065Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 64,
+      "closed": 65,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 33,
+      "open": 32,
       "title": "10.0.0-beta"
     },
     {
@@ -2045,8 +2045,8 @@
       "number": 314,
       "title": "fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas",
       "url": "https://github.com/nodefony/nodefony-core/issues/314",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
