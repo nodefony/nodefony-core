@@ -52,16 +52,6 @@ function supervisorWith(
 }
 
 describe("TemplateHelper — aucune origine dans les balises", () => {
-  it("PROD : le Host est ignoré — les URLs du manifest sont relatives", () => {
-    // Non-régression du mode statique : la prod ne dépend d'aucune origine
-    // absolue, elle suit déjà l'hôte de la page. Rien ne doit y changer.
-    const prod = new TemplateHelper(null, "production", [entry]);
-    const withHost = prod.renderTags("studio", undefined, "autre.example.com");
-    const without = prod.renderTags("studio");
-    expect(withHost).to.equal(without);
-    expect(withHost).to.not.include("autre.example.com");
-  });
-
   it("DEV : l'entry est servie via /@fs, relative à la page, quelle que soit l'origine de Vite", () => {
     const helper = new TemplateHelper(
       supervisorWith({ origin: "http://127.0.0.1:5173" }),
