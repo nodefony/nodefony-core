@@ -49,6 +49,7 @@ import {
   FRONTEND_PARAMS,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
+import { pngToIco, readBrandLogo } from "../cli/scaffold/brandAssets";
 import { frameworkPeerRange } from "../cli/scaffold/versions";
 import { checkPackageDeps } from "../kernel/checks/packageDeps";
 import {
@@ -1505,6 +1506,149 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         existsSync(path.join(dest, ".github", "workflows", "ci.yml")),
         "le filet de base a disparu du preset minimal",
       );
+    });
+  });
+
+  describe("logo et favicon — le public/ de l'application, depuis la source unique", () => {
+    /**
+     * Le logo vient du paquet (`assets/nodefony-logo.png`) et se pose dans
+     * `public/`, que le framework sert à la racine, que l'image embarque et que
+     * le frontal sert sans Node. Ce que ces contrôles tiennent : les octets
+     * EXACTS de la source (un passage par une chaîne UTF-8 les corromprait sans
+     * erreur), aucune copie en data-URI dans le code généré, et un favicon qui
+     * n'écrase jamais celui qu'une application a choisi.
+     */
+    const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
+    const logo = readBrandLogo(packageRoot);
+    const ico = Buffer.from(pngToIco(logo));
+    // Un extrait pris au milieu du base64 ne désigne que CE logo.
+    const needle = logo.toString("base64").slice(200, 280);
+
+    /** Tout fichier généré qui contient le logo en data-URI. */
+    const dataUris = (dest: string) =>
+      readdirSync(dest, { recursive: true, withFileTypes: true })
+        .filter((e) => e.isFile() && !e.parentPath.includes("node_modules"))
+        .map((e) => path.join(e.parentPath, e.name))
+        .filter((f) => readFileSync(f).includes(needle))
+        .map((f) => path.relative(dest, f));
+
+    for (const preset of ["complete", "minimal"] as const) {
+      it(`${preset} : public/ reçoit le logo et le favicon, octet pour octet`, () => {
+        const dest = path.join(tmp, `marque-${preset}`);
+        const r = scaffold(dest, {
+          name: `marque-${preset}`,
+          preset,
+          frontend: "none",
+        });
+        const pub = path.join(dest, "public");
+        assert.isTrue(
+          readFileSync(path.join(pub, "nodefony-logo.png")).equals(logo),
+          "logo différent de la source",
+        );
+        assert.isTrue(
+          readFileSync(path.join(pub, "favicon.ico")).equals(ico),
+          "favicon différent de l'enveloppe ICO du logo",
+        );
+        assert.includeMembers(r.files, [
+          path.join("public", "nodefony-logo.png"),
+          path.join("public", "favicon.ico"),
+        ]);
+      });
+    }
+
+    it("vitrine : la page déclare /favicon.ico, le logo passe par une liaison, aucune data-URI", () => {
+      for (const fw of ["react", "vue", "angular", "svelte"]) {
+        const dest = path.join(tmp, `marque-${fw}`);
+        scaffold(dest, {
+          name: `marque-${fw}`,
+          preset: "complete",
+          frontend: fw,
+        });
+        const html = readFileSync(
+          path.join(dest, "frontend", "index.html"),
+          "utf8",
+        );
+        assert.match(html, /<link rel="icon" href="\/favicon\.ico" \/>/u, fw);
+        assert.notMatch(html, /data:image\//u, fw);
+        assert.include(
+          readFileSync(path.join(dest, "frontend", "src", "brand.ts"), "utf8"),
+          'export const NODEFONY_LOGO = "/nodefony-logo.png";',
+          fw,
+        );
+        assert.deepEqual(
+          dataUris(dest),
+          [],
+          `${fw} : logo recopié en data-URI`,
+        );
+      }
+    });
+
+    it("simulation : le plan porte les fichiers binaires, encodés, sans rien écrire", () => {
+      const dest = path.join(tmp, "marque-sim");
+      const r = runScaffold(
+        {
+          type: "app",
+          answers: { name: "marque-sim", preset: "minimal", frontend: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+        { dryRun: true },
+      );
+      assert.isFalse(existsSync(dest));
+      const change = (r.changes ?? []).find(
+        (c) => c.path === path.join(dest, "public", "nodefony-logo.png"),
+      );
+      assert.isDefined(change, "logo absent du plan");
+      assert.strictEqual(change?.encoding, "base64");
+      assert.isTrue(Buffer.from(change?.content ?? "", "base64").equals(logo));
+      assert.include(
+        renderDryRun(r.changes ?? []),
+        path.join("public", "favicon.ico"),
+      );
+    });
+
+    it("create front pose le favicon s'il manque, et ne remplace jamais le sien", () => {
+      const dest = path.join(tmp, "marque-front");
+      scaffold(dest, {
+        name: "marque-front",
+        preset: "complete",
+        frontend: "none",
+      });
+      const fav = path.join(dest, "public", "favicon.ico");
+      // L'application a choisi SON icône : elle doit survivre.
+      writeFileSync(fav, "icone-de-l-application");
+      runScaffold(
+        {
+          type: "front",
+          answers: { name: "dash", frontend: "react" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      assert.strictEqual(readFileSync(fav, "utf8"), "icone-de-l-application");
+      // Absente : elle est posée, depuis la source.
+      const dest2 = path.join(tmp, "marque-front-2");
+      scaffold(dest2, {
+        name: "marque-front-2",
+        preset: "complete",
+        frontend: "none",
+      });
+      rmSync(path.join(dest2, "public"), { recursive: true });
+      const r = runScaffold(
+        {
+          type: "front",
+          answers: { name: "dash", frontend: "react" },
+          dir: dest2,
+          force: false,
+        },
+        version,
+      );
+      assert.isTrue(
+        readFileSync(path.join(dest2, "public", "favicon.ico")).equals(ico),
+      );
+      assert.include(r.files, path.join("public", "favicon.ico"));
     });
   });
 

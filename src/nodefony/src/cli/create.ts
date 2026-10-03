@@ -532,6 +532,11 @@ export function renderDryRun(
     out += `\nCréés :\n${created.map((c) => `  + ${rel(c.path)}`).join("\n")}\n`;
   }
   for (const change of rewritten) {
+    // Un binaire ne se compare pas ligne à ligne : son diff serait du base64.
+    if (change.encoding === "base64") {
+      out += `\nRéécrit : ${rel(change.path)} (binaire, ${Buffer.from(change.content, "base64").length} octets)\n`;
+      continue;
+    }
     const lines = diffLines(change.previous ?? "", change.content).filter(
       (l) => l.kind !== "keep",
     );

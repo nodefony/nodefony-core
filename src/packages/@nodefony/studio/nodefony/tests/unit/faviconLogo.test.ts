@@ -1,13 +1,12 @@
 /**
- * Le favicon et le logo du bandeau sont la MÊME image — et le restent.
+ * Le favicon et le logo du bandeau sont la MÊME image — celle du paquet
+ * `nodefony`, importée une seule fois.
  *
- * Un `index.html` ne peut pas importer un module TypeScript : le logo officiel
- * vit donc en deux copies, l'une dans le composant qui l'affiche, l'autre dans la
- * page qui le déclare en favicon. Deux copies d'une même donnée divergent en
- * silence — celle qu'on regarde le moins (l'icône d'onglet) reste sur l'ancienne
- * image pendant des mois sans que personne le remarque.
- *
- * Ce cas est la source unique que le langage ne peut pas garantir ici.
+ * Ils étaient deux data-URI recopiés (composant + `index.html`), tenus d'accord
+ * par une comparaison de chaînes. Ils viennent désormais de la source unique
+ * (`nodefony/assets/nodefony-logo.png`) : le bandeau l'importe, l'entrée pose le
+ * favicon depuis la même valeur. Le gate du dépôt
+ * (`src/nodefony/src/tests/brandAssets.test.ts`) refuse toute copie ailleurs.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -16,27 +15,29 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RACINE = path.resolve(here, "..", "..", "..");
+const lire = (...rel: string[]) =>
+  readFileSync(path.join(RACINE, "frontend", ...rel), "utf8");
 
-/** Le premier data-URI PNG d'un fichier, ou `null`. */
-const dataUri = (rel: string): string | null => {
-  const src = readFileSync(path.join(RACINE, ...rel.split("/")), "utf8");
-  return /(data:image\/png;base64,[A-Za-z0-9+/=]+)/.exec(src)?.[1] ?? null;
-};
-
-describe("favicon de la console d'administration", () => {
-  it("est exactement le logo officiel du bandeau", () => {
-    const logo = dataUri("frontend/src/components/NodefonyLogo.tsx");
-    const favicon = dataUri("frontend/index.html");
-    expect(logo, "logo introuvable dans NodefonyLogo.tsx").toBeTruthy();
-    expect(favicon, "favicon introuvable dans index.html").toBeTruthy();
-    expect(favicon).toBe(logo);
+describe("favicon et logo de la console d'administration", () => {
+  it("le bandeau importe le logo du paquet, sans copie", () => {
+    const src = lire("src", "components", "NodefonyLogo.tsx");
+    expect(src).toContain(
+      'import logoUrl from "nodefony/assets/nodefony-logo.png";',
+    );
+    expect(src).not.toMatch(/data:image\//u);
   });
 
-  it("est déclaré en PNG, pas laissé au flair du navigateur", () => {
-    const html = readFileSync(
-      path.join(RACINE, "frontend", "index.html"),
-      "utf8",
+  it("le favicon est posé depuis la MÊME valeur, en PNG déclaré", () => {
+    const main = lire("src", "main.tsx");
+    expect(main).toContain(
+      'import { NODEFONY_LOGO_URL } from "./components/NodefonyLogo";',
     );
-    expect(html).toMatch(/<link[^>]*rel="icon"[^>]*type="image\/png"/);
+    expect(main).toMatch(/\.rel = "icon"/u);
+    expect(main).toMatch(/\.type = "image\/png"/u);
+    expect(main).toMatch(/\.href = NODEFONY_LOGO_URL/u);
+  });
+
+  it("index.html ne porte plus d'image recopiée", () => {
+    expect(lire("index.html")).not.toMatch(/data:image\//u);
   });
 });

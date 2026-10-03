@@ -859,6 +859,19 @@ un **cache mount npm** (`--mount=type=cache,target=/root/.npm`), qui laisse l'in
 vierge. Le stage d'exécution copie `/app` d'un seul geste : nommer les chemins ferait échouer
 la construction sur le premier dossier absent (`modules/`, `public/`), inconnus à la génération.
 
+**Logo et favicon — `scaffold/brandAssets.ts`.** Le logo officiel a UNE source :
+`assets/nodefony-logo.png` du paquet `nodefony` (publiée, `exports`
+`./assets/nodefony-logo.png`). `create app` (les deux presets) en pose une COPIE dans
+`public/nodefony-logo.png` et son enveloppe ICO dans `public/favicon.ico` (`pngToIco` : le PNG
+tel quel derrière un en-tête de 22 octets) — `public/` est servi à la racine par `statics.web`,
+embarqué par l'image, servi par le frontal nginx. `create front` pose le favicon de l'APPLICATION
+s'il manque, jamais par-dessus le sien. Un binaire passe par `writer.writeBinary` : une chaîne
+UTF-8 corromprait l'image sans erreur ; le plan (`changes()`) le rend en `encoding: "base64"`, la
+simulation l'annonce sans diff. Les vitrines lisent le logo par la LIAISON `brand.ts`
+(`NODEFONY_LOGO = "/nodefony-logo.png"`) — une URL `src="/…"` écrite dans un gabarit Vue/Svelte
+casse le build de production. Gate : `src/tests/brandAssets.test.ts` (copies déclarées du dépôt
+identiques à la source, aucune autre copie ni data-URI dans les fichiers suivis).
+
 Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :
 `gitignore.tpl` → `.gitignore`, `dockerignore.tpl` → `.dockerignore` (npm strip les
 dotfiles publiés). Exit codes :

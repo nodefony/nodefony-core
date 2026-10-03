@@ -96,6 +96,7 @@ import {
 } from "./versions";
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
+import { writeBrandAssets } from "./brandAssets";
 import {
   manifestFileWith,
   withoutComments,
@@ -1982,6 +1983,16 @@ function dispatchScaffold(
     data,
     written,
     writer,
+  );
+  // Logo et favicon dans `public/` — le répertoire que le framework sert à la
+  // racine, que l'image embarque et que le frontal nginx sert seul. COPIÉS
+  // depuis le paquet (source unique, `brandAssets.ts`), jamais rendus par un
+  // gabarit : un layer ne transporte que du texte, et un logo en data-URI dans
+  // le code de l'application en faisait une copie de plus, gardée par rien.
+  // Les DEUX presets : sans front, un navigateur demande quand même
+  // `/favicon.ico` à la page d'accueil JSON.
+  written.push(
+    ...writeBrandAssets(writer, packageRoot, dest, ["logo", "favicon"]),
   );
   // Accueil `GET /` : une app sans frontend répondait 404 à sa propre racine.
   // Rendu SEULEMENT sans front — avec un front, `AppController` tient `/`.
@@ -5787,12 +5798,12 @@ function runFrontScaffold(
     writer,
     tokens,
   );
-  // Marque et feuille de style de la page — couche PARTAGÉE avec `create app`.
+  // Feuille de style de la page — couche PARTAGÉE avec `create app`.
   // Seul le sous-dossier `frontend/` est rendu : `app/frontend/shared` porte
   // aussi le controller de page de l'app, et `create front` a le sien, nommé.
   // `renderLayer` pousse des chemins RELATIFS à SA source : rendre ce
-  // sous-dossier dans `frontend/` annoncerait « src/brand.ts » là où
-  // l'utilisateur ouvrira « frontend/src/brand.ts ». On recale les seules
+  // sous-dossier dans `frontend/` annoncerait « src/showcase.css » là où
+  // l'utilisateur ouvrira « frontend/src/showcase.css ». On recale les seules
   // entrées que cette couche ajoute — la liste affichée est la carte que
   // l'utilisateur suit ensuite, un chemin faux l'envoie chercher ailleurs.
   const brandLayerStart = written.length;
@@ -5815,6 +5826,19 @@ function runFrontScaffold(
   for (let i = brandLayerStart; i < written.length; i += 1) {
     const file = written[i];
     if (file !== undefined) written[i] = path.join("frontend", file);
+  }
+  // Le favicon que la coquille HTML déclare (`/favicon.ico`) vit dans le
+  // `public/` de l'APPLICATION, servi à la racine — y compris quand le front
+  // va dans un module. Posé seulement s'il manque : une application qui a
+  // déjà le sien l'a choisi.
+  for (const rel of writeBrandAssets(
+    writer,
+    packageRoot,
+    projectRoot,
+    ["favicon"],
+    true,
+  )) {
+    written.push(path.relative(target.dir, path.join(projectRoot, rel)));
   }
   // La page du moteur — MÊME gabarit que `create app --frontend` (source unique).
   renderLayer(

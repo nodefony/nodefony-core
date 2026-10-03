@@ -19,10 +19,16 @@ export interface IScaffoldChange {
   path: string;
   /** Le fichier n'existait pas (`create`) ou sera réécrit (`overwrite`). */
   kind: "create" | "overwrite";
-  /** Contenu qui sera écrit. */
+  /** Contenu qui sera écrit — en base64 quand `encoding` vaut `"base64"`. */
   content: string;
   /** Contenu actuel sur disque — seulement si `kind === "overwrite"`. */
   previous?: string;
+  /**
+   * `"base64"` pour un fichier BINAIRE (image) : `content` et `previous` sont
+   * alors encodés, et ne se comparent pas ligne à ligne. Absent = texte UTF-8.
+   * Le plan reste ainsi entièrement sérialisable en JSON, ce que Studio exige.
+   */
+  encoding?: "base64";
 }
 
 /** Une ligne d'un diff, telle que {@link diffLines} la classe. */
@@ -128,12 +134,23 @@ export function diffLines(before: string, after: string): IDiffLine[] {
  * lui-même se lisent directement — ils sont en lecture seule.
  */
 export class ScaffoldWriter {
-  /** Chemin absolu → contenu en attente, dans l'ordre d'écriture. */
-  readonly #pending = new Map<string, string>();
+  /**
+   * Chemin absolu → contenu en attente, dans l'ordre d'écriture. Un
+   * `Uint8Array` est un fichier binaire ({@link writeBinary}).
+   */
+  readonly #pending = new Map<string, string | Uint8Array>();
 
-  /** Contenu à jour du fichier — écriture en attente d'abord, sinon disque. */
+  /**
+   * Contenu TEXTE à jour du fichier — écriture en attente d'abord, sinon disque.
+   *
+   * @throws Si le fichier en attente est binaire : le relire comme du texte
+   *   le corromprait sans le dire.
+   */
   read(file: string): string {
     const pending = this.#pending.get(file);
+    if (pending instanceof Uint8Array) {
+      throw new Error(`fichier binaire, illisible comme du texte : ${file}`);
+    }
     return pending ?? readFileSync(file, "utf8");
   }
 
@@ -184,6 +201,16 @@ export class ScaffoldWriter {
   }
 
   /**
+   * Retient l'écriture d'un fichier BINAIRE (image), octet pour octet.
+   *
+   * Distincte de {@link write} : une image passée par une chaîne UTF-8 est
+   * corrompue sans erreur — chaque octet invalide devient U+FFFD.
+   */
+  writeBinary(file: string, content: Uint8Array): void {
+    this.#pending.set(file, content);
+  }
+
+  /**
    * Écritures prévues, dans l'ordre — matière du dry-run et de la préview.
    *
    * L'état « existait déjà » est relu ICI (et non à `write`) : entre les deux,
@@ -192,15 +219,28 @@ export class ScaffoldWriter {
   changes(): IScaffoldChange[] {
     const changes: IScaffoldChange[] = [];
     for (const [file, content] of this.#pending) {
+      const binary = content instanceof Uint8Array;
+      const encoded = binary
+        ? Buffer.from(content).toString("base64")
+        : content;
+      const extra = binary ? { encoding: "base64" as const } : {};
       if (existsSync(file)) {
         changes.push({
           path: file,
           kind: "overwrite",
-          content,
-          previous: readFileSync(file, "utf8"),
+          content: encoded,
+          previous: binary
+            ? readFileSync(file).toString("base64")
+            : readFileSync(file, "utf8"),
+          ...extra,
         });
       } else {
-        changes.push({ path: file, kind: "create", content });
+        changes.push({
+          path: file,
+          kind: "create",
+          content: encoded,
+          ...extra,
+        });
       }
     }
     return changes;

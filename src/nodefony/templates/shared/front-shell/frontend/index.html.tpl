@@ -26,11 +26,10 @@
          sans cela, les contrôles natifs (champs, barres) restent clairs sur un
          fond sombre. -->
     <meta name="color-scheme" content="light dark" />
-    <!-- favicon inline (⬡) : remplace par ton fichier — évite le 404 /favicon.ico -->
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%AC%A1%3C/text%3E%3C/svg%3E"
-    />
+    <!-- Icône de l'onglet : `public/favicon.ico`, servi à la racine par le
+         framework comme par le frontal de production. C'est le logo Nodefony
+         à la création — remplace le fichier par le tien, rien d'autre à changer. -->
+    <link rel="icon" href="/favicon.ico" />
     <!--nodefony:frontend-->
   </head>
   <body>

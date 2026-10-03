@@ -6,7 +6,8 @@
  * s'afficher à l'identique, hors ligne.
  *
  * ── UNE SEULE SOURCE POUR LE LOGO ───────────────────────────────────────────
- * Le logo officiel Nodefony vit dans le composant Studio `NodefonyLogo.tsx`.
+ * Le logo officiel Nodefony vit dans le paquet `nodefony` :
+ * `src/nodefony/assets/nodefony-logo.png` (publié, `nodefony/assets/…`).
  * On le LIT depuis là plutôt que d'en recopier le base64 : deux copies d'un même
  * asset finissent toujours par diverger (on change le logo d'un côté, et les
  * rapports continuent de porter l'ancien pendant des mois, sans que personne ne
@@ -18,11 +19,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /**
- * Source de vérité : le composant Studio.
+ * Source de vérité : le fichier du paquet `nodefony`.
  * Chemin relatif à CE fichier : `lib/` → skill → `skills/` → `.claude/` → racine.
  */
-const LOGO_SOURCE =
-  "../../../../src/packages/@nodefony/studio/frontend/src/components/NodefonyLogo.tsx";
+const LOGO_SOURCE = "../../../../src/nodefony/assets/nodefony-logo.png";
 
 /** Copie de secours : un « N » vectoriel aux couleurs de la marque. */
 const FALLBACK_LOGO =
@@ -34,10 +34,7 @@ const FALLBACK_LOGO =
 function loadLogo() {
   try {
     const path = fileURLToPath(new URL(LOGO_SOURCE, import.meta.url));
-    const src = readFileSync(path, "utf8");
-    const m = src.match(/"(data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+)"/);
-    if (m) return m[1];
-    throw new Error("data-URI introuvable dans le composant");
+    return `data:image/png;base64,${readFileSync(path).toString("base64")}`;
   } catch (e) {
     console.warn(
       `[brand] logo officiel illisible (${e.message}) → repli sur le logo de secours.`,

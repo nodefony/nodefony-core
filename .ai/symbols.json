@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 892,
-    "symbols": 4501,
+    "files": 893,
+    "symbols": 4507,
     "classes": 408,
     "interfaces": 1172,
-    "types": 480,
+    "types": 481,
     "enums": 4,
-    "functions": 1985,
-    "constants": 452
+    "functions": 1989,
+    "constants": 453
   },
   "symbols": {
     "Mediasoup": {
@@ -8020,6 +8020,54 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`docker save` dans un fichier temporaire, supprimé par l'appelant."
+    },
+    "TBrandAsset": {
+      "name": "TBrandAsset",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/brandAssets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les fichiers de marque qu'une application peut recevoir dans `public/`."
+    },
+    "readBrandLogo": {
+      "name": "readBrandLogo",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/brandAssets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le logo officiel depuis le paquet `nodefony`."
+    },
+    "pngToIco": {
+      "name": "pngToIco",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/brandAssets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Enveloppe un PNG dans un fichier ICO d'une seule image. Le format ICO accepte une image PNG telle quelle depuis Windows Vista, et tous les navigateurs la lisent : le favicon n'est donc pas une seco…"
+    },
+    "brandAssetContent": {
+      "name": "brandAssetContent",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/brandAssets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le contenu d'un fichier de marque, dérivé du logo officiel."
+    },
+    "writeBrandAssets": {
+      "name": "writeBrandAssets",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/brandAssets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose les fichiers de marque dans le `public/` d'une application, dans la transaction du scaffold (donc visibles en `--dry-run`). `public/` est le répertoire que le framework sert à la racine par dé…"
+    },
+    "BRAND_LOGO_PATH": {
+      "name": "BRAND_LOGO_PATH",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/brandAssets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le logo officiel Nodefony — SOURCE UNIQUE, relative à la racine du paquet `nodefony`, publiée (`files`) et exposée par `exports` (`nodefony/assets/nodefony-logo.png`). Tout ce qui montre le logo en…"
     },
     "ScaffoldDestinationError": {
       "name": "ScaffoldDestinationError",
@@ -35739,6 +35787,11 @@
       "saveImage": [
         "src/nodefony/src/cli/image/index.ts"
       ],
+      "ScaffoldWriter": [
+        "src/nodefony/src/cli/scaffold/brandAssets.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/format.ts"
+      ],
       "pointeursInstructions": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -35849,9 +35902,8 @@
       "formatScaffoldOutput": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
-      "ScaffoldWriter": [
-        "src/nodefony/src/cli/scaffold/engine.ts",
-        "src/nodefony/src/cli/scaffold/format.ts"
+      "writeBrandAssets": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "manifestFileWith": [
         "src/nodefony/src/cli/scaffold/engine.ts",
