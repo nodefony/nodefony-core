@@ -49,7 +49,7 @@ import {
   FRONTEND_PARAMS,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
-import { pngToIco, readBrandLogo } from "../cli/scaffold/brandAssets";
+import { readBrandFavicon, readBrandLogo } from "../cli/scaffold/brandAssets";
 import { frameworkPeerRange } from "../cli/scaffold/versions";
 import { checkPackageDeps } from "../kernel/checks/packageDeps";
 import {
@@ -1520,7 +1520,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
      */
     const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
     const logo = readBrandLogo(packageRoot);
-    const ico = Buffer.from(pngToIco(logo));
+    const ico = readBrandFavicon(packageRoot);
     // Un extrait pris au milieu du base64 ne désigne que CE logo.
     const needle = logo.toString("base64").slice(200, 280);
 

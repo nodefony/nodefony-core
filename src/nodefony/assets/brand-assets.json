@@ -1,0 +1,20 @@
+{
+  "source": {
+    "file": "nodefony-logo.svg",
+    "sha256": "603823b6b309c68d6a84e8cef3847f17ac4346ebf1b4c9ede07885defe161b24"
+  },
+  "derived": {
+    "nodefony-logo.png": {
+      "sha256": "7063431ce020a3be02e632b39a8dcaaa7a7c4fe9d4fa992e414fb05cfbd53cb4",
+      "bytes": 10722
+    },
+    "favicon.ico": {
+      "sha256": "6ade2de5704900862b78dd38255b55f9bcdd73f7dea9e9a68a1d406605d5c6a8",
+      "bytes": 4094
+    }
+  },
+  "logoHeight": 256,
+  "faviconSizes": [16, 32, 48],
+  "renderer": "chromium 153.0.8010.12",
+  "command": "node scripts/brand-assets.mjs"
+}

@@ -860,11 +860,13 @@ un **cache mount npm** (`--mount=type=cache,target=/root/.npm`), qui laisse l'in
 vierge. Le stage d'exécution copie `/app` d'un seul geste : nommer les chemins ferait échouer
 la construction sur le premier dossier absent (`modules/`, `public/`), inconnus à la génération.
 
-**Logo et favicon — `scaffold/brandAssets.ts`.** Le logo officiel a UNE source :
-`assets/nodefony-logo.png` du paquet `nodefony` (publiée, `exports`
-`./assets/nodefony-logo.png`). `create app` pose dans `public/` l'enveloppe ICO du logo
-(`favicon.ico`, toujours) et, SANS front seulement, une COPIE `nodefony-logo.png` (`pngToIco` : le PNG
-tel quel derrière un en-tête de 22 octets) — `public/` est servi à la racine par `statics.web`,
+**Logo et favicon — `scaffold/brandAssets.ts`.** Le logo officiel a UNE source, vectorielle :
+`assets/nodefony-logo.svg` du paquet `nodefony` (publiée, `exports`). Le PNG (256 px de haut) et
+`assets/favicon.ico` (16/32/48, `pngToIco(...pngs)` : chaque PNG tel quel derrière l'en-tête ICO)
+en sont DÉRIVÉS par `node scripts/brand-assets.mjs` (Chromium), qui écrit leurs empreintes dans
+`assets/brand-assets.json` — on ne retouche jamais un dérivé, on modifie le SVG et on relance.
+`create app` pose dans `public/` le favicon (toujours) et, SANS front seulement, une COPIE
+`nodefony-logo.png` — `public/` est servi à la racine par `statics.web`,
 embarqué par l'image, servi par le frontal nginx. `create front` pose le favicon de l'APPLICATION
 s'il manque, jamais par-dessus le sien. Un binaire passe par `writer.writeBinary` : une chaîne
 UTF-8 corromprait l'image sans erreur ; le plan (`changes()`) le rend en `encoding: "base64"`, la
@@ -872,8 +874,11 @@ simulation l'annonce sans diff. Les vitrines IMPORTENT le logo du paquet dans `b
 (`import logoUrl from "nodefony/assets/nodefony-logo.png"`) : chaque app générée exerce dès sa
 naissance le chemin des assets importés — relais `/_vite/<famille>/` en dev (#526), fichier à
 empreinte en prod. Une URL `src="/…"` écrite dans un gabarit Vue/Svelte casse le build de
-production : une image passe par un import (ou une liaison). Gate : `src/tests/brandAssets.test.ts` (copies déclarées du dépôt
-identiques à la source, aucune autre copie ni data-URI dans les fichiers suivis).
+production : une image passe par un import (ou une liaison). Gate : `src/tests/brandAssets.test.ts` (SVG vectoriel pur aux trois couleurs ;
+empreintes du manifeste = fichiers, donc SVG modifié sans régénération ou dérivé retouché =
+rouge ; copies déclarées du dépôt identiques aux dérivés ; aucune autre copie, data-URI ni tracé
+recopié dans les fichiers suivis). La rastérisation n'est PAS rejouée par le test : Chromium ne
+rend pas le même PNG octet pour octet d'une version à l'autre.
 
 Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :
 `gitignore.tpl` → `.gitignore`, `dockerignore.tpl` → `.dockerignore` (npm strip les
