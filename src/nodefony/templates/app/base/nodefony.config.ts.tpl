@@ -56,9 +56,11 @@ export type { IRedisConfigInput } from "@nodefony/redis";
 export default defineConfig<typeof env>((ctx) => ({
   /**
    * Interface d'écoute. En container, écouter TOUTES les interfaces : le port
-   * mapping Docker/k8s n'atteint jamais un bind sur 127.0.0.1.
+   * mapping Docker/k8s n'atteint jamais un bind sur 127.0.0.1. En dev, la
+   * boucle locale seule, sauf `NF_BIND_ALL=true` (ouvrir l'app depuis un
+   * téléphone du réseau local — cf `env.ts`).
    */
-  domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1",
+  domain: ctx.isProd || ctx.env.NF_BIND_ALL ? "0.0.0.0" : "127.0.0.1",
 
   /**
    * Écoute HTTP et HTTPS. Rien ici ⇒ défauts du framework (5151, et 5152 en

@@ -1,4 +1,4 @@
-import { defineEnv, envEnum, envNumber, envString } from "nodefony";
+import { defineEnv, envBoolean, envEnum, envNumber, envString } from "nodefony";
 
 /**
  * Catalogue typé des variables d'environnement — SEUL lecteur de `process.env`.
@@ -39,6 +39,22 @@ export const env = defineEnv({
   NF_PORT_HTTPS: envNumber({
     optional: true,
     description: "Port d'écoute HTTPS/HTTP2 (défaut framework 5152).",
+  }),
+
+  /**
+   * DEV — écoute sur TOUTES les interfaces (`0.0.0.0`) au lieu de la seule
+   * boucle locale, pour ouvrir l'application depuis un téléphone, une tablette
+   * ou un autre poste du réseau local (`https://<IP-de-la-machine>:5152`).
+   * Page, scripts Vite et rechargement à chaud passent par le MÊME port :
+   * une seule exception de certificat à accepter sur l'appareil. Absente =
+   * boucle locale seule — le serveur de développement expose ses outils
+   * d'administration, il ne s'ouvre pas au réseau sans qu'on le demande.
+   * En production l'écoute est déjà sur toutes les interfaces.
+   */
+  NF_BIND_ALL: envBoolean({
+    default: false,
+    description:
+      "DEV : écoute sur toutes les interfaces (0.0.0.0) — ouvrir l'app depuis le réseau local.",
   }),
 
   NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {

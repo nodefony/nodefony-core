@@ -158,7 +158,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:80` |
-| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:741` |
+| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:775` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:105` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3182` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3194` |
@@ -214,7 +214,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_NODE_DIST_URL` | `src/nodefony/src/kernel/checks/nodeSecurity.ts:132` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
-| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:147` |
+| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:149` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:367` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:368` |

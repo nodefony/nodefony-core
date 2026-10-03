@@ -18,6 +18,10 @@
 # l'injectent elles-mêmes ; `NF_PORT` l'emporte si les deux sont là.
 # NF_PORT=5151
 # NF_PORT_HTTPS=5152
+# DEV : écouter sur toutes les interfaces pour ouvrir l'app depuis un téléphone
+# ou un autre poste du réseau local (https://<IP-de-la-machine>:5152). Absent =
+# boucle locale seule (127.0.0.1).
+# NF_BIND_ALL=true
 
 # ── Observabilité ───────────────────────────────────────────────────────────
 # Sink des logs : stdout (cloud-native, défaut) | file | null
