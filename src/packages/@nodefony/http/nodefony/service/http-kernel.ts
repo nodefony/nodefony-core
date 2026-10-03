@@ -1822,11 +1822,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // inchangé (ni intent de route ni cookie entrant → 0 session, 0 coût) ;
     // le point d'activation reste unique (`startSession`).
     return thenMaybe(this.startSession(context), () =>
-      // FIREWALL — seulement sur une zone protégée ou à accès contrôlé : hors
-      // zone, rien n'est attendu et la requête continue sans suspension.
-      context.secure || context.isControlledAccess
-        ? this.runFirewall(context)
-        : context,
+      // FIREWALL — seulement sur une zone protégée : hors zone, rien n'est
+      // attendu et la requête continue sans suspension.
+      context.secure ? this.runFirewall(context) : context,
     );
   }
 
@@ -1984,10 +1982,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         async () => {
           await this.onConnect(context, error);
           // FIREWALL
-          if (
-            this.firewall &&
-            (context?.secure || context?.isControlledAccess)
-          ) {
+          if (this.firewall && context?.secure) {
             context.phaseStart("firewall");
             try {
               try {

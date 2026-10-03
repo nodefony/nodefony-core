@@ -174,8 +174,6 @@ class Certificate extends Service {
   cert: Buffer | string | null = "";
   fullchainPem: Buffer | string | null = "";
   publicKeyPem: Buffer | string | null = "";
-  rootCertPem: Buffer | string | null = "";
-  intermediateCertPem: Buffer | string | null = "";
 
   /** CAROOT résolu de mkcert (null tant que non détecté / indisponible). */
   private mkcertCaRoot: string | null = null;
@@ -587,10 +585,9 @@ class Certificate extends Service {
   }
 
   createFullChain(): string {
-    return [this.cert, this.intermediateCertPem, this.rootCertPem]
-      .map((part) => part?.toString().trim())
-      .filter(Boolean)
-      .join("\n");
+    // Seul appelant : la génération autosignée, sans intermédiaire ni racine
+    // distincte — la chaîne complète EST le certificat.
+    return this.cert?.toString().trim() ?? "";
   }
 
   async readCerticates(): Promise<this> {

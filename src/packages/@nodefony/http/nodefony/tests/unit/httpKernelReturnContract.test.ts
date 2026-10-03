@@ -54,7 +54,6 @@ function makeContext(extra: Loose = {}): Loose {
     scheme: "http",
     url: "/x",
     secure: false,
-    isControlledAccess: false,
     resolver: { resolve: true, exception: null },
     sessionIntent: null,
     security: null,

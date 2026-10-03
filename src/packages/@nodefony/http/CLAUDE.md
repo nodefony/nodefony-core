@@ -77,7 +77,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
       → prepareFrontController()       ← route + zone (context.secure) — N'INSTANCIE PAS (:1282)
       → Firewall.enforceCsrf()         ← rejet précoce des mutations cross-site (:1290)
       → startSession()                 ← AVANT le firewall : SessionAuthenticator lit L1 (:1295)
-      → Firewall.handleSecurity()      ← si context.secure || isControlledAccess (:1301)
+      → Firewall.handleSecurity()      ← si context.secure (:1301)
   → Context.handle() → callController → @IsGranted → newController + initialize() → action (:1235)
   → Response.writeHead() ← injecte X-Request-Id ici
   → Response.send()

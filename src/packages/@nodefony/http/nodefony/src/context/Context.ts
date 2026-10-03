@@ -159,7 +159,6 @@ class Context extends Service implements IContextInterface {
   secure: boolean = false;
   security?: ISecurityZone | null | undefined = null;
   cleaned: boolean = false;
-  isControlledAccess: boolean = false;
   validDomain: boolean = false;
   finished: boolean = false;
   pushAllowed: boolean = false;
