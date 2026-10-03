@@ -67,6 +67,53 @@ const PROVIDER_KEY = "oauth2:provider";
 let mounted = false;
 
 /**
+ * Codes d'erreur qu'un serveur d'autorisation peut renvoyer au callback, et
+ * SEULS codes que l'écran d'arrivée reçoit : OAuth 2.0 (RFC 6749 §4.1.2.1) et
+ * OpenID Connect Core (§3.1.2.6). Une liste fermée — jamais la chaîne reçue
+ * telle quelle : le paramètre `error` vient de l'URL, donc de n'importe qui.
+ */
+const AUTHORIZATION_ERRORS: ReadonlySet<string> = new Set([
+  "invalid_request",
+  "unauthorized_client",
+  "access_denied",
+  "unsupported_response_type",
+  "invalid_scope",
+  "server_error",
+  "temporarily_unavailable",
+  "interaction_required",
+  "login_required",
+  "account_selection_required",
+  "consent_required",
+]);
+
+/**
+ * Ajoute à l'adresse d'échec le code d'erreur rendu par le fournisseur, pour
+ * que l'écran d'arrivée distingue une ANNULATION (`access_denied` : l'utilisateur
+ * a choisi de revenir) d'une panne.
+ *
+ * Le code n'est transmis que s'il appartient à la liste normalisée ; sinon
+ * l'adresse est rendue intacte. La requête et le fragment déjà présents sont
+ * conservés, et une adresse relative reste relative.
+ *
+ * @param failure - l'adresse d'échec configurée (`failureRedirect`).
+ * @param error - le paramètre `error` reçu au callback, ou `null`.
+ * @returns l'adresse d'échec, augmentée de `reason=<code>` si le code est connu.
+ */
+export function withAuthorizationError(
+  failure: string,
+  error: string | null,
+): string {
+  if (error === null || !AUTHORIZATION_ERRORS.has(error)) {
+    return failure;
+  }
+  const hashAt = failure.indexOf("#");
+  const base = hashAt === -1 ? failure : failure.slice(0, hashAt);
+  const hash = hashAt === -1 ? "" : failure.slice(hashAt);
+  const separator = base.includes("?") ? "&" : "?";
+  return `${base}${separator}reason=${error}${hash}`;
+}
+
+/**
  * Endpoints HTTP du **social login OAuth 2.0** (P6 J9) — adaptateurs MINCES
  * au-dessus du service `oauth2` (`@nodefony/security`) :
  *
@@ -172,14 +219,26 @@ class OAuth2Controller extends Controller {
 
     // Anti-CSRF (RFC 9700) : `state` doit exister, correspondre, et viser le même
     // fournisseur que celui démarré. Sinon → échec, sans contacter le fournisseur.
-    if (
-      code === null ||
-      returnedState === null ||
-      typeof expectedState !== "string" ||
-      returnedState !== expectedState ||
-      expectedProvider !== provider
-    ) {
-      this.redirect(failure, 302);
+    const stateIsValid =
+      returnedState !== null &&
+      typeof expectedState === "string" &&
+      returnedState === expectedState &&
+      expectedProvider === provider;
+    if (code === null || !stateIsValid) {
+      // Le fournisseur a répondu par une ERREUR (RFC 6749 §4.1.2.1) — typiquement
+      // `access_denied` quand l'utilisateur annule pour choisir une autre
+      // méthode. Le code n'est transmis à l'écran d'arrivée que sous un `state`
+      // valide : sans lui, n'importe qui pourrait faire afficher « annulé » à la
+      // place d'un échec, et l'échec reste uniforme.
+      const returnedError =
+        code === null && stateIsValid ? this.#queryString("error") : null;
+      if (returnedError !== null) {
+        this.log(
+          `oauth2 callback "${provider}" : le fournisseur a répondu « ${returnedError.slice(0, 64)} »`,
+          "INFO",
+        );
+      }
+      this.redirect(withAuthorizationError(failure, returnedError), 302);
       return;
     }
 

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 889,
-    "symbols": 4483,
+    "symbols": 4484,
     "classes": 405,
     "interfaces": 1167,
     "types": 478,
     "enums": 4,
-    "functions": 1978,
+    "functions": 1979,
     "constants": 451
   },
   "symbols": {
@@ -16775,6 +16775,14 @@
       "module": "@nodefony/framework",
       "extends": null,
       "description": "Vue minimale du flux de session BFF (`authFlow`) consommée ici."
+    },
+    "withAuthorizationError": {
+      "name": "withAuthorizationError",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/controller/OAuth2Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Ajoute à l'adresse d'échec le code d'erreur rendu par le fournisseur, pour que l'écran d'arrivée distingue une ANNULATION (`access_denied` : l'utilisateur a choisi de revenir) d'une panne. Le code …"
     },
     "mountOAuth2Routes": {
       "name": "mountOAuth2Routes",

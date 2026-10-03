@@ -126,4 +126,41 @@ describe("OAuth2 social login — red-team (P6 J9)", () => {
     ).to.equal(302);
     expect(locationOf(crossed)).to.equal("/oauth-failure");
   });
+
+  // S7 — l'utilisateur ANNULE chez le fournisseur (« retour à l'application ») :
+  // le fournisseur répond `error=access_denied` (RFC 6749 §4.1.2.1). Sous un
+  // state valide, le code atteint l'écran d'arrivée — qui peut alors se taire
+  // au lieu d'annoncer un échec.
+  it("S7 — annulation sous un state valide : le code atteint l'adresse d'échec", async () => {
+    const { cookie, state } = await startLogin();
+    const res = await get(
+      `${OAUTH}/callback?error=access_denied&state=${state}`,
+      { cookie },
+    );
+    expect(res.status).to.equal(302);
+    expect(locationOf(res)).to.equal("/oauth-failure?reason=access_denied");
+  });
+
+  // S8 — sans le state du flux, le code n'est PAS transmis : sinon n'importe
+  // quel lien forgé ferait afficher « annulé » à la place d'un échec.
+  it("S8 — code d'erreur sans state valide → échec uniforme, aucun code transmis", async () => {
+    const { cookie } = await startLogin();
+    const res = await get(`${OAUTH}/callback?error=access_denied&state=forge`, {
+      cookie,
+    });
+    expect(res.status).to.equal(302);
+    expect(locationOf(res)).to.equal("/oauth-failure");
+  });
+
+  // S9 — sous un state valide, un code HORS de la liste normalisée n'est pas
+  // recopié : le paramètre `error` vient de l'URL.
+  it("S9 — code d'erreur inventé sous un state valide → aucun code transmis", async () => {
+    const { cookie, state } = await startLogin();
+    const res = await get(
+      `${OAUTH}/callback?error=${encodeURIComponent("<b>x</b>")}&state=${state}`,
+      { cookie },
+    );
+    expect(res.status).to.equal(302);
+    expect(locationOf(res)).to.equal("/oauth-failure");
+  });
 });

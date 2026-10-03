@@ -394,9 +394,16 @@ export const Login = observer(() => {
   }, [store]);
 
   // Retour d'un échec social (failureRedirect `?error=oauth`) → message dans la
-  // zone d'erreur RÉSERVÉE (aucun saut de mise en page).
+  // zone d'erreur RÉSERVÉE (aucun saut de mise en page). SAUF une annulation :
+  // `reason=access_denied` (posé par le callback sous un `state` valide) dit
+  // que l'utilisateur est revenu de lui-même choisir une autre méthode — lui
+  // annoncer un échec serait faux.
   useEffect(() => {
-    if (new URLSearchParams(loc.search).get("error") === "oauth") {
+    const query = new URLSearchParams(loc.search);
+    if (
+      query.get("error") === "oauth" &&
+      query.get("reason") !== "access_denied"
+    ) {
       setErrKind("credentials");
       setError("La connexion via le fournisseur externe a échoué. Réessayez.");
     }
