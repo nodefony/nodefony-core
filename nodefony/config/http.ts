@@ -89,19 +89,16 @@ export const httpConfig = (ctx: ConfigContext<typeof env>) =>
     // Docker Desktop, absente d'internet et des clusters. L'élargissement porte
     // donc sur un nom que seul un conteneur local peut présenter.
     //
-    // 🔴 CE QUI NE DOIT PAS ESSAIMER : le SCAFFOLD ne pose pas cette entrée, et
-    // ne doit jamais la poser. Une application générée n'a aucune raison de
-    // faire confiance à ce nom en production — ses gabarits ne mentionnent
-    // `host.docker.internal` que dans la marche à suivre pour observer un
-    // écran depuis un conteneur (`compose.yaml.tpl`, `AGENTS.md.tpl`), là où
-    // c'est un conseil de dev et non une règle de sécurité. Vérifié : aucun
-    // gabarit n'écrit `trustedHosts`. Si un jour l'un d'eux le fait, cette
-    // entrée reste conditionnée au développement CHEZ LUI.
+    // 🔴 CE QUI NE DOIT PAS ESSAIMER : l'exception INCONDITIONNELLE. Le gabarit
+    // d'application pose bien `host.docker.internal`, mais en développement
+    // SEULEMENT (`ctx.isDev`, `nodefony.config.ts.tpl`) : une application
+    // générée n'a aucune raison de faire confiance à ce nom en production.
     //
-    // Cette liste porte AUSSI, depuis la dérivation d'origine par `Host`, la
-    // décision « quels noms le rendu a le droit de suivre » : y ajouter un
-    // hôte ouvre à la fois la barrière 421, l'allowlist Vite, le CSP et
-    // l'origine des assets. Une seule liste, quatre effets — c'est voulu.
+    // Cette liste est lue par la barrière 421 ET par le relais `/_vite/` du
+    // développement (`reverse-proxy.ts`, même règle, même 421) : y ajouter un
+    // hôte ouvre les deux. Elle ne décide plus de l'origine des assets — page,
+    // modules Vite et socket HMR partagent l'origine de la requête, quel que
+    // soit le nom — ni du CSP, qui ne nomme que `'self'`.
     trustedHosts: [
       "localhost",
       "127.0.0.1",

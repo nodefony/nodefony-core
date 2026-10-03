@@ -154,10 +154,12 @@ export default defineConfig<typeof env>((ctx) => ({
      *
      * En développement, `host.docker.internal` est un hôte de confiance : c'est
      * la boucle locale VUE D'UN CONTENEUR (navigateur piloté, `npx nodefony see`).
-     * Cette SEULE liste ouvre la barrière Host, les hôtes acceptés par Vite (son
-     * rechargement à chaud), le CSP et l'origine des assets annoncée à la page —
-     * sans elle, un navigateur en conteneur reçoit des URLs en `127.0.0.1`, qui
-     * désignent… le conteneur. Jamais en production.
+     * La liste ne compte que si `domainCheck` est activé : elle ouvre alors la
+     * barrière Host ET le relais des assets Vite (`/_vite/`). Sans `domainCheck`
+     * (le défaut), tout `Host` passe — la page, ses scripts et le rechargement à
+     * chaud suivent l'origine de la requête, quel que soit le nom. Avec lui, un
+     * appareil du réseau local (`NF_BIND_ALL`) s'ajoute ici par l'IP de la
+     * machine. Jamais en production.
      */
     use(
       "@nodefony/http",

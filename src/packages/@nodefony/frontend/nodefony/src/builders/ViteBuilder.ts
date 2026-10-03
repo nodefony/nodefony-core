@@ -152,8 +152,10 @@ export class ViteBuilder implements IFrontBuilder {
       server: {
         // Le port réel est piloté par le superviseur (config DEFAULT).
         strictPort: false,
-        // CORS ON — le navigateur charge `http://127.0.0.1:5173/src/main.tsx`
-        // depuis l'origine `http://127.0.0.1:5151` (Nodefony).
+        // Bloc inerte en développement : le serveur Vite y lit la config écrite
+        // par `ViteConfigGenerator`, pas celle-ci (cf `FrontendService`). Le
+        // navigateur n'atteint d'ailleurs jamais Vite en direct — relais
+        // `/_vite/<famille>/` sur l'origine de la page.
         cors: true,
       },
     };

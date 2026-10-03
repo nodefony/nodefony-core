@@ -127,7 +127,8 @@ export const frontendConfigSchema = z
           "SUPERVISEUR qui relance sur le port suivant (`resilience.portRetryAttempts` " +
           "essais) et publie le port réel dans son `status()` — Vite, lui, ne se " +
           "décale jamais seul : le fichier généré porte `strictPort` pour que " +
-          "l'origine annoncée au navigateur soit toujours celle qui sert.",
+          "le relais `/_vite/<famille>/` vise toujours le Vite qui sert. Le " +
+          "navigateur ne voit jamais ce port : il passe par l'origine de la page.",
       ),
     publicOrigin: z
       .string()

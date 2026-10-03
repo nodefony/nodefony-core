@@ -20,8 +20,9 @@ class PocController extends Controller {
    * Page HTML rendue par Nodefony. Le `<head>` inclut les balises `<script>`
    * Vite via `FrontendService.renderTags("test-frontend-react")`.
    *
-   * En dev avec Vite spawné, le browser charge `http://127.0.0.1:5173/src/main.tsx`
-   * directement → backend Node n'est PAS sur le chemin critique des assets.
+   * En dev avec Vite spawné, le navigateur charge ses modules sur l'origine de
+   * la page (`/_vite/<famille>/…`) : Nodefony les relaie à Vite, resté sur la
+   * boucle locale — une seule origine, un seul certificat.
    */
   @Get("/app")
   renderReact(): unknown {

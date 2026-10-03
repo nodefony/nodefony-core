@@ -24,7 +24,7 @@ Pilote Vite pour transpiler les frontends déclarés par chaque module :
 
 - Vite tourne en process séparé (child_process.spawn) → zéro impact event-loop backend
 - Nodefony rend l'index.html lui-même via son moteur de templates
-- Le HTML inclut `<script src="http://127.0.0.1:5173/...">` → navigateur ↔ Vite direct
+- Le HTML inclut `<script src="/_vite/<famille>/...">` (RELATIF) → Nodefony relaie à Vite, resté sur la boucle locale ; le navigateur ne joint jamais Vite en direct
 - En prod : `nodefony frontend:build` → Vite compile → `manifest.json` lu par le template helper
 
 ## Structure des fichiers
@@ -72,13 +72,15 @@ Kernel onReady (env=development + autoStart=true)
               ├─ pipe stdout/stderr → syslog Nodefony
               └─ parse "Local: http://..." → state = "ready"
 
-Browser GET / (HTTP 5151)
+Browser GET / (HTTPS 5152)
   └─ Controller render index.html
         └─ inject frontendService.renderTags("test-frontend-react")
-              → `<script src="http://127.0.0.1:5173/@vite/client">`
-              → `<script src="http://127.0.0.1:5173/src/main.tsx">`
+              → `<script src="/_vite/<famille>/@vite/client">`
+              → `<script src="/_vite/<famille>/@fs/…/src/main.tsx">`
 
-Browser parses HTML → fetch http://127.0.0.1:5173/src/main.tsx → Vite serves transpiled
+Browser parses HTML → GET /_vite/<famille>/… (origine de la page)
+  └─ reverse-proxy (@nodefony/http) → Vite 127.0.0.1:5173 → transpiled
+     (socket HMR : upgrade WS relayé sur la même origine)
 
 Kernel onTerminate
   └─ FrontendService.stopDev()
