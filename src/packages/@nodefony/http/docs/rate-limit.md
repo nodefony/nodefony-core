@@ -106,7 +106,7 @@ Trois choix structurent l'implémentation, et chacun est un compromis assumé.
 
 **Désactivé par défaut — opt-in explicite.** En cloud-native, le plafond par IP est souvent mieux placé
 à l'**ingress/gateway** (il voit tout le trafic, tous les pods, et rejette avant le coût TLS). Le module
-laisse donc `rateLimit` désarmé par défaut (`config.ts:1069`) : `null` tant qu'on ne l'active pas → **0
+laisse donc `rateLimit` désarmé par défaut (`config.ts:1231`) : `null` tant qu'on ne l'active pas → **0
 coût** sur le chemin chaud. On l'active quand on n'a **pas** d'edge devant soi (bare-metal, VPS), ou en
 défense en profondeur.
 
@@ -118,7 +118,7 @@ court intervalle (`MemoryRateLimitStore.ts:29`). Acceptable pour une défense de
 _sliding window_ viendrait en option si le besoin s'en fait sentir.
 
 **Refoulé avant toute allocation.** Le verdict est rendu **avant** le contexte, la portée DI et l'ALS
-(`http-kernel.ts:1097`) : un flood coûte un `Map.get` et rien d'autre. Le contrat `hit()` est
+(`http-kernel.ts:1141`) : un flood coûte un `Map.get` et rien d'autre. Le contrat `hit()` est
 **synchrone** à dessein (`IRateLimitStore.ts:8`) — aucune `Promise`, aucune microtask sur le chemin de
 chaque requête.
 
@@ -208,7 +208,7 @@ Autour de ce cœur, le kernel orchestre le cycle de vie :
   (`http-kernel.ts:490`) qui **purge les fenêtres expirées** hors du chemin chaud.
 - **Émission HTTP** : sous le quota, les en-têtes `X-RateLimit-*` sont posés (`http-kernel.ts:1151`) et
   la requête continue ; au-delà, `Retry-After` (`http-kernel.ts:1158`) puis `writeHead(429)`
-  (`http-kernel.ts:1110`) — corps vide, on ne journalise pas chaque rejet (amplificateur sous flood).
+  (`http-kernel.ts:1163`) — corps vide, on ne journalise pas chaque rejet (amplificateur sous flood).
 - **Borne mémoire** : au cap `maxTracked`, le store purge les expirées puis évince en **FIFO**
   (`#evict`, `MemoryRateLimitStore.ts:169`) — la mémoire ne dérive jamais.
 
@@ -230,7 +230,7 @@ Et un réglage **séparé**, propre au WebSocket, à la racine du module :
 
 | Option                  | Type          | Défaut | Effet                                                                                               | Chaud |
 | ----------------------- | ------------- | ------ | --------------------------------------------------------------------------------------------------- | ----- |
-| `wsMaxConnectionsPerIp` | int \| `null` | `null` | Cap de connexions WS **concurrentes** par IP ; au-delà, upgrade fermé en `1013` (`config.ts:1067`). | oui   |
+| `wsMaxConnectionsPerIp` | int \| `null` | `null` | Cap de connexions WS **concurrentes** par IP ; au-delà, upgrade fermé en `1013` (`config.ts:1234`). | oui   |
 
 > [!TIP]
 > `max: 300` sur `windowS: 60` = **5 req/s soutenu** par IP, avec des rafales tolérées jusqu'à 300 d'un
@@ -280,7 +280,7 @@ Un adapter doit fournir : `hit(key)` (verdict de fenêtre), `gc()` (purge), `lis
 
 | Domaine                            | Norme            | Ancrage                                           |
 | ---------------------------------- | ---------------- | ------------------------------------------------- |
-| `429 Too Many Requests`            | RFC 6585 §4      | `writeHead(429)` (`http-kernel.ts:1110`)          |
+| `429 Too Many Requests`            | RFC 6585 §4      | `writeHead(429)` (`http-kernel.ts:1163`)          |
 | `Retry-After` (delta-seconds)      | RFC 9110 §10.2.3 | en-tête posé sur le `429` (`http-kernel.ts:1158`) |
 | IP cliente derrière proxy          | RFC 7239         | `resolveForwarded()` (`http-kernel.ts:1142`)      |
 | WebSocket — close `1013` Try Again | RFC 6455 §7.4.1  | refus d'upgrade (`http-kernel.ts:1378`)           |

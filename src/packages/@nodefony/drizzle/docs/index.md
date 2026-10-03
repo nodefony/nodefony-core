@@ -344,8 +344,8 @@ de drizzle qui sert de modèle. Deux fichiers, mêmes noms partout, aucune quest
 
 Concrètement : `drizzleConfigSchema` (`config.ts:136`) porte chaque `.default()` et chaque
 `.describe()` — changer un défaut du module, c'est éditer **là et nulle part ailleurs**. Le builder
-`defineDrizzleConfig()` (`defineModuleConfig.ts:81`) ne retape jamais une valeur : il valide, applique
-l'environnement, gèle. Et `drizzleConfigJsonSchema()` (`defineModuleConfig.ts:99`) expose le tout en
+`defineDrizzleConfig()` (`defineModuleConfig.ts:132`) ne retape jamais une valeur : il valide, applique
+l'environnement, gèle. Et `drizzleConfigJsonSchema()` (`defineModuleConfig.ts:150`) expose le tout en
 JSON Schema pour l'écran de configuration de Studio.
 
 Le schéma reste **pur** : il ne lit ni `process.env` ni le kernel. C'est ce qui rend le module
@@ -390,7 +390,7 @@ NF_DATABASE_URL=mysql://app:secret@db:3306/prod
 NF_DATABASE_URL=sqlite:/var/lib/app/prod.db
 ```
 
-`applyEnvOverrides()` (`defineModuleConfig.ts:32`) lit l'infra, en déduit le dialecte depuis le
+`applyEnvOverrides()` (`defineModuleConfig.ts:85`) lit l'infra, en déduit le dialecte depuis le
 _scheme_, et pose `filename` ou `url` sur le connecteur primaire. Une URL `mongodb://` n'est **pas
 lue ici** : elle appartient à `@nodefony/mongoose`. Drizzle en tire aussi la conséquence — il ne crée
 **pas** le connecteur `default` que ses défauts posent, donc aucune base SQLite parallèle et aucun
@@ -417,7 +417,7 @@ use("@nodefony/drizzle", {
 ### Quand la connexion échoue, le démarrage échoue
 
 Un connecteur **déclaré** qui ne se connecte pas lève une `BootConfigurationError`
-(`DrizzleService.ts:368`) — en développement **comme** en production. Ce n'est pas une sévérité
+(`DrizzleService.ts:423`) — en développement **comme** en production. Ce n'est pas une sévérité
 gratuite : une infrastructure déclarée mais injoignable ne se répare pas en continuant. Un serveur qui
 démarrerait « vivant » avec ses stores morts accepterait des requêtes pour échouer plus tard, la cause
 noyée dans un avertissement. Le message d'erreur nomme le connecteur, le dialecte, la cible rédigée et

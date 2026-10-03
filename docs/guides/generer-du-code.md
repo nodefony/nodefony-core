@@ -82,7 +82,7 @@ suite d'étapes dont plusieurs peuvent échouer tard : le nom de classe est déj
 pris, l'`index.ts` n'a pas de décorateur où insérer, un gabarit est cassé. Toutes
 les écritures passent donc par une transaction (`ScaffoldWriter`,
 `writer.ts:122`), et seul le scaffold racine la verse sur le disque
-(`commit()`, `writer.ts:215`). Refuser redevient un non-événement.
+(`commit()`, `writer.ts:263`). Refuser redevient un non-événement.
 
 ## Démarrage rapide
 

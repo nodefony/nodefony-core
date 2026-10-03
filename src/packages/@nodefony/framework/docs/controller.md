@@ -198,8 +198,8 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 
 | #   | Étape                                   | Où                                                  |
 | --- | --------------------------------------- | --------------------------------------------------- |
-| 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:807`)           |
-| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1691`)    |
+| 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:1686`)          |
+| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1696`)    |
 | 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1678`                               |
 | 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:864`)   |
 | 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1819`)    |

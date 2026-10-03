@@ -316,7 +316,7 @@ deux autres. Le débit en octets par seconde se dérive de deux photos.
 
 La source par connexion est `IRealtimeConnProbe` (`IRealtimeProbe.ts:25`), implémentée par le
 transport. Les seuils d'ACTION sont distincts du seuil de comptage, et ils sont
-**configurables** (`@nodefony/http`, `http/nodefony/config/config.ts:1044`) : au-delà de
+**configurables** (`@nodefony/http`, `http/nodefony/config/config.ts:1210`) : au-delà de
 `websocket.maxBackpressure` (4 MiB par défaut) la politique `websocket.backpressurePolicy`
 s'applique — `drop` par défaut, la frame est **jetée** puisque les canaux d'état sont « le
 dernier gagne » et que le prochain instantané la remplacera. La connexion est **fermée** en

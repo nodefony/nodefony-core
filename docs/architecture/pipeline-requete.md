@@ -416,8 +416,8 @@ Choisir son point d'accroche en cinq secondes :
 | faire quelque chose après la réponse (une requête) | `context.onAfterResponse()` | la réponse est partie                        |
 
 > [!WARNING]
-> Sur le chemin HTTP, trois de ces événements ne sont émis **que s'ils ont un abonné**
-> (`listenerCount` : `http-kernel.ts:1120`, `:1338`, `:1510`). C'est délibéré — sans abonné, zéro
+> Sur le chemin HTTP, quatre de ces événements ne sont émis **que s'ils ont un abonné**
+> (`listenerCount` : `http-kernel.ts:1173`, `:1524`, `:1794`, `:1847`). C'est délibéré — sans abonné, zéro
 > microtâche par requête. Cela ne change rien pour toi : abonne-toi, et ils partent.
 
 ### Situation 2 — « pourquoi mon hook n'est pas appelé sur les fichiers statiques ? »
@@ -529,7 +529,7 @@ où ; les pages dédiées disent comment.
 | Probes de santé       | avant le rate-limit (`http-kernel.ts:848`)             | un orchestrateur limité croirait le pod mort → redémarrages en cascade |
 | Rate-limit par IP     | avant contexte et scope (`http-kernel.ts:1097`)        | un flood doit coûter une recherche en table, pas une allocation        |
 | CORS                  | avant le routage (`firewall.ts:797`)                   | un preflight n'a **pas** de route ; il ne s'authentifie pas            |
-| En-têtes applicatifs  | après le routage (`http-kernel.ts:1624`)               | le CSP doit intégrer le `@Csp` de la route matchée                     |
+| En-têtes applicatifs  | après le routage (`http-kernel.ts:1696`)               | le CSP doit intégrer le `@Csp` de la route matchée                     |
 | CSRF                  | après le routage, avant la session (`firewall.ts:741`) | rejet précoce d'une mutation cross-site, avant tout coût d'auth        |
 | Session               | avant le firewall (`http-kernel.ts:1288`)              | l'authenticator de session lit la session reprise                      |
 | Firewall              | juste avant l'action (`firewall.ts:561`)               | la zone dépend de la route, donc du routage                            |
@@ -567,7 +567,7 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
 - **Un seul listener de fin de réponse** : `on("close")` remplace l'ancien couple `finish`/`close`
   avec ses deux `removeListener` (`http-kernel.ts:1422`).
 - **Hooks tirés seulement s'ils ont un abonné** : `listenerCount` avant `fireAsync`
-  (`http-kernel.ts:1120`, `:1338`, `:1510`) — zéro microtâche sur une app sans module de sécurité.
+  (`http-kernel.ts:1173`, `:1524`, `:1794`, `:1847`) — zéro microtâche sur une app sans module de sécurité.
 - **Allocation paresseuse systématique** : le nonce CSP n'est calculé qu'à la première lecture
   (`Context.ts:192`), le signal d'abandon qu'au premier accès (`Context.ts:402`), la liste des hooks
   d'après-réponse qu'au premier enregistrement (`Context.ts:367`).

@@ -154,7 +154,7 @@ le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les ac
 
 1. **Obtenir** : une requête **sûre** (GET) vers n'importe quelle route `@CsrfProtect` sème le token
    (`firewall.ts:958-964`) ; la réponse pose le cookie **lisible** `csrf-token` — non `HttpOnly`
-   exprès, `SameSite=Strict`, `Secure` en HTTPS (`HttpContext.writeHead()`, `HttpContext.ts:482-497`).
+   exprès, `SameSite=Strict`, `Secure` en HTTPS (`HttpContext.writeHead()`, `HttpContext.ts:570-590`).
 2. **Rejouer** : le SPA lit le cookie et renvoie sa valeur **à l'identique** dans l'en-tête
    `x-csrf-token` sur chaque mutation.
 

@@ -503,7 +503,7 @@ export function defineDrizzleConfig(
 ```
 
 Vérifié au source : `drizzleConfigSchema` (`drizzle/nodefony/config/config.ts:136`) et
-`defineDrizzleConfig()` (`drizzle/nodefony/config/defineModuleConfig.ts:81`). Le module publie enfin
+`defineDrizzleConfig()` (`drizzle/nodefony/config/defineModuleConfig.ts:132`). Le module publie enfin
 son JSON Schema en redéfinissant `Module.configSchema()` (`Module.ts:153`), et lit sa config validée
 via le getter typé `Module.config` (`Module.ts:178`).
 

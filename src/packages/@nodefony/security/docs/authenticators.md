@@ -144,7 +144,7 @@ use("@nodefony/security", {
 > [!IMPORTANT]
 > **Le login est FOURNI** : `POST /nodefony/security/api/auth/login` (body `{ username, password }`
 > → `Set-Cookie` de session, ID régénéré anti-fixation), avec `logout` et `me`
-> (`SessionAuthController.ts:37-39`). Pas de LoginController à écrire — tes routes ne font que
+> (`SessionAuthController.ts:131-148`). Pas de LoginController à écrire — tes routes ne font que
 > consommer l'identité.
 
 ### Ce que TU écris : le controller qui consomme l'identité

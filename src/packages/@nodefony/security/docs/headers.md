@@ -300,7 +300,7 @@ La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
 (`http-kernel.ts:388`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
-de serveur (`http-kernel.ts:1052`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
+de serveur (`http-kernel.ts:1105`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
 soit ignoré : l'émettre sur du HTTP simple ne ferait que polluer. Défaut : un an, sous-domaines
 inclus.
 
@@ -539,7 +539,7 @@ Le coût est concentré au boot, par construction :
   protège en plus les chemins internes qui n'atteignent jamais le firewall.
 - **Merge CSP** : jamais dans le chemin chaud. Le fragment d'un module est fusionné à
   l'enregistrement (`firewall.ts:1086`) ; celui d'une route ne coûte que sur les routes `@Csp`.
-- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:1047-1053`), avec
+- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:1100-1106`), avec
   un test `!== null` qui annule le coût des en-têtes désactivés.
 
 Le module n'attache aucun écouteur d'événement et ne conserve aucun état par requête : il n'entre pas

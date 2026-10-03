@@ -351,7 +351,7 @@ Ce qui change, c'est la topologie et la façon d'expirer.
 
 ### `memory` — l'implémentation de référence
 
-Store built-in de `@nodefony/http`, enregistré d'office (`sessions-service.ts:913`). Les sessions vivent
+Store built-in de `@nodefony/http`, enregistré d'office (`sessions-service.ts:950`). Les sessions vivent
 dans une `Map` du process : elles **disparaissent au redémarrage** et ne sont **pas partagées** entre
 pods — c'est un choix (mesurer le framework sans le goulot disque/SQL), pas une limite.
 
@@ -390,7 +390,7 @@ Redis jusqu'à son TTL idle, mais elle est **refusée à la reprise**.
 
 Capacités réduites, annoncées et non simulées : la pagination est **par curseur** (pas de `total`, pas
 d'ordre global) et `countSessions()` renvoie **`-1`** = « je ne sais pas »
-(`@nodefony/redis/nodefony/src/SessionStorage.ts:303`). L'appelant affiche l'inconnu, il ne l'invente pas.
+(`@nodefony/redis/nodefony/src/SessionStorage.ts:460`). L'appelant affiche l'inconnu, il ne l'invente pas.
 
 ### `mongoose` — MongoDB, parité de comportement
 
@@ -506,7 +506,7 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 | Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1769`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:2052`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
-| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1801`) |
+| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1873`) |
 | Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
@@ -526,13 +526,13 @@ par le firewall sur les zones temps réel protégées (`firewall.ts:297`).
 ### Régénération d'identifiant à la connexion (anti-fixation)
 
 C'est la défense la plus importante et elle est **active**. `AuthFlow.#openSession()`
-(`authFlow.ts:378`) : reprise ou ouverture de la session, mémorisation de l'ancien identifiant, puis
+(`authFlow.ts:410`) : reprise ou ouverture de la session, mémorisation de l'ancien identifiant, puis
 appel **inconditionnel** de `Session.regenerateId()` (`authFlow.ts:388`), et enfin destruction de
 l'ancienne entrée du store (`authFlow.ts:390`). Un cookie pré-posé par un attaquant **ne survit donc pas
 au login**. Le nouvel identifiant est un CSPRNG frais, l'état applicatif est conservé
 (`Session.regenerateId()`, `session.ts:236`).
 
-Au passage, la provenance est capturée dans le `metaBag` : `ip` (`authFlow.ts:405`) et `ua`
+Au passage, la provenance est capturée dans le `metaBag` : `ip` (`authFlow.ts:438`) et `ua`
 (`authFlow.ts:407`), en mode « au mieux » — ce sont ces deux champs que la console d'administration
 affiche.
 
@@ -542,18 +542,18 @@ affiche.
 | ------------------------ | ----------------------------------------------- | ------------------------------------------- |
 | Déconnexion locale       | `Session.destroy()` (`session.ts:306`)          | la session courante + pierre tombale        |
 | Révocation par un admin  | `destroyByRef()` (`sessions-service.ts:745`)    | une session désignée par sa `ref` publique  |
-| « Déconnecter partout »  | `destroyByUser()` (`sessions-service.ts:775`)   | toutes les sessions d'un utilisateur        |
-| « Mes appareils » (self) | `destroyOwnByRef()` (`sessions-service.ts:872`) | une session, **restreinte au propriétaire** |
+| « Déconnecter partout »  | `destroyByUser()` (`sessions-service.ts:831`)   | toutes les sessions d'un utilisateur        |
+| « Mes appareils » (self) | `destroyOwnByRef()` (`sessions-service.ts:898`) | une session, **restreinte au propriétaire** |
 
 Deux finesses valent d'être connues.
 
 `destroyByUser()` ne fait pas un seul passage : il **repasse jusqu'à ce qu'un passage complet ne
-détruise plus rien** (`sessions-service.ts:775`), car supprimer en parcourant décale les rangs sous un
+détruise plus rien** (`sessions-service.ts:831`), car supprimer en parcourant décale les rangs sous un
 curseur offset. Une révocation « partout » qui en laisserait une n'est pas une imprécision, c'est une
 faille — on rend donc la main avec la preuve, pas l'espoir.
 
 `destroyOwnByRef()` ferme l'IDOR **par construction** : parcours restreint aux sessions du demandeur,
-et appartenance **re-vérifiée** avant même de comparer la `ref` (`sessions-service.ts:863`). Une
+et appartenance **re-vérifiée** avant même de comparer la `ref` (`sessions-service.ts:900`). Une
 `ref` d'autrui est structurellement introuvable.
 
 ### Redaction — l'identifiant ne sort jamais du process
@@ -581,7 +581,7 @@ Trois barrières superposées :
 | Session oubliée ouverte           | idle timeout glissant                             | `idleTimeoutS` à la reprise (`session.ts:401`)     |
 | Résurrection après révocation     | pierre tombale 5 min sur `write` **et** `touch`   | `RevocationGuardStorage.ts:127-171`                |
 | Fuite d'identifiant en admin      | `ref` HMAC + projection en liste blanche          | `toSessionSummary()` (`sessions-service.ts:112`)   |
-| IDOR sur « mes sessions »         | périmètre depuis l'identité ALS, jamais du client | `destroyOwnByRef()` (`sessions-service.ts:872`)    |
+| IDOR sur « mes sessions »         | périmètre depuis l'identité ALS, jamais du client | `destroyOwnByRef()` (`sessions-service.ts:898`)    |
 
 ## 🧰 API publique
 
@@ -648,7 +648,7 @@ Trois règles de conception se dégagent du contrat, et méritent d'être respec
 | Absolute timeout              | NIST SP 800-63B-4 / OWASP | défaut 43200 s, jamais prolongé (`config.ts:808`)                             |
 | Identifiant de session        | OWASP Session Management  | 32 octets CSPRNG, opaque (`session.ts:226`)                                   |
 | Identifiant hors URL          | OWASP Session Management  | cookie uniquement — jamais de réécriture d'URL (`session.ts:20-26`)           |
-| Renouvellement après auth     | OWASP (anti-fixation)     | `regenerateId()` inconditionnel au login (`authFlow.ts:388`)                  |
+| Renouvellement après auth     | OWASP (anti-fixation)     | `regenerateId()` inconditionnel au login (`authFlow.ts:420`)                  |
 | Révocation côté serveur       | OWASP                     | pierre tombale générique (`RevocationGuardStorage.ts:121`)                    |
 
 ## ⚡ Performance & mémoire

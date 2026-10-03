@@ -266,7 +266,7 @@ graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 | `getRequestId()`   | `RequestContext.ts:196` | l'identifiant de corrélation                         | `undefined` |
 | `getUser()`        | `RequestContext.ts:201` | l'utilisateur authentifié, typé `unknown`            | `undefined` |
 | `getUserId()`      | `RequestContext.ts:218` | son identifiant sous forme de chaîne                 | `undefined` |
-| `getContext<T>()`  | `RequestContext.ts:193` | le contexte transport HTTP/WS, générique             | `undefined` |
+| `getContext<T>()`  | `RequestContext.ts:215` | le contexte transport HTTP/WS, générique             | `undefined` |
 | `getScope()`       | `RequestContext.ts:232` | le scope DI de la requête, s'il est encore ouvert    | `undefined` |
 | `requireScope()`   | `RequestContext.ts:259` | le même scope, ou une erreur qui nomme la cause      | **lève**    |
 | `set(clé, valeur)` | `RequestContext.ts:270` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |

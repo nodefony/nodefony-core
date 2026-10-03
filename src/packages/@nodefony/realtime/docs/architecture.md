@@ -362,7 +362,7 @@ même façon, par le hook `onFinish` du contexte, qui déclenche `fireClose()`
 Ce transport porte aussi la **back-pressure**. Elle n'est pas câblée en dur : les trois
 leviers sont des clés de configuration du serveur WebSocket, lues par le transport
 (`WsConnectionTransport.ts:63-75`) et documentées dans `@nodefony/http`
-(`http/nodefony/config/config.ts:1044`).
+(`http/nodefony/config/config.ts:1210`).
 
 | File non drainée (`bufferedAmount`)     | Décision                                            | Réglage (défaut)                                                                      |
 | --------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |

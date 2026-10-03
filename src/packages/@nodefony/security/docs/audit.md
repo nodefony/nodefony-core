@@ -492,7 +492,7 @@ jamais faire tomber ce qu'on supervise.
 ## ⚙️ Configuration
 
 Table dérivée du schéma Zod `auditSchema` (`config.ts:883`), rattaché à la racine sous la clé `audit`
-(`config.ts:1158`).
+(`config.ts:1169`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |

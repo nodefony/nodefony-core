@@ -276,7 +276,7 @@ l'initialisation du contexte HTTP (`HttpContext.ts:212`) **et** WebSocket (`Webs
 
 Les cookies **entrants** sont lus au handshake, exactement comme en HTTP (même parseur). Mais la **poignée
 de main WebSocket ne peut pas poser de cookie** : `setCookie()` et `setCookies()` de la réponse WS sont des
-**no-op** (`websocket/Response.ts:299`), une limite de la bibliothèque `ws`. Le cookie de session, lui, est
+**no-op** (`websocket/Response.ts:315`), une limite de la bibliothèque `ws`. Le cookie de session, lui, est
 posé pendant la **phase HTTP** qui précède l'upgrade. La forme d'un cookie décrit pour le WS est
 `IWsCookie` (`ICookie.ts:19`), produite par `serializeWebSocket()`.
 

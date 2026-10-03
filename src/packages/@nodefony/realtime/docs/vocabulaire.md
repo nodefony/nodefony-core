@@ -762,7 +762,7 @@ n° 1 : il monte quand le client n'absorbe plus. Deux seuils distincts existent 
 Seuil de comptage `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:63`) — une constante, car il ne
 décide de rien. Les seuils d'ACTION, eux, sont des réglages : `websocket.maxBackpressure`,
 `websocket.backpressurePolicy` et `websocket.backpressureCloseAfterDrops` (`http`,
-`http/nodefony/config/config.ts:1048`).
+`http/nodefony/config/config.ts:1210`).
 
 ### `consommateur lent` — la connexion qui décroche
 

@@ -181,7 +181,7 @@ publication (`npm run size:check`).
 | **Entrée séparée**     | Un sous-chemin du paquet (`nodefony/debugbar`) importé à part. Ce qui n'est pas importé n'entre pas dans votre bundle.                                                                                         |
 | **`mountDebugBar`**    | La seule fonction à appeler (`index.ts:46`). Elle installe la barre et rend une poignée pour la piloter ou la retirer.                                                                                         |
 | **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:537`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
-| **Options**            | Ce qu'on passe au montage (`DebugBarOptions`, `DebugBar.ts:134`) — l'adresse du socket, la position (`bottom` ou `top`), le panneau ouvert d'emblée, et l'interception réseau, qu'on peut refuser entièrement. |
+| **Options**            | Ce qu'on passe au montage (`DebugBarOptions`, `DebugBar.ts:138`) — l'adresse du socket, la position (`bottom` ou `top`), le panneau ouvert d'emblée, et l'interception réseau, qu'on peut refuser entièrement. |
 | **Charge utile**       | Ce que le serveur pousse : statistiques (`StatsPayload`, `model.ts:25`) et journaux (`LogEntry`, `model.ts:49`).                                                                                               |
 | **`requestId`**        | L'identifiant qu'une requête porte de bout en bout. C'est lui qui relie une ligne de journal à l'appel réseau qui l'a produite.                                                                                |
 

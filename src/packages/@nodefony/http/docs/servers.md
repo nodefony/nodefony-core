@@ -133,7 +133,7 @@ session et du même firewall, et se ferme avec le même soin qu'une réponse HTT
 
 > [!NOTE]
 > Le serveur HTTP/3 (QUIC) est **réservé, pas implémenté** : la clé `http3` existe dans le schéma,
-> marquée `reserved` (`config.ts:1050`). Elle ne fait rien aujourd'hui.
+> marquée `reserved` (`config.ts:1216`). Elle ne fait rien aujourd'hui.
 
 ## 🚀 Démarrage rapide
 
@@ -328,7 +328,7 @@ Choisir en cinq secondes :
 | `server-static`           | (aucun port propre) | toujours enregistré       | Fichiers statiques, en **repli** après le routing. |
 
 L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1181`) : chaque serveur est
-consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:1139`).
+consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:1192`).
 Les serveurs WebSocket ne sont montés que si leur porteur l'a été.
 
 ### `server-http` — HTTP/1.1 en clair
@@ -375,7 +375,7 @@ automatiquement un éventuel décalage de port.
   réglages **forcés** par Nodefony : `server` et `clientTracking: true`, requis par `broadcast()` et par
   le battement de cœur (`server-websocket.ts:80`).
 - **Keep-alive** armé à la création (`startHeartbeat()`, `server-websocket.ts:87`) et par connexion
-  (`trackPong()`, `server-websocket.ts:103`).
+  (`trackPong()`, `server-websocket.ts:113`).
 - **Arrêt** : il s'inscrit en tête des écouteurs de terminaison
   (`prependOnceListener`, `server-websocket.ts:91`) — l'ordre
   compte, voir la section Arrêt gracieux.
@@ -400,7 +400,7 @@ C'est la distinction la plus utile de cette page, et celle qu'on rate le plus so
 | Question                                  | Où ça se règle                 | Source                                                    |
 | ----------------------------------------- | ------------------------------ | --------------------------------------------------------- |
 | **Quels** serveurs, sur **quels ports** ? | `servers` (config d'app)       | `serversSchema` (`src/nodefony/src/config/schema.ts:149`) |
-| **Comment** ces serveurs se comportent ?  | `use("@nodefony/http", { … })` | `httpConfigSchema` (`config.ts:993`)                      |
+| **Comment** ces serveurs se comportent ?  | `use("@nodefony/http", { … })` | `httpConfigSchema` (`config.ts:1155`)                     |
 
 Autrement dit : la **topologie** est une propriété du déploiement (elle change entre le poste du dev,
 la CI et le cluster) ; le **réglage** est une propriété de l'application.
@@ -452,7 +452,7 @@ Depuis `http2Schema` (`config.ts:353`), appliqué seulement si défini
 ### Niveau 2 — WebSocket (`websocket` et `websocketSecure`)
 
 Depuis `websocketSchema` (`config.ts:521`). Les deux sections partagent la forme et les défauts ; le WSS
-lit `websocketSecure` (`config.ts:1058`).
+lit `websocketSecure` (`config.ts:1224`).
 
 | Option                   | Type                | Défaut  | Effet                                                                              |
 | ------------------------ | ------------------- | ------- | ---------------------------------------------------------------------------------- |
@@ -735,7 +735,7 @@ inséré **en tête** et donc s'exécuter **en premier** (`http-kernel.ts:575`).
 load balancer cesse d'envoyer du trafic, et `shutdownDelay` laisse à cette information le temps de se
 propager.
 
-**Étape 2 — les clients WebSocket sont prévenus.** `Websocket.terminate()` (`server-websocket.ts:113`)
+**Étape 2 — les clients WebSocket sont prévenus.** `Websocket.terminate()` (`server-websocket.ts:121`)
 envoie un message applicatif puis une **frame Close 1001 « Going Away »** (`server-websocket.ts:113`).
 Sans elle, la coupure TCP ferait voir un **1006** au client — code réservé, jamais émis sur le fil,
 indiscernable d'une panne réseau. Avec 1001, le client sait qu'il doit simplement se reconnecter.
@@ -789,11 +789,11 @@ L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** c
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
 (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1920`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
-(`rateLimiter`, `http-kernel.ts:1863`), sans
+(`websocketQuotaRefusal()`, `http-kernel.ts:1930`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :
-`wsMaxConnectionsPerIp` (`config.ts:1067`). En cloud-native, laisser `null` et déléguer à l'edge —
+`wsMaxConnectionsPerIp` (`config.ts:1234`). En cloud-native, laisser `null` et déléguer à l'edge —
 nginx `limit_conn`, HAProxy `sc_conn_cur` — qui voit tout le trafic, rejette avant le coût du
 descripteur et du TLS, et couvre tous les pods. Ne l'activer que sur une machine sans ingress.
 
@@ -812,7 +812,7 @@ par seconde. Les choix visibles dans le code :
 - **Aucun timer par connexion** — un `setInterval` par serveur WebSocket, `unref`, et deux `number` par
   socket (`wsHeartbeat.ts:69`).
 - **Rien de compilé par requête** — la politique de trust-proxy, celle des `Origin` WS et les motifs de
-  `trustedHosts` sont compilés une fois et mémoïsés (`http-kernel.ts:407`, `http-kernel.ts:407`).
+  `trustedHosts` sont compilés une fois et mémoïsés (`getTrustProxyChecker()`, `http-kernel.ts:604` ; `getWsOriginPolicy()`, `http-kernel.ts:622` ; `compileAlias()`, `http-kernel.ts:1040`).
 - **Rejets avant allocation** — rate-limit HTTP et bornes WS sont vérifiés avant le contexte, la portée
   DI et l'ALS : un flood coûte une recherche dans une table de hachage.
 - **Probes hors pipeline** — réponses pré-allouées, aucun objet créé, aucun journal
@@ -842,7 +842,7 @@ demande le backplane realtime.
 | HTTP/2 Rapid Reset                    | CVE-2023-44487     | `maxConcurrentStreams` (`config.ts:355`)                                    |
 | En-têtes trop volumineux → 431        | RFC 6585 §5        | `handleClientError()` (`clientError.ts:15`)                                 |
 | WebSocket — protocole                 | RFC 6455           | `ws@8` + options (`config.ts:496`)                                          |
-| WebSocket — Close 1001 « Going Away » | RFC 6455 §7.4.1    | `Websocket.terminate()` (`server-websocket.ts:113`)                         |
+| WebSocket — Close 1001 « Going Away » | RFC 6455 §7.4.1    | `Websocket.terminate()` (`server-websocket.ts:121`)                         |
 | WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:543`)                                              |
 | WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:623`)                                      |
 | WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:567`)                                       |

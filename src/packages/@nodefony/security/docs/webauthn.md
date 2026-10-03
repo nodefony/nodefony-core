@@ -236,7 +236,7 @@ export async function loginWithPasskey(
 
 Référence vivante dans le dépôt : Studio fait exactement ces deux appels —
 `AuthService.loginWithPasskey()` (`AuthService.ts:111`) et `AuthService.registerPasskey()`
-(`AuthService.ts:133`).
+(`AuthService.ts:143`).
 
 ### 4. Ce qu'on observe
 
@@ -354,7 +354,7 @@ exactement les porteurs à risque de verrouillage.
 ## ⚙️ Configuration
 
 Table dérivée du schéma Zod `passkeysSchema` (`config.ts:461`), monté sous la clé `passkeys`
-(`config.ts:1143`).
+(`config.ts:1154`).
 
 | Option                    | Type                                       | Défaut       | Effet                                                                          |
 | ------------------------- | ------------------------------------------ | ------------ | ------------------------------------------------------------------------------ |

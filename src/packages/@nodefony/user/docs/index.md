@@ -529,7 +529,7 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 | Appel                                | Ce qu'il fait                                                 | Ancre                |
 | ------------------------------------ | ------------------------------------------------------------- | -------------------- |
 | `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:106` |
-| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:129` |
+| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:137` |
 | `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:174` |
 | `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:213` |
 | `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:243` |
@@ -729,7 +729,7 @@ Implémente `IUserRepository` et passe-le au `UserService`. Les adapters livrés
 **Trois pièges à ne pas reproduire**, appris en écrivant le dépôt mémoire :
 
 - `updateOne` doit appliquer **tous** les champs du patch, pas seulement ceux qui t'arrangent —
-  c'est le rôle de `#apply()` (`InMemoryUserRepository.ts:130`). N'en honorer qu'une partie fait un
+  c'est le rôle de `#apply()` (`InMemoryUserRepository.ts:148`). N'en honorer qu'une partie fait un
   dépôt qui ment : un `{ enabled: false }` semble réussir sans rien désactiver.
 - `create` doit persister `socialProviders`, `enabled` et `locked` — sinon le second login OAuth ne
   retrouve pas le compte et crée un doublon.

@@ -295,7 +295,7 @@ n'est jamais traitée.
 `RealtimeController.onHandshake()` (`RealtimeController.ts:404`) exécute, une fois par connexion :
 
 1. Construction d'un DTO neutre `IRealtimeHandshake` par `buildHandshakeFromContext()`
-   (`RealtimeController.ts:1258`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
+   (`RealtimeController.ts:1275`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
    dépendance à `@nodefony/security` dans le contrat.
 2. Contrôle d'origine (verrou 1).
 3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:961`) :
@@ -321,7 +321,7 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 - `host` optionnel → comparaison **stricte** (insensible à la casse) sur l'en-tête `Host`, sans
   wildcard.
 - Le match porte sur le **path**, query comprise, jamais sur l'URL absolue : `handshakePath()`
-  (`RealtimeController.ts:1310`) extrait `pathname + search` du `WebsocketContext.url`, qui est
+  (`RealtimeController.ts:1327`) extrait `pathname + search` du `WebsocketContext.url`, qui est
   absolu. Sans cette extraction, un matcher `^/nodefony/…` ne se déclencherait jamais.
 
 `@nodefony/security` enregistre ces matchers automatiquement dans `Firewall.#wireRealtime()`
@@ -680,7 +680,7 @@ canaux). `WsConnectionTransport.send()` (`WsConnectionTransport.ts:82`) applique
 
 | `bufferedAmount`                                                                                 | Action                                                                                                                      |
 | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| > `websocket.maxBackpressure` — 4 MiB par défaut (`http`, `http/nodefony/config/config.ts:1048`) | politique `websocket.backpressurePolicy` : `drop` (défaut) jette la frame — canaux d'état, le prochain snapshot la remplace |
+| > `websocket.maxBackpressure` — 4 MiB par défaut (`http`, `http/nodefony/config/config.ts:1210`) | politique `websocket.backpressurePolicy` : `drop` (défaut) jette la frame — canaux d'état, le prochain snapshot la remplace |
 | `websocket.backpressureCloseAfterDrops` drops CONSÉCUTIFS — 1000 par défaut                      | `close(1013)` « Try Again Later » ; le client se reconnecte et resynchronise                                                |
 
 ### Taille des messages entrants
