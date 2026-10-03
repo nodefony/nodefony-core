@@ -153,6 +153,109 @@ export function fromPage<T>(page: IPage<T>): DataGridServerResult<T> {
 }
 
 /**
+ * Mémoire de pagination d'une grille : comment le store pagine, et le curseur
+ * qui ouvre chaque page déjà vue.
+ *
+ * Un store à **curseur** (Redis, `SCAN`) refuse un `offset` non nul : il ne
+ * sait pas sauter à la 3ᵉ page, seulement continuer là où la précédente s'est
+ * arrêtée. Le grid, lui, raisonne en numéros de page. La piste fait le pont :
+ * elle retient le `nextCursor` rendu par la page `n` pour demander la page
+ * `n + 1`. Elle se crée UNE fois par grille ({@link createPageTrail}) et se
+ * réinitialise d'elle-même quand le tri, les filtres ou la taille changent.
+ */
+export interface IPageTrail {
+  /** Requête courante sans sa position — un changement remet la piste à zéro. */
+  signature: string;
+  /** Mode du store, appris à la première réponse ; `null` tant qu'inconnu. */
+  mode: "offset" | "cursor" | null;
+  /**
+   * `cursors[n]` = curseur qui ouvre la page `n + 1` (rendu par la page `n`) ;
+   * `null` = la page `n` était la dernière ; absent = page `n` pas encore vue.
+   */
+  cursors: Array<string | null | undefined>;
+}
+
+/** Le mode courant d'une piste — relu après chaque requête, qui peut l'apprendre. */
+function modeOf(trail: IPageTrail): IPageTrail["mode"] {
+  return trail.mode;
+}
+
+/** Une piste vierge — à garder d'un rendu à l'autre (`useRef`/`useState`). */
+export function createPageTrail(): IPageTrail {
+  return { signature: "", mode: null, cursors: [] };
+}
+
+/**
+ * Charge la page demandée par un `<DataGrid mode="server">`, que le store
+ * pagine par **offset** (SQL, mémoire) ou par **curseur** (Redis).
+ *
+ * Le mode s'APPREND à la première réponse (un `nextCursor` présent = curseur),
+ * il ne se déclare pas : une même console sert un store ou l'autre selon
+ * l'infrastructure. En mode curseur, une page jamais vue (reprise d'une
+ * pagination persistée, saut en avant) s'atteint en avançant depuis la
+ * dernière page connue — jamais par un `offset` que le store refuserait.
+ *
+ * @param trail - la piste de CETTE grille ({@link createPageTrail}).
+ * @param q - la requête émise par le DataGrid.
+ * @param filters - filtres de la vue, comme pour {@link toPageParams}.
+ * @param fetchPage - appelle le data plane avec ces paramètres.
+ * @returns les lignes et le total attendus par le grid.
+ */
+export async function loadPage<T>(
+  trail: IPageTrail,
+  q: DataGridServerQuery,
+  filters: Readonly<Record<string, string>> | undefined,
+  fetchPage: (params: URLSearchParams) => Promise<IPage<T>>,
+): Promise<DataGridServerResult<T>> {
+  const base = toPageParams(q, filters);
+  base.delete("offset");
+  const signature = base.toString();
+  if (trail.signature !== signature) {
+    trail.signature = signature;
+    trail.mode = null;
+    trail.cursors = [];
+  }
+
+  const fetchAt = async (page: number): Promise<IPage<T>> => {
+    const params = new URLSearchParams(base);
+    const cursor = trail.cursors[page - 1];
+    if (page > 1 && trail.mode === "cursor" && typeof cursor === "string") {
+      params.set("cursor", cursor);
+    } else if (page > 1) {
+      params.set("offset", String((page - 1) * q.pageSize));
+    }
+    const res = await fetchPage(params);
+    trail.mode = res.nextCursor !== undefined ? "cursor" : "offset";
+    if (trail.mode === "cursor") trail.cursors[page] = res.nextCursor ?? null;
+    return res;
+  };
+
+  if (q.page > 1 && trail.mode !== "offset") {
+    // Mode inconnu ou curseur : on avance depuis la page 1 jusqu'à connaître
+    // le curseur de la page demandée.
+    for (let k = 1; k < q.page; k += 1) {
+      if (trail.cursors[k] === undefined) await fetchAt(k);
+      // `fetchAt` vient d'apprendre le mode : relu, pas déduit du test d'entrée.
+      if (modeOf(trail) === "offset") break; // store par offset : saut direct
+      if (trail.cursors[k] === null) {
+        // La page k était la dernière : la page demandée n'existe pas (la
+        // collection a rétréci). Le total rendu ramène le grid en arrière.
+        return { rows: [], total: k * q.pageSize };
+      }
+    }
+  }
+  const page = await fetchAt(q.page);
+  if (trail.mode === "cursor") {
+    const seen = (q.page - 1) * q.pageSize + page.items.length;
+    // Un curseur non nul DIT qu'une page suit : le data plane peut omettre
+    // `hasNext` (c'est le cas de `sessions/list`), le curseur, lui, est là.
+    const more = page.hasNext || (page.nextCursor ?? null) !== null;
+    return { rows: page.items, total: more ? seen + q.pageSize : seen };
+  }
+  return fromPage(page);
+}
+
+/**
  * Ne garde d'un jeu de filtres que ceux qu'un endpoint DÉCLARE accepter.
  *
  * Elle existe pour un cas précis, et fréquent : les **compteurs de tête**

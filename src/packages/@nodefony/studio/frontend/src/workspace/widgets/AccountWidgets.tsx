@@ -84,16 +84,29 @@ function MyApiKeysBody({ source }: WidgetRenderProps<{ keys: ApiKey[] }>) {
 // ───────────────────────────── account.sessions ────────────────────────
 function MySessionsBody({ source }: WidgetRenderProps<SessionListResponse>) {
   const items = source.data?.items ?? [];
-  const total = source.data?.total ?? items.length;
+  // Une page suit ? `hasNext` le dit ; à défaut, un curseur non nul. Sur un
+  // store à curseur (Redis) il n'y a PAS de total : afficher la taille de la
+  // page comme un total serait faux dès qu'il en reste.
+  const more =
+    source.data?.hasNext === true ||
+    (source.data?.nextCursor !== undefined && source.data.nextCursor !== null);
+  const total = source.data?.total;
   return (
     <Group gap="xl" wrap="nowrap" align="flex-start">
-      <BigMetric label="Sessions actives" value={items.length} color="teal" />
+      <BigMetric
+        label="Sessions actives"
+        value={more ? `${items.length}+` : items.length}
+        color="teal"
+        {...(more ? { sub: "au moins — la liste continue" } : {})}
+      />
       <BigMetric
         label="Total"
-        value={total}
+        value={total ?? (more ? "—" : items.length)}
         color="gray"
         sub={
-          total > items.length ? "fenêtre tronquée" : "mes appareils / onglets"
+          total === undefined && more
+            ? "non compté par ce stockage"
+            : "mes appareils / onglets"
         }
       />
     </Group>

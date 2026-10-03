@@ -50,9 +50,14 @@ export interface SessionSummary {
 /** Réponse paginée de l'énumération — miroir du handler `sessions/list`. */
 export interface SessionListResponse {
   items: SessionSummary[];
-  total: number;
+  /** Absent sur un store à curseur (Redis) : compter exigerait tout balayer. */
+  total?: number;
   limit: number;
-  offset: number;
+  offset?: number;
+  /** Une page suit — seul signal fiable quand `total` est absent. */
+  hasNext?: boolean;
+  /** Store à curseur : jeton de la page suivante, `null` en fin de liste. */
+  nextCursor?: string | null;
 }
 
 /**

@@ -32,8 +32,8 @@ import {
   DataGrid,
   DocHint,
   PageFilters,
-  toPageParams,
-  fromPage,
+  loadPage,
+  createPageTrail,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
@@ -128,23 +128,28 @@ export const ApiKeysTable = observer(function ApiKeysTable({
     : null;
   const filterSignal = JSON.stringify(filters);
 
+  // Piste de pagination : retient le curseur de chaque page (store Redis,
+  // qui refuse un `offset`). Recréée quand la liste change de nature — les
+  // curseurs d'une autre liste ne valent rien.
+  const trail = useMemo(createPageTrail, [reloadKey]);
   const loader = useCallback(
     async (q: DataGridServerQuery): Promise<DataGridServerResult<ApiKey>> => {
-      const params = toPageParams(q, filters);
       try {
         // Le data plane rend `keys` (rétro-compat) là où le contrat de page dit
         // `items` : on recompose la page avant de la traduire, plutôt que
         // d'apprendre au traducteur un nom propre à une ressource.
-        const res = await store.api.getAbsolute<
-          Omit<IPage<ApiKey>, "items"> & { keys?: ApiKey[] }
-        >(`${ADMIN_KEYS_ENDPOINT}?${params}`);
-        return fromPage({ ...res, items: res.keys ?? [] });
+        return await loadPage(trail, q, filters, async (params) => {
+          const res = await store.api.getAbsolute<
+            Omit<IPage<ApiKey>, "items"> & { keys?: ApiKey[] }
+          >(`${ADMIN_KEYS_ENDPOINT}?${params}`);
+          return { ...res, items: res.keys ?? [] };
+        });
       } catch (e) {
         throw new Error(describeApiKeysError(e), { cause: e });
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
     },
-    [store, filterSignal, reloadKey],
+    [store, filterSignal, reloadKey, trail],
   );
 
   const sortable = useMemo(

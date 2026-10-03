@@ -153,6 +153,13 @@ dans un `<Text>` = `<p>`. Y mettre une valeur **RICHE** (`<Badge>`, `<div>`, `<G
   Recharger. État persisté restauré en **initialiseur `useState` lazy SYNCHRONE** → prêt AVANT la 1ʳᵉ requête (pas de
   double-fetch). Endpoint back = renvoyer `{rows,total}`, lire `page/pageSize/sort/dir/q/filters(JSON)`.
 - Persistance **indexée** : clé `nf.datagrid:<persist.key>` (unique par grille) ; « Effacer la sauvegarde » au menu Colonnes.
+- 🔴 **Loader d'une ressource paginée (`IPage`) = `loadPage(trail, q, filters, fetch)`**, jamais
+  `toPageParams` + `fromPage` à la main. Un store à **curseur** (Redis : sessions, jetons, passkeys)
+  refuse tout `offset` > 0 (**400** `PaginationModeError`) : la page 2 d'une grille qui l'envoie
+  tombe en erreur. `loadPage` apprend le mode à la 1ʳᵉ réponse, retient le curseur de chaque page,
+  et rejoint une page jamais vue (pagination persistée) en avançant depuis la 1. La piste
+  (`createPageTrail`) se recrée par `useMemo` quand la liste change de nature (endpoint, `reloadKey`).
+  Signal de suite en mode curseur = `nextCursor` non nul — `sessions/list` n'envoie PAS `hasNext`.
 
 ## 6. Temps réel / socket Studio
 

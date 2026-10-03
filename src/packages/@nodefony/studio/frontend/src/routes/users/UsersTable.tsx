@@ -22,8 +22,8 @@ import {
   DataGrid,
   DocHint,
   PageFilters,
-  toPageParams,
-  fromPage,
+  loadPage,
+  createPageTrail,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
@@ -124,24 +124,29 @@ export const UsersTable = observer(function UsersTable({
   // (sinon on demande la page 7 d'un résultat qui n'a plus que 2 pages).
   const filterSignal = JSON.stringify(filters);
 
+  // Piste de pagination : retient le curseur de chaque page (store Redis,
+  // qui refuse un `offset`). Recréée quand la liste change de nature — les
+  // curseurs d'une autre liste ne valent rien.
+  const trail = useMemo(createPageTrail, [reloadKey]);
   const loader = useCallback(
     async (
       q: DataGridServerQuery,
     ): Promise<DataGridServerResult<UserSummary>> => {
-      const params = toPageParams(q, filters);
       try {
-        const page = await store.api.getAbsolute<IPage<UserSummary>>(
-          `${USERS_LIST_ENDPOINT}?${params}`,
+        const result = await loadPage(trail, q, filters, (params) =>
+          store.api.getAbsolute<IPage<UserSummary>>(
+            `${USERS_LIST_ENDPOINT}?${params}`,
+          ),
         );
-        onLoaded?.(page.items);
-        return fromPage(page);
+        onLoaded?.(result.rows);
+        return result;
       } catch (e) {
         throw new Error(describeUsersError(e), { cause: e });
       }
       // `reloadKey` n'est pas lu dans le corps : il est là pour CHANGER
       // l'identité du loader, ce qui déclenche le rechargement du grid.
     },
-    [store, filterSignal, reloadKey, onLoaded],
+    [store, filterSignal, reloadKey, onLoaded, trail],
   );
 
   const sortable = useMemo(

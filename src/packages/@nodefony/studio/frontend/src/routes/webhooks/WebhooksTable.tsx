@@ -45,8 +45,8 @@ import {
   DataGrid,
   DocHint,
   PageFilters,
-  toPageParams,
-  fromPage,
+  loadPage,
+  createPageTrail,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
@@ -217,27 +217,32 @@ export const WebhooksTable = observer(function WebhooksTable({
   const caps = store.admin.pageCapabilities(WEBHOOKS_ENDPOINT);
   const filterSignal = JSON.stringify(filters);
 
+  // Piste de pagination : retient le curseur de chaque page (store Redis,
+  // qui refuse un `offset`). Recréée quand la liste change de nature — les
+  // curseurs d'une autre liste ne valent rien.
+  const trail = useMemo(createPageTrail, [reloadKey]);
   const loader = useCallback(
     async (
       q: DataGridServerQuery,
     ): Promise<DataGridServerResult<WebhookEndpoint>> => {
-      const params = toPageParams(q, filters);
       try {
         // Le data plane rend `endpoints` là où le contrat de page dit `items` :
         // on recompose la page ici, sans apprendre au traducteur un nom propre
         // à une ressource.
-        const res = await store.api.getAbsolute<
-          Omit<IPage<WebhookEndpoint>, "items"> & {
-            endpoints?: WebhookEndpoint[];
-          }
-        >(`${WEBHOOKS_ENDPOINT}?${params}`);
-        return fromPage({ ...res, items: res.endpoints ?? [] });
+        return await loadPage(trail, q, filters, async (params) => {
+          const res = await store.api.getAbsolute<
+            Omit<IPage<WebhookEndpoint>, "items"> & {
+              endpoints?: WebhookEndpoint[];
+            }
+          >(`${WEBHOOKS_ENDPOINT}?${params}`);
+          return { ...res, items: res.endpoints ?? [] };
+        });
       } catch (e) {
         throw new Error(describeWebhooksError(e), { cause: e });
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
     },
-    [store, filterSignal, reloadKey],
+    [store, filterSignal, reloadKey, trail],
   );
 
   const sortable = useMemo(

@@ -32,8 +32,8 @@ import {
   DataGrid,
   DocHint,
   PageFilters,
-  toPageParams,
-  fromPage,
+  loadPage,
+  createPageTrail,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
@@ -130,22 +130,24 @@ export const SessionsTable = observer(function SessionsTable({
   const caps = store.admin.pageCapabilities(endpoint);
   const filterSignal = JSON.stringify(filters);
 
+  // Piste de pagination : retient le curseur de chaque page (store Redis,
+  // qui refuse un `offset`). Recréée quand la liste change de nature — les
+  // curseurs d'une autre liste ne valent rien.
+  const trail = useMemo(createPageTrail, [endpoint, reloadKey]);
   const loader = useCallback(
     async (
       q: DataGridServerQuery,
     ): Promise<DataGridServerResult<SessionSummary>> => {
-      const params = toPageParams(q, filters);
       try {
-        const page = await store.api.getAbsolute<IPage<SessionSummary>>(
-          `${endpoint}?${params}`,
+        return await loadPage(trail, q, filters, (params) =>
+          store.api.getAbsolute<IPage<SessionSummary>>(`${endpoint}?${params}`),
         );
-        return fromPage(page);
       } catch (e) {
         throw new Error(describeSessionsError(e), { cause: e });
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
     },
-    [store, endpoint, filterSignal, reloadKey],
+    [store, endpoint, filterSignal, reloadKey, trail],
   );
 
   const sortable = useMemo(

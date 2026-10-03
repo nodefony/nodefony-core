@@ -13,7 +13,10 @@ import {
   withoutColumnFilters,
   fromPage,
   toStatsParams,
+  loadPage,
+  createPageTrail,
 } from "../../../frontend/src/components/ui/pageQuery";
+import type { IPage } from "nodefony";
 import type {
   DataGridColumnFilter,
   DataGridServerQuery,
@@ -244,5 +247,114 @@ describe("toStatsParams — les compteurs suivent la même sélection", () => {
       const known = key in caps().filters || PAGE_QUERY_KEYS.has(key);
       expect(known, `clé inconnue émise : ${key}`).to.equal(true);
     }
+  });
+});
+
+describe("loadPage — suivre le curseur d'un store qui ne sait pas sauter", () => {
+  const ITEMS = Array.from({ length: 60 }, (_, i) => `s${i}`);
+
+  /**
+   * Store à CURSEUR comme Redis : un `offset` non nul est REFUSÉ (le serveur
+   * répond 400 `PaginationModeError`), seule la suite d'un curseur est servie.
+   */
+  function cursorStore() {
+    const seen: string[] = [];
+    const fetchPage = (p: URLSearchParams): Promise<IPage<string>> => {
+      seen.push(p.toString());
+      if (Number(p.get("offset") ?? 0) > 0) {
+        return Promise.reject(new Error("400 PaginationModeError"));
+      }
+      const limit = Number(p.get("limit"));
+      const start = Number(p.get("cursor") ?? 0);
+      const items = ITEMS.slice(start, start + limit);
+      const next = start + limit;
+      return Promise.resolve({
+        items,
+        limit,
+        hasNext: next < ITEMS.length,
+        nextCursor: next < ITEMS.length ? String(next) : null,
+      });
+    };
+    return { fetchPage, seen };
+  }
+
+  function offsetStore() {
+    const seen: string[] = [];
+    const fetchPage = (p: URLSearchParams): Promise<IPage<string>> => {
+      seen.push(p.toString());
+      const limit = Number(p.get("limit"));
+      const offset = Number(p.get("offset") ?? 0);
+      return Promise.resolve({
+        items: ITEMS.slice(offset, offset + limit),
+        limit,
+        offset,
+        total: ITEMS.length,
+        hasNext: offset + limit < ITEMS.length,
+      });
+    };
+    return { fetchPage, seen };
+  }
+
+  it("🔴 store à curseur : la page 2 se demande par le CURSEUR de la page 1, jamais par offset", async () => {
+    const trail = createPageTrail();
+    const { fetchPage, seen } = cursorStore();
+    const p1 = await loadPage(trail, query(), undefined, fetchPage);
+    const p2 = await loadPage(trail, query({ page: 2 }), undefined, fetchPage);
+    expect(p1.rows[0]).toBe("s0");
+    expect(p2.rows[0]).toBe("s25");
+    expect(seen.every((q) => !/offset=[1-9]/.test(q))).toBe(true);
+    expect(p2.total, "minorant honnête : vu + une page").toBe(75);
+  });
+
+  it("🔴 page jamais vue (pagination persistée) : on avance depuis la page 1", async () => {
+    const trail = createPageTrail();
+    const { fetchPage, seen } = cursorStore();
+    const p3 = await loadPage(trail, query({ page: 3 }), undefined, fetchPage);
+    expect(p3.rows).toEqual(ITEMS.slice(50, 60));
+    expect(p3.total, "dernière page : plus de suite").toBe(60);
+    expect(seen).toHaveLength(3);
+  });
+
+  it("store par offset : saut direct, une seule requête de plus pour apprendre le mode", async () => {
+    const trail = createPageTrail();
+    const { fetchPage, seen } = offsetStore();
+    const p3 = await loadPage(trail, query({ page: 3 }), undefined, fetchPage);
+    expect(p3.rows).toEqual(ITEMS.slice(50, 60));
+    expect(p3.total).toBe(60);
+    expect(seen).toHaveLength(2);
+    const p2 = await loadPage(trail, query({ page: 2 }), undefined, fetchPage);
+    expect(p2.rows[0]).toBe("s25");
+    expect(seen, "mode appris : plus de requête d'apprentissage").toHaveLength(
+      3,
+    );
+  });
+
+  it("changer un filtre remet la piste à zéro — les curseurs d'une autre liste ne valent rien", async () => {
+    const trail = createPageTrail();
+    const { fetchPage } = cursorStore();
+    await loadPage(trail, query(), { user: "a" }, fetchPage);
+    await loadPage(trail, query({ page: 2 }), { user: "a" }, fetchPage);
+    expect(trail.cursors.length).toBeGreaterThan(1);
+    await loadPage(trail, query(), { user: "b" }, fetchPage);
+    expect(trail.cursors).toEqual([undefined, "25"]);
+  });
+
+  it("🔴 réponse SANS `hasNext` (sessions/list) : le curseur suffit à annoncer la suite", async () => {
+    const trail = createPageTrail();
+    const { fetchPage } = cursorStore();
+    const sansHasNext = async (p: URLSearchParams) => {
+      const { hasNext: _omis, ...page } = await fetchPage(p);
+      return page as IPage<string>;
+    };
+    const p1 = await loadPage(trail, query(), undefined, sansHasNext);
+    expect(p1.total, "la page 2 doit exister").toBe(50);
+  });
+
+  it("page au-delà de la fin (la collection a rétréci) : vide, et un total qui ramène le grid", async () => {
+    const trail = createPageTrail();
+    const { fetchPage } = cursorStore();
+    const p5 = await loadPage(trail, query({ page: 5 }), undefined, fetchPage);
+    expect(p5.rows).toEqual([]);
+    expect(p5.total).toBe(75);
   });
 });
