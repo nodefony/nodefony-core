@@ -213,6 +213,45 @@ export class RemoteJwtVerifier {
     token: string,
     audience: string,
   ): Promise<IAccessPrincipal | null> {
+    const verified = await this.verifyClaims(token, audience);
+    if (verified === null) return null;
+    const { issuer, payload } = verified;
+    const subject = typeof payload.sub === "string" ? payload.sub : undefined;
+    // La borne temporelle est REMONTÉE, pas seulement consommée. `jose` vient
+    // de vérifier `exp` pour cette requête-ci ; l'appelant, lui, peut ouvrir
+    // au nom de ce jeton quelque chose qui dure plus longtemps qu'elle — une
+    // socket. Sans ces trois valeurs, il n'a aucun moyen de savoir quand cette
+    // identité cesse d'être vraie, et la connexion survit au jeton.
+    return {
+      issuer,
+      subject,
+      scopes: extractScopes(payload),
+      expiresAt: typeof payload.exp === "number" ? payload.exp : undefined,
+      issuedAt: typeof payload.iat === "number" ? payload.iat : undefined,
+      tokenId: typeof payload.jti === "string" ? payload.jti : undefined,
+    };
+  }
+
+  /**
+   * Vérifie un jeton et rend ses claims BRUTS — pour un jeton qui n'est pas un
+   * jeton d'accès (jeton de déconnexion OpenID Connect, par exemple), dont le
+   * sens se lit dans des claims que {@link verify} ne remonte pas.
+   *
+   * Mêmes garanties et même contrat d'erreur que {@link verify} : signature,
+   * émetteur de la liste fermée, algorithme imposé, audience obligatoire,
+   * claims exigés par l'émetteur ; un refus est un `null`, une panne lève.
+   *
+   * @param token - le jeton brut, tel que présenté
+   * @param audience - audience que le jeton DOIT porter dans `aud`
+   * @returns l'émetteur canonique et les claims vérifiés, ou `null` si le jeton
+   *          est refusé
+   * @throws Error si l'émetteur ne peut pas être joint ou publie un jeu de clés
+   *         inutilisable
+   */
+  async verifyClaims(
+    token: string,
+    audience: string,
+  ): Promise<{ issuer: string; payload: Jose.JWTPayload } | null> {
     if (typeof token !== "string" || token.length === 0) return null;
     const jose = (this.#jose ??= await import("jose"));
 
@@ -252,28 +291,15 @@ export class RemoteJwtVerifier {
           ? { requiredClaims: [...trusted.requiredClaims] }
           : {}),
       });
-      const subject = typeof payload.sub === "string" ? payload.sub : undefined;
-      // La borne temporelle est REMONTÉE, pas seulement consommée. `jose` vient
-      // de vérifier `exp` pour cette requête-ci ; l'appelant, lui, peut ouvrir
-      // au nom de ce jeton quelque chose qui dure plus longtemps qu'elle — une
-      // socket. Sans ces trois valeurs, il n'a aucun moyen de savoir quand cette
-      // identité cesse d'être vraie, et la connexion survit au jeton.
-      return {
-        // 🔴 `claimedIssuer` — la forme CANONIQUE, celle qui a servi de clé à
-        // l'allowlist ci-dessus. Pas `payload.iss`, dont la forme serait
-        // décidée par le porteur ; et pas `trusted.issuer` non plus, qui est la
-        // valeur BRUTE de la configuration : une barre oblique terminale
-        // écrite en config suffirait alors à ce que l'appelant n'y reconnaisse
-        // plus son propre émetteur. Cette valeur sert de clé d'espace de noms
-        // en aval — les deux côtés doivent la normaliser pareil, donc une
-        // seule forme doit sortir d'ici.
-        issuer: claimedIssuer,
-        subject,
-        scopes: extractScopes(payload),
-        expiresAt: typeof payload.exp === "number" ? payload.exp : undefined,
-        issuedAt: typeof payload.iat === "number" ? payload.iat : undefined,
-        tokenId: typeof payload.jti === "string" ? payload.jti : undefined,
-      };
+      // 🔴 `claimedIssuer` — la forme CANONIQUE, celle qui a servi de clé à
+      // l'allowlist ci-dessus. Pas `payload.iss`, dont la forme serait
+      // décidée par le porteur ; et pas `trusted.issuer` non plus, qui est la
+      // valeur BRUTE de la configuration : une barre oblique terminale
+      // écrite en config suffirait alors à ce que l'appelant n'y reconnaisse
+      // plus son propre émetteur. Cette valeur sert de clé d'espace de noms
+      // en aval — les deux côtés doivent la normaliser pareil, donc une
+      // seule forme doit sortir d'ici.
+      return { issuer: claimedIssuer, payload };
     } catch (error) {
       const code = (error as { code?: string }).code;
       if (!code || !TOKEN_FAULT_CODES.has(code)) {

@@ -16,10 +16,13 @@
  *  2. le jeton d'accès de la MÊME personne ouvre l'API et désigne le MÊME compte
  *     local que la session (pas un second compte, pas un 401) ;
  *  3. un `code_verifier` faux → `invalid_grant` rendu PAR KEYCLOAK au client du
- *     framework.
+ *     framework ;
+ *  4. canal arrière (#517) : Keycloak ferme la session SSO → il appelle
+ *     l'application, qui détruit la session ; un jeton forgé est refusé.
  */
 import { describe, expect, it } from "vitest";
 import https from "node:https";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -226,6 +229,64 @@ async function loginAtKeycloak(
   return back;
 }
 
+/** Origine du serveur Keycloak, déduite de l'émetteur (`…/realms/<nom>`). */
+const keycloakOrigin = (): string => new URL(ISSUER).origin;
+const realmName = (): string => ISSUER.split("/realms/")[1] ?? "";
+
+/**
+ * Jeton de l'administrateur de Keycloak — identifiants par DÉFAUT du compose
+ * (`KC_BOOTSTRAP_ADMIN_*` de `docker/docker-compose.yml`), ceux du décor.
+ */
+async function adminToken(): Promise<string> {
+  const res = await send({
+    url: new URL(
+      `${keycloakOrigin()}/realms/master/protocol/openid-connect/token`,
+    ),
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "password",
+      client_id: "admin-cli",
+      username: "admin",
+      password: "nodefony-dev",
+    }).toString(),
+  });
+  expect(res.status, `jeton d'administration (${res.text})`).toBe(200);
+  return (JSON.parse(res.text) as { access_token: string }).access_token;
+}
+
+/**
+ * Keycloak peut-il APPELER l'application ? Constaté depuis le conteneur, par
+ * l'adresse que le realm déclare pour le canal arrière.
+ *
+ * @returns `null` si oui ; sinon la raison, pour l'énoncer.
+ */
+function keycloakReachesApp(): string | null {
+  const realm = JSON.parse(readFileSync(REALM_FILE, "utf8")) as {
+    clients: Array<{ clientId: string; attributes?: Record<string, string> }>;
+  };
+  const target = realm.clients.find((c) => c.clientId === CLIENT_ID)
+    ?.attributes?.["backchannel.logout.url"];
+  if (target === undefined) return "aucune backchannel.logout.url au realm";
+  const { hostname, port } = new URL(target);
+  try {
+    execFileSync(
+      "docker",
+      [
+        "exec",
+        "nodefony-keycloak",
+        "bash",
+        "-c",
+        `exec 3<>/dev/tcp/${hostname}/${port}`,
+      ],
+      { stdio: "ignore", timeout: 10_000 },
+    );
+    return null;
+  } catch {
+    return `le conteneur nodefony-keycloak ne joint pas ${hostname}:${port} (serveur à l'écoute de la seule boucle locale ?)`;
+  }
+}
+
 /** Le client du framework, tel que l'application le construit — par découverte. */
 function frameworkClient(): Promise<IOAuthProvider> {
   return createDiscoveredOidcProvider(
@@ -377,6 +438,96 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
       });
       expect(page.status, "le mot de passe est redemandé").toBe(200);
       expect(page.text).toContain('id="kc-form-login"');
+    });
+
+    it("canal arrière : Keycloak ferme la session SSO → la session de l'application meurt (#517)", async (ctx) => {
+      // Capacité CONSTATÉE, jamais déduite de la plateforme : Keycloak doit
+      // pouvoir APPELER l'application. Un serveur de dev n'écoute que la boucle
+      // locale ; sous Linux, le conteneur ne la voit pas (Docker Desktop, si).
+      const reach = keycloakReachesApp();
+      if (reach !== null) {
+        console.warn(`[oauth2-keycloak] canal arrière NON éprouvé : ${reach}`);
+        ctx.skip();
+        return;
+      }
+      const jar = new Map<string, string>();
+      const start = await app(`${OAUTH}/authorize`);
+      collectCookies(start, jar);
+      const back = await loginAtKeycloak(locationOf(start));
+      const cb = await app(`${back.pathname}${back.search}`, {
+        cookie: cookieHeader(jar),
+      });
+      collectCookies(cb, jar);
+      expect((await app(ME, { cookie: cookieHeader(jar) })).status).toBe(200);
+
+      // L'utilisateur est déconnecté CHEZ Keycloak, sans que l'application n'y
+      // soit pour rien (console d'administration, autre application du SSO…).
+      const admin = await adminToken();
+      const { username } = realmUser();
+      const found = await send({
+        url: new URL(
+          `${keycloakOrigin()}/admin/realms/${realmName()}/users?exact=true&username=${encodeURIComponent(username)}`,
+        ),
+        headers: { authorization: `Bearer ${admin}` },
+      });
+      const userId = (JSON.parse(found.text) as Array<{ id: string }>)[0]?.id;
+      expect(userId, "compte du realm").toBeTypeOf("string");
+      const out = await send({
+        url: new URL(
+          `${keycloakOrigin()}/admin/realms/${realmName()}/users/${userId ?? ""}/logout`,
+        ),
+        method: "POST",
+        headers: { authorization: `Bearer ${admin}` },
+      });
+      expect(out.status, "déconnexion côté Keycloak").toBe(204);
+
+      // Le jeton de déconnexion arrive par le canal arrière : la session de
+      // l'application doit être détruite, sans aucune action du navigateur.
+      let status = 0;
+      for (let i = 0; i < 50 && status !== 401; i += 1) {
+        status = (await app(ME, { cookie: cookieHeader(jar) })).status;
+        if (status !== 401) await new Promise((r) => setTimeout(r, 100));
+      }
+      expect(status, "session de l'application fermée par Keycloak").toBe(401);
+    });
+
+    it("canal arrière : un jeton de déconnexion forgé est refusé (400), la session survit", async () => {
+      const jar = new Map<string, string>();
+      const start = await app(`${OAUTH}/authorize`);
+      collectCookies(start, jar);
+      const back = await loginAtKeycloak(locationOf(start));
+      const cb = await app(`${back.pathname}${back.search}`, {
+        cookie: cookieHeader(jar),
+      });
+      collectCookies(cb, jar);
+      // Claims plausibles, signature absente : n'importe qui peut fabriquer ça.
+      const part = (o: unknown) =>
+        Buffer.from(JSON.stringify(o)).toString("base64url");
+      const now = Math.floor(Date.now() / 1000);
+      const forged = `${part({ alg: "RS256", typ: "logout+jwt" })}.${part({
+        iss: ISSUER,
+        aud: CLIENT_ID,
+        iat: now,
+        exp: now + 60,
+        jti: `forge-${now}`,
+        sub: "x",
+        events: { "http://schemas.openid.net/event/backchannel-logout": {} },
+      })}.AAAA`;
+      const res = await send({
+        url: new URL(
+          `https://localhost:${APP.port}${OAUTH}/backchannel-logout`,
+        ),
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ logout_token: forged }).toString(),
+      });
+      expect(res.status, res.text).toBe(400);
+      expect(res.headers["cache-control"]).toBe("no-store");
+      expect(
+        res.headers["set-cookie"],
+        "aucune session ouverte",
+      ).toBeUndefined();
+      expect((await app(ME, { cookie: cookieHeader(jar) })).status).toBe(200);
     });
 
     it("code_verifier faux → invalid_grant rendu PAR Keycloak", async () => {

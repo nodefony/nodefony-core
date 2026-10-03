@@ -246,6 +246,31 @@ describe("Sessions admin — parcours PAGINÉ (parc > une page)", () => {
     });
   });
 
+  describe("destroyWhere — révocation groupée par prédicat", () => {
+    it("sans filtre, draine TOUT le parc sur le prédicat, aux deux modes", async () => {
+      // Le canal arrière OpenID Connect désigne une session par son `sid`, pas
+      // par son utilisateur : le parcours est alors GLOBAL, et le glissement
+      // de l'offset le menace autant que « déconnecter partout ».
+      for (const make of [makeOffsetStore, makeCursorStore]) {
+        const { storage, remaining } = make(bigParc());
+        const svc = makeService(storage);
+        const destroyed = await svc.destroyWhere(
+          undefined,
+          (data) => data.user === "bob",
+        );
+        expect(destroyed).to.equal(300);
+        expect(remaining()).to.have.length(150);
+      }
+    });
+
+    it("un prédicat qui ne retient rien ne détruit rien (un seul passage)", async () => {
+      const { storage, remaining } = makeOffsetStore(bigParc());
+      const svc = makeService(storage);
+      expect(await svc.destroyWhere(undefined, () => false)).to.equal(0);
+      expect(remaining()).to.have.length(450);
+    });
+  });
+
   describe("garantie de non-matérialisation", () => {
     it("aucun parcours ne demande plus d'une page au store", async () => {
       const { storage, trace } = makeOffsetStore(bigParc());

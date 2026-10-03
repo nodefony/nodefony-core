@@ -581,6 +581,11 @@ services:
     restart: unless-stopped
     profiles: ["keycloak"]
     networks: [<%= it.appName %>]
+    # Canal arrière (OpenID Connect Back-Channel Logout) : Keycloak APPELLE
+    # l'application, qui tourne sur l'hôte. Docker Desktop connaît ce nom ;
+    # sous Linux, `host-gateway` le pose.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     user: "${KEYCLOAK_UID:-1000}:0"
     command: ["start-dev", "--import-realm"]
     environment:

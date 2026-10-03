@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import * as jose from "jose";
 import {
   createOidcProvider,
   createDiscoveredOidcProvider,
@@ -415,6 +416,162 @@ describe("createDiscoveredOidcProvider (fournisseur décrit par son seul émette
     await assert.rejects(
       () => createDiscoveredOidcProvider("keycloak", ctx),
       /issuer/,
+    );
+  });
+});
+
+describe("Jeton de déconnexion (Back-Channel Logout §2.6) — vraie signature, vraies clés (#517)", () => {
+  const ISSUER = "https://idp.test";
+  const CLIENT = "cid";
+  const ctx = {
+    clientId: CLIENT,
+    clientSecret: "s",
+    redirectUri: "https://app.test/cb",
+  };
+  const EVENT = "http://schemas.openid.net/event/backchannel-logout";
+  const now = (): number => Math.floor(Date.now() / 1000);
+
+  let key: jose.CryptoKey;
+  let impostor: jose.CryptoKey;
+  let jwks: { keys: jose.JWK[] };
+
+  beforeAll(async () => {
+    const pair = await jose.generateKeyPair("RS256");
+    key = pair.privateKey;
+    impostor = (await jose.generateKeyPair("RS256")).privateKey;
+    jwks = {
+      keys: [
+        { ...(await jose.exportJWK(pair.publicKey)), kid: "k1", alg: "RS256" },
+      ],
+    };
+  });
+
+  function sign(
+    claims: Record<string, unknown>,
+    signer: jose.CryptoKey = key,
+  ): Promise<string> {
+    return new jose.SignJWT(claims)
+      .setProtectedHeader({ alg: "RS256", kid: "k1", typ: "logout+jwt" })
+      .sign(signer);
+  }
+
+  const valid = (): Record<string, unknown> => ({
+    iss: ISSUER,
+    aud: CLIENT,
+    iat: now(),
+    exp: now() + 120,
+    jti: "j-1",
+    sub: "kc-alice",
+    sid: "S1",
+    events: { [EVENT]: {} },
+  });
+
+  /** Émetteur servi par un transport INJECTÉ ; `certs: false` = jeu de clés en panne. */
+  async function provider(certs = true) {
+    const routes: Record<string, unknown> = {
+      [`${ISSUER}/.well-known/oauth-authorization-server`]: {
+        issuer: ISSUER,
+        authorization_endpoint: `${ISSUER}/auth`,
+        token_endpoint: `${ISSUER}/token`,
+        jwks_uri: `${ISSUER}/certs`,
+        code_challenge_methods_supported: ["S256"],
+        // Keycloak annonce aussi HS256 : il doit être ÉCARTÉ, pas accepté.
+        id_token_signing_alg_values_supported: ["HS256", "RS256"],
+      },
+    };
+    if (certs) routes[`${ISSUER}/certs`] = jwks;
+    const fetch = ((url: string | URL) => {
+      const body = routes[String(url)];
+      return Promise.resolve(
+        body === undefined
+          ? new Response("{}", { status: 404 })
+          : new Response(JSON.stringify(body), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+      );
+    }) as unknown as typeof globalThis.fetch;
+    const p = await createDiscoveredOidcProvider("keycloak", ctx, {
+      issuer: ISSUER,
+      fetch,
+    });
+    assert.ok(
+      p.verifyLogoutToken,
+      "un fournisseur OIDC découvert vérifie les jetons de déconnexion",
+    );
+    return p.verifyLogoutToken;
+  }
+
+  it("jeton valide → ce qu'il désigne (sub, sid, jti, exp)", async () => {
+    const verify = await provider();
+    const claims = valid();
+    assert.deepEqual(await verify(await sign(claims)), {
+      issuer: ISSUER,
+      subject: "kc-alice",
+      sid: "S1",
+      tokenId: "j-1",
+      expiresAt: claims.exp,
+    });
+  });
+
+  it("signé par une AUTRE clé (même kid) → refusé", async () => {
+    const verify = await provider();
+    assert.equal(await verify(await sign(valid(), impostor)), null);
+  });
+
+  it("HS256 (annoncé par l'émetteur, mais à secret partagé) → refusé", async () => {
+    const verify = await provider();
+    const hs = await new jose.SignJWT(valid())
+      .setProtectedHeader({ alg: "HS256", kid: "k1" })
+      .sign(
+        new TextEncoder().encode(
+          "la-cle-publique-ne-doit-jamais-etre-un-secret",
+        ),
+      );
+    assert.equal(await verify(hs), null);
+  });
+
+  it("audience d'un autre client, émetteur étranger, expiré → refusés", async () => {
+    const verify = await provider();
+    assert.equal(await verify(await sign({ ...valid(), aud: "autre" })), null);
+    assert.equal(
+      await verify(await sign({ ...valid(), iss: "https://evil.test" })),
+      null,
+    );
+    assert.equal(
+      await verify(await sign({ ...valid(), exp: now() - 600 })),
+      null,
+    );
+  });
+
+  it("un ID token du même émetteur (pas d'events) n'est pas un jeton de déconnexion", async () => {
+    const verify = await provider();
+    const { events: _events, ...idToken } = valid();
+    assert.equal(await verify(await sign(idToken)), null);
+    assert.equal(
+      await verify(await sign({ ...valid(), events: { autre: {} } })),
+      null,
+    );
+    assert.equal(
+      await verify(await sign({ ...valid(), events: { [EVENT]: true } })),
+      null,
+    );
+  });
+
+  it("nonce présent, ni sub ni sid, jti absent → refusés", async () => {
+    const verify = await provider();
+    assert.equal(await verify(await sign({ ...valid(), nonce: "n" })), null);
+    const { sub: _s, sid: _i, ...anonymous } = valid();
+    assert.equal(await verify(await sign(anonymous)), null);
+    const { jti: _j, ...sansJti } = valid();
+    assert.equal(await verify(await sign(sansJti)), null);
+  });
+
+  it("jeu de clés injoignable → LÈVE (panne, pas refus)", async () => {
+    const verify = await provider(false);
+    await assert.rejects(
+      verify(await sign(valid())),
+      /vérification impossible/,
     );
   });
 });

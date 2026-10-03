@@ -30,7 +30,10 @@
       "webOrigins": ["+"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "https://localhost:5152/*##http://localhost:5151/*"
+        "post.logout.redirect.uris": "https://localhost:5152/*##http://localhost:5151/*",
+        "backchannel.logout.url": "http://host.docker.internal:5151/nodefony/security/api/oauth2/keycloak/backchannel-logout",
+        "backchannel.logout.session.required": "true",
+        "backchannel.logout.revoke.offline.tokens": "false"
       },
       "protocolMappers": [
         {

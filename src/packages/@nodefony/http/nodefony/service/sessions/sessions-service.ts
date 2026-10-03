@@ -769,12 +769,25 @@ class SessionsService extends Service {
   }
 
   /**
-   * « Déconnexion partout » : détruit TOUTES les sessions d'un utilisateur (scan
-   * O(N) — pas d'index inverse, acceptable en admin). Renvoie le nombre détruit.
+   * Détruit TOUTES les sessions dont le contenu satisfait `match` — la primitive
+   * des révocations groupées (« déconnecter partout », déconnexion demandée par
+   * un fournisseur d'identité). Ni journal ni audit : l'appelant, qui connaît le
+   * motif, les émet.
+   *
+   * @remarks Quand la méthode rend la main, il ne reste AUCUNE session qui
+   * satisfait `match` (au plus `MAX_LOGOUT_PASSES` passages). Une révocation qui
+   * en laisse une seule n'est pas une imprécision, c'est une faille.
+   *
+   * @param filter - restriction poussée au store (`user` : WHERE indexable) ;
+   *   `undefined` parcourt tout le parc.
+   * @param match - prédicat sur la session sérialisée — il doit RE-VÉRIFIER ce
+   *   que `filter` exprime, un store pouvant l'ignorer.
+   * @returns le nombre de sessions détruites.
+   * @throws Error si le store actif ne sait pas énumérer ses sessions.
    */
-  async destroyByUser(
-    identifier: string,
-    actor?: string | null,
+  async destroyWhere(
+    filter: ISessionListFilter | undefined,
+    match: (data: ISerializedSession) => boolean,
   ): Promise<number> {
     const storage = this.enumerable();
     let destroyed = 0;
@@ -787,16 +800,11 @@ class SessionsService extends Service {
     // Plutôt que de parier sur le mode — donc sur l'implémentation d'un store
     // qu'on ne contrôle pas — on repasse jusqu'à ce qu'un passage COMPLET ne
     // détruise plus rien. La convergence est garantie (chaque passage non final
-    // retire au moins une session, le parc est fini) et la propriété rendue est
-    // celle qui compte : quand `destroyByUser` rend la main, il ne reste RIEN.
-    // Une révocation « déconnecter partout » qui en laisse une seule n'est pas
-    // une imprécision, c'est une faille.
+    // retire au moins une session, le parc est fini).
     for (let pass = 0; pass < MAX_LOGOUT_PASSES; pass += 1) {
       let destroyedThisPass = 0;
-      await this.eachSessionRecord({ user: identifier }, async (rec) => {
-        // Re-check d'appartenance : un store qui ignorerait le filtre ne peut pas
-        // faire détruire la session d'un tiers.
-        if (rec.data.user !== identifier) return false;
+      await this.eachSessionRecord(filter, async (rec) => {
+        if (!match(rec.data)) return false;
         if (await storage.destroy(rec.id)) destroyedThisPass += 1;
         return false; // ne jamais court-circuiter : on veut TOUT le passage
       });
@@ -806,12 +814,30 @@ class SessionsService extends Service {
       if (destroyedThisPass === 0) break;
       if (pass === MAX_LOGOUT_PASSES - 1) {
         this.log(
-          `sessions: logout-all interrompu après ${MAX_LOGOUT_PASSES} passages ` +
-            `— user=${identifier} (révocation potentiellement incomplète)`,
+          `sessions: révocation groupée interrompue après ${MAX_LOGOUT_PASSES} ` +
+            `passages — filtre=${JSON.stringify(filter ?? {})} (révocation ` +
+            `potentiellement incomplète)`,
           "WARNING",
         );
       }
     }
+    return destroyed;
+  }
+
+  /**
+   * « Déconnexion partout » : détruit TOUTES les sessions d'un utilisateur (scan
+   * O(N) — pas d'index inverse, acceptable en admin). Renvoie le nombre détruit.
+   */
+  async destroyByUser(
+    identifier: string,
+    actor?: string | null,
+  ): Promise<number> {
+    // Re-check d'appartenance dans le prédicat : un store qui ignorerait le
+    // filtre ne peut pas faire détruire la session d'un tiers.
+    const destroyed = await this.destroyWhere(
+      { user: identifier },
+      (data) => data.user === identifier,
+    );
     if (destroyed > 0) {
       this.log(
         `sessions revoked by admin (logout-all) — user=${identifier} ` +

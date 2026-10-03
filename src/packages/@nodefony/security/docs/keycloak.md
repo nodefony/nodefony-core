@@ -23,8 +23,8 @@ source: "src/packages/@nodefony/security/docs/keycloak.md"
 > du realm suffit à le décrire. Le travail se passe surtout dans Keycloak : créer le realm, déclarer
 > un client **confidentiel**, enregistrer l'URL de retour au caractère près. Cette page fait le
 > chemin entier, puis montre comment le jeton Keycloak de la même personne ouvre aussi ton API, sur
-> le **même compte**. Ancré sur le fournisseur `createDiscoveredOidcProvider()` (`oidc.ts:192`) et
-> sur `OAuth2Service` (`oauth2.ts:217`).
+> le **même compte**. Ancré sur le fournisseur `createDiscoveredOidcProvider()` (`oidc.ts:267`) et
+> sur `OAuth2Service` (`oauth2.ts:250`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Keycloak**
 
@@ -85,14 +85,14 @@ Pour ton application, cela bloque trois risques concrets :
 
 **Aucun code propre à Keycloak.** Un serveur OpenID Connect publie lui-même ses points d'entrée ;
 le fournisseur `keycloak` les **découvre** à partir de l'émetteur, et c'est tout ce qu'il sait faire
-(`createDiscoveredOidcProvider()`, `oidc.ts:192`). Changer de realm, c'est changer une URL.
+(`createDiscoveredOidcProvider()`, `oidc.ts:267`). Changer de realm, c'est changer une URL.
 
 **Une configuration fausse arrête le démarrage.** Le fournisseur `keycloak` est enregistré avec
 `requiresIssuer: true` (`oauthProviderRegistry.ts:137`). Au boot, un émetteur absent, ou qui n'est
 pas une URL `https` sans requête ni fragment, lève une erreur qui nomme la clé
-(`checkProviderIssuer()`, `oauth2.ts:163`). Un Keycloak **éteint**, lui, ne bloque rien : le bouton
+(`checkProviderIssuer()`, `oauth2.ts:196`). Un Keycloak **éteint**, lui, ne bloque rien : le bouton
 disparaît de l'écran de connexion et revient tout seul quand le realm répond à nouveau
-(`#isReachable()`, `oauth2.ts:541`).
+(`#isReachable()`, `oauth2.ts:702`).
 
 **L'identité est la paire `(keycloak, sub)`, jamais l'email.** Au premier login, l'application crée
 un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:361`). Un
@@ -199,15 +199,19 @@ Ne pas travailler dans le realm `master` : il administre Keycloak lui-même.
 
 **Clients** › **Create client**, type **OpenID Connect**. Les réglages qui comptent :
 
-| Réglage Keycloak          | Valeur                                                                   | Pourquoi                                                                                                   |
-| ------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| **Client ID**             | `mon-app`                                                                | Devient `NF_KEYCLOAK_CLIENT_ID`.                                                                           |
-| **Client authentication** | **ON**                                                                   | Client **confidentiel** : l'application tourne sur un serveur, elle garde un secret. Nodefony en exige un. |
-| **Standard flow**         | coché                                                                    | C'est le flux _Authorization Code_, le seul que Nodefony emploie.                                          |
-| **Direct access grants**  | décoché                                                                  | Ce flux fait transiter le mot de passe par l'application — exactement ce qu'on évite.                      |
-| **Implicit flow**         | décoché                                                                  | Retiré par OAuth 2.1 : il livre le jeton dans l'URL.                                                       |
-| **PKCE method**           | `S256`                                                                   | Keycloak **exige** alors PKCE pour ce client ; Nodefony l'envoie toujours.                                 |
-| **Valid redirect URIs**   | `https://app.example.com/nodefony/security/api/oauth2/keycloak/callback` | Comparée **au caractère près** (RFC 9700). Pas de joker en production.                                     |
+| Réglage Keycloak                        | Valeur                                                                             | Pourquoi                                                                                                   |
+| --------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Client ID**                           | `mon-app`                                                                          | Devient `NF_KEYCLOAK_CLIENT_ID`.                                                                           |
+| **Client authentication**               | **ON**                                                                             | Client **confidentiel** : l'application tourne sur un serveur, elle garde un secret. Nodefony en exige un. |
+| **Standard flow**                       | coché                                                                              | C'est le flux _Authorization Code_, le seul que Nodefony emploie.                                          |
+| **Direct access grants**                | décoché                                                                            | Ce flux fait transiter le mot de passe par l'application — exactement ce qu'on évite.                      |
+| **Implicit flow**                       | décoché                                                                            | Retiré par OAuth 2.1 : il livre le jeton dans l'URL.                                                       |
+| **PKCE method**                         | `S256`                                                                             | Keycloak **exige** alors PKCE pour ce client ; Nodefony l'envoie toujours.                                 |
+| **Valid redirect URIs**                 | `https://app.example.com/nodefony/security/api/oauth2/keycloak/callback`           | Comparée **au caractère près** (RFC 9700). Pas de joker en production.                                     |
+| **Valid post logout redirect URIs**     | `https://app.example.com/*`                                                        | Retour du navigateur après la déconnexion initiée par l'application.                                       |
+| **Front channel logout**                | **OFF**                                                                            | Il exige une page que l'application n'a pas ; activé, Keycloak n'appelle PAS le canal arrière.             |
+| **Backchannel logout URL**              | `https://app.example.com/nodefony/security/api/oauth2/keycloak/backchannel-logout` | Keycloak y prévient l'application quand la session SSO se ferme ailleurs. Joignable **par Keycloak**.      |
+| **Backchannel logout session required** | **ON**                                                                             | Le jeton porte le `sid` : seule LA session concernée est fermée, pas toutes celles du compte.              |
 
 Puis l'onglet **Credentials** : copier le **Client secret**. C'est `NF_KEYCLOAK_CLIENT_SECRET`.
 
@@ -374,36 +378,43 @@ Sans ce lien, le jeton désignerait un compte distinct, sous l'identifiant `<ém
 - **Aucune liaison par email** : un email, même vérifié par le realm, ne donne jamais accès à un
   compte local existant. Le rattachement d'un compte local à un `sub` Keycloak se fait
   explicitement.
-- **Déconnexion** : se déconnecter de l'application ferme la session de l'application, pas celle du
-  realm. Tant que la session Keycloak vit, un nouveau clic sur le bouton reconnecte sans redemander
-  le mot de passe.
+- **Déconnexion, dans les deux sens.** Se déconnecter de l'application ferme aussi la session du
+  realm : la réponse porte `logoutUrl`, où le navigateur est envoyé avec l'ID token en
+  `id_token_hint` — sans page de confirmation, et le clic suivant redemande le mot de passe. À
+  l'inverse, une session fermée **chez Keycloak** (console d'administration, autre application du
+  SSO) ferme la session de l'application par le **canal arrière** : Keycloak appelle
+  `…/oauth2/keycloak/backchannel-logout` avec un jeton signé, que l'application vérifie sur les clés
+  du realm avant de détruire quoi que ce soit (détail : [OAuth2 § canal arrière](oauth2.md#déconnexion-demandée-par-le-fournisseur--le-canal-arrière)).
 
 ## ⚠️ Pièges
 
-| Symptôme                                                                              | Cause                                                                                                                   | Correction                                                                                 |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Démarrage refusé : `security.oauth2.providers.keycloak.issuer est requis`             | Les trois variables ne sont pas posées ensemble, ou `issuer` manque à la main                                           | Poser `NF_KEYCLOAK_ISSUER` (`checkProviderIssuer()`, `oauth2.ts:163`)                      |
-| Démarrage refusé : `émetteur invalide … https`                                        | Émetteur en `http`, ou avec `?…`/`#…`                                                                                   | Recopier l'`issuer` du document _OpenID Endpoint Configuration_                            |
-| Pas de bouton + WARNING `oauth2 provider "keycloak" indisponible`                     | Keycloak injoignable, ou certificat non reconnu (`fetch failed`)                                                        | Démarrer Keycloak ; `NODE_EXTRA_CA_CERTS` pour un certificat interne. Retour sous 30 s     |
-| `Invalid parameter: redirect_uri` sur la page Keycloak                                | `redirectUri` ≠ les **Valid redirect URIs** du client                                                                   | Aligner schéma, hôte (`localhost` ≠ `127.0.0.1`), port et chemin                           |
-| Retour sur `failureRedirect` + WARNING `invalid_client`                               | Mauvais secret, ou client public (_Client authentication OFF_)                                                          | Recopier le secret de l'onglet _Credentials_ ; passer le client en ON                      |
-| Retour sur `failureRedirect` + WARNING `OAuth issuer mismatch`                        | Keycloak joint par deux adresses différentes : l'émetteur varie                                                         | Fixer `KC_HOSTNAME` à l'URL publique complète                                              |
-| Retour sur `failureRedirect` + WARNING `local account exists without a keycloak link` | Un compte local porte déjà cet identifiant (`UserService.ts:389`) — typiquement un `sub` changé après réimport du realm | Rattacher le compte explicitement, ou fixer l'`id` des utilisateurs dans l'export du realm |
-| API : `401` avec un jeton Keycloak valide                                             | Audience absente du jeton : pas de mapper _Audience_                                                                    | Ajouter le mapper ; `aud` doit contenir la `resource` de la zone                           |
+| Symptôme                                                                                                                           | Cause                                                                                                                   | Correction                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Démarrage refusé : `security.oauth2.providers.keycloak.issuer est requis`                                                          | Les trois variables ne sont pas posées ensemble, ou `issuer` manque à la main                                           | Poser `NF_KEYCLOAK_ISSUER` (`checkProviderIssuer()`, `oauth2.ts:196`)                                                             |
+| Démarrage refusé : `émetteur invalide … https`                                                                                     | Émetteur en `http`, ou avec `?…`/`#…`                                                                                   | Recopier l'`issuer` du document _OpenID Endpoint Configuration_                                                                   |
+| Pas de bouton + WARNING `oauth2 provider "keycloak" indisponible`                                                                  | Keycloak injoignable, ou certificat non reconnu (`fetch failed`)                                                        | Démarrer Keycloak ; `NODE_EXTRA_CA_CERTS` pour un certificat interne. Retour sous 30 s                                            |
+| `Invalid parameter: redirect_uri` sur la page Keycloak                                                                             | `redirectUri` ≠ les **Valid redirect URIs** du client                                                                   | Aligner schéma, hôte (`localhost` ≠ `127.0.0.1`), port et chemin                                                                  |
+| Retour sur `failureRedirect` + WARNING `invalid_client`                                                                            | Mauvais secret, ou client public (_Client authentication OFF_)                                                          | Recopier le secret de l'onglet _Credentials_ ; passer le client en ON                                                             |
+| Retour sur `failureRedirect` + WARNING `OAuth issuer mismatch`                                                                     | Keycloak joint par deux adresses différentes : l'émetteur varie                                                         | Fixer `KC_HOSTNAME` à l'URL publique complète                                                                                     |
+| Retour sur `failureRedirect` + WARNING `local account exists without a keycloak link`                                              | Un compte local porte déjà cet identifiant (`UserService.ts:389`) — typiquement un `sub` changé après réimport du realm | Rattacher le compte explicitement, ou fixer l'`id` des utilisateurs dans l'export du realm                                        |
+| API : `401` avec un jeton Keycloak valide                                                                                          | Audience absente du jeton : pas de mapper _Audience_                                                                    | Ajouter le mapper ; `aud` doit contenir la `resource` de la zone                                                                  |
+| Session de l'application vivante après une déconnexion chez Keycloak ; Keycloak journalise `Some clients have not been logged out` | _Front channel logout_ ON, ou **Backchannel logout URL** absente ou injoignable depuis Keycloak                         | _Front channel logout_ OFF ; une URL que Keycloak joint (en développement Linux : serveur à l'écoute au-delà de la boucle locale) |
 
 La cause d'un retour sur `failureRedirect` n'est jamais montrée au navigateur ; elle est dans le
-journal du serveur, préfixée `oauth2 callback "keycloak"` (`OAuth2Controller.ts:275`).
+journal du serveur, préfixée `oauth2 callback "keycloak"` (`OAuth2Controller.ts:213`).
 
 ## 🧪 Tests & couverture
 
-| Type        | Fichier                                                   | Ce qu'il prouve                                                                                                           |
-| ----------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Unitaire    | `security/tests/unit/oauth2Service.test.ts`               | Démarrage refusé sur émetteur absent ou mal formé ; bouton retiré puis rendu quand l'émetteur tombe.                      |
-| Unitaire    | `security/tests/unit/oauthProviders.test.ts`              | Découverte, refus d'un serveur sans PKCE S256, contrôle des claims de l'ID token.                                         |
-| Intégration | `http/nodefony/tests/integration/oauth2-keycloak.test.ts` | Contre un **vrai** Keycloak : flux complet, même compte entre session et jeton d'API, `invalid_grant` rendu par Keycloak. |
+| Type        | Fichier                                                   | Ce qu'il prouve                                                                                                                                                                              |
+| ----------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unitaire    | `security/tests/unit/oauth2Service.test.ts`               | Démarrage refusé sur émetteur absent ou mal formé ; bouton retiré puis rendu quand l'émetteur tombe.                                                                                         |
+| Unitaire    | `security/tests/unit/oauthProviders.test.ts`              | Découverte, refus d'un serveur sans PKCE S256, contrôle des claims de l'ID token.                                                                                                            |
+| Intégration | `http/nodefony/tests/integration/oauth2-keycloak.test.ts` | Contre un **vrai** Keycloak : flux complet, même compte entre session et jeton d'API, `invalid_grant` rendu par Keycloak, déconnexion dans les deux sens, jeton de déconnexion forgé refusé. |
 
 Le banc d'intégration exige le conteneur et les trois variables (décor `KEYCLOAK_GATE` de
-`vitest.gates.ts`) ; sans eux il est sauté, et la passe le dit en fin de run.
+`vitest.gates.ts`) ; sans eux il est sauté, et la passe le dit en fin de run. Le cas du canal
+arrière constate en plus que le conteneur JOINT l'application (`host.docker.internal`) : un serveur
+de développement sous Linux n'écoute que la boucle locale, le cas est alors sauté et le dit.
 
 **Ce qui manque** : aucun test ne joue un Keycloak derrière un proxy (émetteur variable), ni une
 rotation des clés du realm pendant une session.

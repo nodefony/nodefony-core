@@ -656,6 +656,28 @@ describe("OAuth2Service — déconnexion chez le fournisseur (RP-Initiated Logou
     ]);
   });
 
+  it("l'index fédéré (fournisseur, sid) part en MÉTADONNÉE, sans l'ID token", () => {
+    // L'énumération des sessions redacte les attributs : c'est par la
+    // métadonnée que le canal arrière retrouve une session.
+    const { svc, boot } = buildService(kcConfig(), makeUsers());
+    boot();
+    const meta = new Map<string, unknown>();
+    const session = {
+      ...fakeSession(),
+      setMetaBag: (k: string, v: unknown) => meta.set(k, v),
+    };
+    svc.rememberLogout(session, {
+      provider: "test-kc",
+      idToken: "secret.id.token",
+      sid: "kc-session-1",
+    });
+    assert.deepEqual(meta.get("oauth2:federation"), {
+      provider: "test-kc",
+      sid: "kc-session-1",
+    });
+    assert.ok(!JSON.stringify([...meta]).includes("secret.id.token"));
+  });
+
   it("sans indice, ou indice altéré, ou session absente : null (déconnexion locale)", async () => {
     const { svc, boot } = buildService(kcConfig(), makeUsers());
     boot();
@@ -664,5 +686,238 @@ describe("OAuth2Service — déconnexion chez le fournisseur (RP-Initiated Logou
     const tampered = fakeSession();
     tampered.set("oauth2:logout", { provider: "test-kc", idToken: 42 });
     assert.equal(await svc.logoutUrlFor(tampered), null);
+  });
+});
+
+// ── Canal arrière (OpenID Connect Back-Channel Logout, #517) ────────────────
+// Le jeton « signé » est ici du JSON : la signature est éprouvée ailleurs
+// (oauthProviders.test.ts, vraie clé) — on éprouve ici ce que le service EN FAIT.
+const bclProvider: IOAuthProvider = {
+  ...logoutProvider,
+  verifyLogoutToken: (token) => {
+    if (token === "panne") return Promise.reject(new Error("jwks injoignable"));
+    if (token === "faux") return Promise.resolve(null);
+    const c = JSON.parse(token) as Record<string, unknown>;
+    return Promise.resolve({
+      issuer: ISSUER,
+      subject: (c.sub as string | undefined) ?? null,
+      sid: (c.sid as string | undefined) ?? null,
+      tokenId: (c.jti as string | undefined) ?? "j",
+      expiresAt: Math.floor(Date.now() / 1000) + 120,
+    });
+  },
+};
+registerOAuthProvider("test-bcl", () => bclProvider);
+
+interface IStoredSession {
+  id: string;
+  data: { user: string; metaBag: Record<string, unknown> };
+}
+
+/** Parc de sessions + `destroyWhere` fidèle au contrat (filtre `user` IGNORÉ exprès). */
+function fakeSessions(parc: IStoredSession[]): {
+  destroyWhere(
+    filter: { user?: string } | undefined,
+    match: (d: IStoredSession["data"]) => boolean,
+  ): Promise<number>;
+  filters: unknown[];
+} {
+  const filters: unknown[] = [];
+  return {
+    filters,
+    destroyWhere(filter, match) {
+      filters.push(filter);
+      let n = 0;
+      for (let i = parc.length - 1; i >= 0; i -= 1) {
+        const s = parc[i];
+        if (s !== undefined && match(s.data)) {
+          parc.splice(i, 1);
+          n += 1;
+        }
+      }
+      return Promise.resolve(n);
+    },
+  };
+}
+
+function session(
+  id: string,
+  user: string,
+  hint: { provider: string; sid: string | null } | null,
+): IStoredSession {
+  return {
+    id,
+    data: {
+      user,
+      metaBag: hint === null ? {} : { "oauth2:federation": hint },
+    },
+  };
+}
+
+describe("OAuth2Service — déconnexion par le canal arrière (Back-Channel Logout, #517)", () => {
+  const bclConfig = {
+    oauth2: {
+      enabled: true,
+      providers: {
+        "test-bcl": {
+          clientId: "id",
+          clientSecret: "sec",
+          redirectUri: "https://app/cb",
+        },
+        "test-oidc": {
+          clientId: "id",
+          clientSecret: "sec",
+          redirectUri: "https://app/cb",
+        },
+      },
+    },
+  };
+
+  /** Comptes liés : `sub` du fournisseur → identifiant local. */
+  const links: Record<string, string> = {
+    "kc-alice": "alice",
+    "kc-bob": "bob",
+  };
+  const users = {
+    ...makeUsers(),
+    loadUserByOAuth(provider: string, providerId: string): Promise<IUser> {
+      const identifier =
+        provider === "test-bcl" ? links[providerId] : undefined;
+      if (identifier === undefined) return Promise.reject(new Error("inconnu"));
+      return Promise.resolve({
+        id: identifier,
+        identifier,
+        roles: [],
+        hasRole: () => false,
+        isActive: () => true,
+        isLocked: () => false,
+      });
+    },
+  };
+
+  function setup(parc: IStoredSession[]) {
+    const { svc, boot } = buildService(bclConfig, users);
+    const sessions = fakeSessions(parc);
+    svc.container?.set("sessions", sessions);
+    boot();
+    return { svc, sessions };
+  }
+
+  it("sid : ferme LA session qu'il désigne, et elle seule", async () => {
+    const parc = [
+      session("a1", "alice", { provider: "test-bcl", sid: "S1" }),
+      session("a2", "alice", { provider: "test-bcl", sid: "S2" }),
+      session("b1", "bob", { provider: "test-bcl", sid: "S3" }),
+    ];
+    const { svc } = setup(parc);
+    const res = await svc.backchannelLogout(
+      "test-bcl",
+      JSON.stringify({ sub: "kc-alice", sid: "S1", jti: "j-sid" }),
+    );
+    assert.deepEqual(res, { outcome: "done", destroyed: 1 });
+    assert.deepEqual(
+      parc.map((s) => s.id),
+      ["a1", "a2", "b1"].filter((id) => id !== "a1"),
+    );
+  });
+
+  it("sub seul : toutes les sessions du compte ouvertes par CE fournisseur — jamais celles d'un mot de passe ou d'un autre fournisseur", async () => {
+    const parc = [
+      session("a1", "alice", { provider: "test-bcl", sid: "S1" }),
+      session("a2", "alice", { provider: "test-bcl", sid: "S2" }),
+      session("a3", "alice", null), // mot de passe
+      session("a4", "alice", { provider: "test-oidc", sid: "S9" }),
+      session("b1", "bob", { provider: "test-bcl", sid: "S3" }),
+    ];
+    const { svc, sessions } = setup(parc);
+    const res = await svc.backchannelLogout(
+      "test-bcl",
+      JSON.stringify({ sub: "kc-alice", jti: "j-sub" }),
+    );
+    assert.deepEqual(res, { outcome: "done", destroyed: 2 });
+    assert.deepEqual(
+      parc.map((s) => s.id),
+      ["a3", "a4", "b1"],
+    );
+    // Le parcours est restreint au compte (index du store), et RE-vérifié.
+    assert.deepEqual(sessions.filters, [{ user: "alice" }]);
+  });
+
+  it("sid sans sub (ou sub inconnu) : parcourt tout le parc, ne ferme que la session désignée", async () => {
+    const parc = [
+      session("a1", "alice", { provider: "test-bcl", sid: "S1" }),
+      session("b1", "bob", { provider: "test-bcl", sid: "S3" }),
+    ];
+    const { svc, sessions } = setup(parc);
+    const res = await svc.backchannelLogout(
+      "test-bcl",
+      JSON.stringify({ sub: "kc-inconnu", sid: "S3", jti: "j-sid-only" }),
+    );
+    assert.deepEqual(res, { outcome: "done", destroyed: 1 });
+    assert.deepEqual(
+      parc.map((s) => s.id),
+      ["a1"],
+    );
+    assert.deepEqual(sessions.filters, [undefined]);
+  });
+
+  it("sub inconnu sans sid : rien à fermer, et c'est un succès (§2.7)", async () => {
+    const parc = [session("a1", "alice", { provider: "test-bcl", sid: "S1" })];
+    const { svc, sessions } = setup(parc);
+    const res = await svc.backchannelLogout(
+      "test-bcl",
+      JSON.stringify({ sub: "kc-inconnu", jti: "j-none" }),
+    );
+    assert.deepEqual(res, { outcome: "done", destroyed: 0 });
+    assert.equal(parc.length, 1);
+    assert.deepEqual(sessions.filters, []);
+  });
+
+  it("jeton refusé par la vérification : refused, aucune session touchée", async () => {
+    const parc = [session("a1", "alice", { provider: "test-bcl", sid: "S1" })];
+    const { svc, sessions } = setup(parc);
+    assert.deepEqual(await svc.backchannelLogout("test-bcl", "faux"), {
+      outcome: "refused",
+    });
+    assert.deepEqual(sessions.filters, []);
+  });
+
+  it("rejeu du même jti : refusé la seconde fois", async () => {
+    const parc = [session("a1", "alice", { provider: "test-bcl", sid: "S1" })];
+    const { svc } = setup(parc);
+    const token = JSON.stringify({
+      sub: "kc-alice",
+      sid: "S1",
+      jti: "j-rejeu",
+    });
+    assert.equal(
+      (await svc.backchannelLogout("test-bcl", token)).outcome,
+      "done",
+    );
+    // Une nouvelle session ouverte entre-temps sur le même sid ne doit pas
+    // tomber sous un jeton rejoué.
+    parc.push(session("a5", "alice", { provider: "test-bcl", sid: "S1" }));
+    assert.deepEqual(await svc.backchannelLogout("test-bcl", token), {
+      outcome: "refused",
+    });
+    assert.deepEqual(
+      parc.map((s) => s.id),
+      ["a5"],
+    );
+  });
+
+  it("panne de vérification : lève (la déconnexion a ÉCHOUÉ, ce n'est pas un refus)", async () => {
+    const { svc } = setup([]);
+    await assert.rejects(
+      svc.backchannelLogout("test-bcl", "panne"),
+      /jwks injoignable/,
+    );
+  });
+
+  it("fournisseur sans jeton de déconnexion : unsupported", async () => {
+    const { svc } = setup([]);
+    assert.deepEqual(await svc.backchannelLogout("test-oidc", "x"), {
+      outcome: "unsupported",
+    });
   });
 });

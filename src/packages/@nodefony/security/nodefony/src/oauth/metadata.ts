@@ -60,6 +60,13 @@ export interface IDiscoveredAuthorizationServer {
    * publie aucun : la déconnexion reste alors locale.
    */
   readonly endSessionEndpoint: string | null;
+  /**
+   * Algorithmes de signature des ID tokens annoncés
+   * (`id_token_signing_alg_values_supported`, OpenID Connect Discovery §3), ou
+   * `null` si le serveur n'en publie aucun. Ce sont aussi ceux des jetons de
+   * déconnexion (OpenID Connect Back-Channel Logout 1.0 §2.6).
+   */
+  readonly idTokenSigningAlgValuesSupported: string[] | null;
 }
 
 /** Réglages de la découverte — l'injection de `fetch` est la voie pour éprouver sans TLS. */
@@ -168,6 +175,7 @@ export async function discoverAuthorizationServer(
     // rabattre sur l'URL suivante masquerait un document hostile derrière un 404.
     const identity = validateIssuerMetadata(document, issuer);
     const methods = document.code_challenge_methods_supported;
+    const idTokenAlgs = document.id_token_signing_alg_values_supported;
     return {
       issuer: identity.issuer,
       jwksUri: identity.jwksUri,
@@ -187,6 +195,9 @@ export async function discoverAuthorizationServer(
         "end_session_endpoint",
         issuer,
       ),
+      idTokenSigningAlgValuesSupported: Array.isArray(idTokenAlgs)
+        ? idTokenAlgs.filter((a): a is string => typeof a === "string")
+        : null,
     };
   }
   throw new Error(

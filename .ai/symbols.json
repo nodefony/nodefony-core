@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 899,
-    "symbols": 4559,
+    "symbols": 4562,
     "classes": 409,
-    "interfaces": 1186,
+    "interfaces": 1187,
     "types": 485,
     "enums": 4,
-    "functions": 2015,
+    "functions": 2017,
     "constants": 460
   },
   "symbols": {
@@ -22676,6 +22676,15 @@
       "extends": null,
       "description": "Adaptateur d'**un fournisseur OAuth/OIDC**, façade UNIFORME au-dessus d'un client OAuth 2.0 — masque les divergences entre fournisseurs derrière un contrat stable consommé par `OAuth2Service` : - *…"
     },
+    "ILogoutTokenClaims": {
+      "name": "ILogoutTokenClaims",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce qu'un jeton de déconnexion VÉRIFIÉ désigne (OpenID Connect Back-Channel Logout 1.0 §2.4) : au moins l'un de `subject` et `sid`."
+    },
     "ISecuredArea": {
       "name": "ISecuredArea",
       "kind": "interface",
@@ -30678,6 +30687,14 @@
       "module": "@nodefony/security",
       "extends": "IDiscoveryOptions",
       "description": "Réglages d'un fournisseur OIDC découvert."
+    },
+    "readLogoutTokenClaims": {
+      "name": "readLogoutTokenClaims",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Lit ce qu'un jeton de déconnexion DÉSIGNE, une fois sa signature vérifiée — les points 5 à 7 de la validation (OpenID Connect Back-Channel Logout 1.0 §2.6) : `sub` ou `sid` présent, `events` qui le…"
     },
     "createOidcProvider": {
       "name": "createOidcProvider",
@@ -39937,7 +39954,8 @@
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "RemoteJwtVerifier": [
-        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts"
+        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
       ],
       "IJwtKeystore": [
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
@@ -39983,6 +40001,7 @@
         "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
       "listAuditStores": [
@@ -40158,6 +40177,10 @@
       "IOAuthUserProvisioner": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "ILogoutTokenClaims": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+        "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
       ],
       "getOAuthProviderFactory": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"

@@ -12,7 +12,11 @@ import {
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
 import { AuthenticationError } from "../errors/AuthenticationError";
-import type { IOAuthProvider } from "../contracts/IOAuthProvider";
+import type {
+  ILogoutTokenClaims,
+  IOAuthProvider,
+} from "../contracts/IOAuthProvider";
+import { recordAudit } from "../src/audit/recordAudit";
 import {
   getOAuthProviderFactory,
   listOAuthProviders,
@@ -28,6 +32,23 @@ const serviceName = "oauth2";
  * {@link OAuth2Service.logoutUrlFor}) : les contrôleurs ne la connaissent pas.
  */
 const LOGOUT_HINT_KEY = "oauth2:logout";
+
+/**
+ * Clé de MÉTADONNÉE de session (`metaBag`) qui indexe un login fédéré :
+ * fournisseur et `sid`, sans l'ID token. C'est elle que lit le canal arrière.
+ *
+ * @remarks Pas dans les attributs : l'énumération des sessions les REDACTE
+ * (aucun store ne les rend hors de la session elle-même), quand `metaBag` en
+ * sort — et le résumé d'administration ne l'expose que par liste blanche.
+ */
+const FEDERATION_KEY = "oauth2:federation";
+
+/**
+ * Plafond de la mémoire anti-rejeu du canal arrière — au-delà, les plus
+ * anciens `jti` sont oubliés. Un fournisseur n'émet qu'un jeton par session
+ * fermée : ce plafond n'est atteint que sous un flot anormal.
+ */
+const MAX_SEEN_LOGOUT_TOKENS = 10_000;
 
 /**
  * Ce que la session retient d'un login fédéré pour pouvoir fermer AUSSI la
@@ -53,6 +74,18 @@ export interface IFederatedLogoutHint {
 interface IHintSession {
   get(key: string): unknown;
   set(key: string, value: unknown): unknown;
+  /** Métadonnée énumérable — absente d'une session réduite (tests). */
+  setMetaBag?(key: string, value: unknown): unknown;
+}
+
+/** Relit l'index fédéré d'une session énumérée — sa forme se vérifie. */
+function readFederation(
+  value: unknown,
+): { provider: string; sid: string | null } | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { provider, sid } = value as Record<string, unknown>;
+  if (typeof provider !== "string") return null;
+  return { provider, sid: typeof sid === "string" ? sid : null };
 }
 
 /** Relit un indice de session — il vient du stockage, sa forme se vérifie. */
@@ -224,6 +257,9 @@ class OAuth2Service extends Service {
   // Fournisseurs dont la dernière construction a ÉCHOUÉ → date de l'échec (ms).
   // Lazy : `null` tant que tout va bien, c'est-à-dire presque toujours.
   #unreachable: Record<string, number> | null = null;
+  // `jti` des jetons de déconnexion déjà reçus → fin de validité (ms). Lazy :
+  // `null` tant qu'aucun fournisseur n'a appelé le canal arrière.
+  #seenLogoutTokens: Map<string, number> | null = null;
   #ready = false;
 
   constructor(public module: Module) {
@@ -446,7 +482,12 @@ class OAuth2Service extends Service {
     session: IHintSession,
     hint: IFederatedLogoutHint | null,
   ): void {
-    if (hint !== null) session.set(LOGOUT_HINT_KEY, hint);
+    if (hint === null) return;
+    session.set(LOGOUT_HINT_KEY, hint);
+    session.setMetaBag?.(FEDERATION_KEY, {
+      provider: hint.provider,
+      sid: hint.sid,
+    });
   }
 
   /**
@@ -475,6 +516,126 @@ class OAuth2Service extends Service {
         postLogoutRedirectUri: this.#postLogoutRedirectUri(hint.provider),
       })
       .toString();
+  }
+
+  /**
+   * Déconnexion demandée PAR le fournisseur sur le canal arrière (OpenID
+   * Connect Back-Channel Logout 1.0) : vérifie le jeton, refuse un rejeu, puis
+   * détruit les sessions locales qu'il désigne.
+   *
+   * Une session est désignée si elle a été ouverte par CE fournisseur (index
+   * fédéré posé au login par {@link rememberLogout}) et, selon le jeton : porte son `sid` ; ou,
+   * sans `sid`, appartient à l'utilisateur lié à son `sub`. Une session ouverte
+   * par mot de passe ou par un autre fournisseur n'est jamais touchée — le
+   * fournisseur ne ferme que ce qu'il a ouvert.
+   *
+   * @remarks Les connexions WebSocket portées par une session détruite se
+   * ferment au tick de revalidation du hub temps réel (code `4001`).
+   *
+   * @param provider - fournisseur désigné par l'adresse appelée.
+   * @param logoutToken - paramètre `logout_token` reçu, brut.
+   * @returns `unsupported` si le fournisseur ne sait pas émettre de jeton de
+   *   déconnexion ; `refused` si le jeton est invalide ou rejoué ; sinon le
+   *   nombre de sessions détruites (0 : déjà déconnecté, c'est un succès §2.7).
+   * @throws Error - vérification impossible (jeu de clés injoignable) ou
+   *   sessions impossibles à parcourir : la déconnexion a ÉCHOUÉ.
+   */
+  async backchannelLogout(
+    provider: string,
+    logoutToken: string,
+  ): Promise<
+    | { readonly outcome: "unsupported" | "refused" }
+    | { readonly outcome: "done"; readonly destroyed: number }
+  > {
+    const { provider: p } = await this.#resolveProvider(provider);
+    if (p.verifyLogoutToken === undefined) return { outcome: "unsupported" };
+    const claims = await p.verifyLogoutToken(logoutToken);
+    if (claims === null || !this.#firstSeen(provider, claims)) {
+      return { outcome: "refused" };
+    }
+    // `sub` → compte local, par le même lien que le login. Inconnu : aucune
+    // session de ce compte à fermer, mais un `sid` peut encore en désigner une.
+    let owner: string | null = null;
+    if (claims.subject !== null) {
+      const users = this.get<{
+        loadUserByOAuth?(provider: string, providerId: string): Promise<IUser>;
+      }>("users");
+      try {
+        owner =
+          (await users?.loadUserByOAuth?.(provider, claims.subject))
+            ?.identifier ?? null;
+      } catch {
+        owner = null;
+      }
+      if (owner === null && claims.sid === null) {
+        return { outcome: "done", destroyed: 0 };
+      }
+    }
+    const sessions = this.get<{
+      destroyWhere?(
+        filter: { user?: string } | undefined,
+        match: (data: {
+          user: string;
+          metaBag?: Record<string, unknown>;
+        }) => boolean,
+      ): Promise<number>;
+    }>("sessions");
+    if (sessions?.destroyWhere === undefined) {
+      throw new Error(
+        `aucun service "sessions" capable de révocation groupée (destroyWhere)`,
+      );
+    }
+    const destroyed = await sessions.destroyWhere(
+      owner !== null ? { user: owner } : undefined,
+      (data) => {
+        if (owner !== null && data.user !== owner) return false;
+        const federation = readFederation(data.metaBag?.[FEDERATION_KEY]);
+        if (federation === null || federation.provider !== provider) {
+          return false;
+        }
+        return claims.sid === null || federation.sid === claims.sid;
+      },
+    );
+    this.log(
+      `oauth2 back-channel logout "${provider}" — ${destroyed} session(s) fermée(s)` +
+        (owner !== null ? ` user=${owner}` : ""),
+      "INFO",
+    );
+    if (destroyed > 0) {
+      recordAudit(this.container, {
+        category: "session",
+        action: "session.revoked",
+        outcome: "success",
+        actor: `oauth2:${provider}`,
+        resource: owner,
+        reason: "backchannel_logout",
+        metadata: { count: destroyed, bySid: claims.sid !== null },
+      });
+    }
+    return { outcome: "done", destroyed };
+  }
+
+  /**
+   * Anti-rejeu du canal arrière (§2.6, point 8) : `true` au premier passage
+   * d'un `jti`, `false` s'il a déjà été vu et n'a pas expiré.
+   *
+   * @remarks Mémoire PAR PROCESSUS, bornée : le même jeton rejoué sur un autre
+   * exemplaire passerait. Le rejeu n'y fermerait que des sessions que le
+   * fournisseur a déjà déclarées closes — la borne est la durée de vie du
+   * jeton, que le fournisseur garde courte (§4).
+   */
+  #firstSeen(provider: string, claims: ILogoutTokenClaims): boolean {
+    const now = Date.now();
+    const seen = (this.#seenLogoutTokens ??= new Map<string, number>());
+    for (const [key, expiresAt] of seen) {
+      if (expiresAt > now && seen.size < MAX_SEEN_LOGOUT_TOKENS) break;
+      seen.delete(key); // expiré, ou plus ancien quand la mémoire est pleine
+    }
+    const key = `${provider}\n${claims.tokenId}`;
+    const known = seen.get(key);
+    if (known !== undefined && known > now) return false;
+    seen.set(key, claims.expiresAt * 1000);
+    return true;
   }
 
   /**

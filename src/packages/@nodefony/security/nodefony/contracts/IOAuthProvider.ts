@@ -112,4 +112,34 @@ export interface IOAuthProvider {
    * n'est pas conservé.
    */
   createLogoutURL?(request: ILogoutRequest): URL;
+
+  /**
+   * Vérifie un jeton de déconnexion reçu sur le canal arrière (OpenID Connect
+   * Back-Channel Logout 1.0 §2.6) et rend ce qu'il désigne. ABSENTE quand le
+   * fournisseur ne sait pas en émettre (GitHub, OAuth sans OpenID Connect).
+   *
+   * @param logoutToken - le paramètre `logout_token` reçu, brut.
+   * @returns les claims qui désignent les sessions à fermer, ou `null` si le
+   *   jeton est refusé (signature, émetteur, audience, expiration, forme).
+   * @throws Error si la vérification est IMPOSSIBLE (jeu de clés injoignable) —
+   *   une panne n'est pas un jeton invalide.
+   */
+  verifyLogoutToken?(logoutToken: string): Promise<ILogoutTokenClaims | null>;
+}
+
+/**
+ * Ce qu'un jeton de déconnexion VÉRIFIÉ désigne (OpenID Connect Back-Channel
+ * Logout 1.0 §2.4) : au moins l'un de `subject` et `sid`.
+ */
+export interface ILogoutTokenClaims {
+  /** Émetteur canonique — celui de la liste fermée qui a servi à vérifier. */
+  readonly issuer: string;
+  /** `sub` : l'utilisateur chez le fournisseur, ou `null`. */
+  readonly subject: string | null;
+  /** `sid` : LA session du fournisseur à fermer, ou `null` (= toutes celles de `subject`). */
+  readonly sid: string | null;
+  /** `jti` : identifiant unique du jeton, la clé de l'anti-rejeu. */
+  readonly tokenId: string;
+  /** `exp` : fin de validité, en secondes depuis l'époque. */
+  readonly expiresAt: number;
 }

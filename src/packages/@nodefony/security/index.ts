@@ -269,6 +269,8 @@ export type { IOAuthAuthorization } from "./nodefony/service/oauth2";
 export type {
   IOAuthProvider,
   IIssuerPolicy,
+  ILogoutRequest,
+  ILogoutTokenClaims,
 } from "./nodefony/contracts/IOAuthProvider";
 export {
   registerOAuthProvider,
@@ -300,6 +302,7 @@ export type {
 export {
   createOidcProvider,
   createDiscoveredOidcProvider,
+  readLogoutTokenClaims,
 } from "./nodefony/src/oauth/providers/oidc";
 export type {
   IOidcPkceClient,

@@ -248,6 +248,16 @@ api/oauth2/{provider}/{authorize,callback}` (`bypassFirewall`, montés si servic
   state+verifier en **session anonyme** → 302 fournisseur ; callback **compare state** (anti-CSRF, usage unique)
   → `exchangeAndProvision` → `AuthFlow.establishSessionFor` (anti-fixation) → 302 successRedirect (échec →
   failureRedirect). Banc E2E réel `oauth2-flow` 6/6 (@nodefony/http).
+- **Déconnexion fédérée, deux sens.** RP-Initiated : `rememberLogout` pose l'indice (fournisseur, ID token,
+  sid) en ATTRIBUT `oauth2:logout` (lu par `logoutUrlFor` → `logoutUrl`). Back-Channel : `POST …/{provider}/
+backchannel-logout` (`bypassFirewall`, 0 session, 0 CSRF — la signature authentifie) → `backchannelLogout()`
+  : `IOAuthProvider.verifyLogoutToken?` (OIDC découvert : `RemoteJwtVerifier.verifyClaims`, aud=clientId,
+  algos ID token SANS `HS*`, iat/exp/jti/events exigés) → `readLogoutTokenClaims` (sub|sid, `events`, PAS de
+  `nonce`) → anti-rejeu `jti` par process (borné) → `sessions.destroyWhere(filtre, prédicat)`.
+  🔴 L'énumération des sessions REDACTE `Attributes` (tous stores) : l'index du canal arrière vit en
+  MÉTADONNÉE `oauth2:federation` {provider, sid} (`setMetaBag`), jamais l'ID token. Ne ferme que les sessions
+  ouvertes par CE fournisseur. Réponses : 200 / 400 `invalid_request` (refus ET panne) / 404 / 501, `no-store`.
+  WS fermées au tick du hub (≤ 30 s). Keycloak : _Front channel logout_ ON ⇒ il n'appelle PAS le canal arrière.
 - **Boot OAuth2** : `checkProviderIssuer` (oauth2.ts) → `BootConfigurationError` (fatal dev+prod) si `issuer`
   mal formé (`canonicalIssuer` du cœur, https RFC 8414) OU absent quand la fabrique a déclaré
   `registerOAuthProvider(n, f, { requiresIssuer: true })` (builtins keycloak/oidc). Run `servers: true` →

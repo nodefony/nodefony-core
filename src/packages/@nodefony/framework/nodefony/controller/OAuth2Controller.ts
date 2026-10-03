@@ -37,6 +37,15 @@ export interface IOAuth2Service {
    * service, ce contrôleur ne fait que transmettre.
    */
   rememberLogout?(session: IOAuth2Session, hint: unknown): void;
+  /**
+   * Déconnexion demandée par le fournisseur sur le canal arrière (OpenID
+   * Connect Back-Channel Logout). Optionnel, même raison que
+   * {@link listDisplayProviders} : absent, la route répond 501.
+   */
+  backchannelLogout?(
+    provider: string,
+    logoutToken: string,
+  ): Promise<{ outcome: "unsupported" | "refused" | "done" }>;
 }
 
 /** Vue minimale d'une session — porte l'état du flux OAuth (anti-CSRF/anti-replay). */
@@ -291,6 +300,54 @@ class OAuth2Controller extends Controller {
     }
   }
 
+  /**
+   * Canal arrière : le fournisseur demande de fermer les sessions qu'il
+   * désigne (OpenID Connect Back-Channel Logout 1.0 §2.5-2.8).
+   *
+   * Appelé serveur à serveur — ni cookie, ni session, ni jeton CSRF : la
+   * SIGNATURE du `logout_token` est la seule authentification. Réponses de la
+   * norme (§2.8) : 200 si la déconnexion a eu lieu (ou n'avait plus lieu
+   * d'être), 400 sinon — jeton refusé (`invalid_request`) comme déconnexion
+   * impossible (la cause part au journal, jamais au fournisseur). Toujours
+   * `Cache-Control: no-store`.
+   */
+  async backchannelLogout(provider: string) {
+    const noStore = { "cache-control": "no-store" };
+    const svc = this.#service();
+    if (!svc || !svc.listProviders().includes(provider)) {
+      return this.renderJson({ error: "Unknown provider" }, 404, noStore);
+    }
+    if (!svc.backchannelLogout) {
+      return this.renderJson({ error: "Not implemented" }, 501, noStore);
+    }
+    const token = (this.queryPost as Record<string, unknown> | undefined)
+      ?.logout_token;
+    if (typeof token !== "string" || token.length === 0) {
+      return this.renderJson({ error: "invalid_request" }, 400, noStore);
+    }
+    let outcome: "unsupported" | "refused" | "done";
+    try {
+      ({ outcome } = await svc.backchannelLogout(provider, token));
+    } catch (error) {
+      this.log(
+        `oauth2 back-channel logout "${provider}" : ${(error as Error).message.slice(0, 200)}`,
+        "ERROR",
+      );
+      return this.renderJson({ error: "invalid_request" }, 400, noStore);
+    }
+    if (outcome === "unsupported") {
+      return this.renderJson({ error: "Not implemented" }, 501, noStore);
+    }
+    if (outcome === "refused") {
+      this.log(
+        `oauth2 back-channel logout "${provider}" : jeton de déconnexion refusé`,
+        "WARNING",
+      );
+      return this.renderJson({ error: "invalid_request" }, 400, noStore);
+    }
+    return this.renderResponse("", "utf8", 200, noStore);
+  }
+
   // ── Internes ─────────────────────────────────────────────────────────────────
 
   #service(): IOAuth2Service | null {
@@ -331,6 +388,12 @@ export function mountOAuth2Routes(frameworkModule: Module): void {
       `${base}/{provider}/callback`,
       "GET",
       "callback",
+    ],
+    [
+      "security.oauth2.backchannelLogout",
+      `${base}/{provider}/backchannel-logout`,
+      "POST",
+      "backchannelLogout",
     ],
   ];
   for (const [name, path, method, classMethod] of routes) {

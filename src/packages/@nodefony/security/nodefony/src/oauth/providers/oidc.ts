@@ -1,5 +1,9 @@
 import type { IOAuthProfile } from "@nodefony/user";
-import type { IOAuthProvider } from "../../../contracts/IOAuthProvider";
+import type {
+  ILogoutTokenClaims,
+  IOAuthProvider,
+} from "../../../contracts/IOAuthProvider";
+import { RemoteJwtVerifier } from "../../token/RemoteJwtVerifier";
 import type { IOAuthProviderContext } from "../oauthProviderRegistry";
 import {
   OAuth2Client,
@@ -46,9 +50,72 @@ export interface IOidcProviderOptions {
    * `null` : le fournisseur n'offre pas `createLogoutURL`.
    */
   readonly endSessionEndpoint?: string | null;
+  /**
+   * Vérifie la SIGNATURE d'un jeton de déconnexion (émetteur, audience,
+   * algorithme, `exp`/`iat`) et rend ses claims, ou `null` s'il est refusé ;
+   * lève sur une panne. Absente : le fournisseur n'offre pas
+   * `verifyLogoutToken`. Le sens du jeton (§2.4) est contrôlé ensuite par
+   * {@link readLogoutTokenClaims}, jamais par cette fonction.
+   */
+  readonly verifyLogoutTokenSignature?: (
+    logoutToken: string,
+  ) => Promise<{ issuer: string; payload: Record<string, unknown> } | null>;
 }
 
 const DEFAULT_OIDC_SCOPES = ["openid", "profile", "email"];
+
+/** Membre de `events` qui déclare un jeton de déconnexion (§2.4). */
+const BACKCHANNEL_LOGOUT_EVENT =
+  "http://schemas.openid.net/event/backchannel-logout";
+
+/**
+ * Algorithme d'ID token par défaut quand l'émetteur n'en annonce aucun
+ * (OpenID Connect Back-Channel Logout 1.0 §2.6, point 3).
+ */
+const DEFAULT_LOGOUT_TOKEN_ALGORITHMS = ["RS256"];
+
+/**
+ * Lit ce qu'un jeton de déconnexion DÉSIGNE, une fois sa signature vérifiée —
+ * les points 5 à 7 de la validation (OpenID Connect Back-Channel Logout 1.0
+ * §2.6) : `sub` ou `sid` présent, `events` qui le déclare jeton de
+ * déconnexion, AUCUN `nonce`.
+ *
+ * @remarks Ces gardes ferment la confusion entre jetons (§4.1) : un ID token
+ * du même émetteur, pour le même client, porte une signature tout aussi
+ * valide — c'est `events` qui le distingue, et l'absence de `nonce` qui
+ * empêche le chemin inverse. Fonction PURE, éprouvable sans clé ni réseau.
+ *
+ * @param issuer - émetteur canonique rendu par la vérification de signature.
+ * @param payload - claims vérifiés.
+ * @returns les claims utiles, ou `null` si le jeton n'est pas un jeton de
+ *   déconnexion valide.
+ */
+export function readLogoutTokenClaims(
+  issuer: string,
+  payload: Record<string, unknown>,
+): ILogoutTokenClaims | null {
+  const sub = typeof payload.sub === "string" ? payload.sub : null;
+  const sid = typeof payload.sid === "string" ? payload.sid : null;
+  if ((sub === null || sub === "") && (sid === null || sid === "")) return null;
+  const events = payload.events;
+  if (typeof events !== "object" || events === null || Array.isArray(events)) {
+    return null;
+  }
+  const event = (events as Record<string, unknown>)[BACKCHANNEL_LOGOUT_EVENT];
+  if (typeof event !== "object" || event === null || Array.isArray(event)) {
+    return null;
+  }
+  if ("nonce" in payload) return null;
+  if (typeof payload.jti !== "string" || payload.jti === "") return null;
+  if (typeof payload.exp !== "number") return null;
+  return {
+    issuer,
+    subject: sub === "" ? null : sub,
+    sid: sid === "" ? null : sid,
+    tokenId: payload.jti,
+    expiresAt: payload.exp,
+  };
+}
 
 /**
  * Lit les claims d'un ID token SANS vérifier sa signature.
@@ -168,6 +235,14 @@ export function createOidcProvider(opts: IOidcProviderOptions): IOAuthProvider {
       return url;
     };
   }
+  const verifySignature = opts.verifyLogoutTokenSignature;
+  if (verifySignature !== undefined) {
+    provider.verifyLogoutToken = async (logoutToken) => {
+      const verified = await verifySignature(logoutToken);
+      if (verified === null) return null;
+      return readLogoutTokenClaims(verified.issuer, verified.payload);
+    };
+  }
   return provider;
 }
 
@@ -211,6 +286,28 @@ export async function createDiscoveredOidcProvider(
       `OAuth provider "${name}" : l'émetteur « ${effectiveIssuer} » n'annonce pas PKCE S256 (RFC 7636).`,
     );
   }
+  // Jetons de déconnexion : mêmes clés et mêmes algorithmes que les ID tokens
+  // (§2.6). Les algorithmes annoncés à secret partagé sont ÉCARTÉS — les clés
+  // viennent d'un jeu public (RFC 8725 §2.1) ; Keycloak, par exemple, annonce
+  // `HS256` parmi les siens.
+  const announced = (metadata.idTokenSigningAlgValuesSupported ?? []).filter(
+    (alg) => !alg.startsWith("HS") && alg.toLowerCase() !== "none",
+  );
+  const logoutTokenVerifier = new RemoteJwtVerifier({
+    issuers: [
+      {
+        issuer: metadata.issuer,
+        jwksUri: metadata.jwksUri,
+        algorithms:
+          announced.length > 0 ? announced : DEFAULT_LOGOUT_TOKEN_ALGORITHMS,
+        requiredClaims: ["iat", "exp", "jti", "events"],
+      },
+    ],
+    ...(options.fetch !== undefined ? { fetch: options.fetch } : {}),
+    ...(options.timeoutMs !== undefined
+      ? { timeoutMs: options.timeoutMs }
+      : {}),
+  });
   return createOidcProvider({
     name,
     // L'émetteur retenu est celui CANONISÉ par la découverte, pas la chaîne de
@@ -219,6 +316,9 @@ export async function createDiscoveredOidcProvider(
     issuer: metadata.issuer,
     issParameterSupported: metadata.issParameterSupported,
     endSessionEndpoint: metadata.endSessionEndpoint,
+    // L'audience d'un jeton de déconnexion est le client (§2.4, `aud`).
+    verifyLogoutTokenSignature: (logoutToken) =>
+      logoutTokenVerifier.verifyClaims(logoutToken, ctx.clientId),
     clientId: ctx.clientId,
     decodeIdToken: decodeIdTokenClaims,
     client: new OAuth2Client({

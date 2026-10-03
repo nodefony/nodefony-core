@@ -1857,6 +1857,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
               service: c.serviceAccountsEnabled ?? false,
               frontchannel: c.frontchannelLogout ?? false,
               pkce: c.attributes?.["pkce.code.challenge.method"] ?? null,
+              backchannel: c.attributes?.["backchannel.logout.url"] ?? null,
+              backchannelSid:
+                c.attributes?.["backchannel.logout.session.required"] ?? null,
               mappers: (c.protocolMappers ?? [])
                 .map((m) => m.protocolMapper)
                 .sort(),
@@ -1881,6 +1884,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le front-channel exige une page que l'app n'a pas : back-channel seul.
       for (const c of [...depot.clients, ...genere.clients]) {
         assert.notStrictEqual(c.frontchannelLogout, true, c.clientId);
+      }
+      // Le client qui ouvre des sessions est prévenu de leur fin par Keycloak,
+      // sur la route que le framework monte (#517).
+      for (const c of [...depot.clients, ...genere.clients]) {
+        if (c.standardFlowEnabled !== true) continue;
+        assert.match(
+          c.attributes?.["backchannel.logout.url"] ?? "",
+          /\/nodefony\/security\/api\/oauth2\/keycloak\/backchannel-logout$/,
+          c.clientId,
+        );
       }
     });
 

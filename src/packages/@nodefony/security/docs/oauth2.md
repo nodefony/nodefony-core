@@ -33,7 +33,7 @@ source: "src/packages/@nodefony/security/docs/oauth2.md"
 > connecté à **ton** application. Nodefony orchestre ce voyage avec la posture **OAuth 2.1**
 > (RFC 9700) : Authorization Code, PKCE, `state` anti-CSRF, `iss` anti-mix-up. Point clé :
 > **aucun jeton n'atteint le navigateur** — le retour produit une **session BFF**, exactement la même
-> qu'un login par mot de passe. Ancré sur `OAuth2Service` (`oauth2.ts:217`) et le controller BFF
+> qu'un login par mot de passe. Ancré sur `OAuth2Service` (`oauth2.ts:250`) et le controller BFF
 > `OAuth2Controller` (`OAuth2Controller.ts:89`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **OAuth2**
@@ -114,7 +114,7 @@ qui les ferme ici :
   de session opaque (`OAuth2Controller.ts:192`).
 - **Interception du `code`** — un `code` capté (log de proxy, historique, redirection ouverte) est
   échangeable par l'attaquant. _Fermé par **PKCE**_ : l'échange exige le `code_verifier` resté en
-  session (`OAuth2Service.createAuthorization()`, `oauth2.ts:365-376`).
+  session (`OAuth2Service.createAuthorization()`, `oauth2.ts:401-412`).
 - **CSRF de login** — un tiers force ta victime à terminer **son** flux à lui : elle se retrouve
   connectée sur le compte de l'attaquant, qui lit ensuite ce qu'elle y dépose. _Fermé par le `state`_
   comparé au retour (`OAuth2Controller.callback()`, `OAuth2Controller.ts:198-227`).
@@ -133,7 +133,7 @@ Trois partis pris, tous vérifiables au code.
 
 **Le service ne touche ni HTTP ni session.** `OAuth2Service` rend à l'appelant les éléments à
 persister (`url`, `state`, `codeVerifier`) et un simple `{ identifier }` en sortie
-(`IOAuthAuthorization`, `oauth2.ts:130`). Conséquence pratique : la logique OAuth se teste **sans
+(`IOAuthAuthorization`, `oauth2.ts:163`). Conséquence pratique : la logique OAuth se teste **sans
 serveur**, comme `AuthFlow`. Le transport (cookies, redirections 302) vit dans le controller BFF.
 
 **Le login social finit exactement comme un login classique.** Le callback appelle
@@ -225,15 +225,16 @@ export default defineConfig<typeof env>((ctx) => ({
 
 ### Les routes sont FOURNIES — tu n'écris aucun controller
 
-`mountOAuth2Routes()` (`OAuth2Controller.ts:316`) monte trois routes sous
-`/nodefony/security/api/oauth2` (`OAuth2Controller.ts:236`) dès que le service `oauth2` est
+`mountOAuth2Routes()` (`OAuth2Controller.ts:373`) monte quatre routes sous
+`/nodefony/security/api/oauth2` (`OAuth2Controller.ts:373`) dès que le service `oauth2` est
 enregistré, c'est-à-dire dès que `@nodefony/security` est chargé (`framework/index.ts:460`) :
 
-| Route                        | Rôle                                                                  |
-| ---------------------------- | --------------------------------------------------------------------- |
-| `GET …/providers`            | Noms des fournisseurs **opérationnels** — l'UI n'affiche que ceux-là. |
-| `GET …/{provider}/authorize` | Démarre le flux : pose l'état en session, `302` vers le fournisseur.  |
-| `GET …/{provider}/callback`  | Valide, échange, provisionne, ouvre la session BFF, `302`.            |
+| Route                                  | Rôle                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET …/providers`                      | Noms des fournisseurs **opérationnels** — l'UI n'affiche que ceux-là.                                                                             |
+| `GET …/{provider}/authorize`           | Démarre le flux : pose l'état en session, `302` vers le fournisseur.                                                                              |
+| `GET …/{provider}/callback`            | Valide, échange, provisionne, ouvre la session BFF, `302`.                                                                                        |
+| `POST …/{provider}/backchannel-logout` | Canal arrière : le fournisseur demande de fermer des sessions (cf [§ canal arrière](#déconnexion-demandée-par-le-fournisseur--le-canal-arrière)). |
 
 Ton écran de login n'a donc qu'un lien à poser :
 
@@ -244,10 +245,12 @@ Ton écran de login n'a donc qu'un lien à poser :
 ```
 
 > [!WARNING]
-> Ces routes portent `bypassFirewall: true` (`OAuth2Controller.ts:330`) — elles **sont** le mécanisme
+> Ces routes portent `bypassFirewall: true` (`OAuth2Controller.ts:407`) — elles **sont** le mécanisme
 > d'authentification : l'utilisateur est anonyme pendant tout l'aller-retour. Les protéger créerait
 > un interblocage (il faudrait être connecté pour pouvoir se connecter). La session anonyme ne porte
-> que `state`/`code_verifier`, et son ID est **régénéré** à la promotion.
+> que `state`/`code_verifier`, et son ID est **régénéré** à la promotion. Le canal arrière, lui,
+> est appelé **serveur à serveur** : ni cookie, ni session, ni jeton CSRF — la signature du jeton de
+> déconnexion est sa seule authentification.
 
 ### Ce qu'on observe
 
@@ -279,40 +282,40 @@ Séquence identique prouvée de bout en bout sur serveur réel par `oauth2-flow.
 
 ### Étape 1 — `createAuthorization(provider)`
 
-`OAuth2Service.createAuthorization()` (`oauth2.ts:365`) fabrique trois choses :
+`OAuth2Service.createAuthorization()` (`oauth2.ts:401`) fabrique trois choses :
 
 1. un **`state`** aléatoire (anti-CSRF) ;
 2. un **`code_verifier`** — **seulement si** le fournisseur pratique PKCE (`usesPkce`,
-   `oauth2.ts:368-370`) ; `null` sinon (GitHub) ;
+   `oauth2.ts:404-406`) ; `null` sinon (GitHub) ;
 3. l'**URL d'autorisation** construite par l'adaptateur du fournisseur, avec les scopes effectifs
    (ceux de la config, sinon les scopes par défaut du fournisseur, `oauth2.ts:576`).
 
 Le controller pose les trois valeurs en session, **persiste** (`session.save()` — pas seulement en
-mémoire, `OAuth2Controller.ts:46`), puis redirige en 302.
+mémoire, `OAuth2Controller.ts:55`), puis redirige en 302.
 
 ### Étape 2 — le retour, validé avant tout appel réseau
 
-`OAuth2Controller.callback()` (`OAuth2Controller.ts:204`) travaille dans cet ordre, et l'ordre est la
+`OAuth2Controller.callback()` (`OAuth2Controller.ts:213`) travaille dans cet ordre, et l'ordre est la
 défense :
 
 1. **lire l'état de session, puis l'invalider immédiatement** (`OAuth2Controller.ts:158-166`) — le
    `state` est à **usage unique** : un rejeu du même retour échoue, même avec le bon cookie ;
 2. **comparer** : `code` et `state` présents, `state` reçu ≡ `state` attendu, **et** fournisseur du
-   callback ≡ fournisseur démarré (`OAuth2Controller.ts:172-180`). Un seul écart → `302` vers
+   callback ≡ fournisseur démarré (`OAuth2Controller.ts:231-241`). Un seul écart → `302` vers
    `failureRedirect`, **sans jamais contacter le fournisseur** ;
 3. seulement ensuite, `exchangeAndProvision()`.
 
 ### Étape 3 — `exchangeAndProvision(provider, code, verifier, iss)`
 
-`OAuth2Service.exchangeAndProvision()` (`oauth2.ts:387`) enchaîne :
+`OAuth2Service.exchangeAndProvision()` (`oauth2.ts:423`) enchaîne :
 
 1. **anti-mix-up** — si le fournisseur annonce un émetteur attendu, l'`iss` reçu doit correspondre,
    et un `iss` **absent** est un rejet, pas une tolérance (`oauth2.ts:402-408`) ;
 2. **échange** du `code` sur le canal serveur, avec le `code_verifier`
    (`validateAuthorizationCode`, `oauth2.ts:410`), puis lecture du profil (`fetchProfile`,
-   `oauth2.ts:411`) ;
+   `oauth2.ts:447`) ;
 3. **provisionnement** du Shadow User avec la politique effective — rôles par défaut surchargeables
-   **par fournisseur** (`oauth2.ts:417-418`), `allowSignup` global (`oauth2.ts:421`).
+   **par fournisseur** (`oauth2.ts:417-418`), `allowSignup` global (`oauth2.ts:457`).
 
 Toute erreur de cette étape est convertie en **échec uniforme** par le controller (`302
 failureRedirect`, `OAuth2Controller.ts:198-209`) : le client ne distingue pas un `iss` invalide d'un
@@ -365,7 +368,7 @@ authentification, pas autorisation » (`oauth2.ts:414-418`, `config.ts:1059-1064
 ### Brancher sa propre politique
 
 Le provisioner est le service `users` **s'il implémente la capability**, détecté par duck-typing
-(`OAuth2Service.#resolveProvisioner()`, `oauth2.ts:582-590`). S'il ne l'implémente pas, le login
+(`OAuth2Service.#resolveProvisioner()`, `oauth2.ts:743-751`). S'il ne l'implémente pas, le login
 **échoue** — jamais de création silencieuse par défaut. Une application qui veut sa propre politique
 (quota d'inscriptions, allowlist de domaines e-mail, rattachement à un tenant) implémente
 `provisionOAuthUser()` sur son service `users` : le profil normalisé `IOAuthProfile`
@@ -387,11 +390,11 @@ Quatre sont livrés, résolus par nom via le registre `oauthProviderRegistry.ts:
 
 ### `google` — OIDC, le cas nominal
 
-Construit par le helper générique `createOidcProvider()` (`oidc.ts:106`) : PKCE systématique
+Construit par le helper générique `createOidcProvider()` (`oidc.ts:177`) : PKCE systématique
 (`usesPkce: true`, `oidc.ts:114`), émetteur figé `https://accounts.google.com`
 (`oauthProviderRegistry.ts:129`). Ses points d'entrée ne sont **pas** écrits en dur : ils sont
 demandés à l'émetteur (RFC 8414, cf. « Découverte » plus bas). Le profil se lit dans l'**ID token** —
-claims standard `sub`, `email`, `email_verified`, `name` (`oidc.ts:146`), après les contrôles
+claims standard `sub`, `email`, `email_verified`, `name` (`oidc.ts:217`), après les contrôles
 obligatoires d'OpenID Connect Core §3.1.3.7 : `iss`, `aud`, `exp`, et un `sub` non vide
 (`assertIdTokenClaims()`, `oidc.ts:143`). Pas d'identifiant stable, pas d'identité.
 
@@ -524,7 +527,7 @@ Par fournisseur (`oauthProviderSchema`, `config.ts:954`) :
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
 | `clientAuthMethod` |  | Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). Omis = `client_secret_basic`, ce que la RFC demande de préférer. Poser `client_secret_post` quand le serveur l'EXIGE — il le publie dans `token_endpoint_auth_methods_supported`. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
-| `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:417-421`). |
+| `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:453-457`). |
 | `postLogoutRedirectUri` |  | Adresse **absolue** où le fournisseur renvoie le navigateur après la déconnexion, enregistrée chez lui. Omis = la page de connexion (`failureRedirect` sans sa query) résolue contre `redirectUri`. Sans effet pour un fournisseur qui ne publie pas de point de déconnexion. |
 
 Les surcharges par fournisseur permettent la cohabitation : un IdP de recette garde ses redirections
@@ -535,7 +538,7 @@ et ses rôles pendant qu'un IdP de production pointe ailleurs.
 ### Les jetons du fournisseur ne sont pas conservés
 
 C'est un choix, et il a des conséquences à connaître. Les jetons obtenus à l'échange vivent dans la
-portée locale de l'échange (`validateAuthorizationCode` puis `fetchProfile`, `oauth2.ts:410-411`) :
+portée locale de l'échange (`validateAuthorizationCode` puis `fetchProfile`, `oauth2.ts:446-447`) :
 ils ne sont ni retournés, ni mis en
 session, ni persistés. Le profil normalisé qui traverse le système n'en contient aucun
 (`IOAuthUserProvisioner.ts:8-10`).
@@ -561,31 +564,76 @@ fermer chez le fournisseur, qui sans lui demanderait une confirmation à chaque 
 rafraîchissement restent jetés. GitHub, ou un serveur OIDC sans point de déconnexion : rien n'est
 retenu.
 
+Pour que le fournisseur puisse, à l'inverse, fermer lui-même ces sessions, le login retient aussi
+un **index** — fournisseur et `sid`, **sans** l'ID token — dans les métadonnées de la session
+(`oauth2.ts:463`). Il est là parce que l'énumération des sessions efface les attributs, dans tous
+les stores : c'est la seule partie que le canal arrière peut lire en parcourant le parc. L'écran
+**Sessions** ne l'affiche pas (résumé construit par liste blanche).
+
+### Déconnexion demandée par le fournisseur — le canal arrière
+
+Quand l'utilisateur se déconnecte **ailleurs** — la console d'administration de Keycloak, une autre
+application du même SSO —, le fournisseur appelle l'application : `POST
+…/oauth2/{provider}/backchannel-logout`, avec un paramètre `logout_token` (OpenID Connect
+Back-Channel Logout 1.0). Le contrôleur (`OAuth2Controller.ts:314`) délègue au service
+(`OAuth2Service.backchannelLogout()`, `oauth2.ts:543`) :
+
+1. **La signature d'abord.** Le jeton est vérifié par `RemoteJwtVerifier` (`verifyClaims`,
+   `RemoteJwtVerifier.ts:251`), avec les clés publiques du fournisseur découvertes à son `jwks_uri` :
+   émetteur exact, audience = le `clientId`, `iat`, `exp` et `jti` exigés
+   (`oidc.ts:303`). Les algorithmes sont ceux des ID tokens annoncés par le fournisseur, **sans**
+   ceux à secret partagé (`oidc.ts:293`) — Keycloak annonce `HS256`, qui ferait d'une clé publique un
+   secret de signature.
+2. **Le sens ensuite** (`readLogoutTokenClaims()`, `oidc.ts:93`) : `sub` ou `sid` présent ; `events`
+   qui le déclare jeton de déconnexion ; **aucun** `nonce`. C'est ce qui empêche un ID token, signé
+   par la même clé, de passer pour un jeton de déconnexion.
+3. **Pas de rejeu** : un `jti` déjà vu est refusé (`oauth2.ts:627`).
+4. **Les sessions désignées** sont détruites par `SessionsService.destroyWhere()`
+   (`sessions-service.ts:788`) : celles ouvertes par **ce** fournisseur et qui portent le `sid` du
+   jeton ; sans `sid`, toutes celles du compte lié au `sub`. Une session ouverte par mot de passe ou
+   par un autre fournisseur n'est **jamais** touchée : le fournisseur ne ferme que ce qu'il a ouvert.
+
+Réponses (norme §2.8) : `200` quand la déconnexion a eu lieu — ou n'avait plus lieu d'être ; `400`
+`invalid_request` pour un jeton refusé **comme** pour une déconnexion impossible (jeu de clés
+injoignable), la cause n'allant qu'au journal ; `404` fournisseur inconnu ; `501` fournisseur qui
+n'émet pas de jeton de déconnexion (GitHub). Toujours `Cache-Control: no-store`.
+
+Les **WebSockets** portées par une session détruite se ferment au tick de revalidation du hub temps
+réel, au plus 30 secondes plus tard (`RealtimeHub.ts:112`), code `4001`.
+
+> [!NOTE]
+> L'anti-rejeu vit **dans le processus**. Plusieurs exemplaires : un jeton rejoué sur un autre
+> exemplaire passe — et ne ferme que des sessions que le fournisseur a déjà déclarées closes. La
+> borne est la durée de vie du jeton, que la norme recommande courte (§4).
+
 ### Ce que « révoquer » veut dire ici
 
-| Action                                        | Effet sur ton application                                                                                                                                                                                                                                                                                                                            |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Déconnexion (`POST …/auth/logout`)            | Session détruite côté serveur + cookie effacé — immédiat. Si la session vient d'un fournisseur qui publie un point de déconnexion, la réponse porte `logoutUrl` : le client y envoie le navigateur, qui ferme **aussi** la session du fournisseur. Sans ce détour, le clic suivant sur « Continuer avec Keycloak » reconnecte **sans mot de passe**. |
-| Compte local désactivé/verrouillé             | Rejet à la requête suivante : l'identité est **re-résolue** à chaque requête.                                                                                                                                                                                                                                                                        |
-| Autorisation révoquée **chez le fournisseur** | **Aucun effet automatique** — la session locale reste valide jusqu'à son terme.                                                                                                                                                                                                                                                                      |
-| `allowSignup: false` après coup               | Bloque les nouveaux comptes, pas les liens existants.                                                                                                                                                                                                                                                                                                |
+| Action                                 | Effet sur ton application                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Déconnexion (`POST …/auth/logout`)     | Session détruite côté serveur + cookie effacé — immédiat. Si la session vient d'un fournisseur qui publie un point de déconnexion, la réponse porte `logoutUrl` : le client y envoie le navigateur, qui ferme **aussi** la session du fournisseur. Sans ce détour, le clic suivant sur « Continuer avec Keycloak » reconnecte **sans mot de passe**. |
+| Compte local désactivé/verrouillé      | Rejet à la requête suivante : l'identité est **re-résolue** à chaque requête.                                                                                                                                                                                                                                                                        |
+| Session fermée **chez le fournisseur** | Fournisseur OpenID Connect qui appelle le canal arrière (Keycloak, client configuré) : les sessions qu'il a ouvertes sont détruites. Sinon (GitHub, fournisseur non configuré pour ce canal) : **aucun effet** — la session locale reste valide jusqu'à son terme.                                                                                   |
+| `allowSignup: false` après coup        | Bloque les nouveaux comptes, pas les liens existants.                                                                                                                                                                                                                                                                                                |
 
 La troisième ligne est le piège courant : une fois la session BFF ouverte, ton application ne
-redemande plus rien à GitHub. Pour couper l'accès, il faut agir **localement** (désactiver le compte
+redemande plus rien à GitHub — et Keycloak ne prévient que s'il connaît l'adresse du canal arrière. Pour couper l'accès, il faut agir **localement** (désactiver le compte
 ou détruire les sessions), pas chez le fournisseur.
 
 ### Attaques couvertes, prouvées par les tests
 
-| Vecteur                                            | Défense                                                 | Preuve                           |
-| -------------------------------------------------- | ------------------------------------------------------- | -------------------------------- |
-| Rejeu du retour (même `code`, même `state`)        | `state` consommé + session régénérée à la promotion     | `oauth2-attack.test.ts:89` (S5)  |
-| `state` valide présenté au callback d'un autre IdP | Fournisseur attendu conservé en session et comparé      | `oauth2-attack.test.ts:115` (S6) |
-| `iss` falsifié                                     | Comparaison stricte à l'émetteur de la politique        | `oauth2Service.test.ts:170`      |
-| Prise de compte par e-mail collidant un admin      | Aucune liaison auto : compte séparé, admin intact       | `oauth.attack.test.ts:71` (A1)   |
-| Élévation de privilège par re-login                | Rôles posés à la création, jamais réécrits              | `oauth.attack.test.ts:123` (A2)  |
-| Collision d'identifiants entre fournisseurs        | Clé = `provider` + `providerId`                         | `oauth.attack.test.ts:155` (A3)  |
-| Interception du `code`                             | PKCE : `code_verifier` exigé, refus si absent           | `oauthProviders.test.ts:79`      |
-| Création de compte non voulue                      | Provisioner absent (`provisionOAuthUser`) → fail-closed | `oauth2Service.test.ts:56`       |
+| Vecteur                                               | Défense                                                 | Preuve                                               |
+| ----------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------- |
+| Rejeu du retour (même `code`, même `state`)           | `state` consommé + session régénérée à la promotion     | `oauth2-attack.test.ts:89` (S5)                      |
+| `state` valide présenté au callback d'un autre IdP    | Fournisseur attendu conservé en session et comparé      | `oauth2-attack.test.ts:115` (S6)                     |
+| `iss` falsifié                                        | Comparaison stricte à l'émetteur de la politique        | `oauth2Service.test.ts:170`                          |
+| Prise de compte par e-mail collidant un admin         | Aucune liaison auto : compte séparé, admin intact       | `oauth.attack.test.ts:71` (A1)                       |
+| Élévation de privilège par re-login                   | Rôles posés à la création, jamais réécrits              | `oauth.attack.test.ts:123` (A2)                      |
+| Collision d'identifiants entre fournisseurs           | Clé = `provider` + `providerId`                         | `oauth.attack.test.ts:155` (A3)                      |
+| Interception du `code`                                | PKCE : `code_verifier` exigé, refus si absent           | `oauthProviders.test.ts:79`                          |
+| Création de compte non voulue                         | Provisioner absent (`provisionOAuthUser`) → fail-closed | `oauth2Service.test.ts:56`                           |
+| Jeton de déconnexion forgé ou signé par une autre clé | Signature vérifiée sur le jeu de clés de l'émetteur     | `oauthProviders.test.ts` · `oauth2-keycloak.test.ts` |
+| ID token présenté comme jeton de déconnexion          | `events` exigé, `nonce` interdit                        | `oauthProviders.test.ts`                             |
+| Rejeu d'un jeton de déconnexion                       | `jti` déjà vu → refusé                                  | `oauth2Service.test.ts`                              |
 
 ## 📜 Normes appliquées
 
@@ -593,13 +641,14 @@ ou détruire les sessions), pas chez le fournisseur.
 | ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Flux Authorization Code               | RFC 6749                               | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:99`)                    |
 | PKCE                                  | RFC 7636                               | `usesPkce` (`IOAuthProvider.ts:72`) · `oidc.ts:104-111`                                  |
-| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:217`) · `oauth2Schema` (`config.ts:1051`)                    |
+| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:250`) · `oauth2Schema` (`config.ts:1051`)                    |
 | Anti-mix-up (`iss`)                   | RFC 9207                               | `issuerPolicy` (`IOAuthProvider.ts:79`) · `oauth2.ts:402-408`                            |
 | Callback en correspondance exacte     | RFC 9700 §4                            | `redirectUri` (`config.ts:975`)                                                          |
-| Claims d'identité OIDC                | OpenID Connect Core                    | `fetchProfile()` du helper OIDC (`oidc.ts:127-145`)                                      |
+| Claims d'identité OIDC                | OpenID Connect Core                    | `fetchProfile()` du helper OIDC (`oidc.ts:205-220`)                                      |
 | ID token consommé en code flow        | OIDC Core §3.1.3.7                     | `assertIdTokenClaims()` (`oidc.ts:143`)                                                  |
 | Anti-fixation de session              | OWASP Session Management               | `session.regenerateId()` au login (`authFlow.ts:388`)                                    |
-| Déconnexion initiée par l'application | OpenID Connect RP-Initiated Logout 1.0 | `createLogoutURL` (`oidc.ts:157`) · `end_session_endpoint` découvert (`metadata.ts:185`) |
+| Déconnexion initiée par l'application | OpenID Connect RP-Initiated Logout 1.0 | `createLogoutURL` (`oidc.ts:224`) · `end_session_endpoint` découvert (`metadata.ts:185`) |
+| Déconnexion par le fournisseur        | OpenID Connect Back-Channel Logout 1.0 | `verifyLogoutToken` (`oidc.ts:240`) · `backchannelLogout()` (`oauth2.ts:543`)            |
 
 Flux **exclus** par posture 2.1, et donc absents du code : `implicit` (jeton en fragment d'URL) et
 `password` / ROPC (l'application verrait le mot de passe du fournisseur).
@@ -640,30 +689,32 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 
 > [!NOTE]
 > L'événement d'audit du login social porte la raison `oauth` : le controller la passe à
-> `AuthFlow.establishSessionFor()` (`OAuth2Controller.ts:56`), comme WebAuthn passe `webauthn`.
+> `AuthFlow.establishSessionFor()` (`OAuth2Controller.ts:65`), comme WebAuthn passe `webauthn`.
 > `federated` n'est que la valeur par défaut d'un appelant qui n'a pas nommé son facteur
 > (`authFlow.ts:215`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                          | Cause (dans le code)                                                               | Correction                                                          |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `404` sur `…/oauth2/…`                            | Module `@nodefony/security` non chargé, ou nom de fournisseur inconnu              | Charger `@nodefony/security` ; vérifier le nom du fournisseur       |
-| `503 OAuth unavailable`                           | `oauth2.enabled: false`, ou boot du service échoué                                 | Activer `oauth2` ; lire le WARNING de boot                          |
-| WARNING « inconnu du registre » au boot           | Nom configuré sans fabrique (`OAuth2Service.#build()`)                             | `registerOAuthProvider()` au chargement du module, ou builtin       |
-| `404` « Unknown provider » sur `authorize`        | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:14`)                 | Vérifier le nom exact **et** la présence des secrets                |
-| Bouton absent de l'écran de login                 | Secrets manquants → fournisseur non monté (spread conditionnel)                    | Renseigner `clientId`/`clientSecret` dans l'env                     |
-| Bouton absent + WARNING « indisponible » au boot  | Émetteur injoignable à la construction (`OAuth2Service.#resolveProvider()`)        | Démarrer le serveur d'autorisation ; le bouton revient sous 30 s    |
-| `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:975`)               | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
-| Retour systématique sur `failureRedirect`         | `state`/`verifier` absents (cookie perdu entre les deux requêtes)                  | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
-| Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:163-165`)                   | Refaire le flux depuis `authorize` — comportement attendu           |
-| `OAuth issuer mismatch`                           | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:402-408`)                              | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
-| Boot refusé : `….providers.<nom>.issuer`          | Émetteur absent (fabrique `requiresIssuer`) ou mal formé (`checkProviderIssuer()`) | Renseigner l'URL https du realm / de l'émetteur                     |
-| « provisioning indisponible »                     | `users` n'implémente pas la capability (`oauth2.ts:582-590`)                       | Implémenter `provisionOAuthUser()` sur le service `users`           |
-| Profil connu refusé                               | `allowSignup: false` sans lien préexistant (`UserService.ts:374`)                  | Activer `allowSignup` ou lier le compte au préalable                |
-| Doublon de compte pour un utilisateur existant    | Aucune liaison auto par e-mail (choix de sécurité)                                 | Rattacher explicitement, utilisateur connecté                       |
-| Rôle attendu absent après re-login                | Rôles posés à la **création** seulement (`UserService.ts:405`)                     | Modifier les rôles en base ; `defaultRoles` ne réécrit rien         |
-| Jeton du fournisseur introuvable côté application | `IOAuthProfile` n'en porte aucun, par choix (`IOAuthUserProvisioner.ts:8-10`)      | Le capturer dans son propre `fetchProfile()` et le stocker soi-même |
+| Symptôme                                             | Cause (dans le code)                                                               | Correction                                                          |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `404` sur `…/oauth2/…`                               | Module `@nodefony/security` non chargé, ou nom de fournisseur inconnu              | Charger `@nodefony/security` ; vérifier le nom du fournisseur       |
+| `503 OAuth unavailable`                              | `oauth2.enabled: false`, ou boot du service échoué                                 | Activer `oauth2` ; lire le WARNING de boot                          |
+| WARNING « inconnu du registre » au boot              | Nom configuré sans fabrique (`OAuth2Service.#build()`)                             | `registerOAuthProvider()` au chargement du module, ou builtin       |
+| `404` « Unknown provider » sur `authorize`           | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:14`)                 | Vérifier le nom exact **et** la présence des secrets                |
+| Bouton absent de l'écran de login                    | Secrets manquants → fournisseur non monté (spread conditionnel)                    | Renseigner `clientId`/`clientSecret` dans l'env                     |
+| Bouton absent + WARNING « indisponible » au boot     | Émetteur injoignable à la construction (`OAuth2Service.#resolveProvider()`)        | Démarrer le serveur d'autorisation ; le bouton revient sous 30 s    |
+| `redirect_uri_mismatch` chez le fournisseur          | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:975`)               | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
+| Retour systématique sur `failureRedirect`            | `state`/`verifier` absents (cookie perdu entre les deux requêtes)                  | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
+| Callback échoue au **deuxième** essai                | `state` à usage unique, consommé (`OAuth2Controller.ts:163-165`)                   | Refaire le flux depuis `authorize` — comportement attendu           |
+| `OAuth issuer mismatch`                              | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:402-408`)                              | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
+| Boot refusé : `….providers.<nom>.issuer`             | Émetteur absent (fabrique `requiresIssuer`) ou mal formé (`checkProviderIssuer()`) | Renseigner l'URL https du realm / de l'émetteur                     |
+| « provisioning indisponible »                        | `users` n'implémente pas la capability (`oauth2.ts:743-751`)                       | Implémenter `provisionOAuthUser()` sur le service `users`           |
+| Profil connu refusé                                  | `allowSignup: false` sans lien préexistant (`UserService.ts:374`)                  | Activer `allowSignup` ou lier le compte au préalable                |
+| Doublon de compte pour un utilisateur existant       | Aucune liaison auto par e-mail (choix de sécurité)                                 | Rattacher explicitement, utilisateur connecté                       |
+| Rôle attendu absent après re-login                   | Rôles posés à la **création** seulement (`UserService.ts:405`)                     | Modifier les rôles en base ; `defaultRoles` ne réécrit rien         |
+| Jeton du fournisseur introuvable côté application    | `IOAuthProfile` n'en porte aucun, par choix (`IOAuthUserProvisioner.ts:8-10`)      | Le capturer dans son propre `fetchProfile()` et le stocker soi-même |
+| Keycloak : « Some clients have not been logged out » | Canal arrière injoignable, ou client en _Front channel logout_ ON                  | Adresse joignable par Keycloak ; _Front channel logout_ OFF         |
+| Canal arrière : `0 session(s) fermée(s)` au journal  | Session ouverte avant la mise en place de l'index fédéré, ou `sid` différent       | Se reconnecter ; vérifier _Backchannel logout session required_     |
 
 ## 🧪 Tests & couverture
 
@@ -676,13 +727,14 @@ Trois familles couvrent le social login — les chiffres exacts vivent dans la c
   par e-mail) ;
 - **intégration** — `oauth2-flow.test` : le flux complet sur **serveur réel**, du `302` d'`authorize`
   à l'identité résolue par `/me`, avec un fournisseur de test déterministe et sans réseau ;
+  `oauth2-keycloak.test` : le même flux contre un **vrai** Keycloak, déconnexions comprises (les
+  deux sens) ;
 - **attaque** — `oauth2-attack.test` (rejeu du `state`, mix-up de fournisseur) et
   `oauth.attack.test` (collision d'e-mail avec un admin, élévation par re-login, collision
   d'identifiants entre fournisseurs).
 
 Ce qui **manque** : aucun banc de charge dédié au social login (le flux est un chemin froid, deux
-requêtes par connexion), et aucun test contre un IdP réel (impossible à automatiser — le fournisseur
-de test couvre la branche PKCE).
+requêtes par connexion), et aucun test contre un fournisseur réel autre que Keycloak.
 
 Couverture : `npm run coverage` dans `@nodefony/security`. Campagnes d'attaque : skill
 `nodefony-security-review` (mode red/blue-team).
