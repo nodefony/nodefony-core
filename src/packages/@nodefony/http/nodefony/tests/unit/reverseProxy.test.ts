@@ -20,6 +20,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import http from "node:http";
 import http2 from "node:http2";
 import net from "node:net";
+import v8 from "node:v8";
+import vm from "node:vm";
 import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import type { AddressInfo } from "node:net";
@@ -501,6 +503,55 @@ describe("ReverseProxy — requêtes HTTP/1.1", () => {
     expect((await get(p2, "/svc/")).body).toBe("un");
     current = two.origin;
     expect((await get(p2, "/svc/")).body).toBe("deux");
+  });
+
+  it("un socket amont gardé en pool ne retient pas la requête du client qui l'a ouvert", async () => {
+    // Le délai d'ÉTABLISSEMENT s'arme sur un socket neuf par `once("connect")`
+    // + `once("close")`. Si le second survit à la connexion, il reste sur le
+    // socket mis en pool (keep-alive) et sa fermeture retient le relais entier
+    // — requête et réponse du client, donc son socket et le dernier contexte
+    // HTTP servi dessus — tant que l'amont garde la connexion. Vécu : gate
+    // mémoire rouge sous Windows, « 2 contextes jamais réclamés » sur le GET
+    // relayé, dès qu'un socket amont NEUF naissait pendant la boucle.
+    v8.setFlagsFromString("--expose-gc");
+    const gc = vm.runInNewContext("gc") as () => void;
+    const up = await upstream();
+    const proxy = proxyWith({ "/svc/": { target: up.origin } });
+    // La RÉPONSE compte autant que la requête : le noyau y attache son
+    // écouteur `close`, dont la fermeture tient le contexte HTTP.
+    // Porteur objet : une variable affectée dans la fermeture serait rétrécie
+    // à `null` par le contrôle de flux de TypeScript.
+    const seen: {
+      client?: WeakRef<http.IncomingMessage>;
+      reply?: WeakRef<http.ServerResponse>;
+    } = {};
+    const server = http.createServer((req, res) => {
+      seen.client ??= new WeakRef(req);
+      seen.reply ??= new WeakRef(res);
+      void proxy.forward(req, res, "http");
+    });
+    const port = await listen(server);
+    expect((await get(port, "/svc/")).body).toBe("amont");
+    // Précondition : le socket amont est bien GARDÉ (sinon le vert ne prouve rien).
+    const agent = proxy.mounts?.[0]?.agent;
+    const pooled = Object.values(agent?.freeSockets ?? {}).flat();
+    expect(pooled, "socket amont gardé en pool").toHaveLength(1);
+    for (
+      let i = 0;
+      i < 5 && (seen.client?.deref() ?? seen.reply?.deref()) !== undefined;
+      i++
+    ) {
+      await new Promise((r) => setImmediate(r));
+      gc();
+    }
+    expect(
+      seen.client?.deref(),
+      "la requête du client est retenue par le socket amont en pool",
+    ).toBeUndefined();
+    expect(
+      seen.reply?.deref(),
+      "la réponse au client est retenue par le socket amont en pool",
+    ).toBeUndefined();
   });
 
   it("unmount : le dernier retiré rend `mounts` à null (coût nul dans le pipeline)", () => {

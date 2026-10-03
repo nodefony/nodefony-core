@@ -386,7 +386,16 @@ function armConnectTimeout(
   upstream.once("socket", (socket: Socket) => {
     if (!socket.connecting) return;
     const timer = setTimeout(onTimeout, ms);
-    const clear = (): void => clearTimeout(timer);
+    // `once` ne détache pas son jumeau : l'écouteur `close` survivrait à la
+    // connexion sur le socket mis en pool (keep-alive) et sa fermeture
+    // retiendrait le relais entier — requête et réponse du client, donc son
+    // socket et le dernier contexte HTTP servi dessus — tant que l'amont garde
+    // la connexion.
+    const clear = (): void => {
+      clearTimeout(timer);
+      socket.removeListener("connect", clear);
+      socket.removeListener("close", clear);
+    };
     socket.once("connect", clear);
     socket.once("close", clear);
   });
