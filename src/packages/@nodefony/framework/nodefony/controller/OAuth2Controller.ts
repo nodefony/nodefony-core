@@ -233,8 +233,13 @@ class OAuth2Controller extends Controller {
       const returnedError =
         code === null && stateIsValid ? this.#queryString("error") : null;
       if (returnedError !== null) {
+        // Seul un code de la liste est journalisé : la chaîne reçue vient de
+        // l'URL, et un retour à la ligne y forgerait de fausses lignes de log.
+        const logged = AUTHORIZATION_ERRORS.has(returnedError)
+          ? returnedError
+          : "code non normalisé";
         this.log(
-          `oauth2 callback "${provider}" : le fournisseur a répondu « ${returnedError.slice(0, 64)} »`,
+          `oauth2 callback "${provider}" : le fournisseur a répondu « ${logged} »`,
           "INFO",
         );
       }
