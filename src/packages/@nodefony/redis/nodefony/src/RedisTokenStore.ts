@@ -11,7 +11,7 @@ import type {
   TokenRevokeReason,
 } from "@nodefony/security";
 import type RedisService from "../service/redis";
-import { MAX_SCAN, decodeCursor, encodeCursor } from "./scanCursor";
+import { MAX_SCAN, scanPage } from "./scanCursor";
 
 /** Préfixe namespacé des clés de jetons dans Redis. */
 /**
@@ -426,54 +426,43 @@ export class RedisTokenStore implements ITokenStore {
     if (!client) {
       return { items: [], limit, hasNext: false, nextCursor: null };
     }
-    // Curseur SCAN = STRING opaque — node-redis v6 exige une string en argument
-    // de commande. Composite (`skip:curseur`) car `COUNT` n'est pas un plafond.
-    const { scanCursor, skip } = decodeCursor(query.cursor);
-    const res = await client.scan(scanCursor, {
-      MATCH: `${this.#prefix()}:rec:*`,
-      COUNT: limit,
-    });
-    const next = res.cursor;
-    // Une SEULE lecture d'horloge pour tout le batch : deux jetons de la même
+    // Une SEULE lecture d'horloge pour toute la page : deux jetons de la même
     // page ne peuvent pas être jugés à des instants différents.
     const now = this.#now();
-    const items: IAccessTokenRecord[] = [];
-    // `consumed` compte les CLÉS parcourues (pas les items rendus) : c'est la
-    // position de reprise, et le filtre en écarte une partie.
-    let consumed = 0;
-    for (const key of res.keys.slice(skip)) {
-      if (items.length >= limit) break; // page pleine → le reste attend
-      consumed += 1;
-      const h = await client.hGetAll(key);
-      if (Object.keys(h).length === 0) continue;
-      const rec = this.#decode(h);
-      // Filtre inline (approche B : aucun import runtime de @nodefony/security).
-      if (query.subjectId !== undefined && rec.subjectId !== query.subjectId) {
-        continue;
-      }
-      if (query.kind !== undefined && rec.kind !== query.kind) continue;
-      // État de vie. La règle est écrite DEUX fois dans le dépôt — ici et dans
-      // `tokenStatus.ts` (@nodefony/security) — parce que ce module n'importe
-      // rien de `security` au runtime (approche B, cf commentaire ci-dessus).
-      // C'est le banc de contrat PARTAGÉ, rejoué sur Redis, qui garantit que les
-      // deux disent la même chose : révoqué l'emporte sur expiré.
-      if (query.status !== undefined) {
-        const status =
-          rec.revokedAt !== null
-            ? "revoked"
-            : rec.expiresAt !== null && rec.expiresAt <= now
-              ? "expired"
-              : "active";
-        if (status !== query.status) continue;
-      }
-      items.push(rec);
-    }
-    const restInBatch = skip + consumed < res.keys.length;
-    const nextCursor = restInBatch
-      ? encodeCursor(scanCursor, skip + consumed) // on reste sur ce batch
-      : next === "0"
-        ? null // batch épuisé ET scan terminé
-        : encodeCursor(next, 0); // batch épuisé, on avance
+    const match = `${this.#prefix()}:rec:*`;
+    const { items, nextCursor } = await scanPage(
+      (cursor) => client.scan(cursor, { MATCH: match, COUNT: limit }),
+      query.cursor,
+      limit,
+      async (key): Promise<IAccessTokenRecord | null> => {
+        const h = await client.hGetAll(key);
+        if (Object.keys(h).length === 0) return null;
+        const rec = this.#decode(h);
+        // Filtre inline (approche B : aucun import runtime de @nodefony/security).
+        if (
+          query.subjectId !== undefined &&
+          rec.subjectId !== query.subjectId
+        ) {
+          return null;
+        }
+        if (query.kind !== undefined && rec.kind !== query.kind) return null;
+        // État de vie. La règle est écrite DEUX fois dans le dépôt — ici et dans
+        // `tokenStatus.ts` (@nodefony/security) — parce que ce module n'importe
+        // rien de `security` au runtime (approche B). C'est le banc de contrat
+        // PARTAGÉ, rejoué sur Redis, qui garantit que les deux disent la même
+        // chose : révoqué l'emporte sur expiré.
+        if (query.status !== undefined) {
+          const status =
+            rec.revokedAt !== null
+              ? "revoked"
+              : rec.expiresAt !== null && rec.expiresAt <= now
+                ? "expired"
+                : "active";
+          if (status !== query.status) return null;
+        }
+        return rec;
+      },
+    );
     return { items, limit, hasNext: nextCursor !== null, nextCursor };
   }
 

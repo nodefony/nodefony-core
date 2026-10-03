@@ -68,3 +68,69 @@ export function decodeCursor(cursor?: string): {
 export function scanOrZero(value: string): string {
   return /^\d+$/.test(value) ? value : "0";
 }
+
+/** Un lot `SCAN` tel que node-redis le rend : curseur suivant (string) + clés. */
+export interface IScanBatch {
+  cursor: string;
+  keys: readonly string[];
+}
+
+/**
+ * Rend UNE page d'un balayage `SCAN` filtré — règle unique des trois stores.
+ *
+ * Les lots s'enchaînent jusqu'à **remplir** la page, finir le balayage, ou
+ * épuiser l'effort borné ({@link MAX_SCAN} emplacements examinés par appel).
+ * 🔴 Un seul lot ne suffit pas : `SCAN COUNT` examine des emplacements de TOUT
+ * le keyspace (autres applications, idempotence, jetons), et un lot peut ne
+ * contenir aucune clé retenue par le filtre. Rendre cette page vide ferait
+ * conclure « rien » à tout consommateur qui ne suit pas le curseur — c'était
+ * le cas de la console « Mes sessions » sur un Redis partagé.
+ *
+ * Le curseur rendu est composite ({@link encodeCursor}) : une page pleine au
+ * milieu d'un lot reprend au MÊME lot, à la bonne position. Le keyspace n'est
+ * jamais matérialisé — un lot à la fois.
+ *
+ * @param scan - lance un `SCAN` depuis ce curseur (MATCH et COUNT fixés par
+ *   l'appelant ; `COUNT` doit rester le même d'une page à l'autre)
+ * @param cursor - curseur reçu du client (non fiable — décodé et validé)
+ * @param limit - taille maximale de la page
+ * @param accept - lit une clé et rend l'élément à publier, ou `null` s'il est
+ *   écarté (filtre, clé expirée, valeur corrompue)
+ * @returns les éléments de la page et le curseur suivant (`null` = fin)
+ */
+export async function scanPage<T>(
+  scan: (cursor: string) => Promise<IScanBatch>,
+  cursor: string | undefined,
+  limit: number,
+  accept: (key: string) => Promise<T | null>,
+): Promise<{ items: T[]; nextCursor: string | null }> {
+  let { scanCursor, skip } = decodeCursor(cursor);
+  const items: T[] = [];
+  let budget = Math.max(1, Math.ceil(MAX_SCAN / limit));
+  for (;;) {
+    const res = await scan(scanCursor);
+    budget -= 1;
+    // `consumed` compte les CLÉS du lot parcourues (pas les éléments rendus) :
+    // c'est la position de reprise, et le filtre en écarte une partie.
+    let consumed = 0;
+    for (const key of res.keys.slice(skip)) {
+      if (items.length >= limit) break; // page pleine → le reste pour après
+      consumed += 1;
+      const item = await accept(key);
+      if (item !== null) items.push(item);
+    }
+    if (skip + consumed < res.keys.length) {
+      // Page pleine au milieu du lot : on reste sur ce lot.
+      return { items, nextCursor: encodeCursor(scanCursor, skip + consumed) };
+    }
+    if (res.cursor === "0") {
+      return { items, nextCursor: null }; // lot épuisé ET balayage terminé
+    }
+    scanCursor = scanOrZero(res.cursor);
+    skip = 0;
+    if (items.length >= limit || budget <= 0) {
+      // Page pleine, ou effort épuisé : la page part avec de quoi reprendre.
+      return { items, nextCursor: encodeCursor(scanCursor, 0) };
+    }
+  }
+}

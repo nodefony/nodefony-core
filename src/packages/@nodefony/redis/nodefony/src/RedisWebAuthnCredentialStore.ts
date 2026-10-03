@@ -11,7 +11,7 @@ import type {
   WebAuthnAuthUpdate,
 } from "@nodefony/security";
 import type RedisService from "../service/redis";
-import { decodeCursor, encodeCursor } from "./scanCursor";
+import { scanPage } from "./scanCursor";
 
 /** Préfixe namespacé des clés de credentials WebAuthn dans Redis. */
 /**
@@ -277,45 +277,36 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
     if (!client) {
       return { items: [], limit, hasNext: false, nextCursor: null };
     }
-    // Curseur SCAN = STRING opaque — node-redis v6 exige une string en argument
-    // de commande. Composite (`skip:curseur`) car `COUNT` n'est pas un plafond.
-    const { scanCursor, skip } = decodeCursor(query.cursor);
-    const res = await client.scan(scanCursor, {
-      MATCH: `${this.#prefix()}:cred:*`,
-      COUNT: limit,
-    });
-    const next = res.cursor;
-    const items: IWebAuthnCredentialSummary[] = [];
-    // `consumed` compte les CLÉS parcourues (pas les items rendus) : c'est la
-    // position de reprise, et le filtre en écarte une partie.
-    let consumed = 0;
-    for (const key of res.keys.slice(skip)) {
-      if (items.length >= limit) break; // page pleine → le reste attend
-      consumed += 1;
-      const h = await client.hGetAll(key);
-      if (Object.keys(h).length === 0) continue;
-      const cred = this.#decode(h);
-      // Filtre inline (approche B : aucun import runtime de @nodefony/security).
-      if (query.userId !== undefined && cred.userId !== query.userId) continue;
-      if (
-        query.userId === undefined &&
-        query.q !== undefined &&
-        query.q.length > 0 &&
-        !cred.userId.startsWith(query.q)
-      ) {
-        continue;
-      }
-      if (query.backedUp !== undefined && cred.backupState !== query.backedUp) {
-        continue;
-      }
-      items.push(this.#toSummary(cred));
-    }
-    const restInBatch = skip + consumed < res.keys.length;
-    const nextCursor = restInBatch
-      ? encodeCursor(scanCursor, skip + consumed) // on reste sur ce batch
-      : next === "0"
-        ? null // batch épuisé ET scan terminé
-        : encodeCursor(next, 0); // batch épuisé, on avance
+    const match = `${this.#prefix()}:cred:*`;
+    const { items, nextCursor } = await scanPage(
+      (cursor) => client.scan(cursor, { MATCH: match, COUNT: limit }),
+      query.cursor,
+      limit,
+      async (key): Promise<IWebAuthnCredentialSummary | null> => {
+        const h = await client.hGetAll(key);
+        if (Object.keys(h).length === 0) return null;
+        const cred = this.#decode(h);
+        // Filtre inline (approche B : aucun import runtime de @nodefony/security).
+        if (query.userId !== undefined && cred.userId !== query.userId) {
+          return null;
+        }
+        if (
+          query.userId === undefined &&
+          query.q !== undefined &&
+          query.q.length > 0 &&
+          !cred.userId.startsWith(query.q)
+        ) {
+          return null;
+        }
+        if (
+          query.backedUp !== undefined &&
+          cred.backupState !== query.backedUp
+        ) {
+          return null;
+        }
+        return this.#toSummary(cred);
+      },
+    );
     return { items, limit, hasNext: nextCursor !== null, nextCursor };
   }
 

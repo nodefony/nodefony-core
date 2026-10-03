@@ -9,7 +9,7 @@ import type {
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
 import type RedisService from "../service/redis";
-import { MAX_SCAN, decodeCursor, encodeCursor } from "./scanCursor";
+import { MAX_SCAN, scanPage } from "./scanCursor";
 
 /** Préfixe namespacé des clés de session dans Redis. */
 /**
@@ -220,12 +220,13 @@ class RedisSessionStorage implements ISessionStorage {
   /**
    * {@inheritDoc ISessionStorage.listPage}
    *
-   * **Curseur SCAN** : au plus UN passage `SCAN` par appel (cold-path admin).
-   * Capacité réduite ASSUMÉE et annoncée — pas de `total`, pas d'ordre global sur
-   * `updatedAt` (Redis n'a pas d'index secondaire ici), et la page peut compter
-   * moins d'éléments que `limit` (le filtre s'applique au batch scanné). Le client
-   * boucle tant que `hasNext`, en repassant `nextCursor`. La garantie qui compte
-   * est tenue : **le keyspace n'est jamais matérialisé** — au plus un batch.
+   * **Curseur SCAN** : les lots `SCAN` s'enchaînent jusqu'à REMPLIR la page, finir
+   * le balayage, ou épuiser l'effort borné ({@link MAX_SCAN} emplacements
+   * examinés par appel, cold-path admin). Capacité réduite ASSUMÉE et annoncée —
+   * pas de `total`, pas d'ordre global sur `updatedAt` (Redis n'a pas d'index
+   * secondaire ici). Une page n'est incomplète qu'en FIN de balayage ou budget
+   * épuisé, et porte alors son `nextCursor`. La garantie qui compte est tenue :
+   * **le keyspace n'est jamais matérialisé** — un lot à la fois.
    *
    * ⚠️ **`COUNT` n'est PAS un plafond** — c'est un indice d'effort par itération.
    * Redis peut rendre plus de clés que demandé (typiquement un petit keyspace
@@ -244,50 +245,38 @@ class RedisSessionStorage implements ISessionStorage {
     if (!client) {
       return { items: [], limit, hasNext: false, nextCursor: null };
     }
-    const { scanCursor, skip } = decodeCursor(query.cursor);
-    const res = await client.scan(scanCursor, {
-      MATCH: `${this.#prefix()}:*`,
-      COUNT: limit,
-    });
-    const next = res.cursor;
     const prefixLen = this.#prefix().length + 1;
-    const items: ISessionRecord[] = [];
-    // `consumed` compte les CLÉS du batch parcourues (pas les items rendus) :
-    // c'est la position de reprise, et le filtre en écarte une partie.
-    let consumed = 0;
-    for (const key of res.keys.slice(skip)) {
-      if (items.length >= limit) break; // page pleine → on garde le reste pour après
-      consumed += 1;
-      const raw = await client.get(key);
-      if (!raw) continue;
-      let data: ISerializedSession;
-      try {
-        data = JSON.parse(raw) as ISerializedSession;
-      } catch {
-        continue; // valeur corrompue → ignorée
-      }
-      if (query.user !== undefined && data.user !== query.user) continue;
-      if (
-        query.authenticated !== undefined &&
-        !!data.user !== query.authenticated
-      ) {
-        continue;
-      }
-      // Redaction par construction (garantie du contrat) : le blob Redis porte
-      // tout, mais un record d'énumération admin ne sort jamais avec les données
-      // métier. Ici la vidange est explicite — un `GET` ne sait pas projeter.
-      items.push({
-        id: key.slice(prefixLen),
-        data: { ...data, Attributes: {}, flashBag: {} },
-      });
-    }
-    // Reste-t-il des clés NON consommées dans le batch courant ?
-    const restInBatch = skip + consumed < res.keys.length;
-    const nextCursor = restInBatch
-      ? encodeCursor(scanCursor, skip + consumed) // on reste sur ce batch
-      : next === "0"
-        ? null // batch épuisé ET scan terminé
-        : encodeCursor(next, 0); // batch épuisé, on avance
+    const match = `${this.#prefix()}:*`;
+    const { items, nextCursor } = await scanPage(
+      (cursor) => client.scan(cursor, { MATCH: match, COUNT: limit }),
+      query.cursor,
+      limit,
+      async (key): Promise<ISessionRecord | null> => {
+        const raw = await client.get(key);
+        if (!raw) return null;
+        let data: ISerializedSession;
+        try {
+          data = JSON.parse(raw) as ISerializedSession;
+        } catch {
+          return null; // valeur corrompue → ignorée
+        }
+        if (query.user !== undefined && data.user !== query.user) return null;
+        if (
+          query.authenticated !== undefined &&
+          !!data.user !== query.authenticated
+        ) {
+          return null;
+        }
+        // Redaction par construction (garantie du contrat) : le blob Redis porte
+        // tout, mais un record d'énumération admin ne sort jamais avec les
+        // données métier. Ici la vidange est explicite — un `GET` ne sait pas
+        // projeter.
+        return {
+          id: key.slice(prefixLen),
+          data: { ...data, Attributes: {}, flashBag: {} },
+        };
+      },
+    );
     return { items, limit, hasNext: nextCursor !== null, nextCursor };
   }
 

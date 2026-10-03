@@ -59,8 +59,14 @@ class FakePaginatingRedis {
     const start = Number.parseInt(cursor, 10) || 0;
     const count = options?.COUNT ?? 10;
     const re = globToRegExp(options?.MATCH);
-    const all = [...this.#strings.keys()].filter((k) => !re || re.test(k));
-    const slice = all.slice(start, start + count);
+    // Comme le VRAI Redis : `COUNT` dose les emplacements EXAMINÉS sur tout le
+    // keyspace, et `MATCH` ne filtre qu'ENSUITE. Filtrer avant de découper
+    // (ancienne version de ce double) rendait des lots toujours pleins, et
+    // masquait la page vide que produit un keyspace chargé d'autres clés.
+    const all = [...this.#strings.keys()];
+    const slice = all
+      .slice(start, start + count)
+      .filter((k) => !re || re.test(k));
     const nextIndex = start + count;
     return Promise.resolve({
       cursor: nextIndex >= all.length ? "0" : String(nextIndex),
@@ -113,4 +119,55 @@ runSessionPaginationContract({
     if (realClient) await realClient.flushDb();
     else fake.flush();
   },
+});
+
+/**
+ * Un keyspace PARTAGÉ — d'autres clés que les sessions (idempotence, jetons,
+ * autres applications) — est le cas normal d'un Redis de production.
+ *
+ * `SCAN COUNT` examine des emplacements sur TOUT ce keyspace : un lot peut ne
+ * contenir aucune session du filtre demandé. Une page rendue vide alors que
+ * l'ensemble ne l'est pas fait conclure « aucune session » à tout consommateur
+ * qui ne suit pas le curseur — la console « Mes sessions » la première.
+ */
+describe("keyspace chargé d'autres clés — la page se REMPLIT", () => {
+  const set = (k: string, v: string) =>
+    realClient ? realClient.set(k, v) : fake.set(k, v);
+
+  beforeAll(async () => {
+    if (realClient) await realClient.flushDb();
+    else fake.flush();
+    for (let i = 0; i < 2000; i += 1) await set(`autre-app:cle:${i}`, "x");
+    for (let i = 0; i < 30; i += 1) {
+      await storage.write(`voisin-${i}`, {
+        Attributes: {},
+        flashBag: {},
+        metaBag: {},
+        user: "voisin",
+      });
+    }
+    for (let i = 0; i < 3; i += 1) {
+      await storage.write(`cible-${i}`, {
+        Attributes: {},
+        flashBag: {},
+        metaBag: {},
+        user: "cible",
+      });
+    }
+  });
+
+  it("filtre user : la PREMIÈRE page porte les sessions, même noyées dans 2 000 clés étrangères", async () => {
+    const page = await storage.listPage({ limit: 10, user: "cible" });
+    expect(page.items.map((i) => i.data.user)).toEqual([
+      "cible",
+      "cible",
+      "cible",
+    ]);
+  });
+
+  it("sans filtre : une page pleine dès qu'il y a de quoi la remplir", async () => {
+    const page = await storage.listPage({ limit: 10 });
+    expect(page.items).toHaveLength(10);
+    expect(page.hasNext).toBe(true);
+  });
 });

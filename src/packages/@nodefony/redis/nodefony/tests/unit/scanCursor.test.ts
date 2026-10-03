@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import type { SessionsService } from "@nodefony/http";
-import { decodeCursor, encodeCursor, scanOrZero } from "../../src/scanCursor";
+import {
+  MAX_SCAN,
+  decodeCursor,
+  encodeCursor,
+  scanOrZero,
+  scanPage,
+  type IScanBatch,
+} from "../../src/scanCursor";
 import { RedisTokenStore } from "../../src/RedisTokenStore";
 import { RedisWebAuthnCredentialStore } from "../../src/RedisWebAuthnCredentialStore";
 import RedisSessionStorage from "../../src/SessionStorage";
@@ -265,4 +272,68 @@ describe("listAll (jetons) — plafond de balayage", () => {
     assert.equal(notices.length, 1, "un listing tronqué se DIT");
     assert.match(notices[0]!, /PARTIEL/);
   }, 5_000);
+});
+
+describe("scanPage — une page se REMPLIT à travers les lots", () => {
+  /** Keyspace simulé à la manière du vrai Redis : COUNT examine, MATCH filtre ENSUITE. */
+  function fakeScan(keys: readonly string[], count: number, prefix: string) {
+    const calls: string[] = [];
+    const scan = (cursor: string): Promise<IScanBatch> => {
+      calls.push(cursor);
+      const start = Number.parseInt(cursor, 10) || 0;
+      const next = start + count;
+      return Promise.resolve({
+        cursor: next >= keys.length ? "0" : String(next),
+        keys: keys.slice(start, next).filter((k) => k.startsWith(prefix)),
+      });
+    };
+    return { scan, calls };
+  }
+  const keep = (k: string) => Promise.resolve(k);
+
+  it("🔴 les sessions noyées dans 2 000 clés étrangères arrivent dès la PREMIÈRE page", async () => {
+    const keys = [
+      ...Array.from({ length: 2000 }, (_, i) => `autre:${i}`),
+      "s:a",
+      "s:b",
+      "s:c",
+    ];
+    const { scan } = fakeScan(keys, 10, "s:");
+    const page = await scanPage(scan, undefined, 10, keep);
+    expect(page.items).toEqual(["s:a", "s:b", "s:c"]);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it("page pleine au milieu d'un lot : la suite reprend au MÊME lot, sans perte ni doublon", async () => {
+    const keys = Array.from({ length: 7 }, (_, i) => `s:${i}`);
+    const { scan } = fakeScan(keys, 100, "s:"); // un seul lot de 7
+    const p1 = await scanPage(scan, undefined, 3, keep);
+    const p2 = await scanPage(scan, p1.nextCursor ?? undefined, 3, keep);
+    const p3 = await scanPage(scan, p2.nextCursor ?? undefined, 3, keep);
+    expect([...p1.items, ...p2.items, ...p3.items]).toEqual(keys);
+    expect(p3.nextCursor).toBeNull();
+  });
+
+  it("effort BORNÉ : au-delà de MAX_SCAN emplacements, la page part incomplète AVEC son curseur", async () => {
+    const keys = Array.from({ length: MAX_SCAN * 2 }, (_, i) => `autre:${i}`);
+    keys.push("s:loin");
+    const { scan, calls } = fakeScan(keys, 100, "s:");
+    const p1 = await scanPage(scan, undefined, 100, keep);
+    expect(p1.items).toEqual([]);
+    expect(p1.nextCursor, "de quoi reprendre").not.toBeNull();
+    expect(calls.length).toBe(MAX_SCAN / 100);
+    const p2 = await scanPage(scan, p1.nextCursor ?? undefined, 100, keep);
+    expect(p2.items).toEqual([]);
+    const p3 = await scanPage(scan, p2.nextCursor ?? undefined, 100, keep);
+    expect(p3.items).toEqual(["s:loin"]);
+  });
+
+  it("un élément écarté par le filtre ne compte pas dans la page", async () => {
+    const keys = ["s:1", "s:x", "s:2", "s:y", "s:3"];
+    const { scan } = fakeScan(keys, 2, "s:");
+    const page = await scanPage(scan, undefined, 3, (k) =>
+      Promise.resolve(/\d$/.test(k) ? k : null),
+    );
+    expect(page.items).toEqual(["s:1", "s:2", "s:3"]);
+  });
 });

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 891,
-    "symbols": 4488,
+    "symbols": 4490,
     "classes": 407,
-    "interfaces": 1167,
+    "interfaces": 1168,
     "types": 478,
     "enums": 4,
-    "functions": 1981,
+    "functions": 1982,
     "constants": 451
   },
   "symbols": {
@@ -22149,6 +22149,15 @@
       "extends": null,
       "description": "Sous-ensemble structural du client `redis` v6 utilisé par le store de credentials — permet de tester contre un double déterministe sans serveur (le vrai `RedisClientType` satisfait cette forme par …"
     },
+    "IScanBatch": {
+      "name": "IScanBatch",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/redis/nodefony/src/scanCursor.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "description": "Un lot `SCAN` tel que node-redis le rend : curseur suivant (string) + clés."
+    },
     "encodeCursor": {
       "name": "encodeCursor",
       "kind": "function",
@@ -22172,6 +22181,14 @@
       "exported": true,
       "module": "@nodefony/redis",
       "description": "Un curseur `SCAN` exploitable (chiffres) ou `\"0\"` — jamais du texte libre."
+    },
+    "scanPage": {
+      "name": "scanPage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/src/scanCursor.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Rend UNE page d'un balayage `SCAN` filtré — règle unique des trois stores. Les lots s'enchaînent jusqu'à **remplir** la page, finir le balayage, ou épuiser l'effort borné ({@link MAX_SCAN} emplacem…"
     },
     "MAX_SCAN": {
       "name": "MAX_SCAN",
@@ -39330,12 +39347,7 @@
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
-      "decodeCursor": [
-        "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
-        "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
-      ],
-      "encodeCursor": [
+      "scanPage": [
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
