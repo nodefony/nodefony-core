@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-03 10:08** (UTC).
+> Empreinte prise le **2026-10-03 12:06** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████░░░░` 64% | 69 | 39 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████░░░░` 64% | 70 | 39 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 134 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 32 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -53,7 +53,7 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | --- | --- | ---: | --- | --- | --- |
 | 3.01 | P1 — figé à la création | 14 | 2026-10-05 → 10-07 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 3.05 | P1 — figé à la création | 1 | 2026-10-08 → 10-08 | #478 | feat(security): fournir aux pods de production une clé de signature partagée |
-| 3.3 | P1 — figé à la création | 1 | — | #526 | fix(frontend): afficher en développement les images importées par un front |
+| 3.31 | P1 — figé à la création | 2 | — | #528 | feat(frontend): servir Vite derrière Nodefony en développement |
 | 3.4 | P1 — figé à la création | 1 | — | #527 | feat(brand): redessiner le logo Nodefony en vectoriel net à toute taille |
 | 3.5 | P1 — figé à la création | 2 | — | #517 | fix(security): fermer aussi la session Keycloak à la déconnexion |
 | 3.51 | P1 — figé à la création | 2 | — | #519 | feat(security): dériver les rôles de l'application des rôles Keycloak |

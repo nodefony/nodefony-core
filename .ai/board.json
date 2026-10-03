@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T10:08:33.756Z",
+  "generatedAt": "2026-10-03T12:06:41.377Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 69,
+      "closed": 70,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 39,
@@ -1801,12 +1801,28 @@
       "number": 526,
       "title": "fix(frontend): afficher en développement les images importées par un front",
       "url": "https://github.com/nodefony/nodefony-core/issues/526",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 3.3,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 528,
+      "title": "feat(frontend): servir Vite derrière Nodefony en développement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/528",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 3.31,
       "debut": null,
       "cible": null,
       "labels": [
