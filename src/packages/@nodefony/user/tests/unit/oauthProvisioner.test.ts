@@ -3,6 +3,7 @@ import {
   BaseUser,
   UserService,
   UserNotFoundError,
+  IdentifierTakenError,
   type IUserRepository,
   type IPasswordAuthenticatedUser,
   type IPasswordEncoder,
@@ -30,7 +31,13 @@ const encoder: IPasswordEncoder = {
 };
 
 function makeService(repo: Partial<IUserRepository>): UserService {
-  return new UserService(repo as IUserRepository, encoder);
+  // Par défaut, aucun compte local ne porte l'identifiant : chaque cas qui
+  // éprouve une collision le déclare lui-même.
+  const withDefaults: Partial<IUserRepository> = {
+    findByIdentifier: () => Promise.resolve(null),
+    ...repo,
+  };
+  return new UserService(withDefaults as IUserRepository, encoder);
 }
 
 // Lit les liens sociaux du payload de création (champ d'entité hors contrat credential).
@@ -154,43 +161,34 @@ describe("UserService — IOAuthUserProvisioner (Shadow User JIT)", () => {
     assert.equal(createCalled, false);
   });
 
-  it("zéro liaison-email auto : un email connu localement ne lie PAS le compte (anti-takeover)", async () => {
-    let findByIdentifierCalled = false;
-    let created: Partial<IPasswordAuthenticatedUser> | null = null;
+  it("zéro liaison-email auto : un email connu localement est REFUSÉ — ni lié, ni dupliqué (anti-takeover)", async () => {
+    let createCalled = false;
     const svc = makeService({
       findBySocialProvider: () => Promise.resolve(null),
-      // Un compte local ROLE_ADMIN partage l'email : il NE DOIT PAS être lié.
-      findByIdentifier: () => {
-        findByIdentifierCalled = true;
-        return Promise.resolve(
+      // Un compte local ROLE_ADMIN partage l'email : il NE DOIT PAS être lié,
+      // et un second compte sous le même identifiant SERAIT lui à la requête
+      // suivante (la session recharge par identifiant).
+      findByIdentifier: () =>
+        Promise.resolve(
           new BaseUser({
             id: "victim",
             identifier: "bob@gmail.com",
             roles: ["ROLE_ADMIN"],
             password: "hash",
           }),
-        );
-      },
-      create: (data: Partial<IPasswordAuthenticatedUser>) => {
-        created = data;
-        return Promise.resolve(
-          new BaseUser({
-            id: "44444444-4444-4444-8444-444444444444",
-            identifier: data.identifier as string,
-            roles: data.roles ?? [],
-            password: null,
-          }),
-        );
+        ),
+      create: () => {
+        createCalled = true;
+        return Promise.reject(new Error("create ne doit pas être appelé"));
       },
     });
-    const user = await svc.provisionOAuthUser(
-      { ...googleProfile, emailVerified: true },
-      { defaultRoles: ["ROLE_USER"], allowSignup: true },
+    await assert.rejects(
+      svc.provisionOAuthUser(
+        { ...googleProfile, emailVerified: true },
+        { defaultRoles: ["ROLE_USER"], allowSignup: true },
+      ),
+      IdentifierTakenError,
     );
-    // Un NOUVEL utilisateur est créé ; jamais le compte ROLE_ADMIN existant.
-    assert.equal(findByIdentifierCalled, false);
-    assert.ok(created);
-    assert.deepEqual([...user.roles], ["ROLE_USER"]);
-    assert.notEqual(user.id, "victim");
+    assert.equal(createCalled, false);
   });
 });

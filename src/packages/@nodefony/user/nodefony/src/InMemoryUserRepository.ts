@@ -12,6 +12,7 @@ import type {
 } from "../contracts/index";
 import { USER_SORTABLE_FIELDS_IN_MEMORY, USER_DEFAULT_ORDER } from "./userSort";
 import { attachExtraColumns } from "./userContract";
+import { IdentifierTakenError } from "../errors/IdentifierTakenError";
 
 /**
  * Annuaire d'utilisateurs **en mémoire** — implémentation de référence du contrat
@@ -88,6 +89,15 @@ export class InMemoryUserRepository implements IUserRepository {
       enabled?: boolean;
       locked?: boolean;
     };
+    // L'identifiant est UNIQUE (`userContract`, `unique: true`) : Drizzle et
+    // Mongoose le tiennent par un index, ce dépôt doit le tenir lui-même. Sans
+    // ce refus, deux comptes partageraient un identifiant — et la session, qui
+    // recharge par identifiant, désignerait le PREMIER des deux.
+    if ([...this.#store.values()].some((u) => u.identifier === d.identifier)) {
+      return Promise.reject(
+        new IdentifierTakenError("a local account already uses it"),
+      );
+    }
     const user = new BaseUser({
       id: randomUUID(),
       identifier: d.identifier as string,

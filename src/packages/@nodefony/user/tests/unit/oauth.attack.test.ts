@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   UserService,
   InMemoryUserRepository,
+  IdentifierTakenError,
   type IPasswordEncoder,
   type IOAuthProfile,
 } from "../../index";
@@ -19,9 +20,9 @@ import {
  *   A1 — Account-takeover + ESCALADE : un fournisseur OAuth (ou un fournisseur
  *        légitime mal configuré / sous contrôle de l'attaquant) renvoie l'email
  *        d'un compte LOCAL privilégié (ROLE_ADMIN, mot de passe). Le provisioning
- *        NE DOIT PAS lier ce compte : il crée un Shadow User SÉPARÉ (password null,
- *        ROLE_USER) → l'attaquant n'hérite jamais des droits de la victime, et le
- *        compte admin reste INTACT.
+ *        NE DOIT PAS lier ce compte, ni en créer un second sous le même
+ *        identifiant (la session recharge par identifiant : ce doublon SERAIT
+ *        l'admin) → refus explicite, compte admin INTACT.
  *   A2 — Anti-élévation par re-login : OAuth = authentification, pas autorisation.
  *        Un 2ᵉ login (même compte externe) avec une policy `defaultRoles` élevée ne
  *        doit JAMAIS réécrire les rôles du Shadow User existant (la base locale
@@ -68,55 +69,51 @@ const USER_ONLY = { defaultRoles: ["ROLE_USER"], allowSignup: true };
 
 describe("OAuth2 — red-team PROVISIONING (Shadow User, vrai InMemoryUserRepository)", () => {
   // A1 — account-takeover + escalade de privilège via collision d'email.
-  it("A1 — email collidant un admin local → Shadow User SÉPARÉ (ROLE_USER, password null), admin INTACT", async () => {
+  //
+  // La session s'ouvre PAR IDENTIFIANT (`establishSessionFor`) et chaque requête
+  // suivante recharge le compte par identifiant : un Shadow User créé sous
+  // l'email d'un compte existant serait donc, dès la requête suivante, l'ADMIN
+  // — le premier compte trouvé. Le seul verdict sûr est le refus.
+  it("A1 — email collidant un admin local → provisioning REFUSÉ, admin INTACT, aucun compte ajouté", async () => {
     const repo = seedWithAdminVictim();
     const svc = new UserService(repo, encoder);
 
-    const user = await svc.provisionOAuthUser(profileColliding, USER_ONLY);
-
-    // Le compte rendu n'est PAS la victime : ni son id, ni ses droits.
-    assert.notEqual(
-      user.id,
-      "00000000-0000-4000-8000-victimadmin01",
-      "jamais le compte admin",
-    );
-    assert.equal(
-      user.hasRole("ROLE_ADMIN"),
-      false,
-      "aucune escalade : pas ROLE_ADMIN",
-    );
-    assert.deepEqual(
-      [...user.roles],
-      ["ROLE_USER"],
-      "rôles = policy de l'appelant",
+    await assert.rejects(
+      svc.provisionOAuthUser(profileColliding, USER_ONLY),
+      IdentifierTakenError,
+      "un compte externe non lié ne prend jamais l'identifiant d'un compte local",
     );
 
-    // Le Shadow User est 100 % OAuth (aucun credential mot de passe).
-    const shadow = await repo.findBySocialProvider("google", "g-attacker-108");
-    assert.ok(shadow, "le lien social est persisté");
+    assert.equal(await repo.count(), 1, "zéro compte ajouté, zéro fusion");
     assert.equal(
-      (shadow as { password: string | null }).password,
+      await repo.findBySocialProvider("google", "g-attacker-108"),
       null,
-      "Shadow User : password null",
+      "aucun lien social persisté",
     );
-
-    // La victime n'a pas bougé : toujours admin, toujours son hash. Deux comptes au total.
-    const victim = await repo.findByIdentifier(ADMIN_EMAIL);
-    // findByIdentifier rend le PREMIER (la victime créée au seed) — elle est intacte.
+    // Ce que la session rechargerait : toujours la victime, intacte.
+    const victim = await svc.loadUserByIdentifier(ADMIN_EMAIL);
+    assert.equal(victim.id, "00000000-0000-4000-8000-victimadmin01");
     assert.equal(
-      (victim as { password: string | null }).password,
-      "pre-hashed-admin-secret",
-    );
-    assert.equal(
-      victim?.hasRole("ROLE_ADMIN"),
+      victim.hasRole("ROLE_ADMIN"),
       true,
       "l'admin garde ses droits",
     );
     assert.equal(
-      await repo.count(),
-      2,
-      "un compte ajouté (Shadow), zéro fusion",
+      (await repo.findByIdentifier(ADMIN_EMAIL))?.password,
+      "pre-hashed-admin-secret",
     );
+  });
+
+  // A1b — l'invariant vit dans le DÉPÔT : le store mémoire refuse un doublon
+  // comme l'index unique de Drizzle et de Mongoose. Sans lui, tout autre chemin
+  // de création (API d'admin, commande, code applicatif) rouvrirait A1.
+  it("A1b — le dépôt mémoire refuse un identifiant déjà pris (parité avec l'index unique SQL/document)", async () => {
+    const repo = seedWithAdminVictim();
+    await assert.rejects(
+      repo.create({ identifier: ADMIN_EMAIL, roles: ["ROLE_USER"] }),
+      IdentifierTakenError,
+    );
+    assert.equal(await repo.count(), 1);
   });
 
   // A2 — un re-login ne ré-écrit jamais les rôles (OAuth = authn, pas authz).

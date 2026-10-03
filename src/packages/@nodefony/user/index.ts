@@ -105,6 +105,7 @@ export type { ISeedFailureContext } from "./nodefony/src/password/seedFailure";
 
 // ─── Erreurs (P6 S0, J2) ─────────────────────────────────────────────────────
 export { UserNotFoundError } from "./nodefony/errors/UserNotFoundError";
+export { IdentifierTakenError } from "./nodefony/errors/IdentifierTakenError";
 export { WeakPasswordError } from "./nodefony/errors/WeakPasswordError";
 
 // ─── Data plane admin (P6.15) ────────────────────────────────────────────────

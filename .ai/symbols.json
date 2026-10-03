@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 889,
-    "symbols": 4484,
-    "classes": 405,
+    "files": 891,
+    "symbols": 4487,
+    "classes": 407,
     "interfaces": 1167,
     "types": 478,
     "enums": 4,
-    "functions": 1979,
+    "functions": 1980,
     "constants": 451
   },
   "symbols": {
@@ -14777,6 +14777,19 @@
       "module": "modules/test",
       "description": "Remise à zéro entre deux cas de banc."
     },
+    "KeycloakApiController": {
+      "name": "KeycloakApiController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/secure/KeycloakApiController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Porte d'API ouverte par un jeton d'accès émis par un **vrai Keycloak** (zone `test-keycloak`, profil `keycloak` du compose). Elle n'existe que pour poser une question à laquelle aucun double ne rép…"
+    },
     "SecureController": {
       "name": "SecureController",
       "kind": "class",
@@ -23696,6 +23709,17 @@
       "extends": "IRepository, ISortableSource",
       "description": "Repository **spécialisé utilisateur** — `IRepository<IPasswordAuthenticatedUser>` enrichi de finders métier. Étend le contrat CRUD portable de `@nodefony/orm-core` (`find`, `create`, `withTransacti…"
     },
+    "IdentifierTakenError": {
+      "name": "IdentifierTakenError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/errors/IdentifierTakenError.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Un compte local porte déjà cet identifiant — l'identifiant est UNIQUE dans l'annuaire, quel que soit le dépôt (index unique en SQL et en document, refus explicite en mémoire). `code = 409`. Comme {…"
+    },
     "UserNotFoundError": {
       "name": "UserNotFoundError",
       "kind": "class",
@@ -30423,6 +30447,7 @@
         "ThrottledError",
         "UnverifiableTokenError",
         "WebAuthnError",
+        "IdentifierTakenError",
         "UserNotFoundError",
         "WeakPasswordError",
         "DocumentationError"
@@ -30541,6 +30566,7 @@
         "ApiM2mController",
         "ExternalJwtController",
         "IdempotentDemoController",
+        "KeycloakApiController",
         "SecureController",
         "SecureWsController",
         "SelfExternalController",
@@ -31043,6 +31069,7 @@
         "ApiM2mController",
         "ExternalJwtController",
         "IdempotentDemoController",
+        "KeycloakApiController",
         "SecureController",
         "SecureWsController",
         "SelfExternalController",
@@ -31973,6 +32000,9 @@
       "ForeignAudienceController": [
         "src/modules/test/index.ts"
       ],
+      "KeycloakApiController": [
+        "src/modules/test/index.ts"
+      ],
       "IdempotentDemoController": [
         "src/modules/test/index.ts"
       ],
@@ -32284,6 +32314,7 @@
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
+        "src/modules/test/nodefony/secure/KeycloakApiController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test/nodefony/secure/SelfExternalController.ts",
@@ -32476,6 +32507,7 @@
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
+        "src/modules/test/nodefony/secure/KeycloakApiController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test/nodefony/secure/SelfExternalController.ts",
@@ -32509,6 +32541,7 @@
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
+        "src/modules/test/nodefony/secure/KeycloakApiController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
@@ -34040,6 +34073,7 @@
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
+        "src/modules/test/nodefony/secure/KeycloakApiController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SelfExternalController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
@@ -34472,6 +34506,7 @@
         "src/packages/@nodefony/security/nodefony/errors/ThrottledError.ts",
         "src/packages/@nodefony/security/nodefony/errors/UnverifiableTokenError.ts",
         "src/packages/@nodefony/security/nodefony/errors/WebAuthnError.ts",
+        "src/packages/@nodefony/user/nodefony/errors/IdentifierTakenError.ts",
         "src/packages/@nodefony/user/nodefony/errors/UserNotFoundError.ts",
         "src/packages/@nodefony/user/nodefony/errors/WeakPasswordError.ts",
         "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
@@ -36747,6 +36782,7 @@
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
+        "src/modules/test/nodefony/secure/KeycloakApiController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test/nodefony/secure/SelfExternalController.ts",
@@ -36865,6 +36901,7 @@
       "IUser": [
         "src/modules/test/nodefony/secure/ApiM2mController.ts",
         "src/modules/test/nodefony/secure/ExternalJwtController.ts",
+        "src/modules/test/nodefony/secure/KeycloakApiController.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts",
         "src/modules/test/nodefony/secure/SelfExternalController.ts",
@@ -39964,6 +40001,10 @@
       ],
       "IOAuthProvisionPolicy": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "IdentifierTakenError": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts"
       ],
       "profileFromClaims": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"

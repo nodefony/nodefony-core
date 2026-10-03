@@ -21,6 +21,7 @@ import type {
   IOAuthUserProvisioner,
 } from "../contracts/IOAuthUserProvisioner";
 import { UserNotFoundError } from "../errors/UserNotFoundError";
+import { IdentifierTakenError } from "../errors/IdentifierTakenError";
 import { WeakPasswordError } from "../errors/WeakPasswordError";
 import { profileFromClaims } from "../src/userProfile";
 
@@ -378,6 +379,17 @@ export class UserService
     // stable préfixée par le fournisseur (jamais de collision entre fournisseurs).
     const identifier =
       profile.email ?? `${profile.provider}:${profile.providerId}`;
+    // Identifiant déjà porté par un compte local SANS ce lien : refus explicite.
+    // Lier par email serait l'usurpation que ce provisioning exclut ; créer un
+    // second compte sous le même identifiant serait pire — la session recharge
+    // par identifiant et désignerait l'autre. Cas légitime typique : le `sub`
+    // a changé chez le fournisseur (compte recréé, realm réimporté) — le
+    // rattachement se fait alors explicitement, jamais en silence.
+    if ((await this.repository.findByIdentifier(identifier)) !== null) {
+      throw new IdentifierTakenError(
+        `local account exists without a ${profile.provider} link (no automatic linking)`,
+      );
+    }
     const link: ISocialProvider = {
       provider: profile.provider,
       providerId: profile.providerId,

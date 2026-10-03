@@ -33,6 +33,11 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 - **Étanchéité admin GARDÉE** : `toUserSummary` construit champ par champ (0 spread) → un champ métier ne part ni au data plane ni à Studio. Test dédié dans `UserAdminApi.test.ts` — sans lui, un `...user` ajouté un jour ferait fuir salaires et notes RH sans un mot.
 - **`IUserRow`** (même fichier) = forme plate rendue par un dépôt, ré-exportée `UserRow` par les deux adapters (elle y était écrite deux fois).
 - `InMemoryUserRepository.create` persiste aussi `enabled`/`locked` (parité backends réels — seed d'inactifs).
+- 🔴 **`identifier` UNIQUE sur TOUS les dépôts** : index en SQL/document, refus `IdentifierTakenError` (409) dans
+  `InMemoryUserRepository.create`. Un doublon = faille : la session recharge PAR identifiant ⇒ le premier
+  compte (l'admin) répond. `provisionOAuthUser` vérifie AVANT de créer et refuse (jamais de liaison par
+  email, jamais de second compte) — cas typique légitime : `sub` changé chez le fournisseur (realm
+  réimporté) ⇒ rattachement explicite.
 - `IPasswordEncoder`: `hash`/`verify`(async, temps constant)/`needsRehash`. Impl `BcryptEncoder` (rounds 12 par défaut, `[4,31]`, `needsRehash` parse `$2[aby]$NN$`).
 - `BcryptEncoder`: `@node-rs/bcrypt` (`hash`/`verify` NAPI). `verify` délègue la promesse (0 async superflu).
 - `UserService extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>` (name `"users"`). **CRUD hérité** : `find/findOne/findById/count/create/update/delete` + events `onCreated/onUpdated/onDeleted`. **Spécifique** : `createUser(input)` (hache `plainPassword` → `this.create` → onCreated), `findByIdentifier`, `changePassword` (→ `onPasswordChanged`, pas onUpdated), `authenticate` (→ `onAuthenticated`/`onAuthenticationFailure`(raison)). `authenticate`: leurre `consumeDummy` (hash lazy `#dummyHash`, anti-timing) sur identifiant inconnu/sans password ; re-hash transparent si `needsRehash` (→ onPasswordChanged) ; ordre check = locked > disabled > no_password > bad_credentials. **Drop au rétro-fit** : `updateUser`/`deleteUser`/`UserUpdate` (le CRUD générique suffit). `encoder` = champ propre. Façade pagination : `listPage(query)`/`countActiveAdmins(role)` délèguent au repo.
