@@ -1990,9 +1990,17 @@ function dispatchScaffold(
   // gabarit : un layer ne transporte que du texte, et un logo en data-URI dans
   // le code de l'application en faisait une copie de plus, gardée par rien.
   // Les DEUX presets : sans front, un navigateur demande quand même
-  // `/favicon.ico` à la page d'accueil JSON.
+  // `/favicon.ico` à la page d'accueil JSON. Avec un front, pas de logo dans
+  // `public/` : la vitrine l'IMPORTE du paquet (`brand.ts`, servi par Vite en
+  // développement, à empreinte en production) — une copie que rien ne lit
+  // laisserait croire qu'on change la marque en remplaçant ce fichier.
   written.push(
-    ...writeBrandAssets(writer, packageRoot, dest, ["logo", "favicon"]),
+    ...writeBrandAssets(
+      writer,
+      packageRoot,
+      dest,
+      front ? ["favicon"] : ["logo", "favicon"],
+    ),
   );
   // Accueil `GET /` : une app sans frontend répondait 404 à sa propre racine.
   // Rendu SEULEMENT sans front — avec un front, `AppController` tient `/`.

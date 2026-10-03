@@ -16,6 +16,7 @@ import { describe, it, expect } from "vitest";
 import https from "node:https";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { IS_PROD_TARGET } from "../helpers/targetEnv";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(here, "../../../../../../..");
@@ -60,51 +61,72 @@ function request(url: string, host?: string): Promise<IRaw> {
   });
 }
 
-describe("relais /_vite/<famille>/ vers Vite (#526)", () => {
-  it("une URL d'asset Vite demandée à Nodefony → 307 vers Vite, non mise en cache", async () => {
+describe.skipIf(IS_PROD_TARGET)(
+  "relais /_vite/<famille>/ vers Vite (#526)",
+  () => {
+    it("une URL d'asset Vite demandée à Nodefony → 307 vers Vite, non mise en cache", async () => {
+      const res = await request(`https://127.0.0.1:5152${LOGO_PATH}`);
+      expect(
+        res.status,
+        "le relais n'est pas posé (frontend absent ?)",
+      ).to.equal(307);
+      const location = String(res.headers.location);
+      const target = new URL(location);
+      expect(target.hostname).to.equal("127.0.0.1");
+      expect(target.port).to.not.equal("5152");
+      expect(target.pathname).to.equal(LOGO_PATH);
+      expect(String(res.headers["cache-control"])).to.include("no-store");
+    });
+
+    it("la cible sert l'image (la boucle complète que fait le navigateur)", async () => {
+      const res = await request(`https://127.0.0.1:5152${LOGO_PATH}`);
+      const img = await request(String(res.headers.location));
+      expect(img.status).to.equal(200);
+      expect(String(img.headers["content-type"])).to.include("image/png");
+      // Signature PNG.
+      expect(img.body.subarray(0, 4).toString("hex")).to.equal("89504e47");
+    });
+
+    it("la cible suit l'hôte du client (loopback recomposé sur le port Vite)", async () => {
+      const res = await request(
+        `https://127.0.0.1:5152${LOGO_PATH}`,
+        "localhost:5152",
+      );
+      expect(res.status).to.equal(307);
+      expect(new URL(String(res.headers.location)).hostname).to.equal(
+        "localhost",
+      );
+    });
+
+    it("Host forgé → jamais redirigé vers lui (quel que soit domainCheck)", async () => {
+      // La garantie du relais, indépendante du décor : la cible vient de
+      // l'origine RÉSOLUE, jamais du Host client. Avec `domainCheck` (dépôt), la
+      // barrière répond 421 avant ; sans, le 307 vise l'origine résolue.
+      const res = await request(
+        `https://127.0.0.1:5152${LOGO_PATH}`,
+        "evil.example",
+      );
+      expect([307, 421]).to.include(res.status);
+      if (res.status === 307) {
+        expect(new URL(String(res.headers.location)).hostname).to.not.equal(
+          "evil.example",
+        );
+      } else {
+        expect(res.headers.location).to.equal(undefined);
+      }
+    });
+
+    it("préfixe d'une famille inexistante → pas de relais", async () => {
+      const res = await request("https://127.0.0.1:5152/_vite/inconnue/x.png");
+      expect(res.status).to.not.equal(307);
+    });
+  },
+);
+
+describe.runIf(IS_PROD_TARGET)("relais /_vite/ en PRODUCTION (#526)", () => {
+  it("jamais relayé : Vite ne tourne pas, aucun relais n'est déclaré", async () => {
     const res = await request(`https://127.0.0.1:5152${LOGO_PATH}`);
-    expect(res.status, "le relais n'est pas posé (frontend absent ?)").to.equal(
-      307,
-    );
-    const location = String(res.headers.location);
-    const target = new URL(location);
-    expect(target.hostname).to.equal("127.0.0.1");
-    expect(target.port).to.not.equal("5152");
-    expect(target.pathname).to.equal(LOGO_PATH);
-    expect(String(res.headers["cache-control"])).to.include("no-store");
-  });
-
-  it("la cible sert l'image (la boucle complète que fait le navigateur)", async () => {
-    const res = await request(`https://127.0.0.1:5152${LOGO_PATH}`);
-    const img = await request(String(res.headers.location));
-    expect(img.status).to.equal(200);
-    expect(String(img.headers["content-type"])).to.include("image/png");
-    // Signature PNG.
-    expect(img.body.subarray(0, 4).toString("hex")).to.equal("89504e47");
-  });
-
-  it("la cible suit l'hôte du client (loopback recomposé sur le port Vite)", async () => {
-    const res = await request(
-      `https://127.0.0.1:5152${LOGO_PATH}`,
-      "localhost:5152",
-    );
-    expect(res.status).to.equal(307);
-    expect(new URL(String(res.headers.location)).hostname).to.equal(
-      "localhost",
-    );
-  });
-
-  it("Host hors trustedHosts → jamais relayé (421 comme toute requête)", async () => {
-    const res = await request(
-      `https://127.0.0.1:5152${LOGO_PATH}`,
-      "evil.example",
-    );
-    expect(res.status).to.equal(421);
-    expect(res.headers.location).to.equal(undefined);
-  });
-
-  it("préfixe d'une famille inexistante → pas de relais", async () => {
-    const res = await request("https://127.0.0.1:5152/_vite/inconnue/x.png");
     expect(res.status).to.not.equal(307);
+    expect(res.headers.location).to.equal(undefined);
   });
 });

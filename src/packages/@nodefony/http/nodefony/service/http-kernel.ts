@@ -40,6 +40,7 @@ import cluster from "node:cluster";
 import http from "node:http";
 //import https from "node:https";
 import http2 from "node:http2";
+import { responseEnded } from "../src/context/responseEnded";
 import type { IncomingMessage } from "node:http";
 import Ws from "ws";
 import httpServer from "../service/servers/server-http";
@@ -181,24 +182,9 @@ export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
 export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
 
-/**
- * La réponse a-t-elle été TERMINÉE par le serveur ? Sous HTTP/2, la réponse
- * Nodefony écrit et termine le FLUX (`stream.respond`/`stream.end`), jamais la
- * réponse de compatibilité : `writableEnded` de celle-ci reste à `false` alors
- * que le client a tout reçu. Lire le seul `writableEnded` faisait journaliser
- * « client parti » (499) toute réponse courte-circuitée sans `send()` —
- * preflight CORS 204, relais 307 des assets de développement.
- *
- * @param response - la réponse Node de la requête
- * @returns `true` si la réponse ou son flux HTTP/2 a été terminé
- */
-export function responseEnded(response: httpResponse): boolean {
-  return (
-    response.writableEnded ||
-    (response instanceof http2.Http2ServerResponse &&
-      response.stream.writableEnded)
-  );
-}
+// Règle de fin de réponse (HTTP/1.1 + HTTP/2) : une seule implémentation,
+// partagée avec le timeout par flux de `HttpContext`.
+export { responseEnded } from "../src/context/responseEnded";
 export type ContextType = WebsocketContext | HttpContext | Context;
 export type ServerType =
   "http" | "https" | "http2" | "http3" | "websocket" | "websocket-secure";

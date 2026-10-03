@@ -155,5 +155,43 @@ describe.skipIf(IS_PROD_TARGET)(
       );
       expect(lignes(new RegExp(`GET\\s+307\\s\\S*m=${marque}`))).to.equal(1);
     });
+
+    it("HTTP/2 : un client parti avant toute réponse reste un 499", async (ctx) => {
+      // Le sens inverse du cas précédent, et le seul qui protège le contrôleur :
+      // un flux ANNULÉ par le pair (RST_STREAM) a LUI AUSSI
+      // `stream.writableEnded === true` — Node termine le côté écriture en le
+      // détruisant. Lire ce seul champ prenait un client parti pour une
+      // réponse finie : 200 au journal, abandon jamais signalé au contrôleur.
+      const marque = randomUUID();
+      await new Promise<void>((resolve) => {
+        const client = http2.connect("https://localhost:5152", {
+          rejectUnauthorized: false,
+        });
+        client.on("error", () => resolve());
+        const req = client.request({
+          ":path": `/nodefony/test/abort/wait?m=${marque}`,
+        });
+        req.on("error", () => undefined);
+        req.on("close", () => {
+          client.close();
+          resolve();
+        });
+        req.resume();
+        req.end();
+        setTimeout(() => req.close(http2.constants.NGHTTP2_CANCEL), 100);
+      });
+      // `/abort/wait` répond à 2 s : on attend qu'il ait fini de travailler.
+      await new Promise((r) => setTimeout(r, 2500));
+      if (journal === null) {
+        ctx.skip("aucun journal alimenté par le serveur sous test");
+        return;
+      }
+      const lignes = (re: RegExp) => compteDansJournal(journal!, re);
+      expect(
+        lignes(new RegExp(`GET\\s+499\\s\\S*m=${marque}`)),
+        "client h2 parti : 499 attendu au journal",
+      ).to.equal(1);
+      expect(lignes(new RegExp(`GET\\s+200\\s\\S*m=${marque}`))).to.equal(0);
+    });
   },
 );

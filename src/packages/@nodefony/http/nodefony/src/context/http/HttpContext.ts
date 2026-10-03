@@ -81,6 +81,7 @@ type PerfSubMarks = { t0: bigint; uploadNs: number; reqResNs: number };
 
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
 import { describeSessionStoreFailure } from "../../session/sessionStoreFailure";
+import { responseEnded } from "../responseEnded";
 
 class HttpContext extends Context implements IHttpContextInterface {
   //url: string;
@@ -303,7 +304,9 @@ class HttpContext extends Context implements IHttpContextInterface {
       // la bonne granularité (un timeout socket couvrirait N requêtes
       // concurrentes). Comportement historique conservé.
       res.setTimeout(this.response.timeout as number, () => {
-        if (!this.response.response?.writableEnded) {
+        // `responseEnded` : sous HTTP/2 la fin se lit sur le FLUX — la réponse
+        // de compatibilité reste `writableEnded === false` même terminée.
+        if (!responseEnded(res)) {
           this._onTimeout();
         }
       });

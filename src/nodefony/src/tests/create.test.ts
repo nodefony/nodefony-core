@@ -1565,7 +1565,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
     }
 
-    it("vitrine : la page déclare /favicon.ico, le logo passe par une liaison, aucune data-URI", () => {
+    it("vitrine : la page déclare /favicon.ico, le logo est importé, aucune data-URI", () => {
       for (const fw of ["react", "vue", "angular", "svelte"]) {
         const dest = path.join(tmp, `marque-${fw}`);
         scaffold(dest, {
@@ -1579,10 +1579,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
         assert.match(html, /<link rel="icon" href="\/favicon\.ico" \/>/u, fw);
         assert.notMatch(html, /data:image\//u, fw);
+        // Le logo est IMPORTÉ (servi par Vite en dev, à empreinte en prod) :
+        // chaque app générée exerce, dès sa naissance, le chemin des assets
+        // importés (#526). Aucune copie dans `public/` que rien ne lirait.
         assert.include(
           readFileSync(path.join(dest, "frontend", "src", "brand.ts"), "utf8"),
-          'export const NODEFONY_LOGO = "/nodefony-logo.png";',
+          'import logoUrl from "nodefony/assets/nodefony-logo.png";',
           fw,
+        );
+        assert.isFalse(
+          existsSync(path.join(dest, "public", "nodefony-logo.png")),
+          `${fw} : logo recopié dans public/ alors que la vitrine l'importe`,
+        );
+        assert.isTrue(
+          existsSync(path.join(dest, "public", "favicon.ico")),
+          `${fw} : favicon absent`,
         );
         assert.deepEqual(
           dataUris(dest),

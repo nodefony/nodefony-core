@@ -505,11 +505,12 @@ attaché QUE sous pression (`once` + `removeListener` si erreur). `Content-Lengt
 (skip Content-Length si chunked). Timeout 2 couches : **réseau** = `requestTimeout` natif Node (anti-slowloris,
 hors pipeline) ; **pipeline** = `responseTimeout` (armé `HttpContext.setTimeout()` → `onTimeout` →
 `_abortIfPending` → 408/504). Client part avant tout envoi → 499 interne (observabilité pure, jamais écrit).
-🔴 « Client parti » se constate par `responseEnded(response)` (`http-kernel.ts`), JAMAIS par le seul
-`response.writableEnded` : sous HTTP/2, la réponse Nodefony écrit et termine le **flux**
-(`stream.respond`/`stream.end`), la réponse de compatibilité reste `writableEnded === false`. Lire ce seul
-champ journalisait en 499 toute réponse courte-circuitée sans `send()` (preflight CORS 204, relais 307) —
-invisible aux tests `node:https` (HTTP/1.1) : un test de ce chemin parle **`node:http2`**.
+🔴 « Client parti » se constate par `responseEnded(response)` (`src/context/responseEnded.ts`), JAMAIS par
+un seul champ. Sous HTTP/2, la réponse Nodefony termine le **flux** (`stream.respond`/`stream.end`) : la
+réponse de compatibilité reste `writableEnded === false` (→ faux 499 sur preflight 204 / relais 307). Mais un
+flux **annulé par le client** (RST_STREAM) a LUI AUSSI `stream.writableEnded === true` : la garde
+`!stream.aborted` sépare la fin serveur de la coupure client (sinon vrai 499 masqué en 200). Invisible aux
+tests `node:https` (HTTP/1.1) : un test de ce chemin parle **`node:http2`**, dans les DEUX sens.
 
 ### Hooks pipeline
 

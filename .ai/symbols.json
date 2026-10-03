@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 893,
+    "files": 894,
     "symbols": 4516,
     "classes": 408,
     "interfaces": 1173,
@@ -19717,14 +19717,6 @@
       "exported": true,
       "module": "@nodefony/http"
     },
-    "responseEnded": {
-      "name": "responseEnded",
-      "kind": "function",
-      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "description": "La réponse a-t-elle été TERMINÉE par le serveur ? Sous HTTP/2, la réponse Nodefony écrit et termine le FLUX (`stream.respond`/`stream.end`), jamais la réponse de compatibilité : `writableEnded` de …"
-    },
     "createHttpAdminApi": {
       "name": "createHttpAdminApi",
       "kind": "function",
@@ -26639,6 +26631,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Validation de l'identifiant de corrélation `X-Request-Id` fourni par le client, avant qu'il ne soit adopté comme `Context.requestId`. Le `requestId` finit (1) réfléchi dans la réponse (`X-Request-I…"
+    },
+    "responseEnded": {
+      "name": "responseEnded",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/responseEnded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "La réponse a-t-elle été TERMINÉE par le serveur ? Règle UNIQUE, pour HTTP/1.1 comme pour HTTP/2 — l'écouteur `close` du noyau (client parti → 499) et le timeout par flux de `HttpContext` l'appellen…"
     },
     "TrustProxyChecker": {
       "name": "TrustProxyChecker",
@@ -39087,6 +39087,10 @@
       ],
       "compileTrustedHosts": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "responseEnded": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "Statics": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"

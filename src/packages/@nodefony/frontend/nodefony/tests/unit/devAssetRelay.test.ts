@@ -246,6 +246,33 @@ describe("FrontendService — relais /_vite/<famille>/ (une seule politique d'h�
     );
   });
 
+  it("serveur statique SANS relais → WARNING nommé, jamais un silence", () => {
+    const logs: Array<[unknown, string | undefined]> = [];
+    const noop = () => undefined;
+    const container = new Container();
+    container.set("kernel", { environment: "development", domain: "app.test" });
+    container.set("server-static", { addMount: noop });
+    const svc = new FrontendService({
+      kernel: container.get("kernel"),
+      container,
+      notificationsCenter: { on: noop, fire: noop, removeListener: noop },
+      options: {},
+      log: noop,
+    } as unknown as ConstructorParameters<typeof FrontendService>[0]);
+    (svc as unknown as { log: (m: unknown, s?: string) => void }).log = (
+      m,
+      sev,
+    ) => logs.push([m, sev]);
+    register(
+      svc,
+      "/_vite/default/",
+      new TemplateHelper(supervisorWith({}), "development"),
+    );
+    const warning = logs.find(([, sev]) => sev === "WARNING");
+    expect(String(warning?.[0])).to.include("/_vite/default/");
+    expect(String(warning?.[0])).to.include("@nodefony/http");
+  });
+
   it("stopDev retire le relais de chaque famille", async () => {
     const stat = fakeStatic();
     const svc = serviceWith(stat, []);

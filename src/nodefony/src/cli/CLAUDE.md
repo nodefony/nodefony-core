@@ -861,15 +861,17 @@ la construction sur le premier dossier absent (`modules/`, `public/`), inconnus 
 
 **Logo et favicon — `scaffold/brandAssets.ts`.** Le logo officiel a UNE source :
 `assets/nodefony-logo.png` du paquet `nodefony` (publiée, `exports`
-`./assets/nodefony-logo.png`). `create app` (les deux presets) en pose une COPIE dans
-`public/nodefony-logo.png` et son enveloppe ICO dans `public/favicon.ico` (`pngToIco` : le PNG
+`./assets/nodefony-logo.png`). `create app` pose dans `public/` l'enveloppe ICO du logo
+(`favicon.ico`, toujours) et, SANS front seulement, une COPIE `nodefony-logo.png` (`pngToIco` : le PNG
 tel quel derrière un en-tête de 22 octets) — `public/` est servi à la racine par `statics.web`,
 embarqué par l'image, servi par le frontal nginx. `create front` pose le favicon de l'APPLICATION
 s'il manque, jamais par-dessus le sien. Un binaire passe par `writer.writeBinary` : une chaîne
 UTF-8 corromprait l'image sans erreur ; le plan (`changes()`) le rend en `encoding: "base64"`, la
-simulation l'annonce sans diff. Les vitrines lisent le logo par la LIAISON `brand.ts`
-(`NODEFONY_LOGO = "/nodefony-logo.png"`) — une URL `src="/…"` écrite dans un gabarit Vue/Svelte
-casse le build de production. Gate : `src/tests/brandAssets.test.ts` (copies déclarées du dépôt
+simulation l'annonce sans diff. Les vitrines IMPORTENT le logo du paquet dans `brand.ts`
+(`import logoUrl from "nodefony/assets/nodefony-logo.png"`) : chaque app générée exerce dès sa
+naissance le chemin des assets importés — relais `/_vite/<famille>/` en dev (#526), fichier à
+empreinte en prod. Une URL `src="/…"` écrite dans un gabarit Vue/Svelte casse le build de
+production : une image passe par un import (ou une liaison). Gate : `src/tests/brandAssets.test.ts` (copies déclarées du dépôt
 identiques à la source, aucune autre copie ni data-URI dans les fichiers suivis).
 
 Tag eta résiduel dans un rendu = throw (projet corrompu refusé). Renames :

@@ -722,9 +722,22 @@ class FrontendService extends Service implements IFrontendService {
    * @param helper - helper de la famille, qui connaît son superviseur
    */
   private registerDevRelay(devBase: string, helper: TemplateHelper): void {
-    (
-      this.container?.get("server-static") as IStaticRelayService | undefined
-    )?.addRelay?.(devBase, (domain) =>
+    const stat = this.container?.get("server-static") as
+      IStaticRelayService | undefined;
+    // Pas de serveur statique : application sans serveur HTTP, rien à relayer.
+    if (!stat) return;
+    // Un serveur statique SANS relais (`@nodefony/http` désaligné) donnerait
+    // des images en 404 sans un mot : on le dit, avec le geste.
+    if (typeof stat.addRelay !== "function") {
+      this.log(
+        `relais ${devBase} impossible : le service server-static ne sait pas relayer — ` +
+          "les images importées par le front s'afficheront en 404 en développement. " +
+          "Aligner @nodefony/http sur la version de @nodefony/frontend.",
+        "WARNING",
+      );
+      return;
+    }
+    stat.addRelay(devBase, (domain) =>
       helper.devOrigin(this.derivableHost(domain)),
     );
   }

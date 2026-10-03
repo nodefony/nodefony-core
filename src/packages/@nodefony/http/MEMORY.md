@@ -151,7 +151,7 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 
 ## Fin de réponse HTTP/2 — `responseEnded`
 
-`Http2Response` écrit/termine le FLUX (`stream.respond`/`stream.end`) → `Http2ServerResponse.writableEnded` reste `false`. L'écouteur `close` de `createHttpContext` lit `responseEnded(response)` (= `writableEnded || stream.writableEnded`), sinon toute réponse h2 courte-circuitée sans `send()` (preflight CORS 204, relais 307) était journalisée 499. Test : `http/client-abort-499.test.ts` (client `node:http2` — `node:https` = HTTP/1.1, aveugle).
+`Http2Response` écrit/termine le FLUX (`stream.respond`/`stream.end`) → `Http2ServerResponse.writableEnded` reste `false`. Règle UNIQUE `responseEnded(response)` (`src/context/responseEnded.ts`, ré-exportée par `http-kernel.ts`) = `writableEnded || (h2 && stream.writableEnded && !stream.aborted)`. Lue par l'écouteur `close` de `createHttpContext` (client parti → 499) ET le timeout par flux h2 de `HttpContext.setTimeout`. Les DEUX moitiés comptent : sans `stream.writableEnded`, toute réponse h2 sans `send()` (preflight 204, relais 307) tombait en 499 ; sans `!stream.aborted`, un client h2 parti (RST_STREAM — Node met aussi `writableEnded` à true) passait pour une réponse finie → 200 au journal, abandon jamais signalé au contrôleur. Tests : `http/client-abort-499.test.ts`, les deux sens, client `node:http2` (`node:https` = HTTP/1.1, aveugle).
 
 ## Préfixe natif statique `/<module>/` (server-static `mountModulePublics`)
 
