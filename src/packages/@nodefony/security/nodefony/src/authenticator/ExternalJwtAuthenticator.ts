@@ -58,6 +58,15 @@ export interface IExternalJwtAuthenticatorOptions {
   subjectPolicy: ExternalSubjectPolicy;
   /** Rôles accordés en mode `ephemeral`. */
   ephemeralRoles: readonly string[];
+  /**
+   * Fournisseurs de CONNEXION (`oauth2.providers`) qui déclarent leur émetteur.
+   *
+   * Quand l'émetteur d'un jeton est celui d'un fournisseur de connexion, la
+   * même personne a pu se connecter par le navigateur : son compte local porte
+   * alors le lien `(fournisseur, sub)`. Le chercher d'abord évite qu'un jeton
+   * d'API désigne un AUTRE compte que la session de son porteur.
+   */
+  oauthProviders?: readonly { name: string; issuer: string }[];
 }
 
 /**
@@ -103,6 +112,8 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
   readonly #issuers: ReadonlyMap<string, ExternalSubjectMapping>;
   readonly #policy: ExternalSubjectPolicy;
   readonly #ephemeralRoles: readonly string[];
+  /** Émetteur canonique → fournisseur de connexion ; `null` = aucun lien. */
+  readonly #linkedProviders: ReadonlyMap<string, string> | null;
   #userProvider: IUserProvider | null = null;
 
   /**
@@ -127,6 +138,7 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     this.#issuers = issuers;
     this.#policy = options.subjectPolicy;
     this.#ephemeralRoles = options.ephemeralRoles;
+    this.#linkedProviders = linkProviders(issuers, options.oauthProviders);
   }
 
   /**
@@ -343,12 +355,28 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
       });
     }
     const provider = this.#resolveUserProvider();
-    let user: IUser;
-    try {
-      user = await provider.loadUserByIdentifier(identifier);
-    } catch {
-      // Sujet sans compte local : échec d'authentification, jamais une 500.
-      throw new AuthenticationError(INVALID_TOKEN);
+    let user: IUser | null = null;
+    // L'émetteur est celui d'un fournisseur de connexion : le compte que la
+    // connexion par navigateur a créé porte le lien `(fournisseur, sub)` — la
+    // MÊME paire `(iss, sub)`, puisque ce fournisseur a vérifié `iss` à la
+    // connexion. Sans ce lien, le porteur aurait deux identités : son compte de
+    // session, et `<iss>#<sub>` côté API.
+    const linked = this.#linkedProviders?.get(issuer);
+    if (linked !== undefined) {
+      try {
+        user = await provider.loadUserByOAuth(linked, subject);
+      } catch {
+        // Aucun lien (appelant machine, compte créé autrement) : la règle
+        // d'espace de noms ci-dessous s'applique.
+      }
+    }
+    if (user === null) {
+      try {
+        user = await provider.loadUserByIdentifier(identifier);
+      } catch {
+        // Sujet sans compte local : échec d'authentification, jamais une 500.
+        throw new AuthenticationError(INVALID_TOKEN);
+      }
     }
     if (!user.isActive() || user.isLocked()) {
       throw new AuthenticationError(INVALID_TOKEN);
@@ -371,6 +399,37 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     }
     return this.#userProvider;
   }
+}
+
+/**
+ * Associe chaque émetteur de confiance au fournisseur de connexion qui partage
+ * son émetteur canonique.
+ *
+ * Un émetteur revendiqué par DEUX fournisseurs n'est lié à aucun : choisir l'un
+ * des deux ferait dépendre l'identité de l'ordre de la configuration.
+ *
+ * @returns la table, ou `null` quand aucun émetteur n'est lié (rien à chercher).
+ */
+function linkProviders(
+  trusted: ReadonlyMap<string, ExternalSubjectMapping>,
+  providers: readonly { name: string; issuer: string }[] | undefined,
+): ReadonlyMap<string, string> | null {
+  if (!providers || providers.length === 0) return null;
+  const links = new Map<string, string>();
+  const ambiguous = new Set<string>();
+  for (const { name, issuer } of providers) {
+    let canonical: string;
+    try {
+      canonical = canonicalIssuer(issuer);
+    } catch {
+      continue;
+    }
+    if (!trusted.has(canonical)) continue;
+    if (links.has(canonical)) ambiguous.add(canonical);
+    links.set(canonical, name);
+  }
+  for (const issuer of ambiguous) links.delete(issuer);
+  return links.size > 0 ? links : null;
 }
 
 export default ExternalJwtAuthenticator;

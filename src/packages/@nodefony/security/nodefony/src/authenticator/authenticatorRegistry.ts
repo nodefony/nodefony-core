@@ -131,6 +131,11 @@ registerAuthenticatorFactory("external-jwt", ({ container, config }) => {
     })),
     subjectPolicy: rs.subjectPolicy,
     ephemeralRoles: rs.ephemeralRoles,
+    // Seuls les fournisseurs qui DÉCLARENT leur émetteur peuvent être liés :
+    // c'est l'émetteur, pas le nom, qui fait l'identité d'un `sub`.
+    oauthProviders: Object.entries(config.oauth2.providers).flatMap(
+      ([name, p]) => (p.issuer ? [{ name, issuer: p.issuer }] : []),
+    ),
   });
 });
 

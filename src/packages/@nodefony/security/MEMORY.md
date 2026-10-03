@@ -64,6 +64,12 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   - 🔴 **ESPACE DE NOMS du sujet — `subjectMapping`, PAR ÉMETTEUR** (`trustedIssuerSchema`) :
     **`prefixed`** (défaut) ⇒ identifiant local = `` `${issuer}#${sub}` `` · **`subject`** ⇒ `sub` nu.
     Un `sub` n'est unique QUE chez son émetteur (OIDC Core §2) : l'identité est la paire `(iss, sub)`.
+    🔴 **Lien de connexion AVANT l'espace de noms** : si l'émetteur (canonique) est celui d'un
+    fournisseur `oauth2.providers.<nom>.issuer`, `#resolveUser` cherche d'abord
+    `loadUserByOAuth(<nom>, sub)` — le compte créé au login BFF — puis retombe sur la règle ci-dessous.
+    Sans lui : login → `alice@…`, API → `<iss>#<sub>` (deux identités, ou 401). Émetteur revendiqué
+    par DEUX fournisseurs ⇒ aucun lien (`linkProviders`). Fournisseur sans `issuer` (google/github) ⇒
+    jamais lié. Politique `ephemeral` : non concernée.
     Avec `subject`, un annuaire où l'utilisateur CHOISIT son identifiant permet de présenter
     `sub: "admin"` et de recevoir le compte local `admin` — jeton valide, signature bonne, zéro anomalie.
     `subject` ne se justifie que si l'on PRODUIT l'espace de noms (l'app est son propre émetteur : décor

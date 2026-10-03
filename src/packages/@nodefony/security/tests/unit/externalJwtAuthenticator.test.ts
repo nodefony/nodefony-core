@@ -84,11 +84,22 @@ const user = (
   isLocked: () => state.locked === true,
 });
 
-const provider = (users: Record<string, IUser>): IUserProvider =>
+const provider = (
+  users: Record<string, IUser>,
+  links: Record<string, IUser> = {},
+  calls?: string[],
+): IUserProvider =>
   ({
     loadUserByIdentifier: (id: string): Promise<IUser> => {
       const found = users[id];
       if (!found) return Promise.reject(new Error("no such user"));
+      return Promise.resolve(found);
+    },
+    // Lien social `(fournisseur, sub)` posé par la connexion OAuth.
+    loadUserByOAuth: (name: string, sub: string): Promise<IUser> => {
+      calls?.push(`${name}:${sub}`);
+      const found = links[`${name}:${sub}`];
+      if (!found) return Promise.reject(new Error("no such link"));
       return Promise.resolve(found);
     },
   }) as unknown as IUserProvider;
@@ -125,6 +136,7 @@ const build = (
     ephemeralRoles: string[];
     issuers: string[];
     subjectMapping: ExternalSubjectMapping;
+    oauthProviders: { name: string; issuer: string }[];
   }> = {},
 ): ExternalJwtAuthenticator =>
   new ExternalJwtAuthenticator(container(services), {
@@ -137,6 +149,7 @@ const build = (
     })),
     subjectPolicy: over.subjectPolicy ?? "require",
     ephemeralRoles: over.ephemeralRoles ?? [],
+    ...(over.oauthProviders ? { oauthProviders: over.oauthProviders } : {}),
   });
 
 describe("peekIssuer — aiguillage, jamais décision", () => {
@@ -399,6 +412,107 @@ describe("ExternalJwtAuthenticator — refus (401) contre panne (503)", () => {
     const token = await auth.createToken(httpContext("Bearer "));
     await assert.rejects(
       auth.authenticate(token),
+      (e: Error) => e instanceof AuthenticationError,
+    );
+  });
+});
+
+describe("ExternalJwtAuthenticator — même personne, même compte (fournisseur de connexion)", () => {
+  const raw = jws({ iss: ISSUER, sub: "agent-7" });
+  const sessionAccount = (): IUser => ({
+    ...user("alice@corp.example"),
+    id: "00000000-0000-4000-8000-0000000a11ce",
+  });
+
+  it("🔴 émetteur d'un fournisseur de connexion → le compte LIÉ à `(fournisseur, sub)`, pas `<iss>#<sub>`", async () => {
+    const auth = build(
+      {
+        accessTokenVerifier: verifier("accept"),
+        // Les deux existent : seul le lien désigne la personne de la session.
+        users: provider(
+          { [EXT_ID]: user(EXT_ID) },
+          { "keycloak:agent-7": sessionAccount() },
+        ),
+      },
+      { oauthProviders: [{ name: "keycloak", issuer: ISSUER }] },
+    );
+    const token = await auth.authenticate(
+      await auth.createToken(httpContext(`Bearer ${raw}`)),
+    );
+    assert.equal(token.getUser().identifier, "alice@corp.example");
+  });
+
+  it("sans lien (appelant machine) → la règle d'espace de noms s'applique", async () => {
+    const auth = build(
+      {
+        accessTokenVerifier: verifier("accept"),
+        users: provider({ [EXT_ID]: user(EXT_ID) }),
+      },
+      { oauthProviders: [{ name: "keycloak", issuer: ISSUER }] },
+    );
+    const token = await auth.authenticate(
+      await auth.createToken(httpContext(`Bearer ${raw}`)),
+    );
+    assert.equal(token.getUser().identifier, EXT_ID);
+  });
+
+  it("🔴 un fournisseur d'un AUTRE émetteur n'est jamais consulté — le `sub` n'est unique que chez le sien", async () => {
+    const calls: string[] = [];
+    const auth = build(
+      {
+        accessTokenVerifier: verifier("accept"),
+        users: provider(
+          { [EXT_ID]: user(EXT_ID) },
+          { "google:agent-7": sessionAccount() },
+          calls,
+        ),
+      },
+      {
+        oauthProviders: [
+          { name: "google", issuer: "https://accounts.google.com" },
+        ],
+      },
+    );
+    const token = await auth.authenticate(
+      await auth.createToken(httpContext(`Bearer ${raw}`)),
+    );
+    assert.equal(token.getUser().identifier, EXT_ID);
+    assert.deepEqual(calls, []);
+  });
+
+  it("🔴 un émetteur revendiqué par DEUX fournisseurs n'est lié à aucun", async () => {
+    const calls: string[] = [];
+    const auth = build(
+      {
+        accessTokenVerifier: verifier("accept"),
+        users: provider({ [EXT_ID]: user(EXT_ID) }, {}, calls),
+      },
+      {
+        oauthProviders: [
+          { name: "keycloak", issuer: ISSUER },
+          { name: "keycloak-bis", issuer: `${ISSUER}/` },
+        ],
+      },
+    );
+    await auth.authenticate(
+      await auth.createToken(httpContext(`Bearer ${raw}`)),
+    );
+    assert.deepEqual(calls, []);
+  });
+
+  it("compte lié désactivé → 401, comme tout compte local", async () => {
+    const auth = build(
+      {
+        accessTokenVerifier: verifier("accept"),
+        users: provider(
+          { [EXT_ID]: user(EXT_ID) },
+          { "keycloak:agent-7": user("alice@corp.example", { active: false }) },
+        ),
+      },
+      { oauthProviders: [{ name: "keycloak", issuer: ISSUER }] },
+    );
+    await assert.rejects(
+      auth.authenticate(await auth.createToken(httpContext(`Bearer ${raw}`))),
       (e: Error) => e instanceof AuthenticationError,
     );
   });
