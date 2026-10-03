@@ -494,13 +494,25 @@ let stepCommands = [];
 let commandSeq = 0;
 
 /**
+ * La sortie sans ses codes de couleur ANSI.
+ *
+ * À appliquer AVANT toute regex sur une sortie de commande : en intégration
+ * continue (`FORCE_COLOR`), un code de couleur s'intercale entre deux mots, et
+ * un motif écrit sur le texte lu à l'écran ne mord plus — l'étape tombe en CI et
+ * passe en local, pour une raison qui n'est pas dans le produit.
+ */
+function withoutAnsi(text) {
+  return text.replace(new RegExp(String.raw`\u001b\[[0-9;]*m`, "gu"), "");
+}
+
+/**
  * Le bilan d'une sortie, en quelques lignes — ce qu'un lecteur doit voir sans
  * ouvrir le journal complet : le compte vitest (passés, échoués, SAUTÉS), les
  * fichiers sautés, l'installation npm. Rien d'autre : la sortie entière est sur
  * disque, et un journal de banc qui recopierait tout ne se lirait plus.
  */
 function bilanDe(out) {
-  const plain = out.replace(new RegExp(String.raw`\u001b\[[0-9;]*m`, "gu"), "");
+  const plain = withoutAnsi(out);
   return plain
     .split("\n")
     .map((l) => l.trim())
@@ -1779,7 +1791,9 @@ step(
         ...env,
         NODE_ENV: "production",
       });
-      if (!/\bapp\s+\d+ appliquées?\s+·\s+0 en attente/u.test(migre)) {
+      if (
+        !/\bapp\s+\d+ appliquées?\s+·\s+0 en attente/u.test(withoutAnsi(migre))
+      ) {
         throw new Error(
           `orm:migrate n'a pas mis l'application à jour — sortie :\n${migre}`,
         );
