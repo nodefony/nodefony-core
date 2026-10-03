@@ -23,7 +23,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import fg from "fast-glob";
 import picomatch from "picomatch";
 import config from "./generate-symbols.config.ts";
 
@@ -372,16 +371,23 @@ function extractConsts(
 function generate(): void {
   console.log("🔧 generate-symbols — parsing TypeScript sources…");
 
-  // Resolve globs via fast-glob first, then add files one by one to the project
+  // Resolve globs first (`fs.globSync`, Node ≥ 22 — no dependency: `fast-glob`
+  // dragged `braces` into the audit), then add files one by one to the project
   // with size guard + try/catch around each parse (ts-morph parser can stack-overflow
   // on minified/generated files — we want to skip them gracefully, not abort).
-  const matched = fg.sync(config.include, {
-    cwd: repoRoot,
-    ignore: config.exclude,
-    absolute: true,
-    onlyFiles: true,
-    dot: false,
-  });
+  const matched = fs
+    .globSync(config.include, { cwd: repoRoot, exclude: config.exclude })
+    .map((p) => path.resolve(repoRoot, p))
+    .filter((p) => fs.statSync(p).isFile())
+    // Un ordre qui ne dépend ni du système de fichiers ni de la plateforme : les
+    // listes de relations suivent l'ordre des fichiers, et le gate de
+    // reproductibilité compare octet à octet. Clé POSIX : `\\` trierait
+    // autrement sous Windows.
+    .sort((a, b) => {
+      const ka = path.relative(repoRoot, a).split(path.sep).join("/");
+      const kb = path.relative(repoRoot, b).split(path.sep).join("/");
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
 
   const project = new Project({
     skipAddingFilesFromTsConfig: true,
