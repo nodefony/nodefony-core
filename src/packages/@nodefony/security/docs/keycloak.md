@@ -135,6 +135,51 @@ La console d'administration du realm est sur `https://localhost:8444/admin` (`ad
 `nodefony-dev`). Les retouches qu'on y fait survivent aux redémarrages ;
 `docker compose … down -v` repart du fichier.
 
+### Essayer dans une application générée
+
+Une application créée par `nodefony create app` avec le préréglage `complete` porte déjà le
+même décor, **à son nom** : un profil `keycloak` dans son `compose.yaml`, un realm
+`docker/keycloak/import/realm.json` (realm et client nommés comme l'application, utilisateur
+`alice`), les variables `NF_KEYCLOAK_*` déclarées dans `env.ts` et le fournisseur conditionnel
+dans `nodefony/config/security.ts`. Tant qu'on ne l'allume pas, l'application démarre sans bouton
+ni avertissement.
+
+1. **Fabriquer le certificat de développement** (une fois — Keycloak le sert en `https`) :
+
+   ```bash
+   npx nodefony http:certificates
+   ```
+
+2. **Démarrer le conteneur** :
+
+   ```bash
+   docker compose --profile keycloak up -d keycloak
+   ```
+
+   Sous Linux natif, poser d'abord `export KEYCLOAK_UID=$(id -u)` : sinon la clé privée montée
+   est illisible par le conteneur.
+
+3. **Brancher l'application** : décommenter les lignes `NF_KEYCLOAK_ISSUER` et
+   `NF_KEYCLOAK_CLIENT_ID` de `.env`, et `NF_KEYCLOAK_CLIENT_SECRET` de `.env.local`. Les trois
+   valeurs y sont déjà, alignées sur le realm généré.
+
+4. **Démarrer l'application en lui faisant confiance au certificat de Keycloak**, puis ouvrir
+   `https://localhost:5152/nodefony/login` et se connecter avec `alice` / `alice-dev` :
+
+   ```bash
+   NODE_EXTRA_CA_CERTS=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem npm run dev
+   ```
+
+   Sans `NODE_EXTRA_CA_CERTS`, l'application ne joint pas Keycloak : un WARNING
+   `oauth2 provider "keycloak" indisponible` au démarrage, et pas de bouton. Sous Windows, la
+   syntaxe `VAR=… commande` n'existe pas : poser la variable dans le shell avant
+   (`$env:NODE_EXTRA_CA_CERTS = "…"` en PowerShell, `set NODE_EXTRA_CA_CERTS=…` en `cmd`).
+
+Le port de Keycloak (8444) se change par `KEYCLOAK_PORT` au `up` — l'émetteur suit, donc
+`NF_KEYCLOAK_ISSUER` aussi. En production, le décor ne sert plus : les trois variables pointent
+ton Keycloak, et `NF_OAUTH_REDIRECT_BASE` porte l'URL publique de l'application, base de l'URL de
+retour.
+
 ### 1. Créer le realm
 
 Dans la console d'administration de **ton** Keycloak :
