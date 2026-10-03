@@ -12,13 +12,13 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 # `nodefony-rfc`
 
-> Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML.
+> Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md, depuis des sources brutes, jamais des pages HTML.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-rfc**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.3.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.4.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,11 +26,11 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.3.0` |
+| Version | `1.4.0` |
 | Famille | Références et livrables |
-| Corps | 219 lignes |
-| Coût d'activation | ~4 007 tokens (le corps est chargé à l'invocation) |
-| Description | 999 / 1024 caractères |
+| Corps | 254 lignes |
+| Coût d'activation | ~4 790 tokens (le corps est chargé à l'invocation) |
+| Description | 1024 / 1024 caractères |
 | Déclencheurs | 29 |
 | Ressources `references/` | 0 page(s), 205 fichiers au total |
 | Scripts | 1 |
@@ -38,13 +38,19 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 ## Ce qu'il fait
 
-Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28, la convention AGENTS.md (AAIF / Linux Foundation) et la documentation de Keycloak 26.8 (l'IdP contre lequel le login OIDC s'éprouve), avec le script qui dit quand une copie figée a dérivé de son amont.
+Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md, depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28, la convention AGENTS.md (AAIF / Linux Foundation) et la documentation de Keycloak 26.8, avec le script qui dit quand une copie figée a dérivé de son amont. Dit quelles RFC tranchent un proxy inverse et où lire les défauts de nginx/HAProxy/Envoy.
+
+## Skills voisins
+
+Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
+
+[`framework-dev`](nodefony-framework-dev.md)
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`RFC` · `conformité HTTP` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `spec MCP` · `Model Context Protocol` · `server/discover` · `autorisation MCP` · `resource server OAuth` · `RFC 9728` · `jeton Bearer` · `AGENTS.md` · `spec AGENTS.md` · `AAIF` · `instructions d'agent` · `quelle taille pour AGENTS.md` · `project_doc_max_bytes` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `importer un realm` · `audience Keycloak` · `hostname Keycloak` · `cette spec est-elle à jour` · `norme périmée`
+`RFC` · `conformité HTTP` · `norme WebSocket` · `CORS spec` · `RFC 9110/9113/6455/6265` · `SameSite cookies` · `spec MCP` · `Model Context Protocol` · `autorisation MCP` · `resource server OAuth` · `RFC 9728` · `AGENTS.md` · `spec AGENTS.md` · `AAIF` · `quelle taille pour AGENTS.md` · `dossier .agents` · `Agent Skills` · `quel fichier lit tel agent` · `Keycloak` · `realm` · `importer un realm` · `audience Keycloak` · `hostname Keycloak` · `proxy inverse` · `reverse proxy` · `en-têtes hop-by-hop` · `request smuggling` · `que fait nginx` · `norme périmée`
 
 ## Ce que contient le corps
 
@@ -76,14 +82,14 @@ script, donc toujours à jour après régénération.
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 999 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1024 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 219 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 254 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

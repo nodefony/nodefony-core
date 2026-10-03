@@ -2466,7 +2466,7 @@
           "security.md",
           "typage-strict.md"
         ],
-        "referenceFilesTotal": 86,
+        "referenceFilesTotal": 88,
         "scripts": []
       },
       "related": [
@@ -6168,9 +6168,9 @@
     },
     {
       "name": "nodefony-rfc",
-      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML.",
+      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md, depuis des sources brutes, jamais des pages HTML.",
       "family": "Références et livrables",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "keywords": [],
       "triggers": [
         "RFC",
@@ -6181,17 +6181,13 @@
         "SameSite cookies",
         "spec MCP",
         "Model Context Protocol",
-        "server/discover",
         "autorisation MCP",
         "resource server OAuth",
         "RFC 9728",
-        "jeton Bearer",
         "AGENTS.md",
         "spec AGENTS.md",
         "AAIF",
-        "instructions d'agent",
         "quelle taille pour AGENTS.md",
-        "project_doc_max_bytes",
         "dossier .agents",
         "Agent Skills",
         "quel fichier lit tel agent",
@@ -6200,13 +6196,17 @@
         "importer un realm",
         "audience Keycloak",
         "hostname Keycloak",
-        "cette spec est-elle à jour",
+        "proxy inverse",
+        "reverse proxy",
+        "en-têtes hop-by-hop",
+        "request smuggling",
+        "que fait nginx",
         "norme périmée"
       ],
-      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28, la convention AGENTS.md (AAIF / Linux Foundation) et la documentation de Keycloak 26.8 (l'IdP contre lequel le login OIDC s'éprouve), avec le script qui dit quand une copie figée a dérivé de son amont. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"server/discover\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"jeton Bearer\", \"AGENTS.md\", \"spec AGENTS.md\", \"AAIF\", \"instructions d'agent\", \"quelle taille pour AGENTS.md\", \"project_doc_max_bytes\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"importer un realm\", \"audience Keycloak\", \"hostname Keycloak\", \"cette spec est-elle à jour\", \"norme périmée\".",
+      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md, depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28, la convention AGENTS.md (AAIF / Linux Foundation) et la documentation de Keycloak 26.8, avec le script qui dit quand une copie figée a dérivé de son amont. Dit quelles RFC tranchent un proxy inverse et où lire les défauts de nginx/HAProxy/Envoy. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"AGENTS.md\", \"spec AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"importer un realm\", \"audience Keycloak\", \"hostname Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\".",
       "cost": {
-        "bodyLines": 219,
-        "approxTokens": 4007
+        "bodyLines": 254,
+        "approxTokens": 4790
       },
       "requires": [],
       "resources": {
@@ -6229,7 +6229,9 @@
           }
         ]
       },
-      "related": [],
+      "related": [
+        "nodefony-framework-dev"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -6248,7 +6250,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "999",
+            "detail": "1024",
             "advisory": false
           },
           {
@@ -6290,7 +6292,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "219",
+            "detail": "254",
             "advisory": true
           }
         ]

@@ -1,18 +1,20 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.3.0
+  version: 1.4.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model
-  Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML.
+  Context Protocol et la convention AGENTS.md, depuis des sources brutes, jamais des pages HTML.
   Porte HORS LIGNE la révision MCP 2026-07-28, la convention AGENTS.md (AAIF / Linux Foundation) et
-  la documentation de Keycloak 26.8 (l'IdP contre lequel le login OIDC s'éprouve), avec le script qui dit quand une copie figée a dérivé de son amont.
+  la documentation de Keycloak 26.8, avec le script qui dit quand une copie figée a dérivé de son amont.
+  Dit quelles RFC tranchent un proxy inverse et où lire les défauts de nginx/HAProxy/Envoy.
   Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
-  "SameSite cookies", "spec MCP", "Model Context Protocol", "server/discover", "autorisation MCP",
-  "resource server OAuth", "RFC 9728", "jeton Bearer", "AGENTS.md", "spec AGENTS.md", "AAIF",
-  "instructions d'agent", "quelle taille pour AGENTS.md", "project_doc_max_bytes", "dossier .agents",
+  "SameSite cookies", "spec MCP", "Model Context Protocol", "autorisation MCP",
+  "resource server OAuth", "RFC 9728", "AGENTS.md", "spec AGENTS.md", "AAIF",
+  "quelle taille pour AGENTS.md", "dossier .agents",
   "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm", "importer un realm",
-  "audience Keycloak", "hostname Keycloak", "cette spec est-elle à jour", "norme périmée".
+  "audience Keycloak", "hostname Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
+  "request smuggling", "que fait nginx", "norme périmée".
 ---
 
 # nodefony-rfc
@@ -219,6 +221,41 @@ s'éprouve (login BFF, jetons d'API, compte de service, serveur d'autorisation M
 4. **TLS activé ⇒ le port de gestion passe en https aussi** ; `http-management-scheme=http` le
    garde en clair pour une sonde interne au conteneur.
 5. Le `sub` est un **UUID** de l'utilisateur Keycloak, unique dans le realm seulement.
+
+### 10. Proxy inverse — **HORS LIGNE, dans le corpus UNIQUE** + proxys de référence
+
+Texte des RFC : `.claude/skills/nodefony-framework-dev/references/rfc/ietf/` (même règle qu'au §7 :
+une seule copie). Ce que chacune tranche pour `ReverseProxy` (`@nodefony/http`) — l'application
+détaillée, avec l'ancrage de chaque test, vit au §4 du README du corpus (skill
+`nodefony-framework-dev`) :
+
+<!-- prettier-ignore -->
+| RFC § | Ce qu'elle tranche |
+| --- | --- |
+| **9110 §7.6.1** | En-têtes de connexion (et ceux que nomme `Connection`) jamais relayés |
+| **9110 §7.6.3 / §7.6** | `Via` obligatoire pour un proxy ; ne jamais se renvoyer un message sans garde de boucle |
+| **9112 §6.1 / §6.3 / §11.2** | Cadrage du corps (TE l'emporte sur CL) ; request smuggling |
+| **9112 §3.2.2** | Cible absolute-form : le proxy remplace `Host` |
+| **9113 §8.2.2 / §8.3.1** | En-têtes interdits en HTTP/2 ; pseudo-en-têtes |
+| **7239 §8.1** | `Forwarded` falsifiable : ne le croire que d'un relais de confiance |
+| **6455 §4.2.1 / §10.2** | Handshake WebSocket conforme ; contrôle d'`Origin` |
+| **5842 §7.2** | `508 Loop Detected` — défini pour WebDAV, emprunté pour une boucle de proxy (RFC 9110 n'en a pas) |
+
+**Avant d'inventer un comportement de proxy, lire ce que font les spécialistes** — docs BRUTES
+(un relevé de leurs défauts a déjà corrigé une dizaine de manques : tunnel `h2c`, `Origin`, chaîne
+`X-Forwarded-For` crue, chemins `%2e%2e`, agent global sous `NODE_USE_ENV_PROXY`) :
+
+| Proxy   | Source brute (`grep` la directive)                                                                                                                                                |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| nginx   | `https://raw.githubusercontent.com/nginx/nginx.org/master/xml/en/docs/http/ngx_http_proxy_module.xml` (+ `ngx_http_core_module.xml`, `websocket.xml`)                             |
+| HAProxy | `https://raw.githubusercontent.com/haproxy/haproxy/master/doc/configuration.txt`                                                                                                  |
+| Envoy   | dépôt `envoyproxy/envoy`, `docs/root/configuration/http/http_conn_man/headers.rst`, `docs/root/faq/configuration/timeouts.rst`, `docs/root/intro/arch_overview/http/upgrades.rst` |
+| Caddy   | dépôt `caddyserver/website`, `src/docs/markdown/caddyfile/directives/reverse_proxy.md`                                                                                            |
+| Traefik | dépôt `traefik/traefik`, `docs/content/reference/routing-configuration/http/middlewares/{encodedcharacters,stripprefix}.md`                                                       |
+
+⚠️ La doc d'une API Node se **vérifie à l'exécution** avant d'en tirer une conclusion : la doc
+de `http.request` laisse lire qu'un `IncomingMessage` coupé émet `'error'` ; le runtime ne l'émet
+que s'il a un écouteur (`IncomingMessage.prototype._destroy`, lisible par `node -e`).
 
 ## Pattern d'usage
 

@@ -3,17 +3,17 @@
 > Chargé à la demande par `SKILL.md`. **Cheatsheet normatif** : pour chaque norme que le cœur Nodefony
 > implémente — le n°, les **sections exactes** utilisées, la **règle concrète** appliquée, et l'**ancrage
 > code**. But : coder/auditer la conformité **sans réseau** et **sans re-fetch** (une RFC est IMMUABLE →
-> 0 dérive). **Full-text des RFC IETF = bundlé OFFLINE** dans `ietf/rfcNNNN.txt` (40 fichiers, ~3,3 Mo) —
+> 0 dérive). **Full-text des RFC IETF = bundlé OFFLINE** dans `ietf/rfcNNNN.txt` (42 fichiers, ~3,4 Mo) —
 > 🔴 **corpus UNIQUE du dépôt** : aucun autre skill n'héberge de full-text RFC (`nodefony-rfc` en avait
 > gardé deux copies byte-identiques, que rien ne resynchronisait) —
 > `grep`/`awk` la section exacte **sans réseau**. Normes **non-RFC** (W3C WebAuthn/Trace Context, WHATWG
 > Fetch/URL, OWASP, NIST, Standard Webhooks) → skill `nodefony-rfc` (raw GitHub + proxy `https://r.jina.ai/`,
-> JAMAIS les sites HTML lourds). Inventaire vérifié : **39 RFC code + 25 delta mémoires**, 0 norme fantôme.
+> JAMAIS les sites HTML lourds). Inventaire vérifié : **41 RFC code + 25 delta mémoires**, 0 norme fantôme.
 > Mettre à jour = éditer en place (pas de journal).
 
 ## 0. Fichiers PRÉSENTS offline (~5,6 Mo — `grep`/`awk` sans réseau)
 
-- **`ietf/rfc<N>.txt`** — 40 RFC full-text : 1918 2818 4226 4648 5280 5424 5789 6125 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7230 7235 7239 7519 7617 7636 7638 7692 7807 8259 8414 8707 8725 8941 9106 9110 9112 9113 9207 9449 9700 9728.
+- **`ietf/rfc<N>.txt`** — 42 RFC full-text : 1918 2818 4226 4648 5280 5424 5737 5789 5842 6125 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7230 7235 7239 7519 7617 7636 7638 7692 7807 8259 8414 8707 8725 8941 9106 9110 9112 9113 9207 9449 9700 9728.
 - **`specs/` (non-RFC)** :
   - Cloud-native : `cloud-12factor.md`, `cloud-k8s-pod-lifecycle.md`, `cloud-k8s-probes.md`.
   - OWASP cheat sheets : `owasp-{authentication,authorization,csp,csrf,jwt,mfa,password-storage,rest-security,security-headers,session-management,ssrf-prevention,tls,xss-prevention}.md`.
@@ -52,6 +52,15 @@
 ## 4. Proxy / trust / SSRF
 
 - **RFC 7239 (Forwarded)** — §4 syntaxe · §8.1 trust boundary stricte · §8.2 anti info-leak (jamais recopier la topologie interne en réponse) ; prioritaire sur `X-Forwarded-*`. → `src/context/forwarded.ts:parseForwarded()`, `trustProxy.ts`.
+- **Proxy inverse embarqué** (`ReverseProxy`, service `reverse-proxy`) — chaque règle a son test réseau (`http/nodefony/tests/unit/reverseProxy.test.ts`) :
+  - **RFC 9110 §7.6.1** — en-têtes de CONNEXION jamais relayés (`Connection` et ceux qu'il nomme, `Keep-Alive`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade`, `Proxy-*`), dans les deux sens. **§7.6.3** — `Via` posé sur la requête ET la réponse (pseudonyme aléatoire par processus) ; **§7.6** « MUST NOT forward a message to itself » → un `Via` qui porte déjà notre pseudonyme = boucle. **§7.6.2** `Max-Forwards` : NON traité (TRACE/OPTIONS seulement, jugé de confort).
+  - **RFC 5842 §7.2** — `508 Loop Detected` : défini pour WebDAV (`Depth: infinity`) ; emprunté faute de code de boucle de proxy dans RFC 9110 — le plus proche du registre IANA, à dire tel quel.
+  - **RFC 9112 §6.1/§6.3** — cadrage du corps recalculé vers l'amont (TE l'emporte, `Content-Length` retiré) : un GET avec `Content-Length` transmet son corps, un DELETE chunked reste chunked. CL+TE ensemble = 400 par le parseur Node AVANT le proxy (prouvé). **§11.2** request smuggling. **§3.2.2** absolute-form : ne commence pas par le préfixe → jamais relayé.
+  - **RFC 9113 §8.2.2** — en-têtes de connexion INTERDITS en HTTP/2 : une réponse amont HTTP/1.1 recopiée telle quelle fait lever `writeHead` (`ERR_HTTP2_INVALID_CONNECTION_HEADERS`). **§8.3.1** pseudo-en-têtes jamais transmis à l'amont ; `:authority` → `Host`. **§8.2.3** cookies recollés en `; ` par l'API compat (doc Node).
+  - **RFC 7239 §8.1** — `Forwarded`/`X-Forwarded-*`/`X-Real-IP` crus d'un relais de confiance (`trustProxy`) seulement ; d'un pair direct, écartés et recommencés.
+  - **RFC 6455 §4.2.1** — seul un handshake conforme est relayé (GET, `Upgrade: websocket`, `Connection: upgrade`, version 13, clé de 16 octets) : un `Upgrade: h2c` raccordé octet pour octet serait un tunnel non inspecté. **§10.2** — `Origin` par la MÊME règle que le serveur WebSocket (`HttpKernel.isWebsocketOriginAllowed`) → 403.
+  - **RFC 5737** — `192.0.2.0/24` (TEST-NET-1), jamais routé : la cible du test de délai de connexion.
+  - Pratiques des proxys spécialisés reprises : chemins ambigus (`..`, `%2e`, `%2f`, `%5c`, `%00`, `%25`) refusés en 400 (défaut Traefik) ; pool keep-alive DÉDIÉ par montage (l'agent global suit `HTTP_PROXY` sous `NODE_USE_ENV_PROXY`) ; délai de connexion distinct de l'inactivité (nginx `proxy_connect_timeout`) ; `Location` ramené sous le préfixe quand il est retiré (nginx `proxy_redirect default`) + `X-Forwarded-Prefix` (Traefik).
 - **RFC 1918 / 6890** — plages privées + réservées (loopback, link-local) bloquées par le SSRF guard. → `security/src/net/ssrfGuard.ts`. **OWASP SSRF / CAPEC-664** (tricks IPv6) couverts e2e (`webhookSsrf.attack.test.ts`).
 
 ## 5. CORS & Fetch Metadata
