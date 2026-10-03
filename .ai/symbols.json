@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 899,
-    "symbols": 4551,
+    "symbols": 4552,
     "classes": 409,
     "interfaces": 1182,
     "types": 485,
     "enums": 4,
-    "functions": 2011,
+    "functions": 2012,
     "constants": 460
   },
   "symbols": {
@@ -38755,18 +38755,6 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
       ],
-      "SchemeType": [
-        "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
       "IResolvedRoute": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
@@ -38993,6 +38981,17 @@
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/omitUndefined.ts"
+      ],
+      "SchemeType": [
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "compileDomainPatterns": [
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",

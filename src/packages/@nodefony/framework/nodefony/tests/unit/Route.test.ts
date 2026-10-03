@@ -454,6 +454,60 @@ describe("Route — matchRequirements() — domain", () => {
   });
 });
 
+// ─── matchRequirements — scheme ───────────────────────────────────────────────
+// Documentée (`docs/decorateurs.md`) mais jamais appliquée : une route
+// `requirements: { scheme: "https" }` répondait aussi en clair.
+
+describe("Route — matchRequirements() — scheme", () => {
+  const withScheme = (method: string, scheme: string): ContextType =>
+    Object.assign(makeCtx("/x", method), { scheme });
+  const thrown = (fn: () => unknown): HttpError | undefined => {
+    try {
+      fn();
+    } catch (e) {
+      return e as HttpError;
+    }
+    return undefined;
+  };
+  const httpsOnly = () =>
+    new Route("r", { path: "/x", requirements: { scheme: "https" } });
+
+  it("https exigé, requête https → match", () => {
+    expect(httpsOnly().match(withScheme("GET", "https"))).to.not.equal(false);
+  });
+
+  it("https exigé, requête http → 403 type scheme", () => {
+    const err = thrown(() => httpsOnly().match(withScheme("GET", "http")));
+    expect(err?.code).to.equal(403);
+    expect(err?.type).to.equal("scheme");
+  });
+
+  it("https exigé : wss accepté, ws refusé (même exigence de chiffrement)", () => {
+    expect(thrown(() => httpsOnly().match(withScheme("WEBSOCKET", "wss")))).to
+      .be.undefined;
+    expect(
+      thrown(() => httpsOnly().match(withScheme("WEBSOCKET", "ws")))?.code,
+    ).to.equal(403);
+  });
+
+  it("http exigé, requête https → 403", () => {
+    const r = new Route("r", { path: "/x", requirements: { scheme: "http" } });
+    expect(thrown(() => r.match(withScheme("GET", "https")))?.code).to.equal(
+      403,
+    );
+  });
+
+  it("sans exigence → les deux schémas matchent", () => {
+    const r = new Route("r", { path: "/x" });
+    expect(thrown(() => r.match(withScheme("GET", "http")))).to.be.undefined;
+    expect(thrown(() => r.match(withScheme("GET", "https")))).to.be.undefined;
+  });
+
+  it("toObject expose l'exigence", () => {
+    expect(httpsOnly().toObject()).to.include({ schemes: "https" });
+  });
+});
+
 // ─── setPrefix() ──────────────────────────────────────────────────────────────
 
 describe("Route — setPrefix()", () => {

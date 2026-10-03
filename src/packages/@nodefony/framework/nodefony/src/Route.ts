@@ -201,9 +201,18 @@ export interface RouteOptions {
 
 export interface RouteRequirements {
   domain?: string | string[] | undefined;
+  /**
+   * Transport exigé : `https`/`wss` refuse un canal clair, `http`/`ws` un
+   * canal chiffré — 403 sinon. Proto transmis par un proxy de confiance compris.
+   */
   scheme?: SchemeType | undefined;
   methods?: HTTPMethod[] | HTTPMethod | undefined;
   protocol?: string | undefined;
+}
+
+/** Canal chiffré : `https` (HTTP) ou `wss` (WebSocket). */
+function isSecureScheme(scheme: SchemeType): boolean {
+  return scheme === "https" || scheme === "wss";
 }
 
 class Route implements IRoute {
@@ -213,7 +222,6 @@ class Route implements IRoute {
   classMethod?: string | undefined;
   prefix?: string | undefined;
   method?: HTTPMethod | undefined;
-  schemes?: SchemeType | undefined;
   pattern?: RegExp | undefined;
   variables: string[] = [];
   /**
@@ -637,7 +645,7 @@ class Route implements IRoute {
       host: this.host,
       controller: this.defaults.controller,
       filePath: this.filePath,
-      schemes: this.schemes,
+      schemes: this.requirements.scheme,
       variables: this.variables,
       bypassFirewall: this.bypassFirewall,
       areaRoleExempt: this.areaRoleExempt,
@@ -805,6 +813,26 @@ class Route implements IRoute {
               throw error;
             }
             break;
+          case "scheme": {
+            // Exigence de transport : `https`/`wss` exige un canal chiffré,
+            // `http`/`ws` un canal clair. Comparé au scheme EFFECTIF du
+            // contexte (proto transmis par un proxy de confiance compris).
+            // Refus 403 comme la restriction de domaine : la redirection
+            // http → https relève de la bordure (HSTS, proxy), pas du match.
+            const required = this.requirements.scheme;
+            if (
+              required !== undefined &&
+              isSecureScheme(required) !== isSecureScheme(context.scheme)
+            ) {
+              const error = new HttpError(
+                `Scheme ${context.scheme} Forbidden for this route : ${required} required`,
+              );
+              error.code = 403;
+              error.type = "scheme";
+              throw error;
+            }
+            break;
+          }
           case "domain":
             // Géré par matchHostname (hostRegexp pré-compile host +
             // requirements.domain via le matcher partagé). No-op ici.
