@@ -1553,12 +1553,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           path.join("public", "nodefony-logo.png"),
           path.join("public", "favicon.ico"),
         ]);
-        // Le README de l'application montre SON fichier, en relatif : il
-        // s'affiche sur le dépôt de l'utilisateur et hors ligne, sans dépendre
-        // de la branche principale de Nodefony.
+        // Le README NE lit PAS ce fichier : son en-tête est la marque
+        // « fait avec Nodefony », liée au dépôt du framework. `public/` est à
+        // l'application, qui y pose SON logo ; une copie relative ferait
+        // afficher sa marque sous un lien vers Nodefony, ou une image cassée.
+        // L'adresse GitHub vise `docs/assets/`, copie déclarée du gate de marque.
         assert.include(
           readFileSync(path.join(dest, "README.md"), "utf8"),
-          '<img src="public/nodefony-logo.png" alt="Nodefony" height="72">',
+          '<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/nodefony-logo.png" alt="Nodefony" height="72">',
         );
       });
     }

@@ -1,6 +1,6 @@
 <div align="center">
 
-<a href="https://github.com/nodefony/nodefony-core"><img src="public/nodefony-logo.png" alt="Nodefony" height="72"></a>
+<a href="https://github.com/nodefony/nodefony-core"><img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/nodefony-logo.png" alt="Nodefony" height="72"></a>
 
 # <%= it.appName %>
 
