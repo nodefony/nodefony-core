@@ -114,6 +114,9 @@ afterAll(async () => {
 
 runSessionPaginationContract({
   mode: "cursor",
+  // Le vrai serveur compte par l'INDEX (scripts Lua) ; le double, qui ne sait
+  // pas exécuter de Lua, garde la capacité réduite annoncée (`-1`).
+  exactCounts: REAL_URL !== null && REAL_URL !== undefined,
   storage: () => storage,
   clear: async () => {
     if (realClient) await realClient.flushDb();

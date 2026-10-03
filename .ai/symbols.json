@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 891,
-    "symbols": 4490,
-    "classes": 407,
-    "interfaces": 1168,
-    "types": 478,
+    "files": 892,
+    "symbols": 4497,
+    "classes": 408,
+    "interfaces": 1170,
+    "types": 480,
     "enums": 4,
-    "functions": 1982,
-    "constants": 451
+    "functions": 1983,
+    "constants": 452
   },
   "symbols": {
     "Mediasoup": {
@@ -22198,6 +22198,59 @@
       "module": "@nodefony/redis",
       "description": "Curseur de pagination `SCAN` — **règle unique** des trois stores Redis (sessions, jetons, identifiants WebAuthn). Pourquoi un fichier partagé : ces trois stores portaient chacun leur copie de `enco…"
     },
+    "SessionIndex": {
+      "name": "SessionIndex",
+      "kind": "class",
+      "file": "src/packages/@nodefony/redis/nodefony/src/sessionIndex.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Index des sessions d'UN store (une cloison d'application). Il ne lève jamais vers le chemin d'une requête : un échec d'indexation est rendu à l'appelant, qui le journalise et INVALIDE l'index ({@li…"
+    },
+    "IScriptClient": {
+      "name": "IScriptClient",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/redis/nodefony/src/sessionIndex.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "description": "Index Redis des sessions — compter sans balayer. Les sessions vivent sous `<préfixe>:<id>` avec un TTL natif : Redis les efface seul, sans passer par notre code. Les compter exigeait donc un `SCAN`…"
+    },
+    "IIndexedSession": {
+      "name": "IIndexedSession",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/redis/nodefony/src/sessionIndex.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "description": "Une session vue par l'index : à qui elle est, et quand elle expire."
+    },
+    "IndexCount": {
+      "name": "IndexCount",
+      "kind": "type",
+      "file": "src/packages/@nodefony/redis/nodefony/src/sessionIndex.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Ce que l'on compte — le même périmètre que le filtre de liste."
+    },
+    "supportsScripts": {
+      "name": "supportsScripts",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/src/sessionIndex.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Le client sait-il exécuter des scripts ? (un double de test, non.)"
+    },
+    "PRUNE_BATCH": {
+      "name": "PRUNE_BATCH",
+      "kind": "const",
+      "file": "src/packages/@nodefony/redis/nodefony/src/sessionIndex.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Taille d'un lot de purge : borne le temps d'un script, qui bloque Redis."
+    },
     "RedisSessionStorage": {
       "name": "RedisSessionStorage",
       "kind": "class",
@@ -39350,6 +39403,15 @@
       "scanPage": [
         "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
         "src/packages/@nodefony/redis/nodefony/src/RedisWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
+      ],
+      "SessionIndex": [
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
+      ],
+      "supportsScripts": [
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
+      ],
+      "IScriptClient": [
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
       "readIfPresentSync": [

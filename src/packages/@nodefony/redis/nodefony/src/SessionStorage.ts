@@ -10,6 +10,12 @@ import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
 import type RedisService from "../service/redis";
 import { MAX_SCAN, scanPage } from "./scanCursor";
+import { SessionIndex, supportsScripts } from "./sessionIndex";
+import type { IScriptClient } from "./sessionIndex";
+
+/** Le client `main`, quand il sait exécuter les scripts de l'index. */
+type IndexClient = NonNullable<ReturnType<RedisService["getClient"]>> &
+  IScriptClient;
 
 /** Préfixe namespacé des clés de session dans Redis. */
 /**
@@ -45,6 +51,14 @@ class RedisSessionStorage implements ISessionStorage {
   #service: RedisService | null = null;
   /** Préfixe cloisonné, calculé une seule fois (il est lu à chaque clé). */
   #prefixCache: string | null = null;
+  /** Index de comptage — lazy, construit sur le préfixe au premier usage. */
+  #indexCache: SessionIndex | null = null;
+  /**
+   * Reconstruction EN COURS dans ce process : les comptages concurrents (les
+   * quatre cartes de la console partent ensemble) l'attendent au lieu de rendre
+   * « inconnu » parce que le premier d'entre eux tient le verrou.
+   */
+  #building: Promise<boolean> | null = null;
 
   constructor(manager: SessionsService) {
     this.manager = manager;
@@ -85,6 +99,28 @@ class RedisSessionStorage implements ISessionStorage {
     return `${this.#prefix()}:${id}`;
   }
 
+  /** L'index de comptage de CETTE cloison (cf `sessionIndex.ts`). */
+  #index(): SessionIndex {
+    this.#indexCache ??= new SessionIndex(this.#prefix());
+    return this.#indexCache;
+  }
+
+  /**
+   * Un échec de l'index ne doit JAMAIS faire échouer la session : il est
+   * journalisé, et l'index INVALIDÉ — le prochain comptage le reconstruit
+   * plutôt que de rendre un chiffre faux.
+   */
+  #indexFailed(
+    client: { del(key: string): Promise<unknown> },
+    e: unknown,
+  ): void {
+    this.manager.log(
+      `REDIS SESSIONS index: ${e instanceof Error ? e.message : String(e)} — index invalidé, reconstruit au prochain comptage`,
+      "WARNING",
+    );
+    void client.del(this.#index().builtKey).catch(() => undefined);
+  }
+
   async read(id: string): Promise<ISerializedSession> {
     const client = this.#client();
     if (!client) {
@@ -115,9 +151,23 @@ class RedisSessionStorage implements ISessionStorage {
     if (client) {
       // SET … EX : TTL natif = idle timeout. Session glissante — le TTL est
       // rafraîchi à chaque write (mutation) ET à chaque `touch` (activité pure).
-      await client.set(this.#key(id), JSON.stringify(payload), {
+      const written = client.set(this.#key(id), JSON.stringify(payload), {
         expiration: { type: "EX", value: this.idleTimeoutS },
       });
+      if (supportsScripts(client)) {
+        // Lancé EN MÊME TEMPS que le SET : node-redis les envoie dans le même
+        // aller-retour — l'index ne coûte pas une latence de plus à la requête.
+        const indexed = this.#index()
+          .add(client, {
+            id,
+            user: payload.user || "",
+            expiresAt: now.getTime() + this.idleTimeoutS * 1000,
+          })
+          .catch((e: unknown) => this.#indexFailed(client, e));
+        await Promise.all([written, indexed]);
+      } else {
+        await written;
+      }
     }
     return payload;
   }
@@ -141,7 +191,15 @@ class RedisSessionStorage implements ISessionStorage {
   async destroy(id: string): Promise<boolean> {
     const client = this.#client();
     if (client) {
-      await client.del(this.#key(id));
+      const deleted = client.del(this.#key(id));
+      if (supportsScripts(client)) {
+        const dropped = this.#index()
+          .drop(client, id)
+          .catch((e: unknown) => this.#indexFailed(client, e));
+        await Promise.all([deleted, dropped]);
+      } else {
+        await deleted;
+      }
     }
     return true;
   }
@@ -166,7 +224,37 @@ class RedisSessionStorage implements ISessionStorage {
     if (!client) {
       return;
     }
-    await client.expire(this.#key(id), idleSeconds ?? this.idleTimeoutS);
+    const idle = idleSeconds ?? this.idleTimeoutS;
+    const expired = client.expire(this.#key(id), idle);
+    if (!supportsScripts(client)) {
+      await expired;
+      return;
+    }
+    const expiresAt = Date.now() + idle * 1000;
+    const [, known] = await Promise.all([
+      expired,
+      this.#index()
+        .touch(client, id, expiresAt)
+        .catch((e: unknown) => {
+          this.#indexFailed(client, e);
+          return true; // index invalidé : rien de plus à faire ici
+        }),
+    ]);
+    if (!known) {
+      // Session absente de l'index (antérieure à lui, ou écrite par une
+      // version qui ne l'alimentait pas) : on l'y inscrit. Seul ce store sait
+      // lire son propriétaire — chemin rare, une fois par session.
+      const raw = await client.get(this.#key(id));
+      if (!raw) return;
+      const data = JSON.parse(raw) as ISerializedSession;
+      await this.#index()
+        .add(client, {
+          id,
+          user: data.user || "",
+          expiresAt,
+        })
+        .catch((e: unknown) => this.#indexFailed(client, e));
+    }
   }
 
   /**
@@ -281,25 +369,123 @@ class RedisSessionStorage implements ISessionStorage {
   }
 
   /**
+   * L'index couvre-t-il les sessions ANTÉRIEURES à lui ? Sinon, un seul pod le
+   * reconstruit (verrou `SET NX`) par un balayage complet — une fois par
+   * déploiement, sur le chemin d'administration, jamais sur une requête.
+   *
+   * @returns `false` si un autre pod reconstruit en ce moment : le comptage
+   *   rend alors « inconnu », pas un chiffre partiel.
+   */
+  #ensureIndexBuilt(client: IndexClient): Promise<boolean> {
+    this.#building ??= this.#buildIndex(client).finally(() => {
+      this.#building = null;
+    });
+    return this.#building;
+  }
+
+  async #buildIndex(client: IndexClient): Promise<boolean> {
+    const index = this.#index();
+    if ((await client.get(index.builtKey)) !== null) return true;
+    const locked = await client.set(index.lockKey, String(process.pid), {
+      condition: "NX",
+      expiration: { type: "EX", value: 300 },
+    });
+    if (locked === null) return false;
+    try {
+      const prefixLen = this.#prefix().length + 1;
+      let cursor = "0";
+      let indexed = 0;
+      do {
+        const res = await client.scan(cursor, {
+          MATCH: `${this.#prefix()}:*`,
+          COUNT: 500,
+        });
+        cursor = res.cursor;
+        for (const key of res.keys) {
+          const [raw, ttl] = await Promise.all([
+            client.get(key),
+            client.pTTL(key),
+          ]);
+          if (!raw || ttl <= 0) continue;
+          let data: ISerializedSession;
+          try {
+            data = JSON.parse(raw) as ISerializedSession;
+          } catch {
+            continue;
+          }
+          await index.add(client, {
+            id: key.slice(prefixLen),
+            user: data.user || "",
+            expiresAt: Date.now() + ttl,
+          });
+          indexed += 1;
+        }
+      } while (cursor !== "0");
+      await client.set(index.builtKey, String(Date.now()));
+      this.manager.log(
+        `REDIS SESSIONS index reconstruit : ${indexed} session(s)`,
+        "INFO",
+      );
+      return true;
+    } finally {
+      await client.del(index.lockKey);
+    }
+  }
+
+  /** Le client `main`, s'il sait exécuter les scripts de l'index. */
+  #clientForIndex(): IndexClient | null {
+    const client = this.#client();
+    return client && supportsScripts(client) ? client : null;
+  }
+
+  /**
    * {@inheritDoc ISessionStorage.countSessions}
    *
-   * Un comptage exact exigerait un `SCAN` complet O(keyspace) → refusé même sur le
-   * cold-path admin : renvoie **`-1`** (« inconnu », capacité réduite Redis
-   * assumée). L'appelant affiche l'inconnu, il ne l'invente pas.
+   * Compté par l'INDEX (`sessionIndex.ts`), jamais par balayage : `ZCOUNT` sur
+   * les sessions dont l'expiration est à venir. Même périmètre que le filtre
+   * de liste — filtres contradictoires (`user` + `authenticated: false`) = 0.
+   * Rend **`-1`** (« inconnu ») quand l'index n'est pas disponible : client
+   * sans scripts, ou reconstruction en cours sur un autre pod.
    */
-  countSessions(_query?: Partial<ISessionListQuery>): Promise<number> {
-    return Promise.resolve(-1);
+  async countSessions(query?: Partial<ISessionListQuery>): Promise<number> {
+    const client = this.#clientForIndex();
+    if (!client || !(await this.#ensureIndexBuilt(client))) return -1;
+    const index = this.#index();
+    const now = Date.now();
+    await index.prune(client, now);
+    const user = query?.user;
+    const auth = query?.authenticated;
+    if (user !== undefined && user !== "") {
+      return auth === false ? 0 : index.count(client, { user }, now);
+    }
+    const anonymous = async () =>
+      (await index.count(client, "all", now)) -
+      (await index.count(client, "auth", now));
+    if (user === "") return auth === true ? 0 : anonymous();
+    if (auth === true) return index.count(client, "auth", now);
+    if (auth === false) return anonymous();
+    return index.count(client, "all", now);
   }
 
   /**
    * {@inheritDoc ISessionStorage.countDistinctUsers}
    *
-   * Dédupliquer exige d'avoir tout vu : c'est le `SCAN` complet que
-   * {@link countSessions} refuse déjà, plus un ensemble à retenir en mémoire.
-   * Renvoie **`-1`** — la console affiche « — », elle n'invente pas un chiffre.
+   * Les PERSONNES : l'index tient chaque utilisateur avec l'expiration de sa
+   * session la plus tardive — il disparaît du compte avec sa dernière session.
    */
-  countDistinctUsers(_query?: Partial<ISessionListQuery>): Promise<number> {
-    return Promise.resolve(-1);
+  async countDistinctUsers(
+    query?: Partial<ISessionListQuery>,
+  ): Promise<number> {
+    const client = this.#clientForIndex();
+    if (!client || !(await this.#ensureIndexBuilt(client))) return -1;
+    if (query?.authenticated === false || query?.user === "") return 0;
+    const index = this.#index();
+    const now = Date.now();
+    await index.prune(client, now);
+    if (query?.user !== undefined) {
+      return (await index.count(client, { user: query.user }, now)) > 0 ? 1 : 0;
+    }
+    return index.count(client, "users", now);
   }
 }
 

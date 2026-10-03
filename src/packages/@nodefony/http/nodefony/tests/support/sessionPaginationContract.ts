@@ -102,6 +102,12 @@ export interface SessionPaginationHarness {
   clear: () => Promise<void>;
   /** Capacité de pagination du backend. */
   mode: "offset" | "cursor";
+  /**
+   * Le store compte-t-il EXACTEMENT ? Vrai par construction en mode offset ; un
+   * store à curseur peut aussi le faire (Redis, par son index) — il passe alors
+   * les MÊMES cas de comptage, pas un régime d'exception. Défaut : `mode === "offset"`.
+   */
+  exactCounts?: boolean;
 }
 
 /**
@@ -459,7 +465,54 @@ export function runSessionPaginationContract(
           3,
         );
       });
+    } else {
+      // ── Mode CURSEUR : capacité réduite ANNONCÉE ────────────────────────────
+      it("un store à curseur NE DÉCLARE PAS de tri (il n'en a pas)", async () => {
+        // `SCAN` parcourt le keyspace dans un ordre non spécifié : il n'existe
+        // aucun tri global à offrir. Le déclarer quand même serait la seule
+        // faute possible ici — le data plane exposerait alors un tri qui ne
+        // trierait rien, et personne ne le verrait. L'absence de déclaration
+        // fait refuser tout `?order=` en 400, ce qui est la vérité.
+        const fields = storage().sortableFields;
+        assert.ok(
+          !fields || fields.length === 0,
+          "un backend curseur ne doit annoncer aucun champ triable",
+        );
+      });
 
+      it("curseur : nextCursor est posé tant qu'il reste à scanner, null à la fin", async () => {
+        let cursor: string | undefined;
+        let sawCursor = false;
+        for (let guard = 0; guard < 200; guard += 1) {
+          const page = await storage().listPage({ limit: 5, cursor });
+          if (page.nextCursor) {
+            sawCursor = true;
+            assert.equal(page.hasNext, true);
+            cursor = page.nextCursor;
+            continue;
+          }
+          assert.equal(page.nextCursor, null, "fin de scan → nextCursor null");
+          assert.equal(page.hasNext, false);
+          break;
+        }
+        assert.ok(sawCursor, "le seed doit demander plus d'un passage SCAN");
+      });
+
+      it("curseur : pas de total (ne pas inventer ce que le backend ignore)", async () => {
+        const page = await storage().listPage({ limit: 5 });
+        assert.equal(page.total, undefined);
+      });
+
+      if (!(harness.exactCounts ?? false)) {
+        it("countSessions = -1 (capacité réduite ANNONCÉE — le store ne compte pas)", async () => {
+          assert.equal(await storage().countSessions(), -1);
+          assert.equal(await storage().countSessions({ limit: 1 }), -1);
+        });
+      }
+    }
+
+    // ── Comptage EXACT : le même contrat pour tout store qui sait compter ────
+    if (harness.exactCounts ?? harness.mode === "offset") {
       it("countSessions = COUNT natif filtré (sans énumérer)", async () => {
         assert.equal(await storage().countSessions(), 12);
         assert.equal(await storage().countSessions({ limit: 1 }), 12);
@@ -508,48 +561,6 @@ export function runSessionPaginationContract(
           0,
           "les sessions anonymes ne forment aucun utilisateur",
         );
-      });
-    } else {
-      // ── Mode CURSEUR : capacité réduite ANNONCÉE ────────────────────────────
-      it("un store à curseur NE DÉCLARE PAS de tri (il n'en a pas)", async () => {
-        // `SCAN` parcourt le keyspace dans un ordre non spécifié : il n'existe
-        // aucun tri global à offrir. Le déclarer quand même serait la seule
-        // faute possible ici — le data plane exposerait alors un tri qui ne
-        // trierait rien, et personne ne le verrait. L'absence de déclaration
-        // fait refuser tout `?order=` en 400, ce qui est la vérité.
-        const fields = storage().sortableFields;
-        assert.ok(
-          !fields || fields.length === 0,
-          "un backend curseur ne doit annoncer aucun champ triable",
-        );
-      });
-
-      it("curseur : nextCursor est posé tant qu'il reste à scanner, null à la fin", async () => {
-        let cursor: string | undefined;
-        let sawCursor = false;
-        for (let guard = 0; guard < 200; guard += 1) {
-          const page = await storage().listPage({ limit: 5, cursor });
-          if (page.nextCursor) {
-            sawCursor = true;
-            assert.equal(page.hasNext, true);
-            cursor = page.nextCursor;
-            continue;
-          }
-          assert.equal(page.nextCursor, null, "fin de scan → nextCursor null");
-          assert.equal(page.hasNext, false);
-          break;
-        }
-        assert.ok(sawCursor, "le seed doit demander plus d'un passage SCAN");
-      });
-
-      it("curseur : pas de total (ne pas inventer ce que le backend ignore)", async () => {
-        const page = await storage().listPage({ limit: 5 });
-        assert.equal(page.total, undefined);
-      });
-
-      it("countSessions = -1 (capacité réduite Redis assumée)", async () => {
-        assert.equal(await storage().countSessions(), -1);
-        assert.equal(await storage().countSessions({ limit: 1 }), -1);
       });
     }
 
