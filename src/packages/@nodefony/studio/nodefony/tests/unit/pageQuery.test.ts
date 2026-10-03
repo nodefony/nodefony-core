@@ -356,6 +356,28 @@ describe("loadPage — suivre le curseur d'un store qui ne sait pas sauter", () 
     expect(p1.total, "la page 2 doit exister").toBe(50);
   });
 
+  it("🔴 store à curseur QUI COMPTE : le total est exact, la dernière page s'atteint en avançant", async () => {
+    const trail = createPageTrail();
+    const { fetchPage, seen } = cursorStore();
+    const avecTotal = async (p: URLSearchParams) => ({
+      ...(await fetchPage(p)),
+      total: ITEMS.length,
+    });
+    const last = await loadPage(
+      trail,
+      query({ page: 3 }),
+      undefined,
+      avecTotal,
+    );
+    expect(last.total).toBe(60);
+    expect(last.totalIsLowerBound).toBe(false);
+    expect(last.rows).toEqual(ITEMS.slice(50, 60));
+    expect(
+      seen.every((q) => !/offset=[1-9]/.test(q)),
+      "jamais d'offset",
+    ).toBe(true);
+  });
+
   it("page au-delà de la fin (la collection a rétréci) : vide, et un total qui ramène le grid", async () => {
     const trail = createPageTrail();
     const { fetchPage } = cursorStore();

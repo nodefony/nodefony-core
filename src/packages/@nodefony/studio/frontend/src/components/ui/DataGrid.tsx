@@ -1358,6 +1358,14 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
             // numérotées, elles, portent déjà leur numéro.
             getControlProps={(control) => ({
               "aria-label": PAGINATION_LABELS[control],
+              // Total inconnu (seulement un minorant) : la « fin » n'existe pas
+              // encore — l'atteindre mènerait à une fausse dernière page.
+              ...(control === "last" && isServer && totalIsLowerBound
+                ? {
+                    disabled: true,
+                    title: "Fin inconnue : ce stockage ne compte pas la liste",
+                  }
+                : {}),
             })}
           />
         </Group>

@@ -247,6 +247,12 @@ export async function loadPage<T>(
   }
   const page = await fetchAt(q.page);
   if (trail.mode === "cursor") {
+    // Le store compte (sessions Redis, par leur index) : le total est EXACT,
+    // le nombre de pages aussi — « dernière page » mène à la vraie fin, que
+    // la piste atteint en avançant de curseur en curseur.
+    if (page.total !== undefined) {
+      return { rows: page.items, total: page.total, totalIsLowerBound: false };
+    }
     const seen = (q.page - 1) * q.pageSize + page.items.length;
     // Un curseur non nul DIT qu'une page suit : le data plane peut omettre
     // `hasNext` (c'est le cas de `sessions/list`), le curseur, lui, est là.

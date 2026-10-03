@@ -365,7 +365,17 @@ class RedisSessionStorage implements ISessionStorage {
         };
       },
     );
-    return { items, limit, hasNext: nextCursor !== null, nextCursor };
+    // Le TOTAL, quand l'index sait compter : la même requête de filtre, un
+    // `ZCOUNT`. Sans lui, la console ne connaît qu'un minorant, et « dernière
+    // page » mène à une fausse fin. Inconnu (-1) → absent, jamais inventé.
+    const total = await this.countSessions(query);
+    return {
+      items,
+      limit,
+      hasNext: nextCursor !== null,
+      nextCursor,
+      ...(total >= 0 ? { total } : {}),
+    };
   }
 
   /**

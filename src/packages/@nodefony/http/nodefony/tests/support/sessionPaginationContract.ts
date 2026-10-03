@@ -498,9 +498,15 @@ export function runSessionPaginationContract(
         assert.ok(sawCursor, "le seed doit demander plus d'un passage SCAN");
       });
 
-      it("curseur : pas de total (ne pas inventer ce que le backend ignore)", async () => {
+      it("curseur : un total EXACT s'il sait compter, AUCUN sinon (ne pas inventer)", async () => {
         const page = await storage().listPage({ limit: 5 });
-        assert.equal(page.total, undefined);
+        if (harness.exactCounts ?? false) {
+          assert.equal(page.total, 12, "le total de la liste = le compte");
+          const alice = await storage().listPage({ limit: 5, user: "alice" });
+          assert.equal(alice.total, 5, "le total suit le filtre");
+        } else {
+          assert.equal(page.total, undefined);
+        }
       });
 
       if (!(harness.exactCounts ?? false)) {
