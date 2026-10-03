@@ -856,5 +856,14 @@
       "src/packages/@nodefony/mongoose/tests/integration/webhook-store.test.ts",
       "src/packages/@nodefony/redis/nodefony/tests/integration/token-store-contract.test.ts"
     ]
+  },
+  "reverse-proxy": {
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/reverseProxy.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/proxyConfig.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/vite-relay.test.ts"
+    ]
   }
 }
