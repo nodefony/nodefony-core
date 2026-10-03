@@ -14,6 +14,7 @@
  * Verrouillé ici sans lancer Vite ; la preuve sur un vrai Vite derrière un vrai
  * Nodefony vit dans `integration/devAssetBase.test.ts` et l'intégration http.
  */
+import path from "node:path";
 import { describe, it, expect } from "vitest";
 import { Container } from "nodefony";
 import FrontendService from "../../service/FrontendService";
@@ -80,8 +81,11 @@ describe("TemplateHelper — balises RELATIVES, toutes sous le chemin de base", 
 
   it("client Vite, entrée, préambule React, pont HMR", () => {
     expect(tags).to.include('src="/_vite/default/@vite/client"');
+    // `path.resolve("/abs/…")` rend `D:\abs\…` sous Windows (lecteur du
+    // cwd ajouté) : l'URL attendue se COMPOSE, elle ne se littéralise pas.
+    const abs = path.resolve(entry.root, entry.entryFile).replace(/\\/g, "/");
     expect(tags).to.include(
-      'src="/_vite/default/@fs/abs/app/frontend/src/main.tsx"',
+      `src="/_vite/default/@fs${abs.startsWith("/") ? "" : "/"}${abs}"`,
     );
     expect(tags).to.include('from "/_vite/default/@react-refresh"');
     expect(tags).to.include('import("/_vite/default/@vite/client")');
