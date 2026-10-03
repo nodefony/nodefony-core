@@ -354,11 +354,24 @@ class HttpContext extends Context implements IHttpContextInterface {
       // vers le context ACTIF du socket.
       socket.on("timeout", () => {
         const ctx = socketActiveContext.get(socket);
-        if (ctx && !ctx.response.response?.writableEnded) {
+        // `cleaned` d'abord : après `clean()`, `response.response` vaut null
+        // et le test d'envoi seul prendrait un contexte MORT pour actif.
+        if (
+          ctx !== undefined &&
+          !ctx.cleaned &&
+          !ctx.response.response?.writableEnded
+        ) {
           ctx._onTimeout();
+          return;
         }
-        // Socket idle SANS requête active : no-op (comportement historique du
-        // 1er fire) — `keepAliveTimeout` du serveur ferme l'idle par ailleurs.
+        // Socket INACTIF (keep-alive entre deux requêtes) : le fermer ici.
+        // Node ne le fait plus lui-même — le serveur passe un callback à
+        // `server.setTimeout` (`server-http.ts`, `server-https.ts`), et un
+        // écouteur `timeout` côté serveur suspend la destruction automatique.
+        // Sans cette fermeture, `keepAliveTimeout` restait lettre morte : la
+        // connexion vivait jusqu'à ce que le CLIENT la ferme, en retenant son
+        // dernier contexte.
+        socket.destroy();
       });
     }
   }

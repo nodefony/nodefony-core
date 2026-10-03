@@ -18,6 +18,8 @@ interface FakeSocket {
   setTimeout(ms: number): void;
   on(ev: string, cb: () => void): void;
   fireTimeout(): void;
+  destroyed: number;
+  destroy(): void;
 }
 
 function makeSocket(): FakeSocket {
@@ -34,6 +36,10 @@ function makeSocket(): FakeSocket {
     },
     fireTimeout() {
       for (const cb of this.listeners["timeout"] ?? []) cb();
+    },
+    destroyed: 0,
+    destroy() {
+      this.destroyed++;
     },
   };
 }
@@ -105,19 +111,40 @@ describe("HttpContext.setTimeout — socket timeout T3 (h1)", () => {
     expect(ctx2.fired).to.equal(1);
   });
 
-  it("socket idle (context actif terminé) → no-op, le handler survit (on, pas once)", () => {
+  // Socket INACTIF (keep-alive entre deux requêtes) : le serveur passe un
+  // callback à `server.setTimeout`, donc Node ne détruit plus le socket — le
+  // gestionnaire doit le fermer, sinon `keepAliveTimeout` reste lettre morte.
+  it("socket idle (context actif terminé) → fermé, sans 408", () => {
     const s = makeSocket();
     const ctx = makeCtx(s, { ended: true });
     ctx.setTimeout();
-    s.fireTimeout(); // idle keep-alive : writableEnded → no-op
-    expect(ctx.fired).to.equal(0);
-    // le handler n'est PAS consommé : une requête 2 lente garde son 408
-    const ctx2 = makeCtx(s);
-    (ctx2 as unknown as { response: { timeout: number } }).response.timeout =
-      30000;
-    ctx2.setTimeout();
     s.fireTimeout();
-    expect(ctx2.fired).to.equal(1);
+    expect(ctx.fired).to.equal(0);
+    expect(s.destroyed).to.equal(1);
+  });
+
+  it("socket idle après clean() (response.response = null) → fermé, sans 408", () => {
+    const s = makeSocket();
+    const ctx = makeCtx(s);
+    ctx.setTimeout();
+    // clean() : `response.response` passe à null, `cleaned` à true — l'ancien
+    // test `!response.response?.writableEnded` prenait ce contexte MORT pour
+    // actif.
+    (ctx as unknown as { cleaned: boolean }).cleaned = true;
+    (ctx as unknown as { response: { response: null } }).response.response =
+      null;
+    s.fireTimeout();
+    expect(ctx.fired).to.equal(0);
+    expect(s.destroyed).to.equal(1);
+  });
+
+  it("requête active → 408, socket NON fermé par le gestionnaire", () => {
+    const s = makeSocket();
+    const ctx = makeCtx(s);
+    ctx.setTimeout();
+    s.fireTimeout();
+    expect(ctx.fired).to.equal(1);
+    expect(s.destroyed).to.equal(0);
   });
 
   it("HTTP/2 (response.stream) : per-stream historique — pas de chemin socket", () => {
