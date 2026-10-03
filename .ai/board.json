@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T16:31:48.139Z",
+  "generatedAt": "2026-10-03T17:29:23.300Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6225,7 +6225,7 @@
       "title": "refactor(repo): ranger scripts/ et dire où va un contrôle neuf",
       "url": "https://github.com/nodefony/nodefony-core/issues/205",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "outillage-agents",
       "priorite": "P2 — décision",
       "jours": 1,

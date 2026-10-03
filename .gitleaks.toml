@@ -67,6 +67,10 @@ regexes = [
   # pas prouver l'implémentation. RFC 6238 (TOTP), annexe B.
   '''^GEZDGNBVGY3TQOJQ$''',
   '''^12345678901234567890$''',
+  # RFC 6455 §1.3 (WebSocket) : `Sec-WebSocket-Key` d'exemple, base64 de
+  # « the sample nonce ». Les tests du proxy inverse rejouent la poignée de main
+  # de la norme — ce n'est pas une clé, c'est un nonce public d'exemple.
+  '''^dGhlIHNhbXBsZSBub25jZQ==$''',
   # Mots de passe des DÉCORS jetables (banc devkit, banc multipod) : ils
   # désignent des conteneurs liés à 127.0.0.1, détruits à la fin du run.
   '''^(TemoinPassw0rd42x|SondePassw0rd42x|AncienPassw0rd42x)$''',
