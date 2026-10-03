@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 899,
-    "symbols": 4550,
+    "symbols": 4551,
     "classes": 409,
     "interfaces": 1182,
     "types": 485,
     "enums": 4,
-    "functions": 2010,
+    "functions": 2011,
     "constants": 460
   },
   "symbols": {
@@ -30255,6 +30255,14 @@
       "exported": true,
       "module": "@nodefony/http"
     },
+    "switchUrlScheme": {
+      "name": "switchUrlScheme",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Même URL (chemin, requête, hôte) sous un autre schéma et un autre port. `port` absent → port par défaut du schéma (omis de l'URL)."
+    },
     "Parser": {
       "name": "Parser",
       "kind": "class",
@@ -31999,7 +32007,6 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],

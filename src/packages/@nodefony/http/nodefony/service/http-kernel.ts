@@ -290,8 +290,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
   regAlias: RegExp[] = [];
   module: Module;
-  httpsPort?: number | undefined;
-  httpPort?: number | undefined;
+  /**
+   * Port du serveur HTTPS effectivement lié, `undefined` s'il est inactif —
+   * lu sur le serveur, jamais recopié (lu par `HttpContext.redirectHttps`).
+   */
+  get httpsPort(): number | undefined {
+    return this.boundPort("server-https");
+  }
+  /** Port du serveur HTTP effectivement lié, `undefined` s'il est inactif. */
+  get httpPort(): number | undefined {
+    return this.boundPort("server-http");
+  }
+  private boundPort(name: "server-http" | "server-https"): number | undefined {
+    const server = this.get<httpServer | httpsServer>(name);
+    return server?.active === true && server.port > 0 ? server.port : undefined;
+  }
   responseTimeout: {
     http: number;
     https: number;

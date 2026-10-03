@@ -12,7 +12,6 @@ import Context, {
   HTTPMethod,
 } from "../Context";
 import {
-  extend,
   Container,
   typeOf,
   Scope,
@@ -58,6 +57,26 @@ export interface ProxyType {
   proxyUri?: string | undefined;
   proxyRealIp?: string | undefined;
   proxyVia?: string | undefined;
+}
+
+/**
+ * Même URL (chemin, requête, hôte) sous un autre schéma et un autre port.
+ * `port` absent → port par défaut du schéma (omis de l'URL).
+ *
+ * @param from - URL de la requête.
+ * @param scheme - schéma cible.
+ * @param port - port du serveur cible, s'il est connu.
+ * @returns l'URL absolue de redirection.
+ */
+export function switchUrlScheme(
+  from: URL,
+  scheme: "http" | "https",
+  port?: number,
+): string {
+  const target = new URL(from.href);
+  target.protocol = `${scheme}:`;
+  target.port = port === undefined ? "" : String(port);
+  return target.href;
 }
 
 export type HttpRequestType = Http2Request | HttpRequest;
@@ -626,58 +645,42 @@ class HttpContext extends Context implements IHttpContextInterface {
     return this.response.redirect(Url, status, headers);
   }
 
+  /**
+   * Redirige vers la même URL en HTTPS, sur le port du serveur HTTPS lié —
+   * ou le port par défaut derrière un proxy, dont le port public est inconnu.
+   *
+   * @param status - code de redirection (défaut de `redirect`).
+   * @param headers - en-têtes ajoutés à la réponse.
+   */
   redirectHttps(
     status?: number | string,
     headers?: Record<string, string | number>,
   ) {
-    if (this.session) {
-      //this.session.setFlashBag("redirect", "HTTPS");
-    }
-    let urlExtend = null;
-    if (this.proxy) {
-      urlExtend = {
-        protocol: "https",
-        href: "",
-        host: "",
-      };
-    } else {
-      urlExtend = {
-        protocol: "https",
-        port: this.httpKernel?.httpsPort || 443,
-        href: "",
-        host: "",
-      };
-    }
-    const urlChange = extend({}, this.request.url, urlExtend) as url.UrlObject;
-    const newUrl = url.format(urlChange);
-    return this.redirect(newUrl, status, headers);
+    const port = this.proxy ? undefined : this.httpKernel?.httpsPort;
+    return this.redirect(
+      switchUrlScheme(this.request.url, "https", port),
+      status,
+      headers,
+    );
   }
 
+  /**
+   * Redirige vers la même URL en HTTP, sur le port du serveur HTTP lié — ou
+   * le port par défaut derrière un proxy.
+   *
+   * @param status - code de redirection (défaut de `redirect`).
+   * @param headers - en-têtes ajoutés à la réponse.
+   */
   redirectHttp(
     status?: number | string,
     headers?: Record<string, string | number>,
   ) {
-    if (this.session) {
-      //this.session.setFlashBag("redirect", "HTTP");
-    }
-    let urlExtend = null;
-    if (this.proxy) {
-      urlExtend = {
-        protocol: "http",
-        href: "",
-        host: "",
-      };
-    } else {
-      urlExtend = {
-        protocol: "http",
-        port: this.httpKernel?.httpPort || 80,
-        href: "",
-        host: "",
-      };
-    }
-    const urlChange = extend({}, this.request.url, urlExtend) as url.UrlObject;
-    const newUrl = url.format(urlChange);
-    return this.redirect(newUrl, status, headers);
+    const port = this.proxy ? undefined : this.httpKernel?.httpPort;
+    return this.redirect(
+      switchUrlScheme(this.request.url, "http", port),
+      status,
+      headers,
+    );
   }
 
   getHostName(): string {
