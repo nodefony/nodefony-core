@@ -10,7 +10,7 @@ tags:
   [frontend, vite, hmr, react, vue, angular, build, bundle, manifest, csp, cdn]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-10-03
 source: "src/packages/@nodefony/frontend/docs/index.md"
 coverageModule: frontend
 ---
@@ -30,22 +30,26 @@ coverageModule: frontend
 
 Le réflexe habituel est de croire qu'un projet front et un projet back sont deux applications. Ici,
 il n'y en a qu'une : ton module Nodefony **déclare** son interface, et le module frontend s'occupe du
-reste. Concrètement, deux serveurs tournent en développement et se partagent le travail.
+reste. Concrètement, deux serveurs tournent en développement, mais le navigateur n'en voit qu'**un**.
 
 ```mermaid
 flowchart TD
-  BR["Navigateur"] -->|1 · GET /shop| NF["Nodefony · 5151<br/>route → contrôleur → HTML"]
-  NF -->|2 · HTML + balises script| BR
-  BR -->|3 · assets, modules, HMR| VITE["Vite · 5173<br/>processus séparé"]
-  BR -->|4 · fetch /shop/api| VITE
-  VITE -->|proxy| NF
+  BR["Navigateur"] -->|1 · GET /shop| NF["Nodefony · 5152<br/>route → contrôleur → HTML"]
+  NF -->|2 · HTML + balises script relatives| BR
+  BR -->|3 · /_vite/… modules, styles, HMR| NF
+  NF -->|relais sur la boucle locale| VITE["Vite · 127.0.0.1:5173<br/>processus séparé"]
+  BR -->|4 · fetch /shop/api| NF
   NF -.->|spawn au démarrage<br/>arrêt au terminate| VITE
 ```
 
-Lis le schéma comme une visite : la **page** vient toujours de Nodefony (1-2) ; les **modules
-JavaScript** viennent de Vite en direct (3), donc ton serveur n'est jamais sur le chemin critique des
-assets ; et les **appels d'API** repartent vers Nodefony par le proxy de Vite (4). En production, Vite
-disparaît : les assets sont pré-construits et servis en fichiers statiques.
+Lis le schéma comme une visite : la **page** vient de Nodefony (1-2) ; les **modules JavaScript**,
+les styles et le socket du rechargement à chaud passent eux aussi par Nodefony, sous le chemin
+réservé `/_vite/<famille>/`, que le [proxy inverse](../../http/docs/reverse-proxy.md) relaie à Vite
+(3) ; et les **appels d'API** arrivent à Nodefony comme n'importe quelle requête (4). Vite reste sur
+la boucle locale, le navigateur ne le joint jamais : **une seule origine, un seul certificat**. C'est
+ce qui permet d'ouvrir l'application depuis un téléphone ou un conteneur en HTTPS — voir
+[Hors de la boucle locale](#-hors-de-la-boucle-locale--téléphone-conteneur-réseau). En production,
+Vite disparaît : les assets sont pré-construits et servis en fichiers statiques.
 
 ## 📖 Lexique
 
@@ -84,14 +88,14 @@ qui remplace Vite une fois en production.
 ### La vision Nodefony — ce que ce module fait différemment
 
 **Vite est un processus système, pas une bibliothèque.** Le superviseur lance le binaire Vite avec
-`child_process.spawn` (`ViteProcessSupervisor.attemptSpawn()`, `ViteProcessSupervisor.ts:418`). La
+`child_process.spawn` (`ViteProcessSupervisor.attemptSpawn()`, `ViteProcessSupervisor.ts:426`). La
 conséquence est concrète : compiler dix mille modules ne coûte **rien** à la latence de tes requêtes,
 et un plantage de Vite ne tue pas ton serveur — le superviseur le relance tout seul.
 
 **C'est Nodefony qui sert le HTML.** Beaucoup de piles séparent un serveur front (qui rend la page) et
 un serveur d'API (qui rend le JSON). Ici, la page d'entrée reste une route de ton contrôleur :
 elle traverse le pare-feu, connaît la session, reçoit son nonce CSP. Le module se contente d'y
-**injecter les bonnes balises** (`TemplateHelper.renderDevTags()`, `TemplateHelper.ts:163`).
+**injecter les bonnes balises** (`TemplateHelper.renderDevTags()`, `TemplateHelper.ts:205`).
 
 **Un seul Vite pour N modules.** Trois modules à interface ne lancent pas trois serveurs Vite : leurs
 entrées sont agrégées dans une seule instance multi-entrées. La seule exception est documentée et
@@ -112,8 +116,8 @@ chaque étape suppose la précédente.
 1. [Démarrage rapide](#-démarrage-rapide) — un module, une entrée, une page. Copie-colle, ça marche.
 2. [`registerEntry`](#registerentry--la-déclaration-dune-interface) — les sept champs de la
    déclaration, et lesquels comptent vraiment.
-3. [`apiProxyPaths`](#apiproxypaths--que-le-fetch-atteigne-le-serveur) — **à ne pas sauter** : c'est
-   l'oubli qui produit le bug n°1 du module.
+3. [Le relais `/_vite/`](#le-relais--une-origine-pour-tout) — pourquoi la page, ses modules et
+   son socket partagent une seule origine, et ce que ça t'épargne.
 4. [Pièges](#-pièges) — les symptômes qu'on rencontre dans l'ordre où on les rencontre.
 
 **Je pars en production** — ce qui change quand Vite n'est plus là.
@@ -139,25 +143,25 @@ chaque étape suppose la précédente.
 
 Le tableau pour situer en cinq secondes ; les fiches en dessous pour savoir quoi lire.
 
-| Brique                                                                    | Ce qu'elle résout                                   | Tu en as besoin quand…                    |
-| ------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------- |
-| [`registerEntry`](#registerentry--la-déclaration-dune-interface)          | déclarer qu'un module a une interface               | toujours — c'est le point de contact      |
-| [`apiProxyPaths`](#apiproxypaths--que-le-fetch-atteigne-le-serveur)       | que les appels d'API atteignent ton serveur         | ton interface parle à ton back (donc oui) |
-| [Presets](#-extension)                                                    | brancher React, Vue, Angular ou du TypeScript nu    | tu choisis ton framework UI               |
-| [Familles d'isolation](#familles-disolation--pourquoi-angular-a-son-vite) | faire cohabiter plusieurs frameworks                | tu mélanges Angular avec autre chose      |
-| [Rendu des balises](#rendu--des-balises-ou-un-document-complet)           | injecter le front dans une page servie par Nodefony | tu écris le contrôleur de la page         |
-| [Modes de livraison](#-les-deux-modes-de-livraison-de-linterface)         | Vite en dev, assets pré-construits ailleurs         | tu déploies, ou tu publies un module      |
-| [Build de production](#construire-pour-la-production--frontendbuild)      | compiler, empreinter, produire le manifeste         | tu prépares une image ou un paquet        |
-| [Résilience](#résilience--ce-qui-se-passe-quand-vite-tombe)               | survivre à un crash, un port occupé, un gel         | ton poste n'est pas un labo aseptisé      |
+| Brique                                                                    | Ce qu'elle résout                                   | Tu en as besoin quand…               |
+| ------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------ |
+| [`registerEntry`](#registerentry--la-déclaration-dune-interface)          | déclarer qu'un module a une interface               | toujours — c'est le point de contact |
+| [Le relais `/_vite/`](#le-relais--une-origine-pour-tout)                  | une origine pour la page, les modules et le socket  | toujours en dev — rien à déclarer    |
+| [Presets](#-extension)                                                    | brancher React, Vue, Angular ou du TypeScript nu    | tu choisis ton framework UI          |
+| [Familles d'isolation](#familles-disolation--pourquoi-angular-a-son-vite) | faire cohabiter plusieurs frameworks                | tu mélanges Angular avec autre chose |
+| [Rendu des balises](#rendu--des-balises-ou-un-document-complet)           | injecter le front dans une page servie par Nodefony | tu écris le contrôleur de la page    |
+| [Modes de livraison](#-les-deux-modes-de-livraison-de-linterface)         | Vite en dev, assets pré-construits ailleurs         | tu déploies, ou tu publies un module |
+| [Build de production](#construire-pour-la-production--frontendbuild)      | compiler, empreinter, produire le manifeste         | tu prépares une image ou un paquet   |
+| [Résilience](#résilience--ce-qui-se-passe-quand-vite-tombe)               | survivre à un crash, un port occupé, un gel         | ton poste n'est pas un labo aseptisé |
 
 ```nodefony-cards
 [
   { "icon": "📝", "title": "registerEntry", "href": "#registerentry--la-déclaration-dune-interface",
-    "desc": "Le point de contact unique du module. Un module l'appelle dans son onKernelBoot et dit trois choses : quel framework, quel fichier d'entrée, quels chemins d'API proxifier. Tout le reste a un défaut sensé.",
+    "desc": "Le point de contact unique du module. Un module l'appelle dans son onKernelBoot et dit deux choses : quel framework et quel fichier d'entrée. Tout le reste a un défaut sensé.",
     "meta": "la seule API que la plupart des applications toucheront jamais" },
-  { "icon": "🔀", "title": "apiProxyPaths", "href": "#apiproxypaths--que-le-fetch-atteigne-le-serveur",
-    "desc": "En développement ton interface vient de Vite : un fetch part donc vers Vite, qui ne connaît pas la route et répond son index.html. Le symptôme (Unexpected token '<') ne parle jamais de proxy — et le data plane d'administration, lui, est proxifié d'office.",
-    "meta": "à ne pas sauter : c'est l'oubli qui produit le bug n°1" },
+  { "icon": "🔀", "title": "Relais /_vite/", "href": "#le-relais--une-origine-pour-tout",
+    "desc": "En développement, Nodefony relaie à Vite tout ce qui passe sous /_vite/<famille>/ — modules, styles, images, socket du rechargement à chaud. Une origine, un certificat : pas de contenu mixte ni de CORS, et la page s'ouvre en HTTPS depuis un téléphone ou un conteneur.",
+    "meta": "rien à déclarer — c'est ce qui rend le HTTPS de dev simple" },
   { "icon": "🎨", "title": "Presets", "href": "#-extension",
     "desc": "Cinq recettes prêtes — React, Vue, Angular, Svelte, vanilla : quel greffon Vite charger, quelles dépendances pré-empaqueter, quelles extensions reconnaître. Les greffons sont chargés paresseusement : tu ne paies pas React si tu fais du Vue.",
     "meta": "tu choisis ton framework UI, ou tu en ajoutes un" },
@@ -198,10 +202,8 @@ export default defineConfig(() => ({
     // Le builder AVANT ses consommateurs : les modules à interface résolvent le
     // service `frontend` dans leur onKernelBoot() — il doit déjà être enregistré.
     use("@nodefony/frontend", {
-      // Tout est optionnel. `https: true` réutilise les certificats de Nodefony :
-      // à activer si tu ouvres ta page en https (sinon le navigateur bloque le
-      // contenu mixte page sécurisée ↔ modules en clair).
-      https: false,
+      // Tout est optionnel. Rien à régler pour le HTTPS : les modules passent
+      // par l'origine de la page, donc par le certificat de Nodefony.
       viteEnv: { VITE_API_BASE: "/shop/api" },
     }),
     "shop",
@@ -241,7 +243,7 @@ class ShopController extends Controller {
     return this.render(html);
   }
 
-  /** L'API que l'interface appellera — d'où la déclaration `apiProxyPaths`. */
+  /** L'API que l'interface appellera — sur l'origine de la page, sans proxy. */
   @Get("/api/products")
   products() {
     return this.renderJson([{ id: "1", label: "Cordage 12mm" }]);
@@ -268,9 +270,6 @@ class Shop extends Module {
     frontend.registerEntry(this, {
       type: "react19",
       entry: "./frontend/src/main.tsx",
-      // SANS cette ligne, fetch("/shop/api/products") depuis la page servie par
-      // Vite reçoit le repli SPA (du HTML) → « Unexpected token '<' ».
-      apiProxyPaths: ["/shop/api"],
     });
     return this;
   }
@@ -302,7 +301,7 @@ d'entrée. Ton `index.html` est **le tien** : mets-y tes polices, tes méta, tes
 
 Le marqueur `<!--nodefony:frontend-->` indique **où** injecter les balises ; sans lui, elles sont
 posées avant `</head>`. Le `<script>` d'entrée que tu vois en bas est retiré automatiquement au rendu
-(`TemplateHelper.injectIntoHtml()`, `TemplateHelper.ts:115`) : il n'est résolvable que par Vite quand
+(`TemplateHelper.injectIntoHtml()`, `TemplateHelper.ts:157`) : il n'est résolvable que par Vite quand
 Vite sert lui-même la page, ce qui n'est pas le cas ici.
 
 ### Ce qu'on observe
@@ -312,16 +311,20 @@ Vite sert lui-même la page, ce qui n'est pas le cas ici.
 # INFO  registered entry: shop (react19) from "shop"
 # INFO  vite [default] ready on 127.0.0.1:5173
 
-# La page vient de Nodefony et porte déjà les balises Vite
-curl -s http://localhost:5151/shop | grep -o 'src="http[^"]*"'
-# src="http://127.0.0.1:5173/@vite/client"
-# src="http://127.0.0.1:5173/@fs/…/shop/frontend/src/main.tsx"
+# La page vient de Nodefony ; ses balises sont RELATIVES, sous /_vite/<famille>/
+curl -sk https://localhost:5152/shop | grep -o 'src="[^"]*"'
+# src="/_vite/default/@vite/client"
+# src="/_vite/default/@fs/…/shop/frontend/src/main.tsx"
 
-# L'API répond en JSON — et le même appel depuis le navigateur passe par le proxy Vite
-curl -s http://localhost:5151/shop/api/products
+# Le module est relayé par Nodefony : même origine que la page
+curl -sk -o /dev/null -w '%{http_code}\n' https://localhost:5152/_vite/default/@vite/client
+# 200
+
+# L'API répond en JSON — le navigateur l'appelle sur la même origine
+curl -sk https://localhost:5152/shop/api/products
 # [{"id":"1","label":"Cordage 12mm"}]
 
-# L'état du superviseur, en une commande
+# L'état du superviseur, en une commande — l'endpoint est INTERNE (boucle locale)
 npx nodefony frontend:status
 # state    : ready
 # endpoint : 127.0.0.1:5173
@@ -350,15 +353,23 @@ JSON Schema pour l'écran de configuration de Studio.
 
 | Option                   | Type               | Défaut        | Effet                                                                             |
 | ------------------------ | ------------------ | ------------- | --------------------------------------------------------------------------------- |
-| `devHost`                | `string`           | `"127.0.0.1"` | Hôte de Vite, tel quel dans les `<script>` — doit être joignable du navigateur.   |
-| `devPort`                | `number`           | `5173`        | Port de base. Occupé ⇒ le superviseur essaie les suivants.                        |
+| `devHost`                | `string`           | `"127.0.0.1"` | Adresse d'écoute de Vite. Laisser la boucle locale : Nodefony le relaie.          |
+| `devPort`                | `number`           | `5173`        | Port de base, interne. Occupé ⇒ le superviseur essaie les suivants.               |
 | `autoStartInDevelopment` | `boolean`          | `true`        | Démarrer Vite au boot en `development`. Ignoré ailleurs.                          |
 | `startupTimeoutMs`       | `number`           | `30000`       | Attente du `Local: …` de Vite avant de déclarer l'échec.                          |
 | `pipeViteLogs`           | `boolean`          | `true`        | Reverser la sortie de Vite dans le journal Nodefony.                              |
-| `https`                  | `boolean`          | `false`       | Servir Vite en HTTPS avec **les certificats de Nodefony** (pas de doublon).       |
 | `viteEnv`                | `Record<string,…>` | `{}`          | Variables passées au processus Vite ; les clés `VITE_*` atteignent le navigateur. |
 
+> [!NOTE]
+> **`https` et `publicOrigin` sont dépréciées, sans effet.** Elles réglaient l'origine par laquelle
+> le navigateur joignait Vite ; il ne le joint plus. Les déclarer journalise un avertissement, et
+> elles seront retirées à la majeure suivante.
+
 ### Le proxy vers ton serveur
+
+Ces options règlent le proxy **de Vite** vers Nodefony, celui que nourrissent les `apiProxyPaths`
+(voir [plus bas](#apiproxypaths--quand-vite-sert-lui-même-la-requête)). Une page rendue par
+Nodefony n'en a pas besoin : ses appels d'API arrivent directement à Nodefony.
 
 | Option            | Type                | Défaut        | Effet                                                     |
 | ----------------- | ------------------- | ------------- | --------------------------------------------------------- |
@@ -370,7 +381,7 @@ JSON Schema pour l'écran de configuration de Studio.
 > **`backendPort` n'est pas forcément le port écouté.** Avec une politique de port automatique, un
 > 5151 occupé fait glisser l'écoute sur 5153. Un proxy figé enverrait alors les appels de ton
 > interface vers le serveur d'une **autre** application. Le module lit donc le port réel sur le
-> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:493`) et journalise
+> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:424`) et journalise
 > l'écart.
 
 ### Le build de production
@@ -400,6 +411,45 @@ s'appliquent même si tu omets la section entière.
 > [!TIP]
 > **En intégration continue, mets `autoRestart: false`.** Un Vite qui plante puis se relance en
 > boucle fait passer ton pipeline au vert avec une interface morte. Sans relance, l'échec est visible.
+
+## 📱 Hors de la boucle locale — téléphone, conteneur, réseau
+
+Beaucoup d'API du navigateur exigent une page **sécurisée** dès qu'on quitte `localhost` : caméra et
+micro (`getUserMedia`), Service Workers, `crypto.subtle`, presse-papiers, WebAuthn. Comme page,
+modules et socket partagent une seule origine HTTPS, il suffit que **cette** origine soit joignable —
+le reste suit, sans réglage côté Vite.
+
+**Depuis un téléphone ou un autre poste du réseau local.** En développement, l'application n'écoute
+que la boucle locale : un autre appareil reçoit une connexion refusée. Dans une application générée
+par `nodefony create app`, l'interrupteur `NF_BIND_ALL` l'ouvre à toutes les interfaces :
+
+```bash
+# .env.local (ou en préfixe de la commande)
+NF_BIND_ALL=true
+```
+
+Ouvre ensuite `https://<IP-de-ta-machine>:5152/` sur l'appareil, et accepte **une** fois le
+certificat de développement : page, modules et rechargement à chaud passent par lui. Vite, lui,
+reste sur `127.0.0.1` — seul Nodefony est exposé.
+
+> [!WARNING]
+> Le serveur de développement expose ses outils d'administration. N'ouvre `NF_BIND_ALL` que sur un
+> réseau de confiance ; il est désactivé par défaut pour cette raison. En production, l'écoute est
+> déjà sur toutes les interfaces et l'interrupteur ne change rien.
+
+**Depuis un navigateur en conteneur.** Le conteneur joint la machine par `host.docker.internal`, que
+le gabarit d'application accepte déjà en développement.
+
+**Si `domainCheck` est actif**, la barrière d'hôte refuse tout nom absent de `trustedHosts` (réponse
+`421`), relais `/_vite/` compris : ajoute l'IP ou le nom de l'appareil à `trustedHosts` du module
+HTTP. Sans `domainCheck` — le défaut d'une application générée — tout `Host` passe.
+
+Deux limites viennent des appareils, pas du relais :
+
+- le client cible **ES2022** ; un appareil plus ancien affiche une page blanche — voir
+  [la cible du client](../../../../../docs/guides/compatibilite.md#navigateurs--la-cible-du-client) ;
+- un appareil qui n'applique pas son exception de certificat aux WebSocket (vu sur une TV) charge la
+  page mais pas le rechargement à chaud. En `http://<IP>:5151/`, il passe — sans contexte sécurisé.
 
 ## 🔌 Les deux modes de livraison de l'interface
 
@@ -473,14 +523,15 @@ sequenceDiagram
   S->>S: regroupe les entrées par famille + plan de ports
   S->>V: écrit vite.config.generated.mjs, puis spawn
   V-->>S: « Local: http://host:port » ⇒ état ready
-  S->>S: déclare les origines Vite au pare-feu (CSP)
+  S->>S: monte /_vite/<famille>/ sur le proxy inverse
+  S->>S: déclare ses besoins CSP au pare-feu (sans origine)
   Note over S,V: sonde de vie périodique · relance sur plantage
   K->>S: onTerminate
   S->>V: SIGINT, puis SIGKILL au bout de 3 s
 ```
 
 **Pourquoi `onServersReady` et pas `onReady`.** Vite ne doit démarrer qu'une fois les serveurs
-Nodefony en écoute (`FrontendService.init()`, `FrontendService.ts:160`). Dans l'autre ordre, le proxy
+Nodefony en écoute (`FrontendService.init()`, `FrontendService.ts:142`). Dans l'autre ordre, le proxy
 de Vite viserait un serveur inexistant et les premiers appels d'API échoueraient — un défaut
 intermittent, apparaissant seulement quand le navigateur est plus rapide que le démarrage.
 
@@ -506,42 +557,55 @@ il importe lui-même les greffons dont les presets détectés ont besoin.
 **Ne l'édite jamais** : il est réécrit à chaque démarrage. Ce qu'il contient de notable :
 
 - une **entrée par bundle** (`input`), d'où le multi-modules dans une seule instance ;
-- la `base` en **URL absolue** vers Vite — sans quoi un import transformé en `/src/App.tsx` serait
-  résolu contre l'origine de Nodefony, donc en 404 ;
-- `strictPort` activé dès que cette base est posée : si Vite glissait de port, la base mentirait en
-  silence ;
+- la `base` sur le **chemin réservé de la famille** (`/_vite/<famille>/`, `devBasePath()`,
+  `isolationGroups.ts:75`) — chaque URL que Vite écrit dans un module retombe ainsi sous le préfixe
+  que Nodefony relaie, sur l'origine de la page ;
+- `strictPort` : c'est le superviseur qui choisit le port, et le relais vise ce port. Un Vite qui
+  glisserait de lui-même servirait ailleurs que là où le relais l'attend ;
+- **ni `allowedHosts` ni `cors`** : le relais réécrit `Host` en `127.0.0.1:<port>`, que Vite accepte
+  d'office, et aucune requête n'est inter-origines — les deux barrières de Vite restent à leur
+  réglage le plus strict ;
 - un `server.fs.allow` élargi aux racines de **chaque** entrée — sans quoi deux modules ayant tous
   deux `frontend/src/main.tsx` verraient le second recevoir le fichier du premier ;
 - un `resolve.dedupe` sur les paquets du framework UI — deux copies de React dans la même page
   produisent l'énigmatique « Invalid hook call » et une page blanche.
 
-### `apiProxyPaths` — que le `fetch` atteigne le serveur
+### Le relais — une origine pour tout
 
-C'est le mécanisme le plus important à comprendre du module, parce que son absence produit une erreur
-qui ne parle pas de proxy.
+Au démarrage de chaque famille, le service monte son chemin réservé sur le
+[proxy inverse](../../http/docs/reverse-proxy.md) de `@nodefony/http`
+(`FrontendService.mountDevProxy()`, `FrontendService.ts:530`). Toute requête sous `/_vite/<famille>/`
+— module, style, image importée, et l'upgrade WebSocket du rechargement à chaud — est alors relayée
+à Vite, sur la boucle locale ; la cible est le port **que Vite sert vraiment**
+(`TemplateHelper.devTarget()`, `TemplateHelper.ts:91`), jamais un port seulement retenu par une
+instance tombée, qu'une autre application aurait pu reprendre.
 
-Ta page est chargée depuis Vite. Un `fetch("/shop/api/products")` part donc vers **Vite** (port 5173),
-pas vers Nodefony. Vite ne connaît pas cette route ; comme tout serveur de développement d'application
-monopage, il répond alors son `index.html`. Ton code reçoit du HTML là où il attendait du JSON :
+Ce que ça change pour toi :
 
-```
-SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
-```
+- **une seule origine** — la page, ses scripts et son socket partagent l'hôte et le port de la page.
+  Aucun contenu mixte, aucun CORS, et **un seul certificat** à accepter ;
+- **aucune adresse à configurer** — le client Vite déduit l'adresse de son socket de l'URL qui l'a
+  chargé, donc de celle que le navigateur a tapée : `localhost`, l'IP du réseau local ou
+  `host.docker.internal` fonctionnent sans réglage ;
+- **le relais est réservé au développement** — en production, rien n'est monté : `/_vite/…`
+  répond 404.
 
-Déclarer `apiProxyPaths: ["/shop/api"]` inscrit ce préfixe dans le proxy de la configuration générée :
-Vite transmet alors ces requêtes à Nodefony, sur le port **réellement** écouté. Trois points à
-connaître :
+### `apiProxyPaths` — quand Vite sert lui-même la requête
 
-1. **Les préfixes de tous les modules sont agrégés et dédupliqués** — un seul Vite, un seul proxy.
-2. **Une clé commençant par `^` est traitée comme une expression régulière** par Vite. C'est ainsi que
-   le data plane d'administration est couvert d'un coup.
-3. **`/nodefony/<module>/api` est ajouté d'office**, sans que tu le déclares (`ViteConfigGenerator.ts:201`).
-   Sans cela, la barre de débogage injectée en développement appellerait `/nodefony/profiler/api` et
-   recevrait le repli SPA — le clic serait mort.
+Une page rendue par Nodefony **n'en a pas besoin** : un `fetch("/shop/api/products")` part vers
+l'origine de la page, c'est-à-dire Nodefony. `apiProxyPaths` ne concerne que les requêtes que **Vite**
+reçoit en direct — une page ouverte sur le port de Vite lui-même, hors du relais. Vite ne connaissant
+pas ces routes, il répondrait son `index.html`, et ton code recevrait du HTML là où il attendait du
+JSON (`Unexpected token '<'`).
+
+Déclarer `apiProxyPaths: ["/shop/api"]` inscrit ce préfixe dans le proxy de la configuration générée,
+vers le port **réellement** écouté par Nodefony. Les préfixes de tous les modules sont agrégés et
+dédupliqués ; une clé commençant par `^` est une expression régulière pour Vite ; et
+`^/nodefony/[^/]+/api` est ajouté d'office (data plane d'administration et barre de débogage).
 
 > [!WARNING]
-> Ne proxifie **que** tes chemins d'API. Proxifier `/` renverrait aussi les modules et le rechargement
-> à chaud vers Nodefony, qui n'en sait rien : plus rien ne se charge.
+> Ne proxifie **que** des chemins d'API. Proxifier `/` renverrait aussi les modules et le
+> rechargement à chaud vers Nodefony, qui n'en sait rien : plus rien ne se charge.
 
 ### Familles d'isolation — pourquoi Angular a son Vite
 
@@ -555,13 +619,13 @@ extensions différentes n'y changent rien, et l'option `exclude` du greffon Reac
 
 D'où le regroupement par **famille** (`isolationGroup()`, `isolationGroups.ts:39`) : `angular` et
 `vue` ont chacune la leur, tout le reste partage `default`. Chaque famille obtient un **bloc de ports disjoint**
-(`familyPortPlan()`, `isolationGroups.ts:84`) de taille `portRetryAttempts + 1` : ainsi, une instance
+(`familyPortPlan()`, `isolationGroups.ts:112`) de taille `portRetryAttempts + 1` : ainsi, une instance
 qui glisse de port sur conflit ne peut jamais empiéter sur le bloc d'une autre. La famille principale
-garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts:56`).
+garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts:84`).
 
 **Les familles démarrent indépendamment.** Si Angular échoue, React continue de fonctionner : le
 démarrage n'échoue que si **aucune** famille n'a pu démarrer (`FrontendService.startDev()`,
-`FrontendService.ts:340`).
+`FrontendService.ts:323`).
 
 ### Résilience — ce qui se passe quand Vite tombe
 
@@ -571,10 +635,10 @@ les processus meurent.
 | Situation                  | Réponse                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts:301`)               |
-| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:729`)         |
+| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:710`)         |
 | Vite ne répond plus (gelé) | sonde périodique ; après N échecs, Vite est tué pour être relancé (`ViteProcessSupervisor.ts:787`)    |
 | Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                             |
-| Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts:266`) |
+| Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts:277`) |
 | Arrêt du kernel            | `SIGINT`, puis `SIGKILL` après 3 s — aucun zombie ne bloque le port (`ViteProcessSupervisor.ts:912`)  |
 
 Deux subtilités valent d'être connues, parce qu'elles expliquent des comportements sinon
@@ -593,7 +657,7 @@ incompréhensibles :
   repayant l'attente de démarrage à chaque essai.
 
 Les écouteurs attachés au processus enfant sont suivis puis retirés à chaque mort
-(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:984`) : sans cela, les relances successives les
+(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:965`) : sans cela, les relances successives les
 accumuleraient jusqu'à l'avertissement de fuite.
 
 ## 🧰 API publique
@@ -604,19 +668,19 @@ et dans les types du paquet — jamais recopiées ici, où elles se périmeraien
 
 ### `registerEntry` — la déclaration d'une interface
 
-`FrontendService.registerEntry()` (`FrontendService.ts:254`) est appelée par le module consommateur,
+`FrontendService.registerEntry()` (`FrontendService.ts:236`) est appelée par le module consommateur,
 dans son `onKernelBoot()`. Elle résout les chemins relatifs, calcule le préfixe public et renvoie
 l'entrée résolue (`IResolvedFrontendEntry`, `IFrontBuilder.ts:40`).
 
-| Champ           | Requis | Défaut             | Rôle                                                            |
-| --------------- | ------ | ------------------ | --------------------------------------------------------------- |
-| `type`          | oui    | —                  | Le preset : `react19`, `vue3`, `angular`, `svelte5`, `vanilla`. |
-| `entry`         | oui    | —                  | Le fichier d'entrée, relatif à la racine du module.             |
-| `root`          | non    | `./frontend`       | La racine front (celle qui contient `index.html`).              |
-| `outDir`        | non    | `./public/dist`    | Où le build écrit ce bundle.                                    |
-| `name`          | non    | nom du module      | Nom logique du bundle — c'est la clé de `renderTags(...)`.      |
-| `publicPath`    | non    | `/_assets/<name>/` | Préfixe d'URL des assets en production.                         |
-| `apiProxyPaths` | non    | `[]`               | Les préfixes que Vite doit transmettre à Nodefony.              |
+| Champ           | Requis | Défaut             | Rôle                                                                    |
+| --------------- | ------ | ------------------ | ----------------------------------------------------------------------- |
+| `type`          | oui    | —                  | Le preset : `react19`, `vue3`, `angular`, `svelte5`, `vanilla`.         |
+| `entry`         | oui    | —                  | Le fichier d'entrée, relatif à la racine du module.                     |
+| `root`          | non    | `./frontend`       | La racine front (celle qui contient `index.html`).                      |
+| `outDir`        | non    | `./public/dist`    | Où le build écrit ce bundle.                                            |
+| `name`          | non    | nom du module      | Nom logique du bundle — c'est la clé de `renderTags(...)`.              |
+| `publicPath`    | non    | `/_assets/<name>/` | Préfixe d'URL des assets en production.                                 |
+| `apiProxyPaths` | non    | `[]`               | Préfixes que Vite transmet à Nodefony — page servie par Vite seulement. |
 
 ```ts ignore
 frontend.registerEntry(this, {
@@ -644,12 +708,12 @@ const tags = frontend.renderTags("shop", context.cspNonce);
 const html = frontend.renderDocument("shop", context.cspNonce);
 ```
 
-`renderDocument` (`FrontendService.ts:926`) lit l'`index.html` **de ton module**, retire le `<script>`
+`renderDocument` (`FrontendService.ts:818`) lit l'`index.html` **de ton module**, retire le `<script>`
 d'entrée source, injecte les balises au marqueur (ou avant `</head>`), et renvoie le document.
 Pas d'`index.html` ? Une coquille minimale est générée. En production, l'index est mis en cache ; en
 développement il est relu à chaque appel, pour que tes modifications de la coquille apparaissent.
 
-Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `TemplateHelper.ts:163`) :
+Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `TemplateHelper.ts:205`) :
 
 1. le **préambule React Fast Refresh** pour les entrées `react19` — sans lui, `@vitejs/plugin-react`
    refuse de démarrer ;
@@ -659,7 +723,7 @@ Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `Templa
 4. un pont qui relaie les événements de rechargement vers la barre de débogage, **sans ouvrir de
    seconde connexion** (`hmrBridgeTag()`, `TemplateHelper.ts:267`) ;
 5. la barre de débogage elle-même, résolue une fois et servie via Vite (`debugBarTag()`,
-   `TemplateHelper.ts:293`).
+   `TemplateHelper.ts:308`).
 
 Quand Vite n'est pas prêt, le rendu ne lève **jamais** : il renvoie un commentaire HTML disant
 l'état. Une page dégradée reste une page.
@@ -692,21 +756,21 @@ Dans une application générée par `nodefony create app`, tu n'as pas à y pens
 **`npm run build` construit l'application entière** — le backend (rolldown) puis le front (il
 chaîne `nodefony frontend:build`). Un seul geste avant `npm start` ou dans un pipeline.
 
-`FrontendService.build()` (`FrontendService.ts:799`) appelle Vite **entrée par entrée**, et non une
+`FrontendService.build()` (`FrontendService.ts:701`) appelle Vite **entrée par entrée**, et non une
 fois pour toutes. Ce n'est pas un détail : chaque bundle a sa racine, son dossier de sortie, sa base
 et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole Angular.
 
 Quatre comportements à connaître :
 
 - **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts:886`) — le scan est borné au dossier front et saute
+  (`isBuildFresh()`, `FrontendService.ts:771`) — le scan est borné au dossier front et saute
   `node_modules`. Relancer un déploiement ne recompile pas tout.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
   les autres résultats.
 - **Le résultat est un bilan** : construits / ignorés / en échec, journalisé et renvoyé.
 - **Un démarrage en production sans build se répare — ou se dénonce.** `setupProd()`
-  (`FrontendService.ts:705`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
+  (`FrontendService.ts:592`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
   Manifeste absent et Vite installé (poste de développement, devDependencies présentes) : le build
   tourne **une fois au démarrage**, annoncé en WARNING — fini l'écran blanc après un
   `nodefony production --detach` lancé trop tôt. Manifeste absent et Vite introuvable (image de
@@ -730,7 +794,7 @@ page. Les trois restent alignés par construction — impossible d'en changer un
 deux autres.
 
 Défaut : `/_assets/<name>/`, normalisé avec ses barres obliques
-(`normalizePublicPath()`, `FrontendService.ts:62`). Chaque bundle a donc son espace, sans collision
+(`normalizePublicPath()`, `FrontendService.ts:70`). Chaque bundle a donc son espace, sans collision
 entre modules.
 
 `assetBaseUrl` ajoute une couche : la base d'un CDN. Renseignée, elle préfixe la `base` du build et
@@ -742,18 +806,18 @@ use("@nodefony/frontend", { assetBaseUrl: "https://cdn.example.com" });
 // → <script src="https://cdn.example.com/_assets/shop/main-a1b2c3.js">
 ```
 
-En production, `setupProd()` (`FrontendService.ts:705`) monte chaque dossier de sortie sur son
+En production, `setupProd()` (`FrontendService.ts:592`) monte chaque dossier de sortie sur son
 `publicPath` via le serveur statique — résolu **par nom**, jamais par import, pour ne pas créer de
 cycle. Si ce service est absent (proxy frontal, CDN devant), un avertissement le dit et rien n'est
 monté : c'est un déploiement valide, pas une panne.
 
 ### Ce qui est servi en production
 
-`renderProdTags()` (`TemplateHelper.ts:326`) lit `manifest.json` — la carte produite par Vite — et
+`renderProdTags()` (`TemplateHelper.ts:341`) lit `manifest.json` — la carte produite par Vite — et
 émet, dans cet ordre : les feuilles de style d'abord (pour éviter le flash de contenu non stylé), les
 préchargements des morceaux partagés, puis le script d'entrée. Le manifeste est lu **une fois par
 dossier de sortie** et mis en cache : aucune lecture disque par requête. Le CSS est collecté
-récursivement à travers les imports (`collectCss()`, `TemplateHelper.ts:400`), sans quoi le style
+récursivement à travers les imports (`collectCss()`, `TemplateHelper.ts:415`), sans quoi le style
 d'un morceau partagé manquerait sur certaines pages.
 
 Manifeste absent ? Un commentaire HTML le dit, avec la commande à lancer. Pas d'exception, pas de
@@ -785,15 +849,16 @@ toute autre stratégie.
 ## 🔐 Sécurité — la CSP, sans trou et sans bricolage
 
 Une politique de sécurité du contenu stricte bloque, par construction, les scripts venus d'une autre
-origine. Or en développement, tes modules viennent du port 5173 alors que ta page vient du 5151 :
-**tout** serait bloqué.
+origine. Grâce au relais, il n'y en a pas : en développement comme en production, modules, styles et
+socket viennent de l'origine de la page. La politique n'a donc **aucune origine à autoriser** —
+`'self'` suffit.
 
-La solution retenue n'est pas d'affaiblir la politique, mais de la **composer**. Une fois Vite prêt
-(donc ses ports réellement connus), le service déclare ses origines au pare-feu
-(`#registerCsp()`, `FrontendService.ts:1012`), qui émet **un seul** en-tête, origines fusionnées et
-nonce par requête. À l'arrêt, les origines sont retirées et la politique redevient stricte.
+Le développement a pourtant deux besoins que la politique stricte refuse. Plutôt que de l'affaiblir,
+le service les **compose** : une fois Vite prêt, il déclare son fragment au pare-feu
+(`#registerCsp()`, `FrontendService.ts:853`), qui émet **un seul** en-tête, fragment fusionné et
+nonce par requête. À l'arrêt, le fragment est retiré et la politique redevient stricte.
 
-Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:1034`) mérite deux explications, parce
+Le fragment (`#viteCspFragment()`, `FrontendService.ts:875`) mérite deux explications, parce
 qu'elles piègent tout le monde :
 
 - **`'self'` est répété dans chaque directive.** `connect-src`, `style-src`, `img-src` et `font-src`
@@ -803,9 +868,8 @@ qu'elles piègent tout le monde :
   pas. En revanche `'unsafe-inline'` n'est **pas** accordé aux scripts : le préambule injecté porte un
   nonce.
 
-Les origines sont générées pour tous les hôtes légitimes de développement — boucle locale, domaine du
-kernel, hôtes de confiance déclarés au module HTTP — croisés avec les ports Vite réels. Sans cela,
-accéder à ton application par un hôte virtuel bloquerait tout.
+Aucune origine n'y figure : le fragment est le même quel que soit le nom par lequel on ouvre la page
+— `localhost`, une IP du réseau local, un nom de conteneur.
 
 > [!IMPORTANT]
 > **Ce fragment n'existe qu'en développement.** En production le superviseur ne démarre pas, donc rien
@@ -829,7 +893,7 @@ Sur le chemin chaud du rendu, trois précautions :
 - le **manifeste** est lu une fois par dossier de sortie, jamais par requête ;
 - l'**`index.html`** est mis en cache en production (relu en développement, où la fraîcheur prime) ;
 - les **écouteurs** du processus enfant sont suivis et retirés à chaque mort
-  (`trackListener()`, `ViteProcessSupervisor.ts:974`) — sans quoi les relances les accumuleraient.
+  (`trackListener()`, `ViteProcessSupervisor.ts:955`) — sans quoi les relances les accumuleraient.
 
 La sonde de vie coûte une requête HTTP toutes les trente secondes par famille. Elle est désactivable
 (`healthCheckIntervalMs: 0`) si ce budget te gêne, au prix de la détection d'un Vite gelé.
@@ -861,7 +925,7 @@ apparaisse avant le « prêt ».
 <!-- prettier-ignore -->
 | Symptôme | Cause | Correction |
 | --- | --- | --- |
-| `Unexpected token '<'` sur un `fetch` | Vite répond son repli SPA : le préfixe d'API n'est pas proxifié | déclarer `apiProxyPaths: ["/mon/api"]` dans `registerEntry` |
+| `Unexpected token '<'` sur un `fetch` | la page est ouverte sur le port de Vite, qui répond son repli SPA | ouvrir la page par Nodefony ; sinon déclarer `apiProxyPaths: ["/mon/api"]` |
 | Le service `frontend` est introuvable au `onKernelBoot` | ordre de chargement des modules | placer `@nodefony/frontend` **avant** ses consommateurs dans `modules` |
 | L'entrée n'apparaît pas dans le superviseur | `registerEntry` appelé après `onKernelReady` | enregistrer dans `onKernelBoot`, jamais plus tard |
 | `@vitejs/plugin-react can't detect preamble` | le préambule React n'est pas dans la page | rendre via `renderTags`/`renderDocument`, qui l'injectent |
@@ -871,9 +935,12 @@ apparaisse avant le « prêt ».
 | Les appels d'API partent vers une autre application | port du serveur glissé, proxy figé sur `backendPort` | comportement couvert : le port réel est lu sur le serveur ; vérifier le journal |
 | `no frontend entries declared` au démarrage | aucun module n'a appelé `registerEntry` | normal si tu n'as pas d'interface ; sinon voir les deux lignes ci-dessus |
 | `max restarts reached` | Vite plante en boucle | lire les lignes `[vite]` du journal — l'erreur est dans ton code front |
-| Le navigateur refuse le certificat de Vite | certificat auto-signé sur une origine distincte | l'accepter sur l'origine Vite, ou installer l'autorité racine de développement |
-| `Refused to load the script` (politique de sécurité) | le pare-feu n'a pas les origines Vite (Vite pas encore prêt au rendu) | recharger une fois Vite prêt ; vérifier que le nonce est bien propagé |
-| Commentaire `prod manifest missing` dans la page | les bundles n'ont pas été construits, et Vite n'était pas là pour le faire au démarrage | `npm run build` (ou `npx nodefony frontend:build`) puis **recharge la page** — l'absence de manifeste n'est jamais mise en cache (`loadManifest()`, `TemplateHelper.ts:376`), le serveur voit le build sans redémarrer |
+| Le navigateur alerte sur le certificat | certificat de développement auto-signé, sans autorité installée sur l'appareil | l'accepter **une** fois — page, modules et socket partagent ce certificat ; ou installer l'autorité racine de développement |
+| Connexion refusée depuis un téléphone | en développement, l'application n'écoute que la boucle locale | `NF_BIND_ALL=true` — voir [Hors de la boucle locale](#-hors-de-la-boucle-locale--téléphone-conteneur-réseau) |
+| `421 Misdirected Request` depuis un autre appareil | `domainCheck` actif, et cet hôte absent de `trustedHosts` | ajouter l'IP ou le nom à `trustedHosts` du module HTTP |
+| Page blanche sur un appareil ancien (TV, vieux Safari) | le client cible ES2022 | `@vitejs/plugin-legacy` côté application — voir [Compatibilité](../../../../../docs/guides/compatibilite.md#navigateurs--la-cible-du-client) |
+| `Refused to load the script` (politique de sécurité) | page rendue avant que Vite soit prêt : le fragment de développement n'est pas encore déclaré | recharger une fois Vite prêt ; vérifier que le nonce est bien propagé |
+| Commentaire `prod manifest missing` dans la page | les bundles n'ont pas été construits, et Vite n'était pas là pour le faire au démarrage | `npm run build` (ou `npx nodefony frontend:build`) puis **recharge la page** — l'absence de manifeste n'est jamais mise en cache (`loadManifest()`, `TemplateHelper.ts:391`), le serveur voit le build sans redémarrer |
 | Les assets répondent 404 en production | le serveur statique est absent ou le préfixe ne correspond pas | vérifier le montage journalisé au démarrage, et `publicPath` |
 | Un module à interface est invisible de `listEntries()` | il est en mode `static` — il n'appelle jamais `registerEntry` | attendu ; regarder la molette `ui` et le mode journalisé au démarrage |
 | Modifications du front sans effet | `vite.config.generated.mjs` édité à la main | ne jamais l'éditer : il est réécrit à chaque démarrage |

@@ -12,7 +12,7 @@ Vite a besoin d'un event-loop et d'un tas V8 pour compiler/HMR. L'exécuter **in
 
 - Crash Vite ≠ crash Nodefony
 - Compilation Vite ≠ latence event-loop Nodefony
-- HMR WebSocket de Vite reste autonome
+- HMR WebSocket de Vite relayé par Nodefony, sur l'origine de la page
 - Auto-restart en cas de mort du child (résilience built-in)
 
 ---
@@ -68,9 +68,6 @@ class MyModule extends Module {
       root: "./frontend", // contient index.html
       outDir: "./public/dist", // pour la prod build
       name: "my-module", // nom logique (entryName)
-      // Quand le browser fait fetch("/my/api/x") depuis l'app Vite,
-      // Vite proxifie vers Nodefony :
-      apiProxyPaths: ["/my/api"],
     });
     return this;
   }
@@ -167,7 +164,9 @@ INFO frontend : registered entry: my-module (react19) from "my-module"
 INFO frontend : vite [default] ready on 127.0.0.1:5173
 ```
 
-Va sur `http://127.0.0.1:5151/my-route/` — Nodefony rend l'HTML, le browser tape Vite (5173) pour les assets, HMR fonctionne en édition de `App.tsx`.
+Va sur `https://127.0.0.1:5152/my-route/` — Nodefony rend l'HTML, et relaie à Vite tout ce qui passe sous `/_vite/<famille>/` (modules, styles, socket du rechargement à chaud). Le navigateur ne voit qu'**une** origine : un seul certificat, pas de contenu mixte. HMR fonctionne en édition de `App.tsx`.
+
+Pour ouvrir la page depuis un téléphone du réseau local : `NF_BIND_ALL=true` (application générée), puis `https://<IP-de-ta-machine>:5152/my-route/` — détail dans la [documentation du module](docs/index.md#-hors-de-la-boucle-locale--téléphone-conteneur-réseau).
 
 ---
 
@@ -178,15 +177,13 @@ Dans le `config.ts` de **ton app** ou de **ton module** :
 ```ts
 const config = {
   "module-frontend": {
-    devHost: "127.0.0.1", // host d'écoute Vite
-    devPort: 5173, // port Vite (incrémenté si occupé)
+    devHost: "127.0.0.1", // écoute de Vite — boucle locale, Nodefony le relaie
+    devPort: 5173, // port Vite interne (incrémenté si occupé)
     autoStartInDevelopment: true, // démarre Vite en env=development
     pipeViteLogs: true, // logs Vite dans syslog Nodefony
 
-    // HTTPS — partage les certs Nodefony (server-https 5152)
-    https: true, // false par défaut
-
-    // Proxy backend Vite → Nodefony
+    // Proxy de Vite → Nodefony : ne sert que si une page est servie par Vite
+    // lui-même (apiProxyPaths). Une page rendue par Nodefony n'en a pas besoin.
     backendHost: "127.0.0.1",
     backendPort: 5151,
     backendProtocol: "http", // http | https
@@ -263,14 +260,15 @@ interface IFrontendService {
 
 ### Page blanche, scripts bloqués par CSP
 
-En développement, le service déclare les origines Vite au pare-feu (`@nodefony/security`) une fois
-Vite prêt, et ce dernier émet UN seul en-tête CSP avec le nonce de la requête. Vérifie que tu passes
+En développement, le service déclare son fragment CSP au pare-feu (`@nodefony/security`) une fois
+Vite prêt — sans aucune origine, tout passe par celle de la page — et ce dernier émet UN seul
+en-tête CSP avec le nonce de la requête. Vérifie que tu passes
 `this.context?.cspNonce` à `svc.renderTags(…)` / `renderDocument(…)`, et ne réécris jamais l'en-tête
 dans le contrôleur : tu écraserais le nonce.
 
 ### `Unexpected token '<'` sur `fetch("/api/...")`
 
-Vite sert son SPA-fallback HTML pour les routes inconnues. Déclare le préfixe dans `apiProxyPaths` :
+La page est ouverte sur le port de Vite, qui sert son SPA-fallback HTML pour les routes inconnues. Ouvre-la par Nodefony (le `fetch` part alors vers lui) ; sinon, déclare le préfixe dans `apiProxyPaths` :
 
 ```ts
 svc.registerEntry(this, { ..., apiProxyPaths: ["/my/api"] });
@@ -284,9 +282,13 @@ Le `TemplateHelper` injecte automatiquement le preamble React Fast Refresh pour 
 
 Le port configuré est pris. Le supervisor retry automatiquement sur `port+1`, `port+2` (option `portRetryAttempts`). Vérifie le port résolu via `svc.status().port` — il vaut `null` tant qu'aucun port n'a été résolu, jamais le port demandé : un port qu'on espère n'est pas un port qui sert.
 
-### Le browser refuse le cert HTTPS de Vite (`https: true`)
+### Le navigateur alerte sur le certificat de développement
 
-Va sur `https://127.0.0.1:5173/` une fois et accepte le certificat. Ou installe la CA root Nodefony : `nodefony/config/certificates/ca/nodefony-root-ca.crt.pem` dans ton trousseau.
+Accepte-le **une** fois sur la page : modules et socket passent par la même origine, donc par le même certificat. Ou installe la CA root Nodefony : `nodefony/config/certificates/ca/nodefony-root-ca.crt.pem` dans ton trousseau. L'option `https` du module est dépréciée et sans effet.
+
+### Connexion refusée depuis un téléphone
+
+En développement, l'application n'écoute que la boucle locale. `NF_BIND_ALL=true` l'ouvre au réseau local (application générée) — à réserver à un réseau de confiance.
 
 ### Vite crash en boucle (`max restarts reached`)
 
@@ -318,7 +320,8 @@ Kernel "onServersReady"               ← 4 servers Nodefony écoutent
 FrontendService.startDev()
    ↓
 ViteProcessSupervisor.start()
-   ├─ écrit vite.config.generated.mjs (proxy, https, base, env)
+   ├─ écrit vite.config.generated.mjs (base /_vite/<famille>/, env)
+   ├─ monte /_vite/<famille>/ sur le proxy inverse de @nodefony/http
    ├─ spawn(node, [vite.js, "--config", ...])   (repli npx si le binaire n'est pas résolu)
    ├─ parse stdout "Local: https://host:port" → state = "ready"
    ├─ attach exit handler (auto-restart si crash inattendu)
@@ -328,11 +331,11 @@ Browser GET /my-route/
    │
 Nodefony rend HTML + svc.renderTags() injecte:
    <script type="module">  preamble React Fast Refresh
-   <script src="https://host:5173/@vite/client">
-   <script src="https://host:5173/src/main.tsx">
+   <script src="/_vite/default/@vite/client">
+   <script src="/_vite/default/@fs/…/src/main.tsx">
 
-Browser → 5173 (Vite) pour les assets + HMR WSS
-Browser → 5173 pour /api/... → Vite proxifie vers Nodefony (5151/5152)
+Browser → Nodefony (5152) /_vite/… → relais → Vite 127.0.0.1:5173 (assets + HMR WSS)
+Browser → Nodefony (5152) /api/…  → ton contrôleur, sans proxy
 ```
 
 Détails internes (dans le dépôt) : voir [`CLAUDE.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/frontend/CLAUDE.md) et [`MEMORY.md`](https://github.com/nodefony/nodefony-core/blob/main/src/packages/@nodefony/frontend/MEMORY.md).

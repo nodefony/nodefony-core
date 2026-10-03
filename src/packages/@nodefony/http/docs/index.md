@@ -66,6 +66,7 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
 | [Upload & corps](upload.md) | parser le corps et recevoir des fichiers | formulaires, imports multipart, API JSON |
 | [Rate-limit](rate-limit.md) | plafonner le débit par client (429) | protéger une API d'un flood ou d'un abus |
 | [Observabilité](observabilite.md) | tracer et journaliser chaque requête | débugger en prod, corréler des logs |
+| [Proxy inverse](reverse-proxy.md) | relayer un préfixe d'URL vers un autre serveur, sur la même origine | servir Vite en dev, adosser un service interne sans CORS |
 | [Pipeline de requête](../../../../../docs/architecture/pipeline-requete.md) | l'ordre exact des étapes, HTTP comme WS | tu débugges « pourquoi ça passe / ça bloque ici » |
 
 ```nodefony-cards
@@ -88,6 +89,9 @@ Le tableau pour choisir vite ; les cards en dessous pour savoir ce qu'on y trouv
   { "icon": "📈", "title": "observabilite", "href": "observabilite.md",
     "desc": "Observer les requêtes : lignes de log (pretty ou JSON), requestId de corrélation, W3C Trace Context, trace des frames WebSocket, redaction et sampling d'audit. Où partent les logs est traité par la page Syslog du cœur.",
     "meta": "débugger en prod, corréler les logs par requête" },
+  { "icon": "↪️", "title": "reverse-proxy", "href": "reverse-proxy.md",
+    "desc": "Relayer un préfixe d'URL vers un autre serveur sans quitter l'origine de la page : HTTP et WebSocket, en-têtes de connexion jamais transmis, X-Forwarded-* et Via posés, barrière d'hôte appliquée avant le relais. C'est par lui que Vite est servi en développement.",
+    "meta": "une origine, un certificat — pas de CORS ni de contenu mixte" },
   { "icon": "🔀", "title": "pipeline-requete", "href": "../../../../../docs/architecture/pipeline-requete.md",
     "desc": "Où ce module s'arrête et où le framework prend le relais, et dans quel ordre s'enchaînent contexte, rate-limit, routage, session, CSRF et firewall.",
     "meta": "page transverse — celle qui relie tout" }
