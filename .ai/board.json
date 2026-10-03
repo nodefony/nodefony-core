@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T01:36:39.836Z",
+  "generatedAt": "2026-10-03T03:01:09.217Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 65,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 32,
+      "open": 33,
       "title": "10.0.0-beta"
     },
     {
@@ -1680,7 +1680,7 @@
       "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
       "url": "https://github.com/nodefony/nodefony-core/issues/268",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 3,
@@ -1696,7 +1696,7 @@
       "title": "test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak",
       "url": "https://github.com/nodefony/nodefony-core/issues/269",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -1894,6 +1894,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 517,
+      "title": "fix(security): fermer aussi la session Keycloak à la déconnexion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/517",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.5,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 145,
