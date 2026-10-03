@@ -1,4 +1,5 @@
 import Container from "../Container";
+import { randomUuid } from "../runtime/randomUuid";
 import Service from "../Service";
 import Syslog from "../syslog/Syslog";
 import Pdu, { SEVERITY_NAMES, BROWSER_ORIGIN } from "../syslog/Pdu";
@@ -96,7 +97,7 @@ export type {
  * barrel node où le singleton exporté a déjà été supprimé).
  */
 export function generateId(): string {
-  return globalThis.crypto.randomUUID();
+  return randomUuid();
 }
 
 export {

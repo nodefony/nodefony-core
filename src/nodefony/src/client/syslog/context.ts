@@ -22,6 +22,7 @@
  */
 
 import Pdu from "../../syslog/Pdu";
+import { randomUuid } from "../../runtime/randomUuid";
 
 /**
  * Identifiant de CE chargement de page. Alloué au premier appel seulement — une page
@@ -45,10 +46,9 @@ let _installed = false;
  * @returns l'identifiant de page, constant pour la durée du document.
  */
 export function getPageId(): string {
-  // `crypto.randomUUID()` en direct, et non le `generateId` du barrel client : ce
-  // module est importé PAR le barrel, l'en faire dépendre fermerait un cycle. Un
-  // appel de plateforme d'une ligne n'est pas une règle dupliquée.
-  _pageId ??= globalThis.crypto.randomUUID();
+  // `randomUuid` (feuille de `runtime/`), et non le `generateId` du barrel client :
+  // ce module est importé PAR le barrel, l'en faire dépendre fermerait un cycle.
+  _pageId ??= randomUuid();
   return _pageId;
 }
 

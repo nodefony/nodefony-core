@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 898,
-    "symbols": 4543,
+    "files": 899,
+    "symbols": 4545,
     "classes": 409,
-    "interfaces": 1181,
+    "interfaces": 1182,
     "types": 485,
     "enums": 4,
-    "functions": 2007,
+    "functions": 2008,
     "constants": 457
   },
   "symbols": {
@@ -6092,6 +6092,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Fabrique le comparateur d'un `order` du contrat de page — **le** tri en mémoire de Nodefony, partagé par tous les stores qui n'ont pas de moteur pour le faire à leur place. Il existe parce que chaq…"
+    },
+    "randomUuid": {
+      "name": "randomUuid",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/randomUuid.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Génère un UUID v4, y compris dans une page servie hors contexte sécurisé. `crypto.randomUUID()` n'existe que dans un contexte sécurisé (HTTPS, ou la boucle locale) : une page ouverte en `http://<IP…"
     },
     "redactSecrets": {
       "name": "redactSecrets",
@@ -34192,6 +34200,10 @@
       ],
       "RealtimeOptions": [
         "src/nodefony/src/client/IClientKernel.ts"
+      ],
+      "randomUuid": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/syslog/context.ts"
       ],
       "SEVERITY_NAMES": [
         "src/nodefony/src/client/index.ts",
