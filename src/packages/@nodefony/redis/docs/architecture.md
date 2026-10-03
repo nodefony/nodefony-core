@@ -542,13 +542,21 @@ même capacité réduite.
 | -------------------- | ----------------------------------------------------------------------------------- |
 | `limit` respectée    | ✅ garantie par le curseur composite (voir plus bas)                                |
 | `cursor` / `hasNext` | ✅ le client boucle tant que `hasNext`, en repassant `nextCursor`                   |
-| `offset`             | ❌ **jamais lu** — un client qui en envoie un est ignoré sans avertissement         |
-| `total`              | ❌ jamais rendu — et `countSessions` / `countTokens` / `countCredentials` = `-1`    |
-| tri / ordre stable   | ❌ aucun — `SCAN` ne garantit aucun ordre, et il n'y a pas d'index secondaire       |
-| page pleine          | ❌ une page peut contenir moins d'éléments que `limit` (le filtre porte sur le lot) |
+| `offset`             | ❌ **refusé** au-delà de 0 — `400 PaginationModeError` ; la console suit le curseur |
+| `total`              | ❌ jamais rendu par la LISTE — mais les sessions se COMPTENT (voir ci-dessous)      |
+| tri / ordre stable   | ❌ aucun — `SCAN` ne garantit aucun ordre                                           |
+| page pleine          | ✅ les lots `SCAN` s'enchaînent jusqu'à remplir la page (`scanPage`), effort borné  |
 
-Le `-1` est un choix, pas un oubli : compter exactement exigerait un `SCAN` complet du keyspace. La
-valeur signifie « inconnu », et l'appelant doit l'afficher comme tel plutôt que l'inventer.
+**Les sessions se comptent par un index** (`sessionIndex.ts`) : des ensembles triés dont le score
+est la date d'EXPIRATION de chaque session — toutes, authentifiées, par utilisateur, et les
+utilisateurs eux-mêmes (score = leur session la plus tardive). Chaque écriture, rafraîchissement ou
+destruction de session y répercute son effet par un script Lua lancé dans le même aller-retour ;
+compter devient un `ZCOUNT` sur ce qui expire après maintenant — une expiration n'a pas besoin
+d'être observée pour être exclue. Les sessions antérieures à l'index sont reprises au premier
+comptage, par un seul pod (verrou), une fois. Coût mesuré : environ +0,12 ms par écriture de session.
+
+Les jetons et les passkeys, eux, ne comptent toujours pas : `countTokens` / `countCredentials` = `-1`,
+qui signifie « inconnu » — l'appelant l'affiche comme tel plutôt que de l'inventer.
 
 Un mot sur ce que `SCAN` garantit vraiment : une clé présente du début à la fin du parcours est rendue
 **au moins** une fois — ce qui autorise les doublons, et laisse indéterminé le sort des clés créées ou
