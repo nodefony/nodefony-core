@@ -119,9 +119,13 @@ export class ViteConfigGenerator {
           // analogjs coupe le typecheck des templates par défaut
           // (`disableTypeChecking ?? true`) : sans ce drapeau, `strictTemplates`
           // et `strictUnclaimedEventNames` du tsconfig.app.json ne mordent
-          // jamais, et une faute de template passe le build.
+          // jamais, et une faute de template passe le build. `liveReload` :
+          // le remplacement à chaud des composants (défaut `false` chez
+          // analogjs) — sans lui, toute modification RECHARGE la page entière
+          // et l'état de l'application est perdu. Sans effet hors serveur de
+          // développement ; le plugin le coupe lui-même sous Angular < 19.
           pluginsExprs.push(
-            `angular({ disableTypeChecking: false, tsconfig: ${JSON.stringify(tsconfigPath)} })`,
+            `angular({ disableTypeChecking: false, liveReload: true, tsconfig: ${JSON.stringify(tsconfigPath)} })`,
           );
           optimizeInclude.push(
             "@angular/core",

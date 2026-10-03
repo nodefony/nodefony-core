@@ -63,7 +63,9 @@ describe("ViteConfigGenerator — toMjs()", () => {
     // tsconfig résolu en absolu depuis le root de l'entry (≠ relatif).
     // analogjs coupe le typecheck des templates par défaut : sans ce drapeau,
     // strictTemplates / strictUnclaimedEventNames ne mordent jamais.
-    expect(out).to.include("angular({ disableTypeChecking: false, tsconfig:");
+    expect(out).to.include(
+      "angular({ disableTypeChecking: false, liveReload: true, tsconfig:",
+    );
     expect(out).to.include("/abs/path/to/frontend/tsconfig.app.json");
     expect(out).to.include('"@angular/core",');
   });
