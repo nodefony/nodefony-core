@@ -317,9 +317,10 @@ services:
   # TROIS RÈGLES qui ne se devinent pas — sans elles la page reste blanche ou
   # refusée, alors que le réseau, lui, passe :
   #   1. Joindre ton app par `host.docker.internal`, JAMAIS `localhost` : dans un
-  #      conteneur ce nom désigne le conteneur lui-même. Si tu actives la barrière
-  #      Host (`domainCheck`), ajoute ce nom aux `trustedHosts` en développement —
-  #      sinon elle répond `421` alors que le réseau, lui, passe.
+  #      conteneur ce nom désigne le conteneur lui-même. Ce nom est DÉJÀ dans les
+  #      `trustedHosts` de développement (`nodefony.config.ts`, bloc http) : la
+  #      barrière Host, Vite, le CSP et l'origine des assets le suivent. Le retirer
+  #      rend la page blanche dans le conteneur (assets annoncés en `127.0.0.1`).
   #   2. Passer par HTTPS : le cookie de session est `secure`, donc IGNORÉ sur une
   #      origine `http://` qui n'est pas `localhost` — toutes les requêtes
   #      authentifiées reviendraient en `401`, ce qui se lit à tort comme un échec

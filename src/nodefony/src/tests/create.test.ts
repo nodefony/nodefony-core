@@ -1603,6 +1603,31 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
+    it("dev : host.docker.internal est un hôte de confiance — jamais en production", () => {
+      // La boucle locale vue d'un conteneur (navigateur piloté). Sans ce nom
+      // dans `trustedHosts`, la page annonce ses assets en `127.0.0.1` — le
+      // conteneur lui-même — et reste blanche, sans erreur côté serveur. Une
+      // SEULE liste nourrit la barrière Host, Vite, le CSP et l'origine des
+      // assets : c'est elle qu'on étend, pas le socle du framework.
+      for (const preset of ["complete", "minimal"] as const) {
+        const dest = path.join(tmp, `confiance-${preset}`);
+        scaffold(dest, {
+          name: `confiance-${preset}`,
+          preset,
+          frontend: "react",
+        });
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        assert.include(
+          config,
+          'ctx.isDev ? { trustedHosts: ["host.docker.internal"] } : {}',
+          preset,
+        );
+      }
+    });
+
     it("simulation : le plan porte les fichiers binaires, encodés, sans rien écrire", () => {
       const dest = path.join(tmp, "marque-sim");
       const r = runScaffold(

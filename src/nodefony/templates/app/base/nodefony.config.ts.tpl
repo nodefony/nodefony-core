@@ -147,8 +147,20 @@ export default defineConfig<typeof env>((ctx) => ({
      */
     use("@nodefony/drizzle", drizzleConfig()),
 
-<% } %>    /** Socle serveur : HTTP/WS natifs + probes /livez /readyz. */
-    use("@nodefony/http", {}),
+<% } %>    /**
+     * Socle serveur : HTTP/WS natifs + probes /livez /readyz.
+     *
+     * En développement, `host.docker.internal` est un hôte de confiance : c'est
+     * la boucle locale VUE D'UN CONTENEUR (navigateur piloté, `npx nodefony see`).
+     * Cette SEULE liste ouvre la barrière Host, les hôtes acceptés par Vite (son
+     * rechargement à chaud), le CSP et l'origine des assets annoncée à la page —
+     * sans elle, un navigateur en conteneur reçoit des URLs en `127.0.0.1`, qui
+     * désignent… le conteneur. Jamais en production.
+     */
+    use(
+      "@nodefony/http",
+      ctx.isDev ? { trustedHosts: ["host.docker.internal"] } : {},
+    ),
 
     /** Router + controllers + décorateurs (`@controller`, `@route`). */
     "@nodefony/framework",
