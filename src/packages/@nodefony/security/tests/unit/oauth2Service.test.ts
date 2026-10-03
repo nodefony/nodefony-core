@@ -539,3 +539,130 @@ describe("OAuth2Service — émetteur vérifié au démarrage (#270)", () => {
     }
   });
 });
+
+// Fournisseur qui sait fermer sa session (Keycloak) : l'ID token est retenu.
+const logoutRequests: unknown[] = [];
+const logoutProvider: IOAuthProvider = {
+  ...fakeProvider,
+  validateAuthorizationCode: () =>
+    Promise.resolve(new OAuth2Tokens({ id_token: "id.token.jwt" })),
+  fetchProfile: (): Promise<IOAuthProfile> =>
+    Promise.resolve({
+      provider: "test-kc",
+      providerId: "sub-2",
+      email: "bob@test.io",
+      emailVerified: true,
+      name: "Bob",
+      raw: { sid: "kc-session-1" },
+    }),
+  createLogoutURL: (request) => {
+    logoutRequests.push(request);
+    return new URL("https://idp/logout?hint=" + request.idTokenHint);
+  },
+};
+registerOAuthProvider("test-kc", () => logoutProvider);
+
+/** Session minimale — un dictionnaire, comme le stockage la rend. */
+function fakeSession(): {
+  get(k: string): unknown;
+  set(k: string, v: unknown): unknown;
+} {
+  const data = new Map<string, unknown>();
+  return { get: (k) => data.get(k), set: (k, v) => data.set(k, v) };
+}
+
+describe("OAuth2Service — déconnexion chez le fournisseur (RP-Initiated Logout, #517)", () => {
+  const kcConfig = (extra: Record<string, unknown> = {}) => ({
+    oauth2: {
+      enabled: true,
+      // Marqueur d'échec dans la query : il ne doit PAS partir chez le
+      // fournisseur (Keycloak refuse `error` dans un retour, vécu).
+      failureRedirect: "/nodefony/login?error=oauth#x",
+      providers: {
+        "test-oidc": {
+          clientId: "id",
+          clientSecret: "sec",
+          redirectUri: "https://app/cb",
+        },
+        "test-kc": {
+          clientId: "id",
+          clientSecret: "sec",
+          redirectUri: "https://app.example/nodefony/oauth2/test-kc/callback",
+          ...extra,
+        },
+      },
+    },
+  });
+
+  it("un fournisseur qui sait déconnecter : l'échange rend ID token et sid", async () => {
+    const { svc, boot } = buildService(kcConfig(), makeUsers());
+    boot();
+    const res = await svc.exchangeAndProvision("test-kc", "c", "v", ISSUER);
+    assert.deepEqual(res.logoutHint, {
+      provider: "test-kc",
+      idToken: "id.token.jwt",
+      sid: "kc-session-1",
+    });
+  });
+
+  it("un fournisseur sans point de déconnexion : rien n'est retenu", async () => {
+    const { svc, boot } = buildService(kcConfig(), makeUsers());
+    boot();
+    const res = await svc.exchangeAndProvision("test-oidc", "c", "v", ISSUER);
+    assert.equal(res.logoutHint, null);
+  });
+
+  it("logoutUrlFor rejoue l'ID token et revient sur la page de connexion par défaut", async () => {
+    const { svc, boot } = buildService(kcConfig(), makeUsers());
+    boot();
+    const { logoutHint } = await svc.exchangeAndProvision(
+      "test-kc",
+      "c",
+      "v",
+      ISSUER,
+    );
+    const session = fakeSession();
+    svc.rememberLogout(session, logoutHint);
+    logoutRequests.length = 0;
+    const url = await svc.logoutUrlFor(session);
+    assert.equal(url, "https://idp/logout?hint=id.token.jwt");
+    assert.deepEqual(logoutRequests, [
+      {
+        idTokenHint: "id.token.jwt",
+        postLogoutRedirectUri: "https://app.example/nodefony/login",
+      },
+    ]);
+  });
+
+  it("postLogoutRedirectUri configuré prime sur le défaut", async () => {
+    const { svc, boot } = buildService(
+      kcConfig({ postLogoutRedirectUri: "https://app.example/au-revoir" }),
+      makeUsers(),
+    );
+    boot();
+    const session = fakeSession();
+    svc.rememberLogout(session, {
+      provider: "test-kc",
+      idToken: "t",
+      sid: null,
+    });
+    logoutRequests.length = 0;
+    await svc.logoutUrlFor(session);
+    assert.deepEqual(logoutRequests, [
+      {
+        idTokenHint: "t",
+        postLogoutRedirectUri: "https://app.example/au-revoir",
+      },
+    ]);
+  });
+
+  it("sans indice, ou indice altéré, ou session absente : null (déconnexion locale)", async () => {
+    const { svc, boot } = buildService(kcConfig(), makeUsers());
+    boot();
+    assert.equal(await svc.logoutUrlFor(fakeSession()), null);
+    assert.equal(await svc.logoutUrlFor(null), null);
+    const tampered = fakeSession();
+    tampered.set("oauth2:logout", { provider: "test-kc", idToken: 42 });
+    assert.equal(await svc.logoutUrlFor(tampered), null);
+  });
+});

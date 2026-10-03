@@ -8,6 +8,11 @@ import { resolveSessionIdentity } from "../src/sessionIdentity";
 import { recordAudit } from "../src/audit/recordAudit";
 import { readAuditContext } from "../src/audit/readAuditContext";
 
+/** Ce qu'AuthFlow lit du service `oauth2` — résolu par nom, absent sans social login. */
+interface IFederatedLogout {
+  logoutUrlFor(session: ISession | null): Promise<string | null>;
+}
+
 const serviceName = "authFlow";
 
 // Message UNIFORME (anti-énumération) — identique à la porte Basic.
@@ -348,6 +353,30 @@ class AuthFlow extends Service {
       ...readAuditContext(context),
     });
     return true;
+  }
+
+  /**
+   * Déconnexion COMPLÈTE : détruit la session locale et rend, si la session
+   * vient d'un fournisseur qui publie un point de déconnexion (Keycloak…),
+   * l'adresse où envoyer le navigateur pour fermer AUSSI sa session à lui —
+   * sans quoi le clic suivant sur « Continuer avec … » reconnecte sans mot de
+   * passe (OpenID Connect RP-Initiated Logout 1.0).
+   *
+   * @returns `destroyed` comme {@link logout} ; `logoutUrl` à suivre, ou `null`.
+   */
+  async logoutWithProvider(
+    context: ContextType,
+  ): Promise<{ destroyed: boolean; logoutUrl: string | null }> {
+    // Lue AVANT destroy : l'indice vit dans la session qu'on va détruire.
+    const session = context.session;
+    const logoutUrl =
+      session?.status === "active"
+        ? ((await this.get<IFederatedLogout>("oauth2")?.logoutUrlFor(
+            session,
+          )) ?? null)
+        : null;
+    const destroyed = await this.logout(context);
+    return { destroyed, logoutUrl };
   }
 
   /**

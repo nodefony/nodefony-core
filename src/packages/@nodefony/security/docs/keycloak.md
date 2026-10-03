@@ -23,8 +23,8 @@ source: "src/packages/@nodefony/security/docs/keycloak.md"
 > du realm suffit à le décrire. Le travail se passe surtout dans Keycloak : créer le realm, déclarer
 > un client **confidentiel**, enregistrer l'URL de retour au caractère près. Cette page fait le
 > chemin entier, puis montre comment le jeton Keycloak de la même personne ouvre aussi ton API, sur
-> le **même compte**. Ancré sur le fournisseur `createDiscoveredOidcProvider()` (`oidc.ts:170`) et
-> sur `OAuth2Service` (`oauth2.ts:175`).
+> le **même compte**. Ancré sur le fournisseur `createDiscoveredOidcProvider()` (`oidc.ts:192`) et
+> sur `OAuth2Service` (`oauth2.ts:217`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Keycloak**
 
@@ -85,14 +85,14 @@ Pour ton application, cela bloque trois risques concrets :
 
 **Aucun code propre à Keycloak.** Un serveur OpenID Connect publie lui-même ses points d'entrée ;
 le fournisseur `keycloak` les **découvre** à partir de l'émetteur, et c'est tout ce qu'il sait faire
-(`createDiscoveredOidcProvider()`, `oidc.ts:170`). Changer de realm, c'est changer une URL.
+(`createDiscoveredOidcProvider()`, `oidc.ts:192`). Changer de realm, c'est changer une URL.
 
 **Une configuration fausse arrête le démarrage.** Le fournisseur `keycloak` est enregistré avec
 `requiresIssuer: true` (`oauthProviderRegistry.ts:137`). Au boot, un émetteur absent, ou qui n'est
 pas une URL `https` sans requête ni fragment, lève une erreur qui nomme la clé
-(`checkProviderIssuer()`, `oauth2.ts:122`). Un Keycloak **éteint**, lui, ne bloque rien : le bouton
+(`checkProviderIssuer()`, `oauth2.ts:163`). Un Keycloak **éteint**, lui, ne bloque rien : le bouton
 disparaît de l'écran de connexion et revient tout seul quand le realm répond à nouveau
-(`#isReachable()`, `oauth2.ts:420`).
+(`#isReachable()`, `oauth2.ts:541`).
 
 **L'identité est la paire `(keycloak, sub)`, jamais l'email.** Au premier login, l'application crée
 un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:361`). Un
@@ -382,7 +382,7 @@ Sans ce lien, le jeton désignerait un compte distinct, sous l'identifiant `<ém
 
 | Symptôme                                                                              | Cause                                                                                                                   | Correction                                                                                 |
 | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Démarrage refusé : `security.oauth2.providers.keycloak.issuer est requis`             | Les trois variables ne sont pas posées ensemble, ou `issuer` manque à la main                                           | Poser `NF_KEYCLOAK_ISSUER` (`checkProviderIssuer()`, `oauth2.ts:122`)                      |
+| Démarrage refusé : `security.oauth2.providers.keycloak.issuer est requis`             | Les trois variables ne sont pas posées ensemble, ou `issuer` manque à la main                                           | Poser `NF_KEYCLOAK_ISSUER` (`checkProviderIssuer()`, `oauth2.ts:163`)                      |
 | Démarrage refusé : `émetteur invalide … https`                                        | Émetteur en `http`, ou avec `?…`/`#…`                                                                                   | Recopier l'`issuer` du document _OpenID Endpoint Configuration_                            |
 | Pas de bouton + WARNING `oauth2 provider "keycloak" indisponible`                     | Keycloak injoignable, ou certificat non reconnu (`fetch failed`)                                                        | Démarrer Keycloak ; `NODE_EXTRA_CA_CERTS` pour un certificat interne. Retour sous 30 s     |
 | `Invalid parameter: redirect_uri` sur la page Keycloak                                | `redirectUri` ≠ les **Valid redirect URIs** du client                                                                   | Aligner schéma, hôte (`localhost` ≠ `127.0.0.1`), port et chemin                           |

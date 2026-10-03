@@ -1003,6 +1003,17 @@ const oauthProviderSchema = z
       .string()
       .optional()
       .describe("Redirection échec — surcharge le global pour CE fournisseur."),
+    postLogoutRedirectUri: z
+      .url()
+      .optional()
+      .describe(
+        "Adresse ABSOLUE où le fournisseur renvoie le navigateur après la " +
+          "déconnexion (`post_logout_redirect_uri`, OpenID Connect " +
+          "RP-Initiated Logout) — doit être enregistrée chez lui. OMIS = " +
+          "l'écran d'échec (`failureRedirect`, la page de connexion) résolu " +
+          "contre `redirectUri`. Sans effet pour un fournisseur qui ne publie " +
+          "pas de point de déconnexion.",
+      ),
     defaultRoles: z
       .array(z.string())
       .optional()

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 899,
-    "symbols": 4553,
+    "symbols": 4559,
     "classes": 409,
-    "interfaces": 1182,
+    "interfaces": 1186,
     "types": 485,
     "enums": 4,
-    "functions": 2013,
+    "functions": 2015,
     "constants": 460
   },
   "symbols": {
@@ -22658,6 +22658,15 @@
       "extends": null,
       "description": "Ce qu'on exige du paramètre `iss` renvoyé par le serveur d'autorisation (RFC 9207)."
     },
+    "ILogoutRequest": {
+      "name": "ILogoutRequest",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce que porte une déconnexion initiée par l'application (OpenID Connect RP-Initiated Logout 1.0 §2)."
+    },
     "IOAuthProvider": {
       "name": "IOAuthProvider",
       "kind": "interface",
@@ -23143,6 +23152,15 @@
       "implements": [],
       "decorators": [],
       "description": "**Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code*. Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit / ROPC), **PKCE S256** quand le fourni…"
+    },
+    "IFederatedLogoutHint": {
+      "name": "IFederatedLogoutHint",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce que la session retient d'un login fédéré pour pouvoir fermer AUSSI la session du fournisseur (RP-Initiated Logout). Stocké côté serveur ; l'ID token ne traverse le navigateur qu'une fois, dans l…"
     },
     "IOAuthDisplayProvider": {
       "name": "IOAuthDisplayProvider",

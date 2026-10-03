@@ -54,6 +54,12 @@ export interface IDiscoveredAuthorizationServer {
    * alors pas exiger ce qu'il n'a pas promis.
    */
   readonly issParameterSupported: boolean;
+  /**
+   * Point de déconnexion initiée par l'application (`end_session_endpoint`,
+   * OpenID Connect RP-Initiated Logout 1.0 §2.1), ou `null` si le serveur n'en
+   * publie aucun : la déconnexion reste alors locale.
+   */
+  readonly endSessionEndpoint: string | null;
 }
 
 /** Réglages de la découverte — l'injection de `fetch` est la voie pour éprouver sans TLS. */
@@ -116,6 +122,21 @@ function requireEndpoint(
 }
 
 /**
+ * Point d'entrée FACULTATIF : absent ⇒ `null` ; présent, il obéit aux mêmes
+ * règles qu'un point requis (URL https) — un serveur qui publie un point
+ * malformé se signale à la découverte, pas au premier clic de l'utilisateur.
+ */
+function optionalEndpoint(
+  document: Record<string, unknown>,
+  field: string,
+  issuer: string,
+): string | null {
+  const value = document[field];
+  if (value === undefined || value === null) return null;
+  return requireEndpoint(document, field, issuer);
+}
+
+/**
  * Interroge un serveur d'autorisation et rend ses points d'entrée.
  *
  * Les URL candidates sont celles du cœur (`issuerMetadataUrls`, ordre normatif
@@ -161,6 +182,11 @@ export async function discoverAuthorizationServer(
         : null,
       issParameterSupported:
         document.authorization_response_iss_parameter_supported === true,
+      endSessionEndpoint: optionalEndpoint(
+        document,
+        "end_session_endpoint",
+        issuer,
+      ),
     };
   }
   throw new Error(

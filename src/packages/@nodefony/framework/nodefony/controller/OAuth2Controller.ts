@@ -30,7 +30,13 @@ export interface IOAuth2Service {
     code: string,
     codeVerifier: string | null,
     returnedIss: string | null,
-  ): Promise<{ identifier: string }>;
+  ): Promise<{ identifier: string; logoutHint?: unknown }>;
+  /**
+   * Retient en session de quoi fermer plus tard la session du fournisseur
+   * (RP-Initiated Logout). Optionnel : la clé et la forme appartiennent au
+   * service, ce contrôleur ne fait que transmettre.
+   */
+  rememberLogout?(session: IOAuth2Session, hint: unknown): void;
 }
 
 /** Vue minimale d'une session — porte l'état du flux OAuth (anti-CSRF/anti-replay). */
@@ -248,7 +254,7 @@ class OAuth2Controller extends Controller {
     }
 
     try {
-      const { identifier } = await svc.exchangeAndProvision(
+      const { identifier, logoutHint } = await svc.exchangeAndProvision(
         provider,
         code,
         typeof storedVerifier === "string" ? storedVerifier : null,
@@ -260,6 +266,14 @@ class OAuth2Controller extends Controller {
         identifier,
         "oauth",
       );
+      // APRÈS l'ouverture : c'est la session authentifiée qui doit le porter.
+      // Pas de `save()` ici : sans l'utilisateur en argument, il écrirait une
+      // session ANONYME et la marquerait propre — la sauvegarde de fin de
+      // requête, qui la persiste avec son utilisateur, n'écrirait plus rien.
+      const opened = (this.context as ContextType).session;
+      if (opened && logoutHint !== undefined && svc.rememberLogout) {
+        svc.rememberLogout(opened, logoutHint);
+      }
       this.redirect(success, 302);
       return;
     } catch (error) {

@@ -65,6 +65,35 @@ describe("createOidcProvider (helper générique OIDC)", () => {
       decodeIdToken: decode,
     });
 
+  it("sans point de déconnexion, pas de createLogoutURL (déconnexion locale)", () => {
+    const p = make(() => ({ ...claimsBase, sub: "x" }));
+    assert.equal(p.createLogoutURL, undefined);
+  });
+
+  it("createLogoutURL porte id_token_hint, retour et client_id, sans perdre la query publiée", () => {
+    const p = createOidcProvider({
+      name: "keycloak",
+      client,
+      issuer: "https://kc/realms/app",
+      clientId: CLIENT_ID,
+      decodeIdToken: () => ({}),
+      endSessionEndpoint: "https://kc/realms/app/logout?ui=fr",
+    });
+    const url = p.createLogoutURL?.({
+      idTokenHint: "id.token.jwt",
+      postLogoutRedirectUri: "https://app/login",
+    });
+    assert.ok(url);
+    assert.equal(url.origin + url.pathname, "https://kc/realms/app/logout");
+    assert.equal(url.searchParams.get("ui"), "fr");
+    assert.equal(url.searchParams.get("id_token_hint"), "id.token.jwt");
+    assert.equal(
+      url.searchParams.get("post_logout_redirect_uri"),
+      "https://app/login",
+    );
+    assert.equal(url.searchParams.get("client_id"), CLIENT_ID);
+  });
+
   it("usesPkce + politique d'émetteur + scopes par défaut OIDC", () => {
     const p = make(() => ({ ...claimsBase, sub: "x" }));
     assert.equal(p.usesPkce, true);

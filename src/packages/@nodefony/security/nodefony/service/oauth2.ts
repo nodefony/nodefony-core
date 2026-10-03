@@ -23,6 +23,47 @@ import { generateCodeVerifier, generateState } from "../src/oauth/oauth2Client";
 const serviceName = "oauth2";
 
 /**
+ * Clé de session de l'indice de déconnexion. Lue et écrite par CE service
+ * seulement ({@link OAuth2Service.rememberLogout},
+ * {@link OAuth2Service.logoutUrlFor}) : les contrôleurs ne la connaissent pas.
+ */
+const LOGOUT_HINT_KEY = "oauth2:logout";
+
+/**
+ * Ce que la session retient d'un login fédéré pour pouvoir fermer AUSSI la
+ * session du fournisseur (RP-Initiated Logout). Stocké côté serveur ; l'ID
+ * token ne traverse le navigateur qu'une fois, dans l'adresse de déconnexion
+ * (`id_token_hint`), la session locale déjà détruite.
+ *
+ * @remarks L'ID token est une exception assumée à « les jetons du fournisseur
+ * ne sont pas conservés » : il n'ouvre aucun accès (ni API, ni rafraîchissement),
+ * il désigne la session à fermer. Jetons d'accès et de rafraîchissement restent
+ * jetés.
+ */
+export interface IFederatedLogoutHint {
+  /** Fournisseur qui a ouvert la session. */
+  readonly provider: string;
+  /** ID token reçu au login, rejoué en `id_token_hint`. */
+  readonly idToken: string;
+  /** Identifiant de session du fournisseur (claim `sid`), ou `null`. */
+  readonly sid: string | null;
+}
+
+/** Vue minimale d'une session — celle que porte le contexte. */
+interface IHintSession {
+  get(key: string): unknown;
+  set(key: string, value: unknown): unknown;
+}
+
+/** Relit un indice de session — il vient du stockage, sa forme se vérifie. */
+function readLogoutHint(value: unknown): IFederatedLogoutHint | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { provider, idToken, sid } = value as Record<string, unknown>;
+  if (typeof provider !== "string" || typeof idToken !== "string") return null;
+  return { provider, idToken, sid: typeof sid === "string" ? sid : null };
+}
+
+/**
  * Sigles qui se lisent en capitales — les capitaliser mot à mot rendrait
  * « Oidc », « Sso », qu'aucun utilisateur ne reconnaît comme la technologie.
  */
@@ -151,9 +192,10 @@ export function checkProviderIssuer(
  *
  * Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit /
  * ROPC), **PKCE S256** quand le fournisseur le supporte (RFC 7636), **state**
- * anti-CSRF, **iss** anti-mix-up (RFC 9207) ; aucun jeton n'atteint le navigateur
- * (le login produit une **session BFF**, gérée hors de ce service par le
- * controller + `AuthFlow`).
+ * anti-CSRF, **iss** anti-mix-up (RFC 9207) ; aucun jeton d'accès n'atteint le
+ * navigateur (le login produit une **session BFF**, gérée hors de ce service par
+ * le controller + `AuthFlow`) — seul l'ID token y passe, une fois, à la
+ * déconnexion ({@link IFederatedLogoutHint}).
  *
  * Au boot (si `oauth2.enabled`), la configuration de chaque fournisseur est
  * confrontée à ce que sa fabrique exige : un émetteur requis absent, ou qui n'est
@@ -347,7 +389,10 @@ class OAuth2Service extends Service {
     code: string,
     codeVerifier: string | null,
     returnedIss: string | null,
-  ): Promise<{ identifier: string }> {
+  ): Promise<{
+    identifier: string;
+    logoutHint: IFederatedLogoutHint | null;
+  }> {
     const { provider: p } = await this.#resolveProvider(provider);
     // Anti-mix-up (RFC 9207) : un `iss` PRÉSENT doit toujours correspondre ; son
     // ABSENCE n'est une faute que si le serveur avait annoncé l'émettre — refuser
@@ -375,7 +420,83 @@ class OAuth2Service extends Service {
       profile,
       { defaultRoles: [...defaultRoles], allowSignup: cfg.allowSignup },
     );
-    return { identifier: user.identifier };
+    // L'ID token n'est retenu QUE si le fournisseur sait fermer sa session :
+    // sans adresse de déconnexion, il ne servirait à rien.
+    let logoutHint: IFederatedLogoutHint | null = null;
+    if (p.createLogoutURL !== undefined) {
+      const sid = (profile.raw as Record<string, unknown> | undefined)?.sid;
+      logoutHint = {
+        provider,
+        idToken: tokens.idToken(),
+        sid: typeof sid === "string" ? sid : null,
+      };
+    }
+    return { identifier: user.identifier, logoutHint };
+  }
+
+  /**
+   * Retient en session l'indice de déconnexion d'un login fédéré — à appeler
+   * APRÈS l'ouverture de la session authentifiée (l'ID de session est
+   * régénéré à l'ouverture).
+   *
+   * @param session - session authentifiée de la requête.
+   * @param hint - indice rendu par {@link exchangeAndProvision}, ou `null`.
+   */
+  rememberLogout(
+    session: IHintSession,
+    hint: IFederatedLogoutHint | null,
+  ): void {
+    if (hint !== null) session.set(LOGOUT_HINT_KEY, hint);
+  }
+
+  /**
+   * Adresse de déconnexion chez le fournisseur qui a ouvert la session, ou
+   * `null` : session locale, fournisseur sans point de déconnexion, ou
+   * fournisseur devenu indisponible. À lire AVANT de détruire la session.
+   *
+   * @param session - session courante, ou `null`.
+   * @returns l'URL vers laquelle envoyer le navigateur, ou `null`.
+   */
+  async logoutUrlFor(session: IHintSession | null): Promise<string | null> {
+    const hint = readLogoutHint(session?.get(LOGOUT_HINT_KEY));
+    if (hint === null || !this.#ready) return null;
+    let p: IOAuthProvider;
+    try {
+      ({ provider: p } = await this.#resolveProvider(hint.provider));
+    } catch {
+      // Fournisseur retiré de la configuration ou injoignable : la session
+      // locale se ferme quand même, la déconnexion n'en dépend pas.
+      return null;
+    }
+    if (p.createLogoutURL === undefined) return null;
+    return p
+      .createLogoutURL({
+        idTokenHint: hint.idToken,
+        postLogoutRedirectUri: this.#postLogoutRedirectUri(hint.provider),
+      })
+      .toString();
+  }
+
+  /**
+   * Retour après déconnexion chez le fournisseur : la valeur configurée, sinon
+   * l'écran d'échec (la page de connexion) résolu contre `redirectUri` — une
+   * adresse ABSOLUE, sur une origine déjà enregistrée chez le fournisseur.
+   *
+   * @remarks Query et fragment de l'écran d'échec sont RETIRÉS : ils signalent
+   * un échec (`?error=oauth`), et un fournisseur OpenID Connect refuse une
+   * adresse de retour qui porte un paramètre du protocole (`error`, `code`…) —
+   * Keycloak répond `invalid_redirect_uri`.
+   */
+  #postLogoutRedirectUri(provider: string): string {
+    const cfg = this.#ensureReady().oauth2.providers[provider];
+    if (cfg?.postLogoutRedirectUri !== undefined) {
+      return cfg.postLogoutRedirectUri;
+    }
+    const { failure } = this.getRedirects(provider);
+    const url = new URL(failure, cfg?.redirectUri);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
   }
 
   // ── Internes ─────────────────────────────────────────────────────────────────

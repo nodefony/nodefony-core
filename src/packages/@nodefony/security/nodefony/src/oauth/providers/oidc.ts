@@ -41,6 +41,11 @@ export interface IOidcProviderOptions {
   readonly decodeIdToken: (idToken: string) => object | Promise<object>;
   /** Scopes par défaut si la config n'en précise aucun. */
   readonly defaultScopes?: string[];
+  /**
+   * Point de déconnexion du fournisseur (`end_session_endpoint`). Absent ou
+   * `null` : le fournisseur n'offre pas `createLogoutURL`.
+   */
+  readonly endSessionEndpoint?: string | null;
 }
 
 const DEFAULT_OIDC_SCOPES = ["openid", "profile", "email"];
@@ -109,7 +114,7 @@ export function createOidcProvider(opts: IOidcProviderOptions): IOAuthProvider {
     }
     return codeVerifier;
   };
-  return {
+  const provider: IOAuthProvider = {
     usesPkce: true,
     issuerPolicy: {
       issuer: opts.issuer,
@@ -147,6 +152,23 @@ export function createOidcProvider(opts: IOidcProviderOptions): IOAuthProvider {
       };
     },
   };
+  const endSession = opts.endSessionEndpoint ?? null;
+  if (endSession !== null) {
+    provider.createLogoutURL = (request) => {
+      // `set` et non concaténation : le point publié peut déjà porter une query.
+      const url = new URL(endSession);
+      url.searchParams.set("id_token_hint", request.idTokenHint);
+      url.searchParams.set(
+        "post_logout_redirect_uri",
+        request.postLogoutRedirectUri,
+      );
+      // Le fournisseur vérifie l'adresse de retour contre CE client — et,
+      // avec `id_token_hint`, que les deux désignent bien le même.
+      url.searchParams.set("client_id", opts.clientId);
+      return url;
+    };
+  }
+  return provider;
 }
 
 /** Réglages d'un fournisseur OIDC découvert. */
@@ -196,6 +218,7 @@ export async function createDiscoveredOidcProvider(
     // retour devront égaler.
     issuer: metadata.issuer,
     issParameterSupported: metadata.issParameterSupported,
+    endSessionEndpoint: metadata.endSessionEndpoint,
     clientId: ctx.clientId,
     decodeIdToken: decodeIdTokenClaims,
     client: new OAuth2Client({

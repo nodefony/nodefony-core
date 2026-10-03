@@ -238,8 +238,9 @@ export class AuthStore {
   }
 
   async logout(): Promise<void> {
+    let logoutUrl: string | null = null;
     try {
-      await this.auth.logout();
+      logoutUrl = await this.auth.logout();
     } catch {
       /* swallow — clear local state anyway */
     }
@@ -247,6 +248,12 @@ export class AuthStore {
       this.user = null;
       this.status = "unauthenticated";
     });
+    // Session ouverte par un fournisseur d'identité : sans ce détour, sa
+    // session à lui survit et le clic suivant reconnecte sans mot de passe.
+    // Seul un schéma http(s) est suivi — jamais `javascript:`.
+    if (logoutUrl !== null && /^https?:\/\//i.test(logoutUrl)) {
+      window.location.assign(logoutUrl);
+    }
   }
 
   /**

@@ -34,6 +34,20 @@ export interface IIssuerPolicy {
 }
 
 /**
+ * Ce que porte une déconnexion initiée par l'application
+ * (OpenID Connect RP-Initiated Logout 1.0 §2).
+ */
+export interface ILogoutRequest {
+  /**
+   * ID token reçu au login (`id_token_hint`) : il dit au fournisseur QUELLE
+   * session fermer, et lui évite de demander une confirmation à l'utilisateur.
+   */
+  readonly idTokenHint: string;
+  /** Adresse de retour, enregistrée chez le fournisseur (`post_logout_redirect_uri`). */
+  readonly postLogoutRedirectUri: string;
+}
+
+/**
  * Adaptateur d'**un fournisseur OAuth/OIDC**, façade UNIFORME au-dessus d'un client
  * OAuth 2.0 — masque les divergences entre fournisseurs derrière un contrat stable
  * consommé par `OAuth2Service` :
@@ -90,4 +104,12 @@ export interface IOAuthProvider {
    * @throws Si le fournisseur ne renvoie pas d'identifiant stable.
    */
   fetchProfile(tokens: OAuth2Tokens): Promise<IOAuthProfile>;
+
+  /**
+   * Construit l'adresse de déconnexion chez le fournisseur (RP-Initiated
+   * Logout). ABSENTE quand le fournisseur n'en publie aucune (GitHub, OIDC sans
+   * `end_session_endpoint`) : la déconnexion reste alors locale, et l'ID token
+   * n'est pas conservé.
+   */
+  createLogoutURL?(request: ILogoutRequest): URL;
 }

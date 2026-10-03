@@ -69,6 +69,38 @@ describe("discoverAuthorizationServer", () => {
     assert.deepEqual(metadata.codeChallengeMethodsSupported, ["S256"]);
   });
 
+  it("lit le point de déconnexion publié ; absent ⇒ null", async () => {
+    const withLogout = serve({
+      [CANDIDATES[0]!]: document({
+        end_session_endpoint: "https://idp.test/realms/app/logout",
+      }),
+    });
+    const metadata = await discoverAuthorizationServer(ISSUER, {
+      fetch: withLogout.fetch,
+    });
+    assert.equal(
+      metadata.endSessionEndpoint,
+      "https://idp.test/realms/app/logout",
+    );
+    const without = serve({ [CANDIDATES[0]!]: document() });
+    const bare = await discoverAuthorizationServer(ISSUER, {
+      fetch: without.fetch,
+    });
+    assert.equal(bare.endSessionEndpoint, null);
+  });
+
+  it("un point de déconnexion publié en clair est refusé à la découverte", async () => {
+    const { fetch } = serve({
+      [CANDIDATES[0]!]: document({
+        end_session_endpoint: "http://idp.test/realms/app/logout",
+      }),
+    });
+    await assert.rejects(
+      () => discoverAuthorizationServer(ISSUER, { fetch }),
+      /end_session_endpoint.*https/,
+    );
+  });
+
   it("essaie les trois formes, dans l'ordre, jusqu'à la dernière", async () => {
     const { fetch, seen } = serve({ [CANDIDATES[2]!]: document() });
     const metadata = await discoverAuthorizationServer(ISSUER, { fetch });

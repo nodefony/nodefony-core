@@ -23,6 +23,14 @@ export interface ISessionAuthFlow {
   ): Promise<ILoginOutcome>;
   completeMfaLogin(context: ContextType, code: unknown): Promise<unknown>;
   logout(context: ContextType): Promise<boolean>;
+  /**
+   * Déconnexion qui ferme AUSSI la session du fournisseur d'identité. Optionnelle :
+   * une version de `@nodefony/security` qui ne l'expose pas encore dégrade sur
+   * {@link logout}.
+   */
+  logoutWithProvider?(
+    context: ContextType,
+  ): Promise<{ destroyed: boolean; logoutUrl: string | null }>;
   /** Identité courante, ou `null` sans session authentifiée. */
   me(context: ContextType): Promise<unknown>;
 }
@@ -114,13 +122,25 @@ class SessionAuthController extends Controller {
     }
   }
 
-  /** Détruit la session (storage + cookie). Toujours 200 (idempotent). */
+  /**
+   * Détruit la session (storage + cookie). Toujours 200 (idempotent). Quand la
+   * session venait d'un fournisseur qui publie un point de déconnexion, la
+   * réponse porte `logoutUrl` : le client y envoie le navigateur pour fermer
+   * aussi la session du fournisseur.
+   */
   async logout() {
     const flow = this.#flow();
     if (!flow) {
       return this.renderJson({ error: "Authentication unavailable" }, 503);
     }
-    await flow.logout(this.context as ContextType);
+    const context = this.context as ContextType;
+    if (flow.logoutWithProvider) {
+      const { logoutUrl } = await flow.logoutWithProvider(context);
+      return this.renderJson(
+        logoutUrl ? { ok: true, logoutUrl } : { ok: true },
+      );
+    }
+    await flow.logout(context);
     return this.renderJson({ ok: true });
   }
 

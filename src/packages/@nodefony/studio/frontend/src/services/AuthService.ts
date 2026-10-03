@@ -86,9 +86,19 @@ export class AuthService {
     return user;
   }
 
-  /** POST /auth/logout — détruit la session serveur + le cookie. Idempotent. */
-  async logout(): Promise<void> {
-    await this.api.postAbsolute<{ ok: boolean }>(`${AUTH_BASE}/logout`);
+  /**
+   * POST /auth/logout — détruit la session serveur + le cookie. Idempotent.
+   *
+   * @returns l'adresse de déconnexion du fournisseur d'identité quand la
+   *   session venait de lui (Keycloak…), à suivre pour fermer AUSSI sa
+   *   session ; `null` sinon.
+   */
+  async logout(): Promise<string | null> {
+    const { logoutUrl } = await this.api.postAbsolute<{
+      ok: boolean;
+      logoutUrl?: string;
+    }>(`${AUTH_BASE}/logout`);
+    return typeof logoutUrl === "string" ? logoutUrl : null;
   }
 
   /**

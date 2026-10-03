@@ -65,6 +65,7 @@ const REALM_FILE = path.join(
 const APP = { hostname: "127.0.0.1", port: 5152 };
 const OAUTH = "/nodefony/security/api/oauth2/keycloak";
 const ME = "/nodefony/security/api/auth/me";
+const LOGOUT = "/nodefony/security/api/auth/logout";
 const API = "/nodefony/test/keycloak/whoami";
 /** URL de redirection enregistrée sur le client du realm (jamais suivie ici). */
 const REDIRECT_URI = `https://localhost:5152${OAUTH}/callback`;
@@ -189,9 +190,14 @@ function realmUser(): { username: string; password: string; email: string } {
  *
  * @returns l'URL de redirection que Keycloak renvoie au client (code + state).
  */
-async function loginAtKeycloak(authorizationUrl: string): Promise<URL> {
-  const jar = new Map<string, string>();
-  const page = await send({ url: new URL(authorizationUrl) });
+async function loginAtKeycloak(
+  authorizationUrl: string,
+  jar = new Map<string, string>(),
+): Promise<URL> {
+  const page = await send({
+    url: new URL(authorizationUrl),
+    headers: jar.size > 0 ? { cookie: cookieHeader(jar) } : {},
+  });
   expect(page.status, "page de connexion Keycloak").toBe(200);
   collectCookies(page, jar);
   const form = /<form\b[^>]*\bid="kc-form-login"[^>]*>/.exec(page.text)?.[0];
@@ -212,6 +218,9 @@ async function loginAtKeycloak(authorizationUrl: string): Promise<URL> {
     }).toString(),
   });
   expect(posted.status, "Keycloak renvoie au client (302)").toBe(302);
+  // La session SSO de Keycloak naît ici : la garder, c'est ce qui permet de
+  // voir une reconnexion SANS mot de passe.
+  collectCookies(posted, jar);
   const back = new URL(locationOf(posted));
   expect(back.searchParams.get("code"), "code d'autorisation").toBeTruthy();
   return back;
@@ -309,6 +318,65 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         sessionUser?.username,
       );
       expect(apiUser.id, "même compte local").toBe(sessionUser?.id);
+    });
+
+    it("déconnexion : la session Keycloak se ferme aussi, le clic suivant redemande le mot de passe (#517)", async () => {
+      const kc = new Map<string, string>(); // cookies du navigateur chez Keycloak
+      const jar = new Map<string, string>(); // cookies chez l'application
+      const start = await app(`${OAUTH}/authorize`);
+      collectCookies(start, jar);
+      const back = await loginAtKeycloak(locationOf(start), kc);
+      const cb = await app(`${back.pathname}${back.search}`, {
+        cookie: cookieHeader(jar),
+      });
+      collectCookies(cb, jar);
+      expect((await app(ME, { cookie: cookieHeader(jar) })).status).toBe(200);
+
+      // Témoin : tant que la session Keycloak vit, un nouvel `authorize`
+      // revient au client SANS page de connexion — c'est le défaut à fermer.
+      const again = await app(`${OAUTH}/authorize`);
+      const silent = await send({
+        url: new URL(locationOf(again)),
+        headers: { cookie: cookieHeader(kc) },
+      });
+      expect(silent.status, "témoin : reconnexion sans mot de passe").toBe(302);
+
+      const out = await send({
+        url: new URL(`https://localhost:${APP.port}${LOGOUT}`),
+        method: "POST",
+        headers: { cookie: cookieHeader(jar) },
+      });
+      expect(out.status, "logout").toBe(200);
+      const { logoutUrl } = JSON.parse(out.text) as { logoutUrl?: string };
+      expect(logoutUrl, "adresse de déconnexion du realm").toBeTypeOf("string");
+      const end = new URL(logoutUrl ?? "");
+      expect(end.href.startsWith(ISSUER), "vers l'émetteur").toBe(true);
+      expect(end.searchParams.get("client_id")).toBe(CLIENT_ID);
+      expect((await app(ME, { cookie: cookieHeader(jar) })).status).toBe(401);
+
+      const left = await send({
+        url: end,
+        headers: { cookie: cookieHeader(kc) },
+      });
+      // Sans `id_token_hint` reconnu, Keycloak demanderait une confirmation (200).
+      expect(left.status, `aucune page de confirmation (${left.status})`).toBe(
+        302,
+      );
+      expect(
+        locationOf(left).startsWith(
+          end.searchParams.get("post_logout_redirect_uri") ?? "∅",
+        ),
+        "retour sur l'application",
+      ).toBe(true);
+      collectCookies(left, kc);
+
+      const after = await app(`${OAUTH}/authorize`);
+      const page = await send({
+        url: new URL(locationOf(after)),
+        headers: { cookie: cookieHeader(kc) },
+      });
+      expect(page.status, "le mot de passe est redemandé").toBe(200);
+      expect(page.text).toContain('id="kc-form-login"');
     });
 
     it("code_verifier faux → invalid_grant rendu PAR Keycloak", async () => {
