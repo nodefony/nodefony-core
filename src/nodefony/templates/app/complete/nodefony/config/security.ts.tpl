@@ -61,6 +61,36 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
       keystore: ctx.isProd ? {} : { dir: "var/keys" },
     },
     /**
+     * Connexion par un fournisseur d'identité (OpenID Connect) — ici Keycloak.
+     * Le fournisseur n'est monté que si ses TROIS variables sont posées : sans
+     * elles, aucun bouton et aucun avertissement. Essai local en deux gestes :
+     * `docker compose --profile keycloak up -d keycloak`, puis décommenter les
+     * lignes `NF_KEYCLOAK_*` de `.env` et `.env.local`.
+     *
+     * L'émetteur (URL du realm) sert à DÉCOUVRIR les points d'entrée ET à
+     * valider l'`iss` reçu : il est en https, même en développement.
+     * Connexion = AUTHENTIFICATION, jamais autorisation : le compte créé au
+     * premier login reçoit `ROLE_USER`, rien de plus.
+     * Pas à pas, pièges compris : doc `@nodefony/security`, page `keycloak.md`.
+     */
+    oauth2: {
+      failureRedirect: "/?error=oauth",
+      providers: {
+        ...(ctx.env.NF_KEYCLOAK_ISSUER &&
+        ctx.env.NF_KEYCLOAK_CLIENT_ID &&
+        ctx.env.NF_KEYCLOAK_CLIENT_SECRET
+          ? {
+              keycloak: {
+                issuer: ctx.env.NF_KEYCLOAK_ISSUER,
+                clientId: ctx.env.NF_KEYCLOAK_CLIENT_ID,
+                clientSecret: ctx.env.NF_KEYCLOAK_CLIENT_SECRET,
+                redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE ?? `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}`}/nodefony/security/api/oauth2/keycloak/callback`,
+              },
+            }
+          : {}),
+      },
+    },
+    /**
      * Zones firewall de TES routes. `main` essaie `session` (cookie BFF →
      * `context.user` rempli) puis `anonymous` : rien n'est bloqué tel quel.
      * Hors zone, l'identité n'est JAMAIS résolue.

@@ -1508,6 +1508,153 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("Keycloak — la chaîne OpenID Connect naît avec l'app, inerte (#518)", () => {
+    /**
+     * Le décor que le dépôt éprouve (conteneur https, realm importé, client
+     * confidentiel, variables, fournisseur) transposé dans l'app générée. Ce que
+     * ces contrôles tiennent : les CINQ endroits qui doivent coïncider au
+     * caractère près — compose, realm, `.env`, `.env.local`, configuration
+     * sécurité — et l'inertie : rien n'est actif tant qu'on ne le demande pas.
+     */
+    const dossierKeycloak = () => {
+      const dest = path.join(tmp, "keycloak-chaine");
+      scaffold(dest, { name: "kcapp", preset: "complete", frontend: "none" });
+      return dest;
+    };
+    const lire = (dest: string, ...rel: string[]) =>
+      readFileSync(path.join(dest, ...rel), "utf8");
+
+    it("le compose porte un service `keycloak` sous PROFIL, sur l'image éprouvée par le dépôt", () => {
+      const compose = lire(dossierKeycloak(), "compose.yaml");
+      const bloc = compose.slice(
+        compose.indexOf("\n  keycloak:"),
+        compose.indexOf("\nnetworks:"),
+      );
+      assert.isNotEmpty(bloc, "service `keycloak` absent du compose");
+      // Sous profil : `docker compose up -d` ne le lève pas — le défaut ne change pas.
+      assert.include(bloc, 'profiles: ["keycloak"]');
+      // URL COMPLÈTE : sans elle l'émetteur suit l'hôte de la requête, et l'app
+      // refuse les jetons (anti-mix-up).
+      assert.include(
+        bloc,
+        "KC_HOSTNAME: https://localhost:${KEYCLOAK_PORT:-8444}",
+      );
+      assert.include(
+        bloc,
+        "./docker/keycloak/import:/opt/keycloak/data/import:ro",
+      );
+      assert.include(
+        bloc,
+        "./nodefony/config/certificates/server:/opt/keycloak/conf/tls:ro",
+      );
+      assert.include(bloc, "--import-realm");
+      // Une copie de l'image du dépôt : le banc Keycloak n'éprouve que CELLE-LÀ.
+      const depot = readFileSync(
+        fileURLToPath(
+          new URL("../../../../docker/docker-compose.yml", import.meta.url),
+        ),
+        "utf8",
+      );
+      const image = /image: (quay\.io\/keycloak\/keycloak:\S+)/u.exec(
+        depot,
+      )?.[1];
+      assert.isString(
+        image,
+        "image Keycloak introuvable dans le compose du dépôt",
+      );
+      assert.include(bloc, `image: ${String(image)}`);
+    });
+
+    it("le realm importé est celui de CETTE app : nom, client, secret et retours alignés", () => {
+      const dest = dossierKeycloak();
+      const realm = JSON.parse(
+        lire(dest, "docker", "keycloak", "import", "realm.json"),
+      ) as {
+        realm: string;
+        clients: {
+          clientId: string;
+          secret: string;
+          redirectUris: string[];
+          attributes: Record<string, string>;
+        }[];
+        users: { id: string; username: string }[];
+      };
+      assert.strictEqual(realm.realm, "kcapp");
+      assert.lengthOf(realm.clients, 1);
+      const [client] = realm.clients;
+      assert.strictEqual(client?.clientId, "kcapp");
+      // PKCE exigé côté serveur : le framework l'envoie, Keycloak le vérifie.
+      assert.strictEqual(
+        client?.attributes["pkce.code.challenge.method"],
+        "S256",
+      );
+      // Le retour que la configuration générée calcule par défaut — exact match.
+      assert.include(
+        client?.redirectUris ?? [],
+        "https://localhost:5152/nodefony/security/api/oauth2/keycloak/callback",
+      );
+      const security = lire(dest, "nodefony", "config", "security.ts");
+      assert.include(
+        security,
+        "/nodefony/security/api/oauth2/keycloak/callback",
+      );
+      assert.include(
+        security,
+        "https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}",
+      );
+      // Le même secret aux deux bouts, sinon le premier login échoue.
+      assert.include(
+        lire(dest, ".env.local"),
+        `# NF_KEYCLOAK_CLIENT_SECRET=${String(client?.secret)}\n`,
+      );
+      // L'`id` est FIXÉ dans le fichier : laissé à Keycloak, il change au
+      // réimport, et la connexion suivante est refusée.
+      assert.match(realm.users[0]?.id ?? "", /^[0-9a-f-]{36}$/u);
+      // Les valeurs de `.env` désignent ce realm et ce client.
+      const env = lire(dest, ".env");
+      assert.include(
+        env,
+        "# NF_KEYCLOAK_ISSUER=https://localhost:8444/realms/kcapp\n",
+      );
+      assert.include(env, "# NF_KEYCLOAK_CLIENT_ID=kcapp\n");
+    });
+
+    it("inerte par défaut : aucune variable ACTIVE, fournisseur conditionné aux trois", () => {
+      const dest = dossierKeycloak();
+      // Une ligne active dans `.env` ou `.env.local` monterait le fournisseur
+      // au premier démarrage — et, Keycloak éteint, afficherait un avertissement.
+      for (const fichier of [".env", ".env.local"]) {
+        assert.notMatch(lire(dest, fichier), /^NF_KEYCLOAK_/mu, fichier);
+      }
+      const envTs = lire(dest, "env.ts");
+      for (const nom of [
+        "NF_KEYCLOAK_ISSUER",
+        "NF_KEYCLOAK_CLIENT_ID",
+        "NF_KEYCLOAK_CLIENT_SECRET",
+        "NF_OAUTH_REDIRECT_BASE",
+      ]) {
+        const decl = envTs.slice(envTs.indexOf(`${nom}: envString({`));
+        assert.match(
+          decl,
+          /^[^}]*optional: true/u,
+          `${nom} doit rester facultative`,
+        );
+      }
+      const security = lire(dest, "nodefony", "config", "security.ts");
+      assert.match(
+        security,
+        /ctx\.env\.NF_KEYCLOAK_ISSUER &&\s+ctx\.env\.NF_KEYCLOAK_CLIENT_ID &&\s+ctx\.env\.NF_KEYCLOAK_CLIENT_SECRET\s+\?/u,
+      );
+    });
+
+    it("le preset minimal ne reçoit rien de Keycloak", () => {
+      const dest = path.join(tmp, "keycloak-minimal");
+      scaffold(dest, { name: "kcmin", preset: "minimal" });
+      assert.isFalse(existsSync(path.join(dest, "docker", "keycloak")));
+      assert.notInclude(lire(dest, "env.ts"), "NF_KEYCLOAK_");
+    });
+  });
+
   describe("base SQL retenue à la création (compose ↔ .env ↔ README)", () => {
     /**
      * Ce que ces contrôles tiennent : le générateur CONNAÎT le dialecte, donc

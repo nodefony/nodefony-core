@@ -54,3 +54,19 @@ NF_DATABASE_URL=<%= it.db.url %>
 # DEV : défaut admin / nodefony-dev-42 (local). PROD : OBLIGATOIRE, sans lui aucun compte
 # n'est créé (le définir via le secret-manager, pas dans un fichier commité).
 # NF_ADMIN_PASSWORD=
+
+# ── Connexion par Keycloak (OpenID Connect) — facultative ───────────────────
+# Absentes = aucun bouton, aucun avertissement : l'app démarre comme avant.
+# Essai local (profil `keycloak` du compose.yaml, realm `<%= it.appName %>` importé
+# depuis docker/keycloak/import/, utilisateur alice / alice-dev) :
+#   1. npx nodefony http:certificates          (une fois — Keycloak sert en https)
+#   2. docker compose --profile keycloak up -d keycloak
+#   3. décommenter les deux lignes ci-dessous ET le secret dans .env.local
+#   4. démarrer l'app en lui faisant confiance au certificat de dev :
+#      NODE_EXTRA_CA_CERTS=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem npm run dev
+#   5. https://localhost:5152/nodefony/login → bouton « Keycloak »
+# NF_KEYCLOAK_ISSUER=https://localhost:8444/realms/<%= it.appName + "\n" %>
+# NF_KEYCLOAK_CLIENT_ID=<%= it.appName + "\n" %>
+# NF_KEYCLOAK_CLIENT_SECRET=     → .env.local
+# En production : l'URL publique de l'app, base des retours OAuth.
+# NF_OAUTH_REDIRECT_BASE=https://app.example.com

@@ -14,6 +14,7 @@
 #   docker compose --profile browser up -d        # + navigateur jetable (voir tes écrans)
 #   docker compose --profile app up -d --build    # + l'app EN IMAGE (éprouver l'image)
 #   docker compose --profile edge up -d --build   # + l'app DERRIÈRE son frontal nginx
+#   docker compose --profile keycloak up -d       # + Keycloak (connexion OpenID Connect)
 #   docker compose down                           # arrêt (volumes conservés)
 #   docker compose down -v                        # arrêt + PURGE des données
 #
@@ -545,6 +546,73 @@ services:
       app-edge:
         condition: service_healthy
 
+  # --- Keycloak (profil `keycloak`) : un fournisseur d'identité OpenID Connect ---
+  #
+  #   npx nodefony http:certificates            # une fois — le certificat de dev
+  #   docker compose --profile keycloak up -d keycloak
+  #
+  # Importé au PREMIER démarrage depuis `docker/keycloak/import/` : un realm
+  # `<%= it.appName %>`, un client confidentiel `<%= it.appName %>` dont les URL de retour sont
+  # celles de CETTE application (https://localhost:5152 et http://localhost:5151),
+  # et un utilisateur `alice` / `alice-dev`. Brancher l'app : décommenter les
+  # lignes `NF_KEYCLOAK_*` de `.env` et `.env.local`. Console d'administration :
+  # https://localhost:${KEYCLOAK_PORT:-8444}/admin (admin / <%= it.appName %>-dev).
+  #
+  # Ce que l'app exige de ce décor, chaque point payé une fois :
+  #   - https, même en dev : l'émetteur est une URL https. Le certificat est
+  #     celui que l'app fabrique — et l'app doit lui faire CONFIANCE quand elle
+  #     appelle Keycloak : démarre-la avec
+  #     NODE_EXTRA_CA_CERTS=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem
+  #     Sans elle : WARNING « provider "keycloak" indisponible », pas de bouton.
+  #   - `KC_HOSTNAME` en URL COMPLÈTE : l'émetteur (`iss`) ne dépend plus de qui
+  #     joint Keycloak. Navigateur et app voient le même — sinon l'app refuse les
+  #     jetons (garde anti-mix-up, RFC 9207). `localhost`, pas `127.0.0.1`.
+  #   - Linux natif : `export KEYCLOAK_UID=$(id -u)` avant le `up` — sinon la clé
+  #     privée montée (600) est illisible par le conteneur. Docker Desktop
+  #     (macOS, Windows) n'en a pas besoin.
+  #   - Port 8444 : 8443 appartient au frontal du profil `edge`.
+  #
+  # Base `dev-file` (embarquée, dans le volume) et secrets PUBLICS : décor de
+  # DÉVELOPPEMENT, jamais de production. `down -v` repart du fichier du realm ;
+  # sans `-v`, les retouches faites dans la console survivent.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    container_name: <%= it.appName %>-keycloak
+    restart: unless-stopped
+    profiles: ["keycloak"]
+    networks: [<%= it.appName %>]
+    user: "${KEYCLOAK_UID:-1000}:0"
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-<%= it.appName %>-dev}
+      KC_HOSTNAME: https://localhost:${KEYCLOAK_PORT:-8444}
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/tls/fullchain.pem
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/tls/privkey.pem
+      # Aucun port en clair : le mode dev l'ouvre par défaut, on le ferme.
+      KC_HTTP_ENABLED: "false"
+      # Sondes /health/* sur le port de gestion 9000, NON publié : seul le
+      # healthcheck (dans le conteneur) l'interroge, en clair.
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_MANAGEMENT_SCHEME: http
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8444}:8443"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./docker/keycloak/import:/opt/keycloak/data/import:ro
+      - ./nodefony/config/certificates/server:/opt/keycloak/conf/tls:ro
+    healthcheck:
+      # L'image n'a ni curl ni wget : la sonde passe par le /dev/tcp de bash.
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q 'HTTP/1.0 200' <&3",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
 # Bridge nommé explicite : résolution DNS par nom de service, isolation des autres
 # projets compose, nettoyage propre au down. Pas de sous-réseau figé (anti-collision).
 networks:
@@ -558,6 +626,7 @@ volumes:
 <% } %>  redisinsight-data:
   loki-data:
   grafana-data:
+  keycloak-data:
   # Les données de l'app en image (profil `app`) : `var/`, dont la base sqlite.
   # ⚠️ Tant que la base est sqlite, UNE SEULE réplique : c'est un fichier, pas un
   # serveur. Deux conteneurs sur ce volume se corrompent ; sur deux volumes, ils

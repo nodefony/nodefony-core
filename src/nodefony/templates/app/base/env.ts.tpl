@@ -139,6 +139,43 @@ export const env = defineEnv({
     description:
       "Mot de passe du compte admin seedé au 1er boot (obligatoire en production).",
   }),
+
+  /**
+   * Connexion par Keycloak (OpenID Connect). Le fournisseur n'est monté que si
+   * les TROIS sont posées (`nodefony/config/security.ts`) : absentes, l'app
+   * démarre sans bouton ni avertissement. Le décor de développement — profil
+   * `keycloak` du `compose.yaml`, realm `docker/keycloak/import/` — en donne les
+   * valeurs, commentées dans `.env` et `.env.local`.
+   *
+   * Préfixées `NF_` : Keycloak est AUTO-HÉBERGÉ, ces valeurs sont émises par TON
+   * serveur et aucun écosystème n'en fixe le nom.
+   */
+  NF_KEYCLOAK_ISSUER: envString({
+    optional: true,
+    description:
+      "OIDC Keycloak — émetteur = URL du realm, en https (ex. https://localhost:8444/realms/<%= it.appName %>).",
+  }),
+  NF_KEYCLOAK_CLIENT_ID: envString({
+    optional: true,
+    description: "OIDC Keycloak — identifiant du client confidentiel.",
+  }),
+  NF_KEYCLOAK_CLIENT_SECRET: envString({
+    optional: true,
+    description:
+      "OIDC Keycloak — secret du client confidentiel (SECRET, jamais loggé).",
+  }),
+  /**
+   * Base d'URL des retours OAuth : l'URL PUBLIQUE de l'application, que le
+   * fournisseur compare au caractère près à celle qu'il a enregistrée (RFC 9700).
+   * Absente = `https://localhost:<NF_PORT_HTTPS>`, l'adresse de développement —
+   * à poser en production. `localhost`, jamais `127.0.0.1` : cookies et passkeys
+   * exigent un nom.
+   */
+  NF_OAUTH_REDIRECT_BASE: envString({
+    optional: true,
+    description:
+      "Base d'URL des retours OAuth (exact match fournisseur) — l'URL publique en production.",
+  }),
 <% } %><% if (it.complete || it.front) { %>
   // L'origine publique du dev-server Vite n'est PAS une variable
   // d'environnement : elle se dérive du `Host` de chaque requête, si bien que

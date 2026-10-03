@@ -5,7 +5,7 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import path from "node:path";
 import { pointeursInstructions } from "../agentTargets";
 import { fileURLToPath } from "node:url";
@@ -1951,6 +1951,16 @@ function dispatchScaffold(
       NF_TOTP_KEY: randomBytes(32).toString("base64"),
       NF_WEBHOOK_KEY: randomBytes(32).toString("base64"),
       NF_CSRF_SECRET: randomBytes(32).toString("base64"),
+    },
+    // Décor Keycloak du profil `keycloak` — lu par le realm d'import, `.env` et
+    // `.env.local` : une seule valeur, sinon le client refuse l'app au premier
+    // login. Le secret est PUBLIC par nature (écrit dans le realm commité) : il
+    // n'existe que dans ce décor de développement. L'`id` de l'utilisateur est
+    // FIXÉ à la création : laissé à Keycloak, il change à chaque réimport, et
+    // la connexion suivante est refusée (identifiant déjà lié à un autre `sub`).
+    keycloak: {
+      clientSecret: `${String(answers.name)}-dev-keycloak-secret`,
+      userId: randomUUID(),
     },
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des

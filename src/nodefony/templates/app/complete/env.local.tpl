@@ -9,3 +9,8 @@
 <%= Object.entries(it.secrets).map(([k, v]) => k + "=" + v).join("\n") + "\n" %>
 # Compte admin local : admin / nodefony-dev-42 par défaut — décommente pour changer :
 # NF_ADMIN_PASSWORD=a-changer-avant-la-mise-en-ligne
+
+# Keycloak de DÉVELOPPEMENT (profil `keycloak` du compose) — secret PUBLIC, écrit
+# dans docker/keycloak/import/realm.json ; décommente avec les lignes de `.env` :
+# NF_KEYCLOAK_CLIENT_SECRET=<%= it.keycloak.clientSecret %>
+
