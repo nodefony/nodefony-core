@@ -4,10 +4,20 @@ lang: fr
 module: global
 topic: release
 audience: [developer, devops]
-tags: [semver, compatibilité, dépréciation, versions, support, lockstep]
+tags:
+  [
+    semver,
+    compatibilité,
+    dépréciation,
+    versions,
+    support,
+    lockstep,
+    navigateurs,
+    ES2022,
+  ]
 version: "doc"
 status: stable
-updated: 2026-09-01
+updated: 2026-10-03
 source: "docs/guides/compatibilite.md"
 navTitle: Compatibilité
 related: docs/guides/publier-une-release.md, docs/release/nodefony-10.md, scripts/release/release-core.mjs
@@ -66,11 +76,11 @@ npm update nodefony @nodefony/http @nodefony/framework   # ensemble, jamais l'un
 
 ## Ce qu'une version veut dire
 
-| Numéro   | Ce qui a changé                                                                   | Ce que vous risquez                                                        |
-| -------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `10.0.1` | Un correctif                                                                      | Rien. Aucune API ne change, aucun comportement documenté ne bouge          |
-| `10.1.0` | Un ajout, ou une dépréciation annoncée                                            | Rien ne casse. Du code peut devenir « déprécié » — il fonctionne encore    |
-| `11.0.0` | Une rupture : retrait d'API, changement de comportement, ou nouveau plancher Node | Relecture nécessaire. Le changelog liste chaque rupture en tête de section |
+| Numéro   | Ce qui a changé                                                                                             | Ce que vous risquez                                                        |
+| -------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `10.0.1` | Un correctif                                                                                                | Rien. Aucune API ne change, aucun comportement documenté ne bouge          |
+| `10.1.0` | Un ajout, ou une dépréciation annoncée                                                                      | Rien ne casse. Du code peut devenir « déprécié » — il fonctionne encore    |
+| `11.0.0` | Une rupture : retrait d'API, changement de comportement, nouveau plancher Node ou nouvelle cible navigateur | Relecture nécessaire. Le changelog liste chaque rupture en tête de section |
 
 **Relever le plancher Node est une version majeure.** Passer de Node 24 à Node 26 casse
 l'installation de qui n'a pas migré : c'est une rupture, même si pas une ligne de code n'a changé.
@@ -79,6 +89,33 @@ Le plancher courant se lit dans le paquet lui-même :
 ```bash
 npm view nodefony engines.node
 ```
+
+## Navigateurs : la cible du client
+
+Le code que Nodefony livre au navigateur (`nodefony/client`, le temps réel, le journal, la barre de
+debug) est écrit et compilé pour **ES2022**, sans transpilation ni polyfill. Il demande donc un
+navigateur qui implémente ES2022 en entier : **Chrome et Edge 94+, Firefox 93+, Safari 16.4+**.
+
+**Relever cette cible est une version majeure**, comme relever le plancher Node : un navigateur qui
+affichait votre application cesserait de le faire. L'abaisser, en revanche, ne casse rien.
+
+La cible est **tenue par le compilateur**, pas par une relecture : le code client se vérifie avec
+la seule bibliothèque standard ES2022 (`tsconfigClient.json`, `lib`). Une API plus récente
+— `Array.prototype.findLast`, `Promise.withResolvers`… — y est refusée à la compilation. Monter de
+cible est donc une décision explicite, prise au changelog, jamais l'effet d'une ligne de code.
+
+**Viser un appareil plus ancien** — téléviseur connecté, borne, Chromium figé d'un équipement — se
+règle dans votre application, pas dans le framework. Le build de production passe alors par
+[`@vitejs/plugin-legacy`](https://github.com/vitejs/vite/tree/main/packages/plugin-legacy), qui
+réécrit la syntaxe et embarque les polyfills nécessaires (dont `Object.hasOwn`). Le serveur de
+développement de Vite exige, lui, un navigateur récent : le rechargement à chaud ne se teste pas
+sur ces appareils.
+
+**Une page ouverte en `http://` par une adresse du réseau local** (un téléphone, une tablette sur
+le réseau du poste) n'est pas un contexte sécurisé. Nodefony y fonctionne — ses identifiants client
+se replient sur `crypto.getRandomValues` — mais les API que le navigateur réserve au contexte
+sécurisé (caméra et micro, presse-papiers, `crypto.randomUUID`) y restent absentes. Servez la page
+en HTTPS pour les obtenir.
 
 ## Le cycle de dépréciation
 
@@ -138,6 +175,7 @@ plus utile que puisse recevoir ce projet.
 | **Dépréciation**              | L'annonce qu'une chose disparaîtra. Elle continue de fonctionner à l'identique pendant toute la série majeure.                                 |
 | **Verrouillage** (_lockstep_) | Les quinze paquets sortent ensemble, sur la même version. Vous n'avez donc jamais à croiser deux versions entre elles.                         |
 | **Plancher Node**             | La version minimale de Node exigée (`engines`). La relever casse l'installation de qui n'a pas migré : c'est une majeure.                      |
+| **Cible navigateur**          | La version du langage que le code client exige (ES2022). La relever laisse des navigateurs de côté : c'est une majeure.                        |
 
 ## ⚠️ Pièges
 
@@ -150,6 +188,8 @@ plus utile que puisse recevoir ce projet.
   rétroportage : ce projet n'a pas les moyens d'une politique qu'il ne tiendrait pas.
 - **Une dépréciation se lit dans votre éditeur, pas dans le changelog.** Elle est portée par le
   TSDoc, qui traverse le build jusqu'aux types publiés — d'où le nom barré dans l'autocomplétion.
+- **Un vieux navigateur n'est pas un défaut de Nodefony.** En deçà d'ES2022, l'application s'adapte
+  par `@vitejs/plugin-legacy` au build ; le framework ne transpile pas son code client pour vous.
 - **Rien ne vous oblige à monter les quinze paquets en même temps**, mais rien ne garantit qu'un
   mélange fonctionne : les versions sont conçues, testées et publiées ensemble.
 
@@ -163,6 +203,8 @@ la carte de l'aperçu, jamais figés ici.
 | --- | --- | --- |
 | Unitaires (surface) | `nodefony` `packageDeps.test.ts:38`, `clientSubpathSurface.types.test.ts:164` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe et publie — la règle elle-même vit dans `checkPackageDeps()` (`packageDeps.ts:281`) |
 | Unitaires (client) | `nodefony` `clientSurfaceExercised.test.ts` | les sous-chemins navigateur sont réellement exercés, pas seulement déclarés |
+| Typage (cible navigateur) | `nodefony` `tsconfigClient.json` (`lib` ES2022), via `npm run typecheck` | aucune API postérieure à ES2022 n'entre dans le code client |
+| Unitaires (client) | `nodefony` `randomUuid.test.ts` | les identifiants client tiennent hors contexte sécurisé |
 | Unitaires (chaîne) | `scripts/release/release-core.test.mjs`, `scripts/check-externals.test.mjs` | l'ordre de publication, les métadonnées exigées, les dépendances externalisées |
 
 ## 🔗 Pour aller plus loin

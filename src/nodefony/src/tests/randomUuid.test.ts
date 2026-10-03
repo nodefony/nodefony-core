@@ -17,8 +17,8 @@ const UUID_V4 =
 
 /** Le `crypto` d'une page servie hors contexte sécurisé : sans `randomUUID`. */
 const insecureCrypto = {
-  getRandomValues: <T extends ArrayBufferView>(array: T): T =>
-    webcrypto.getRandomValues(array as unknown as Uint8Array) as unknown as T,
+  getRandomValues: (array: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> =>
+    webcrypto.getRandomValues(array),
 };
 
 afterEach(() => {
