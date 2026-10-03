@@ -54,7 +54,9 @@ class StudioCreateController extends Controller {
    * au scaffold apparaît dans Studio sans toucher à ce fichier.
    */
   @IsGranted("ROLE_NODEFONY_ADMIN")
-  @Get("/studio/api/create/spec")
+  @Get("/studio/api/create/spec", {
+    requirements: { methods: ["WEBSOCKET"] },
+  })
   async apiSpec() {
     const svc = this.scaffold;
     if (!svc?.enabled) {
@@ -112,7 +114,9 @@ class StudioCreateController extends Controller {
    * chemin absolu.
    */
   @IsGranted("ROLE_NODEFONY_ADMIN")
-  @Get("/studio/api/create/browse")
+  @Get("/studio/api/create/browse", {
+    requirements: { methods: ["WEBSOCKET"] },
+  })
   async apiBrowse(@Query("root") root?: string, @Query("sub") sub?: string) {
     const svc = this.scaffold;
     if (!svc?.enabled) return this.renderJson({ error: "forbidden" }, 403);
@@ -129,7 +133,9 @@ class StudioCreateController extends Controller {
    * backlog au lieu de repartir vide (le job, lui, continue côté serveur).
    */
   @IsGranted("ROLE_NODEFONY_ADMIN")
-  @Get("/studio/api/create/job/{id}")
+  @Get("/studio/api/create/job/{id}", {
+    requirements: { methods: ["WEBSOCKET"] },
+  })
   async apiJob(@Param("id") id: string) {
     const svc = this.scaffold;
     if (!svc?.enabled) return this.renderJson({ error: "forbidden" }, 403);

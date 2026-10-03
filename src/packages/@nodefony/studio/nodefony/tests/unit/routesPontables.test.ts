@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import "reflect-metadata";
 import { Router } from "@nodefony/framework";
 import "../../controller/StudioController.js";
+import "../../controller/StudioCreateController.js";
 
 /**
  * Ce que ce test prouve : les routes que la console appelle PAR LE SOCKET
@@ -10,7 +11,7 @@ import "../../controller/StudioController.js";
  * Le pont `api.request` rejoue une route sur la connexion temps réel, et le
  * routeur résout alors sur le transport de cette connexion — `WEBSOCKET`. Une
  * route qui ne le déclare pas est refusée (405, « Method WEBSOCKET
- * Unauthorized ») alors même qu'elle existe, qu'elle est correcte et qu'un
+ * Not Allowed ») alors même qu'elle existe, qu'elle est correcte et qu'un
  * `curl` la sert parfaitement.
  *
  * Le défaut était réel et invisible depuis le serveur : l'écran demandait son
@@ -22,7 +23,17 @@ import "../../controller/StudioController.js";
  * entre, jamais qui a le droit d'entrer. La garde `@IsGranted` reste évaluée par
  * le pont, et un compte sans le rôle reçoit 403 — vérifié contre un serveur réel.
  */
-const PONTABLES = ["/nodefony/studio/api/stats"];
+// Toute route que le front appelle par `ApiClient.get`/`getAbsolute` (socket
+// connectée) figure ici. L'archive (`create/job/{id}/archive`) n'y est pas : c'est
+// un téléchargement, servi par un lien HTTP, jamais par le pont.
+const PONTABLES = [
+  "/nodefony/studio/api/stats",
+  "/nodefony/studio/api/info",
+  "/nodefony/studio/api/health",
+  "/nodefony/studio/api/create/spec",
+  "/nodefony/studio/api/create/browse",
+  "/nodefony/studio/api/create/job/{id}",
+];
 
 describe("routes de la console — joignables par le pont du socket", () => {
   for (const chemin of PONTABLES) {

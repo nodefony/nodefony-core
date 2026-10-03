@@ -320,6 +320,40 @@ describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
     expect(ws.result).to.deep.equal(rest.body);
   });
 
+  // Routes Studio que la console appelle PAR LE PONT (`ApiClient.get`/`getAbsolute`,
+  // socket connectée). Une route qui ne déclare pas le transport WEBSOCKET répond
+  // « 405 Method WEBSOCKET Not Allowed » : le client retombe sur fetch, mais chaque
+  // chemin distinct (un id de job par job) paie un aller-retour perdu et un 405 au
+  // journal. Le pont doit rendre le MÊME statut que le REST, quel qu'il soit.
+  it("routes Studio appelées par la console : api.request rend le statut du GET REST, jamais 405", async () => {
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
+    const paths = [
+      "/nodefony/studio/api/info",
+      "/nodefony/studio/api/health",
+      "/nodefony/studio/api/create/spec",
+      "/nodefony/studio/api/create/browse?root=app",
+      "/nodefony/studio/api/create/job/inconnu",
+    ];
+    const hub = await hubConnect(cookie);
+    const ecarts: string[] = [];
+    try {
+      for (const path of paths) {
+        const rest = await get(path, { cookie });
+        const reply = await hub.request(path);
+        const data = reply.error?.data as { status?: number } | undefined;
+        const wsStatus = reply.error ? (data?.status ?? -1) : 200;
+        if (wsStatus !== rest.status) {
+          ecarts.push(
+            `${path} : REST ${rest.status} ≠ pont ${wsStatus} (${reply.error?.message ?? ""})`,
+          );
+        }
+      }
+    } finally {
+      hub.close();
+    }
+    expect(ecarts, ecarts.join("\n")).to.deep.equal([]);
+  });
+
   it("param de route {name} : api.request authentifié == GET REST", async () => {
     const cookie = await loginCookie("admin", "secret-de-dev-42");
     const rest = await get("/nodefony/kernel/api/module/http", { cookie });

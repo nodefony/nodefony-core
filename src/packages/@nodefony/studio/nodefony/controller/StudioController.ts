@@ -155,7 +155,7 @@ class StudioController extends Controller {
   // data plane `nodefony-admin` le verrouillait → 401 → login impossible (le ping
   // mourait avant d'envoyer le credential). Ne révèle que status/uptime/pid.
   @BypassFirewall
-  @Get("/studio/api/health")
+  @Get("/studio/api/health", { requirements: { methods: ["WEBSOCKET"] } })
   apiHealth() {
     return this.renderJson({
       status: "ok",
@@ -167,8 +167,10 @@ class StudioController extends Controller {
   // PUBLIC (bypassFirewall) : infos runtime de base, affichables sur l'écran de
   // connexion (pré-auth). Les données SENSIBLES (stats process, modules, config,
   // sessions, ORM) restent gatées par l'aire.
+  // `health` et `info` déclarent aussi WEBSOCKET : la console les appelle par le
+  // pont `api.request` une fois la socket ouverte (cf `apiStats`).
   @BypassFirewall
-  @Get("/studio/api/info")
+  @Get("/studio/api/info", { requirements: { methods: ["WEBSOCKET"] } })
   apiInfo() {
     // PUBLIC (pré-auth, écran de login) → surface MINIMALE. On ne donne PAS à un
     // anonyme une empreinte exploitable : version Node EXACTE (corrélation CVE),

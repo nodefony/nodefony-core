@@ -98,8 +98,10 @@ export interface RequestContextPayload {
    * `WebsocketContext.send()` capture le payload ici au lieu de l'émettre ; le
    * pont le sert ensuite en `result` RPC. Per-invocation via
    * `RequestContext.run` → zéro bleed entre frames concurrentes d'une socket.
+   * `status` reçoit le statut HTTP posé par le rendu (`renderJson(corps, 404)`) :
+   * il appartient à l'invocation, jamais à la connexion.
    */
-  renderSink?: { body?: string | Buffer } | undefined;
+  renderSink?: { body?: string | Buffer; status?: number } | undefined;
   /**
    * Profil de l'**invocation** en cours (`FrameProfile` de `@nodefony/http`),
    * posé par le pont WS-RPC. Porte les phases et le buffer ORM de CETTE frame :

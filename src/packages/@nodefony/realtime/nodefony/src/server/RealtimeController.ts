@@ -1138,7 +1138,7 @@ export abstract class RealtimeController<
       // l'enveloppe peer (unhandledRejection + timeout client silencieux — bug
       // vécu au Playground). Le sink vit dans l'ALS → zéro bleed entre frames
       // concurrentes de la même socket.
-      const renderSink: { body?: string | Buffer } = {};
+      const renderSink: { body?: string | Buffer; status?: number } = {};
       const result = await RequestContext.run(
         {
           requestId: ctx.requestId,
@@ -1197,11 +1197,28 @@ export abstract class RealtimeController<
               const text = Buffer.isBuffer(renderSink.body)
                 ? renderSink.body.toString("utf8")
                 : renderSink.body;
+              let body: unknown;
               try {
-                return JSON.parse(text) as unknown;
+                body = JSON.parse(text) as unknown;
               } catch {
-                return text; // rendu non-JSON (HTML/texte) → servi brut
+                body = text; // rendu non-JSON (HTML/texte) → servi brut
               }
+              // Un rendu en échec (`renderJson(corps, 404)`) est un REFUS, pas un
+              // succès : exposé comme une erreur à statut, symétrie d'un `fetch`
+              // dont `ok` est faux. Même forme que le data plane d'admin
+              // (`AdminApiController.dispatch`) : `data.status` + `data.body`.
+              const status = renderSink.status;
+              if (status !== undefined && status >= 400) {
+                const error = (body as { error?: unknown } | null)?.error;
+                throw new RpcError(
+                  typeof error === "string"
+                    ? error
+                    : `api.request: HTTP ${status}`,
+                  -32000,
+                  { status, body },
+                );
+              }
+              return body;
             }
             return raw;
           } finally {

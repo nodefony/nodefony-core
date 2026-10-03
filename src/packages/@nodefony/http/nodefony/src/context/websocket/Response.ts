@@ -1,5 +1,12 @@
 import Cookie from "../../cookies/cookie.js";
-import { Message, Msgid, Pci, Severity, Syslog } from "nodefony";
+import {
+  Message,
+  Msgid,
+  Pci,
+  RequestContext,
+  Severity,
+  Syslog,
+} from "nodefony";
 import WebsocketContext from "./WebsocketContext.js";
 import Ws, { WebSocketServer } from "ws";
 import http from "node:http";
@@ -259,6 +266,15 @@ class WebsocketResponse {
       if (isNaN(status)) status = 500;
     }
     if (!status) status = 500;
+    // Pont `api.request` : le statut posé par le rendu d'une invocation
+    // (`renderJson(corps, 404)`) appartient à CETTE invocation. `statusCode` est
+    // celui de la CONNEXION — le code de fermeture d'un `close()` sans argument :
+    // y écrire 404 perdait le statut pour le pont et empoisonnait la fermeture.
+    const sink = RequestContext.get()?.renderSink;
+    if (sink) {
+      sink.status = status;
+      return { code: status, message: message ?? "" };
+    }
     this.statusCode = status;
     if (!message) {
       // Table indexée par un code reçu : l'absence est possible.
