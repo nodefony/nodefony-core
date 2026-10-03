@@ -10,7 +10,9 @@ import { isCanonicalAuthority } from "../../src/context/http/urlFastPath.js";
  * #508 — le nom d'hôte brut est découpé UNE fois au ctor et relu par
  * `getHostName()` / `getDomain()`. L'oracle est le comportement d'AVANT :
  * `#url?.hostname`, sinon `host.split(":")[0]` sur l'en-tête RELU à chaque appel.
- * Le cache ne doit jamais servir une valeur que l'ancien code n'aurait pas rendue.
+ * Le cache ne doit jamais servir une valeur que l'ancien code n'aurait pas rendue
+ * — sauf le littéral IPv6, que l'ancien découpage réduisait à `[` : l'oracle y
+ * suit `URL.hostname`, la sémantique du WebSocket et du proxy inverse.
  */
 
 function makeRequest(host: string | undefined, url = "/p"): HttpRequest {
@@ -26,8 +28,11 @@ function makeRequest(host: string | undefined, url = "/p"): HttpRequest {
   return new HttpRequest(nodeReq, context as unknown as HttpContext);
 }
 
-const rawSplit = (host: string | undefined): string =>
-  host ? (host.split(":")[0] ?? "") : "";
+const rawSplit = (host: string | undefined): string => {
+  if (!host) return "";
+  if (host.startsWith("[")) return host.slice(0, host.indexOf("]") + 1);
+  return host.split(":")[0] ?? "";
+};
 
 // Ce que rendait l'ancien `getDomain()` juste après le ctor : l'URL n'est
 // construite QUE hors fast-path.
@@ -45,7 +50,7 @@ const HOSTS = [
   "web-1.example.io:8080",
   "Example.COM:81", // hors fast-path : WHATWG met en minuscules
   "127.1", // hors fast-path : WHATWG normalise en 127.0.0.1
-  "[::1]:5151", // IPv6 : split(":")[0] = "[" — conservé tel quel
+  "[::1]:5151", // IPv6 : crochets gardés, comme `URL.hostname` (et non « [ »)
   "example.com:80", // port par défaut élidé par WHATWG
 ];
 // Autorités que `new URL` refuse : le ctor lève, avant comme après.

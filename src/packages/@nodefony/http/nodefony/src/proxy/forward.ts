@@ -37,8 +37,11 @@ export interface IRelaySettings {
   pseudonym: string;
   /** Délai d'établissement de la connexion amont (ms). Dépassé : 504. */
   connectTimeoutMs: number;
-  /** Pool de connexions du montage (keep-alive borné), ou `undefined`. */
-  agent: http.Agent | undefined;
+  /**
+   * Pool de connexions du montage (keep-alive borné) ; `false` = connexion à
+   * usage unique (arrêt engagé : plus de pool à créer).
+   */
+  agent: http.Agent | false | undefined;
 }
 
 /**
@@ -78,6 +81,16 @@ const FORWARDING: ReadonlySet<string> = new Set([
 const BAD_GATEWAY = "Bad Gateway";
 const GATEWAY_TIMEOUT = "Gateway Timeout";
 const LOOP_DETECTED = "Loop Detected";
+const NOT_IMPLEMENTED = "Not Implemented";
+
+/**
+ * Sauts `Via` au-delà desquels un message est tenu pour une boucle. Notre
+ * pseudonyme ne repère une boucle qu'au RETOUR dans ce processus : derrière un
+ * répartiteur qui tourne sur N instances, cela peut prendre N+1 sauts, chacun
+ * tenant une connexion. Une chaîne légitime (CDN, répartiteur, ingress) en
+ * compte rarement plus de cinq.
+ */
+export const MAX_VIA_HOPS = 10;
 
 /**
  * Noms listés par l'en-tête `Connection` d'un message : eux aussi ne valent
@@ -119,7 +132,9 @@ export function viaLoops(
 ): boolean {
   const value = flat(via);
   if (value === undefined) return false;
-  for (const hop of value.split(",")) {
+  const hops = value.split(",");
+  if (hops.length >= MAX_VIA_HOPS) return true;
+  for (const hop of hops) {
     // `1.1 nodefony-ab12cd34 (commentaire)` → 2e jeton = reçu-par.
     if (hop.trim().split(/\s+/)[1] === pseudonym) return true;
   }
@@ -132,8 +147,12 @@ function viaEntry(httpVersion: string, pseudonym: string): string {
   return `${version} ${pseudonym}`;
 }
 
-/** Cadrage du corps transmis à l'amont (RFC 9112 §6). */
-export type BodyFraming = "none" | "length" | "chunked";
+/**
+ * Cadrage du corps transmis à l'amont (RFC 9112 §6). `unsupported` : un
+ * codage de transfert autre que `chunked` seul — le proxy ne sait pas le
+ * transmettre fidèlement.
+ */
+export type BodyFraming = "none" | "length" | "chunked" | "unsupported";
 
 /**
  * Cadrage du corps reçu — décidé UNE fois, pour que l'amont lise exactement
@@ -145,7 +164,17 @@ export type BodyFraming = "none" | "length" | "chunked";
  * @returns le cadrage à appliquer vers l'amont
  */
 export function bodyFramingOf(req: ProxiedRequest): BodyFraming {
-  if (req.headers["transfer-encoding"] !== undefined) return "chunked";
+  const coding = req.headers["transfer-encoding"];
+  if (coding !== undefined) {
+    // `gzip, chunked` : Node retire le cadrage chunked mais laisse le corps
+    // compressé ; le réétiqueter `chunked` livrerait à l'amont des octets
+    // compressés qu'il croirait en clair. RFC 9112 §6.1 : 501.
+    // Cas courant comparé tel quel : la forme normalisée n'alloue que sinon.
+    if (coding === "chunked") return "chunked";
+    return coding.trim().toLowerCase() === "chunked"
+      ? "chunked"
+      : "unsupported";
+  }
   if (req.headers["content-length"] !== undefined) return "length";
   const stream = (req as http2.Http2ServerRequest).stream as
     http2.ServerHttp2Stream | undefined;
@@ -162,7 +191,8 @@ export function bodyFramingOf(req: ProxiedRequest): BodyFraming {
  * - `Host` réécrit sur la cible (sauf `preserveHost`) ;
  * - `X-Forwarded-For` prolongé (pair fiable) ou recommencé ;
  *   `X-Forwarded-Proto`/`-Host` hérités d'un pair fiable, posés sinon ;
- *   `X-Forwarded-Prefix` quand le préfixe est retiré ;
+ *   `X-Forwarded-Prefix` quand le préfixe est retiré — à la suite de celui
+ *   d'un pair fiable ; `Forwarded` d'un pair fiable prolongé de ce saut ;
  * - `Via` prolongé de ce saut ;
  * - cadrage du corps rendu cohérent ({@link bodyFramingOf}).
  *
@@ -201,13 +231,50 @@ export function requestHeadersFor(
   out["x-forwarded-proto"] ??= from.scheme;
   if (from.host) out["x-forwarded-host"] ??= from.host;
   if (mount.stripPrefix === true) {
-    out["x-forwarded-prefix"] = mount.prefix.slice(0, -1);
+    // Derrière un relais qui a lui-même retiré un préfixe, l'amont doit
+    // recevoir les deux (`/edge` + `/billing`), sinon ses liens perdent le premier.
+    let outer = from.trustedPeer
+      ? flat(headers["x-forwarded-prefix"])
+      : undefined;
+    if (outer?.endsWith("/")) outer = outer.slice(0, -1);
+    out["x-forwarded-prefix"] = (outer ?? "") + mount.prefix.slice(0, -1);
+  }
+  // `Forwarded` (RFC 7239) n'est prolongé que si un relais fiable l'a ouvert :
+  // le créer pour tous doublerait `X-Forwarded-*` chez chaque amont.
+  const forwarded = from.trustedPeer ? flat(headers.forwarded) : undefined;
+  if (forwarded) {
+    out.forwarded = `${forwarded}, ${forwardedElement(from)}`;
   }
   const via = flat(headers.via);
   const hop = viaEntry(from.httpVersion, pseudonym);
   out.via = via ? `${via}, ${hop}` : hop;
   if (framing === "chunked") out["transfer-encoding"] = "chunked";
   return out;
+}
+
+/** Caractères d'un `token` (RFC 9110 §5.6.2) — compilé une fois. */
+const TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
+/** Valeur d'un paramètre `Forwarded` : jeton nu, sinon chaîne entre guillemets (RFC 7239 §4). */
+function forwardedValue(value: string): string {
+  return TOKEN.test(value) ? value : `"${value.replace(/["\\]/g, "\\$&")}"`;
+}
+
+/**
+ * Élément `Forwarded` de ce saut : `for=` (une IPv6 entre crochets et
+ * guillemets, RFC 7239 §6), `proto=`, `host=`.
+ */
+function forwardedElement(from: IForwardedFrom): string {
+  const address = from.remoteAddress;
+  const node =
+    address === undefined
+      ? "unknown"
+      : address.includes(":")
+        ? `[${address}]`
+        : address;
+  let element = `for=${forwardedValue(node)};proto=${forwardedValue(from.scheme)}`;
+  if (from.host) element += `;host=${forwardedValue(from.host)}`;
+  return element;
 }
 
 /**
@@ -380,6 +447,10 @@ export function forwardRequest(
       return;
     }
     const framing = bodyFramingOf(req);
+    if (framing === "unsupported") {
+      fail(501, NOT_IMPLEMENTED);
+      return;
+    }
     const options = requestOptions(target, mount, relay);
     options.method = req.method ?? "GET";
     options.path = upstreamPath(req.url ?? "/", mount);
@@ -511,8 +582,10 @@ const REFUSAL_SKIP: ReadonlySet<string> = new Set([
  * l'amont, renvoie sa réponse `101` au client puis raccorde les deux sockets
  * octet pour octet. Un refus de l'amont (`400`, `403`…) est rendu avec un
  * cadrage refait (fin de corps = fermeture) ; un amont injoignable rend `502`,
- * une connexion non établie à temps `504`, une boucle `508`. Une erreur d'un
- * côté détruit l'autre.
+ * une connexion non établie à temps — ou un amont qui accepte puis se tait
+ * au-delà de `timeoutMs` — `504`, une boucle `508`. Le délai d'inactivité
+ * cesse au `101` : un tunnel établi peut rester muet. Une erreur d'un côté
+ * détruit l'autre.
  */
 export function forwardUpgrade(
   req: http.IncomingMessage,
@@ -543,6 +616,7 @@ export function forwardUpgrade(
   headers.connection = "Upgrade";
   headers.upgrade = "websocket";
   options.headers = headers;
+  if (mount.timeoutMs !== undefined) options.timeout = mount.timeoutMs;
   if (head.length > 0) socket.unshift(head);
   const upstream = requestFn(target)(options);
   // `pending` → `open` (101) ou `refused` (réponse rendue au client).
@@ -556,8 +630,21 @@ export function forwardUpgrade(
     refuseUpgrade(socket, 504, GATEWAY_TIMEOUT);
     upstream.destroy();
   });
+  upstream.on("timeout", () => {
+    if (state === "open") return;
+    // Muet avant toute réponse : 504. Muet en plein refus : la réponse est
+    // déjà partie en partie, on coupe.
+    if (state === "pending") refuseUpgrade(socket, 504, GATEWAY_TIMEOUT);
+    else socket.destroy();
+    state = "refused";
+    upstream.destroy();
+  });
   upstream.on("upgrade", (answer, upSocket, upHead) => {
     state = "open";
+    // Le délai d'inactivité valait pour le handshake, pas pour le tunnel. Le
+    // garde de `timeout` suffit au comportement ; le désarmer épargne surtout
+    // au tunnel un réarmement du minuteur à chaque paquet, sa vie durant.
+    upSocket.setTimeout(0);
     socket.removeListener("error", onClientError);
     const destroyBoth = (): void => {
       socket.destroy();

@@ -21,11 +21,15 @@ import http from "node:http";
 import http2 from "node:http2";
 import net from "node:net";
 import { generateKeyPairSync, randomBytes } from "node:crypto";
+import { EventEmitter } from "node:events";
 import type { AddressInfo } from "node:net";
 import type { Duplex } from "node:stream";
 import WebSocket, { WebSocketServer } from "ws";
+import { Container, Event } from "nodefony";
 import type { Module } from "nodefony";
 import ReverseProxy from "../../service/reverse-proxy";
+import HttpKernel from "../../service/http-kernel";
+import { MAX_VIA_HOPS } from "../../src/proxy/forward";
 import { createSelfSignedCertificate } from "../../service/x509";
 import type { IProxyMountOptions } from "../../interfaces/IReverseProxy";
 
@@ -63,10 +67,11 @@ function proxyWith(
   mounts: Record<string, IProxyMountOptions> = {},
   timeoutMs = 30_000,
   connectTimeoutMs = 5_000,
+  maxSockets = 16,
 ): ReverseProxy {
   const module = {
     container: undefined,
-    options: { proxy: { timeoutMs, connectTimeoutMs, maxSockets: 16, mounts } },
+    options: { proxy: { timeoutMs, connectTimeoutMs, maxSockets, mounts } },
   } as unknown as Module;
   const proxy = new ReverseProxy(module);
   proxy.log = (() => undefined) as unknown as ReverseProxy["log"];
@@ -81,6 +86,8 @@ function withRules(
     origin?: (origin: string | undefined, hostname: string) => boolean;
     host?: (hostname: string) => boolean;
     domainCheck?: boolean;
+    /** Règle de quotas WebSocket — celle d'un VRAI noyau, cf {@link kernelWith}. */
+    quota?: HttpKernel["websocketQuotaRefusal"];
   },
 ): ReverseProxy {
   proxy.container?.set("HttpKernel", {
@@ -88,6 +95,7 @@ function withRules(
     getTrustProxyChecker: () => ({ isTrusted: rules.trusted ?? (() => false) }),
     isWebsocketOriginAllowed: (o: string | undefined, h: string) =>
       rules.origin ? rules.origin(o, h) : true,
+    websocketQuotaRefusal: rules.quota ?? (() => null),
   });
   if (rules.domainCheck) {
     (proxy as unknown as { kernel: unknown }).kernel = {
@@ -95,6 +103,45 @@ function withRules(
     };
   }
   return proxy;
+}
+
+/**
+ * Un VRAI noyau HTTP, quotas WebSocket armés : la règle éprouvée est celle que
+ * sert le serveur, pas une copie de test.
+ */
+function kernelWith(quotas: {
+  wsMaxConnectionsPerIp?: number;
+  rateMax?: number;
+}): HttpKernel {
+  const module = {
+    container: new Container(),
+    notificationsCenter: new Event(),
+    options: {
+      http: { responseTimeout: 1_000 },
+      https: { responseTimeout: 1_000 },
+      websocket: { closeTimeout: 1_000 },
+      websocketSecure: { closeTimeout: 1_000 },
+      wsMaxConnectionsPerIp: quotas.wsMaxConnectionsPerIp ?? null,
+      rateLimit: {
+        enabled: quotas.rateMax !== undefined,
+        windowS: 60,
+        max: quotas.rateMax ?? 1,
+        maxTracked: 100,
+        gcIntervalS: 3_600,
+        gcJitter: false,
+      },
+    },
+  } as unknown as Module;
+  const kernel = new HttpKernel(module);
+  const armed = kernel as unknown as {
+    configureRateLimit(): void;
+    configureWsConnectionLimit(): void;
+    rateLimitGc: { stop(): void } | null;
+  };
+  armed.configureRateLimit();
+  armed.configureWsConnectionLimit();
+  closers.push(async () => armed.rateLimitGc?.stop());
+  return kernel;
 }
 
 /** Amont HTTP qui rend ce que décide `reply` et note ce qu'il a reçu. */
@@ -245,7 +292,35 @@ describe("ReverseProxy — requêtes HTTP/1.1", () => {
     expect(h["x-forwarded-for"]).toBe("203.0.113.7, 127.0.0.1");
     expect(h["x-forwarded-proto"]).toBe("https");
     expect(h["x-forwarded-host"]).toBe("forge.example.test");
-    expect(h.forwarded).toBe("for=203.0.113.7;proto=https");
+    // Chaîne `Forwarded` ouverte par le relais : prolongée de CE saut (RFC 7239 §4).
+    expect(h.forwarded).toBe(
+      "for=203.0.113.7;proto=https, for=127.0.0.1;proto=http;host=app.example.test",
+    );
+  });
+
+  it("`Forwarded` n'est jamais CRÉÉ : sans chaîne ouverte par un relais fiable, X-Forwarded-* suffit", async () => {
+    const up = await upstream();
+    const proxy = withRules(proxyWith({ "/svc/": { target: up.origin } }), {
+      trusted: (a) => a === "127.0.0.1",
+    });
+    const port = await front(proxy);
+    await get(port, "/svc/", { headers: { host: "app.example.test:8443" } });
+    expect(up.seen[0]?.headers.forwarded).toBeUndefined();
+  });
+
+  it("`X-Forwarded-Prefix` prolonge celui d'un relais fiable ; venu d'ailleurs, il est remplacé", async () => {
+    const up = await upstream();
+    const mounts = { "/svc/": { target: up.origin, stripPrefix: true } };
+    const trusting = await front(
+      withRules(proxyWith(mounts), { trusted: (a) => a === "127.0.0.1" }),
+    );
+    await get(trusting, "/svc/a", {
+      headers: { "x-forwarded-prefix": "/edge/" },
+    });
+    expect(up.seen[0]?.headers["x-forwarded-prefix"]).toBe("/edge/svc");
+    const direct = await front(proxyWith(mounts));
+    await get(direct, "/svc/a", { headers: { "x-forwarded-prefix": "/edge" } });
+    expect(up.seen[1]?.headers["x-forwarded-prefix"]).toBe("/svc");
   });
 
   it("`preserveHost` transmet le Host du client", async () => {
@@ -609,6 +684,98 @@ describe("ReverseProxy — upgrade WebSocket", () => {
     await expect(open(port, "/hmr/")).rejects.toThrow("HTTP 502");
   });
 
+  it("quotas par IP du VRAI noyau appliqués au tunnel : 429 au-delà, place rendue à la fermeture", async () => {
+    const up = await wsUpstream();
+    const kernel = kernelWith({ wsMaxConnectionsPerIp: 1 });
+    const proxy = withRules(
+      proxyWith({ "/hmr/": { target: up.origin, websocket: true } }),
+      { quota: kernel.websocketQuotaRefusal.bind(kernel) },
+    );
+    const port = await front(proxy);
+    const first = await open(port, "/hmr/");
+    await expect(open(port, "/hmr/")).rejects.toThrow("HTTP 429");
+    expect(up.seen).toHaveLength(1);
+    await new Promise((resolve) => {
+      first.once("close", resolve);
+      first.close();
+    });
+    // La place se rend à la fermeture du socket CLIENT côté proxy.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await expect(open(port, "/hmr/")).resolves.toBeInstanceOf(WebSocket);
+  });
+
+  it("débit de handshakes : même compteur que les requêtes HTTP (429 au-delà)", async () => {
+    const up = await wsUpstream();
+    const kernel = kernelWith({ rateMax: 1 });
+    const proxy = withRules(
+      proxyWith({ "/hmr/": { target: up.origin, websocket: true } }),
+      { quota: kernel.websocketQuotaRefusal.bind(kernel) },
+    );
+    const port = await front(proxy);
+    await open(port, "/hmr/");
+    await expect(open(port, "/hmr/")).rejects.toThrow("HTTP 429");
+    expect(up.seen).toHaveLength(1);
+  });
+
+  it("`maxSockets` borne les tunnels, hors pool : 503 au-delà, place rendue à la fermeture", async () => {
+    const up = await wsUpstream();
+    const proxy = proxyWith(
+      { "/hmr/": { target: up.origin, websocket: true } },
+      30_000,
+      5_000,
+      1,
+    );
+    const port = await front(proxy);
+    const first = await open(port, "/hmr/");
+    await expect(open(port, "/hmr/")).rejects.toThrow("HTTP 503");
+    await new Promise((resolve) => {
+      first.once("close", resolve);
+      first.close();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await expect(open(port, "/hmr/")).resolves.toBeInstanceOf(WebSocket);
+  });
+
+  it("amont qui accepte la connexion puis se tait : 504 au bout de `timeoutMs`", async () => {
+    const held: Duplex[] = [];
+    const server = http.createServer();
+    server.on("upgrade", (_req, socket: Duplex) => held.push(socket));
+    const upstreamPort = await listen(server);
+    // Après `listen` : les nettoyeurs partent en ordre inverse, et le serveur
+    // attendrait à sa fermeture ces sockets détachés.
+    closers.push(async () => {
+      for (const s of held) s.destroy();
+    });
+    const port = await front(
+      proxyWith({
+        "/hmr/": {
+          target: `http://127.0.0.1:${upstreamPort}`,
+          websocket: true,
+          timeoutMs: 200,
+        },
+      }),
+    );
+    const started = Date.now();
+    await expect(open(port, "/hmr/")).rejects.toThrow("HTTP 504");
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  it("un tunnel ÉTABLI survit au délai d'inactivité (il ne vaut que pour le handshake)", async () => {
+    const up = await wsUpstream();
+    const port = await front(
+      proxyWith({
+        "/hmr/": { target: up.origin, websocket: true, timeoutMs: 150 },
+      }),
+    );
+    const ws = await open(port, "/hmr/");
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    const reply = new Promise<string>((resolve) =>
+      ws.once("message", (m) => resolve((m as Buffer).toString())),
+    );
+    ws.send("encore là");
+    expect(await reply).toBe("écho:encore là");
+  });
+
   it("Host hors `trustedHosts` (domainCheck actif) → 421, rien n'est relayé", async () => {
     const up = await wsUpstream();
     const proxy = withRules(
@@ -705,6 +872,43 @@ describe("ReverseProxy — durcissement (relevé HAProxy/nginx/Envoy/Traefik + d
     });
     expect(r.status).toBe(508);
     expect(up.seen).toHaveLength(0);
+  });
+
+  it(`\`Via\` de ${MAX_VIA_HOPS} sauts ou plus : boucle présumée, 508 sans contacter l'amont`, async () => {
+    const up = await upstream();
+    const port = await front(proxyWith({ "/svc/": { target: up.origin } }));
+    const chain = (n: number): string =>
+      Array.from({ length: n }, (_, i) => `1.1 relais-${i}`).join(", ");
+    expect(
+      (await get(port, "/svc/", { headers: { via: chain(MAX_VIA_HOPS - 1) } }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await get(port, "/svc/", { headers: { via: chain(MAX_VIA_HOPS) } }))
+        .status,
+    ).toBe(508);
+    expect(up.seen).toHaveLength(1);
+  });
+
+  it("`Transfer-Encoding: gzip, chunked` : 501, jamais réétiqueté en chunked (RFC 9112 §6.1)", async () => {
+    const up = await upstream();
+    const port = await front(proxyWith({ "/svc/": { target: up.origin } }));
+    const text =
+      "POST /svc/ HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: gzip, chunked\r\n\r\n3\r\nabc\r\n0\r\n\r\n";
+    expect(await raw(port, text, 500)).toMatch(/^HTTP\/1\.1 501/);
+    expect(up.seen).toHaveLength(0);
+  });
+
+  it("après `closeAll` (arrêt), un relais en vol passe sans recréer de pool", async () => {
+    const up = await upstream();
+    const proxy = proxyWith({ "/svc/": { target: up.origin } });
+    const port = await front(proxy);
+    proxy.closeAll();
+    expect((await get(port, "/svc/")).status).toBe(200);
+    const mount = proxy.mounts?.[0] as unknown as
+      { agent: unknown } | undefined;
+    expect(mount).toBeDefined();
+    expect(mount?.agent).toBe(null);
   });
 
   it.each([
@@ -987,5 +1191,42 @@ describe("ReverseProxy — upgrade : contrôles avant relais", () => {
     expect(r.toLowerCase()).not.toContain("transfer-encoding");
     expect(r).toContain("Connection: close");
     expect(r.endsWith("non !")).toBe(true);
+  });
+});
+
+describe("HttpKernel.websocketQuotaRefusal — règle unique des quotas WebSocket", () => {
+  const req = (ip: string): http.IncomingMessage =>
+    ({ headers: {}, socket: { remoteAddress: ip } }) as http.IncomingMessage;
+
+  it("tout désarmé (défaut) : admis, rien n'est compté ni écouté", () => {
+    const kernel = kernelWith({});
+    const connection = new EventEmitter();
+    expect(kernel.websocketQuotaRefusal(req("10.0.0.1"), connection)).toBe(
+      null,
+    );
+    expect(connection.listenerCount("close")).toBe(0);
+  });
+
+  it("connexions simultanées : refus au plafond, place rendue à la fermeture, IP par IP", () => {
+    const kernel = kernelWith({ wsMaxConnectionsPerIp: 1 });
+    const first = new EventEmitter();
+    expect(kernel.websocketQuotaRefusal(req("10.0.0.1"), first)).toBe(null);
+    expect(
+      kernel.websocketQuotaRefusal(req("10.0.0.1"), new EventEmitter()),
+    ).toBe("too many connections");
+    expect(
+      kernel.websocketQuotaRefusal(req("10.0.0.2"), new EventEmitter()),
+    ).toBe(null);
+    first.emit("close");
+    expect(
+      kernel.websocketQuotaRefusal(req("10.0.0.1"), new EventEmitter()),
+    ).toBe(null);
+  });
+
+  it("débit : le compteur des requêtes HTTP refuse au-delà de `max`", () => {
+    const kernel = kernelWith({ rateMax: 2 });
+    const hit = (): string | null =>
+      kernel.websocketQuotaRefusal(req("10.0.0.1"), new EventEmitter());
+    expect([hit(), hit(), hit()]).toEqual([null, null, "rate limit"]);
   });
 });

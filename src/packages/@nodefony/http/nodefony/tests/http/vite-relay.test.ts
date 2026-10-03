@@ -88,6 +88,19 @@ describe.skipIf(IS_PROD_TARGET)(
       expect(String(res.headers["content-type"])).to.include("javascript");
     });
 
+    it("réponse relayée : en-têtes de TRANSPORT posés, CSP applicative absente", async () => {
+      // Le socle (nosniff, X-Frame-Options) est posé à l'entrée, avant le
+      // proxy, et `writeHead` le fusionne. La CSP à nonce de l'application,
+      // elle, n'est jamais imposée aux pages d'un autre serveur.
+      const res = await request(
+        "https://127.0.0.1:5152/_vite/default/@vite/client",
+      );
+      expect(String(res.headers.via)).to.match(/nodefony-[0-9a-f]{8}/);
+      expect(res.headers["x-content-type-options"]).to.equal("nosniff");
+      expect(res.headers["x-frame-options"]).to.not.equal(undefined);
+      expect(res.headers["content-security-policy"]).to.equal(undefined);
+    });
+
     it("le socket du rechargement à chaud s'ouvre sur l'origine de la page (wss://…:5152)", async () => {
       const client = await request(
         "https://127.0.0.1:5152/_vite/default/@vite/client",

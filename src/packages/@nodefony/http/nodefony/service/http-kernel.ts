@@ -1907,39 +1907,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // pipeline (symétrie avec le 429 HTTP), car le vrai vecteur DoS = accumuler des
     // sockets ouvertes (→ flood de frames → famine event-loop). Le handshake ne peut
     // pas répondre un 429 (le 101 est déjà émis par `ws`) → close RFC 6455 1013
-    // « Try Again Later ». AUCUN log par rejet (un log/handshake rejeté sous flood
-    // serait lui-même un amplificateur DoS). L'IP est résolue UNE fois, EXACTEMENT
-    // comme en HTTP (forwarded-aware, RFC 7239 + trustProxy) — le raw socket est
-    // spoofable, seul le framework tient l'IP fiable. On ne la résout que si au moins
-    // un limiteur par IP est armé (0 coût quand tout est désactivé, cas par défaut).
-    const wsConnCounter = this.#wsConnCounter;
-    if (this.rateLimiter !== null || wsConnCounter !== null) {
-      const ip = resolveForwarded(
-        req.headers,
-        req.socket.remoteAddress,
-        this.getTrustProxyChecker(),
-      ).clientIp;
-      if (ip !== null) {
-        // F5 — rate-limit du DÉBIT de handshakes (même compteur que les requêtes
-        // HTTP : un upgrade WS EST une requête HTTP GET+Upgrade).
-        if (this.rateLimiter?.hit(ip).limited) {
-          if (ws.readyState === Ws.OPEN) ws.close(1013, "rate limit");
-          return;
-        }
-        // F6c — backstop OPT-IN : cap de connexions CONCURRENTES par IP (par-process,
-        // délégué à l'ingress par défaut). `wsConnCounter` capturé (const) → la socket
-        // décrémente TOUJOURS l'instance qui l'a comptée, même après reconfiguration.
-        // `once("close")` = 1 listener auto-retiré, fire garanti à la fermeture (y
-        // compris `terminate` heartbeat / rejet firewall) → pas de fuite de compteur.
-        if (wsConnCounter !== null) {
-          if (!wsConnCounter.tryAcquire(ip)) {
-            if (ws.readyState === Ws.OPEN)
-              ws.close(1013, "too many connections");
-            return;
-          }
-          ws.once("close", () => wsConnCounter.release(ip));
-        }
-      }
+    // « Try Again Later ». Règle unique, partagée avec le proxy inverse.
+    const refusal = this.websocketQuotaRefusal(req, ws);
+    if (refusal !== null) {
+      if (ws.readyState === Ws.OPEN) ws.close(1013, refusal);
+      return;
     }
     await this.fireAsync("onServerRequest", req, null, type);
     const scope = this.container?.enterScope("request");
@@ -2131,6 +2103,49 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    */
   isTrustedHostname(hostname: string): boolean {
     return isDomainAllowed(this.regAlias, hostname);
+  }
+
+  /**
+   * Bornes par IP d'un upgrade WebSocket : débit de handshakes (le MÊME
+   * compteur que les requêtes HTTP — un upgrade EST un GET) puis connexions
+   * simultanées (`wsMaxConnectionsPerIp`). Seule implémentation, appelée par
+   * le serveur WebSocket de Nodefony ET par le proxy inverse pour un upgrade
+   * qu'il relaie : un tunnel relayé n'échappe pas aux quotas d'une connexion
+   * servie.
+   *
+   * L'IP est résolue comme en HTTP (RFC 7239 + `trustProxy`), et seulement si
+   * un limiteur est armé — 0 coût quand tout est désactivé (défaut). Aucun log
+   * par refus : sous un flood, il serait lui-même un amplificateur.
+   *
+   * @param req - requête d'upgrade
+   * @param connection - ce dont la fermeture libère la place comptée (le `ws`
+   *   accepté, ou le socket du client pour un tunnel relayé)
+   * @returns `null` si l'upgrade est admis — sa place est alors rendue à la
+   *   fermeture de `connection` —, sinon la raison du refus
+   */
+  websocketQuotaRefusal(
+    req: IncomingMessage,
+    connection: { once(event: "close", listener: () => void): unknown },
+  ): "rate limit" | "too many connections" | null {
+    const wsConnCounter = this.#wsConnCounter;
+    if (this.rateLimiter === null && wsConnCounter === null) return null;
+    const ip = resolveForwarded(
+      req.headers,
+      req.socket.remoteAddress,
+      this.getTrustProxyChecker(),
+    ).clientIp;
+    // ip null = aucun socket réel fiable → on ne compte pas (ne JAMAIS agréger
+    // tout le trafic sous une même clé null, qui deviendrait un point de DoS).
+    if (ip === null) return null;
+    if (this.rateLimiter?.hit(ip).limited) return "rate limit";
+    // `wsConnCounter` capturé (const) → la connexion décrémente TOUJOURS
+    // l'instance qui l'a comptée, même après reconfiguration. `once("close")`
+    // part à toute fermeture (y compris `terminate` heartbeat, rejet pare-feu).
+    if (wsConnCounter !== null) {
+      if (!wsConnCounter.tryAcquire(ip)) return "too many connections";
+      connection.once("close", () => wsConnCounter.release(ip));
+    }
+    return null;
   }
 }
 

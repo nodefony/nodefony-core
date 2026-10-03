@@ -8,6 +8,7 @@ import { randomUUID, createHash } from "node:crypto";
 import HttpContext from "../http/HttpContext";
 import { URL } from "node:url";
 import { HTTPMethod, Cookies } from "../Context";
+import { hostnameOf } from "../domainMatcher";
 import QS from "qs";
 import { Busboy } from "@fastify/busboy";
 import type {
@@ -137,18 +138,6 @@ function perfMark(field: string): void {
   if (p && p.t0 !== 0n) {
     (p[field] as number) += Number(process.hrtime.bigint() - p.t0);
   }
-}
-
-/**
- * Nom d'hôte d'une autorité brute (`host[:port]`) : tout ce qui précède le
- * premier `:`. Même résultat que `host.split(":")[0]`, sans tableau (#508).
- */
-function hostnameOf(host: string | undefined): string {
-  if (!host) {
-    return "";
-  }
-  const colon = host.indexOf(":");
-  return colon === -1 ? host : host.slice(0, colon);
 }
 
 class HttpRequest {

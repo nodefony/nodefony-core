@@ -40,6 +40,8 @@ interface IMountRecord extends IProxyMount {
   lastUrl: URL | undefined;
   /** Pool de connexions vers l'amont, créé au premier relais (scheme de la cible). */
   agent: http.Agent | null;
+  /** Tunnels WebSocket ouverts vers l'amont — bornés par `maxSockets`, hors pool. */
+  tunnels: number;
 }
 
 /**
@@ -54,6 +56,10 @@ interface IHttpKernelRules {
     hostname: string,
     secure: boolean,
   ): boolean;
+  websocketQuotaRefusal(
+    req: http.IncomingMessage,
+    connection: { once(event: "close", listener: () => void): unknown },
+  ): string | null;
 }
 
 /**
@@ -90,8 +96,13 @@ class ReverseProxy extends Service {
   readonly defaultTimeoutMs: number;
   /** Délai d'établissement de la connexion amont (`proxy.connectTimeoutMs`). */
   readonly connectTimeoutMs: number;
-  /** Connexions simultanées par amont (`proxy.maxSockets`). */
+  /** Connexions simultanées par amont (`proxy.maxSockets`) : pool ET tunnels WebSocket. */
   readonly maxSockets: number;
+  /**
+   * Arrêt engagé ({@link closeAll}) : un relais encore en vol ne recrée plus
+   * de pool — il passerait après la fermeture et garderait ses sockets.
+   */
+  #closing = false;
   /**
    * Nom de CE processus dans `Via` (RFC 9110 §7.6.3) : tiré au hasard au
    * démarrage, il ne dit rien de la machine et distingue deux instances —
@@ -150,6 +161,7 @@ class ReverseProxy extends Service {
       lastOrigin: undefined,
       lastUrl: undefined,
       agent: null,
+      tunnels: 0,
     };
     // Normalisés UNE fois ici : la comparaison par requête reste un `includes`.
     if (options.methods) {
@@ -196,8 +208,12 @@ class ReverseProxy extends Service {
     this.mounts = kept.length > 0 ? kept : null;
   }
 
-  /** Ferme tous les pools (arrêt du noyau). Les montages restent déclarés. */
+  /**
+   * Ferme tous les pools (arrêt du noyau). Les montages restent déclarés ; un
+   * relais encore en vol part ensuite sur une connexion à usage unique.
+   */
   closeAll(): void {
+    this.#closing = true;
     for (const m of this.mounts ?? []) {
       m.agent?.destroy();
       m.agent = null;
@@ -251,7 +267,8 @@ class ReverseProxy extends Service {
    * à la cible. Keep-alive borné (`maxSockets`), `lifo` : le socket le plus
    * récent, le moins susceptible d'avoir été fermé par l'amont.
    */
-  private agentFor(mount: IMountRecord, target: URL): http.Agent {
+  private agentFor(mount: IMountRecord, target: URL): http.Agent | false {
+    if (this.#closing) return false;
     const wantsTls = target.protocol === "https:";
     const agent = mount.agent;
     if (agent !== null && agent instanceof https.Agent === wantsTls)
@@ -358,7 +375,9 @@ class ReverseProxy extends Service {
    * 421 ; chemin ambigu ou handshake non conforme (RFC 6455 §4.2.1 — seul
    * `Upgrade: websocket` est relayé, jamais un tunnel `h2c`) → 400 ;
    * `Origin` refusée par la MÊME règle que le serveur WebSocket (anti-CSWSH,
-   * RFC 6455 §10.2) → 403. Le socket est alors consommé.
+   * RFC 6455 §10.2) → 403 ; `maxSockets` tunnels déjà ouverts vers l'amont →
+   * 503 ; quotas par IP du noyau (débit de handshakes, connexions
+   * simultanées) → 429. Le socket est alors consommé.
    *
    * @returns `true` si le proxy a pris le socket en charge
    */
@@ -397,6 +416,22 @@ class ReverseProxy extends Service {
       refuseUpgrade(socket, 403, "Forbidden");
       return true;
     }
+    // Un tunnel ne prend pas de socket du pool : sans cette borne, chaque
+    // upgrade ouvrirait une connexion amont de plus, sans limite.
+    if (mount.tunnels >= this.maxSockets) {
+      refuseUpgrade(socket, 503, "Service Unavailable");
+      return true;
+    }
+    // Mêmes quotas par IP qu'un upgrade servi par Nodefony. Avant le 101 :
+    // le refus est un statut HTTP (429), là où `ws` ne peut plus que fermer.
+    if (rules?.websocketQuotaRefusal(req, socket) != null) {
+      refuseUpgrade(socket, 429, "Too Many Requests");
+      return true;
+    }
+    mount.tunnels++;
+    socket.once("close", () => {
+      mount.tunnels--;
+    });
     forwardUpgrade(
       req,
       socket,

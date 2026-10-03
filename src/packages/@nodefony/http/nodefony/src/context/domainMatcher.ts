@@ -22,6 +22,27 @@
 
 import { escapeRegExp } from "nodefony";
 
+/**
+ * Nom d'hôte d'une autorité brute (`host[:port]`), sans port — la valeur que
+ * rendrait `URL.hostname` pour une autorité déjà canonique, sans en payer le
+ * parse (`indexOf` + `slice`, #508). Un littéral IPv6 garde ses crochets
+ * (`[::1]:5151` → `[::1]`) : couper au premier `:` le réduirait à `[`.
+ *
+ * @param host - autorité brute (`Host`), éventuellement absente
+ * @returns le nom d'hôte, `""` si l'autorité est absente
+ */
+export function hostnameOf(host: string | undefined): string {
+  if (!host) {
+    return "";
+  }
+  if (host.charCodeAt(0) === 91 /* "[" */) {
+    const end = host.indexOf("]");
+    return end === -1 ? host : host.slice(0, end + 1);
+  }
+  const colon = host.indexOf(":");
+  return colon === -1 ? host : host.slice(0, colon);
+}
+
 /** Un pattern de domaine : string (exact ou `*`-wildcard) ou `RegExp` (libre). */
 export type DomainPattern = string | RegExp;
 

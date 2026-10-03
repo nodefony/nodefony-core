@@ -4,6 +4,7 @@ import {
   compileDomainPattern,
   compileDomainPatterns,
   compileTrustedHosts,
+  hostnameOf,
   isDomainAllowed,
   resolveTrustedHostNames,
 } from "../../src/context/domainMatcher.js";
@@ -153,5 +154,28 @@ describe("resolveTrustedHostNames — la barrière, lisible par un proxy", () =>
     expect(
       resolveTrustedHostNames("app.fr", [/^.*\.app\.fr$/u, "b.fr"]),
     ).to.deep.equal(["app.fr", "b.fr"]);
+  });
+});
+
+describe("hostnameOf — chemin rapide du pipeline HTTP", () => {
+  it.each([
+    "localhost",
+    "localhost:5152",
+    "app.example.com",
+    "app.example.com:8443",
+    "127.0.0.1:5151",
+    "[::1]",
+    "[::1]:5151",
+    "[2001:db8::1]:443",
+  ])(
+    "%s : même nom que `URL.hostname` (référence du WS et du proxy)",
+    (host) => {
+      expect(hostnameOf(host)).to.equal(new URL(`http://${host}`).hostname);
+    },
+  );
+
+  it("autorité absente : chaîne vide", () => {
+    expect(hostnameOf(undefined)).to.equal("");
+    expect(hostnameOf("")).to.equal("");
   });
 });

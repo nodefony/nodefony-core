@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 898,
-    "symbols": 4540,
+    "symbols": 4543,
     "classes": 409,
     "interfaces": 1181,
     "types": 485,
     "enums": 4,
-    "functions": 2005,
-    "constants": 456
+    "functions": 2007,
+    "constants": 457
   },
   "symbols": {
     "Mediasoup": {
@@ -26423,6 +26423,14 @@
       "module": "@nodefony/http",
       "description": "Valeur de configuration `http.trustedHosts` (barrière sécu avant routing) : - `false` / absent : défaut (domaine canonique + loopback en dev). - `true` : bypass total — tout `Host` passe (déploieme…"
     },
+    "hostnameOf": {
+      "name": "hostnameOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Nom d'hôte d'une autorité brute (`host[:port]`), sans port — la valeur que rendrait `URL.hostname` pour une autorité déjà canonique, sans en payer le parse (`indexOf` + `slice`, #508). Un littéral …"
+    },
     "compileDomainPattern": {
       "name": "compileDomainPattern",
       "kind": "function",
@@ -26797,7 +26805,7 @@
       "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Cadrage du corps transmis à l'amont (RFC 9112 §6)."
+      "description": "Cadrage du corps transmis à l'amont (RFC 9112 §6). `unsupported` : un codage de transfert autre que `chunked` seul — le proxy ne sait pas le transmettre fidèlement."
     },
     "viaLoops": {
       "name": "viaLoops",
@@ -26878,6 +26886,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Relaie un upgrade WebSocket DÉJÀ validé (méthode, `Upgrade`, clé, version, `Origin` — cf `ReverseProxy.handleUpgrade`) : rejoue le handshake vers l'amont, renvoie sa réponse `101` au client puis ra…"
+    },
+    "MAX_VIA_HOPS": {
+      "name": "MAX_VIA_HOPS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Sauts `Via` au-delà desquels un message est tenu pour une boucle. Notre pseudonyme ne repère une boucle qu'au RETOUR dans ce processus : derrière un répartiteur qui tourne sur N instances, cela peu…"
     },
     "ProxyStaticMount": {
       "name": "ProxyStaticMount",
@@ -41248,6 +41264,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "Cookies": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "hostnameOf": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "ParserXml": [

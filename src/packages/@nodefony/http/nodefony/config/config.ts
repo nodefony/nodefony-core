@@ -1049,8 +1049,9 @@ const proxyMountSchema = z
       .number()
       .optional()
       .describe(
-        "Délai d'inactivité avec l'amont (ms) — dépassé avant la réponse : 504. " +
-          "Absent = `proxy.timeoutMs`. Ne s'applique pas à un WebSocket établi.",
+        "Délai d'inactivité avec l'amont (ms) — dépassé avant la réponse (ou " +
+          "avant le `101` d'un upgrade WebSocket) : 504. Absent = " +
+          "`proxy.timeoutMs`. Ne s'applique pas à un WebSocket établi.",
       ),
     secure: z
       .boolean()
@@ -1093,8 +1094,9 @@ const proxySchema = z
       .default(256)
       .describe(
         "Connexions simultanées maximales vers UN amont (pool keep-alive dédié " +
-          "par montage) ; au-delà, les requêtes attendent un socket libre. " +
-          "Défaut 256. Le pool ignore `HTTP_PROXY`/`NODE_USE_ENV_PROXY` : un " +
+          "par montage) ; au-delà, les requêtes attendent un socket libre. Borne " +
+          "aussi les tunnels WebSocket relayés, hors pool : au-delà, l'upgrade " +
+          "rend 503. Défaut 256. Le pool ignore `HTTP_PROXY`/`NODE_USE_ENV_PROXY` : un " +
           "amont se joint en direct.",
       ),
     mounts: z
@@ -1102,7 +1104,12 @@ const proxySchema = z
       .default({})
       .describe(
         "Préfixe d'URL → amont. Consulté AVANT le routage : une route de " +
-          "l'application sous ce préfixe ne sera jamais atteinte. Correspondance " +
+          "l'application sous ce préfixe ne sera jamais atteinte. ⚠️ Servi " +
+          "AVANT le pare-feu, la CSRF et les en-têtes applicatifs (CSP, " +
+          "Referrer-Policy, COOP) — l'amont porte sa propre politique d'accès ; " +
+          "les en-têtes de transport (nosniff, X-Frame-Options, HSTS) sont posés " +
+          "si l'amont ne les fixe pas, et les quotas (rate-limit, connexions " +
+          "WebSocket par IP) s'appliquent. Correspondance " +
           "au préfixe le PLUS LONG. Refusés au démarrage : `/`, ce qui est sous " +
           "`/nodefony/` (administration) ou `/_vite/` (monté par " +
           "@nodefony/frontend), deux clés qui désignent le même préfixe.",
