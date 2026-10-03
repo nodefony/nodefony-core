@@ -19,12 +19,18 @@ export interface ViteConfigGeneratorOptions {
    */
   readonly backendOrigin?: string | undefined;
   /**
-   * Origine publique du dev server Vite — ex `"http://127.0.0.1:5173"`.
-   * Définie comme `base` dans Vite, ce qui force les imports internes du
-   * source transformé (ex `/src/App.tsx`) à devenir absolus
-   * (`http://host:port/src/App.tsx`). Sans ça, une page rendue par
-   * Nodefony (5151) qui charge `/src/main.tsx` voit ses imports résolus
-   * contre 5151 → 404. Active aussi `strictPort` pour garantir l'origine.
+   * Chemin de base Vite en développement — `/_vite/<famille>/`
+   * (`devBasePath`). Émis comme `base` : Vite préfixe alors TOUTES ses URLs
+   * (modules, assets, `url()` CSS, socket HMR), et Nodefony relaie ce préfixe
+   * vers le serveur Vite.
+   */
+  readonly devBase?: string | undefined;
+  /**
+   * @deprecated Utiliser {@link ViteConfigGeneratorOptions.devBase}. Vite
+   * réduit un `base` absolu à son seul chemin en développement
+   * (`resolveBaseUrl`) : cette origine n'a jamais rendu aucune URL absolue.
+   * Sans effet : `strictPort`, qu'elle activait, est désormais toujours posé
+   * en développement.
    */
   readonly viteOrigin?: string | undefined;
   /**
@@ -220,11 +226,14 @@ export class ViteConfigGenerator {
             )
             .join("\n")
         : "";
-    // strictPort + base sont liés : on doit garantir l'origine pour que le
-    // `base` reflète le vrai port. Si Vite saute sur un autre port à cause
-    // d'un conflit, les imports absolus seraient cassés silencieusement.
-    const useViteOrigin = mode === "development" && !!opts.viteOrigin;
-    const strictPort = useViteOrigin ? "true" : "false";
+    // strictPort : le superviseur choisit le port (repli, bloc par famille) et
+    // annonce ce port dans les URLs et le CSP. Un Vite qui sauterait de lui-même
+    // sur un autre port servirait des URLs fausses, en silence.
+    // Toujours en développement : la config n'est générée QUE pour le
+    // superviseur — dépendre d'une option ici a déjà laissé Vite se décaler seul.
+    const devBase =
+      mode === "development" && opts.devBase ? opts.devBase : undefined;
+    const strictPort = mode === "development" ? "true" : "false";
     const useHttps = mode === "development" && !!opts.https;
     const httpsLines = useHttps
       ? `    https: {
@@ -273,11 +282,11 @@ ${proxyLines}
     cors: true,
 ${allowedHostsLine}${httpsLines}${fsBlock}  },`;
 
-    // `base` est inclus seulement si l'origin Vite est fournie en dev. En prod,
-    // Vite préfixe avec le `base` standard "/" (assets relatifs).
-    const baseLine = useViteOrigin
-      ? `  base: ${JSON.stringify(opts.viteOrigin + "/")},\n`
-      : "";
+    // `base` = chemin réservé de la famille, en dev seulement (#526). Jamais une
+    // origine : Vite en dev n'en garde que le chemin, et une URL d'asset reste
+    // relative au DOCUMENT (servi par Nodefony) — c'est le préfixe qui la rend
+    // relayable. En prod, le build pose sa propre `base` (publicPath).
+    const baseLine = devBase ? `  base: ${JSON.stringify(devBase)},\n` : "";
 
     // UNE seule copie par runtime front — une app générée `--link` a DEUX
     // node_modules (app + checkout du framework) : une entry servie via /@fs

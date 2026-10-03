@@ -30,6 +30,7 @@ import {
   isolationGroup,
   familyPortPlan,
   familyPortBlocks,
+  devBasePath,
   PRIMARY_FAMILY,
 } from "../src/isolationGroups";
 import defaultConfig, { type IFrontendConfig } from "../config/config";
@@ -52,6 +53,19 @@ import {
 interface IStaticMountService {
   addMount(prefix: string, dir: string): void;
   hasMounts(): boolean;
+}
+
+/**
+ * Vue minimale du relais du service statique de `@nodefony/http` (résolu par
+ * nom, même raison). En développement, chaque famille Vite y déclare son
+ * préfixe `/_vite/<famille>/` (#526).
+ */
+interface IStaticRelayService {
+  addRelay?(
+    prefix: string,
+    resolveOrigin: (domain: string) => string | undefined,
+  ): void;
+  removeRelay?(prefix: string): void;
 }
 
 /**
@@ -649,9 +663,11 @@ class FrontendService extends Service implements IFrontendService {
     const [first] = entries;
     if (first === undefined) throw new FrontendNoEntriesError();
     const r = this.cfg.resilience;
+    const devBase = devBasePath(family);
     const supervisor = new ViteProcessSupervisor({
       devHost: this.cfg.devHost,
       devPort: port,
+      devBase,
       publicOriginTemplate: ctx.publicOriginTemplate,
       allowedHosts: ctx.allowedHosts,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
@@ -676,10 +692,9 @@ class FrontendService extends Service implements IFrontendService {
       },
     });
     this.supervisors.set(family, supervisor);
-    this.templateHelpers.set(
-      family,
-      new TemplateHelper(supervisor, "development"),
-    );
+    const helper = new TemplateHelper(supervisor, "development");
+    this.templateHelpers.set(family, helper);
+    this.registerDevRelay(devBase, helper);
 
     // Le builder n'est pas utilisé en dev (config générée par le generator),
     // mais on passe la config (vide) pour respecter le contrat.
@@ -688,6 +703,29 @@ class FrontendService extends Service implements IFrontendService {
     this.log(
       `vite [${family}] ready on ${supervisor.status().host}:${supervisor.status().port}`,
       "INFO",
+    );
+  }
+
+  /**
+   * Déclare le relais `/_vite/<famille>/` auprès du serveur statique (#526).
+   *
+   * Vite fabrique ses URLs d'assets relatives au DOCUMENT — une image importée,
+   * un `url()` CSS deviennent `/_vite/<famille>/…` — et le navigateur les
+   * demande donc à Nodefony, qui les renvoie (307) vers Vite. La cible suit la
+   * MÊME règle que les balises de la page : `derivableHost` (épinglage,
+   * `trustedHosts`) puis `TemplateHelper.devOrigin`. Une seule politique
+   * d'hôte, jamais une seconde copie côté relais. Posé avant `start()` : tant
+   * que Vite n'a pas de port, `devOrigin` ne rend rien et la requête suit son
+   * chemin normal. No-op sans `server-static` (app sans serveur HTTP).
+   *
+   * @param devBase - chemin de base de la famille (`devBasePath`)
+   * @param helper - helper de la famille, qui connaît son superviseur
+   */
+  private registerDevRelay(devBase: string, helper: TemplateHelper): void {
+    (
+      this.container?.get("server-static") as IStaticRelayService | undefined
+    )?.addRelay?.(devBase, (domain) =>
+      helper.devOrigin(this.derivableHost(domain)),
     );
   }
 
@@ -778,6 +816,12 @@ class FrontendService extends Service implements IFrontendService {
     await Promise.allSettled(
       [...this.supervisors.values()].map((s) => s.stop()),
     );
+    // Relais : plus de Vite derrière — le préfixe redevient une URL ordinaire.
+    const stat = this.container?.get("server-static") as
+      IStaticRelayService | undefined;
+    for (const family of this.supervisors.keys()) {
+      stat?.removeRelay?.(devBasePath(family));
+    }
     this.supervisors.clear();
     this.templateHelpers.clear();
     this.entryFamily.clear();

@@ -145,6 +145,14 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 `verify required`+`verifyhost`+`sni`. Edge écrase XFF (`$remote_addr`). Tests : `generateProxyConfig.test.ts` (12).
 ⚠️ `proxy:generate` boote à `kernelEvent: onReady` (mounts natifs posés à onReady) + appelle `staticSvc.mountModulePublics()` (idempotent, anti-race ordre listeners) ; kernel console = modules PROD (pas `policy:"dev"` → pas de `/test/` en prod = correct).
 
+## Relais de préfixe (server-static `addRelay`)
+
+`addRelay(prefix, resolveOrigin: (domain) => origin|undefined)` / `removeRelay(prefix)` / `relayTarget(url, domain)` → URL absolue ou `undefined`. `relays: StaticRelay[] | null` (null = aucun relais = prod, 1 lecture de champ). `HttpKernel.routeHttpRequest` le consulte AVANT `router.resolve` (≠ montages router-first) si `validDomain || !domainCheck` → `redirect(target, 307, {Cache-Control: no-store})` + `writeHead()` + `end()`. Cible = `origin + url` (url commence par le préfixe → jamais un hôte client). `normalizePrefix` partagé avec `addMount`. Seul consommateur : `@nodefony/frontend` en dev (`/_vite/<famille>/` → Vite). Tests : `unit/staticRelay.test.ts`, `http/vite-relay.test.ts` (serveur réel).
+
+## Fin de réponse HTTP/2 — `responseEnded`
+
+`Http2Response` écrit/termine le FLUX (`stream.respond`/`stream.end`) → `Http2ServerResponse.writableEnded` reste `false`. L'écouteur `close` de `createHttpContext` lit `responseEnded(response)` (= `writableEnded || stream.writableEnded`), sinon toute réponse h2 courte-circuitée sans `send()` (preflight CORS 204, relais 307) était journalisée 499. Test : `http/client-abort-499.test.ts` (client `node:http2` — `node:https` = HTTP/1.1, aveugle).
+
 ## Préfixe natif statique `/<module>/` (server-static `mountModulePublics`)
 
 À `onReady`, `server-static` auto-monte le `public/` de chaque module sous `/<basename(nom)>/` via `addMount` (`@nodefony/test`→`/test/`). **Skip** : app root (`isApp` → `./public` à `/` via `statics.web`, ex. favicon) ; modules frontend-managed (présents dans `frontend.listEntries()` → servis `/_assets/<name>/`, studio inclus) ; modules sans `public/` (http/framework/security skippés naturellement). Enregistré dans `.mounts` quel que soit `enabled` → introspectable par proxy:generate même statics OFF. `addMount` idempotent (remplace par préfixe). Fichiers à la RACINE de `public/` (pas de sous-dossier nom-de-module sinon `/test/test/`).

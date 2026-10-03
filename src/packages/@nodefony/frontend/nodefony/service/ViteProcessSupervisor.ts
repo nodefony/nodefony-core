@@ -76,6 +76,11 @@ export interface ViteSupervisorOptions {
    */
   readonly publicOriginTemplate?: string | undefined;
   /**
+   * Chemin de base Vite de l'instance (`devBasePath(famille)`) — émis comme
+   * `base` dans la config générée, rendu par `status().base`.
+   */
+  readonly devBase?: string | undefined;
+  /**
    * Hôtes que Vite doit accepter dans le header `Host` (`server.allowedHosts`).
    * `true` = tous. Dérivé par FrontendService de la liste `trustedHosts` http —
    * jamais maintenu ici (1 règle = 1 implémentation).
@@ -351,6 +356,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       state: this.state,
       host: this.opts.devHost,
       origin: this.resolvedOrigin,
+      ...(this.opts.devBase ? { base: this.opts.devBase } : {}),
       // 🔴 Le port RÉSOLU, jamais le port DEMANDÉ. Le repli `?? devPort` rendait
       // un port qu'on ESPÈRE pour un port qui SERT — et le contrat annonce
       // pourtant `number | null`. La conséquence est exactement le symptôme
@@ -463,7 +469,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     this.resolvedOrigin = viteOrigin;
     const content = this.generator.toMjs(this.entries, "development", {
       backendOrigin: this.opts.backendOrigin,
-      viteOrigin,
+      devBase: this.opts.devBase,
       https: this.opts.https,
       allowedHosts: this.opts.allowedHosts,
     });

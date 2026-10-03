@@ -32,11 +32,20 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - Superviseur : origine figée (sans `{port}`) + port décalé → ERROR annoncée ; multi-familles + origine figée → WARNING (une origine ne sert qu'UNE famille).
 - Résilience : timeout boot → SIGKILL de l'arbre (sinon Vite ORPHELIN hors machine à états) ; `cleanupChildListeners()` en tête d'`attemptSpawn` (drain retry) ; ping santé sur `browserReachableHost` (0.0.0.0 inconnectable win32) ; **budget restarts réarmé au 1er ping santé OK** (5 crashs épars ≠ crash-loop ; le plafond ne compte que les rafales) ; win32 sans viteBin → refus NOMMÉ (npx `.cmd` = EINVAL, pas de fallback masqué) ; exit pendant `willingShutdown` au boot → « arrêt demandé », pas « family failed ».
 
+## Assets en dev (#526)
+
+- Vite en dev réduit `base` à son CHEMIN (`resolveBaseUrl`) → une URL d'asset (`import x from "./x.png"`, `url()` CSS, `<img src>` Vue) est relative au DOCUMENT (servi par Nodefony). `viteOrigin` du générateur = `@deprecated`, sans effet.
+- `devBasePath(f)` (`isolationGroups.ts`) = `/_vite/<f>/` — `default` | `vue` | `angular`, une instance Vite chacune. Émis `base`, rendu `status().base`, suffixé par `TemplateHelper` (`basePathOf`) à TOUTES les balises (Vite refuse hors base).
+- `originFor(status, requestHost)` (module-level, TemplateHelper) = règle UNIQUE de l'origine : balises ET `devOrigin()` (cible du relais). `devOrigin` → `undefined` tant que `status.port === null`.
+- `registerDevRelay(devBase, helper)` → `server-static.addRelay(devBase, d => helper.devOrigin(this.derivableHost(d)))` ; `stopDev` → `removeRelay` par famille.
+- Hors remède (comme Vite pur) : chaîne `src="./x"` JSX/Svelte/template Angular non transformée ; `url()` des `styles: [...]` inline Angular (analog). `styleUrls` OK.
+- Tests : `unit/devAssetRelay.test.ts`, `integration/devAssetBase.test.ts` (Vite réel, fixture `fixtures/asset-frontend`), http `unit/staticRelay.test.ts` + `http/vite-relay.test.ts`.
+
 ## Pipeline
 
 1. consumer module → `frontendService.registerEntry(this, { type, entry, apiProxyPaths })` dans onKernelBoot()
 2. kernel.**onServersReady** + env=development + autoStart → service.startDev() (PAS onReady — Vite après que les servers Nodefony écoutent)
-3. startDev → generator.toMjs (base, https, proxy, viteOrigin) → writeFileSync → supervisor.start (spawn vite)
+3. startDev → par famille : `registerDevRelay(devBasePath(famille))` → generator.toMjs (`base: /_vite/<famille>/`, strictPort toujours en dev, https, proxy) → writeFileSync → supervisor.start (spawn vite)
 4. browser → controller rend HTML → TemplateHelper.renderTags injecte `<script>` (+ React preamble pour react19)
 5. browser ↔ Vite direct (cors=true) sur port 5173. fetch("/api/...") → Vite proxifie vers Nodefony.
 6. kernel.onTerminate → supervisor.stop (idempotent) → SIGINT + SIGKILL 3s

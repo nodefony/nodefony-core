@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 893,
-    "symbols": 4507,
+    "symbols": 4516,
     "classes": 408,
-    "interfaces": 1172,
-    "types": 481,
+    "interfaces": 1173,
+    "types": 483,
     "enums": 4,
-    "functions": 1989,
-    "constants": 453
+    "functions": 1994,
+    "constants": 454
   },
   "symbols": {
     "Mediasoup": {
@@ -18764,6 +18764,14 @@
       "module": "@nodefony/frontend",
       "description": "Famille d'isolation Vite d'un type de preset frontend. Les presets d'une même famille **cohabitent dans une seule instance Vite** ; les familles distinctes tournent dans des **process Vite séparés*…"
     },
+    "devBasePath": {
+      "name": "devBasePath",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/isolationGroups.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Chemin de base Vite d'une famille en développement (`/_vite/<famille>/`). Vite fabrique ses URLs d'assets RELATIVES AU DOCUMENT : une image importée devient `/<base>/src/logo.png`, que le navigateu…"
+    },
     "orderFamilies": {
       "name": "orderFamilies",
       "kind": "function",
@@ -18787,6 +18795,14 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Bloc de ports de chaque famille : tous les ports que SON instance Vite peut prendre, port-retry compris. Le plan seul ne dit que le port ESPÉRÉ ; sur `EADDRINUSE` le superviseur glisse dans son blo…"
+    },
+    "DEV_BASE_ROOT": {
+      "name": "DEV_BASE_ROOT",
+      "kind": "const",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/isolationGroups.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Espace d'URL réservé aux serveurs Vite de développement, sur l'origine de Nodefony. Chaque famille y a son sous-préfixe (cf {@link devBasePath})."
     },
     "PRIMARY_FAMILY": {
       "name": "PRIMARY_FAMILY",
@@ -19700,6 +19716,14 @@
       "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
       "exported": true,
       "module": "@nodefony/http"
+    },
+    "responseEnded": {
+      "name": "responseEnded",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "La réponse a-t-elle été TERMINÉE par le serveur ? Sous HTTP/2, la réponse Nodefony écrit et termine le FLUX (`stream.respond`/`stream.end`), jamais la réponse de compatibilité : `writableEnded` de …"
     },
     "createHttpAdminApi": {
       "name": "createHttpAdminApi",
@@ -26155,6 +26179,14 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "RelayOriginResolver": {
+      "name": "RelayOriginResolver",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Origine vers laquelle relayer une requête, calculée à partir du nom d'hôte par lequel le client est arrivé (`Context.domain`, sans port)."
     },
     "WebsocketSecure": {
       "name": "WebsocketSecure",
@@ -38790,7 +38822,8 @@
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontendService.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts"
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
       ],
       "IFrontendService": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
@@ -38829,6 +38862,9 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "familyPortBlocks": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "devBasePath": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "PRIMARY_FAMILY": [

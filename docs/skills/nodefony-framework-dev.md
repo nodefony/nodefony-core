@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-28
+updated: 2026-10-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 ---
@@ -71,8 +71,8 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/conventions.md` | Conventions de structure — modules, types, configuration | 215 |
 | `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 760 |
 | `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 604 |
-| `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 94 |
-| `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 588 |
+| `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 95 |
+| `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 601 |
 | `references/orm.md` | ORM (orm-core/drizzle/mongoose) — référence complète (recettes + API + internals + gotchas) | 694 |
 | `references/pagination.md` | Pagination, tri, filtres, facettes — le contrat de page | 468 |
 | `references/portabilite.md` | Portabilité — écrire du code qui tourne sur les 3 plateformes | 141 |

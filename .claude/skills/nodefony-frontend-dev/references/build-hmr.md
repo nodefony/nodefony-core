@@ -25,6 +25,7 @@ sans lire le source.
   - [4.6 CSP automatique (origines Vite → firewall)](#46-csp-automatique-origines-vite--firewall)
   - [4.7 Résilience du superviseur](#47-résilience-du-superviseur)
   - [4.8 Assets / CDN](#48-assets--cdn)
+  - [4.9 Assets en dev — chemin réservé + relais](#49-assets-en-dev--chemin-réservé--relais)
 - [5. Recette — ajouter un front à un module](#5-recette--ajouter-un-front-à-un-module)
 - [6. Gotchas front-build](#6-gotchas-front-build)
 - [7. Commandes CLI](#7-commandes-cli)
@@ -75,8 +76,9 @@ DEV (env=development)
          └─ ViteProcessSupervisor.start() → spawn le vrai bin Vite, parse "Local:" → ready
   Navigateur  GET /ma-route  (HTTP 5151 / HTTPS 5152)
     └─ Controller → this.render(svc.renderDocument("nom", ctx.cspNonce))
-         → injecte <script src="http://host:5173/@fs/<abs>/main.tsx"> + @vite/client + preamble
-  Navigateur ↔ Vite 5173 (cors)  : assets + HMR (WebSocket Vite autonome)
+         → injecte <script src="http://host:5173/_vite/<famille>/@fs/<abs>/main.tsx"> + @vite/client + preamble
+  Navigateur ↔ Vite 5173 (cors)  : modules + HMR (WebSocket Vite autonome)
+  Navigateur → Nodefony /_vite/<famille>/… (URL d'asset relative au document) → 307 → Vite (§4.9)
   Navigateur fetch("/ma/api")     : Vite PROXIFIE vers le backend Nodefony
   Kernel "onTerminate" → stopDev() → SIGINT puis SIGKILL(3s)
 
@@ -286,9 +288,12 @@ généré est autosuffisant : il `import`e Vite + les plugins **hardcodés** sel
 
 Contenu clé de la config générée :
 
-- `base: "<viteOrigin>/"` (ex `http://127.0.0.1:5173/`) en dev (`:200`) : force les imports internes
-  du source transformé à devenir **absolus** vers le port Vite. Sans ça, une page rendue par Nodefony
-  (5151) qui charge `/src/main.tsx` résoudrait ses imports contre 5151 → 404. Active `strictPort`.
+- `base: "/_vite/<famille>/"` en dev (`devBasePath`, `isolationGroups.ts`) : Vite préfixe TOUTES ses
+  URLs (modules, assets, `url()` CSS, socket HMR). ⚠️ Jamais une ORIGINE : en dev, Vite réduit un `base`
+  absolu à son seul chemin (`resolveBaseUrl`) — l'ancien `base: "https://127.0.0.1:5173/"` valait `/`.
+  Les imports JS marchent parce que le navigateur les résout contre l'URL du MODULE (Vite) ; une URL
+  d'asset, elle, se résout contre la PAGE (Nodefony) → d'où le relais (§4.9). `strictPort` est toujours
+  posé en dev : le superviseur possède le port.
 - `server.cors: true` : le navigateur charge depuis l'origine Nodefony des assets servis par Vite.
 - `server.fs.allow` : `process.cwd()` (workspace root, node_modules hoistés) + le `root` de **chaque**
   entry (`:128-129`) → permet de servir via `/@fs/<abs>` (clé du multi-bundle, §4.4).
@@ -440,6 +445,41 @@ mount `Statics` (qui reste relatif à l'origine). Vide = assets servis depuis l'
 chemins relatifs. Bascule cloud-native (nginx/CDN frontal) = changer `assetBaseUrl`/`publicPath` sans
 toucher au rendu.
 
+### 4.9 Assets en dev — chemin réservé + relais
+
+Le problème : la page vient de Nodefony (5152), les modules de Vite (5173). Vite fabrique ses URLs
+d'assets **relatives au document** — `import logo from "./logo.png"` rend `"/_vite/default/src/logo.png"`,
+un `url(./x.png)` CSS idem, un `<img src="./x.png">` de gabarit Vue idem. Le navigateur les demande
+donc à **Nodefony**.
+
+Le remède (#526), en deux moitiés :
+
+1. **Chemin réservé par famille** — `devBasePath(famille)` = `/_vite/<famille>/` (`default`, `vue`,
+   `angular` : une instance Vite chacune, sur son port). Émis comme `base` par le générateur, porté par
+   `status().base`, suffixé par `TemplateHelper` à TOUTES les balises (une seule oubliée → Vite la
+   refuse, page morte).
+2. **Relais 307 côté Nodefony** — `FrontendService.registerDevRelay` déclare le préfixe au service
+   `server-static` (`addRelay`, résolu PAR NOM, anti-cycle). `HttpKernel` le consulte **avant le
+   routage** (une route attrape-tout de l'app ne l'avale pas) et redirige vers
+   `TemplateHelper.devOrigin(derivableHost(domain))` — la MÊME règle que les balises : origine épinglée
+   (config/plateforme), `trustedHosts`, boucle locale recomposée. `Cache-Control: no-store` (la cible
+   dépend de l'hôte du client). Un Host refusé par `domainCheck` n'est pas relayé (421 comme ailleurs).
+   `stopDev` retire les relais (`removeRelay`) ; sans relais `relays === null` → zéro coût en prod.
+
+Pourquoi pas `server.origin` : il fige UNE origine (casse poste + conteneur servis ensemble), et il est
+**ignoré en mode bundlé** de Vite (`fileToUrl$1` → `fileToBuiltUrl`) ; `base` est honoré partout.
+Pourquoi pas une substitution par requête dans `res.end` : comportement interne de Vite, seconde
+politique d'hôte, sourcemaps décalées.
+
+**Pour coder un front** : importer ses images normalement (`import x from "./x.png"`, `url()` CSS,
+`new URL("./x.png", import.meta.url)`) — **jamais `?inline` pour contourner l'origine**. Restent hors
+remède, comme dans un Vite pur : une chaîne `src="./x.png"` en JSX/Svelte/template Angular (jamais
+transformée — importer, ou servir depuis `public/` de l'app) et un `url()` dans les `styles: [...]`
+inline d'Angular (analog ne les réécrit pas ; `styleUrls` oui).
+
+Preuves : `tests/integration/devAssetBase.test.ts` (Vite réel), `tests/unit/devAssetRelay.test.ts`,
+http `tests/unit/staticRelay.test.ts` + `tests/http/vite-relay.test.ts` (serveur réel).
+
 ---
 
 ## 5. Recette — ajouter un front à un module
@@ -575,6 +615,10 @@ consommateur (pattern bull-board/GraphiQL). La mécanique vit dans **@nodefony/h
 - **`apiProxyPaths` manquant → `Unexpected token '<'`** : un `fetch` d'API depuis l'app Vite tombe sur
   le SPA-fallback HTML de Vite. Déclarer le préfixe d'API (cf §4.2). Le data plane `/nodefony/*/api`
   est déjà proxifié d'office.
+- **Image importée en 404 / texte alternatif affiché en dev** : URL sans `/_vite/<famille>/` (balise écrite
+  à la main au lieu de `renderTags`), relais absent (`server-static` non chargé), ou route/proxy qui
+  intercepte `/_vite/*` avant Nodefony. Sonde : `curl -sk -o /dev/null -w "%{http_code}"
+https://127.0.0.1:5152/_vite/default/@vite/client` → `307` attendu (cf §4.9).
 - **Prébundle `.vite` périmé** : après un changement d'import/subpath ou un upgrade de dep, Vite peut
   servir un cache `node_modules/.vite` obsolète → erreurs d'import fantômes. Purger
   `node_modules/.vite` (le dossier de l'app/du root concerné) puis relancer.

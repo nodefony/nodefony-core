@@ -49,6 +49,34 @@ export function isolationGroup(type: string): string {
 }
 
 /**
+ * Espace d'URL réservé aux serveurs Vite de développement, sur l'origine de
+ * Nodefony. Chaque famille y a son sous-préfixe (cf {@link devBasePath}).
+ */
+export const DEV_BASE_ROOT = "/_vite/";
+
+/**
+ * Chemin de base Vite d'une famille en développement (`/_vite/<famille>/`).
+ *
+ * Vite fabrique ses URLs d'assets RELATIVES AU DOCUMENT : une image importée
+ * devient `/<base>/src/logo.png`, que le navigateur résout contre l'origine de
+ * la page — servie par Nodefony, pas par Vite. Un préfixe réservé rend ces
+ * URLs reconnaissables : Nodefony les relaie (307) vers le serveur Vite, sans
+ * collision possible avec les routes de l'application. Un préfixe PAR famille,
+ * parce que chaque famille a son instance Vite, sur son port : le relais doit
+ * savoir vers laquelle renvoyer.
+ *
+ * `base` est l'option que Vite honore partout — dev classique, dev bundlé,
+ * socket HMR, `@vitejs/plugin-vue`, publicDir —, contrairement à
+ * `server.origin`, ignoré en mode bundlé.
+ *
+ * @param family - clé de famille ({@link isolationGroup})
+ * @returns le chemin, `/` en tête et en fin
+ */
+export function devBasePath(family: string): string {
+  return `${DEV_BASE_ROOT}${family}/`;
+}
+
+/**
  * Famille servie sur le port de base (`devPort`). Les autres familles prennent
  * les blocs de ports suivants. Garder `default` ici garantit que l'instance
  * principale (React/Svelte/vanilla/Studio) reste sur le port habituel (5173).

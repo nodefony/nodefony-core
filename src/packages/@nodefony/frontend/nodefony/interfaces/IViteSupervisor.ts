@@ -30,6 +30,12 @@ export interface IViteSupervisorStatus {
    * `null` tant qu'aucun spawn n'a résolu de port.
    */
   readonly origin: string | null;
+  /**
+   * Chemin de base Vite de cette instance (`/_vite/<famille>/`, `/` en tête et
+   * en fin). Toute URL émise vers Vite le porte : c'est lui que Nodefony relaie.
+   * Absent quand le superviseur n'en a pas reçu (doubles de test) → `/`.
+   */
+  readonly base?: string;
   readonly pid: number | null;
   readonly lastError: string | null;
   readonly entries: ReadonlyArray<IResolvedFrontendEntry>;

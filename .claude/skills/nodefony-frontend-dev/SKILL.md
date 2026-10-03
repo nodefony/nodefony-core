@@ -81,6 +81,7 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 - **Temps réel CALME** (WCAG 2.2.2) : paliers ms↔s, `tabular-nums`, respecter `prefers-reduced-motion` (flashes → opacité douce). Test des 30 s : l'œil ne doit rien voir bouger sans raison.
 - **Socket PARTAGÉE** : 1 `RealtimeClient` par URL (singleton) ; canaux **ref-comptés** (subscribe au montage, unsubscribe au démontage) ; reconnect → re-subscribe auto. Ne JAMAIS ouvrir une 2ᵉ socket.
 - **a11y** : 1 seul `<h1>`, `aria-label` sur les icônes-boutons, `aria-expanded` sur les toggles, `aria-live` pour le live. (→ `references/specs/w3c-wcag22.md` + `w3c-aria-apg-patterns.md`.)
+- **Assets = import normal** (`import x from "./x.png"`, `url()` CSS) — **jamais `?inline` pour contourner l'origine** en dev : Nodefony relaie le chemin réservé `/_vite/<famille>/` vers Vite, et toute URL Vite émise doit le porter (passer par `renderTags`/`renderDocument`, jamais une balise écrite à la main). Mécanisme, limites (chaîne `src="./x"` non transformée, `styles: […]` Angular) → `references/build-hmr.md` §4.9.
 - **TS strict** : 0 `any`, 0 `@ts-ignore`. Gate `npm run typecheck` du module front AVANT de dire « fait ».
 
 ## 3. Référence — `references/` (chargé À LA DEMANDE)

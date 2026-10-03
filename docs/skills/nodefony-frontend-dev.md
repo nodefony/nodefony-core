@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-26
+updated: 2026-10-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
@@ -28,8 +28,8 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 | --- | --- |
 | Version | `1.0.0` |
 | Famille | Développer le framework |
-| Corps | 114 lignes |
-| Coût d'activation | ~3 047 tokens (le corps est chargé à l'invocation) |
+| Corps | 115 lignes |
+| Coût d'activation | ~3 153 tokens (le corps est chargé à l'invocation) |
 | Description | 994 / 1024 caractères |
 | Déclencheurs | 19 |
 | Ressources `references/` | 6 page(s), 17 fichiers au total |
@@ -67,7 +67,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 710 |
+| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 754 |
 | `references/data-bff.md` | Consommer le data-plane BFF (front Nodefony) | 243 |
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 270 |
@@ -95,7 +95,7 @@ _(+ 11 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 114 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 115 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

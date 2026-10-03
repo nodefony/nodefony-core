@@ -3,8 +3,59 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import { PLATFORM_EVENTS, escapeRegExp } from "nodefony";
 import { isLoopbackHostname, originWithHostname } from "../remoteDev";
-import type { IViteSupervisor } from "../../interfaces/IViteSupervisor";
+import type {
+  IViteSupervisor,
+  IViteSupervisorStatus,
+} from "../../interfaces/IViteSupervisor";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
+
+/**
+ * Origine du serveur Vite à annoncer à un client — règle UNIQUE, partagée par
+ * les balises de la page et par le relais `/_vite/<famille>/` (#526).
+ *
+ * Dérivation par requête : le client reçoit l'origine par laquelle IL est
+ * arrivé (nom seul — scheme et port restent ceux de Vite). Poste et conteneur
+ * sont ainsi servis SIMULTANÉMENT par une seule instance. L'appelant ne
+ * transmet `requestHost` que si la dérivation est permise (origine non
+ * épinglée, hôte de confiance — `FrontendService.derivableHost`) ; un nom
+ * inexploitable laisse `originWithHostname` rendre `null` → origine résolue.
+ *
+ * 🔴 Un hôte de BOUCLE LOCALE se RECOMPOSE, il ne se substitue pas.
+ * `originWithHostname` garde scheme ET port de l'origine résolue — juste quand
+ * elle est locale, FAUX quand elle vient d'une plateforme :
+ * `https://nom-5173.app.github.dev` n'a pas de port explicite (443 implicite),
+ * la substitution rendrait `https://localhost`, soit le port 443 d'une machine
+ * qui écoute sur 5173. Le port réel du spawn est dans `status`, vérité du
+ * démarrage, jamais une donnée cliente.
+ *
+ * @param status - état du superviseur (origine résolue, port, scheme)
+ * @param requestHost - nom d'hôte du client, déjà filtré par l'appelant
+ * @returns l'origine, sans `/` final
+ */
+function originFor(
+  status: IViteSupervisorStatus,
+  requestHost?: string,
+): string {
+  // Origine PUBLIQUE du superviseur (P14.17) — verbatim : port inclus
+  // seulement s'il y figure. Le repli recomposé ne sert qu'aux doubles de test.
+  const resolvedOrigin =
+    status.origin ??
+    `${status.https ? "https" : "http"}://${status.host}:${status.port}`;
+  if (!requestHost) return resolvedOrigin;
+  if (isLoopbackHostname(requestHost)) {
+    return `${status.https ? "https" : "http"}://${requestHost}:${status.port}`;
+  }
+  return originWithHostname(resolvedOrigin, requestHost) ?? resolvedOrigin;
+}
+
+/**
+ * Chemin de base de l'instance, prêt à suffixer une origine : `/_vite/default`
+ * pour `/_vite/default/`, vide pour `/` (doubles de test sans `base`).
+ */
+function basePathOf(status: IViteSupervisorStatus): string {
+  const base = status.base ?? "/";
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
 
 /**
  * Chemin résolu (1×, caché) du build navigateur de la debug bar Nodefony
@@ -70,6 +121,23 @@ export class TemplateHelper {
    *   servis par la même instance. Prod : **ignoré** — les URLs du manifest
    *   sont relatives au document, elles suivent déjà l'hôte de la page.
    */
+  /**
+   * Origine du serveur Vite pour un client donné — cible du relais
+   * `/_vite/<famille>/` que Nodefony pose en développement (#526). MÊME règle
+   * que les balises de la page ({@link originFor}) : un asset relayé atterrit
+   * sur l'origine qui a servi ses modules.
+   *
+   * @param requestHost - nom d'hôte du client, déjà filtré par l'appelant
+   * @returns l'origine, ou `undefined` sans superviseur ou tant que Vite n'a
+   *   pas résolu son port (rien à relayer : la requête suit son chemin normal)
+   */
+  devOrigin(requestHost?: string): string | undefined {
+    if (!this.supervisor) return undefined;
+    const status = this.supervisor.status();
+    if (status.port === null) return undefined;
+    return originFor(status, requestHost);
+  }
+
   renderTags(entryName: string, nonce?: string, requestHost?: string): string {
     if (this.mode === "development") {
       return this.renderDevTags(entryName, nonce, requestHost);
@@ -178,34 +246,10 @@ ${tags}
     if (!entry) {
       return `<!-- @nodefony/frontend: unknown entry "${entryName}" -->`;
     }
-    // Origine PUBLIQUE calculée par le superviseur (P14.17) — verbatim : port
-    // inclus seulement s'il y figure (forwarder Codespaces/Gitpod = 443
-    // implicite). Le fallback recomposé ne sert qu'aux doubles de test qui ne
-    // renseignent pas encore `origin`.
-    const resolvedOrigin =
-      status.origin ??
-      `${status.https ? "https" : "http"}://${status.host}:${status.port}`;
-    // Dérivation par requête : le client reçoit l'origine par laquelle IL est
-    // arrivé (nom seul — scheme et port restent ceux de Vite). Poste et
-    // conteneur sont ainsi servis SIMULTANÉMENT par une seule instance, sans
-    // variable d'environnement à poser puis à ne pas oublier de retirer.
-    // Le service ne transmet `requestHost` que si la dérivation est permise
-    // (origine non épinglée) et l'hôte de confiance ; un nom inexploitable
-    // laisse `originWithHostname` renvoyer `null` → on garde l'origine résolue.
-    // 🔴 Un hôte de BOUCLE LOCALE se RECOMPOSE, il ne se substitue pas.
-    // `originWithHostname` remplace le nom en gardant scheme ET port de
-    // l'origine résolue — parfait quand celle-ci est locale
-    // (`https://127.0.0.1:5173` → `https://localhost:5173`), FAUX quand elle
-    // vient d'une plateforme : `https://nom-5173.app.github.dev` n'a pas de
-    // port explicite (443 implicite), et la substitution rendrait
-    // `https://localhost`, c'est-à-dire le port 443 d'une machine qui écoute
-    // sur 5173. Le port réel du spawn est dans `status` : on le lit là.
-    // Le `status` est la vérité du démarrage, jamais une donnée cliente.
-    const baseUrl = !requestHost
-      ? resolvedOrigin
-      : isLoopbackHostname(requestHost)
-        ? `${status.https ? "https" : "http"}://${requestHost}:${status.port}`
-        : (originWithHostname(resolvedOrigin, requestHost) ?? resolvedOrigin);
+    // Origine du client + chemin de base de l'instance (`/_vite/<famille>`) :
+    // TOUTE URL émise vers Vite porte ce préfixe, que Vite exige (`base`) et
+    // que Nodefony relaie pour les URLs relatives au document (#526).
+    const baseUrl = `${originFor(status, requestHost)}${basePathOf(status)}`;
     // Multi-bundle (P14.6) : URL via `/@fs/<absolute>` plutôt que relative au
     // root Vite unique. Sans ça, deux consumers qui ont chacun `frontend/src/main.tsx`
     // produisent la même URL `${baseUrl}/src/main.tsx` et Vite résout contre le

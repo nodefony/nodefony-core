@@ -180,6 +180,25 @@ const ignoreSettled = (): void => undefined;
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
 export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
+
+/**
+ * La réponse a-t-elle été TERMINÉE par le serveur ? Sous HTTP/2, la réponse
+ * Nodefony écrit et termine le FLUX (`stream.respond`/`stream.end`), jamais la
+ * réponse de compatibilité : `writableEnded` de celle-ci reste à `false` alors
+ * que le client a tout reçu. Lire le seul `writableEnded` faisait journaliser
+ * « client parti » (499) toute réponse courte-circuitée sans `send()` —
+ * preflight CORS 204, relais 307 des assets de développement.
+ *
+ * @param response - la réponse Node de la requête
+ * @returns `true` si la réponse ou son flux HTTP/2 a été terminé
+ */
+export function responseEnded(response: httpResponse): boolean {
+  return (
+    response.writableEnded ||
+    (response instanceof http2.Http2ServerResponse &&
+      response.stream.writableEnded)
+  );
+}
 export type ContextType = WebsocketContext | HttpContext | Context;
 export type ServerType =
   "http" | "https" | "http2" | "http3" | "websocket" | "websocket-secure";
@@ -1417,10 +1436,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // CPU/req) se replie en 1 écouteur. `on`, pas `once` : la réponse émet
       // `close` UNE fois puis est jetée avec son écouteur — `once` coûtait une
       // enveloppe allouée et un `removeListener` par requête, pour rien.
-      // `writableEnded` (posé par end(), AVANT l'émission de finish) rejoue le
-      // distinguo ex-didFinish au moment du close.
+      // `responseEnded` (fin posée par end(), AVANT l'émission de finish —
+      // sur la réponse, ou sur le flux HTTP/2) rejoue le distinguo ex-didFinish
+      // au moment du close.
       response.on("close", () => {
-        if (!response.writableEnded) {
+        if (!responseEnded(response)) {
           // Close sans end() préalable = client parti avant la réponse complète.
           context._abortIfPending("Connection closed before response finished");
           // P2.3 — record an internal 499 ("client closed request", nginx-style)
@@ -1601,6 +1621,32 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     request: httpRequest,
     response: httpResponse,
   ): MaybePromise<HttpContext> {
+    // Relais de développement (#526) — AVANT le routage : un préfixe relayé
+    // (`/_vite/<famille>/`, posé par @nodefony/frontend) appartient à un autre
+    // serveur, et une route attrape-tout de l'application ne doit pas pouvoir
+    // l'avaler. Sans relais déclaré (toute production), une lecture de champ.
+    // Un Host hors `trustedHosts` n'est pas relayé : il poursuit jusqu'au 421
+    // du contrôle de domaine, comme toute autre requête (la cible n'est de
+    // toute façon jamais l'hôte du client — une règle, une conduite).
+    if (
+      this.serverStatic !== null &&
+      this.serverStatic.relays !== null &&
+      (httpContext.validDomain || !this.kernel?.options.domainCheck)
+    ) {
+      const target = this.serverStatic.relayTarget(
+        request.url,
+        httpContext.domain,
+      );
+      if (target !== undefined) {
+        // 307 : méthode préservée ; jamais mis en cache — la cible dépend de
+        // l'hôte par lequel le client est arrivé.
+        httpContext.response.redirect(target, 307, {
+          "Cache-Control": "no-store",
+        });
+        httpContext.response.writeHead();
+        return thenMaybe(httpContext.response.end(), () => httpContext);
+      }
+    }
     // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
     // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand
     // l'action attend le flux brut (`@Body({ stream:true })` → le controller

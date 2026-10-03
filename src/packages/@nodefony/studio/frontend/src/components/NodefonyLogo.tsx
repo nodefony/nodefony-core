@@ -6,14 +6,14 @@
  * documentation, les rapports, le thème Keycloak et les applications générées
  * reprennent aussi. Aucune copie dans ce fichier.
  *
- * 🔴 `?inline`, et pas un import d'URL : en développement, la page est servie
- * par Nodefony et le module par Vite, sur une AUTRE origine. Une URL d'asset
- * rendue par Vite (`/@fs/…`) se résout contre l'origine de la PAGE → 404, logo
- * absent. Inliné au build, le logo ne dépend d'aucune origine — dev comme prod.
+ * Un import d'URL ordinaire : en développement, l'URL que Vite rend
+ * (`/_vite/<famille>/@fs/…`) est relative à la page, servie par Nodefony, qui
+ * la relaie vers Vite (`@nodefony/frontend`, `devBasePath`) ; en production,
+ * elle sort du build sous le `publicPath` de la console.
  */
-import logoUrl from "nodefony/assets/nodefony-logo.png?inline";
+import logoUrl from "nodefony/assets/nodefony-logo.png";
 
-/** Le logo, inliné par Vite — le favicon de la console le reprend (`main.tsx`). */
+/** URL du logo — le favicon de la console la reprend (`main.tsx`). */
 export const NODEFONY_LOGO_URL: string = logoUrl;
 
 /** Affiche le logo Nodefony. `height` en px (largeur auto, ratio conservé). */

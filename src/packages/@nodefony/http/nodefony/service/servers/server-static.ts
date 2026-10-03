@@ -32,6 +32,31 @@ const defaultOptions: serveStatic.ServeStaticOptions = {
   maxAge: 96 * 60 * 60,
 };
 
+/**
+ * Origine vers laquelle relayer une requête, calculée à partir du nom d'hôte
+ * par lequel le client est arrivé (`Context.domain`, sans port).
+ *
+ * @returns l'origine cible (`scheme://hôte:port`, sans `/` final), ou
+ *   `undefined` quand rien ne peut être relayé — la requête suit alors son
+ *   chemin normal.
+ */
+export type RelayOriginResolver = (domain: string) => string | undefined;
+
+/** Un préfixe d'URL relayé vers une autre origine (`/_vite/default/` → Vite). */
+type StaticRelay = { prefix: string; resolveOrigin: RelayOriginResolver };
+
+/**
+ * Normalise un préfixe d'URL : `/` en tête et en fin, sans `/` doublé. Règle
+ * UNIQUE des montages et des relais — deux écritures du même préfixe doivent
+ * désigner la même entrée.
+ */
+function normalizePrefix(prefix: string): string {
+  let p = prefix.trim();
+  if (!p.startsWith("/")) p = `/${p}`;
+  if (!p.endsWith("/")) p = `${p}/`;
+  return p.replace(/\/{2,}/g, "/");
+}
+
 /** Un dossier monté sous un préfixe public (`/_assets/x/` → dir). */
 type StaticMount = { prefix: string; server: serveStaticType; dir: string };
 
@@ -58,6 +83,12 @@ class Statics extends Service {
   servers: ServersStatic;
   /** Montages préfixés (prod frontend). Lazy : `[]` rempli à `addMount`. */
   mounts: StaticMount[] = [];
+  /**
+   * Préfixes relayés vers une autre origine (dev frontend : `/_vite/<famille>/`
+   * → serveur Vite). `null` tant qu'aucun relais n'est déclaré : c'est le cas
+   * de toute production, où le pipeline ne paie qu'une lecture de champ.
+   */
+  relays: StaticRelay[] | null = null;
   /**
    * Serveur statique config-driven actif. `false` (config `statics.enabled`) =
    * aucun montage `web`/`assets`, 0 listener — quand un reverse-proxy/CDN sert
@@ -197,10 +228,7 @@ class Statics extends Service {
    * @param dir dossier absolu à servir
    */
   addMount(prefix: string, dir: string): void {
-    let p = prefix.trim();
-    if (!p.startsWith("/")) p = `/${p}`;
-    if (!p.endsWith("/")) p = `${p}/`;
-    p = p.replace(/\/{2,}/g, "/");
+    const p = normalizePrefix(prefix);
     const server = serveStatic(
       dir,
       extend({}, this.defaultOptions) as serveStatic.ServeStaticOptions,
@@ -210,6 +238,60 @@ class Statics extends Service {
     if (i >= 0) this.mounts[i] = entry;
     else this.mounts.push(entry);
     this.log(`mount ${p} → ${dir}`, "INFO");
+  }
+
+  /**
+   * Relaie un préfixe d'URL vers une autre origine, par une redirection 307.
+   * Consommé par `@nodefony/frontend` en développement : les URLs d'assets que
+   * Vite fabrique sont relatives au DOCUMENT (servi ici), alors que le fichier
+   * vit sur le serveur Vite. Le relais est consulté AVANT le routage — une
+   * route attrape-tout de l'application ne peut donc pas l'avaler. Idempotent :
+   * un même préfixe est remplacé.
+   *
+   * @param prefix préfixe d'URL relayé (normalisé : `/` en tête et en fin)
+   * @param resolveOrigin calcule l'origine cible pour le nom d'hôte du client
+   */
+  addRelay(prefix: string, resolveOrigin: RelayOriginResolver): void {
+    const p = normalizePrefix(prefix);
+    const entry: StaticRelay = { prefix: p, resolveOrigin };
+    this.relays ??= [];
+    const i = this.relays.findIndex((r) => r.prefix === p);
+    if (i >= 0) this.relays[i] = entry;
+    else this.relays.push(entry);
+    this.log(`relay ${p}`, "DEBUG");
+  }
+
+  /**
+   * Retire un relais déclaré par {@link addRelay}. Le dernier retiré rend
+   * `relays` à `null` : le pipeline cesse alors de le consulter.
+   *
+   * @param prefix préfixe tel que déclaré (normalisé de la même façon)
+   */
+  removeRelay(prefix: string): void {
+    if (this.relays === null) return;
+    const p = normalizePrefix(prefix);
+    const kept = this.relays.filter((r) => r.prefix !== p);
+    this.relays = kept.length > 0 ? kept : null;
+  }
+
+  /**
+   * Cible de la redirection pour une URL de requête, si un relais la couvre.
+   *
+   * @param url URL brute de la requête (chemin + requête)
+   * @param domain nom d'hôte du client (`Context.domain`)
+   * @returns l'URL absolue vers laquelle rediriger, ou `undefined`
+   */
+  relayTarget(url: string | undefined, domain: string): string | undefined {
+    const relays = this.relays;
+    if (relays === null || url === undefined) return undefined;
+    for (const r of relays) {
+      if (!url.startsWith(r.prefix)) continue;
+      const origin = r.resolveOrigin(domain);
+      // L'URL commence par le préfixe (donc par `/`) : la cible reste sur
+      // l'origine résolue, jamais sur un hôte que le client aurait glissé.
+      return origin === undefined ? undefined : origin + url;
+    }
+    return undefined;
   }
 
   /** `true` si au moins un montage préfixé est actif (gate du pipeline). */

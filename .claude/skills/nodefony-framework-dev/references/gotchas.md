@@ -33,6 +33,7 @@
 - **Allow-list de méthodes silencieuse = piège** : `Request.ts` gate le parsing du corps sur `method in parse`. `PATCH` doit y figurer (RFC 5789, corps comme POST/PUT) sinon `request.body` vide → `updateOne({})` → 500 « No values to set ». Un oubli ne casse qu'au runtime sur la méthode oubliée. **Défense en profondeur** : un handler de mutation refuse un patch vide (**400**, jamais un UPDATE vide = 500).
 - **`application/json` SANS `; charset=utf-8`** (RFC 8259 §11). Auto-JSON gardé + WARN dev si retour pendant le « trap ».
 - **WS** : codes close via helper pur (`toWsCloseCode` ; 4xx→4004, jamais un `4404` inventé). **Toute socket `ws` SANS `on("error")` peut crasher le process.** `maxPayload` doit être **câblé** (sinon 100 MiB implicite = DoS mémoire) → défaut 1 MiB → close 1009.
+- **HTTP/2 : la fin de réponse se lit sur le FLUX.** `Http2Response.end()` termine `stream`, jamais la réponse de compatibilité (`writableEnded` reste `false`). Tout code qui teste la fin d'une réponse passe par `responseEnded(response)` (`http-kernel.ts`). Les tests `node:https` parlent HTTP/1.1 et ne voient RIEN de ce chemin — un navigateur parle h2 à 5152 : éprouver avec `node:http2` (cf `tests/http/client-abort-499.test.ts`).
 - **`redirect()` = whitelist RFC 9110 §15.4** `{301,302,303,307,308}` (Set module-level, 0 alloc), **défaut 302** (307/308 préservent méthode+corps, 303 force GET). Motif de bug récurrent : `else { force }` au lieu d'une whitelist écrase une valeur valide → chercher ce pattern.
 
 ## Idempotence (mutations rejouables)

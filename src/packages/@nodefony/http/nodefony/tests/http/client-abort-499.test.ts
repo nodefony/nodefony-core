@@ -1,6 +1,8 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import https from "node:https";
+import http2 from "node:http2";
+import { randomUUID } from "node:crypto";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
 import {
   compteDansJournal,
@@ -40,6 +42,33 @@ function abortedGet(path: string, abortAfterMs: number): Promise<void> {
     req.on("close", () => resolve());
     req.end();
     setTimeout(() => req.destroy(), abortAfterMs);
+  });
+}
+
+/**
+ * Requête HTTP/2 réelle (un navigateur parle h2 à 5152) — rend le statut reçu.
+ * Le client Node `https` parle HTTP/1.1 et ne voit donc pas ce chemin.
+ */
+function h2Request(
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const client = http2.connect("https://localhost:5152", {
+      rejectUnauthorized: false,
+    });
+    client.on("error", reject);
+    const req = client.request({ ":path": path, ...headers });
+    let status = 0;
+    req.on("response", (h) => {
+      status = Number(h[":status"]);
+    });
+    req.resume();
+    req.on("close", () => {
+      client.close();
+      resolve(status);
+    });
+    req.end();
   });
 }
 
@@ -96,6 +125,35 @@ describe.skipIf(IS_PROD_TARGET)(
       // Server stays healthy.
       const health = await getJson("/nodefony/test/index");
       expect(health.status).to.equal(200);
+    });
+    it("HTTP/2 : une réponse terminée SANS corps n'est jamais un 499", async (ctx) => {
+      // Sous HTTP/2 la réponse termine le FLUX, pas la réponse de
+      // compatibilité : lire son seul `writableEnded` journalisait « client
+      // parti » un preflight CORS 204 et le relais 307 des assets Vite — un
+      // WARNING par image en développement, pour une réponse bien reçue.
+      const marque = randomUUID();
+      const preflight = await h2Request(`/api/hello?m=${marque}`, {
+        ":method": "OPTIONS",
+        origin: "https://exemple.test",
+        "access-control-request-method": "GET",
+      });
+      const relais = await h2Request(`/_vite/default/@vite/client?m=${marque}`);
+      expect(preflight, "prémisse : le preflight répond 204").to.equal(204);
+      expect(relais, "prémisse : le relais Vite répond 307").to.equal(307);
+      await new Promise((r) => setTimeout(r, 500));
+      if (journal === null) {
+        ctx.skip("aucun journal alimenté par le serveur sous test");
+        return;
+      }
+      const lignes = (re: RegExp) => compteDansJournal(journal!, re);
+      expect(
+        lignes(new RegExp(`\\s499\\s\\S*m=${marque}`)),
+        "réponse h2 sans corps journalisée 499",
+      ).to.equal(0);
+      expect(lignes(new RegExp(`OPTIONS\\s+204\\s\\S*m=${marque}`))).to.equal(
+        1,
+      );
+      expect(lignes(new RegExp(`GET\\s+307\\s\\S*m=${marque}`))).to.equal(1);
     });
   },
 );

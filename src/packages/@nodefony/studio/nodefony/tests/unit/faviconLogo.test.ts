@@ -22,10 +22,12 @@ describe("favicon et logo de la console d'administration", () => {
   it("le bandeau importe le logo du paquet, sans copie", () => {
     const src = lire("src", "components", "NodefonyLogo.tsx");
     expect(src).toContain(
-      // `?inline` : une URL `/@fs/…` se résout contre l'origine de la page
-      // (Nodefony), pas contre celle de Vite — 404 en développement, vécu.
-      'import logoUrl from "nodefony/assets/nodefony-logo.png?inline";',
+      'import logoUrl from "nodefony/assets/nodefony-logo.png";',
     );
+    // Plus de contournement : l'URL d'asset de Vite s'affiche en développement
+    // depuis que Nodefony relaie `/_vite/<famille>/` (#526). Un `?inline`
+    // revenu ici masquerait une régression du relais au lieu de la montrer.
+    expect(src).not.toContain("?inline");
     expect(src).not.toMatch(/data:image\//u);
   });
 

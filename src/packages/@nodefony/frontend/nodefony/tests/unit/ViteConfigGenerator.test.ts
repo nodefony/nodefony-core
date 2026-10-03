@@ -125,12 +125,34 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.not.include("proxy: {");
   });
 
-  it("emits base + strictPort quand viteOrigin fourni (dev)", () => {
+  it("emits base = chemin réservé de la famille + strictPort (dev, #526)", () => {
     const out = gen.toMjs([baseEntry], "development", {
+      devBase: "/_vite/default/",
+    });
+    expect(out).to.include('base: "/_vite/default/"');
+    expect(out).to.include("strictPort: true");
+  });
+
+  it("n'émet JAMAIS une origine comme base — Vite n'en garderait que le chemin", () => {
+    // `resolveBaseUrl` (Vite 8) réduit un `base` absolu à son pathname en dev :
+    // l'ancienne ligne `base: "https://127.0.0.1:5173/"` valait `/`, et les
+    // URLs d'assets restaient relatives au document → 404 sur Nodefony.
+    const out = gen.toMjs([baseEntry], "development", {
+      // L'option dépréciée est le SUJET de ce cas : elle doit rester acceptée.
+      // oxlint-disable-next-line typescript/no-deprecated
       viteOrigin: "https://127.0.0.1:5173",
     });
-    expect(out).to.include('base: "https://127.0.0.1:5173/"');
+    expect(out).to.not.include("base:");
+    // L'option dépréciée garde son seul effet réel : verrouiller le port.
     expect(out).to.include("strictPort: true");
+  });
+
+  it("production : aucune base de dev (le build pose son publicPath)", () => {
+    const out = gen.toMjs([baseEntry], "production", {
+      devBase: "/_vite/default/",
+    });
+    expect(out).to.not.include("base:");
+    expect(out).to.include("strictPort: false");
   });
 
   it("emits server.https + import fs quand https fourni (dev)", () => {
@@ -260,7 +282,7 @@ describe("ViteConfigGenerator — toMjs()", () => {
     // client, qui n'existe que si `hmrPort` est absent.
     const out = gen.toMjs([baseEntry], "development", {
       backendOrigin: "http://127.0.0.1:5151",
-      viteOrigin: "https://mona-5173.app.github.dev",
+      devBase: "/_vite/default/",
       allowedHosts: [".app.github.dev"],
     });
     expect(out).to.not.include("hmr");
@@ -273,7 +295,7 @@ describe("ViteConfigGenerator — toMjs()", () => {
   it("SANS options dev déporté : ni allowedHosts ni hmr (défauts Vite intacts)", () => {
     const out = gen.toMjs([baseEntry], "development", {
       backendOrigin: "http://127.0.0.1:5151",
-      viteOrigin: "https://127.0.0.1:5173",
+      devBase: "/_vite/default/",
     });
     expect(out).to.not.include("allowedHosts");
     expect(out).to.not.include("hmr:");
@@ -290,7 +312,7 @@ describe("ViteConfigGenerator — toMjs()", () => {
       "development",
       {
         backendOrigin: "https://127.0.0.1:5152",
-        viteOrigin: "https://host.docker.internal:5173",
+        devBase: "/_vite/default/",
         https: { keyPath: "/pem/key.pem", certPath: "/pem/cert.pem" },
         allowedHosts: ["host.docker.internal"],
       },

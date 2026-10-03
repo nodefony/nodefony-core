@@ -505,6 +505,11 @@ attaché QUE sous pression (`once` + `removeListener` si erreur). `Content-Lengt
 (skip Content-Length si chunked). Timeout 2 couches : **réseau** = `requestTimeout` natif Node (anti-slowloris,
 hors pipeline) ; **pipeline** = `responseTimeout` (armé `HttpContext.setTimeout()` → `onTimeout` →
 `_abortIfPending` → 408/504). Client part avant tout envoi → 499 interne (observabilité pure, jamais écrit).
+🔴 « Client parti » se constate par `responseEnded(response)` (`http-kernel.ts`), JAMAIS par le seul
+`response.writableEnded` : sous HTTP/2, la réponse Nodefony écrit et termine le **flux**
+(`stream.respond`/`stream.end`), la réponse de compatibilité reste `writableEnded === false`. Lire ce seul
+champ journalisait en 499 toute réponse courte-circuitée sans `send()` (preflight CORS 204, relais 307) —
+invisible aux tests `node:https` (HTTP/1.1) : un test de ce chemin parle **`node:http2`**.
 
 ### Hooks pipeline
 
@@ -525,6 +530,14 @@ idempotent). Skip : app root (`./public` → `/`), modules frontend-managed (`/_
 `public/`. Override par module via `module.options.publicMount` (`false` opt-out / `{publicPath?, dir?}`).
 `statics.enabled=false` → 0 montage config-driven (prod cloud-native nginx/CDN), n'affecte pas `addMount()`
 programmatique. Commande `nodefony assets:publish` assemble un arbre CDN-ready `dist-assets/` + manifest.
+
+**Relais de préfixe** (`addRelay(prefix, resolveOrigin)` / `removeRelay` / `relayTarget`) : redirection 307
+vers une autre origine, `relays: null` tant que rien n'est déclaré (prod = une lecture de champ). Consulté
+dans `routeHttpRequest` **AVANT le routage** (≠ montages, router-first) et seulement si le Host passe
+`domainCheck`. Seul consommateur : `@nodefony/frontend` en dev, préfixe `/_vite/<famille>/` (assets Vite
+relatifs au document → serveur Vite ; cible = même dérivation d'hôte que les balises). Normalisation
+commune avec `addMount` (`normalizePrefix`). Détail côté front : skill `nodefony-frontend-dev`, sa
+référence « Builder & HMR », §4.9.
 
 ---
 
