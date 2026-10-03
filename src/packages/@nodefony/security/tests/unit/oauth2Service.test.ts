@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { Container } from "nodefony";
+import { BootConfigurationError, Container } from "nodefony";
 import type { Module } from "nodefony";
 import type { IUser, IOAuthProfile } from "@nodefony/user";
 import {
   OAuth2Service,
+  checkProviderIssuer,
   oauthDisplayLabel,
 } from "../../nodefony/service/oauth2";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
@@ -71,11 +72,14 @@ function makeUsers(): {
 function buildService(
   configInput: unknown,
   users: unknown,
+  // Un vrai kernel porte TOUJOURS un profil (défaut console : pas de ports).
+  runProfile: { servers: boolean } = { servers: false },
 ): { svc: OAuth2Service; boot: () => void } {
   const container = new Container();
   const handlers: Record<string, () => void> = {};
   container.set("kernel", {
     container,
+    runProfile,
     once(ev: string, cb: () => void) {
       handlers[ev] = cb;
     },
@@ -382,5 +386,156 @@ describe("oauthDisplayLabel — rendre un nom de configuration lisible", () => {
     assert.equal(oauthDisplayLabel("github"), "GitHub");
     assert.equal(oauthDisplayLabel("gitlab"), "GitLab");
     assert.equal(oauthDisplayLabel("google"), "Google");
+  });
+});
+
+/**
+ * #270 — une configuration de fournisseur fausse se montre AU DÉMARRAGE, pas au
+ * premier clic ; un émetteur injoignable, lui, n'est pas une faute de
+ * configuration : il retire le bouton sans bloquer le boot.
+ */
+describe("OAuth2Service — émetteur vérifié au démarrage (#270)", () => {
+  const keycloak = (issuer?: string): unknown => ({
+    oauth2: {
+      enabled: true,
+      providers: {
+        keycloak: {
+          clientId: "id",
+          clientSecret: "sec",
+          redirectUri: "https://app/cb",
+          ...(issuer === undefined ? {} : { issuer }),
+        },
+      },
+    },
+  });
+
+  it("keycloak SANS émetteur → le boot est refusé, la clé est nommée", () => {
+    const { svc, boot } = buildService(keycloak(), makeUsers());
+    assert.throws(boot, (error: unknown) => {
+      assert.ok(BootConfigurationError.is(error));
+      assert.match(
+        (error as Error).message,
+        /security\.oauth2\.providers\.keycloak\.issuer est requis/,
+      );
+      assert.match((error as Error).message, /https:\/\//);
+      return true;
+    });
+    assert.equal(svc.isEnabled(), false);
+  });
+
+  for (const [why, issuer] of [
+    ["pas une URL", "realm-nodefony"],
+    ["en http", "http://kc.example/realms/app"],
+    ["avec une requête", "https://kc.example/realms/app?x=1"],
+  ] as const) {
+    it(`émetteur ${why} → le boot est refusé`, () => {
+      const { boot } = buildService(keycloak(issuer), makeUsers());
+      assert.throws(boot, (error: unknown) => {
+        assert.ok(BootConfigurationError.is(error));
+        assert.match(
+          (error as Error).message,
+          /security\.oauth2\.providers\.keycloak\.issuer — émetteur invalide/,
+        );
+        return true;
+      });
+    });
+  }
+
+  it("un émetteur mal formé est refusé même là où il est facultatif", () => {
+    assert.throws(
+      () => checkProviderIssuer("test-oidc", "pas une url"),
+      BootConfigurationError,
+    );
+    assert.doesNotThrow(() => checkProviderIssuer("test-oidc", undefined));
+  });
+
+  it("une fabrique d'application qui DÉCLARE l'émetteur requis est tenue de même", () => {
+    registerOAuthProvider("test-app-oidc", () => fakeProvider, {
+      requiresIssuer: true,
+    });
+    assert.throws(
+      () => checkProviderIssuer("test-app-oidc", undefined),
+      /test-app-oidc\.issuer est requis/,
+    );
+    assert.doesNotThrow(() =>
+      checkProviderIssuer("test-app-oidc", "https://idp.example/realms/a"),
+    );
+  });
+
+  it("émetteur valide → le boot passe, sans toucher au réseau en console", () => {
+    let built = 0;
+    registerOAuthProvider("test-console", () => {
+      built += 1;
+      return fakeProvider;
+    });
+    const { svc, boot } = buildService(
+      {
+        oauth2: {
+          enabled: true,
+          providers: {
+            "test-console": {
+              clientId: "id",
+              clientSecret: "sec",
+              redirectUri: "https://app/cb",
+            },
+          },
+        },
+      },
+      makeUsers(),
+      { servers: false },
+    );
+    boot();
+    assert.equal(svc.isEnabled(), true);
+    assert.equal(built, 0);
+  });
+
+  it("émetteur INJOIGNABLE → le boot passe, le bouton disparaît puis revient", async () => {
+    let down = true;
+    let built = 0;
+    registerOAuthProvider("test-down", () => {
+      built += 1;
+      return down
+        ? Promise.reject(new Error("métadonnées introuvables"))
+        : fakeProvider;
+    });
+    const { svc, boot } = buildService(
+      {
+        oauth2: {
+          enabled: true,
+          providers: {
+            "test-down": {
+              clientId: "id",
+              clientSecret: "sec",
+              redirectUri: "https://app/cb",
+            },
+          },
+        },
+      },
+      makeUsers(),
+      { servers: true },
+    );
+    const now = vi.spyOn(Date, "now");
+    try {
+      now.mockReturnValue(1_000_000);
+      boot();
+      assert.equal(built, 1, "un run qui sert construit dès le boot");
+      await new Promise((r) => setImmediate(r));
+      // Retiré de l'écran, mais toujours autorisable (lien direct, bancs).
+      assert.deepEqual(svc.listDisplayProviders(), []);
+      assert.deepEqual(svc.listProviders(), ["test-down"]);
+      assert.equal(built, 1, "pas de nouvel essai avant le délai");
+
+      down = false;
+      now.mockReturnValue(1_000_000 + 30_000);
+      assert.deepEqual(svc.listDisplayProviders(), []);
+      assert.equal(built, 2, "le délai écoulé relance une construction");
+      await new Promise((r) => setImmediate(r));
+      assert.deepEqual(
+        svc.listDisplayProviders().map((p) => p.name),
+        ["test-down"],
+      );
+    } finally {
+      now.mockRestore();
+    }
   });
 });

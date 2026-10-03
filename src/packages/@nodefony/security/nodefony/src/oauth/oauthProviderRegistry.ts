@@ -17,7 +17,11 @@ import { createGithubProvider } from "./providers/github";
  * en une ligne dans l'application :
  *
  * ```ts
- * registerOAuthProvider("azure", (ctx) => createDiscoveredOidcProvider("azure", ctx));
+ * registerOAuthProvider(
+ *   "azure",
+ *   (ctx) => createDiscoveredOidcProvider("azure", ctx),
+ *   { requiresIssuer: true }, // un émetteur oublié refuse le démarrage
+ * );
  * ```
  */
 
@@ -59,24 +63,59 @@ export type OAuthProviderFactory = (
   ctx: IOAuthProviderContext,
 ) => IOAuthProvider | Promise<IOAuthProvider>;
 
-const factories = new Map<string, OAuthProviderFactory>();
+/**
+ * Ce qu'une fabrique EXIGE de la configuration — lu au démarrage, avant que le
+ * moindre utilisateur ne clique.
+ *
+ * @remarks La fabrique est une fonction opaque : rien, à sa seule lecture, ne
+ * dit qu'elle lèvera faute d'émetteur. Sans déclaration, l'oubli ne se
+ * découvrait qu'au premier login.
+ */
+export interface IOAuthProviderRegistration {
+  /**
+   * `true` si le fournisseur ne peut se construire sans `issuer` dans sa
+   * configuration — typiquement un serveur OpenID Connect découvert par son
+   * émetteur. Absent : l'émetteur est facultatif (connu d'avance, ou inutile).
+   */
+  readonly requiresIssuer?: boolean;
+}
+
+interface IRegisteredProvider {
+  readonly factory: OAuthProviderFactory;
+  readonly requiresIssuer: boolean;
+}
+
+const factories = new Map<string, IRegisteredProvider>();
 
 /**
  * Enregistre (ou remplace) la fabrique d'un fournisseur OAuth. Appelée par les
  * builtins au chargement, et par une application pour ses fournisseurs.
+ *
+ * @param name - nom sous lequel le fournisseur se configure (`oauth2.providers.<name>`).
+ * @param factory - fabrique du fournisseur.
+ * @param registration - exigences de configuration, vérifiées au démarrage.
  */
 export function registerOAuthProvider(
   name: string,
   factory: OAuthProviderFactory,
+  registration: IOAuthProviderRegistration = {},
 ): void {
-  factories.set(name, factory);
+  factories.set(name, {
+    factory,
+    requiresIssuer: registration.requiresIssuer === true,
+  });
 }
 
 /** Fabrique d'un fournisseur par nom, ou `undefined` si inconnu. */
 export function getOAuthProviderFactory(
   name: string,
 ): OAuthProviderFactory | undefined {
-  return factories.get(name);
+  return factories.get(name)?.factory;
+}
+
+/** `true` si le fournisseur nommé a déclaré exiger un émetteur en configuration. */
+export function oauthProviderRequiresIssuer(name: string): boolean {
+  return factories.get(name)?.requiresIssuer === true;
 }
 
 /** Noms enregistrés (validation boot, introspection Studio, tests). */
@@ -94,12 +133,16 @@ registerOAuthProvider("google", (ctx) =>
 );
 // Keycloak est self-hosted : son émetteur (= URL du realm) vient de la config et
 // sert À LA FOIS à découvrir les endpoints et à valider l'`iss` (anti-mix-up).
-registerOAuthProvider("keycloak", (ctx) =>
-  createDiscoveredOidcProvider("keycloak", ctx),
+registerOAuthProvider(
+  "keycloak",
+  (ctx) => createDiscoveredOidcProvider("keycloak", ctx),
+  { requiresIssuer: true },
 );
 // Entrée générique : tout serveur OpenID Connect, décrit par son seul émetteur.
-registerOAuthProvider("oidc", (ctx) =>
-  createDiscoveredOidcProvider("oidc", ctx),
+registerOAuthProvider(
+  "oidc",
+  (ctx) => createDiscoveredOidcProvider("oidc", ctx),
+  { requiresIssuer: true },
 );
 // OAuth simple (non-OIDC) : profil lu via l'API du fournisseur.
 registerOAuthProvider("github", createGithubProvider);

@@ -1,4 +1,10 @@
-import { Service, Module, Container } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  BootConfigurationError,
+  canonicalIssuer,
+} from "nodefony";
 import type { IUser, IOAuthUserProvisioner } from "@nodefony/user";
 import {
   defineSecurityConfig,
@@ -10,6 +16,7 @@ import type { IOAuthProvider } from "../contracts/IOAuthProvider";
 import {
   getOAuthProviderFactory,
   listOAuthProviders,
+  oauthProviderRequiresIssuer,
 } from "../src/oauth/oauthProviderRegistry";
 import { generateCodeVerifier, generateState } from "../src/oauth/oauth2Client";
 
@@ -95,6 +102,51 @@ interface IResolvedProvider {
 }
 
 /**
+ * Délai avant de retenter un fournisseur dont la construction a échoué — assez
+ * long pour ne pas marteler un émetteur en panne à chaque affichage de l'écran
+ * de connexion, assez court pour qu'un bouton revienne sans redémarrage.
+ */
+const UNREACHABLE_RETRY_MS = 30_000;
+
+/**
+ * Confronte l'émetteur configuré d'un fournisseur à ce que sa fabrique exige.
+ *
+ * Une URL qui ne peut pas être un émetteur est refusée QUEL QUE SOIT le
+ * fournisseur : aucune valeur mal formée n'est une configuration voulue. Une
+ * absence ne l'est que si la fabrique a déclaré l'émetteur requis.
+ *
+ * @param name - nom du fournisseur (`oauth2.providers.<name>`).
+ * @param issuer - émetteur lu dans sa configuration.
+ * @throws BootConfigurationError - émetteur requis absent, ou mal formé.
+ */
+export function checkProviderIssuer(
+  name: string,
+  issuer: string | undefined,
+): void {
+  const key = `security.oauth2.providers.${name}.issuer`;
+  if (issuer === undefined || issuer === "") {
+    if (oauthProviderRequiresIssuer(name)) {
+      throw new BootConfigurationError(
+        `[@nodefony/security] ${key} est requis : le fournisseur « ${name} » ` +
+          `découvre ses points d'entrée à partir de son émetteur. Attendu : ` +
+          `l'URL https de l'émetteur OpenID Connect (Keycloak : URL du realm, ` +
+          `ex. « https://auth.example.com/realms/mon-royaume »).`,
+      );
+    }
+    return;
+  }
+  try {
+    canonicalIssuer(issuer);
+  } catch (error) {
+    throw new BootConfigurationError(
+      `[@nodefony/security] ${key} — ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+/**
  * **Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code*.
  *
  * Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit /
@@ -103,11 +155,18 @@ interface IResolvedProvider {
  * (le login produit une **session BFF**, gérée hors de ce service par le
  * controller + `AuthFlow`).
  *
- * Les fournisseurs sont construits **au premier login** (cold path — jamais au boot
- * ni par requête) puis mémoïsés : c'est là que les points d'entrée d'un émetteur
- * OIDC sont découverts, une seule fois par processus. Au boot (si `oauth2.enabled`)
- * : seule la config est validée et les fournisseurs configurés sont confrontés au
- * registre (un nom inconnu = WARNING, pas fatal).
+ * Au boot (si `oauth2.enabled`), la configuration de chaque fournisseur est
+ * confrontée à ce que sa fabrique exige : un émetteur requis absent, ou qui n'est
+ * pas une URL d'émetteur valide, INTERROMPT le démarrage en nommant la clé — une
+ * faute d'écriture ne doit pas attendre le premier clic pour se montrer. Un nom
+ * inconnu du registre reste un WARNING.
+ *
+ * Les fournisseurs sont construits une fois puis mémoïsés : c'est là que les
+ * points d'entrée d'un émetteur OIDC sont découverts. Un run qui sert (ports
+ * ouverts) les construit DÈS le boot, sans l'attendre : un émetteur injoignable
+ * n'est pas une faute de configuration, il se journalise et son bouton quitte
+ * l'écran de connexion jusqu'à ce qu'une nouvelle tentative réussisse. Un run
+ * console ne touche jamais le réseau.
  *
  * Le service ne touche **ni HTTP ni session** : il rend à l'appelant les éléments
  * (URL, state, verifier) que le controller persiste en session — testable sans
@@ -120,6 +179,9 @@ class OAuth2Service extends Service {
   // à froid ne doivent pas déclencher deux découvertes. Une résolution en échec
   // est retirée, sinon une panne passagère de l'émetteur serait définitive.
   #providers: Map<string, Promise<IResolvedProvider>> | null = null;
+  // Fournisseurs dont la dernière construction a ÉCHOUÉ → date de l'échec (ms).
+  // Lazy : `null` tant que tout va bien, c'est-à-dire presque toujours.
+  #unreachable: Record<string, number> | null = null;
   #ready = false;
 
   constructor(public module: Module) {
@@ -129,7 +191,10 @@ class OAuth2Service extends Service {
       module.notificationsCenter,
       module.options,
     );
-    this.kernel?.once("onBoot", () => this.#build());
+    // Écouteur NOMMÉ : un refus de configuration au boot désigne son auteur
+    // par ce nom — une flèche anonyme s'y affichait « (anonyme) ».
+    const oauth2ConfigCheck = (): void => this.#build();
+    this.kernel?.once("onBoot", oauth2ConfigCheck);
   }
 
   #build(): void {
@@ -145,7 +210,6 @@ class OAuth2Service extends Service {
       this.log("oauth2 idle — social login désactivé en config", "DEBUG");
       return;
     }
-    this.#config = config;
     const known = new Set(listOAuthProviders());
     const configured = Object.keys(config.oauth2.providers);
     for (const name of configured) {
@@ -156,12 +220,31 @@ class OAuth2Service extends Service {
         );
       }
     }
-    this.#ready = true;
     const active = configured.filter((n) => known.has(n));
+    for (const name of active) {
+      checkProviderIssuer(name, config.oauth2.providers[name]?.issuer);
+    }
+    this.#config = config;
+    this.#ready = true;
     this.log(
       `oauth2 ready — providers: [${active.join(", ") || "aucun"}]`,
       "DEBUG",
     );
+    // Seul un run qui SERT montre un écran de connexion : une commande console
+    // n'a ni bouton à retirer ni raison de joindre un fournisseur.
+    if (this.kernel?.runProfile.servers === true) {
+      for (const name of active) {
+        this.#probe(name);
+      }
+    }
+  }
+
+  /**
+   * Construit un fournisseur sans attendre le résultat — l'échec est consigné
+   * par {@link #resolveProvider}, rien n'est levé vers l'appelant.
+   */
+  #probe(name: string): void {
+    this.#resolveProvider(name).catch(() => undefined);
   }
 
   /** `true` si le social login est opérationnel (activé + boot OK). */
@@ -207,6 +290,10 @@ class OAuth2Service extends Service {
         // `hidden` est un booléen validé par Zod (défaut `false`) : la négation
         // suffit, et un fournisseur absent (`undefined`) reste montré, comme avant.
         .filter((name) => !configured[name]?.hidden)
+        // Un bouton qui mène à une erreur est pire que pas de bouton. Le
+        // fournisseur reste ouvert pour qui l'atteint directement : seule
+        // l'offre disparaît, et revient dès qu'une tentative réussit.
+        .filter((name) => this.#isReachable(name))
         .map((name) => ({
           name,
           label: configured[name]?.label ?? oauthDisplayLabel(name),
@@ -302,8 +389,46 @@ class OAuth2Service extends Service {
     }
     const pending = this.#buildProvider(name);
     this.#providers.set(name, pending);
-    pending.catch(() => this.#providers?.delete(name));
+    pending.then(
+      () => {
+        if (this.#unreachable !== null && name in this.#unreachable) {
+          delete this.#unreachable[name];
+          this.log(`oauth2 provider "${name}" de nouveau joignable`, "INFO");
+        }
+      },
+      (error: unknown) => {
+        this.#providers?.delete(name);
+        this.#unreachable ??= Object.create(null) as Record<string, number>;
+        this.#unreachable[name] = Date.now();
+        this.log(
+          `oauth2 provider "${name}" indisponible — bouton retiré de l'écran de connexion : ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          "WARNING",
+        );
+      },
+    );
     return pending;
+  }
+
+  /**
+   * `true` si le fournisseur n'a pas échoué récemment. Un échec plus ancien que
+   * {@link UNREACHABLE_RETRY_MS} relance une construction en arrière-plan : sans
+   * elle, un bouton retiré ne reviendrait jamais, puisque plus personne ne
+   * pourrait cliquer pour déclencher la tentative suivante.
+   */
+  #isReachable(name: string): boolean {
+    const failedAt = this.#unreachable?.[name];
+    if (failedAt === undefined) {
+      return true;
+    }
+    if (
+      Date.now() - failedAt >= UNREACHABLE_RETRY_MS &&
+      !this.#providers?.has(name)
+    ) {
+      this.#probe(name);
+    }
+    return false;
   }
 
   async #buildProvider(name: string): Promise<IResolvedProvider> {

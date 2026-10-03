@@ -274,10 +274,12 @@ export {
   registerOAuthProvider,
   getOAuthProviderFactory,
   listOAuthProviders,
+  oauthProviderRequiresIssuer,
 } from "./nodefony/src/oauth/oauthProviderRegistry";
 export type {
   OAuthProviderFactory,
   IOAuthProviderContext,
+  IOAuthProviderRegistration,
 } from "./nodefony/src/oauth/oauthProviderRegistry";
 // Client OAuth 2.0 du module (remplace toute dépendance tierce) : un fournisseur
 // maison le réutilise tel quel, un fournisseur OIDC se décrit par son seul émetteur.

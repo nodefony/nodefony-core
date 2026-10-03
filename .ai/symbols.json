@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 892,
-    "symbols": 4497,
+    "symbols": 4501,
     "classes": 408,
-    "interfaces": 1170,
+    "interfaces": 1172,
     "types": 480,
     "enums": 4,
-    "functions": 1983,
+    "functions": 1985,
     "constants": 452
   },
   "symbols": {
@@ -23127,6 +23127,14 @@
       "module": "@nodefony/security",
       "description": "Libellé affichable d'un fournisseur, quand sa configuration n'en donne pas. Un écran de connexion ne doit JAMAIS montrer un identifiant technique brut : `mon-idp-interne` sur un bouton ne dit rien …"
     },
+    "checkProviderIssuer": {
+      "name": "checkProviderIssuer",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Confronte l'émetteur configuré d'un fournisseur à ce que sa fabrique exige. Une URL qui ne peut pas être un émetteur est refusée QUEL QUE SOIT le fournisseur : aucune valeur mal formée n'est une co…"
+    },
     "SecurityHeaders": {
       "name": "SecurityHeaders",
       "kind": "class",
@@ -28440,6 +28448,15 @@
       "extends": null,
       "description": "Registre de **fabriques de fournisseurs OAuth** — résout un nom configuré (`oauth2.providers.<name>`) vers un {@link IOAuthProvider}, SANS coupler le cœur à un fournisseur en dur. Convention-frère …"
     },
+    "IOAuthProviderRegistration": {
+      "name": "IOAuthProviderRegistration",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Ce qu'une fabrique EXIGE de la configuration — lu au démarrage, avant que le moindre utilisateur ne clique."
+    },
     "OAuthProviderFactory": {
       "name": "OAuthProviderFactory",
       "kind": "type",
@@ -28463,6 +28480,14 @@
       "exported": true,
       "module": "@nodefony/security",
       "description": "Fabrique d'un fournisseur par nom, ou `undefined` si inconnu."
+    },
+    "oauthProviderRequiresIssuer": {
+      "name": "oauthProviderRequiresIssuer",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/oauth/oauthProviderRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "`true` si le fournisseur nommé a déclaré exiger un émetteur en configuration."
     },
     "listOAuthProviders": {
       "name": "listOAuthProviders",
@@ -34614,6 +34639,7 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
@@ -39549,6 +39575,7 @@
       ],
       "canonicalIssuer": [
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/ExternalJwtAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/src/oauth/metadata.ts",
@@ -39797,6 +39824,9 @@
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
       "listOAuthProviders": [
+        "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
+      ],
+      "oauthProviderRequiresIssuer": [
         "src/packages/@nodefony/security/nodefony/service/oauth2.ts"
       ],
       "generateCodeVerifier": [

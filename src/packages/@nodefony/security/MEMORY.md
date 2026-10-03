@@ -248,6 +248,12 @@ api/oauth2/{provider}/{authorize,callback}` (`bypassFirewall`, montés si servic
   state+verifier en **session anonyme** → 302 fournisseur ; callback **compare state** (anti-CSRF, usage unique)
   → `exchangeAndProvision` → `AuthFlow.establishSessionFor` (anti-fixation) → 302 successRedirect (échec →
   failureRedirect). Banc E2E réel `oauth2-flow` 6/6 (@nodefony/http).
+- **Boot OAuth2** : `checkProviderIssuer` (oauth2.ts) → `BootConfigurationError` (fatal dev+prod) si `issuer`
+  mal formé (`canonicalIssuer` du cœur, https RFC 8414) OU absent quand la fabrique a déclaré
+  `registerOAuthProvider(n, f, { requiresIssuer: true })` (builtins keycloak/oidc). Run `servers: true` →
+  `#probe` construit chaque fournisseur au boot SANS attendre ; échec = WARNING + `#unreachable[nom]`
+  (lazy, `Object.create(null)`) → retiré de `listDisplayProviders` (PAS de `listProviders` : authorize
+  reste ouvert) ; retry ≥ 30 s (`UNREACHABLE_RETRY_MS`) déclenché par l'affichage. Console = 0 réseau.
 - **`IOAuthUserProvisioner` / `IOAuthProfile`** (@nodefony/user) : capability de provisioning **Shadow User JIT**
   (find-or-create). `UserService.provisionOAuthUser(profile, {defaultRoles, allowSignup})` = défaut : crée
   `password:null` + rôles `policy.defaultRoles` (ROLE_USER) + `addSocialProvider` ; **zéro liaison-email auto**
