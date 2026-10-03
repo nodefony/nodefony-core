@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T03:04:28.262Z",
+  "generatedAt": "2026-10-03T04:48:15.479Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 65,
+      "closed": 66,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 33,
+      "open": 32,
       "title": "10.0.0-beta"
     },
     {
@@ -1695,8 +1695,8 @@
       "number": 269,
       "title": "test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak",
       "url": "https://github.com/nodefony/nodefony-core/issues/269",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
