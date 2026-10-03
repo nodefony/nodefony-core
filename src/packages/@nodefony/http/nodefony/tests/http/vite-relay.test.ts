@@ -120,7 +120,7 @@ describe.skipIf(IS_PROD_TARGET)(
     });
 
     it("une méthode d'écriture n'est pas relayée (Vite ne sert que des lectures)", async () => {
-      const res = await new Promise<number>((resolve, reject) => {
+      const res = await new Promise<IRaw["headers"]>((resolve, reject) => {
         const req = https.request(
           {
             hostname: "127.0.0.1",
@@ -131,13 +131,14 @@ describe.skipIf(IS_PROD_TARGET)(
           },
           (r) => {
             r.resume();
-            resolve(r.statusCode ?? 0);
+            resolve(r.headers);
           },
         );
         req.on("error", reject);
         req.end("x");
       });
-      expect(res).to.not.equal(200);
+      // Pas de `Via` : la requête a suivi le routage, Vite n'a rien reçu.
+      expect(res.via).to.equal(undefined);
     });
 
     it("chemin ambigu sous le préfixe → 400, Vite n'est pas contacté", async () => {
@@ -148,13 +149,15 @@ describe.skipIf(IS_PROD_TARGET)(
     });
 
     it("Host forgé : jamais relayé hors de la barrière d'hôte", async () => {
-      // Avec `domainCheck` (dépôt) la barrière répond 421 ; sans, la requête
-      // est relayée vers Vite LOCAL — la cible ne vient jamais du client.
+      // Le dépôt pose `domainCheck: true` (nodefony.config.ts) : la barrière
+      // d'hôte répond 421 AVANT le proxy. Sans elle, la requête irait au Vite
+      // LOCAL — la cible ne vient jamais du client (unit/reverseProxy.test.ts).
       const res = await request(
         `https://127.0.0.1:5152${LOGO_PATH}`,
         "evil.example",
       );
-      expect([200, 421]).to.include(res.status);
+      expect(res.status).to.equal(421);
+      expect(res.headers.via).to.equal(undefined);
       expect(res.headers.location).to.equal(undefined);
     });
 

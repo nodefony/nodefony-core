@@ -101,6 +101,13 @@ export const THRESHOLDS = {
   wsFrame: 1024,
   /** par stream servi (`stream-load`) — (0,02 Ko) */
   stream: 1024,
+  // Proxy inverse (#528) — seuil commun appliqué, pas encore re-mesuré sur
+  // 10 passages : le relais tient un pool de sockets amont par montage, borné,
+  // dont le remplissage est absorbé par l'échauffement.
+  /** GET relayé vers Vite par le proxy inverse */
+  proxyGet: 1024,
+  /** socket du rechargement à chaud relayée, ouverte puis fermée */
+  proxyWs: 1024,
   /**
    * COÛT d'une connexion WS TENUE ouverte (`ws-connections-load`) — pas une
    * rétention : ce que le serveur paye tant que la connexion vit. Mesuré

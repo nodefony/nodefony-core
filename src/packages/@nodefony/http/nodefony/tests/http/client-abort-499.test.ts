@@ -137,9 +137,11 @@ describe.skipIf(IS_PROD_TARGET)(
         origin: "https://exemple.test",
         "access-control-request-method": "GET",
       });
-      const relais = await h2Request(`/_vite/default/@vite/client?m=${marque}`);
+      const redirection = await h2Request(
+        `/nodefony/test/fw/redirect-302?m=${marque}`,
+      );
       expect(preflight, "prémisse : le preflight répond 204").to.equal(204);
-      expect(relais, "prémisse : le relais Vite répond 307").to.equal(307);
+      expect(redirection, "prémisse : la redirection répond 302").to.equal(302);
       await new Promise((r) => setTimeout(r, 500));
       if (journal === null) {
         ctx.skip("aucun journal alimenté par le serveur sous test");
@@ -153,7 +155,7 @@ describe.skipIf(IS_PROD_TARGET)(
       expect(lignes(new RegExp(`OPTIONS\\s+204\\s\\S*m=${marque}`))).to.equal(
         1,
       );
-      expect(lignes(new RegExp(`GET\\s+307\\s\\S*m=${marque}`))).to.equal(1);
+      expect(lignes(new RegExp(`GET\\s+302\\s\\S*m=${marque}`))).to.equal(1);
     });
 
     it("HTTP/2 : un client parti avant toute réponse reste un 499", async (ctx) => {

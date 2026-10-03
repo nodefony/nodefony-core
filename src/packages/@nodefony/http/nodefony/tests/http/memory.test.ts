@@ -117,6 +117,71 @@ function uploadSmall(): Promise<void> {
   });
 }
 
+/**
+ * Un GET RELAYÉ vers Vite par le proxy inverse (#528). Rejette si la réponse
+ * n'a pas traversé le relais (pas de `Via`) : sans Vite, la requête suivrait
+ * le routage et la boucle mesurerait un 404, en se croyant sur le proxy.
+ */
+function relayedGet(path: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = https.request({ ...BASE, path, method: "GET" }, (res) => {
+      res.resume();
+      res.on("end", () => {
+        if (res.statusCode === 200 && res.headers.via) resolve();
+        else
+          reject(
+            new Error(
+              `${path} non relayé (HTTP ${res.statusCode}, via=${res.headers.via}) ` +
+                "— Vite ne tourne pas, ou le montage /_vite/ est absent",
+            ),
+          );
+      });
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+const VITE = "/_vite/default";
+let hmrToken: Promise<string> | null = null;
+
+/** Jeton du socket HMR, lu UNE fois dans le client Vite (222 Ko). */
+function viteHmrToken(): Promise<string> {
+  hmrToken ??= new Promise((resolve, reject) => {
+    https
+      .get({ ...BASE, path: `${VITE}/@vite/client` }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          const token = /const wsToken = "([^"]+)"/.exec(
+            Buffer.concat(chunks).toString(),
+          )?.[1];
+          if (token) resolve(token);
+          else reject(new Error("jeton HMR introuvable dans @vite/client"));
+        });
+      })
+      .on("error", reject);
+  });
+  return hmrToken;
+}
+
+/** Socket HMR relayée : ouverte, premier message de Vite reçu, fermée. */
+async function relayedHmr(): Promise<void> {
+  const token = await viteHmrToken();
+  await new Promise<void>((resolve, reject) => {
+    const ws = new WebSocket(`${WSS}${VITE}/?token=${token}`, "vite-hmr", {
+      ...wsOpts,
+      origin: "https://localhost:5152",
+    });
+    ws.once("message", () => ws.close());
+    ws.once("close", () => resolve());
+    ws.once("error", reject);
+    ws.once("unexpected-response", (_q, r) =>
+      reject(new Error(`socket HMR non relayée (HTTP ${r.statusCode})`)),
+    );
+  });
+}
+
 // ── assertions ───────────────────────────────────────────────────────────────
 
 /**
@@ -258,6 +323,9 @@ const ACTIONS = {
       ws.once("close", () => resolve());
       ws.once("error", reject);
     }),
+  // Proxy inverse (#528) : relayés AVANT le routage, vers le Vite de la console.
+  proxyGet: () => relayedGet(`${VITE}/@vite/env`),
+  proxyWs: () => relayedHmr(),
 } satisfies Record<string, (i: number) => Promise<unknown>>;
 
 /**
@@ -283,6 +351,8 @@ const WARMUP = {
   wsEcho: 400,
   requestService: 450,
   wsRequestService: 400,
+  proxyGet: 450,
+  proxyWs: 300,
 } satisfies Record<keyof typeof ACTIONS, number>;
 
 /**
@@ -422,6 +492,16 @@ describe("Memory leaks — HTTP (requires server)", function () {
     await probesReleased("GET resolving request-scoped services");
   });
 
+  it("GET relayed by the reverse proxy — retains nothing per request", async () => {
+    // Relais HTTP (#528) : écouteurs posés sur la requête entrante, la requête
+    // amont et la réponse amont, socket rendue au pool du montage.
+    await httpLoop(
+      "GET relayed by the reverse proxy",
+      plan("proxyGet", 150),
+      THRESHOLDS.proxyGet,
+    );
+  });
+
   it("server is alive after load — /index returns 200", async () => {
     const req = https.request({
       ...BASE,
@@ -478,5 +558,14 @@ describe("Memory leaks — WebSocket (requires server)", function () {
       THRESHOLDS.wsRequestService,
     );
     await probesReleased("WS connections resolving a request-scoped service");
+  });
+
+  it("WS upgrade relayed by the reverse proxy — retains nothing per connection", async () => {
+    // Relais d'upgrade (#528) : deux sockets raccordées, détruites ensemble.
+    await wsLoop(
+      "WS upgrade relayed by the reverse proxy",
+      plan("proxyWs", 50),
+      THRESHOLDS.proxyWs,
+    );
   });
 });
