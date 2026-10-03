@@ -218,6 +218,26 @@ export const env = defineEnv({
     description: "OAuth GitHub — Client Secret (SECRET, jamais loggé).",
   }),
 
+  // Keycloak est AUTO-HÉBERGÉ : ses valeurs sont émises par NOTRE serveur, et
+  // aucun nom d'écosystème ne fait foi — d'où le préfixe `NF_`, à l'inverse des
+  // quatre ci-dessus. Le fournisseur n'est monté que si les TROIS sont posées ;
+  // le décor de dev (profil `keycloak` du compose) en donne les valeurs,
+  // documentées dans `.env.development`.
+  NF_KEYCLOAK_ISSUER: envString({
+    optional: true,
+    description:
+      "OIDC Keycloak — émetteur = URL du realm, en https (ex. https://localhost:8444/realms/nodefony).",
+  }),
+  NF_KEYCLOAK_CLIENT_ID: envString({
+    optional: true,
+    description: "OIDC Keycloak — identifiant du client confidentiel.",
+  }),
+  NF_KEYCLOAK_CLIENT_SECRET: envString({
+    optional: true,
+    description:
+      "OIDC Keycloak — secret du client confidentiel (SECRET, jamais loggé).",
+  }),
+
   /**
    * Base d'URL des callbacks OAuth (RFC 9700 : exact match avec l'URL
    * enregistrée chez le fournisseur). Callback complet = `<base>/nodefony/

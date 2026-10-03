@@ -27,7 +27,46 @@
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "https://localhost:5152/*##http://localhost:5151/*"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-nodefony-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "https://localhost:5152/nodefony/test/keycloak",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "nodefony-machine",
+      "name": "Nodefony — appelant machine (compte de service)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "nodefony-machine-dev-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-nodefony-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "https://localhost:5152/nodefony/test/keycloak",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -39,7 +78,11 @@
       "firstName": "Alice",
       "lastName": "Keycloak",
       "credentials": [
-        { "type": "password", "value": "alice-dev", "temporary": false }
+        {
+          "type": "password",
+          "value": "alice-dev",
+          "temporary": false
+        }
       ]
     }
   ]

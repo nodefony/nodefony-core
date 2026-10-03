@@ -80,6 +80,22 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
               },
             }
           : {}),
+        // Keycloak auto-hébergé : l'émetteur (URL du realm) sert à la fois à
+        // DÉCOUVRIR les points d'entrée et à valider l'`iss` reçu. Il doit être
+        // en https — même en dev (décor : profil `keycloak` du compose).
+        ...(ctx.env.NF_KEYCLOAK_ISSUER &&
+        ctx.env.NF_KEYCLOAK_CLIENT_ID &&
+        ctx.env.NF_KEYCLOAK_CLIENT_SECRET
+          ? {
+              keycloak: {
+                issuer: ctx.env.NF_KEYCLOAK_ISSUER,
+                clientId: ctx.env.NF_KEYCLOAK_CLIENT_ID,
+                clientSecret: ctx.env.NF_KEYCLOAK_CLIENT_SECRET,
+                redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/keycloak/callback`,
+                ...oauthPerProvider,
+              },
+            }
+          : {}),
       },
     },
     // Hiérarchie de rôles (RBAC, niveau A de l'autorisation) — ROLE_X hérite
