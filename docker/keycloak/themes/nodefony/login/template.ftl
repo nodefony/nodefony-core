@@ -155,24 +155,44 @@
      de Keycloak. -->
 <body id="keycloak-bg" class="${properties.kcBodyClass!} nf-body" data-page-id="login-${pageId}">
 <div class="nf-shell">
-  <aside class="nf-hero" aria-hidden="false">
+  <#-- NODEFONY : le panneau de gauche montre le REALM et l'APPLICATION qui
+       demande la connexion — uniquement avec ce que Keycloak expose aux
+       gabarits, donc réglable depuis SA console, sans toucher au thème :
+         · realm.displayNameHtml / displayName / name (Realm settings › General)
+         · client.name / client.description          (Clients › Settings)
+         · capacités du realm, lues et non décrites (Realm settings › Login)
+         · textes `nf*` surchargeables par realm et par langue
+           (Realm settings › Localization › Realm overrides). -->
+  <#assign nfRealmLabel = (realm.displayName?has_content)?then(realm.displayName, realm.name)>
+  <aside class="nf-hero">
     <div class="nf-hero-brand">
       <img src="${url.resourcesPath}/img/logo.png" alt="" class="nf-logo" width="27" height="42"/>
-      <span class="nf-hero-name">${msg("nfBrandName")}</span>
+      <span class="nf-hero-name"><#if realm.displayNameHtml?has_content>${kcSanitize(realm.displayNameHtml)?no_esc}<#else>${nfRealmLabel}</#if></span>
     </div>
     <div class="nf-hero-body">
-      <span class="nf-pill">${msg("nfSsoPill")}</span>
-      <p class="nf-hero-title">${msg("nfHeroTitle")}</p>
-      <p class="nf-hero-lead">${msg("nfHeroLead")}</p>
-      <ul class="nf-features">
-        <li><span class="nf-glass"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /> </svg></span><span><strong>${msg("nfFeature1Title")}</strong><small>${msg("nfFeature1Text")}</small></span></li>
-        <li><span class="nf-glass"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 12h4l3 8l4 -16l3 8h4" /> </svg></span><span><strong>${msg("nfFeature2Title")}</strong><small>${msg("nfFeature2Text")}</small></span></li>
-        <li><span class="nf-glass"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3" /> <path d="M11 11a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M12 12l0 2.5" /> </svg></span><span><strong>${msg("nfFeature3Title")}</strong><small>${msg("nfFeature3Text")}</small></span></li>
+      <span class="nf-pill">${msg("nfRealmPill", realm.name)}</span>
+      <#if client?? && (client.name?has_content || client.clientId?has_content)>
+        <p class="nf-hero-title">${msg("nfLoginTo", (client.name?has_content)?then(advancedMsg(client.name), client.clientId))}</p>
+        <#if client.description?has_content>
+          <p class="nf-hero-lead">${advancedMsg(client.description)}</p>
+        <#elseif msg("nfRealmDescription")?has_content && msg("nfRealmDescription") != "nfRealmDescription">
+          <p class="nf-hero-lead">${msg("nfRealmDescription")}</p>
+        </#if>
+      <#else>
+        <p class="nf-hero-title">${nfRealmLabel}</p>
+      </#if>
+      <p class="nf-caps-title">${msg("nfCapsTitle", nfRealmLabel)}</p>
+      <ul class="nf-caps">
+        <li><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /> </svg><span>${msg("nfCapSso")}</span></li>
+        <#if realm.identityFederationEnabled><li><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /> </svg><span>${msg("nfCapFederation")}</span></li></#if>
+        <#if realm.resetPasswordAllowed><li><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /> </svg><span>${msg("nfCapReset")}</span></li></#if>
+        <#if realm.registrationAllowed><li><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /> </svg><span>${msg("nfCapRegister")}</span></li><#else><li><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /> </svg><span>${msg("nfCapManaged")}</span></li></#if>
+        <#if realm.rememberMe><li><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M9 12l2 2l4 -4" /> </svg><span>${msg("nfCapRemember")}</span></li></#if>
       </ul>
     </div>
     <div class="nf-hero-footer">
-      <span>${msg("nfFooter")}</span>
-      <a href="https://github.com/nodefony/nodefony-core" target="_blank" rel="noopener noreferrer"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nf-icon" aria-hidden="true" > <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" /> </svg>GitHub</a>
+      <span>${msg("nfRealmFooter", realm.name)}</span>
+      <span>${msg("nfThemeCredit")}</span>
     </div>
   </aside>
   <div class="nf-panel">

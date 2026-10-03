@@ -138,45 +138,6 @@
   color: rgba(255, 255, 255, 0.82);
 }
 
-.nf-features {
-  display: grid;
-  gap: 22px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.nf-features li {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.nf-features strong {
-  display: block;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.nf-features small {
-  display: block;
-  margin-top: 2px;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.78);
-}
-
-.nf-glass {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--nf-radius);
-  background: rgba(255, 255, 255, 0.14);
-}
-
 .nf-icon {
   width: 20px;
   height: 20px;
@@ -665,5 +626,48 @@
   .nf-back,
   .nf-back .nf-icon {
     transition: none;
+  }
+}
+
+/* ── Ce que le compte permet — lu dans les réglages du realm ────────────── */
+
+.nf-caps-title {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.nf-caps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nf-caps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.nf-caps .nf-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: #8ce99a;
+}
+
+/* Le pied du panneau droit redit le périmètre SSO : utile seulement quand le
+   panneau du realm est masqué (petits écrans), redondant sinon. */
+@media (min-width: 62em) {
+  .nf-panel-footer {
+    display: none;
   }
 }

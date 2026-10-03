@@ -44,7 +44,8 @@
             "introspection.token.claim": "true"
           }
         }
-      ]
+      ],
+      "description": "Console d'administration du framework Nodefony — supervision, sécurité et données, en développement."
     },
     {
       "clientId": "nodefony-machine",
@@ -70,7 +71,8 @@
             "introspection.token.claim": "true"
           }
         }
-      ]
+      ],
+      "description": "Appelant machine (compte de service) : obtient un jeton d'accès par client_credentials, sans utilisateur."
     }
   ],
   "users": [
