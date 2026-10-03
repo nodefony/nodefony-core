@@ -22,7 +22,9 @@ describe("favicon et logo de la console d'administration", () => {
   it("le bandeau importe le logo du paquet, sans copie", () => {
     const src = lire("src", "components", "NodefonyLogo.tsx");
     expect(src).toContain(
-      'import logoUrl from "nodefony/assets/nodefony-logo.png";',
+      // `?inline` : une URL `/@fs/…` se résout contre l'origine de la page
+      // (Nodefony), pas contre celle de Vite — 404 en développement, vécu.
+      'import logoUrl from "nodefony/assets/nodefony-logo.png?inline";',
     );
     expect(src).not.toMatch(/data:image\//u);
   });
