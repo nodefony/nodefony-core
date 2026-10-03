@@ -360,26 +360,22 @@ automatisé.
 
 Elles ne se contournent pas : chacune produit un symptôme qui ressemble à un bug applicatif.
 
-| Contrainte                                    | Ce qui arrive sinon                                                                                                                                                                             |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Joindre l'hôte par **`host.docker.internal`** | `localhost` désigne le CONTENEUR. Le nom doit aussi figurer dans `trustedHosts`, sinon la barrière Host répond **`421`** alors que le réseau passe. Posé sans condition dans ce dépôt.          |
-| Passer par **HTTPS 5152**                     | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout le plan de données revient en `401` — ce qui se lit à tort comme un login KO. |
-| Rendre **Vite joignable**, ou servir statique | En mode Vite, la page annonce ses assets sur une origine dérivée du `Host` de la requête : arriver par `host.docker.internal` suffit. Servir l'interface pré-bâtie reste l'autre voie.          |
+| Contrainte                                    | Ce qui arrive sinon                                                                                                                                                                                    |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Joindre l'hôte par **`host.docker.internal`** | `localhost` désigne le CONTENEUR. Le nom doit aussi figurer dans `trustedHosts`, sinon la barrière Host répond **`421`** alors que le réseau passe. Posé sans condition dans ce dépôt.                 |
+| Passer par **HTTPS 5152**                     | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout le plan de données revient en `401` — ce qui se lit à tort comme un login KO.        |
+| Rien à poser pour **Vite**                    | Nodefony relaie Vite sur l'origine de la page (`/_vite/<famille>/`) : scripts, images et WebSocket du HMR suivent l'hôte par lequel on arrive, sans contenu mixte. Servir statique reste l'autre voie. |
 
-Pour la troisième, **il n'y a plus rien à poser**. L'origine des assets — et avec elle
-`allowedHosts` et le WebSocket du HMR — suit le nom par lequel le client est arrivé : le poste et
-le conteneur sont servis EN MÊME TEMPS par la même instance Vite.
+Pour la troisième, **il n'y a rien à poser** : le navigateur ne joint jamais Vite directement —
+Nodefony le relaie sur l'origine de la page (proxy inverse, `@nodefony/http`). Le poste et le
+conteneur sont servis EN MÊME TEMPS par la même instance Vite, et une page HTTPS charge ses scripts
+en HTTPS, sur la même origine, avec un seul certificat.
 
-> Il a existé une variable d'observation (`NF_FRONTEND_PUBLIC_ORIGIN`) pour figer cette origine sur
-> `host.docker.internal`. Elle a **cassé le poste du développeur** le jour où on a oublié de la
-> retirer — un navigateur local ne résout pas ce nom, et rien ne le signalait côté serveur. Elle
-> n'existe plus : une variable dont l'oubli casse un environnement n'avait pas besoin d'un rappel,
-> elle avait besoin de disparaître. Le réglage durable, lui, reste `frontend.publicOrigin` dans
-> `nodefony.config.ts` — pour un tunnel ou un proxy frontal, pas pour observer un écran.
->
-> Deux conditions à la dérivation, qui expliquent un éventuel retour à `127.0.0.1` : le nom doit
-> franchir `trustedHosts` (il y est, sans condition, dans ce dépôt), et aucune `publicOrigin` ne
-> doit être configurée — un réglage explicite gagne toujours sur une déduction.
+> Il a existé une variable d'observation (`NF_FRONTEND_PUBLIC_ORIGIN`), puis un réglage
+> `frontend.publicOrigin`, pour figer l'origine des assets. La première a **cassé le poste du
+> développeur** le jour où on a oublié de la retirer ; le second est aujourd'hui DÉPRÉCIÉ et sans
+> effet. Une page dont un script vise encore `127.0.0.1:5173` tourne sur un `@nodefony/frontend`
+> antérieur au relais.
 
 ## 5. Pièges — chacun a déjà fait conclure faux
 

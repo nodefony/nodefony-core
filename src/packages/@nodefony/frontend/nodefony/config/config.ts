@@ -111,9 +111,10 @@ export const frontendConfigSchema = z
       .string()
       .default("127.0.0.1")
       .describe(
-        "Host d'écoute du dev server Vite — utilisé tel quel dans les `<script>` " +
-          "injectés (doit être joignable depuis le navigateur). Prod : N/A (Vite " +
-          "ne tourne pas en prod, le manifest pilote).",
+        "Adresse d'écoute du dev server Vite. Défaut (RECOMMANDÉ) : la boucle " +
+          "locale — le navigateur ne joint jamais Vite directement, Nodefony le " +
+          "relaie sur l'origine de la page (`/_vite/<famille>/`). Prod : N/A " +
+          "(Vite ne tourne pas en prod, le manifest pilote).",
       ),
     devPort: z
       .number()
@@ -131,33 +132,16 @@ export const frontendConfigSchema = z
     publicOrigin: z
       .string()
       .default("")
-      .refine((v) => v === "" || /^https?:\/\/[^/\s]+$/.test(v), {
-        message:
-          "publicOrigin doit être une origine (`scheme://host[:port]`), sans chemin",
-      })
-      .describe(
-        "Origine PUBLIQUE du dev server Vite — celle que le NAVIGATEUR utilise, " +
-          "quand elle diffère de l'adresse d'écoute (`devHost`). ÉPINGLE le " +
-          "rendu sur une origine unique : à réserver aux cas où un frontal la " +
-          "réécrit (tunnel, proxy, port remappé). Utilisée telle quelle (port " +
-          "inclus SEULEMENT si écrit) dans les `<script>` injectés, le `base` " +
-          "Vite et le WebSocket HMR (`hmr.host`/`clientPort`, dérivés). " +
-          "Vide (défaut, RECOMMANDÉ) = chaque page annonce l'origine par " +
-          "laquelle le client est arrivé (`Host` de la requête, scheme et port " +
-          "de Vite) : un poste et un navigateur en conteneur sont servis EN " +
-          "MÊME TEMPS par la même instance, sans configuration. " +
-          "Codespaces/Gitpod sont détectés automatiquement et fournissent " +
-          "alors l'origine par défaut — MAIS un client arrivé par la boucle " +
-          "locale (tunnel de port : VS Code Desktop le fait par défaut) reste " +
-          "servi en local, parce que l'origine publique d'une plateforme exige " +
-          "sa session, qu'une intégration continue ou une sonde n'a pas. " +
-          "Une origine écrite ICI, en revanche, gagne sur tout — c'est un " +
-          "réglage, pas une déduction. " +
-          "L'hôte d'une origine épinglée est automatiquement autorisé par Vite " +
-          "(`server.allowedHosts`) ; les hôtes suivis par la dérivation sont " +
-          "ceux de `trustedHosts` de @nodefony/http (une seule liste à " +
-          "maintenir : elle ouvre la barrière 421, Vite, le CSP et le rendu).",
-      ),
+      .meta({
+        deprecated: true,
+        description:
+          "DÉPRÉCIÉE — sans effet, retrait à la majeure suivante (un WARNING le " +
+          "dit au démarrage). Vite est désormais servi DERRIÈRE Nodefony, sur " +
+          "l'origine de la page (`/_vite/<famille>/`, proxy inverse) : la page, " +
+          "ses scripts et le socket du rechargement à chaud n'ont qu'une " +
+          "origine, quel que soit le chemin du client (poste, conteneur, IP de " +
+          "réseau local, Codespaces). Retirer la clé.",
+      }),
     autoStartInDevelopment: z
       .boolean()
       .default(true)
@@ -233,13 +217,15 @@ export const frontendConfigSchema = z
     https: z
       .boolean()
       .default(false)
-      .describe(
-        "Active HTTPS pour le dev server Vite (récupère les certificats du service " +
-          "`certificates` de `@nodefony/http`, mêmes certs que `server-https` 5152). " +
-          "Reco : true quand la page Nodefony est servie en HTTPS (5152) — évite le " +
-          "warning mixed-content. Le navigateur demandera la confiance pour 5173 si " +
-          "la CA root Nodefony n'est pas installée localement.",
-      ),
+      .meta({
+        deprecated: true,
+        description:
+          "DÉPRÉCIÉE — sans effet, retrait à la majeure suivante (un WARNING le " +
+          "dit au démarrage). Le chiffrement est celui de la page : Vite reste " +
+          "en HTTP sur la boucle locale, derrière le proxy inverse de Nodefony, " +
+          "et une page HTTPS charge ses scripts en HTTPS sur la même origine — " +
+          "un seul certificat à accepter. Retirer la clé.",
+      }),
     viteEnv: z
       .record(z.string(), z.string())
       .default({})

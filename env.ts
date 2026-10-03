@@ -177,11 +177,9 @@ export const env = defineEnv({
       "Livraison de l'UI Studio : auto (défaut) | static (pré-buildé, sans Vite) | vite.",
   }),
 
-  // L'origine publique du dev-server Vite n'est plus une variable
-  // d'environnement : elle se DÉRIVE du `Host` de chaque requête (le poste et
-  // un navigateur en conteneur sont servis en même temps, sans rien à poser).
-  // Un réglage durable — tunnel, proxy frontal — s'écrit dans
-  // `nodefony.config.ts` (`frontend.publicOrigin`) et gagne sur la dérivation.
+  // Le dev-server Vite n'a plus de variable d'environnement : Nodefony le
+  // relaie sur l'origine de la page (le poste et un navigateur en conteneur
+  // sont servis en même temps, sans rien à poser).
   // Ce qui a motivé le retrait : posée pour observer un écran puis oubliée,
   // cette variable a rendu Studio inaccessible depuis le poste, sans la moindre
   // erreur côté serveur. Un décor d'observation n'a rien à faire dans

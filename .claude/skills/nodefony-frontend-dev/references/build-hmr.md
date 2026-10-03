@@ -25,7 +25,7 @@ sans lire le source.
   - [4.6 CSP automatique (origines Vite → firewall)](#46-csp-automatique-origines-vite--firewall)
   - [4.7 Résilience du superviseur](#47-résilience-du-superviseur)
   - [4.8 Assets / CDN](#48-assets--cdn)
-  - [4.9 Assets en dev — chemin réservé + relais](#49-assets-en-dev--chemin-réservé--relais)
+  - [4.9 Vite derrière Nodefony — une seule origine en dev](#49-vite-derrière-nodefony--une-seule-origine-en-dev)
 - [5. Recette — ajouter un front à un module](#5-recette--ajouter-un-front-à-un-module)
 - [6. Gotchas front-build](#6-gotchas-front-build)
 - [7. Commandes CLI](#7-commandes-cli)
@@ -76,9 +76,8 @@ DEV (env=development)
          └─ ViteProcessSupervisor.start() → spawn le vrai bin Vite, parse "Local:" → ready
   Navigateur  GET /ma-route  (HTTP 5151 / HTTPS 5152)
     └─ Controller → this.render(svc.renderDocument("nom", ctx.cspNonce))
-         → injecte <script src="http://host:5173/_vite/<famille>/@fs/<abs>/main.tsx"> + @vite/client + preamble
-  Navigateur ↔ Vite 5173 (cors)  : modules + HMR (WebSocket Vite autonome)
-  Navigateur → Nodefony /_vite/<famille>/… (URL d'asset relative au document) → 307 → Vite (§4.9)
+         → injecte <script src="/_vite/<famille>/@fs/<abs>/main.tsx"> + @vite/client + preamble (RELATIFS)
+  Navigateur → Nodefony /_vite/<famille>/… (modules, assets, WS du HMR) → proxy inverse → Vite local (§4.9)
   Navigateur fetch("/ma/api")     : Vite PROXIFIE vers le backend Nodefony
   Kernel "onTerminate" → stopDev() → SIGINT puis SIGKILL(3s)
 
@@ -174,34 +173,11 @@ Source unique des balises = `TemplateHelper` (`src/template/TemplateHelper.ts`).
 Le `nonce` (issu de `Context.cspNonce`) est posé sur les `<script>` (preamble inline dev + entrée)
 pour satisfaire `script-src 'nonce-…'` sans `'unsafe-inline'` (`TemplateHelper.ts:185`).
 
-**`requestHost` (issu de `Context.domain`, sans port) — l'origine des assets SUIT la requête.**
-En développement, la page annonce ses assets sur l'hôte par lequel le client est arrivé : un poste
-(`127.0.0.1`) et un navigateur en conteneur (`host.docker.internal`) chargent la même page **en
-même temps**, servis par une seule instance Vite, sans variable d'environnement ni `/etc/hosts`.
-Seul le NOM change — le scheme et le port restent ceux de Vite (une page servie en clair sur 5151
-charge donc légitimement ses assets en TLS sur 5173).
-
-Trois gardes, chacune protégeant un cas réel (`FrontendService.derivableHost`) :
-
-1. **origine non épinglée** — une `frontend.publicOrigin` explicite, ou une plateforme de dev
-   déporté détectée, gagne toujours : un réglage voulu prime sur une déduction ;
-2. **`trustedHosts` franchie** — le `Host` est une donnée CLIENTE ; sans ce filtre, une requête
-   forgée ferait émettre `<script src="https://attaquant:5173/…">`. La règle est celle du kernel
-   HTTP (`HttpKernel.isTrustedHostname`, résolu PAR NOM — pas d'import, pas de cycle), jamais une
-   seconde copie ;
-3. **barrière non déléguée** (`trustedHosts !== true`) — le bypass total ne dit plus rien d'un nom,
-   et le CSP émis ne couvrirait alors que loopback + domaine canonique.
-
-Un nom inexploitable (port, chemin, `@`, espace) laisse l'origine résolue : jamais d'URL bancale.
-En **production**, `requestHost` est ignoré — les URLs du manifest sont relatives au document,
-elles suivent déjà l'hôte de la page.
-
-> ⚠️ **Vite ne monte le contrôle `allowedHosts` HTTP que si le dev server n'est PAS en HTTPS**
-> (`vite/dist/node/chunks/node.js:26556`). Le **WebSocket du HMR**, lui, l'applique toujours. Un
-> hôte absent d'`allowedHosts` donne donc une page qui s'affiche et un HMR **muet** — le symptôme
-> le plus trompeur du domaine. Comme `allowedHosts`, le CSP et la dérivation viennent tous de
-> `trustedHosts`, ouvrir un hôte à un endroit l'ouvre partout : c'est voulu, et c'est ce qui rend
-> l'invariant tenable.
+**Aucune origine dans les balises.** En développement, toutes les URLs vers Vite sont relatives à
+la page (`/_vite/<famille>/…`) et relayées par Nodefony (§4.9) : elles suivent d'elles-mêmes l'hôte
+par lequel le client est arrivé — poste, conteneur, téléphone du réseau local, Codespaces — sans
+contenu mixte. Le 3ᵉ paramètre `requestHost` est DÉPRÉCIÉ et ignoré (accepté pour ne casser aucun
+appelant). En **production**, les URLs du manifest sont relatives au document, comme avant.
 
 **Helpers de template** (façon Symfony `encore_entry_script_tags`), même source `renderTags`/
 `renderDocument` :
@@ -292,7 +268,7 @@ Contenu clé de la config générée :
   URLs (modules, assets, `url()` CSS, socket HMR). ⚠️ Jamais une ORIGINE : en dev, Vite réduit un `base`
   absolu à son seul chemin (`resolveBaseUrl`) — l'ancien `base: "https://127.0.0.1:5173/"` valait `/`.
   Les imports JS marchent parce que le navigateur les résout contre l'URL du MODULE (Vite) ; une URL
-  d'asset, elle, se résout contre la PAGE (Nodefony) → d'où le relais (§4.9). `strictPort` est toujours
+  d'asset, elle, se résout contre la PAGE (Nodefony) → d'où le proxy (§4.9). `strictPort` est toujours
   posé en dev : le superviseur possède le port.
 - `server.cors: true` : le navigateur charge depuis l'origine Nodefony des assets servis par Vite.
 - `server.fs.allow` : `process.cwd()` (workspace root, node_modules hoistés) + le `root` de **chaque**
@@ -319,8 +295,9 @@ Si le superviseur n'est pas `ready` quand `renderTags` est appelé → un **comm
 
 ### 4.2 `apiProxyPaths` — proxy API seulement
 
-En dev, le navigateur tape directement Vite (5173). Un `fetch("/ma/api/x")` depuis l'app servie par
-Vite atterrit donc sur **Vite**, qui répond son **SPA-fallback HTML** → `Unexpected token '<'` en
+Une page rendue par Nodefony appelle son API sur sa propre origine. Mais une app ouverte
+DIRECTEMENT sur Vite (son `index.html`, `127.0.0.1:5173`) envoie son `fetch("/ma/api/x")` à
+**Vite**, qui répond son **SPA-fallback HTML** → `Unexpected token '<'` en
 JSON. `apiProxyPaths` déclare les préfixes que Vite doit **proxifier vers le backend Nodefony**
 (`ViteConfigGenerator.toMjs:144-156`). La config générée pose `proxy[path] = { target: backendOrigin,
 changeOrigin: false, secure: false, ws: true }`.
@@ -398,20 +375,19 @@ démarré (`:354-360`).
   `onFrontendReady` (en `finally`) sur le **kernel** pour la checklist `BootReporter`. Aucun listener
   (prod / boot direct) → `fire` no-op, 0 coût.
 
-### 4.6 CSP automatique (origines Vite → firewall)
+### 4.6 CSP automatique (fragment Vite → firewall)
 
-Au `startDev`, après que les ports Vite sont résolus, `FrontendService.#registerCsp()`
-(`FrontendService.ts:649`, appelé `:363`) déclare les origines Vite au firewall `@nodefony/security`
-via `firewall.registerCspOrigins("frontend", fragment)` (résolu PAR NOM, anti-cycle). Le firewall émet
-alors **UN seul CSP** (nonce + origines mergées) → **plus besoin** d'override `setHeader` dans le
-controller. `stopDev` appelle `unregisterCspOrigins("frontend")` (`:506-510`). No-op si security absent.
+Au `startDev`, AVANT le premier spawn, `FrontendService.#registerCsp()` déclare le fragment Vite au
+firewall `@nodefony/security` via `firewall.registerCspOrigins("frontend", fragment)` (résolu PAR NOM,
+anti-cycle). Le firewall émet **UN seul CSP** (nonce + fragment mergé) → **plus besoin** d'override
+`setHeader` dans le controller. `stopDev` appelle `unregisterCspOrigins("frontend")`. No-op si
+security absent.
 
-Le fragment (`#viteCspFragment:671`) couvre, pour chaque host de dev (loopback + `kernel.domain` +
-`trustedHosts` du http) × ports Vite : `script-src` (`'self'` + `'unsafe-eval'` pour React Fast Refresh
-
-- origines), `style-src` (`'self'` + `'unsafe-inline'`), `worker-src` (`'self' blob:`), `img-src`,
-  `font-src`, `connect-src` (+ `ws://`/`wss://` pour le HMR). En prod, `startDev` ne tourne pas → CSP
-  strict same-origin.
+Le fragment (`#viteCspFragment`) ne nomme **aucune origine ni aucun port** : tout passe par l'origine
+de la page (§4.9). `'self'` dans chaque directive (elles n'héritent pas de `default-src`, et `'self'`
+couvre le `ws(s):` du HMR de même hôte), `'unsafe-eval'` en `script-src` (React Fast Refresh),
+`'unsafe-inline'` en `style-src` (styles injectés par Vite), `worker-src 'self' blob:`. En prod,
+`startDev` ne tourne pas → CSP strict same-origin.
 
 ### 4.7 Résilience du superviseur
 
@@ -445,26 +421,33 @@ mount `Statics` (qui reste relatif à l'origine). Vide = assets servis depuis l'
 chemins relatifs. Bascule cloud-native (nginx/CDN frontal) = changer `assetBaseUrl`/`publicPath` sans
 toucher au rendu.
 
-### 4.9 Assets en dev — chemin réservé + relais
+### 4.9 Vite derrière Nodefony — une seule origine en dev
 
-Le problème : la page vient de Nodefony (5152), les modules de Vite (5173). Vite fabrique ses URLs
-d'assets **relatives au document** — `import logo from "./logo.png"` rend `"/_vite/default/src/logo.png"`,
-un `url(./x.png)` CSS idem, un `<img src="./x.png">` de gabarit Vue idem. Le navigateur les demande
-donc à **Nodefony**.
+Le problème : la page vient de Nodefony (5152, HTTPS), Vite tourne à part (5173, HTTP). Annoncer
+ses scripts sur l'origine de Vite, c'est deux origines, deux certificats — et hors boucle locale le
+navigateur refuse un script HTTP dans une page HTTPS (« mixed content » : page blanche depuis un
+téléphone, une IP de réseau local, un navigateur en conteneur). Or caméra/micro, Service Workers,
+WebAuthn exigent une page HTTPS dès qu'on quitte `localhost`.
 
-Le remède (#526), en deux moitiés :
+Le remède (#526 puis #528) :
 
 1. **Chemin réservé par famille** — `devBasePath(famille)` = `/_vite/<famille>/` (`default`, `vue`,
    `angular` : une instance Vite chacune, sur son port). Émis comme `base` par le générateur, porté par
-   `status().base`, suffixé par `TemplateHelper` à TOUTES les balises (une seule oubliée → Vite la
-   refuse, page morte).
-2. **Relais 307 côté Nodefony** — `FrontendService.registerDevRelay` déclare le préfixe au service
-   `server-static` (`addRelay`, résolu PAR NOM, anti-cycle). `HttpKernel` le consulte **avant le
-   routage** (une route attrape-tout de l'app ne l'avale pas) et redirige vers
-   `TemplateHelper.devOrigin(derivableHost(domain))` — la MÊME règle que les balises : origine épinglée
-   (config/plateforme), `trustedHosts`, boucle locale recomposée. `Cache-Control: no-store` (la cible
-   dépend de l'hôte du client). Un Host refusé par `domainCheck` n'est pas relayé (421 comme ailleurs).
-   `stopDev` retire les relais (`removeRelay`) ; sans relais `relays === null` → zéro coût en prod.
+   `status().base`. Vite fabrique ALORS toutes ses URLs sous ce préfixe — y compris celles des assets,
+   relatives au document (`import logo from "./logo.png"` → `/_vite/default/src/logo.png`).
+2. **Balises RELATIVES** — `TemplateHelper` émet `/_vite/<famille>/@vite/client`, sans origine. Le
+   client Vite déduit son socket HMR de l'URL qui l'a chargé : il ouvre donc `wss://<hôte de la
+page>/_vite/<famille>/`.
+3. **Proxy inverse côté Nodefony** — `FrontendService.mountDevProxy` monte le préfixe sur le service
+   `reverse-proxy` de `@nodefony/http` (résolu PAR NOM, anti-cycle) : HTTP GET/HEAD **et upgrade
+   WebSocket** relayés vers `TemplateHelper.devTarget()` (origine LOCALE `http://127.0.0.1:<port>`),
+   `Host` réécrit (Vite garde `allowedHosts` et `cors` à leurs défauts stricts), `cookie` et
+   `authorization` non transmis. Consulté **avant le routage**. `stopDev` démonte ; en production
+   aucun montage → `/_vite/` en 404.
+
+Résultat : page, scripts, images, HMR = **une origine, un certificat**, quel que soit le chemin du
+client. `frontend.publicOrigin`, `frontend.https` et le paramètre `requestHost` sont DÉPRÉCIÉS (sans
+effet, WARNING au démarrage). CSP dev : `'self'` suffit (couvre `ws(s):` de même hôte, CSP 3).
 
 Pourquoi pas `server.origin` : il fige UNE origine (casse poste + conteneur servis ensemble), et il est
 **ignoré en mode bundlé** de Vite (`fileToUrl$1` → `fileToBuiltUrl`) ; `base` est honoré partout.
@@ -495,7 +478,7 @@ modules: [
   "@nodefony/frontend", // ← AVANT les consommateurs
   "@nodefony/mon-module",
   // surcharge optionnelle de la config frontend :
-  // use("@nodefony/frontend", { devPort: 5173, https: true }),
+  // use("@nodefony/frontend", { devPort: 5173 }),
 ];
 ```
 
@@ -616,9 +599,9 @@ consommateur (pattern bull-board/GraphiQL). La mécanique vit dans **@nodefony/h
   le SPA-fallback HTML de Vite. Déclarer le préfixe d'API (cf §4.2). Le data plane `/nodefony/*/api`
   est déjà proxifié d'office.
 - **Image importée en 404 / texte alternatif affiché en dev** : URL sans `/_vite/<famille>/` (balise écrite
-  à la main au lieu de `renderTags`), relais absent (`server-static` non chargé), ou route/proxy qui
-  intercepte `/_vite/*` avant Nodefony. Sonde : `curl -sk -o /dev/null -w "%{http_code}"
-https://127.0.0.1:5152/_vite/default/@vite/client` → `307` attendu (cf §4.9).
+  à la main au lieu de `renderTags`), proxy non monté (`@nodefony/http` désaligné → WARNING au boot), ou
+  frontal qui intercepte `/_vite/*` avant Nodefony. Sonde : `curl -sk -o /dev/null -w "%{http_code}"
+https://127.0.0.1:5152/_vite/default/@vite/client` → `200` attendu, en-tête `Via: … nodefony-…` (cf §4.9).
 - **Prébundle `.vite` périmé** : après un changement d'import/subpath ou un upgrade de dep, Vite peut
   servir un cache `node_modules/.vite` obsolète → erreurs d'import fantômes. Purger
   `node_modules/.vite` (le dossier de l'app/du root concerné) puis relancer.
@@ -637,9 +620,8 @@ https://127.0.0.1:5152/_vite/default/@vite/client` → `307` attendu (cf §4.9).
   c'est un défaut de scoping → famille d'isolation `angular` (process séparé) + `tsconfig.app.json` dont
   le `include` ne couvre QUE le front Angular (`isolationGroups.ts`/`ViteConfigGenerator.ts:89`).
   Angular HMR = page reload (pas hot-swap).
-- **HTTPS dev (`https:true`)** : le navigateur doit faire confiance au cert du port Vite (5173). Aller
-  une fois sur `https://host:5173/`, ou installer la CA root Nodefony. `https` réutilise les certs du
-  service `certificates` (mêmes que 5152) ; absent → fallback HTTP + warning.
+- **HTTPS en dev** : rien à faire côté Vite — il est relayé sur l'origine de la page (§4.9), un seul
+  certificat à accepter (celui de 5152). `frontend.https` est DÉPRÉCIÉ (sans effet, WARNING).
 - **Vite orphelin / `EADDRINUSE` au restart** : cause = signaux mal relayés. Le superviseur lance le
   vrai bin Vite (pas `npx`) et `detached:false` pour que SIGINT/SIGKILL l'atteignent. Pour tuer un Vite
   resté en vie dans un test : `lsof -ti:<port> -sTCP:LISTEN`.
@@ -682,7 +664,7 @@ Vite sert un fichier absolu sous le préfixe `/@fs/` — c'est le moyen de véri
 ```bash
 ABS="/Users/cci/repository/nodefony-core/src/packages/@nodefony/studio/frontend/src/routes/MaVue.tsx"
 curl -sk -o /tmp/vite-check.js -w "http=%{http_code} size=%{size_download}\n" \
-  "https://127.0.0.1:5173/@fs${ABS}"
+  "https://127.0.0.1:5152/_vite/default/@fs${ABS}"
 head -5 /tmp/vite-check.js
 ```
 
@@ -697,8 +679,9 @@ transpilé** (`import … from "react"`, `_jsx(…)` en React 19) — pas de JSX
 | `http=200` mais du HTML (`<title>`)     | URL de la page servie, pas `/@fs/<abs>`                                 |
 | `http=200` mais la modif n'apparaît pas | prébundle périmé → §8.2                                                 |
 
-> Le port de dev est **5173** par défaut, en HTTPS. S'il était pris, Vite incrémente : lire le vrai
-> port (`svc.status().port`, ou `nodefony frontend:status -j`) plutôt que le supposer.
+> On passe par Nodefony (5152) et le préfixe de la famille (`default`, `vue`, `angular`) : c'est le
+> chemin réel du navigateur, proxy compris. Vite lui-même écoute en HTTP sur la boucle locale (5173
+> par défaut, port réel : `nodefony frontend:status -j`).
 
 ### 8.2 Purger le prébundle d'un module
 

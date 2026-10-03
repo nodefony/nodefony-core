@@ -9,14 +9,12 @@ import type {
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
 
 /**
- * P14.17 — les `<script>` injectés suivent l'origine PUBLIQUE du superviseur.
- *
- * Le bug d'origine (vécu, navigateur en conteneur) : la page annonçait ses
- * assets en `https://127.0.0.1:5173/...` — ce loopback est celui du NAVIGATEUR,
- * donc du conteneur, où aucun Vite ne tourne. L'origine du status est désormais
- * la SOURCE UNIQUE des URLs émises ; ce banc verrouille qu'elle est reprise
- * VERBATIM (port implicite d'un forwarder compris) et que le fallback
- * historique reste correct pour un status sans `origin`.
+ * Les `<script>` injectés ne portent AUCUNE origine — ni en production (le
+ * manifest rend des chemins relatifs) ni en développement (#528 : Vite est
+ * relayé sur l'origine de la page). Le bug qui a fondé ce banc (vécu,
+ * navigateur en conteneur) : la page annonçait `https://127.0.0.1:5173/…`, le
+ * loopback du NAVIGATEUR, où aucun Vite ne tourne. Une URL relative ne peut
+ * plus viser la mauvaise machine.
  */
 
 const entry: IResolvedFrontendEntry = {
@@ -54,156 +52,7 @@ function supervisorWith(
   };
 }
 
-describe("TemplateHelper — origine publique des tags dev (P14.17)", () => {
-  it("reprend l'origine du superviseur VERBATIM (conteneur Docker)", () => {
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://host.docker.internal:5173" }),
-      "development",
-    );
-    const tags = helper.renderTags("studio");
-    expect(tags).to.include(
-      'src="https://host.docker.internal:5173/@vite/client"',
-    );
-    expect(tags).to.not.include("127.0.0.1");
-  });
-
-  it("origine SANS port (forwarder TLS Codespaces) : aucun port ajouté", () => {
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://mona-5173.app.github.dev" }),
-      "development",
-    );
-    const tags = helper.renderTags("studio");
-    expect(tags).to.include(
-      'src="https://mona-5173.app.github.dev/@vite/client"',
-    );
-    // Le port d'ÉCOUTE (5173) ne doit pas fuiter dans une URL de forwarder.
-    expect(tags).to.not.include("app.github.dev:5173");
-  });
-
-  it("status sans origin (double de test) : fallback scheme://host:port", () => {
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: null }),
-      "development",
-    );
-    const tags = helper.renderTags("studio");
-    expect(tags).to.include('src="https://127.0.0.1:5173/@vite/client"');
-  });
-
-  it("dérive l'origine du Host de la REQUÊTE — deux hôtes, deux origines", () => {
-    // Le cœur du lot : une seule instance Vite sert le poste ET le conteneur.
-    // La MÊME entrée, demandée par deux noms, annonce deux origines.
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://127.0.0.1:5173" }),
-      "development",
-    );
-    const fromPoste = helper.renderTags("studio", undefined, "127.0.0.1");
-    const fromContainer = helper.renderTags(
-      "studio",
-      undefined,
-      "host.docker.internal",
-    );
-    expect(fromPoste).to.include('src="https://127.0.0.1:5173/@vite/client"');
-    expect(fromContainer).to.include(
-      'src="https://host.docker.internal:5173/@vite/client"',
-    );
-    // Aucune trace de l'hôte de démarrage dans la page servie au conteneur :
-    // c'est CE reliquat qui a cassé Studio (un `<script>` sur un nom que seul
-    // l'autre monde résout, sans la moindre erreur côté serveur).
-    expect(fromContainer).to.not.include("127.0.0.1");
-  });
-
-  it("dérive dans TOUS les tags, pas seulement le premier", () => {
-    // Un seul tag laissé sur l'ancienne origine suffit à casser la page :
-    // le preamble React, le pont HMR et la debug bar importent AUSSI depuis
-    // Vite. On compte les origines émises plutôt que d'en vérifier une.
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://127.0.0.1:5173" }),
-      "development",
-    );
-    const tags = helper.renderTags("studio", "N0NCE", "host.docker.internal");
-    const origins = new Set(
-      [...tags.matchAll(/https?:\/\/[A-Za-z0-9._-]+:\d+/g)].map((m) => m[0]),
-    );
-    expect([...origins]).to.deep.equal(["https://host.docker.internal:5173"]);
-    // Le preamble React est bien présent (sinon le compte ci-dessus serait
-    // trivialement vrai sur une page vide de scripts).
-    expect(tags).to.include("__vite_plugin_react_preamble_installed__");
-    expect(tags).to.include('nonce="N0NCE"');
-  });
-
-  it("le scheme et le port restent ceux de VITE, jamais ceux de la page", () => {
-    // Une page servie en clair (http://…:5151) charge légitimement ses assets
-    // en https://…:5173 si Vite est en TLS. Déduire le scheme de la page
-    // produirait un `http://…` que le serveur TLS ne sert pas.
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://127.0.0.1:5173" }),
-      "development",
-    );
-    const tags = helper.renderTags("studio", undefined, "host.docker.internal");
-    expect(tags).to.include("https://host.docker.internal:5173/");
-    expect(tags).to.not.include("http://host.docker.internal");
-    // Et l'inverse : un Vite en clair reste en clair.
-    const plain = new TemplateHelper(
-      supervisorWith({ origin: "http://127.0.0.1:5173", https: false }),
-      "development",
-    );
-    expect(plain.renderTags("studio", undefined, "poste.local")).to.include(
-      'src="http://poste.local:5173/@vite/client"',
-    );
-  });
-
-  it("origine de PLATEFORME + client loopback : le port de Vite est RECOMPOSÉ", () => {
-    // Le piège qui rendait la correction fausse à un caractère près. L'origine
-    // d'un forwarder n'a pas de port explicite (443 implicite) : substituer
-    // seulement le nom rend `https://localhost` — le port 443 d'une machine
-    // qui écoute sur 5173, donc rien. Le port réel vient du `status`.
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://mona-5173.app.github.dev" }),
-      "development",
-    );
-    for (const local of ["localhost", "127.0.0.1", "127.0.0.2", "[::1]"]) {
-      const tags = helper.renderTags("studio", undefined, local);
-      expect(tags, local).to.include(
-        `src="https://${local}:5173/@vite/client"`,
-      );
-      // La preuve NÉGATIVE : sans le port, l'URL serait `https://localhost/`.
-      expect(tags, local).to.not.include(`https://${local}/`);
-      expect(tags, local).to.not.include("app.github.dev");
-    }
-  });
-
-  it("origine de PLATEFORME + client distant : l'origine publique est gardée", () => {
-    // Le pendant du test précédent — sans lui, on ne saurait pas si la
-    // recomposition discrimine ou si elle s'applique à tout le monde, ce qui
-    // casserait le cas d'usage NORMAL d'un Codespace (navigateur humain sur
-    // l'URL publique). Le rendu suit ici la politique du service, qui ne
-    // transmet pas d'hôte non dérivable : `renderTags` sans hôte.
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://mona-5173.app.github.dev" }),
-      "development",
-    );
-    const tags = helper.renderTags("studio");
-    expect(tags).to.include(
-      'src="https://mona-5173.app.github.dev/@vite/client"',
-    );
-    expect(tags).to.not.include("localhost");
-    expect(tags).to.not.include("app.github.dev:5173");
-  });
-
-  it("un Host inexploitable laisse l'origine du superviseur (jamais d'URL bancale)", () => {
-    const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://127.0.0.1:5173" }),
-      "development",
-    );
-    for (const forged of ["evil.com/x", "evil.com:1", "a@b", "a b", ""]) {
-      const tags = helper.renderTags("studio", undefined, forged);
-      expect(tags, forged).to.include(
-        'src="https://127.0.0.1:5173/@vite/client"',
-      );
-      expect(tags, forged).to.not.include("evil.com");
-    }
-  });
-
+describe("TemplateHelper — aucune origine dans les balises", () => {
   it("PROD : le Host est ignoré — les URLs du manifest sont relatives", () => {
     // Non-régression du mode statique : la prod ne dépend d'aucune origine
     // absolue, elle suit déjà l'hôte de la page. Rien ne doit y changer.
@@ -214,9 +63,9 @@ describe("TemplateHelper — origine publique des tags dev (P14.17)", () => {
     expect(withHost).to.not.include("autre.example.com");
   });
 
-  it("l'entry est servie via /@fs sur la MÊME origine publique", () => {
+  it("DEV : l'entry est servie via /@fs, relative à la page, quelle que soit l'origine de Vite", () => {
     const helper = new TemplateHelper(
-      supervisorWith({ origin: "https://host.docker.internal:5173" }),
+      supervisorWith({ origin: "http://127.0.0.1:5173" }),
       "development",
     );
     const tags = helper.renderTags("studio");
@@ -225,8 +74,9 @@ describe("TemplateHelper — origine publique des tags dev (P14.17)", () => {
     // Windows (lecteur du cwd ajouté), et l'URL émise devient `/@fs/D:/abs/…`.
     const abs = path.resolve(entry.root, entry.entryFile).replace(/\\/g, "/");
     expect(tags).to.include(
-      `https://host.docker.internal:5173/@fs${abs.startsWith("/") ? "" : "/"}${abs}`,
+      `src="/@fs${abs.startsWith("/") ? "" : "/"}${abs}"`,
     );
+    expect(tags).to.not.include("127.0.0.1");
     // Quelle que soit la plateforme, aucune URL émise ne porte de backslash.
     expect(tags).to.not.include("\\");
   });

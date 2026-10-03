@@ -44,13 +44,6 @@ export interface ViteConfigGeneratorOptions {
         readonly certPath: string;
       }
     | undefined;
-  /**
-   * Hôtes acceptés dans le header `Host` (`server.allowedHosts`, Vite ≥6).
-   * `true` = tous. Un motif `.suffixe` couvre le domaine et ses sous-domaines.
-   * Les IP et `localhost` sont toujours acceptés par Vite — cette liste ne
-   * sert que les NOMS (vhosts, `host.docker.internal`, forwarders).
-   */
-  readonly allowedHosts?: true | ReadonlyArray<string> | undefined;
 }
 
 /**
@@ -247,14 +240,11 @@ ${fsAllowLines}
       ],
     },
 `;
-    // P14.17 — dev déporté : hôtes nommés autorisés + WS HMR routé vers
-    // l'origine PUBLIQUE. Émis seulement si fournis (défauts Vite sinon).
-    const allowedHostsLine =
-      opts.allowedHosts === true
-        ? `    allowedHosts: true,\n`
-        : opts.allowedHosts && opts.allowedHosts.length > 0
-          ? `    allowedHosts: ${JSON.stringify(opts.allowedHosts)},\n`
-          : "";
+    // Ni `allowedHosts` ni `cors` : le proxy inverse de Nodefony réécrit `Host`
+    // sur `127.0.0.1:<port>`, que Vite accepte d'office, et la page partage
+    // l'origine de ses scripts — aucune requête n'est inter-origines. Les deux
+    // barrières de Vite (DNS-rebinding, CORS restreint depuis CVE-2025-24010)
+    // restent donc à leur réglage le plus strict (#528).
     // 🔴 AUCUNE ligne `hmr` n'est émise, JAMAIS — et c'est délibéré.
     // Le client Vite déduit l'adresse de son socket de l'URL par laquelle IL a
     // été chargé (`client.mjs` : `__HMR_HOSTNAME__ || importMetaUrl.hostname`,
@@ -272,15 +262,13 @@ ${fsAllowLines}
       proxyPaths.size > 0
         ? `  server: {
     strictPort: ${strictPort},
-    cors: true,
-${allowedHostsLine}${httpsLines}${fsBlock}    proxy: {
+${httpsLines}${fsBlock}    proxy: {
 ${proxyLines}
     },
   },`
         : `  server: {
     strictPort: ${strictPort},
-    cors: true,
-${allowedHostsLine}${httpsLines}${fsBlock}  },`;
+${httpsLines}${fsBlock}  },`;
 
     // `base` = chemin réservé de la famille, en dev seulement (#526). Jamais une
     // origine : Vite en dev n'en garde que le chemin, et une URL d'asset reste

@@ -177,10 +177,8 @@ export const env = defineEnv({
       "Base d'URL des retours OAuth (exact match fournisseur) — l'URL publique en production.",
   }),
 <% } %><% if (it.complete || it.front) { %>
-  // L'origine publique du dev-server Vite n'est PAS une variable
-  // d'environnement : elle se dérive du `Host` de chaque requête, si bien que
-  // ton poste et un navigateur en conteneur chargent la même page en même
-  // temps, sans rien à poser. Pour un besoin durable — tunnel, proxy frontal —
-  // écris `publicOrigin` dans `nodefony.config.ts` : c'est un réglage, il gagne
-  // sur la dérivation, et il ne s'oublie pas dans un shell.
+  // Le dev-server Vite n'a AUCUNE variable d'environnement : il reste sur la
+  // boucle locale et Nodefony le relaie sur l'origine de la page — ton poste,
+  // un navigateur en conteneur et un téléphone du réseau local chargent la
+  // même page en même temps, sans rien à poser.
 <% } %>});

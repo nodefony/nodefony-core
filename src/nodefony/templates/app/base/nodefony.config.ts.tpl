@@ -180,18 +180,14 @@ export default defineConfig<typeof env>((ctx) => ({
     /**
      * Builder Vite + statics : sert le frontend de l'app (HMR en dev).
      *
-     * L'origine que le NAVIGATEUR utilise pour les assets se dérive du `Host`
-     * de la requête : rien à configurer pour développer depuis une autre
-     * machine, un conteneur ou un tunnel — chacun reçoit l'origine par
-     * laquelle il est arrivé. Codespaces/Gitpod : détection automatique.
-     *
-     * `publicOrigin: "https://mon-proxy.example.com:{port}"` force une origine
-     * unique quand un frontal la réécrit ; `{port}` suit le port réel de Vite.
-     * Un réglage explicite gagne toujours sur la dérivation.
+     * En développement, Vite reste sur la boucle locale et Nodefony le relaie
+     * sur l'origine de la page (`/_vite/…`) : la page, ses scripts et le
+     * rechargement à chaud partagent UNE origine et UN certificat. Rien à
+     * configurer pour développer depuis un téléphone, une IP de réseau local,
+     * un conteneur ou Codespaces — ouvrir l'application en HTTPS suffit pour
+     * les API réservées aux contextes sécurisés (caméra, WebAuthn…).
      */
-    use("@nodefony/frontend", {
-      publicOrigin: "",
-    }),
+    use("@nodefony/frontend", {}),
 
     /**
      * Console d'administration → `/nodefony` : modules chargés, routes, config
@@ -244,18 +240,14 @@ export default defineConfig<typeof env>((ctx) => ({
      * Builder Vite + statics : sert le frontend <%= it.frontend %> de l'app
      * (HMR en dev, build pré-compilé en prod).
      *
-     * L'origine que le NAVIGATEUR utilise pour les assets se dérive du `Host`
-     * de la requête : rien à configurer pour développer depuis une autre
-     * machine, un conteneur ou un tunnel — chacun reçoit l'origine par
-     * laquelle il est arrivé. Codespaces/Gitpod : détection automatique.
-     *
-     * `publicOrigin: "https://mon-proxy.example.com:{port}"` force une origine
-     * unique quand un frontal la réécrit ; `{port}` suit le port réel de Vite.
-     * Un réglage explicite gagne toujours sur la dérivation.
+     * En développement, Vite reste sur la boucle locale et Nodefony le relaie
+     * sur l'origine de la page (`/_vite/…`) : la page, ses scripts et le
+     * rechargement à chaud partagent UNE origine et UN certificat. Rien à
+     * configurer pour développer depuis un téléphone, une IP de réseau local,
+     * un conteneur ou Codespaces — ouvrir l'application en HTTPS suffit pour
+     * les API réservées aux contextes sécurisés (caméra, WebAuthn…).
      */
-    use("@nodefony/frontend", {
-      publicOrigin: "",
-    }),
+    use("@nodefony/frontend", {}),
 <% } %>
     /**
      * Outillage de DÉVELOPPEMENT — la porte HTTP de la carte de visite de cette

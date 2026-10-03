@@ -67,7 +67,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 754 |
+| `references/build-hmr.md` | Référence — Builder & HMR Vite (@nodefony/frontend) | 737 |
 | `references/data-bff.md` | Consommer le data-plane BFF (front Nodefony) | 243 |
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 270 |

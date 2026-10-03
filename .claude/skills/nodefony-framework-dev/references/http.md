@@ -507,7 +507,7 @@ hors pipeline) ; **pipeline** = `responseTimeout` (armé `HttpContext.setTimeout
 `_abortIfPending` → 408/504). Client part avant tout envoi → 499 interne (observabilité pure, jamais écrit).
 🔴 « Client parti » se constate par `responseEnded(response)` (`src/context/responseEnded.ts`), JAMAIS par
 un seul champ. Sous HTTP/2, la réponse Nodefony termine le **flux** (`stream.respond`/`stream.end`) : la
-réponse de compatibilité reste `writableEnded === false` (→ faux 499 sur preflight 204 / relais 307). Mais un
+réponse de compatibilité reste `writableEnded === false` (→ faux 499 sur preflight 204 / redirection). Mais un
 flux **annulé par le client** (RST_STREAM) a LUI AUSSI `stream.writableEnded === true` : la garde
 `!stream.aborted` sépare la fin serveur de la coupure client (sinon vrai 499 masqué en 200). Invisible aux
 tests `node:https` (HTTP/1.1) : un test de ce chemin parle **`node:http2`**, dans les DEUX sens.
@@ -532,13 +532,16 @@ idempotent). Skip : app root (`./public` → `/`), modules frontend-managed (`/_
 `statics.enabled=false` → 0 montage config-driven (prod cloud-native nginx/CDN), n'affecte pas `addMount()`
 programmatique. Commande `nodefony assets:publish` assemble un arbre CDN-ready `dist-assets/` + manifest.
 
-**Relais de préfixe** (`addRelay(prefix, resolveOrigin)` / `removeRelay` / `relayTarget`) : redirection 307
-vers une autre origine, `relays: null` tant que rien n'est déclaré (prod = une lecture de champ). Consulté
-dans `routeHttpRequest` **AVANT le routage** (≠ montages, router-first) et seulement si le Host passe
-`domainCheck`. Seul consommateur : `@nodefony/frontend` en dev, préfixe `/_vite/<famille>/` (assets Vite
-relatifs au document → serveur Vite ; cible = même dérivation d'hôte que les balises). Normalisation
-commune avec `addMount` (`normalizePrefix`). Détail côté front : skill `nodefony-frontend-dev`, sa
-référence « Builder & HMR », §4.9.
+**Proxy inverse** (service `reverse-proxy`, `ReverseProxy`) : relaie un préfixe d'URL — requêtes ET,
+avec `websocket: true`, upgrades — vers un amont, sur la même origine que la page. Deux sources aux
+MÊMES règles (`src/proxy/rules.ts`) : config `proxy.mounts` et `mount(prefix, IProxyMountOptions)` d'un
+module (résolu par nom). Consulté dans `routeHttpRequest` **AVANT le routage**, si le Host passe
+`domainCheck` ; upgrades par le répartiteur unique `attachUpgradeDispatch` (serveurs `ws` en
+`noServer`). `mounts: null` tant que rien n'est monté (une lecture de champ). ⚠️ Un montage est servi
+avant pare-feu, CSRF et quotas WS : surface publique. Règles normatives appliquées (RFC 9110 §7.6,
+9112 §6, 9113 §8.2.2, 7239 §8.1, 6455 §4.2.1/§10.2) : `references/rfc/README.md` §4. Premier
+consommateur : `@nodefony/frontend` en dev, `/_vite/<famille>/` → Vite local. Détail côté front : skill
+`nodefony-frontend-dev`, sa référence « Builder & HMR », §4.9.
 
 ---
 

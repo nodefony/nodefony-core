@@ -250,77 +250,33 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.not.include("C:\\\\Users");
   });
 
-  // --- P14.17 — dev déporté : allowedHosts + hmr ---------------------------
-  // Vite refuse un header `Host` nommé inconnu (barrière CVE) et le client WS
-  // HMR doit suivre l'origine PUBLIQUE quand un forwarder/passerelle sépare
-  // écoute et accès. Les deux blocs ne sont émis QUE si fournis : la config
-  // locale historique ne doit pas changer d'un octet.
-  it("émet server.allowedHosts (liste) quand fourni", () => {
-    const out = gen.toMjs([baseEntry], "development", {
-      allowedHosts: ["host.docker.internal", ".app.github.dev"],
-    });
-    expect(out).to.include(
-      'allowedHosts: ["host.docker.internal",".app.github.dev"],',
-    );
-  });
-
-  it("émet server.allowedHosts: true (barrière déléguée au reverse-proxy)", () => {
-    const out = gen.toMjs([baseEntry], "development", {
-      allowedHosts: true,
-    });
-    expect(out).to.include("allowedHosts: true,");
-  });
-
-  it("n'émet JAMAIS de ligne hmr — même en dev déporté", () => {
-    // Régression gardée. Une valeur écrite ici vaut pour TOUS les clients,
-    // alors qu'une même instance sert en même temps l'origine publique d'une
-    // plateforme et un tunnel local : elle serait juste pour l'un, fausse pour
-    // l'autre. Le client Vite déduit son socket de l'URL par laquelle il a été
-    // chargé (`client.mjs` : `__HMR_HOSTNAME__ || importMetaUrl.hostname`,
-    // `hmrPort || importMetaUrl.port`) — or c'est précisément ce que le rendu
-    // fait varier par requête. Ne rien écrire ARME en prime le repli direct du
-    // client, qui n'existe que si `hmrPort` est absent.
-    const out = gen.toMjs([baseEntry], "development", {
-      backendOrigin: "http://127.0.0.1:5151",
-      devBase: "/_vite/default/",
-      allowedHosts: [".app.github.dev"],
-    });
-    expect(out).to.not.include("hmr");
-    expect(out).to.not.include("clientPort");
-    // La config reste par ailleurs complète : sans cette ligne, l'absence
-    // ci-dessus serait vraie sur une sortie vide.
-    expect(out).to.include('allowedHosts: [".app.github.dev"],');
-  });
-
-  it("SANS options dev déporté : ni allowedHosts ni hmr (défauts Vite intacts)", () => {
-    const out = gen.toMjs([baseEntry], "development", {
-      backendOrigin: "http://127.0.0.1:5151",
-      devBase: "/_vite/default/",
-    });
-    expect(out).to.not.include("allowedHosts");
-    expect(out).to.not.include("hmr:");
-  });
-
-  it("allowedHosts vide → non émis (pas de [] qui écraserait le défaut Vite)", () => {
-    const out = gen.toMjs([baseEntry], "development", { allowedHosts: [] });
-    expect(out).to.not.include("allowedHosts");
-  });
-
-  it("allowedHosts coexiste avec proxy et https, toujours sans hmr", () => {
+  // --- #528 — Vite derrière le proxy inverse de Nodefony --------------------
+  // Le proxy réécrit `Host` sur `127.0.0.1:<port>` et la page partage l'origine
+  // de ses scripts : ni `allowedHosts` ni `cors` n'ont lieu d'être, et les
+  // barrières de Vite (DNS-rebinding, CORS restreint depuis CVE-2025-24010)
+  // restent à leur réglage le plus strict.
+  it("n'émet ni allowedHosts ni cors ni hmr : défauts stricts de Vite intacts", () => {
     const out = gen.toMjs(
       [{ ...baseEntry, apiProxyPaths: ["/api"] }],
       "development",
       {
-        backendOrigin: "https://127.0.0.1:5152",
+        backendOrigin: "http://127.0.0.1:5151",
         devBase: "/_vite/default/",
-        https: { keyPath: "/pem/key.pem", certPath: "/pem/cert.pem" },
-        allowedHosts: ["host.docker.internal"],
       },
     );
-    expect(out).to.include('allowedHosts: ["host.docker.internal"],');
-    expect(out).to.include("proxy: {");
-    expect(out).to.include("https: {");
+    expect(out).to.not.include("allowedHosts");
+    expect(out).to.not.include("cors");
+    // Régression gardée : le client Vite déduit son socket de l'URL qui l'a
+    // chargé (`importMetaUrl`) — donc de l'origine de la page. Une valeur
+    // écrite ici serait juste pour un client et fausse pour l'autre, et
+    // désarmerait le repli direct du client.
     expect(out).to.not.include("hmr");
+    expect(out).to.not.include("clientPort");
+    // La config reste par ailleurs complète : sans ces lignes, les absences
+    // ci-dessus seraient vraies sur une sortie vide.
+    expect(out).to.include('base: "/_vite/default/"');
+    expect(out).to.include("proxy: {");
+    expect(out).to.include("strictPort: true");
   });
 
   // --- Preset svelte5 — preuve d'extensibilité (famille `default`) ---------

@@ -325,11 +325,10 @@ services:
   #      origine `http://` qui n'est pas `localhost` — toutes les requêtes
   #      authentifiées reviendraient en `401`, ce qui se lit à tort comme un échec
   #      de connexion. Le certificat auto-signé de développement est accepté ici.
-  #   3. Rien à poser pour Vite : l'origine des assets se DÉRIVE du `Host` de la
-  #      requête. Arriver par `host.docker.internal` suffit — l'allowlist Vite et
-  #      le WebSocket du HMR suivent le même nom, et ton poste continue d'être
-  #      servi sur `127.0.0.1` en même temps. Pour forcer une origine unique
-  #      (proxy frontal), écris `publicOrigin` dans `nodefony.config.ts`.
+  #   3. Rien à poser pour Vite : Nodefony le relaie sur l'origine de la page
+  #      (`/_vite/…`). Arriver par `host.docker.internal` en HTTPS suffit — les
+  #      scripts et le WebSocket du HMR suivent la page, sans contenu mixte, et
+  #      ton poste continue d'être servi sur `127.0.0.1` en même temps.
   #
   # DEUX façons de s'en servir, et elles ne se valent pas :
   #   - PILOTER directement — l'image embarque Chromium ET Playwright, on y copie

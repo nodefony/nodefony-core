@@ -7,8 +7,8 @@
  * Pourquoi ce banc existe : en dev, Vite fabrique ces URLs RELATIVES AU
  * DOCUMENT. La page étant servie par Nodefony, une URL racine (`/src/x.png`)
  * tombait en 404 — et rien ne le voyait avant qu'un développeur importe sa
- * première image. Le préfixe rend l'URL relayable par Nodefony (relais 307,
- * couvert par `@nodefony/http` `tests/http/vite-relay.test.ts`).
+ * première image. Le préfixe rend l'URL relayable par Nodefony (proxy inverse,
+ * #528 — `@nodefony/http` `tests/unit/reverseProxy.test.ts`).
  *
  * Ce qu'il éprouve, par le superviseur réel et la config GÉNÉRÉE (pas une
  * config écrite à la main) :

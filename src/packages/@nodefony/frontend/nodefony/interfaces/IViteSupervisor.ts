@@ -23,11 +23,11 @@ export interface IViteSupervisorStatus {
   readonly host: string;
   readonly port: number | null;
   /**
-   * Origine PUBLIQUE effective du dev server — celle que le navigateur doit
-   * utiliser (`publicOrigin` config si posée, sinon dérivée de `host:port`).
-   * Source unique des URLs émises (TemplateHelper, boot line, CSP, admin API) :
-   * un `scheme://host:port` recomposé ailleurs finirait par diverger.
-   * `null` tant qu'aucun spawn n'a résolu de port.
+   * Origine LOCALE du dev server (`http://127.0.0.1:<port réel>`) : la cible
+   * du proxy inverse de Nodefony. Le navigateur ne la voit jamais — il passe
+   * par `/_vite/<famille>/` sur l'origine de la page. Source unique de cette
+   * cible (TemplateHelper, boot line, admin API). `null` tant qu'aucun spawn
+   * n'a résolu de port.
    */
   readonly origin: string | null;
   /**

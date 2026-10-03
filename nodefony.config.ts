@@ -180,14 +180,11 @@ export default defineConfig<Env>((ctx) => ({
     // ── Démo / tests d'intégration — hors production.
     { name: "@nodefony/test", policy: "dev" },
 
-    // Frontend AVANT ses consumers. Ce que Vite ÉCOUTE et ce que le NAVIGATEUR
-    // appelle restent deux choses distinctes — mais la seconde se DÉRIVE
-    // désormais du `Host` de chaque requête : le poste (`127.0.0.1`) et un
-    // navigateur en conteneur (`host.docker.internal`) chargent la même page,
-    // en même temps, sans rien à configurer. Codespaces/Gitpod se détectent
-    // toujours seuls. `publicOrigin` reste disponible pour un tunnel ou un
-    // proxy frontal — c'est alors un réglage durable, qui gagne sur la
-    // dérivation, jamais un décor d'observation qu'on oublierait de retirer.
+    // Frontend AVANT ses consumers. Vite écoute sur la boucle locale ; le
+    // navigateur ne le joint jamais directement : Nodefony le relaie sur
+    // l'origine de la page (`/_vite/<famille>/`, proxy inverse). Le poste, un
+    // navigateur en conteneur et un téléphone du réseau local chargent la même
+    // page en même temps, sans rien à configurer.
     { name: "@nodefony/frontend" },
     { name: "@nodefony/test-frontend-react", policy: "dev" },
     { name: "@nodefony/test-frontend-vue", policy: "dev" },

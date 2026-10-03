@@ -1,11 +1,13 @@
 /// <reference types="node" />
 /**
- * Intégration (serveur de dev réel) — relais `/_vite/<famille>/` (#526).
+ * Intégration (serveur de dev réel) — Vite servi DERRIÈRE Nodefony (#528).
  *
- * En développement, Vite fabrique ses URLs d'assets RELATIVES AU DOCUMENT : une
- * image importée devient `/_vite/default/…`, que le navigateur demande à
- * Nodefony (la page vient de lui). Nodefony la renvoie en 307 vers le serveur
- * Vite, sur l'origine qu'aurait annoncée la page à ce client.
+ * `@nodefony/frontend` monte `/_vite/<famille>/` sur le proxy inverse de ce
+ * module : modules, images importées et socket du rechargement à chaud sont
+ * servis sur l'origine de la page (5152, HTTPS), Vite restant sur la boucle
+ * locale. Ce banc éprouve le branchement réel — pipeline HTTP (avant le
+ * routage) ET répartiteur d'upgrade — que `unit/reverseProxy.test.ts` éprouve
+ * sur un front de test.
  *
  * Décor : le serveur de dev du dépôt, dont la console d'administration est
  * servie par Vite (famille `default`) — `start.sh` du skill
@@ -14,6 +16,7 @@
  */
 import { describe, it, expect } from "vitest";
 import https from "node:https";
+import WebSocket from "ws";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
@@ -62,71 +65,110 @@ function request(url: string, host?: string): Promise<IRaw> {
 }
 
 describe.skipIf(IS_PROD_TARGET)(
-  "relais /_vite/<famille>/ vers Vite (#526)",
+  "Vite derrière Nodefony : /_vite/<famille>/ relayé (#528)",
   () => {
-    it("une URL d'asset Vite demandée à Nodefony → 307 vers Vite, non mise en cache", async () => {
+    it("une image importée est servie PAR NODEFONY, sur l'origine de la page", async () => {
       const res = await request(`https://127.0.0.1:5152${LOGO_PATH}`);
       expect(
         res.status,
-        "le relais n'est pas posé (frontend absent ?)",
-      ).to.equal(307);
-      const location = String(res.headers.location);
-      const target = new URL(location);
-      expect(target.hostname).to.equal("127.0.0.1");
-      expect(target.port).to.not.equal("5152");
-      expect(target.pathname).to.equal(LOGO_PATH);
-      expect(String(res.headers["cache-control"])).to.include("no-store");
+        "le proxy n'est pas monté (frontend absent ?)",
+      ).to.equal(200);
+      expect(String(res.headers["content-type"])).to.include("image/png");
+      expect(res.body.subarray(0, 4).toString("hex")).to.equal("89504e47");
+      // Relayée, pas redirigée : aucune autre origine n'est révélée.
+      expect(res.headers.location).to.equal(undefined);
+      expect(String(res.headers.via)).to.match(/nodefony-[0-9a-f]{8}/);
     });
 
-    it("la cible sert l'image (la boucle complète que fait le navigateur)", async () => {
-      const res = await request(`https://127.0.0.1:5152${LOGO_PATH}`);
-      const img = await request(String(res.headers.location));
-      expect(img.status).to.equal(200);
-      expect(String(img.headers["content-type"])).to.include("image/png");
-      // Signature PNG.
-      expect(img.body.subarray(0, 4).toString("hex")).to.equal("89504e47");
-    });
-
-    it("la cible suit l'hôte du client (loopback recomposé sur le port Vite)", async () => {
+    it("le client Vite est servi relayé (module JavaScript)", async () => {
       const res = await request(
-        `https://127.0.0.1:5152${LOGO_PATH}`,
-        "localhost:5152",
+        "https://127.0.0.1:5152/_vite/default/@vite/client",
       );
-      expect(res.status).to.equal(307);
-      expect(new URL(String(res.headers.location)).hostname).to.equal(
-        "localhost",
-      );
+      expect(res.status).to.equal(200);
+      expect(String(res.headers["content-type"])).to.include("javascript");
     });
 
-    it("Host forgé → jamais redirigé vers lui (quel que soit domainCheck)", async () => {
-      // La garantie du relais, indépendante du décor : la cible vient de
-      // l'origine RÉSOLUE, jamais du Host client. Avec `domainCheck` (dépôt), la
-      // barrière répond 421 avant ; sans, le 307 vise l'origine résolue.
+    it("le socket du rechargement à chaud s'ouvre sur l'origine de la page (wss://…:5152)", async () => {
+      const client = await request(
+        "https://127.0.0.1:5152/_vite/default/@vite/client",
+      );
+      const token = /const wsToken = "([^"]+)"/.exec(
+        client.body.toString(),
+      )?.[1];
+      expect(token, "jeton HMR introuvable dans @vite/client").to.be.a(
+        "string",
+      );
+      const ws = new WebSocket(
+        `wss://127.0.0.1:5152/_vite/default/?token=${token}`,
+        "vite-hmr",
+        { rejectUnauthorized: false, origin: "https://127.0.0.1:5152" },
+      );
+      try {
+        const first = await new Promise<string>((resolve, reject) => {
+          ws.once("message", (m) => resolve((m as Buffer).toString()));
+          ws.once("error", reject);
+          ws.once("unexpected-response", (_q, r) =>
+            reject(new Error(`HTTP ${r.statusCode}`)),
+          );
+        });
+        expect(ws.protocol).to.equal("vite-hmr");
+        // Premier message de Vite : `{"type":"connected"}`.
+        expect(JSON.parse(first)).to.include({ type: "connected" });
+      } finally {
+        ws.terminate();
+      }
+    });
+
+    it("une méthode d'écriture n'est pas relayée (Vite ne sert que des lectures)", async () => {
+      const res = await new Promise<number>((resolve, reject) => {
+        const req = https.request(
+          {
+            hostname: "127.0.0.1",
+            port: 5152,
+            path: "/_vite/default/@vite/client",
+            method: "POST",
+            rejectUnauthorized: false,
+          },
+          (r) => {
+            r.resume();
+            resolve(r.statusCode ?? 0);
+          },
+        );
+        req.on("error", reject);
+        req.end("x");
+      });
+      expect(res).to.not.equal(200);
+    });
+
+    it("chemin ambigu sous le préfixe → 400, Vite n'est pas contacté", async () => {
+      const res = await request(
+        "https://127.0.0.1:5152/_vite/default/..%2f..%2fetc/passwd",
+      );
+      expect(res.status).to.equal(400);
+    });
+
+    it("Host forgé : jamais relayé hors de la barrière d'hôte", async () => {
+      // Avec `domainCheck` (dépôt) la barrière répond 421 ; sans, la requête
+      // est relayée vers Vite LOCAL — la cible ne vient jamais du client.
       const res = await request(
         `https://127.0.0.1:5152${LOGO_PATH}`,
         "evil.example",
       );
-      expect([307, 421]).to.include(res.status);
-      if (res.status === 307) {
-        expect(new URL(String(res.headers.location)).hostname).to.not.equal(
-          "evil.example",
-        );
-      } else {
-        expect(res.headers.location).to.equal(undefined);
-      }
+      expect([200, 421]).to.include(res.status);
+      expect(res.headers.location).to.equal(undefined);
     });
 
-    it("préfixe d'une famille inexistante → pas de relais", async () => {
+    it("préfixe d'une famille inexistante → pas relayé", async () => {
       const res = await request("https://127.0.0.1:5152/_vite/inconnue/x.png");
-      expect(res.status).to.not.equal(307);
+      expect(res.headers.via).to.equal(undefined);
     });
   },
 );
 
-describe.runIf(IS_PROD_TARGET)("relais /_vite/ en PRODUCTION (#526)", () => {
-  it("jamais relayé : Vite ne tourne pas, aucun relais n'est déclaré", async () => {
+describe.runIf(IS_PROD_TARGET)("/_vite/ en PRODUCTION", () => {
+  it("jamais relayé : Vite ne tourne pas, aucun montage n'est déclaré", async () => {
     const res = await request(`https://127.0.0.1:5152${LOGO_PATH}`);
-    expect(res.status).to.not.equal(307);
-    expect(res.headers.location).to.equal(undefined);
+    expect(res.status).to.equal(404);
+    expect(res.headers.via).to.equal(undefined);
   });
 });

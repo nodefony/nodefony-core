@@ -45,13 +45,14 @@ export interface IFrontendService {
   /**
    * Helper template — retourne les balises `<script>` à injecter dans une page.
    *
+   * En développement, les URLs vers Vite sont RELATIVES à la page
+   * (`/_vite/<famille>/…`, relayées par Nodefony) : elles suivent d'elles-mêmes
+   * l'hôte par lequel le client est arrivé.
+   *
    * @param nonce nonce CSP de la requête (`Context.cspNonce`).
-   * @param requestHost nom d'hôte par lequel le client a demandé la page
-   *   (`Context.domain`, sans port). En développement, l'origine des assets
-   *   Vite est dérivée de ce nom — le scheme et le port restent ceux de Vite —
-   *   de sorte qu'un poste et un conteneur soient servis en même temps sans
-   *   configuration. Ignoré si `frontend.publicOrigin` est configurée, si
-   *   l'hôte ne franchit pas `trustedHosts`, et en production.
+   * @param requestHost DÉPRÉCIÉ — ignoré depuis que Vite est servi sur
+   *   l'origine de la page ; accepté pour ne casser aucun appelant, retiré à
+   *   la majeure suivante. Ne plus le passer.
    */
   renderTags(entryName: string, nonce?: string, requestHost?: string): string;
   /**
@@ -59,7 +60,7 @@ export interface IFrontendService {
    * controllers qui veulent déléguer toute la coquille (le dev contrôle le
    * `<head>` via son `index.html`).
    *
-   * @param requestHost cf {@link IFrontendService.renderTags}.
+   * @param requestHost DÉPRÉCIÉ, ignoré — cf {@link IFrontendService.renderTags}.
    */
   renderDocument(
     entryName: string,

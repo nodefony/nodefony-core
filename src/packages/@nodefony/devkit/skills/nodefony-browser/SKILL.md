@@ -389,11 +389,10 @@ Le protocole du fil (les quatre formes de frame), la lecture de chaque verdict �
 | --- | --- |
 | Joindre l'app par **`host.docker.internal`** | `localhost` désigne le CONTENEUR, pas ta machine. Ce nom est dans les `trustedHosts` de développement d'une application générée (`nodefony.config.ts`, bloc http) ; sans lui, la page annonce ses assets en `127.0.0.1` — le conteneur — et, avec `domainCheck`, la barrière répond **`421`**. |
 | Passer par **HTTPS** | Le cookie de session est `secure` : sur une origine `http://` non-`localhost`, le navigateur le **jette**, et tout revient en **`401`** — ce qui se lit à tort comme un login qui rate. |
-| **Vite en HTTPS** si la page l'est | L'origine des assets se dérive du `Host` de ta requête — l'allowlist Vite et le WebSocket du rechargement à chaud suivent le même nom, et ton poste reste servi sur `127.0.0.1` en même temps. Mais une page HTTPS ne charge PAS de script en `http://host.docker.internal:5173` (« mixed content » : seule la boucle locale y est tolérée). Poser `https: true` dans `use("@nodefony/frontend", …)` — avec un certificat que le navigateur reconnaît (autorité mkcert installée), sinon ses scripts sont refusés sans écran d'avertissement. |
+| Rien à poser pour **Vite** | Nodefony relaie Vite sur l'origine de la page (`/_vite/…`) : scripts, images et WebSocket du rechargement à chaud suivent l'hôte par lequel tu arrives, en HTTPS si la page l'est — pas de contenu mixte, un seul certificat. |
 
-Si la page annonce quand même `127.0.0.1` depuis le conteneur, c'est que le nom ne franchit pas
-`trustedHosts`, ou qu'une `publicOrigin` explicite est configurée dans `nodefony.config.ts` — un
-réglage durable gagne toujours sur une déduction.
+Si un script de la page vise encore `127.0.0.1:5173`, le framework installé précède le relais
+(`@nodefony/frontend` à mettre à jour) : les balises d'une version courante sont relatives.
 
 ## Pièges — chacun a déjà fait conclure faux
 

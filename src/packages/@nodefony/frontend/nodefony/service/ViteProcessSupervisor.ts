@@ -17,11 +17,24 @@ import type {
 import type { IResolvedFrontendEntry } from "../interfaces/IFrontBuilder";
 import { FrontendSupervisorStartError } from "../src/errors/FrontendError";
 import ViteConfigGenerator from "./ViteConfigGenerator";
-import {
-  browserReachableHost,
-  resolveOriginTemplate,
-  PORT_PLACEHOLDER,
-} from "../src/remoteDev";
+
+/**
+ * Hôte JOIGNABLE pour une adresse d'écoute : `0.0.0.0`/`::` désignent toutes
+ * les interfaces, pas une destination — s'y connecter échoue sous Windows. Le
+ * superviseur, sa sonde et le proxy inverse joignent Vite depuis la machine
+ * qui le lance : la boucle locale est alors toujours juste.
+ *
+ * @param listenHost - adresse d'écoute (`devHost`)
+ * @returns l'hôte à joindre
+ */
+export function browserReachableHost(listenHost: string): string {
+  return listenHost === "0.0.0.0" ||
+    listenHost === "::" ||
+    listenHost === "[::]" ||
+    listenHost === ""
+    ? "127.0.0.1"
+    : listenHost;
+}
 
 /**
  * Résout le binaire Vite **une seule fois** (mis en cache module-level).
@@ -69,23 +82,10 @@ export interface ViteSupervisorOptions {
   readonly devHost: string;
   readonly devPort: number;
   /**
-   * Template d'origine PUBLIQUE du dev server (P14.17) — `{port}` substitué au
-   * port RÉEL de chaque spawn (suit les retries de port). Vide/absent = dérivé
-   * de `devHost:port`. Dissocie ce que Vite ÉCOUTE de ce que le navigateur
-   * APPELLE (forwarder Codespaces/Gitpod, `host.docker.internal`, remap).
-   */
-  readonly publicOriginTemplate?: string | undefined;
-  /**
    * Chemin de base Vite de l'instance (`devBasePath(famille)`) — émis comme
    * `base` dans la config générée, rendu par `status().base`.
    */
   readonly devBase?: string | undefined;
-  /**
-   * Hôtes que Vite doit accepter dans le header `Host` (`server.allowedHosts`).
-   * `true` = tous. Dérivé par FrontendService de la liste `trustedHosts` http —
-   * jamais maintenu ici (1 règle = 1 implémentation).
-   */
-  readonly allowedHosts?: true | ReadonlyArray<string> | undefined;
   readonly startupTimeoutMs: number;
   readonly pipeLogs: boolean;
   readonly cwd: string;
@@ -439,39 +439,14 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     const moduleRoot = first.root;
     this.configFilePath = path.resolve(moduleRoot, GENERATED_VITE_CONFIG_FILE);
     const scheme = this.opts.https ? "https" : "http";
-    // Origine PUBLIQUE (P14.17) : template résolu contre le port RÉEL de CETTE
-    // tentative, sinon dérivation locale. Un template invalide est ANNONCÉ puis
-    // ignoré (fail-soft dispo, fail-loud dégradation — jamais en silence).
-    const tpl = this.opts.publicOriginTemplate;
-    const resolved = tpl ? resolveOriginTemplate(tpl, port) : null;
-    if (tpl && !resolved) {
-      this.opts.logger.error(
-        `publicOrigin invalide (« ${tpl} ») — attendu scheme://host[:port|:{port}] ; ` +
-          `origine locale dérivée utilisée à la place`,
-      );
-    }
-    // Template SANS `{port}` + port décalé par le retry : l'origine publique
-    // figée ne suit pas — le mapping externe peut être périmé. On l'énonce.
-    if (
-      resolved &&
-      tpl &&
-      !tpl.includes(PORT_PLACEHOLDER) &&
-      port !== this.opts.devPort
-    ) {
-      this.opts.logger.error(
-        `publicOrigin figée (« ${tpl} ») mais Vite écoute sur ${port} (≠ ${this.opts.devPort}) — ` +
-          `ajouter {port} au template ou libérer le port d'origine`,
-      );
-    }
-    const viteOrigin =
-      resolved?.origin ??
-      `${scheme}://${browserReachableHost(this.opts.devHost)}:${port}`;
+    // Origine LOCALE de cette tentative (port réel, retries compris) : la
+    // cible du proxy inverse. Le navigateur ne la voit jamais (#528).
+    const viteOrigin = `${scheme}://${browserReachableHost(this.opts.devHost)}:${port}`;
     this.resolvedOrigin = viteOrigin;
     const content = this.generator.toMjs(this.entries, "development", {
       backendOrigin: this.opts.backendOrigin,
       devBase: this.opts.devBase,
       https: this.opts.https,
-      allowedHosts: this.opts.allowedHosts,
     });
     writeFileSync(this.configFilePath, content, "utf8");
     this.opts.logger.debug?.(`vite config written: ${this.configFilePath}`);

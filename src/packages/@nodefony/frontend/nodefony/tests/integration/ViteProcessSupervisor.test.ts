@@ -179,7 +179,7 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     // `devPort` promet le même repli côté Vite. Une promesse de configuration
     // qui ne s'exécute pas est pire qu'un silence — le frontend de la 2ᵉ app
     // reste mort et l'on cherche la panne ailleurs. Le config généré porte
-    // TOUJOURS `strictPort: true` (il est lié à l'origine publique) : Vite ne
+    // TOUJOURS `strictPort: true` (il est lié à l'origine annoncée) : Vite ne
     // se décalera donc jamais de lui-même, c'est le superviseur qui doit relancer.
     const port = await freePort();
     const first = new ViteProcessSupervisor({
@@ -376,11 +376,12 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     }
   });
 
-  // ── P14.17 — dev déporté : le banc se prouve LUI-MÊME en deux faces.
-  // Face A (témoin) : SANS allowedHosts, Vite refuse un Host nommé inconnu
-  // (403, barrière CVE) — prouve que la barrière existe et que le test mord.
-  // Face B : AVEC le câblage (template {port} → allowedHosts + origin résolu),
-  // le même Host passe, et status().origin suit le port RÉEL du spawn.
+  // ── #528 — pourquoi le proxy inverse RÉÉCRIT `Host` : deux faces.
+  // Face A (témoin) : Vite refuse un Host nommé inconnu (403, barrière
+  // DNS-rebinding) — un relais qui transmettrait le Host du client verrait sa
+  // page refusée dès qu'on quitte la boucle locale.
+  // Face B : le Host que pose le proxy (`127.0.0.1:<port>`, l'origine du
+  // status) passe, et cette origine suit le port RÉEL du spawn.
   it("Host étranger refusé SANS allowedHosts (témoin — la barrière existe)", async () => {
     const port = await freePort();
     const sup = new ViteProcessSupervisor({
@@ -406,13 +407,11 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
     }
   });
 
-  it("publicOrigin {port} : origin suit le port réel, allowedHosts ouvre le Host étranger", async () => {
+  it("origine LOCALE au port réel ; le Host qu'y pose le proxy est accepté", async () => {
     const port = await freePort();
     const sup = new ViteProcessSupervisor({
       devHost: "127.0.0.1",
       devPort: port,
-      publicOriginTemplate: "http://host.docker.internal:{port}",
-      allowedHosts: ["host.docker.internal"],
       startupTimeoutMs: 20_000,
       pipeLogs: false,
       cwd: FIXTURE_ROOT,
@@ -424,15 +423,11 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       await sup.start([makeEntry()], {});
       const status = sup.status();
       expect(status.state).to.equal("ready");
-      // L'origine publique est RÉSOLUE contre le port réel du spawn.
-      expect(status.origin).to.equal(
-        `http://host.docker.internal:${status.port}`,
-      );
-      // Et Vite ACCEPTE désormais ce Host nommé (allowedHosts émis).
+      expect(status.origin).to.equal(`http://127.0.0.1:${status.port}`);
       const code = await httpPingHost(
         "127.0.0.1",
         status.port!,
-        "host.docker.internal",
+        new URL(status.origin!).host,
       );
       expect(code).to.be.greaterThan(0);
       expect(code).to.not.equal(403);

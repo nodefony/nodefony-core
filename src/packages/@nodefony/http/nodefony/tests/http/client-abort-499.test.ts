@@ -129,8 +129,8 @@ describe.skipIf(IS_PROD_TARGET)(
     it("HTTP/2 : une réponse terminée SANS corps n'est jamais un 499", async (ctx) => {
       // Sous HTTP/2 la réponse termine le FLUX, pas la réponse de
       // compatibilité : lire son seul `writableEnded` journalisait « client
-      // parti » un preflight CORS 204 et le relais 307 des assets Vite — un
-      // WARNING par image en développement, pour une réponse bien reçue.
+      // parti » un preflight CORS 204 et une redirection — un WARNING
+      // pour une réponse bien reçue.
       const marque = randomUUID();
       const preflight = await h2Request(`/api/hello?m=${marque}`, {
         ":method": "OPTIONS",

@@ -127,7 +127,11 @@ export interface DebugBarFrontend {
   framework?: string;
   /** Nom logique de l'entrée frontend (bundle). */
   name?: string;
-  /** Origine du serveur Vite (ex. `https://127.0.0.1:5173`). */
+  /**
+   * Préfixe des URLs servies par Vite, reconnu par simple inclusion : le
+   * chemin relayé `/_vite/<famille>` (même origine que la page), ou une
+   * origine complète pour un serveur Vite joint directement.
+   */
   viteOrigin?: string;
 }
 
@@ -1451,7 +1455,7 @@ export class DebugBar {
 
   private wireNetwork(): void {
     if (!this.networkEnabled) return;
-    // Origine du dev server Vite (cross-origin : modules ESM + HMR) — ces appels
+    // Préfixe du dev server Vite (modules ESM + HMR, relayés sous `/_vite/`) — ces appels
     // n'ont pas de X-Request-Id et ne sont pas des requêtes Nodefony → on les
     // exclut du panneau (sinon il est noyé de bruit non profilable).
     const viteOrigin = this.frontend?.viteOrigin ?? "";
