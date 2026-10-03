@@ -351,6 +351,7 @@ export {
   isArray,
   stripTrailingSlashes,
   escapeRegExp,
+  isLoopbackHostname,
 } from "./Tools";
 export type { MaybePromise } from "./Tools";
 

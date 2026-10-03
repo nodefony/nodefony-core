@@ -384,6 +384,30 @@ const REG_METACHARACTERS = /[.*+?^${}()|[\]\\]/gu;
 const escapeRegExp = (value: string): string =>
   value.replace(REG_METACHARACTERS, "\\$&");
 
+/** Un octet décimal BORNÉ (0-255) : `127.999.1.1` n'est pas une adresse. */
+const OCTET = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
+const LOOPBACK_V4_RE = new RegExp(`^127\\.${OCTET}\\.${OCTET}\\.${OCTET}$`);
+
+/**
+ * Ce nom d'hôte désigne-t-il la boucle locale ? Règle UNIQUE du framework —
+ * l'inspecteur de développement, le proxy inverse et le frontend décident
+ * tous par elle.
+ *
+ * `localhost`, `::1` (crochets tolérés) et tout le bloc `127.0.0.0/8`
+ * (RFC 1122 §3.2.1.3) — pas seulement `127.0.0.1`, un relais peut présenter
+ * `127.0.0.2`. Les octets sont bornés : un contrôle d'autorisation ne doit
+ * rien accepter qui ne soit pas une adresse. `0.0.0.0` et `::` en sont
+ * exclus : ce sont des adresses d'ÉCOUTE (toutes les interfaces), pas des
+ * destinations.
+ *
+ * @param hostname - nom d'hôte NU, sans port (`[::1]` accepté).
+ * @returns `true` si seule la machine locale est désignée.
+ */
+const isLoopbackHostname = (hostname: string): boolean => {
+  const h = hostname.replace(/^\[(.*)\]$/u, "$1").toLowerCase();
+  return h === "localhost" || h === "::1" || LOOPBACK_V4_RE.test(h);
+};
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 export {
@@ -402,5 +426,6 @@ export {
   isSubclassOf,
   stripTrailingSlashes,
   escapeRegExp,
+  isLoopbackHostname,
 };
 export type { MaybePromise };

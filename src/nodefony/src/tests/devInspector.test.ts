@@ -11,7 +11,8 @@ import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { isLoopbackHost, parseInspectArgs } from "../service/dev/devInspector";
+import { parseInspectArgs } from "../service/dev/devInspector";
+import { isLoopbackHostname as isLoopbackHost } from "../Tools";
 
 describe("parseInspectArgs — l'option --inspect de la commande", () => {
   it("absente → null (aucun débogueur)", () => {
@@ -197,12 +198,17 @@ describe("--inspect — la valeur après un ESPACE (forme annoncée par l'aide)"
 });
 
 describe("isLoopbackHost — un inspecteur hors boucle locale exécute le code de qui le joint", () => {
-  it.each(["127.0.0.1", "127.1.2.3", "localhost", "::1", "[::1]"])(
+  it.each(["127.0.0.1", "127.1.2.3", "localhost", "LOCALHOST", "::1", "[::1]"])(
     "%s est local",
     (h) => assert.strictEqual(isLoopbackHost(h), true),
   );
-  it.each(["0.0.0.0", "::", "192.168.1.10", "10.0.0.1", "example.test"])(
-    "%s est EXPOSÉ",
-    (h) => assert.strictEqual(isLoopbackHost(h), false),
-  );
+  it.each([
+    "0.0.0.0",
+    "::",
+    "192.168.1.10",
+    "10.0.0.1",
+    "example.test",
+    "127.999.1.1",
+    "127.0.0.1.evil.test",
+  ])("%s est EXPOSÉ", (h) => assert.strictEqual(isLoopbackHost(h), false));
 });

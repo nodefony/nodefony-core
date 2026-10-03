@@ -16,6 +16,7 @@ import type { IncomingMessage } from "node:http";
 import https from "node:https";
 import httpsServers from "./server-https";
 import { startHeartbeat, trackPong } from "./wsHeartbeat";
+import { attachUpgradeDispatch } from "../../src/servers/upgradeDispatch";
 
 class WebsocketSecure extends Service {
   // Section `websocketSecure` de la config du module (schéma Zod, défauts appliqués).
@@ -24,6 +25,8 @@ class WebsocketSecure extends Service {
   module: Module;
   ready: boolean = false;
   server: WebSocketServer | null = null;
+  /** Retire l'écouteur `upgrade` posé par {@link attachUpgradeDispatch}. */
+  #detachUpgrade: (() => void) | null = null;
   port: number;
   domain: string;
   protocol: ProtocolType = "1.1";
@@ -77,14 +80,21 @@ class WebsocketSecure extends Service {
         // Options `ws` issues de la config (perMessageDeflate, skipUTF8Validation,
         // autoPong, allowSynchronousEvents, maxPayload…) transmises telles quelles ;
         // `ws` ignore les knobs Nodefony (keepalive*/closeTimeout, qui ne sont PAS des
-        // options `ws`). On force ce que Nodefony gère : `server` (le serveur HTTPS) +
+        // options `ws`). On force ce que Nodefony gère : `noServer` (cf plus bas) +
         // `clientTracking` (requis par broadcast() et le heartbeat).
         // RFC 6455 §7.4.1 : `maxPayload` → close 1009 « Message Too Big ».
+        // `noServer` : l'upgrade passe d'abord par le proxy inverse, puis ici
+        // (cf `attachUpgradeDispatch` — un seul écouteur `upgrade`).
         this.server = new WebSocketServer({
           ...(this.options as ServerOptions),
-          server: serverHttps.server as https.Server,
+          noServer: true,
           clientTracking: true,
         });
+        this.#detachUpgrade = attachUpgradeDispatch(
+          serverHttps.server as https.Server,
+          this.server,
+          () => this.httpKernel.reverseProxy,
+        );
         this.server.on("connection", this.onConnection.bind(this));
         // G2 — heartbeat keep-alive : UN seul interval/serveur, détecte les zombies.
         this.heartbeatTimer = startHeartbeat(this.server, this.options);
@@ -134,6 +144,9 @@ class WebsocketSecure extends Service {
         });
         setTimeout(() => {
           try {
+            // L'écouteur part avec le serveur — comme avec l'option `server`.
+            this.#detachUpgrade?.();
+            this.#detachUpgrade = null;
             this.server?.close();
             this.log(
               ` SHUTDOWN WEBSOCKET Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
@@ -150,6 +163,8 @@ class WebsocketSecure extends Service {
         // fenêtre readiness 503 post-SIGTERM disparaissait).
         return;
       }
+      this.#detachUpgrade?.();
+      this.#detachUpgrade = null;
       return resolve(true);
     });
   }

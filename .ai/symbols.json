@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 894,
-    "symbols": 4516,
-    "classes": 408,
-    "interfaces": 1173,
-    "types": 483,
+    "files": 899,
+    "symbols": 4552,
+    "classes": 409,
+    "interfaces": 1183,
+    "types": 485,
     "enums": 4,
-    "functions": 1994,
-    "constants": 454
+    "functions": 2014,
+    "constants": 457
   },
   "symbols": {
     "Mediasoup": {
@@ -441,6 +441,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Neutralise les métacaractères d'une chaîne destinée à être insérée dans une expression régulière, pour qu'elle n'y vaille que pour elle-même. **Pourquoi c'est ici** — le même motif était recopié à …"
+    },
+    "isLoopbackHostname": {
+      "name": "isLoopbackHostname",
+      "kind": "const",
+      "file": "src/nodefony/src/Tools.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce nom d'hôte désigne-t-il la boucle locale ? Règle UNIQUE du framework — l'inspecteur de développement, le proxy inverse et le frontend décident tous par elle. `localhost`, `::1` (crochets tolérés…"
     },
     "DevkitModule": {
       "name": "DevkitModule",
@@ -13563,14 +13571,6 @@
       "module": "@nodefony/core",
       "description": "Lit `--inspect[-brk][=[hôte:]port]` dans les arguments de la commande — et non dans ceux de `node`. Pourquoi une option de NODEFONY : un `--inspect` posé pour `node` (ou dans `NODE_OPTIONS`) est pr…"
     },
-    "isLoopbackHost": {
-      "name": "isLoopbackHost",
-      "kind": "function",
-      "file": "src/nodefony/src/service/dev/devInspector.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Dit si une interface d'écoute reste sur la boucle locale. 🔴 Un inspecteur joignable depuis le réseau EXÉCUTE le code de quiconque s'y connecte (le protocole permet `Runtime.evaluate`) : hors boucl…"
-    },
     "openDevInspector": {
       "name": "openDevInspector",
       "kind": "function",
@@ -18838,14 +18838,6 @@
       "module": "@nodefony/frontend",
       "description": "Hôte utilisable par un NAVIGATEUR pour une adresse d'écoute donnée. `0.0.0.0`/`::` sont des adresses d'ÉCOUTE (toutes interfaces), pas des destinations : dérivées telles quelles dans une URL, elles…"
     },
-    "isLoopbackHostname": {
-      "name": "isLoopbackHostname",
-      "kind": "function",
-      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
-      "exported": true,
-      "module": "@nodefony/frontend",
-      "description": "Le client est-il arrivé par la BOUCLE LOCALE de la machine qui sert ? Ce n'est pas une commodité : c'est un fait vérifiable qui prime sur toute déduction faite au démarrage. Une plateforme de dev d…"
-    },
     "isValidOriginTemplate": {
       "name": "isValidOriginTemplate",
       "kind": "function",
@@ -18908,7 +18900,7 @@
       "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
       "exported": true,
       "module": "@nodefony/frontend",
-      "description": "Dev déporté (P14.17) — calculs PURS d'origine publique du dev server Vite. Le problème résolu : `devHost` est une adresse d'ÉCOUTE ; l'origine que le NAVIGATEUR utilise peut être toute autre chose …"
+      "description": "Placeholder substitué par le port réel du spawn dans un template d'origine."
     },
     "AssetsPublish": {
       "name": "AssetsPublish",
@@ -19270,6 +19262,32 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": "IResponse"
+    },
+    "IProxyMountOptions": {
+      "name": "IProxyMountOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IReverseProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Réglages d'un montage du proxy inverse (`ReverseProxy.mount`). Les défauts sont ceux d'un relais sans surprise : toutes les méthodes, le chemin transmis tel quel, l'en-tête `Host` réécrit sur la ci…"
+    },
+    "IProxyMount": {
+      "name": "IProxyMount",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IReverseProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IProxyMountOptions",
+      "description": "Un montage tel que le proxy le garde : préfixe normalisé + réglages."
+    },
+    "ProxyTarget": {
+      "name": "ProxyTarget",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IReverseProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Origine d'un amont relayé : `scheme://hôte[:port]`, sans chemin. Une fonction quand l'origine n'est connue qu'à l'exécution (un serveur enfant qui choisit son port au démarrage) : elle est rappelée…"
     },
     "IResolvedRoute": {
       "name": "IResolvedRoute",
@@ -19758,6 +19776,17 @@
       ],
       "decorators": [],
       "description": "Default Nodefony per-request logger — preserves the legacy colored format. HTTP success: `URL : <url> FROM : <remote> ORIGIN : <host> ID : <uuid>` HTTP error: adds the error toString (in dev), sing…"
+    },
+    "ReverseProxy": {
+      "name": "ReverseProxy",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Proxy inverse de Nodefony : relaie un préfixe d'URL vers un autre serveur HTTP — requêtes ET, sur demande, upgrades WebSocket — sur la MÊME origine que la page. Le client ne voit qu'un serveur, un …"
     },
     "ParsedTraceparent": {
       "name": "ParsedTraceparent",
@@ -26172,14 +26201,6 @@
       "implements": [],
       "decorators": []
     },
-    "RelayOriginResolver": {
-      "name": "RelayOriginResolver",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "description": "Origine vers laquelle relayer une requête, calculée à partir du nom d'hôte par lequel le client est arrivé (`Context.domain`, sans port)."
-    },
     "WebsocketSecure": {
       "name": "WebsocketSecure",
       "kind": "class",
@@ -26826,6 +26847,128 @@
       "extends": null,
       "description": "Résumé léger d'un profil pour la liste `recent` (sans les phases)."
     },
+    "IForwardedFrom": {
+      "name": "IForwardedFrom",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce que le proxy sait du client, et qu'il annonce à l'amont (`X-Forwarded-*`, `Via`)."
+    },
+    "IRelaySettings": {
+      "name": "IRelaySettings",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Réglages du relais, fixés par le service (identiques pour tous les montages)."
+    },
+    "ProxiedRequest": {
+      "name": "ProxiedRequest",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Requête entrante relayable : HTTP/1.1 ou HTTP/2 (API de compatibilité)."
+    },
+    "ProxiedResponse": {
+      "name": "ProxiedResponse",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Réponse vers le client : HTTP/1.1 ou HTTP/2 (API de compatibilité)."
+    },
+    "BodyFraming": {
+      "name": "BodyFraming",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Cadrage du corps transmis à l'amont (RFC 9112 §6)."
+    },
+    "viaLoops": {
+      "name": "viaLoops",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Le message est-il déjà passé par CE processus ? Un `Via` qui porte notre pseudonyme signe une boucle (RFC 9110 §7.6 : un proxy ne se renvoie pas un message sans s'en protéger)."
+    },
+    "bodyFramingOf": {
+      "name": "bodyFramingOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Cadrage du corps reçu — décidé UNE fois, pour que l'amont lise exactement les octets que le proxy lui envoie (RFC 9112 §6.3). Un `Transfer-Encoding` l'emporte sur un `Content-Length` (que l'on reti…"
+    },
+    "requestHeadersFor": {
+      "name": "requestHeadersFor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "En-têtes de la requête à transmettre à l'amont. - écartés : pseudo-en-têtes HTTP/2, en-têtes de connexion et ceux que nomme `Connection`, `Expect` (le serveur a déjà répondu `100`), en-têtes retiré…"
+    },
+    "rewriteLocation": {
+      "name": "rewriteLocation",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Ramène sous le préfixe un `Location` émis par un amont qui ignore son montage (`stripPrefix`) — l'équivalent de `proxy_redirect default` de nginx. Un chemin absolu (`/login`) et une URL sur l'origi…"
+    },
+    "responseHeadersFor": {
+      "name": "responseHeadersFor",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "En-têtes de la réponse de l'amont à renvoyer au client : en-têtes de connexion écartés — y compris ceux que nomme `Connection` —, `Via` prolongé, `Location` ramené sous le préfixe (`stripPrefix`) ;…"
+    },
+    "upstreamPath": {
+      "name": "upstreamPath",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Chemin transmis à l'amont : tel quel, ou sans le préfixe (`stripPrefix`)."
+    },
+    "forwardRequest": {
+      "name": "forwardRequest",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Relaie une requête HTTP vers l'amont et renvoie sa réponse au client. Le corps est transmis avec un cadrage cohérent ({@link bodyFramingOf}). Un message qui porte déjà notre `Via` rend 508 sans con…"
+    },
+    "rawHead": {
+      "name": "rawHead",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Sérialise une tête de réponse HTTP/1.1 depuis des en-têtes BRUTS (paires nom/valeur), sans réordonner ni fusionner, en écartant les noms donnés — une réponse `101` doit rendre au client exactement …"
+    },
+    "refuseUpgrade": {
+      "name": "refuseUpgrade",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Réponse brute minimale sur un socket d'upgrade, puis fermeture."
+    },
+    "forwardUpgrade": {
+      "name": "forwardUpgrade",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Relaie un upgrade WebSocket DÉJÀ validé (méthode, `Upgrade`, clé, version, `Origin` — cf `ReverseProxy.handleUpgrade`) : rejoue le handshake vers l'amont, renvoie sa réponse `101` au client puis ra…"
+    },
     "ProxyStaticMount": {
       "name": "ProxyStaticMount",
       "kind": "interface",
@@ -26876,6 +27019,80 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Valeurs par défaut d'un modèle d'introspection (complété par la commande)."
+    },
+    "IProxyMountShape": {
+      "name": "IProxyMountShape",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce qu'une règle de montage examine — la forme commune config / code."
+    },
+    "IProxyMountProblem": {
+      "name": "IProxyMountProblem",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Un refus, nommé : le champ fautif et pourquoi."
+    },
+    "normalizePrefix": {
+      "name": "normalizePrefix",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Normalise un préfixe d'URL : `/` en tête et en fin, sans `/` doublé. Règle UNIQUE des montages statiques et du proxy inverse — deux écritures du même préfixe doivent désigner la même entrée."
+    },
+    "parseProxyOrigin": {
+      "name": "parseProxyOrigin",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Analyse une origine d'amont. Seule une origine NUE est acceptée : un chemin, une requête, un fragment ou des identifiants dans la cible déplaceraient en silence toutes les URL relayées, ou feraient…"
+    },
+    "proxyMountProblems": {
+      "name": "proxyMountProblems",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Examine un montage. Rend TOUS les refus, pas le premier : une configuration se corrige en une passe."
+    },
+    "isAmbiguousPath": {
+      "name": "isAmbiguousPath",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Le chemin d'une requête relayée est-il ambigu ? Un chemin que le proxy et l'amont pourraient lire différemment — segment `.`/`..`, barre inverse, octet nul, ou leur forme encodée (`%2e`, `%2f`, `%5…"
+    },
+    "websocketHandshakeProblem": {
+      "name": "websocketHandshakeProblem",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Un upgrade est-il un handshake WebSocket conforme (RFC 6455 §4.2.1) ? Seul un tel handshake est relayé : un `Upgrade` quelconque (`h2c`…) raccordé octet pour octet ouvrirait un tunnel que rien n'in…"
+    },
+    "RESERVED_PROXY_PREFIXES": {
+      "name": "RESERVED_PROXY_PREFIXES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Règles d'un montage du proxy inverse — UNIQUE source, lue par le schéma de configuration (`proxy.mounts`) ET par `ReverseProxy.mount()` : un montage écrit dans la config et un montage posé par un m…"
+    },
+    "MODULE_PROXY_PREFIXES": {
+      "name": "MODULE_PROXY_PREFIXES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Préfixes réservés aux montages POSÉS PAR UN MODULE : la configuration ne peut pas les prendre. `/_vite/` appartient à `@nodefony/frontend`, qui y relaie ses serveurs Vite de développement."
     },
     "RateLimitVerdict": {
       "name": "RateLimitVerdict",
@@ -27051,6 +27268,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Nombre de ports essayés après le désiré, en `auto`."
+    },
+    "attachUpgradeDispatch": {
+      "name": "attachUpgradeDispatch",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/upgradeDispatch.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Pose l'UNIQUE écouteur `upgrade` d'un serveur : le proxy inverse d'abord, puis le serveur WebSocket de Nodefony. Pourquoi un seul écouteur : `ws` attaché par son option `server` prend TOUS les upgr…"
     },
     "@nodefony/http:Session": {
       "name": "Session",
@@ -30523,6 +30748,7 @@
         "FrontendService",
         "Certificate",
         "HttpKernel",
+        "ReverseProxy",
         "MongooseService",
         "AbstractCrudService",
         "Orm",
@@ -30830,6 +31056,9 @@
       "IResponse": [
         "IHttpResponse",
         "IWebsocketResponse"
+      ],
+      "IProxyMountOptions": [
+        "IProxyMount"
       ],
       "ISortableSource": [
         "ISessionStorage",
@@ -31394,6 +31623,7 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
@@ -31729,6 +31959,7 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
@@ -31896,6 +32127,7 @@
         "src/nodefony/src/finder/Finder.ts",
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/IService.ts",
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts"
@@ -32969,6 +33201,7 @@
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -32990,6 +33223,10 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "ReverseProxy": [
+        "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "SessionsService": [
         "src/packages/@nodefony/http/index.ts",
@@ -36690,8 +36927,12 @@
       "enableDevSourceMaps": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
-      "isLoopbackHost": [
-        "src/nodefony/src/kernel/commands/DevCommand.ts"
+      "isLoopbackHostname": [
+        "src/nodefony/src/kernel/commands/DevCommand.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts",
+        "src/packages/@nodefony/http/nodefony/src/proxy/rules.ts"
       ],
       "openDevInspector": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
@@ -38882,10 +39123,6 @@
       "isValidOriginTemplate": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
-      "isLoopbackHostname": [
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
-      ],
       "remoteDevListenAdvice": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
@@ -38946,6 +39183,15 @@
       ],
       "overlayField": [
         "src/packages/@nodefony/http/nodefony/config/config.ts"
+      ],
+      "normalizePrefix": [
+        "src/packages/@nodefony/http/nodefony/config/config.ts",
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts"
+      ],
+      "proxyMountProblems": [
+        "src/packages/@nodefony/http/nodefony/config/config.ts",
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
       ],
       "httpConfigSchema": [
         "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
@@ -39145,6 +39391,43 @@
       ],
       "severityFromStatus": [
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts"
+      ],
+      "IProxyMount": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts",
+        "src/packages/@nodefony/http/nodefony/src/proxy/forward.ts"
+      ],
+      "IProxyMountOptions": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "forwardRequest": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "forwardUpgrade": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "refuseUpgrade": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "IForwardedFrom": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "IRelaySettings": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "ProxiedRequest": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "ProxiedResponse": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "isAmbiguousPath": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "parseProxyOrigin": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
+      ],
+      "websocketHandshakeProblem": [
+        "src/packages/@nodefony/http/nodefony/service/reverse-proxy.ts"
       ],
       "ILLMProvider": [
         "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
@@ -40537,6 +40820,10 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
       ],
       "trackPong": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
+      ],
+      "attachUpgradeDispatch": [
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
       ],

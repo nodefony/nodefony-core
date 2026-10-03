@@ -67,21 +67,6 @@ export function parseInspectArgs(
 }
 
 /**
- * Dit si une interface d'écoute reste sur la boucle locale.
- *
- * 🔴 Un inspecteur joignable depuis le réseau EXÉCUTE le code de quiconque s'y
- * connecte (le protocole permet `Runtime.evaluate`) : hors boucle locale, il
- * faut le dire à voix haute. Pur : l'appelant décide quoi afficher.
- *
- * @param host - hôte demandé (`127.0.0.1`, `::1`, `0.0.0.0`…).
- * @returns `true` si seule la machine locale peut joindre l'inspecteur.
- */
-export function isLoopbackHost(host: string): boolean {
-  const h = host.replace(/^\[(.*)\]$/u, "$1").toLowerCase();
-  return h === "localhost" || h === "::1" || /^127\.\d+\.\d+\.\d+$/u.test(h);
-}
-
-/**
  * Ouvre l'inspecteur DANS le process serveur, avant le chargement de l'application.
  *
  * Appelée par l'enfant supervisé (donc rouverte à chaque redémarrage, sur le même

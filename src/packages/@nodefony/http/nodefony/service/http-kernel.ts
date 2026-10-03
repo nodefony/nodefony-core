@@ -48,6 +48,7 @@ import httpsServer from "../service/servers/server-https";
 import websocketServer from "../service/servers/server-websocket";
 import websocketSecureServer from "../service/servers/server-websocket-secure";
 import Statics from "./servers/server-static";
+import type ReverseProxy from "./reverse-proxy";
 import WebsocketContext from "../src/context/websocket/WebsocketContext";
 import HttpContext from "../src/context/http/HttpContext";
 import Context, { HTTPMethod, WebSocketState } from "../src/context/Context";
@@ -273,6 +274,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   cert: string = "";
   ca: string = "";
   serverStatic: Statics | null = null;
+  /**
+   * Proxy inverse (`reverse-proxy`) — lu à chaque requête avant le routage ;
+   * `mounts === null` tant que personne n'a monté de préfixe.
+   */
+  reverseProxy: ReverseProxy | null = null;
   domain: string = "";
   trustedHosts?: ITrustedHostsConfig | undefined;
   domainCheck: boolean = false;
@@ -525,6 +531,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     this.kernel?.prependOnceListener("onReady", () => {
       this.serviceCerticats = this.get("certificates");
       this.serverStatic = this.get("server-static");
+      this.reverseProxy = this.get("reverse-proxy");
       this.domain = this.kernel?.domain as string;
       this.trustedHosts = (
         this.options as { trustedHosts?: ITrustedHostsConfig }
@@ -618,6 +625,57 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   /**
+   * L'`Origin` d'un handshake WebSocket est-elle acceptée ? Règle UNIQUE,
+   * interrogeable SANS contexte : le serveur WebSocket de Nodefony
+   * ({@link checkWebsocketOrigin}) et le proxy inverse, qui relaie un upgrade
+   * avant qu'aucun contexte n'existe, décident par elle.
+   *
+   * Same-origin (nom de l'`Origin` = nom servi, port ignoré), loopback toléré
+   * en development, allowlist `allowedOrigins` ; sans `Origin` (client
+   * non-navigateur) → acceptée. Doctrine complète : {@link checkWebsocketOrigin}.
+   *
+   * @param origin - valeur brute de l'en-tête `Origin`
+   * @param hostname - nom d'hôte servi, sans port (`Context.domain`)
+   * @param secure - handshake reçu en TLS (politique `websocketSecure`)
+   * @returns `true` si le handshake peut se poursuivre
+   */
+  isWebsocketOriginAllowed(
+    origin: string | undefined,
+    hostname: string,
+    secure: boolean,
+  ): boolean {
+    const policy = this.getWsOriginPolicy(
+      secure ? "websocketSecure" : "websocket",
+    );
+    if (policy.disabled) {
+      return true;
+    }
+    // Pas d'Origin (client non-navigateur) → autorisé (cf doctrine).
+    if (!origin) {
+      return true;
+    }
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(origin).hostname;
+    } catch {
+      return false;
+    }
+    // Same-origin : l'Origin doit correspondre au Host servi (port ignoré).
+    if (originHost === hostname) {
+      return true;
+    }
+    // Development : loopback toléré (page Vite 5173 → serveur 5151, IP mixtes).
+    if (
+      this.kernel?.environment === "development" &&
+      WS_DEV_LOOPBACK.has(originHost)
+    ) {
+      return true;
+    }
+    // Allowlist explicite (SPA cross-origin en production).
+    return policy.extra.length > 0 && isDomainAllowed(policy.extra, originHost);
+  }
+
+  /**
    * B4 — Validation d'`Origin` au handshake WebSocket (anti-CSWSH, OWASP
    * WSTG-CLNT-10). Les navigateurs n'appliquent PAS CORS aux WebSockets : sans
    * ce contrôle, une page tierce peut ouvrir un WS **authentifié par le cookie de
@@ -633,39 +691,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * @throws {HttpError} code WS 1008 (Policy Violation) si l'Origin est refusée.
    */
   checkWebsocketOrigin(context: WebsocketContext): void {
-    const cfgKey =
-      context.type === "websocket-secure" ? "websocketSecure" : "websocket";
-    const policy = this.getWsOriginPolicy(cfgKey);
-    if (policy.disabled) {
-      return;
-    }
+    const secure = context.type === "websocket-secure";
     const raw = context.origin;
-    // Pas d'Origin (client non-navigateur) → autorisé (cf doctrine ci-dessus).
-    if (!raw) {
+    if (this.isWebsocketOriginAllowed(raw, context.domain, secure)) {
       return;
-    }
-    let originHost: string | null = null;
-    try {
-      originHost = new URL(raw).hostname;
-    } catch {
-      originHost = null;
-    }
-    if (originHost) {
-      // Same-origin : l'Origin doit correspondre au Host servi (port ignoré).
-      if (originHost === context.domain) {
-        return;
-      }
-      // Development : loopback toléré (page Vite 5173 → serveur 5151, IP mixtes).
-      if (
-        this.kernel?.environment === "development" &&
-        WS_DEV_LOOPBACK.has(originHost)
-      ) {
-        return;
-      }
-      // Allowlist explicite (SPA cross-origin en production).
-      if (policy.extra.length && isDomainAllowed(policy.extra, originHost)) {
-        return;
-      }
     }
     // Code WS 1008 « Policy Violation » directement : le renderWebsocket laisse
     // passer 1000-4999 ; un 403 HTTP serait écrasé en 1011 au handshake.
@@ -1607,31 +1636,23 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     request: httpRequest,
     response: httpResponse,
   ): MaybePromise<HttpContext> {
-    // Relais de développement (#526) — AVANT le routage : un préfixe relayé
-    // (`/_vite/<famille>/`, posé par @nodefony/frontend) appartient à un autre
+    // Proxy inverse — AVANT le routage : un préfixe monté (`/_vite/<famille>/`
+    // posé par @nodefony/frontend, ou tout autre amont) appartient à un autre
     // serveur, et une route attrape-tout de l'application ne doit pas pouvoir
-    // l'avaler. Sans relais déclaré (toute production), une lecture de champ.
-    // Un Host hors `trustedHosts` n'est pas relayé : il poursuit jusqu'au 421
-    // du contrôle de domaine, comme toute autre requête (la cible n'est de
-    // toute façon jamais l'hôte du client — une règle, une conduite).
+    // l'avaler. Sans montage (cas de toute application qui ne s'en sert pas),
+    // une lecture de champ. Un Host hors `trustedHosts` n'est pas relayé : il
+    // poursuit jusqu'au 421 du contrôle de domaine, comme toute autre requête.
     if (
-      this.serverStatic !== null &&
-      this.serverStatic.relays !== null &&
+      this.reverseProxy !== null &&
+      this.reverseProxy.mounts !== null &&
       (httpContext.validDomain || !this.kernel?.options.domainCheck)
     ) {
-      const target = this.serverStatic.relayTarget(
-        request.url,
-        httpContext.domain,
+      const relayed = this.reverseProxy.forward(
+        request,
+        response,
+        httpContext.scheme,
       );
-      if (target !== undefined) {
-        // 307 : méthode préservée ; jamais mis en cache — la cible dépend de
-        // l'hôte par lequel le client est arrivé.
-        httpContext.response.redirect(target, 307, {
-          "Cache-Control": "no-store",
-        });
-        httpContext.response.writeHead();
-        return thenMaybe(httpContext.response.end(), () => httpContext);
-      }
+      if (relayed !== undefined) return relayed.then(() => httpContext);
     }
     // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
     // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand

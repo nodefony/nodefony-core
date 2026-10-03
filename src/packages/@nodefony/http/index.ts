@@ -21,6 +21,7 @@ import HttpsServer from "./nodefony/service/servers/server-https";
 import WebsocketServer from "./nodefony/service/servers/server-websocket";
 import WebsocketSecureServer from "./nodefony/service/servers/server-websocket-secure";
 import StaticServer from "./nodefony/service/servers/server-static";
+import ReverseProxy from "./nodefony/service/reverse-proxy";
 import networkCommand from "./nodefony/command/networkCommand";
 import certificatesCommand from "./nodefony/command/certificatesCommand";
 import proxyGenerateCommand from "./nodefony/command/proxyGenerateCommand";
@@ -60,6 +61,7 @@ declare module "nodefony" {
   Certificate,
   SessionsService,
   StaticServer,
+  ReverseProxy,
   HttpServer,
   HttpsServer,
   WebsocketServer,
@@ -262,6 +264,22 @@ export type {
   ProfiledArea,
   ProfiledResolver,
 } from "./nodefony/src/profiler/FrameProfile";
+
+// Proxy inverse : relaie un préfixe d'URL (requêtes et upgrades WebSocket)
+// vers un autre serveur, sur la même origine que la page. Résolu par nom
+// (`container.get("reverse-proxy")`) chez les modules qui n'importent pas
+// @nodefony/http ; la classe et le contrat sont publiés pour les autres.
+export { default as ReverseProxy } from "./nodefony/service/reverse-proxy";
+export {
+  parseProxyOrigin,
+  normalizePrefix,
+  proxyMountProblems,
+} from "./nodefony/src/proxy/rules";
+export type {
+  IProxyMount,
+  IProxyMountOptions,
+  ProxyTarget,
+} from "./nodefony/interfaces/IReverseProxy";
 
 // Livraison d'UI embarquée d'un module (pattern « module tiers avec UI ») :
 // résolution de la molette `ui: auto|static|vite` + service statique des

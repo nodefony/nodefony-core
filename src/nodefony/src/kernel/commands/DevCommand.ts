@@ -3,8 +3,8 @@ import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
 import BootReporter from "../../service/dev/BootReporter";
 import { enableDevSourceMaps } from "../../service/dev/sourceMaps";
+import { isLoopbackHostname } from "../../Tools";
 import {
-  isLoopbackHost,
   openDevInspector,
   parseInspectArgs,
   type IDevInspectRequest,
@@ -117,7 +117,7 @@ class Dev extends Command {
     const inspect = parseInspectArgs(process.argv) ?? this.defaultInspect();
     if (inspect) {
       const opened = openDevInspector(inspect);
-      if (opened.supported && !isLoopbackHost(inspect.host)) {
+      if (opened.supported && !isLoopbackHostname(inspect.host)) {
         // Sur stderr, sans condition de verbosité : ce n'est pas un détail.
         process.stderr.write(
           `⚠️  [debug] débogueur EXPOSÉ sur ${inspect.host}:${inspect.port} — ` +

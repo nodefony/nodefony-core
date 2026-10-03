@@ -51,3 +51,9 @@ export type {
   IRequestRouter,
 } from "./IRouting";
 export type { ISecurityZone, IFirewallGate } from "./ISecurity";
+
+export type {
+  IProxyMount,
+  IProxyMountOptions,
+  ProxyTarget,
+} from "./IReverseProxy";

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { overlayField } from "nodefony";
+import { normalizePrefix, proxyMountProblems } from "../src/proxy/rules";
 
 /**
  * @nodefony/http — CONFIGURATION DU MODULE (schéma Zod = source unique).
@@ -684,7 +685,8 @@ const websocketSchema = z
   .describe(
     "Serveur WebSocket (`ws@8`). Les options ci-dessus (+ loose : `verifyClient`, " +
       "`handleProtocols`, `path`, `WebSocket`…) sont transmises à `ws`. GÉRÉ par Nodefony et " +
-      "donc NON exposé : `server`/`host`/`port` (attaché au serveur HTTP), `noServer` (forcé off), " +
+      "donc NON exposé : `server`/`host`/`port`/`noServer` (forcé à `noServer` : l'upgrade du serveur " +
+      "HTTP passe d'abord par le proxy inverse, puis par `ws`), " +
       "`clientTracking` (forcé true — requis par broadcast() + heartbeat), `backlog` (celui du " +
       "serveur HTTP). `keepalive*`/`closeTimeout` sont des knobs Nodefony, pas des options `ws`.",
   );
@@ -988,6 +990,159 @@ const healthSchema = z
       "k8s, HEALTHCHECK Docker) — servies par les serveurs HTTP et HTTPS.",
   );
 
+// ───────────────────────── proxy (proxy inverse) ────────────────────────────
+// Montages déclarés par l'application. Les refus vivent dans
+// `src/proxy/rules.ts`, lus AUSSI par `ReverseProxy.mount()` : un montage écrit
+// ici et un montage posé par un module obéissent aux mêmes règles.
+
+const proxyMountSchema = z
+  .strictObject({
+    target: z
+      .string()
+      .describe(
+        "Origine de l'amont : `scheme://hôte[:port]`, http ou https, SANS chemin " +
+          "(ex. `http://127.0.0.1:8080`). Le chemin relayé est celui de la requête " +
+          "(cf `stripPrefix`).",
+      ),
+    methods: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Méthodes relayées (casse indifférente). Une autre méthode n'est PAS relayée : la requête " +
+          "suit le routage de l'application (404 si rien ne la prend). Absent = " +
+          "toutes.",
+      ),
+    websocket: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Relaie aussi l'upgrade WebSocket du préfixe (même origine, même " +
+          "certificat que la page). Défaut false : un upgrade sur le préfixe reste " +
+          "au serveur WebSocket de Nodefony.",
+      ),
+    stripPrefix: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Retire le préfixe avant de transmettre (`/billing/factures` → " +
+          "`/factures`). Défaut false : l'amont reçoit le chemin complet. ⚠️ Un " +
+          "amont qui ignore son préfixe rendra des liens absolus (`/x`) et des " +
+          "redirections qui sortent du montage.",
+      ),
+    preserveHost: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Transmet le `Host` du client au lieu de celui de la cible. Défaut " +
+          "false : l'amont reçoit son propre nom (ce qu'attend un serveur qui " +
+          "filtre les noms d'hôte), le nom d'origine part en `X-Forwarded-Host`.",
+      ),
+    stripHeaders: z
+      .array(z.string())
+      .default([])
+      .describe(
+        'En-têtes de requête à ne PAS transmettre (ex. `["cookie", ' +
+          '"authorization"]` vers un amont qui n\'a pas à voir la session). Les ' +
+          "en-têtes de connexion (RFC 9110 §7.6.1) ne le sont jamais.",
+      ),
+    timeoutMs: z
+      .number()
+      .optional()
+      .describe(
+        "Délai d'inactivité avec l'amont (ms) — dépassé avant la réponse : 504. " +
+          "Absent = `proxy.timeoutMs`. Ne s'applique pas à un WebSocket établi.",
+      ),
+    secure: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Vérifie le certificat d'une cible https. `false` n'est accepté que " +
+          "vers la boucle locale (`127.0.0.0/8`, `localhost`, `::1`) ; ailleurs, " +
+          "fournir l'autorité de l'amont (`NODE_EXTRA_CA_CERTS`).",
+      ),
+  })
+  .describe(
+    "Un montage du proxy inverse : un préfixe d'URL relayé vers un amont.",
+  );
+
+const proxySchema = z
+  .strictObject({
+    timeoutMs: z
+      .number()
+      .int()
+      .positive()
+      .default(30_000)
+      .describe(
+        "Délai d'inactivité par défaut de tous les montages (ms) : un amont " +
+          "muet au-delà rend 504 Gateway Timeout. Défaut 30 s.",
+      ),
+    connectTimeoutMs: z
+      .number()
+      .int()
+      .positive()
+      .default(5_000)
+      .describe(
+        "Délai d'ÉTABLISSEMENT de la connexion vers un amont (ms), distinct du " +
+          "délai d'inactivité : un amont qui n'accepte pas la connexion rend 504 " +
+          "sans tenir le client pendant `timeoutMs`. Défaut 5 s.",
+      ),
+    maxSockets: z
+      .number()
+      .int()
+      .positive()
+      .default(256)
+      .describe(
+        "Connexions simultanées maximales vers UN amont (pool keep-alive dédié " +
+          "par montage) ; au-delà, les requêtes attendent un socket libre. " +
+          "Défaut 256. Le pool ignore `HTTP_PROXY`/`NODE_USE_ENV_PROXY` : un " +
+          "amont se joint en direct.",
+      ),
+    mounts: z
+      .record(z.string(), proxyMountSchema)
+      .default({})
+      .describe(
+        "Préfixe d'URL → amont. Consulté AVANT le routage : une route de " +
+          "l'application sous ce préfixe ne sera jamais atteinte. Correspondance " +
+          "au préfixe le PLUS LONG. Refusés au démarrage : `/`, ce qui est sous " +
+          "`/nodefony/` (administration) ou `/_vite/` (monté par " +
+          "@nodefony/frontend), deux clés qui désignent le même préfixe.",
+      ),
+  })
+  .superRefine((proxy, ctx) => {
+    const seen = new Map<string, string>();
+    for (const [prefix, mount] of Object.entries(proxy.mounts)) {
+      const normalized = normalizePrefix(prefix);
+      const twin = seen.get(normalized);
+      if (twin !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["mounts", prefix],
+          message:
+            `« ${prefix} » et « ${twin} » désignent le même préfixe ` +
+            `(${normalized}) — n'en garder qu'un`,
+        });
+      }
+      seen.set(normalized, prefix);
+      for (const problem of proxyMountProblems(prefix, mount, "config")) {
+        ctx.addIssue({
+          code: "custom",
+          path:
+            problem.field === "prefix"
+              ? ["mounts", prefix]
+              : ["mounts", prefix, problem.field],
+          message: problem.message,
+        });
+      }
+    }
+  })
+  .describe(
+    "Proxy inverse : relaie un préfixe d'URL (requêtes et, sur demande, " +
+      "WebSocket) vers un autre serveur, sur la MÊME origine que la page — un " +
+      "seul certificat, l'amont peut rester sur la boucle locale. En-têtes de " +
+      "connexion jamais transmis, `X-Forwarded-*` et `Via` posés, `trustedHosts` " +
+      "appliqué, 502/504 sur amont injoignable/muet, boucle détectée (508).",
+  );
+
 // ───────────────────────── racine ───────────────────────────────────────────
 
 export const httpConfigSchema = z
@@ -1068,6 +1223,7 @@ export const httpConfigSchema = z
     session: sessionSchema.default(() => sessionSchema.parse({})),
     rateLimit: rateLimitSchema.default(() => rateLimitSchema.parse({})),
     health: healthSchema.default(() => healthSchema.parse({})),
+    proxy: proxySchema.default(() => proxySchema.parse({})),
     wsMaxConnectionsPerIp: z
       .number()
       .int()
