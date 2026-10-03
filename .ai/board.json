@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T17:36:22.321Z",
+  "generatedAt": "2026-10-03T19:01:59.787Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 70,
+      "closed": 72,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 39,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -1817,8 +1817,8 @@
       "number": 528,
       "title": "feat(frontend): servir Vite derrière Nodefony en développement",
       "url": "https://github.com/nodefony/nodefony-core/issues/528",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -1903,8 +1903,8 @@
       "number": 527,
       "title": "feat(brand): redessiner le logo Nodefony en vectoriel net à toute taille",
       "url": "https://github.com/nodefony/nodefony-core/issues/527",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
