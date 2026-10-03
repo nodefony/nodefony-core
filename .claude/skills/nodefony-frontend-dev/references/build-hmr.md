@@ -18,7 +18,7 @@ sans lire le source.
   - [3.6 Data plane admin (`createFrontendAdminApi`)](#36-data-plane-admin-createfrontendadminapi)
 - [4. Internals / mécanismes](#4-internals--mécanismes)
   - [4.1 Dev — comment le SPA est servi (HMR Vite)](#41-dev--comment-le-spa-est-servi-hmr-vite)
-  - [4.2 `apiProxyPaths` — proxy API seulement](#42-apiproxypaths--proxy-api-seulement)
+  - [4.2 Appels d'API — sur l'origine de la page, sans proxy](#42-appels-dapi--sur-lorigine-de-la-page-sans-proxy)
   - [4.3 Prod — build + manifest + statiques](#43-prod--build--manifest--statiques)
   - [4.4 Multi-bundle + familles d'isolation](#44-multi-bundle--familles-disolation)
   - [4.5 Ordre de chargement au boot](#45-ordre-de-chargement-au-boot)
@@ -68,7 +68,7 @@ tape directement Vite pour les assets et le HMR. En production, Vite ne tourne p
 ```
 DEV (env=development)
   Module consumer.onKernelBoot()
-    └─ frontendService.registerEntry(this, { type, entry, root, name, apiProxyPaths })
+    └─ frontendService.registerEntry(this, { type, entry, root, name })
   Kernel "onServersReady"  (les 4 serveurs Nodefony écoutent déjà)
     └─ FrontendService.startDev()
          ├─ groupe les entries par FAMILLE d'isolation (default / angular)
@@ -120,8 +120,8 @@ types `IFrontendConfigInput`/`IFrontendConfig`).
 | `startDev` | `() => Promise<void>` | Démarre Vite (1 instance/famille). Idempotent. Auto au boot. | `:289` |
 | `stopDev` | `() => Promise<void>` | Stoppe toutes les instances (SIGINT→SIGKILL). | `:495` |
 | `build` | `(opts?: { force?: boolean }) => Promise<IFrontendBuildResult>` | Build prod `vite.build()` par entry. | `:525` |
-| `renderTags` | `(entryName, nonce?, requestHost?) => string` | Balises `<script>`/`<link>` à injecter. | `:630` |
-| `renderDocument` | `(entryName, nonce?, requestHost?) => string` | Document HTML complet (index.html du module + tags). | `:618` |
+| `renderTags` | `(entryName, nonce?) => string` | Balises `<script>`/`<link>` à injecter. | `:630` |
+| `renderDocument` | `(entryName, nonce?) => string` | Document HTML complet (index.html du module + tags). | `:618` |
 | `assetUrl` | `(p: string) => string` | Résout l'URL publique d'un asset (préfixe CDN si configuré). | `:114` |
 
 `IFrontendBuildResult` (`IFrontendService.ts:5`) : `{ built: string[]; skipped: string[];
@@ -143,13 +143,12 @@ failures: { entryName; message }[] }`.
 | `root` | `string?` | `./frontend` | Racine front (contient `index.html`). | `:18` |
 | `name` | `string?` | nom du module | Nom logique de l'entrée (= `entryName`, clé de `renderTags`). | `:20` |
 | `publicPath` | `string?` | `/_assets/<name>/` | Préfixe public prod (cf §4.3/§4.8). | `:27` |
-| `apiProxyPaths` | `ReadonlyArray<string>?` | `[]` | Préfixes à proxifier Vite→Nodefony en dev (cf §4.2). | `:34` |
 
 `registerEntry` (`FrontendService.ts:205`) résout les chemins en **absolu** depuis `module.path`,
 stocke `entryFile` relatif au `root`, normalise `publicPath` (leading + trailing `/`,
 `:235`/`normalizePublicPath` `:50`), et retourne une `IResolvedFrontendEntry`
 (`IFrontBuilder.ts:40` : `moduleName`, `entryName`, `type`, `root`, `entryFile`, `outDir`,
-`publicPath`, `apiProxyPaths`). **À appeler dans le `onKernelBoot()` du module consommateur**
+`publicPath`). **À appeler dans le `onKernelBoot()` du module consommateur**
 (avant `onServersReady` qui démarre Vite).
 
 ### 3.3 `renderTags` / `renderDocument` / `assetUrl`
@@ -176,8 +175,7 @@ pour satisfaire `script-src 'nonce-…'` sans `'unsafe-inline'` (`TemplateHelper
 **Aucune origine dans les balises.** En développement, toutes les URLs vers Vite sont relatives à
 la page (`/_vite/<famille>/…`) et relayées par Nodefony (§4.9) : elles suivent d'elles-mêmes l'hôte
 par lequel le client est arrivé — poste, conteneur, téléphone du réseau local, Codespaces — sans
-contenu mixte. Le 3ᵉ paramètre `requestHost` est DÉPRÉCIÉ et ignoré (accepté pour ne casser aucun
-appelant). En **production**, les URLs du manifest sont relatives au document, comme avant.
+contenu mixte. En **production**, les URLs du manifest sont relatives au document, comme avant.
 
 **Helpers de template** (façon Symfony `encore_entry_script_tags`), même source `renderTags`/
 `renderDocument` :
@@ -229,10 +227,6 @@ Défauts (`schema.ts`) :
 | `assetBaseUrl` | `""` | Base CDN des assets **prod** (cf §4.8). |
 | `startupTimeoutMs` | `30000` | Timeout d'attente du `Local:` Vite. |
 | `pipeViteLogs` | `true` | Propage les logs Vite au syslog. |
-| `backendHost` | `127.0.0.1` | Host cible du proxy Vite (`server.proxy`). |
-| `backendPort` | `5151` | Port cible du proxy Vite. |
-| `backendProtocol` | `http` | `http`\|`https` (proxy vers 5152). |
-| `https` | `false` | HTTPS dev server Vite (réutilise les certs `certificates`). |
 | `viteEnv` | `{}` | Variables passées au child Vite ; clés `VITE_*` exposées au navigateur. |
 | `resilience` | (objet) | `autoRestart:true`, `maxRestarts:5`, `restartBackoffBaseMs:500`, `restartBackoffMaxMs:8000`, `healthCheckIntervalMs:30000`, `healthCheckFailureThreshold:3`, `healthCheckTimeoutMs:5000`, `portRetryAttempts:3`. |
 
@@ -293,24 +287,14 @@ Les balises injectées en dev (`TemplateHelper.renderDevTags:153`) :
 Si le superviseur n'est pas `ready` quand `renderTags` est appelé → un **commentaire HTML**
 `<!-- @nodefony/frontend: vite supervisor state=... -->` (jamais une page cassée, `:158-160`).
 
-### 4.2 `apiProxyPaths` — proxy API seulement
+### 4.2 Appels d'API — sur l'origine de la page, sans proxy
 
-Une page rendue par Nodefony appelle son API sur sa propre origine. Mais une app ouverte
-DIRECTEMENT sur Vite (son `index.html`, `127.0.0.1:5173`) envoie son `fetch("/ma/api/x")` à
-**Vite**, qui répond son **SPA-fallback HTML** → `Unexpected token '<'` en
-JSON. `apiProxyPaths` déclare les préfixes que Vite doit **proxifier vers le backend Nodefony**
-(`ViteConfigGenerator.toMjs:144-156`). La config générée pose `proxy[path] = { target: backendOrigin,
-changeOrigin: false, secure: false, ws: true }`.
-
-Important :
-
-- Le proxy ne couvre QUE l'API. Les routes inconnues restent servies par Vite (SPA-fallback) → la
-  navigation client-side du SPA fonctionne.
-- Le data plane admin **`^/nodefony/[^/]+/api`** est **TOUJOURS** ajouté (clé RegExp Vite, `:155`),
-  en plus des `apiProxyPaths` déclarés : la debug bar dev (`/nodefony/profiler/api/...`) et Studio
-  (`/nodefony/<module>/api/...`) sont toujours proxifiés. Une clé qui commence par `^` est traitée
-  comme RegExp par Vite. La RegExp exige `/api/` (≥3 segments) → les pages SPA mono-segment
-  `/nodefony/{page}` et la racine `/nodefony` restent servies par Vite.
+La page est rendue par Nodefony : un `fetch("/ma/api/x")` part sur l'origine de la page, donc chez
+Nodefony, et Vite ne reçoit que ce que `/_vite/<famille>/` lui relaie (§4.9). Il n'y a **aucun proxy
+d'API à déclarer** : `apiProxyPaths` et les clés `backendHost`/`backendPort`/`backendProtocol` ont
+été retirés (vestige du POC où Vite servait la page) — la config générée n'a plus de
+`server.proxy`. Un `Unexpected token '<'` sur un `fetch` signifie que la page a été ouverte sur le
+port de Vite (SPA-fallback HTML) : l'ouvrir par Nodefony.
 
 ### 4.3 Prod — build + manifest + statiques
 
@@ -446,8 +430,8 @@ page>/_vite/<famille>/`.
    aucun montage → `/_vite/` en 404.
 
 Résultat : page, scripts, images, HMR = **une origine, un certificat**, quel que soit le chemin du
-client. `frontend.publicOrigin`, `frontend.https` et le paramètre `requestHost` sont DÉPRÉCIÉS (sans
-effet, WARNING au démarrage). CSP dev : `'self'` suffit (couvre `ws(s):` de même hôte, CSP 3).
+client. `frontend.publicOrigin`, `frontend.https` et le paramètre `requestHost` sont RETIRÉS (une
+clé restée interrompt le boot en la nommant). CSP dev : `'self'` suffit (couvre `ws(s):` de même hôte, CSP 3).
 
 Pourquoi pas `server.origin` : il fige UNE origine (casse poste + conteneur servis ensemble), et il est
 **ignoré en mode bundlé** de Vite (`fileToUrl$1` → `fileToBuiltUrl`) ; `base` est honoré partout.
@@ -517,7 +501,6 @@ class MyModule extends Module {
       root: "./frontend",
       outDir: "./public/dist",
       name: "my-module",
-      apiProxyPaths: ["/my/api"], // proxifie SEULEMENT l'API en dev
     });
     return this;
   }
@@ -595,9 +578,8 @@ consommateur (pattern bull-board/GraphiQL). La mécanique vit dans **@nodefony/h
 
 - **`vite.config.generated.mjs` est réécrit à chaque `startDev`** — ne JAMAIS l'éditer à la main ni le
   versionner. Toute config Vite custom doit passer par le code du module/preset.
-- **`apiProxyPaths` manquant → `Unexpected token '<'`** : un `fetch` d'API depuis l'app Vite tombe sur
-  le SPA-fallback HTML de Vite. Déclarer le préfixe d'API (cf §4.2). Le data plane `/nodefony/*/api`
-  est déjà proxifié d'office.
+- **`Unexpected token '<'` sur un `fetch` d'API** : la page est ouverte sur le port de Vite, qui
+  répond son SPA-fallback HTML. L'ouvrir par Nodefony (cf §4.2) — il n'y a pas de proxy d'API.
 - **Image importée en 404 / texte alternatif affiché en dev** : URL sans `/_vite/<famille>/` (balise écrite
   à la main au lieu de `renderTags`), proxy non monté (`@nodefony/http` désaligné → WARNING au boot), ou
   frontal qui intercepte `/_vite/*` avant Nodefony. Sonde : `curl -sk -o /dev/null -w "%{http_code}"
@@ -621,7 +603,7 @@ https://127.0.0.1:5152/_vite/default/@vite/client` → `200` attendu, en-tête `
   le `include` ne couvre QUE le front Angular (`isolationGroups.ts`/`ViteConfigGenerator.ts:89`).
   Angular HMR = page reload (pas hot-swap).
 - **HTTPS en dev** : rien à faire côté Vite — il est relayé sur l'origine de la page (§4.9), un seul
-  certificat à accepter (celui de 5152). `frontend.https` est DÉPRÉCIÉ (sans effet, WARNING).
+  certificat à accepter (celui de 5152). `frontend.https` n'existe plus (clé refusée au boot).
 - **Vite orphelin / `EADDRINUSE` au restart** : cause = signaux mal relayés. Le superviseur lance le
   vrai bin Vite (pas `npx`) et `detached:false` pour que SIGINT/SIGKILL l'atteignent. Pour tuer un Vite
   resté en vie dans un test : `lsof -ti:<port> -sTCP:LISTEN`.

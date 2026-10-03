@@ -58,7 +58,7 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 
 - **isomorphisme** : partager du code `nodefony` front/back, `customConditions:["browser"]`, subpaths `nodefony/client|react|roles`.
 - **socket Nodefony** : `RealtimeClient` (subscribe/request/mutate/ping), socle agnostique `observe*` (une liaison de vue ne contient QUE rappel+libération → réactivité), liaisons idiomatiques `nodefony/react` (hooks), `nodefony/vue` (plugin + composables) `nodefony/angular` (fournisseur + fonctions d'injection, ZÉRO décorateur publié) et `nodefony/svelte` (configuration de module + valeurs `.current`, ZÉRO rune publiée, abonnement PARESSEUX), canaux temps réel.
-- **builder/HMR** : `@nodefony/frontend` (`registerEntry`, Vite dev HMR, build prod, multi-bundle, `apiProxyPaths`).
+- **builder/HMR** : `@nodefony/frontend` (`registerEntry`, Vite dev HMR, build prod, multi-bundle, relais `/_vite/<famille>/`).
 - **data-plane BFF** : `ApiClient` (`getAbsolute`/`postAbsolute`/…), `useResource`, session BFF cookie opaque, RBAC front.
 - **qualité front** : ergonomie, temps réel « calme », a11y (WCAG/ARIA), perf CSS compositor-only.
 

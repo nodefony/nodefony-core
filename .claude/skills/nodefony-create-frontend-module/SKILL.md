@@ -61,7 +61,6 @@ hard-reload), et l'explication du POURQUOI. Jamais la mécanique.
    - `MOD` = nom kebab-case (ex `shop-front`)
    - `MOD_PASCAL` = PascalCase (ex `ShopFront`) — classe Module + className controller
    - `ROUTE` = route HTTP racine, défaut `/${MOD}` (demander si l'user veut autre chose)
-   - `HTTPS_VITE` = bool (recommandé `true` — évite mixed-content ; partage les certs Nodefony)
 
 ## Table de paramètres par framework (LE cœur)
 
@@ -116,17 +115,22 @@ Vérifier puis surcharger/compléter (skip si déjà correct).
 
 Edit `src/modules/{MOD}/package.json` → ajouter les peerDeps de la colonne framework (table). Angular : cf reference.
 
-### 2.2 Config HTTPS — `nodefony/config/config.ts`
+### 2.2 Config — `nodefony/config/config.ts` : rien à surcharger
 
 ```typescript
-/** Config du module {MOD}. Surcharge `module-frontend` (@nodefony/frontend). */
-const config = {
-  "module-frontend": { https: { HTTPS_VITE } }, // true si HTTPS Vite
-};
+/**
+ * Config du module {MOD}. Aucune surcharge `module-frontend` : Vite reste en
+ * HTTP sur la boucle locale, relayé par Nodefony sur l'origine de la page
+ * (`/_vite/<famille>/`) — une page HTTPS charge ses scripts en HTTPS.
+ */
+const config = {};
 export default config;
 ```
 
-### 2.3 `registerEntry` + `apiProxyPaths` (dans `index.ts`, `onKernelBoot`)
+`https` et `publicOrigin` n'existent plus dans `module-frontend` : une clé restée interrompt le boot
+en la nommant (schéma strict).
+
+### 2.3 `registerEntry` (dans `index.ts`, `onKernelBoot`)
 
 ```typescript
 svc.registerEntry(this, {
@@ -135,8 +139,9 @@ svc.registerEntry(this, {
   root: "./frontend",
   outDir: "./public/dist",
   name: "{MOD}",
-  apiProxyPaths: ["{ROUTE}/api"], // ← SANS ça, fetch backend = HTML SPA-fallback (piège n°1)
 });
+// Pas de proxy d'API à déclarer : `fetch("{ROUTE}/api/…")` part sur l'origine
+// de la page, donc chez Nodefony (`apiProxyPaths` a été retiré).
 ```
 
 ### 2.4 Controller HTML + CSP — `nodefony/controller/{MOD_PASCAL}Controller.ts`
@@ -238,10 +243,10 @@ path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
 
 ## Checklist finale
 
-- [ ] `index.ts` : `apiProxyPaths` présent dans `registerEntry`
+- [ ] `index.ts` : `registerEntry` SANS `apiProxyPaths` (retiré — refusé à la compilation)
 - [ ] Controller : nonce propagé — `renderTags("{MOD}", this.context?.cspNonce)` (JAMAIS de header CSP posé à la main)
 - [ ] Nœud de montage HTML = celui du framework (table)
-- [ ] `module-frontend.https` = choix user
+- [ ] config du module : aucune clé `module-frontend.https` / `publicOrigin` (retirées — boot refusé)
 - [ ] manifeste `modules` (nodefony.config.ts) : `@nodefony/frontend` AVANT `@nodefony/{MOD}` (ordre boot critique)
 - [ ] peerDeps du framework présents (react+react-dom / vue / @angular\*)
 - [ ] `npx tsc --noEmit` 0 erreur + `npm run build` du module OK
@@ -250,11 +255,11 @@ path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
 ## Pièges communs (les 3 frameworks)
 
 1. **Ordre du manifeste `modules`** : frontend AVANT le module → sinon `@nodefony/frontend service unavailable` au boot.
-2. **`apiProxyPaths` manquant** : `Unexpected token '<'` sur `fetch("{ROUTE}/api/...")` (Vite renvoie le SPA-fallback HTML).
+2. **`Unexpected token '<'` sur `fetch("{ROUTE}/api/...")`** : la page est ouverte sur le port de Vite (SPA-fallback HTML) — l'ouvrir par Nodefony (5152).
 3. **CSP** : page blanche + `blocked:csp` → nonce non propagé (`renderTags` sans `cspNonce`), ou origine Vite absente du CSP (firewall pas encore `ready` → recharger après le boot complet).
 4. **Cache navigateur HMR** : après changement CSP/manifest → **Cmd+Shift+R**.
-5. **Cert HTTPS Vite** (si HTTPS) : accepter le cert sur `:5173` ET `:5152` (origines distinctes), ou installer la CA Nodefony.
-6. **Placeholders** : remplacer `{MOD}`, `{MOD_PASCAL}`, `{ROUTE}`, `{TYPE}`, `{ENTRY}`, `{MOUNT_NODE}`, `{HTTPS_VITE}` AVANT le Write.
+5. **Certificat de dev** : l'accepter UNE fois sur `:5152` — Vite est relayé sur la même origine (un seul certificat), ou installer la CA Nodefony.
+6. **Placeholders** : remplacer `{MOD}`, `{MOD_PASCAL}`, `{ROUTE}`, `{TYPE}`, `{ENTRY}`, `{MOUNT_NODE}` AVANT le Write.
 
 > Pièges **spécifiques React** (preamble) et **Angular** (`--legacy-peer-deps`, external rolldown, tsconfig.app,
 > `useDefineForClassFields:false`, HMR=reload) → **[`references/frameworks.md`](references/frameworks.md)**.

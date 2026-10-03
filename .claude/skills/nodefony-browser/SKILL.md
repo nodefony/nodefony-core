@@ -373,8 +373,8 @@ en HTTPS, sur la même origine, avec un seul certificat.
 
 > Il a existé une variable d'observation (`NF_FRONTEND_PUBLIC_ORIGIN`), puis un réglage
 > `frontend.publicOrigin`, pour figer l'origine des assets. La première a **cassé le poste du
-> développeur** le jour où on a oublié de la retirer ; le second est aujourd'hui DÉPRÉCIÉ et sans
-> effet. Une page dont un script vise encore `127.0.0.1:5173` tourne sur un `@nodefony/frontend`
+> développeur** le jour où on a oublié de la retirer ; le second a été retiré (une configuration qui
+> le porte encore est refusée au démarrage). Une page dont un script vise encore `127.0.0.1:5173` tourne sur un `@nodefony/frontend`
 > antérieur au relais.
 
 ## 5. Pièges — chacun a déjà fait conclure faux
