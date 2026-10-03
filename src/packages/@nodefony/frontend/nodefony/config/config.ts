@@ -130,19 +130,6 @@ export const frontendConfigSchema = z
           "le relais `/_vite/<famille>/` vise toujours le Vite qui sert. Le " +
           "navigateur ne voit jamais ce port : il passe par l'origine de la page.",
       ),
-    publicOrigin: z
-      .string()
-      .default("")
-      .meta({
-        deprecated: true,
-        description:
-          "DÉPRÉCIÉE — sans effet, retrait à la majeure suivante (un WARNING le " +
-          "dit au démarrage). Vite est désormais servi DERRIÈRE Nodefony, sur " +
-          "l'origine de la page (`/_vite/<famille>/`, proxy inverse) : la page, " +
-          "ses scripts et le socket du rechargement à chaud n'ont qu'une " +
-          "origine, quel que soit le chemin du client (poste, conteneur, IP de " +
-          "réseau local, Codespaces). Retirer la clé.",
-      }),
     autoStartInDevelopment: z
       .boolean()
       .default(true)
@@ -190,18 +177,6 @@ export const frontendConfigSchema = z
         "Propage les logs Vite vers le syslog Nodefony (sinon ils restent dans le " +
           "stdout du process enfant uniquement).",
       ),
-    https: z
-      .boolean()
-      .default(false)
-      .meta({
-        deprecated: true,
-        description:
-          "DÉPRÉCIÉE — sans effet, retrait à la majeure suivante (un WARNING le " +
-          "dit au démarrage). Le chiffrement est celui de la page : Vite reste " +
-          "en HTTP sur la boucle locale, derrière le proxy inverse de Nodefony, " +
-          "et une page HTTPS charge ses scripts en HTTPS sur la même origine — " +
-          "un seul certificat à accepter. Retirer la clé.",
-      }),
     viteEnv: z
       .record(z.string(), z.string())
       .default({})

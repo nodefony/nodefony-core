@@ -6218,14 +6218,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(ctrl, '"dashboard"');
       assert.include(ctrl, "renderDocument(");
-      // Les DEUX données de la requête sont propagées au rendu : le nonce CSP
-      // (sans lui, `script-src 'nonce-…'` bloque les balises émises) ET l'hôte
-      // (sans lui, l'application générée annonce ses assets sur l'hôte du
-      // démarrage — un poste et un conteneur ne peuvent plus être servis
-      // ensemble, panne vécue sur Studio). Un gabarit est du code DISTRIBUÉ :
-      // ce qu'il n'écrit pas, aucune application ne l'aura.
+      // Le nonce CSP de la requête est propagé au rendu (sans lui,
+      // `script-src 'nonce-…'` bloque les balises émises). L'hôte, lui, ne
+      // l'est plus : les balises vers Vite sont relatives à la page (#528) et
+      // `renderDocument` ne prend plus que `(entryName, nonce?)` — un 3ᵉ
+      // argument ne compilerait pas. Un gabarit est du code DISTRIBUÉ : ce
+      // qu'il écrit, chaque application l'hérite.
       assert.include(ctrl, "this.context?.cspNonce");
-      assert.include(ctrl, "this.context?.domain");
+      assert.notInclude(ctrl, "this.context?.domain");
       assert.include(ctrl, 'path: "/dashboard"');
       assertNoEtaResidue(dest);
     });

@@ -123,18 +123,13 @@ class MyController extends Controller {
     // origines Vite au firewall (`@nodefony/security`), qui émet UN seul
     // en-tête. Un controller qui le réécrirait écraserait le nonce.
 
-    // Deux données de la requête sont propagées au rendu :
-    //  - le nonce CSP, sans lequel `script-src 'nonce-…'` bloque les balises ;
-    //  - l'hôte, dont l'origine des assets Vite est dérivée en développement —
-    //    la page annonce l'origine par laquelle le client est arrivé, si bien
-    //    qu'un poste et un navigateur en conteneur sont servis en même temps,
-    //    sans configuration. Scheme et port restent ceux de Vite.
+    // Le nonce CSP de la requête est propagé au rendu : sans lui,
+    // `script-src 'nonce-…'` bloque les balises. En développement, les URLs
+    // vers Vite sont relatives à la page (`/_vite/<famille>/…`) : un poste et
+    // un navigateur en conteneur sont servis en même temps, sans configuration.
     const viteTags =
-      svc?.renderTags(
-        "my-module",
-        this.context?.cspNonce,
-        this.context?.domain,
-      ) ?? "<!-- @nodefony/frontend not started -->";
+      svc?.renderTags("my-module", this.context?.cspNonce) ??
+      "<!-- @nodefony/frontend not started -->";
 
     return this.render(`<!DOCTYPE html>
 <html lang="en">
@@ -238,10 +233,10 @@ interface IFrontendService {
   stopDev(): Promise<void>;
   // vite.build() par entrée ; bilan construits / ignorés / en échec
   build(opts?: { force?: boolean }): Promise<IFrontendBuildResult>;
-  // `nonce` = `Context.cspNonce` ; `requestHost` = `Context.domain` (sans port),
-  // dont l'origine des assets est dérivée en développement.
-  renderTags(entryName, nonce?, requestHost?): string;
-  renderDocument(entryName, nonce?, requestHost?): string;
+  // `nonce` = `Context.cspNonce` ; en développement, les URLs vers Vite sont
+  // relatives à la page (`/_vite/<famille>/…`).
+  renderTags(entryName, nonce?): string;
+  renderDocument(entryName, nonce?): string;
   assetUrl(path): string;
 }
 ```
@@ -274,7 +269,7 @@ Le port configuré est pris. Le supervisor retry automatiquement sur `port+1`, `
 
 ### Le navigateur alerte sur le certificat de développement
 
-Accepte-le **une** fois sur la page : modules et socket passent par la même origine, donc par le même certificat. Ou installe la CA root Nodefony : `nodefony/config/certificates/ca/nodefony-root-ca.crt.pem` dans ton trousseau. L'option `https` du module est dépréciée et sans effet.
+Accepte-le **une** fois sur la page : modules et socket passent par la même origine, donc par le même certificat. Ou installe la CA root Nodefony : `nodefony/config/certificates/ca/nodefony-root-ca.crt.pem` dans ton trousseau.
 
 ### Connexion refusée depuis un téléphone
 

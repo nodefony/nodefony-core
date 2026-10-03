@@ -58,17 +58,8 @@ export const studioConfigSchema = z
           "des sources de build.",
       ),
     "module-frontend": z
-      .looseObject({
-        https: z
-          .boolean()
-          .default(true)
-          .describe(
-            "Sert le dev-server Vite en HTTPS avec les certificats Nodefony — " +
-              "évite le mixed-content quand la page vient de server-https " +
-              "(5152). Défaut true.",
-          ),
-      })
-      .default(() => ({ https: true }))
+      .looseObject({})
+      .default(() => ({}))
       .describe(
         "Réglages transmis TELS QUELS à @nodefony/frontend pour l'entrée Vite " +
           "de Studio. `looseObject` (et non `strictObject`) parce que la " +

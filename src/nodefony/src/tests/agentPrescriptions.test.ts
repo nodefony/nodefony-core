@@ -14,8 +14,8 @@ import path from "node:path";
  * livré dans le paquet — et le guide se contredisait lui-même, sa règle générale
  * disant le bon endroit quatre-vingts lignes plus haut.
  *
- * Le contrôle ne peut pas être « le mot est interdit » : `publicOrigin`,
- * `trustedHosts` et les autres réglages courts vivent LÉGITIMEMENT dans le
+ * Le contrôle ne peut pas être « le mot est interdit » : `trustedHosts`,
+ * `domain` et les autres réglages courts vivent LÉGITIMEMENT dans le
  * manifeste racine, et un skill a de bonnes raisons de le nommer (le fichier
  * marque la racine d'un projet). Ce qui est fautif, c'est la COOCCURRENCE : le
  * manifeste nommé à portée d'une clé qui, elle, a déménagé dans un fragment.
@@ -141,8 +141,8 @@ describe("ce que le devkit PRESCRIT désigne le fichier qui porte la clé", () =
 
   it("ne mord PAS sur une mention légitime du manifeste (témoin)", () => {
     const temoin = [
-      "Si la page annonce une autre origine, c'est qu'une `publicOrigin`",
-      "explicite est configurée dans `nodefony.config.ts` — elle gagne toujours.",
+      "Si la page refuse l'hôte, c'est qu'un `trustedHosts` explicite",
+      "est configuré dans `nodefony.config.ts` — il gagne toujours.",
     ].join("\n");
     expect(prescriptionsFautives(temoin, cles)).toHaveLength(0);
   });

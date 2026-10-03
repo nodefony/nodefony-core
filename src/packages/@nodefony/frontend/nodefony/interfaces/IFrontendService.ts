@@ -50,23 +50,14 @@ export interface IFrontendService {
    * l'hôte par lequel le client est arrivé.
    *
    * @param nonce nonce CSP de la requête (`Context.cspNonce`).
-   * @param requestHost DÉPRÉCIÉ — ignoré depuis que Vite est servi sur
-   *   l'origine de la page ; accepté pour ne casser aucun appelant, retiré à
-   *   la majeure suivante. Ne plus le passer.
    */
-  renderTags(entryName: string, nonce?: string, requestHost?: string): string;
+  renderTags(entryName: string, nonce?: string): string;
   /**
    * Document HTML complet : `index.html` du module + tags injectés. Pour les
    * controllers qui veulent déléguer toute la coquille (le dev contrôle le
    * `<head>` via son `index.html`).
-   *
-   * @param requestHost DÉPRÉCIÉ, ignoré — cf {@link IFrontendService.renderTags}.
    */
-  renderDocument(
-    entryName: string,
-    nonce?: string,
-    requestHost?: string,
-  ): string;
+  renderDocument(entryName: string, nonce?: string): string;
   /**
    * Résout l'URL publique d'un asset : préfixe `p` par `assetBaseUrl` (CDN) si
    * configuré, sinon chemin relatif inchangé. URLs absolues renvoyées telles

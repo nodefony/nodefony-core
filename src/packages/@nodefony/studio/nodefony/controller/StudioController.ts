@@ -70,11 +70,7 @@ class StudioController extends Controller {
     const svc = this.context?.container?.get("frontend") as
       FrontendService | undefined;
     const html =
-      svc?.renderDocument(
-        "studio",
-        this.context?.cspNonce,
-        this.context?.domain,
-      ) ??
+      svc?.renderDocument("studio", this.context?.cspNonce) ??
       "<!DOCTYPE html><!-- @nodefony/studio: frontend service unavailable -->";
     return this.render(html);
   }

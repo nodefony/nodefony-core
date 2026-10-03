@@ -9,10 +9,10 @@ import type { FrontendService } from "@nodefony/frontend";
  * `<!--nodefony:frontend-->` : entry Vite + HMR en dev, bundle fingerprinté
  * en prod, nonce CSP de la requête propagé aux `<script>`.
  *
- * L'hôte de la requête est propagé lui aussi : en développement, l'origine des
- * assets Vite suit le nom par lequel le client est arrivé (`127.0.0.1`, un nom
- * de machine, `host.docker.internal` depuis un conteneur…), sans rien à
- * configurer. Le scheme et le port restent ceux de Vite.
+ * En développement, les balises vers Vite sont relatives à la page
+ * (`/_vite/<famille>/…`, relayées par Nodefony) : `127.0.0.1`, un nom de
+ * machine ou `host.docker.internal` depuis un conteneur chargent la même page,
+ * sans rien à configurer — une seule origine, un seul certificat.
  */
 @controller("")
 class AppController extends Controller {
@@ -29,14 +29,12 @@ class AppController extends Controller {
       return this.render("<!-- @nodefony/frontend not ready -->");
     }
     return this.render(
-      // 3ᵉ argument = l'hôte par lequel le client est arrivé (`Context.domain`) :
-      // en développement, l'origine des assets Vite le suit, si bien qu'un poste
-      // et un conteneur (ou une machine distante) chargent la MÊME page sans
-      // configuration. Sans lui, la page annonce toujours l'hôte du démarrage.
+      // En développement, les URLs vers Vite sont relatives à la page
+      // (`/_vite/<famille>/…`, relayées par Nodefony) : un poste, un conteneur
+      // ou un téléphone chargent la MÊME page sans configuration.
       svc.renderDocument(
         "<%= it.appName %>",
         this.context?.cspNonce,
-        this.context?.domain,
       ),
     );
   }

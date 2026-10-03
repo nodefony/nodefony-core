@@ -361,9 +361,9 @@ JSON Schema pour l'écran de configuration de Studio.
 | `viteEnv`                | `Record<string,…>` | `{}`          | Variables passées au processus Vite ; les clés `VITE_*` atteignent le navigateur. |
 
 > [!NOTE]
-> **`https` et `publicOrigin` sont dépréciées, sans effet.** Elles réglaient l'origine par laquelle
-> le navigateur joignait Vite ; il ne le joint plus. Les déclarer journalise un avertissement, et
-> elles seront retirées à la majeure suivante.
+> **`https` et `publicOrigin` n'existent plus.** Elles réglaient l'origine par laquelle le
+> navigateur joignait Vite ; il ne le joint plus — l'origine et le chiffrement sont ceux de la page.
+> Une configuration qui les déclare encore interrompt le démarrage en les nommant : retire-les.
 
 ### Le build de production
 

@@ -1,15 +1,11 @@
 /**
- * Config du module test consumer @nodefony/frontend.
+ * Config du module consommateur de @nodefony/frontend.
  *
- * Surcharge module-frontend pour le POC perf : on garde les defaults Vite
- * (port 5173, host 127.0.0.1, autoStart en dev).
+ * Aucune surcharge `module-frontend` : Vite reste en HTTP sur la boucle
+ * locale, relayé par Nodefony sur l'origine de la page (`/_vite/<famille>/`) —
+ * une page servie par server-https (5152) charge ses scripts en HTTPS, sur la
+ * même origine, sans réglage.
  */
-const config = {
-  "module-frontend": {
-    // Active HTTPS Vite avec les certs Nodefony (service `certificates`).
-    // Évite le mixed-content quand la page est servie par server-https (5152).
-    https: true,
-  },
-};
+const config = {};
 
 export default config;

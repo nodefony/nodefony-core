@@ -109,9 +109,8 @@ export class TemplateHelper {
    * @param entryName nom logique de l'entrée (matche `entryName` dans IResolvedFrontendEntry)
    * @param nonce nonce CSP de la requête (`Context.cspNonce`) — posé sur les `<script>`
    *   pour satisfaire `script-src 'nonce-…'` (preamble inline dev + entrée prod).
-   * @param _requestHost IGNORÉ — cf {@link IFrontendService.renderTags}.
    */
-  renderTags(entryName: string, nonce?: string, _requestHost?: string): string {
+  renderTags(entryName: string, nonce?: string): string {
     if (this.mode === "development") {
       return this.renderDevTags(entryName, nonce);
     }
@@ -127,11 +126,7 @@ export class TemplateHelper {
    *
    * @param entryName nom logique de l'entrée
    */
-  renderDocument(
-    entryName: string,
-    nonce?: string,
-    _requestHost?: string,
-  ): string {
+  renderDocument(entryName: string, nonce?: string): string {
     const tags = this.renderTags(entryName, nonce);
     const entry =
       this.entries.find((e) => e.entryName === entryName) ??

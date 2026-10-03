@@ -1132,9 +1132,9 @@ describe("Module — readOverrideModuleConfig() — override complet + log", () 
   it("INFO (pas WARNING) quand un MODULE embarque un override pour un module optionnel absent", () => {
     const kernel = makeKernelReal();
     // Cas nominal du pattern « module UI » : studio embarque `module-frontend`
-    // (https Vite) mais frontend n'est pas chargé (livraison statique).
+    // (port Vite) mais frontend n'est pas chargé (livraison statique).
     const studioMod = new Module("studio", kernel, PATH_FOR_NODEFONY_DIR, {
-      "Module-frontend": { https: true },
+      "Module-frontend": { devPort: 5174 },
     });
 
     const pdus = captureLogs(studioMod, () =>

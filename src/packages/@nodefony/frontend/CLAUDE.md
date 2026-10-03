@@ -99,7 +99,7 @@ Kernel onTerminate
 | Logs | `child.stdout.pipe → syslog Nodefony` (pas de sérialisation JSON) |
 | Cleanup | `SIGINT` puis `SIGKILL` timeout 3s — évite zombies bloquant 5173 |
 | Multi-bundles | **Une seule instance Vite multi-entry** (rolldown-style `input` map) |
-| Une origine en dev (#528) | Vite écoute sur la boucle locale ; Nodefony le relaie sur l'origine de la page (`/_vite/<famille>/`, service `reverse-proxy` de `@nodefony/http`, HTTP + upgrade WS du HMR). Balises RELATIVES — aucun contenu mixte, un certificat, contexte sécurisé depuis un téléphone / un conteneur / Codespaces. `publicOrigin`, `https` et `requestHost` : DÉPRÉCIÉS, sans effet, WARNING. |
+| Une origine en dev (#528) | Vite écoute sur la boucle locale ; Nodefony le relaie sur l'origine de la page (`/_vite/<famille>/`, service `reverse-proxy` de `@nodefony/http`, HTTP + upgrade WS du HMR). Balises RELATIVES — aucun contenu mixte, un certificat, contexte sécurisé depuis un téléphone / un conteneur / Codespaces. `publicOrigin`, `https` et `requestHost` : RETIRÉS (clé restée = boot refusé, nommée). |
 | Assets en dev | `base` Vite = **chemin réservé par famille** `/_vite/<famille>/` (`devBasePath`), monté sur le proxy inverse par `FrontendService.mountDevProxy` (résolu par nom), consulté AVANT le routage. Cible = `TemplateHelper.devTarget()` (origine LOCALE de Vite). Jamais `server.origin` (fige une origine, ignoré en mode bundlé). |
 | Outils Vite | **Ni deps NI peers** — `await import()` seul ; l'app les déclare (cf § ci-dessous) |
 

@@ -25,7 +25,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - Balises RELATIVES (`TemplateHelper.renderDevTags` : `baseUrl = basePathOf(status)`, aucune origine) → page, scripts, images, `url()` CSS ET socket HMR (le client Vite le déduit de `importMetaUrl` = l'origine de la page) partagent origine + certificat. Plus de contenu mixte hors boucle locale ; `isSecureContext` sur IP de LAN / conteneur / Codespaces dès que la page est en HTTPS.
 - `TemplateHelper.devTarget()` = `status().origin` (`http://<browserReachableHost(devHost)>:<port réel>`, `undefined` tant que `port === null`) — cible LOCALE, jamais annoncée au navigateur. `browserReachableHost` (0.0.0.0/:: → 127.0.0.1) vit dans `ViteProcessSupervisor.ts`.
 - Le proxy réécrit `Host` en `127.0.0.1:<port>` ⇒ générateur SANS `allowedHosts` NI `cors` (barrières Vite DNS-rebinding + CORS CVE-2025-24010 au plus strict) ; jamais de ligne `hmr`.
-- DÉPRÉCIÉS (acceptés, sans effet, `WARNING` au `startDev` via `warnDeprecatedOptions`, `deprecated: true` dans le JSON Schema) : `frontend.publicOrigin`, `frontend.https`, paramètre `requestHost` de `renderTags`/`renderDocument`. Retrait à la majeure suivante.
+- RETIRÉS (le relais les rend sans objet) : `frontend.publicOrigin`, `frontend.https` → schéma strict, boot refusé en nommant la clé ; paramètre `requestHost` de `renderTags`/`renderDocument` (signature `(entryName, nonce?)`).
 - Résilience : timeout boot → SIGKILL de l'arbre (sinon Vite ORPHELIN hors machine à états) ; `cleanupChildListeners()` en tête d'`attemptSpawn` (drain retry) ; ping santé sur `browserReachableHost` (0.0.0.0 inconnectable win32) ; **budget restarts réarmé au 1er ping santé OK** (5 crashs épars ≠ crash-loop ; le plafond ne compte que les rafales) ; win32 sans viteBin → refus NOMMÉ (npx `.cmd` = EINVAL, pas de fallback masqué) ; exit pendant `willingShutdown` au boot → « arrêt demandé », pas « family failed ».
 
 ## Assets en dev (#526)
@@ -55,7 +55,6 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
   defaultRoot: "./frontend",
   startupTimeoutMs: 30_000,
   pipeViteLogs: true,
-  https: false,             // partage certs Nodefony (server-https 5152)
   viteEnv: {},              // VITE_* exposé browser via import.meta.env
   resilience: {             // toutes optionnelles, defaults supervisor
     autoRestart: true,
@@ -79,7 +78,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - Health check : setInterval (default 30s) GET `viteOrigin/`. 3 échecs consécutifs → kill child → trigger restart.
 - Idempotence : 2e `start()` retourne `startPromise` en cours. `stop()` mémorise `stopPromise`.
 - Listener tracking : `trackListener(target, event, fn)` + `cleanupChildListeners()` au exit. Évite MaxListenersExceededWarning entre restarts.
-- HTTPS Vite : si `cfg.https=true`, supervisor récupère `certificates.privateKeyPath` + `certificates.certPath` via DI et les passe au generator (server.https inject fs.readFileSync).
+- HTTPS Vite : option bas niveau `ViteProcessSupervisor({ https: { keyPath, certPath } })` → generator émet `server.https`. `FrontendService` ne la passe JAMAIS (Vite en HTTP sur la boucle locale, le chiffrement est celui de la page).
 - React preamble : TemplateHelper inline `<script type="module">` avec `RefreshRuntime.injectIntoGlobalHook` pour entries `type: "react19"`. Sans ça : `@vitejs/plugin-react can't detect preamble`.
 - Logs pipeline : split lignes + strip ANSI (`\x1b\[…m`) + dédup préfixe `[vite]` (Vite préfixe parfois lui-même).
 - Mode prod: `service.build()` → `vite.build(cfg)` in-proc (one-shot, OK).

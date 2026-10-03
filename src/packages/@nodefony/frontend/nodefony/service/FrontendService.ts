@@ -291,7 +291,7 @@ class FrontendService extends Service implements IFrontendService {
         origin: null,
         port: null,
         pid: null,
-        https: this.cfg.https,
+        https: false,
         restartCount: 0,
         healthFailures: 0,
         portRetries: 0,
@@ -332,10 +332,6 @@ class FrontendService extends Service implements IFrontendService {
       return;
     }
 
-    // Options publiées que le relais a rendues sans objet (#528) : acceptées,
-    // sans effet, et DITES — un réglage qui ne fait plus rien en silence
-    // laisse chercher pourquoi il ne fait rien.
-    this.warnDeprecatedOptions();
     // Propage l'environnement Nodefony à Vite :
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
     //  - extraEnv = config.viteEnv → variables VITE_* exposées au browser
@@ -517,29 +513,6 @@ class FrontendService extends Service implements IFrontendService {
       methods: ["GET", "HEAD"],
       stripHeaders: ["cookie", "authorization"],
     });
-  }
-
-  /**
-   * Annonce les options publiées que le relais a rendues sans objet : elles
-   * restent acceptées (dépréciées, retrait à la majeure suivante) mais ne
-   * font plus rien — le dire évite de chercher pourquoi.
-   */
-  private warnDeprecatedOptions(): void {
-    if (this.cfg.publicOrigin) {
-      this.log(
-        `frontend.publicOrigin (« ${this.cfg.publicOrigin} ») est DÉPRÉCIÉE et ignorée : ` +
-          "Vite est servi derrière Nodefony, sur l'origine de la page — " +
-          "retirer la clé de nodefony.config.ts",
-        "WARNING",
-      );
-    }
-    if (this.cfg.https) {
-      this.log(
-        "frontend.https est DÉPRÉCIÉE et ignorée : le chiffrement est celui de la page " +
-          "(servir l'application en HTTPS suffit) — retirer la clé de nodefony.config.ts",
-        "WARNING",
-      );
-    }
   }
 
   /**
@@ -784,11 +757,7 @@ class FrontendService extends Service implements IFrontendService {
    * Le controller renvoie : `this.render(svc.renderDocument("x", this.context.cspNonce))`.
    * @param nonce nonce CSP de la requête (`Context.cspNonce`) — propagé aux `<script>`.
    */
-  renderDocument(
-    entryName: string,
-    nonce?: string,
-    _requestHost?: string,
-  ): string {
+  renderDocument(entryName: string, nonce?: string): string {
     if (this.prodHelper) {
       return this.prodHelper.renderDocument(entryName, nonce);
     }
@@ -800,7 +769,7 @@ class FrontendService extends Service implements IFrontendService {
     return helper.renderDocument(entryName, nonce);
   }
 
-  renderTags(entryName: string, nonce?: string, _requestHost?: string): string {
+  renderTags(entryName: string, nonce?: string): string {
     // Prod : helper unique qui lit les manifests (Vite ne tourne pas).
     if (this.prodHelper) {
       return this.prodHelper.renderTags(entryName, nonce);

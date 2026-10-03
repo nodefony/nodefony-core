@@ -9,11 +9,12 @@ import type { FrontendService } from "@nodefony/frontend";
  * 1. Le HTML ne vit PAS ici : c'est la coquille `frontend/index.html`
  *    (TA page — meta, polices, favicon, scripts externes). Ce controller la
  *    fait rendre par le framework.
- * 2. `renderDocument("<%= it.kebab %>", nonce, hôte)` remplit le marqueur
+ * 2. `renderDocument("<%= it.kebab %>", nonce)` remplit le marqueur
  *    `<!--nodefony:frontend-->` de la coquille avec les balises de l'ENTRY
  *    « <%= it.kebab %> » (déclarée dans l'`index.ts` du module, cf
  *    `registerEntry`) :
- *      - en DÉVELOPPEMENT : les <script> pointent le serveur Vite → HMR,
+ *      - en DÉVELOPPEMENT : les <script> pointent Vite, relayé par Nodefony
+ *        sur l'origine de la page (`/_vite/<famille>/`) → HMR,
  *        recompilation à la volée, état préservé ;
  *      - en PRODUCTION : le bundle pré-compilé fingerprinté (`npm run build`),
  *        servi en statique — Vite n'existe plus au runtime.
@@ -43,14 +44,12 @@ class <%= it.nameClass %> extends Controller {
       return this.render("<!-- @nodefony/frontend not ready -->");
     }
     return this.render(
-      // 3ᵉ argument = l'hôte par lequel le client est arrivé (`Context.domain`) :
-      // en développement, l'origine des assets Vite le suit, si bien qu'un poste
-      // et un conteneur (ou une machine distante) chargent la MÊME page sans
-      // configuration. Sans lui, la page annonce toujours l'hôte du démarrage.
+      // En développement, les URLs vers Vite sont relatives à la page
+      // (`/_vite/<famille>/…`, relayées par Nodefony) : un poste, un conteneur
+      // ou un téléphone chargent la MÊME page sans configuration.
       svc.renderDocument(
         "<%= it.kebab %>",
         this.context?.cspNonce,
-        this.context?.domain,
       ),
     );
   }

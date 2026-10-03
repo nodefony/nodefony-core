@@ -583,35 +583,25 @@ class Controller extends Service implements IController {
     param: Record<string, unknown>,
   ): Record<string, unknown> {
     const fe = this.get<{
-      renderTags?: (
-        entry: string,
-        nonce?: string,
-        requestHost?: string,
-      ) => string;
-      renderDocument?: (
-        entry: string,
-        nonce?: string,
-        requestHost?: string,
-      ) => string;
+      renderTags?: (entry: string, nonce?: string) => string;
+      renderDocument?: (entry: string, nonce?: string) => string;
       assetUrl?: (p: string) => string;
     }>("frontend");
     if (!fe?.renderTags) return param;
-    // Nonce CSP et hôte de la REQUÊTE : le helper de vue a le contexte sous la
-    // main, l'auteur du gabarit n'a donc rien à propager (`<%~ frontendTags("x") %>`).
-    // L'hôte fait suivre l'origine des assets Vite à celui par lequel le client
-    // est arrivé ; le nonce satisfait `script-src 'nonce-…'`.
+    // Nonce CSP de la REQUÊTE : le helper de vue a le contexte sous la main,
+    // l'auteur du gabarit n'a donc rien à propager (`<%~ frontendTags("x") %>`) ;
+    // le nonce satisfait `script-src 'nonce-…'`.
     const nonce = this.context?.cspNonce;
-    const host = this.context?.domain;
     const renderTags = fe.renderTags;
     const renderDocument = fe.renderDocument;
     return {
-      frontendTags: (entry: string) => renderTags(entry, nonce, host),
+      frontendTags: (entry: string) => renderTags(entry, nonce),
       frontendDocument: (entry: string) => {
         // Seul `renderTags` est garanti par la garde ci-dessus.
         if (!renderDocument) {
           throw new Error("frontend service does not expose renderDocument");
         }
-        return renderDocument(entry, nonce, host);
+        return renderDocument(entry, nonce);
       },
       // `asset('/x')` → URL CDN (assetBaseUrl) en prod, sinon chemin relatif.
       asset: (p: string) => (fe.assetUrl ? fe.assetUrl(p) : p),

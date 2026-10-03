@@ -33,11 +33,8 @@ class PocController extends Controller {
     // Vite déclarées via registerCspOrigins). On ne fait que propager le nonce de la
     // requête aux <script> rendus → satisfait `script-src 'nonce-…'`.
     const viteTags =
-      svc?.renderTags(
-        "test-frontend-react",
-        this.context?.cspNonce,
-        this.context?.domain,
-      ) ?? "<!-- @nodefony/frontend: service unavailable -->";
+      svc?.renderTags("test-frontend-react", this.context?.cspNonce) ??
+      "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>
 <html lang="fr">
   <head>

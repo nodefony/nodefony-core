@@ -136,13 +136,10 @@ export default ShopFront;
 **`src/modules/shop-front/nodefony/config/config.ts`** :
 
 ```typescript
-const config = {
-  "module-frontend": {
-    // HTTPS = recommandé. Partage les certs Nodefony pour éviter mixed-content
-    // si tu sers la page sur https://localhost:5152/.
-    https: true,
-  },
-};
+// Rien à surcharger pour le front : Vite reste en HTTP sur la boucle locale,
+// relayé par Nodefony sur l'origine de la page. Servie sur
+// https://localhost:5152/, la page charge ses scripts en HTTPS, sans réglage.
+const config = {};
 
 export default config;
 ```
@@ -172,17 +169,14 @@ class ShopFrontController extends Controller {
     // firewall (`@nodefony/security`), qui émet UN seul en-tête. Réécrire
     // l'en-tête ici écraserait le nonce de la requête.
 
-    // On propage deux données de la requête : le nonce CSP (sans lui, les
-    // balises émises sont bloquées) et l'hôte — en développement, l'origine
-    // des assets Vite est dérivée de ce nom, si bien que votre poste et un
-    // navigateur en conteneur (ou une machine distante) chargent la même page
-    // en même temps, sans rien à configurer.
+    // On propage le nonce CSP de la requête (sans lui, les balises émises
+    // sont bloquées). En développement, les balises vers Vite sont relatives
+    // à la page (`/_vite/<famille>/…`, relayées par Nodefony) : votre poste et
+    // un navigateur en conteneur (ou une machine distante) chargent la même
+    // page en même temps, sans rien à configurer.
     const viteTags =
-      svc?.renderTags(
-        "shop-front",
-        this.context?.cspNonce,
-        this.context?.domain,
-      ) ?? "<!-- @nodefony/frontend not ready -->";
+      svc?.renderTags("shop-front", this.context?.cspNonce) ??
+      "<!-- @nodefony/frontend not ready -->";
 
     return this.render(`<!DOCTYPE html>
 <html lang="en">

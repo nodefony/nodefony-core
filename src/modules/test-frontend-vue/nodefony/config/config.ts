@@ -1,13 +1,11 @@
 /**
- * Config du module test consumer Vue de @nodefony/frontend.
+ * Config du module consommateur de @nodefony/frontend.
  *
- * Active HTTPS Vite (certs Nodefony) pour éviter le mixed-content quand la
- * page est servie par server-https (5152) — identique au module React POC.
+ * Aucune surcharge `module-frontend` : Vite reste en HTTP sur la boucle
+ * locale, relayé par Nodefony sur l'origine de la page (`/_vite/<famille>/`) —
+ * une page servie par server-https (5152) charge ses scripts en HTTPS, sur la
+ * même origine, sans réglage.
  */
-const config = {
-  "module-frontend": {
-    https: true,
-  },
-};
+const config = {};
 
 export default config;

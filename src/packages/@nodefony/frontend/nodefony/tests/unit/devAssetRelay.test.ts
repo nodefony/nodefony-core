@@ -94,13 +94,6 @@ describe("TemplateHelper — balises RELATIVES, toutes sous le chemin de base", 
     expect(tags).to.not.include(":5173");
   });
 
-  it("le `requestHost` déprécié est sans effet", () => {
-    const helper = new TemplateHelper(supervisorWith({}), "development");
-    expect(
-      helper.renderTags("app", undefined, "host.docker.internal"),
-    ).to.equal(helper.renderTags("app"));
-  });
-
   it("status sans `base` (double historique) : URLs à la racine, sans `//`", () => {
     const legacy = new TemplateHelper(
       supervisorWith({}, true),
@@ -259,33 +252,6 @@ describe("FrontendService — /_vite/<famille>/ monté sur le proxy inverse", ()
   });
 });
 
-describe("FrontendService — options publiées rendues sans objet", () => {
-  const warnings = (options: Record<string, unknown>) => {
-    const { svc, logs } = serviceWith(fakeProxy(), options);
-    (
-      svc as unknown as { warnDeprecatedOptions(): void }
-    ).warnDeprecatedOptions();
-    return logs.filter(([, sev]) => sev === "WARNING").map(([m]) => String(m));
-  };
-
-  it("`publicOrigin` renseignée : acceptée, ignorée, et DITE", () => {
-    const w = warnings({ publicOrigin: "https://dev.example.com:{port}" });
-    expect(w).to.have.length(1);
-    expect(w[0]).to.include("publicOrigin");
-    expect(w[0]).to.include("DÉPRÉCIÉE");
-  });
-
-  it("`https: true` : accepté, ignoré, et DIT", () => {
-    const w = warnings({ https: true });
-    expect(w).to.have.length(1);
-    expect(w[0]).to.include("frontend.https");
-  });
-
-  it("défauts : aucun avertissement", () => {
-    expect(warnings({})).to.have.length(0);
-  });
-});
-
 describe("proxy de Vite retiré — ses clés de configuration sont refusées", () => {
   // `apiProxyPaths` et `backend*` ne réglaient que le proxy de Vite, qu'aucune
   // requête n'atteint plus (#528). Retirés avant la 10.0.0 : une clé restée
@@ -294,6 +260,24 @@ describe("proxy de Vite retiré — ses clés de configuration sont refusées", 
   for (const key of ["backendHost", "backendPort", "backendProtocol"]) {
     it(`\`${key}\` : refusée, et nommée`, () => {
       const value = key === "backendPort" ? 5151 : "http";
+      const r = frontendConfigSchema.safeParse({ [key]: value });
+      expect(r.success).to.equal(false);
+      expect(JSON.stringify(r.error?.issues)).to.include(key);
+    });
+  }
+});
+
+describe("origine de Vite réglée par Nodefony — `publicOrigin` et `https` refusées", () => {
+  // Vite est servi sur l'origine de la page (`/_vite/<famille>/`) : l'origine
+  // et le chiffrement sont ceux de la page. Les deux clés, sans effet depuis
+  // #528, sont retirées avant la 10.0.0 — une clé restée interrompt le boot
+  // EN LA NOMMANT (schéma strict).
+  const retired: Record<string, unknown> = {
+    publicOrigin: "https://dev.example.com:{port}",
+    https: true,
+  };
+  for (const [key, value] of Object.entries(retired)) {
+    it(`\`${key}\` : refusée, et nommée`, () => {
       const r = frontendConfigSchema.safeParse({ [key]: value });
       expect(r.success).to.equal(false);
       expect(JSON.stringify(r.error?.issues)).to.include(key);
