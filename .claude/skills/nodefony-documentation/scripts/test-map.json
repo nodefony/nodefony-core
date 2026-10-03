@@ -322,10 +322,9 @@
       "src/packages/@nodefony/frontend/nodefony/tests/unit/ViteBuilder.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/templateHelperOrigin.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/cspBeforeVite.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/originDerivationPolicy.test.ts",
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/devAssetRelay.test.ts",
       "src/packages/@nodefony/frontend/nodefony/tests/unit/viteSupervisorStop.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/pidFromNetstat.test.ts",
-      "src/packages/@nodefony/frontend/nodefony/tests/unit/remoteDev.test.ts"
+      "src/packages/@nodefony/frontend/nodefony/tests/unit/pidFromNetstat.test.ts"
     ],
     "integration": [
       "src/packages/@nodefony/frontend/nodefony/tests/integration/ViteProcessSupervisor.test.ts",

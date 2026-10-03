@@ -26,13 +26,13 @@ source: "docs/guides/frontend-react.md"
 
 Pendant le développement, **deux** serveurs tournent : Nodefony sert votre application, Vite sert
 les modules du frontend et pousse le rechargement à chaud. Le visiteur, lui, n'en voit qu'un seul :
-Nodefony rend la page, y insère les balises qui pointent vers Vite (`FrontendService.renderTags()`,
-`FrontendService.ts:953`), et laisse Vite mandater vers l'API les chemins que le module a déclarés
+Nodefony rend la page, y insère les balises du frontend (`FrontendService.renderTags()`,
+`FrontendService.ts:834`) — servies sur l'origine de la page et relayées vers Vite —, et laisse Vite mandater vers l'API les chemins que le module a déclarés
 (`apiProxyPaths`, `IFrontBuilder.ts:34`). En production il n'y a plus qu'un serveur : les fichiers
 sont bâtis, et les mêmes balises pointent vers eux.
 
 Un module déclare son frontend une seule fois, par `FrontendService.registerEntry()`
-(`FrontendService.ts:253`) — c'est ce point d'entrée qui fait exister le tout.
+(`FrontendService.ts:236`) — c'est ce point d'entrée qui fait exister le tout.
 
 ## Approche express — la commande le fait
 
@@ -353,8 +353,8 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vite
 | Type | Où | Ce qui est prouvé |
 | --- | --- | --- |
 | Unitaires | `@nodefony/frontend` `unit/ViteConfigGenerator.test.ts`, `unit/ViteBuilder.test.ts`, `unit/templateHelperOrigin.test.ts` | la configuration Vite engendrée, le build, l'origine des balises rendues |
-| Unitaires (sécurité) | `unit/cspBeforeVite.test.ts`, `unit/originDerivationPolicy.test.ts` | la politique de sécurité inclut Vite, et l'origine se dérive de l'hôte demandé |
-| Unitaires (résilience) | `unit/viteSupervisorStop.test.ts`, `unit/pidFromNetstat.test.ts`, `unit/remoteDev.test.ts` | l'arrêt de l'arbre de processus, la reprise d'un port occupé, le développement à distance |
+| Unitaires (sécurité) | `unit/cspBeforeVite.test.ts`, `unit/devAssetRelay.test.ts` | la politique de sécurité inclut Vite, et Vite est relayé sur l'origine de la page |
+| Unitaires (résilience) | `unit/viteSupervisorStop.test.ts`, `unit/pidFromNetstat.test.ts` | l'arrêt de l'arbre de processus, la reprise d'un port occupé |
 | Intégration | `integration/ViteProcessSupervisor.test.ts`, `integration/frontend-build.test.ts` | le superviseur avec un vrai Vite, et un build complet |
 
 ## 🔗 Pour aller plus loin
