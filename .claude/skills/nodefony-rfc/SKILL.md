@@ -1,17 +1,18 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model
   Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML.
-  Porte HORS LIGNE la révision MCP 2026-07-28 et la convention AGENTS.md (AAIF / Linux Foundation),
-  avec le script qui dit quand une copie figée a dérivé de son amont.
+  Porte HORS LIGNE la révision MCP 2026-07-28, la convention AGENTS.md (AAIF / Linux Foundation) et
+  la documentation de Keycloak 26.8 (l'IdP contre lequel le login OIDC s'éprouve), avec le script qui dit quand une copie figée a dérivé de son amont.
   Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
   "SameSite cookies", "spec MCP", "Model Context Protocol", "server/discover", "autorisation MCP",
   "resource server OAuth", "RFC 9728", "jeton Bearer", "AGENTS.md", "spec AGENTS.md", "AAIF",
   "instructions d'agent", "quelle taille pour AGENTS.md", "project_doc_max_bytes", "dossier .agents",
-  "Agent Skills", "quel fichier lit tel agent", "cette spec est-elle à jour", "norme périmée".
+  "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm", "importer un realm",
+  "audience Keycloak", "hostname Keycloak", "cette spec est-elle à jour", "norme périmée".
 ---
 
 # nodefony-rfc
@@ -191,6 +192,33 @@ Il ne met **jamais** à jour tout seul : une spec se relit avant d'être remplac
 une dérive, on relit le comparatif qu'il donne, on remplace les fichiers **et** le `sha` de
 `AMONT.json`. Toute référence ajoutée ici sans `AMONT.json` est signalée comme invérifiable — c'est
 le cas de `mcp-2026-07-28`, figé à la main.
+
+### 9. Keycloak 26.8 — l'IdP de référence du social login et du serveur de ressources — **HORS LIGNE**
+
+Pas une norme : le **produit** contre lequel le fournisseur `keycloak` de `@nodefony/security`
+s'éprouve (login BFF, jetons d'API, compte de service, serveur d'autorisation MCP). Sélection de
+37 guides AsciiDoc figés au tag `26.8.0` dans `references/keycloak-26.8/` (`AMONT.json` → suivie par
+`check-amont.mjs`). Le décor qui les met en œuvre : profil `keycloak` de `docker/docker-compose.yml`.
+
+| Ce qu'on veut savoir                                      | Où le lire, hors ligne                                                                                                                                  |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Conteneur, `start-dev`, import d'un realm au démarrage    | `guides/server/containers.adoc`, `guides/server/importExport.adoc`                                                                                      |
+| Émetteur stable (`hostname`), TLS, port de gestion, santé | `guides/server/hostname.adoc`, `enabletls` absent → `configuration.adoc`, `guides/server/management-interface.adoc`, `guides/observability/health.adoc` |
+| Points d'entrée OIDC, flux, client confidentiel, audience | `documentation/server_admin/topics/sso-protocols/*`, `.../clients/oidc/*`                                                                               |
+| Échange de jetons, DPoP, serveur d'autorisation MCP       | `guides/securing-apps/{token-exchange,dpop,mcp-authz-server}.adoc`                                                                                      |
+| Ruptures de la version figée                              | `documentation/upgrading/topics/changes/changes-26_8_0.adoc`                                                                                            |
+
+🔴 **Les faits qui décident d'une conception :**
+
+1. **Le realm importé n'est JAMAIS réimporté** s'il existe (stratégie `IGNORE_EXISTING`) : modifier
+   le JSON ne change rien tant que le volume vit — `down -v` (ou retirer le seul volume Keycloak).
+2. **`KC_HOSTNAME` en URL complète** fige l'`iss` : sans lui, l'émetteur suit l'hôte de la requête
+   et le navigateur, l'app et un conteneur voient trois émetteurs différents.
+3. **Le jeton d'accès porte `aud: "account"` par défaut** — un serveur de ressources qui exige son
+   audience (Nodefony l'exige) le refuse tant qu'un _audience mapper_ ne l'ajoute pas.
+4. **TLS activé ⇒ le port de gestion passe en https aussi** ; `http-management-scheme=http` le
+   garde en clair pour une sonde interne au conteneur.
+5. Le `sub` est un **UUID** de l'utilisateur Keycloak, unique dans le realm seulement.
 
 ## Pattern d'usage
 

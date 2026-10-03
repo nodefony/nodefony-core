@@ -22,6 +22,7 @@
 #   docker compose -f docker/docker-compose.yml --profile loki --profile opensearch up -d
 #   docker compose -f docker/docker-compose.yml --profile proxy up -d     # + nginx + haproxy (test forwarded)
 #   docker compose -f docker/docker-compose.yml --profile browser up -d   # + navigateur jetable (observer l'UI)
+#   docker compose -f docker/docker-compose.yml --profile keycloak up -d  # + Keycloak (connexion OpenID Connect)
 #   docker compose -f docker/docker-compose.yml down                      # arrêt (volumes conservés)
 #   docker compose -f docker/docker-compose.yml down -v                   # arrêt + purge données
 #
@@ -294,6 +295,78 @@ services:
       loki:
         condition: service_started
 
+  # --- Keycloak (profile keycloak — fournisseur OpenID Connect RÉEL pour le social login) ---
+  # Le fournisseur `keycloak` de @nodefony/security ne se prouve que contre un vrai serveur :
+  # vrai document de découverte, vrai point de jeton, vrai ID token. Le realm `nodefony` est
+  # IMPORTÉ au démarrage (`--import-realm`, fichiers de `./keycloak/import`) : client
+  # confidentiel `nodefony-dev` (PKCE S256) + utilisateur `alice` / `alice-dev`. Un realm qui
+  # existe déjà n'est PAS réimporté — les retouches faites dans la console survivent au
+  # redémarrage ; `down -v` repart du fichier.
+  #
+  # 🔴 HTTPS OBLIGATOIRE, même en dev : Nodefony refuse tout émetteur et tout point d'entrée en
+  # `http` (`canonicalIssuer` au cœur, `metadata.ts` côté security). Ce n'est pas du zèle : l'ID
+  # token est lu SANS vérifier sa signature, ce qu'OIDC Core §3.1.3.7 n'autorise que parce qu'il
+  # arrive du point de jeton par TLS. Sans TLS, n'importe qui sur le chemin glisse un faux ID token.
+  #
+  # Certificat = CELUI DE L'APP (`nodefony/config/certificates/server`, généré par le service
+  # `certificates` de @nodefony/http — mkcert si présent). Son SAN couvre `localhost` et sa CA
+  # est déjà de confiance pour le navigateur ET pour Node (`NODE_EXTRA_CA_CERTS`) : aucune
+  # nouvelle confiance à installer. Dossier surchargeable : `KEYCLOAK_TLS_DIR`.
+  #
+  # Uid : l'image tourne sous N'IMPORTE QUEL uid du groupe 0 (conception OpenShift). Docker
+  # Desktop (macOS/Windows) présente les fichiers montés comme appartenant au conteneur ; Linux
+  # natif garde l'uid de l'HÔTE, et la clé privée (600) devient illisible si les uid diffèrent →
+  # sous Linux : `export KEYCLOAK_UID=$(id -u)` avant le `up`.
+  #
+  # `KC_HOSTNAME` en URL COMPLÈTE : l'émetteur (`iss`) ne dépend plus de l'hôte de la requête —
+  # navigateur et app voient `https://localhost:8444/realms/nodefony`, le même `iss` (garde
+  # anti-mix-up, RFC 9207). `localhost`, pas `127.0.0.1` : tout le dev Nodefony est sur
+  # `localhost` (cookies, passkeys). Port 8444 : 8443 appartient à haproxy (profil `proxy`).
+  #
+  # Base `dev-file` (H2 embarqué, dans le volume) : suffisant en dev, JAMAIS en production.
+  # Câblage côté app : NF_KEYCLOAK_ISSUER / NF_KEYCLOAK_CLIENT_ID / NF_KEYCLOAK_CLIENT_SECRET.
+  # Démarrage : `docker compose -f docker/docker-compose.yml --profile keycloak up -d keycloak`
+  # Console : https://localhost:8444/admin (admin / nodefony-dev).
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    container_name: nodefony-keycloak
+    restart: unless-stopped
+    profiles: ["keycloak"]
+    networks: [nodefony]
+    user: "${KEYCLOAK_UID:-1000}:0"
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-nodefony-dev}
+      KC_HOSTNAME: https://localhost:${KEYCLOAK_PORT:-8444}
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/tls/fullchain.pem
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/tls/privkey.pem
+      # Aucun port en clair : le mode dev l'ouvre par défaut, on le ferme.
+      KC_HTTP_ENABLED: "false"
+      # Sondes /health/* sur le port de gestion 9000, NON publié : seul le healthcheck
+      # (exécuté dans le conteneur) l'interroge. En clair, parce que la sonde `/dev/tcp`
+      # ne parle pas TLS — sans exposer quoi que ce soit hors du conteneur.
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_MANAGEMENT_SCHEME: http
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8444}:8443"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/import:/opt/keycloak/data/import:ro
+      - ${KEYCLOAK_TLS_DIR:-../nodefony/config/certificates/server}:/opt/keycloak/conf/tls:ro
+    healthcheck:
+      # L'image n'a ni curl ni wget : la sonde passe par le /dev/tcp de bash
+      # (recette de la doc Keycloak, guide « health »).
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q 'HTTP/1.0 200' <&3",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
   # --- OpenSearch (profile opensearch — destination de logs LB.4, driver `opensearch`) ---
   # Single-node. Plugin de sécurité DÉSACTIVÉ en dev (DISABLE_SECURITY_PLUGIN=true) → HTTP simple
   # sur :9200 sans TLS ni auth = driver trivial à brancher. En PROD on réactive (TLS + admin pwd).
@@ -532,3 +605,4 @@ volumes:
   loki-data:
   grafana-data:
   opensearch-data:
+  keycloak-data:
