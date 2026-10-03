@@ -175,6 +175,11 @@ ni avertissement.
    syntaxe `VAR=… commande` n'existe pas : poser la variable dans le shell avant
    (`$env:NODE_EXTRA_CA_CERTS = "…"` en PowerShell, `set NODE_EXTRA_CA_CERTS=…` en `cmd`).
 
+Le realm généré porte aussi, comme celui du dépôt, un client **machine** `<app>-machine` (compte de
+service, `client_credentials`) et un mapper d'audience `https://localhost:5152` sur ses deux clients :
+un jeton du realm nomme d'office l'application, prêt pour la zone de la section
+« Le jeton Keycloak sur ton API », plus bas.
+
 Le port de Keycloak (8444) se change par `KEYCLOAK_PORT` au `up` — l'émetteur suit, donc
 `NF_KEYCLOAK_ISSUER` aussi. En production, le décor ne sert plus : les trois variables pointent
 ton Keycloak, et `NF_OAUTH_REDIRECT_BASE` porte l'URL publique de l'application, base de l'URL de

@@ -1580,8 +1580,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         users: { id: string; username: string }[];
       };
       assert.strictEqual(realm.realm, "kcapp");
-      assert.lengthOf(realm.clients, 1);
-      const [client] = realm.clients;
+      const client = realm.clients.find((c) => c.clientId === "kcapp");
+      assert.isDefined(client, "client navigateur `kcapp` absent du realm");
       assert.strictEqual(client?.clientId, "kcapp");
       // PKCE exigé côté serveur : le framework l'envoie, Keycloak le vérifie.
       assert.strictEqual(
@@ -1605,7 +1605,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le même secret aux deux bouts, sinon le premier login échoue.
       assert.include(
         lire(dest, ".env.local"),
-        `# NF_KEYCLOAK_CLIENT_SECRET=${String(client?.secret)}\n`,
+        `# NF_KEYCLOAK_CLIENT_SECRET=${client.secret}\n`,
       );
       // L'`id` est FIXÉ dans le fichier : laissé à Keycloak, il change au
       // réimport, et la connexion suivante est refusée.
@@ -1645,6 +1645,54 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         security,
         /ctx\.env\.NF_KEYCLOAK_ISSUER &&\s+ctx\.env\.NF_KEYCLOAK_CLIENT_ID &&\s+ctx\.env\.NF_KEYCLOAK_CLIENT_SECRET\s+\?/u,
       );
+    });
+
+    it("le realm généré a la MÊME forme que celui que le dépôt éprouve", () => {
+      // Deux realms, une seule vérité : le banc Keycloak réel joue celui du
+      // dépôt. Ce qu'il porte (client machine, mapper d'audience, PKCE, pas de
+      // front-channel) doit exister dans celui de l'app — vécu : le realm
+      // généré était né sans audience, et la doc § API y échouait sur `aud`.
+      type Client = {
+        clientId: string;
+        standardFlowEnabled?: boolean;
+        serviceAccountsEnabled?: boolean;
+        frontchannelLogout?: boolean;
+        attributes?: Record<string, string>;
+        protocolMappers?: { protocolMapper: string }[];
+      };
+      const forme = (clients: Client[]) =>
+        clients
+          .map((c) =>
+            JSON.stringify({
+              standard: c.standardFlowEnabled ?? false,
+              service: c.serviceAccountsEnabled ?? false,
+              frontchannel: c.frontchannelLogout ?? false,
+              pkce: c.attributes?.["pkce.code.challenge.method"] ?? null,
+              mappers: (c.protocolMappers ?? [])
+                .map((m) => m.protocolMapper)
+                .sort(),
+            }),
+          )
+          .sort();
+      const depot = JSON.parse(
+        readFileSync(
+          fileURLToPath(
+            new URL(
+              "../../../../docker/keycloak/import/realm-nodefony.json",
+              import.meta.url,
+            ),
+          ),
+          "utf8",
+        ),
+      ) as { clients: Client[] };
+      const genere = JSON.parse(
+        lire(dossierKeycloak(), "docker", "keycloak", "import", "realm.json"),
+      ) as { clients: Client[] };
+      assert.deepEqual(forme(genere.clients), forme(depot.clients));
+      // Le front-channel exige une page que l'app n'a pas : back-channel seul.
+      for (const c of [...depot.clients, ...genere.clients]) {
+        assert.notStrictEqual(c.frontchannelLogout, true, c.clientId);
+      }
     });
 
     it("le preset minimal ne reçoit rien de Keycloak", () => {

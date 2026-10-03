@@ -22,7 +22,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "frontchannelLogout": true,
+      "frontchannelLogout": false,
       "redirectUris": [
         "https://localhost:5152/nodefony/security/api/oauth2/keycloak/callback",
         "http://localhost:5151/nodefony/security/api/oauth2/keycloak/callback"

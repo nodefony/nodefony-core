@@ -1960,6 +1960,7 @@ function dispatchScaffold(
     // la connexion suivante est refusée (identifiant déjà lié à un autre `sub`).
     keycloak: {
       clientSecret: `${String(answers.name)}-dev-keycloak-secret`,
+      machineSecret: `${String(answers.name)}-machine-dev-secret`,
       userId: randomUUID(),
     },
   };
