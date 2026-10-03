@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-01
+updated: 2026-10-03
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -28,8 +28,8 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.8.0` |
 | Famille | Autres |
-| Corps | 430 lignes |
-| Coût d'activation | ~8 365 tokens (le corps est chargé à l'invocation) |
+| Corps | 449 lignes |
+| Coût d'activation | ~8 745 tokens (le corps est chargé à l'invocation) |
 | Description | 998 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 7 page(s) |
@@ -82,7 +82,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/lexique.md` | Lexique des tickets — source unique | 126 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 267 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 268 |
 
 
 ## Scripts embarqués
@@ -144,7 +144,7 @@ node ticket-verify.mjs                       # ancres de tous les tickets ouvert
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 430 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 449 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

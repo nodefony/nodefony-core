@@ -315,6 +315,25 @@ Un ticket qui porte du travail propre n'est **pas** un parent : s'il a un second
 celui-ci devient un ticket **frère** qui le nomme en `Dépend de`, et le premier renvoie vers lui
 dans son « Fini quand ».
 
+### 🔴 Le TYPE est OBLIGATOIRE — tout ticket en porte un
+
+Un ticket sans type échappe à tout tri par nature : la recherche `type:Bug`, la vue du tableau, la
+lecture d'une liste. Un défaut se range alors parmi les évolutions et attend leur tour. La règle se
+DÉDUIT du titre, elle ne se choisit pas au cas par cas :
+
+| Titre                                                      | Type                                                |
+| ---------------------------------------------------------- | --------------------------------------------------- |
+| porte des sous-tickets                                     | `Epic`                                              |
+| `feat(…)`                                                  | `Feature`                                           |
+| `fix(…)`                                                   | `Bug`                                               |
+| `docs`, `test`, `refactor`, `ci`, `chore`, `perf`, `build` | `Task`                                              |
+| une exploration jetable                                    | `POC` — se DÉCLARE (`--type POC`), ne se déduit pas |
+
+Deux automates la tiennent : `ticket:open` pose le type explicite, sinon le DÉDUIT du titre
+(`deriveIssueType`) et l'annonce — jamais un ticket sans type ; `ticket:lint` refuse en **erreur**
+tout ticket ouvert sans type (`SANS-TYPE`), avec le geste et la règle. Un ticket ouvert depuis
+l'interface GitHub, qui ne passe pas par `ticket:open`, est ainsi rattrapé à la session suivante.
+
 ## 5. Inscrire, ordonner, dater — et quand prendre un ticket
 
 Tout ce qui touche au **tableau de bord** vit en référence : labels et jalons, champs `Jours`,

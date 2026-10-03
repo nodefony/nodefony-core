@@ -12,7 +12,12 @@
  * le socle après ce qui en dépend, et un ticket d'un autre jalon en tête.
  */
 import { describe, expect, it } from "vitest";
-import { deriveOrdre, parentTypeAction, siblingRank } from "./ticket-open.mjs";
+import {
+  deriveIssueType,
+  deriveOrdre,
+  parentTypeAction,
+  siblingRank,
+} from "./ticket-open.mjs";
 import { lotAction } from "./board-lint.mjs";
 
 describe("ordre dérivé d'un sous-ticket", () => {
@@ -178,5 +183,33 @@ describe("lotAction — le lot beta-N se pose À L'OUVERTURE (vécu : #510 ouver
     expect(
       lotAction({ ordre: undefined, labels: [], milestoneEnLots: true }).geste,
     ).to.equal("aucun");
+  });
+});
+
+describe("deriveIssueType — le type est obligatoire, déduit du titre", () => {
+  it("feat → Feature, fix → Bug, rupture comprise", () => {
+    expect(deriveIssueType("feat(security): lire les rôles")).toBe("Feature");
+    expect(deriveIssueType("feat(orm)!: livrer orm:migrate")).toBe("Feature");
+    expect(deriveIssueType("fix(client): corriger l'URL")).toBe("Bug");
+    expect(deriveIssueType("fix: corriger")).toBe("Bug");
+  });
+  it("tout autre préfixe → Task", () => {
+    for (const t of [
+      "docs(guides): x",
+      "test(http): x",
+      "refactor(core): x",
+      "ci: x",
+      "chore(release): x",
+      "perf(http): x",
+    ]) {
+      expect(deriveIssueType(t)).toBe("Task");
+    }
+  });
+  it("un mot qui COMMENCE par feat/fix n'est pas le préfixe", () => {
+    expect(deriveIssueType("feature flags à revoir")).toBe("Task");
+    expect(deriveIssueType("fixture de banc")).toBe("Task");
+  });
+  it("un ticket parent est un Epic, quel que soit son titre", () => {
+    expect(deriveIssueType("fix(security): x", true)).toBe("Epic");
   });
 });

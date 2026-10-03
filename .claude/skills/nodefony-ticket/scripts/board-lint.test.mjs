@@ -406,6 +406,20 @@ describe("lintBoard — chaque incohérence est vue", () => {
     expect(epics[0].unlock).toContain("--type Epic");
   });
 
+  it("SANS-TYPE : un ticket ouvert au type vide est une ERREUR, un type non lu se tait", () => {
+    const findings = lintBoard({
+      items: [sain(50, { type: null }), sain(51, { type: "Bug" }), sain(52)],
+      issues: [50, 51, 52].map((n) => issueSaine(n)),
+      now: MAINTENANT,
+    });
+    const sansType = findings.filter((x) => x.code === "SANS-TYPE");
+    expect(sansType.map((f) => f.n)).toEqual([50]);
+    expect(sansType[0].severite ?? sansType[0].level ?? "erreur").toBe(
+      "erreur",
+    );
+    expect(sansType[0].unlock).toContain("--type");
+  });
+
   it("PRIORITE-ORDRE : un P0 rangé derrière un P2", () => {
     const findings = lintBoard({
       items: [

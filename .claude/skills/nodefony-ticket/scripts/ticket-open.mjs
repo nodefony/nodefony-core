@@ -158,6 +158,26 @@ export function parentTypeAction(typeActuel) {
 }
 
 /**
+ * Déduit le type d'un ticket de son titre Conventional Commits — le type est
+ * OBLIGATOIRE, et cette règle est celle qui a typé tout le tableau.
+ *
+ * `feat` → Feature · `fix` → Bug · tout autre préfixe (`docs`, `test`,
+ * `refactor`, `ci`, `chore`, `perf`, `build`) → Task. Un ticket qui porte des
+ * sous-tickets est un Epic, quel que soit son titre. `POC` ne se déduit pas : il
+ * se déclare (`--type POC`).
+ *
+ * @param titre - titre du ticket
+ * @param aDesEnfants - le ticket porte des sous-tickets
+ * @returns le nom du type de l'organisation
+ */
+export function deriveIssueType(titre, aDesEnfants = false) {
+  if (aDesEnfants) return "Epic";
+  if (/^feat(\(|!|:)/u.test(titre)) return "Feature";
+  if (/^fix(\(|!|:)/u.test(titre)) return "Bug";
+  return "Task";
+}
+
+/**
  * Lit le type d'une issue, `null` si elle n'en porte aucun.
  *
  * @param numero - numéro de l'issue
@@ -258,7 +278,12 @@ if (process.argv[1]?.endsWith("ticket-open.mjs")) {
   }
   for (const l of args.label) create.push("--label", l);
   if (args.parent) create.push("--parent", args.parent);
-  if (args.type) create.push("--type", args.type);
+  // LE TYPE EST OBLIGATOIRE : explicite, sinon déduit du titre — jamais absent.
+  // Un ticket sans type ne se trie ni ne se filtre (`type:Bug`), et
+  // `ticket:lint` le refuse (SANS-TYPE).
+  const type = args.type ?? deriveIssueType(args.title);
+  if (!args.type) console.log(`type déduit du titre : ${type}`);
+  create.push("--type", type);
 
   const url = sh("gh", create).split("\n").pop();
   const number = url.split("/").pop();

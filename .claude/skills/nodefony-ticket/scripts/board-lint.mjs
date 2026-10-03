@@ -550,6 +550,20 @@ export function lintBoard({
     );
   }
 
+  // A6 — le type est OBLIGATOIRE. Sans lui, un ticket échappe à tout tri par
+  // nature (`type:Bug`, la vue du tableau) : un défaut se range parmi les
+  // évolutions et attend leur tour. `undefined` = type non lu : on se tait.
+  for (const it of items) {
+    if (it.type !== null) continue;
+    add(
+      "erreur",
+      "SANS-TYPE",
+      it.n,
+      "aucun type (Task, Bug, Feature, POC, Epic) — le type est obligatoire",
+      `gh issue edit ${it.n} --repo ${OWNER}/${REPO} --type <Task|Bug|Feature|POC|Epic> — règle : feat → Feature, fix → Bug, autre → Task, parent → Epic`,
+    );
+  }
+
   // A4 — un P0 rangé derrière un P2 : la priorité et l'ordre se contredisent.
   const rang = { P0: 0, P1: 1, P2: 2, P3: 3 };
   const niveau = (p) => rang[String(p ?? "").slice(0, 2)] ?? 9;
