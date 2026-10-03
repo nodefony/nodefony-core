@@ -304,6 +304,9 @@ describe("loadPage — suivre le curseur d'un store qui ne sait pas sauter", () 
     expect(p2.rows[0]).toBe("s25");
     expect(seen.every((q) => !/offset=[1-9]/.test(q))).toBe(true);
     expect(p2.total, "minorant honnête : vu + une page").toBe(75);
+    expect(p2.totalIsLowerBound, "« sur au moins 75 », pas « sur 75 »").toBe(
+      true,
+    );
   });
 
   it("🔴 page jamais vue (pagination persistée) : on avance depuis la page 1", async () => {
@@ -312,6 +315,9 @@ describe("loadPage — suivre le curseur d'un store qui ne sait pas sauter", () 
     const p3 = await loadPage(trail, query({ page: 3 }), undefined, fetchPage);
     expect(p3.rows).toEqual(ITEMS.slice(50, 60));
     expect(p3.total, "dernière page : plus de suite").toBe(60);
+    expect(p3.totalIsLowerBound, "fin atteinte : le total est EXACT").toBe(
+      false,
+    );
     expect(seen).toHaveLength(3);
   });
 

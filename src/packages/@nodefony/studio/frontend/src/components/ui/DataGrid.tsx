@@ -160,6 +160,12 @@ export interface DataGridServerQuery {
 export interface DataGridServerResult<T> {
   rows: T[];
   total: number;
+  /**
+   * `total` n'est qu'un MINORANT (le store ne compte pas : ce qui a été vu,
+   * plus une page s'il y a une suite). La grille écrit alors « sur au moins N »
+   * — un faux « sur N » fait croire qu'on connaît la taille de la liste.
+   */
+  totalIsLowerBound?: boolean;
 }
 
 /** Persistance de l'état du grid (tri/filtres/recherche/colonnes/pagination). */
@@ -670,6 +676,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
   const loader = isServer ? props.loader : null;
   const [serverRows, setServerRows] = useState<T[]>([]);
   const [serverTotal, setServerTotal] = useState(0);
+  const [totalIsLowerBound, setTotalIsLowerBound] = useState(false);
   const [serverLoading, setServerLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -696,6 +703,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
         if (cancelled) return;
         setServerRows(res.rows);
         setServerTotal(res.total);
+        setTotalIsLowerBound(res.totalIsLowerBound === true);
         setServerError(null);
       })
       .catch((e: unknown) => {
@@ -1325,7 +1333,8 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
         }
       >
         <Text size="xs" c="dimmed">
-          {start}–{end} sur {total}
+          {start}–{end} sur {isServer && totalIsLowerBound ? "au moins " : ""}
+          {total}
         </Text>
         <Group gap="xs" wrap="nowrap">
           <Select

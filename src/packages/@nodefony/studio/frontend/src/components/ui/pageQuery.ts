@@ -149,6 +149,7 @@ export function fromPage<T>(page: IPage<T>): DataGridServerResult<T> {
   return {
     rows: page.items,
     total: page.total ?? (page.hasNext ? seen + page.limit : seen),
+    totalIsLowerBound: page.total === undefined && page.hasNext,
   };
 }
 
@@ -250,7 +251,12 @@ export async function loadPage<T>(
     // Un curseur non nul DIT qu'une page suit : le data plane peut omettre
     // `hasNext` (c'est le cas de `sessions/list`), le curseur, lui, est là.
     const more = page.hasNext || (page.nextCursor ?? null) !== null;
-    return { rows: page.items, total: more ? seen + q.pageSize : seen };
+    return {
+      rows: page.items,
+      total: more ? seen + q.pageSize : seen,
+      // Sans suite, ce qui a été vu EST le total ; avec, ce n'est qu'un minorant.
+      totalIsLowerBound: more,
+    };
   }
   return fromPage(page);
 }
