@@ -187,7 +187,7 @@ Ce qu'on observe ensuite :
 3. `curl https://127.0.0.1:5152/nodefony/studio/api/health` répond sans authentification :
    c'est la sonde de vie, volontairement placée hors du pare-feu et réduite à l'état, la durée de
    fonctionnement et l'identifiant de processus (`StudioController.apiHealth()`,
-   `StudioController.ts:163`).
+   `StudioController.ts:159`).
 
 ## 🔐 Accéder à Studio
 

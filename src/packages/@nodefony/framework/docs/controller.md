@@ -360,11 +360,11 @@ n'est créée** — donc aucun coût de stockage.
 Deux corollaires :
 
 - Dans `initialize()`, `this.session` vaut `null` (l'activation vient plus tard — étape 6 du cycle).
-- `this.getSession()` (`Controller.ts:657`) ne « démarre » rien : il retourne la session existante,
+- `this.getSession()` (`Controller.ts:647`) ne « démarre » rien : il retourne la session existante,
   ou `undefined`.
 
-Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts:677`)
-journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts:693`)
+Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts:667`)
+journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts:683`)
 retournent `null` sans rien journaliser — pas de crash, mais rien n'est mémorisé.
 
 ### Contrôleur singleton — le défaut : `this` n'est pas à toi
@@ -436,12 +436,12 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 
 | Helper                                       | Pour…                                                    | Ancre               |
 | -------------------------------------------- | -------------------------------------------------------- | ------------------- |
-| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:629` |
+| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:619` |
 | `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:485` |
 | `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:544` |
 | `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:523` |
 | `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:663` |
-| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:697` |
+| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:687` |
 | `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:430` |
 
 `renderView()` mesure sa propre phase `render` et injecte automatiquement les aides frontend
@@ -449,7 +449,7 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 (`withFrontendLocals()`, `Controller.ts:562`) — tes propres valeurs restent prioritaires.
 
 `forward()` re-résout un contrôleur sur le **même** contexte et rappelle son action
-(`Controller.ts:697`) : c'est une délégation interne, la requête cliente reste unique.
+(`Controller.ts:687`) : c'est une délégation interne, la requête cliente reste unique.
 
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
@@ -463,15 +463,15 @@ Deux besoins distincts, deux helpers.
 
 ### Téléchargement — `renderFileDownload()`
 
-`renderFileDownload(file, options?, headers?)` (`Controller.ts:788`) pose
+`renderFileDownload(file, options?, headers?)` (`Controller.ts:778`) pose
 `Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier, puis délègue au moteur
-de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:749`) ;
+de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:739`) ;
 la variante synchrone `getFile()` existe encore mais est marquée obsolète — elle appelle `lstatSync`
 et gèle le process le temps du stat.
 
 ### Lecture en continu — `renderMediaStream()`
 
-`renderMediaStream(file, headers?, options?)` (`Controller.ts:952`) implémente les **requêtes par
+`renderMediaStream(file, headers?, options?)` (`Controller.ts:942`) implémente les **requêtes par
 plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le flux :
 
 | Le client envoie…                             | Réponse                                                         |
@@ -487,7 +487,7 @@ donc testable sans serveur.
 
 ### Ce que `streamFile()` garantit
 
-`streamFile()` (`Controller.ts:828`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
+`streamFile()` (`Controller.ts:818`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
 **nettoyage** : le flux est ouvert avec `autoClose: false`, et un client qui raccroche en plein
 téléchargement laisserait sinon un descripteur de fichier ouvert et une promesse pendue à jamais. Un
 écouteur `close` sur la réponse détruit le flux, ce qui déclenche la fermeture du descripteur et
@@ -628,7 +628,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |
 | Contrôleur singleton : données d'un autre utilisateur | État muté que les filets ne voient pas (`#privé`, objet muté) sur l'instance partagée | Passer par les arguments décorés, ou déclarer `@Scope("request")` |
 | « Contrôleur … : écriture de « this.x » refusée » | Un état de requête écrit sur un singleton (le défaut) | Argument décoré, service `request`, ou `@Scope("request")` sur la classe |
-| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:709`) | Utiliser `getFileAsync()` (`Controller.ts:749`) |
+| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:709`) | Utiliser `getFileAsync()` (`Controller.ts:739`) |
 
 ## 🧪 Tests & couverture
 

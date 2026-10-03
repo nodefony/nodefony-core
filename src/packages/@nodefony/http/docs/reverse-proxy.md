@@ -365,7 +365,7 @@ proxy?.unmount("/outil/");
 
 **Exemple réel** : `@nodefony/frontend` monte ainsi chaque famille Vite (voir « Le cas Vite »), avec
 une cible fonction qui ne vise un port que si le Vite de CETTE application y répond
-(`FrontendService.mountDevProxy()`, `FrontendService.ts:499`).
+(`FrontendService.mountDevProxy()`, `FrontendService.ts:495`).
 
 ## 🏗️ Architecture interne — le parcours d'une requête relayée
 
