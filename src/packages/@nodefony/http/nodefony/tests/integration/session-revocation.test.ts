@@ -25,6 +25,15 @@ const LOGIN = "/nodefony/security/api/auth/login";
 const LOGOUT = "/nodefony/security/api/auth/logout";
 const ME = "/nodefony/security/api/auth/me";
 const LIST = "/nodefony/http/api/sessions/list";
+
+/**
+ * Budget d'un parcours paginé complet. Sur Redis, `SCAN` balaie le keyspace
+ * ENTIER par tranches : le nombre de pages dépend de toutes les clés de la
+ * base, que le banc ne maîtrise pas. Un parcours se borne donc en temps ; ce
+ * qui distingue une pagination qui BOUCLE d'une pagination LONGUE, c'est un
+ * curseur déjà vu, pas un compte de pages.
+ */
+const PAGING_BUDGET_MS = 45_000;
 const revokeRefPath = (ref: string) =>
   `/nodefony/http/api/sessions/${encodeURIComponent(ref)}/revoke`;
 const revokeUserPath = (id: string) =>
@@ -118,7 +127,12 @@ async function listAllSessions(
   const limit = 100;
   let cursor: string | undefined;
   let offset = 0;
-  for (let guard = 0; guard < 100; guard += 1) {
+  // Borne de TEMPS, pas de pages : sur un backend à curseur, le nombre de pages
+  // suit le keyspace ENTIER du store (toutes les clés, pas seulement les
+  // sessions) — un plafond de pages saute dès que Redis porte assez de clés,
+  // et la session fraîche « manque » alors qu'elle est plus loin.
+  const deadline = Date.now() + PAGING_BUDGET_MS;
+  while (Date.now() < deadline) {
     const params = new URLSearchParams({ user, limit: String(limit) });
     if (cursor) params.set("cursor", cursor);
     else if (offset > 0) params.set("offset", String(offset));
@@ -146,6 +160,9 @@ async function listAllSessions(
     // ignore l'offset) s'arrête ici plutôt que de tourner jusqu'au guard.
     if (byRef.size === sizeBefore) break;
   }
+  expect(Date.now() < deadline, "parcours complet dans le budget").to.equal(
+    true,
+  );
   return [...byRef.values()];
 }
 
@@ -274,17 +291,21 @@ describe("Pagination à curseur du listing de sessions", () => {
     const admin = await loginAs("admin", "secret-de-dev-42");
     const seen = new Set<string>();
     let cursor: string | undefined;
-    let pages = 0;
-    // limit large : le nombre de pages d'un SCAN dépend du keyspace ENTIER du
-    // store (un serveur de dev porte des centaines de sessions résiduelles) —
-    // avec un limit de 5 le parcours légitime dépassait déjà 40 pages.
-    for (; pages < 60; pages += 1) {
+    let finished = false;
+    // Le nombre de pages d'un SCAN dépend du keyspace ENTIER du store, pas des
+    // sessions : la boucle est bornée en TEMPS (cf `PAGING_BUDGET_MS`), et la
+    // preuve qu'elle ne tourne pas en rond est le curseur jamais revu.
+    const deadline = Date.now() + PAGING_BUDGET_MS;
+    while (Date.now() < deadline) {
       const params = new URLSearchParams({ limit: "100" });
       if (cursor) params.set("cursor", cursor);
       const res = await get(`${LIST}?${params.toString()}`, { cookie: admin });
       expect(res.status, "list sessions (admin)").to.equal(200);
       const page = res.body as { nextCursor?: string | null };
-      if (!page.nextCursor) break; // fin de scan, ou backend à offset
+      if (!page.nextCursor) {
+        finished = true; // fin de scan, ou backend à offset
+        break;
+      }
       expect(
         seen.has(page.nextCursor),
         `nextCursor "${page.nextCursor}" déjà vu — le cursor entrant est ignoré, la pagination boucle`,
@@ -292,18 +313,16 @@ describe("Pagination à curseur du listing de sessions", () => {
       seen.add(page.nextCursor);
       cursor = page.nextCursor;
     }
-    expect(
-      pages,
-      "la pagination doit se terminer avant le garde-fou",
-    ).to.be.below(60);
+    expect(finished, "la pagination doit se terminer").to.equal(true);
   });
 
   it("le curseur de /sessions/mine AVANCE aussi (même exigence, autre handler)", async () => {
     const cookie = await loginAs("user", "secret-de-dev-42");
     const seen = new Set<string>();
     let cursor: string | undefined;
-    let pages = 0;
-    for (; pages < 60; pages += 1) {
+    let finished = false;
+    const deadline = Date.now() + PAGING_BUDGET_MS;
+    while (Date.now() < deadline) {
       const params = new URLSearchParams({ limit: "100" });
       if (cursor) params.set("cursor", cursor);
       const res = await get(`/nodefony/http/api/sessions/mine?${params}`, {
@@ -311,7 +330,10 @@ describe("Pagination à curseur du listing de sessions", () => {
       });
       expect(res.status, "mes sessions (self-service)").to.equal(200);
       const page = res.body as { nextCursor?: string | null };
-      if (!page.nextCursor) break;
+      if (!page.nextCursor) {
+        finished = true;
+        break;
+      }
       expect(
         seen.has(page.nextCursor),
         `nextCursor "${page.nextCursor}" déjà vu — le cursor entrant est ignoré, la pagination boucle`,
@@ -319,10 +341,7 @@ describe("Pagination à curseur du listing de sessions", () => {
       seen.add(page.nextCursor);
       cursor = page.nextCursor;
     }
-    expect(
-      pages,
-      "la pagination doit se terminer avant le garde-fou",
-    ).to.be.below(60);
+    expect(finished, "la pagination doit se terminer").to.equal(true);
   });
 });
 

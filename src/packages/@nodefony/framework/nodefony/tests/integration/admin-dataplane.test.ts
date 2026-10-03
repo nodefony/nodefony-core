@@ -146,6 +146,60 @@ async function loginCookie(
 }
 
 /**
+ * Budget d'un parcours paginé complet. Sur Redis, `SCAN` balaie le keyspace
+ * ENTIER par tranches : le nombre de pages dépend de toutes les clés de la
+ * base (pas seulement des sessions), et une page peut revenir VIDE alors que
+ * la session cherchée est plus loin. Un parcours se borne donc en temps.
+ */
+const PAGING_BUDGET_MS = 45_000;
+
+/**
+ * Parcourt un listing de sessions jusqu'au bout — curseur (Redis) ou offset
+ * (SQL, mémoire) — et rend toutes les entrées, dédoublonnées par `ref`.
+ */
+async function allPages(
+  path: string,
+  options: Parameters<typeof req>[2],
+): Promise<Array<Record<string, unknown> & { ref: string }>> {
+  const byRef = new Map<string, Record<string, unknown> & { ref: string }>();
+  let cursor: string | undefined;
+  let offset = 0;
+  const deadline = Date.now() + PAGING_BUDGET_MS;
+  let complete = false;
+  while (Date.now() < deadline) {
+    const url = new URL(path, "https://x");
+    url.searchParams.set("limit", "100");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    else if (offset > 0) url.searchParams.set("offset", String(offset));
+    const r = await req("GET", `${url.pathname}${url.search}`, options);
+    expect(r.status, `listing ${url.pathname}`).to.equal(200);
+    const page = r.body as {
+      items?: Array<Record<string, unknown> & { ref: string }>;
+      nextCursor?: string | null;
+      total?: number;
+    };
+    const items = page.items ?? [];
+    for (const it of items) byRef.set(it.ref, it);
+    if (page.nextCursor) {
+      cursor = page.nextCursor;
+      continue;
+    }
+    offset += items.length;
+    if (
+      page.nextCursor === null ||
+      items.length === 0 ||
+      page.total === undefined ||
+      offset >= page.total
+    ) {
+      complete = true;
+      break;
+    }
+  }
+  expect(complete, "parcours complet dans le budget").to.equal(true);
+  return [...byRef.values()];
+}
+
+/**
  * TOUTES les pages de /sessions/mine — jamais la seule page 1 : sur un backend
  * à curseur (SCAN Redis, aucun tri), un serveur qui porte plus d'une page de
  * sessions rend une page 1 où MA session peut manquer ; le diff/`items[0]` sur
@@ -154,24 +208,7 @@ async function loginCookie(
 async function allMySessions(
   cookie: string,
 ): Promise<Array<Record<string, unknown> & { ref: string }>> {
-  const byRef = new Map<string, Record<string, unknown> & { ref: string }>();
-  let cursor: string | undefined;
-  for (let guard = 0; guard < 60; guard += 1) {
-    const params = new URLSearchParams({ limit: "100" });
-    if (cursor) params.set("cursor", cursor);
-    const r = await req("GET", `/nodefony/http/api/sessions/mine?${params}`, {
-      cookie,
-    });
-    expect(r.status, "self-service /sessions/mine").to.equal(200);
-    const page = r.body as {
-      items?: Array<Record<string, unknown> & { ref: string }>;
-      nextCursor?: string | null;
-    };
-    for (const it of page.items ?? []) byRef.set(it.ref, it);
-    if (!page.nextCursor) break;
-    cursor = page.nextCursor;
-  }
-  return [...byRef.values()];
+  return allPages("/nodefony/http/api/sessions/mine", { cookie });
 }
 
 describe("Admin data plane — RBAC : authentifié NON-admin REJETÉ (403)", () => {
@@ -513,14 +550,11 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
 
   it("ANTI-IDOR : un ROLE_USER ne peut PAS révoquer la session d'AUTRUI via son ref", async () => {
     // ref RÉEL d'une session admin (énumération admin).
-    const adminSessions = await req(
-      "GET",
+    // Toutes les pages : sur Redis, la page 1 peut être vide (cf `allPages`).
+    const adminItems = await allPages(
       "/nodefony/http/api/sessions/list?user=admin",
       auth(),
     );
-    expect(adminSessions.status).to.equal(200);
-    const adminItems = (adminSessions.body as { items: Array<{ ref: string }> })
-      .items;
     expect(adminItems.length, "admin a ≥ 1 session").to.be.greaterThan(0);
     const adminRef = adminItems[0]!.ref;
     // user présente le ref d'admin (qui EXISTE) → hors de SON périmètre → 404
@@ -536,14 +570,9 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
       "ref d'autrui = introuvable dans mon scope",
     ).to.equal(404);
     // La session d'admin a SURVÉCU (l'IDOR est bien fermé).
-    const after = await req(
-      "GET",
-      "/nodefony/http/api/sessions/list?user=admin",
-      auth(),
-    );
     const survived = (
-      after.body as { items: Array<{ ref: string }> }
-    ).items.some((s) => s.ref === adminRef);
+      await allPages("/nodefony/http/api/sessions/list?user=admin", auth())
+    ).some((s) => s.ref === adminRef);
     expect(survived, "la session d'admin n'a PAS été révoquée").to.equal(true);
   });
 
