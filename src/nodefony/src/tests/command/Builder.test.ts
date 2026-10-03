@@ -34,11 +34,6 @@ describe("Builder — construction", () => {
     assert(builder instanceof Builder);
   });
 
-  it("force = false par défaut", async () => {
-    const builder = await makeBuilder();
-    assert.strictEqual(builder.force, false);
-  });
-
   it("location = process.cwd() par défaut", async () => {
     const builder = await makeBuilder();
     assert.strictEqual(builder.location, process.cwd());

@@ -46,7 +46,6 @@ const etaOptions = {
 };
 
 class Builder extends Service {
-  public force: boolean = false;
   public command: Command | undefined;
   public cli: Cli | undefined | null;
   public response: Record<string, any> = {};
