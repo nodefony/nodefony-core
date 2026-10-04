@@ -445,7 +445,7 @@ points d'entrée sont demandés à l'émetteur, une seule fois par processus, au
 bien connues (§3.1 : insertion oauth → insertion oidc → ajout oidc) et l'égalité stricte du §3.3
 vivent dans le cœur (`nodefony` → `src/oauth/authorizationServer.ts`), qui s'en sert aussi pour
 PUBLIER nos propres métadonnées. `metadata.ts` n'ajoute que le transport : requête bornée, sans
-redirection suivie, avec un délai d'attente (`discoverAuthorizationServer()`, `metadata.ts:153`).
+redirection suivie, avec un délai d'attente (`discoverAuthorizationServer()`, `metadata.ts:180`).
 
 Deux refus valent d'être connus. Un document dont l'`issuer` diffère de celui demandé est rejeté
 **sans se rabattre** sur l'URL suivante — se rabattre masquerait un document hostile derrière un 404.
@@ -647,7 +647,7 @@ ou détruire les sessions), pas chez le fournisseur.
 | Claims d'identité OIDC                | OpenID Connect Core                    | `fetchProfile()` du helper OIDC (`oidc.ts:205-220`)                                      |
 | ID token consommé en code flow        | OIDC Core §3.1.3.7                     | `assertIdTokenClaims()` (`oidc.ts:143`)                                                  |
 | Anti-fixation de session              | OWASP Session Management               | `session.regenerateId()` au login (`authFlow.ts:388`)                                    |
-| Déconnexion initiée par l'application | OpenID Connect RP-Initiated Logout 1.0 | `createLogoutURL` (`oidc.ts:224`) · `end_session_endpoint` découvert (`metadata.ts:185`) |
+| Déconnexion initiée par l'application | OpenID Connect RP-Initiated Logout 1.0 | `createLogoutURL` (`oidc.ts:224`) · `end_session_endpoint` découvert (`metadata.ts:215`) |
 | Déconnexion par le fournisseur        | OpenID Connect Back-Channel Logout 1.0 | `verifyLogoutToken` (`oidc.ts:240`) · `backchannelLogout()` (`oauth2.ts:543`)            |
 
 Flux **exclus** par posture 2.1, et donc absents du code : `implicit` (jeton en fragment d'URL) et

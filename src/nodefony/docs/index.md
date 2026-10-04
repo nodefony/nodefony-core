@@ -178,7 +178,7 @@ conteneur d'injection, le bus d'événements et l'accès au journal. Conséquenc
 un contrôleur et un adaptateur de base de données s'observent, se configurent et se nettoient de la
 même façon. Il n'y a pas de composant « à part » dans une application Nodefony.
 
-**Le kernel possède les modules, jamais l'inverse.** `Kernel.boot()` (`Kernel.ts:1244`) charge le
+**Le kernel possède les modules, jamais l'inverse.** `Kernel.boot()` (`Kernel.ts:1291`) charge le
 manifeste, construit les modules, puis fait passer tout le monde par les mêmes phases. Un `Module`
 (`Module.ts:60`) déclare s'il est **critique** — un module non critique dont le démarrage échoue
 n'emporte pas le processus, il annonce sa dégradation et le reste continue. Les commandes en ligne
@@ -186,7 +186,7 @@ empruntent le même chemin par `CliKernel` (`CliKernel.ts:84`).
 
 **Le journal est structuré, borné, et il part où tu veux.** `Syslog` (`Syslog.ts:628`) écrit des
 enregistrements typés plutôt que des chaînes, et les conserve dans un tampon circulaire
-(`CircularBuffer`, `Syslog.ts:273`) : les dernières entrées restent lisibles à chaud, sans que la
+(`CircularBuffer`, `Syslog.ts:294`) : les dernières entrées restent lisibles à chaud, sans que la
 mémoire enfle avec le temps de fonctionnement. Les transports décident ensuite de la destination —
 sortie standard, fichier, agrégateur.
 

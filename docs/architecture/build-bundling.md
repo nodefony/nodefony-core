@@ -430,11 +430,11 @@ flowchart LR
   RB --> K["group-kill + redémarrage du serveur"]
 ```
 
-- **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts:1296`) reconstruit
+- **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts:1448`) reconstruit
   les seuls workspaces touchés et leurs dépendants (`turbo --filter=pkg...`), puis l'app racine
   (`rolldown -c`) si un fichier de la racine a bougé. Un `npm run build` complet coûtait plus de
   quatre-vingts secondes pour un fichier.
-- **Le dossier `frontend/` est exclu de la surveillance** (`DevSupervisor.ts:90`) : une modification
+- **Le dossier `frontend/` est exclu de la surveillance** (`DevSupervisor.ts:127`) : une modification
   front ne doit surtout pas redémarrer le serveur, sinon on perd le HMR de Vite.
 - **Hors monorepo**, le superviseur ne connaît qu'un seul build, celui de l'app — jamais turbo, qui
   n'a pas de workspaces à ordonner.
@@ -568,7 +568,7 @@ mesurables **au runtime** :
 | Les `.d.ts` atterrissent au milieu du JavaScript          | `declarationDir` absent du `tsconfig.declarations.json`            | Le déclarer explicitement (`./dist/types`)                                                                 |
 | `frontend:build` ne reconstruit rien                      | Comportement normal : le manifeste est plus récent que les sources | `--force` (`frontend-build.ts:103` casse l'exit code en cas d'échec réel)                                  |
 | La documentation d'un module installé n'apparaît pas      | `docs` absent du champ `files` du paquet                           | L'ajouter — `listModuleDocs()` lit `docs/` dans `node_modules` (`docsReader.ts:178`)                       |
-| Modification front qui redémarre le serveur               | Le fichier vit hors du dossier surveillé comme frontend            | Le placer sous `frontend/` (exclu, `DevSupervisor.ts:90`)                                                  |
+| Modification front qui redémarre le serveur               | Le fichier vit hors du dossier surveillé comme frontend            | Le placer sous `frontend/` (exclu, `DevSupervisor.ts:127`)                                                 |
 
 ## 🧪 Tests & couverture
 

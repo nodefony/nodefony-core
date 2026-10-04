@@ -28,12 +28,12 @@ Pendant le développement, **deux** serveurs tournent : Nodefony sert votre appl
 les modules du frontend et pousse le rechargement à chaud. Le visiteur, lui, n'en voit qu'un seul :
 Nodefony rend la page, y insère les balises du frontend (`FrontendService.renderTags()`,
 `FrontendService.ts:772`) — servies sur l'origine de la page et relayées vers Vite
-(`FrontendService.mountDevProxy()`, `FrontendService.ts:495`). Les appels d'API de la page
+(`FrontendService.mountDevProxy()`, `FrontendService.ts:486`). Les appels d'API de la page
 partent sur cette même origine, donc directement vers tes contrôleurs. En production il n'y a plus qu'un serveur : les fichiers
 sont bâtis, et les mêmes balises pointent vers eux.
 
 Un module déclare son frontend une seule fois, par `FrontendService.registerEntry()`
-(`FrontendService.ts:236`) — c'est ce point d'entrée qui fait exister le tout.
+(`FrontendService.ts:228`) — c'est ce point d'entrée qui fait exister le tout.
 
 ## Approche express — la commande le fait
 

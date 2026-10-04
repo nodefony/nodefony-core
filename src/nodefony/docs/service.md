@@ -117,7 +117,7 @@ maison :
 - `Event.emitAsyncGuarded()` (`Event.ts:301`) isole **chaque** écouteur (try/catch + délai maximal)
   et renvoie `{ results, errors, stopped }` au lieu de laisser le premier rejet faire sauter la suite.
 
-Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:3896`) : un
+Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:4033`) : un
 hook de module qui pend ou qui jette ne gèle plus le démarrage du serveur.
 
 Le compromis assumé : `Service` **délègue** massivement (18 méthodes d'événements + 6 méthodes de
@@ -387,9 +387,9 @@ dépassement, l'erreur remontée est une `Error` explicite (`Event.ts:317`) : le
 un simple drapeau `timedOut` (`Event.ts:322`), et aucune valeur qui ne soit pas une `Error` ne
 peut remonter.
 
-Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3896`) branche la politique : délai issu de
-`Kernel.bootTimeoutMs()` (`Kernel.ts:3177`) — 20 s en développement, 60 s en production, surchargeable
-par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3189`), 5 s par
+Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:4033`) branche la politique : délai issu de
+`Kernel.bootTimeoutMs()` (`Kernel.ts:3266`) — 20 s en développement, 60 s en production, surchargeable
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3278`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service

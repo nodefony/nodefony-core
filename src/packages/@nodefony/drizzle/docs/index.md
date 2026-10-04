@@ -411,7 +411,7 @@ use("@nodefony/drizzle", {
 
 > [!WARNING]
 > Une URL de connexion **porte un mot de passe**. Le module ne la journalise jamais telle quelle :
-> `redactUrl()` (`DrizzleService.ts:99`) remplace le mot de passe par `***` avant tout log de
+> `redactUrl()` (`DrizzleService.ts:103`) remplace le mot de passe par `***` avant tout log de
 > démarrage, et la sonde d'administration applique la même règle.
 
 ### Quand la connexion échoue, le démarrage échoue

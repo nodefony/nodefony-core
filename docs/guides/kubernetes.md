@@ -223,7 +223,7 @@ sonde est rejouée toutes les 15 secondes : le pod devient disponible tout seul 
 passé, sans redéploiement. Hors production, le défaut est `warn` (journalisé, le trafic passe).
 
 Pour un état que le framework ne connaît pas (un cache froid, un service tiers), le même mécanisme
-s'appelle à la main : `kernel.setReadiness(nom, false, raison)` (`Kernel.ts:3538`). Ses règles
+s'appelle à la main : `kernel.setReadiness(nom, false, raison)` (`Kernel.ts:3633`). Ses règles
 vivent dans [servers](../../src/packages/@nodefony/http/docs/servers.md).
 
 ## Mise à l'échelle

@@ -81,7 +81,7 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
 - **`FORCE_COLOR`** est posé pour les bibliothèques de couleur du processus serveur (nom de
   l'écosystème, qu'on ne possède pas). Les deux lecteurs de couleur du dépôt qui consultent
   `isTTY` en direct passent par la porte : le défaut d'import de `src/nodefony/src/syslog/logColor.ts`
-  et `shouldAnimate` de `src/nodefony/src/cli/progress.ts:148`.
+  et `shouldAnimate` de `src/nodefony/src/cli/progress.ts:144`.
 - **Deux tubes ne garantissent pas l'ordre relatif entre `out` et `err`** (aujourd'hui, `inherit`
   ordonne par appel système). C'est le prix du champ `stream` de l'historique ; il est accepté.
 - **Sans superviseur** (`--no-watch`), le serveur garde `StatusLine` et dessine lui-même, comme
@@ -140,7 +140,7 @@ interface ITranscriptEntry {
   ligne en cours (un spinner réécrit sa ligne, il n'empile pas cent entrées).
 - **Assainissement de TOUTE source** (serveur, commande, modèle) et des chaînes de la barre.
   Gardés : couleurs (SGR), `\r`, effacement de ligne, hyperliens OSC 8 dont l'URL est `http`,
-  `https` ou `file` (le serveur en émet, `BootReporter.ts:195`). Retiré : tout le reste —
+  `https` ou `file` (le serveur en émet, `#hyperlinks` à `BootReporter.ts:195`). Retiré : tout le reste —
   déplacement de curseur, titre de fenêtre, presse-papiers OSC 52, changement d'écran. Rendu ET
   sécurité : une ligne de journal ne pilote pas le terminal du développeur.
 - **L'effacement d'écran a un sens** : `ESC[2J` (`CLEAR_SCREEN`, écrit par le serveur au boot,
@@ -309,7 +309,7 @@ interface IConfirmDecision {
   l'appel qu'elle accompagne, jamais « pour la session ».
 - Implémentations : **verbes du superviseur** (`restart`, `clear`, `help`, `quit`) et **commandes
   du CLI** (`nodefony <cmd>` en sous-processus, complétion par `readCliManifest` /
-  `computeCompletions`, `src/nodefony/src/cli/completion.ts:249` et `:271`) en #538 ;
+  `computeCompletions`, `src/nodefony/src/cli/completion.ts:271` et `:271`) en #538 ;
   **assistant** en #539.
 
 ### 8. L'assistant : un client de l'application, jamais un passe-droit

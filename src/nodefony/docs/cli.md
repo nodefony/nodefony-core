@@ -330,7 +330,7 @@ cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la deman
 
 **Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:656`) —
 il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:560`). Hors module, un
-outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:771`). Dans les deux cas,
+outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:777`). Dans les deux cas,
 `addCommand` **instancie** la commande et l'enregistre sous le nom porté par son constructeur.
 
 ## ⚙️ La complétion shell

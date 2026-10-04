@@ -555,7 +555,7 @@ il importe lui-même les greffons dont les presets détectés ont besoin.
 
 Au démarrage de chaque famille, le service monte son chemin réservé sur le
 [proxy inverse](../../http/docs/reverse-proxy.md) de `@nodefony/http`
-(`FrontendService.mountDevProxy()`, `FrontendService.ts:495`). Toute requête sous `/_vite/<famille>/`
+(`FrontendService.mountDevProxy()`, `FrontendService.ts:486`). Toute requête sous `/_vite/<famille>/`
 — module, style, image importée, et l'upgrade WebSocket du rechargement à chaud — est alors relayée
 à Vite, sur la boucle locale ; la cible est le port **que Vite sert vraiment**
 (`TemplateHelper.devTarget()`, `TemplateHelper.ts:91`), jamais un port seulement retenu par une
@@ -589,7 +589,7 @@ garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts:84`).
 
 **Les familles démarrent indépendamment.** Si Angular échoue, React continue de fonctionner : le
 démarrage n'échoue que si **aucune** famille n'a pu démarrer (`FrontendService.startDev()`,
-`FrontendService.ts:323`).
+`FrontendService.ts:314`).
 
 ### Résilience — ce qui se passe quand Vite tombe
 
@@ -632,7 +632,7 @@ et dans les types du paquet — jamais recopiées ici, où elles se périmeraien
 
 ### `registerEntry` — la déclaration d'une interface
 
-`FrontendService.registerEntry()` (`FrontendService.ts:236`) est appelée par le module consommateur,
+`FrontendService.registerEntry()` (`FrontendService.ts:228`) est appelée par le module consommateur,
 dans son `onKernelBoot()`. Elle résout les chemins relatifs, calcule le préfixe public et renvoie
 l'entrée résolue (`IResolvedFrontendEntry`, `IFrontBuilder.ts:33`).
 
@@ -718,21 +718,21 @@ Dans une application générée par `nodefony create app`, tu n'as pas à y pens
 **`npm run build` construit l'application entière** — le backend (rolldown) puis le front (il
 chaîne `nodefony frontend:build`). Un seul geste avant `npm start` ou dans un pipeline.
 
-`FrontendService.build()` (`FrontendService.ts:701`) appelle Vite **entrée par entrée**, et non une
+`FrontendService.build()` (`FrontendService.ts:634`) appelle Vite **entrée par entrée**, et non une
 fois pour toutes. Ce n'est pas un détail : chaque bundle a sa racine, son dossier de sortie, sa base
 et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole Angular.
 
 Quatre comportements à connaître :
 
 - **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts:713`) — le scan est borné au dossier front et saute
+  (`isBuildFresh()`, `FrontendService.ts:704`) — le scan est borné au dossier front et saute
   `node_modules`. Relancer un déploiement ne recompile pas tout.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
   les autres résultats.
 - **Le résultat est un bilan** : construits / ignorés / en échec, journalisé et renvoyé.
 - **Un démarrage en production sans build se répare — ou se dénonce.** `setupProd()`
-  (`FrontendService.ts:534`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
+  (`FrontendService.ts:525`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
   Manifeste absent et Vite installé (poste de développement, devDependencies présentes) : le build
   tourne **une fois au démarrage**, annoncé en WARNING — fini l'écran blanc après un
   `nodefony production --detach` lancé trop tôt. Manifeste absent et Vite introuvable (image de
@@ -768,7 +768,7 @@ use("@nodefony/frontend", { assetBaseUrl: "https://cdn.example.com" });
 // → <script src="https://cdn.example.com/_assets/shop/main-a1b2c3.js">
 ```
 
-En production, `setupProd()` (`FrontendService.ts:534`) monte chaque dossier de sortie sur son
+En production, `setupProd()` (`FrontendService.ts:525`) monte chaque dossier de sortie sur son
 `publicPath` via le serveur statique — résolu **par nom**, jamais par import, pour ne pas créer de
 cycle. Si ce service est absent (proxy frontal, CDN devant), un avertissement le dit et rien n'est
 monté : c'est un déploiement valide, pas une panne.
@@ -817,10 +817,10 @@ socket viennent de l'origine de la page. La politique n'a donc **aucune origine 
 
 Le développement a pourtant deux besoins que la politique stricte refuse. Plutôt que de l'affaiblir,
 le service les **compose** : une fois Vite prêt, il déclare son fragment au pare-feu
-(`#registerCsp()`, `FrontendService.ts:791`), qui émet **un seul** en-tête, fragment fusionné et
+(`#registerCsp()`, `FrontendService.ts:782`), qui émet **un seul** en-tête, fragment fusionné et
 nonce par requête. À l'arrêt, le fragment est retiré et la politique redevient stricte.
 
-Le fragment (`#viteCspFragment()`, `FrontendService.ts:813`) mérite deux explications, parce
+Le fragment (`#viteCspFragment()`, `FrontendService.ts:804`) mérite deux explications, parce
 qu'elles piègent tout le monde :
 
 - **`'self'` est répété dans chaque directive.** `connect-src`, `style-src`, `img-src` et `font-src`
