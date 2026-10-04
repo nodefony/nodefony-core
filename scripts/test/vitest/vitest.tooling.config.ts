@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { tmpGuard } from "./vitest.tmp-guard.ts";
+import { tmpGuard } from "./tmp-guard.ts";
 
 /**
  * Config des suites lancées depuis la RACINE (`test:tooling`, `test:release`,
@@ -8,6 +8,10 @@ import { tmpGuard } from "./vitest.tmp-guard.ts";
  *
  * Nommée et passée par `--config`, jamais `vitest.config.ts` : un nom par défaut
  * serait lu en silence par toute commande vitest lancée à la racine.
+ *
+ *  npm run test:tooling             // et les six autres scripts `test:*` lancés depuis la racine
+ *
+ * @usage npm run test:tooling             // et les six autres scripts test:* lancés depuis la racine
  */
 export default defineConfig({
   test: {

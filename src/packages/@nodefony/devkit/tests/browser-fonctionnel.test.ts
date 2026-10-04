@@ -6,7 +6,7 @@ import path from "node:path";
 import { request as httpsRequest } from "node:https";
 import { chargerModule, commeObjet, fonctionDe } from "./browser-outils";
 
-// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// Le jetable du test, le test le supprime : scripts/test/vitest/tmp-guard.ts fait échouer
 // la passe sur tout dossier laissé dans le dossier temporaire.
 const aSupprimer: string[] = [];
 const temporaire = (dossier: string): string => {

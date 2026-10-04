@@ -45,7 +45,7 @@ comportement entre deux moteurs devient donc un test rouge, par construction.
 
 Au-dessus de ces bancs unitaires, **l'application entière démarre sur MongoDB** et rejoue la
 passe d'intégration HTTP (`npm run test:all -- --mongo`, garde `MONGO_BOOT_GATE` dans
-`vitest.gates.ts`) : c'est ce qui prouve que les briques se câblent au boot, pas seulement
+`scripts/test/vitest/gates.ts`) : c'est ce qui prouve que les briques se câblent au boot, pas seulement
 qu'elles répondent une fois montées à la main.
 
 ## Ce que ces bancs ont déjà trouvé
@@ -114,7 +114,7 @@ npm run test:all                  # Drizzle × sqlite/pg/mariadb + mémoire
 npm run test:all -- --mongo       # + démarrage de l'application sur MongoDB
 npm run test:all -- --dialects    # + MySQL Community
 
-# Un adaptateur seul (les variables viennent de vitest.gates.ts)
+# Un adaptateur seul (les variables viennent de scripts/test/vitest/gates.ts)
 cd src/packages/@nodefony/mongoose && npx vitest run tests/integration/repository-contract.test.ts
 ```
 
@@ -153,7 +153,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vite
 
 > [!CAUTION]
 > Les suites E2E se **skippent** sans leurs variables d'infrastructure, et un skip compte comme
-> vert. Source unique des variables : `vitest.gates.ts` à la racine.
+> vert. Source unique des variables : `scripts/test/vitest/gates.ts` à la racine.
 
 ## 🔗 Pour aller plus loin
 

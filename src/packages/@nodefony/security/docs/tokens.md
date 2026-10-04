@@ -508,7 +508,7 @@ Cinq familles couvrent la brique — les **chiffres exacts vivent dans la carte 
   test de charge sur le grant.
 
 Les bancs sur serveur réel se **skippent sans leurs variables d'infra** — un skip compte comme
-vert : lire le bloc gates (`vitest.gates.ts`, affiché en fin de run) avant de conclure.
+vert : lire le bloc gates (`scripts/test/vitest/gates.ts`, affiché en fin de run) avant de conclure.
 Couverture : `npm run coverage` dans `@nodefony/security`.
 
 ## 🔗 Pour aller plus loin

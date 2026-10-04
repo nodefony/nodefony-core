@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "agentGuidance": false,
-  "globalDependencies": ["vitest.gates.ts", "vitest.oxc.ts", "vitest.perf.ts"],
+  "globalDependencies": ["scripts/test/vitest/**"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

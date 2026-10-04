@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { gateReporter } from "../../../../vitest.gates.ts";
-import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
+import { gateReporter } from "../../../../scripts/test/vitest/gates.ts";
+import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 

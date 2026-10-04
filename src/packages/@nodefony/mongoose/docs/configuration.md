@@ -751,7 +751,7 @@ driver.
 > que la base était là : soit `NF_MONGO_TEST_URI` pointe un conteneur
 > (`docker run -p 27017:27017 mongo:7`), soit le serveur en mémoire a démarré.
 >
-> Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module y
+> Le catalogue des variables d'infrastructure du dépôt est `scripts/test/vitest/gates.ts`, à la racine. Ce module y
 > déclare sa porte `MONGO_GATE` : le rapporteur de fin de course nomme la cible Mongo non exercée, avec
 > la commande exacte pour la monter.
 

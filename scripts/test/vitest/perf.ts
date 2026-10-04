@@ -2,7 +2,7 @@
  * **Options Vitest qui ne changent que la VITESSE — jamais ce qui est exercé.**
  *
  * Socle partagé par les `vitest.config.ts` des espaces de travail, sur le modèle
- * de `vitest.oxc.ts` (qui porte, lui, les options `oxc` de transformation). La
+ * de `scripts/test/vitest/oxc.ts` (qui porte, lui, les options `oxc` de transformation). La
  * séparation n'est pas cosmétique : ces réglages se justifient par une MESURE,
  * et une mesure se refait — les garder ensemble permet de les revoir d'un seul
  * endroit sans rouvrir vingt fichiers.
@@ -11,6 +11,10 @@
  * suite.** Un réglage qui fait passer un test qui échouait — ou l'inverse —
  * n'appartient pas à ce socle, il appartient à la configuration du paquet
  * concerné, où il se discute cas par cas.
+ *
+ *  test: { ...transformCache, … }   // dans une config vitest
+ *
+ * @usage test: { ...transformCache, … }   // dans une config vitest
  */
 
 /**

@@ -12,6 +12,10 @@
  *
  * À importer dans tout `vitest.config.ts` dont les tests transforment une source
  * portant des décorateurs (core, framework, orm-core, realtime, drizzle, …).
+ *
+ *  oxc: oxcDecorators,              // à côté de test: { … } dans une config vitest
+ *
+ * @usage oxc: oxcDecorators,              // à côté de test: { … } dans une config vitest
  */
 export const oxcDecorators = {
   decorator: { legacy: true, emitDecoratorMetadata: true },

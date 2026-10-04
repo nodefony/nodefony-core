@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-27
+updated: 2026-10-04
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-identifiers/SKILL.md"
 ---
@@ -77,9 +77,9 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/bench-identifier-language.mjs` | Banc — éprouve le gate de langue sur du corpus RÉEL, pas sur des cas choisis. | `--help` `--json` `--limit` `--sample` | `HELP` |
 | `scripts/check-identifier-language.mjs` | Gate — les IDENTIFIANTS du code de production s'écrivent en anglais. | `--cached` `--depth` `--exceptions` `--exclude-standard` `--help` `--json` `--others` | `HELP` `IDENT` `MODIFIERS` |
-| `scripts/check-identifier-language.test.mjs` | Suite du gate de langue des identifiants — écrite pour le faire ÉCHOUER, | — | — |
+| `scripts/check-identifier-language.test.mjs` | Suite du gate de langue des identifiants — écrite pour le faire ÉCHOUER, pas pour l'accompagner. | — | — |
 | `scripts/check-literals-unchanged.mjs` | Vérifie qu'un renommage n'a touché AUCUNE chaîne de caractères. | `--base` `--except` `--name-only` | — |
-| `scripts/check-rename-drift.mjs` | Confronte un renommage à son plan — la seule preuve qu'aucun symbole n'a | `--base` `--fix` `--plan` | — |
+| `scripts/check-rename-drift.mjs` | Confronte un renommage à son plan — la seule preuve qu'aucun symbole n'a dérivé. | `--base` `--fix` `--plan` | — |
 | `scripts/rename-identifiers.mjs` | Renomme des identifiants par le LanguageService TypeScript — jamais par regex. | `--dry` `--plan` `--project` | — |
 | `scripts/rename-identifiers.test.mjs` | Auto-contrôle de `rename-identifiers.mjs`. | `--plan` `--project` `--test` | — |
 

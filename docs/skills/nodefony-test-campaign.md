@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-test-campaign/SKILL.md"
 | Version | `1.0.0` |
 | Famille | Autres |
 | Corps | 207 lignes |
-| Coût d'activation | ~3 958 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~3 962 tokens (le corps est chargé à l'invocation) |
 | Description | 894 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 1 page(s) |

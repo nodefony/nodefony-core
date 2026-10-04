@@ -4,11 +4,12 @@
  *
  * Deux outils en ont besoin : `scripts-audit.mjs` (chaque script est-il au bon
  * endroit, quelqu'un l'appelle-t-il ?) et `skills-doc.mjs` (fiches des skills,
- * index `scripts/README.md`). Les deux s'exécutent à l'import : la règle vit
+ * `README.md` de chaque dossier de `scripts/`). Les deux s'exécutent à l'import : la règle vit
  * donc ici, sans effet de bord, et chacun l'appelle.
  */
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
-import { join, sep } from "node:path";
+import { join, posix, sep } from "node:path";
 
 /** Chemin à séparateur `/`, quelle que soit la plateforme — la clé de comparaison. */
 export const cle = (p) => p.split(sep).join("/");
@@ -133,9 +134,14 @@ export function analyzeScript(path) {
     ...new Set(declaredRequires.length ? declaredRequires : inferred),
   ];
 
-  // Raison d'être : la première ligne de commentaire substantielle de l'entête.
+  // Raison d'être : la première PHRASE de commentaire substantielle de l'entête.
+  // Une phrase court souvent sur deux lignes : n'en garder que la première rendait
+  // « Garde des dossiers temporaires — le jetable d'un test, le » — une coupure
+  // qui oblige le lecteur à rouvrir le fichier, ce que l'index devait lui épargner.
   let purpose = "";
-  for (const line of head) {
+  const commentaire = (line) => line.match(/^\s*(?:#|\/\/|\*)\s*(.*)$/)?.[1];
+  for (let i = 0; i < head.length; i++) {
+    const line = head[i];
     const c = line.match(/^\s*(?:#|\/\/|\*)\s*(.{8,})$/);
     // Un filet de séparation (tirets ASCII ou box-drawing) n'est pas une raison d'être.
     if (
@@ -144,7 +150,29 @@ export function analyzeScript(path) {
       !/eslint|prettier|@ts-/.test(c[1]) &&
       !/^[-=─━_*·.\s]+$/u.test(c[1])
     ) {
-      purpose = c[1].trim().replace(/\s*[-–—]\s*$/, "");
+      // Le paragraphe : jusqu'à une ligne de commentaire vide, un tag ou la fin.
+      const paragraphe = [c[1].trim()];
+      for (let j = i + 1; j < head.length; j++) {
+        const suite = commentaire(head[j])?.trim();
+        if (!suite || suite.startsWith("@") || /^[-=─━_*·.\s]+$/u.test(suite))
+          break;
+        paragraphe.push(suite);
+      }
+      const texte = paragraphe.join(" ");
+      // Le paragraphe ENTIER : c'est lui qui porte le pourquoi, et l'index doit
+      // dispenser de rouvrir le fichier. Au-delà de 600 caractères, coupé à la
+      // dernière fin de phrase qui tient — jamais au milieu d'un mot.
+      const MAX = 600;
+      let resume = texte;
+      if (texte.length > MAX) {
+        const fins = [...texte.slice(0, MAX).matchAll(/[.!?](?=\s)/gu)];
+        const fin = fins.at(-1)?.index;
+        resume =
+          fin === undefined
+            ? `${texte.slice(0, MAX - 1)}…`
+            : `${texte.slice(0, fin + 1)} […]`;
+      }
+      purpose = resume.trim().replace(/\s*[-–—]\s*$/, "");
       break;
     }
   }
@@ -299,6 +327,51 @@ export function createLaunchFinder(sourcesByPath, pkgText) {
   };
 
   /**
+   * Les IMPORTS qui remontent vers `scripts/` depuis le reste du dépôt — config
+   * vitest d'un paquet, test du cœur. Un module importé s'exécute : c'est un
+   * appel, et le seul que voient les socles de `scripts/test/vitest/`, qu'aucun
+   * script npm ni aucune forge ne nomme. Sans lui, l'audit les déclarait orphelins
+   * et l'index écrivait « appelé par aucun automate » d'un fichier importé par
+   * vingt-quatre configurations.
+   *
+   * Une seule passe `git grep`, chaque chemin résolu depuis le fichier qui l'écrit :
+   * un `../` de trop viserait un autre dossier.
+   *
+   * @type {Map<string, string[]>} socle (chemin sans extension) → importeurs.
+   */
+  const importsDuDepot = (() => {
+    const socles = new Map();
+    let sortie = "";
+    try {
+      sortie = execFileSync(
+        "git",
+        [
+          "grep",
+          "-n",
+          "-o",
+          "-E",
+          `(from|import)[[:space:]]*\\(?[[:space:]]*["'](\\.\\./)+scripts/[^"']+["']`,
+        ],
+        { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+      );
+    } catch {
+      // `git grep` sort 1 quand rien ne correspond : aucun import, aucun socle.
+    }
+    for (const ligne of sortie.split("\n")) {
+      const m = /^(.+?):\d+:.*["']([^"']+)["']$/u.exec(ligne);
+      if (!m) continue;
+      const cible = posix
+        .normalize(posix.join(posix.dirname(m[1]), m[2]))
+        .replace(/\.(?:ts|mts|mjs|js)$/u, "");
+      if (!cible.startsWith("scripts/")) continue;
+      const importeurs = socles.get(cible) ?? [];
+      if (!importeurs.includes(m[1])) importeurs.push(m[1]);
+      socles.set(cible, importeurs);
+    }
+    return socles;
+  })();
+
+  /**
    * Les sources, commentaires retirés. Ce qui sépare un APPEL d'une MENTION n'est
    * pas la forme du chemin — un script est aussi bien lancé par `spawn`, importé,
    * ou nommé dans une table que son lanceur parcourt (`readdirSync` + liste
@@ -336,6 +409,10 @@ export function createLaunchFinder(sourcesByPath, pkgText) {
         out.push({ label: "un hook (git ou agent)", name: f });
     for (const [f, src] of testsProduit)
       if (resoluPar(src, k)) out.push({ label: "un test du produit", name: f });
+    for (const f of importsDuDepot.get(
+      k.replace(/\.(?:ts|mts|mjs|js)$/u, ""),
+    ) ?? [])
+      out.push({ label: "un import du dépôt", name: f });
     // 🔴 Un runner de tests prend un DOSSIER, pas une liste de fichiers.
     // `vitest run scripts/release/` lance tout ce qui s'y termine en `.test.*` —
     // et ce contrôle, qui cherchait un nom de fichier, déclarait ces tests

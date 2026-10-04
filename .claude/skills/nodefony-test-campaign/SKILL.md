@@ -67,7 +67,7 @@ vert », dire ce qui n'a pas tourné.**
    le DIT en fin de run (« Interrupteurs fermés ») — c'est ce bloc qu'on lit, pas le total.
 2. **Les cibles d'infrastructure absentes.** Une variable manquante ne lève presque jamais : elle
    fait sauter un banc, et **un banc sauté compte comme vert**. Source unique des variables :
-   `vitest.gates.ts` ; le `gateReporter` les affiche en fin de suite. En CI (`CI` posé) la passe
+   `scripts/test/vitest/gates.ts` ; le `gateReporter` les affiche en fin de suite. En CI (`CI` posé) la passe
    ÉCHOUE si une cible déclarée n'a pas été exercée.
 3. **Les bancs hors périmètre.** Les scripts de `nodefony-load-test` et `nodefony-multipod-bench`
    ne sont JAMAIS joués par `test:all`, même avec `--load`. Le rapport les compte et le dit.

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// Le jetable du test, le test le supprime : scripts/test/vitest/tmp-guard.ts fait échouer
 // la passe sur tout dossier laissé dans le dossier temporaire.
 const aSupprimer: string[] = [];
 const temporaire = (dossier: string): string => {

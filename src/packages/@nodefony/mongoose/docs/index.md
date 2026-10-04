@@ -908,7 +908,7 @@ couverts en amont, dans les modules qui possèdent les contrats.
 > bien là : soit `NF_MONGO_TEST_URI` pointe sur un conteneur (`docker run -p 27017:27017 mongo:7`), soit
 > le serveur en mémoire a démarré. Les bancs de transaction exigent en plus un **replica set**.
 >
-> Le catalogue des variables d'infrastructure du dépôt est `vitest.gates.ts`, à la racine. Ce module y
+> Le catalogue des variables d'infrastructure du dépôt est `scripts/test/vitest/gates.ts`, à la racine. Ce module y
 > déclare sa porte `MONGO_GATE` : le rapporteur de fin de course nomme la cible Mongo non exercée.
 
 Couverture : `npm run coverage` dans `@nodefony/mongoose` (rapport lisible aussi dans Studio).

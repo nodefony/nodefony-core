@@ -868,7 +868,7 @@ l'aperçu, régénérée depuis les résultats réels — jamais figés ici.
 > [!CAUTION]
 > Plusieurs de ces suites exigent une infrastructure (Redis, cluster). **Un test qui se
 > saute compte comme vert.** Avant de conclure « tout passe », vérifie que les variables
-> d'environnement d'infrastructure sont bien posées — la source unique est `vitest.gates.ts`
+> d'environnement d'infrastructure sont bien posées — la source unique est `scripts/test/vitest/gates.ts`
 > à la racine, dont le rapport s'affiche en fin d'exécution.
 
 Couverture : `npm run coverage` dans `@nodefony/realtime`. Pour la charge et la mémoire, les

@@ -1,14 +1,14 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
-import { oxcDecorators } from "../../vitest.oxc.ts";
-import { transformCache } from "../../vitest.perf.ts";
+import { oxcDecorators } from "../../scripts/test/vitest/oxc.ts";
+import { transformCache } from "../../scripts/test/vitest/perf.ts";
 import {
   gateReporter,
   LOKI_GATE,
   OPENSEARCH_GATE,
-} from "../../vitest.gates.ts";
-import { tmpGuard } from "../../vitest.tmp-guard.ts";
+} from "../../scripts/test/vitest/gates.ts";
+import { tmpGuard } from "../../scripts/test/vitest/tmp-guard.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -27,13 +27,13 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *  - reflect-metadata (decorators), alias `before`/`after`→`beforeAll`/`afterAll` et
  *    le perf-skip OPT-IN (`NF_RUN_PERF=1`) sont portés dans `src/tests/vitest.setup.ts`.
  *
- * Decorators : requis pour le DI (`@injectable`/`@inject`) — cf `vitest.oxc.ts` (racine)
+ * Decorators : requis pour le DI (`@injectable`/`@inject`) — cf `scripts/test/vitest/oxc.ts` (racine)
  * pour le pourquoi du bloc `oxc` ci-dessous.
  */
 export default defineConfig({
   test: {
     // Dossier temporaire propre à la passe, contrôlé et supprimé au teardown
-    // (vitest.tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
+    // (scripts/test/vitest/tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
     globalSetup: tmpGuard(
       r("./src/tests/nodeDist.global.ts"),
       r("./src/tests/symbolsGraph.global.ts"),

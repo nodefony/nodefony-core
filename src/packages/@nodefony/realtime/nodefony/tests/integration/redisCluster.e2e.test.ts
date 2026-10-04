@@ -2,7 +2,10 @@ import { describe, it, expect, afterEach } from "vitest";
 import { fork, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createClient, type RedisClientType } from "redis";
-import { REDIS_GATE, gateValue } from "../../../../../../../vitest.gates";
+import {
+  REDIS_GATE,
+  gateValue,
+} from "../../../../../../../scripts/test/vitest/gates";
 
 /**
  * Banc e2e cluster **Redis** — workers Node forkés RÉELS (1 process = 1 pod),

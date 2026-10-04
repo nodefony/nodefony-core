@@ -67,12 +67,11 @@ const docsText =
   collectDocs("src/nodefony/docs") +
   collectModuleDocs("src/packages/@nodefony") +
   collectModuleDocs("src/modules") +
-  // L'index GÉNÉRÉ de scripts/ documente chaque script de la racine depuis son
-  // en-tête ; `skills-doc --check` refuse un script sans `@usage` — c'est lui, et
-  // non plus une citation de hasard dans un retex archivé, qui fait foi.
-  (existsSync(join("scripts", "README.md"))
-    ? readFileSync(join("scripts", "README.md"), "utf8")
-    : "");
+  // Les `README.md` GÉNÉRÉS de scripts/ (un par dossier) documentent chaque
+  // script depuis son en-tête ; `skills-doc --check` refuse un script sans
+  // `@usage` — ce sont eux, et non une citation de hasard dans un retex archivé,
+  // qui font foi.
+  collectDocs("scripts");
 
 /** Les `docs/` de chaque module d'un dossier de modules. */
 function collectModuleDocs(root) {
@@ -205,7 +204,7 @@ const importeAilleurs = (p) => {
   return false;
 };
 
-const { automateQuiLance } = createLaunchFinder(sourcesByPath, pkg);
+const { automateQuiLance, appelants } = createLaunchFinder(sourcesByPath, pkg);
 
 for (const p of rootScripts) {
   const base = p.split("/").pop();
@@ -216,10 +215,19 @@ for (const p of rootScripts) {
   const inDocs = docsText.includes(p);
   const signals = protocolSignals(p);
   const lancePar = automateQuiLance(p);
+  // Un SOCLE importé par le code du dépôt (config vitest d'un paquet) est appelé à
+  // chaque passe, et jamais lancé à la main : ni orphelin, ni banc à ranger dans
+  // un skill — le socle des gates ÉCRIT des commandes docker sans en lancer une.
+  const socleDe = appelants(p).find(
+    (a) => a.label === "un import du dépôt",
+  )?.name;
   let verdict, why;
   if (inPkg) {
     verdict = "✅ bien placé";
     why = "câblé dans package.json — outil déterministe du dépôt";
+  } else if (socleDe) {
+    verdict = "✅ bien placé";
+    why = `socle importé par ${socleDe}`;
   } else if (signals.executes.length >= 1 && signals.tous.length >= 2) {
     // Au moins un APPEL, et au moins deux signaux au total : un unique
     // `fetch("localhost")` dans un générateur de fichier d'exemple ne suffit

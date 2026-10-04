@@ -20,7 +20,7 @@
  *
  * Décor : `docker compose --profile proxy up -d`, serveur lancé avec
  * `NF_BIND_ALL=1` (bind 0.0.0.0 + trustProxy), `bash docker/certs/build-haproxy-pem.sh`,
- * `nodefony.com` dans /etc/hosts. Variables → `PROXY_GATE` de `vitest.gates.ts`.
+ * `nodefony.com` dans /etc/hosts. Variables → `PROXY_GATE` de `scripts/test/vitest/gates.ts`.
  * Sans elles, la suite se saute — et le rapporteur de gates le DIT.
  */
 import { expect } from "vitest";

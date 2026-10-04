@@ -44,7 +44,7 @@
  * ## Usage (dans un `vitest.config.ts` de workspace)
  *
  * ```ts
- * import { gateReporter, PG_GATE, MYSQL_GATE } from "../../../../vitest.gates";
+ * import { gateReporter, PG_GATE, MYSQL_GATE } from "../../../../scripts/test/vitest/gates";
  *
  * export default defineConfig({
  *   test: {
@@ -83,11 +83,18 @@
  * | `CI`              | non vide → une attente non tenue fait ÉCHOUER la passe        |
  * | `NF_GATES_ALLOW`  | liste (virgules) de variables/interrupteurs sciemment absents |
  * | `NF_GATES_EXPECT` | attentes ponctuelles `motif=N` posées par un workflow         |
+ *
+ *  reporters: gateReporter(PG_GATE)  // dans une config vitest qui touche un serveur réel
+ *
+ * @usage reporters: ["default", gateReporter([PG_GATE])]  // config vitest d’une suite qui touche un serveur réel
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+/** Racine du dépôt : ce fichier vit dans `scripts/test/vitest/`. */
+const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
 /**
  * Une cible d'infra dont l'exécution dépend de variables d'environnement.
@@ -248,7 +255,7 @@ function composeDefaults(): Map<string, string> {
     // Les modules natifs sont importés statiquement (ESM strict, règle projet) ;
     // c'est la LECTURE qui est paresseuse — rien n'est lu tant qu'aucun rapport
     // n'est affiché, et ce fichier est chargé par toutes les configs vitest.
-    const root = dirname(fileURLToPath(import.meta.url));
+    const root = REPO_ROOT;
 
     const yaml = readFileSync(join(root, COMPOSE_FILE), "utf8");
     for (const [, key = "", fallback = ""] of yaml.matchAll(
@@ -484,7 +491,7 @@ const KEYCLOAK_REALM_FILE = join(
  */
 function realmClientSecret(clientId: string, fallback: string): string {
   try {
-    const root = dirname(fileURLToPath(import.meta.url));
+    const root = REPO_ROOT;
     const realm: unknown = JSON.parse(
       readFileSync(join(root, KEYCLOAK_REALM_FILE), "utf8"),
     );

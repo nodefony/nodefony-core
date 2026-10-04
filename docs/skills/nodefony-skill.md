@@ -81,7 +81,7 @@ script, donc toujours à jour après régénération.
 | `scripts/scripts-audit.mjs` | scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ? | `--strict` | `ACQUITTES_PATH` |
 | `scripts/skills-doc.mjs` | skills-doc — fiche de documentation par skill, ET gate de conformité. | `--check` | `SKILLS_DOC_DATE` |
 | `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill. | `--verbose` `--list` | `FRAGILE_MARGIN` |
-| `lib/script-doc.mjs` | Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le | `--out` | `VAR` |
+| `lib/script-doc.mjs` | Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le lance — en une seule implémentation. | `--out` | `VAR` |
 
 **Invocation telle que documentée dans chaque script :**
 

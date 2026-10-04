@@ -71,4 +71,4 @@ Infra : `docker compose -f docker/docker-compose.yml up -d` (password `nodefony-
 ## Tests — gates d'infra (⚠️ DEUX variables)
 
 - `REDIS_URL` = bancs de pagination (fake intégré si absente) · `NF_REDIS_TEST_URL` = banc **comportemental** sur index dédié (`/15`). Les deux portent le **mot de passe** : le serveur du compose tourne en `requirepass` → sans lui, `NOAUTH` (et non un skip).
-- N'en fournir qu'une laissait **14 tests skippés, suite VERTE, sans un mot** → `vitest.config.ts` monte `gateReporter([REDIS_GATE])` (source unique `vitest.gates.ts` racine) : la fin de run nomme la cible non exercée et sa commande. Complet = **81/81**.
+- N'en fournir qu'une laissait **14 tests skippés, suite VERTE, sans un mot** → `vitest.config.ts` monte `gateReporter([REDIS_GATE])` (source unique `scripts/test/vitest/gates.ts` racine) : la fin de run nomme la cible non exercée et sa commande. Complet = **81/81**.

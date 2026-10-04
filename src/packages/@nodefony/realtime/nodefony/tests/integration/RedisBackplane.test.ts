@@ -7,7 +7,10 @@ import {
 import { sealBackplaneEnvelope } from "../../src/backplane/envelope.js";
 import { RealtimeHub } from "../../src/server/RealtimeHub.js";
 import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
-import { REDIS_GATE, gateValue } from "../../../../../../../vitest.gates";
+import {
+  REDIS_GATE,
+  gateValue,
+} from "../../../../../../../scripts/test/vitest/gates";
 
 /**
  * Tests d'INTÉGRATION (Redis réel) — exigent l'infra :

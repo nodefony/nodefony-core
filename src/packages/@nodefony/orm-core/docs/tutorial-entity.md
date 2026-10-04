@@ -560,7 +560,7 @@ dialecte — `@nodefony/drizzle` (sqlite en mémoire, PostgreSQL et MySQL en end
 > [!WARNING]
 > Un compteur vert ne prouve pas qu'une base a été touchée : les bancs sur serveur réel se
 > **skippent** faute de leur variable d'infra, et un test skippé compte comme vert. La source
-> unique de ces variables et des commandes Docker correspondantes est `vitest.gates.ts` à la
+> unique de ces variables et des commandes Docker correspondantes est `scripts/test/vitest/gates.ts` à la
 > racine du dépôt ; les suites concernées affichent leur récapitulatif en fin d'exécution.
 
 ## 🔗 Pour aller plus loin

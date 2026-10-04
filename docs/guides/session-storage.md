@@ -223,7 +223,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vite
 > [!CAUTION]
 > Les suites E2E se **skippent** sans leurs variables d'infrastructure, et un skip compte comme
 > vert. Avant de conclure « tout passe » sur PostgreSQL et MySQL, vérifier que `NF_PG_URL` et
-> `NF_MYSQL_URL` étaient posées — source unique : `vitest.gates.ts` à la racine.
+> `NF_MYSQL_URL` étaient posées — source unique : `scripts/test/vitest/gates.ts` à la racine.
 
 ## 🔗 Pour aller plus loin
 

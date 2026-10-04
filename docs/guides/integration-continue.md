@@ -10,7 +10,7 @@ version: "doc"
 status: stable
 updated: 2026-09-01
 source: "docs/guides/integration-continue.md"
-related: vitest.gates.ts, docs/guides/persistence.md, .github/workflows/
+related: scripts/test/vitest/gates.ts, docs/guides/persistence.md, .github/workflows/
 ---
 
 # Intégration continue
@@ -28,7 +28,7 @@ pour qui ignore que ces fichiers existent.
 > `nodefony create app`. Ce qui doit atteindre l'auteur — ou l'agent — d'une
 > **application** vit dans les gabarits du scaffold (`AGENTS.md` et documentation
 > de l'app générée), et parle de SES tests à ELLE. Ne pas recopier ce guide
-> là-bas : une app n'a ni `orm.yml`, ni `vitest.gates.ts`.
+> là-bas : une app n'a ni `orm.yml`, ni `scripts/test/vitest/gates.ts`.
 >
 > Ce qui **traverse** la frontière, en revanche, c'est le principe du §1 — un
 > test non exécuté n'est pas un test réussi. Une application gagne à le tenir
@@ -45,9 +45,9 @@ PostgreSQL joignable, les tests qui en dépendent ne tombent pas — ils se saut
 compte comme un succès. Une passe verte peut donc ne rien avoir prouvé.
 
 Toute cette page découle de là. Le dépôt ne se contente pas de lancer des tests : il **déclare le
-décor attendu** en un seul endroit (`vitest.gates.ts`) — une cible par base, `PG_GATE`
-(`vitest.gates.ts:283`) et `MYSQL_GATE` (`vitest.gates.ts:295`), plus la liste des interrupteurs
-optionnels `OPT_IN_SWITCHES` (`vitest.gates.ts:137`) —, vérifie que chaque décor déclaré a
+décor attendu** en un seul endroit (`scripts/test/vitest/gates.ts`) — une cible par base, `PG_GATE`
+(`scripts/test/vitest/gates.ts:290`) et `MYSQL_GATE` (`scripts/test/vitest/gates.ts:307`), plus la liste des interrupteurs
+optionnels `OPT_IN_SWITCHES` (`scripts/test/vitest/gates.ts:137`) —, vérifie que chaque décor déclaré a
 réellement servi, et **fait échouer la passe** en intégration continue quand une cible annoncée
 n'a pas été exercée. Une absence voulue s'énonce ; elle ne s'oublie pas.
 
@@ -65,7 +65,7 @@ redoutable dès qu'une partie des cas dépend d'un serveur :
   qui n'a rien prouvé.
 
 Dans les deux cas le vert est sincère et ne veut rien dire. La parade est un
-rapporteur de fin de suite — [`vitest.gates.ts`](../../vitest.gates.ts), à la
+rapporteur de fin de suite — [`scripts/test/vitest/gates.ts`](../../scripts/test/vitest/gates.ts), à la
 racine — qui confronte ce qui **devait** tourner à ce qui **a** tourné.
 
 Sa sanction dépend de qui lit :
@@ -150,7 +150,7 @@ dépôt public ou non.
 
 ## 3. Les trois leviers du rapporteur
 
-Tous les trois vivent dans [`vitest.gates.ts`](../../vitest.gates.ts) — source
+Tous les trois vivent dans [`scripts/test/vitest/gates.ts`](../../scripts/test/vitest/gates.ts) — source
 unique. Aucun ne se recopie dans un workflow.
 
 ### `proof` — la preuve qu'un décor a SERVI
@@ -261,7 +261,7 @@ Le drapeau se pose par l'action composite
 ## 5. Rejouer un job sur sa machine
 
 Les variables d'infra ne se retiennent pas : elles sont **dérivées du compose**
-par `vitest.gates.ts`, et le rapporteur les affiche en fin de suite quand elles
+par `scripts/test/vitest/gates.ts`, et le rapporteur les affiche en fin de suite quand elles
 manquent. La commande qu'il imprime est copiable telle quelle.
 
 ```bash
@@ -382,7 +382,7 @@ connaît que les suites vitest d'un module ; ceux-là n'y sont pas.
 ### Un skip compte comme un succès, et ressort comme non couvert
 
 C'est la règle n°1 de ce guide appliquée à la couverture. `npm run coverage` pose
-donc le décor depuis `vitest.gates.ts` — mais **uniquement pour les services dont
+donc le décor depuis `scripts/test/vitest/gates.ts` — mais **uniquement pour les services dont
 le conteneur est sain**. Poser l'URL d'un service absent ne rend pas les suites
 silencieuses : elle les fait **échouer**, et le rouge est alors imputé au produit.
 La commande nomme en tête de passe les services absents et les variables qu'elle
@@ -396,7 +396,7 @@ seuil serait une décision de projet, pas un effet de bord d'un outil de mesure.
 
 ## 7. Ajouter une cible, une preuve, un workflow
 
-1. **Une nouvelle cible d'infra** → une `EnvGate` dans `vitest.gates.ts`. Ses
+1. **Une nouvelle cible d'infra** → une `EnvGate` dans `scripts/test/vitest/gates.ts`. Ses
    identifiants se **lisent dans le compose**, ils ne se retapent pas : une
    seconde source ment dès que quelqu'un change un port.
 2. **La déclarer au paquet** → `gateReporter([{ gate: X_GATE, proof: "…" }])`
@@ -412,14 +412,14 @@ seuil serait une décision de projet, pas un effet de bord d'un outil de mesure.
 
 ## 📖 Lexique
 
-| Terme                | Ce que c'est                                                                                                                           |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Forge**            | L'intégration continue — ici GitHub Actions. Ce qui rejoue les contrôles à chaque poussée, sur une machine qui n'est pas la vôtre.     |
-| **Décor**            | Ce qu'une suite exige pour s'exécuter vraiment : une base joignable, un cache, une variable posée. Déclaré dans `vitest.gates.ts:101`. |
-| **Gate**             | Un contrôle bloquant : tant qu'il est rouge, la chaîne s'arrête.                                                                       |
-| **Saut** (_skip_)    | Un test non exécuté faute de décor. Il ressort **vert** dans le rapport — c'est tout le problème que cette page traite.                |
-| **Preuve** (`proof`) | La trace qu'un décor a réellement servi, et pas seulement été déclaré.                                                                 |
-| **Absence énoncée**  | `NF_GATES_ALLOW` : dire explicitement qu'une cible ne sera pas exercée. Ce qui distingue un choix d'un oubli.                          |
+| Terme                | Ce que c'est                                                                                                                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Forge**            | L'intégration continue — ici GitHub Actions. Ce qui rejoue les contrôles à chaque poussée, sur une machine qui n'est pas la vôtre.                  |
+| **Décor**            | Ce qu'une suite exige pour s'exécuter vraiment : une base joignable, un cache, une variable posée. Déclaré dans `scripts/test/vitest/gates.ts:101`. |
+| **Gate**             | Un contrôle bloquant : tant qu'il est rouge, la chaîne s'arrête.                                                                                    |
+| **Saut** (_skip_)    | Un test non exécuté faute de décor. Il ressort **vert** dans le rapport — c'est tout le problème que cette page traite.                             |
+| **Preuve** (`proof`) | La trace qu'un décor a réellement servi, et pas seulement été déclaré.                                                                              |
+| **Absence énoncée**  | `NF_GATES_ALLOW` : dire explicitement qu'une cible ne sera pas exercée. Ce qui distingue un choix d'un oubli.                                       |
 
 ## ⚠️ Pièges
 
@@ -448,7 +448,7 @@ lui-même qui le couvrent. Les chiffres exacts vivent dans la carte de l'aperçu
 | Unitaires (CLI) | `nodefony` `Cli.test.ts` | codes de sortie et signaux — ce que la forge lit pour décider rouge ou vert |
 | Intégration | `nodefony` `CliIntegration.test.ts` | l'exécution réelle des commandes que les workflows appellent |
 
-> La déclaration du décor elle-même (`gateReporter()`, `vitest.gates.ts:669`) n'est pas couverte
+> La déclaration du décor elle-même (`gateReporter()`, `scripts/test/vitest/gates.ts:669`) n'est pas couverte
 > par un test unitaire : elle est éprouvée par l'usage, en étant lue à la fin de chaque passe. La
 > seule façon de vérifier qu'un gate mord reste de le casser exprès.
 

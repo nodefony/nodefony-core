@@ -17,7 +17,7 @@
  *
  * ## Ce qu'il fait
  *
- *  1. inspecte les cibles d'infra (`vitest.gates.ts` — la source unique), démarre
+ *  1. inspecte les cibles d'infra (`scripts/test/vitest/gates.ts` — la source unique), démarre
  *     les conteneurs manquants et attend qu'ils soient sains ;
  *  2. pose les variables correspondantes ;
  *  3. enchaîne les phases : build, suite unitaire, serveur de développement,
@@ -68,7 +68,7 @@ import {
   redactUrl,
   OPT_IN_SWITCHES,
   type EnvGate,
-} from "../../vitest.gates";
+} from "./vitest/gates";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 
 // Loki et OpenSearch sont ici pour la même raison que les bases : le cœur

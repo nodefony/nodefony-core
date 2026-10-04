@@ -22,7 +22,7 @@
  * variable qui n'existe plus.
  *
  * L'infra et les interrupteurs de coût ne sont **pas** ici : ils vivent dans
- * `vitest.gates.ts`, source unique du dépôt, et le générateur les y LIT.
+ * `scripts/test/vitest/gates.ts`, source unique du dépôt, et le générateur les y LIT.
  *
  * @usage import { BENCH_DECOR, type IEnvDeclaration } from "./env-catalog"
  */

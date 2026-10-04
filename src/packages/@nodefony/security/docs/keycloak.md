@@ -412,7 +412,7 @@ journal du serveur, préfixée `oauth2 callback "keycloak"` (`OAuth2Controller.t
 | Intégration | `http/nodefony/tests/integration/oauth2-keycloak.test.ts` | Contre un **vrai** Keycloak : flux complet, même compte entre session et jeton d'API, `invalid_grant` rendu par Keycloak, déconnexion dans les deux sens, jeton de déconnexion forgé refusé. |
 
 Le banc d'intégration exige le conteneur et les trois variables (décor `KEYCLOAK_GATE` de
-`vitest.gates.ts`) ; sans eux il est sauté, et la passe le dit en fin de run. Le cas du canal
+`scripts/test/vitest/gates.ts`) ; sans eux il est sauté, et la passe le dit en fin de run. Le cas du canal
 arrière constate en plus que le conteneur JOINT l'application (`host.docker.internal`) : un serveur
 de développement sous Linux n'écoute que la boucle locale, le cas est alors sauté et le dit.
 

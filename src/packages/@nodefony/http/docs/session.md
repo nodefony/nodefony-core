@@ -753,7 +753,7 @@ depuis vitest, jamais figés ici.
 > [!CAUTION]
 > Les suites E2E se **skippent** sans leurs variables d'infra, et un skip compte comme vert. Avant de
 > conclure « tout passe » sur les dialectes PostgreSQL/MySQL, vérifier que `NF_PG_URL`/`NF_MYSQL_URL`
-> étaient bien posées (source unique : `vitest.gates.ts` à la racine).
+> étaient bien posées (source unique : `scripts/test/vitest/gates.ts` à la racine).
 
 Skills utiles : `nodefony-load-test` (rejouer ou étendre la charge), `nodefony-check-memory-health`
 (gate mémoire), `nodefony-security-review` (fixation, timeouts, révocation).

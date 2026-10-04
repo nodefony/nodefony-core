@@ -62,7 +62,7 @@ dépôt, parce qu'il produit un faux succès : on croit avoir prouvé, on ferme 
 régression sort en production.
 
 Nommer : les variables (`NF_PG_URL`, `NF_MYSQL_URL`, `NF_MONGO_TEST_URI`), les conteneurs, les
-interrupteurs de coût (`NF_RUN_PERF`, `NF_RUN_DB_OUTAGE`). Source unique : `vitest.gates.ts`.
+interrupteurs de coût (`NF_RUN_PERF`, `NF_RUN_DB_OUTAGE`). Source unique : `scripts/test/vitest/gates.ts`.
 
 ### 4. Les pièges DÉJÀ CONNUS
 

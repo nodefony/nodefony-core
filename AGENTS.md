@@ -145,7 +145,7 @@ droite dit à quelle **question** chacun répond.
 > 🔴 **Sur ce dépôt, un décor absent ne lève presque jamais : il fait sauter un banc, et
 > un banc sauté compte comme vert.** Avant de conclure « les tests passent », lire ce
 > que la suite déclare ne pas avoir exercé. La source unique des variables et des
-> conteneurs est `vitest.gates.ts`, à la racine.
+> conteneurs est `scripts/test/vitest/gates.ts`, à la racine.
 
 ---
 

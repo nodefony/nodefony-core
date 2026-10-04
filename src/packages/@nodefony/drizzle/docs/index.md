@@ -921,7 +921,7 @@ variables laisse **des centaines de tests non exécutés — soit les deux diale
 annonce quand même un succès.
 
 Le module rend donc ce silence audible : ses gates d'infrastructure sont déclarées dans
-`vitest.gates.ts` à la racine (source **unique** du dépôt), et un rapporteur nomme en fin d'exécution
+`scripts/test/vitest/gates.ts` à la racine (source **unique** du dépôt), et un rapporteur nomme en fin d'exécution
 les cibles **non exercées**, avec la commande exacte pour les activer.
 
 ```bash

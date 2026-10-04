@@ -15,7 +15,7 @@ import type { ILogQueryResult } from "../syslog/drivers/ILogDriver";
 // ingestion → relecture par NOTRE driver → round-trip write↔read. C'est le seul
 // test qui attrape un rejet du serveur (labels, fenêtre de timestamps, mapping).
 //
-// Gated (cf vitest.gates.ts LOKI_GATE / OPENSEARCH_GATE) : SKIP sans l'URL. Décor :
+// Gated (cf scripts/test/vitest/gates.ts LOKI_GATE / OPENSEARCH_GATE) : SKIP sans l'URL. Décor :
 //   docker compose -f docker/docker-compose.yml --profile loki --profile opensearch up -d loki opensearch
 //   NF_LOKI_TEST_URL=http://127.0.0.1:3100 NF_OPENSEARCH_TEST_URL=http://127.0.0.1:9200 \
 //     npx vitest run src/tests/LogBackplaneE2E.test.ts

@@ -1,5 +1,5 @@
 // Toute configuration vitest du dépôt pose la garde des dossiers temporaires
-// (vitest.tmp-guard.ts). Une config qui l'oublie rouvre la fuite qu'elle ferme :
+// (scripts/test/vitest/tmp-guard.ts). Une config qui l'oublie rouvre la fuite qu'elle ferme :
 // 28 454 entrées et 42 Go laissés dans le dossier temporaire du système avant
 // elle — et un oubli ne se verrait pas, puisqu'une passe sans garde est verte.
 import { execFileSync } from "node:child_process";

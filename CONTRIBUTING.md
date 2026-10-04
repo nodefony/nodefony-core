@@ -96,7 +96,7 @@ Elles ne sont pas des goûts : chacune a été payée par un défaut réel.
   complaisant par défaut : débranchez le correctif, vérifiez que quelque chose tombe, rebranchez.
 - **Un `npm test` vert ne prouve pas tout** : les suites qui exigent une infrastructure se
   _skippent_ sans leurs variables, et un skip compte comme vert. La source unique des variables et
-  des commandes docker est [`vitest.gates.ts`](vitest.gates.ts) ; les suites concernées affichent en
+  des commandes docker est [`scripts/test/vitest/gates.ts`](scripts/test/vitest/gates.ts) ; les suites concernées affichent en
   fin de passe ce qu'elles n'ont pas exercé. Lisez ce bloc avant de conclure « vert ».
 
 ## Commits et pull requests

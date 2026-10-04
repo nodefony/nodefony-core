@@ -84,15 +84,15 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--apply` `--prouve` `--show-toplevel` | — |
-| `scripts/anchor-check.selftest.mjs` | Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre | — | — |
-| `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. | `--apply` `--occurrences` `--suggest` | `APPLY` `NF_BOOT_TIMEOUT_MS` |
+| `scripts/anchor-check.selftest.mjs` | Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre qui a DÉRIVÉ loin de la déclaration qu'elle prouve, et se taire sur une ancre juste — posée sur la déclaration, dans son TSDoc, ou sur un site d'usage. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | — | — |
+| `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. Entrée : la sortie d'anchor-check.mjs (stdin). Sortie : édite les .md en place. Règle : on ne déplace une ancre que si UNE seule ligne de définition plausible est trouvée pour les symboles cités — sinon on laisse et on le signale. | `--apply` `--occurrences` `--suggest` | `APPLY` `NF_BOOT_TIMEOUT_MS` |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
 | `scripts/corpus.mjs` | Dossiers qu'on ne descend jamais. | — | — |
-| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. | `--instructions` `--list` `--published` `--show-toplevel` | `COVERAGE` `NAV_MAX` |
-| `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT | `--show-toplevel` | — |
-| `scripts/symboles.mjs` | Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`, | — | — |
-| `scripts/symboles.selftest.mjs` | Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que | — | — |
+| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. Une page ne peut être marquée ✅ que si elle PASSE ce linter. Usage : node doc-lint.mjs /tmp/corpus/*.md | `--instructions` `--list` `--published` `--show-toplevel` | `COVERAGE` `NAV_MAX` |
+| `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT les cas réels (`it(`/`test(`) dans les fichiers de `test-map.json`. | `--show-toplevel` | — |
+| `scripts/symboles.mjs` | Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`, `MEMORY.md`) après un renommage du français vers l'anglais. | — | — |
+| `scripts/symboles.selftest.mjs` | Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que le code ne porte plus, et ne PAS crier sur ce qui est vivant, externe ou hors grammaire. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | — | — |
 | `lib/slug-heading.mjs` | Slug d'un titre de page — la SEULE implémentation côté Node. | — | — |
 
 **Invocation telle que documentée dans chaque script :**

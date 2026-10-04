@@ -7,7 +7,7 @@
  * serveur (PostgreSQL, MySQL, Mongo, Redis) se skippent faute de leurs
  * variables, un skip compte comme un succès, et le taux qui en sort décrit un
  * périmètre plus petit que celui qu'on croit juger. Le décor n'est donc pas
- * réécrit ici : il est DÉRIVÉ de `vitest.gates.ts`, la source unique du dépôt,
+ * réécrit ici : il est DÉRIVÉ de `scripts/test/vitest/gates.ts`, la source unique du dépôt,
  * exactement comme le fait `scripts/test/test-all.ts`.
  *
  * Ce script MESURE ; il ne pose aucun seuil et ne fait échouer que sur un module
@@ -49,7 +49,7 @@ interface Gate {
   values?: () => Record<string, string>;
 }
 const gates: Record<string, unknown> = await import(
-  path.join(ROOT, "vitest.gates.ts")
+  path.join(ROOT, "scripts", "test", "vitest", "gates.ts")
 );
 // ⚠️ Surtout PAS `test-all.ts` : c'est un SCRIPT, son corps s'exécute à l'import
 // — en importer une fonction relançait l'infra, le build et la batterie entière.
@@ -86,7 +86,7 @@ for (const [nom, g] of Object.entries(gates)) {
   }
 }
 log(
-  `décor : ${Object.keys(posees).length} variable(s) posée(s) depuis vitest.gates.ts\n` +
+  `décor : ${Object.keys(posees).length} variable(s) posée(s) depuis scripts/test/vitest/gates.ts\n` +
     (Object.keys(posees).length
       ? `        ${Object.keys(posees).join(" · ")}\n`
       : `        ⚠️ AUCUNE — les suites sur serveur réel vont se skipper, et un skip compte comme vert.\n`) +

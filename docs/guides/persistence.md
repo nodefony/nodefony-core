@@ -287,7 +287,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vite
 
 > [!CAUTION]
 > Les suites E2E se **skippent** sans leurs variables d'infrastructure, et un skip compte comme
-> vert. Source unique des variables : `vitest.gates.ts` à la racine.
+> vert. Source unique des variables : `scripts/test/vitest/gates.ts` à la racine.
 
 ## 🔗 Pour aller plus loin
 

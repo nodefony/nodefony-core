@@ -1,6 +1,6 @@
 <!-- GÉNÉRÉ par scripts/generate/env-snapshot.ts (npm run env:snapshot).
      NE PAS ÉDITER À LA MAIN.
-     Les descriptions d'infra et d'interrupteurs viennent de vitest.gates.ts ;
+     Les descriptions d'infra et d'interrupteurs viennent de scripts/test/vitest/gates.ts ;
      celles du décor de banc de scripts/generate/env-catalog.ts. Éditer ici ferait
      diverger la copie de sa source, ce que ce fichier existe pour empêcher. -->
 
@@ -15,7 +15,7 @@
 | Infrastructure | 13 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 37 |
-| Runtime produit | 76 |
+| Runtime produit | 78 |
 
 ## Décor de banc
 
@@ -116,7 +116,7 @@ rien : elle change ce qui est EXÉCUTÉ.
 
 ## Infrastructure
 
-Décrites dans [`vitest.gates.ts`](../vitest.gates.ts), qui porte AUSSI la
+Décrites dans [`scripts/test/vitest/gates.ts`](../scripts/test/vitest/gates.ts), qui porte AUSSI la
 commande docker et le rapporteur qui fait échouer la CI quand une cible
 déclarée n'a pas été exercée.
 
@@ -146,7 +146,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (76)
+## Runtime produit (78)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -202,6 +202,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:92` |
+| `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:623` |
+| `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:642` |
 | `NF_HUB_API` | `scripts/release/hub-description.mjs:56` |
 | `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:62` |
 | `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:52` |
@@ -218,14 +220,14 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:367` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:368` |
-| `NF_README_ROOT` | `scripts/release/readme-gate.mjs:99` |
+| `NF_README_ROOT` | `scripts/release/readme-gate.mjs:100` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:56` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:50` |
 | `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:46` |
-| `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:21` |
-| `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:20` |
-| `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:22` |
-| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:90` |
+| `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:24` |
+| `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:23` |
+| `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:25` |
+| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:89` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:616` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |

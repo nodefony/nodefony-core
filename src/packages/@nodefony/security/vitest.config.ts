@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
-import { transformCache } from "../../../../vitest.perf.ts";
-import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
+import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
+import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 /**
  * vitest + coverage-v8 pour @nodefony/security.
@@ -11,7 +11,7 @@ import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
 export default defineConfig({
   test: {
     // Dossier temporaire propre à la passe, contrôlé et supprimé au teardown
-    // (vitest.tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
+    // (scripts/test/vitest/tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
     globalSetup: tmpGuard(),
     // 82 processus de travail étaient créés, ~7,99 s de démarrage chacun.
     // Mesuré 13,19 s → 4,73 s (-64 %), 1110 tests, 3 runs verts consécutifs ET

@@ -1,9 +1,12 @@
 import { defineConfig, configDefaults } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { gateReporter, KEYCLOAK_GATE } from "../../../../vitest.gates.ts";
-import type { GateExpectation } from "../../../../vitest.gates.ts";
-import { transformCache } from "../../../../vitest.perf.ts";
-import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
+import {
+  gateReporter,
+  KEYCLOAK_GATE,
+} from "../../../../scripts/test/vitest/gates.ts";
+import type { GateExpectation } from "../../../../scripts/test/vitest/gates.ts";
+import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
+import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 

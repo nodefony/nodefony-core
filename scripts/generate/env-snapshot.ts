@@ -19,7 +19,7 @@
  * Le périmètre se **CONSTATE**, il ne se choisit pas — trois familles, décidées
  * par le SITE de lecture :
  *
- * - **infra** et **interrupteur de coût** : déjà décrites dans `vitest.gates.ts`,
+ * - **infra** et **interrupteur de coût** : déjà décrites dans `scripts/test/vitest/gates.ts`,
  *   source unique du dépôt. Elles sont **LUES** de là, jamais redéclarées : deux
  *   descriptions de la même variable divergent, c'est le défaut que ce fichier
  *   existe pour ne pas reproduire.
@@ -61,7 +61,7 @@ import {
   KEYCLOAK_GATE,
   gateEnv,
   type EnvGate,
-} from "../../vitest.gates";
+} from "../test/vitest/gates";
 import { REPO_ROOT as ROOT } from "../lib/repo-root.mjs";
 
 /** Dossiers balayés — les seuls qui portent du code exécuté. */
@@ -199,7 +199,7 @@ const GATES: ReadonlyArray<{ gate: EnvGate }> = [
 ];
 
 /**
- * Ce que `vitest.gates.ts` sait déjà — lu, jamais recopié.
+ * Ce que `scripts/test/vitest/gates.ts` sait déjà — lu, jamais recopié.
  *
  * @returns pour chaque variable d'infra ou d'interrupteur, sa description.
  */
@@ -320,7 +320,7 @@ function renderMarkdown(entries: IEnvEntry[]): string {
   let out =
     `<!-- GÉNÉRÉ par scripts/generate/env-snapshot.ts (npm run env:snapshot).\n` +
     `     NE PAS ÉDITER À LA MAIN.\n` +
-    `     Les descriptions d'infra et d'interrupteurs viennent de vitest.gates.ts ;\n` +
+    `     Les descriptions d'infra et d'interrupteurs viennent de scripts/test/vitest/gates.ts ;\n` +
     `     celles du décor de banc de scripts/generate/env-catalog.ts. Éditer ici ferait\n` +
     `     diverger la copie de sa source, ce que ce fichier existe pour empêcher. -->\n\n` +
     `# Variables d'environnement du dépôt\n\n` +
@@ -354,7 +354,7 @@ function renderMarkdown(entries: IEnvEntry[]): string {
 
   out +=
     `## Infrastructure\n\n` +
-    `Décrites dans [\`vitest.gates.ts\`](../vitest.gates.ts), qui porte AUSSI la\n` +
+    `Décrites dans [\`scripts/test/vitest/gates.ts\`](../scripts/test/vitest/gates.ts), qui porte AUSSI la\n` +
     `commande docker et le rapporteur qui fait échouer la CI quand une cible\n` +
     `déclarée n'a pas été exercée.\n\n| Variable | Cible |\n| --- | --- |\n`;
   for (const e of byFamily("infra")) {

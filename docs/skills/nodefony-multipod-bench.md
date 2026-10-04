@@ -89,12 +89,12 @@ script, donc toujours à jour après régénération.
 | `scripts/db-persistance-pod.mjs` | Banc E2E SYSTÈME — une donnée écrite par HTTP survit-elle au pod qui l'a écrite ? | `--url` | `CLE` `MODE` `NF_DATABASE_URL` `PORT` `URL_BASE` |
 | `scripts/db-readiness-pod.mjs` | **Banc — ce que la sonde de disponibilité fait d'un schéma qui ne colle pas.** | `--container` `--db` `--format` `--port` | `BASE` `PORT` |
 | `scripts/forge.mjs` | — | — | — |
-| `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages | — | — |
-| `scripts/listen.mjs` | Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket | — | — |
+| `scripts/latency.mjs` | Latence PURE du chemin cross-pod, hors saturation : 1 client, messages espacés (aucun backlog). Mesure : publish A1 → sceau → Redis → ingress A2 → fan-out → frame WS. node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs> / | — | — |
+| `scripts/listen.mjs` | Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket Nodefony. Se connecte au pod demandé, s'abonne à `chat:room1`, et rend en JSON tout ce qui est arrivé pendant la fenêtre d'écoute. | — | — |
 | `scripts/mempeak.sh` | Pic mémoire d'un pod pendant une rafale de publications. | — | — |
 | `scripts/pubcost.mjs` | — | — | — |
-| `scripts/run.sh` | Démarre les pods du banc : deux instances de la première application (même | `--stop` | `NF_BENCH_SECRET` |
-| `scripts/setup.sh` | Monte le banc multi-pods : Redis + N applications générées, liées au framework | `--controller` `--frontend` `--link` `--no-auth-warning` `--no-install` `--no-service` `--preset` `--yes` | `APP` |
+| `scripts/run.sh` | Démarre les pods du banc : deux instances de la première application (même secret = pairs légitimes) et une instance de la seconde SANS secret (le témoin non protégé, indispensable au contrôle négatif). | `--stop` | `NF_BENCH_SECRET` |
+| `scripts/setup.sh` | Monte le banc multi-pods : Redis + N applications générées, liées au framework local, configurées sur un bus commun. Idempotent : relancer ne casse rien. | `--controller` `--frontend` `--link` `--no-auth-warning` `--no-install` `--no-service` `--preset` `--yes` | `APP` |
 | `scripts/soak.mjs` | Charge soutenue cross-pod, par paliers de connexions. | — | — |
 
 **Invocation telle que documentée dans chaque script :**

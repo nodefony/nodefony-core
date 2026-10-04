@@ -171,7 +171,7 @@ Sans ces variables, la suite se saute — le décor à deux versants (conteneurs
 **et** serveur en `NF_BIND_ALL=1` **et** certificats dérivés **et** `nodefony.com`
 résolu côté client) ne se devine pas, et un montage à moitié réussi produirait un
 vert qui ne prouve rien. Les variables et leur mode d'emploi vivent dans
-`PROXY_GATE` (`vitest.gates.ts`), avec les autres cibles d'infra.
+`PROXY_GATE` (`scripts/test/vitest/gates.ts`), avec les autres cibles d'infra.
 
 **Ce que ce banc a déjà attrapé** : `proxy:generate` annonçait `proto=https` sur
 un frontend en clair dès qu'on demandait le re-chiffrement vers le backend — le

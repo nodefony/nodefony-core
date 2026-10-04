@@ -316,7 +316,7 @@ export interface ICheckRequest {
   /**
    * `true` si un contrôle SAUTÉ doit faire échouer la commande.
    *
-   * Même doctrine que les gates de test du dépôt (`vitest.gates.ts`) : devant
+   * Même doctrine que les gates de test du dépôt (`scripts/test/vitest/gates.ts`) : devant
    * un humain, un contrôle sauté est une information — il lit la section et
    * décide. Dans une chaîne automatisée, personne ne lit : un angle mort
    * silencieux y devient un quitus, et c'est ainsi qu'une passe « verte »

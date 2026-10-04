@@ -24,7 +24,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { transformCacheFor } from "../../../../vitest.perf";
+import { transformCacheFor } from "../../../../scripts/test/vitest/perf";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -132,7 +132,7 @@ describe("vitest.perf — le cache de transformation reste hors de la forge", ()
     //    décision — et non parce qu'un motif ne l'a pas vu : un nom inattendu
     //    échapperait alors au contrôle sans un mot, ce qui est un faux vert.
     //  - chercher `export default defineConfig` dans le texte attrape
-    //    `vitest.gates.ts`, où cette ligne est un EXEMPLE de TSDoc.
+    //    `scripts/test/vitest/gates.ts`, où cette ligne est un EXEMPLE de TSDoc.
     const dossiersDePaquet = new Set(
       suivis()
         .filter((l) => l.endsWith("/package.json"))
@@ -143,7 +143,7 @@ describe("vitest.perf — le cache de transformation reste hors de la forge", ()
       .filter((l) => /(^|\/)vitest[^/]*\.ts$/.test(l))
       .filter((l) => !l.endsWith(".d.ts"))
       // À côté d'un `package.json` : écarte d'un coup les socles de la racine du
-      // dépôt (`vitest.oxc.ts`, `vitest.perf.ts`, `vitest.gates.ts`) et les
+      // dépôt (`scripts/test/vitest/oxc.ts`, `scripts/test/vitest/perf.ts`, `scripts/test/vitest/gates.ts`) et les
       // `vitest.setup.ts`, qui vivent dans un dossier `tests/`.
       .filter((l) => dossiersDePaquet.has(path.dirname(l)))
       // Les gabarits partent dans les applications générées : leur

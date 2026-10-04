@@ -143,7 +143,7 @@ Avant de commencer une nouvelle phase / tâche :
    ```
 
    `test:all` (`scripts/test/test-all.ts`) démarre les conteneurs manquants, pose les variables
-   d'infra à ta place (source unique : `vitest.gates.ts`), enchaîne les phases dans le bon
+   d'infra à ta place (source unique : `scripts/test/vitest/gates.ts`), enchaîne les phases dans le bon
    ordre — et surtout **dit ce qu'il n'a PAS testé**. Aucune variable à retenir, aucun
    conteneur à lancer à la main. Repère : ~7 700 tests quand toute l'infra répond.
 
@@ -159,7 +159,7 @@ Avant de commencer une nouvelle phase / tâche :
    - **Un `npm test` vert ne prouve pas ce qu'on croit** : les bancs sur serveur réel se skippent
      sans leurs variables d'infra, et un skip compte comme vert (vécu : drizzle 442/781 non
      exécutés, dont PostgreSQL ET MySQL ; redis 14 tests muets faute de `NF_REDIS_TEST_URL`).
-     Source unique des variables + commandes docker = **`vitest.gates.ts`** (racine) ; les suites
+     Source unique des variables + commandes docker = **`scripts/test/vitest/gates.ts`** (racine) ; les suites
      concernées l'affichent en fin de run (`gateReporter`). Lire ce bloc AVANT de conclure « vert ».
      **En CI (`CI` posé) ce n'est plus un avertissement : la passe ÉCHOUE** si une cible déclarée
      n'a pas été exercée — et une absence voulue s'énonce (`NF_GATES_ALLOW`), elle ne s'oublie pas.

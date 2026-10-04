@@ -679,7 +679,7 @@ sont dans le banc d'intégration, sur le fil — c'est plus fort, mais elles ne 
 serveur) ; pas de test de charge ni de mesure mémoire propre à la vérification de clé.
 
 Les bancs sur serveur réel se **skippent sans leurs variables d'infra** — et un skip compte comme
-vert : lire le bloc gates (`vitest.gates.ts`, affiché en fin de run) avant de conclure. Skills
+vert : lire le bloc gates (`scripts/test/vitest/gates.ts`, affiché en fin de run) avant de conclure. Skills
 utiles : `nodefony-security-review` (matrice d'attaque), `nodefony-load-test` (charge).
 Couverture : `npm run coverage` dans `@nodefony/security`.
 

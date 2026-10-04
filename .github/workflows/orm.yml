@@ -10,7 +10,7 @@ name: Bancs sur infrastructure réelle
 #
 # Ces suites savent parler à un vrai serveur ; il ne leur manquait qu'un serveur.
 # Les variables attendues et leur forme sont définies une seule fois, dans
-# `vitest.gates.ts` à la racine — ce fichier les POSE, il ne les invente pas.
+# `scripts/test/vitest/gates.ts` — ce fichier les POSE, il ne les invente pas.
 #
 # Le second job traite le même mal sur ce que le framework promet de plus
 # structurant : une socket distribuée en cluster. Les deux bancs qui l'éprouvent
@@ -71,7 +71,7 @@ on:
       - ".claude/skills/nodefony-multipod-bench/scripts/**"
       # Les routes de sonde que le banc de persistance appelle.
       - "src/modules/test/nodefony/controller/DbController.ts"
-      - "vitest.gates.ts"
+      - "scripts/test/vitest/gates.ts"
       # Ce qui décide QUAND un connecteur s'ouvre et quelles entités il porte :
       # le Kernel (gating des modules), les modules qui inscrivent des briques
       # durables, et la configuration de l'application. Sans eux, un commit qui
@@ -124,7 +124,7 @@ on:
       - ".claude/skills/nodefony-multipod-bench/scripts/**"
       # Les routes de sonde que le banc de persistance appelle.
       - "src/modules/test/nodefony/controller/DbController.ts"
-      - "vitest.gates.ts"
+      - "scripts/test/vitest/gates.ts"
       # Ce qui décide QUAND un connecteur s'ouvre et quelles entités il porte :
       # le Kernel (gating des modules), les modules qui inscrivent des briques
       # durables, et la configuration de l'application. Sans eux, un commit qui
@@ -218,7 +218,7 @@ jobs:
       # passe configuré ». Il est donc démarré en étape, plus bas.
 
     env:
-      # Forme des URL : `vitest.gates.ts` (source unique). Le job tourne sur le
+      # Forme des URL : `scripts/test/vitest/gates.ts` (source unique). Le job tourne sur le
       # runner, pas dans un conteneur → les services sont joints par 127.0.0.1
       # sur les ports publiés ci-dessus.
       NF_PG_URL: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
@@ -256,7 +256,7 @@ jobs:
       # workflow, elle ne protégeait que les passes où quelqu'un avait pensé à
       # la recopier — et ne disait rien à qui lance la suite en local.
       #
-      # Elle vit maintenant dans `vitest.gates.ts`, appelée par la configuration
+      # Elle vit maintenant dans `scripts/test/vitest/gates.ts`, appelée par la configuration
       # du paquet (`proof: "(postgres)"`) : une seule implémentation, qui exige
       # un cas PASSÉ par dialecte et fait échouer la passe quand `CI` est posé.
       # Voir `docs/guides/integration-continue.md`.
@@ -456,7 +456,7 @@ jobs:
     timeout-minutes: 20
 
     env:
-      # Forme des URL : `vitest.gates.ts` (source unique, `LOKI_GATE` et
+      # Forme des URL : `scripts/test/vitest/gates.ts` (source unique, `LOKI_GATE` et
       # `OPENSEARCH_GATE`). Les ports sont ceux que le compose publie sur
       # l'hôte ; ce travail tourne sur le runner, pas dans un conteneur.
       NF_LOKI_TEST_URL: http://127.0.0.1:3100
@@ -472,7 +472,7 @@ jobs:
           node-version: 26.x
           cache: "npm"
 
-      # La commande EXACTE de `vitest.gates.ts` et du fichier de banc — celle
+      # La commande EXACTE de `scripts/test/vitest/gates.ts` et du fichier de banc — celle
       # qu'un développeur tape en local. Un décor qui se devine se monte de
       # travers.
       - name: Lever Loki et OpenSearch (compose du dépôt)

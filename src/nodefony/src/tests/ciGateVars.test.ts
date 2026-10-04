@@ -2,7 +2,7 @@
  * **Les variables d'infra que la forge pose doivent être celles que les gates
  * attendent.**
  *
- * `vitest.gates.ts` se déclare « source unique du monorepo » — mais un workflow
+ * `scripts/test/vitest/gates.ts` se déclare « source unique du monorepo » — mais un workflow
  * YAML ne peut pas l'importer : il RETAPE les noms à la main, sous un commentaire
  * qui affirme les tenir de lui. Deux implémentations d'une même règle, donc une
  * divergence en silence.
@@ -34,7 +34,7 @@ import {
   KEYCLOAK_GATE,
   gateEnv,
   type EnvGate,
-} from "../../../../vitest.gates";
+} from "../../../../scripts/test/vitest/gates";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../../..");
 const WORKFLOWS = path.join(REPO_ROOT, ".github", "workflows");
@@ -77,7 +77,7 @@ const otherForms = (name: string): string[] =>
 
 const workflows = readdirSync(WORKFLOWS).filter((f) => f.endsWith(".yml"));
 
-describe("Variables d'infra — la forge et `vitest.gates.ts` disent la même chose", () => {
+describe("Variables d'infra — la forge et `scripts/test/vitest/gates.ts` disent la même chose", () => {
   it("les workflows existent (sinon ce test ne prouve rien)", () => {
     assert.isAbove(workflows.length, 0, "aucun workflow lu");
   });
@@ -96,7 +96,7 @@ describe("Variables d'infra — la forge et `vitest.gates.ts` disent la même ch
             `${file} pose ${rivales.join(", ")} mais pas ${attendue}, que ` +
               `${gate.label} exige. Le rapporteur de gates dira « non exercée » ` +
               `même si les bancs tournent. Aligner le workflow sur ` +
-              `vitest.gates.ts, qui est la source unique.`,
+              `scripts/test/vitest/gates.ts, qui est la source unique.`,
           );
         });
       }

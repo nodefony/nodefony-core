@@ -508,7 +508,7 @@ Couverture : `npm run coverage` dans `@nodefony/realtime` et dans le workspace `
 > [!CAUTION]
 > Plusieurs suites bout en bout exigent une infrastructure. **Un test sauté compte comme vert** :
 > avant de conclure « tout passe », vérifier les variables d'environnement — la source unique est
-> `vitest.gates.ts` à la racine, dont le rapport s'affiche en fin d'exécution.
+> `scripts/test/vitest/gates.ts` à la racine, dont le rapport s'affiche en fin d'exécution.
 
 ## 🔗 Pour aller plus loin
 

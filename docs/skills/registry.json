@@ -54,7 +54,7 @@
     {
       "path": "scripts/lib/symbols-publish.mjs",
       "test": false,
-      "purpose": "Graphe symbolique : à quel module appartient un fichier, quels modules sont",
+      "purpose": "Graphe symbolique : à quel module appartient un fichier, quels modules sont PUBLIÉS, et la copie du graphe réduite à eux — seule implémentation.",
       "usage": [
         "import { moduleOf, publishedModules, filterGraphToModules } from \"../lib/symbols-publish.mjs\""
       ],
@@ -73,7 +73,7 @@
     {
       "path": "scripts/lib/symbols-publish.test.mjs",
       "test": true,
-      "purpose": "Copie publiée du graphe symbolique — module d'un fichier, modules publiés,",
+      "purpose": "Copie publiée du graphe symbolique — module d'un fichier, modules publiés, filtrage sans relation orpheline. /",
       "usage": [],
       "options": [],
       "env": [],
@@ -271,7 +271,7 @@
     {
       "path": "scripts/gates/vitest-tmp-guard.test.mjs",
       "test": true,
-      "purpose": "Toute configuration vitest du dépôt pose la garde des dossiers temporaires",
+      "purpose": "Toute configuration vitest du dépôt pose la garde des dossiers temporaires (scripts/test/vitest/tmp-guard.ts). Une config qui l'oublie rouvre la fuite qu'elle ferme : 28 454 entrées et 42 Go laissés dans le dossier temporaire du système avant elle — et un oubli ne se verrait pas, puisqu'une passe sans garde est verte.",
       "usage": [],
       "options": [],
       "env": [],
@@ -284,7 +284,7 @@
     {
       "path": "scripts/scaffold/check-scaffold-format.mjs",
       "test": false,
-      "purpose": "Le code que `nodefony create` PRODUIT est-il accepté par le formateur que ce",
+      "purpose": "Le code que `nodefony create` PRODUIT est-il accepté par le formateur que ce même code embarque ?",
       "usage": [
         "npm run format:scaffold",
         "node scripts/scaffold/check-scaffold-format.mjs --keep"
@@ -301,7 +301,7 @@
     {
       "path": "scripts/scaffold/check-scaffold-frontends.mjs",
       "test": false,
-      "purpose": "Le front que `nodefony create app --frontend <fw>` PRODUIT passe-t-il les",
+      "purpose": "Le front que `nodefony create app --frontend <fw>` PRODUIT passe-t-il les contrôles statiques que l'application générée exige d'elle-même ?",
       "usage": [
         "node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--keep]"
       ],
@@ -374,7 +374,7 @@
     {
       "path": "scripts/deps/deps-gate.test.mjs",
       "test": true,
-      "purpose": "Suite de bout en bout de la garde des dépendances — écrite pour la faire",
+      "purpose": "Suite de bout en bout de la garde des dépendances — écrite pour la faire ÉCHOUER, jamais pour l'accompagner.",
       "usage": [],
       "options": [],
       "env": [],
@@ -388,7 +388,7 @@
     {
       "path": "scripts/deps/lib/reconcile-versions.mjs",
       "test": false,
-      "purpose": "La question qui décide d'une divergence de version : **existe-t-il UNE version",
+      "purpose": "La question qui décide d'une divergence de version : **existe-t-il UNE version qui satisfait toutes les spécifications relevées ?**",
       "usage": [
         "import { reconcilie, dedouble } from \"./lib/reconcile-versions.mjs\""
       ],
@@ -405,7 +405,7 @@
     {
       "path": "scripts/deps/reconcile-versions.test.mjs",
       "test": true,
-      "purpose": "Suite de la réconciliation de versions — écrite pour faire ÉCHOUER la garde,",
+      "purpose": "Suite de la réconciliation de versions — écrite pour faire ÉCHOUER la garde, pas pour l'accompagner.",
       "usage": [],
       "options": [],
       "env": [],
@@ -419,7 +419,7 @@
     {
       "path": "scripts/test/coverage-all.ts",
       "test": false,
-      "purpose": "Rejoue la couverture de CHAQUE module qui en déclare une, avec le DÉCOR",
+      "purpose": "Rejoue la couverture de CHAQUE module qui en déclare une, avec le DÉCOR d'infra — et dit ce qu'elle n'a pas mesuré.",
       "usage": [
         "npm run coverage",
         "npm run coverage -- --only <module>",
@@ -489,7 +489,7 @@
     {
       "path": "scripts/test/test-all.ts",
       "test": false,
-      "purpose": "`npm run test:all` — lance **toute** la batterie de tests du monorepo, et rend",
+      "purpose": "`npm run test:all` — lance **toute** la batterie de tests du monorepo, et rend une image de ce qui a réellement été exercé.",
       "usage": [
         "npm run test:all",
         "npm run test:all -- --infra",
@@ -517,6 +517,178 @@
       "testedBy": []
     },
     {
+      "path": "scripts/test/vitest/gates.ts",
+      "test": false,
+      "purpose": "**Gates d'infrastructure des suites de test — source unique du monorepo.**",
+      "usage": [
+        "reporters: [\"default\", gateReporter([PG_GATE])]  // config vitest d’une suite qui touche un serveur réel"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "COMPOSE",
+          "help": ""
+        },
+        {
+          "name": "COMPOSE_FILE",
+          "help": ""
+        },
+        {
+          "name": "NF_GATES_ALLOW",
+          "help": ""
+        },
+        {
+          "name": "NF_GATES_EXPECT",
+          "help": ""
+        },
+        {
+          "name": "POSTGRES_PORT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "orm.yml",
+        "src/nodefony/vitest.config.ts",
+        "src/packages/@nodefony/drizzle/vitest.config.ts",
+        "src/packages/@nodefony/http/vitest.integration.config.ts",
+        "src/packages/@nodefony/http/vitest.load.config.ts",
+        "src/packages/@nodefony/mongoose/vitest.config.ts",
+        "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
+        "src/packages/@nodefony/realtime/vitest.config.ts",
+        "src/packages/@nodefony/redis/vitest.config.ts",
+        "scripts/generate/env-snapshot.ts",
+        "scripts/test/coverage-all.ts"
+      ],
+      "testedBy": [
+        "src/nodefony/src/tests/ciGateVars.test.ts",
+        "src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts",
+        "src/packages/@nodefony/realtime/nodefony/tests/integration/redisCluster.e2e.test.ts"
+      ]
+    },
+    {
+      "path": "scripts/test/vitest/oxc.ts",
+      "test": false,
+      "purpose": "Options oxc partagées par les `vitest.config.ts` des workspaces.",
+      "usage": [
+        "oxc: oxcDecorators,              // à côté de test: { … } dans une config vitest"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "src/modules/test/vitest.config.ts",
+        "src/nodefony/vitest.config.ts",
+        "src/packages/@nodefony/drizzle/vitest.config.load.ts",
+        "src/packages/@nodefony/drizzle/vitest.config.ts",
+        "src/packages/@nodefony/framework/vitest.config.ts",
+        "src/packages/@nodefony/framework/vitest.integration.config.ts",
+        "src/packages/@nodefony/mongoose/vitest.config.ts",
+        "src/packages/@nodefony/orm-core/vitest.config.ts",
+        "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
+        "src/packages/@nodefony/realtime/vitest.config.ts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/test/vitest/perf.ts",
+      "test": false,
+      "purpose": "**Options Vitest qui ne changent que la VITESSE — jamais ce qui est exercé.**",
+      "usage": [
+        "test: { ...transformCache, … }   // dans une config vitest"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "src/modules/mediasoup/vitest.config.ts",
+        "src/modules/test/vitest.config.ts",
+        "src/nodefony/vitest.config.ts",
+        "src/packages/@nodefony/devkit/vitest.config.ts",
+        "src/packages/@nodefony/documentation/vitest.config.ts",
+        "src/packages/@nodefony/drizzle/vitest.config.ts",
+        "src/packages/@nodefony/framework/vitest.config.ts",
+        "src/packages/@nodefony/framework/vitest.integration.config.ts",
+        "src/packages/@nodefony/frontend/vitest.config.ts",
+        "src/packages/@nodefony/frontend/vitest.integration.config.ts",
+        "src/packages/@nodefony/http/vitest.config.ts",
+        "src/packages/@nodefony/http/vitest.decors.config.ts",
+        "src/packages/@nodefony/http/vitest.integration.config.ts",
+        "src/packages/@nodefony/llm/vitest.config.ts",
+        "src/packages/@nodefony/mongoose/vitest.config.ts",
+        "src/packages/@nodefony/orm-core/vitest.config.ts",
+        "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
+        "src/packages/@nodefony/realtime/vitest.config.ts",
+        "src/packages/@nodefony/redis/vitest.config.ts",
+        "src/packages/@nodefony/security/vitest.config.ts",
+        "src/packages/@nodefony/studio/vitest.config.ts",
+        "src/packages/@nodefony/user/vitest.config.ts"
+      ],
+      "testedBy": [
+        "src/nodefony/src/tests/vitestPerfPreset.test.ts"
+      ]
+    },
+    {
+      "path": "scripts/test/vitest/tmp-guard.ts",
+      "test": false,
+      "purpose": "Garde des dossiers temporaires d'une passe vitest — le jetable d'un test, le test lui-même le supprime (CLAUDE.md, « le système de fichiers n'est pas un fourre-tout »).",
+      "usage": [
+        "globalSetup: tmpGuard()                 // dans test: { … } d'une config vitest",
+        "globalSetup: tmpGuard(r(\"./autre.ts\"))  // avec un globalSetup propre au paquet"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "src/modules/mediasoup/vitest.config.ts",
+        "src/modules/test/vitest.config.ts",
+        "src/nodefony/vitest.config.ts",
+        "src/packages/@nodefony/devkit/vitest.config.ts",
+        "src/packages/@nodefony/documentation/vitest.config.ts",
+        "src/packages/@nodefony/drizzle/vitest.config.ts",
+        "src/packages/@nodefony/framework/vitest.config.ts",
+        "src/packages/@nodefony/framework/vitest.integration.config.ts",
+        "src/packages/@nodefony/frontend/vitest.config.ts",
+        "src/packages/@nodefony/frontend/vitest.integration.config.ts",
+        "src/packages/@nodefony/http/vitest.config.ts",
+        "src/packages/@nodefony/http/vitest.decors.config.ts",
+        "src/packages/@nodefony/http/vitest.integration.config.ts",
+        "src/packages/@nodefony/http/vitest.load.config.ts",
+        "src/packages/@nodefony/llm/vitest.config.ts",
+        "src/packages/@nodefony/mongoose/vitest.config.ts",
+        "src/packages/@nodefony/orm-core/vitest.config.ts",
+        "src/packages/@nodefony/realtime/vitest.cluster.config.ts",
+        "src/packages/@nodefony/realtime/vitest.config.ts",
+        "src/packages/@nodefony/redis/vitest.config.ts",
+        "src/packages/@nodefony/security/vitest.config.ts",
+        "src/packages/@nodefony/studio/vitest.config.ts",
+        "src/packages/@nodefony/user/vitest.config.ts",
+        "scripts/test/vitest/vitest.tooling.config.ts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/test/vitest/vitest.tooling.config.ts",
+      "test": false,
+      "purpose": "Config des suites lancées depuis la RACINE (`test:tooling`, `test:release`, `test:pilotage`…) : les réglages par défaut de vitest, plus la garde des dossiers temporaires — rien d'autre.",
+      "usage": [
+        "npm run test:tooling             // et les six autres scripts test:* lancés depuis la racine"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:externals",
+        "npm run test:deps-gate",
+        "npm run test:site-plan",
+        "npm run test:dev-credentials",
+        "npm run test:tooling",
+        "npm run test:pilotage",
+        "npm run test:release"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/generate/brand-assets.mjs",
       "test": false,
       "purpose": "brand-assets.mjs — dérive le PNG et le favicon du logo depuis sa source SVG.",
@@ -537,7 +709,7 @@
     {
       "path": "scripts/generate/env-catalog.ts",
       "test": false,
-      "purpose": "Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate",
+      "purpose": "Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate ne sait rendre.",
       "usage": [
         "import { BENCH_DECOR, type IEnvDeclaration } from \"./env-catalog\""
       ],
@@ -651,7 +823,7 @@
     {
       "path": "scripts/site/build-docs-site.mjs",
       "test": false,
-      "purpose": "Construit le SITE de documentation publié — toute la doc Nodefony en HTML",
+      "purpose": "Construit le SITE de documentation publié — toute la doc Nodefony en HTML autonome, régénérée à chaque release.",
       "usage": [
         "node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--base \"\"] [--quiet]",
         "node scripts/site/build-docs-site.mjs --list"
@@ -806,7 +978,7 @@
     {
       "path": "scripts/site/lib/app-template-deps.mjs",
       "test": false,
-      "purpose": "Les dépendances de production d'une application MINIMALE, lues dans le gabarit",
+      "purpose": "Les dépendances de production d'une application MINIMALE, lues dans le gabarit que `nodefony create app` rend.",
       "usage": [
         "import { APP_TEMPLATE_PATH, minimalAppDependencies } from \"./lib/app-template-deps.mjs\""
       ],
@@ -925,7 +1097,7 @@
     {
       "path": "scripts/repo/long-run-lock.test.mjs",
       "test": true,
-      "purpose": "Verrou « un run long occupe l'arbre » — tenu, libéré, orphelin, et la CLI",
+      "purpose": "Verrou « un run long occupe l'arbre » — tenu, libéré, orphelin, et la CLI qu'appelle le pre-commit. /",
       "usage": [],
       "options": [],
       "env": [],
@@ -952,7 +1124,7 @@
     {
       "path": "scripts/repo/tmp-layout.mjs",
       "test": false,
-      "purpose": "Arborescence de `tmp/` — seule implémentation : la table, les dossiers, le",
+      "purpose": "Arborescence de `tmp/` — seule implémentation : la table, les dossiers, le `tmp/README.md`, la purge.",
       "usage": [
         "node scripts/repo/tmp-layout.mjs",
         "node scripts/repo/tmp-layout.mjs --prune [--dry-run]",
@@ -971,7 +1143,7 @@
     {
       "path": "scripts/repo/tmp-layout.test.mjs",
       "test": true,
-      "purpose": "Arborescence de `tmp/` — catégories créées, README régénéré, égarés signalés,",
+      "purpose": "Arborescence de `tmp/` — catégories créées, README régénéré, égarés signalés, purge bornée à l'expiré et jamais au runtime. /",
       "usage": [],
       "options": [],
       "env": [],
@@ -1013,7 +1185,7 @@
     {
       "path": "scripts/ci/run-watched.mjs",
       "test": false,
-      "purpose": "Lance une commande de la forge et REND LA MAIN quand elle se termine — même",
+      "purpose": "Lance une commande de la forge et REND LA MAIN quand elle se termine — même si un descendant détaché garde sa sortie ouverte — en nommant ce descendant.",
       "usage": [
         "node scripts/ci/run-watched.mjs [--idle <s>] [--] <commande…>"
       ],
@@ -1033,7 +1205,7 @@
     {
       "path": "scripts/ci/run-watched.test.mjs",
       "test": true,
-      "purpose": "Le lanceur de la forge rend la main quand la commande finit, même si un",
+      "purpose": "Le lanceur de la forge rend la main quand la commande finit, même si un descendant détaché garde sa sortie ouverte — et il nomme ce descendant.",
       "usage": [],
       "options": [],
       "env": [],
@@ -1115,7 +1287,7 @@
     {
       "path": "scripts/release/api-diff-core.mjs",
       "test": false,
-      "purpose": "Noyau de la mesure de surface publique : ce qu'un paquet expose, et ce qui a",
+      "purpose": "Noyau de la mesure de surface publique : ce qu'un paquet expose, et ce qui a changé entre deux versions — sous-chemins d'`exports`, exports à l'exécution, exports de types, et membre par membre pour les classes et interfaces.",
       "usage": [
         "import { listRuntimeExports, exportEntries } from \"./api-diff-core.mjs\""
       ],
@@ -1123,10 +1295,10 @@
       "env": [],
       "output": "",
       "calledBy": [
+        ".claude/skills/nodefony-release/scripts/compare-exports.mjs",
         "scripts/release/api-diff.mjs",
         "scripts/release/release.mjs",
-        "scripts/release/types-rigor.mjs",
-        ".claude/skills/nodefony-release/scripts/compare-exports.mjs"
+        "scripts/release/types-rigor.mjs"
       ],
       "testedBy": [
         "scripts/release/api-diff-core.test.mjs"
@@ -1135,7 +1307,7 @@
     {
       "path": "scripts/release/api-diff-core.test.mjs",
       "test": true,
-      "purpose": "Le noyau de la mesure de surface publique, éprouvé sur des déclarations",
+      "purpose": "Le noyau de la mesure de surface publique, éprouvé sur des déclarations écrites ici : chaque verdict qui ferait passer une rupture pour un ajout, ou du bruit pour une rupture, a son cas. /",
       "usage": [],
       "options": [],
       "env": [],
@@ -1148,7 +1320,7 @@
     {
       "path": "scripts/release/api-diff.mjs",
       "test": false,
-      "purpose": "Mesure ce qui a changé dans la surface publique entre une version PUBLIÉE sur",
+      "purpose": "Mesure ce qui a changé dans la surface publique entre une version PUBLIÉE sur npm et le `dist` local — par paquet publiable : sous-chemins d'`exports`, exports à l'exécution, exports de types, et membre par membre.",
       "usage": [
         "npm run release:api-diff",
         "npm run release:api-diff -- --from <version> [--details]"
@@ -1166,7 +1338,7 @@
     {
       "path": "scripts/release/attendre-ci.mjs",
       "test": false,
-      "purpose": "Attend le verdict de la CI du commit qu'on s'apprête à publier — et REFUSE",
+      "purpose": "Attend le verdict de la CI du commit qu'on s'apprête à publier — et REFUSE s'il n'est pas vert.",
       "usage": [
         "node scripts/release/attendre-ci.mjs --sha <sha> --run-id <id>"
       ],
@@ -1212,7 +1384,7 @@
     {
       "path": "scripts/release/fix-dts-extensions.mjs",
       "test": false,
-      "purpose": "Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS",
+      "purpose": "Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS RELATIFS pour rendre les types publiés conformes à la résolution Node ESM (`node16`/`nodenext` : extension OBLIGATOIRE, doc Node esm.md) — décision d'audit 0.7, cf docs/release/nodefony-10.md §6bis.",
       "usage": [
         "node scripts/release/fix-dts-extensions.mjs <dir> [--quiet]"
       ],
@@ -1470,7 +1642,7 @@
     {
       "path": "scripts/release/release-core.test.mjs",
       "test": true,
-      "purpose": "Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour",
+      "purpose": "Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour l'accompagner.",
       "usage": [],
       "options": [],
       "env": [
@@ -1580,7 +1752,7 @@
     {
       "path": "scripts/release/types-rigor.mjs",
       "test": false,
-      "purpose": "Mesure la rigueur des TYPES PUBLIÉS : densité de `any`, rapport",
+      "purpose": "Mesure la rigueur des TYPES PUBLIÉS : densité de `any`, rapport `unknown`/`any`, part des déclarations qui contiennent un `any` — pour le `dist` local, et pour tout paquet npm donné en comparaison.",
       "usage": [
         "npm run release:types-rigor",
         "node scripts/release/types-rigor.mjs [--from <version>] [--peers <liste>]"
@@ -3164,7 +3336,7 @@
           },
           {
             "path": "scripts/jeton-mcp.selftest.mjs",
-            "purpose": "Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run,",
+            "purpose": "Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run, et la ceinture voit-elle une porte sur le point de se fermer ?",
             "usage": [],
             "options": [],
             "env": [],
@@ -3189,7 +3361,7 @@
           },
           {
             "path": "scripts/reinit-decor.selftest.mjs",
-            "purpose": "Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un",
+            "purpose": "Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un agent pour s'en apercevoir.",
             "usage": [
               "node reinit-decor.selftest.mjs <runDir d'un run précédent>"
             ],
@@ -3479,7 +3651,7 @@
           },
           {
             "path": "scripts/verify-runtime.mjs",
-            "purpose": "Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il",
+            "purpose": "Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il les promesses du framework ? »",
             "usage": [],
             "options": [
               {
@@ -3770,7 +3942,7 @@
           },
           {
             "path": "scripts/anchor-check.selftest.mjs",
-            "purpose": "Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre",
+            "purpose": "Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre qui a DÉRIVÉ loin de la déclaration qu'elle prouve, et se taire sur une ancre juste — posée sur la déclaration, dans son TSDoc, ou sur un site d'usage. Un gate qu'on n'a jamais vu échouer n'est pas un gate.",
             "usage": [
               "`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs"
             ],
@@ -3781,7 +3953,7 @@
           },
           {
             "path": "scripts/anchor-fix.mjs",
-            "purpose": "Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE.",
+            "purpose": "Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. Entrée : la sortie d'anchor-check.mjs (stdin). Sortie : édite les .md en place. Règle : on ne déplace une ancre que si UNE seule ligne de définition plausible est trouvée pour les symboles cités — sinon on laisse et on le signale.",
             "usage": [],
             "options": [
               {
@@ -3848,7 +4020,7 @@
           },
           {
             "path": "scripts/doc-lint.mjs",
-            "purpose": "doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony.",
+            "purpose": "doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. Une page ne peut être marquée ✅ que si elle PASSE ce linter. Usage : node doc-lint.mjs /tmp/corpus/*.md",
             "usage": [
               "Usage : node doc-lint.mjs /tmp/corpus/*.md"
             ],
@@ -3885,7 +4057,7 @@
           },
           {
             "path": "scripts/gen-counters.mjs",
-            "purpose": "gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT",
+            "purpose": "gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT les cas réels (`it(`/`test(`) dans les fichiers de `test-map.json`.",
             "usage": [
               "Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)"
             ],
@@ -3901,7 +4073,7 @@
           },
           {
             "path": "scripts/symboles.mjs",
-            "purpose": "Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`,",
+            "purpose": "Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`, `MEMORY.md`) après un renommage du français vers l'anglais.",
             "usage": [],
             "options": [],
             "env": [],
@@ -3910,7 +4082,7 @@
           },
           {
             "path": "scripts/symboles.selftest.mjs",
-            "purpose": "Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que",
+            "purpose": "Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que le code ne porte plus, et ne PAS crier sur ce qui est vivant, externe ou hors grammaire. Un gate qu'on n'a jamais vu échouer n'est pas un gate.",
             "usage": [
               "`@usage` node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs"
             ],
@@ -4375,7 +4547,7 @@
           },
           {
             "path": "scripts/schemas.selftest.mjs",
-            "purpose": "Auto-contrôle du lecteur mermaid de `schemas.mjs` — ce qu'il ne doit JAMAIS",
+            "purpose": "Auto-contrôle du lecteur mermaid de `schemas.mjs` — ce qu'il ne doit JAMAIS perdre en silence.",
             "usage": [
               "node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs"
             ],
@@ -4485,7 +4657,7 @@
           },
           {
             "path": "lib/schemas.mjs",
-            "purpose": "Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence",
+            "purpose": "Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence — rendus à la charte, depuis la source Mermaid qui vit déjà dans les `.md`.",
             "usage": [],
             "options": [],
             "env": [
@@ -4700,7 +4872,7 @@
           },
           {
             "path": "scripts/check-identifier-language.test.mjs",
-            "purpose": "Suite du gate de langue des identifiants — écrite pour le faire ÉCHOUER,",
+            "purpose": "Suite du gate de langue des identifiants — écrite pour le faire ÉCHOUER, pas pour l'accompagner.",
             "usage": [],
             "options": [],
             "env": [],
@@ -4733,7 +4905,7 @@
           },
           {
             "path": "scripts/check-rename-drift.mjs",
-            "purpose": "Confronte un renommage à son plan — la seule preuve qu'aucun symbole n'a",
+            "purpose": "Confronte un renommage à son plan — la seule preuve qu'aucun symbole n'a dérivé.",
             "usage": [
               "node .claude/skills/nodefony-identifiers/scripts/check-rename-drift.mjs --plan tmp/plan.json [--base HEAD]"
             ],
@@ -5139,7 +5311,7 @@
           },
           {
             "path": "scripts/bench-out.sh",
-            "purpose": "shellcheck shell=bash",
+            "purpose": "shellcheck shell=bash Où les bancs écrivent leurs sorties (médianes `.med`, détails `.json`, séries refusées, relevés de sonde, journaux, pid) — SEULE définition, sourcée par bench-ab-mono.sh, bench-frameworks/bench.sh, bench-pairs.sh et perf-campaign.sh.",
             "usage": [
               ". \"$(dirname \"${BASH_SOURCE[0]}\")/bench-out.sh\""
             ],
@@ -5160,7 +5332,7 @@
           },
           {
             "path": "scripts/bench-out.test.mjs",
-            "purpose": "Les deux copies de la règle « où vont les sorties de banc » — bench-out.sh",
+            "purpose": "Les deux copies de la règle « où vont les sorties de banc » — bench-out.sh (bancs bash) et bench-out.mjs (rapports, soak) — rendent le même dossier.",
             "usage": [],
             "options": [],
             "env": [
@@ -5190,7 +5362,7 @@
           },
           {
             "path": "scripts/bench-request.sh",
-            "purpose": "La requête d'un banc — UNE implémentation, sourcée par `bench-ab-mono.sh`",
+            "purpose": "La requête d'un banc — UNE implémentation, sourcée par `bench-ab-mono.sh` (camp Nodefony) ET `bench-frameworks/bench.sh` (camps témoins).",
             "usage": [],
             "options": [
               {
@@ -5221,7 +5393,7 @@
           },
           {
             "path": "scripts/boot-bench.mjs",
-            "purpose": "boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que",
+            "purpose": "boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que les serveurs écoutent) et compte le nombre de `new Kernel()` via NF_KERNEL_TRACE_FILE.",
             "usage": [
               "Usage : node scripts/boot-bench.mjs <runs> -- <args nodefony...>"
             ],
@@ -5237,7 +5409,7 @@
           },
           {
             "path": "scripts/boot-profile.mjs",
-            "purpose": "boot-profile.mjs — AUDIT fin du boot Nodefony. Capture la sortie horodatée d'un boot",
+            "purpose": "boot-profile.mjs — AUDIT fin du boot Nodefony. Capture la sortie horodatée d'un boot (jusqu'à \"Server Listen on http\") et révèle où part le temps : - jalons de phase (onPreStart→onPostReady + Server Listen) avec leur t (ms depuis le 1er log) - top des plus gros écarts entre 2 logs consécutifs (= opérations lentes du boot)",
             "usage": [
               "Usage : node scripts/boot-profile.mjs -- production --workers 1"
             ],
@@ -5397,7 +5569,7 @@
           },
           {
             "path": "scripts/cluster-health-endpoint-e2e.mjs",
-            "purpose": "Preuve BOUT-EN-BOUT de la forme JSON de l'ENDPOINT santé en mode cluster — ce que le",
+            "purpose": "Preuve BOUT-EN-BOUT de la forme JSON de l'ENDPOINT santé en mode cluster — ce que le panneau Studio « Realtime Hub » (vue pod) consomme réellement.",
             "usage": [
               "node .claude/skills/nodefony-load-test/scripts/cluster-health-endpoint-e2e.mjs"
             ],
@@ -5417,7 +5589,7 @@
           },
           {
             "path": "scripts/cluster-ipc.mjs",
-            "purpose": "Bench du FIL IPC du backplane cluster Nodefony (mode sans PM2) — mesure le coût RÉEL",
+            "purpose": "Bench du FIL IPC du backplane cluster Nodefony (mode sans PM2) — mesure le coût RÉEL du fan-out cross-process worker→MASTER(gateway)→workers, AVANT Redis.",
             "usage": [
               "node .claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs"
             ],
@@ -5549,7 +5721,7 @@
           },
           {
             "path": "scripts/cut-analyze.mjs",
-            "purpose": "Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`)",
+            "purpose": "Relit une bissection par court-circuit (`NF_WAIT_CUTS` de `wait-compare.sh`) et rend le COÛT DE CHAQUE ÉTAGE en µs de CPU du fil principal par requête.",
             "usage": [
               "Usage : node cut-analyze.mjs <dossier> <témoin> <coupe…> [--partial]"
             ],
@@ -5574,7 +5746,7 @@
           },
           {
             "path": "scripts/cut-probe.mjs",
-            "purpose": "Bissection par COURT-CIRCUIT du pipeline HTTP — préchargée dans le serveur",
+            "purpose": "Bissection par COURT-CIRCUIT du pipeline HTTP — préchargée dans le serveur (`NODE_OPTIONS=--import=…/cut-probe.mjs`), jamais dans le produit.",
             "usage": [],
             "options": [],
             "env": [
@@ -5588,7 +5760,7 @@
           },
           {
             "path": "scripts/db-backend-cost.mjs",
-            "purpose": "db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non",
+            "purpose": "db-backend-cost — ce qu'un backend de base de données coûte AU SERVEUR, et non ce qu'il coûte en lui-même.",
             "usage": [],
             "options": [
               {
@@ -5658,7 +5830,7 @@
           },
           {
             "path": "scripts/decor-probe.mjs",
-            "purpose": "Garde de DÉCOR d'un banc de débit Nodefony — préchargée (`node --import`)",
+            "purpose": "Garde de DÉCOR d'un banc de débit Nodefony — préchargée (`node --import`) dans le serveur mesuré. À la PREMIÈRE requête, elle refuse (code 3) si un hook du chemin de requête a un écouteur : un seul suffit à faire passer chaque requête par `fireAsync` (une Promise, une microtâche), coût qu'une application sans ce hook ne paie pas — et que le banc imputerait au framework. Vécu deux fois sur #508, les deux fois posé par le module test (`onRequestScope`, puis `beforeResolve`) ; la seconde n'a été vue qu'au chronométrage in situ, parce que rien ne la cherchait.",
             "usage": [],
             "options": [],
             "env": [],
@@ -5700,7 +5872,7 @@
           },
           {
             "path": "scripts/http-load.mjs",
-            "purpose": "Stress HTTP — N requêtes avec concurrence C sur une route Nodefony.",
+            "purpose": "Stress HTTP — N requêtes avec concurrence C sur une route Nodefony. Mesure : RPS, latence p50/p90/p95/p99/max, distribution des codes, erreurs.",
             "usage": [
               "node .claude/skills/load-test/scripts/http-load.mjs"
             ],
@@ -5728,7 +5900,7 @@
           },
           {
             "path": "scripts/hub-load.mjs",
-            "purpose": "Charge de la SOCKET Nodefony côté HUB (RealtimeHub) — fait bouger le panneau",
+            "purpose": "Charge de la SOCKET Nodefony côté HUB (RealtimeHub) — fait bouger le panneau « Realtime Hub » de Studio (/nodefony/hub) + l'endpoint /nodefony/realtime/api/health.",
             "usage": [
               "bash .claude/skills/nodefony-load-test/scripts/run.sh hub"
             ],
@@ -5784,7 +5956,7 @@
           },
           {
             "path": "scripts/ic-sites.mjs",
-            "purpose": "Lit un journal V8 `--log-ic` et rend les sites d'accès aux propriétés qui ont",
+            "purpose": "Lit un journal V8 `--log-ic` et rend les sites d'accès aux propriétés qui ont basculé en MÉGAMORPHE (état `N`) — là où V8 renonce au chemin rapide et passe par un cache global (`LoadIC_Megamorphic`, `KeyedLoadIC_Megamorphic`…).",
             "usage": [
               "node ic-sites.mjs <v8.log> [top=40] [filtre=regex sur le fichier]"
             ],
@@ -5943,7 +6115,7 @@
           },
           {
             "path": "scripts/native-sample.mjs",
-            "purpose": "Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE",
+            "purpose": "Lit une capture `sample <pid> <s> -file <f>` (macOS) et rend le temps PROPRE du fil principal, par famille et par frame, en µs par requête — et, quand la table `perf.map` du process est posée à côté de la capture, QUI l'a payé : chaque échantillon natif est imputé à son premier ancêtre JavaScript.",
             "usage": [
               "node native-sample.mjs <capture> <rps>                      # un camp"
             ],
@@ -5980,7 +6152,7 @@
           },
           {
             "path": "scripts/native-sample.test.mjs",
-            "purpose": "Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture",
+            "purpose": "Éprouve le lecteur de captures `sample` (native-sample.mjs) sur une capture miniature écrite à la main : temps propre, nommage par perf.map, imputation au premier ancêtre JS, moyenne par camp. Un changement du format de `sample` ou de la table perf doit faire tomber ce test, pas fausser un banc en silence. npx vitest run .claude/skills/nodefony-load-test/scripts/native-sample.test.mjs",
             "usage": [],
             "options": [
               {
@@ -5998,7 +6170,7 @@
           },
           {
             "path": "scripts/perf-campaign.sh",
-            "purpose": "Campagne de mesure PUBLIABLE, sans surveillance — la matière de",
+            "purpose": "Campagne de mesure PUBLIABLE, sans surveillance — la matière de `docs/performance/data/<version>.json`, rejouée au protocole de la dernière publication : trois paires de débit, le cas applicatif, et une tenue longue.",
             "usage": [
               "bash perf-campaign.sh [--at HH:MM] [--out DIR] [--soak-min 90] [--tries 3]"
             ],
@@ -6067,7 +6239,7 @@
           },
           {
             "path": "scripts/perf-compose.mjs",
-            "purpose": "Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne",
+            "purpose": "Compose `docs/performance/data/<version>.json` depuis le dossier d'une campagne (`perf-campaign.sh`) — les CHIFFRES, jamais le récit.",
             "usage": [
               "node perf-compose.mjs --campaign tmp/perf-campaign-<date> \\"
             ],
@@ -6165,7 +6337,7 @@
           },
           {
             "path": "scripts/poc-bench.mjs",
-            "purpose": "POC bench — mesure la latence p50/p95/p99 du backend Nodefony",
+            "purpose": "POC bench — mesure la latence p50/p95/p99 du backend Nodefony pendant que Vite tourne / compile.",
             "usage": [
               "node scripts/poc-bench.mjs [--url http://127.0.0.1:5151/poc/api/data]"
             ],
@@ -6201,7 +6373,7 @@
           },
           {
             "path": "scripts/poc-hmr-perf.mjs",
-            "purpose": "POC HMR perf — mesure le délai end-to-end entre :",
+            "purpose": "POC HMR perf — mesure le délai end-to-end entre : 1. `fs.utimes()` (touch) sur un fichier source surveillé par Vite 2. réception du 1er message HMR (\"update\" ou \"full-reload\") côté client WS",
             "usage": [
               "node scripts/poc-hmr-perf.mjs --file /abs/path/to/App.tsx"
             ],
@@ -6294,7 +6466,7 @@
           },
           {
             "path": "scripts/profile-analyze.mjs",
-            "purpose": "Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé",
+            "purpose": "Relit un profil `--cpu-prof` pris par `profile-cpu.sh` : temps PROPRE agrégé par fonction et par origine (paquet, module node:, natif), FENÊTRÉ sur les 20 dernières secondes actives — le profil couvre aussi le démarrage — et rapporté en µs par requête servie.",
             "usage": [
               "Usage : node profile-analyze.mjs <dossier> [requêtes] [top=40]"
             ],
@@ -6310,7 +6482,7 @@
           },
           {
             "path": "scripts/profile-compare.mjs",
-            "purpose": "Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à",
+            "purpose": "Compare DEUX profils pris par `profile-cpu.sh` dans le même décor, poste à poste, en µs par requête. C'est la question qu'un profil isolé ne pose jamais : « combien de trop, et OÙ, par rapport à ce qui est possible ? ».",
             "usage": [
               "Usage : node profile-compare.mjs <dossier A> <dossier B> [top=25]"
             ],
@@ -6321,7 +6493,7 @@
           },
           {
             "path": "scripts/profile-compare.sh",
-            "purpose": "« Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le",
+            "purpose": "« Comparé à QUOI ? » — profile Nodefony ET le camp témoin équitable dans le MÊME décor, puis rend l'écart poste par poste en µs par requête.",
             "usage": [],
             "options": [],
             "env": [
@@ -6335,7 +6507,7 @@
           },
           {
             "path": "scripts/profile-cpu.sh",
-            "purpose": "Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête.",
+            "purpose": "Profil CPU d'un serveur SOUS CHARGE — où part le temps d'une requête. Lance le serveur sous `node --cpu-prof`, le chauffe (wrk non compté), le charge 20 s, puis l'arrête GRACIEUSEMENT (SIGINT : V8 n'écrit le profil qu'à la sortie). Relire ensuite avec `profile-analyze.mjs`, qui fenêtre sur la charge.",
             "usage": [],
             "options": [
               {
@@ -6411,7 +6583,7 @@
           },
           {
             "path": "scripts/promise-sites.mjs",
-            "purpose": "Carte des sites de création des Promises d'UNE requête (#505) — préchargé par",
+            "purpose": "Carte des sites de création des Promises d'UNE requête (#505) — préchargé par `node --import` dans le serveur mesuré. GET :5199/start ouvre la fenêtre, GET :5199/stop la ferme et rend les piles (JSON). Compteur jumeau, pour la garde : `src/packages/@nodefony/http/nodefony/tests/helpers/promiseCounter.mjs`. ⚠️ Sous crochet, V8 crée une Promise jetable par `await` : le compte vaut « Promises + suspensions » — ne se compare qu'à un camp mesuré pareil (nest-fair : 20, Fastify nu : 2, Express : 0 ; Nodefony avant L2 : 53-57).",
             "usage": [],
             "options": [],
             "env": [
@@ -6449,7 +6621,7 @@
           },
           {
             "path": "scripts/route-scan-cost.mjs",
-            "purpose": "route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et",
+            "purpose": "route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et comment ce coût grandit avec le nombre de routes.",
             "usage": [
               "node .claude/skills/nodefony-load-test/scripts/route-scan-cost.mjs"
             ],
@@ -6494,7 +6666,7 @@
           },
           {
             "path": "scripts/run.sh",
-            "purpose": "Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES",
+            "purpose": "Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES (non-régression de charge) ou vers les scripts client standalone (exploration).",
             "usage": [],
             "options": [
               {
@@ -6673,7 +6845,7 @@
           },
           {
             "path": "scripts/span-analyze.mjs",
-            "purpose": "Relit les fenêtres de `span-probe.mjs` (via `span-run.sh`) et rend, par",
+            "purpose": "Relit les fenêtres de `span-probe.mjs` (via `span-run.sh`) et rend, par méthode, la MÉDIANE des runs en ns/requête — brute, puis corrigée du coût de l'enveloppe (étalonné par la sonde, multiplié par les appels imbriqués).",
             "usage": [
               "Usage : node span-analyze.mjs <dossier>"
             ],
@@ -6684,7 +6856,7 @@
           },
           {
             "path": "scripts/span-probe.mjs",
-            "purpose": "Chronométrage IN SITU des appels d'un étage du pipeline — préchargé dans le",
+            "purpose": "Chronométrage IN SITU des appels d'un étage du pipeline — préchargé dans le serveur COMPLET (`NODE_OPTIONS=--import=…/span-probe.mjs`), jamais dans le produit.",
             "usage": [],
             "options": [],
             "env": [
@@ -6698,7 +6870,7 @@
           },
           {
             "path": "scripts/span-run.sh",
-            "purpose": "Chronométrage in situ d'un étage (`span-probe.mjs`) sur le serveur Nodefony",
+            "purpose": "Chronométrage in situ d'un étage (`span-probe.mjs`) sur le serveur Nodefony COMPLET — même décor que `wait-compare.sh` (production, garde machine calme, cible prouvée 200, chauffe non comptée, fenêtre SIGUSR2), sans témoin : la sonde attribue, elle ne compare pas.",
             "usage": [],
             "options": [],
             "env": [
@@ -6724,7 +6896,7 @@
           },
           {
             "path": "scripts/supervision-stress.mjs",
-            "purpose": "STRESS COMBINÉ « supervision » — pousse SIMULTANÉMENT 3 lanes (HTTP + WebSocket",
+            "purpose": "STRESS COMBINÉ « supervision » — pousse SIMULTANÉMENT 3 lanes (HTTP + WebSocket connexions/messages + ORM/DB) en RAMPE par paliers, pour voir le dashboard de SUPERVISION (CPU, mémoire/heap, GC, event-loop, handles) ET le dashboard ORM bouger d'un seul coup d'œil, jusqu'à la rupture.",
             "usage": [
               "node .claude/skills/nodefony-load-test/scripts/supervision-stress.mjs"
             ],
@@ -6810,7 +6982,7 @@
           },
           {
             "path": "scripts/users-admin-factors-e2e.mjs",
-            "purpose": "Banc e2e — RESET ADMIN des facteurs forts d'un utilisateur (P6.15) — VRAI",
+            "purpose": "Banc e2e — RESET ADMIN des facteurs forts d'un utilisateur (P6.15) — VRAI serveur, session BFF, sans navigateur. Prouve bout-en-bout : NOMINAL (admin ROLE_NODEFONY_ADMIN) : - GET  users/{id}/totp       → 200 (état 2FA) - GET  users/{id}/passkeys   → 200 { credentials } - POST users/{id}/totp/disable → 200 (reset réel) - user inconnu               → 404 ATTACK (anti-IDOR inverse) : - ROLE_USER → 403 sur les 4 endpoints (un user ne reset pas autrui) - anonyme   → 401",
             "usage": [
               "node .claude/skills/nodefony-load-test/scripts/users-admin-factors-e2e.mjs"
             ],
@@ -6830,7 +7002,7 @@
           },
           {
             "path": "scripts/wait-analyze.mjs",
-            "purpose": "Relit les fenêtres de `wait-probe.mjs` (via `wait-compare.sh`) et rend, par",
+            "purpose": "Relit les fenêtres de `wait-probe.mjs` (via `wait-compare.sh`) et rend, par camp, la MÉDIANE des runs ramenée à la requête — puis l'écart.",
             "usage": [
               "Usage : node wait-analyze.mjs <dossier> <campA> <campB> [--json <fichier>]"
             ],
@@ -6846,7 +7018,7 @@
           },
           {
             "path": "scripts/wait-compare.sh",
-            "purpose": "« Où Nodefony ATTEND-il quand le témoin sert ? » — même décor que",
+            "purpose": "« Où Nodefony ATTEND-il quand le témoin sert ? » — même décor que `profile-compare.sh`, mais sans profileur : la sonde `wait-probe.mjs`, préchargée dans les DEUX camps, encadre la fenêtre de charge et rend ce que le profil CPU ne voit pas (occupation de la boucle, CPU fil principal contre process, GC, tours libuv, écritures socket, changements de contexte).",
             "usage": [],
             "options": [
               {
@@ -6897,7 +7069,7 @@
           },
           {
             "path": "scripts/wait-lib.mjs",
-            "purpose": "Lecture des fenêtres de `wait-probe.mjs` — partagée par `wait-analyze.mjs`",
+            "purpose": "Lecture des fenêtres de `wait-probe.mjs` — partagée par `wait-analyze.mjs` (deux camps) et `cut-analyze.mjs` (étages d'une bissection) : un seul calcul « par requête », deux lecteurs.",
             "usage": [],
             "options": [],
             "env": [],
@@ -6906,7 +7078,7 @@
           },
           {
             "path": "scripts/wait-probe.mjs",
-            "purpose": "Sonde « où part le temps HORS du JavaScript » — préchargée dans un serveur",
+            "purpose": "Sonde « où part le temps HORS du JavaScript » — préchargée dans un serveur (`node --import …/wait-probe.mjs`), identique pour tous les camps.",
             "usage": [],
             "options": [],
             "env": [
@@ -6920,7 +7092,7 @@
           },
           {
             "path": "scripts/webhooks-dataplane-e2e.mjs",
-            "purpose": "Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF,",
+            "purpose": "Banc e2e — Data plane WEBHOOKS (P6.13 Slice C) — VRAI serveur, session BFF, sans navigateur. […]",
             "usage": [
               "node .claude/skills/nodefony-load-test/scripts/webhooks-dataplane-e2e.mjs"
             ],
@@ -6976,7 +7148,7 @@
           },
           {
             "path": "scripts/ws-conn-cap-e2e.mjs",
-            "purpose": "Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c",
+            "purpose": "Banc e2e du BACKSTOP de connexions WS concurrentes par IP (@nodefony/http, F6c revue 0.6) — sans navigateur. Prouve le CÂBLAGE bout-en-bout du plafond OPT-IN : au-delà de `wsMaxConnectionsPerIp` sockets simultanément ouvertes depuis une même IP, l'upgrade est fermé (RFC 6455 close 1013). Distinct du rate-limit (débit) : ici ce sont des sockets HELD open EN MÊME TEMPS (pas une rafale séquentielle).",
             "usage": [
               "NF__HTTP__WSMAXCONNECTIONSPERIP=3 bash .claude/skills/nodefony-start-server/start.sh"
             ],
@@ -6996,7 +7168,7 @@
           },
           {
             "path": "scripts/ws-connections.mjs",
-            "purpose": "Stress WS — AXE 1 : nombre de connexions simultanées (combien de sockets un",
+            "purpose": "Stress WS — AXE 1 : nombre de connexions simultanées (combien de sockets un process tient), distinct du débit messages (axe 2 → ws-messages.mjs).",
             "usage": [
               "node .claude/skills/load-test/scripts/ws-connections.mjs"
             ],
@@ -7065,7 +7237,7 @@
           },
           {
             "path": "scripts/ws-messages.mjs",
-            "purpose": "Stress WS — AXE 2 : débit de messages / fan-out broadcast (combien de frames",
+            "purpose": "Stress WS — AXE 2 : débit de messages / fan-out broadcast (combien de frames le pipeline encaisse), distinct du nombre de connexions (axe 1 → ws-connections.mjs).",
             "usage": [
               "node .claude/skills/load-test/scripts/ws-messages.mjs"
             ],
@@ -7105,7 +7277,7 @@
           },
           {
             "path": "scripts/ws-tls-batching.mjs",
-            "purpose": "ws-tls-batching.mjs — pourquoi l'écho WebSocket sort plus RAPIDE en TLS qu'en",
+            "purpose": "ws-tls-batching.mjs — pourquoi l'écho WebSocket sort plus RAPIDE en TLS qu'en clair sur `capacity.mjs`, preuve sur un serveur `ws` NU (sans Nodefony).",
             "usage": [
               "node .claude/skills/nodefony-load-test/scripts/ws-tls-batching.mjs"
             ],
@@ -7499,7 +7671,7 @@
           },
           {
             "path": "scripts/latency.mjs",
-            "purpose": "Latence PURE du chemin cross-pod, hors saturation : 1 client, messages",
+            "purpose": "Latence PURE du chemin cross-pod, hors saturation : 1 client, messages espacés (aucun backlog). Mesure : publish A1 → sceau → Redis → ingress A2 → fan-out → frame WS. node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs> /",
             "usage": [
               "node latency.mjs <portRx> <portTx> <nbMessages> <intervalleMs>"
             ],
@@ -7510,7 +7682,7 @@
           },
           {
             "path": "scripts/listen.mjs",
-            "purpose": "Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket",
+            "purpose": "Écouteur du banc F83 — WebSocket brut parlant le JSON-RPC 2.0 de la socket Nodefony. Se connecte au pod demandé, s'abonne à `chat:room1`, et rend en JSON tout ce qui est arrivé pendant la fenêtre d'écoute.",
             "usage": [
               "node listen.mjs <port> <secondes>"
             ],
@@ -7539,7 +7711,7 @@
           },
           {
             "path": "scripts/run.sh",
-            "purpose": "Démarre les pods du banc : deux instances de la première application (même",
+            "purpose": "Démarre les pods du banc : deux instances de la première application (même secret = pairs légitimes) et une instance de la seconde SANS secret (le témoin non protégé, indispensable au contrôle négatif).",
             "usage": [
               "bash scripts/run.sh [dossier] [namespace]"
             ],
@@ -7560,7 +7732,7 @@
           },
           {
             "path": "scripts/setup.sh",
-            "purpose": "Monte le banc multi-pods : Redis + N applications générées, liées au framework",
+            "purpose": "Monte le banc multi-pods : Redis + N applications générées, liées au framework local, configurées sur un bus commun. Idempotent : relancer ne casse rien.",
             "usage": [
               "bash scripts/setup.sh [dossier] [namespace]"
             ],
@@ -8219,7 +8391,7 @@
           },
           {
             "path": "scripts/board-next.test.mjs",
-            "purpose": "Le décor est celui du 2026-09-08, à l'identique — c'est lui qui a produit le",
+            "purpose": "Le décor est celui du 2026-09-08, à l'identique — c'est lui qui a produit le faux verdict : la reprise a annoncé #175 (jalon `beta`) comme « la prochaine chose » alors que neuf tickets `alpha` restaient ouverts. #175 portait l'ordre 2, #274 l'ordre 1.4 : le tri global les départageait BIEN, et c'est par cette chance que l'empreinte nommait le bon. Le décor ci-dessous retire la chance en donnant au ticket `beta` le rang le plus petit du tableau. /",
             "usage": [],
             "options": [],
             "env": [],
@@ -8285,7 +8457,7 @@
           },
           {
             "path": "scripts/board-snapshot.test.mjs",
-            "purpose": "Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS",
+            "purpose": "Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS ERREUR : la projection des nœuds GraphQL en items d'empreinte.",
             "usage": [],
             "options": [],
             "env": [],
@@ -8294,7 +8466,7 @@
           },
           {
             "path": "scripts/session-cost.mjs",
-            "purpose": "Agrège la consommation réelle de tous les transcripts Claude Code du projet.",
+            "purpose": "Agrège la consommation réelle de tous les transcripts Claude Code du projet. Dédup par messageId (les JSONL répètent la même réponse à plusieurs lignes).",
             "usage": [],
             "options": [],
             "env": [],
@@ -8303,7 +8475,7 @@
           },
           {
             "path": "scripts/session-end.mjs",
-            "purpose": "session-end.mjs — la clôture de session en deux passes, mécanique d'un côté,",
+            "purpose": "session-end.mjs — la clôture de session en deux passes, mécanique d'un côté, jugement de l'autre.",
             "usage": [
               "npm run session:end                 # préparation",
               "npm run session:end -- --verify     # gate de clôture (code 1 si incomplet)"
@@ -8333,7 +8505,7 @@
           },
           {
             "path": "scripts/session-lib.mjs",
-            "purpose": "Règles PURES de la reprise et de la clôture de session — sans réseau, sans",
+            "purpose": "Règles PURES de la reprise et de la clôture de session — sans réseau, sans disque : `session-resume.mjs` et `session-end.mjs` les appellent, leurs tests les éprouvent.",
             "usage": [],
             "options": [
               {
@@ -8355,7 +8527,7 @@
           },
           {
             "path": "scripts/session-lib.test.mjs",
-            "purpose": "Règles pures de la reprise et de la clôture — chaque cas porte le défaut",
+            "purpose": "Règles pures de la reprise et de la clôture — chaque cas porte le défaut réel qu'il empêche de revenir. /",
             "usage": [],
             "options": [
               {
@@ -8570,7 +8742,7 @@
           },
           {
             "path": "lib/script-doc.mjs",
-            "purpose": "Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le",
+            "purpose": "Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le lance — en une seule implémentation.",
             "usage": [],
             "options": [
               {
@@ -8691,7 +8863,7 @@
         "scripts": [
           {
             "path": "start.sh",
-            "purpose": "start.sh — démarre le serveur Nodefony de manière fiable.",
+            "purpose": "start.sh — démarre le serveur Nodefony de manière fiable. WRAPPER MINCE de la commande native `nodefony <runtime> --detach` (volet F DevSupervisor DX) : le spawn détaché, l'attente de readiness (sonde ports — plus AUCUNE heuristique « log figé » → fin des faux TIMEOUT pendant un rebuild turbo légitime), le health check et le code de sortie sémantique vivent DANS le framework (detachedStart.ts). Le script ne garde que le spécifique au banc de test du repo : kill préalable + filet, builds pré-boot (module test / dist root cluster), --expose-gc pour le gate mémoire.",
             "usage": [
               "Usage : bash .claude/skills/nodefony-start-server/start.sh [-d] [--force-build] [--cluster [-w N]]"
             ],
@@ -9065,7 +9237,7 @@
       "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"campagne de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"on teste tout\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"rapport de la campagne de test\".",
       "cost": {
         "bodyLines": 207,
-        "approxTokens": 3958
+        "approxTokens": 3962
       },
       "requires": [],
       "resources": {
@@ -9321,7 +9493,7 @@
           },
           {
             "path": "scripts/board-source.test.mjs",
-            "purpose": "Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un",
+            "purpose": "Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un script, ni dans un bloc de commande qu'un skill donne à exécuter.",
             "usage": [],
             "options": [
               {
@@ -9353,7 +9525,7 @@
           },
           {
             "path": "scripts/dependents.test.mjs",
-            "purpose": "`dependentsOf` — qui relire avant de fermer un ticket.",
+            "purpose": "`dependentsOf` — qui relire avant de fermer un ticket. /",
             "usage": [],
             "options": [],
             "env": [],
@@ -9394,7 +9566,7 @@
           },
           {
             "path": "scripts/github-templates.test.mjs",
-            "purpose": "Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est",
+            "purpose": "Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est désormais rendu DEUX fois : dans cette page, et dans les formulaires que GitHub sert à qui ouvre une issue depuis l'interface.",
             "usage": [],
             "options": [],
             "env": [],
@@ -9497,7 +9669,7 @@
           },
           {
             "path": "scripts/ticket-effort.mjs",
-            "purpose": "ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a",
+            "purpose": "ticket-effort.mjs — confronte l'estimation d'un ticket à ce que le travail a RÉELLEMENT pris, mesuré sur ses commits.",
             "usage": [
               "node .claude/skills/nodefony-ticket/scripts/ticket-effort.mjs              # tous les tickets fermés du dépôt"
             ],
@@ -10316,7 +10488,7 @@
           },
           {
             "path": "scripts/socket.mjs",
-            "purpose": "Pilote un socket applicatif Nodefony DE BOUT EN BOUT, depuis une vraie page :",
+            "purpose": "Pilote un socket applicatif Nodefony DE BOUT EN BOUT, depuis une vraie page : accueil, abonnement à un canal, action RPC, latence aller-retour, pont API, reconnexion — et rend un verdict par étape.",
             "usage": [
               "`@usage` docker exec <app>-browser node /app/see-screen/socket.mjs /chat/realtime"
             ],
@@ -10360,7 +10532,7 @@
           },
           {
             "path": "scripts/watch.mjs",
-            "purpose": "Observe une page VIVANTE : trafic WebSocket, requêtes réseau, console, et",
+            "purpose": "Observe une page VIVANTE : trafic WebSocket, requêtes réseau, console, et arrêt sur CONDITION applicative.",
             "usage": [
               "`@usage` docker exec <app>-browser node /app/watch.mjs /tableau-de-bord 8000"
             ],

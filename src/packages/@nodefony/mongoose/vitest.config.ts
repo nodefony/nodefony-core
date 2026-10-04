@@ -1,8 +1,11 @@
 import { defineConfig } from "vitest/config";
-import { oxcDecorators } from "../../../../vitest.oxc.ts";
-import { gateReporter, MONGO_GATE } from "../../../../vitest.gates.ts";
-import { transformCache } from "../../../../vitest.perf.ts";
-import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
+import { oxcDecorators } from "../../../../scripts/test/vitest/oxc.ts";
+import {
+  gateReporter,
+  MONGO_GATE,
+} from "../../../../scripts/test/vitest/gates.ts";
+import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
+import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 /**
  * vitest pour @nodefony/mongoose (convention-frère @nodefony/orm-core).

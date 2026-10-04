@@ -23,6 +23,7 @@ import {
   existsSync,
   mkdirSync,
   statSync,
+  rmSync,
 } from "node:fs";
 import { join } from "node:path";
 import YAML from "yaml";
@@ -1074,37 +1075,123 @@ function repoScripts() {
 }
 
 /**
- * `scripts/README.md` — l'index GÉNÉRÉ de l'outillage du dépôt.
+ * Les SOUS-dossiers de `scripts/` (une nature peut se ranger plus finement) :
+ * même contrat que `SCRIPT_NATURES` — un dossier sans description ici est un
+ * écart, parce que son `README.md` naîtrait muet sur sa raison d'être.
+ */
+const SCRIPT_SUBDIRS = [
+  ["deps/lib", "Helpers propres à l'inventaire des dépendances."],
+  ["site/lib", "Helpers propres au rendu du site de documentation."],
+  [
+    "test/lib",
+    "Helpers de l'orchestrateur de tests : verdicts sur les conteneurs d'infra, remise à zéro de MongoDB.",
+  ],
+  [
+    "test/vitest",
+    "Socles partagés par TOUTES les configs vitest du dépôt — garde des dossiers temporaires, gates d'infrastructure, décorateurs oxc, cache de transformation — et la config des suites lancées depuis la racine. Importés par les configs, jamais lancés à la main.",
+  ],
+];
+const describeDir = (dir) =>
+  [...SCRIPT_NATURES, ...SCRIPT_SUBDIRS].find(([n]) => n === dir)?.[1];
+const dirOf = (s) =>
+  s.rel.includes("/") ? s.rel.slice(0, s.rel.lastIndexOf("/")) : "";
+const GENERATED_MARK =
+  "<!-- GÉNÉRÉ par .claude/skills/nodefony-skill/scripts/skills-doc.mjs — ne pas éditer : `npm run skills:doc`. -->";
+const DIR_GENERATED_MARK =
+  "<!-- GÉNÉRÉ par .claude/skills/nodefony-skill/scripts/skills-doc.mjs (`npm run skills:doc`) — seul le bloc « À savoir » s'écrit à la main, il est conservé. -->";
+const MANUAL_START = "<!-- À LA MAIN : début -->";
+const MANUAL_END = "<!-- À LA MAIN : fin -->";
+
+/**
+ * Le bloc « À savoir » d'un README de dossier : le POURQUOI et les pièges, que
+ * l'en-tête d'un script ne porte pas (comment les fichiers s'articulent, ce qui
+ * casse sans bruit). C'est la seule prose écrite à la main : elle vit dans le
+ * dossier qu'elle décrit, et la régénération la RECOPIE au lieu de l'écraser.
+ *
+ * @param {string} chemin - README existant (absent → bloc vide).
+ * @returns {string} le texte entre les deux marques, sans elles.
+ */
+function manualBlock(chemin) {
+  if (!existsSync(chemin)) return "";
+  const src = readFileSync(chemin, "utf8");
+  const a = src.indexOf(MANUAL_START);
+  const b = src.indexOf(MANUAL_END);
+  return a === -1 || b < a ? "" : src.slice(a + MANUAL_START.length, b).trim();
+}
+
+/**
+ * Les `README.md` GÉNÉRÉS de `scripts/` : un index court à la racine (un dossier
+ * par ligne), et un `README.md` DANS chaque dossier qui documente ses scripts.
+ *
+ * Un agent qui ouvre `scripts/test/vitest/` y lit ce qu'il lui faut, sans payer
+ * les sept cents lignes de l'outillage entier — et rien n'est écrit à la main :
+ * tout vient de l'en-tête des scripts, donc rien ne diverge.
  *
  * @param {object[]} list - sortie de `repoScripts()`.
- * @returns {string} le markdown complet.
+ * @returns {Map<string, string>} chemin du README → markdown complet.
  */
-function renderScriptsIndex(list) {
+function renderScriptsReadmes(list) {
   const code = (s) => `\`${s}\``;
   // Un chemin d'appelant hors de scripts/ reste tel quel ; dans scripts/, relatif.
   const appelant = (n) =>
     code(n.startsWith(`${SCRIPTS_DIR}/`) ? n.slice(SCRIPTS_DIR.length + 1) : n);
-  const out = [
-    "<!-- GÉNÉRÉ par .claude/skills/nodefony-skill/scripts/skills-doc.mjs — ne pas éditer : `npm run skills:doc`. -->",
+  const dirs = [...new Set(list.map(dirOf))];
+  const files = new Map();
+
+  const index = [
+    GENERATED_MARK,
     "",
     "# `scripts/` — l'outillage du dépôt",
     "",
-    "Chaque script du dépôt, rangé par **nature** : ce qu'il fait, comment le lancer, et **qui le lance**",
-    "(commande npm, hook git, étape de forge, autre script). Tout est extrait du source — l'en-tête",
-    "du script (`@usage`, `@option`, `@env`, `@requires`, `@output`) est la seule place où sa",
-    "documentation s'écrit. `npm run skills:check` refuse un script sans `@usage` et un index périmé.",
+    "Chaque script du dépôt, rangé par **nature** ; chaque dossier porte son propre `README.md` :",
+    "ce que fait chaque script, comment le lancer, et **qui le lance** (commande npm, hook git, étape",
+    "de forge, autre script). Tout est extrait du source — l'en-tête du script (`@usage`, `@option`,",
+    "`@env`, `@requires`, `@output`) est la seule place où sa documentation s'écrit.",
+    "`npm run skills:check` refuse un script sans `@usage`, un dossier sans description et un README périmé.",
     "",
-    "Un script dont l'appelant manque n'est lancé par aucun automate : il se tape à la main.",
-    "",
+    "| Dossier | Contenu | Scripts |",
+    "| --- | --- | --- |",
   ];
-  const natures = [...new Set(list.map((s) => s.nature))];
-  for (const nature of natures) {
-    const desc = SCRIPT_NATURES.find(([n]) => n === nature)?.[1];
-    out.push(`## ${code(nature ? `${nature}/` : "(racine)")}`, "");
+  for (const dir of dirs) {
+    const n = list.filter((s) => dirOf(s) === dir).length;
+    const label = dir ? `${dir}/` : "(racine)";
+    const lien = dir ? `[${code(label)}](${dir}/README.md)` : code(label);
+    index.push(`| ${lien} | ${describeDir(dir) ?? ""} | ${n} |`);
+  }
+  files.set(SCRIPTS_README, index.join("\n") + "\n");
+
+  for (const dir of dirs.filter(Boolean)) {
+    const depth = dir.split("/").length;
+    const chemin = join(SCRIPTS_DIR, ...dir.split("/"), "README.md");
+    const out = [DIR_GENERATED_MARK, "", `# ${code(`scripts/${dir}/`)}`, ""];
+    const desc = describeDir(dir);
     if (desc) out.push(desc, "");
-    for (const s of list.filter((x) => x.nature === nature)) {
-      const nom = nature ? s.rel.slice(nature.length + 1) : s.rel;
-      out.push(`### [${code(nom)}](${s.rel})`, "");
+    out.push(
+      "## À savoir avant d'y toucher",
+      "",
+      MANUAL_START,
+      "",
+      manualBlock(chemin) ||
+        "_Rien de noté : ce qui se découvre en travaillant ici s'écrit dans ce bloc._",
+      "",
+      MANUAL_END,
+      "",
+    );
+    out.push(
+      `Index de tout l'outillage : [${code("scripts/")}](${"../".repeat(depth)}README.md).`,
+      "",
+    );
+    const children = dirs.filter(
+      (d) => d.startsWith(`${dir}/`) && d.split("/").length === depth + 1,
+    );
+    for (const c of children)
+      out.push(
+        `- [${code(`${c.slice(dir.length + 1)}/`)}](${c.slice(dir.length + 1)}/README.md) — ${describeDir(c) ?? ""}`,
+      );
+    if (children.length) out.push("");
+    for (const s of list.filter((x) => dirOf(x) === dir)) {
+      const nom = s.rel.slice(dir.length + 1);
+      out.push(`## [${code(nom)}](${nom})`, "");
       if (s.purpose) out.push(s.purpose, "");
       for (const u of s.usage) out.push(`- **Usage** : ${code(u)}`);
       for (const o of s.options)
@@ -1123,10 +1210,50 @@ function renderScriptsIndex(list) {
       );
       if (!s.test && s.testedBy.length)
         out.push(`- **Testé par** : ${s.testedBy.map(appelant).join(" · ")}`);
+      // Le sens inverse des liens : ce que CE script appelle ou importe parmi
+      // l'outillage — sans lui, on ne sait pas ce qu'on casse en le modifiant.
+      const uses = list
+        .filter(
+          (t) =>
+            t !== s &&
+            (t.calledBy.includes(s.path) || t.testedBy.includes(s.path)),
+        )
+        .map((t) => t.path);
+      if (uses.length)
+        out.push(`- **Utilise** : ${uses.map(appelant).join(" · ")}`);
       out.push("");
     }
+    files.set(chemin, out.join("\n").replace(/\n+$/, "\n"));
   }
-  return out.join("\n").replace(/\n+$/, "\n");
+  return files;
+}
+
+/**
+ * Les `README.md` générés de `scripts/` qui ne correspondent plus à aucun
+ * dossier (dossier vidé, renommé) : un README orphelin décrirait des scripts
+ * disparus. Seuls les fichiers portant la marque GÉNÉRÉ sont visés.
+ *
+ * @param {Map<string, string>} attendus - sortie de `renderScriptsReadmes()`.
+ * @returns {string[]} les chemins à retirer.
+ */
+function staleScriptsReadmes(attendus) {
+  const found = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (
+        e.name === "README.md" &&
+        !attendus.has(p) &&
+        readFileSync(p, "utf8").startsWith(
+          "<!-- GÉNÉRÉ par .claude/skills/nodefony-skill/scripts/skills-doc.mjs",
+        )
+      )
+        found.push(p);
+    }
+  };
+  walk(SCRIPTS_DIR);
+  return found;
 }
 
 /**
@@ -1144,8 +1271,10 @@ function scriptsIndexGaps(list) {
       gaps.push(
         `${s.path} : posé à la racine de scripts/ — le ranger par nature`,
       );
-    else if (!SCRIPT_NATURES.some(([n]) => n === s.nature))
-      gaps.push(`${s.path} : dossier « ${s.nature} » absent de SCRIPT_NATURES`);
+    else if (!describeDir(dirOf(s)))
+      gaps.push(
+        `${s.path} : dossier « ${dirOf(s)} » absent de SCRIPT_NATURES / SCRIPT_SUBDIRS`,
+      );
     if (!s.test && !s.declaredUsage)
       gaps.push(`${s.path} : aucun \`@usage\` en tête de fichier`);
   }
@@ -1160,7 +1289,11 @@ const scriptGaps = scriptsIndexGaps(scriptsDuDepot);
   for (const s of skillsAvecFiche)
     ecrireGenere(join(OUT_DIR, `${s.name}.md`), renderSkill(s));
   ecrireGenere(join(OUT_DIR, "index.md"), renderIndex(skillsAvecFiche));
-  ecrireGenere(SCRIPTS_README, renderScriptsIndex(scriptsDuDepot));
+  const scriptsReadmes = renderScriptsReadmes(scriptsDuDepot);
+  for (const [chemin, contenu] of scriptsReadmes) ecrireGenere(chemin, contenu);
+  for (const orphelin of staleScriptsReadmes(scriptsReadmes))
+    if (CHECK_ONLY) perimees.push(orphelin);
+    else rmSync(orphelin);
 
   // Index MACHINE. Un registre de skills ou un moteur de recherche n'ouvre pas 27 markdown :
   // il lui faut un seul fichier structuré — résumé, mots-clés, déclencheurs, coût d'activation,

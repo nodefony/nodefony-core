@@ -93,12 +93,12 @@ script, donc toujours à jour après régénération.
 | `scripts/demo.mjs` | demo.mjs — vitrine ET test de non-régression de `lib/report.mjs`. | `--accent` | `OUT` |
 | `scripts/echarts.selftest.mjs` | Auto-contrôle du moteur de graphes ECharts — les CONTRATS, pas l'esthétique. | `--prove` | — |
 | `scripts/formats.selftest.mjs` | Auto-contrôle des FORMATS d'un rapport et du tri de ses tableaux. | — | — |
-| `scripts/schemas.selftest.mjs` | Auto-contrôle du lecteur mermaid de `schemas.mjs` — ce qu'il ne doit JAMAIS | — | — |
+| `scripts/schemas.selftest.mjs` | Auto-contrôle du lecteur mermaid de `schemas.mjs` — ce qu'il ne doit JAMAIS perdre en silence. | — | — |
 | `lib/brand.mjs` | brand.mjs — identité visuelle d'un rapport (logo, nom, couleurs). | — | — |
 | `lib/echarts.mjs` | Moteur de graphes **Apache ECharts** rendu CÔTÉ SERVEUR, en SVG statique. | `--muted` | — |
 | `lib/report-echarts.mjs` | **Adaptateurs** — les fonctions de `report.mjs`, rendues par ECharts. | — | — |
 | `lib/report.mjs` | report.mjs — bibliothèque de rendu de RAPPORTS HTML autonomes. | `--accent` `--bg` `--card` `--dim` `--fg` `--line` `--note-bg` `--note-fg` `--warn-bg` `--warn-fg` | `CSS` `PRINT_JS` `SORT_JS` `THEME_JS` |
-| `lib/schemas.mjs` | Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence | — | `HAUT` `MARGE` `POLICE` |
+| `lib/schemas.mjs` | Les **SCHÉMAS** de la documentation — organigrammes et diagrammes de séquence — rendus à la charte, depuis la source Mermaid qui vit déjà dans les `.md`. | — | `HAUT` `MARGE` `POLICE` |
 
 **Invocation telle que documentée dans chaque script :**
 

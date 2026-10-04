@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { transformCache } from "../../../../vitest.perf.ts";
-import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
+import { transformCache } from "../../../../scripts/test/vitest/perf.ts";
+import { tmpGuard } from "../../../../scripts/test/vitest/tmp-guard.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -14,7 +14,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   test: {
     // Dossier temporaire propre à la passe, contrôlé et supprimé au teardown
-    // (vitest.tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
+    // (scripts/test/vitest/tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
     globalSetup: tmpGuard(),
     ...transformCache,
     globals: true,

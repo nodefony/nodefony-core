@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { oxcDecorators } from "../../../../vitest.oxc.ts";
+import { oxcDecorators } from "../../../../scripts/test/vitest/oxc.ts";
 
 /**
  * vitest — suite de CHARGE / mémoire de @nodefony/drizzle (séparée de la

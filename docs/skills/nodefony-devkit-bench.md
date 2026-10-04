@@ -93,13 +93,13 @@ script, donc toujours à jour après régénération.
 | `scripts/bench-schema.mjs` | Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer. | `--allow-empty` `--analyze-only` `--dangerously-skip-permissi` `--detach` `--dialect` `--dir` `--dump-only` `--frontend` `--jq` `--json` `--link` `--model` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--schema` `--schema-only` `--setup-only` `--verbose` `--wait` `--yes` | `AGENT` `DIALECT` `LINKED` `MODEL` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` `NF_MYSQL_URL` `NF_PG_URL` |
 | `scripts/bench-schema.selftest.mjs` | Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit. | `--allow-no-pg` `--dump-only` `--prove` `--schema` | `JUDGE_TABLE` `NF_PG_URL` |
 | `scripts/build-devkit-report.mjs` | Construit la page « Un agent sait-il développer avec Nodefony ? ». | `--analyze-only` `--data` `--out` `--runs` | `DATA` `OUT` |
-| `scripts/jeton-mcp.selftest.mjs` | Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run, | — | — |
+| `scripts/jeton-mcp.selftest.mjs` | Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run, et la ceinture voit-elle une porte sur le point de se fermer ? | — | — |
 | `scripts/memoires-agent.selftest.mjs` | Auto-contrôle de la purge du cahier de mémoire que l'agent tient HORS du décor. | `--prove` | — |
-| `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un | `--allow-empty` `--format` | — |
+| `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un agent pour s'en apercevoir. | `--allow-empty` `--format` | — |
 | `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` | — |
 | `scripts/suivre-run.mjs` | Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport. | `--timeline` `--tout` | `NF_DEVKIT_BENCH_AGENT` `RACINE_RUNS` |
 | `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--auth` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--exact` `--force` `--from-database` `--frontend` `--index` `--inject` `--json` `--keep` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--preset` `--repack` `--role` `--scope` `--service` `--ttl` `--unique` `--wait` `--workspace` `--workspaces` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `MODULE` `MODULE_PKG` `PASCAL_MODULE` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
-| `scripts/verify-runtime.mjs` | Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il | `--config` `--etage` `--keep` `--link` `--reporter` | `APP` |
+| `scripts/verify-runtime.mjs` | Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il les promesses du framework ? » | `--config` `--etage` `--keep` `--link` `--reporter` | `APP` |
 
 **Invocation telle que documentée dans chaque script :**
 

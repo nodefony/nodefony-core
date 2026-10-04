@@ -27,7 +27,7 @@ import {
 } from "../cli/scaffold/format";
 import { ScaffoldWriter } from "../cli/scaffold/writer";
 
-// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// Le jetable du test, le test le supprime : scripts/test/vitest/tmp-guard.ts fait échouer
 // la passe sur tout dossier laissé dans le dossier temporaire.
 const aSupprimer: string[] = [];
 const temporaire = (dossier: string): string => {

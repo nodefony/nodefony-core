@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-26
+updated: 2026-10-04
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-start-server/SKILL.md"
 ---
@@ -69,7 +69,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `start.sh` | start.sh — démarre le serveur Nodefony de manière fiable. | `--all` `--cluster` `--detach` `--force-build` `--health` `--log` `--wait` `--workers` | `NF__SECURITY__RATELIMIT__ENABLED` `NODE_EXTRA_CA_CERTS` |
+| `start.sh` | start.sh — démarre le serveur Nodefony de manière fiable. WRAPPER MINCE de la commande native `nodefony <runtime> --detach` (volet F DevSupervisor DX) : le spawn détaché, l'attente de readiness (sonde ports — plus AUCUNE heuristique « log figé » → fin des faux TIMEOUT pendant un rebuild turbo légitime), le health check et le code de sortie sémantique vivent DANS le framework (detachedStart.ts). Le script ne garde que le spécifique au banc de test du repo : kill préalable + filet, builds pré-boot (module test / dist root cluster), --expose-gc pour le gate mémoire. | `--all` `--cluster` `--detach` `--force-build` `--health` `--log` `--wait` `--workers` | `NF__SECURITY__RATELIMIT__ENABLED` `NODE_EXTRA_CA_CERTS` |
 | `stop.sh` | stop.sh — arrête le serveur Nodefony proprement (one-shot, pas de respawn). | — | — |
 
 **Invocation telle que documentée dans chaque script :**
