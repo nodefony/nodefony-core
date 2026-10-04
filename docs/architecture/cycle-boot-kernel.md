@@ -653,7 +653,7 @@ démarre jamais un serveur par accident.
 
 ## Cluster et multi-process
 
-Le multi-process n'ajoute **aucune phase**. `Kernel.initCluster()` (`Kernel.ts:3193`) est appelé
+Le multi-process n'ajoute **aucune phase**. `Kernel.initCluster()` (`Kernel.ts:3197`) est appelé
 pendant `preRegister()` (`Kernel.ts:1167`) et se contente de constater le rôle du process — primaire ou
 travailleur — pour émettre `onCluster` et brancher le canal de messages inter-process.
 

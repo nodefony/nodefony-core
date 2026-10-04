@@ -568,7 +568,7 @@ Les points de passage, dans l'ordre du code :
    lisent l'environnement au boot, il doit donc déjà être là.
 2. **`Kernel.buildConfigContext()`** (`Kernel.ts:2109`) fabrique `ctx`. Le catalogue `env` exporté par
    l'app y est branché (`Kernel.ts:1197`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
-3. **`descriptor.resolve(ctx)`** (`Kernel.ts:4475`) enchaîne merge, overrides `NF__APP__*` et
+3. **`descriptor.resolve(ctx)`** (`Kernel.ts:4479`) enchaîne merge, overrides `NF__APP__*` et
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
    est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:106`)

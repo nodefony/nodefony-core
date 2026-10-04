@@ -493,8 +493,8 @@ même chose.
 
 | Émetteur                | Ancre            | Comportement                                                     | Employé pour           |
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
-| `fire(nom, …)`          | `Kernel.ts:3232` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
-| `fireAsync(nom, …)`     | `Kernel.ts:3251` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
+| `fire(nom, …)`          | `Kernel.ts:3236` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
+| `fireAsync(nom, …)`     | `Kernel.ts:3255` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
 | `fireLifecycle(nom, …)` | `Kernel.ts:4033` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
@@ -619,7 +619,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | Config du module ignorée                                  | Défauts du constructeur écrasés par `use()` puis par l'environnement             | Comportement voulu — lire `this.config`, pas les défauts écrits      |
 | Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:401`)                         | Charger le module, ou retirer la clé                                 |
 | `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:134`)                    | Déplacer le réglage dans `onKernelStart()`                           |
-| Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:3232`)                         | `fireAsync()` si le résultat compte                                  |
+| Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:3236`)                         | `fireAsync()` si le résultat compte                                  |
 | Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:3233`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |
 | Fichier de config qui plante à l'import                   | Kernel déréférencé au premier niveau                                             | `defineConfig((ctx) => …)` ou getter paresseux                       |
 

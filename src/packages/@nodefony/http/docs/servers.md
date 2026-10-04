@@ -493,7 +493,7 @@ panne, c'est une nuisance.
 
 ### La règle
 
-`resolvePortPolicy()` (cœur, `src/nodefony/src/service/dev/devProcess.ts:1767` — la même règle sert `nodefony doctor`) tranche selon l'environnement, et la valeur explicite gagne
+`resolvePortPolicy()` (cœur, `src/nodefony/src/service/dev/devProcess.ts:1789` — la même règle sert `nodefony doctor`) tranche selon l'environnement, et la valeur explicite gagne
 toujours :
 
 | Environnement | Défaut   | Pourquoi                                                                                                     |
