@@ -811,6 +811,9 @@ export function renderStartupHuman(
 }
 
 /** Ce que la ligne d'état sait, en plus du bilan. */
+/** Le geste pour arrêter, à droite de la barre. */
+const STOP_HINT = "ctrl+c arrêter";
+
 export interface IStatusContext {
   /** Nom du projet. */
   project: string;
@@ -818,6 +821,11 @@ export interface IStatusContext {
   readyAt: string;
   /** Numéro du rechargement à chaud — `0` au premier démarrage. */
   reloads: number;
+  /**
+   * Aide clavier de la surface — absente : `ctrl+c arrêter`. Le plein écran y
+   * dit comment défiler et sélectionner, gestes qu'il a lui-même changés.
+   */
+  help?: string;
 }
 
 /** Un morceau de la ligne d'état, et sa priorité quand la place manque. */
@@ -893,7 +901,6 @@ export function renderStatusLine(
       ? [{ text: p.dim(`${sym.reload} ${ctx.reloads}`), priority: 1 }]
       : []),
   ];
-  const hint = p.dim("ctrl+c arrêter");
   const width = Math.max(10, (options.columns ?? 80) - 1);
   const sep = p.dim("  ·  ");
   const visible = (t: string): number => stripVTControlCharacters(t).length;
@@ -921,9 +928,14 @@ export function renderStatusLine(
     } else kept.splice(kept.indexOf(lowest), 1);
   }
   const line = lineOf(kept);
-  // L'aide à droite, s'il reste de la place.
-  const gap = width - visible(line) - visible(hint);
-  return gap >= 3 ? `${line}${" ".repeat(gap)}${hint}` : line;
+  // L'aide à droite, s'il reste de la place — l'aide complète de la surface
+  // d'abord, sinon le seul geste d'arrêt : il ne doit pas tomber avec elle.
+  for (const text of ctx.help ? [ctx.help, STOP_HINT] : [STOP_HINT]) {
+    const hint = p.dim(text);
+    const gap = width - visible(line) - visible(hint);
+    if (gap >= 3) return `${line}${" ".repeat(gap)}${hint}`;
+  }
+  return line;
 }
 
 /** Largeur minimale pour le bloc d'état avec le logo — en deçà, une ligne. */
@@ -987,7 +999,7 @@ export function renderStatusBlock(
       (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
     view.inspector ? p.warning(`débogueur ${view.inspector}`) : "",
     pending ? p.dim(pending) : "",
-    p.dim("ctrl+c arrêter  ·  état : nodefony status --json"),
+    p.dim(`${ctx.help ?? STOP_HINT}  ·  état : nodefony status --json`),
   ];
   // Chaque ligne bornée à la place qui reste à droite du logo : une ligne
   // repliée décalerait tout le bloc, et l'effacement en remontant raterait.

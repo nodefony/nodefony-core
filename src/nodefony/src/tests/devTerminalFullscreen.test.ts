@@ -23,6 +23,7 @@ import {
   type IInputFocus,
 } from "../service/dev/DevTerminal";
 import { readDevUiRequest } from "../service/dev/outputMode";
+import type { IStartupView } from "../service/dev/startupScreen";
 import { TERMINAL_PROBE } from "../service/dev/terminalCapability";
 
 const COLS = 60;
@@ -64,8 +65,10 @@ class FakeInput extends EventEmitter {
   }
 }
 
-function fullscreen(options: { synchronized?: boolean } = {}) {
-  const stdout = output();
+function fullscreen(
+  options: { synchronized?: boolean; columns?: number; rows?: number } = {},
+) {
+  const stdout = output(options.columns, options.rows);
   const input = new FakeInput();
   const quit = vi.fn();
   const terminal = new DevTerminal({
@@ -87,16 +90,20 @@ const nextFrame = (): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, 40));
 
 /** L'écran rendu par un vrai émulateur, ligne à ligne. */
-async function screen(written: readonly string[]): Promise<string[]> {
+async function screen(
+  written: readonly string[],
+  cols = COLS,
+  rows = ROWS,
+): Promise<string[]> {
   const term = new xterm.Terminal({
-    cols: COLS,
-    rows: ROWS,
+    cols,
+    rows,
     allowProposedApi: true,
   });
   await new Promise<void>((resolve) => term.write(written.join(""), resolve));
   const buf = term.buffer.active;
   const lines: string[] = [];
-  for (let i = 0; i < ROWS; i++) {
+  for (let i = 0; i < rows; i++) {
     lines.push(buf.getLine(buf.baseY + i)?.translateToString(true) ?? "");
   }
   term.dispose();
@@ -392,5 +399,85 @@ describe("sonde du terminal — constatée, jamais déduite", () => {
     expect(result.fullscreen).to.equal(false);
     expect(input.raw).to.equal(false);
     expect(input.listenerCount("data")).to.equal(0);
+  });
+});
+
+describe("plein écran — l'aide de la barre dit les gestes changés", () => {
+  const readyView: IStartupView = {
+    schema: 1,
+    ready: true,
+    durationMs: 1200,
+    version: "10.0.0",
+    environment: "development",
+    open: [],
+    notices: [],
+    listening: [],
+    frontend: null,
+    modules: { loaded: 3, gated: [], failed: 0 },
+    journal: { warnings: 0, errors: 0, criticals: [] },
+    data: [],
+    processes: null,
+    firewall: null,
+    supervised: true,
+    inspector: null,
+  };
+
+  it("défiler, sélectionner (Maj), arrêter — dans la barre du serveur prêt", async () => {
+    const { stdout, terminal } = fullscreen({ columns: 120, rows: 40 });
+    terminal.setStatus(readyView, ctx, "ready");
+    terminal.ingest("server", "out", lines(3));
+    await nextFrame();
+    const shown = (await screen(stdout.written, 120, 40)).join("\n");
+    expect(shown).to.include("PgUp défiler");
+    expect(shown).to.include("glisser sélectionner");
+    expect(shown).to.include("ctrl+c arrêter");
+    terminal.close();
+  });
+
+  it("en ligne, l'aide reste le seul geste d'arrêt", () => {
+    const stdout = output(100, 40);
+    const terminal = new DevTerminal({
+      stdout,
+      color: false,
+      charset: "unicode",
+      mark: brandMark("unicode", false),
+    });
+    terminal.setStatus(readyView, ctx, "ready");
+    const bar = stdout.written.join("");
+    expect(bar).to.include("ctrl+c arrêter");
+    expect(bar).to.not.include("défiler");
+    terminal.close();
+  });
+});
+
+describe("barre étroite — le geste d'arrêt ne tombe pas avec l'aide", () => {
+  it("l'aide complète ne tient pas, l'arrêt si : la ligne garde « ctrl+c arrêter »", async () => {
+    const { stdout, terminal } = fullscreen({ columns: 100, rows: 12 });
+    terminal.setStatus(
+      {
+        schema: 1,
+        ready: true,
+        durationMs: 1,
+        version: "10.0.0",
+        environment: "development",
+        open: [],
+        notices: [],
+        listening: [],
+        frontend: null,
+        modules: { loaded: 1, gated: [], failed: 0 },
+        journal: { warnings: 0, errors: 0, criticals: [] },
+        data: [],
+        processes: null,
+        firewall: null,
+        supervised: true,
+        inspector: null,
+      },
+      ctx,
+      "ready",
+    );
+    await nextFrame();
+    const bar = (await screen(stdout.written, 100, 12)).at(-1) ?? "";
+    expect(bar).to.include("ctrl+c arrêter");
+    terminal.close();
   });
 });

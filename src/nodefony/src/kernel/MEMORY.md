@@ -143,7 +143,20 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     et l'invite revient pendant qu'un serveur orphelin tient encore les ports.
     Bloc côté serveur (`StatusLine`, `--no-watch`) retiré sur SIGTERM/SIGINT/SIGHUP
     (`prependOnceListener`), `onTerminate` et `exit` en filets ; `release()` idempotent. Le
-    défilement emporte la barre inline : barre figée pendant le défilement = plein écran (#537).
+    défilement emporte la barre inline ; la barre figée pendant le défilement est le PLEIN ÉCRAN :
+    opt-in `--ui` / `NF_DEV_UI=1` (`--no-ui`, `NF_DEV_UI=0` l'interdisent ; `readDevUiRequest`,
+    `outputMode.ts`), accordé seulement si le clavier est un terminal ET que la sonde répond
+    (`probeTerminal`, `DevTerminal.ts` : DECRQM 2026 + `ESC[6n`, 500 ms, mode brut gardé) — sinon
+    `inline`, et le superviseur le DIT. `DevTerminal({ fullscreen })` : écran alternatif, souris
+    SGR, collage, mode brut ; images `renderFrame`→`diffFrame` ≤ 1/16 ms, UNE écriture, sortie
+    synchronisée si vue ; foyers (`addFocus` en tête, `dispatch`) défilement (molette 3 lignes,
+    PgUp/PgDn, Début, Fin — flèches LIBRES pour l'invite) puis global (Ctrl+C/Ctrl+D → `onQuit`
+    = `#shutdown` : en mode brut ce sont des TOUCHES) ; `ESC[2J` → `floorSeq` ; `#shutdown` appelle
+    `leaveFullscreen()` EN PREMIER (journal visible recopié dans l'historique du shell, suite
+    `inline`). Restauration sur tous les chemins par `guardTerminal` (`runtime/terminalGuard.ts`,
+    registre UNIQUE partagé avec le curseur de `progress.ts`, écouteurs de signal EN TÊTE).
+    Défilement pur : `scrollAnchor`/`topAnchor`/`frameJournalRows` (`devFrame.ts`), haut mesuré
+    sur la mise en page REMONTÉE (l'indicateur y prend une ligne).
     Écran JUGÉ rendu : `tests/CliIntegration.test.ts`, bloc « écran de développement sous pseudo-terminal » (lot `test:boot` ; tout boot RÉEL de l'app du dépôt dans CE fichier : vitest parallélise les fichiers) — pseudo-terminal = commande
     `script` (util-linux/BSD, constatée ; entrée via `cat |` : BSD refuse un socket), rendu =
     `@xterm/headless` (devDependency). Capacité `pty` dans les gates ; Windows l'énonce.

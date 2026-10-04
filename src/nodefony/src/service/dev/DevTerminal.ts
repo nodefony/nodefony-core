@@ -150,6 +150,19 @@ const ENTER_FULLSCREEN =
 const LEAVE_FULLSCREEN =
   "\x1b[?2004l\x1b[?1006l\x1b[?1000l\x1b[?25h\x1b[?1049l";
 
+/**
+ * L'aide de la barre en plein écran : il a changé deux gestes — la molette
+ * défile le journal, la sélection native passe par Maj (Option sous les
+ * terminaux de macOS) — et Ctrl+C reste l'arrêt. L'arrêt EN TÊTE : la ligne
+ * est tronquée par la droite quand la place manque.
+ */
+const FULLSCREEN_HELP: Readonly<Record<ScreenCharset, string>> = {
+  unicode:
+    "ctrl+c arrêter  ·  molette · PgUp défiler  ·  maj (⌥ macOS) + glisser sélectionner",
+  ascii:
+    "ctrl+c arrêter  -  molette / PgUp défiler  -  maj (alt macOS) + glisser sélectionner",
+};
+
 /** Dimensions de repli d'un flux qui n'en déclare pas. */
 const FALLBACK_SIZE: IFrameSize = { columns: 80, rows: 24 };
 
@@ -700,7 +713,14 @@ export class DevTerminal {
       status:
         this.#context === null
           ? null
-          : { view: this.#view, context: this.#context, phase: this.#phase },
+          : {
+              view: this.#view,
+              context: {
+                ...this.#context,
+                help: FULLSCREEN_HELP[this.#charset],
+              },
+              phase: this.#phase,
+            },
       color: this.#color,
       charset: this.#charset,
       mark: this.#mark,

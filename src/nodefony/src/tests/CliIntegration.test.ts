@@ -1610,11 +1610,16 @@ interface IPtySession {
  * La taille est posée par `stty` DANS le terminal, avant l'`exec` : un
  * changement après coup arriverait trop tard pour un processus qui a déjà lu
  * ses dimensions.
+ *
+ * `answerProbe` : l'émulateur RÉPOND aux requêtes du processus (position du
+ * curseur, DECRQM) comme un vrai terminal — ses réponses repartent dans
+ * l'entrée. Sans lui, le terminal est muet : la sonde du plein écran échoue.
  */
 function startPty(
   flavor: ScriptFlavor,
   args: string[],
   env: NodeJS.ProcessEnv,
+  answerProbe = false,
 ): IPtySession {
   const inner =
     `stty cols ${COLS} rows ${ROWS} && exec ` +
@@ -1654,6 +1659,7 @@ function startPty(
   child.stdout?.on("data", (chunk: Buffer) => {
     term.write(new Uint8Array(chunk));
   });
+  if (answerProbe) term.onData((data) => child.stdin?.write(data));
   const exited = new Promise<number | null>((resolve) => {
     let err = "";
     child.stderr?.on("data", (chunk: Buffer) => {
@@ -1832,6 +1838,93 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
     );
 
     it(
+      "plein écran (--ui) : la barre reste en bas pendant le défilement, Ctrl+C rend un terminal normal",
+      async () => {
+        let s: IPtySession | null = null;
+        try {
+          s = startPty(flavor, ["development", "--ui"], process.env, true);
+          await waitFor(s, BAR_RE);
+          await new Promise((r) => setTimeout(r, 3000));
+          assert.strictEqual(
+            s.term.buffer.active.type,
+            "alternate",
+            "la sonde a répondu : écran alternatif",
+          );
+          assert.strictEqual(s.term.modes.mouseTrackingMode, "vt200");
+          assert.strictEqual(s.term.modes.bracketedPasteMode, true);
+          const live = await snap(s);
+          assert.ok(
+            live.screen.slice(-8).some((l) => l.includes(BAR)),
+            `la barre est en BAS\n${screenText(live)}`,
+          );
+          assert.deepStrictEqual(garbage(live), [], "aucune séquence en clair");
+
+          // PgUp : le journal remonte, la barre ne bouge pas.
+          s.child.stdin?.write("\x1b[5~");
+          await new Promise((r) => setTimeout(r, 500));
+          const up = await snap(s);
+          assert.ok(
+            up.screen.some((l) => /nouvelles? lignes?/.test(l)),
+            `remonté, l'indicateur des lignes du dessous\n${screenText(up)}`,
+          );
+          assert.ok(
+            up.screen.slice(-8).some((l) => l.includes(BAR)),
+            `remonté, la barre reste en bas\n${screenText(up)}`,
+          );
+          const firstLine = up.screen[0];
+
+          // Rechargement à chaud pendant qu'on lit : on reste où l'on est.
+          const watched = path.join(
+            REPO_ROOT,
+            "src",
+            "modules",
+            "test",
+            "index.ts",
+          );
+          const now = new Date();
+          fs.utimesSync(watched, now, now);
+          await waitFor(s, /↻ 1/);
+          await new Promise((r) => setTimeout(r, 3000));
+          const reloaded = await snap(s);
+          assert.strictEqual(
+            reloaded.screen[0],
+            firstLine,
+            `le rechargement ne ramène pas en bas de force\n${screenText(reloaded)}`,
+          );
+
+          // Fin : retour au direct.
+          s.child.stdin?.write("\x1b[F");
+          await new Promise((r) => setTimeout(r, 500));
+          const back = await snap(s);
+          assert.ok(
+            !back.screen.some((l) => /nouvelles? lignes?/.test(l)),
+            `Fin revient au direct\n${screenText(back)}`,
+          );
+
+          // Ctrl+C : en mode brut c'est une touche, l'arrêt passe par le foyer.
+          const code = await ctrlC(s);
+          const final = await snap(s);
+          assert.strictEqual(code, 0, `arrêt propre\n${screenText(final)}`);
+          assert.strictEqual(
+            s.term.buffer.active.type,
+            "normal",
+            "plus d'écran alternatif",
+          );
+          assert.strictEqual(s.term.modes.mouseTrackingMode, "none");
+          assert.strictEqual(s.term.modes.bracketedPasteMode, false);
+          assert.strictEqual(
+            await isPortOpen(HTTP_PORT),
+            false,
+            "ports libérés",
+          );
+        } finally {
+          await cleanup(s);
+        }
+      },
+      SCREEN_READY_TIMEOUT_MS * 2 + 60_000,
+    );
+
+    it(
       "crash au démarrage : la pile s'affiche AVANT le verdict du superviseur",
       async () => {
         // Le crash vit dans le SEUL serveur (`NF_DEV_CHILD`) : le superviseur
@@ -1845,7 +1938,9 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
             'if (process.env.NF_DEV_CHILD === "1") ' +
               'throw new Error("crash volontaire du banc d\'écran");\n',
           );
-          s = startPty(flavor, ["development"], {
+          // `--ui` sur un terminal MUET (l'émulateur ne répond pas) : la sonde
+          // échoue, la surface `inline` tient le même écran — et le dit.
+          s = startPty(flavor, ["development", "--ui"], {
             ...process.env,
             NODE_OPTIONS:
               `${process.env.NODE_OPTIONS ?? ""} --import="${pathToFileURL(crash).href}"`.trim(),
@@ -1853,6 +1948,15 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           await waitFor(s, /abandon/);
           const sc = await snap(s);
           const lines = [...sc.history, ...sc.screen];
+          assert.ok(
+            lines.some((l) => l.includes("n'a pas répondu à la sonde")),
+            `la sonde muette est dite\n${screenText(sc)}`,
+          );
+          assert.strictEqual(
+            s.term.buffer.active.type,
+            "normal",
+            "sonde muette : jamais d'écran alternatif",
+          );
           const firstError = lines.findIndex((l) =>
             l.includes("crash volontaire du banc"),
           );
