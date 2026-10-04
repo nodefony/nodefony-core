@@ -315,10 +315,14 @@ tourniquet) · `LiveLine` (socle) · `renderBar()` PURE · `formatDuration()`.
 braille conservé sur Windows Terminal / VS Code. Les 2 paramètres sont injectés
 → le cas Windows s'éprouve depuis n'importe quelle machine.
 
-Curseur masqué pendant l'animation, restauré sur `exit`/`SIGINT`/`SIGTERM`
-(protocole `signal-exit` : agir seulement si notre écouteur est le SEUL, se
-retirer, puis `process.kill` — jamais `process.exit`). ⚠️ `SIGHUP` lève `ENOSYS`
-sous Windows : non écouté.
+Curseur masqué pendant l'animation, restauré par `guardTerminal`
+(`runtime/terminalGuard.ts`) — le protocole de sortie UNIQUE, partagé avec le plein
+écran du terminal de dev : `exit` (qui couvre l'exception non rattrapée : Node l'émet
+AVANT d'imprimer la pile), `SIGINT`/`SIGTERM`/`SIGHUP`. Registre dans `globalThis`
+(deux gardes séparées se compteraient l'une l'autre et avaleraient le signal) ;
+écouteur de signal posé EN TÊTE (un `process.once` est retiré avant d'être appelé :
+compté après lui, on se croyait seul et on tuait l'arrêt gracieux) ; réémission par
+`process.kill`, repli `SIGINT` si la plateforme refuse le signal.
 
 `fitToWidth(line, columns)` tronque sans compter les séquences ANSI (sinon la
 ligne wrappe et `clearLine` n'en efface qu'une → traînée). Sortie synchronisée

@@ -139,16 +139,20 @@ taper à l'aveugle, sans aucune raison de faire le lien avec l'outil qu'il vient
 d'interrompre. Ce défaut n'arrive jamais au cas nominal — seulement sur `Ctrl+C`,
 c'est-à-dire précisément quand l'utilisateur est déjà contrarié.
 
-Le protocole reprend celui de `signal-exit` :
+Le protocole reprend celui de `signal-exit`, et il est UNIQUE dans le
+framework (`runtime/terminalGuard.ts`, partagé avec le plein écran du terminal
+de développement) :
 
-1. n'agir que si notre écouteur est le **seul** — sinon l'application a son
-   propre arrêt gracieux, et c'est à lui de conclure ;
-2. se **retirer** avant d'agir ;
-3. réémettre par `process.kill`, **jamais** `process.exit` — qui mentirait au
+1. le terminal est rendu tout de suite ; si l'application a son propre arrêt
+   gracieux, c'est à lui de conclure ;
+2. sinon, la garde se **retire** avant d'agir ;
+3. puis réémet par `process.kill`, **jamais** `process.exit` — qui mentirait au
    shell en lui présentant une sortie ordinaire là où il y a eu un signal.
 
-⚠️ **Windows** : `SIGHUP` y lève `ENOSYS`. Seuls `SIGINT` et `SIGTERM` sont
-écoutés, les deux que Node émule sur toutes les plateformes.
+Sont couverts la fin normale, l'exception non rattrapée (Node émet `exit`
+avant d'imprimer la pile), `SIGINT`, `SIGTERM` et `SIGHUP` (fermeture du
+terminal). Une plateforme qui refuse de réémettre un signal — Windows et
+`SIGHUP` — le dit à l'exécution, et la garde retombe sur `SIGINT`.
 
 ## Détails qui évitent les traînées
 

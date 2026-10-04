@@ -1,5 +1,6 @@
 import readline from "node:readline";
 import { isTerminal } from "../runtime/isTerminal";
+import { guardTerminal } from "../runtime/terminalGuard";
 
 /**
  * Indicateurs d'attente et de progression pour un terminal — la seule
@@ -181,38 +182,11 @@ function hideCursor(stream: NodeJS.WriteStream): void {
   if (cursorHiddenOn !== null) return;
   stream.write("\u001B[?25l");
   cursorHiddenOn = stream;
-
-  const onExit = (): void => showCursor();
-  // Le protocole est celui de `signal-exit`, lu dans ses sources plutôt que de
-  // mémoire : (1) n'agir que si notre écouteur est le SEUL — sinon
-  // l'application a son propre arrêt gracieux et c'est à lui de conclure ;
-  // (2) se RETIRER avant d'agir, pour ne pas se rappeler soi-même ;
-  // (3) réémettre le signal par `process.kill`, JAMAIS `process.exit`.
-  //
-  // Le point (3) n'est pas un détail : `process.exit(130)` ment au shell, qui
-  // croit à une sortie ordinaire. `process.kill` laisse le système appliquer
-  // la sémantique du signal — un `^C` reste un `^C`, et une boucle `bash` qui
-  // teste l'interruption continue de fonctionner.
-  //
-  // ⚠️ **Windows** : `SIGHUP` y lève `ENOSYS` — `signal-exit` le remplace par
-  // `SIGINT`. On ne l'écoute pas du tout, ce qui est le plus sûr : `SIGINT` et
-  // `SIGTERM` sont les deux que Node émule sur toutes les plateformes.
-  const onSignal = (signal: NodeJS.Signals): void => {
-    if (process.listenerCount(signal) > 1) {
-      showCursor();
-      return;
-    }
-    showCursor(); // retire aussi nos écouteurs, via `releaseGuards`
-    process.kill(process.pid, signal);
-  };
-  process.once("exit", onExit);
-  process.on("SIGINT", onSignal);
-  process.on("SIGTERM", onSignal);
-  releaseGuards = () => {
-    process.removeListener("exit", onExit);
-    process.removeListener("SIGINT", onSignal);
-    process.removeListener("SIGTERM", onSignal);
-  };
+  // Le protocole de sortie (signaux, exception, `exit`) est UNIQUE et partagé
+  // avec le plein écran du terminal de développement : deux gardes posées
+  // chacune de leur côté se compteraient l'une l'autre comme l'application,
+  // et aucune ne réémettrait le signal.
+  releaseGuards = guardTerminal(showCursor);
 }
 
 /**
