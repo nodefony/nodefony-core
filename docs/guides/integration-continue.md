@@ -448,7 +448,7 @@ lui-même qui le couvrent. Les chiffres exacts vivent dans la carte de l'aperçu
 | Unitaires (CLI) | `nodefony` `Cli.test.ts` | codes de sortie et signaux — ce que la forge lit pour décider rouge ou vert |
 | Intégration | `nodefony` `CliIntegration.test.ts` | l'exécution réelle des commandes que les workflows appellent |
 
-> La déclaration du décor elle-même (`gateReporter()`, `scripts/test/vitest/gates.ts:669`) n'est pas couverte
+> La déclaration du décor elle-même (`gateReporter()`, `scripts/test/vitest/gates.ts:693`) n'est pas couverte
 > par un test unitaire : elle est éprouvée par l'usage, en étant lue à la fin de chaque passe. La
 > seule façon de vérifier qu'un gate mord reste de le casser exprès.
 
