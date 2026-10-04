@@ -10387,6 +10387,10 @@ describe("create app — quand la base ne répond pas, la cause se NOMME (#302)"
               null,
               `stack trace — ${genLog} :\n${stackContext(genOut) ?? ""}`,
             );
+            // Vert : les transcripts n'ont plus rien à dire. Rouge, ils restent
+            // le temps de la passe — la garde des temporaires les nomme.
+            rmSync(log, { force: true });
+            rmSync(genLog, { force: true });
           } finally {
             rmSync(tmp, { recursive: true, force: true });
           }

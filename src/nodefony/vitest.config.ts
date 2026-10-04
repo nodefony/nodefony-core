@@ -34,7 +34,7 @@ export default defineConfig({
   test: {
     // Dossier temporaire propre à la passe, contrôlé et supprimé au teardown
     // (vitest.tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
-    globalSetup: tmpGuard(),
+    globalSetup: tmpGuard(r("./src/tests/nodeDist.global.ts")),
     ...transformCache,
     globals: true,
     // Les DEUX serveurs de logs que le cœur sait alimenter — et que rien

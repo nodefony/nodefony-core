@@ -37,7 +37,7 @@ const VARS = ["TMPDIR", "TMP", "TEMP"] as const;
  * enfant. Ce n'est pas un jetable de test : il est toléré, et part quand même
  * avec le dossier de la passe.
  */
-const TOOL_CACHES = /^(?:node-compile-cache|tsx-\d+)$/u;
+const TOOL_CACHES = /^(?:node-compile-cache|tsx-[\w.-]+)$/u;
 
 /**
  * La liste `globalSetup` d'une config vitest, garde comprise.

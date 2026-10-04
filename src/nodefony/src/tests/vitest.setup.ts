@@ -3,33 +3,11 @@
 //   2. perf-skip OPT-IN : port fidèle du root hook `perf-skip.cjs`.
 //   3. filet anti-fuite : les listeners `process` d'un test meurent avec lui.
 import "reflect-metadata";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { afterAll, afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 
-// ── `doctor` hors réseau ───────────────────────────────────────────────────────
-// La sous-règle « Sécurité de Node » lit la liste officielle des publications
-// sur nodejs.org. Une suite ne doit dépendre ni du réseau ni de la date du jour :
-// on lui donne une liste où le Node courant est à jour. Les tests de la règle
-// elle-même injectent leur propre liste. Un `NF_NODE_DIST_URL` déjà posé gagne.
-// Le fichier est le jetable de CE fichier de test : supprimé à sa fin (la garde
-// vitest.tmp-guard.ts refuse tout reste), reposé par le suivant — d'où la
-// comparaison au chemin, la variable survivant d'un fichier à l'autre.
-const fixture = path.join(os.tmpdir(), `nf-node-dist-${process.pid}.json`);
-if (
-  !process.env["NF_NODE_DIST_URL"] ||
-  process.env["NF_NODE_DIST_URL"] === fixture
-) {
-  fs.writeFileSync(
-    fixture,
-    JSON.stringify([
-      { version: process.version, date: "2026-01-01", security: false },
-    ]),
-  );
-  process.env["NF_NODE_DIST_URL"] = fixture;
-  afterAll(() => fs.rmSync(fixture, { force: true }));
-}
+// `doctor` hors réseau : la liste des publications de Node est posée UNE fois
+// par passe dans `nodeDist.global.ts` (globalSetup). Ici, un `afterAll` ne
+// tournait pas pour un fichier dont tous les tests sont sautés.
 
 // ── Perf-skip (port de src/tests/perf-skip.cjs) ────────────────────────────────
 // Les tests de perf (titre à seuil "< Nms" OU sous un describe `performance`) sont
