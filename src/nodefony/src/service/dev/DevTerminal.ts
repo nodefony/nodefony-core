@@ -46,6 +46,11 @@ import {
   type InputEvent,
 } from "./inputDecoder";
 import {
+  TERMINAL_PROBE,
+  interpretProbe,
+  type IProbeResult,
+} from "./terminalCapability";
+import {
   DevTranscript,
   sanitizeTerminalText,
   type IDevTranscriptOptions,
@@ -157,6 +162,60 @@ const COLUMN_ONE = /\x1b\[[01]?G/g;
  * indéfiniment. Couvre un hyperlien OSC 8 à l'URL longue.
  */
 const MAX_PENDING_SEQUENCE = 4096;
+
+/**
+ * Délai d'attente de la sonde. Un terminal local répond en quelques
+ * millisecondes ; au-delà, il est déclaré muet. ⚠️ Une réponse arrivée APRÈS
+ * le délai tombe sur un clavier repassé en mode cuit, qui l'affiche : le
+ * délai doit couvrir une session distante, pas seulement le poste.
+ */
+export const PROBE_TIMEOUT_MS = 500;
+
+/**
+ * Interroge le terminal : passe le clavier en mode brut, envoie
+ * `TERMINAL_PROBE`, lit les réponses jusqu'à la sentinelle (position du
+ * curseur) ou au délai, puis rend le clavier tel qu'il était. Le mode brut
+ * est gardé par `guardTerminal` le temps de la sonde.
+ *
+ * @param input - le clavier.
+ * @param output - le terminal.
+ * @param timeoutMs - délai au-delà duquel le terminal est déclaré muet.
+ * @returns ce que la sonde a établi.
+ */
+export async function probeTerminal(
+  input: IDevTerminalInput,
+  output: { write(chunk: string): unknown },
+  timeoutMs = PROBE_TIMEOUT_MS,
+): Promise<IProbeResult> {
+  const decoder = new InputDecoder();
+  const events: InputEvent[] = [];
+  const cooked = (): void => {
+    input.setRawMode?.(false);
+  };
+  const release = guardTerminal(cooked);
+  input.setRawMode?.(true);
+  try {
+    return await new Promise<IProbeResult>((resolve) => {
+      const finish = (): void => {
+        clearTimeout(timer);
+        input.removeListener("data", onData);
+        input.pause();
+        resolve(interpretProbe(events));
+      };
+      const onData = (chunk: Buffer | string): void => {
+        events.push(...decoder.feed(chunk));
+        if (interpretProbe(events).complete) finish();
+      };
+      const timer = setTimeout(finish, timeoutMs);
+      input.on("data", onData);
+      input.resume();
+      output.write(TERMINAL_PROBE);
+    });
+  } finally {
+    release();
+    cooked();
+  }
+}
 
 /** Ce que possède le plein écran, de l'entrée à la restauration. */
 interface IFullscreenState {

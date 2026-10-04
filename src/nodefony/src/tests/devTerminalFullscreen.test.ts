@@ -17,7 +17,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import xterm from "@xterm/headless";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { brandMark } from "../cli/brand";
-import { DevTerminal, type IInputFocus } from "../service/dev/DevTerminal";
+import {
+  DevTerminal,
+  probeTerminal,
+  type IInputFocus,
+} from "../service/dev/DevTerminal";
+import { readDevUiRequest } from "../service/dev/outputMode";
+import { TERMINAL_PROBE } from "../service/dev/terminalCapability";
 
 const COLS = 60;
 const ROWS = 12;
@@ -314,4 +320,77 @@ describe("plein écran — restauration sur une exception non rattrapée", () =>
     expect(stack, "pile absente").to.be.greaterThan(-1);
     expect(left).to.be.lessThan(stack);
   }, 30_000);
+});
+
+describe("interrupteur du plein écran — --ui / --no-ui / NF_DEV_UI", () => {
+  it("opt-in pendant la construction : rien demandé, pas de plein écran", () => {
+    expect(readDevUiRequest(["development"], {})).to.deep.equal({
+      fullscreen: false,
+      invalid: null,
+    });
+  });
+
+  it("la ligne de commande l'emporte sur l'environnement", () => {
+    expect(readDevUiRequest(["--ui"], { NF_DEV_UI: "0" }).fullscreen).to.equal(
+      true,
+    );
+    expect(
+      readDevUiRequest(["--no-ui"], { NF_DEV_UI: "1" }).fullscreen,
+    ).to.equal(false);
+    expect(readDevUiRequest([], { NF_DEV_UI: "1" }).fullscreen).to.equal(true);
+  });
+
+  it("une valeur ni 1 ni 0 est NOMMÉE, pas interprétée", () => {
+    expect(readDevUiRequest([], { NF_DEV_UI: "oui" })).to.deep.equal({
+      fullscreen: false,
+      invalid: "oui",
+    });
+  });
+});
+
+describe("sonde du terminal — constatée, jamais déduite", () => {
+  /** Un clavier qui répond à la sonde comme le ferait un terminal. */
+  function answering(reply: string | null) {
+    const input = new FakeInput();
+    const writes: string[] = [];
+    const output = {
+      write: (chunk: string): boolean => {
+        writes.push(chunk);
+        if (chunk === TERMINAL_PROBE && reply !== null) {
+          setTimeout(() => input.type(reply), 5);
+        }
+        return true;
+      },
+    };
+    return { input, output, writes };
+  }
+
+  it("le terminal répond : plein écran, sortie synchronisée si DECRQM l'a vue", async () => {
+    const { input, output, writes } = answering("\x1b[?2026;2$y\x1b[12;1R");
+    const result = await probeTerminal(input, output, 1000);
+    expect(writes).to.deep.equal([TERMINAL_PROBE]);
+    expect(result).to.deep.equal({
+      fullscreen: true,
+      synchronized: true,
+      complete: true,
+    });
+    expect(input.raw).to.equal(false);
+    expect(input.paused).to.equal(true);
+    expect(input.listenerCount("data")).to.equal(0);
+  });
+
+  it("position seule (pas de DECRQM) : plein écran, sans sortie synchronisée", async () => {
+    const { input, output } = answering("\x1b[3;7R");
+    const result = await probeTerminal(input, output, 1000);
+    expect(result.fullscreen).to.equal(true);
+    expect(result.synchronized).to.equal(false);
+  });
+
+  it("terminal muet : surface inline après le délai, clavier rendu", async () => {
+    const { input, output } = answering(null);
+    const result = await probeTerminal(input, output, 50);
+    expect(result.fullscreen).to.equal(false);
+    expect(input.raw).to.equal(false);
+    expect(input.listenerCount("data")).to.equal(0);
+  });
 });

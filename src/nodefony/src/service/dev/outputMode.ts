@@ -92,6 +92,37 @@ export function isDebugRequested(argv: readonly string[]): boolean {
   return argv.includes("-d") || argv.includes("--debug");
 }
 
+/** Ce que demande l'interrupteur du plein écran. */
+export interface IDevUiRequest {
+  /** Le plein écran est demandé (il reste soumis à la sonde du terminal). */
+  fullscreen: boolean;
+  /** Une valeur de `NF_DEV_UI` qui n'est ni `1` ni `0` — à nommer, pas à taire. */
+  invalid: string | null;
+}
+
+/**
+ * Le plein écran de `nodefony development` est-il demandé ? `--ui` /
+ * `--no-ui` l'emportent sur `NF_DEV_UI` (`1` ou `0`). Sans demande : non —
+ * le plein écran reste opt-in tant que sa preuve n'est pas faite sur les
+ * trois plateformes (#537). Lu sur `argv`, comme {@link isDebugRequested} :
+ * le superviseur ne passe jamais par Commander.
+ *
+ * @param argv - `process.argv` ou son équivalent de test.
+ * @param env - l'environnement.
+ * @returns la demande, et la valeur invalide s'il y en a une.
+ */
+export function readDevUiRequest(
+  argv: readonly string[],
+  env: Readonly<Record<string, string | undefined>>,
+): IDevUiRequest {
+  const raw = env.NF_DEV_UI;
+  const invalid =
+    raw === undefined || raw === "" || raw === "0" || raw === "1" ? null : raw;
+  if (argv.includes("--no-ui")) return { fullscreen: false, invalid };
+  if (argv.includes("--ui")) return { fullscreen: true, invalid };
+  return { fullscreen: raw === "1", invalid };
+}
+
 /**
  * Efface l'écran VISIBLE et ramène le curseur en haut — l'historique du
  * terminal reste intact : on doit pouvoir remonter dans ce qui a précédé.

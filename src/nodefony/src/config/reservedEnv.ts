@@ -95,6 +95,10 @@ export const RESERVED_ENV = Object.freeze({
     name: "NF_DEV_TERMINAL",
     role: "verdict du terminal que le superviseur de développement transmet au serveur dont il relaie la sortie",
   },
+  NF_DEV_UI: {
+    name: "NF_DEV_UI",
+    role: "plein écran du terminal de développement : `1` le demande, `0` l'interdit (`--ui` / `--no-ui` l'emportent)",
+  },
   NF_DEV_PORTS: {
     name: "NF_DEV_PORTS",
     role: "ports que le superviseur de développement doit libérer, imposés par l'opérateur",

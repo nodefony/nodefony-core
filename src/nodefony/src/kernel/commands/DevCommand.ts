@@ -91,6 +91,13 @@ class Dev extends Command {
       "--no-watch",
       "développement SANS superviseur : un seul process, aucun rechargement automatique",
     );
+    // Lues sur argv par le SUPERVISEUR (`readDevUiRequest`) : déclarées pour le
+    // help et pour que commander les accepte.
+    this.addOption(
+      "--ui",
+      "plein écran : journal défilant, barre figée en bas (aussi NF_DEV_UI=1)",
+    );
+    this.addOption("--no-ui", "affichage en ligne, sans plein écran");
     // Lues par `parseInspectArgs` sur argv, dans le SERVEUR : déclarées pour le help
     // et pour que commander ne les rejette pas.
     // Lue sur argv (`readOutputFlag`) avant que commander ne rende la main : le

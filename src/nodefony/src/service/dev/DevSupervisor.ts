@@ -25,6 +25,7 @@ import {
   DEV_BUILD_ISSUE_ENV,
   DEV_RELOAD_ENV,
   isDebugRequested,
+  readDevUiRequest,
   readOutputFlag,
   resolveOutputMode,
   type StartupOutputMode,
@@ -36,7 +37,11 @@ import {
 } from "../../runtime/isTerminal";
 import { ERASE_LINE } from "./statusLine";
 import { DEV_CHANNEL, listenToServer, sendToServer } from "./devChannel";
-import { DevTerminal } from "./DevTerminal";
+import {
+  DevTerminal,
+  probeTerminal,
+  type IDevFullscreenOptions,
+} from "./DevTerminal";
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
 import { childExecArgv } from "./detachedStart";
@@ -669,9 +674,10 @@ export class DevSupervisor {
   /**
    * Prend le terminal, en rendu humain seulement : un seul écrivain, le
    * superviseur. Les deux flux ne passent par lui que s'ils aboutissent au
-   * même terminal — c'est la condition de la barre de #533.
+   * même terminal — c'est la condition de la barre de #533. Le plein écran
+   * (#537) s'y ajoute s'il est demandé ET que le terminal répond à la sonde.
    */
-  #ownTerminal(): void {
+  async #ownTerminal(): Promise<void> {
     if (
       this.#mode !== "human" ||
       this.#childDebug ||
@@ -682,12 +688,14 @@ export class DevSupervisor {
     }
     const color = shouldColorize(process.env, true);
     const charset = resolveBrandCharset(process.platform, process.env);
+    const fullscreen = await this.#fullscreenOptions();
     const terminal = new DevTerminal({
       stdout: process.stdout,
       stderr: process.stderr,
       color,
       charset,
       mark: brandMark(charset, color),
+      ...(fullscreen ? { fullscreen } : {}),
     });
     this.#terminal = terminal;
     process.once("exit", () => terminal.close());
@@ -705,6 +713,40 @@ export class DevSupervisor {
         });
       }
     });
+  }
+
+  /**
+   * Le plein écran, s'il est demandé (`--ui`, `NF_DEV_UI=1`) et CONSTATÉ :
+   * un clavier qui est un terminal, et une réponse à la sonde. Sinon la
+   * surface `inline`, en le disant — jamais une déduction de la plateforme.
+   */
+  async #fullscreenOptions(): Promise<IDevFullscreenOptions | null> {
+    const request = readDevUiRequest(process.argv, process.env);
+    if (request.invalid !== null) {
+      this.#out.write(
+        `[dev] NF_DEV_UI=${request.invalid} ignorée : 1 demande le plein écran, 0 l'interdit\n`,
+      );
+    }
+    if (!request.fullscreen) return null;
+    const stdin = process.stdin;
+    if (!isTerminal(stdin) || typeof stdin.setRawMode !== "function") {
+      this.#out.write(
+        "[dev] plein écran demandé, mais le clavier n'est pas un terminal — affichage en ligne\n",
+      );
+      return null;
+    }
+    const probe = await probeTerminal(stdin, process.stdout);
+    if (!probe.fullscreen) {
+      this.#out.write(
+        "[dev] plein écran demandé, mais le terminal n'a pas répondu à la sonde — affichage en ligne\n",
+      );
+      return null;
+    }
+    return {
+      input: stdin,
+      synchronized: probe.synchronized,
+      onQuit: () => void this.#shutdown(),
+    };
   }
 
   /**
@@ -845,7 +887,7 @@ export class DevSupervisor {
     // `nodefony-dev-server` (DevCommand). Pose APRÈS le boot CLI (qui set un title
     // générique) → ce nom gagne.
     process.title = "nodefony-dev-supervisor";
-    this.#ownTerminal();
+    await this.#ownTerminal();
     await this.#claimSingleInstance();
     this.#installSignals();
     // Garantit un dist FRAIS avant le premier spawn (anti « vert mais cassé » :
@@ -1823,6 +1865,9 @@ export class DevSupervisor {
   async #shutdown(): Promise<void> {
     if (this.#stopping) return;
     this.#stopping = true;
+    // Le terminal d'abord : la séquence d'arrêt du serveur s'affiche dans
+    // l'écran normal, pas dans un écran alternatif qui va disparaître.
+    this.#terminal?.leaveFullscreen();
     if (this.#timer) clearTimeout(this.#timer);
     await this.#watcher?.close();
     this.#terminal?.setPhase("restarting");
