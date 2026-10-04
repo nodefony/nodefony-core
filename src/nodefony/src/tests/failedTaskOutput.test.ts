@@ -66,13 +66,19 @@ describe("runCapturedCommand — borne d'inactivité", () => {
     expect(alive(pid)).toBe(false);
   }, 20_000);
 
+  // La borne court dès le lancement, démarrage de `node` compris : sous la
+  // suite entière, ce démarrage a dépassé 3 s (vu en local). Le cas muet n'y
+  // est pas sensible — muet, il est calé quoi qu'il arrive ; le cas bavard,
+  // si. Il parle donc aussitôt, et dure PLUS que sa borne (10 s > 8 s) : c'est
+  // la propriété prouvée — la borne porte sur l'inactivité, pas la durée.
   it("long mais BAVARD : rien n'est interrompu", async () => {
     const r = await node(
-      "let n = 0; const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === 20) { clearInterval(t); process.exit(0); } }, 250);",
+      "let n = 0; process.stdout.write('départ\\n'); const t = setInterval(() => { process.stdout.write('tâche ' + n + '\\n'); if (++n === 40) { clearInterval(t); process.exit(0); } }, 250);",
+      8_000,
     );
     expect(r.ok).toBe(true);
     expect(r.output).not.toContain("déclaré calé");
-  }, 20_000);
+  }, 30_000);
 
   it("un échec ordinaire reste un échec, sans être dit calé", async () => {
     const r = await node("process.stderr.write('boom\\n'); process.exit(2);");
