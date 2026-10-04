@@ -267,6 +267,13 @@ class Dev extends Command {
       cwd: process.cwd(),
       childEnvKey: CHILD_ENV,
     });
+    // Le superviseur reprend la main sur les signaux, comme le master du
+    // cluster (`runtimeLauncher.ts`) — et par le même geste : on retire
+    // NOMMÉMENT ceux de ce CLI, rien d'autre. Laissés branchés, ils lançaient
+    // `terminate()` au même Ctrl+C, et sa sortie coupait l'arrêt du
+    // superviseur avant la mort du serveur : l'invite revenait pendant qu'un
+    // orphelin tenait encore les ports.
+    (this.cli as CliKernel).releaseSignalListeners();
     await supervisor.start();
     // Parke le flow CLI (le superviseur gère le cycle de vie + Ctrl+C via ses watchers
     // fs → keepAlive inutile). Mécanisme centralisé : cf Kernel.park().
