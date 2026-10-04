@@ -41,8 +41,8 @@ requête indexée ou un `git diff` ciblé — jamais en chargeant des fichiers e
 
 **Le gain** : `cat src/.../HttpContext.ts` coûte ~4 000 tokens ; la requête `jq` équivalente en coûte
 ~50. Lire un service complet pour savoir comment il est _enregistré_ coûte dix fois la lecture des
-trente lignes de son `config.ts`. Et un `git diff` nu ramène le compilé, les verrous et le graphe
-régénéré — des centaines de lignes qui n'apprennent rien.
+trente lignes de son `config.ts`. Et un `git diff` nu ramène le compilé et les verrous — des centaines de lignes qui
+n'apprennent rien.
 
 ## 2. Les deux graphes — ne pas se tromper de fichier
 
@@ -52,15 +52,18 @@ symbole qui existe :
 
 | Fichier                    | Suivi     | Contenu                                                                               |
 | -------------------------- | --------- | ------------------------------------------------------------------------------------- |
-| `.ai/symbols.json`         | committé  | **Stable** — symboles exportés, map indexée + relations inversées. Réponses en O(1).  |
+| `.ai/symbols.json`         | non suivi | **Stable** — symboles exportés, map indexée + relations inversées. Réponses en O(1).  |
 | `.ai/symbols.verbose.json` | non suivi | **Verbose** — tout le reste : `methods`, `properties`, `signature`, imports détaillés |
 
 > Les **relations** (§3) vivent dans le fichier stable ; les **signatures de méthodes** (§4) n'existent
-> que dans le verbose. Le verbose n'est pas versionné : après un `git clone` frais il faut le
-> régénérer.
+> que dans le verbose. **Aucun des deux n'est versionné** : après un `git clone` frais, les générer
+> (`npm run generate-symbols`). Une application installée lit le graphe publié avec `nodefony`
+> (réduit aux modules publiés), FUSIONNÉ avec le sien s'il existe (`readSymbolsGraph`).
 
-**Générer** — le hook de pré-commit (`.githooks/pre-commit`) le fait dès qu'un `.ts` de la zone parsée
-est indexé ; à la main quand on veut voir l'effet d'un refactor sans commiter :
+**Générer** — les hooks `post-commit`, `post-merge` et `post-checkout` le font EN ARRIÈRE-PLAN dès que
+la zone parsée a bougé (`.githooks/_symbols.sh` ; ~10 s, le geste git n'attend pas). Juste après un
+commit, le graphe peut donc avoir quelques secondes de retard. À la main quand on veut voir l'effet
+d'un refactor sans commiter :
 
 ```bash
 npm run generate-symbols
@@ -249,7 +252,7 @@ Trois choses à savoir avant de s'y fier :
 
 ## 6. Diff propre — ce que j'ai changé
 
-Un `git diff` nu ramène `dist/`, les verrous et `.ai/symbols.json` régénéré. Cibler :
+Un `git diff` nu ramène `dist/` et les verrous. Cibler :
 
 ```bash
 git diff --stat src/                                   # vue synthétique

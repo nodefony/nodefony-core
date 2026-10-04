@@ -104,6 +104,11 @@ jobs:
       - name: Bâtir le module de documentation
         run: npx turbo run build --filter=@nodefony/documentation
 
+      # Le graphe symbolique n'est pas versionné : l'accueil en lit le compteur,
+      # qui s'afficherait « — » sans un mot s'il manquait.
+      - name: Graphe symbolique
+        run: npm run generate-symbols
+
       # La RACINE est la page de présentation, tirée du README : c'est ce que
       # voit quelqu'un qui découvre le projet. La documentation vit sous `/docs/`,
       # les mesures sous `/performance/` — trois objets, trois publics.

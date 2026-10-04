@@ -3,7 +3,7 @@
  *
  * Globs relative to the repo root.
  * Two outputs:
- *  - stable  : .ai/symbols.json  → committed, lightweight, agent-readable
+ *  - stable  : .ai/symbols.json  → generated (never committed), lightweight, agent-readable
  *  - verbose : .ai/symbols.verbose.json → generated, full detail, gitignored
  */
 

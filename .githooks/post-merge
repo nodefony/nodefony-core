@@ -1,0 +1,4 @@
+#!/bin/sh
+# Après un merge (et donc un `git pull`) : le graphe symbolique suit le code reçu.
+sh "$(git rev-parse --show-toplevel)/.githooks/_symbols.sh" ORIG_HEAD HEAD
+exit 0

@@ -43,7 +43,9 @@ function attributEol(rel: string): string {
 // Artefacts qu'un gate compare octet pour octet à la sortie d'un générateur.
 // Pour eux, le LF n'est pas une convention de style : c'est une CONDITION de
 // correction du gate.
-const COMPARES_OCTET_POUR_OCTET = ["man/nodefony.1", ".ai/symbols.json"];
+// (`.ai/symbols.json` n'y figure plus : il n'est plus versionné, donc plus
+// jamais comparé à une copie que git aurait pu convertir.)
+const COMPARES_OCTET_POUR_OCTET = ["man/nodefony.1"];
 
 describe("fins de ligne — les artefacts générés restent en LF", () => {
   const dansUnDepot = existsSync(path.join(RACINE, ".git"));

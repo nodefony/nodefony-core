@@ -1,0 +1,6 @@
+#!/bin/sh
+# Après un changement de BRANCHE ($3 = 1) : le graphe symbolique suit le code
+# de la branche. Un checkout de fichier ($3 = 0) ne change pas la zone parsée.
+[ "$3" = "1" ] && [ "$1" != "$2" ] && \
+  sh "$(git rev-parse --show-toplevel)/.githooks/_symbols.sh" "$1" "$2"
+exit 0

@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-10-03
+updated: 2026-10-04
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -195,7 +195,7 @@ source: "docs/skills/index.md"
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 115 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 362 | 3 | 9 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |
-| [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 287 | 0 | 0 | ✅ |
+| [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 290 | 0 | 0 | ✅ |
 | [`nodefony-load-test`](nodefony-load-test.md) | — | 524 | 5 | 67 | ✅ |
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |

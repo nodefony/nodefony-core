@@ -4,4 +4,6 @@
 # ni ralentir le commit, ni le faire échouer (il a déjà eu lieu de toute façon).
 [ -n "$NF_NO_TICKET_PROGRESS" ] && exit 0
 (node "$(git rev-parse --show-toplevel)/.claude/skills/nodefony-ticket/scripts/ticket-progress.mjs" >/dev/null 2>&1 &) 
+# Le graphe symbolique n'est pas versionné : il se régénère après le commit.
+sh "$(git rev-parse --show-toplevel)/.githooks/_symbols.sh" HEAD~1 HEAD
 exit 0

@@ -31,6 +31,7 @@ import {
   detecterContenuSuspect,
   EXTENSIONS_INSPECTEES,
 } from "./release-core.mjs";
+import { foreignModules, publishedModules } from "../lib/symbols-publish.mjs";
 
 // `release/` → `scripts/` → racine du dépôt. Ce script fait partie du PRODUIT :
 // la chaîne de publication ne peut pas dépendre de l'outillage d'agent, qui se
@@ -123,9 +124,22 @@ for (const w of workspaces) {
   // échouer `npm pack` — il publie simplement sans lui. L'application installée
   // lirait alors un graphe absent, exactement le trou que sa publication ferme.
   if (Array.isArray(pkg.files) && pkg.files.includes(".ai")) {
-    if (!existsSync(path.join(dir, ".ai", "symbols.json"))) {
+    const graphFile = path.join(dir, ".ai", "symbols.json");
+    if (!existsSync(graphFile)) {
       failures.push(
         `${pkg.name}: .ai/symbols.json absent — lancer npm run generate-symbols d'abord`,
+      );
+      continue;
+    }
+    // Le graphe publié ne décrit que ce qu'un utilisateur peut installer : un
+    // module de banc ou un paquet privé y serait du code interne livré à tous.
+    const foreign = foreignModules(
+      JSON.parse(readFileSync(graphFile, "utf8")),
+      publishedModules(workspaces),
+    );
+    if (foreign.length) {
+      failures.push(
+        `${pkg.name}: .ai/symbols.json décrit des modules non publiés (${foreign.join(", ")}) — régénérer : npm run generate-symbols`,
       );
       continue;
     }

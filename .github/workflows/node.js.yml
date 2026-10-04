@@ -431,25 +431,37 @@ jobs:
           npm run check:lang:test
           npm run check:lang
 
-      # Le graphe symbolique, confronté à ce que sa propre génération produit.
+      # Le graphe symbolique : reproductible, et sa copie PUBLIÉE ne décrit que
+      # ce qui est publié.
       #
-      # Le risque qu'il ferme, et qui a déjà coûté une publication : `.ai/symbols.json`
-      # est GÉNÉRÉ et VERSIONNÉ. S'il n'est pas reproductible — un horodatage, un ordre
-      # instable, un chemin absolu — alors toute chaîne qui le régénère salit l'arbre de
-      # travail. La publication de la `10.0.0-alpha.2` a été refusée par sa propre garde
-      # « arbre propre », sur un champ `generated` que personne ne lisait.
-      #
-      # Le contrôle rejoue la génération et refuse le moindre écart. Il attrape donc les
-      # deux défauts d'un coup : un fichier NON reproductible, et un fichier PÉRIMÉ que
-      # le hook local n'aurait pas régénéré.
-      - name: Gate — le graphe symbolique est reproductible ET à jour
+      # Il n'est plus versionné — généré en local par les hooks post-*, en CI là
+      # où on le lit. Reste le risque qui a déjà coûté une publication : un
+      # générateur NON reproductible (horodatage, ordre instable, chemin absolu)
+      # fait varier `src/nodefony/.ai/symbols.json`, qui part dans le tarball de
+      # `nodefony`. Deux générations doivent donc rendre les MÊMES octets. Puis la
+      # copie publiée ne doit nommer aucun module de banc ni paquet privé — le
+      # test de la règle d'abord, comme pour tout gate.
+      - name: Gate — graphe symbolique reproductible, copie publiée réduite aux modules publiés
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
         run: |
+          npx vitest run scripts/lib/symbols-publish.test.mjs
           npm run generate-symbols
-          if ! git diff --exit-code --stat .ai/symbols.json; then
-            echo "::error title=Graphe symbolique instable ou périmé::Régénérer `.ai/symbols.json` a produit un fichier DIFFÉRENT de celui qui est commité. Soit le générateur n'est pas reproductible (horodatage, ordre instable, chemin absolu — ce champ finira par faire échouer une publication sur la garde « arbre propre »), soit le fichier commité est périmé : `npm run generate-symbols` puis commiter."
+          cp .ai/symbols.json /tmp/symbols-1.json
+          cp src/nodefony/.ai/symbols.json /tmp/shipped-1.json
+          npm run generate-symbols
+          if ! cmp -s .ai/symbols.json /tmp/symbols-1.json || ! cmp -s src/nodefony/.ai/symbols.json /tmp/shipped-1.json; then
+            echo "::error title=Graphe symbolique non reproductible::Deux générations successives ont rendu des fichiers DIFFÉRENTS. Chercher un horodatage, un ordre instable ou un chemin absolu dans scripts/generate-symbols.ts — la copie publiée part dans le tarball de nodefony."
             exit 1
           fi
+          node --input-type=module -e '
+            import fs from "node:fs";
+            import { foreignModules, publishedModules, publishableWorkspaces } from "./scripts/lib/symbols-publish.mjs";
+            const graph = JSON.parse(fs.readFileSync("src/nodefony/.ai/symbols.json", "utf8"));
+            const foreign = foreignModules(graph, publishedModules(publishableWorkspaces(".")));
+            if (foreign.length) { console.error(`::error title=Graphe publié trop large::modules non publiés : ${foreign.join(", ")}`); process.exit(1); }
+            console.log(`copie publiée : ${Object.keys(graph.symbols).length} symboles, 0 module non publié`);
+          '
 
       # Les migrations du framework, confrontées aux entités qui les ont
       # produites.

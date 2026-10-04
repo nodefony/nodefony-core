@@ -38,4 +38,3 @@
 # CONDITION de correction, pas une convention. Redit explicitement pour que
 # personne ne l'affaiblisse en touchant à la règle générale ci-dessus.
 man/*.1 text eol=lf
-.ai/symbols.json text eol=lf

@@ -167,7 +167,7 @@ Avant de commencer une nouvelle phase / tâche :
      [`docs/guides/integration-continue.md`](docs/guides/integration-continue.md).
 4. **Lire le `CLAUDE.md` + `MEMORY.md`** du module ciblé (table d'index plus bas).
 5. **Si fiche kit existante** (ex: `project_p1_1_kit.md` pour P1.1) → la lire AVANT toute exploration.
-6. **`.ai/symbols.json`** est régénéré par hook pre-commit. Utiliser pour résoudre les relations cross-module sans grep tout le repo.
+6. **`.ai/symbols.json`** est GÉNÉRÉ, jamais versionné : les hooks `post-commit` / `post-merge` / `post-checkout` le régénèrent en arrière-plan (absent → `npm run generate-symbols`). Utiliser pour résoudre les relations cross-module sans grep tout le repo.
 7. **`.ai/ENV.md`** (généré, `npm run env:snapshot`) répond à « quelle variable pose ce décor, et
    **que se passe-t-il si elle est absente ?** ». Sur ce dépôt une variable manquante ne lève
    presque jamais : elle fait sauter un banc, et un banc sauté compte comme vert. À lire AVANT
@@ -844,7 +844,7 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 ## 🗂 Graphe symbolique TS — `.ai/symbols.json` (v2.0 — map indexée + relations)
 
-> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `nodefony-inspect`). Régénéré automatiquement par le hook pre-commit.
+> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `nodefony-inspect`). **Jamais versionné** : régénéré en arrière-plan par les hooks `post-commit` / `post-merge` / `post-checkout` quand la zone parsée bouge. La copie publiée avec `nodefony` (`src/nodefony/.ai/symbols.json`) est réduite aux modules publiés ; une application lit son graphe FUSIONNÉ avec celui du framework (`readSymbolsGraph`).
 
 Format v2.0 : `symbols` est une **map indexée par nom** (accès O(1)), `relations` contient les index inversés pré-calculés. Les agents IA doivent l'utiliser AVANT de grep le repo.
 

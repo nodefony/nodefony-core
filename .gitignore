@@ -18,8 +18,11 @@
 *.pid
 *-report.json
 dist/
-# Graphe symbolique DÉTAILLÉ (npm run generate-symbols) : outil d'agent local,
-# hors de dist/ pour qu'aucun build ne l'efface. La version stable est versionnée.
+# Graphe symbolique (npm run generate-symbols) : GÉNÉRÉ, jamais versionné — les
+# hooks post-commit / post-merge / post-checkout le régénèrent en arrière-plan,
+# la CI le régénère là où elle le lit. Hors de dist/ pour qu'aucun build ne
+# l'efface.
+.ai/symbols.json
 .ai/symbols.verbose.json
 node_modules/
 tmp/
@@ -116,7 +119,7 @@ vite.config.generated.mjs
 /release/
 
 # Graphe symbolique publie par le paquet nodefony — GENERE (npm run generate-symbols),
-# comme dist/ : il part dans le tarball, il ne se versionne pas (le .ai/ RACINE, lui, est commite).
+# comme dist/ : il part dans le tarball, il ne se versionne pas.
 src/nodefony/.ai/
 
 # Copies MUTÉES par les `--prove` du banc devkit. Elles vivent à côté de leur

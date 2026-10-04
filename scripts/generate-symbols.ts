@@ -1,11 +1,20 @@
 /**
  * generate-symbols.ts — Symbol graph extractor for AI agents.
  *
- * Parses TS files matching the config globs, emits two JSON outputs:
- *  - .ai/symbols.json   (stable, committed)   → lightweight, agent-friendly
- *  - .ai/symbols.verbose.json  (verbose, gitignored) → full detail
+ * Parses TS files matching the config globs, emits three JSON outputs — all
+ * GENERATED and git-ignored, never committed:
+ *  - .ai/symbols.json              → le graphe du dépôt entier, pour les agents
+ *  - src/nodefony/.ai/symbols.json → la copie PUBLIÉE avec `nodefony`, réduite
+ *                                    aux modules publiés
+ *  - .ai/symbols.verbose.json      → le détail complet
  *
- * Usage: npm run generate-symbols
+ * Les hooks git `post-commit`, `post-merge` et `post-checkout` le régénèrent en
+ * arrière-plan quand la zone parsée a bougé ; la CI le régénère où elle le lit.
+ *
+ * @usage npm run generate-symbols
+ * @option --verbose  détail ligne par ligne des homonymes
+ * @option --check-staged  code 1 si un fichier indexé touche la zone parsée
+ * @option --check-range <de> <à>  code 1 si la zone a bougé entre deux révisions, ou si le graphe manque
  */
 
 import {
@@ -25,9 +34,30 @@ import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import picomatch from "picomatch";
 import config from "./generate-symbols.config.ts";
+import {
+  filterGraphToModules,
+  moduleOf,
+  publishableWorkspaces,
+  publishedModules,
+} from "./lib/symbols-publish.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
+
+/**
+ * Écrit un fichier d'un geste : contenu posé à côté, puis renommé.
+ *
+ * Le graphe est désormais régénéré EN ARRIÈRE-PLAN par les hooks git : deux
+ * générations peuvent se croiser, et un lecteur (agent, Studio) ne doit jamais
+ * tomber sur un JSON à moitié écrit. Le renommage remplace la cible sur les
+ * trois systèmes.
+ */
+function writeAtomic(file: string, content: string): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, content, "utf8");
+  fs.renameSync(tmp, file);
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -110,22 +140,6 @@ interface SymbolsOutput {
 
 function relPath(p: string): string {
   return path.relative(repoRoot, p).split(path.sep).join("/");
-}
-
-/**
- * Resolve which workspace a file belongs to.
- * Heuristic based on path prefix.
- */
-function moduleOf(relativeFile: string): string {
-  // src/packages/@nodefony/<name>/...
-  const pkgMatch = relativeFile.match(/^src\/packages\/(@nodefony\/[^/]+)/);
-  if (pkgMatch?.[1]) return pkgMatch[1];
-  // src/modules/<name>/...
-  const modMatch = relativeFile.match(/^src\/modules\/([^/]+)/);
-  if (modMatch) return `modules/${modMatch[1]}`;
-  // src/nodefony/...
-  if (relativeFile.startsWith("src/nodefony/")) return "@nodefony/core";
-  return "unknown";
 }
 
 // Extract the leading description from a JSDoc/TSDoc block. Strips @tags and
@@ -640,12 +654,7 @@ function generate(): void {
 
   // Write stable
   const stablePath = path.join(repoRoot, config.output.stable);
-  fs.mkdirSync(path.dirname(stablePath), { recursive: true });
-  fs.writeFileSync(
-    stablePath,
-    JSON.stringify(stableOutput, null, 2) + "\n",
-    "utf8",
-  );
+  writeAtomic(stablePath, JSON.stringify(stableOutput, null, 2) + "\n");
 
   // ─── Copie PUBLIÉE : le graphe part avec le paquet `nodefony` ──────────────
   // Sans elle, `.ai/symbols.json` n'existait qu'ici : une application installée
@@ -655,22 +664,20 @@ function generate(): void {
   // framework, quelle que soit la combinaison de paquets qu'elle a retenue.
   // Un seul exemplaire, pas un par paquet : le contenu serait le même découpé,
   // et 19 copies dériveraient dès qu'une seule ne serait pas régénérée.
+  //
+  // RÉDUIT aux modules PUBLIÉS : le graphe du dépôt décrit aussi les modules de
+  // banc et les paquets privés en chantier, qu'aucune application n'installera.
+  // Les publier livrait du code interne — 173 symboles mesurés.
   const shippedPath = path.join(repoRoot, "src/nodefony/.ai/symbols.json");
-  fs.mkdirSync(path.dirname(shippedPath), { recursive: true });
-  fs.writeFileSync(
-    shippedPath,
-    JSON.stringify(stableOutput, null, 2) + "\n",
-    "utf8",
+  const shipped = filterGraphToModules(
+    stableOutput,
+    publishedModules(publishableWorkspaces(repoRoot)),
   );
+  writeAtomic(shippedPath, JSON.stringify(shipped, null, 2) + "\n");
 
   // Write verbose
   const verbosePath = path.join(repoRoot, config.output.verbose);
-  fs.mkdirSync(path.dirname(verbosePath), { recursive: true });
-  fs.writeFileSync(
-    verbosePath,
-    JSON.stringify(verboseOutput, null, 2) + "\n",
-    "utf8",
-  );
+  writeAtomic(verbosePath, JSON.stringify(verboseOutput, null, 2) + "\n");
 
   console.log("✅ generate-symbols done");
   console.log(`  → ${stats.files} files, ${stats.symbols} symbols`);
@@ -696,39 +703,56 @@ function generate(): void {
 // `generate-symbols.config.ts` and both the parsing scope and the hook
 // trigger update together.
 
-function checkStaged(): never {
-  let stagedFiles: string[] = [];
-  try {
-    const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
-      cwd: repoRoot,
-      encoding: "utf8",
-    });
-    stagedFiles = out.split("\n").filter(Boolean);
-  } catch {
-    // git unavailable or no commit in progress — treat as nothing staged
-    process.exit(0);
-  }
-
-  if (stagedFiles.length === 0) process.exit(0);
-
+/** Un des fichiers donnés est-il dans la zone parsée (include − exclude) ? */
+function touchesParsedZone(files: string[]): boolean {
   const includeMatchers = config.include.map((p) => picomatch(p));
   const excludeMatchers = config.exclude.map((p) => picomatch(p));
+  return files.some(
+    (file) =>
+      includeMatchers.some((m) => m(file)) &&
+      !excludeMatchers.some((m) => m(file)),
+  );
+}
 
-  for (const file of stagedFiles) {
-    const matchesInclude = includeMatchers.some((m) => m(file));
-    if (!matchesInclude) continue;
-    const matchesExclude = excludeMatchers.some((m) => m(file));
-    if (matchesExclude) continue;
-    // At least one staged file is within the parsed scope.
-    process.exit(1);
+/** Lance `git` et rend ses lignes non vides — `null` si git refuse. */
+function gitLines(args: string): string[] | null {
+  try {
+    return execSync(`git ${args}`, { cwd: repoRoot, encoding: "utf8" })
+      .split("\n")
+      .filter(Boolean);
+  } catch {
+    return null;
   }
+}
 
-  process.exit(0);
+function checkStaged(): never {
+  const staged = gitLines("diff --cached --name-only --diff-filter=ACMR");
+  process.exit(staged && touchesParsedZone(staged) ? 1 : 0);
+}
+
+// ─── --check-range mode (hooks post-commit / post-merge / post-checkout) ────
+//
+// Le graphe n'est plus versionné : les hooks le régénèrent APRÈS coup, en
+// arrière-plan, quand la zone parsée a bougé entre deux révisions.
+//   exit 1 → régénérer (zone touchée, ou graphe absent : clone neuf)
+//   exit 0 → rien à faire
+function checkRange(from: string | undefined, to: string | undefined): never {
+  if (!fs.existsSync(path.join(repoRoot, config.output.stable)))
+    process.exit(1);
+  if (!from || !to) process.exit(1);
+  const changed = gitLines(`diff --name-only ${from} ${to}`);
+  // Révision illisible (premier commit, ORIG_HEAD absent) : dans le doute, on
+  // régénère — dix secondes en arrière-plan coûtent moins qu'un graphe faux.
+  process.exit(changed === null || touchesParsedZone(changed) ? 1 : 0);
 }
 
 // Entrypoint
 if (process.argv.includes("--check-staged")) {
   checkStaged();
+}
+const rangeAt = process.argv.indexOf("--check-range");
+if (rangeAt !== -1) {
+  checkRange(process.argv[rangeAt + 1], process.argv[rangeAt + 2]);
 }
 
 generate();
