@@ -620,10 +620,10 @@ async function main(): Promise<void> {
         "bash .claude/skills/nodefony-start-server/start.sh",
       );
       if (started.code !== 0) {
+        // Demandée et impossible : un ÉCHEC, pas un saut — un saut compte vert.
         phases.push({
-          name: "Suite d'intégration",
+          name: "Suite d'intégration — le serveur n'a pas démarré",
           ok: false,
-          skipped: "le serveur n'a pas démarré",
           durationMs: 0,
         });
       }
@@ -635,6 +635,49 @@ async function main(): Promise<void> {
         phases,
       );
     }
+  }
+
+  // La charge passe AVANT Mongo : celle-ci laisse le serveur arrêté, et une
+  // charge jouée après elle ne trouvait plus de serveur — elle se déclarait
+  // « sautée » et le run sortait vert sans l'avoir jouée (`--load --mongo`).
+  if (options.load) {
+    if (!serverRunning()) {
+      console.log(`\n${C.cyan("▸")} ${C.bold("Serveur de développement")}`);
+      await run("bash .claude/skills/nodefony-start-server/start.sh");
+    }
+    if (serverRunning()) {
+      await phase(
+        "Suite de charge",
+        "npx turbo run test:load --continue",
+        phases,
+      );
+    } else {
+      // Demandée et impossible : un ÉCHEC, pas un saut — un saut compte vert.
+      phases.push({
+        name: "Suite de charge — le serveur n'a pas démarré",
+        ok: false,
+        durationMs: 0,
+      });
+    }
+  }
+
+  // Les deux bancs qui forkent de VRAIS process (`clusterIpc.e2e`,
+  // `redisCluster.e2e`) ont leur propre lot : joués au milieu d'une passe qui
+  // sature les cœurs, le boot d'un worker dépasse le budget d'attente du master
+  // et le banc rend un rouge qui parle de la machine. Ils n'ont pas besoin d'un
+  // serveur — seulement de la machine pour eux, et de leur interrupteur.
+  if (options.load) {
+    const previous = process.env.NF_RUN_CLUSTER_E2E;
+    // Posé ici et nulle part ailleurs : un `VAR=1 cmd` dans la chaîne de
+    // commande casserait sous `cmd.exe` (axiome de portabilité n°9).
+    process.env.NF_RUN_CLUSTER_E2E = "1";
+    await phase(
+      "Socket distribuée (cluster e2e)",
+      "npx turbo run test:cluster",
+      phases,
+    );
+    if (previous === undefined) delete process.env.NF_RUN_CLUSTER_E2E;
+    else process.env.NF_RUN_CLUSTER_E2E = previous;
   }
 
   // ── Démarrage de l'application sur MongoDB ────────────────────────────────
@@ -710,42 +753,6 @@ async function main(): Promise<void> {
       if (saved === undefined) delete process.env.NF_DATABASE_URL;
       else process.env.NF_DATABASE_URL = saved;
     }
-  }
-
-  if (options.load) {
-    if (serverRunning()) {
-      await phase(
-        "Suite de charge",
-        "npx turbo run test:load --continue",
-        phases,
-      );
-    } else {
-      phases.push({
-        name: "Suite de charge",
-        ok: false,
-        skipped: "exige un serveur en marche",
-        durationMs: 0,
-      });
-    }
-  }
-
-  // Les deux bancs qui forkent de VRAIS process (`clusterIpc.e2e`,
-  // `redisCluster.e2e`) ont leur propre lot : joués au milieu d'une passe qui
-  // sature les cœurs, le boot d'un worker dépasse le budget d'attente du master
-  // et le banc rend un rouge qui parle de la machine. Ils n'ont pas besoin d'un
-  // serveur — seulement de la machine pour eux, et de leur interrupteur.
-  if (options.load) {
-    const previous = process.env.NF_RUN_CLUSTER_E2E;
-    // Posé ici et nulle part ailleurs : un `VAR=1 cmd` dans la chaîne de
-    // commande casserait sous `cmd.exe` (axiome de portabilité n°9).
-    process.env.NF_RUN_CLUSTER_E2E = "1";
-    await phase(
-      "Socket distribuée (cluster e2e)",
-      "npx turbo run test:cluster",
-      phases,
-    );
-    if (previous === undefined) delete process.env.NF_RUN_CLUSTER_E2E;
-    else process.env.NF_RUN_CLUSTER_E2E = previous;
   }
 
   // Ce qu'on n'a pas lancé se dit aussi : une batterie « complète » qui tait ses
