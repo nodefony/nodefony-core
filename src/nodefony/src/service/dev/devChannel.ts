@@ -2,11 +2,11 @@
  * Le canal superviseur ⇄ serveur de développement — SEUL contrat de ce qui
  * transite entre les deux processus de `nodefony development`.
  *
- * Aujourd'hui il porte la coordination du terminal partagé : le serveur
- * annonce la hauteur de son bloc d'état, le superviseur dit qu'il l'a effacé
- * pour écrire. Il est fait pour grandir sans se disperser — l'invite de
- * commandes (#534) y ajoutera le texte du bloc, le redimensionnement relayé,
- * la sortie du serveur, les commandes à lancer : chacun sera un MEMBRE de
+ * Le superviseur est le SEUL propriétaire du terminal (ADR-0013 §1) : la
+ * sortie du serveur lui arrive par des tubes, jamais par ce canal (un JSON
+ * par ligne coûterait). Le canal ne porte que ce qu'un tube ne dit pas : le
+ * bilan qui nourrit la barre d'état (`status-view`) et les dimensions du
+ * terminal (`resize`). Chaque besoin neuf sera un MEMBRE de
  * {@link DevChannelMessage}, et le compilateur désignera tout aiguillage qui ne
  * le traite pas.
  *
@@ -22,29 +22,22 @@
  *   du canal, ou d'un type inconnu, est ignoré — jamais interprété.
  */
 import type { ChildProcess } from "node:child_process";
+import type { IStartupView, IStatusContext } from "./startupScreen";
 
 /** Le discriminant du canal. */
 export const DEV_CHANNEL = "nf-dev";
 
 /**
- * Serveur → superviseur : hauteur du bloc d'état affiché en bas du terminal
- * partagé (`0` = effacé). Le superviseur en a besoin pour effacer le bloc
- * ENTIER avant d'écrire.
+ * Serveur → superviseur : le bilan du serveur prêt, de quoi dessiner la barre
+ * d'état. Des DONNÉES, jamais des lignes : c'est le superviseur qui connaît
+ * la largeur, le jeu de caractères et la phase (un serveur qui redémarre ne
+ * dit plus rien de vrai).
  */
-export interface IDevStatusShown {
+export interface IDevStatusView {
   channel: typeof DEV_CHANNEL;
-  type: "status";
-  lines: number;
-}
-
-/**
- * Superviseur → serveur : « j'ai effacé ton bloc pour écrire » — le serveur ne
- * doit plus l'effacer lui-même (il emporterait les lignes du superviseur) ;
- * il le redessine sous elles à sa prochaine écriture.
- */
-export interface IDevStatusErased {
-  channel: typeof DEV_CHANNEL;
-  type: "status-erased";
+  type: "status-view";
+  view: IStartupView;
+  context: IStatusContext;
 }
 
 /**
@@ -60,12 +53,11 @@ export interface IDevResize {
 }
 
 /** Tout ce qui peut transiter sur le canal. */
-export type DevChannelMessage = IDevStatusShown | IDevStatusErased | IDevResize;
+export type DevChannelMessage = IDevStatusView | IDevResize;
 
 /** Les types connus — la seule liste que le garde consulte. */
 const KNOWN_TYPES: ReadonlySet<string> = new Set<DevChannelMessage["type"]>([
-  "status",
-  "status-erased",
+  "status-view",
   "resize",
 ]);
 
@@ -82,18 +74,45 @@ export function isDevChannelMessage(
   const m = message as {
     channel?: unknown;
     type?: unknown;
-    lines?: unknown;
+    view?: unknown;
+    context?: unknown;
     columns?: unknown;
     rows?: unknown;
   };
   if (m.channel !== DEV_CHANNEL || typeof m.type !== "string") return false;
   if (!KNOWN_TYPES.has(m.type)) return false;
-  if (m.type === "status") {
-    return typeof m.lines === "number" && Number.isInteger(m.lines);
+  if (m.type === "status-view") {
+    return isStatusView(m.view) && isStatusContext(m.context);
   }
   if (m.type === "resize")
     return isTerminalDimension(m.columns) && isTerminalDimension(m.rows);
   return true;
+}
+
+/** Un bilan : la forme que la barre lit, sans relire chaque champ. */
+function isStatusView(value: unknown): value is IStartupView {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as { notices?: unknown; open?: unknown; version?: unknown };
+  return (
+    Array.isArray(v.notices) &&
+    Array.isArray(v.open) &&
+    typeof v.version === "string"
+  );
+}
+
+/** Le contexte de la barre : projet, heure de mise en route, rechargements. */
+function isStatusContext(value: unknown): value is IStatusContext {
+  if (typeof value !== "object" || value === null) return false;
+  const c = value as {
+    project?: unknown;
+    readyAt?: unknown;
+    reloads?: unknown;
+  };
+  return (
+    typeof c.project === "string" &&
+    typeof c.readyAt === "string" &&
+    typeof c.reloads === "number"
+  );
 }
 
 /**

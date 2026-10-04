@@ -1002,6 +1002,40 @@ export function renderStatusBlock(
 }
 
 /**
+ * La barre d'état du serveur prêt : le bloc avec le logo quand le terminal a
+ * la place, sinon le filet et une ligne — même à une ligne, la barre s'ouvre
+ * sur son filet, elle ne doit jamais se lire comme la suite du journal.
+ *
+ * Seule implémentation de la barre : le serveur sans superviseur
+ * (`--no-watch`), la surface `inline` et le plein écran du superviseur la
+ * rendent tous par elle.
+ *
+ * @param view - le bilan.
+ * @param ctx - projet, heure, rechargements.
+ * @param options - couleur, largeur, hauteur, jeu de caractères.
+ * @param mark - les lignes de la marque (`brandMark`).
+ * @returns les lignes de la barre.
+ */
+export function renderStatusBar(
+  view: IStartupView,
+  ctx: IStatusContext,
+  options: {
+    color: boolean;
+    columns: number | undefined;
+    rows: number | undefined;
+    charset?: ScreenCharset;
+  },
+  mark: readonly string[],
+): string[] {
+  return (
+    renderStatusBlock(view, ctx, options, mark) ?? [
+      statusRule(options.columns, createPalette(options.color)),
+      renderStatusLine(view, ctx, options),
+    ]
+  );
+}
+
+/**
  * Le filet qui ouvre la barre d'état, sur toute la largeur : sans lui, la
  * dernière ligne du JOURNAL — souvent repliée par le terminal quand elle est
  * plus longue que la fenêtre — se lisait comme une ligne de la barre.

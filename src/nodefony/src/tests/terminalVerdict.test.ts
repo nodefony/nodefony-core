@@ -88,8 +88,8 @@ function runServer(verdict: string | undefined): Promise<IReport> {
     );
     let out = "";
     let err = "";
-    child.stdout.on("data", (d: Buffer) => (out += d.toString()));
-    child.stderr.on("data", (d: Buffer) => (err += d.toString()));
+    child.stdout?.on("data", (d: Buffer) => (out += d.toString()));
+    child.stderr?.on("data", (d: Buffer) => (err += d.toString()));
     child.on("message", () => {
       child.send({ channel: "nf-dev", type: "resize", columns: 91, rows: 27 });
     });

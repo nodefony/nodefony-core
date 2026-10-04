@@ -42,7 +42,6 @@ import {
   StatusLine,
   eraseBlock,
   fitStatus,
-  guardSharedTerminal,
   type IStatusStream,
 } from "../service/dev/statusLine";
 import { DEV_CHANNEL, isDevChannelMessage } from "../service/dev/devChannel";
@@ -779,31 +778,13 @@ describe("ligne d'état figée en bas — l'historique continue de se remplir", 
     status.release();
   });
 
-  it("le superviseur, qui partage le terminal, efface la ligne d'état avant d'écrire", () => {
-    const out = terminal();
-    const original = out.write;
-    const unguard = guardSharedTerminal([out]);
-    out.write("[dev] ↻ changement\n");
-    out.write("partiel");
-    out.write(" suite\n");
-    expect(out.written).to.deep.equal([
-      ERASE_LINE,
-      "[dev] ↻ changement\n",
-      ERASE_LINE,
-      "partiel",
-      " suite\n",
-    ]);
-    unguard();
-    expect(out.write).to.equal(original);
-  });
-
   it("l'écran s'efface sans l'historique ; seul le menu l'efface aussi", () => {
     expect(CLEAR_SCREEN).to.not.contain("\x1b[3J");
     expect(RESET_SCREEN).to.contain("\x1b[3J");
   });
 });
 
-describe("bloc d'état avec le logo — et le canal qui le rend sûr à plusieurs", () => {
+describe("bloc d'état avec le logo — et le canal qui le nourrit", () => {
   /** Un flux de terminal factice qui enregistre tout ce qui s'y écrit. */
   const terminal = () => {
     const written: string[] = [];
@@ -888,40 +869,15 @@ describe("bloc d'état avec le logo — et le canal qui le rend sûr à plusieur
     for (const l of mark) expect(/^[\x20-\x7e]{8}$/.test(l), l).to.equal(true);
   });
 
-  it("le bloc annonce sa hauteur, et oublie celui que l'autre a effacé", () => {
+  it("masqué (le serveur redémarre) : effacé, rien redessiné avant le prochain bilan", () => {
     const out = terminal();
-    const heights: number[] = [];
-    const status = new StatusLine([out], (n) => heights.push(n));
+    const status = new StatusLine([out]);
     status.show(["A", "B", "C"]);
-    expect(heights).to.deep.equal([3]);
-    // Le superviseur l'a effacé pour écrire : on ne l'efface PAS une 2ᵉ fois.
-    status.forget();
+    status.hide();
     out.write("log\n");
-    expect(out.written).to.deep.equal(["A\nB\nC", "log\n", "A\nB\nC"]);
+    status.show(["D"]);
+    expect(out.written).to.deep.equal(["A\nB\nC", eraseBlock(3), "log\n", "D"]);
     status.release();
-  });
-
-  it("le superviseur efface la hauteur ANNONCÉE, puis prévient", () => {
-    const out = terminal();
-    let height = 6;
-    let erased = 0;
-    const unguard = guardSharedTerminal([out], {
-      height: () => height,
-      onErased: () => {
-        erased++;
-        height = 0;
-      },
-    });
-    out.write("[dev] ↻ changement\n");
-    out.write("[dev] build\n");
-    expect(out.written).to.deep.equal([
-      eraseBlock(6),
-      "[dev] ↻ changement\n",
-      ERASE_LINE,
-      "[dev] build\n",
-    ]);
-    expect(erased).to.equal(1);
-    unguard();
   });
 
   it("retiré deux fois (signal d'arrêt, puis exit) : effacé UNE fois", () => {
@@ -934,12 +890,29 @@ describe("bloc d'état avec le logo — et le canal qui le rend sûr à plusieur
   });
 
   it("le canal n'accepte que SES messages, de types connus", () => {
+    const context = { project: "mon-app", readyAt: "16:48", reloads: 0 };
     expect(
-      isDevChannelMessage({ channel: DEV_CHANNEL, type: "status", lines: 6 }),
+      isDevChannelMessage({
+        channel: DEV_CHANNEL,
+        type: "status-view",
+        view: view(),
+        context,
+      }),
     ).to.equal(true);
     expect(
-      isDevChannelMessage({ channel: DEV_CHANNEL, type: "status-erased" }),
+      isDevChannelMessage({
+        channel: DEV_CHANNEL,
+        type: "resize",
+        columns: 120,
+        rows: 40,
+      }),
     ).to.equal(true);
+    // Le protocole d'effacement croisé de deux écrivains n'existe plus.
+    for (const type of ["status", "status-erased"]) {
+      expect(
+        isDevChannelMessage({ channel: DEV_CHANNEL, type, lines: 6 }),
+      ).to.equal(false);
+    }
     // Un message de cluster (`process:msg`) n'est jamais pris pour le nôtre.
     expect(isDevChannelMessage({ type: "process:msg", data: {} })).to.equal(
       false,
@@ -948,7 +921,20 @@ describe("bloc d'état avec le logo — et le canal qui le rend sûr à plusieur
       isDevChannelMessage({ channel: DEV_CHANNEL, type: "inconnu" }),
     ).to.equal(false);
     expect(
-      isDevChannelMessage({ channel: DEV_CHANNEL, type: "status", lines: "6" }),
+      isDevChannelMessage({
+        channel: DEV_CHANNEL,
+        type: "resize",
+        columns: 0,
+        rows: 40,
+      }),
+    ).to.equal(false);
+    expect(
+      isDevChannelMessage({
+        channel: DEV_CHANNEL,
+        type: "status-view",
+        view: { version: 1 },
+        context,
+      }),
     ).to.equal(false);
     expect(isDevChannelMessage(null)).to.equal(false);
   });

@@ -12,7 +12,6 @@ import {
 import type { EventEmitter } from "node:events";
 import net from "node:net";
 import path from "node:path";
-import readline from "node:readline";
 import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
 import { portableSpawn } from "../../cli/execPortable";
@@ -30,9 +29,16 @@ import {
   resolveOutputMode,
   type StartupOutputMode,
 } from "./outputMode";
-import { isTerminal } from "../../runtime/isTerminal";
-import { guardSharedTerminal } from "./statusLine";
+import {
+  DEV_TERMINAL_ENV,
+  encodeTerminalVerdict,
+  isTerminal,
+} from "../../runtime/isTerminal";
+import { ERASE_LINE } from "./statusLine";
 import { DEV_CHANNEL, listenToServer, sendToServer } from "./devChannel";
+import { DevTerminal } from "./DevTerminal";
+import { shouldColorize } from "../../kernel/checks/report";
+import { brandMark, resolveBrandCharset } from "../../cli/brand";
 import { childExecArgv } from "./detachedStart";
 import {
   clearRuntimeState,
@@ -209,6 +215,12 @@ const SUSPENSION_RECHECK_MS = 1000;
 
 /** Au-delà de cette durée de vie, un crash n'est plus considéré « rapide ». */
 const FAST_CRASH_MS = 3000;
+/**
+ * Après la sortie du serveur, délai max d'attente de la fin de ses flux
+ * (`close`) avant de rendre le verdict : un petit-enfant qui garderait le tube
+ * ouvert ne doit pas le taire.
+ */
+const CLOSE_GRACE_MS = 1000;
 /** Nombre maximal de redémarrages auto après un crash rapide (anti-boucle). */
 const MAX_SPAWN_RETRIES = 3;
 /** Pause avant un redémarrage après crash rapide (laisse les ports se libérer). */
@@ -293,6 +305,88 @@ export function devSupervisorMode(
 }
 
 /**
+ * Les variables posées sur un serveur dont la sortie est relayée : le verdict
+ * du terminal (lu par la porte `runtime/isTerminal.ts`, puis retiré de son
+ * environnement) et `FORCE_COLOR` pour les bibliothèques de couleur de
+ * l'écosystème, qui ne lisent pas notre verdict. Un `FORCE_COLOR` ou un
+ * `NO_COLOR` déjà posé par l'utilisateur est respecté.
+ *
+ * @param env - l'environnement du superviseur.
+ * @param size - dimensions du terminal du superviseur.
+ * @param colorDepth - profondeur de couleur du terminal (`getColorDepth()`).
+ * @returns les variables à ajouter à l'environnement du serveur.
+ */
+export function relayedTerminalEnv(
+  env: Readonly<Record<string, string | undefined>>,
+  size: { columns: number | undefined; rows: number | undefined },
+  colorDepth: number,
+): Record<string, string> {
+  const out: Record<string, string> = {
+    [DEV_TERMINAL_ENV]: encodeTerminalVerdict({
+      columns: size.columns && size.columns > 0 ? size.columns : 80,
+      rows: size.rows && size.rows > 0 ? size.rows : 24,
+    }),
+  };
+  const colored = shouldColorize(env, true);
+  if (colored && env.FORCE_COLOR === undefined && colorDepth > 1) {
+    // Échelle de l'écosystème : 1 = 16 couleurs, 2 = 256, 3 = 16 millions.
+    out.FORCE_COLOR = colorDepth >= 24 ? "3" : colorDepth >= 8 ? "2" : "1";
+  }
+  return out;
+}
+
+/**
+ * Verse la sortie du serveur dans le terminal du superviseur, son seul
+ * écrivain (ADR-0013 §1).
+ *
+ * @param child - le serveur, lancé avec des tubes.
+ * @param terminal - le terminal de développement.
+ */
+export function relayServerOutput(
+  child: ChildProcess,
+  terminal: DevTerminal,
+): void {
+  child.stdout?.on("data", (chunk: Buffer) =>
+    terminal.ingest("server", "out", chunk),
+  );
+  child.stderr?.on("data", (chunk: Buffer) =>
+    terminal.ingest("server", "err", chunk),
+  );
+}
+
+/**
+ * Appelle `onEnded` UNE fois, quand le serveur est fini — processus ET flux.
+ *
+ * Armé sur `close`, pas sur `exit` : sous tube, la pile d'un crash au
+ * démarrage arrive APRÈS `exit`, et le verdict la précédait (ADR-0013 §9).
+ * Un petit-enfant qui garderait le tube ouvert ne doit pas taire le verdict :
+ * passé `graceMs` après `exit`, il part quand même.
+ *
+ * @param child - le serveur.
+ * @param onEnded - le verdict, avec le code et le signal de sortie.
+ * @param graceMs - attente max des flux après `exit`.
+ */
+export function onServerEnded(
+  child: ChildProcess,
+  onEnded: (code: number | null, signal: NodeJS.Signals | null) => void,
+  graceMs = CLOSE_GRACE_MS,
+): void {
+  let settled = false;
+  let grace: ReturnType<typeof setTimeout> | null = null;
+  const settle = (code: number | null, signal: NodeJS.Signals | null) => {
+    if (settled) return;
+    settled = true;
+    if (grace) clearTimeout(grace);
+    onEnded(code, signal);
+  };
+  child.once("exit", (code, signal) => {
+    grace = setTimeout(() => settle(code, signal), graceMs);
+    grace.unref();
+  });
+  child.once("close", (code, signal) => settle(code, signal));
+}
+
+/**
  * Superviseur de développement « auto-restart » (modèle nodemon, cloud-native :
  * le process serveur est jetable).
  *
@@ -336,10 +430,12 @@ export class DevSupervisor {
   /** Rechargements à chaud depuis le lancement — affichés par le serveur. */
   #reloads = 0;
   /**
-   * Hauteur du bloc d'état que le serveur affiche en bas du terminal partagé,
-   * telle qu'il l'annonce par IPC — `0` sans bloc.
+   * Le terminal, dont le superviseur est le SEUL écrivain en rendu humain
+   * (ADR-0013 §1) : la sortie du serveur y arrive par des tubes, les lignes
+   * `[dev]` aussi. `null` hors rendu humain (`plain`, `json`, `--debug`, pas
+   * de terminal) : le serveur hérite alors du terminal, comme avant.
    */
-  #childStatusLines = 0;
+  #terminal: DevTerminal | null = null;
   /**
    * Le serveur tourne-t-il en `--debug` ? Alors il ne rend pas de bilan, et le
    * superviseur annonce lui-même qu'il est prêt.
@@ -446,30 +542,6 @@ export class DevSupervisor {
     // En `json`, le flux standard appartient au bilan JSON du serveur.
     this.#out = this.#mode === "json" ? process.stderr : process.stdout;
     this.#childDebug = isDebugRequested(process.argv);
-    // Le serveur tient une ligne d'état en bas du terminal partagé (rendu
-    // humain, terminal, hors --debug) : TOUTE écriture du superviseur — ses
-    // lignes `[dev]` comme son propre journal — l'efface d'abord, sinon elle
-    // s'y collerait (vu : « terminate : 0 » au bout de la ligne d'état).
-    if (
-      this.#mode === "human" &&
-      !this.#childDebug &&
-      !process.env.NF_NO_TTY &&
-      isTerminal(process.stdout)
-    ) {
-      const unguard = guardSharedTerminal([process.stdout, process.stderr], {
-        height: () => this.#childStatusLines,
-        onErased: () => {
-          this.#childStatusLines = 0;
-          // Le serveur ne doit plus l'effacer lui-même : il emporterait nos
-          // lignes. Il le redessinera sous elles à sa prochaine écriture.
-          sendToServer(this.#child, {
-            channel: DEV_CHANNEL,
-            type: "status-erased",
-          });
-        },
-      });
-      process.once("exit", unguard);
-    }
     // Inclut les fichiers de config racine `nodefony.config.ts` + `env.ts` (modèle
     // defineConfig, Lot 5) : un changement déclenche un rebuild root (`rolldown -c` via
     // resolveWorkspace → null) puis le restart → la config éditée est appliquée en dev.
@@ -522,9 +594,59 @@ export class DevSupervisor {
     }
   }
 
+  /**
+   * Prend le terminal, en rendu humain seulement : un seul écrivain, le
+   * superviseur. Les deux flux ne passent par lui que s'ils aboutissent au
+   * même terminal — c'est la condition de la barre de #533.
+   */
+  #ownTerminal(): void {
+    if (
+      this.#mode !== "human" ||
+      this.#childDebug ||
+      process.env.NF_NO_TTY ||
+      !isTerminal(process.stdout)
+    ) {
+      return;
+    }
+    const color = shouldColorize(process.env, true);
+    const charset = resolveBrandCharset(process.platform, process.env);
+    const terminal = new DevTerminal({
+      stdout: process.stdout,
+      stderr: process.stderr,
+      color,
+      charset,
+      mark: brandMark(charset, color),
+    });
+    this.#terminal = terminal;
+    process.once("exit", () => terminal.close());
+    // Le serveur écrit dans un tube : il ne reçoit pas `SIGWINCH`. La barre
+    // se recompose ici, et la taille lui est relayée.
+    process.stdout.on("resize", () => {
+      terminal.resize();
+      const { columns, rows } = process.stdout;
+      if (columns > 0 && rows > 0) {
+        sendToServer(this.#child, {
+          channel: DEV_CHANNEL,
+          type: "resize",
+          columns,
+          rows,
+        });
+      }
+    });
+  }
+
+  /**
+   * Écrit sur le terminal : par {@link DevTerminal} quand le superviseur le
+   * possède, en direct sinon. Aucune autre écriture n'existe ici.
+   */
+  #write(text: string): void {
+    if (this.#terminal) this.#terminal.ingest("supervisor", "out", text);
+    else this.#out.write(text);
+  }
+
   /** Écrit une ligne préfixée sur stdout (pas de `console.log` — code core). */
   #log(msg: string, color: keyof typeof ANSI = "cyan"): void {
-    this.#out.write(
+    this.#write(
       `${ANSI.dim}[dev]${ANSI.reset} ${ANSI[color]}${msg}${ANSI.reset}\n`,
     );
   }
@@ -534,7 +656,7 @@ export class DevSupervisor {
   /** Démarre le spinner `[dev] ⠋ <label>…` (TTY) ou une ligne statique (non-TTY). */
   #startSpin(label: string): void {
     this.#spinLabel = label;
-    if (!this.#out.isTTY) {
+    if (!isTerminal(this.#out)) {
       this.#log(`⚙ ${label}…`, "yellow");
       return;
     }
@@ -546,10 +668,10 @@ export class DevSupervisor {
   /** Réécrit la ligne du spinner avec la frame suivante (TTY animé). */
   #renderSpin(): void {
     this.#spinFrame = (this.#spinFrame + 1) % SPIN.length;
-    readline.clearLine(this.#out, 0);
-    readline.cursorTo(this.#out, 0);
-    this.#out.write(
-      `${ANSI.dim}[dev]${ANSI.reset} ${ANSI.cyan}${SPIN[this.#spinFrame]}${ANSI.reset} ` +
+    // `\r` + effacement de ligne, en UNE écriture : la ligne se réécrit,
+    // l'historique n'en garde que la dernière image.
+    this.#write(
+      `${ERASE_LINE}${ANSI.dim}[dev]${ANSI.reset} ${ANSI.cyan}${SPIN[this.#spinFrame]}${ANSI.reset} ` +
         `${this.#spinLabel}${ANSI.dim}…${ANSI.reset}`,
     );
   }
@@ -560,10 +682,7 @@ export class DevSupervisor {
       clearInterval(this.#spinTimer);
       this.#spinTimer = null;
     }
-    if (this.#out.isTTY) {
-      readline.clearLine(this.#out, 0);
-      readline.cursorTo(this.#out, 0);
-    }
+    if (isTerminal(this.#out)) this.#write(ERASE_LINE);
   }
 
   /** Fige le spinner sur `[dev] <mark> <msg>` (verdict de la phase de build). */
@@ -572,12 +691,8 @@ export class DevSupervisor {
       clearInterval(this.#spinTimer);
       this.#spinTimer = null;
     }
-    if (this.#out.isTTY) {
-      readline.clearLine(this.#out, 0);
-      readline.cursorTo(this.#out, 0);
-    }
-    this.#out.write(
-      `${ANSI.dim}[dev]${ANSI.reset} ${mark} ${ANSI[color]}${msg}${ANSI.reset}\n`,
+    this.#write(
+      `${isTerminal(this.#out) ? ERASE_LINE : ""}${ANSI.dim}[dev]${ANSI.reset} ${mark} ${ANSI[color]}${msg}${ANSI.reset}\n`,
     );
   }
 
@@ -634,7 +749,7 @@ export class DevSupervisor {
   /** Déverse la sortie d'un build qui a échoué (après avoir figé le spinner). */
   #dumpBuild(output: string): void {
     const txt = failedTaskOutput(output).trim();
-    if (txt) this.#out.write(`${txt}\n`);
+    if (txt) this.#write(`${txt}\n`);
   }
 
   /** Mémorise le verdict + les dernières lignes utiles pour le rejeu post-boot. */
@@ -659,7 +774,7 @@ export class DevSupervisor {
     this.#bootBuildIssues = null;
     this.#log("── rappel : le BUILD de démarrage avait un problème ──", "red");
     this.#log(verdict, "red");
-    for (const line of tail) this.#out.write(`${line}\n`);
+    for (const line of tail) this.#write(`${line}\n`);
     this.#log("── fin du rappel build (corrige puis sauvegarde) ──", "red");
   }
 
@@ -674,6 +789,7 @@ export class DevSupervisor {
     // `nodefony-dev-server` (DevCommand). Pose APRÈS le boot CLI (qui set un title
     // générique) → ce nom gagne.
     process.title = "nodefony-dev-supervisor";
+    this.#ownTerminal();
     await this.#claimSingleInstance();
     this.#installSignals();
     // Garantit un dist FRAIS avant le premier spawn (anti « vert mais cassé » :
@@ -963,7 +1079,7 @@ export class DevSupervisor {
             "yellow",
           );
           for (const line of formatForeignRuntimes(others)) {
-            this.#out.write(`${line}\n`);
+            this.#write(`${line}\n`);
           }
           this.#log(
             "figer les ports de CETTE app : nodefony.config.ts servers.*.port · " +
@@ -1103,6 +1219,8 @@ export class DevSupervisor {
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
   #spawnChild(reload = false): void {
     this.#childSpawnedAt = Date.now();
+    const terminal = this.#terminal;
+    terminal?.setPhase("booting");
     // Le state file du run PRÉCÉDENT ne doit jamais signer la readiness du run
     // suivant (il ferait « prêt » avant même que l'enfant n'ait bindé). L'enfant
     // le réécrira quand il écoutera VRAIMENT.
@@ -1127,11 +1245,21 @@ export class DevSupervisor {
           // qui en fait un point de son bilan : le rappel ci-dessous défile,
           // le bilan reste.
           [DEV_BUILD_ISSUE_ENV]: this.#bootBuildIssues?.verdict,
+          ...(terminal
+            ? relayedTerminalEnv(
+                process.env,
+                { columns: process.stdout.columns, rows: process.stdout.rows },
+                process.stdout.getColorDepth(),
+              )
+            : {}),
         },
-        // Terminal HÉRITÉ (le serveur garde son TTY : couleurs, largeur, spinner)
-        // + un canal IPC : le serveur y annonce la hauteur de son bloc d'état,
-        // que le superviseur doit connaître pour écrire sans le corrompre.
-        stdio: ["inherit", "inherit", "inherit", "ipc"],
+        // Rendu humain : la sortie du serveur TRANSITE par le superviseur, seul
+        // écrivain du terminal (ADR-0013 §1). Ailleurs (`plain`, `json`,
+        // `--debug`), le terminal est hérité, comme avant. Le canal IPC porte
+        // le bilan de la barre et les redimensionnements.
+        stdio: terminal
+          ? ["ignore", "pipe", "pipe", "ipc"]
+          : ["inherit", "inherit", "inherit", "ipc"],
         // POSIX : leader de groupe → `kill(-pid)` emporte le groupe entier (Vite
         // inclus) au restart. Windows : pas de groupes, et le rattachement est ce
         // qui rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher
@@ -1140,16 +1268,21 @@ export class DevSupervisor {
       },
     );
     this.#child = child;
-    listenToServer(child, (message) => {
-      if (message.type === "status") this.#childStatusLines = message.lines;
-    });
-    child.once("exit", (code, signal) => {
-      // Le serveur efface son bloc en sortant : plus rien à effacer pour lui.
-      this.#childStatusLines = 0;
+    if (terminal) {
+      relayServerOutput(child, terminal);
+      listenToServer(child, (message) => {
+        if (message.type === "status-view" && this.#child === child) {
+          terminal.setStatus(message.view, message.context, "ready");
+        }
+      });
+    }
+    onServerEnded(child, (code, signal) => {
+      terminal?.flush("server");
       // Restart sollicité : `#killChild` a déjà mis `#child` à null avant l'exit.
       if (this.#child !== child) return;
       this.#child = null;
       if (this.#stopping) return;
+      terminal?.setPhase("crashed");
       this.#onChildCrash(code, signal);
     });
     // Confirme « framework ready » par OBSERVATION EXTERNE (sonde de ports), JAMAIS
@@ -1416,9 +1549,13 @@ export class DevSupervisor {
     this.#dirty.clear();
     this.#building = true;
     const t0 = Date.now();
+    const before = this.#terminal?.phase ?? null;
+    this.#terminal?.setPhase("building");
     const ok = await this.#build(dirty);
     this.#building = false;
     if (!ok) {
+      // Le serveur courant est conservé : sa barre revient.
+      if (before !== null) this.#terminal?.setPhase(before);
       this.#log(
         "build en échec — serveur courant conservé, corrige puis sauvegarde",
         "red",
@@ -1429,6 +1566,7 @@ export class DevSupervisor {
       `✓ build OK (${Date.now() - t0}ms) — rechargement backend…`,
       "green",
     );
+    this.#terminal?.setPhase("restarting");
     await this.#killChild();
     await this.#waitPortsFree();
     this.#spawnRetries = 0;
@@ -1626,7 +1764,9 @@ export class DevSupervisor {
     this.#stopping = true;
     if (this.#timer) clearTimeout(this.#timer);
     await this.#watcher?.close();
+    this.#terminal?.setPhase("restarting");
     await this.#killChild();
+    this.#terminal?.close();
     this.#releaseLock();
     process.exit(0);
   }

@@ -95,8 +95,11 @@ describe("renderFrame — zones", () => {
       columns: 60,
       rows: 10,
     });
+    // La ligne seule s'ouvre aussi sur son filet : elle ne doit jamais se
+    // lire comme la suite du journal (même barre qu'en rendu inline).
     expect(short.lines.at(-1)).to.include("mon-app");
-    expect(short.lines.at(-2)).to.equal("l50");
+    expect(short.lines.at(-2)).to.equal("─".repeat(59));
+    expect(short.lines.at(-3)).to.equal("l50");
   });
 
   it("l'invite se place entre journal et barre, le curseur dessus", () => {

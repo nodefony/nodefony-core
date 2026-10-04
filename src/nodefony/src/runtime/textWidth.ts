@@ -20,6 +20,10 @@ const CSI = /\x1b\[[0-?]*[ -/]*[@-~]/y;
 const OSC = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/y;
 /** Échappement à deux caractères (`ESC 7`, `ESC c`…). */
 const ESC2 = /\x1b[ -~]/y;
+/** Début de CSI coupé par la fin du texte (paramètres, pas encore de final). */
+const CSI_PREFIX = /\x1b\[[0-?]*[ -/]*$/y;
+/** Début d'OSC coupé par la fin du texte (pas encore de terminateur). */
+const OSC_PREFIX = /\x1b\][^\x07\x1b]*\x1b?$/y;
 
 /** Texte entièrement ASCII imprimable : la largeur est la longueur. */
 const PLAIN_ASCII = /^[\x20-\x7e]*$/;
@@ -108,6 +112,27 @@ export function controlSequenceLength(text: string, index: number): number {
     if (match) return match[0].length;
   }
   return 0;
+}
+
+/**
+ * La séquence qui commence à `index` est-elle COUPÉE par la fin du texte ?
+ * Un flux arrive par paquets : une séquence à cheval sur deux paquets doit
+ * attendre la suite, sinon on la lirait comme un `ESC` isolé suivi de texte.
+ *
+ * @param text - le texte reçu jusqu'ici.
+ * @param index - position d'un `ESC`.
+ * @returns `true` si la fin du texte tombe au milieu de la séquence.
+ */
+export function isIncompleteControlSequence(
+  text: string,
+  index: number,
+): boolean {
+  if (index === text.length - 1) return true;
+  for (const re of [CSI_PREFIX, OSC_PREFIX]) {
+    re.lastIndex = index;
+    if (re.test(text)) return true;
+  }
+  return false;
 }
 
 /**

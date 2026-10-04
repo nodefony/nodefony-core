@@ -90,12 +90,6 @@ export function fitStatus(text: string, columns: number | undefined): string {
 }
 
 /**
- * Ce qu'un bloc d'état annonce à qui partage le terminal : sa hauteur quand il
- * s'affiche, `0` quand il disparaît.
- */
-export type StatusDisplayListener = (lines: number) => void;
-
-/**
  * Le bloc d'état d'un processus, toujours sous la dernière ligne écrite : il
  * intercepte les écritures de ses flux (sortie standard ET sortie d'erreur —
  * une erreur écrite à côté se collerait au bloc), s'efface avant chacune et se
@@ -105,19 +99,18 @@ export type StatusDisplayListener = (lines: number) => void;
  * milieu d'une ligne : le bloc n'est alors redessiné qu'à la prochaine fin de
  * ligne, jamais collé au texte.
  *
- * **Plusieurs lignes et un terminal partagé.** Pour s'effacer, le bloc remonte
- * de N lignes : un AUTRE processus qui écrit dans le même terminal doit donc
- * connaître N, sans quoi il laisse des lignes de bloc périmées, et le bloc, en
- * remontant, efface les siennes. D'où `onDisplay` (le bloc annonce sa hauteur)
- * et {@link StatusLine.forget} (l'autre l'a effacé à sa place) — cf
- * `guardSharedTerminal`, l'autre moitié du contrat.
+ * **Un seul écrivain.** Pour s'effacer, le bloc remonte de N lignes : un autre
+ * processus qui écrirait dans le même terminal laisserait des lignes de bloc
+ * périmées, et le bloc, en remontant, effacerait les siennes. Sous
+ * `nodefony development`, c'est donc le SUPERVISEUR qui tient le bloc
+ * (`DevTerminal`, surface `inline`) et relaie la sortie du serveur ; le
+ * serveur ne le dessine lui-même que sans superviseur (`--no-watch`).
  */
 export class StatusLine {
   readonly #streams: IStatusStream[];
   readonly #originals: WriteFn[];
   /** `write` propre de chaque flux avant interception (cf {@link ownWrite}). */
   readonly #ownWrite: Array<WriteFn | undefined>;
-  readonly #onDisplay: StatusDisplayListener | null;
   /** Lignes du bloc — `null` tant que rien n'a été montré. */
   #lines: readonly string[] | null = null;
   /** Le bloc est-il À L'ÉCRAN en ce moment (et donc à effacer) ? */
@@ -127,14 +120,9 @@ export class StatusLine {
 
   /**
    * @param streams - les flux à surveiller ; le premier porte le bloc.
-   * @param onDisplay - prévenu de la hauteur affichée (0 = effacé).
    */
-  constructor(
-    streams: IStatusStream[],
-    onDisplay: StatusDisplayListener | null = null,
-  ) {
+  constructor(streams: IStatusStream[]) {
     this.#streams = streams;
-    this.#onDisplay = onDisplay;
     this.#originals = streams.map((s) => s.write.bind(s));
     this.#ownWrite = streams.map(ownWrite);
   }
@@ -146,7 +134,6 @@ export class StatusLine {
     if (!write || !stream || this.#lines === null) return;
     write(this.#lines.map((l) => fitStatus(l, stream.columns)).join("\n"));
     this.#displayed = true;
-    this.#onDisplay?.(this.#lines.length);
   }
 
   /** Efface le bloc s'il est à l'écran, curseur en colonne 0 de sa 1ʳᵉ ligne. */
@@ -155,7 +142,6 @@ export class StatusLine {
     if (!this.#displayed || this.#lines === null || !first) return;
     first(eraseBlock(this.#lines.length));
     this.#displayed = false;
-    this.#onDisplay?.(0);
   }
 
   /**
@@ -176,12 +162,13 @@ export class StatusLine {
   }
 
   /**
-   * Le bloc a été effacé par un AUTRE processus (celui qui partage le
-   * terminal) : ne plus l'effacer soi-même — on effacerait ses lignes à lui.
-   * Il revient à la prochaine fin de ligne écrite ici.
+   * Retire le bloc de l'écran sans lâcher les flux : rien n'est redessiné
+   * jusqu'au prochain {@link StatusLine.show} (le serveur redémarre, la barre
+   * n'a plus rien de vrai à dire).
    */
-  forget(): void {
-    this.#displayed = false;
+  hide(): void {
+    this.#erase();
+    this.#lines = null;
   }
 
   /**
@@ -219,50 +206,4 @@ export class StatusLine {
       };
     });
   }
-}
-
-/** Ce que la garde d'un terminal partagé sait du bloc de l'autre processus. */
-export interface ISharedTerminalPeer {
-  /** Hauteur du bloc de l'autre, tel qu'il l'a annoncée (0 = pas de bloc). */
-  height(): number;
-  /** Appelé quand la garde vient d'effacer ce bloc — prévenir l'autre. */
-  onErased(): void;
-}
-
-/**
- * La garde d'un processus qui PARTAGE le terminal avec un autre tenant un bloc
- * d'état (le superviseur de développement, à côté du serveur) : chacune de ses
- * écritures qui commence une ligne efface d'abord le bloc de l'autre — sa
- * HAUTEUR annoncée, d'où `peer` — sinon elle s'y collerait, ou laisserait des
- * lignes de bloc périmées dans l'historique. L'autre, prévenu, ne l'effacera
- * pas une seconde fois (ce qui emporterait les lignes écrites ici).
- *
- * @param streams - les flux du processus (sortie standard, sortie d'erreur).
- * @param peer - la hauteur du bloc de l'autre, et le moyen de le prévenir ;
- *   absent, une seule ligne est effacée.
- * @returns la fonction qui retire la garde.
- */
-export function guardSharedTerminal(
-  streams: IStatusStream[],
-  peer: ISharedTerminalPeer | null = null,
-): () => void {
-  let atLineStart = true;
-  const restore: Array<() => void> = [];
-  for (const stream of streams) {
-    const own = ownWrite(stream);
-    const original = stream.write.bind(stream);
-    stream.write = (chunk: string | Uint8Array, ...rest: unknown[]) => {
-      const text =
-        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
-      if (atLineStart && text.length > 0) {
-        const height = peer?.height() ?? 0;
-        original(eraseBlock(Math.max(1, height)));
-        if (height > 0) peer?.onErased();
-      }
-      if (text.length > 0) atLineStart = text.endsWith("\n");
-      return original(chunk, ...rest);
-    };
-    restore.push(() => restoreWrite(stream, own));
-  }
-  return () => restore.forEach((r) => r());
 }

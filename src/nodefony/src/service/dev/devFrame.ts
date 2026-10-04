@@ -16,8 +16,7 @@
 import { fitToWidth, wrapToWidth } from "../../runtime/textWidth";
 import type { ITranscriptEntry } from "./devTranscript";
 import {
-  renderStatusBlock,
-  renderStatusLine,
+  renderStatusBar,
   type IStartupView,
   type IStatusContext,
   type ScreenCharset,
@@ -172,24 +171,16 @@ function statusLines(model: IFrameModel, size: IFrameSize): readonly string[] {
   if (status === null) return [];
   const { view, context, phase } = status;
   if (phase === "ready" && view !== null) {
-    return (
-      renderStatusBlock(
-        view,
-        context,
-        {
-          color: model.color,
-          columns: size.columns,
-          rows: size.rows,
-          charset: model.charset,
-        },
-        model.mark,
-      ) ?? [
-        renderStatusLine(view, context, {
-          color: model.color,
-          columns: size.columns,
-          charset: model.charset,
-        }),
-      ]
+    return renderStatusBar(
+      view,
+      context,
+      {
+        color: model.color,
+        columns: size.columns,
+        rows: size.rows,
+        charset: model.charset,
+      },
+      model.mark,
     );
   }
   const label = `${context.project} · ${PHASE_LABELS[phase]}`;

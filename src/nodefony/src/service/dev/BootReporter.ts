@@ -3,7 +3,7 @@ import { stripVTControlCharacters } from "node:util";
 import type Kernel from "../../kernel/Kernel";
 import Syslog, { STDERR_LOG_SINK } from "../../syslog/Syslog";
 import { readLastBoot, type ILastBoot } from "../../kernel/checks/lastBoot";
-import { createPalette, shouldColorize } from "../../kernel/checks/report";
+import { shouldColorize } from "../../kernel/checks/report";
 import {
   discoverDevProcesses,
   splitByProject,
@@ -18,11 +18,7 @@ import {
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
 import { StatusLine } from "./statusLine";
 import { onTerminalResize, terminalSize } from "../../runtime/isTerminal";
-import {
-  DEV_CHANNEL,
-  listenToSupervisor,
-  sendToSupervisor,
-} from "./devChannel";
+import { DEV_CHANNEL, sendToSupervisor } from "./devChannel";
 import {
   buildStartupView,
   diffReload,
@@ -31,10 +27,8 @@ import {
   renderReloadPlain,
   renderStartupHuman,
   renderStartupPlain,
-  renderStatusBlock,
-  renderStatusLine,
+  renderStatusBar,
   SCREEN_SYMBOLS,
-  statusRule,
   supportsHyperlinks,
   type IScreenSymbols,
   type ScreenCharset,
@@ -471,11 +465,13 @@ class BootReporter {
   }
 
   /**
-   * Pose la ligne d'état figée en bas du terminal (cf `statusLine.ts` : en
-   * bas, pour que l'historique continue de se remplir). Une fois par
-   * processus — un rechargement est un nouveau processus. Deux écouteurs de
-   * la durée du processus : `resize` la redessine à la nouvelle largeur,
-   * `exit` la retire pour que l'invite du shell reparte d'une ligne propre.
+   * Pose la barre d'état en bas du terminal (cf `statusLine.ts` : en bas,
+   * pour que l'historique continue de se remplir).
+   *
+   * Sous le superviseur de développement, le serveur écrit dans un tube : il
+   * n'a pas d'écran à lui. Il envoie son bilan en DONNÉES (`status-view`) et
+   * c'est le superviseur, seul propriétaire du terminal, qui dessine la
+   * barre. Sans superviseur (`--no-watch`), il la dessine lui-même.
    */
   #showStatus(view: IStartupView): void {
     // L'heure où le serveur est devenu prêt — figée : un redimensionnement
@@ -484,59 +480,44 @@ class BootReporter {
       const now = new Date();
       this.#readyAt = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     }
-    const ctx = {
+    const context = {
       project: this.#kernel.projectName,
       readyAt: this.#readyAt,
       reloads: reloadCount(process.env),
     };
+    if (
+      this.#status === null &&
+      sendToSupervisor({
+        channel: DEV_CHANNEL,
+        type: "status-view",
+        view,
+        context,
+      })
+    ) {
+      return;
+    }
     const size = terminalSize();
-    const options = {
-      color: this.#color,
-      columns: size.columns,
-      rows: size.rows,
-      charset: this.#charset,
-    };
-    // Le bloc avec le logo quand le terminal a la place ; sinon une ligne.
-    const lines = renderStatusBlock(
+    const lines = renderStatusBar(
       view,
-      ctx,
-      options,
+      context,
+      {
+        color: this.#color,
+        columns: size.columns,
+        rows: size.rows,
+        charset: this.#charset,
+      },
       brandMark(this.#charset, this.#color),
-    ) ?? [
-      // Même à une ligne, la barre s'ouvre sur son filet : elle ne doit jamais
-      // se lire comme la suite du journal.
-      statusRule(options.columns, createPalette(options.color)),
-      renderStatusLine(view, ctx, options),
-    ];
+    );
     if (this.#status === null) {
-      // Le superviseur partage ce terminal : il doit connaître la hauteur du
-      // bloc pour l'effacer ENTIER avant d'écrire, et nous dire qu'il l'a fait
-      // (cf `guardSharedTerminal`). Canal IPC, présent seulement sous lui.
-      const status = new StatusLine(
-        [process.stdout, process.stderr],
-        (height) =>
-          void sendToSupervisor({
-            channel: DEV_CHANNEL,
-            type: "status",
-            lines: height,
-          }),
-      );
+      const status = new StatusLine([process.stdout, process.stderr]);
       this.#status = status;
-      const unlisten = listenToSupervisor((message) => {
-        if (message.type === "status-erased") status.forget();
-      });
       // Retiré DÈS le début de l'arrêt, processus encore vivant : il est
-      // souvent tué net avant `exit` (le superviseur n'attend pas), et un bloc
-      // laissé là ferait tomber l'invite du shell sous un bloc mort.
-      // `release` est idempotent.
-      const release = (): void => {
-        unlisten();
-        status.release();
-      };
+      // souvent tué net avant `exit`, et un bloc laissé là ferait tomber
+      // l'invite du shell sous un bloc mort. `release` est idempotent.
+      const release = (): void => status.release();
       // Sur le SIGNAL même, en tête de file : avant l'arrêt de Vite et ses
-      // journaux, qui passent par `onTerminate` et prennent le temps que le
-      // superviseur ne laisse pas toujours. `onTerminate` et `exit` restent
-      // en filets (sous Windows, pas de SIGTERM : Ctrl+C arrive en SIGINT).
+      // journaux, qui passent par `onTerminate`. `onTerminate` et `exit`
+      // restent en filets (sous Windows, Ctrl+C arrive en SIGINT).
       for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"] as const) {
         process.prependOnceListener(signal, release);
       }
