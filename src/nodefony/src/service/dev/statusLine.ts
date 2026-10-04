@@ -20,6 +20,8 @@
  * ligne, avec la même mécanique.
  */
 
+import { fitToWidth } from "../../runtime/textWidth";
+
 /** Efface la ligne courante et ramène le curseur en colonne 0. */
 export const ERASE_LINE = "\r\x1b[2K";
 
@@ -74,38 +76,17 @@ function restoreWrite(stream: IStatusStream, own: WriteFn | undefined): void {
 }
 
 /**
- * Tronque une ligne d'état à la largeur du terminal, séquences de couleur
- * exclues du compte. Une ligne d'état qui déborde se replie, et `\x1b[2K`
- * n'effacerait plus que sa dernière moitié.
+ * Tronque une ligne d'état à la largeur du terminal, en COLONNES (cf
+ * `visibleWidth`), séquences de couleur exclues du compte. Une ligne d'état
+ * qui déborde se replie, et `\x1b[2K` n'effacerait plus que sa dernière
+ * moitié.
  *
  * @param text - la ligne, couleurs comprises.
  * @param columns - largeur du terminal.
- * @returns la ligne, bornée à `columns - 1` caractères visibles.
+ * @returns la ligne, bornée à `columns - 1` colonnes.
  */
 export function fitStatus(text: string, columns: number | undefined): string {
-  const max = Math.max(10, (columns ?? 80) - 1);
-  let visible = 0;
-  let out = "";
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i] ?? "";
-    if (ch === "\x1b") {
-      // Séquence CSI ou OSC : recopiée sans compter.
-      const csi = /^\x1b\[[0-9;?]*[A-Za-z]/.exec(text.slice(i));
-      const osc = /^\x1b\][^\x1b]*\x1b\\/.exec(text.slice(i));
-      const seq = csi?.[0] ?? osc?.[0];
-      if (seq) {
-        out += seq;
-        i += seq.length - 1;
-        continue;
-      }
-    }
-    if (visible >= max) {
-      return `${out.slice(0, out.length - 1)}…\x1b[0m`;
-    }
-    out += ch;
-    visible++;
-  }
-  return out;
+  return fitToWidth(text, Math.max(10, (columns ?? 80) - 1));
 }
 
 /**

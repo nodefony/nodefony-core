@@ -7,6 +7,7 @@ import Event from "../Event";
 import { ISyslog } from "../types/ISyslog";
 import type { ITransport } from "../types/ITransport";
 import { logColor, isLogColorEnabled } from "./logColor";
+import { CircularBuffer } from "../runtime/CircularBuffer";
 
 // Couleurs du préfixe console (timestamp/severity/msgid) — gatées au boot par
 // logColor (OFF hors TTY → stdout pipe/fichier propre). Indirection minime hors
@@ -289,54 +290,6 @@ interface Operators {
 export type CallbackFunction = (pdu: Pdu) => void;
 type CallbackArray = Pdu[];
 type Callback = CallbackFunction | CallbackArray | null;
-
-// O(1) circular ring buffer — replaces Array.shift() which is O(n)
-class CircularBuffer<T> {
-  private buf: Array<T | undefined>;
-  private head = 0;
-  private _size = 0;
-  readonly capacity: number;
-
-  constructor(capacity: number) {
-    this.capacity = capacity;
-    this.buf = new Array<T | undefined>(capacity);
-  }
-
-  push(item: T): void {
-    if (this._size === this.capacity) {
-      // Overwrite oldest slot, advance head past it
-      this.buf[this.head] = item;
-      this.head = (this.head + 1) % this.capacity;
-    } else {
-      const tail = (this.head + this._size) % this.capacity;
-      this.buf[tail] = item;
-      this._size++;
-    }
-  }
-
-  get length(): number {
-    return this._size;
-  }
-
-  last(): T | undefined {
-    if (this._size === 0) return undefined;
-    return this.buf[(this.head + this._size - 1) % this.capacity];
-  }
-
-  clear(): void {
-    this.head = 0;
-    this._size = 0;
-  }
-
-  // Returns elements in FIFO order (oldest first, newest last)
-  toArray(): T[] {
-    const result = new Array<T>(this._size);
-    for (let i = 0; i < this._size; i++) {
-      result[i] = this.buf[(this.head + i) % this.capacity] as T;
-    }
-    return result;
-  }
-}
 
 const formatDebug = function (debug: DebugType): DebugType {
   if (typeof debug === "boolean") return debug;

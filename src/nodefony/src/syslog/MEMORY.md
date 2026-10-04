@@ -85,9 +85,10 @@ EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7
 - `valid/missed/invalid: number` — compteurs de logs
 - `burstPrinted/start: number` — rate limiting courant
 
-**`CircularBuffer<T>`** — interne
+**`CircularBuffer<T>`** — `runtime/CircularBuffer.ts` (seul anneau du dépôt, non exporté du barrel)
 
 - `push(item)` : écrase le plus ancien si plein, avance `head`
+- `shift()` / `at(i)` (négatif = depuis la fin) : O(1), sans copie
 - `last()` : O(1) dernier élément
 - `toArray()` : FIFO (oldest first, newest last)
 - `clear()` : reset head+size sans réallouer

@@ -13,7 +13,6 @@ Système de logs structurés RFC 5424 de Nodefony. **Pdu** = 1 log (Process Data
 src/nodefony/src/syslog/
 ├── Syslog.ts            ← hub central (buffer + filtres + dispatch)
 ├── Pdu.ts               ← classe d'entrée de log
-├── CircularBuffer.ts    ← ring buffer O(1)
 ├── sinks/               ← drivers de sink (LB.W — où partent les lignes, write enfichable)
 │   └── FileSink.ts      ← fd PAR worker (async|sync) ; goulet cluster = coalescence des writes, fd/worker = garde-fou (Node-only)
 ├── transports/          ← formatters + sinks
@@ -90,7 +89,7 @@ new Pdu(...)
    │
    ▼
 Syslog.log(pdu)
-   ├── CircularBuffer.push(pdu)    ← O(1), taille fixe (défaut ~1000)
+   ├── CircularBuffer.push(pdu)    ← O(1), taille fixe (`maxStack`, défaut 100)
    ├── matchConditions(pdu)         ← filtrage par severity/msgid/module
    └── fire("onLog", pdu)           ← chaque transport branché
        │
@@ -132,7 +131,9 @@ syslog.setConditions({
 
 ## CircularBuffer — ring buffer O(1)
 
-Stocke les N derniers logs en mémoire (configurable, défaut ~1000).
+Stocke les N derniers logs en mémoire (`maxStack`, défaut 100). L'anneau vit dans
+`src/nodefony/src/runtime/CircularBuffer.ts` — le seul du dépôt, partagé avec l'historique du
+terminal de développement.
 
 **Usages** :
 
@@ -140,7 +141,8 @@ Stocke les N derniers logs en mémoire (configurable, défaut ~1000).
 - SSE Logs panel — stream live (cf `@nodefony/studio/frontend/src/pages/Logs.tsx`)
 - Debug en cours d'exécution
 
-**Implémentation** : tableau de taille fixe + head/tail pointers. `push()` = O(1), pas de `shift()` O(N) qui re-décale.
+**Implémentation** : tableau de taille fixe + pointeur de tête. `push()`, `shift()` et `at(i)` en O(1),
+sans copie — pas d'`Array.shift()` O(N) qui re-décale.
 
 ## Initialisation par environnement
 
