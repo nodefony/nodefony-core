@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T13:19:57.673Z",
+  "generatedAt": "2026-10-04T15:59:43.520Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 75,
+      "closed": 76,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -1663,8 +1663,8 @@
       "number": 531,
       "title": "test: supprimer les dossiers temporaires laissés par les tests",
       "url": "https://github.com/nodefony/nodefony-core/issues/531",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -7479,7 +7479,7 @@
       "title": "feat(cli): rendre le démarrage clair pour l'humain et pour l'IA",
       "url": "https://github.com/nodefony/nodefony-core/issues/533",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -7500,6 +7500,22 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 912,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 534,
+      "title": "feat(cli): ajouter une invite de commandes au serveur de développement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/534",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 913,
       "debut": null,
       "cible": null,
       "labels": [
