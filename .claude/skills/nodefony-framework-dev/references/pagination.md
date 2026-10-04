@@ -191,7 +191,7 @@ Trois refus, tous en 400 :
 Le troisième est le plus important et le moins évident. `PAGE_QUERY_KEYS` est bien sûr admise —
 c'est la même URL qui porte les deux.
 
-**`accepts`** (`IParseFiltersOptions`, `pageFilters.ts:39`) — les paramètres que l'appelant lit
+**`accepts`** (`IParseFiltersOptions`, `pageFilters.ts:77`) — les paramètres que l'appelant lit
 lui-même, hors filtres : une projection (`?include=author`), un format de sortie. Sans cette liste,
 `?include=author` deviendrait un 400 sur un paramètre légitime, et la seule échappatoire serait de
 ne plus refuser du tout.

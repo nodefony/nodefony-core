@@ -445,7 +445,7 @@ et expose un sous-ensemble (RealtimeClient, Pdu, Syslog, Tools…) ⇒ le même 
 
 ### `Service`
 
-`Service.ts:43` — `class Service implements IService` (n'**étend rien** : EventEmitter **composé**, pas hérité).
+`Service.ts:88` — `class Service implements IService` (n'**étend rien** : EventEmitter **composé**, pas hérité).
 Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 - **DI délégué au container** : `get<T>(name): T|null` `:427` (null si pas de container, no-throw) · `set<T>(name,obj): void`
@@ -521,7 +521,7 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
   `finishOrPark(code)` `:852` (park si `lifetime==="longrunning" && !servers`, sinon `terminate`). `terminate(code?)` `:2287`.
 - Divers : `initializeLog()` `:1384` · `setEnv` `:1576` / `setNodeEnv` `:1538` · `getBootReport(): IBootReport` `:1850`
   (distingue `bootServers===null` non-mesuré de `[]` 0-serveur).
-- **`Events`** (bitmask frozen, `Kernel.ts:180`) : `onInit=1<<0 onPreStart onStart onPreRegister onRegister onPreBoot
+- **`Events`** (bitmask frozen, `Kernel.ts:322`) : `onInit=1<<0 onPreStart onStart onPreRegister onRegister onPreBoot
 onBoot onReady onServersReady onPostReady onTerminate=1<<10`.
 
 `kernel/CliKernel.ts:70` — **`class CliKernel extends Cli`** (⚠️ PAS `Kernel`). Le `Kernel` est instancié à part et lié à
@@ -695,10 +695,10 @@ ajouté PENDANT le fire `onPreRegister` ne serait jamais rappelé → d'où l'ap
 
 Séparation stricte (réutilisable, testable) :
 
-- **`Event.emitAsyncGuarded`** `Event.ts:257` = mécanique PURE : série + try/catch + timeout/warnMs par listener, retourne
+- **`Event.emitAsyncGuarded`** `Event.ts:302` = mécanique PURE : série + try/catch + timeout/warnMs par listener, retourne
   `{results, errors, stopped}`. Ne décide d'AUCUNE politique (ni log, ni criticité) — l'appelant tranche via les callbacks
   `onListenerError` (retour `true` = stoppe la chaîne) / `onListenerSlow`.
-- **`Kernel.fireLifecycle`** `Kernel.ts:1998` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
+- **`Kernel.fireLifecycle`** `Kernel.ts:3898` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
   lit les tags `(owner, critical)` du listener (`readListenerTags` — déballe le wrapper `once` via `.listener`), et applique
   `isBootErrorFatal` : `critical && prod` → fatal (throw, le reste ne boote pas) ; sinon fail-soft + WARNING.
 - `Service` **COMPOSE** `Event` (`this.nc`), ne l'étend pas → toute nouvelle méthode event = ajout à `Event` **ET** re-export
@@ -753,7 +753,7 @@ Les deux symboles **EXISTENT** (le faux négatif d'un audit antérieur venait d'
 
 - **`FileClass.from()`** — `static async from(...)` à `FileClass.ts:116`. Fabrique **asynchrone** (I/O non bloquante via
   `stat()` `:130`), à utiliser dans tout pipeline ; le constructeur `new FileClass()` `:89` reste **synchrone** (`lstatSync`).
-- **`getFileAsync()`** — `async getFileAsync(file): Promise<FileClass>` à **`@nodefony/framework` `Controller.ts:446`** (délègue à
+- **`getFileAsync()`** — `async getFileAsync(file): Promise<FileClass>` à **`@nodefony/framework` `Controller.ts:739`** (délègue à
   `FileClass.from`). Son jumeau **synchrone `getFile()` `:418` est `@deprecated`** (« Bloque l'event-loop via `fs.lstatSync` »).
   Interface miroir : `IController.ts:65-68` (`getFile` deprecated + `getFileAsync`). ⚠️ `getFileAsync` vit dans `framework`,
   pas dans le core — mais le verdict demandé est : **il existe bien** (pas de méthode nommée `n`).

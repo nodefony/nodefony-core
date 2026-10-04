@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-04 07:25** (UTC).
+> Empreinte prise le **2026-10-04 07:28** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 67% | 73 | 36 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 68% | 74 | 35 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 134 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 32 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -35,7 +35,7 @@
 
 Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise 2026-10-05 → 10-07
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 36 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 35 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -47,7 +47,7 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 36 ouverts
+## Jalon 10.0.0-beta — 35 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -70,7 +70,6 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | 4.09 | P1 — figé à la création | 1 | 2026-10-22 → 10-22 | #451 | fix(client): cesser d'ignorer en silence les trames binaires reçues |
 | 4.1 | P2 — décision | 1 | 2026-10-23 → 10-23 | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
 | 5.01 | P2 — décision | 1 | 2026-10-26 → 10-26 | #159 | docs(api): publier une référence d'API générée par paquet |
-| 5.02 | P2 — décision | 1 | 2026-10-27 → 10-27 | #359 | docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé |
 | 5.03 | P2 — décision | 1 | 2026-10-28 → 10-28 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
 | 5.04 | P2 — décision | 1 | 2026-10-29 → 10-29 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
 | 5.06 | P2 — décision | 0.5 | 2026-10-30 → 10-30 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |

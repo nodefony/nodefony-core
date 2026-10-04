@@ -209,7 +209,7 @@ class RoleRegistry {
 
 Règle de sécurité centrale. Le front teste des rôles **résolus et annoncés par le serveur**, il ne décode **jamais** un JWT côté client pour en extraire des rôles.
 
-La connexion temps réel annonce l'identité résolue au handshake via `realtime:welcome` → `RealtimeIdentity` (`src/realtime/RealtimeEventMap.ts:127-138`) :
+La connexion temps réel annonce l'identité résolue au handshake via `realtime:welcome` → `RealtimeIdentity` (`src/realtime/RealtimeEventMap.ts:215-226`) :
 
 ```ts
 interface RealtimeIdentity {
@@ -221,7 +221,7 @@ interface RealtimeIdentity {
 }
 ```
 
-Le commentaire du contrat (`RealtimeEventMap.ts:120-126`) le pose : c'est une vue « sur soi » (équivalent `/auth/me`), **aucun secret** — seulement l'état d'auth et les rôles/scopes que le porteur connaît déjà. Le pattern front :
+Le commentaire du contrat (`RealtimeEventMap.ts:204-214`) le pose : c'est une vue « sur soi » (équivalent `/auth/me`), **aucun secret** — seulement l'état d'auth et les rôles/scopes que le porteur connaît déjà. Le pattern front :
 
 ```ts
 const identity = useNodefonyIdentity();              // rôles résolus serveur (cf realtime-client.md)

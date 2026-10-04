@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-02
+updated: 2026-10-04
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | Version | `3.0.0` |
 | Famille | Développer le framework |
 | Corps | 479 lignes |
-| Coût d'activation | ~8 259 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 276 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
@@ -83,7 +83,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--prouve` `--show-toplevel` | — |
+| `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--apply` `--prouve` `--show-toplevel` | — |
 | `scripts/anchor-check.selftest.mjs` | Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre | — | — |
 | `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. | `--apply` `--occurrences` `--suggest` | `APPLY` `NF_BOOT_TIMEOUT_MS` |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
@@ -98,7 +98,7 @@ script, donc toujours à jour après régénération.
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
-Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT)
+Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT/SUSPECT)
 `@usage` node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs
 Usage : node anchor-inpage.mjs <page.md ...>
 Usage : node code-check.mjs <page.md ...>

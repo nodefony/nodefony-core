@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-03",
+  "generatedAt": "2026-10-04",
   "count": 36,
   "conformant": 36,
   "skills": [
@@ -2144,7 +2144,7 @@
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
         "bodyLines": 479,
-        "approxTokens": 8259
+        "approxTokens": 8276
       },
       "requires": [],
       "resources": {
@@ -2158,9 +2158,13 @@
             "path": "scripts/anchor-check.mjs",
             "purpose": "anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc.",
             "usage": [
-              "Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT)"
+              "Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT/SUSPECT)"
             ],
             "options": [
+              {
+                "flag": "--apply",
+                "help": ""
+              },
               {
                 "flag": "--prouve",
                 "help": ""

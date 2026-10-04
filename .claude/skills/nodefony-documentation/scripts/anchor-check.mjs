@@ -10,7 +10,14 @@
  *                       l'ancre n'apparaît dans la fenêtre [début-10 .. fin+15]
  *   - OK              : fichier + ligne + au moins un symbole du contexte retrouvés
  *
- * Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT)
+ * Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT/SUSPECT)
+ *
+ * SUSPECT bloque, INDÉCIS non. Un SUSPECT est actionnable — un des symboles cités
+ * existe ailleurs dans le fichier, l'ancre vise la bonne cible à la mauvaise ligne,
+ * et `anchor-fix.mjs` la recale par symbole. Rapporté sans échouer, il s'accumulait :
+ * 91 dérives recalées d'un bloc, et huit de retour au premier refactor suivant.
+ * INDÉCIS veut dire que le gate ne sait pas quoi chercher : bloquer dessus serait
+ * crier faux.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -501,4 +508,10 @@ if (ind) {
       `    Ce n'est pas un défaut de la doc : ne pas « corriger » ces ancres sans les avoir lues.)`,
   );
 }
-process.exit(nf + lo ? 1 : 0);
+if (su) {
+  console.log(
+    `   (SUSPECT = l'ancre a dérivé. Recaler : \`npm run doc:anchors:fix\` pour le corpus,\n` +
+      `    ou \`node anchor-check.mjs <pages> | node anchor-fix.mjs . --apply\` ; le reste se relit à la main.)`,
+  );
+}
+process.exit(nf + lo + su ? 1 : 0);

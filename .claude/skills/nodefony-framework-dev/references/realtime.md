@@ -385,7 +385,7 @@ Tout est exporté depuis `@nodefony/realtime` (`rt/index.ts`), sauf les briques 
 
 ### 2.2 `RealtimeHub` — broker singleton
 
-`rt/nodefony/src/server/RealtimeHub.ts:117`. **1 pod = 1 process = 1 hub** (singleton lazy `getRealtimeHub()` `:706`). Consommé directement par les controllers/admin/WS handlers ; userland passe par `RealtimeService`.
+`rt/nodefony/src/server/RealtimeHub.ts:1450`. **1 pod = 1 process = 1 hub** (singleton lazy `getRealtimeHub()` `:706`). Consommé directement par les controllers/admin/WS handlers ; userland passe par `RealtimeService`.
 
 **Cœur fan-out / pub-sub** :
 
@@ -422,7 +422,7 @@ Types : `ChannelSink = (payload: unknown) => void` `:62` · `ChannelFactory = (c
 
 **Duplex serveur→client (par connexion)** : `requestClient<K>(method, params?, timeoutMs?): Promise<ActionResult>` `:198` (RPC vers une action que le client a `register`) · `notifyClient<K>(method, params?): void` `:224` (notification ciblée). `handleRealtime(message: string|Buffer|null)` `:168` : `null` = handshake (fire-and-forget `onHandshake` async), sinon `transport.feed(message)`.
 
-Types : `RealtimePublish = (channel: string, payload: unknown) => void` · `RealtimeInboundHandler = (params: unknown, reply: (payload: unknown) => void) => void` (`rt/nodefony/interfaces/IRealtimeController.ts:2/:16` ; `params` **NON FIABLE** → valider).
+Types : `RealtimePublish = (channel: string, payload: unknown) => void` · `RealtimeInboundHandler = (params: unknown, reply: (payload: unknown) => void) => void` (`rt/nodefony/interfaces/IRealtimeController.ts:16/:16` ; `params` **NON FIABLE** → valider).
 
 **Canal MONTANT des journaux navigateur** (`nodefony:syslog:uplink`, `PLATFORM_INBOUND`) — le seul
 canal entrant que la BASE déclare elle-même, et le patron à copier pour tout canal entrant de
@@ -468,7 +468,7 @@ Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish
 
 ### 2.5 `RealtimeClient` — client isomorphe (core)
 
-`core/src/client/realtime/RealtimeClient.ts:154`. `import { RealtimeClient } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
+`core/src/client/realtime/RealtimeClient.ts:304`. `import { RealtimeClient } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
 
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle |
@@ -491,7 +491,7 @@ Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) �
 
 ### 2.6 `JsonRpcPeer` + `IRealtimeSocket` (core)
 
-`core/src/realtime/JsonRpcPeer.ts:237` — moteur protocole **JSON-RPC 2.0** isomorphe, 0 dép Node (browser-safe). `import { JsonRpcPeer, RpcError } from "nodefony"`.
+`core/src/realtime/JsonRpcPeer.ts:71` — moteur protocole **JSON-RPC 2.0** isomorphe, 0 dép Node (browser-safe). `import { JsonRpcPeer, RpcError } from "nodefony"`.
 
 - `new JsonRpcPeer(opts: JsonRpcPeerOptions)` `:250` — `opts = { send, onNotification?, onError?, beforeDispatch?, onFrameAudit? }` (`:116`).
 - Sortant : `request<K>(method, params?, timeoutMs=30000)` `:276` · `notify<K>(method, params?)` `:303`.
@@ -591,7 +591,7 @@ Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtime
 
 `originId` doit être **unique cross-pod** : `String(process.pid)` seul confond 2 pods k8s (tous PID 1) → fan-out légitime avalé. D'où `resolveBackplaneOriginId()` = `host:pid`.
 
-**`#backplane = null` lazy** (`RealtimeHub.ts:137`) — mono-process : `publish` ne paie qu'un test `=== null` (`:273`), la politique de forward n'est JAMAIS évaluée. `LoopbackBackplane` n'est pas branché par défaut (le hub reste `null`) — il sert de cible de test / câblage explicite. Le wiring réel (`rt/index.ts:237 #wireBackplane`, phase `onKernelBoot`) résout `config.backplane.driver` via le registre, `await start()` AVANT `setBackplane` (un driver async perdrait sinon les 1ᵉʳˢ messages), borné par `withTimeout` (`#startWithTimeout:311`, 5 s) → fail-soft hub local si le transport pend.
+**`#backplane = null` lazy** (`RealtimeHub.ts:764`) — mono-process : `publish` ne paie qu'un test `=== null` (`:273`), la politique de forward n'est JAMAIS évaluée. `LoopbackBackplane` n'est pas branché par défaut (le hub reste `null`) — il sert de cible de test / câblage explicite. Le wiring réel (`rt/index.ts:237 #wireBackplane`, phase `onKernelBoot`) résout `config.backplane.driver` via le registre, `await start()` AVANT `setBackplane` (un driver async perdrait sinon les 1ᵉʳˢ messages), borné par `withTimeout` (`#startWithTimeout:311`, 5 s) → fail-soft hub local si le transport pend.
 
 **Forward opt-in par canal** — `forward` mis en cache dans `ChannelState` au 1ᵉʳ abonné (`#isBroadcast` `:330`) → hot path lit un booléen. Défaut : tout **instance-local** (observabilité/état pod ne fuit pas cross-pod sans `markBroadcastChannel`). Un `publish` serveur sans abonné local évalue la politique à la volée (`:276`).
 
@@ -607,7 +607,7 @@ Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtime
 
 ## 4. Gotchas spécifiques realtime
 
-- **Push hors action = conn brute, pas `ctx.send()`.** Après le handshake, `ctx.send()` (réponse HTTP) **rejette** (`requestEnded`). Tout push (fan-out, `notify`, `notifyClient`) passe par le peer → `WsConnectionTransport.send` (`rt/.../transport/WsConnectionTransport.ts:76`) qui écrit sur `ctx.connection` brute avec garde `readyState === OPEN` (`:77`). Ne JAMAIS écrire `ctx.connection.send(...)` à la main sans cette garde : le transport applique la **contre-pression de `@nodefony/http`** (DROP latest-wins, puis CLOSE 1013 sur solde de refus), réglée par `websocket*.maxBackpressure` & co et les compteurs sonde — bypasser = file `ws` non bornée → OOM.
+- **Push hors action = conn brute, pas `ctx.send()`.** Après le handshake, `ctx.send()` (réponse HTTP) **rejette** (`requestEnded`). Tout push (fan-out, `notify`, `notifyClient`) passe par le peer → `WsConnectionTransport.send` (`rt/.../transport/WsConnectionTransport.ts:82`) qui écrit sur `ctx.connection` brute avec garde `readyState === OPEN` (`:77`). Ne JAMAIS écrire `ctx.connection.send(...)` à la main sans cette garde : le transport applique la **contre-pression de `@nodefony/http`** (DROP latest-wins, puis CLOSE 1013 sur solde de refus), réglée par `websocket*.maxBackpressure` & co et les compteurs sonde — bypasser = file `ws` non bornée → OOM.
 
 - **Cleanup symétrique connect/close.** Chaque ressource posée au handshake DOIT être retirée sur `ctx.once("onFinish")` (`onHandshake:422`) : désabonner CHAQUE canal (`hub.unsubscribe` par sink → le hub dispose le provider au dernier), `hub.unregisterConnection(transport)` (sonde), `transport.fireClose()`, `peer.dispose()`. Règle générale : `registerConnection`↔`unregisterConnection`, `subscribe`↔`unsubscribe`. Un sink oublié = provider/timer orphelin + fuite mémoire (gate `memory.test`).
 

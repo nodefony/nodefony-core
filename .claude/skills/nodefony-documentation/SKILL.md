@@ -310,7 +310,7 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 | Script | Rôle |
 | --- | --- |
 | `scripts/doc-lint.mjs <page.md>` | **Definition of Done bloquante** (frontmatter, sections, ≥3 ancres, compteur tests, liens vivants, 0 HTML brut). **5 régimes** selon la nature de la page — brique · hub `index.md` · glossaire `lexique.md` · index de dossier `README.md` · ADR `NNNN-*.md` (cf standard §8bis-\*) |
-| `scripts/anchor-check.mjs <page.md>` | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel (SUSPECT/LINE_OUT) |
+| `scripts/anchor-check.mjs <page.md>` | **Exactitude des ancres CODE** : résout chaque `fichier:ligne` contre le code réel ; exit 1 sur SUSPECT, LINE_OUT ou FILE_NOT_FOUND (gate CI) — l'INDÉCIS ne bloque pas |
 | `scripts/anchor-fix.mjs` | **RÉPARE** les ancres SUSPECT : relit la sortie d'`anchor-check` sur stdin et recale chaque ancre sur la LIGNE DE DÉFINITION du symbole qu'elle cite. Sans `--apply` = simulation. |
 | `scripts/anchor-inpage.mjs <page.md>` | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts) |
 | `scripts/code-check.mjs <page.md>` | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict |

@@ -36,8 +36,8 @@ RealtimeClient            ← la « socket » (orchestration : reconnect, heartb
                                   BrowserWsTransport (wrap WebSocket). IRealtimeTransport.ts:34
 ```
 
-- `RealtimeClient` **compose** un `JsonRpcPeer` (`RealtimeClient.ts:199`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
-- Le transport est **injectable** (constructeur, 2ᵉ arg `RealtimeTransportFactory`, `RealtimeClient.ts:248`) → tests sans vrai socket ; défaut = `BrowserWsTransport`.
+- `RealtimeClient` **compose** un `JsonRpcPeer` (`RealtimeClient.ts:680`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
+- Le transport est **injectable** (constructeur, 2ᵉ arg `RealtimeTransportFactory`, `RealtimeClient.ts:45`) → tests sans vrai socket ; défaut = `BrowserWsTransport`.
 - `RealtimeClient` implémente `IRealtimeSocket` (`IRealtimeSocket.ts:122`) ET `IRealtimePeer` (`JsonRpcPeer.ts:233`) — le MÊME contrat qu'exposera une façade serveur. Du code écrit contre ces interfaces tourne des deux côtés.
 
 Discrimination JSON-RPC (le cœur, `JsonRpcPeer.ts:315-375`) : le rôle d'une frame se lit sur `method`, PAS sur `id` —
@@ -57,7 +57,7 @@ constructor(opts?: RealtimeOptions, transportFactory?: RealtimeTransportFactory)
 
 `RealtimeClient.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `RealtimeClient.ts:268-278`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. C'est la forme utilisée par le front (Studio `RootStore.ts:54`).
 
-`RealtimeOptions` (`RealtimeClient.ts:82-93`) :
+`RealtimeOptions` (`RealtimeClient.ts:102-123`) :
 
 ```ts
 interface RealtimeOptions {
@@ -95,9 +95,9 @@ retryNow(): void;                           // force une reco immédiate, annule
 - **Backoff exponentiel** (`scheduleReconnect`, `:986-1004`) : `delay = min(reconnectDelay × 2^(attempt-1), reconnectDelayMax)`. Émet l'event local `__reconnect__` `{ attempt, delay, nextRetryAt }` → l'UI peut afficher un compte à rebours.
 - **Re-subscribe automatique** : à chaque (ré)ouverture, tous les canaux ref-comptés sont ré-émis au serveur (`openSocket` `:937-939`) — couvre le reconnect ET un `subscribe` appelé avant l'ouverture.
 - **Heartbeat** : ping `{ ts }` toutes les `heartbeatInterval` ms tant que le transport est OPEN (`startHeartbeat`, `:1160`). Timer `unref` (n'empêche pas la sortie de process côté Node/test).
-- **Sémantique des close codes** (RFC 6455 §7.4) : un code **définitif** (1000, 1002, 1003, 1007, 1008=401/403, 1010, 4004 privé Nodefony) **ne relance PAS** la reco (sinon un anonyme martèle un endpoint protégé) → état `error`, l'app doit agir (login) puis `connect()`/`retryNow()`. Les codes **transitoires** (1001 restart, 1006 perte réseau, 1011, code absent) relancent la reco. Décidé par `isReconnectableCloseCode` (`notice.ts:156`, set `FATAL_CLOSE_CODES` `:140`).
+- **Sémantique des close codes** (RFC 6455 §7.4) : un code **définitif** (1000, 1002, 1003, 1007, 1008=401/403, 1010, 4004 privé Nodefony) **ne relance PAS** la reco (sinon un anonyme martèle un endpoint protégé) → état `error`, l'app doit agir (login) puis `connect()`/`retryNow()`. Les codes **transitoires** (1001 restart, 1006 perte réseau, 1011, code absent) relancent la reco. Décidé par `isReconnectableCloseCode` (`notice.ts:171`, set `FATAL_CLOSE_CODES` `:140`).
 
-Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `RealtimeClient.ts:1245-1247`).
+Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `RealtimeClient.ts:1385-1389`).
 
 ---
 
@@ -222,9 +222,9 @@ get serverMethods(): readonly string[] | null;    // actions RPC annoncées (:46
 onIdentity(handler: (id: RealtimeIdentity | null) => void): () => void;  // event local __identity__ (:481)
 ```
 
-Le serveur pousse `realtime:welcome` en **1ʳᵉ frame** après le handshake (`IRealtimeWelcome`, `RealtimeEventMap.ts:204`). Le client l'ingère (`ingestWelcome`, `:957`) : mémorise l'identité résolue + les capabilities (canaux/actions découvrables) puis émet `__identity__`. `identity` est `null` tant qu'aucun welcome n'est reçu ; une fois reçu, un anonyme a `authenticated: false` (jamais `null`).
+Le serveur pousse `realtime:welcome` en **1ʳᵉ frame** après le handshake (`IRealtimeWelcome`, `RealtimeEventMap.ts:234`). Le client l'ingère (`ingestWelcome`, `:957`) : mémorise l'identité résolue + les capabilities (canaux/actions découvrables) puis émet `__identity__`. `identity` est `null` tant qu'aucun welcome n'est reçu ; une fois reçu, un anonyme a `authenticated: false` (jamais `null`).
 
-`RealtimeIdentity` (`RealtimeEventMap.ts:127-138`) : `{ type, authenticated, userIdentifier, roles, scopes }`. Brique du gating front : `authenticated:false` → écran login **sans** route `/auth/me`. Les `roles` sont **résolus serveur** (cf RBAC isomorphe, [`isomorphic.md`](./isomorphic.md) §6). Rafraîchie à chaque (re)welcome ; remise à `null` au `disconnect()` volontaire (une perte réseau garde la dernière identité jusqu'au prochain welcome → évite un flash login pendant une micro-reco).
+`RealtimeIdentity` (`RealtimeEventMap.ts:215-226`) : `{ type, authenticated, userIdentifier, roles, scopes }`. Brique du gating front : `authenticated:false` → écran login **sans** route `/auth/me`. Les `roles` sont **résolus serveur** (cf RBAC isomorphe, [`isomorphic.md`](./isomorphic.md) §6). Rafraîchie à chaque (re)welcome ; remise à `null` au `disconnect()` volontaire (une perte réseau garde la dernière identité jusqu'au prochain welcome → évite un flash login pendant une micro-reco).
 
 ---
 
@@ -235,8 +235,8 @@ onNotice(handler: (n: NodefonyNotice) => void): () => void;    // criticités te
 onDenied(handler: (d: IRealtimeDenied) => void): () => void;   // refus d'un canal précis (:379)
 ```
 
-- `onNotice` : flux de **notices normalisées** (`NodefonyNotice` `notice.ts:20` = `{ level, title?, message, source, code?, ts }`). Le client interprète les close codes RFC 6455 (`closeCodeToNotice`, `notice.ts:67` — `null` pour 1000/1001, pas de bruit), les erreurs serveur poussées, et émet une notice `success` au rétablissement de connexion. Brancher un centre de notifications (snackbar) — monter **une seule fois** (shell) pour ne pas dupliquer les toasts.
-- `onDenied` : refus d'abonnement/push poussé par le serveur (`realtime:denied`, `IRealtimeDenied` `RealtimeEventMap.ts:228` = `{ channel, reason }`). Réaction CIBLÉE par canal (griser un contrôle). Le motif est **générique** (`"forbidden"`) — le serveur ne révèle jamais le rôle/scope manquant (pas d'oracle). Émet AUSSI une notice via `onNotice`.
+- `onNotice` : flux de **notices normalisées** (`NodefonyNotice` `notice.ts:20` = `{ level, title?, message, source, code?, ts }`). Le client interprète les close codes RFC 6455 (`closeCodeToNotice`, `notice.ts:81` — `null` pour 1000/1001, pas de bruit), les erreurs serveur poussées, et émet une notice `success` au rétablissement de connexion. Brancher un centre de notifications (snackbar) — monter **une seule fois** (shell) pour ne pas dupliquer les toasts.
+- `onDenied` : refus d'abonnement/push poussé par le serveur (`realtime:denied`, `IRealtimeDenied` `RealtimeEventMap.ts:272` = `{ channel, reason }`). Réaction CIBLÉE par canal (griser un contrôle). Le motif est **générique** (`"forbidden"`) — le serveur ne révèle jamais le rôle/scope manquant (pas d'oracle). Émet AUSSI une notice via `onNotice`.
 
 ---
 
@@ -571,6 +571,6 @@ Pendant serveur, bornes et politique du canal → `nodefony-framework-dev` (`ref
 - **Réponse mémorisée ≠ replay d'un `render` manuel** (côté serveur idempotence) : la valeur rejouée est la valeur RETOURNÉE par l'action.
 - **`onNotice`/`useNodefonyNotifications` : monter une seule fois** (shell) sinon toasts dupliqués.
 - **Canaux d'événements ≠ cadence adaptative** : ne JAMAIS `adaptiveChannel`/`useNodefonyAdaptiveChannel*` sur syslog/frames (chaque item compte) — réservé aux canaux d'ÉTAT latest-wins.
-- **Pas de buffering offline** : une frame émise hors connexion est droppée (`RealtimeClient.ts:1245`).
+- **Pas de buffering offline** : une frame émise hors connexion est droppée (`RealtimeClient.ts:705`).
 - **`disconnect()` ≠ perte réseau** : volontaire → identité `null` (login) + requêtes en vol rejetées ; perte réseau → identité conservée + reco (selon close code, §3).
 - **Close code fatal (1008=401/403, 4004…) ne relance pas la reco** → état `error` ; l'app doit corriger (login) puis `connect()`/`retryNow()`.

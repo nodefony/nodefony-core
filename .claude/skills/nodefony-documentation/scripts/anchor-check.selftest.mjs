@@ -132,12 +132,18 @@ try {
       .sort();
     // Un outil qui a planté ne rend AUCUN suspect : sans ce bilan, chaque cas
     // « rien à signaler » passerait à vide.
-    const aTourne = r.status === 0 && /\d+ ancres — /.test(r.stdout);
+    // Le code de sortie EST le gate : un SUSPECT attendu doit faire échouer
+    // l'outil, sinon la CI le rapporte et passe.
+    const statutAttendu = attendu.some((a) => !a.startsWith("INDECIS")) ? 1 : 0;
+    const aTourne = /\d+ ancres — /.test(r.stdout);
+    const statutOk = r.status === statutAttendu;
     const ok =
-      aTourne && JSON.stringify(obtenu) === JSON.stringify([...attendu].sort());
+      aTourne &&
+      statutOk &&
+      JSON.stringify(obtenu) === JSON.stringify([...attendu].sort());
     if (!ok) echecs++;
     console.log(
-      `${ok ? "✓" : "✗"} ${pourquoi}${aTourne ? "" : `\n    l'outil n'a pas tourné : ${r.stderr.split("\n")[0]}`}${ok || !aTourne ? "" : `\n    attendu ${JSON.stringify(attendu)}\n    obtenu  ${JSON.stringify(obtenu)}`}`,
+      `${ok ? "✓" : "✗"} ${pourquoi}${aTourne ? "" : `\n    l'outil n'a pas tourné : ${r.stderr.split("\n")[0]}`}${ok || !aTourne ? "" : `\n    attendu ${JSON.stringify(attendu)} (exit ${statutAttendu})\n    obtenu  ${JSON.stringify(obtenu)} (exit ${r.status})`}`,
     );
   }
   console.log(

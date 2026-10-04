@@ -391,36 +391,36 @@ connaît plus l'ORM. Valeur de l'abstraction = **swap d'ORM** (un nouvel adapter
 | Membre | Signature | Ancrage |
 | --- | --- | --- |
 | `name` | `readonly string` (clé `OrmRegistry.get`) | `IOrm.ts:14` |
-| `connect` | `(): Promise<void>` — ouvre + compile les entités | `IOrm.ts:17` |
-| `disconnect` | `(): Promise<void>` | `IOrm.ts:20` |
-| `isConnected` | `(): boolean` | `IOrm.ts:23` |
+| `connect` | `(): Promise<void>` — ouvre + compile les entités | `IOrm.ts:22` |
+| `disconnect` | `(): Promise<void>` | `IOrm.ts:25` |
+| `isConnected` | `(): boolean` | `IOrm.ts:28` |
 | `getRepository<T>` | `(name): IRepository<T>` — throw si entité inconnue | `IOrm.ts:33` |
 | `transaction<R>` | `(work: (tx) => Promise<R>): Promise<R>` — commit si résolu, rollback si rejeté | `IOrm.ts:41` |
 | `getNativeConnection<C>` | `(): C` — **trappe SQL/commandes brutes** (anti-blocage requêtes non couvertes) | `IOrm.ts:51` |
-| `describeEntity?` | `(name): IColumnInfo[]` — colonnes normalisées (graphe/ERD/IA) | `IOrm.ts:61` |
-| `describeConnection?` | `(): IConnectionInfo` — driver + cible **sans credential** | `IOrm.ts:71` |
-| `ping?` | `(): Promise<void>` — round-trip réel (`SELECT 1` / `admin().ping`), **rejette** si injoignable | `IOrm.ts:82` |
-| `probe?` | `(): Promise<IOrmProbe>` — sonde profonde (storage/pool), best-effort (jamais throw) | `IOrm.ts:92` |
+| `describeEntity?` | `(name): IColumnInfo[]` — colonnes normalisées (graphe/ERD/IA) | `IOrm.ts:81` |
+| `describeConnection?` | `(): IConnectionInfo` — driver + cible **sans credential** | `IOrm.ts:91` |
+| `ping?` | `(): Promise<void>` — round-trip réel (`SELECT 1` / `admin().ping`), **rejette** si injoignable | `IOrm.ts:112` |
+| `probe?` | `(): Promise<IOrmProbe>` — sonde profonde (storage/pool), best-effort (jamais throw) | `IOrm.ts:122` |
 
 **`IRepository<T>`** — CRUD portable. `orm-core/nodefony/interfaces/IRepository.ts:101`
 
 <!-- prettier-ignore -->
 | Méthode | Signature | Ancrage |
 | --- | --- | --- |
-| `find` | `(criteria?, options?: RepositoryReadOptions): Promise<T[]>` | `IRepository.ts:109` |
-| `findOne` | `(criteria, options?): Promise<T \| null>` | `IRepository.ts:117` |
+| `find` | `(criteria?, options?: RepositoryReadOptions): Promise<T[]>` | `IRepository.ts:216` |
+| `findOne` | `(criteria, options?): Promise<T \| null>` | `IRepository.ts:230` |
 | `exists` | `(criteria): Promise<boolean>` — `SELECT 1 … LIMIT 1` / `exists` (préférer à `findOne!=null` / `count>0`) | `IRepository.ts:254` |
-| `create` | `(data: Partial<T>): Promise<T>` (id/défauts générés) | `IRepository.ts:127` |
-| `createMany` | `(data[]): Promise<T[]>` — 1 `INSERT … VALUES (…),(…)` / `insertMany` ; `[]` = no-op | `IRepository.ts:139` |
-| `upsert` | `(criteria, update, insertOnly?): Promise<T>` — insert\|update **atomique** (`ON CONFLICT DO UPDATE` / `findOneAndUpdate({upsert})`) ; `insertOnly` posé qu'à la création | `IRepository.ts:177` |
+| `create` | `(data: Partial<T>): Promise<T>` (id/défauts générés) | `IRepository.ts:240` |
+| `createMany` | `(data[]): Promise<T[]>` — 1 `INSERT … VALUES (…),(…)` / `insertMany` ; `[]` = no-op | `IRepository.ts:252` |
+| `upsert` | `(criteria, update, insertOnly?): Promise<T>` — insert\|update **atomique** (`ON CONFLICT DO UPDATE` / `findOneAndUpdate({upsert})`) ; `insertOnly` posé qu'à la création | `IRepository.ts:296` |
 | `updateOne` | `(criteria, data): Promise<T \| null>` — **atomique** (`UPDATE … RETURNING` / `findOneAndUpdate`) | `IRepository.ts:156` |
-| `updateMany` | `(criteria, data): Promise<number>` — masse | `IRepository.ts:193` |
+| `updateMany` | `(criteria, data): Promise<number>` — masse | `IRepository.ts:312` |
 | `increment` | `(criteria, changes): Promise<T \| null>` — `SET f=f+?` / `$inc` (atomique, sans read-modify-write ; delta<0 décrémente) | `IRepository.ts:206` |
-| `delete` | `(criteria): Promise<number>` — masse | `IRepository.ts:217` |
-| `deleteOne` | `(criteria): Promise<boolean>` — AU PLUS une, atomique | `IRepository.ts:226` |
-| `findOneAndDelete` | `(criteria): Promise<T \| null>` — pop atomique (`DELETE … RETURNING` / `findOneAndDelete`) | `IRepository.ts:236` |
-| `count` | `(criteria?): Promise<number>` | `IRepository.ts:243` |
-| `withTransaction` | `(tx: ITransaction): IRepository<T>` — **vue liée à la tx** (résout « repo non tx-aware », ADR-0003 #4) | `IRepository.ts:265` |
+| `delete` | `(criteria): Promise<number>` — masse | `IRepository.ts:336` |
+| `deleteOne` | `(criteria): Promise<boolean>` — AU PLUS une, atomique | `IRepository.ts:345` |
+| `findOneAndDelete` | `(criteria): Promise<T \| null>` — pop atomique (`DELETE … RETURNING` / `findOneAndDelete`) | `IRepository.ts:355` |
+| `count` | `(criteria?): Promise<number>` | `IRepository.ts:362` |
+| `withTransaction` | `(tx: ITransaction): IRepository<T>` — **vue liée à la tx** (résout « repo non tx-aware », ADR-0003 #4) | `IRepository.ts:406` |
 
 > ⚠️ **VÉRITÉ COURANTE** : l'API d'écriture est `updateOne` + `updateMany` (pas un `update` unique —
 > les MEMORY/recipes qui écrivent `repo.update(...)` sont **périmés**). `updateOne` est **atomique**
@@ -442,7 +442,7 @@ typé par champ (`{ email }` doit être `string` si `T.email` l'est) **+** écha
 `FieldOperators<V>` (`IRepository.ts:53`). **Opérateurs riches** `$`-préfixés (combinés en `AND` sur un
 même champ) : `$eq $ne $gt $gte $lt $lte $in $nin $like` (`$like` = SQL `%`/`_`) — `IRepository.ts:26`.
 Sous-ensemble = intersection portable des 3 ORM. `RepositoryReadOptions` = `{ relations?, limit?,
-offset?, order?: Array<[string,"ASC"|"DESC"]> }` (`IRepository.ts:78`) — `relations` = eager-load des
+offset?, order?: Array<[string,"ASC"|"DESC"]> }` (`IRepository.ts:174`) — `relations` = eager-load des
 assos **déclarées** dans `@entity`.
 
 **`IEntity<S, M>`** — `orm-core/nodefony/interfaces/IEntity.ts:33`. Champs : `name` (clé logique),
@@ -462,10 +462,10 @@ Savepoints driver-dépendants (no-op possible : Mongo).
 
 **`Orm` abstract extends Service** — `orm-core/nodefony/src/Orm.ts:29`. **S'auto-register au ctor**
 (`ormRegistry.register(this.name, this)`, `Orm.ts:44` — possible car `name` arrive de `Service`, dispo
-tôt). `connect()` = **template method** (`Orm.ts:54`) → appelle l'abstrait `onConnect()` (`Orm.ts:74`)
+tôt). `connect()` = **template method** (`Orm.ts:118`) → appelle l'abstrait `onConnect()` (`Orm.ts:364`)
 puis `fire("onOrmReady", this)` (`Orm.ts:66`). Abstraits à implémenter : `onConnect`, `disconnect`
 (`:77`), `isConnected` (`:80`), `getRepository` (`:87`), `transaction` (`:94`), `getNativeConnection`
-(`:97`). `describeEntity` par défaut renvoie `[]` (`Orm.ts:107`, relations seules) → surchargé par
+(`:97`). `describeEntity` par défaut renvoie `[]` (`Orm.ts:396`, relations seules) → surchargé par
 l'adapter.
 
 **`Entity` abstract** — `orm-core/nodefony/src/Entity.ts:22`. Abstraits : `name` (`:26`), `orm` (`:29`),
@@ -531,7 +531,7 @@ Exports : `DrizzleOrm`, `DrizzleRepository`, `DrizzleTransaction` (+ types `Driz
 `new DrizzleTransaction(db, client)` (`:359`). `getNativeConnection<DrizzleDb>()` (`:370`).
 `describeConnection()` (`:468`). `get dialect` (`:114`).
 
-**`DrizzleRepository<T>`** — `DrizzleOrm.ts` voisin, `DrizzleRepository.ts:79`. **Ctor**
+**`DrizzleRepository<T>`** (`DrizzleRepository.ts:177`, même dossier que l'ORM Drizzle). **Ctor**
 `(db, table, relations, connector="default")` (`:92`). `#where(criteria)` traduit en `eq/and/gt/inArray/
 like` (`:186`). `#populate` = eager-load **manuel**, 1 requête `IN(...)` par relation (`:249`). Sortie
 = **cast `rows as T[]`** (`:320` — schema-as-code : la ligne EST l'entité, pas de remap générique).
@@ -573,11 +573,11 @@ Représentation canonique sérialisable (ORMs + entités + colonnes + relations)
 <!-- prettier-ignore -->
 | Fonction | Rôle | Ancrage |
 | --- | --- | --- |
-| `buildOrmGraph(ormFilter?)` | Lit `ormRegistry`+`entityRegistry` → `IOrmGraph` (nœuds/colonnes/relations) | `OrmAdminApi.ts:114` |
-| `buildConnectionHealth(connector?)` | État + **ping** + `probe()` (storage/pool) — **émet une requête** | `OrmAdminApi.ts:136` |
-| `buildOrmFlow(filter?)` | Débit/latence/slow — lecture pure (**aucune requête émise**) | `OrmAdminApi.ts:238` |
-| `toDbml(graph)` / `toJsonSchema(graph)` | Export DBML / JSON Schema | `OrmAdminApi.ts:273` / `:376` |
-| `createOrmAdminApi()` | `IAdminApi` (endpoints `orms`/`entities`/`entity/{name}`/`graph`/`connection/health`/`flow`/`export/{format}`, `?connector=` filtre) | `OrmAdminApi.ts:419` |
+| `buildOrmGraph(ormFilter?)` | Lit `ormRegistry`+`entityRegistry` → `IOrmGraph` (nœuds/colonnes/relations) | `OrmAdminApi.ts:228` |
+| `buildConnectionHealth(connector?)` | État + **ping** + `probe()` (storage/pool) — **émet une requête** | `OrmAdminApi.ts:303` |
+| `buildOrmFlow(filter?)` | Débit/latence/slow — lecture pure (**aucune requête émise**) | `OrmAdminApi.ts:361` |
+| `toDbml(graph)` / `toJsonSchema(graph)` | Export DBML / JSON Schema | `OrmAdminApi.ts:499` / `:376` |
+| `createOrmAdminApi()` | `IAdminApi` (endpoints `orms`/`entities`/`entity/{name}`/`graph`/`connection/health`/`flow`/`export/{format}`, `?connector=` filtre) | `OrmAdminApi.ts:563` |
 | `registerOrmAdminApi(registry)` | Monte `/nodefony/orm/api/*` (idempotent) | `OrmAdminApi.ts:541` |
 | `wireOrmAdminPlane(kernel)` | Câblage GLOBAL factorisé (admin API + providers santé/flux) — appelé par chaque driver à `onKernelBoot` | `ormWiring.ts:31` |
 | `buildOrmLeanHealth()` | Agrégat per-instance (0 ping/0 toSQL) pour la sonde cluster | `src/buildOrmLeanHealth.ts` |
@@ -626,7 +626,7 @@ PG** ; **reste** `user` (⚠️ `findBySocialProvider` `json_each` SQLite → `j
 **Mapping row → entité**
 
 - **Drizzle** : schema-as-code → la ligne EST l'entité, `DrizzleRepository` fait un **cast** `rows as T[]`
-  (`DrizzleRepository.ts:320`) — **aucun remap générique**.
+  (`DrizzleRepository.ts:898`) — **aucun remap générique**.
 - **Mongoose** : `toObject({ virtuals:true })` + `_id`→`id` (hex string).
 - **Stores domaine** (User/token/session) : remap **manuel** ligne ↔ objet métier — ex.
   `DrizzleUserRepository.#toUser(row)` → `new BaseUser({...})` (`DrizzleUserRepository.ts:64`). **C'est ici
@@ -634,7 +634,7 @@ PG** ; **reste** `user` (⚠️ `findBySocialProvider` `json_each` SQLite → `j
 
 **Résolution lazy du driver**
 
-- Drizzle `#db`/`#tables` = `null` jusqu'à `onConnect` (`DrizzleOrm.ts:84`/`:92`), remis `null` à
+- Drizzle `#db`/`#tables` = `null` jusqu'à `onConnect` (`DrizzleOrm.ts:795`/`:92`), remis `null` à
   `disconnect` (`:316`). `pg` chargé **lazily** (`await import("pg")` dans `#connectPostgres`, jamais
   au top-level : un déploiement SQLite n'a pas `pg`).
 - Stores branchés (idempotence/token) prennent un **résolveur** `() => Db | null` (garde `isConnected()`)
@@ -650,7 +650,7 @@ process-wide, **indépendant de l'ALS**, **OFF par défaut** (`enabled = false` 
 sur le chemin lent** (`durationMs >= slowMs`, défaut 50 `:62`) → jamais `toSQL()` au cas nominal. Débit/s
 **dérivé** côté lecteur (delta `total`/`ts`), **0 persistance** (RAM, reset au restart). Gating = job du
 driver : `resolveOrmFlowEnabled` (`ormWiring.ts:96`) → `setEnabled(env !== "production")` (override
-`NF_ORM_FLOW=1/0`). Tap : chaque op du repo passe par `#prof` (Drizzle `DrizzleRepository.ts:139`,
+`NF_ORM_FLOW=1/0`). Tap : chaque op du repo passe par `#prof` (Drizzle `DrizzleRepository.ts:442`,
 Mongoose `MongooseRepository.ts:77`), gardé par les 2 drapeaux (buffer ALS dev + flux) → `if (!buf &&
 !flow) return builder`. **Couverture** : Drizzle alimente le tap ; Mongoose aussi (middleware repo) —
 les finders natifs `sql\`…\``(ex.`findBySocialProvider`, `db.all`brut) ne passent **pas** par`#prof`.
