@@ -32,7 +32,7 @@
  * sur une machine sans Chromium.
  *
  * Usage :
- *   node scripts/build-docs-site.mjs [--out dist-site] [--base ""] [--quiet]
+ *   node scripts/build-docs-site.mjs [--out tmp/sites/docs] [--base ""] [--quiet]
  *
  * Sortie 1 si aucune page n'a pu être rendue, ou si le hub d'accueil manque —
  * un site vide se publierait en silence.
@@ -87,7 +87,7 @@ const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
 };
-const OUT = path.resolve(ROOT, arg("out", "dist-site"));
+const OUT = path.resolve(ROOT, arg("out", "tmp/sites/docs"));
 /**
  * Sous-dossier du site où vit la documentation (`/docs`), vide si elle occupe
  * la racine. Il entre dans les URL avant tout calcul de chemin relatif : c'est

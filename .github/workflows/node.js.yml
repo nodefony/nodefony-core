@@ -279,6 +279,13 @@ jobs:
         shell: bash
         run: npx vitest run scripts/ci/run-watched.test.mjs
 
+      # L'arborescence de `tmp/` et sa purge à 48 h : un geste DESTRUCTEUR, qui
+      # ne doit jamais toucher au runtime (`upload/`, le verrou d'un run long).
+      # Sur les trois systèmes : il marche des chemins et lit des dates.
+      - name: Gate — tmp/ rangé, purge bornée à l'expiré
+        shell: bash
+        run: npx vitest run scripts/tmp-layout.test.mjs
+
       # Un tag d'action se DÉPLACE ; un SHA non. Couvre la forge ET les
       # workflows que chaque application générée exécutera.
       - name: Gate — actions épinglées par SHA (dépôt + gabarits) · aucune annulation de CI

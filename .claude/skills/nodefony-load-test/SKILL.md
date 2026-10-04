@@ -210,9 +210,9 @@ mesure). Chaque camp a **sa** base, copie du même seed : ils écrivent tous les
 
 ```bash
 # décor : seeder une fois (NF_BENCH_ORM=1), puis copier la base pour le camp témoin
-cp var/databases/nodefony-drizzle.db /tmp/bench-express.db
+mkdir -p tmp/bench && cp var/databases/nodefony-drizzle.db tmp/bench/express.db
 BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus \
-  NF_BENCH_SQLITE_DB=/tmp/bench-express.db BENCH_CONN=25 BENCH_DUR=30 BENCH_WARMUP=20 \
+  NF_BENCH_SQLITE_DB=tmp/bench/express.db BENCH_CONN=25 BENCH_DUR=30 BENCH_WARMUP=20 \
   bash $S/bench-pairs.sh express-fair-sqlite nodefony-orm 5167
 ```
 
@@ -490,7 +490,7 @@ qu'un **humain décide**, générer un rapport HTML autonome :
 JSON_OUT=tmp/sink.json node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
 # 2. le rapport (graphes SVG, tableau triable, décor de la mesure, données embarquées)
 node .claude/skills/nodefony-load-test/scripts/bench-report.mjs tmp/sink.json
-open tmp/bench-report.html
+open tmp/reports/bench-report.html
 ```
 
 `bench-report.mjs` s'appuie sur le skill **`nodefony-html-report`** (jamais de HTML écrit

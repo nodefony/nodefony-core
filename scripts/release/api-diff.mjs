@@ -15,7 +15,7 @@
  * Préalable : un `dist` complet (`npm run build`) — c'est lui qu'on compare.
  *
  * La référence est prise dans les TARBALLS npm, pas dans un tag git : c'est ce
- * que les utilisateurs ont installé. Elle est dépaquetée sous `tmp/api-diff/`,
+ * que les utilisateurs ont installé. Elle est dépaquetée sous `tmp/reports/api-diff/`,
  * DANS le dépôt, pour que ses imports se résolvent sur les `node_modules` du
  * dépôt ; chaque paquet reçoit en plus un lien vers les `node_modules` de son
  * workspace (une dépendance d'une autre version majeure vit là, pas à la racine).
@@ -24,7 +24,7 @@
  * défaut inversé sont des ruptures à types identiques — ils se lisent dans les
  * commits (`!`) et le changelog, pas ici.
  *
- * Sortie : résumé sur stdout, rapport complet `tmp/api-diff/<version>/report.json`.
+ * Sortie : résumé sur stdout, rapport complet `tmp/reports/api-diff/<version>/report.json`.
  * Code : 0 = mesure faite (ruptures ou non), 2 = mesure impossible.
  */
 import { execFileSync } from "node:child_process";
@@ -137,7 +137,7 @@ export function measureApiDiff({
   root = ROOT,
   workspaces = publishableWorkspaces(root),
 }) {
-  const outDir = path.join(root, "tmp", "api-diff", from);
+  const outDir = path.join(root, "tmp", "reports", "api-diff", from);
   fs.mkdirSync(outDir, { recursive: true });
   const core = workspaces.find((w) => w.name === "nodefony") ?? workspaces[0];
   const report = { from, to: core?.version ?? null, packages: {} };

@@ -66,7 +66,7 @@ Le générateur AFFICHE ce qu'il écarte et pourquoi, page par page — publier 
 vrai risque de cet outil. Vérifier avant de pousser :
 
 ```bash
-node scripts/build-docs-site.mjs --out tmp/site --mount /docs   # la liste des écartés, par motif
+node scripts/build-docs-site.mjs --out tmp/sites/docs --mount /docs   # la liste des écartés, par motif
 node scripts/build-docs-site.mjs --out tmp/apercu --only <chemin/page.md>   # une seule page
 ```
 

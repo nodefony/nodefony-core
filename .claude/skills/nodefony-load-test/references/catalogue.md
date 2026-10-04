@@ -193,7 +193,7 @@ traitement du `Host`, 0,5 µs au micro-banc — facteur ~15).
 ```bash
 bash .claude/skills/nodefony-load-test/scripts/wait-compare.sh nest-fair 3
 # + la pile native pendant la même fenêtre :
-NF_NATIVE_SAMPLE=1 NF_WAIT_DIR=tmp/wait-native bash .claude/skills/nodefony-load-test/scripts/wait-compare.sh nest-fair 2
+NF_NATIVE_SAMPLE=1 NF_WAIT_DIR=tmp/profiles/wait-native bash .claude/skills/nodefony-load-test/scripts/wait-compare.sh nest-fair 2
 ```
 
 Décor posé par le script, identique à `profile-compare.sh` : ports 5151/5161 libérés, serveur
@@ -229,7 +229,7 @@ les siens sous `NF_BENCH_ROUTE`.
 
 Mécanique : `wait-probe.mjs` est préchargé (`node --import`) dans les DEUX camps ; un premier
 `SIGUSR2` ouvre la fenêtre, un second la ferme et écrit `<pid>.json` dans `NF_WAIT_PROBE_OUT`.
-Sortie : `tmp/wait/<camp>-<n>/{<pid>.json, wrk.txt, server.log}` puis le tableau de
+Sortie : `tmp/profiles/wait/<camp>-<n>/{<pid>.json, wrk.txt, server.log}` puis le tableau de
 `wait-analyze.mjs` (médiane par camp, écart, ratio, colonne « séparé » = les séries des deux
 camps ne se chevauchent pas).
 
@@ -260,7 +260,7 @@ campagne sur TOUTES les paires, moyennées (`NF_NATIVE_TOP` règle la longueur d
 
 ```bash
 S=.claude/skills/nodefony-load-test/scripts
-node $S/native-sample.mjs --dir tmp/wait-native nodefony nest-fair 40   # toutes les paires, moyennées
+node $S/native-sample.mjs --dir tmp/profiles/wait-native nodefony nest-fair 40   # toutes les paires, moyennées
 node $S/native-sample.mjs <capture> <rps>                               # une capture seule
 node $S/native-sample.mjs <capA> <rpsA> <capB> <rpsB> [top]             # deux captures
 ```
@@ -292,7 +292,9 @@ jamais conclure sur une ligne isolée.
 
 `node --prof` (+ `--prof-process`) nomme aussi les appelants, mais **ne convient pas sous macOS** :
 les builtins embarqués dans le binaire y sont imputés à un faux symbole C++ (mesuré : 58 % des
-ticks sur `node::ProcessEmitWarningGeneric`, avec ou sans `--mac`).
+ticks sur `node::ProcessEmitWarningGeneric`, avec ou sans `--mac`). S'il sert malgré tout (Linux) :
+`node --prof --logfile=tmp/profiles/v8-%p.log --no-logfile-per-isolate …` — sans ces deux options,
+V8 écrit un `isolate-*-v8.log` dans le répertoire courant, c'est-à-dire à la racine du dépôt.
 
 | Famille                                 | Ce qu'elle contient                                                          |
 | --------------------------------------- | ---------------------------------------------------------------------------- |

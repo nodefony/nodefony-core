@@ -117,7 +117,7 @@ Termine par ce bloc, et lui seul en JSON :
 /**
  * Monte la vue du web dans un dossier isolé.
  *
- * Le plan et les pages viennent de l'artefact RENDU (`dist-site`), jamais des
+ * Le plan et les pages viennent de l'artefact RENDU (`tmp/sites/docs`), jamais des
  * sources : c'est ce que le site publie qui est lu, et le tri du périmètre vit
  * dans le générateur. Sans artefact, le banc REFUSE plutôt que de composer une
  * vue approximative — un décor deviné produirait un verdict sur un site qui
@@ -127,13 +127,13 @@ Termine par ce bloc, et lui seul en JSON :
  * @returns {string} le chemin du décor.
  */
 function monterDecor({ degrade = false } = {}) {
-  const site = path.join(REPO, "dist-site");
+  const site = path.join(REPO, "tmp", "sites", "docs");
   const plan = path.join(site, "llms.txt");
   if (!existsSync(plan)) {
     console.error(
       `décor impossible : ${plan} absent.\n` +
-        "  npm run build && node scripts/readme-html.mjs dist-site/index.html\n" +
-        "  node scripts/build-docs-site.mjs --out dist-site --mount /docs\n" +
+        "  npm run build && node scripts/readme-html.mjs tmp/sites/docs/index.html\n" +
+        "  node scripts/build-docs-site.mjs --out tmp/sites/docs --mount /docs\n" +
         "  npm run site:plan",
     );
     process.exit(2);

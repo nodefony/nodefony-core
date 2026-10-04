@@ -86,6 +86,8 @@ mono-route position-dépendante ment (vécu : « 0,9 % » → +15,3 % NET une fo
   (le script le fait : `pkill -f vite.js`) sinon throttle fantôme.
 - Profilage CPU complémentaire (`node --prof` + `--prof-process`, piège macOS du faux symbole
   `BlobSerializerDeserializer`) : méthode complète en mémoire IA `reference_perf_profiling_method`.
+  Toujours `--logfile=tmp/profiles/v8-%p.log --no-logfile-per-isolate` : sans eux, V8 pose un
+  `isolate-*-v8.log` dans le répertoire courant — la racine du dépôt.
 
 Résultats engrangés avec ce banc (mono prod, route session-free) : **router-first +28 %**,
 **retrait `setParameters("query.*")` morts +3.2 %** ; **différer le `JSON.stringify` audit −5.3 %**

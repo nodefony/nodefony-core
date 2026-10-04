@@ -11,7 +11,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(dirname "$HERE")"
 ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
-BENCH_DIR="${1:-$ROOT/tmp/bench}"
+BENCH_DIR="${1:-$ROOT/tmp/bench/multipod}"
 NAMESPACE="${2:-bench}"
 APPS=(appalpha appbeta)
 

@@ -71,7 +71,7 @@ sur la résolution des liens, exactement le défaut que ces briques existent pou
 - **Le chrome vient du moteur** `nodefony-html-report` (`doc()` : thèmes, impression, marque, et les
   slots `nav`/`aside`/`head`) ; les diagrammes de son `lib/schemas.mjs`, qui les rend SANS
   navigateur — la publication tourne sur une machine sans Chromium.
-- **Aucun HTML n'est versionné** : le rendu ne vit que dans l'artefact publié (`dist-site/` est
+- **Aucun HTML n'est versionné** : le rendu ne vit que dans l'artefact publié (`tmp/sites/docs/` en local, `dist-site/` dans la CI, est
   ignoré par git). La source est le Markdown.
 - **Le site s'adresse aussi aux AGENTS**, et par trois voies : chaque page publie son markdown à
   côté d'elle (`index.md`, déclaré en `<link rel="alternate">`) ; `scripts/build-site-plan.mjs`
@@ -304,7 +304,7 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
    sans montrer est inutilisable (constat : 22 pages, 15 blocs TS en tout).
 3. **Point de vue = CONSOMMATEUR** (`import { … } from "nodefony"`), jamais l'interne du repo.
 
-### Outillage (source unique : `scripts/` de CE skill ; artefacts → `tmp/doc-work/`)
+### Outillage (source unique : `scripts/` de CE skill ; artefacts → `tmp/scratch/doc-work/`)
 
 <!-- prettier-ignore -->
 | Script | Rôle |

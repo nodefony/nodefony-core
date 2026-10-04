@@ -221,7 +221,7 @@ la preuve, le critère de fin et la trace — le faire dans la foulée n'autoris
 
 ```bash
 npm run ticket:open -- --title "docs(guides): retirer « mocha + bun » du hub" \
-  --body-file tmp/t/1.md --milestone "10.0.0" --priorite P1 --jours 0.5
+  --body-file tmp/scratch/ticket.md --milestone "10.0.0" --priorite P1 --jours 0.5
 #   --backlog          → pas de jalon, label `backlog` (aucune date promise)
 #   --parent 63        → sous-ticket : l'ordre se DÉRIVE du parent (63.1, 63.2, …) ;
 #                        le parent sans type est promu Epic

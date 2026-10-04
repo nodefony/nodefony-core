@@ -9,7 +9,7 @@
  * SEUL chiffre qui tranche : ce qu'une application installe vraiment.
  *
  * CE QU'IL NE FAIT PAS : décider ce qui est public. Le plan se lit sur l'artefact
- * RENDU (`dist-site/`), jamais sur les sources : le tri du périmètre vit dans
+ * RENDU (`tmp/sites/docs/` en local), jamais sur les sources : le tri du périmètre vit dans
  * `build-docs-site.mjs`, et le recopier ici garantirait qu'un jour les deux ne
  * disent plus la même chose. Ce qui est publié est ce qui est là.
  *
@@ -22,7 +22,7 @@
  * seul `llms.txt`, que l'on va chercher explicitement sous l'URL du site, agit
  * dès maintenant.
  *
- * Usage : node scripts/build-site-plan.mjs [--out dist-site] [--base <url>]
+ * Usage : node scripts/build-site-plan.mjs [--out tmp/sites/docs] [--base <url>]
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -380,7 +380,7 @@ const flag = (name, fallback) => {
   return i === -1 ? fallback : args[i + 1];
 };
 
-const out = path.resolve(REPO_ROOT, flag("out", "dist-site"));
+const out = path.resolve(REPO_ROOT, flag("out", "tmp/sites/docs"));
 if (!fs.existsSync(path.join(out, "index.html"))) {
   console.error(
     `aucun site rendu sous ${out} — bâtir d'abord (readme-html.mjs + build-docs-site.mjs)`,

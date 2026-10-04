@@ -14,7 +14,7 @@
  * ce qui l'a été : c'est la moitié du verdict, et c'est la moitié qu'on oublie d'écrire.
  *
  * Usage :
- *   node scripts/build-qualite-site.mjs [--out dist-qualite-site] [--data docs/qualite/data]
+ *   node scripts/build-qualite-site.mjs [--out tmp/sites/quality] [--data docs/qualite/data]
  *
  * Sortie 1 si AUCUNE version n'a pu être rendue (un site vide se publierait en silence).
  */
@@ -46,7 +46,7 @@ function arg(nom, defaut) {
   const i = process.argv.indexOf(`--${nom}`);
   return i === -1 ? defaut : process.argv[i + 1];
 }
-const OUT = path.resolve(ROOT, arg("out", "dist-qualite-site"));
+const OUT = path.resolve(ROOT, arg("out", "tmp/sites/quality"));
 const DATA = path.resolve(ROOT, arg("data", "docs/qualite/data"));
 
 const esc = (s) =>

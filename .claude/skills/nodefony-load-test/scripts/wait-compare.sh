@@ -16,14 +16,14 @@
 # NF_WAIT_CUTS="entry context pipeline route action" : bissection par
 #   COURT-CIRCUIT — chaque manche sert aussi Nodefony coupé à chaque étage
 #   (`cut-probe.mjs`), et `cut-analyze.mjs` rend le coût de chaque étage.
-# Sortie : tmp/wait/<camp>-<n>/{<pid>.json,wrk.txt} + le tableau (wait-analyze.mjs).
+# Sortie : tmp/profiles/wait/<camp>-<n>/{<pid>.json,wrk.txt} + le tableau (wait-analyze.mjs).
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$DIR/../../../.." && pwd)"
 WITNESS="${1:-nest-fair}"
 PAIRS="${2:-3}"
-BASE="${NF_WAIT_DIR:-$ROOT/tmp/wait}"
+BASE="${NF_WAIT_DIR:-$ROOT/tmp/profiles/wait}"
 CONN="${BENCH_CONN:-128}"
 DUR="${BENCH_DUR:-20}"
 cd "$ROOT"

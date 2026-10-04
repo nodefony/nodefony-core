@@ -74,7 +74,7 @@ if [ "$LABEL" = "purge" ]; then
   # effacées avant le lot suivant — il a fallu rejouer douze minutes de mesure
   # pour récupérer des chiffres qu'on avait déjà. La purge doit protéger la
   # comparaison SUIVANTE, pas détruire la précédente.
-  ARCHIVE="$ROOT/tmp/bench-archive/$(date +%Y%m%d-%H%M%S)"
+  ARCHIVE="$ROOT/tmp/bench/archive/$(date +%Y%m%d-%H%M%S)"
   if ls /tmp/nf-bench-*.json >/dev/null 2>&1; then
     mkdir -p "$ARCHIVE"
     cp /tmp/nf-bench-*.json /tmp/nf-bench-*.med "$ARCHIVE/" 2>/dev/null

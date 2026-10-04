@@ -47,7 +47,7 @@ const arg = (n, d) => {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
 };
 const DATA = arg("data", "docs/devkit/data/10.0.0.json");
-const OUT = arg("out", "tmp/devkit.html");
+const OUT = arg("out", "tmp/reports/devkit.html");
 
 const D = JSON.parse(readFileSync(DATA, "utf8"));
 const T = D.taches;

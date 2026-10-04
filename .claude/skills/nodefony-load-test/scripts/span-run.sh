@@ -6,14 +6,14 @@
 # sonde attribue, elle ne compare pas.
 #
 # Usage : span-run.sh [runs=3]
-# Sortie : tmp/span/run-<n>/<pid>.spans.json, puis le tableau (span-analyze.mjs).
+# Sortie : tmp/profiles/span/run-<n>/<pid>.spans.json, puis le tableau (span-analyze.mjs).
 # ⚠️ Tue ce qui écoute sur 5151 — arrêter le serveur de dev avant.
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$DIR/../../../.." && pwd)"
 RUNS="${1:-3}"
-BASE="${NF_SPAN_DIR:-$ROOT/tmp/span}"
+BASE="${NF_SPAN_DIR:-$ROOT/tmp/profiles/span}"
 CONN="${BENCH_CONN:-128}"
 DUR="${BENCH_DUR:-20}"
 cd "$ROOT"

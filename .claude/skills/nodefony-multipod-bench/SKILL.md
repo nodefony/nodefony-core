@@ -43,7 +43,7 @@ bash .claude/skills/nodefony-multipod-bench/scripts/run.sh     # démarre les 3 
 
 `setup.sh [dossier] [namespace]` monte tout : Redis en conteneur, deux applications générées et
 liées au dépôt local, le module `chat` du banc, la configuration du bus, le build. Relancer ne
-casse rien — chaque étape vérifie ce qui existe déjà. Pour repartir de zéro : `rm -rf tmp/bench`.
+casse rien — chaque étape vérifie ce qui existe déjà. Pour repartir de zéro : `rm -rf tmp/bench/multipod`.
 
 `run.sh` démarre **trois pods** : deux instances de la première application (même secret = pairs
 légitimes) et une instance de la seconde **sans secret** — le témoin non protégé, sans lequel aucun
@@ -133,7 +133,7 @@ messages en 1 à 3 ms selon que le transport est scellé ou non.
 ```bash
 bash .claude/skills/nodefony-multipod-bench/scripts/run.sh --stop   # les pods du banc, eux seuls
 docker compose -f docker/docker-compose.yml stop redis
-rm -rf tmp/bench
+rm -rf tmp/bench/multipod
 ```
 
 ⚠️ Tuer **par port**, jamais par `pkill -f NF_POD_NAME=…` : une variable d'environnement

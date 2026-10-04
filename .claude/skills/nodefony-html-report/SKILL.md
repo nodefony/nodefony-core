@@ -343,7 +343,7 @@ doc({ brand: null }); // document neutre
 vitrine et de test de non-régression visuel :
 
 ```bash
-node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html && open tmp/demo.html
+node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/reports/demo.html && open tmp/reports/demo.html
 ```
 
 ### Ce skill sert aussi un SITE, pas seulement des rapports
@@ -354,8 +354,8 @@ node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html && open 
 
 - **une régression de `doc()` casse la documentation publiée**, pas seulement un rapport. Les deux
   selftests (`echarts.selftest.mjs`, `formats.selftest.mjs`) ne couvrent pas le chrome : rejouer
-  aussi `node scripts/build-docs-site.mjs --out tmp/site --mount /docs` puis
-  `node scripts/check-site-links.mjs tmp/site` ;
+  aussi `node scripts/build-docs-site.mjs --out tmp/sites/docs --mount /docs` puis
+  `node scripts/check-site-links.mjs tmp/sites/docs` ;
 - **un rapport n'a pas de voisines, une page de site en a.** C'est toute la différence entre les
   deux usages : le premier se lit seul, dans le fichier qu'on a reçu ; la seconde doit toujours
   offrir un chemin de retour. Le pied d'une page publiée qui ne ramène nulle part est un

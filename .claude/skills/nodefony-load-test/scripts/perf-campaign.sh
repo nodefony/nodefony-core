@@ -149,9 +149,10 @@ pair nul nodefony nodefony
 orm() { # nom témoin [VAR=val…] — paire ORM au décor ci-dessus
   local name="$1" camp="$2"; shift 2
   want "$name" || return 0
-  cp "$SEED" /tmp/bench-orm-witness.db; rm -f /tmp/bench-orm-witness.db-wal /tmp/bench-orm-witness.db-shm
+  WITNESS_DB="$ROOT/tmp/bench/orm-witness.db"; mkdir -p "$(dirname "$WITNESS_DB")"
+  cp "$SEED" "$WITNESS_DB"; rm -f "$WITNESS_DB-wal" "$WITNESS_DB-shm"
   env BENCH_CONN=25 BENCH_DUR=60 BENCH_WARMUP=20 BENCH_THERM_TARGET=20 \
-    NF_BENCH_SQLITE_DB=/tmp/bench-orm-witness.db "$@" \
+    NF_BENCH_SQLITE_DB="$WITNESS_DB" "$@" \
     bash -c "$(declare -f log want pair); OUT='$OUT' LOG='$LOG' TRIES='$TRIES' PAIRS='$PAIRS' ONLY='$ONLY'; pair '$name' '$camp' nodefony-orm 5167"
 }
 RW="BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus"

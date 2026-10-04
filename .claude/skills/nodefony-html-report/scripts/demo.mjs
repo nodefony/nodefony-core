@@ -5,9 +5,10 @@
  * (SVG mal formé, JS en erreur, saut de page absurde), ça se voit ici avant de
  * partir dans un vrai rapport.
  *
- *   node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html
+ *   node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/reports/demo.html
  */
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import {
   doc,
   section,
@@ -36,7 +37,7 @@ import {
   series,
 } from "../lib/report.mjs";
 
-const OUT = process.argv[2] ?? "tmp/demo.html";
+const OUT = process.argv[2] ?? "tmp/reports/demo.html";
 
 /** @type {Array<[string, number, number, number, number[]]>} */
 const routes = [
@@ -273,5 +274,6 @@ const html = doc({
     "la version, l'environnement.",
 });
 
+mkdirSync(path.dirname(OUT), { recursive: true });
 writeFileSync(OUT, html);
 console.log(`Démo écrite : ${OUT} (${(html.length / 1024).toFixed(0)} Ko)`);

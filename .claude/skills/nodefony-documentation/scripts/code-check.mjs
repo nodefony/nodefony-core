@@ -6,7 +6,7 @@
  * autonomes et compilent contre les VRAIS paquets du repo, du point de vue d'une app
  * consommatrice (`import … from "nodefony"`), jamais des chemins relatifs internes.
  *
- * Principe : extraire les blocs → les écrire dans tmp/doc-work/qs/ → tsgo -p (strict,
+ * Principe : extraire les blocs → les écrire dans tmp/scratch/doc-work/qs/ → tsgo -p (strict,
  * décorateurs, moduleResolution Bundler). La résolution passe par le node_modules de la
  * racine (workspaces npm) — exactement ce que verra l'app générée.
  *
@@ -43,7 +43,7 @@ if (!files.length) {
 const lotName = files.map((f) => path.basename(f, ".md")).join("+");
 const QS = path.join(
   REPO,
-  "tmp/doc-work/qs",
+  "tmp/scratch/doc-work/qs",
   lotName.length <= 100
     ? lotName
     : `${lotName.slice(0, 80)}+${createHash("sha256").update(lotName).digest("hex").slice(0, 8)}`,

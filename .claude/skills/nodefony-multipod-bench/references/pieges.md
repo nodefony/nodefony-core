@@ -31,8 +31,8 @@ Le repo auto-hébergé occupe 5151/5152, et un serveur Vite peut tenir 5173. Vé
 serveur de travail de quelqu'un. Réserver une plage au banc (517x / 527x).
 
 **Le `cd` d'une commande n'a pas eu lieu.**
-Le répertoire courant persiste entre les appels : un `cd tmp/bench/appalpha` depuis
-`tmp/bench` échoue, et la commande suivante s'exécute ailleurs que prévu — typiquement un
+Le répertoire courant persiste entre les appels : un `cd tmp/bench/multipod/appalpha` depuis
+`tmp/bench/multipod` échoue, et la commande suivante s'exécute ailleurs que prévu — typiquement un
 `npm run build` qui rebuild le framework au lieu de l'application. Toujours des chemins
 absolus dans le même appel.
 

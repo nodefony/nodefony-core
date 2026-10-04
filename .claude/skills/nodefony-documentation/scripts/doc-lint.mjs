@@ -7,12 +7,12 @@ import path from "node:path";
 import { resoudreCorpus, instructionsDe } from "./corpus.mjs";
 import { indexerIdentifiants, symbolesFantomes } from "./symboles.mjs";
 
-// Les compteurs sont des ARTEFACTS régénérables (gen-counters.mjs) → tmp/doc-work/.
+// Les compteurs sont des ARTEFACTS régénérables (gen-counters.mjs) → tmp/scratch/doc-work/.
 import { execSync } from "node:child_process";
 const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
 }).trim();
-const COVERAGE = path.join(REPO, "tmp/doc-work/coverage");
+const COVERAGE = path.join(REPO, "tmp/scratch/doc-work/coverage");
 // `--instructions` ne garde que le régime des `CLAUDE.md`/`MEMORY.md`. La forge
 // en a besoin : son étage « pages publiées » reçoit une liste que
 // `build-docs-site.mjs --list` produit, et les fichiers d'instructions n'en font

@@ -21,7 +21,7 @@ if [ "${1:-}" = "--stop" ]; then
   exit 0
 fi
 
-BENCH_DIR="${1:-$ROOT/tmp/bench}"
+BENCH_DIR="${1:-$ROOT/tmp/bench/multipod}"
 SECRET="${NF_BENCH_SECRET:-bench-secret-0123456789abcdefghij}"
 REDIS="${REDIS_URL:-redis://:nodefony-dev@127.0.0.1:6379}"
 LOGS="${TMPDIR:-/tmp}"

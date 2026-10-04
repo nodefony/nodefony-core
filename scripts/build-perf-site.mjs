@@ -16,7 +16,7 @@
  * releases sans croire quiconque sur parole.
  *
  * Usage :
- *   node scripts/build-perf-site.mjs [--out dist-perf-site] [--data docs/performance/data]
+ *   node scripts/build-perf-site.mjs [--out tmp/sites/perf] [--data docs/performance/data]
  *
  * Sortie 1 si AUCUNE version n'a pu être rendue (un site vide se publierait en silence).
  */
@@ -56,7 +56,7 @@ const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
 };
-const OUT = path.resolve(ROOT, arg("out", "dist-perf-site"));
+const OUT = path.resolve(ROOT, arg("out", "tmp/sites/perf"));
 const DATA_DIR = path.resolve(ROOT, arg("data", "docs/performance/data"));
 const GENERATOR = path.join(
   ROOT,

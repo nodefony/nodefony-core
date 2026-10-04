@@ -2144,7 +2144,7 @@
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
         "bodyLines": 479,
-        "approxTokens": 8276
+        "approxTokens": 8288
       },
       "requires": [],
       "resources": {
@@ -2721,7 +2721,7 @@
       "description": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et `lib/echarts.mjs`, qui rend CÔTÉ SERVEUR en SVG statique — sans un octet de JavaScript servi, en thème clair ET sombre — barres avec étendue, courbes à deux axes alignés, nuages, boîtes à moustaches, Sankey, radars, cartes de chaleur, arbres pondérés, entonnoirs, cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine les organigrammes et diagrammes de séquence mermaid sans toucher à leur source. Déclencheurs : \"rapport HTML\", \"rapport imprimable\", \"dashboard statique\", \"restituer des mesures\", \"quel graphe choisir\", \"diagramme de Sankey\", \"boîtes à moustaches\", \"deux axes\", \"échelle d'un graphe\", \"rendre un schéma mermaid\", \"calculateur interactif\", \"deck de présentation\", \"export CSV\".",
       "cost": {
         "bodyLines": 362,
-        "approxTokens": 5464
+        "approxTokens": 5471
       },
       "requires": [
         "redis",
@@ -2739,7 +2739,7 @@
             "path": "scripts/demo.mjs",
             "purpose": "demo.mjs — vitrine ET test de non-régression de `lib/report.mjs`.",
             "usage": [
-              "node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html"
+              "node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/reports/demo.html"
             ],
             "options": [
               {
@@ -3426,7 +3426,7 @@
       "description": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster). **À charger AVANT de lancer un de ces scripts** : le script produit un chiffre, c'est le protocole qui en fait une mesure — décor requis, médiane de N runs, et les pièges qui ont déjà produit des chiffres faux (mesurer sous rafale ne mesure pas la latence, une variance ×3 ne tranche rien). Déclencheurs : \"test de charge\", \"stress\", \"benchmark\", \"combien de connexions\", \"jusqu'à la rupture\", \"RPS\", \"latence p99\", \"est-ce que ça tient la charge ?\", \"combien de pods ?\", \"c'est plus rapide ?\", \"impact perf de ce changement ?\", \"mesurer avant/après\", \"dimensionner\", \"pourquoi plus lent que X\", \"où part le CPU d'une requête\", \"profiler\" — ces derniers : profil COMPARÉ (`profile-compare.sh`) AVANT tout audit de code.",
       "cost": {
         "bodyLines": 524,
-        "approxTokens": 9208
+        "approxTokens": 9215
       },
       "requires": [
         "serveur UP",
@@ -5685,7 +5685,7 @@
       "description": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout. Fournit le décor (Redis docker, apps liées au framework, ports dédiés), les scripts de mesure (latence, charge, coût de publication, forge d'enveloppe scellée), la matrice d'attaque du backplane et les pièges du lancement multi-instances. À charger AVANT de monter le décor ou de lancer un script : sans le protocole, un banc saturé mesure un backlog et non une latence, et une infra éteinte en route rend les tests silencieusement verts. Déclencheurs : \"banc multi-pods\", \"tester en cluster\", \"cross-pod\", \"deux apps\", \"plusieurs pods\", \"injection backplane\", \"bus Redis partagé\", \"fan-out cross-pod\", \"prouver en réel\", \"backplane secret\", \"est-ce que ça marche à plusieurs instances ?\", \"les apps sont-elles cloisonnées ?\".",
       "cost": {
         "bodyLines": 143,
-        "approxTokens": 3026
+        "approxTokens": 3031
       },
       "requires": [
         "serveur UP",

@@ -20,7 +20,7 @@ const TOOLS = path.dirname(fileURLToPath(import.meta.url));
 const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
 }).trim();
-const OUT = path.join(REPO, "tmp/doc-work/coverage");
+const OUT = path.join(REPO, "tmp/scratch/doc-work/coverage");
 mkdirSync(OUT, { recursive: true });
 
 const MAP = JSON.parse(readFileSync(path.join(TOOLS, "test-map.json"), "utf8"));

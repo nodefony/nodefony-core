@@ -36,10 +36,10 @@ installe **quatre** paquets. Il avait jugé le dépôt de développement en croy
 ## Le décor — la vue du WEB, et rien d'autre
 
 Un dossier isolé qui contient exactement ce qu'un `fetch` atteint : `README.md`, `AGENTS.md`,
-`llms.txt` et les **pages publiées** du site (le markdown de `dist-site/docs`, sans le HTML ni
+`llms.txt` et les **pages publiées** du site (le markdown de `tmp/sites/docs/docs`, sans le HTML ni
 l'index de recherche). Jamais `src/` — lui donner le dépôt mesurerait sa capacité à lire du code.
 
-Il vient de l'artefact **rendu**, et le banc **refuse** de tourner si `dist-site/llms.txt` manque :
+Il vient de l'artefact **rendu**, et le banc **refuse** de tourner si `tmp/sites/docs/llms.txt` manque :
 un décor deviné rendrait un verdict sur un site qui n'existe pas. La commande à lancer est affichée
 dans le refus.
 

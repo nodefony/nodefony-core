@@ -16,7 +16,7 @@
  *   node .claude/skills/nodefony-load-test/scripts/bench-report.mjs tmp/sink.json
  *   node .../bench-report.mjs tmp/a.json tmp/b.json      # plusieurs bancs, un rapport
  *
- * ENV : OUT (défaut `tmp/bench-report.html`)
+ * ENV : OUT (défaut `tmp/reports/bench-report.html`)
  *
  * Le rapport va dans `tmp/` — c'est une PHOTO, pas de la documentation. Le
  * publier dans `docs/` est une décision de l'auteur du framework : voir la
@@ -44,7 +44,7 @@ if (!files.length) {
   process.exit(1);
 }
 
-const OUT = resolve(process.env.OUT ?? "tmp/bench-report.html");
+const OUT = resolve(process.env.OUT ?? "tmp/reports/bench-report.html");
 const runs = files.map((f) => JSON.parse(readFileSync(f, "utf8")));
 
 /** Bandeau de décor : sans lui, un chiffre n'est comparable à rien. */

@@ -760,7 +760,14 @@ glisser-déposer, mode présentation, impression PDF soignée, HTML5 validé W3C
 sont **embarquées** dans la page (`doc({ data })`) → le rapport reste rejouable, comparable et
 ré-ingérable par un LLM.
 
-**Où** : un rapport est une **photo**, pas de la documentation → `tmp/`, jamais `docs/`, jamais commité.
+**Où** : un rapport est une **photo**, pas de la documentation → `tmp/reports/`, jamais `docs/`, jamais commité.
+
+> 🗂 **`tmp/` a des catégories, et RIEN ne se pose à sa racine** — ni à celle du dépôt. Journaux
+> capturés → `tmp/runs/`, rapports → `tmp/reports/`, profils → `tmp/profiles/`, apps générées →
+> `tmp/apps/`, brouillons → `tmp/scratch/`. La table complète est dans `scripts/tmp-layout.mjs`
+> (seule source) et sa copie dans `tmp/README.md` ; `node scripts/tmp-layout.mjs` crée les
+> dossiers et nomme ce qui traîne, `--prune` jette ce qui a plus de 48 h. Ce qui doit survivre se
+> commite ou part dans un ticket : `tmp/` se vide sans prévenir.
 
 ## 📘 Documentation — TSDoc + `docs/`
 

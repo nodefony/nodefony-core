@@ -15,7 +15,7 @@
 // Usage :
 //   node native-sample.mjs <capture> <rps>                      # un camp
 //   node native-sample.mjs <capA> <rpsA> <capB> <rpsB> [top=40]  # écart A − B
-//   node native-sample.mjs --dir tmp/wait-native nodefony nest-fair [top]
+//   node native-sample.mjs --dir tmp/profiles/wait-native nodefony nest-fair [top]
 //        # TOUTES les paires rangées par wait-compare.sh, moyennées — la forme usuelle.
 //        # Refuse (code 3) si le débit des runs d'un camp diverge de plus de 3 %
 //        # (`--accept-noise` pour lire quand même, sans en tirer de chiffre).

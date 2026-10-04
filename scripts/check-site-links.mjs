@@ -26,7 +26,7 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import path from "node:path";
 
-const ROOT = path.resolve(process.argv[2] ?? "dist-site");
+const ROOT = path.resolve(process.argv[2] ?? "tmp/sites/docs");
 if (!existsSync(ROOT)) {
   console.error(`✗ dossier introuvable : ${ROOT}`);
   process.exit(1);
