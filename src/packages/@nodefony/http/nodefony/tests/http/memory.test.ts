@@ -400,7 +400,16 @@ const plan = (
 // de la CI. Ce n'est pas une rétention du pipeline, c'est un tampon qui se
 // remplit. Rétabli à la fin, quoi qu'il arrive. Puis chaque chemin est amené à
 // son plateau (`WARMUP`).
+//
+// Hygiène des uploads : la photo des dossiers de dépôt est prise AVANT
+// l'échauffement, qui poste lui-même des fichiers (`WARMUP.upload`). Prise
+// dans la suite HTTP, après lui, elle comptait ces 200 fichiers comme
+// préexistants — ils restaient à chaque passe (des dizaines de milliers
+// accumulés), et seule la garde de passe `uploadResidue.global.ts` l'a vu.
+// Supprime UNIQUEMENT ce que le fichier a créé. Même pattern que upload.test.ts.
+let snapshot: UploadSnapshot;
 beforeAll(async () => {
+  snapshot = await snapshotUploadDirs();
   await setSyslogRing(false);
   for (const key of Object.keys(WARMUP) as (keyof typeof WARMUP)[]) {
     for (let i = 0; i < WARMUP[key]; i++) await ACTIONS[key](i);
@@ -408,6 +417,11 @@ beforeAll(async () => {
 }, 120_000);
 afterAll(async () => {
   await setSyslogRing(true);
+  const removed = await purgeUploadResidue(snapshot);
+  expect(
+    removed,
+    "aucun résidu supprimé — dossier de dépôt manqué",
+  ).to.be.greaterThan(0);
 });
 
 describe("Memory leaks — HTTP (requires server)", function () {
@@ -420,21 +434,6 @@ describe("Memory leaks — HTTP (requires server)", function () {
   });
   afterAll(async () => {
     await get("/nodefony/test/als-test/contexts/disarm");
-  });
-
-  // Hygiène : le test d'upload ne doit JAMAIS laisser de résidu dans tmp/.
-  // Snapshot avant la suite, diff après → supprime UNIQUEMENT ce qu'elle a créé
-  // (sans toucher au préexistant). Même pattern que upload.test.ts.
-  let snapshot: UploadSnapshot;
-  beforeAll(async () => {
-    snapshot = await snapshotUploadDirs();
-  });
-  afterAll(async () => {
-    const removed = await purgeUploadResidue(snapshot);
-    expect(
-      removed,
-      "aucun résidu supprimé — dossier de dépôt manqué",
-    ).to.be.greaterThan(0);
   });
 
   /** Une boucle HTTP : pente de tas, puis scopes et contextes drainés. */
