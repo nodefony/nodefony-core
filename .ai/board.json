@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T15:59:43.520Z",
+  "generatedAt": "2026-10-04T17:34:17.087Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 76,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 39,
       "title": "10.0.0-beta"
     },
     {
@@ -1626,6 +1626,54 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 535,
+      "title": "feat(cli): modéliser l'écran du serveur de développement sans terminal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/535",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.0001,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 536,
+      "title": "refactor(cli): faire du superviseur le seul à écrire dans le terminal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/536",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.0002,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 537,
+      "title": "feat(cli): figer la barre d'état en bas pendant le défilement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/537",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 3.0003,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 529,
@@ -7478,8 +7526,8 @@
       "number": 533,
       "title": "feat(cli): rendre le démarrage clair pour l'humain et pour l'IA",
       "url": "https://github.com/nodefony/nodefony-core/issues/533",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": null,
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -7508,14 +7556,46 @@
     },
     {
       "number": 534,
-      "title": "feat(cli): ajouter une invite de commandes au serveur de développement",
+      "title": "feat(cli): ajouter barre figée et invite au serveur de développement",
       "url": "https://github.com/nodefony/nodefony-core/issues/534",
       "state": "OPEN",
       "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
-      "jours": 2,
+      "jours": 9,
       "ordre": 913,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 538,
+      "title": "feat(cli): ajouter une invite de commandes sous la barre d'état",
+      "url": "https://github.com/nodefony/nodefony-core/issues/538",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 913.4,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 539,
+      "title": "feat(cli): brancher un assistant à modèle local sur l'invite",
+      "url": "https://github.com/nodefony/nodefony-core/issues/539",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
+      "ordre": 913.5,
       "debut": null,
       "cible": null,
       "labels": [

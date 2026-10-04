@@ -64,6 +64,9 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 - **banc** (detect: banc|bancs) — un montage de mesure : un décor, une charge, et un chiffre en sortie.
 - **jalon** (detect: milestone) — la version dans laquelle un ticket doit sortir.
 - **SPDX** (detect: SPDX) — _Software Package Data Exchange_ : la liste normalisée des identifiants de licence (`MIT`, `Apache-2.0`, `UNLICENSED`…), celle que lisent le champ `license` d'un `package.json`, GitHub et les outils d'audit de dépendances.
+- **IPC** (detect: IPC) — _Inter-Process Communication_ : le canal de messages entre deux processus Node lancés l'un par l'autre (`process.send` / `child.send`), distinct de leurs sorties texte.
+- **écran alternatif** (detect: écran alternatif) — le second écran d'un terminal, celui qu'ouvrent les programmes plein écran (`less`, `vim`) : ce qui s'y affiche n'entre pas dans l'historique, et l'écran d'avant revient intact à la sortie.
+- **mode brut** (detect: mode brut) — le réglage du terminal où chaque touche arrive au programme dès qu'elle est frappée, sans attendre Entrée ; Ctrl+C n'y envoie plus de signal, c'est le programme qui le reçoit comme une touche.
 
 ## Anglicismes — l'équivalent à employer
 
