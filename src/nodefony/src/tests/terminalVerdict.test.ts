@@ -34,6 +34,8 @@ interface IReport {
   color: boolean;
   stdout: boolean;
   stdin: boolean;
+  /** Une SECONDE copie du module (le binaire embarque la sienne). */
+  secondCopy: boolean;
   size: { columns?: number; rows?: number };
   resized: { columns?: number; rows?: number } | null;
   ownEnv: string | null;
@@ -57,6 +59,7 @@ function runServer(verdict: string | undefined): Promise<IReport> {
       color: isLogColorEnabled(),
       stdout: isTerminal(process.stdout),
       stdin: isTerminal(process.stdin),
+      secondCopy: (await import(${JSON.stringify(url("runtime/isTerminal.ts") + "?seconde-copie")})).isTerminal(process.stdout),
       size: terminalSize(),
       resized: null,
       ownEnv,
@@ -133,6 +136,11 @@ describe("verdict du terminal — serveur sous tube (#536)", () => {
       assert.strictEqual(report.mode, "human");
       assert.strictEqual(report.color, true);
       assert.strictEqual(report.stdout, true);
+      assert.strictEqual(
+        report.secondCopy,
+        true,
+        "une seconde copie du module voit le verdict que la première a retiré de l'environnement",
+      );
       assert.strictEqual(
         report.stdin,
         false,

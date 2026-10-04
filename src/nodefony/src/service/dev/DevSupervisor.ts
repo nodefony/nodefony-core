@@ -1701,14 +1701,19 @@ export class DevSupervisor {
     }
   }
 
-  /** Tue le groupe de l'enfant (SIGTERM, puis SIGKILL après 4 s) et attend l'exit. */
+  /**
+   * Tue le groupe de l'enfant (SIGTERM, puis SIGKILL après 4 s) et attend sa
+   * FIN — processus et flux (cf {@link onServerEnded}) : ses dernières lignes
+   * (arrêt de Vite, `terminate`) passent par le terminal du superviseur, qui
+   * ne doit ni se fermer ni relancer un serveur avant de les avoir reçues.
+   */
   #killChild(): Promise<void> {
     return new Promise((resolve) => {
       const c = this.#child;
       this.#child = null; // marque le restart sollicité avant l'exit
       if (c?.exitCode !== null || c.signalCode !== null) return resolve();
       const kill9 = setTimeout(() => this.#signalGroup(c, "SIGKILL"), 4000);
-      c.once("exit", () => {
+      onServerEnded(c, () => {
         clearTimeout(kill9);
         resolve();
       });

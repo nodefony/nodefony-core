@@ -59,10 +59,32 @@ interface IStreamLike {
 /** Appelé avec les nouvelles dimensions. */
 export type TerminalResizeListener = (size: ITerminalSize) => void;
 
-/** Verdict mémoïsé : `undefined` = pas encore lu, `null` = aucun. */
-let verdict: { columns: number; rows: number } | null | undefined;
-/** Écouteurs de redimensionnement sous verdict — alloués au premier. */
-let resizeListeners: Set<TerminalResizeListener> | null = null;
+/**
+ * L'état de la porte, PARTAGÉ par toutes les copies du module chargées dans
+ * le processus. Le binaire `bin/nodefony` est un bundle qui embarque sa
+ * propre copie : un mémo de module y lirait le verdict, le retirerait de
+ * l'environnement — et la copie du noyau, lue ensuite, ne trouverait plus
+ * rien (vécu : serveur relayé rendu en `plain`). Seul le registre global des
+ * symboles réunit deux copies (cf `packageInstances.ts`).
+ */
+interface ITerminalGateState {
+  /** Verdict mémoïsé : `undefined` = pas encore lu, `null` = aucun. */
+  verdict: { columns: number; rows: number } | null | undefined;
+  /** Écouteurs de redimensionnement sous verdict — alloués au premier. */
+  resizeListeners: Set<TerminalResizeListener> | null;
+}
+
+/** Case partagée par toutes les copies. */
+const STATE_KEY = Symbol.for("nodefony.terminalGate");
+
+/** L'état partagé, créé par la première copie qui le demande. */
+function gateState(): ITerminalGateState {
+  const holder = globalThis as typeof globalThis & {
+    [STATE_KEY]?: ITerminalGateState;
+  };
+  holder[STATE_KEY] ??= { verdict: undefined, resizeListeners: null };
+  return holder[STATE_KEY];
+}
 
 /** `process`, s'il existe (navigateur : non). */
 function currentProcess(): NodeJS.Process | undefined {
@@ -115,16 +137,18 @@ export function parseTerminalVerdict(raw: string): ITerminalVerdict | null {
  * l'environnement ; l'écoute des redimensionnements relayés s'installe avec.
  */
 function currentVerdict(): { columns: number; rows: number } | null {
-  if (verdict !== undefined) return verdict;
+  const state = gateState();
+  if (state.verdict !== undefined) return state.verdict;
   const proc = currentProcess();
   const raw = proc?.env[DEV_TERMINAL_ENV];
-  verdict = null;
-  if (raw === undefined || proc === undefined) return verdict;
+  state.verdict = null;
+  if (raw === undefined || proc === undefined) return null;
   Reflect.deleteProperty(proc.env, DEV_TERMINAL_ENV);
   const parsed = parseTerminalVerdict(raw);
-  if (parsed === null) return verdict;
-  verdict = { columns: parsed.columns, rows: parsed.rows };
-  listenToRelayedResize(proc, verdict);
+  if (parsed === null) return null;
+  const verdict = { columns: parsed.columns, rows: parsed.rows };
+  state.verdict = verdict;
+  listenToRelayedResize(proc, state);
   return verdict;
 }
 
@@ -135,19 +159,20 @@ function currentVerdict(): { columns: number; rows: number } | null {
  */
 function listenToRelayedResize(
   proc: NodeJS.Process,
-  current: { columns: number; rows: number },
+  state: ITerminalGateState,
 ): void {
   if (typeof proc.send !== "function") return;
   proc.on("message", (message: unknown) => {
-    if (!isDevResize(message)) return;
+    const current = state.verdict;
+    if (!isDevResize(message) || !current) return;
     current.columns = message.columns;
     current.rows = message.rows;
-    if (resizeListeners === null) return;
+    if (state.resizeListeners === null) return;
     const size: ITerminalSize = {
       columns: current.columns,
       rows: current.rows,
     };
-    for (const listener of resizeListeners) listener(size);
+    for (const listener of state.resizeListeners) listener(size);
   });
   proc.channel?.unref();
 }
@@ -204,10 +229,11 @@ export function terminalSize(stream?: IStreamLike): ITerminalSize {
 export function onTerminalResize(listener: TerminalResizeListener): () => void {
   const proc = currentProcess();
   if (currentVerdict() !== null) {
-    resizeListeners ??= new Set();
-    resizeListeners.add(listener);
+    const state = gateState();
+    state.resizeListeners ??= new Set();
+    state.resizeListeners.add(listener);
     return () => {
-      resizeListeners?.delete(listener);
+      state.resizeListeners?.delete(listener);
     };
   }
   const stdout = proc?.stdout;

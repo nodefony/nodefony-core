@@ -8,6 +8,7 @@ import { ISyslog } from "../types/ISyslog";
 import type { ITransport } from "../types/ITransport";
 import { logColor, isLogColorEnabled } from "./logColor";
 import { CircularBuffer } from "../runtime/CircularBuffer";
+import { isTerminal } from "../runtime/isTerminal";
 
 // Couleurs du préfixe console (timestamp/severity/msgid) — gatées au boot par
 // logColor (OFF hors TTY → stdout pipe/fichier propre). Indirection minime hors
@@ -69,7 +70,11 @@ const _resolveBufferOn = (): boolean => {
       ? true
       : _bufferMode === "off"
         ? false
-        : !_proc?.stdout?.isTTY; // "auto" → bufférise hors TTY
+        : // "auto" → bufférise hors terminal. Par la porte : sous le
+          // superviseur de développement, la sortie est un tube relayé au
+          // terminal — bufférisée, une ligne émise pendant le silence du boot
+          // sortait après lui, et les dernières avant `exit` se perdaient.
+          !isTerminal(_proc?.stdout);
   return _bufferOn;
 };
 
