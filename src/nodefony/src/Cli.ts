@@ -39,6 +39,7 @@ import { DebugType, EnvironmentType } from "./types/globals";
 import Syslog from "./syslog/Syslog";
 import Kernel from "./kernel/Kernel";
 import { portableSpawn } from "./cli/execPortable";
+import { onTerminalResize } from "./runtime/isTerminal";
 
 type FigletModule = (typeof import("figlet"))["default"];
 let figletModule: FigletModule | null = null;
@@ -922,9 +923,11 @@ class Cli extends Service {
   }
 
   resize() {
-    process.stdout.on("resize", () => {
-      this.columns = process.stdout.columns;
-      this.rows = process.stdout.rows;
+    // Par la porte : sous le superviseur de développement, la sortie est un
+    // tube et le redimensionnement arrive relayé, jamais en `resize`.
+    onTerminalResize((size) => {
+      this.columns = size.columns ?? 0;
+      this.rows = size.rows ?? 0;
       this.fire("onResize", this.columns, this.rows, this);
     });
   }

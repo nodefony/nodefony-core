@@ -1,4 +1,5 @@
 import readline from "node:readline";
+import { isTerminal } from "../runtime/isTerminal";
 
 /**
  * Indicateurs d'attente et de progression pour un terminal — la seule
@@ -145,7 +146,7 @@ export function shouldAnimate(
   stream: NodeJS.WriteStream,
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  if (!stream.isTTY) return false;
+  if (!isTerminal(stream)) return false;
   if (env["TERM"] === "dumb") return false;
   if (env["CI"]) return false;
   if (env["NF_NO_PROGRESS"]) return false;

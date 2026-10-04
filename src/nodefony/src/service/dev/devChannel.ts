@@ -47,13 +47,26 @@ export interface IDevStatusErased {
   type: "status-erased";
 }
 
+/**
+ * Superviseur → serveur : le terminal a changé de taille. Le serveur écrit
+ * dans un tube et ne reçoit pas `SIGWINCH` : la porte (`terminalSize`, dans
+ * `runtime/isTerminal.ts`) prend ces dimensions pour les siennes.
+ */
+export interface IDevResize {
+  channel: typeof DEV_CHANNEL;
+  type: "resize";
+  columns: number;
+  rows: number;
+}
+
 /** Tout ce qui peut transiter sur le canal. */
-export type DevChannelMessage = IDevStatusShown | IDevStatusErased;
+export type DevChannelMessage = IDevStatusShown | IDevStatusErased | IDevResize;
 
 /** Les types connus — la seule liste que le garde consulte. */
 const KNOWN_TYPES: ReadonlySet<string> = new Set<DevChannelMessage["type"]>([
   "status",
   "status-erased",
+  "resize",
 ]);
 
 /**
@@ -66,13 +79,32 @@ export function isDevChannelMessage(
   message: unknown,
 ): message is DevChannelMessage {
   if (typeof message !== "object" || message === null) return false;
-  const m = message as { channel?: unknown; type?: unknown; lines?: unknown };
+  const m = message as {
+    channel?: unknown;
+    type?: unknown;
+    lines?: unknown;
+    columns?: unknown;
+    rows?: unknown;
+  };
   if (m.channel !== DEV_CHANNEL || typeof m.type !== "string") return false;
   if (!KNOWN_TYPES.has(m.type)) return false;
   if (m.type === "status") {
     return typeof m.lines === "number" && Number.isInteger(m.lines);
   }
+  if (m.type === "resize")
+    return isTerminalDimension(m.columns) && isTerminalDimension(m.rows);
   return true;
+}
+
+/**
+ * Une dimension de terminal valide : entier strictement positif. Partagée
+ * avec la porte (`runtime/isTerminal.ts`), qui valide le verdict transmis.
+ *
+ * @param value - la valeur reçue.
+ * @returns `true` si c'est un nombre de colonnes ou de lignes exploitable.
+ */
+export function isTerminalDimension(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 /**

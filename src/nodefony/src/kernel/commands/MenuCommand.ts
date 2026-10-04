@@ -18,6 +18,7 @@ import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
 import { resolveColorEnabled } from "../../syslog/logColor";
 import { renderBrand, resolveBrandCharset } from "../../cli/brand";
 import { RESET_SCREEN } from "../../service/dev/outputMode";
+import { terminalSize } from "../../runtime/isTerminal";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -65,7 +66,7 @@ class Menu extends Command {
 
   /** Largeur utile du terminal (bornée : un résumé ne dépasse jamais). */
   #columns(): number {
-    return Math.min(process.stdout.columns || 80, 110);
+    return Math.min(terminalSize().columns || 80, 110);
   }
 
   /**
@@ -254,7 +255,7 @@ class Menu extends Command {
           value: `${process.version} · ${process.platform}`,
         },
       ],
-      columns: process.stdout.columns || 80,
+      columns: terminalSize().columns || 80,
       color: this.#color,
       charset: resolveBrandCharset(process.platform, process.env),
     });
@@ -263,7 +264,7 @@ class Menu extends Command {
     const bannerLines = banner.split("\n").length - 1;
     const pageSize = Math.max(
       8,
-      Math.min(items.length + 8, (process.stdout.rows || 24) - 6 - bannerLines),
+      Math.min(items.length + 8, (terminalSize().rows || 24) - 6 - bannerLines),
     );
     const selected = await this.prompts
       .search<string>({

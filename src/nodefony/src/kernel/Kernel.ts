@@ -86,7 +86,7 @@ import { findSetReservedKeys } from "../config/configProvenance";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
-import { isTerminal } from "../runtime/isTerminal";
+import { isTerminal, terminalSize } from "../runtime/isTerminal";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
@@ -3146,7 +3146,7 @@ class Kernel extends Service implements IKernel {
     return renderBrand({
       ...(version ? { version } : {}),
       rows,
-      columns: process.stdout.columns || 80,
+      columns: terminalSize().columns || 80,
       color: isLogColorEnabled(),
       charset: resolveBrandCharset(process.platform, process.env),
     });

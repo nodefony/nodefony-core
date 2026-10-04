@@ -71,7 +71,7 @@ import {
 } from "./report";
 import { renderReport } from "./renderReport";
 import { stripGlobalCliFlags } from "../../cli/globalFlags";
-import { isTerminal } from "../../runtime/isTerminal";
+import { isTerminal, terminalSize } from "../../runtime/isTerminal";
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
 const CANDIDATE_ROOTS = [
@@ -1363,18 +1363,20 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
     );
     // Replié comme le reste : un refus qui déborde du terminal est le premier
     // texte que le lecteur voit casser, et il le voit au pire moment.
-    const width = usableWidth(process.stderr.columns);
+    const width = usableWidth(terminalSize(process.stderr).columns);
     for (const l of wrap(`doctor : ${parsed.error}`, width, "  ")) {
       process.stderr.write(`${p.failure(l)}\n`);
     }
-    process.stderr.write(usage(p, usableWidth(process.stderr.columns)));
+    process.stderr.write(
+      usage(p, usableWidth(terminalSize(process.stderr).columns)),
+    );
     return 64;
   }
   if (parsed.help) {
     process.stdout.write(
       usage(
         createPalette(shouldColorize(process.env, isTerminal(process.stdout))),
-        usableWidth(process.stdout.columns),
+        usableWidth(terminalSize(process.stdout).columns),
       ),
     );
     return 0;

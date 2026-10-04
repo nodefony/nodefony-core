@@ -1,4 +1,5 @@
 import clc from "../colors";
+import { isTerminal } from "../runtime/isTerminal";
 
 /**
  * Gate de couleur ANSI des logs — résolue **une seule fois au boot**
@@ -124,7 +125,9 @@ export function resolveColorEnabled(isTTY: boolean): boolean {
 
 // Défaut à l'IMPORT (le kernel n'existe pas encore → on lit process une fois, en
 // honorant NF_NO_TTY comme le fait Kernel.isTTY). Re-confirmé au boot par
-// Kernel.initializeLog avec `this.isTTY` (cf resolveColorEnabled).
+// Kernel.initializeLog avec `this.isTTY` (cf resolveColorEnabled). Par la
+// porte : sous le superviseur de développement, la sortie est un tube relayé
+// au terminal, et seul le verdict transmis le dit.
 const _importProc = (
   globalThis as {
     process?: {
@@ -135,5 +138,5 @@ const _importProc = (
 ).process;
 const _importIsTTY = _importProc?.env?.NF_NO_TTY
   ? false
-  : _importProc?.stdout?.isTTY === true;
+  : isTerminal(_importProc?.stdout);
 setLogColor(resolveColorEnabled(_importIsTTY));

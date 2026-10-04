@@ -30,7 +30,7 @@ import {
   sectionTitle,
   type IPalette,
 } from "../kernel/checks/report";
-import { isTerminal } from "../runtime/isTerminal";
+import { isTerminal, terminalSize } from "../runtime/isTerminal";
 
 /** Une ligne à deux colonnes : un terme, ce qu'il fait. */
 export interface IUsageEntry {
@@ -250,7 +250,7 @@ export function printUsage(page: IUsagePage): number {
     renderUsage(
       page,
       createPalette(shouldColorize(process.env, isTerminal(process.stdout))),
-      usableWidth(process.stdout.columns),
+      usableWidth(terminalSize(process.stdout).columns),
     ),
   );
   return 0;
@@ -271,7 +271,7 @@ export function printUsageError(page: IUsagePage, message: string): number {
   const p = createPalette(
     shouldColorize(process.env, isTerminal(process.stderr)),
   );
-  const width = usableWidth(process.stderr.columns);
+  const width = usableWidth(terminalSize(process.stderr).columns);
   const name = page.command.replace(/^nodefony\s+/u, "");
   for (const line of wrap(`${name} : ${message}`, width, "  ")) {
     process.stderr.write(`${p.failure(line)}\n`);

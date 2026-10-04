@@ -17,6 +17,7 @@ import {
 } from "./outputMode";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
 import { StatusLine } from "./statusLine";
+import { onTerminalResize, terminalSize } from "../../runtime/isTerminal";
 import {
   DEV_CHANNEL,
   listenToSupervisor,
@@ -446,7 +447,7 @@ class BootReporter {
       const options = {
         color: this.#color,
         hyperlinks: this.#hyperlinks,
-        columns: process.stdout.columns,
+        columns: terminalSize().columns,
         reload: this.#reload,
         charset: this.#charset,
       };
@@ -488,10 +489,11 @@ class BootReporter {
       readyAt: this.#readyAt,
       reloads: reloadCount(process.env),
     };
+    const size = terminalSize();
     const options = {
       color: this.#color,
-      columns: process.stdout.columns,
-      rows: process.stdout.rows,
+      columns: size.columns,
+      rows: size.rows,
       charset: this.#charset,
     };
     // Le bloc avec le logo quand le terminal a la place ; sinon une ligne.
@@ -542,7 +544,7 @@ class BootReporter {
       process.once("exit", release);
       // Le bloc se recompose à la nouvelle taille (logo ou ligne seule,
       // morceaux qui tombent) : on le rend de nouveau.
-      process.stdout.on("resize", () => this.#showStatus(view));
+      onTerminalResize(() => this.#showStatus(view));
     }
     this.#status.show(lines);
   }
