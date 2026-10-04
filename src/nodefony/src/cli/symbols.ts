@@ -43,6 +43,8 @@ export interface ISymbolEntry {
   description?: string;
   extends?: string;
   implements?: string[];
+  /** Décorateurs appliqués (`injectable`, `Route`…). */
+  decorators?: string[];
 }
 
 /** Ce que le graphe contient, réduit à ce que ses lecteurs utilisent. */
@@ -71,17 +73,8 @@ export function resolveSymbolsFile(from: string): string | null {
   return null;
 }
 
-/**
- * Lit le graphe, ou `null` s'il est absent ou illisible.
- *
- * Ne lève jamais : un outil de découverte qui tombe sur un fichier corrompu doit
- * le DIRE à son appelant, pas interrompre ce qu'il diagnostiquait.
- *
- * @param from - dossier de départ de la résolution.
- */
-export function readSymbolsGraph(from: string): ISymbolsGraph | null {
-  const file = resolveSymbolsFile(from);
-  if (file === null) return null;
+/** Lit un fichier de graphe, ou `null` s'il est illisible ou n'en est pas un. */
+function readGraphFile(file: string): ISymbolsGraph | null {
   try {
     // Fichier généré par un autre outil, peut-être d'une autre version.
     const parsed = JSON.parse(
@@ -92,6 +85,49 @@ export function readSymbolsGraph(from: string): ISymbolsGraph | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Lit le graphe atteignable depuis `from` — celui du PROJET fusionné avec celui
+ * du framework INSTALLÉ —, ou `null` si aucun n'est lisible.
+ *
+ * Les deux se complètent au lieu de s'exclure : le graphe du projet décrit SES
+ * modules, celui que publie `nodefony` décrit le framework. Choisir l'un aurait
+ * vidé les autres — une application dotée de son propre graphe perdait toute la
+ * référence du framework. Sur un même nom, le projet l'emporte : il décrit le
+ * code en cours d'écriture.
+ *
+ * Ne lève jamais : un outil de découverte qui tombe sur un fichier corrompu doit
+ * le DIRE à son appelant, pas interrompre ce qu'il diagnostiquait. Un graphe
+ * illisible est ignoré, l'autre reste servi.
+ *
+ * @param from - dossier de départ de la résolution.
+ */
+export function readSymbolsGraph(from: string): ISymbolsGraph | null {
+  const root = findProjectRoot(from) ?? from;
+  const graphs = [
+    path.join(root, "node_modules", "nodefony", GRAPH_RELATIVE),
+    path.join(root, GRAPH_RELATIVE),
+  ]
+    .filter((file) => existsSync(file))
+    .map(readGraphFile)
+    .filter((g): g is ISymbolsGraph => g !== null);
+  if (graphs.length === 0) return null;
+  // Du moins prioritaire au plus prioritaire : le dernier écrit gagne.
+  const merged: ISymbolsGraph = { symbols: {} };
+  for (const graph of graphs) {
+    const { symbols, relations, ...meta } = graph;
+    Object.assign(merged, meta);
+    Object.assign(merged.symbols, symbols);
+    for (const [kind, index] of Object.entries(relations ?? {})) {
+      const into = (merged.relations ??= {})[kind] ?? {};
+      for (const [target, sources] of Object.entries(index)) {
+        into[target] = [...new Set([...(into[target] ?? []), ...sources])];
+      }
+      merged.relations[kind] = into;
+    }
+  }
+  return merged;
 }
 
 /**

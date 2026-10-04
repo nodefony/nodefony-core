@@ -10,7 +10,7 @@ import {
   packageManagerExecArgs,
   portableSpawn,
   resolvePackageManager,
-  resolveSymbolsFile,
+  readSymbolsGraph,
 } from "nodefony";
 import type { IPackageManagerResolution } from "nodefony";
 
@@ -592,19 +592,15 @@ interface RawSymbol {
 export async function listModuleSymbols(
   packageName: string,
 ): Promise<ModuleSymbol[]> {
-  // Le graphe se RÉSOUT (projet, puis framework installé) — il ne se compose
-  // pas ici : un chemin en dur était précisément ce qui le rendait introuvable
-  // dans une application installée depuis npm, où il vit sous
-  // `node_modules/nodefony/.ai/`. Résolution partagée avec `nodefony symbols`.
-  const file = resolveSymbolsFile(process.cwd());
-  if (file === null) return [];
-  let parsed: { symbols?: Record<string, RawSymbol> };
-  try {
-    parsed = JSON.parse(await readFile(file, "utf8")) as typeof parsed;
-  } catch {
-    return [];
-  }
-  const symbols = parsed.symbols ?? {};
+  // Le graphe se LIT par le cœur (projet FUSIONNÉ avec le framework installé)
+  // — jamais par un chemin composé ici : un chemin en dur le rendait
+  // introuvable dans une application installée depuis npm, et une résolution
+  // « l'un OU l'autre » vidait l'onglet des modules du framework dès que
+  // l'application avait son propre graphe. Lecture partagée avec
+  // `nodefony symbols` et le serveur MCP.
+  const graph = readSymbolsGraph(process.cwd());
+  if (graph === null) return [];
+  const symbols: Record<string, RawSymbol> = graph.symbols;
   const out: ModuleSymbol[] = [];
   for (const sym of Object.values(symbols)) {
     if (sym.module !== packageName || sym.exported !== true) continue;

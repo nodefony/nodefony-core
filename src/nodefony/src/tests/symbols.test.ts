@@ -99,6 +99,49 @@ describe("graphe symbolique — résolution", () => {
     assert.strictEqual(resolveSymbolsFile(dir), local);
   });
 
+  it("⭐ FUSIONNE le graphe du projet et celui du framework — aucun ne masque l'autre", () => {
+    // Une application dotée de son propre graphe perdait toute la référence du
+    // framework : l'onglet API de Studio se vidait pour `@nodefony/*`.
+    const ecrireGraphe = (sous: string, graphe: object): void => {
+      const cible = path.join(dir, sous, ".ai");
+      mkdirSync(cible, { recursive: true });
+      writeFileSync(path.join(cible, "symbols.json"), JSON.stringify(graphe));
+    };
+    ecrireGraphe(path.join("node_modules", "nodefony"), {
+      ...GRAPHE,
+      relations: { extendedBy: { Service: ["Kernel"] } },
+    });
+    ecrireGraphe(".", {
+      version: "2.0.0",
+      symbols: {
+        AppService: {
+          name: "AppService",
+          kind: "class",
+          module: "modules/app",
+          file: "src/modules/app/AppService.ts",
+          line: 3,
+          exported: true,
+        },
+        Kernel: { ...GRAPHE.symbols.Kernel, line: 7 },
+      },
+      relations: { extendedBy: { Service: ["AppService"] } },
+    });
+    const graphe = readSymbolsGraph(dir);
+    assert.strictEqual(graphe?.symbols.AppService?.module, "modules/app");
+    assert.strictEqual(graphe?.symbols.Kernel?.line, 7, "le projet l'emporte");
+    assert.deepEqual(graphe?.relations?.extendedBy?.Service, [
+      "Kernel",
+      "AppService",
+    ]);
+  });
+
+  it("sert le graphe du framework quand celui du projet est CORROMPU", () => {
+    ecrire(path.join("node_modules", "nodefony"));
+    mkdirSync(path.join(dir, ".ai"), { recursive: true });
+    writeFileSync(path.join(dir, ".ai", "symbols.json"), "{ pas du json");
+    assert.strictEqual(readSymbolsGraph(dir)?.symbols.Kernel?.line, 42);
+  });
+
   it("rend null quand aucun graphe n'est atteignable", () => {
     assert.isNull(resolveSymbolsFile(dir));
     assert.isNull(readSymbolsGraph(dir));
