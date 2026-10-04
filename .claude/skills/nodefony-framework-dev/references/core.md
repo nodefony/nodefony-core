@@ -521,7 +521,7 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
   `finishOrPark(code)` `:852` (park si `lifetime==="longrunning" && !servers`, sinon `terminate`). `terminate(code?)` `:2287`.
 - Divers : `initializeLog()` `:1384` · `setEnv` `:1576` / `setNodeEnv` `:1538` · `getBootReport(): IBootReport` `:1850`
   (distingue `bootServers===null` non-mesuré de `[]` 0-serveur).
-- **`Events`** (bitmask frozen, `Kernel.ts:322`) : `onInit=1<<0 onPreStart onStart onPreRegister onRegister onPreBoot
+- **`Events`** (bitmask frozen, `Kernel.ts:332`) : `onInit=1<<0 onPreStart onStart onPreRegister onRegister onPreBoot
 onBoot onReady onServersReady onPostReady onTerminate=1<<10`.
 
 `kernel/CliKernel.ts:70` — **`class CliKernel extends Cli`** (⚠️ PAS `Kernel`). Le `Kernel` est instancié à part et lié à
@@ -698,7 +698,7 @@ Séparation stricte (réutilisable, testable) :
 - **`Event.emitAsyncGuarded`** `Event.ts:302` = mécanique PURE : série + try/catch + timeout/warnMs par listener, retourne
   `{results, errors, stopped}`. Ne décide d'AUCUNE politique (ni log, ni criticité) — l'appelant tranche via les callbacks
   `onListenerError` (retour `true` = stoppe la chaîne) / `onListenerSlow`.
-- **`Kernel.fireLifecycle`** `Kernel.ts:3898` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
+- **`Kernel.fireLifecycle`** `Kernel.ts:4033` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
   lit les tags `(owner, critical)` du listener (`readListenerTags` — déballe le wrapper `once` via `.listener`), et applique
   `isBootErrorFatal` : `critical && prod` → fatal (throw, le reste ne boote pas) ; sinon fail-soft + WARNING.
 - `Service` **COMPOSE** `Event` (`this.nc`), ne l'étend pas → toute nouvelle méthode event = ajout à `Event` **ET** re-export

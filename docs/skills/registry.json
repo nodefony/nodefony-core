@@ -879,6 +879,7 @@
       "calledBy": [
         "node.js.yml",
         "pages.yml",
+        ".githooks/pre-push",
         ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs"
       ],
       "testedBy": []

@@ -128,8 +128,8 @@ interface ITranscriptEntry {
 
 - **Deux plafonds** : 10 000 entrées ET **8 Mio d'octets** — le second est celui qui compte
   (10 000 × 16 Kio feraient 160 Mio). Éviction par la tête tant que l'un est dépassé.
-- **Un seul anneau dans le dépôt** : `CircularBuffer` (`src/nodefony/src/syslog/Syslog.ts:294`,
-  interne) sort dans `src/nodefony/src/runtime/`, ÉTENDU de `at(i)` et `shift()` (O(1), sans
+- **Un seul anneau dans le dépôt** : `CircularBuffer`, jusque-là interne à `Syslog.ts`, sort
+  dans `src/nodefony/src/runtime/` (`src/nodefony/src/runtime/CircularBuffer.ts:13`), ÉTENDU de `at(i)` et `shift()` (O(1), sans
   copie — `toArray()` à chaque image allouerait 10 000 cases soixante fois par seconde). `Syslog`
   le réimporte sans changer d'API.
 - **Découpe sur le `Buffer`**, une ligne décodée à la fois (`buf.toString("utf8", a, b)`), avec

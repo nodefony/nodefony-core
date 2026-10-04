@@ -186,7 +186,7 @@ empruntent le même chemin par `CliKernel` (`CliKernel.ts:84`).
 
 **Le journal est structuré, borné, et il part où tu veux.** `Syslog` (`Syslog.ts:628`) écrit des
 enregistrements typés plutôt que des chaînes, et les conserve dans un tampon circulaire
-(`CircularBuffer`, `Syslog.ts:294`) : les dernières entrées restent lisibles à chaud, sans que la
+(`CircularBuffer`, `CircularBuffer.ts:13`) : les dernières entrées restent lisibles à chaud, sans que la
 mémoire enfle avec le temps de fonctionnement. Les transports décident ensuite de la destination —
 sortie standard, fichier, agrégateur.
 

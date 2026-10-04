@@ -26,11 +26,17 @@ if git rev-parse --verify -q '@{u}' >/dev/null; then
     }
     # ANCRES `fichier:ligne` du corpus : un .ts qui bouge décale les ancres qui
     # pointent dessous, sans que rien ne le dise avant la CI — vécu : 192 ancres
-    # dérivées par un seul commit, 8 pushs rouges d'affilée sur dev. ~7 s, et
-    # seulement quand le push porte du code ou de la doc.
+    # dérivées par un seul commit, 8 pushs rouges d'affilée sur dev. ~10 s, et
+    # seulement quand le push porte du code ou de la doc. Corpus = celui de la
+    # CI (`node.js.yml`, gate « ancres de la doc ») : pages publiées ET
+    # `references/` des skills — `npm run doc:anchors` ne lit pas les seconds.
     if echo "$pushed" | grep -qE '\.(ts|tsx|mts|md)$'; then
-      npm run --silent doc:anchors >/dev/null || {
-        echo "pre-push : ancres de doc dérivées — npm run doc:anchors:fix, relire le reste (npm run doc:anchors), puis commit." >&2
+      anchors=.claude/skills/nodefony-documentation/scripts/anchor-check.mjs
+      { node scripts/site/build-docs-site.mjs --list | tr '\n' '\0' | xargs -0 node "$anchors" >/dev/null &&
+        find .claude/skills -path '*/references/*.md' -not -path '*/rfc/*' -not -path '*/specs/*' -print0 |
+        xargs -0 node "$anchors" >/dev/null; } || {
+        echo "pre-push : ancres de doc dérivées — npm run doc:anchors:fix (pages) ; pour les références de skills :" >&2
+        echo "  find .claude/skills -path '*/references/*.md' -not -path '*/rfc/*' -not -path '*/specs/*' -print0 | xargs -0 node $anchors | node ${anchors%/*}/anchor-fix.mjs . --apply" >&2
         exit 1
       }
     fi

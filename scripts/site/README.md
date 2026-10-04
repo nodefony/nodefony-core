@@ -33,7 +33,7 @@ Construit le SITE de documentation publié — toute la doc Nodefony en HTML aut
 - **Variable** `SITE_URL`
 - **Variable** `STYLE_CODE`
 - **Variable** `VERSION`
-- **Appelé par** : `node.js.yml` · `pages.yml` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs`
+- **Appelé par** : `node.js.yml` · `pages.yml` · `.githooks/pre-push` · `.claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs`
 - **Utilise** : `lib/repo-root.mjs` · `site/lib/html-text.mjs` · `site/markdown-highlight.mjs`
 
 ## [`build-perf-site.mjs`](build-perf-site.mjs)

@@ -113,7 +113,7 @@ types `IFrontendConfigInput`/`IFrontendConfig`).
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle | Ancrage |
 | --- | --- | --- | --- |
-| `registerEntry` | `(module: Module, decl: IFrontendModuleDeclaration) => IResolvedFrontendEntry` | Déclare un front à builder/servir. | `FrontendService.ts:237` |
+| `registerEntry` | `(module: Module, decl: IFrontendModuleDeclaration) => IResolvedFrontendEntry` | Déclare un front à builder/servir. | `FrontendService.ts:228` |
 | `listEntries` | `() => ReadonlyArray<IResolvedFrontendEntry>` | Snapshot des entrées résolues. | `:248` |
 | `status` | `() => IViteSupervisorStatus` | État du superviseur **primaire** (famille `default`). | `:252` |
 | `statusAll` | `() => ReadonlyArray<{ family; status }>` | État de **chaque** instance Vite (multi-famille). | `:271` |
@@ -144,7 +144,7 @@ failures: { entryName; message }[] }`.
 | `name` | `string?` | nom du module | Nom logique de l'entrée (= `entryName`, clé de `renderTags`). | `:20` |
 | `publicPath` | `string?` | `/_assets/<name>/` | Préfixe public prod (cf §4.3/§4.8). | `:27` |
 
-`registerEntry` (`FrontendService.ts:237`) résout les chemins en **absolu** depuis `module.path`,
+`registerEntry` (`FrontendService.ts:228`) résout les chemins en **absolu** depuis `module.path`,
 stocke `entryFile` relatif au `root`, normalise `publicPath` (leading + trailing `/`,
 `:235`/`normalizePublicPath` `:50`), et retourne une `IResolvedFrontendEntry`
 (`IFrontBuilder.ts:33` : `moduleName`, `entryName`, `type`, `root`, `entryFile`, `outDir`,
@@ -251,7 +251,7 @@ Best-effort, jamais `throw` ; en prod l'instance est `idle`/`pid:null` (Vite ne 
 
 ### 4.1 Dev — comment le SPA est servi (HMR Vite)
 
-`startDev()` (`FrontendService.ts:323`) écrit **`<root>/vite.config.generated.mjs`** via
+`startDev()` (`FrontendService.ts:314`) écrit **`<root>/vite.config.generated.mjs`** via
 `ViteConfigGenerator.toMjs()` (`service/ViteConfigGenerator.ts:63`), puis spawn Vite. Le fichier
 généré est autosuffisant : il `import`e Vite + les plugins **hardcodés** selon les types détectés
 (`:77-113`). Il est **réécrit à chaque `startDev`** — ne JAMAIS l'éditer.
@@ -298,7 +298,7 @@ port de Vite (SPA-fallback HTML) : l'ouvrir par Nodefony.
 
 ### 4.3 Prod — build + manifest + statiques
 
-**Build** : `FrontendService.build({force?})` (`FrontendService.ts:525`) importe `vite` à la demande
+**Build** : `FrontendService.build({force?})` (`FrontendService.ts:634`) importe `vite` à la demande
 (`:527`) et appelle `vite.build()` **par entry** (boucle `:535`) — chaque bundle a son propre
 `root`/`outDir`/`base`/`manifest` (multi-module + isolation Angular). `ViteBuilder.buildViteConfig`
 (`src/builders/ViteBuilder.ts:95`) pose `base = assetBaseUrl + publicPath` **seulement en production**
