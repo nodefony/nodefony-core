@@ -7,8 +7,11 @@ import { brandMark } from "../cli/brand";
 import { visibleWidth } from "../runtime/textWidth";
 import {
   FrameHeights,
+  frameJournalRows,
   diffFrame,
   renderFrame,
+  scrollAnchor,
+  topAnchor,
   type IFrameModel,
 } from "../service/dev/devFrame";
 import { DevTranscript } from "../service/dev/devTranscript";
@@ -244,5 +247,118 @@ describe("diffFrame", () => {
     expect(diffFrame(a, b)).to.deep.equal([{ row: 1, text: "Y" }]);
     expect(diffFrame(a, a)).to.deep.equal([]);
     expect(diffFrame(a, { lines: ["x", "y"], cursor: null })).to.have.length(2);
+  });
+});
+
+describe("scrollAnchor — défiler en lignes d'écran", () => {
+  // 10 entrées, 5 lignes dont la barre : 4 lignes de journal en direct, 3
+  // une fois remonté (l'indicateur prend la sienne).
+  const size = { columns: 40, rows: 5 };
+  const journalOf = (m: IFrameModel): readonly string[] =>
+    renderFrame(m, size).lines.filter(
+      (l) => /^l\d+$/.test(l) || l === "" || l.startsWith("aaaa"),
+    );
+
+  it("remonter d'une ligne ancre la fenêtre, redescendre d'une revient au direct", () => {
+    const t = transcriptOf(range(10));
+    const up = scrollAnchor(model(t), size, 1);
+    expect(up).to.deep.equal({ seq: 9, below: 0 });
+    expect(renderFrame(model(t, { anchor: up }), size).lines).to.deep.equal([
+      "l7",
+      "l8",
+      "l9",
+      "↑ 1 nouvelle ligne — Fin",
+      "mon-app · démarrage…",
+    ]);
+    expect(scrollAnchor(model(t, { anchor: up }), size, -1)).to.equal(null);
+  });
+
+  it("borné en haut : la PREMIÈRE ligne de l'historique reste visible (Début)", () => {
+    const t = transcriptOf(range(10));
+    const top = scrollAnchor(model(t), size, 1000);
+    expect(top).to.deep.equal(topAnchor(model(t), size));
+    expect(journalOf(model(t, { anchor: top }))).to.deep.equal([
+      "l1",
+      "l2",
+      "l3",
+    ]);
+    // Plus haut que le haut : rien ne bouge.
+    expect(scrollAnchor(model(t, { anchor: top }), size, 5)).to.deep.equal(top);
+  });
+
+  it("redescendre au-delà du bas revient au direct", () => {
+    const t = transcriptOf(range(10));
+    const top = topAnchor(model(t), size);
+    expect(scrollAnchor(model(t, { anchor: top }), size, -1000)).to.equal(null);
+  });
+
+  it("tout tient dans la fenêtre : rien à faire défiler", () => {
+    const t = transcriptOf(range(2));
+    expect(scrollAnchor(model(t), size, 3)).to.equal(null);
+    expect(topAnchor(model(t), size)).to.equal(null);
+  });
+
+  it("une entrée repliée se parcourt ligne à ligne", () => {
+    // 40 colonnes → 39 de repli : 100 « a » = 3 lignes d'écran.
+    const t = transcriptOf([...range(6), "a".repeat(100)]);
+    const one = scrollAnchor(model(t), size, 1);
+    expect(one).to.deep.equal({ seq: 7, below: 1 });
+    const two = scrollAnchor(model(t, { anchor: one }), size, 1);
+    expect(two).to.deep.equal({ seq: 7, below: 2 });
+    const three = scrollAnchor(model(t, { anchor: two }), size, 1);
+    expect(three).to.deep.equal({ seq: 6, below: 0 });
+  });
+
+  it("remonté, des lignes qui arrivent ne déplacent PAS la fenêtre (rechargement à chaud)", () => {
+    const t = transcriptOf(range(10));
+    const anchor = scrollAnchor(model(t), size, 4);
+    const before = journalOf(model(t, { anchor }));
+    for (const l of range(50, 11)) t.ingest("server", "out", `${l}\n`);
+    expect(journalOf(model(t, { anchor }))).to.deep.equal(before);
+    expect(renderFrame(model(t, { anchor }), size).lines.at(-2)).to.equal(
+      "↑ 54 nouvelles lignes — Fin",
+    );
+  });
+
+  it("ancre évincée de l'historique : repart du haut", () => {
+    const t = transcriptOf(range(10), 5);
+    const evicted = { seq: 2, below: 0 };
+    expect(scrollAnchor(model(t, { anchor: evicted }), size, 1)).to.deep.equal(
+      topAnchor(model(t), size),
+    );
+  });
+});
+
+describe("floorSeq — la page propre d'ESC[2J", () => {
+  const size = { columns: 40, rows: 5 };
+
+  it("en direct, rien d'antérieur au plancher ne s'affiche", () => {
+    const t = transcriptOf(range(10));
+    const frame = renderFrame(model(t, { floorSeq: 8 }), size);
+    expect(frame.lines).to.deep.equal([
+      "",
+      "",
+      "l9",
+      "l10",
+      "mon-app · démarrage…",
+    ]);
+  });
+
+  it("remonté, le plancher est dépassé comme l'historique d'un terminal", () => {
+    const t = transcriptOf(range(10));
+    const anchor = scrollAnchor(model(t, { floorSeq: 8 }), size, 1);
+    expect(
+      renderFrame(model(t, { floorSeq: 8, anchor }), size).lines.slice(0, 3),
+    ).to.deep.equal(["l7", "l8", "l9"]);
+  });
+});
+
+describe("frameJournalRows — la page de PgUp/PgDn", () => {
+  it("la hauteur que l'image donne au journal", () => {
+    const t = transcriptOf(range(10));
+    expect(frameJournalRows(model(t), { columns: 40, rows: 5 })).to.equal(4);
+    expect(
+      frameJournalRows(model(t, { status: null }), { columns: 40, rows: 5 }),
+    ).to.equal(5);
   });
 });

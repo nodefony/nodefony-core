@@ -71,6 +71,12 @@ export interface IFrameModel {
   readonly mark: readonly string[];
   /** Cache des hauteurs repliées — à garder d'une image à l'autre. */
   readonly heights?: FrameHeights;
+  /**
+   * Dernière entrée effacée par `ESC[2J` : en direct, rien d'antérieur ne
+   * s'affiche — la page propre du serveur prêt. Remonter le journal la
+   * dépasse, comme dans l'historique d'un terminal.
+   */
+  readonly floorSeq?: number;
 }
 
 /** Dimensions du terminal. */
@@ -234,9 +240,14 @@ function journalLines(
       }
       out.length = Math.min(out.length, height);
     } else {
+      const floor =
+        model.anchor === null
+          ? (model.floorSeq ?? -1)
+          : Number.NEGATIVE_INFINITY;
       for (let i = index; i >= 0 && out.length < height; i--) {
         const entry = transcript.at(i);
         if (!entry) continue;
+        if (entry.seq <= floor) break;
         let lines = heights.lines(entry, width);
         if (i === index && below > 0) {
           lines = lines.slice(0, Math.max(1, lines.length - below));
@@ -250,6 +261,187 @@ function journalLines(
   return out;
 }
 
+/** La répartition des lignes entre les zones — une seule source. */
+interface IFrameLayout {
+  rows: number;
+  /** Largeur de repli : `columns - 1`. */
+  width: number;
+  heights: FrameHeights;
+  bar: readonly string[];
+  promptLines: readonly string[];
+  indicator: string[];
+  journalHeight: number;
+}
+
+function frameLayout(model: IFrameModel, size: IFrameSize): IFrameLayout {
+  const rows = Math.max(0, Math.floor(size.rows));
+  const width = Math.max(1, Math.floor(size.columns) - 1);
+  const heights = model.heights ?? new FrameHeights();
+  const first = model.transcript.at(0);
+  if (first && heights.size > 2 * model.transcript.length + 64) {
+    heights.prune(first.seq);
+  }
+  const bar = statusLines(model, size);
+  const promptLines = model.prompt?.lines ?? [];
+  const unseen =
+    model.anchor === null
+      ? 0
+      : Math.max(0, model.transcript.lastSeq - model.anchor.seq);
+  const indicator = unseen > 0 ? [unseenLine(unseen, model)] : [];
+  const journalHeight =
+    rows - bar.length - promptLines.length - indicator.length;
+  return {
+    rows,
+    width,
+    heights,
+    bar,
+    promptLines,
+    indicator,
+    journalHeight,
+  };
+}
+
+/**
+ * Nombre de lignes d'écran que l'image donne au journal — la page de PgUp
+ * et PgDn.
+ *
+ * @param model - le modèle de l'image.
+ * @param size - dimensions du terminal.
+ * @returns la hauteur du journal, `0` s'il n'a pas de place.
+ */
+export function frameJournalRows(model: IFrameModel, size: IFrameSize): number {
+  return Math.max(0, frameLayout(model, size).journalHeight);
+}
+
+/** Bas de la fenêtre : une entrée (par son index) et ses lignes cachées. */
+interface IPosition {
+  index: number;
+  below: number;
+}
+
+/**
+ * Le bas de la fenêtre quand elle montre les plus anciennes lignes, ou `null`
+ * si tout l'historique tient dans la fenêtre (rien à faire défiler).
+ */
+function topPosition(
+  transcript: ITranscriptReader,
+  heights: FrameHeights,
+  width: number,
+  rows: number,
+): IPosition | null {
+  let above = 0;
+  for (let index = 0; index < transcript.length; index++) {
+    const entry = transcript.at(index);
+    if (!entry) continue;
+    const height = heights.height(entry, width);
+    if (above + height >= rows) return { index, below: above + height - rows };
+    above += height;
+  }
+  return null;
+}
+
+/**
+ * Le haut de l'historique, mesuré sur la mise en page d'une fenêtre REMONTÉE :
+ * elle porte l'indicateur des lignes du dessous, donc une ligne de journal de
+ * moins qu'en direct — calculé sur le direct, le haut cacherait la première.
+ */
+function scrolledTop(
+  model: IFrameModel,
+  size: IFrameSize,
+): { top: IPosition | null; layout: IFrameLayout } {
+  const layout = frameLayout(
+    { ...model, anchor: { seq: Number.NEGATIVE_INFINITY, below: 0 } },
+    size,
+  );
+  const top = topPosition(
+    model.transcript,
+    layout.heights,
+    layout.width,
+    Math.max(0, layout.journalHeight),
+  );
+  return { top, layout };
+}
+
+/** `a` est-il plus ancien que `b` (plus haut dans l'historique) ? */
+function isOlder(a: IPosition, b: IPosition): boolean {
+  return a.index < b.index || (a.index === b.index && a.below > b.below);
+}
+
+/** Une position devenue ancre — `null` si elle est le direct. */
+function toAnchor(
+  transcript: ITranscriptReader,
+  position: IPosition,
+): IScrollAnchor | null {
+  const entry = transcript.at(position.index);
+  if (!entry) return null;
+  if (position.index === transcript.length - 1 && position.below === 0) {
+    return null;
+  }
+  return { seq: entry.seq, below: position.below };
+}
+
+/**
+ * Fait défiler la fenêtre du journal de `delta` lignes d'écran : vers le haut
+ * (les plus anciennes) si `delta > 0`, vers le bas sinon. Bornée en haut par
+ * la première ligne de l'historique ; redescendue jusqu'en bas, elle revient
+ * au direct (`null`).
+ *
+ * @param model - le modèle de l'image (historique, ancre courante, cache).
+ * @param size - dimensions du terminal.
+ * @param delta - lignes d'écran ; positif = remonter.
+ * @returns la nouvelle ancre, `null` = en direct.
+ */
+export function scrollAnchor(
+  model: IFrameModel,
+  size: IFrameSize,
+  delta: number,
+): IScrollAnchor | null {
+  const transcript = model.transcript;
+  if (transcript.length === 0 || delta === 0) return model.anchor;
+  const { top, layout } = scrolledTop(model, size);
+  const { width, heights } = layout;
+  if (top === null) return null;
+  let position: IPosition = { index: transcript.length - 1, below: 0 };
+  if (model.anchor !== null) {
+    const index = transcript.indexOf(model.anchor.seq);
+    position = index === -1 ? { ...top } : { index, below: model.anchor.below };
+  }
+  position.below += delta;
+  if (delta > 0) {
+    while (position.index >= 0) {
+      const entry = transcript.at(position.index);
+      const height = entry ? heights.height(entry, width) : 1;
+      if (position.below < height) break;
+      position.below -= height;
+      position.index--;
+    }
+    if (position.index < 0 || isOlder(position, top)) position = top;
+  } else {
+    while (position.below < 0) {
+      position.index++;
+      const entry = transcript.at(position.index);
+      if (!entry) return null;
+      position.below += heights.height(entry, width);
+    }
+  }
+  return toAnchor(transcript, position);
+}
+
+/**
+ * L'ancre qui montre les plus anciennes lignes de l'historique (touche Début).
+ *
+ * @param model - le modèle de l'image.
+ * @param size - dimensions du terminal.
+ * @returns l'ancre, ou `null` si tout tient dans la fenêtre.
+ */
+export function topAnchor(
+  model: IFrameModel,
+  size: IFrameSize,
+): IScrollAnchor | null {
+  const { top } = scrolledTop(model, size);
+  return top === null ? null : toAnchor(model.transcript, top);
+}
+
 /**
  * Calcule l'image du terminal.
  *
@@ -259,23 +451,9 @@ function journalLines(
  *   colonnes, et le curseur (sur l'invite) ou `null`.
  */
 export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
-  const rows = Math.max(0, Math.floor(size.rows));
-  const width = Math.max(1, Math.floor(size.columns) - 1);
-  const heights = model.heights ?? new FrameHeights();
-  const first = model.transcript.at(0);
-  if (first && heights.size > 2 * model.transcript.length + 64) {
-    heights.prune(first.seq);
-  }
-  const bar = statusLines(model, size);
+  const { rows, width, heights, bar, promptLines, indicator, journalHeight } =
+    frameLayout(model, size);
   const prompt = model.prompt ?? null;
-  const promptLines = prompt?.lines ?? [];
-  const unseen =
-    model.anchor === null
-      ? 0
-      : Math.max(0, model.transcript.lastSeq - model.anchor.seq);
-  const indicator = unseen > 0 ? [unseenLine(unseen, model)] : [];
-  const journalHeight =
-    rows - bar.length - promptLines.length - indicator.length;
   const all = [
     ...journalLines(model, heights, width, journalHeight),
     ...indicator,
