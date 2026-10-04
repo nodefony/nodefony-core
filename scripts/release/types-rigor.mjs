@@ -12,6 +12,9 @@
  * Ce qu'on compte est ce que l'utilisateur REÇOIT : les `.d.ts` publiés. Les
  * options du compilateur et les assertions (`as unknown as`) vivent dans les
  * sources, que npm ne transporte pas — hors de portée ici.
+ *
+ * @usage npm run release:types-rigor
+ * @usage node scripts/release/types-rigor.mjs [--from <version>] [--peers <liste>]
  */
 import fs from "node:fs";
 import path from "node:path";

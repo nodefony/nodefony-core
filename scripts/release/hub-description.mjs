@@ -41,6 +41,8 @@
  * NF_DOCKERHUB_USER=… NF_DOCKERHUB_TOKEN=… node scripts/release/hub-description.mjs
  * node scripts/release/hub-description.mjs --dry-run   # montre ce qui partirait
  * ```
+ *
+ * @usage node scripts/release/hub-description.mjs [--dry-run]
  */
 import fs from "node:fs";
 import path from "node:path";

@@ -3,7 +3,7 @@
  *
  *   Le défaut gravé ici a coûté trois jobs Windows rouges pendant deux jours,
  *   sur un message qui envoyait au mauvais endroit : « man/nodefony.1 est
- *   PÉRIMÉE — node scripts/generate-man.mjs ». La page n'était pas périmée. Git
+ *   PÉRIMÉE — node scripts/generate/generate-man.mjs ». La page n'était pas périmée. Git
  *   la convertissait en CRLF au checkout Windows (`core.autocrlf` vaut `true`
  *   sur les runners GitHub), le générateur produit du LF, et la comparaison
  *   octet pour octet échouait. Régénérer n'y aurait rien changé.

@@ -54,7 +54,7 @@ paths = [
   # `.pem` du dépôt reste surveillé.
   '''src/packages/@nodefony/http/nodefony/config/certificates/''',
   # La table des empreintes de mots de passe courants — fichier GÉNÉRÉ
-  # (`scripts/generate-password-blocklist.mjs`), dont le contenu EST du base64 à
+  # (`scripts/generate/generate-password-blocklist.mjs`), dont le contenu EST du base64 à
   # forte entropie par construction : 40 Ko de SHA-1 tronqués. Ce n'est pas un
   # secret, c'est l'inverse — une liste publique de ce qu'il faut REFUSER, et le
   # clair n'y est ni présent ni reconstructible. L'exclusion est NOMINATIVE sur

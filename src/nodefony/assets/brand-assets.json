@@ -16,5 +16,5 @@
   "logoHeight": 256,
   "faviconSizes": [16, 32, 48],
   "renderer": "chromium 153.0.8010.12",
-  "command": "node scripts/brand-assets.mjs"
+  "command": "node scripts/generate/brand-assets.mjs"
 }

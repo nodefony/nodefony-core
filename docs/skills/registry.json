@@ -4,6 +4,1662 @@
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-10-04",
   "count": 36,
+  "repoScripts": [
+    {
+      "path": "scripts/lib/repo-root.mjs",
+      "test": false,
+      "purpose": "Racine du dépôt — seule implémentation pour les scripts de `scripts/`.",
+      "usage": [
+        "import { REPO_ROOT } from \"../lib/repo-root.mjs\""
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "REPO_ROOT",
+          "help": ""
+        },
+        {
+          "name": "ROOT_PACKAGE_NAME",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "scripts/deps/check-deps-latest.mjs",
+        "scripts/gates/check-licenses.mjs",
+        "scripts/gates/check-package-deps.mjs",
+        "scripts/gates/size-check.mjs",
+        "scripts/generate/brand-assets.mjs",
+        "scripts/generate/env-snapshot.ts",
+        "scripts/generate/generate-man.mjs",
+        "scripts/generate/generate-symbols.ts",
+        "scripts/repo/long-run-lock.mjs",
+        "scripts/repo/tmp-layout.mjs",
+        "scripts/scaffold/check-scaffold-format.mjs",
+        "scripts/scaffold/check-scaffold-frontends.mjs",
+        "scripts/scaffold/format-templates.mjs",
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-perf-site.mjs",
+        "scripts/site/build-qualite-site.mjs",
+        "scripts/site/build-site-plan.mjs",
+        "scripts/site/readme-html.mjs",
+        "scripts/test/test-all.ts"
+      ],
+      "testedBy": [
+        "scripts/gates/dev-credentials.test.mjs",
+        "scripts/site/site-plan.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/lib/symbols-publish.mjs",
+      "test": false,
+      "purpose": "Graphe symbolique : à quel module appartient un fichier, quels modules sont",
+      "usage": [
+        "import { moduleOf, publishedModules, filterGraphToModules } from \"../lib/symbols-publish.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml",
+        "scripts/generate/generate-symbols.ts",
+        "scripts/release/pack-all.mjs"
+      ],
+      "testedBy": [
+        "scripts/lib/symbols-publish.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/lib/symbols-publish.test.mjs",
+      "test": true,
+      "purpose": "Copie publiée du graphe symbolique — module d'un fichier, modules publiés,",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml",
+        "pages.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-externals.mjs",
+      "test": false,
+      "purpose": "Audit de la dérive `external` ⇄ manifeste, sur TOUT le dépôt — core, packages ET modules.",
+      "usage": [
+        "npm run externals:check",
+        "node scripts/gates/check-externals.mjs --json"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run externals:check"
+      ],
+      "testedBy": [
+        "scripts/gates/check-externals.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/gates/check-externals.test.mjs",
+      "test": true,
+      "purpose": "Suite de l'audit `external` — écrite pour le faire ÉCHOUER, pas pour l'accompagner.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:externals",
+        "npm run check:filenames",
+        "npm run check:licenses",
+        "npm run check:nul",
+        "npm run check:scripts",
+        "npm run externals:check",
+        "npm run size:check",
+        "npm run test:dev-credentials"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-licenses.mjs",
+      "test": false,
+      "purpose": "check-licenses — DÉLÈGUE à la commande du produit, et ne décide plus rien.",
+      "usage": [
+        "node scripts/gates/check-licenses.mjs [--json] [--cwd <dir>]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "celle de `nodefony licenses`, verbatim, avec son code de sortie",
+      "calledBy": [
+        "npm run check:licenses"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-no-nul-bytes.mjs",
+      "test": false,
+      "purpose": "check-no-nul-bytes — un octet NUL dans une source la rend INVISIBLE aux outils.",
+      "usage": [
+        "node scripts/gates/check-no-nul-bytes.mjs           # tous les fichiers SUIVIS",
+        "node scripts/gates/check-no-nul-bytes.mjs --staged  # ceux de l'index (pre-commit)"
+      ],
+      "options": [],
+      "env": [],
+      "output": "la liste des fichiers fautifs avec la ligne du premier octet ; sortie 1 si un seul l'est",
+      "calledBy": [
+        "npm run check:nul",
+        ".githooks/pre-commit"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-package-deps.mjs",
+      "test": false,
+      "purpose": "Garde de pré-commit — surface des paquets du dépôt du framework.",
+      "usage": [
+        "node scripts/gates/check-package-deps.mjs"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        ".githooks/pre-commit"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-platform-channels.mjs",
+      "test": false,
+      "purpose": "Gate — aucun nom de canal/méthode de plateforme écrit EN DUR dans le code.",
+      "usage": [
+        "node scripts/gates/check-platform-channels.mjs"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "TABLE",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        ".githooks/pre-commit"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-portable-filenames.mjs",
+      "test": false,
+      "purpose": "check-portable-filenames — un nom de fichier que Windows REFUSE ne doit pas entrer.",
+      "usage": [
+        "node scripts/gates/check-portable-filenames.mjs           # tous les fichiers SUIVIS",
+        "node scripts/gates/check-portable-filenames.mjs --staged  # ceux de l'index (pre-commit)"
+      ],
+      "options": [],
+      "env": [],
+      "output": "la liste des noms refusés, avec la raison exacte ; sortie 1 si un seul l'est",
+      "calledBy": [
+        "npm run check:filenames",
+        ".githooks/pre-commit"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/check-script-descriptions.mjs",
+      "test": false,
+      "purpose": "check-script-descriptions — chaque script `npm` dit ce qu'il fait.",
+      "usage": [
+        "node scripts/gates/check-script-descriptions.mjs",
+        "node scripts/gates/check-script-descriptions.mjs <autre/package.json> [...]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "la liste des manquants et des orphelines ; sortie 1 si l'une existe",
+      "calledBy": [
+        "npm run check:scripts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/dev-credentials.test.mjs",
+      "test": true,
+      "purpose": "Gate — UN SEUL mot de passe de développement, et tout ce qui l'annonce dit vrai.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:dev-credentials",
+        "npm run check:filenames",
+        "npm run check:licenses",
+        "npm run check:nul",
+        "npm run check:scripts",
+        "npm run externals:check",
+        "npm run size:check",
+        "npm run test:externals"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/size-check.mjs",
+      "test": false,
+      "purpose": "Gate de budget bundle des subpaths client (ADR-0007 D10).",
+      "usage": [
+        "npm run size:check",
+        "npm run size:check -- --json"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run size:check",
+        "scripts/release/release.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/scaffold/check-scaffold-format.mjs",
+      "test": false,
+      "purpose": "Le code que `nodefony create` PRODUIT est-il accepté par le formateur que ce",
+      "usage": [
+        "npm run format:scaffold",
+        "node scripts/scaffold/check-scaffold-format.mjs --keep"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run format:scaffold",
+        ".githooks/pre-commit"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/scaffold/check-scaffold-frontends.mjs",
+      "test": false,
+      "purpose": "Le front que `nodefony create app --frontend <fw>` PRODUIT passe-t-il les",
+      "usage": [
+        "node scripts/scaffold/check-scaffold-frontends.mjs [react vue angular svelte] [--keep]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scaffold.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/scaffold/format-templates.mjs",
+      "test": false,
+      "purpose": "Formate les gabarits de scaffold **sans casser leurs balises eta**.",
+      "usage": [
+        "npm run format:templates",
+        "npm run format:templates -- --check"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "CHECK",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run format:templates"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/deps/check-deps-latest.mjs",
+      "test": false,
+      "purpose": "Inventaire EXHAUSTIF des dépendances en retard — remplaçant de `npm outdated`.",
+      "usage": [
+        "npm run deps:check",
+        "npm run deps:gate"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "CATALOGUE_SCAFFOLD",
+          "help": ""
+        },
+        {
+          "name": "NF_DEPS_REGISTRY",
+          "help": ""
+        },
+        {
+          "name": "NF_DEPS_ROOT",
+          "help": ""
+        },
+        {
+          "name": "REGISTRY",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run deps:check",
+        "npm run deps:gate",
+        "node.js.yml"
+      ],
+      "testedBy": [
+        "scripts/deps/deps-gate.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/deps/deps-gate.test.mjs",
+      "test": true,
+      "purpose": "Suite de bout en bout de la garde des dépendances — écrite pour la faire",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:deps-gate",
+        "npm run deps:check",
+        "npm run deps:gate"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/deps/lib/reconcile-versions.mjs",
+      "test": false,
+      "purpose": "La question qui décide d'une divergence de version : **existe-t-il UNE version",
+      "usage": [
+        "import { reconcilie, dedouble } from \"./lib/reconcile-versions.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/deps/check-deps-latest.mjs"
+      ],
+      "testedBy": [
+        "scripts/deps/reconcile-versions.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/deps/reconcile-versions.test.mjs",
+      "test": true,
+      "purpose": "Suite de la réconciliation de versions — écrite pour faire ÉCHOUER la garde,",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:deps-gate",
+        "npm run deps:check",
+        "npm run deps:gate"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/test/coverage-all.ts",
+      "test": false,
+      "purpose": "Rejoue la couverture de CHAQUE module qui en déclare une, avec le DÉCOR",
+      "usage": [
+        "npm run coverage",
+        "npm run coverage -- --only <module>",
+        "npm run coverage -- --json"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "ONLY",
+          "help": ""
+        },
+        {
+          "name": "OUT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run coverage"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/test/lib/docker.ts",
+      "test": false,
+      "purpose": "Verdicts sur les conteneurs d'infra du dépôt — sans le moindre effet de bord.",
+      "usage": [
+        "import { containerHealthy } from \"./lib/docker.ts\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/test/coverage-all.ts",
+        "scripts/test/test-all.ts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/test/lib/mongoReset.ts",
+      "test": false,
+      "purpose": "Remise à zéro de la base d'un banc MongoDB — le décor repart VIERGE.",
+      "usage": [
+        "import { resetMongoDatabase } from \"./lib/mongoReset.ts\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/test/test-all.ts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/test/realtime-coverage-map.mjs",
+      "test": false,
+      "purpose": "Carte de couverture du temps réel — quel étage de test EXERCE quel fichier source.",
+      "usage": [
+        "node scripts/test/realtime-coverage-map.mjs [--json]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/test/test-all.ts",
+      "test": false,
+      "purpose": "`npm run test:all` — lance **toute** la batterie de tests du monorepo, et rend",
+      "usage": [
+        "npm run test:all",
+        "npm run test:all -- --infra",
+        "npm run test:all -- --load --dialects --mongo"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "NF_DATABASE_URL",
+          "help": ""
+        },
+        {
+          "name": "NF_MYSQL_URL",
+          "help": ""
+        },
+        {
+          "name": "NF_RUN_CLUSTER_E2E",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run test:all"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/generate/brand-assets.mjs",
+      "test": false,
+      "purpose": "brand-assets.mjs — dérive le PNG et le favicon du logo depuis sa source SVG.",
+      "usage": [
+        "node scripts/generate/brand-assets.mjs"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "SVG",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/generate/env-catalog.ts",
+      "test": false,
+      "purpose": "Ce que les variables de DÉCOR DE BANC font — la seule part qu'aucun automate",
+      "usage": [
+        "import { BENCH_DECOR, type IEnvDeclaration } from \"./env-catalog\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/generate/env-snapshot.ts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/generate/env-snapshot.ts",
+      "test": false,
+      "purpose": "Catalogue des variables d'environnement — projection DÉRIVÉE, jamais saisie.",
+      "usage": [
+        "npm run env:snapshot",
+        "tsx scripts/generate/env-snapshot.ts --check"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "NF_X",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run env:snapshot",
+        ".githooks/pre-commit"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/generate/generate-man.mjs",
+      "test": false,
+      "purpose": "Écrit `src/nodefony/man/nodefony.1` depuis le CLI RÉEL.",
+      "usage": [
+        "node scripts/generate/generate-man.mjs",
+        "node scripts/generate/generate-man.mjs --check"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/release/release.mjs"
+      ],
+      "testedBy": [
+        "src/nodefony/src/tests/manPage.test.ts"
+      ]
+    },
+    {
+      "path": "scripts/generate/generate-password-blocklist.mjs",
+      "test": false,
+      "purpose": "Fige la liste des mots de passe les plus courants en artefact VERSIONNÉ.",
+      "usage": [
+        "node scripts/generate/generate-password-blocklist.mjs <fichier-source> [...autres]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": [
+        "src/packages/@nodefony/user/tests/unit/passwordPolicy.test.ts"
+      ]
+    },
+    {
+      "path": "scripts/generate/generate-symbols.config.ts",
+      "test": false,
+      "purpose": "Configuration for scripts/generate/generate-symbols.ts",
+      "usage": [
+        "import config from \"./generate-symbols.config.ts\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/generate/generate-symbols.ts"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/generate/generate-symbols.ts",
+      "test": false,
+      "purpose": "generate-symbols.ts — Symbol graph extractor for AI agents.",
+      "usage": [
+        "npm run generate-symbols"
+      ],
+      "options": [
+        {
+          "flag": "--verbose",
+          "help": "détail ligne par ligne des homonymes"
+        },
+        {
+          "flag": "--check-staged",
+          "help": "code 1 si un fichier indexé touche la zone parsée"
+        },
+        {
+          "flag": "--check-range",
+          "help": "<de> <à>  code 1 si la zone a bougé entre deux révisions, ou si le graphe manque"
+        }
+      ],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run generate-symbols",
+        "node.js.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/build-docs-site.mjs",
+      "test": false,
+      "purpose": "Construit le SITE de documentation publié — toute la doc Nodefony en HTML",
+      "usage": [
+        "node scripts/site/build-docs-site.mjs [--out tmp/sites/docs] [--base \"\"] [--quiet]",
+        "node scripts/site/build-docs-site.mjs --list"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "BRANCH",
+          "help": ""
+        },
+        {
+          "name": "BUILT_AT",
+          "help": ""
+        },
+        {
+          "name": "COMMIT",
+          "help": ""
+        },
+        {
+          "name": "FAVICON",
+          "help": ""
+        },
+        {
+          "name": "MOUNT",
+          "help": ""
+        },
+        {
+          "name": "OUT",
+          "help": ""
+        },
+        {
+          "name": "REPO_URL",
+          "help": ""
+        },
+        {
+          "name": "ROOT",
+          "help": ""
+        },
+        {
+          "name": "SITE_URL",
+          "help": ""
+        },
+        {
+          "name": "STYLE_CODE",
+          "help": ""
+        },
+        {
+          "name": "VERSION",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "node.js.yml",
+        "pages.yml",
+        ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/build-perf-site.mjs",
+      "test": false,
+      "purpose": "Construit le site « Performance » publié — une page par version, plus `latest`.",
+      "usage": [
+        "node scripts/site/build-perf-site.mjs [--out tmp/sites/perf] [--data docs/performance/data]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "BLOB",
+          "help": ""
+        },
+        {
+          "name": "DATA_DIR",
+          "help": ""
+        },
+        {
+          "name": "OUT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "pages.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/build-qualite-site.mjs",
+      "test": false,
+      "purpose": "Construit le site « Qualité » publié — le verdict d'une CAMPAGNE DE TEST par version.",
+      "usage": [
+        "node scripts/site/build-qualite-site.mjs [--out tmp/sites/quality] [--data docs/qualite/data]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "DATA",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "pages.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/build-site-plan.mjs",
+      "test": false,
+      "purpose": "Publie le PLAN du site : `llms.txt`, `sitemap.xml` et `robots.txt`.",
+      "usage": [
+        "npm run site:plan",
+        "node scripts/site/build-site-plan.mjs [--out tmp/sites/docs] [--base <url>]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "APP_TEMPLATE_HREF",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run site:plan",
+        "pages.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/check-site-links.mjs",
+      "test": false,
+      "purpose": "Refuse un site dont un lien interne ne mène nulle part.",
+      "usage": [
+        "node scripts/site/check-site-links.mjs <dossier-du-site>"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "ROOT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "pages.yml"
+      ],
+      "testedBy": [
+        ".claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/app-template-deps.mjs",
+      "test": false,
+      "purpose": "Les dépendances de production d'une application MINIMALE, lues dans le gabarit",
+      "usage": [
+        "import { APP_TEMPLATE_PATH, minimalAppDependencies } from \"./lib/app-template-deps.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-site-plan.mjs"
+      ],
+      "testedBy": [
+        "scripts/site/site-plan.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/site/lib/html-text.mjs",
+      "test": false,
+      "purpose": "Retrait des balises HTML — **une seule implémentation pour tout le dépôt**.",
+      "usage": [
+        "import { sansBalises } from \"./lib/html-text.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/readme-html.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/markdown-highlight.mjs",
+      "test": false,
+      "purpose": "markdown-highlight.mjs — coloration syntaxique des blocs de code du site publié.",
+      "usage": [
+        "import { highlight, STYLE_CODE } from \"./markdown-highlight.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/site/build-docs-site.mjs",
+        "scripts/site/build-perf-site.mjs",
+        "scripts/site/readme-html.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/readme-html.mjs",
+      "test": false,
+      "purpose": "readme-html.mjs — Nodefony, matrice de présentation (10 minutes).",
+      "usage": [
+        "node scripts/site/readme-html.mjs [fichier-de-sortie.html]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "BLOB",
+          "help": ""
+        },
+        {
+          "name": "OUT",
+          "help": ""
+        },
+        {
+          "name": "RAW",
+          "help": ""
+        },
+        {
+          "name": "STYLE_CODE",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "pages.yml",
+        ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/site/site-plan.test.mjs",
+      "test": true,
+      "purpose": "Éprouve le lecteur de dépendances du gabarit d'application.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:site-plan",
+        "node.js.yml",
+        "npm run site:plan",
+        "pages.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/repo/long-run-lock.mjs",
+      "test": false,
+      "purpose": "Verrou « un run long occupe l'arbre » — seule implémentation, trois lecteurs.",
+      "usage": [
+        "node scripts/repo/long-run-lock.mjs check",
+        "node scripts/repo/long-run-lock.mjs clear"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        ".githooks/pre-commit",
+        ".claude/hooks/guard-edit.sh",
+        "scripts/repo/tmp-layout.mjs",
+        "scripts/test/test-all.ts"
+      ],
+      "testedBy": [
+        "scripts/repo/long-run-lock.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/repo/long-run-lock.test.mjs",
+      "test": true,
+      "purpose": "Verrou « un run long occupe l'arbre » — tenu, libéré, orphelin, et la CLI",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/repo/safe-commit.sh",
+      "test": false,
+      "purpose": "safe-commit.sh — wrapper de `git commit` qui retire un .git/index.lock orphelin.",
+      "usage": [
+        "bash scripts/repo/safe-commit.sh -m \"message\"",
+        "git ci -m \"message\"  (alias local : git config --local alias.ci \"!bash scripts/repo/safe-commit.sh\")"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/repo/tmp-layout.mjs",
+      "test": false,
+      "purpose": "Arborescence de `tmp/` — seule implémentation : la table, les dossiers, le",
+      "usage": [
+        "node scripts/repo/tmp-layout.mjs",
+        "node scripts/repo/tmp-layout.mjs --prune [--dry-run]",
+        "node scripts/repo/tmp-layout.mjs --check"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        ".claude/skills/nodefony-session/scripts/session-end.mjs"
+      ],
+      "testedBy": [
+        "scripts/repo/tmp-layout.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/repo/tmp-layout.test.mjs",
+      "test": true,
+      "purpose": "Arborescence de `tmp/` — catégories créées, README régénéré, égarés signalés,",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/ci/actions-pinned.test.mjs",
+      "test": true,
+      "purpose": "Gate — toute action GitHub tierce est épinglée par SHA de commit.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml",
+        "e2e-autonomes.yml",
+        "memory.yml",
+        "scaffold.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/ci/no-cancel.test.mjs",
+      "test": true,
+      "purpose": "Gate — aucun workflow du dépôt n'arrête de lui-même une exécution en cours.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml",
+        "e2e-autonomes.yml",
+        "memory.yml",
+        "scaffold.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/ci/run-watched.mjs",
+      "test": false,
+      "purpose": "Lance une commande de la forge et REND LA MAIN quand elle se termine — même",
+      "usage": [
+        "node scripts/ci/run-watched.mjs [--idle <s>] [--] <commande…>"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "e2e-autonomes.yml",
+        "memory.yml",
+        "node.js.yml",
+        "scaffold.yml"
+      ],
+      "testedBy": [
+        "scripts/ci/run-watched.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/ci/run-watched.test.mjs",
+      "test": true,
+      "purpose": "Le lanceur de la forge rend la main quand la commande finit, même si un",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "node.js.yml",
+        "e2e-autonomes.yml",
+        "memory.yml",
+        "scaffold.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/accueil-gate.mjs",
+      "test": false,
+      "purpose": "**Refuse de publier quand l'accueil du dépôt n'annonce pas ce que npm sert.**",
+      "usage": [
+        "node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>]",
+        "node scripts/release/accueil-gate.mjs --basculer"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "NF_ACCUEIL_PAQUET",
+          "help": ""
+        },
+        {
+          "name": "NF_ACCUEIL_REGISTRY",
+          "help": ""
+        },
+        {
+          "name": "NF_ACCUEIL_ROOT",
+          "help": ""
+        },
+        {
+          "name": "PAQUET",
+          "help": ""
+        },
+        {
+          "name": "REGISTRY",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "release-preflight.yml",
+        "release.yml",
+        "scripts/release/readme-gate.mjs",
+        "scripts/release/release.mjs"
+      ],
+      "testedBy": [
+        "scripts/release/accueil-gate.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/accueil-gate.test.mjs",
+      "test": true,
+      "purpose": "La confrontation de l'accueil aux `dist-tags`, éprouvée SANS réseau.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/accueil-liens.test.mjs",
+      "test": true,
+      "purpose": "Le README du dépôt envoie vers la documentation PUBLIÉE, jamais vers un `.md`.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/api-diff-core.mjs",
+      "test": false,
+      "purpose": "Noyau de la mesure de surface publique : ce qu'un paquet expose, et ce qui a",
+      "usage": [
+        "import { listRuntimeExports, exportEntries } from \"./api-diff-core.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/release/api-diff.mjs",
+        "scripts/release/release.mjs",
+        "scripts/release/types-rigor.mjs",
+        ".claude/skills/nodefony-release/scripts/compare-exports.mjs"
+      ],
+      "testedBy": [
+        "scripts/release/api-diff-core.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/api-diff-core.test.mjs",
+      "test": true,
+      "purpose": "Le noyau de la mesure de surface publique, éprouvé sur des déclarations",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/api-diff.mjs",
+      "test": false,
+      "purpose": "Mesure ce qui a changé dans la surface publique entre une version PUBLIÉE sur",
+      "usage": [
+        "npm run release:api-diff",
+        "npm run release:api-diff -- --from <version> [--details]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release:api-diff",
+        "scripts/release/release.mjs",
+        "scripts/release/types-rigor.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/attendre-ci.mjs",
+      "test": false,
+      "purpose": "Attend le verdict de la CI du commit qu'on s'apprête à publier — et REFUSE",
+      "usage": [
+        "node scripts/release/attendre-ci.mjs --sha <sha> --run-id <id>"
+      ],
+      "options": [
+        {
+          "flag": "--sha",
+          "help": "- le commit à juger (défaut : `GITHUB_SHA`)"
+        },
+        {
+          "flag": "--run-id",
+          "help": "- l'exécution courante, pour ne jamais s'attendre soi-même"
+        },
+        {
+          "flag": "--repo",
+          "help": "- le dépôt à juger, `org/dépôt` (défaut : `GITHUB_REPOSITORY`)."
+        },
+        {
+          "flag": "--timeout-min",
+          "help": "- abandon après N minutes (défaut 45)"
+        },
+        {
+          "flag": "--grace-min",
+          "help": "- délai pendant lequel « aucune exécution » vaut « pas encore indexée » et non « rouge » (défaut 3)"
+        }
+      ],
+      "env": [
+        {
+          "name": "GITHUB_REPOSITORY",
+          "help": "- `org/dépôt`, posé par la forge"
+        },
+        {
+          "name": "GH_TOKEN",
+          "help": "- jeton de lecture des exécutions"
+        }
+      ],
+      "output": "le verdict, et la liste NOMMÉE de ce qui a échoué",
+      "calledBy": [
+        "release.yml",
+        "scripts/release/release.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/fix-dts-extensions.mjs",
+      "test": false,
+      "purpose": "Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS",
+      "usage": [
+        "node scripts/release/fix-dts-extensions.mjs <dir> [--quiet]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/release/pack-all.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/hub-description.mjs",
+      "test": false,
+      "purpose": "**Publie sur Docker Hub la description de l'image — depuis un fichier versionné.**",
+      "usage": [
+        "node scripts/release/hub-description.mjs [--dry-run]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "API",
+          "help": ""
+        },
+        {
+          "name": "DEPOT",
+          "help": ""
+        },
+        {
+          "name": "MAX_LONGUE",
+          "help": ""
+        },
+        {
+          "name": "NF_DOCKERHUB_TOKEN",
+          "help": ""
+        },
+        {
+          "name": "NF_DOCKERHUB_USER",
+          "help": ""
+        },
+        {
+          "name": "NF_HUB_API",
+          "help": ""
+        },
+        {
+          "name": "NF_HUB_DEPOT",
+          "help": ""
+        },
+        {
+          "name": "NF_HUB_ROOT",
+          "help": ""
+        },
+        {
+          "name": "NF_HUB_SOURCE",
+          "help": ""
+        },
+        {
+          "name": "SOURCE",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "release.yml"
+      ],
+      "testedBy": [
+        "scripts/release/hub-description.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/hub-description.test.mjs",
+      "test": true,
+      "purpose": "Le contrôle de la page Docker Hub, éprouvé SANS réseau.",
+      "usage": [],
+      "options": [],
+      "env": [
+        {
+          "name": "SOURCE",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/image-gate.mjs",
+      "test": false,
+      "purpose": "**Refuse de publier une image de conteneur qui embarque un secret.**",
+      "usage": [
+        "npm run release:image-gate",
+        "node scripts/release/image-gate.mjs <image>",
+        "node scripts/release/image-gate.mjs --files <inventaire.txt>"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release:image-gate",
+        "release.yml",
+        "scripts/release/smoke-docker.sh"
+      ],
+      "testedBy": [
+        "scripts/release/image-gate.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/image-gate.test.mjs",
+      "test": true,
+      "purpose": "Le contrôle qui refuse une image porteuse d'un secret, éprouvé SANS docker.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/image-labels-gate.mjs",
+      "test": false,
+      "purpose": "**Refuse de publier une image dont les étiquettes OCI ne disent pas d'où elle vient.**",
+      "usage": [
+        "node scripts/release/image-labels-gate.mjs <image> --version <v> --revision <sha>"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "LICENCE_ATTENDUE",
+          "help": ""
+        },
+        {
+          "name": "OCI",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "release.yml"
+      ],
+      "testedBy": [
+        "scripts/release/image-labels-gate.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/image-labels-gate.test.mjs",
+      "test": true,
+      "purpose": "Le contrôle des étiquettes OCI, éprouvé SANS docker.",
+      "usage": [],
+      "options": [],
+      "env": [
+        {
+          "name": "OCI",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/pack-all.mjs",
+      "test": false,
+      "purpose": "Pack release des workspaces publiables (modèle B — N-packages lockstep).",
+      "usage": [
+        "npm run release:pack"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "NF_RELEASE_REPO",
+          "help": ""
+        },
+        {
+          "name": "OUT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run release:pack",
+        "release-smoke.yml",
+        "scaffold.yml",
+        "scripts/release/release.mjs",
+        "scripts/release/smoke-docker.sh",
+        ".claude/skills/nodefony-devkit-bench/scripts/lib/isolation.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/readme-gate.mjs",
+      "test": false,
+      "purpose": "**Refuse de publier quand un README de paquet ment à sa page npm.**",
+      "usage": [
+        "npm run readme:gate"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "NF_README_ROOT",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run readme:gate",
+        "scripts/release/release.mjs"
+      ],
+      "testedBy": [
+        "scripts/release/readme-gate.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/readme-gate.test.mjs",
+      "test": true,
+      "purpose": "La confrontation des README publiés, éprouvée SANS npm ni réseau.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/release-core.mjs",
+      "test": false,
+      "purpose": "release-core.mjs — le RAISONNEMENT d'une release, sans aucune entrée/sortie.",
+      "usage": [
+        "import { validerVersion, comparerVersions, SEMVER } from \"./release-core.mjs\""
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "LONGUEUR_MIN_DESCRIPTION",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "scripts/release/attendre-ci.mjs",
+        "scripts/release/pack-all.mjs",
+        "scripts/release/release.mjs"
+      ],
+      "testedBy": [
+        "scripts/release/release-core.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/release-core.test.mjs",
+      "test": true,
+      "purpose": "Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour",
+      "usage": [],
+      "options": [],
+      "env": [
+        {
+          "name": "BON",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/release.mjs",
+      "test": false,
+      "purpose": "release.mjs — PRÉPARE une release Nodefony, et refuse tout ce qui ne se rattrape pas.",
+      "usage": [
+        "npm run release -- --version <v> --npm-tag <tag> [--write] [--pack]",
+        "npm run release -- --version <v> --publish"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "BRANCHE_ATTENDUE",
+          "help": ""
+        },
+        {
+          "name": "BRANCHE_PUBLICATION",
+          "help": ""
+        },
+        {
+          "name": "PUBLIER",
+          "help": ""
+        },
+        {
+          "name": "TAG_NPM",
+          "help": ""
+        },
+        {
+          "name": "VERSION",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "node.js.yml",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": [
+        "scripts/release/release-core.test.mjs"
+      ]
+    },
+    {
+      "path": "scripts/release/smoke-docker.sh",
+      "test": false,
+      "purpose": "Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.",
+      "usage": [
+        "npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|pm]"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "IMAGE",
+          "help": ""
+        },
+        {
+          "name": "MOTEUR",
+          "help": ""
+        },
+        {
+          "name": "QAPP_NAME",
+          "help": ""
+        },
+        {
+          "name": "REDIS_PORT",
+          "help": ""
+        },
+        {
+          "name": "SERVICE",
+          "help": ""
+        }
+      ],
+      "output": "",
+      "calledBy": [
+        "npm run release:smoke",
+        "release-preflight.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/tarball-types.test.mjs",
+      "test": true,
+      "purpose": "Les types d'un paquet du cœur se résolvent-ils DEPUIS SON TARBALL ?",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release",
+        "npm run release:pack",
+        "npm run release:smoke",
+        "npm run release:api-diff",
+        "npm run release:types-rigor",
+        "npm run readme:gate",
+        "npm run release:image-gate",
+        "npm run test:release",
+        "release-preflight.yml",
+        "release.yml"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/release/types-rigor.mjs",
+      "test": false,
+      "purpose": "Mesure la rigueur des TYPES PUBLIÉS : densité de `any`, rapport",
+      "usage": [
+        "npm run release:types-rigor",
+        "node scripts/release/types-rigor.mjs [--from <version>] [--peers <liste>]"
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run release:types-rigor"
+      ],
+      "testedBy": []
+    }
+  ],
   "conformant": 36,
   "skills": [
     {
@@ -146,7 +1802,7 @@
       "description": "Audite la dérive entre la liste `external` des rolldown.config.ts et les `peerDependencies` de chaque package.json Nodefony — détecte le bug « peerDep bundlée » (cause d'échecs de build type @node-rs/bcrypt) et les entrées external périmées. Anti-duplication : la même liste est maintenue à la main à deux endroits → dérive garantie. À charger avant une publication npm ou devant un échec de build qui parle d'un paquet natif ou d'un module introuvable à l'exécution. Déclencheurs : \"check externals\", \"audit externals\", \"external rolldown\", \"peerDeps externalisées\", \"duplication external\", \"vérifie les external\", \"le bundler avale un peerDep\", \"avant de publier sur npm\", \"erreur de build sur une dépendance native\", \"module introuvable au runtime\".",
       "cost": {
         "bodyLines": 116,
-        "approxTokens": 1731
+        "approxTokens": 1736
       },
       "requires": [],
       "resources": {
@@ -675,7 +2331,7 @@
       "description": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un lecteur conclut le contraire de ce qu'on croit écrire. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\", \"un agent recommanderait-il ce framework ?\", \"que conclut un agent en lisant le dépôt ?\", \"notre accueil dit-il vrai ?\".",
       "cost": {
         "bodyLines": 405,
-        "approxTokens": 7378
+        "approxTokens": 7380
       },
       "requires": [
         "serveur UP",
@@ -2144,7 +3800,7 @@
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
         "bodyLines": 479,
-        "approxTokens": 8288
+        "approxTokens": 8293
       },
       "requires": [],
       "resources": {
@@ -2453,7 +4109,7 @@
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
         "bodyLines": 404,
-        "approxTokens": 8806
+        "approxTokens": 8808
       },
       "requires": [],
       "resources": {
@@ -2721,7 +4377,7 @@
       "description": "Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et `lib/echarts.mjs`, qui rend CÔTÉ SERVEUR en SVG statique — sans un octet de JavaScript servi, en thème clair ET sombre — barres avec étendue, courbes à deux axes alignés, nuages, boîtes à moustaches, Sankey, radars, cartes de chaleur, arbres pondérés, entonnoirs, cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine les organigrammes et diagrammes de séquence mermaid sans toucher à leur source. Déclencheurs : \"rapport HTML\", \"rapport imprimable\", \"dashboard statique\", \"restituer des mesures\", \"quel graphe choisir\", \"diagramme de Sankey\", \"boîtes à moustaches\", \"deux axes\", \"échelle d'un graphe\", \"rendre un schéma mermaid\", \"calculateur interactif\", \"deck de présentation\", \"export CSV\".",
       "cost": {
         "bodyLines": 362,
-        "approxTokens": 5471
+        "approxTokens": 5479
       },
       "requires": [
         "redis",
@@ -3314,7 +4970,7 @@
       "description": "Interroge le dépôt Nodefony par TROIS voies : le graphe symbolique pour les relations de CODE (qui étend, implémente ou importe un symbole ; où il est défini ; signature d'une méthode), la commande `nodefony inspect` pour l'état RÉEL d'une application (routes montées, services, config effective et provenance de chaque valeur), et le serveur MCP de Nodefony quand la session y est branchée — mêmes réponses par outils, sans boot, si l'application tourne. Donne aussi le diff propre. Déclencheurs : \"qui étend cette classe ?\", \"qui implémente cette interface ?\", \"qui utilise ce symbole ?\", \"où est défini X ?\", \"trouver les consommateurs\", \"analyse d'impact avant refactor\", \"quels paramètres prend cette méthode ?\", \"montre la config de ce module\", \"quelles routes expose ce module\", \"ce service est-il enregistré ?\", \"qu'est-ce que j'ai modifié ?\", \"diff rapide\", \"graphe symbolique\", \"interroge l'application qui tourne\", \"demande au serveur MCP\", \"carte de visite de l'application\".",
       "cost": {
         "bodyLines": 290,
-        "approxTokens": 4236
+        "approxTokens": 4245
       },
       "requires": [],
       "resources": {
@@ -6913,6 +8569,25 @@
             ],
             "output": "phrases élisant le bon skill, cas négatifs respectés, couverture, recouvrements (arbitrés vs à trancher)",
             "selfDocumented": true
+          },
+          {
+            "path": "lib/script-doc.mjs",
+            "purpose": "Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--out",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "VAR",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
           }
         ]
       },

@@ -18,7 +18,14 @@
  *     il rend toujours la même chose, il n'y a rien à interpréter.
  */
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
-import { join, sep } from "node:path";
+import { join } from "node:path";
+import {
+  cle,
+  collectScripts as collect,
+  createLaunchFinder,
+  readSources,
+  sansCommentaires,
+} from "../lib/script-doc.mjs";
 
 const STRICT = process.argv.includes("--strict");
 const ACQUITTES_PATH = join(
@@ -30,21 +37,6 @@ const ACQUITTES_PATH = join(
 );
 const SKILLS_DIR = ".claude/skills";
 const ROOT_SCRIPTS = "scripts";
-const EXT = [".mjs", ".js", ".sh", ".ts", ".py"];
-
-const isScript = (f) => EXT.some((e) => f.endsWith(e));
-
-/** Tous les scripts du dépôt, hors dépendances et build. */
-function collect(dir, out = [], depth = 0) {
-  if (!existsSync(dir) || depth > 4) return out;
-  for (const e of readdirSync(dir)) {
-    if (["node_modules", "dist", ".git", "coverage"].includes(e)) continue;
-    const p = join(dir, e);
-    if (statSync(p).isDirectory()) collect(p, out, depth + 1);
-    else if (isScript(e)) out.push(p);
-  }
-  return out;
-}
 
 // Qui référence quoi : le package.json (scripts npm) et les SKILL.md.
 const pkg = existsSync("package.json")
@@ -74,7 +66,13 @@ const docsText =
   collectDocs("docs") +
   collectDocs("src/nodefony/docs") +
   collectModuleDocs("src/packages/@nodefony") +
-  collectModuleDocs("src/modules");
+  collectModuleDocs("src/modules") +
+  // L'index GÉNÉRÉ de scripts/ documente chaque script de la racine depuis son
+  // en-tête ; `skills-doc --check` refuse un script sans `@usage` — c'est lui, et
+  // non plus une citation de hasard dans un retex archivé, qui fait foi.
+  (existsSync(join("scripts", "README.md"))
+    ? readFileSync(join("scripts", "README.md"), "utf8")
+    : "");
 
 /** Les `docs/` de chaque module d'un dossier de modules. */
 function collectModuleDocs(root) {
@@ -146,13 +144,6 @@ const RACINES_VERSIONNEES = /^(?:\.claude|scripts)\//;
 const EST_SCRIPT = /\.(?:mjs|js|sh|py|ts)$/;
 const LANCEUR = /(?:execPath|execFile|spawnSync|spawn|execSync|\bsh\(|bash )/;
 
-/** Le source sans ses commentaires : un exemple n'invoque rien. */
-const sansCommentaires = (src) =>
-  src
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/(^|\s)\/\/[^\n]*/g, "$1")
-    .replace(/(^|\s)#[^\n]*/g, "$1");
-
 /** Chemins de scripts réellement LANCÉS par un source, sous leurs deux formes. */
 function cheminsInvoques(source) {
   const src = sansCommentaires(source);
@@ -187,18 +178,10 @@ function cheminsInvoques(source) {
 
 const rows = [];
 const rootScripts = collect(ROOT_SCRIPTS);
-const sourcesByPath = new Map(
-  rootScripts
-    .concat(
-      ...[...skillTexts.keys()].flatMap((n) => collect(join(SKILLS_DIR, n))),
-    )
-    .map((p) => {
-      try {
-        return [p, readFileSync(p, "utf8")];
-      } catch {
-        return [p, ""];
-      }
-    }),
+const sourcesByPath = readSources(
+  rootScripts.concat(
+    ...[...skillTexts.keys()].flatMap((n) => collect(join(SKILLS_DIR, n))),
+  ),
 );
 
 /**
@@ -222,100 +205,7 @@ const importeAilleurs = (p) => {
   return false;
 };
 
-/**
- * Les AUTOMATES du dépôt — ce qui LANCE un script sans qu'un humain ait à le taper.
- *
- * Être nommé dans une page n'est PAS être exécuté. Ce contrôle a annoncé « 0
- * orphelin » cinq semaines durant pendant qu'une vingtaine d'auto-contrôles,
- * énumérés un par un dans leur page de skill, n'étaient lancés par rien — dont
- * celui qui savait nommer quinze causes qu'aucun juge ne classait. Un inventaire
- * qui compte une phrase comme un appel ne mesure pas l'exécution : il mesure la
- * documentation.
- *
- * Trois automates, et rien d'autre : un script npm, un étage de forge, un autre
- * script qui l'invoque ou l'importe — un module importé s'exécute.
- */
-const cle = (p) => p.split(sep).join("/");
-
-/** Les VALEURS des scripts npm, jamais le fichier entier : une dépendance qui
- * porte le nom d'un script n'en fait pas un automate. */
-const scriptsNpm = (() => {
-  try {
-    return Object.values(JSON.parse(pkg).scripts ?? {}).join("\n");
-  } catch {
-    return pkg;
-  }
-})();
-
-const forgeText = (() => {
-  const dir = join(".github", "workflows");
-  if (!existsSync(dir)) return "";
-  return readdirSync(dir)
-    .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"))
-    .map((f) => readFileSync(join(dir, f), "utf8"))
-    .join("\n");
-})();
-
-/**
- * Les sources, commentaires retirés. Ce qui sépare un APPEL d'une MENTION n'est
- * pas la forme du chemin — un script est aussi bien lancé par `spawn`, importé,
- * ou nommé dans une table que son lanceur parcourt (`readdirSync` + liste
- * attendue) — mais la NATURE du fichier qui le nomme : un nom écrit dans un
- * source exécutable y est pour servir ; un nom écrit dans une page est de la
- * prose. Exiger une invocation adjacente accusait 39 juges parfaitement vivants,
- * dont le chemin est assemblé dans une constante et lancé dix lignes plus loin.
- */
-const sourcesNettoyees = new Map(
-  [...sourcesByPath].map(([chemin, src]) => [chemin, sansCommentaires(src)]),
-);
-
-/**
- * Quel automate lance ce script ? `null` quand personne ne le fait — le script
- * peut alors être parfaitement documenté, il n'en est pas exécuté pour autant.
- *
- * @param {string} p - chemin du script, tel que collecté.
- * @returns {string|null} le nom de l'automate, ou `null` si aucun.
- */
-function automateQuiLance(p) {
-  const k = cle(p);
-  const base = k.split("/").pop();
-  if (scriptsNpm.includes(k) || scriptsNpm.includes(base))
-    return "un script npm";
-  if (forgeText.includes(k) || forgeText.includes(base))
-    return "un étage de forge";
-  // 🔴 Un runner de tests prend un DOSSIER, pas une liste de fichiers.
-  // `vitest run scripts/release/` lance tout ce qui s'y termine en `.test.*` —
-  // et ce contrôle, qui cherchait un nom de fichier, déclarait ces tests
-  // « exécutés par aucun automate ». Trois l'étaient à tort, dont deux depuis
-  // des semaines : un faux orphelin fait retirer ou recâbler du code vivant, et
-  // surtout il apprend à ne plus croire la liste.
-  //
-  // La reconnaissance est BORNÉE aux fichiers de test, et c'est ce qui la rend
-  // sûre : une cible-dossier ne blanchit pas les outils qui vivent à côté
-  // (`pack-all.mjs`, `fix-dts-extensions.mjs`), qu'aucun runner ne ramasse.
-  if (/\.test\.[cm]?[jt]sx?$/u.test(base)) {
-    const dossier = k.slice(0, k.lastIndexOf("/") + 1);
-    if (dossier && scriptsNpm.includes(dossier)) {
-      return "un script npm (cible-dossier)";
-    }
-    if (dossier && forgeText.includes(dossier)) {
-      return "un étage de forge (cible-dossier)";
-    }
-  }
-  // Le nom précédé d'un séparateur ou d'un délimiteur de chaîne : sans cette
-  // frontière, `index.mjs` se croit appelé par tout le dépôt.
-  for (const [autre, src] of sourcesNettoyees) {
-    if (cle(autre) === k) continue;
-    if (
-      src.includes(`/${base}`) ||
-      src.includes(`"${base}`) ||
-      src.includes(`'${base}`) ||
-      src.includes(`\`${base}`)
-    )
-      return `un autre script (${cle(autre).split("/").pop()})`;
-  }
-  return null;
-}
+const { automateQuiLance } = createLaunchFinder(sourcesByPath, pkg);
 
 for (const p of rootScripts) {
   const base = p.split("/").pop();

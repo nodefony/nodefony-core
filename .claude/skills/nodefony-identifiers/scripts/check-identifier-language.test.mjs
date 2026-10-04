@@ -825,7 +825,7 @@ describe("isProductionFile — le périmètre", () => {
       // JavaScript : même règle. Un `monterDecor` dans un `.mjs` d'outillage
       // est aussi introuvable au `grep` anglais qu'un `rendreRapport` en `.ts`.
       "src/x/script.mjs",
-      "scripts/check-site-links.mjs",
+      "scripts/site/check-site-links.mjs",
       "src/x/legacy.js",
       "src/x/config.cjs",
       "src/x/widget.jsx",

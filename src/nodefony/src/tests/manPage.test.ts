@@ -191,11 +191,11 @@ describe("manPage — rendu", () => {
 describe("manPage — GATE de fraîcheur", () => {
   it("🔴 man/nodefony.1 décrit le CLI d'AUJOURD'HUI", () => {
     // Sans ce gate, la page se périme en silence : rien dans un build ne
-    // compare un fichier roff au CLI. Réparation : `node scripts/generate-man.mjs`.
+    // compare un fichier roff au CLI. Réparation : `node scripts/generate/generate-man.mjs`.
     const fichier = path.join(CORE, "man", "nodefony.1");
     assert.ok(
       fs.existsSync(fichier),
-      "man/nodefony.1 absent — node scripts/generate-man.mjs",
+      "man/nodefony.1 absent — node scripts/generate/generate-man.mjs",
     );
     const version = (
       JSON.parse(fs.readFileSync(path.join(CORE, "package.json"), "utf8")) as {
@@ -214,7 +214,7 @@ describe("manPage — GATE de fraîcheur", () => {
       // LF. Régénérer n'y changeait rien. Un message qui n'énonce qu'une cause
       // envoie chercher là où il n'y a rien.
       "man/nodefony.1 ne correspond pas au rendu. DEUX causes possibles :\n" +
-        "  1. la page est périmée → node scripts/generate-man.mjs\n" +
+        "  1. la page est périmée → node scripts/generate/generate-man.mjs\n" +
         "  2. les fins de ligne diffèrent (CRLF au lieu de LF) → vérifier que\n" +
         "     .gitattributes déclare `man/*.1 text eol=lf` ; c'est le cas\n" +
         "     typique d'un checkout Windows, où régénérer ne corrige RIEN.",

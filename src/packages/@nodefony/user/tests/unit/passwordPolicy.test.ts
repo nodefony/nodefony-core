@@ -162,7 +162,7 @@ describe("PasswordPolicy — les mots de passe les plus courants", () => {
 });
 
 describe("truncatedPasswordHash — la même troncature que le générateur", () => {
-  it("concorde avec `scripts/generate-password-blocklist.mjs`", async () => {
+  it("concorde avec `scripts/generate/generate-password-blocklist.mjs`", async () => {
     // Les deux copies sont inévitables (un script `.mjs` du dépôt ne peut pas
     // importer le `.ts` du paquet), donc elles se comparent. Sans ce test, une
     // divergence rendrait la liste MUETTE, et le contrôle passerait pour vert.
@@ -176,7 +176,7 @@ describe("truncatedPasswordHash — la même troncature que le générateur", ()
     const script = pathToFileURL(
       path.resolve(
         import.meta.dirname,
-        "../../../../../../scripts/generate-password-blocklist.mjs",
+        "../../../../../../scripts/generate/generate-password-blocklist.mjs",
       ),
     ).href;
     const candidats = ["password", "basketball", "Zb!trouvaille42", "é→漢"];

@@ -18,6 +18,8 @@
  * Là où une décision dépend du monde (un chemin existe-t-il ?), le verdict est
  * INJECTÉ plutôt que lu : c'est ce qui permet de tester « répertoire déclaré
  * mais absent » sans fabriquer l'absence sur le disque.
+ *
+ * @usage import { validerVersion, comparerVersions, SEMVER } from "./release-core.mjs"
  */
 
 /**
@@ -1332,7 +1334,7 @@ export const WORKFLOWS_NON_BLOQUANTS = [
   // toute publication. L'exclusion énonçait sa propre condition de levée — « le
   // jour où le banc ne dépendra plus du registre » —, elle est remplie : le gate
   // de format câble ses variantes sur le checkout local
-  // (`scripts/check-scaffold-format.mjs`). Le workflow a été constaté VERT sur
+  // (`scripts/scaffold/check-scaffold-format.mjs`). Le workflow a été constaté VERT sur
   // le commit d'estampille de la 10.0.0-alpha.8, version alors absente de npm —
   // la seule fenêtre où ce vert prouve quelque chose. Il bloque donc de nouveau.
   {

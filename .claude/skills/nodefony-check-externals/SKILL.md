@@ -22,9 +22,9 @@ le paquet publié embarque une copie d'une bibliothèque que npm installera **en
 ## 1. Lancer l'audit — la commande appartient au DÉPÔT
 
 ```bash
-node scripts/check-externals.mjs          # rapport lisible ; sort 1 si défaut
-node scripts/check-externals.mjs --json   # relevé brut
-npx vitest run scripts/check-externals.test.mjs   # la suite de l'audit lui-même (16 cas)
+node scripts/gates/check-externals.mjs          # rapport lisible ; sort 1 si défaut
+node scripts/gates/check-externals.mjs --json   # relevé brut
+npx vitest run scripts/gates/check-externals.test.mjs   # la suite de l'audit lui-même (16 cas)
 ```
 
 > 🔴 **Pourquoi une commande du dépôt et non un bloc de shell ici.** La version précédente de ce

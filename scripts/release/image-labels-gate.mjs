@@ -37,6 +37,8 @@
  * node scripts/release/image-labels-gate.mjs nodefony/nodefony:10.0.0-alpha.5 \
  *   --version 10.0.0-alpha.5 --revision "$GITHUB_SHA"
  * ```
+ *
+ * @usage node scripts/release/image-labels-gate.mjs <image> --version <v> --revision <sha>
  */
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";

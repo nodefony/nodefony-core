@@ -77,6 +77,8 @@
  * node scripts/release/readme-gate.mjs --json           # sortie machine
  * node scripts/release/readme-gate.mjs --dist-tags '{"latest":"7.0.2"}'
  * ```
+ *
+ * @usage npm run readme:gate
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

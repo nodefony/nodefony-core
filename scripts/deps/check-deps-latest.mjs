@@ -1,0 +1,806 @@
+#!/usr/bin/env node
+/**
+ * Inventaire EXHAUSTIF des dépendances en retard — remplaçant de `npm outdated`.
+ *
+ * Pourquoi un automate maison plutôt qu'un drapeau de npm : `npm outdated`
+ * SOUS-COMPTE, constaté trois fois sur ce dépôt. Il a rendu 5 paquets là où
+ * Dependabot en voyait 9 ; puis `--workspaces --include-workspace-root` a
+ * manqué les dépendances de la RACINE (`turbo`, `typescript`,
+ * `@angular/compiler-cli`) — dont une incohérence CRÉÉE par une montée
+ * précédente (`@angular/core` en 22.1.1 face à un compilateur resté en 22.1.0)
+ * qu'aucun outil ne signalait.
+ *
+ * La méthode est bête et complète : lire les pins de TOUS les `package.json`
+ * VERSIONNÉS (`git ls-files`, donc jamais `node_modules`), puis demander au
+ * registre la version courante de chacun. Exhaustif, reproductible, gratuit.
+ *
+ * Ce que le rapport distingue, parce que la conduite à tenir diffère :
+ *  - `EXACT`  — pin littéral (`"8.2.0"`) : `npm update` n'y touche PAS, il faut
+ *    réécrire le manifeste. C'est le gros du dépôt.
+ *  - `RANGE`  — plage (`^`, `~`) satisfaite par la dernière version : elle
+ *    montera seule au prochain `npm install`, rien à faire.
+ *  - `RANGE!` — plage QUE la dernière version ne satisfait plus (typiquement
+ *    une majeure) : invisible à l'install, c'est une décision à prendre.
+ *  - `LIGNE`  — retard DANS SA PROPRE LIGNE : une version plus haute satisfait
+ *    déjà la plage déclarée, mais le verrou ne l'a pas prise. Le seul mode que la
+ *    comparaison à `dist-tags.latest` ne peut PAS voir — et le seul qui compte
+ *    pour un paquet dont `latest` ne désigne pas la dernière version, comme
+ *    `@types/node` (cf `fetchOne`). La colonne LATEST affiche alors les deux.
+ *
+ * ⚠️ Un pin n'est pas ce qui est INSTALLÉ. Une plage `^19.2.7` reste écrite
+ * telle quelle alors que le verrou porte déjà 19.2.8 : la signaler comme un
+ * retard est un faux positif, et un rapport bruyant finit par ne plus être lu.
+ * La colonne `LOCK` rend donc la ou les versions réellement résolues dans
+ * `package-lock.json` ; `--strict` seul remonte les plages déjà satisfaites.
+ *
+ * Sont ignorés : `workspace:`/`file:`/`link:` (locaux), `*`/`latest` (sans
+ * opinion), et le paquet `nodefony` lui-même — le registre publie un v7 public
+ * quand ce monorepo EST nodefony 10 en développement.
+ *
+ * Deux usages, et il faut les distinguer : ce fichier est un RAPPORT que l'on
+ * consulte, et — sous `--gate` — une GARDE que la forge exécute. La garde
+ * n'échoue que sur ce qui casse un arbre d'installation (`INCONCILIABLE`,
+ * `PEER-EXACT`), jamais sur ce qui est seulement inélégant : une divergence que
+ * npm sait dédoublonner ne fait rien échouer. Sans cette retenue, la garde
+ * crierait sur `zod` — déclaré de trois façons ici, et parfaitement sain —, et
+ * un contrôle qui crie sur ce qui va bien finit désarmé.
+ *
+ * Usage :
+ *   node scripts/deps/check-deps-latest.mjs            # écarts RÉELS (lock à l'appui)
+ *   node scripts/deps/check-deps-latest.mjs --strict   # + plages déjà satisfaites
+ *   node scripts/deps/check-deps-latest.mjs --all      # + les pins déjà à jour
+ *   node scripts/deps/check-deps-latest.mjs --json     # sortie machine
+ *   node scripts/deps/check-deps-latest.mjs --gate     # GARDE : code non nul si l'arbre se dédoublerait
+ *
+ * @usage npm run deps:check
+ * @usage npm run deps:gate
+ */
+
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import semver from "semver";
+import {
+  dedouble,
+  reconcilie,
+  plusHauteSatisfaisante,
+} from "./lib/reconcile-versions.mjs";
+import { REPO_ROOT } from "../lib/repo-root.mjs";
+
+// 🔴 Deux points d'injection, et ils n'existent que pour une raison : SANS eux,
+// rien de ce contrôle ne se teste. Le script déduit sa racine de son propre
+// emplacement et parle au registre public en dur — donc on ne pouvait ni le
+// lâcher sur un dépôt fabriqué, ni le voir ÉCHOUER sur un cas construit. Une
+// garde qu'on n'a jamais vue mordre ne garde rien. Hors test, les deux valeurs
+// sont celles qu'elles ont toujours eues.
+const ROOT = process.env.NF_DEPS_ROOT ?? REPO_ROOT;
+const REGISTRY = (
+  process.env.NF_DEPS_REGISTRY ?? "https://registry.npmjs.org"
+).replace(/\/$/, "");
+const ARGS = new Set(process.argv.slice(2));
+const SHOW_ALL = ARGS.has("--all");
+const STRICT = ARGS.has("--strict") || SHOW_ALL;
+const AS_JSON = ARGS.has("--json");
+
+/** Paquets dont la version du registre ne dit rien d'utile ici. */
+const IGNORED = new Set(["nodefony"]);
+
+const DEP_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+];
+
+// `overrides` n'est pas une déclaration comme les autres — il IMPOSE une version
+// à tout l'arbre. npm refuse d'installer (`EOVERRIDE`) quand il contredit une
+// dépendance directe du même manifeste : c'est une panne d'installation que le
+// contrôle ne voyait pas, faute de lire ce champ. Seules les valeurs chaîne sont
+// des versions ; la forme imbriquée (`{ "@x/y": { "z": "1" } }`) cible les
+// dépendances d'un tiers et sort du périmètre des déclarations possédées.
+function overridesDeLaRacine(json) {
+  const out = [];
+  for (const [name, val] of Object.entries(json.overrides ?? {})) {
+    if (typeof val !== "string" || val.startsWith("$")) continue;
+    out.push([name, val]);
+  }
+  return out;
+}
+
+/** Un spécificateur qu'on ne sait pas comparer à une version publiée. */
+const isLocal = (spec) =>
+  /^(workspace:|file:|link:|git|https?:|npm:.*@(workspace|file))/.test(spec);
+const isOpen = (spec) => spec === "*" || spec === "latest" || spec === "";
+
+/** `^8.2.0` → `8.2.0` ; `8.2.0` → `8.2.0` ; `>=1 <3` → null (non comparable). */
+function baseVersion(spec) {
+  const m = /^[\^~]?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(spec.trim());
+  return m ? m[1] : null;
+}
+
+const isExactPin = (spec) =>
+  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(spec.trim());
+
+/** Comparaison semver suffisante ici : le registre ne rend que du semver valide. */
+function cmp(a, b) {
+  const pa = a.split("-")[0].split(".").map(Number);
+  const pb = b.split("-")[0].split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
+  }
+  // Une préversion est ANTÉRIEURE à la version finale du même numéro.
+  const qa = a.includes("-");
+  const qb = b.includes("-");
+  if (qa !== qb) return qa ? -1 : 1;
+  return a === b ? 0 : a < b ? -1 : 1;
+}
+
+/** major / minor / patch — l'ampleur décide de la conduite à tenir. */
+function bumpKind(from, to) {
+  const [fa, fb] = from.split("-")[0].split(".").map(Number);
+  const [ta, tb] = to.split("-")[0].split(".").map(Number);
+  if (fa !== ta) return "major";
+  if (fb !== tb) return "minor";
+  return "patch";
+}
+
+/** `^8.2.0` accepte-t-il `to` ? `~` et exact traités de même. */
+function rangeAccepts(spec, to) {
+  const s = spec.trim();
+  const base = baseVersion(s);
+  if (!base) return null; // plage complexe : on ne tranche pas
+  if (cmp(to, base) < 0) return true;
+  const [ba, bb] = base.split("-")[0].split(".").map(Number);
+  const [ta, tb] = to.split("-")[0].split(".").map(Number);
+  if (s.startsWith("^")) {
+    // ^0.x.y verrouille la mineure, et ^0.0.z le PATCH : en série 0, semver
+    // tient chaque cran pour cassant, d'autant plus bas qu'on approche de zéro.
+    // `^0.0.3` n'accepte donc que `0.0.3` — pas `0.0.9`.
+    if (ba === 0 && bb === 0) return cmp(to, base) === 0;
+    if (ba === 0) return ta === 0 && tb === bb;
+    return ta === ba;
+  }
+  if (s.startsWith("~")) return ta === ba && tb === bb;
+  return cmp(to, base) === 0;
+}
+
+// ── 1. Récolter les pins de tous les manifestes VERSIONNÉS ──────────────────
+
+const manifests = execFileSync("git", ["ls-files", "*package.json"], {
+  cwd: ROOT,
+  encoding: "utf8",
+})
+  .split("\n")
+  .filter((f) => f && !f.includes("node_modules/"));
+
+/** pkg → { specs: Map<spec, sites[]> } */
+const wanted = new Map();
+
+/** Manifestes que le contrôle n'a PAS pu lire — comptés, jamais tus. */
+const illisibles = [];
+
+// Un gabarit de scaffold porte des jetons d'interpolation à la place des
+// valeurs : il n'est pas du JSON, et c'est normal. Tout autre manifeste
+// illisible est un trou dans le périmètre — le taire laisserait ses
+// déclarations hors du contrôle pendant que la garde reste verte.
+const estGabarit = (rel) =>
+  rel.includes("/templates/") || rel.includes("/scaffold/");
+
+for (const rel of manifests) {
+  let json;
+  try {
+    json = JSON.parse(fs.readFileSync(path.join(ROOT, rel), "utf8"));
+  } catch {
+    if (!estGabarit(rel)) illisibles.push(rel);
+    continue;
+  }
+  /** @type {Array<[string, Array<[string, unknown]>]>} */
+  const champs = DEP_FIELDS.map((f) => [f, Object.entries(json[f] ?? {})]);
+  if (rel === "package.json") {
+    champs.push(["overrides", overridesDeLaRacine(json)]);
+  }
+  for (const [field, paires] of champs) {
+    for (const [name, spec] of paires) {
+      if (typeof spec !== "string") continue;
+      if (IGNORED.has(name) || isLocal(spec) || isOpen(spec)) continue;
+      if (!wanted.has(name)) wanted.set(name, new Map());
+      const specs = wanted.get(name);
+      if (!specs.has(spec)) specs.set(spec, []);
+      specs.get(spec).push(`${rel}#${field}`);
+    }
+  }
+}
+
+// ── 1 ter. Le catalogue du SCAFFOLD — ce que reçoit une APPLICATION GÉNÉRÉE ──
+//
+// 🔴 L'angle mort de la récolte ci-dessus, et il est structurel : `git ls-files
+// "*package.json"` ne matche PAS `package.json.tpl`, et de toute façon le
+// gabarit ne porte aucune version — il interpole `it.pkg[…]`. Les versions que
+// reçoit une application générée vivent dans une table TypeScript écrite à la
+// main, `SCAFFOLD_VERSIONS`. Aucun automate ne la regardait : elle pouvait
+// diverger du dépôt indéfiniment, et le premier à s'en apercevoir aurait été
+// celui qui génère une application.
+//
+// Le catalogue se lit au TEXTE plutôt qu'à l'import : ce script tourne sans
+// build, et importer un module du cœur le ferait dépendre d'un `dist` à jour —
+// une dépendance que rien ne garantit ici, et qui rendrait le contrôle
+// silencieusement inopérant le jour où le build est en retard.
+const CATALOGUE_SCAFFOLD = "src/nodefony/src/cli/scaffold/versions.ts";
+try {
+  const src = fs.readFileSync(path.join(ROOT, CATALOGUE_SCAFFOLD), "utf8");
+  const corps = src.slice(src.indexOf("SCAFFOLD_VERSIONS"));
+  let entreesCatalogue = 0;
+  // Le nom ne peut pas COMMENCER par `/`, sinon `//paquet: "^9"` — une entrée
+  // mise en commentaire — est récoltée comme un paquet nommé `//paquet`. Et la
+  // ligne peut finir par un commentaire : l'exiger nue faisait DISPARAÎTRE
+  // l'entrée, sans un mot, du contrôle des versions d'une application générée.
+  for (const m of corps.matchAll(
+    /^\s+"?(@?[a-zA-Z0-9][@a-zA-Z0-9/._-]*)"?:\s*"([^"]+)",?\s*(?:\/\/.*)?$/gm,
+  )) {
+    const [, name, spec] = m;
+    entreesCatalogue++;
+    if (IGNORED.has(name) || isLocal(spec) || isOpen(spec)) continue;
+    if (!wanted.has(name)) wanted.set(name, new Map());
+    const specs = wanted.get(name);
+    if (!specs.has(spec)) specs.set(spec, []);
+    specs.get(spec).push(`${CATALOGUE_SCAFFOLD}#SCAFFOLD_VERSIONS`);
+  }
+  // Un catalogue présent mais dont RIEN n'est ressorti est le même trou que le
+  // catalogue absent, en plus silencieux : le fichier existe, la lecture réussit,
+  // et le contrôle ne voit aucune version d'application générée.
+  if (entreesCatalogue === 0) {
+    process.stderr.write(
+      `⚠️  catalogue du scaffold ILLISIBLE (${CATALOGUE_SCAFFOLD}) — 0 entrée ` +
+        `reconnue : les versions d'une application GÉNÉRÉE ne sont pas contrôlées.\n`,
+    );
+  }
+} catch {
+  // Le catalogue déplacé ou renommé ne fait pas tomber le rapport — mais il ne
+  // doit pas non plus disparaître en silence : le compte final le dira.
+  process.stderr.write(
+    `⚠️  catalogue du scaffold introuvable (${CATALOGUE_SCAFFOLD}) — ` +
+      `les versions d'une application GÉNÉRÉE ne sont pas contrôlées.\n`,
+  );
+}
+
+// ── 1 bis. Ce que le VERROU a réellement résolu ─────────────────────────────
+// `packages` indexe par chemin d'installation ; un même paquet peut y figurer
+// plusieurs fois (copies imbriquées, conflits de plages) — on les garde TOUTES,
+// une seule copie en retard suffit à faire mentir « c'est à jour ».
+
+/** pkg → { hoisted: version|null, all: Set<version>, owned: Set<version> } */
+const installed = new Map();
+try {
+  const lock = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "package-lock.json"), "utf8"),
+  );
+  for (const [where, entry] of Object.entries(lock.packages ?? {})) {
+    if (!where.includes("node_modules/") || !entry?.version) continue;
+    if (entry.link) continue; // lien vers un workspace : version locale
+    const name = where.slice(where.lastIndexOf("node_modules/") + 13);
+    if (!installed.has(name))
+      installed.set(name, { hoisted: null, all: new Set(), owned: new Set() });
+    const rec = installed.get(name);
+    rec.all.add(entry.version);
+    // POSSÉDÉ = installé à un emplacement du dépôt : la racine, ou le
+    // `node_modules` d'un workspace. Un seul segment `node_modules/` dans le
+    // chemin le dit. Deux segments ou plus, la copie est rangée SOUS un paquet
+    // tiers : elle lui appartient, et nous l'imputer ferait accuser le dépôt du
+    // dédoublement d'autrui.
+    if (where.split("node_modules/").length === 2) rec.owned.add(entry.version);
+    // La copie REMONTÉE en tête d'arbre est celle que résout un `import` du
+    // dépôt ; les copies imbriquées appartiennent à d'autres dépendances et
+    // les confondre fait accuser un paquet du retard d'un tiers.
+    if (where === `node_modules/${name}`) rec.hoisted = entry.version;
+  }
+} catch {
+  // pas de verrou lisible : la colonne restera vide, le reste tient debout
+}
+
+/** Ce que le dépôt résout réellement, et le signe qu'il en existe plusieurs. */
+function resolvedInstall(name) {
+  const rec = installed.get(name);
+  if (!rec || rec.all.size === 0) return null;
+  const v = rec.hoisted ?? [...rec.all].sort(cmp).at(-1);
+  return rec.all.size > 1 ? `${v} (+${rec.all.size - 1})` : v;
+}
+
+// ── 2. Demander au registre la version courante de chacun ───────────────────
+
+const names = [...wanted.keys()].sort();
+if (!AS_JSON) {
+  process.stderr.write(
+    `${names.length} paquets distincts dans ${manifests.length} manifestes versionnés — interrogation du registre…\n`,
+  );
+}
+
+const latest = new Map();
+/** pkg → toutes les versions publiées (pour résoudre une plage sans deviner). */
+const published = new Map();
+const failed = [];
+const CONCURRENCY = 16;
+
+/**
+ * 🔴 `dist-tags.latest` N'EST PAS « la dernière version » — c'est ce que le
+ * mainteneur a décidé de servir par défaut, et certains s'en servent pour autre
+ * chose. Le cas qui a révélé l'angle mort : `@types/node` publie ses versions
+ * par LIGNE DE TYPESCRIPT (`ts5.9`, `ts6.0` → 26.5.1) et laisse `latest` sur
+ * **22.20.2**, la ligne compatible avec les vieux compilateurs. Ce dépôt est en
+ * 26.4.1 : `npm outdated` comme ce rapport affichaient donc un « latest »
+ * INFÉRIEUR au courant, et surtout ne voyaient pas qu'une 26.5.1 existe.
+ *
+ * D'où la seconde question, la seule qui dise vraiment si l'on est à jour :
+ * **quelle est la plus haute version qui satisfait la plage déclarée ?** C'est
+ * elle que reçoit celui qui installe. Le document abrégé du registre
+ * (`application/vnd.npm.install-v1+json`) suffit à la calculer et pèse une
+ * fraction du document complet — il ne porte que les versions et les tags.
+ *
+ * `latest` reste utile, et n'est pas remplacé : c'est lui qui dit qu'une MAJEURE
+ * existe, donc qu'il y a une décision à prendre. Les deux se lisent ensemble.
+ *
+ * @param name - nom du paquet.
+ */
+async function fetchOne(name) {
+  // `replaceAll` et non `replace` : ce dernier ne remplace que la PREMIERE
+  // occurrence. Un nom scopé n'en porte qu'une, mais un encodage partiel
+  // reste un encodage faux — et rien ne le dirait.
+  const url = `${REGISTRY}/${name.replaceAll("/", "%2F")}`;
+  try {
+    const res = await fetch(url, {
+      headers: { accept: "application/vnd.npm.install-v1+json" },
+    });
+    if (!res.ok) {
+      failed.push(`${name}: HTTP ${res.status}`);
+      return;
+    }
+    const body = await res.json();
+    const tag = body?.["dist-tags"]?.latest;
+    if (tag) latest.set(name, tag);
+    if (body?.versions) published.set(name, Object.keys(body.versions));
+  } catch (e) {
+    failed.push(`${name}: ${e.message}`);
+  }
+}
+
+/**
+ * La plus haute version publiée que cette plage accepte, pour CE paquet.
+ * Enveloppe locale de {@link plusHauteSatisfaisante}, qui porte la règle et son
+ * raisonnement — elle vit à part pour être éprouvable sans lancer ce script.
+ *
+ * @param name - nom du paquet.
+ * @param spec - plage déclarée dans un manifeste.
+ * @returns la version, ou `null` quand le registre n'a pas répondu.
+ */
+function resolvedByRange(name, spec) {
+  return plusHauteSatisfaisante(published.get(name), spec);
+}
+
+for (let i = 0; i < names.length; i += CONCURRENCY) {
+  await Promise.all(names.slice(i, i + CONCURRENCY).map(fetchOne));
+}
+
+// ── 3. Comparer ─────────────────────────────────────────────────────────────
+
+const rows = [];
+for (const name of names) {
+  const cur = latest.get(name);
+  if (!cur) continue;
+  for (const [spec, sites] of wanted.get(name)) {
+    const base = baseVersion(spec);
+    if (!base) {
+      // Une plage complexe (`>=18`, `8 || 9`) ne se compare à aucune version :
+      // la pousser à chaque passage ajoute des lignes « ? » PERMANENTES au
+      // compte d'« écarts à décider », alors qu'il n'y a rien à décider. Du
+      // bruit dans un rapport, c'est ce qui apprend à ne plus le lire.
+      if (!SHOW_ALL) continue;
+      rows.push({
+        name,
+        spec,
+        latest: cur,
+        target: cur,
+        enLigne: null,
+        lock: resolvedInstall(name) ?? "—",
+        kind: "?",
+        mode: "COMPLEX",
+        sites,
+      });
+      continue;
+    }
+    const behind = cmp(base, cur) < 0;
+    const exact = isExactPin(spec);
+    const accepts = rangeAccepts(spec, cur);
+    const lock = resolvedInstall(name);
+    // 🔴 Le retard DANS SA PROPRE LIGNE, que la comparaison à `latest` ne voit
+    // pas : la plus haute version publiée que cette plage accepte. Pour
+    // `@types/node` en `^26.4.0`, c'est 26.5.1 — alors que `latest` vaut 22.20.2
+    // (ce paquet publie par ligne de TypeScript, cf `fetchOne`). Sans cette
+    // seconde question, un dépôt en avance sur `latest` passait pour à jour tout
+    // en accumulant du retard, et rien ne le disait.
+    const enLigne = resolvedByRange(name, spec);
+    // La plus haute version PRÉSENTE au verrou, et non celle qui est hissée : la
+    // hissée peut appartenir à un AUTRE consommateur. Vécu ici — `@nodefony/http`
+    // déclare `ws: 8.21.3`, la copie de tête est une 7.5.13 tirée par un tiers,
+    // et comparer à elle faisait annoncer un retard majeur qui n'existe pas.
+    const auVerrou = [...(installed.get(name)?.all ?? [])].sort(cmp).at(-1);
+    const retardEnLigne =
+      enLigne != null && auVerrou != null && cmp(auVerrou, enLigne) < 0;
+    if (!behind && !retardEnLigne && !SHOW_ALL) continue;
+    const mode = retardEnLigne
+      ? "LIGNE"
+      : !behind
+        ? "OK"
+        : exact
+          ? "EXACT"
+          : accepts
+            ? "RANGE"
+            : "RANGE!";
+    // Une plage que le verrou a DÉJÀ hissée à la dernière version n'est pas un
+    // retard : le manifeste dit un plancher, pas une version.
+    // 🔴 `lock` peut porter un suffixe de comptage (`"4.6.1 (+1)"`, plusieurs
+    // copies au verrou) que `cmp` ne sait pas lire : `Number("1 (+1)")` rend
+    // NaN, la comparaison échoue silencieusement et la ligne est signalée comme
+    // un retard alors que le verrou est à jour. Comparer sur la version NUE.
+    const settled =
+      mode === "RANGE" &&
+      !retardEnLigne &&
+      auVerrou != null &&
+      cmp(auVerrou, cur) >= 0;
+    if (settled && !STRICT) continue;
+    rows.push({
+      name,
+      spec,
+      latest: cur,
+      // 🔴 La version VISÉE, toujours nue : c'est elle qui part en comparaison
+      // semver (§3bis). L'écriture précédente composait ICI la chaîne
+      // d'affichage `22.20.2 (ligne 26.5.1)` — que `semver.satisfies` ne sait
+      // pas lire, donc qui rendait toujours faux, donc qui accusait TOUT pair
+      // installé de bloquer la montée. Un champ qui sert au calcul ne porte
+      // jamais de mise en forme.
+      target: retardEnLigne ? enLigne : cur,
+      enLigne: retardEnLigne ? enLigne : null,
+      lock: lock ?? "—",
+      kind: retardEnLigne
+        ? bumpKind(auVerrou, enLigne)
+        : behind
+          ? bumpKind(base, cur)
+          : "—",
+      mode: settled ? "RANGE✓" : mode,
+      sites,
+    });
+  }
+}
+
+/** Le dénominateur honnête : chaque couple (paquet, spécificateur) déclaré. */
+const totalPins = [...wanted.values()].reduce((n, specs) => n + specs.size, 0);
+
+const ORDER = { major: 0, minor: 1, patch: 2, "?": 3, "—": 4 };
+rows.sort(
+  (a, b) => ORDER[a.kind] - ORDER[b.kind] || a.name.localeCompare(b.name),
+);
+
+const behindRows = rows.filter((r) => r.mode !== "OK");
+// 🔴 La sortie lisible se tait sous `--json`, mais le script ne SORT PAS ici :
+// l'écriture précédente imprimait le JSON puis `process.exit(0)` AVANT le calcul
+// du verdict — `--json --gate` rendait donc 0 sur un lot inconciliable, et le
+// document ne portait même pas de quoi s'en apercevoir.
+if (AS_JSON) {
+  // rien à afficher : le document final porte tout
+} else if (behindRows.length === 0) {
+  process.stdout.write("Tous les pins sont à jour.\n");
+} else {
+  const w = (s, n) => String(s).padEnd(n);
+  process.stdout.write(
+    `\n${w("KIND", 6)}${w("MODE", 8)}${w("PAQUET", 38)}${w("PIN", 14)}${w("LOCK", 14)}${w("LATEST", 14)}SITES\n`,
+  );
+  process.stdout.write(`${"─".repeat(118)}\n`);
+  for (const r of behindRows) {
+    const sites = r.sites.length === 1 ? r.sites[0] : `${r.sites.length} sites`;
+    const vue = r.enLigne ? `${r.latest} (ligne ${r.enLigne})` : r.latest;
+    process.stdout.write(
+      `${w(r.kind, 6)}${w(r.mode, 8)}${w(r.name, 38)}${w(r.spec, 14)}${w(r.lock, 14)}${w(vue, 14)}${sites}\n`,
+    );
+  }
+  const by = (k) => behindRows.filter((r) => r.kind === k).length;
+  process.stdout.write(
+    `\n${behindRows.length} écarts à décider sur ${totalPins} pins déclarés — ${by("major")} major, ${by("minor")} minor, ${by("patch")} patch.\n`,
+  );
+  if (!STRICT) {
+    process.stdout.write(
+      "Les plages déjà hissées par le verrou sont masquées — `--strict` pour les voir.\n",
+    );
+  }
+}
+
+// ── 3bis. Majeures BLOQUÉES EN AMONT — par qui, et depuis quand ────────────
+//
+// Une montée majeure impossible ne se voit qu'au moment où elle échoue : une
+// pull request rouge de bout en bout, où `npm ci` casse AVANT le moindre test,
+// pour une raison qui n'est pas la nôtre. Elle revient à chaque cycle, et un
+// rouge permanent cesse d'être lu — c'est ainsi qu'un vrai rouge passe
+// inaperçu.
+//
+// Le blocage est pourtant CONSTATABLE sans rien installer : un paquet du
+// dépôt déclare une plage de pair qui exclut la version visée. On le NOMME
+// ici, avec sa contrainte — et surtout, on dit quand le blocage TOMBE, ce
+// qu'aucune pull request rouge ne saura jamais annoncer.
+//
+// Le champ est borné aux écarts MAJEURS : eux seuls justifient de parcourir
+// l'arbre installé, et ce sont les seuls que le dépôt refuse de grouper.
+const majeurs = rows.filter((r) => r.kind === "major");
+const blocages = new Map();
+if (majeurs.length) {
+  const cibles = new Set(majeurs.map((r) => r.name));
+  const racines = [path.join(ROOT, "node_modules")];
+  for (const racine of racines) {
+    let entrees = [];
+    try {
+      entrees = fs.readdirSync(racine, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entrees) {
+      if (!e.isDirectory()) continue;
+      const dossiers = e.name.startsWith("@")
+        ? fs
+            .readdirSync(path.join(racine, e.name), { withFileTypes: true })
+            .filter((x) => x.isDirectory())
+            .map((x) => path.join(e.name, x.name))
+        : [e.name];
+      for (const d of dossiers) {
+        let pkg;
+        try {
+          pkg = JSON.parse(
+            fs.readFileSync(path.join(racine, d, "package.json"), "utf8"),
+          );
+        } catch {
+          continue;
+        }
+        const peers = pkg.peerDependencies ?? {};
+        for (const cible of cibles) {
+          const plage = peers[cible];
+          if (!plage) continue;
+          const visee = majeurs.find((r) => r.name === cible)?.target;
+          if (!visee || semver.satisfies(visee, plage)) continue;
+          if (!blocages.has(cible)) blocages.set(cible, []);
+          blocages.get(cible).push({
+            par: `${pkg.name}@${pkg.version}`,
+            plage,
+          });
+        }
+      }
+    }
+  }
+}
+// Un paquet déclaré par plusieurs spécificateurs porte plusieurs lignes
+// majeures : sans ce dédoublonnage, le bloc d'explication sortait une fois PAR
+// LIGNE — constaté sur le rapport réel, `typescript` annoncé deux fois.
+const majeursUniques = [...new Map(majeurs.map((r) => [r.name, r])).values()];
+for (const r of AS_JSON ? [] : majeursUniques) {
+  const qui = blocages.get(r.name);
+  if (!qui || qui.length === 0) {
+    process.stdout.write(
+      `\n✅ ${r.name} ${r.target} : AUCUN pair installé ne s'y oppose — la montée majeure est jouable.\n`,
+    );
+    continue;
+  }
+  const uniques = [...new Map(qui.map((q) => [q.par, q])).values()];
+  process.stdout.write(
+    `\n⛔ ${r.name} ${r.target} est BLOQUÉ EN AMONT — \`npm ci\` échouerait avant tout test :\n`,
+  );
+  for (const q of uniques.slice(0, 8)) {
+    process.stdout.write(`     ${q.par} exige ${r.name} ${q.plage}\n`);
+  }
+  if (uniques.length > 8) {
+    process.stdout.write(`     … et ${uniques.length - 8} autres\n`);
+  }
+  process.stdout.write(
+    "     Rien à faire ici : la levée viendra de l'amont. Ce rapport le dira.\n",
+  );
+}
+
+// ── 4. Pins DIVERGENTS — un même paquet déclaré différemment selon le site ──
+//
+// `wanted` porte déjà la matière (nom → spec → sites) : ce qui manquait était
+// de la LIRE. Aucun `npm outdated` ne rend cette vue, et c'est pourtant elle qui
+// nomme les deux pannes qu'on ne voit pas venir :
+//
+//  - un peer EXACT (`"8.2.1"` et non `">=8.2.0"`) fige la version chez le
+//    consommateur : la moindre montée ailleurs fait échouer `npm install` par
+//    ERESOLVE, ou pire, npm « override » le peer et l'arbre part en silence.
+//    Vécu : 5 modules déclaraient `vite: "8.2.1"` en peer, la montée en 8.2.2
+//    a bloqué net l'installation du dépôt entier.
+//  - deux pins POSSÉDÉS qui divergent (`19.2.7` ici, `19.2.8` là) : npm
+//    installera les deux, et rien ne le dira. C'est ainsi qu'un `@angular/core`
+//    s'est retrouvé face à un compilateur d'une autre version.
+//
+// Une divergence peer-plancher vs dev-exact (`>=6.0.0` / `^6.1.0`) est en
+// revanche le pattern JUSTE : elle n'est signalée qu'en `--strict`.
+const PEER = "#peerDependencies";
+
+/**
+ * Rassemble les versions CONCRÈTES à essayer pour réconcilier les
+ * spécifications d'un paquet : celles du verrou, celle que le registre sert
+ * aujourd'hui, et les bases des spécifications elles-mêmes. Inutile d'énumérer
+ * tout le catalogue publié — si aucune version en circulation ne convient,
+ * l'arbre se dédouble ici et maintenant.
+ *
+ * @param entries - les spécifications relevées, avec leurs sites.
+ * @param name - nom du paquet (pour lire le verrou et la version publiée).
+ * @returns l'ensemble des versions candidates.
+ */
+function candidatsPour(entries, name) {
+  const candidats = new Set(installed.get(name)?.all ?? []);
+  const publiee = latest.get(name);
+  if (publiee) candidats.add(publiee);
+  // Le CATALOGUE publié, pas seulement le tag `latest` : deux plages qui se
+  // croisent sur une version que ni le verrou ni `latest` ne portent étaient
+  // déclarées inconciliables à tort — la version existe, elle n'était juste pas
+  // dans la poignée de candidates qu'on essayait.
+  for (const v of published.get(name) ?? []) candidats.add(v);
+  for (const e of entries) {
+    const base = baseVersion(e.spec);
+    if (base) candidats.add(base);
+  }
+  return candidats;
+}
+
+const divergent = [];
+for (const [name, specs] of wanted) {
+  if (specs.size < 2) continue;
+  const entries = [...specs.entries()].map(([spec, sites]) => ({
+    spec,
+    sites,
+  }));
+  const owned = entries.filter((e) => e.sites.some((s) => !s.endsWith(PEER)));
+  const exactPeer = entries.filter(
+    (e) => e.sites.every((s) => s.endsWith(PEER)) && isExactPin(e.spec),
+  );
+  // Comparer les VERSIONS, pas les chaînes : `2.7.0` et `^2.7.0` désignent la
+  // même version, les signaler serait le bruit qui fait cesser de lire le
+  // rapport. Seule une base différente est une divergence.
+  const ownedSpecs = new Set(owned.map((e) => baseVersion(e.spec) ?? e.spec));
+  const conciliable = reconcilie(
+    entries.map((e) => e.spec),
+    candidatsPour(entries, name),
+  );
+  // Conciliable ne veut pas dire UNIFIÉ : npm ne redescend pas une copie déjà
+  // posée (sauf arête de pair), donc une spécification exacte dominée par une
+  // plage plus haute donne DEUX exemplaires — que `reconcilie` juge conciliables
+  // en toute bonne foi. Le verrou le dit sans réseau ni installation.
+  const estDedouble = dedouble(
+    installed.get(name)?.owned ?? [],
+    owned.map((e) => e.spec),
+  );
+  let severity = null;
+  if (!conciliable) severity = "INCONCILIABLE";
+  else if (estDedouble) severity = "DÉDOUBLÉ";
+  else if (exactPeer.length) severity = "PEER-EXACT";
+  else if (ownedSpecs.size > 1) severity = "DIVERGENT";
+  else if (STRICT) severity = "peer/dev";
+  if (severity) divergent.push({ name, severity, entries });
+}
+
+if (divergent.length && !AS_JSON) {
+  const bad = divergent.filter((d) => d.severity !== "peer/dev");
+  process.stdout.write(
+    `\n${bad.length ? "⚠️  " : ""}${divergent.length} paquet(s) déclaré(s) de plusieurs façons :\n`,
+  );
+  for (const d of divergent) {
+    process.stdout.write(`\n  [${d.severity}] ${d.name}\n`);
+    for (const e of d.entries) {
+      for (const site of e.sites) {
+        process.stdout.write(`      ${String(e.spec).padEnd(14)} ${site}\n`);
+      }
+    }
+  }
+  if (bad.some((d) => d.severity === "PEER-EXACT")) {
+    process.stdout.write(
+      "\n  PEER-EXACT : un peerDependency exprime un PLANCHER (`>=x.y.z`).\n" +
+        "  Figé à une version, il casse l'installation dès qu'un autre site monte.\n",
+    );
+  }
+  if (bad.some((d) => d.severity === "DÉDOUBLÉ")) {
+    process.stdout.write(
+      "\n  DÉDOUBLÉ : le verrou porte DÉJÀ plusieurs exemplaires de ce paquet aux\n" +
+        "  emplacements du dépôt. Une version exacte dominée par une plage plus haute\n" +
+        "  suffit : npm ne redescend pas une copie déjà posée (sauf arête de pair), il\n" +
+        "  l'imbrique. Conciliable sur le papier n'est donc pas unifié dans l'arbre.\n",
+    );
+  }
+  if (bad.some((d) => d.severity === "INCONCILIABLE")) {
+    process.stdout.write(
+      "\n  INCONCILIABLE : AUCUNE version en circulation ne satisfait toutes ces\n" +
+        "  spécifications. npm en installera donc plusieurs exemplaires, et rien ne le\n" +
+        "  dira — deux copies d'une bibliothèque de types ne s'unifient pas, deux copies\n" +
+        "  d'un registre (ORM, greffons) ne se voient pas l'une l'autre.\n",
+    );
+  }
+  if (!STRICT) {
+    process.stdout.write(
+      "\n  Les couples peer-plancher / dev-exact (le pattern juste) sont masqués — `--strict` pour les voir.\n",
+    );
+  }
+}
+
+if (failed.length) {
+  process.stderr.write(
+    `\n⚠️ ${failed.length} paquets non résolus (privés, retirés, ou réseau) :\n  ${failed.join("\n  ")}\n`,
+  );
+}
+
+// Le document lisible par une machine porte MAINTENANT le verdict : `divergent`
+// est ce qui décide de l'échec sous `--gate`, l'omettre obligeait son lecteur à
+// rejouer le rapport pour savoir s'il devait s'inquiéter.
+if (AS_JSON) {
+  process.stdout.write(
+    `${JSON.stringify(
+      { rows, divergent, illisibles, failed, scanned: names.length },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+// ── 5. Le VERDICT — sous `--gate` seulement ─────────────────────────────────
+//
+// 🔴 Pourquoi un drapeau plutôt qu'un échec par défaut : ce script est d'abord
+// un RAPPORT que l'on consulte, et un rapport qui sort en erreur devient une
+// commande qu'on hésite à lancer. Sous `--gate` il devient une garde, et c'est
+// cette forme-là que la forge exécute — sans quoi il resterait ce qu'il était :
+// un excellent contrôle que personne ne lançait, dans aucun flux d'intégration
+// continue, aucun crochet git, et rendant 0 quoi qu'il trouve.
+//
+// Ce qui fait ÉCHOUER se limite à ce qui casse un arbre d'installation, jamais
+// à ce qui est seulement inélégant :
+//  - INCONCILIABLE : npm installera plusieurs exemplaires.
+//  - DÉDOUBLÉ      : il en installe DÉJÀ plusieurs, aux emplacements du dépôt —
+//                    conciliable sur le papier ne veut pas dire unifié dans
+//                    l'arbre : npm ne redescend pas une copie déjà posée.
+//  - PEER-EXACT    : un peer figé fait échouer l'installation d'un tiers.
+// Une divergence CONCILIABLE ne fait rien échouer : npm dédoublonne, et crier
+// dessus rendrait le contrôle assez bruyant pour être désarmé.
+//
+// 🔴 Un registre muet ne rend PAS cette garde verte, et c'est ce qui permet de
+// ne pas la faire échouer dessus. Le verdict se calcule sur les spécifications
+// et sur le VERROU ; la version publiée n'ajoute qu'un candidat de plus à la
+// réconciliation. Sans elle, la garde est donc plus STRICTE, jamais plus
+// clémente — elle ne peut pas passer au vert par accident de réseau. Faire
+// échouer sur une requête ratée n'aurait rien gardé de plus, et aurait appris à
+// relancer la forge jusqu'à ce qu'elle passe : le meilleur moyen de désarmer un
+// contrôle est de le rendre capricieux.
+if (ARGS.has("--gate")) {
+  const fatals = divergent.filter(
+    (d) =>
+      d.severity === "INCONCILIABLE" ||
+      d.severity === "DÉDOUBLÉ" ||
+      d.severity === "PEER-EXACT",
+  );
+  // Un manifeste que le contrôle n'a pas su lire n'est pas un détail : ses
+  // déclarations sont absentes du verdict, qui porte alors sur un périmètre
+  // amputé. `npm ci` échouerait de toute façon dessus — autant le dire ici.
+  if (illisibles.length) {
+    process.stderr.write(
+      `\n❌ garde des dépendances : ${illisibles.length} manifeste(s) illisible(s)` +
+        ` — périmètre amputé\n   ${illisibles.join("\n   ")}\n`,
+    );
+    process.exit(1);
+  }
+  if (failed.length && !AS_JSON) {
+    process.stdout.write(
+      `\n  ${failed.length} paquet(s) non résolus par le registre — le verdict tient` +
+        ` sur le verrou, il en est seulement plus strict.\n`,
+    );
+  }
+  if (fatals.length) {
+    process.stderr.write(
+      `\n❌ garde des dépendances : ${fatals.length} paquet(s) à réconcilier\n` +
+        `   ${fatals.map((d) => `${d.name} [${d.severity}]`).join("\n   ")}\n`,
+    );
+    process.exit(1);
+  }
+  if (!AS_JSON) {
+    process.stdout.write(
+      `\n✅ garde des dépendances : ${wanted.size} paquets, aucune déclaration inconciliable.\n`,
+    );
+  }
+}

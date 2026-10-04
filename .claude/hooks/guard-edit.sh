@@ -2,7 +2,7 @@
 # Garde-fou PreToolUse sur Edit/Write — refuse d'éditer `src/` pendant qu'une
 # passe `test:all` occupe l'arbre. Le pre-commit lit le même verrou, mais c'est
 # l'ÉDITION qui invalide la passe, pas le commit qui la suit : deux campagnes
-# perdues ainsi. Seule implémentation du verrou : scripts/long-run-lock.mjs
+# perdues ainsi. Seule implémentation du verrou : scripts/repo/long-run-lock.mjs
 # (processus mort, verrou de plus de 4 h : ignorés ; sortie de secours `clear`).
 #
 # Coût hors passe : un test d'existence de fichier, sans lancer node.
@@ -18,7 +18,7 @@ case "$file" in
   *) exit 0 ;;
 esac
 
-if reason=$(node "$root/scripts/long-run-lock.mjs" check 2>&1); then
+if reason=$(node "$root/scripts/repo/long-run-lock.mjs" check 2>&1); then
   exit 0
 fi
 

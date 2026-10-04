@@ -205,7 +205,7 @@ la carte de l'aperçu, jamais figés ici.
 | Unitaires (client) | `nodefony` `clientSurfaceExercised.test.ts` | les sous-chemins navigateur sont réellement exercés, pas seulement déclarés |
 | Typage (cible navigateur) | `nodefony` `tsconfigClient.json` (`lib` ES2022), via `npm run typecheck` | aucune API postérieure à ES2022 n'entre dans le code client |
 | Unitaires (client) | `nodefony` `randomUuid.test.ts` | les identifiants client tiennent hors contexte sécurisé |
-| Unitaires (chaîne) | `scripts/release/release-core.test.mjs`, `scripts/check-externals.test.mjs` | l'ordre de publication, les métadonnées exigées, les dépendances externalisées |
+| Unitaires (chaîne) | `scripts/release/release-core.test.mjs`, `scripts/gates/check-externals.test.mjs` | l'ordre de publication, les métadonnées exigées, les dépendances externalisées |
 
 ## 🔗 Pour aller plus loin
 

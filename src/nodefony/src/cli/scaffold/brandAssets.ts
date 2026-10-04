@@ -8,7 +8,7 @@ import type { ScaffoldWriter } from "./writer";
  * (`nodefony/assets/nodefony-logo.svg`).
  *
  * Tout le reste en DÉRIVE : le PNG et le favicon sont rastérisés depuis ce
- * fichier par `scripts/brand-assets.mjs` (dépôt), qui inscrit l'empreinte de la
+ * fichier par `scripts/generate/brand-assets.mjs` (dépôt), qui inscrit l'empreinte de la
  * source et de chaque dérivé dans {@link BRAND_MANIFEST_PATH} ;
  * `src/tests/brandAssets.test.ts` refuse un SVG modifié sans régénération et un
  * dérivé retouché à la main.

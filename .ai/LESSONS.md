@@ -1,6 +1,7 @@
 # LESSONS.md — qui PORTE chaque leçon durable
 
-> **Généré** par `npm run lessons:carriers -- --write`. Ne pas éditer à la main.
+> **Instantané figé** : son générateur (`lessons-carriers.mjs`, `npm run lessons:carriers`) a été
+> retiré avec le sas RETEX (47da88344). Plus rien ne le régénère ni ne le lit.
 > Répond à une seule question : cette leçon agit-elle sur le PRODUIT (donc sur les
 > applications générées), sur le DÉPÔT (donc sur le développement du framework),
 > ou seulement sur l'agent qui la relit ?
@@ -37,13 +38,13 @@
 - **feedback_doc_vulgarization** — docs/README.md
 - **feedback_gate_must_bite** — src/packages/@nodefony/studio/frontend
 - **feedback_gate_must_run** — src/nodefony/node_modules
-- **feedback_git_index_lock** — scripts/safe-commit.sh
+- **feedback_git_index_lock** — scripts/repo/safe-commit.sh
 - **feedback_load_tests_separation** — npm run test:integration
 - **feedback_module_docs_scaffold** — docs/index.md · .claude/skills/nodefony-create-module/references/templates.md
 - **feedback_npm_tree_not_a_guarantee** — src/nodefony/node_modules
 - **feedback_perf_tests_optin** — src/nodefony/src/tests/Tools.test.ts
 - **feedback_permission_autonomy** — .claude/settings.json
-- **feedback_prove_the_target_not_the_verdict** — .claude/skills · scripts/env-snapshot.ts
+- **feedback_prove_the_target_not_the_verdict** — .claude/skills · scripts/generate/env-snapshot.ts
 - **feedback_refactor_grep_consumers** — src/modules/test · .claude/skills
 - **feedback_reliable_path_demoted_to_fallback** — npm run test:pilotage
 - **feedback_repo_command_is_authority** — src/nodefony

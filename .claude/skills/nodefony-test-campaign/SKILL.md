@@ -201,7 +201,7 @@ Le dépôt a déjà ce patron pour la performance et le devkit, et la campagne s
 | Ce qu'on garde                 | Où                                                         |
 | ------------------------------ | ---------------------------------------------------------- |
 | Les **données** de la campagne | `docs/qualite/data/<version>.json` — commitées             |
-| Le **rendeur**                 | `scripts/build-qualite-site.mjs` — du code, versionné      |
+| Le **rendeur**                 | `scripts/site/build-qualite-site.mjs` — du code, versionné |
 | La **page**                    | publiée sous `/qualite/` par `.github/workflows/pages.yml` |
 
 Le rendeur ne teste rien et ne mesure rien : il rend des données prises à la main, décor compris.

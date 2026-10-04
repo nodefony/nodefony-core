@@ -268,7 +268,7 @@ jobs:
       - name: Gate — l'accueil dit ce qu'une application installe
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         shell: bash
-        run: npx vitest run scripts/site-plan.test.mjs
+        run: npx vitest run scripts/site/site-plan.test.mjs
 
       # Le lanceur qui enveloppe les étapes longues (build, tests) : il rend la
       # main quand la commande finit, même si un descendant DÉTACHÉ garde sa
@@ -284,7 +284,16 @@ jobs:
       # Sur les trois systèmes : il marche des chemins et lit des dates.
       - name: Gate — tmp/ rangé, purge bornée à l'expiré
         shell: bash
-        run: npx vitest run scripts/tmp-layout.test.mjs
+        run: npx vitest run scripts/repo/tmp-layout.test.mjs
+
+      # Tous les tests de l'outillage du dépôt, par DOSSIER : un test posé dans
+      # `scripts/repo/` (le verrou des runs longs) n'était lancé par rien tant
+      # qu'on les nommait un par un. Un seul système : ils lisent des fichiers ;
+      # ceux qui exigent les trois sont lancés à part, ci-dessus.
+      - name: Gate — tests de l'outillage du dépôt
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: npm run test:tooling
 
       # Un tag d'action se DÉPLACE ; un SHA non. Couvre la forge ET les
       # workflows que chaque application générée exécutera.
@@ -451,7 +460,7 @@ jobs:
           cp src/nodefony/.ai/symbols.json /tmp/shipped-1.json
           npm run generate-symbols
           if ! cmp -s .ai/symbols.json /tmp/symbols-1.json || ! cmp -s src/nodefony/.ai/symbols.json /tmp/shipped-1.json; then
-            echo "::error title=Graphe symbolique non reproductible::Deux générations successives ont rendu des fichiers DIFFÉRENTS. Chercher un horodatage, un ordre instable ou un chemin absolu dans scripts/generate-symbols.ts — la copie publiée part dans le tarball de nodefony."
+            echo "::error title=Graphe symbolique non reproductible::Deux générations successives ont rendu des fichiers DIFFÉRENTS. Chercher un horodatage, un ordre instable ou un chemin absolu dans scripts/generate/generate-symbols.ts — la copie publiée part dans le tarball de nodefony."
             exit 1
           fi
           node --input-type=module -e '
@@ -507,7 +516,7 @@ jobs:
           # L'outil d'abord : un contrôle qui ne sait plus voir une ancre dérivée
           # rendrait tout le corpus « OK » sans un mot.
           node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs
-          node scripts/build-docs-site.mjs --list > /tmp/pages-publiees.txt
+          node scripts/site/build-docs-site.mjs --list > /tmp/pages-publiees.txt
           echo "corpus publié : $(wc -l < /tmp/pages-publiees.txt) pages"
           tr '\n' '\0' < /tmp/pages-publiees.txt \
             | xargs -0 node .claude/skills/nodefony-documentation/scripts/anchor-check.mjs
@@ -537,7 +546,7 @@ jobs:
         # échouait ici sur trente pages — un vert qui ne devait rien au code.
         run: |
           node .claude/skills/nodefony-documentation/scripts/gen-counters.mjs
-          node scripts/build-docs-site.mjs --list > /tmp/pages-publiees.txt
+          node scripts/site/build-docs-site.mjs --list > /tmp/pages-publiees.txt
           tr '\n' '\0' < /tmp/pages-publiees.txt \
             | xargs -0 node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs
 
@@ -567,7 +576,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         shell: bash
         run: |
-          node scripts/build-docs-site.mjs --list > /tmp/pages-publiees.txt
+          node scripts/site/build-docs-site.mjs --list > /tmp/pages-publiees.txt
           tr '\n' '\0' < /tmp/pages-publiees.txt \
             | xargs -0 node .claude/skills/nodefony-documentation/scripts/anchor-inpage.mjs
 

@@ -7,6 +7,8 @@
  * se calcule depuis CE fichier, et se CONSTATE : si `scripts/lib/` changeait de
  * profondeur, l'import lève au lieu de mentir. Un script déplacé, lui, casse
  * sur son `import` relatif — bruyamment.
+ *
+ * @usage import { REPO_ROOT } from "../lib/repo-root.mjs"
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";

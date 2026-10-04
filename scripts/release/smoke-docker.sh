@@ -39,6 +39,8 @@
 # Usage (racine repo) :
 #   npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|pm]
 # Prérequis : npm run build (dist à jour) + docker daemon up.
+#
+# @usage npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|pm]
 set -euo pipefail
 
 # Secret jetable des scénarios qui démarrent une app du preset complet : le

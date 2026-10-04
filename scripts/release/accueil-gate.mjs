@@ -64,6 +64,9 @@
  * node scripts/release/accueil-gate.mjs --dist-tags '{"alpha":"10.0.0-alpha.6"}'
  * node scripts/release/accueil-gate.mjs --basculer          # réécrit les versions, puis contrôle
  * ```
+ *
+ * @usage node scripts/release/accueil-gate.mjs [--json] [--dist-tags <json>]
+ * @usage node scripts/release/accueil-gate.mjs --basculer
  */
 import fs from "node:fs";
 import path from "node:path";

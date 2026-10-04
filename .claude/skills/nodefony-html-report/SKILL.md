@@ -281,7 +281,7 @@ PDF six mois plus tard — d'où le rappel en bas, collé à la commande et à l
 - **Le logo est lu à sa source** (`src/nodefony/assets/nodefony-logo.svg`, vectoriel — net à tout
   zoom et à l'impression), jamais recopié : deux copies d'un même asset finissent toujours par
   diverger, et les rapports porteraient l'ancien logo pendant des mois sans que personne ne le
-  remarque. Le PNG et le favicon du paquet en DÉRIVENT par `node scripts/brand-assets.mjs` : pour
+  remarque. Le PNG et le favicon du paquet en DÉRIVENT par `node scripts/generate/brand-assets.mjs` : pour
   changer la marque, on modifie le SVG et on relance — jamais un dérivé. Si la source devient introuvable, `brand.mjs`
   bascule sur un logo de secours **et l'annonce dans la console** — il ne rend jamais un rapport sans
   marque en silence.
@@ -348,14 +348,14 @@ node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/reports/demo.html 
 
 ### Ce skill sert aussi un SITE, pas seulement des rapports
 
-`scripts/build-docs-site.mjs` (dans le dépôt) rend toute la documentation Nodefony avec `doc()`,
+`scripts/site/build-docs-site.mjs` (dans le dépôt) rend toute la documentation Nodefony avec `doc()`,
 `lib/schemas.mjs` pour les diagrammes, et publie sur GitHub Pages. Deux conséquences quand on touche
 à `lib/` :
 
 - **une régression de `doc()` casse la documentation publiée**, pas seulement un rapport. Les deux
   selftests (`echarts.selftest.mjs`, `formats.selftest.mjs`) ne couvrent pas le chrome : rejouer
-  aussi `node scripts/build-docs-site.mjs --out tmp/sites/docs --mount /docs` puis
-  `node scripts/check-site-links.mjs tmp/sites/docs` ;
+  aussi `node scripts/site/build-docs-site.mjs --out tmp/sites/docs --mount /docs` puis
+  `node scripts/site/check-site-links.mjs tmp/sites/docs` ;
 - **un rapport n'a pas de voisines, une page de site en a.** C'est toute la différence entre les
   deux usages : le premier se lit seul, dans le fichier qu'on a reçu ; la seconde doit toujours
   offrir un chemin de retour. Le pied d'une page publiée qui ne ramène nulle part est un
@@ -370,7 +370,7 @@ Consommateurs réels :
   dimensionnement avec calculateur ;
 - `.claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs` et
   `perf-dossier-report.mjs` — les deux pages de mesures publiées sous `/performance/`, rendues par
-  le moteur ECharts et bâties par `scripts/build-perf-site.mjs` depuis
+  le moteur ECharts et bâties par `scripts/site/build-perf-site.mjs` depuis
   `docs/performance/data/<version>.json` ;
-- `scripts/build-docs-site.mjs` — le site de documentation (84 pages, 114 diagrammes), qui utilise
+- `scripts/site/build-docs-site.mjs` — le site de documentation (84 pages, 114 diagrammes), qui utilise
   `doc()` avec ses slots de site et `lib/schemas.mjs` pour les schémas.

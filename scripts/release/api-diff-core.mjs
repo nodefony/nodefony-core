@@ -7,6 +7,8 @@
  * commandes `api-diff.mjs` et `types-rigor.mjs` ne font qu'aller chercher les
  * fichiers et imprimer. Seule `listRuntimeExports` lance un process : c'est la
  * seule façon honnête de savoir ce qu'un module exporte réellement.
+ *
+ * @usage import { listRuntimeExports, exportEntries } from "./api-diff-core.mjs"
  */
 import { execFileSync } from "node:child_process";
 import path from "node:path";

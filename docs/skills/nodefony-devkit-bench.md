@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-27
+updated: 2026-10-04
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | Version | `1.4.0` |
 | Famille | Autres |
 | Corps | 405 lignes |
-| Coût d'activation | ~7 378 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~7 380 tokens (le corps est chargé à l'invocation) |
 | Description | 1014 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 9 page(s) |

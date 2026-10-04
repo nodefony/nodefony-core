@@ -10,6 +10,8 @@
  *
  * Module pur, sans effet à l'import : `generate-symbols.ts` l'emploie, les tests
  * l'éprouvent sans lancer de génération.
+ *
+ * @usage import { moduleOf, publishedModules, filterGraphToModules } from "../lib/symbols-publish.mjs"
  */
 import { execSync } from "node:child_process";
 

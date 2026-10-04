@@ -38,7 +38,7 @@ if (!cibles.length && !seulementPubliees) {
 
 const pagesPubliees = () =>
   execSync(
-    `"${process.execPath}" "${path.join(REPO, "scripts", "build-docs-site.mjs")}" --list`,
+    `"${process.execPath}" "${path.join(REPO, "scripts", "site", "build-docs-site.mjs")}" --list`,
     { cwd: REPO, encoding: "utf8" },
   )
     .split(/\r?\n/u)

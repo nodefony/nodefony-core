@@ -46,7 +46,7 @@ n'apprennent rien.
 
 ## 2. Les deux graphes — ne pas se tromper de fichier
 
-`npm run generate-symbols` (`scripts/generate-symbols.ts`, parse via **ts-morph**) écrit **deux**
+`npm run generate-symbols` (`scripts/generate/generate-symbols.ts`, parse via **ts-morph**) écrit **deux**
 fichiers de nature différente. Poser une question au mauvais conduit à conclure « absent » sur un
 symbole qui existe :
 
@@ -69,7 +69,7 @@ d'un refactor sans commiter :
 npm run generate-symbols
 ```
 
-La zone parsée est définie **uniquement** dans `scripts/generate-symbols.config.ts`. Les fichiers de
+La zone parsée est définie **uniquement** dans `scripts/generate/generate-symbols.config.ts`. Les fichiers de
 plus de 500 Ko sont ignorés, `dist/` aussi, et une erreur sur un fichier n'interrompt pas le reste.
 
 **Format** (v2.0) — une map indexée par nom, plus quatre index inversés pré-calculés :
@@ -300,6 +300,6 @@ un commit ancien → `git show <sha> -- src/`.
 
 ## 9. Liens
 
-- `scripts/generate-symbols.ts` + `scripts/generate-symbols.config.ts` — le générateur et sa zone.
+- `scripts/generate/generate-symbols.ts` + `scripts/generate/generate-symbols.config.ts` — le générateur et sa zone.
 - `CLAUDE.md` (racine) — la règle « interroger l'index avant de parcourir le dépôt ».
 - `nodefony-framework-dev` — comprendre l'architecture derrière les symboles trouvés ici.

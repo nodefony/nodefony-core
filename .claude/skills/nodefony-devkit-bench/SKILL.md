@@ -213,7 +213,7 @@ npm run format:scaffold -- --diff  # ce que prettier changerait, ligne à ligne
 npm run format:scaffold -- --keep  # conserve les apps générées pour inspection
 ```
 
-**Trois variantes, et pourquoi celles-là** (`scripts/check-scaffold-format.mjs`) :
+**Trois variantes, et pourquoi celles-là** (`scripts/scaffold/check-scaffold-format.mjs`) :
 `complete+react` allume tout ce qui est conditionnel, `minimal` n'en allume
 rien — une non-conformité qui n'apparaîtrait que dans un cas intermédiaire
 supposerait un contenu présent dans NI l'un NI l'autre. La troisième,

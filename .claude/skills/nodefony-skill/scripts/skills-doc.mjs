@@ -26,6 +26,13 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import YAML from "yaml";
+import {
+  analyzeScript,
+  cle,
+  collectScripts,
+  createLaunchFinder,
+  readSources,
+} from "../lib/script-doc.mjs";
 
 const SKILLS_DIR = ".claude/skills";
 
@@ -135,163 +142,6 @@ function yamlError(raw) {
   } catch (e) {
     return String(e.message).split("\n")[0];
   }
-}
-
-/**
- * Radiographie d'un script : sa raison d'être, sa ligne d'usage, ses options et les variables
- * d'environnement qu'il lit. Tout est extrait du SOURCE — une option ajoutée au script apparaît
- * dans la fiche à la régénération suivante, sans que personne ait à y penser.
- */
-const ENV_NOISE =
-  /^(PATH|HOME|PWD|SHELL|USER|TERM|LANG|TMPDIR|NODE_OPTIONS|FORCE_COLOR|CI)$/;
-
-function analyzeScript(path) {
-  let src = "";
-  try {
-    src = readFileSync(path, "utf8");
-  } catch {
-    return {
-      purpose: "",
-      usage: "",
-      flags: [],
-      envs: [],
-      docs: {},
-      requires: [],
-    };
-  }
-  const head = src.split("\n").slice(0, 40);
-
-  // ── HOOK DE DOC ────────────────────────────────────────────────────────────────────────────
-  // Un script peut se DÉCRIRE lui-même dans son entête, au lieu de laisser deviner. Ces tags
-  // sont facultatifs : sans eux, l'heuristique plus bas fait de son mieux ; avec eux, la fiche
-  // devient exacte. C'est le seul endroit où la doc d'un script doit vivre — pas dans un fichier
-  // parallèle qui divergera.
-  //
-  // (exemples entre accents graves pour qu'ils ne soient pas moissonnés par leur propre lecteur)
-  //   `@usage`    node scripts/x.mjs --out rapport.html
-  //   `@option`   --out    chemin du rapport produit
-  //   `@env`      NF_PORT  port du serveur à interroger
-  //   `@requires` docker, serveur UP
-  //   `@output`   un rapport HTML autonome
-  const tag = (name) =>
-    [
-      ...src.matchAll(
-        new RegExp(`^\\s*(?:#|//|\\*)\\s*@${name}\\s+(.+)$`, "gm"),
-      ),
-    ].map((m) => m[1].trim());
-  const docs = {
-    usage: tag("usage"),
-    options: tag("option").map((l) => {
-      const m = l.match(/^(--?[\w-]+)\s+(.*)$/);
-      return m
-        ? { flag: m[1], help: m[2] }
-        : { flag: l.split(/\s+/)[0], help: l.split(/\s+/).slice(1).join(" ") };
-    }),
-    envs: tag("env").map((l) => {
-      const m = l.match(/^([A-Z][A-Z0-9_]*)\s+(.*)$/);
-      return m
-        ? { name: m[1], help: m[2] }
-        : { name: l.split(/\s+/)[0], help: "" };
-    }),
-    output: tag("output"),
-  };
-  const declaredRequires = tag("requires")
-    .flatMap((l) => l.split(/\s*,\s*/))
-    .filter(Boolean);
-
-  // Prérequis déduits quand le script ne les déclare pas : ce qu'il faut avoir sous la main
-  // pour que son résultat veuille dire quelque chose.
-  const inferred = [];
-  if (/\bdocker\b/i.test(src)) inferred.push("docker");
-  if (/localhost:\d|127\.0\.0\.1|https?:\/\/localhost/.test(src))
-    inferred.push("serveur UP");
-  if (/redis|REDIS_/i.test(src)) inferred.push("redis");
-  if (/\b(psql|postgres|mysql|mariadb|mongo)\b/i.test(src))
-    inferred.push("base de données");
-  const requires = [
-    ...new Set(declaredRequires.length ? declaredRequires : inferred),
-  ];
-
-  // Raison d'être : la première ligne de commentaire substantielle de l'entête.
-  let purpose = "";
-  for (const line of head) {
-    const c = line.match(/^\s*(?:#|\/\/|\*)\s*(.{8,})$/);
-    // Un filet de séparation (tirets ASCII ou box-drawing) n'est pas une raison d'être.
-    if (
-      c &&
-      !line.trim().startsWith("#!") &&
-      !/eslint|prettier|@ts-/.test(c[1]) &&
-      !/^[-=─━_*·.\s]+$/u.test(c[1])
-    ) {
-      purpose = c[1].trim().replace(/\s*[-–—]\s*$/, "");
-      break;
-    }
-  }
-
-  // Ligne d'usage : un exemple d'invocation cité dans l'entête.
-  const usageLine = head.find(
-    (l) =>
-      /(?:^|\s)(?:node|bash|sh|npx)\s+[\w./-]*(?:scripts\/)?[\w.-]+\.(?:mjs|js|sh)/.test(
-        l,
-      ) && /^\s*(?:#|\/\/|\*)/.test(l),
-  );
-  const usage = usageLine
-    ? usageLine.replace(/^\s*(?:#|\/\/|\*)\s*/, "").trim()
-    : "";
-
-  // Options : les drapeaux réellement testés par le script.
-  const flags = [
-    ...new Set([...src.matchAll(/--[a-z][a-z0-9-]{1,24}/g)].map((m) => m[0])),
-  ]
-    .filter(
-      (f) =>
-        !/^--(?:experimental|max-old|expose|enable|no-warnings|loader|import)/.test(
-          f,
-        ),
-    )
-    .sort();
-
-  // Variables d'ENTRÉE : ce qui vient de l'extérieur, jamais les variables de travail du script.
-  // En shell, `VAR=…` en début de ligne signale une variable locale — sauf `VAR="${VAR:-défaut}"`,
-  // qui est précisément la forme d'un paramètre configurable avec valeur par défaut.
-  const assignedLocally = new Set(
-    [...src.matchAll(/^\s*(?:export\s+)?([A-Z][A-Z0-9_]{2,})=(.*)$/gm)]
-      .filter((m) => !new RegExp(`\\$\\{?${m[1]}\\b`).test(m[2]))
-      .map((m) => m[1]),
-  );
-  const envs = [
-    ...new Set([
-      ...[...src.matchAll(/process\.env\.([A-Z][A-Z0-9_]{2,})/g)].map(
-        (m) => m[1],
-      ),
-      ...[...src.matchAll(/process\.env\[["']([A-Z][A-Z0-9_]{2,})["']\]/g)].map(
-        (m) => m[1],
-      ),
-      ...[...src.matchAll(/\$\{?([A-Z][A-Z0-9_]{2,})[:}\s]/g)].map((m) => m[1]),
-    ]),
-  ]
-    .filter(
-      (e) =>
-        !ENV_NOISE.test(e) &&
-        !assignedLocally.has(e) &&
-        !/^(BASH_|FUNCNAME|RANDOM|SECONDS|PIPESTATUS)/.test(e),
-    )
-    .sort();
-
-  return {
-    purpose: docs.output.length && !purpose ? docs.output[0] : purpose,
-    usage: docs.usage[0] || usage,
-    usages: docs.usage.length ? docs.usage : usage ? [usage] : [],
-    flags: docs.options.length ? docs.options.map((o) => o.flag) : flags,
-    options: docs.options,
-    envs: docs.envs.length ? docs.envs.map((e) => e.name) : envs,
-    envDocs: docs.envs,
-    output: docs.output[0] || "",
-    requires,
-    selfDocumented: Boolean(
-      docs.usage.length || docs.options.length || docs.envs.length,
-    ),
-  };
 }
 
 function listFiles(dir, exts) {
@@ -1132,12 +982,185 @@ const skillsAvecFiche = skills.filter(
   (s) => !s.livre || !skills.some((o) => o.name === s.name && !o.livre),
 );
 
+// ---------------------------------------------------------- index de scripts/
+/**
+ * Les dossiers de `scripts/`, rangés par NATURE — jamais par appelant : un même
+ * script est lancé par npm ET un hook ET la forge, l'appelant ne classe rien.
+ * L'ordre est celui de l'index ; un dossier absent de cette table y apparaît
+ * en fin, sous son seul nom, et le contrôle le signale.
+ */
+const SCRIPT_NATURES = [
+  ["lib", "Helpers transverses, importés par les scripts des autres dossiers."],
+  [
+    "gates",
+    "Gardes de commit et de forge : chacune refuse un état précis du dépôt.",
+  ],
+  ["scaffold", "Contrôles et mise en forme des gabarits d'application."],
+  ["deps", "Inventaire et garde des dépendances, gabarits compris."],
+  ["test", "Orchestration des suites de test et de la couverture."],
+  [
+    "generate",
+    "Génération d'artefacts : graphe symbolique, page de manuel, catalogue d'environnement, logo.",
+  ],
+  ["site", "Rendu du site de documentation publié et de ses pages annexes."],
+  [
+    "repo",
+    "Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin.",
+  ],
+  ["ci", "Ce que la forge lance ou éprouve sur elle-même."],
+  ["release", "Chaîne de publication du produit."],
+];
+const SCRIPTS_DIR = "scripts";
+const SCRIPTS_README = join(SCRIPTS_DIR, "README.md");
+const estTest = (p) => /\.test\.[cm]?[jt]sx?$/u.test(p);
+
+/**
+ * Tous les scripts de `scripts/`, documentés depuis leur SOURCE : raison d'être,
+ * `@usage`, options, variables, et qui les lance — npm, hook, forge, autre
+ * script — par la même règle que `scripts-audit.mjs`.
+ *
+ * @returns {object[]} une entrée par script, triée par nature puis par chemin.
+ */
+function repoScripts() {
+  const skillDirs = readdirSync(SKILLS_DIR).filter((n) =>
+    existsSync(join(SKILLS_DIR, n, "SKILL.md")),
+  );
+  const racine = collectScripts(SCRIPTS_DIR);
+  const sources = readSources(
+    racine.concat(...skillDirs.map((n) => collectScripts(join(SKILLS_DIR, n)))),
+  );
+  const pkg = existsSync("package.json")
+    ? readFileSync("package.json", "utf8")
+    : "";
+  const { appelants } = createLaunchFinder(sources, pkg);
+  const rang = (nature) => {
+    const i = SCRIPT_NATURES.findIndex(([n]) => n === nature);
+    return i === -1 ? SCRIPT_NATURES.length : i;
+  };
+  return racine
+    .map((p) => {
+      const chemin = cle(p);
+      const rel = chemin.slice(SCRIPTS_DIR.length + 1);
+      const nature = rel.includes("/") ? rel.split("/")[0] : "";
+      const a = analyzeScript(p);
+      const appels = appelants(p);
+      const uniques = (xs) => [...new Set(xs)];
+      return {
+        path: chemin,
+        rel,
+        nature,
+        test: estTest(chemin),
+        purpose: a.purpose,
+        usage: a.usages,
+        declaredUsage: a.declaredUsage,
+        options: a.options,
+        env: a.envDocs.length
+          ? a.envDocs
+          : a.envs.map((e) => ({ name: e, help: "" })),
+        output: a.output,
+        calledBy: uniques(
+          appels.filter((x) => !estTest(x.name)).map((x) => x.name),
+        ),
+        testedBy: uniques(
+          appels.filter((x) => estTest(x.name)).map((x) => x.name),
+        ),
+      };
+    })
+    .sort(
+      (x, y) =>
+        rang(x.nature) - rang(y.nature) ||
+        (x.rel < y.rel ? -1 : x.rel > y.rel ? 1 : 0),
+    );
+}
+
+/**
+ * `scripts/README.md` — l'index GÉNÉRÉ de l'outillage du dépôt.
+ *
+ * @param {object[]} list - sortie de `repoScripts()`.
+ * @returns {string} le markdown complet.
+ */
+function renderScriptsIndex(list) {
+  const code = (s) => `\`${s}\``;
+  // Un chemin d'appelant hors de scripts/ reste tel quel ; dans scripts/, relatif.
+  const appelant = (n) =>
+    code(n.startsWith(`${SCRIPTS_DIR}/`) ? n.slice(SCRIPTS_DIR.length + 1) : n);
+  const out = [
+    "<!-- GÉNÉRÉ par .claude/skills/nodefony-skill/scripts/skills-doc.mjs — ne pas éditer : `npm run skills:doc`. -->",
+    "",
+    "# `scripts/` — l'outillage du dépôt",
+    "",
+    "Chaque script du dépôt, rangé par **nature** : ce qu'il fait, comment le lancer, et **qui le lance**",
+    "(commande npm, hook git, étape de forge, autre script). Tout est extrait du source — l'en-tête",
+    "du script (`@usage`, `@option`, `@env`, `@requires`, `@output`) est la seule place où sa",
+    "documentation s'écrit. `npm run skills:check` refuse un script sans `@usage` et un index périmé.",
+    "",
+    "Un script dont l'appelant manque n'est lancé par aucun automate : il se tape à la main.",
+    "",
+  ];
+  const natures = [...new Set(list.map((s) => s.nature))];
+  for (const nature of natures) {
+    const desc = SCRIPT_NATURES.find(([n]) => n === nature)?.[1];
+    out.push(`## ${code(nature ? `${nature}/` : "(racine)")}`, "");
+    if (desc) out.push(desc, "");
+    for (const s of list.filter((x) => x.nature === nature)) {
+      const nom = nature ? s.rel.slice(nature.length + 1) : s.rel;
+      out.push(`### [${code(nom)}](${s.rel})`, "");
+      if (s.purpose) out.push(s.purpose, "");
+      for (const u of s.usage) out.push(`- **Usage** : ${code(u)}`);
+      for (const o of s.options)
+        out.push(`- **Option** ${code(o.flag)}${o.help ? ` — ${o.help}` : ""}`);
+      for (const e of s.env)
+        out.push(
+          `- **Variable** ${code(e.name)}${e.help ? ` — ${e.help}` : ""}`,
+        );
+      if (s.output) out.push(`- **Produit** : ${s.output}`);
+      out.push(
+        `- **${s.test ? "Lancé" : "Appelé"} par** : ${
+          s.calledBy.length
+            ? s.calledBy.map(appelant).join(" · ")
+            : "aucun automate"
+        }`,
+      );
+      if (!s.test && s.testedBy.length)
+        out.push(`- **Testé par** : ${s.testedBy.map(appelant).join(" · ")}`);
+      out.push("");
+    }
+  }
+  return out.join("\n").replace(/\n+$/, "\n");
+}
+
+/**
+ * Les écarts que l'index ne sait pas réparer seul : un script sans `@usage`
+ * (hors tests), un fichier posé à la racine de `scripts/`, un dossier hors de
+ * la table des natures.
+ *
+ * @param {object[]} list - sortie de `repoScripts()`.
+ * @returns {string[]} un message par écart.
+ */
+function scriptsIndexGaps(list) {
+  const gaps = [];
+  for (const s of list) {
+    if (!s.nature)
+      gaps.push(
+        `${s.path} : posé à la racine de scripts/ — le ranger par nature`,
+      );
+    else if (!SCRIPT_NATURES.some(([n]) => n === s.nature))
+      gaps.push(`${s.path} : dossier « ${s.nature} » absent de SCRIPT_NATURES`);
+    if (!s.test && !s.declaredUsage)
+      gaps.push(`${s.path} : aucun \`@usage\` en tête de fichier`);
+  }
+  return gaps;
+}
+
 // ---------------------------------------------------------------- exécution
+const scriptsDuDepot = repoScripts();
+const scriptGaps = scriptsIndexGaps(scriptsDuDepot);
 {
   if (!CHECK_ONLY) mkdirSync(OUT_DIR, { recursive: true });
   for (const s of skillsAvecFiche)
     ecrireGenere(join(OUT_DIR, `${s.name}.md`), renderSkill(s));
   ecrireGenere(join(OUT_DIR, "index.md"), renderIndex(skillsAvecFiche));
+  ecrireGenere(SCRIPTS_README, renderScriptsIndex(scriptsDuDepot));
 
   // Index MACHINE. Un registre de skills ou un moteur de recherche n'ouvre pas 27 markdown :
   // il lui faut un seul fichier structuré — résumé, mots-clés, déclencheurs, coût d'activation,
@@ -1148,6 +1171,9 @@ const skillsAvecFiche = skills.filter(
     generatedBy: ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
     generatedAt: STAMP,
     count: skills.length,
+    repoScripts: scriptsDuDepot.map(
+      ({ rel: _rel, nature: _n, declaredUsage: _d, ...s }) => s,
+    ),
     conformant: skills.filter((s) => s.hard).length,
     skills: skills.map((s) => ({
       name: s.name,
@@ -1246,4 +1272,8 @@ if (perimees.length) {
   );
   for (const f of perimees) console.log(`     ${f}`);
 }
-process.exit(failed.length || perimees.length ? 1 : 0);
+if (scriptGaps.length) {
+  console.log(`  ❌ ${scriptGaps.length} écart(s) dans scripts/ :`);
+  for (const g of scriptGaps) console.log(`     ${g}`);
+}
+process.exit(failed.length || perimees.length || scriptGaps.length ? 1 : 0);

@@ -408,7 +408,7 @@ Gate : **un contrôle par entry câblé dans le pipeline release**, avant le pac
 tarball existe et la tentation de « voir plus tard » gagne.
 
 > **Révisé le 2026-08-31 — l'outil n'est pas `size-limit`.** Le gate est
-> `scripts/size-check.mjs` + `.size-budgets.json` (`npm run size:check`), qui bundle chaque entry
+> `scripts/gates/size-check.mjs` + `.size-budgets.json` (`npm run size:check`), qui bundle chaque entry
 > avec **rolldown — le bundler du dépôt** — puis gzippe par `node:zlib`. Le motif est une question
 > de fidélité : `size-limit` re-bundle avec **son** moteur, et aurait certifié un artefact que
 > personne n'installe. Ici la mesure part de `dist/client/**`, ce que npm publie vraiment, et la

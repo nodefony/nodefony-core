@@ -1,7 +1,7 @@
-<!-- GÉNÉRÉ par scripts/env-snapshot.ts (npm run env:snapshot).
+<!-- GÉNÉRÉ par scripts/generate/env-snapshot.ts (npm run env:snapshot).
      NE PAS ÉDITER À LA MAIN.
      Les descriptions d'infra et d'interrupteurs viennent de vitest.gates.ts ;
-     celles du décor de banc de scripts/env-catalog.ts. Éditer ici ferait
+     celles du décor de banc de scripts/generate/env-catalog.ts. Éditer ici ferait
      diverger la copie de sa source, ce que ce fichier existe pour empêcher. -->
 
 # Variables d'environnement du dépôt
@@ -155,9 +155,9 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | Variable | Premier site |
 | --- | --- |
 | `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2913` |
-| `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:87` |
-| `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:83` |
-| `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:80` |
+| `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:90` |
+| `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:86` |
+| `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:794` |
 | `NF_BENCH_ROUTE` | `src/modules/test/index.ts:105` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3182` |
@@ -195,17 +195,17 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:51` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_DATABASE_URL` | `src/modules/test/nodefony/entity/benchOrm.ts:59` |
-| `NF_DEPS_REGISTRY` | `scripts/check-deps-latest.mjs:75` |
-| `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:73` |
+| `NF_DEPS_REGISTRY` | `scripts/deps/check-deps-latest.mjs:78` |
+| `NF_DEPS_ROOT` | `scripts/deps/check-deps-latest.mjs:76` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:1031` |
 | `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:748` |
-| `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:209` |
-| `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:208` |
+| `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
+| `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:92` |
-| `NF_HUB_API` | `scripts/release/hub-description.mjs:54` |
-| `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:60` |
-| `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:50` |
-| `NF_HUB_SOURCE` | `scripts/release/hub-description.mjs:63` |
+| `NF_HUB_API` | `scripts/release/hub-description.mjs:56` |
+| `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:62` |
+| `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:52` |
+| `NF_HUB_SOURCE` | `scripts/release/hub-description.mjs:65` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:38` |
 | `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:753` |
 | `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:62` |
@@ -218,16 +218,16 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:367` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:368` |
-| `NF_README_ROOT` | `scripts/release/readme-gate.mjs:97` |
+| `NF_README_ROOT` | `scripts/release/readme-gate.mjs:99` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:56` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:50` |
 | `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:46` |
 | `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:21` |
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:20` |
 | `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:22` |
-| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:88` |
+| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:90` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:616` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
-| `NF_X` | `scripts/env-snapshot.ts:122` |
+| `NF_X` | `scripts/generate/env-snapshot.ts:125` |
 

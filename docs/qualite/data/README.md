@@ -23,7 +23,7 @@ suites, ouvre les interrupteurs de coût, joue les bancs de charge, éprouve le 
 banc multi-pods et finit par la chaîne de publication. Rien de cela ne peut tourner sur un exécuteur
 d'intégration continue partagé sans rendre des chiffres faux.
 
-Le générateur (`scripts/build-qualite-site.mjs`) ne teste donc **rien**. Il rend ce fichier, et son
+Le générateur (`scripts/site/build-qualite-site.mjs`) ne teste donc **rien**. Il rend ce fichier, et son
 résultat ne dépend pas de la machine qui l'exécute. Le protocole de la campagne, lui, vit dans le
 skill `nodefony-test-campaign`.
 
@@ -56,5 +56,5 @@ skill `nodefony-test-campaign`.
 
 1. La jouer — protocole du skill `nodefony-test-campaign`.
 2. Écrire `docs/qualite/data/<version>.json` avec le décor de CETTE campagne.
-3. `node scripts/build-qualite-site.mjs --out tmp/qualite` puis regarder la page.
+3. `node scripts/site/build-qualite-site.mjs --out tmp/qualite` puis regarder la page.
 4. Commiter les données. La publication est automatique (`.github/workflows/pages.yml`).

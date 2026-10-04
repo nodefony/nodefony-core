@@ -3,7 +3,7 @@
  * DÉCLARÉES, aucune autre.
  *
  * La source est `assets/nodefony-logo.svg` du paquet `nodefony`. Le PNG et le
- * favicon en sont rastérisés par `scripts/brand-assets.mjs`, qui inscrit
+ * favicon en sont rastérisés par `scripts/generate/brand-assets.mjs`, qui inscrit
  * l'empreinte SHA-256 de la source et de chaque dérivé dans
  * `assets/brand-assets.json`. Ce test ne rastérise pas lui-même — Chromium ne
  * rend pas le même PNG octet pour octet d'une version à l'autre, et un test
@@ -73,7 +73,7 @@ function icoEntries(file: Buffer): { size: number; png: Buffer }[] {
 }
 
 /** Commande à relancer, rappelée dans chaque message d'échec. */
-const REGENERATE = "node scripts/brand-assets.mjs";
+const REGENERATE = "node scripts/generate/brand-assets.mjs";
 
 /**
  * Copies autorisées, relatives à la racine du dépôt, et ce qui les impose.

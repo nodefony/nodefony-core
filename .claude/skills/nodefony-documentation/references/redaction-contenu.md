@@ -42,7 +42,7 @@ conservées mais ignorées (utiles au RAG).
 
 ### 🌍 `publish` — cette page part-elle sur le SITE PUBLIC ?
 
-Le site publié (`scripts/build-docs-site.mjs` → GitHub Pages) ne rend pas tout le corpus : un dépôt
+Le site publié (`scripts/site/build-docs-site.mjs` → GitHub Pages) ne rend pas tout le corpus : un dépôt
 ouvert contient des pages qui n'ont aucun lecteur au-dehors. Le tri se fait à trois niveaux, du plus
 général au plus précis — **et le dernier gagne toujours** :
 
@@ -66,8 +66,8 @@ Le générateur AFFICHE ce qu'il écarte et pourquoi, page par page — publier 
 vrai risque de cet outil. Vérifier avant de pousser :
 
 ```bash
-node scripts/build-docs-site.mjs --out tmp/sites/docs --mount /docs   # la liste des écartés, par motif
-node scripts/build-docs-site.mjs --out tmp/apercu --only <chemin/page.md>   # une seule page
+node scripts/site/build-docs-site.mjs --out tmp/sites/docs --mount /docs   # la liste des écartés, par motif
+node scripts/site/build-docs-site.mjs --out tmp/apercu --only <chemin/page.md>   # une seule page
 ```
 
 ### Gabarit unique (à copier)

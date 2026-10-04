@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-html-report/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Références et livrables |
 | Corps | 362 lignes |
-| Coût d'activation | ~5 471 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~5 479 tokens (le corps est chargé à l'invocation) |
 | Description | 1000 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 3 page(s), 13 fichiers au total |

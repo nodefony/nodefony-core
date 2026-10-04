@@ -7,7 +7,7 @@
 # GitHub), et la comparaison échoue sur une page parfaitement à jour.
 #
 # Vécu : `manPage.test.ts` rendait « man/nodefony.1 est PÉRIMÉE — node
-# scripts/generate-man.mjs » sur les trois jobs Windows, verte partout ailleurs.
+# scripts/generate/generate-man.mjs » sur les trois jobs Windows, verte partout ailleurs.
 # Le message envoyait régénérer un fichier qui n'avait rien à se reprocher, et
 # régénérer n'y aurait rien changé : la différence était `\r\n` contre `\n`.
 #

@@ -87,6 +87,9 @@
  *
  * Il n'empaquette pas non plus : `pack-all.mjs` le fait, avec les peers
  * optionnels et le post-traitement des déclarations.
+ *
+ * @usage npm run release -- --version <v> --npm-tag <tag> [--write] [--pack]
+ * @usage npm run release -- --version <v> --publish
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -868,10 +871,14 @@ if (sale && (ECRIRE || PUBLIER)) {
 // il est seul à le porter. On lui demande simplement de se prononcer pendant
 // qu'aucun fichier n'a encore bougé, là où le remède ne coûte que six secondes.
 if (ECRIRE || PUBLIER) {
-  const r = spawnSync("node", ["scripts/generate-man.mjs", "--check"], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
+  const r = spawnSync(
+    "node",
+    ["scripts/generate/generate-man.mjs", "--check"],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+    },
+  );
   if (r.status === 69) {
     echouer(
       "le `dist` du cœur est périmé ou absent — la page de manuel serait rendue\n" +
@@ -1429,10 +1436,14 @@ if (PHASES.estampiller) {
   // plus vieux que les sources — et c'est un refus JUSTE : on ne publie pas
   // depuis un dist périmé.
   etape = "artefacts générés (page de manuel)";
-  const sortieMan = execFileSync("node", ["scripts/generate-man.mjs"], {
-    cwd: ROOT,
-    encoding: "utf8",
-  });
+  const sortieMan = execFileSync(
+    "node",
+    ["scripts/generate/generate-man.mjs"],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+    },
+  );
   const posee = versionDeLaPageMan(
     readFileSync(path.join(ROOT, CHEMIN_MAN), "utf8"),
   );
@@ -1497,7 +1508,7 @@ etape = "budgets bundle client (ADR-0007 D10)";
     alerter("budgets bundle NON vérifiés — dist client absent (npm run build)");
   } else {
     try {
-      execFileSync("node", ["scripts/size-check.mjs"], {
+      execFileSync("node", ["scripts/gates/size-check.mjs"], {
         cwd: ROOT,
         stdio: "inherit",
       });

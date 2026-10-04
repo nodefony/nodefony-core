@@ -24,6 +24,10 @@
  *
  * Sortie 0 = rien de suspect. Sortie 1 = refus, chaque fichier nommé.
  * Sortie 69 = le contrôle n'a pas pu regarder (à traiter comme un refus).
+ *
+ * @usage npm run release:image-gate
+ * @usage node scripts/release/image-gate.mjs <image>
+ * @usage node scripts/release/image-gate.mjs --files <inventaire.txt>
  */
 import { pathToFileURL } from "node:url";
 

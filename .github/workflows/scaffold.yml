@@ -206,7 +206,7 @@ jobs:
       # publication (vécu : 10.0.0-beta.1, vu par la seule CI de la vitrine).
       - name: Gate — chaque front généré passe-t-il ses propres contrôles ?
         if: matrix.os == 'ubuntu-latest'
-        run: node scripts/check-scaffold-frontends.mjs
+        run: node scripts/scaffold/check-scaffold-frontends.mjs
 
       # Le banc, en décor ISOLÉ (pas de `--link` : le mode lié laisse la
       # résolution de modules remonter au monorepo et rend invisible toute la

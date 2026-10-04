@@ -359,7 +359,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 | --- | --- | --- |
 | Unitaires (chaîne) | `scripts/release/release-core.test.mjs` | l'ordre topologique, les métadonnées exigées, le figeage des références de version |
 | Unitaires (image) | `scripts/release/image-gate.test.mjs` | la lecture des couches d'un `docker save` — dont un fichier qu'une couche suivante EFFACE, et les trois façons d'écrire un nom long |
-| Unitaires (bundle) | `scripts/check-externals.test.mjs` | la liste des dépendances laissées externes ne dérive pas des `peerDependencies` |
+| Unitaires (bundle) | `scripts/gates/check-externals.test.mjs` | la liste des dépendances laissées externes ne dérive pas des `peerDependencies` |
 | Unitaires (surface) | `nodefony` `packageDeps.test.ts`, `clientSubpathSurface.types.test.ts` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe |
 
 > Ces contrôles s'exécutent **avant** la publication. La preuve d'après, celle qui porte sur

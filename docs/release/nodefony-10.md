@@ -313,7 +313,7 @@ et c'est son RÉSULTAT qui est commité — l'automate ne fait que le rendre.
 2. composer `docs/performance/data/<version>.json` — **provenance d'abord** : commit du code
    mesuré (relevé À LA MESURE, jamais reconstruit après coup), machine, version de Node,
    protocole ; puis le comparatif et les **échantillons complets** du soak ;
-3. rendre et **regarder la page** : `node scripts/build-perf-site.mjs --out dist-perf-site` ;
+3. rendre et **regarder la page** : `node scripts/site/build-perf-site.mjs --out dist-perf-site` ;
 4. commiter le JSON → le flux `pages.yml` publie `/performance/<version>/` et `/performance/latest/`.
 
 Le rendu échoue si le soak manque : une page qui répond « peut-on partir en production ? » sans

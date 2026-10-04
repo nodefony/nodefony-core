@@ -2,7 +2,7 @@
  * Empreintes des mots de passe les plus courants — **fichier GÉNÉRÉ, ne pas éditer**.
  *
  * Regénérer :
- * `node scripts/generate-password-blocklist.mjs <fichier-source>`
+ * `node scripts/generate/generate-password-blocklist.mjs <fichier-source>`
  *
  * Contenu : les 4 premiers octets du SHA-1 de chaque mot de passe, triés, en
  * base64 d'un `Uint32Array` gros-boutien. Le clair n'est PAS embarqué — ni

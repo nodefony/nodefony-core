@@ -79,7 +79,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
-    "meta": "🟢 conforme v1.2.0 · ⚙️ 3 scripts" }
+    "meta": "🟢 conforme v1.2.0 · ⚙️ 4 scripts" }
 ]
 ```
 

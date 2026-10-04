@@ -834,7 +834,7 @@ Le corpus vient de [SecLists](https://github.com/danielmiessler/SecLists) (licen
 portée dans l'artefact). Regénérer l'artefact :
 
 ```bash
-node scripts/generate-password-blocklist.mjs <fichier-source>
+node scripts/generate/generate-password-blocklist.mjs <fichier-source>
 ```
 
 ### Son propre provisionnement OAuth

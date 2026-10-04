@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-inspect/SKILL.md"
 | Version | `1.0.0` |
 | Famille | Inspecter et auditer |
 | Corps | 290 lignes |
-| Coût d'activation | ~4 236 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~4 245 tokens (le corps est chargé à l'invocation) |
 | Description | 987 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 0 page(s) |

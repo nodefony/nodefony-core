@@ -359,7 +359,7 @@ entre les deux voies → skill **`nodefony-inspect`**.
 ## 5. Gates qualité (AVANT commit — l'ordre compte)
 
 > **Si tu as touché à un canal ou une méthode de plateforme** (`nodefony:*`) :
-> `node scripts/check-platform-channels.mjs` — il refuse tout nom écrit EN DUR. Le namespace est un
+> `node scripts/gates/check-platform-channels.mjs` — il refuse tout nom écrit EN DUR. Le namespace est un
 > contrat partagé entre le serveur et le navigateur : une chaîne recopiée d'un côté dérive de
 > l'autre sans que rien ne le dise.
 

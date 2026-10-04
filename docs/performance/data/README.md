@@ -31,7 +31,7 @@ rejouer n'est pas une mesure — c'est une affirmation. Trois défauts vécus on
 
 D'où la règle : **la mesure se fait à la main, sur une machine nommée ; son résultat est commité
 ici.** L'intégration continue ne mesure jamais — un exécuteur partagé rendrait des chiffres faux —
-elle ne fait que **rendre** ce dossier (`scripts/build-perf-site.mjs`).
+elle ne fait que **rendre** ce dossier (`scripts/site/build-perf-site.mjs`).
 
 ## Ce que contient un fichier
 
@@ -68,7 +68,7 @@ node .claude/skills/nodefony-load-test/scripts/perf-compose.mjs \
 #    node .claude/skills/nodefony-load-test/scripts/capacity.mjs \
 #      --http-path /nodefony/kernel/bench --seconds 8 --json tmp/capacity.json
 # 3. rendre, et REGARDER la page avant de la publier
-node scripts/build-perf-site.mjs --out dist-perf-site
+node scripts/site/build-perf-site.mjs --out dist-perf-site
 ```
 
 ### Les deux pages, et pourquoi une seule commande les fait

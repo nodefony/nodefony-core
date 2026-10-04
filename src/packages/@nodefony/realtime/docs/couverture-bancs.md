@@ -28,8 +28,8 @@ Cette page est la liste. Elle se **remesure**, elle ne se relit pas de confiance
 ## La mesure, et ce qu'elle vaut
 
 ```bash
-node scripts/realtime-coverage-map.mjs          # le relevé lisible
-node scripts/realtime-coverage-map.mjs --json   # pour un autre outil
+node scripts/test/realtime-coverage-map.mjs          # le relevé lisible
+node scripts/test/realtime-coverage-map.mjs --json   # pour un autre outil
 ```
 
 Le critère est mécanique : **un fichier de test ATTEINT-il ce module ?** —

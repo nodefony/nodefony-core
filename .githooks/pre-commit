@@ -4,7 +4,7 @@
 # commit en plein milieu signe un état que sa passe n'a pas testé, et rend son
 # verdict invérifiable. Vécu : deux campagnes invalidées. En tête, parce qu'il
 # ne coûte qu'une lecture de fichier.
-if ! node scripts/long-run-lock.mjs check; then
+if ! node scripts/repo/long-run-lock.mjs check; then
   exit 1
 fi
 
@@ -20,7 +20,7 @@ npx --no-install lint-staged || exit 1
 # la racine, `git add -A` les a emportés, sept jobs Windows sont tombés.
 # Placée en tête : elle coûte un `git diff --cached` et ferme une porte qu'aucun
 # autre gate ne voit.
-if ! node scripts/check-portable-filenames.mjs --staged; then
+if ! node scripts/gates/check-portable-filenames.mjs --staged; then
   exit 1
 fi
 
@@ -30,7 +30,7 @@ fi
 # dépôt — sans un mot. Vécu : trois recherches muettes pendant un diagnostic,
 # dont une preuve d'ABSENCE qui aurait été fausse. `\0` échappé produit la même
 # chaîne à l'exécution, donc la garde n'a pas d'échappatoire.
-if ! node scripts/check-no-nul-bytes.mjs --staged; then
+if ! node scripts/gates/check-no-nul-bytes.mjs --staged; then
   exit 1
 fi
 
@@ -112,7 +112,7 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^src/nodefony/te
   # `GIT_INDEX_FILE` en chemin ABSOLU vers l'index temporaire du commit : un
   # `git add` du décor l'hériterait et y écrirait ses fichiers (vécu :
   # `invalid object … for package-lock.json`, commit refusé).
-  if ! env -u GIT_INDEX_FILE node scripts/check-scaffold-format.mjs --raw; then
+  if ! env -u GIT_INDEX_FILE node scripts/scaffold/check-scaffold-format.mjs --raw; then
     echo "❌ le RENDU d'un gabarit n'est pas au format — commit annulé"
     echo "   → la correction va dans le GABARIT : npm run format:scaffold -- --raw --diff"
     exit 1
@@ -148,7 +148,7 @@ fi
 # écrans n'en ont pas) ; seule la table, donc le compilateur, ferme cette porte.
 # Filtre .tsx inclus : le front est justement la zone non testée.
 if git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.tsx?$'; then
-  if ! node scripts/check-platform-channels.mjs; then
+  if ! node scripts/gates/check-platform-channels.mjs; then
     echo "   → importer PLATFORM_CHANNELS / PLATFORM_METHODS / PLATFORM_EVENTS depuis \"nodefony\""
     exit 1
   fi
@@ -158,7 +158,7 @@ fi
 # hisse tout à la racine) — il casse l'ordre de build après un `clean`, et
 # l'installation chez le consommateur. Deux endroits où nous ne sommes jamais.
 if git diff --cached --name-only --diff-filter=ACMR | grep -qE '(\.tsx?|package\.json)$'; then
-  if ! node scripts/check-package-deps.mjs; then
+  if ! node scripts/gates/check-package-deps.mjs; then
     exit 1
   fi
 fi
@@ -173,7 +173,7 @@ fi
 ENV_FILES=$(git diff --cached --name-only --diff-filter=ACMR \
   | grep -E '^(src|scripts)/.*\.(ts|tsx|mts|mjs|js)$' || true)
 if [ -n "$ENV_FILES" ] && git diff --cached -U0 -- $ENV_FILES | grep -q 'NF_'; then
-  if ! npx tsx scripts/env-snapshot.ts; then
+  if ! npx tsx scripts/generate/env-snapshot.ts; then
     echo "❌ catalogue des variables d'environnement — commit annulé"
     echo "   Une variable de décor lue sans description, ou décrite sans lecture."
     exit 1

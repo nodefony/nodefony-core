@@ -79,7 +79,7 @@ const VALID_STATUS = new Set<string>([
  * l'inverse exact du chemin de lecture.
  *
  * ⚠️ **C'est la SEULE définition de ce périmètre.** Le générateur du site public
- * (`scripts/build-docs-site.mjs`) l'importe depuis le `dist` de ce module — il en
+ * (`scripts/site/build-docs-site.mjs`) l'importe depuis le `dist` de ce module — il en
  * importait déjà les briques de scan — au lieu d'en tenir une copie. Une copie a
  * existé ici, sous le prétexte d'une frontière de paquets que le script
  * franchissait pourtant déjà ; elle avait commencé à diverger. N'en réintroduire

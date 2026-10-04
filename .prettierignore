@@ -13,6 +13,8 @@
 # réaligne les tables et chaque régénération rediffère). Idem la page qui reçoit les cards.
 docs/skills/**
 docs/outillage-agents.md
+# Idem l'index de l'outillage (même générateur).
+scripts/README.md
 
 # Copies CONFORMES d'une spec amont : elles se REMPLACENT par l'amont (un
 # `tar -xzf` du dépôt d'origine), elles ne s'éditent jamais. Les reformater les

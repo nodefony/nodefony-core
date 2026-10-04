@@ -16,18 +16,18 @@
  * éprouvé sans réseau ; ici il n'y a que l'accès au monde : interroger l'API,
  * boucler, et rendre un code de sortie.
  *
- * `@usage` node scripts/release/attendre-ci.mjs --sha <sha> --run-id <id>
- * `@option` --sha - le commit à juger (défaut : `GITHUB_SHA`)
- * `@option` --run-id - l'exécution courante, pour ne jamais s'attendre soi-même
- * `@option` --repo - le dépôt à juger, `org/dépôt` (défaut : `GITHUB_REPOSITORY`).
+ * @usage node scripts/release/attendre-ci.mjs --sha <sha> --run-id <id>
+ * @option --sha - le commit à juger (défaut : `GITHUB_SHA`)
+ * @option --run-id - l'exécution courante, pour ne jamais s'attendre soi-même
+ * @option --repo - le dépôt à juger, `org/dépôt` (défaut : `GITHUB_REPOSITORY`).
  *   🔴 Pour juger un AUTRE dépôt que celui du workflow, c'est la SEULE voie : la
  *   forge interdit de surcharger une variable `GITHUB_*` dans un `env:` d'étape —
  *   le journal affiche la valeur demandée, le process reçoit celle du runner.
- * `@option` --timeout-min - abandon après N minutes (défaut 45)
- * `@option` --grace-min - délai pendant lequel « aucune exécution » vaut « pas encore indexée » et non « rouge » (défaut 3)
- * `@env` GITHUB_REPOSITORY - `org/dépôt`, posé par la forge
- * `@env` GH_TOKEN - jeton de lecture des exécutions
- * `@output` le verdict, et la liste NOMMÉE de ce qui a échoué
+ * @option --timeout-min - abandon après N minutes (défaut 45)
+ * @option --grace-min - délai pendant lequel « aucune exécution » vaut « pas encore indexée » et non « rouge » (défaut 3)
+ * @env GITHUB_REPOSITORY - `org/dépôt`, posé par la forge
+ * @env GH_TOKEN - jeton de lecture des exécutions
+ * @output le verdict, et la liste NOMMÉE de ce qui a échoué
  */
 import { execFileSync } from "node:child_process";
 import { verdictCiDuCommit, WORKFLOWS_NON_BLOQUANTS } from "./release-core.mjs";

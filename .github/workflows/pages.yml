@@ -45,21 +45,21 @@ on:
       - "docs/**"
       - "src/nodefony/docs/**"
       - "src/packages/@nodefony/*/docs/**"
-      - "scripts/build-docs-site.mjs"
+      # Tout le dossier : chaque fichier y sert le site (rendu, coloration,
+      # liens, plan). Les nommer un par un en laissait quatre dehors — une
+      # modification ne republiait pas le site.
+      - "scripts/site/**"
+      - "scripts/lib/**"
       # Le générateur n'est plus seul à décider du site : il importe du module de
       # documentation le moteur de RECHERCHE (sérialisé dans chaque page) et le
       # PÉRIMÈTRE publié. Changer ces règles change le site — sans ce chemin, la
       # republication n'aurait pas lieu et le site garderait l'ancienne recherche.
       - "src/packages/@nodefony/documentation/nodefony/**"
       - "src/packages/@nodefony/documentation/index.ts"
-      - "scripts/readme-html.mjs"
-      - "scripts/build-site-plan.mjs"
-      - "scripts/lib/app-template-deps.mjs"
       # Le plan du site AFFIRME ce qu'une application installe, en le lisant dans
       # le gabarit. Une dépendance ajoutée là change donc une page publiée.
       - "src/nodefony/templates/app/base/package.json.tpl"
       - "README.md"
-      - "scripts/build-perf-site.mjs"
       - ".claude/skills/nodefony-html-report/lib/**"
       - ".claude/skills/nodefony-documentation/lib/**"
       - ".claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs"
@@ -113,7 +113,7 @@ jobs:
       # voit quelqu'un qui découvre le projet. La documentation vit sous `/docs/`,
       # les mesures sous `/performance/` — trois objets, trois publics.
       - name: Construire la page d'accueil
-        run: node scripts/readme-html.mjs dist-site/index.html
+        run: node scripts/site/readme-html.mjs dist-site/index.html
 
       # Le lecteur mermaid du moteur jette en silence une flèche qu'il ne
       # reconnaît pas : le schéma se rend quand même, amputé. Ses formes de
@@ -122,19 +122,19 @@ jobs:
         run: node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs
 
       - name: Construire le site de documentation
-        run: node scripts/build-docs-site.mjs --out dist-site --mount /docs
+        run: node scripts/site/build-docs-site.mjs --out dist-site --mount /docs
 
       # Les mesures gardent leur place, sous `/performance/`. Une URL publiée ne
       # se change plus sans casser les liens de ceux qui l'ont citée.
       - name: Construire le dossier de performance
-        run: node scripts/build-perf-site.mjs --out dist-site/performance
+        run: node scripts/site/build-perf-site.mjs --out dist-site/performance
 
       # Le verdict d'une CAMPAGNE DE TEST par version, sous `/qualite/`. Même
       # contrat que la performance : le script ne teste rien, il rend des données
       # commitées avec leur décor. Ce qu'il publie n'est donc pas « tout est
       # vert » mais « voici ce qui a été éprouvé, et ce qui ne l'a pas été ».
       - name: Construire le dossier de qualité
-        run: node scripts/build-qualite-site.mjs --out dist-site/qualite
+        run: node scripts/site/build-qualite-site.mjs --out dist-site/qualite
 
       # Le PLAN du site, écrit sur ce qui vient d'être rendu — jamais sur les
       # sources. Un développeur interroge un agent avant d'ouvrir un README :
@@ -142,7 +142,7 @@ jobs:
       # application installe vraiment. Cette étape vient donc APRÈS les trois
       # rendus, sinon le plan décrirait un site incomplet.
       - name: Écrire le plan du site (llms.txt, sitemap, robots)
-        run: node scripts/build-site-plan.mjs --out dist-site
+        run: node scripts/site/build-site-plan.mjs --out dist-site
 
       # Le site doit MONTRER quelque chose : une page vide se publierait en
       # silence. On exige la porte d'entrée, une page profonde et la page de
@@ -192,7 +192,7 @@ jobs:
       # un sous-chemin (`/nodefony-core/`) : ses liens sont donc RELATIFS, et
       # cette garde est ce qui prouve qu'ils le sont restés.
       - name: Refuser un lien interne cassé
-        run: node scripts/check-site-links.mjs dist-site
+        run: node scripts/site/check-site-links.mjs dist-site
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

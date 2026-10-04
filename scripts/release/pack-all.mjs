@@ -13,6 +13,8 @@
 //
 // Usage (racine repo) : npm run release:pack
 // Prérequis : `npm run build` (dist/ + dist/types/ à jour sur tous les packages).
+//
+// @usage npm run release:pack
 import { execSync, spawnSync } from "node:child_process";
 import {
   readFileSync,

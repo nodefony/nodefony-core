@@ -36,7 +36,10 @@ import {
   uncitedWork,
   nextStateName,
 } from "./session-lib.mjs";
-import { rootStrays, strayEntries } from "../../../../scripts/tmp-layout.mjs";
+import {
+  rootStrays,
+  strayEntries,
+} from "../../../../scripts/repo/tmp-layout.mjs";
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",

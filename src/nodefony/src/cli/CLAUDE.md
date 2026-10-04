@@ -863,7 +863,7 @@ la construction sur le premier dossier absent (`modules/`, `public/`), inconnus 
 **Logo et favicon — `scaffold/brandAssets.ts`.** Le logo officiel a UNE source, vectorielle :
 `assets/nodefony-logo.svg` du paquet `nodefony` (publiée, `exports`). Le PNG (256 px de haut) et
 `assets/favicon.ico` (16/32/48, `pngToIco(...pngs)` : chaque PNG tel quel derrière l'en-tête ICO)
-en sont DÉRIVÉS par `node scripts/brand-assets.mjs` (Chromium), qui écrit leurs empreintes dans
+en sont DÉRIVÉS par `node scripts/generate/brand-assets.mjs` (Chromium), qui écrit leurs empreintes dans
 `assets/brand-assets.json` — on ne retouche jamais un dérivé, on modifie le SVG et on relance.
 `create app` pose dans `public/` le favicon (toujours) et, SANS front seulement, une COPIE
 `nodefony-logo.png` — `public/` est servi à la racine par `statics.web`,

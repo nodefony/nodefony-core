@@ -89,7 +89,7 @@ class Documentation extends Module<IDocumentationConfig> {
 export default Documentation;
 export { DocumentationService, DocumentationController };
 // Le périmètre publié — une seule définition, partagée avec le générateur
-// du site public (`scripts/build-docs-site.mjs`).
+// du site public (`scripts/site/build-docs-site.mjs`).
 export {
   ROOT_GROUPS,
   ROOT_PAGES,

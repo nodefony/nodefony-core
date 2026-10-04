@@ -132,8 +132,8 @@ function monterDecor({ degrade = false } = {}) {
   if (!existsSync(plan)) {
     console.error(
       `décor impossible : ${plan} absent.\n` +
-        "  npm run build && node scripts/readme-html.mjs tmp/sites/docs/index.html\n" +
-        "  node scripts/build-docs-site.mjs --out tmp/sites/docs --mount /docs\n" +
+        "  npm run build && node scripts/site/readme-html.mjs tmp/sites/docs/index.html\n" +
+        "  node scripts/site/build-docs-site.mjs --out tmp/sites/docs --mount /docs\n" +
         "  npm run site:plan",
     );
     process.exit(2);

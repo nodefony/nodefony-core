@@ -23,6 +23,8 @@
  *    ce lanceur n'est que ce qui empêche qu'il coûte un job.
  *
  * Usage : node scripts/ci/run-watched.mjs [--idle <s>] [--] <commande…>
+ *
+ * @usage node scripts/ci/run-watched.mjs [--idle <s>] [--] <commande…>
  */
 import { spawn, execFile } from "node:child_process";
 import { pathToFileURL } from "node:url";

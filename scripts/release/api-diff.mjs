@@ -26,6 +26,9 @@
  *
  * Sortie : résumé sur stdout, rapport complet `tmp/reports/api-diff/<version>/report.json`.
  * Code : 0 = mesure faite (ruptures ou non), 2 = mesure impossible.
+ *
+ * @usage npm run release:api-diff
+ * @usage npm run release:api-diff -- --from <version> [--details]
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

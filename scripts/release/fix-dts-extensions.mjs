@@ -23,6 +23,8 @@
 //
 // Usage : node scripts/release/fix-dts-extensions.mjs <dir> [--quiet]
 //         ou import { fixDtsExtensions } from "./fix-dts-extensions.mjs"
+//
+// @usage node scripts/release/fix-dts-extensions.mjs <dir> [--quiet]
 import ts from "typescript";
 import fs from "node:fs";
 import path from "node:path";

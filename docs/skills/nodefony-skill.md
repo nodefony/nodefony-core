@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-26
+updated: 2026-10-04
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-skill/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-skill/SKILL.md"
 | Description | 991 / 1024 caractères |
 | Déclencheurs | 11 |
 | Ressources `references/` | 0 page(s) |
-| Scripts | 3 |
+| Scripts | 4 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -81,6 +81,7 @@ script, donc toujours à jour après régénération.
 | `scripts/scripts-audit.mjs` | scripts-audit — chaque script du dépôt est-il au bon endroit, et quelqu'un l'appelle-t-il ? | `--strict` | `ACQUITTES_PATH` |
 | `scripts/skills-doc.mjs` | skills-doc — fiche de documentation par skill, ET gate de conformité. | `--check` | `SKILLS_DOC_DATE` |
 | `scripts/trigger-bench.mjs` | trigger-bench — prouve qu'une phrase réelle élit le bon skill. | `--verbose` `--list` | `FRAGILE_MARGIN` |
+| `lib/script-doc.mjs` | Ce qu'on sait d'un script du dépôt — sa documentation et l'automate qui le | `--out` | `VAR` |
 
 **Invocation telle que documentée dans chaque script :**
 
@@ -90,7 +91,7 @@ node .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ACQUITTES_PATH` · `FRAGILE_MARGIN` · `SKILLS_DOC_DATE`
+**Toutes les variables lues par ce skill** : `ACQUITTES_PATH` · `FRAGILE_MARGIN` · `SKILLS_DOC_DATE` · `VAR`
 
 ### Détail des scripts auto-documentés
 

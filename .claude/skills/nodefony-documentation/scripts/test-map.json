@@ -528,7 +528,7 @@
       "src/nodefony/src/tests/clientSurfaceExercised.test.ts",
       "src/packages/@nodefony/studio/nodefony/tests/unit/packageSurface.test.ts",
       "scripts/release/release-core.test.mjs",
-      "scripts/check-externals.test.mjs"
+      "scripts/gates/check-externals.test.mjs"
     ]
   },
   "request-context": {

@@ -50,7 +50,7 @@ lecteurs. Savoir lequel est concerné évite de chercher au mauvais endroit.
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | **Le module** `@nodefony/documentation` | Data plane HEADLESS : indexe, résout les `{{ }}`, expose `/nodefony/documentation/api/{tree,page/:slug}` | `src/packages/@nodefony/documentation/`          |
 | **Le portail Studio**                   | Rend l'index et les pages dans la console d'administration                                               | `@nodefony/studio/frontend` (briques ci-dessous) |
-| **Le site publié**                      | Rend le corpus en HTML autonome sur GitHub Pages                                                         | `scripts/build-docs-site.mjs`                    |
+| **Le site publié**                      | Rend le corpus en HTML autonome sur GitHub Pages                                                         | `scripts/site/build-docs-site.mjs`               |
 
 Le site est un TROISIÈME consommateur, jamais une transformation de la source : rien ne réécrit
 `docs/`. Il **réutilise** les briques pures du module (`scanDocsDir`, `pathToSlug`,
@@ -60,13 +60,13 @@ sur la résolution des liens, exactement le défaut que ces briques existent pou
 ### Le site publié — ce qu'il faut savoir avant d'y toucher
 
 - **Trois objets, trois publics** : la racine est la page de présentation (tirée du README par
-  `scripts/readme-html.mjs`), `/docs/` la documentation, `/performance/` les mesures. Un seul flux
+  `scripts/site/readme-html.mjs`), `/docs/` la documentation, `/performance/` les mesures. Un seul flux
   les publie (`.github/workflows/pages.yml`) — GitHub Pages ne connaît qu'UN artefact et chaque
   déploiement REMPLACE le site entier, donc deux flux s'effaceraient l'un l'autre.
 - **Qui est public** se décide par dossier, par statut, puis par la clé `publish` de la page :
   standard §2, rubrique `publish`. Le générateur affiche ce qu'il écarte, avec le motif.
 - **Les liens sont RELATIFS**, sans exception : le site est servi sous `/nodefony-core/`, où un
-  `/adr/` désignerait la racine du domaine. `scripts/check-site-links.mjs` refuse un lien interne
+  `/adr/` désignerait la racine du domaine. `scripts/site/check-site-links.mjs` refuse un lien interne
   absolu ou sans cible — il tourne dans le flux, et se lance en local sur un dossier rendu.
 - **Le chrome vient du moteur** `nodefony-html-report` (`doc()` : thèmes, impression, marque, et les
   slots `nav`/`aside`/`head`) ; les diagrammes de son `lib/schemas.mjs`, qui les rend SANS
@@ -74,7 +74,7 @@ sur la résolution des liens, exactement le défaut que ces briques existent pou
 - **Aucun HTML n'est versionné** : le rendu ne vit que dans l'artefact publié (`tmp/sites/docs/` en local, `dist-site/` dans la CI, est
   ignoré par git). La source est le Markdown.
 - **Le site s'adresse aussi aux AGENTS**, et par trois voies : chaque page publie son markdown à
-  côté d'elle (`index.md`, déclaré en `<link rel="alternate">`) ; `scripts/build-site-plan.mjs`
+  côté d'elle (`index.md`, déclaré en `<link rel="alternate">`) ; `scripts/site/build-site-plan.mjs`
   écrit `llms.txt` (le plan de lecture, qui pointe ces markdowns), `sitemap.xml` et `robots.txt`.
   Ce script lit l'artefact **rendu**, jamais les sources — le tri du périmètre reste dans
   `build-docs-site.mjs`, et il contrôle que le plan et l'index de recherche décrivent le même
@@ -317,7 +317,7 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 | `scripts/doc-lint.mjs --instructions <racines>` | **Dérive des fichiers d'INSTRUCTIONS** (`CLAUDE.md`, `MEMORY.md`) : un identifiant FRANÇAIS qu'ils citent et que le code ne porte plus a forcément été renommé — la page ne l'a pas suivi. Dictionnaire emprunté à `check:lang` (jamais une copie). Ne mord PAS sur un symbole anglais absent : mesuré, 49 sur 55 étaient des retraits énoncés, des travaux futurs ou des noms empruntés |
 | `scripts/symboles.selftest.mjs` | Éprouve ce contrôle : il doit attraper un identifiant français disparu ET se taire sur un retrait annoncé. Lancé par la forge avec le gate |
 | `scripts/gen-counters.mjs [topic]` | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
-| `scripts/build-docs-site.mjs --only <page.md>` | Aperçu d'UNE page, rendu par le moteur du SITE — donc l'aperçu EST ce qui sera publié |
+| `scripts/site/build-docs-site.mjs --only <page.md>` | Aperçu d'UNE page, rendu par le moteur du SITE — donc l'aperçu EST ce qui sera publié |
 
 > 🔁 **Un diff de code décale les ancres de la doc qui le cite — recaler à la MAIN coûte cher et se
 > trompe.** Enchaîner les deux scripts, en simulation puis pour de bon :
