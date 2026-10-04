@@ -71,10 +71,10 @@ bar.stop(`✓ ${files.length} bundles`);
 
 | Ce qu'on cherche                                       | Où c'est                                                            |
 | ------------------------------------------------------ | ------------------------------------------------------------------- |
-| Le socle des deux formes — une ligne réécrite en place | `src/nodefony/src/cli/progress.ts:375` (`LiveLine`)                 |
-| Le tourniquet                                          | `src/nodefony/src/cli/progress.ts:498` (`Spinner`)                  |
-| La barre                                               | `src/nodefony/src/cli/progress.ts:645` (`ProgressBar`)              |
-| Le dessin PUR, utilisable sans terminal                | `src/nodefony/src/cli/progress.ts:322` (`renderBar`)                |
+| Le socle des deux formes — une ligne réécrite en place | `src/nodefony/src/cli/progress.ts:349` (`LiveLine`)                 |
+| Le tourniquet                                          | `src/nodefony/src/cli/progress.ts:472` (`Spinner`)                  |
+| La barre                                               | `src/nodefony/src/cli/progress.ts:619` (`ProgressBar`)              |
+| Le dessin PUR, utilisable sans terminal                | `src/nodefony/src/cli/progress.ts:296` (`renderBar`)                |
 | La capacité Unicode, CONSTATÉE sur l'environnement     | `src/nodefony/src/cli/progress.ts:117` (`supportsUnicode`)          |
 | Les images, et leur repli                              | `src/nodefony/src/cli/progress.ts:46` (braille) et `:60` (ASCII)    |
 | Pourquoi une commande longue n'est plus interrompue    | `src/nodefony/src/command/Command.ts:256`                           |
