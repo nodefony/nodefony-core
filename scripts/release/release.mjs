@@ -130,6 +130,7 @@ import {
 } from "./release-core.mjs";
 import { apiDiffChangelogEntries } from "./api-diff-core.mjs";
 import { latestPublished, measureApiDiff } from "./api-diff.mjs";
+import { publishableWorkspaces } from "../lib/workspaces.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -317,19 +318,23 @@ const npm = (args, opts = {}) =>
  * @returns un descripteur par paquet : `{ nom, location, chemin, pkg }`
  */
 const listerPubliables = () => {
-  const q = npm(["query", ".workspace", "--json"]);
-  if (q.status !== 0) echouer(`npm query a échoué :\n${q.stderr}`);
-  const liste = JSON.parse(q.stdout)
-    .filter((w) => !w.private)
-    .map((w) => {
-      const chemin = path.join(ROOT, w.location, "package.json");
-      return {
-        nom: w.name,
-        location: w.location,
-        chemin,
-        pkg: JSON.parse(readFileSync(chemin, "utf8")),
-      };
-    });
+  let publiables;
+  try {
+    publiables = publishableWorkspaces(ROOT);
+  } catch (e) {
+    echouer(
+      `npm query a échoué :\n${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+  const liste = publiables.map((w) => {
+    const chemin = path.join(ROOT, w.location, "package.json");
+    return {
+      nom: w.name,
+      location: w.location,
+      chemin,
+      pkg: JSON.parse(readFileSync(chemin, "utf8")),
+    };
+  });
   if (liste.length === 0) echouer("aucun workspace publiable.");
   return liste;
 };

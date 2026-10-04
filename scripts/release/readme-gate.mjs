@@ -90,6 +90,7 @@ import {
   lireDistTags,
   zonesDeCode,
 } from "./accueil-gate.mjs";
+import { listWorkspaces } from "../lib/workspaces.mjs";
 
 /**
  * Points d'injection — ils n'existent que pour rendre ce contrôle ÉPROUVABLE.
@@ -148,13 +149,7 @@ const neuf = (motif) => new RegExp(motif.source, motif.flags);
  * @returns `{ publiables, prives }`, chacun portant nom et dossier.
  */
 function paquetsPubliables(root) {
-  const workspaces = JSON.parse(
-    execFileSync("npm", ["query", ".workspace", "--json"], {
-      cwd: root,
-      encoding: "utf8",
-      maxBuffer: 32 * 1024 * 1024,
-    }),
-  );
+  const workspaces = listWorkspaces(root);
   const publiables = [];
   const prives = [];
   for (const w of workspaces) {

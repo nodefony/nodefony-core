@@ -22,6 +22,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { countTypeLooseness } from "./api-diff-core.mjs";
 import { runPortable } from "./api-diff.mjs";
+import { publishableWorkspaces } from "../lib/workspaces.mjs";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -99,9 +100,7 @@ function measure(label, dirs) {
   return { label, ...total };
 }
 
-const workspaces = JSON.parse(
-  runPortable("npm", ["query", ".workspace", "--json"]),
-).filter((w) => !w.private);
+const workspaces = publishableWorkspaces(ROOT);
 const rows = [];
 if (from)
   rows.push(

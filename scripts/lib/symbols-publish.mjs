@@ -13,7 +13,6 @@
  *
  * @usage import { moduleOf, publishedModules, filterGraphToModules } from "../lib/symbols-publish.mjs"
  */
-import { execSync } from "node:child_process";
 
 /**
  * Le module qui porte un fichier, d'après son chemin relatif à la racine du
@@ -31,20 +30,8 @@ export function moduleOf(relativeFile) {
   return "unknown";
 }
 
-/**
- * Les workspaces publiables, résolus par npm — la même source que l'empaquetage
- * (`scripts/release/pack-all.mjs`), jamais une liste écrite à la main.
- *
- * @param {string} root - racine du dépôt
- * @returns {Array<{ name: string, location: string }>}
- */
-export function publishableWorkspaces(root) {
-  /** @type {Array<{ name: string, location: string, private?: boolean }>} */
-  const all = JSON.parse(
-    execSync("npm query .workspace --json", { cwd: root, encoding: "utf8" }),
-  );
-  return all.filter((w) => !w.private);
-}
+/** Les workspaces publiés — implémentation unique dans `workspaces.mjs`. */
+export { publishableWorkspaces } from "./workspaces.mjs";
 
 /**
  * Les noms de module (au sens de {@link moduleOf}) des workspaces publiables.

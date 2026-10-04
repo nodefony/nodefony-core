@@ -43,6 +43,7 @@ import {
   listRuntimeExports,
   readTypeDeclarations,
 } from "./api-diff-core.mjs";
+import { publishableWorkspaces as listPublishable } from "../lib/workspaces.mjs";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -83,9 +84,7 @@ const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 
 /** Workspaces publiables — résolus par npm, comme `pack-all.mjs`. */
 export function publishableWorkspaces(root = ROOT) {
-  return JSON.parse(
-    runPortable("npm", ["query", ".workspace", "--json"], root),
-  ).filter((w) => !w.private);
+  return listPublishable(root);
 }
 
 /** Dernière version publiée d'un paquet, ou `null`. */

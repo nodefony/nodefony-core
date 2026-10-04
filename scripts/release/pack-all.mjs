@@ -34,6 +34,7 @@ import {
   EXTENSIONS_INSPECTEES,
 } from "./release-core.mjs";
 import { foreignModules, publishedModules } from "../lib/symbols-publish.mjs";
+import { publishableWorkspaces } from "../lib/workspaces.mjs";
 
 // `release/` → `scripts/` → racine du dépôt. Ce script fait partie du PRODUIT :
 // la chaîne de publication ne peut pas dépendre de l'outillage d'agent, qui se
@@ -58,9 +59,7 @@ const PACK_PEER_OPTIONAL = {
 };
 
 // Workspaces publiables — résolus par npm (source de vérité, pas de liste en dur).
-const workspaces = JSON.parse(
-  execSync("npm query .workspace --json", { cwd: ROOT, encoding: "utf8" }),
-).filter((w) => !w.private);
+const workspaces = publishableWorkspaces(ROOT);
 
 // ── Ce qui fait REFUSER la publication, constaté AVANT d'empaqueter ────────
 //

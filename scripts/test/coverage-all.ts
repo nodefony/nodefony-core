@@ -26,6 +26,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { listWorkspaces } from "../lib/workspaces.mjs";
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",
@@ -101,12 +102,7 @@ interface Workspace {
   name: string;
   location: string;
 }
-const workspaces: Workspace[] = JSON.parse(
-  execFileSync("npm", ["query", ".workspace"], {
-    encoding: "utf8",
-    maxBuffer: 1e8,
-  }),
-);
+const workspaces: Workspace[] = listWorkspaces(ROOT);
 const cibles = workspaces.filter((w) => {
   const p = path.join(ROOT, w.location, "package.json");
   if (!existsSync(p)) return false;
