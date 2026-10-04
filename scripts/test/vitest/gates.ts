@@ -583,6 +583,16 @@ export interface GateExpectation {
    */
   proof?: string | readonly string[];
   /**
+   * Capacité de la MACHINE dont dépend la preuve — un outil système, pas une
+   * variable (ex. `"pty"` : un pseudo-terminal piloté par `script`).
+   *
+   * Elle ne se pose pas, elle se CONSTATE dans le banc. Son nom sert de clé à
+   * `NF_GATES_ALLOW` pour énoncer une absence voulue (une plateforme qui n'a pas
+   * l'outil) : sans lui, une attente portée par la seule preuve ne pourrait être
+   * écartée qu'en la retirant — c'est-à-dire en cessant de l'exiger partout.
+   */
+  capability?: string;
+  /**
    * Commande qui ouvre RÉELLEMENT cette cible, quand ce n'est pas `npm test`.
    *
    * Le mode d'emploi affiché est lu par quelqu'un qui vient de voir un rouge :
@@ -600,6 +610,11 @@ interface Unmet {
   missing: string[];
   /** Motifs sans aucun cas passé. */
   unproven: string[];
+  /**
+   * Capacité dont dépend la preuve : sans variable à constater, son absence ne
+   * se distingue d'un cas raté qu'en la NOMMANT dans la cause.
+   */
+  capability?: string;
   /** Mode d'emploi copiable, quand une gate le fournit. */
   how: string[];
   /** Clés qui permettraient d'écarter cette attente via `NF_GATES_ALLOW`. */
@@ -614,7 +629,9 @@ function asExpectation(entry: EnvGate | GateExpectation): GateExpectation {
 /** Les clés par lesquelles `NF_GATES_ALLOW` peut écarter une attente. */
 function expectationKeys(x: GateExpectation): string[] {
   const keys = x.gate ? gateEnv(x.gate) : [];
-  return x.switch ? [...keys, x.switch] : keys;
+  if (x.switch) keys.push(x.switch);
+  if (x.capability) keys.push(x.capability);
+  return keys;
 }
 
 /** Les cibles que cette passe écarte SCIEMMENT (`NF_GATES_ALLOW`). */
@@ -854,6 +871,7 @@ function evaluate(
     label: expectationLabel(x),
     missing,
     unproven,
+    ...(x.capability ? { capability: x.capability } : {}),
     how: x.gate
       ? gateHow(x.gate)
       : x.switch
@@ -904,9 +922,12 @@ function reportUnmet(
   ];
 
   for (const u of unmet) {
+    const proofs = u.unproven.map((p) => `« ${p} »`).join(", ");
     const cause = u.missing.length
       ? `${u.missing.join(", ")} absente(s)`
-      : `décor présent mais AUCUN cas passé pour ${u.unproven.map((p) => `« ${p} »`).join(", ")}`;
+      : u.capability
+        ? `capacité « ${u.capability} » absente de cette machine, ou AUCUN cas passé pour ${proofs}`
+        : `décor présent mais AUCUN cas passé pour ${proofs}`;
     lines.push(`  \x1b[1m${u.label}\x1b[0m — ${cause}`);
     for (const how of u.how) lines.push(`      ${how}`);
     lines.push("");

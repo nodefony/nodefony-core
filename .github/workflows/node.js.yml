@@ -685,13 +685,17 @@ jobs:
   # Ces cas démarrent de VRAIS serveurs (`production`, `cluster`, `--detach`) et
   # attendent leur arrêt propre : c'est précisément le code le plus dépendant du
   # système (signaux, groupes de processus, libération des ports).
+  #
+  # macOS y est pour l'ÉCRAN de développement (`devScreen.test.ts`) : il se juge
+  # sous un pseudo-terminal fourni par `script`, dont macOS a la grammaire BSD
+  # et Linux celle d'util-linux — deux outils différents, donc deux preuves.
   test-cli:
     name: Filet CLI (${{ matrix.os }} / Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node-version: ["26.x"]
     timeout-minutes: 20
 
@@ -717,9 +721,13 @@ jobs:
       # deux serveurs de logs ne dirait rien de plus sur le lanceur. L'absence
       # est donc énoncée, et elle reste NOMMÉE dans le rapport de fin de passe.
       # Ces deux cibles sont exercées par `orm.yml`, tâche « Backplane de logs ».
+      #
+      # `pty` sous Windows SEULEMENT : il n'y a pas de pseudo-terminal POSIX ni
+      # de `script`, donc pas d'écran à juger. Le banc le CONSTATE et saute ;
+      # l'absence est énoncée ici, et l'écran reste prouvé sur Linux et macOS.
       - name: Filet CLI (NF_RUN_CLI_BOOT)
         env:
-          NF_GATES_ALLOW: NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
+          NF_GATES_ALLOW: NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL${{ runner.os == 'Windows' && ',pty' || '' }}
         run: node scripts/ci/run-watched.mjs npm run test:boot
 
   # ─── Tests d'intégration — ubuntu only, démarre le serveur Nodefony ─────────

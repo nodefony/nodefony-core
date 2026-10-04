@@ -57,11 +57,28 @@ export default defineConfig({
     // Conséquence assumée : toute passe du cœur qui ne lève pas ces serveurs
     // doit ÉNONCER l'absence (`NF_GATES_ALLOW`), et l'échec est bloquant sous
     // `CI`. Le décor lui-même vit dans `orm.yml`, tâche « Backplane de logs ».
+    //
+    // L'écran sous pseudo-terminal n'est exigé que du lot `test:boot`
+    // (`NF_RUN_CLI_BOOT`) : c'est lui qui démarre de vrais `nodefony development`.
+    // La passe unitaire ne le réclame pas — un renoncement écrit contre une
+    // exigence absente ne garde rien. Le décor est une CAPACITÉ (`script`, qui
+    // fournit le terminal sous Linux et macOS), constatée par le banc : une
+    // plateforme qui ne l'a pas l'énonce (`NF_GATES_ALLOW=pty`). Fonction, pas
+    // liste : lue en FIN de passe.
     reporters: [
       "default",
-      gateReporter([
+      gateReporter(() => [
         { gate: LOKI_GATE, proof: "Loki réel" },
         { gate: OPENSEARCH_GATE, proof: "OpenSearch réel" },
+        ...(process.env.NF_RUN_CLI_BOOT === "1"
+          ? [
+              {
+                label: "Écran de développement sous pseudo-terminal",
+                capability: "pty",
+                proof: "sous pseudo-terminal",
+              },
+            ]
+          : []),
       ]),
     ],
     include: ["src/tests/**/*.test.ts"],

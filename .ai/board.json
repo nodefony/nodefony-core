@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T20:41:16.750Z",
+  "generatedAt": "2026-10-04T20:47:24.309Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 76,
+      "closed": 77,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 39,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -1631,8 +1631,8 @@
       "number": 535,
       "title": "feat(cli): modéliser l'écran du serveur de développement sans terminal",
       "url": "https://github.com/nodefony/nodefony-core/issues/535",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1.5,

@@ -122,17 +122,33 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
   jamais retiré, morceaux par priorité, `short` essayé avant de retirer). Contenu : mode, lien
   app, ÉTAT du démarrage, socket COMPLET du débogueur (`ws://127.0.0.1:9229/<id>`, réduit à
   `hôte:port` à l'étroit), codes des points à regarder, arrêt — JAMAIS l'adresse WS/WSS du
-  serveur (elle reste au bilan et en `plain`, `open.websocket`). Terminal PARTAGÉ avec le superviseur : le serveur
-  annonce sa hauteur par IPC, le superviseur (`guardSharedTerminal`) efface exactement cette
-  hauteur avant d'écrire et répond `status-erased` → `StatusLine.forget()` (sinon il effacerait
-  les lignes du superviseur). Canal = `devChannel.ts` (union discriminée `{channel:"nf-dev",type}`,
-  garde unique `isDevChannelMessage`, `sendToSupervisor`/`sendToServer` — base de #534). Bloc
-  retiré sur SIGTERM/SIGINT/SIGHUP (`prependOnceListener`, avant les journaux d'arrêt de Vite),
-  `onTerminate` et `exit` en filets ; `release()` idempotent. Le défilement de l'historique du
-  terminal emporte le bloc (contenu, pas superposition) : la barre figée pendant le défilement =
-  plein écran, #534.
-  Symboles par `SCREEN_SYMBOLS[resolveBrandCharset(...)]` (règle du logo) : ASCII sur console
-  Windows classique (ni ✓⚠ℹ⬢↻➜ ni braille du spinner).
+  serveur (elle reste au bilan et en `plain`, `open.websocket`).
+  **Superviseur = SEUL écrivain du terminal** (ADR-0013 §1) en rendu humain + TTY + hors
+  `--debug` (`DevSupervisor.#ownTerminal`) : serveur en `stdio: pipe` + `ipc`, sa sortie passe par
+  `relayServerOutput` → `DevTerminal` (`service/dev/DevTerminal.ts`, surface inline : historique +
+  barre redessinée en bas ; `ESC[2J` → `clear()`, `ESC[1G` → `\r`, séquence/UTF-8 coupés entre
+  paquets reportés). Barre = `renderStatusBar` (UNE implémentation : `--no-watch`, inline, plein
+  écran), nourrie par l'IPC `status-view` du serveur (`BootReporter`), seulement en phase `ready`
+  - bilan. Ailleurs (`plain`, `json`, `--debug`, pas de TTY) : terminal HÉRITÉ, aucun relais.
+    Verdict terminal transmis à l'enfant : `NF_DEV_TERMINAL` (+ `FORCE_COLOR` sauf
+    `NO_COLOR`/`FORCE_COLOR` posés) par `relayedTerminalEnv` ; lu UNE fois par la porte
+    `runtime/isTerminal.ts` (état dans `globalThis[Symbol.for("nodefony.terminalGate")]` —
+    `bin/nodefony` embarque SA copie du module), puis retiré de l'env (les petits-enfants ne
+    l'héritent pas). `terminalSize`/`onTerminalResize` ← IPC `resize`. Canal = `devChannel.ts`
+    (union discriminée `{channel:"nf-dev",type}`, garde unique `isDevChannelMessage`).
+    Verdict de fin = `onServerEnded` armé sur `close` (processus ET flux : la pile d'un crash
+    arrive après `exit`), grâce 1 s après `exit` si un petit-enfant garde le tube.
+    ⚠️ Arrêt : `DevCommand` retire les signaux du CLI (`releaseSignalListeners`, même geste que le
+    master cluster) AVANT `supervisor.start()` — sinon le `terminate()` du CLI sort au même Ctrl+C
+    et l'invite revient pendant qu'un serveur orphelin tient encore les ports.
+    Bloc côté serveur (`StatusLine`, `--no-watch`) retiré sur SIGTERM/SIGINT/SIGHUP
+    (`prependOnceListener`), `onTerminate` et `exit` en filets ; `release()` idempotent. Le
+    défilement emporte la barre inline : barre figée pendant le défilement = plein écran (#537).
+    Écran JUGÉ rendu : `tests/devScreen.test.ts` (lot `test:boot`) — pseudo-terminal = commande
+    `script` (util-linux/BSD, constatée ; entrée via `cat |` : BSD refuse un socket), rendu =
+    `@xterm/headless` (devDependency). Capacité `pty` dans les gates ; Windows l'énonce.
+    Symboles par `SCREEN_SYMBOLS[resolveBrandCharset(...)]` (règle du logo) : ASCII sur console
+    Windows classique (ni ✓⚠ℹ⬢↻➜ ni braille du spinner).
 - Modèle d'écran PUR (ADR-0013 §3, sans terminal, tout testable) : `runtime/textWidth.ts`
   (`visibleWidth` en COLONNES — graphèmes `Intl.Segmenter`, East Asian Width, émoji 2, combinant
   0, contrôles 0 ; `fitToWidth`, `wrapToWidth` qui referme/rouvre la couleur ; SEULE règle de
