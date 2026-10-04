@@ -286,7 +286,7 @@ jobs:
           // monte, et ses routes rendent 404 sans que rien ne nomme la cause.
           // C'est exactement ce qui s'est produit sous Windows.
           const app = path.join(base, 'app');
-          const journal = path.join(app, 'tmp', 'nodefony-detached.log');
+          const journal = path.join(app, 'logs', 'nodefony-detached.log');
           if (fs.existsSync(journal)) {
             fs.copyFileSync(journal, 'app-detached.log');
             console.log('journal du serveur copie depuis ' + journal);
@@ -485,7 +485,7 @@ jobs:
             if (fs.existsSync(src)) fs.copyFileSync(src, cible);
             else console.log('aucun ' + nom + ' a ' + base);
           }
-          const journal = path.join(base, 'app', 'tmp', 'nodefony-detached.log');
+          const journal = path.join(base, 'app', 'logs', 'nodefony-detached.log');
           if (fs.existsSync(journal)) fs.copyFileSync(journal, 'app-detached.log');
           "
 

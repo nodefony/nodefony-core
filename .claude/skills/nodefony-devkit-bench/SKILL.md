@@ -138,7 +138,7 @@ repayer un run pour revoir la même chose.
 
 | La question                                    | Le fichier, sous `<runDir>/tache-<n>/<app>/`     |
 | ---------------------------------------------- | ------------------------------------------------ |
-| l'application a-t-elle démarré, et sert-elle ? | `tmp/nodefony-detached.log`                      |
+| l'application a-t-elle démarré, et sert-elle ? | `logs/nodefony-detached.log`                     |
 | pourquoi le boot a-t-il échoué ?               | `var/last-boot-console.json`                     |
 | le schéma est-il réellement en base ?          | `var/databases/*.db` (`sqlite3 … sqlite_master`) |
 | quelles migrations ont été appliquées ?        | table `nodefony_migrations` de cette même base   |

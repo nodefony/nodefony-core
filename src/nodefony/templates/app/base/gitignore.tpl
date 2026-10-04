@@ -5,6 +5,9 @@ dist/
 var/
 public/dist/
 *.log
+# Journaux du framework (`log.dir`) : fichiers `.log`, JSONL interrogeable,
+# journal d'un runtime lancé avec `--detach`. `*.log` ne couvre pas le JSONL.
+logs/
 
 # vitest ≥ 5 : racine unique de ses artefacts (pièces jointes, blobs, rapports
 # json/junit/html). Elle apparaît dès le premier `npm test` — sans cette ligne,

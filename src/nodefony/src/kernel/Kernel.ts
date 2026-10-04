@@ -127,6 +127,7 @@ import { ReadinessRegistry } from "./readinessRegistry";
 import type { IReadinessContributor } from "./readinessRegistry";
 import {
   clearReadinessState,
+  DEFAULT_LOG_DIR,
   writeReadinessState,
 } from "../service/dev/devProcess";
 
@@ -2836,7 +2837,10 @@ class Kernel extends Service implements IKernel {
     setLogColor(resolveColorEnabled(this.isTTY));
     // Répertoire des logs — SOURCE UNIQUE : sink `.log` (LB.W) + JSONL queryable
     // (LB.2/5) + viewer Studio. Configurable `log.dir` (défaut "logs"), sous cwd.
-    const logDirAbs = path.resolve(process.cwd(), logCfg?.dir ?? "logs");
+    const logDirAbs = path.resolve(
+      process.cwd(),
+      logCfg?.dir ?? DEFAULT_LOG_DIR,
+    );
     // Driver de sink (LB.W) : stdout (défaut, cloud-native pipe non-bloquant) |
     // file (fd async PAR worker → pas de contention d'inode en cluster ; garde-fou,
     // le levier mesuré étant la coalescence du ring/tick) | null (bench).

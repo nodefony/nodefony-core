@@ -26,6 +26,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import xterm from "@xterm/headless";
 import { findReservedEntity } from "../cli/scaffold/reservedEntities";
 import {
+  detachedLogFile,
   isPidAlive,
   readRuntimeState,
   readSupervisorPid,
@@ -168,7 +169,7 @@ function runCli(
  * @returns les dernières lignes, ou une mention explicite si le journal manque.
  */
 function tailDetachedLog(lines = 40): string {
-  const file = path.join(REPO_ROOT, "tmp", "nodefony-detached.log");
+  const file = detachedLogFile(REPO_ROOT);
   if (!fs.existsSync(file)) {
     return `\n(aucun journal détaché à ${file})`;
   }

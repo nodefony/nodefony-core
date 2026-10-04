@@ -1755,7 +1755,7 @@ if (withE2e) {
  */
 function exigerBriquesMongoose() {
   const journal = lignesLisibles(
-    readFileSync(path.join(APP, "tmp", "nodefony-detached.log"), "utf8"),
+    readFileSync(path.join(APP, "logs", "nodefony-detached.log"), "utf8"),
   ).join("\n");
   const resolues = [...journal.matchAll(/(\S+) "auto" → "([a-z]+)"/gu)];
   const ailleurs = resolues.filter(([, , backend]) => backend !== "mongoose");

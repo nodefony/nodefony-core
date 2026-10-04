@@ -108,6 +108,28 @@ export function devSupervisorPidFile(cwd: string): string {
 export const FALLBACK_DEV_PORTS: readonly number[] = [5151, 5152];
 
 /**
+ * Dossier des journaux d'une application, relatif à son répertoire — défaut de
+ * `log.dir`. SOURCE UNIQUE : le sink fichier du noyau et le journal du runtime
+ * détaché y écrivent tous deux.
+ */
+export const DEFAULT_LOG_DIR = "logs";
+
+/**
+ * Journal par défaut d'un runtime lancé avec `--detach` (surchargé par `--log`).
+ *
+ * Dans le dossier des journaux, pas dans `tmp/` : c'est un journal, qu'on
+ * relit après coup — `tmp/` est jetable. Le lanceur détaché court AVANT le
+ * démarrage du noyau et ne lit donc pas `log.dir` : un `log.dir` personnalisé
+ * ne le déplace pas, `--log` oui.
+ *
+ * @param cwd - le répertoire de l'application.
+ * @returns le chemin absolu du journal.
+ */
+export function detachedLogFile(cwd: string): string {
+  return path.join(cwd, DEFAULT_LOG_DIR, "nodefony-detached.log");
+}
+
+/**
  * Chemin du **state file runtime** — le canal par lequel le serveur DIT sur quels
  * ports il écoute VRAIMENT.
  *

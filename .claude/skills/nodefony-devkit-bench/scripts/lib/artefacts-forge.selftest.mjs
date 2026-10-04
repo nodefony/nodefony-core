@@ -128,7 +128,7 @@ function copiees(job) {
 /**
  * Les fichiers que les étapes vont CHERCHER dans le décor : le premier membre
  * de chaque couple, plus les chemins composés littéralement (`path.join(app,
- * 'tmp', 'nodefony-detached.log')`).
+ * 'logs', 'nodefony-detached.log')`).
  */
 function cherches(job) {
   const noms = new Set(couples(job).map(([source]) => source));

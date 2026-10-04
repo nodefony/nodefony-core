@@ -13,6 +13,7 @@ import { SysExit } from "../../cli/sysexits";
 import { DELEGATED_ENV } from "../../bin/resolveLocalCli";
 import {
   clearRuntimeState,
+  detachedLogFile,
   defaultDevPorts,
   discoverDevProcesses,
   probePorts,
@@ -652,8 +653,7 @@ export async function runDetachedStart(argv: string[]): Promise<number> {
     return SysExit.USAGE;
   }
   const cwd = process.cwd();
-  const logFile =
-    parsed.logFile ?? path.join(cwd, "tmp", "nodefony-detached.log");
+  const logFile = parsed.logFile ?? detachedLogFile(cwd);
   const say = (msg: string): void => {
     writeSync(1, `>>> ${msg}\n`);
   };
