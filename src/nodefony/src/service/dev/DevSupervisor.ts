@@ -225,6 +225,16 @@ const CLOSE_GRACE_MS = 1000;
 const MAX_SPAWN_RETRIES = 3;
 /** Pause avant un redémarrage après crash rapide (laisse les ports se libérer). */
 const RETRY_DELAY_MS = 1200;
+/**
+ * Silence au-delà duquel un build lancé par le superviseur est déclaré CALÉ.
+ *
+ * Une borne d'INACTIVITÉ, pas de durée : un premier build complet dure
+ * légitimement plusieurs minutes, mais il parle (turbo relaie la sortie de
+ * chaque tâche). Vécu sous Windows + Node 26 : `turbo.exe` affiche son résumé
+ * puis ne rend jamais la main — le démarrage restait figé sur « Vérification du
+ * framework », sans fin et sans un mot.
+ */
+const BUILD_IDLE_TIMEOUT_MS = 120_000;
 /** Délai max d'attente de libération des ports avant un restart. */
 const PORTS_FREE_TIMEOUT_MS = 5000;
 /**
@@ -352,6 +362,68 @@ export function relayServerOutput(
   child.stderr?.on("data", (chunk: Buffer) =>
     terminal.ingest("server", "err", chunk),
   );
+}
+
+/**
+ * Lance une commande en CAPTURANT sa sortie au lieu de l'hériter — le
+ * spinner remplace le mur de logs turbo/rolldown. La sortie n'est révélée que sur
+ * ÉCHEC (le dev doit voir l'erreur de build : fail-loud).
+ *
+ * Muette plus de `idleMs`, la commande est déclarée calée : son ARBRE est tué
+ * (`signalProcessGroup`), et l'échec la NOMME dans la sortie — c'est cette
+ * sortie que le verdict de build rejoue après le démarrage.
+ *
+ * @param cmd - l'exécutable.
+ * @param args - ses arguments.
+ * @param cwd - le répertoire de travail.
+ * @param idleMs - silence toléré avant de déclarer la commande calée.
+ * @returns `ok` (sortie 0 et jamais calée) et la sortie capturée.
+ */
+export function runCapturedCommand(
+  cmd: string,
+  args: readonly string[],
+  cwd: string,
+  idleMs = BUILD_IDLE_TIMEOUT_MS,
+): Promise<{ ok: boolean; output: string }> {
+  return new Promise((resolve) => {
+    let output = "";
+    let stalled = false;
+    let idle: ReturnType<typeof setTimeout> | null = null;
+    // `portableSpawn` : sous Windows le gestionnaire est un `.cmd`, et
+    // `shell: true` concaténerait les arguments sans les échapper (DEP0190).
+    const run = portableSpawn(cmd, args);
+    const p = spawn(run.file, run.args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsVerbatimArguments: run.windowsVerbatimArguments,
+    });
+    const arm = (): void => {
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(() => {
+        stalled = true;
+        output +=
+          `\n${[cmd, ...args].join(" ")} : aucune sortie depuis ` +
+          `${Math.round(idleMs / 1000)} s — déclaré calé, arbre tué (pid ${p.pid})\n`;
+        if (p.pid !== undefined) signalProcessGroup(p.pid, "SIGKILL");
+      }, idleMs);
+      idle.unref();
+    };
+    const settle = (ok: boolean): void => {
+      if (idle) clearTimeout(idle);
+      resolve({ ok: ok && !stalled, output });
+    };
+    arm();
+    p.stdout.on("data", (d: Buffer) => {
+      output += d.toString();
+      arm();
+    });
+    p.stderr.on("data", (d: Buffer) => {
+      output += d.toString();
+      arm();
+    });
+    p.once("exit", (code) => settle(code === 0));
+    p.once("error", () => settle(false));
+  });
 }
 
 /**
@@ -696,30 +768,13 @@ export class DevSupervisor {
     );
   }
 
-  /**
-   * Lance une commande en CAPTURANT sa sortie au lieu de l'hériter — le
-   * spinner remplace le mur de logs turbo/rolldown. La sortie n'est révélée que sur
-   * ÉCHEC (le dev doit voir l'erreur de build : fail-loud).
-   */
+  /** {@link runCapturedCommand} dans le répertoire de l'application. */
   #runCaptured(
     cmd: string,
     args: readonly string[],
+    idleMs?: number,
   ): Promise<{ ok: boolean; output: string }> {
-    return new Promise((resolve) => {
-      let output = "";
-      // `portableSpawn` : sous Windows le gestionnaire est un `.cmd`, et
-      // `shell: true` concaténerait les arguments sans les échapper (DEP0190).
-      const run = portableSpawn(cmd, args);
-      const p = spawn(run.file, run.args, {
-        cwd: this.#cwd,
-        stdio: ["ignore", "pipe", "pipe"],
-        windowsVerbatimArguments: run.windowsVerbatimArguments,
-      });
-      p.stdout.on("data", (d: Buffer) => (output += d.toString()));
-      p.stderr.on("data", (d: Buffer) => (output += d.toString()));
-      p.once("exit", (code) => resolve({ ok: code === 0, output }));
-      p.once("error", () => resolve({ ok: false, output }));
-    });
+    return runCapturedCommand(cmd, args, this.#cwd, idleMs);
   }
 
   /**
@@ -742,8 +797,9 @@ export class DevSupervisor {
   #runBin(
     bin: string,
     args: readonly string[],
+    idleMs?: number,
   ): Promise<{ ok: boolean; output: string }> {
-    return this.#runCaptured(...this.#binCommand(bin, args));
+    return this.#runCaptured(...this.#binCommand(bin, args), idleMs);
   }
 
   /** Déverse la sortie d'un build qui a échoué (après avoir figé le spinner). */
