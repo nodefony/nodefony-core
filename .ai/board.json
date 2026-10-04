@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T12:03:16.675Z",
+  "generatedAt": "2026-10-04T13:19:57.673Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 74,
+      "closed": 75,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 38,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -1631,8 +1631,8 @@
       "number": 529,
       "title": "chore(scripts): ranger scripts/ par nature et documenter chaque script",
       "url": "https://github.com/nodefony/nodefony-core/issues/529",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -7468,6 +7468,38 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 910,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 533,
+      "title": "feat(cli): rendre le démarrage clair pour l'humain et pour l'IA",
+      "url": "https://github.com/nodefony/nodefony-core/issues/533",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 911,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 532,
+      "title": "chore(scripts): fiabiliser et alléger l'outillage du dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/532",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 912,
       "debut": null,
       "cible": null,
       "labels": [
