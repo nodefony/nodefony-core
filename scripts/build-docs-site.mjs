@@ -47,9 +47,9 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import MarkdownIt from "markdown-it";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
 // Le module est consommé par sa SURFACE PUBLIÉE, pas par ses sources : ce
 // générateur voit exactement ce que voit une application qui l'installe. En
@@ -82,7 +82,6 @@ import { NODEFONY_BRAND } from "../.claude/skills/nodefony-html-report/lib/brand
 import { slugifyHeading } from "../.claude/skills/nodefony-documentation/lib/slug-heading.mjs";
 import { sansBalises } from "./lib/html-text.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;

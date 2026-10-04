@@ -34,8 +34,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
 /** Au-delà, le verrou ne compte plus : aucune passe ne dure autant, un pid si. */
 export const MAX_AGE_MS = 4 * 60 * 60 * 1000;

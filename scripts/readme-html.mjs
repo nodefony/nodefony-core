@@ -36,9 +36,8 @@ import MarkdownIt from "markdown-it";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 import { sansBalises } from "./lib/html-text.mjs";
 import { join, resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = process.argv[2] ?? join(ROOT, "readme.html");
 
 /* ── Collecte : le dépôt se décrit lui-même ───────────────────────────────── */

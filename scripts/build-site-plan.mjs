@@ -26,16 +26,12 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   minimalAppDependencies,
   APP_TEMPLATE_HREF,
 } from "./lib/app-template-deps.mjs";
+import { REPO_ROOT } from "./lib/repo-root.mjs";
 
-const REPO_ROOT = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-);
 const DEFAULT_BASE = "https://nodefony.github.io/nodefony-core";
 
 /**

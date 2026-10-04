@@ -37,8 +37,8 @@
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
 const CORE = path.join(
   ROOT,
   "src/nodefony/dist/node/kernel/checks/packageDeps.js",

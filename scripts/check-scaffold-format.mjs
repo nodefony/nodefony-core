@@ -35,9 +35,8 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PRETTIER = path.join(ROOT, "node_modules", ".bin", "prettier");
 const KEEP = process.argv.includes("--keep");
 const SHOW_DIFF = process.argv.includes("--diff");

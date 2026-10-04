@@ -22,9 +22,8 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FRONTENDS = ["react", "vue", "angular", "svelte"];
 // Les contrôles STATIQUES de `npm run verify` : ce que le gabarit décide seul.
 // Tests, build et doctor exigent un serveur et une base — c'est le banc de

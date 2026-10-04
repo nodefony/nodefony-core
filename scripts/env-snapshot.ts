@@ -44,7 +44,6 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { BENCH_DECOR, type IEnvDeclaration } from "./env-catalog";
 import {
   OPT_IN_SWITCHES,
@@ -60,8 +59,7 @@ import {
   gateEnv,
   type EnvGate,
 } from "../vitest.gates";
-
-const ROOT = path.resolve(fileURLToPath(import.meta.url), "..", "..");
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
 /** Dossiers balayés — les seuls qui portent du code exécuté. */
 const SCANNED = ["src", "scripts"];

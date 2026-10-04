@@ -30,9 +30,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { globSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PRETTIER = path.join(ROOT, "node_modules", ".bin", "prettier");
 const CHECK = process.argv.includes("--check");
 

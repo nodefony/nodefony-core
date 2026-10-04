@@ -35,8 +35,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { holder, refusal } from "./long-run-lock.mjs";
-
-const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
 /** Racine de l'atelier jetable. */
 export const TMP_DIR = path.join(ROOT, "tmp");

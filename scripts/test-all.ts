@@ -45,8 +45,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { needsShell } from "nodefony";
 import { existsSync, readdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { containerHealthy } from "./lib/docker.ts";
 import { resetMongoDatabase } from "./lib/mongoReset.ts";
 import { acquire, holder, refusal, release } from "./long-run-lock.mjs";
@@ -66,8 +65,8 @@ import {
   OPT_IN_SWITCHES,
   type EnvGate,
 } from "../vitest.gates";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // Loki et OpenSearch sont ici pour la même raison que les bases : le cœur
 // DÉCLARE désormais les attendre (`src/nodefony/vitest.config.ts`), donc une
 // passe qui ne les lève pas laisse quatre cas muets et le dit. Les omettre

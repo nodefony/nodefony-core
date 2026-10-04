@@ -31,7 +31,6 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import picomatch from "picomatch";
 import config from "./generate-symbols.config.ts";
 import {
@@ -40,9 +39,7 @@ import {
   publishableWorkspaces,
   publishedModules,
 } from "./lib/symbols-publish.mjs";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "..");
+import { REPO_ROOT as repoRoot } from "./lib/repo-root.mjs";
 
 /**
  * Écrit un fichier d'un geste : contenu posé à côté, puis renommé.

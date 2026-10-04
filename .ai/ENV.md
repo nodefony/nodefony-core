@@ -195,8 +195,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:51` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
 | `NF_DATABASE_URL` | `src/modules/test/nodefony/entity/benchOrm.ts:59` |
-| `NF_DEPS_REGISTRY` | `scripts/check-deps-latest.mjs:77` |
-| `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:74` |
+| `NF_DEPS_REGISTRY` | `scripts/check-deps-latest.mjs:75` |
+| `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:73` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:1031` |
 | `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:748` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:209` |
@@ -225,9 +225,9 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:21` |
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:20` |
 | `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:22` |
-| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:87` |
+| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:88` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:616` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
-| `NF_X` | `scripts/env-snapshot.ts:124` |
+| `NF_X` | `scripts/env-snapshot.ts:122` |
 

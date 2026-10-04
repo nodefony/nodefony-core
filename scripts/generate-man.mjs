@@ -22,9 +22,9 @@ import {
   statSync,
 } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CORE = path.join(ROOT, "src", "nodefony");
 const DIST = path.join(CORE, "dist", "node", "index.js");
 const PAGE = path.join(CORE, "man", "nodefony.1");

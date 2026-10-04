@@ -26,7 +26,6 @@ import {
   existsSync,
 } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   doc,
   section,
@@ -39,8 +38,7 @@ import {
   fmt,
   COLORS,
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
-
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
 function arg(nom, defaut) {
   const i = process.argv.indexOf(`--${nom}`);

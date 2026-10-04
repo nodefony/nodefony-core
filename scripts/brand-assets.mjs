@@ -20,11 +20,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { pngToIco } from "../src/nodefony/src/cli/scaffold/brandAssets.ts";
+import { REPO_ROOT as repoRoot } from "./lib/repo-root.mjs";
 
-const repoRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const assetsDir = path.join(repoRoot, "src", "nodefony", "assets");
 const SVG = "nodefony-logo.svg";
 const LOGO_HEIGHT = 256;

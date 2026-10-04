@@ -30,7 +30,6 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { NODEFONY_BRAND } from "../.claude/skills/nodefony-html-report/lib/brand.mjs";
 import {
   couple,
@@ -50,8 +49,8 @@ import {
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
 import MarkdownIt from "markdown-it";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;

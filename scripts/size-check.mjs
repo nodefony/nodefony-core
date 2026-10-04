@@ -26,11 +26,10 @@
  */
 import { readFileSync, existsSync, statSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { rolldown } from "rolldown";
+import { REPO_ROOT as ROOT } from "./lib/repo-root.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BUDGETS = path.join(ROOT, ".size-budgets.json");
 
 /** Les runtimes de vue sont fournis par l'application — jamais dans notre budget. */

@@ -23,10 +23,9 @@
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { REPO_ROOT } from "./lib/repo-root.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const BIN = path.join(HERE, "..", "src", "nodefony", "bin", "nodefony");
+const BIN = path.join(REPO_ROOT, "src", "nodefony", "bin", "nodefony");
 
 const run = spawnSync(
   process.execPath,

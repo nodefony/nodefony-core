@@ -19,12 +19,11 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { describe, it, expect } from "vitest";
 import { verify } from "@node-rs/argon2";
+import { REPO_ROOT as RACINE } from "./lib/repo-root.mjs";
 
-const RACINE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const lire = (rel) => readFileSync(path.join(RACINE, rel), "utf8");
 
 /** La SOURCE unique : la constante que `provisionUsers` sème. */

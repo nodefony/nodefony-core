@@ -14,8 +14,8 @@ import {
   minimalAppDependencies,
   readMinimalAppDependencies,
 } from "./lib/app-template-deps.mjs";
+import { REPO_ROOT as RACINE } from "./lib/repo-root.mjs";
 
-const RACINE = path.resolve(import.meta.dirname, "..");
 const gabarit = fs.readFileSync(path.join(RACINE, APP_TEMPLATE_PATH), "utf8");
 
 describe("dépendances d'une application minimale", () => {

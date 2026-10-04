@@ -56,13 +56,13 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import semver from "semver";
 import {
   dedouble,
   reconcilie,
   plusHauteSatisfaisante,
 } from "./lib/reconcile-versions.mjs";
+import { REPO_ROOT } from "./lib/repo-root.mjs";
 
 // 🔴 Deux points d'injection, et ils n'existent que pour une raison : SANS eux,
 // rien de ce contrôle ne se teste. Le script déduit sa racine de son propre
@@ -70,9 +70,7 @@ import {
 // lâcher sur un dépôt fabriqué, ni le voir ÉCHOUER sur un cas construit. Une
 // garde qu'on n'a jamais vue mordre ne garde rien. Hors test, les deux valeurs
 // sont celles qu'elles ont toujours eues.
-const ROOT =
-  process.env.NF_DEPS_ROOT ??
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = process.env.NF_DEPS_ROOT ?? REPO_ROOT;
 const REGISTRY = (
   process.env.NF_DEPS_REGISTRY ?? "https://registry.npmjs.org"
 ).replace(/\/$/, "");
