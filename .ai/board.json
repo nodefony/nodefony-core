@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T17:34:17.087Z",
+  "generatedAt": "2026-10-04T18:03:36.632Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1632,7 +1632,7 @@
       "title": "feat(cli): modéliser l'écran du serveur de développement sans terminal",
       "url": "https://github.com/nodefony/nodefony-core/issues/535",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -7562,7 +7562,7 @@
       "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
-      "jours": 9,
+      "jours": 9.5,
       "ordre": 913,
       "debut": null,
       "cible": null,
@@ -7587,11 +7587,27 @@
       ]
     },
     {
+      "number": 540,
+      "title": "feat(mcp): publier quels outils lisent et lesquels modifient",
+      "url": "https://github.com/nodefony/nodefony-core/issues/540",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 913.45,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
       "number": 539,
       "title": "feat(cli): brancher un assistant à modèle local sur l'invite",
       "url": "https://github.com/nodefony/nodefony-core/issues/539",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 3,

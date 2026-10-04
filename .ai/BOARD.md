@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-04 17:34** (UTC).
+> Empreinte prise le **2026-10-04 18:03** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -193,7 +193,7 @@ Ordre 3.0001 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · fris
 | 173 | P1 — figé à la création | 11 | — | #492 | feat(tenant): isoler les organisations qui partagent une même application |
 | 174 | P3 — fin de cycle | 3 | — | #503 | feat(mcp): exposer une route annotée comme outil pour les agents |
 
-## Backlog — aucune date promise · 13 ouverts
+## Backlog — aucune date promise · 14 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -207,7 +207,8 @@ Ordre 3.0001 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · fris
 | 909 | P2 — décision | 1 | — | #501 | feat(core): typer la résolution des services par leur nom |
 | 910 | P2 — décision | 1 | — | #504 | feat(runtime): porter l'identité d'une requête dans un traitement différé |
 | 912 | P2 — décision | 2 | — | #532 | chore(scripts): fiabiliser et alléger l'outillage du dépôt |
-| 913 | P3 — fin de cycle | 9 | — | #534 | feat(cli): ajouter barre figée et invite au serveur de développement |
+| 913 | P3 — fin de cycle | 9.5 | — | #534 | feat(cli): ajouter barre figée et invite au serveur de développement |
 | 913.4 | P2 — décision | 2 | — | #538 | feat(cli): ajouter une invite de commandes sous la barre d'état |
+| 913.45 | P2 — décision | 0.5 | — | #540 | feat(mcp): publier quels outils lisent et lesquels modifient |
 | 913.5 | P3 — fin de cycle | 3 | — | #539 | feat(cli): brancher un assistant à modèle local sur l'invite |
 
