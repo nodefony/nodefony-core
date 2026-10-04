@@ -118,6 +118,9 @@ export function encodeTerminalVerdict(size: {
  * @returns le verdict, ou `null`.
  */
 export function parseTerminalVerdict(raw: string): ITerminalVerdict | null {
+  // Un verdict tient en quelques dizaines d'octets : au-delà, ce n'est pas le
+  // superviseur qui l'a écrit, et on ne le parse pas.
+  if (raw.length > 1024) return null;
   let value: unknown;
   try {
     value = JSON.parse(raw);

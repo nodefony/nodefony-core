@@ -24,14 +24,22 @@ export interface IDevResize {
   rows: number;
 }
 
+/** Au-delà, une dimension n'est plus un terminal mais une valeur forgée. */
+const MAX_TERMINAL_DIMENSION = 10_000;
+
 /**
- * Une dimension de terminal valide : entier strictement positif.
+ * Une dimension de terminal valide : entier strictement positif et borné.
  *
  * @param value - la valeur reçue.
  * @returns `true` si c'est un nombre de colonnes ou de lignes exploitable.
  */
 export function isTerminalDimension(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= MAX_TERMINAL_DIMENSION
+  );
 }
 
 /**

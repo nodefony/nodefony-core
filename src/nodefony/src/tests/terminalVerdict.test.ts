@@ -119,6 +119,9 @@ describe("verdict du terminal — lecture pure", () => {
       "{",
       '{"columns":0,"rows":10}',
       '{"columns":80}',
+      '{"columns":1.5,"rows":10}',
+      '{"columns":100000,"rows":10}',
+      `{"columns":80,"rows":24,"pad":"${"x".repeat(2000)}"}`,
     ]) {
       assert.strictEqual(parseTerminalVerdict(raw), null, raw);
     }
