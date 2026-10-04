@@ -133,6 +133,19 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
   plein écran, #534.
   Symboles par `SCREEN_SYMBOLS[resolveBrandCharset(...)]` (règle du logo) : ASCII sur console
   Windows classique (ni ✓⚠ℹ⬢↻➜ ni braille du spinner).
+- Modèle d'écran PUR (ADR-0013 §3, sans terminal, tout testable) : `runtime/textWidth.ts`
+  (`visibleWidth` en COLONNES — graphèmes `Intl.Segmenter`, East Asian Width, émoji 2, combinant
+  0, contrôles 0 ; `fitToWidth`, `wrapToWidth` qui referme/rouvre la couleur ; SEULE règle de
+  largeur, `fitStatus` s'en sert) · `runtime/CircularBuffer.ts` (seul anneau : `at(i)`/`shift()`
+  O(1)) · `service/dev/devTranscript.ts` (`DevTranscript` : lignes par couple source/flux,
+  découpe sur `Buffer` + `StringDecoder`, `\r` repart de zéro, 10 000 entrées ET 8 Mio, 16 Kio
+  par entrée ; `ESC[2J` → `onClear` ; `sanitizeTerminalText` garde SGR/EL/OSC 8
+  http·https·file) · `inputDecoder.ts` (`InputDecoder.feed` → `InputEvent[]`, toutes touches,
+  collage = UN évènement tronqué au 1ᵉʳ `ESC[201~`, `flush()` après `ESCAPE_TIMEOUT_MS`) ·
+  `devFrame.ts` (`renderFrame` → `rows` lignes ≤ `columns-1`, fenêtre ancrée `{seq, below}`,
+  `FrameHeights` par largeur, `diffFrame`) · `terminalCapability.ts` (`ITerminalVerdict`,
+  `NF_DEV_TERMINAL` relu PUR et tout-ou-rien, `TERMINAL_PROBE` = DECRQM 2026 puis position du
+  curseur, sentinelle). Non exportés du barrel : le superviseur les importe en relatif.
   Rechargement : `NF_DEV_RELOAD=<n>` (`reloadCount`) posé par `DevSupervisor.#restart` → ligne
   `↻ Rechargé` + diff contre le `last-boot.json` précédent (`diffReload`), processus non relevés.
   Build de démarrage en échec → `NF_DEV_BUILD_ISSUE` → point `DEV_BUILD_INCOMPLETE` (survit à
