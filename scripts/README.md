@@ -37,6 +37,13 @@ Copie publiée du graphe symbolique — module d'un fichier, modules publiés,
 
 - **Lancé par** : `node.js.yml` · `npm run test:tooling`
 
+### [`workspaces.mjs`](lib/workspaces.mjs)
+
+Les workspaces du dépôt, résolus par npm — seule implémentation pour scripts/.
+
+- **Usage** : `import { publishableWorkspaces, listWorkspaces } from "../lib/workspaces.mjs"`
+- **Appelé par** : `lib/symbols-publish.mjs` · `release/api-diff.mjs` · `release/pack-all.mjs` · `release/readme-gate.mjs` · `release/release.mjs` · `release/types-rigor.mjs` · `test/coverage-all.ts`
+
 ## `gates/`
 
 Gardes de commit et de forge : chacune refuse un état précis du dépôt.

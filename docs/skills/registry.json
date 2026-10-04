@@ -85,6 +85,27 @@
       "testedBy": []
     },
     {
+      "path": "scripts/lib/workspaces.mjs",
+      "test": false,
+      "purpose": "Les workspaces du dépôt, résolus par npm — seule implémentation pour scripts/.",
+      "usage": [
+        "import { publishableWorkspaces, listWorkspaces } from \"../lib/workspaces.mjs\""
+      ],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "scripts/lib/symbols-publish.mjs",
+        "scripts/release/api-diff.mjs",
+        "scripts/release/pack-all.mjs",
+        "scripts/release/readme-gate.mjs",
+        "scripts/release/release.mjs",
+        "scripts/release/types-rigor.mjs",
+        "scripts/test/coverage-all.ts"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/gates/check-externals.mjs",
       "test": false,
       "purpose": "Audit de la dérive `external` ⇄ manifeste, sur TOUT le dépôt — core, packages ET modules.",
