@@ -144,7 +144,7 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     Bloc côté serveur (`StatusLine`, `--no-watch`) retiré sur SIGTERM/SIGINT/SIGHUP
     (`prependOnceListener`), `onTerminate` et `exit` en filets ; `release()` idempotent. Le
     défilement emporte la barre inline : barre figée pendant le défilement = plein écran (#537).
-    Écran JUGÉ rendu : `tests/devScreen.test.ts` (lot `test:boot`) — pseudo-terminal = commande
+    Écran JUGÉ rendu : `tests/CliIntegration.test.ts`, bloc « écran de développement sous pseudo-terminal » (lot `test:boot` ; tout boot RÉEL de l'app du dépôt dans CE fichier : vitest parallélise les fichiers) — pseudo-terminal = commande
     `script` (util-linux/BSD, constatée ; entrée via `cat |` : BSD refuse un socket), rendu =
     `@xterm/headless` (devDependency). Capacité `pty` dans les gates ; Windows l'énonce.
     Symboles par `SCREEN_SYMBOLS[resolveBrandCharset(...)]` (règle du logo) : ASCII sur console

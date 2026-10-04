@@ -686,7 +686,7 @@ jobs:
   # attendent leur arrêt propre : c'est précisément le code le plus dépendant du
   # système (signaux, groupes de processus, libération des ports).
   #
-  # macOS y est pour l'ÉCRAN de développement (`devScreen.test.ts`) : il se juge
+  # macOS y est pour l'ÉCRAN de développement (`CliIntegration.test.ts`, bloc « sous pseudo-terminal ») : il se juge
   # sous un pseudo-terminal fourni par `script`, dont macOS a la grammaire BSD
   # et Linux celle d'util-linux — deux outils différents, donc deux preuves.
   test-cli:
