@@ -110,6 +110,10 @@ rouge chez tout installeur). Ne pas le réintroduire.
 
 - **Stratégies** (`certificates.strategy`) : `auto` (défaut : mkcert si dispo en dev → CA trustée HMR,
   sinon `selfsigned`) | `mkcert` | `selfsigned` | `explicit` (`key`/`cert`/`ca` fournis).
+- **Confiance SORTANTE en dev** : CA générée/relue → `addDefaultCaCertificate` (`tls.setDefaultCACertificates`,
+  capacité CONSTATÉE, Node ≥ 24.5, sinon WARNING + `NODE_EXTRA_CA_CERTS=<caPath>`). Rend joignable un
+  service qui sert le cert de l'app (Keycloak, auto-vérif MCP) depuis `nodefony development` nu. Jamais
+  en prod ni pour `explicit`. Le gate séquentiel `onBoot` (http avant security) la pose AVANT la sonde OIDC.
 - **Conformité auto-signé** : SHA-256 (jamais SHA-1 ; `allowedHash` ramène toute valeur hors contrat
   à SHA-256), serial **`crypto.randomBytes(16)`** 128 bits (RFC 5280 §4.1.2.2, ≠ `01` fixe),
   privkey **0600** + dossier 0700, `notBefore` backdaté (`backdateMinutes`), **SKI** (RFC 5280 §4.2.1.2),

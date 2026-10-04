@@ -189,6 +189,23 @@ describe("discoverAuthorizationServer", () => {
     );
   });
 
+  // `fetch` ne dit que « fetch failed » : la raison (certificat refusé, connexion
+  // refusée) vit dans `cause`. La taire envoyait chercher un émetteur absent
+  // quand c'était la confiance TLS qui manquait.
+  it("un échec de transport NOMME sa cause (code et message)", async () => {
+    const fetch = (async () => {
+      const cause = Object.assign(
+        new Error("self-signed certificate in certificate chain"),
+        { code: "SELF_SIGNED_CERT_IN_CHAIN" },
+      );
+      throw new TypeError("fetch failed", { cause });
+    }) as typeof globalThis.fetch;
+    await assert.rejects(
+      () => discoverAuthorizationServer(ISSUER, { fetch }),
+      /fetch failed \(SELF_SIGNED_CERT_IN_CHAIN : self-signed certificate/,
+    );
+  });
+
   it("émetteur en clair ou porteur d'une requête → refus (RFC 8414 §2, règle du cœur)", async () => {
     const { fetch } = serve({});
     await assert.rejects(

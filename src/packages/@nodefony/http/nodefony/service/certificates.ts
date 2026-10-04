@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path, { resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import tls from "node:tls";
 import {
   generateKeyPair,
   randomBytes,
@@ -22,6 +23,58 @@ import {
 
 const execFileAsync = promisify(execFile);
 const generateKeyPairAsync = promisify(generateKeyPair);
+
+/**
+ * Accès à la liste d'ancres TLS par défaut du processus — injectable pour
+ * éprouver la décision sans toucher la confiance du processus de test.
+ */
+export interface ITlsTrustStore {
+  getCACertificates?: (type?: "default") => string[];
+  setDefaultCACertificates?: (certs: ReadonlyArray<string>) => void;
+}
+
+/** Issue de {@link addDefaultCaCertificate}, CONSTATÉE à l'exécution. */
+export type CaTrustVerdict = "added" | "present" | "unsupported";
+
+/** Compare deux PEM sans dépendre des fins de ligne ni des espaces. */
+function normalizePem(pem: string): string {
+  return pem.replace(/\s+/g, "");
+}
+
+/**
+ * Ajoute une autorité aux ancres TLS par défaut du processus (requêtes sortantes
+ * `fetch`, `https`, `tls.connect`), sans en retirer aucune.
+ *
+ * C'est l'équivalent en cours d'exécution de `NODE_EXTRA_CA_CERTS`, qui n'est lu
+ * qu'au lancement du processus — trop tôt pour une CA que le boot vient de
+ * générer, et que seul un script de banc posait. La capacité se CONSTATE
+ * (`tls.setDefaultCACertificates` n'existe qu'à partir de Node 24.5), elle ne se
+ * déduit pas d'un numéro de version. Idempotent : une autorité déjà présente
+ * n'est pas ajoutée deux fois.
+ *
+ * @param pem - autorité au format PEM.
+ * @param store - accès aux ancres ; `node:tls` par défaut.
+ * @returns `added`, `present` (déjà de confiance), ou `unsupported`.
+ */
+export function addDefaultCaCertificate(
+  pem: string,
+  store: ITlsTrustStore = tls,
+): CaTrustVerdict {
+  const { getCACertificates, setDefaultCACertificates } = store;
+  if (
+    typeof getCACertificates !== "function" ||
+    typeof setDefaultCACertificates !== "function"
+  ) {
+    return "unsupported";
+  }
+  const current = getCACertificates("default");
+  const wanted = normalizePem(pem);
+  if (current.some((c) => normalizePem(c) === wanted)) {
+    return "present";
+  }
+  setDefaultCACertificates([...current, pem]);
+  return "added";
+}
 
 /** Paire de clés RSA du certificat auto-signé. */
 export interface IRsaKeyPair {
@@ -331,7 +384,9 @@ class Certificate extends Service {
 
     const anyFileExists = await this.checkCertificates();
     if (anyFileExists && !force && (await this.isCertAdequate(strategy))) {
-      return this.readCerticates();
+      await this.readCerticates();
+      this.trustDevelopmentAuthority();
+      return this;
     }
 
     if (strategy === "mkcert") {
@@ -352,7 +407,41 @@ class Certificate extends Service {
       await this.writeCertificates(true);
       await fs.writeFile(this.caPath, certPem.toString(), "utf8");
     }
-    return this.readCerticates();
+    await this.readCerticates();
+    this.trustDevelopmentAuthority();
+    return this;
+  }
+
+  /**
+   * En développement, fait confiance à la CA que Nodefony vient de générer ou de
+   * relire, pour les requêtes SORTANTES du processus.
+   *
+   * Sans elle, un service du décor qui sert le certificat de l'application
+   * (Keycloak, l'auto-vérification d'un jeton MCP) est injoignable depuis
+   * `nodefony development` — `fetch failed` / `SELF_SIGNED_CERT_IN_CHAIN` — alors
+   * que `curl -k` répond : la confiance n'existait que sous le script de banc.
+   * Réservé au DÉVELOPPEMENT et aux certificats que Nodefony fabrique : un
+   * certificat `explicit` (production) n'élargit jamais la confiance du processus.
+   */
+  private trustDevelopmentAuthority(): void {
+    if (!this.isDev() || !this.ca || this.ca.length === 0) {
+      return;
+    }
+    const verdict = addDefaultCaCertificate(this.ca.toString());
+    if (verdict === "added") {
+      this.log(
+        `CA de développement ajoutée aux ancres TLS du processus (${this.caPath})`,
+        "DEBUG",
+      );
+    } else if (verdict === "unsupported") {
+      this.log(
+        "Ce Node ne sait pas élargir ses ancres TLS en cours d'exécution " +
+          "(tls.setDefaultCACertificates, Node ≥ 24.5) : les requêtes sortantes " +
+          "vers un service qui sert le certificat de développement échoueront. " +
+          `Relancer avec NODE_EXTRA_CA_CERTS=${this.caPath}`,
+        "WARNING",
+      );
+    }
   }
 
   /**

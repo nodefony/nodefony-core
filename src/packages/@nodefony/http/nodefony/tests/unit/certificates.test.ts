@@ -7,7 +7,11 @@ import os from "node:os";
 import path from "node:path";
 import tls from "node:tls";
 import type { AddressInfo } from "node:net";
-import Certificate, { type IRsaKeyPair } from "../../service/certificates.js";
+import Certificate, {
+  addDefaultCaCertificate,
+  type IRsaKeyPair,
+  type ITlsTrustStore,
+} from "../../service/certificates.js";
 import {
   createSelfSignedCertificate,
   ipAddressBytes,
@@ -419,5 +423,105 @@ describe("certificates — on ne fabrique QUE ce dont un serveur TLS a besoin", 
     const c = certAvecServeurs({ https: { port: 5152 } });
     await c.init();
     expect(hooksDe(c)).to.deep.equal(["onBoot"]);
+  });
+});
+
+describe("certificates — la CA de développement devient une ancre du processus", () => {
+  /** Ancres simulées : la confiance RÉELLE du processus de test reste intacte. */
+  function fakeStore(initial: string[]): ITlsTrustStore & { list: string[] } {
+    const store = {
+      list: [...initial],
+      getCACertificates: () => [...store.list],
+      setDefaultCACertificates: (certs: ReadonlyArray<string>) => {
+        store.list = [...certs];
+      },
+    };
+    return store;
+  }
+
+  it("ajoute l'autorité SANS retirer les ancres existantes", () => {
+    const store = fakeStore(["A", "B"]);
+    expect(addDefaultCaCertificate("NOUVELLE", store)).to.equal("added");
+    expect(store.list).to.deep.equal(["A", "B", "NOUVELLE"]);
+  });
+
+  it("idempotent : une autorité déjà présente n'est pas dupliquée (fins de ligne ignorées)", () => {
+    const store = fakeStore(["-----BEGIN-----\nabc\n-----END-----\n"]);
+    expect(
+      addDefaultCaCertificate("-----BEGIN-----\r\nabc\r\n-----END-----", store),
+    ).to.equal("present");
+    expect(store.list).to.have.length(1);
+  });
+
+  it("capacité absente (Node < 24.5) → verdict `unsupported`, rien n'est touché", () => {
+    expect(addDefaultCaCertificate("X", {})).to.equal("unsupported");
+  });
+
+  /** Génère dans un dossier jetable, sous l'environnement demandé, et dit si la CA est devenue une ancre. */
+  async function trustedAfterBoot(environment: string): Promise<boolean> {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-cert-"));
+    const before = tls.getCACertificates("default");
+    try {
+      const c = makeCert({ strategy: "selfsigned", dev: { useMkcert: false } });
+      (c as unknown as { kernel: unknown }).kernel = { environment };
+      setPaths(c, dir);
+      await c.generateServerCertificates();
+      const ca = (await fs.readFile(c.caPath, "utf8")).replace(/\s+/g, "");
+      return tls
+        .getCACertificates("default")
+        .some((pem) => pem.replace(/\s+/g, "") === ca);
+    } finally {
+      tls.setDefaultCACertificates(before);
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("en DÉVELOPPEMENT, le service pose la CA générée parmi les ancres du processus", async () => {
+    expect(await trustedAfterBoot("development")).to.equal(true);
+  });
+
+  // Le pendant : un serveur de production n'élargit JAMAIS sa confiance à un
+  // certificat qu'il a fabriqué lui-même.
+  it("en PRODUCTION, la confiance du processus reste intacte", async () => {
+    expect(await trustedAfterBoot("production")).to.equal(false);
+  });
+
+  // La preuve qui compte : un VRAI `fetch`, contrôle TLS actif, refuse le serveur
+  // auto-signé puis l'accepte une fois l'autorité ajoutée — exactement le cas
+  // d'un Keycloak qui sert le certificat de l'application.
+  it("rend joignable par `fetch` un serveur qui sert le certificat de développement", async () => {
+    const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
+    const keys = await c.generateKeys();
+    c.keysPair = keys;
+    const pem = (await c.createCertificate()).toString();
+    const https = await import("node:https");
+    const server = https.createServer(
+      {
+        key: keys.privateKey.export({ type: "pkcs1", format: "pem" }),
+        cert: pem,
+      },
+      (_req, res) => res.end("ok"),
+    );
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const before = tls.getCACertificates("default");
+    try {
+      const { port } = server.address() as AddressInfo;
+      const url = `https://localhost:${port}/`;
+      const refused = await fetch(url).then(
+        () => null,
+        (e: unknown) => (e as { cause?: { code?: string } }).cause?.code ?? "?",
+      );
+      expect(refused).to.equal("DEPTH_ZERO_SELF_SIGNED_CERT");
+      expect(addDefaultCaCertificate(pem)).to.equal("added");
+      // Nouvelle connexion : undici garde les sockets ouvertes, l'en-tête
+      // `connection: close` évite qu'un échec précédent soit réutilisé.
+      const res = await fetch(url, { headers: { connection: "close" } });
+      expect(await res.text()).to.equal("ok");
+    } finally {
+      tls.setDefaultCACertificates(before);
+      await new Promise((resolve) => server.close(resolve));
+    }
   });
 });

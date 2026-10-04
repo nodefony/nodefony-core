@@ -83,6 +83,26 @@ export interface IDiscoveryOptions {
   readonly timeoutMs?: number;
 }
 
+/**
+ * Rend un échec de transport LISIBLE : `fetch` (undici) ne dit que
+ * `fetch failed` et range la vraie raison dans `cause` — certificat refusé,
+ * connexion refusée, nom introuvable. Sans elle, « métadonnées introuvables »
+ * envoie chercher un émetteur absent quand c'est la confiance TLS qui manque.
+ */
+function describeTransportFailure(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+  const cause: unknown = error.cause;
+  if (!(cause instanceof Error)) {
+    return error.message;
+  }
+  const code = (cause as { code?: unknown }).code;
+  return typeof code === "string"
+    ? `${error.message} (${code} : ${cause.message})`
+    : `${error.message} (${cause.message})`;
+}
+
 async function fetchMetadataDocument(
   url: string,
   options: IDiscoveryOptions,
@@ -168,7 +188,7 @@ export async function discoverAuthorizationServer(
     try {
       document = await fetchMetadataDocument(candidate, options);
     } catch (error) {
-      failures.push(error instanceof Error ? error.message : String(error));
+      failures.push(describeTransportFailure(error));
       continue;
     }
     // Le document a répondu : à partir d'ici toute anomalie est FATALE — se
