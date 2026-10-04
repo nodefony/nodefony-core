@@ -23,9 +23,14 @@
  */
 import type { ChildProcess } from "node:child_process";
 import type { IStartupView, IStatusContext } from "./startupScreen";
+import {
+  DEV_CHANNEL,
+  isDevResize,
+  isTerminalDimension,
+  type IDevResize,
+} from "./devChannelBase";
 
-/** Le discriminant du canal. */
-export const DEV_CHANNEL = "nf-dev";
+export { DEV_CHANNEL, isTerminalDimension, type IDevResize };
 
 /**
  * Serveur → superviseur : le bilan du serveur prêt, de quoi dessiner la barre
@@ -38,18 +43,6 @@ export interface IDevStatusView {
   type: "status-view";
   view: IStartupView;
   context: IStatusContext;
-}
-
-/**
- * Superviseur → serveur : le terminal a changé de taille. Le serveur écrit
- * dans un tube et ne reçoit pas `SIGWINCH` : la porte (`terminalSize`, dans
- * `runtime/isTerminal.ts`) prend ces dimensions pour les siennes.
- */
-export interface IDevResize {
-  channel: typeof DEV_CHANNEL;
-  type: "resize";
-  columns: number;
-  rows: number;
 }
 
 /** Tout ce qui peut transiter sur le canal. */
@@ -76,16 +69,13 @@ export function isDevChannelMessage(
     type?: unknown;
     view?: unknown;
     context?: unknown;
-    columns?: unknown;
-    rows?: unknown;
   };
   if (m.channel !== DEV_CHANNEL || typeof m.type !== "string") return false;
   if (!KNOWN_TYPES.has(m.type)) return false;
   if (m.type === "status-view") {
     return isStatusView(m.view) && isStatusContext(m.context);
   }
-  if (m.type === "resize")
-    return isTerminalDimension(m.columns) && isTerminalDimension(m.rows);
+  if (m.type === "resize") return isDevResize(message);
   return true;
 }
 
@@ -113,17 +103,6 @@ function isStatusContext(value: unknown): value is IStatusContext {
     typeof c.readyAt === "string" &&
     typeof c.reloads === "number"
   );
-}
-
-/**
- * Une dimension de terminal valide : entier strictement positif. Partagée
- * avec la porte (`runtime/isTerminal.ts`), qui valide le verdict transmis.
- *
- * @param value - la valeur reçue.
- * @returns `true` si c'est un nombre de colonnes ou de lignes exploitable.
- */
-export function isTerminalDimension(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 /**

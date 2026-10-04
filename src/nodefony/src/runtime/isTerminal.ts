@@ -25,9 +25,9 @@
  * module (le bundle navigateur importe le journal, qui consulte la porte).
  */
 import {
-  isDevChannelMessage,
+  isDevResize,
   isTerminalDimension,
-} from "../service/dev/devChannel";
+} from "../service/dev/devChannelBase";
 
 /**
  * Variable posée par le superviseur de développement sur le serveur qu'il
@@ -139,7 +139,7 @@ function listenToRelayedResize(
 ): void {
   if (typeof proc.send !== "function") return;
   proc.on("message", (message: unknown) => {
-    if (!isDevChannelMessage(message) || message.type !== "resize") return;
+    if (!isDevResize(message)) return;
     current.columns = message.columns;
     current.rows = message.rows;
     if (resizeListeners === null) return;
