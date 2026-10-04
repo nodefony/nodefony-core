@@ -2,7 +2,7 @@
  * Verrou « un run long occupe l'arbre » — tenu, libéré, orphelin, et la CLI
  * qu'appelle le pre-commit.
  */
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterAll, afterEach } from "vitest";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import os from "node:os";
@@ -25,6 +25,8 @@ const CLI = path.join(
 );
 
 afterEach(() => rmSync(file, { force: true }));
+// Le dossier lui-même est le jetable de ce fichier : il restait à chaque passe.
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("long-run-lock", () => {
   it("libre tant que personne ne l'a posé", () => {
