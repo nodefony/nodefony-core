@@ -45,6 +45,8 @@ function moduleFactice(options: object = {}) {
     },
     fire: noop,
     reportBootLine: noop,
+    setBootLines: noop,
+    reportBootNotice: noop,
   });
   const module = {
     kernel: container.get("kernel"),

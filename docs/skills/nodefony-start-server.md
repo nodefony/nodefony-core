@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-start-server/SKILL.md"
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
 | Corps | 270 lignes |
-| Coût d'activation | ~4 538 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~4 566 tokens (le corps est chargé à l'invocation) |
 | Description | 525 / 1024 caractères |
 | Déclencheurs | 5 |
 | Ressources `references/` | 0 page(s) |

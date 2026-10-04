@@ -115,6 +115,7 @@ describe("migrations — le connecteur secondaire ne reçoit que les siennes", (
       runProfile: { ...CONSOLE_DATA_RUN_PROFILE },
       once: (): void => {},
       resolveRuntimeEnv: (): string => "development",
+      reportBootNotice: (): void => {},
       setReadiness: (): void => {},
     };
     container.set("kernel", kernel);
@@ -199,6 +200,7 @@ describe("migrations — le connecteur secondaire ne reçoit que les siennes", (
         runProfile: { ...CONSOLE_DATA_RUN_PROFILE },
         once: (): void => {},
         resolveRuntimeEnv: (): string => "development",
+        reportBootNotice: (): void => {},
         setReadiness: (): void => {},
       };
       container.set("kernel", kernel);

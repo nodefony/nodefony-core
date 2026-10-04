@@ -49,6 +49,7 @@ function decor(profil: IRunProfile): {
     runProfile: profil,
     once: (): void => {},
     resolveRuntimeEnv: (): string => "development",
+    reportBootNotice: (): void => {},
   };
   container.set("kernel", kernel);
   const module = {

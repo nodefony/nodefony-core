@@ -1,167 +1,53 @@
 import readline from "node:readline";
+import { stripVTControlCharacters } from "node:util";
 import type Kernel from "../../kernel/Kernel";
-import type { IBootReport, IBootFailure } from "../../kernel/bootReport";
-import Syslog from "../../syslog/Syslog";
+import Syslog, { STDERR_LOG_SINK } from "../../syslog/Syslog";
+import { readLastBoot, type ILastBoot } from "../../kernel/checks/lastBoot";
+import { shouldColorize } from "../../kernel/checks/report";
 import {
   discoverDevProcesses,
   splitByProject,
   type DevProcessInfo,
 } from "./devProcess";
-import { renderProcessTable } from "./devStatusReport";
-import type { IReadinessContributor } from "../../kernel/readinessRegistry";
-
-/**
- * Vue minimale d'une zone du firewall (`firewall.describe().zones`), résolue
- * par duck-typing — le core n'importe jamais @nodefony/security.
- */
-export interface FirewallZoneView {
-  readonly name: string;
-  readonly pattern: string;
-  readonly security?: boolean;
-  readonly authenticators?: ReadonlyArray<string>;
-  readonly allowsAnonymous?: boolean;
-}
-
-/**
- * Pattern de zone LISIBLE : `describe()` remonte `RegExp.source`, où V8 échappe
- * les slashes (`^\/nodefony\/…`) — on dé-échappe pour l'affichage ET pour le
- * classement par namespace (un `startsWith("^/nodefony")` sur la source brute
- * ne matcherait jamais — bug vécu au premier boot réel).
- */
-export function cleanZonePattern(pattern: string): string {
-  return pattern.replace(/\\\//g, "/");
-}
-
-/**
- * `true` si la zone vit dans le namespace réservé `/nodefony` → déclarée par
- * `@nodefony/framework` (les aires data plane admin). L'inférence par pattern
- * est fiable PAR CONVENTION : le routage `/nodefony` est réservé au framework
- * (règle figée), aucune app/module tiers n'y monte d'aire.
- */
-export function isFrameworkZone(z: FirewallZoneView): boolean {
-  return cleanZonePattern(z.pattern).startsWith("^/nodefony");
-}
-
-/**
- * Tableau ANSI des zones firewall (ZONE/MODULE/PATTERN/AUTH/ACCÈS) — même
- * gabarit que le tableau process du bilan (`renderProcessTable`). MODULE = qui
- * déclare l'aire (`framework` pour le data plane `/nodefony`, `app` pour les
- * zones du `nodefony.config.ts`). ACCÈS résume la politique effective :
- * `public` (security:false), `anonyme OK` (authenticator anonymous dans la
- * chaîne — jamais bloquant, identité résolue si présente) ou `protégé`
- * (preuve exigée, 401 sinon). Zones applicatives en vert, aires framework en dim.
- */
-export function renderZoneTable(
-  lines: string[],
-  zones: ReadonlyArray<FirewallZoneView>,
-  indent: string = "  ",
-): void {
-  const moduleOf = (z: FirewallZoneView): string =>
-    isFrameworkZone(z) ? "framework" : "app";
-  const authOf = (z: FirewallZoneView): string =>
-    (z.authenticators ?? []).join(", ") || "—";
-  const nameW = Math.max(4, ...zones.map((z) => z.name.length));
-  const modW = Math.max(6, ...zones.map((z) => moduleOf(z).length));
-  const patW = Math.max(
-    7,
-    ...zones.map((z) => cleanZonePattern(z.pattern).length),
-  );
-  const authW = Math.max(4, ...zones.map((z) => authOf(z).length));
-  const GREEN = "\x1b[32m";
-  const YELLOW = "\x1b[33m";
-  const DIM = "\x1b[2m";
-  const RESET = "\x1b[0m";
-  lines.push(
-    `${DIM}${indent}${"ZONE".padEnd(nameW)}  ${"MODULE".padEnd(modW)}  ${"PATTERN".padEnd(patW)}  ${"AUTH".padEnd(authW)}  ACCÈS${RESET}`,
-    `${DIM}${indent}${"─".repeat(nameW + modW + patW + authW + 13)}${RESET}`,
-  );
-  for (const z of zones) {
-    const framework = isFrameworkZone(z);
-    const access =
-      z.security === false
-        ? `${YELLOW}public${RESET}`
-        : z.allowsAnonymous || (z.authenticators ?? []).includes("anonymous")
-          ? `anonyme OK`
-          : `${GREEN}protégé${RESET}`;
-    const color = framework ? DIM : GREEN;
-    lines.push(
-      `${indent}${color}${z.name.padEnd(nameW)}${RESET}  ` +
-        `${DIM}${moduleOf(z).padEnd(modW)}${RESET}  ` +
-        `${cleanZonePattern(z.pattern).padEnd(patW)}  ` +
-        `${DIM}${authOf(z).padEnd(authW)}${RESET}  ${access}`,
-    );
-  }
-}
+import type { IFirewallZoneView } from "./firewallZones";
+import {
+  CLEAR_SCREEN,
+  reloadCount,
+  type StartupOutputMode,
+} from "./outputMode";
+import { brandMark, resolveBrandCharset } from "../../cli/brand";
+import { StatusLine } from "./statusLine";
+import {
+  DEV_CHANNEL,
+  listenToSupervisor,
+  sendToSupervisor,
+} from "./devChannel";
+import {
+  buildStartupView,
+  diffReload,
+  formatSeconds,
+  renderReloadHuman,
+  renderReloadPlain,
+  renderStartupHuman,
+  renderStartupPlain,
+  renderStatusBlock,
+  renderStatusLine,
+  SCREEN_SYMBOLS,
+  supportsHyperlinks,
+  type IScreenSymbols,
+  type ScreenCharset,
+  type IStartupView,
+} from "./startupScreen";
 
 /** Frames braille du spinner (rotation fluide, 10 étapes). */
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
+/** Spinner ASCII — la console Windows classique n'a pas le braille. */
+const ASCII_FRAMES = ["|", "/", "-", "\\"] as const;
 const GREEN = "\x1b[32m";
 const RED = "\x1b[31m";
-const YELLOW = "\x1b[33m";
 const CYAN = "\x1b[36m";
 const DIM = "\x1b[2m";
-const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
-
-/**
- * Compose le bloc « Attente » du bilan : ce qui n'est PAS prêt, nommé, avec le
- * geste qui le lèverait.
- *
- * 🔴 Le silence ici a déjà coûté une base de développement. Un schéma en retard
- * produit un WARNING que le bilan RÉSUME (« 1 WARNING, détail : --debug ») sans
- * jamais le nommer, pendant que l'écran conclut « Prêt » : mesuré sur un agent
- * qui, faute de ce signal, a lu « colonne inconnue », en a déduit une base
- * incohérente et l'a SUPPRIMÉE — trois comptes perdus. Le compte d'un journal
- * n'est pas un diagnostic.
- *
- * Rien n'est recalculé : le verdict de chaque contributeur est déjà posé
- * ({@link Kernel.setReadiness}), et c'est exactement celui que sert `/readyz`.
- * Générique par construction — un cache froid ou un service tiers muet
- * s'affiche ici sans une ligne de plus.
- *
- * **Muet quand tout est prêt** : un bandeau qui parle sur le cas normal
- * s'apprend à être ignoré, et c'est le cas normal qui domine.
- *
- * Fonction PURE pour être éprouvable sans démarrer un noyau ni capturer une
- * sortie standard.
- *
- * @param contributors - l'état de chaque contributeur ({@link Kernel.readinessReport}).
- * @returns les lignes à écrire, sauts de ligne compris ; vide si tout est prêt.
- */
-export function renderPendingLines(
-  contributors: readonly IReadinessContributor[],
-): string[] {
-  const pending = contributors.filter((contributor) => !contributor.ready);
-  if (pending.length === 0) {
-    return [];
-  }
-  // `blocking` n'est absent que dans le cas courant « non prêt ⇒ retient »
-  // (cf `ReadinessRegistry.report`) : l'absence vaut donc `true`.
-  const held = pending.some((c) => c.blocking !== false);
-  const plural = pending.length > 1 ? "s" : "";
-  const heading =
-    `     ${GREEN}➜${RESET}  ${BOLD}${"Attente".padEnd(9)}${RESET}` +
-    `${YELLOW}${pending.length} composant${plural} pas prêt${plural}${RESET}` +
-    (held
-      ? ` ${DIM}·${RESET} ${RED}trafic retenu (/readyz 503)${RESET}`
-      : ` ${DIM}·${RESET} ${DIM}le trafic passe quand même${RESET}`) +
-    "\n";
-  // Le saut ouvre le bloc : il ne colle pas au précédent.
-  const lines: string[] = ["\n", heading];
-  for (const contributor of pending) {
-    lines.push(
-      `        ${YELLOW}·${RESET} ${contributor.name}` +
-        (contributor.reason ? ` ${DIM}— ${contributor.reason}${RESET}` : "") +
-        "\n",
-    );
-    if (contributor.action) {
-      lines.push(
-        `          ${GREEN}→${RESET} ${BOLD}${contributor.action}${RESET}\n`,
-      );
-    }
-  }
-  return lines;
-}
 
 /** Une phase de boot = l'event Kernel qui la CLÔT + son libellé affiché. */
 interface BootPhase {
@@ -186,6 +72,9 @@ interface IFrontendReadyPayload {
  * `onStart` clôt « Application » → couvre `loadApp()` (le gros import des modules,
  * ~1.2 s, sinon un écran figé sans feedback — cf audit boot 2026-06-01).
  */
+/** Phase du canal de boot où `@nodefony/frontend` décrit ses instances. */
+const FRONTEND_PHASE = "Frontend (Vite)";
+
 const PHASES: readonly BootPhase[] = [
   { event: "onStart", label: "Application" },
   { event: "onRegister", label: "Modules" },
@@ -195,59 +84,120 @@ const PHASES: readonly BootPhase[] = [
 ];
 
 /**
- * Affichage « boot de rêve » du serveur en développement : une checklist animée
- * (spinner + `✓`/`✗` par phase de boot) à la place du mur de logs `INFO`/`MODULE ADD`.
+ * L'écran de démarrage du serveur de développement : une checklist par phase
+ * de boot pendant qu'il démarre, puis LE bilan ({@link buildStartupView}),
+ * rendu selon le mode demandé — `human`, `plain` ou `json` (cf `outputMode.ts`).
  *
- * **Dev-only** : instancié uniquement par `DevCommand`, côté enfant supervisé
- * (`NF_DEV_CHILD=1`). En prod/cluster : jamais (logs structurés cloud-native).
+ * **Dev-only** : instancié uniquement par `DevCommand`, côté serveur (enfant
+ * supervisé, ou `--no-watch`). En production : jamais (journal structuré).
  *
- * **Backplane-safe** : le spinner s'écrit DIRECTEMENT sur `process.stdout`, jamais via
- * le Syslog. Le mute pendant le boot = {@link Syslog.setSinkEnabled} (coupe le sink
- * texte écran) ; les transports d'écriture (`_transports` : file/cluster/loki) ET le
- * ring buffer reçoivent TOUS les logs → rien perdu, le Log Backplane intact.
+ * **Backplane-safe** : l'écran s'écrit DIRECTEMENT sur `process.stdout`, jamais
+ * via le Syslog. Pendant le boot, le sink texte écran est coupé
+ * ({@link Syslog.setSinkEnabled}) ; les transports (fichier, cluster, loki) et
+ * le ring buffer reçoivent TOUS les journaux — rien n'est perdu, `--debug`
+ * les montre tous.
  *
- * Trois modes (tous dev-only) :
- * - **TTY normal** : spinner animé + console mutée (logs → buffer/backplane).
- * - **`--debug`** : pas d'animation, pas de mute → marqueurs `✓` de phase entre les logs
- *   bruts complets (structure sans rien cacher).
- * - **non-TTY** (CI/redirection) : marqueurs statiques, zéro séquence `\r`.
+ * Les modes :
+ * - **human + terminal** : spinner animé, phases figées en `✓`, écran final ;
+ * - **human hors terminal** (forcé) : marqueurs statiques, journaux visibles ;
+ * - **plain** : une ligne `boot:` par phase entre les lignes du journal, puis
+ *   le bilan machine — 0 ANSI de l'écran ;
+ * - **json** : rien pendant le boot, puis UNE ligne JSON par démarrage ;
+ * - **--debug** : tout le journal, marqueurs de phase entre les lignes.
+ *
+ * Quand le démarrage RÉUSSIT (humain, terminal, hors --debug), l'écran est
+ * remis à zéro, la bannière reposée en haut et le bilan rendu dessous — au
+ * premier démarrage comme à chaque rechargement. Sur un **rechargement**
+ * (`NF_DEV_RELOAD=1`, posé par le superviseur), une ligne `↻` précède le bilan
+ * et dit ce qui a changé ; les rendus machine ne disent QUE ce qui a changé.
+ * Les processus n'y sont pas relevés (un `lsof` par processus).
  */
 class BootReporter {
   readonly #kernel: Kernel;
-  /** true = spinner animé + mute (TTY non-debug) ; false = marqueurs statiques. */
+  readonly #mode: StartupOutputMode;
+  /** Spinner animé (human + terminal, hors --debug). */
   readonly #animated: boolean;
+  /** Sink écran coupé pendant le boot (tout rendu dédié, hors --debug). */
+  readonly #muted: boolean;
+  readonly #color: boolean;
+  readonly #hyperlinks: boolean;
+  /** Ce démarrage est-il un rechargement à chaud ? */
+  readonly #reload: boolean;
+  /** Rechargement automatique (superviseur) — sinon `--no-watch`. */
+  readonly #supervised: boolean;
+  /** URL du débogueur, ou `null`. */
+  readonly #inspector: string | null;
+  /**
+   * Jeu de caractères de l'écran — la règle du logo (`resolveBrandCharset`),
+   * une seule pour toute la sortie de développement.
+   */
+  readonly #charset: ScreenCharset;
+  readonly #symbols: IScreenSymbols;
+  /** Bilan du démarrage précédent — lu AVANT que celui-ci ne l'écrase. */
+  #previous: ILastBoot | null = null;
   #frame = 0;
   #phaseIndex = 0;
   #bootStart = 0;
   #phaseStart = 0;
   #timer: NodeJS.Timeout | null = null;
   #done = false;
-  /** Vite compile encore (event pont `onFrontendStart` reçu, `onFrontendReady` pas encore). */
+  /** Vite compile encore (`onFrontendStart` reçu, `onFrontendReady` pas encore). */
   #frontendPending = false;
-  /** `performance.now()` au démarrage de la compilation Vite (pour la durée affichée). */
+  /** `performance.now()` au démarrage de la compilation Vite. */
   #frontendStart = 0;
-  /** Libellé dynamique de la phase Vite (override `#label()` tant que Vite tourne). */
+  /** Libellé dynamique de la phase Vite (prend le pas sur `#label()`). */
   #frontendLabel: string | null = null;
-  /** `onPostReady` est arrivé pendant la compilation Vite → « ✓ Prêt » en attente. */
+  /** `onPostReady` est arrivé pendant la compilation Vite → bilan en attente. */
   #finishDeferred = false;
-  /** Total de bundles Vite (jauge de progression) — posé à `onFrontendStart`. */
+  /** Total de bundles Vite (jauge) — posé à `onFrontendStart`. */
   #frontendTotal = 0;
-  /** Bundles Vite résolus (ready/échec) — incrémenté à `onFrontendProgress`. */
+  /** Bundles Vite résolus — incrémenté à `onFrontendProgress`. */
   #frontendDone = 0;
   /** Handler `onFrontendProgress` (détaché à la fin de la phase Vite). */
   #onFrontendProgress: ((p?: unknown) => void) | null = null;
-  /**
-   * Résultat final de la compilation Vite (payload `onFrontendReady`) — gardé
-   * pour rappeler un échec dans le bloc « Bilan » (la ligne `✗` de la checklist
-   * défile et se perd). `null` = pas de frontend ou pas encore fini.
-   */
+  /** Ligne d'état figée en bas — posée au premier bilan réussi. */
+  #status: StatusLine | null = null;
+  /** Heure (`16:48`) où ce serveur est devenu prêt — `null` avant. */
+  #readyAt: string | null = null;
+  /** Résultat de la compilation Vite — `null` sans frontend. */
   #frontendResult: Partial<IFrontendReadyPayload> | null = null;
 
-  constructor(kernel: Kernel, opts: { debug: boolean; tty: boolean }) {
+  /**
+   * @param kernel - le noyau qui démarre.
+   * @param opts - `debug` : tout le journal ; `tty` : capacité CONSTATÉE du
+   *   terminal (`kernel.isTTY`) ; `mode` : rendu choisi (cf `resolveOutputMode`) ;
+   *   `reload` : ce démarrage suit une modification (`NF_DEV_RELOAD=1`).
+   */
+  constructor(
+    kernel: Kernel,
+    opts: {
+      debug: boolean;
+      tty: boolean;
+      mode: StartupOutputMode;
+      reload: boolean;
+      /** Lancé par le superviseur (rechargement automatique) ou `--no-watch`. */
+      supervised: boolean;
+      /** URL du débogueur ouvert dans le serveur, ou `null`. */
+      inspector: string | null;
+    },
+  ) {
     this.#kernel = kernel;
-    // Animation + mute SEULEMENT en TTY non-debug. En debug ou hors TTY → statique,
-    // logs bruts visibles (debug = tout voir ; fichier/CI = pas de séquence `\r`).
-    this.#animated = opts.tty && !opts.debug;
+    this.#mode = opts.mode;
+    this.#animated = opts.mode === "human" && opts.tty && !opts.debug;
+    // `plain` garde le journal à l'écran : le démarrage détaché (`--detach`) et
+    // l'intégration continue LISENT ces lignes (`MODULE LOAD`, `CRITIC`) dans
+    // la sortie. Seul `json` le coupe — un flux JSON ne supporte aucune ligne
+    // étrangère ; les erreurs partent alors sur la sortie d'erreur.
+    this.#muted = !opts.debug && (this.#animated || opts.mode === "json");
+    this.#color =
+      opts.mode === "human" && shouldColorize(process.env, opts.tty);
+    this.#hyperlinks =
+      opts.mode === "human" && supportsHyperlinks(process.env, opts.tty);
+    this.#reload = opts.reload;
+    this.#supervised = opts.supervised;
+    this.#inspector = opts.inspector;
+    this.#charset = resolveBrandCharset(process.platform, process.env);
+    this.#symbols = SCREEN_SYMBOLS[this.#charset];
   }
 
   /**
@@ -255,13 +205,21 @@ class BootReporter {
    * À appeler depuis `DevCommand.onKernelPreStart` (après le splash, avant `loadApp`).
    */
   attach(): void {
+    // Lu MAINTENANT : le noyau réécrit ce fichier juste avant `onPostReady`.
+    if (this.#reload) this.#previous = readLastBoot(this.#kernel.path);
     this.#bootStart = this.#phaseStart = performance.now();
-    if (this.#animated) {
-      // Mute écran (backplane + ring buffer intacts). Le spinner a stdout pour lui seul.
+    // En `json`, la sortie standard appartient au bilan : le journal d'écran
+    // part sur la sortie d'erreur pour TOUTE la vie du processus — pendant le
+    // boot (coupé, puis rendu) comme ensuite.
+    if (this.#mode === "json") Syslog.setLogSink(STDERR_LOG_SINK);
+    if (this.#muted) {
+      // Journal hors de l'écran (backplane + ring buffer intacts).
       Syslog.setSinkEnabled(false);
-      // Le bloc « ✓ Prêt » liste les URLs → on supprime les bannières serveurs
-      // redondantes (« Server Listen on… ») émises à onPostReady. Animé seulement.
+      // Le bilan liste déjà les adresses : les bannières « Server Listen on… »
+      // de `onPostReady` seraient redondantes.
       this.#kernel.suppressBootBanners = true;
+    }
+    if (this.#animated) {
       this.#render();
       this.#timer = setInterval(() => this.#render(), 80);
       this.#timer.unref();
@@ -274,22 +232,24 @@ class BootReporter {
       this.#abort(typeof code === "number" ? code : 0),
     );
     // Pont frontend (dev-only) : la compilation Vite vit HORS du cycle Kernel
-    // (spawn async qui finit après `onPostReady`). `FrontendService` émet ces
-    // deux events pour insérer la ligne Vite dans la checklist. Sans frontend,
-    // ils ne fire jamais → comportement strictement inchangé. cf idée (a).
+    // (spawn async qui finit après `onPostReady`). Sans frontend, ces events ne
+    // partent jamais → comportement inchangé.
     this.#kernel.once("onFrontendStart", (payload?: unknown) =>
       this.#frontendBegin(payload as { bundles?: number }),
     );
-    // Progression bundle-par-bundle (jauge de la phase Vite). `.on` (N bundles) →
-    // détaché à `#frontendEnd` (pas de listener qui traîne).
+    // `.on` (N bundles) → détaché à `#frontendEnd` (pas de listener qui traîne).
     this.#onFrontendProgress = (payload?: unknown) => {
       const p = payload as { ready?: number; total?: number } | undefined;
       if (typeof p?.ready === "number") this.#frontendDone = p.ready;
-      if (typeof p?.total === "number") this.#frontendTotal = p.total; // aligne la jauge
-      // Non-animé (CI/--debug) : 1 ligne par palier (le timer ne rend pas la jauge).
-      if (!this.#animated && this.#frontendTotal > 0) {
+      if (typeof p?.total === "number") this.#frontendTotal = p.total;
+      if (this.#frontendTotal === 0 || this.#animated || this.#reload) return;
+      if (this.#mode === "plain") {
         process.stdout.write(
-          `  ${CYAN}·${RESET} Frontend (Vite) ${this.#frontendDone}/${this.#frontendTotal}\n`,
+          `boot: frontend ${this.#frontendDone}/${this.#frontendTotal}\n`,
+        );
+      } else if (this.#mode === "human") {
+        process.stdout.write(
+          `  ${this.#paint(CYAN, "·")} Frontend (Vite) ${this.#frontendDone}/${this.#frontendTotal}\n`,
         );
       }
     };
@@ -300,31 +260,34 @@ class BootReporter {
     );
   }
 
+  /** Une couleur — seulement si l'écran en porte. */
+  #paint(code: string, text: string): string {
+    return this.#color ? `${code}${text}${RESET}` : text;
+  }
+
   /** Libellé de la phase courante (ou « Finalisation » au-delà des phases connues). */
   #label(): string {
     if (this.#frontendLabel) return this.#frontendLabel;
     return PHASES[this.#phaseIndex]?.label ?? "Finalisation";
   }
 
-  /** Réécrit la ligne courante : jauge Vite (X of Y) en phase frontend, sinon spinner. */
+  /** Réécrit la ligne courante : jauge Vite en phase frontend, sinon spinner. */
   #render(): void {
-    this.#frame = (this.#frame + 1) % FRAMES.length;
+    const frames = this.#charset === "ascii" ? ASCII_FRAMES : FRAMES;
+    this.#frame = (this.#frame + 1) % frames.length;
+    const frame = frames[this.#frame] ?? "";
     readline.clearLine(process.stdout, 0);
     readline.cursorTo(process.stdout, 0);
-    // Phase Vite = N bundles en PARALLÈLE → barre de progression (le bon pattern :
-    // total connu + process simultanés). Le spinner braille reste en tête (montre
-    // que ça vit ; la barre montre où ça en est).
+    const label = this.#reload ? "Rechargement" : this.#label();
     if (this.#frontendPending && this.#frontendTotal > 0) {
       process.stdout.write(
-        `  ${CYAN}${FRAMES[this.#frame]}${RESET} Frontend (Vite)  ` +
+        `  ${CYAN}${frame}${RESET} ${this.#reload ? label : "Frontend (Vite)"}  ` +
           `${this.#bar(this.#frontendDone, this.#frontendTotal)}  ` +
           `${DIM}${this.#frontendDone}/${this.#frontendTotal} bundles${RESET}`,
       );
       return;
     }
-    process.stdout.write(
-      `  ${CYAN}${FRAMES[this.#frame]}${RESET} ${this.#label()}${DIM}…${RESET}`,
-    );
+    process.stdout.write(`  ${CYAN}${frame}${RESET} ${label}${DIM}…${RESET}`);
   }
 
   /** Barre `▰▰▰▱▱` proportionnelle (vert rempli / dim vide), largeur fixe 14. */
@@ -333,60 +296,73 @@ class BootReporter {
     const filled =
       total > 0 ? Math.min(width, Math.round((done / total) * width)) : 0;
     return (
-      `${GREEN}${"▰".repeat(filled)}${RESET}` +
-      `${DIM}${"▱".repeat(width - filled)}${RESET}`
+      `${GREEN}${(this.#charset === "ascii" ? "#" : "▰").repeat(filled)}${RESET}` +
+      `${DIM}${(this.#charset === "ascii" ? "-" : "▱").repeat(width - filled)}${RESET}`
     );
   }
 
-  /** Fige une ligne de phase terminée : `mark label (durée)`. */
-  #freeze(mark: string, label: string, ms: number): void {
-    if (this.#animated) {
-      readline.clearLine(process.stdout, 0);
-      readline.cursorTo(process.stdout, 0);
+  /** Efface la ligne du spinner (terminal animé seulement). */
+  #clearSpinner(): void {
+    if (!this.#animated) return;
+    readline.clearLine(process.stdout, 0);
+    readline.cursorTo(process.stdout, 0);
+  }
+
+  /**
+   * Fige une phase terminée, selon le mode : `✓ label (1,2 s)` à l'écran,
+   * `boot: label 1.2s` en rendu machine, rien en JSON ni sur un rechargement
+   * (la ligne finale suffit).
+   */
+  #freeze(ok: boolean, label: string, ms: number, note = ""): void {
+    if (this.#reload || this.#mode === "json") return;
+    if (this.#mode === "plain") {
+      process.stdout.write(
+        `boot: ${label}${ok ? "" : " failed"} ${(ms / 1000).toFixed(1)}s\n`,
+      );
+      return;
     }
-    const dt =
-      ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`;
-    process.stdout.write(`  ${mark} ${label} ${DIM}(${dt})${RESET}\n`);
+    this.#clearSpinner();
+    const mark = ok
+      ? this.#paint(GREEN, this.#symbols.ok)
+      : this.#paint(RED, this.#symbols.fail);
+    process.stdout.write(
+      `  ${mark} ${label}${note ? ` ${this.#paint(DIM, note)}` : ""} ` +
+        `${this.#paint(DIM, `(${formatSeconds(ms)})`)}\n`,
+    );
   }
 
   /** Une phase vient de se clôturer (son event Kernel a fire). */
   #phaseDone(label: string): void {
     if (this.#done) return;
     const now = performance.now();
-    this.#freeze(`${GREEN}✓${RESET}`, label, now - this.#phaseStart);
+    this.#freeze(true, label, now - this.#phaseStart);
     this.#renderPhaseDetail(label);
     this.#phaseStart = now;
     this.#phaseIndex++;
   }
 
   /**
-   * Lignes de détail SOUS une phase qui vient de se figer — pour que le boot
-   * RACONTE ce qui se passe (pas une phase muette). Deux sources :
-   * - le canal NEUTRE `Kernel.getBootLines(phase)` que tout module alimente
-   *   (`reportBootLine` — ex. ORM : « drizzle → sqlite »), le core restant
-   *   agnostique ;
-   * - un digest intégré pour `Modules` (liste lisible, dérivée du Kernel).
+   * Lignes de détail SOUS une phase qui vient de se figer, pour que le boot
+   * RACONTE ce qui se passe : le canal neutre `Kernel.getBootLines(phase)`, et
+   * un digest des modules sous « Modules ». Écran humain seulement — le bilan
+   * machine porte ces faits à la fin.
    */
   #renderPhaseDetail(label: string): void {
+    if (this.#mode !== "human" || this.#reload) return;
     let lines = this.#kernel.getBootLines(label);
     if (label === "Modules" && lines.length === 0) {
       lines = this.#moduleDigest();
     }
     for (const line of lines) {
-      process.stdout.write(`       ${DIM}${line}${RESET}\n`);
+      process.stdout.write(`       ${this.#paint(DIM, line)}\n`);
     }
   }
 
-  /**
-   * Digest lisible des modules chargés (noms courts, ~6 par ligne) affiché sous
-   * la phase « Modules ». Donne au dev la composition réelle de son app d'un
-   * coup d'œil.
-   */
+  /** Digest lisible des modules chargés (noms courts, 8 par ligne). */
   #moduleDigest(): string[] {
     const names = Object.keys(this.#kernel.modules).map((m) =>
       m.replace(/^@nodefony\//, ""),
     );
-    if (!names.length) return [];
     const out: string[] = [];
     for (let i = 0; i < names.length; i += 8) {
       out.push(names.slice(i, i + 8).join(" · "));
@@ -395,327 +371,229 @@ class BootReporter {
   }
 
   /**
-   * Boot complet (`onPostReady`). Si Vite compile encore (`#frontendPending`), on
-   * DIFFÈRE le récap final jusqu'à `onFrontendReady` : sinon « ✓ Prêt » s'afficherait
-   * avant la ligne Vite. On GARDE le spinner animé sur « Frontend (Vite)… » et le
-   * sink RESTE muté → le dev voit la progression, pas le mur de logs de build (Vite
-   * + `Server Listen…`) qui partent au buffer/backplane (visibles en `--debug`).
+   * Boot complet (`onPostReady`). Si Vite compile encore, le bilan est DIFFÉRÉ
+   * jusqu'à `onFrontendReady` — sinon « Prêt » s'afficherait avant la ligne Vite.
+   * Le spinner continue de tourner, le sink reste coupé.
    */
   #finish(): void {
     if (this.#done) return;
     if (this.#frontendPending) {
-      // Le spinner continue de tourner (timer actif, sink muté → 0 conflit `\r`).
-      // `onFrontendReady` figera la ligne Vite puis déclenchera le « ✓ Prêt ».
       this.#finishDeferred = true;
       return;
     }
     this.#doFinish();
   }
 
-  /**
-   * Récap final + rend la main au Syslog (idempotent sur le sink). Le verdict
-   * écran vient du {@link Kernel.getBootReport} (vérité unique) :
-   * - sain → bloc « Prêt » : identité + serveurs HTTP|WS (URLs cliquables),
-   * - dégradé (modules ignorés, serveurs up) → + lignes `⚠`,
-   * - **garde-fou 0-serveur** → bloc `⛔` non silencieux + action corrective.
-   */
+  /** Rend le bilan, puis rend la main au Syslog (idempotent sur le sink). */
   #doFinish(): void {
     if (this.#done) return;
     this.#done = true;
     this.#stopTimer();
-    if (this.#animated) Syslog.setSinkEnabled(true);
-    const dt = ((performance.now() - this.#bootStart) / 1000).toFixed(2);
+    this.#clearSpinner();
+    const view = this.#view();
+    if (this.#muted) Syslog.setSinkEnabled(true);
+    this.#write(view);
+  }
+
+  /** Le bilan de CE démarrage — une seule liste de faits pour les trois rendus. */
+  #view(): IStartupView {
     const report = this.#kernel.getBootReport();
-    if (!report.healthy && report.serversExpected) {
-      this.#renderBootFailure(report, dt);
-      return;
-    }
-    this.#renderReady(report, dt);
-    if (report.modulesSkipped.length) {
-      this.#renderSkipped(report.modulesSkipped);
-    }
-    process.stdout.write("\n");
+    const frontend = this.#frontendResult;
+    // Le noyau fige sa durée avant `onPostReady` ; la compilation Vite finit
+    // APRÈS. « Prêt en » dit le temps jusqu'à ce que tout soit servi.
+    report.durationMs = Math.max(
+      report.durationMs,
+      performance.now() - this.#bootStart,
+    );
+    return buildStartupView(report, {
+      version: this.#kernel.frameworkVersion(),
+      environment: this.#kernel.environment,
+      root: this.#kernel.path,
+      frontend: frontend
+        ? {
+            bundles: frontend.bundles ?? 0,
+            ready: frontend.ready ?? 0,
+            names: frontend.names ?? [],
+            detail: this.#kernel.getBootLines(FRONTEND_PHASE),
+          }
+        : null,
+      data: this.#kernel.getBootLines("Services & ORM"),
+      // Les processus ne se montrent pas sur un rechargement : rien à observer.
+      processes: this.#reload ? null : this.#processes(),
+      firewall: this.#firewallZones(),
+      supervised: this.#supervised,
+      inspector: this.#inspector,
+    });
   }
 
-  /**
-   * Récap « prêt » : chaque serveur sur sa ligne, `➜  LABEL  url` (label aligné,
-   * URL cliquable cyan) — mise en avant des 4 points d'entrée (HTTP, HTTP/2, WS,
-   * WSS : le différenciateur Nodefony HTTP + WebSocket co-citoyens). L'identité
-   * (version · env · pid) est déjà posée par `Kernel.printDevHeader` en TÊTE.
-   */
-  #renderReady(report: IBootReport, dt: string): void {
-    process.stdout.write(
-      `\n  ${GREEN}${BOLD}✓  Prêt${RESET} ${DIM}en ${dt}s${RESET}\n\n`,
-    );
-    // Serveurs — ordre figé + libellés parlants (https ⇒ HTTP/2, wss ⇒ WSS).
-    const rows: ReadonlyArray<readonly [string, string]> = [
-      ["http", "HTTP"],
-      ["https", "HTTP/2"],
-      ["ws", "WS"],
-      ["wss", "WSS"],
-    ];
-    process.stdout.write(`     ${DIM}Serveurs${RESET}\n`);
-    for (const [scheme, label] of rows) {
-      const url = report.serversListening.find((s) => s.scheme === scheme)?.url;
-      if (!url) continue;
-      process.stdout.write(
-        `     ${GREEN}➜${RESET}  ${BOLD}${label.padEnd(9)}${RESET}` +
-          `${CYAN}${url}${RESET}\n`,
-      );
-    }
-    // Frontend (Vite, dev) — un bundle = une URL HMR cliquable (ce que le dev
-    // ouvre en premier). Alimenté par `FrontendService` (reportBootLine).
-    this.#renderSection("Frontend (Vite)", "Frontend (Vite)");
-    // Studio (admin web) — si le module est chargé : son URL directe (souvent
-    // oubliée), dérivée de l'URL HTTPS (repli HTTP) du serveur.
-    if ("studio" in this.#kernel.modules) {
-      const adminUrl =
-        report.serversListening.find((s) => s.scheme === "https")?.url ??
-        report.serversListening.find((s) => s.scheme === "http")?.url;
-      if (adminUrl) {
-        process.stdout.write(`\n     ${DIM}Studio${RESET}\n`);
-        process.stdout.write(
-          `     ${GREEN}➜${RESET}  ${BOLD}${"Admin".padEnd(9)}${RESET}` +
-            `${CYAN}${adminUrl}/nodefony${RESET}\n`,
-        );
+  /** Écrit le bilan dans le rendu demandé — en UNE écriture. */
+  #write(view: IStartupView): void {
+    const previous = this.#reload && view.ready ? this.#previous : null;
+    const diff = previous ? diffReload(previous, view) : null;
+    let lines: string[];
+    if (this.#mode === "json") {
+      lines = [
+        JSON.stringify({
+          event: !view.ready ? "failed" : diff ? "reloaded" : "ready",
+          ...view,
+          ...(diff ? { reload: diff } : {}),
+        }),
+      ];
+    } else if (this.#mode === "plain") {
+      lines = diff ? renderReloadPlain(diff, view) : renderStartupPlain(view);
+    } else {
+      const options = {
+        color: this.#color,
+        hyperlinks: this.#hyperlinks,
+        columns: process.stdout.columns,
+        reload: this.#reload,
+        charset: this.#charset,
+      };
+      // Tout va bien (serveurs en écoute), dans un terminal, hors --debug :
+      // page propre — l'écran est remis à zéro, la bannière reposée en haut
+      // (logo + versions), le bilan dessous. La checklist et le bruit du build
+      // ont fait leur office. Sur un échec, RIEN n'est effacé : l'erreur reste.
+      if (this.#animated && view.ready) {
+        process.stdout.write(`${CLEAR_SCREEN}${this.#kernel.devHeader()}`);
       }
+      // La ligne « ↻ » dit ce qui a changé ; le bilan complet suit dessous.
+      lines = [
+        "",
+        ...(diff ? [...renderReloadHuman(diff, view, options), ""] : []),
+        ...renderStartupHuman(view, options),
+        "",
+      ];
     }
-    // Données (ORM) — détail différé, posé à `onServersReady` (registre peuplé) :
-    // les ORM se connectent aux hooks `onReady` des services, trop tard pour un
-    // affichage inline sous la phase « Services & ORM ».
-    this.#renderSection("Données", "Services & ORM");
-    this.#renderVerdict(report);
+    process.stdout.write(`${lines.join("\n")}\n`);
+    if (this.#animated && view.ready) this.#showStatus(view);
   }
 
   /**
-   * Bloc « Bilan » du verdict — le « développeur rassuré » : composition réelle du
-   * boot (modules chargés / ignorés par gating AVEC la raison / échecs fail-soft),
-   * rappel d'un échec Vite (la ligne `✗` de la checklist défile et se perd), et
-   * journal du boot (compteurs WARNING/ERROR du ring syslog). Tout vient du
-   * {@link IBootReport} (vérité unique — le futur endpoint Studio lira la même).
+   * Pose la ligne d'état figée en bas du terminal (cf `statusLine.ts` : en
+   * bas, pour que l'historique continue de se remplir). Une fois par
+   * processus — un rechargement est un nouveau processus. Deux écouteurs de
+   * la durée du processus : `resize` la redessine à la nouvelle largeur,
+   * `exit` la retire pour que l'invite du shell reparte d'une ligne propre.
    */
-  #renderVerdict(report: IBootReport): void {
-    process.stdout.write(`\n     ${DIM}Bilan${RESET}\n`);
-    const loaded = report.modulesLoaded.length;
-    const gated = report.modulesGated.length;
-    const failed = report.modulesSkipped.length;
-    let modules = `${loaded} module${loaded > 1 ? "s" : ""}`;
-    if (gated) {
-      modules +=
-        ` ${DIM}·${RESET} ${YELLOW}${gated} ignoré${gated > 1 ? "s" : ""}${RESET}` +
-        ` ${DIM}(policy/when)${RESET}`;
+  #showStatus(view: IStartupView): void {
+    // L'heure où le serveur est devenu prêt — figée : un redimensionnement
+    // redessine le bloc, il ne le change pas.
+    if (this.#readyAt === null) {
+      const now = new Date();
+      this.#readyAt = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     }
-    if (failed) {
-      modules += ` ${DIM}·${RESET} ${RED}${failed} échec${failed > 1 ? "s" : ""}${RESET}`;
-    }
-    this.#verdictRow("Modules", modules);
-    for (const g of report.modulesGated) {
-      process.stdout.write(
-        `        ${DIM}· ${g.module} — ${g.reason}${RESET}\n`,
+    const ctx = {
+      project: this.#kernel.projectName,
+      readyAt: this.#readyAt,
+      reloads: reloadCount(process.env),
+    };
+    const options = {
+      color: this.#color,
+      columns: process.stdout.columns,
+      rows: process.stdout.rows,
+      charset: this.#charset,
+    };
+    // Le bloc avec le logo quand le terminal a la place ; sinon une ligne.
+    const lines = renderStatusBlock(
+      view,
+      ctx,
+      options,
+      brandMark(this.#charset, this.#color),
+    ) ?? [renderStatusLine(view, ctx, options)];
+    if (this.#status === null) {
+      // Le superviseur partage ce terminal : il doit connaître la hauteur du
+      // bloc pour l'effacer ENTIER avant d'écrire, et nous dire qu'il l'a fait
+      // (cf `guardSharedTerminal`). Canal IPC, présent seulement sous lui.
+      const status = new StatusLine(
+        [process.stdout, process.stderr],
+        (height) =>
+          void sendToSupervisor({
+            channel: DEV_CHANNEL,
+            type: "status",
+            lines: height,
+          }),
       );
+      this.#status = status;
+      const unlisten = listenToSupervisor((message) => {
+        if (message.type === "status-erased") status.forget();
+      });
+      // Retiré DÈS le début de l'arrêt, processus encore vivant : il est
+      // souvent tué net avant `exit` (le superviseur n'attend pas), et un bloc
+      // laissé là ferait tomber l'invite du shell sous un bloc mort.
+      // `release` est idempotent.
+      const release = (): void => {
+        unlisten();
+        status.release();
+      };
+      // Sur le SIGNAL même, en tête de file : avant l'arrêt de Vite et ses
+      // journaux, qui passent par `onTerminate` et prennent le temps que le
+      // superviseur ne laisse pas toujours. `onTerminate` et `exit` restent
+      // en filets (sous Windows, pas de SIGTERM : Ctrl+C arrive en SIGINT).
+      for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"] as const) {
+        process.prependOnceListener(signal, release);
+      }
+      this.#kernel.once("onTerminate", release);
+      process.once("exit", release);
+      // Le bloc se recompose à la nouvelle taille (logo ou ligne seule,
+      // morceaux qui tombent) : on le rend de nouveau.
+      process.stdout.on("resize", () => this.#showStatus(view));
     }
-    if (
-      this.#frontendResult &&
-      (this.#frontendResult.ready ?? 0) === 0 &&
-      (this.#frontendResult.bundles ?? 0) > 0
-    ) {
-      this.#verdictRow(
-        "Vite",
-        `${RED}✗ compilation échouée${RESET} ${DIM}(voir logs)${RESET}`,
-      );
-    }
-    this.#renderProcessRow();
-    this.#renderFirewallRow();
-    this.#renderPendingRow();
-    process.stdout.write("\n"); // aère le bilan (un bloc = un paragraphe)
-    const journal =
-      !report.warnings && !report.errors
-        ? `${GREEN}aucun warning${RESET}`
-        : [
-            report.errors ? `${RED}${report.errors} ERROR${RESET}` : "",
-            report.warnings
-              ? `${YELLOW}${report.warnings} WARNING${RESET}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join(` ${DIM}·${RESET} `) + ` ${DIM}(détail : --debug)${RESET}`;
-    this.#verdictRow("Journal", journal);
+    this.#status.show(lines);
   }
 
   /**
-   * Écrit le bloc « Attente » du bilan — composition dans
-   * {@link renderPendingLines}, qui porte la règle et se teste seule.
+   * Processus de CE projet (superviseur / serveur / Vite) — même observation que
+   * `nodefony status` (`ps`, sans IPC). `null` si l'observation échoue : elle
+   * n'est jamais bloquante. Synchrone, une fois par démarrage, dev seulement.
    */
-  #renderPendingRow(): void {
-    const lines = renderPendingLines(this.#kernel.readinessReport());
-    for (const line of lines) {
-      process.stdout.write(line);
-    }
-  }
-
-  /** Ligne du bilan `➜  LABEL  valeur` (même gabarit que les lignes serveurs). */
-  #verdictRow(label: string, value: string): void {
-    process.stdout.write(
-      `     ${GREEN}➜${RESET}  ${BOLD}${label.padEnd(9)}${RESET}${value}\n`,
-    );
-  }
-
-  /**
-   * Ligne « Process » du bilan — topologie runtime réelle (superviseur / serveur /
-   * Vite avec pid + RSS), MÊME source d'observation que `nodefony status`
-   * (`discoverDevProcesses`, ps sans IPC), scopée à CE projet (`splitByProject` —
-   * un runtime d'un autre dossier ne pollue pas le bilan). Best-effort : `ps`
-   * indisponible (Windows) ou vide → aucune ligne. Sync, 1× au boot, dev-only.
-   * Les ports ne sont PAS re-sondés ici : la section « Serveurs » du verdict est
-   * déjà la vérité interne (une liste sondée serait une convention — vécu 3×).
-   */
-  #renderProcessRow(): void {
-    let procs: readonly DevProcessInfo[] = [];
+  #processes(): DevProcessInfo[] | null {
     try {
-      procs = splitByProject(
+      return splitByProject(
         discoverDevProcesses({ includeSelf: true }),
         this.#kernel.path,
       ).mine;
     } catch {
-      return; // observation best-effort — jamais bloquer le verdict
+      return null;
     }
-    if (!procs.length) return;
-    process.stdout.write("\n"); // aère le bilan (un bloc = un paragraphe)
-    const roles: ReadonlyArray<readonly [string, string]> = [
-      ["supervisor", "superviseur"],
-      ["master", "master"],
-      ["server", "serveur"],
-      ["worker", "worker"],
-      ["vite", "Vite"],
-    ];
-    const parts: string[] = [];
-    for (const [role, label] of roles) {
-      const n = procs.filter((p) => p.role === role).length;
-      if (n) parts.push(`${n} ${label}${n > 1 && role !== "vite" ? "s" : ""}`);
-    }
-    this.#verdictRow("Process", parts.join(` ${DIM}·${RESET} `));
-    // Détail = LE tableau de `nodefony status` (gabarit partagé
-    // renderProcessTable — même topologie, même sérieux), indenté sous la
-    // ligne `➜` du bilan.
-    const table: string[] = [];
-    renderProcessTable(table, procs, "        ");
-    process.stdout.write(table.join("\n") + "\n");
   }
 
   /**
-   * Ligne « Firewall » du bilan — aiguillage sécurité, même gabarit que
-   * « Process » : synthèse sur la ligne `➜`, puis TABLEAU des zones montées
-   * (ZONE / PATTERN / AUTH / ACCÈS). Vue minimale du service `firewall`
-   * (@nodefony/security) résolu PAR NOM (le core n'importe jamais security).
-   * Zones APPLICATIVES = hors namespace réservé `/nodefony` (les aires admin y
-   * sont portées par le framework). Aucune zone applicative → les routes
-   * métier sont PUBLIQUES : on le DIT, avec la recette (fail-loud annoncé —
-   * hors zone, l'identité n'est jamais résolue). Security absent → aucune
-   * ligne (une app sans firewall est un choix assumé).
+   * Zones du pare-feu, lues sur le service `firewall` résolu PAR NOM (le cœur
+   * n'importe jamais `@nodefony/security`). `null` sans pare-feu — une
+   * application sans pare-feu est un choix assumé, pas un oubli à signaler.
    */
-  #renderFirewallRow(): void {
+  #firewallZones(): IFirewallZoneView[] | null {
     const fw = this.#kernel.container?.get("firewall") as
-      | { describe?: () => { zones?: ReadonlyArray<FirewallZoneView> } }
+      | { describe?: () => { zones?: ReadonlyArray<IFirewallZoneView> } }
       | null
       | undefined;
-    if (typeof fw?.describe !== "function") return;
-    let zones: ReadonlyArray<FirewallZoneView> = [];
+    if (typeof fw?.describe !== "function") return null;
     try {
-      zones = fw.describe().zones ?? [];
+      return [...(fw.describe().zones ?? [])];
     } catch {
-      return; // observation best-effort — jamais bloquer le verdict
-    }
-    process.stdout.write("\n"); // aère le bilan (un bloc = un paragraphe)
-    const app = zones.filter((z) => !isFrameworkZone(z));
-    const fwk = zones.length - app.length;
-    const summary = app.length
-      ? `${app.length} zone${app.length > 1 ? "s" : ""} applicative${app.length > 1 ? "s" : ""}` +
-        (fwk
-          ? ` ${DIM}·${RESET} ${fwk} aire${fwk > 1 ? "s" : ""} framework`
-          : "")
-      : `${YELLOW}aires framework seules — tes routes métier sont PUBLIQUES${RESET}`;
-    this.#verdictRow("Firewall", summary);
-    if (zones.length) {
-      const table: string[] = [];
-      renderZoneTable(table, zones, "        ");
-      process.stdout.write(table.join("\n") + "\n");
-    }
-    if (!app.length) {
-      process.stdout.write(
-        `        ${DIM}· déclare une zone : use("@nodefony/security", { areas: { main: { pattern: "^/api", authenticators: ["session"] } } })${RESET}\n`,
-      );
+      return null; // observation best-effort — jamais bloquer le bilan
     }
   }
 
-  /**
-   * Section « titre » + lignes `➜ valeur` (cyan, cliquable) lues du canal neutre
-   * de boot (`Kernel.getBootLines`). No-op si la phase n'a poussé aucune ligne.
-   */
-  #renderSection(title: string, phase: string): void {
-    const lines = this.#kernel.getBootLines(phase);
-    if (!lines.length) return;
-    process.stdout.write(`\n     ${DIM}${title}${RESET}\n`);
-    for (const line of lines) {
-      process.stdout.write(`     ${GREEN}➜${RESET}  ${CYAN}${line}${RESET}\n`);
-    }
-  }
-
-  /**
-   * Bloc ⛔ **non silencieux** : un profil serveur a fini sans aucun serveur en
-   * écoute. Liste les modules en cause + l'action corrective. Le process va
-   * s'arrêter (le Kernel a déjà décidé `terminate(EX_UNAVAILABLE)`).
-   */
-  #renderBootFailure(report: IBootReport, dt: string): void {
-    process.stdout.write(
-      `\n  ${RED}⛔ Aucun serveur n'a démarré${RESET} ` +
-        `${DIM}(boot en ${dt}s — le process va s'arrêter)${RESET}\n`,
-    );
-    for (const f of report.modulesSkipped) {
-      process.stdout.write(
-        `     ${RED}✗${RESET} ${f.module} ${DIM}— ${f.reason}${RESET}\n`,
-      );
-    }
-    if (report.remediation) {
-      process.stdout.write(`     ${CYAN}→ ${report.remediation}${RESET}\n`);
-    }
-    process.stdout.write("\n");
-  }
-
-  /** Lignes ⚠ des modules en échec fail-soft (boot dégradé mais serveurs en écoute). */
-  #renderSkipped(skipped: IBootFailure[]): void {
-    const m = skipped.length;
-    process.stdout.write(
-      `  ${YELLOW}⚠ ${m} module${m > 1 ? "s" : ""} en échec (fail-soft)${RESET}\n`,
-    );
-    for (const f of skipped) {
-      process.stdout.write(
-        `     ${YELLOW}·${RESET} ${f.module} ${DIM}— ${f.reason}${RESET}\n`,
-      );
-    }
-  }
-
-  /** Vite a commencé à compiler (`onFrontendStart`) — ouvre la phase Vite dynamique. */
+  /** Vite a commencé à compiler (`onFrontendStart`). */
   #frontendBegin(payload?: { bundles?: number }): void {
     if (this.#done) return;
     this.#frontendPending = true;
     this.#frontendStart = performance.now();
-    // En animé, le spinner courant (« Finalisation… ») bascule sur ce libellé.
     this.#frontendLabel = "Frontend (Vite)";
-    this.#frontendTotal = payload?.bundles ?? 0; // total connu → jauge possible
+    this.#frontendTotal = payload?.bundles ?? 0;
     this.#frontendDone = 0;
   }
 
   /**
-   * Vite a fini ou échoué (`onFrontendReady`) : fige la ligne Vite (`✓`/`✗` + durée
-   * + bundles servis), puis débloque le « ✓ Prêt » si `onPostReady` l'attendait.
+   * Vite a fini ou échoué (`onFrontendReady`) : fige la ligne Vite, puis
+   * débloque le bilan si `onPostReady` l'attendait.
    */
   #frontendEnd(payload: Partial<IFrontendReadyPayload> | undefined): void {
     if (this.#done || !this.#frontendPending) return;
     this.#frontendPending = false;
     this.#frontendResult = payload ?? null;
-    this.#frontendLabel = null; // libère le spinner s'il anime encore
-    // Détache le listener de progression (plus de bundle à compter) — pas de
-    // listener qui traîne (règle perf-mémoire du projet).
+    this.#frontendLabel = null;
     if (this.#onFrontendProgress) {
       this.#kernel.removeListener(
         "onFrontendProgress",
@@ -725,23 +603,18 @@ class BootReporter {
     }
     const ms = performance.now() - this.#frontendStart;
     const n = payload?.bundles ?? 0;
-    if ((payload?.ready ?? 0) > 0) {
-      const plural = n > 1 ? "s" : "";
-      const names = payload?.names?.length
-        ? ` ${DIM}(${payload.names.join(", ")})${RESET}`
-        : "";
-      this.#freeze(
-        `${GREEN}✓${RESET}`,
-        `Frontend (Vite) — ${n} bundle${plural} servi${plural}${names}`,
-        ms,
-      );
-    } else {
-      this.#freeze(
-        `${RED}✗${RESET}`,
-        `Frontend (Vite) — échec ${DIM}(voir logs)${RESET}`,
-        ms,
-      );
-    }
+    const ok = (payload?.ready ?? 0) > 0;
+    const plural = n > 1 ? "s" : "";
+    this.#freeze(
+      ok,
+      this.#mode === "plain"
+        ? "frontend"
+        : ok
+          ? `Frontend (Vite) — ${n} bundle${plural} servi${plural}`
+          : "Frontend (Vite) — échec",
+      ms,
+      ok ? "" : "(voir À regarder)",
+    );
     if (this.#finishDeferred) this.#doFinish();
   }
 
@@ -750,30 +623,41 @@ class BootReporter {
     if (this.#done) return;
     this.#done = true;
     this.#stopTimer();
-    if (this.#animated) {
-      this.#freeze(
-        `${RED}✗${RESET}`,
-        this.#label(),
-        performance.now() - this.#phaseStart,
-      );
+    if (this.#muted) {
+      this.#freeze(false, this.#label(), performance.now() - this.#phaseStart);
       Syslog.setSinkEnabled(true);
       this.#dumpErrors();
     }
     // code 0 = arrêt volontaire (commande one-shot) → pas une erreur de boot.
-    if (code !== 0) {
+    if (code === 0) return;
+    if (this.#mode === "json") {
       process.stdout.write(
-        `  ${RED}✗ Boot interrompu${RESET} ${DIM}(code ${code})${RESET}\n`,
+        `${JSON.stringify({ event: "aborted", phase: this.#label(), code })}\n`,
+      );
+    } else if (this.#mode === "plain") {
+      process.stdout.write(
+        `nodefony: aborted phase=${this.#label()} code=${code}\n`,
+      );
+    } else {
+      process.stdout.write(
+        `  ${this.#paint(RED, `${this.#symbols.fail} Démarrage interrompu`)} ${this.#paint(DIM, `(code ${code})`)}\n`,
       );
     }
   }
 
-  /** Déverse les ERROR/CRITIC/ALERT/EMERGENCY restés dans le ring buffer pendant le mute. */
+  /**
+   * Déverse les ERROR/CRITIC/ALERT/EMERGENCY restés dans le ring buffer pendant
+   * que l'écran était coupé — sur la sortie d'ERREUR en JSON, pour ne jamais
+   * casser le flux qu'un `| jq` lit.
+   */
   #dumpErrors(): void {
     const sys = this.#kernel.syslog;
     if (!sys) return;
+    const out = this.#mode === "json" ? process.stderr : process.stdout;
     for (const pdu of sys.ringStack) {
       if (pdu.severity >= 0 && pdu.severity <= 3) {
-        process.stdout.write(`  ${pdu.toString()}\n`);
+        const line = pdu.toString();
+        out.write(`  ${this.#color ? line : stripVTControlCharacters(line)}\n`);
       }
     }
   }

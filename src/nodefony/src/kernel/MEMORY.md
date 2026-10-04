@@ -96,10 +96,49 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
 - `warnings`/`errors` = journal du boot (comptage ring syslog : WARNING=sev 4, errors=sev 0-3 ;
   0–7). **Figés** dans `bootLogCounts` quand `postReady` passe true (après, le ring
   mélange boot et runtime) ; comptage à la volée avant.
-- Rendu dev = `BootReporter.#renderVerdict` (bloc « Bilan » : Modules/Vite/Process/Journal) ; la
-  ligne Process = `discoverDevProcesses({includeSelf:true})` + `splitByProject(…, kernel.path).mine`
-  (même source que `nodefony status`, scopée projet, sync best-effort). Les ports ne sont PAS
-  re-sondés (la section Serveurs = vérité interne ; une liste sondée est une convention).
+- `open[]` (`resolveBootLinks` : origine https>http, hôte `openableHost` → bouclage/joker =
+  `localhost`) + liens déclarés `reportBootLink({id,label,path})`. `notices[]` =
+  `collectBootNotices` (SEULE impl) : `MODULE_FAILED` (fail-soft), `NOT_READY` (readiness, error
+  si retient le trafic) + `reportBootNotice({code,level,message,fix})` des modules, triés
+  error>warning>info, dédoublonnés code+message. Lazy (`null`). Notice/lien déclaré APRÈS
+  `writeBootSummary` → `last-boot.json` réécrit (Vite finit après `onPostReady`) ; durée figée
+  à la 1ʳᵉ écriture (`bootDurationMs`).
+- Codes émis : `FIREWALL_PUBLIC_ROUTES` (security, `onKernelReady`), `DB_SQLITE_FALLBACK`
+  (drizzle), `REALTIME_LOCAL_ONLY`/`REALTIME_BACKPLANE_DOWN` (realtime),
+  `FRONTEND_BUILD_FAILED`/`FRONTEND_PARTIAL` (frontend). Lien `studio` (studio).
+- Rendu dev = `BootReporter` → `buildStartupView` → `renderStartupHuman` / `renderStartupPlain` /
+  JSON (`service/dev/startupScreen.ts`, PUR). Mode = `resolveOutputMode` (`outputMode.ts`) :
+  `--output` > `NF_OUTPUT` > `stdout` TTY ? human : plain — jamais deviné d'après une variable
+  d'agent. `plain` garde le journal à l'écran (`--detach`/CI lisent `MODULE LOAD`/`CRITIC`) ;
+  `json` : `STDERR_LOG_SINK` (syslog) dans serveur ET superviseur, `[dev]` et `Cli.blankLine`
+  sur stderr → stdout = UNE ligne JSON par démarrage.
+- Humain + TTY + hors `--debug` (`#animated`) : `CLEAR_SCREEN` (ED2, garde l'historique ;
+  `RESET_SCREEN` = ED3, menu seulement) au splash ET au succès, puis `devHeader()` + bilan +
+  bloc d'état `StatusLine` (`statusLine.ts`) : DERNIÈRES lignes écrites, effacées (`eraseBlock` :
+  `\r ESC[2K` + `ESC[1A ESC[2K`×(N-1)) avant chaque écriture de stdout/stderr puis redessinées —
+  jamais de zone DECSTBM (historique perdu, Windows Terminal, terminal cassé au kill -9). Bloc =
+  marque du logo à gauche (`brandMark`, 6 lignes) + 1 info par ligne (`renderStatusBlock`) si
+  ≥ 72 col. et ≥ 20 lignes, sinon UNE ligne (`renderStatusLine`, badge vidéo inverse `⬢ projet`
+  jamais retiré, morceaux par priorité). Terminal PARTAGÉ avec le superviseur : le serveur
+  annonce sa hauteur par IPC, le superviseur (`guardSharedTerminal`) efface exactement cette
+  hauteur avant d'écrire et répond `status-erased` → `StatusLine.forget()` (sinon il effacerait
+  les lignes du superviseur). Canal = `devChannel.ts` (union discriminée `{channel:"nf-dev",type}`,
+  garde unique `isDevChannelMessage`, `sendToSupervisor`/`sendToServer` — base de #534). Bloc
+  retiré sur SIGTERM/SIGINT/SIGHUP (`prependOnceListener`, avant les journaux d'arrêt de Vite),
+  `onTerminate` et `exit` en filets ; `release()` idempotent. Le défilement de l'historique du
+  terminal emporte le bloc (contenu, pas superposition) : la barre figée pendant le défilement =
+  plein écran, #534.
+  Symboles par `SCREEN_SYMBOLS[resolveBrandCharset(...)]` (règle du logo) : ASCII sur console
+  Windows classique (ni ✓⚠ℹ⬢↻➜ ni braille du spinner).
+  Rechargement : `NF_DEV_RELOAD=<n>` (`reloadCount`) posé par `DevSupervisor.#restart` → ligne
+  `↻ Rechargé` + diff contre le `last-boot.json` précédent (`diffReload`), processus non relevés.
+  Build de démarrage en échec → `NF_DEV_BUILD_ISSUE` → point `DEV_BUILD_INCOMPLETE` (survit à
+  l'effacement). Rebuild à chaud : sortie CAPTURÉE (spinner), montrée en échec seulement, filtrée
+  aux tâches turbo fautives (`failedTaskOutput`).
+- Processus du bilan = `discoverDevProcesses({includeSelf:true})` + `splitByProject(…).mine`
+  (même source que `nodefony status`), sauté au rechargement. `status --json` = `buildStatusJson`
+  (`devStatusReport.ts`) : `DevStatusReport` + `boot` = `last-boot.json` + `source`
+  (`running`/`previous`/`stopped`/`absent`, par pid).
 - Canal prod = `logBootVerdict` (NOTICE/WARNING/CRITIC, inclut ignorés + journal).
 
 **Politique d'échec de boot (`isBootErrorFatal`)** : fatal = `critical !== false` && (`production`

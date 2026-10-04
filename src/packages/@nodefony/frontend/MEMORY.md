@@ -122,6 +122,7 @@ Vite compile HORS du cycle Kernel (spawn async, finit après `onPostReady`). Pou
 
 - `onFrontendStart` (payload `{ bundles: number }`) — **SYNCHRONE** dans le handler `onServersReady`, AVANT le `await startDev()` → fire avant `onPostReady` (sinon le reporter finirait avant). BootReporter ouvre la ligne « Frontend (Vite) ».
 - `onFrontendReady` (payload `{ bundles, names: string[], ready: number }`) — en `finally` (débloque toujours, succès comme échec). `ready` = nb de familles Vite en état `ready` (0 → `✗ échec`). BootReporter fige la ligne + débloque le « ✓ Prêt » différé.
+- Juste avant : `summarizeFrontendBoot` (`service/bootSummary.ts`, PUR) → `setBootLines("Frontend (Vite)", …)` une ligne par instance `noms · Vite interne :port` (port INTERNE, jamais une URL à ouvrir — Vite passe derrière Nodefony) + `reportBootNotice` `FRONTEND_BUILD_FAILED` (0 prête, error) / `FRONTEND_PARTIAL` (warning).
 
 Aucun listener (boot direct via `start.sh`, prod) → `fire` no-op, 0 coût. Ne fire QUE dans la branche dev (`env === development && autoStartInDevelopment`).
 

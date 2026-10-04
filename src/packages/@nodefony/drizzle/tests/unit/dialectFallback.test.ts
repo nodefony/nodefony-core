@@ -13,7 +13,7 @@ import {
   Container,
   CONSOLE_DATA_RUN_PROFILE,
 } from "nodefony";
-import type { Module, Pdu } from "nodefony";
+import type { IBootNotice, Module, Pdu } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
 import DrizzleService from "../../nodefony/service/DrizzleService";
 import { isDialectFallback } from "../../nodefony/config/defineModuleConfig";
@@ -50,6 +50,7 @@ function appWithEntity(dialect: string): string {
 async function boot(
   root: string,
   journal: string[],
+  notices: IBootNotice[] = [],
 ): Promise<{ service: DrizzleService; run: Promise<void> }> {
   const container = new Container();
   const kernel = {
@@ -58,6 +59,9 @@ async function boot(
     once: (): void => {},
     resolveRuntimeEnv: (): string => "development",
     setReadiness: (): void => {},
+    reportBootNotice: (notice: IBootNotice): void => {
+      notices.push(notice);
+    },
   };
   container.set("kernel", kernel);
   let hook: (() => Promise<void>) | null = null;
@@ -166,7 +170,8 @@ describe("repli sqlite — refusé sur des entités d'un autre dialecte, annonc�
     const root = appWithEntity("sqlite");
     roots.push(root);
     const journal: string[] = [];
-    const { service, run } = await boot(root, journal);
+    const notices: IBootNotice[] = [];
+    const { service, run } = await boot(root, journal, notices);
     await run;
     try {
       const line = journal.find((l) => l.includes("repli sur sqlite"));
@@ -175,6 +180,14 @@ describe("repli sqlite — refusé sur des entités d'un autre dialecte, annonc�
         line.includes(path.join(root, "var", "databases")),
         `le fichier employé n'est pas nommé : ${line}`,
       );
+      // Et au BILAN de démarrage (#533) : en haut de l'écran, chemin relatif.
+      const notice = notices.find((n) => n.code === "DB_SQLITE_FALLBACK");
+      assert.ok(notice, `repli absent du bilan : ${JSON.stringify(notices)}`);
+      assert.ok(
+        notice.message.includes(`(${path.join("var", "databases")}`),
+        `chemin non relatif au projet : ${notice.message}`,
+      );
+      assert.ok(!notice.message.includes(root), notice.message);
     } finally {
       await service.disconnectAll();
       ormRegistry.unregister("default");

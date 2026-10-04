@@ -22,6 +22,17 @@ import {
 } from "../../cli/packageManager";
 import type { PackageManagerName } from "../../Cli";
 import { waitBootVerdict } from "./bootVerdict";
+import {
+  DEV_BUILD_ISSUE_ENV,
+  DEV_RELOAD_ENV,
+  isDebugRequested,
+  readOutputFlag,
+  resolveOutputMode,
+  type StartupOutputMode,
+} from "./outputMode";
+import { isTerminal } from "../../runtime/isTerminal";
+import { guardSharedTerminal } from "./statusLine";
+import { DEV_CHANNEL, listenToServer, sendToServer } from "./devChannel";
 import { childExecArgv } from "./detachedStart";
 import {
   clearRuntimeState,
@@ -226,6 +237,62 @@ const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * Ne garde, d'une sortie turbo en échec, que les lignes des tâches qui ont
+ * ÉCHOUÉ.
+ *
+ * turbo rejoue la sortie de CHAQUE paquet, cache compris : pour une erreur dans
+ * un seul module, des centaines de lignes de bundles réussis l'enterraient. Une
+ * sortie sans préfixe de tâche (rolldown seul) est rendue telle quelle ; si
+ * aucune tâche n'est identifiée comme fautive, tout est rendu — mieux vaut un
+ * mur qu'une erreur tue.
+ *
+ * @param output - sortie capturée du build.
+ * @returns la sortie utile.
+ */
+export function failedTaskOutput(output: string): string {
+  const lines = output.split("\n");
+  const prefix = /^([^\s:]+:[^\s:]+): /;
+  const failed = new Set<string>();
+  for (const line of lines) {
+    const task = prefix.exec(line)?.[1];
+    if (task && /\bERROR\b|npm error|Build failed/u.test(line))
+      failed.add(task);
+  }
+  if (failed.size === 0) return output;
+  return lines
+    .filter((line) => {
+      const task = prefix.exec(line)?.[1];
+      // Les lignes sans préfixe (résumé final de turbo) restent.
+      return task === undefined || failed.has(task);
+    })
+    .join("\n");
+}
+
+/**
+ * Le rendu du démarrage, vu du superviseur — il en dérive où écrire ses
+ * lignes `[dev]` et s'il doit libérer une zone épinglée. Une valeur invalide
+ * rend `human` : la commande l'a déjà refusée en la nommant.
+ *
+ * @param argv - la ligne de commande.
+ * @param env - l'environnement.
+ * @returns le rendu.
+ */
+export function devSupervisorMode(
+  argv: readonly string[],
+  env: Readonly<Record<string, string | undefined>>,
+): StartupOutputMode {
+  try {
+    return resolveOutputMode(
+      readOutputFlag(argv),
+      env,
+      env.NF_NO_TTY ? false : isTerminal(process.stdout),
+    );
+  } catch {
+    return "human";
+  }
+}
+
+/**
  * Superviseur de développement « auto-restart » (modèle nodemon, cloud-native :
  * le process serveur est jetable).
  *
@@ -257,6 +324,27 @@ export class DevSupervisor {
   readonly #paths: readonly string[];
   readonly #debounceMs: number;
   readonly #childEnvKey: string;
+  /**
+   * Où parlent les lignes `[dev]` : la sortie standard, sauf en rendu `json`
+   * — ce flux appartient alors au bilan JSON du serveur, et une seule ligne
+   * étrangère casserait le `| jq` qui le lit. Elles passent sur la sortie
+   * d'erreur, où un humain les voit toujours.
+   */
+  readonly #out: NodeJS.WriteStream;
+  /** Rendu du démarrage demandé — le même que celui du serveur. */
+  readonly #mode: StartupOutputMode;
+  /** Rechargements à chaud depuis le lancement — affichés par le serveur. */
+  #reloads = 0;
+  /**
+   * Hauteur du bloc d'état que le serveur affiche en bas du terminal partagé,
+   * telle qu'il l'annonce par IPC — `0` sans bloc.
+   */
+  #childStatusLines = 0;
+  /**
+   * Le serveur tourne-t-il en `--debug` ? Alors il ne rend pas de bilan, et le
+   * superviseur annonce lui-même qu'il est prêt.
+   */
+  readonly #childDebug: boolean;
   /**
    * Ports imposés à la construction (`options.ports` / `NF_DEV_PORTS`). `null`
    * = on APPREND les ports réels de l'enfant (cf {@link DevSupervisor.ports}) —
@@ -354,6 +442,34 @@ export class DevSupervisor {
     this.#cwd = options.cwd;
     this.#debounceMs = options.debounceMs ?? 250;
     this.#childEnvKey = options.childEnvKey ?? "NF_DEV_CHILD";
+    this.#mode = devSupervisorMode(process.argv, process.env);
+    // En `json`, le flux standard appartient au bilan JSON du serveur.
+    this.#out = this.#mode === "json" ? process.stderr : process.stdout;
+    this.#childDebug = isDebugRequested(process.argv);
+    // Le serveur tient une ligne d'état en bas du terminal partagé (rendu
+    // humain, terminal, hors --debug) : TOUTE écriture du superviseur — ses
+    // lignes `[dev]` comme son propre journal — l'efface d'abord, sinon elle
+    // s'y collerait (vu : « terminate : 0 » au bout de la ligne d'état).
+    if (
+      this.#mode === "human" &&
+      !this.#childDebug &&
+      !process.env.NF_NO_TTY &&
+      isTerminal(process.stdout)
+    ) {
+      const unguard = guardSharedTerminal([process.stdout, process.stderr], {
+        height: () => this.#childStatusLines,
+        onErased: () => {
+          this.#childStatusLines = 0;
+          // Le serveur ne doit plus l'effacer lui-même : il emporterait nos
+          // lignes. Il le redessinera sous elles à sa prochaine écriture.
+          sendToServer(this.#child, {
+            channel: DEV_CHANNEL,
+            type: "status-erased",
+          });
+        },
+      });
+      process.once("exit", unguard);
+    }
     // Inclut les fichiers de config racine `nodefony.config.ts` + `env.ts` (modèle
     // defineConfig, Lot 5) : un changement déclenche un rebuild root (`rolldown -c` via
     // resolveWorkspace → null) puis le restart → la config éditée est appliquée en dev.
@@ -408,7 +524,7 @@ export class DevSupervisor {
 
   /** Écrit une ligne préfixée sur stdout (pas de `console.log` — code core). */
   #log(msg: string, color: keyof typeof ANSI = "cyan"): void {
-    process.stdout.write(
+    this.#out.write(
       `${ANSI.dim}[dev]${ANSI.reset} ${ANSI[color]}${msg}${ANSI.reset}\n`,
     );
   }
@@ -418,7 +534,7 @@ export class DevSupervisor {
   /** Démarre le spinner `[dev] ⠋ <label>…` (TTY) ou une ligne statique (non-TTY). */
   #startSpin(label: string): void {
     this.#spinLabel = label;
-    if (!process.stdout.isTTY) {
+    if (!this.#out.isTTY) {
       this.#log(`⚙ ${label}…`, "yellow");
       return;
     }
@@ -430,12 +546,24 @@ export class DevSupervisor {
   /** Réécrit la ligne du spinner avec la frame suivante (TTY animé). */
   #renderSpin(): void {
     this.#spinFrame = (this.#spinFrame + 1) % SPIN.length;
-    readline.clearLine(process.stdout, 0);
-    readline.cursorTo(process.stdout, 0);
-    process.stdout.write(
+    readline.clearLine(this.#out, 0);
+    readline.cursorTo(this.#out, 0);
+    this.#out.write(
       `${ANSI.dim}[dev]${ANSI.reset} ${ANSI.cyan}${SPIN[this.#spinFrame]}${ANSI.reset} ` +
         `${this.#spinLabel}${ANSI.dim}…${ANSI.reset}`,
     );
+  }
+
+  /** Efface le spinner sans rien laisser — l'étape a réussi, le verdict suit. */
+  #clearSpin(): void {
+    if (this.#spinTimer) {
+      clearInterval(this.#spinTimer);
+      this.#spinTimer = null;
+    }
+    if (this.#out.isTTY) {
+      readline.clearLine(this.#out, 0);
+      readline.cursorTo(this.#out, 0);
+    }
   }
 
   /** Fige le spinner sur `[dev] <mark> <msg>` (verdict de la phase de build). */
@@ -444,17 +572,17 @@ export class DevSupervisor {
       clearInterval(this.#spinTimer);
       this.#spinTimer = null;
     }
-    if (process.stdout.isTTY) {
-      readline.clearLine(process.stdout, 0);
-      readline.cursorTo(process.stdout, 0);
+    if (this.#out.isTTY) {
+      readline.clearLine(this.#out, 0);
+      readline.cursorTo(this.#out, 0);
     }
-    process.stdout.write(
+    this.#out.write(
       `${ANSI.dim}[dev]${ANSI.reset} ${mark} ${ANSI[color]}${msg}${ANSI.reset}\n`,
     );
   }
 
   /**
-   * Variante de {@link #run} qui CAPTURE la sortie au lieu de l'hériter — le
+   * Lance une commande en CAPTURANT sa sortie au lieu de l'hériter — le
    * spinner remplace le mur de logs turbo/rolldown. La sortie n'est révélée que sur
    * ÉCHEC (le dev doit voir l'erreur de build : fail-loud).
    */
@@ -505,8 +633,8 @@ export class DevSupervisor {
 
   /** Déverse la sortie d'un build qui a échoué (après avoir figé le spinner). */
   #dumpBuild(output: string): void {
-    const txt = output.trim();
-    if (txt) process.stdout.write(`${txt}\n`);
+    const txt = failedTaskOutput(output).trim();
+    if (txt) this.#out.write(`${txt}\n`);
   }
 
   /** Mémorise le verdict + les dernières lignes utiles pour le rejeu post-boot. */
@@ -531,7 +659,7 @@ export class DevSupervisor {
     this.#bootBuildIssues = null;
     this.#log("── rappel : le BUILD de démarrage avait un problème ──", "red");
     this.#log(verdict, "red");
-    for (const line of tail) process.stdout.write(`${line}\n`);
+    for (const line of tail) this.#out.write(`${line}\n`);
     this.#log("── fin du rappel build (corrige puis sauvegarde) ──", "red");
   }
 
@@ -835,7 +963,7 @@ export class DevSupervisor {
             "yellow",
           );
           for (const line of formatForeignRuntimes(others)) {
-            process.stdout.write(`${line}\n`);
+            this.#out.write(`${line}\n`);
           }
           this.#log(
             "figer les ports de CETTE app : nodefony.config.ts servers.*.port · " +
@@ -973,7 +1101,7 @@ export class DevSupervisor {
   }
 
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
-  #spawnChild(): void {
+  #spawnChild(reload = false): void {
     this.#childSpawnedAt = Date.now();
     // Le state file du run PRÉCÉDENT ne doit jamais signer la readiness du run
     // suivant (il ferait « prêt » avant même que l'enfant n'ait bindé). L'enfant
@@ -987,8 +1115,23 @@ export class DevSupervisor {
       [...childExecArgv(process.execArgv), ...process.argv.slice(1)],
       {
         cwd: this.#cwd,
-        env: { ...process.env, [this.#childEnvKey]: "1" },
-        stdio: "inherit",
+        // `NF_DEV_RELOAD` : ce lancement suit une modification — le serveur
+        // dira ce qui a changé au lieu de répéter tout l'écran. Jamais au
+        // premier lancement ni après un crash (le bilan complet sert alors).
+        env: {
+          ...process.env,
+          [this.#childEnvKey]: "1",
+          // Sa valeur est le NUMÉRO du rechargement : la ligne d'état l'affiche.
+          [DEV_RELOAD_ENV]: reload ? String(++this.#reloads) : undefined,
+          // Le verdict d'un build de démarrage en échec part avec le serveur,
+          // qui en fait un point de son bilan : le rappel ci-dessous défile,
+          // le bilan reste.
+          [DEV_BUILD_ISSUE_ENV]: this.#bootBuildIssues?.verdict,
+        },
+        // Terminal HÉRITÉ (le serveur garde son TTY : couleurs, largeur, spinner)
+        // + un canal IPC : le serveur y annonce la hauteur de son bloc d'état,
+        // que le superviseur doit connaître pour écrire sans le corrompre.
+        stdio: ["inherit", "inherit", "inherit", "ipc"],
         // POSIX : leader de groupe → `kill(-pid)` emporte le groupe entier (Vite
         // inclus) au restart. Windows : pas de groupes, et le rattachement est ce
         // qui rend l'arbre atteignable — `taskkill /T` suit la FILIATION. Détacher
@@ -997,7 +1140,12 @@ export class DevSupervisor {
       },
     );
     this.#child = child;
+    listenToServer(child, (message) => {
+      if (message.type === "status") this.#childStatusLines = message.lines;
+    });
     child.once("exit", (code, signal) => {
+      // Le serveur efface son bloc en sortant : plus rien à effacer pour lui.
+      this.#childStatusLines = 0;
       // Restart sollicité : `#killChild` a déjà mis `#child` à null avant l'exit.
       if (this.#child !== child) return;
       this.#child = null;
@@ -1049,7 +1197,11 @@ export class DevSupervisor {
               "(modules ignorés) : lance `nodefony status` / vois les logs ci-dessus",
             "yellow",
           );
-        } else {
+        } else if (this.#childDebug) {
+          // Hors `--debug`, le serveur rend LUI-MÊME son bilan (adresses à
+          // ouvrir comprises) : cette ligne le doublait, coupait sa jauge de
+          // progression, et citait l'adresse de LIAISON au lieu de celle à
+          // ouvrir. Elle reste pour `--debug`, où aucun bilan n'est rendu.
           this.#log(
             `✓ serveur prêt en ${Date.now() - t0}ms — ${served.served}`,
             "green",
@@ -1280,7 +1432,7 @@ export class DevSupervisor {
     await this.#killChild();
     await this.#waitPortsFree();
     this.#spawnRetries = 0;
-    this.#spawnChild();
+    this.#spawnChild(true);
     if (this.#pending) {
       this.#pending = false;
       this.#scheduleRestart("(modifs en attente)");
@@ -1294,55 +1446,57 @@ export class DevSupervisor {
    * fichier (le `npm run build` complet coûtait > 80 s).
    */
   async #build(dirty: readonly string[]): Promise<boolean> {
+    const steps: Array<[label: string, bin: string, args: readonly string[]]> =
+      [];
     // Standalone : UN build, celui de l'app — jamais turbo (pas de workspaces).
     // Un module local (`modules/<x>` avec son package.json) rentre aussi ici :
     // son build relève du rolldown de l'app, pas d'un orchestrateur absent.
     if (this.#standalone) {
-      this.#log("rebuild app (rolldown -c)…", "yellow");
-      return this.#run(...this.#binCommand("rolldown", APP_DEV_BUILD_ARGS));
+      steps.push(["rebuild app (rolldown)", "rolldown", APP_DEV_BUILD_ARGS]);
+    } else {
+      const pkgs = new Set<string>();
+      let rootTouched = false;
+      for (const f of dirty) {
+        const name = this.#resolvePackage(f);
+        if (name === null) rootTouched = true;
+        else pkgs.add(name);
+      }
+      // 1. Workspaces (turbo, avec dépendants). Cache turbo → no-op si inchangé.
+      if (pkgs.size > 0) {
+        steps.push([
+          `rebuild ${[...pkgs].join(", ")}`,
+          "turbo",
+          [
+            "run",
+            "build",
+            ...[...pkgs].flatMap((p) => ["--filter", `${p}...`]),
+          ],
+        ]);
+      }
+      // 2. App racine (l'app dépend des workspaces → après turbo).
+      if (rootTouched || pkgs.size === 0) {
+        steps.push([
+          "rebuild app racine (rolldown)",
+          "rolldown",
+          APP_DEV_BUILD_ARGS,
+        ]);
+      }
     }
-    const pkgs = new Set<string>();
-    let rootTouched = false;
-    for (const f of dirty) {
-      const name = this.#resolvePackage(f);
-      if (name === null) rootTouched = true;
-      else pkgs.add(name);
-    }
-
-    // 1. Workspaces (turbo, avec dépendants). Cache turbo → no-op si inchangé.
-    if (pkgs.size > 0) {
-      const filters = [...pkgs].flatMap((p) => ["--filter", `${p}...`]);
-      this.#log(`⚙ rebuild ${[...pkgs].join(", ")}…`, "yellow");
-      if (
-        !(await this.#run(
-          ...this.#binCommand("turbo", ["run", "build", ...filters]),
-        ))
-      )
+    // Sortie CAPTURÉE, comme au premier démarrage : un spinner pendant le
+    // build, sa sortie seulement s'il échoue. Héritée, elle déversait des
+    // centaines de lignes turbo/rolldown à chaque sauvegarde, par-dessus la
+    // ligne « ↻ rechargé » qui est tout ce que le développeur veut lire.
+    for (const [label, bin, args] of steps) {
+      this.#startSpin(label);
+      const result = await this.#runBin(bin, args);
+      if (!result.ok) {
+        this.#stopSpin(`${ANSI.red}✗${ANSI.reset}`, `${label} en échec`, "red");
+        this.#dumpBuild(result.output);
         return false;
-    }
-    // 2. App racine (l'app dépend des workspaces → après turbo).
-    if (rootTouched || pkgs.size === 0) {
-      this.#log("rebuild app racine (rolldown -c)…", "yellow");
-      if (
-        !(await this.#run(...this.#binCommand("rolldown", APP_DEV_BUILD_ARGS)))
-      )
-        return false;
+      }
+      this.#clearSpin();
     }
     return true;
-  }
-
-  /** Spawn une commande de build, résout `true` si code de sortie 0. */
-  #run(cmd: string, args: readonly string[]): Promise<boolean> {
-    return new Promise((resolve) => {
-      const run = portableSpawn(cmd, args);
-      const p = spawn(run.file, run.args, {
-        cwd: this.#cwd,
-        stdio: "inherit",
-        windowsVerbatimArguments: run.windowsVerbatimArguments,
-      });
-      p.once("exit", (code) => resolve(code === 0));
-      p.once("error", () => resolve(false));
-    });
   }
 
   /**

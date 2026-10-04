@@ -91,7 +91,7 @@ export { default as Builder } from "./command/Builder";
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 export { default as Syslog } from "./syslog/Syslog";
-export { NULL_LOG_SINK } from "./syslog/Syslog";
+export { NULL_LOG_SINK, STDERR_LOG_SINK } from "./syslog/Syslog";
 export type { ILogSink } from "./syslog/Syslog";
 export { default as Pdu } from "./syslog/Pdu";
 // Gate couleur ANSI des logs (résolue au boot) — payloads bruts hors TTY.
@@ -610,7 +610,17 @@ export type {
   IBootFailure,
   IBootServerInfo,
   IBootModuleGated,
+  IBootNotice,
+  IBootLink,
+  IBootLinkDeclaration,
+  BootNoticeLevel,
 } from "./kernel/bootReport";
+
+// Lecture des zones du pare-feu pour le bilan de démarrage — la règle « zone
+// applicative ou aire du framework » vit ici, une seule fois : le détail du
+// bilan et le point d'attention de `@nodefony/security` l'appellent tous deux.
+export { cleanZonePattern, isFrameworkZone } from "./service/dev/firewallZones";
+export type { IFirewallZoneView } from "./service/dev/firewallZones";
 
 // Disponibilité du processus — un composant qui a un état d'amorçage (schéma en
 // retard, cache froid) retient `/readyz` via `kernel.setReadiness(...)`.

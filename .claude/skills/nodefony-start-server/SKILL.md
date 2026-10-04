@@ -197,7 +197,7 @@ Ce qu'il fait :
 ### Protocole "modif code + test via boot"
 
 - **Modif backend pendant une session UP** → **rien à faire** : sauvegarde → le superviseur rebuild
-  (ciblé) + restart automatiquement (`↻ changement` / `✓ build OK — rechargement` / `✓ serveur prêt`).
+  (ciblé) + restart automatiquement (`↻ changement` / `✓ build OK — rechargement`, sortie du build capturée et montrée seulement en échec ; « ✓ serveur prêt » seulement en `--debug`, sinon le serveur rend son bilan).
   Build en échec → serveur courant **conservé** (corrige puis sauvegarde). Pour un refactor
   multi-fichiers : l'anti-rebond regroupe les sauvegardes rapprochées en un seul restart.
 - **Lancer / arrêter proprement** → `start.sh` (lancement initial des tests d'intégration) /

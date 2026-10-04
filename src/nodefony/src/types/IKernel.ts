@@ -1,6 +1,10 @@
 import type { IService } from "./IService";
 import type { IModule } from "./IModule";
-import type { IBootReport } from "../kernel/bootReport";
+import type {
+  IBootReport,
+  IBootNotice,
+  IBootLinkDeclaration,
+} from "../kernel/bootReport";
 import type { IReadinessContributor } from "../kernel/readinessRegistry";
 import type FileClass from "../FileClass";
 import type { EnvironmentType, DebugType } from "./globals";
@@ -149,6 +153,10 @@ export interface IKernel extends IService {
   setBootLines(phase: string, lines: string[]): void;
   /** Lignes de détail déclarées pour une phase de boot. */
   getBootLines(phase: string): string[];
+  /** Déclare un point d'attention du démarrage (constat + geste), rendu au bilan. */
+  reportBootNotice(notice: IBootNotice): void;
+  /** Déclare une adresse à ouvrir, par son chemin sur l'application. */
+  reportBootLink(link: IBootLinkDeclaration): void;
 
   // ─── Disponibilité (ce qui retient la mise en service — `/readyz`) ───────────
   /**

@@ -112,7 +112,17 @@ import type {
   IBootFailure,
   IBootServerInfo,
   IBootModuleGated,
+  IBootNotice,
+  IBootLinkDeclaration,
 } from "./bootReport";
+import { collectBootNotices, resolveBootLinks } from "./bootReport";
+import {
+  CLEAR_SCREEN,
+  isDebugRequested,
+  readOutputFlag,
+  resolveOutputMode,
+  type StartupOutputMode,
+} from "../service/dev/outputMode";
 import { ReadinessRegistry } from "./readinessRegistry";
 import type { IReadinessContributor } from "./readinessRegistry";
 import {
@@ -714,6 +724,24 @@ class Kernel extends Service implements IKernel {
    */
   private bootLines: Map<string, string[]> | null = null;
   /**
+   * Points d'attention déclarés par les modules ({@link reportBootNotice}).
+   * Lazy : `null` tant qu'aucun module n'a rien à signaler (cas sain).
+   */
+  private bootNotices: IBootNotice[] | null = null;
+  /** Liens à ouvrir déclarés par les modules ({@link reportBootLink}). Lazy. */
+  private bootLinks: IBootLinkDeclaration[] | null = null;
+  /**
+   * `true` une fois `var/last-boot.json` écrit pour CE démarrage serveur : un
+   * point d'attention déclaré ensuite (compilation d'assets qui finit après
+   * `onPostReady`) le fait réécrire, sinon le fichier mentirait par omission.
+   */
+  private bootSummaryWritten = false;
+  /**
+   * Durée du démarrage figée à la première écriture du bilan — une réécriture
+   * tardive ne doit pas la faire croître du temps écoulé depuis.
+   */
+  private bootDurationMs: number | null = null;
+  /**
    * Construit le Kernel. **Side effect critique** : appelle `Nodefony.setKernel(this)` →
    * écrase le singleton global. Isoler les tests avec un mock minimal pour éviter de
    * polluer les autres tests qui dépendent de `Nodefony.getKernel()`.
@@ -909,7 +937,11 @@ class Kernel extends Service implements IKernel {
         (s) => `${s.type}${s.port ? `:${s.port}` : ""}`,
       );
     }
+    if (report.open.length) entry.open = report.open;
+    if (report.notices.length) entry.notices = report.notices;
     writeLastBoot(this.path, entry);
+    this.bootSummaryWritten = true;
+    this.bootDurationMs ??= report.durationMs;
   }
 
   /**
@@ -1027,16 +1059,30 @@ class Kernel extends Service implements IKernel {
     // - **DEV** → un SEUL splash, dans le process qui boote réellement le serveur (l'enfant
     //   du DevSupervisor, `NF_DEV_CHILD=1`), PAS le superviseur parent CONSOLE
     //   (sinon double splash : parent + enfant — cf 2 ASCII art observés).
-    const devSplash =
+    const devChild =
       this.environment === "development" && process.env.NF_DEV_CHILD === "1";
+    // Ni en rendu machine (`plain`/`json`). Dans un terminal, hors --debug :
+    // page propre dès que l'écran de Nodefony s'affiche — au démarrage comme
+    // à chaque rechargement (l'historique du terminal reste intact).
+    const devSplash = devChild && this.startupOutputMode() === "human";
+    if (
+      this.cli &&
+      devSplash &&
+      this.isTTY &&
+      !isDebugRequested(process.argv)
+    ) {
+      process.stdout.write(CLEAR_SCREEN);
+    }
     if (this.cli && devSplash) {
       // Bannière (logo + mot + encart version/env/meta), AVANT tout log de boot →
       // ordre stable dans tous les modes dev (animé / debug / non-TTY). Précalculée :
-      // plus de figlet au démarrage. initCluster() ne ré-imprime PAS logEnv
-      // (reporterOwnsHeader). Le BootReporter ne pose que la checklist (✓/spinner).
+      // plus de figlet au démarrage. Le BootReporter ne pose que la checklist.
       this.printDevHeader();
-      this.reporterOwnsHeader = true;
     }
+    // L'identité (version, environnement) est portée par le bilan du
+    // BootReporter dans TOUS ses rendus : `initCluster()` ne ré-imprime donc
+    // pas `logEnv` — ni sous le splash, ni sans lui (rechargement, plain, json).
+    if (this.cli && devChild) this.reporterOwnsHeader = true;
 
     // `tmp/` est gitignored (jamais commité) → absent sur un checkout frais (CI),
     // un container/pod neuf ou un premier boot. `FileClass` fait un `lstatSync()`
@@ -3031,14 +3077,50 @@ class Kernel extends Service implements IKernel {
    * application et environnement, runtime, topologie. Rendue par `renderBrand`
    * (précalculée, sans figlet) ; couleurs gatées comme les journaux (logColor).
    */
-  private printDevHeader(): void {
-    let version = "";
+  /**
+   * Le rendu du démarrage demandé (`--output`, `NF_OUTPUT`, sinon la capacité
+   * du terminal) — lu ici pour le splash, qui part avant tout hook de commande.
+   * Une valeur invalide rend `human` : c'est la commande `development` qui la
+   * refuse, en la nommant ; le splash n'a pas à mourir pour elle.
+   *
+   * @returns le rendu.
+   */
+  startupOutputMode(): StartupOutputMode {
+    try {
+      return resolveOutputMode(
+        readOutputFlag(process.argv),
+        process.env,
+        this.isTTY,
+      );
+    } catch {
+      return "human";
+    }
+  }
+
+  /**
+   * Version de Nodefony, telle que la ligne de commande la porte — vide si la
+   * commande n'en déclare pas.
+   *
+   * @returns la version, ou `""`.
+   */
+  frameworkVersion(): string {
     try {
       const v: unknown = this.cli?.commander?.version();
-      if (typeof v === "string") version = v;
+      return typeof v === "string" ? v : "";
     } catch {
-      /* commander sans version définie — ignore */
+      return ""; // commander sans version définie
     }
+  }
+
+  /**
+   * La bannière de développement (logo, version, environnement, Node, mode),
+   * rendue pour la largeur ACTUELLE du terminal — le `BootReporter` la repose
+   * en haut de l'écran, et la redessine quand la fenêtre change de taille.
+   *
+   * @returns la bannière, retours chariot compris.
+   */
+  devHeader(): string {
+    const version = this.frameworkVersion();
     // Axe DÉPLOIEMENT (APP_ENV / NF_ENV) affiché seulement s'il DIFFÈRE du
     // mode runtime — sinon redondant. Lu DIRECTEMENT depuis l'env (ambient) car le
     // header s'imprime avant que `setEnv` n'ait résolu `appEnvironment`. Cf deux axes.
@@ -3061,15 +3143,18 @@ class Kernel extends Service implements IKernel {
           .join(" · "),
       },
     ];
-    process.stdout.write(
-      renderBrand({
-        ...(version ? { version } : {}),
-        rows,
-        columns: process.stdout.columns || 80,
-        color: isLogColorEnabled(),
-        charset: resolveBrandCharset(process.platform, process.env),
-      }),
-    );
+    return renderBrand({
+      ...(version ? { version } : {}),
+      rows,
+      columns: process.stdout.columns || 80,
+      color: isLogColorEnabled(),
+      charset: resolveBrandCharset(process.platform, process.env),
+    });
+  }
+
+  /** Imprime la bannière de développement ({@link devHeader}) en tête du boot. */
+  printDevHeader(): void {
+    process.stdout.write(this.devHeader());
   }
 
   logEnv(): string {
@@ -3427,8 +3512,16 @@ class Kernel extends Service implements IKernel {
     const manifestEntries = Array.isArray(this.options.modules)
       ? this.options.modules.length
       : 0;
+    const remediation =
+      this.bootRemediationHint(
+        modulesSkipped,
+        manifestEntries,
+        serversExpected,
+      ) ?? undefined;
     return {
-      durationMs: this.bootStartedAt > 0 ? Date.now() - this.bootStartedAt : 0,
+      durationMs:
+        this.bootDurationMs ??
+        (this.bootStartedAt > 0 ? Date.now() - this.bootStartedAt : 0),
       modulesLoaded: Object.keys(this.modules),
       manifestEntries,
       modulesSkipped,
@@ -3442,12 +3535,14 @@ class Kernel extends Service implements IKernel {
       // n'a pas constaté d'absence → pas encore « unhealthy » (le garde-fou de `onReady`
       // lit le report APRÈS `captureBootServers`, donc `measured` y est vrai → inchangé).
       healthy: !(serversExpected && measured && serversListening.length === 0),
-      remediation:
-        this.bootRemediationHint(
-          modulesSkipped,
-          manifestEntries,
-          serversExpected,
-        ) ?? undefined,
+      remediation,
+      open: resolveBootLinks(serversListening, this.bootLinks ?? []),
+      notices: collectBootNotices(
+        modulesSkipped,
+        remediation,
+        this.readinessReport(),
+        this.bootNotices ?? [],
+      ),
     };
   }
 
@@ -3730,6 +3825,46 @@ class Kernel extends Service implements IKernel {
     } else {
       map.set(phase, [line]);
     }
+  }
+
+  /**
+   * Déclare un point d'attention du démarrage — ce qui manque ou s'est dégradé,
+   * dit par le module qui le CONSTATE, avec le geste qui le corrige.
+   *
+   * Canal NEUTRE : le noyau ne connaît ni la base, ni le pare-feu, ni les
+   * assets ; il range, trie et restitue (écran, rendu machine,
+   * `var/last-boot.json`). Idempotent : un même point (code + message) déclaré
+   * deux fois n'apparaît qu'une fois. Déclaré après l'écriture du bilan, il le
+   * fait réécrire — hors de tout chemin de requête.
+   *
+   * @param notice - le point (code stable, gravité, constat, geste).
+   */
+  reportBootNotice(notice: IBootNotice): void {
+    const notices = (this.bootNotices ??= []);
+    if (
+      notices.some(
+        (n) => n.code === notice.code && n.message === notice.message,
+      )
+    ) {
+      return;
+    }
+    notices.push(notice);
+    if (this.bootSummaryWritten) this.writeBootSummary(this.getBootReport());
+  }
+
+  /**
+   * Déclare une adresse à ouvrir, par son CHEMIN : le noyau la résout contre
+   * l'origine de l'application (hôte et port viennent de la configuration, que
+   * le module n'a pas à connaître). Idempotent sur l'identifiant ; déclarée
+   * après l'écriture du bilan, elle le fait réécrire.
+   *
+   * @param link - identifiant stable, libellé, chemin (`/nodefony`).
+   */
+  reportBootLink(link: IBootLinkDeclaration): void {
+    const links = (this.bootLinks ??= []);
+    if (links.some((l) => l.id === link.id)) return;
+    links.push(link);
+    if (this.bootSummaryWritten) this.writeBootSummary(this.getBootReport());
   }
 
   /**

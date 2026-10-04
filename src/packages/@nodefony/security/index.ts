@@ -18,6 +18,7 @@ import SecurityUserAdd from "./nodefony/command/security-user-add";
 import SecurityUserList from "./nodefony/command/security-user-list";
 import SecurityUserDelete from "./nodefony/command/security-user-delete";
 import SecurityUserPassword from "./nodefony/command/security-user-password";
+import { publicRoutesNotice } from "./nodefony/src/boot/publicRoutesNotice";
 import SecurityToken from "./nodefony/command/security-token";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";
@@ -109,6 +110,22 @@ class Security extends Module {
     if (this.kernel && container) {
       registerUserRevocationCascade(this.kernel, container as Container);
     }
+    return this;
+  }
+
+  /**
+   * Déclare au bilan de démarrage les routes métier laissées PUBLIQUES.
+   *
+   * `onReady` et pas `onBoot` : les zones sont compilées par le pare-feu à son
+   * propre `onBoot`, posé APRÈS celui du module — à `onBoot` la liste est encore
+   * vide. `onReady` précède l'écriture du bilan (`var/last-boot.json`).
+   */
+  override async onKernelReady(): Promise<this> {
+    const firewall = this.kernel?.container?.get("firewall") as
+      Firewall | undefined;
+    if (!firewall) return this;
+    const notice = publicRoutesNotice(firewall.describe().zones);
+    if (notice) this.kernel?.reportBootNotice(notice);
     return this;
   }
 }

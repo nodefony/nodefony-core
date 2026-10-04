@@ -266,6 +266,7 @@ Lighthouse authentifié) et les pièges qui font conclure FAUX.
 ```bash
 npm run dev                          # développement (Ctrl+C pour arrêter)
 npx nodefony status                  # que tourne-t-il ? ports, PID — ne boote rien
+npx nodefony status --json           # état du démarrage (adresses, points) — jamais l'écran
 npx nodefony stop                    # arrêt PROPRE — jamais `… &`, qui meurt sur SIGHUP
 npx nodefony production --detach --wait   # boot réel détaché, rend la main ports OUVERTS
 npx nodefony card                    # qui répond, ce qui est chargé, où lire, quoi lancer

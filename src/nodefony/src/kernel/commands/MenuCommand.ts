@@ -17,6 +17,7 @@ import { portableSpawn } from "../../cli/execPortable";
 import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
 import { resolveColorEnabled } from "../../syslog/logColor";
 import { renderBrand, resolveBrandCharset } from "../../cli/brand";
+import { RESET_SCREEN } from "../../service/dev/outputMode";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -321,7 +322,7 @@ class Menu extends Command {
     // Écran REMIS À ZÉRO avant d'exécuter : la commande démarre sur une page
     // propre, avec une ligne qui rappelle ce qui se lance — le menu a rempli
     // l'écran, le laisser derrière rend toute sortie illisible.
-    process.stdout.write("\x1b[2J\x1b[3J\x1b[H");
+    process.stdout.write(RESET_SCREEN);
     process.stdout.write(
       `${this.#cyan("⬢")} ${this.#bold(this.kernel?.projectName ?? "nodefony")} ${this.#dim(`— ${response.replace(NPM_SCRIPT_PREFIX, "npm run ")}`)}\n\n`,
     );

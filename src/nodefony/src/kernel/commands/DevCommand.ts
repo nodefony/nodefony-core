@@ -2,8 +2,19 @@ import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
 import BootReporter from "../../service/dev/BootReporter";
+import {
+  DEV_BUILD_ISSUE_ENV,
+  devBuildIssueNotice,
+  OUTPUT_MODES,
+  readOutputFlag,
+  reloadCount,
+  resolveOutputMode,
+  type StartupOutputMode,
+} from "../../service/dev/outputMode";
+import { SysExit } from "../../cli/sysexits";
 import { enableDevSourceMaps } from "../../service/dev/sourceMaps";
 import { isLoopbackHostname } from "../../Tools";
+import Syslog, { STDERR_LOG_SINK } from "../../syslog/Syslog";
 import {
   openDevInspector,
   parseInspectArgs,
@@ -46,6 +57,12 @@ export function isWatchDisabled(args: readonly string[]): boolean {
  */
 class Dev extends Command {
   #reporter: BootReporter | null = null;
+  /**
+   * URL du débogueur ouvert dans le serveur — `null` sans `--inspect` ni
+   * `nodefony debug`. Le bilan la garde à l'écran : l'annonce de Node défile,
+   * et l'écran est remis à zéro quand tout va bien.
+   */
+  #inspectorUrl: string | null = null;
 
   /**
    * @param cli - le CLI hôte.
@@ -76,6 +93,12 @@ class Dev extends Command {
     );
     // Lues par `parseInspectArgs` sur argv, dans le SERVEUR : déclarées pour le help
     // et pour que commander ne les rejette pas.
+    // Lue sur argv (`readOutputFlag`) avant que commander ne rende la main : le
+    // splash en dépend. Déclarée pour le help et pour que commander l'accepte.
+    this.addOption(
+      "--output <mode>",
+      `rendu du démarrage : ${OUTPUT_MODES.join(" | ")} (défaut : human dans un terminal, plain sinon ; aussi NF_OUTPUT)`,
+    );
     this.addOption(
       "--inspect [host:port]",
       "ouvre le débogueur dans le serveur (défaut 127.0.0.1:9229)",
@@ -125,17 +148,26 @@ class Dev extends Command {
             `À réserver à un conteneur dont le port n'est publié que sur 127.0.0.1.\n`,
         );
       }
-      if (opened.supported) this.onInspectorOpened(opened.url);
-      else this.log(`débogueur non ouvert : ${opened.reason}`, "WARNING");
+      if (opened.supported) {
+        this.#inspectorUrl = opened.url;
+        this.onInspectorOpened(opened.url);
+      } else this.log(`débogueur non ouvert : ${opened.reason}`, "WARNING");
     }
     const kernel = this.kernel as Kernel | null;
     if (!kernel) return;
+    const buildIssue = process.env[DEV_BUILD_ISSUE_ENV];
+    if (buildIssue) kernel.reportBootNotice(devBuildIssueNotice(buildIssue));
     this.#reporter = new BootReporter(kernel, {
       // Gate TTY CENTRALISÉ du Kernel (résolu 1× au boot, NF_NO_TTY-aware) plutôt
       // qu'une relecture directe de `process.stdout.isTTY` → cohérent avec la
       // couleur ANSI et surchargeable en test/CI.
       debug: Boolean(kernel.debug),
       tty: kernel.isTTY,
+      // Déjà validé à `onKernelStart`, qui refuse une valeur inconnue.
+      mode: kernel.startupOutputMode(),
+      reload: reloadCount(process.env) > 0,
+      supervised: process.env[CHILD_ENV] === "1",
+      inspector: this.#inspectorUrl,
     });
     this.#reporter.attach();
   }
@@ -156,7 +188,35 @@ class Dev extends Command {
    */
   protected onInspectorOpened(_url: string): void {}
 
+  /**
+   * Le rendu demandé, VALIDÉ : une valeur inconnue de `--output` ou de
+   * `NF_OUTPUT` arrête la commande en la nommant (code 64) — acceptée puis
+   * ignorée, elle apprendrait à son auteur qu'elle a un sens.
+   *
+   * @returns le rendu, ou `null` si la commande a été arrêtée.
+   */
+  async #validatedOutputMode(): Promise<StartupOutputMode | null> {
+    const kernel = this.kernel as Kernel | null;
+    try {
+      return resolveOutputMode(
+        readOutputFlag(process.argv),
+        process.env,
+        kernel?.isTTY ?? false,
+      );
+    } catch (e) {
+      process.stderr.write(`nodefony development : ${(e as Error).message}\n`);
+      await kernel?.terminate(SysExit.USAGE);
+      return null;
+    }
+  }
+
   override async onKernelStart(): Promise<void> {
+    const mode = await this.#validatedOutputMode();
+    if (mode === null) return;
+    // `json` : la sortie standard est le flux du bilan, lu par une machine. Le
+    // journal de CE processus — superviseur comme serveur — part sur la sortie
+    // d'erreur (le serveur le refait dans `BootReporter`, qui le sait aussi).
+    if (mode === "json") Syslog.setLogSink(STDERR_LOG_SINK);
     this.cli.environment = "development";
     process.env.NF_MODE_START = "development";
 

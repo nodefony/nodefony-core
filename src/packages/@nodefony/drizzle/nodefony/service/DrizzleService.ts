@@ -43,6 +43,7 @@ import {
 } from "../src/migrator/destructive";
 import type { DdlMode } from "../config/config";
 import { isDialectFallback } from "../config/defineModuleConfig";
+import { sqliteFallbackNotice } from "../src/sqliteFallbackNotice";
 import type {
   IDrizzleConfig,
   IDrizzleConfigInput,
@@ -316,6 +317,15 @@ class DrizzleService extends Service {
           `Drizzle « ${name} » : aucune base déclarée (NF_DATABASE_URL absente, ` +
             `aucun \`dialect\` écrit) — repli sur sqlite, fichier ${filename}`,
           "INFO",
+        );
+        const root = this.kernel?.path;
+        this.kernel?.reportBootNotice(
+          sqliteFallbackNotice(
+            name,
+            root && filename !== MEMORY_DATABASE
+              ? path.relative(root, filename)
+              : filename,
+          ),
         );
       }
       if (filename !== MEMORY_DATABASE) {

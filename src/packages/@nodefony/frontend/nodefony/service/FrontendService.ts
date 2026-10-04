@@ -35,6 +35,7 @@ import {
 import defaultConfig, { type IFrontendConfig } from "../config/config";
 import { stripTrailingSlashes } from "nodefony";
 import path from "node:path";
+import { summarizeFrontendBoot } from "./bootSummary";
 
 /**
  * Vue minimale du service statique de `@nodefony/http` (résolu par nom via le
@@ -182,26 +183,16 @@ class FrontendService extends Service implements IFrontendService {
         } catch (e) {
           this.log(e, "ERROR");
         } finally {
-          // Récap boot (core `BootReporter`) : une ligne par entrée servie =
-          // « nom  URL HMR  framework » (l'URL que le dev ouvre). Poussé AVANT le
-          // fire (le reporter lit ces lignes au « ✓ Prêt »). Dev-only ; le mur de
-          // logs Vite reste au buffer/backplane (visible en `--debug`).
-          let ready = 0;
-          for (const [, sup] of this.supervisors) {
-            const st = sup.status();
-            if (st.state !== "ready") continue;
-            ready++;
-            const scheme = st.https ? "https" : "http";
-            // Origine publique du superviseur (P14.17) — l'URL que le dev OUVRE.
-            const url = `${st.origin ?? `${scheme}://${st.host}:${st.port}`}/`;
-            for (const e of st.entries) {
-              const fw = e.type.replace(/[0-9]+$/, ""); // react19 → react
-              this.kernel?.reportBootLine(
-                "Frontend (Vite)",
-                `${e.entryName.padEnd(24)}${url}${fw ? `   ${fw}` : ""}`,
-              );
-            }
-          }
+          // Bilan de démarrage (core) : une ligne par instance — bundles servis
+          // et port INTERNE de Vite, jamais une adresse à ouvrir (Vite passe
+          // derrière Nodefony). Poussé AVANT le fire : le bilan lit ces lignes.
+          // Le mur de journaux Vite reste au buffer/backplane (`--debug`).
+          const summary = summarizeFrontendBoot(
+            [...this.supervisors.values()].map((sup) => sup.status()),
+          );
+          const ready = summary.ready;
+          this.kernel?.setBootLines("Frontend (Vite)", summary.lines);
+          if (summary.notice) this.kernel?.reportBootNotice(summary.notice);
           this.kernel?.fire("onFrontendReady", {
             bundles: names.length,
             names,

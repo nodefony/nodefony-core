@@ -8852,7 +8852,7 @@
       "description": "Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill ports, spawn detached du DevSupervisor (auto-restart), wait boot fail-fast, health check. Commandes natives standalone nodefony status / nodefony stop (introspection + arrêt propre, de partout). Déclencheurs : \"lance le serveur\", \"démarre nodefony\", \"relance le serveur\", \"start server\", \"redémarre le serveur\", tests d'intégration en 404 (dist périmé).",
       "cost": {
         "bodyLines": 270,
-        "approxTokens": 4538
+        "approxTokens": 4566
       },
       "requires": [
         "serveur UP"

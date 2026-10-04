@@ -11,7 +11,7 @@ import {
   cleanZonePattern,
   isFrameworkZone,
   renderZoneTable,
-} from "../service/dev/BootReporter";
+} from "../service/dev/firewallZones";
 
 const strip = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, "");
 

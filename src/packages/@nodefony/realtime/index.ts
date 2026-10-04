@@ -28,6 +28,10 @@ import {
   type IRealtimeConfig,
   type IRealtimeConfigInput,
 } from "./nodefony/config/defineModuleConfig";
+import {
+  realtimeBackplaneDownNotice,
+  realtimeLocalOnlyNotice,
+} from "./nodefony/src/backplane/bootNotices";
 import RealtimeService from "./nodefony/src/service/RealtimeService";
 
 // Symboles serveur exportés (les surfaces consommateurs userland).
@@ -307,6 +311,7 @@ class Realtime extends Module<IRealtimeConfig> {
         `realtime backplane  driver=${driverName} kind=local cross-pod=no (hub local)`,
         "INFO",
       );
+      this.kernel?.reportBootNotice(realtimeLocalOnlyNotice(driverName));
       return;
     }
     try {
@@ -322,6 +327,9 @@ class Realtime extends Module<IRealtimeConfig> {
           `(${(e as Error).message}) — fallback hub LOCAL, boot poursuivi ` +
           `(pas de fan-out cross-pod)`,
         "WARNING",
+      );
+      this.kernel?.reportBootNotice(
+        realtimeBackplaneDownNotice(driverName, (e as Error).message),
       );
       return;
     }

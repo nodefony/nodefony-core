@@ -639,8 +639,13 @@ class Cli extends Service {
   }
 
   initUi(): void {
+    // La ligne blanche suit le JOURNAL : quand il part sur la sortie d'erreur
+    // (`--output json`), la sortie standard est un flux JSON qu'une ligne
+    // vide suffit à casser.
     this.blankLine = () => {
-      process.stdout.write("\n");
+      (Syslog.logSinkName === "stderr" ? process.stderr : process.stdout).write(
+        "\n",
+      );
     };
     if (this.options.resize) {
       this.resize();

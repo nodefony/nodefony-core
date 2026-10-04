@@ -108,6 +108,16 @@ class Studio extends Module<IStudioConfig> {
       `studio UI delivery: ${resolution.mode} — ${resolution.reason}`,
       "INFO",
     );
+    // L'adresse à ouvrir, au bilan de démarrage — par son chemin : le noyau la
+    // résout contre l'origine de l'application. Sans interface livrée, rien à
+    // ouvrir. Le chemin est celui du contrôleur (`@controller("/nodefony")`).
+    if (resolution.mode !== "none") {
+      this.kernel?.reportBootLink({
+        id: "studio",
+        label: "Studio",
+        path: "/nodefony",
+      });
+    }
 
     if (resolution.mode === "static") {
       this.ui = new PrebuiltUi({

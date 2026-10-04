@@ -129,6 +129,24 @@ function paintLogoLine(line: string, colors: string, color: boolean): string {
 }
 
 /**
+ * La seule MARQUE du logo (sans le mot), colorée — 6 lignes de 8 colonnes. La
+ * ligne d'état du serveur de développement la pose à gauche de ses infos.
+ *
+ * @param charset - jeu de caractères (`resolveBrandCharset`) : braille, ou
+ *   ASCII pour une console dont la police n'a pas le braille.
+ * @param color - émettre les couleurs.
+ * @returns les 6 lignes, de largeur visible constante (8).
+ */
+export function brandMark(charset: BrandCharset, color: boolean): string[] {
+  const logo = charset === "ascii" ? BRAND_LOGO_ASCII : BRAND_LOGO;
+  const colors =
+    charset === "ascii" ? BRAND_LOGO_ASCII_COLORS : BRAND_LOGO_COLORS;
+  return logo.map((line, i) =>
+    paintLogoLine(line.padEnd(LOGO_WIDTH), colors[i] ?? "", color),
+  );
+}
+
+/**
  * Compose la bannière pour la largeur donnée.
  *
  * - large : logo, mot et encart côte à côte ;

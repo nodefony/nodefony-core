@@ -23,6 +23,7 @@
  */
 import path from "node:path";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import type { IBootLink, IBootNotice } from "../bootReport";
 
 /**
  * QUI a démarré — la distinction sans laquelle le bilan désigne le mauvais
@@ -157,6 +158,16 @@ export interface ILastBoot {
   serversListening?: string[];
   /** Action corrective suggérée par le bilan, quand une heuristique l'a trouvée. */
   remediation?: string | undefined;
+  /**
+   * Adresses à OUVRIR (application, console d'administration…). Un agent qui
+   * arrive après coup n'a pas vu l'écran : c'est ici qu'il les trouve.
+   */
+  open?: IBootLink[];
+  /**
+   * Points d'attention triés (code stable, gravité, constat, geste) — ce qui
+   * manque ou s'est dégradé, que l'écran a montré une fois.
+   */
+  notices?: IBootNotice[];
   /** La cause de l'abandon — présent uniquement si `status === "failed"`. */
   error?: {
     /** Message de l'erreur. */

@@ -38,6 +38,11 @@ import {
 } from "../../cli/usageReport";
 import { stripGlobalCliFlags } from "../../cli/globalFlags";
 import { SysExit } from "../../cli/sysexits";
+import {
+  formatAge,
+  readLastBoot,
+  type ILastBoot,
+} from "../../kernel/checks/lastBoot";
 
 /**
  * Rapport `nodefony status` — composition + exécution DÉCOUPLÉES de la classe Command.
@@ -66,7 +71,7 @@ const STATUS_PAGE: IUsagePage = {
   tagline:
     "dit quels processus Nodefony de ce projet tournent, dans quel mode, et " +
     "sur quels ports",
-  synopsis: ["nodefony status"],
+  synopsis: ["nodefony status [--json]"],
   sections: [
     {
       title: "CE QU'ELLE OBSERVE",
@@ -77,10 +82,28 @@ const STATUS_PAGE: IUsagePage = {
         "que `ps` ne peut pas donner ici est ANNONCÉ dans le rapport, jamais " +
         "remplacé par un silence. Elle ne démarre ni n'arrête rien.",
     },
+    {
+      title: "POUR UNE MACHINE",
+      paragraph:
+        "`--json` rend le même état en un seul objet, plus le BILAN du " +
+        "démarrage (`var/last-boot.json`) : adresses à ouvrir, points " +
+        "d'attention avec leur code stable et le geste qui les corrige. Le " +
+        "champ `boot.source` dit d'où vient ce bilan — le serveur qui tourne, " +
+        "ou le dernier démarrage d'un serveur arrêté. Rien n'est relancé.",
+    },
   ],
-  options: [],
+  options: [
+    {
+      term: "--json",
+      text: "l'état et le bilan du démarrage en JSON (schéma versionné)",
+    },
+  ],
   examples: [
     { term: "nodefony status", text: "l'état des processus de ce projet" },
+    {
+      term: "nodefony status --json | jq .boot.notices",
+      text: "ce qui manque ou s'est dégradé au démarrage",
+    },
     {
       term: "nodefony status || nodefony dev",
       text: "démarrer seulement si rien ne tourne ici",
@@ -153,7 +176,7 @@ export async function runStandaloneDevCommand(name: string): Promise<number> {
   if ("error" in parsed) return printUsageError(page, parsed.error);
   if (parsed.help) return printUsage(page);
   if (name === "status") {
-    return runStatusReport(cwd);
+    return runStatusReport(cwd, {}, { json: parsed.json });
   }
   if (name === "stop")
     return runStopReport(cwd, { all: parsed.all, target: parsed.target });
@@ -165,6 +188,8 @@ export interface IStandaloneArgs {
   help: boolean;
   /** `stop --all` — sans effet sur `status`, qui ne la déclare pas. */
   all: boolean;
+  /** `status --json` — sans effet sur `stop`, qui ne la déclare pas. */
+  json: boolean;
   /** La cible de `stop` (nom ou chemin de projet), ou `undefined`. */
   target?: string;
 }
@@ -189,10 +214,11 @@ export function parseStandaloneArgs(
 ): IStandaloneArgs | { error: string } {
   const at = argv.indexOf(name);
   const words = at === -1 ? [] : stripGlobalCliFlags(argv.slice(at + 1));
-  const parsed: IStandaloneArgs = { help: false, all: false };
+  const parsed: IStandaloneArgs = { help: false, all: false, json: false };
   for (const word of words) {
     if (word === "-h" || word === "--help") parsed.help = true;
     else if (name === "stop" && word === "--all") parsed.all = true;
+    else if (name === "status" && word === "--json") parsed.json = true;
     else if (word.startsWith("-"))
       return { error: `option inconnue : ${word}` };
     else if (name === "stop" && parsed.target === undefined)
@@ -526,6 +552,65 @@ export async function collectDevStatus(
   );
 }
 
+/** Version du schéma de `nodefony status --json` — incrémentée à toute rupture. */
+export const STATUS_SCHEMA_VERSION = 1;
+
+/**
+ * D'où vient le bilan de démarrage rendu par `status --json` :
+ * `running` — écrit par un processus qui tourne en ce moment ;
+ * `previous` — un serveur tourne, mais ce bilan vient d'un démarrage antérieur
+ * (le serveur en cours ne l'a pas encore réécrit : il démarre peut-être) ;
+ * `stopped` — rien ne tourne, c'est le bilan du dernier démarrage ;
+ * `absent` — aucun démarrage serveur n'a jamais été consigné ici.
+ */
+export type StatusBootSource = "running" | "previous" | "stopped" | "absent";
+
+/**
+ * Le bilan de `nodefony status --json` : l'état des processus, et le bilan du
+ * démarrage en disant D'OÙ il vient.
+ *
+ * Fonction PURE (bilan lu et instant injectés) : rien n'est relancé, et le
+ * rapport est éprouvable sans processus.
+ *
+ * @param report - l'état observé des processus.
+ * @param lastBoot - `var/last-boot.json`, ou `null`.
+ * @param now - instant de référence (âge du bilan).
+ * @returns l'objet à sérialiser.
+ */
+export function buildStatusJson(
+  report: DevStatusReport,
+  lastBoot: ILastBoot | null,
+  now: number,
+): DevStatusReport & {
+  schema: number;
+  boot: { source: StatusBootSource; note: string } & Partial<ILastBoot>;
+} {
+  let source: StatusBootSource;
+  let note: string;
+  if (!lastBoot) {
+    source = "absent";
+    note = "aucun démarrage serveur consigné dans var/last-boot.json";
+  } else if (report.processes.some((p) => p.pid === lastBoot.pid)) {
+    source = "running";
+    note = "bilan du serveur qui tourne";
+  } else if (report.running) {
+    source = "previous";
+    note =
+      "un serveur tourne, mais ce bilan vient d'un démarrage antérieur " +
+      `(${formatAge(lastBoot.timestamp, now)}) — il n'est pas encore réécrit`;
+  } else {
+    source = "stopped";
+    note =
+      "aucun serveur ne tourne : bilan du dernier démarrage " +
+      `(${formatAge(lastBoot.timestamp, now)})`;
+  }
+  return {
+    schema: STATUS_SCHEMA_VERSION,
+    ...report,
+    boot: { source, note, ...lastBoot },
+  };
+}
+
 /**
  * Collecte (ps + ports + pidfile) puis écrit le rapport status sur stdout.
  *
@@ -535,9 +620,17 @@ export async function collectDevStatus(
 export async function runStatusReport(
   cwd: string,
   deps: DevObservationDeps = {},
+  opts: { json?: boolean } = {},
 ): Promise<number> {
   // CLI standalone : le process appelant n'est PAS un process dev → `includeSelf` neutre.
   const report = await collectDevStatus(cwd, deps);
+  const write = deps.write ?? ((chunk: string) => writeSync(1, chunk));
+  if (opts.json) {
+    write(
+      `${JSON.stringify(buildStatusJson(report, readLastBoot(cwd), Date.now()), null, 2)}\n`,
+    );
+    return report.running ? SysExit.OK : SysExit.UNAVAILABLE;
+  }
   const lines: string[] = [];
   // La table n'est composée QUE pour l'affichage CLI, et seulement s'il y a un
   // voisin : sans projet étranger elle n'apprendrait rien, et son coût (un
@@ -564,9 +657,7 @@ export async function runStatusReport(
       : [];
   renderStatus(lines, report, projects, neighborProbes);
   // UN écrit synchrone (writeSync) → jamais tronqué par l'exit qui suit.
-  (deps.write ?? ((chunk: string) => writeSync(1, chunk)))(
-    lines.join("\n") + "\n",
-  );
+  write(lines.join("\n") + "\n");
   // Le VERDICT sort aussi par le code de retour, et pas seulement à l'écran :
   // qui lance un serveur en arrière-plan ne lit pas ce rapport — il enchaîne une
   // commande. Sans code distinct, « rien ne tourne » et « tout va bien » se

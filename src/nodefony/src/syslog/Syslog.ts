@@ -110,6 +110,26 @@ const _stdoutSink: ILogSink = {
   close(): void {},
 };
 
+/**
+ * Sink « sortie d'erreur » : TOUT le journal d'écran part sur `stderr`, la
+ * sortie standard restant à un flux que la machine lit — le bilan JSON du
+ * serveur de développement (`--output json`), où une seule ligne étrangère
+ * casse le `| jq` qui le consomme.
+ */
+export const STDERR_LOG_SINK: ILogSink = {
+  name: "stderr",
+  writeOut(s: string): void {
+    if (_proc?.stderr) _proc.stderr.write(s);
+    else console.error(_stripAnsi(s).replace(/\n$/, ""));
+  },
+  writeErr(s: string): void {
+    if (_proc?.stderr) _proc.stderr.write(s);
+    else console.error(_stripAnsi(s).replace(/\n$/, ""));
+  },
+  flushSync(): void {},
+  close(): void {},
+};
+
 /** Sink `/dev/null` : noop total (bench — mesure du plafond sans I/O de log). */
 export const NULL_LOG_SINK: ILogSink = {
   name: "null",

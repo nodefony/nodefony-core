@@ -26,7 +26,7 @@ describe("parseStandaloneArgs — status/stop refusent ce qu'ils ne déclarent p
   it("`stop` : une cible, `--all`, et rien de plus", () => {
     assert.deepStrictEqual(
       parseStandaloneArgs("stop", argv("stop", "mon-app", "--all")),
-      { help: false, all: true, target: "mon-app" },
+      { help: false, all: true, json: false, target: "mon-app" },
     );
     assert.deepStrictEqual(
       parseStandaloneArgs("stop", argv("stop", "a", "b")),
@@ -50,11 +50,23 @@ describe("parseStandaloneArgs — status/stop refusent ce qu'ils ne déclarent p
   it("l'aide et les options GLOBALES du CLI restent acceptées", () => {
     assert.deepStrictEqual(
       parseStandaloneArgs("status", argv("status", "-d", "--help")),
-      { help: true, all: false },
+      { help: true, all: false, json: false },
     );
     assert.deepStrictEqual(parseStandaloneArgs("stop", argv("stop", "-i")), {
       help: false,
       all: false,
+      json: false,
     });
+  });
+
+  it("`--json` n'appartient qu'à `status`", () => {
+    assert.deepStrictEqual(
+      parseStandaloneArgs("status", argv("status", "--json")),
+      { help: false, all: false, json: true },
+    );
+    assert.deepStrictEqual(
+      parseStandaloneArgs("stop", argv("stop", "--json")),
+      { error: "option inconnue : --json" },
+    );
   });
 });
