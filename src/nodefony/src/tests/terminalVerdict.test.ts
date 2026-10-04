@@ -69,7 +69,13 @@ function runServer(verdict: string | undefined): Promise<IReport> {
       process.stdout.write(JSON.stringify(report));
       process.disconnect();
     } else {
+      // La porte relâche le canal IPC (\`channel.unref()\`) : un vrai serveur
+      // reste en vie par ses sockets d'écoute, ce simulacre n'a RIEN. Sans
+      // cette retenue, il sort en 0 avant que le redimensionnement arrive
+      // (vécu sur un exécuteur macOS chargé).
+      const keepAlive = setTimeout(() => {}, 20_000);
       onTerminalResize((size) => {
+        clearTimeout(keepAlive);
         report.resized = size;
         process.stdout.write(JSON.stringify(report));
         process.disconnect();
@@ -97,9 +103,15 @@ function runServer(verdict: string | undefined): Promise<IReport> {
       child.send({ channel: "nf-dev", type: "resize", columns: 91, rows: 27 });
     });
     // `close` : la fin du processus ET de ses flux — la sortie est entière.
+    // Une sortie illisible REJETTE : levée dans ce gestionnaire, l'erreur
+    // ne serait qu'une exception non gérée et la promesse pendrait.
     child.once("close", (code) => {
-      if (code !== 0) reject(new Error(`code ${code}\n${err}`));
-      else resolve(JSON.parse(out) as IReport);
+      if (code !== 0) return reject(new Error(`code ${code}\n${err}`));
+      try {
+        resolve(JSON.parse(out) as IReport);
+      } catch {
+        reject(new Error(`rapport illisible : ${JSON.stringify(out)}\n${err}`));
+      }
     });
   });
 }
