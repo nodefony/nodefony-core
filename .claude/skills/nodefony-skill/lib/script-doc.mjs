@@ -348,15 +348,22 @@ export function createLaunchFinder(sourcesByPath, pkgText) {
     // (`pack-all.mjs`, `fix-dts-extensions.mjs`), qu'aucun runner ne ramasse.
     if (/\.test\.[cm]?[jt]sx?$/u.test(base)) {
       const dossier = k.slice(0, k.lastIndexOf("/") + 1);
+      // Le dossier doit être un ARGUMENT entier (`vitest run scripts/gates`),
+      // pas une sous-chaîne : `node scripts/gates/size-check.mjs` contient
+      // `scripts/gates/` sans lancer aucun test du dossier.
+      const cible = new RegExp(
+        `(?:^|\\s)${dossier.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?(?=\\s|$)`,
+        "mu",
+      );
       if (dossier) {
         for (const [n, v] of scriptsNpm)
-          if (v.includes(dossier))
+          if (cible.test(v))
             out.push({
               label: "un script npm (cible-dossier)",
               name: `npm run ${n}`,
             });
         for (const [f, src] of forge)
-          if (src.includes(dossier))
+          if (cible.test(src))
             out.push({
               label: "un étage de forge (cible-dossier)",
               name: nom(f),

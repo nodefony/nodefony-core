@@ -6,11 +6,12 @@
 # pré-série → warmup wrk NON compté (JIT) → 3× wrk enchaînés (pause fixe 10 s)
 # → min/méd/max + REFUS si dispersion > 3 %. NODE_ENV=production.
 # Usage : bash bench.sh <bare|express|fastify> [PORT] [ENV extra ex FASTIFY_SCHEMA=1]
-# Médiane écrite dans /tmp/nf-bench-<app>[-env].med (+ .json détail)
+# Médiane écrite dans tmp/bench/ab/nf-bench-<app>[-env].med (+ .json détail)
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 export LC_ALL=C   # locale fr : « 4,1 » casse la comparaison de dispersion et le JSON
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$DIR/../scripts/bench-out.sh"
 APP="${1:?bare|express|fastify}"; PORT="${2:-5161}"; shift 2 2>/dev/null || shift $#
 EXTRA="$*"
 # Cible paramétrable : le banc sert deux familles de camps — la route triviale
@@ -35,10 +36,10 @@ sleep 0.3
 
 # spawn
 ENVS="NODE_ENV=production PORT=$PORT $EXTRA"
-PID=$(env $ENVS node "$DIR/$APP.mjs" >/tmp/nf-bench-fw.log 2>&1 & echo $!)
+PID=$(env $ENVS node "$DIR/$APP.mjs" >"$NF_BENCH_OUT"/nf-bench-fw.log 2>&1 & echo $!)
 
 # wait boot
-node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect($PORT,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>10000){console.error('BOOT TIMEOUT');process.exit(1)}setTimeout(p,200)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { echo "$LABEL: BOOT FAIL"; cat /tmp/nf-bench-fw.log; exit 1; }
+node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect($PORT,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>10000){console.error('BOOT TIMEOUT');process.exit(1)}setTimeout(p,200)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { echo "$LABEL: BOOT FAIL"; cat "$NF_BENCH_OUT"/nf-bench-fw.log; exit 1; }
 
 # sanity : la route répond bien 200 + JSON attendu
 BODY=$(curl -s ${CURL_REQ[@]+"${CURL_REQ[@]}"} "$URL")
@@ -114,7 +115,7 @@ done
 THERM_AFTER=$(therm)
 if [ "$BAD" = "1" ]; then
   echo "  ✖ $LABEL: erreurs sous charge — médiane NON enregistrée (comparaison impossible)."
-  rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
+  rm -f "$NF_BENCH_OUT/nf-bench-$LABEL.med" "$NF_BENCH_OUT/nf-bench-$LABEL.json"
   kill -9 "$PID" 2>/dev/null
   exit 1
 fi
@@ -136,19 +137,19 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
     "$LABEL" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
     "$MIN" "$MED" "$MAX" "$DISP" \
     "$THERM_BEFORE" "$THERM_AFTER" "$INDEXEUR_PCT" "$CPU_REGIME" \
-    "$CONN" "$DUR" > "/tmp/nf-bench-$LABEL.refused.json"
-  rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
+    "$CONN" "$DUR" > "$NF_BENCH_OUT/nf-bench-$LABEL.refused.json"
+  rm -f "$NF_BENCH_OUT/nf-bench-$LABEL.med" "$NF_BENCH_OUT/nf-bench-$LABEL.json"
   kill -9 "$PID" 2>/dev/null
   exit 1
 fi
 echo "  MÉDIANE: $MED RPS · p99 ${MED99}ms  (payload vérifié, 0 erreur sous charge, dispersion ≤ 3 %)"
-echo "$MED" > "/tmp/nf-bench-$LABEL.med"
+echo "$MED" > "$NF_BENCH_OUT/nf-bench-$LABEL.med"
 printf '{"label":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","hyperviseur":"%s","indexeurPct":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
   "$MIN" "$MED" "$MAX" "$DISP" \
   "$(printf '%s,' "${P50[@]}" | sed 's/,$//')" "$(printf '%s,' "${P99[@]}" | sed 's/,$//')" \
   "$MED50" "$MED99" "$MAX99" \
   "$THERM_BEFORE" "$THERM_AFTER" "$CPU_REGIME" "$HYPERVISEUR" "$INDEXEUR_PCT" \
-  "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
+  "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "$NF_BENCH_OUT/nf-bench-$LABEL.json"
 
 kill -9 "$PID" 2>/dev/null

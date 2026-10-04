@@ -37,6 +37,7 @@ import { mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { benchOut } from "./bench-out.mjs";
 // La sonde de PORT vient du FRAMEWORK, jamais d'un outil système : `lsof`
 // n'existe pas sous Windows, où il rend « personne n'écoute » pendant que le
 // serveur écoute — et le banc accuse alors le produit d'un défaut qui est le sien.
@@ -58,7 +59,7 @@ const THREADS = Number(arg("threads", "4"));
 const SKIP = Number(arg("skip", "2")); // fenêtres écartées (montée en régime)
 const URL = arg("url", "http://127.0.0.1:5151/nodefony/test/als-test/state");
 const PROBE = arg("probe", "http://127.0.0.1:5151/nodefony/test/memory");
-const OUT = arg("out", path.join(ROOT, "tmp", "soak.json"));
+const OUT = arg("out", path.join(ROOT, "tmp", "bench", "soak.json"));
 
 const WINDOWS = Math.max(1, Math.round((MINUTES * 60) / WINDOW));
 
@@ -320,7 +321,11 @@ await sleep(500);
 
 // ── 2. serveur production AVEC --expose-gc (cf piège 1) ────────────────────
 const TTL_DEROGATION_MIN = Math.min(240, Math.ceil(MINUTES * 2) + 30);
-const logFd = openSync("/tmp/nf-soak.log", "w");
+// Journal du serveur sous tmp/bench/ab/ (bench-out.mjs), jamais dans le /tmp du
+// système : on le relit pour diagnostiquer un boot raté ou une charge muette.
+const LOG = path.join(benchOut(ROOT), "nf-soak.log");
+mkdirSync(path.dirname(LOG), { recursive: true });
+const logFd = openSync(LOG, "w");
 const srv = spawn(
   "node",
   ["--expose-gc", "src/nodefony/bin/nodefony", "production"],
@@ -386,7 +391,7 @@ process.on("SIGINT", () => {
 });
 
 if (!(await waitPort(5151, 40_000))) {
-  console.error("BOOT FAIL — voir /tmp/nf-soak.log");
+  console.error(`BOOT FAIL — voir ${LOG}`);
   stop();
   process.exit(1);
 }
@@ -546,7 +551,7 @@ if (!(probe0 instanceof Response) || !probe0.ok) {
       `\n    controller n'est pas monté et les absences ne répondent pas)` +
       `\n   404 = la route n'est pas montée (module test construit ? \`npm run build --workspace=src/modules/test\`).` +
       `\n   500 = elle lève ; 200 attendu sur ${URL} vient d'être obtenu, donc le serveur répond.` +
-      `\n   Journal du serveur : /tmp/nf-soak.log`,
+      `\n   Journal du serveur : ${LOG}`,
   );
   stop();
   process.exit(1);
@@ -736,7 +741,7 @@ if (rpsMedian <= 0) {
   console.error(
     `\n✖ AUCUNE CHARGE — débit médian ${rpsMedian} rps sur ${kept.length} fenêtres retenues.\n` +
       `  Le serveur n'a rien reçu : tout verdict porterait sur un process au repos.\n` +
-      `  Voir /tmp/nf-soak.log et vérifier que ${URL} répond sous wrk.`,
+      `  Voir ${LOG} et vérifier que ${URL} répond sous wrk.`,
   );
   process.exit(1);
 }

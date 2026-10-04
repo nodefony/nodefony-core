@@ -47,6 +47,7 @@
       ],
       "testedBy": [
         "scripts/gates/dev-credentials.test.mjs",
+        "scripts/gates/vitest-tmp-guard.test.mjs",
         "scripts/site/site-plan.test.mjs"
       ]
     },
@@ -79,7 +80,7 @@
       "output": "",
       "calledBy": [
         "node.js.yml",
-        "pages.yml"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -111,13 +112,7 @@
       "output": "",
       "calledBy": [
         "npm run test:externals",
-        "npm run check:filenames",
-        "npm run check:licenses",
-        "npm run check:nul",
-        "npm run check:scripts",
-        "npm run externals:check",
-        "npm run size:check",
-        "npm run test:dev-credentials"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -231,13 +226,7 @@
       "output": "",
       "calledBy": [
         "npm run test:dev-credentials",
-        "npm run check:filenames",
-        "npm run check:licenses",
-        "npm run check:nul",
-        "npm run check:scripts",
-        "npm run externals:check",
-        "npm run size:check",
-        "npm run test:externals"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -255,6 +244,19 @@
       "calledBy": [
         "npm run size:check",
         "scripts/release/release.mjs"
+      ],
+      "testedBy": []
+    },
+    {
+      "path": "scripts/gates/vitest-tmp-guard.test.mjs",
+      "test": true,
+      "purpose": "Toute configuration vitest du dépôt pose la garde des dossiers temporaires",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -358,8 +360,7 @@
       "output": "",
       "calledBy": [
         "npm run test:deps-gate",
-        "npm run deps:check",
-        "npm run deps:gate"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -390,8 +391,7 @@
       "output": "",
       "calledBy": [
         "npm run test:deps-gate",
-        "npm run deps:check",
-        "npm run deps:gate"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -876,8 +876,7 @@
       "calledBy": [
         "npm run test:site-plan",
         "node.js.yml",
-        "npm run site:plan",
-        "pages.yml"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -911,7 +910,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "node.js.yml"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -957,7 +956,8 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "node.js.yml"
+        "node.js.yml",
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -971,9 +971,7 @@
       "output": "",
       "calledBy": [
         "node.js.yml",
-        "e2e-autonomes.yml",
-        "memory.yml",
-        "scaffold.yml"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -987,9 +985,7 @@
       "output": "",
       "calledBy": [
         "node.js.yml",
-        "e2e-autonomes.yml",
-        "memory.yml",
-        "scaffold.yml"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -1023,9 +1019,7 @@
       "output": "",
       "calledBy": [
         "node.js.yml",
-        "e2e-autonomes.yml",
-        "memory.yml",
-        "scaffold.yml"
+        "npm run test:tooling"
       ],
       "testedBy": []
     },
@@ -1080,16 +1074,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -1102,16 +1087,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -1144,16 +1120,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -1308,16 +1275,7 @@
       ],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -1351,16 +1309,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -1404,16 +1353,7 @@
       ],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -1478,16 +1418,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -1529,16 +1460,7 @@
       ],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -1630,16 +1552,7 @@
       "env": [],
       "output": "",
       "calledBy": [
-        "npm run release",
-        "npm run release:pack",
-        "npm run release:smoke",
-        "npm run release:api-diff",
-        "npm run release:types-rigor",
-        "npm run readme:gate",
-        "npm run release:image-gate",
-        "npm run test:release",
-        "release-preflight.yml",
-        "release.yml"
+        "npm run test:release"
       ],
       "testedBy": []
     },
@@ -5173,6 +5086,66 @@
               {
                 "name": "BENCH_WARMUP",
                 "help": ""
+              },
+              {
+                "name": "NF_BENCH_OUT",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/bench-out.mjs",
+            "purpose": "Dossier des sorties de banc, côté JavaScript — miroir de `bench-out.sh`.",
+            "usage": [
+              "import { benchOut } from \"./bench-out.mjs\""
+            ],
+            "options": [
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "NF_BENCH_OUT",
+                "help": "dossier des sorties (défaut : <racine du dépôt>/tmp/bench/ab)"
+              }
+            ],
+            "output": "",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/bench-out.sh",
+            "purpose": "shellcheck shell=bash",
+            "usage": [
+              ". \"$(dirname \"${BASH_SOURCE[0]}\")/bench-out.sh\""
+            ],
+            "options": [
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "NF_BENCH_OUT",
+                "help": "dossier des sorties (défaut : <racine du dépôt>/tmp/bench/ab)"
+              }
+            ],
+            "output": "",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/bench-out.test.mjs",
+            "purpose": "Les deux copies de la règle « où vont les sorties de banc » — bench-out.sh",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "NF_BENCH_OUT",
+                "help": ""
               }
             ],
             "output": "",
@@ -6603,6 +6576,10 @@
               },
               {
                 "name": "CONN",
+                "help": ""
+              },
+              {
+                "name": "LOG",
                 "help": ""
               },
               {

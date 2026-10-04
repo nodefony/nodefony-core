@@ -9,11 +9,11 @@
 #
 # Usage :
 #   bash bench-ab-mono.sh <label> [KEY=VAL ...]
-#     <label>   nom du run → médiane écrite dans /tmp/nf-bench-<label>.med
+#     <label>   nom du run → médiane écrite dans tmp/bench/ab/nf-bench-<label>.med
 #               (+ détail min/méd/max/dispersion/thermal dans …-<label>.json)
 #     KEY=VAL   env vars passées AU SERVEUR (toggles A/B ; ex NF_BENCH_NO_QP=1)
 #   bash bench-ab-mono.sh purge
-#     supprime TOUS les /tmp/nf-bench-*.{med,json} — À FAIRE entre deux lots :
+#     supprime TOUS les tmp/bench/ab/nf-bench-*.{med,json} — À FAIRE entre deux lots :
 #     un .med survivant d'un lot précédent entre dans une comparaison qui ne le
 #     concerne pas (vécu : 7 survivants de 3 lots différents dans /tmp).
 #   Variables d'ajustement (env du script) :
@@ -61,6 +61,7 @@ set -u
 # et le JSON compagnon devient invalide. Vu mordre au test du 08-05.
 export LC_ALL=C
 ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
+. "$(dirname "${BASH_SOURCE[0]}")/bench-out.sh"
 LABEL="${1:-run}"; shift || true
 EXTRA_ENV="$*"
 
@@ -75,13 +76,13 @@ if [ "$LABEL" = "purge" ]; then
   # pour récupérer des chiffres qu'on avait déjà. La purge doit protéger la
   # comparaison SUIVANTE, pas détruire la précédente.
   ARCHIVE="$ROOT/tmp/bench/archive/$(date +%Y%m%d-%H%M%S)"
-  if ls /tmp/nf-bench-*.json >/dev/null 2>&1; then
+  if ls "$NF_BENCH_OUT"/nf-bench-*.json >/dev/null 2>&1; then
     mkdir -p "$ARCHIVE"
-    cp /tmp/nf-bench-*.json /tmp/nf-bench-*.med "$ARCHIVE/" 2>/dev/null
+    cp "$NF_BENCH_OUT"/nf-bench-*.json "$NF_BENCH_OUT"/nf-bench-*.med "$ARCHIVE/" 2>/dev/null
     echo "archivé: $(ls "$ARCHIVE" | wc -l | tr -d ' ') fichier(s) → $ARCHIVE"
   fi
-  rm -f /tmp/nf-bench-*.med /tmp/nf-bench-*.json
-  echo "purge: /tmp/nf-bench-*.{med,json} supprimés"
+  rm -f "$NF_BENCH_OUT"/nf-bench-*.med "$NF_BENCH_OUT"/nf-bench-*.json
+  echo "purge: $NF_BENCH_OUT/nf-bench-*.{med,json} supprimés"
   exit 0
 fi
 
@@ -176,17 +177,17 @@ node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.
 # 2. spawn mono prod (detached), env forcé + toggles A/B
 node -e "
 const {spawn}=require('child_process');const fs=require('fs');
-const out=fs.openSync('/tmp/nf-bench.log','w');
+const out=fs.openSync(require('path').join(process.env.NF_BENCH_OUT,'nf-bench.log'),'w');
 const extra={};('$EXTRA_ENV').split(' ').filter(Boolean).forEach(kv=>{const i=kv.indexOf('=');extra[kv.slice(0,i)]=kv.slice(i+1);});
 // NF_BENCH_ROUTE=1 : monte la cible de banc (\`/nodefony/kernel/bench\`). Posé ici
 // et pas laissé à l'appelant — l'oublier donne un 404, et un 404 répond PLUS VITE
 // qu'une vraie route. Un toggle A/B explicite peut toujours l'écraser (…extra).
 const c=spawn('node',['src/nodefony/bin/nodefony','production'],{cwd:'$ROOT',env:{...process.env,NODE_ENV:'production',NF_LOG_DRIVER:'null',NF_BENCH_ROUTE:'1',...extra},stdio:['ignore',out,out],detached:true});
-c.unref();fs.writeFileSync('/tmp/nf-bench.pid',String(c.pid));process.exit(0);
+c.unref();fs.writeFileSync(require('path').join(process.env.NF_BENCH_OUT,'nf-bench.pid'),String(c.pid));process.exit(0);
 "
 
 # ⚠️ `NF_LOG_DRIVER=null` (posé plus haut pour ne pas mesurer le coût des logs) rend
-# tout échec de boot MUET : `/tmp/nf-bench.log` reste à ZÉRO octet et le banc ne sait
+# tout échec de boot MUET : `tmp/bench/ab/nf-bench.log` reste à ZÉRO octet et le banc ne sait
 # dire que « BOOT TIMEOUT ». Vécu : un superviseur dev orphelin bloquait le démarrage
 # production, et il a fallu rejouer le boot à la main pour le découvrir. Le banc rejoue
 # donc lui-même, une fois, AVEC les journaux — la mesure n'est pas affectée (on n'y
@@ -195,7 +196,7 @@ boot_diagnostic() {
   echo "   ↳ boot rejoué AVEC les journaux (le banc les coupe pour mesurer) :"
   # shellcheck disable=SC2086
   env $EXTRA_ENV NODE_ENV=production NF_BENCH_ROUTE=1 \
-    node "$ROOT/src/nodefony/bin/nodefony" production > /tmp/nf-bench-diag.log 2>&1 &
+    node "$ROOT/src/nodefony/bin/nodefony" production > "$NF_BENCH_OUT"/nf-bench-diag.log 2>&1 &
   local dpid=$!
   local i=0
   while [ $i -lt 30 ]; do
@@ -204,17 +205,17 @@ boot_diagnostic() {
     node -e "setTimeout(()=>process.exit(0),400)" 2>/dev/null
   done
   kill -INT "$dpid" 2>/dev/null || true
-  if [ -s /tmp/nf-bench-diag.log ]; then
-    grep -aiE "critic|error|erreur|refus|EADDRINUSE|✖|⛔" /tmp/nf-bench-diag.log | head -8 \
-      || head -8 /tmp/nf-bench-diag.log
+  if [ -s "$NF_BENCH_OUT"/nf-bench-diag.log ]; then
+    grep -aiE "critic|error|erreur|refus|EADDRINUSE|✖|⛔" "$NF_BENCH_OUT"/nf-bench-diag.log | head -8 \
+      || head -8 "$NF_BENCH_OUT"/nf-bench-diag.log
   else
-    echo "   (rien non plus avec les journaux — voir /tmp/nf-bench-diag.log)"
+    echo "   (rien non plus avec les journaux — voir $NF_BENCH_OUT/nf-bench-diag.log)"
   fi
   echo "   ↳ vérifier aussi : nodefony status  (un superviseur dev résiduel refuse la production)"
 }
 
 # 3. attendre le boot (poll port 5151)
-node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir /tmp/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { boot_diagnostic; echo "$LABEL: BOOT FAIL"; rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"; exit 1; }
+node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.connect(5151,'127.0.0.1');s.on('error',()=>{s.destroy();if(Date.now()-t0>35000){console.log('BOOT TIMEOUT — voir $NF_BENCH_OUT/nf-bench.log');process.exit(1)}setTimeout(p,400)});s.on('connect',()=>{s.destroy();process.exit(0)})})();" || { boot_diagnostic; echo "$LABEL: BOOT FAIL"; rm -f "$NF_BENCH_OUT/nf-bench-$LABEL.med" "$NF_BENCH_OUT/nf-bench-$LABEL.json"; exit 1; }
 
 # 4. VÉRIFICATION DE LA CIBLE (avant toute mesure)
 # 🚨 wrk compte les 404/500 dans son `Requests/sec`. Or une erreur répond PLUS VITE
@@ -228,8 +229,8 @@ if [ "$CODE" != "${BENCH_EXPECT_STATUS:-200}" ]; then
   echo "   URL: $URL"
   echo "   Si c'est un 404 : le module @nodefony/test est en policy:\"dev\" donc absent"
   echo "   en production → passer temporairement à policy:\"optional\" + npm run build."
-  rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
-  kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
+  rm -f "$NF_BENCH_OUT/nf-bench-$LABEL.med" "$NF_BENCH_OUT/nf-bench-$LABEL.json"
+  kill -INT "$(cat "$NF_BENCH_OUT"/nf-bench.pid)" 2>/dev/null
   exit 1
 fi
 
@@ -259,7 +260,7 @@ case " $EXTRA_ENV " in *" NF_PERF_PROBE=1 "*) PROBE=1 ;; esac
 PROBE_URL="${URL%%/nodefony/*}/nodefony/kernel/bench/probe"
 if [ "$PROBE" = "1" ] && ! curl -sf -o /dev/null "$PROBE_URL?reset=1"; then
   echo "  ✖ $LABEL: sonde injoignable ($PROBE_URL) — relevé impossible, série abandonnée."
-  kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
+  kill -INT "$(cat "$NF_BENCH_OUT"/nf-bench.pid)" 2>/dev/null
   exit 1
 fi
 
@@ -308,9 +309,9 @@ for i in 1 2 3; do
 done
 THERM_AFTER=$(therm)
 if [ "$PROBE" = "1" ]; then
-  if curl -sf -o "/tmp/nf-bench-$LABEL.probe.json" "$PROBE_URL"; then
+  if curl -sf -o "$NF_BENCH_OUT/nf-bench-$LABEL.probe.json" "$PROBE_URL"; then
     node -e "
-const p=JSON.parse(require('fs').readFileSync('/tmp/nf-bench-$LABEL.probe.json','utf8'));
+const p=JSON.parse(require('fs').readFileSync(require('path').join(process.env.NF_BENCH_OUT,'nf-bench-$LABEL.probe.json'),'utf8'));
 if(p.enabled!==true){console.log('  ⚠ sonde ÉTEINTE côté serveur — relevé vide');process.exit(0)}
 const a=p.avgUs,f=(v)=>v.toFixed(3);
 console.log('  sonde ('+p.count+' req) : enterScope '+f(a.enterScope)+' µs · leaveScope '+f(a.leaveScope)+' µs · cycle '+f(a.enterScope+a.leaveScope)+' µs · ctx '+f(a.ctx)+' µs');
@@ -322,8 +323,8 @@ fi
 if [ "$BAD" = "1" ]; then
   echo "  ✖ $LABEL: run(s) pollué(s) par des erreurs — médiane NON enregistrée."
   echo "    Un débit mesuré sous erreurs n'est comparable à rien."
-  rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
-  kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
+  rm -f "$NF_BENCH_OUT/nf-bench-$LABEL.med" "$NF_BENCH_OUT/nf-bench-$LABEL.json"
+  kill -INT "$(cat "$NF_BENCH_OUT"/nf-bench.pid)" 2>/dev/null
   exit 1
 fi
 MIN=$(printf '%s\n' "${RPS[@]}" | sort -n | sed -n '1p')
@@ -348,21 +349,21 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
     "$LABEL" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
     "$MIN" "$MED" "$MAX" "$DISP" \
     "$THERM_BEFORE" "$THERM_AFTER" "$INDEXEUR_PCT" "$REGIME" \
-    "$CONN" "$DUR" > "/tmp/nf-bench-$LABEL.refused.json"
-  rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
-  kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
+    "$CONN" "$DUR" > "$NF_BENCH_OUT/nf-bench-$LABEL.refused.json"
+  rm -f "$NF_BENCH_OUT/nf-bench-$LABEL.med" "$NF_BENCH_OUT/nf-bench-$LABEL.json"
+  kill -INT "$(cat "$NF_BENCH_OUT"/nf-bench.pid)" 2>/dev/null
   exit 1
 fi
 echo "  MÉDIANE: $MED RPS · p99 ${MED99}ms  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
-echo "$MED" > "/tmp/nf-bench-$LABEL.med"
+echo "$MED" > "$NF_BENCH_OUT/nf-bench-$LABEL.med"
 printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","hyperviseur":"%s","indexeurPct":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$EXTRA_ENV" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
   "$MIN" "$MED" "$MAX" "$DISP" \
   "$(printf '%s,' "${P50[@]}" | sed 's/,$//')" "$(printf '%s,' "${P99[@]}" | sed 's/,$//')" \
   "$MED50" "$MED99" "$MAX99" \
   "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" "$HYPERVISEUR" "$INDEXEUR_PCT" \
-  "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
+  "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "$NF_BENCH_OUT/nf-bench-$LABEL.json"
 
 # 5. arrêt gracieux (flush + libère les ports)
-kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
-node -e "const t0=Date.now();(function p(){try{process.kill($(cat /tmp/nf-bench.pid),0);if(Date.now()-t0>10000)process.exit(0);setTimeout(p,400)}catch{process.exit(0)}})();" 2>/dev/null
+kill -INT "$(cat "$NF_BENCH_OUT"/nf-bench.pid)" 2>/dev/null
+node -e "const t0=Date.now();(function p(){try{process.kill($(cat "$NF_BENCH_OUT"/nf-bench.pid),0);if(Date.now()-t0>10000)process.exit(0);setTimeout(p,400)}catch{process.exit(0)}})();" 2>/dev/null

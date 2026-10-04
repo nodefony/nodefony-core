@@ -6,7 +6,7 @@
 #
 # Pourquoi un orchestrateur. La mesure publiée exige une machine au REPOS pendant
 # deux heures et plus — c'est-à-dire la nuit. Mais `bench-pairs.sh` range ses
-# séries sous des noms fixes (`/tmp/nf-bench-<camp>-p<rang>.*`) et `express-fair`
+# séries sous des noms fixes (`tmp/bench/ab/nf-bench-<camp>-p<rang>.*`) et `express-fair`
 # joue dans trois paires : sans rangement entre deux paires, la troisième écrase
 # la matière des deux premières. Et une paire refusée pour dispersion (code 2)
 # doit être REJOUÉE, pas oubliée — ce qu'aucun humain endormi ne fait.
@@ -34,6 +34,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+. "$(dirname "${BASH_SOURCE[0]}")/bench-out.sh"
 PAIRS="$ROOT/.claude/skills/nodefony-load-test/bench-frameworks/bench-pairs.sh"
 SOAK="$ROOT/.claude/skills/nodefony-load-test/scripts/soak.mjs"
 cd "$ROOT" || exit 1
@@ -78,12 +79,12 @@ pair() { # nom campA campB [port] — rejoue jusqu'à TRIES fois une paire incon
   local name="$1" a="$2" b="$3" port="${4:-}" try rc
   want "$name" || return 0
   for try in $(seq 1 "$TRIES"); do
-    rm -f /tmp/nf-bench-*-p[12].* 2>/dev/null
+    rm -f "$NF_BENCH_OUT"/nf-bench-*-p[12].* 2>/dev/null
     log "paire $name ($a ↔ $b) — essai $try/$TRIES"
     bash "$PAIRS" "$a" "$b" $port >"$OUT/$name-try$try.log" 2>&1
     rc=$?
     mkdir -p "$OUT/$name-try$try"
-    mv /tmp/nf-bench-*-p[12].* "$OUT/$name-try$try/" 2>/dev/null
+    mv "$NF_BENCH_OUT"/nf-bench-*-p[12].* "$OUT/$name-try$try/" 2>/dev/null
     log "  → code $rc · $(grep -aE 'SÉPARATION|DANS LE BRUIT|INCONCLUSIF|rapport' "$OUT/$name-try$try.log" | tail -2 | tr '\n' ' ')"
     # 0 = conclusif, 3 = DANS LE BRUIT : deux verdicts, qu'un nouvel essai ne
     # changerait pas. Seul 2 (une série refusée pour dispersion) se rejoue.

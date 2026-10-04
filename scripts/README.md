@@ -21,7 +21,7 @@ Racine du dépôt — seule implémentation pour les scripts de `scripts/`.
 - **Variable** `REPO_ROOT`
 - **Variable** `ROOT_PACKAGE_NAME`
 - **Appelé par** : `deps/check-deps-latest.mjs` · `gates/check-licenses.mjs` · `gates/check-package-deps.mjs` · `gates/size-check.mjs` · `generate/brand-assets.mjs` · `generate/env-snapshot.ts` · `generate/generate-man.mjs` · `generate/generate-symbols.ts` · `repo/long-run-lock.mjs` · `repo/tmp-layout.mjs` · `scaffold/check-scaffold-format.mjs` · `scaffold/check-scaffold-frontends.mjs` · `scaffold/format-templates.mjs` · `site/build-docs-site.mjs` · `site/build-perf-site.mjs` · `site/build-qualite-site.mjs` · `site/build-site-plan.mjs` · `site/readme-html.mjs` · `test/test-all.ts`
-- **Testé par** : `gates/dev-credentials.test.mjs` · `site/site-plan.test.mjs`
+- **Testé par** : `gates/dev-credentials.test.mjs` · `gates/vitest-tmp-guard.test.mjs` · `site/site-plan.test.mjs`
 
 ### [`symbols-publish.mjs`](lib/symbols-publish.mjs)
 
@@ -35,7 +35,7 @@ Graphe symbolique : à quel module appartient un fichier, quels modules sont
 
 Copie publiée du graphe symbolique — module d'un fichier, modules publiés,
 
-- **Lancé par** : `node.js.yml` · `pages.yml`
+- **Lancé par** : `node.js.yml` · `npm run test:tooling`
 
 ## `gates/`
 
@@ -54,7 +54,7 @@ Audit de la dérive `external` ⇄ manifeste, sur TOUT le dépôt — core, pack
 
 Suite de l'audit `external` — écrite pour le faire ÉCHOUER, pas pour l'accompagner.
 
-- **Lancé par** : `npm run test:externals` · `npm run check:filenames` · `npm run check:licenses` · `npm run check:nul` · `npm run check:scripts` · `npm run externals:check` · `npm run size:check` · `npm run test:dev-credentials`
+- **Lancé par** : `npm run test:externals` · `npm run test:tooling`
 
 ### [`check-licenses.mjs`](gates/check-licenses.mjs)
 
@@ -110,7 +110,7 @@ check-script-descriptions — chaque script `npm` dit ce qu'il fait.
 
 Gate — UN SEUL mot de passe de développement, et tout ce qui l'annonce dit vrai.
 
-- **Lancé par** : `npm run test:dev-credentials` · `npm run check:filenames` · `npm run check:licenses` · `npm run check:nul` · `npm run check:scripts` · `npm run externals:check` · `npm run size:check` · `npm run test:externals`
+- **Lancé par** : `npm run test:dev-credentials` · `npm run test:tooling`
 
 ### [`size-check.mjs`](gates/size-check.mjs)
 
@@ -119,6 +119,12 @@ Gate de budget bundle des subpaths client (ADR-0007 D10).
 - **Usage** : `npm run size:check`
 - **Usage** : `npm run size:check -- --json`
 - **Appelé par** : `npm run size:check` · `release/release.mjs`
+
+### [`vitest-tmp-guard.test.mjs`](gates/vitest-tmp-guard.test.mjs)
+
+Toute configuration vitest du dépôt pose la garde des dossiers temporaires
+
+- **Lancé par** : `npm run test:tooling`
 
 ## `scaffold/`
 
@@ -169,7 +175,7 @@ Inventaire EXHAUSTIF des dépendances en retard — remplaçant de `npm outdated
 
 Suite de bout en bout de la garde des dépendances — écrite pour la faire
 
-- **Lancé par** : `npm run test:deps-gate` · `npm run deps:check` · `npm run deps:gate`
+- **Lancé par** : `npm run test:deps-gate` · `npm run test:tooling`
 
 ### [`lib/reconcile-versions.mjs`](deps/lib/reconcile-versions.mjs)
 
@@ -183,7 +189,7 @@ La question qui décide d'une divergence de version : **existe-t-il UNE version
 
 Suite de la réconciliation de versions — écrite pour faire ÉCHOUER la garde,
 
-- **Lancé par** : `npm run test:deps-gate` · `npm run deps:check` · `npm run deps:gate`
+- **Lancé par** : `npm run test:deps-gate` · `npm run test:tooling`
 
 ## `test/`
 
@@ -391,7 +397,7 @@ readme-html.mjs — Nodefony, matrice de présentation (10 minutes).
 
 Éprouve le lecteur de dépendances du gabarit d'application.
 
-- **Lancé par** : `npm run test:site-plan` · `node.js.yml` · `npm run site:plan` · `pages.yml`
+- **Lancé par** : `npm run test:site-plan` · `node.js.yml` · `npm run test:tooling`
 
 ## `repo/`
 
@@ -410,7 +416,7 @@ Verrou « un run long occupe l'arbre » — seule implémentation, trois lecteur
 
 Verrou « un run long occupe l'arbre » — tenu, libéré, orphelin, et la CLI
 
-- **Lancé par** : `node.js.yml`
+- **Lancé par** : `npm run test:tooling`
 
 ### [`safe-commit.sh`](repo/safe-commit.sh)
 
@@ -434,7 +440,7 @@ Arborescence de `tmp/` — seule implémentation : la table, les dossiers, le
 
 Arborescence de `tmp/` — catégories créées, README régénéré, égarés signalés,
 
-- **Lancé par** : `node.js.yml`
+- **Lancé par** : `node.js.yml` · `npm run test:tooling`
 
 ## `ci/`
 
@@ -444,13 +450,13 @@ Ce que la forge lance ou éprouve sur elle-même.
 
 Gate — toute action GitHub tierce est épinglée par SHA de commit.
 
-- **Lancé par** : `node.js.yml` · `e2e-autonomes.yml` · `memory.yml` · `scaffold.yml`
+- **Lancé par** : `node.js.yml` · `npm run test:tooling`
 
 ### [`no-cancel.test.mjs`](ci/no-cancel.test.mjs)
 
 Gate — aucun workflow du dépôt n'arrête de lui-même une exécution en cours.
 
-- **Lancé par** : `node.js.yml` · `e2e-autonomes.yml` · `memory.yml` · `scaffold.yml`
+- **Lancé par** : `node.js.yml` · `npm run test:tooling`
 
 ### [`run-watched.mjs`](ci/run-watched.mjs)
 
@@ -464,7 +470,7 @@ Lance une commande de la forge et REND LA MAIN quand elle se termine — même
 
 Le lanceur de la forge rend la main quand la commande finit, même si un
 
-- **Lancé par** : `node.js.yml` · `e2e-autonomes.yml` · `memory.yml` · `scaffold.yml`
+- **Lancé par** : `node.js.yml` · `npm run test:tooling`
 
 ## `release/`
 
@@ -488,13 +494,13 @@ Chaîne de publication du produit.
 
 La confrontation de l'accueil aux `dist-tags`, éprouvée SANS réseau.
 
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`accueil-liens.test.mjs`](release/accueil-liens.test.mjs)
 
 Le README du dépôt envoie vers la documentation PUBLIÉE, jamais vers un `.md`.
 
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`api-diff-core.mjs`](release/api-diff-core.mjs)
 
@@ -508,7 +514,7 @@ Noyau de la mesure de surface publique : ce qu'un paquet expose, et ce qui a
 
 Le noyau de la mesure de surface publique, éprouvé sur des déclarations
 
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`api-diff.mjs`](release/api-diff.mjs)
 
@@ -563,7 +569,7 @@ Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS
 Le contrôle de la page Docker Hub, éprouvé SANS réseau.
 
 - **Variable** `SOURCE`
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`image-gate.mjs`](release/image-gate.mjs)
 
@@ -579,7 +585,7 @@ Le contrôle de la page Docker Hub, éprouvé SANS réseau.
 
 Le contrôle qui refuse une image porteuse d'un secret, éprouvé SANS docker.
 
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`image-labels-gate.mjs`](release/image-labels-gate.mjs)
 
@@ -596,7 +602,7 @@ Le contrôle qui refuse une image porteuse d'un secret, éprouvé SANS docker.
 Le contrôle des étiquettes OCI, éprouvé SANS docker.
 
 - **Variable** `OCI`
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`pack-all.mjs`](release/pack-all.mjs)
 
@@ -620,7 +626,7 @@ Pack release des workspaces publiables (modèle B — N-packages lockstep).
 
 La confrontation des README publiés, éprouvée SANS npm ni réseau.
 
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`release-core.mjs`](release/release-core.mjs)
 
@@ -636,7 +642,7 @@ release-core.mjs — le RAISONNEMENT d'une release, sans aucune entrée/sortie.
 Suite du cœur de release — écrite pour FAIRE ÉCHOUER le script, pas pour
 
 - **Variable** `BON`
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`release.mjs`](release/release.mjs)
 
@@ -668,7 +674,7 @@ Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.
 
 Les types d'un paquet du cœur se résolvent-ils DEPUIS SON TARBALL ?
 
-- **Lancé par** : `npm run release` · `npm run release:pack` · `npm run release:smoke` · `npm run release:api-diff` · `npm run release:types-rigor` · `npm run readme:gate` · `npm run release:image-gate` · `npm run test:release` · `release-preflight.yml` · `release.yml`
+- **Lancé par** : `npm run test:release`
 
 ### [`types-rigor.mjs`](release/types-rigor.mjs)
 

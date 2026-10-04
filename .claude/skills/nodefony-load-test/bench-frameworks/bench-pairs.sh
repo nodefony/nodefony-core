@@ -31,6 +31,7 @@ set -u
 export LC_ALL=C # locale fr : « 4,1 » casse toute comparaison numérique
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$DIR/../scripts/bench-out.sh"
 A="${1:?usage: bench-pairs.sh <campA> <campB> [port]}"
 B="${2:?usage: bench-pairs.sh <campA> <campB> [port]}"
 PORT="${3:-5161}"
@@ -104,7 +105,7 @@ mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
   # La sortie de chaque série se GARDE : jetée, un échec autre que la dispersion
   # (boot, cible, sonde, erreurs wrk) s'affichait « REFUSÉE (dispersion) » sans
   # aucune trace pour le diagnostiquer.
-  local log="/tmp/nf-bench-$camp-p$rang.log"
+  local log="$NF_BENCH_OUT/nf-bench-$camp-p$rang.log"
   if [ "$camp" = "nodefony" ]; then
     BENCH_URL="${NODEFONY_URL:-http://127.0.0.1:5151/nodefony/test/als-test/state}" \
       bash "$DIR/../scripts/bench-ab-mono.sh" nodefony \
@@ -125,17 +126,17 @@ mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
   fi
   # La preuve d'un refus se range comme une mesure : sans rang, la série 2
   # écraserait le diagnostic de la série 1 et on rejouerait sans rien savoir.
-  [ -f "/tmp/nf-bench-$camp.refused.json" ] &&
-    mv "/tmp/nf-bench-$camp.refused.json" "/tmp/nf-bench-$camp-p$rang.refused.json"
-  local med="/tmp/nf-bench-$camp.med"
+  [ -f "$NF_BENCH_OUT/nf-bench-$camp.refused.json" ] &&
+    mv "$NF_BENCH_OUT/nf-bench-$camp.refused.json" "$NF_BENCH_OUT/nf-bench-$camp-p$rang.refused.json"
+  local med="$NF_BENCH_OUT/nf-bench-$camp.med"
   # Ni médiane ni preuve de refus : la série a ÉCHOUÉ, ce n'est pas de la dispersion.
-  [ -f "$med" ] || [ -f "/tmp/nf-bench-$camp-p$rang.refused.json" ] ||
+  [ -f "$med" ] || [ -f "$NF_BENCH_OUT/nf-bench-$camp-p$rang.refused.json" ] ||
     echo "ÉCHEC — voir $log" >&2
   if [ -f "$med" ]; then
     cat "$med"
-    mv "$med" "/tmp/nf-bench-$camp-p$rang.med" 2>/dev/null
-    [ -f "/tmp/nf-bench-$camp.json" ] &&
-      mv "/tmp/nf-bench-$camp.json" "/tmp/nf-bench-$camp-p$rang.json"
+    mv "$med" "$NF_BENCH_OUT/nf-bench-$camp-p$rang.med" 2>/dev/null
+    [ -f "$NF_BENCH_OUT/nf-bench-$camp.json" ] &&
+      mv "$NF_BENCH_OUT/nf-bench-$camp.json" "$NF_BENCH_OUT/nf-bench-$camp-p$rang.json"
   fi
 }
 
@@ -147,14 +148,14 @@ mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
 ECHEC=0
 etat() { # camp rang médiane
   if [ -n "$3" ]; then echo "$3"
-  elif [ -f "/tmp/nf-bench-$1-p$2.refused.json" ]; then echo "REFUSÉE (dispersion)"
-  else ECHEC=1; echo "ÉCHEC — voir /tmp/nf-bench-$1-p$2.log"; fi
+  elif [ -f "$NF_BENCH_OUT/nf-bench-$1-p$2.refused.json" ]; then echo "REFUSÉE (dispersion)"
+  else ECHEC=1; echo "ÉCHEC — voir $NF_BENCH_OUT/nf-bench-$1-p$2.log"; fi
 }
 echo "── paires alternées : $A ↔ $B ──"
-A1=$(mesurer "$A" 1); echo "  $A  série 1 : $(etat "$A" 1 "$A1")"; [ -n "$A1" ] || [ -f "/tmp/nf-bench-$A-p1.refused.json" ] || ECHEC=1
-B1=$(mesurer "$B" 1); echo "  $B  série 1 : $(etat "$B" 1 "$B1")"; [ -n "$B1" ] || [ -f "/tmp/nf-bench-$B-p1.refused.json" ] || ECHEC=1
-A2=$(mesurer "$A" 2); echo "  $A  série 2 : $(etat "$A" 2 "$A2")"; [ -n "$A2" ] || [ -f "/tmp/nf-bench-$A-p2.refused.json" ] || ECHEC=1
-B2=$(mesurer "$B" 2); echo "  $B  série 2 : $(etat "$B" 2 "$B2")"; [ -n "$B2" ] || [ -f "/tmp/nf-bench-$B-p2.refused.json" ] || ECHEC=1
+A1=$(mesurer "$A" 1); echo "  $A  série 1 : $(etat "$A" 1 "$A1")"; [ -n "$A1" ] || [ -f "$NF_BENCH_OUT/nf-bench-$A-p1.refused.json" ] || ECHEC=1
+B1=$(mesurer "$B" 1); echo "  $B  série 1 : $(etat "$B" 1 "$B1")"; [ -n "$B1" ] || [ -f "$NF_BENCH_OUT/nf-bench-$B-p1.refused.json" ] || ECHEC=1
+A2=$(mesurer "$A" 2); echo "  $A  série 2 : $(etat "$A" 2 "$A2")"; [ -n "$A2" ] || [ -f "$NF_BENCH_OUT/nf-bench-$A-p2.refused.json" ] || ECHEC=1
+B2=$(mesurer "$B" 2); echo "  $B  série 2 : $(etat "$B" 2 "$B2")"; [ -n "$B2" ] || [ -f "$NF_BENCH_OUT/nf-bench-$B-p2.refused.json" ] || ECHEC=1
 echo ""
 
 if [ "$ECHEC" = 1 ]; then

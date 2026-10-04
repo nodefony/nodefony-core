@@ -51,7 +51,7 @@ sa répartition interne peut mentir (code inliné, builtins imputés à l'appela
 - **Lecture** : `GET /nodefony/kernel/bench/probe` (JSON, µs moyens) — `?reset=1` remet à zéro.
   **Toujours reset APRÈS le warmup wrk** pour ne pas diluer la mesure avec le code froid.
   `bench-ab-mono.sh <label> NF_PERF_PROBE=1` fait les deux gestes seul : reset après le warmup,
-  relevé après les runs dans `/tmp/nf-bench-<label>.probe.json` (gardé même si la série est
+  relevé après les runs dans `tmp/bench/ab/nf-bench-<label>.probe.json` (gardé même si la série est
   refusée), ligne `sonde (N req) : enterScope … · leaveScope … · cycle …` dans la sortie.
 - **Overhead mesuré** : ~3 % de RPS sonde allumée ; chaque tranche inclut ~0,1 µs de borne hrtime.
 - **Piège batterie** : les µs absolus se dilatent sur batterie (CPU bridé — RPS −25 % constatés

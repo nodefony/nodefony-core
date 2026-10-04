@@ -15,16 +15,17 @@
  * comparable d'une release à l'autre et ré-ingérable par un outil.
  *
  * Prérequis — les JSON produits par les bancs :
- *   /tmp/nf-bench-{bare,fastify,express,express-fair,nodefony}.json
- *   tmp/soak-*.json
+ *   tmp/bench/ab/nf-bench-{bare,fastify,express,express-fair,nodefony}.json (NF_BENCH_OUT)
+ *   tmp/bench/soak.json
  *
  * Usage :
  *   node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs
- *   node ... prod-readiness-report.mjs --soak tmp/soak-20min.json --out tmp/rapport.html
- *   node ... prod-readiness-report.mjs --data docs/performance/data/10.0.0.json --out tmp/rapport.html
+ *   node ... prod-readiness-report.mjs --soak tmp/bench/soak.json --out tmp/reports/rapport.html
+ *   node ... prod-readiness-report.mjs --data docs/performance/data/10.0.0.json --out tmp/reports/rapport.html
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import { benchOut } from "./bench-out.mjs";
 import { execFileSync } from "node:child_process";
 import {
   doc,
@@ -60,8 +61,8 @@ const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d;
 };
-const OUT = arg("out", "tmp/nodefony-prod-readiness.html");
-const SOAK = arg("soak", "tmp/soak-20min.json");
+const OUT = arg("out", "tmp/reports/nodefony-prod-readiness.html");
+const SOAK = arg("soak", "tmp/bench/soak.json");
 // Jeu de mesures VERSIONNÉ (`docs/performance/data/<version>.json`). Sans lui, on
 // lit les fichiers que les bancs viennent de déposer dans `/tmp` — pratique en
 // session, mais ces fichiers disparaissent au premier ménage : une page publiée
@@ -115,13 +116,13 @@ const FRAMEWORKS = [
 const bench = FRAMEWORKS.flatMap((f) => {
   const d = dataset
     ? (dataset.comparison?.frameworks?.[f.id] ?? null)
-    : readJson(`/tmp/nf-bench-${f.id}.json`);
+    : readJson(path.join(benchOut(), `nf-bench-${f.id}.json`));
   if (!d && f.optional) return [];
   if (!d)
     throw new Error(
       dataset
         ? `camp absent du jeu versionné : comparison.frameworks.${f.id} (${DATA})`
-        : `mesure manquante : /tmp/nf-bench-${f.id}.json`,
+        : `mesure manquante : ${path.join(benchOut(), `nf-bench-${f.id}.json`)}`,
     );
   // ⚠️ `d` d'abord : le JSON du banc porte un champ `label` ("bare", "express-fair")
   // qui écraserait le libellé lisible de `f` si l'ordre était inversé. Vu à l'écran,
@@ -168,7 +169,7 @@ if (!soak)
   throw new Error(
     dataset
       ? `le jeu ${DATA} n'a pas de soak. Rejouer :\n` +
-          `  node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 20 --out tmp/soak.json\n` +
+          `  node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 20 --out tmp/bench/soak.json\n` +
           `puis renseigner le champ "soak" (échantillons COMPLETS — la pente se recalcule ici, ` +
           `jamais depuis un résumé).`
       : `soak manquant : ${SOAK}`,

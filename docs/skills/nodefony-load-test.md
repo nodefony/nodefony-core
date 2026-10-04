@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 986 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 67 |
+| Scripts | 70 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -95,7 +95,10 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/aimd-demo.mjs` | aimd-demo — démonstration LISIBLE et déterministe de la cadence adaptative (AIMD). | — | `DIST` |
 | `scripts/app-download-probe.mjs` | `binaryType` par défaut de `ws` = "nodebuffer" : `raw` est toujours un `Buffer` ici. | — | — |
-| `scripts/bench-ab-mono.sh` | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE. | `--latency` `--show-toplevel` | `BENCH_CONN` `BENCH_DUR` `BENCH_EXPECT_STATUS` `BENCH_INDEX_TARGET` `BENCH_THERM_TARGET` `BENCH_THREADS` `BENCH_URL` `BENCH_WARMUP` |
+| `scripts/bench-ab-mono.sh` | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE. | `--latency` `--show-toplevel` | `BENCH_CONN` `BENCH_DUR` `BENCH_EXPECT_STATUS` `BENCH_INDEX_TARGET` `BENCH_THERM_TARGET` `BENCH_THREADS` `BENCH_URL` `BENCH_WARMUP` `NF_BENCH_OUT` |
+| `scripts/bench-out.mjs` | Dossier des sorties de banc, côté JavaScript — miroir de `bench-out.sh`. | `--show-toplevel` | `NF_BENCH_OUT` |
+| `scripts/bench-out.sh` | shellcheck shell=bash | `--show-toplevel` | `NF_BENCH_OUT` |
+| `scripts/bench-out.test.mjs` | Les deux copies de la règle « où vont les sorties de banc » — bench-out.sh | — | `NF_BENCH_OUT` |
 | `scripts/bench-report.mjs` | Rapport HTML d'un (ou plusieurs) résultats de banc — pour un HUMAIN qui décide. | — | `OUT` |
 | `scripts/bench-request.sh` | La requête d'un banc — UNE implémentation, sourcée par `bench-ab-mono.sh` | `--data` | `BENCH_BODY` `BENCH_EXPECT_STATUS` `BENCH_HEADER` `BENCH_METHOD` |
 | `scripts/boot-bench.mjs` | boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que | `--workers` | — |
@@ -141,7 +144,7 @@ script, donc toujours à jour après régénération.
 | `scripts/route-scan-cost.mjs` | route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et | `--diagnostic` `--json` `--measure` `--reps` `--routes` `--scale` `--target` | `JSON_OUT` |
 | `scripts/run.sh` | Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES | `--config` `--rupture` | — |
 | `scripts/scaffold-ws-probe.mjs` | Sonde : prouve que le job de scaffold est bien streamé sur la socket Nodefony. | — | `NF_STEPS` `NF_WAIT` |
-| `scripts/soak.mjs` | soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu. | `--attendre-charge` `--conn` `--force-charge` `--format` `--latency` `--minutes` `--pid` `--show-toplevel` `--skip` `--url` `--version` `--workspace` | `ATTENDRE_CHARGE` `COEURS` `CONN` `MINUTES` `MIN_AMPLITUDE_MB` `MIN_MINUTES` `OUT` `PROBE` `ROOT` `SKIP` `SONDE_ESSAIS` `SONDE_TIMEOUT_MS` `THREADS` `TRANCHE` `TTL_DEROGATION_MIN` `URL` `VCPU_VIRTUALISES` `WINDOW` `WINDOWS` |
+| `scripts/soak.mjs` | soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu. | `--attendre-charge` `--conn` `--force-charge` `--format` `--latency` `--minutes` `--pid` `--show-toplevel` `--skip` `--url` `--version` `--workspace` | `ATTENDRE_CHARGE` `COEURS` `CONN` `LOG` `MINUTES` `MIN_AMPLITUDE_MB` `MIN_MINUTES` `OUT` `PROBE` `ROOT` `SKIP` `SONDE_ESSAIS` `SONDE_TIMEOUT_MS` `THREADS` `TRANCHE` `TTL_DEROGATION_MIN` `URL` `VCPU_VIRTUALISES` `WINDOW` `WINDOWS` |
 | `scripts/span-analyze.mjs` | Relit les fenêtres de `span-probe.mjs` (via `span-run.sh`) et rend, par | — | — |
 | `scripts/span-probe.mjs` | Chronométrage IN SITU des appels d'un étage du pipeline — préchargé dans le | — | `NF_SPAN_PROBE_OUT` |
 | `scripts/span-run.sh` | Chronométrage in situ d'un étage (`span-probe.mjs`) sur le serveur Nodefony | — | `BENCH_CONN` `BENCH_DUR` `BENCH_PATH` `NF_SPAN_DIR` |
@@ -166,6 +169,8 @@ script, donc toujours à jour après régénération.
 ```bash
 Usage : bash .claude/skills/nodefony-load-test/scripts/run.sh aimd
 bash bench-ab-mono.sh <label> [KEY=VAL ...]
+import { benchOut } from "./bench-out.mjs"
+. "$(dirname "${BASH_SOURCE[0]}")/bench-out.sh"
 JSON_OUT=tmp/sink.json node .claude/skills/nodefony-load-test/scripts/log-sink-contention.mjs
 Usage : node scripts/boot-bench.mjs <runs> -- <args nodefony...>
 Usage : node scripts/boot-profile.mjs -- production --workers 1
@@ -215,7 +220,31 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 node .claude/skills/nodefony-load-test/scripts/ws-tls-batching.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_ELU_SAMPLES` · `MIN_MINUTES` · `MIN_R2` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_CUT` · `NF_DATABASE_URL` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_BODY` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_EXPECT_STATUS` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_METHOD` · `BENCH_PATH` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAMPAIGN` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `COUNTER_PORT` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `KEY` · `LIMIT` · `LINES` · `LOG` · `MAX` · `MAX_DISPERSION` · `MAX_SPREAD` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_ELU_SAMPLES` · `MIN_MINUTES` · `MIN_R2` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_BENCH_CUT` · `NF_BENCH_OUT` · `NF_DATABASE_URL` · `NF_HOST` · `NF_NATIVE_SAMPLE` · `NF_NATIVE_TOP` · `NF_PARITY_CAMPS` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_PROFILE_DIR` · `NF_PROMISE_COUNTER_PORT` · `NF_SPAN_DIR` · `NF_SPAN_PROBE_OUT` · `NF_STEPS` · `NF_USER_PASSWORD` · `NF_WAIT` · `NF_WAIT_CUTS` · `NF_WAIT_DIR` · `NF_WAIT_PROBE_OUT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROOT` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SOAK_MIN` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TRIES` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_BATCH_PAYLOAD` · `WS_PATH` · `WS_STEP` · `WS_URL` · `XENV`
+
+### Détail des scripts auto-documentés
+
+#### `scripts/bench-out.mjs`
+
+
+```bash
+import { benchOut } from "./bench-out.mjs"
+```
+
+| Variable | Rôle |
+| --- | --- |
+| `NF_BENCH_OUT` | dossier des sorties (défaut : <racine du dépôt>/tmp/bench/ab) |
+
+#### `scripts/bench-out.sh`
+
+
+```bash
+. "$(dirname "${BASH_SOURCE[0]}")/bench-out.sh"
+```
+
+| Variable | Rôle |
+| --- | --- |
+| `NF_BENCH_OUT` | dossier des sorties (défaut : <racine du dépôt>/tmp/bench/ab) |
 
 ## Conformité au standard Agent Skills
 
