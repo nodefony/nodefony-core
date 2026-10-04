@@ -646,13 +646,6 @@ jobs:
       - name: Build workspaces
         run: node scripts/ci/run-watched.mjs npm run build
 
-      # Le graphe symbolique est GÉNÉRÉ, jamais versionné : sur un poste, les
-      # hooks git le régénèrent ; un runner n'a pas de hook. Les outils MCP et
-      # `nodefony symbols` le lisent (`mcp.test.ts`) — sans cette étape ils
-      # répondaient « aucun graphe atteignable » sur les trois systèmes.
-      - name: Graphe symbolique (généré, jamais versionné)
-        run: npm run generate-symbols
-
       # `NF_GATES_ALLOW` — ce que cette passe n'exerce PAS, écrit noir sur blanc.
       #
       # Depuis que le rapporteur des gates fait échouer une passe dont une cible
@@ -717,11 +710,6 @@ jobs:
 
       - name: Build workspaces
         run: node scripts/ci/run-watched.mjs npm run build
-
-      # Même raison que dans `test-unit` : le binaire sert `nodefony symbols`,
-      # qui lit un graphe que seul un hook git aurait généré.
-      - name: Graphe symbolique (généré, jamais versionné)
-        run: npm run generate-symbols
 
       # `test:boot` du cœur est un `vitest run` : il porte donc le rapporteur de
       # gates de `src/nodefony/vitest.config.ts`, qui exige Loki et OpenSearch.
