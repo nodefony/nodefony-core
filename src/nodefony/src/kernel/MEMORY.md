@@ -119,7 +119,10 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
   jamais de zone DECSTBM (historique perdu, Windows Terminal, terminal cassé au kill -9). Bloc =
   marque du logo à gauche (`brandMark`, 6 lignes) + 1 info par ligne (`renderStatusBlock`) si
   ≥ 72 col. et ≥ 20 lignes, sinon UNE ligne (`renderStatusLine`, badge vidéo inverse `⬢ projet`
-  jamais retiré, morceaux par priorité). Terminal PARTAGÉ avec le superviseur : le serveur
+  jamais retiré, morceaux par priorité, `short` essayé avant de retirer). Contenu : mode, lien
+  app, ÉTAT du démarrage, socket COMPLET du débogueur (`ws://127.0.0.1:9229/<id>`, réduit à
+  `hôte:port` à l'étroit), codes des points à regarder, arrêt — JAMAIS l'adresse WS/WSS du
+  serveur (elle reste au bilan et en `plain`, `open.websocket`). Terminal PARTAGÉ avec le superviseur : le serveur
   annonce sa hauteur par IPC, le superviseur (`guardSharedTerminal`) efface exactement cette
   hauteur avant d'écrire et répond `status-erased` → `StatusLine.forget()` (sinon il effacerait
   les lignes du superviseur). Canal = `devChannel.ts` (union discriminée `{channel:"nf-dev",type}`,

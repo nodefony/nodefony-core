@@ -825,6 +825,8 @@ interface IStatusSegment {
   text: string;
   /** Plus haute = gardée le plus longtemps. */
   priority: number;
+  /** Forme courte, essayée avant de retirer le morceau quand la place manque. */
+  short?: string;
 }
 
 /**
@@ -863,7 +865,6 @@ export function renderStatusLine(
       ? p.warning(`${sym.warn} ${warnings} à regarder`)
       : p.ok(`${sym.ok} prêt`);
   const app = view.open.find((l) => l.id === "app")?.url;
-  const ws = websocketUrl(view);
   const segments: IStatusSegment[] = [
     {
       text: p.dim(
@@ -875,17 +876,18 @@ export function renderStatusLine(
     ...(app
       ? [{ text: `${p.ok(sym.open)} ${p.action(app)}`, priority: 5 }]
       : []),
-    // Le débogueur passe juste après l'état : c'est pour lui qu'on a lancé
-    // `nodefony debug`, et son annonce par Node a défilé.
+    // Le socket du débogueur passe juste après l'état : c'est pour lui qu'on
+    // a lancé `nodefony debug`, et son annonce par Node a défilé. À
+    // l'étroit, il se réduit à `hôte:port` — ce que demande « Attach ».
     ...(view.inspector
       ? [
           {
-            text: p.warning(`débogueur ${inspectorHost(view.inspector)}`),
+            text: p.warning(`débogueur ${view.inspector}`),
+            short: p.warning(`débogueur ${inspectorHost(view.inspector)}`),
             priority: 5.5,
           },
         ]
       : []),
-    ...(ws ? [{ text: p.dim(`WS ${ws}`), priority: 3 }] : []),
     { text: `${state} ${p.dim(`à ${ctx.readyAt}`)}`, priority: 6 },
     ...(ctx.reloads > 0
       ? [{ text: p.dim(`${sym.reload} ${ctx.reloads}`), priority: 1 }]
@@ -905,10 +907,18 @@ export function renderStatusLine(
   const kept = [...segments];
   const lineOf = (parts: IStatusSegment[]): string =>
     `${badge} ${parts.map((x) => x.text).join(sep)}`;
-  // Retire le moins utile tant que ça ne tient pas.
+  // Tant que ça ne tient pas : retire d'abord l'accessoire (version,
+  // rechargements, priorité ≤ 2), puis RACCOURCIT avant de sacrifier un
+  // morceau utile, et seulement ensuite le retire.
   while (kept.length > 0 && visible(lineOf(kept)) > width) {
     const lowest = kept.reduce((a, b) => (b.priority < a.priority ? b : a));
-    kept.splice(kept.indexOf(lowest), 1);
+    const shortened = kept.find((x) => x.short !== undefined);
+    if (shortened?.short !== undefined && lowest.priority > 2) {
+      kept[kept.indexOf(shortened)] = {
+        text: shortened.short,
+        priority: shortened.priority,
+      };
+    } else kept.splice(kept.indexOf(lowest), 1);
   }
   const line = lineOf(kept);
   // L'aide à droite, s'il reste de la place.
@@ -926,8 +936,10 @@ const STATUS_BLOCK_MIN_ROWS = 20;
  * Le bloc d'état figé en bas du terminal : un filet qui le sépare du journal,
  * puis la MARQUE du logo à gauche (6 lignes) et une information par ligne à
  * droite — ce qu'on veut lire sans
- * remonter : qui tourne et dans quel mode, où l'ouvrir, la WebSocket, l'état,
- * le débogueur ou les points à regarder, et le geste pour arrêter.
+ * remonter : qui tourne et dans quel mode, où l'ouvrir, l'état du démarrage,
+ * le socket du débogueur, les points à regarder, et le geste pour arrêter.
+ * Les adresses des serveurs restent dans le bilan : elles n'ont pas défilé
+ * hors de vue comme l'annonce du débogueur.
  *
  * Le logo fait du bloc quelque chose qu'on ne confond pas avec une ligne du
  * journal. Trop étroit ou trop bas pour lui, le terminal reçoit la ligne
@@ -967,21 +979,14 @@ export function renderStatusBlock(
   const label = ` ${sym.brand} ${ctx.project} `;
   const badge = options.color ? `\x1b[7m\x1b[1m${label}\x1b[0m` : label;
   const app = view.open.find((l) => l.id === "app")?.url;
-  const ws = websocketUrl(view);
   const pending = view.notices.map((n) => n.code).join(" · ");
   const info = [
     `${badge}  ${p.dim(`Nodefony ${view.version} · ${startMode(view)}`)}`,
     app ? `${p.ok(sym.open)} ${p.action(app)}` : "",
-    ws ? p.dim(`WS  ${ws}`) : "",
     `${state} ${p.dim(`à ${ctx.readyAt}`)}` +
       (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
-    view.inspector
-      ? p.warning(
-          `débogueur ${inspectorHost(view.inspector)} — chrome://inspect`,
-        )
-      : pending
-        ? p.dim(pending)
-        : "",
+    view.inspector ? p.warning(`débogueur ${view.inspector}`) : "",
+    pending ? p.dim(pending) : "",
     p.dim("ctrl+c arrêter  ·  état : nodefony status --json"),
   ];
   // Chaque ligne bornée à la place qui reste à droite du logo : une ligne

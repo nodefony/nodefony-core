@@ -646,18 +646,19 @@ describe("ligne d'état figée en bas — l'historique continue de se remplir", 
 
   const ctx = { project: "mon-app", readyAt: "16:48", reloads: 0 };
 
-  it("dit qui tourne, où l'ouvrir, la WebSocket, l'état et depuis quand — l'aide à droite", () => {
+  it("dit qui tourne, où l'ouvrir, l'état et depuis quand — l'aide à droite, jamais l'adresse WebSocket", () => {
     const text = renderStatusLine(view(), ctx, { color: false, columns: 170 });
     expect(
       text
         .trimEnd()
         .startsWith(
-          " ⬢ mon-app  Nodefony 10.0.0 · development  ·  ➜ https://localhost:5152/  ·  WS wss://localhost:5152  ·  ⚠ 2 à regarder à 16:48",
+          " ⬢ mon-app  Nodefony 10.0.0 · development  ·  ➜ https://localhost:5152/  ·  ⚠ 2 à regarder à 16:48",
         ),
       text,
     ).to.equal(true);
     expect(text.endsWith("ctrl+c arrêter")).to.equal(true);
     expect(text.length).to.equal(169);
+    expect(text).to.not.contain("wss://");
     expect(
       renderStatusLine(view({ notices: [] }), ctx, {
         color: false,
@@ -666,19 +667,23 @@ describe("ligne d'état figée en bas — l'historique continue de se remplir", 
     ).to.contain("✓ prêt à 16:48");
   });
 
-  it("le débogueur et le mode sans rechargement s'y lisent", () => {
+  it("le socket du débogueur et le mode sans rechargement s'y lisent", () => {
+    const socket = "ws://127.0.0.1:9229/59d39463-7bb0-4853-89f5-d2607a809dd1";
     const debug = buildStartupView(report(), {
       ...extras,
       supervised: false,
-      inspector: "ws://127.0.0.1:9229/abc",
+      inspector: socket,
     });
     const bar = renderStatusLine(debug, ctx, { color: false, columns: 220 });
-    expect(bar).to.contain("débogueur 127.0.0.1:9229");
+    expect(bar).to.contain(`débogueur ${socket}`);
     expect(bar).to.contain("sans rechargement");
-    // À l'étroit, le débogueur tient plus longtemps que la WebSocket.
+    expect(bar).to.not.contain("wss://");
+    // À l'étroit, le socket se réduit à `hôte:port` plutôt que de tomber, et
+    // l'état du démarrage reste lisible.
     const narrow = renderStatusLine(debug, ctx, { color: false, columns: 90 });
     expect(narrow).to.contain("débogueur 127.0.0.1:9229");
-    expect(narrow).to.not.contain("WS wss://");
+    expect(narrow).to.not.contain("59d39463");
+    expect(narrow).to.contain("⚠ 2 à regarder");
     const screen = human(debug).join("\n");
     expect(screen).to.match(
       /Mode\s+development · sans rechargement \(--no-watch\)/,
@@ -687,7 +692,7 @@ describe("ligne d'état figée en bas — l'historique continue de se remplir", 
       /Débogueur\s+127\.0\.0\.1:9229 — chrome:\/\/inspect/,
     );
     const plain = renderStartupPlain(debug);
-    expect(plain).to.include("inspector: ws://127.0.0.1:9229/abc");
+    expect(plain).to.include(`inspector: ${socket}`);
     expect(plain).to.include("mode: env=development watch=off");
     expect(plain).to.include("open.websocket: wss://localhost:5152");
   });
@@ -832,11 +837,29 @@ describe("bloc d'état avec le logo — et le canal qui le rend sûr à plusieur
     expect(text).to.contain(" ⬢ mon-app ");
     expect(text).to.contain("development · rechargement auto");
     expect(text).to.contain("➜ https://localhost:5152/");
-    expect(text).to.contain("WS  wss://localhost:5152");
+    expect(text).to.not.contain("wss://");
     expect(text).to.contain("⚠ 2 à regarder à 16:48  ·  ↻ 2");
     expect(text).to.contain("ctrl+c arrêter");
     // Aucune ligne ne se replie : l'effacement en remontant raterait sinon.
     for (const l of lines) expect(visible(l)).to.be.at.most(99);
+  });
+
+  it("en débogage : le socket complet sous l'état, et les points à regarder restent", () => {
+    const socket = "ws://127.0.0.1:9229/59d39463-7bb0-4853-89f5-d2607a809dd1";
+    const debug = buildStartupView(report(), { ...extras, inspector: socket });
+    const lines =
+      renderStatusBlock(
+        debug,
+        ctx,
+        { color: false, columns: 100, rows: 40 },
+        brandMark("unicode", false),
+      ) ?? [];
+    const at = (needle: string): number =>
+      lines.findIndex((l) => l.includes(needle));
+    expect(at(`débogueur ${socket}`)).to.equal(at("à regarder à 16:48") + 1);
+    expect(lines.join("\n")).to.not.contain("wss://");
+    // Les codes des points à regarder ne sont plus évincés par le débogueur.
+    for (const n of debug.notices) expect(lines.join("\n")).to.contain(n.code);
   });
 
   it("trop étroit ou trop bas : pas de bloc, la ligne unique prend le relais", () => {
