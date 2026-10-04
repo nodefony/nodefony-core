@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T09:00:29.385Z",
+  "generatedAt": "2026-10-04T10:15:40.892Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1632,7 +1632,7 @@
       "title": "chore(scripts): ranger scripts/ par nature et documenter chaque script",
       "url": "https://github.com/nodefony/nodefony-core/issues/529",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
