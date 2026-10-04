@@ -249,22 +249,31 @@ export default PingController;
 
 ### 4. Ce qu'on observe au boot
 
-Le kernel démarre les serveurs à la phase `onReady` (`Kernel.ts:1274`), puis affiche les URL réellement
-en écoute — le récap de développement liste HTTP, HTTP/2, WS et WSS dans cet ordre
-(`BootReporter.ts:389`) :
+Le kernel démarre les serveurs à la phase `onReady` (`Kernel.ts:1352`). En développement, le
+bilan de démarrage (`renderStartupHuman`, `startupScreen.ts`) dit d'abord **où aller**,
+puis **ce qui est à regarder**, puis les adresses d'écoute :
 
 ```text
-  ✓  Prêt en 1.4s
+  ✓  Prêt en 6,1 s — Nodefony 10.0.0 · development
 
-     Serveurs
-     ➜  HTTP     http://127.0.0.1:5151
-     ➜  HTTP/2   https://127.0.0.1:5152
-     ➜  WS       ws://127.0.0.1:5151
-     ➜  WSS      wss://127.0.0.1:5152
+  OUVRIR
+    ➜  Application   https://localhost:5152/
+    ➜  Studio        https://localhost:5152/nodefony
+
+  ÉTAT
+    Mode        development · rechargement auto
+    Écoute      HTTP + WS 127.0.0.1:5151 · HTTP/2 + WSS 127.0.0.1:5152
 ```
 
-Hors écran animé (production, CI, `--debug`), ce sont les bannières par serveur qui sortent
-(`ServerHttp.showBanner()`, `server-http.ts:242`, appelées par le kernel — `Kernel.ts:561`) :
+L'adresse à **ouvrir** n'est pas l'adresse de **liaison** : un serveur lié à `127.0.0.1` ou à
+`0.0.0.0` s'ouvre sur `localhost` (`openableHost`, `bootReport.ts:216`) — les passkeys refusent
+une IP comme domaine, et un cookie posé sous un nom ne part pas sous l'autre. Hors d'un
+terminal, le même bilan sort ligne à ligne (`open.app: https://localhost:5152/`,
+`listen.https: 127.0.0.1:5152`) ; pour une machine, `nodefony status --json` le rend en entier.
+
+Hors écran animé (production, CI, `--debug`, sortie non-terminal), les bannières par serveur
+sortent aussi (`ServerHttp.showBanner()`, `server-http.ts:239`, appelées par le kernel —
+`Kernel.ts:1381`) :
 
 ```text
 Server Listen on http://127.0.0.1:5151 Family: IPv4 Protocol : 1.1
