@@ -24,6 +24,16 @@ if git rev-parse --verify -q '@{u}' >/dev/null; then
       echo "pre-push : fichiers poussés non formatés — npx prettier --write <fichier>, puis commit." >&2
       exit 1
     }
+    # ANCRES `fichier:ligne` du corpus : un .ts qui bouge décale les ancres qui
+    # pointent dessous, sans que rien ne le dise avant la CI — vécu : 192 ancres
+    # dérivées par un seul commit, 8 pushs rouges d'affilée sur dev. ~7 s, et
+    # seulement quand le push porte du code ou de la doc.
+    if echo "$pushed" | grep -qE '\.(ts|tsx|mts|md)$'; then
+      npm run --silent doc:anchors >/dev/null || {
+        echo "pre-push : ancres de doc dérivées — npm run doc:anchors:fix, relire le reste (npm run doc:anchors), puis commit." >&2
+        exit 1
+      }
+    fi
   fi
 fi
 npx turbo run build && npm run typecheck
