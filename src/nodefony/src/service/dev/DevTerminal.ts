@@ -17,10 +17,34 @@
  * SENS : `ESC[2J` devient {@link DevTerminal.clear} (la page propre du serveur
  * prêt), et le retour en colonne 1 (`ESC[G`, ce qu'émet `readline.cursorTo`)
  * devient `\r`.
+ *
+ * Sur la surface `fullscreen` (ADR-0013 §2, #537), rien ne part dans
+ * l'historique natif : l'écran alternatif est redessiné par IMAGES
+ * (`renderFrame` → `diffFrame`), au plus une toutes les 16 ms, chacune en UNE
+ * écriture. Le clavier passe en mode brut ; ses évènements traversent une
+ * chaîne de foyers (§4) — défilement, puis global (Ctrl+C, Ctrl+D).
  */
 import { StringDecoder } from "node:string_decoder";
 import { isIncompleteControlSequence } from "../../runtime/textWidth";
-import type { DevPhase } from "./devFrame";
+import { guardTerminal } from "../../runtime/terminalGuard";
+import {
+  FrameHeights,
+  diffFrame,
+  frameJournalRows,
+  renderFrame,
+  scrollAnchor,
+  topAnchor,
+  type DevPhase,
+  type IFrame,
+  type IFrameModel,
+  type IFrameSize,
+  type IScrollAnchor,
+} from "./devFrame";
+import {
+  ESCAPE_TIMEOUT_MS,
+  InputDecoder,
+  type InputEvent,
+} from "./inputDecoder";
 import {
   DevTranscript,
   sanitizeTerminalText,
@@ -57,10 +81,72 @@ export interface IDevTerminalOptions {
   mark: readonly string[];
   /** Plafonds de l'historique. */
   transcript?: Omit<IDevTranscriptOptions, "onClear">;
+  /**
+   * Le plein écran (écran alternatif, clavier en mode brut). Absent : surface
+   * `inline`, le rendu de #533.
+   */
+  fullscreen?: IDevFullscreenOptions;
 }
+
+/** Ce que le plein écran exige — rien n'y est deviné. */
+export interface IDevFullscreenOptions {
+  /** Le clavier : passé en mode brut, ses octets décodés. */
+  input: IDevTerminalInput;
+  /** La sonde a vu la sortie synchronisée (mode 2026). */
+  synchronized: boolean;
+  /**
+   * Ctrl+C et Ctrl+D : en mode brut, ce ne sont plus des signaux mais des
+   * touches. Le propriétaire du processus décide de l'arrêt.
+   */
+  onQuit: () => void;
+}
+
+/** Le clavier du terminal, injectable en test. */
+export interface IDevTerminalInput {
+  setRawMode?: (mode: boolean) => unknown;
+  on(event: "data", listener: (chunk: Buffer | string) => void): unknown;
+  removeListener(
+    event: "data",
+    listener: (chunk: Buffer | string) => void,
+  ): unknown;
+  resume(): unknown;
+  pause(): unknown;
+}
+
+/** Un foyer de la chaîne de touches (ADR-0013 §4). */
+export interface IInputFocus {
+  /**
+   * @param event - l'évènement décodé.
+   * @returns `true` s'il est consommé : la chaîne s'arrête.
+   */
+  handle(event: InputEvent): boolean;
+}
+
+/** La surface d'affichage du terminal. */
+export type DevSurface = "inline" | "fullscreen";
 
 /** Effacement d'écran : la seule séquence retirée qui garde un sens. */
 const CLEAR = "\x1b[2J";
+
+/** Au plus une image toutes les 16 ms (ADR-0013 §9). */
+const FRAME_INTERVAL_MS = 16;
+
+/** Lignes parcourues par un cran de molette. */
+const WHEEL_STEP = 3;
+
+/**
+ * Entrée en plein écran : écran alternatif, suivi des clics et de la molette
+ * (format SGR), collage entre crochets, curseur masqué, page vierge.
+ */
+const ENTER_FULLSCREEN =
+  "\x1b[?1049h\x1b[?1000h\x1b[?1006h\x1b[?2004h\x1b[?25l\x1b[H\x1b[2J";
+
+/** Sortie : tout l'inverse, curseur rendu, écran d'avant restauré. */
+const LEAVE_FULLSCREEN =
+  "\x1b[?2004l\x1b[?1006l\x1b[?1000l\x1b[?25h\x1b[?1049l";
+
+/** Dimensions de repli d'un flux qui n'en déclare pas. */
+const FALLBACK_SIZE: IFrameSize = { columns: 80, rows: 24 };
 
 /** Retour en colonne 1 (`CHA`) : un `\r` qui ne dit pas son nom. */
 const COLUMN_ONE = /\x1b\[[01]?G/g;
@@ -71,6 +157,35 @@ const COLUMN_ONE = /\x1b\[[01]?G/g;
  * indéfiniment. Couvre un hyperlien OSC 8 à l'URL longue.
  */
 const MAX_PENDING_SEQUENCE = 4096;
+
+/** Ce que possède le plein écran, de l'entrée à la restauration. */
+interface IFullscreenState {
+  input: IDevTerminalInput;
+  synchronized: boolean;
+  onQuit: () => void;
+  onData: (chunk: Buffer | string) => void;
+  decoder: InputDecoder;
+  escapeTimer: NodeJS.Timeout | null;
+  frameTimer: NodeJS.Timeout | null;
+  lastFrameAt: number;
+  /** L'image à l'écran — `null` : tout redessiner. */
+  frame: IFrame | null;
+  heights: FrameHeights;
+  anchor: IScrollAnchor | null;
+  floorSeq: number | undefined;
+  /** La chaîne de foyers, du premier servi au dernier. */
+  foci: IInputFocus[];
+  releaseGuard: () => void;
+}
+
+/**
+ * Le curseur après le dessin : sur l'invite quand elle existe (visible),
+ * masqué sinon.
+ */
+function cursorSequence(frame: IFrame): string {
+  if (frame.cursor === null) return "";
+  return `\x1b[${frame.cursor.row + 1};${frame.cursor.column + 1}H\x1b[?25h`;
+}
 
 /** Ce qui reste d'un paquet, par couple (source, flux), pour le suivant. */
 interface IEchoState {
@@ -100,9 +215,13 @@ export class DevTerminal {
   #context: IStatusContext | null = null;
   #phase: DevPhase = "booting";
   #closed = false;
+  #surface: DevSurface = "inline";
+  /** Tout ce que le plein écran possède — `null` sur la surface `inline`. */
+  #full: IFullscreenState | null = null;
 
   /**
-   * @param options - flux, rendu de la barre, plafonds de l'historique.
+   * @param options - flux, rendu de la barre, plafonds de l'historique, et
+   *   le plein écran s'il est demandé.
    */
   constructor(options: IDevTerminalOptions) {
     this.#stdout = options.stdout;
@@ -118,11 +237,22 @@ export class DevTerminal {
         ? [this.#stdout]
         : [this.#stdout, this.#stderr],
     );
+    if (options.fullscreen) this.#enterFullscreen(options.fullscreen);
   }
 
   /** L'historique, en lecture. */
   get transcript(): DevTranscript {
     return this.#transcript;
+  }
+
+  /** La surface courante — `inline` après la sortie du plein écran. */
+  get surface(): DevSurface {
+    return this.#surface;
+  }
+
+  /** L'ancre du journal en plein écran, `null` en direct. */
+  get anchor(): IScrollAnchor | null {
+    return this.#full?.anchor ?? null;
   }
 
   /** La phase courante du serveur. */
@@ -219,18 +349,89 @@ export class DevTerminal {
     this.#renderStatus();
   }
 
-  /** Le terminal a changé de taille : la barre est recomposée. */
+  /**
+   * Le terminal a changé de taille : la barre est recomposée ; en plein
+   * écran, l'image entière est redessinée (hauteurs repliées invalidées par
+   * la nouvelle largeur), la fenêtre restant ancrée sur la même entrée.
+   */
   resize(): void {
+    if (this.#full) {
+      this.#full.frame = null;
+      this.#scheduleFrame();
+      return;
+    }
     this.#renderStatus();
   }
 
   /**
    * Le sens de `ESC[2J` : sur la surface `inline`, l'écran visible est remis
-   * à zéro (l'historique du terminal reste) — la page propre de #533.
+   * à zéro (l'historique du terminal reste) — la page propre de #533. En
+   * plein écran, le direct ne montre plus rien d'antérieur ; remonter le
+   * journal le retrouve.
    */
   clear(): void {
     if (this.#closed) return;
+    if (this.#full) {
+      this.#full.floorSeq = this.#transcript.lastSeq;
+      this.#scheduleFrame();
+      return;
+    }
     this.#stdout.write(CLEAR_SCREEN);
+  }
+
+  /**
+   * Insère un foyer EN TÊTE de la chaîne : il voit les touches avant le
+   * défilement et l'arrêt (l'invite de #538 s'y branche).
+   *
+   * @param focus - le foyer.
+   * @returns son retrait.
+   */
+  addFocus(focus: IInputFocus): () => void {
+    const full = this.#full;
+    if (!full) return () => {};
+    full.foci.unshift(focus);
+    return () => {
+      const index = full.foci.indexOf(focus);
+      if (index !== -1) full.foci.splice(index, 1);
+    };
+  }
+
+  /**
+   * Fait traverser la chaîne de foyers à un évènement — atteignable hors
+   * clavier : une entrée venue d'ailleurs y entre sans rien rouvrir.
+   *
+   * @param event - l'évènement décodé.
+   * @returns `true` si un foyer l'a consommé.
+   */
+  dispatch(event: InputEvent): boolean {
+    const full = this.#full;
+    if (!full) return false;
+    for (const focus of full.foci) {
+      if (focus.handle(event)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Quitte le plein écran : le terminal est rendu (écran d'avant, mode cuit,
+   * souris et collage coupés, curseur visible), puis les dernières lignes du
+   * journal y sont recopiées — l'erreur lue avant Ctrl+C reste dans
+   * l'historique du shell. La suite s'affiche en `inline`. Idempotent.
+   */
+  leaveFullscreen(): void {
+    const full = this.#full;
+    if (!full) return;
+    full.releaseGuard();
+    const size = this.#size();
+    const live = { ...this.#model(full), anchor: null };
+    const journal = renderFrame(live, size).lines.slice(
+      0,
+      frameJournalRows(live, size),
+    );
+    this.#restoreTerminal(full);
+    while (journal.length > 0 && journal[0] === "") journal.shift();
+    if (journal.length > 0) this.#stdout.write(`${journal.join("\n")}\n`);
+    this.#renderStatus();
   }
 
   /**
@@ -250,6 +451,7 @@ export class DevTerminal {
    */
   close(): void {
     if (this.#closed) return;
+    this.leaveFullscreen();
     this.#closed = true;
     this.#transcript.flush();
     this.#status.release();
@@ -265,6 +467,10 @@ export class DevTerminal {
   ): void {
     if (segment.length === 0) return;
     this.#transcript.ingest(source, stream, segment, run);
+    if (this.#full) {
+      this.#scheduleFrame();
+      return;
+    }
     const safe = sanitizeTerminalText(segment);
     if (safe.length > 0) target.write(safe);
   }
@@ -272,6 +478,10 @@ export class DevTerminal {
   /** Dessine ou retire la barre selon la phase. */
   #renderStatus(): void {
     if (this.#closed) return;
+    if (this.#full) {
+      this.#scheduleFrame();
+      return;
+    }
     if (
       this.#phase !== "ready" ||
       this.#view === null ||
@@ -293,6 +503,206 @@ export class DevTerminal {
         this.#mark,
       ),
     );
+  }
+
+  /**
+   * Passe en plein écran : séquences d'entrée, clavier en mode brut, garde
+   * de restauration posée AVANT tout dessin — un terminal dans cet état doit
+   * être rendu sur tous les chemins de sortie.
+   */
+  #enterFullscreen(options: IDevFullscreenOptions): void {
+    const full: IFullscreenState = {
+      input: options.input,
+      synchronized: options.synchronized,
+      onQuit: options.onQuit,
+      onData: (chunk) => this.#onInput(chunk),
+      decoder: new InputDecoder(),
+      escapeTimer: null,
+      frameTimer: null,
+      lastFrameAt: 0,
+      frame: null,
+      heights: new FrameHeights(),
+      anchor: null,
+      floorSeq: undefined,
+      foci: [],
+      releaseGuard: () => {},
+    };
+    full.foci.push(this.#scrollFocus(full), this.#globalFocus(full));
+    this.#full = full;
+    this.#surface = "fullscreen";
+    full.releaseGuard = guardTerminal(() => this.#restoreTerminal(full));
+    this.#stdout.write(ENTER_FULLSCREEN);
+    full.input.setRawMode?.(true);
+    full.input.on("data", full.onData);
+    full.input.resume();
+    this.#scheduleFrame();
+  }
+
+  /** Rend le terminal — idempotent, appelé par l'arrêt OU par la garde. */
+  #restoreTerminal(full: IFullscreenState): void {
+    if (this.#full !== full) return;
+    this.#full = null;
+    this.#surface = "inline";
+    if (full.frameTimer) clearTimeout(full.frameTimer);
+    if (full.escapeTimer) clearTimeout(full.escapeTimer);
+    full.input.removeListener("data", full.onData);
+    full.input.setRawMode?.(false);
+    full.input.pause();
+    this.#stdout.write(LEAVE_FULLSCREEN);
+  }
+
+  /** Octets du clavier → évènements → chaîne de foyers. */
+  #onInput(chunk: Buffer | string): void {
+    const full = this.#full;
+    if (!full) return;
+    if (full.escapeTimer) {
+      clearTimeout(full.escapeTimer);
+      full.escapeTimer = null;
+    }
+    for (const event of full.decoder.feed(chunk)) this.dispatch(event);
+    // Un Échap seul est indiscernable d'un début de séquence : il attend un
+    // court instant sans octet avant d'être rendu.
+    if (full.decoder.pending) {
+      full.escapeTimer = setTimeout(() => {
+        full.escapeTimer = null;
+        for (const event of full.decoder.flush()) this.dispatch(event);
+      }, ESCAPE_TIMEOUT_MS);
+    }
+  }
+
+  /** Foyer de défilement : molette, PgUp/PgDn, Début, Fin. */
+  #scrollFocus(full: IFullscreenState): IInputFocus {
+    return {
+      handle: (event) => {
+        if (event.kind === "wheel") {
+          this.#scrollBy(
+            full,
+            event.direction === "up" ? WHEEL_STEP : -WHEEL_STEP,
+          );
+          return true;
+        }
+        if (event.kind !== "key" || event.ctrl || event.alt) return false;
+        const size = this.#size();
+        const page = Math.max(1, frameJournalRows(this.#model(full), size) - 1);
+        // Les flèches restent libres : elles appartiendront à l'invite (#538).
+        if (event.key === "pageup") this.#scrollBy(full, page);
+        else if (event.key === "pagedown") this.#scrollBy(full, -page);
+        else if (event.key === "home") {
+          this.#setAnchor(full, topAnchor(this.#model(full), size));
+        } else if (event.key === "end") this.#setAnchor(full, null);
+        else return false;
+        return true;
+      },
+    };
+  }
+
+  /** Foyer global : Ctrl+C et Ctrl+D demandent l'arrêt au propriétaire. */
+  #globalFocus(full: IFullscreenState): IInputFocus {
+    return {
+      handle: (event) => {
+        if (
+          event.kind === "key" &&
+          event.ctrl &&
+          (event.key === "c" || event.key === "d")
+        ) {
+          full.onQuit();
+          return true;
+        }
+        return false;
+      },
+    };
+  }
+
+  /** Défile de `delta` lignes d'écran (positif = remonter). */
+  #scrollBy(full: IFullscreenState, delta: number): void {
+    this.#setAnchor(full, scrollAnchor(this.#model(full), this.#size(), delta));
+  }
+
+  #setAnchor(full: IFullscreenState, anchor: IScrollAnchor | null): void {
+    const before = full.anchor;
+    if (
+      before === anchor ||
+      (before !== null &&
+        anchor !== null &&
+        before.seq === anchor.seq &&
+        before.below === anchor.below)
+    ) {
+      return;
+    }
+    full.anchor = anchor;
+    this.#scheduleFrame();
+  }
+
+  /** Ce que l'image lit. */
+  #model(full: IFullscreenState): IFrameModel {
+    return {
+      transcript: this.#transcript,
+      anchor: full.anchor,
+      status:
+        this.#context === null
+          ? null
+          : { view: this.#view, context: this.#context, phase: this.#phase },
+      color: this.#color,
+      charset: this.#charset,
+      mark: this.#mark,
+      heights: full.heights,
+      ...(full.floorSeq === undefined ? {} : { floorSeq: full.floorSeq }),
+    };
+  }
+
+  /** Dimensions du terminal, repli 80×24 pour un flux qui ne les déclare pas. */
+  #size(): IFrameSize {
+    const { columns, rows } = this.#stdout;
+    return columns && rows && columns > 0 && rows > 0
+      ? { columns, rows }
+      : FALLBACK_SIZE;
+  }
+
+  /**
+   * Programme une image : au plus une toutes les 16 ms. Une rafale de
+   * lignes entre deux images n'en coûte qu'une.
+   */
+  #scheduleFrame(): void {
+    const full = this.#full;
+    if (full?.frameTimer !== null) return;
+    const wait = Math.max(
+      0,
+      FRAME_INTERVAL_MS - (Date.now() - full.lastFrameAt),
+    );
+    full.frameTimer = setTimeout(() => {
+      full.frameTimer = null;
+      this.#drawFrame(full);
+    }, wait);
+  }
+
+  /**
+   * Dessine l'image : seules les lignes changées, en UNE écriture, curseur
+   * masqué pendant le dessin, encadrée par la sortie synchronisée quand la
+   * sonde l'a vue — jamais d'image à moitié peinte entre deux appels système.
+   */
+  #drawFrame(full: IFullscreenState): void {
+    if (this.#full !== full) return;
+    full.lastFrameAt = Date.now();
+    const frame = renderFrame(this.#model(full), this.#size());
+    const previous = full.frame;
+    const changes = diffFrame(previous, frame);
+    full.frame = frame;
+    const sameCursor =
+      previous !== null &&
+      (previous.cursor === frame.cursor ||
+        (previous.cursor !== null &&
+          frame.cursor !== null &&
+          previous.cursor.row === frame.cursor.row &&
+          previous.cursor.column === frame.cursor.column));
+    if (changes.length === 0 && sameCursor) return;
+    let out = full.synchronized ? "\x1b[?2026h\x1b[?25l" : "\x1b[?25l";
+    if (previous === null) out += "\x1b[H\x1b[2J";
+    for (const { row, text } of changes) {
+      out += `\x1b[${row + 1};1H${text}\x1b[0m\x1b[K`;
+    }
+    out += cursorSequence(frame);
+    if (full.synchronized) out += "\x1b[?2026l";
+    this.#stdout.write(out);
   }
 
   /** L'état d'affichage d'un couple, créé au premier paquet. */
