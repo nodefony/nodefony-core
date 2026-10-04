@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T19:37:11.325Z",
+  "generatedAt": "2026-10-04T20:41:16.750Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1648,7 +1648,7 @@
       "title": "refactor(cli): faire du superviseur le seul à écrire dans le terminal",
       "url": "https://github.com/nodefony/nodefony-core/issues/536",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
