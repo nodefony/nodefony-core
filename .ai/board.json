@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T07:28:55.030Z",
+  "generatedAt": "2026-10-04T08:54:33.479Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 74,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -1626,6 +1626,38 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 529,
+      "title": "chore(scripts): ranger scripts/ par nature et documenter chaque script",
+      "url": "https://github.com/nodefony/nodefony-core/issues/529",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.001,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 530,
+      "title": "feat(cli): générer le graphe des symboles du code d'une application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/530",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.002,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 514,
