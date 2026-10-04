@@ -20,6 +20,7 @@
  *   node scripts/tmp-layout.mjs                    # crée les dossiers + README, signale les égarés
  *   node scripts/tmp-layout.mjs --prune            # + supprime les fichiers de plus de 48 h
  *   node scripts/tmp-layout.mjs --prune --dry-run  # dit ce que --prune supprimerait
+ *   node scripts/tmp-layout.mjs --check            # code 1 si tmp/ ou la racine ont des égarés
  */
 import {
   existsSync,
@@ -30,6 +31,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { holder, refusal } from "./long-run-lock.mjs";
@@ -107,6 +109,52 @@ export const RUNTIME_ENTRIES = Object.freeze(["upload", "long-run.lock"]);
 
 /** Le README régénéré : présent dans `tmp/`, donc jamais égaré ni purgé. */
 const README = "README.md";
+
+/**
+ * Ce qui a le droit d'exister NON versionné à la racine du dépôt : le runtime
+ * de l'application de dev, les dépendances, les caches d'outils et les réglages
+ * personnels. Tout autre artefact généré y est un égaré — sa place est sous
+ * `tmp/<catégorie>/`.
+ *
+ * `release/` y figure tant que la chaîne de publication y empaquette : la
+ * déplacer touche une chaîne dont une erreur brûle une version.
+ */
+export const ROOT_UNTRACKED_ALLOWED = Object.freeze([
+  "dist",
+  "var",
+  "logs",
+  "node_modules",
+  "tmp",
+  "release",
+  ".turbo",
+  ".vscode",
+  ".idea",
+  ".env.local",
+  ".DS_Store",
+]);
+
+/**
+ * Les égarés de la racine du dépôt, parmi les chemins non versionnés qu'en
+ * donne `git status --ignored --porcelain`.
+ *
+ * Fonction PURE : la liste vient de l'appelant, ce qui la rend éprouvable sans
+ * dépôt. Seules les entrées de PREMIER niveau comptent — un chemin profond
+ * appartient à un dossier qui, lui, est jugé.
+ *
+ * @param {string[]} porcelainLines - lignes `!! chemin` et `?? chemin`
+ * @returns {string[]}
+ */
+export function rootStrays(porcelainLines) {
+  const allowed = new Set(ROOT_UNTRACKED_ALLOWED);
+  const strays = new Set();
+  for (const line of porcelainLines) {
+    if (!line.startsWith("!! ") && !line.startsWith("?? ")) continue;
+    const top = line.slice(3).replace(/\/$/u, "");
+    if (top.includes("/")) continue;
+    if (!allowed.has(top)) strays.add(top);
+  }
+  return [...strays].sort();
+}
 
 /**
  * Rend le `tmp/README.md` depuis la table — sa seule source.
@@ -268,4 +316,18 @@ if (
   } else {
     console.log("tmp/ — rangé : chaque entrée est dans une catégorie");
   }
+  const status = spawnSync("git", ["status", "--ignored", "--porcelain"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  const roots = rootStrays(status.stdout.split("\n"));
+  if (roots.length) {
+    console.log(
+      `racine du dépôt — ${roots.length} artefact(s) généré(s) hors place (→ tmp/<catégorie>/) :\n` +
+        roots.map((s) => `  ${s}`).join("\n"),
+    );
+  } else {
+    console.log("racine du dépôt — propre : rien de généré hors runtime");
+  }
+  if (args.has("--check") && (strays.length || roots.length)) process.exit(1);
 }

@@ -36,6 +36,7 @@ import {
   uncitedWork,
   nextStateName,
 } from "./session-lib.mjs";
+import { rootStrays, strayEntries } from "../../../../scripts/tmp-layout.mjs";
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",
@@ -243,6 +244,20 @@ function verify() {
     );
   const ahead = git("rev-list", "--count", "@{u}..HEAD").out;
   if (ahead !== "0") fails.push(`${ahead} commit(s) non poussé(s)`);
+  // Le système de fichiers n'est pas un fourre-tout (CLAUDE.md, règle absolue) :
+  // une session ne se ferme pas en laissant ses affaires en vrac.
+  const strays = strayEntries();
+  if (strays.length)
+    fails.push(
+      `tmp/ en vrac : ${clip(strays.join(" "), 80)} — ranger sous une catégorie (tmp/README.md)`,
+    );
+  const roots = rootStrays(
+    git("status", "--ignored", "--porcelain").out.split("\n"),
+  );
+  if (roots.length)
+    fails.push(
+      `racine du dépôt encombrée : ${clip(roots.join(" "), 80)} — déplacer sous tmp/<catégorie>/`,
+    );
   const stateFile = closingState;
   if (!stateFile?.includes(`_${today}`))
     fails.push(`aucun _state du ${today} dans ${MEM}`);

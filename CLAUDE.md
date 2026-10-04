@@ -92,6 +92,37 @@ journaux et cas déjà traités → skill **`nodefony-framework-dev`** (`referen
 
 ---
 
+## 🚨 RÈGLE ABSOLUE — LE SYSTÈME DE FICHIERS N'EST PAS UN FOURRE-TOUT
+
+**Chacun range ses affaires.** Un fichier dont on ne sait plus à quoi il sert ne se supprime
+plus : il s'accumule. Mesuré en un mois : `tmp/` à 2,1 Go en 184 entrées posées en vrac,
+quatre `dist-*` et onze `isolate-*-v8.log` à la racine du dépôt, et **42 Go** dans le dossier
+temporaire du système, dont 28 000 dossiers `nf-*` laissés par nos propres tests.
+
+| Où                                 | Ce qui a le droit d'y être                                                                                                                                                                                              |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Racine du dépôt**                | ce qui est versionné, plus le runtime de l'app de dev (`dist/`, `var/`, `logs/`, `node_modules/`). **Rien de généré d'autre.**                                                                                          |
+| **`tmp/`**                         | uniquement ses **catégories** — `runs/` `reports/` `sites/` `bench/` `profiles/` `apps/` `browser/` `scratch/`. **Rien à sa racine.** Table : `scripts/tmp-layout.mjs` (seule source), copie lisible : `tmp/README.md`. |
+| **`/tmp` système** (`os.tmpdir()`) | le jetable d'un **test** (`mkdtemp`), que **le test lui-même supprime** (`afterAll` → `rmSync`). Jamais un artefact qu'on relira.                                                                                       |
+
+Les gestes :
+
+- **Un fichier = une catégorie, et le sujet dans son NOM** (`tmp/runs/test-all-mongo.log`),
+  jamais un dossier neuf improvisé. Aucune catégorie ne convient ? On ajoute UNE ligne à la
+  table de `scripts/tmp-layout.mjs`, on ne pose pas à côté.
+- **Un script qui écrit a son défaut sous `tmp/<catégorie>/` et crée son dossier**
+  (`mkdirSync(…, { recursive: true })`, `mkdir -p`) — jamais le répertoire courant, jamais
+  `/tmp` pour un résultat.
+- **Les outils qui écrivent dans le répertoire courant se redirigent** : `node --prof` →
+  `--logfile=tmp/profiles/v8-%p.log --no-logfile-per-isolate`, `--cpu-prof` →
+  `--cpu-prof-dir=tmp/profiles/…`, captures de tas idem.
+- **`tmp/` se vide sans prévenir** (`node scripts/tmp-layout.mjs --prune` : plus de 48 h).
+  Ce qui doit survivre se commite, ou part dans un ticket.
+- **Avant de dire « fait »** : `node scripts/tmp-layout.mjs` doit répondre « rangé », et la
+  racine du dépôt ne doit rien porter de neuf (`git status --ignored --short .`).
+
+---
+
 ## 🚦 Checklist début de session (LIRE EN PREMIER)
 
 > **Juste après un `/clear` : dire simplement « reprends »** → skill `nodefony-session` mode RESUME
@@ -762,12 +793,8 @@ ré-ingérable par un LLM.
 
 **Où** : un rapport est une **photo**, pas de la documentation → `tmp/reports/`, jamais `docs/`, jamais commité.
 
-> 🗂 **`tmp/` a des catégories, et RIEN ne se pose à sa racine** — ni à celle du dépôt. Journaux
-> capturés → `tmp/runs/`, rapports → `tmp/reports/`, profils → `tmp/profiles/`, apps générées →
-> `tmp/apps/`, brouillons → `tmp/scratch/`. La table complète est dans `scripts/tmp-layout.mjs`
-> (seule source) et sa copie dans `tmp/README.md` ; `node scripts/tmp-layout.mjs` crée les
-> dossiers et nomme ce qui traîne, `--prune` jette ce qui a plus de 48 h. Ce qui doit survivre se
-> commite ou part dans un ticket : `tmp/` se vide sans prévenir.
+> Rangement de `tmp/` et de la racine : règle absolue « le système de fichiers n'est pas un
+> fourre-tout », en tête de ce fichier.
 
 ## 📘 Documentation — TSDoc + `docs/`
 

@@ -18,6 +18,7 @@ import {
   ensureLayout,
   expiredFiles,
   prune,
+  rootStrays,
   strayEntries,
   MAX_AGE_MS,
   RUNTIME_ENTRIES,
@@ -80,6 +81,25 @@ describe("tmp-layout", () => {
     expect(existsSync(fresh)).toBe(true);
     expect(existsSync(upload)).toBe(true);
     expect(existsSync(readme)).toBe(true);
+  });
+
+  it("racine du dépôt : signale l'artefact généré, tolère le runtime et le profond", () => {
+    const lines = [
+      "!! dist/",
+      "!! node_modules/",
+      "!! tmp/",
+      "!! isolate-0x7f-123-v8.log",
+      "!! dist-site/",
+      "?? rapport.html",
+      "!! .ai/symbols.verbose.json",
+      "?? src/nouveau.ts",
+      " M CLAUDE.md",
+    ];
+    expect(rootStrays(lines)).toEqual([
+      "dist-site",
+      "isolate-0x7f-123-v8.log",
+      "rapport.html",
+    ]);
   });
 
   it("retire les dossiers vidés par la purge, garde les catégories", () => {
