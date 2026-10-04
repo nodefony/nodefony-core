@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T10:15:40.892Z",
+  "generatedAt": "2026-10-04T11:52:43.116Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1664,7 +1664,7 @@
       "title": "test: supprimer les dossiers temporaires laissés par les tests",
       "url": "https://github.com/nodefony/nodefony-core/issues/531",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
