@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T18:03:36.632Z",
+  "generatedAt": "2026-10-04T18:08:01.691Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1635,7 +1635,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 1,
+      "jours": 1.5,
       "ordre": 3.0001,
       "debut": null,
       "cible": null,
@@ -1651,7 +1651,7 @@
       "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 1,
+      "jours": 2,
       "ordre": 3.0002,
       "debut": null,
       "cible": null,
@@ -7562,7 +7562,7 @@
       "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
-      "jours": 9.5,
+      "jours": 11,
       "ordre": 913,
       "debut": null,
       "cible": null,
