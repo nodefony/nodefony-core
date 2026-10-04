@@ -1,4 +1,7 @@
 /// <reference types="node" />
+import { mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import type { TestProject } from "vitest/node";
 
@@ -34,9 +37,20 @@ export default async function setup(
     project.provide("mongoUri", external);
     return async () => {};
   }
-  let replset: MongoMemoryReplSet | undefined;
+  // Le dossier de données est À NOUS, et supprimé dans tous les cas. Laissé à
+  // mongodb-memory-server, un démarrage RATÉ (délai dépassé sur un runner
+  // chargé) abandonne son `mongo-mem-*` : `create()` lève avant de rendre
+  // l'instance, et même un `stop()` ne le retire pas — la garde des temporaires
+  // le nomme alors et fait échouer la passe (vu en forge Windows).
+  const dbPath = mkdtempSync(path.join(os.tmpdir(), "nf-mongo-"));
+  const removeDbPath = (): void =>
+    rmSync(dbPath, { recursive: true, force: true });
+  const replset = new MongoMemoryReplSet({
+    replSet: { count: 1 },
+    instanceOpts: [{ dbPath }],
+  });
   try {
-    replset = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+    await replset.start();
     project.provide("mongoUri", replset.getUri());
   } catch (error) {
     console.warn(
@@ -44,9 +58,13 @@ export default async function setup(
         error instanceof Error ? error.message : String(error)
       }`,
     );
+    await replset.stop().catch(() => false);
+    removeDbPath();
     project.provide("mongoUri", null);
+    return async () => {};
   }
   return async () => {
-    await replset?.stop();
+    await replset.stop({ doCleanup: true, force: true });
+    removeDbPath();
   };
 }
