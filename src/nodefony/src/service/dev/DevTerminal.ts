@@ -87,6 +87,11 @@ export interface IDevTerminalOptions {
   /** Plafonds de l'historique. */
   transcript?: Omit<IDevTranscriptOptions, "onClear">;
   /**
+   * Le nom du projet, pour la barre du plein écran AVANT que le serveur ait
+   * donné son bilan : pendant un premier build, elle dit déjà la phase.
+   */
+  project?: string;
+  /**
    * Le plein écran (écran alternatif, clavier en mode brut). Absent : surface
    * `inline`, le rendu de #533.
    */
@@ -136,31 +141,30 @@ const CLEAR = "\x1b[2J";
 /** Au plus une image toutes les 16 ms (ADR-0013 §9). */
 const FRAME_INTERVAL_MS = 16;
 
-/** Lignes parcourues par un cran de molette. */
-const WHEEL_STEP = 3;
-
 /**
- * Entrée en plein écran : écran alternatif, suivi des clics et de la molette
- * (format SGR), collage entre crochets, curseur masqué, page vierge.
+ * Entrée en plein écran : écran alternatif, défilement alterné (mode 1007),
+ * collage entre crochets, curseur masqué, page vierge.
+ *
+ * 🔴 AUCUN suivi de la souris (modes 1000/1006) : il capte aussi le glisser, et
+ * la sélection native — copier un message d'erreur, LE geste devant un
+ * journal — exigerait alors une touche que chaque terminal choisit (Fn sous
+ * Terminal.app, ⌥ sous iTerm2, Maj ailleurs). Le mode 1007 fait traduire la
+ * molette en flèches par le terminal lui-même ; la souris reste au terminal.
  */
 const ENTER_FULLSCREEN =
-  "\x1b[?1049h\x1b[?1000h\x1b[?1006h\x1b[?2004h\x1b[?25l\x1b[H\x1b[2J";
+  "\x1b[?1049h\x1b[?1007h\x1b[?2004h\x1b[?25l\x1b[H\x1b[2J";
 
 /** Sortie : tout l'inverse, curseur rendu, écran d'avant restauré. */
-const LEAVE_FULLSCREEN =
-  "\x1b[?2004l\x1b[?1006l\x1b[?1000l\x1b[?25h\x1b[?1049l";
+const LEAVE_FULLSCREEN = "\x1b[?2004l\x1b[?1007l\x1b[?25h\x1b[?1049l";
 
 /**
- * L'aide de la barre en plein écran : il a changé deux gestes — la molette
- * défile le journal, la sélection native passe par Maj (Option sous les
- * terminaux de macOS) — et Ctrl+C reste l'arrêt. L'arrêt EN TÊTE : la ligne
- * est tronquée par la droite quand la place manque.
+ * L'aide de la barre en plein écran : la molette et les flèches défilent le
+ * journal, Ctrl+C reste l'arrêt — EN TÊTE, la ligne est tronquée par la
+ * droite quand la place manque. La sélection est native : rien à en dire.
  */
 const FULLSCREEN_HELP: Readonly<Record<ScreenCharset, string>> = {
-  unicode:
-    "ctrl+c arrêter  ·  molette · PgUp défiler  ·  maj (⌥ macOS) + glisser sélectionner",
-  ascii:
-    "ctrl+c arrêter  -  molette / PgUp défiler  -  maj (alt macOS) + glisser sélectionner",
+  unicode: "ctrl+c arrêter  ·  molette · ↑↓ · PgUp défiler  ·  Fin direct",
+  ascii: "ctrl+c arrêter  -  molette / fleches / PgUp défiler  -  Fin direct",
 };
 
 /** Dimensions de repli d'un flux qui n'en déclare pas. */
@@ -276,6 +280,7 @@ export class DevTerminal {
   readonly #color: boolean;
   readonly #charset: ScreenCharset;
   readonly #mark: readonly string[];
+  readonly #project: string | null;
   readonly #transcript: DevTranscript;
   readonly #status: StatusLine;
   /** États d'affichage par couple (source, flux) — une dizaine de clés au plus. */
@@ -301,6 +306,7 @@ export class DevTerminal {
     this.#color = options.color;
     this.#charset = options.charset;
     this.#mark = options.mark;
+    this.#project = options.project ?? null;
     this.#transcript = new DevTranscript(options.transcript);
     // Les DEUX flux sont surveillés : une écriture sur la sortie d'erreur
     // efface aussi la barre avant elle, sinon elle s'y collerait.
@@ -486,7 +492,7 @@ export class DevTerminal {
 
   /**
    * Quitte le plein écran : le terminal est rendu (écran d'avant, mode cuit,
-   * souris et collage coupés, curseur visible), puis les dernières lignes du
+   * défilement alterné et collage coupés, curseur visible), puis les dernières lignes du
    * journal y sont recopiées — l'erreur lue avant Ctrl+C reste dans
    * l'historique du shell. La suite s'affiche en `inline`. Idempotent.
    */
@@ -642,22 +648,20 @@ export class DevTerminal {
     }
   }
 
-  /** Foyer de défilement : molette, PgUp/PgDn, Début, Fin. */
+  /**
+   * Foyer de défilement : flèches (la molette en envoie, mode 1007), PgUp,
+   * PgDn, Début, Fin. Une flèche venue de la molette est indiscernable d'une
+   * flèche tapée : l'historique de l'invite (#538) prendra Ctrl+P / Ctrl+N.
+   */
   #scrollFocus(full: IFullscreenState): IInputFocus {
     return {
       handle: (event) => {
-        if (event.kind === "wheel") {
-          this.#scrollBy(
-            full,
-            event.direction === "up" ? WHEEL_STEP : -WHEEL_STEP,
-          );
-          return true;
-        }
         if (event.kind !== "key" || event.ctrl || event.alt) return false;
         const size = this.#size();
         const page = Math.max(1, frameJournalRows(this.#model(full), size) - 1);
-        // Les flèches restent libres : elles appartiendront à l'invite (#538).
-        if (event.key === "pageup") this.#scrollBy(full, page);
+        if (event.key === "up") this.#scrollBy(full, 1);
+        else if (event.key === "down") this.#scrollBy(full, -1);
+        else if (event.key === "pageup") this.#scrollBy(full, page);
         else if (event.key === "pagedown") this.#scrollBy(full, -page);
         else if (event.key === "home") {
           this.#setAnchor(full, topAnchor(this.#model(full), size));
@@ -707,18 +711,22 @@ export class DevTerminal {
 
   /** Ce que l'image lit. */
   #model(full: IFullscreenState): IFrameModel {
+    // Avant le premier bilan du serveur (un build peut durer), la barre dit
+    // déjà la phase : un écran alternatif vide ressemble à un programme figé.
+    const context =
+      this.#context ??
+      (this.#project === null
+        ? null
+        : { project: this.#project, readyAt: "", reloads: 0 });
     return {
       transcript: this.#transcript,
       anchor: full.anchor,
       status:
-        this.#context === null
+        context === null
           ? null
           : {
               view: this.#view,
-              context: {
-                ...this.#context,
-                help: FULLSCREEN_HELP[this.#charset],
-              },
+              context: { ...context, help: FULLSCREEN_HELP[this.#charset] },
               phase: this.#phase,
             },
       color: this.#color,

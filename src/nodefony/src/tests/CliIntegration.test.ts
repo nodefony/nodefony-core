@@ -1850,7 +1850,8 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
             "alternate",
             "la sonde a répondu : écran alternatif",
           );
-          assert.strictEqual(s.term.modes.mouseTrackingMode, "vt200");
+          // La souris reste au terminal : sélection et copier-coller natifs.
+          assert.strictEqual(s.term.modes.mouseTrackingMode, "none");
           assert.strictEqual(s.term.modes.bracketedPasteMode, true);
           const live = await snap(s);
           assert.ok(

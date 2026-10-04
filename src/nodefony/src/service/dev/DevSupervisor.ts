@@ -296,6 +296,25 @@ export function failedTaskOutput(output: string): string {
 }
 
 /**
+ * Le nom du projet tel que le donne son `package.json` — repli : le nom du
+ * dossier. Sert la barre du plein écran avant le premier bilan du serveur.
+ *
+ * @param cwd - la racine du projet.
+ * @returns le nom.
+ */
+export function readProjectName(cwd: string): string {
+  try {
+    const { name } = JSON.parse(
+      readFileSync(path.join(cwd, "package.json"), "utf8"),
+    ) as { name?: unknown };
+    if (typeof name === "string" && name.length > 0) return name;
+  } catch {
+    /* pas de package.json lisible : le dossier */
+  }
+  return path.basename(cwd);
+}
+
+/**
  * Le rendu du démarrage, vu du superviseur — il en dérive où écrire ses
  * lignes `[dev]` et s'il doit libérer une zone épinglée. Une valeur invalide
  * rend `human` : la commande l'a déjà refusée en la nommant.
@@ -695,6 +714,7 @@ export class DevSupervisor {
       color,
       charset,
       mark: brandMark(charset, color),
+      project: readProjectName(this.#cwd),
       ...(fullscreen ? { fullscreen } : {}),
     });
     this.#terminal = terminal;

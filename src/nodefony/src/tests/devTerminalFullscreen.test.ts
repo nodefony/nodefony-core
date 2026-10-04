@@ -118,11 +118,16 @@ afterEach(() => {
 });
 
 describe("plein écran — entrée et image", () => {
-  it("entre en écran alternatif, souris SGR et collage, clavier en mode brut", () => {
+  it("entre en écran alternatif, défilement alterné et collage, clavier en mode brut", () => {
     const { stdout, input, terminal } = fullscreen();
     const enter = stdout.written[0] ?? "";
-    for (const mode of ["1049", "1000", "1006", "2004"]) {
+    for (const mode of ["1049", "1007", "2004"]) {
       expect(enter).to.include(`\x1b[?${mode}h`);
+    }
+    // La souris reste au TERMINAL : capter les clics tuerait la sélection
+    // native — copier un message d'erreur, le geste n°1 devant un journal.
+    for (const mode of ["1000", "1002", "1003", "1006"]) {
+      expect(enter).to.not.include(`\x1b[?${mode}h`);
     }
     expect(input.raw).to.equal(true);
     expect(input.paused).to.equal(false);
@@ -194,12 +199,12 @@ describe("plein écran — entrée et image", () => {
 });
 
 describe("plein écran — défilement (foyer)", () => {
-  it("la molette remonte le journal ; les lignes qui arrivent ne le déplacent pas", async () => {
+  it("la molette (traduite en flèches par le terminal) remonte le journal ; les lignes qui arrivent ne le déplacent pas", async () => {
     const { stdout, input, terminal } = fullscreen();
     terminal.setStatus(null, ctx, "ready");
     terminal.ingest("server", "out", lines(40));
     await nextFrame();
-    input.type("\x1b[<64;10;5M"); // un cran vers le haut
+    input.type("\x1b[A\x1b[A\x1b[A"); // un cran de molette, mode 1007
     await nextFrame();
     const scrolled = await screen(stdout.written);
     expect(terminal.anchor).to.not.equal(null);
@@ -267,7 +272,7 @@ describe("plein écran — sortie", () => {
     await nextFrame();
     terminal.leaveFullscreen();
     const leave = stdout.written.join("");
-    for (const mode of ["2004", "1006", "1000", "1049"]) {
+    for (const mode of ["2004", "1007", "1049"]) {
       expect(leave).to.include(`\x1b[?${mode}l`);
     }
     expect(leave).to.include("\x1b[?25h");
@@ -422,14 +427,14 @@ describe("plein écran — l'aide de la barre dit les gestes changés", () => {
     inspector: null,
   };
 
-  it("défiler, sélectionner (Maj), arrêter — dans la barre du serveur prêt", async () => {
+  it("défiler, revenir au direct, arrêter — dans la barre du serveur prêt", async () => {
     const { stdout, terminal } = fullscreen({ columns: 120, rows: 40 });
     terminal.setStatus(readyView, ctx, "ready");
     terminal.ingest("server", "out", lines(3));
     await nextFrame();
     const shown = (await screen(stdout.written, 120, 40)).join("\n");
     expect(shown).to.include("PgUp défiler");
-    expect(shown).to.include("glisser sélectionner");
+    expect(shown).to.include("Fin direct");
     expect(shown).to.include("ctrl+c arrêter");
     terminal.close();
   });
@@ -478,6 +483,34 @@ describe("barre étroite — le geste d'arrêt ne tombe pas avec l'aide", () => 
     await nextFrame();
     const bar = (await screen(stdout.written, 100, 12)).at(-1) ?? "";
     expect(bar).to.include("ctrl+c arrêter");
+    terminal.close();
+  });
+});
+
+describe("plein écran — jamais un écran vide", () => {
+  it("avant le premier bilan du serveur (un build peut durer), la barre dit la phase", async () => {
+    const stdout = output();
+    const terminal = new DevTerminal({
+      stdout,
+      color: false,
+      charset: "unicode",
+      mark: brandMark("unicode", false),
+      project: "mon-app",
+      fullscreen: {
+        input: new FakeInput(),
+        synchronized: false,
+        onQuit: () => {},
+      },
+    });
+    await nextFrame();
+    expect((await screen(stdout.written)).at(-1)).to.equal(
+      "mon-app · démarrage…",
+    );
+    terminal.setPhase("building");
+    await nextFrame();
+    expect((await screen(stdout.written)).at(-1)).to.equal(
+      "mon-app · construction…",
+    );
     terminal.close();
   });
 });
