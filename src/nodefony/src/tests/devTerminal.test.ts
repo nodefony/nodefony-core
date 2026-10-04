@@ -252,6 +252,43 @@ describe("environnement d'un serveur relayé (#536)", () => {
   });
 });
 
+/**
+ * Ce que fait le système d'un tube hérité par un PETIT-ENFANT, une fois le
+ * processus du milieu sorti — CONSTATÉ, jamais déduit de la plateforme.
+ *
+ * - `holds` : le petit-enfant garde le tube, `close` attend ses écritures
+ *   (POSIX) — le décor des deux cas ci-dessous existe ;
+ * - `closed` : le tube se ferme avec le processus du milieu et ce qu'écrit le
+ *   petit-enfant n'arrive JAMAIS — le décor n'existe pas ici ;
+ * - `late` : `close` passe AVANT des données qui arrivent quand même — un
+ *   verdict armé sur `close` les précéderait : défaut, les cas doivent rougir.
+ */
+async function grandchildPipe(): Promise<"holds" | "closed" | "late"> {
+  const late = "setTimeout(() => process.stdout.write('late\\n'), 300);";
+  const child = spawn(
+    process.execPath,
+    [
+      "-e",
+      "require('node:child_process').spawn(process.execPath, ['-e', " +
+        JSON.stringify(late) +
+        "], { stdio: ['ignore', 'inherit', 'inherit'] }).unref();",
+    ],
+    { stdio: ["ignore", "pipe", "ignore"] },
+  );
+  let closed = false;
+  let seen: "before" | "after" | null = null;
+  child.stdout.on("data", (d: Buffer) => {
+    if (d.toString().includes("late")) seen ??= closed ? "after" : "before";
+  });
+  await new Promise((r) => child.once("close", r));
+  closed = true;
+  if (seen === "before") return "holds";
+  await new Promise((r) => setTimeout(r, 1_500));
+  return seen === "after" ? "late" : "closed";
+}
+
+const GRANDCHILD_PIPE = await grandchildPipe();
+
 describe("serveur relayé — un vrai processus en tube (#536)", () => {
   /**
    * Un « serveur » relayé comme sous le superviseur. Sa pile est écrite par
@@ -305,25 +342,39 @@ describe("serveur relayé — un vrai processus en tube (#536)", () => {
     expect(order[0]).to.equal("boot");
   }, 30_000);
 
-  it("crash au démarrage : TOUTE la pile s'affiche AVANT le verdict", async () => {
-    const lines = 2000;
-    const { order } = await crash(lines, 300);
-    const verdict = order.findIndex((t) =>
-      t.startsWith("[dev] serveur arrêté"),
-    );
-    expect(verdict).to.equal(order.length - 1);
-    expect(order[verdict - 1]).to.equal(
-      `    at frame${lines - 1} (index.js:${lines - 1}:1)`,
-    );
-    expect(order[verdict]).to.equal("[dev] serveur arrêté (code 1)");
-  }, 30_000);
+  // Sans petit-enfant qui garde le tube, `exit` et la fin des flux coïncident :
+  // ces deux cas n'auraient rien à prouver (le troisième passerait à vide).
+  it.skipIf(GRANDCHILD_PIPE === "closed")(
+    "crash au démarrage : TOUTE la pile s'affiche AVANT le verdict",
+    async () => {
+      expect(
+        GRANDCHILD_PIPE,
+        "`close` a précédé des données encore en route : le verdict passerait AVANT la pile",
+      ).to.not.equal("late");
+      const lines = 2000;
+      const { order } = await crash(lines, 300);
+      const verdict = order.findIndex((t) =>
+        t.startsWith("[dev] serveur arrêté"),
+      );
+      expect(verdict).to.equal(order.length - 1);
+      expect(order[verdict - 1]).to.equal(
+        `    at frame${lines - 1} (index.js:${lines - 1}:1)`,
+      );
+      expect(order[verdict]).to.equal("[dev] serveur arrêté (code 1)");
+    },
+    30_000,
+  );
 
-  it("un petit-enfant qui garde le tube ne tait pas le verdict : il part après le délai de grâce", async () => {
-    const t0 = Date.now();
-    // La pile arrive dans 5 s ; le verdict, lui, n'attend que 200 ms après `exit`.
-    const { order } = await crash(1, 5_000, 200);
-    expect(order.at(-1)).to.equal("[dev] serveur arrêté (code 1)");
-    expect(order.some((t) => t.includes("Error: boom"))).to.equal(false);
-    expect(Date.now() - t0).to.be.below(4_000);
-  }, 30_000);
+  it.skipIf(GRANDCHILD_PIPE === "closed")(
+    "un petit-enfant qui garde le tube ne tait pas le verdict : il part après le délai de grâce",
+    async () => {
+      const t0 = Date.now();
+      // La pile arrive dans 5 s ; le verdict, lui, n'attend que 200 ms après `exit`.
+      const { order } = await crash(1, 5_000, 200);
+      expect(order.at(-1)).to.equal("[dev] serveur arrêté (code 1)");
+      expect(order.some((t) => t.includes("Error: boom"))).to.equal(false);
+      expect(Date.now() - t0).to.be.below(4_000);
+    },
+    30_000,
+  );
 });
