@@ -14,17 +14,18 @@ status: stable
 > réécrire l'ancien, sinon la trace du raisonnement disparaît avec la décision qu'il portait.
 > Format léger : contexte / décision / alternatives écartées / conséquences.
 
-| #                                                             | Titre                                                                                       | Statut   | Date       |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------- | ---------- |
-| [0001](0001-docs-modules-emplacement-hybride.md)              | Docs des modules — emplacement hybride + versionnement frontmatter/git                      | accepted | 2026-05-20 |
-| [0002](0002-schema-conference-webrtc-mediasoup.md)            | Schéma DB conférence WebRTC (mediasoup) — banc de test ORM + cible P15                      | accepted | 2026-05-21 |
-| [0003](0003-orm-core-abstraction-repository-multi-orm.md)     | Architecture orm-core — abstraction Repository multi-ORM (3 risques + garde-fous P5.4)      | accepted | 2026-05-21 |
-| [0004](0004-inference-llm-backend-supervise.md)               | Inférence LLM — backend supervisé, jamais embarquée dans le cœur                            | accepted | 2026-05-29 |
-| [0005](0005-observabilite-prod-gate-env-audit-window.md)      | Observabilité prod — gate env des sévérités du cycle de vie + fenêtre d'audit à chaud       | accepted | 2026-06-01 |
-| [0006](0006-configuration-unifiee-env-override.md)            | Configuration unifiée — une source Zod/module + override env générique `NF__*` + précédence | accepted | 2026-06-28 |
-| [0007](0007-clientkernel-isomorphe-contrat-runtime-client.md) | ClientKernel isomorphe — geler le contrat runtime client (design only, impl Phase 3.2)      | accepted | 2026-07-03 |
-| [0008](0008-orm-drizzle-reference-sequelize-retire.md)        | ORM — Drizzle référence SQL, Mongoose pour NoSQL, Sequelize retiré sans dépréciation        | accepted | 2026-06-02 |
-| [0009](0009-session-hybride-cookie-bff-jwt-api.md)            | Session hybride — cookie opaque BFF au navigateur, JWT aux API et aux agents                | accepted | 2026-06-06 |
-| [0010](0010-identite-iuser-module-user-separe.md)             | Identité — contrat `IUser` dans `@nodefony/user`, séparé du firewall                        | accepted | 2026-05-20 |
-| [0011](0011-scope-de-requete-par-copie-prototypale.md)        | Portée de requête — un conteneur par requête, par copie prototypale, atteint par l'ALS      | accepted | 2026-09-26 |
-| [0012](0012-calque-configuration-par-requete.md)              | Configuration — figée au démarrage, surchargée par requête sur liste blanche                | accepted | 2026-09-26 |
+| #                                                             | Titre                                                                                         | Statut   | Date       |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------- | ---------- |
+| [0001](0001-docs-modules-emplacement-hybride.md)              | Docs des modules — emplacement hybride + versionnement frontmatter/git                        | accepted | 2026-05-20 |
+| [0002](0002-schema-conference-webrtc-mediasoup.md)            | Schéma DB conférence WebRTC (mediasoup) — banc de test ORM + cible P15                        | accepted | 2026-05-21 |
+| [0003](0003-orm-core-abstraction-repository-multi-orm.md)     | Architecture orm-core — abstraction Repository multi-ORM (3 risques + garde-fous P5.4)        | accepted | 2026-05-21 |
+| [0004](0004-inference-llm-backend-supervise.md)               | Inférence LLM — backend supervisé, jamais embarquée dans le cœur                              | accepted | 2026-05-29 |
+| [0005](0005-observabilite-prod-gate-env-audit-window.md)      | Observabilité prod — gate env des sévérités du cycle de vie + fenêtre d'audit à chaud         | accepted | 2026-06-01 |
+| [0006](0006-configuration-unifiee-env-override.md)            | Configuration unifiée — une source Zod/module + override env générique `NF__*` + précédence   | accepted | 2026-06-28 |
+| [0007](0007-clientkernel-isomorphe-contrat-runtime-client.md) | ClientKernel isomorphe — geler le contrat runtime client (design only, impl Phase 3.2)        | accepted | 2026-07-03 |
+| [0008](0008-orm-drizzle-reference-sequelize-retire.md)        | ORM — Drizzle référence SQL, Mongoose pour NoSQL, Sequelize retiré sans dépréciation          | accepted | 2026-06-02 |
+| [0009](0009-session-hybride-cookie-bff-jwt-api.md)            | Session hybride — cookie opaque BFF au navigateur, JWT aux API et aux agents                  | accepted | 2026-06-06 |
+| [0010](0010-identite-iuser-module-user-separe.md)             | Identité — contrat `IUser` dans `@nodefony/user`, séparé du firewall                          | accepted | 2026-05-20 |
+| [0011](0011-scope-de-requete-par-copie-prototypale.md)        | Portée de requête — un conteneur par requête, par copie prototypale, atteint par l'ALS        | accepted | 2026-09-26 |
+| [0012](0012-calque-configuration-par-requete.md)              | Configuration — figée au démarrage, surchargée par requête sur liste blanche                  | accepted | 2026-09-26 |
+| [0013](0013-terminal-de-developpement.md)                     | Terminal de développement — un seul propriétaire, un modèle d'écran pur, une invite à actions | proposed | 2026-10-04 |
