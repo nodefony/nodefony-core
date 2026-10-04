@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it } from "vitest";
+import { describe, it, afterAll } from "vitest";
 import {
   runGenerate,
   topLevelAwaitFailure,
@@ -11,6 +11,18 @@ import {
   MigrationToolError,
   formatToolOutput,
 } from "../../nodefony/src/migrator/refusals";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 /**
  * **Un refus de génération doit NOMMER ce qui l'a arrêté.**
@@ -32,7 +44,9 @@ describe("la génération refuse en nommant sa cause", () => {
    * éprouverait un chemin que personne ne rencontre.
    */
   const racineAvecFauxOutil = (sortie: string): string => {
-    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-faux-kit-"));
+    const racine = temporaire(
+      mkdtempSync(path.join(os.tmpdir(), "nf-faux-kit-")),
+    );
     const dir = path.join(racine, "node_modules", "drizzle-kit");
     mkdirSync(dir, { recursive: true });
     writeFileSync(

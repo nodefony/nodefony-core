@@ -1460,9 +1460,13 @@ describe("Kernel — BootReport (verdict de boot)", () => {
 
 describe("Kernel — resolveAppEntry() / isTrunk()", () => {
   let dir: string;
+  // `fixture()` peut servir deux fois dans un même test : chaque dossier est
+  // retenu, sinon le premier est perdu et reste dans le dossier temporaire.
+  const created: string[] = [];
 
   function fixture(files: Record<string, string>, dirs: string[] = []): Kernel {
     dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "nf-trunk-"));
+    created.push(dir);
     for (const d of dirs) {
       fs.mkdirSync(nodePath.join(dir, d), { recursive: true });
     }
@@ -1477,7 +1481,8 @@ describe("Kernel — resolveAppEntry() / isTrunk()", () => {
   }
 
   afterEach(() => {
-    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    for (const d of created.splice(0))
+      fs.rmSync(d, { recursive: true, force: true });
   });
 
   it("app compilée SANS sources (image Docker) : main + dep nodefony → entrée résolue", async () => {

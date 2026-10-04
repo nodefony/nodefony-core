@@ -29,7 +29,7 @@
 import { createServer } from "node:net";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { BASE, LOGIN, PASSWORD, OUTPUT, USER } from "./lib/browser.mjs";
 import { summarizeLighthouse } from "./lib/probes.mjs";
@@ -166,4 +166,7 @@ try {
   );
 } finally {
   await ctx.close();
+  // Le profil est jetable : fermé, il ne sert plus à rien et resterait dans le
+  // dossier temporaire du système.
+  rmSync(profile, { recursive: true, force: true });
 }

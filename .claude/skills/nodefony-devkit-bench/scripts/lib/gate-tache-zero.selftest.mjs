@@ -18,7 +18,7 @@
  * @module
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -238,6 +238,8 @@ if (PROVE) {
     "\n━━ --prove : mutation de chaque règle (le contrôle doit TOMBER)",
   );
   const tmp = mkdtempSync(path.join(os.tmpdir(), "gtz-prove-"));
+  // Le jetable se supprime avec le processus, quelle que soit sa sortie.
+  process.on("exit", () => rmSync(tmp, { recursive: true, force: true }));
   const moi = fileURLToPath(import.meta.url);
   for (const m of mutations) {
     if (!source.includes(m.de)) {

@@ -15,9 +15,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
 
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 import { cheminsDeLImage } from "./image-gate.mjs";
+
+// Le jetable du test, le test le supprime : rien ne doit rester dans le
+// dossier temporaire du système après la passe.
+const aSupprimer = [];
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    fs.rmSync(dossier, { recursive: true, force: true });
+});
 
 const BLOC = 512;
 const ICI = path.dirname(fileURLToPath(import.meta.url));
@@ -100,6 +108,7 @@ function dockerSave(couches, { manifeste = true, compresser = true } = {}) {
 /** Écrit une archive dans un fichier jetable et rend son chemin. */
 function fichierJetable(contenu) {
   const dossier = fs.mkdtempSync(path.join(os.tmpdir(), "nf-gate-test-"));
+  aSupprimer.push(dossier);
   const chemin = path.join(dossier, "image.tar");
   fs.writeFileSync(chemin, contenu);
   return chemin;
@@ -211,6 +220,7 @@ describe("image-gate — le verdict rendu en ligne de commande", () => {
   /** Un inventaire dans un fichier — le point d'injection sans docker. */
   const inventaire = (lignes) => {
     const dossier = fs.mkdtempSync(path.join(os.tmpdir(), "nf-gate-inv-"));
+    aSupprimer.push(dossier);
     const chemin = path.join(dossier, "fichiers.txt");
     fs.writeFileSync(chemin, lignes.join("\n"));
     return chemin;

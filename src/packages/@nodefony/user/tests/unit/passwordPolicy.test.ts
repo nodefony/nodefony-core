@@ -1,5 +1,6 @@
+import { afterAll } from "vitest";
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -8,6 +9,18 @@ import {
   PasswordPolicy,
   truncatedPasswordHash,
 } from "../../index";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 /**
  * Banc de la politique de mot de passe.
@@ -110,7 +123,7 @@ describe("PasswordPolicy — la liste de l'application", () => {
   });
 
   it("lit le fichier de valeurs interdites, une par ligne", async () => {
-    const dossier = mkdtempSync(path.join(tmpdir(), "nf-pwd-"));
+    const dossier = temporaire(mkdtempSync(path.join(tmpdir(), "nf-pwd-")));
     const fichier = path.join(dossier, "interdits.txt");
     writeFileSync(fichier, "AcmeCorpInterne\nautreValeurLongue\n", "utf8");
     const politique = new PasswordPolicy({ blocklistFile: fichier });

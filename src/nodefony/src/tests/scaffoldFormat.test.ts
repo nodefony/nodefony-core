@@ -9,13 +9,14 @@
  * le RÉSULTAT qu'on met en forme, avec le prettier du projet.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, afterAll } from "vitest";
 import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
   symlinkSync,
+  rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -26,6 +27,18 @@ import {
 } from "../cli/scaffold/format";
 import { ScaffoldWriter } from "../cli/scaffold/writer";
 
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
+
 /** Racine du dépôt — c'est SON prettier qu'on prête au projet de test. */
 const REPO = path.resolve(__dirname, "..", "..", "..", "..");
 
@@ -35,7 +48,9 @@ const REPO = path.resolve(__dirname, "..", "..", "..", "..");
  * copier 10 Mo par cas de test coûterait plus que tout le reste de la suite.
  */
 function projet(avecPrettier: boolean): string {
-  const dir = mkdtempSync(path.join(tmpdir(), "nf-scaffold-format-"));
+  const dir = temporaire(
+    mkdtempSync(path.join(tmpdir(), "nf-scaffold-format-")),
+  );
   if (avecPrettier) {
     mkdirSync(path.join(dir, "node_modules"), { recursive: true });
     // `junction` et non `dir` : sous Windows, un lien symbolique de dossier

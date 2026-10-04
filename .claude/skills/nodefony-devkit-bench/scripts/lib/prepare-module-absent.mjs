@@ -21,7 +21,7 @@
  * l'est pas) :
  *   node prepare-module-absent.mjs --selftest
  */
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 
@@ -81,6 +81,8 @@ function selftest() {
 
   // Le fichier écrit est bien celui qu'on relit — le décor passe par le disque.
   const dir = mkdtempSync(path.join(tmpdir(), "prep-mod-"));
+  // Le jetable se supprime avec le processus, quelle que soit sa sortie.
+  process.on("exit", () => rmSync(dir, { recursive: true, force: true }));
   const f = path.join(dir, "nodefony.config.ts");
   writeFileSync(f, sain, "utf8");
   writeFileSync(f, poserModuleAbsent(readFileSync(f, "utf8")), "utf8");

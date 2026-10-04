@@ -1,8 +1,20 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterAll } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 /**
  * Ce que ces tests prouvent : les sondes publiées DÉMARRENT et REFUSENT ce
@@ -32,7 +44,9 @@ const SCRIPTS = path.join(
 );
 
 /** Dossier de sortie jetable — sinon les sondes écrivent dans le dossier courant. */
-const SORTIE = mkdtempSync(path.join(tmpdir(), "nf-browser-demarrage-"));
+const SORTIE = temporaire(
+  mkdtempSync(path.join(tmpdir(), "nf-browser-demarrage-")),
+);
 
 interface ILancement {
   code: number;

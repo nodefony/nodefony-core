@@ -11,6 +11,7 @@
  *   node scripts/pose-lexique.mjs --write    # applique via `gh issue edit`
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -93,9 +94,16 @@ for (const { number, title, body } of issues) {
     `#${number}  ${kept.length ? kept.map((e) => e.term).join(", ") : "(retrait du lexique)"}${over}`,
   );
   if (write) {
-    const tmp = path.join(fs.mkdtempSync("/tmp/ticket-lex-"), `${number}.md`);
-    fs.writeFileSync(tmp, next);
-    gh(["issue", "edit", String(number), "--body-file", tmp]);
+    // Dossier temporaire du SYSTÈME (`/tmp` en dur n'existe pas sous Windows),
+    // supprimé une fois le corps remis à GitHub.
+    const dossier = fs.mkdtempSync(path.join(os.tmpdir(), "ticket-lex-"));
+    try {
+      const tmp = path.join(dossier, `${number}.md`);
+      fs.writeFileSync(tmp, next);
+      gh(["issue", "edit", String(number), "--body-file", tmp]);
+    } finally {
+      fs.rmSync(dossier, { recursive: true, force: true });
+    }
   }
 }
 if (!write)

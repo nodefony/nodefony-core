@@ -7,7 +7,7 @@
  * sur les deux cas qui comptent ici : le script qui échoue, et celui qui ne
  * rend jamais la main.
  */
-import { describe, it } from "vitest";
+import { describe, it, afterAll } from "vitest";
 import assert from "node:assert";
 import path from "node:path";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -23,9 +23,21 @@ import {
   type IDeepProgress,
 } from "../kernel/checks/deep";
 
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
+
 /** Un projet jetable dont le manifeste déclare les scripts qu'on lui donne. */
 function projetAvec(scripts: Record<string, string>): string {
-  const racine = mkdtempSync(path.join(tmpdir(), "nf-deep-"));
+  const racine = temporaire(mkdtempSync(path.join(tmpdir(), "nf-deep-")));
   mkdirSync(racine, { recursive: true });
   writeFileSync(
     path.join(racine, "package.json"),
@@ -48,7 +60,7 @@ describe("doctor --deep — les scripts DÉCLARÉS, et rien d'autre", () => {
   });
 
   it("un manifeste absent ne fait rien lancer, et ne lève pas", () => {
-    const vide = mkdtempSync(path.join(tmpdir(), "nf-deep-vide-"));
+    const vide = temporaire(mkdtempSync(path.join(tmpdir(), "nf-deep-vide-")));
     assert.deepEqual(declaredSteps(vide, ["test"]), {
       present: [],
       missing: ["test"],
@@ -305,7 +317,7 @@ describe("verifyChainSteps — les gardes que le projet DÉCLARE", () => {
   });
 
   it("un manifeste absent ou illisible ne lève pas", () => {
-    const vide = mkdtempSync(path.join(tmpdir(), "nf-chain-vide-"));
+    const vide = temporaire(mkdtempSync(path.join(tmpdir(), "nf-chain-vide-")));
     assert.deepEqual(verifyChainSteps(vide), { steps: [], unhandled: [] });
     writeFileSync(path.join(vide, "package.json"), "{ pas du json", "utf8");
     assert.deepEqual(verifyChainSteps(vide), { steps: [], unhandled: [] });

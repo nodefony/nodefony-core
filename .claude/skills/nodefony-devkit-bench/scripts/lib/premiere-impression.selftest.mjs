@@ -200,7 +200,8 @@ if (process.argv.includes("--prove")) {
       vers: "export const MOTIFS_VRAIS = [].concat([",
     },
   ];
-  const { mkdtempSync, readFileSync, writeFileSync } = await import("node:fs");
+  const { mkdtempSync, readFileSync, rmSync, writeFileSync } =
+    await import("node:fs");
   const os = await import("node:os");
   const source = readFileSync(
     path.join(ICI, "premiere-impression.mjs"),
@@ -209,6 +210,7 @@ if (process.argv.includes("--prove")) {
   let muets = 0;
   for (const m of mutations) {
     const dir = mkdtempSync(path.join(os.tmpdir(), "pi-prove-"));
+    process.on("exit", () => rmSync(dir, { recursive: true, force: true }));
     const cible = path.join(dir, "premiere-impression.mjs");
     const mute = source.replace(m.de, m.vers);
     if (mute === source) {

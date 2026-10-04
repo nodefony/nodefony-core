@@ -60,18 +60,34 @@ export async function purgeUploadResidue(
   snapshot: UploadSnapshot,
 ): Promise<number> {
   let removed = 0;
+  for (const file of await listUploadResidue(snapshot)) {
+    const ok = await fsp
+      .unlink(file)
+      .then(() => true)
+      .catch(() => false);
+    if (ok) removed++;
+  }
+  return removed;
+}
+
+/**
+ * Les fichiers apparus depuis la photo, sans y toucher — chemins absolus.
+ *
+ * @param snapshot - photo rendue par {@link snapshotUploadDirs}
+ * @returns les fichiers neufs, triés
+ */
+export async function listUploadResidue(
+  snapshot: UploadSnapshot,
+): Promise<string[]> {
+  const files: string[] = [];
   for (const [dir, before] of snapshot) {
     const entries = await fsp
       .readdir(dir, { withFileTypes: true })
       .catch(() => [] as import("node:fs").Dirent[]);
     for (const entry of entries) {
-      if (!entry.isFile() || before.has(entry.name)) continue;
-      const ok = await fsp
-        .unlink(path.join(dir, entry.name))
-        .then(() => true)
-        .catch(() => false);
-      if (ok) removed++;
+      if (entry.isFile() && !before.has(entry.name))
+        files.push(path.join(dir, entry.name));
     }
   }
-  return removed;
+  return files.sort();
 }

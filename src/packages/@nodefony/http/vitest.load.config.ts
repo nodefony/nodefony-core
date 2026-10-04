@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 import { gateReporter } from "../../../../vitest.gates.ts";
+import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -46,7 +47,12 @@ export default defineConfig({
     setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
     // Sonde le mode du serveur (route publique /livez) → NF_TEST_ENV, lu
     // par describe.skipIf(IS_PROD_TARGET) pour skipper les tests dev-only en prod.
-    globalSetup: [r("./nodefony/tests/probeServerEnv.global.ts")],
+    // + garde des fichiers reçus en upload : une suite qui poste sans purger fait
+    // échouer la passe (uploadResidue.global.ts).
+    globalSetup: tmpGuard(
+      r("./nodefony/tests/probeServerEnv.global.ts"),
+      r("./nodefony/tests/uploadResidue.global.ts"),
+    ),
     fileParallelism: false,
     testTimeout: 600_000,
     hookTimeout: 600_000,

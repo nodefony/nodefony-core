@@ -18,11 +18,12 @@ import {
   readFileSync,
   statSync,
   writeFileSync,
+  rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, afterAll } from "vitest";
 import {
   writeSecret,
   writeSecretSync,
@@ -33,11 +34,23 @@ import {
   modeNonRestreint,
 } from "../../nodefony/src/token/secretFile";
 
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
+
 const POSIX = process.platform !== "win32";
 let dir: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(path.join(tmpdir(), "nf-secret-"));
+  dir = temporaire(mkdtempSync(path.join(tmpdir(), "nf-secret-")));
 });
 
 describe("lireSiPresent — l'absence n'est pas une erreur, tout le reste en est une", () => {

@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { transformCache } from "../../../../vitest.perf.ts";
+import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
 
 /**
  * Vitest config — @nodefony/documentation.
@@ -10,6 +11,9 @@ import { transformCache } from "../../../../vitest.perf.ts";
  */
 export default defineConfig({
   test: {
+    // Dossier temporaire propre à la passe, contrôlé et supprimé au teardown
+    // (vitest.tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
+    globalSetup: tmpGuard(),
     ...transformCache,
     include: ["nodefony/tests/**/*.test.ts"],
     environment: "node",

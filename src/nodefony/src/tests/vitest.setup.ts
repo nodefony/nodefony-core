@@ -6,15 +6,21 @@ import "reflect-metadata";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach } from "vitest";
+import { afterAll, afterEach, beforeEach } from "vitest";
 
 // ── `doctor` hors réseau ───────────────────────────────────────────────────────
 // La sous-règle « Sécurité de Node » lit la liste officielle des publications
 // sur nodejs.org. Une suite ne doit dépendre ni du réseau ni de la date du jour :
 // on lui donne une liste où le Node courant est à jour. Les tests de la règle
 // elle-même injectent leur propre liste. Un `NF_NODE_DIST_URL` déjà posé gagne.
-if (!process.env["NF_NODE_DIST_URL"]) {
-  const fixture = path.join(os.tmpdir(), `nf-node-dist-${process.pid}.json`);
+// Le fichier est le jetable de CE fichier de test : supprimé à sa fin (la garde
+// vitest.tmp-guard.ts refuse tout reste), reposé par le suivant — d'où la
+// comparaison au chemin, la variable survivant d'un fichier à l'autre.
+const fixture = path.join(os.tmpdir(), `nf-node-dist-${process.pid}.json`);
+if (
+  !process.env["NF_NODE_DIST_URL"] ||
+  process.env["NF_NODE_DIST_URL"] === fixture
+) {
   fs.writeFileSync(
     fixture,
     JSON.stringify([
@@ -22,6 +28,7 @@ if (!process.env["NF_NODE_DIST_URL"]) {
     ]),
   );
   process.env["NF_NODE_DIST_URL"] = fixture;
+  afterAll(() => fs.rmSync(fixture, { force: true }));
 }
 
 // ── Perf-skip (port de src/tests/perf-skip.cjs) ────────────────────────────────

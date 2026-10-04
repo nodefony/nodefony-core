@@ -14,7 +14,7 @@
  * Sorties : 0 tout est distingué · 1 au moins un défaut.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -149,6 +149,8 @@ if (process.argv.includes("--prove") && MODULE === "./passes.mjs") {
     },
   ];
   const tmp = mkdtempSync(path.join(os.tmpdir(), "nf-passes-prove-"));
+  // Le jetable se supprime avec le processus, quelle que soit sa sortie.
+  process.on("exit", () => rmSync(tmp, { recursive: true, force: true }));
   let muets = 0;
   console.log("\n━━ --prove : remise du défaut");
   for (const [i, m] of mutations.entries()) {

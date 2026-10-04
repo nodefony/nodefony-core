@@ -1,10 +1,22 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { request as httpsRequest } from "node:https";
 import { chargerModule, commeObjet, fonctionDe } from "./browser-outils";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 /**
  * Le nom du fichier d'état est lu DANS le script publié, jamais recopié : c'est
@@ -229,7 +241,9 @@ function sortieJson(r: IResultatSonde): Record<string, unknown> {
  */
 function poserEtat(contenu: string, identifiant: string = USER): void {
   const nom = authStateName(identifiant);
-  const dossier = mkdtempSync(path.join(tmpdir(), "nf-browser-test-"));
+  const dossier = temporaire(
+    mkdtempSync(path.join(tmpdir(), "nf-browser-test-")),
+  );
   const fichier = path.join(dossier, nom);
   writeFileSync(fichier, contenu);
   execFileSync("docker", ["cp", fichier, `${CONTENEUR}:/output/${nom}`], {

@@ -48,11 +48,8 @@ describe("Base en avance sur le code — mise à jour progressive (#108)", () =>
         ? [{ tag: "0001_ajout", statements: ['ALTER TABLE "t" ADD "b" text'] }]
         : []),
     ];
-    const dir = await writeSource(
-      "sqlite",
-      migrations,
-      await fs.mkdtemp(path.join(os.tmpdir(), "nf-rolling-")),
-    );
+    // Dossier créé ET suivi par `writeSource` (supprimé en fin de fichier).
+    const dir = await writeSource("sqlite", migrations);
     return [{ name: "app", dir, rank: 1_000_000 }];
   };
 

@@ -1,10 +1,22 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it } from "vitest";
+import { describe, it, afterAll } from "vitest";
 import { resolveDrizzleKitBin } from "../../nodefony/src/migrator/kit";
 import { MigrationToolError } from "../../nodefony/src/migrator/refusals";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 /**
  * **L'outil de génération absent est une cause à part, pas un incident de base.**
@@ -20,7 +32,7 @@ import { MigrationToolError } from "../../nodefony/src/migrator/refusals";
 describe("l'outil qui écrit les migrations est absent", () => {
   /** Un dossier vide, sans `node_modules` au-dessus — le cas à éprouver. */
   const nulPart = (): string =>
-    mkdtempSync(path.join(os.tmpdir(), "nf-sans-outil-"));
+    temporaire(mkdtempSync(path.join(os.tmpdir(), "nf-sans-outil-")));
 
   it("le refus est TYPÉ — la cause porte son propre remède", () => {
     // Reconnaître la cause au texte de son message serait une garde qui se

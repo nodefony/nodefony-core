@@ -1,8 +1,27 @@
+import { afterAll } from "vitest";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  utimesSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { checkFreshness, requiredNodeMajor } from "../kernel/checks/freshness";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 /**
  * Ce qui tourne n'est pas ce qui est écrit — le contrôle qui le dit AVANT.
@@ -14,7 +33,9 @@ import { checkFreshness, requiredNodeMajor } from "../kernel/checks/freshness";
  */
 describe("doctor — fraîcheur du build et plancher de Node", () => {
   const app = (): string => {
-    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-freshness-"));
+    const racine = temporaire(
+      mkdtempSync(path.join(os.tmpdir(), "nf-freshness-")),
+    );
     mkdirSync(path.join(racine, "nodefony"), { recursive: true });
     writeFileSync(path.join(racine, "package.json"), JSON.stringify({}));
     return racine;
@@ -74,7 +95,7 @@ describe("doctor — fraîcheur du build et plancher de Node", () => {
 
   it("un dossier SANS source ni build n'est pas comparable — et le DIT", () => {
     // Le silence d'un contrôle qui n'a rien pu regarder ne vaut pas quitus.
-    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-vide-"));
+    const racine = temporaire(mkdtempSync(path.join(os.tmpdir(), "nf-vide-")));
     const r = checkFreshness(racine);
     assert.deepEqual(r.findings, []);
     assert.equal(r.notComparable, true);
@@ -127,7 +148,9 @@ describe("doctor — fraîcheur du build et plancher de Node", () => {
  */
 describe("doctor — la fraîcheur désigne un FICHIER, et ignore ce qui n'est pas bâti", () => {
   const app = (): string => {
-    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-fresh2-"));
+    const racine = temporaire(
+      mkdtempSync(path.join(os.tmpdir(), "nf-fresh2-")),
+    );
     mkdirSync(path.join(racine, "dist"), { recursive: true });
     writeFileSync(path.join(racine, "package.json"), JSON.stringify({}));
     writeFileSync(path.join(racine, "dist", "index.js"), "//");

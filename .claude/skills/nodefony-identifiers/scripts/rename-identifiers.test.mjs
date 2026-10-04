@@ -59,10 +59,15 @@ const run = (source, plan) => {
   } catch (e) {
     output = `${e.stdout ?? ""}${e.stderr ?? ""}`;
   }
-  return {
-    text: fs.readFileSync(path.join(dir, "src", "a.ts"), "utf8"),
-    output,
-  };
+  try {
+    return {
+      text: fs.readFileSync(path.join(dir, "src", "a.ts"), "utf8"),
+      output,
+    };
+  } finally {
+    // Le jetable du test, le test le supprime.
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 };
 
 test("un membre privé se renomme EN RESTANT privé", () => {

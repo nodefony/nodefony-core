@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc.ts";
 import { gateReporter, MONGO_GATE } from "../../../../vitest.gates.ts";
 import { transformCache } from "../../../../vitest.perf.ts";
+import { tmpGuard } from "../../../../vitest.tmp-guard.ts";
 
 /**
  * vitest pour @nodefony/mongoose (convention-frère @nodefony/orm-core).
@@ -36,7 +37,7 @@ export default defineConfig({
     // → supprime la contention du multi-spawn (4-6 mongod concurrents sous
     // `npm run test` racine/turbo = cause des échecs flaky). Skip propre si
     // l'infra manque (provide `mongoUri = null`).
-    globalSetup: ["./tests/globalSetup.ts"],
+    globalSetup: tmpGuard("./tests/globalSetup.ts"),
     // Séquentiel : les fichiers tapent le MÊME serveur partagé → la
     // parallélisation entremêlerait collections + registres process-wide.
     fileParallelism: false,

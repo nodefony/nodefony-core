@@ -20,7 +20,7 @@
  * Sorties : 0 toutes les règles tiennent · 1 au moins une est muette.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -146,6 +146,8 @@ if (process.argv.includes("--prove")) {
     "utf8",
   );
   const tmp = mkdtempSync(path.join(os.tmpdir(), "env-decor-prove-"));
+  // Le jetable se supprime avec le processus, quelle que soit sa sortie.
+  process.on("exit", () => rmSync(tmp, { recursive: true, force: true }));
   const mutations = [
     {
       regle: "le filtre `NF_` retiré (l'ancien `{...process.env}`)",

@@ -13,7 +13,7 @@
  * qu'on ignore ce diagnostic. C'est pourquoi le contrôle ne regarde QUE les
  * paquets liés — la distinction est le cœur de ce qui est éprouvé ici.
  */
-import { describe, it } from "vitest";
+import { describe, it, afterAll } from "vitest";
 import assert from "node:assert";
 import path from "node:path";
 import {
@@ -22,6 +22,7 @@ import {
   writeFileSync,
   symlinkSync,
   utimesSync,
+  rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import {
@@ -30,6 +31,18 @@ import {
   checkFrontendBuild,
   GENERATED_VITE_CONFIG_FILE,
 } from "../kernel/checks/freshness";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 /** Écrit un fichier en créant son dossier — les décors sont profonds. */
 function poser(fichier: string, contenu = "x"): void {
@@ -84,7 +97,9 @@ function paquetInstalle(racine: string, nom: string): void {
 }
 
 function decor(): string {
-  const racine = mkdtempSync(path.join(tmpdir(), "nf-framework-build-"));
+  const racine = temporaire(
+    mkdtempSync(path.join(tmpdir(), "nf-framework-build-")),
+  );
   poser(path.join(racine, "package.json"), JSON.stringify({ name: "app" }));
   return racine;
 }
@@ -149,7 +164,7 @@ describe("doctor — la fraîcheur du FRAMEWORK, pas seulement de l'application"
 describe("doctor — le frontend déclaré est-il construit ?", () => {
   /** Une application qui DÉCLARE une entrée front, avec sa source. */
   function appFront(options: { outDir?: string; built?: number } = {}): string {
-    const racine = mkdtempSync(path.join(tmpdir(), "nf-front-"));
+    const racine = temporaire(mkdtempSync(path.join(tmpdir(), "nf-front-")));
     poser(
       path.join(racine, "nodefony", "frontend", "registerAppFrontEntry.ts"),
       `/**
@@ -244,7 +259,7 @@ describe("doctor — le frontend déclaré est-il construit ?", () => {
   });
 
   it("une application SANS frontend déclaré ne produit aucun constat", () => {
-    const racine = mkdtempSync(path.join(tmpdir(), "nf-front-"));
+    const racine = temporaire(mkdtempSync(path.join(tmpdir(), "nf-front-")));
     poser(path.join(racine, "index.ts"), "export const x = 1;");
     assert.deepEqual(checkFrontendBuild(racine), []);
   });

@@ -2,7 +2,18 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { SqlDialect } from "../../nodefony/config/config";
+import { afterAll } from "vitest";
 import { FORMAT_MARKER } from "../../nodefony/src/migrator/index";
+
+// Les sources que `writeSource` crée ELLE-MÊME (sans `dir`) : supprimées à la
+// fin de chaque fichier de test qui importe ces fixtures — les modules sont
+// réévalués par fichier, ce hook l'est donc aussi. Sans lui, un dossier
+// `nf-migrator-*` restait par appel dans le dossier temporaire du système.
+const sourcesCreees: string[] = [];
+afterAll(async () => {
+  for (const dossier of sourcesCreees.splice(0))
+    await fs.rm(dossier, { recursive: true, force: true });
+});
 
 /**
  * Fabrique de sources de migrations, pour les bancs de l'applicateur.
@@ -40,6 +51,7 @@ export async function writeSource(
 ): Promise<string> {
   const root =
     dir ?? (await fs.mkdtemp(path.join(os.tmpdir(), "nf-migrator-")));
+  if (dir === undefined) sourcesCreees.push(root);
   const target = path.join(root, dialect);
   await fs.mkdir(path.join(target, "meta"), { recursive: true });
   await fs.writeFile(

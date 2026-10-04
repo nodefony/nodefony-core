@@ -1,3 +1,5 @@
+import { afterAll } from "vitest";
+import { rmSync } from "node:fs";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -15,6 +17,18 @@ import {
   removeSource,
   writeSource,
 } from "./migrator-fixtures";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 /**
  * Applicateur de migrations — MySQL / MariaDB, là où le DDL n'est **pas**
@@ -54,7 +68,9 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
     });
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "nf-migrator-my-"));
+    root = temporaire(
+      await fs.mkdtemp(path.join(os.tmpdir(), "nf-migrator-my-")),
+    );
     const dir = await writeSource(
       "mysql",
       [

@@ -1,3 +1,4 @@
+import { afterAll } from "vitest";
 /**
  * Une variable requise dans UN environnement seulement.
  *
@@ -11,7 +12,7 @@
  * brique ; ceux de la chaîne vivent avec leurs commandes.
  */
 import assert from "node:assert";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -24,6 +25,18 @@ import {
   resolveEnvStages,
   setRunServesTraffic,
 } from "../config/defineEnv";
+
+// Le jetable du test, le test le supprime : vitest.tmp-guard.ts fait échouer
+// la passe sur tout dossier laissé dans le dossier temporaire.
+const aSupprimer: string[] = [];
+const temporaire = (dossier: string): string => {
+  aSupprimer.push(dossier);
+  return dossier;
+};
+afterAll(() => {
+  for (const dossier of aSupprimer)
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 describe("resolveEnvStages — les étiquettes de l'environnement", () => {
   it("rend le mode d'exécution, et `development` par défaut", () => {
@@ -170,7 +183,7 @@ describe("defineEnv — le BOOT refuse ce qui manquera là où on va", () => {
   // Contrôler l'exigence sur la source BRUTE le rendrait invisible, et le
   // déploiement le plus soigné serait précisément celui qu'on refuserait.
   it("un secret monté en `<NOM>_FILE` satisfait l'exigence", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "nf-env-"));
+    const dir = temporaire(mkdtempSync(path.join(tmpdir(), "nf-env-")));
     const fichier = path.join(dir, "csrf");
     writeFileSync(fichier, "depuis-le-fichier\n");
     const env = defineEnv(catalog, {

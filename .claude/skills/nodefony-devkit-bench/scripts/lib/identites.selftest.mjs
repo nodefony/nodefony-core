@@ -96,6 +96,12 @@ writeFileSync(
   `export const DEV_ADMIN_PASSWORD = "${MDP_DU_SEMIS}";\n`,
 );
 const VIDE = mkdtempSync(path.join(os.tmpdir(), "identites-selftest-vide-"));
+// Les deux décors sont le jetable de CE processus : supprimés à sa sortie,
+// quelle qu'elle soit — ils s'accumulaient par milliers (un par lancement).
+process.on("exit", () => {
+  for (const dossier of [TEMOIN, VIDE])
+    rmSync(dossier, { recursive: true, force: true });
+});
 
 const envOriginal = process.env;
 process.env = { ...envOriginal };
