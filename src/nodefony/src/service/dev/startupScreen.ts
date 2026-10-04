@@ -923,8 +923,9 @@ const STATUS_BLOCK_MIN_COLUMNS = 72;
 const STATUS_BLOCK_MIN_ROWS = 20;
 
 /**
- * Le bloc d'état figé en bas du terminal, avec la MARQUE du logo à gauche
- * (6 lignes) et une information par ligne à droite — ce qu'on veut lire sans
+ * Le bloc d'état figé en bas du terminal : un filet qui le sépare du journal,
+ * puis la MARQUE du logo à gauche (6 lignes) et une information par ligne à
+ * droite — ce qu'on veut lire sans
  * remonter : qui tourne et dans quel mode, où l'ouvrir, la WebSocket, l'état,
  * le débogueur ou les points à regarder, et le geste pour arrêter.
  *
@@ -986,10 +987,26 @@ export function renderStatusBlock(
   // Chaque ligne bornée à la place qui reste à droite du logo : une ligne
   // repliée décalerait tout le bloc, et l'effacement en remontant raterait.
   const room = columns - 1 - 8 - 3;
-  return mark.map((logo, i) => {
-    const text = info[i] ?? "";
-    return text ? `${logo}   ${fitStatus(text, room + 1)}` : logo;
-  });
+  return [
+    statusRule(columns, p),
+    ...mark.map((logo, i) => {
+      const text = info[i] ?? "";
+      return text ? `${logo}   ${fitStatus(text, room + 1)}` : logo;
+    }),
+  ];
+}
+
+/**
+ * Le filet qui ouvre la barre d'état, sur toute la largeur : sans lui, la
+ * dernière ligne du JOURNAL — souvent repliée par le terminal quand elle est
+ * plus longue que la fenêtre — se lisait comme une ligne de la barre.
+ *
+ * @param columns - largeur du terminal.
+ * @param p - la palette.
+ * @returns le filet, estompé (`─` est dans la police des consoles Windows).
+ */
+export function statusRule(columns: number | undefined, p: IPalette): string {
+  return p.dim("─".repeat(Math.max(10, (columns ?? 80) - 1)));
 }
 
 /** Un point d'attention en une ligne machine. */

@@ -823,9 +823,11 @@ describe("bloc d'état avec le logo — et le canal qui le rend sûr à plusieur
       { color: false, columns: 100, rows: 40 },
       brandMark("unicode", false),
     );
-    expect(block).to.have.length(6);
+    // Un filet, puis les 6 lignes du logo.
+    expect(block).to.have.length(7);
     const lines = block ?? [];
-    expect(lines[2]?.startsWith("⣸⡏⢠⣿⢁⣶⠟⠁")).to.equal(true);
+    expect(lines[0]).to.equal("─".repeat(99));
+    expect(lines[3]?.startsWith("⣸⡏⢠⣿⢁⣶⠟⠁")).to.equal(true);
     const text = lines.join("\n");
     expect(text).to.contain(" ⬢ mon-app ");
     expect(text).to.contain("development · rechargement auto");

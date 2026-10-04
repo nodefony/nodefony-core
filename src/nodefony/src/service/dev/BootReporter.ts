@@ -3,7 +3,7 @@ import { stripVTControlCharacters } from "node:util";
 import type Kernel from "../../kernel/Kernel";
 import Syslog, { STDERR_LOG_SINK } from "../../syslog/Syslog";
 import { readLastBoot, type ILastBoot } from "../../kernel/checks/lastBoot";
-import { shouldColorize } from "../../kernel/checks/report";
+import { createPalette, shouldColorize } from "../../kernel/checks/report";
 import {
   discoverDevProcesses,
   splitByProject,
@@ -33,6 +33,7 @@ import {
   renderStatusBlock,
   renderStatusLine,
   SCREEN_SYMBOLS,
+  statusRule,
   supportsHyperlinks,
   type IScreenSymbols,
   type ScreenCharset,
@@ -499,7 +500,12 @@ class BootReporter {
       ctx,
       options,
       brandMark(this.#charset, this.#color),
-    ) ?? [renderStatusLine(view, ctx, options)];
+    ) ?? [
+      // Même à une ligne, la barre s'ouvre sur son filet : elle ne doit jamais
+      // se lire comme la suite du journal.
+      statusRule(options.columns, createPalette(options.color)),
+      renderStatusLine(view, ctx, options),
+    ];
     if (this.#status === null) {
       // Le superviseur partage ce terminal : il doit connaître la hauteur du
       // bloc pour l'effacer ENTIER avant d'écrire, et nous dire qu'il l'a fait
