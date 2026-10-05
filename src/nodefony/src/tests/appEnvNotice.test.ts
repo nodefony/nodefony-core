@@ -24,15 +24,31 @@ import { composeEnvExample } from "../cli/env";
 import { getEnvCatalog } from "../config/defineEnv";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATE = path.join(
-  here,
-  "..",
-  "..",
-  "templates",
-  "app",
-  "complete",
-  "env.example.tpl",
-);
+/**
+ * Un gabarit de notice PAR PRESET : `base` sert le preset minimal, `complete`
+ * le remplace (même chemin rendu, `.env.example`) par le sien — chaque
+ * application reçoit la notice de SON catalogue, jamais celle d'un autre.
+ */
+const TEMPLATES = {
+  minimal: path.join(
+    here,
+    "..",
+    "..",
+    "templates",
+    "app",
+    "base",
+    "env.example.tpl",
+  ),
+  complete: path.join(
+    here,
+    "..",
+    "..",
+    "templates",
+    "app",
+    "complete",
+    "env.example.tpl",
+  ),
+} as const;
 /** Nom d'application improbable : remplacé par la balise eta à l'écriture. */
 const APP_NAME = "zqnoticeapp";
 
@@ -51,39 +67,48 @@ async function noticeFromCatalog(app: string): Promise<string> {
 describe("notice .env.example de l'application générée", () => {
   let dir = "";
 
+  beforeAll(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "nf-env-notice-"));
+  });
+
   afterAll(() => {
     if (dir) rmSync(dir, { recursive: true, force: true });
   });
 
-  it("🔴 est EXACTEMENT celle que le moteur produit depuis son env.ts", async () => {
-    dir = mkdtempSync(path.join(tmpdir(), "nf-env-notice-"));
-    const app = path.join(dir, APP_NAME);
-    runScaffold(
-      {
-        type: "app" as const,
-        answers: { name: APP_NAME },
-        dir: app,
-        force: false,
-      },
-      version,
-    );
-    const expected = await noticeFromCatalog(app);
-
-    if (process.env.NF_WRITE_NOTICE === "1") {
-      writeFileSync(
-        TEMPLATE,
-        expected.replaceAll(APP_NAME, "<%= it.appName %>"),
+  for (const preset of ["complete", "minimal"] as const) {
+    it(`🔴 ${preset} : EXACTEMENT celle que le moteur produit depuis son env.ts`, async () => {
+      const app = path.join(dir, `${APP_NAME}-${preset}`);
+      runScaffold(
+        {
+          type: "app" as const,
+          answers: { name: APP_NAME, preset },
+          dir: app,
+          force: false,
+        },
+        version,
       );
-    }
+      const expected = await noticeFromCatalog(app);
 
-    const rendered = readFileSync(path.join(app, ".env.example"), "utf8");
-    assert.strictEqual(
-      rendered,
-      expected,
-      "la notice du gabarit diverge de env.ts.tpl — régénérer : " +
-        "NF_WRITE_NOTICE=1 npx vitest run src/tests/appEnvNotice.test.ts",
-    );
-    // Toutes les variables du catalogue y sont, chacune avec son titre.
-    assert.notMatch(rendered, /^# ─── NF_/mu, "une variable sans titre");
-  });
+      if (process.env.NF_WRITE_NOTICE === "1") {
+        writeFileSync(
+          TEMPLATES[preset],
+          expected.replaceAll(APP_NAME, "<%= it.appName %>"),
+        );
+      }
+
+      const rendered = readFileSync(path.join(app, ".env.example"), "utf8");
+      assert.strictEqual(
+        rendered,
+        expected,
+        `la notice du preset ${preset} diverge de env.ts.tpl — régénérer : ` +
+          "NF_WRITE_NOTICE=1 npx vitest run src/tests/appEnvNotice.test.ts",
+      );
+      // Chaque variable a son titre (sans titre, le bandeau porterait son nom).
+      assert.notMatch(
+        rendered,
+        /^# ─── (NF_|PORT )/mu,
+        "une variable sans titre",
+      );
+    });
+  }
 });
