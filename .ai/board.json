@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T19:21:15.454Z",
+  "generatedAt": "2026-10-05T20:00:08.559Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1856,7 +1856,7 @@
       "title": "feat(env): générer la matrice des variables d'environnement",
       "url": "https://github.com/nodefony/nodefony-core/issues/542",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
