@@ -5,6 +5,7 @@ import {
 } from "../config/envOverride";
 import {
   isEnvVarRequired,
+  isSensitiveEnvVar,
   resolveEnvStages,
   type NamedEnvVarMeta,
 } from "../config/defineEnv";
@@ -304,7 +305,7 @@ export function buildEnvReport(input: {
   // oxlint-disable-next-line no-map-spread -- projection EXPLICITE champ par champ ; les seuls spreads sont des littéraux conditionnels (description, défaut, valeurs admises), forme imposée par `exactOptionalPropertyTypes`
   const vars: IEnvVarReport[] = (catalog ?? []).map((meta) => {
     const raw = processEnv[meta.name];
-    const secret = pathLooksSecret([meta.name]);
+    const secret = isSensitiveEnvVar(meta);
     const origin = originOf(meta.name);
     // La règle vient de `defineEnv` — celle que le BOOT applique. La réécrire
     // ici ferait diverger le diagnostic de ce qui se passera réellement.

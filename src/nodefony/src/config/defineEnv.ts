@@ -27,6 +27,7 @@
  */
 import { readFileSync } from "node:fs";
 import { z } from "zod";
+import { pathLooksSecret } from "./envOverride";
 
 /** Nature coercée d'une variable d'env du catalogue. */
 export type EnvVarKind = "string" | "number" | "boolean" | "enum";
@@ -44,8 +45,19 @@ export interface EnvVarMeta {
   readonly optional: boolean;
   /** Valeur par défaut déclarée (`undefined` si aucune). */
   readonly default?: unknown;
+  /** Titre court, rendu en bandeau au-dessus de la variable dans `.env.example`. */
+  readonly title?: string | undefined;
+  /** Section de la notice (« Réseau », « Connexion Keycloak ») — regroupe et numérote. */
+  readonly section?: string | undefined;
   /** Doc (`.describe()`), reprise telle quelle dans `.env.example`. */
   readonly description?: string | undefined;
+  /** Une valeur d'exemple réaliste, rendue en `@example` dans `.env.example`. */
+  readonly example?: string | undefined;
+  /**
+   * La valeur est-elle un secret ? Déclaré, cela fait foi ; absent, le nom
+   * décide (cf {@link isSensitiveEnvVar}).
+   */
+  readonly sensitive?: boolean | undefined;
   /**
    * Le défaut quand il vit dans le CODE et non dans le catalogue — rendu sur la
    * ligne « défaut : » de `.env.example` (ex. `"secret-de-dev-42 en dev, aucun
@@ -123,6 +135,21 @@ export function getEnvCatalog(env: unknown): readonly NamedEnvVarMeta[] {
 }
 
 /**
+ * La variable porte-t-elle un SECRET ? La déclaration (`sensitive`) fait foi ;
+ * sans elle, le nom décide, par la même règle que la rédaction des journaux
+ * ({@link pathLooksSecret}). Seule source de cette décision pour la notice
+ * `.env.example` et pour `nodefony env`.
+ *
+ * @param meta - la variable du catalogue (au moins son nom).
+ * @returns `true` si sa valeur ne doit jamais être affichée ni donnée en exemple.
+ */
+export function isSensitiveEnvVar(
+  meta: Pick<NamedEnvVarMeta, "name" | "sensitive">,
+): boolean {
+  return meta.sensitive ?? pathLooksSecret([meta.name]);
+}
+
+/**
  * Résout la valeur d'une variable, en honorant la convention `<KEY>_FILE`
  * (ADR-0006 D3) : si `KEY` est absente mais `KEY_FILE` pointe un fichier (Docker
  * secret, K8s, Vault), lit son contenu (newline final retiré). Lever si les deux
@@ -164,8 +191,31 @@ function isAbsent(v: unknown): boolean {
 }
 
 interface BaseOpts {
-  /** Doc de la variable (attachée via `.describe()` → introspection Studio). */
+  /**
+   * Titre court, lisible par quelqu'un qui découvre le projet (« Base de
+   * données », « Port HTTP ») — le bandeau de la variable dans `.env.example`.
+   */
+  title?: string;
+  /**
+   * La section de la notice où ranger la variable (« Base de données »,
+   * « Connexion Keycloak »). Les sections apparaissent dans l'ordre de leur
+   * première variable, numérotées, avec un sommaire en tête de fichier.
+   */
+  section?: string;
+  /**
+   * À quoi sert la variable et ce qui se passe sans elle, en phrases simples
+   * (attachée via `.describe()` → introspection Studio, `nodefony env`, notice).
+   * Un `\n` sépare deux paragraphes ; le repli des lignes est fait au rendu.
+   */
   description?: string;
+  /** Une valeur d'exemple réaliste (jamais un vrai secret) — rendue en `@example`. */
+  example?: string;
+  /**
+   * Déclare si la valeur est un secret (`@sensitive` dans la notice, masquée par
+   * `nodefony env`). À poser quand le NOM trompe : `NF_KEYCLOAK_ISSUER` contient
+   * « key » et n'a rien de secret.
+   */
+  sensitive?: boolean;
   /**
    * Le défaut appliqué par le CODE quand le catalogue n'en déclare pas — il
    * n'apparaît que dans la notice `.env.example`, sur sa ligne « défaut : ».
@@ -212,7 +262,17 @@ export function envString(
 ): z.ZodType<string | undefined>;
 export function envString(opts?: StrOpts): z.ZodType<string>;
 export function envString(opts: StrOpts = {}): z.ZodType<string | undefined> {
-  const { default: def, optional, description, defaultNote, requiredIn } = opts;
+  const {
+    default: def,
+    optional,
+    title,
+    section,
+    description,
+    example,
+    sensitive,
+    defaultNote,
+    requiredIn,
+  } = opts;
   const inner: z.ZodType =
     optional && def === undefined ? z.string().optional() : z.string();
   const schema = z.preprocess((v) => (isAbsent(v) ? def : v), inner);
@@ -220,7 +280,11 @@ export function envString(opts: StrOpts = {}): z.ZodType<string | undefined> {
     kind: "string",
     optional: Boolean(optional && def === undefined),
     default: def,
+    title,
+    section,
     description,
+    example,
+    sensitive,
     defaultNote,
     requiredIn,
   }) as z.ZodType<string | undefined>;
@@ -234,7 +298,17 @@ export function envNumber(
 ): z.ZodType<number | undefined>;
 export function envNumber(opts?: NumOpts): z.ZodType<number>;
 export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
-  const { default: def, optional, description, defaultNote, requiredIn } = opts;
+  const {
+    default: def,
+    optional,
+    title,
+    section,
+    description,
+    example,
+    sensitive,
+    defaultNote,
+    requiredIn,
+  } = opts;
   const inner: z.ZodType =
     optional && def === undefined ? z.number().optional() : z.number();
   const schema = z.preprocess((v) => {
@@ -246,7 +320,11 @@ export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
     kind: "number",
     optional: Boolean(optional && def === undefined),
     default: def,
+    title,
+    section,
     description,
+    example,
+    sensitive,
     defaultNote,
     requiredIn,
   }) as z.ZodType<number | undefined>;
@@ -258,7 +336,16 @@ export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
  * de ces ensembles → erreur au boot (typo détectée, ex. `tru`).
  */
 export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
-  const { default: def = false, description, defaultNote, requiredIn } = opts;
+  const {
+    default: def = false,
+    title,
+    section,
+    description,
+    example,
+    sensitive,
+    defaultNote,
+    requiredIn,
+  } = opts;
   const schema = z.preprocess((v) => {
     if (isAbsent(v)) return def;
     const s = String(v).trim().toLowerCase();
@@ -270,7 +357,11 @@ export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
     kind: "boolean",
     optional: false, // toujours une valeur (absente → `def`)
     default: def,
+    title,
+    section,
     description,
+    example,
+    sensitive,
     defaultNote,
     requiredIn,
   });
@@ -300,7 +391,17 @@ export function envEnum<const T extends readonly [string, ...string[]]>(
   values: T,
   opts: EnumOpts<T[number]> = {},
 ): z.ZodType<T[number] | undefined> {
-  const { default: def, optional, description, defaultNote, requiredIn } = opts;
+  const {
+    default: def,
+    optional,
+    title,
+    section,
+    description,
+    example,
+    sensitive,
+    defaultNote,
+    requiredIn,
+  } = opts;
   const base = z.enum(values as unknown as [string, ...string[]]);
   const inner: z.ZodType =
     optional && def === undefined ? base.optional() : base;
@@ -309,7 +410,11 @@ export function envEnum<const T extends readonly [string, ...string[]]>(
     kind: "enum",
     optional: Boolean(optional && def === undefined),
     default: def,
+    title,
+    section,
     description,
+    example,
+    sensitive,
     defaultNote,
     requiredIn,
     values: [...values],

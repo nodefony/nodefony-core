@@ -18,8 +18,12 @@ export const env = defineEnv({
    */
   NF_PORT: envNumber({
     optional: true,
+    section: "Réseau et processus",
+    title: "Port HTTP",
+    description:
+      "Le port sur lequel l'application répond en HTTP (sans chiffrement).\nEn développement, laisse vide : si le port est déjà pris par une autre application, le suivant est choisi et annoncé au démarrage. En production, fixe-le : c'est le port qu'attendent l'hébergeur et ses sondes de santé — s'il est occupé, le démarrage échoue.",
+    example: "8080",
     defaultNote: "5151",
-    description: "Port d'écoute HTTP.",
   }),
 
   /**
@@ -29,8 +33,10 @@ export const env = defineEnv({
    */
   PORT: envNumber({
     optional: true,
+    section: "Réseau et processus",
+    title: "Port HTTP fourni par l'hébergeur",
     description:
-      "Alias plateforme du port HTTP (Cloud Run/Heroku) — NF_PORT gagne.",
+      "Cloud Run, Heroku, Railway ou Fly posent eux-mêmes cette variable et attendent que l'application écoute dessus : tu n'as rien à écrire. Si NF_PORT est aussi posée, c'est NF_PORT qui l'emporte.",
   }),
 
   /**
@@ -39,8 +45,12 @@ export const env = defineEnv({
    */
   NF_PORT_HTTPS: envNumber({
     optional: true,
+    section: "Réseau et processus",
+    title: "Port HTTPS",
+    description:
+      "Le port sur lequel l'application répond en HTTPS (chiffré, HTTP/2).\nEn développement, laisse vide. Dans le cloud, le chiffrement se fait souvent devant l'application (ingress, répartiteur de charge) : ce port ne sert alors pas.",
+    example: "8443",
     defaultNote: "5152",
-    description: "Port d'écoute HTTPS/HTTP2.",
   }),
 
   /**
@@ -55,12 +65,18 @@ export const env = defineEnv({
    */
   NF_BIND_ALL: envBoolean({
     default: false,
+    section: "Réseau et processus",
+    title: "Ouvrir au réseau local (développement)",
     description:
-      "DEV : écoute sur toutes les interfaces (0.0.0.0) — ouvrir l'app depuis le réseau local.",
+      "En développement, l'application n'écoute que ta propre machine. true l'ouvre à toutes les interfaces, pour l'essayer depuis un téléphone ou un autre poste : https://<IP-de-ta-machine>:5152. Une seule exception de certificat à accepter sur l'appareil.\nLaisse false sinon : le serveur de développement expose des outils d'administration. Sans effet en production, qui écoute déjà partout.",
   }),
 
   NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
     default: "stdout",
+    section: "Journaux",
+    title: "Destination des journaux",
+    description:
+      "Où partent les journaux de l'application : stdout (la sortie standard — le bon choix dans un conteneur, l'hébergeur les collecte), file (des fichiers dans logs/), ou null (nulle part, pour un banc de mesure).",
   }),
 
   /**
@@ -78,9 +94,12 @@ export const env = defineEnv({
    */
   NF_WORKERS: envString({
     optional: true,
-    defaultNote: "1",
+    section: "Réseau et processus",
+    title: "Nombre de processus en production",
     description:
-      "Processus Node à lancer : 1 | auto (cœurs alloués, cgroup) | <n>.",
+      "Combien de processus Node lance nodefony production : 1 (un par conteneur, l'hébergeur multiplie les conteneurs), auto (un par cœur alloué au conteneur), ou un nombre. L'option --workers l'emporte. Sans effet en développement.",
+    example: "auto",
+    defaultNote: "1",
   }),
 <% if (it.complete) { %>
   /**
@@ -91,8 +110,11 @@ export const env = defineEnv({
    */
   NF_DATABASE_URL: envString({
     optional: true,
+    section: "Base de données et cache",
+    title: "Base de données",
     description:
-      "Infra database : URL unique (sqlite:|postgres://|mysql://|mongodb://), dialecte déduit du scheme.",
+      "L'adresse de ta base de données, en une seule URL : son début dit de quelle base il s'agit (sqlite:, postgres://, mysql://, mongodb://).\nSans elle, l'application utilise une base SQLite dans var/databases/ — rien à installer, et les données survivent au redémarrage. Elle contient un mot de passe : jamais commitée. DATABASE_URL (Heroku, Railway) est aussi acceptée.",
+    example: "postgres://app:motdepasse@localhost:5432/app",
   }),
 
   /**
@@ -102,8 +124,30 @@ export const env = defineEnv({
    */
   NF_REDIS_URL: envString({
     optional: true,
+    section: "Base de données et cache",
+    title: "Redis (cache partagé)",
     description:
-      "Infra cache : URL Redis (redis://…) — sa présence charge @nodefony/redis.",
+      "L'adresse d'un serveur Redis. Sa seule présence branche Redis : les sessions et l'anti-double-envoi des formulaires sont alors partagés entre plusieurs exemplaires de l'application.\nSans elle, tout reste en mémoire — parfait pour un seul exemplaire. REDIS_URL est aussi acceptée.",
+    example: "redis://:motdepasse@localhost:6379",
+  }),
+
+  /**
+   * Mot de passe du compte admin seedé au premier boot (voir
+   * `nodefony/security/users.ts`). DEV : défaut `nodefony-dev-42` (compte admin/nodefony-dev-42,
+   * comme Grafana — pratique, LOCAL uniquement). PROD : OBLIGATOIRE — sans lui
+   * le seed refuse (jamais de mot de passe par défaut en production).
+   *
+   * Pas de `requiredIn` : l'exigence ne vaut qu'au PREMIER démarrage. Une fois
+   * le compte créé, la variable ne sert plus — la rendre requise ferait refuser
+   * de démarrer un déploiement qui tourne depuis des mois.
+   */
+  NF_ADMIN_PASSWORD: envString({
+    optional: true,
+    section: "Comptes créés au démarrage",
+    title: "Mot de passe administrateur",
+    description:
+      "Le compte « admin » est créé au premier démarrage avec ce mot de passe. En développement, un mot de passe connu s'applique si tu ne mets rien. En production, aucun : sans cette variable, aucun compte n'est créé. Une fois le compte créé, la variable ne sert plus.",
+    defaultNote: "nodefony-dev-42 en développement ; aucun en production",
   }),
 
   /**
@@ -120,13 +164,20 @@ export const env = defineEnv({
    */
   NF_TOTP_KEY: envString({
     optional: true,
+    section: "Clés et secrets",
+    title: "Clé de chiffrement de la double authentification",
     description:
-      "Clé de chiffrement des secrets 2FA/TOTP au repos (32 octets base64).",
+      "Chiffre, dans la base, le secret de double authentification (le code à six chiffres) de chaque compte. Générée à la création de l'application.\nEn production, sans elle, la double authentification est désactivée.",
+    defaultNote: "clé éphémère en développement ; 2FA désactivée en production",
   }),
   NF_WEBHOOK_KEY: envString({
     optional: true,
+    section: "Clés et secrets",
+    title: "Clé de chiffrement des webhooks",
     description:
-      "Clé de chiffrement des secrets de signature webhook (32 octets base64).",
+      "Chiffre, dans la base, les secrets qui signent les webhooks. Générée à la création de l'application (npx nodefony security:secrets --write).\nEn production, sans elle, les webhooks sont désactivés : une clé qui change à chaque démarrage rendrait les secrets illisibles.",
+    defaultNote:
+      "clé éphémère en développement ; webhooks désactivés en production",
   }),
   /**
    * Celle-ci n'a PAS de repli acceptable. Absente, un secret est tiré au
@@ -139,8 +190,11 @@ export const env = defineEnv({
   NF_CSRF_SECRET: envString({
     optional: true,
     requiredIn: ["production"],
+    section: "Clés et secrets",
+    title: "Secret anti-falsification des formulaires",
     description:
-      "Secret des jetons anti-CSRF (synchronizer) — partagé entre process en cluster.",
+      "Signe les jetons qui protègent les formulaires contre les envois forgés depuis un autre site (CSRF). Généré à la création de l'application.\nAvec plusieurs exemplaires, il doit être le même partout — sinon un formulaire est refusé au hasard. Obligatoire en production : sans lui, le démarrage refuse.",
+    defaultNote: "tiré au démarrage (un par process)",
   }),
 
   /**
@@ -154,8 +208,13 @@ export const env = defineEnv({
    */
   NF_JWT_ISSUER: envString({
     optional: true,
+    section: "Jetons (JWT)",
+    title: "Adresse publique de l'émetteur de jetons",
     description:
-      "URL publique de l'app comme émetteur de jetons (https) — sans elle, aucune découverte RFC 8414.",
+      "L'adresse publique de l'application, gravée dans chaque jeton qu'elle émet. Posée, elle permet à d'autres services de vérifier ces jetons. Sans elle, les jetons marchent pour l'application elle-même, mais personne d'autre ne peut les vérifier.\nNe la change plus ensuite : les jetons déjà émis seraient refusés.",
+    example: "https://app.example.com",
+    defaultNote:
+      "https://localhost:5152 en développement ; aucune en production",
   }),
 
   /**
@@ -187,25 +246,12 @@ export const env = defineEnv({
    */
   NF_JWT_KEYSET: envString({
     optional: true,
+    section: "Jetons (JWT)",
+    title: "Clé de signature des jetons (production)",
     description:
-      "Clé de signature des JWT partagée par tous les pods/workers (JSON une ligne, `security:secrets --jwt-keyset`) — absente : une clé par process.",
-  }),
-
-  /**
-   * Mot de passe du compte admin seedé au premier boot (voir
-   * `nodefony/security/users.ts`). DEV : défaut `nodefony-dev-42` (compte admin/nodefony-dev-42,
-   * comme Grafana — pratique, LOCAL uniquement). PROD : OBLIGATOIRE — sans lui
-   * le seed refuse (jamais de mot de passe par défaut en production).
-   *
-   * Pas de `requiredIn` : l'exigence ne vaut qu'au PREMIER démarrage. Une fois
-   * le compte créé, la variable ne sert plus — la rendre requise ferait refuser
-   * de démarrer un déploiement qui tourne depuis des mois.
-   */
-  NF_ADMIN_PASSWORD: envString({
-    optional: true,
+      "En développement, rien à poser : la clé est créée dans var/keys/.\nEn production, tous les exemplaires de l'application doivent signer avec la MÊME clé — sinon un utilisateur est déconnecté au hasard. Génère-la une fois (npx nodefony security:secrets --jwt-keyset) et range-la dans le gestionnaire de secrets de ton hébergeur, jamais dans un fichier.",
     defaultNote:
-      "nodefony-dev-42 en développement ; aucun en production (aucun compte créé)",
-    description: "Mot de passe de l'administrateur semé au premier démarrage.",
+      "var/keys/ en développement ; une clé par process en production",
   }),
 
   /**
@@ -220,17 +266,28 @@ export const env = defineEnv({
    */
   NF_KEYCLOAK_ISSUER: envString({
     optional: true,
+    section: "Connexion Keycloak",
+    title: "Keycloak : adresse du realm",
     description:
-      "OIDC Keycloak — émetteur = URL du realm, en https (ex. https://localhost:8444/realms/<%= it.appName %>).",
+      "Pour se connecter avec un serveur Keycloak (OpenID Connect) : l'adresse du realm, en https. Le bouton « Keycloak » n'apparaît que si les trois variables NF_KEYCLOAK_* sont posées.",
+    example: "https://localhost:8444/realms/<%= it.appName %>",
+    sensitive: false,
   }),
   NF_KEYCLOAK_CLIENT_ID: envString({
     optional: true,
-    description: "OIDC Keycloak — identifiant du client confidentiel.",
+    section: "Connexion Keycloak",
+    title: "Keycloak : identifiant du client",
+    description:
+      "Le nom du client déclaré pour cette application dans le realm Keycloak.",
+    example: "<%= it.appName %>",
+    sensitive: false,
   }),
   NF_KEYCLOAK_CLIENT_SECRET: envString({
     optional: true,
+    section: "Connexion Keycloak",
+    title: "Keycloak : secret du client",
     description:
-      "OIDC Keycloak — secret du client confidentiel (SECRET, jamais loggé).",
+      "Le secret de ce client, copié depuis la console Keycloak (onglet « Credentials » du client).",
   }),
   /**
    * Base d'URL des retours OAuth : l'URL PUBLIQUE de l'application, que le
@@ -241,8 +298,12 @@ export const env = defineEnv({
    */
   NF_OAUTH_REDIRECT_BASE: envString({
     optional: true,
+    section: "Connexion externe : réglage commun",
+    title: "Adresse publique pour les retours de connexion",
     description:
-      "Base d'URL des retours OAuth (exact match fournisseur) — l'URL publique en production.",
+      "Google, GitHub ou Keycloak renvoient l'utilisateur vers l'application après la connexion, à une adresse qu'ils comparent au caractère près à celle enregistrée chez eux :\n    <NF_OAUTH_REDIRECT_BASE>/nodefony/security/api/oauth2/<fournisseur>/callback\nEn production, mets l'URL publique de l'application. En développement, garde localhost — jamais 127.0.0.1 : les passkeys refusent une adresse IP. Si Google refuse https://localhost, utilise http://localhost:5151.",
+    example: "https://app.example.com",
+    defaultNote: "https://localhost:5152",
   }),
 <% } %><% if (it.complete || it.front) { %>
   // Le dev-server Vite n'a AUCUNE variable d'environnement : il reste sur la

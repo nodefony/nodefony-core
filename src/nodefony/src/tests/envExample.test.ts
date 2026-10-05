@@ -104,7 +104,7 @@ describe("envExample — renderEnvExample", () => {
     assert.match(out, /^# @required$/m);
   });
 
-  it("🔴 CONVENTION : rôle, décorateurs @ un par ligne, @default TOUJOURS, blocs aérés", () => {
+  it("🔴 CONVENTION : bandeau de titre, explication repliée, décorateurs @, @default TOUJOURS", () => {
     const out = renderEnvExample([
       {
         name: "NF_DRIVER",
@@ -112,7 +112,8 @@ describe("envExample — renderEnvExample", () => {
         optional: false,
         default: "stdout",
         values: ["stdout", "file"],
-        description: "Sink de log.",
+        title: "Destination des journaux",
+        description: "Où partent les journaux.",
       },
       {
         name: "NF_ADMIN_PASSWORD",
@@ -120,29 +121,50 @@ describe("envExample — renderEnvExample", () => {
         optional: true,
         requiredIn: ["production"],
         defaultNote: "secret-de-dev-42 en dev, aucun en production",
-        description: "Mot de passe de l'admin.",
+        title: "Mot de passe administrateur",
+        description:
+          "Le compte admin est créé au premier démarrage.\nAnnonce :\n    nodefony security:secrets\nSuite.",
+        example: "un-mot-de-passe-long",
       },
-      { name: "NF_NU", kind: "string", optional: true, description: "Nu." },
+      { name: "NF_NU", kind: "string", optional: true },
     ]);
+    const band = (t: string): string => {
+      const head = `# ─── ${t} `;
+      return head + "─".repeat(78 - head.length);
+    };
     assert.ok(
       out.includes(
         [
-          "# Sink de log.",
+          band("Destination des journaux"),
+          "#",
+          "# Où partent les journaux.",
+          "#",
           "# @optional",
           "# @type=enum(stdout, file)",
           "# @default=stdout",
           "# NF_DRIVER=stdout",
           "",
           "",
-          "# Mot de passe de l'admin.",
+          band("Mot de passe administrateur"),
+          "#",
+          "# Le compte admin est créé au premier démarrage.",
+          "#",
+          "# Annonce :",
+          "#     nodefony security:secrets",
+          "#",
+          "# Suite.",
+          "#",
           "# @optional",
           "# @required=forEnv(production)",
           "# @sensitive",
           '# @default="secret-de-dev-42 en dev, aucun en production"',
+          "# @example=un-mot-de-passe-long",
           "# NF_ADMIN_PASSWORD=",
           "",
           "",
-          "# Nu.",
+          // Sans titre : le nom sert de bandeau ; sans défaut : « aucun ».
+          band("NF_NU"),
+          "#",
           "# @optional",
           "# @default=aucun",
           "# NF_NU=",
@@ -150,6 +172,21 @@ describe("envExample — renderEnvExample", () => {
       ),
       out,
     );
+    // Une explication longue est repliée à 78 colonnes.
+    const long = renderEnvExample([
+      {
+        name: "NF_LONG",
+        kind: "string",
+        optional: true,
+        description: "mot ".repeat(60).trim(),
+      },
+    ]);
+    for (const line of long.split("\n")) {
+      assert.ok(
+        line.length <= 78,
+        `ligne de ${line.length} colonnes : ${line}`,
+      );
+    }
     // Toute ligne de métadonnée se lit d'UNE expression régulière.
     const decorators = out
       .split("\n")
@@ -158,11 +195,91 @@ describe("envExample — renderEnvExample", () => {
     assert.ok(decorators.every(Boolean), "un décorateur illisible");
     assert.deepStrictEqual([...new Set(decorators)].sort(), [
       "default",
+      "example",
       "optional",
       "required",
       "sensitive",
       "type",
     ]);
+  });
+
+  it("🔴 SECTIONS : sommaire en tête, sections numérotées dans l'ordre d'apparition", () => {
+    const v = (name: string, section?: string): (typeof cat)[number] => ({
+      name,
+      kind: "string",
+      optional: true,
+      ...(section ? { section } : {}),
+    });
+    const out = renderEnvExample([
+      v("NF_PORT", "Réseau"),
+      v("NF_KC_ISSUER", "Connexion Keycloak"),
+      v("NF_LIBRE"),
+      v("NF_PORT_HTTPS", "Réseau"),
+      v("NF_KC_SECRET", "Connexion Keycloak"),
+    ]);
+    // Le sommaire dit OÙ chercher : section numérotée, puis ses variables.
+    assert.ok(
+      out.includes(
+        [
+          "#   1. Réseau",
+          "#        NF_PORT, NF_PORT_HTTPS",
+          "#   2. Connexion Keycloak",
+          "#        NF_KC_ISSUER, NF_KC_SECRET",
+          "#   3. Autres réglages",
+          "#        NF_LIBRE",
+        ].join("\n"),
+      ),
+      out,
+    );
+    // Les variables d'une section sont REGROUPÉES, même déclarées en désordre.
+    const order = [...out.matchAll(/^# (NF_\w+)=/gmu)].map((m) => m[1]);
+    assert.deepStrictEqual(order, [
+      "NF_PORT",
+      "NF_PORT_HTTPS",
+      "NF_KC_ISSUER",
+      "NF_KC_SECRET",
+      "NF_LIBRE",
+    ]);
+    // Le bandeau de section est un SÉPARATEUR @env-spec (`# ===`), encadrant
+    // un commentaire autonome.
+    assert.match(out, /^# ={76}\n#  2\. CONNEXION KEYCLOAK\n# ={76}$/mu);
+    // Une seule section : ni sommaire ni bandeau — rien d'inutile.
+    const single = renderEnvExample([v("NF_A"), v("NF_B")]);
+    assert.doesNotMatch(single, /SOMMAIRE|^# ===/mu);
+  });
+
+  it("🔴 `sensitive` DÉCLARÉ fait foi — le nom ne décide qu'à défaut", () => {
+    const out = renderEnvExample([
+      // « KEY » dans KEYCLOAK : le nom tromperait, la déclaration tranche.
+      {
+        name: "NF_KEYCLOAK_ISSUER",
+        kind: "string",
+        optional: true,
+        sensitive: false,
+        default: "https://kc.example/realms/app",
+      },
+      // Un nom anodin peut porter un secret : déclaré, il est masqué.
+      {
+        name: "NF_DSN",
+        kind: "string",
+        optional: true,
+        sensitive: true,
+        default: "postgres://u:p@h/db",
+      },
+      // Sans déclaration, le nom décide (repli).
+      { name: "NF_API_TOKEN", kind: "string", optional: true },
+    ]);
+    const block = (name: string): string =>
+      out.split("\n\n\n").find((b) => b.includes(`# ${name}=`)) ?? "";
+    assert.doesNotMatch(block("NF_KEYCLOAK_ISSUER"), /@sensitive/u);
+    assert.match(block("NF_KEYCLOAK_ISSUER"), /# NF_KEYCLOAK_ISSUER=https:/u);
+    assert.match(block("NF_DSN"), /@sensitive/u);
+    assert.match(
+      block("NF_DSN"),
+      /# NF_DSN=$/mu,
+      "un secret n'a jamais de valeur",
+    );
+    assert.match(block("NF_API_TOKEN"), /@sensitive/u);
   });
 
   it("masque la valeur des variables sensibles (secret)", () => {

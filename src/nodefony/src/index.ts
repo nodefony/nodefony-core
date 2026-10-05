@@ -374,6 +374,7 @@ export {
   envNumber,
   envBoolean,
   envEnum,
+  isSensitiveEnvVar,
   getEnvCatalog,
 } from "./config/defineEnv";
 export type {

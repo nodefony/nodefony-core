@@ -14,7 +14,7 @@
 | --- | ---: |
 | Infrastructure | 13 |
 | Interrupteur de coût | 5 |
-| Décor de banc | 37 |
+| Décor de banc | 38 |
 | Runtime produit | 79 |
 
 ## Décor de banc
@@ -100,6 +100,12 @@ rien : elle change ce qui est EXÉCUTÉ.
 | `NF_DB_OUTAGE_MONGO_CONTAINER` | Nom du conteneur MongoDB que le banc a le droit d'ARRÊTER pour éprouver une coupure réelle. | nom docker | Le banc de coupure MongoDB est SAUTÉ — le produit n'est jamais mis à l'épreuve d'une base qui tombe. |
 | `NF_DB_OUTAGE_MYSQL_CONTAINER` | Nom du conteneur MySQL que le banc a le droit d'ARRÊTER pour éprouver une coupure réelle. | nom docker | Le banc de coupure MySQL est SAUTÉ. |
 | `NF_DB_OUTAGE_PG_CONTAINER` | Nom du conteneur PostgreSQL que le banc a le droit d'ARRÊTER pour éprouver une coupure réelle. | nom docker | Le banc de coupure PostgreSQL est SAUTÉ. |
+
+### notice des variables d'environnement
+
+| Variable | Rôle | Valeurs | Absente ⇒ |
+| --- | --- | --- | --- |
+| `NF_WRITE_NOTICE` | Fait RÉÉCRIRE par `appEnvNotice.test.ts` la notice `.env.example` du gabarit d'application, depuis `env.ts.tpl` — la seule façon de la produire. | `1` — toute autre valeur laisse le test en simple vérification | Le test compare seulement : un `env.ts.tpl` modifié sans régénération le fait échouer, en donnant la commande. |
 
 ### pare-feu — limitation de débit
 

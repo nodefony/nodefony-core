@@ -268,6 +268,13 @@ export const BENCH_DECOR: Record<string, IEnvDeclaration> = {
       "Les exemplaires partagent le canal par défaut : deux bancs lancés en même temps se mélangent, et le verdict dépend du voisin.",
     group: "banc cluster temps réel",
   },
+  NF_WRITE_NOTICE: {
+    what: "Fait RÉÉCRIRE par `appEnvNotice.test.ts` la notice `.env.example` du gabarit d'application, depuis `env.ts.tpl` — la seule façon de la produire.",
+    values: "`1` — toute autre valeur laisse le test en simple vérification",
+    absent:
+      "Le test compare seulement : un `env.ts.tpl` modifié sans régénération le fait échouer, en donnant la commande.",
+    group: "notice des variables d'environnement",
+  },
   NF_WS_RUPTURE_CAP: {
     what: "Plafond de connexions simultanées que la sonde de rupture WebSocket s'autorise.",
     values: "entier — défaut 8000",

@@ -35,8 +35,12 @@ export const env = defineEnv({
    */
   NF_PORT: envNumber({
     optional: true,
+    section: "Réseau et processus",
+    title: "Port HTTP",
+    description:
+      "Le port sur lequel l'application répond en HTTP (sans chiffrement).\nEn développement, laisse vide : si le port est déjà pris par une autre application, le suivant est choisi et annoncé au démarrage. En production, fixe-le : c'est le port qu'attendent l'hébergeur et ses sondes de santé — s'il est occupé, le démarrage échoue.",
+    example: "8080",
     defaultNote: "5151",
-    description: "Port d'écoute HTTP.",
   }),
 
   /**
@@ -47,8 +51,10 @@ export const env = defineEnv({
    */
   PORT: envNumber({
     optional: true,
+    section: "Réseau et processus",
+    title: "Port HTTP fourni par l'hébergeur",
     description:
-      "Alias plateforme du port HTTP (Cloud Run/Heroku) — NF_PORT gagne.",
+      "Cloud Run, Heroku, Railway ou Fly posent eux-mêmes cette variable et attendent que l'application écoute dessus : tu n'as rien à écrire. Si NF_PORT est aussi posée, c'est NF_PORT qui l'emporte.",
   }),
 
   /**
@@ -59,86 +65,12 @@ export const env = defineEnv({
    */
   NF_PORT_HTTPS: envNumber({
     optional: true,
+    section: "Réseau et processus",
+    title: "Port HTTPS",
+    description:
+      "Le port sur lequel l'application répond en HTTPS (chiffré, HTTP/2).\nEn développement, laisse vide. Dans le cloud, le chiffrement se fait souvent devant l'application (ingress, répartiteur de charge) : ce port ne sert alors pas.",
+    example: "8443",
     defaultNote: "5152",
-    description: "Port d'écoute HTTPS/HTTP2.",
-  }),
-
-  // ── Infra déclarée (modèle « infra déclarée » — cf docs/guides/configuration.md) ──
-  /**
-   * Infra `database` (durable) : UNE URL déclare la base de l'app — le dialecte est
-   * déduit du scheme (`sqlite:…` | `postgres://…` | `mysql://…` | `mongodb://…`) et
-   * les briques durables en `store: "auto"` (users, tokens, audit, webhooks…) la
-   * suivent. Alias plateforme accepté : `DATABASE_URL` (Heroku/Railway — `NF_` gagne).
-   * Absente = profil solo (sqlite local + memory + files). Porte le secret → jamais loggée brute.
-   */
-  NF_DATABASE_URL: envString({
-    optional: true,
-    description:
-      "Infra database : URL unique (sqlite:|postgres://|mysql://|mongodb://), dialecte déduit du scheme.",
-  }),
-
-  /**
-   * Infra `cache` (éphémère partagé) : URL Redis. Sa présence CHARGE le module
-   * `@nodefony/redis` (gating `when` du manifeste) et aiguille les briques
-   * éphémères en `store: "auto"` (idempotence, sessions) vers Redis. Alias
-   * plateforme accepté : `REDIS_URL` (`NF_` gagne). Porte le secret → jamais loggée brute.
-   */
-  NF_REDIS_URL: envString({
-    optional: true,
-    description:
-      "Infra cache : URL Redis (redis://…) — sa présence charge @nodefony/redis.",
-  }),
-
-  /**
-   * Sink d'écriture des logs (LB.W). `stdout` = cloud-native (pipe non-bloquant) ;
-   * `file` = 1 fd async par worker (anti-goulet en cluster) ; `null` = bench.
-   * Recommandation prod : `stdout` (collecteur centralisé) ou `file` (sidecar).
-   */
-  NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
-    default: "stdout",
-    description: "Sink d'écriture des logs : stdout | file | null.",
-  }),
-
-  /**
-   * Avec `NF_LOG_DRIVER=file`, écrit en `writeSync` direct par worker au lieu du
-   * buffer async (fichier local rapide). Défaut `false` (ne bloque jamais l'event
-   * loop). Recommandation prod : `false` (laisser le buffer absorber les pics).
-   */
-  NF_LOG_FILE_SYNC: envBoolean({
-    default: false,
-    description: "Écriture synchrone du sink fichier (writeSync par worker).",
-  }),
-
-  /**
-   * Driver de RELECTURE du log backplane (≠ sink d'écriture). `auto` (défaut) :
-   * une URL de destination déclarée (NF_LOKI_URL/NF_OPENSEARCH_URL) impose son
-   * driver — l'URL ⇒ le driver, un seul knob (les DEUX URLs sans choix explicite =
-   * échec au boot) ; sinon s'adapte au mode (mono → `memory`, cluster →
-   * `cluster-file`). Valeurs explicites : `memory` | `file` | `cluster-file` |
-   * `loki` | `opensearch` (surcharge d'expert, jamais réécrite).
-   */
-  NF_LOG_QUERY_DRIVER: envString({
-    default: "auto",
-    description: "Driver de relecture du log backplane (auto|memory|file|…).",
-  }),
-
-  /**
-   * Infra `logs`, destination Loki (LB.4). Sa présence dérive le driver de
-   * relecture (`NF_LOG_QUERY_DRIVER=auto` → `loki`). Optionnelle (destination KO
-   * au runtime → fallback `memory`, jamais de crash).
-   */
-  NF_LOKI_URL: envString({
-    optional: true,
-    description: "URL HTTP de la destination Loki (poussée + relecture).",
-  }),
-
-  /**
-   * Infra `logs`, destination OpenSearch (LB.4). Sa présence dérive le driver de
-   * relecture (`NF_LOG_QUERY_DRIVER=auto` → `opensearch`). Optionnelle.
-   */
-  NF_OPENSEARCH_URL: envString({
-    optional: true,
-    description: "URL HTTP de la destination OpenSearch (poussée + relecture).",
   }),
 
   /**
@@ -151,119 +83,42 @@ export const env = defineEnv({
    */
   NF_BIND_ALL: envBoolean({
     default: false,
-    description: "DEV : bind 0.0.0.0 + trustProxy (banc reverse-proxy Docker).",
+    section: "Réseau et processus",
+    title: "Ouvrir au réseau (développement)",
+    description:
+      "En développement, l'application n'écoute que ta propre machine. true l'ouvre à toutes les interfaces — pour l'atteindre depuis un conteneur Docker (banc de proxy inverse), un téléphone ou un autre poste — et fait confiance aux en-têtes d'un proxy local.\nLaisse false sinon : le serveur de développement expose des outils d'administration.",
+  }),
+
+  // ── Infra déclarée (modèle « infra déclarée » — cf docs/guides/configuration.md) ──
+  /**
+   * Infra `database` (durable) : UNE URL déclare la base de l'app — le dialecte est
+   * déduit du scheme (`sqlite:…` | `postgres://…` | `mysql://…` | `mongodb://…`) et
+   * les briques durables en `store: "auto"` (users, tokens, audit, webhooks…) la
+   * suivent. Alias plateforme accepté : `DATABASE_URL` (Heroku/Railway — `NF_` gagne).
+   * Absente = profil solo (sqlite local + memory + files). Porte le secret → jamais loggée brute.
+   */
+  NF_DATABASE_URL: envString({
+    optional: true,
+    section: "Base de données et cache",
+    title: "Base de données",
+    description:
+      "L'adresse de ta base de données, en une seule URL : son début dit de quelle base il s'agit (sqlite:, postgres://, mysql://, mongodb://).\nSans elle, l'application utilise une base SQLite dans var/databases/ — rien à installer, et les données survivent au redémarrage. Elle contient un mot de passe : jamais commitée. DATABASE_URL (Heroku, Railway) est aussi acceptée.",
+    example: "postgres://app:motdepasse@localhost:5432/app",
   }),
 
   /**
-   * Livraison de l'UI Studio — molette `ui` de `@nodefony/studio`, exposée ici
-   * pour qu'un décor puisse la poser sans éditer la config.
-   *
-   * - `auto` (défaut) : dans CE dépôt, résout vers `vite` → HMR, sources vivantes.
-   * - `static` : sert les assets pré-buildés (`dist/frontend/`, produits par
-   *   `npm run build:ui`). **Aucune dépendance au dev-server Vite.**
-   * - `vite` : force le dev-server.
-   *
-   * POURQUOI cette molette existe pour un banc en CONTENEUR : en `auto`/`vite`, la
-   * page Studio annonce ses assets en URL ABSOLUE (`https://127.0.0.1:5173/...`,
-   * cf `TemplateHelper.renderDevTags`). Ce `127.0.0.1` est celui du NAVIGATEUR :
-   * dans un conteneur il désigne le conteneur lui-même, qui n'héberge aucun Vite
-   * → page blanche et `ERR_CONNECTION_REFUSED`, alors que le HTML, lui, est bien
-   * servi. En `static`, les assets sont same-origin sous `/_assets/studio/` : la
-   * page se charge quel que soit le nom par lequel on est entré. C'est en prime le
-   * mode que voient les applications qui installent Studio depuis npm.
-   *
-   * ⚠️ En `static` on perd le HMR — c'est un mode d'OBSERVATION, pas de dev front.
+   * Infra `cache` (éphémère partagé) : URL Redis. Sa présence CHARGE le module
+   * `@nodefony/redis` (gating `when` du manifeste) et aiguille les briques
+   * éphémères en `store: "auto"` (idempotence, sessions) vers Redis. Alias
+   * plateforme accepté : `REDIS_URL` (`NF_` gagne). Porte le secret → jamais loggée brute.
    */
-  NF_STUDIO_UI: envEnum(["auto", "static", "vite"], {
-    default: "auto",
+  NF_REDIS_URL: envString({
+    optional: true,
+    section: "Base de données et cache",
+    title: "Redis (cache partagé)",
     description:
-      "Livraison de l'UI Studio : auto | static (pré-buildé, sans Vite) | vite.",
-  }),
-
-  // Le dev-server Vite n'a plus de variable d'environnement : Nodefony le
-  // relaie sur l'origine de la page (le poste et un navigateur en conteneur
-  // sont servis en même temps, sans rien à poser).
-  // Ce qui a motivé le retrait : posée pour observer un écran puis oubliée,
-  // cette variable a rendu Studio inaccessible depuis le poste, sans la moindre
-  // erreur côté serveur. Un décor d'observation n'a rien à faire dans
-  // l'environnement.
-
-  // ── Social login OAuth 2.0 (P6 J9) ─────────────────────────────────────────
-  // Secrets délivrés par les fournisseurs (Google Cloud Console / GitHub
-  // Developer Settings › OAuth Apps). OPTIONNELS : un fournisseur n'est monté
-  // QUE si SES deux secrets sont présents (sinon le bouton n'apparaît pas, 0
-  // route morte). JAMAIS commités — `.env` local ou secret-manager.
-  //
-  // 🔴 CES QUATRE NOMS N'ONT PAS DE PRÉFIXE `NF_`, ET C'EST UNE DÉCISION.
-  // Le préfixe dit à qui appartient la VALEUR, pas qui la lit : ces
-  // identifiants sont ÉMIS par Google et GitHub, et leur écosystème fixe déjà
-  // leur nom (la documentation des deux fournisseurs, Auth.js, Passport).
-  // Préfixer reviendrait à revendiquer un bien qui n'est pas le nôtre et à
-  // obliger l'utilisateur à dédoubler une variable qu'il possède déjà. La règle
-  // et ses trois exceptions : `CLAUDE.md`, § variables d'environnement.
-  // Le test : QUI a émis cette valeur ? Google ⇒ son nom. Nous ⇒ `NF_`.
-  GOOGLE_CLIENT_ID: envString({
-    optional: true,
-    description: "OAuth Google — Client ID (Google Cloud Console).",
-  }),
-  GOOGLE_CLIENT_SECRET: envString({
-    optional: true,
-    description: "OAuth Google — Client Secret (SECRET, jamais loggé).",
-  }),
-  GITHUB_CLIENT_ID: envString({
-    optional: true,
-    description: "OAuth GitHub — Client ID (Developer Settings › OAuth Apps).",
-  }),
-  GITHUB_CLIENT_SECRET: envString({
-    optional: true,
-    description: "OAuth GitHub — Client Secret (SECRET, jamais loggé).",
-  }),
-
-  // Keycloak est AUTO-HÉBERGÉ : ses valeurs sont émises par NOTRE serveur, et
-  // aucun nom d'écosystème ne fait foi — d'où le préfixe `NF_`, à l'inverse des
-  // quatre ci-dessus. Le fournisseur n'est monté que si les TROIS sont posées ;
-  // le décor de dev (profil `keycloak` du compose) en donne les valeurs,
-  // écrites dans docker/keycloak/import/realm-nodefony.json, à poser dans `.env`.
-  NF_KEYCLOAK_ISSUER: envString({
-    optional: true,
-    description:
-      "OIDC Keycloak — émetteur = URL du realm, en https (ex. https://localhost:8444/realms/nodefony).",
-  }),
-  NF_KEYCLOAK_CLIENT_ID: envString({
-    optional: true,
-    description: "OIDC Keycloak — identifiant du client confidentiel.",
-  }),
-  NF_KEYCLOAK_CLIENT_SECRET: envString({
-    optional: true,
-    description:
-      "OIDC Keycloak — secret du client confidentiel (SECRET, jamais loggé).",
-  }),
-
-  /**
-   * Base d'URL des callbacks OAuth (RFC 9700 : exact match avec l'URL
-   * enregistrée chez le fournisseur). Callback complet = `<base>/nodefony/
-   * security/api/oauth2/<provider>/callback`.
-   *
-   * Défaut = `https://localhost:5152` — PAS `127.0.0.1` : les passkeys/WebAuthn
-   * REFUSENT une IP comme domaine (rpId), seul `localhost` (ou un vrai domaine)
-   * marche en dev. On standardise donc TOUT le dev sur `localhost` (OAuth +
-   * passkey + session) → un seul host, zéro incohérence cookie/rpId.
-   * ⚠️ Enregistrer le callback chez le fournisseur en `https://localhost:5152/...`.
-   * Google : si `https://localhost` est refusé, utiliser `http://localhost:5151`.
-   */
-  //
-  // Préfixée, elle : contrairement aux quatre ci-dessus, personne ne l'émet —
-  // c'est l'application qui se la donne. Un nom générique que l'application se
-  // donne est une collision pure, et une collision ne se manifeste jamais par
-  // une erreur.
-  NF_OAUTH_REDIRECT_BASE: envString({
-    default: "https://localhost:5152",
-    description:
-      "Base d'URL des callbacks OAuth. Un fournisseur n'est monté QUE si ses deux secrets sont posés.\n" +
-      "Callback à enregistrer chez lui, EXACTEMENT (RFC 9700) :\n" +
-      "  <NF_OAUTH_REDIRECT_BASE>/nodefony/security/api/oauth2/<provider>/callback\n" +
-      "⚠️ localhost, PAS 127.0.0.1 : WebAuthn refuse une IP comme rpId.\n" +
-      "Google : si https://localhost est refusé, utiliser http://localhost:5151.",
+      "L'adresse d'un serveur Redis. Sa seule présence branche Redis : les sessions et l'anti-double-envoi des formulaires sont alors partagés entre plusieurs exemplaires de l'application.\nSans elle, tout reste en mémoire — parfait pour un seul exemplaire. REDIS_URL est aussi acceptée.",
+    example: "redis://:motdepasse@localhost:6379",
   }),
 
   // ── Source d'identité de l'application (provisioning du service "users") ────
@@ -278,8 +133,10 @@ export const env = defineEnv({
    */
   NF_USER_STORE: envEnum(["auto", "drizzle", "mongoose", "memory"] as const, {
     default: "auto",
+    section: "Stockages (où chaque brique garde ses données)",
+    title: "Où sont stockés les comptes",
     description:
-      "Dépôt du service users : auto (suit l'infra database) | drizzle | mongoose | memory (volatil).",
+      "auto suit la base de données déclarée (et sinon SQLite local : les comptes survivent au redémarrage). memory garde tout en mémoire — perdu à l'arrêt, réservé aux bancs de charge et aux essais.",
   }),
 
   /**
@@ -293,8 +150,11 @@ export const env = defineEnv({
    */
   NF_STORE: envString({
     optional: true,
+    section: "Stockages (où chaque brique garde ses données)",
+    title: "Forcer tous les stockages (bancs de charge)",
     description:
-      "Force TOUS les stockages en mode auto vers ce backend (ex. memory pour un banc de charge). Vide = aucun forçage.",
+      "Envoie d'un coup tous les stockages réglés sur auto (sessions, jetons, comptes…) vers ce backend. Sert aux bancs de charge (memory) : mesurer le framework sans le disque. Laisse vide en temps normal.",
+    example: "memory",
   }),
 
   // ── Backing du cache d'idempotence des mutations (P6.8) ────────────────────
@@ -316,10 +176,94 @@ export const env = defineEnv({
     ["auto", "memory", "redis", "drizzle"] as const,
     {
       default: "auto",
+      section: "Stockages (où chaque brique garde ses données)",
+      title: "Anti-double-envoi des requêtes",
       description:
-        "Cache d'idempotence : auto (suit l'infra déclarée) | memory (per-pod) | redis | drizzle (distribués cross-pod).",
+        "Où l'application retient les requêtes déjà traitées, pour qu'un double clic ne crée pas deux commandes. auto suit l'infrastructure déclarée ; memory suffit avec un seul exemplaire ; redis ou drizzle (base SQL) partagent l'information entre plusieurs exemplaires. Un stockage partagé demandé mais absent bloque le démarrage.",
     },
   ),
+
+  /**
+   * Backend du registre d'endpoints webhook (P6.13). `memory` (dev — perdu au
+   * redémarrage) | `drizzle` (DURABLE — table `webhook_endpoint` sur l'ORM SQL
+   * `"default"`). Câblé par `nodefony/security/webhookStore.ts` (entité + fabrique).
+   */
+  NF_WEBHOOK_STORE: envEnum(["auto", "memory", "drizzle"] as const, {
+    default: "auto",
+    section: "Stockages (où chaque brique garde ses données)",
+    title: "Où sont stockés les webhooks",
+    description:
+      "Les adresses de webhooks déclarées dans la console d'administration. auto suit la base de données ; memory les perd au redémarrage ; drizzle les garde en base.",
+  }),
+
+  /**
+   * Sink d'écriture des logs (LB.W). `stdout` = cloud-native (pipe non-bloquant) ;
+   * `file` = 1 fd async par worker (anti-goulet en cluster) ; `null` = bench.
+   * Recommandation prod : `stdout` (collecteur centralisé) ou `file` (sidecar).
+   */
+  NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
+    default: "stdout",
+    section: "Journaux",
+    title: "Destination des journaux",
+    description:
+      "Où partent les journaux de l'application : stdout (la sortie standard — le bon choix dans un conteneur, l'hébergeur les collecte), file (des fichiers dans logs/), ou null (nulle part, pour un banc de mesure).",
+  }),
+
+  /**
+   * Avec `NF_LOG_DRIVER=file`, écrit en `writeSync` direct par worker au lieu du
+   * buffer async (fichier local rapide). Défaut `false` (ne bloque jamais l'event
+   * loop). Recommandation prod : `false` (laisser le buffer absorber les pics).
+   */
+  NF_LOG_FILE_SYNC: envBoolean({
+    default: false,
+    section: "Journaux",
+    title: "Journaux en fichier : écriture immédiate",
+    description:
+      "Avec NF_LOG_DRIVER=file, écrit chaque ligne tout de suite au lieu de les regrouper. Plus sûr si l'application s'arrête brutalement, mais plus lent sous charge. Laisse false en production.",
+  }),
+
+  /**
+   * Driver de RELECTURE du log backplane (≠ sink d'écriture). `auto` (défaut) :
+   * une URL de destination déclarée (NF_LOKI_URL/NF_OPENSEARCH_URL) impose son
+   * driver — l'URL ⇒ le driver, un seul knob (les DEUX URLs sans choix explicite =
+   * échec au boot) ; sinon s'adapte au mode (mono → `memory`, cluster →
+   * `cluster-file`). Valeurs explicites : `memory` | `file` | `cluster-file` |
+   * `loki` | `opensearch` (surcharge d'expert, jamais réécrite).
+   */
+  NF_LOG_QUERY_DRIVER: envString({
+    default: "auto",
+    section: "Journaux",
+    title: "Relecture des journaux (console d'administration)",
+    description:
+      "D'où la console d'administration relit les journaux. auto choisit seul : Loki ou OpenSearch si leur adresse est posée, sinon la mémoire (un process) ou des fichiers (cluster). Valeurs possibles : auto, memory, file, cluster-file, loki, opensearch. À ne changer qu'en connaissance de cause.",
+  }),
+
+  /**
+   * Infra `logs`, destination Loki (LB.4). Sa présence dérive le driver de
+   * relecture (`NF_LOG_QUERY_DRIVER=auto` → `loki`). Optionnelle (destination KO
+   * au runtime → fallback `memory`, jamais de crash).
+   */
+  NF_LOKI_URL: envString({
+    optional: true,
+    section: "Journaux",
+    title: "Loki (journaux centralisés)",
+    description:
+      "L'adresse d'un serveur Grafana Loki. Posée, l'application y envoie ses journaux et la console d'administration les y relit. Si Loki ne répond pas, rien ne plante : la relecture repasse en mémoire.\nNe pose pas Loki ET OpenSearch sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.",
+    example: "http://localhost:3100",
+  }),
+
+  /**
+   * Infra `logs`, destination OpenSearch (LB.4). Sa présence dérive le driver de
+   * relecture (`NF_LOG_QUERY_DRIVER=auto` → `opensearch`). Optionnelle.
+   */
+  NF_OPENSEARCH_URL: envString({
+    optional: true,
+    section: "Journaux",
+    title: "OpenSearch (journaux centralisés)",
+    description:
+      "L'adresse d'un serveur OpenSearch. Posée, l'application y envoie ses journaux et la console d'administration les y relit.\nNe pose pas OpenSearch ET Loki sans choisir NF_LOG_QUERY_DRIVER : le démarrage refuserait.",
+    example: "http://localhost:9200",
+  }),
 
   /**
    * Mot de passe de l'administrateur seedé au boot. En **dev**, défaut
@@ -331,9 +275,11 @@ export const env = defineEnv({
    */
   NF_ADMIN_PASSWORD: envString({
     optional: true,
-    defaultNote:
-      "secret-de-dev-42 en développement ; aucun en production (aucun compte créé)",
-    description: "Mot de passe de l'administrateur semé au premier démarrage.",
+    section: "Comptes créés au démarrage",
+    title: "Mot de passe administrateur",
+    description:
+      "Le compte « admin » est créé au premier démarrage avec ce mot de passe. En développement, un mot de passe connu s'applique si tu ne mets rien. En production, aucun : sans cette variable, aucun compte n'est créé. Une fois le compte créé, la variable ne sert plus.",
+    defaultNote: "secret-de-dev-42 en développement ; aucun en production",
   }),
 
   /**
@@ -343,31 +289,11 @@ export const env = defineEnv({
    */
   NF_USER_PASSWORD: envString({
     optional: true,
-    defaultNote: "secret-de-dev-42 (développement seulement)",
-    description: "Mot de passe du compte de fixture « user ».",
-  }),
-
-  /**
-   * Backend du registre d'endpoints webhook (P6.13). `memory` (dev — perdu au
-   * redémarrage) | `drizzle` (DURABLE — table `webhook_endpoint` sur l'ORM SQL
-   * `"default"`). Câblé par `nodefony/security/webhookStore.ts` (entité + fabrique).
-   */
-  NF_WEBHOOK_STORE: envEnum(["auto", "memory", "drizzle"] as const, {
-    default: "auto",
+    section: "Comptes créés au démarrage",
+    title: "Mot de passe du compte de test « user »",
     description:
-      "Backend des endpoints webhook : auto (suit l'infra déclarée) | memory | drizzle (durable).",
-  }),
-
-  /**
-   * Clé de chiffrement des secrets de signature webhook au repos (P6.13,
-   * HKDF→AES-256-GCM). PROD : OBLIGATOIRE — absente = webhooks désactivés (un
-   * secret chiffré par une clé éphémère serait illisible après redémarrage / sur
-   * les autres pods). DEV : optionnelle (clé éphémère générée + warning).
-   */
-  NF_WEBHOOK_KEY: envString({
-    optional: true,
-    description:
-      "Clé de chiffrement des secrets de signature webhook (prod requis).",
+      "Le compte « user » (droits ordinaires) n'existe qu'en développement, pour les essais et les bancs. Il n'est jamais créé en production.",
+    defaultNote: "secret-de-dev-42",
   }),
 
   /**
@@ -379,8 +305,44 @@ export const env = defineEnv({
    */
   NF_TOTP_KEY: envString({
     optional: true,
+    section: "Clés et secrets",
+    title: "Clé de chiffrement de la double authentification",
     description:
-      "Clé de chiffrement des secrets 2FA/TOTP au repos (prod requis, ≥ 32 octets).",
+      "Chiffre, dans la base, le secret de double authentification (le code à six chiffres) de chaque compte. Générée à la création de l'application.\nEn production, sans elle, la double authentification est désactivée.",
+    defaultNote: "clé éphémère en développement ; 2FA désactivée en production",
+  }),
+
+  /**
+   * Clé de chiffrement des secrets de signature webhook au repos (P6.13,
+   * HKDF→AES-256-GCM). PROD : OBLIGATOIRE — absente = webhooks désactivés (un
+   * secret chiffré par une clé éphémère serait illisible après redémarrage / sur
+   * les autres pods). DEV : optionnelle (clé éphémère générée + warning).
+   */
+  NF_WEBHOOK_KEY: envString({
+    optional: true,
+    section: "Clés et secrets",
+    title: "Clé de chiffrement des webhooks",
+    description:
+      "Chiffre, dans la base, les secrets qui signent les webhooks. Générée à la création de l'application (npx nodefony security:secrets --write).\nEn production, sans elle, les webhooks sont désactivés : une clé qui change à chaque démarrage rendrait les secrets illisibles.",
+    defaultNote:
+      "clé éphémère en développement ; webhooks désactivés en production",
+  }),
+
+  /**
+   * Secret des jetons anti-CSRF (synchronizer token). PROD/cluster :
+   * OBLIGATOIRE et PARTAGÉ entre les process — un secret par pod ferait
+   * échouer la validation d'un jeton émis par un autre pod. DEV : optionnel,
+   * un secret éphémère est généré et le boot le DIT (jamais de dégradation
+   * silencieuse) — poser la variable suffit à faire taire l'avertissement.
+   * `npx nodefony security:secrets` génère la clé et le câblage.
+   */
+  NF_CSRF_SECRET: envString({
+    optional: true,
+    section: "Clés et secrets",
+    title: "Secret anti-falsification des formulaires",
+    description:
+      "Signe les jetons qui protègent les formulaires contre les envois forgés depuis un autre site (CSRF). Généré à la création de l'application.\nAvec plusieurs exemplaires, il doit être le même partout — sinon un formulaire est refusé au hasard.",
+    defaultNote: "tiré au démarrage (un par process)",
   }),
 
   /**
@@ -402,8 +364,13 @@ export const env = defineEnv({
    */
   NF_JWT_ISSUER: envString({
     optional: true,
+    section: "Jetons (JWT)",
+    title: "Adresse publique de l'émetteur de jetons",
     description:
-      "URL publique de l'app comme émetteur de jetons (https) — sans elle, aucune découverte RFC 8414.",
+      "L'adresse publique de l'application, gravée dans chaque jeton qu'elle émet. Posée, elle permet à d'autres services de vérifier ces jetons. Sans elle, les jetons marchent pour l'application elle-même, mais personne d'autre ne peut les vérifier.\nNe la change plus ensuite : les jetons déjà émis seraient refusés.",
+    example: "https://app.example.com",
+    defaultNote:
+      "https://localhost:5152 en développement ; aucune en production",
   }),
 
   /**
@@ -436,21 +403,152 @@ export const env = defineEnv({
    */
   NF_JWT_KEYSET: envString({
     optional: true,
+    section: "Jetons (JWT)",
+    title: "Clé de signature des jetons (production)",
     description:
-      "Clé de signature des JWT partagée par tous les pods/workers (JSON une ligne, `security:secrets --jwt-keyset`) — absente : une clé par process.",
+      "En développement, rien à poser : la clé est créée dans var/keys/.\nEn production, tous les exemplaires de l'application doivent signer avec la MÊME clé — sinon un utilisateur est déconnecté au hasard. Génère-la une fois (npx nodefony security:secrets --jwt-keyset) et range-la dans le gestionnaire de secrets de ton hébergeur, jamais dans un fichier.",
+    defaultNote:
+      "var/keys/ en développement ; une clé par process en production",
+  }),
+
+  // ── Social login OAuth 2.0 (P6 J9) ─────────────────────────────────────────
+  // Secrets délivrés par les fournisseurs (Google Cloud Console / GitHub
+  // Developer Settings › OAuth Apps). OPTIONNELS : un fournisseur n'est monté
+  // QUE si SES deux secrets sont présents (sinon le bouton n'apparaît pas, 0
+  // route morte). JAMAIS commités — `.env` local ou secret-manager.
+  //
+  // 🔴 CES QUATRE NOMS N'ONT PAS DE PRÉFIXE `NF_`, ET C'EST UNE DÉCISION.
+  // Le préfixe dit à qui appartient la VALEUR, pas qui la lit : ces
+  // identifiants sont ÉMIS par Google et GitHub, et leur écosystème fixe déjà
+  // leur nom (la documentation des deux fournisseurs, Auth.js, Passport).
+  // Préfixer reviendrait à revendiquer un bien qui n'est pas le nôtre et à
+  // obliger l'utilisateur à dédoubler une variable qu'il possède déjà. La règle
+  // et ses trois exceptions : `CLAUDE.md`, § variables d'environnement.
+  // Le test : QUI a émis cette valeur ? Google ⇒ son nom. Nous ⇒ `NF_`.
+  GOOGLE_CLIENT_ID: envString({
+    optional: true,
+    section: "Connexion avec Google ou GitHub",
+    title: "Connexion Google : identifiant",
+    description:
+      "Délivré par Google Cloud Console, avec son secret. Les deux posés, un bouton « Google » apparaît sur la page de connexion ; sinon, rien ne s'affiche. Nom imposé par Google, d'où l'absence de préfixe NF_.",
+  }),
+
+  GOOGLE_CLIENT_SECRET: envString({
+    optional: true,
+    section: "Connexion avec Google ou GitHub",
+    title: "Connexion Google : secret",
+    description:
+      "Le secret qui accompagne GOOGLE_CLIENT_ID, délivré par Google Cloud Console.",
+  }),
+
+  GITHUB_CLIENT_ID: envString({
+    optional: true,
+    section: "Connexion avec Google ou GitHub",
+    title: "Connexion GitHub : identifiant",
+    description:
+      "Délivré par GitHub (Settings › Developer settings › OAuth Apps), avec son secret. Les deux posés, un bouton « GitHub » apparaît sur la page de connexion.",
+  }),
+
+  GITHUB_CLIENT_SECRET: envString({
+    optional: true,
+    section: "Connexion avec Google ou GitHub",
+    title: "Connexion GitHub : secret",
+    description:
+      "Le secret qui accompagne GITHUB_CLIENT_ID, délivré par GitHub.",
+  }),
+
+  // Keycloak est AUTO-HÉBERGÉ : ses valeurs sont émises par NOTRE serveur, et
+  // aucun nom d'écosystème ne fait foi — d'où le préfixe `NF_`, à l'inverse des
+  // quatre ci-dessus. Le fournisseur n'est monté que si les TROIS sont posées ;
+  // le décor de dev (profil `keycloak` du compose) en donne les valeurs,
+  // écrites dans docker/keycloak/import/realm-nodefony.json, à poser dans `.env`.
+  NF_KEYCLOAK_ISSUER: envString({
+    optional: true,
+    section: "Connexion Keycloak",
+    title: "Keycloak : adresse du realm",
+    description:
+      "Pour se connecter avec un serveur Keycloak (OpenID Connect) : l'adresse du realm, en https. Le bouton « Keycloak » n'apparaît que si les trois variables NF_KEYCLOAK_* sont posées.",
+    example: "https://localhost:8444/realms/nodefony",
+    sensitive: false,
+  }),
+
+  NF_KEYCLOAK_CLIENT_ID: envString({
+    optional: true,
+    section: "Connexion Keycloak",
+    title: "Keycloak : identifiant du client",
+    description:
+      "Le nom du client déclaré pour cette application dans le realm Keycloak.",
+    example: "nodefony-dev",
+    sensitive: false,
+  }),
+
+  NF_KEYCLOAK_CLIENT_SECRET: envString({
+    optional: true,
+    section: "Connexion Keycloak",
+    title: "Keycloak : secret du client",
+    description:
+      "Le secret de ce client, copié depuis la console Keycloak (onglet « Credentials » du client).",
   }),
 
   /**
-   * Secret des jetons anti-CSRF (synchronizer token). PROD/cluster :
-   * OBLIGATOIRE et PARTAGÉ entre les process — un secret par pod ferait
-   * échouer la validation d'un jeton émis par un autre pod. DEV : optionnel,
-   * un secret éphémère est généré et le boot le DIT (jamais de dégradation
-   * silencieuse) — poser la variable suffit à faire taire l'avertissement.
-   * `npx nodefony security:secrets` génère la clé et le câblage.
+   * Base d'URL des callbacks OAuth (RFC 9700 : exact match avec l'URL
+   * enregistrée chez le fournisseur). Callback complet = `<base>/nodefony/
+   * security/api/oauth2/<provider>/callback`.
+   *
+   * Défaut = `https://localhost:5152` — PAS `127.0.0.1` : les passkeys/WebAuthn
+   * REFUSENT une IP comme domaine (rpId), seul `localhost` (ou un vrai domaine)
+   * marche en dev. On standardise donc TOUT le dev sur `localhost` (OAuth +
+   * passkey + session) → un seul host, zéro incohérence cookie/rpId.
+   * ⚠️ Enregistrer le callback chez le fournisseur en `https://localhost:5152/...`.
+   * Google : si `https://localhost` est refusé, utiliser `http://localhost:5151`.
    */
-  NF_CSRF_SECRET: envString({
-    optional: true,
+  //
+  // Préfixée, elle : contrairement aux quatre ci-dessus, personne ne l'émet —
+  // c'est l'application qui se la donne. Un nom générique que l'application se
+  // donne est une collision pure, et une collision ne se manifeste jamais par
+  // une erreur.
+  NF_OAUTH_REDIRECT_BASE: envString({
+    default: "https://localhost:5152",
+    section: "Connexion externe : réglage commun",
+    title: "Adresse publique pour les retours de connexion",
     description:
-      "Secret des jetons anti-CSRF (synchronizer) — partagé entre process en cluster.",
+      "Google, GitHub ou Keycloak renvoient l'utilisateur vers l'application après la connexion, à une adresse qu'ils comparent au caractère près à celle enregistrée chez eux :\n    <NF_OAUTH_REDIRECT_BASE>/nodefony/security/api/oauth2/<fournisseur>/callback\nEn production, mets l'URL publique de l'application. En développement, garde localhost — jamais 127.0.0.1 : les passkeys refusent une adresse IP. Si Google refuse https://localhost, utilise http://localhost:5151.",
+    example: "https://app.example.com",
   }),
+
+  /**
+   * Livraison de l'UI Studio — molette `ui` de `@nodefony/studio`, exposée ici
+   * pour qu'un décor puisse la poser sans éditer la config.
+   *
+   * - `auto` (défaut) : dans CE dépôt, résout vers `vite` → HMR, sources vivantes.
+   * - `static` : sert les assets pré-buildés (`dist/frontend/`, produits par
+   *   `npm run build:ui`). **Aucune dépendance au dev-server Vite.**
+   * - `vite` : force le dev-server.
+   *
+   * POURQUOI cette molette existe pour un banc en CONTENEUR : en `auto`/`vite`, la
+   * page Studio annonce ses assets en URL ABSOLUE (`https://127.0.0.1:5173/...`,
+   * cf `TemplateHelper.renderDevTags`). Ce `127.0.0.1` est celui du NAVIGATEUR :
+   * dans un conteneur il désigne le conteneur lui-même, qui n'héberge aucun Vite
+   * → page blanche et `ERR_CONNECTION_REFUSED`, alors que le HTML, lui, est bien
+   * servi. En `static`, les assets sont same-origin sous `/_assets/studio/` : la
+   * page se charge quel que soit le nom par lequel on est entré. C'est en prime le
+   * mode que voient les applications qui installent Studio depuis npm.
+   *
+   * ⚠️ En `static` on perd le HMR — c'est un mode d'OBSERVATION, pas de dev front.
+   */
+  NF_STUDIO_UI: envEnum(["auto", "static", "vite"], {
+    default: "auto",
+    section: "Console d'administration",
+    title: "Console d'administration : mode d'affichage",
+    description:
+      "Comment la console d'administration (Studio) est servie : auto (le bon choix), vite (sources vivantes, rechargement à chaud) ou static (fichiers déjà construits, sans Vite — utile pour l'ouvrir depuis un conteneur).",
+  }),
+
+  // Le dev-server Vite n'a plus de variable d'environnement : Nodefony le
+  // relaie sur l'origine de la page (le poste et un navigateur en conteneur
+  // sont servis en même temps, sans rien à poser).
+  // Ce qui a motivé le retrait : posée pour observer un écran puis oubliée,
+  // cette variable a rendu Studio inaccessible depuis le poste, sans la moindre
+  // erreur côté serveur. Un décor d'observation n'a rien à faire dans
+  // l'environnement.
 });

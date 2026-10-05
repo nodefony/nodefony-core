@@ -215,16 +215,25 @@ nomme, et sort en erreur si l'une manque.
 
 ### Lire la notice `.env.example`
 
-Chaque variable s'y présente de la même façon, générée depuis `env.ts`, séparée de la suivante
-par deux lignes vides. Les métadonnées suivent la syntaxe des décorateurs de la spécification
-[@env-spec](https://varlock.dev/env-spec/overview/) — une par ligne, `@nom` ou `@nom=valeur` :
+Chaque variable s'y présente de la même façon, générée depuis `env.ts` : un **bandeau** avec son
+titre, une **explication** en phrases simples (à quoi elle sert, ce qui se passe sans elle), puis
+ses **métadonnées**, au format des décorateurs de la spécification
+[@env-spec](https://varlock.dev/env-spec/overview/) — une par ligne, `@nom` ou `@nom=valeur`.
+Deux lignes vides séparent deux variables :
 
 ```bash
-# Mot de passe de l'administrateur semé au premier démarrage.
+# ─── Base de données ────────────────────────────────────────────────────────
+#
+# L'adresse de ta base de données, en une seule URL : son début dit de quelle
+# base il s'agit (sqlite:, postgres://, mysql://, mongodb://).
+#
+# Sans elle, l'application utilise une base SQLite dans var/databases/ — rien
+# à installer, et les données survivent au redémarrage.
+#
 # @optional
-# @sensitive
-# @default="secret-de-dev-42 en développement ; aucun en production"
-# NF_ADMIN_PASSWORD=
+# @default=aucun
+# @example=postgres://app:motdepasse@localhost:5432/app
+# NF_DATABASE_URL=
 ```
 
 | Décorateur                     | Ce qu'il dit                                                |
@@ -234,18 +243,38 @@ par deux lignes vides. Les métadonnées suivent la syntaxe des décorateurs de 
 | `@sensitive`                   | un secret : jamais dans git, jamais de valeur d'exemple     |
 | `@type=enum(a, b)`             | les seules valeurs admises                                  |
 | `@default`                     | **toujours présent** — ce qui s'applique si on ne pose rien |
+| `@example`                     | une valeur réaliste, pour voir la forme attendue            |
 
 `@default` vaut le défaut déclaré, sinon `defaultNote` quand c'est le CODE qui applique un défaut
 (le catalogue ne le connaît pas), sinon `aucun`. Une valeur avec des espaces est entre
 guillemets : toute ligne de métadonnée se lit d'une seule expression régulière,
-`^# @(\w+)(?:=(.*))?$`. La description dit le rôle seulement — ne répétez pas le défaut dans la
-phrase.
+`^# @(\w+)(?:=(.*))?$`.
+
+Les variables sont **rangées par sections** numérotées — leur bandeau est un _séparateur_ au sens
+d'@env-spec (une ligne `# ===`), la spec n'ayant pas de décorateur de section — (« Réseau et processus », « Base de données
+et cache », « Connexion Keycloak »…), annoncées par un **sommaire** en tête du fichier qui liste,
+pour chaque section, les noms qu'elle contient : on trouve une variable par son thème comme par
+Ctrl+F. Une section apparaît à la place de sa première variable dans `env.ts` ; une variable sans
+section ferme la marche sous « Autres réglages ».
+
+`@sensitive` vient de `sensitive` quand la variable le déclare, sinon de son nom
+(`isSensitiveEnvVar`, la même règle que `nodefony env`) : déclare-le quand le nom trompe —
+`NF_KEYCLOAK_ISSUER` contient « key » et n'a rien de secret.
+
+Le texte vient de la déclaration : `section`, `title` (le bandeau), `description` (un `\n` sépare deux
+paragraphes, le repli à 78 colonnes est automatique ; une ligne qui commence par des espaces
+est recopiée telle quelle), `example`, `defaultNote`. Écrire pour quelqu'un qui découvre le
+projet : à quoi sert la variable, ce qui se passe si on ne la pose pas, où trouver sa valeur.
 
 ```typescript
 NF_ADMIN_PASSWORD: envString({
   optional: true,
+  section: "Comptes créés au démarrage",
+  title: "Mot de passe administrateur",
+  description:
+    "Le compte « admin » est créé au premier démarrage avec ce mot de passe. " +
+    "En production, sans cette variable, aucun compte n'est créé.",
   defaultNote: "secret-de-dev-42 en développement ; aucun en production",
-  description: "Mot de passe de l'administrateur semé au premier démarrage.",
 }),
 ```
 

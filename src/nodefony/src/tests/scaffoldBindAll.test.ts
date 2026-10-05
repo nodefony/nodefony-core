@@ -75,7 +75,11 @@ describe("create app — écoute sur le réseau local en développement (#528)",
 
   it("la notice .env.example le montre, commentée, avec son usage", () => {
     const catalogue = read(".env.example");
-    assert.match(catalogue, /^# NF_BIND_ALL=true$/mu);
-    assert.match(catalogue, /réseau local/u);
+    // Commentée, avec son défaut — et son usage expliqué en clair.
+    assert.match(catalogue, /^# NF_BIND_ALL=false$/mu);
+    assert.match(catalogue, /^# ─── Ouvrir au réseau local/mu);
+    // Le texte est replié à 78 colonnes : on le relit d'un seul tenant.
+    const prose = catalogue.replace(/\n#\s*/gu, " ");
+    assert.match(prose, /téléphone ou un autre poste/u);
   });
 });
