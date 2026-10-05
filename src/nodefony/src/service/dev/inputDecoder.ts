@@ -71,7 +71,9 @@ export type InputEvent =
    * Souris captée (modes 1000/1002/1006) : bouton enfoncé, relâché, glissé
    * bouton tenu (`drag`), ou déplacé sans bouton (`move`, mode 1003 — jamais
    * posé par nous, décodé quand même). Colonne et ligne comptent depuis 1,
-   * comme le terminal les envoie.
+   * comme le terminal les envoie. Seul l'encodage SGR (1006) est lu : le
+   * protocole X10 (`ESC [ M` + 3 octets), celui d'un terminal sans 1006,
+   * devient `unknown` suivi de trois caractères — jamais un contrôle.
    */
   | {
       kind: "mouse";

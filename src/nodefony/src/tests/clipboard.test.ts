@@ -4,6 +4,7 @@
  * que sur une preuve.
  */
 import { EventEmitter } from "node:events";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   OSC52_MAX_BYTES,
@@ -64,30 +65,35 @@ describe("presse-papiers — la route se choisit sur le CONTEXTE", () => {
   it("session distante : OSC 52 d'abord, et aucun outil local (il copierait sur la mauvaise machine)", () => {
     for (const key of ["SSH_CONNECTION", "SSH_TTY", "SSH_CLIENT"]) {
       expect(
-        labels(chooseClipboardRoutes({ [key]: "x", DISPLAY: ":0" })),
+        labels(chooseClipboardRoutes({ [key]: "x", DISPLAY: ":0" }, "linux")),
         key,
       ).to.deep.equal(["osc52"]);
     }
   });
 
   it("tmux : son tampon AVANT les outils locaux ; tmux sous SSH : tmux puis OSC 52", () => {
-    expect(labels(chooseClipboardRoutes({ TMUX: "x" }))[0]).to.equal(
+    expect(labels(chooseClipboardRoutes({ TMUX: "x" }, "linux"))[0]).to.equal(
       "tampon tmux",
     );
     expect(
-      labels(chooseClipboardRoutes({ TMUX: "x", SSH_TTY: "/dev/pts/1" })),
+      labels(
+        chooseClipboardRoutes({ TMUX: "x", SSH_TTY: "/dev/pts/1" }, "linux"),
+      ),
     ).to.deep.equal(["tampon tmux", "osc52"]);
   });
 
   it("poste : pbcopy, Wayland puis X11 s'ils sont là, PowerShell, OSC 52 en dernier", () => {
-    expect(labels(chooseClipboardRoutes({}))).to.deep.equal([
+    expect(labels(chooseClipboardRoutes({}, "linux"))).to.deep.equal([
       "pbcopy",
       "PowerShell",
       "osc52",
     ]);
     expect(
       labels(
-        chooseClipboardRoutes({ WAYLAND_DISPLAY: "wayland-0", DISPLAY: ":0" }),
+        chooseClipboardRoutes(
+          { WAYLAND_DISPLAY: "wayland-0", DISPLAY: ":0" },
+          "linux",
+        ),
       ),
     ).to.deep.equal([
       "pbcopy",
@@ -100,25 +106,90 @@ describe("presse-papiers — la route se choisit sur le CONTEXTE", () => {
   });
 
   it("jamais clip.exe : il casse l'Unicode", () => {
-    const routes = chooseClipboardRoutes({
-      DISPLAY: ":0",
-      WAYLAND_DISPLAY: "w",
-    });
+    const routes = chooseClipboardRoutes(
+      {
+        DISPLAY: ":0",
+        WAYLAND_DISPLAY: "w",
+      },
+      "linux",
+    );
     for (const r of routes) {
       if (r.kind === "command") expect(r.command).to.not.match(/clip\.exe/i);
     }
   });
 });
 
+describe("presse-papiers — tmux et Windows", () => {
+  it("tmux sur le POSTE : son tampon EN PLUS — pbcopy reçoit le texte et donne le message", async () => {
+    const routes = chooseClipboardRoutes({ TMUX: "x" }, "darwin");
+    const fake = fakeSpawn({ tmux: "ok", pbcopy: "ok" });
+    const outcome = await copyToClipboard("t", routes, {
+      spawn: fake.spawn,
+      writeTerminal: () => true,
+    });
+    expect(outcome).to.deep.equal({ status: "copied", via: "pbcopy" });
+    expect(fake.calls.map((c) => c.command)).to.include.members([
+      "tmux",
+      "pbcopy",
+    ]);
+  });
+
+  it("tmux sur le poste sans aucun outil : copié dans le tampon tmux, pas de seconde séquence OSC 52", async () => {
+    const written: string[] = [];
+    const outcome = await copyToClipboard(
+      "t",
+      chooseClipboardRoutes({ TMUX: "x" }, "linux"),
+      {
+        spawn: fakeSpawn({ tmux: "ok" }).spawn,
+        writeTerminal: (s) => {
+          written.push(s);
+          return true;
+        },
+      },
+    );
+    expect(outcome).to.deep.equal({ status: "copied", via: "tampon tmux" });
+    expect(written).to.deep.equal([]);
+  });
+
+  it("Windows : PowerShell par CHEMIN ABSOLU, seul (jamais un nom cherché dans le répertoire courant)", () => {
+    const routes = chooseClipboardRoutes(
+      { SystemRoot: "D:\\Win", DISPLAY: ":0" },
+      "win32",
+    );
+    expect(labels(routes)).to.deep.equal(["PowerShell", "osc52"]);
+    const ps = routes[0];
+    expect(ps?.kind === "command" && ps.command).to.equal(
+      path.win32.join(
+        "D:\\Win",
+        "System32",
+        "WindowsPowerShell",
+        "v1.0",
+        "powershell.exe",
+      ),
+    );
+    expect(ps?.kind === "command" && ps.timeoutMs).to.be.greaterThan(2000);
+  });
+
+  it("le terminal ne reçoit plus (plein écran quitté) : rien n'est dit envoyé", async () => {
+    const outcome = await copyToClipboard("x", [{ kind: "osc52" }], {
+      writeTerminal: () => false,
+    });
+    expect(outcome).to.deep.equal({ status: "failed" });
+  });
+});
+
 describe("presse-papiers — chaque outil est essayé, « copié » sur preuve seulement", () => {
-  const routes = chooseClipboardRoutes({ DISPLAY: ":0" });
+  const routes = chooseClipboardRoutes({ DISPLAY: ":0" }, "linux");
 
   it("absent puis en échec : le suivant ; le premier code 0 gagne et reçoit le texte", async () => {
     const fake = fakeSpawn({ pbcopy: "absent", xclip: "fails", xsel: "ok" });
     const written: string[] = [];
     const outcome = await copyToClipboard("héllo 漢", routes, {
       spawn: fake.spawn,
-      writeTerminal: (s) => written.push(s),
+      writeTerminal: (s) => {
+        written.push(s);
+        return true;
+      },
     });
     expect(outcome).to.deep.equal({ status: "copied", via: "xsel" });
     const xsel = fake.calls.find((c) => c.command === "xsel");
@@ -135,7 +206,7 @@ describe("presse-papiers — chaque outil est essayé, « copié » sur preuve s
     const fake = fakeSpawn({ pbcopy: "hangs", xclip: "ok" });
     const outcome = await copyToClipboard("x", routes, {
       spawn: fake.spawn,
-      writeTerminal: () => {},
+      writeTerminal: () => true,
       timeoutMs: 20,
     });
     expect(outcome).to.deep.equal({ status: "copied", via: "xclip" });
@@ -146,7 +217,10 @@ describe("presse-papiers — chaque outil est essayé, « copié » sur preuve s
     const written: string[] = [];
     const outcome = await copyToClipboard("é", routes, {
       spawn: fakeSpawn({}).spawn,
-      writeTerminal: (s) => written.push(s),
+      writeTerminal: (s) => {
+        written.push(s);
+        return true;
+      },
     });
     expect(outcome).to.deep.equal({ status: "sent" });
     expect(written).to.deep.equal([
@@ -161,7 +235,10 @@ describe("presse-papiers — chaque outil est essayé, « copié » sur preuve s
     expect(osc52Sequence(big)).to.equal(null);
     const written: string[] = [];
     const outcome = await copyToClipboard(big, [{ kind: "osc52" }], {
-      writeTerminal: (s) => written.push(s),
+      writeTerminal: (s) => {
+        written.push(s);
+        return true;
+      },
     });
     expect(outcome).to.deep.equal({ status: "too-long" });
     expect(written).to.deep.equal([]);

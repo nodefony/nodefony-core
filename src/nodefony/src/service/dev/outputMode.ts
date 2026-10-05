@@ -162,8 +162,9 @@ const WINDOWS_MOUSE_NODE: readonly [number, number] = [24, 2];
  * `null` si rien ne s'y oppose.
  *
  * ⚠️ C'est une DÉDUCTION, assumée : sous Windows, la console ne rapporte la
- * souris à un programme en mode brut que depuis libuv 1.51 (Node 22.17 /
- * 24.2, `UV_TTY_MODE_RAW_VT`). La constater exigerait d'activer les modes
+ * souris à un programme en mode brut que depuis libuv 1.51
+ * (`UV_TTY_MODE_RAW_VT`), soit Node 24.2 dans la branche du plancher (la
+ * branche 22 l'a reçue en 22.17, mais `engines` exige 24). La constater exigerait d'activer les modes
  * 1000+ — et sur un Node plus ancien, cette activation ferait AUSSI perdre la
  * molette du mode 1007 (les modes de suivi l'emportent sur lui). Le plancher
  * `engines` (24.0) laisse passer 24.0 et 24.1 : on le dit plutôt que de

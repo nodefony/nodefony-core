@@ -20,6 +20,7 @@
  * « envoyée au terminal — non confirmée ».
  */
 import { spawn as nodeSpawn } from "node:child_process";
+import path from "node:path";
 
 /** Une manière de copier : un outil du système, ou la séquence OSC 52. */
 export type ClipboardRoute =
@@ -34,6 +35,14 @@ export type ClipboardRoute =
        * — le collage au clic du milieu des autres applications. Best effort.
        */
       readonly primaryArgs?: readonly string[];
+      /**
+       * Lancée EN PLUS des suivantes, sans arrêter la cascade : le tampon
+       * tmux sur un poste, où `pbcopy`/`xclip` atteignent le vrai
+       * presse-papiers que le relais OSC 52 de tmux n'atteint pas toujours.
+       */
+      readonly additive?: boolean;
+      /** Délai propre à l'outil (PowerShell démarre lentement à froid). */
+      readonly timeoutMs?: number;
     }
   | { readonly kind: "osc52" };
 
@@ -63,8 +72,11 @@ export type ClipboardSpawn = (
 
 /** Ce dont l'exécuteur a besoin. */
 export interface IClipboardDeps {
-  /** Écrit une séquence sur le terminal du développeur (sa sortie standard). */
-  writeTerminal: (sequence: string) => void;
+  /**
+   * Écrit une séquence sur le terminal du développeur ; `false` quand il ne
+   * peut plus la recevoir (plein écran quitté) — la route est alors sautée.
+   */
+  writeTerminal: (sequence: string) => boolean;
   spawn?: ClipboardSpawn;
   /** Délai au-delà duquel un outil est abandonné (défaut 2 s). */
   timeoutMs?: number;
@@ -80,29 +92,60 @@ const TOOL_TIMEOUT_MS = 2000;
 export const OSC52_MAX_BYTES = 100 * 1024;
 
 /** PowerShell lit son entrée en UTF-8 avant de la confier au presse-papiers. */
+/** PowerShell à froid dépasse souvent 1 s : son délai est plus large. */
+const POWERSHELL_TIMEOUT_MS = 5000;
+
 const POWERSHELL_SCRIPT =
   "[Console]::InputEncoding=[Text.Encoding]::UTF8; Set-Clipboard -Value ([Console]::In.ReadToEnd())";
 
 /**
  * Les routes à essayer, dans l'ordre, pour un environnement donné.
  *
+ * Sous Windows, PowerShell est appelé par son CHEMIN ABSOLU, et lui seul :
+ * la recherche d'un exécutable par nom y commence par le répertoire courant
+ * — un `pbcopy.exe` posé à la racine d'un dépôt cloné s'exécuterait à la
+ * première copie.
+ *
  * @param env - l'environnement du superviseur.
+ * @param platform - `process.platform`.
  * @returns les routes, de la plus sûre à la dernière chance.
  */
 export function chooseClipboardRoutes(
   env: Readonly<Record<string, string | undefined>>,
+  platform: string,
 ): ClipboardRoute[] {
   const routes: ClipboardRoute[] = [];
+  const remote = Boolean(env.SSH_CONNECTION || env.SSH_TTY || env.SSH_CLIENT);
   if (env.TMUX) {
     routes.push({
       kind: "command",
       label: "tampon tmux",
       command: "tmux",
       args: ["load-buffer", "-w", "-"],
+      additive: !remote,
     });
   }
-  if (env.SSH_CONNECTION || env.SSH_TTY || env.SSH_CLIENT) {
+  if (remote) {
     routes.push({ kind: "osc52" });
+    return routes;
+  }
+  if (platform === "win32") {
+    routes.push(
+      {
+        kind: "command",
+        label: "PowerShell",
+        command: path.win32.join(
+          env.SystemRoot ?? "C:\\Windows",
+          "System32",
+          "WindowsPowerShell",
+          "v1.0",
+          "powershell.exe",
+        ),
+        args: ["-NoProfile", "-NonInteractive", "-Command", POWERSHELL_SCRIPT],
+        timeoutMs: POWERSHELL_TIMEOUT_MS,
+      },
+      { kind: "osc52" },
+    );
     return routes;
   }
   routes.push({
@@ -138,12 +181,14 @@ export function chooseClipboardRoutes(
       },
     );
   }
+  // WSL : `powershell.exe` du Windows hôte, atteint par le PATH de WSL.
   routes.push(
     {
       kind: "command",
       label: "PowerShell",
       command: "powershell.exe",
       args: ["-NoProfile", "-NonInteractive", "-Command", POWERSHELL_SCRIPT],
+      timeoutMs: POWERSHELL_TIMEOUT_MS,
     },
     { kind: "osc52" },
   );
@@ -220,26 +265,43 @@ export async function copyToClipboard(
   deps: IClipboardDeps,
 ): Promise<CopyOutcome> {
   const spawn = deps.spawn ?? defaultSpawn;
-  const timeoutMs = deps.timeoutMs ?? TOOL_TIMEOUT_MS;
   let tooLong = false;
+  /** Une route additive lancée, et ce qu'elle a donné. */
+  let extra: { label: string; done: Promise<boolean> } | null = null;
+  const extraCopied = async (): Promise<CopyOutcome | null> =>
+    extra !== null && (await extra.done)
+      ? { status: "copied", via: extra.label }
+      : null;
   for (const route of routes) {
     if (route.kind === "osc52") {
+      // tmux relaie déjà au terminal (`-w`) : pas de seconde séquence.
+      const viaTmux = await extraCopied();
+      if (viaTmux) return viaTmux;
       const sequence = osc52Sequence(text);
       if (sequence === null) {
         tooLong = true;
         continue;
       }
-      deps.writeTerminal(sequence);
+      if (!deps.writeTerminal(sequence)) continue;
       return { status: "sent" };
     }
-    if (await runTool(spawn, route.command, route.args, text, timeoutMs)) {
+    const timeoutMs = route.timeoutMs ?? deps.timeoutMs ?? TOOL_TIMEOUT_MS;
+    const run = runTool(spawn, route.command, route.args, text, timeoutMs);
+    if (route.additive) {
+      extra ??= { label: route.label, done: run };
+      continue;
+    }
+    if (await run) {
       if (route.primaryArgs) {
         void runTool(spawn, route.command, route.primaryArgs, text, timeoutMs);
       }
       return { status: "copied", via: route.label };
     }
   }
-  return tooLong ? { status: "too-long" } : { status: "failed" };
+  return (
+    (await extraCopied()) ??
+    (tooLong ? { status: "too-long" } : { status: "failed" })
+  );
 }
 
 /**

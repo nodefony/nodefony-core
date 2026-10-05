@@ -148,6 +148,10 @@ async function inverseCells(
   return out;
 }
 
+/** Laisse passer la file des copies (elles s'enchaînent par promesses). */
+const settle = (): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, 0));
+
 /** Une séquence SGR de souris (colonne et ligne depuis 1). */
 const press = (col: number, row: number): string => `\x1b[<0;${col};${row}M`;
 const drag = (col: number, row: number): string => `\x1b[<32;${col};${row}M`;
@@ -417,6 +421,7 @@ describe("plein écran — sélection à la souris (--mouse)", () => {
     expect(await inverseCells(stdout.written, 3)).to.equal("............");
     expect(copy).not.toHaveBeenCalled();
     input.type(release(5, 3));
+    await settle();
     expect(copy).toHaveBeenCalledWith("gne 2\nligne");
     terminal.close();
   });
@@ -433,8 +438,10 @@ describe("plein écran — sélection à la souris (--mouse)", () => {
   it("double clic : le mot ; triple clic : la ligne", async () => {
     const { input, terminal, copy } = await selecting();
     input.type(press(2, 4) + release(2, 4) + press(2, 4) + release(2, 4));
+    await settle();
     expect(copy).toHaveBeenLastCalledWith("ligne");
     input.type(press(2, 4) + release(2, 4));
+    await settle();
     expect(copy).toHaveBeenLastCalledWith("ligne 4");
     terminal.close();
   });
@@ -448,6 +455,7 @@ describe("plein écran — sélection à la souris (--mouse)", () => {
     await nextFrame();
     // Largeur de repli 19 : la ligne occupe les deux dernières lignes du journal.
     input.type(press(1, 10) + drag(11, 11) + release(11, 11));
+    await settle();
     expect(copy).toHaveBeenCalledWith(long);
     terminal.close();
   });
@@ -517,6 +525,7 @@ describe("plein écran — sélection sous le bloc d'état du serveur prêt", ()
     expect(row).to.not.equal(-1);
     const y = row + 1;
     input.type(press(1, y) + drag(5, y) + release(5, y));
+    await settle();
     expect(copy).toHaveBeenCalledWith((up[row] ?? "").slice(0, 5));
     await new Promise((resolve) => setTimeout(resolve, 0));
     await nextFrame();
@@ -591,6 +600,68 @@ describe("aide de la barre — la touche de sélection native du terminal", () =
   });
 });
 
+describe("plein écran — sélection : cas limites relevés en contre-revue", () => {
+  async function eleven(copy: (text: string) => Promise<string>) {
+    const t = fullscreen({ mouse: true, copy });
+    t.terminal.setStatus(null, ctx, "ready");
+    t.terminal.ingest("server", "out", lines(11));
+    await nextFrame();
+    return t;
+  }
+
+  it("triple clic : les copies s'enchaînent — la LIGNE gagne, jamais le mot du double clic", async () => {
+    const pending: Array<() => void> = [];
+    const copy = vi.fn(
+      (text: string) =>
+        new Promise<string>((resolve) => {
+          pending.push(() => resolve(`copié « ${text} »`));
+        }),
+    );
+    const { stdout, input, terminal } = await eleven(copy);
+    input.type(press(2, 4) + release(2, 4) + press(2, 4) + release(2, 4));
+    await settle();
+    expect(copy).toHaveBeenCalledTimes(1); // le mot
+    input.type(press(2, 4) + release(2, 4));
+    await settle();
+    expect(copy).toHaveBeenCalledTimes(1); // la ligne attend que le mot ait fini
+    pending.shift()?.();
+    await settle();
+    expect(copy).toHaveBeenLastCalledWith("ligne 4");
+    pending.shift()?.();
+    await settle();
+    await nextFrame();
+    expect((await screen(stdout.written)).at(-1)).to.include(
+      "copié « ligne 4 »",
+    );
+    terminal.close();
+  });
+
+  it("glisser commencé sur la PREMIÈRE ligne la sélectionne, sans faire défiler", async () => {
+    const copy = vi.fn(async (_text: string) => "copié");
+    const { input, terminal } = await eleven(copy);
+    input.type(press(1, 1) + drag(5, 1) + drag(7, 1));
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(terminal.anchor).to.equal(null);
+    input.type(release(7, 1));
+    await settle();
+    expect(copy).toHaveBeenCalledWith("ligne 1");
+    terminal.close();
+  });
+
+  it("un clic hors du journal (la barre) ne vise aucune ligne : triple clic, rien copié", async () => {
+    const copy = vi.fn(async (_text: string) => "copié");
+    const { input, terminal } = await eleven(copy);
+    const bar = ROWS; // la barre est la dernière ligne
+    input.type(
+      press(2, bar) + release(2, bar) + press(2, bar) + release(2, bar),
+    );
+    input.type(press(2, bar) + release(2, bar));
+    await settle();
+    expect(copy).not.toHaveBeenCalled();
+    terminal.close();
+  });
+});
+
 describe("plein écran — glisser au bord du journal (--mouse)", () => {
   const wait = (ms: number): Promise<void> =>
     new Promise((resolve) => setTimeout(resolve, ms));
@@ -606,6 +677,7 @@ describe("plein écran — glisser au bord du journal (--mouse)", () => {
     await wait(250);
     expect(terminal.anchor).to.not.equal(null);
     input.type(release(1, 1));
+    await settle();
     const copied = copy.mock.calls[0]?.[0] ?? "";
     const first = Number(/^ligne (\d+)/.exec(copied)?.[1]);
     expect(first).to.be.lessThan(30); // remontée au-delà de l'écran

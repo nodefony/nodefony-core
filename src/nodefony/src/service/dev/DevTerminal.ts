@@ -45,6 +45,7 @@ import {
   selectionRange,
   type ISelection,
   type ISelectionPoint,
+  type ISelectionRange,
   type SelectionUnit,
 } from "./devSelection";
 import {
@@ -360,6 +361,16 @@ interface IFullscreenState {
   /** Glisser au bord du journal : sens (1 = remonter) et point du bord. */
   edge: { direction: 1 | -1; row: number; column: number } | null;
   edgeTimer: NodeJS.Timeout | null;
+  /** Ligne du dernier évènement du glisser — le bord haut s'arme à l'ARRIVÉE. */
+  dragRow: number;
+  /**
+   * Les copies, l'une après l'autre : un triple clic suit toujours un double
+   * clic qui a déjà copié le mot — en parallèle, le presse-papiers garderait
+   * celui qui finit le dernier, et deux OSC 52 partiraient en rafale.
+   */
+  copying: Promise<void>;
+  /** La sélection normalisée, calculée une fois par sélection. */
+  range: { of: ISelection; value: ISelectionRange | null } | null;
   onQuit: () => void;
   onData: (chunk: Buffer | string) => void;
   decoder: InputDecoder;
@@ -383,6 +394,19 @@ interface IFullscreenState {
 function cursorSequence(frame: IFrame): string {
   if (frame.cursor === null) return "";
   return `\x1b[${frame.cursor.row + 1};${frame.cursor.column + 1}H\x1b[?25h`;
+}
+
+/**
+ * Hauteur du journal dans l'image affichée : jusqu'à sa dernière ligne
+ * d'origine connue — en dessous, indicateur, invite et barre.
+ */
+function journalRowsOf(frame: IFrame | null): number {
+  const origins = frame?.origins;
+  if (origins === undefined) return 0;
+  for (let i = origins.length - 1; i >= 0; i--) {
+    if (origins[i] !== null) return i + 1;
+  }
+  return 0;
 }
 
 /** Ce qui reste d'un paquet, par couple (source, flux), pour le suivant. */
@@ -635,6 +659,21 @@ export class DevTerminal {
   }
 
   /**
+   * Écrit une séquence brute sur le terminal — en plein écran SEULEMENT :
+   * hors de lui, la barre `inline` intercepte les écritures, et une séquence
+   * sans fin de ligne l'effacerait jusqu'au prochain `\n`. Sert l'OSC 52 du
+   * presse-papiers.
+   *
+   * @param sequence - la séquence, déjà formée.
+   * @returns `false` si le plein écran est quitté (rien n'est écrit).
+   */
+  writeRaw(sequence: string): boolean {
+    if (this.#full === null) return false;
+    this.#stdout.write(sequence);
+    return true;
+  }
+
+  /**
    * Les entrées postérieures à `seq` — cf `DevTranscript.since`.
    *
    * @param seq - le dernier numéro déjà lu.
@@ -723,6 +762,9 @@ export class DevTerminal {
       lastPress: null,
       edge: null,
       edgeTimer: null,
+      dragRow: 0,
+      copying: Promise.resolve(),
+      range: null,
       notice: null,
       noticeTimer: null,
       onQuit: options.onQuit,
@@ -803,7 +845,8 @@ export class DevTerminal {
         if (event.kind !== "mouse") return false;
         if (event.button !== 0) return true;
         if (event.action === "press") {
-          const point = this.#pointAt(full, event.row, event.column);
+          // Un clic hors du journal (barre, indicateur) ne vise aucune ligne.
+          const point = this.#pointAt(full, event.row, event.column, true);
           const now = Date.now();
           const last = full.lastPress;
           const clicks =
@@ -821,6 +864,7 @@ export class DevTerminal {
           };
           full.selecting = point !== null;
           full.dragged = false;
+          full.dragRow = event.row;
           this.#setSelection(
             full,
             point === null
@@ -864,14 +908,18 @@ export class DevTerminal {
       this.#setSelection(full, null);
       return;
     }
-    const range = selectionRange(selection, this.#transcript);
-    if (range === null || full.copy === null) return;
+    const range = this.#range(full);
+    const copy = full.copy;
+    if (range === null || copy === null) return;
     const text = extractSelection(this.#transcript, range);
     if (text.length === 0) return;
-    full.copy(text).then(
-      (message) => this.#notify(full, message),
-      () => this.#notify(full, "copie impossible"),
-    );
+    // Dans la chaîne, un `copy` qui lèverait SYNCHRONEMENT est rattrapé aussi.
+    full.copying = full.copying
+      .then(() => copy(text))
+      .then(
+        (message) => this.#notify(full, message),
+        () => this.#notify(full, "copie impossible"),
+      );
   }
 
   /** Affiche un message passager à la place de l'aide de la barre. */
@@ -903,11 +951,13 @@ export class DevTerminal {
     full: IFullscreenState,
     row: number,
     column: number,
+    strict = false,
     origins = full.frame?.origins,
   ): ISelectionPoint | null {
     if (origins === undefined) return null;
     const index = Math.min(Math.max(row - 1, 0), origins.length - 1);
     const origin = origins[index] ?? null;
+    if (strict && (origin === null || row - 1 !== index)) return null;
     if (origin !== null) {
       return {
         seq: origin.seq,
@@ -932,8 +982,14 @@ export class DevTerminal {
    * l'écran. Revenir dans le journal l'arrête.
    */
   #followEdge(full: IFullscreenState, row: number, column: number): void {
-    const rows = frameJournalRows(this.#model(full), this.#size());
-    const direction = row <= 1 ? 1 : row > rows ? -1 : 0;
+    const rows = journalRowsOf(full.frame);
+    // La ligne 1 est DANS le journal : le bord haut ne s'arme que si le
+    // pointeur y ARRIVE d'en dessous (ou y reste, déjà armé) — un glisser
+    // commencé sur la ligne 1 sélectionne cette ligne, il ne la fait pas fuir.
+    const previous = full.dragRow;
+    full.dragRow = row;
+    const up = row <= 1 && (previous > 1 || full.edge?.direction === 1);
+    const direction = up ? 1 : row > rows ? -1 : 0;
     if (direction === 0 || rows === 0) {
       this.#stopEdge(full);
       return;
@@ -954,10 +1010,15 @@ export class DevTerminal {
     }
     const before = full.anchor;
     this.#scrollBy(full, edge.direction * EDGE_LINES);
-    if (full.anchor === before) return; // bord de l'historique atteint
+    if (full.anchor === before) {
+      // Bout de l'historique : plus rien à faire défiler. Le prochain
+      // glisser au bord réarme.
+      this.#stopEdge(full);
+      return;
+    }
     // La tête se lit sur l'image À VENIR : celle à l'écran est d'avant le pas.
     const origins = renderFrame(this.#model(full), this.#size()).origins;
-    const head = this.#pointAt(full, edge.row, edge.column, origins);
+    const head = this.#pointAt(full, edge.row, edge.column, false, origins);
     if (head !== null) this.#setSelection(full, { ...full.selection, head });
   }
 
@@ -1072,8 +1133,25 @@ export class DevTerminal {
         full.selection === null ||
         (full.selection.unit === "char" && !full.dragged)
           ? null
-          : selectionRange(full.selection, this.#transcript),
+          : this.#range(full),
     };
+  }
+
+  /**
+   * La sélection normalisée — recalculée seulement quand la sélection
+   * change : en mot, elle relit deux entrées, et l'image se redessine à
+   * chaque ligne qui arrive.
+   */
+  #range(full: IFullscreenState): ISelectionRange | null {
+    const selection = full.selection;
+    if (selection === null) return null;
+    if (full.range?.of !== selection) {
+      full.range = {
+        of: selection,
+        value: selectionRange(selection, this.#transcript),
+      };
+    }
+    return full.range.value;
   }
 
   /** L'aide de la barre : elle dit les gestes de la souris quand elle est captée. */

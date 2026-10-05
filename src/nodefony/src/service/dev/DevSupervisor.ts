@@ -770,6 +770,29 @@ export class DevSupervisor {
    * surface `inline`, en le disant — jamais une déduction de la plateforme.
    */
   async #fullscreenOptions(): Promise<IDevFullscreenOptions | null> {
+    const mouse = readDevMouseRequest(process.argv, process.env);
+    if (mouse.invalid !== null) {
+      this.#out.write(
+        `[dev] NF_DEV_MOUSE=${mouse.invalid} ignorée : 1 demande la capture de la souris, 0 l'interdit\n`,
+      );
+    }
+    const options = await this.#negotiateFullscreen();
+    if (options === null) {
+      if (mouse.capture) {
+        this.#out.write(
+          "[dev] souris non captée : elle ne se capte qu'en plein écran (--ui)\n",
+        );
+      }
+      return null;
+    }
+    return { ...options, mouse: mouse.capture && this.#mouseAllowed() };
+  }
+
+  /**
+   * Le plein écran sans la souris : demandé, clavier en terminal, sonde
+   * répondue — ou `null`, en disant pourquoi.
+   */
+  async #negotiateFullscreen(): Promise<IDevFullscreenOptions | null> {
     const request = readDevUiRequest(process.argv, process.env);
     if (request.invalid !== null) {
       this.#out.write(
@@ -795,43 +818,37 @@ export class DevSupervisor {
       input: stdin,
       synchronized: probe.synchronized,
       onQuit: () => void this.#shutdown(),
-      mouse: this.#mouseCapture(),
       nativeKey: nativeSelectionKey(process.env),
-      // La séquence OSC 52 part sur NOTRE terminal (la sortie standard du
-      // superviseur), jamais par le serveur.
+      // La séquence OSC 52 part sur NOTRE terminal, par `DevTerminal` : une
+      // copie qui finit après la sortie du plein écran n'écrit plus rien.
       copy: async (text) =>
         describeCopy(
-          await copyToClipboard(text, chooseClipboardRoutes(process.env), {
-            writeTerminal: (sequence) => process.stdout.write(sequence),
-          }),
+          await copyToClipboard(
+            text,
+            chooseClipboardRoutes(process.env, process.platform),
+            {
+              writeTerminal: (sequence) =>
+                this.#terminal?.writeRaw(sequence) ?? false,
+            },
+          ),
         ),
     };
   }
 
   /**
-   * La capture de la souris, si elle est demandée (`--mouse`,
-   * `NF_DEV_MOUSE=1`) et que la plateforme ne s'y oppose pas — un refus est
-   * dit, jamais tu.
+   * La plateforme permet-elle la capture de la souris ? Un refus est dit,
+   * jamais tu.
    */
-  #mouseCapture(): boolean {
-    const request = readDevMouseRequest(process.argv, process.env);
-    if (request.invalid !== null) {
-      this.#out.write(
-        `[dev] NF_DEV_MOUSE=${request.invalid} ignorée : 1 demande la capture de la souris, 0 l'interdit\n`,
-      );
-    }
-    if (!request.capture) return false;
+  #mouseAllowed(): boolean {
     const blocker = mouseCaptureBlocker(
       process.platform,
       process.versions.node,
     );
-    if (blocker !== null) {
-      this.#out.write(
-        `[dev] souris laissée au terminal : ${blocker} — molette et PgUp défilent\n`,
-      );
-      return false;
-    }
-    return true;
+    if (blocker === null) return true;
+    this.#out.write(
+      `[dev] souris laissée au terminal : ${blocker} — molette et PgUp défilent\n`,
+    );
+    return false;
   }
 
   /**
