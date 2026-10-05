@@ -325,13 +325,40 @@ function collectFileSymbols(
     exportedByClause.has(name) ||
     defaultExported === name;
 
-  // Description du bloc TSDoc le plus PROCHE qui en porte une : balises
-  // retirées, blancs repliés, ~200 caractères pour que le graphe léger reste
-  // léger. Le plus proche, parce qu'un en-tête de fichier précède souvent la
-  // première déclaration (le prendre décrivait l'interface par le module) ;
-  // « qui en porte une », parce qu'un bloc de seules balises (`@typeParam`)
-  // suit parfois la description. L'API publique (`getJSDocCommentsAndTags`)
-  // ne rend que le dernier bloc : la liste complète vit sous `jsDoc`.
+  // Description d'un bloc TSDoc : son PREMIER PARAGRAPHE, avant toute balise
+  // de bloc. Lue sur le texte brut, et non par `getTextOfJSDocComment` :
+  // l'analyseur de TypeScript ouvre une balise sur tout `@` précédé d'un
+  // blanc, et « Service Pricing de @app/shop. » devenait « Service Pricing
+  // de ». TSDoc ne reconnaît une balise de bloc qu'en DÉBUT de ligne. Le
+  // premier paragraphe seulement : la convention veut qu'il se suffise, et la
+  // suite (exemples, consignes) n'a rien à faire dans un résumé.
+  const descriptionOf = (doc: TS.JSDoc): string => {
+    const raw = sf.text
+      .slice(doc.pos, doc.end)
+      .trim()
+      .replace(/^\/\*\*/u, "")
+      .replace(/\*\/$/u, "");
+    const kept: string[] = [];
+    for (const line of raw.split(/\r?\n/u)) {
+      const text = line.replace(/^\s*\*?\s?/u, "");
+      if (/^\s*@[A-Za-z]/u.test(text)) break;
+      kept.push(text);
+    }
+    const paragraph =
+      kept
+        .join("\n")
+        .trim()
+        .split(/\n\s*\n/u)[0] ?? "";
+    return paragraph.replace(/\s+/gu, " ").trim();
+  };
+
+  // Description du bloc TSDoc le plus PROCHE qui en porte une, ramenée à ~200
+  // caractères pour que le graphe léger reste léger. Le plus proche, parce
+  // qu'un en-tête de fichier précède souvent la première déclaration (le
+  // prendre décrivait l'interface par le module) ; « qui en porte une », parce
+  // qu'un bloc de seules balises (`@typeParam`) suit parfois la description.
+  // L'API publique (`getJSDocCommentsAndTags`) ne rend que le dernier bloc :
+  // la liste complète vit sous `jsDoc`.
   const tsDocOf = (node: TS.Node): string | undefined => {
     const all: unknown = "jsDoc" in node ? node.jsDoc : undefined;
     const docs = Array.isArray(all)
@@ -340,12 +367,9 @@ function collectFileSymbols(
     for (let i = docs.length - 1; i >= 0; i--) {
       const doc = docs[i];
       if (!doc) continue;
-      const collapsed = (ts.getTextOfJSDocComment(doc.comment) ?? "")
-        .replace(/\s+/g, " ")
-        .replace(/^\* /, "")
-        .trim();
-      if (!collapsed) continue;
-      return collapsed.length > 200 ? `${collapsed.slice(0, 197)}…` : collapsed;
+      const text = descriptionOf(doc);
+      if (!text) continue;
+      return text.length > 200 ? `${text.slice(0, 197)}…` : text;
     }
     return undefined;
   };

@@ -1,6 +1,9 @@
 import { Service, Module, Container, injectable } from "nodefony";
 
 /**
+ * Un SERVICE de ton application — l'exemplaire à LIRE quand tu écris de la
+ * logique métier.
+ *
  * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
  *
  * ```bash
@@ -12,9 +15,6 @@ import { Service, Module, Container, injectable } from "nodefony";
  * le module ; recopié à la main, il naît déjà décalé et personne ne le signale.
  * Ce fichier reste là pour se LIRE — comprendre ce qu'est un service — pas pour
  * se dupliquer.
- *
- * Un SERVICE de ton application — l'exemplaire à LIRE quand tu écris de la
- * logique métier.
  *
  * Il est là pour une raison précise : ton application naît avec des controllers
  * d'exemple, et un agent — comme un développeur — imite ce qu'il a sous les

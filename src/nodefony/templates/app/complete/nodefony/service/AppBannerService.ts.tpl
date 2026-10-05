@@ -3,6 +3,9 @@ import { Service, Module, Container, injectable, inject } from "nodefony";
 import AppInfoService from "./AppInfoService";
 
 /**
+ * Un service qui en CONSOMME un autre — l'exemplaire à imiter dès que ta
+ * logique a besoin d'une brique déjà écrite.
+ *
  * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
  *
  * ```bash
@@ -14,10 +17,6 @@ import AppInfoService from "./AppInfoService";
  * le module ; recopié à la main, il naît déjà décalé et personne ne le signale.
  * Ce fichier reste là pour se LIRE — comprendre ce qu'est un service — pas pour
  * se dupliquer.
- *
- *
- * Un service qui en CONSOMME un autre — l'exemplaire à imiter dès que ta
- * logique a besoin d'une brique déjà écrite.
  *
  * `AppInfoService`, à côté, montre à quoi ressemble un service. Il ne montrait
  * pas le geste le plus fréquent, et de loin : **s'en servir depuis ailleurs**.

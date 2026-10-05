@@ -101,6 +101,34 @@ describe("graphe symbolique — extraction", () => {
     assert.strictEqual(g.symbols.IB?.description, "Description de B.");
   });
 
+  it("⭐ la description est le PREMIER PARAGRAPHE, et un `@` en milieu de ligne n'est pas une balise", () => {
+    // L'analyseur de TypeScript ouvrait une balise sur « @symdemo » : le
+    // service généré se décrivait par « Service Pricing de ». Et le texte
+    // entier (consigne comprise) débordait dans le résumé.
+    const g = grapheDe(
+      [
+        "/**",
+        " * Service Pricing de @symdemo/shop.",
+        " *",
+        " * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**",
+        " *",
+        " * @param x - une vraie balise de bloc",
+        " */",
+        "export class PricingService {}",
+        "/** Une ligne. @deprecated n'est pas en début de ligne */",
+        "export const UNE = 1;",
+      ].join("\n"),
+    );
+    assert.strictEqual(
+      g.symbols.PricingService?.description,
+      "Service Pricing de @symdemo/shop.",
+    );
+    assert.strictEqual(
+      g.symbols.UNE?.description,
+      "Une ligne. @deprecated n'est pas en début de ligne",
+    );
+  });
+
   it("⭐ retient les exports par clause, alias compris, et `export default Nom`", () => {
     const g = grapheDe(
       [

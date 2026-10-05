@@ -436,6 +436,10 @@ retient un `package.json` ABSENT pour toute la vie du processus, et le supervise
 
 - **`--generate` est asynchrone** → porte `runSymbolsCli` ; `runSymbolsCommand` (publique,
   synchrone) le REFUSE au lieu de l'ignorer.
+- **Description** = PREMIER PARAGRAPHE du bloc TSDoc le plus PROCHE qui en porte une, lu sur le
+  texte brut : une balise de bloc ne s'ouvre qu'en DÉBUT de ligne (l'analyseur de TypeScript en
+  ouvrait une sur « de @app/shop » et coupait la phrase). D'où la règle des gabarits : le TSDoc
+  s'ouvre sur ce que la chose EST, jamais sur une consigne (`tests/scaffoldTsdocLead.test.ts`).
 - **Nom PUBLIÉ ≠ nom déclaré** (`export { schema as sessionSchema }`, `export { default as
 react19Preset } from "./…"`, `export { IUserRow as UserRow } from "@nodefony/user"`) : index
   `relations.aliases` (nom publié → `module:nom`), lu par `lookupSymbol` — la commande dit

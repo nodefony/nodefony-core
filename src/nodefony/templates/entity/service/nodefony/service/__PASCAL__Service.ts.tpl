@@ -8,6 +8,8 @@ import {
 } from "../entity/<%= it.pascal %>.schema";
 
 /**
+ * Logique métier de `<%= it.pascal %>` — **la** source de vérité.
+ *
  * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
  *
  * ```bash
@@ -20,9 +22,6 @@ import {
  * le module ; recopié à la main, il naît déjà décalé et personne ne le signale.
  * Ce fichier reste là pour se LIRE — comprendre ce qu'est un service — pas pour
  * se dupliquer.
- *
- *
- * Logique métier de `<%= it.pascal %>` — **la** source de vérité.
  *
  * Elle vit ici, et pas dans le controller, parce qu'elle doit servir tous les
  * transports : la même méthode alimente la route REST, l'appel WebSocket, un futur

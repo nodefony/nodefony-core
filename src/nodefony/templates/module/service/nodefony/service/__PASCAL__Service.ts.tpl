@@ -9,6 +9,10 @@ import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Se
 import defaultConfig, { type I<%= it.pascal %>Config } from "../config/config";
 
 /**
+ * Service principal du module — la logique vit ici, pas dans les controllers
+ * (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la
+ * CLI, un job, un autre module).
+ *
  * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
  *
  * ```bash
@@ -20,11 +24,6 @@ import defaultConfig, { type I<%= it.pascal %>Config } from "../config/config";
  * le module ; recopié à la main, il naît déjà décalé et personne ne le signale.
  * Ce fichier reste là pour se LIRE — comprendre ce qu'est un service — pas pour
  * se dupliquer.
- *
- *
- * Service principal du module — la logique vit ici, pas dans les controllers
- * (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la
- * CLI, un job, un autre module).
  *
  * Cycle : `constructor` (fusion défauts + config de l'app) → `init`
  * (branchements kernel) → méthodes métier.
