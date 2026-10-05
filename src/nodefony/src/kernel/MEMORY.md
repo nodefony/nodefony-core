@@ -147,16 +147,29 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     opt-in `--ui` / `NF_DEV_UI=1` (`--no-ui`, `NF_DEV_UI=0` l'interdisent ; `readDevUiRequest`,
     `outputMode.ts`), accordé seulement si le clavier est un terminal ET que la sonde répond
     (`probeTerminal`, `DevTerminal.ts` : DECRQM 2026 + `ESC[6n`, 500 ms, mode brut gardé) — sinon
-    `inline`, et le superviseur le DIT. `DevTerminal({ fullscreen })` : écran alternatif, souris
-    SGR, collage, mode brut ; images `renderFrame`→`diffFrame` ≤ 1/16 ms, UNE écriture, sortie
-    synchronisée si vue ; foyers (`addFocus` en tête, `dispatch`) défilement (molette 3 lignes,
-    PgUp/PgDn, Début, Fin — flèches LIBRES pour l'invite) puis global (Ctrl+C/Ctrl+D → `onQuit`
+    `inline`, et le superviseur le DIT. `DevTerminal({ fullscreen })` : écran alternatif, 1007
+    TOUJOURS (molette → flèches), collage, mode brut ; souris CAPTÉE seulement sur `--mouse` /
+    `NF_DEV_MOUSE=1` (`readDevMouseRequest` ; 1000+1002+1006, jamais 1003/1004 ; refusée sous
+    Windows si Node < 24.2, `mouseCaptureBlocker`) ; `LEAVE_FULLSCREEN` coupe tous les modes, posés
+    ou non ; images `renderFrame`→`diffFrame` ≤ 1/16 ms, UNE écriture, sortie
+    synchronisée si vue ; foyers (`addFocus` en tête, `dispatch`) souris (si captée) puis défilement
+    (↑↓ et molette captée 3 lignes/cran, PgUp/PgDn, Début, Fin — l'invite prendra Ctrl+P/Ctrl+N)
+    puis global (Ctrl+C/Ctrl+D → `onQuit`
     = `#shutdown` : en mode brut ce sont des TOUCHES) ; `ESC[2J` → `floorSeq` ; `#shutdown` appelle
     `leaveFullscreen()` EN PREMIER (journal visible recopié dans l'historique du shell, suite
     `inline`). Restauration sur tous les chemins par `guardTerminal` (`runtime/terminalGuard.ts`,
     registre UNIQUE partagé avec le curseur de `progress.ts`, écouteurs de signal EN TÊTE).
     Défilement pur : `scrollAnchor`/`topAnchor`/`frameJournalRows` (`devFrame.ts`), haut mesuré
     sur la mise en page REMONTÉE (l'indicateur y prend une ligne).
+    Sélection (souris captée) : `devSelection.ts` PUR, extrémités en (seq, colonne visible) —
+    jamais d'écran ; `renderFrame` rend `origins` (entrée + colonne de départ de chaque ligne
+    d'écran) et surligne (`invertColumns`, 7m reposé après chaque SGR) ; clic→cellule lu sur
+    l'image AFFICHÉE (`#pointAt`), bord du journal = défilement auto 3 lignes/60 ms ; double clic
+    mot (chemin/URL = 1 mot), triple ligne ; simple clic et Échap effacent. Copie au relâchement
+    par l'option `copy` → `clipboard.ts` (`chooseClipboardRoutes` pur : SSH ⇒ OSC 52 seule, TMUX ⇒
+    tampon tmux d'abord, puis pbcopy/wl-copy/xclip/xsel/PowerShell, OSC 52 en dernier ; « copié »
+    sur code 0 seulement). Message passager APRÈS « ctrl+c arrêter », jamais à sa place. Aide :
+    touche native par `nativeSelectionKey` (TERM_PROGRAM, aide seulement).
     Écran JUGÉ rendu : `tests/CliIntegration.test.ts`, bloc « écran de développement sous pseudo-terminal » (lot `test:boot` ; tout boot RÉEL de l'app du dépôt dans CE fichier : vitest parallélise les fichiers) — pseudo-terminal = commande
     `script` (util-linux/BSD, constatée ; entrée via `cat |` : BSD refuse un socket), rendu =
     `@xterm/headless` (devDependency). Capacité `pty` dans les gates ; Windows l'énonce.
