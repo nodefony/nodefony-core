@@ -5,7 +5,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "bin/nodefony"],
+      "outputs": ["dist/**"],
       "inputs": [
         "index.ts",
         "src/**",
@@ -87,7 +87,7 @@
     // aucun `src/packages/@nodefony/*` hors `dist`.
     "nodefony#build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "bin/nodefony"],
+      "outputs": ["dist/**"],
       "inputs": [
         "index.ts",
         "src/**",

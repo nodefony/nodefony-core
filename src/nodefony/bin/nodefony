@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+/**
+ * Lanceur du CLI `nodefony` — SUIVI par git, jamais généré.
+ *
+ * npm relie `node_modules/.bin/nodefony` à l'INSTALLATION. Un binaire produit
+ * par le build n'existe pas encore à ce moment-là sur un clone neuf : le lien
+ * manquait, et `npx nodefony` échouait même après `npm run build`. Ce fichier
+ * existe donc avant tout build ; le CLI lui-même est `dist/bin/nodefony.js`.
+ */
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const cli = new URL("../dist/bin/nodefony.js", import.meta.url);
+if (!existsSync(fileURLToPath(cli))) {
+  process.stderr.write(
+    `nodefony : le CLI n'est pas construit (${fileURLToPath(cli)} absent).\n` +
+      "           Dans le dépôt du framework : npm run build\n",
+  );
+  process.exit(1);
+}
+
+export default (await import(cli.href)).default;

@@ -83,9 +83,8 @@
   "scripts": {
     "nodefony": "node ./bin/nodefony",
     "build": "rolldown -c rolldown.config.ts && npm run build:types",
-    "postbuild": "node -e \"try{require('fs').chmodSync('bin/nodefony',0o755)}catch(e){}\"",
     "dev": "rolldown -c rolldown.config.ts --watch",
-    "clean": "node --eval \"for (const p of ['dist','bin/nodefony','tsconfig.tsbuildinfo']) require('node:fs').rmSync(p,{recursive:true,force:true})\"",
+    "clean": "node --eval \"for (const p of ['dist','tsconfig.tsbuildinfo']) require('node:fs').rmSync(p,{recursive:true,force:true})\"",
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.src.json && tsgo --noEmit -p tsconfigClient.json",
     "start": "node ./bin/nodefony",
     "test": "vitest run",

@@ -61,7 +61,11 @@ const nodeConfig: RolldownOptions = defineConfig({
   },
 });
 
-// ─── 2. Binary CLI (bin/nodefony) ─────────────────────────────────────────────
+// ─── 2. Binary CLI (dist/bin/nodefony.js) ─────────────────────────────────────
+// Le CLI construit va dans `dist/` ; `bin/nodefony` est un lanceur SUIVI par
+// git qui l'importe. npm relie `node_modules/.bin/nodefony` à l'INSTALLATION :
+// sur un clone neuf, un binaire produit par le build n'existait pas encore, et
+// `npx nodefony` échouait même après `npm run build`.
 const binConfig: RolldownOptions = defineConfig({
   input: "src/bin/nodefony.ts",
   platform: "node",
@@ -69,7 +73,7 @@ const binConfig: RolldownOptions = defineConfig({
   external: nodefonyExternalMatcher(external),
   treeshake: nodefonyTreeshake,
   output: {
-    file: "bin/nodefony",
+    file: "dist/bin/nodefony.js",
     format: "esm",
     banner: "#!/usr/bin/env node",
     exports: "default",

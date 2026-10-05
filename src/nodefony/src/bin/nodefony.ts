@@ -119,8 +119,11 @@ async function runSelf(): Promise<unknown> {
  * Une install cassée (paquet présent, binaire absent) échoue **bruyamment** : on ne
  * pilote pas une app avec une version de framework qu'elle n'a pas choisie.
  */
+// Construit, ce fichier vit dans `dist/bin/` : la racine du paquet est deux
+// niveaux plus haut (le lanceur `bin/nodefony` ne fait que l'importer).
 const selfDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
+  "..",
   "..",
 );
 const decision = resolveLocalCli({
