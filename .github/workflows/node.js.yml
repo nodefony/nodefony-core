@@ -194,6 +194,14 @@ jobs:
       - name: Gate — chaque script npm dit ce qu'il fait
         run: npm run check:scripts
 
+      # `.env.example` est GÉNÉRÉ depuis `env.ts` (et les réglages du framework),
+      # puis commité : rien ne le régénère tout seul. Une variable ajoutée sans
+      # relancer `npx nodefony env --example` laisse la notice mentir en silence
+      # — c'est ainsi qu'elle a annoncé « une clé par process en production »
+      # après que la production a cessé de démarrer sans clé. Sortie 78 si écart.
+      - name: Gate — .env.example suit env.ts
+        run: npx nodefony env --example --check
+
       # Une dépendance absente de la liste `external` d'un rolldown.config est
       # AVALÉE dans le `dist/` publié : l'application en reçoit une copie, et npm
       # lui installe l'autre. Deux copies d'une bibliothèque à état global (un

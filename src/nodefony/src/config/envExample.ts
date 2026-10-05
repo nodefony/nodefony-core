@@ -9,7 +9,11 @@
  * fichier (en-tête curé possible : `.env.example.head`) ; son `--check` échoue
  * si le fichier diverge du catalogue — pre-commit, CI.
  */
-import { isSensitiveEnvVar, type NamedEnvVarMeta } from "./defineEnv";
+import {
+  envVarPlacement,
+  isSensitiveEnvVar,
+  type NamedEnvVarMeta,
+} from "./defineEnv";
 
 /** Rend une valeur par défaut en chaîne pour le modèle (objets/arrays en JSON). */
 function stringifyDefault(v: unknown): string {
@@ -73,7 +77,9 @@ function wrapParagraph(text: string): string[] {
  * #
  * # @required | @optional
  * # @required=forEnv(production)      ← si requiredIn
+ * # @requiredWhen="<condition>"       ← si le CODE l'exige sous condition
  * # @sensitive                        ← si le nom désigne un secret
+ * # @placement=platform|secrets|workstation  ← TOUJOURS (où la poser en prod)
  * # @type=enum(a, b)                  ← si les valeurs sont fermées
  * # @default=<valeur | "texte" | aucun>   ← TOUJOURS (extension Nodefony)
  * # @example=<valeur>                 ← si un exemple est déclaré
@@ -109,7 +115,11 @@ function renderVar(v: NamedEnvVarMeta): string[] {
   for (const env of v.requiredIn ?? []) {
     out.push(`# @required=forEnv(${env})`);
   }
+  if (v.requiredWhen) {
+    out.push(`# @requiredWhen=${decoratorValue(v.requiredWhen)}`);
+  }
   if (secret) out.push("# @sensitive");
+  out.push(`# @placement=${envVarPlacement(v)}`);
   if (v.values?.length) out.push(`# @type=enum(${v.values.join(", ")})`);
   const fallback =
     v.default !== undefined

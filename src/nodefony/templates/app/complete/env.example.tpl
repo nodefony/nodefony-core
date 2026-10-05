@@ -18,7 +18,12 @@
 #
 #  Sous chaque variable :
 #    @required / @optional   faut-il la poser ?
+#    @requiredWhen           exigée sous condition : sans elle, refus de démarrer
 #    @sensitive              c'est un secret : jamais dans git
+#    @placement              où la poser en production :
+#                              platform     variables du déploiement (hébergeur)
+#                              secrets      gestionnaire de secrets
+#                              workstation  le poste seulement, sans objet en prod
 #    @default                ce qui s'applique si tu ne poses rien
 #
 #  Avancé : NF__<MODULE>__<CHEMIN>=valeur règle n'importe quelle clé de
@@ -46,6 +51,14 @@
 #        NF_KEYCLOAK_ISSUER, NF_KEYCLOAK_CLIENT_ID, NF_KEYCLOAK_CLIENT_SECRET
 #   8. Connexion externe : réglage commun
 #        NF_OAUTH_REDIRECT_BASE
+#   9. Framework : déploiement
+#        NF_ENV, NF_CLUSTER_PROBE, NF_POD_NAME, NF_INSTANCE_ID,
+#        NF_BOOT_TIMEOUT_MS, NF_BOOT_WARN_MS, NF_ORM_HEARTBEAT_MS,
+#        NF_REALTIME_DRIVER, NF_REALTIME_BACKPLANE_SECRET,
+#        NF_REALTIME_BACKPLANE_NAMESPACE
+#   10. Framework : poste et diagnostic
+#        NF_CLI_DEBUG, NF_DEV_UI, NF_DEV_MOUSE, NF_DEV_PORTS,
+#        NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF_PERF_PROBE, NF_ORM_FLOW
 
 
 # ============================================================================
@@ -63,6 +76,7 @@
 # s'il est occupé, le démarrage échoue.
 #
 # @optional
+# @placement=platform
 # @default=5151
 # @example=8080
 # NF_PORT=
@@ -75,6 +89,7 @@
 # NF_PORT est aussi posée, c'est NF_PORT qui l'emporte.
 #
 # @optional
+# @placement=platform
 # @default=aucun
 # PORT=
 
@@ -88,6 +103,7 @@
 # alors pas.
 #
 # @optional
+# @placement=platform
 # @default=5152
 # @example=8443
 # NF_PORT_HTTPS=
@@ -104,6 +120,7 @@
 # d'administration. Sans effet en production, qui écoute déjà partout.
 #
 # @optional
+# @placement=platform
 # @default=false
 # NF_BIND_ALL=false
 
@@ -116,6 +133,7 @@
 # développement.
 #
 # @optional
+# @placement=platform
 # @default=1
 # @example=auto
 # NF_WORKERS=
@@ -134,6 +152,7 @@
 # dans logs/), ou null (nulle part, pour un banc de mesure).
 #
 # @optional
+# @placement=platform
 # @type=enum(stdout, file, null)
 # @default=stdout
 # NF_LOG_DRIVER=stdout
@@ -156,6 +175,7 @@
 # acceptée.
 #
 # @optional
+# @placement=secrets
 # @default=aucun
 # @example=postgres://app:motdepasse@localhost:5432/app
 # NF_DATABASE_URL=
@@ -171,6 +191,7 @@
 # REDIS_URL est aussi acceptée.
 #
 # @optional
+# @placement=secrets
 # @default=aucun
 # @example=redis://:motdepasse@localhost:6379
 # NF_REDIS_URL=
@@ -191,6 +212,7 @@
 #
 # @optional
 # @sensitive
+# @placement=secrets
 # @default="nodefony-dev-42 en développement ; aucun en production"
 # NF_ADMIN_PASSWORD=
 
@@ -210,6 +232,7 @@
 #
 # @optional
 # @sensitive
+# @placement=secrets
 # @default="clé éphémère en développement ; 2FA désactivée en production"
 # NF_TOTP_KEY=
 
@@ -224,6 +247,7 @@
 #
 # @optional
 # @sensitive
+# @placement=secrets
 # @default="clé éphémère en développement ; webhooks désactivés en production"
 # NF_WEBHOOK_KEY=
 
@@ -240,6 +264,7 @@
 # @optional
 # @required=forEnv(production)
 # @sensitive
+# @placement=secrets
 # @default="tiré au démarrage (un par process)"
 # NF_CSRF_SECRET=
 
@@ -260,6 +285,7 @@
 # Ne la change plus ensuite : les jetons déjà émis seraient refusés.
 #
 # @optional
+# @placement=platform
 # @default="https://localhost:5152 en développement ; aucune en production"
 # @example=https://app.example.com
 # NF_JWT_ISSUER=
@@ -275,8 +301,10 @@
 # gestionnaire de secrets de ton hébergeur, jamais dans un fichier.
 #
 # @optional
+# @requiredWhen="en production, si l'application émet des jetons — sinon refus de démarrer"
 # @sensitive
-# @default="var/keys/ en développement ; une clé par process en production"
+# @placement=secrets
+# @default="var/keys/ en développement ; aucune en production"
 # NF_JWT_KEYSET=
 
 
@@ -293,6 +321,7 @@
 # variables NF_KEYCLOAK_* sont posées.
 #
 # @optional
+# @placement=platform
 # @default=aucun
 # @example=https://localhost:8444/realms/<%= it.appName %>
 # NF_KEYCLOAK_ISSUER=
@@ -303,6 +332,7 @@
 # Le nom du client déclaré pour cette application dans le realm Keycloak.
 #
 # @optional
+# @placement=platform
 # @default=aucun
 # @example=<%= it.appName %>
 # NF_KEYCLOAK_CLIENT_ID=
@@ -315,6 +345,7 @@
 #
 # @optional
 # @sensitive
+# @placement=secrets
 # @default=aucun
 # NF_KEYCLOAK_CLIENT_SECRET=
 
@@ -337,6 +368,206 @@
 # Google refuse https://localhost, utilise http://localhost:5151.
 #
 # @optional
+# @placement=platform
 # @default=https://localhost:5152
 # @example=https://app.example.com
 # NF_OAUTH_REDIRECT_BASE=
+
+
+
+# ============================================================================
+#  9. FRAMEWORK : DÉPLOIEMENT
+# ============================================================================
+
+
+# ─── Environnement de déploiement ───────────────────────────────────────────
+#
+# Environnement de déploiement quand il diffère du mode runtime (`APP_ENV`
+# gagne).
+#
+# @optional
+# @placement=platform
+# @default="le mode d'exécution (NODE_ENV)"
+# NF_ENV=
+
+
+# ─── Sonde du maître de grappe ──────────────────────────────────────────────
+#
+# Coupe la sonde du maître de grappe quand elle vaut `0`.
+#
+# @optional
+# @placement=platform
+# @default="active (0 la coupe)"
+# NF_CLUSTER_PROBE=
+
+
+# ─── Nom du pod ─────────────────────────────────────────────────────────────
+#
+# Nom du pod, dont se dérive l'identité d'origine du backplane temps réel.
+#
+# @optional
+# @placement=platform
+# @default="le nom de la machine"
+# NF_POD_NAME=
+
+
+# ─── Identifiant d'instance ─────────────────────────────────────────────────
+#
+# Identifiant d'instance rendu par le plan d'administration (défaut : le pid).
+#
+# @optional
+# @placement=platform
+# @default="le pid du process"
+# NF_INSTANCE_ID=
+
+
+# ─── Délai maximal de démarrage (ms) ────────────────────────────────────────
+#
+# Délai au-delà duquel un démarrage est déclaré perdu.
+#
+# @optional
+# @placement=platform
+# @default="20000 en développement, 60000 en production"
+# NF_BOOT_TIMEOUT_MS=
+
+
+# ─── Seuil de démarrage lent (ms) ───────────────────────────────────────────
+#
+# Délai au-delà duquel un démarrage lent est signalé.
+#
+# @optional
+# @placement=platform
+# @default="5000 (0 désactive la mesure)"
+# NF_BOOT_WARN_MS=
+
+
+# ─── Battement de cœur de l'ORM (ms) ────────────────────────────────────────
+#
+# Période du battement de cœur qui surveille les connecteurs de l'ORM.
+#
+# @optional
+# @placement=platform
+# @default="30000 (0 le désactive)"
+# NF_ORM_HEARTBEAT_MS=
+
+
+# ─── Pilote du backplane temps réel ─────────────────────────────────────────
+#
+# Pilote du backplane temps réel (mémoire, Redis…).
+#
+# @optional
+# @placement=platform
+# @default="backplane.driver de la configuration"
+# NF_REALTIME_DRIVER=
+
+
+# ─── Secret du backplane temps réel ─────────────────────────────────────────
+#
+# Secret qui scelle les enveloppes du backplane temps réel.
+#
+# @optional
+# @sensitive
+# @placement=secrets
+# @default="backplane.secret de la configuration"
+# NF_REALTIME_BACKPLANE_SECRET=
+
+
+# ─── Espace de noms du backplane ────────────────────────────────────────────
+#
+# Espace de noms du backplane — ce qui cloisonne deux applications sur un même
+# bus.
+#
+# @optional
+# @placement=platform
+# @default="backplane.namespace de la configuration"
+# NF_REALTIME_BACKPLANE_NAMESPACE=
+
+
+
+# ============================================================================
+#  10. FRAMEWORK : POSTE ET DIAGNOSTIC
+# ============================================================================
+
+
+# ─── Trace du lanceur du CLI ────────────────────────────────────────────────
+#
+# Trace la décision du lanceur du CLI sur la sortie d'erreur.
+#
+# @optional
+# @placement=workstation
+# @default=désactivée
+# NF_CLI_DEBUG=
+
+
+# ─── Plein écran du terminal de développement ───────────────────────────────
+#
+# Plein écran du terminal de développement : `1` le demande, `0` l'interdit —
+# défaut : oui hors Windows (`--ui` / `--no-ui` l'emportent).
+#
+# @optional
+# @placement=workstation
+# @default="oui, sauf sous Windows"
+# NF_DEV_UI=
+
+
+# ─── Souris en plein écran de développement ─────────────────────────────────
+#
+# Capture de la souris en plein écran de développement : `1` la demande, `0`
+# l'interdit — défaut : oui hors Windows (`--mouse` / `--no-mouse`
+# l'emportent).
+#
+# @optional
+# @placement=workstation
+# @default="oui, sauf sous Windows"
+# NF_DEV_MOUSE=
+
+
+# ─── Ports libérés par le superviseur de développement ──────────────────────
+#
+# Ports que le superviseur de développement doit libérer, imposés par
+# l'opérateur.
+#
+# @optional
+# @placement=workstation
+# @default="les ports déclarés par l'application, sinon 5151,5152"
+# NF_DEV_PORTS=
+
+
+# ─── Trace de démarrage du Kernel ───────────────────────────────────────────
+#
+# Fichier où le Kernel écrit sa trace de démarrage (diagnostic).
+#
+# @optional
+# @placement=workstation
+# @default="aucune trace"
+# NF_KERNEL_TRACE_FILE=
+
+
+# ─── Rendu non interactif forcé ─────────────────────────────────────────────
+#
+# Force le rendu non interactif, quel que soit le terminal.
+#
+# @optional
+# @placement=workstation
+# @default="déduit du terminal"
+# NF_NO_TTY=
+
+
+# ─── Sonde de performance HTTP ──────────────────────────────────────────────
+#
+# Arme la sonde de performance du pipeline HTTP.
+#
+# @optional
+# @placement=workstation
+# @default="désactivée (1 l'arme)"
+# NF_PERF_PROBE=
+
+
+# ─── Sonde de flux de l'ORM ─────────────────────────────────────────────────
+#
+# Arme la sonde de flux de l'ORM.
+#
+# @optional
+# @placement=workstation
+# @default="active en développement, coupée en production (1 la force)"
+# NF_ORM_FLOW=

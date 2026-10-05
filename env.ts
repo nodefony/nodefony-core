@@ -99,6 +99,8 @@ export const env = defineEnv({
    */
   NF_DATABASE_URL: envString({
     optional: true,
+    // L'URL porte le mot de passe : sa place est le gestionnaire de secrets.
+    placement: "secrets",
     section: "Base de données et cache",
     title: "Base de données",
     description:
@@ -114,6 +116,8 @@ export const env = defineEnv({
    */
   NF_REDIS_URL: envString({
     optional: true,
+    // L'URL porte le mot de passe : sa place est le gestionnaire de secrets.
+    placement: "secrets",
     section: "Base de données et cache",
     title: "Redis (cache partagé)",
     description:
@@ -383,11 +387,11 @@ export const env = defineEnv({
    * l'autre : l'utilisateur est déconnecté au hasard de la répartition (401).
    *
    * **Absente ⇒** développement : rien à faire, la clé vit dans `var/keys/`
-   * (persistée, créée par un seul worker). Production : chaque process signe
-   * avec une clé ÉPHÉMÈRE, annoncée par un WARNING au premier jeton — tolérable
-   * pour UN seul process, faux dès le deuxième, et tous les jetons sont perdus à
-   * chaque redémarrage. Facultative pour la même raison que `NF_TOTP_KEY` : une
-   * application qui n'émet aucun jeton doit pouvoir démarrer sans elle.
+   * (persistée, créée par un seul worker). Production : CE dépôt tourne sur
+   * une seule machine et garde aussi `var/keys/` (`nodefony/config/security.ts`) ;
+   * une application générée, elle, refuse de démarrer sans cette variable.
+   * Facultative pour la même raison que `NF_TOTP_KEY` : une application qui
+   * n'émet aucun jeton doit pouvoir démarrer sans elle.
    *
    * **Valeur** : un jeu de clés Ed25519 en JSON, sur UNE ligne —
    * `npx nodefony security:secrets --jwt-keyset`. Elle contient la clé PRIVÉE :
@@ -408,7 +412,7 @@ export const env = defineEnv({
     description:
       "En développement, rien à poser : la clé est créée dans var/keys/.\nEn production, tous les exemplaires de l'application doivent signer avec la MÊME clé — sinon un utilisateur est déconnecté au hasard. Génère-la une fois (npx nodefony security:secrets --jwt-keyset) et range-la dans le gestionnaire de secrets de ton hébergeur, jamais dans un fichier.",
     defaultNote:
-      "var/keys/ en développement ; une clé par process en production",
+      "var/keys/ (sur ce dépôt, en production aussi : une seule machine)",
   }),
 
   // ── Social login OAuth 2.0 (P6 J9) ─────────────────────────────────────────

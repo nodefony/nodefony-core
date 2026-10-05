@@ -6,9 +6,11 @@ import { pathToFileURL } from "node:url";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { configInconsistencies } from "../kernel/checks/projectScope";
+import { declaredModules } from "../kernel/checks/readiness";
 import { envFileOrder } from "../runtime/loadEnv";
 import { renderEnvExample } from "../config/envExample";
 import { getEnvCatalog, type NamedEnvVarMeta } from "../config/defineEnv";
+import { frameworkEnvCatalog } from "../config/reservedEnv";
 import { stripGlobalCliFlags } from "./globalFlags";
 import {
   buildEnvReport,
@@ -424,7 +426,12 @@ const EXAMPLE_HEADER = `# ══════════════════
 #
 #  Sous chaque variable :
 #    @required / @optional   faut-il la poser ?
+#    @requiredWhen           exigée sous condition : sans elle, refus de démarrer
 #    @sensitive              c'est un secret : jamais dans git
+#    @placement              où la poser en production :
+#                              platform     variables du déploiement (hébergeur)
+#                              secrets      gestionnaire de secrets
+#                              workstation  le poste seulement, sans objet en prod
 #    @default                ce qui s'applique si tu ne poses rien
 #
 #  Avancé : NF__<MODULE>__<CHEMIN>=valeur règle n'importe quelle clé de
@@ -436,14 +443,48 @@ const EXAMPLE_HEADER = `# ══════════════════
 /**
  * Compose le contenu de `.env.example` d'une application — PUR.
  *
+ * Le catalogue de l'application d'abord, puis les réglages du FRAMEWORK
+ * qu'elle ne déclare pas elle-même ({@link frameworkEnvCatalog}) : une
+ * variable lue par le framework se pose comme une autre, la notice doit donc
+ * la nommer. Une variable que l'application redéclare garde SA déclaration.
+ *
  * @param catalog - catalogue des variables (via `getEnvCatalog`).
+ * @param customHeader - en-tête du projet (`.env.example.head`), sinon le générique.
+ * @param modules - modules du manifeste (cf {@link readManifestModules}) ;
+ *   `null` nomme les réglages de tous les modules.
  * @returns le texte complet du fichier.
  */
 export function composeEnvExample(
   catalog: readonly NamedEnvVarMeta[],
   customHeader: string | null = null,
+  modules: readonly string[] | null = null,
 ): string {
-  return renderEnvExample(catalog, { header: customHeader ?? EXAMPLE_HEADER });
+  const names = new Set(catalog.map((v) => v.name));
+  const framework = frameworkEnvCatalog(modules).filter(
+    (v) => !names.has(v.name),
+  );
+  return renderEnvExample([...catalog, ...framework], {
+    header: customHeader ?? EXAMPLE_HEADER,
+  });
+}
+
+/**
+ * Les modules que déclare le manifeste de l'application (`use("…")` de
+ * `nodefony.config.ts`), lus sans l'évaluer — ou `null` s'il est illisible,
+ * auquel cas la notice nomme les réglages de tous les modules plutôt que
+ * d'en taire un.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns les noms déclarés, ou `null`.
+ */
+export function readManifestModules(projectRoot: string): string[] | null {
+  try {
+    return declaredModules(
+      readFileSync(path.join(projectRoot, "nodefony.config.ts"), "utf8"),
+    );
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -530,7 +571,11 @@ export async function runEnvCommand(argv: string[]): Promise<number> {
     }
     const { synced, wrote } = applyEnvExample(
       projectRoot,
-      composeEnvExample(catalog, readExampleHeader(projectRoot)),
+      composeEnvExample(
+        catalog,
+        readExampleHeader(projectRoot),
+        readManifestModules(projectRoot),
+      ),
       parsed.check,
     );
     if (!synced) {

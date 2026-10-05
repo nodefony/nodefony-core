@@ -57,7 +57,7 @@ flowchart TD
 ```
 
 Le fait structurant tient en une ligne : **un seul endroit lit `process.env`** — le catalogue
-`defineEnv()` (`defineEnv.ts:541`). Partout ailleurs, la configuration est un objet typé, résolu au
+`defineEnv()` (`defineEnv.ts:529`). Partout ailleurs, la configuration est un objet typé, résolu au
 boot. Cela supprime d'un coup toute une famille de pannes : le `process.env.X` lu au fond d'un
 service, jamais validé, absent en production.
 
@@ -237,7 +237,7 @@ Trois gardes évitent les heures de débogage les plus classiques :
   `resolveFailureHint()` (`envOverride.ts:571`).
 - **La coercion est explicite.** `coerceEnvValue()` (`envOverride.ts:59`) traite `"true"`/`"false"`,
   les nombres, le JSON (`[…]`, `{…}`) et le CSV. Le piège `z.coerce.boolean("false") === true` est
-  ainsi évité, et une chaîne vide compte comme **absente** (`isAbsent()`, `defineEnv.ts:189`).
+  ainsi évité, et une chaîne vide compte comme **absente** (`isAbsent()`, `defineEnv.ts:229`).
 - **Le schéma de l'app n'est pas strict.** Les clés inconnues (`module-<x>`, `App`, `cluster`) sont
   **ignorées, pas rejetées** (`schema.ts:11`) : chaque module valide **son** bloc avec **son** schéma.
   Une seule autorité par périmètre.
@@ -251,10 +251,10 @@ Trois gardes évitent les heures de débogage les plus classiques :
 ## 🧰 Le catalogue d'environnement — `defineEnv` et ses helpers
 
 `defineEnv()` (`defineEnv.ts:270`) lit la source **une fois**, valide tout en bloc, et renvoie un
-objet **gelé** (`Object.freeze`, `defineEnv.ts:618`). Une variable absente prend son défaut ; une
+objet **gelé** (`Object.freeze`, `defineEnv.ts:606`). Une variable absente prend son défaut ; une
 variable présente mais invalide **arrête le boot en la nommant** (`defineEnv.ts:479`).
 
-Il déclare aussi ses propres métadonnées (`getEnvCatalog()`, `defineEnv.ts:120`), ce qui permet de
+Il déclare aussi ses propres métadonnées (`getEnvCatalog()`, `defineEnv.ts:154`), ce qui permet de
 **générer** `.env.example` depuis le catalogue (`renderEnvExample()`, `envExample.ts:138`) au lieu de
 le maintenir à la main — un fichier d'exemple qui ment est pire que pas d'exemple.
 
@@ -267,20 +267,20 @@ le maintenir à la main — un fichier d'exemple qui ment est pire que pas d'exe
 
 ### `envString()` — la chaîne, requise ou non
 
-Trois régimes selon les options (`defineEnv.ts:235`) : avec `default` la variable est toujours
+Trois régimes selon les options (`defineEnv.ts:323`) : avec `default` la variable est toujours
 présente ; avec `optional: true` le type devient `string | undefined` ; sans ni l'un ni l'autre elle
 est **requise**, et son absence arrête le boot. C'est le helper des URLs et des secrets.
 
 ### `envNumber()` — le nombre, coercé puis vérifié
 
-`envNumber()` (`defineEnv.ts:296`) convertit puis laisse Zod trancher : une valeur non numérique est
+`envNumber()` (`defineEnv.ts:331`) convertit puis laisse Zod trancher : une valeur non numérique est
 transmise **brute** au schéma, qui la rejette avec le nom de la variable. Un port mal orthographié ne
 devient jamais `NaN` silencieusement.
 
 ### `envBoolean()` — les ensembles 12-factor
 
-`envBoolean()` (`defineEnv.ts:338`) accepte `1/true/yes/on` et `0/false/no/off`, insensible à la
-casse (`TRUTHY`/`FALSY`, `defineEnv.ts:186`). Tout le reste est une **erreur** : `tru` est une faute
+`envBoolean()` (`defineEnv.ts:357`) accepte `1/true/yes/on` et `0/false/no/off`, insensible à la
+casse (`TRUTHY`/`FALSY`, `defineEnv.ts:226`). Tout le reste est une **erreur** : `tru` est une faute
 de frappe, pas un « faux » implicite. Ce helper a toujours une valeur (défaut `false`).
 
 ### `envEnum()` — l'ensemble fermé, littéral préservé
@@ -296,12 +296,12 @@ C'est le helper des molettes : driver de log, mode, dialecte.
 
 ### Les secrets — la convention `*_FILE`
 
-`resolveFileEnv()` (`defineEnv.ts:162`) implémente la convention des secrets montés : si `NF_X` est
+`resolveFileEnv()` (`defineEnv.ts:202`) implémente la convention des secrets montés : si `NF_X` est
 absente mais que `NF_X_FILE` pointe un fichier (secret Docker, `Secret` Kubernetes, Vault), c'est le
 **contenu du fichier** qui est lu, retour à la ligne final retiré. Deux règles fermes :
 
 - déclarer `NF_X` **et** `NF_X_FILE` en même temps est une **ambiguïté** → `resolveFileEnv()` lève
-  une erreur explicite (`defineEnv.ts:162`) ;
+  une erreur explicite (`defineEnv.ts:202`) ;
 - un fichier illisible est une erreur de boot, jamais un repli silencieux (`defineEnv.ts:122`).
 
 Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathLooksSecret()`,
@@ -676,7 +676,7 @@ précisément l'objectif du modèle « résoudre puis figer ».
 | `NF__…__ENABLED=false` interprété comme vrai           | Attendu d'une coercion naïve — ce n'est pas le cas ici               | Rien à faire : `coerceEnvValue()` est explicite (`envOverride.ts:59`)             |
 | Boot rejeté : « Configuration d'application invalide » | Une valeur hors schéma (`validateAppConfig`)                         | Lire le chemin + la raison, corriger (`schema.ts:377`)                            |
 | Diagnostic vague sur `servers.https`                   | Union Zod — la branche fautive est masquée                           | Le message descend déjà dans les unions (`schema.ts:162`)                         |
-| `KEY` et `KEY_FILE` définis en même temps              | Ambiguïté de secret, refusée (`resolveFileEnv`)                      | N'en garder qu'un (`defineEnv.ts:162`)                                            |
+| `KEY` et `KEY_FILE` définis en même temps              | Ambiguïté de secret, refusée (`resolveFileEnv`)                      | N'en garder qu'un (`defineEnv.ts:202`)                                            |
 | Une métadonnée `.meta()` disparaît                     | `.meta()` n'est pas en dernier — le clone Zod la perd                | `.default(x).meta({…})` (`configMeta.ts:27`)                                      |
 | Un override `module-<nom>` semble ignoré               | Il était appliqué après la validation du module                      | Corrigé : appliqué avant (`Kernel.ts:946`) — vérifier l'orthographe du module     |
 | Le cluster ignore `cluster.config.ts`                  | Le fichier déréférence le kernel → import KO → repli silencieux      | Le garder **kernel-free** (`topology.ts:111`)                                     |

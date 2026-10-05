@@ -33,6 +33,20 @@ import { pathLooksSecret } from "./envOverride";
 export type EnvVarKind = "string" | "number" | "boolean" | "enum";
 
 /**
+ * Où une variable se pose en PRODUCTION — la colonne « où la poser » de la notice.
+ *
+ * - `platform` : les variables du déploiement, que l'orchestrateur ou
+ *   l'hébergeur fournit (manifeste, `ConfigMap`, réglages du service) ;
+ * - `secrets` : le gestionnaire de secrets (`Secret` Kubernetes, Vault…),
+ *   livré en variable ou en fichier monté (`<NOM>_FILE`) ;
+ * - `workstation` : le poste seulement — un réglage de développement ou de
+ *   diagnostic, sans objet en production.
+ *
+ * Sur le poste, quelle que soit la place, la valeur se pose dans `.env`.
+ */
+export type EnvVarPlacement = "platform" | "secrets" | "workstation";
+
+/**
  * Métadonnées INTROSPECTABLES d'une variable du catalogue — capturées à la
  * déclaration (le défaut serait sinon piégé dans la closure `z.preprocess`).
  * Portées par le schéma Zod (clé non-énumérable) puis agrégées par `defineEnv`
@@ -81,6 +95,18 @@ export interface EnvVarMeta {
    * {@link resolveEnvStages}.
    */
   readonly requiredIn?: readonly string[] | undefined;
+  /**
+   * Une exigence que le CODE impose sous CONDITION, en clair (« en production,
+   * si l'application émet des jetons ») — rendue `@requiredWhen` dans la notice.
+   *
+   * Elle ne contrôle rien : c'est le module concerné qui refuse de démarrer.
+   * Elle existe pour que la notice ne dise pas « optionnelle » d'une variable
+   * sans laquelle un déploiement s'arrête — `requiredIn` ne convient pas, il
+   * exigerait la variable même de qui n'utilise pas la brique.
+   */
+  readonly requiredWhen?: string | undefined;
+  /** Où la poser en production — absent, déduit (cf {@link envVarPlacement}). */
+  readonly placement?: EnvVarPlacement | undefined;
 }
 
 /** {@link EnvVarMeta} + le nom de la variable (clé du catalogue). */
@@ -147,6 +173,20 @@ export function isSensitiveEnvVar(
   meta: Pick<NamedEnvVarMeta, "name" | "sensitive">,
 ): boolean {
   return meta.sensitive ?? pathLooksSecret([meta.name]);
+}
+
+/**
+ * Où la variable se pose en production. La déclaration (`placement`) fait foi ;
+ * sans elle, un secret va au gestionnaire de secrets et le reste aux variables
+ * du déploiement. Seule source de cette décision pour la notice `.env.example`.
+ *
+ * @param meta - la variable du catalogue (au moins son nom).
+ * @returns `platform`, `secrets` ou `workstation`.
+ */
+export function envVarPlacement(
+  meta: Pick<NamedEnvVarMeta, "name" | "sensitive" | "placement">,
+): EnvVarPlacement {
+  return meta.placement ?? (isSensitiveEnvVar(meta) ? "secrets" : "platform");
 }
 
 /**
@@ -229,6 +269,17 @@ interface BaseOpts {
    * `nodefony doctor --env production` la nomme avant qu'on y aille.
    */
   requiredIn?: readonly string[];
+  /**
+   * Exigence imposée par le CODE sous condition, en clair — notice seulement
+   * (cf {@link EnvVarMeta.requiredWhen}).
+   */
+  requiredWhen?: string;
+  /**
+   * Où la poser en production — à déclarer quand la déduction se trompe
+   * (cf {@link envVarPlacement}) : un réglage de poste (`workstation`), un
+   * secret dont le nom ne le dit pas (`secrets`).
+   */
+  placement?: EnvVarPlacement;
 }
 interface StrOpts extends BaseOpts {
   /** Valeur par défaut si la variable est absente. */
@@ -262,31 +313,15 @@ export function envString(
 ): z.ZodType<string | undefined>;
 export function envString(opts?: StrOpts): z.ZodType<string>;
 export function envString(opts: StrOpts = {}): z.ZodType<string | undefined> {
-  const {
-    default: def,
-    optional,
-    title,
-    section,
-    description,
-    example,
-    sensitive,
-    defaultNote,
-    requiredIn,
-  } = opts;
+  const { default: def, optional, ...doc } = opts;
   const inner: z.ZodType =
     optional && def === undefined ? z.string().optional() : z.string();
   const schema = z.preprocess((v) => (isAbsent(v) ? def : v), inner);
-  return tagMeta(withDoc(schema, description), {
+  return tagMeta(withDoc(schema, doc.description), {
     kind: "string",
     optional: Boolean(optional && def === undefined),
     default: def,
-    title,
-    section,
-    description,
-    example,
-    sensitive,
-    defaultNote,
-    requiredIn,
+    ...doc,
   }) as z.ZodType<string | undefined>;
 }
 
@@ -298,17 +333,7 @@ export function envNumber(
 ): z.ZodType<number | undefined>;
 export function envNumber(opts?: NumOpts): z.ZodType<number>;
 export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
-  const {
-    default: def,
-    optional,
-    title,
-    section,
-    description,
-    example,
-    sensitive,
-    defaultNote,
-    requiredIn,
-  } = opts;
+  const { default: def, optional, ...doc } = opts;
   const inner: z.ZodType =
     optional && def === undefined ? z.number().optional() : z.number();
   const schema = z.preprocess((v) => {
@@ -316,17 +341,11 @@ export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
     const n = Number(v);
     return Number.isNaN(n) ? v : n; // non numérique → laissé brut → z.number rejette
   }, inner);
-  return tagMeta(withDoc(schema, description), {
+  return tagMeta(withDoc(schema, doc.description), {
     kind: "number",
     optional: Boolean(optional && def === undefined),
     default: def,
-    title,
-    section,
-    description,
-    example,
-    sensitive,
-    defaultNote,
-    requiredIn,
+    ...doc,
   }) as z.ZodType<number | undefined>;
 }
 
@@ -336,16 +355,7 @@ export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
  * de ces ensembles → erreur au boot (typo détectée, ex. `tru`).
  */
 export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
-  const {
-    default: def = false,
-    title,
-    section,
-    description,
-    example,
-    sensitive,
-    defaultNote,
-    requiredIn,
-  } = opts;
+  const { default: def = false, ...doc } = opts;
   const schema = z.preprocess((v) => {
     if (isAbsent(v)) return def;
     const s = String(v).trim().toLowerCase();
@@ -353,17 +363,11 @@ export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
     if (FALSY.has(s)) return false;
     return v; // invalide → laissé brut → z.boolean rejette
   }, z.boolean());
-  return tagMeta(withDoc(schema, description), {
+  return tagMeta(withDoc(schema, doc.description), {
     kind: "boolean",
     optional: false, // toujours une valeur (absente → `def`)
     default: def,
-    title,
-    section,
-    description,
-    example,
-    sensitive,
-    defaultNote,
-    requiredIn,
+    ...doc,
   });
 }
 
@@ -391,32 +395,16 @@ export function envEnum<const T extends readonly [string, ...string[]]>(
   values: T,
   opts: EnumOpts<T[number]> = {},
 ): z.ZodType<T[number] | undefined> {
-  const {
-    default: def,
-    optional,
-    title,
-    section,
-    description,
-    example,
-    sensitive,
-    defaultNote,
-    requiredIn,
-  } = opts;
+  const { default: def, optional, ...doc } = opts;
   const base = z.enum(values as unknown as [string, ...string[]]);
   const inner: z.ZodType =
     optional && def === undefined ? base.optional() : base;
   const schema = z.preprocess((v) => (isAbsent(v) ? def : v), inner);
-  return tagMeta(withDoc(schema, description), {
+  return tagMeta(withDoc(schema, doc.description), {
     kind: "enum",
     optional: Boolean(optional && def === undefined),
     default: def,
-    title,
-    section,
-    description,
-    example,
-    sensitive,
-    defaultNote,
-    requiredIn,
+    ...doc,
     values: [...values],
   }) as z.ZodType<T[number] | undefined>;
 }

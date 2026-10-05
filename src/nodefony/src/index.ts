@@ -375,10 +375,12 @@ export {
   envBoolean,
   envEnum,
   isSensitiveEnvVar,
+  envVarPlacement,
   getEnvCatalog,
 } from "./config/defineEnv";
 export type {
   EnvVarKind,
+  EnvVarPlacement,
   EnvVarMeta,
   NamedEnvVarMeta,
 } from "./config/defineEnv";

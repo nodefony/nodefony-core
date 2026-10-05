@@ -42,7 +42,7 @@ cluster.
 | ------------------------------------------ | ------------------------------------------------- | ----------------------------------- |
 | Ce qui est **secret**                      | `NF_DATABASE_URL`, `NF_REALTIME_BACKPLANE_SECRET` | un `Secret`, monté en variables     |
 | Ce qui est **public mais par déploiement** | `NF_REALTIME_BACKPLANE_NAMESPACE`, `NODE_ENV`     | un `ConfigMap`                      |
-| Ce que **le cluster seul connaît**         | `NF_POD_NAME` (`reservedEnv.ts:82`)               | un `fieldRef` — jamais écrit en dur |
+| Ce que **le cluster seul connaît**         | `NF_POD_NAME` (`reservedEnv.ts:124`)              | un `fieldRef` — jamais écrit en dur |
 
 ## 📖 Lexique
 
@@ -117,7 +117,7 @@ kubelet qui reçoit un `429` croit le pod mort. Le détail vit dans
 
 > **`initialDelaySeconds` ne se recopie pas.** Le boot est dominé par l'import et l'instanciation
 > des modules de **votre** application : mesurez le vôtre. `NF_BOOT_TIMEOUT_MS` le borne — un module
-> suspendu fait échouer le pod vite (`reservedEnv.ts:98`), au lieu de le laisser à moitié vivant.
+> suspendu fait échouer le pod vite (`reservedEnv.ts:178`), au lieu de le laisser à moitié vivant.
 
 ## Secret et ConfigMap — ce qui va où
 

@@ -20,7 +20,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { version } from "../../package.json";
 import { runScaffold } from "../cli/scaffold/engine";
-import { composeEnvExample } from "../cli/env";
+import { composeEnvExample, readManifestModules } from "../cli/env";
 import { getEnvCatalog } from "../config/defineEnv";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -61,7 +61,11 @@ async function noticeFromCatalog(app: string): Promise<string> {
   const probe = path.join(app, "env.notice-probe.ts");
   writeFileSync(probe, source);
   const mod = (await import(pathToFileURL(probe).href)) as { env: unknown };
-  return composeEnvExample(getEnvCatalog(mod.env));
+  return composeEnvExample(
+    getEnvCatalog(mod.env),
+    null,
+    readManifestModules(app),
+  );
 }
 
 describe("notice .env.example de l'application générée", () => {

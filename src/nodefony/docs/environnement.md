@@ -215,6 +215,16 @@ nomme, et sort en erreur si l'une manque.
 
 ### Lire la notice `.env.example`
 
+La notice est un fichier commité, **produit** par une commande — rien ne la régénère tout seul :
+
+```bash
+npx nodefony env --example            # réécrit .env.example depuis env.ts
+npx nodefony env --example --check    # vérifie sans écrire ; sortie 78 si elle a dérivé
+```
+
+Une application générée lance le contrôle dans `npm run verify` (script `env:check`), donc en
+CI : une variable ajoutée à `env.ts` sans régénérer la notice y est refusée.
+
 Chaque variable s'y présente de la même façon, générée depuis `env.ts` : un **bandeau** avec son
 titre, une **explication** en phrases simples (à quoi elle sert, ce qui se passe sans elle), puis
 ses **métadonnées**, au format des décorateurs de la spécification
@@ -231,6 +241,7 @@ Deux lignes vides séparent deux variables :
 # à installer, et les données survivent au redémarrage.
 #
 # @optional
+# @placement=secrets
 # @default=aucun
 # @example=postgres://app:motdepasse@localhost:5432/app
 # NF_DATABASE_URL=
@@ -240,7 +251,9 @@ Deux lignes vides séparent deux variables :
 | ------------------------------ | ----------------------------------------------------------- |
 | `@required` / `@optional`      | faut-il la poser ?                                          |
 | `@required=forEnv(production)` | obligatoire là-bas seulement (`requiredIn`)                 |
+| `@requiredWhen="…"`            | exigée par le CODE sous condition (`requiredWhen`)          |
 | `@sensitive`                   | un secret : jamais dans git, jamais de valeur d'exemple     |
+| `@placement`                   | **toujours présent** — où la poser en production            |
 | `@type=enum(a, b)`             | les seules valeurs admises                                  |
 | `@default`                     | **toujours présent** — ce qui s'applique si on ne pose rien |
 | `@example`                     | une valeur réaliste, pour voir la forme attendue            |
@@ -261,9 +274,41 @@ section ferme la marche sous « Autres réglages ».
 (`isSensitiveEnvVar`, la même règle que `nodefony env`) : déclare-le quand le nom trompe —
 `NF_KEYCLOAK_ISSUER` contient « key » et n'a rien de secret.
 
+`@placement` dit **où** la valeur se pose en production — sur le poste, tout va dans `.env` :
+
+| Valeur        | Où                                                                                                       |
+| ------------- | -------------------------------------------------------------------------------------------------------- |
+| `platform`    | les variables du déploiement, fournies par l'hébergeur ou l'orchestrateur                                |
+| `secrets`     | le gestionnaire de secrets (`Secret` Kubernetes, Vault…), en variable ou en fichier monté (`<NOM>_FILE`) |
+| `workstation` | le poste seulement : un réglage de développement ou de diagnostic                                        |
+
+Il vient de `placement` quand la variable le déclare, sinon il se déduit (`envVarPlacement`) :
+un secret va au gestionnaire de secrets, le reste aux variables du déploiement. Déclare-le quand
+la déduction se trompe — une URL de base de données porte un mot de passe que son nom ne dit pas.
+
+`@requiredWhen` couvre l'exigence que ni `optional` ni `requiredIn` ne savent dire : celle qu'un
+module impose **sous condition**. Sans clé de signature, une application qui émet des jetons
+refuse de démarrer en production ; une application qui n'en émet pas démarre très bien. La
+déclarer `requiredIn: ["production"]` exigerait la clé de qui n'en a pas l'usage. `requiredWhen`
+ne contrôle rien — c'est le module qui refuse — mais la notice cesse de dire « optionnelle » :
+
+```typescript
+NF_JWT_KEYSET: envString({
+  optional: true,
+  requiredWhen:
+    "en production, si l'application émet des jetons — sinon refus de démarrer",
+}),
+```
+
+La notice se termine par les **réglages du framework** — les variables que Nodefony lit lui-même
+et qu'on peut poser (nombre de workers, délai de démarrage, pilote du backplane…), en deux
+sections : « Framework : déploiement » et « Framework : poste et diagnostic ». Ils viennent de la
+liste des variables réservées (`config/reservedEnv.ts`) ; seuls ceux des modules que déclare le
+manifeste apparaissent, et une variable que `env.ts` déclare garde sa propre déclaration.
+
 Le texte vient de la déclaration : `section`, `title` (le bandeau), `description` (un `\n` sépare deux
 paragraphes, le repli à 78 colonnes est automatique ; une ligne qui commence par des espaces
-est recopiée telle quelle), `example`, `defaultNote`. Écrire pour quelqu'un qui découvre le
+est recopiée telle quelle), `example`, `defaultNote`, `placement`, `requiredWhen`. Écrire pour quelqu'un qui découvre le
 projet : à quoi sert la variable, ce qui se passe si on ne la pose pas, où trouver sa valeur.
 
 ```typescript

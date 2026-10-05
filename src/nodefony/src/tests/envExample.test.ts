@@ -8,7 +8,9 @@ import {
   envBoolean,
   envEnum,
   getEnvCatalog,
+  envVarPlacement,
 } from "../config/defineEnv";
+import { frameworkEnvCatalog, RESERVED_ENV } from "../config/reservedEnv";
 import type { NamedEnvVarMeta } from "../config/defineEnv";
 import { renderEnvExample } from "../config/envExample";
 import {
@@ -120,6 +122,7 @@ describe("envExample — renderEnvExample", () => {
         kind: "string",
         optional: true,
         requiredIn: ["production"],
+        requiredWhen: "si le compte doit exister",
         defaultNote: "secret-de-dev-42 en dev, aucun en production",
         title: "Mot de passe administrateur",
         description:
@@ -140,6 +143,7 @@ describe("envExample — renderEnvExample", () => {
           "# Où partent les journaux.",
           "#",
           "# @optional",
+          "# @placement=platform",
           "# @type=enum(stdout, file)",
           "# @default=stdout",
           "# NF_DRIVER=stdout",
@@ -156,7 +160,9 @@ describe("envExample — renderEnvExample", () => {
           "#",
           "# @optional",
           "# @required=forEnv(production)",
+          '# @requiredWhen="si le compte doit exister"',
           "# @sensitive",
+          "# @placement=secrets",
           '# @default="secret-de-dev-42 en dev, aucun en production"',
           "# @example=un-mot-de-passe-long",
           "# NF_ADMIN_PASSWORD=",
@@ -166,6 +172,7 @@ describe("envExample — renderEnvExample", () => {
           band("NF_NU"),
           "#",
           "# @optional",
+          "# @placement=platform",
           "# @default=aucun",
           "# NF_NU=",
         ].join("\n"),
@@ -197,7 +204,9 @@ describe("envExample — renderEnvExample", () => {
       "default",
       "example",
       "optional",
+      "placement",
       "required",
+      "requiredWhen",
       "sensitive",
       "type",
     ]);
@@ -445,5 +454,94 @@ describe("catalogue d'env — reconnu entre DEUX instances de nodefony (#304)", 
     );
     assert.strictEqual(getEnvCatalog(env).length, 1);
     assert.strictEqual(getEnvCatalog(env)[0]?.name, "NF_X");
+  });
+});
+
+describe("#542 — où la poser, exigence sous condition, réglages du framework", () => {
+  it("🔴 @placement : la déclaration fait foi, sinon secret ⇒ secrets, le reste ⇒ platform", () => {
+    assert.strictEqual(envVarPlacement({ name: "NF_PORT" }), "platform");
+    assert.strictEqual(envVarPlacement({ name: "NF_CSRF_SECRET" }), "secrets");
+    assert.strictEqual(
+      envVarPlacement({ name: "NF_ISSUER_URL", sensitive: true }),
+      "secrets",
+    );
+    assert.strictEqual(
+      envVarPlacement({ name: "NF_DEV_SECRET", placement: "workstation" }),
+      "workstation",
+    );
+  });
+
+  it("🔴 placement et requiredWhen traversent defineEnv jusqu'au catalogue", () => {
+    const env = defineEnv(
+      {
+        NF_KEYSET: envString({
+          optional: true,
+          placement: "secrets",
+          requiredWhen: "en production",
+        }),
+      },
+      {},
+    );
+    const [meta] = getEnvCatalog(env);
+    assert.strictEqual(meta?.placement, "secrets");
+    assert.strictEqual(meta?.requiredWhen, "en production");
+    const out = renderEnvExample(getEnvCatalog(env));
+    assert.match(out, /^# @requiredWhen="en production"$/mu);
+    assert.match(out, /^# @placement=secrets$/mu);
+  });
+
+  it("🔴 la notice d'une application nomme les RÉGLAGES du framework, et eux seuls", () => {
+    const out = composeEnvExample([
+      { name: "NF_PORT", kind: "number", optional: true, title: "Port" },
+    ]);
+    assert.match(out, /FRAMEWORK : DÉPLOIEMENT/u);
+    assert.match(out, /FRAMEWORK : POSTE ET DIAGNOSTIC/u);
+    for (const v of frameworkEnvCatalog()) {
+      assert.match(out, new RegExp(`^# ${v.name}=$`, "mu"), v.name);
+    }
+    // Posées par le framework lui-même : les annoncer inviterait à les écrire.
+    for (const name of ["NF_CLI_DELEGATED", "NF_MODE_START", "NF_DEV_CHILD"]) {
+      assert.doesNotMatch(out, new RegExp(`^# ${name}=`, "mu"), name);
+    }
+  });
+
+  it("🔴 un réglage lu par un module ABSENT du manifeste n'est pas nommé", () => {
+    const sans = composeEnvExample([], null, ["@nodefony/http"]);
+    assert.doesNotMatch(sans, /^# NF_REALTIME_DRIVER=/mu);
+    assert.doesNotMatch(sans, /^# NF_ORM_HEARTBEAT_MS=/mu);
+    assert.match(sans, /^# NF_BOOT_TIMEOUT_MS=/mu, "un réglage du cœur reste");
+    const avec = composeEnvExample([], null, [
+      "@nodefony/realtime",
+      "@nodefony/mongoose",
+    ]);
+    assert.match(avec, /^# NF_REALTIME_DRIVER=/mu);
+    assert.match(avec, /^# NF_ORM_HEARTBEAT_MS=/mu);
+  });
+
+  it("🔴 une variable que l'application déclare garde SA déclaration (pas de doublon)", () => {
+    const out = composeEnvExample([
+      {
+        name: "NF_WORKERS",
+        kind: "string",
+        optional: true,
+        title: "Workers de l'application",
+      },
+    ]);
+    assert.strictEqual(out.match(/^# NF_WORKERS=/gmu)?.length, 1);
+    assert.match(out, /─── Workers de l'application /u);
+  });
+
+  it("chaque réglage du framework dit son défaut et sa place ; le déploiement d'abord", () => {
+    const catalog = frameworkEnvCatalog();
+    assert.ok(catalog.length > 0);
+    for (const v of catalog) {
+      assert.ok(v.title && v.defaultNote && v.placement, v.name);
+      assert.ok(Object.hasOwn(RESERVED_ENV, v.name), v.name);
+    }
+    const firstLocal = catalog.findIndex((v) => v.placement === "workstation");
+    assert.ok(
+      catalog.slice(firstLocal).every((v) => v.placement === "workstation"),
+      "un réglage de déploiement rangé après ceux du poste",
+    );
   });
 });

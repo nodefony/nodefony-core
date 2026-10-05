@@ -149,7 +149,7 @@ readinessProbe: { httpGet: { path: /readyz, port: 5151 }, periodSeconds: 5 }
 terminationGracePeriodSeconds: 30 # > durée du graceful shutdown (~mesurée < 1 s)
 ```
 
-- `NF_BOOT_TIMEOUT_MS` (`reservedEnv.ts:98`) borne le temps de boot : si un module reste
+- `NF_BOOT_TIMEOUT_MS` (`reservedEnv.ts:178`) borne le temps de boot : si un module reste
   suspendu, le pod échoue vite au lieu de rester à moitié vivant.
 - Le boot d'une application est dominé par l'import et l'instanciation de ses modules : un **pod
   réel** démarre nettement plus vite que l'application de démonstration du dépôt. Ajustez
