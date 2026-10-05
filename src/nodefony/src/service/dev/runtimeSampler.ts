@@ -18,18 +18,22 @@ export const RUNTIME_SAMPLE_MS = 2000;
 export interface IRuntimeSources {
   rss: () => number;
   cpuUsage: (previous?: NodeJS.CpuUsage) => NodeJS.CpuUsage;
-  elu: (
-    current?: EventLoopUtilization,
-    previous?: EventLoopUtilization,
-  ) => EventLoopUtilization;
+  /**
+   * Sans argument : la mesure cumulée ; avec la précédente : l'écart depuis
+   * elle (`performance.eventLoopUtilization(précédente)` — un seul argument,
+   * Node lève si l'on passe `(undefined, précédente)`).
+   */
+  elu: (previous?: EventLoopUtilization) => EventLoopUtilization;
   now: () => number;
 }
 
 const NODE_SOURCES: IRuntimeSources = {
   rss: () => process.memoryUsage.rss(),
   cpuUsage: (previous) => process.cpuUsage(previous),
-  elu: (current, previous) =>
-    performance.eventLoopUtilization(current, previous),
+  elu: (previous) =>
+    previous === undefined
+      ? performance.eventLoopUtilization()
+      : performance.eventLoopUtilization(previous),
   now: () => performance.now(),
 };
 
@@ -51,18 +55,24 @@ export function startRuntimeSampler(
   let elu = sources.elu();
   let at = sources.now();
   const timer = setInterval(() => {
-    const now = sources.now();
-    const cpuDelta = sources.cpuUsage(cpu);
-    const eluDelta = sources.elu(undefined, elu);
-    const elapsedUs = Math.max(1, (now - at) * 1000);
-    send({
-      rssBytes: sources.rss(),
-      cpuPercent: ((cpuDelta.user + cpuDelta.system) / elapsedUs) * 100,
-      eluPercent: eluDelta.utilization * 100,
-    });
-    cpu = sources.cpuUsage();
-    elu = sources.elu();
-    at = now;
+    // Une mesure n'a pas le droit de tuer le serveur qu'elle observe : une
+    // exception ici arrête l'échantillonneur, jamais l'application.
+    try {
+      const now = sources.now();
+      const cpuDelta = sources.cpuUsage(cpu);
+      const eluDelta = sources.elu(elu);
+      const elapsedUs = Math.max(1, (now - at) * 1000);
+      send({
+        rssBytes: sources.rss(),
+        cpuPercent: ((cpuDelta.user + cpuDelta.system) / elapsedUs) * 100,
+        eluPercent: eluDelta.utilization * 100,
+      });
+      cpu = sources.cpuUsage();
+      elu = sources.elu();
+      at = now;
+    } catch {
+      clearInterval(timer);
+    }
   }, intervalMs);
   timer.unref();
   return () => clearInterval(timer);
