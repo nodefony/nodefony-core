@@ -129,7 +129,41 @@ export interface IDevFullscreenOptions {
    * Absente : la sélection se surligne, rien n'est copié.
    */
   copy?: (text: string) => Promise<string>;
+  /**
+   * La touche qui rend la sélection au terminal malgré la capture (cf
+   * {@link nativeSelectionKey}) — dite dans l'aide de la barre.
+   */
+  nativeKey?: NativeSelectionKey;
 }
+
+/** La touche de sélection native d'un terminal, souris captée. */
+export type NativeSelectionKey = "fn" | "option" | "shift";
+
+/**
+ * La touche qui, souris captée, rend le glisser au terminal (sa sélection
+ * native) : `Fn` sous Terminal.app, `⌥` sous iTerm2, `Maj` ailleurs (VS Code,
+ * Windows Terminal, terminaux Linux). Sert l'AIDE seulement — aucune
+ * capacité n'en est déduite. Sous tmux, `TERM_PROGRAM` vaut `tmux` : c'est
+ * la touche du terminal englobant qui compte, et elle n'est plus lisible.
+ *
+ * @param env - l'environnement.
+ * @returns la touche à indiquer.
+ */
+export function nativeSelectionKey(
+  env: Readonly<Record<string, string | undefined>>,
+): NativeSelectionKey {
+  if (env.TERM_PROGRAM === "Apple_Terminal") return "fn";
+  if (env.TERM_PROGRAM === "iTerm.app") return "option";
+  return "shift";
+}
+
+/** Libellé de la touche de sélection native, par jeu de caractères. */
+const NATIVE_KEY_LABELS: Readonly<
+  Record<ScreenCharset, Readonly<Record<NativeSelectionKey, string>>>
+> = {
+  unicode: { fn: "fn", option: "⌥", shift: "maj" },
+  ascii: { fn: "fn", option: "option", shift: "maj" },
+};
 
 /** Le clavier du terminal, injectable en test. */
 export interface IDevTerminalInput {
@@ -208,14 +242,15 @@ const FULLSCREEN_HELP: Readonly<Record<ScreenCharset, string>> = {
 const WHEEL_LINES = 3;
 
 /**
- * L'aide de la barre quand la souris est captée : glisser copie, la molette
- * défile. Le geste d'arrêt reste EN TÊTE.
+ * L'aide de la barre quand la souris est captée : glisser copie, la touche
+ * native rend la sélection au terminal, la molette défile. Le geste d'arrêt
+ * reste EN TÊTE ; `{key}` est la touche du terminal.
  */
 const MOUSE_HELP: Readonly<Record<ScreenCharset, string>> = {
   unicode:
-    "ctrl+c arrêter  ·  glisser copier  ·  molette · PgUp défiler  ·  Fin direct",
+    "ctrl+c arrêter  ·  glisser copier  ·  {key}+glisser natif  ·  molette défiler  ·  Fin direct",
   ascii:
-    "ctrl+c arrêter  -  glisser copier  -  molette / PgUp défiler  -  Fin direct",
+    "ctrl+c arrêter  -  glisser copier  -  {key}+glisser natif  -  molette défiler  -  Fin direct",
 };
 
 /** Séparateur des gestes de l'aide, par jeu de caractères. */
@@ -309,6 +344,7 @@ interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
   mouse: boolean;
+  nativeKey: NativeSelectionKey;
   copy: ((text: string) => Promise<string>) | null;
   /** La sélection à la souris — `null` sans sélection. */
   selection: ISelection | null;
@@ -679,6 +715,7 @@ export class DevTerminal {
       input: options.input,
       synchronized: options.synchronized,
       mouse: options.mouse === true,
+      nativeKey: options.nativeKey ?? "shift",
       copy: options.copy ?? null,
       selection: null,
       selecting: false,
@@ -1041,7 +1078,11 @@ export class DevTerminal {
 
   /** L'aide de la barre : elle dit les gestes de la souris quand elle est captée. */
   #help(full: IFullscreenState): string {
-    return (full.mouse ? MOUSE_HELP : FULLSCREEN_HELP)[this.#charset];
+    if (!full.mouse) return FULLSCREEN_HELP[this.#charset];
+    return MOUSE_HELP[this.#charset].replace(
+      "{key}",
+      NATIVE_KEY_LABELS[this.#charset][full.nativeKey],
+    );
   }
 
   /** Dimensions du terminal, repli 80×24 pour un flux qui ne les déclare pas. */

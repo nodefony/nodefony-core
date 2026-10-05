@@ -48,6 +48,7 @@ import {
   DevTerminal,
   probeTerminal,
   type IDevFullscreenOptions,
+  nativeSelectionKey,
 } from "./DevTerminal";
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
@@ -795,6 +796,7 @@ export class DevSupervisor {
       synchronized: probe.synchronized,
       onQuit: () => void this.#shutdown(),
       mouse: this.#mouseCapture(),
+      nativeKey: nativeSelectionKey(process.env),
       // La séquence OSC 52 part sur NOTRE terminal (la sortie standard du
       // superviseur), jamais par le serveur.
       copy: async (text) =>

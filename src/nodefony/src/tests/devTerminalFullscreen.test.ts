@@ -20,6 +20,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { brandMark } from "../cli/brand";
 import {
   DevTerminal,
+  nativeSelectionKey,
   probeTerminal,
   type IInputFocus,
 } from "../service/dev/DevTerminal";
@@ -522,6 +523,70 @@ describe("plein écran — sélection sous le bloc d'état du serveur prêt", ()
     const bar = (await screen(stdout.written, 120, 40)).join("\n");
     expect(bar).to.include("copié (pbcopy)");
     expect(bar).to.include("ctrl+c arrêter");
+    terminal.close();
+  });
+});
+
+describe("aide de la barre — la touche de sélection native du terminal", () => {
+  it("Terminal.app : fn ; iTerm2 : ⌥ ; ailleurs : maj", () => {
+    expect(nativeSelectionKey({ TERM_PROGRAM: "Apple_Terminal" })).to.equal(
+      "fn",
+    );
+    expect(nativeSelectionKey({ TERM_PROGRAM: "iTerm.app" })).to.equal(
+      "option",
+    );
+    expect(nativeSelectionKey({ TERM_PROGRAM: "vscode" })).to.equal("shift");
+    expect(nativeSelectionKey({ WT_SESSION: "x" })).to.equal("shift");
+    expect(nativeSelectionKey({})).to.equal("shift");
+  });
+
+  it("souris captée : la barre du serveur prêt dit glisser, la touche native et la molette, en entier", async () => {
+    const stdout = output(120, 40);
+    const terminal = new DevTerminal({
+      stdout,
+      color: false,
+      charset: "unicode",
+      mark: brandMark("unicode", false),
+      fullscreen: {
+        input: new FakeInput(),
+        synchronized: false,
+        onQuit() {},
+        mouse: true,
+        nativeKey: "option",
+      },
+    });
+    terminal.setStatus(
+      {
+        schema: 1,
+        ready: true,
+        durationMs: 1,
+        version: "10.0.0",
+        environment: "development",
+        open: [],
+        notices: [],
+        listening: [],
+        frontend: null,
+        modules: { loaded: 1, gated: [], failed: 0 },
+        journal: { warnings: 0, errors: 0, criticals: [] },
+        data: [],
+        processes: null,
+        firewall: null,
+        supervised: true,
+        inspector: null,
+      },
+      ctx,
+      "ready",
+    );
+    await nextFrame();
+    const shown = (await screen(stdout.written, 120, 40)).join("\n");
+    for (const part of [
+      "ctrl+c arrêter",
+      "glisser copier",
+      "⌥+glisser natif",
+      "Fin direct",
+    ]) {
+      expect(shown, part).to.include(part);
+    }
     terminal.close();
   });
 });
