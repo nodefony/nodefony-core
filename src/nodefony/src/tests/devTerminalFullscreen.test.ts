@@ -731,54 +731,93 @@ describe("plein écran — restauration sur une exception non rattrapée", () =>
 });
 
 describe("interrupteur du plein écran — --ui / --no-ui / NF_DEV_UI", () => {
-  it("opt-in pendant la construction : rien demandé, pas de plein écran", () => {
-    expect(readDevUiRequest(["development"], {})).to.deep.equal({
+  it("rien demandé : le DÉFAUT de la plateforme — oui sous macOS et Linux, non sous Windows", () => {
+    for (const platform of ["darwin", "linux"]) {
+      expect(
+        readDevUiRequest(["development"], {}, platform),
+        platform,
+      ).to.deep.equal({
+        fullscreen: true,
+        byDefault: true,
+        invalid: null,
+      });
+    }
+    expect(readDevUiRequest(["development"], {}, "win32")).to.deep.equal({
       fullscreen: false,
+      byDefault: true,
       invalid: null,
     });
   });
 
-  it("la ligne de commande l'emporte sur l'environnement", () => {
-    expect(readDevUiRequest(["--ui"], { NF_DEV_UI: "0" }).fullscreen).to.equal(
-      true,
-    );
+  it("la ligne de commande l'emporte sur l'environnement, et l'un comme l'autre sur le défaut", () => {
     expect(
-      readDevUiRequest(["--no-ui"], { NF_DEV_UI: "1" }).fullscreen,
+      readDevUiRequest(["--ui"], { NF_DEV_UI: "0" }, "darwin").fullscreen,
+    ).to.equal(true);
+    expect(
+      readDevUiRequest(["--no-ui"], { NF_DEV_UI: "1" }, "darwin").fullscreen,
     ).to.equal(false);
-    expect(readDevUiRequest([], { NF_DEV_UI: "1" }).fullscreen).to.equal(true);
+    // Un agent l'écarte d'un signal EXPLICITE — on ne devine pas « c'est une IA ».
+    expect(readDevUiRequest([], { NF_DEV_UI: "0" }, "linux")).to.deep.equal({
+      fullscreen: false,
+      byDefault: false,
+      invalid: null,
+    });
+    expect(readDevUiRequest(["--ui"], {}, "win32")).to.deep.equal({
+      fullscreen: true,
+      byDefault: false,
+      invalid: null,
+    });
+    expect(
+      readDevUiRequest(
+        [],
+        { AI_AGENT: "claude-code", CLAUDECODE: "1" },
+        "darwin",
+      ).fullscreen,
+    ).to.equal(true);
   });
 
-  it("une valeur ni 1 ni 0 est NOMMÉE, pas interprétée", () => {
-    expect(readDevUiRequest([], { NF_DEV_UI: "oui" })).to.deep.equal({
+  it("une valeur ni 1 ni 0 est NOMMÉE, pas interprétée — le défaut s'applique", () => {
+    expect(readDevUiRequest([], { NF_DEV_UI: "oui" }, "win32")).to.deep.equal({
       fullscreen: false,
+      byDefault: true,
       invalid: "oui",
     });
   });
 });
 
 describe("interrupteur de la souris — --mouse / --no-mouse / NF_DEV_MOUSE", () => {
-  it("rien demandé : la souris reste au terminal", () => {
-    expect(readDevMouseRequest([], {})).to.deep.equal({
+  it("rien demandé : captée sous macOS et Linux, laissée au terminal sous Windows", () => {
+    expect(readDevMouseRequest([], {}, "darwin")).to.deep.equal({
+      capture: true,
+      byDefault: true,
+      invalid: null,
+    });
+    expect(readDevMouseRequest([], {}, "win32")).to.deep.equal({
       capture: false,
+      byDefault: true,
       invalid: null,
     });
   });
 
-  it("la ligne de commande l'emporte sur l'environnement", () => {
+  it("la ligne de commande l'emporte sur l'environnement, et l'un comme l'autre sur le défaut", () => {
     expect(
-      readDevMouseRequest(["--mouse"], { NF_DEV_MOUSE: "0" }).capture,
+      readDevMouseRequest(["--mouse"], { NF_DEV_MOUSE: "0" }, "win32").capture,
     ).to.equal(true);
     expect(
-      readDevMouseRequest(["--no-mouse"], { NF_DEV_MOUSE: "1" }).capture,
+      readDevMouseRequest(["--no-mouse"], { NF_DEV_MOUSE: "1" }, "darwin")
+        .capture,
     ).to.equal(false);
-    expect(readDevMouseRequest([], { NF_DEV_MOUSE: "1" }).capture).to.equal(
-      true,
-    );
+    expect(
+      readDevMouseRequest([], { NF_DEV_MOUSE: "0" }, "linux").capture,
+    ).to.equal(false);
   });
 
   it("une valeur ni 1 ni 0 est NOMMÉE, pas interprétée", () => {
-    expect(readDevMouseRequest([], { NF_DEV_MOUSE: "oui" })).to.deep.equal({
-      capture: false,
+    expect(
+      readDevMouseRequest([], { NF_DEV_MOUSE: "oui" }, "linux"),
+    ).to.deep.equal({
+      capture: true,
+      byDefault: true,
       invalid: "oui",
     });
   });

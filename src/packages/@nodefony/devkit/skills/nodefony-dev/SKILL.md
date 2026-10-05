@@ -261,11 +261,12 @@ une table à part — et ce nom est ce que `stop` accepte. Donc « aucune instan
 REFUSÉE, avec un code de sortie non nul et rien d'arrêté — **lis ce code**, un refus ressemble
 sinon à un succès.
 
-**Le plein écran (`--ui`, ou `NF_DEV_UI=1`) n'est pas pour toi.** Il fige la barre d'état en bas
-et capte le clavier (molette, PgUp/PgDn, Ctrl+C devient une touche) : c'est un écran pour un
-humain. Il ne s'active que si le terminal répond à une sonde — un pseudo-terminal (tmux, un
-outil qui t'en fournit un) peut y répondre. Si tu lances `development` toi-même, ajoute
-`--no-ui`, ou `--output plain` pour une sortie sans séquences d'écran.
+**Le plein écran n'est pas pour toi — et il est le DÉFAUT sous macOS et Linux.** Il fige la barre
+d'état en bas, capte le clavier et la souris (molette, PgUp/PgDn, Ctrl+C devient une touche) :
+c'est un écran pour un humain. Il s'active dès que le terminal répond à une sonde, et un
+pseudo-terminal (tmux, un outil qui t'en fournit un) y répond. Nodefony ne devine jamais qu'un
+agent est aux commandes : si tu lances `development` toi-même, ajoute **toujours** `--no-ui`
+(ou pose `NF_DEV_UI=0`), ou `--output plain` pour une sortie sans séquences d'écran.
 
 **Pour faire tourner une suite contre un serveur, prends `--no-watch`.** Le mode développement
 relance le serveur dès qu'un fichier bouge : pendant un run, le redémarrage coupe les connexions

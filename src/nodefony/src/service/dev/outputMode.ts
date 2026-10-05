@@ -92,66 +92,104 @@ export function isDebugRequested(argv: readonly string[]): boolean {
   return argv.includes("-d") || argv.includes("--debug");
 }
 
+/**
+ * Plateformes où le plein écran et la souris captée sont le DÉFAUT — une
+ * POLITIQUE, pas une capacité : ailleurs, le rendu n'a jamais été exécuté
+ * (Windows Terminal, console classique), il reste opt-in tant que sa preuve
+ * manque. La capacité, elle, se constate toujours par la sonde du terminal.
+ */
+const FULLSCREEN_BY_DEFAULT = (platform: string): boolean =>
+  platform !== "win32";
+
 /** Ce que demande l'interrupteur du plein écran. */
 export interface IDevUiRequest {
-  /** Le plein écran est demandé (il reste soumis à la sonde du terminal). */
+  /** Le plein écran est voulu (il reste soumis à la sonde du terminal). */
   fullscreen: boolean;
+  /**
+   * Personne ne l'a demandé : c'est le défaut de la plateforme. Un repli
+   * (terminal muet, clavier hors terminal) se fait alors sans un mot — on ne
+   * signale l'échec que de ce qu'on a demandé.
+   */
+  byDefault: boolean;
   /** Une valeur de `NF_DEV_UI` qui n'est ni `1` ni `0` — à nommer, pas à taire. */
   invalid: string | null;
 }
 
 /**
- * Le plein écran de `nodefony development` est-il demandé ? `--ui` /
- * `--no-ui` l'emportent sur `NF_DEV_UI` (`1` ou `0`). Sans demande : non —
- * le plein écran reste opt-in tant que sa preuve n'est pas faite sur les
- * trois plateformes (#537). Lu sur `argv`, comme {@link isDebugRequested} :
- * le superviseur ne passe jamais par Commander.
+ * Le plein écran de `nodefony development` est-il voulu ? `--ui` /
+ * `--no-ui` l'emportent sur `NF_DEV_UI` (`1` ou `0`). Sans demande : le
+ * DÉFAUT de la plateforme — oui sous macOS et Linux, non sous Windows tant
+ * que sa preuve manque (#537). Un agent qui pilote un pseudo-terminal
+ * l'écarte par `--no-ui`, `NF_DEV_UI=0` ou `--output plain` : on ne devine
+ * jamais « c'est une IA » (cf {@link resolveOutputMode}). Lu sur `argv`,
+ * comme {@link isDebugRequested} : le superviseur ne passe jamais par
+ * Commander.
  *
  * @param argv - `process.argv` ou son équivalent de test.
  * @param env - l'environnement.
+ * @param platform - `process.platform`.
  * @returns la demande, et la valeur invalide s'il y en a une.
  */
 export function readDevUiRequest(
   argv: readonly string[],
   env: Readonly<Record<string, string | undefined>>,
+  platform: string,
 ): IDevUiRequest {
   const raw = env.NF_DEV_UI;
   const invalid =
     raw === undefined || raw === "" || raw === "0" || raw === "1" ? null : raw;
-  if (argv.includes("--no-ui")) return { fullscreen: false, invalid };
-  if (argv.includes("--ui")) return { fullscreen: true, invalid };
-  return { fullscreen: raw === "1", invalid };
+  if (argv.includes("--no-ui"))
+    return { fullscreen: false, byDefault: false, invalid };
+  if (argv.includes("--ui"))
+    return { fullscreen: true, byDefault: false, invalid };
+  if (raw === "1" || raw === "0") {
+    return { fullscreen: raw === "1", byDefault: false, invalid };
+  }
+  return {
+    fullscreen: FULLSCREEN_BY_DEFAULT(platform),
+    byDefault: true,
+    invalid,
+  };
 }
 
 /** Ce que demande l'interrupteur de la souris en plein écran. */
 export interface IDevMouseRequest {
-  /** La capture de la souris est demandée (sélection dessinée par nous). */
+  /** La capture de la souris est voulue (sélection dessinée par nous). */
   capture: boolean;
+  /** Personne ne l'a demandée : c'est le défaut de la plateforme. */
+  byDefault: boolean;
   /** Une valeur de `NF_DEV_MOUSE` qui n'est ni `1` ni `0` — à nommer, pas à taire. */
   invalid: string | null;
 }
 
 /**
- * La capture de la souris est-elle demandée en plein écran ? `--mouse` /
+ * La capture de la souris est-elle voulue en plein écran ? `--mouse` /
  * `--no-mouse` l'emportent sur `NF_DEV_MOUSE` (`1` ou `0`). Sans demande :
- * non — la souris reste au terminal (mode 1007 seul) tant que la capture
- * n'est pas prouvée dans les terminaux réels (#537). Lu sur `argv`, comme
- * {@link readDevUiRequest}.
+ * le défaut de la plateforme, comme le plein écran — captée sous macOS et
+ * Linux (la molette défile partout, glisser copie), laissée au terminal
+ * sous Windows. Lu sur `argv`, comme {@link readDevUiRequest}.
  *
  * @param argv - `process.argv` ou son équivalent de test.
  * @param env - l'environnement.
+ * @param platform - `process.platform`.
  * @returns la demande, et la valeur invalide s'il y en a une.
  */
 export function readDevMouseRequest(
   argv: readonly string[],
   env: Readonly<Record<string, string | undefined>>,
+  platform: string,
 ): IDevMouseRequest {
   const raw = env.NF_DEV_MOUSE;
   const invalid =
     raw === undefined || raw === "" || raw === "0" || raw === "1" ? null : raw;
-  if (argv.includes("--no-mouse")) return { capture: false, invalid };
-  if (argv.includes("--mouse")) return { capture: true, invalid };
-  return { capture: raw === "1", invalid };
+  if (argv.includes("--no-mouse"))
+    return { capture: false, byDefault: false, invalid };
+  if (argv.includes("--mouse"))
+    return { capture: true, byDefault: false, invalid };
+  if (raw === "1" || raw === "0") {
+    return { capture: raw === "1", byDefault: false, invalid };
+  }
+  return { capture: FULLSCREEN_BY_DEFAULT(platform), byDefault: true, invalid };
 }
 
 /** Première version de Node dont la console Windows rapporte la souris en mode brut. */

@@ -1882,7 +1882,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
     );
 
     it(
-      "plein écran --mouse : glisser surligne et copie par le presse-papiers du poste, Ctrl+C rend la souris",
+      "sans drapeau (défaut hors Windows) : plein écran, glisser surligne et copie par le presse-papiers du poste, Ctrl+C rend la souris",
       async () => {
         let s: IPtySession | null = null;
         // Un faux `pbcopy` en tête du PATH : la cascade le trouve en premier
@@ -1909,7 +1909,9 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           Reflect.deleteProperty(env, key);
         }
         try {
-          s = startPty(flavor, ["development", "--ui", "--mouse"], env, true);
+          // SANS drapeau : plein écran et souris captée sont le défaut hors
+          // Windows dès que le terminal répond à la sonde.
+          s = startPty(flavor, ["development"], env, true);
           await waitFor(s, BAR_RE);
           await new Promise((r) => setTimeout(r, 3000));
           assert.strictEqual(s.term.buffer.active.type, "alternate");
@@ -1983,7 +1985,14 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
       async () => {
         let s: IPtySession | null = null;
         try {
-          s = startPty(flavor, ["development", "--ui"], process.env, true);
+          // `--no-mouse` : le chemin « souris laissée au terminal » (la capture
+          // est le défaut hors Windows, éprouvée par le cas sans drapeau).
+          s = startPty(
+            flavor,
+            ["development", "--ui", "--no-mouse"],
+            process.env,
+            true,
+          );
           await waitFor(s, BAR_RE);
           await new Promise((r) => setTimeout(r, 3000));
           assert.strictEqual(

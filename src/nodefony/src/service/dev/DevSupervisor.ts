@@ -772,7 +772,11 @@ export class DevSupervisor {
    * surface `inline`, en le disant — jamais une déduction de la plateforme.
    */
   async #fullscreenOptions(): Promise<IDevFullscreenOptions | null> {
-    const mouse = readDevMouseRequest(process.argv, process.env);
+    const mouse = readDevMouseRequest(
+      process.argv,
+      process.env,
+      process.platform,
+    );
     if (mouse.invalid !== null) {
       this.#out.write(
         `[dev] NF_DEV_MOUSE=${mouse.invalid} ignorée : 1 demande la capture de la souris, 0 l'interdit\n`,
@@ -780,7 +784,7 @@ export class DevSupervisor {
     }
     const options = await this.#negotiateFullscreen();
     if (options === null) {
-      if (mouse.capture) {
+      if (mouse.capture && !mouse.byDefault) {
         this.#out.write(
           "[dev] souris non captée : elle ne se capte qu'en plein écran (--ui)\n",
         );
@@ -791,11 +795,17 @@ export class DevSupervisor {
   }
 
   /**
-   * Le plein écran sans la souris : demandé, clavier en terminal, sonde
-   * répondue — ou `null`, en disant pourquoi.
+   * Le plein écran sans la souris : voulu (demandé, ou défaut de la
+   * plateforme), clavier en terminal, sonde répondue — ou `null`. Le repli
+   * n'est DIT que s'il contredit une demande : par défaut, l'affichage en
+   * ligne est la conduite normale d'un terminal qui ne répond pas.
    */
   async #negotiateFullscreen(): Promise<IDevFullscreenOptions | null> {
-    const request = readDevUiRequest(process.argv, process.env);
+    const request = readDevUiRequest(
+      process.argv,
+      process.env,
+      process.platform,
+    );
     if (request.invalid !== null) {
       this.#out.write(
         `[dev] NF_DEV_UI=${request.invalid} ignorée : 1 demande le plein écran, 0 l'interdit\n`,
@@ -804,16 +814,20 @@ export class DevSupervisor {
     if (!request.fullscreen) return null;
     const stdin = process.stdin;
     if (!isTerminal(stdin) || typeof stdin.setRawMode !== "function") {
-      this.#out.write(
-        "[dev] plein écran demandé, mais le clavier n'est pas un terminal — affichage en ligne\n",
-      );
+      if (!request.byDefault) {
+        this.#out.write(
+          "[dev] plein écran demandé, mais le clavier n'est pas un terminal — affichage en ligne\n",
+        );
+      }
       return null;
     }
     const probe = await probeTerminal(stdin, process.stdout);
     if (!probe.fullscreen) {
-      this.#out.write(
-        "[dev] plein écran demandé, mais le terminal n'a pas répondu à la sonde — affichage en ligne\n",
-      );
+      if (!request.byDefault) {
+        this.#out.write(
+          "[dev] plein écran demandé, mais le terminal n'a pas répondu à la sonde — affichage en ligne\n",
+        );
+      }
       return null;
     }
     return {

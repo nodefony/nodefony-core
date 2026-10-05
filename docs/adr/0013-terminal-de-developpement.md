@@ -89,16 +89,20 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
 
 ### 2. Deux surfaces, un modèle
 
-| Surface      | Ce qu'elle fait                                                                                                           | Quand                                                                                     |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `fullscreen` | écran alternatif, historique tenu par nous, molette traduite ou captée ; journal, invite et barre dessinés à chaque image | DEMANDÉ (`--ui` ou `NF_DEV_UI=1`), clavier en terminal, et le terminal répond à la sonde  |
-| `inline`     | le rendu de #533 : le contenu part dans l'historique natif, invite et barre redessinées en dernières lignes               | par défaut ; et en repli : terminal muet, clavier hors terminal, `--no-ui`, `NF_DEV_UI=0` |
+| Surface      | Ce qu'elle fait                                                                                                           | Quand                                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fullscreen` | écran alternatif, historique tenu par nous, molette traduite ou captée ; journal, invite et barre dessinés à chaque image | par défaut sous macOS et Linux, DEMANDÉ sous Windows (`--ui` ou `NF_DEV_UI=1`) ; toujours : clavier en terminal, et le terminal répond à la sonde |
+| `inline`     | le rendu de #533 : le contenu part dans l'historique natif, invite et barre redessinées en dernières lignes               | par défaut sous Windows ; ailleurs en repli : terminal muet, clavier hors terminal, `--no-ui`, `NF_DEV_UI=0`                                      |
 
-- **Le plein écran est OPT-IN.** La sonde ne suffit pas à l'allumer : elle CONDITIONNE une
-  demande explicite. Il le reste tant que trois preuves manquent — la souris (capture et sélection
-  par l'application), l'exécution sous Windows, et la contre-revue du code de la grappe. `inline`
-  est le seul chemin que tout développeur prend sans le savoir ; il ne change de défaut qu'une
-  fois ces preuves faites. Une valeur de `NF_DEV_UI` autre que `0` ou `1` est ignorée, et nommée.
+- **Le plein écran est le défaut sous macOS et Linux, opt-in sous Windows.** Les preuves sont
+  faites là où il est le défaut — capture de la souris et sélection par l'application,
+  contre-revue du code de la grappe, essais dans un terminal réel et bancs sous pseudo-terminal ;
+  il ne l'est pas sous Windows, où rien n'a jamais été exécuté : c'est une POLITIQUE dite comme
+  telle, pas une capacité déduite de la plateforme — la sonde, elle, constate toujours le
+  terminal. Sans demande, un terminal muet ou un clavier hors terminal retombent en `inline` sans
+  un mot ; demandé, le repli est nommé. Un agent qui pilote un pseudo-terminal l'écarte d'un
+  signal EXPLICITE (`--no-ui`, `NF_DEV_UI=0`, `--output plain`) : on ne devine jamais « c'est une
+  IA ». Une valeur de `NF_DEV_UI` autre que `0` ou `1` est ignorée, et nommée.
 - **La sonde** est une requête de position du curseur (`ESC[6n`, réponse `ESC[ligne;colonneR`),
   universelle chez les terminaux à séquences VT : une réponse ⇒ écran alternatif utilisable. La
   sortie synchronisée (mode `2026`) est demandée EN PLUS par DECRQM et reste optionnelle. Le plein
@@ -125,8 +129,9 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
     poste ⇒ `pbcopy`, `wl-copy`, `xclip`, `xsel`, PowerShell `Set-Clipboard` (jamais
     `clip.exe`), OSC 52 en dernier. « Copié » n'est dit que sur le code 0 d'un outil ; OSC 52
     n'a aucun accusé de réception et se dit « non confirmée ».
-  - La capture reste **opt-in** tant qu'elle n'est pas éprouvée à la main dans les terminaux
-    réels (Terminal.app, iTerm2, VS Code, tmux, une session SSH, Windows Terminal).
+  - La capture suit le plein écran : par défaut sous macOS et Linux, opt-in sous Windows.
+    `--no-mouse` rend la souris au terminal — la sélection native redevient directe, au prix
+    de la molette là où le terminal ne la traduit pas.
 - **Windows** : PgUp/PgDn/Début/Fin défilent partout. La console ne rapporte la souris à un
   programme en mode brut que depuis Node 24.2 (libuv 1.51) : en deçà, `--mouse` est refusé en le
   disant — c'est une DÉDUCTION de la version, assumée, car l'activer pour la constater ferait aussi

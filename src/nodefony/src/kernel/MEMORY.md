@@ -144,12 +144,15 @@ UNIQUE du nom, du chemin et de la forme ; écrivain Kernel, lecteur `check`) :
     Bloc côté serveur (`StatusLine`, `--no-watch`) retiré sur SIGTERM/SIGINT/SIGHUP
     (`prependOnceListener`), `onTerminate` et `exit` en filets ; `release()` idempotent. Le
     défilement emporte la barre inline ; la barre figée pendant le défilement est le PLEIN ÉCRAN :
-    opt-in `--ui` / `NF_DEV_UI=1` (`--no-ui`, `NF_DEV_UI=0` l'interdisent ; `readDevUiRequest`,
-    `outputMode.ts`), accordé seulement si le clavier est un terminal ET que la sonde répond
+    DÉFAUT hors Windows (politique `FULLSCREEN_BY_DEFAULT`, `outputMode.ts`), opt-in sous Windows
+    (`--ui` / `NF_DEV_UI=1` ; `--no-ui`, `NF_DEV_UI=0` l'interdisent partout ; `readDevUiRequest`
+    rend `byDefault`), accordé seulement si le clavier est un terminal ET que la sonde répond
     (`probeTerminal`, `DevTerminal.ts` : DECRQM 2026 + `ESC[6n`, 500 ms, mode brut gardé) — sinon
-    `inline`, et le superviseur le DIT. `DevTerminal({ fullscreen })` : écran alternatif, 1007
-    TOUJOURS (molette → flèches), collage, mode brut ; souris CAPTÉE seulement sur `--mouse` /
-    `NF_DEV_MOUSE=1` (`readDevMouseRequest` ; 1000+1002+1006, jamais 1003/1004 ; refusée sous
+    `inline`, DIT seulement si c'était demandé. Souris : même défaut (`readDevMouseRequest`).
+    Agents : jamais devinés (cf `resolveOutputMode`) — `--no-ui` explicite, prescrit par le skill
+    `nodefony-dev`. `DevTerminal({ fullscreen })` : écran alternatif, 1007
+    TOUJOURS (molette → flèches), collage, mode brut ; souris CAPTÉE par défaut hors Windows,
+    `--mouse` / `NF_DEV_MOUSE=1` sous Windows (`readDevMouseRequest` ; 1000+1002+1006, jamais 1003/1004 ; refusée sous
     Windows si Node < 24.2, `mouseCaptureBlocker`) ; `LEAVE_FULLSCREEN` coupe tous les modes, posés
     ou non ; images `renderFrame`→`diffFrame` ≤ 1/16 ms, UNE écriture, sortie
     synchronisée si vue ; foyers (`addFocus` en tête, `dispatch`) souris (si captée) puis défilement
