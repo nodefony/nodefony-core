@@ -73,9 +73,9 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // développement et MEURT en production — `Cannot find package
   // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
   "@node-rs/argon2": "^2.2.1",
-  "@types/node": "^26.6.3",
+  "@types/node": "^26.6.4",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-  oxlint: "^1.86.0",
+  oxlint: "^1.87.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2003",
@@ -92,7 +92,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   vite: "^8.3.2",
   react: "^19.3.0",
   "react-dom": "^19.3.0",
-  "@vitejs/plugin-react": "^6.1.1",
+  "@vitejs/plugin-react": "^6.1.2",
   "@types/react": "^19.3.0",
   "@types/react-dom": "^19.3.0",
   vue: "^3.5.43",
@@ -110,7 +110,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@angular/core": "~22.2.1",
   "@angular/common": "~22.2.1",
   "@angular/platform-browser": "~22.2.1",
-  "@analogjs/vite-plugin-angular": "^2.7.5",
+  "@analogjs/vite-plugin-angular": "^2.8.0",
   "@angular/build": "~22.2.1",
   "@angular/compiler-cli": "~22.2.1",
 };

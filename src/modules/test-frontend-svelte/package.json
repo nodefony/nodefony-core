@@ -34,7 +34,7 @@
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@types/node": "26.6.3",
+    "@types/node": "26.6.4",
     "nodefony": "*"
   },
   "license": "Apache-2.0"
