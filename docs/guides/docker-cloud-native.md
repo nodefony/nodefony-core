@@ -71,7 +71,7 @@ bloqué en fin de vie.
 - **Petit pod k8s + HPA** (recommandé cloud-native) : `nodefony production` = **1 process Node
   par pod**. Le scaling horizontal est délégué à l'orchestrateur (k8s HPA, Cloud Run, Fargate).
 - **Serveur dédié multi-cœurs** : `nodefony cluster --workers N` (ou `NF_WORKERS`, qui tient
-  compte des limites cgroup — `ProdCommand.ts:24`) = un superviseur et N ouvriers dans **le même
+  compte des limites cgroup — `ProdCommand.ts:27`) = un superviseur et N ouvriers dans **le même
   conteneur**.
 
 ## Logs

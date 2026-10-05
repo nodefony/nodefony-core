@@ -196,15 +196,15 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 <!-- prettier-ignore -->
 | Commande | Alias | Ce qu'elle fait | Arrêt | Classe |
 | --- | --- | --- | --- | --- |
-| `development` | `dev` | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`) | `onPostReady` | `DevCommand.ts:46` |
+| `development` | `dev` | Serveur de dev : Vite/HMR + redémarrage auto (`--detach/--wait/--health/--log`) | `onPostReady` | `DevCommand.ts:49` |
 | `debug` | — | `development` + débogueur ouvert DANS le serveur, rouvert à chaque rechargement (`--inspect=<port>`, `--inspect-brk`) | `onPostReady` | `DebugCommand.ts:17` |
-| `production` | `prod` | Runtime prod au premier plan ; topologie via `-w, --workers` | `onPostReady` | `ProdCommand.ts:37` |
-| `cluster` | — | Cluster de N workers (cgroup-aware, respawn) — `-w, --workers` | `onPostReady` | `ClusterCommand.ts:36` |
+| `production` | `prod` | Runtime prod au premier plan ; topologie via `-w, --workers` | `onPostReady` | `ProdCommand.ts:40` |
+| `cluster` | — | Cluster de N workers (cgroup-aware, respawn) — `-w, --workers` | `onPostReady` | `ClusterCommand.ts:39` |
 | `inspect` | — | **L'état RÉEL de l'app** : `routes` · `modules` · `services` · `config` · `stores` · `entities` · `graph`, `--json` — sans ouvrir de port | `onPostReady` | `InspectCommand.ts:136` |
 | `build` | `compile` | Construit tous les paquets (délègue à `turbo run build`) — `-f/--force` | `onRegister` | `BuildCommand.ts:16` |
 | `install` | — | `install` sur tous les modules — `-f/--force` | `onRegister` | `InstallCommand.ts:9` |
 | `outdated` | — | `outdated` sur tous les modules | `onRegister` | `OutdatedCommand.ts:9` |
-| `start` | — | **Alias de `prod`** (il n'y a plus de commande propre) | `onStart` | `ProdCommand.ts:49` |
+| `start` | — | **Alias de `prod`** (il n'y a plus de commande propre) | `onStart` | `ProdCommand.ts:52` |
 | `doctor` | — | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot` | `DoctorCommand.ts:37` |
 | `env` | — | Cascade des `.env`, valeurs effectives et **provenance** de chacune (**0 boot**) | `0 boot` | `EnvCommand.ts:36` |
 | `status` | — | Introspecte les process dev/prod/cluster (**0 boot**) | `0 boot` | `StatusCommand.ts:20` |
@@ -315,10 +315,10 @@ Trois comportements de `create entity` qui surprennent si on ne les connaît pas
 
 Le squelette est en [Démarrage rapide](#-démarrage-rapide) ; voici les leviers.
 
-**`generate()` est l'action.** On la surcharge (`command/Command.ts:436`) ; elle reçoit les arguments
+**`generate()` est l'action.** On la surcharge (`command/Command.ts:455`) ; elle reçoit les arguments
 positionnels déclarés par `addArgument()`, et l'instance Commander en dernier paramètre. Les hooks de
 cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la demande par `setEvents()`
-(`command/Command.ts:198`), idempotent.
+(`command/Command.ts:217`), idempotent.
 
 **`kernelEvent` = jusqu'où booter.** C'est le choix structurant :
 

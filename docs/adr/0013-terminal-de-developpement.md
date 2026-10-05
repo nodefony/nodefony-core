@@ -179,7 +179,7 @@ interface ITranscriptEntry {
   déplacement de curseur, titre de fenêtre, presse-papiers OSC 52, changement d'écran. Rendu ET
   sécurité : une ligne de journal ne pilote pas le terminal du développeur.
 - **L'effacement d'écran a un sens** : `ESC[2J` (`CLEAR_SCREEN`, écrit par le serveur au boot,
-  `Kernel.ts:1074`, et au `ready`, `BootReporter.ts:458`) n'est pas relayé brut ; il devient
+  `Kernel.ts:1096`, et au `ready`, `BootReporter.ts:458`) n'est pas relayé brut ; il devient
   `DevTerminal.clear()` — retour au direct et séparateur en plein écran, `CLEAR_SCREEN` réémis
   dans le repli. La « page propre » de #533 survit.
 

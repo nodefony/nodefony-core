@@ -66,7 +66,7 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
   est un confort) mais part en `ERROR`, donc compté dans `var/last-boot.json` → relisible par
   `nodefony doctor`. ⚠️ La règle se lit sur la PROPRIÉTÉ `violation`, jamais par `instanceof` : deux
   copies du paquet dans un arbre npm feraient perdre la seule information utile.
-  ⚠️ Un échec de hook n'est fatal qu'en PRODUCTION (`Kernel.ts:2889`) — en développement il était
+  ⚠️ Un échec de hook n'est fatal qu'en PRODUCTION (`Kernel.ts:2919`) — en développement il était
   déjà fail-soft, avec un message technique que rien ne reliait à un compte.
 
 - `assertUserContract(present, origin, expected?)` : refuse une entité qui ne porte pas les colonnes

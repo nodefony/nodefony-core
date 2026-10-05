@@ -77,7 +77,7 @@ bar.stop(`✓ ${files.length} bundles`);
 | Le dessin PUR, utilisable sans terminal                | `src/nodefony/src/cli/progress.ts:296` (`renderBar`)                |
 | La capacité Unicode, CONSTATÉE sur l'environnement     | `src/nodefony/src/cli/progress.ts:117` (`supportsUnicode`)          |
 | Les images, et leur repli                              | `src/nodefony/src/cli/progress.ts:46` (braille) et `:60` (ASCII)    |
-| Pourquoi une commande longue n'est plus interrompue    | `src/nodefony/src/command/Command.ts:256`                           |
+| Pourquoi une commande longue n'est plus interrompue    | `src/nodefony/src/command/Command.ts:275`                           |
 | L'appelant asynchrone qui rend l'animation possible    | `runProjectScript()` (`src/nodefony/src/kernel/checks/deep.ts:402`) |
 
 ## 📖 Lexique

@@ -507,7 +507,7 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 ### `Kernel` / `CliKernel`
 
-`kernel/Kernel.ts:531` — `class Kernel extends Service implements IKernel`. Le ctor `:770` appelle `Nodefony.setKernel(this)`.
+`kernel/Kernel.ts:553` — `class Kernel extends Service implements IKernel`. Le ctor `:770` appelle `Nodefony.setKernel(this)`.
 
 - **Chaîne async de boot** (chaque maillon appelle le suivant si `!setCommandComplete`) :
   `start()` `:482` → `preRegister()` `:600` → `boot()` `:694` → `onReady()` `:724` → `initServers()` `:793`.
@@ -603,7 +603,7 @@ sur le **constructeur**), `@Inject("name")` (propriété → `inject:properties`
 - `static niceBytes(x)` `:592` (`1024`→`"1.0 KB"`) · `startTimer`/`stopTimer` `:697`/`:713` · `setProcessTitle` `:375` ·
   `showBanner` `:335` · `handleSignals()` `:225` (idempotent : 1ᵉʳ signal draine, 2ᵉ force `exit`) · `terminate` `:680`.
 
-`command/Command.ts:46` — `class Command extends Service`. Ctor `(name, description, cli, options?)` `:93`. Enregistre son
+`command/Command.ts:62` — `class Command extends Service`. Ctor `(name, description, cli, options?)` `:93`. Enregistre son
 action dans Commander au ctor. `onKernelStart?(...args)` `:72` (hook pré-boot). `setEvents()` `:130` (guard `eventsRegistered`,
 idempotent). Chaîne standalone : `action()` `:222` → `run()` `:247` → `generate()` `:277` (à override ; ⚠️ Commander passe
 l'instance `Cmd` en **dernier** arg). `addOption` `:365` / `addArgument` `:382` / `alias` `:292`. `kernelEvent` défaut `"onRegister"`.
@@ -698,7 +698,7 @@ Séparation stricte (réutilisable, testable) :
 - **`Event.emitAsyncGuarded`** `Event.ts:302` = mécanique PURE : série + try/catch + timeout/warnMs par listener, retourne
   `{results, errors, stopped}`. Ne décide d'AUCUNE politique (ni log, ni criticité) — l'appelant tranche via les callbacks
   `onListenerError` (retour `true` = stoppe la chaîne) / `onListenerSlow`.
-- **`Kernel.fireLifecycle`** `Kernel.ts:4033` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
+- **`Kernel.fireLifecycle`** `Kernel.ts:4063` = POLITIQUE : appelle `super.emitAsyncGuarded` avec `bootTimeoutMs`/`bootWarnMs`,
   lit les tags `(owner, critical)` du listener (`readListenerTags` — déballe le wrapper `once` via `.listener`), et applique
   `isBootErrorFatal` : `critical && prod` → fatal (throw, le reste ne boote pas) ; sinon fail-soft + WARNING.
 - `Service` **COMPOSE** `Event` (`this.nc`), ne l'étend pas → toute nouvelle méthode event = ajout à `Event` **ET** re-export
