@@ -97,6 +97,11 @@ const branch = git("branch", "--show-current").out;
 // interroge GitHub (ou le dépôt mémoire) de son côté, aucune ne lit ce qu'une
 // autre écrit — l'empreinte écrit `.ai/board.json`, que le lint ne lit pas.
 const script = (rel) => path.join(ROOT, ".claude/skills", rel);
+// Les 5 derniers commits POUSSÉS (pris sur `@{u}`) : `--commit` ne rend rien
+// sur un commit que GitHub n'a pas reçu, donc jamais sur HEAD seul.
+const pushedShas = git("log", "@{u}", "-5", "--format=%H")
+  .out.split("\n")
+  .filter(Boolean);
 const pending = online
   ? {
       memPull: fs.existsSync(MEM)
@@ -104,16 +109,23 @@ const pending = online
             timeout: 30_000,
           })
         : null,
-      runs: shAsync("gh", [
-        "run",
-        "list",
-        "--branch",
-        branch,
-        "--limit",
-        "40",
-        "--json",
-        "headSha,status,conclusion,workflowName",
-      ]),
+      // Un appel PAR COMMIT, pas un `--branch` : l'index filtré par branche a
+      // rendu des runs vieux d'une semaine pendant que celui par commit était
+      // à jour — d'où un « aucun run » sur un commit qui en avait huit.
+      runs: Promise.all(
+        pushedShas.map((sha) =>
+          shAsync("gh", [
+            "run",
+            "list",
+            "--commit",
+            sha,
+            "--limit",
+            "40",
+            "--json",
+            "headSha,status,conclusion,workflowName",
+          ]),
+        ),
+      ),
       snapshot: shAsync(
         process.execPath,
         [script("nodefony-session/scripts/board-snapshot.mjs")],
@@ -197,15 +209,18 @@ if (!stateFile) {
 
 // ── 4. CI du dernier commit POUSSÉ (un commit non poussé n'a pas de CI).
 if (online) {
-  const shas = git("log", "@{u}", "-5", "--format=%H")
-    .out.split("\n")
-    .filter(Boolean);
-  const runs = await pending.runs;
-  const all = runs.ok ? JSON.parse(runs.out || "[]") : [];
+  const replies = await pending.runs;
+  const failedCalls = replies.filter((r) => !r.ok).length;
+  const all = replies.flatMap((r) => (r.ok ? JSON.parse(r.out || "[]") : []));
   // Le dernier commit poussé peut n'avoir aucun run (`paths-ignore` sur la prose) :
   // on remonte au premier qui en a.
-  const sha = shas.find((s) => all.some((r) => r.headSha === s));
-  if (!sha) say("CI : aucun run sur les 5 derniers commits poussés");
+  const sha = pushedShas.find((s) => all.some((r) => r.headSha === s));
+  if (!sha)
+    say(
+      failedCalls
+        ? `⚠️ CI NON lue — ${failedCalls}/${replies.length} appel(s) gh en échec`
+        : `CI : aucun run sur les ${pushedShas.length} derniers commits poussés`,
+    );
   else {
     const v = ciVerdict(all.filter((r) => r.headSha === sha));
     const icon = {
