@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T17:12:37.316Z",
+  "generatedAt": "2026-10-05T19:17:56.773Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 80,
+      "closed": 81,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -1839,8 +1839,8 @@
       "number": 478,
       "title": "feat(security): fournir aux pods de production une clé de signature partagée",
       "url": "https://github.com/nodefony/nodefony-core/issues/478",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
