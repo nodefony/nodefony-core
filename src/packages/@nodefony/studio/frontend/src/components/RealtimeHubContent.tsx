@@ -129,6 +129,7 @@ function BarMeter({ data, color }: { data: number[]; color: string }) {
         const op = 0.3 + 0.7 * (i / Math.max(1, n - 1));
         return (
           <rect
+            // oxlint-disable-next-line react/no-array-index-key -- barres d'un histogramme à fenêtre glissante : la clé est la POSITION, pas la valeur
             key={i}
             x={x.toFixed(1)}
             y={(h - bh).toFixed(1)}
@@ -426,6 +427,7 @@ export const RealtimeHubContent = observer(
             <ScrollArea.Autosize mah={180} type="auto">
               <Stack gap={6} role="log" aria-label="Incidents temps réel">
                 {incidents.slice(0, 8).map((n, i) => (
+                  // oxlint-disable-next-line react/no-array-index-key -- anneau borné sans identifiant côté serveur : l'horodatage seul se répète, le rang le départage ; lignes sans état
                   <Paper key={`${n.ts}-${i}`} withBorder p="xs" radius="md">
                     <Group justify="space-between" wrap="nowrap" gap="xs">
                       <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>

@@ -60,6 +60,7 @@ import {
 } from "../components/ui";
 import { ansiToReact } from "../utils/ansiToReact";
 import type { LogRecord, LogQueryResult } from "./logs/logsTypes";
+import { logRecordKey } from "./logs/logsTypes";
 import { describeFlow } from "./logs/eventFlow";
 import {
   fmtClock,
@@ -212,7 +213,7 @@ function LogList({ rows, baseTs }: { rows: LogRecord[]; baseTs: number }) {
       >
         <Stack gap={0} p={6}>
           {rows.map((r) => (
-            <LogLine key={`${r.uid}-${r.timeStamp}`} row={r} baseTs={baseTs} />
+            <LogLine key={logRecordKey(r)} row={r} baseTs={baseTs} />
           ))}
         </Stack>
       </ScrollArea.Autosize>
@@ -513,7 +514,7 @@ export const TraceView = observer(() => {
               if (!flow) return null;
               return (
                 <Timeline.Item
-                  key={`${m.uid}-${m.timeStamp}`}
+                  key={logRecordKey(m)}
                   title={
                     <Group gap={6} wrap="nowrap">
                       <Badge size="sm" variant="light" color={flow.color}>

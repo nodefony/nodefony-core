@@ -8,6 +8,21 @@
  * inconnue, répétée, implicite absente) à la préview.
  */
 import { useState } from "react";
+
+/**
+ * Une ligne de l'éditeur : ses colonnes, et une IDENTITÉ qui survit au retrait
+ * d'une ligne voisine. Clé par rang, retirer le premier index faisait hériter
+ * au suivant du `MultiSelect` du disparu — sa saisie de recherche, sa liste
+ * ouverte.
+ */
+interface IIndexRow {
+  id: number;
+  cols: string[];
+}
+
+/** Compteur d'identités, partagé par toutes les instances : seule l'unicité compte. */
+let nextRowId = 0;
+const toRow = (cols: string[]): IIndexRow => ({ id: nextRowId++, cols });
 import {
   ActionIcon,
   Button,
@@ -36,13 +51,13 @@ export function EntityIndexesEditor({
   // Lignes en état LOCAL : un index qu'on vient d'ajouter n'a encore aucune
   // colonne, et l'envoyer tel quel ferait refuser la préview (entrée vide).
   // On n'émet que les index qui ont au moins une colonne.
-  const [indexes, setIndexes] = useState<string[][]>(() =>
-    value.map((entry) => entry.split(",").filter(Boolean)),
+  const [indexes, setIndexes] = useState<IIndexRow[]>(() =>
+    value.map((entry) => toRow(entry.split(",").filter(Boolean))),
   );
-  const write = (next: string[][]): void => {
+  const write = (next: IIndexRow[]): void => {
     setIndexes(next);
     onChange(
-      next.filter((cols) => cols.length > 0).map((cols) => cols.join(",")),
+      next.filter((r) => r.cols.length > 0).map((r) => r.cols.join(",")),
     );
   };
 
@@ -56,14 +71,18 @@ export function EntityIndexesEditor({
           Aucun — un index qui porte PLUSIEURS colonnes se compose ici.
         </Text>
       )}
-      {indexes.map((cols, i) => (
-        <Group key={`${label}-${i}`} gap="xs" align="flex-end" wrap="nowrap">
+      {indexes.map((row, i) => (
+        <Group key={row.id} gap="xs" align="flex-end" wrap="nowrap">
           <MultiSelect
             aria-label={`${label} ${i + 1}`}
             data={columns}
-            value={cols}
+            value={row.cols}
             onChange={(next) =>
-              write(indexes.map((c, j) => (j === i ? next : c)))
+              write(
+                indexes.map((r) =>
+                  r.id === row.id ? { ...r, cols: next } : r,
+                ),
+              )
             }
             placeholder={
               columns.length
@@ -77,7 +96,7 @@ export function EntityIndexesEditor({
             variant="subtle"
             color="red"
             aria-label={`Retirer ${label.toLowerCase()} ${i + 1}`}
-            onClick={() => write(indexes.filter((_, j) => j !== i))}
+            onClick={() => write(indexes.filter((r) => r.id !== row.id))}
             mb={6}
           >
             <IconTrash size={16} />
@@ -90,7 +109,7 @@ export function EntityIndexesEditor({
           size="compact-sm"
           leftSection={<IconPlus size={14} />}
           disabled={columns.length < 2}
-          onClick={() => write([...indexes, []])}
+          onClick={() => write([...indexes, toRow([])])}
         >
           Ajouter
         </Button>

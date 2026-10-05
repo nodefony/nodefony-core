@@ -11,6 +11,7 @@
  * deviennent alors inertes au lieu de répondre `400`.
  */
 import { useCallback, useMemo, useState } from "react";
+import { useStableFilters } from "../../hooks";
 import { observer } from "mobx-react-lite";
 import type { IPage } from "nodefony";
 import {
@@ -215,7 +216,8 @@ export const WebhooksTable = observer(function WebhooksTable({
   const [selected, setSelected] = useState<WebhookEndpoint | null>(null);
   const [detailTab, setDetailTab] = useState<string | null>("infos");
   const caps = store.admin.pageCapabilities(WEBHOOKS_ENDPOINT);
-  const filterSignal = JSON.stringify(filters);
+  const { signal: filterSignal, filters: stableFilters } =
+    useStableFilters(filters);
 
   // Piste de pagination : retient le curseur de chaque page (store Redis,
   // qui refuse un `offset`). Recréée quand la liste change de nature — les
@@ -229,7 +231,7 @@ export const WebhooksTable = observer(function WebhooksTable({
         // Le data plane rend `endpoints` là où le contrat de page dit `items` :
         // on recompose la page ici, sans apprendre au traducteur un nom propre
         // à une ressource.
-        return await loadPage(trail, q, filters, async (params) => {
+        return await loadPage(trail, q, stableFilters, async (params) => {
           const res = await store.api.getAbsolute<
             Omit<IPage<WebhookEndpoint>, "items"> & {
               endpoints?: WebhookEndpoint[];
@@ -242,7 +244,7 @@ export const WebhooksTable = observer(function WebhooksTable({
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
     },
-    [store, filterSignal, reloadKey, trail],
+    [store, stableFilters, trail],
   );
 
   const sortable = useMemo(

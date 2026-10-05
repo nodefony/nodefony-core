@@ -53,6 +53,7 @@ export function useResource<T>(fetcher: () => Promise<T>): ResourceState<T> {
     run();
     // Démontage / nouveau fetcher → invalide la requête en vol.
     return () => {
+      // oxlint-disable-next-line react-hooks/exhaustive-deps -- compteur de génération, pas un nœud DOM : l'incrémenter au démontage EST l'invalidation voulue
       genRef.current++;
     };
   }, [run]);

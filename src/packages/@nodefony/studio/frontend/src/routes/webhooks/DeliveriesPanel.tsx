@@ -101,13 +101,13 @@ export function DeliveriesPanel({ id }: { id: string }) {
         onRetry={reload}
       >
         <Accordion variant="separated" chevronPosition="left">
-          {deliveries.map((d, i) => {
+          {deliveries.map((d) => {
             const req = parseJson(d.requestBody);
             const res = d.responseBody ? parseJson(d.responseBody) : null;
             return (
               <Accordion.Item
-                key={`${d.messageId}-${i}`}
-                value={`${d.messageId}-${i}`}
+                key={`${d.messageId}-${d.attempt}`}
+                value={`${d.messageId}-${d.attempt}`}
               >
                 <Accordion.Control>
                   <Group gap="sm" wrap="nowrap">

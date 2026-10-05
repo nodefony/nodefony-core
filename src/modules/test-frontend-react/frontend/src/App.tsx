@@ -322,6 +322,7 @@ function LiveSection() {
               <li className="vide">Rien encore — écrivez quelque chose.</li>
             ) : (
               messages.map((m, i) => (
+                // oxlint-disable-next-line react/no-array-index-key -- anneau borné sans identifiant côté serveur : l'horodatage seul se répète, le rang le départage ; lignes sans état
                 <li key={`${m.ts}-${i}`}>
                   <span className="qui">{m.front}</span>
                   <span>{m.text}</span>

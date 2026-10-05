@@ -232,7 +232,7 @@ interface BaseProps<T> {
    * visible uniquement si `selectable` ET au moins une ligne cochée. Reçoit les
    * lignes sélectionnées (`T[]`) + `clearSelection()` pour tout désélectionner.
    */
-  bulkActions?:
+  renderBulkActions?:
     ((selectedRows: T[], clearSelection: () => void) => ReactNode) | undefined;
 }
 
@@ -924,7 +924,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
     ? table.getSelectedRowModel().rows.map((r) => r.original)
     : [];
   const showBulkBar =
-    selectable && !!props.bulkActions && selectedRows.length > 0;
+    selectable && !!props.renderBulkActions && selectedRows.length > 0;
 
   const sortIcon = (s: false | "asc" | "desc") =>
     s === false ? (
@@ -1046,7 +1046,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
               </Button>
             </Group>
             <Group gap="xs" wrap="nowrap">
-              {props.bulkActions?.(selectedRows, clearSelection)}
+              {props.renderBulkActions?.(selectedRows, clearSelection)}
             </Group>
           </Group>
         </Paper>

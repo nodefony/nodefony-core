@@ -201,6 +201,7 @@ function InlineCode({ text }: { text: string }) {
     <>
       {text
         .split("`")
+        // oxlint-disable-next-line react/no-array-index-key -- segments d'un texte découpé : la position est le sens
         .map((part, i) => (i % 2 === 1 ? <Code key={i}>{part}</Code> : part))}
     </>
   );
@@ -353,6 +354,7 @@ function ResilienceSection({ health }: { health: ConnHealth }) {
         <Table striped>
           <Table.Tbody>
             {events.map((e, i) => (
+              // oxlint-disable-next-line react/no-array-index-key -- anneau borné sans identifiant côté serveur : l'horodatage seul se répète, le rang le départage ; lignes sans état
               <Table.Tr key={`${i}-${e.ts}-${e.kind}`}>
                 <Table.Td w={110}>{fmtClock(e.ts)}</Table.Td>
                 <Table.Td w={110}>
@@ -1232,6 +1234,7 @@ export const OrmConnector = observer(() => {
             <Table striped>
               <Table.Tbody>
                 {h.recentErrors.map((e, i) => (
+                  // oxlint-disable-next-line react/no-array-index-key -- anneau borné sans identifiant côté serveur : l'horodatage seul se répète, le rang le départage ; lignes sans état
                   <Table.Tr key={`${i}-${e.ts}`}>
                     <Table.Td w={120}>{fmtClock(e.ts)}</Table.Td>
                     <Table.Td>

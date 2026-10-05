@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   Badge,
   Center,
@@ -217,23 +217,27 @@ function usePerWorkerErrRate(
 ): Record<string, number> {
   const prev = useRef<Map<string, { ts: number; total: number }>>(new Map());
   const [rates, setRates] = useState<Record<string, number>>({});
-  useEffect(() => {
-    if (ts == null) return;
+  // UNE dérivation par tick, déclenchée par `ts` seul. Mettre `instances` en
+  // dépendance relancerait le calcul au même horodatage : la garde `ts > p.ts`
+  // sauterait chaque worker et les taux retomberaient à vide.
+  const derive = useEffectEvent((at: number) => {
     const next: Record<string, number> = {};
     for (const inst of instances) {
       const e = inst.errors;
       if (!e) continue;
       const total = e.errorTotal + e.criticTotal;
       const p = prev.current.get(inst.instanceId);
-      if (p && ts > p.ts) {
-        const dtMin = (ts - p.ts) / 60000;
+      if (p && at > p.ts) {
+        const dtMin = (at - p.ts) / 60000;
         if (dtMin > 0)
           next[inst.instanceId] = Math.max(0, (total - p.total) / dtMin);
       }
-      prev.current.set(inst.instanceId, { ts, total });
+      prev.current.set(inst.instanceId, { ts: at, total });
     }
     setRates(next);
-    // `ts` = horodatage du tick : 1 dérivation par tick (instances changent avec lui).
+  });
+  useEffect(() => {
+    if (ts != null) derive(ts);
   }, [ts]);
   return rates;
 }

@@ -107,6 +107,7 @@ export const Twin = observer(() => {
         <Breadcrumbs separator={<IconChevronRight size={14} />}>
           {stack.map((id, i) => (
             <Anchor
+              // oxlint-disable-next-line react/no-array-index-key -- pile de navigation : le rang est l'identité, un même nœud peut y revenir
               key={`${id}-${i}`}
               onClick={() => setStack((s) => s.slice(0, i + 1))}
               c={i === stack.length - 1 ? undefined : "dimmed"}

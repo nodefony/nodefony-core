@@ -12,6 +12,18 @@ import type { ReactNode } from "react";
 import { DocHint } from "./DocHint";
 
 /**
+ * Largeur par défaut d'une carte de la grille (12 colonnes) : pleine sur mobile,
+ * deux par ligne sur tablette, quatre sur grand écran. Partagée avec `KpiCard`,
+ * et HISSÉE au module : un littéral en valeur par défaut serait un objet neuf à
+ * chaque rendu, qui défait toute comparaison par référence en aval.
+ */
+export const DEFAULT_CARD_SPAN: Record<string, number> = {
+  base: 12,
+  sm: 6,
+  lg: 3,
+};
+
+/**
  * InfoHint — bulle d'aide ⓘ accessible : ouvre au survol, au focus clavier ET
  * au touch (`events`), `tabIndex={0}` + `aria-label` pour le lecteur d'écran.
  * Le standard Studio pour expliciter une métrique sans alourdir le label.
@@ -97,7 +109,7 @@ export function StatCard({
   icon,
   hint,
   info,
-  span = { base: 12, sm: 6, lg: 3 },
+  span = DEFAULT_CARD_SPAN,
   onClick,
   active = false,
   actionLabel,

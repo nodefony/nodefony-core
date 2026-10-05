@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ReactElement,
@@ -855,13 +856,25 @@ export interface MarkdownDocProps {
   maxWidth?: number;
 }
 
-/** Rendu markdown complet (typographie Mantine + Mermaid + liens + admonitions). */
-export function MarkdownDoc({
-  markdown,
-  onInternalLink,
-  maxWidth = 860,
-}: MarkdownDocProps) {
-  const components: Components = {
+/** Greffons markdown : hissés, un tableau neuf à chaque rendu relancerait l'analyse. */
+const REMARK_PLUGINS = [remarkGfm];
+
+/**
+ * Fabrique la table des rendus par balise, HORS du rendu.
+ *
+ * Définie dans `MarkdownDoc`, la table était un objet neuf à chaque rendu :
+ * `react-markdown` y lit des TYPES de composants, donc chaque rendu du parent
+ * démontait et remontait tout le document — diagrammes Mermaid et graphes
+ * vivants compris. Seuls `pre` et `a` dépendent d'une prop (`onInternalLink`),
+ * d'où une fabrique mémoïsée sur elle.
+ *
+ * @param onInternalLink - navigation sur un lien interne `xxx.md`, si fournie.
+ * @returns la table `components` de `react-markdown`.
+ */
+function buildComponents(
+  onInternalLink: MarkdownDocProps["onInternalLink"],
+): Components {
+  return {
     h2: ({ children }) => (
       <HeadingWithAnchor level={2}>{children}</HeadingWithAnchor>
     ),
@@ -952,12 +965,24 @@ export function MarkdownDoc({
       );
     },
   };
+}
+
+/** Rendu markdown complet (typographie Mantine + Mermaid + liens + admonitions). */
+export function MarkdownDoc({
+  markdown,
+  onInternalLink,
+  maxWidth = 860,
+}: MarkdownDocProps) {
+  const components = useMemo(
+    () => buildComponents(onInternalLink),
+    [onInternalLink],
+  );
   return (
     <Typography>
       <Box
         style={{ maxWidth: rem(maxWidth), fontSize: rem(15), lineHeight: 1.75 }}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
           {markdown}
         </ReactMarkdown>
       </Box>

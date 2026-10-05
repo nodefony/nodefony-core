@@ -258,6 +258,7 @@ export const LogExplorer = observer(
       },
       // refreshKey force la régénération du loader (→ refetch) après un switch ;
       // order/filtres → refetch au changement.
+      // oxlint-disable-next-line react-hooks/exhaustive-deps -- contrat de DataGrid : un loader NEUF déclenche le rechargement ; refreshKey n'existe que pour changer cette identité
       [
         store,
         requestId,

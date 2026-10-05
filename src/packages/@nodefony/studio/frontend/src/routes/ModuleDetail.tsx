@@ -916,11 +916,13 @@ function ModuleDetailSkeleton() {
       <Card withBorder radius="md" p="md">
         <Group gap="xs" mb="lg">
           {Array.from({ length: 5 }).map((_, i) => (
+            // oxlint-disable-next-line react/no-array-index-key -- squelettes de chargement en nombre fixe
             <Skeleton key={i} height={30} width={104} radius="sm" />
           ))}
         </Group>
         <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md" mb="lg">
           {Array.from({ length: 5 }).map((_, i) => (
+            // oxlint-disable-next-line react/no-array-index-key -- squelettes de chargement en nombre fixe
             <Skeleton key={i} height={84} radius="md" />
           ))}
         </SimpleGrid>

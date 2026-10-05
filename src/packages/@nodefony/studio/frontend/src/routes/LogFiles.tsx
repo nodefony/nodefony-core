@@ -367,6 +367,7 @@ export const LogFiles = observer(() => {
           ) : (
             <Stack gap={0} p="xs">
               {lines.map((line, i) => (
+                // oxlint-disable-next-line react/no-array-index-key -- décalage du bloc + rang = numéro de ligne dans le fichier, l'identité réelle
                 <LogLine key={`${nextFrom.current}-${i}`} line={line} />
               ))}
             </Stack>

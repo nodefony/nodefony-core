@@ -660,6 +660,7 @@ export const Documentation = observer(() => {
                   )}
                   <Stack gap={4} mt="xs">
                     {h.excerpts.map((ex, i) => (
+                      // oxlint-disable-next-line react/no-array-index-key -- extraits figés d'un résultat de recherche
                       <Text key={i} size="sm" c="dimmed" lineClamp={2}>
                         {ex.section ? <b>{ex.section} — </b> : null}
                         {ex.text}

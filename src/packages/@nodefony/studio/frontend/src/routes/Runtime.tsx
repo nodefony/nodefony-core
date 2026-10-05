@@ -707,6 +707,7 @@ function ProcessTopology({
               >
                 <List size="sm" spacing={2}>
                   {data.warnings.map((w, i) => (
+                    // oxlint-disable-next-line react/no-array-index-key -- avertissements textuels figés, jamais réordonnés
                     <List.Item key={i}>{w}</List.Item>
                   ))}
                 </List>

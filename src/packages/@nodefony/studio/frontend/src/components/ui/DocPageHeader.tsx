@@ -70,6 +70,7 @@ export function DocPageHeader({
       {breadcrumbs && breadcrumbs.length > 0 && (
         <Group gap={4} wrap="nowrap">
           {breadcrumbs.map((b, i) => (
+            // oxlint-disable-next-line react/no-array-index-key -- fil d'Ariane : le rang EST l'identité (un même libellé peut revenir)
             <Group key={`${i}-${b}`} gap={4} wrap="nowrap">
               {i > 0 && (
                 <Text size="xs" c="dimmed" aria-hidden>

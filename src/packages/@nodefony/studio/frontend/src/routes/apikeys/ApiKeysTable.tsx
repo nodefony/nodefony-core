@@ -14,6 +14,7 @@
  * choisit le bon endpoint (DELETE self vs POST admin).
  */
 import { useCallback, useMemo, useState } from "react";
+import { useStableFilters } from "../../hooks";
 import { observer } from "mobx-react-lite";
 import {
   Stack,
@@ -126,7 +127,8 @@ export const ApiKeysTable = observer(function ApiKeysTable({
   const caps = showSubject
     ? store.admin.pageCapabilities(ADMIN_KEYS_ENDPOINT)
     : null;
-  const filterSignal = JSON.stringify(filters);
+  const { signal: filterSignal, filters: stableFilters } =
+    useStableFilters(filters);
 
   // Piste de pagination : retient le curseur de chaque page (store Redis,
   // qui refuse un `offset`). Recréée quand la liste change de nature — les
@@ -138,7 +140,7 @@ export const ApiKeysTable = observer(function ApiKeysTable({
         // Le data plane rend `keys` (rétro-compat) là où le contrat de page dit
         // `items` : on recompose la page avant de la traduire, plutôt que
         // d'apprendre au traducteur un nom propre à une ressource.
-        return await loadPage(trail, q, filters, async (params) => {
+        return await loadPage(trail, q, stableFilters, async (params) => {
           const res = await store.api.getAbsolute<
             Omit<IPage<ApiKey>, "items"> & { keys?: ApiKey[] }
           >(`${ADMIN_KEYS_ENDPOINT}?${params}`);
@@ -149,7 +151,7 @@ export const ApiKeysTable = observer(function ApiKeysTable({
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
     },
-    [store, filterSignal, reloadKey, trail],
+    [store, stableFilters, trail],
   );
 
   const sortable = useMemo(
@@ -159,7 +161,10 @@ export const ApiKeysTable = observer(function ApiKeysTable({
   // En portée « Mes clés », le tri est fait EN MÉMOIRE sur la réponse entière :
   // toutes les colonnes scalaires sont donc triables, sans rien demander à
   // personne. C'est la seule différence de comportement entre les deux régimes.
-  const canSort = (field: string) => !showSubject || sortable.has(field);
+  const canSort = useCallback(
+    (field: string): boolean => !showSubject || sortable.has(field),
+    [showSubject, sortable],
+  );
 
   const columns = useMemo<DataGridColumn<ApiKey>[]>(() => {
     const cols: DataGridColumn<ApiKey>[] = [
@@ -251,8 +256,7 @@ export const ApiKeysTable = observer(function ApiKeysTable({
       },
     );
     return cols;
-    // `canSort` dérive de `showSubject` + `sortable` : les deux suffisent.
-  }, [showSubject, sortable]);
+  }, [canSort, showSubject]);
 
   const selectedStatus = selected ? keyStatus(selected) : null;
 
@@ -328,7 +332,7 @@ export const ApiKeysTable = observer(function ApiKeysTable({
         }}
         emptyMessage="Aucune clé ne correspond."
         selectable={onBulkRevoke !== undefined}
-        bulkActions={
+        renderBulkActions={
           onBulkRevoke
             ? (rows, clear) => {
                 // Ne révoque que les clés ENCORE actives (une clé déjà révoquée

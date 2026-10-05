@@ -55,6 +55,7 @@ import {
 } from "./logFormat";
 import { SeverityBadge, SeverityCountChips } from "./LogVisuals";
 import type { LogRecord, Severity } from "./logsTypes";
+import { logRecordKey } from "./logsTypes";
 import { PLATFORM_CHANNELS, SEVERITY_NAMES } from "nodefony";
 
 /** État du debug runtime (miroir local de `GET /kernel/api/log/level`). */
@@ -156,8 +157,8 @@ function LogLines({
         </Text>
       ) : (
         <Stack gap={1}>
-          {records.map((r, i) => (
-            <Group key={`${r.uid}-${i}`} gap={6} wrap="nowrap" align="baseline">
+          {records.map((r) => (
+            <Group key={logRecordKey(r)} gap={6} wrap="nowrap" align="baseline">
               <Text
                 size="xs"
                 c="dimmed"

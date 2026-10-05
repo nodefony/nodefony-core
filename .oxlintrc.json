@@ -391,148 +391,22 @@
     // `separator` focusable n'est pas un `<hr>` ; et chaque `role="button"` porte
     // déjà `tabIndex` et clavier, posé sur un conteneur qui RENFERME d'autres
     // commandes — or un `<button>` ne s'imbrique pas.
-    "jsx-a11y/prefer-tag-over-role": "off"
+    "jsx-a11y/prefer-tag-over-role": "off",
+    // Les diagnostics du REACT COMPILER — leurs messages sont ceux de ses
+    // abandons (« Existing memoization could not be preserved », « Cannot access
+    // refs during render »). Ils décrivent ce que le compilateur ne saurait pas
+    // optimiser, or aucun écran du dépôt n'est compilé par lui (le paquet n'est
+    // qu'un pair optionnel de `@vitejs/plugin-react`, jamais branché). Ils
+    // tombaient jusque sur un composable Vue. La classe de bug réelle des effets,
+    // la closure figée, reste gardée par `react-hooks/exhaustive-deps`.
+    "react/set-state-in-effect": "off",
+    "react/exhaustive-effect-dependencies": "off",
+    "react/refs": "off",
+    "react/purity": "off",
+    "react/immutability": "off",
+    "react/preserve-manual-memoization": "off"
   },
   "overrides": [
-    // ── CLIQUET des règles React : la DETTE, nommée fichier par fichier ──────
-    // Ces règles remontaient ~130 sites à leur activation. Elles demandent un
-    // jugement au cas par cas (une dépendance d'effet ajoutée à l'aveugle boucle
-    // le rendu), donc elles ne se corrigent pas en masse. Chaque règle reste
-    // ACTIVE partout ailleurs : un fichier NEUF est protégé dès sa création.
-    // Corriger un fichier = le retirer de sa liste ; la liste ne doit que
-    // décroître. Un fichier listé n'est pas protégé contre une NOUVELLE
-    // occurrence de la même règle — c'est le prix d'un cliquet par fichier.
-    {
-      "files": [
-        "src/nodefony/src/client/react/index.ts",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/PageFilters.tsx",
-        "src/packages/@nodefony/studio/frontend/src/hooks/useResource.ts",
-        "src/packages/@nodefony/studio/frontend/src/routes/Cluster.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/Modules.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/OrmWorker.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/RealtimeConsole.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/apikeys/ApiKeysTable.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/logs/LogExplorer.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/sessions/SessionsTable.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/users/UsersTable.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/webhooks/WebhooksTable.tsx",
-        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/SystemWidgets.tsx"
-      ],
-      "rules": { "react-hooks/exhaustive-deps": "off" }
-    },
-    {
-      "files": [
-        "src/nodefony/src/client/react/index.ts",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/DataGrid.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/PageFilters.tsx",
-        "src/packages/@nodefony/studio/frontend/src/realtime/twin/TwinMap.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/Cluster.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/RealtimeConsole.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/create/CreateTerminal.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/logs/DebugTab.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/users/AvatarUpload.tsx",
-        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/SystemWidgets.tsx"
-      ],
-      "rules": { "react/exhaustive-effect-dependencies": "off" }
-    },
-    {
-      "files": [
-        "src/nodefony/src/client/vue/index.ts",
-        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx"
-      ],
-      "rules": { "react/immutability": "off" }
-    },
-    {
-      "files": [
-        "src/modules/test-frontend-react/frontend/src/App.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/RealtimeHubContent.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/DocHint.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/DocPageHeader.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/MiniChart.tsx",
-        "src/packages/@nodefony/studio/frontend/src/realtime/twin/TwinMap.tsx",
-        "src/packages/@nodefony/studio/frontend/src/realtime/twin/TwinNodePanel.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/Documentation.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/LogFiles.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/ModuleDetail.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/Modules.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/OrmConnector.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/Runtime.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/Twin.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/create/EntityIndexesEditor.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/logs/DebugTab.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/webhooks/DeliveriesPanel.tsx",
-        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/LogsWidget.tsx",
-        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/MoreWidgets.tsx"
-      ],
-      "rules": { "react/no-array-index-key": "off" }
-    },
-    {
-      "files": [
-        "src/packages/@nodefony/studio/frontend/src/components/ui/DocHint.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/KpiCard.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/MiniChart.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/StatCard.tsx"
-      ],
-      "rules": { "react/no-object-type-as-default-prop": "off" }
-    },
-    {
-      "files": [
-        "src/packages/@nodefony/studio/frontend/src/components/ui/MarkdownDoc.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/apikeys/ApiKeysTable.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/sessions/SessionsTable.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/users/UsersTable.tsx"
-      ],
-      "rules": { "react/no-unstable-nested-components": "off" }
-    },
-    {
-      "files": [
-        "src/packages/@nodefony/studio/frontend/src/routes/logs/profileVisuals.tsx"
-      ],
-      "rules": { "react/preserve-manual-memoization": "off" }
-    },
-    {
-      "files": [
-        "src/packages/@nodefony/studio/frontend/src/routes/RealtimeConsole.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/logs/DebugTab.tsx"
-      ],
-      "rules": { "react/purity": "off" }
-    },
-    {
-      "files": [
-        "src/nodefony/src/client/react/index.ts",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/DocToc.tsx"
-      ],
-      "rules": { "react/refs": "off" }
-    },
-    {
-      "files": [
-        "src/packages/@nodefony/studio/frontend/src/blocks/useBlockSource.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ProcessGraphGrid.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/DataGrid.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/PageFilters.tsx",
-        "src/packages/@nodefony/studio/frontend/src/components/ui/json/JsonView.tsx",
-        "src/packages/@nodefony/studio/frontend/src/hooks/useResource.ts",
-        "src/packages/@nodefony/studio/frontend/src/realtime/twin/TwinMap.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/ModuleDetail.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/RealtimeConsole.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/audit/AuditFilters.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/logs/BackplanePanel.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/playground/Radiography.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/profile/TwoFactorModal.tsx",
-        "src/packages/@nodefony/studio/frontend/src/routes/users/AvatarUpload.tsx",
-        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/LogsWidget.tsx",
-        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/SystemWidgets.tsx",
-        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/_kit.tsx"
-      ],
-      "rules": { "react/set-state-in-effect": "off" }
-    },
     {
       // Le point de contact UNIQUE avec TanStack Table — la seule dérogation à la
       // garde posée plus haut. `off` en entier plutôt qu'une liste réduite : la

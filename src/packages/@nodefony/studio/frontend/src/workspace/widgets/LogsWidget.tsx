@@ -5,6 +5,7 @@ import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
 import { ansiToReact } from "../../utils/ansiToReact";
 import type { LogRecord } from "../../routes/logs/logsTypes";
+import { logRecordKey } from "../../routes/logs/logsTypes";
 import {
   fmtClock,
   isAlertSeverity,
@@ -71,11 +72,11 @@ function LogsBody({ source }: WidgetRenderProps<LogFrame>) {
       {ring
         .slice()
         .reverse()
-        .map((rec, i) => {
+        .map((rec) => {
           const alert = isAlertSeverity(rec.severityName);
           return (
             <Group
-              key={`${rec.uid}-${i}`}
+              key={logRecordKey(rec)}
               gap={6}
               wrap="nowrap"
               align="flex-start"

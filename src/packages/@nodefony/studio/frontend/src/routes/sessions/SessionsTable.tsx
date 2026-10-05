@@ -13,6 +13,7 @@
  * vient donc du catalogue (`AdminStore.pageCapabilities`), jamais d'ici.
  */
 import { useCallback, useMemo, useState } from "react";
+import { useStableFilters } from "../../hooks";
 import { observer } from "mobx-react-lite";
 import {
   Stack,
@@ -128,7 +129,8 @@ export const SessionsTable = observer(function SessionsTable({
   const showUser = mode === "all";
   const endpoint = showUser ? SESSIONS_LIST_ENDPOINT : SESSIONS_MINE_ENDPOINT;
   const caps = store.admin.pageCapabilities(endpoint);
-  const filterSignal = JSON.stringify(filters);
+  const { signal: filterSignal, filters: stableFilters } =
+    useStableFilters(filters);
 
   // Piste de pagination : retient le curseur de chaque page (store Redis,
   // qui refuse un `offset`). Recréée quand la liste change de nature — les
@@ -139,7 +141,7 @@ export const SessionsTable = observer(function SessionsTable({
       q: DataGridServerQuery,
     ): Promise<DataGridServerResult<SessionSummary>> => {
       try {
-        return await loadPage(trail, q, filters, (params) =>
+        return await loadPage(trail, q, stableFilters, (params) =>
           store.api.getAbsolute<IPage<SessionSummary>>(`${endpoint}?${params}`),
         );
       } catch (e) {
@@ -147,7 +149,7 @@ export const SessionsTable = observer(function SessionsTable({
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
     },
-    [store, endpoint, filterSignal, reloadKey, trail],
+    [store, endpoint, stableFilters, trail],
   );
 
   const sortable = useMemo(
@@ -351,7 +353,7 @@ export const SessionsTable = observer(function SessionsTable({
         persist={{ key: `studio.sessions.${mode}`, storage: "session" }}
         emptyMessage="Aucune session ne correspond."
         selectable
-        bulkActions={(rows, clear) => (
+        renderBulkActions={(rows, clear) => (
           <Button
             color="red"
             size="xs"

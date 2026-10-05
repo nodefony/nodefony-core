@@ -32,7 +32,7 @@ import {
 import { useNavigate } from "react-router";
 import { useNodefonyAdaptiveChannelData } from "nodefony/react";
 import { useStore, useUi } from "../stores";
-import { useResource } from "../hooks";
+import { useReportOnChange, useResource } from "../hooks";
 import {
   PageLayout,
   DataState,
@@ -140,13 +140,10 @@ function ClusterHealthLive({
         enabled: adaptive,
       },
     );
-  useEffect(() => {
-    if (data) onData(data);
-    // onData = setState (stable) → hors deps
-  }, [data]);
-  useEffect(() => {
-    onRate?.(effectiveMs);
-  }, [effectiveMs]);
+  useReportOnChange(data, (d) => {
+    if (d) onData(d);
+  });
+  useReportOnChange(effectiveMs, onRate);
   return null;
 }
 

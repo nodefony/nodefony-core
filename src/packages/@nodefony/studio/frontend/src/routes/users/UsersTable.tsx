@@ -13,6 +13,7 @@
  * dur répondrait `400` selon le déploiement.
  */
 import { useCallback, useMemo } from "react";
+import { useStableFilters } from "../../hooks";
 import { observer } from "mobx-react-lite";
 import { Stack, Group, Text, Button } from "@mantine/core";
 import { IconTrash } from "@tabler/icons-react";
@@ -122,7 +123,8 @@ export const UsersTable = observer(function UsersTable({
   const caps = store.admin.pageCapabilities(USERS_LIST_ENDPOINT);
   // Signature stable des filtres : le grid revient page 1 quand elle change
   // (sinon on demande la page 7 d'un résultat qui n'a plus que 2 pages).
-  const filterSignal = JSON.stringify(filters);
+  const { signal: filterSignal, filters: stableFilters } =
+    useStableFilters(filters);
 
   // Piste de pagination : retient le curseur de chaque page (store Redis,
   // qui refuse un `offset`). Recréée quand la liste change de nature — les
@@ -133,7 +135,7 @@ export const UsersTable = observer(function UsersTable({
       q: DataGridServerQuery,
     ): Promise<DataGridServerResult<UserSummary>> => {
       try {
-        const result = await loadPage(trail, q, filters, (params) =>
+        const result = await loadPage(trail, q, stableFilters, (params) =>
           store.api.getAbsolute<IPage<UserSummary>>(
             `${USERS_LIST_ENDPOINT}?${params}`,
           ),
@@ -143,10 +145,10 @@ export const UsersTable = observer(function UsersTable({
       } catch (e) {
         throw new Error(describeUsersError(e), { cause: e });
       }
-      // `reloadKey` n'est pas lu dans le corps : il est là pour CHANGER
-      // l'identité du loader, ce qui déclenche le rechargement du grid.
+      // `reloadKey` arrive par `trail`, recréée quand il change : l'identité du
+      // loader change avec elle, ce qui déclenche le rechargement du grid.
     },
-    [store, filterSignal, reloadKey, onLoaded, trail],
+    [store, stableFilters, onLoaded, trail],
   );
 
   const sortable = useMemo(
@@ -295,7 +297,7 @@ export const UsersTable = observer(function UsersTable({
         persist={{ key: "studio.users", storage: "session" }}
         emptyMessage="Aucun utilisateur ne correspond."
         selectable
-        bulkActions={(rows, clear) => (
+        renderBulkActions={(rows, clear) => (
           <Button
             color="red"
             size="xs"

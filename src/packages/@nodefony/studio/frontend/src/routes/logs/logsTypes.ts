@@ -66,6 +66,24 @@ export interface LogRecord {
 }
 
 /**
+ * Identité STABLE d'une ligne de journal, pour la clé React d'une liste.
+ *
+ * `uid` seul ne suffit pas : c'est un compteur PAR PROCESSUS — deux workers
+ * d'une grappe émettent le même, et il repart de zéro au redémarrage. Le
+ * triplet processus + compteur + horodatage, lui, ne se répète pas. Jamais
+ * l'index : un flux se remplit par la tête, chaque arrivée décalerait tous les
+ * index et ferait remonter TOUTES les lignes affichées.
+ *
+ * @param rec - la ligne (tout objet qui porte ces trois champs).
+ * @returns une clé unique et stable d'un rendu à l'autre.
+ */
+export function logRecordKey(
+  rec: Pick<LogRecord, "pid" | "uid" | "timeStamp">,
+): string {
+  return `${rec.pid}-${rec.uid}-${rec.timeStamp}`;
+}
+
+/**
  * Capacités déclarées d'un driver de relecture (axe DESTINATION queryable).
  * Pilotent l'UI : un driver `query:false` (ex. `console`) masque l'Explorer.
  */

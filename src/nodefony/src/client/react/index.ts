@@ -204,12 +204,14 @@ export function useNodefonyChannel(
   const handlerRef = React.useRef(onMessage);
   handlerRef.current = onMessage;
 
+  // oxlint-disable react-hooks/exhaustive-deps -- API publique : `deps` vient de l'APPELANT (comme pour useEffect), une liste dynamique qu'aucune analyse statique ne peut vérifier
   React.useEffect(() => {
     return observeChannel(client, channel, (payload) =>
       handlerRef.current(payload),
     );
     // `deps` étend volontairement la liste (canal dynamique).
   }, [client, channel, ...deps]);
+  // oxlint-enable react-hooks/exhaustive-deps
 }
 
 /**
@@ -269,6 +271,7 @@ export function useNodefonyAdaptiveChannel(
   const enabled = opts.enabled !== false;
   const rebindKey = adaptiveRebindKey(base, desiredMs, enabled);
 
+  // oxlint-disable react-hooks/exhaustive-deps -- `rebindKey` = adaptiveRebindKey(base, desiredMs, enabled), la clé de re-liaison PARTAGÉE par toutes les liaisons ; `deps` vient de l'appelant
   React.useEffect(() => {
     const binding = client.adaptiveChannel(
       base,
@@ -282,6 +285,7 @@ export function useNodefonyAdaptiveChannel(
     );
     return () => binding.dispose();
   }, [client, rebindKey, ...deps]);
+  // oxlint-enable react-hooks/exhaustive-deps
 
   return intervalMs;
 }
@@ -374,11 +378,13 @@ export function useNodefonySyslog(opts: UseSyslogOptions = {}): unknown[] {
   const sevKey = severities ? severities.join(",") : "";
   const [entries, setEntries] = React.useState<unknown[]>([]);
 
+  // oxlint-disable react-hooks/exhaustive-deps -- `severities` est recréé à chaque rendu : `sevKey` le résume, et un même `sevKey` garantit le même contenu
   React.useEffect(() => {
     const options: ObserveSyslogOptions = { max, severities, channel };
     return observeSyslog(client, setEntries, options);
     // `severities` est un tableau recréé à chaque rendu : la clé le résume.
   }, [client, channel, max, sevKey]);
+  // oxlint-enable react-hooks/exhaustive-deps
 
   return entries;
 }
@@ -399,9 +405,11 @@ export function useNodefonyNotifications(
   const client = useNodefony();
   const handlerRef = React.useRef(onNotice);
   handlerRef.current = onNotice;
+  // oxlint-disable react-hooks/exhaustive-deps -- API publique : `deps` vient de l'APPELANT (comme pour useEffect)
   React.useEffect(() => {
     return observeNotices(client, (notice) => handlerRef.current(notice));
   }, [client, ...deps]);
+  // oxlint-enable react-hooks/exhaustive-deps
 }
 
 export interface UseNoticeLogOptions {
@@ -425,11 +433,13 @@ export function useNodefonyNoticeLog(
   const srcKey = sources ? sources.join(",") : "";
   const [notices, setNotices] = React.useState<NodefonyNotice[]>([]);
 
+  // oxlint-disable react-hooks/exhaustive-deps -- `sources` est recréé à chaque rendu : `srcKey` le résume, et un même `srcKey` garantit le même contenu
   React.useEffect(() => {
     const options: ObserveNoticeLogOptions = { max, sources };
     return observeNoticeLog(client, setNotices, options);
     // `sources` est un tableau recréé à chaque rendu : la clé le résume.
   }, [client, max, srcKey]);
+  // oxlint-enable react-hooks/exhaustive-deps
 
   return notices;
 }

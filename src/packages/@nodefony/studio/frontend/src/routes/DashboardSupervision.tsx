@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useReportOnChange } from "../hooks";
 import {
   Grid,
   Stack,
@@ -444,9 +445,7 @@ function SupervisionLive({
     defaultMs: 2000,
     enabled: auto,
   });
-  useEffect(() => {
-    onRate(eff);
-  }, [eff]);
+  useReportOnChange(eff, onRate);
   return null;
 }
 
@@ -1611,6 +1610,7 @@ export const DashboardSupervision = observer(() => {
         >
           <Stack gap={4}>
             {alerts.map((a, i) => (
+              // oxlint-disable-next-line react/no-array-index-key -- alertes recalculées à chaque instantané, sans identité ni état propre
               <Group key={i} gap={8} wrap="nowrap">
                 <Badge size="xs" color={a.color} variant="filled" circle>
                   {" "}
@@ -2803,6 +2803,7 @@ export const DashboardSupervision = observer(() => {
                                 : 0,
                             );
                             return (
+                              // oxlint-disable-next-line react/no-array-index-key -- anneau borné sans identifiant côté serveur : l'horodatage seul se répète, le rang le départage ; lignes sans état
                               <Table.Tr key={`${q.ts}-${i}`}>
                                 <Table.Td c="dimmed">{relTime(q.ts)}</Table.Td>
                                 <Table.Td>

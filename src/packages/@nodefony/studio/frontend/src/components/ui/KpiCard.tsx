@@ -9,6 +9,7 @@ import {
 import type { MantineColor } from "@mantine/core";
 import type { ReactNode } from "react";
 import { DocHint } from "./DocHint";
+import { DEFAULT_CARD_SPAN } from "./StatCard";
 
 export interface KpiCardProps {
   icon: ReactNode;
@@ -57,7 +58,7 @@ export function KpiCard({
   onClick,
   active,
   pulse,
-  span = { base: 12, sm: 6, lg: 3 },
+  span = DEFAULT_CARD_SPAN,
 }: KpiCardProps) {
   const labelText = (
     <Text

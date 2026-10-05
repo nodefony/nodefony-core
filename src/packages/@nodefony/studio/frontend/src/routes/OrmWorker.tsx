@@ -48,6 +48,9 @@ import {
 } from "./orm/ConnectorCard";
 import { type OrmSummary, type OrmGraph, type ConnHealth } from "../types/orm";
 
+/** Taux d'un worker encore sans mesure. Hissé : un littéral neuf à chaque rendu recalculerait le verdict à chaque rendu. */
+const NO_ORM_RATE = { errPerMin: null, reconPerMin: null };
+
 /**
  * **Drill ORM par worker** (`/nodefony/orm/:pid`) — détail d'UN process/pod :
  *  - **Santé lean EXACTE de ce pid** : verdict 3 états + métriques cumulées + débit
@@ -152,10 +155,7 @@ export const OrmWorker = observer(() => {
 
   // Taux ORM (delta) + débit req/s — par pid ; on extrait celui de ce worker.
   const { ratesByPid, qSeriesByPid } = useOrmRates(normRt, live);
-  const myRate = ratesByPid.get(pid) ?? {
-    errPerMin: null,
-    reconPerMin: null,
-  };
+  const myRate = ratesByPid.get(pid) ?? NO_ORM_RATE;
   const myVerdict = useMemo<HealthResult | null>(
     () => (myOrm ? buildHealth(ormHealthInputs(myOrm, myRate)) : null),
     [myOrm, myRate],

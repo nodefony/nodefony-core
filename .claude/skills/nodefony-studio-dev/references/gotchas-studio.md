@@ -282,6 +282,17 @@ key={user.id}`), PAS un retry (`useResource` ne retry pas). Lire « X / Y reques
   **sous-graphe `neighborhood(root, depth)`** (BFS 1-2 sauts) → ne layouter QUE le voisinage ; garde `LARGE_GRAPH`
   (>60 sans focus → invite à chercher + bouton « Afficher tout ») ; cadrage auto via `onInit`→`useRef(instance)` puis
   `requestAnimationFrame(() => rf.fitView(...))` dans un effet `[focus, nodes]` (laisser React Flow committer avant de cadrer).
+- **Les règles React d'oxlint mordent, sans liste de fichiers** : `exhaustive-deps`, `no-array-index-key`,
+  `no-unstable-nested-components`, `no-object-type-as-default-prop`. Les patrons qui les tiennent existent — les APPELER :
+  - remonter une valeur au parent quand elle change → **`useReportOnChange(value, onX)`** (`hooks/`), jamais un
+    `useEffect` qui écarte le rappel de ses deps (il appellerait une version figée dès que le parent passe une flèche) ;
+  - un effet qui doit lire les props du DERNIER rendu sans se relancer → **`useEffectEvent`** (React 19.2+) ;
+  - filtres d'une liste serveur → **`useStableFilters(filters)`** : signature + objet reconstruit DEPUIS elle ;
+  - clé d'une ligne de journal → **`logRecordKey(rec)`** (`logsTypes.ts` : pid + uid + horodatage — `uid` seul se
+    répète entre workers) ; jamais `${id}-${i}` sur un flux rempli par la tête (chaque arrivée remonte tout) ;
+  - valeur par défaut objet/tableau/fonction → constante HISSÉE au module ; table `components` de `react-markdown` →
+    fabrique hors rendu + `useMemo` (sinon tout le document se remonte à chaque rendu).
+    Une dérogation se justifie AU SITE (`// oxlint-disable-next-line <règle> -- <pourquoi>`), jamais par une liste de chemins.
 
 ## 10. Grosse page : extraction
 

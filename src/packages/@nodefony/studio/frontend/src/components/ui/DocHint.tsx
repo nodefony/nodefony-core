@@ -109,6 +109,10 @@ export interface HintProps {
   block?: boolean;
 }
 
+// Défauts HISSÉS : un `[]` en valeur par défaut serait un tableau neuf à chaque rendu.
+const NO_SECTIONS: DocSection[] = [];
+const NO_LINKS: HintLink[] = [];
+
 /**
  * **Hint** — bulle d'aide **typée** façon fiche de documentation (≠ tooltip brut).
  * Le `kind` choisit l'icône, l'accent et le badge : `doc` (📖), `graph` (📈),
@@ -125,8 +129,8 @@ export function Hint({
   title,
   version,
   summary,
-  sections = [],
-  links = [],
+  sections = NO_SECTIONS,
+  links = NO_LINKS,
   width = 360,
   children,
   block = false,
@@ -234,6 +238,7 @@ export function Hint({
             </Text>
           ) : null}
           {sections.map((s, i) => (
+            // oxlint-disable-next-line react/no-array-index-key -- sections statiques de la fiche, jamais réordonnées
             <Box key={`${s.label}-${i}`}>
               <Text
                 size="xs"

@@ -54,7 +54,7 @@ import type { RealtimeFrame, NoticeLevel, NodefonyNotice } from "nodefony";
 import type { ReactNode } from "react";
 import { useConnection, useNotifications, useStore, useUi } from "../stores";
 import type { SubscriptionStats } from "../stores/ConnectionStore";
-import { useResource } from "../hooks";
+import { useReportOnChange, useResource } from "../hooks";
 import {
   PageLayout,
   KpiCard,
@@ -605,13 +605,10 @@ function HubHealthLive({
     REALTIME_HEALTH_MS,
     { defaultMs: REALTIME_HEALTH_MS, enabled: adaptive },
   );
-  useEffect(() => {
-    if (data) onSnap(data);
-    // onSnap stable (useCallback []) → hors deps
-  }, [data]);
-  useEffect(() => {
-    onRate(intervalMs);
-  }, [intervalMs]);
+  useReportOnChange(data, (d) => {
+    if (d) onSnap(d);
+  });
+  useReportOnChange(intervalMs, onRate);
   return null;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import {
   Button,
   Group,
@@ -276,10 +276,14 @@ function DebouncedFilterInput({
   // sur une carte de tête, restauration d'un état) : la saisie suit alors.
   useEffect(() => setDraft(value), [value]);
 
+  // N'émettre que sur la pause de frappe, pas à chaque rendu du parent — mais
+  // avec le `value` et le `onChange` du DERNIER rendu, jamais ceux d'un rendu
+  // figé : c'est la définition même d'un événement d'effet.
+  const emit = useEffectEvent((next: string) => {
+    if (next !== value) onChange(next);
+  });
   useEffect(() => {
-    if (debounced !== value) onChange(debounced);
-    // `onChange` et `value` sont volontairement hors dépendances : n'émettre
-    // que sur la pause de frappe, pas à chaque rendu du parent.
+    emit(debounced);
   }, [debounced]);
 
   if (numeric) {

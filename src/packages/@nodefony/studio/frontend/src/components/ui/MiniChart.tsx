@@ -31,6 +31,9 @@ export interface MiniChartProps {
   format?: ((v: number) => string) | undefined;
 }
 
+/** Format par défaut d'une valeur : entier arrondi. Hissé pour garder une référence stable. */
+const roundFormat = (v: number): string => String(Math.round(v));
+
 /**
  * MiniChart — mini-graphe SVG temps-réel, **zéro dépendance** (recharts 2.x est
  * cassé sous React 19). Survol : ligne-guide + points + tooltip. Repères Y, zone
@@ -44,7 +47,7 @@ export function MiniChart({
   height = 190,
   max,
   threshold,
-  format = (v) => String(Math.round(v)),
+  format = roundFormat,
 }: MiniChartProps) {
   const W = 600;
   const H = 200;
@@ -115,14 +118,14 @@ export function MiniChart({
           vectorEffect="non-scaling-stroke"
           opacity={0.6}
         />
-        {series.map((s, si) => {
+        {series.map((s) => {
           const line = s.data
             .map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`)
             .join(" ");
           const area = `${pad},${H - pad} ${line} ${W - pad},${H - pad}`;
           const last = s.data[s.data.length - 1];
           return (
-            <g key={si}>
+            <g key={s.label}>
               <polygon points={area} fill={s.color} opacity={0.1} />
               <polyline
                 points={line}
@@ -157,9 +160,9 @@ export function MiniChart({
               vectorEffect="non-scaling-stroke"
               opacity={0.6}
             />
-            {series.map((s, si) => (
+            {series.map((s) => (
               <circle
-                key={si}
+                key={s.label}
                 cx={xOf(hover.idx)}
                 cy={yOf(s.data[hover.idx] ?? 0)}
                 r={3.5}
@@ -198,8 +201,8 @@ export function MiniChart({
           }}
         >
           <Stack gap={2}>
-            {series.map((s, si) => (
-              <Group key={si} gap={6} wrap="nowrap">
+            {series.map((s) => (
+              <Group key={s.label} gap={6} wrap="nowrap">
                 <span
                   style={{
                     width: 8,

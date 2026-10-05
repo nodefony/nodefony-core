@@ -8,6 +8,7 @@
  * et les canaux de la Socket Nodefony — aucun import runtime serveur.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useReportOnChange } from "../../hooks";
 import {
   Card,
   Group,
@@ -626,6 +627,7 @@ export function ConnectorCard({
               <Stack gap={6}>
                 {errs.map((e, i) => (
                   <Group
+                    // oxlint-disable-next-line react/no-array-index-key -- anneau borné sans identifiant côté serveur : l'horodatage seul se répète, le rang le départage ; lignes sans état
                     key={`${e.ts}-${i}`}
                     gap="xs"
                     wrap="nowrap"
@@ -830,13 +832,10 @@ export function OrmHealthLive({
     defaultMs: 5000,
     enabled: adaptive,
   });
-  useEffect(() => {
-    if (Array.isArray(data)) onData(data);
-    // onData = setState (stable) → hors deps
-  }, [data]);
-  useEffect(() => {
-    onRate?.(effectiveMs);
-  }, [effectiveMs]);
+  useReportOnChange(data, (d) => {
+    if (Array.isArray(d)) onData(d);
+  });
+  useReportOnChange(effectiveMs, onRate);
   return null;
 }
 
@@ -948,13 +947,10 @@ export function RealtimeHealthLive({
         enabled: adaptive,
       },
     );
-  useEffect(() => {
-    if (data) onData(data);
-    // onData = setState (stable) → hors deps
-  }, [data]);
-  useEffect(() => {
-    onRate?.(effectiveMs);
-  }, [effectiveMs]);
+  useReportOnChange(data, (d) => {
+    if (d) onData(d);
+  });
+  useReportOnChange(effectiveMs, onRate);
   return null;
 }
 

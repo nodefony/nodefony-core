@@ -139,6 +139,7 @@ function HttpPanel({ onClose }: { onClose: () => void }) {
           ) : (
             recent.map((l: LogPulse, i: number) => (
               <Group
+                // oxlint-disable-next-line react/no-array-index-key -- anneau borné sans identifiant côté serveur : l'horodatage seul se répète, le rang le départage ; lignes sans état
                 key={`${l.requestId ?? "x"}-${i}`}
                 gap={6}
                 wrap="nowrap"

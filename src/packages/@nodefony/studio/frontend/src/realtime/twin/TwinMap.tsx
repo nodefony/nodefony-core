@@ -402,6 +402,7 @@ export function TwinMap({
           const b = posOf(l.to);
           return (
             <line
+              // oxlint-disable-next-line react/no-array-index-key -- schéma statique de la carte, jamais réordonné
               key={i}
               x1={a.x}
               y1={a.y}
@@ -415,6 +416,7 @@ export function TwinMap({
       </svg>
 
       {schema.boundaries.map((bd, i) => (
+        // oxlint-disable-next-line react/no-array-index-key -- schéma statique de la carte, jamais réordonné
         <Boundary key={i} y={bd.y} label={bd.label} />
       ))}
 

@@ -1,5 +1,11 @@
 import { observer } from "mobx-react-lite";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useNavigate } from "react-router";
 import {
   Alert,
@@ -129,7 +135,7 @@ export const Modules = observer(() => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -175,11 +181,11 @@ export const Modules = observer(() => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [store]);
 
   useEffect(() => {
     void load();
-  }, [store]);
+  }, [load]);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -239,6 +245,7 @@ export const Modules = observer(() => {
       {loading && rows.length === 0 ? (
         <Grid>
           {Array.from({ length: 6 }).map((_, i) => (
+            // oxlint-disable-next-line react/no-array-index-key -- squelettes de chargement en nombre fixe
             <Grid.Col key={i} span={{ base: 12, sm: 6, lg: 4 }}>
               <Skeleton h={190} radius="md" />
             </Grid.Col>

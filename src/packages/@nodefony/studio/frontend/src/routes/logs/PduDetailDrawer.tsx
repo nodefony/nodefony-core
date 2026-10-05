@@ -39,6 +39,7 @@ import { DefinitionList, KeyValue, JsonViewer } from "../../components/ui";
 import { useStore } from "../../stores";
 import { ansiToReact } from "../../utils/ansiToReact";
 import type { LogRecord, LogQueryResult } from "./logsTypes";
+import { logRecordKey } from "./logsTypes";
 import { fmtClock, fmtDateTime, fmtMillis, recordMessage } from "./logFormat";
 import { SeverityBadge } from "./LogVisuals";
 import { describeFlow } from "./eventFlow";
@@ -368,7 +369,7 @@ export const PduDetailDrawer = observer(
                       <Stack gap={0} p={6}>
                         {timeline.map((row) => (
                           <TimelineRow
-                            key={`${row.uid}-${row.timeStamp}`}
+                            key={logRecordKey(row)}
                             row={row}
                             current={row.uid === record.uid}
                           />

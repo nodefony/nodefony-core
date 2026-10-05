@@ -35,6 +35,7 @@ import {
   tryParseJson,
 } from "../../components/ui";
 import type { LogRecord } from "./logsTypes";
+import { logRecordKey } from "./logsTypes";
 import { fmtClock, fmtMillis, recordMessage } from "./logFormat";
 
 /** Sens d'un message WS (du point de vue serveur). */
@@ -256,7 +257,7 @@ export function WsTracePanel({
         <Stack gap={6}>
           {messages.map((m) => (
             <WsMessageRow
-              key={`${m.rec.uid}-${m.rec.timeStamp}`}
+              key={logRecordKey(m.rec)}
               rec={m.rec}
               dir={m.dir}
               baseTs={baseTs}

@@ -307,6 +307,7 @@ function AlertsBody({ source }: WidgetRenderProps<HealthPayload>) {
     <Stack gap={6}>
       {alerts.map((a, i) => (
         <Alert
+          // oxlint-disable-next-line react/no-array-index-key -- alertes recalculées à chaque instantané, sans identité ni état propre
           key={i}
           variant="light"
           color={a.level === "critical" ? "red" : "orange"}
