@@ -1614,16 +1614,23 @@ interface IPtySession {
  * `answerProbe` : l'émulateur RÉPOND aux requêtes du processus (position du
  * curseur, DECRQM) comme un vrai terminal — ses réponses repartent dans
  * l'entrée. Sans lui, le terminal est muet : la sonde du plein écran échoue.
+ *
+ * `after` : une commande shell jouée DANS le même terminal une fois
+ * `nodefony` mort — ce que ferait le shell du développeur (`stty -a`, pour
+ * constater le mode qu'on lui a rendu). Sans elle, `nodefony` remplace le
+ * shell (`exec`).
  */
 function startPty(
   flavor: ScriptFlavor,
   args: string[],
   env: NodeJS.ProcessEnv,
   answerProbe = false,
+  after?: string,
 ): IPtySession {
+  const run = [process.execPath, BIN, ...args].map(quote).join(" ");
   const inner =
-    `stty cols ${COLS} rows ${ROWS} && exec ` +
-    [process.execPath, BIN, ...args].map(quote).join(" ");
+    `stty cols ${COLS} rows ${ROWS} && ` +
+    (after === undefined ? `exec ${run}` : `${run}; ${after}`);
   // `-c` reçoit la commande NUE : l'envelopper d'un `sh -c` ajoute une couche
   // de shell qui reçoit AUSSI le SIGINT du Ctrl+C et rend 130 à la place du
   // code du processus (vécu sous util-linux).
@@ -1923,6 +1930,59 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
         }
       },
       SCREEN_READY_TIMEOUT_MS * 2 + 60_000,
+    );
+
+    it(
+      "plein écran délogé par un second démarrage : le terminal est rendu (écran normal, mode cuit)",
+      async () => {
+        // Le second `development` balaie les résiduels de CE projet : SIGTERM
+        // au groupe, SIGKILL après un délai. Le terminal du premier doit
+        // revenir intact — c'est le shell du développeur qui le récupère.
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-devscreen-"));
+        const sttyFile = path.join(dir, "stty.txt");
+        let s: IPtySession | null = null;
+        let second: ChildProcess | null = null;
+        try {
+          s = startPty(
+            flavor,
+            ["development", "--ui"],
+            process.env,
+            true,
+            `stty -a > ${quote(sttyFile)} 2>&1`,
+          );
+          await waitFor(s, BAR_RE);
+          assert.strictEqual(s.term.buffer.active.type, "alternate");
+          second = spawn(process.execPath, [BIN, "development"], {
+            cwd: REPO_ROOT,
+            env: { ...process.env, NF_NO_TTY: "1" },
+            stdio: "ignore",
+          });
+          const end = Date.now() + 60_000;
+          while (!fs.existsSync(sttyFile) && Date.now() < end) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
+          await new Promise((r) => setTimeout(r, 300));
+          const final = await snap(s);
+          assert.ok(
+            fs.existsSync(sttyFile),
+            `le premier superviseur n'a jamais rendu la main\n${screenText(final)}`,
+          );
+          assert.strictEqual(
+            s.term.buffer.active.type,
+            "normal",
+            `plus d'écran alternatif\n${screenText(final)}`,
+          );
+          assert.strictEqual(s.term.modes.bracketedPasteMode, false);
+          const stty = fs.readFileSync(sttyFile, "utf8");
+          assert.match(stty, /(^|\s)icanon\b/, `mode cuit rendu\n${stty}`);
+          assert.match(stty, /(^|\s)echo\b/, `écho rendu\n${stty}`);
+        } finally {
+          second?.kill("SIGTERM");
+          await cleanup(s);
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      },
+      SCREEN_READY_TIMEOUT_MS + 90_000,
     );
 
     it(
