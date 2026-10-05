@@ -89,10 +89,10 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
 
 ### 2. Deux surfaces, un modèle
 
-| Surface      | Ce qu'elle fait                                                                                               | Quand                                                                                     |
-| ------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `fullscreen` | écran alternatif, historique tenu par nous, molette captée ; journal, invite et barre dessinés à chaque image | DEMANDÉ (`--ui` ou `NF_DEV_UI=1`), clavier en terminal, et le terminal répond à la sonde  |
-| `inline`     | le rendu de #533 : le contenu part dans l'historique natif, invite et barre redessinées en dernières lignes   | par défaut ; et en repli : terminal muet, clavier hors terminal, `--no-ui`, `NF_DEV_UI=0` |
+| Surface      | Ce qu'elle fait                                                                                                           | Quand                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `fullscreen` | écran alternatif, historique tenu par nous, molette traduite ou captée ; journal, invite et barre dessinés à chaque image | DEMANDÉ (`--ui` ou `NF_DEV_UI=1`), clavier en terminal, et le terminal répond à la sonde  |
+| `inline`     | le rendu de #533 : le contenu part dans l'historique natif, invite et barre redessinées en dernières lignes               | par défaut ; et en repli : terminal muet, clavier hors terminal, `--no-ui`, `NF_DEV_UI=0` |
 
 - **Le plein écran est OPT-IN.** La sonde ne suffit pas à l'allumer : elle CONDITIONNE une
   demande explicite. Il le reste tant que trois preuves manquent — la souris (capture et sélection
@@ -103,9 +103,33 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
   universelle chez les terminaux à séquences VT : une réponse ⇒ écran alternatif utilisable. La
   sortie synchronisée (mode `2026`) est demandée EN PLUS par DECRQM et reste optionnelle. Le plein
   écran n'est jamais conditionné à DECRQM, extension que tous les terminaux n'implémentent pas.
-- **Windows** : PgUp/PgDn/Début/Fin défilent partout. La **molette** n'est promise sous Windows
-  qu'une fois prouvé à la main que Node reçoit les évènements souris de la console (libuv lit la
-  console sans `ENABLE_VIRTUAL_TERMINAL_INPUT`).
+- **La souris** — deux régimes, un interrupteur (`--mouse` / `--no-mouse` / `NF_DEV_MOUSE`) :
+  - **laissée au terminal** (le défaut) : seul le défilement alterné (mode `1007`) est posé ; le
+    terminal traduit la molette en flèches, la sélection native marche sans touche. Ce régime
+    perd la molette là où le terminal ne traduit pas : Terminal.app par défaut, tmux, JediTerm ;
+  - **captée** (`--mouse`) : clics (`1000`), glisser bouton tenu (`1002`), coordonnées SGR
+    (`1006`) — jamais `1003` (tout mouvement : une inondation) ni `1004`. C'est le seul régime
+    qui rend la molette uniforme partout où la souris est rapportée. La sélection est alors
+    DESSINÉE par l'application (patron Claude Code, opencode, Textual) : extrémités en (entrée,
+    colonne) de l'historique, jamais en coordonnées d'écran — un défilement pendant le glisser,
+    une ligne qui arrive, un repli différent ne la perdent pas ; double clic = mot (un chemin
+    suivi de sa ligne et de sa colonne, une URL), triple = ligne logique ; glisser au bord fait défiler ; copie au
+    relâchement. La sélection native reste possible avec la touche du terminal, que l'aide de la
+    barre nomme (`fn` sous Terminal.app, `⌥` sous iTerm2, `maj` ailleurs).
+  - `1007` est posé dans les deux régimes : là où la capture est refusée par un réglage du
+    terminal (iTerm2, Terminal.app, Warp), la molette arrive encore, en flèches. Un cran capté
+    défile de trois lignes, comme un cran traduit.
+  - **Le presse-papiers se choisit sur le contexte** : session SSH ⇒ OSC 52 seule (un outil
+    distant copierait sur la MAUVAISE machine, sans erreur) ; tmux ⇒ son tampon d'abord ;
+    poste ⇒ `pbcopy`, `wl-copy`, `xclip`, `xsel`, PowerShell `Set-Clipboard` (jamais
+    `clip.exe`), OSC 52 en dernier. « Copié » n'est dit que sur le code 0 d'un outil ; OSC 52
+    n'a aucun accusé de réception et se dit « non confirmée ».
+  - La capture reste **opt-in** tant qu'elle n'est pas éprouvée à la main dans les terminaux
+    réels (Terminal.app, iTerm2, VS Code, tmux, une session SSH, Windows Terminal).
+- **Windows** : PgUp/PgDn/Début/Fin défilent partout. La console ne rapporte la souris à un
+  programme en mode brut que depuis Node 24.2 (libuv 1.51) : en deçà, `--mouse` est refusé en le
+  disant — c'est une DÉDUCTION de la version, assumée, car l'activer pour la constater ferait aussi
+  perdre la molette de `1007`. La molette reste à prouver à la main sous Windows Terminal.
 - Un pseudo-terminal qui répond à la sonde (tmux lancé par un agent) n'obtient le plein écran que
   si on le lui demande ; `--no-ui` et `--output plain` restent les issues, documentées.
 
@@ -204,8 +228,11 @@ interface IInputFocus {
 }
 ```
 
-#537 pose deux foyers : **défilement** (molette, PgUp/PgDn, Début, Fin) et **global** (Ctrl+C,
-Ctrl+D ⇒ arrêt propre). #538 insère l'**invite** en tête. La chaîne est atteignable hors clavier
+#537 pose trois foyers : **souris** quand elle est captée (sélection, Échap l'efface),
+**défilement** (molette, flèches, PgUp/PgDn, Début, Fin) et **global** (Ctrl+C, Ctrl+D ⇒ arrêt
+propre). #538 insère l'**invite** en tête. ↑↓ restent au défilement — sans capture, la molette
+ARRIVE en ↑↓, et la confier à l'historique de l'invite rejouerait des commandes à chaque cran ;
+l'historique de l'invite prend Ctrl+P / Ctrl+N, et l'aide le dit. La chaîne est atteignable hors clavier
 (`DevTerminal.dispatch`) : une entrée venue d'ailleurs, plus tard, y entre sans rien rouvrir.
 
 ### 5. Une classe compose le tout : `DevTerminal`
@@ -365,6 +392,9 @@ interface IConfirmDecision {
   l'invite.
 - **Redimensionnement** : regroupé comme une image, il invalide les hauteurs mémoïsées et redessine
   tout ; la fenêtre reste ancrée sur la même entrée (`seq`), pas sur le même numéro de ligne.
+- Tout mode posé à l'entrée est coupé à la sortie — souris comprise, et même s'il n'a pas été
+  posé : couper un mode absent est sans effet, en oublier un laisse le shell recevoir des
+  séquences à chaque clic.
 - Restauration sur TOUS les chemins — sortie normale, `SIGINT`/`SIGTERM`/`SIGHUP`,
   `uncaughtException`, `exit` — par le protocole unique (§5). Seul `kill -9` laisse un terminal à
   `reset` : c'est la raison d'être de la surface `inline`.
@@ -385,6 +415,10 @@ aujourd'hui (§1).
   publiable plus tard par lot à la demande.
 - Le superviseur gagne une responsabilité (le terminal), isolée dans `DevTerminal`.
 - Coût mémoire en développement : 8 Mio au plus pour l'historique.
+- Souris captée, la copie lance un outil du système (`pbcopy`, `xclip`…) par sélection, avec un
+  délai de 2 s ; aucun en rafale pendant le glisser. Le prix pour l'utilisateur : clic du milieu
+  et menu du clic droit du terminal perdus, Ctrl+molette (zoom) avalé — d'où l'interrupteur dès
+  le premier jour, et un défaut laissé au terminal.
 - Une capacité de plus à prouver sur trois plateformes. La preuve automatique passe par la
   commande système `script` comme pseudo-terminal — aucun pseudo-terminal en Node pur sans
   dépendance native, et `node-pty` en est une — et par `@xterm/headless` (dépendance de
