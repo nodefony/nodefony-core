@@ -33,6 +33,11 @@ import {
   type StartupOutputMode,
 } from "./outputMode";
 import {
+  chooseClipboardRoutes,
+  copyToClipboard,
+  describeCopy,
+} from "./clipboard";
+import {
   DEV_TERMINAL_ENV,
   encodeTerminalVerdict,
   isTerminal,
@@ -790,6 +795,14 @@ export class DevSupervisor {
       synchronized: probe.synchronized,
       onQuit: () => void this.#shutdown(),
       mouse: this.#mouseCapture(),
+      // La séquence OSC 52 part sur NOTRE terminal (la sortie standard du
+      // superviseur), jamais par le serveur.
+      copy: async (text) =>
+        describeCopy(
+          await copyToClipboard(text, chooseClipboardRoutes(process.env), {
+            writeTerminal: (sequence) => process.stdout.write(sequence),
+          }),
+        ),
     };
   }
 
