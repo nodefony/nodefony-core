@@ -3,6 +3,7 @@ import {
   Code,
   createTheme,
   darken,
+  HoverCard,
   isVirtualColor,
   luminance,
   Modal,
@@ -210,6 +211,25 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
         styles: {
           root: { minWidth: "24px", minHeight: "24px" },
         },
+      }),
+      // Cartes au survol : atteignables au TOUCHER, et lisibles jusqu'au bout.
+      //
+      // Mantine 9.7 a changé deux défauts du `HoverCard`, et Studio le monte en dix
+      // endroits — dont `DocHint`, lui-même posé sur presque chaque écran :
+      //  • `events.touch` passe à `false` — un appui sur tablette n'ouvre plus
+      //    rien. L'aide contextuelle, qui ne vit QUE dans ces cartes, devenait
+      //    inatteignable sans souris. On le rétablit.
+      //  • `interactive` apparaît, à `false` — la carte ne survit au trajet du
+      //    pointeur vers elle que par le délai de fermeture (120 à 150 ms), une
+      //    course qu'on perd en visant un lien d'une fiche `DocHint` : mesuré au
+      //    navigateur, traverser lentement les 16 px qui séparent la puce de
+      //    mode de sa carte la FERME. À `true`, la bibliothèque trace un couloir
+      //    de sécurité (`safePolygon`) entre la cible et la carte : la même
+      //    traversée la laisse ouverte.
+      // Le reste du nouveau comportement est un gain qu'on garde tel quel :
+      // ouverture au focus clavier, fermeture par `Échap` ou un appui dehors.
+      HoverCard: HoverCard.extend({
+        defaultProps: { events: { touch: true }, interactive: true },
       }),
       // Fenêtres (Modal) à deux tons, esprit bulles d'aide (DocHint) — sens
       // OPPOSÉ selon le schéma (validé visuellement) :
