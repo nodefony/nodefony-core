@@ -1933,6 +1933,104 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
     );
 
     it(
+      "plein écran : Ctrl+C pendant un rechargement emporte le build en cours",
+      async () => {
+        // En mode brut, Ctrl+C est une TOUCHE : aucun SIGINT n'atteint le
+        // groupe du terminal. Seul le superviseur peut tuer turbo — laissé
+        // vivant, il écrirait `dist/` pendant que le développeur relance.
+        const build = (): number[] => {
+          const r = spawnSync("pgrep", ["-f", "turbo.* run build"], {
+            encoding: "utf8",
+          });
+          return r.stdout
+            .split("\n")
+            .filter(Boolean)
+            .map(Number)
+            .filter((pid) => pid !== process.pid);
+        };
+        const before = new Set(build());
+        const ours = (): number[] => build().filter((pid) => !before.has(pid));
+        let s: IPtySession | null = null;
+        try {
+          // `TURBO_FORCE` (hérité par le build) : un VRAI build, pas un rejeu
+          // de cache qui finit en quelques centaines de millisecondes.
+          s = startPty(
+            flavor,
+            ["development", "--ui"],
+            { ...process.env, TURBO_FORCE: "true" },
+            true,
+          );
+          await waitFor(s, BAR_RE);
+          await new Promise((r) => setTimeout(r, 3000));
+          // Le CŒUR : turbo rejoue tous ses dépendants, assez long pour être
+          // interrompu. Dates seulement, l'arbre git reste intact.
+          const watched = path.join(
+            REPO_ROOT,
+            "src",
+            "nodefony",
+            "src",
+            "Service.ts",
+          );
+          const now = new Date();
+          fs.utimesSync(watched, now, now);
+          await waitFor(s, /construction…/);
+          // Sans build vivant au moment du Ctrl+C, le cas ne prouverait rien.
+          // Le binaire turbo LUI-MÊME, pas seulement l'enveloppe `npm exec` :
+          // orpheline, l'enveloppe meurt seule à la fermeture de ses tubes,
+          // et le cas passerait sans prouver l'arrêt de l'arbre.
+          const turbo = (): number[] =>
+            ours().filter((pid) => {
+              const command = spawnSync(
+                "ps",
+                ["-o", "command=", "-p", String(pid)],
+                {
+                  encoding: "utf8",
+                },
+              ).stdout.trim();
+              return command !== "" && !/^(npm|npx|node)\b/.test(command);
+            });
+          let alive: number[] = [];
+          const end = Date.now() + 15_000;
+          while (alive.length === 0 && Date.now() < end) {
+            alive = turbo();
+            if (alive.length === 0) await new Promise((r) => setTimeout(r, 50));
+          }
+          assert.ok(
+            alive.length > 0,
+            `précondition : un build turbo tourne au moment du Ctrl+C\n${screenText(await snap(s))}`,
+          );
+          const code = await ctrlC(s);
+          // AU RETOUR du Ctrl+C, sans délai de grâce : orphelin, l'arbre du
+          // build vit encore ~2 s (jusqu'à l'EPIPE de sa prochaine écriture),
+          // et c'est assez pour écrire `dist/` pendant que le développeur
+          // relance. Constaté : 3 processus vivants si l'arrêt l'oublie.
+          const left = ours();
+          assert.strictEqual(
+            code,
+            0,
+            `arrêt propre\n${screenText(await snap(s))}`,
+          );
+          for (const pid of left) {
+            try {
+              process.kill(pid, "SIGKILL");
+            } catch {
+              /* déjà parti */
+            }
+          }
+          assert.deepStrictEqual(left, [], "aucun build ne survit à l'arrêt");
+          assert.strictEqual(
+            await isPortOpen(HTTP_PORT),
+            false,
+            "ports libérés",
+          );
+        } finally {
+          await cleanup(s);
+        }
+      },
+      SCREEN_READY_TIMEOUT_MS * 2 + 60_000,
+    );
+
+    it(
       "plein écran délogé par un second démarrage : le terminal est rendu (écran normal, mode cuit)",
       async () => {
         // Le second `development` balaie les résiduels de CE projet : SIGTERM
