@@ -374,11 +374,24 @@ ok "tarballs écrits dans release/tarballs/"
 # (profil esm-only : node10 et require() CJS ignorés — framework ESM-only).
 # `nodefony/debugbar.js` = export d'ASSET (bundle standalone pour <script src>,
 # consommé par URL, jamais importé en TS) → exclu de l'analyse de types.
+# Les exports qui ne sont pas du CODE (logo .svg/.png, feuille de style…) n'ont
+# pas de types par nature : attw les déclare « Resolution failed ». Ils sont
+# DÉDUITS des `exports` du tarball — une liste écrite ici oublierait le
+# prochain, et le banc rougirait sur un défaut qui n'en est pas un (vécu : le
+# logo exporté a rendu ce banc rouge sans que rien n'ait cassé).
 step "attw — types publiés des 13 paquets"
 for tgz in "$ROOT"/release/tarballs/*.tgz; do
+  ENTRIES="$(tar -xOzf "$tgz" package/package.json | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      const keys = Object.keys(JSON.parse(s).exports ?? {});
+      const assets = keys.filter((k) => /\.[a-z0-9]+$/iu.test(k) && !/\.(m?js|cjs|json)$/iu.test(k));
+      process.stdout.write(assets.join(" "));
+    });')"
+  [[ "$(basename "$tgz")" == nodefony-10.* ]] && ENTRIES="./debugbar.js $ENTRIES"
   EXCLUDE=""
-  [[ "$(basename "$tgz")" == nodefony-10.* ]] && EXCLUDE="--exclude-entrypoints ./debugbar.js"
-  # shellcheck disable=SC2086 — $EXCLUDE volontairement non quoté (0 ou 2 mots)
+  [[ -n "${ENTRIES// /}" ]] && EXCLUDE="--exclude-entrypoints $ENTRIES"
+  # shellcheck disable=SC2086 — $EXCLUDE volontairement non quoté (une liste de mots)
   npx --yes @arethetypeswrong/cli "$tgz" --profile esm-only $EXCLUDE > /dev/null 2>&1 \
     || { npx --yes @arethetypeswrong/cli "$tgz" --profile esm-only $EXCLUDE | tail -25; fail "attw KO sur $(basename "$tgz") — types publiés cassés"; }
 done
