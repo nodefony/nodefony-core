@@ -75,11 +75,16 @@ export function filterGraphToModules(graph, keep) {
     /** @type {Record<string, string[]>} */
     const kept = {};
     for (const [target, sources] of Object.entries(index)) {
-      // `usedBy` liste des FICHIERS, les autres index des NOMS de symbole.
+      // `usedBy` liste des FICHIERS, `aliases` des RÉFÉRENCES `module:nom`,
+      // les autres index des NOMS de symbole.
       const values =
         kind === "usedBy"
           ? sources.filter((f) => keep.has(moduleOf(f)))
-          : sources.filter((s) => names.has(s));
+          : kind === "aliases"
+            ? sources.filter((ref) =>
+                keep.has(ref.slice(0, ref.lastIndexOf(":"))),
+              )
+            : sources.filter((s) => names.has(s));
       // La CIBLE peut être extérieure au graphe (`extendedBy.EventEmitter`) :
       // elle reste dès qu'un symbole conservé s'y rattache.
       if (values.length) kept[target] = values;

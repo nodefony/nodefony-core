@@ -149,22 +149,35 @@ export function readSymbolsGraph(from: string): ISymbolsGraph | null {
  * Trouve un symbole par son nom exact.
  *
  * Le graphe indexe par nom, sauf pour les **homonymes** qu'il range sous
- * `Module:Nom` — d'où le second passage, qui les rattrape. Extrait ici parce
- * que la commande n'est plus le seul lecteur : le serveur MCP interroge le même
- * graphe, et deux résolutions d'homonymes finiraient par différer.
+ * `Module:Nom` — d'où le second passage, qui les rattrape. Puis le nom
+ * PUBLIÉ : `export { Response as HttpResponse }` rend `Response` quand on
+ * cherche `HttpResponse`, le nom qu'on lit dans un `import` (index
+ * `relations.aliases`) — l'entrée rendue porte alors son nom de DÉCLARATION.
+ * Extrait ici parce que la commande n'est plus le seul lecteur : le serveur
+ * MCP interroge le même graphe, et deux résolutions finiraient par différer.
  *
  * @param graph - le graphe déjà lu
- * @param name - nom exact recherché
+ * @param name - nom exact recherché (déclaré ou publié)
  * @returns l'entrée, ou `undefined`
  */
 export function lookupSymbol(
   graph: ISymbolsGraph,
   name: string,
 ): ISymbolEntry | undefined {
-  return (
+  const direct =
     graph.symbols[name] ??
-    Object.values(graph.symbols).find((s) => s.name === name)
-  );
+    Object.values(graph.symbols).find((s) => s.name === name);
+  if (direct) return direct;
+  for (const ref of graph.relations?.aliases?.[name] ?? []) {
+    const at = ref.lastIndexOf(":");
+    const module = ref.slice(0, at);
+    const local = ref.slice(at + 1);
+    const target = Object.values(graph.symbols).find(
+      (s) => s.name === local && s.module === module,
+    );
+    if (target) return target;
+  }
+  return undefined;
 }
 
 /** Ce que la ligne de commande demande. */
@@ -370,6 +383,17 @@ export function runSymbolsCommand(argv: string[]): number {
     process.stdout.write(
       parsed.json ? `${JSON.stringify(sym, null, 2)}\n` : renderSymbol(sym),
     );
+    if (
+      !parsed.json &&
+      sym.name !== parsed.name &&
+      !parsed.name.includes(":")
+    ) {
+      // Trouvé par son nom PUBLIÉ : le dire, sinon la réponse semble parler
+      // d'un autre symbole que celui demandé.
+      process.stdout.write(
+        `  publié sous : ${parsed.name} (export { ${sym.name} as ${parsed.name} })\n`,
+      );
+    }
     return SysExit.OK;
   }
 

@@ -22,6 +22,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import ts from "typescript";
 import {
+  lookupSymbol,
   readSymbolsGraph,
   runSymbolsCli,
   runSymbolsCommand,
@@ -120,6 +121,52 @@ describe("graphe symbolique — extraction", () => {
     );
   });
 
+  it("⭐ un nom PUBLIÉ sous un autre nom se retrouve — même fichier, autre fichier, autre paquet", () => {
+    // Chercher le nom qu'on lit dans un `import` rendait « introuvable » pour
+    // un symbole qui existe sous son nom de déclaration (8 noms dans le dépôt).
+    const g = buildSymbolsGraph(
+      ts,
+      [
+        {
+          file: "user/index.ts",
+          module: "@a/user",
+          text: "/** Une ligne de la table. */\nexport interface IUserRow { id: string }",
+        },
+        {
+          file: "front/presets/react.ts",
+          module: "@a/front",
+          text: "/** Preset React. */\nconst react19Preset = { name: 1 };\nexport default react19Preset;",
+        },
+        {
+          file: "front/index.ts",
+          module: "@a/front",
+          text: [
+            'export { default as reactPreset } from "./presets/react";',
+            'export { IUserRow as UserRow } from "@a/user";',
+            'export { z as zod } from "zod";',
+            "const schema = {};",
+            "export { schema as sessionSchema };",
+          ].join("\n"),
+        },
+      ],
+      SYMBOLS_PRODUCER_APPLICATION,
+    ).stable;
+    const graphe = g as unknown as Parameters<typeof lookupSymbol>[0];
+    assert.strictEqual(lookupSymbol(graphe, "sessionSchema")?.name, "schema");
+    assert.strictEqual(lookupSymbol(graphe, "UserRow")?.name, "IUserRow");
+    // La constante exportée PAR DÉFAUT entre au graphe parce qu'on la publie.
+    assert.strictEqual(
+      lookupSymbol(graphe, "reactPreset")?.name,
+      "react19Preset",
+    );
+    assert.strictEqual(
+      lookupSymbol(graphe, "reactPreset")?.description,
+      "Preset React.",
+    );
+    // Un paquet tiers ne désigne rien ici : pas d'alias pendant.
+    assert.isUndefined(g.relations.aliases.zod);
+  });
+
   it("ne compte pas une signature de surcharge comme une fonction de plus", () => {
     const g = buildSymbolsGraph(
       ts,
@@ -175,6 +222,11 @@ describe("graphe symbolique — `nodefony symbols --generate`", () => {
       dir,
       "modules/blog/nodefony/service/BlogService.ts",
       "/** Publie les billets du blog. */\nexport class BlogService {}\n",
+    );
+    ecrire(
+      dir,
+      "modules/blog/index.ts",
+      'export { BlogService as Billets } from "./nodefony/service/BlogService";\n',
     );
     // Ce qui ne doit PAS entrer au graphe.
     ecrire(
@@ -267,6 +319,14 @@ describe("graphe symbolique — `nodefony symbols --generate`", () => {
     );
     assert.strictEqual(lu.code, SysExit.OK);
     assert.include(lu.out, "Publie les billets du blog.");
+
+    // Cherché par le nom que l'application IMPORTE : trouvé, et dit comme tel.
+    const publie = await capture(() =>
+      runSymbolsCommand(["symbols", "Billets", "--cwd", dir]),
+    );
+    assert.strictEqual(publie.code, SysExit.OK);
+    assert.include(publie.out, "BlogService — class (@monapp/blog)");
+    assert.include(publie.out, "publié sous : Billets");
   });
 
   it("⭐ sans compilateur TypeScript, refuse en NOMMANT la commande d'installation", async () => {

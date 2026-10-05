@@ -436,6 +436,11 @@ retient un `package.json` ABSENT pour toute la vie du processus, et le supervise
 
 - **`--generate` est asynchrone** → porte `runSymbolsCli` ; `runSymbolsCommand` (publique,
   synchrone) le REFUSE au lieu de l'ignorer.
+- **Nom PUBLIÉ ≠ nom déclaré** (`export { schema as sessionSchema }`, `export { default as
+react19Preset } from "./…"`, `export { IUserRow as UserRow } from "@nodefony/user"`) : index
+  `relations.aliases` (nom publié → `module:nom`), lu par `lookupSymbol` — la commande dit
+  « publié sous ». Une constante exportée PAR DÉFAUT n'entre au graphe que si un fichier la
+  publie sous un nom (sinon chaque `config.ts` ferait un homonyme `config`).
 - **Module d'un symbole** = `name` du `package.json` le plus proche (`Module.getModuleName()`,
   la clé que lit l'onglet « API »).
 - **Champ `producer`** (`repository` | `application`) : aucun producteur ne réécrit le graphe d'un

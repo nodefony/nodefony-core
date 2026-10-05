@@ -93,6 +93,13 @@ export interface ISymbolRelations {
   decoratedBy: Record<string, string[]>;
   /** fichier qui importe X → `usedBy.X = ["src/foo.ts", …]` */
   usedBy: Record<string, string[]>;
+  /**
+   * Nom PUBLIÉ → symbole déclaré sous un autre nom :
+   * `export { Response as HttpResponse }` → `aliases.HttpResponse =
+   * ["@nodefony/http:Response"]`. Sans lui, chercher le nom qu'on lit dans un
+   * `import` rendait « introuvable » pour un symbole qui existe.
+   */
+  aliases: Record<string, string[]>;
 }
 
 /** Comptes du graphe. */
@@ -242,6 +249,17 @@ interface IFileSymbols {
   stable: ISymbolRecord[];
   verbose: ISymbolRecord[];
   imports: IFileImports["imports"];
+  /** Exports renommés : nom publié → nom déclaré, et d'où (`from`), s'il y a lieu. */
+  aliases: { published: string; local: string; from: string | null }[];
+  /** Nom de la déclaration exportée PAR DÉFAUT, s'il y en a une nommée. */
+  defaultName: string | null;
+  /**
+   * La constante exportée par défaut (`const preset = …; export default
+   * preset`), que le graphe n'inclut pas d'office — chaque `config.ts` en a
+   * une. Elle n'y entre que si un autre fichier la PUBLIE sous un nom
+   * (`export { default as react19Preset } from "./react19-vite"`).
+   */
+  defaultConst: { stable: ISymbolRecord; verbose: ISymbolRecord } | null;
 }
 
 /**
@@ -546,12 +564,13 @@ function collectFileSymbols(
   const constsOf = (
     stmt: TS.VariableStatement,
     verbose: boolean,
+    force = false,
   ): ISymbolRecord[] => {
     const decls = stmt.declarationList.declarations;
     const viaClause = decls.some((d) =>
       exportedByClause.has(d.name.getText(sf)),
     );
-    if (!viaClause && !hasModifier(stmt, ts.SyntaxKind.ExportKeyword))
+    if (!force && !viaClause && !hasModifier(stmt, ts.SyntaxKind.ExportKeyword))
       return [];
     const description = tsDocOf(stmt);
     return decls.map((d) => {
@@ -568,8 +587,48 @@ function collectFileSymbols(
     });
   };
 
-  const out: IFileSymbols = { stable: [], verbose: [], imports: [] };
   const statements = sf.statements;
+  const out: IFileSymbols = {
+    stable: [],
+    verbose: [],
+    imports: [],
+    aliases: [],
+    defaultName: null,
+    defaultConst: null,
+  };
+  // Exports RENOMMÉS (`export { a as b }`, avec ou sans `from`) : le symbole
+  // garde son nom de déclaration, le nom publié devient un alias. `default`
+  // n'est jamais un nom qu'on cherche ; comme SOURCE, il désigne l'export par
+  // défaut du fichier visé (`export { default as clc } from "./colors"`).
+  for (const stmt of statements) {
+    if (!ts.isExportDeclaration(stmt)) continue;
+    const clause = stmt.exportClause;
+    if (!clause || !ts.isNamedExports(clause)) continue;
+    const from =
+      stmt.moduleSpecifier && ts.isStringLiteral(stmt.moduleSpecifier)
+        ? stmt.moduleSpecifier.text
+        : null;
+    for (const el of clause.elements) {
+      if (!el.propertyName) continue;
+      const local = el.propertyName.getText(sf);
+      const published = el.name.getText(sf);
+      if (local === published || published === "default") continue;
+      if (local === "default" && from === null) continue;
+      out.aliases.push({ published, local, from });
+    }
+  }
+  // La déclaration exportée par défaut : `export default Nom;`, ou une
+  // classe / fonction marquée `export default`.
+  out.defaultName = defaultExported;
+  for (const stmt of statements) {
+    if (
+      (ts.isClassDeclaration(stmt) || ts.isFunctionDeclaration(stmt)) &&
+      stmt.name &&
+      hasModifier(stmt, ts.SyntaxKind.DefaultKeyword)
+    ) {
+      out.defaultName = stmt.name.text;
+    }
+  }
 
   for (const imp of statements.filter(ts.isImportDeclaration)) {
     const clause = imp.importClause;
@@ -624,8 +683,19 @@ function collectFileSymbols(
     if (verbose) out.verbose.push(verbose);
   }
   for (const stmt of statements.filter(ts.isVariableStatement)) {
-    out.stable.push(...constsOf(stmt, false));
+    const stable = constsOf(stmt, false);
+    out.stable.push(...stable);
     out.verbose.push(...constsOf(stmt, true));
+    const name = out.defaultName;
+    if (name !== null && !stable.some((r) => r.name === name)) {
+      const pick = (verbose: boolean) =>
+        constsOf(stmt, verbose, true).find((r) => r.name === name);
+      const forced = pick(false);
+      const forcedVerbose = pick(true);
+      if (forced && forcedVerbose) {
+        out.defaultConst = { stable: forced, verbose: forcedVerbose };
+      }
+    }
   }
   return out;
 }
@@ -686,7 +756,7 @@ function relationsOf(list: ISymbolRecord[]): ISymbolRelations {
       (decoratedBy[dec] ??= []).push(sym.name);
     }
   }
-  return { extendedBy, implementedBy, decoratedBy, usedBy: {} };
+  return { extendedBy, implementedBy, decoratedBy, usedBy: {}, aliases: {} };
 }
 
 /**
@@ -710,6 +780,17 @@ export function buildSymbolsGraph(
   const stableSymbols: ISymbolRecord[] = [];
   const verboseSymbols: ISymbolRecord[] = [];
   const filesImports: IFileImports[] = [];
+  const fileAliases: {
+    file: string;
+    module: string;
+    published: string;
+    local: string;
+    from: string | null;
+  }[] = [];
+  const fileInfo = new Map<
+    string,
+    Pick<IFileSymbols, "defaultName" | "defaultConst"> & { module: string }
+  >();
   const stats: ISymbolStats = {
     files: inputs.length,
     symbols: 0,
@@ -723,6 +804,14 @@ export function buildSymbolsGraph(
 
   for (const input of inputs) {
     const found = collectFileSymbols(tsApi, input);
+    for (const a of found.aliases) {
+      fileAliases.push({ file: input.file, module: input.module, ...a });
+    }
+    fileInfo.set(input.file, {
+      module: input.module,
+      defaultName: found.defaultName,
+      defaultConst: found.defaultConst,
+    });
     if (found.imports.length) {
       filesImports.push({ file: input.file, imports: found.imports });
     }
@@ -734,11 +823,61 @@ export function buildSymbolsGraph(
     }
   }
 
+  // Résolution des exports renommés : quel symbole (module + nom déclaré)
+  // chaque nom publié désigne. Faite AVANT l'indexation, parce qu'elle peut
+  // faire entrer au graphe une constante exportée par défaut.
+  const published: { name: string; ref: string }[] = [];
+  const promoted = new Set<string>();
+  const resolveFile = (from: string, spec: string): string | undefined => {
+    const base = path.posix
+      .join(path.posix.dirname(from), spec)
+      .replace(/\.(?:js|mjs|ts)$/u, "");
+    return [`${base}.ts`, `${base}/index.ts`].find((f) => fileInfo.has(f));
+  };
+  for (const alias of fileAliases) {
+    let module = alias.module;
+    let name = alias.local;
+    if (alias.from?.startsWith(".")) {
+      const target = resolveFile(alias.file, alias.from);
+      const info = target === undefined ? undefined : fileInfo.get(target);
+      if (target === undefined || info === undefined) continue;
+      module = info.module;
+      if (name === "default") {
+        if (info.defaultName === null) continue;
+        name = info.defaultName;
+        if (info.defaultConst !== null && !promoted.has(target)) {
+          promoted.add(target);
+          stableSymbols.push(info.defaultConst.stable);
+          verboseSymbols.push(info.defaultConst.verbose);
+          stats.symbols++;
+          stats.constants++;
+        }
+      }
+    } else if (alias.from !== null) {
+      // Un paquet : son nom EST le module (`@nodefony/user`).
+      if (name === "default") continue;
+      module = alias.from;
+    }
+    // Publié sous son propre nom (`export { default as Kernel }`) : la
+    // recherche directe le trouve déjà, l'alias ne dirait rien de plus.
+    if (name === alias.published) continue;
+    published.push({ name: alias.published, ref: `${module}:${name}` });
+  }
+
   const exported = stableSymbols.filter((s) => s.exported);
   const homonyms: string[] = [];
   const stableMap = indexByName(exported, homonyms);
   const verboseMap = indexByName(verboseSymbols, null);
   const relations = relationsOf(exported);
+
+  // `aliases` : seulement vers un symbole EXPORTÉ du graphe — un alias d'un
+  // paquet tiers (`export { x as y } from "zod"`) ne désigne rien ici.
+  const exportedRefs = new Set(exported.map((s) => `${s.module}:${s.name}`));
+  for (const { name, ref } of published) {
+    if (!exportedRefs.has(ref)) continue;
+    const refs = (relations.aliases[name] ??= []);
+    if (!refs.includes(ref)) refs.push(ref);
+  }
 
   // `usedBy` : nom simple → fichiers qui l'importent (les homonymes partagent
   // le même seau — acceptable pour de l'analyse d'impact).

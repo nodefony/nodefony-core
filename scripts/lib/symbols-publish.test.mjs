@@ -38,6 +38,10 @@ function graph() {
           "src/modules/test/controller/x.ts",
         ],
       },
+      aliases: {
+        CoreKernel: ["@nodefony/core:Kernel"],
+        BenchController: ["modules/test:TestController"],
+      },
     },
   };
 }
@@ -68,6 +72,10 @@ describe("symbols-publish", () => {
     expect(out.relations.decoratedBy).toEqual({ injectable: ["Kernel"] });
     expect(out.relations.usedBy).toEqual({
       Kernel: ["src/nodefony/src/index.ts"],
+    });
+    // `aliases` porte des RÉFÉRENCES `module:nom` : jugées sur leur module.
+    expect(out.relations.aliases).toEqual({
+      CoreKernel: ["@nodefony/core:Kernel"],
     });
     expect(out.stats).toMatchObject({ symbols: 2, classes: 1, interfaces: 1 });
   });
