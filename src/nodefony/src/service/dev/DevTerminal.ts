@@ -186,6 +186,13 @@ const FULLSCREEN_HELP: Readonly<Record<ScreenCharset, string>> = {
   ascii: "ctrl+c arrêter  -  molette / fleches / PgUp défiler  -  Fin direct",
 };
 
+/**
+ * Lignes par cran de molette captée : ce qu'envoie un cran traduit par le
+ * terminal en mode 1007 (trois flèches) — capturée ou non, la molette défile
+ * pareil.
+ */
+const WHEEL_LINES = 3;
+
 /** Dimensions de repli d'un flux qui n'en déclare pas. */
 const FALLBACK_SIZE: IFrameSize = { columns: 80, rows: 24 };
 
@@ -672,13 +679,20 @@ export class DevTerminal {
   }
 
   /**
-   * Foyer de défilement : flèches (la molette en envoie, mode 1007), PgUp,
-   * PgDn, Début, Fin. Une flèche venue de la molette est indiscernable d'une
+   * Foyer de défilement : molette captée, flèches (la molette en envoie en
+   * mode 1007), PgUp, PgDn, Début, Fin. Une flèche venue de la molette est indiscernable d'une
    * flèche tapée : l'historique de l'invite (#538) prendra Ctrl+P / Ctrl+N.
    */
   #scrollFocus(full: IFullscreenState): IInputFocus {
     return {
       handle: (event) => {
+        if (event.kind === "wheel") {
+          this.#scrollBy(
+            full,
+            event.direction === "up" ? WHEEL_LINES : -WHEEL_LINES,
+          );
+          return true;
+        }
         if (event.kind !== "key" || event.ctrl || event.alt) return false;
         const size = this.#size();
         const page = Math.max(1, frameJournalRows(this.#model(full), size) - 1);

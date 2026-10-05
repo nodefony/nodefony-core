@@ -1,7 +1,7 @@
 /**
  * Octets du clavier → évènements, sans terminal : ce qu'un terminal en mode
  * brut envoie (frappe, touches spéciales, collage entre crochets, molette,
- * réponses de sonde) devient une suite d'{@link InputEvent}. Cf ADR-0013 §3.
+ * souris captée, réponses de sonde) devient une suite d'{@link InputEvent}. Cf ADR-0013 §3.
  *
  * TOUTES les touches sont décodées dès maintenant : l'invite et les foyers
  * (défilement, global) n'auront pas à rouvrir ce fichier.
@@ -56,6 +56,9 @@ export type NamedKey =
 /** Une touche : nommée, ou un caractère (minuscule pour Ctrl+lettre). */
 export type Key = NamedKey | (string & Record<never, never>);
 
+/** Ce que fait la souris dans un évènement `mouse`. */
+export type MouseAction = "press" | "release" | "drag" | "move";
+
 /** Ce que le décodeur rend. */
 export type InputEvent =
   /** Frappe ordinaire, UTF-8 recomposé. */
@@ -64,6 +67,23 @@ export type InputEvent =
   /** Collage entre crochets, UN évènement. */
   | { kind: "paste"; text: string }
   | { kind: "wheel"; direction: "up" | "down"; column: number; row: number }
+  /**
+   * Souris captée (modes 1000/1002/1006) : bouton enfoncé, relâché, glissé
+   * bouton tenu (`drag`), ou déplacé sans bouton (`move`, mode 1003 — jamais
+   * posé par nous, décodé quand même). Colonne et ligne comptent depuis 1,
+   * comme le terminal les envoie.
+   */
+  | {
+      kind: "mouse";
+      action: MouseAction;
+      /** 0 gauche, 1 milieu, 2 droit ; `null` pour `move`. */
+      button: 0 | 1 | 2 | null;
+      column: number;
+      row: number;
+      shift: boolean;
+      alt: boolean;
+      ctrl: boolean;
+    }
   /** Réponses de sonde : position du curseur, état d'un mode (DECRQM). */
   | {
       kind: "report";
@@ -192,18 +212,41 @@ function controlKey(code: number, alt: boolean): InputEvent {
 function csiEvent(body: string, final: string, raw: string): InputEvent | null {
   if (body.startsWith("<") && (final === "M" || final === "m")) {
     const [b, x, y] = body.slice(1).split(";");
-    const button = param(b, -1);
+    const code = param(b, -1);
+    if (code < 0) return { kind: "unknown", bytes: raw };
     // Bits 4/8/16 = Maj/Alt/Ctrl : la molette reste la molette.
-    const wheel = button & ~(4 | 8 | 16);
-    if (final === "M" && (wheel === 64 || wheel === 65)) {
+    const base = code & ~(4 | 8 | 16);
+    const column = param(x, 0);
+    const row = param(y, 0);
+    if (base === 64 || base === 65) {
+      // Un relâchement de molette n'existe pas ; un `m` ici est du bruit.
+      if (final === "m") return { kind: "unknown", bytes: raw };
       return {
         kind: "wheel",
-        direction: wheel === 64 ? "up" : "down",
-        column: param(x, 0),
-        row: param(y, 0),
+        direction: base === 64 ? "up" : "down",
+        column,
+        row,
       };
     }
-    return { kind: "unknown", bytes: raw };
+    // 66/67 (molette horizontale) et 128+ (boutons 8 à 11) : non pris en charge.
+    if (base >= 64) return { kind: "unknown", bytes: raw };
+    const motion = (base & 32) !== 0;
+    const low = base & 3;
+    let action: MouseAction;
+    if (final === "m") action = "release";
+    else if (motion) action = low === 3 ? "move" : "drag";
+    else if (low === 3) return { kind: "unknown", bytes: raw };
+    else action = "press";
+    return {
+      kind: "mouse",
+      action,
+      button: low === 3 ? null : (low as 0 | 1 | 2),
+      column,
+      row,
+      shift: (code & 4) !== 0,
+      alt: (code & 8) !== 0,
+      ctrl: (code & 16) !== 0,
+    };
   }
   if (body.startsWith("?") && body.endsWith("$") && final === "y") {
     const values = body

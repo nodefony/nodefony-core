@@ -309,6 +309,20 @@ describe("plein écran — défilement (foyer)", () => {
     terminal.close();
   });
 
+  it("molette CAPTÉE (--mouse) : un cran défile comme un cran traduit en flèches", async () => {
+    const { stdout, input, terminal } = fullscreen({ mouse: true });
+    terminal.setStatus(null, ctx, "ready");
+    terminal.ingest("server", "out", lines(40));
+    await nextFrame();
+    input.type("\x1b[<64;5;5M"); // un cran vers le haut, SGR
+    await nextFrame();
+    expect((await screen(stdout.written)).at(-3)).to.equal("ligne 37");
+    input.type("\x1b[<65;5;5M"); // et retour
+    await nextFrame();
+    expect(terminal.anchor).to.equal(null);
+    terminal.close();
+  });
+
   it("Fin revient au direct, Début montre la première ligne, PgUp remonte d'une page", async () => {
     const { stdout, input, terminal } = fullscreen();
     terminal.ingest("server", "out", lines(40));

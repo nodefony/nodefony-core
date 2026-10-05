@@ -144,6 +144,79 @@ describe("InputDecoder — collage entre crochets", () => {
   });
 });
 
+const mouse = (
+  action: "press" | "release" | "drag" | "move",
+  button: 0 | 1 | 2 | null,
+  column: number,
+  row: number,
+  mods: { ctrl?: boolean; alt?: boolean; shift?: boolean } = {},
+): InputEvent => ({
+  kind: "mouse",
+  action,
+  button,
+  column,
+  row,
+  shift: mods.shift ?? false,
+  alt: mods.alt ?? false,
+  ctrl: mods.ctrl ?? false,
+});
+
+describe("InputDecoder — souris captée (SGR 1006)", () => {
+  it("enfoncer, glisser, relâcher — bouton gauche, puis milieu et droit", () => {
+    expect(
+      decode(
+        "\x1b[<0;10;5M\x1b[<32;11;5M\x1b[<32;20;6M\x1b[<0;20;6m",
+        "\x1b[<1;2;3M\x1b[<2;4;5M\x1b[<2;4;5m",
+      ),
+    ).to.deep.equal([
+      mouse("press", 0, 10, 5),
+      mouse("drag", 0, 11, 5),
+      mouse("drag", 0, 20, 6),
+      mouse("release", 0, 20, 6),
+      mouse("press", 1, 2, 3),
+      mouse("press", 2, 4, 5),
+      mouse("release", 2, 4, 5),
+    ]);
+  });
+
+  it("modificateurs : Maj (4), Alt (8), Ctrl (16)", () => {
+    expect(
+      decode("\x1b[<4;1;1M\x1b[<8;1;1M\x1b[<16;1;1M\x1b[<28;1;1M"),
+    ).to.deep.equal([
+      mouse("press", 0, 1, 1, { shift: true }),
+      mouse("press", 0, 1, 1, { alt: true }),
+      mouse("press", 0, 1, 1, { ctrl: true }),
+      mouse("press", 0, 1, 1, { shift: true, alt: true, ctrl: true }),
+    ]);
+  });
+
+  it("mouvement sans bouton (1003) décodé ; molette horizontale et boutons 8+ restent inconnus", () => {
+    expect(
+      decode(
+        "\x1b[<35;7;8M\x1b[<66;1;1M\x1b[<67;1;1M\x1b[<128;1;1M\x1b[<3;1;1M",
+      ),
+    ).to.deep.equal([
+      mouse("move", null, 7, 8),
+      { kind: "unknown", bytes: "\x1b[<66;1;1M" },
+      { kind: "unknown", bytes: "\x1b[<67;1;1M" },
+      { kind: "unknown", bytes: "\x1b[<128;1;1M" },
+      { kind: "unknown", bytes: "\x1b[<3;1;1M" },
+    ]);
+  });
+
+  it("une séquence de souris coupée entre deux paquets attend la suite", () => {
+    expect(decode("\x1b[<0;1", "2;7M")).to.deep.equal([
+      mouse("press", 0, 12, 7),
+    ]);
+  });
+
+  it("un `m` de molette n'est pas un relâchement de bouton", () => {
+    expect(decode("\x1b[<64;1;1m")).to.deep.equal([
+      { kind: "unknown", bytes: "\x1b[<64;1;1m" },
+    ]);
+  });
+});
+
 describe("InputDecoder — molette et réponses de sonde", () => {
   it("molette SGR, modificateurs compris ; un clic n'est pas une molette", () => {
     expect(
@@ -152,7 +225,16 @@ describe("InputDecoder — molette et réponses de sonde", () => {
       { kind: "wheel", direction: "up", column: 10, row: 5 },
       { kind: "wheel", direction: "down", column: 1, row: 2 },
       { kind: "wheel", direction: "up", column: 3, row: 4 },
-      { kind: "unknown", bytes: "\x1b[<0;1;1M" },
+      {
+        kind: "mouse",
+        action: "press",
+        button: 0,
+        column: 1,
+        row: 1,
+        shift: false,
+        alt: false,
+        ctrl: false,
+      },
     ]);
   });
 
