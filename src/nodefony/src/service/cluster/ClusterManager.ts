@@ -1,4 +1,5 @@
 import cluster from "node:cluster";
+import { SysExit } from "../../cli/sysexits";
 import { Severity } from "../../syslog/Pdu";
 
 /**
@@ -125,6 +126,8 @@ export class ClusterManager {
   >();
   #consecutiveCrashes = 0;
   #shuttingDown = false;
+  /** Code de sortie du master une fois le cluster arrêté (78 si un worker l'impose). */
+  #exitCode = 0;
   #shutdownTimer: unknown = null;
   #started = false;
 
@@ -196,8 +199,25 @@ export class ClusterManager {
         "INFO",
       );
       if (this.#live.size === 0) {
-        this.#finishShutdown(0);
+        this.#finishShutdown(this.#exitCode);
       }
+      return;
+    }
+
+    // 🔴 Une faute de CONFIGURATION (`EX_CONFIG`, 78) ne se répare pas en
+    // relançant : le worker suivant lira la même configuration et mourra de la
+    // même façon. La relance en boucle noyait le motif sous ses propres lignes,
+    // et l'orchestrateur voyait un master vivant. On arrête TOUT le cluster et
+    // le master sort en 78 — l'orchestrateur reçoit ce que le worker a dit.
+    if (code === SysExit.CONFIG) {
+      this.#exitCode = SysExit.CONFIG;
+      this.#log(
+        `worker ${worker.id} a refusé de démarrer : faute de CONFIGURATION (code ${code}) — ` +
+          `la relancer ne la corrigera pas. Le motif est dans son journal, juste au-dessus. ` +
+          `Arrêt du cluster.`,
+        "ERROR",
+      );
+      this.shutdown("SIGTERM");
       return;
     }
 
@@ -236,7 +256,7 @@ export class ClusterManager {
     this.#shuttingDown = true;
     this.#log(`${signal} — draining ${this.#live.size} worker(s)`, "CRITIC");
     if (this.#live.size === 0) {
-      this.#finishShutdown(0);
+      this.#finishShutdown(this.#exitCode);
       return;
     }
     for (const { worker } of this.#live.values()) {
@@ -254,7 +274,7 @@ export class ClusterManager {
           worker.kill("SIGKILL");
         }
       }
-      this.#finishShutdown(1);
+      this.#finishShutdown(this.#exitCode || 1);
     }, this.#shutdownTimeoutMs);
   }
 

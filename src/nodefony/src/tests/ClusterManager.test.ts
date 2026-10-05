@@ -63,6 +63,11 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
       w.dead = true;
       this.#exitCb?.(w, 0, null);
     }
+    /** Simule une sortie avec un code donné (ex. 78, faute de configuration). */
+    exitWith(w: FakeWorker, code: number): void {
+      w.dead = true;
+      this.#exitCb?.(w, code, null);
+    }
   }
 
   interface Task {
@@ -323,6 +328,33 @@ describe("cluster / ClusterManager (supervisor state machine)", () => {
       } finally {
         mgr.removeSignalHandlers();
       }
+    });
+  });
+
+  describe("faute de CONFIGURATION d'un worker (code 78)", () => {
+    // Un worker qui sort en 78 ne se répare pas en le relançant : sa
+    // configuration est fausse et le restera. Le relancer en boucle noyait le
+    // motif sous les relances, et l'orchestrateur voyait un process vivant.
+    it("🔴 aucune relance : le cluster s'arrête et sort lui-même en 78", () => {
+      const { runtime, scheduler, exits, mgr } = build({ workers: 2 });
+      mgr.start();
+      const [w1, w2] = runtime.forked;
+      runtime.exitWith(w1!, 78);
+      expect(runtime.forked).to.have.lengthOf(2);
+      expect(w2!.signals).to.include("SIGTERM");
+      runtime.exitClean(w2!);
+      expect(exits).to.deep.equal([78]);
+      expect(
+        scheduler.tasks.filter((t) => !t.cleared && t.ms !== 5_000),
+      ).to.have.lengthOf(0);
+    });
+
+    it("un crash ordinaire reste relancé", () => {
+      const { runtime, scheduler, mgr } = build({ workers: 1 });
+      mgr.start();
+      runtime.exitWith(runtime.forked[0]!, 1);
+      scheduler.fire(0);
+      expect(runtime.forked).to.have.lengthOf(2);
     });
   });
 });
