@@ -1963,6 +1963,7 @@ function dispatchScaffold(
       clientSecret: `${String(answers.name)}-dev-keycloak-secret`,
       machineSecret: `${String(answers.name)}-machine-dev-secret`,
       userId: randomUUID(),
+      adminUserId: randomUUID(),
     },
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des

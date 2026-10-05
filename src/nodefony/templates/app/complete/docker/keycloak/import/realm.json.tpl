@@ -77,6 +77,16 @@
       ]
     }
   ],
+  "roles": {
+    "client": {
+      "<%= it.appName %>": [
+        {
+          "name": "admin",
+          "description": "Administrateur de l'application — traduit en ROLE_ADMIN par la table roleMapping du fournisseur keycloak."
+        }
+      ]
+    }
+  },
   "users": [
     {
       "id": "<%= it.keycloak.userId %>",
@@ -93,6 +103,25 @@
           "temporary": false
         }
       ]
+    },
+    {
+      "id": "<%= it.keycloak.adminUserId %>",
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@<%= it.appName %>.test",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Keycloak",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bob-dev",
+          "temporary": false
+        }
+      ],
+      "clientRoles": {
+        "<%= it.appName %>": ["admin"]
+      }
     }
   ],
   "rememberMe": true

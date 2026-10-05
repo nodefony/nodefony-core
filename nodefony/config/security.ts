@@ -92,6 +92,9 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
                 clientId: ctx.env.NF_KEYCLOAK_CLIENT_ID,
                 clientSecret: ctx.env.NF_KEYCLOAK_CLIENT_SECRET,
                 redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/keycloak/callback`,
+                // Rôle CLIENT `admin` du realm → ROLE_ADMIN, recalculé à chaque
+                // connexion et à chaque jeton (`bob` le porte, `alice` non).
+                roleMapping: { admin: "ROLE_ADMIN" },
                 ...oauthPerProvider,
               },
             }

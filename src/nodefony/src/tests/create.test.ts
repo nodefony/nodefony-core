@@ -1919,6 +1919,63 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
+    it("les deux realms portent le rôle client `admin` et `bob` qui le détient (#519)", () => {
+      interface Realm {
+        clients: { clientId: string }[];
+        roles?: { client?: Record<string, { name: string }[]> };
+        users: {
+          id: string;
+          username: string;
+          clientRoles?: Record<string, string[]>;
+        }[];
+      }
+      // Ce que le banc réel exige d'un realm : le client navigateur déclare
+      // `admin`, `bob` le porte, `alice` non.
+      const forme = (realm: Realm, client: string) => ({
+        roles: (realm.roles?.client?.[client] ?? []).map((r) => r.name),
+        users: realm.users
+          .map((u) => ({
+            username: u.username,
+            roles: u.clientRoles?.[client] ?? [],
+          }))
+          .sort((a, b) => a.username.localeCompare(b.username)),
+      });
+      const attendu = {
+        roles: ["admin"],
+        users: [
+          { username: "alice", roles: [] },
+          { username: "bob", roles: ["admin"] },
+        ],
+      };
+      const depot = JSON.parse(
+        readFileSync(
+          fileURLToPath(
+            new URL(
+              "../../../../docker/keycloak/import/realm-nodefony.json",
+              import.meta.url,
+            ),
+          ),
+          "utf8",
+        ),
+      ) as Realm;
+      const dest = dossierKeycloak();
+      const genere = JSON.parse(
+        lire(dest, "docker", "keycloak", "import", "realm.json"),
+      ) as Realm;
+      assert.deepEqual(forme(depot, "nodefony-dev"), attendu);
+      assert.deepEqual(forme(genere, "kcapp"), attendu);
+      // Deux `sub` FIXÉS et distincts : un réimport ne doit relier aucun
+      // compte local à une autre personne.
+      const ids = genere.users.map((u) => u.id);
+      for (const id of ids) assert.match(id, /^[0-9a-f-]{36}$/u);
+      assert.strictEqual(new Set(ids).size, ids.length);
+      // La table qui traduit `admin` est posée par la configuration générée.
+      assert.include(
+        lire(dest, "nodefony", "config", "security.ts"),
+        'roleMapping: { admin: "ROLE_ADMIN" }',
+      );
+    });
+
     it("le preset minimal ne reçoit rien de Keycloak", () => {
       const dest = path.join(tmp, "keycloak-minimal");
       scaffold(dest, { name: "kcmin", preset: "minimal" });

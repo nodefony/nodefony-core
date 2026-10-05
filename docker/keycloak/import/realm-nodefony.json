@@ -78,6 +78,16 @@
       "description": "Appelant machine (compte de service) : obtient un jeton d'accès par client_credentials, sans utilisateur."
     }
   ],
+  "roles": {
+    "client": {
+      "nodefony-dev": [
+        {
+          "name": "admin",
+          "description": "Administrateur de l'application — traduit en ROLE_ADMIN par la table roleMapping du fournisseur keycloak."
+        }
+      ]
+    }
+  },
   "users": [
     {
       "id": "e5d1ca21-4a48-4e0a-9949-32f91c7b5b98",
@@ -94,6 +104,25 @@
           "temporary": false
         }
       ]
+    },
+    {
+      "id": "7c0f3b52-9d1e-4a6b-8f2a-3e5c1d9b7a40",
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@nodefony.test",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Keycloak",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bob-dev",
+          "temporary": false
+        }
+      ],
+      "clientRoles": {
+        "nodefony-dev": ["admin"]
+      }
     }
   ],
   "rememberMe": true

@@ -18,7 +18,10 @@
  *  3. un `code_verifier` faux → `invalid_grant` rendu PAR KEYCLOAK au client du
  *     framework ;
  *  4. canal arrière (#517) : Keycloak ferme la session SSO → il appelle
- *     l'application, qui détruit la session ; un jeton forgé est refusé.
+ *     l'application, qui détruit la session ; un jeton forgé est refusé ;
+ *  5. rôles (#519) : `bob`, porteur du rôle client `admin`, obtient ROLE_ADMIN
+ *     par session ET par jeton ; le rôle retiré dans le realm disparaît au
+ *     login suivant ; un rôle donné à la main dans l'application survit.
  */
 import { describe, expect, it } from "vitest";
 import https from "node:https";
@@ -172,8 +175,16 @@ function locationOf(res: Res): string {
   return typeof loc === "string" ? loc : "";
 }
 
-/** Le compte du realm importé — le fichier que Keycloak charge fait foi. */
-function realmUser(): { username: string; password: string; email: string } {
+/**
+ * Un compte du realm importé — le fichier que Keycloak charge fait foi.
+ *
+ * @param username - compte voulu ; omis = le premier du fichier.
+ */
+function realmUser(username?: string): {
+  username: string;
+  password: string;
+  email: string;
+} {
   const realm = JSON.parse(readFileSync(REALM_FILE, "utf8")) as {
     users: Array<{
       username: string;
@@ -181,7 +192,10 @@ function realmUser(): { username: string; password: string; email: string } {
       credentials: Array<{ type: string; value: string }>;
     }>;
   };
-  const u = realm.users[0];
+  const u =
+    username === undefined
+      ? realm.users[0]
+      : realm.users.find((x) => x.username === username);
   const password = u?.credentials.find((c) => c.type === "password")?.value;
   if (!u || !password) throw new Error("realm sans utilisateur à mot de passe");
   return { username: u.username, password, email: u.email };
@@ -196,17 +210,21 @@ function realmUser(): { username: string; password: string; email: string } {
 async function loginAtKeycloak(
   authorizationUrl: string,
   jar = new Map<string, string>(),
+  who?: string,
 ): Promise<URL> {
   const page = await send({
     url: new URL(authorizationUrl),
     headers: jar.size > 0 ? { cookie: cookieHeader(jar) } : {},
   });
-  expect(page.status, "page de connexion Keycloak").toBe(200);
+  expect(
+    page.status,
+    `page de connexion Keycloak (${page.text.replace(/\s+/g, " ").slice(0, 300)})`,
+  ).toBe(200);
   collectCookies(page, jar);
   const form = /<form\b[^>]*\bid="kc-form-login"[^>]*>/.exec(page.text)?.[0];
   const action = form ? /\baction="([^"]+)"/.exec(form)?.[1] : undefined;
   expect(action, "formulaire de connexion trouvé").toBeTypeOf("string");
-  const { username, password } = realmUser();
+  const { username, password } = realmUser(who);
   const posted = await send({
     url: new URL((action ?? "").replaceAll("&amp;", "&")),
     method: "POST",
@@ -305,14 +323,175 @@ function frameworkClient(): Promise<IOAuthProvider> {
 async function codeFor(
   provider: IOAuthProvider,
   codeVerifier: string,
+  who?: string,
 ): Promise<string> {
   const url = provider.createAuthorizationURL({
     state: generateState(),
     codeVerifier,
     scopes: provider.defaultScopes,
   });
-  const back = await loginAtKeycloak(url.toString());
+  const back = await loginAtKeycloak(url.toString(), new Map(), who);
   return back.searchParams.get("code") ?? "";
+}
+
+/** Appel à l'API d'administration de Keycloak, jeton d'administrateur joint. */
+async function kcAdmin(
+  admin: string,
+  method: string,
+  pathAndQuery: string,
+  body?: unknown,
+): Promise<Res> {
+  const payload = body === undefined ? undefined : JSON.stringify(body);
+  return send({
+    url: new URL(
+      `${keycloakOrigin()}/admin/realms/${realmName()}${pathAndQuery}`,
+    ),
+    method,
+    headers: {
+      authorization: `Bearer ${admin}`,
+      // Un DELETE à corps (retrait d'un rôle) reçoit son 204 sans que
+      // Keycloak lise le corps : sur une connexion gardée ouverte, ces octets
+      // deviennent le début de la requête SUIVANTE, refusée en 400 sans un
+      // mot. Connexion fermée après chaque appel d'administration.
+      connection: "close",
+      ...(payload === undefined
+        ? {}
+        : {
+            "content-type": "application/json",
+            "content-length": String(Buffer.byteLength(payload)),
+          }),
+    },
+    body: payload,
+  });
+}
+
+/**
+ * Met le realm EN SERVICE au niveau du fichier, sans le détruire.
+ *
+ * Keycloak n'importe un realm qu'à sa CRÉATION : un décor monté avant que le
+ * fichier gagne `bob` et le rôle `admin` ne les connaît pas, et `down -v`
+ * effacerait ce que le développeur a réglé dans la console. L'import PARTIEL
+ * du même fichier ajoute ce qui manque et saute ce qui existe — le fichier
+ * reste la seule source.
+ */
+async function syncRealmFromFile(admin: string): Promise<void> {
+  const realm = JSON.parse(readFileSync(REALM_FILE, "utf8")) as Record<
+    string,
+    unknown
+  >;
+  const res = await kcAdmin(admin, "POST", "/partialImport", {
+    ifResourceExists: "SKIP",
+    roles: realm.roles,
+    users: realm.users,
+  });
+  expect(res.status, `import partiel du realm (${res.text})`).toBe(200);
+}
+
+/** Donne (`true`) ou retire (`false`) à `username` le rôle client `role`. */
+async function setClientRole(
+  admin: string,
+  username: string,
+  role: string,
+  granted: boolean,
+): Promise<void> {
+  const users = await kcAdmin(
+    admin,
+    "GET",
+    `/users?exact=true&username=${encodeURIComponent(username)}`,
+  );
+  const userId = (JSON.parse(users.text) as { id: string }[])[0]?.id;
+  expect(userId, `utilisateur ${username} au realm`).toBeTypeOf("string");
+  const clients = await kcAdmin(
+    admin,
+    "GET",
+    `/clients?clientId=${encodeURIComponent(CLIENT_ID)}`,
+  );
+  const clientUuid = (JSON.parse(clients.text) as { id: string }[])[0]?.id;
+  expect(clientUuid, `client ${CLIENT_ID} au realm`).toBeTypeOf("string");
+  const roleRes = await kcAdmin(
+    admin,
+    "GET",
+    `/clients/${clientUuid ?? ""}/roles/${encodeURIComponent(role)}`,
+  );
+  expect(roleRes.status, `rôle client ${role} (${roleRes.text})`).toBe(200);
+  const changed = await kcAdmin(
+    admin,
+    granted ? "POST" : "DELETE",
+    `/users/${userId ?? ""}/role-mappings/clients/${clientUuid ?? ""}`,
+    [JSON.parse(roleRes.text) as unknown],
+  );
+  expect(changed.status, `rôle ${granted ? "accordé" : "retiré"}`).toBe(204);
+}
+
+/** Connexion complète par navigateur → jarre de cookies de la session BFF. */
+async function browserLogin(who: string): Promise<Map<string, string>> {
+  const start = await app(`${OAUTH}/authorize`);
+  expect(
+    locationOf(start).startsWith(ISSUER),
+    `authorize → realm (${start.status} ${locationOf(start)})`,
+  ).toBe(true);
+  const jar = new Map<string, string>();
+  collectCookies(start, jar);
+  const back = await loginAtKeycloak(locationOf(start), new Map(), who);
+  const cb = await app(`${back.pathname}${back.search}`, {
+    cookie: cookieHeader(jar),
+  });
+  expect(locationOf(cb), "callback sans erreur").not.toContain("error");
+  collectCookies(cb, jar);
+  return jar;
+}
+
+/** Identité de la session : id + rôles effectifs. */
+async function sessionOf(
+  jar: Map<string, string>,
+): Promise<{ id: string; roles: string[] }> {
+  const me = await app(ME, { cookie: cookieHeader(jar) });
+  expect(me.status, "session ouverte").toBe(200);
+  const user = (
+    JSON.parse(me.text) as { user: { id: string; roles: string[] } }
+  ).user;
+  return user;
+}
+
+/** Rôles que l'API voit pour le jeton d'accès frais de `who`. */
+async function apiRolesOf(who: string): Promise<string[]> {
+  const provider = await frameworkClient();
+  const verifier = generateCodeVerifier();
+  const tokens = await provider.validateAuthorizationCode({
+    code: await codeFor(provider, verifier, who),
+    codeVerifier: verifier,
+  });
+  const api = await app(API, {
+    authorization: `Bearer ${tokens.accessToken()}`,
+  });
+  expect(api.status, `API ouverte par le jeton (${api.text})`).toBe(200);
+  return (JSON.parse(api.text) as { roles: string[] }).roles;
+}
+
+/** Remplace les rôles LOCAUX d'un compte, par la console d'administration. */
+async function setLocalRoles(userId: string, roles: string[]): Promise<void> {
+  const login = await send({
+    url: new URL(
+      `https://localhost:${APP.port}/nodefony/security/api/auth/login`,
+    ),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username: "admin", password: "secret-de-dev-42" }),
+  });
+  expect(login.status, `connexion admin de l'application (${login.text})`).toBe(
+    200,
+  );
+  const jar = new Map<string, string>();
+  collectCookies(login, jar);
+  const patched = await send({
+    url: new URL(
+      `https://localhost:${APP.port}/nodefony/user/api/users/${encodeURIComponent(userId)}`,
+    ),
+    method: "PATCH",
+    headers: { "content-type": "application/json", cookie: cookieHeader(jar) },
+    body: JSON.stringify({ roles }),
+  });
+  expect(patched.status, `rôles locaux posés (${patched.text})`).toBe(200);
 }
 
 describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
@@ -528,6 +707,51 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         "aucune session ouverte",
       ).toBeUndefined();
       expect((await app(ME, { cookie: cookieHeader(jar) })).status).toBe(200);
+    });
+
+    it("rôles (#519) : le rôle client `admin` devient ROLE_ADMIN, suit le realm, et un rôle local survit", async () => {
+      const admin = await adminToken();
+      await syncRealmFromFile(admin);
+      // État connu au départ, quel que soit le run précédent.
+      await setClientRole(admin, "bob", "admin", true);
+      // Dernier état connu du compte local — pour le rendre propre à la fin.
+      let bob: { id: string; roles: string[] } | null = null;
+      try {
+        const first = await sessionOf(await browserLogin("bob"));
+        bob = first;
+        expect(first.roles, "ROLE_ADMIN par la session").toContain(
+          "ROLE_ADMIN",
+        );
+        expect(await apiRolesOf("bob"), "ROLE_ADMIN par le jeton").toContain(
+          "ROLE_ADMIN",
+        );
+
+        // Un rôle donné à la main, dans l'application.
+        await setLocalRoles(first.id, [...first.roles, "ROLE_DEV"]);
+
+        await setClientRole(admin, "bob", "admin", false);
+        const after = await sessionOf(await browserLogin("bob"));
+        bob = after;
+        expect(after.id, "même compte").toBe(first.id);
+        expect(after.roles, "retiré dans le realm → retiré ici").not.toContain(
+          "ROLE_ADMIN",
+        );
+        expect(after.roles, "le rôle local survit").toContain("ROLE_DEV");
+        expect(
+          await apiRolesOf("bob"),
+          "retiré aussi pour le jeton",
+        ).not.toContain("ROLE_ADMIN");
+      } finally {
+        // Le realm et le compte reviennent à l'état du fichier : aucun rôle
+        // local ne reste dans la base de développement.
+        await setClientRole(admin, "bob", "admin", true);
+        if (bob !== null) {
+          await setLocalRoles(
+            bob.id,
+            bob.roles.filter((r) => r !== "ROLE_DEV"),
+          );
+        }
+      }
     });
 
     it("code_verifier faux → invalid_grant rendu PAR Keycloak", async () => {
