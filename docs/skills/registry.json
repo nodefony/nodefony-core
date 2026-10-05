@@ -3984,6 +3984,22 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/anchor-fix.selftest.mjs",
+            "purpose": "Éprouve `anchor-fix.mjs` sur un dépôt JETABLE : chaque ancre SUSPECTE doit être recalée sur la déclaration du symbole qu'ELLE prouve — jamais sur celui d'une ancre voisine. Un outil qui corrige qu'on n'a jamais vu se tromper n'est pas un outil, c'est un pari.",
+            "usage": [
+              "`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-fix.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--apply",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/anchor-inpage.mjs",
             "purpose": "anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ?",
             "usage": [

@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-04
+updated: 2026-10-05
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 11 |
+| Scripts | 12 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -86,6 +86,7 @@ script, donc toujours à jour après régénération.
 | `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--apply` `--prouve` `--show-toplevel` | — |
 | `scripts/anchor-check.selftest.mjs` | Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre qui a DÉRIVÉ loin de la déclaration qu'elle prouve, et se taire sur une ancre juste — posée sur la déclaration, dans son TSDoc, ou sur un site d'usage. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | — | — |
 | `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. Entrée : la sortie d'anchor-check.mjs (stdin). Sortie : édite les .md en place. Règle : on ne déplace une ancre que si UNE seule ligne de définition plausible est trouvée pour les symboles cités — sinon on laisse et on le signale. | `--apply` `--occurrences` `--suggest` | `APPLY` `NF_BOOT_TIMEOUT_MS` |
+| `scripts/anchor-fix.selftest.mjs` | Éprouve `anchor-fix.mjs` sur un dépôt JETABLE : chaque ancre SUSPECTE doit être recalée sur la déclaration du symbole qu'ELLE prouve — jamais sur celui d'une ancre voisine. Un outil qui corrige qu'on n'a jamais vu se tromper n'est pas un outil, c'est un pari. | `--apply` | — |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
 | `scripts/corpus.mjs` | Dossiers qu'on ne descend jamais. | — | — |
@@ -100,6 +101,7 @@ script, donc toujours à jour après régénération.
 ```bash
 Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT/SUSPECT)
 `@usage` node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs
+`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-fix.selftest.mjs
 Usage : node anchor-inpage.mjs <page.md ...>
 Usage : node code-check.mjs <page.md ...>
 Usage : node doc-lint.mjs /tmp/corpus/*.md

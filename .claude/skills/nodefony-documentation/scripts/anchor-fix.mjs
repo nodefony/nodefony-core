@@ -92,28 +92,54 @@ function mdLinesOf(md) {
   return mdCache.get(md);
 }
 
+/** Une rangée de tableau Markdown. */
+const isTableRow = (line) => /^\s*\|/.test(line);
+
+/** Nom nu d'un identifiant cité : `Hub.publish()` → `publish`. */
+function bareName(text) {
+  return text
+    .replace(/\(.*$/, "")
+    .split(".")
+    .pop()
+    ?.replace(/[^A-Za-z0-9_#]/g, "");
+}
+
 /**
- * Le symbole que l'ancre PROUVE = le dernier identifiant entre backticks placé
- * avant elle (ligne courante, sinon fin de la ligne précédente : prettier coupe
- * entre le symbole et son ancre). Sans ça, `RealtimeHub.publish()` et
- * `publishLocal()` retombent tous deux sur la classe — une ancre juste au sens
- * du gate, fausse au sens du lecteur.
+ * Le symbole que l'ancre PROUVE, dans cet ordre :
+ *
+ * 1. celui qui la SUIT entre parenthèses — `` `f.ts:N` (`Symbole`) ``, la forme
+ *    des tableaux de référence ;
+ * 2. le dernier identifiant entre backticks placé AVANT elle, sur sa ligne ;
+ * 3. à défaut, la fin de la ligne précédente — prettier coupe entre le symbole
+ *    et son ancre — mais JAMAIS quand l'une des deux est une rangée de
+ *    tableau : la ligne du dessus est alors une AUTRE rangée, et son symbole
+ *    recalait l'ancre sur la déclaration de sa voisine (vécu : quatre rangées
+ *    décalées d'une, toutes rendues « OK » par le gate).
+ *
+ * Sans ce symbole, `RealtimeHub.publish()` et `publishLocal()` retombent tous
+ * deux sur la classe — une ancre juste au sens du gate, fausse au sens du lecteur.
  */
 function citedSymbol(md, mdLine, ref, oldLine) {
   const lines = mdLinesOf(md);
   const cur = lines[mdLine - 1] ?? "";
-  const at = cur.indexOf(`${ref}:${oldLine}`);
+  const anchor = `${ref}:${oldLine}`;
+  const at = cur.indexOf(anchor);
+  if (at >= 0) {
+    const following = /^`?\s*\(\s*`([^`]+)`\s*\)/.exec(
+      cur.slice(at + anchor.length),
+    );
+    const name = following ? bareName(following[1]) : null;
+    if (name && name.length > 1) return name;
+  }
   const before = (at > 0 ? cur.slice(0, at) : "") || "";
-  const scope = (lines[mdLine - 2] ?? "") + " " + before;
+  const previous = lines[mdLine - 2] ?? "";
+  const scope =
+    isTableRow(cur) || isTableRow(previous) ? before : `${previous} ${before}`;
   const ticks = [...scope.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
   for (let i = ticks.length - 1; i >= 0; i--) {
     const t = ticks[i];
     if (t.includes(".ts:") || t.includes("/")) continue; // c'est une autre ancre
-    const name = t
-      .replace(/\(.*$/, "")
-      .split(".")
-      .pop()
-      ?.replace(/[^A-Za-z0-9_#]/g, "");
+    const name = bareName(t);
     if (name && name.length > 1) return name;
   }
   return null;
