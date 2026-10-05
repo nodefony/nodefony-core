@@ -358,7 +358,7 @@ export function packageManagerToolchain(
         frozenInstall: "pnpm install --frozen-lockfile",
         setupNodeCache: "pnpm",
         githubSetup: {
-          uses: "pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10",
+          uses: "pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0",
           versionInput: "version",
           version: PACKAGE_MANAGER_TOOL_MAJOR.pnpm,
         },
