@@ -478,6 +478,54 @@ describe("plein écran — sélection à la souris (--mouse)", () => {
   });
 });
 
+describe("plein écran — glisser au bord du journal (--mouse)", () => {
+  const wait = (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  it("glisser sur la première ligne fait défiler : la sélection dépasse l'écran ; relâcher arrête", async () => {
+    const copy = vi.fn(async (_text: string) => "copié");
+    const { stdout, input, terminal } = fullscreen({ mouse: true, copy });
+    terminal.setStatus(null, ctx, "ready");
+    terminal.ingest("server", "out", lines(40)); // écran : lignes 30 à 40
+    await nextFrame();
+    expect((await screen(stdout.written))[0]).to.equal("ligne 30");
+    input.type(press(1, 5) + drag(1, 1)); // de « ligne 34 » vers le haut
+    await wait(250);
+    expect(terminal.anchor).to.not.equal(null);
+    input.type(release(1, 1));
+    const copied = copy.mock.calls[0]?.[0] ?? "";
+    const first = Number(/^ligne (\d+)/.exec(copied)?.[1]);
+    expect(first).to.be.lessThan(30); // remontée au-delà de l'écran
+    // Vers le haut, la sélection finit sur la cellule ENFONCÉE, incluse.
+    expect(copied.split("\n").at(-1)).to.equal("l");
+    const anchor = terminal.anchor;
+    await wait(150);
+    expect(terminal.anchor).to.deep.equal(anchor); // plus de défilement
+    terminal.close();
+  });
+
+  it("glisser sous le journal (barre) fait redescendre ; revenir dans le journal arrête", async () => {
+    const { input, terminal } = fullscreen({ mouse: true });
+    terminal.setStatus(null, ctx, "ready");
+    terminal.ingest("server", "out", lines(60));
+    await nextFrame();
+    input.type("\x1b[5~\x1b[5~\x1b[5~"); // trois pages plus haut
+    await nextFrame();
+    const top = terminal.anchor;
+    expect(top).to.not.equal(null);
+    input.type(press(1, 5) + drag(1, ROWS)); // la barre est la dernière ligne
+    await wait(150);
+    const moved = terminal.anchor;
+    expect(moved === null || moved.seq > top!.seq).to.equal(true);
+    input.type(drag(1, 5));
+    const still = terminal.anchor;
+    await wait(150);
+    expect(terminal.anchor).to.deep.equal(still);
+    input.type(release(1, 5));
+    terminal.close();
+  });
+});
+
 describe("surlignage — invertColumns", () => {
   it("une remise à zéro des couleurs DANS l'intervalle ne coupe pas l'inversion", async () => {
     const line = "\x1b[31mab\x1b[0mcd\x1b[32mef\x1b[0m";

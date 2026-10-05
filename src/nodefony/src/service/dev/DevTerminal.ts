@@ -223,6 +223,10 @@ const MULTI_CLICK_MS = 400;
 /** Simple, double, triple clic. */
 const CLICK_UNITS: readonly SelectionUnit[] = ["char", "word", "line"];
 
+/** Glisser au bord du journal : lignes par pas, et cadence (patron Textual). */
+const EDGE_LINES = 3;
+const EDGE_INTERVAL_MS = 60;
+
 /** Durée d'affichage d'un message passager dans la barre. */
 const NOTICE_MS = 3000;
 
@@ -310,6 +314,9 @@ interface IFullscreenState {
   /** Message passager de la barre (résultat d'une copie). */
   notice: string | null;
   noticeTimer: NodeJS.Timeout | null;
+  /** Glisser au bord du journal : sens (1 = remonter) et point du bord. */
+  edge: { direction: 1 | -1; row: number; column: number } | null;
+  edgeTimer: NodeJS.Timeout | null;
   onQuit: () => void;
   onData: (chunk: Buffer | string) => void;
   decoder: InputDecoder;
@@ -670,6 +677,8 @@ export class DevTerminal {
       selecting: false,
       dragged: false,
       lastPress: null,
+      edge: null,
+      edgeTimer: null,
       notice: null,
       noticeTimer: null,
       onQuit: options.onQuit,
@@ -707,6 +716,7 @@ export class DevTerminal {
     if (full.frameTimer) clearTimeout(full.frameTimer);
     if (full.escapeTimer) clearTimeout(full.escapeTimer);
     if (full.noticeTimer) clearTimeout(full.noticeTimer);
+    if (full.edgeTimer) clearInterval(full.edgeTimer);
     full.input.removeListener("data", full.onData);
     full.input.setRawMode?.(false);
     full.input.pause();
@@ -781,6 +791,7 @@ export class DevTerminal {
         }
         if (!full.selecting || full.selection === null) return true;
         if (event.action === "drag") {
+          this.#followEdge(full, event.row, event.column);
           const head = this.#pointAt(full, event.row, event.column);
           if (head !== null) {
             full.dragged = true;
@@ -790,6 +801,7 @@ export class DevTerminal {
         }
         if (event.action === "release") {
           full.selecting = false;
+          this.#stopEdge(full);
           this.#finishSelection(full);
         }
         return true;
@@ -847,8 +859,8 @@ export class DevTerminal {
     full: IFullscreenState,
     row: number,
     column: number,
+    origins = full.frame?.origins,
   ): ISelectionPoint | null {
-    const origins = full.frame?.origins;
     if (origins === undefined) return null;
     const index = Math.min(Math.max(row - 1, 0), origins.length - 1);
     const origin = origins[index] ?? null;
@@ -867,6 +879,48 @@ export class DevTerminal {
       if (below) return { seq: below.seq, column: below.column };
     }
     return null;
+  }
+
+  /**
+   * Glisser sur la première ligne, ou sous le journal (indicateur, barre) :
+   * le journal défile tout seul, `EDGE_LINES` lignes toutes les
+   * `EDGE_INTERVAL_MS`, et la tête suit le bord — la sélection dépasse
+   * l'écran. Revenir dans le journal l'arrête.
+   */
+  #followEdge(full: IFullscreenState, row: number, column: number): void {
+    const rows = frameJournalRows(this.#model(full), this.#size());
+    const direction = row <= 1 ? 1 : row > rows ? -1 : 0;
+    if (direction === 0 || rows === 0) {
+      this.#stopEdge(full);
+      return;
+    }
+    full.edge = { direction, row: direction === 1 ? 1 : rows, column };
+    full.edgeTimer ??= setInterval(
+      () => this.#edgeStep(full),
+      EDGE_INTERVAL_MS,
+    );
+  }
+
+  /** Un pas du défilement au bord : défiler, puis ramener la tête au bord. */
+  #edgeStep(full: IFullscreenState): void {
+    const edge = full.edge;
+    if (this.#full !== full || edge === null || full.selection === null) {
+      this.#stopEdge(full);
+      return;
+    }
+    const before = full.anchor;
+    this.#scrollBy(full, edge.direction * EDGE_LINES);
+    if (full.anchor === before) return; // bord de l'historique atteint
+    // La tête se lit sur l'image À VENIR : celle à l'écran est d'avant le pas.
+    const origins = renderFrame(this.#model(full), this.#size()).origins;
+    const head = this.#pointAt(full, edge.row, edge.column, origins);
+    if (head !== null) this.#setSelection(full, { ...full.selection, head });
+  }
+
+  #stopEdge(full: IFullscreenState): void {
+    if (full.edgeTimer) clearInterval(full.edgeTimer);
+    full.edgeTimer = null;
+    full.edge = null;
   }
 
   /**
