@@ -195,6 +195,22 @@ export class DevTranscript {
   }
 
   /** Nombre d'entrées retenues. */
+  /**
+   * La ligne EN COURS d'un couple (source, flux) — écrite sans fin de ligne,
+   * comme l'indicateur de build qui se réécrit sur place. Un terminal la
+   * montre déjà ; l'historique ne l'inscrit qu'à son `\n`.
+   *
+   * @param source - qui écrit.
+   * @param stream - sur quel flux.
+   * @returns la ligne en cours, assainie, ou `""`.
+   */
+  partial(source: TranscriptSource, stream: TranscriptStream): string {
+    const pending = this.#pending[`${source}:${stream}`];
+    return pending === undefined || pending.text === ""
+      ? ""
+      : sanitizeTerminalText(pending.text);
+  }
+
   get length(): number {
     return this.#ring.length;
   }

@@ -18,6 +18,7 @@ import { invertColumns, type ISelectionRange } from "./devSelection";
 import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
   renderStatusBar,
+  renderStatusBlock,
   type IStartupView,
   type IStatusContext,
   type ScreenCharset,
@@ -83,6 +84,11 @@ export interface IFrameModel {
    * dépasse, comme dans l'historique d'un terminal.
    */
   readonly floorSeq?: number;
+  /**
+   * La ligne en cours, pas encore terminée (l'indicateur de build) : en
+   * direct, elle s'affiche sous la dernière entrée, comme dans un terminal.
+   */
+  readonly partial?: string;
   /** La sélection à surligner, normalisée (cf `selectionRange`). */
   readonly selection?: ISelectionRange | null;
 }
@@ -219,6 +225,22 @@ function statusLines(model: IFrameModel, size: IFrameSize): readonly string[] {
       model.mark,
     );
   }
+  // Pas encore de bilan : le bloc avec le logo dit déjà où l'on est.
+  const early = renderStatusBlock(
+    null,
+    {
+      ...context,
+      phase: { label: PHASE_LABELS[phase], failed: phase === "crashed" },
+    },
+    {
+      color: model.color,
+      columns: size.columns,
+      rows: size.rows,
+      charset: model.charset,
+    },
+    model.mark,
+  );
+  if (early !== null) return early.map((line) => sanitizeTerminalText(line));
   const notice = status.notice ? ` · ${status.notice}` : "";
   const label = sanitizeTerminalText(
     `${context.project} · ${PHASE_LABELS[phase]}${notice}`,
@@ -305,7 +327,13 @@ function journalLines(
         model.anchor === null
           ? (model.floorSeq ?? -1)
           : Number.NEGATIVE_INFINITY;
-      for (let i = index; i >= 0 && out.length < height; i--) {
+      // En direct, la ligne en cours prend le bas du journal.
+      const tail =
+        model.anchor === null && model.partial
+          ? wrapToWidth(model.partial.replace(ERASE_IN_LINE, ""), width)
+          : [];
+      const budget = Math.max(0, height - tail.length);
+      for (let i = index; i >= 0 && out.length < budget; i--) {
         const entry = transcript.at(i);
         if (!entry) continue;
         if (entry.seq <= floor) break;
@@ -316,9 +344,13 @@ function journalLines(
         out.unshift(...lines);
         origins.unshift(...wrappedOrigins(entry.seq, lines));
       }
-      if (out.length > height) {
-        out.splice(0, out.length - height);
-        origins.splice(0, origins.length - height);
+      if (out.length > budget) {
+        out.splice(0, out.length - budget);
+        origins.splice(0, origins.length - budget);
+      }
+      for (const line of tail.slice(-height)) {
+        out.push(line);
+        origins.push(null);
       }
     }
   }

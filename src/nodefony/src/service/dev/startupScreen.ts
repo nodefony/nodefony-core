@@ -834,6 +834,11 @@ export interface IStatusContext {
    * — elle survit au serveur au lieu de disparaître.
    */
   phase?: { label: string; failed: boolean };
+  /**
+   * Version du framework, pour le bloc dessiné AVANT le premier bilan (qui,
+   * lui, porte la sienne).
+   */
+  version?: string;
 }
 
 /**
@@ -841,7 +846,7 @@ export interface IStatusContext {
  * la phase en cours si le serveur n'est pas prêt, sinon le verdict du bilan.
  */
 function statusState(
-  view: IStartupView,
+  view: IStartupView | null,
   ctx: IStatusContext,
   p: IPalette,
   sym: (typeof SCREEN_SYMBOLS)[ScreenCharset],
@@ -851,6 +856,7 @@ function statusState(
       ? p.failure(`${sym.fail} ${ctx.phase.label}`)
       : p.warning(`${sym.reload} ${ctx.phase.label}`);
   }
+  if (view === null) return p.dim(`${sym.reload} démarrage…`);
   const errors = view.notices.filter((n) => n.level === "error").length;
   const warnings = view.notices.filter((n) => n.level === "warning").length;
   const outcome = errors
@@ -990,7 +996,7 @@ const STATUS_BLOCK_MIN_ROWS = 20;
  * @returns les lignes du bloc, ou `null` si la place manque.
  */
 export function renderStatusBlock(
-  view: IStartupView,
+  view: IStartupView | null,
   ctx: IStatusContext,
   options: {
     color: boolean;
@@ -1008,16 +1014,34 @@ export function renderStatusBlock(
   const state = statusState(view, ctx, p, sym);
   const label = ` ${sym.brand} ${ctx.project} `;
   const badge = options.color ? `\x1b[7m\x1b[1m${label}\x1b[0m` : label;
-  const app = view.open.find((l) => l.id === "app")?.url;
-  const pending = view.notices.map((n) => n.code).join(" · ");
-  const info = [
-    `${badge}  ${p.dim(`Nodefony ${view.version} · ${startMode(view)}`)}`,
-    app ? `${p.ok(sym.open)} ${p.action(app)}` : "",
-    state + (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
-    view.inspector ? p.warning(`débogueur ${view.inspector}`) : "",
-    pending ? p.dim(pending) : "",
-    p.dim(`${ctx.help ?? STOP_HINT}  ·  état : nodefony status --json`),
-  ];
+  const help = p.dim(
+    `${ctx.help ?? STOP_HINT}  ·  état : nodefony status --json`,
+  );
+  // Avant le premier bilan (un build peut durer) : le logo, le projet, la
+  // version du framework et la phase — jamais un écran vide.
+  const info =
+    view === null
+      ? [
+          `${badge}  ${p.dim(`Nodefony ${ctx.version ?? ""}`.trimEnd())}`,
+          "",
+          state,
+          "",
+          "",
+          help,
+        ]
+      : [
+          `${badge}  ${p.dim(`Nodefony ${view.version} · ${startMode(view)}`)}`,
+          view.open.find((l) => l.id === "app")?.url
+            ? `${p.ok(sym.open)} ${p.action(view.open.find((l) => l.id === "app")?.url ?? "")}`
+            : "",
+          state +
+            (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
+          view.inspector ? p.warning(`débogueur ${view.inspector}`) : "",
+          view.notices.length
+            ? p.dim(view.notices.map((n) => n.code).join(" · "))
+            : "",
+          help,
+        ];
   // Chaque ligne bornée à la place qui reste à droite du logo : une ligne
   // repliée décalerait tout le bloc, et l'effacement en remontant raterait.
   const room = columns - 1 - 8 - 3;

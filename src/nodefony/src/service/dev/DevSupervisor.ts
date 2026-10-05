@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import type { EventEmitter } from "node:events";
 import net from "node:net";
+import { Nodefony } from "../../Nodefony";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
 import { SysExit } from "../../cli/sysexits";
@@ -745,6 +746,7 @@ export class DevSupervisor {
       charset,
       mark: brandMark(charset, color),
       project: readProjectName(this.#cwd),
+      version: Nodefony.version,
       ...(fullscreen ? { fullscreen } : {}),
     });
     this.#terminal = terminal;
@@ -1062,6 +1064,9 @@ export class DevSupervisor {
     const errors: string[] = [];
     // Info que le dev veut voir : ce qui MANQUE avant le build (le label le dit).
     const missingBefore = missingWorkspaceDists(this.#cwd);
+    // Le build de démarrage EST une construction : la barre le dit, au lieu
+    // de « démarrage… » pendant toute sa durée.
+    this.#terminal?.setPhase("building");
     this.#startSpin(
       missingBefore.length
         ? `Build du framework — ${missingBefore.length} dist manquant(s) : ${missingBefore.join(", ")}`

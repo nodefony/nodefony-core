@@ -100,6 +100,8 @@ export interface IDevTerminalOptions {
    * donné son bilan : pendant un premier build, elle dit déjà la phase.
    */
   project?: string;
+  /** Version du framework, pour la barre d'avant le premier bilan. */
+  version?: string;
   /**
    * Le plein écran (écran alternatif, clavier en mode brut). Absent : surface
    * `inline`, le rendu de #533.
@@ -427,6 +429,7 @@ export class DevTerminal {
   readonly #charset: ScreenCharset;
   readonly #mark: readonly string[];
   readonly #project: string | null;
+  readonly #version: string | null;
   readonly #transcript: DevTranscript;
   readonly #status: StatusLine;
   /** États d'affichage par couple (source, flux) — une dizaine de clés au plus. */
@@ -453,6 +456,7 @@ export class DevTerminal {
     this.#charset = options.charset;
     this.#mark = options.mark;
     this.#project = options.project ?? null;
+    this.#version = options.version ?? null;
     this.#transcript = new DevTranscript(options.transcript);
     // Les DEUX flux sont surveillés : une écriture sur la sortie d'erreur
     // efface aussi la barre avant elle, sinon elle s'y collerait.
@@ -1107,7 +1111,12 @@ export class DevTerminal {
       this.#context ??
       (this.#project === null
         ? null
-        : { project: this.#project, readyAt: "", reloads: 0 });
+        : {
+            project: this.#project,
+            readyAt: "",
+            reloads: 0,
+            ...(this.#version === null ? {} : { version: this.#version }),
+          });
     return {
       transcript: this.#transcript,
       anchor: full.anchor,
@@ -1132,6 +1141,9 @@ export class DevTerminal {
       mark: this.#mark,
       heights: full.heights,
       ...(full.floorSeq === undefined ? {} : { floorSeq: full.floorSeq }),
+      // L'indicateur de build du superviseur se réécrit sur place, sans fin
+      // de ligne : sans lui, un long build laissait l'écran figé.
+      partial: this.#transcript.partial("supervisor", "out"),
       selection:
         full.selection === null ||
         (full.selection.unit === "char" && !full.dragged)

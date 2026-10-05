@@ -1008,6 +1008,78 @@ describe("barre étroite — le geste d'arrêt ne tombe pas avec l'aide", () => 
   });
 });
 
+describe("plein écran — le logo dès le démarrage", () => {
+  it("avant le premier bilan, la barre est déjà le BLOC : logo, projet, version du framework, phase", async () => {
+    const stdout = output(120, 40);
+    const terminal = new DevTerminal({
+      stdout,
+      color: false,
+      charset: "unicode",
+      mark: brandMark("unicode", false),
+      project: "mon-app",
+      version: "10.0.0-beta.2",
+      fullscreen: { input: new FakeInput(), synchronized: false, onQuit() {} },
+    });
+    terminal.setPhase("building");
+    await nextFrame();
+    const shown = await screen(stdout.written, 120, 40);
+    const bar = shown.slice(-7);
+    expect(bar[0]).to.match(/^─+$/); // le filet du bloc
+    const text = bar.join("\n");
+    expect(text).to.include("mon-app");
+    expect(text).to.include("Nodefony 10.0.0-beta.2");
+    expect(text).to.include("construction…");
+    expect(text).to.include("ctrl+c arrêter");
+    // La marque du logo occupe la gauche du bloc.
+    const mark = brandMark("unicode", false);
+    expect(bar[1]?.startsWith((mark[0] ?? "").trimEnd().slice(0, 4))).to.equal(
+      true,
+    );
+    terminal.close();
+  });
+});
+
+describe("plein écran — l'indicateur de build se voit", () => {
+  it("la ligne EN COURS du superviseur (réécrite sur place, sans fin de ligne) s'affiche sous le journal, puis cède la place au verdict", async () => {
+    const { stdout, terminal } = fullscreen();
+    terminal.setStatus(null, ctx, "building");
+    terminal.ingest("server", "out", lines(2));
+    terminal.ingest(
+      "supervisor",
+      "out",
+      "\r\x1b[2K[dev] ⠋ Build du framework…",
+    );
+    await nextFrame();
+    let shown = await screen(stdout.written);
+    expect(shown.slice(0, 3)).to.deep.equal([
+      "ligne 1",
+      "ligne 2",
+      "[dev] ⠋ Build du framework…",
+    ]);
+    expect(shown.at(-1)).to.include("construction…");
+    // L'image suivante du spinner REMPLACE la ligne, elle ne s'empile pas.
+    terminal.ingest(
+      "supervisor",
+      "out",
+      "\r\x1b[2K[dev] ⠙ Build du framework…",
+    );
+    await nextFrame();
+    shown = await screen(stdout.written);
+    expect(shown[2]).to.equal("[dev] ⠙ Build du framework…");
+    expect(shown[3]).to.equal("");
+    terminal.ingest(
+      "supervisor",
+      "out",
+      "\r\x1b[2K[dev] ✓ Framework prêt (12ms)\n",
+    );
+    await nextFrame();
+    shown = await screen(stdout.written);
+    expect(shown[2]).to.equal("[dev] ✓ Framework prêt (12ms)");
+    expect(shown[3]).to.equal("");
+    terminal.close();
+  });
+});
+
 describe("plein écran — jamais un écran vide", () => {
   it("avant le premier bilan du serveur (un build peut durer), la barre dit la phase", async () => {
     const stdout = output();
