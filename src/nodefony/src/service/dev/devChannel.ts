@@ -62,8 +62,42 @@ export interface IDevBootStep {
   total: number;
 }
 
+/**
+ * Serveur → superviseur : un échantillon runtime (mémoire, CPU, boucle
+ * d'évènements), toutes les deux secondes une fois prêt — la barre d'état
+ * le montre en direct.
+ */
+export interface IDevRuntime {
+  channel: typeof DEV_CHANNEL;
+  type: "runtime";
+  rssBytes: number;
+  cpuPercent: number;
+  eluPercent: number;
+}
+
 /** Tout ce qui peut transiter sur le canal. */
-export type DevChannelMessage = IDevStatusView | IDevResize | IDevBootStep;
+export type DevChannelMessage =
+  IDevStatusView | IDevResize | IDevBootStep | IDevRuntime;
+
+/**
+ * Un `runtime` bien formé : trois nombres finis, positifs, bornés.
+ *
+ * @param message - ce que l'IPC a livré, déjà reconnu comme du canal.
+ * @returns `true` si la forme est exploitable.
+ */
+function isRuntime(message: object): boolean {
+  const m = message as Record<string, unknown>;
+  const bounded = (value: unknown, max: number): boolean =>
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= max;
+  return (
+    bounded(m.rssBytes, Number.MAX_SAFE_INTEGER) &&
+    bounded(m.cpuPercent, 100_000) &&
+    bounded(m.eluPercent, 100)
+  );
+}
 
 /** Longueur maximale d'un libellé d'étape — au-delà, le message est refusé. */
 const MAX_STEP_LENGTH = 80;
@@ -93,6 +127,7 @@ const KNOWN_TYPES: ReadonlySet<string> = new Set<DevChannelMessage["type"]>([
   "status-view",
   "resize",
   "boot-step",
+  "runtime",
 ]);
 
 /**
@@ -118,6 +153,7 @@ export function isDevChannelMessage(
   }
   if (m.type === "resize") return isDevResize(message);
   if (m.type === "boot-step") return isBootStep(message);
+  if (m.type === "runtime") return isRuntime(message);
   return true;
 }
 

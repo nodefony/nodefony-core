@@ -1059,6 +1059,46 @@ describe("plein écran — la partie centrale de la barre est vivante", () => {
     terminal.close();
   });
 
+  it("serveur prêt : la ligne runtime vit ; elle disparaît dès qu'il redémarre", async () => {
+    const { stdout, terminal } = sized();
+    const view: IStartupView = {
+      schema: 1,
+      ready: true,
+      durationMs: 1,
+      version: "10.0.0",
+      environment: "development",
+      open: [],
+      notices: [],
+      listening: [],
+      frontend: null,
+      modules: { loaded: 1, gated: [], failed: 0 },
+      journal: { warnings: 0, errors: 0, criticals: [] },
+      data: [],
+      processes: null,
+      firewall: null,
+      supervised: true,
+      inspector: null,
+    };
+    terminal.setRuntime({ rssBytes: 1, cpuPercent: 1, eluPercent: 1 });
+    terminal.setStatus(view, ctx, "ready");
+    await nextFrame();
+    expect(await barText(stdout.written)).to.not.include("mémoire"); // reçu avant « prêt » : ignoré
+    terminal.setRuntime({
+      rssBytes: 332 * 1024 * 1024,
+      cpuPercent: 2,
+      eluPercent: 3,
+    });
+    await nextFrame();
+    expect(await barText(stdout.written)).to.include(
+      "mémoire 332 MB  ·  CPU 2 %  ·  boucle 3 %",
+    );
+    terminal.setPhase("restarting");
+    terminal.setPhase("ready");
+    await nextFrame();
+    expect(await barText(stdout.written)).to.not.include("mémoire");
+    terminal.close();
+  });
+
   it("build en échec, serveur conservé : la ligne d'état le dit au lieu de « prêt », jusqu'au build suivant", async () => {
     const { stdout, terminal } = sized();
     terminal.setStatus(

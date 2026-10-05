@@ -26,6 +26,7 @@ import { sanitizeTerminalText } from "./devTranscript";
 import { visibleWidth } from "../../runtime/textWidth";
 import { fitStatus } from "./statusLine";
 import { BAR_STYLES, renderBar } from "../../cli/progress";
+import Cli from "../../Cli";
 import {
   createPalette,
   pluralize,
@@ -836,6 +837,8 @@ export interface IStatusContext {
    * le verdict du bilan.
    */
   activity?: IStatusActivity;
+  /** Mesures vivantes du serveur (plein écran) : mémoire, CPU, boucle. */
+  runtime?: IRuntimeSample;
   /**
    * Version du framework, pour le bloc dessiné AVANT le premier bilan (qui,
    * lui, porte la sienne).
@@ -861,6 +864,67 @@ export interface IStatusActivity {
   elapsedMs?: number;
   /** L'image courante du tourniquet — fournie par qui anime. */
   frame?: string;
+}
+
+/**
+ * Un échantillon du serveur qui tourne — ce que la page Runtime de Studio
+ * montre en grand, réduit à ce qu'un développeur lit d'un coup d'œil.
+ */
+export interface IRuntimeSample {
+  /** Mémoire résidente, en octets. */
+  rssBytes: number;
+  /** CPU du processus sur l'intervalle, en % d'UN cœur. */
+  cpuPercent: number;
+  /** Occupation de la boucle d'évènements sur l'intervalle, en %. */
+  eluPercent: number;
+}
+
+/**
+ * La ligne runtime de la barre : mémoire, CPU, boucle d'évènements.
+ *
+ * @param sample - l'échantillon.
+ * @param p - la palette.
+ * @returns la ligne.
+ */
+export function renderRuntime(sample: IRuntimeSample, p: IPalette): string {
+  const sep = p.dim("  ·  ");
+  // Une boucle occupée à plus de 70 % ne répond plus à temps : c'est elle
+  // qu'on veut voir rougir, pas la mémoire.
+  const loop = `boucle ${Math.round(sample.eluPercent)} %`;
+  return [
+    p.dim(`mémoire ${Cli.niceBytes(Math.round(sample.rssBytes))}`),
+    p.dim(`CPU ${Math.round(sample.cpuPercent)} %`),
+    sample.eluPercent >= 70 ? p.warning(loop) : p.dim(loop),
+  ].join(sep);
+}
+
+/**
+ * Les points du bilan pour un humain : les CONSTATS des avertissements et
+ * des erreurs (jamais leurs codes, faits pour les machines), puis le compte
+ * des simples informations — le compteur de la ligne d'état et ce qu'on lit
+ * dessous disent la même chose.
+ *
+ * @param view - le bilan.
+ * @param p - la palette.
+ * @param sym - les symboles du jeu de caractères.
+ * @returns la ligne, ou `""` sans point.
+ */
+export function renderNoticeSummary(
+  view: IStartupView,
+  p: IPalette,
+  sym: (typeof SCREEN_SYMBOLS)[ScreenCharset],
+): string {
+  const urgent = view.notices.filter((n) => n.level !== "info");
+  const infos = view.notices.length - urgent.length;
+  const parts = urgent.map((n) =>
+    n.level === "error"
+      ? `${p.failure(sym.fail)} ${n.message}`
+      : `${p.warning(sym.warn)} ${p.dim(n.message)}`,
+  );
+  if (infos > 0) {
+    parts.push(p.dim(`${sym.info} ${infos} info${infos > 1 ? "s" : ""}`));
+  }
+  return parts.join(p.dim("  ·  "));
 }
 
 /** Au-delà, la barre de progression d'une activité est trop longue pour la ligne. */
@@ -1106,10 +1170,12 @@ export function renderStatusBlock(
             : "",
           state +
             (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
-          view.inspector ? p.warning(`débogueur ${view.inspector}`) : "",
-          view.notices.length
-            ? p.dim(view.notices.map((n) => n.code).join(" · "))
-            : "",
+          view.inspector
+            ? p.warning(`débogueur ${view.inspector}`)
+            : ctx.runtime
+              ? renderRuntime(ctx.runtime, p)
+              : "",
+          renderNoticeSummary(view, p, sym),
           help,
         ];
   // Chaque ligne bornée à la place qui reste à droite du logo : une ligne

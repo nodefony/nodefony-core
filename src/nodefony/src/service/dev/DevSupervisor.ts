@@ -1505,6 +1505,12 @@ export class DevSupervisor {
       listenToServer(child, (message) => {
         if (message.type === "status-view" && this.#child === child) {
           terminal.setStatus(message.view, message.context, "ready");
+        } else if (message.type === "runtime" && this.#child === child) {
+          terminal.setRuntime({
+            rssBytes: message.rssBytes,
+            cpuPercent: message.cpuPercent,
+            eluPercent: message.eluPercent,
+          });
         } else if (message.type === "boot-step" && this.#child === child) {
           // Le cycle du noyau, suivi en direct dans la barre.
           terminal.setActivity(message.step, {

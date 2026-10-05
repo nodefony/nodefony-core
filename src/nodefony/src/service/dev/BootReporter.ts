@@ -19,6 +19,7 @@ import { brandMark, resolveBrandCharset } from "../../cli/brand";
 import { StatusLine } from "./statusLine";
 import { onTerminalResize, terminalSize } from "../../runtime/isTerminal";
 import { DEV_CHANNEL, sendToSupervisor } from "./devChannel";
+import { startRuntimeSampler } from "./runtimeSampler";
 import {
   buildStartupView,
   diffReload,
@@ -121,6 +122,8 @@ class BootReporter {
   readonly #reload: boolean;
   /** Rechargement automatique (superviseur) — sinon `--no-watch`. */
   readonly #supervised: boolean;
+  /** Arrête l'échantillonneur runtime — `null` tant qu'il n'est pas lancé. */
+  #stopSampler: (() => void) | null = null;
   /** URL du débogueur, ou `null`. */
   readonly #inspector: string | null;
   /**
@@ -411,6 +414,13 @@ class BootReporter {
     const view = this.#view();
     if (this.#muted) Syslog.setSinkEnabled(true);
     this.#write(view);
+    // Prêt et supervisé : la barre du superviseur reçoit des mesures vivantes.
+    if (this.#supervised && view.ready && this.#stopSampler === null) {
+      this.#stopSampler = startRuntimeSampler((sample) => {
+        sendToSupervisor({ channel: DEV_CHANNEL, type: "runtime", ...sample });
+      });
+      this.#kernel.once("onTerminate", () => this.#stopSampler?.());
+    }
   }
 
   /** Le bilan de CE démarrage — une seule liste de faits pour les trois rendus. */

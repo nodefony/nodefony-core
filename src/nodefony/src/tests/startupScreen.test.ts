@@ -23,6 +23,8 @@ import {
   renderStartupHuman,
   renderStartupPlain,
   renderActivity,
+  renderNoticeSummary,
+  renderRuntime,
   SCREEN_SYMBOLS,
   renderStatusBlock,
   renderStatusLine,
@@ -855,8 +857,13 @@ describe("bloc d'état avec le logo — et le canal qui le nourrit", () => {
       lines.findIndex((l) => l.includes(needle));
     expect(at(`débogueur ${socket}`)).to.equal(at("à regarder à 16:48") + 1);
     expect(lines.join("\n")).to.not.contain("wss://");
-    // Les codes des points à regarder ne sont plus évincés par le débogueur.
-    for (const n of debug.notices) expect(lines.join("\n")).to.contain(n.code);
+    // Les points à regarder ne sont pas évincés par le débogueur — dits par
+    // leur CONSTAT (le premier, au moins, tient), jamais par leur code.
+    const text = lines.join("\n");
+    const urgent = debug.notices.filter((n) => n.level !== "info");
+    expect(urgent.length).to.be.greaterThan(0);
+    expect(text).to.contain(urgent[0]?.message.slice(0, 12) ?? "");
+    for (const n of debug.notices) expect(text).to.not.contain(n.code);
   });
 
   it("trop étroit ou trop bas : pas de bloc, la ligne unique prend le relais", () => {
@@ -1028,5 +1035,64 @@ describe("barre d'état — l'activité (partie centrale)", () => {
     expect(isDevChannelMessage(step({ done: 6 }))).to.equal(false);
     expect(isDevChannelMessage(step({ done: 1.5 }))).to.equal(false);
     expect(isDevChannelMessage(step({ total: 5000, done: 1 }))).to.equal(false);
+  });
+});
+
+describe("barre d'état — constats lisibles et mesures vivantes", () => {
+  const p = createPalette(false);
+  const sym = SCREEN_SYMBOLS.unicode;
+  const notice = (level: "error" | "warning" | "info", message: string) => ({
+    code: `CODE_${message.length}`,
+    level,
+    message,
+  });
+
+  it("les CONSTATS des avertissements, puis le compte des infos — jamais les codes", () => {
+    const line = renderNoticeSummary(
+      {
+        ...view(),
+        notices: [
+          notice("warning", "repli SQLite"),
+          notice("warning", "routes publiques"),
+          notice("info", "temps réel local"),
+        ],
+      },
+      p,
+      sym,
+    );
+    expect(line).to.equal(
+      `${sym.warn} repli SQLite  ·  ${sym.warn} routes publiques  ·  ${sym.info} 1 info`,
+    );
+    expect(line).to.not.contain("CODE_");
+  });
+
+  it("sans point : rien", () => {
+    expect(renderNoticeSummary({ ...view(), notices: [] }, p, sym)).to.equal(
+      "",
+    );
+  });
+
+  it("runtime : mémoire, CPU, boucle — arrondis", () => {
+    expect(
+      renderRuntime(
+        { rssBytes: 332 * 1024 * 1024, cpuPercent: 2.4, eluPercent: 3.6 },
+        p,
+      ),
+    ).to.equal("mémoire 332 MB  ·  CPU 2 %  ·  boucle 4 %");
+  });
+
+  it("canal : un runtime fini et borné passe ; NaN, négatif, boucle > 100 % refusés", () => {
+    const rt = (over: Record<string, unknown>) => ({
+      channel: DEV_CHANNEL,
+      type: "runtime",
+      rssBytes: 1,
+      cpuPercent: 1,
+      eluPercent: 1,
+      ...over,
+    });
+    expect(isDevChannelMessage(rt({}))).to.equal(true);
+    expect(isDevChannelMessage(rt({ cpuPercent: Number.NaN }))).to.equal(false);
+    expect(isDevChannelMessage(rt({ rssBytes: -1 }))).to.equal(false);
+    expect(isDevChannelMessage(rt({ eluPercent: 101 }))).to.equal(false);
   });
 });

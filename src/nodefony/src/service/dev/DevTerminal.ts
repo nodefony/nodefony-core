@@ -71,6 +71,7 @@ import { CLEAR_SCREEN } from "./outputMode";
 import {
   STOP_HINT,
   renderStatusBar,
+  type IRuntimeSample,
   type IStartupView,
   type IStatusContext,
   type ScreenCharset,
@@ -465,6 +466,8 @@ export class DevTerminal {
   #progress: { done: number; total: number } | null = null;
   /** Un problème qui persiste serveur prêt (build en échec, serveur conservé). */
   #issue: string | null = null;
+  /** Le dernier échantillon runtime du serveur — `null` hors serveur prêt. */
+  #runtime: IRuntimeSample | null = null;
   #closed = false;
   #surface: DevSurface = "inline";
   /** Tout ce que le plein écran possède — `null` sur la surface `inline`. */
@@ -602,6 +605,8 @@ export class DevTerminal {
       this.#phaseSince = Date.now();
       this.#step = null;
       this.#progress = null;
+      // Les mesures d'un serveur qui s'arrête ne disent plus rien de vrai.
+      if (phase !== "ready") this.#runtime = null;
     }
     this.#phase = phase;
     this.#syncSpinner();
@@ -622,6 +627,19 @@ export class DevTerminal {
   ): void {
     this.#step = step;
     this.#progress = progress ?? null;
+    if (this.#full) this.#scheduleFrame();
+  }
+
+  /**
+   * Le dernier échantillon runtime du serveur prêt (mémoire, CPU, boucle) —
+   * la barre du plein écran le montre ; la surface `inline` l'ignore, pour ne
+   * pas réécrire ses dernières lignes toutes les deux secondes.
+   *
+   * @param sample - l'échantillon.
+   */
+  setRuntime(sample: IRuntimeSample): void {
+    if (this.#phase !== "ready") return;
+    this.#runtime = sample;
     if (this.#full) this.#scheduleFrame();
   }
 
@@ -1213,6 +1231,7 @@ export class DevTerminal {
               view: this.#view,
               context: {
                 ...context,
+                ...(this.#runtime === null ? {} : { runtime: this.#runtime }),
                 help:
                   full.notice === null
                     ? this.#help(full)
