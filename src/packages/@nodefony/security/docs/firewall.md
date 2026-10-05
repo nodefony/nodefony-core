@@ -74,7 +74,7 @@ le plus long gagne, pas le premier déclaré (`firewall.ts:257`).
 ### Dans une app `nodefony create app`, le firewall est DÉJÀ actif
 
 Le scaffold déclare trois zones (`main`, `secure`, `machine`) dans `nodefony/config/security.ts`, importé par `nodefony.config.ts` ; en voici deux — c'est la forme canonique (un **objet par
-nom**, validé Zod au boot : `areas: z.record(...)`, `config.ts:1126-1127`) :
+nom**, validé Zod au boot : `areas: z.record(...)`, `config.ts:1182-1183`) :
 
 ```typescript
 // nodefony/config/security.ts (extrait généré par `nodefony create app`)

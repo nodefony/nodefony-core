@@ -446,7 +446,7 @@ applicatif qu'il faut alimenter, pas le store de jetons.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:751`), branché à la racine de la config du
+Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:755`), branché à la racine de la config du
 module (`config.ts:733`). Toutes les valeurs ci-dessous sont les **défauts réels**.
 
 | Option              | Type             | Défaut | Effet                                                                                  |

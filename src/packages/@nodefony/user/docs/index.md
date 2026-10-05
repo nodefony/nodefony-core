@@ -289,7 +289,7 @@ use("@nodefony/security", {
 
 > [!NOTE]
 > Sans section `encoders`, le défaut du schéma Zod est **déjà** un Argon2id sûr
-> (`security/nodefony/config/config.ts:1128`). Tu ne déclares cette section que pour ajouter un format
+> (`security/nodefony/config/config.ts:1201`). Tu ne déclares cette section que pour ajouter un format
 > legacy, ou pour ajuster les coûts.
 
 ### 2. Déclarer le service `users` (`nodefony/security/provisionUsers.ts`)
@@ -537,7 +537,7 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 | `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:317` |
 | `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:342` |
 | `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:363` |
-| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:83`  |
+| `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:96`  |
 
 **La distinction à retenir** : `loadUserByOAuth()` **lit** (et lève si le lien est inconnu) ;
 `provisionOAuthUser()` **écrit** (et crée le compte). Deux contrats, deux responsabilités — c'est ce
@@ -631,7 +631,7 @@ Des coûts **supérieurs** ne déclenchent rien — on ne rétrograde jamais une
 
 ### Le tableau des paramètres
 
-Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:1134`) — la source
+Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:1201`) — la source
 unique des bornes et des défauts.
 
 | Option        | Type                     | Défaut     | Bornes    | Effet                                            |

@@ -5,13 +5,26 @@ lang: fr
 module: "@nodefony/security"
 topic: keycloak
 coverageModule: security
-coverageFiles: "oauth2.ts,oauthProviderRegistry,oidc.ts"
+coverageFiles: "oauth2.ts,oauthProviderRegistry,oidc.ts,providerRoles"
 section: "Sécurité"
 audience: [developer, devops]
-tags: [security, keycloak, oidc, oauth2, realm, sso, pkce, bff, resource-server]
+tags:
+  [
+    security,
+    keycloak,
+    oidc,
+    oauth2,
+    realm,
+    sso,
+    pkce,
+    bff,
+    resource-server,
+    roles,
+    roleMapping,
+  ]
 version: "doc"
 status: stable
-updated: 2026-10-03
+updated: 2026-10-05
 source: "src/packages/@nodefony/security/docs/keycloak.md"
 ---
 
@@ -24,7 +37,7 @@ source: "src/packages/@nodefony/security/docs/keycloak.md"
 > un client **confidentiel**, enregistrer l'URL de retour au caractère près. Cette page fait le
 > chemin entier, puis montre comment le jeton Keycloak de la même personne ouvre aussi ton API, sur
 > le **même compte**. Ancré sur le fournisseur `createDiscoveredOidcProvider()` (`oidc.ts:267`) et
-> sur `OAuth2Service` (`oauth2.ts:250`).
+> sur `OAuth2Service` (`oauth2.ts:280`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Keycloak**
 
@@ -92,7 +105,7 @@ le fournisseur `keycloak` les **découvre** à partir de l'émetteur, et c'est t
 pas une URL `https` sans requête ni fragment, lève une erreur qui nomme la clé
 (`checkProviderIssuer()`, `oauth2.ts:196`). Un Keycloak **éteint**, lui, ne bloque rien : le bouton
 disparaît de l'écran de connexion et revient tout seul quand le realm répond à nouveau
-(`#isReachable()`, `oauth2.ts:702`).
+(`#isReachable()`, `oauth2.ts:771`).
 
 **L'identité est la paire `(keycloak, sub)`, jamais l'email.** Au premier login, l'application crée
 un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:361`). Un
@@ -108,8 +121,14 @@ l'application, pas dans Keycloak.
 ### Essayer en deux minutes : le Keycloak du dépôt
 
 Le dépôt fournit un Keycloak 26.8 **déjà configuré** : un realm `nodefony`, un client confidentiel
-`nodefony-dev` et un utilisateur `alice`. Tout est écrit dans
-`docker/keycloak/import/realm-nodefony.json`, importé au premier démarrage du conteneur.
+`nodefony-dev`, ses deux rôles client `admin` et `admin-nodefony`, et trois utilisateurs. Tout est
+écrit dans `docker/keycloak/import/realm-nodefony.json`, importé au premier démarrage du conteneur.
+
+| Utilisateur | Mot de passe | Rôles Keycloak (client `nodefony-dev`) | Rôles obtenus dans l'application     |
+| ----------- | ------------ | -------------------------------------- | ------------------------------------ |
+| `alice`     | `alice-dev`  | aucun                                  | `ROLE_USER`                          |
+| `bob`       | `bob-dev`    | `admin`                                | `ROLE_USER`, `ROLE_ADMIN`            |
+| `cci`       | `cci-dev`    | `admin`, `admin-nodefony`              | + `ROLE_NODEFONY_ADMIN` (plateforme) |
 
 1. **Démarrer le conteneur** (en `https` sur le port 8444, avec le certificat de l'application) :
 
@@ -312,17 +331,85 @@ Les écrans **Utilisateurs** et **Sessions** de Studio montrent le compte et sa 
 Les clés de `security.oauth2.providers.keycloak` — le schéma complet vit sur la page
 [OAuth2](oauth2.md).
 
-| Clé                | Requise | Effet                                                                                               |
-| ------------------ | :-----: | --------------------------------------------------------------------------------------------------- |
-| `issuer`           |   ✅    | URL `https` du realm. Absente ou mal formée : le démarrage est refusé.                              |
-| `clientId`         |   ✅    | **Client ID** du client Keycloak.                                                                   |
-| `clientSecret`     |   ✅    | **Client secret** de l'onglet _Credentials_. Jamais journalisé.                                     |
-| `redirectUri`      |   ✅    | URL de retour, identique à l'une des **Valid redirect URIs** du client.                             |
-| `clientAuthMethod` |         | `client_secret_basic` par défaut ; `client_secret_post` si le client Keycloak l'exige.              |
-| `scopes`           |         | Vide = `openid`, `profile`, `email`.                                                                |
-| `defaultRoles`     |         | Rôles du compte à sa création, pour CE fournisseur (sinon la valeur globale `oauth2.defaultRoles`). |
-| `label`            |         | Libellé du bouton. Omis : « Keycloak ».                                                             |
-| `hidden`           |         | Retire le bouton sans fermer le flux (lien direct, sous-domaine dédié).                             |
+| Clé                  | Requise | Effet                                                                                                                                            |
+| -------------------- | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `issuer`             |   ✅    | URL `https` du realm. Absente ou mal formée : le démarrage est refusé.                                                                           |
+| `clientId`           |   ✅    | **Client ID** du client Keycloak.                                                                                                                |
+| `clientSecret`       |   ✅    | **Client secret** de l'onglet _Credentials_. Jamais journalisé.                                                                                  |
+| `redirectUri`        |   ✅    | URL de retour, identique à l'une des **Valid redirect URIs** du client.                                                                          |
+| `clientAuthMethod`   |         | `client_secret_basic` par défaut ; `client_secret_post` si le client Keycloak l'exige.                                                           |
+| `scopes`             |         | Vide = `openid`, `profile`, `email`.                                                                                                             |
+| `defaultRoles`       |         | Rôles du compte à sa création, pour CE fournisseur (sinon la valeur globale `oauth2.defaultRoles`).                                              |
+| `roleMapping`        |         | Rôles Keycloak → rôles de l'application, recalculés à chaque connexion et à chaque jeton. Voir [Rôles](#-rôles--gérer-les-droits-dans-keycloak). |
+| `rolesSource`        |         | Où lire les rôles : `client` (défaut), `realm`, `groups`. Sans `roleMapping`, sans effet.                                                        |
+| `allowPlatformRoles` |         | `true` autorise `roleMapping` à donner un `ROLE_NODEFONY_*`. Omis : démarrage refusé.                                                            |
+| `label`              |         | Libellé du bouton. Omis : « Keycloak ».                                                                                                          |
+| `hidden`             |         | Retire le bouton sans fermer le flux (lien direct, sous-domaine dédié).                                                                          |
+
+## 🎭 Rôles — gérer les droits dans Keycloak
+
+**L'idée.** Sans réglage, Keycloak dit seulement à l'application **qui** se connecte. Les droits
+(`ROLE_ADMIN`…) sont posés à la création du compte, puis gérés dans l'application, à la main.
+Une entreprise qui a Keycloak veut souvent l'inverse : promouvoir quelqu'un **une fois**, dans
+Keycloak, et que l'application suive. C'est le rôle de la table `roleMapping` — un **dictionnaire
+de traduction** : « quand Keycloak dit `admin`, chez moi ça s'appelle `ROLE_ADMIN` ».
+
+**Côté Keycloak**, deux gestes dans la console du realm :
+
+1. **Clients** › ton client › **Roles** › _Create role_ : `admin`. Le rôle appartient au client,
+   c'est-à-dire à TON application — pas à tout le realm.
+2. **Users** › l'utilisateur › **Role mapping** › _Assign role_ › filtre _client roles_ › `admin`.
+
+Dans un realm importé, c'est le bloc `roles.client` et la clé `clientRoles` de l'utilisateur :
+
+```json
+"roles": { "client": { "mon-app": [{ "name": "admin" }] } },
+"users": [{ "username": "bob", "clientRoles": { "mon-app": ["admin"] } }]
+```
+
+**Côté Nodefony**, la table sur le fournisseur :
+
+```typescript ignore
+keycloak: {
+  issuer: ctx.env.NF_KEYCLOAK_ISSUER,
+  clientId: ctx.env.NF_KEYCLOAK_CLIENT_ID,
+  clientSecret: ctx.env.NF_KEYCLOAK_CLIENT_SECRET,
+  redirectUri: "https://app.example.com/nodefony/security/api/oauth2/keycloak/callback",
+  roleMapping: { admin: "ROLE_ADMIN" },
+},
+```
+
+**Ce qui se passe à la connexion de bob** :
+
+1. Keycloak rend un jeton d'accès qui porte `"resource_access": { "mon-app": { "roles": ["admin"] } }`
+   — c'est là, et seulement là par défaut, que Keycloak met les rôles (ni dans l'ID token, ni
+   dans _userinfo_).
+2. `mapProviderRoles()` (`providerRoles.ts:87`) traduit `admin` → `ROLE_ADMIN` par la table.
+3. Le compte de bob reçoit `ROLE_ADMIN` (`reconcileProviderRoles()`, `user/nodefony/src/providerRoles.ts:90` côté
+   `@nodefony/user`).
+
+**Les règles, à connaître avant de l'activer :**
+
+- **Recalcul à chaque connexion ET à chaque jeton d'API.** Un rôle retiré dans Keycloak disparaît
+  au login suivant, et dès le jeton suivant sur l'API (`syncOAuthRoles()`, `UserService.ts:453`).
+  Une session déjà ouverte garde ses droits jusqu'à la reconnexion.
+- **Un rôle Keycloak absent de la table est ignoré**, jamais recopié tel quel : l'annuaire ne
+  fabrique pas de droit que l'application n'a pas déclaré.
+- **Les rôles donnés à la main survivent.** L'application retient, dans les métadonnées du compte
+  (`metadata.providerRoles.keycloak`), ce que Keycloak a accordé : elle ne retire que cela. Seule
+  ambiguïté : un rôle à la fois donné à la main ET accordé par Keycloak devient « géré » — le
+  retirer dans Keycloak le retire aussi.
+- **Aucune écriture en base si rien ne change** : le recalcul tombe sur chaque requête porteuse
+  de jeton, il ne coûte une écriture que lorsqu'un rôle bouge.
+- **Rôles du realm ou groupes** : `rolesSource: ["realm"]` lit `realm_access.roles`,
+  `["groups"]` le claim `groups` (à poser chez Keycloak par un mapper _Group Membership_).
+  Plusieurs sources se cumulent.
+- **Rôles de plateforme (`ROLE_NODEFONY_*`) refusés par défaut.** Ils ouvrent la console
+  d'administration, la génération de code, les secrets : les faire venir de Keycloak fait de
+  l'administrateur du realm un administrateur de l'instance. La table qui en contient un refuse
+  le démarrage (`config.ts:1104`) — sauf `allowPlatformRoles: true` ÉCRIT sur le fournisseur, que
+  chaque démarrage rappelle par un avertissement. Sinon, ce rôle se donne à la main
+  (`security:user:add --admin`, console d'administration).
 
 ## 🧩 Le jeton Keycloak sur ton API — le même compte
 
@@ -374,6 +461,9 @@ Sans ce lien, le jeton désignerait un compte distinct, sous l'identifiant `<ém
   conviendrait qu'à une application sans serveur, ce que n'est pas une application Nodefony.
 - **Anti-mix-up** : le paramètre `iss` du retour et le claim `iss` de l'ID token doivent égaler
   l'émetteur découvert (RFC 9207). Un retour venu d'un autre realm est rejeté.
+- **Rôles de plateforme hors de portée de l'annuaire**, sauf ouverture écrite
+  (`allowPlatformRoles`) : un realm compromis ne donne pas, par défaut, la console
+  d'administration. Un rôle Keycloak absent de `roleMapping` ne donne rien.
 - **Aucune liaison par email** : un email, même vérifié par le realm, ne donne jamais accès à un
   compte local existant. Le rattachement d'un compte local à un `sub` Keycloak se fait
   explicitement.
@@ -399,16 +489,21 @@ Sans ce lien, le jeton désignerait un compte distinct, sous l'identifiant `<ém
 | API : `401` avec un jeton Keycloak valide                                                                                          | Audience absente du jeton : pas de mapper _Audience_                                                                    | Ajouter le mapper ; `aud` doit contenir la `resource` de la zone                                                                  |
 | Session de l'application vivante après une déconnexion chez Keycloak ; Keycloak journalise `Some clients have not been logged out` | _Front channel logout_ ON, ou **Backchannel logout URL** absente ou injoignable depuis Keycloak                         | _Front channel logout_ OFF ; une URL que Keycloak joint (en développement Linux : serveur à l'écoute au-delà de la boucle locale) |
 
+| Démarrage refusé : `… est un rôle de PLATEFORME` | `roleMapping` traduit vers un `ROLE_NODEFONY_*` | Donner ce rôle à la main, ou écrire `allowPlatformRoles: true` en connaissance de cause |
+| Le rôle Keycloak n'apparaît pas dans l'application | Rôle du REALM alors que la source est `client`, ou rôle d'un autre client, ou session ouverte avant le changement | Créer le rôle sur le client de l'application, ou `rolesSource: ["realm"]` ; se reconnecter |
+
 La cause d'un retour sur `failureRedirect` n'est jamais montrée au navigateur ; elle est dans le
 journal du serveur, préfixée `oauth2 callback "keycloak"` (`OAuth2Controller.ts:213`).
 
 ## 🧪 Tests & couverture
 
-| Type        | Fichier                                                   | Ce qu'il prouve                                                                                                                                                                              |
-| ----------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unitaire    | `security/tests/unit/oauth2Service.test.ts`               | Démarrage refusé sur émetteur absent ou mal formé ; bouton retiré puis rendu quand l'émetteur tombe.                                                                                         |
-| Unitaire    | `security/tests/unit/oauthProviders.test.ts`              | Découverte, refus d'un serveur sans PKCE S256, contrôle des claims de l'ID token.                                                                                                            |
-| Intégration | `http/nodefony/tests/integration/oauth2-keycloak.test.ts` | Contre un **vrai** Keycloak : flux complet, même compte entre session et jeton d'API, `invalid_grant` rendu par Keycloak, déconnexion dans les deux sens, jeton de déconnexion forgé refusé. |
+| Type        | Fichier                                                   | Ce qu'il prouve                                                                                                                                                                                                                                                                                                                                                               |
+| ----------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unitaire    | `security/tests/unit/oauth2Service.test.ts`               | Démarrage refusé sur émetteur absent ou mal formé ; bouton retiré puis rendu quand l'émetteur tombe.                                                                                                                                                                                                                                                                          |
+| Unitaire    | `security/tests/unit/oauthProviders.test.ts`              | Découverte, refus d'un serveur sans PKCE S256, contrôle des claims de l'ID token.                                                                                                                                                                                                                                                                                             |
+| Unitaire    | `security/tests/unit/providerRoles.test.ts`               | Lecture des claims (client, realm, groupes), rôle inconnu ignoré, refus des rôles de plateforme sauf `allowPlatformRoles`, recalcul à la connexion et au jeton, aucune écriture sans changement.                                                                                                                                                                              |
+| Unitaire    | `user/tests/unit/providerRoles.test.ts`                   | Rôles gérés contre rôles locaux : retrait, ajout, rôle à la main conservé, profil préservé.                                                                                                                                                                                                                                                                                   |
+| Intégration | `http/nodefony/tests/integration/oauth2-keycloak.test.ts` | Contre un **vrai** Keycloak : flux complet, même compte entre session et jeton d'API, `invalid_grant` rendu par Keycloak, déconnexion dans les deux sens, jeton de déconnexion forgé refusé ; `bob` obtient puis perd `ROLE_ADMIN` (session et jeton) quand le rôle bouge dans le realm, un rôle local survit ; `cci` obtient `ROLE_NODEFONY_ADMIN` par `allowPlatformRoles`. |
 
 Le banc d'intégration exige le conteneur et les trois variables (décor `KEYCLOAK_GATE` de
 `scripts/test/vitest/gates.ts`) ; sans eux il est sauté, et la passe le dit en fin de run. Le cas du canal
