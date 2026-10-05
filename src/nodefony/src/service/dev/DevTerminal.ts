@@ -109,6 +109,12 @@ export interface IDevFullscreenOptions {
    * touches. Le propriétaire du processus décide de l'arrêt.
    */
   onQuit: () => void;
+  /**
+   * Capture de la souris (`--mouse`) : la molette défile partout où la
+   * souris est rapportée, glisser sélectionne et copie. Absente : la souris
+   * reste au terminal (mode 1007 seul).
+   */
+  mouse?: boolean;
 }
 
 /** Le clavier du terminal, injectable en test. */
@@ -145,17 +151,30 @@ const FRAME_INTERVAL_MS = 16;
  * Entrée en plein écran : écran alternatif, défilement alterné (mode 1007),
  * collage entre crochets, curseur masqué, page vierge.
  *
- * 🔴 AUCUN suivi de la souris (modes 1000/1006) : il capte aussi le glisser, et
- * la sélection native — copier un message d'erreur, LE geste devant un
- * journal — exigerait alors une touche que chaque terminal choisit (Fn sous
- * Terminal.app, ⌥ sous iTerm2, Maj ailleurs). Le mode 1007 fait traduire la
- * molette en flèches par le terminal lui-même ; la souris reste au terminal.
+ * Le mode 1007 est TOUJOURS posé : le terminal traduit la molette en flèches.
+ * Là où la souris est rapportée, la capture (`MOUSE_CAPTURE`) l'emporte sur
+ * lui ; là où un réglage la refuse (iTerm2, Terminal.app, Warp), la molette
+ * arrive encore — en flèches. Sans capture (`--no-mouse`, le défaut), la
+ * souris reste au terminal et la sélection native marche sans touche.
  */
 const ENTER_FULLSCREEN =
   "\x1b[?1049h\x1b[?1007h\x1b[?2004h\x1b[?25l\x1b[H\x1b[2J";
 
-/** Sortie : tout l'inverse, curseur rendu, écran d'avant restauré. */
-const LEAVE_FULLSCREEN = "\x1b[?2004l\x1b[?1007l\x1b[?25h\x1b[?1049l";
+/**
+ * Capture de la souris : clics (1000), glisser bouton enfoncé (1002),
+ * coordonnées SGR (1006). Jamais 1003 (tout mouvement : une inondation) ni
+ * 1004 (focus).
+ */
+const MOUSE_CAPTURE = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
+
+/**
+ * Sortie : tout l'inverse, curseur rendu, écran d'avant restauré. Les modes
+ * de souris sont coupés même s'ils n'ont pas été posés — un mode qu'on n'a
+ * pas posé se coupe sans effet, un mode oublié laisse le shell recevoir des
+ * séquences à chaque clic.
+ */
+const LEAVE_FULLSCREEN =
+  "\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[?2004l\x1b[?1007l\x1b[?25h\x1b[?1049l";
 
 /**
  * L'aide de la barre en plein écran : la molette et les flèches défilent le
@@ -238,6 +257,7 @@ export async function probeTerminal(
 interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
+  mouse: boolean;
   onQuit: () => void;
   onData: (chunk: Buffer | string) => void;
   decoder: InputDecoder;
@@ -592,6 +612,7 @@ export class DevTerminal {
     const full: IFullscreenState = {
       input: options.input,
       synchronized: options.synchronized,
+      mouse: options.mouse === true,
       onQuit: options.onQuit,
       onData: (chunk) => this.#onInput(chunk),
       decoder: new InputDecoder(),
@@ -609,7 +630,9 @@ export class DevTerminal {
     this.#full = full;
     this.#surface = "fullscreen";
     full.releaseGuard = guardTerminal(() => this.#restoreTerminal(full));
-    this.#stdout.write(ENTER_FULLSCREEN);
+    this.#stdout.write(
+      full.mouse ? ENTER_FULLSCREEN + MOUSE_CAPTURE : ENTER_FULLSCREEN,
+    );
     full.input.setRawMode?.(true);
     full.input.on("data", full.onData);
     full.input.resume();

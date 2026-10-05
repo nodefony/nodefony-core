@@ -123,6 +123,71 @@ export function readDevUiRequest(
   return { fullscreen: raw === "1", invalid };
 }
 
+/** Ce que demande l'interrupteur de la souris en plein écran. */
+export interface IDevMouseRequest {
+  /** La capture de la souris est demandée (sélection dessinée par nous). */
+  capture: boolean;
+  /** Une valeur de `NF_DEV_MOUSE` qui n'est ni `1` ni `0` — à nommer, pas à taire. */
+  invalid: string | null;
+}
+
+/**
+ * La capture de la souris est-elle demandée en plein écran ? `--mouse` /
+ * `--no-mouse` l'emportent sur `NF_DEV_MOUSE` (`1` ou `0`). Sans demande :
+ * non — la souris reste au terminal (mode 1007 seul) tant que la capture
+ * n'est pas prouvée dans les terminaux réels (#537). Lu sur `argv`, comme
+ * {@link readDevUiRequest}.
+ *
+ * @param argv - `process.argv` ou son équivalent de test.
+ * @param env - l'environnement.
+ * @returns la demande, et la valeur invalide s'il y en a une.
+ */
+export function readDevMouseRequest(
+  argv: readonly string[],
+  env: Readonly<Record<string, string | undefined>>,
+): IDevMouseRequest {
+  const raw = env.NF_DEV_MOUSE;
+  const invalid =
+    raw === undefined || raw === "" || raw === "0" || raw === "1" ? null : raw;
+  if (argv.includes("--no-mouse")) return { capture: false, invalid };
+  if (argv.includes("--mouse")) return { capture: true, invalid };
+  return { capture: raw === "1", invalid };
+}
+
+/** Première version de Node dont la console Windows rapporte la souris en mode brut. */
+const WINDOWS_MOUSE_NODE: readonly [number, number] = [24, 2];
+
+/**
+ * Pourquoi la capture de la souris est refusée sur cette plateforme, ou
+ * `null` si rien ne s'y oppose.
+ *
+ * ⚠️ C'est une DÉDUCTION, assumée : sous Windows, la console ne rapporte la
+ * souris à un programme en mode brut que depuis libuv 1.51 (Node 22.17 /
+ * 24.2, `UV_TTY_MODE_RAW_VT`). La constater exigerait d'activer les modes
+ * 1000+ — et sur un Node plus ancien, cette activation ferait AUSSI perdre la
+ * molette du mode 1007 (les modes de suivi l'emportent sur lui). Le plancher
+ * `engines` (24.0) laisse passer 24.0 et 24.1 : on le dit plutôt que de
+ * risquer une molette muette.
+ *
+ * @param platform - `process.platform`.
+ * @param nodeVersion - `process.versions.node`.
+ * @returns la raison du refus, à afficher, ou `null`.
+ */
+export function mouseCaptureBlocker(
+  platform: string,
+  nodeVersion: string,
+): string | null {
+  if (platform !== "win32") return null;
+  const [major = 0, minor = 0] = nodeVersion
+    .split(".")
+    .map((part) => Number.parseInt(part, 10) || 0);
+  const [needMajor, needMinor] = WINDOWS_MOUSE_NODE;
+  if (major > needMajor || (major === needMajor && minor >= needMinor)) {
+    return null;
+  }
+  return `la console Windows ne rapporte la souris qu'à partir de Node ${needMajor}.${needMinor} (Node ${nodeVersion} ici)`;
+}
+
 /**
  * Efface l'écran VISIBLE et ramène le curseur en haut — l'historique du
  * terminal reste intact : on doit pouvoir remonter dans ce qui a précédé.

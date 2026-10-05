@@ -99,6 +99,10 @@ export const RESERVED_ENV = Object.freeze({
     name: "NF_DEV_UI",
     role: "plein écran du terminal de développement : `1` le demande, `0` l'interdit (`--ui` / `--no-ui` l'emportent)",
   },
+  NF_DEV_MOUSE: {
+    name: "NF_DEV_MOUSE",
+    role: "capture de la souris en plein écran de développement : `1` la demande, `0` l'interdit (`--mouse` / `--no-mouse` l'emportent)",
+  },
   NF_DEV_PORTS: {
     name: "NF_DEV_PORTS",
     role: "ports que le superviseur de développement doit libérer, imposés par l'opérateur",

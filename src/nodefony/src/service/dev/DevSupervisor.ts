@@ -25,6 +25,8 @@ import {
   DEV_BUILD_ISSUE_ENV,
   DEV_RELOAD_ENV,
   isDebugRequested,
+  mouseCaptureBlocker,
+  readDevMouseRequest,
   readDevUiRequest,
   readOutputFlag,
   resolveOutputMode,
@@ -787,7 +789,34 @@ export class DevSupervisor {
       input: stdin,
       synchronized: probe.synchronized,
       onQuit: () => void this.#shutdown(),
+      mouse: this.#mouseCapture(),
     };
+  }
+
+  /**
+   * La capture de la souris, si elle est demandée (`--mouse`,
+   * `NF_DEV_MOUSE=1`) et que la plateforme ne s'y oppose pas — un refus est
+   * dit, jamais tu.
+   */
+  #mouseCapture(): boolean {
+    const request = readDevMouseRequest(process.argv, process.env);
+    if (request.invalid !== null) {
+      this.#out.write(
+        `[dev] NF_DEV_MOUSE=${request.invalid} ignorée : 1 demande la capture de la souris, 0 l'interdit\n`,
+      );
+    }
+    if (!request.capture) return false;
+    const blocker = mouseCaptureBlocker(
+      process.platform,
+      process.versions.node,
+    );
+    if (blocker !== null) {
+      this.#out.write(
+        `[dev] souris laissée au terminal : ${blocker} — molette et PgUp défilent\n`,
+      );
+      return false;
+    }
+    return true;
   }
 
   /**

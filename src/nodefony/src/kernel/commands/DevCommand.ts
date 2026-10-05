@@ -98,6 +98,14 @@ class Dev extends Command {
       "plein écran : journal défilant, barre figée en bas (aussi NF_DEV_UI=1)",
     );
     this.addOption("--no-ui", "affichage en ligne, sans plein écran");
+    this.addOption(
+      "--mouse",
+      "plein écran : souris captée, glisser sélectionne et copie (aussi NF_DEV_MOUSE=1)",
+    );
+    this.addOption(
+      "--no-mouse",
+      "plein écran : souris laissée au terminal, sélection native",
+    );
     // Lues par `parseInspectArgs` sur argv, dans le SERVEUR : déclarées pour le help
     // et pour que commander ne les rejette pas.
     // Lue sur argv (`readOutputFlag`) avant que commander ne rende la main : le

@@ -22,7 +22,11 @@ import {
   probeTerminal,
   type IInputFocus,
 } from "../service/dev/DevTerminal";
-import { readDevUiRequest } from "../service/dev/outputMode";
+import {
+  mouseCaptureBlocker,
+  readDevMouseRequest,
+  readDevUiRequest,
+} from "../service/dev/outputMode";
 import type { IStartupView } from "../service/dev/startupScreen";
 import { TERMINAL_PROBE } from "../service/dev/terminalCapability";
 
@@ -66,7 +70,12 @@ class FakeInput extends EventEmitter {
 }
 
 function fullscreen(
-  options: { synchronized?: boolean; columns?: number; rows?: number } = {},
+  options: {
+    synchronized?: boolean;
+    columns?: number;
+    rows?: number;
+    mouse?: boolean;
+  } = {},
 ) {
   const stdout = output(options.columns, options.rows);
   const input = new FakeInput();
@@ -80,6 +89,7 @@ function fullscreen(
       input,
       synchronized: options.synchronized ?? false,
       onQuit: quit,
+      ...(options.mouse === undefined ? {} : { mouse: options.mouse }),
     },
   });
   return { stdout, input, quit, terminal };
@@ -124,8 +134,9 @@ describe("plein écran — entrée et image", () => {
     for (const mode of ["1049", "1007", "2004"]) {
       expect(enter).to.include(`\x1b[?${mode}h`);
     }
-    // La souris reste au TERMINAL : capter les clics tuerait la sélection
-    // native — copier un message d'erreur, le geste n°1 devant un journal.
+    // Sans `--mouse`, la souris reste au TERMINAL : capter les clics tuerait
+    // la sélection native — copier un message d'erreur, le geste n°1 devant
+    // un journal.
     for (const mode of ["1000", "1002", "1003", "1006"]) {
       expect(enter).to.not.include(`\x1b[?${mode}h`);
     }
@@ -134,6 +145,36 @@ describe("plein écran — entrée et image", () => {
     expect(input.listenerCount("data")).to.equal(1);
     expect(terminal.surface).to.equal("fullscreen");
     terminal.close();
+  });
+
+  it("--mouse : clics, glisser et SGR captés — jamais tout mouvement ni focus ; 1007 reste posé", () => {
+    const { stdout, terminal } = fullscreen({ mouse: true });
+    const enter = stdout.written[0] ?? "";
+    for (const mode of ["1049", "1007", "2004", "1000", "1002", "1006"]) {
+      expect(enter, mode).to.include(`\x1b[?${mode}h`);
+    }
+    for (const mode of ["1003", "1004"]) {
+      expect(enter, mode).to.not.include(`\x1b[?${mode}h`);
+    }
+    terminal.close();
+  });
+
+  it("la sortie coupe TOUS les modes posés à l'entrée, souris comprise", () => {
+    for (const mouse of [false, true]) {
+      const { stdout, terminal } = fullscreen({ mouse });
+      const enter = stdout.written[0] ?? "";
+      stdout.written.length = 0;
+      terminal.close();
+      const leave = stdout.written.join("");
+      const posed = [...enter.matchAll(/\x1b\[\?(\d+)h/g)].map((m) => m[1]);
+      for (const mode of posed) {
+        if (mode === "25") continue; // curseur : masqué à l'entrée, rendu à la sortie
+        expect(leave, `mouse=${mouse} mode ${mode}`).to.include(
+          `\x1b[?${mode}l`,
+        );
+      }
+      expect(leave).to.include("\x1b[?25h");
+    }
   });
 
   it("le journal suit la fin, la barre dit la PHASE même sans bilan", async () => {
@@ -402,6 +443,43 @@ describe("interrupteur du plein écran — --ui / --no-ui / NF_DEV_UI", () => {
       fullscreen: false,
       invalid: "oui",
     });
+  });
+});
+
+describe("interrupteur de la souris — --mouse / --no-mouse / NF_DEV_MOUSE", () => {
+  it("rien demandé : la souris reste au terminal", () => {
+    expect(readDevMouseRequest([], {})).to.deep.equal({
+      capture: false,
+      invalid: null,
+    });
+  });
+
+  it("la ligne de commande l'emporte sur l'environnement", () => {
+    expect(
+      readDevMouseRequest(["--mouse"], { NF_DEV_MOUSE: "0" }).capture,
+    ).to.equal(true);
+    expect(
+      readDevMouseRequest(["--no-mouse"], { NF_DEV_MOUSE: "1" }).capture,
+    ).to.equal(false);
+    expect(readDevMouseRequest([], { NF_DEV_MOUSE: "1" }).capture).to.equal(
+      true,
+    );
+  });
+
+  it("une valeur ni 1 ni 0 est NOMMÉE, pas interprétée", () => {
+    expect(readDevMouseRequest([], { NF_DEV_MOUSE: "oui" })).to.deep.equal({
+      capture: false,
+      invalid: "oui",
+    });
+  });
+
+  it("Windows avant Node 24.2 : capture refusée, raison nommée ; ailleurs rien ne s'y oppose", () => {
+    expect(mouseCaptureBlocker("win32", "24.1.0")).to.include("24.2");
+    expect(mouseCaptureBlocker("win32", "22.20.0")).to.include("22.20.0");
+    expect(mouseCaptureBlocker("win32", "24.2.0")).to.equal(null);
+    expect(mouseCaptureBlocker("win32", "26.10.0")).to.equal(null);
+    expect(mouseCaptureBlocker("darwin", "24.0.0")).to.equal(null);
+    expect(mouseCaptureBlocker("linux", "24.0.0")).to.equal(null);
   });
 });
 
