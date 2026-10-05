@@ -143,6 +143,7 @@
           "temporary": false
         }
       ],
+      "requiredActions": ["CONFIGURE_TOTP"],
       "clientRoles": {
         "nodefony-dev": ["admin", "admin-nodefony"]
       }

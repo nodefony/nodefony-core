@@ -754,13 +754,24 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
       }
     });
 
-    it("rôle de plateforme ouvert par `allowPlatformRoles` : `admin-nodefony` → ROLE_NODEFONY_ADMIN", async () => {
+    it("rôle de plateforme ouvert par `allowPlatformRoles` : `admin-nodefony` → ROLE_NODEFONY_ADMIN, puis retiré", async () => {
       // L'app de dev ÉCRIT l'ouverture (`nodefony/config/security.ts`) ; sans
-      // elle, la table refuserait le démarrage.
-      await syncRealmFromFile(await adminToken());
-      const cci = await sessionOf(await browserLogin("cci"));
-      expect(cci.roles).toContain("ROLE_NODEFONY_ADMIN");
-      expect(cci.roles).toContain("ROLE_ADMIN");
+      // elle, la table refuserait le démarrage. Le rôle est prêté à `bob` le
+      // temps du cas : un compte réel (second facteur exigé, rôles choisis)
+      // ne doit pas porter le banc.
+      const admin = await adminToken();
+      await syncRealmFromFile(admin);
+      await setClientRole(admin, "bob", "admin-nodefony", true);
+      try {
+        const bob = await sessionOf(await browserLogin("bob"));
+        expect(bob.roles).toContain("ROLE_NODEFONY_ADMIN");
+        expect(bob.roles).toContain("ROLE_ADMIN");
+      } finally {
+        // Retiré du realm, puis du compte local par un login de recalcul.
+        await setClientRole(admin, "bob", "admin-nodefony", false);
+        const after = await sessionOf(await browserLogin("bob"));
+        expect(after.roles).not.toContain("ROLE_NODEFONY_ADMIN");
+      }
     });
 
     it("code_verifier faux → invalid_grant rendu PAR Keycloak", async () => {

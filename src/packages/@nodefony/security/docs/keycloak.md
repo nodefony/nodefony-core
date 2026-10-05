@@ -130,6 +130,10 @@ Le dépôt fournit un Keycloak 26.8 **déjà configuré** : un realm `nodefony`,
 | `bob`       | `bob-dev`    | `admin`                                | `ROLE_USER`, `ROLE_ADMIN`            |
 | `cci`       | `cci-dev`    | `admin`, `admin-nodefony`              | + `ROLE_NODEFONY_ADMIN` (plateforme) |
 
+`cci` doit configurer un **code à usage unique** (TOTP) à sa première connexion
+(`"requiredActions": ["CONFIGURE_TOTP"]`) : le compte porte le rôle de plateforme, il exige un second
+facteur, et aucune graine n'est écrite dans le fichier.
+
 1. **Démarrer le conteneur** (en `https` sur le port 8444, avec le certificat de l'application) :
 
    ```bash
