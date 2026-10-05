@@ -426,9 +426,9 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 
 - `security:secrets` (`--json`, `--write`) : génère les clés attendues (NF_TOTP_KEY,
   NF_WEBHOOK_KEY, NF_CSRF_SECRET — 32 octets base64) + guide le câblage 3 fichiers
-  `.env.local` → `env.ts` → `use()`. Détection PAR CLÉ de l'existant (✓ / lignes
-  manquantes seules). `--write` = append des clés ABSENTES dans `.env.local`
-  (convention B : jamais le `.env` commité ; refus si `.env.local` tracké git).
+  `.env` → `env.ts` → `use()`. Détection PAR CLÉ de l'existant (✓ / lignes
+  manquantes seules). `--write` = append des clés ABSENTES dans `.env` (`ENV_FILE`
+  du cœur ; refus si `.env` tracké git).
   Référencée par les 3 warnings « clé ÉPHÉMÈRE » (totp/webhooks/csrf).
   JWT hors scope (keystore.dir/keySetJson = persistance, pas un secret à coller).
   ⚠️ commande SANS arg positionnel → `generate(opts)` : les options commander arrivent

@@ -230,7 +230,7 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
   out.push(
     tagged(
       "NF_*",
-      "Toute variable lue par Nodefony porte ce préfixe. nodefony env en dresse la cascade et la provenance.",
+      "Toute variable lue par Nodefony porte ce préfixe. nodefony env en montre la valeur effective et la provenance.",
     ),
   );
   out.push(

@@ -206,7 +206,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 | `outdated` | — | `outdated` sur tous les modules | `onRegister` | `OutdatedCommand.ts:9` |
 | `start` | — | **Alias de `prod`** (il n'y a plus de commande propre) | `onStart` | `ProdCommand.ts:52` |
 | `doctor` | — | **Diagnostic STATIQUE** : paquets importés non déclarés, câblage (entité / controller / service jamais enregistrés, nom réservé, brique manquante), segment `:id` qui répondra 404 — `--json`, `--cwd` ; **remonte à la racine de l'app**, donc lançable depuis n'importe quel sous-dossier (**0 boot**) | `0 boot` | `DoctorCommand.ts:37` |
-| `env` | — | Cascade des `.env`, valeurs effectives et **provenance** de chacune (**0 boot**) | `0 boot` | `EnvCommand.ts:36` |
+| `env` | — | Le `.env` lu, valeurs effectives et **provenance** de chacune (**0 boot**) | `0 boot` | `EnvCommand.ts:36` |
 | `status` | — | Introspecte les process dev/prod/cluster (**0 boot**) | `0 boot` | `StatusCommand.ts:20` |
 | `stop` | — | Arrête proprement les runtimes du projet (**0 boot**) — `--all` | `0 boot` | `StopCommand.ts:20` |
 | `completion` | — | Script de complétion shell (**0 boot**) | `0 boot` | `CompletionCommand.ts:20` |
@@ -260,7 +260,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 | `http:certificates` | Génère les certificats TLS de dev (`-f/--force`)       | `certificatesCommand.ts:21`  |
 | `proxy:generate`    | Émet une config nginx/haproxy pour l'app               | `proxyGenerateCommand.ts:31` |
 | `frontend:build`    | Build de production des bundles Vite (`-f/--force`)    | `frontend-build.ts:22`       |
-| `security:secrets`  | Vérifie / écrit les secrets de sécurité (`-w/--write`) | `security-secrets.ts:36`     |
+| `security:secrets`  | Vérifie / écrit les secrets de sécurité (`-w/--write`) | `security-secrets.ts:85`     |
 | `security:user:add` | Crée un utilisateur (`-p`, `-r roles`, `-a` admin)     | `security-user-add.ts:36`    |
 
 > Une commande introuvable rend le code `EX_USAGE` (64) — **jamais** un repli silencieux sur le

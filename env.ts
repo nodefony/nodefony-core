@@ -35,7 +35,8 @@ export const env = defineEnv({
    */
   NF_PORT: envNumber({
     optional: true,
-    description: "Port d'écoute HTTP (défaut framework 5151).",
+    defaultNote: "5151",
+    description: "Port d'écoute HTTP.",
   }),
 
   /**
@@ -58,7 +59,8 @@ export const env = defineEnv({
    */
   NF_PORT_HTTPS: envNumber({
     optional: true,
-    description: "Port d'écoute HTTPS/HTTP2 (défaut framework 5152).",
+    defaultNote: "5152",
+    description: "Port d'écoute HTTPS/HTTP2.",
   }),
 
   // ── Infra déclarée (modèle « infra déclarée » — cf docs/guides/configuration.md) ──
@@ -175,7 +177,7 @@ export const env = defineEnv({
   NF_STUDIO_UI: envEnum(["auto", "static", "vite"], {
     default: "auto",
     description:
-      "Livraison de l'UI Studio : auto (défaut) | static (pré-buildé, sans Vite) | vite.",
+      "Livraison de l'UI Studio : auto | static (pré-buildé, sans Vite) | vite.",
   }),
 
   // Le dev-server Vite n'a plus de variable d'environnement : Nodefony le
@@ -289,7 +291,11 @@ export const env = defineEnv({
    * PAS un store configuré explicitement (il ne passe pas par `auto`). Un backend
    * demandé mais non enregistré sur une brique est ignoré pour elle (jamais de crash).
    */
-  NF_STORE: envString({ optional: true }),
+  NF_STORE: envString({
+    optional: true,
+    description:
+      "Force TOUS les stockages en mode auto vers ce backend (ex. memory pour un banc de charge). Vide = aucun forçage.",
+  }),
 
   // ── Backing du cache d'idempotence des mutations (P6.8) ────────────────────
   /**
@@ -325,8 +331,9 @@ export const env = defineEnv({
    */
   NF_ADMIN_PASSWORD: envString({
     optional: true,
-    description:
-      "Mot de passe de l'admin seedé (dev défaut 'secret-de-dev-42' ; prod requis).",
+    defaultNote:
+      "secret-de-dev-42 en développement ; aucun en production (aucun compte créé)",
+    description: "Mot de passe de l'administrateur semé au premier démarrage.",
   }),
 
   /**
@@ -336,8 +343,8 @@ export const env = defineEnv({
    */
   NF_USER_PASSWORD: envString({
     optional: true,
-    description:
-      "Mot de passe du compte de fixture 'user' (dev, défaut 'secret-de-dev-42').",
+    defaultNote: "secret-de-dev-42 (développement seulement)",
+    description: "Mot de passe du compte de fixture « user ».",
   }),
 
   /**

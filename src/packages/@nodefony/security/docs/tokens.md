@@ -338,7 +338,7 @@ jwt: {
 },
 ```
 
-- **Jamais dans `.env.local`, jamais dans git** : en développement la clé vit dans `var/keys/` ;
+- **Jamais dans un fichier du poste, jamais dans git** : en développement la clé vit dans `var/keys/` ;
   une clé privée de production sur un poste n'apporte que le risque de fuir.
 - **Dans un fichier `.env`** (Docker Compose `env_file`), l'entourer de quotes simples :
   `NF_JWT_KEYSET='{"active":"…","keys":[…]}'`.

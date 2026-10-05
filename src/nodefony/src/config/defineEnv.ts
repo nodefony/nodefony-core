@@ -46,6 +46,12 @@ export interface EnvVarMeta {
   readonly default?: unknown;
   /** Doc (`.describe()`), reprise telle quelle dans `.env.example`. */
   readonly description?: string | undefined;
+  /**
+   * Le défaut quand il vit dans le CODE et non dans le catalogue — rendu sur la
+   * ligne « défaut : » de `.env.example` (ex. `"secret-de-dev-42 en dev, aucun
+   * en production"`). Ignoré si `default` est déclaré : la valeur déclarée fait foi.
+   */
+  readonly defaultNote?: string | undefined;
   /** Valeurs autorisées (enum uniquement). */
   readonly values?: readonly string[] | undefined;
   /**
@@ -161,6 +167,11 @@ interface BaseOpts {
   /** Doc de la variable (attachée via `.describe()` → introspection Studio). */
   description?: string;
   /**
+   * Le défaut appliqué par le CODE quand le catalogue n'en déclare pas — il
+   * n'apparaît que dans la notice `.env.example`, sur sa ligne « défaut : ».
+   */
+  defaultNote?: string;
+  /**
    * Environnements où la variable devient REQUISE (`["production"]`).
    *
    * Elle reste `optional` partout ailleurs : le poste de développement démarre
@@ -201,7 +212,7 @@ export function envString(
 ): z.ZodType<string | undefined>;
 export function envString(opts?: StrOpts): z.ZodType<string>;
 export function envString(opts: StrOpts = {}): z.ZodType<string | undefined> {
-  const { default: def, optional, description, requiredIn } = opts;
+  const { default: def, optional, description, defaultNote, requiredIn } = opts;
   const inner: z.ZodType =
     optional && def === undefined ? z.string().optional() : z.string();
   const schema = z.preprocess((v) => (isAbsent(v) ? def : v), inner);
@@ -210,6 +221,7 @@ export function envString(opts: StrOpts = {}): z.ZodType<string | undefined> {
     optional: Boolean(optional && def === undefined),
     default: def,
     description,
+    defaultNote,
     requiredIn,
   }) as z.ZodType<string | undefined>;
 }
@@ -222,7 +234,7 @@ export function envNumber(
 ): z.ZodType<number | undefined>;
 export function envNumber(opts?: NumOpts): z.ZodType<number>;
 export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
-  const { default: def, optional, description, requiredIn } = opts;
+  const { default: def, optional, description, defaultNote, requiredIn } = opts;
   const inner: z.ZodType =
     optional && def === undefined ? z.number().optional() : z.number();
   const schema = z.preprocess((v) => {
@@ -235,6 +247,7 @@ export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
     optional: Boolean(optional && def === undefined),
     default: def,
     description,
+    defaultNote,
     requiredIn,
   }) as z.ZodType<number | undefined>;
 }
@@ -245,7 +258,7 @@ export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
  * de ces ensembles → erreur au boot (typo détectée, ex. `tru`).
  */
 export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
-  const { default: def = false, description, requiredIn } = opts;
+  const { default: def = false, description, defaultNote, requiredIn } = opts;
   const schema = z.preprocess((v) => {
     if (isAbsent(v)) return def;
     const s = String(v).trim().toLowerCase();
@@ -258,6 +271,7 @@ export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
     optional: false, // toujours une valeur (absente → `def`)
     default: def,
     description,
+    defaultNote,
     requiredIn,
   });
 }
@@ -286,7 +300,7 @@ export function envEnum<const T extends readonly [string, ...string[]]>(
   values: T,
   opts: EnumOpts<T[number]> = {},
 ): z.ZodType<T[number] | undefined> {
-  const { default: def, optional, description, requiredIn } = opts;
+  const { default: def, optional, description, defaultNote, requiredIn } = opts;
   const base = z.enum(values as unknown as [string, ...string[]]);
   const inner: z.ZodType =
     optional && def === undefined ? base.optional() : base;
@@ -296,6 +310,7 @@ export function envEnum<const T extends readonly [string, ...string[]]>(
     optional: Boolean(optional && def === undefined),
     default: def,
     description,
+    defaultNote,
     requiredIn,
     values: [...values],
   }) as z.ZodType<T[number] | undefined>;

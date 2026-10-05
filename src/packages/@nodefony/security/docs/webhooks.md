@@ -168,7 +168,7 @@ sans elle, une clé éphémère est générée en dev (avec un WARNING), et en p
 
 ```bash
 # Génère les clés du module security et guide le câblage en 3 fichiers.
-npx nodefony security:secrets --write   # écrit NF_WEBHOOK_KEY dans .env.local
+npx nodefony security:secrets --write   # écrit NF_WEBHOOK_KEY dans .env
 ```
 
 ```typescript

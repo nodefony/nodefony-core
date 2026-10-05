@@ -172,25 +172,19 @@ ENSUITE. Tout le reste (déclarer un outil métier, le réserver à des scopes, 
 ### L'environnement : ne devine JAMAIS, demande
 
 ```bash
-npx nodefony env          # cascade des .env, valeur EFFECTIVE de chaque variable, sa PROVENANCE
+npx nodefony env          # valeur EFFECTIVE de chaque variable, sa PROVENANCE
 ```
 
 **Encadre toute modification de configuration par cette commande** : une fois AVANT, pour savoir ce
 qui s'applique et d'où ça vient ; une fois APRÈS, pour prouver que ta valeur est celle qui gagne.
-Lire les `.env` toi-même donne des contenus ; la précédence est un mécanisme — tu ne peux que la
-supposer, et une supposition fausse ne se voit qu'en production. La commande ne boote rien, donc
+Lire `.env` toi-même donne un contenu ; ce que l'application voit dépend aussi du shell et de
+`env.ts` — tu ne peux que le supposer, et une supposition fausse ne se voit qu'en production. La commande ne boote rien, donc
 elle répond aussi quand l'application ne démarre plus.
 
-**Précédence, du plus FORT au plus faible** — le premier qui pose une valeur gagne, les suivants
-sont ignorés en silence :
-
-```
-process.env  >  .env.<déploiement>.local  >  .env.<mode>.local  >  .env.local
-             >  .env.<déploiement>        >  .env.<mode>        >  .env
-```
-
-`<mode>` = `NODE_ENV` · `<déploiement>` = `APP_ENV` (plus spécifique, donc plus fort). Les `*.local`
-ne sont jamais committés : les secrets y vont, et nulle part ailleurs.
+**Deux fichiers** : `.env` = valeurs du POSTE (secrets de dev compris), **jamais commité** ;
+`.env.example` = notice commitée, **jamais chargée**. `process.env` > `.env`, rien d'autre. La
+production n'a **aucun** fichier (orchestrateur ; réglages non secrets dans `nodefony.config.ts`).
+Un module n'a pas de `.env`. N'écris JAMAIS `.env.local` ni `.env.<mode>` : refusés au démarrage (78).
 
 | Forme                                 | Ce que c'est                                         | Où c'est déclaré                                       |
 | ------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |

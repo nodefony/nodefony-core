@@ -29,3 +29,4 @@ status: stable
 | [0011](0011-scope-de-requete-par-copie-prototypale.md)        | Portée de requête — un conteneur par requête, par copie prototypale, atteint par l'ALS        | accepted | 2026-09-26 |
 | [0012](0012-calque-configuration-par-requete.md)              | Configuration — figée au démarrage, surchargée par requête sur liste blanche                  | accepted | 2026-09-26 |
 | [0013](0013-terminal-de-developpement.md)                     | Terminal de développement — un seul propriétaire, un modèle d'écran pur, une invite à actions | proposed | 2026-10-04 |
+| [0014](0014-fichiers-environnement.md)                        | Fichiers d'environnement — un seul fichier, `.env`, jamais commité                            | accepted | 2026-10-05 |

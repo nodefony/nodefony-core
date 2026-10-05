@@ -179,12 +179,13 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
 
 ## Environnement — `nodefony env`
 
-- `runtime/loadEnv.ts` : `envFileOrder(opts)` = **source UNIQUE** de l'ordre des `.env` (extraite
-  de `loadEnv`, que `nodefony env` AFFICHE). 7 niveaux : `process.env` > `.env.<appEnv>.local` >
-  `.env.<mode>.local` > `.env.local` > `.env.<appEnv>` > `.env.<mode>` > `.env`. Règle mnémo :
-  les `*.local` priment ; à rang égal, le plus spécifique gagne. `loadEnv` n'écrase JAMAIS une clé
-  déjà posée → la précédence est une CONSÉQUENCE de l'ordre de lecture, rien à synchroniser.
-- `appEnv === runtimeEnv` → les niveaux `appEnv` sont sautés (pas de doublon).
+- `runtime/loadEnv.ts` (ADR-0014) : `ENV_FILE = ".env"` ; `envFileOrder()` = **source UNIQUE**
+  des fichiers lus (`[".env"]`, que `nodefony env` AFFICHE). `.env` = valeurs du POSTE, jamais
+  commité ; `.env.example` = notice, jamais chargée ; production = aucun fichier. `process.env` >
+  `.env` — `loadEnv` n'écrase JAMAIS une clé déjà posée.
+- `findLegacyEnvFiles({cwd, runtimeEnv, appEnv})` : `.env.local`, `.env.<mode>`, `.env.*.local`
+  présents DANS une app (`nodefony.config.ts`) → le bin sort en 78 avec `legacyEnvMessage`.
+  `.env.example`, `.env.vault`, `.env.keys` ignorés ; hors app → `[]` (create app libre).
 - `cli/envReport.ts` = calcul PUR ; `cli/env.ts` = I/O + rendu. Le rapport RECONSTRUIT la
   provenance (au moment du run, `process.env` est déjà peuplé) : 1ᵉʳ fichier portant la valeur
   effective = origine ; aucun → shell. Les suivants qui définissent la clé = `shadowed`.
@@ -211,7 +212,7 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
   (`runtime/engineEnvironment.ts` — elle a quitté le bin, qui s'exécute à l'import et ne
   s'éprouvait donc qu'en lisant son propre texte) ne lit que les mots AVANT la
   première option : `doctor --env production` faisait sinon basculer TOUT le processus en
-  production — `.env.production` chargé, catalogue de l'app en échec à l'import, repli SILENCIEUX
+  production — modules de prod chargés, catalogue de l'app en échec à l'import, repli SILENCIEUX
   sur un `dist` périmé (27 variables au lieu de 28).
 - `NF_` (variable d'app, déclarée dans `env.ts`) ≠ `NF__MODULE__CHEMIN` (surcharge directe d'une
   clé de module, rien à déclarer) ≠ `<VAR>_FILE` (secret monté). Les 3 sont rendus séparément.

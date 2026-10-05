@@ -296,24 +296,24 @@ document de FORME différente, que l'agrégateur lirait mal sans rien signaler.
 
 ## `nodefony env` — l'environnement, en entier (standalone 0-boot)
 
-`nodefony env [--json] [--cwd <path>]` (+ `--example [--check]` : dérive/vérifie `.env.example` depuis le catalogue, ADR-0006) — cascade des `.env`, variables déclarées, valeur
+`nodefony env [--json] [--cwd <path>]` (+ `--example [--check]` : dérive/vérifie `.env.example` depuis le catalogue, ADR-0006) — le `.env` lu (ADR-0014), variables déclarées, valeur
 EFFECTIVE de chacune et sa PROVENANCE, puis ce qui est ignoré. Standalone **par nécessité**
 (même raison que `check`, en plus tranchée) : on cherche une variable précisément quand l'app
 NE démarre pas. Sort en **78** (`EX_CONFIG`) si une variable requise manque.
 
 Architecture en deux morceaux : `cli/envReport.ts` = calcul **PUR** (`buildEnvReport` — reçoit
-la cascade déjà lue + l'env effectif, conclut) ; `cli/env.ts` = adaptateur (lecture fichiers,
+les fichiers déjà lus + l'env effectif, conclut) ; `cli/env.ts` = adaptateur (lecture fichiers,
 import du catalogue depuis `dist/index.js` de l'app, rendu humain/JSON).
 
-**L'ordre des fichiers vient de `envFileOrder`** (`runtime/loadEnv.ts:72`, extrait de `loadEnv`
-pour cette raison) — jamais d'une copie : un ordre AFFICHÉ qui différerait de l'ordre APPLIQUÉ
-serait pire que pas d'affichage, puisqu'on le croirait sur parole.
+**Les fichiers lus viennent de `envFileOrder`** (`runtime/loadEnv.ts:48` — `.env` seul) — jamais
+d'une copie : une liste AFFICHÉE qui différerait de la liste APPLIQUÉE serait pire que pas
+d'affichage, puisqu'on la croirait sur parole. Les fichiers de l'ancienne convention
+(`.env.local`, `.env.<mode>`) refusent le démarrage du binaire (`findLegacyEnvFiles`, 78).
 
 Ce que le rapport reconstruit sans instrumenter `loadEnv` : au moment où la commande tourne,
 `process.env` est déjà peuplé et la trace de « qui a posé quoi » est perdue. On la recalcule —
-le PREMIER fichier de la cascade qui porte la valeur effective EST l'origine ; aucun ne
-correspond → c'est le shell, qui gagne toujours. Les niveaux suivants qui définissent la même
-clé sont rendus **masqués** (le piège n°1).
+le fichier qui porte la valeur effective EST l'origine ; s'il ne correspond pas → c'est le
+shell, qui gagne toujours, et la valeur du fichier est rendue **masquée** (le piège n°1).
 
 Quatre sorties, dont trois qu'aucun autre outil ne donne : les **masquées**, les **NF\_
 inconnues** (faute de frappe → suggestion par `closestMatch`, la brique de `envOverride`), les
@@ -881,9 +881,9 @@ transmet pas le SIGTERM, et chaque déploiement tue les requêtes en vol), `USER
 `mkdir` propriétaire de `tmp/` et `var/` — sans lui un volume nommé naît `root:root` et le
 boot meurt en `EACCES` —, `npm ci` quand un verrou est là (reproductibilité), le code laissé
 à `root` pour que l'application ne réécrive pas son propre `dist/`, la sonde sur `/readyz`,
-et un `.dockerignore` qui écarte `*.local` et la matière cryptographique — un secret entré
+et un `.dockerignore` qui écarte `.env` et la matière cryptographique — un secret entré
 dans une couche y reste, même effacé par la suivante. Un test de FORME les contrôle en ligne
-entière (un `include` se serait contenté de `**/*.local` pour prouver `*.local`).
+entière (un `include` se serait contenté de `.env.*` pour prouver `.env`).
 
 ⚠️ **Le `COPY . ./` précède l'installation**, contre le patron canonique du monde Node. Une
 dépendance ici peut être LOCALE — workspaces `modules/*`, archive `file:` avant publication —

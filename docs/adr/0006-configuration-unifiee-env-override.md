@@ -16,6 +16,9 @@ tags: [config, dx, cloud-native, docker, env, zod, securite, devops]
 Accepté (2026-06-28). **Décision figée ; implémentation par slices (à faire).** Ce document EST la
 spécification à respecter (comme ADR-0005 Partie 2). Slice 1 = `@nodefony/security` (module exemple).
 
+> Les **fichiers** d'environnement (`.env` seul, jamais commité ; `.env.example` pour notice ;
+> aucun fichier en production) relèvent de l'[ADR-0014](0014-fichiers-environnement.md).
+
 ## Contexte
 
 La configuration « marche » mais est **devenue confuse au point de freiner chaque session** (constat
@@ -109,7 +112,7 @@ NF_WEBHOOK_KEY_FILE=/run/secrets/webhook_key             # secret depuis fichier
   défauts à logique** (ex. `NF_BIND_ALL` qui règle domaine + trustProxy), exposés typés dans `ctx.env`.
   **Expérience développeur.** Conservé tel quel.
 - **Override générique** `NF__X__Y` : surcharge ponctuelle de **n'importe quel** champ.
-  **Expérience devops/Docker.** **Optionnel** — le cas simple (un `.env` avec le catalogue) ne le
+  **Expérience devops/Docker.** **Optionnel** — le cas simple (un `.env` sur le poste) ne le
   voit jamais. Règle de non-chevauchement : un champ qui a une variable dédiée au catalogue n'est pas
   aussi piloté par `NF__*` (la variable nommée fait foi) — à documenter par module.
 

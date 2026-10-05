@@ -507,6 +507,9 @@ Les **invariants** qui doivent rester présents en permanence :
 - **Interfaces** : `nodefony/interfaces/I*.ts` + barrel, re-exportées en `export type` dans `index.ts`.
 - **Config d'app** : `nodefony.config.ts` + `env.ts` à la racine (`env.ts` = SEUL lecteur de
   `process.env`). Par-environnement = **fonction `(ctx) => …`**, jamais un fichier parallèle.
+- **Fichiers d'environnement (ADR-0014)** : `.env` = valeurs du POSTE, jamais commité ;
+  `.env.example` = notice générée, jamais chargée ; production = AUCUN fichier ; un module n'a
+  pas de `.env`. N'écrire JAMAIS de `.env.local` ni de `.env.<mode>` : le démarrage les refuse (78).
 - **🔴 TOUTE variable d'environnement que Nodefony lit se préfixe `NF_`.** Sans exception, y
   compris pour les tests, les bancs et les interrupteurs de coût (`NF_RUN_PERF`, `NF_RUN_CLI_BOOT`).
   Une application qui installe le framework a déjà un environnement : `COOKIE_SECRET`, `PG_URL`,

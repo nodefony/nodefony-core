@@ -405,7 +405,7 @@ que la boucle locale : un autre appareil reçoit une connexion refusée. Dans un
 par `nodefony create app`, l'interrupteur `NF_BIND_ALL` l'ouvre à toutes les interfaces :
 
 ```bash
-# .env.local (ou en préfixe de la commande)
+# .env (ou en préfixe de la commande)
 NF_BIND_ALL=true
 ```
 

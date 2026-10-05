@@ -47,7 +47,7 @@ moteur est de les empiler **dans un ordre connu**, une fois, et de figer le rés
 flowchart TD
   D["1 · Défauts du framework<br/>defaultAppConfig + schéma Zod de chaque module"] --> M["deep-merge"]
   A["2 · Config du projet<br/>nodefony.config.ts + use()"] --> M
-  SRC["process.env<br/>fichiers .env · shell · orchestrateur"] --> CAT["env.ts — defineEnv<br/>catalogue TYPÉ, seul lecteur"]
+  SRC["process.env<br/>.env du poste · shell · orchestrateur"] --> CAT["env.ts — defineEnv<br/>catalogue TYPÉ, seul lecteur"]
   CAT -->|"ctx.env"| A
   SRC --> O["3 · Override de déploiement<br/>NF__APP__… · NF__MODULE__… · …_FILE"]
   M --> O
@@ -57,7 +57,7 @@ flowchart TD
 ```
 
 Le fait structurant tient en une ligne : **un seul endroit lit `process.env`** — le catalogue
-`defineEnv()` (`defineEnv.ts:421`). Partout ailleurs, la configuration est un objet typé, résolu au
+`defineEnv()` (`defineEnv.ts:436`). Partout ailleurs, la configuration est un objet typé, résolu au
 boot. Cela supprime d'un coup toute une famille de pannes : le `process.env.X` lu au fond d'un
 service, jamais validé, absent en production.
 
@@ -237,7 +237,7 @@ Trois gardes évitent les heures de débogage les plus classiques :
   `resolveFailureHint()` (`envOverride.ts:571`).
 - **La coercion est explicite.** `coerceEnvValue()` (`envOverride.ts:59`) traite `"true"`/`"false"`,
   les nombres, le JSON (`[…]`, `{…}`) et le CSV. Le piège `z.coerce.boolean("false") === true` est
-  ainsi évité, et une chaîne vide compte comme **absente** (`isAbsent()`, `defineEnv.ts:156`).
+  ainsi évité, et une chaîne vide compte comme **absente** (`isAbsent()`, `defineEnv.ts:162`).
 - **Le schéma de l'app n'est pas strict.** Les clés inconnues (`module-<x>`, `App`, `cluster`) sont
   **ignorées, pas rejetées** (`schema.ts:11`) : chaque module valide **son** bloc avec **son** schéma.
   Une seule autorité par périmètre.
@@ -255,7 +255,7 @@ objet **gelé** (`Object.freeze`, `defineEnv.ts:494`). Une variable absente pren
 variable présente mais invalide **arrête le boot en la nommant** (`defineEnv.ts:479`).
 
 Il déclare aussi ses propres métadonnées (`getEnvCatalog()`, `defineEnv.ts:110`), ce qui permet de
-**générer** `.env.example` depuis le catalogue (`renderEnvExample()`, `envExample.ts:57`) au lieu de
+**générer** `.env.example` depuis le catalogue (`renderEnvExample()`, `envExample.ts:93`) au lieu de
 le maintenir à la main — un fichier d'exemple qui ment est pire que pas d'exemple.
 
 | Helper         | Type produit                        | Absente ⇒                | Refusé au boot                              |
@@ -273,19 +273,19 @@ est **requise**, et son absence arrête le boot. C'est le helper des URLs et des
 
 ### `envNumber()` — le nombre, coercé puis vérifié
 
-`envNumber()` (`defineEnv.ts:220`) convertit puis laisse Zod trancher : une valeur non numérique est
+`envNumber()` (`defineEnv.ts:232`) convertit puis laisse Zod trancher : une valeur non numérique est
 transmise **brute** au schéma, qui la rejette avec le nom de la variable. Un port mal orthographié ne
 devient jamais `NaN` silencieusement.
 
 ### `envBoolean()` — les ensembles 12-factor
 
-`envBoolean()` (`defineEnv.ts:247`) accepte `1/true/yes/on` et `0/false/no/off`, insensible à la
-casse (`TRUTHY`/`FALSY`, `defineEnv.ts:153`). Tout le reste est une **erreur** : `tru` est une faute
+`envBoolean()` (`defineEnv.ts:260`) accepte `1/true/yes/on` et `0/false/no/off`, insensible à la
+casse (`TRUTHY`/`FALSY`, `defineEnv.ts:159`). Tout le reste est une **erreur** : `tru` est une faute
 de frappe, pas un « faux » implicite. Ce helper a toujours une valeur (défaut `false`).
 
 ### `envEnum()` — l'ensemble fermé, littéral préservé
 
-`envEnum()` (`defineEnv.ts:277`) est le seul qui rende le type **exact** (`"stdout" | "file" |
+`envEnum()` (`defineEnv.ts:291`) est le seul qui rende le type **exact** (`"stdout" | "file" |
 "null"`), ce qui permet de le brancher directement sur un champ de config qui attend cette union.
 C'est le helper des molettes : driver de log, mode, dialecte.
 
@@ -308,10 +308,11 @@ Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathL
 `envOverride.ts:417`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
 (`Kernel.ts:2417`).
 
-Les fichiers `.env` eux-mêmes sont chargés **avant** le boot par `loadEnv()` (`loadEnv.ts:131`), en
-cascade : les variantes `*.local` (gitignorées) priment sur les fichiers committés, et **rien**
+Le fichier `.env` est chargé **avant** le boot par `loadEnv()` (`loadEnv.ts:170`) — le seul fichier
+lu : les valeurs du poste, jamais commité ; sa notice `.env.example` n'est jamais chargée, et la
+production n'a aucun fichier ([ADR-0014](../adr/0014-fichiers-environnement.md)). **Rien**
 n'écrase une variable déjà posée dans `process.env` par le shell ou l'orchestrateur
-(`loadEnv.ts:86`).
+(`loadEnv.ts:174`).
 
 ## 🧩 Déclarer un module — `use()`, le manifeste et son typage
 
@@ -419,8 +420,8 @@ export const env = defineEnv({
 | `NF_WEBHOOK_KEY_FILE` vers un fichier illisible | **erreur de boot** nommant le chemin          |
 | rien                                            | `undefined` — à la brique de décider          |
 
-En local, la même variable vit dans `.env.local`, qui est gitignoré et prime sur les fichiers
-committés (`loadEnv.ts:67`). Un seul mécanisme, deux contextes.
+En local, la même variable vit dans `.env`, qui est gitignoré (`loadEnv.ts:15`). Un seul
+mécanisme, deux contextes.
 
 ### Situation 3 — « le devops doit changer un réglage sans redéployer le code »
 
@@ -547,7 +548,7 @@ sequenceDiagram
   participant Z as Zod appConfigSchema
   participant M as Modules
 
-  B->>B: loadEnv() — fichiers .env en cascade
+  B->>B: loadEnv() — le .env du poste
   B->>K: boot
   K->>K: import de l'app → export `env` (catalogue) + export default
   K->>K: buildConfigContext(env) → ctx {env, infra, isProd…}
@@ -564,7 +565,7 @@ sequenceDiagram
 
 Les points de passage, dans l'ordre du code :
 
-1. **`loadEnv()`** (`loadEnv.ts:131`) peuple `process.env` avant tout Kernel — les configs de modules
+1. **`loadEnv()`** (`loadEnv.ts:170`) peuple `process.env` avant tout Kernel — les configs de modules
    lisent l'environnement au boot, il doit donc déjà être là.
 2. **`Kernel.buildConfigContext()`** (`Kernel.ts:2131`) fabrique `ctx`. Le catalogue `env` exporté par
    l'app y est branché (`Kernel.ts:1219`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
@@ -679,7 +680,7 @@ précisément l'objectif du modèle « résoudre puis figer ».
 | Une métadonnée `.meta()` disparaît                     | `.meta()` n'est pas en dernier — le clone Zod la perd                | `.default(x).meta({…})` (`configMeta.ts:27`)                                      |
 | Un override `module-<nom>` semble ignoré               | Il était appliqué après la validation du module                      | Corrigé : appliqué avant (`Kernel.ts:946`) — vérifier l'orthographe du module     |
 | Le cluster ignore `cluster.config.ts`                  | Le fichier déréférence le kernel → import KO → repli silencieux      | Le garder **kernel-free** (`topology.ts:111`)                                     |
-| `.env.example` désynchronisé                           | `env.ts` modifié sans régénération                                   | Le régénérer depuis le catalogue (`envExample.ts:57`)                             |
+| `.env.example` désynchronisé                           | `env.ts` modifié sans régénération                                   | Le régénérer depuis le catalogue (`envExample.ts:93`)                             |
 | Une modification de config n'a aucun effet en dev      | Le boot lit le **dist**, pas la source                               | Rebuilder la racine avant de relancer (cf le [guide](../guides/configuration.md)) |
 
 ## 🧪 Tests & couverture
@@ -691,7 +692,7 @@ depuis vitest, jamais figés ici :
   défauts, invariants d'immuabilité), `configBoot.test.ts` (le boot réel : diagnostic, code de
   sortie, fail-fast) et `configUse.test.ts` (manifeste, `policy`/`when`, typage par le registre).
 - **L'environnement** — `defineEnv.test.ts` (coercions, requis/optionnel, `*_FILE`, gel de l'objet),
-  `loadEnv.test.ts` (la cascade `.env`) et `envExample.test.ts` (l'anti-dérive du fichier d'exemple).
+  `loadEnv.test.ts` (`.env` seul, refus de l'ancienne convention) et `envExample.test.ts` (l'anti-dérive du fichier d'exemple).
 - **Les gardes d'override** — `envOverride.test.ts`, la suite la plus fournie : coercions explicites,
   casse, refus des chemins inconnus, suggestions « vouliez-vous dire », rédaction des secrets.
 - **La configuration côté modules** — `configProvenance.test.ts` (l'origine par champ), les bancs

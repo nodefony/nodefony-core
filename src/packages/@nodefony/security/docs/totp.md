@@ -148,8 +148,8 @@ illisibles au redémarrage). La commande la génère et te dit exactement où la
 ```bash
 npx nodefony security:secrets --write
 # 🔐 Secrets security — 3 étapes, 3 FICHIERS
-# 1. Fichier .env.local — les valeurs
-#    ✓ écrit dans .env.local (NF_TOTP_KEY, NF_WEBHOOK_KEY, NF_CSRF_SECRET)
+# 1. Fichier .env — les valeurs
+#    ✓ écrit dans .env (NF_TOTP_KEY, NF_WEBHOOK_KEY, NF_CSRF_SECRET)
 # 2. Fichier env.ts — la déclaration typée
 # 3. Fichier nodefony.config.ts — le câblage vers le module security
 ```

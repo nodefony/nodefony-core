@@ -29,11 +29,10 @@ import {
  * qu'on croit lu. Cette commande est donc standalone, comme `status` et `check` :
  * elle ne lit que des fichiers, et répond même sur une application cassée.
  *
- * Ce qu'elle répare : la cascade `loadEnv` est correcte mais INVISIBLE — elle
- * n'était écrite que dans un commentaire du framework. Un agent, comme un
- * humain, ne pouvait que la deviner, et deviner produit toujours la même erreur :
- * poser la variable dans un fichier de rang inférieur à celui qui la définit
- * déjà, puis conclure que « ça ne marche pas ».
+ * Ce qu'elle répare : le chargement `loadEnv` est correct mais INVISIBLE. Un
+ * agent, comme un humain, ne pouvait que le deviner, et deviner produit toujours
+ * la même erreur : poser la variable dans `.env` alors que le shell en pose déjà
+ * une, puis conclure que « ça ne marche pas ».
  */
 
 /** Ce que la ligne de commande demande. */
@@ -106,7 +105,7 @@ export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
 const PAGE: IUsagePage = {
   command: "nodefony env",
   tagline:
-    "la cascade des fichiers .env, la valeur effective de chaque variable, " +
+    "le fichier .env lu, la valeur effective de chaque variable, " +
     "et d'où elle vient",
   synopsis: [
     "nodefony env [--json] [--env <e>] [--cwd <chemin>]",
@@ -170,7 +169,7 @@ const PAGE: IUsagePage = {
 };
 
 /**
- * Lit les niveaux de fichiers de la cascade — l'ORDRE vient de `envFileOrder`,
+ * Lit les fichiers chargés — la LISTE vient de `envFileOrder`,
  * jamais d'une copie locale : afficher un ordre qui différerait de celui
  * réellement appliqué tromperait sur le seul point qu'on vient vérifier.
  */
@@ -347,7 +346,7 @@ function render(report: IEnvReport, projectRoot: string | null): string {
 }
 
 /**
- * Commande `nodefony env` — orchestre : résout le projet, lit la cascade et le
+ * Commande `nodefony env` — orchestre : résout le projet, lit `.env` et le
  * catalogue, délègue le calcul au module pur, rend.
  *
  * @returns exit code sémantique (`OK`, `USAGE`, `CONFIG` si une requise manque)
@@ -357,7 +356,7 @@ function render(report: IEnvReport, projectRoot: string | null): string {
  * lecteurs.
  *
  * Extraite de {@link runEnvCommand} pour que `nodefony doctor` puisse dire « il
- * manque une variable REQUISE » sans réimplémenter la cascade : deux définitions
+ * manque une variable REQUISE » sans réimplémenter le chargement : deux définitions
  * de « quelle valeur est effective » divergeraient, et chacune passerait ses
  * propres tests. Le second lecteur ne rend d'ailleurs pas le rapport, il n'en
  * lit que les manquantes — raison de plus pour qu'il ne le RECALCULE pas.
@@ -405,27 +404,34 @@ export async function buildProjectEnvReport(
  * d'environnement ne dépend pas du projet. Un projet peut le remplacer par un
  * `.env.example.head` (cf {@link readExampleHeader}).
  */
-const EXAMPLE_HEADER = `# .env.example — la NOTICE des variables (commitée, jamais chargée, 0 secret).
+const EXAMPLE_HEADER = `# ══════════════════════════════════════════════════════════════════════
+#  .env.example — la NOTICE des variables d'environnement
+# ══════════════════════════════════════════════════════════════════════
 #
-# ⚙️  GÉNÉRÉ depuis env.ts (catalogue defineEnv) — NE PAS éditer à la main.
-#     Régénérer : npx nodefony env --example
-#     Vérifier  : npx nodefony env --example --check   (pre-commit, CI)
+#  Commitée, jamais lue au démarrage, aucun secret.
 #
-# Deux fichiers, une règle — « qui fournit la valeur ? » :
-#   .env.example  → CE fichier : la notice, commitée, jamais lue au démarrage.
-#   .env          → TES valeurs de poste, secrets de dev compris. JAMAIS commité.
-#   production    → AUCUN fichier : secrets par l'orchestrateur ou le gestionnaire
-#                   de secrets ; réglages non secrets dans nodefony.config.ts.
-# Précédence : variable du process (shell, orchestrateur) > .env.
+#  Pour démarrer :
 #
-# Override GÉNÉRIQUE de config (hors catalogue) : NF__<MODULE|APP>__<CHEMIN>=valeur
-#   ex. NF__APP__SERVERS__HTTP__PORT=8080
-# Secret monté en conteneur : toute variable accepte aussi <NOM>_FILE (Docker/K8s).
+#    cp .env.example .env
 #
-# Lues par le framework, hors catalogue (posées par la commande ou l'orchestrateur) :
-#   NODE_ENV=production   # development | production — posé par la commande nodefony …
-#   APP_ENV=staging       # environnement de DÉPLOIEMENT libre (alias : NF_ENV)
-#   NF_WORKERS=auto       # nombre de process du cluster (--workers l'emporte)`;
+#  puis, dans .env, retire le « # » devant ce dont tu as besoin.
+#
+#    .env         TES valeurs, sur ton poste. JAMAIS commité.
+#    production   aucun fichier : l'hébergeur fournit les variables.
+#
+#  Une variable posée dans le terminal l'emporte sur .env.
+#  Ce que l'application lit vraiment, et d'où :  npx nodefony env
+#
+#  Sous chaque variable :
+#    @required / @optional   faut-il la poser ?
+#    @sensitive              c'est un secret : jamais dans git
+#    @default                ce qui s'applique si tu ne poses rien
+#
+#  Avancé : NF__<MODULE>__<CHEMIN>=valeur règle n'importe quelle clé de
+#  configuration ; <NOM>_FILE=/chemin lit un secret monté (Docker, k8s).
+#
+#  ⚙️  Généré depuis env.ts — ne pas éditer à la main :
+#      npx nodefony env --example`;
 
 /**
  * Compose le contenu de `.env.example` d'une application — PUR.

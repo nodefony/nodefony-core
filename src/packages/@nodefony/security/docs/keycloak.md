@@ -117,8 +117,8 @@ Le dépôt fournit un Keycloak 26.8 **déjà configuré** : un realm `nodefony`,
    docker compose -f docker/docker-compose.yml --profile keycloak up -d keycloak
    ```
 
-2. **Brancher l'application** : recopier dans `.env.local` (ignoré par git) les trois lignes
-   commentées de `.env.development`.
+2. **Brancher l'application** : poser dans `.env` (ignoré par git) les trois lignes
+   ci-dessous — valeurs publiques, écrites dans le realm importé.
 
    ```bash
    NF_KEYCLOAK_ISSUER=https://localhost:8444/realms/nodefony
@@ -159,8 +159,7 @@ ni avertissement.
    Sous Linux natif, poser d'abord `export KEYCLOAK_UID=$(id -u)` : sinon la clé privée montée
    est illisible par le conteneur.
 
-3. **Brancher l'application** : décommenter les lignes `NF_KEYCLOAK_ISSUER` et
-   `NF_KEYCLOAK_CLIENT_ID` de `.env`, et `NF_KEYCLOAK_CLIENT_SECRET` de `.env.local`. Les trois
+3. **Brancher l'application** : décommenter les trois lignes `NF_KEYCLOAK_*` de `.env`. Les trois
    valeurs y sont déjà, alignées sur le realm généré.
 
 4. **Démarrer l'application en lui faisant confiance au certificat de Keycloak**, puis ouvrir

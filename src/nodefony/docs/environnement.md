@@ -1,5 +1,5 @@
 ---
-title: "Environnement — variables, cascade des .env, et qui gagne"
+title: "Environnement — un seul fichier .env, les variables, et qui gagne"
 navTitle: Environnement
 lang: fr
 module: "@nodefony/core"
@@ -16,18 +16,17 @@ tags:
     dotenv,
     variables,
     precedence,
-    cascade,
     secrets,
     configuration,
     NF,
   ]
 version: "doc"
 status: stable
-updated: 2026-07-25
+updated: 2026-10-05
 source: "src/nodefony/docs/environnement.md"
 ---
 
-# Environnement — variables, cascade des `.env`, et qui gagne
+# Environnement — un seul fichier `.env`, les variables, et qui gagne
 
 📍 [Documentation](../../../docs/index.md) › [Cœur — @nodefony/core](index.md) › **Environnement**
 
@@ -39,7 +38,7 @@ source: "src/nodefony/docs/environnement.md"
 ## 🧭 Démarrage rapide
 
 ```bash
-nodefony env          # la cascade, chaque variable, sa valeur EFFECTIVE et sa PROVENANCE
+nodefony env          # chaque variable, sa valeur EFFECTIVE et sa PROVENANCE
 nodefony env --json   # le même rapport, pour un script ou un agent
 ```
 
@@ -50,10 +49,11 @@ tenter un démarrage voué à l'échec.
 
 Ce qu'elle montre, et qu'aucune lecture de fichier ne donne :
 
-- la **cascade réelle** — quels fichiers sont lus, dans quel ordre, lesquels existent ;
+- le **fichier lu** — `.env`, et s'il existe ;
 - chaque variable **déclarée** par l'application, sa valeur effective et **le fichier qui l'a
   fournie** ;
-- ce qui est **masqué** : une valeur écrite dans un fichier de rang inférieur, donc sans effet ;
+- ce qui est **masqué** : une valeur écrite dans `.env` alors que le shell en pose une autre,
+  donc sans effet ;
 - les variables `NF_` **inconnues** — presque toujours une faute de frappe, avec la correction
   probable ;
 - les variables **posées par le framework** lui-même, à part, avec ce que chacune signale.
@@ -68,20 +68,22 @@ Ce qu'elle montre, et qu'aucune lecture de fichier ne donne :
 > présente que le rapport passe sous silence vous ferait chercher pourquoi votre environnement
 > ne ressemble pas à ce qu'il montre.
 
-## Le modèle : deux axes, une cascade, un seul lecteur
+## Le modèle : deux fichiers, une question, un seul lecteur
 
-Trois décisions gouvernent tout ce qui suit, et rien d'autre n'est à retenir.
+Trois décisions gouvernent tout ce qui suit, et rien d'autre n'est à retenir
+([ADR-0014](../../../docs/adr/0014-fichiers-environnement.md)).
 
-**Deux axes plutôt qu'un** : _comment_ le code s'exécute (le mode) et _où_ il s'exécute (le
-déploiement) sont deux questions distinctes — un `staging` tourne en mode `production`.
+**Une question décide où va une valeur : qui la fournit ?** Le framework (un défaut : rien à
+poser), le poste (`.env`), l'exploitation (l'orchestrateur ou le gestionnaire de secrets), le code
+(`nodefony.config.ts`, pour un réglage non secret qui dépend du mode).
 
-**Une cascade, jamais un écrasement** : chaque source pose ce que les plus fortes n'ont pas déjà
-posé. La précédence n'est donc pas une règle appliquée quelque part, c'est une **conséquence** de
-l'ordre de lecture — il n'y a rien à synchroniser, et rien qui puisse diverger.
+**Deux fichiers, pas un de plus** : `.env` porte les valeurs du POSTE et ne se commite jamais ;
+`.env.example` est sa notice, commitée et jamais chargée. C'est la convention de Node — dotenv,
+`node --env-file`, le `.gitignore` Node de GitHub. La production n'a **aucun** fichier.
 
 **Un seul lecteur de `process.env`** : `env.ts`. Tout le reste de l'application lit un objet
-typé, validé au démarrage. Une variable non déclarée là n'existe pas, quoi qu'en dise un fichier
-`.env` — c'est ce qui rend une faute de frappe muette, et c'est pourquoi `nodefony env` existe.
+typé, validé au démarrage. Une variable non déclarée là n'existe pas, quoi qu'en dise `.env` —
+c'est ce qui rend une faute de frappe muette, et c'est pourquoi `nodefony env` existe.
 
 ## Les deux axes : mode et déploiement
 
@@ -93,8 +95,9 @@ Nodefony sépare ce que la plupart des frameworks confondent :
 | **Déploiement** | `APP_ENV` / `NF_ENV` | chaîne libre : `staging`, `canary`… | **où** il s'exécute (quelle base, quels secrets)    |
 
 Un `staging` tourne en mode `production` : ce sont deux questions différentes, et les mélanger
-oblige à choisir entre « optimisé » et « pointe la bonne base ». Le déploiement est **plus
-spécifique** que le mode, donc plus fort dans la cascade.
+oblige à choisir entre « optimisé » et « pointe la bonne base ». Aucun des deux ne choisit un
+fichier : le déploiement reçoit SES valeurs de son orchestrateur, et le mode se lit dans
+`nodefony.config.ts` (`ctx.isProd`) ou dans `requiredIn` (ci-dessous).
 
 ## Et si `NODE_ENV` n'est pas posé ?
 
@@ -133,33 +136,51 @@ d'autre façon d'en démarrer un. Le défaut ne concerne donc que les commandes 
 >
 > Pour forcer explicitement, préfixez la commande : `NODE_ENV=production npx nodefony …`.
 
-## La cascade — qui gagne
+## Les fichiers — qui gagne
 
-Du **plus fort** au **plus faible**. Le premier niveau qui pose une valeur gagne ; les suivants
-sont ignorés, sans message.
+| Source         | Commité ? | Lu au démarrage | Rôle                                                      |
+| -------------- | --------- | --------------- | --------------------------------------------------------- |
+| `process.env`  | —         | oui             | shell, orchestrateur, k8s — **gagne toujours**            |
+| `.env`         | ❌ non    | oui             | valeurs du POSTE, secrets de développement compris        |
+| `.env.example` | ✅ oui    | **jamais**      | la notice : toutes les variables, commentées, sans valeur |
 
-| Rang | Source                     | Committé ? | Rôle                                           |
-| ---- | -------------------------- | ---------- | ---------------------------------------------- |
-| 1    | `process.env`              | —          | shell, orchestrateur, k8s — **gagne toujours** |
-| 2    | `.env.<déploiement>.local` | ❌ non     | secrets de CE déploiement, sur CETTE machine   |
-| 3    | `.env.<mode>.local`        | ❌ non     | secrets du mode                                |
-| 4    | `.env.local`               | ❌ non     | secrets communs, machine du développeur        |
-| 5    | `.env.<déploiement>`       | ✅ oui     | réglages partagés du déploiement               |
-| 6    | `.env.<mode>`              | ✅ oui     | réglages partagés du mode                      |
-| 7    | `.env`                     | ✅ oui     | défauts communs — le plus faible               |
-
-Deux règles suffisent à retrouver cet ordre de mémoire : **les `*.local` priment sur les
-committés**, et **à rang égal, le plus spécifique gagne**.
-
-L'ordre est produit par une fonction unique, [`envFileOrder`](../src/runtime/loadEnv.ts)
-([`loadEnv.ts:72`](../src/runtime/loadEnv.ts)) — celle-là même que `nodefony env` affiche : un
-ordre montré qui différerait de l'ordre appliqué serait pire que pas d'affichage du tout.
-L'injection ([`loadEnv.ts:88`](../src/runtime/loadEnv.ts)) n'écrase **jamais** une clé déjà
-posée, ce dont toute la précédence découle.
+Il n'y a pas de troisième rang. L'injection
+([`loadEnv.ts:174`](../src/runtime/loadEnv.ts)) n'écrase **jamais** une clé déjà posée : une
+variable exportée par le shell ou l'orchestrateur ne peut être contredite par `.env`. Le nom du
+fichier vit à un seul endroit, [`envFileOrder`](../src/runtime/loadEnv.ts)
+([`loadEnv.ts:48`](../src/runtime/loadEnv.ts)) — celui que `nodefony env` affiche.
 
 Le chargement a lieu **une fois**, au démarrage du binaire, **avant** la construction du noyau :
 les configurations de modules lisent `process.env` pendant le boot, il doit donc être peuplé
 avant elles.
+
+**En production, pas de fichier.** `.env` n'entre ni dans le dépôt ni dans l'image (le
+`.gitignore` et le `.dockerignore` générés l'écartent, `nodefony image:check` le refuse) : les
+secrets viennent de l'orchestrateur, les réglages non secrets de `nodefony.config.ts`.
+
+**Un module n'a pas de `.env`.** Un process sert une application, donc un environnement : celui
+de la racine. Un module reçoit ses valeurs par sa configuration (`use()`), par `NF__<MODULE>__…`
+(ci-dessous) ou par une variable du `env.ts` de l'application. Seule exception, qui n'est pas la
+nôtre : les `.env.*` d'un front **Vite** (`frontend/.env.production`), lus par Vite lui-même pour
+des variables `VITE_` publiques.
+
+### Les fichiers de l'ancienne convention sont refusés
+
+`.env.local`, `.env.development`, `.env.production`, `.env.<APP_ENV>` et leurs `.local` ne sont
+plus lus. S'ils restent dans une application, le démarrage **s'arrête** (code 78) en les nommant
+([`loadEnv.ts:71`](../src/runtime/loadEnv.ts)) — les ignorer en silence ferait disparaître leurs
+variables. Le geste : recopier leurs lignes **actives** dans `.env`, puis les supprimer ; un
+réglage de production non secret va dans `nodefony.config.ts`, un secret de production dans le
+gestionnaire de secrets.
+
+### Un coéquipier qui clone
+
+`.env` n'est pas dans le dépôt :
+
+```bash
+cp .env.example .env                       # puis décommenter ce qu'il te faut
+npx nodefony security:secrets --write      # tes propres clés de chiffrement
+```
 
 ## Déclarer une variable — `env.ts`
 
@@ -191,6 +212,42 @@ configuration via `ctx.env`.
 
 Une variable **requise** est celle qui n'a ni défaut ni `optional: true`. `nodefony env` les
 nomme, et sort en erreur si l'une manque.
+
+### Lire la notice `.env.example`
+
+Chaque variable s'y présente de la même façon, générée depuis `env.ts`, séparée de la suivante
+par deux lignes vides. Les métadonnées suivent la syntaxe des décorateurs de la spécification
+[@env-spec](https://varlock.dev/env-spec/overview/) — une par ligne, `@nom` ou `@nom=valeur` :
+
+```bash
+# Mot de passe de l'administrateur semé au premier démarrage.
+# @optional
+# @sensitive
+# @default="secret-de-dev-42 en développement ; aucun en production"
+# NF_ADMIN_PASSWORD=
+```
+
+| Décorateur                     | Ce qu'il dit                                                |
+| ------------------------------ | ----------------------------------------------------------- |
+| `@required` / `@optional`      | faut-il la poser ?                                          |
+| `@required=forEnv(production)` | obligatoire là-bas seulement (`requiredIn`)                 |
+| `@sensitive`                   | un secret : jamais dans git, jamais de valeur d'exemple     |
+| `@type=enum(a, b)`             | les seules valeurs admises                                  |
+| `@default`                     | **toujours présent** — ce qui s'applique si on ne pose rien |
+
+`@default` vaut le défaut déclaré, sinon `defaultNote` quand c'est le CODE qui applique un défaut
+(le catalogue ne le connaît pas), sinon `aucun`. Une valeur avec des espaces est entre
+guillemets : toute ligne de métadonnée se lit d'une seule expression régulière,
+`^# @(\w+)(?:=(.*))?$`. La description dit le rôle seulement — ne répétez pas le défaut dans la
+phrase.
+
+```typescript
+NF_ADMIN_PASSWORD: envString({
+  optional: true,
+  defaultNote: "secret-de-dev-42 en développement ; aucun en production",
+  description: "Mot de passe de l'administrateur semé au premier démarrage.",
+}),
+```
 
 ### Requise LÀ-BAS seulement — `requiredIn`
 
@@ -227,8 +284,8 @@ pour l'environnement **visé**, avec les valeurs présentes **ici** : on ne simu
 déploiement, on demande ce qui manquera là-bas. Le rapport l'annonce en tête, et sort en erreur
 si une variable requise à destination n'a aucune valeur.
 
-`doctor` signale aussi un fichier `.env*.local` **suivi par git** — l'historique garde les
-secrets même après suppression. Sans dépôt git, il ne conclut pas : il énonce le contrôle comme
+`doctor` signale aussi un `.env` **suivi par git** — l'historique garde les secrets même après
+suppression. Sans dépôt git, il ne conclut pas : il énonce le contrôle comme
 non fait.
 
 ## Secrets : `<VARIABLE>_FILE`
@@ -263,38 +320,37 @@ code. Ce que l'application possède en propre se déclare dans `env.ts`.
 
 ## 🧪 Tests
 
-Le calcul du rapport est un module **pur** ([`envReport.ts:177`](../src/cli/envReport.ts)) : il
-reçoit la cascade déjà lue et l'environnement effectif, et conclut. Cette séparation est ce qui
+Le calcul du rapport est un module **pur** ([`envReport.ts:219`](../src/cli/envReport.ts)) : il
+reçoit les fichiers déjà lus et l'environnement effectif, et conclut. Cette séparation est ce qui
 rend éprouvables les trois affirmations sur lesquelles on va se fier pour corriger une
 configuration — d'où vient une valeur, ce qui est masqué, ce qui n'a aucun effet. Se tromper sur
 l'une d'elles est pire que de ne rien afficher : on croit le rapport, et on cherche ailleurs.
 
 ## ⚠️ Pièges
 
-- **La valeur est dans le fichier, et n'a aucun effet.** Elle est posée à un rang inférieur à
-  celui qui la définit déjà — typiquement `.env` alors que `.env.local` la porte. `nodefony env`
-  l'affiche comme _ignorée dans …_, avec le fichier gagnant.
+- **La valeur est dans `.env`, et n'a aucun effet.** Le shell (ou l'orchestrateur) en pose déjà
+  une. `nodefony env` l'affiche comme _ignorée dans …_, avec la source gagnante.
 - **Le shell gagne toujours.** Une variable exportée dans le terminal (ou par l'orchestrateur)
   ne peut être contredite par aucun fichier. C'est voulu : en production, l'orchestrateur fait
   autorité.
 - **Une faute de frappe est silencieuse.** `NF_PROT` au lieu de `NF_PORT` n'échoue pas : la
   variable est inconnue, donc ignorée, et le défaut s'applique. Aucun démarrage ne le dira —
   `nodefony env` est le seul endroit qui la montre.
-- **Un `.env.local` n'est jamais committé.** C'est la règle qui rend les secrets tenables ; le
-  `.gitignore` généré l'applique dès la création de l'application. Un secret dans `.env` part
-  dans le dépôt.
+- **`.env` n'est jamais commité.** C'est la règle qui rend les secrets tenables ; le `.gitignore`
+  généré l'applique dès la création de l'application. Un secret dans `.env.example` part dans le
+  dépôt — la notice ne porte que des lignes commentées, sans valeur.
 - **Le catalogue se lit dans `env.ts`.** `nodefony env` importe d'abord le source `env.ts` (Node ≥ 24
-  l'exécute nativement), puis `dist/index.js` en repli. Si aucun des deux n'est lisible, la cascade
-  reste exacte et le rapport **dit** que la liste manque — il ne se tait pas.
+  l'exécute nativement), puis `dist/index.js` en repli. Si aucun des deux n'est lisible, la
+  lecture de `.env` reste exacte et le rapport **dit** que la liste manque — il ne se tait pas.
 
 ## 📖 Lexique
 
-- **Cascade** — la suite ordonnée des sources d'environnement, du shell au `.env` commun.
+- **Notice** — `.env.example` : toutes les variables, commentées, générées depuis `env.ts`.
 - **Mode** (`NODE_ENV`) — comment le code s'exécute : `development` ou `production`.
 - **Déploiement** (`APP_ENV`) — où il s'exécute : `staging`, `canary`, `prod-eu`… chaîne libre.
-- **Masquée** — variable définie dans un fichier, mais fournie par une source plus forte : elle
+- **Masquée** — variable définie dans `.env`, mais fournie par le shell ou l'orchestrateur : elle
   est ignorée.
-- **Effective** — la valeur que l'application verra réellement, après application de la cascade.
+- **Effective** — la valeur que l'application verra réellement.
 - **Catalogue** — l'ensemble des variables qu'une application déclare dans `env.ts`, avec leur
   type, leur défaut et leur description.
 

@@ -24,7 +24,7 @@ Il est rendu avec l'application, et il exclut quatre familles. Ne les retire pas
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `**/node_modules`, `**/dist`            | Reconstruits **dans** l'image. Entrés depuis ta machine, ils masqueraient la construction et l'image partirait avec le code de la veille. |
 | `var`, `logs`, `**/*.log`, `**/*.jsonl` | Écritures propres à une machine, sans valeur dans une image                                                                               |
-| `*.local`, `**/*.local`                 | La convention des fichiers de secrets locaux — jamais commités, et pas davantage dans une image                                           |
+| `.env`, `.env.*` (sauf `.env.example`)  | Les valeurs du poste, secrets de dev compris — jamais commitées, et pas davantage dans une image                                          |
 | **La matière cryptographique**          | Clés privées, certificats                                                                                                                 |
 
 > ⚠️ **Un motif de `.dockerignore` n'obéit pas aux règles du `.gitignore`.** Sans `**/`, il est

@@ -1,15 +1,13 @@
-# ══════════════════════════════════════════════════════════════════════════
-#  Notice des variables de <%= it.appName %> — COMMITÉE, jamais chargée
-# ══════════════════════════════════════════════════════════════════════════
-# Deux fichiers, une règle — « qui fournit la valeur ? » :
-#   .env.example  → CE fichier : la notice. Tout est commenté, aucun secret.
-#   .env          → TES valeurs de poste, secrets de dev compris. JAMAIS commité
-#                   (créé par `nodefony create app`).
-#   production    → AUCUN fichier : secrets par l'orchestrateur ou le gestionnaire
-#                   de secrets ; réglages non secrets dans nodefony.config.ts.
-# Précédence : variable du process (shell, orchestrateur) > .env.
-# Chaque variable est déclarée et validée dans env.ts (seul lecteur de
-# process.env) — une variable non déclarée là-bas n'existe pas pour l'app.
+# .env.example — la NOTICE des variables d'environnement de <%= it.appName %>.
+# Commitée, jamais lue au démarrage, aucun secret.
+#
+# Pour démarrer (`nodefony create app` l'a déjà fait sur ton poste) :
+#   cp .env.example .env     puis retire le « # » devant ce dont tu as besoin.
+#   .env        → TES valeurs, sur ton poste. JAMAIS commité (.gitignore s'en charge).
+#   production  → aucun fichier : l'hébergeur ou l'orchestrateur fournit les variables.
+# Une variable posée dans le terminal l'emporte sur .env.
+# Ce que l'application lit vraiment, et d'où : npx nodefony env
+# Chaque variable est déclarée dans env.ts — une variable absente de env.ts est ignorée.
 
 # ── Réseau ──────────────────────────────────────────────────────────────────
 # Ports d'écoute. Absents = défauts du framework (HTTP 5151, HTTPS 5152).

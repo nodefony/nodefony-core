@@ -18,7 +18,8 @@ export const env = defineEnv({
    */
   NF_PORT: envNumber({
     optional: true,
-    description: "Port d'écoute HTTP (défaut framework 5151).",
+    defaultNote: "5151",
+    description: "Port d'écoute HTTP.",
   }),
 
   /**
@@ -38,7 +39,8 @@ export const env = defineEnv({
    */
   NF_PORT_HTTPS: envNumber({
     optional: true,
-    description: "Port d'écoute HTTPS/HTTP2 (défaut framework 5152).",
+    defaultNote: "5152",
+    description: "Port d'écoute HTTPS/HTTP2.",
   }),
 
   /**
@@ -76,8 +78,9 @@ export const env = defineEnv({
    */
   NF_WORKERS: envString({
     optional: true,
+    defaultNote: "1",
     description:
-      "Processus Node à lancer : 1 (défaut, un par pod) | auto (cœurs alloués, cgroup) | <n>.",
+      "Processus Node à lancer : 1 | auto (cœurs alloués, cgroup) | <n>.",
   }),
 <% if (it.complete) { %>
   /**
@@ -200,8 +203,9 @@ export const env = defineEnv({
    */
   NF_ADMIN_PASSWORD: envString({
     optional: true,
-    description:
-      "Mot de passe du compte admin seedé au 1er boot (obligatoire en production).",
+    defaultNote:
+      "nodefony-dev-42 en développement ; aucun en production (aucun compte créé)",
+    description: "Mot de passe de l'administrateur semé au premier démarrage.",
   }),
 
   /**

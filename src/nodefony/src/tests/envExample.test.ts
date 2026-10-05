@@ -97,21 +97,78 @@ describe("envExample — renderEnvExample", () => {
   it("rend chaque variable COMMENTÉE avec doc + drapeaux", () => {
     const out = renderEnvExample(cat);
     assert.match(out, /# Sink de log\./);
-    assert.match(out, /valeurs: stdout \| file \| null/);
-    assert.match(out, /défaut: stdout/);
+    assert.match(out, /^# @type=enum\(stdout, file, null\)$/m);
     assert.match(out, /# NF_DRIVER=stdout/);
     assert.match(out, /# NF_PORT=$/m); // optionnel sans défaut → vide
-    assert.match(out, /optionnel/);
-    assert.match(out, /REQUIS/);
+    assert.match(out, /^# @optional$/m);
+    assert.match(out, /^# @required$/m);
+  });
+
+  it("🔴 CONVENTION : rôle, décorateurs @ un par ligne, @default TOUJOURS, blocs aérés", () => {
+    const out = renderEnvExample([
+      {
+        name: "NF_DRIVER",
+        kind: "enum",
+        optional: false,
+        default: "stdout",
+        values: ["stdout", "file"],
+        description: "Sink de log.",
+      },
+      {
+        name: "NF_ADMIN_PASSWORD",
+        kind: "string",
+        optional: true,
+        requiredIn: ["production"],
+        defaultNote: "secret-de-dev-42 en dev, aucun en production",
+        description: "Mot de passe de l'admin.",
+      },
+      { name: "NF_NU", kind: "string", optional: true, description: "Nu." },
+    ]);
+    assert.ok(
+      out.includes(
+        [
+          "# Sink de log.",
+          "# @optional",
+          "# @type=enum(stdout, file)",
+          "# @default=stdout",
+          "# NF_DRIVER=stdout",
+          "",
+          "",
+          "# Mot de passe de l'admin.",
+          "# @optional",
+          "# @required=forEnv(production)",
+          "# @sensitive",
+          '# @default="secret-de-dev-42 en dev, aucun en production"',
+          "# NF_ADMIN_PASSWORD=",
+          "",
+          "",
+          "# Nu.",
+          "# @optional",
+          "# @default=aucun",
+          "# NF_NU=",
+        ].join("\n"),
+      ),
+      out,
+    );
+    // Toute ligne de métadonnée se lit d'UNE expression régulière.
+    const decorators = out
+      .split("\n")
+      .filter((l) => l.startsWith("# @"))
+      .map((l) => /^# @(\w+)(?:=(.*))?$/u.exec(l)?.[1]);
+    assert.ok(decorators.every(Boolean), "un décorateur illisible");
+    assert.deepStrictEqual([...new Set(decorators)].sort(), [
+      "default",
+      "optional",
+      "required",
+      "sensitive",
+      "type",
+    ]);
   });
 
   it("masque la valeur des variables sensibles (secret)", () => {
     const out = renderEnvExample(cat);
     assert.match(out, /# GITHUB_CLIENT_SECRET=$/m); // jamais de valeur
-    assert.match(
-      out,
-      /secret : \.env sur le poste, gestionnaire de secrets en production/,
-    );
+    assert.match(out, /^# @sensitive$/m);
   });
 
   it("place l'en-tête curé en tête", () => {
@@ -231,10 +288,8 @@ describe("env --example — en-tête curé du projet (.env.example.head)", () =>
     // Sans custom : l'en-tête générique.
     assert.match(composeEnvExample(cat), /npx nodefony env --example/u);
     // La règle des deux fichiers, dite à qui ouvre la notice.
-    assert.match(
-      composeEnvExample(cat),
-      /\.env +→ TES valeurs de poste.*JAMAIS commité/u,
-    );
+    assert.match(composeEnvExample(cat), /\.env +TES valeurs.*JAMAIS commité/u);
+    assert.match(composeEnvExample(cat), /cp \.env\.example \.env/u);
     assert.doesNotMatch(composeEnvExample(cat), /\.env\.local/u);
   });
 

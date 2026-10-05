@@ -5,7 +5,7 @@
 ## 1. La commande qui répond, et à laquelle rien ne ment
 
 ```bash
-npx nodefony env            # la cascade des .env, la valeur EFFECTIVE de chaque variable, et sa PROVENANCE
+npx nodefony env            # la valeur EFFECTIVE de chaque variable, et sa PROVENANCE (.env ou process)
 npx nodefony env --json     # le même rapport, pour un script
 ```
 
