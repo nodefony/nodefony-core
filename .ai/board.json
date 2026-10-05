@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T10:56:19.627Z",
+  "generatedAt": "2026-10-05T12:53:31.758Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 79,
+      "closed": 80,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -1695,8 +1695,8 @@
       "number": 530,
       "title": "feat(cli): générer le graphe des symboles du code d'une application",
       "url": "https://github.com/nodefony/nodefony-core/issues/530",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
