@@ -89,11 +89,16 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
 
 ### 2. Deux surfaces, un modèle
 
-| Surface      | Ce qu'elle fait                                                                                               | Quand                                                  |
-| ------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `fullscreen` | écran alternatif, historique tenu par nous, molette captée ; journal, invite et barre dessinés à chaque image | le terminal répond à la requête de position du curseur |
-| `inline`     | le rendu de #533 : le contenu part dans l'historique natif, invite et barre redessinées en dernières lignes   | repli : terminal muet, `--no-ui`, `NF_DEV_UI=0`        |
+| Surface      | Ce qu'elle fait                                                                                               | Quand                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `fullscreen` | écran alternatif, historique tenu par nous, molette captée ; journal, invite et barre dessinés à chaque image | DEMANDÉ (`--ui` ou `NF_DEV_UI=1`), clavier en terminal, et le terminal répond à la sonde  |
+| `inline`     | le rendu de #533 : le contenu part dans l'historique natif, invite et barre redessinées en dernières lignes   | par défaut ; et en repli : terminal muet, clavier hors terminal, `--no-ui`, `NF_DEV_UI=0` |
 
+- **Le plein écran est OPT-IN.** La sonde ne suffit pas à l'allumer : elle CONDITIONNE une
+  demande explicite. Il le reste tant que trois preuves manquent — la souris (capture et sélection
+  par l'application), l'exécution sous Windows, et la contre-revue du code de la grappe. `inline`
+  est le seul chemin que tout développeur prend sans le savoir ; il ne change de défaut qu'une
+  fois ces preuves faites. Une valeur de `NF_DEV_UI` autre que `0` ou `1` est ignorée, et nommée.
 - **La sonde** est une requête de position du curseur (`ESC[6n`, réponse `ESC[ligne;colonneR`),
   universelle chez les terminaux à séquences VT : une réponse ⇒ écran alternatif utilisable. La
   sortie synchronisée (mode `2026`) est demandée EN PLUS par DECRQM et reste optionnelle. Le plein
@@ -101,8 +106,8 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
 - **Windows** : PgUp/PgDn/Début/Fin défilent partout. La **molette** n'est promise sous Windows
   qu'une fois prouvé à la main que Node reçoit les évènements souris de la console (libuv lit la
   console sans `ENABLE_VIRTUAL_TERMINAL_INPUT`).
-- Un pseudo-terminal qui répond à la sonde (tmux lancé par un agent) obtient le plein écran :
-  `--no-ui` et `--output plain` sont les issues, documentées.
+- Un pseudo-terminal qui répond à la sonde (tmux lancé par un agent) n'obtient le plein écran que
+  si on le lui demande ; `--no-ui` et `--output plain` restent les issues, documentées.
 
 Les deux surfaces consomment le **même modèle** et rendent la **même** invite.
 
@@ -380,11 +385,13 @@ aujourd'hui (§1).
   publiable plus tard par lot à la demande.
 - Le superviseur gagne une responsabilité (le terminal), isolée dans `DevTerminal`.
 - Coût mémoire en développement : 8 Mio au plus pour l'historique.
-- Une capacité de plus à prouver sur trois plateformes. La preuve automatique passe par un
-  pseudo-terminal Python (`pty`) et un émulateur (`pyte`) — aucun pseudo-terminal en Node pur sans
-  dépendance native. Le harnais est versé dans le dépôt par #536, déclaré comme décor (une absence
-  se dit, elle ne se saute pas en silence), joué sur les jobs Linux et macOS. Windows Terminal se
-  vérifie à la main.
+- Une capacité de plus à prouver sur trois plateformes. La preuve automatique passe par la
+  commande système `script` comme pseudo-terminal — aucun pseudo-terminal en Node pur sans
+  dépendance native, et `node-pty` en est une — et par `@xterm/headless` (dépendance de
+  développement, hors du paquet publié) comme émulateur qui rend l'écran obtenu. Deux grammaires
+  de `script` coexistent (BSD sous macOS, util-linux sous Linux). Le banc vit dans
+  `CliIntegration.test.ts`, déclaré comme décor (une absence se dit, elle ne se saute pas en
+  silence) et joué sur les jobs Linux et macOS. Windows Terminal se vérifie à la main.
 
 ## Alternatives écartées
 
