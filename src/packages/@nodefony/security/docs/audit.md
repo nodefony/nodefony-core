@@ -383,7 +383,7 @@ Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non auto
 ### `auth` — la chaîne d'authentification
 
 Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recordAuth()`
-(`firewall.ts:907`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
+(`firewall.ts:930`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
 
 - `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:781`) ;
 - `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:807`) ;
@@ -416,7 +416,7 @@ Un seul événement, mais c'est le plus parlant : `access.denied`, émis par le 
 
 ### `ws` — le verrou de frame WebSocket
 
-`frame.denied` est émis par le rapporteur branché sur le verrou de frame (`firewall.ts:302`) quand une
+`frame.denied` est émis par le rapporteur branché sur le verrou de frame (`firewall.ts:307`) quand une
 socket tente un `api.request` vers une zone protégée ou s'abonne à un canal interdit. La frame ne
 porte ni IP ni `requestId` — acteur et cible suffisent.
 
@@ -466,7 +466,7 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:907`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:358`).
+(`firewall.ts:930`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:363`).
 Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:333`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et

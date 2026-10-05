@@ -389,7 +389,7 @@ keycloak: {
    — c'est là, et seulement là par défaut, que Keycloak met les rôles (ni dans l'ID token, ni
    dans _userinfo_).
 2. `mapProviderRoles()` (`providerRoles.ts:87`) traduit `admin` → `ROLE_ADMIN` par la table.
-3. Le compte de bob reçoit `ROLE_ADMIN` (`reconcileProviderRoles()`, `user/nodefony/src/providerRoles.ts:90` côté
+3. Le compte de bob reçoit `ROLE_ADMIN` (`reconcileProviderRoles()`, `user/nodefony/src/providerRoles.ts:112` côté
    `@nodefony/user`).
 
 **Les règles, à connaître avant de l'activer :**

@@ -289,7 +289,7 @@ les autres par une signature d'index. Chaque couche y dépose ce qui la concerne
 | `scheme`          | le serveur HTTP/WS                 | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
 | `traceparent`     | le serveur HTTP/WS                 | trace distribuée W3C, honorée si le client l'envoie                         |
 | `user` / `userId` | le firewall après auth             | identité résolue — `firewall.ts:889`                                        |
-| `token`           | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:782`        |
+| `token`           | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:805`        |
 | `context`         | le serveur HTTP/WS                 | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
 | `scope`           | le serveur HTTP/WS, le pont WS-RPC | scope DI de la requête — le lire par `getScope()` (`RequestContext.ts:225`) |
 | `queries`         | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
@@ -384,7 +384,7 @@ Ce que ça implique concrètement :
 - **Entre requêtes** : aucun partage. La bulle de A est invisible depuis B, même si A et B
   s'entrelacent sur des dizaines de `await`.
 - **À l'intérieur d'une requête** : le payload est **un seul objet, partagé par référence**. C'est
-  ce qui permet au firewall d'appeler `set("user", …)` en milieu de pipeline (`firewall.ts:774`) et
+  ce qui permet au firewall d'appeler `set("user", …)` en milieu de pipeline (`firewall.ts:919`) et
   de rendre l'identité visible à tout ce qui tourne déjà dans la même bulle, sans rien rouvrir.
 - **Après `run()`** : la bulle est refermée. `get()` rend de nouveau `undefined` — pas la valeur
   précédente.
