@@ -39,6 +39,22 @@ interface OptionsCommandInterface extends DefaultOptionsService {
    */
   runProfile?: IRunProfile;
   /**
+   * La commande, une fois lancée, SERT du trafic — dans ce process ou dans ceux
+   * qu'elle démarre (workers d'un cluster, enfant d'un superviseur).
+   *
+   * 🔴 Ce n'est PAS `runProfile.servers`, et la différence est le sujet. Le
+   * profil serveur d'une commande de lancement est posé DYNAMIQUEMENT dans
+   * `onKernelStart` (master console, worker serveur) — APRÈS l'import de
+   * l'`env.ts` de l'application, où la garde `requiredIn` a déjà rendu son
+   * verdict. Lu sur le profil, ce verdict valait « console » pour tout
+   * `nodefony production` : un secret « requis en production » n'y était
+   * JAMAIS exigé. Déclarer l'INTENTION ici la rend lisible dès le choix de la
+   * commande, sans rien monter : un profil `servers: true` statique ouvrirait
+   * les serveurs du master à `onReady`, avant que `onKernelStart` ne le repasse
+   * en console.
+   */
+  servesTraffic?: boolean;
+  /**
    * Boot SILENCIEUX pour CETTE commande (capability déclarative).
    *
    * 🔴 Le journal de cycle de vie n'est pas la SORTIE d'une commande. Vécu :
@@ -123,6 +139,8 @@ class Command extends Service {
   public runProfile: IRunProfile | null = null;
   /** Boot silencieux déclaré (cf {@link OptionsCommandInterface.quietBoot}). */
   public quietBoot: boolean = false;
+  /** Intention de servir du trafic (cf {@link OptionsCommandInterface.servesTraffic}). */
+  public servesTraffic: boolean = false;
   // Hooks lifecycle optionnels — un par phase du Kernel (cf Events bitmask). Câblés
   // LAZY dans setEvents() : un `kernel.once(...)` n'est posé QUE si la commande définit
   // le hook → 0 listener / 0 coût pour les commandes qui ne l'utilisent pas (règle perf).
@@ -180,6 +198,7 @@ class Command extends Service {
     this.lifetime = this.options.lifetime ?? "oneshot";
     this.runProfile = this.options.runProfile ?? null;
     this.quietBoot = this.options.quietBoot === true;
+    this.servesTraffic = this.options.servesTraffic === true;
     this.command = this.createCommand(name, description);
     this.command.action(async (...args: unknown[]) => {
       if (this.kernel) {

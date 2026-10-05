@@ -435,6 +435,28 @@ export function runNeedsExternalServices(
   return kernel?.runProfile?.externalServices === true;
 }
 
+/**
+ * Ce run SERVIRA-t-il du trafic ? — le fait que la garde `requiredIn` de
+ * `env.ts` lit à l'import de l'application.
+ *
+ * Deux sources : le PROFIL courant (une commande au profil serveur statique),
+ * et l'INTENTION déclarée de la commande (`servesTraffic`). La seconde existe
+ * parce que les commandes de lancement — `production`, `cluster`,
+ * `development` — ne posent leur profil serveur qu'à `onKernelStart`, APRÈS cet
+ * import : lu sur le seul profil, le fait valait « console » pour elles, et un
+ * secret « requis en production » n'était jamais exigé.
+ *
+ * @param profile - le profil d'exécution courant, s'il est déjà connu.
+ * @param command - la commande résolue, s'il y en a une.
+ * @returns `true` si le run servira du trafic.
+ */
+export function runWillServeTraffic(
+  profile: Pick<IRunProfile, "servers"> | null | undefined,
+  command: { servesTraffic?: boolean } | null | undefined,
+): boolean {
+  return (profile?.servers ?? false) || command?.servesTraffic === true;
+}
+
 interface AppEnvironmentType {
   // `string & {}` : garde la complétion des modes moteur sans refuser un
   // environnement libre (le `| string` nu les absorbait).
@@ -2472,14 +2494,22 @@ class Kernel extends Service implements IKernel {
     // image un secret que l'image n'a pas le droit de porter. On lui donne donc
     // le fait, juste le temps de l'import.
     //
-    // Le profil se lit sur le CLI, pas sur `this` : le kernel ne recopie
-    // `cli.runProfile` qu'à `onStart`, APRÈS ce chargement — s'en remettre à
-    // `this.runProfile` rendrait `servers: false` pour TOUT run, `production`
-    // compris, et désarmerait la garde partout sans un mot.
+    // DEUX sources, et la seconde n'est pas un doublon :
+    //  · le PROFIL, lu sur le CLI et non sur `this` (le kernel ne recopie
+    //    `cli.runProfile` qu'à `onStart`, APRÈS ce chargement) — c'est lui que
+    //    porte une commande au profil serveur STATIQUE ;
+    //  · l'INTENTION de la commande (`servesTraffic`). Les commandes de
+    //    lancement — `production`, `cluster`, `development` — ne posent leur
+    //    profil serveur qu'à `onKernelStart`, donc APRÈS cet import : lu sur le
+    //    seul profil, le fait valait « console » pour elles, et un secret
+    //    « requis en production » n'était JAMAIS exigé d'un `nodefony
+    //    production` (vécu : NF_CSRF_SECRET, garde morte depuis l'introduction
+    //    de ce fait). Le master d'un cluster en hérite aussi : il refuse AVANT
+    //    de lancer ses workers, une erreur au lieu de N.
     // `?? false` et non une lecture nue : le profil peut être encore INDÉFINI.
     const profile = (this.cli?.runProfile ?? this.runProfile) as
       IRunProfile | undefined;
-    const serves = profile?.servers ?? false;
+    const serves = runWillServeTraffic(profile, this.command);
     setRunServesTraffic(serves);
     try {
       this.app = await this.loadModule(appEntry);

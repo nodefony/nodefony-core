@@ -1428,12 +1428,35 @@ if runs cluster; then
   write_initial_migration "$CAPP"
   build_image "$CAPP" "$CIMG"
 
+  # 🔴 La garde vue MORDRE, sur l'image réelle. Ce scénario a démarré pendant
+  # des semaines une application du preset complet SANS NF_CSRF_SECRET, que son
+  # env.ts déclare pourtant « requis en production » : la garde ne lisait que
+  # le profil courant, encore « console » à l'import d'env.ts. Chaque worker
+  # tirait alors son propre secret, et un jeton émis par l'un était refusé par
+  # l'autre. Elle refuse désormais AVANT le premier fork — on le constate.
+  step "[cluster] garde vue mordre — sans NF_CSRF_SECRET, la production refuse (78)"
+  docker rm -f "$CCTN" >/dev/null 2>&1 || true
+  docker run -d --name "$CCTN" -e NF_WORKERS="$CWORKERS" \
+    -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" "$CIMG" >/dev/null
+  cstate=""
+  for _ in $(seq 1 60); do
+    cstate=$(docker inspect -f '{{.State.Status}} {{.State.ExitCode}}' "$CCTN" 2>/dev/null || true)
+    [[ "$cstate" == exited* ]] && break
+    sleep 1
+  done
+  [[ "$cstate" == "exited 78" ]] \
+    || { docker logs "$CCTN" 2>&1 | tail -20; fail "sans NF_CSRF_SECRET, la production devait refuser en 78 — état : ${cstate:-inconnu}"; }
+  docker logs "$CCTN" 2>&1 | grep -q "NF_CSRF_SECRET" \
+    || { docker logs "$CCTN" 2>&1 | tail -20; fail "le refus ne nomme pas NF_CSRF_SECRET"; }
+  docker rm -f "$CCTN" >/dev/null 2>&1 || true
+  ok "sans NF_CSRF_SECRET : refus en 78, la variable nommée (la garde MORD)"
+
   step "[cluster] run — NF_WORKERS=$CWORKERS sur la base neuve de l'image"
   docker rm -f "$CCTN" >/dev/null 2>&1 || true
-  # La clé de signature : N workers qui servent en production sans clé
-  # partagée refusent de démarrer (jwt.keystore) — c'est précisément ce que ce
-  # scénario éprouve, et ce que la variable règle (héritée au fork).
+  # Les secrets que la production exige, partagés par les N workers (hérités au
+  # fork) : NF_CSRF_SECRET (requiredIn) et la clé de signature des jetons.
   docker run -d --name "$CCTN" -e NF_WORKERS="$CWORKERS" \
+    -e NF_CSRF_SECRET="$SMOKE_SECRET" -e NF_SESSION_SECRET="$SMOKE_SECRET" \
     -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" -p "$CPORT:5151" "$CIMG" >/dev/null
   # Chaque worker annonce son écoute HTTP : on attend les N, pas le premier.
   listening=0
@@ -1613,7 +1636,12 @@ process.exit(typeof m.packageManagerToolchain === "function" ? 0 : 1);') \
 
     step "[pm:$PM] run — migrations, puis /readyz"
     docker rm -f "$PCTN" >/dev/null 2>&1 || true
-    docker run -d --name "$PCTN" -p "$PM_PORT:5151" "$PIMG" >/dev/null
+    # Les secrets que la production EXIGE (preset complet) : sans eux, un
+    # exemplaire qui sert refuse de démarrer — NF_CSRF_SECRET (requiredIn) et
+    # la clé de signature des jetons (jwt.keystore).
+    docker run -d --name "$PCTN" -p "$PM_PORT:5151" \
+      -e NF_CSRF_SECRET="$SMOKE_SECRET" -e NF_SESSION_SECRET="$SMOKE_SECRET" \
+      -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" "$PIMG" >/dev/null
     migrate_in "$PCTN"
     wait_ready "$PCTN" "$PM_PORT"
     ok "readyz → 200 (application $PM, module local compris)"

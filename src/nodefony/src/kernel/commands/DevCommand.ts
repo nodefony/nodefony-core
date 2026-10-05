@@ -25,6 +25,9 @@ const options: OptionsCommandInterface = {
   helpGroup: "LANCER",
   showBanner: false,
   kernelEvent: "onPostReady",
+  // Son profil serveur n'est posé qu'à `onKernelStart` — l'intention, elle, doit
+  // être connue dès l'import de `env.ts` (garde `requiredIn`).
+  servesTraffic: true,
 };
 
 /** Variable d'env distinguant le serveur enfant du process superviseur parent. */

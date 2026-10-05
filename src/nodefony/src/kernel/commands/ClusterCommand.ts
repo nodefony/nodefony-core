@@ -14,6 +14,9 @@ const options: OptionsCommandInterface = {
   // onPostReady (comme `development`/`production`) : l'UNIQUE Kernel boote complètement.
   // Décision master/worker prise dans onKernelStart (avant initServers). Plus de double-boot.
   kernelEvent: "onPostReady",
+  // Son profil serveur n'est posé qu'à `onKernelStart` — l'intention, elle, doit
+  // être connue dès l'import de `env.ts` (garde `requiredIn`).
+  servesTraffic: true,
 };
 
 /**

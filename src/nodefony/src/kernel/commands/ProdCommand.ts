@@ -15,6 +15,9 @@ const options: OptionsCommandInterface = {
   // inclus) puis cette commande conclut. La décision mono/cluster est prise plus tôt,
   // dans onKernelStart (phase onStart, avant initServers). Plus de second Kernel.
   kernelEvent: "onPostReady",
+  // Son profil serveur n'est posé qu'à `onKernelStart` — l'intention, elle, doit
+  // être connue dès l'import de `env.ts` (garde `requiredIn`).
+  servesTraffic: true,
 };
 
 /**

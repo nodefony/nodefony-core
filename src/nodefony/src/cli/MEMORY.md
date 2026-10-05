@@ -198,6 +198,11 @@ Ordre : garde `NF_CLI_DELEGATED` → `findProjectRoot(cwd)` → `<root>/node_mod
   `resolveEnvStages(source)` rend les étiquettes : `NODE_ENV`, plus le déploiement
   (`APP_ENV` > `NF_ENV`) s'il diffère → une preprod en `production` porte les deux.
   `<VAR>_FILE` satisfait l'exigence (résolu AVANT le contrôle). Chaîne vide = absente.
+- 🔴 Au boot, la garde ne mord que si le run SERT — fait posé par `Kernel.loadApp` juste le temps
+  de l'import (`runWillServeTraffic` : profil courant **OU** intention `servesTraffic` de la
+  commande). `production`/`cluster`/`development` déclarent `servesTraffic: true` : leur profil
+  serveur n'arrive qu'à `onKernelStart`, APRÈS l'import — lu sur le seul profil, la garde était
+  morte pour eux. Une commande de lancement neuve DOIT le déclarer (test `KernelCommands`).
 - `--env <e>` (sur `env` ET `doctor`) : évalue les exigences pour l'environnement VISÉ avec les
   valeurs d'ICI. Les étiquettes sont REMPLACÉES, pas cumulées (sinon `--env production` exigerait
   aussi les `requiredIn: ["development"]`). Rendu : `targetEnv` + `stages` dans le JSON, annoncé

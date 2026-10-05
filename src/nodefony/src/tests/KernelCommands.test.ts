@@ -16,6 +16,8 @@ import OutdatedCommand from "../kernel/commands/OutdatedCommand";
 import ProdCommand from "../kernel/commands/ProdCommand";
 import MenuCommand from "../kernel/commands/MenuCommand";
 import InspectCommand from "../kernel/commands/InspectCommand";
+import ClusterCommand from "../kernel/commands/ClusterCommand";
+import { runWillServeTraffic } from "../kernel/Kernel";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -415,5 +417,48 @@ describe("KernelCommand — InspectCommand", () => {
   it("ne déclare aucun profil serveur (le défaut console fait foi)", () => {
     const cmd = new InspectCommand(cli);
     assert.strictEqual((cmd.options as any).runProfile, undefined);
+  });
+});
+
+/**
+ * La garde `requiredIn` de `env.ts` (« ce secret est requis en production »)
+ * ne mord que pour un run qui SERT, et elle rend son verdict À L'IMPORT de
+ * l'application. Les commandes de lancement ne posent leur profil serveur qu'à
+ * `onKernelStart`, APRÈS cet import : le fait doit donc venir de leur
+ * INTENTION. Sans elle, `NF_CSRF_SECRET` « requis en production » n'était
+ * exigé d'AUCUN `nodefony production`, mono-process comme cluster.
+ */
+describe("intention de servir — lue par la garde requiredIn à l'import", () => {
+  it("🔴 les commandes de lancement DÉCLARENT qu'elles servent", () => {
+    const cli = makeCli();
+    for (const Ctor of [ProdCommand, ClusterCommand, DevCommand]) {
+      const cmd = new Ctor(cli);
+      expect(cmd.servesTraffic, cmd.name).to.equal(true);
+    }
+  });
+
+  it("une commande de console ne le déclare pas — elle ne réclame aucun secret de service", () => {
+    const cli = makeCli();
+    for (const Ctor of [BuildCommand, InspectCommand, InstallCommand]) {
+      expect(new Ctor(cli).servesTraffic, Ctor.name).to.equal(false);
+    }
+  });
+
+  it("🔴 profil encore CONSOLE + commande de lancement → le run servira", () => {
+    // Exactement l'état au moment de l'import, sous `nodefony production`.
+    expect(
+      runWillServeTraffic({ servers: false }, { servesTraffic: true }),
+    ).to.equal(true);
+  });
+
+  it("profil console + commande de console → le run ne servira pas", () => {
+    expect(
+      runWillServeTraffic({ servers: false }, { servesTraffic: false }),
+    ).to.equal(false);
+    expect(runWillServeTraffic(undefined, null)).to.equal(false);
+  });
+
+  it("un profil serveur STATIQUE suffit, sans intention déclarée", () => {
+    expect(runWillServeTraffic({ servers: true }, null)).to.equal(true);
   });
 });
