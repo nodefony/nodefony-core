@@ -14,6 +14,7 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { stripVTControlCharacters } from "node:util";
 import xterm from "@xterm/headless";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { brandMark } from "../cli/brand";
@@ -27,6 +28,7 @@ import {
   readDevMouseRequest,
   readDevUiRequest,
 } from "../service/dev/outputMode";
+import { invertColumns } from "../service/dev/devSelection";
 import type { IStartupView } from "../service/dev/startupScreen";
 import { TERMINAL_PROBE } from "../service/dev/terminalCapability";
 
@@ -75,6 +77,7 @@ function fullscreen(
     columns?: number;
     rows?: number;
     mouse?: boolean;
+    copy?: (text: string) => Promise<string>;
   } = {},
 ) {
   const stdout = output(options.columns, options.rows);
@@ -90,6 +93,7 @@ function fullscreen(
       synchronized: options.synchronized ?? false,
       onQuit: quit,
       ...(options.mouse === undefined ? {} : { mouse: options.mouse }),
+      ...(options.copy === undefined ? {} : { copy: options.copy }),
     },
   });
   return { stdout, input, quit, terminal };
@@ -119,6 +123,34 @@ async function screen(
   term.dispose();
   return lines;
 }
+
+/**
+ * Les cellules en vidéo inverse d'une ligne d'écran, vues par l'émulateur :
+ * `#` inversée, `.` normale — sur les `width` premières colonnes.
+ */
+async function inverseCells(
+  written: readonly string[],
+  row: number,
+  width = 12,
+  cols = COLS,
+  rows = ROWS,
+): Promise<string> {
+  const term = new xterm.Terminal({ cols, rows, allowProposedApi: true });
+  await new Promise<void>((resolve) => term.write(written.join(""), resolve));
+  const buf = term.buffer.active;
+  const line = buf.getLine(buf.baseY + row);
+  let out = "";
+  for (let x = 0; x < width; x++) {
+    out += line?.getCell(x)?.isInverse() ? "#" : ".";
+  }
+  term.dispose();
+  return out;
+}
+
+/** Une séquence SGR de souris (colonne et ligne depuis 1). */
+const press = (col: number, row: number): string => `\x1b[<0;${col};${row}M`;
+const drag = (col: number, row: number): string => `\x1b[<32;${col};${row}M`;
+const release = (col: number, row: number): string => `\x1b[<0;${col};${row}m`;
 
 const lines = (n: number, from = 1): string =>
   Array.from({ length: n }, (_, i) => `ligne ${i + from}\n`).join("");
@@ -362,6 +394,102 @@ describe("plein écran — défilement (foyer)", () => {
     expect(terminal.anchor).to.equal(null);
     remove();
     terminal.close();
+  });
+});
+
+describe("plein écran — sélection à la souris (--mouse)", () => {
+  /** Onze lignes : la ligne d'écran r (depuis 1) montre « ligne r ». */
+  async function selecting(copy = vi.fn(async () => "copié — test")) {
+    const t = fullscreen({ mouse: true, copy });
+    t.terminal.setStatus(null, ctx, "ready");
+    t.terminal.ingest("server", "out", lines(11));
+    await nextFrame();
+    return { ...t, copy };
+  }
+
+  it("glisser surligne de la cellule enfoncée à la cellule de tête, relâcher copie le texte LOGIQUE", async () => {
+    const { stdout, input, terminal, copy } = await selecting();
+    input.type(press(3, 2) + drag(4, 2) + drag(5, 3));
+    await nextFrame();
+    expect(await inverseCells(stdout.written, 1)).to.equal("..#####.....");
+    expect(await inverseCells(stdout.written, 2)).to.equal("#####.......");
+    expect(await inverseCells(stdout.written, 3)).to.equal("............");
+    expect(copy).not.toHaveBeenCalled();
+    input.type(release(5, 3));
+    expect(copy).toHaveBeenCalledWith("gne 2\nligne");
+    terminal.close();
+  });
+
+  it("un simple clic ne sélectionne rien et ne copie rien", async () => {
+    const { stdout, input, terminal, copy } = await selecting();
+    input.type(press(3, 2) + release(3, 2));
+    await nextFrame();
+    expect(await inverseCells(stdout.written, 1)).to.equal("............");
+    expect(copy).not.toHaveBeenCalled();
+    terminal.close();
+  });
+
+  it("double clic : le mot ; triple clic : la ligne", async () => {
+    const { input, terminal, copy } = await selecting();
+    input.type(press(2, 4) + release(2, 4) + press(2, 4) + release(2, 4));
+    expect(copy).toHaveBeenLastCalledWith("ligne");
+    input.type(press(2, 4) + release(2, 4));
+    expect(copy).toHaveBeenLastCalledWith("ligne 4");
+    terminal.close();
+  });
+
+  it("une ligne repliée sur deux lignes d'écran se copie SANS le retour du repli", async () => {
+    const copy = vi.fn(async () => "copié");
+    const { input, terminal } = fullscreen({ mouse: true, copy, columns: 20 });
+    terminal.setStatus(null, ctx, "ready");
+    const long = "abcdefghijklmnopqrstuvwxyz0123";
+    terminal.ingest("server", "out", `${long}\n`);
+    await nextFrame();
+    // Largeur de repli 19 : la ligne occupe les deux dernières lignes du journal.
+    input.type(press(1, 10) + drag(11, 11) + release(11, 11));
+    expect(copy).toHaveBeenCalledWith(long);
+    terminal.close();
+  });
+
+  it("défiler pendant la sélection : le surlignage suit le TEXTE, pas l'écran", async () => {
+    const { stdout, input, terminal } = await selecting();
+    input.type(press(1, 5) + drag(7, 5) + release(7, 5)); // « ligne 5 »
+    await nextFrame();
+    expect(await inverseCells(stdout.written, 4)).to.equal("#######.....");
+    terminal.ingest("server", "out", lines(2, 12)); // le direct pousse tout de 2
+    await nextFrame();
+    expect((await screen(stdout.written))[2]).to.equal("ligne 5");
+    expect(await inverseCells(stdout.written, 2)).to.equal("#######.....");
+    expect(await inverseCells(stdout.written, 4)).to.equal("............");
+    terminal.close();
+  });
+
+  it("Échap efface la sélection ; la barre dit le résultat de la copie", async () => {
+    const { stdout, input, terminal } = await selecting();
+    input.type(press(1, 5) + drag(7, 5) + release(7, 5));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextFrame();
+    expect((await screen(stdout.written)).at(-1)).to.include("copié — test");
+    input.type("\x1b");
+    await new Promise((resolve) => setTimeout(resolve, 80)); // délai de l'Échap seul
+    await nextFrame();
+    expect(await inverseCells(stdout.written, 4)).to.equal("............");
+    terminal.close();
+  });
+});
+
+describe("surlignage — invertColumns", () => {
+  it("une remise à zéro des couleurs DANS l'intervalle ne coupe pas l'inversion", async () => {
+    const line = "\x1b[31mab\x1b[0mcd\x1b[32mef\x1b[0m";
+    const out = invertColumns(line, 1, 5);
+    expect(stripVTControlCharacters(out)).to.equal("abcdef");
+    expect(await inverseCells([out], 0, 6)).to.equal(".####.");
+  });
+
+  it("un caractère large à moitié couvert est inversé entier", async () => {
+    expect(await inverseCells([invertColumns("a漢b", 2, 3)], 0, 4)).to.equal(
+      ".##.",
+    );
   });
 });
 

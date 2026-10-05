@@ -13,7 +13,8 @@
  * redimensionnement ne la font pas glisser. Ancrée, elle signale ce qui est
  * arrivé dessous (« ↑ N nouvelles lignes — Fin »).
  */
-import { fitToWidth, wrapToWidth } from "../../runtime/textWidth";
+import { fitToWidth, visibleWidth, wrapToWidth } from "../../runtime/textWidth";
+import { invertColumns, type ISelectionRange } from "./devSelection";
 import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
   renderStatusBar,
@@ -49,6 +50,11 @@ export interface IFrameStatus {
   readonly view: IStartupView | null;
   readonly context: IStatusContext;
   readonly phase: DevPhase;
+  /**
+   * Message passager (le résultat d'une copie) : dans le bloc du serveur
+   * prêt, il prend la place de l'aide ; sinon il suit la phase.
+   */
+  readonly notice?: string | null;
 }
 
 /** L'invite (#538) : ses lignes et la position du curseur DANS ces lignes. */
@@ -77,6 +83,17 @@ export interface IFrameModel {
    * dépasse, comme dans l'historique d'un terminal.
    */
   readonly floorSeq?: number;
+  /** La sélection à surligner, normalisée (cf `selectionRange`). */
+  readonly selection?: ISelectionRange | null;
+}
+
+/**
+ * D'où vient une ligne d'écran du journal : l'entrée, et la colonne visible
+ * de sa ligne logique où commence ce morceau replié.
+ */
+export interface IRowOrigin {
+  readonly seq: number;
+  readonly column: number;
 }
 
 /** Dimensions du terminal. */
@@ -89,6 +106,12 @@ export interface IFrameSize {
 export interface IFrame {
   readonly lines: readonly string[];
   readonly cursor: { row: number; column: number } | null;
+  /**
+   * Une par ligne : son origine dans l'historique, `null` hors du journal
+   * (indicateur, invite, barre, remplissage) — ce qui ramène un clic à une
+   * cellule de l'historique.
+   */
+  readonly origins?: readonly (IRowOrigin | null)[];
 }
 
 /** Une ligne à réécrire. */
@@ -189,8 +212,9 @@ function statusLines(model: IFrameModel, size: IFrameSize): readonly string[] {
       model.mark,
     );
   }
+  const notice = status.notice ? ` · ${status.notice}` : "";
   const label = sanitizeTerminalText(
-    `${context.project} · ${PHASE_LABELS[phase]}`,
+    `${context.project} · ${PHASE_LABELS[phase]}${notice}`,
   );
   return [model.color ? `\x1b[2m${label}\x1b[0m` : label];
 }
@@ -209,18 +233,42 @@ function unseenLine(count: number, model: IFrameModel): string {
   return model.color ? `\x1b[7m ${text} \x1b[0m` : text;
 }
 
+/** Les lignes du journal et, en parallèle, leur origine. */
+interface IJournalRows {
+  lines: string[];
+  origins: (IRowOrigin | null)[];
+}
+
 /**
- * Les `height` lignes du journal, de haut en bas, complétées par le haut.
+ * Les origines des lignes repliées d'une entrée : la colonne visible où
+ * commence chacune. Une entrée d'une ligne commence en 0 — le cas courant ne
+ * mesure rien.
+ */
+function wrappedOrigins(seq: number, lines: readonly string[]): IRowOrigin[] {
+  if (lines.length === 1) return [{ seq, column: 0 }];
+  const out: IRowOrigin[] = [];
+  let column = 0;
+  for (const line of lines) {
+    out.push({ seq, column });
+    column += visibleWidth(line);
+  }
+  return out;
+}
+
+/**
+ * Les `height` lignes du journal, de haut en bas, complétées par le haut,
+ * avec leur origine dans l'historique.
  */
 function journalLines(
   model: IFrameModel,
   heights: FrameHeights,
   width: number,
   height: number,
-): string[] {
-  if (height <= 0) return [];
-  const transcript = model.transcript;
+): IJournalRows {
   const out: string[] = [];
+  const origins: (IRowOrigin | null)[] = [];
+  if (height <= 0) return { lines: out, origins };
+  const transcript = model.transcript;
   const first = transcript.at(0);
   if (first) {
     let index = transcript.length - 1;
@@ -238,9 +286,13 @@ function journalLines(
     if (fromTop) {
       for (let i = 0; i < transcript.length && out.length < height; i++) {
         const entry = transcript.at(i);
-        if (entry) out.push(...heights.lines(entry, width));
+        if (!entry) continue;
+        const lines = heights.lines(entry, width);
+        out.push(...lines);
+        origins.push(...wrappedOrigins(entry.seq, lines));
       }
       out.length = Math.min(out.length, height);
+      origins.length = out.length;
     } else {
       const floor =
         model.anchor === null
@@ -255,12 +307,43 @@ function journalLines(
           lines = lines.slice(0, Math.max(1, lines.length - below));
         }
         out.unshift(...lines);
+        origins.unshift(...wrappedOrigins(entry.seq, lines));
       }
-      if (out.length > height) out.splice(0, out.length - height);
+      if (out.length > height) {
+        out.splice(0, out.length - height);
+        origins.splice(0, origins.length - height);
+      }
     }
   }
-  while (out.length < height) out.unshift("");
-  return out;
+  while (out.length < height) {
+    out.unshift("");
+    origins.unshift(null);
+  }
+  return { lines: out, origins };
+}
+
+/**
+ * Surligne la part sélectionnée d'une ligne du journal.
+ *
+ * @param line - la ligne d'écran.
+ * @param origin - son origine dans l'historique.
+ * @param range - la sélection normalisée.
+ * @returns la ligne, surlignée là où la sélection la couvre.
+ */
+function highlightRow(
+  line: string,
+  origin: IRowOrigin,
+  range: ISelectionRange,
+): string {
+  const { start, end } = range;
+  if (origin.seq < start.seq || origin.seq > end.seq) return line;
+  const from =
+    origin.seq === start.seq ? Math.max(0, start.column - origin.column) : 0;
+  const to =
+    origin.seq === end.seq
+      ? end.column - origin.column
+      : Number.POSITIVE_INFINITY;
+  return to > from ? invertColumns(line, from, to) : line;
 }
 
 /** La répartition des lignes entre les zones — une seule source. */
@@ -456,16 +539,26 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
   const { rows, width, heights, bar, promptLines, indicator, journalHeight } =
     frameLayout(model, size);
   const prompt = model.prompt ?? null;
-  const all = [
-    ...journalLines(model, heights, width, journalHeight),
-    ...indicator,
-    ...promptLines,
-    ...bar,
+  const journal = journalLines(model, heights, width, journalHeight);
+  const all = [...journal.lines, ...indicator, ...promptLines, ...bar];
+  const allOrigins = [
+    ...journal.origins,
+    ...Array.from(
+      { length: indicator.length + promptLines.length + bar.length },
+      () => null,
+    ),
   ];
   // Trop bas pour tout : la barre et l'invite gagnent, par le bas.
-  const lines = all
-    .slice(Math.max(0, all.length - rows))
-    .map((line) => fitToWidth(line.replace(ERASE_IN_LINE, ""), width));
+  const cut = Math.max(0, all.length - rows);
+  const origins = allOrigins.slice(cut);
+  const range = model.selection ?? null;
+  const lines = all.slice(cut).map((line, row) => {
+    const fitted = fitToWidth(line.replace(ERASE_IN_LINE, ""), width);
+    const origin = origins[row] ?? null;
+    return range === null || origin === null
+      ? fitted
+      : highlightRow(fitted, origin, range);
+  });
   let cursor: IFrame["cursor"] = null;
   if (prompt !== null) {
     const top = lines.length - bar.length - promptLines.length;
@@ -474,7 +567,7 @@ export function renderFrame(model: IFrameModel, size: IFrameSize): IFrame {
       cursor = { row, column: Math.min(prompt.cursor.column, width) };
     }
   }
-  return { lines, cursor };
+  return { lines, cursor, origins };
 }
 
 /**

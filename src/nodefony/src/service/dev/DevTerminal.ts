@@ -41,6 +41,13 @@ import {
   type IScrollAnchor,
 } from "./devFrame";
 import {
+  extractSelection,
+  selectionRange,
+  type ISelection,
+  type ISelectionPoint,
+  type SelectionUnit,
+} from "./devSelection";
+import {
   ESCAPE_TIMEOUT_MS,
   InputDecoder,
   type InputEvent,
@@ -115,6 +122,12 @@ export interface IDevFullscreenOptions {
    * reste au terminal (mode 1007 seul).
    */
   mouse?: boolean;
+  /**
+   * Copie le texte sélectionné (souris captée, au relâchement) ; rend le
+   * message de la barre — « copié », « envoyé au terminal », ou l'échec.
+   * Absente : la sélection se surligne, rien n'est copié.
+   */
+  copy?: (text: string) => Promise<string>;
 }
 
 /** Le clavier du terminal, injectable en test. */
@@ -193,6 +206,26 @@ const FULLSCREEN_HELP: Readonly<Record<ScreenCharset, string>> = {
  */
 const WHEEL_LINES = 3;
 
+/**
+ * L'aide de la barre quand la souris est captée : glisser copie, la molette
+ * défile. Le geste d'arrêt reste EN TÊTE.
+ */
+const MOUSE_HELP: Readonly<Record<ScreenCharset, string>> = {
+  unicode:
+    "ctrl+c arrêter  ·  glisser copier  ·  molette · PgUp défiler  ·  Fin direct",
+  ascii:
+    "ctrl+c arrêter  -  glisser copier  -  molette / PgUp défiler  -  Fin direct",
+};
+
+/** Délai entre deux clics au même endroit pour un double (ou triple) clic. */
+const MULTI_CLICK_MS = 400;
+
+/** Simple, double, triple clic. */
+const CLICK_UNITS: readonly SelectionUnit[] = ["char", "word", "line"];
+
+/** Durée d'affichage d'un message passager dans la barre. */
+const NOTICE_MS = 3000;
+
 /** Dimensions de repli d'un flux qui n'en déclare pas. */
 const FALLBACK_SIZE: IFrameSize = { columns: 80, rows: 24 };
 
@@ -265,6 +298,18 @@ interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
   mouse: boolean;
+  copy: ((text: string) => Promise<string>) | null;
+  /** La sélection à la souris — `null` sans sélection. */
+  selection: ISelection | null;
+  /** Le bouton est tenu depuis un `press` dans le journal. */
+  selecting: boolean;
+  /** La souris a bougé depuis le `press` : un simple clic ne sélectionne rien. */
+  dragged: boolean;
+  /** Le dernier `press`, pour reconnaître double et triple clic. */
+  lastPress: { at: number; row: number; column: number; clicks: number } | null;
+  /** Message passager de la barre (résultat d'une copie). */
+  notice: string | null;
+  noticeTimer: NodeJS.Timeout | null;
   onQuit: () => void;
   onData: (chunk: Buffer | string) => void;
   decoder: InputDecoder;
@@ -620,6 +665,13 @@ export class DevTerminal {
       input: options.input,
       synchronized: options.synchronized,
       mouse: options.mouse === true,
+      copy: options.copy ?? null,
+      selection: null,
+      selecting: false,
+      dragged: false,
+      lastPress: null,
+      notice: null,
+      noticeTimer: null,
       onQuit: options.onQuit,
       onData: (chunk) => this.#onInput(chunk),
       decoder: new InputDecoder(),
@@ -633,6 +685,7 @@ export class DevTerminal {
       foci: [],
       releaseGuard: () => {},
     };
+    if (full.mouse) full.foci.push(this.#mouseFocus(full));
     full.foci.push(this.#scrollFocus(full), this.#globalFocus(full));
     this.#full = full;
     this.#surface = "fullscreen";
@@ -653,6 +706,7 @@ export class DevTerminal {
     this.#surface = "inline";
     if (full.frameTimer) clearTimeout(full.frameTimer);
     if (full.escapeTimer) clearTimeout(full.escapeTimer);
+    if (full.noticeTimer) clearTimeout(full.noticeTimer);
     full.input.removeListener("data", full.onData);
     full.input.setRawMode?.(false);
     full.input.pause();
@@ -676,6 +730,143 @@ export class DevTerminal {
         for (const event of full.decoder.flush()) this.dispatch(event);
       }, ESCAPE_TIMEOUT_MS);
     }
+  }
+
+  /**
+   * Foyer de la souris captée : enfoncer le bouton gauche dans le journal
+   * pose l'ancre, glisser étend, relâcher copie. Double clic = mot, triple
+   * = ligne. Un simple clic efface la sélection sans rien copier ; Échap
+   * l'efface aussi. Les autres boutons sont avalés : la souris est à nous.
+   */
+  #mouseFocus(full: IFullscreenState): IInputFocus {
+    return {
+      handle: (event) => {
+        if (event.kind === "key") {
+          if (event.key !== "escape" || full.selection === null) return false;
+          this.#setSelection(full, null);
+          return true;
+        }
+        if (event.kind !== "mouse") return false;
+        if (event.button !== 0) return true;
+        if (event.action === "press") {
+          const point = this.#pointAt(full, event.row, event.column);
+          const now = Date.now();
+          const last = full.lastPress;
+          const clicks =
+            last !== null &&
+            now - last.at < MULTI_CLICK_MS &&
+            last.row === event.row &&
+            last.column === event.column
+              ? (last.clicks % 3) + 1
+              : 1;
+          full.lastPress = {
+            at: now,
+            row: event.row,
+            column: event.column,
+            clicks,
+          };
+          full.selecting = point !== null;
+          full.dragged = false;
+          this.#setSelection(
+            full,
+            point === null
+              ? null
+              : {
+                  anchor: point,
+                  head: point,
+                  unit: CLICK_UNITS[clicks - 1] ?? "char",
+                },
+          );
+          return true;
+        }
+        if (!full.selecting || full.selection === null) return true;
+        if (event.action === "drag") {
+          const head = this.#pointAt(full, event.row, event.column);
+          if (head !== null) {
+            full.dragged = true;
+            this.#setSelection(full, { ...full.selection, head });
+          }
+          return true;
+        }
+        if (event.action === "release") {
+          full.selecting = false;
+          this.#finishSelection(full);
+        }
+        return true;
+      },
+    };
+  }
+
+  /**
+   * Fin du glisser : un simple clic ne laisse rien ; une vraie sélection
+   * reste surlignée et part au presse-papiers.
+   */
+  #finishSelection(full: IFullscreenState): void {
+    const selection = full.selection;
+    if (selection === null) return;
+    if (selection.unit === "char" && !full.dragged) {
+      this.#setSelection(full, null);
+      return;
+    }
+    const range = selectionRange(selection, this.#transcript);
+    if (range === null || full.copy === null) return;
+    const text = extractSelection(this.#transcript, range);
+    if (text.length === 0) return;
+    full.copy(text).then(
+      (message) => this.#notify(full, message),
+      () => this.#notify(full, "copie impossible"),
+    );
+  }
+
+  /** Affiche un message passager à la place de l'aide de la barre. */
+  #notify(full: IFullscreenState, message: string): void {
+    if (this.#full !== full) return;
+    if (full.noticeTimer) clearTimeout(full.noticeTimer);
+    full.notice = message;
+    full.noticeTimer = setTimeout(() => {
+      full.noticeTimer = null;
+      full.notice = null;
+      this.#scheduleFrame();
+    }, NOTICE_MS);
+    this.#scheduleFrame();
+  }
+
+  #setSelection(full: IFullscreenState, selection: ISelection | null): void {
+    if (full.selection === null && selection === null) return;
+    full.selection = selection;
+    this.#scheduleFrame();
+  }
+
+  /**
+   * La cellule de l'historique sous un point de l'écran (coordonnées du
+   * terminal, depuis 1), lue sur l'image AFFICHÉE. Hors du journal, la
+   * cellule est ramenée au bord le plus proche : glisser jusque dans la
+   * barre sélectionne jusqu'au bout de la dernière ligne.
+   */
+  #pointAt(
+    full: IFullscreenState,
+    row: number,
+    column: number,
+  ): ISelectionPoint | null {
+    const origins = full.frame?.origins;
+    if (origins === undefined) return null;
+    const index = Math.min(Math.max(row - 1, 0), origins.length - 1);
+    const origin = origins[index] ?? null;
+    if (origin !== null) {
+      return {
+        seq: origin.seq,
+        column: origin.column + Math.max(0, column - 1),
+      };
+    }
+    for (let i = index - 1; i >= 0; i--) {
+      const above = origins[i];
+      if (above) return { seq: above.seq, column: Number.MAX_SAFE_INTEGER - 1 };
+    }
+    for (let i = index + 1; i < origins.length; i++) {
+      const below = origins[i];
+      if (below) return { seq: below.seq, column: below.column };
+    }
+    return null;
   }
 
   /**
@@ -763,15 +954,29 @@ export class DevTerminal {
           ? null
           : {
               view: this.#view,
-              context: { ...context, help: FULLSCREEN_HELP[this.#charset] },
+              context: {
+                ...context,
+                help: full.notice ?? this.#help(full),
+              },
               phase: this.#phase,
+              notice: full.notice,
             },
       color: this.#color,
       charset: this.#charset,
       mark: this.#mark,
       heights: full.heights,
       ...(full.floorSeq === undefined ? {} : { floorSeq: full.floorSeq }),
+      selection:
+        full.selection === null ||
+        (full.selection.unit === "char" && !full.dragged)
+          ? null
+          : selectionRange(full.selection, this.#transcript),
     };
+  }
+
+  /** L'aide de la barre : elle dit les gestes de la souris quand elle est captée. */
+  #help(full: IFullscreenState): string {
+    return (full.mouse ? MOUSE_HELP : FULLSCREEN_HELP)[this.#charset];
   }
 
   /** Dimensions du terminal, repli 80×24 pour un flux qui ne les déclare pas. */

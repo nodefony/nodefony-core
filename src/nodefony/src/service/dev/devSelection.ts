@@ -205,3 +205,45 @@ function firstIndexFrom(reader: ISelectionReader, seq: number): number {
   const first = reader.at(0);
   return first !== undefined && first.seq > seq ? 0 : reader.length;
 }
+
+/** Une séquence SGR (couleur, style) : `ESC [ … m`. */
+const SGR = /^\x1b\[[0-9;:]*m$/;
+
+/** Vidéo inverse : le surlignage de la sélection, lisible sans couleurs. */
+const INVERSE_ON = "\x1b[7m";
+const INVERSE_OFF = "\x1b[27m";
+
+/**
+ * Inverse la vidéo d'une ligne d'écran entre deux colonnes, couleurs
+ * conservées. Une remise à zéro des couleurs DANS l'intervalle (`ESC[0m`)
+ * couperait l'inversion : elle est reposée après chaque séquence SGR. Un
+ * caractère large à moitié couvert est inversé entier.
+ *
+ * @param text - la ligne, couleurs comprises.
+ * @param from - première colonne (incluse).
+ * @param to - dernière colonne (exclue), `Infinity` pour la fin.
+ * @returns la ligne surlignée.
+ */
+export function invertColumns(text: string, from: number, to: number): string {
+  if (to <= from) return text;
+  let out = "";
+  let column = 0;
+  let inside = false;
+  for (const unit of textUnits(text)) {
+    if (unit.control) {
+      out += unit.text;
+      if (inside && SGR.test(unit.text)) out += INVERSE_ON;
+      continue;
+    }
+    const start = column;
+    column += unit.width;
+    const selected: boolean =
+      unit.width === 0 ? inside : start < to && column > from;
+    if (selected !== inside) {
+      out += selected ? INVERSE_ON : INVERSE_OFF;
+      inside = selected;
+    }
+    out += unit.text;
+  }
+  return inside ? out + INVERSE_OFF : out;
+}
