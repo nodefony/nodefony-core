@@ -256,6 +256,10 @@ export async function setup(): Promise<void> {
       // routes protégées n'auraient aucune identité à présenter, et échoueraient
       // en accusant la garde plutôt que le décor.
       NF_ADMIN_PASSWORD: ADMIN_PASSWORD,
+      // Un exemplaire de production qui SERT refuse de démarrer sans clé de
+      // signature partagée (jwt.keystore). Il tourne seul, sur ce poste : la
+      // source « dossier » est la bonne. Un déploiement pose NF_JWT_KEYSET.
+      NF__SECURITY__JWT__KEYSTORE__DIR: "var/keys",
 <% } %>    },
   });
 }

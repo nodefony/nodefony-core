@@ -3497,6 +3497,10 @@
                 "help": ""
               },
               {
+                "flag": "--jwt-keyset",
+                "help": ""
+              },
+              {
                 "flag": "--keep",
                 "help": ""
               },

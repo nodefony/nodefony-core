@@ -1777,7 +1777,25 @@ step(
   "Le mode que les autres étapes n'exercent jamais — un défaut de dépendance " +
     "n'y apparaît qu'au déploiement, quand plus personne ne regarde.",
   () => {
-    const env = { NF_ADMIN_PASSWORD: MOT_DE_PASSE_POSE };
+    // 🔴 La clé de signature PARTAGÉE, par le geste que la documentation
+    // prescrit — la commande de l'application elle-même. Sans elle, un
+    // exemplaire de production qui sert refuse de démarrer (jwt.keystore).
+    // Sortie standard SEULE : `run` mêle les deux flux, et la valeur est une
+    // ligne JSON qu'un avertissement sur stderr rendrait illisible.
+    const keySet = spawnSync(
+      process.execPath,
+      [BIN, "security:secrets", "--jwt-keyset"],
+      { cwd: APP, encoding: "utf8", env: envDecor(PORTS, {}) },
+    );
+    if (keySet.status !== 0 || !keySet.stdout.startsWith('{"active":')) {
+      throw new Error(
+        `security:secrets --jwt-keyset n'a pas produit de clé — sortie :\n${keySet.stdout}${keySet.stderr}`,
+      );
+    }
+    const env = {
+      NF_ADMIN_PASSWORD: MOT_DE_PASSE_POSE,
+      NF_JWT_KEYSET: keySet.stdout.trim(),
+    };
     // 🔴 Les migrations AVANT les exemplaires — le patron de déploiement, celui
     // du service `migrate` du `compose.yaml` généré : une étape à part, en
     // production, qui se termine. La production n'applique RIEN elle-même

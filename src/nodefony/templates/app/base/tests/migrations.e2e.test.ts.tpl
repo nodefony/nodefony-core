@@ -487,7 +487,13 @@ dbSuite("migrations — générer, retenir le trafic, constater une dérive", ()
     const spare = await startSpareApp({
       port: await freePort(),
       httpsPort: await freePort(),
-      env: { NODE_ENV: "production", ...fixture.env },
+      env: {
+        NODE_ENV: "production",
+<% if (it.hasSecurity) { %>        // Il SERT en production : sans clé de signature partagée, il refuserait
+        // de démarrer (jwt.keystore). Seul sur ce poste — la source « dossier ».
+        NF__SECURITY__JWT__KEYSTORE__DIR: "var/keys",
+<% } %>        ...fixture.env,
+      },
     });
     try {
       const readyz = await fetch(`http://127.0.0.1:${spare.port}/readyz`);
