@@ -44,7 +44,7 @@ Trois besoins dépassent ce modèle :
 
 Les faits qui contraignent la solution, au code :
 
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1491` — le serveur est lancé `detached` sous
+- `src/nodefony/src/service/dev/DevSupervisor.ts:1511` — le serveur est lancé `detached` sous
   POSIX : un groupe en arrière-plan qui LIT le terminal reçoit `SIGTTIN` et est suspendu. Seul le
   superviseur (`DevSupervisor.ts:1657`, il reçoit Ctrl+C) peut lire le clavier.
 - `src/nodefony/src/service/dev/DevSupervisor.ts:1134` — `stdio: ["inherit", "inherit", "inherit",
