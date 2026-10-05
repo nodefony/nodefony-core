@@ -110,6 +110,30 @@ describe("renderFrame — zones", () => {
     expect(short.lines.at(-3)).to.equal("l50");
   });
 
+  it("rechargement : la barre GARDE le bloc du dernier bilan, sa ligne d'état dit la phase", () => {
+    for (const [phase, label] of [
+      ["building", "construction…"],
+      ["restarting", "redémarrage…"],
+      ["crashed", "arrêté"],
+    ] as const) {
+      const status = { view: startupView, context: ctx, phase };
+      const tall = renderFrame(model(transcriptOf(range(50)), { status }), {
+        columns: 100,
+        rows: 30,
+      });
+      expect(tall.lines.at(-7), phase).to.equal("─".repeat(99));
+      const bar = tall.lines.slice(-6).join("\n");
+      expect(bar, phase).to.include(label);
+      expect(bar, phase).to.not.include("prêt à");
+      // La ligne seule (terminal bas) dit aussi la phase.
+      const short = renderFrame(model(transcriptOf(range(50)), { status }), {
+        columns: 100,
+        rows: 10,
+      });
+      expect(short.lines.at(-1), phase).to.include(label);
+    }
+  });
+
   it("l'invite se place entre journal et barre, le curseur dessus", () => {
     const frame = renderFrame(
       model(transcriptOf(range(10)), {

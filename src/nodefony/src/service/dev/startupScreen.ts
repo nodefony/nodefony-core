@@ -828,6 +828,39 @@ export interface IStatusContext {
    * dit comment défiler et sélectionner, gestes qu'il a lui-même changés.
    */
   help?: string;
+  /**
+   * Ce que fait le serveur quand il n'est PAS prêt (build, redémarrage,
+   * crash) : la barre garde le dernier bilan et sa ligne d'état dit la phase
+   * — elle survit au serveur au lieu de disparaître.
+   */
+  phase?: { label: string; failed: boolean };
+}
+
+/**
+ * La ligne d'état de la barre — une seule règle pour le bloc et la ligne :
+ * la phase en cours si le serveur n'est pas prêt, sinon le verdict du bilan.
+ */
+function statusState(
+  view: IStartupView,
+  ctx: IStatusContext,
+  p: IPalette,
+  sym: (typeof SCREEN_SYMBOLS)[ScreenCharset],
+): string {
+  if (ctx.phase) {
+    return ctx.phase.failed
+      ? p.failure(`${sym.fail} ${ctx.phase.label}`)
+      : p.warning(`${sym.reload} ${ctx.phase.label}`);
+  }
+  const errors = view.notices.filter((n) => n.level === "error").length;
+  const warnings = view.notices.filter((n) => n.level === "warning").length;
+  const outcome = errors
+    ? p.failure(
+        `${sym.fail} ${pluralize(errors, "point")} bloquant${errors > 1 ? "s" : ""}`,
+      )
+    : warnings
+      ? p.warning(`${sym.warn} ${warnings} à regarder`)
+      : p.ok(`${sym.ok} prêt`);
+  return `${outcome} ${p.dim(`à ${ctx.readyAt}`)}`;
 }
 
 /** Un morceau de la ligne d'état, et sa priorité quand la place manque. */
@@ -865,15 +898,7 @@ export function renderStatusLine(
 ): string {
   const p = createPalette(options.color);
   const sym = SCREEN_SYMBOLS[options.charset ?? "unicode"];
-  const errors = view.notices.filter((n) => n.level === "error").length;
-  const warnings = view.notices.filter((n) => n.level === "warning").length;
-  const state = errors
-    ? p.failure(
-        `${sym.fail} ${pluralize(errors, "point")} bloquant${errors > 1 ? "s" : ""}`,
-      )
-    : warnings
-      ? p.warning(`${sym.warn} ${warnings} à regarder`)
-      : p.ok(`${sym.ok} prêt`);
+  const state = statusState(view, ctx, p, sym);
   const app = view.open.find((l) => l.id === "app")?.url;
   const segments: IStatusSegment[] = [
     {
@@ -898,7 +923,7 @@ export function renderStatusLine(
           },
         ]
       : []),
-    { text: `${state} ${p.dim(`à ${ctx.readyAt}`)}`, priority: 6 },
+    { text: state, priority: 6 },
     ...(ctx.reloads > 0
       ? [{ text: p.dim(`${sym.reload} ${ctx.reloads}`), priority: 1 }]
       : []),
@@ -980,15 +1005,7 @@ export function renderStatusBlock(
   if ((options.rows ?? 0) < STATUS_BLOCK_MIN_ROWS) return null;
   const p = createPalette(options.color);
   const sym = SCREEN_SYMBOLS[options.charset ?? "unicode"];
-  const errors = view.notices.filter((n) => n.level === "error").length;
-  const warnings = view.notices.filter((n) => n.level === "warning").length;
-  const state = errors
-    ? p.failure(
-        `${sym.fail} ${pluralize(errors, "point")} bloquant${errors > 1 ? "s" : ""}`,
-      )
-    : warnings
-      ? p.warning(`${sym.warn} ${warnings} à regarder`)
-      : p.ok(`${sym.ok} prêt`);
+  const state = statusState(view, ctx, p, sym);
   const label = ` ${sym.brand} ${ctx.project} `;
   const badge = options.color ? `\x1b[7m\x1b[1m${label}\x1b[0m` : label;
   const app = view.open.find((l) => l.id === "app")?.url;
@@ -996,8 +1013,7 @@ export function renderStatusBlock(
   const info = [
     `${badge}  ${p.dim(`Nodefony ${view.version} · ${startMode(view)}`)}`,
     app ? `${p.ok(sym.open)} ${p.action(app)}` : "",
-    `${state} ${p.dim(`à ${ctx.readyAt}`)}` +
-      (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
+    state + (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
     view.inspector ? p.warning(`débogueur ${view.inspector}`) : "",
     pending ? p.dim(pending) : "",
     p.dim(`${ctx.help ?? STOP_HINT}  ·  état : nodefony status --json`),

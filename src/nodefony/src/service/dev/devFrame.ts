@@ -199,10 +199,17 @@ function statusLines(model: IFrameModel, size: IFrameSize): readonly string[] {
   const status = model.status;
   if (status === null) return [];
   const { view, context, phase } = status;
-  if (phase === "ready" && view !== null) {
+  // Un bilan existe : la barre le GARDE pendant un build, un redémarrage, un
+  // crash — seule sa ligne d'état dit la phase. Elle survit au serveur.
+  if (view !== null) {
     return renderStatusBar(
       view,
-      context,
+      phase === "ready"
+        ? context
+        : {
+            ...context,
+            phase: { label: PHASE_LABELS[phase], failed: phase === "crashed" },
+          },
       {
         color: model.color,
         columns: size.columns,
