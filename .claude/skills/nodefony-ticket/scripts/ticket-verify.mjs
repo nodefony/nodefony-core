@@ -50,7 +50,8 @@ const CHECK = path.join(
   "scripts",
   "anchor-check.mjs",
 );
-const OUT = path.join(REPO, "tmp", "ticket-anchors");
+// Sous une CATÉGORIE de tmp/ (scripts/repo/tmp-layout.mjs) : rien à sa racine.
+const OUT = path.join(REPO, "tmp", "scratch", "ticket-anchors");
 
 const argv = process.argv.slice(2);
 const touchedAt = argv.indexOf("--touched-by");
