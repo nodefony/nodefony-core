@@ -69,6 +69,7 @@ import {
   identifyProcess,
   isPidAlive,
   signalProcessGroup,
+  waitGroupDead,
   terminateDevProcesses,
 } from "./devProcess";
 
@@ -1952,19 +1953,18 @@ export class DevSupervisor {
    * fin : laissé vivant, turbo/rolldown écrirait `dist/` pendant que le
    * développeur relance.
    */
-  #killBuild(): Promise<void> {
-    return new Promise((resolve) => {
-      const b = this.#buildChild;
-      if (b?.exitCode !== null || b.signalCode !== null) {
-        return resolve();
-      }
-      const kill9 = setTimeout(() => this.#signalGroup(b, "SIGKILL"), 2000);
-      b.once("exit", () => {
-        clearTimeout(kill9);
-        resolve();
-      });
-      this.#signalGroup(b, "SIGTERM");
-    });
+  async #killBuild(): Promise<void> {
+    const b = this.#buildChild;
+    if (b === null) return;
+    // Pas de raccourci sur la sortie du CHEF : l'enveloppe `npm exec` meurt
+    // au SIGTERM en premier, turbo et rolldown quelques millisecondes après —
+    // c'est la mort de tout le GROUPE qu'on attend (axiome 7), sinon l'arrêt
+    // rend la main pendant qu'ils écrivent encore `dist/`.
+    this.#signalGroup(b, "SIGTERM");
+    if (typeof b.pid !== "number") return;
+    if (await waitGroupDead(b.pid, 2000)) return;
+    this.#signalGroup(b, "SIGKILL");
+    await waitGroupDead(b.pid, 1000);
   }
 
   /** `true` si rien n'écoute sur `port` en loopback (connexion refusée). */

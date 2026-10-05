@@ -1052,6 +1052,62 @@ export async function waitAllDead(
   }
 }
 
+/** Ce dont la sonde de groupe a besoin — injectable en test. */
+export interface GroupProbeDeps {
+  platform?: NodeJS.Platform;
+  /** `process.kill(pid, 0)` : lève si personne ne répond. */
+  probe?: (pid: number) => void;
+}
+
+/**
+ * Un membre du groupe de processus `pgid` vit-il encore ? Le chef de groupe
+ * peut être sorti pendant que ses descendants travaillent : c'est le GROUPE
+ * qu'on interroge (`kill(-pgid, 0)`), pas son chef. Sous Windows, sans groupes,
+ * l'arbre est tué d'un coup par `taskkill /T /F` : seul le pid se sonde.
+ *
+ * @param pgid - le pid du chef de groupe (un enfant lancé `detached`).
+ * @param deps - plateforme et sonde, injectables en test.
+ * @returns `true` tant qu'un membre répond (EPERM compris : il existe).
+ */
+export function isProcessGroupAlive(
+  pgid: number,
+  deps: GroupProbeDeps = {},
+): boolean {
+  const platform = deps.platform ?? process.platform;
+  const probe =
+    deps.probe ??
+    ((pid: number): void => {
+      process.kill(pid, 0);
+    });
+  try {
+    probe(platform === "win32" ? pgid : -pgid);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * Attend la mort EFFECTIVE de tout le groupe `pgid` (poll court).
+ *
+ * @param pgid - le pid du chef de groupe.
+ * @param timeoutMs - échéance.
+ * @param deps - cf {@link isProcessGroupAlive}.
+ * @returns `true` si le groupe est mort avant l'échéance.
+ */
+export async function waitGroupDead(
+  pgid: number,
+  timeoutMs: number,
+  deps: GroupProbeDeps = {},
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (!isProcessGroupAlive(pgid, deps)) return true;
+    if (Date.now() >= deadline) return false;
+    await delay(20);
+  }
+}
+
 /** Options de {@link terminateDevProcesses}. */
 export interface TerminateOptions {
   /** Délai d'arrêt gracieux (SIGTERM) avant d'escalader en SIGKILL. Défaut 4000 ms. */
