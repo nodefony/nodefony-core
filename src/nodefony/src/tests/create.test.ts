@@ -1932,7 +1932,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Ce que le banc réel exige d'un realm : le client navigateur déclare
       // `admin`, `bob` le porte, `alice` non.
       const forme = (realm: Realm, client: string) => ({
-        roles: (realm.roles?.client?.[client] ?? []).map((r) => r.name),
+        roles: (realm.roles?.client?.[client] ?? [])
+          .map((r) => r.name)
+          .filter((n) => n === "admin"),
         users: realm.users
           .filter((u) => u.username === "alice" || u.username === "bob")
           .map((u) => ({

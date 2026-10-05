@@ -29,6 +29,7 @@ import {
 } from "../src/oauth/oauth2Client";
 import {
   compileProviderRoleMapping,
+  isPlatformRole,
   mapProviderRoles,
   type IProviderRoleMapping,
 } from "../src/oauth/providerRoles";
@@ -337,6 +338,17 @@ class OAuth2Service extends Service {
       const mapping =
         provider === undefined ? null : compileProviderRoleMapping(provider);
       if (mapping !== null) {
+        if (provider?.allowPlatformRoles === true) {
+          const platform = Object.values(mapping.table).filter(isPlatformRole);
+          if (platform.length > 0) {
+            this.log(
+              `oauth2 "${name}" : l'annuaire accorde des rôles de PLATEFORME ` +
+                `(${[...new Set(platform)].join(", ")}) — son administrateur ` +
+                `administre cette instance (allowPlatformRoles)`,
+              "WARNING",
+            );
+          }
+        }
         this.#roleMappings ??= Object.create(null) as Record<
           string,
           IProviderRoleMapping

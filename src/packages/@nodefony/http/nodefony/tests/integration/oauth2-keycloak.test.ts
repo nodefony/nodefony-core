@@ -754,6 +754,15 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
       }
     });
 
+    it("rôle de plateforme ouvert par `allowPlatformRoles` : `admin-nodefony` → ROLE_NODEFONY_ADMIN", async () => {
+      // L'app de dev ÉCRIT l'ouverture (`nodefony/config/security.ts`) ; sans
+      // elle, la table refuserait le démarrage.
+      await syncRealmFromFile(await adminToken());
+      const cci = await sessionOf(await browserLogin("cci"));
+      expect(cci.roles).toContain("ROLE_NODEFONY_ADMIN");
+      expect(cci.roles).toContain("ROLE_ADMIN");
+    });
+
     it("code_verifier faux → invalid_grant rendu PAR Keycloak", async () => {
       const provider = await frameworkClient();
       const code = await codeFor(provider, generateCodeVerifier());

@@ -123,7 +123,10 @@ describe("mapProviderRoles — lecture des claims", () => {
 });
 
 describe("roleMapping — refus au démarrage", () => {
-  const withMapping = (roleMapping: Record<string, string>) => ({
+  const withMapping = (
+    roleMapping: Record<string, string>,
+    allowPlatformRoles?: boolean,
+  ) => ({
     oauth2: {
       providers: {
         keycloak: {
@@ -132,6 +135,7 @@ describe("roleMapping — refus au démarrage", () => {
           redirectUri: "https://app/cb",
           issuer: ISSUER,
           roleMapping,
+          ...(allowPlatformRoles === undefined ? {} : { allowPlatformRoles }),
         },
       },
     },
@@ -144,6 +148,29 @@ describe("roleMapping — refus au démarrage", () => {
         error instanceof BootConfigurationError &&
         error.message.includes("roleMapping") &&
         error.message.includes("ROLE_NODEFONY_ADMIN"),
+    );
+  });
+
+  it("rôle de plateforme accepté quand `allowPlatformRoles` est ÉCRIT", () => {
+    const config = defineSecurityConfig(
+      withMapping({ "admin-nodefony": "ROLE_NODEFONY_ADMIN" }, true),
+    );
+    const mapping = compileProviderRoleMapping(
+      config.oauth2.providers.keycloak!,
+    );
+    assert.ok(mapping);
+    assert.deepEqual(mapProviderRoles(mapping, clientRoles("admin-nodefony")), [
+      "ROLE_NODEFONY_ADMIN",
+    ]);
+  });
+
+  it("`allowPlatformRoles: false` explicite → toujours refusé", () => {
+    assert.throws(
+      () =>
+        defineSecurityConfig(
+          withMapping({ "admin-nodefony": "ROLE_NODEFONY_ADMIN" }, false),
+        ),
+      BootConfigurationError,
     );
   });
 

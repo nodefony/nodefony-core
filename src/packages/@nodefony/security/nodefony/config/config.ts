@@ -1043,19 +1043,7 @@ const oauthProviderSchema = z
         "Rôles du Shadow User à la création — surcharge le global pour CE fournisseur.",
       ),
     roleMapping: z
-      .record(
-        z.string().min(1),
-        z
-          .string()
-          .min(1)
-          .refine((role) => !isPlatformRole(role), {
-            error: (issue) =>
-              `« ${String(issue.input)} » est un rôle de PLATEFORME ` +
-              `(${PLATFORM_ROLE_PREFIX}*) : un annuaire externe ne l'accorde ` +
-              `jamais. Le donner à la main (\`security:user:add --admin\`, ` +
-              `console d'administration) — il survit alors à chaque connexion.`,
-          }),
-      )
+      .record(z.string().min(1), z.string().min(1))
       .optional()
       .describe(
         "Rôles du FOURNISSEUR traduits en rôles de l'application, recalculés à " +
@@ -1063,7 +1051,19 @@ const oauthProviderSchema = z
           '"ROLE_ADMIN" }`. Un rôle du fournisseur absent de la table est ignoré, ' +
           "jamais recopié. Les rôles donnés à la main sont conservés. OMIS = les " +
           "rôles restent entièrement locaux (posés à la création, puis la base " +
-          "fait foi). Un rôle `ROLE_NODEFONY_*` refuse le démarrage.",
+          "fait foi). Un rôle `ROLE_NODEFONY_*` refuse le démarrage, sauf " +
+          "`allowPlatformRoles`.",
+      ),
+    allowPlatformRoles: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Autorise `roleMapping` à accorder des rôles de PLATEFORME " +
+          "(`ROLE_NODEFONY_*` : console d'administration, génération de code, " +
+          "secrets). OMIS = refusé au démarrage. L'ouvrir fait de " +
+          "l'administrateur de l'annuaire un administrateur de l'instance, et " +
+          "d'un annuaire compromis une prise de contrôle complète — un " +
+          "avertissement le rappelle à chaque démarrage.",
       ),
     rolesSource: z
       .array(z.enum(["client", "realm", "groups"]))
@@ -1098,6 +1098,24 @@ const oauthProviderSchema = z
           "point d'entrée particulier (lien direct, sous-domaine) plutôt " +
           "qu'offert à tout visiteur.",
       ),
+  })
+  // La garde lit DEUX clés (la table et l'ouverture) : elle se pose sur le
+  // fournisseur entier, et nomme la clé fautive de la table.
+  .superRefine((provider, ctx) => {
+    if (provider.allowPlatformRoles) return;
+    for (const [from, to] of Object.entries(provider.roleMapping ?? {})) {
+      if (!isPlatformRole(to)) continue;
+      ctx.addIssue({
+        code: "custom",
+        path: ["roleMapping", from],
+        message:
+          `« ${to} » est un rôle de PLATEFORME (${PLATFORM_ROLE_PREFIX}*) : ` +
+          `un annuaire externe ne l'accorde pas sans \`allowPlatformRoles: ` +
+          `true\` écrit sur ce fournisseur. Sinon, le donner à la main ` +
+          `(\`security:user:add --admin\`, console d'administration) — il ` +
+          `survit alors à chaque connexion.`,
+      });
+    }
   })
   .describe("Fournisseur OAuth/OIDC (secrets via env).");
 

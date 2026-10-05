@@ -84,6 +84,10 @@
         {
           "name": "admin",
           "description": "Administrateur de l'application — traduit en ROLE_ADMIN par la table roleMapping du fournisseur keycloak."
+        },
+        {
+          "name": "admin-nodefony",
+          "description": "Administrateur de la PLATEFORME — traduit en ROLE_NODEFONY_ADMIN, ouvert par allowPlatformRoles dans la config de l'app de dev."
         }
       ]
     }
@@ -140,7 +144,7 @@
         }
       ],
       "clientRoles": {
-        "nodefony-dev": ["admin"]
+        "nodefony-dev": ["admin", "admin-nodefony"]
       }
     }
   ],
