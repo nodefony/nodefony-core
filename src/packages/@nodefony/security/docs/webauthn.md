@@ -121,7 +121,7 @@ Trois partis pris assumés :
 
 ### 1. Les passkeys sont déjà actives — la config utile
 
-`passkeys.enabled` vaut `true` par défaut (`config.ts:463`). Ce que tu déclares vraiment, c'est **ton
+`passkeys.enabled` vaut `true` par défaut (`config.ts:481`). Ce que tu déclares vraiment, c'est **ton
 domaine** : sans `rpId`, le service prend le domaine de l'app, et bascule sur `localhost` si c'est une
 adresse IP (un navigateur refuse une IP comme `rpId`, `webAuthn.ts:141`).
 
@@ -353,23 +353,23 @@ exactement les porteurs à risque de verrouillage.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `passkeysSchema` (`config.ts:461`), monté sous la clé `passkeys`
-(`config.ts:1154`).
+Table dérivée du schéma Zod `passkeysSchema` (`config.ts:479`), monté sous la clé `passkeys`
+(`config.ts:1172`).
 
 | Option                    | Type                                       | Défaut       | Effet                                                                          |
 | ------------------------- | ------------------------------------------ | ------------ | ------------------------------------------------------------------------------ |
-| `enabled`                 | boolean                                    | `true`       | Active les cérémonies ; `false` → endpoints en 503 (`config.ts:463`)           |
-| `rpId`                    | string?                                    | domaine app  | Domaine de liaison des passkeys ; IP → `localhost` (`config.ts:469`)           |
-| `rpName`                  | string?                                    | `"Nodefony"` | Nom affiché dans l'invite OS/navigateur (`config.ts:473`)                      |
-| `origins`                 | string[]                                   | `[]`         | Liste blanche d'origines ; vide = déduction depuis `rpId` (`config.ts:469`)    |
-| `userVerification`        | `required` \| `preferred` \| `discouraged` | `preferred`  | Exiger biométrie/PIN — `required` = AAL2 (`config.ts:483`)                     |
+| `enabled`                 | boolean                                    | `true`       | Active les cérémonies ; `false` → endpoints en 503 (`config.ts:481`)           |
+| `rpId`                    | string?                                    | domaine app  | Domaine de liaison des passkeys ; IP → `localhost` (`config.ts:487`)           |
+| `rpName`                  | string?                                    | `"Nodefony"` | Nom affiché dans l'invite OS/navigateur (`config.ts:491`)                      |
+| `origins`                 | string[]                                   | `[]`         | Liste blanche d'origines ; vide = déduction depuis `rpId` (`config.ts:487`)    |
+| `userVerification`        | `required` \| `preferred` \| `discouraged` | `preferred`  | Exiger biométrie/PIN — `required` = AAL2 (`config.ts:501`)                     |
 | `residentKey`             | `required` \| `preferred` \| `discouraged` | `preferred`  | Passkey découvrable → login sans identifiant (`config.ts:489`)                 |
-| `authenticatorAttachment` | `platform` \| `cross-platform` \| `any`    | `platform`   | Biométrie intégrée / clé externe / les deux (`config.ts:495`)                  |
-| `attestation`             | `none` \| `direct` \| `enterprise`         | `none`       | Conveyance du certificat fabricant (`config.ts:501`)                           |
-| `timeoutMs`               | number (ms)                                | `60000`      | Délai laissé à l'utilisateur pour la cérémonie (`config.ts:507`)               |
-| `maxPerUser`              | number                                     | `20`         | Plafond de passkeys par porteur, `409` au-delà (`config.ts:515`)               |
-| `challengeTtlS`           | number (s)                                 | `300`        | **RÉSERVÉ, non câblé** : le défi suit la session (`config.ts:523`)             |
-| `store`                   | string                                     | `"auto"`     | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:528`) |
+| `authenticatorAttachment` | `platform` \| `cross-platform` \| `any`    | `platform`   | Biométrie intégrée / clé externe / les deux (`config.ts:513`)                  |
+| `attestation`             | `none` \| `direct` \| `enterprise`         | `none`       | Conveyance du certificat fabricant (`config.ts:519`)                           |
+| `timeoutMs`               | number (ms)                                | `60000`      | Délai laissé à l'utilisateur pour la cérémonie (`config.ts:525`)               |
+| `maxPerUser`              | number                                     | `20`         | Plafond de passkeys par porteur, `409` au-delà (`config.ts:533`)               |
+| `challengeTtlS`           | number (s)                                 | `300`        | **RÉSERVÉ, non câblé** : le défi suit la session (`config.ts:541`)             |
+| `store`                   | string                                     | `"auto"`     | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:546`) |
 
 ### Mise en situation — trois politiques, trois publics
 
@@ -393,7 +393,7 @@ passkeys: {
 
 > [!WARNING]
 > `attestation: "direct"` **récupère** le certificat, il ne le **valide pas** : Nodefony ne vérifie ni
-> l'AAGUID ni la chaîne contre la MDS FIDO (`config.ts:501`). Tant que cette vérification n'est pas
+> l'AAGUID ni la chaîne contre la MDS FIDO (`config.ts:519`). Tant que cette vérification n'est pas
 > faite dans ton application, tu as la donnée, pas la garantie AAL3 — et tu paies un coût de vie
 > privée (l'attestation identifie le modèle d'authenticator).
 

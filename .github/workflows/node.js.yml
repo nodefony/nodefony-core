@@ -893,6 +893,12 @@ jobs:
           require('node:fs').writeFileSync('.env.local', lines.join('\n'));
           console.log('✅ .env.local généré (5 valeurs, non affichées)');
           "
+          # La clé de SIGNATURE des jetons, par la commande du PRODUIT : une
+          # paire Ed25519 en JSON, pas 32 octets — la recopier ici en ferait une
+          # seconde définition du format. Sans elle, le démarrage de production
+          # est REFUSÉ (jwt.keystore), et c'est voulu.
+          printf "NF_JWT_KEYSET='%s'\n" "$(node node_modules/nodefony/bin/nodefony security:secrets --jwt-keyset)" >> .env.local
+          echo '✅ NF_JWT_KEYSET ajoutée (valeur non affichée)'
 
       # Le SECOND compte du banc, en production seulement — et créé ICI, pas seedé.
       #

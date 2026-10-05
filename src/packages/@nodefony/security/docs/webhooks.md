@@ -160,7 +160,7 @@ Trois partis pris, tous vérifiables dans le code :
 
 ### 1. Activer les webhooks et poser la clé de chiffrement
 
-Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:785`).
+Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:803`).
 La seule chose que tu dois vraiment fournir, c'est la **clé de chiffrement des secrets de signature** :
 sans elle, une clé éphémère est générée en dev (avec un WARNING), et en production les webhooks sont
 **désactivés** — un secret chiffré par une clé perdue au redémarrage serait illisible
@@ -705,7 +705,7 @@ sont `unref()` (`webhooks.ts:222`), donc ils n'empêchent jamais Node de sortir.
 
 ## ⚙️ Configuration
 
-Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:783`), lue via
+Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:801`), lue via
 `use("@nodefony/security", { webhooks: … })`.
 
 | Option                 | Type       | Défaut     | Effet                                                                                                       |

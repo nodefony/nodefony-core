@@ -25,7 +25,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-10-02
+updated: 2026-10-05
 source: "src/packages/@nodefony/security/docs/tokens.md"
 ---
 
@@ -87,11 +87,11 @@ défaut » en prod.
 ## La vision Nodefony — un service propriétaire, des endpoints minces
 
 `TokenService` est **propriétaire** du store et du keystore : à `TokenService.#build()`
-(`tokenService.ts:101`), si `jwt.enabled` ou `apiKeys.enabled`, il résout le store pluggable, pose
-`tokenStore` au container (`tokenService.ts:175`) puis crée le keystore et pose `jwtKeystore`
-(`tokenService.ts:181-186`) — consommés par le `JwtAuthenticator` et les endpoints. Il arme un
+(`tokenService.ts:148`), si `jwt.enabled` ou `apiKeys.enabled`, il résout le store pluggable, pose
+`tokenStore` au container (`tokenService.ts:219`) puis crée le keystore et pose `jwtKeystore`
+(`tokenService.ts:225-231`) — consommés par le `JwtAuthenticator` et les endpoints. Il arme un
 **gc** via `GcScheduler` (timer `unref` + **jitter** de phase pour étaler les balayages entre pods,
-`tokenService.ts:188-194`).
+`tokenService.ts:233-239`).
 
 Les endpoints HTTP sont des **adaptateurs minces** portés par `@nodefony/framework`, couplés **par
 nom de service** via le contrat structurel `ITokenIssuer` — framework n'importe jamais security
@@ -154,10 +154,12 @@ le framework monte deux routes (`mountTokenAuthRoutes()`, `TokenAuthController.t
 // nodefony.config.ts (extrait) — la zone API machine + la source de clé
 use("@nodefony/security", {
   jwt: {
-    // dev/VPS : persiste la clé Ed25519 (sinon clé ÉPHÉMÈRE + warning au boot).
-    // prod cloud : préférer keystore.keySetJson injecté depuis l'env (même clé
-    // sur tous les pods) — voir la section keystore.
-    keystore: { dir: "./config/jwt" },
+    // dev : persiste la clé Ed25519 sous var/ (sinon clé ÉPHÉMÈRE + warning).
+    // prod : NF_JWT_KEYSET, la même clé sur tous les pods — voir la section keystore.
+    keystore: {
+      keySetJson: process.env.NF_JWT_KEYSET,
+      dir: "var/keys",
+    },
   },
   areas: {
     // Le firewall vérifie le Bearer JWT sur CHAQUE requête de la zone.
@@ -229,36 +231,36 @@ Erreurs mappées par duck-typing dans `#renderAuthError()` (`TokenAuthController
 
 ### Émission (grant M2M/CLI)
 
-`issueForCredentials()` (`tokenService.ts:324`) vérifie l'identifiant/mot de passe via le
+`issueForCredentials()` (`tokenService.ts:369`) vérifie l'identifiant/mot de passe via le
 service `users`, avec le **throttling NIST partagé** — `ThrottledError` avant tout hachage
-(`tokenService.ts:353`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
-par `#auditGrant()` (`tokenService.ts:369-381`). Puis `issueTokens()` (`tokenService.ts:497`)
+(`tokenService.ts:398`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
+par `#auditGrant()` (`tokenService.ts:414-426`). Puis `issueTokens()` (`tokenService.ts:542`)
 produit :
 
 - un **access token** : JWT signé EdDSA, en-tête `typ:"at+jwt"` + `kid`, claims
-  `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts:649-662`) ;
+  `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts:694-707`) ;
 - un **refresh token** : secret opaque haute entropie `nfr_<32 octets base64url>`, **stocké haché**
   `sha256` (le clair n'existe qu'en réponse, jamais au repos) — `#buildRefresh()`
-  (`tokenService.ts:681-716`).
+  (`tokenService.ts:726-761`).
 
-La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:49-57`). Tout succès est audité
-`token.issued` via `recordAudit` avec le `tokenId` corrélable (`tokenService.ts:312-318`).
+La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:50-58`). Tout succès est audité
+`token.issued` via `recordAudit` avec le `tokenId` corrélable (`tokenService.ts:357-363`).
 
 ### Rotation & détection de rejeu (RFC 9700 §4.14)
 
-`refresh()` (`tokenService.ts:562`) est le cœur défensif, dans l'ordre :
+`refresh()` (`tokenService.ts:607`) est le cœur défensif, dans l'ordre :
 
-1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:571`).
+1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:616`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la
-   famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:577-591`).
-3. Expiration `expiresAt` vérifiée (`tokenService.ts:711`).
+   famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:622-636`).
+3. Expiration `expiresAt` vérifiée (`tokenService.ts:756`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
-   `#resolveUserForRefresh()` (`tokenService.ts:770`).
+   `#resolveUserForRefresh()` (`tokenService.ts:815`).
 5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus
-   (`tokenService.ts:600`).
+   (`tokenService.ts:645`).
 6. **Rotation** : nouveau refresh (même famille), l'ancien chaîné `replacedBy` + révoqué
-   `"rotated"` (`tokenService.ts:634-636`). Si `rotateRefresh` est désactivé, l'access est réémis
-   et le refresh courant reste valide (`tokenService.ts:620`).
+   `"rotated"` (`tokenService.ts:679-681`). Si `rotateRefresh` est désactivé, l'access est réémis
+   et le refresh courant reste valide (`tokenService.ts:665`).
 
 ### Mise en situation — ton refresh token a été volé
 
@@ -278,26 +280,73 @@ la victime est déconnectée (signal visible) au lieu d'un vol silencieux indéf
 
 ## 🔐 Le keystore Ed25519 — la clé ne fuit pas, pas de secret « par défaut » en prod
 
-`JwtKeystore.#load()` résout la source de clé par **priorité** (`JwtKeystore.ts:151-187`), pensée
+`JwtKeystore.#load()` résout la source de clé par **priorité** (`JwtKeystore.ts:219`), pensée
 pour ne jamais auto-générer une clé en clair silencieusement en prod :
 
-1. **env** — `keySetJson` (JWK Set injecté depuis le catalogue d'env) : prod cloud, secret géré
-   hors-app, même clé sur tous les pods (`JwtKeystore.ts:154-160`).
-2. **fichier** — `dir/keyset.json`, généré si absent, écriture atomique tmp+rename en mode 600 —
-   `#writeAtomic()` (`JwtKeystore.ts:272-280`) : opt-in dev/VPS mono-machine.
-3. **mémoire** — aucune source → clé **éphémère + WARNING** explicite : perdue au redémarrage =
-   refresh invalidés, incohérente en cluster (`JwtKeystore.ts:179-186`).
+1. **env** — `keySetJson` (`NF_JWT_KEYSET` dans une application générée) : la MÊME clé pour tous
+   les process qui servent l'application (`JwtKeystore.ts:222`).
+2. **fichier** — `dir/keyset.json`, généré si absent, en mode 600, par une création **exclusive**
+   (`createSecretExclusive`, `secretFile.ts:188`) : quand plusieurs workers de `nodefony cluster`
+   démarrent ensemble, un seul crée la clé et les autres relisent la sienne (`JwtKeystore.ts:242`).
+   Source de développement, ou d'un serveur unique à disque persistant.
+3. **mémoire** — aucune source → clé **éphémère**, propre au process (`JwtKeystore.ts:263`). En
+   développement : un WARNING au premier jeton. En production, un process qui sert **refuse de
+   démarrer** (§ suivant).
 
-Le JWKS servi par `getPublicJWKS()` est **public** — `JwtKeystore.ts:141-145`.
+Le JWKS servi par `getPublicJWKS()` est **public** — `JwtKeystore.ts:209`.
 La composante privée `d` en est retirée à l'import, par liste BLANCHE de paramètres
-(`#importKeyset()`, `JwtKeystore.ts:206-228`, RFC 8037/7517).
+(`#importKeyset()`, `JwtKeystore.ts:275`, RFC 8037/7517).
 C'est ce JWKS qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts:174`),
-jamais une clé venue du jeton. Le chargement est mémoïsé — `#ensureLoaded()` (`JwtKeystore.ts:147-149`).
+jamais une clé venue du jeton. Le chargement est mémoïsé — `#ensureLoaded()` (`JwtKeystore.ts:215`).
 
-> [!WARNING]
-> **Race au 1ᵉʳ boot d'un cluster sans clé pré-provisionnée** : deux workers peuvent générer des
-> clés différentes — le dernier `rename` gagne (`JwtKeystore.ts:272-280`). En prod, provisionner
-> `keySetJson` hors-bande élimine ce cas : c'est la source recommandée.
+### Plusieurs pods ou workers — UNE clé pour tous
+
+Chaque jeton porte le `kid` de la clé qui l'a signé. Deux process qui ont chacun la leur refusent
+les jetons l'un de l'autre : derrière un répartiteur, l'utilisateur est déconnecté au hasard (401),
+et tout redémarrage invalide les jetons en vol.
+
+**En production, un process qui SERT sans source partagée refuse de démarrer**
+(`#requireSharedSigningKey`, `tokenService.ts:123`), avec le motif et les trois issues dans le
+journal. Une commande de console (`orm:migrate`, `security:user:add`) n'est pas concernée : elle
+ne signe aucun jeton. Sous `nodefony cluster`, un worker refusé ne se relance pas — le master
+arrête le cluster et sort en **78** (`ClusterManager.ts:212`), le code d'une faute de configuration.
+
+Le déploiement, de bout en bout :
+
+```bash
+# 1. Générer la valeur UNE fois par environnement (staging ≠ production)
+npx nodefony security:secrets --jwt-keyset > keyset.json
+
+# 2. La ranger dans le gestionnaire de secrets — ici un Secret Kubernetes
+kubectl create secret generic app-jwt --from-file=NF_JWT_KEYSET=keyset.json
+rm keyset.json   # elle porte la clé PRIVÉE : aucun exemplaire ne traîne
+
+# 3. L'injecter dans CHAQUE pod (extrait du Deployment)
+#   env:
+#     - name: NF_JWT_KEYSET
+#       valueFrom: { secretKeyRef: { name: app-jwt, key: NF_JWT_KEYSET } }
+```
+
+Le câblage, que le gabarit d'application écrit déjà :
+
+```typescript
+jwt: {
+  keystore: {
+    keySetJson: ctx.env.NF_JWT_KEYSET, // présente : l'emporte partout
+    dir: ctx.isProd ? undefined : "var/keys", // développement
+  },
+},
+```
+
+- **Jamais dans `.env.local`, jamais dans git** : en développement la clé vit dans `var/keys/` ;
+  une clé privée de production sur un poste n'apporte que le risque de fuir.
+- **Dans un fichier `.env`** (Docker Compose `env_file`), l'entourer de quotes simples :
+  `NF_JWT_KEYSET='{"active":"…","keys":[…]}'`.
+- **Valeur illisible** : la configuration security est refusée au démarrage, le chemin
+  `jwt.keystore.keySetJson` nommé, la valeur **jamais** recopiée dans le message.
+- **Rotation** : la valeur est STABLE — la remplacer refuse les jetons en vol. Ajouter la nouvelle
+  clé au tableau `keys`, la désigner dans `active`, garder l'ancienne le temps que ses jetons
+  expirent (`accessTtlS`, `refreshTtlS`), puis la retirer.
 
 ## 🧩 Le store pluggable — durable par défaut, jamais de faux durable silencieux
 
@@ -308,18 +357,18 @@ seuil `invalidBefore` par porteur (`ITokenStore.ts:11-15`). Les backends s'enreg
 fabrique — `registerTokenStore()` (`tokenStoreRegistry.ts:41-46`) : les adapters lourds importent
 `import type { ITokenStore }` (effacé à la compilation), zéro couplage runtime.
 
-Sa résolution au boot (`tokenService.ts:112-163`) suit la doctrine `store:"auto"` du framework :
+Sa résolution au boot (`tokenService.ts:156-207`) suit la doctrine `store:"auto"` du framework :
 
 - `auto` (défaut) → suit l'infra database déclarée via `resolveAutoStore` — **borné aux backends
-  réellement enregistrés**, repli memory **annoncé** (`tokenService.ts:116-124`) ;
+  réellement enregistrés**, repli memory **annoncé** (`tokenService.ts:160-168`) ;
 - store explicite **inconnu** → en prod, **boot avorté** (fail-loud) ; en dev, brique désactivée et
-  annoncée avec la liste `listTokenStores()` (`tokenService.ts:127-138`) — jamais de fallback
+  annoncée avec la liste `listTokenStores()` (`tokenService.ts:171-182`) — jamais de fallback
   memory silencieux pour du durable ;
 - store `memory` **en prod** → `WARNING` nommant l'impact : denylist/refresh/clés API per-pod et
-  volatils, révocation non partagée (`tokenService.ts:142-149`).
+  volatils, révocation non partagée (`tokenService.ts:186-193`).
 
 La décision (configuré → résolu, raison) est publiée au kernel par `registerStoreResolution()`
-(`tokenService.ts:151-160`) — visible dans Studio.
+(`tokenService.ts:195-204`) — visible dans Studio.
 
 ### Mise en situation — quel store pour quelle app ?
 
@@ -348,7 +397,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 
 - Enregistré par le module drizzle (`drizzle/nodefony/registerStores.ts:261`).
 - Élu par `store:"auto"` dès qu'une infra database SQL est déclarée ; sinon sqlite local si drizzle
-  est chargé (`config.ts:428-433`).
+  est chargé (`config.ts:446-451`).
 - Pagination **offset + total** (helper `paginate()` d'orm-core) ; e2e sur PostgreSQL et MySQL réels.
 
 ### `mongoose` — MongoDB
@@ -406,7 +455,7 @@ Les colonnes par dialecte vivent dans la doc de chaque adapter (règle anti-trip
 
 Le `gc()` du store purge la `denylist` expirée, les records à terme, les PAT révoqués au-delà de
 la rétention (`ITokenStore.ts:274-280`). Orchestré par le `GcScheduler` du service ; `runGc()` reste public pour
-un futur worker cron — poser alors `gcIntervalS: 0` (`tokenService.ts:293`).
+un futur worker cron — poser alors `gcIntervalS: 0` (`tokenService.ts:338`).
 
 > [!TIP]
 > Un refresh révoqué **par rotation** n'est PAS purgé tout de suite : il est conservé jusqu'à son
@@ -416,80 +465,82 @@ un futur worker cron — poser alors `gcIntervalS: 0` (`tokenService.ts:293`).
 
 ## ⚙️ Configuration
 
-Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:366-425`) et `tokenStoreSchema`
-(`config.ts:426-458`), défauts inclus.
+Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:367-443`) et `tokenStoreSchema`
+(`config.ts:444-476`), défauts inclus.
 
 ### `jwt.*`
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
 | --- | --- | --- | --- |
-| `enabled` | boolean | `true` | Active signature + refresh (`config.ts:368`) |
+| `enabled` | boolean | `true` | Active signature + refresh (`config.ts:369`) |
 | `alg` | `EdDSA` \| `RS256` | `EdDSA` | `RS256` = slot non câblé (`jwtRuntime.ts:21`) |
-| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts:370`) |
-| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:375`) |
-| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:380`) |
+| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts:371`) |
+| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:376`) |
+| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:381`) |
 | `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
-| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:396`) |
+| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:397`) |
 | `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
-| `keystore.keySetJson` | string? | — | JWK Set privé injecté depuis l'env — source prod, SECRET (`security/nodefony/config/config.ts:404`) |
-| `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600 — source dev/VPS (`config.ts:410-418`) |
+| `keystore.keySetJson` | string? | — | JWK Set privé partagé par tous les process (`NF_JWT_KEYSET`) — SECRET, forme vérifiée au démarrage (`security/nodefony/config/config.ts:405`) |
+| `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600, création exclusive — dev, ou serveur unique à disque persistant (`config.ts:428`) |
 
 ### `tokenStore.*`
 
 | Option                 | Type       | Défaut   | Effet                                                                                 |
 | ---------------------- | ---------- | -------- | ------------------------------------------------------------------------------------- |
-| `store`                | string     | `"auto"` | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:428-433`)    |
-| `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts:434`) |
-| `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts:442`)              |
-| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:448`)              |
+| `store`                | string     | `"auto"` | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:446-451`)    |
+| `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts:452`) |
+| `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts:460`)              |
+| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:466`)              |
 
 ## 📜 Normes appliquées
 
 | Domaine                          | Norme           | Ancrage                                                 |
 | -------------------------------- | --------------- | ------------------------------------------------------- |
-| Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts:49-57`)              |
-| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:562`)                     |
-| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:649-662`)             |
-| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:649-657`)             |
-| Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts:156-158`)            |
+| Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts:50-58`)              |
+| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:607`)                     |
+| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:694-707`)             |
+| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:694-702`)             |
+| Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts:275`)                |
 | Audiences liées à la ressource   | RFC 8707        | `audience` du record (`ITokenStore.ts:104-105`)         |
 | 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts:108-115`) |
-| Backoff de login                 | NIST SP 800-63B | `ThrottledError` avant hachage (`tokenService.ts:353`)  |
+| Backoff de login                 | NIST SP 800-63B | `ThrottledError` avant hachage (`tokenService.ts:398`)  |
 
 ## ⚡ Performance & mémoire
 
-- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:744`)
+- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:789`)
   — le boot ne paie rien si le JWT n'est jamais sollicité ; keystore mémoïsé pareil.
 - **Rien sur le hot path requête** : émission et rotation sont des endpoints cold-path ; la
   vérification (hot path) vit chez le `JwtAuthenticator`.
 - **Timers civilisés** : `GcScheduler` `unref` (n'empêche pas l'arrêt) + jitter anti-balayages
-  simultanés (`tokenService.ts:188-194`) ; denylist mémoire bornée par purge amortie
+  simultanés (`tokenService.ts:233-239`) ; denylist mémoire bornée par purge amortie
   (`MemoryTokenStore.ts:331-341`).
 - **Jamais N en RAM** : `listPage()` borne toute lecture admin à une page (`ITokenStore.ts:233`).
 
 ## 📡 Observabilité — Studio
 
 - **Écran Stores** (`/nodefony/stores`) : la résolution du store de jetons (configuré → résolu +
-  raison) publiée par `registerStoreResolution()` (`tokenService.ts:151-160`).
+  raison) publiée par `registerStoreResolution()` (`tokenService.ts:195-204`).
 - **Écran Audit** (`/nodefony/audit`) : événements `token.issued`, `token.reuse_detected` (signal d'attaque),
   `login.failure`/`login.throttled` du grant — corrélables par `tokenId`.
 - **Écran ApiKeys** : le même store côté PAT, listing paginé serveur.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                      | Cause (dans le code)                                           | Correction                                               |
-| --------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
-| 404 sur `/nodefony/security/api/token`        | Module `@nodefony/security` non chargé                         | Charger `@nodefony/security` + `jwt.enabled: true`       |
-| 503 « Token issuance unavailable »            | Service non initialisé (JWT désactivé, store indisponible)     | Vérifier config `jwt`/`tokenStore` + logs de boot        |
-| Refresh tokens invalidés à chaque redémarrage | Keystore en mémoire (aucune source configurée)                 | `jwt.keystore.keySetJson` (prod) ou `dir` (dev)          |
-| JWT rejeté après un déploiement multi-pod     | Clés différentes par pod (pas de clé partagée)                 | Provisionner `keySetJson` hors-bande (même clé partout)  |
-| Tout rejeté après changement de config        | `issuer`/`audiences` divergents entre émission et vérification | `issuer` STABLE — ne pas le changer après émission       |
-| Révocation sans effet entre pods              | `tokenStore:"memory"` en prod (per-pod)                        | Store durable (`NF_DATABASE_URL` → drizzle, ou redis)    |
-| Reconnexion forcée inattendue                 | Détection de rejeu : un vieux refresh révoqué a été rejoué     | Attendu (anti-vol) — la famille est coupée               |
-| Boot avorté « token store inconnu »           | `tokenStore.store` explicite introuvable (fail-loud prod)      | Corriger le nom / enregistrer le store                   |
-| Scopes qui n'augmentent pas au refresh        | Downscoping volontaire                                         | Réémettre via un nouveau grant pour élargir              |
-| Listing admin sans `total` sur Redis          | `countTokens()` = `-1` (comptage O(N) refusé), curseur SCAN    | Attendu — capacité réduite annoncée, paginer par curseur |
+| Symptôme                                                   | Cause (dans le code)                                           | Correction                                                 |
+| ---------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| 404 sur `/nodefony/security/api/token`                     | Module `@nodefony/security` non chargé                         | Charger `@nodefony/security` + `jwt.enabled: true`         |
+| 503 « Token issuance unavailable »                         | Service non initialisé (JWT désactivé, store indisponible)     | Vérifier config `jwt`/`tokenStore` + logs de boot          |
+| Refresh tokens invalidés à chaque redémarrage              | Keystore en mémoire (aucune source configurée)                 | `NF_JWT_KEYSET` (prod) ou `jwt.keystore.dir` (dev)         |
+| Boot refusé « DÉMARRAGE REFUSÉ — aucune clé de signature » | Production, process qui sert, ni `keySetJson` ni `dir`         | `security:secrets --jwt-keyset` → secret → `NF_JWT_KEYSET` |
+| Cluster arrêté « cluster master down (exit 78) »           | Un worker a refusé de démarrer (faute de configuration)        | Lire le motif du worker juste au-dessus, le corriger       |
+| JWT rejeté après un déploiement multi-pod                  | Clés différentes par pod (pas de clé partagée)                 | La même `NF_JWT_KEYSET` injectée dans chaque pod           |
+| Tout rejeté après changement de config                     | `issuer`/`audiences` divergents entre émission et vérification | `issuer` STABLE — ne pas le changer après émission         |
+| Révocation sans effet entre pods                           | `tokenStore:"memory"` en prod (per-pod)                        | Store durable (`NF_DATABASE_URL` → drizzle, ou redis)      |
+| Reconnexion forcée inattendue                              | Détection de rejeu : un vieux refresh révoqué a été rejoué     | Attendu (anti-vol) — la famille est coupée                 |
+| Boot avorté « token store inconnu »                        | `tokenStore.store` explicite introuvable (fail-loud prod)      | Corriger le nom / enregistrer le store                     |
+| Scopes qui n'augmentent pas au refresh                     | Downscoping volontaire                                         | Réémettre via un nouveau grant pour élargir                |
+| Listing admin sans `total` sur Redis                       | `countTokens()` = `-1` (comptage O(N) refusé), curseur SCAN    | Attendu — capacité réduite annoncée, paginer par curseur   |
 
 ## 🧪 Tests & couverture
 

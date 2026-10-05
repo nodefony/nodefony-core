@@ -529,7 +529,8 @@ class SecurityToken extends Command {
           `  qui vient de le signer — pas par le serveur en marche, qui a la sienne.\n` +
           `  → déclare une source de clés dans nodefony.config.ts :\n` +
           `      use("@nodefony/security", { jwt: { keystore: { dir: "var/keys" } } })\n` +
-          `    ou, en production, keySetJson depuis l'environnement.${RESET}\n`,
+          `    ou, en production, keySetJson depuis l'environnement (NF_JWT_KEYSET —\n` +
+          `    npx nodefony security:secrets --jwt-keyset).${RESET}\n`,
       );
     }
     const minutes = Math.round(issued.expires_in / 60);

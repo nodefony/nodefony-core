@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseKeySet } from "../src/token/JwtKeystore";
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -403,9 +404,26 @@ const jwtSchema = z
       .strictObject({
         keySetJson: z
           .string()
+          // Lu au DÉMARRAGE, pas au premier jeton : une variable mal collée
+          // donnait sinon une 500 à la première requête, loin de sa cause. Le
+          // message ne recopie jamais la valeur — elle porte la clé privée.
+          .refine(
+            (json) => {
+              try {
+                parseKeySet(json);
+                return true;
+              } catch {
+                return false;
+              }
+            },
+            {
+              message:
+                "jeu de clés illisible — attendu le JSON produit par `npx nodefony security:secrets --jwt-keyset` ({ active, keys: [JWK privé avec kid] }), sur une ligne",
+            },
+          )
           .optional()
           .describe(
-            "JWK Set (clé(s) privée(s) Ed25519) injecté par l'app depuis son env — SECRET, jamais loggé. Présent = source `env` (prod cloud).",
+            "JWK Set (clé(s) privée(s) Ed25519) PARTAGÉ par tous les process de l'app (pods, workers de cluster) — variable `NF_JWT_KEYSET` d'une application générée. SECRET, jamais loggé. Présent = source `env`, prioritaire sur `dir`.",
           ),
         dir: z
           .string()

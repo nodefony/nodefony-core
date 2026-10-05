@@ -1,17 +1,30 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { calculateJwkThumbprint } from "jose";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+import {
+  calculateJwkThumbprint,
+  createLocalJWKSet,
+  jwtVerify,
+  type JSONWebKeySet,
+} from "jose";
+import { BootConfigurationError } from "nodefony";
+import { defineSecurityConfig } from "../../nodefony/config/defineModuleConfig";
 import {
   JwtKeystore,
+  generateKeySet,
   keystoreLeaksIntoImage,
+  parseKeySet,
 } from "../../nodefony/src/token/JwtKeystore";
 
 /**
@@ -181,6 +194,158 @@ describe("JwtKeystore — env (keySetJson) + erreurs", () => {
         ).getSigningKey(),
       /malformé/,
     );
+  });
+});
+
+/**
+ * UNE clé pour tous les process qui servent l'application — pods derrière un
+ * répartiteur, ou workers de `nodefony cluster`. Sans elle, un jeton signé par
+ * l'un porte un `kid` que l'autre ne connaît pas : 401 au hasard de la
+ * répartition.
+ */
+describe("JwtKeystore — une seule clé pour N process", () => {
+  const child = fileURLToPath(
+    new URL("../support/keystoreProcess.ts", import.meta.url),
+  );
+
+  /** Lance un process qui construit son keystore depuis son environnement. */
+  function runProcess(mode: "sign" | "jwks", keySet?: string): string {
+    const env = { ...process.env };
+    delete env.NF_JWT_KEYSET;
+    if (keySet !== undefined) env.NF_JWT_KEYSET = keySet;
+    const run = spawnSync(process.execPath, ["--import", "tsx", child, mode], {
+      env,
+      encoding: "utf8",
+    });
+    assert.equal(run.status, 0, run.stderr);
+    return run.stdout;
+  }
+
+  /** Le jeton signé par un process est-il accepté par un AUTRE ? */
+  async function crossVerify(keySet?: string): Promise<{
+    signedKid: string;
+    otherKid: string | undefined;
+    accepted: boolean;
+  }> {
+    const { kid, jwt } = JSON.parse(runProcess("sign", keySet)) as {
+      kid: string;
+      jwt: string;
+    };
+    const jwks = JSON.parse(runProcess("jwks", keySet)) as JSONWebKeySet;
+    const accepted = await jwtVerify(jwt, createLocalJWKSet(jwks)).then(
+      () => true,
+      () => false,
+    );
+    return { signedKid: kid, otherKid: jwks.keys[0]?.kid, accepted };
+  }
+
+  it("🔴 sans valeur partagée, deux process → deux kid, et le jeton de l'un est refusé par l'autre", async () => {
+    const r = await crossVerify();
+    assert.notEqual(r.signedKid, r.otherKid);
+    assert.equal(r.accepted, false);
+  });
+
+  it("avec la même NF_JWT_KEYSET, deux process publient le même kid et acceptent les jetons l'un de l'autre", async () => {
+    const keySet = await generateKeySet();
+    const r = await crossVerify(keySet);
+    assert.equal(r.signedKid, r.otherKid);
+    assert.equal(r.accepted, true);
+  });
+
+  it("generateKeySet rend une ligne JSON qu'un .env porte telle quelle, et que le keystore charge", async () => {
+    const keySet = await generateKeySet();
+    assert.ok(!keySet.includes("\n"), "une seule ligne");
+    assert.ok(!keySet.includes("'"), "pas de quote simple : elle l'entoure");
+    const parsed = parseKeySet(keySet);
+    assert.equal(parsed.keys.length, 1);
+    assert.equal(parsed.active, parsed.keys[0]!.kid);
+    assert.ok(parsed.keys[0]!.d, "la clé PRIVÉE est là : c'est elle qui signe");
+    const ks = new JwtKeystore({ keySetJson: keySet }, noop);
+    assert.equal((await ks.getSigningKey()).kid, parsed.active);
+  });
+
+  it("🔴 le générateur recopié dans le workflow de production généré rend un jeu que le keystore charge", async () => {
+    // Le job `image` du workflow généré n'installe pas l'application : il
+    // produit la clé par node:crypto seul. Copie imposée par cette frontière —
+    // ce test la tient honnête en EXÉCUTANT le script tel que le gabarit le porte.
+    const template = readFileSync(
+      fileURLToPath(
+        new URL(
+          "../../../../../nodefony/templates/app/complete/github/workflows/production.yml.tpl",
+          import.meta.url,
+        ),
+      ),
+      "utf8",
+    );
+    const zone =
+      /# nf-keyset:begin\n[^\n]*node -e '\n([\s\S]*?)\n\s*'\)\n\s*# nf-keyset:end/u.exec(
+        template,
+      );
+    assert.ok(
+      zone?.[1],
+      "script du générateur introuvable entre les balises nf-keyset",
+    );
+    const run = spawnSync(process.execPath, ["-e", zone[1]], {
+      encoding: "utf8",
+    });
+    assert.equal(run.status, 0, run.stderr);
+    const keySet = run.stdout;
+    assert.ok(
+      !keySet.includes("'"),
+      "entouré de quotes simples dans le compose",
+    );
+    const parsed = parseKeySet(keySet);
+    const [key] = parsed.keys;
+    const thumbprint = await calculateJwkThumbprint(
+      { kty: key!.kty!, crv: key!.crv!, x: key!.x! },
+      "sha256",
+    );
+    assert.equal(
+      parsed.active,
+      thumbprint,
+      "kid = empreinte RFC 7638, comme le keystore",
+    );
+    const ks = new JwtKeystore({ keySetJson: keySet }, noop);
+    assert.equal((await ks.getSigningKey()).kid, thumbprint);
+  });
+
+  it("🔴 cluster sur une machine : deux keystores résolus EN MÊME TEMPS sur le même dossier → un seul kid", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "nf-jwt-race-"));
+    try {
+      const [a, b] = await Promise.all([
+        new JwtKeystore({ dir }, noop).getSigningKey(),
+        new JwtKeystore({ dir }, noop).getSigningKey(),
+      ]);
+      assert.equal(
+        a.kid,
+        b.kid,
+        "les deux workers doivent signer avec la clé du disque",
+      );
+      const onDisk = parseKeySet(
+        readFileSync(join(dir, "keyset.json"), "utf8"),
+      );
+      assert.equal(onDisk.active, a.kid);
+      assert.deepEqual(
+        readdirSync(dir),
+        ["keyset.json"],
+        "aucun temporaire ne survit",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("🔴 une valeur illisible est refusée au DÉMARRAGE, sans recopier la clé dans le message", () => {
+    const secret = '{"keys":[{"d":"SECRET-PRIVE"}]}';
+    for (const keySetJson of ["pas du json", secret, "[]"]) {
+      assert.throws(
+        () => defineSecurityConfig({ jwt: { keystore: { keySetJson } } }),
+        (e: Error) =>
+          BootConfigurationError.is(e) &&
+          e.message.includes("jwt.keystore.keySetJson") &&
+          !e.message.includes("SECRET-PRIVE"),
+      );
+    }
   });
 });
 

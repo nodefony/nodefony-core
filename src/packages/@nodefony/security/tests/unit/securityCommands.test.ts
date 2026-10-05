@@ -191,7 +191,7 @@ describe("security:secrets — on doit savoir QUOI et POURQUOI", () => {
       "NF_TOTP_KEY",
       "NF_WEBHOOK_KEY",
       "NF_CSRF_SECRET",
-      "jwt.keystore",
+      "NF_JWT_KEYSET",
     ]) {
       const bloc = new RegExp(
         `"?${clef.replace(".", "\\.")}"?:\\s*\\{[^}]*protected:[^}]*without:`,

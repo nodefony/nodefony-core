@@ -151,9 +151,13 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
       // plus invalidés à chaque rebuild du serveur de développement.
       //
       // En PRODUCTION, ce dossier n'a pas de sens (pods jetables, système
-      // de fichiers éphémère) : la clé y vient de l'environnement
-      // (`keySetJson`), partagée par tous les pods.
-      keystore: ctx.isProd ? {} : { dir: "var/keys" },
+      // de fichiers éphémère) : la clé vient de `NF_JWT_KEYSET`, la MÊME
+      // pour tous les pods et workers. Présente, elle l'emporte sur le
+      // dossier dans tous les environnements.
+      keystore: {
+        keySetJson: ctx.env.NF_JWT_KEYSET,
+        dir: ctx.isProd ? undefined : "var/keys",
+      },
       // Les ressources qu'un client peut NOMMER en demandant un jeton
       // (`resource`, RFC 8707) — une liste BLANCHE, décidée par
       // l'APPLICATION. La première est l'audience par défaut : garder

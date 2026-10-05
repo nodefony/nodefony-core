@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { readIfPresentSync } from "../src/token/secretFile.js";
+import { generateKeySet } from "../src/token/JwtKeystore.js";
 import path from "node:path";
 import {
   OptionsCommandInterface,
@@ -55,10 +56,11 @@ const ROLES: Record<string, { protected: string; without: string }> = {
     protected: "signe les jetons anti-rejeu des mutations (`@CsrfProtect`)",
     without: "en cluster, le jeton émis par un pod est rejeté par les autres",
   },
-  "jwt.keystore": {
-    protected: "signe les JWT (clé Ed25519, rotation gérée par le keystore)",
+  NF_JWT_KEYSET: {
+    protected:
+      "signe les jetons JWT (paire Ed25519) — la MÊME pour tous les pods et workers",
     without:
-      "chaque process signe avec la sienne : un jeton émis par la CLI est refusé par le serveur",
+      "chaque process signe avec la sienne : 401 au hasard derrière plusieurs pods ou workers, et tous les jetons perdus au redémarrage",
   },
 };
 
@@ -88,6 +90,10 @@ class SecuritySecrets extends Command {
     this.addOption(
       "-w, --write",
       "écrit les clés manquantes dans le .env du projet (jamais de remplacement)",
+    );
+    this.addOption(
+      "-k, --jwt-keyset",
+      "génère la valeur de NF_JWT_KEYSET (une ligne JSON, à ranger dans le gestionnaire de secrets)",
     );
   }
 
@@ -131,13 +137,21 @@ class SecuritySecrets extends Command {
   override async generate(opts: {
     json?: boolean;
     write?: boolean;
+    jwtKeyset?: boolean;
   }): Promise<this> {
+    // La valeur SEULE, sur la sortie standard : elle se redirige telle quelle
+    // vers un gestionnaire de secrets (`| kubectl create secret … --from-file`).
+    if (opts.jwtKeyset) {
+      process.stdout.write((await generateKeySet()) + "\n");
+      return this;
+    }
     // 32 octets = exigence AES-256-GCM (HKDF côté cipher) ; base64 = sûr en .env.
     const gen = (): string => randomBytes(32).toString("base64");
     const secrets: Record<string, string> = {};
     for (const k of KEYS) secrets[k] = gen();
 
     if (opts.json) {
+      secrets["NF_JWT_KEYSET"] = await generateKeySet();
       process.stdout.write(JSON.stringify(secrets, null, 2) + "\n");
       return this;
     }
@@ -198,9 +212,11 @@ class SecuritySecrets extends Command {
     // un nom qu'on ne comprend pas n'apprend rien, et c'est ce que la commande
     // affichait quand tout était câblé.
     for (const [name, role] of Object.entries(ROLES)) {
+      // La clé de signature n'a PAS de valeur dans `.env.local` (cf étape 4) :
+      // elle est en place quand le câblage la lit.
       const pose =
-        name === "jwt.keystore"
-          ? /keystore\s*:/u.test(cfgTs)
+        name === "NF_JWT_KEYSET"
+          ? cfgTs.includes(name)
           : new RegExp(`^\\s*${name}\\s*=`, "m").test(dotenv);
       w(
         `  ${pose ? GREEN + "✓" : YELLOW + "○"}${RESET} ${BOLD}${name.padEnd(16)}${RESET}${DIM}${role.protected}${RESET}\n` +
@@ -304,46 +320,54 @@ class SecuritySecrets extends Command {
       );
     }
 
-    // ── 4. Le keyset JWT : CONSTATÉ, pas seulement mentionné ────────────────
+    // ── 4. La clé de SIGNATURE des jetons : une autre nature de secret ──────
     //
-    // 🔴 Il l'était — dans le paragraphe explicatif du bas, en gris, après trois
-    // « ✓ déjà câblées ». Personne ne le lisait : on lançait la commande, on
-    // voyait trois coches, on concluait que tout était en place — et
-    // `security:token` rendait ensuite un jeton que le serveur refusait, faute
-    // de clé persistante. Une chose qu'on ne CONSTATE pas n'est pas faite.
-    //
-    // La méthodologie reste celle que la commande prescrit depuis toujours : le
-    // keyset n'est pas un secret à COLLER (le keystore le génère, lui pose ses
-    // permissions et y ajoute des clés à chaque rotation), donc il se déclare
-    // par une SOURCE — un dossier en développement, l'environnement en prod.
-    const jwtCable = /keystore\s*:/u.test(cfgTs);
+    // Pas 32 octets aléatoires mais une PAIRE Ed25519 en JSON, et pas de valeur
+    // dans `.env.local` : en développement le keystore la génère lui-même dans
+    // `var/keys/` (persistée, création exclusive entre workers). Une clé privée
+    // de PRODUCTION posée sur un poste de dev n'y servirait à rien — elle n'y
+    // apporterait que le risque de fuir. Elle se génère à part, et part
+    // directement dans le gestionnaire de secrets.
+    const jwtDeclared = envTs.includes("NF_JWT_KEYSET");
+    const jwtWired = cfgTs.includes("NF_JWT_KEYSET");
     w(
-      `${BOLD}4. Fichier ${CYAN}nodefony.config.ts${RESET}${BOLD} — les clés de SIGNATURE des jetons${RESET} ${DIM}(jwt.keystore)${RESET}\n`,
+      `${BOLD}4. La clé de SIGNATURE des jetons${RESET} ${DIM}(NF_JWT_KEYSET — production seulement)${RESET}\n`,
     );
-    if (jwtCable) {
-      w(`   ${GREEN}✓ déjà câblées${RESET}\n\n`);
+    if (jwtDeclared && jwtWired) {
+      w(`   ${GREEN}✓ déclarée dans env.ts et câblée dans ${cfgRel}${RESET}\n`);
     } else {
-      w(
-        `   ${YELLOW}⚠ absentes : chaque process signe avec une clé ÉPHÉMÈRE.${RESET}\n` +
-          `   ${DIM}Un jeton émis par la CLI porte alors un \`kid\` que le serveur ne\n` +
-          `   connaît pas, et il est refusé — et un redémarrage invalide les jetons\n` +
-          `   en vol. Ce n'est pas une valeur à coller : c'est une SOURCE à déclarer.${RESET}\n\n` +
-          `   use("@nodefony/security", {\n` +
-          `     jwt: { keystore: ctx.isProd ? {} : { dir: "var/keys" } },\n` +
-          `   }),\n\n` +
-          `   ${DIM}En production, le dossier n'a pas de sens (pods jetables) : la clé vient\n` +
-          `   de l'environnement — jwt.keystore.keySetJson, injecté par ton gestionnaire\n` +
-          `   de secrets et partagé par tous les pods.${RESET}\n\n`,
-      );
+      if (!jwtDeclared) {
+        w(
+          `   ${CYAN}env.ts${RESET}, dans le defineEnv({ … }) :\n\n` +
+            `   NF_JWT_KEYSET: envString({ optional: true }),\n\n`,
+        );
+      }
+      if (!jwtWired) {
+        w(
+          `   ${CYAN}${cfgRel}${RESET}, entrée security :\n\n` +
+            `   jwt: {\n` +
+            `     keystore: {\n` +
+            `       keySetJson: ctx.env.NF_JWT_KEYSET,\n` +
+            `       dir: ctx.isProd ? undefined : "var/keys",\n` +
+            `     },\n` +
+            `   },\n\n`,
+        );
+      }
     }
+    w(
+      `   ${DIM}Développement : rien à poser, la clé vit dans var/keys/.\n` +
+        `   Production : UNE valeur pour tous les pods et workers, générée une fois —\n` +
+        `   ${RESET}${CYAN}npx nodefony security:secrets --jwt-keyset${RESET}${DIM} — puis rangée dans le\n` +
+        `   gestionnaire de secrets et injectée en NF_JWT_KEYSET. Jamais dans .env.local,\n` +
+        `   jamais dans git. STABLE : la changer refuse les jetons en vol ; pour une\n` +
+        `   rotation, ajouter la nouvelle clé au jeu, la rendre « active », garder l'ancienne.${RESET}\n\n`,
+    );
 
     w(
       `${DIM}Pourquoi 3 fichiers ? .env.local porte la VALEUR (secret machine, gitignoré —\n` +
         `le .env commité ne porte que des défauts non-secrets) ; env.ts la DÉCLARE\n` +
-        `(catalogue typé, validé au boot) ; nodefony.config.ts la CÂBLE au module.\n` +
-        `Les étapes 2 et 3 ne se font qu'une fois — ensuite seule l'étape 1 vit.\n` +
-        `L'étape 4 sort de ce schéma, et c'est voulu : un keyset n'est pas une valeur\n` +
-        `qu'on colle, mais une source que le keystore gère (rotation, permissions).${RESET}\n\n` +
+        `(catalogue typé, validé au boot) ; ${cfgRel} la CÂBLE au module.\n` +
+        `Les étapes 2 et 3 ne se font qu'une fois — ensuite seule l'étape 1 vit.${RESET}\n\n` +
         `Relance le serveur : plus aucun warning « clé ÉPHÉMÈRE » au boot.\n\n`,
     );
     return this;

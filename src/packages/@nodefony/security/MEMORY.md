@@ -140,8 +140,18 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   (`NODE_EXTRA_CA_CERTS`, posé par `start.sh`) — sinon la découverte échoue et la zone rend **503**.
   L'audience exigée par la zone vaut `https://localhost:5152` parce que `jwt.audiences` vide ⇒
   `[issuer]` (`resolveJwtRuntime`) : elle SUIT l'émetteur, elle ne se choisit pas.
-- `JwtKeystore` (Ed25519) : source PRIORISÉE env (`keystore.keySetJson`) → fichier (`keystore.dir/
-keyset.json` chmod 600, généré si absent) → mémoire+WARNING (éphémère). `kid`=thumbprint RFC 7638.
+- `JwtKeystore` (Ed25519) : source PRIORISÉE env (`keystore.keySetJson` ← `NF_JWT_KEYSET` de l'app) →
+  fichier (`keystore.dir/keyset.json` chmod 600, création EXCLUSIVE `createSecretExclusive` : lien dur,
+  `EEXIST` → relit la clé du gagnant ; workers de cluster = 1 seule clé) → mémoire+WARNING (éphémère).
+  `kid`=thumbprint RFC 7638. `generateKeySet()` = SEULE génération (keystore, `security:secrets
+--jwt-keyset`) ; `parseKeySet()` = SEULE lecture de forme (keystore + `refine` Zod de `keySetJson` :
+  illisible → config refusée au boot, valeur jamais dans le message).
+- 🔴 Prod + run qui SERT (`runProfile.servers`) + `jwt.enabled` + ni `keySetJson` ni `dir` →
+  `BootConfigurationError` (`TokenService.#requireSharedSigningKey`, message multi-lignes : pourquoi +
+  3 issues). Console (`orm:migrate`…) non concernée. Gotcha : un décor de prod qui SERT doit poser
+  `NF_JWT_KEYSET` (CI `node.js.yml`, `production.yml.tpl`, `smoke-docker.sh`).
+- `production.yml.tpl` job `image` (sans app installée) recopie le générateur en `node:crypto`
+  (balises `nf-keyset:begin/end`) — `jwtKeystore.test.ts` EXÉCUTE la copie et la charge (garde de frontière).
   JWKS public via `createLocalJWKSet` (jamais `jku`/`jwk` header — §3.5) — JAMAIS `d`. Lazy async mémoïsé.
   ⚠️ jose v6 : `generateKeyPair("Ed25519",{extractable:true})` (pas `"EdDSA"`) ; header/verify = `"EdDSA"`.
 - `TokenService` (service "tokenService", J4) : `issueForCredentials`(password grant → access JWT +

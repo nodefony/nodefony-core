@@ -394,6 +394,39 @@ export const env = defineEnv({
   }),
 
   /**
+   * 🔐 Clé de SIGNATURE des jetons JWT, PARTAGÉE par tous les process qui
+   * servent l'application — pods derrière un répartiteur, workers de
+   * `nodefony cluster`. Elle est câblée dans `jwt.keystore.keySetJson`.
+   *
+   * **Pourquoi elle existe.** Chaque jeton porte le `kid` de la clé qui l'a
+   * signé. Deux process qui ont chacun leur clé refusent les jetons l'un de
+   * l'autre : l'utilisateur est déconnecté au hasard de la répartition (401).
+   *
+   * **Absente ⇒** développement : rien à faire, la clé vit dans `var/keys/`
+   * (persistée, créée par un seul worker). Production : chaque process signe
+   * avec une clé ÉPHÉMÈRE, annoncée par un WARNING au premier jeton — tolérable
+   * pour UN seul process, faux dès le deuxième, et tous les jetons sont perdus à
+   * chaque redémarrage. Facultative pour la même raison que `NF_TOTP_KEY` : une
+   * application qui n'émet aucun jeton doit pouvoir démarrer sans elle.
+   *
+   * **Valeur** : un jeu de clés Ed25519 en JSON, sur UNE ligne —
+   * `npx nodefony security:secrets --jwt-keyset`. Elle contient la clé PRIVÉE :
+   * gestionnaire de secrets (Secret k8s, vault), jamais `.env.local`, jamais git.
+   * Dans un fichier `.env`, l'entourer de quotes simples.
+   * **Illisible ⇒** la configuration security est refusée au démarrage, le
+   * chemin nommé, la valeur jamais recopiée.
+   *
+   * **STABLE** : la remplacer refuse les jetons en vol. Rotation : ajouter la
+   * nouvelle clé au tableau `keys`, la désigner dans `active`, garder l'ancienne
+   * le temps que ses jetons expirent.
+   */
+  NF_JWT_KEYSET: envString({
+    optional: true,
+    description:
+      "Clé de signature des JWT partagée par tous les pods/workers (JSON une ligne, `security:secrets --jwt-keyset`) — absente : une clé par process.",
+  }),
+
+  /**
    * Secret des jetons anti-CSRF (synchronizer token). PROD/cluster :
    * OBLIGATOIRE et PARTAGÉ entre les process — un secret par pod ferait
    * échouer la validation d'un jeton émis par un autre pod. DEV : optionnel,

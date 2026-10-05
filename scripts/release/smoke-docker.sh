@@ -81,6 +81,14 @@ runs() { [[ "$SCENARIO" == "all" || "$SCENARIO" == "$1" || "${SCENARIO%%:*}" == 
 # le décalait en silence, et le seul symptôme était un chemin doublé
 # (`.claude/skills/.claude/skills/…`) au premier `node`.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Clé de SIGNATURE des jetons, jetable elle aussi, par la commande du PRODUIT :
+# une paire Ed25519 en JSON, pas 32 hexadécimaux — la recopier ici en ferait une
+# seconde définition du format. Sans elle, une application du preset complet
+# REFUSE de démarrer en production (jwt.keystore), et c'est voulu.
+SMOKE_JWT_KEYSET="$(cd "$ROOT" && node node_modules/nodefony/bin/nodefony security:secrets --jwt-keyset 2>/dev/null)"
+[[ "$SMOKE_JWT_KEYSET" == '{"active":'* ]] ||
+  { echo "✗ impossible de générer la clé de signature (npm run build fait ?)" >&2; exit 1; }
 [[ -f "$ROOT/package.json" && -d "$ROOT/scripts/release" ]] ||
   { echo "✗ racine du dépôt introuvable depuis ${BASH_SOURCE[0]} (ROOT=$ROOT)" >&2; exit 1; }
 
@@ -722,6 +730,7 @@ process.stdout.write("studio: policy mandatory constatée dans le gabarit\n");
   docker run -d --name "$SCTN" -p "$SPORT:5151" \
     -e NF_CSRF_SECRET="$SMOKE_SECRET" \
     -e NF_SESSION_SECRET="$SMOKE_SECRET" \
+    -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" \
     "$SIMG" >/dev/null
   migrate_in "$SCTN"
   wait_ready "$SCTN" "$SPORT"
@@ -884,6 +893,7 @@ services:
       NF_CSRF_SECRET: "$SMOKE_SECRET"
       NF_SESSION_SECRET: "$SMOKE_SECRET"
       NF_ADMIN_PASSWORD: "$EDGE_ADMIN_PASSWORD"
+      NF_JWT_KEYSET: '$SMOKE_JWT_KEYSET'
 YML
 
   step "[edge] docker compose --profile edge up -d --build (le geste de l'utilisateur)"
@@ -1195,6 +1205,7 @@ services:
       NF_CSRF_SECRET: "$SMOKE_SECRET"
       NF_SESSION_SECRET: "$SMOKE_SECRET"
       NF_ADMIN_PASSWORD: "$SQL_ADMIN_PASSWORD"
+      NF_JWT_KEYSET: '$SMOKE_JWT_KEYSET'
 YML
 
     step "[sql:$MOTEUR] docker compose --profile app up -d --build (le geste de l'utilisateur)"
@@ -1406,7 +1417,11 @@ if runs cluster; then
 
   step "[cluster] run — NF_WORKERS=$CWORKERS sur la base neuve de l'image"
   docker rm -f "$CCTN" >/dev/null 2>&1 || true
-  docker run -d --name "$CCTN" -e NF_WORKERS="$CWORKERS" -p "$CPORT:5151" "$CIMG" >/dev/null
+  # La clé de signature : N workers qui servent en production sans clé
+  # partagée refusent de démarrer (jwt.keystore) — c'est précisément ce que ce
+  # scénario éprouve, et ce que la variable règle (héritée au fork).
+  docker run -d --name "$CCTN" -e NF_WORKERS="$CWORKERS" \
+    -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" -p "$CPORT:5151" "$CIMG" >/dev/null
   # Chaque worker annonce son écoute HTTP : on attend les N, pas le premier.
   listening=0
   for _ in $(seq 1 90); do

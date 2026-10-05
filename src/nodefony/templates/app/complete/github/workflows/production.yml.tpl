@@ -65,6 +65,22 @@ jobs:
         run: |
           set -euo pipefail
           SECRET=$(openssl rand -base64 32)
+          # La clé de SIGNATURE des jetons — une paire Ed25519, pas 32 octets.
+          # Sans elle, la production REFUSE de démarrer (jwt.keystore). Ce job
+          # n'installe pas l'application, donc `security:secrets --jwt-keyset`
+          # n'y est pas : le format est produit ici par node:crypto seul, et le
+          # dépôt Nodefony éprouve que son keystore charge CETTE sortie.
+          # nf-keyset:begin
+          KEYSET=$(node -e '
+          const c = require("node:crypto");
+          const k = c.generateKeyPairSync("ed25519").privateKey.export({ format: "jwk" });
+          const kid = c.createHash("sha256")
+            .update(JSON.stringify({ crv: k.crv, kty: k.kty, x: k.x }))
+            .digest("base64url");
+          process.stdout.write(JSON.stringify({ active: kid, keys: [{ ...k, kid, alg: "EdDSA", use: "sig" }] }));
+          ')
+          # nf-keyset:end
+          echo "::add-mask::$KEYSET"
           cat > compose.ci.yaml <<YML
           services:
 <% if (it.hasMigrations) { %>            migrate:
@@ -77,6 +93,7 @@ jobs:
                 NF_CSRF_SECRET: "$SECRET"
                 NF_SESSION_SECRET: "$SECRET"
                 NF_ADMIN_PASSWORD: "$SECRET"
+                NF_JWT_KEYSET: '$KEYSET'
           YML
 
       # Le geste de l'utilisateur, celui que le README documente. Il construit
@@ -273,6 +290,11 @@ jobs:
           # que l'application démarre avec CEUX QU'ON LUI DONNE, pas avec des
           # valeurs qu'elle connaîtrait d'avance.
           echo "NF_CI_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          # La clé de SIGNATURE des jetons, par le geste documenté — sans elle,
+          # la production refuse de démarrer (jwt.keystore).
+          KEYSET=$(<%= it.pmExec("nodefony") %> security:secrets --jwt-keyset)
+          echo "::add-mask::$KEYSET"
+          echo "NF_CI_JWT_KEYSET=$KEYSET" >> "$GITHUB_ENV"
 
       - name: Écrire la surcharge de la chaîne
         shell: bash
@@ -290,6 +312,7 @@ jobs:
                 NF_CSRF_SECRET: "${NF_CI_SECRET}"
                 NF_SESSION_SECRET: "${NF_CI_SECRET}"
                 NF_ADMIN_PASSWORD: "${NF_CI_ADMIN_PASSWORD}"
+                NF_JWT_KEYSET: '${NF_CI_JWT_KEYSET}'
           YML
 
       # L'étage `proxyconf` du Dockerfile DÉRIVE la configuration du frontal de

@@ -53,6 +53,15 @@ NF_DATABASE_URL=<%= it.db.url %>
 # NF_TOTP_KEY=        → .env.local (chiffrement des secrets 2FA au repos)
 # NF_WEBHOOK_KEY=     → .env.local (chiffrement des signatures webhook)
 # NF_CSRF_SECRET=     → .env.local (jetons anti-CSRF, partagé en cluster)
+#
+# Clé de SIGNATURE des jetons — PRODUCTION seulement, et JAMAIS dans .env.local.
+# En dev, rien à poser : elle vit dans var/keys/. En production, UNE valeur pour
+# tous les pods et workers (sinon 401 au hasard), générée une fois :
+#   npx nodefony security:secrets --jwt-keyset
+# puis rangée dans le gestionnaire de secrets et injectée en NF_JWT_KEYSET.
+# NF_JWT_KEYSET=      → gestionnaire de secrets (JSON sur une ligne)
+# URL publique de l'app comme émetteur de jetons (https) — la production l'écrit :
+# NF_JWT_ISSUER=https://app.example.com
 
 # ── Compte admin (seedé au premier boot — nodefony/security/provisionUsers.ts)
 # DEV : défaut admin / nodefony-dev-42 (local). PROD : OBLIGATOIRE, sans lui aucun compte

@@ -6,7 +6,7 @@ import type {
   IJwtSigningKey,
 } from "../../contracts/IJwtKeystore";
 import {
-  writeSecret,
+  createSecretExclusive,
   readIfPresent,
   messageNonRestreint,
   modeNonRestreintAsync,
@@ -70,7 +70,7 @@ export function keystoreLeaksIntoImage(dir: string): string | null {
 }
 
 /** Clé telle que persistée : JWK privé (avec `d`) + métadonnées. */
-interface StoredKey extends JWK {
+export interface IStoredKey extends JWK {
   kid: string;
   alg: string;
   use?: string;
@@ -78,10 +78,73 @@ interface StoredKey extends JWK {
 }
 
 /** Forme du fichier `keyset.json` / de la variable d'env `keySetJson`. */
-interface StoredKeyset {
+export interface IStoredKeySet {
   /** `kid` de la clé qui signe (les autres ne servent qu'à vérifier). */
   active: string;
-  keys: StoredKey[];
+  keys: IStoredKey[];
+}
+
+/**
+ * Lit un jeu de clés sérialisé et en vérifie la FORME — la seule lecture du
+ * dépôt, appelée par le keystore ET par la validation de configuration.
+ *
+ * Ne vérifie que la structure (`keys` non vide, un `kid` par clé) : importer
+ * les clés exige `jose`, chargé paresseusement au premier jeton. Les messages
+ * ne recopient JAMAIS la valeur reçue — elle porte une clé privée.
+ *
+ * @param json - le jeu de clés, tel que `NF_JWT_KEYSET` ou `keyset.json` le porte.
+ * @returns le jeu de clés lu.
+ * @throws Error si le JSON est illisible ou la structure incomplète.
+ */
+export function parseKeySet(json: string): IStoredKeySet {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("JwtKeystore: keyset JSON invalide");
+  }
+  const keyset = parsed as IStoredKeySet | null; // `JSON.parse("null")`
+  if (
+    !keyset ||
+    !Array.isArray(keyset.keys) ||
+    keyset.keys.length === 0 ||
+    keyset.keys.some((k) => typeof k.kid !== "string")
+  ) {
+    throw new Error(
+      "JwtKeystore: keyset malformé (champ `keys` non vide avec `kid` requis)",
+    );
+  }
+  return keyset;
+}
+
+/** Génère une nouvelle paire Ed25519 (extractable pour persistance JWK). */
+async function buildKeySet(jose: typeof Jose): Promise<IStoredKeySet> {
+  const { publicKey, privateKey } = await jose.generateKeyPair("Ed25519", {
+    extractable: true,
+  });
+  const publicJwk = await jose.exportJWK(publicKey);
+  const kid = await jose.calculateJwkThumbprint(publicJwk, "sha256");
+  const privateJwk = await jose.exportJWK(privateKey);
+  return {
+    active: kid,
+    keys: [
+      { ...privateJwk, kid, alg: "EdDSA", use: "sig", createdAt: Date.now() },
+    ],
+  };
+}
+
+/**
+ * Génère un jeu de clés de signature à partager entre tous les process d'une
+ * application — la valeur de `NF_JWT_KEYSET`.
+ *
+ * Même générateur que celui du keystore (une seule implémentation), sérialisé
+ * en JSON COMPACT : une ligne, sans quote simple, qu'un `.env` porte entre
+ * quotes simples et qu'un gestionnaire de secrets stocke tel quel.
+ *
+ * @returns le jeu de clés sérialisé — il contient la clé PRIVÉE.
+ */
+export async function generateKeySet(): Promise<string> {
+  return JSON.stringify(await buildKeySet(await import("jose")));
 }
 
 /** Clé chargée en mémoire : privée pour signer, JWK public pour le JWKS. */
@@ -112,10 +175,15 @@ interface LoadedKey {
  * usage ; le boot ne paie rien si le JWT n'est jamais sollicité. Le chargement
  * est mémoïsé (une seule résolution concurrente).
  *
- * @remarks Race au 1ᵉʳ boot d'un **cluster** sans clé pré-provisionnée : deux
- * workers peuvent générer puis écrire des clés différentes (le dernier `rename`
- * gagne). En prod, provisionner la clé hors-bande (`keySetJson`/SecretProvider
- * P16) élimine ce cas — c'est précisément la source recommandée.
+ * @remarks Plusieurs process qui servent la MÊME application doivent signer
+ * avec la même clé, sinon un jeton signé par l'un est refusé par l'autre :
+ * - **pods** (aucun disque partagé) → source `env` obligatoire, la même valeur
+ *   injectée partout (`NF_JWT_KEYSET`, générée par `security:secrets`) ;
+ * - **workers de `nodefony cluster`** → la source `env` est héritée au fork ; à
+ *   défaut, la source `fichier` est sûre : la création de `keyset.json` est
+ *   EXCLUSIVE ({@link createSecretExclusive}), un seul worker la génère et les
+ *   autres relisent la sienne ;
+ * - source `mémoire` → une clé par process, jamais cohérente.
  */
 export class JwtKeystore implements IJwtKeystore {
   readonly #source: KeystoreSource;
@@ -152,10 +220,7 @@ export class JwtKeystore implements IJwtKeystore {
     const jose = await import("jose");
     // 1. env (clé injectée par l'app) — prod.
     if (this.#source.keySetJson) {
-      await this.#importKeyset(
-        jose,
-        this.#parseKeyset(this.#source.keySetJson),
-      );
+      await this.#importKeyset(jose, parseKeySet(this.#source.keySetJson));
       return;
     }
     // 2. fichier — opt-in dev/VPS (généré si absent).
@@ -168,42 +233,46 @@ export class JwtKeystore implements IJwtKeystore {
       const existing = await this.#readFile(file);
       if (existing) {
         await this.#checkRestricted(file);
-        await this.#importKeyset(jose, this.#parseKeyset(existing));
+        await this.#importKeyset(jose, parseKeySet(existing));
         return;
       }
-      const keyset = await this.#generate(jose);
-      await this.#writeAtomic(file, JSON.stringify(keyset));
-      await this.#importKeyset(jose, keyset);
+      // Plusieurs process peuvent arriver ici ENSEMBLE (workers d'un cluster
+      // au premier boot) : un seul crée le fichier, les autres relisent le sien.
+      const keyset = await buildKeySet(jose);
+      if (await createSecretExclusive(file, JSON.stringify(keyset))) {
+        this.#log(
+          `JWT keystore: clé Ed25519 générée et persistée (${file}).`,
+          "INFO",
+        );
+        await this.#checkRestricted(file);
+        await this.#importKeyset(jose, keyset);
+        return;
+      }
+      const winner = await this.#readFile(file);
+      if (winner === null) {
+        throw new Error(
+          `JwtKeystore: ${file} a disparu juste après sa création`,
+        );
+      }
+      await this.#checkRestricted(file);
+      await this.#importKeyset(jose, parseKeySet(winner));
       return;
     }
     // 3. mémoire — défaut dev jetable.
     this.#log(
-      "JWT keystore: clé de signature ÉPHÉMÈRE en mémoire (perdue au redémarrage " +
-        "→ refresh tokens invalidés, incohérente en cluster). Configurez " +
-        "jwt.keystore.dir (dev/VPS) ou jwt.keystore.keySetJson depuis l'env (prod).",
+      "JWT keystore: clé de signature ÉPHÉMÈRE en mémoire — perdue au redémarrage " +
+        "(jetons en vol invalidés) et propre à CE process : derrière plusieurs pods ou " +
+        "workers, un jeton signé par l'un est refusé par l'autre (401 au hasard). " +
+        "Production : poser jwt.keystore.keySetJson depuis l'environnement (NF_JWT_KEYSET " +
+        "dans une application générée — `npx nodefony security:secrets --jwt-keyset`). " +
+        "Développement : jwt.keystore.dir.",
       "WARNING",
     );
-    await this.#importKeyset(jose, await this.#generate(jose));
-  }
-
-  /** Génère une nouvelle paire Ed25519 (extractable pour persistance JWK). */
-  async #generate(jose: typeof Jose): Promise<StoredKeyset> {
-    const { publicKey, privateKey } = await jose.generateKeyPair("Ed25519", {
-      extractable: true,
-    });
-    const publicJwk = await jose.exportJWK(publicKey);
-    const kid = await jose.calculateJwkThumbprint(publicJwk, "sha256");
-    const privateJwk = await jose.exportJWK(privateKey);
-    return {
-      active: kid,
-      keys: [
-        { ...privateJwk, kid, alg: "EdDSA", use: "sig", createdAt: Date.now() },
-      ],
-    };
+    await this.#importKeyset(jose, await buildKeySet(jose));
   }
 
   /** Importe un keyset persisté : privée → `CryptoKey`, public → JWK sans `d`. */
-  async #importKeyset(jose: typeof Jose, keyset: StoredKeyset): Promise<void> {
+  async #importKeyset(jose: typeof Jose, keyset: IStoredKeySet): Promise<void> {
     const loaded: LoadedKey[] = [];
     for (const stored of keyset.keys) {
       const imported = await jose.importJWK(stored, "Ed25519");
@@ -244,40 +313,9 @@ export class JwtKeystore implements IJwtKeystore {
         : firstKey.kid;
   }
 
-  #parseKeyset(json: string): StoredKeyset {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(json);
-    } catch {
-      throw new Error("JwtKeystore: keyset JSON invalide");
-    }
-    const keyset = parsed as StoredKeyset | null; // `JSON.parse("null")`
-    if (
-      !keyset ||
-      !Array.isArray(keyset.keys) ||
-      keyset.keys.length === 0 ||
-      keyset.keys.some((k) => typeof k.kid !== "string")
-    ) {
-      throw new Error(
-        "JwtKeystore: keyset malformé (champ `keys` non vide avec `kid` requis)",
-      );
-    }
-    return keyset;
-  }
-
   /** Lit un fichier ; `null` si absent (ENOENT), relance toute autre erreur. */
   async #readFile(file: string): Promise<string | null> {
     return readIfPresent(file);
-  }
-
-  /** Écriture atomique (tmp + rename) en mode 600 — pas de fichier partiel lu. */
-  async #writeAtomic(file: string, data: string): Promise<void> {
-    await writeSecret(file, data);
-    this.#log(
-      `JWT keystore: clé Ed25519 générée et persistée (${file}).`,
-      "INFO",
-    );
-    await this.#checkRestricted(file);
   }
 
   /**

@@ -15,7 +15,7 @@
 | Infrastructure | 13 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 37 |
-| Runtime produit | 78 |
+| Runtime produit | 79 |
 
 ## Décor de banc
 
@@ -146,7 +146,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (78)
+## Runtime produit (79)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -209,6 +209,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:52` |
 | `NF_HUB_SOURCE` | `scripts/release/hub-description.mjs:65` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:38` |
+| `NF_JWT_KEYSET` | `src/packages/@nodefony/security/tests/support/keystoreProcess.ts:18` |
 | `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:792` |
 | `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:62` |
 | `NF_MONGODB_DEBUG` | `src/packages/@nodefony/mongoose/tests/unit/config.test.ts:135` |

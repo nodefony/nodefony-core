@@ -4,6 +4,7 @@ import {
   Container,
   GcScheduler,
   AUTO_STORE,
+  BootConfigurationError,
   EMPTY_INFRA,
   canonicalIssuer,
   refusedAdminScopes,
@@ -95,11 +96,54 @@ class TokenService extends Service {
       module.notificationsCenter,
       module.options,
     );
-    this.kernel?.once("onBoot", () => this.#build());
+    // Écouteur NOMMÉ : un refus de démarrage désigne son auteur par le nom de
+    // la fonction — une lambda anonyme s'y affichait « (anonyme) ».
+    const tokenServiceBoot = (): void => this.#build();
+    this.kernel?.once("onBoot", tokenServiceBoot);
     this.kernel?.once("onTerminate", () => this.#shutdown());
   }
 
   // ── Cycle de vie ─────────────────────────────────────────────────────────────
+
+  /**
+   * Refuse de SERVIR en production sans clé de signature partagée.
+   *
+   * Sans `keySetJson` ni `dir`, le keystore tire une clé ÉPHÉMÈRE propre au
+   * process : derrière plusieurs pods ou workers, un jeton signé par l'un est
+   * refusé par l'autre (401 au hasard de la répartition), et chaque
+   * redémarrage invalide tous les jetons. Un avertissement au premier jeton ne
+   * suffisait pas — il tombait en production, loin de celui qui pouvait agir.
+   *
+   * Seul un run qui SERT est concerné (`runProfile.servers`) : une commande de
+   * console (`orm:migrate`, `security:user:add`) ne signe aucun jeton, et la
+   * bloquer casserait le job de migration pour rien.
+   *
+   * @throws BootConfigurationError - production, serveur, et aucune source.
+   */
+  #requireSharedSigningKey(keystore: {
+    keySetJson?: string | undefined;
+    dir?: string | undefined;
+  }): void {
+    if (keystore.keySetJson || keystore.dir) return;
+    if (this.kernel?.environment !== "production") return;
+    if (!this.kernel.runProfile.servers) return;
+    // Sur PLUSIEURS lignes, et dans cet ordre : ce qui est refusé, pourquoi,
+    // puis les issues numérotées. Le journal d'un pod qui redémarre en boucle
+    // est lu en diagonale — une ligne de six cents caractères n'y est pas lue.
+    throw new BootConfigurationError(
+      [
+        "[@nodefony/security] DÉMARRAGE REFUSÉ — aucune clé de signature des jetons partagée (jwt.keystore).",
+        "  Pourquoi : chaque process signerait avec la sienne. Un jeton émis par un pod ou un worker",
+        "  serait refusé par les autres (401 au hasard), et tous seraient perdus au redémarrage.",
+        "  Que faire — une des trois :",
+        "    1. Poser NF_JWT_KEYSET (câblée sur jwt.keystore.keySetJson) : valeur générée UNE fois par",
+        "       `npx nodefony security:secrets --jwt-keyset`, rangée dans le gestionnaire de secrets,",
+        "       injectée dans chaque pod.",
+        "    2. Serveur unique à disque persistant : jwt.keystore.dir.",
+        "    3. L'application n'émet aucun jeton : jwt.enabled: false.",
+      ].join("\n"),
+    );
+  }
 
   #build(): void {
     let config: ISecurityConfig;
@@ -180,6 +224,7 @@ class TokenService extends Service {
     // Capacité JWT (signature + refresh) : runtime + keystore Ed25519 — seulement
     // si activée. Sans elle, le store existe quand même (clés API seules).
     if (jwtEnabled) {
+      this.#requireSharedSigningKey(config.jwt.keystore);
       this.#runtime = resolveJwtRuntime(config.jwt);
       this.#keystore = new JwtKeystore(config.jwt.keystore, (m, s) =>
         this.log(m, s as Severity),

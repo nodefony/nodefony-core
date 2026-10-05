@@ -44,13 +44,21 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
      *   chaque process génère la sienne au démarrage : un jeton émis par la
      *   CLI porte un `kid` que le serveur en marche ne connaît pas, et il est
      *   refusé en « autorisation requise » — sans que rien ne dise pourquoi.
-     *   En production, la clé vient de l'environnement (`keySetJson`), le
-     *   système de fichiers d'un pod étant éphémère.
+     *
+     * - **`keystore.keySetJson`** — en production, le système de fichiers d'un
+     *   pod est jetable : la clé vient de `NF_JWT_KEYSET`, la MÊME pour tous
+     *   les pods et workers (`npx nodefony security:secrets --jwt-keyset`).
+     *   Présente, elle l'emporte sur le dossier dans tous les environnements.
+     *
+     * - **`issuer`** — l'URL publique de l'application (`NF_JWT_ISSUER`). Elle
+     *   ne se devine pas derrière un relais : c'est l'exploitant qui l'écrit.
      */
     jwt: {
-      issuer: ctx.isProd
-        ? undefined
-        : `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}`,
+      issuer:
+        ctx.env.NF_JWT_ISSUER ??
+        (ctx.isProd
+          ? undefined
+          : `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}`),
       audiences: ctx.isProd
         ? []
         : [
@@ -58,7 +66,10 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
             `http://localhost:${ctx.env.NF_PORT ?? 5151}/nodefony/mcp`,
             `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}/nodefony/mcp`,
           ],
-      keystore: ctx.isProd ? {} : { dir: "var/keys" },
+      keystore: {
+        keySetJson: ctx.env.NF_JWT_KEYSET,
+        dir: ctx.isProd ? undefined : "var/keys",
+      },
     },
     /**
      * Connexion par un fournisseur d'identité (OpenID Connect) — ici Keycloak.

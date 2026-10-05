@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { Container } from "nodefony";
+import { BootConfigurationError, Container } from "nodefony";
 import type { Module } from "nodefony";
 import type { IUser } from "@nodefony/user";
 import * as jose from "jose";
@@ -46,6 +46,7 @@ const sha256 = (s: string): string =>
 function buildService(
   configInput: unknown,
   environment?: string,
+  runProfile?: { servers: boolean },
 ): {
   svc: TokenService;
   container: Container;
@@ -56,6 +57,8 @@ function buildService(
   const kernel = {
     container,
     environment,
+    // Comme le vrai Kernel, qui le pose dans son constructeur : console par défaut.
+    runProfile: runProfile ?? { servers: false },
     once(ev: string, cb: (...a: unknown[]) => void) {
       handlers[ev] = cb;
     },
@@ -264,6 +267,66 @@ describe("TokenService — doctrine d'échec store explicite", () => {
     b.boot();
     assert.equal(b.svc.isEnabled(), true);
     assert.ok(b.container.get("tokenStore"));
+  });
+});
+
+/**
+ * La clé de signature en PRODUCTION : sans source partagée, chaque process qui
+ * sert l'application signe avec la sienne — 401 au hasard derrière plusieurs
+ * pods ou workers, tous les jetons perdus au redémarrage. Le démarrage le
+ * refuse, mais seulement quand le process SERT : un `orm:migrate` ne signe rien.
+ */
+describe("TokenService — clé de signature exigée en production", () => {
+  const serving = { servers: true };
+  const withKeystore = (keystore: object): object => ({
+    ...baseConfig,
+    jwt: { ...baseConfig.jwt, keystore },
+  });
+
+  it("🔴 production + serveur + aucune source → démarrage refusé, avec le geste", () => {
+    const b = buildService(baseConfig, "production", serving);
+    assert.throws(
+      () => b.boot(),
+      (e: Error) =>
+        BootConfigurationError.is(e) &&
+        e.message.includes("NF_JWT_KEYSET") &&
+        e.message.includes("security:secrets --jwt-keyset") &&
+        e.message.includes("jwt.enabled"),
+    );
+  });
+
+  it("une commande console de production (aucun serveur) démarre : elle ne signe rien", () => {
+    const b = buildService(baseConfig, "production", { servers: false });
+    b.boot();
+    assert.equal(b.svc.isEnabled(), true);
+  });
+
+  it("une source partagée — variable OU dossier persistant — suffit", async () => {
+    const { generateKeySet } =
+      await import("../../nodefony/src/token/JwtKeystore");
+    for (const keystore of [
+      { keySetJson: await generateKeySet() },
+      { dir: "var/keys" },
+    ]) {
+      const b = buildService(withKeystore(keystore), "production", serving);
+      b.boot();
+      assert.equal(b.svc.isEnabled(), true);
+    }
+  });
+
+  it("JWT désactivé : rien à exiger", () => {
+    const b = buildService(
+      { ...baseConfig, jwt: { enabled: false } },
+      "production",
+      serving,
+    );
+    b.boot();
+  });
+
+  it("développement : clé éphémère tolérée (avertie au premier jeton)", () => {
+    const b = buildService(baseConfig, "development", serving);
+    b.boot();
+    assert.equal(b.svc.isEnabled(), true);
   });
 });
 

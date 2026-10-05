@@ -491,8 +491,8 @@ jamais faire tomber ce qu'on supervise.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `auditSchema` (`config.ts:883`), rattaché à la racine sous la clé `audit`
-(`config.ts:1169`).
+Table dérivée du schéma Zod `auditSchema` (`config.ts:901`), rattaché à la racine sous la clé `audit`
+(`config.ts:1187`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
@@ -670,7 +670,7 @@ Deux autres propriétés de sécurité valent d'être connues :
 | Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts:49`)                                 |
 | Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts:61`) |
 | Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts:48`)                |
-| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:912`)                       |
+| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:930`)                       |
 | Détection de rejeu de jeton               | RFC 9700 §4.14                    | `token.reuse_detected` + coupure de famille (`tokenService.ts:585`)               |
 | Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:773`)                   |
 

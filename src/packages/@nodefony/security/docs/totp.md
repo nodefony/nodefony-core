@@ -453,20 +453,20 @@ La saisie est tolérante — casse et tirets ignorés à la normalisation (`totp
 
 ## ⚙️ Configuration et mises en situation
 
-La section `totp` du schéma Zod (`config.ts:1155`) — validée au boot, donc une valeur hors bornes
+La section `totp` du schéma Zod (`config.ts:1173`) — validée au boot, donc une valeur hors bornes
 échoue **au démarrage**, pas au premier login :
 
 | Option          | Type                         | Défaut | Effet                                                           |
 | --------------- | ---------------------------- | ------ | --------------------------------------------------------------- |
 | `enabled`       | `boolean`                    | `true` | Coupe le 2FA : service inerte, routes en `503` (`totp.ts:101`). |
 | `issuer`        | `string?`                    | —      | Nom affiché dans l'app d'authentification. Omis = nom de l'app. |
-| `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:551`).      |
+| `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:569`).      |
 | `digits`        | `int` 6–8                    | `6`    | Longueur du code (RFC 4226 §5.3 : 6 minimum).                   |
 | `period`        | `int` > 0                    | `30`   | Durée de vie d'un code, en secondes.                            |
 | `window`        | `int` ≥ 0                    | `1`    | Tolérance de dérive, en pas (`config.ts:572`).                  |
 | `recoveryCodes` | `int` > 0                    | `10`   | Nombre de codes générés à l'activation (`config.ts:580`).       |
-| `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:588`).        |
-| `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:594`).             |
+| `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:606`).        |
+| `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:612`).             |
 
 ### Situation 1 — un utilisateur active la 2FA sur son compte
 

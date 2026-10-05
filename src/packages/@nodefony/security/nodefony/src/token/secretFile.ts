@@ -7,7 +7,16 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import {
+  link,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -146,6 +155,62 @@ export async function writeSecret(
     // typiquement un `.env` que l'utilisateur a sous les yeux dans son éditeur.
     await rm(tmp, { force: true }).catch(() => {});
     throw e;
+  }
+}
+
+/**
+ * Codes d'un système de fichiers qui ne sait pas poser de lien dur (FAT, exFAT,
+ * certains montages réseau) — et non d'une cible déjà présente.
+ */
+const NO_HARD_LINK = new Set(["EPERM", "ENOTSUP", "ENOSYS", "EOPNOTSUPP"]);
+
+/**
+ * Crée un secret SEULEMENT s'il n'existe pas encore : 0600, atomique, et un
+ * seul gagnant quand plusieurs process le tentent en même temps.
+ *
+ * ⭐ **Pourquoi pas {@link writeSecret}.** `rename` REMPLACE la cible : deux
+ * workers de `nodefony cluster` qui génèrent chacun une clé au premier boot
+ * l'écrivent tous les deux, le dernier gagne sur le disque — et l'autre garde
+ * en mémoire une clé que plus personne ne connaît. Ici, le temporaire est
+ * publié par un LIEN DUR, que le système refuse (`EEXIST`) si le nom existe :
+ * le perdant le sait, et relit la clé du gagnant. Le lecteur ne voit jamais un
+ * fichier à demi écrit, puisque le lien n'apparaît qu'une fois le contenu complet.
+ *
+ * ⚠️ Un système de fichiers sans liens durs (FAT, exFAT) retombe sur une
+ * création exclusive directe (`wx`) : toujours un seul gagnant, mais un lecteur
+ * concurrent peut lire le fichier pendant son écriture — il lève alors, au lieu
+ * de signer avec une clé divergente.
+ *
+ * @param file - chemin du secret.
+ * @param content - contenu à écrire.
+ * @returns `true` si ce process l'a créé, `false` s'il existait déjà.
+ */
+export async function createSecretExclusive(
+  file: string,
+  content: string,
+): Promise<boolean> {
+  await mkdir(path.dirname(file), { recursive: true });
+  // Unique PAR APPEL, pas par process : deux créations concurrentes du même
+  // process (deux keystores) ne doivent pas partager leur temporaire.
+  const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(tmp, content, { mode: MODE_SECRET });
+  try {
+    await link(tmp, file);
+    return true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code ?? "";
+    if (code === "EEXIST") return false;
+    if (!NO_HARD_LINK.has(code)) throw e;
+    try {
+      await writeFile(file, content, { mode: MODE_SECRET, flag: "wx" });
+      return true;
+    } catch (fallback) {
+      if ((fallback as NodeJS.ErrnoException).code === "EEXIST") return false;
+      throw fallback;
+    }
+  } finally {
+    // 🔴 Le temporaire porte le secret : il ne survit à AUCUNE issue.
+    await rm(tmp, { force: true }).catch(() => {});
   }
 }
 
