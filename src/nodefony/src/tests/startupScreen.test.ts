@@ -23,7 +23,6 @@ import {
   renderStartupHuman,
   renderStartupPlain,
   renderActivity,
-  renderNoticeSummary,
   renderRuntime,
   SCREEN_SYMBOLS,
   renderStatusBlock,
@@ -837,8 +836,14 @@ describe("bloc d'état avec le logo — et le canal qui le nourrit", () => {
     expect(text).to.contain("development · rechargement auto");
     expect(text).to.contain("➜ https://localhost:5152/");
     expect(text).to.not.contain("wss://");
-    expect(text).to.contain("⚠ 2 à regarder à 16:48  ·  ↻ 2");
-    expect(text).to.contain("ctrl+c arrêter");
+    expect(text).to.contain("⚠ 2 à regarder à 16:48  ·  rechargé en");
+    expect(text).to.contain("↻ 2");
+    // Pas d'aide permanente : la dernière ligne attend un message passager.
+    expect(text).to.not.contain("ctrl+c arrêter");
+    // Les autres adresses à ouvrir prennent la place des codes de points.
+    const studio = view().open.find((l) => l.id === "studio");
+    expect(studio).to.not.equal(undefined);
+    expect(text).to.contain(`Studio ${studio?.url ?? ""}`);
     // Aucune ligne ne se replie : l'effacement en remontant raterait sinon.
     for (const l of lines) expect(visible(l)).to.be.at.most(99);
   });
@@ -857,13 +862,14 @@ describe("bloc d'état avec le logo — et le canal qui le nourrit", () => {
       lines.findIndex((l) => l.includes(needle));
     expect(at(`débogueur ${socket}`)).to.equal(at("à regarder à 16:48") + 1);
     expect(lines.join("\n")).to.not.contain("wss://");
-    // Les points à regarder ne sont pas évincés par le débogueur — dits par
-    // leur CONSTAT (le premier, au moins, tient), jamais par leur code.
+    // Les points à regarder restent COMPTÉS sur la ligne d'état ; leur
+    // détail vit dans le corps (« À regarder »), jamais dans la barre.
     const text = lines.join("\n");
-    const urgent = debug.notices.filter((n) => n.level !== "info");
-    expect(urgent.length).to.be.greaterThan(0);
-    expect(text).to.contain(urgent[0]?.message.slice(0, 12) ?? "");
-    for (const n of debug.notices) expect(text).to.not.contain(n.code);
+    expect(text).to.contain("à regarder");
+    for (const n of debug.notices) {
+      expect(text).to.not.contain(n.code);
+      expect(text).to.not.contain(n.message);
+    }
   });
 
   it("trop étroit ou trop bas : pas de bloc, la ligne unique prend le relais", () => {
@@ -1038,38 +1044,13 @@ describe("barre d'état — l'activité (partie centrale)", () => {
   });
 });
 
-describe("barre d'état — constats lisibles et mesures vivantes", () => {
+describe("barre d'état — mesures vivantes", () => {
   const p = createPalette(false);
   const sym = SCREEN_SYMBOLS.unicode;
   const notice = (level: "error" | "warning" | "info", message: string) => ({
     code: `CODE_${message.length}`,
     level,
     message,
-  });
-
-  it("les CONSTATS des avertissements, puis le compte des infos — jamais les codes", () => {
-    const line = renderNoticeSummary(
-      {
-        ...view(),
-        notices: [
-          notice("warning", "repli SQLite"),
-          notice("warning", "routes publiques"),
-          notice("info", "temps réel local"),
-        ],
-      },
-      p,
-      sym,
-    );
-    expect(line).to.equal(
-      `${sym.warn} repli SQLite  ·  ${sym.warn} routes publiques  ·  ${sym.info} 1 info`,
-    );
-    expect(line).to.not.contain("CODE_");
-  });
-
-  it("sans point : rien", () => {
-    expect(renderNoticeSummary({ ...view(), notices: [] }, p, sym)).to.equal(
-      "",
-    );
   });
 
   it("runtime : mémoire, CPU, boucle — arrondis", () => {

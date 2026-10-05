@@ -49,7 +49,6 @@ import {
   DevTerminal,
   probeTerminal,
   type IDevFullscreenOptions,
-  nativeSelectionKey,
 } from "./DevTerminal";
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
@@ -821,7 +820,6 @@ export class DevSupervisor {
       input: stdin,
       synchronized: probe.synchronized,
       onQuit: () => void this.#shutdown(),
-      nativeKey: nativeSelectionKey(process.env),
       // La séquence OSC 52 part sur NOTRE terminal, par `DevTerminal` : une
       // copie qui finit après la sortie du plein écran n'écrit plus rien.
       copy: async (text) =>

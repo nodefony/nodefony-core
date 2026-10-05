@@ -898,35 +898,6 @@ export function renderRuntime(sample: IRuntimeSample, p: IPalette): string {
   ].join(sep);
 }
 
-/**
- * Les points du bilan pour un humain : les CONSTATS des avertissements et
- * des erreurs (jamais leurs codes, faits pour les machines), puis le compte
- * des simples informations — le compteur de la ligne d'état et ce qu'on lit
- * dessous disent la même chose.
- *
- * @param view - le bilan.
- * @param p - la palette.
- * @param sym - les symboles du jeu de caractères.
- * @returns la ligne, ou `""` sans point.
- */
-export function renderNoticeSummary(
-  view: IStartupView,
-  p: IPalette,
-  sym: (typeof SCREEN_SYMBOLS)[ScreenCharset],
-): string {
-  const urgent = view.notices.filter((n) => n.level !== "info");
-  const infos = view.notices.length - urgent.length;
-  const parts = urgent.map((n) =>
-    n.level === "error"
-      ? `${p.failure(sym.fail)} ${n.message}`
-      : `${p.warning(sym.warn)} ${p.dim(n.message)}`,
-  );
-  if (infos > 0) {
-    parts.push(p.dim(`${sym.info} ${infos} info${infos > 1 ? "s" : ""}`));
-  }
-  return parts.join(p.dim("  ·  "));
-}
-
 /** Au-delà, la barre de progression d'une activité est trop longue pour la ligne. */
 const ACTIVITY_BAR_MAX = 12;
 
@@ -1148,9 +1119,9 @@ export function renderStatusBlock(
   const state = statusState(view, ctx, p, sym);
   const label = ` ${sym.brand} ${ctx.project} `;
   const badge = options.color ? `\x1b[7m\x1b[1m${label}\x1b[0m` : label;
-  const help = p.dim(
-    `${ctx.help ?? STOP_HINT}  ·  état : nodefony status --json`,
-  );
+  // La dernière ligne n'accueille qu'un message passager (une copie) : une
+  // aide permanente n'aidait personne — elle reviendra avec l'invite (#538).
+  const help = ctx.help ? p.dim(ctx.help) : "";
   // Avant le premier bilan (un build peut durer) : le logo, le projet, la
   // version du framework et la phase — jamais un écran vide.
   const info =
@@ -1169,13 +1140,24 @@ export function renderStatusBlock(
             ? `${p.ok(sym.open)} ${p.action(view.open.find((l) => l.id === "app")?.url ?? "")}`
             : "",
           state +
+            (ctx.activity
+              ? ""
+              : p.dim(
+                  `  ·  ${ctx.reloads > 0 ? "rechargé" : "démarré"} en ${formatSeconds(view.durationMs)}`,
+                )) +
             (ctx.reloads > 0 ? p.dim(`  ·  ${sym.reload} ${ctx.reloads}`) : ""),
           view.inspector
             ? p.warning(`débogueur ${view.inspector}`)
             : ctx.runtime
               ? renderRuntime(ctx.runtime, p)
               : "",
-          renderNoticeSummary(view, p, sym),
+          // Le DÉTAIL des points vit dans le corps (« À regarder ») : la barre
+          // n'en garde que le compte, sur la ligne d'état. Ici, les autres
+          // adresses à ouvrir.
+          view.open
+            .filter((l) => l.id !== "app")
+            .map((l) => `${p.dim(l.label)} ${p.action(l.url)}`)
+            .join(p.dim("  ·  ")),
           help,
         ];
   // Chaque ligne bornée à la place qui reste à droite du logo : une ligne

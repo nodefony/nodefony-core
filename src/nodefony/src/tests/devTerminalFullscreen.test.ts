@@ -20,7 +20,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { brandMark } from "../cli/brand";
 import {
   DevTerminal,
-  nativeSelectionKey,
   probeTerminal,
   type IInputFocus,
 } from "../service/dev/DevTerminal";
@@ -532,71 +531,6 @@ describe("plein écran — sélection sous le bloc d'état du serveur prêt", ()
     await nextFrame();
     const bar = (await screen(stdout.written, 120, 40)).join("\n");
     expect(bar).to.include("copié (pbcopy)");
-    expect(bar).to.include("ctrl+c arrêter");
-    terminal.close();
-  });
-});
-
-describe("aide de la barre — la touche de sélection native du terminal", () => {
-  it("Terminal.app : fn ; iTerm2 : ⌥ ; ailleurs : maj", () => {
-    expect(nativeSelectionKey({ TERM_PROGRAM: "Apple_Terminal" })).to.equal(
-      "fn",
-    );
-    expect(nativeSelectionKey({ TERM_PROGRAM: "iTerm.app" })).to.equal(
-      "option",
-    );
-    expect(nativeSelectionKey({ TERM_PROGRAM: "vscode" })).to.equal("shift");
-    expect(nativeSelectionKey({ WT_SESSION: "x" })).to.equal("shift");
-    expect(nativeSelectionKey({})).to.equal("shift");
-  });
-
-  it("souris captée : la barre du serveur prêt dit glisser, la touche native et la molette, en entier", async () => {
-    const stdout = output(120, 40);
-    const terminal = new DevTerminal({
-      stdout,
-      color: false,
-      charset: "unicode",
-      mark: brandMark("unicode", false),
-      fullscreen: {
-        input: new FakeInput(),
-        synchronized: false,
-        onQuit() {},
-        mouse: true,
-        nativeKey: "option",
-      },
-    });
-    terminal.setStatus(
-      {
-        schema: 1,
-        ready: true,
-        durationMs: 1,
-        version: "10.0.0",
-        environment: "development",
-        open: [],
-        notices: [],
-        listening: [],
-        frontend: null,
-        modules: { loaded: 1, gated: [], failed: 0 },
-        journal: { warnings: 0, errors: 0, criticals: [] },
-        data: [],
-        processes: null,
-        firewall: null,
-        supervised: true,
-        inspector: null,
-      },
-      ctx,
-      "ready",
-    );
-    await nextFrame();
-    const shown = (await screen(stdout.written, 120, 40)).join("\n");
-    for (const part of [
-      "ctrl+c arrêter",
-      "glisser copier",
-      "⌥+glisser natif",
-      "Fin direct",
-    ]) {
-      expect(shown, part).to.include(part);
-    }
     terminal.close();
   });
 });
@@ -948,19 +882,21 @@ describe("plein écran — l'aide de la barre dit les gestes changés", () => {
     }
   });
 
-  it("défiler, revenir au direct, arrêter — dans la barre du serveur prêt", async () => {
+  it("serveur prêt : aucune aide permanente dans la barre — la dernière ligne attend un message", async () => {
     const { stdout, terminal } = fullscreen({ columns: 120, rows: 40 });
     terminal.setStatus(readyView, ctx, "ready");
     terminal.ingest("server", "out", lines(3));
     await nextFrame();
-    const shown = (await screen(stdout.written, 120, 40)).join("\n");
-    expect(shown).to.include("PgUp défiler");
-    expect(shown).to.include("Fin direct");
-    expect(shown).to.include("ctrl+c arrêter");
+    const bar = (await screen(stdout.written, 120, 40)).slice(-7);
+    const text = bar.join("\n");
+    for (const help of ["PgUp", "Fin direct", "ctrl+c arrêter", "glisser"]) {
+      expect(text, help).to.not.include(help);
+    }
+    expect(bar.at(-1)?.trim().length).to.be.lessThan(12); // le logo seul
     terminal.close();
   });
 
-  it("en ligne, l'aide reste le seul geste d'arrêt", () => {
+  it("en ligne non plus, pas d'aide permanente", () => {
     const stdout = output(100, 40);
     const terminal = new DevTerminal({
       stdout,
@@ -970,7 +906,8 @@ describe("plein écran — l'aide de la barre dit les gestes changés", () => {
     });
     terminal.setStatus(readyView, ctx, "ready");
     const bar = stdout.written.join("");
-    expect(bar).to.include("ctrl+c arrêter");
+    expect(bar).to.include("mon-app");
+    expect(bar).to.not.include("ctrl+c arrêter");
     expect(bar).to.not.include("défiler");
     terminal.close();
   });
@@ -1157,7 +1094,6 @@ describe("plein écran — le logo dès le démarrage", () => {
     expect(text).to.include("mon-app");
     expect(text).to.include("Nodefony 10.0.0-beta.2");
     expect(text).to.include("construction…");
-    expect(text).to.include("ctrl+c arrêter");
     // La marque du logo occupe la gauche du bloc.
     const mark = brandMark("unicode", false);
     expect(bar[1]?.startsWith((mark[0] ?? "").trimEnd().slice(0, 4))).to.equal(

@@ -114,8 +114,9 @@ protocole d'effacement croisé (`guardSharedTerminal`, `status` / `status-erased
     colonne) de l'historique, jamais en coordonnées d'écran — un défilement pendant le glisser,
     une ligne qui arrive, un repli différent ne la perdent pas ; double clic = mot (un chemin
     suivi de sa ligne et de sa colonne, une URL), triple = ligne logique ; glisser au bord fait défiler ; copie au
-    relâchement. La sélection native reste possible avec la touche du terminal, que l'aide de la
-    barre nomme (`fn` sous Terminal.app, `⌥` sous iTerm2, `maj` ailleurs).
+    relâchement. La sélection native reste possible avec la touche du terminal, que l'aide de
+    l'invite (#538) nommera (`fn` sous Terminal.app, `⌥` sous iTerm2, `maj` ailleurs) — la barre ne
+    porte pas d'aide permanente.
   - `1007` est posé dans les deux régimes : là où la capture est refusée par un réglage du
     terminal (iTerm2, Terminal.app, Warp), la molette arrive encore, en flèches. Un cran capté
     défile de trois lignes, comme un cran traduit.

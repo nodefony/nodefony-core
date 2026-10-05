@@ -69,7 +69,6 @@ import {
 } from "./devTranscript";
 import { CLEAR_SCREEN } from "./outputMode";
 import {
-  STOP_HINT,
   renderStatusBar,
   type IRuntimeSample,
   type IStartupView,
@@ -134,41 +133,7 @@ export interface IDevFullscreenOptions {
    * Absente : la sélection se surligne, rien n'est copié.
    */
   copy?: (text: string) => Promise<string>;
-  /**
-   * La touche qui rend la sélection au terminal malgré la capture (cf
-   * {@link nativeSelectionKey}) — dite dans l'aide de la barre.
-   */
-  nativeKey?: NativeSelectionKey;
 }
-
-/** La touche de sélection native d'un terminal, souris captée. */
-export type NativeSelectionKey = "fn" | "option" | "shift";
-
-/**
- * La touche qui, souris captée, rend le glisser au terminal (sa sélection
- * native) : `Fn` sous Terminal.app, `⌥` sous iTerm2, `Maj` ailleurs (VS Code,
- * Windows Terminal, terminaux Linux). Sert l'AIDE seulement — aucune
- * capacité n'en est déduite. Sous tmux, `TERM_PROGRAM` vaut `tmux` : c'est
- * la touche du terminal englobant qui compte, et elle n'est plus lisible.
- *
- * @param env - l'environnement.
- * @returns la touche à indiquer.
- */
-export function nativeSelectionKey(
-  env: Readonly<Record<string, string | undefined>>,
-): NativeSelectionKey {
-  if (env.TERM_PROGRAM === "Apple_Terminal") return "fn";
-  if (env.TERM_PROGRAM === "iTerm.app") return "option";
-  return "shift";
-}
-
-/** Libellé de la touche de sélection native, par jeu de caractères. */
-const NATIVE_KEY_LABELS: Readonly<
-  Record<ScreenCharset, Readonly<Record<NativeSelectionKey, string>>>
-> = {
-  unicode: { fn: "fn", option: "⌥", shift: "maj" },
-  ascii: { fn: "fn", option: "option", shift: "maj" },
-};
 
 /** Le clavier du terminal, injectable en test. */
 export interface IDevTerminalInput {
@@ -230,39 +195,11 @@ const LEAVE_FULLSCREEN =
   "\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[?2004l\x1b[?1007l\x1b[?25h\x1b[?1049l";
 
 /**
- * L'aide de la barre en plein écran : la molette et les flèches défilent le
- * journal, Ctrl+C reste l'arrêt — EN TÊTE, la ligne est tronquée par la
- * droite quand la place manque. La sélection est native : rien à en dire.
- */
-const FULLSCREEN_HELP: Readonly<Record<ScreenCharset, string>> = {
-  unicode: "ctrl+c arrêter  ·  molette · ↑↓ · PgUp défiler  ·  Fin direct",
-  ascii: "ctrl+c arrêter  -  molette / fleches / PgUp défiler  -  Fin direct",
-};
-
-/**
  * Lignes par cran de molette captée : ce qu'envoie un cran traduit par le
  * terminal en mode 1007 (trois flèches) — capturée ou non, la molette défile
  * pareil.
  */
 const WHEEL_LINES = 3;
-
-/**
- * L'aide de la barre quand la souris est captée : glisser copie, la touche
- * native rend la sélection au terminal, la molette défile. Le geste d'arrêt
- * reste EN TÊTE ; `{key}` est la touche du terminal.
- */
-const MOUSE_HELP: Readonly<Record<ScreenCharset, string>> = {
-  unicode:
-    "ctrl+c arrêter  ·  glisser copier  ·  {key}+glisser natif  ·  molette défiler  ·  Fin direct",
-  ascii:
-    "ctrl+c arrêter  -  glisser copier  -  {key}+glisser natif  -  molette défiler  -  Fin direct",
-};
-
-/** Séparateur des gestes de l'aide, par jeu de caractères. */
-const HELP_SEPARATOR: Readonly<Record<ScreenCharset, string>> = {
-  unicode: "  ·  ",
-  ascii: "  -  ",
-};
 
 /** Cadence du tourniquet de la barre — celle de l'indicateur du superviseur. */
 const SPIN_INTERVAL_MS = 80;
@@ -364,7 +301,6 @@ interface IFullscreenState {
   input: IDevTerminalInput;
   synchronized: boolean;
   mouse: boolean;
-  nativeKey: NativeSelectionKey;
   copy: ((text: string) => Promise<string>) | null;
   /** La sélection à la souris — `null` sans sélection. */
   selection: ISelection | null;
@@ -862,7 +798,6 @@ export class DevTerminal {
       input: options.input,
       synchronized: options.synchronized,
       mouse: options.mouse === true,
-      nativeKey: options.nativeKey ?? "shift",
       copy: options.copy ?? null,
       selection: null,
       selecting: false,
@@ -1232,11 +1167,8 @@ export class DevTerminal {
               context: {
                 ...context,
                 ...(this.#runtime === null ? {} : { runtime: this.#runtime }),
-                help:
-                  full.notice === null
-                    ? this.#help(full)
-                    : // Le message passe APRÈS le geste d'arrêt : il ne doit pas le chasser.
-                      `${STOP_HINT}${HELP_SEPARATOR[this.#charset]}${full.notice}`,
+                // La dernière ligne du bloc n'accueille qu'un message passager.
+                ...(full.notice === null ? {} : { help: full.notice }),
               },
               phase: this.#phase,
               notice: full.notice,
@@ -1281,15 +1213,6 @@ export class DevTerminal {
       };
     }
     return full.range.value;
-  }
-
-  /** L'aide de la barre : elle dit les gestes de la souris quand elle est captée. */
-  #help(full: IFullscreenState): string {
-    if (!full.mouse) return FULLSCREEN_HELP[this.#charset];
-    return MOUSE_HELP[this.#charset].replace(
-      "{key}",
-      NATIVE_KEY_LABELS[this.#charset][full.nativeKey],
-    );
   }
 
   /** Dimensions du terminal, repli 80×24 pour un flux qui ne les déclare pas. */
