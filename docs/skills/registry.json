@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-10-04",
+  "generatedAt": "2026-10-05",
   "count": 36,
   "repoScripts": [
     {
@@ -7999,9 +7999,9 @@
     },
     {
       "name": "nodefony-rfc",
-      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md, depuis des sources brutes, jamais des pages HTML.",
+      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML.",
       "family": "Références et livrables",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "keywords": [],
       "triggers": [
         "RFC",
@@ -8032,17 +8032,19 @@
         "en-têtes hop-by-hop",
         "request smuggling",
         "que fait nginx",
-        "norme périmée"
+        "norme périmée",
+        "souris dans le terminal",
+        "OSC 52"
       ],
-      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md, depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28, la convention AGENTS.md (AAIF / Linux Foundation) et la documentation de Keycloak 26.8, avec le script qui dit quand une copie figée a dérivé de son amont. Dit quelles RFC tranchent un proxy inverse et où lire les défauts de nginx/HAProxy/Envoy. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"AGENTS.md\", \"spec AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"importer un realm\", \"audience Keycloak\", \"hostname Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\".",
+      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de dérive amont. Dit quelles RFC tranchent un proxy inverse. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"AGENTS.md\", \"spec AGENTS.md\", \"AAIF\", \"quelle taille pour AGENTS.md\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"Keycloak\", \"realm\", \"importer un realm\", \"audience Keycloak\", \"hostname Keycloak\", \"proxy inverse\", \"reverse proxy\", \"en-têtes hop-by-hop\", \"request smuggling\", \"que fait nginx\", \"norme périmée\", \"souris dans le terminal\", \"OSC 52\".",
       "cost": {
-        "bodyLines": 254,
-        "approxTokens": 4790
+        "bodyLines": 275,
+        "approxTokens": 5192
       },
       "requires": [],
       "resources": {
         "references": [],
-        "referenceFilesTotal": 205,
+        "referenceFilesTotal": 209,
         "scripts": [
           {
             "path": "scripts/check-amont.mjs",
@@ -8081,7 +8083,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1024",
+            "detail": "938",
             "advisory": false
           },
           {
@@ -8123,7 +8125,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "254",
+            "detail": "275",
             "advisory": true
           }
         ]

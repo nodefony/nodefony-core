@@ -1,20 +1,19 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.4.0
+  version: 1.5.0
 description: >
-  Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model
-  Context Protocol et la convention AGENTS.md, depuis des sources brutes, jamais des pages HTML.
-  Porte HORS LIGNE la révision MCP 2026-07-28, la convention AGENTS.md (AAIF / Linux Foundation) et
-  la documentation de Keycloak 26.8, avec le script qui dit quand une copie figée a dérivé de son amont.
-  Dit quelles RFC tranchent un proxy inverse et où lire les défauts de nginx/HAProxy/Envoy.
+  Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
+  depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md,
+  Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec
+  un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
   Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
   "SameSite cookies", "spec MCP", "Model Context Protocol", "autorisation MCP",
   "resource server OAuth", "RFC 9728", "AGENTS.md", "spec AGENTS.md", "AAIF",
   "quelle taille pour AGENTS.md", "dossier .agents",
   "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm", "importer un realm",
   "audience Keycloak", "hostname Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
-  "request smuggling", "que fait nginx", "norme périmée".
+  "request smuggling", "que fait nginx", "norme périmée", "souris dans le terminal", "OSC 52".
 ---
 
 # nodefony-rfc
@@ -256,6 +255,27 @@ détaillée, avec l'ancrage de chaque test, vit au §4 du README du corpus (skil
 ⚠️ La doc d'une API Node se **vérifie à l'exécution** avant d'en tirer une conclusion : la doc
 de `http.request` laisse lire qu'un `IncomingMessage` coupé émet `'error'` ; le runtime ne l'émet
 que s'il a un écouteur (`IncomingMessage.prototype._destroy`, lisible par `node -e`).
+
+### 11. Terminal — souris, molette, sélection, presse-papiers — **HORS LIGNE**
+
+Pas une norme unique : xterm « ctlseqs » fait référence, chaque terminal en implémente une part.
+Le relevé de `references/terminal/` donne, pour quinze terminaux et une vingtaine de TUI, le
+comportement CONSTATÉ, chaque case avec sa source et un extrait verbatim (« Inconnu » quand rien
+ne le dit — jamais déduit).
+
+| Ce qu'on veut savoir                                                           | Où le lire                                      |
+| ------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Modes 1000/1002/1003/1006/1007/1049/2004, DECRQM, OSC 52, CPR (verbatim)       | `references/terminal/xterm-ctlseqs-extracts.md` |
+| Par terminal : molette en écran alternatif, touche de sélection, OSC 52, sonde | `references/terminal/terminals-matrix.md`       |
+| Comment les TUI établies arbitrent molette contre sélection, et pourquoi       | `references/terminal/tui-practices.md`          |
+| Souris sous Windows (libuv, `setRawMode`), presse-papiers depuis Node          | `references/terminal/node-windows-clipboard.md` |
+
+🔴 **Les trois faits qui décident :** capter la souris (1000/1006) est le SEUL comportement
+uniforme pour la molette, et il tue la sélection native (contournement : Maj, ⌥ sous iTerm2, Fn
+sous Terminal.app) ; le mode 1007 n'est pas actif par défaut sous Terminal.app, iTerm2 ni xterm ;
+OSC 52 n'accuse jamais réception et reste bloqué par défaut dans iTerm2 et xterm — un repli, pas
+une voie. Le relevé a été fait sur les dépôts amont du jour : une case qui décide se recontrôle
+avant de s'y appuyer.
 
 ## Pattern d'usage
 
