@@ -430,14 +430,17 @@ flowchart LR
   RB --> K["group-kill + redémarrage du serveur"]
 ```
 
-- **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts:1848`) reconstruit
+- **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts:2022`) reconstruit
   les seuls workspaces touchés et leurs dépendants (`turbo --filter=pkg...`), puis l'app racine
   (`rolldown -c`) si un fichier de la racine a bougé. Un `npm run build` complet coûtait plus de
   quatre-vingts secondes pour un fichier.
 - **Le dossier `frontend/` est exclu de la surveillance** (`DevSupervisor.ts:127`) : une modification
   front ne doit surtout pas redémarrer le serveur, sinon on perd le HMR de Vite.
-- **Hors monorepo**, le superviseur ne connaît qu'un seul build, celui de l'app — jamais turbo, qui
-  n'a pas de workspaces à ordonner.
+- **Hors monorepo**, jamais turbo, qui n'a rien à ordonner. Mais un module LOCAL (`modules/<nom>`,
+  né de `create module`) est un workspace que l'app charge par son `dist/` et laisse hors de son
+  bundle : le superviseur le surveille et le rebâtit DANS son dossier, avec sa config
+  (`planStandaloneRebuild`), puis l'app seulement si son propre code a bougé. Rebâtir l'app seule
+  relancerait le serveur sur l'ancien module.
 
 ## 🎨 Le build du frontend — Vite, à côté et non dedans
 

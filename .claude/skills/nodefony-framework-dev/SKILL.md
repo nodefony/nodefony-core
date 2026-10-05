@@ -254,8 +254,9 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
   mtime neuf → tu testes l'ANCIEN code (route qui hang, header périmé, export manquant). Avant tout test runtime
   d'un diff non commité : **`npx turbo run build --force --filter=@nodefony/http --filter=@nodefony/test`**.
 - **🔒 Le serveur ÉCRIT dans les sources → SUSPENDRE le superviseur dev, sinon il se tue lui-même.**
-  En dev, le `DevSupervisor` (process **parent**) watch `src/`, `nodefony/`, `index.ts`, `config/`,
-  `nodefony.config.ts`, `env.ts` (cf `isIgnoredWatchPath` : `node_modules`/`dist`/`tests`/`*.test.ts`/
+  En dev, le `DevSupervisor` (process **parent**) watch `DEV_WATCH_PATHS` — `src/`, `nodefony/`,
+  `config/`, `modules/` (modules locaux : rebâtis DANS leur dossier, l'app les charge par leur
+  `dist/`, cf `planStandaloneRebuild`), `index.ts`, `nodefony.config.ts`, `env.ts` (cf `isIgnoredWatchPath` : `node_modules`/`dist`/`tests`/`*.test.ts`/
   non-`.ts`/`frontend` — sauf le paquet `@nodefony/frontend` — sont ignorés) et **redémarre l'enfant**
   à chaque `.ts` touché. Or certaines opérations SERVEUR écrivent précisément là : génération de code
   (`create module` depuis Studio), migration, installation d'un module. Le redémarrage tombe alors **au

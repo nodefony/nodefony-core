@@ -121,6 +121,73 @@ export const APP_DEV_BUILD_ARGS: readonly string[] = Object.freeze([
   "--sourcemap",
 ]);
 
+/** Dossier des modules locaux d'une application (`create module`). */
+export const APP_MODULES_DIR = "modules";
+
+/**
+ * Ce que le superviseur surveille, relatif à la racine de l'application —
+ * filtré à l'existence. `modules` : les modules locaux (`create module`), du
+ * code SERVEUR comme le reste ; sans lui, les modifier ne rechargeait rien
+ * (leur `frontend/` reste exclu, cf {@link isIgnoredWatchPath}). `config`
+ * racine n'est gardé que pour les applications héritées de Nodefony 7.
+ */
+export const DEV_WATCH_PATHS: readonly string[] = Object.freeze([
+  "src",
+  "nodefony",
+  "config",
+  APP_MODULES_DIR,
+  "index.ts",
+  "nodefony.config.ts",
+  "env.ts",
+]);
+
+/**
+ * Le module local qui porte un fichier de l'application — `modules/<nom>` —,
+ * ou `null` pour le code de l'application elle-même.
+ *
+ * Un module local est un WORKSPACE : l'application le charge par son nom, donc
+ * par son `dist/`, et le laisse hors de son propre bundle (`externalDeps`).
+ * Reconstruire l'application après une modification d'un module ne change donc
+ * RIEN à ce qui s'exécute — c'est le module qu'il faut reconstruire.
+ *
+ * Fonction PURE (aucun accès disque) : testable sans superviseur.
+ *
+ * @param file - chemin relatif à la racine de l'application (n'importe quel séparateur).
+ * @returns `modules/<nom>` en `/`, ou `null`.
+ */
+export function localModuleDirOf(file: string): string | null {
+  const [head, name, ...rest] = file.split(/[/\\]/u).filter(Boolean);
+  return head === APP_MODULES_DIR && name && rest.length > 0
+    ? `${APP_MODULES_DIR}/${name}`
+    : null;
+}
+
+/**
+ * Ce qu'une série de fichiers modifiés impose de reconstruire, dans une
+ * application SANS orchestrateur (`standalone`) : chaque module local touché,
+ * puis l'application si son propre code a bougé.
+ *
+ * @param dirty - fichiers modifiés, relatifs à la racine de l'application.
+ * @returns les modules à bâtir (triés, sans doublon) et si l'application l'est aussi.
+ */
+export function planStandaloneRebuild(dirty: readonly string[]): {
+  modules: string[];
+  app: boolean;
+} {
+  const modules = new Set<string>();
+  let app = false;
+  for (const file of dirty) {
+    const dir = localModuleDirOf(file);
+    if (dir === null) app = true;
+    else modules.add(dir);
+  }
+  // Rien d'identifiable : on retombe sur le build de l'application, le geste
+  // historique — mieux vaut un build de trop qu'un serveur relancé sur un dist
+  // inchangé.
+  if (modules.size === 0) app = true;
+  return { modules: [...modules].sort(), app };
+}
+
 /** Frames braille du spinner de build (mêmes que le BootReporter enfant). */
 const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
@@ -679,14 +746,7 @@ export class DevSupervisor {
     // racine reste dans la liste pour les applications qui l'ont héritée de
     // Nodefony 7 : `existsSync` le filtre partout ailleurs, donc il ne coûte
     // rien — mais ce n'est plus une convention, et rien ne doit y renvoyer.
-    const wanted = options.paths ?? [
-      "src",
-      "nodefony",
-      "config",
-      "index.ts",
-      "nodefony.config.ts",
-      "env.ts",
-    ];
+    const wanted = options.paths ?? DEV_WATCH_PATHS;
     this.#paths = wanted.filter((p) => existsSync(path.resolve(this.#cwd, p)));
     // Ports + pidfile = source de vérité PARTAGÉE avec les commandes d'introspection
     // (`nodefony status`/`stop`, cf devProcess.ts) : une divergence écrivain/lecteur
@@ -974,14 +1034,15 @@ export class DevSupervisor {
     cmd: string,
     args: readonly string[],
     idleMs?: number,
+    cwd: string = this.#cwd,
   ): Promise<{ ok: boolean; output: string }> {
     if (!this.#supervising) {
-      return runCapturedCommand(cmd, args, this.#cwd, idleMs);
+      return runCapturedCommand(cmd, args, cwd, idleMs);
     }
     // L'étape suivante d'un build tué par l'arrêt ne part pas : lancée après
     // `#killBuild`, personne ne la tuerait plus.
     if (this.#stopping) return Promise.resolve({ ok: false, output: "" });
-    return runCapturedCommand(cmd, args, this.#cwd, idleMs, {
+    return runCapturedCommand(cmd, args, cwd, idleMs, {
       detached: true,
       onSpawn: (child) => {
         this.#buildChild = child;
@@ -1008,13 +1069,19 @@ export class DevSupervisor {
     ];
   }
 
-  /** {@link #runCaptured} sur un binaire du projet (cf {@link #binCommand}). */
+  /**
+   * {@link #runCaptured} sur un binaire du projet (cf {@link #binCommand}).
+   *
+   * @param cwd - dossier d'exécution : la racine de l'application par défaut,
+   *   celui d'un module local pour bâtir ce module avec SA config.
+   */
   #runBin(
     bin: string,
     args: readonly string[],
     idleMs?: number,
+    cwd?: string,
   ): Promise<{ ok: boolean; output: string }> {
-    return this.#runCaptured(...this.#binCommand(bin, args), idleMs);
+    return this.#runCaptured(...this.#binCommand(bin, args), idleMs, cwd);
   }
 
   /** Déverse la sortie d'un build qui a échoué (après avoir figé le spinner). */
@@ -1189,6 +1256,31 @@ export class DevSupervisor {
    * je fais ? »).
    */
   async #ensureBuiltStandalone(): Promise<void> {
+    // Les modules locaux d'abord : l'application les importe par leur `dist/`.
+    for (const dir of this.#staleLocalModules()) {
+      const t0 = Date.now();
+      this.#startSpin(`Build du module ${dir} (rolldown)`);
+      const res = await this.#runBin(
+        "rolldown",
+        APP_DEV_BUILD_ARGS,
+        undefined,
+        path.join(this.#cwd, dir),
+      );
+      if (res.ok) {
+        this.#stopSpin(
+          `${ANSI.green}✓${ANSI.reset}`,
+          `${dir} construit (${Date.now() - t0}ms)`,
+          "green",
+        );
+        continue;
+      }
+      const verdict =
+        `build de ${dir} en ÉCHEC — le serveur chargera son dist EXISTANT, s'il y en a un. ` +
+        "Corrige l'erreur ci-dessous puis sauvegarde (rebuild automatique).";
+      this.#stopSpin(`${ANSI.red}✗${ANSI.reset}`, verdict, "red");
+      this.#rememberBuildIssues(verdict, [res.output]);
+      this.#dumpBuild(res.output);
+    }
     const dist = path.join(this.#cwd, "dist", "index.js");
     if (!this.#rootDistStale()) {
       this.#log("app déjà construite (dist à jour)", "green");
@@ -1257,7 +1349,9 @@ export class DevSupervisor {
     }
     // Même liste, même raison qu'au constructeur : `nodefony` porte
     // `nodefony/config/`, et `config` racine n'est gardé que pour l'existant.
-    for (const dirName of ["nodefony", "config", "modules"]) {
+    // `modules` n'y est PAS : un module local est hors du bundle de l'app, sa
+    // fraîcheur se juge sur SON dist (cf #staleLocalModules).
+    for (const dirName of ["nodefony", "config"]) {
       const dir = path.join(this.#cwd, dirName);
       if (!existsSync(dir)) continue;
       try {
@@ -1274,6 +1368,52 @@ export class DevSupervisor {
       }
     }
     return false;
+  }
+
+  /**
+   * Modules locaux (`modules/<nom>`, dotés d'un `package.json`) dont le
+   * `dist/index.js` est absent, sans sourcemaps (bâti pour la production), ou
+   * plus ancien qu'une de leurs sources serveur — mêmes exclusions que la
+   * surveillance (`frontend/`, `tests/`…, cf {@link shouldIgnoreWatchEntry}).
+   */
+  #staleLocalModules(): string[] {
+    const root = path.join(this.#cwd, APP_MODULES_DIR);
+    if (!existsSync(root)) return [];
+    const stale: string[] = [];
+    let names: string[];
+    try {
+      names = readdirSync(root).sort();
+    } catch {
+      return [];
+    }
+    for (const name of names) {
+      const dir = path.join(root, name);
+      if (!existsSync(path.join(dir, "package.json"))) continue;
+      const rel = `${APP_MODULES_DIR}/${name}`;
+      const dist = path.join(dir, "dist", "index.js");
+      if (!existsSync(dist) || !existsSync(`${dist}.map`)) {
+        stale.push(rel);
+        continue;
+      }
+      try {
+        const distMtime = statSync(dist).mtimeMs;
+        const newer = readdirSync(dir, {
+          withFileTypes: true,
+          recursive: true,
+        }).some((entry) => {
+          if (!entry.isFile() || !entry.name.endsWith(".ts")) return false;
+          const p = path.join(entry.parentPath, entry.name);
+          return (
+            !shouldIgnoreWatchEntry(this.#cwd, p, true) &&
+            statSync(p).mtimeMs > distMtime
+          );
+        });
+        if (newer) stale.push(rel);
+      } catch {
+        // dossier illisible → ne bloque pas le démarrage
+      }
+    }
+    return stale;
   }
 
   /**
@@ -1882,11 +2022,19 @@ export class DevSupervisor {
   async #build(dirty: readonly string[]): Promise<boolean> {
     const steps: Array<[label: string, bin: string, args: readonly string[]]> =
       [];
-    // Standalone : UN build, celui de l'app — jamais turbo (pas de workspaces).
-    // Un module local (`modules/<x>` avec son package.json) rentre aussi ici :
-    // son build relève du rolldown de l'app, pas d'un orchestrateur absent.
+    // Standalone : jamais turbo (pas d'orchestrateur). Un module local
+    // (`modules/<x>`) est un workspace que l'app charge par son `dist/` et
+    // laisse HORS de son bundle : il se bâtit avec SA config, dans SON dossier
+    // — rebâtir l'app seule relançait le serveur sur l'ancien module.
+    const moduleSteps: Array<[label: string, cwd: string]> = [];
     if (this.#standalone) {
-      steps.push(["rebuild app (rolldown)", "rolldown", APP_DEV_BUILD_ARGS]);
+      const plan = planStandaloneRebuild(dirty);
+      for (const dir of plan.modules) {
+        moduleSteps.push([`rebuild ${dir} (rolldown)`, dir]);
+      }
+      if (plan.app) {
+        steps.push(["rebuild app (rolldown)", "rolldown", APP_DEV_BUILD_ARGS]);
+      }
     } else {
       const pkgs = new Set<string>();
       let rootTouched = false;
@@ -1920,9 +2068,23 @@ export class DevSupervisor {
     // build, sa sortie seulement s'il échoue. Héritée, elle déversait des
     // centaines de lignes turbo/rolldown à chaque sauvegarde, par-dessus la
     // ligne « ↻ rechargé » qui est tout ce que le développeur veut lire.
-    for (const [label, bin, args] of steps) {
+    // Les modules d'abord : l'application les importe.
+    const all: Array<
+      [label: string, bin: string, args: readonly string[], cwd?: string]
+    > = [
+      ...moduleSteps.map(
+        ([label, dir]): [string, string, readonly string[], string] => [
+          label,
+          "rolldown",
+          APP_DEV_BUILD_ARGS,
+          path.join(this.#cwd, dir),
+        ],
+      ),
+      ...steps,
+    ];
+    for (const [label, bin, args, cwd] of all) {
       this.#startSpin(label);
-      const result = await this.#runBin(bin, args);
+      const result = await this.#runBin(bin, args, undefined, cwd);
       if (this.#isStopping()) return false;
       if (!result.ok) {
         this.#stopSpin(`${ANSI.red}✗${ANSI.reset}`, `${label} en échec`, "red");

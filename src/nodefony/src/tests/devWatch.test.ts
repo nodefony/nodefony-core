@@ -15,7 +15,10 @@ import assert from "node:assert";
 import { EventEmitter } from "node:events";
 import {
   attachWatcherErrorGuard,
+  DEV_WATCH_PATHS,
   isIgnoredWatchPath,
+  localModuleDirOf,
+  planStandaloneRebuild,
   shouldIgnoreWatchEntry,
 } from "../service/dev/DevSupervisor";
 
@@ -265,6 +268,81 @@ describe("DevSupervisor — isIgnoredWatchPath (ce que le watch regarde)", () =>
         shouldIgnoreWatchEntry(app, `${app}/src/mod/frontend/main.ts`, true),
         true,
       );
+    });
+  });
+});
+
+describe("DevSupervisor — modules LOCAUX d'une application (`modules/<nom>`)", () => {
+  // Un module local est un workspace, chargé par son `dist/` et laissé HORS du
+  // bundle de l'application : le modifier ne rechargeait rien (dossier non
+  // surveillé), et rebâtir l'application seule relançait le serveur sur
+  // l'ANCIEN module.
+  it("⭐ le dossier des modules locaux fait partie de ce que le superviseur surveille", () => {
+    assert.ok(DEV_WATCH_PATHS.includes("modules"), DEV_WATCH_PATHS.join(", "));
+  });
+
+  it("ses sources serveur sont surveillées, son frontend et ses tests non", () => {
+    assert.strictEqual(
+      isIgnoredWatchPath("modules/blog/nodefony/service/BlogService.ts", true),
+      false,
+    );
+    assert.strictEqual(
+      isIgnoredWatchPath("modules/blog/index.ts", true),
+      false,
+    );
+    assert.strictEqual(
+      isIgnoredWatchPath("modules/blog/frontend/src/main.ts", true),
+      true,
+    );
+    assert.strictEqual(
+      isIgnoredWatchPath("modules/blog/tests/blog.test.ts", true),
+      true,
+    );
+  });
+
+  it("un fichier se rattache à SON module, dans les deux grammaires de chemin", () => {
+    assert.strictEqual(
+      localModuleDirOf("modules/blog/nodefony/service/BlogService.ts"),
+      "modules/blog",
+    );
+    assert.strictEqual(
+      localModuleDirOf("modules\\blog\\index.ts"),
+      "modules/blog",
+    );
+    assert.strictEqual(
+      localModuleDirOf("nodefony/service/AppService.ts"),
+      null,
+    );
+    assert.strictEqual(localModuleDirOf("index.ts"), null);
+    // Le dossier lui-même n'est le fichier de personne.
+    assert.strictEqual(localModuleDirOf("modules/blog"), null);
+  });
+
+  it("⭐ une modification d'un module rebâtit CE module, pas l'application", () => {
+    assert.deepStrictEqual(
+      planStandaloneRebuild([
+        "modules/blog/nodefony/service/BlogService.ts",
+        "modules/blog/index.ts",
+      ]),
+      { modules: ["modules/blog"], app: false },
+    );
+  });
+
+  it("modules et application touchés ensemble : les deux, modules triés", () => {
+    assert.deepStrictEqual(
+      planStandaloneRebuild([
+        "modules/zeta/index.ts",
+        "index.ts",
+        "modules/alpha/index.ts",
+      ]),
+      { modules: ["modules/alpha", "modules/zeta"], app: true },
+    );
+  });
+
+  it("rien d'identifiable : on rebâtit l'application (le geste historique)", () => {
+    assert.deepStrictEqual(planStandaloneRebuild([]), {
+      modules: [],
+      app: true,
     });
   });
 });

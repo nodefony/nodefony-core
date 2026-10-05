@@ -44,12 +44,12 @@ Trois besoins dépassent ce modèle :
 
 Les faits qui contraignent la solution, au code :
 
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1544` — le serveur est lancé `detached` sous
+- `src/nodefony/src/service/dev/DevSupervisor.ts:1684` — le serveur est lancé `detached` sous
   POSIX : un groupe en arrière-plan qui LIT le terminal reçoit `SIGTTIN` et est suspendu. Seul le
   superviseur (`DevSupervisor.ts:1657`, il reçoit Ctrl+C) peut lire le clavier.
 - `src/nodefony/src/service/dev/DevSupervisor.ts:1134` — `stdio: ["inherit", "inherit", "inherit",
 "ipc"]` : le serveur écrit directement dans le terminal.
-- `src/nodefony/src/service/dev/DevSupervisor.ts:526` (`#log`) et `:535` (`#startSpin`) — le
+- `src/nodefony/src/service/dev/DevSupervisor.ts:971` (`#log`) et `:980` (`#startSpin`) — le
   superviseur écrit lui aussi en direct, et anime son spinner de build par `\r`.
 - Un terminal ne fige rien dans son propre historique. Une zone de défilement (`DECSTBM`) a été
   essayée en #533 : historique vidé, Windows Terminal ne garde pas ce qui en sort, terminal cassé
@@ -405,7 +405,7 @@ interface IConfirmDecision {
   `uncaughtException`, `exit` — par le protocole unique (§5). Seul `kill -9` laisse un terminal à
   `reset` : c'est la raison d'être de la surface `inline`.
 - Le verdict de crash du serveur s'arme sur l'évènement `close` de l'enfant (émis après la fin de
-  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts:482`) : sinon la pile d'un crash
+  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts:559`) : sinon la pile d'un crash
   au démarrage arrive après le message, ou se perd.
 
 ### 10. Hors du rendu humain, rien ne change
