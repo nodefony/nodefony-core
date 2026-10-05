@@ -507,7 +507,7 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 ### `Kernel` / `CliKernel`
 
-`kernel/Kernel.ts:308` — `class Kernel extends Service implements IKernel`. Le ctor `:424` appelle `Nodefony.setKernel(this)`.
+`kernel/Kernel.ts:531` — `class Kernel extends Service implements IKernel`. Le ctor `:770` appelle `Nodefony.setKernel(this)`.
 
 - **Chaîne async de boot** (chaque maillon appelle le suivant si `!setCommandComplete`) :
   `start()` `:482` → `preRegister()` `:600` → `boot()` `:694` → `onReady()` `:724` → `initServers()` `:793`.
