@@ -88,7 +88,7 @@ function monterDecorJetable() {
   );
   writeFileSync(path.join(a, "nodefony", "Kernel.ts"), "export const k = 1;\n");
   // Le secret : c'est la moitié que la remise à zéro risque le plus d'emporter.
-  writeFileSync(path.join(a, ".env.local"), "NF_SECRET=jetable\n");
+  writeFileSync(path.join(a, ".env"), "NF_SECRET=jetable\n");
   const g = (...args) =>
     execFileSync("git", ["-C", a, ...args], { encoding: "utf8" });
   g("init", "-q");
@@ -124,7 +124,7 @@ if (!/état initial$/mu.test(git("log", "--format=%s"))) {
 }
 
 // ── Les six saletés, une par canal de contamination réellement observé ──────
-const envLocal = path.join(app, ".env.local");
+const envLocal = path.join(app, ".env");
 const secretInitial = existsSync(envLocal)
   ? readFileSync(envLocal, "utf8")
   : "";
@@ -135,7 +135,7 @@ const secretInitial = existsSync(envLocal)
 // mécanisme intact. On refuse de juger plutôt que d'accuser à tort.
 if (/NF_SALE/u.test(secretInitial)) {
   console.error(
-    "décor inutilisable : `.env.local` porte encore la salissure d'un contrôle\n" +
+    "décor inutilisable : `.env` porte encore la salissure d'un contrôle\n" +
       "précédent (NF_SALE). Retire cette ligne, ou repars d'un décor neuf —\n" +
       "sinon le verdict porterait sur le résidu, pas sur le mécanisme.",
   );
@@ -145,7 +145,7 @@ if (/NF_SALE/u.test(secretInitial)) {
 // fabrique pour que le contrôle porte AUSSI sur la restauration. Il est écrit
 // comme le banc l'écrit — chemin relatif + contenu base64 — et surtout PAS
 // selon une idée qu'on s'en ferait : c'est en le réinventant que le premier jet
-// a rendu `.env.local` sous le nom `/env.local`.
+// a rendu `.env` sous un nom mutilé.
 const manifeste = path.join(runDir, "decor-initial.json");
 if (secretInitial) {
   writeFileSync(
@@ -153,7 +153,7 @@ if (secretInitial) {
     JSON.stringify(
       [
         {
-          chemin: ".env.local",
+          chemin: ".env",
           contenu: Buffer.from(secretInitial, "utf8").toString("base64"),
         },
       ],
@@ -195,7 +195,7 @@ const salissures = [
     survit: () => existsSync(path.join(app, "var", "databases", "sale.db")),
   },
   {
-    nom: "variable d'environnement écrite dans .env.local (ignoré)",
+    nom: "variable d'environnement écrite dans .env (ignoré)",
     salir: () =>
       writeFileSync(
         envLocal,
@@ -282,7 +282,7 @@ const secretRendu = existsSync(envLocal)
   : !secretInitial;
 if (!secretRendu) {
   console.log(
-    "  ✗ la configuration de machine (.env.local) n'a PAS été rendue à l'identique",
+    "  ✗ la configuration de machine (.env) n'a PAS été rendue à l'identique",
   );
 }
 

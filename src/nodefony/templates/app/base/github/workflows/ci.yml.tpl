@@ -34,9 +34,14 @@ jobs:
     runs-on: ubuntu-latest
     # Sans borne, un démarrage qui pend consomme le quota jusqu'à six heures.
     timeout-minutes: 20
-<% if (it.db && !it.mongo) { %>    # La base retenue à la création (`NF_DATABASE_URL` du `.env` la joint sur
-    # 127.0.0.1) — même image que le compose : les deux viennent du MÊME
-    # catalogue du générateur, elles ne peuvent pas diverger.
+<% if (it.db) { %>    # `.env` n'est jamais commité : la forge reçoit l'URL de la base ICI — la même
+    # que celle que `nodefony create app` a écrite dans le `.env` du poste. Sans
+    # elle, `doctor` (dans `verify`) jugerait l'application en sqlite.
+    env:
+      NF_DATABASE_URL: "<%= it.db.url %>"
+<% } %><% if (it.db && !it.mongo) { %>    # La base retenue à la création, jointe sur 127.0.0.1 — même image que le
+    # compose : les deux viennent du MÊME catalogue du générateur, elles ne
+    # peuvent pas diverger.
     services:
       <%= it.db.service %>:
         image: <%= it.db.image %>

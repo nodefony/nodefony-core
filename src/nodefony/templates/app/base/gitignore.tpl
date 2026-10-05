@@ -30,12 +30,15 @@ vite.config.generated.mjs
 # instant : elles se refont, elles ne se versionnent pas.
 tmp/
 
-# Fichiers d'environnement — convention B (Vite/Next), celle du framework :
-#   COMMITÉS (défauts NON-secrets)  : .env, .env.<env>, .env.example
-#   GITIGNORÉS (secrets / machine)  : *.local → .env.local, .env.<env>.local
-# Les clés de chiffrement générées à la création de l'app vivent dans
-# .env.local — ne JAMAIS les committer (rotation : nodefony security:secrets).
-*.local
+# Fichiers d'environnement — la convention Node (celle du .gitignore Node de
+# GitHub) : `.env` porte les valeurs du POSTE, secrets de dev compris, et ne se
+# commite JAMAIS ; seule sa notice `.env.example` est versionnée. Les clés de
+# chiffrement générées à la création vivent dans `.env` (rotation :
+# nodefony security:secrets). Ancrés à la RACINE : les `.env.*` d'un front Vite
+# (`frontend/.env.production`, variables `VITE_` publiques) restent versionnés.
+/.env
+/.env.*
+!/.env.example
 
 # Clés PRIVÉES. Le certificat public (`cert.pem`, `fullchain.pem`) peut se
 # committer ; la clé qui va avec, jamais — un dépôt public la publie

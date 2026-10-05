@@ -346,7 +346,7 @@ describe("ai:mcp — l'enchaînement vers security:token", () => {
   });
 
   it("🔴 le répertoire est celui du PROJET, pas celui de l'appelant", () => {
-    // Le jeton s'écrit dans le `.env.local` du projet. Lancée depuis un
+    // Le jeton s'écrit dans le `.env` du projet. Lancée depuis un
     // sous-dossier, la commande écrirait sinon à côté — et l'application ne
     // lirait jamais la valeur.
     const plan = planTokenChaining(

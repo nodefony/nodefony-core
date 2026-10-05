@@ -5,9 +5,9 @@
  * terme de `Kernel.resolveRuntimeEnv`, `CliDefaultOptions.environment`,
  * `Cli.environment`, et le `??` du constructeur de `Cli`). Cinq copies d'une
  * même décision divergent en silence, et elles avaient déjà divergé : le kernel
- * se déclarait en `production` pendant que la cascade `.env` ne chargeait NI
- * `.env.production` NI `.env.development`, l'application tournant donc dans un
- * mode dont elle n'avait pas la configuration.
+ * se déclarait en `production` pendant que le lanceur ne résolvait aucun mode,
+ * l'application tournant donc dans un mode dont elle n'avait pas la
+ * configuration.
  *
  * Module sans aucune dépendance, à côté de `loadEnv` : il est importé par le
  * cœur (`Kernel`), par la couche CLI (`Cli`) et par le lanceur (`bin/nodefony`),
@@ -91,8 +91,8 @@ export function defaultEngineEnvironment(
  * 🔴 **Seuls les mots de COMMANDE sont examinés — ceux qui précèdent la première
  * option.** La version précédente balayait l'argv ENTIER : n'importe quel mot,
  * où qu'il soit, décidait du mode. `nodefony doctor --env production` faisait
- * ainsi basculer tout le processus en production — il chargeait `.env.production`
- * et les modules de production pour répondre à une question sur le poste, et le
+ * ainsi basculer tout le processus en production — il chargeait les modules
+ * de production pour répondre à une question sur le poste, et le
  * catalogue de l'application, refusant de se construire, retombait en silence
  * sur une version périmée. Un argument de valeur n'est pas une intention.
  *

@@ -438,7 +438,7 @@ export function defineEnv<M extends Record<string, z.ZodType>>(
   // d'un frontal, publier les statiques, lister les routes — n'en a aucun
   // usage, et l'exiger d'elle rend l'application inutilisable là où elle est
   // le plus légitime : dans une IMAGE, où le secret n'entre justement PAS
-  // (`.dockerignore` exclut `*.local`, une couche restant lisible même
+  // (`.dockerignore` exclut `.env`, une couche restant lisible même
   // effacée). Vécu, et bloquant : l'étage `proxyconf` du Dockerfile généré
   // boote l'application en production pour en dériver la configuration nginx —
   // il mourait en `EX_CONFIG`, et le profil `edge` du compose était
@@ -465,7 +465,7 @@ export function defineEnv<M extends Record<string, z.ZodType>>(
     throw new Error(
       `[nodefony] Variables d'environnement requises en ${stages.join("/")} et ABSENTES : ` +
         `${missing.join(", ")} — les poser dans l'environnement du déploiement ` +
-        `(ou en .env.local en local). Une valeur générée à la volée ne survit pas ` +
+        `(ou dans .env sur le poste). Une valeur générée à la volée ne survit pas ` +
         `au redémarrage, et diffère d'un exemplaire à l'autre en grappe.`,
     );
   }

@@ -29,7 +29,7 @@ import { isReservedEnv, reservedEnvRole } from "../config/reservedEnv";
 export interface IEnvLevel {
   /** 1 = le plus prioritaire. */
   rank: number;
-  /** `process.env` ou le nom du fichier (`.env.local`…). */
+  /** `process.env` ou le nom du fichier (`.env`). */
   source: string;
   /** Le niveau existe-t-il (fichier présent) ? */
   exists: boolean;

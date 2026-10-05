@@ -27,35 +27,17 @@ const meta = (
 
 describe("rapport d'environnement (nodefony env)", () => {
   it("l'ordre affiché EST celui qui est appliqué (une seule source)", () => {
-    // Si ces deux listes divergeaient, la commande décrirait une cascade que le
-    // framework n'applique pas — le pire service à rendre à qui cherche pourquoi
-    // sa variable est ignorée. D'où l'extraction de `envFileOrder`.
-    assert.deepEqual(envFileOrder({ runtimeEnv: "development" }), [
-      ".env.development.local",
-      ".env.local",
-      ".env.development",
-      ".env",
-    ]);
-    // Un environnement de déploiement s'insère AU-DESSUS du mode, à chaque rang :
-    // il est plus spécifique.
+    // Si ces deux listes divergeaient, la commande décrirait un chargement que
+    // le framework n'applique pas. Un seul fichier, quel que soit le mode.
+    assert.deepEqual(envFileOrder({ runtimeEnv: "development" }), [".env"]);
     assert.deepEqual(
       envFileOrder({ runtimeEnv: "production", appEnv: "staging" }),
-      [
-        ".env.staging.local",
-        ".env.production.local",
-        ".env.local",
-        ".env.staging",
-        ".env.production",
-        ".env",
-      ],
-    );
-    // Déploiement égal au mode → pas de niveau en double.
-    assert.deepEqual(
-      envFileOrder({ runtimeEnv: "production", appEnv: "production" }),
-      [".env.production.local", ".env.local", ".env.production", ".env"],
+      [".env"],
     );
   });
 
+  // Le chargeur n'a plus qu'un niveau, mais le calcul reste général : une liste
+  // ordonnée de sources. Ce cas l'éprouve sur deux.
   it("attribue la valeur au PREMIER fichier qui la porte, et masque les autres", () => {
     const report = buildEnvReport({
       runtimeEnv: "development",
@@ -78,12 +60,12 @@ describe("rapport d'environnement (nodefony env)", () => {
       runtimeEnv: "development",
       // Valeur effective ≠ celle du fichier → c'est le shell qui l'a posée.
       processEnv: { NF_PORT: "9999" },
-      files: [{ source: ".env.local", vars: { NF_PORT: "5152" } }],
+      files: [{ source: ".env", vars: { NF_PORT: "5152" } }],
       catalog: [meta("NF_PORT", { kind: "number" })],
     });
     assert.equal(report.vars[0]!.origin, "process.env");
     assert.deepEqual(report.vars[0]!.shadowed, [
-      { source: ".env.local", value: "5152" },
+      { source: ".env", value: "5152" },
     ]);
   });
 
@@ -110,9 +92,7 @@ describe("rapport d'environnement (nodefony env)", () => {
     const report = buildEnvReport({
       runtimeEnv: "development",
       processEnv: { NF_TOTP_KEY: "s3cr3t-en-clair" },
-      files: [
-        { source: ".env.local", vars: { NF_TOTP_KEY: "s3cr3t-en-clair" } },
-      ],
+      files: [{ source: ".env", vars: { NF_TOTP_KEY: "s3cr3t-en-clair" } }],
       catalog: [meta("NF_TOTP_KEY")],
     });
     const v = report.vars[0];
@@ -120,7 +100,7 @@ describe("rapport d'environnement (nodefony env)", () => {
     assert.notInclude(JSON.stringify(report), "s3cr3t-en-clair");
     // Masquée, mais on voit qu'elle est là, d'où elle vient et sa longueur.
     assert.include(String(v!.value), "15 car.");
-    assert.equal(v!.origin, ".env.local");
+    assert.equal(v!.origin, ".env");
   });
 
   it("distingue une surcharge NF__ d'une variable déclarée", () => {
@@ -151,7 +131,7 @@ describe("rapport d'environnement (nodefony env)", () => {
     const report = buildEnvReport({
       runtimeEnv: "development",
       processEnv: { NF_PROT: "5152", PATH: "/usr/bin", HOME: "/home/x" },
-      files: [{ source: ".env.local", vars: { NF_PROT: "5152" } }],
+      files: [{ source: ".env", vars: { NF_PROT: "5152" } }],
       catalog: [meta("NF_PORT", { kind: "number" })],
     });
     // Une faute de frappe sur une variable d'env est INVISIBLE au démarrage : la
@@ -159,7 +139,7 @@ describe("rapport d'environnement (nodefony env)", () => {
     // endroit qui peut la montrer.
     assert.deepEqual(
       report.unknown.map((u) => [u.name, u.suggestion, u.origin]),
-      [["NF_PROT", "NF_PORT", ".env.local"]],
+      [["NF_PROT", "NF_PORT", ".env"]],
     );
     // Le reste de l'environnement système n'est pas listé — il noierait le signal.
     assert.notInclude(

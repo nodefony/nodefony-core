@@ -104,7 +104,7 @@ avec les services enregistrés. Même famille de faute que les sondes qui lisaie
 les tests : le raccourci d'écriture devient un faux rouge.
 
 Et une tâche de configuration ne se juge JAMAIS sur le diff git : la bonne
-réponse vit dans `.env.local`, qui est **gitignoré**. Vécu — deux sondes ont
+réponse vit dans `.env`, qui est **gitignoré**. Vécu — deux sondes ont
 déclaré en échec un agent qui avait fait juste.
 
 ### Mesurer la PERFORMANCE sans jamais comparer une durée
@@ -226,13 +226,13 @@ véhicule propre :
 | -------------------------------- | ----------------------------- | -------------------------- |
 | fichier suivi ajouté ou modifié  | controller, entité, manifeste | `git read-tree -u --reset` |
 | base de données semée            | `var/` (ignoré)               | `git clean -xdf`           |
-| variable d'environnement         | `.env.local` (ignoré)         | `git clean -xdf`           |
+| variable d'environnement         | `.env` (ignoré)               | `git clean -xdf`           |
 | build d'une autre tâche          | `dist/` (ignoré)              | `git clean -xdf`           |
 | paquet installé mais non déclaré | `node_modules`                | `npm prune`                |
 
 Deux pièges s'y cachent, et tous deux ont mordu à l'écriture :
 
-- **Tout ce qui est ignoré n'est pas un résidu.** `.env.local` porte les clés de
+- **Tout ce qui est ignoré n'est pas un résidu.** `.env` porte les clés de
   chiffrement générées à la création de l'app ; les effacer donne une
   application qui démarre encore, avec d'autres clés. Les FICHIERS ignorés
   présents dès la création sont mis de côté (`decor-initial.json`, chemin +

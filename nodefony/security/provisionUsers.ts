@@ -211,9 +211,9 @@ export async function provisionUsers(module: Module): Promise<void> {
  *
  * - **PROD** : aucun mot de passe par défaut (le hash de `secret` est public dans
  *   le code). Un admin n'est seedé QUE si `NF_ADMIN_PASSWORD` est fourni
- *   (`.env.local` / secret-manager) ; sinon, avertissement et aucun compte créé.
+ *   (gestionnaire de secrets) ; sinon, avertissement et aucun compte créé.
  * - **DEV** : comptes de fixture connus (`admin`/`user`, mot de passe `secret` par
- *   défaut, surchargeable via `.env.local`) → bancs d'intégration out-of-the-box.
+ *   défaut, surchargeable via `.env`) → bancs d'intégration out-of-the-box.
  *
  * @param users - service utilisateur déjà branché sur un dépôt persistant.
  * @param module - module applicatif (pour les logs + l'environnement).
@@ -235,7 +235,7 @@ async function seedPersistentUsers(
       module.log(
         `Aucun admin et NF_ADMIN_PASSWORD non défini → aucun compte seedé. Créez-en ` +
           `un (\`nodefony security:user:add\`) ou définissez NF_ADMIN_PASSWORD ` +
-          `(.env.local / secret-manager).`,
+          `(gestionnaire de secrets).`,
         "WARNING",
         LOG_CTX,
       );

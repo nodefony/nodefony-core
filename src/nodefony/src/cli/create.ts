@@ -1118,8 +1118,8 @@ export function argvMcpWiring(
  * `git init` + first commit dans l'app générée — SEULEMENT si git est
  * disponible ET que le dossier n'est pas déjà couvert par un repo (une app de
  * banc dans le checkout du framework ne doit pas créer un repo imbriqué).
- * Le `.gitignore` généré exclut `*.local` AVANT ce commit : les secrets de
- * `.env.local` ne peuvent pas y entrer.
+ * Le `.gitignore` généré exclut `.env` AVANT ce commit : les secrets du poste
+ * ne peuvent pas y entrer.
  *
  * `--git-hooks` : les hooks se posent ENTRE `git init` et le premier commit —
  * `.githooks/` entre ainsi dans le commit initial, comme les pointeurs de
@@ -1546,8 +1546,8 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // Le câblage MCP AUSSI avant git : le `.mcp.json` est un fichier de PROJET —
   // versionné, lu tel quel par les agents qui suivent le dépôt — il a donc sa
   // place dans le commit initial, exactement comme les pointeurs de skills. Le
-  // JETON, lui, n'y entre jamais : il vit dans `.env.local`, que le `.gitignore`
-  // généré exclut (`*.local`) avant ce commit.
+  // JETON, lui, n'y entre jamais : il vit dans `.env`, que le `.gitignore`
+  // généré exclut avant ce commit.
   // Le choix d'agents vient de la SPEC (question `agents`) — donc du MÊME
   // endroit pour le terminal, Studio et `--answers-json`. Ce qui autorise
   // l'écriture chez un tiers n'est pas la présence d'un humain, c'est un choix

@@ -30,7 +30,7 @@ import { detectEnvironmentFromArgv } from "../runtime/engineEnvironment";
  * Ce qui garantit le mode en production est FACTUEL : Node.js le recommande
  * (« Always run your Node.js with NODE_ENV=production set »), l'image générée
  * pose `ENV NODE_ENV=production`, et les lanceurs déclarent leur intention. Miroir pur de `Kernel.resolveRuntimeEnv`, mais sans instance (le bin tourne
- * avant `new CliKernel()`) et autorisé à rendre `undefined` (aucun `.env.<env>` chargé
+ * avant `new CliKernel()`) et autorisé à rendre `undefined` (aucun mode posé
  * si ni NODE_ENV ni commande connue — ex. `nodefony frontend:build` hors contexte env).
  */
 function resolveRuntimeEnv(argv: string[]): EnvironmentType | undefined {
@@ -85,21 +85,31 @@ async function runSelf(): Promise<unknown> {
     }
   }
 
-  const { CliKernel, loadEnv } = await import("nodefony");
+  const { CliKernel, loadEnv, findLegacyEnvFiles, legacyEnvMessage } =
+    await import("nodefony");
 
   const runtimeEnv = resolveRuntimeEnv(process.argv.slice(2));
   // Axe DÉPLOIEMENT (string libre : staging/canary/prod-eu…) — distinct du mode runtime.
   const appEnv = process.env.APP_ENV ?? process.env.NF_ENV;
 
   // Canonise NODE_ENV tôt (idempotent si l'orchestrateur l'a déjà posé) : le mode
-  // runtime ne vit PLUS dans un `.env` committé (conv B + piège Next : un déploiement
-  // sans NODE_ENV ne doit pas hériter d'un `development` figé en dur). Les configs de
-  // modules lues au boot (qui lisent `process.env.NODE_ENV`) le voient ainsi résolu.
+  // runtime ne vit dans AUCUN fichier — un déploiement sans NODE_ENV ne doit pas
+  // hériter d'un `development` figé en dur. Les configs de modules lues au boot
+  // (qui lisent `process.env.NODE_ENV`) le voient ainsi résolu.
   if (runtimeEnv) process.env.NODE_ENV = runtimeEnv;
 
-  // Peuple process.env depuis les .env du projet AVANT le boot : les configs de
-  // modules (REDIS_*, etc.) les lisent au moment de la construction du kernel.
-  loadEnv({ runtimeEnv, appEnv });
+  // Un fichier de l'ancienne convention (`.env.local`, `.env.<mode>`) n'est plus
+  // lu : le laisser passer ferait disparaître ses variables sans un mot. Refus
+  // franc, code 78 (EX_CONFIG) comme toute faute de configuration au démarrage.
+  const legacy = findLegacyEnvFiles({ runtimeEnv, appEnv });
+  if (legacy.length > 0) {
+    process.stderr.write(`${legacyEnvMessage(legacy)}\n`);
+    return exit(78);
+  }
+
+  // Peuple process.env depuis `.env` AVANT le boot : les configs de modules les
+  // lisent au moment de la construction du kernel.
+  loadEnv();
 
   return new CliKernel(runtimeEnv).start().catch((e) => {
     exit(e.code || 1);

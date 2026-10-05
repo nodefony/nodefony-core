@@ -66,7 +66,7 @@ describe("detectEnvironmentFromArgv — seule la COMMANDE exprime une intention"
 
   // 🔴 LE cas qui a motivé l'extraction : la VALEUR d'une option n'est pas une
   // intention. Avant cette règle, `doctor --env production` faisait basculer le
-  // processus entier en production — il chargeait `.env.production` et les
+  // processus entier en production — il chargeait les
   // modules de production pour répondre à une question sur le POSTE, et le
   // catalogue de l'application retombait en silence sur un build périmé.
   it("la valeur d'une option ne décide PAS du mode", () => {
@@ -194,8 +194,8 @@ describe("mode moteur — POSER la variable est un acte de déploiement", () => 
 
 describe("mode moteur — UNE règle, UNE implémentation", () => {
   // Cette règle vivait à SEPT endroits, et elle avait déjà divergé : le kernel
-  // se déclarait en production pendant que la cascade `.env` ne chargeait ni
-  // `.env.production` ni `.env.development`. Un défaut recopié ne se voit pas —
+  // se déclarait en production pendant que le lanceur ne résolvait aucun mode.
+  // Un défaut recopié ne se voit pas —
   // il se compte.
   for (const fichier of ["kernel/Kernel.ts", "Cli.ts"]) {
     it(`${fichier} ne contient aucun défaut d'environnement EN DUR`, () => {

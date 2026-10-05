@@ -57,7 +57,7 @@ jobs:
 
       # Les secrets que la PRODUCTION exige, posés comme un exploitant le fait :
       # par l'environnement du service, jamais dans l'image (`.dockerignore`
-      # exclut `*.local`, et une couche reste lisible même effacée par la
+      # exclut `.env`, et une couche reste lisible même effacée par la
       # suivante). Un fichier NOMMÉ, passé par `-f` : `compose.override.yaml`
       # serait lu tout seul, et écraserait celui que tu y aurais mis.
       - name: Secrets d'exploitation (jamais dans l'image)

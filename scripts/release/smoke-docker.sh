@@ -890,7 +890,7 @@ TS
 
   # Les SECRETS que la production exige, posés comme un exploitant le ferait :
   # par l'environnement du service, jamais dans l'image (`.dockerignore` exclut
-  # `*.local`, et une couche reste lisible même effacée). Le compte
+  # `.env`, et une couche reste lisible même effacée). Le compte
   # d'administration en fait partie — sans lui, aucune identité n'existe en
   # production, et le cas du cookie `__Host-` n'aurait rien à observer.
   # `compose.override.yaml` est lu AUTOMATIQUEMENT par compose : c'est le point
@@ -1319,8 +1319,9 @@ DOCKERFILE
 var
 logs
 **/*.log
-*.local
-**/*.local
+.env
+.env.*
+!.env.example
 nodefony/config/certificates
 **/*.key
 **/*.pem

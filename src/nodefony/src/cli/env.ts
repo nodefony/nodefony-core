@@ -391,37 +391,41 @@ export async function buildProjectEnvReport(
     appEnv,
     targetEnv,
     processEnv: process.env,
-    // La CASCADE reste celle d'ici : viser un autre environnement ne fait pas
-    // lire des fichiers qui ne sont pas sur cette machine. Ce que la commande
-    // répond, c'est « avec ce que j'ai sous la main, qu'est-ce qui manquera
-    // là-bas ? » — et un `.env.production` présent localement compte, puisqu'il
-    // partira avec le dépôt.
+    // Le fichier lu reste celui d'ici : viser un autre environnement ne fait pas
+    // lire ce qui n'est pas sur cette machine. Ce que la commande répond, c'est
+    // « avec ce que j'ai sous la main, qu'est-ce qui manquera là-bas ? ».
     files: readLevels(root, runtimeEnv, appEnv),
     catalog: projectRoot ? await readCatalog(projectRoot) : null,
   });
 }
 
 /**
- * En-tête GÉNÉRIQUE du `.env.example` d'une application — la version curée du
- * dépôt self-hosted vit, elle, dans son script (`scripts/gen-env-example.ts`) :
- * même `renderEnvExample` en dessous, seuls le préambule et le chemin diffèrent.
+ * En-tête GÉNÉRIQUE du `.env.example` d'une application — le même pour le dépôt
+ * self-hosted et pour toute application générée : la règle des fichiers
+ * d'environnement ne dépend pas du projet. Un projet peut le remplacer par un
+ * `.env.example.head` (cf {@link readExampleHeader}).
  */
-const EXAMPLE_HEADER = `# .env.example — MODÈLE d'onboarding (committé, 0 secret réel).
+const EXAMPLE_HEADER = `# .env.example — la NOTICE des variables (commitée, jamais chargée, 0 secret).
 #
 # ⚙️  GÉNÉRÉ depuis env.ts (catalogue defineEnv) — NE PAS éditer à la main.
 #     Régénérer : npx nodefony env --example
 #     Vérifier  : npx nodefony env --example --check   (pre-commit, CI)
 #
-# Toutes les variables sont COMMENTÉES (le framework a des défauts) : décommenter
-# celles que ton déploiement surcharge, dans .env.local (secrets/machine,
-# gitignoré) ou .env / .env.<env> (défauts non-secrets). Précédence, du plus
-# fort au plus faible :
-#   process.env > .env.<appEnv>.local > .env.<env>.local > .env.local
-#               > .env.<appEnv> > .env.<env> > .env
+# Deux fichiers, une règle — « qui fournit la valeur ? » :
+#   .env.example  → CE fichier : la notice, commitée, jamais lue au démarrage.
+#   .env          → TES valeurs de poste, secrets de dev compris. JAMAIS commité.
+#   production    → AUCUN fichier : secrets par l'orchestrateur ou le gestionnaire
+#                   de secrets ; réglages non secrets dans nodefony.config.ts.
+# Précédence : variable du process (shell, orchestrateur) > .env.
 #
 # Override GÉNÉRIQUE de config (hors catalogue) : NF__<MODULE|APP>__<CHEMIN>=valeur
 #   ex. NF__APP__SERVERS__HTTP__PORT=8080
-# Secret monté en conteneur : toute variable accepte aussi <NOM>_FILE (Docker/K8s).`;
+# Secret monté en conteneur : toute variable accepte aussi <NOM>_FILE (Docker/K8s).
+#
+# Lues par le framework, hors catalogue (posées par la commande ou l'orchestrateur) :
+#   NODE_ENV=production   # development | production — posé par la commande nodefony …
+#   APP_ENV=staging       # environnement de DÉPLOIEMENT libre (alias : NF_ENV)
+#   NF_WORKERS=auto       # nombre de process du cluster (--workers l'emporte)`;
 
 /**
  * Compose le contenu de `.env.example` d'une application — PUR.

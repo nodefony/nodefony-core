@@ -85,7 +85,7 @@ regexes = [
   '''^(s3cret-valise-42|autre-s3cret-valise-42|bon-mot-valise-42|ancien-mot-valise-42|nouveau-mot-valise-42)$''',
   # Mots de passe des comptes de DÉVELOPPEMENT : celui du dépôt, celui qu'une
   # application générée sème, celui de son banc de bout en bout, et la valeur
-  # d'exemple de `.env.local`. Tous sont écrits dans le dépôt à dessein — un
+  # d'exemple du `.env` généré. Tous sont écrits dans le dépôt à dessein — un
   # compte de développement qui n'est joignable que depuis la machine qui l'a
   # créé — et la politique de mot de passe interdit qu'ils soient plus courts.
   '''^(secret-de-dev-42|nodefony-dev-42|e2e-compte-jetable-42|a-changer-avant-la-mise-en-ligne)$''',

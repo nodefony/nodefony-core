@@ -401,7 +401,7 @@ describe("checkSurface — l'inventaire et les deux verdicts", () => {
  *
  * Les cas ci-dessus INJECTENT l'environnement — c'est par là que le défaut est
  * passé. Le produit, lui, ne lisait que `process.env`, quand le gabarit
- * PRESCRIT de poser `NF_DATABASE_URL` dans `.env.local`. Résultat : une
+ * PRESCRIT de poser `NF_DATABASE_URL` dans `.env`. Résultat : une
  * application Postgres voyait chacune de ses entités accusée, et sortait en
  * erreur. Ces cas passent donc par le vrai point d'entrée, avec des fichiers
  * sur disque et un `process.env` qui, lui, ne dit rien.
@@ -418,12 +418,9 @@ describe("collectDoctorReport — le dialecte vient de l'app, pas du terminal", 
     );
   };
 
-  it("⭐ `.env.local` pose le dialecte — aucune entité n'est accusée", async () => {
+  it("⭐ `.env` pose le dialecte — aucune entité n'est accusée", async () => {
     appPostgres();
-    poser(
-      ".env.local",
-      "NF_DATABASE_URL=postgres://app:x@localhost:5432/app\n",
-    );
+    poser(".env", "NF_DATABASE_URL=postgres://app:x@localhost:5432/app\n");
     const report = await collectDoctorReport(racine);
     assert.equal(report.surface.dialect, "postgres");
     assert.deepStrictEqual(
@@ -493,14 +490,14 @@ describe("collectDoctorReport — le dialecte vient de l'app, pas du terminal", 
     );
   });
 
-  it("`.env` committé compte aussi, et `.env.local` prime sur lui", async () => {
+  it("`.env` est le SEUL fichier lu — un `.env.local` ne change rien", async () => {
     appPostgres();
     poser(".env", "NF_DATABASE_URL=mysql://app@localhost:3306/app\n");
     let report = await collectDoctorReport(racine);
     assert.equal(report.surface.dialect, "mysql");
     poser(".env.local", "NF_DATABASE_URL=postgres://app@localhost:5432/app\n");
     report = await collectDoctorReport(racine);
-    assert.equal(report.surface.dialect, "postgres", "`.env.local` prime");
+    assert.equal(report.surface.dialect, "mysql", "`.env.local` n'est plus lu");
   });
 });
 

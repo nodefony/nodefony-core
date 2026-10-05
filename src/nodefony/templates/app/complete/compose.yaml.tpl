@@ -555,7 +555,7 @@ services:
   # `<%= it.appName %>`, un client confidentiel `<%= it.appName %>` dont les URL de retour sont
   # celles de CETTE application (https://localhost:5152 et http://localhost:5151),
   # et un utilisateur `alice` / `alice-dev`. Brancher l'app : décommenter les
-  # lignes `NF_KEYCLOAK_*` de `.env` et `.env.local`. Console d'administration :
+  # lignes `NF_KEYCLOAK_*` de `.env`. Console d'administration :
   # https://localhost:${KEYCLOAK_PORT:-8444}/admin (admin / <%= it.appName %>-dev).
   #
   # Ce que l'app exige de ce décor, chaque point payé une fois :

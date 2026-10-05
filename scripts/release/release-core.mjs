@@ -848,7 +848,7 @@ export function fusionnerChangelog(ancien, section, version) {
  */
 export function detecterSuspects(fichiers) {
   const SUSPECT =
-    /(^|\/)(\.env(\.[\w-]+)?|\.npmrc|\.netrc|id_rsa|id_ed25519|keyset\.json|[\w.-]+\.(pem|p12|pfx|key|keystore)|secrets?\.(json|ya?ml|toml))$/i;
+    /(^|\/)(\.env(\.(?!example$)[\w-]+)?|\.npmrc|\.netrc|id_rsa|id_ed25519|keyset\.json|[\w.-]+\.(pem|p12|pfx|key|keystore)|secrets?\.(json|ya?ml|toml))$/i;
   const GIT = /(^|\/)\.git\//;
   return fichiers.filter((f) => SUSPECT.test(f) || GIT.test(f));
 }
@@ -858,15 +858,11 @@ export function detecterSuspects(fichiers) {
  *
  * Copie assumée elle aussi (cf {@link detecterSuspects}) : le jumeau vit dans
  * `detectSuspectImageFiles`, et le test de parité du core garde les deux
- * alignées. Les trois tolérances et leurs bornes y sont expliquées en détail —
+ * alignées. Les deux tolérances et leurs bornes y sont expliquées en détail —
  * ne pas les modifier ici sans les modifier là-bas.
  *
  * - **`node_modules/`** — un `.pem` y est une donnée de test de la dépendance
  *   qui l'apporte.
- * - **`.env` NU, et lui seul** — convention du framework : ce fichier est
- *   commité sans secret. La borne à la racine n'est pas cosmétique : sans elle
- *   la tolérance couvrait `app/.gemini/.env`, où `nodefony ai:mcp` écrit le
- *   JETON PORTEUR du serveur MCP.
  * - **les magasins de certificats PUBLICS du système** — jamais
  *   `etc/ssl/private/`, et jamais une `.key`, fût-elle sous `certs/`.
  *
@@ -875,7 +871,6 @@ export function detecterSuspects(fichiers) {
  */
 export function detecterSuspectsImage(fichiers) {
   const DEPENDANCE = /(^|\/)node_modules\//;
-  const ENV_NU = /^([^/]+\/)?\.env$/;
   // `ssl[^/]*` couvre le `ssl1.1` d'Alpine sans ouvrir `etc/ssl/private/`.
   const MAGASIN_PUBLIC =
     /^(etc\/ssl[^/]*\/(certs?\.pem|certs\/)|etc\/pki\/tls\/certs\/|etc\/ca-certificates\/|usr\/(local\/)?share\/ca-certificates\/|usr\/lib\/ssl\/certs\/)/;
@@ -883,9 +878,7 @@ export function detecterSuspectsImage(fichiers) {
   return detecterSuspects(
     fichiers.filter(
       (f) =>
-        !DEPENDANCE.test(f) &&
-        !ENV_NU.test(f) &&
-        !(MAGASIN_PUBLIC.test(f) && CERTIFICAT.test(f)),
+        !DEPENDANCE.test(f) && !(MAGASIN_PUBLIC.test(f) && CERTIFICAT.test(f)),
     ),
   );
 }

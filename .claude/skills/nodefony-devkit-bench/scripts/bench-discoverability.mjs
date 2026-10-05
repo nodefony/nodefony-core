@@ -1924,7 +1924,7 @@ export const TASKS = [
     id: 6,
     name: "configuration par l'environnement",
     // 🔴 La bonne réponse est INVISIBLE au diff : elle s'écrit dans
-    // `.env.local`, gitignoré par conception — c'est le bon endroit, et c'est
+    // `.env`, gitignoré par conception — c'est le bon endroit, et c'est
     // aussi celui qu'aucun `git diff` ne montre. Sans ce drapeau, la garde
     // anti-abandon écarte le run d'un agent PARFAIT : mesuré sur deux passes,
     // « NON JUGEABLE » deux fois pendant que le juge d'état rendait exit 0.
@@ -1972,9 +1972,9 @@ export const TASKS = [
         observe: true,
       },
       // ⚠️ PAS de sonde sur le diff git pour cette tâche. Vécu au premier run :
-      // l'agent avait fait JUSTE — `NF_LOG_DRIVER=file` dans `.env.local`, le bon
+      // l'agent avait fait JUSTE — `NF_LOG_DRIVER=file` dans `.env`, le bon
       // endroit — et deux sondes de code l'ont déclaré en échec, parce que
-      // `.env.local` est GITIGNORÉ et n'apparaît dans aucun diff. Le juge lisait
+      // `.env` est GITIGNORÉ et n'apparaît dans aucun diff. Le juge lisait
       // le dépôt là où la bonne réponse vit hors du dépôt, par conception. Pour
       // une tâche de configuration, seul un juge d'ÉTAT dit la vérité.
       {
@@ -5279,8 +5279,8 @@ function finaliserDecor(app, runDir) {
  *
  * La remise à zéro entre deux tâches efface les fichiers non suivis — c'est
  * tout son objet, puisque la contamination passe justement par là (une base de
- * données semée dans `var/`, une variable écrite dans `.env.local`). Mais tout
- * ce qui est ignoré n'est pas un résidu : `.env.local` porte **les clés de
+ * données semée dans `var/`, une variable écrite dans `.env`). Mais tout
+ * ce qui est ignoré n'est pas un résidu : `.env` porte **les clés de
  * chiffrement générées à la création**, et une app qui les perd n'est plus
  * celle qu'on mesure.
  *
@@ -5296,7 +5296,7 @@ function finaliserDecor(app, runDir) {
 function sauverIgnoresInitiaux(app, runDir) {
   // Un MANIFESTE (chemin + contenu), et non des fichiers renommés dans un
   // dossier : le premier jet encodait le séparateur en `__`, ce qui rendait
-  // `.env.local` sous le nom `/env.local` — le secret n'était jamais rendu, et
+  // `.env` sous un nom mutilé — le secret n'était jamais rendu, et
   // rien ne le disait. Le contenu est encodé en base64 pour ne rien supposer de
   // ce qu'un gabarit futur pourrait poser (binaire, encodage exotique).
   const entrees = git(app, "status", "--ignored", "--porcelain")
@@ -5995,7 +5995,7 @@ function runTask(app, runDir, task) {
  * recommente une variable d'environnement pour faire booter sa propre
  * inspection, et c'est la tâche 6 — jouée bien avant — qui rougit. Se détacher
  * sur le commit de la tâche ne suffit pas : l'agent avait écrit dans un fichier
- * GITIGNORÉ (`.env.local`), qu'aucun `checkout` ne restaure. Le seul instant où
+ * GITIGNORÉ (`.env`), qu'aucun `checkout` ne restaure. Le seul instant où
  * l'état est fidèle, suivi ou non, est la seconde qui suit la tâche.
  */
 /**
@@ -6366,7 +6366,7 @@ function coupureApi(texte) {
  *   n'a rien tenté », et c'est le premier qu'on cherche à mesurer.
  *
  * 🔴 **Sauf pour une tâche dont la bonne réponse est INVISIBLE au diff.** La
- * tâche 6 se résout en écrivant dans `.env.local` — gitignoré par conception,
+ * tâche 6 se résout en écrivant dans `.env` — gitignoré par conception,
  * et c'est justement le bon endroit. Un agent parfait n'y touche donc AUCUN
  * fichier suivi, et cette garde écartait son run : la tâche est ressortie « NON
  * JUGEABLE » sur deux passes alors que son juge d'ÉTAT (`nodefony env --json`)

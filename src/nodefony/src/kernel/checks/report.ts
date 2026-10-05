@@ -128,7 +128,7 @@ export type DoctorFamily =
   | "nodeSecurity"
   | "readiness"
   | "envCatalog"
-  /** Sous-règle de `readiness` — un `.env*.local` versionné, que seul git sait dire. */
+  /** Sous-règle de `readiness` — un `.env` versionné, que seul git sait dire. */
   | "envTracked"
   | "deps"
   | "wiring"

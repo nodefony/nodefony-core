@@ -72,7 +72,7 @@ const notices: IBootNotice[] = [
     code: "DB_SQLITE_FALLBACK",
     level: "warning",
     message: "Base « default » en repli SQLite (/app/var/databases/app.db)",
-    fix: "NF_DATABASE_URL=postgres://… dans .env.local",
+    fix: "NF_DATABASE_URL=postgres://… dans .env",
   },
   {
     code: "FIREWALL_PUBLIC_ROUTES",
@@ -272,7 +272,7 @@ describe("écran humain — ordre fixe, rien de perdu", () => {
     expect(text.indexOf("⚠  Base")).to.be.lessThan(
       text.indexOf("ℹ  Temps réel"),
     );
-    expect(text).to.contain("→ NF_DATABASE_URL=postgres://… dans .env.local");
+    expect(text).to.contain("→ NF_DATABASE_URL=postgres://… dans .env");
   });
 
   it("replie une liste ENTRE deux noms — jamais un « · » en tête, jamais un nom coupé", () => {
@@ -386,7 +386,7 @@ describe("rendu machine — une ligne par fait, zéro ANSI", () => {
     expect(lines).to.include("open.app: https://localhost:5152/");
     expect(lines).to.include("open.studio: https://localhost:5152/nodefony");
     expect(lines).to.include(
-      "warn DB_SQLITE_FALLBACK: Base « default » en repli SQLite (var/databases/app.db) — fix: NF_DATABASE_URL=postgres://… dans .env.local",
+      "warn DB_SQLITE_FALLBACK: Base « default » en repli SQLite (var/databases/app.db) — fix: NF_DATABASE_URL=postgres://… dans .env",
     );
     expect(lines).to.include(
       "info REALTIME_LOCAL_ONLY: Temps réel limité à ce processus",

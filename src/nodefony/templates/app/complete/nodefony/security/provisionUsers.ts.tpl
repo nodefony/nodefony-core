@@ -54,7 +54,7 @@ export const DEV_ADMIN_PASSWORD = "nodefony-dev-42";
  *
  * Mot de passe admin :
  * - DÉVELOPPEMENT : `admin` / `nodefony-dev-42` par défaut (local uniquement —
- *   même esprit que Grafana). Surcharge : `NF_ADMIN_PASSWORD` dans `.env.local`.
+ *   même esprit que Grafana). Surcharge : `NF_ADMIN_PASSWORD` dans `.env`.
  * - PRODUCTION : `NF_ADMIN_PASSWORD` OBLIGATOIRE (secret-manager) — sans lui,
  *   AUCUN compte n'est créé (jamais de mot de passe par défaut en prod) et un
  *   WARNING explique quoi faire (`nodefony security:user:add`).

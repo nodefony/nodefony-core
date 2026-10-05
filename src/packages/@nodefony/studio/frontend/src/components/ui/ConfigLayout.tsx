@@ -789,7 +789,7 @@ export function ConfigLayout({
                         Recette
                         <DocHint
                           title="Recette d'override (12-factor)"
-                          summary="La variable d'environnement qui surcharge ce réglage SANS toucher au code (NF__<MODULE>__<CHEMIN>). À copier dans .env.local / l'orchestrateur (priorité maximale dans la cascade)."
+                          summary="La variable d'environnement qui surcharge ce réglage SANS toucher au code (NF__<MODULE>__<CHEMIN>). À copier dans .env (poste) ou dans l'orchestrateur, qui l'emporte."
                           width={280}
                         />
                       </Group>

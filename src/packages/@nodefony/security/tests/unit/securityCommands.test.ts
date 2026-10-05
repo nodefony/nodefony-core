@@ -4,6 +4,10 @@ import SecurityUserList from "../../nodefony/command/security-user-list";
 import SecurityToken, {
   ttlSeconds,
 } from "../../nodefony/command/security-token";
+import SecuritySecrets from "../../nodefony/command/security-secrets";
+import { mkdtempSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * Ce que cette suite garde, et que rien d'autre ne garde : ces deux commandes
@@ -202,6 +206,30 @@ describe("security:secrets — on doit savoir QUOI et POURQUOI", () => {
 
     // Et l'affichage lit bien ce catalogue, plutôt qu'une liste recopiée.
     expect(source).toContain("Object.entries(ROLES)");
+  });
+
+  it("🔴 --write écrit les clés dans `.env` — le SEUL fichier que le framework charge", async () => {
+    // Une clé écrite ailleurs (l'ancien `.env.local`) ne serait jamais lue :
+    // l'application démarrerait sur des clés éphémères, et le binaire refuse
+    // désormais de démarrer tant qu'un tel fichier existe.
+    const dir = mkdtempSync(join(tmpdir(), "nf-secrets-write-"));
+    try {
+      const cmd = commandeAvecKernel(SecuritySecrets, {});
+      (cmd as unknown as { kernel: { path: string } }).kernel.path = dir;
+      await sortieDe(() => cmd.generate({ write: true }));
+      const dotenv = readFileSync(join(dir, ".env"), "utf8");
+      for (const clef of ["NF_TOTP_KEY", "NF_WEBHOOK_KEY", "NF_CSRF_SECRET"]) {
+        expect(dotenv, `${clef} absente de .env`).toMatch(
+          new RegExp(`^${clef}=\\S+`, "m"),
+        );
+      }
+      expect(existsSync(join(dir, ".env.local"))).toBe(false);
+      // Relancée, elle ne touche pas aux clés déjà posées.
+      await sortieDe(() => cmd.generate({ write: true }));
+      expect(readFileSync(join(dir, ".env"), "utf8")).toBe(dotenv);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

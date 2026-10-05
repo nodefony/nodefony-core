@@ -11,8 +11,8 @@
  * - une **variable requise absente** — l'application refuse de démarrer, et le
  *   message natif arrive au milieu d'un journal de boot ; requise ICI, ou
  *   requise LÀ OÙ L'ON VA (`requiredIn`, cf `--env production`) ;
- * - un **fichier `.env*.local` suivi par git** — il porte les secrets de la
- *   machine, et l'historique les garde après suppression ;
+ * - un **fichier `.env` suivi par git** — il porte les secrets du poste, et
+ *   l'historique les garde après suppression ;
  * - un **module du manifeste non installé** — `use("@acme/blog")` déclaré,
  *   paquet absent : le Kernel échoue à l'import, très loin de la cause ;
  * - une **dépendance déclarée non installée** — un `npm install` oublié après un
@@ -265,9 +265,9 @@ export async function checkReadiness(input: {
   }
 
   // ─── 1 bis. Un secret local SUIVI par git ─────────────────────────────────
-  // Les fichiers `.env*.local` portent les secrets de la machine — c'est la
-  // convention que le framework écrit lui-même dans `.env.example`. Versionné,
-  // un tel fichier met ses secrets dans l'historique, d'où ils ne partent plus :
+  // `.env` porte les secrets du poste — c'est la convention que le framework
+  // écrit lui-même dans `.env.example`. Versionné, il met ses secrets dans
+  // l'historique, d'où ils ne partent plus :
   // le retirer de l'index ne réécrit pas les commits déjà poussés.
   const trackedUnknown =
     input.tracked && !input.tracked.supported

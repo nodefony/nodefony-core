@@ -64,11 +64,13 @@ coverage/
 # vitest ≥ 5 : racine unique des artefacts (attachments, blob, rapports json/junit/html)
 .vitest/
 
-# Fichiers d'environnement — Convention B (Vite/Next).
-#   Committés (défauts NON-secrets) : .env, .env.<env>, .env.example
-#   Gitignorés (secrets / machine)  : *.local → .env.local, .env.<env>.local
-# Précédence (cf src/nodefony/src/runtime/loadEnv.ts) : les *.local priment.
-*.local
+# Fichiers d'environnement — convention Node, la même que l'app générée :
+# `.env` porte les valeurs du POSTE (secrets de dev compris) et ne se commite
+# jamais ; seule sa notice `.env.example` est versionnée. La production n'a pas
+# de fichier. Ancrés à la racine : les `.env.*` d'un front Vite restent libres.
+/.env
+/.env.*
+!/.env.example
 
 # Secrets posés chez les agents de développement (nodefony security:token --write).
 # 🔴 `.gemini/.env` porte un JETON PORTEUR : la déclaration de la porte MCP,

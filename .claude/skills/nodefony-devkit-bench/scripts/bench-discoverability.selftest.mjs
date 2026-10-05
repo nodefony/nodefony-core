@@ -303,7 +303,7 @@ function verifierGardeTranscript() {
       "coupé sans fichier — le motif doit nommer la coupure, pas l'abandon",
     );
   }
-  // 🔴 La tâche dont la bonne réponse est INVISIBLE au diff (`.env.local`,
+  // 🔴 La tâche dont la bonne réponse est INVISIBLE au diff (`.env`,
   // gitignoré). Sans l'exception déclarée, la garde écarte le run d'un agent
   // PARFAIT — vécu sur deux passes, « NON JUGEABLE » pendant que le juge d'état
   // rendait exit 0. Les deux sens sont éprouvés : le drapeau ouvre, son absence
@@ -739,7 +739,7 @@ const SAMPLES = {
   // ── T6 ────────────────────────────────────────────────────────────────────
   "6 :: a interrogé l'environnement (nodefony env)": {
     pass: { transcript: `{"command":"npx nodefony env --json"}` },
-    fail: { transcript: `{"command":"cat .env.local"}` },
+    fail: { transcript: `{"command":"cat .env"}` },
     extra: [
       {
         label: "AGENTS.md lu, environnement jamais interrogé",
@@ -751,7 +751,7 @@ const SAMPLES = {
     ],
   },
   "6 :: aucune valeur en dur dans le code TypeScript": {
-    // La bonne réponse vit dans `.env.local`, gitignoré : le code, lui, ne doit
+    // La bonne réponse vit dans `.env`, gitignoré : le code, lui, ne doit
     // porter que la LECTURE de la variable.
     pass: { addedTs: `  url: env.NF_DATABASE_URL,` },
     fail: { addedTs: `  url: "postgres://user:secret@localhost:5432/app",` },

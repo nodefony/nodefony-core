@@ -36,7 +36,7 @@
  */
 export function detectSuspectFiles(files: string[]): string[] {
   const SUSPECT =
-    /(^|\/)(\.env(\.[\w-]+)?|\.npmrc|\.netrc|id_rsa|id_ed25519|keyset\.json|[\w.-]+\.(pem|p12|pfx|key|keystore)|secrets?\.(json|ya?ml|toml))$/i;
+    /(^|\/)(\.env(\.(?!example$)[\w-]+)?|\.npmrc|\.netrc|id_rsa|id_ed25519|keyset\.json|[\w.-]+\.(pem|p12|pfx|key|keystore)|secrets?\.(json|ya?ml|toml))$/i;
   const GIT = /(^|\/)\.git\//;
   return files.filter((file) => SUSPECT.test(file) || GIT.test(file));
 }
@@ -53,22 +53,12 @@ export function detectSuspectFiles(files: string[]): string[] {
  * amputé, et le défaut revient sans que personne le voie.
  *
  * Le motif est celui des tarballs, sciemment : une seule liste de ce qui ne doit
- * pas sortir, deux artefacts à garder. Trois tolérances l'en séparent, et
+ * pas sortir, deux artefacts à garder. Deux tolérances l'en séparent, et
  * chacune évite un rouge que le lecteur apprendrait à ignorer :
  *
  * - **`node_modules/`** — un `.pem` y est une donnée de test de la dépendance
  *   qui l'apporte. Le `.npmrc` de npm lui-même vit sous
  *   `usr/local/lib/node_modules/npm/`, dans l'image de base.
- * - **`.env` NU, et lui seul** — c'est une convention du framework : ce fichier
- *   est commité, il porte le catalogue des variables et des défauts non
- *   secrets ; les secrets vivent dans `.env.local`, que le `.gitignore` et le
- *   `.dockerignore` écartent tous deux. `.env.local`, `.env.production` et
- *   toute autre forme suffixée restent fatals. La tolérance est bornée à la
- *   racine de l'image ou du répertoire de travail : sans cette borne, elle
- *   couvrait `app/.gemini/.env`, où `nodefony ai:mcp` écrit le JETON PORTEUR du
- *   serveur MCP — le contrôle laissait donc passer le secret le plus facile à
- *   publier d'une application Nodefony, au nom d'un fichier qui n'en porte
- *   aucun.
  * - **les magasins de certificats PUBLICS du système** — `etc/ssl/cert.pem` sur
  *   Alpine, `etc/ssl/certs/*` sur Debian : ce sont les autorités de
  *   certification apportées par l'image de base, et les signaler apprendrait à
@@ -84,7 +74,6 @@ export function detectSuspectFiles(files: string[]): string[] {
  */
 export function detectSuspectImageFiles(files: string[]): string[] {
   const DEPENDENCY = /(^|\/)node_modules\//;
-  const BARE_ENV = /^([^/]+\/)?\.env$/;
   // `ssl[^/]*` couvre le `ssl1.1` d'Alpine sans ouvrir `etc/ssl/private/`.
   const PUBLIC_TRUST_STORE =
     /^(etc\/ssl[^/]*\/(certs?\.pem|certs\/)|etc\/pki\/tls\/certs\/|etc\/ca-certificates\/|usr\/(local\/)?share\/ca-certificates\/|usr\/lib\/ssl\/certs\/)/;
@@ -93,7 +82,6 @@ export function detectSuspectImageFiles(files: string[]): string[] {
     files.filter(
       (file) =>
         !DEPENDENCY.test(file) &&
-        !BARE_ENV.test(file) &&
         !(PUBLIC_TRUST_STORE.test(file) && CERTIFICATE.test(file)),
     ),
   );

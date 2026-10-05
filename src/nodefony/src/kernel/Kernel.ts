@@ -607,10 +607,9 @@ class Kernel extends Service implements IKernel {
    * deviner « production » là où l'on est manifestement en développement est
    * une dégradation SILENCIEUSE, ce que ce framework s'interdit.
    *
-   * Il était de surcroît incohérent avec lui-même : la cascade `.env` ne
-   * chargeait alors NI `.env.production` ni `.env.development` (le lanceur
-   * rendait `undefined`), si bien que l'application se déclarait en production
-   * sans en avoir la configuration.
+   * Il était de surcroît incohérent avec lui-même : le lanceur rendait alors
+   * `undefined`, si bien que l'application se déclarait en production sans en
+   * avoir la configuration.
    */
   environment: EnvironmentType = DEFAULT_ENGINE_ENVIRONMENT;
   debug: DebugType = false;

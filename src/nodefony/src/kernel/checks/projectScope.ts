@@ -54,7 +54,7 @@ export function wiringTargets(cwd: string): string[] {
  * L'environnement que l'APPLICATION verrait, depuis ce poste.
  *
  * `process.env` ne porte que ce que le terminal a posé ; l'application, elle,
- * lit d'abord sa cascade `.env*`. Un diagnostic qui l'ignore accuse ce qu'il
+ * lit d'abord son `.env`. Un diagnostic qui l'ignore accuse ce qu'il
  * n'a pas regardé — mesuré : une application Postgres voyait CHAQUE entité
  * accusée d'être écrite pour le mauvais moteur, parce que `NF_DATABASE_URL`
  * vit dans un `.env` que `process.env` ne porte pas.

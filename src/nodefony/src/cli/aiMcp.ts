@@ -301,7 +301,7 @@ export interface IChainedToken {
  *    module de développement — sans lui, l'émission échoue sur une audience que
  *    l'application ne sert pas, ce qui est exactement l'erreur qu'on veut
  *    éviter à l'utilisateur ;
- *  - **le répertoire** : le jeton s'écrit dans le `.env.local` du PROJET, pas
+ *  - **le répertoire** : le jeton s'écrit dans le `.env` du PROJET, pas
  *    dans celui d'où la commande a été tapée ;
  *  - **le terminal** : sans lui, l'enfant ne pourrait poser aucune question et
  *    échouerait en « aucun terminal pour le demander » — d'où le refus

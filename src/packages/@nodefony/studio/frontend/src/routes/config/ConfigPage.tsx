@@ -211,7 +211,7 @@ export const ConfigPage = observer(() => {
       {
         key: "overrideKey",
         header: "Recette env (12-factor)",
-        hint: "La variable d'environnement qui surcharge ce champ sans toucher au code (NF__<MODULE|APP>__<CHEMIN>). Copier-coller dans .env.local / l'orchestrateur.",
+        hint: "La variable d'environnement qui surcharge ce champ sans toucher au code (NF__<MODULE|APP>__<CHEMIN>). Copier-coller dans .env (poste) ou dans l'orchestrateur.",
         render: (r) => <CopyKey value={r.overrideKey} />,
       },
     ],

@@ -76,7 +76,7 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
      * Le fournisseur n'est monté que si ses TROIS variables sont posées : sans
      * elles, aucun bouton et aucun avertissement. Essai local en deux gestes :
      * `docker compose --profile keycloak up -d keycloak`, puis décommenter les
-     * lignes `NF_KEYCLOAK_*` de `.env` et `.env.local`.
+     * lignes `NF_KEYCLOAK_*` de `.env`.
      *
      * L'émetteur (URL du realm) sert à DÉCOUVRIR les points d'entrée ET à
      * valider l'`iss` reçu : il est en https, même en développement.
@@ -232,7 +232,7 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
     },
 
     /**
-     * Clés de chiffrement au repos — les VALEURS vivent dans `.env.local`
+     * Clés de chiffrement au repos — les VALEURS vivent dans `.env`
      * (gitignoré), générées à la création de l'app. Rotation ou rattrapage :
      * `npx nodefony security:secrets --write`.
      */

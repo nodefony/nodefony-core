@@ -2,13 +2,18 @@ import { expect } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadEnv } from "../index";
+import {
+  loadEnv,
+  findLegacyEnvFiles,
+  legacyEnvMessage,
+  ENV_FILE,
+} from "../index";
 
 // Clés dédiées au test (préfixe improbable) → pas de collision avec l'env réel ;
 // purgées avant/après chaque cas pour rester déterministe.
-const KEYS = ["LOADENV_A", "LOADENV_B", "LOADENV_C", "LOADENV_D"] as const;
+const KEYS = ["LOADENV_A", "LOADENV_B"] as const;
 
-describe("loadEnv — cascade .env Convention B (Vite/Next) sans écrasement", () => {
+describe("loadEnv — un seul fichier, `.env`, sans écrasement", () => {
   let dir: string;
 
   beforeEach(() => {
@@ -21,86 +26,89 @@ describe("loadEnv — cascade .env Convention B (Vite/Next) sans écrasement", (
     for (const k of KEYS) delete process.env[k];
   });
 
-  it("injecte les clés absentes depuis .env.<runtimeEnv>", () => {
-    writeFileSync(join(dir, ".env.development"), "LOADENV_A=fromEnvFile\n");
-    const n = loadEnv({ runtimeEnv: "development", cwd: dir });
-    expect(process.env.LOADENV_A).to.equal("fromEnvFile");
-    expect(n).to.equal(1);
+  it("le fichier chargé s'appelle `.env`", () => {
+    expect(ENV_FILE).toBe(".env");
+  });
+
+  it("injecte les clés absentes depuis .env", () => {
+    writeFileSync(join(dir, ".env"), "LOADENV_A=fromEnvFile\n");
+    expect(loadEnv({ cwd: dir })).toBe(1);
+    expect(process.env.LOADENV_A).toBe("fromEnvFile");
   });
 
   it("n'écrase JAMAIS une variable déjà posée (process.env gagne)", () => {
     process.env.LOADENV_A = "fromShell";
-    writeFileSync(join(dir, ".env.development"), "LOADENV_A=fromEnvFile\n");
-    const n = loadEnv({ runtimeEnv: "development", cwd: dir });
-    expect(process.env.LOADENV_A).to.equal("fromShell");
-    expect(n).to.equal(0);
+    writeFileSync(join(dir, ".env"), "LOADENV_A=fromFile\n");
+    expect(loadEnv({ cwd: dir })).toBe(0);
+    expect(process.env.LOADENV_A).toBe("fromShell");
   });
 
-  it("précédence conv B : .env.<env>.local > .env.local > .env.<env> > .env", () => {
-    writeFileSync(
-      join(dir, ".env"),
-      "LOADENV_A=fromDotEnv\nLOADENV_D=fromDotEnv\n",
-    );
-    writeFileSync(
-      join(dir, ".env.development"),
-      "LOADENV_A=fromDev\nLOADENV_B=fromDev\nLOADENV_D=fromDev\n",
-    );
-    writeFileSync(
-      join(dir, ".env.local"),
-      "LOADENV_A=fromLocal\nLOADENV_B=fromLocal\nLOADENV_C=fromLocal\n",
-    );
-    writeFileSync(
-      join(dir, ".env.development.local"),
-      "LOADENV_A=fromDevLocal\n",
-    );
-    loadEnv({ runtimeEnv: "development", cwd: dir });
-    expect(process.env.LOADENV_A).to.equal("fromDevLocal"); // .env.<env>.local le + fort
-    expect(process.env.LOADENV_B).to.equal("fromLocal"); // .env.local > .env.<env>
-    expect(process.env.LOADENV_C).to.equal("fromLocal"); // seul .env.local le pose
-    expect(process.env.LOADENV_D).to.equal("fromDev"); // .env.<env> > .env
+  it("ne lit AUCUN autre fichier — ni .env.local ni .env.<mode>", () => {
+    writeFileSync(join(dir, ".env.local"), "LOADENV_A=local\n");
+    writeFileSync(join(dir, ".env.development"), "LOADENV_B=dev\n");
+    loadEnv({ cwd: dir, runtimeEnv: "development" });
+    expect(process.env.LOADENV_A).toBeUndefined();
+    expect(process.env.LOADENV_B).toBeUndefined();
   });
 
-  it("axe déploiement : .env.<appEnv> prime sur .env.<runtimeEnv>", () => {
-    // staging déployé tourne en mode production mais charge .env.staging.
-    writeFileSync(
-      join(dir, ".env.production"),
-      "LOADENV_A=fromProd\nLOADENV_B=fromProd\n",
-    );
-    writeFileSync(join(dir, ".env.staging"), "LOADENV_A=fromStaging\n");
-    writeFileSync(
-      join(dir, ".env.staging.local"),
-      "LOADENV_C=fromStagingLocal\n",
-    );
-    loadEnv({ runtimeEnv: "production", appEnv: "staging", cwd: dir });
-    expect(process.env.LOADENV_A).to.equal("fromStaging"); // appEnv > runtimeEnv
-    expect(process.env.LOADENV_B).to.equal("fromProd"); // seul .env.production le pose
-    expect(process.env.LOADENV_C).to.equal("fromStagingLocal"); // .env.<appEnv>.local
+  it("ignore silencieusement un .env absent (aucune exception)", () => {
+    expect(loadEnv({ cwd: dir })).toBe(0);
+  });
+});
+
+describe("findLegacyEnvFiles — l'ancienne convention est REFUSÉE, jamais ignorée", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "nodefony-legacyenv-"));
   });
 
-  it("appEnv égal au runtimeEnv → pas de niveau dupliqué", () => {
-    writeFileSync(join(dir, ".env.production"), "LOADENV_A=fromProd\n");
-    const n = loadEnv({
-      runtimeEnv: "production",
-      appEnv: "production",
-      cwd: dir,
-    });
-    expect(process.env.LOADENV_A).to.equal("fromProd");
-    expect(n).to.equal(1); // .env.production lu une seule fois
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
   });
 
-  it("ignore silencieusement un fichier absent (aucune exception)", () => {
-    expect(() =>
-      loadEnv({ runtimeEnv: "production", cwd: dir }),
-    ).to.not.throw();
-    expect(loadEnv({ runtimeEnv: "production", cwd: dir })).to.equal(0);
+  const app = (): void => writeFileSync(join(dir, "nodefony.config.ts"), "");
+
+  it("nomme .env.local, .env.<mode> et .env.<mode>.local dans une application", () => {
+    app();
+    for (const f of [
+      ".env",
+      ".env.example",
+      ".env.local",
+      ".env.development",
+      ".env.production",
+      ".env.production.local",
+      ".env.staging",
+    ]) {
+      writeFileSync(join(dir, f), "");
+    }
+    expect(findLegacyEnvFiles({ cwd: dir, appEnv: "staging" })).toEqual([
+      ".env.development",
+      ".env.local",
+      ".env.production",
+      ".env.production.local",
+      ".env.staging",
+    ]);
   });
 
-  it("saute le niveau .env.<env> si runtimeEnv omis (charge quand même .env)", () => {
-    writeFileSync(join(dir, ".env.development"), "LOADENV_A=dev\n");
-    writeFileSync(join(dir, ".env"), "LOADENV_D=common\n");
-    const n = loadEnv({ cwd: dir });
-    expect(process.env.LOADENV_A).to.equal(undefined); // .env.development non chargé
-    expect(process.env.LOADENV_D).to.equal("common"); // .env (commun) chargé
-    expect(n).to.equal(1);
+  it("laisse passer .env, .env.example et les fichiers d'autres outils", () => {
+    app();
+    for (const f of [".env", ".env.example", ".env.vault", ".env.keys"]) {
+      writeFileSync(join(dir, f), "");
+    }
+    expect(findLegacyEnvFiles({ cwd: dir })).toEqual([]);
+  });
+
+  it("ne regarde pas hors d'une application (create app depuis un dossier quelconque)", () => {
+    writeFileSync(join(dir, ".env.local"), "");
+    expect(findLegacyEnvFiles({ cwd: dir })).toEqual([]);
+  });
+
+  it("le message nomme chaque fichier et dit où va chaque valeur", () => {
+    const msg = legacyEnvMessage([".env.local", ".env.production"]);
+    expect(msg).toContain("  - .env.local");
+    expect(msg).toContain("  - .env.production");
+    expect(msg).toContain("nodefony.config.ts");
+    expect(msg).toContain("gestionnaire");
   });
 });

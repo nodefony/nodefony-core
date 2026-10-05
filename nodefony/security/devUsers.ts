@@ -13,7 +13,7 @@ import type { IBaseUserOptions } from "@nodefony/user";
  * hash est **public**
  * (présent dans ce code open source). Ces comptes ne doivent donc JAMAIS exister
  * en production : `provisionUsers` ne les seede qu'en dev. En prod, seul un admin
- * dont le mot de passe vient de `NF_ADMIN_PASSWORD` (`.env.local` / secret-manager)
+ * dont le mot de passe vient de `NF_ADMIN_PASSWORD` (`.env` / secret-manager)
  * est créé.
  */
 

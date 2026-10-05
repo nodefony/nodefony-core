@@ -78,7 +78,7 @@ export interface IAgentMcpFile {
 /**
  * Un agent de développement, et l'endroit où il lit ses variables.
  *
- * ⭐ **Cette table existe parce qu'aucun agent ne lit `.env.local`.** Ce fichier
+ * ⭐ **Cette table existe parce qu'aucun agent ne lit le `.env` de l'app.** Ce fichier
  * est celui de l'APPLICATION ; le client MCP, lui, résout ses variables dans son
  * propre environnement ou dans SA configuration — et quand il n'y trouve rien,
  * il envoie l'en-tête non substitué et reçoit un 401 qui accuse le jeton. Une

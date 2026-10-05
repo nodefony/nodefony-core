@@ -73,8 +73,8 @@ describe("create app — écoute sur le réseau local en développement (#528)",
     );
   });
 
-  it("le catalogue .env le montre, commenté, avec son usage", () => {
-    const catalogue = read(".env");
+  it("la notice .env.example le montre, commentée, avec son usage", () => {
+    const catalogue = read(".env.example");
     assert.match(catalogue, /^# NF_BIND_ALL=true$/mu);
     assert.match(catalogue, /réseau local/u);
   });

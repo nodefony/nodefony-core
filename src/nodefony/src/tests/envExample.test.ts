@@ -108,7 +108,10 @@ describe("envExample — renderEnvExample", () => {
   it("masque la valeur des variables sensibles (secret)", () => {
     const out = renderEnvExample(cat);
     assert.match(out, /# GITHUB_CLIENT_SECRET=$/m); // jamais de valeur
-    assert.match(out, /secret → \.env\.local/);
+    assert.match(
+      out,
+      /secret : \.env sur le poste, gestionnaire de secrets en production/,
+    );
   });
 
   it("place l'en-tête curé en tête", () => {
@@ -227,6 +230,12 @@ describe("env --example — en-tête curé du projet (.env.example.head)", () =>
     assert.match(custom, /# NF_X=/u);
     // Sans custom : l'en-tête générique.
     assert.match(composeEnvExample(cat), /npx nodefony env --example/u);
+    // La règle des deux fichiers, dite à qui ouvre la notice.
+    assert.match(
+      composeEnvExample(cat),
+      /\.env +→ TES valeurs de poste.*JAMAIS commité/u,
+    );
+    assert.doesNotMatch(composeEnvExample(cat), /\.env\.local/u);
   });
 
   it("readExampleHeader : le fichier s'il existe, null sinon", () => {

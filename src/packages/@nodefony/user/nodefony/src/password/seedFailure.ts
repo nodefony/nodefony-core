@@ -59,7 +59,7 @@ export function describeSeedFailure(
   const remedy = fromEnv
     ? `Corrige ${envVar}`
     : `Ce mot de passe est le défaut écrit dans le code de l'application — ` +
-      `pose ${envVar} (\`.env.local\`, gestionnaire de secrets)`;
+      `pose ${envVar} (\`.env\` sur le poste, gestionnaire de secrets en production)`;
   return (
     `Le compte "${identifier}" n'a PAS été semé : ${why}. ${remedy}, ou crée ` +
     `le compte à la main : \`npx nodefony security:user:add ${identifier}` +

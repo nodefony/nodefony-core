@@ -40,7 +40,10 @@ function renderVar(v: NamedEnvVarMeta): string[] {
     flags.push(`défaut: ${stringifyDefault(v.default)}`);
   else if (v.optional) flags.push("optionnel");
   else flags.push("REQUIS");
-  if (secret) flags.push("secret → .env.local, jamais committé");
+  if (secret)
+    flags.push(
+      "secret : .env sur le poste, gestionnaire de secrets en production",
+    );
   out.push(`#   (${flags.join(" · ")})`);
   // Secret : aucune valeur d'exemple. Sinon le défaut sert d'exemple lisible.
   out.push(`# ${v.name}=${secret ? "" : stringifyDefault(v.default)}`);

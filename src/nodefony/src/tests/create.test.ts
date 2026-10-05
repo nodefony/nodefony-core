@@ -438,7 +438,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "loki.yaml",
         ),
         ".env",
-        ".env.local",
+        ".env.example",
         path.join("nodefony", "security", "provisionUsers.ts"),
       ]) {
         assert.isTrue(existsSync(path.join(dest, f)), `manque ${f}`);
@@ -556,15 +556,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(e2e, 'live.emit("live:say"');
     });
 
-    it("secrets PAR-PROJET : .env.local porte 3 clés uniques, .gitignore les exclut", () => {
+    it("secrets PAR-PROJET : .env porte 3 clés uniques, .gitignore l'exclut", () => {
       const dest = path.join(tmp, "sec");
       scaffold(dest, { name: "sec" });
-      const local = readFileSync(path.join(dest, ".env.local"), "utf8");
+      const local = readFileSync(path.join(dest, ".env"), "utf8");
       const keys = ["NF_TOTP_KEY", "NF_WEBHOOK_KEY", "NF_CSRF_SECRET"];
       const values: string[] = [];
       for (const k of keys) {
         const m = local.match(new RegExp(`^${k}=(.+)$`, "m"));
-        assert.isNotNull(m, `clé ${k} absente de .env.local`);
+        assert.isNotNull(m, `clé ${k} absente de .env`);
         // 32 octets base64 = 44 caractères — le format AES-256-GCM attendu.
         assert.lengthOf(m[1]!, 44);
         values.push(m[1]!);
@@ -573,15 +573,18 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Deux apps générées ne partagent JAMAIS une clé (aléatoire par projet).
       const dest2 = path.join(tmp, "sec2");
       scaffold(dest2, { name: "sec2" });
-      const local2 = readFileSync(path.join(dest2, ".env.local"), "utf8");
+      const local2 = readFileSync(path.join(dest2, ".env"), "utf8");
       assert.notInclude(local2, values[0]!);
-      // Le .env COMMITÉ ne porte AUCUNE valeur de secret ; le .gitignore exclut *.local.
-      const dotenv = readFileSync(path.join(dest, ".env"), "utf8");
-      for (const v of values) assert.notInclude(dotenv, v);
-      assert.include(
-        readFileSync(path.join(dest, ".gitignore"), "utf8"),
-        "*.local",
-      );
+      // La notice COMMITÉE ne porte AUCUNE valeur de secret ; le .gitignore
+      // exclut `.env` et ne réadmet que la notice — en lignes entières.
+      const notice = readFileSync(path.join(dest, ".env.example"), "utf8");
+      for (const v of values) assert.notInclude(notice, v);
+      const gitignore = readFileSync(path.join(dest, ".gitignore"), "utf8");
+      assert.match(gitignore, /^\/\.env$/mu);
+      assert.match(gitignore, /^\/\.env\.\*$/mu);
+      assert.match(gitignore, /^!\/\.env\.example$/mu);
+      // Ni l'ancienne convention, ni un fichier que le chargeur refuserait.
+      assert.isFalse(existsSync(path.join(dest, ".env.local")));
     });
 
     it("le graphe symbolique de l'application (.ai/symbols.json) est ignoré par git, sur les deux presets", () => {
@@ -1228,9 +1231,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.equal(imageCi, imageCompose);
       assert.notEqual(imageCi, "(absente)");
+      // `.env` n'est pas commité : la forge reçoit l'URL au niveau du JOB,
+      // la même que celle écrite dans le `.env` du poste. Sans elle, `doctor`
+      // jugerait l'application en sqlite.
+      const urlPoste = /^NF_DATABASE_URL=(.+)$/mu.exec(
+        readFileSync(path.join(dest, ".env"), "utf8"),
+      )?.[1];
+      assert.isDefined(urlPoste);
+      assert.match(ci, /\n {4}env:\n {6}NF_DATABASE_URL: "([^"]+)"\n/u);
+      assert.include(ci, `NF_DATABASE_URL: "${urlPoste}"`);
       // GitLab : le service se joint par son ALIAS, jamais par 127.0.0.1 (le
-      // service tourne dans un autre conteneur) — la variable du job PRIME sur
-      // le `.env`, c'est la cascade documentée (le shell gagne toujours).
+      // service tourne dans un autre conteneur).
       const gitlab = readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8");
       assert.equal(imageDe(gitlab, /name: (\S+)/u), imageCompose);
       assert.include(
@@ -1713,7 +1724,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
      * Le décor que le dépôt éprouve (conteneur https, realm importé, client
      * confidentiel, variables, fournisseur) transposé dans l'app générée. Ce que
      * ces contrôles tiennent : les CINQ endroits qui doivent coïncider au
-     * caractère près — compose, realm, `.env`, `.env.local`, configuration
+     * caractère près — compose, realm, `.env`, `.env.example`, configuration
      * sécurité — et l'inertie : rien n'est actif tant qu'on ne le demande pas.
      */
     const dossierKeycloak = () => {
@@ -1804,7 +1815,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       // Le même secret aux deux bouts, sinon le premier login échoue.
       assert.include(
-        lire(dest, ".env.local"),
+        lire(dest, ".env"),
         `# NF_KEYCLOAK_CLIENT_SECRET=${client.secret}\n`,
       );
       // L'`id` est FIXÉ dans le fichier : laissé à Keycloak, il change au
@@ -1821,9 +1832,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("inerte par défaut : aucune variable ACTIVE, fournisseur conditionné aux trois", () => {
       const dest = dossierKeycloak();
-      // Une ligne active dans `.env` ou `.env.local` monterait le fournisseur
-      // au premier démarrage — et, Keycloak éteint, afficherait un avertissement.
-      for (const fichier of [".env", ".env.local"]) {
+      // Une ligne active dans `.env` monterait le fournisseur au premier
+      // démarrage — et, Keycloak éteint, afficherait un avertissement.
+      for (const fichier of [".env", ".env.example"]) {
         assert.notMatch(lire(dest, fichier), /^NF_KEYCLOAK_/mu, fichier);
       }
       const envTs = lire(dest, "env.ts");
@@ -1982,9 +1993,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
         assert.notInclude(compose, `  ${service}-data:`);
       }
-      // Commentée : une app qui n'a rien demandé démarre sans rien allumer.
+      // Absente de `.env` : une app qui n'a rien demandé démarre sans rien
+      // allumer. La notice, elle, la documente — commentée.
       assert.notMatch(envOf(dest), /^NF_DATABASE_URL=/mu);
-      assert.include(envOf(dest), "# NF_DATABASE_URL=");
+      const notice = readFileSync(path.join(dest, ".env.example"), "utf8");
+      assert.notMatch(notice, /^NF_DATABASE_URL=/mu);
+      assert.include(notice, "# NF_DATABASE_URL=");
       assertNoEtaResidue(dest);
     });
 
@@ -2626,7 +2640,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isFalse(existsSync(path.join(dest, "compose.yaml")));
       assert.isFalse(existsSync(path.join(dest, "docker")));
       // Pas de security en minimal → ni secrets ni provisioning utilisateurs.
-      assert.isFalse(existsSync(path.join(dest, ".env.local")));
+      assert.isFalse(existsSync(path.join(dest, ".env")));
       assert.isFalse(existsSync(path.join(dest, "nodefony", "security")));
       const pkg = readJson(path.join(dest, "package.json"));
       assert.notProperty(pkg["dependencies"], "@nodefony/drizzle");
@@ -2850,14 +2864,24 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
         const ignore = readFileSync(path.join(dest, ".dockerignore"), "utf8");
         // Motifs contrôlés en LIGNE ENTIÈRE : `assert.include` se contenterait
-        // de `**/*.local` pour prouver `*.local`, et un retrait partiel
+        // de `.env.*` pour prouver `.env`, et un retrait partiel
         // resterait vert — le mode de défaillance classique d'un gate.
         //
-        // `.env.local` porte les clés générées à la création. Entré dans une
+        // `.env` porte les clés générées à la création. Entré dans une
         // image, un secret y reste : les couches sont lisibles par qui la
-        // télécharge, et une couche suivante ne l'efface pas.
-        assert.match(ignore, /^\*\.local$/mu);
-        assert.match(ignore, /^\*\*\/\*\.local$/mu);
+        // télécharge, et une couche suivante ne l'efface pas. Seule la notice
+        // `.env.example` est réadmise.
+        for (const motif of [
+          /^\.env$/mu,
+          /^\.env\.\*$/mu,
+          /^!\.env\.example$/mu,
+        ]) {
+          assert.match(
+            ignore,
+            motif,
+            `.dockerignore : ${String(motif)} manque`,
+          );
+        }
         assert.match(ignore, /^\*\*\/node_modules$/mu);
         // `dist/` de l'hôte : entré dans le contexte, il masquerait le build
         // du stage et l'image partirait avec le code de la veille.
@@ -2922,13 +2946,6 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             `.dockerignore laisse entrer des journaux (${String(motif)})`,
           );
         }
-
-        // 🔴 `.env` et `.env.<environnement>` doivent RESTER admis : commités,
-        // sans secret par convention, et lus au démarrage DANS le conteneur.
-        // Les exclure casserait la configuration de l'application — c'est le
-        // seul cas de ce fichier où ajouter une ligne serait la faute.
-        assert.notMatch(ignore, /^\.env$/mu);
-        assert.notMatch(ignore, /^\*\*\/\.env$/mu);
 
         // Ce qui n'est d'aucun usage à `npm run build` et donnerait de la
         // surface à lire dans une image publique. `compose*` en motif large :
@@ -7907,9 +7924,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         };
         pkg.dependencies["@nodefony/mongoose"] = "*";
         writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+        const dotenvPath = path.join(dest, ".env");
         writeFileSync(
-          path.join(dest, ".env.local"),
-          `NF_DATABASE_URL=${databaseUrl}\n`,
+          dotenvPath,
+          `${readFileSync(dotenvPath, "utf8")}NF_DATABASE_URL=${databaseUrl}\n`,
         );
         return dest;
       };

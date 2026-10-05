@@ -30,10 +30,9 @@ verify:
     paths:
       - <%= it.toolchain.projectCacheDir %>/
 <% if (it.db) { %>  # La base retenue à la création — même image que le compose (même
-  # catalogue du générateur). ⚠️ Sur GitLab, un service se joint par son
-  # ALIAS, jamais par l'adresse locale du `.env` (il tourne dans un autre
-  # conteneur) : la variable ci-dessous PRIME sur le `.env` — le shell gagne
-  # toujours dans la cascade d'environnement de Nodefony.
+  # catalogue du générateur). `.env` n'est jamais commité : la forge reçoit
+  # l'URL ICI. ⚠️ Sur GitLab, un service se joint par son ALIAS, jamais par
+  # la boucle locale (il tourne dans un autre conteneur).
   services:
     - name: <%= it.db.image %>
       alias: <%= it.db.service %>

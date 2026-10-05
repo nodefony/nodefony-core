@@ -13,8 +13,9 @@
  *
  * Recette « lire une var d'env » : la déclarer ICI, puis lire `ctx.env.X` dans
  * `nodefony.config.ts`. Ne JAMAIS lire `process.env.X` ailleurs. Les secrets / URLs
- * viennent de l'orchestrateur (k8s Secret, Cloud Run, `-e`) ou d'un secret-manager ;
- * le modèle d'onboarding complet est `.env.example`.
+ * viennent de `.env` sur le poste (jamais commité), de l'orchestrateur (k8s Secret,
+ * Cloud Run, `-e`) ou d'un secret-manager en production ; la notice complète est
+ * `.env.example` (générée : `npx nodefony env --example`).
  *
  * Secret en conteneur : toute variable accepte aussi `<NOM>_FILE` (Docker secret,
  * K8s, Vault) → la valeur est lue depuis le fichier monté pointé (cf ADR-0006).
@@ -220,7 +221,7 @@ export const env = defineEnv({
   // aucun nom d'écosystème ne fait foi — d'où le préfixe `NF_`, à l'inverse des
   // quatre ci-dessus. Le fournisseur n'est monté que si les TROIS sont posées ;
   // le décor de dev (profil `keycloak` du compose) en donne les valeurs,
-  // documentées dans `.env.development`.
+  // écrites dans docker/keycloak/import/realm-nodefony.json, à poser dans `.env`.
   NF_KEYCLOAK_ISSUER: envString({
     optional: true,
     description:
@@ -255,7 +256,12 @@ export const env = defineEnv({
   // une erreur.
   NF_OAUTH_REDIRECT_BASE: envString({
     default: "https://localhost:5152",
-    description: "Base d'URL des callbacks OAuth (exact match fournisseur).",
+    description:
+      "Base d'URL des callbacks OAuth. Un fournisseur n'est monté QUE si ses deux secrets sont posés.\n" +
+      "Callback à enregistrer chez lui, EXACTEMENT (RFC 9700) :\n" +
+      "  <NF_OAUTH_REDIRECT_BASE>/nodefony/security/api/oauth2/<provider>/callback\n" +
+      "⚠️ localhost, PAS 127.0.0.1 : WebAuthn refuse une IP comme rpId.\n" +
+      "Google : si https://localhost est refusé, utiliser http://localhost:5151.",
   }),
 
   // ── Source d'identité de l'application (provisioning du service "users") ────
@@ -266,7 +272,7 @@ export const env = defineEnv({
    * — les comptes DOIVENT survivre au restart) ; `drizzle`/`mongoose` = explicite ;
    * `memory` = annuaire volatil (zéro I/O SQLite) pour les **tests de charge**
    * (la mesure n'est pas polluée par le sync better-sqlite3), les scripts et les
-   * tests manuels. Surcharge ponctuelle : `NF_USER_STORE=memory` dans `.env.local`.
+   * tests manuels. Surcharge ponctuelle : `NF_USER_STORE=memory` dans `.env`.
    */
   NF_USER_STORE: envEnum(["auto", "drizzle", "mongoose", "memory"] as const, {
     default: "auto",
@@ -313,9 +319,9 @@ export const env = defineEnv({
    * Mot de passe de l'administrateur seedé au boot. En **dev**, défaut
    * `secret-de-dev-42` (`DEV_FIXTURE_PASSWORD`)
    * (comptes de fixture connus, bancs out-of-the-box) ; surcharge possible via
-   * `.env.local`. En **prod**, AUCUN défaut : sans cette variable, aucun compte
+   * `.env`. En **prod**, AUCUN défaut : sans cette variable, aucun compte
    * n'est seedé (un mot de passe par défaut serait un trou de sécurité — le hash
-   * de `secret` est public dans le code). Le fournir via `.env.local` / secret-manager.
+   * de `secret` est public dans le code). Le fournir par le gestionnaire de secrets.
    */
   NF_ADMIN_PASSWORD: envString({
     optional: true,
@@ -411,8 +417,9 @@ export const env = defineEnv({
    *
    * **Valeur** : un jeu de clés Ed25519 en JSON, sur UNE ligne —
    * `npx nodefony security:secrets --jwt-keyset`. Elle contient la clé PRIVÉE :
-   * gestionnaire de secrets (Secret k8s, vault), jamais `.env.local`, jamais git.
-   * Dans un fichier `.env`, l'entourer de quotes simples.
+   * gestionnaire de secrets (Secret k8s, vault), jamais un fichier du poste, jamais
+   * git. En développement rien à poser : la clé vit dans `var/keys/`. Si on la pose
+   * malgré tout dans `.env` (banc local), l'entourer de quotes simples.
    * **Illisible ⇒** la configuration security est refusée au démarrage, le
    * chemin nommé, la valeur jamais recopiée.
    *

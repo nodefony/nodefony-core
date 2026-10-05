@@ -48,7 +48,7 @@ describe("manPage — échappement roff", () => {
     assert.strictEqual(escapeRoff("a\\b"), "a\\\\b");
     // Une ligne qui COMMENCE par un point est lue comme une directive : la
     // description disparaîtrait purement et simplement du rendu.
-    assert.strictEqual(escapeRoff(".env.local"), "\\&.env.local");
+    assert.strictEqual(escapeRoff(".env"), "\\&.env");
     // Idem pour l'apostrophe en tête (autre marqueur de directive roff).
     assert.ok(escapeRoff("'quoted'").startsWith("\\&"));
   });

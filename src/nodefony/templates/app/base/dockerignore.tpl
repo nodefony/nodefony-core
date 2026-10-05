@@ -21,13 +21,16 @@ logs
 **/*.log
 **/*.jsonl
 
-# Secrets — convention B : `*.local` n'est jamais commité, et n'entre pas
-# davantage dans une image. Les couches d'une image sont lisibles par qui la
-# télécharge, et un secret y reste même effacé par une couche suivante. En
-# production, les valeurs viennent de l'orchestrateur (variables
-# d'environnement, gestionnaire de secrets).
-*.local
-**/*.local
+# Secrets — `.env` porte les valeurs du POSTE : il n'est jamais commité, et
+# n'entre pas davantage dans une image. Les couches d'une image sont lisibles
+# par qui la télécharge, et un secret y reste même effacé par une couche
+# suivante. En production, les valeurs viennent de l'orchestrateur (variables
+# d'environnement, gestionnaire de secrets) ; seule la notice entre. Motifs
+# de la RACINE seulement : les `.env.*` d'un front Vite portent des variables
+# `VITE_` publiques, dont `npm run build` a besoin.
+.env
+.env.*
+!.env.example
 
 # 🔴 MATIÈRE CRYPTOGRAPHIQUE. Le `.gitignore` d'à côté écrit « la clé qui va
 # avec, jamais » et exclut `*.key`, `privkey*.pem`, `*-key.pem` — ce fichier ne
@@ -65,11 +68,6 @@ nodefony/config/certificates
 .codex
 .mcp.json
 
-# `.env` et `.env.<environnement>` ENTRENT, et c'est voulu : ils sont commités,
-# ne portent aucun secret par convention, et sont lus au démarrage DANS le
-# conteneur. Les secrets vivent dans `*.local`, exclu plus haut, et viennent de
-# l'orchestrateur. Ne pas les ajouter ici : l'application ne démarrerait plus
-# avec sa configuration.
 
 # Rien de tout ceci ne sert à `npm run build`, et tout se retrouverait dans une
 # image publique : bancs d'essai, artefacts jetables, chaînes d'intégration,

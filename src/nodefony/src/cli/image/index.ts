@@ -57,7 +57,7 @@ const PAGE: IUsagePage = {
       title: "CE QU'ELLE N'EST PAS",
       paragraph:
         "Un scanner de secrets par contenu. La règle porte sur des NOMS " +
-        "connus (`.pem`, `.key`, `.env.local`, `keyset.json`, `id_rsa`…), " +
+        "connus (`.pem`, `.key`, `.env`, `keyset.json`, `id_rsa`…), " +
         "parce qu'une liste courte est une alerte qu'on ne prend jamais " +
         "l'habitude d'ignorer. Pour le contenu, employer `gitleaks` sur " +
         "l'arbre et son historique.",

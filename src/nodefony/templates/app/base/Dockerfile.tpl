@@ -69,7 +69,7 @@ WORKDIR /app
 # workspaces `modules/*` que pose `nodefony create module`, ou une archive
 # `file:` avant publication. Installer avant de les avoir copiées échouerait
 # sur elles. Ce qui ne doit pas entrer est listé dans `.dockerignore` — c'est
-# lui qui tient les secrets (`*.local`) et le `dist/` de la machine dehors.
+# lui qui tient les secrets (`.env`) et le `dist/` de la machine dehors.
 COPY . ./
 
 # Le cache npm est monté plutôt que gravé : la couche est invalidée dès qu'une

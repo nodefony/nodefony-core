@@ -132,7 +132,7 @@ export const ROOT_UNTRACKED_ALLOWED = Object.freeze([
   ".turbo",
   ".vscode",
   ".idea",
-  ".env.local",
+  ".env",
   ".DS_Store",
 ]);
 

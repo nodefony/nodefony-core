@@ -11,6 +11,7 @@
  * Même famille que `status`, `stop`, `create` et `--version`.
  */
 import path from "node:path";
+import { ENV_FILE } from "../../runtime/loadEnv";
 import net from "node:net";
 import { resolveInfra } from "../../config/infra";
 import { Spinner } from "../../cli/progress";
@@ -291,11 +292,11 @@ const INFRA_PROBE_TIMEOUT_MS = 1_500;
  */
 function probeTrackedEnvFiles(projectRoot: string): ITrackedEnvProbe {
   try {
-    const out = execFileSync(
-      "git",
-      ["ls-files", "-z", "--", ".env.local", ".env.*.local"],
-      { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
-    );
+    const out = execFileSync("git", ["ls-files", "-z", "--", ENV_FILE], {
+      cwd: projectRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     return { supported: true, tracked: out.split("\0").filter(Boolean) };
   } catch (e) {
     return {
@@ -968,7 +969,7 @@ export async function collectDoctorReport(
     // s'éprouverait que dans l'environnement où elle tourne.
     //
     // 🔴 Et c'est l'environnement de l'APPLICATION, pas celui du terminal :
-    // `process.env` nu ignore la cascade `.env*`, où le gabarit PRESCRIT
+    // `process.env` nu ignore `.env`, où le gabarit PRESCRIT
     // justement de poser `NF_DATABASE_URL`. Sans elle, une application
     // Postgres voyait CHAQUE entité accusée d'être écrite pour le mauvais
     // moteur — le contrôle qu'on finit par désactiver.
@@ -1087,7 +1088,7 @@ export async function collectDoctorReport(
             }
           : { ran: true },
       // Sous-règle de `readiness` : sans dépôt git, personne ne peut dire si un
-      // `.env.local` est versionné — et le silence de la règle ne vaut alors
+      // `.env` est versionné — et le silence de la règle ne vaut alors
       // pas quitus. C'est exactement le mode de défaillance qu'`envCatalog` a
       // appris à énoncer.
       envTracked: !projectRoot
@@ -1095,7 +1096,7 @@ export async function collectDoctorReport(
         : readiness.trackedUnknown
           ? {
               ran: false,
-              reason: `${readiness.trackedUnknown} : impossible de dire si un fichier .env*.local est versionné`,
+              reason: `${readiness.trackedUnknown} : impossible de dire si ${ENV_FILE} est versionné`,
               short: "git muet",
               unlock: "lance depuis un dépôt git (`git init`)",
             }

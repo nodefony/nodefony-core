@@ -21,6 +21,6 @@ export function sqliteFallbackNotice(
     message:
       `Base « ${connector} » en repli SQLite (${location}) — ` +
       "NF_DATABASE_URL absente, aucun `dialect` écrit",
-    fix: "NF_DATABASE_URL=postgres://… dans .env.local",
+    fix: "NF_DATABASE_URL=postgres://… dans .env",
   };
 }

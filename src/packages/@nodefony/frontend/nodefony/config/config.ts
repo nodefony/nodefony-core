@@ -185,7 +185,9 @@ export const frontendConfigSchema = z
           "préfixées `VITE_` sont exposées au navigateur via `import.meta.env.VITE_*` " +
           '(ex. `{ VITE_API_BASE: "/api/v1" }`). Reco prod : utiliser un ' +
           "`.env.production` dans le `root` Vite plutôt que cette option, pour ne pas " +
-          "leak de secrets dans le code Nodefony.",
+          "leak de secrets dans le code Nodefony. Ce fichier-là est lu par Vite " +
+          "lui-même (variables `VITE_` publiques) — rien à voir avec le `.env` de " +
+          "l'application.",
       ),
     resilience: resilienceSchema.default(() => resilienceSchema.parse({})),
   })

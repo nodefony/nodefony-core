@@ -547,7 +547,7 @@ class SecurityToken extends Command {
     }
 
     if (write) {
-      // 🔴 Le jeton ne va PLUS dans `.env.local`, et c'est un retrait motivé :
+      // 🔴 Le jeton ne va PAS dans le `.env` de l'application, et c'est motivé :
       // AUCUN code de l'application ne lit `NF_MCP_TOKEN`. C'est cohérent — une
       // application est ici le serveur de RESSOURCE : elle vérifie les jetons
       // qu'on lui présente, elle n'en porte aucun. Le secret y dormait donc sans

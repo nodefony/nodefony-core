@@ -150,7 +150,7 @@ function creerApp(prefixe: string): string {
   return dir;
 }
 
-describe("readiness — un `.env*.local` SUIVI par git", () => {
+describe("readiness — un `.env` SUIVI par git", () => {
   let dir: string;
   const app = (): string => {
     dir = creerApp("nf-doctor-env-");
@@ -163,11 +163,11 @@ describe("readiness — un `.env*.local` SUIVI par git", () => {
     try {
       const r = await checkReadiness({
         projectRoot: root,
-        tracked: { supported: true, tracked: [".env.local"] },
+        tracked: { supported: true, tracked: [".env"] },
       });
       const f = r.findings.find((x) => x.kind === "env-file-tracked");
       assert.isDefined(f, "un secret versionné doit être rapporté");
-      assert.include(f?.message ?? "", "git rm --cached .env.local");
+      assert.include(f?.message ?? "", "git rm --cached .env");
       // Retirer le fichier de l'index ne réécrit pas l'historique : taire ce
       // point ferait croire le problème réglé alors que le secret est poussé.
       assert.include(f?.message ?? "", "COMPROMIS");
@@ -267,12 +267,12 @@ describe("collectDoctorReport — le contrôle git est réellement BRANCHÉ", ()
   it("un secret versionné remonte jusqu'au rapport", async () => {
     const dir = creerApp("nf-doctor-git-");
     try {
-      writeFileSync(path.join(dir, ".env.local"), "NF_CSRF_SECRET=hunter2\n");
+      writeFileSync(path.join(dir, ".env"), "NF_CSRF_SECRET=hunter2\n");
       const git = (...args: string[]): void => {
         execFileSync("git", args, { cwd: dir, stdio: "ignore" });
       };
       git("init", "-q");
-      git("add", ".env.local");
+      git("add", ".env");
 
       const report = await collectDoctorReport(dir);
       assert.isTrue(
@@ -284,7 +284,7 @@ describe("collectDoctorReport — le contrôle git est réellement BRANCHÉ", ()
         (x) => x.kind === "env-file-tracked",
       );
       assert.isDefined(f, "le secret versionné devait être rapporté");
-      assert.include(f?.message ?? "", ".env.local");
+      assert.include(f?.message ?? "", ".env");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

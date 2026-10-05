@@ -11,6 +11,7 @@ import {
   readManifestCode,
   manifestFileWith,
   diskManifestReader,
+  ENV_FILE,
 } from "nodefony";
 
 const options: OptionsCommandInterface = {
@@ -103,14 +104,14 @@ class SecuritySecrets extends Command {
   }
 
   /**
-   * `true` si `.env.local` est SUIVI par git — y écrire des secrets les mènerait
-   * au commit (convention B : `*.local` doit être gitignoré). Best-effort : git
-   * absent / hors repo → `false` (on écrit).
+   * `true` si `.env` est SUIVI par git — y écrire des secrets les mènerait au
+   * commit (`.env` doit être gitignoré). Best-effort : git absent / hors repo →
+   * `false` (on écrit).
    */
   #dotenvTracked(): boolean {
     try {
       return (
-        spawnSync("git", ["ls-files", "--error-unmatch", ".env.local"], {
+        spawnSync("git", ["ls-files", "--error-unmatch", ENV_FILE], {
           cwd: this.#root(),
           stdio: "ignore",
         }).status === 0
@@ -157,11 +158,8 @@ class SecuritySecrets extends Command {
     }
 
     // ── Détection de l'existant (le « une seule fois » devient automatique) ──
-    // Convention B (Vite/Next, celle du core) : `.env` COMMITÉ (défauts
-    // non-secrets) · `.env.local` GITIGNORÉ (secrets machine). Les valeurs vont
-    // dans `.env.local` ; une clé déjà posée dans l'un OU l'autre compte.
-    const dotenvLocal = this.#read(".env.local");
-    const dotenv = this.#read(".env") + "\n" + dotenvLocal;
+    // `.env` porte les valeurs du POSTE (gitignoré) — c'est là que vont les clés.
+    const dotenv = this.#read(ENV_FILE);
     const envTs = this.#read("env.ts");
     // Le manifeste ET ses fragments, en CODE : la documentation donne `security`
     // en exemple d'extraction — après ce geste, lire la seule racine faisait
@@ -212,7 +210,7 @@ class SecuritySecrets extends Command {
     // un nom qu'on ne comprend pas n'apprend rien, et c'est ce que la commande
     // affichait quand tout était câblé.
     for (const [name, role] of Object.entries(ROLES)) {
-      // La clé de signature n'a PAS de valeur dans `.env.local` (cf étape 4) :
+      // La clé de signature n'a PAS de valeur dans `.env` (cf étape 4) :
       // elle est en place quand le câblage la lit.
       const pose =
         name === "NF_JWT_KEYSET"
@@ -229,7 +227,7 @@ class SecuritySecrets extends Command {
     // lit : c'est un JETON qu'elle ÉMET, que son porteur présente pour entrer.
     // Il ne vit donc pas ici mais chez l'agent qui le porte. Le taire
     // laisserait croire à un oubli.
-    const tokenStillThere = /^\s*NF_MCP_TOKEN\s*=/m.test(dotenvLocal);
+    const tokenStillThere = /^\s*NF_MCP_TOKEN\s*=/m.test(dotenv);
     w(
       `\n${DIM}  · NF_MCP_TOKEN n'est PAS un secret de cette application, et n'a rien à\n` +
         `    faire dans cette liste : c'est un jeton qu'elle ÉMET, présenté par un\n` +
@@ -240,7 +238,7 @@ class SecuritySecrets extends Command {
       // Une ligne héritée du temps où `--write` écrivait ici : un secret sans
       // lecteur, qui ne fait qu'attendre d'être commité par erreur.
       w(
-        `${YELLOW}  ⚠ une ligne NF_MCP_TOKEN traîne encore dans .env.local — rien ne la lit,\n` +
+        `${YELLOW}  ⚠ une ligne NF_MCP_TOKEN traîne encore dans .env — rien ne la lit,\n` +
           `    tu peux la retirer.${RESET}\n`,
       );
     }
@@ -248,9 +246,9 @@ class SecuritySecrets extends Command {
       `\n${YELLOW}⚠ rien ne se tape dans le terminal : chaque bloc se colle dans le fichier indiqué.${RESET}\n\n`,
     );
 
-    // ── 1. .env.local : les VALEURS (convention B — jamais dans le .env commité) ──
+    // ── 1. .env : les VALEURS du poste (gitignoré, jamais commité) ──────────
     w(
-      `${BOLD}1. Fichier ${CYAN}.env.local${RESET}${BOLD} — les valeurs${RESET} ${DIM}(gitignoré ; .env commité = défauts NON-secrets)${RESET}\n`,
+      `${BOLD}1. Fichier ${CYAN}.env${RESET}${BOLD} — les valeurs${RESET} ${DIM}(valeurs du poste, gitignoré ; la notice est .env.example)${RESET}\n`,
     );
     if (missingInDotenv.length === 0) {
       w(
@@ -259,21 +257,21 @@ class SecuritySecrets extends Command {
     } else if (opts.write && this.#dotenvTracked()) {
       // Fail-safe : un secret écrit dans un fichier SUIVI par git finit commité.
       w(
-        `   ${YELLOW}⚠ .env.local est suivi par git — je n'y écris PAS de secrets.${RESET}\n` +
-          `   ${DIM}Ajoute \`*.local\` au .gitignore (et \`git rm --cached .env.local\`), puis relance --write ;\n` +
+        `   ${YELLOW}⚠ .env est suivi par git — je n'y écris PAS de secrets.${RESET}\n` +
+          `   ${DIM}Ajoute \`.env\` au .gitignore (et \`git rm --cached .env\`), puis relance --write ;\n` +
           `   ou colle les lignes ci-dessous à la main :${RESET}\n\n` +
           missingInDotenv.map((k) => `   ${k}=${secrets[k]}`).join("\n") +
           `\n\n`,
       );
     } else if (opts.write) {
       const block =
-        (dotenvLocal && !dotenvLocal.endsWith("\n") ? "\n" : "") +
+        (dotenv && !dotenv.endsWith("\n") ? "\n" : "") +
         `# clés security — générées par \`nodefony security:secrets\`\n` +
         missingInDotenv.map((k) => `${k}=${secrets[k]}`).join("\n") +
         "\n";
-      appendFileSync(path.resolve(this.#root(), ".env.local"), block);
+      appendFileSync(path.resolve(this.#root(), ENV_FILE), block);
       w(
-        `   ${GREEN}✓ écrit dans .env.local${RESET} ${DIM}(${missingInDotenv.join(", ")} — les clés déjà présentes n'ont pas été touchées)${RESET}\n\n`,
+        `   ${GREEN}✓ écrit dans .env${RESET} ${DIM}(${missingInDotenv.join(", ")} — les clés déjà présentes n'ont pas été touchées)${RESET}\n\n`,
       );
     } else {
       w(
@@ -323,7 +321,7 @@ class SecuritySecrets extends Command {
     // ── 4. La clé de SIGNATURE des jetons : une autre nature de secret ──────
     //
     // Pas 32 octets aléatoires mais une PAIRE Ed25519 en JSON, et pas de valeur
-    // dans `.env.local` : en développement le keystore la génère lui-même dans
+    // dans `.env` : en développement le keystore la génère lui-même dans
     // `var/keys/` (persistée, création exclusive entre workers). Une clé privée
     // de PRODUCTION posée sur un poste de dev n'y servirait à rien — elle n'y
     // apporterait que le risque de fuir. Elle se génère à part, et part
@@ -358,14 +356,14 @@ class SecuritySecrets extends Command {
       `   ${DIM}Développement : rien à poser, la clé vit dans var/keys/.\n` +
         `   Production : UNE valeur pour tous les pods et workers, générée une fois —\n` +
         `   ${RESET}${CYAN}npx nodefony security:secrets --jwt-keyset${RESET}${DIM} — puis rangée dans le\n` +
-        `   gestionnaire de secrets et injectée en NF_JWT_KEYSET. Jamais dans .env.local,\n` +
+        `   gestionnaire de secrets et injectée en NF_JWT_KEYSET. Jamais dans .env,\n` +
         `   jamais dans git. STABLE : la changer refuse les jetons en vol ; pour une\n` +
         `   rotation, ajouter la nouvelle clé au jeu, la rendre « active », garder l'ancienne.${RESET}\n\n`,
     );
 
     w(
-      `${DIM}Pourquoi 3 fichiers ? .env.local porte la VALEUR (secret machine, gitignoré —\n` +
-        `le .env commité ne porte que des défauts non-secrets) ; env.ts la DÉCLARE\n` +
+      `${DIM}Pourquoi 3 fichiers ? .env porte la VALEUR (secret du poste, gitignoré ;\n` +
+        `en production, le gestionnaire de secrets) ; env.ts la DÉCLARE\n` +
         `(catalogue typé, validé au boot) ; ${cfgRel} la CÂBLE au module.\n` +
         `Les étapes 2 et 3 ne se font qu'une fois — ensuite seule l'étape 1 vit.${RESET}\n\n` +
         `Relance le serveur : plus aucun warning « clé ÉPHÉMÈRE » au boot.\n\n`,

@@ -105,7 +105,7 @@ export const env = defineEnv({
 
   /**
    * 🔐 Clés de chiffrement au repos (module security) — les VALEURS vivent dans
-   * `.env.local` (gitignoré), générées à la création de l'app. Rotation ou
+   * `.env` (gitignoré), générées à la création de l'app. Rotation ou
    * rattrapage : `npx nodefony security:secrets --write`. En production :
    * Secret k8s / vault — jamais en git.
    *
@@ -173,8 +173,8 @@ export const env = defineEnv({
    *
    * **Valeur** : un jeu de clés Ed25519 en JSON, sur UNE ligne —
    * `npx nodefony security:secrets --jwt-keyset`. Elle contient la clé PRIVÉE :
-   * gestionnaire de secrets (Secret k8s, vault), jamais `.env.local`, jamais git.
-   * Dans un fichier `.env`, l'entourer de quotes simples.
+   * gestionnaire de secrets (Secret k8s, vault), jamais un fichier du poste, jamais
+   * git. En développement rien à poser : la clé vit dans `var/keys/`.
    * **Illisible ⇒** la configuration security est refusée au démarrage, le
    * chemin nommé, la valeur jamais recopiée.
    *
@@ -209,7 +209,7 @@ export const env = defineEnv({
    * les TROIS sont posées (`nodefony/config/security.ts`) : absentes, l'app
    * démarre sans bouton ni avertissement. Le décor de développement — profil
    * `keycloak` du `compose.yaml`, realm `docker/keycloak/import/` — en donne les
-   * valeurs, commentées dans `.env` et `.env.local`.
+   * valeurs, commentées dans `.env`.
    *
    * Préfixées `NF_` : Keycloak est AUTO-HÉBERGÉ, ces valeurs sont émises par TON
    * serveur et aucun écosystème n'en fixe le nom.

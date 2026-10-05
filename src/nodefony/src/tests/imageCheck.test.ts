@@ -34,17 +34,26 @@ describe("detectSuspectImageFiles — ce qui ne doit pas sortir dans une image",
     ]);
   });
 
-  it("tolère le .env NU de l'application — il est commité, sans secret", () => {
-    expect(detectSuspectImageFiles(["app/.env", ".env"])).toEqual([]);
+  it("🔴 refuse le .env de l'application — il porte les secrets du POSTE", () => {
+    // `.env` n'est jamais commité et n'entre jamais dans une image : il porte
+    // les clés de développement. Le `.dockerignore` généré l'écarte ; ce
+    // contrôle est le filet si on le retire.
+    expect(detectSuspectImageFiles(["app/.env", ".env"])).toEqual([
+      "app/.env",
+      ".env",
+    ]);
   });
 
-  it("🔴 mais refuse un .env NICHÉ — `ai:mcp` y écrit le jeton porteur", () => {
-    // C'est le secret le plus facile à publier d'une application Nodefony, et
-    // une tolérance non bornée le laissait passer au nom d'un fichier homonyme
-    // qui, lui, n'en porte aucun.
+  it("refuse un .env NICHÉ — `ai:mcp` y écrit le jeton porteur", () => {
     expect(detectSuspectImageFiles(["app/.gemini/.env"])).toEqual([
       "app/.gemini/.env",
     ]);
+  });
+
+  it("laisse passer la notice .env.example — commitée, aucune valeur", () => {
+    expect(
+      detectSuspectImageFiles(["app/.env.example", "app/.env.examples"]),
+    ).toEqual(["app/.env.examples"]);
   });
 
   it("tolère un .pem de dépendance — c'est une donnée de test, pas un secret", () => {
@@ -187,6 +196,7 @@ describe("parité — la règle du dépôt et celle du produit rendent le MÊME 
     "app/var/keys/keyset.json",
     "app/.env",
     ".env",
+    "app/.env.example",
     "app/.env.local",
     "app/.env.production",
     "app/.gemini/.env",
@@ -241,8 +251,10 @@ describe("parité — la règle du dépôt et celle du produit rendent le MÊME 
     // (il passerait sur une règle qui dit oui à tout).
     expect(refuses.length).toBeGreaterThan(5);
     expect(refuses.length).toBeLessThan(corpus.length);
-    // Et les trois tolérances mordent vraiment sur ce corpus.
-    expect(refuses).not.toContain("app/.env");
+    // Et les tolérances mordent vraiment sur ce corpus — la notice passe, le
+    // `.env` du poste non.
+    expect(refuses).not.toContain("app/.env.example");
+    expect(refuses).toContain("app/.env");
     expect(refuses).not.toContain("etc/ssl/certs/ca.pem");
     expect(refuses).not.toContain(
       "app/node_modules/selfsigned/test/fixture.pem",

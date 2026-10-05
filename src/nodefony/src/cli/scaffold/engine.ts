@@ -209,7 +209,7 @@ const RENAMES: Record<string, string> = {
   "prettierrc.json": ".prettierrc.json",
   "gitlab-ci.yml": ".gitlab-ci.yml",
   env: ".env",
-  "env.local": ".env.local",
+  "env.example": ".env.example",
 };
 
 /**
@@ -1946,7 +1946,7 @@ function dispatchScaffold(
     db,
     // Secrets PAR-PROJET, générés À LA CRÉATION (jamais au build : un build
     // doit rester pur/reproductible — en CI/prod les secrets viennent du
-    // secret-manager). Consommés par `complete/env.local.tpl` (gitignoré) →
+    // secret-manager). Consommés par `complete/env.tpl` (`.env`, gitignoré) →
     // zéro warning « clé ÉPHÉMÈRE » au premier boot. 32 octets = AES-256-GCM.
     secrets: {
       NF_TOTP_KEY: randomBytes(32).toString("base64"),
@@ -1954,7 +1954,7 @@ function dispatchScaffold(
       NF_CSRF_SECRET: randomBytes(32).toString("base64"),
     },
     // Décor Keycloak du profil `keycloak` — lu par le realm d'import, `.env` et
-    // `.env.local` : une seule valeur, sinon le client refuse l'app au premier
+    // `.env.example` : une seule valeur, sinon le client refuse l'app au premier
     // login. Le secret est PUBLIC par nature (écrit dans le realm commité) : il
     // n'existe que dans ce décor de développement. L'`id` de l'utilisateur est
     // FIXÉ à la création : laissé à Keycloak, il change à chaque réimport, et
@@ -4227,14 +4227,13 @@ function declaresDialect(
 }
 
 /**
- * Base de l'infra DÉCLARÉE du projet, cascade `.env` comprise.
+ * Base de l'infra DÉCLARÉE du projet, `.env` compris.
  *
- * `process.env` seul ne suffit pas : une URL posée dans `.env.local` (le cas
- * nominal en développement — le fichier est gitignoré, c'est là qu'on met sa
- * base) n'est pas dans l'environnement du terminal qui lance le scaffold. On
- * emprunte donc l'ORDRE de la cascade au runtime ({@link envFileOrder}) plutôt
- * que d'en inventer un : un ordre affiché qui différerait de l'ordre appliqué
- * serait pire que pas d'ordre du tout.
+ * `process.env` seul ne suffit pas : une URL posée dans `.env` (le cas nominal
+ * en développement — le fichier est gitignoré, c'est là qu'on met sa base)
+ * n'est pas dans l'environnement du terminal qui lance le scaffold. On emprunte
+ * donc les fichiers au runtime ({@link envFileOrder}) plutôt que de recopier
+ * leur nom.
  *
  * @returns la base résolue par {@link resolveInfra}, ou `null` si aucune n'est
  *   déclarée (ou si son URL n'est pas supportée).
@@ -4244,10 +4243,7 @@ function declaredDatabase(
 ): ReturnType<typeof resolveInfra>["database"] | null {
   const env: Record<string, string | undefined> = {};
   try {
-    // `envFileOrder` rend des NOMS, pas des chemins — et sans mode d'exécution
-    // il rend les deux niveaux universels (`.env.local` puis `.env`), qui sont
-    // exactement ceux qu'un scaffold peut connaître : il tourne hors de tout
-    // boot, donc hors de tout `NODE_ENV` résolu.
+    // `envFileOrder` rend des NOMS, pas des chemins.
     for (const name of envFileOrder()) {
       const file = path.join(projectRoot, name);
       if (!existsSync(file)) continue;
@@ -4255,13 +4251,12 @@ function declaredDatabase(
         const m =
           /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/u.exec(line);
         if (!m?.[1]) continue;
-        // La cascade est ordonnée du plus fort au plus faible : le premier
-        // fichier qui pose une clé la garde.
+        // Le premier fichier qui pose une clé la garde.
         env[m[1]] ??= m[2]?.trim().replace(/^["']|["']$/gu, "");
       }
     }
   } catch {
-    /* cascade illisible — l'environnement du process reste consultable */
+    /* fichier illisible — l'environnement du process reste consultable */
   }
   try {
     // Le shell l'emporte sur les fichiers, comme au runtime.

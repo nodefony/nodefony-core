@@ -150,13 +150,19 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
       // Elles survivent aussi aux redémarrages — les jetons en vol ne sont
       // plus invalidés à chaque rebuild du serveur de développement.
       //
-      // En PRODUCTION, ce dossier n'a pas de sens (pods jetables, système
-      // de fichiers éphémère) : la clé vient de `NF_JWT_KEYSET`, la MÊME
-      // pour tous les pods et workers. Présente, elle l'emporte sur le
-      // dossier dans tous les environnements.
+      // En PRODUCTION, une vraie application n'a pas de dossier (pods
+      // jetables, système de fichiers éphémère) : la clé vient de
+      // `NF_JWT_KEYSET`, la MÊME pour tous les pods et workers. Présente,
+      // elle l'emporte sur le dossier dans tous les environnements.
+      //
+      // L'application de CE dépôt, elle, ne tourne en production que sur
+      // UNE machine (bancs, forge, workers d'un même runner) : le dossier y
+      // est la bonne source — création exclusive entre workers. Sans source,
+      // un exemplaire qui sert refuse de démarrer (`jwt.keystore`). C'est un
+      // réglage, pas un secret : il vit ici, jamais dans un fichier `.env`.
       keystore: {
         keySetJson: ctx.env.NF_JWT_KEYSET,
-        dir: ctx.isProd ? undefined : "var/keys",
+        dir: "var/keys",
       },
       // Les ressources qu'un client peut NOMMER en demandant un jeton
       // (`resource`, RFC 8707) — une liste BLANCHE, décidée par

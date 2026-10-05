@@ -894,6 +894,7 @@ describe("detecterSuspectsImage — la même règle, sur une image publiée", ()
     "app/nodefony/config/certificates/server/privkey.pem",
     "app/nodefony/config/certificates/server/cert.pem",
     "app/tls/serveur.key",
+    "app/.env",
     "app/.env.local",
     "app/.env.production",
     "app/.npmrc",
@@ -924,10 +925,9 @@ describe("detecterSuspectsImage — la même règle, sur une image publiée", ()
     // signaler apprendrait à ignorer l'alerte.
     "app/node_modules/selfsigned/test/fixture.pem",
     "usr/local/lib/node_modules/npm/.npmrc",
-    // Convention du framework : `.env` est commité et ne porte aucun secret ;
-    // ceux-ci vivent dans `.env.local`, écarté du `.gitignore` ET du
-    // `.dockerignore` (et refusé ci-dessus).
-    "app/.env",
+    // La NOTICE : commitée, jamais chargée, aucune valeur. Le `.env` du
+    // poste, lui, porte les secrets et est refusé ci-dessus.
+    "app/.env.example",
     // Autorités de certification de l'image de base — publiques par nature.
     "etc/ssl/cert.pem",
     "etc/ssl1.1/cert.pem",

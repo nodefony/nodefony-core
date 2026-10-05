@@ -543,7 +543,7 @@ export const KEYCLOAK_GATE: EnvGate = {
     ),
   }),
   note:
-    "Le SERVEUR doit être démarré avec les mêmes variables (`.env.local`) — " +
+    "Le SERVEUR doit être démarré avec les mêmes variables (`.env`) — " +
     "sans elles il ne déclare pas le fournisseur `keycloak` et le banc rend 404.",
 };
 
