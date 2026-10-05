@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T08:58:56.308Z",
+  "generatedAt": "2026-10-05T10:50:57.136Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 78,
+      "closed": 79,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 37,
@@ -1663,8 +1663,8 @@
       "number": 537,
       "title": "feat(cli): figer la barre d'état en bas pendant le défilement",
       "url": "https://github.com/nodefony/nodefony-core/issues/537",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -2293,6 +2293,22 @@
       "ordre": 4.01,
       "debut": "2026-10-09",
       "cible": "2026-10-09",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 541,
+      "title": "test(cli): valider le plein écran du serveur de dev sous Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/541",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.01,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-4"
       ]
@@ -3693,7 +3709,7 @@
       "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/445",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 7,
@@ -3709,7 +3725,7 @@
       "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
       "url": "https://github.com/nodefony/nodefony-core/issues/446",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -3741,7 +3757,7 @@
       "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
       "url": "https://github.com/nodefony/nodefony-core/issues/448",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3773,7 +3789,7 @@
       "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
       "url": "https://github.com/nodefony/nodefony-core/issues/450",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 3,

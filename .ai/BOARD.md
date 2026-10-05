@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-05 08:58** (UTC).
+> Empreinte prise le **2026-10-05 10:50** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 68% | 78 | 37 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 68% | 79 | 37 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 134 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 32 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -31,9 +31,9 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#537 — feat(cli): figer la barre d'état en bas pendant le défilement**
+**#530 — feat(cli): générer le graphe des symboles du code d'une application**
 
-Ordre 3.0003 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · frise —
+Ordre 3.002 · P2 — décision · 1 j · jalon 10.0.0-beta · frise —
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 37 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -51,7 +51,6 @@ Ordre 3.0003 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · fris
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 3.0003 | P1 — figé à la création | 2 | — | #537 | feat(cli): figer la barre d'état en bas pendant le défilement |
 | 3.002 | P2 — décision | 1 | — | #530 | feat(cli): générer le graphe des symboles du code d'une application |
 | 3.01 | P1 — figé à la création | 14 | 2026-10-05 → 10-07 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 3.05 | P1 — figé à la création | 1 | 2026-10-08 → 10-08 | #478 | feat(security): fournir aux pods de production une clé de signature partagée |
@@ -62,6 +61,7 @@ Ordre 3.0003 · P1 — figé à la création · 2 j · jalon 10.0.0-beta · fris
 | 3.55 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
 | 3.56 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
 | 3.57 | P2 — décision | 1 | — | #525 | test(security): compléter les bancs Keycloak réels |
+| 4.01 | P1 — figé à la création | 0.5 | — | #541 | test(cli): valider le plein écran du serveur de dev sous Windows |
 | 4.02 | P1 — figé à la création | 0.5 | 2026-10-12 → 10-12 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
 | 4.03 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
 | 4.05 | P2 — décision | 1 | 2026-10-15 → 10-15 | #352 | fix(http): empêcher un frontal de retenir un flux d'événements |
