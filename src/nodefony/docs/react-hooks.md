@@ -317,7 +317,7 @@ décide du coût de ton écran.
 | `useNodefonySnapshot()`               | l'état de la socket, ou `null` | à chaque échantillon (canaux, trames, dernière) | `client/react/index.ts:350` |
 | `useNodefonySyslog()`                 | un tampon de lignes de log     | à chaque lot retenu par le filtre               | `client/react/index.ts:373` |
 | `useNodefonyNotifications()`          | rien                           | **jamais** — ton handler décide                 | `client/react/index.ts:398` |
-| `useNodefonyNoticeLog()`              | un tampon de notices           | à chaque notice retenue                         | `client/react/index.ts:420` |
+| `useNodefonyNoticeLog()`              | un tampon de notices           | à chaque notice retenue                         | `client/react/index.ts:428` |
 
 ### `NodefonyProvider` — publier le client dans l'arbre
 
@@ -506,7 +506,7 @@ filtrable par source (`"realtime" | "api" | "server"`). Utile pour un panneau «
 des toasts, qui eux disparaissent.
 
 Comme pour le journal, la liste `sources` n'a pas besoin d'être mémoïsée (`srcKey`,
-`client/react/index.ts:425`).
+`client/react/index.ts:433`).
 
 ### Fabriquer un nom de canal cadencé
 
