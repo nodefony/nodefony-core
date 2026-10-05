@@ -1571,8 +1571,14 @@ const ROWS = 40;
 const SCREEN_READY_TIMEOUT_MS =
   Number(process.env.NF_CLI_READY_TIMEOUT_MS) || 150_000;
 /** Libellé de la barre d'état prête (`startupScreen.ts`). */
-const BAR = "ctrl+c arrêter";
-const BAR_RE = /ctrl\+c arrêter/;
+/**
+ * La ligne d'état de la barre d'un serveur PRÊT (`✓ prêt à 16:48`, `⚠ 2 à
+ * regarder à 16:48`) — une par barre, et absente du corps (dont le verdict
+ * est « Prêt en … » et la section « À regarder (N) »). La barre ne porte plus
+ * d'aide permanente : c'est l'état prêt qu'on attend, pas un rappel de touche.
+ */
+const BAR_RE = /(prêt|à regarder) à \d{1,2}:\d{2}/;
+const isBar = (line: string): boolean => BAR_RE.test(line);
 /** Préfixe du code de sortie de `script`, écrit par l'enveloppe `sh`. */
 const EXIT_MARK = "__NF_SCRIPT_EXIT__";
 
@@ -1726,9 +1732,6 @@ async function snap(s: IPtySession): Promise<IScreen> {
 const screenText = (sc: IScreen): string =>
   [...sc.history, "──── écran ────", ...sc.screen].join("\n");
 
-const countLines = (lines: string[], needle: string): number =>
-  lines.filter((l) => l.includes(needle)).length;
-
 /**
  * Un reste de séquence imprimé en clair : ce qu'on lit quand une séquence a été
  * coupée entre deux paquets ou mal relayée (`[2K`, `[0m`, octet ESC, `�`).
@@ -1777,12 +1780,12 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           const ready = await snap(s);
           const all = [...ready.history, ...ready.screen];
           assert.strictEqual(
-            countLines(all, BAR),
+            all.filter(isBar).length,
             1,
             `une seule barre, nulle part ailleurs\n${screenText(ready)}`,
           );
           assert.ok(
-            ready.screen.slice(-8).some((l) => l.includes(BAR)),
+            ready.screen.slice(-8).some(isBar),
             `la barre est en BAS de l'écran\n${screenText(ready)}`,
           );
           // Le bilan est écrit par le SERVEUR : il n'arrive à l'écran que
@@ -1838,7 +1841,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           await new Promise((r) => setTimeout(r, 3000));
           const reloaded = await snap(s);
           assert.strictEqual(
-            countLines([...reloaded.history, ...reloaded.screen], BAR),
+            [...reloaded.history, ...reloaded.screen].filter(isBar).length,
             1,
             `après rechargement, toujours UNE barre\n${screenText(reloaded)}`,
           );
@@ -1865,7 +1868,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           const final = await snap(s);
           assert.strictEqual(code, 0, `arrêt propre\n${screenText(final)}`);
           assert.strictEqual(
-            countLines([...final.history, ...final.screen], BAR),
+            [...final.history, ...final.screen].filter(isBar).length,
             0,
             `la barre est effacée à l'arrêt\n${screenText(final)}`,
           );
@@ -2005,7 +2008,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           assert.strictEqual(s.term.modes.bracketedPasteMode, true);
           const live = await snap(s);
           assert.ok(
-            live.screen.slice(-8).some((l) => l.includes(BAR)),
+            live.screen.slice(-8).some(isBar),
             `la barre est en BAS\n${screenText(live)}`,
           );
           assert.deepStrictEqual(garbage(live), [], "aucune séquence en clair");
@@ -2019,7 +2022,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
             `remonté, l'indicateur des lignes du dessous\n${screenText(up)}`,
           );
           assert.ok(
-            up.screen.slice(-8).some((l) => l.includes(BAR)),
+            up.screen.slice(-8).some(isBar),
             `remonté, la barre reste en bas\n${screenText(up)}`,
           );
           const firstLine = up.screen[0];
