@@ -67,6 +67,7 @@ import {
 } from "./devTranscript";
 import { CLEAR_SCREEN } from "./outputMode";
 import {
+  STOP_HINT,
   renderStatusBar,
   type IStartupView,
   type IStatusContext,
@@ -215,6 +216,12 @@ const MOUSE_HELP: Readonly<Record<ScreenCharset, string>> = {
     "ctrl+c arrêter  ·  glisser copier  ·  molette · PgUp défiler  ·  Fin direct",
   ascii:
     "ctrl+c arrêter  -  glisser copier  -  molette / PgUp défiler  -  Fin direct",
+};
+
+/** Séparateur des gestes de l'aide, par jeu de caractères. */
+const HELP_SEPARATOR: Readonly<Record<ScreenCharset, string>> = {
+  unicode: "  ·  ",
+  ascii: "  -  ",
 };
 
 /** Délai entre deux clics au même endroit pour un double (ou triple) clic. */
@@ -1010,7 +1017,11 @@ export class DevTerminal {
               view: this.#view,
               context: {
                 ...context,
-                help: full.notice ?? this.#help(full),
+                help:
+                  full.notice === null
+                    ? this.#help(full)
+                    : // Le message passe APRÈS le geste d'arrêt : il ne doit pas le chasser.
+                      `${STOP_HINT}${HELP_SEPARATOR[this.#charset]}${full.notice}`,
               },
               phase: this.#phase,
               notice: full.notice,

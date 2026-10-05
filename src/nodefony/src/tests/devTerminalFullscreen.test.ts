@@ -478,6 +478,54 @@ describe("plein écran — sélection à la souris (--mouse)", () => {
   });
 });
 
+describe("plein écran — sélection sous le bloc d'état du serveur prêt", () => {
+  const readyView: IStartupView = {
+    schema: 1,
+    ready: true,
+    durationMs: 1200,
+    version: "10.0.0",
+    environment: "development",
+    open: [],
+    notices: [],
+    listening: [],
+    frontend: null,
+    modules: { loaded: 3, gated: [], failed: 0 },
+    journal: { warnings: 0, errors: 0, criticals: [] },
+    data: [],
+    processes: null,
+    firewall: null,
+    supervised: true,
+    inspector: null,
+  };
+
+  it("remonté (PgUp), glisser copie ; la barre dit le résultat SANS perdre « ctrl+c arrêter »", async () => {
+    const copy = vi.fn(async (_text: string) => "copié (pbcopy)");
+    const { stdout, input, terminal } = fullscreen({
+      mouse: true,
+      copy,
+      columns: 120,
+      rows: 40,
+    });
+    terminal.setStatus(readyView, ctx, "ready");
+    terminal.ingest("server", "out", lines(100));
+    await nextFrame();
+    input.type("\x1b[5~");
+    await nextFrame();
+    const up = await screen(stdout.written, 120, 40);
+    const row = up.findIndex((l) => l.startsWith("ligne "));
+    expect(row).to.not.equal(-1);
+    const y = row + 1;
+    input.type(press(1, y) + drag(5, y) + release(5, y));
+    expect(copy).toHaveBeenCalledWith((up[row] ?? "").slice(0, 5));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextFrame();
+    const bar = (await screen(stdout.written, 120, 40)).join("\n");
+    expect(bar).to.include("copié (pbcopy)");
+    expect(bar).to.include("ctrl+c arrêter");
+    terminal.close();
+  });
+});
+
 describe("plein écran — glisser au bord du journal (--mouse)", () => {
   const wait = (ms: number): Promise<void> =>
     new Promise((resolve) => setTimeout(resolve, ms));

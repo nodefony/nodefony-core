@@ -814,7 +814,7 @@ export function renderStartupHuman(
 
 /** Ce que la ligne d'état sait, en plus du bilan. */
 /** Le geste pour arrêter, à droite de la barre. */
-const STOP_HINT = "ctrl+c arrêter";
+export const STOP_HINT = "ctrl+c arrêter";
 
 export interface IStatusContext {
   /** Nom du projet. */

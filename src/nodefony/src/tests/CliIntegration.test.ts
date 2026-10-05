@@ -1845,6 +1845,103 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
     );
 
     it(
+      "plein écran --mouse : glisser surligne et copie par le presse-papiers du poste, Ctrl+C rend la souris",
+      async () => {
+        let s: IPtySession | null = null;
+        // Un faux `pbcopy` en tête du PATH : la cascade le trouve en premier
+        // sur le poste (ni SSH, ni tmux, ni affichage X11/Wayland ici).
+        const bin = fs.mkdtempSync(path.join(os.tmpdir(), "nf-clip-"));
+        const clip = path.join(bin, "copied.txt");
+        fs.writeFileSync(
+          path.join(bin, "pbcopy"),
+          `#!/bin/sh\ncat > ${quote(clip)}\n`,
+          { mode: 0o755 },
+        );
+        const env: NodeJS.ProcessEnv = {
+          ...process.env,
+          PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}`,
+        };
+        for (const key of [
+          "SSH_CONNECTION",
+          "SSH_TTY",
+          "SSH_CLIENT",
+          "TMUX",
+          "DISPLAY",
+          "WAYLAND_DISPLAY",
+        ]) {
+          Reflect.deleteProperty(env, key);
+        }
+        try {
+          s = startPty(flavor, ["development", "--ui", "--mouse"], env, true);
+          await waitFor(s, BAR_RE);
+          await new Promise((r) => setTimeout(r, 3000));
+          assert.strictEqual(s.term.buffer.active.type, "alternate");
+          // 1002 : clics et glisser bouton tenu — jamais tout mouvement (1003).
+          assert.strictEqual(s.term.modes.mouseTrackingMode, "drag");
+
+          // Remonté, la fenêtre ne bouge plus quand des lignes arrivent : la
+          // ligne visée reste sous la souris entre la lecture et le geste.
+          s.child.stdin?.write("\x1b[5~");
+          await new Promise((r) => setTimeout(r, 500));
+          const up = await snap(s);
+          const row = up.screen.findIndex(
+            (l, i) => i < ROWS - 10 && l.trim().length >= 12,
+          );
+          assert.ok(row !== -1, `une ligne à sélectionner\n${screenText(up)}`);
+          const expected = (up.screen[row] ?? "").slice(0, 10).trimEnd();
+
+          // Séquences SGR tapées : enfoncer colonne 1, glisser jusqu'à 10.
+          const y = row + 1;
+          s.child.stdin?.write(
+            `\x1b[<0;1;${y}M\x1b[<32;5;${y}M\x1b[<32;10;${y}M`,
+          );
+          await new Promise((r) => setTimeout(r, 500));
+          await snap(s);
+          const line = s.term.buffer.active.getLine(
+            s.term.buffer.active.baseY + row,
+          );
+          const inverse = Array.from({ length: 12 }, (_, x) =>
+            line?.getCell(x)?.isInverse() ? "#" : ".",
+          ).join("");
+          assert.strictEqual(
+            inverse,
+            "##########..",
+            `surlignage de la colonne 1 à 10\n${screenText(await snap(s))}`,
+          );
+
+          s.child.stdin?.write(`\x1b[<0;10;${y}m`);
+          try {
+            await waitFor(s, /copié \(pbcopy\)/, 10_000);
+          } catch (error) {
+            assert.fail(
+              `faux pbcopy appelé : ${fs.existsSync(clip)} — ${String(error)}`,
+            );
+          }
+          assert.strictEqual(fs.readFileSync(clip, "utf8"), expected);
+
+          const code = await ctrlC(s);
+          const final = await snap(s);
+          assert.strictEqual(code, 0, `arrêt propre\n${screenText(final)}`);
+          assert.strictEqual(s.term.buffer.active.type, "normal");
+          assert.strictEqual(
+            s.term.modes.mouseTrackingMode,
+            "none",
+            "la souris est rendue au shell",
+          );
+          assert.strictEqual(
+            await isPortOpen(HTTP_PORT),
+            false,
+            "ports libérés",
+          );
+        } finally {
+          await cleanup(s);
+          fs.rmSync(bin, { recursive: true, force: true });
+        }
+      },
+      SCREEN_READY_TIMEOUT_MS * 2 + 60_000,
+    );
+
+    it(
       "plein écran (--ui) : la barre reste en bas pendant le défilement, Ctrl+C rend un terminal normal",
       async () => {
         let s: IPtySession | null = null;
