@@ -1797,8 +1797,8 @@
       ],
       "description": "Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine. Sait imposer le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode clair\", \"en mode sombre\", \"le thème sombre casse quelque chose ?\", \"quelles requêtes fait la page ?\", \"le temps réel arrive-t-il à l'écran ?\", \"teste le websocket\", \"quelle latence sur le socket ?\", \"la page déborde-t-elle sur mobile ?\".",
       "cost": {
-        "bodyLines": 421,
-        "approxTokens": 6835
+        "bodyLines": 422,
+        "approxTokens": 6851
       },
       "requires": [],
       "resources": {
@@ -1875,7 +1875,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "421",
+            "detail": "422",
             "advisory": true
           }
         ]
@@ -10678,8 +10678,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 497,
-        "approxTokens": 8538
+        "bodyLines": 498,
+        "approxTokens": 8573
       },
       "requires": [],
       "resources": {
@@ -10795,7 +10795,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "497",
+            "detail": "498",
             "advisory": true
           }
         ]

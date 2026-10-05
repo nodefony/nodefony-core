@@ -53,6 +53,7 @@ import {
 import { shouldColorize } from "../../kernel/checks/report";
 import { brandMark, resolveBrandCharset } from "../../cli/brand";
 import { childExecArgv } from "./detachedStart";
+import { refreshProjectSymbols } from "../../cli/symbolsGenerate";
 import {
   clearRuntimeState,
   defaultDevPorts,
@@ -535,6 +536,8 @@ export function onServerEnded(
  */
 export class DevSupervisor {
   readonly #cwd: string;
+  /** Un échec de régénération du graphe symbolique n'est dit qu'une fois. */
+  #symbolsWarned = false;
   /** Gestionnaire de paquets du projet, résolu au premier build. */
   #packageManager: PackageManagerName | null = null;
   readonly #paths: readonly string[];
@@ -876,6 +879,35 @@ export class DevSupervisor {
   }
 
   /** Écrit une ligne préfixée sur stdout (pas de `console.log` — code core). */
+  /**
+   * Régénère le graphe symbolique du code de l'application, sans l'attendre :
+   * l'onglet « API » des modules de l'application, dans la console
+   * d'administration, se remplit sans que personne n'ait à y penser.
+   *
+   * Ici, dans le superviseur, et pas dans le serveur : l'analyse est du calcul
+   * synchrone, qui ne doit jamais retarder une requête. Appelée au démarrage
+   * puis après chaque reconstruction RÉUSSIE — c'est-à-dire chaque fois que le
+   * code a changé. Silencieuse quand tout va bien ; un échec est dit UNE fois.
+   */
+  #refreshSymbols(): void {
+    refreshProjectSymbols(this.#cwd).then(
+      (outcome) => {
+        if (!outcome.ok && "message" in outcome)
+          this.#symbolsFailed(outcome.message);
+      },
+      (error: unknown) =>
+        this.#symbolsFailed(
+          error instanceof Error ? error.message : String(error),
+        ),
+    );
+  }
+
+  #symbolsFailed(reason: string): void {
+    if (this.#symbolsWarned) return;
+    this.#symbolsWarned = true;
+    this.#log(`graphe symbolique non régénéré : ${reason.trim()}`, "yellow");
+  }
+
   #log(msg: string, color: keyof typeof ANSI = "cyan"): void {
     this.#write(
       `${ANSI.dim}[dev]${ANSI.reset} ${ANSI[color]}${msg}${ANSI.reset}\n`,
@@ -1037,6 +1069,7 @@ export class DevSupervisor {
     // Un ancien enfant peut encore tenir les ports le temps de mourir.
     await this.#waitPortsFree();
     this.#spawnChild();
+    this.#refreshSymbols();
     this.#startWatch();
     this.#log(
       `superviseur actif (pid ${process.pid}) — recharge le backend à chaque ` +
@@ -1833,6 +1866,7 @@ export class DevSupervisor {
     await this.#waitPortsFree();
     this.#spawnRetries = 0;
     this.#spawnChild(true);
+    this.#refreshSymbols();
     if (this.#pending) {
       this.#pending = false;
       this.#scheduleRestart("(modifs en attente)");

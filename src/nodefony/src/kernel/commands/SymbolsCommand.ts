@@ -1,6 +1,6 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import { runSymbolsCommand } from "../../cli/symbols";
+import { runSymbolsCli } from "../../cli/symbols";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPRENDRE",
@@ -29,6 +29,7 @@ const options: OptionsCommandInterface = {
  * nodefony symbols AbstractCrudService      # définition + TSDoc + parenté
  * nodefony symbols --module @nodefony/http  # la surface exportée d'un paquet
  * nodefony symbols                          # d'où vient le graphe, ce qu'il couvre
+ * nodefony symbols --generate               # écrit le graphe du code de l'application
  * ```
  */
 class Symbols extends Command {
@@ -45,16 +46,22 @@ class Symbols extends Command {
       "Point de départ (la racine de l'app est résolue en remontant)",
     );
     this.addOption("-m, --module <nom>", "n'afficher qu'un paquet");
+    this.addOption(
+      "-g, --generate",
+      "écrire le graphe du code de l'application",
+    );
   }
 
   override async generate(opts?: {
     json?: boolean;
     module?: string;
+    generate?: boolean;
   }): Promise<this> {
     const argv = ["symbols"];
     if (opts?.json) argv.push("--json");
     if (opts?.module) argv.push("--module", opts.module);
-    await this.terminate(runSymbolsCommand(argv));
+    if (opts?.generate) argv.push("--generate");
+    await this.terminate(await runSymbolsCli(argv));
     return this;
   }
 }

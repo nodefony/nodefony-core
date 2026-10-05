@@ -195,7 +195,7 @@ describe("graphe symbolique — résolution", () => {
         runSymbolsCommand(["symbols", "Kernel", "--cwd", dir]),
       );
       assert.strictEqual(code, SysExit.NOINPUT);
-      assert.include(err, "generate-symbols");
+      assert.include(err, "nodefony symbols --generate");
       assert.include(err, "node_modules/nodefony");
     });
 

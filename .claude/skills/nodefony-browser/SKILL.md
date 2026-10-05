@@ -133,8 +133,9 @@ NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secre
 ```
 
 > **Les identifiants du dépôt** : `admin` / `secret-de-dev-42` (`DEV_FIXTURE_PASSWORD` dans
-> `nodefony/security/provisionUsers.ts`, surchargeable par `NF_ADMIN_PASSWORD`). Ce n'est PAS `admin/admin`, qui est le défaut des applications **générées** —
-> confondre les deux rend un `401` qu'on impute au parcours de connexion de la sonde.
+> `nodefony/security/provisionUsers.ts`, surchargeable par `NF_ADMIN_PASSWORD`). Une application **générée** a le sien : `admin` / `nodefony-dev-42` (`DEV_ADMIN_PASSWORD` dans
+> SON `nodefony/security/provisionUsers.ts`) — confondre les deux rend un `401` qu'on impute au
+> parcours de connexion de la sonde.
 
 <details><summary>La même chose en conteneur (dernier recours — voir le tableau ci-dessus)</summary>
 

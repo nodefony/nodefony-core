@@ -191,27 +191,27 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 Filet d'intégration : `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1` pour les boots réels).
 
-| Command      | Alias         | Fichier                | Note                                                          |
-| ------------ | ------------- | ---------------------- | ------------------------------------------------------------- |
-| `Start`      | —             | `StartCommand.ts`      | menu interactif (TTY)                                         |
-| `Dev`        | `dev`         | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone)     |
-| `Build`      | `compile`     | `BuildCommand.ts`      | point d'arrêt `onRegister`                                    |
-| `Prod`       | `prod`        | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`              |
-| `Cluster`    | —             | `ClusterCommand.ts`    | `--workers`, `--detach`                                       |
-| `Install`    | —             | `InstallCommand.ts`    |                                                               |
-| `Outdated`   | —             | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                       |
-| `Status`     | —             | `StatusCommand.ts`     | **standalone** (0 boot)                                       |
-| `Stop`       | —             | `StopCommand.ts`       | **standalone** (0 boot)                                       |
-| `Completion` | —             | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)       |
-| `Create`     | —             | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)              |
-| `Env`        | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)       |
-| `Card`       | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)         |
-| `See`        | —             | `SeeCommand.ts`        | **standalone** — mesure un ÉCRAN, 3 modes (cf § see)          |
-| `Check`      | `doctor`      | `DoctorCommand.ts`     | **standalone** — diagnostic STATIQUE (cf § check)             |
-| `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
-| `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — signature + TSDoc depuis le graphe publié    |
-| `ai:sync`    | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)           |
-| `git:hooks`  | —             | `cli/gitHooks.ts`      | **standalone** — hooks git natifs (cf § git:hooks)            |
+| Command      | Alias         | Fichier                | Note                                                                              |
+| ------------ | ------------- | ---------------------- | --------------------------------------------------------------------------------- |
+| `Start`      | —             | `StartCommand.ts`      | menu interactif (TTY)                                                             |
+| `Dev`        | `dev`         | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone)                         |
+| `Build`      | `compile`     | `BuildCommand.ts`      | point d'arrêt `onRegister`                                                        |
+| `Prod`       | `prod`        | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`                                  |
+| `Cluster`    | —             | `ClusterCommand.ts`    | `--workers`, `--detach`                                                           |
+| `Install`    | —             | `InstallCommand.ts`    |                                                                                   |
+| `Outdated`   | —             | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                                           |
+| `Status`     | —             | `StatusCommand.ts`     | **standalone** (0 boot)                                                           |
+| `Stop`       | —             | `StopCommand.ts`       | **standalone** (0 boot)                                                           |
+| `Completion` | —             | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)                           |
+| `Create`     | —             | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)                                  |
+| `Env`        | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)                           |
+| `Card`       | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)                             |
+| `See`        | —             | `SeeCommand.ts`        | **standalone** — mesure un ÉCRAN, 3 modes (cf § see)                              |
+| `Check`      | `doctor`      | `DoctorCommand.ts`     | **standalone** — diagnostic STATIQUE (cf § check)                                 |
+| `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect)                     |
+| `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — lit le graphe ; `--generate` écrit celui de l'app (cf § symbols) |
+| `ai:sync`    | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)                               |
+| `git:hooks`  | —             | `cli/gitHooks.ts`      | **standalone** — hooks git natifs (cf § git:hooks)                                |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -423,6 +423,29 @@ n'écoute pour autant : le profil console (`servers: false`) est respecté par `
 
 > **Deux verbes, une frontière** : `check` est STATIQUE (des fichiers, marche sur une app cassée),
 > `inspect` est RUNTIME (elle boote, sans port). Un agent n'a que ces deux-là à retenir.
+
+## `nodefony symbols` — lire le graphe, et `--generate` celui de l'application
+
+Lecture : `cli/symbols.ts` (`readSymbolsGraph` FUSIONNE le graphe du projet et celui que publie
+`nodefony` ; un homonyme d'un autre module est rangé sous `Module:Nom`, jamais écrasé).
+Production : **une implémentation, deux appelants** — `cli/symbolsGraph.ts` (extraction PURE sur
+l'API du compilateur TypeScript, injecté) sert `scripts/generate/generate-symbols.ts` (le dépôt,
+qui importe la SOURCE) et `cli/symbolsGenerate.ts` (l'application). Aucune dépendance d'exécution :
+le compilateur est celui de l'application, cherché sur le disque à chaque appel — `require.resolve`
+retient un `package.json` ABSENT pour toute la vie du processus, et le superviseur dure.
+
+- **`--generate` est asynchrone** → porte `runSymbolsCli` ; `runSymbolsCommand` (publique,
+  synchrone) le REFUSE au lieu de l'ignorer.
+- **Module d'un symbole** = `name` du `package.json` le plus proche (`Module.getModuleName()`,
+  la clé que lit l'onglet « API »).
+- **Champ `producer`** (`repository` | `application`) : aucun producteur ne réécrit le graphe d'un
+  autre. Ce dépôt est AUSSI une application de dev — sans ce marqueur, son superviseur viderait le
+  graphe du framework ; le `--check-range` des hooks traite un graphe `application` comme absent.
+- **Automatique en dev** : `DevSupervisor.#refreshSymbols` (processus PARENT — l'analyse est du
+  calcul synchrone, jamais dans le serveur) au démarrage et après chaque reconstruction réussie ;
+  silencieux, un échec dit une seule fois. Sans `typescript` : ne fait rien.
+- Exit : `69` sans compilateur (la commande d'installation est NOMMÉE), `66` hors application,
+  `73` graphe d'un autre producteur.
 
 ## `nodefony ai:sync` — les skills d'agent livrés par les paquets (standalone 0-boot)
 

@@ -584,6 +584,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("le graphe symbolique de l'application (.ai/symbols.json) est ignoré par git, sur les deux presets", () => {
+      // `nodefony symbols --generate` et le superviseur de dev l'écrivent à
+      // chaque changement du code : versionné, il salirait chaque commit.
+      for (const preset of ["complete", "minimal"] as const) {
+        const dest = path.join(tmp, `sym-${preset}`);
+        scaffold(dest, { name: `sym${preset}`, preset, frontend: "none" });
+        const ignore = readFileSync(path.join(dest, ".gitignore"), "utf8");
+        assert.match(ignore, /^\.ai\/symbols\.json$/m, preset);
+      }
+    });
+
     it("provisionUsers câblé : hook onKernelReady + seed admin + rôles Studio", () => {
       const dest = path.join(tmp, "prov");
       scaffold(dest, { name: "prov" });

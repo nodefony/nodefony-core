@@ -182,7 +182,7 @@ source: "docs/skills/index.md"
 
 | Skill | Version | Corps | Réf. | Scripts | Conforme |
 | --- | --- | ---: | ---: | ---: | :---: |
-| [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 421 | 1 | 0 | ✅ |
+| [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 422 | 1 | 0 | ✅ |
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 116 | 0 | 0 | ✅ |
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.0 | 113 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
@@ -213,7 +213,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 233 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 93 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 104 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 497 | 0 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 498 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 259 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin

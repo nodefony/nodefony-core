@@ -4,6 +4,7 @@ import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
 import { stripGlobalCliFlags } from "./globalFlags";
+import { generateProjectSymbols } from "./symbolsGenerate";
 
 /**
  * Le GRAPHE SYMBOLIQUE du framework — où le trouver, et comment l'interroger.
@@ -113,12 +114,26 @@ export function readSymbolsGraph(from: string): ISymbolsGraph | null {
     .map(readGraphFile)
     .filter((g): g is ISymbolsGraph => g !== null);
   if (graphs.length === 0) return null;
-  // Du moins prioritaire au plus prioritaire : le dernier écrit gagne.
+  // Du moins prioritaire au plus prioritaire : le dernier écrit gagne le nom.
   const merged: ISymbolsGraph = { symbols: {} };
   for (const graph of graphs) {
     const { symbols, relations, ...meta } = graph;
     Object.assign(merged, meta);
-    Object.assign(merged.symbols, symbols);
+    for (const [key, sym] of Object.entries(symbols)) {
+      const taken = merged.symbols[key];
+      // Un homonyme d'un AUTRE module (le `User` d'une application, celui du
+      // framework) ne l'efface pas : il est rangé sous `Module:Nom`, comme le
+      // générateur range les siens — sinon le symbole disparaissait de la
+      // fiche de son module dans la console d'administration.
+      if (
+        taken !== undefined &&
+        taken.module !== sym.module &&
+        !key.includes(":")
+      ) {
+        merged.symbols[`${taken.module}:${taken.name}`] = taken;
+      }
+      merged.symbols[key] = sym;
+    }
     for (const [kind, index] of Object.entries(relations ?? {})) {
       const into = (merged.relations ??= {})[kind] ?? {};
       for (const [target, sources] of Object.entries(index)) {
@@ -159,6 +174,8 @@ interface ISymbolsRequest {
   json: boolean;
   /** Filtre par paquet (`--module @nodefony/http`). */
   module: string | null;
+  /** `--generate` : écrire le graphe du code de l'application. */
+  generate: boolean;
   cwd: string;
   /** `true` si l'on veut seulement la page d'aide. */
   help: boolean;
@@ -170,20 +187,38 @@ const PAGE: IUsagePage = {
   tagline:
     "interroge le graphe symbolique : où un symbole est défini, ce qu'il " +
     "fait, et de qui il hérite",
-  synopsis: ["nodefony symbols [<Symbole>] [options]"],
+  synopsis: [
+    "nodefony symbols [<Symbole>] [options]",
+    "nodefony symbols --generate [--json] [--cwd <chemin>]",
+  ],
   sections: [
     {
       title: "CE QU'ELLE LIT",
       paragraph:
-        "Un fichier JSON — le graphe engendré par le dépôt — et rien d'autre. " +
+        "Des fichiers JSON — le graphe du framework et celui de l'application — et rien d'autre. " +
         "Sans nom de symbole, elle rend un résumé du graphe. Elle ne DÉMARRE " +
         "pas l'application : elle répond donc quand celle-ci ne démarre plus, " +
         "le moment où l'on cherche justement ce que fait une classe.",
+    },
+    {
+      title: "D'OÙ VIENT LE GRAPHE",
+      paragraph:
+        "Celui du framework est publié avec le paquet nodefony. Celui de " +
+        "l'application s'écrit par --generate dans .ai/symbols.json (ignoré " +
+        "par git) : les deux sont lus ensemble, et la fiche « API » de chaque " +
+        "module de l'application, dans la console d'administration, se " +
+        "remplit. À relancer quand le code change. Il faut le compilateur " +
+        "TypeScript de l'application (typescript, en dépendance de " +
+        "développement).",
     },
   ],
   options: [
     { term: "-j, --json", text: "la même réponse, exploitable par un script" },
     { term: "-m, --module <nom>", text: "n'afficher qu'un paquet" },
+    {
+      term: "-g, --generate",
+      text: "écrire le graphe du code de l'application",
+    },
     {
       term: "--cwd <chemin>",
       text: "point de départ (la racine de l'app est résolue en remontant)",
@@ -199,11 +234,23 @@ const PAGE: IUsagePage = {
       term: "nodefony symbols -m @nodefony/http",
       text: "les symboles d'un seul paquet",
     },
+    {
+      term: "nodefony symbols --generate",
+      text: "décrire le code de l'application",
+    },
   ],
   exitCodes: [
     {
       term: "66",
-      text: "aucun graphe ici — le dépôt ne l'a pas engendré (EX_NOINPUT)",
+      text: "aucun graphe ici, ou --generate hors d'une application (EX_NOINPUT)",
+    },
+    {
+      term: "69",
+      text: "--generate sans le compilateur TypeScript (EX_UNAVAILABLE)",
+    },
+    {
+      term: "73",
+      text: "--generate face au graphe d'un autre outil, laissé intact (EX_CANTCREAT)",
     },
   ],
 };
@@ -223,6 +270,7 @@ export function parseSymbolsArgv(
     name: null,
     json: false,
     module: null,
+    generate: false,
     cwd: process.cwd(),
     help: false,
   };
@@ -235,6 +283,8 @@ export function parseSymbolsArgv(
       req.help = true;
     } else if (word === "--json" || word === "-j") {
       req.json = true;
+    } else if (word === "--generate" || word === "-g") {
+      req.generate = true;
     } else if (word === "--module" || word === "-m") {
       req.module = rest[++i] ?? null;
     } else if (word === "--cwd") {
@@ -246,6 +296,11 @@ export function parseSymbolsArgv(
     } else {
       return { error: `argument en trop : ${word}` };
     }
+  }
+  if (req.generate && (req.name !== null || req.module !== null)) {
+    return {
+      error: "--generate écrit le graphe : il ne prend ni symbole ni --module",
+    };
   }
   return req;
 }
@@ -283,6 +338,14 @@ export function runSymbolsCommand(argv: string[]): number {
   if (parsed.help) {
     return printUsage(PAGE);
   }
+  if (parsed.generate) {
+    // La génération charge le compilateur : elle est asynchrone. Ne jamais
+    // l'ignorer en silence — rendre un résumé ferait croire à une écriture.
+    return printUsageError(
+      PAGE,
+      "--generate passe par runSymbolsCli (asynchrone), pas par runSymbolsCommand",
+    );
+  }
   const file = resolveSymbolsFile(parsed.cwd);
   const graph = readSymbolsGraph(parsed.cwd);
   if (graph === null) {
@@ -290,8 +353,8 @@ export function runSymbolsCommand(argv: string[]): number {
     // laisserait croire que le symbole cherché n'existe pas.
     process.stderr.write(
       `symbols: aucun graphe symbolique atteignable.\n` +
-        `  Il est publié par le paquet nodefony (node_modules/nodefony/.ai/symbols.json)\n` +
-        `  et régénérable dans ce dépôt par : npm run generate-symbols\n`,
+        `  Il est publié par le paquet nodefony (node_modules/nodefony/.ai/symbols.json) ;\n` +
+        `  celui de l'application s'écrit par : nodefony symbols --generate\n`,
     );
     return SysExit.NOINPUT;
   }
@@ -343,5 +406,51 @@ export function runSymbolsCommand(argv: string[]): number {
     `\nUn symbole : nodefony symbols AbstractCrudService\n` +
       `Un paquet  : nodefony symbols --module @nodefony/http\n`,
   );
+  return SysExit.OK;
+}
+
+/**
+ * Porte de la ligne de commande : `--generate` écrit le graphe de
+ * l'application, tout le reste le lit ({@link runSymbolsCommand}).
+ *
+ * @param argv - `process.argv` complet.
+ * @returns exit code sémantique : `OK`, `USAGE`, `NOINPUT` hors application,
+ *   `UNAVAILABLE` sans compilateur TypeScript, ceux de la lecture sinon.
+ */
+export async function runSymbolsCli(argv: string[]): Promise<number> {
+  const parsed = parseSymbolsArgv(argv);
+  if ("error" in parsed || parsed.help || !parsed.generate) {
+    return runSymbolsCommand(argv);
+  }
+  const root = findProjectRoot(parsed.cwd);
+  if (root === null) {
+    process.stderr.write(
+      `symbols: aucune application ici (pas de nodefony.config.ts en remontant depuis ${parsed.cwd}).\n`,
+    );
+    return SysExit.NOINPUT;
+  }
+  const outcome = await generateProjectSymbols(root);
+  if (!outcome.ok) {
+    process.stderr.write(`symbols: ${outcome.message}`);
+    return outcome.code;
+  }
+  if (parsed.json) {
+    process.stdout.write(`${JSON.stringify(outcome, null, 2)}\n`);
+    return SysExit.OK;
+  }
+  process.stdout.write(
+    `graphe écrit : ${path.relative(parsed.cwd, outcome.file) || outcome.file}\n` +
+      `${outcome.files} fichier(s) lus, ${outcome.exported} symbole(s) exporté(s)\n\n`,
+  );
+  for (const [mod, n] of Object.entries(outcome.modules).sort(
+    (a, b) => b[1] - a[1],
+  )) {
+    process.stdout.write(`  ${String(n).padStart(5)}  ${mod}\n`);
+  }
+  for (const s of outcome.skipped) {
+    process.stdout.write(
+      `  ⚠ écarté (${Math.round(s.bytes / 1024)} Ko, trop gros) : ${s.file}\n`,
+    );
+  }
   return SysExit.OK;
 }

@@ -152,7 +152,8 @@ npx nodefony symbols --module @nodefony/http  # toute la surface exportée d'un 
 ```
 
 Le graphe symbolique de tout le framework est livré avec le paquet `nodefony` : la réponse ne
-dépend ni d'un serveur, ni d'un build, ni de ta connexion. Va y chercher un symbole AVANT d'ouvrir
+dépend ni d'un serveur, ni d'un build, ni de ta connexion. Celui de TON code (`.ai/symbols.json`),
+`npm run dev` le tient à jour — ou `npx nodefony symbols --generate` ; les deux sont lus ensemble. Va y chercher un symbole AVANT d'ouvrir
 un `.d.ts` — et avant, surtout, d'inventer une signature.
 
 **Si la commande te résiste, répare l'APPEL — ne te rabats pas sur les sources.** C'est le réflexe

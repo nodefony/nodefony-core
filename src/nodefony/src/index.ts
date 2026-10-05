@@ -787,6 +787,7 @@ export {
   readSymbolsGraph,
   lookupSymbol,
   runSymbolsCommand,
+  runSymbolsCli,
 } from "./cli/symbols";
 export type { ISymbolEntry, ISymbolsGraph } from "./cli/symbols";
 

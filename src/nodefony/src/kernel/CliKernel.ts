@@ -68,7 +68,7 @@ import Symbols from "./commands/SymbolsCommand";
 import Scripts from "./commands/ScriptsCommand";
 import See from "./commands/SeeCommand";
 import { runSeeCommand } from "../cli/see";
-import { runSymbolsCommand } from "../cli/symbols";
+import { runSymbolsCli } from "../cli/symbols";
 import Image from "./commands/ImageCommand";
 import { runImageCheckCommand } from "../cli/image";
 import { runAiSyncCommand } from "../cli/aiSync";
@@ -337,7 +337,7 @@ class CliKernel extends Cli {
     // rendrait muette la question précisément quand l'application ne démarre
     // plus — le moment où l'on cherche justement ce que fait une classe.
     if (requested === "symbols") {
-      return process.exit(runSymbolsCommand(process.argv));
+      return process.exit(await runSymbolsCli(process.argv));
     }
 
     // ─── `image:check` : juger une IMAGE, jamais l'application ────────────────

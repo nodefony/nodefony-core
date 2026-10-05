@@ -9,6 +9,11 @@ public/dist/
 # journal d'un runtime lancé avec `--detach`. `*.log` ne couvre pas le JSONL.
 logs/
 
+# Graphe symbolique du code de l'application (`nodefony symbols --generate`).
+# Il se RÉGÉNÈRE depuis les sources : le versionner ferait suivre un fichier
+# qui change à chaque modification du code, sans que personne ne l'édite.
+.ai/symbols.json
+
 # vitest ≥ 5 : racine unique de ses artefacts (pièces jointes, blobs, rapports
 # json/junit/html). Elle apparaît dès le premier `npm test` — sans cette ligne,
 # une application fraîche naît avec un dossier non suivi que rien n'explique.
