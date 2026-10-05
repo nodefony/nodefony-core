@@ -199,6 +199,51 @@ describe("plein écran — entrée et image", () => {
 });
 
 describe("plein écran — défilement (foyer)", () => {
+  it("une ligne qui ouvre un lien sans le fermer ne déborde pas sur l'image", async () => {
+    const { stdout, terminal } = fullscreen();
+    terminal.setStatus(null, ctx, "ready");
+    terminal.ingest(
+      "server",
+      "out",
+      Buffer.from(
+        "\x1b]8;;https://nodefony.net/doc\x1b\\jamais fermé\nsuite\n",
+      ),
+    );
+    await nextFrame();
+    const LINK = /\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x1b\\|\x07)/g;
+    for (const chunk of stdout.written) {
+      let open = false;
+      for (const m of chunk.matchAll(LINK)) open = (m[1] ?? "") !== "";
+      expect(open, JSON.stringify(chunk.slice(-80))).to.equal(false);
+    }
+    terminal.close();
+  });
+
+  it("un hyperlien replié dont la fin passe sous la fenêtre ne reste pas ouvert", async () => {
+    const { stdout, input, terminal } = fullscreen();
+    terminal.setStatus(null, ctx, "ready");
+    terminal.ingest("server", "out", lines(40));
+    terminal.ingest(
+      "server",
+      "out",
+      Buffer.from(
+        "\x1b]8;;https://nodefony.net/doc\x1b\\" +
+          "a".repeat(140) +
+          "\x1b]8;;\x1b\\\n",
+      ),
+    );
+    await nextFrame();
+    input.type("\x1b[A");
+    await nextFrame();
+    const LINK = /\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x1b\\|\x07)/g;
+    for (const chunk of stdout.written) {
+      let open = false;
+      for (const m of chunk.matchAll(LINK)) open = (m[1] ?? "") !== "";
+      expect(open, JSON.stringify(chunk.slice(-80))).to.equal(false);
+    }
+    terminal.close();
+  });
+
   it("la molette (traduite en flèches par le terminal) remonte le journal ; les lignes qui arrivent ne le déplacent pas", async () => {
     const { stdout, input, terminal } = fullscreen();
     terminal.setStatus(null, ctx, "ready");
@@ -426,6 +471,28 @@ describe("plein écran — l'aide de la barre dit les gestes changés", () => {
     supervised: true,
     inspector: null,
   };
+
+  // Le nom du projet vient de la configuration de l'application : la barre
+  // l'assainit comme toute ligne du journal (ADR-0013 §3).
+  it("la barre n'émet ni presse-papiers ni titre glissés dans le nom du projet", async () => {
+    const evil = {
+      ...ctx,
+      project: "app\x1b]52;c;aGk=\x07\x1b]0;titre\x07",
+    };
+    for (const [v, phase] of [
+      [null, "building"],
+      [readyView, "ready"],
+    ] as const) {
+      const { stdout, terminal } = fullscreen({ columns: 120, rows: 40 });
+      terminal.setStatus(v, evil, phase);
+      terminal.ingest("server", "out", lines(3));
+      await nextFrame();
+      const all = stdout.written.join("");
+      expect(all, phase).to.not.include("\x1b]52");
+      expect(all, phase).to.not.include("\x1b]0;");
+      terminal.close();
+    }
+  });
 
   it("défiler, revenir au direct, arrêter — dans la barre du serveur prêt", async () => {
     const { stdout, terminal } = fullscreen({ columns: 120, rows: 40 });

@@ -22,6 +22,8 @@ import type {
   BootNoticeLevel,
 } from "../../kernel/bootReport";
 import { openableHost } from "../../kernel/bootReport";
+import { sanitizeTerminalText } from "./devTranscript";
+import { visibleWidth } from "../../runtime/textWidth";
 import { fitStatus } from "./statusLine";
 import {
   createPalette,
@@ -903,7 +905,6 @@ export function renderStatusLine(
   ];
   const width = Math.max(10, (options.columns ?? 80) - 1);
   const sep = p.dim("  ·  ");
-  const visible = (t: string): number => stripVTControlCharacters(t).length;
   // Le BADGE de gauche, en vidéo inverse : c'est lui qui dit, au premier coup
   // d'œil, « ceci est la barre de Nodefony, pas une ligne du journal ». La
   // vidéo inverse prend les couleurs du thème du terminal (clair comme
@@ -917,7 +918,7 @@ export function renderStatusLine(
   // Tant que ça ne tient pas : retire d'abord l'accessoire (version,
   // rechargements, priorité ≤ 2), puis RACCOURCIT avant de sacrifier un
   // morceau utile, et seulement ensuite le retire.
-  while (kept.length > 0 && visible(lineOf(kept)) > width) {
+  while (kept.length > 0 && visibleWidth(lineOf(kept)) > width) {
     const lowest = kept.reduce((a, b) => (b.priority < a.priority ? b : a));
     const shortened = kept.find((x) => x.short !== undefined);
     if (shortened?.short !== undefined && lowest.priority > 2) {
@@ -932,7 +933,7 @@ export function renderStatusLine(
   // d'abord, sinon le seul geste d'arrêt : il ne doit pas tomber avec elle.
   for (const text of ctx.help ? [ctx.help, STOP_HINT] : [STOP_HINT]) {
     const hint = p.dim(text);
-    const gap = width - visible(line) - visible(hint);
+    const gap = width - visibleWidth(line) - visibleWidth(hint);
     if (gap >= 3) return `${line}${" ".repeat(gap)}${hint}`;
   }
   return line;
@@ -1025,6 +1026,11 @@ export function renderStatusBlock(
  * @param view - le bilan.
  * @param ctx - projet, heure, rechargements.
  * @param options - couleur, largeur, hauteur, jeu de caractères.
+ * Ses lignes sont ASSAINIES (ADR-0013 §3) : le nom du projet, la version et
+ * les adresses viennent de la configuration de l'application, et la barre ne
+ * doit pas plus que le journal écrire le presse-papiers, le titre ou
+ * effacer l'écran.
+ *
  * @param mark - les lignes de la marque (`brandMark`).
  * @returns les lignes de la barre.
  */
@@ -1039,12 +1045,14 @@ export function renderStatusBar(
   },
   mark: readonly string[],
 ): string[] {
-  return (
-    renderStatusBlock(view, ctx, options, mark) ?? [
-      statusRule(options.columns, createPalette(options.color)),
-      renderStatusLine(view, ctx, options),
-    ]
-  );
+  const lines = renderStatusBlock(view, ctx, options, mark) ?? [
+    statusRule(options.columns, createPalette(options.color)),
+    renderStatusLine(view, ctx, options),
+  ];
+  for (let i = 0; i < lines.length; i++) {
+    lines[i] = sanitizeTerminalText(lines[i] ?? "");
+  }
+  return lines;
 }
 
 /**

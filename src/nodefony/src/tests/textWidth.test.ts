@@ -86,3 +86,32 @@ describe("wrapToWidth", () => {
     expect(wrapToWidth("", 10)).to.deep.equal([""]);
   });
 });
+
+/**
+ * Un hyperlien OSC 8 resté OUVERT met « dans le lien » tout ce que le
+ * terminal écrit ensuite — y compris l'image suivante et l'invite du shell.
+ * Une ligne repliée ou coupée referme donc le sien, comme ses couleurs.
+ */
+describe("hyperliens OSC 8 — refermés par ligne", () => {
+  const OPEN = "\x1b]8;;https://nodefony.net/doc\x1b\\";
+  const CLOSE = "\x1b]8;;\x1b\\";
+  const LINK = /\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x1b\\|\x07)/g;
+  /** Le dernier OSC 8 de la ligne ouvre-t-il un lien ? */
+  const leftOpen = (line: string): boolean => {
+    let open = false;
+    for (const m of line.matchAll(LINK)) open = (m[1] ?? "") !== "";
+    return open;
+  };
+
+  it("wrapToWidth : chaque ligne repliée referme le lien et la suivante le rouvre", () => {
+    const lines = wrapToWidth(`${OPEN}${"a".repeat(30)}${CLOSE} fin`, 10);
+    expect(lines.length).to.be.greaterThan(2);
+    for (const line of lines) expect(leftOpen(line), line).to.equal(false);
+    expect(lines[1]?.startsWith(OPEN)).to.equal(true);
+  });
+
+  it("fitToWidth : une ligne coupée dans un lien le referme", () => {
+    const line = fitToWidth(`${OPEN}${"a".repeat(30)}${CLOSE}`, 10);
+    expect(leftOpen(line)).to.equal(false);
+  });
+});

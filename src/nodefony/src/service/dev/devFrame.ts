@@ -14,7 +14,7 @@
  * arrivé dessous (« ↑ N nouvelles lignes — Fin »).
  */
 import { fitToWidth, wrapToWidth } from "../../runtime/textWidth";
-import type { ITranscriptEntry } from "./devTranscript";
+import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
   renderStatusBar,
   type IStartupView,
@@ -189,7 +189,9 @@ function statusLines(model: IFrameModel, size: IFrameSize): readonly string[] {
       model.mark,
     );
   }
-  const label = `${context.project} · ${PHASE_LABELS[phase]}`;
+  const label = sanitizeTerminalText(
+    `${context.project} · ${PHASE_LABELS[phase]}`,
+  );
   return [model.color ? `\x1b[2m${label}\x1b[0m` : label];
 }
 

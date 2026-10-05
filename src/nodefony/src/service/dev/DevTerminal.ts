@@ -785,7 +785,10 @@ export class DevTerminal {
     let out = full.synchronized ? "\x1b[?2026h\x1b[?25l" : "\x1b[?25l";
     if (previous === null) out += "\x1b[H\x1b[2J";
     for (const { row, text } of changes) {
-      out += `\x1b[${row + 1};1H${text}\x1b[0m\x1b[K`;
+      // Un lien qu'une ligne ouvre sans le fermer ne déborde ni sur les
+      // lignes suivantes ni sur ce qu'écrira le shell après nous.
+      const close = text.includes("\x1b]8;") ? "\x1b]8;;\x1b\\" : "";
+      out += `\x1b[${row + 1};1H${text}${close}\x1b[0m\x1b[K`;
     }
     out += cursorSequence(frame);
     if (full.synchronized) out += "\x1b[?2026l";

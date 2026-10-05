@@ -45,6 +45,7 @@ import {
   type IStatusStream,
 } from "../service/dev/statusLine";
 import { DEV_CHANNEL, isDevChannelMessage } from "../service/dev/devChannel";
+import { visibleWidth } from "../runtime/textWidth";
 import { brandMark } from "../cli/brand";
 import {
   collectBootNotices,
@@ -664,6 +665,18 @@ describe("ligne d'état figée en bas — l'historique continue de se remplir", 
         columns: 170,
       }),
     ).to.contain("✓ prêt à 16:48");
+  });
+
+  // Un idéogramme prend DEUX colonnes : mesurée en unités de code, la ligne
+  // croyait avoir la place de l'aide et débordait d'autant (ADR-0013 §9).
+  it("se mesure en colonnes : un nom de projet en idéogrammes aligne l'aide au bord", () => {
+    const text = renderStatusLine(
+      view(),
+      { ...ctx, project: "漢字漢字" },
+      { color: false, columns: 170 },
+    );
+    expect(text.endsWith("ctrl+c arrêter")).to.equal(true);
+    expect(visibleWidth(text)).to.equal(169);
   });
 
   it("le socket du débogueur et le mode sans rechargement s'y lisent", () => {

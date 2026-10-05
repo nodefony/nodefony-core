@@ -208,17 +208,39 @@ export function fitToWidth(text: string, max: number, ellipsis = "…"): string 
     out += unit.text;
     width += unit.width;
   }
-  return `${out}${ellipsis}\x1b[0m`;
+  // La fermeture d'un lien ouvert est tombée avec la fin coupée.
+  return `${out}${ellipsis}\x1b[0m${openLink(out) === "" ? "" : LINK_CLOSE}`;
 }
 
 /** Une séquence SGR (couleur, style) : `ESC [ … m`. */
 const SGR = /^\x1b\[[0-9;:]*m$/;
 
+/** Un hyperlien OSC 8 : `ESC ] 8 ; params ; URI` puis `ESC \` ou BEL. */
+const OSC8 = /^\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x1b\\|\x07)$/;
+/** Ferme l'hyperlien courant (URI vide). */
+const LINK_CLOSE = "\x1b]8;;\x1b\\";
+
+/**
+ * L'hyperlien encore OUVERT à la fin d'un texte : la séquence qui l'a
+ * ouvert, ou `""` s'il n'y en a pas (ou s'il a été refermé).
+ */
+function openLink(text: string): string {
+  if (!text.includes("\x1b]8;")) return "";
+  let link = "";
+  for (const unit of textUnits(text)) {
+    if (!unit.control) continue;
+    const m = OSC8.exec(unit.text);
+    if (m) link = (m[1] ?? "") === "" ? "" : unit.text;
+  }
+  return link;
+}
+
 /**
  * Replie un texte en lignes d'au plus `width` colonnes, sans couper un
- * graphème. La couleur active est refermée en fin de ligne et rouverte en
- * tête de la suivante : une ligne repliée se dessine seule, sans dépendre de
- * celle du dessus.
+ * graphème. La couleur active — et l'hyperlien OSC 8 ouvert — sont refermés
+ * en fin de ligne et rouverts en tête de la suivante : une ligne repliée se
+ * dessine seule, sans dépendre de celle du dessus, et un lien dont la fin
+ * passe hors de l'écran ne reste pas ouvert sur tout ce qui suit.
  *
  * @param text - une ligne logique, couleurs comprises, sans `\n`.
  * @param width - largeur maximale en colonnes (au moins 1).
@@ -231,6 +253,7 @@ export function wrapToWidth(text: string, width: number): string[] {
   let line = "";
   let used = 0;
   let style = "";
+  let link = "";
   for (const unit of textUnits(text)) {
     if (unit.control) {
       line += unit.text;
@@ -239,12 +262,15 @@ export function wrapToWidth(text: string, width: number): string[] {
           unit.text === "\x1b[0m" || unit.text === "\x1b[m"
             ? ""
             : style + unit.text;
+      } else {
+        const m = OSC8.exec(unit.text);
+        if (m) link = (m[1] ?? "") === "" ? "" : unit.text;
       }
       continue;
     }
     if (used + unit.width > max && used > 0) {
-      lines.push(style ? `${line}\x1b[0m` : line);
-      line = style;
+      lines.push(`${line}${style ? "\x1b[0m" : ""}${link ? LINK_CLOSE : ""}`);
+      line = style + link;
       used = 0;
     }
     line += unit.text;

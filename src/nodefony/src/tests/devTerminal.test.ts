@@ -104,6 +104,21 @@ const make = () => {
 };
 
 describe("DevTerminal — un seul écrivain (#536)", () => {
+  it("la barre en ligne assainit le nom du projet (presse-papiers, titre, effacement)", () => {
+    const { out, terminal } = make();
+    terminal.setStatus(
+      view(),
+      { ...ctx, project: "app\x1b]52;c;aGk=\x07\x1b]0;titre\x07\x1b[2Jx" },
+      "ready",
+    );
+    const all = out.written.join("");
+    expect(all).to.include("app");
+    expect(all).to.not.include("\x1b]52");
+    expect(all).to.not.include("\x1b]0;");
+    expect(all).to.not.include("\x1b[2J");
+    terminal.close();
+  });
+
   it("inscrit ET affiche la sortie du serveur, couleurs gardées", () => {
     const { out, terminal } = make();
     terminal.ingest("server", "out", Buffer.from("\x1b[32mprêt\x1b[0m\n"));
