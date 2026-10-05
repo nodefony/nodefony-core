@@ -410,11 +410,17 @@ export class DevTranscript {
     stream: TranscriptStream,
     run: number | undefined,
   ): void {
-    const text = sanitizeTerminalText(pending.text);
+    // Recopie à plat, une fois par ligne : la ligne en cours est faite de
+    // tranches (`slice`) qui RETIENNENT leur chaîne mère dans V8 — une ligne
+    // courte découpée d'un paquet de 60 Ko garderait les 60 Ko vivants, et
+    // `#maxBytes` ne bornerait plus que des chiffres. Le tampon donne la
+    // taille en octets au passage.
+    const bytes = Buffer.from(sanitizeTerminalText(pending.text), "utf8");
+    const text = bytes.toString("utf8");
+    const size = bytes.length;
     pending.text = "";
     pending.truncated = false;
     pending.carriageReturn = false;
-    const size = Buffer.byteLength(text);
     while (
       this.#ring.length > 0 &&
       (this.#ring.length >= this.#maxEntries ||

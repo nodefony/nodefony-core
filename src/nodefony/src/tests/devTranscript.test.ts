@@ -2,6 +2,8 @@
  * L'historique du terminal de développement (`service/dev/devTranscript.ts`) :
  * découpe, recomposition UTF-8, `\r`, assainissement, plafonds — sans terminal.
  */
+import { setFlagsFromString } from "node:v8";
+import { runInNewContext } from "node:vm";
 import { describe, it, expect } from "vitest";
 import {
   DevTranscript,
@@ -128,6 +130,42 @@ describe("DevTranscript — plafonds", () => {
     expect(long).to.not.include("z");
     expect(normal).to.equal("normale");
   });
+
+  // `slice` rend une chaîne qui RETIENT sa mère (V8) : une ligne courte
+  // découpée d'un paquet de 60 Ko garderait les 60 Ko vivants, et la borne
+  // d'octets ne bornerait plus que des chiffres. Mesuré avant correctif :
+  // ~115 Mio retenus pour 40 Ko nominaux (2 000 paquets).
+  it.each([
+    ["Buffer (paquet relayé)", (s: string): Buffer | string => Buffer.from(s)],
+    ["chaîne (tranche de DevTerminal)", (s: string): Buffer | string => s],
+  ])(
+    "la borne borne la MÉMOIRE : une ligne courte ne retient pas son paquet — %s",
+    (_label, shape) => {
+      setFlagsFromString("--expose-gc");
+      const gc = runInNewContext("gc") as () => void;
+      const heap = (): number => {
+        gc();
+        gc();
+        return process.memoryUsage().heapUsed;
+      };
+      const t = new DevTranscript();
+      const before = heap();
+      for (let i = 0; i < 500; i++) {
+        t.ingest(
+          "server",
+          "out",
+          shape("x".repeat(60_000) + "\rligne-survivante-" + i + "\n"),
+        );
+      }
+      const retained = heap() - before;
+      expect(t.length).to.equal(500);
+      expect(t.bytes).to.be.below(16_000);
+      // 500 × 60 Ko = 30 Mio si les paquets survivent ; quelques dizaines de Ko sinon.
+      expect(retained, `${retained} octets retenus`).to.be.below(
+        4 * 1024 * 1024,
+      );
+    },
+  );
 
   it("la troncature ne coupe pas un caractère multi-octets", () => {
     const t = new DevTranscript({ maxEntryBytes: 40 });
