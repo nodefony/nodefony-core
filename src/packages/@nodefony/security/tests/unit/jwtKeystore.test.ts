@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import {
   chmodSync,
   mkdtempSync,
@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import {
   calculateJwkThumbprint,
   createLocalJWKSet,
@@ -37,6 +38,7 @@ import {
  */
 
 const noop = (): void => {};
+const execFileAsync = promisify(execFile);
 
 describe("JwtKeystore — mémoire (défaut dev)", () => {
   it("génère une clé, JWKS public SANS `d`, kid = thumbprint 7638, warning éphémère", async () => {
@@ -208,17 +210,28 @@ describe("JwtKeystore — une seule clé pour N process", () => {
     new URL("../support/keystoreProcess.ts", import.meta.url),
   );
 
+  /**
+   * Budget d'un test qui démarre de VRAIS process (`node --import tsx`).
+   * Isolé, il tient en une seconde ; dans une passe complète où turbo lance
+   * tout en parallèle, le démarrage d'un process en a pris vingt. Ce n'est pas
+   * une mesure de performance : c'est le temps de laisser la machine répondre.
+   */
+  const SPAWN_BUDGET_MS = 60_000;
+
   /** Lance un process qui construit son keystore depuis son environnement. */
-  function runProcess(mode: "sign" | "jwks", keySet?: string): string {
+  async function runProcess(
+    mode: "sign" | "jwks",
+    keySet?: string,
+  ): Promise<string> {
     const env = { ...process.env };
     delete env.NF_JWT_KEYSET;
     if (keySet !== undefined) env.NF_JWT_KEYSET = keySet;
-    const run = spawnSync(process.execPath, ["--import", "tsx", child, mode], {
-      env,
-      encoding: "utf8",
-    });
-    assert.equal(run.status, 0, run.stderr);
-    return run.stdout;
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      ["--import", "tsx", child, mode],
+      { env, encoding: "utf8" },
+    );
+    return stdout;
   }
 
   /** Le jeton signé par un process est-il accepté par un AUTRE ? */
@@ -227,11 +240,14 @@ describe("JwtKeystore — une seule clé pour N process", () => {
     otherKid: string | undefined;
     accepted: boolean;
   }> {
-    const { kid, jwt } = JSON.parse(runProcess("sign", keySet)) as {
-      kid: string;
-      jwt: string;
-    };
-    const jwks = JSON.parse(runProcess("jwks", keySet)) as JSONWebKeySet;
+    // Les deux process démarrent ENSEMBLE : aucun ne dépend de l'autre, et
+    // les attendre l'un après l'autre doublait le temps sous charge.
+    const [signed, published] = await Promise.all([
+      runProcess("sign", keySet),
+      runProcess("jwks", keySet),
+    ]);
+    const { kid, jwt } = JSON.parse(signed) as { kid: string; jwt: string };
+    const jwks = JSON.parse(published) as JSONWebKeySet;
     const accepted = await jwtVerify(jwt, createLocalJWKSet(jwks)).then(
       () => true,
       () => false,
@@ -239,18 +255,26 @@ describe("JwtKeystore — une seule clé pour N process", () => {
     return { signedKid: kid, otherKid: jwks.keys[0]?.kid, accepted };
   }
 
-  it("🔴 sans valeur partagée, deux process → deux kid, et le jeton de l'un est refusé par l'autre", async () => {
-    const r = await crossVerify();
-    assert.notEqual(r.signedKid, r.otherKid);
-    assert.equal(r.accepted, false);
-  });
+  it(
+    "🔴 sans valeur partagée, deux process → deux kid, et le jeton de l'un est refusé par l'autre",
+    async () => {
+      const r = await crossVerify();
+      assert.notEqual(r.signedKid, r.otherKid);
+      assert.equal(r.accepted, false);
+    },
+    SPAWN_BUDGET_MS,
+  );
 
-  it("avec la même NF_JWT_KEYSET, deux process publient le même kid et acceptent les jetons l'un de l'autre", async () => {
-    const keySet = await generateKeySet();
-    const r = await crossVerify(keySet);
-    assert.equal(r.signedKid, r.otherKid);
-    assert.equal(r.accepted, true);
-  });
+  it(
+    "avec la même NF_JWT_KEYSET, deux process publient le même kid et acceptent les jetons l'un de l'autre",
+    async () => {
+      const keySet = await generateKeySet();
+      const r = await crossVerify(keySet);
+      assert.equal(r.signedKid, r.otherKid);
+      assert.equal(r.accepted, true);
+    },
+    SPAWN_BUDGET_MS,
+  );
 
   it("generateKeySet rend une ligne JSON qu'un .env porte telle quelle, et que le keystore charge", async () => {
     const keySet = await generateKeySet();
@@ -264,50 +288,54 @@ describe("JwtKeystore — une seule clé pour N process", () => {
     assert.equal((await ks.getSigningKey()).kid, parsed.active);
   });
 
-  it("🔴 le générateur recopié dans le workflow de production généré rend un jeu que le keystore charge", async () => {
-    // Le job `image` du workflow généré n'installe pas l'application : il
-    // produit la clé par node:crypto seul. Copie imposée par cette frontière —
-    // ce test la tient honnête en EXÉCUTANT le script tel que le gabarit le porte.
-    const template = readFileSync(
-      fileURLToPath(
-        new URL(
-          "../../../../../nodefony/templates/app/complete/github/workflows/production.yml.tpl",
-          import.meta.url,
+  it(
+    "🔴 le générateur recopié dans le workflow de production généré rend un jeu que le keystore charge",
+    async () => {
+      // Le job `image` du workflow généré n'installe pas l'application : il
+      // produit la clé par node:crypto seul. Copie imposée par cette frontière —
+      // ce test la tient honnête en EXÉCUTANT le script tel que le gabarit le porte.
+      const template = readFileSync(
+        fileURLToPath(
+          new URL(
+            "../../../../../nodefony/templates/app/complete/github/workflows/production.yml.tpl",
+            import.meta.url,
+          ),
         ),
-      ),
-      "utf8",
-    );
-    const zone =
-      /# nf-keyset:begin\n[^\n]*node -e '\n([\s\S]*?)\n\s*'\)\n\s*# nf-keyset:end/u.exec(
-        template,
+        "utf8",
       );
-    assert.ok(
-      zone?.[1],
-      "script du générateur introuvable entre les balises nf-keyset",
-    );
-    const run = spawnSync(process.execPath, ["-e", zone[1]], {
-      encoding: "utf8",
-    });
-    assert.equal(run.status, 0, run.stderr);
-    const keySet = run.stdout;
-    assert.ok(
-      !keySet.includes("'"),
-      "entouré de quotes simples dans le compose",
-    );
-    const parsed = parseKeySet(keySet);
-    const [key] = parsed.keys;
-    const thumbprint = await calculateJwkThumbprint(
-      { kty: key!.kty!, crv: key!.crv!, x: key!.x! },
-      "sha256",
-    );
-    assert.equal(
-      parsed.active,
-      thumbprint,
-      "kid = empreinte RFC 7638, comme le keystore",
-    );
-    const ks = new JwtKeystore({ keySetJson: keySet }, noop);
-    assert.equal((await ks.getSigningKey()).kid, thumbprint);
-  });
+      const zone =
+        /# nf-keyset:begin\n[^\n]*node -e '\n([\s\S]*?)\n\s*'\)\n\s*# nf-keyset:end/u.exec(
+          template,
+        );
+      assert.ok(
+        zone?.[1],
+        "script du générateur introuvable entre les balises nf-keyset",
+      );
+      const run = spawnSync(process.execPath, ["-e", zone[1]], {
+        encoding: "utf8",
+      });
+      assert.equal(run.status, 0, run.stderr);
+      const keySet = run.stdout;
+      assert.ok(
+        !keySet.includes("'"),
+        "entouré de quotes simples dans le compose",
+      );
+      const parsed = parseKeySet(keySet);
+      const [key] = parsed.keys;
+      const thumbprint = await calculateJwkThumbprint(
+        { kty: key!.kty!, crv: key!.crv!, x: key!.x! },
+        "sha256",
+      );
+      assert.equal(
+        parsed.active,
+        thumbprint,
+        "kid = empreinte RFC 7638, comme le keystore",
+      );
+      const ks = new JwtKeystore({ keySetJson: keySet }, noop);
+      assert.equal((await ks.getSigningKey()).kid, thumbprint);
+    },
+    SPAWN_BUDGET_MS,
+  );
 
   it("🔴 cluster sur une machine : deux keystores résolus EN MÊME TEMPS sur le même dossier → un seul kid", async () => {
     const dir = mkdtempSync(join(tmpdir(), "nf-jwt-race-"));
