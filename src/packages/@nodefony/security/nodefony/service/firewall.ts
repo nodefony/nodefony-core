@@ -63,7 +63,12 @@ import type {
   IFirewallZoneDescription,
   IFirewallAuthenticatorDescription,
   IRoleHierarchyDescription,
+  IProviderRoleMappingDescription,
 } from "../contracts/IFirewallDescription";
+import {
+  compileProviderRoleMapping,
+  isPlatformRole,
+} from "../src/oauth/providerRoles";
 
 const serviceName = "firewall";
 
@@ -661,7 +666,25 @@ class Firewall extends Service implements IFirewall {
         .filter((r) => r !== role)
         .sort(),
     }));
-    return { hierarchy, roles };
+    const providerMappings: IProviderRoleMappingDescription[] = [];
+    for (const [provider, p] of Object.entries(
+      this.#config?.oauth2.providers ?? {},
+    )) {
+      const mapping = compileProviderRoleMapping(p);
+      if (mapping === null) continue;
+      providerMappings.push({
+        provider,
+        sources: [...mapping.sources],
+        mappings: Object.keys(mapping.table)
+          .sort()
+          .map((from) => {
+            const to = mapping.table[from] ?? "";
+            return { from, to, platform: isPlatformRole(to) };
+          }),
+        allowPlatformRoles: p.allowPlatformRoles,
+      });
+    }
+    return { hierarchy, roles, providerMappings };
   }
 
   /**

@@ -41,6 +41,7 @@ import {
   IconDeviceFloppy,
   IconPlugConnected,
 } from "@tabler/icons-react";
+import { ProviderIcon } from "../../components/ProviderIcon";
 
 import { useStore, useAuth, useNotifications } from "../../stores";
 import { useResource } from "../../hooks";
@@ -149,16 +150,22 @@ function ExternalConnectionsCard({
 // ── Carte ROLES (onglet Profil) ──────────────────────────────────────────────
 function RolesCard({
   initial,
+  managed,
   isSelf,
   saving,
   onSave,
 }: {
   initial: string[];
+  /** Rôles gérés par un annuaire, par fournisseur (`roleMapping`). */
+  managed: Record<string, string[]>;
   isSelf: boolean;
   saving: boolean;
   onSave: (roles: string[]) => void;
 }) {
   const [roles, setRoles] = useState<string[]>(initial);
+  const managedEntries = Object.entries(managed).filter(
+    ([, list]) => list.length > 0,
+  );
   const dirty = JSON.stringify(roles) !== JSON.stringify(initial);
   return (
     <Card withBorder padding="lg" radius="md">
@@ -176,6 +183,34 @@ function RolesCard({
         onChange={setRoles}
         clearable
       />
+      {managedEntries.length > 0 && (
+        <Stack gap={4} mt="sm">
+          {managedEntries.map(([provider, list]) => (
+            <Group key={provider} gap={6} wrap="wrap">
+              <Text size="xs" c="dimmed">
+                Gérés par {provider} :
+              </Text>
+              {list.map((r) => (
+                <Badge
+                  key={r}
+                  variant="light"
+                  color="teal"
+                  leftSection={<ProviderIcon name={provider} size={12} />}
+                  style={{ textTransform: "none" }}
+                >
+                  {r}
+                </Badge>
+              ))}
+            </Group>
+          ))}
+          <Text size="xs" c="dimmed">
+            Recalculés à chaque connexion : un rôle géré retiré ici revient à la
+            connexion suivante — le retirer chez{" "}
+            {managedEntries.map(([p]) => p).join(", ")}. Les autres rôles sont
+            locaux et ne sont jamais touchés par ce calcul.
+          </Text>
+        </Stack>
+      )}
       {isSelf && (
         <Text size="xs" c="dimmed" mt="xs">
           Vous ne pouvez pas retirer votre propre rôle d'administrateur.
@@ -516,6 +551,7 @@ export const UserProfile = observer(() => {
                   <Grid.Col span={{ base: 12, md: 6 }}>
                     <RolesCard
                       initial={data.roles}
+                      managed={data.providerRoles}
                       isSelf={isSelf}
                       saving={savingRoles}
                       onSave={(roles) => void saveRoles(roles)}

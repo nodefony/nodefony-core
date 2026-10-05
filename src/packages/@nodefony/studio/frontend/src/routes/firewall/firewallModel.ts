@@ -97,10 +97,20 @@ export interface RoleDescription {
   inherits: string[];
 }
 
+/** Table de rôles d'un fournisseur d'identité — miroir de `IProviderRoleMappingDescription`. */
+export interface ProviderRoleMapping {
+  provider: string;
+  sources: string[];
+  mappings: { from: string; to: string; platform: boolean }[];
+  allowPlatformRoles: boolean;
+}
+
 /** Hiérarchie de rôles — miroir de `IRoleHierarchyDescription`. */
 export interface RoleHierarchy {
   hierarchy: Record<string, string[]>;
   roles: RoleDescription[];
+  /** Rôles accordés par des annuaires (`roleMapping`) — vide sans table. */
+  providerMappings: ProviderRoleMapping[];
 }
 
 /** Endpoints du data plane sécurité consommés par la console Firewall. */

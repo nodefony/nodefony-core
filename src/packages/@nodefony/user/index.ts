@@ -132,6 +132,7 @@ export {
 } from "./nodefony/src/userProfile";
 export {
   PROVIDER_ROLES_KEY,
+  projectProviderRoles,
   readProviderRoles,
   reconcileProviderRoles,
 } from "./nodefony/src/providerRoles";

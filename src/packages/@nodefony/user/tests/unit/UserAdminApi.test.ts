@@ -285,6 +285,26 @@ describe("UserAdminApi — toUserSummary (redaction)", () => {
     assert.ok(!JSON.stringify(summary).includes("SALAIRE_CONFIDENTIEL"));
   });
 
+  it("rôles gérés par un fournisseur : noms de rôles seulement, rien d'autre de metadata", () => {
+    const managed = toUserSummary(
+      new BaseUser({
+        id: "u2",
+        identifier: "bob@example.com",
+        roles: ["ROLE_USER", "ROLE_ADMIN"],
+        metadata: {
+          internalNote: "METADATA_SECRET",
+          providerRoles: { keycloak: ["ROLE_ADMIN", 42, { x: "PIEGE" }] },
+        },
+      }),
+    );
+    assert.deepEqual(managed.providerRoles, { keycloak: ["ROLE_ADMIN"] });
+    const json = JSON.stringify(managed);
+    assert.ok(!json.includes("METADATA_SECRET"));
+    assert.ok(!json.includes("PIEGE"));
+    // Sans trace : un objet vide, jamais `undefined`.
+    assert.deepEqual(s.providerRoles, {});
+  });
+
   it("le JSON sérialisé ne fuit ni le hash ni la metadata", () => {
     const json = JSON.stringify(s);
     assert.ok(!json.includes("HASH_SECRET_VALUE"));

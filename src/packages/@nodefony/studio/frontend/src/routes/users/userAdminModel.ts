@@ -63,6 +63,8 @@ export interface AdminUserDetail {
     createdAt: number | null;
   }[];
   profile: UserProfileData;
+  /** Rôles GÉRÉS par un annuaire, par fournisseur — sous-ensemble de `roles`. */
+  providerRoles: Record<string, string[]>;
   createdAt: number | null;
   updatedAt: number | null;
   tenantId: string | null;

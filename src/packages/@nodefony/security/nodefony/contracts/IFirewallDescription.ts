@@ -117,10 +117,31 @@ export interface IRoleDescription {
   inherits: string[];
 }
 
+/**
+ * Table de correspondance des rôles d'UN fournisseur d'identité
+ * (`oauth2.providers.<nom>.roleMapping`) — des noms de rôles, rien d'autre de
+ * sa configuration.
+ */
+export interface IProviderRoleMappingDescription {
+  /** Nom du fournisseur (`keycloak`). */
+  provider: string;
+  /** Où ses rôles sont lus (`client`, `realm`, `groups`). */
+  sources: string[];
+  /**
+   * Rôle du fournisseur → rôle de l'application, triés par rôle du
+   * fournisseur ; `platform` = rôle de plateforme (`ROLE_NODEFONY_*`).
+   */
+  mappings: { from: string; to: string; platform: boolean }[];
+  /** `true` si la table peut accorder des rôles de plateforme. */
+  allowPlatformRoles: boolean;
+}
+
 /** Hiérarchie de rôles : déclaration brute + résolution aplatie. */
 export interface IRoleHierarchyDescription {
   /** Déclaration directe (`{ ROLE_ADMIN: ["ROLE_USER"] }`). */
   hierarchy: Record<string, string[]>;
   /** Résolution transitive précalculée par le {@link RoleHierarchyWalker}. */
   roles: IRoleDescription[];
+  /** Rôles accordés par des fournisseurs d'identité — vide sans `roleMapping`. */
+  providerMappings: IProviderRoleMappingDescription[];
 }

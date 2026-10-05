@@ -170,6 +170,49 @@ describe("Firewall.describeRoleHierarchy", () => {
     assert.deepEqual(byRole.get("ROLE_ADMIN"), ["ROLE_USER"]);
     // ROLE_SUPER → ROLE_ADMIN → ROLE_USER (transitif, hors lui-même, trié).
     assert.deepEqual(byRole.get("ROLE_SUPER"), ["ROLE_ADMIN", "ROLE_USER"]);
+    // Aucun fournisseur ne déclare de table : la liste est vide, pas absente.
+    assert.deepEqual(h.providerMappings, []);
+  });
+
+  it("publie les tables roleMapping — noms de rôles, jamais le secret du client", () => {
+    const { firewall } = bootFirewall({
+      ...CONFIG,
+      oauth2: {
+        providers: {
+          keycloak: {
+            clientId: "app",
+            clientSecret: "CLIENT_SECRET_VALUE",
+            redirectUri: "https://app/cb",
+            issuer: "https://kc.example/realms/app",
+            roleMapping: {
+              editor: "ROLE_EDITOR",
+              admin: "ROLE_ADMIN",
+              root: "ROLE_NODEFONY_ADMIN",
+            },
+            allowPlatformRoles: true,
+          },
+          google: {
+            clientId: "g",
+            clientSecret: "g-secret",
+            redirectUri: "https://app/cb",
+          },
+        },
+      },
+    });
+    const h = firewall.describeRoleHierarchy();
+    assert.deepEqual(h.providerMappings, [
+      {
+        provider: "keycloak",
+        sources: ["client"],
+        mappings: [
+          { from: "admin", to: "ROLE_ADMIN", platform: false },
+          { from: "editor", to: "ROLE_EDITOR", platform: false },
+          { from: "root", to: "ROLE_NODEFONY_ADMIN", platform: true },
+        ],
+        allowPlatformRoles: true,
+      },
+    ]);
+    assert.ok(!JSON.stringify(h).includes("CLIENT_SECRET_VALUE"));
   });
 });
 

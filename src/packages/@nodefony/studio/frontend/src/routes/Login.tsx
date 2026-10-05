@@ -20,8 +20,6 @@ import {
   IconAlertCircle,
   IconAlertTriangle,
   IconArrowRight,
-  IconBrandGithub,
-  IconBrandGoogle,
   IconClockHour4,
   IconFingerprint,
   IconLock,
@@ -30,6 +28,11 @@ import {
   IconUser,
   IconWifiOff,
 } from "@tabler/icons-react";
+import {
+  ProviderIcon,
+  providerIconComponent,
+  type ProviderIconComponent,
+} from "../components/ProviderIcon";
 import { useNavigate, useLocation } from "react-router";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { type ConnectionStep } from "../components/ConnectionStepper";
@@ -67,17 +70,10 @@ type SocialProvider = { name: string; label: string };
  * que la liste du serveur ne soit arrivée.
  */
 // Indexé par le nom d'un fournisseur annoncé par le serveur : peut manquer.
-const BRAND_META: Partial<
-  Record<string, { label: string; Icon: typeof IconBrandGoogle }>
-> = {
-  google: { label: "Google", Icon: IconBrandGoogle },
-  github: { label: "GitHub", Icon: IconBrandGithub },
+const BRAND_META: Partial<Record<string, { label: string }>> = {
+  google: { label: "Google" },
+  github: { label: "GitHub" },
 };
-
-/** L'icône d'un fournisseur : sa marque si on la connaît, sinon une neutre. */
-function providerIcon(name: string): typeof IconBrandGoogle {
-  return BRAND_META[name]?.Icon ?? IconShieldLock;
-}
 
 /**
  * Le dernier login s'est-il fait par un fournisseur externe ?
@@ -132,7 +128,7 @@ function loginMethodChip(
   method: string,
   providers: SocialProvider[],
 ): {
-  Icon: typeof IconUser;
+  Icon: ProviderIconComponent;
   label: string;
 } {
   if (isSocialMethod(method)) {
@@ -142,7 +138,7 @@ function loginMethodChip(
       providers.find((p) => p.name === method)?.label ??
       BRAND_META[method]?.label ??
       method;
-    return { Icon: providerIcon(method), label: `via ${label}` };
+    return { Icon: providerIconComponent(method), label: `via ${label}` };
   }
   if (method === "passkey") return { Icon: IconFingerprint, label: "Passkey" };
   return { Icon: IconUser, label: "Compte" };
@@ -248,7 +244,6 @@ function AltLoginMethods({
     <>
       <Divider label="ou" labelPosition="center" my={4} />
       {visible.map(({ name, label }) => {
-        const Icon = providerIcon(name);
         return (
           <Button
             key={name}
@@ -257,7 +252,7 @@ function AltLoginMethods({
             variant="default"
             onClick={() => onSocial(name)}
             disabled={disabled || busy}
-            leftSection={<Icon size={18} />}
+            leftSection={<ProviderIcon name={name} size={18} />}
           >
             Continuer avec {label}
           </Button>

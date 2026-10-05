@@ -11,7 +11,11 @@
  * Data plane : `GET /nodefony/security/api/roleHierarchy` (RBAC
  * `ROLE_NODEFONY_ADMIN`). Frontière isomorphe : aucun import runtime serveur.
  */
-export type { RoleDescription, RoleHierarchy } from "../firewall/firewallModel";
+export type {
+  ProviderRoleMapping,
+  RoleDescription,
+  RoleHierarchy,
+} from "../firewall/firewallModel";
 export { ROLES_ENDPOINT } from "../firewall/firewallModel";
 // L'endpoint roleHierarchy est servi PAR le firewall (mêmes codes 401/403/503/404)
 // → on réutilise tel quel le mapping d'erreur FR de la console Firewall.

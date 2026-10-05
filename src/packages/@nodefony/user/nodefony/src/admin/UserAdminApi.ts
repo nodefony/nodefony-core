@@ -25,6 +25,7 @@ import {
   projectProfile,
   mergeProfileIntoMetadata,
 } from "../userProfile";
+import { projectProviderRoles } from "../providerRoles";
 
 /**
  * Rôle critique : porteur de l'accès au data plane d'administration (Studio).
@@ -74,6 +75,12 @@ export interface IUserSummary {
    * allowlist depuis `metadata.profile` — jamais les autres clés de `metadata`.
    */
   profile: IUserProfile;
+  /**
+   * Rôles GÉRÉS par un fournisseur d'identité (`roleMapping`), par
+   * fournisseur — sous-ensemble de `roles` recalculé à chaque connexion. Les
+   * autres rôles de `roles` sont locaux. Vide = aucun rôle géré.
+   */
+  providerRoles: Record<string, string[]>;
   /** Création (epoch ms) si l'entité la porte (ORM), sinon `null`. */
   createdAt: number | null;
   /** Dernière mise à jour (epoch ms) si connue, sinon `null`. */
@@ -93,7 +100,8 @@ function toEpoch(value: unknown): number | null {
  * Projette un {@link IUser} en {@link IUserSummary} redacté. Fonction **pure**
  * (cœur de la garantie anti-fuite, testée isolément) : `currentRole`/
  * `socialProviders`/timestamps sont lus **défensivement** (présents sur l'entité
- * ORM, absents du contrat strict `IUser`) — `password`/`metadata` jamais lus.
+ * ORM, absents du contrat strict `IUser`) — `password` jamais lu ; de `metadata`,
+ * seules `profile` (allowlist) et `providerRoles` (des noms de rôles) passent.
  */
 export function toUserSummary(user: IUser): IUserSummary {
   const ext = user as IUser & {
@@ -121,6 +129,7 @@ export function toUserSummary(user: IUser): IUserSummary {
       createdAt: toEpoch(p.createdAt),
     })),
     profile: projectProfile(ext.metadata),
+    providerRoles: projectProviderRoles(ext.metadata),
     createdAt: toEpoch(ext.createdAt),
     updatedAt: toEpoch(ext.updatedAt),
     tenantId: null,

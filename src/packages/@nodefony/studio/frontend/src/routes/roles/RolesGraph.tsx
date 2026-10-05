@@ -1,7 +1,9 @@
 /**
  * Onglet **Graphe** de la page Rôles — DAG d'héritage RBAC via `FlowGraph`
  * (React Flow + dagre). Les arêtes sont les héritages **directs** déclarés :
- * un lien `A → B` signifie « A hérite de B ». La transitivité se lit comme un
+ * un lien `A → B` signifie « A hérite de B ». Les rôles d'un ANNUAIRE
+ * (`roleMapping`, Keycloak…) s'y ajoutent en tête, reliés en pointillé au
+ * rôle de l'application qu'ils accordent — rouge s'il est de plateforme. La transitivité se lit comme un
  * chemin (A → B → C ⇒ A couvre C). Topologie statique → liens **fixes**
  * (`animated: false`, charte « temps réel calme » : pas de marching-ants).
  *
@@ -13,6 +15,7 @@
 import { useMemo } from "react";
 import { Text } from "@mantine/core";
 import { IconUsersGroup } from "@tabler/icons-react";
+import { ProviderIcon } from "../../components/ProviderIcon";
 import {
   FlowGraph,
   PAGE_CONTENT_HEIGHT_WITH_BAND,
@@ -60,6 +63,44 @@ function buildRoleGraph(data: RoleHierarchy): {
   for (const [role, list] of Object.entries(hierarchy)) {
     for (const t of list) {
       edges.push({ source: role, target: t, color: "indigo", animated: false });
+    }
+  }
+
+  // Rôles des annuaires : un nœud par (fournisseur, rôle), une arête
+  // « accorde » vers le rôle de l'application. Un rôle cible inconnu de la
+  // hiérarchie reçoit son nœud — sinon l'arête pointerait dans le vide.
+  for (const p of data.providerMappings) {
+    for (const m of p.mappings) {
+      const id = `provider:${p.provider}:${m.from}`;
+      if (!all.has(m.to)) {
+        all.add(m.to);
+        nodes.push({
+          id: m.to,
+          data: {
+            label: m.to,
+            sub: "hors hiérarchie",
+            icon: <IconUsersGroup size={18} />,
+            color: "blue",
+          },
+        });
+      }
+      nodes.push({
+        id,
+        data: {
+          label: m.from,
+          sub: `${p.provider} · rôle ${p.sources.join("/")}`,
+          icon: <ProviderIcon name={p.provider} size={18} />,
+          color: m.platform ? "red" : "teal",
+        },
+      });
+      edges.push({
+        source: id,
+        target: m.to,
+        label: "accorde",
+        color: m.platform ? "red" : "teal",
+        dashed: true,
+        animated: false,
+      });
     }
   }
   return { nodes, edges };

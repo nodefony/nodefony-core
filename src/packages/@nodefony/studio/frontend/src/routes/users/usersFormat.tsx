@@ -13,10 +13,9 @@ import {
   IconLock,
   IconBuildingCommunity,
   IconWorld,
-  IconBrandGoogle,
-  IconBrandGithub,
   IconKey,
 } from "@tabler/icons-react";
+import { ProviderIcon } from "../../components/ProviderIcon";
 import { ADMIN_ROLE } from "./usersModel";
 
 /**
@@ -123,12 +122,9 @@ export function RoleBadges({
   );
 }
 
-/** Icône du fournisseur OAuth (par nom), repli clé générique. */
+/** Icône du fournisseur OAuth (par nom) — table partagée `ProviderIcon`. */
 function providerIcon(provider: string): ReactNode {
-  const p = provider.toLowerCase();
-  if (p.includes("google")) return <IconBrandGoogle size={12} />;
-  if (p.includes("github")) return <IconBrandGithub size={12} />;
-  return <IconKey size={12} />;
+  return <ProviderIcon name={provider} size={12} />;
 }
 
 /**

@@ -34,6 +34,28 @@ export function readProviderRoles(
 }
 
 /**
+ * Rôles gérés par CHAQUE fournisseur, lus dans `metadata` — pour l'affichage.
+ *
+ * Seule la clé `providerRoles` est lue, et seuls ses tableaux de chaînes
+ * passent : des NOMS de rôles, rien d'autre de `metadata`.
+ *
+ * @param metadata - métadonnées du compte (forme libre).
+ * @returns `{ fournisseur: rôles }`, vide si aucun fournisseur ne gère de rôle.
+ */
+export function projectProviderRoles(
+  metadata: unknown,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  if (typeof metadata !== "object" || metadata === null) return out;
+  const all = (metadata as Record<string, unknown>)[PROVIDER_ROLES_KEY];
+  if (typeof all !== "object" || all === null || Array.isArray(all)) return out;
+  for (const provider of Object.keys(all)) {
+    out[provider] = readProviderRoles(metadata, provider);
+  }
+  return out;
+}
+
+/**
  * Métadonnées réécrites avec les rôles que `provider` gère désormais — les
  * autres clés (profil, autres fournisseurs) sont conservées.
  *

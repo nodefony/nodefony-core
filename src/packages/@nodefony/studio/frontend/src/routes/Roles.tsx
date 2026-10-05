@@ -52,6 +52,7 @@ import {
   type RoleHierarchy,
 } from "./roles/rolesModel";
 import { RolesGraph } from "./roles/RolesGraph";
+import { ProviderMappings } from "./roles/ProviderMappings";
 
 /** Message d'état vide partagé (aucune hiérarchie déclarée). */
 const EMPTY_HINT =
@@ -73,6 +74,11 @@ export const Roles = observer(() => {
   const { data, loading, error, reload } = useResource(fetcher);
   const roles = data?.roles ?? [];
   const hierarchy = data?.hierarchy ?? {};
+  const providerMappings = data?.providerMappings ?? [];
+  const mappedCount = providerMappings.reduce(
+    (n, p) => n + p.mappings.length,
+    0,
+  );
 
   // KPIs dérivés de la fenêtre courante (pas de valeur en dur).
   const declared = roles.length;
@@ -95,6 +101,13 @@ export const Roles = observer(() => {
                 {
                   label: "Comment lire",
                   body: "De haut en bas : les sommets (mis en avant) ne sont hérités par personne = les rôles d'entrée les plus puissants ; les rôles de base (ROLE_USER…) sont en bas.",
+                },
+                {
+                  label: "Annuaires",
+                  body:
+                    mappedCount === 0
+                      ? "Aucun annuaire (Keycloak…) ne déclare de table roleMapping : tous les rôles sont donnés dans l'application."
+                      : `${mappedCount} rôle(s) d'annuaire (nœuds verts, rouges si plateforme) accordent un rôle de l'application — lien pointillé « accorde ».`,
                 },
               ]}
             />
@@ -278,6 +291,8 @@ export const Roles = observer(() => {
                   })}
                 </Grid>
               )}
+
+              <ProviderMappings providers={providerMappings} />
             </Stack>
           </Tabs.Panel>
 
