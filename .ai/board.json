@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T22:06:29.674Z",
+  "generatedAt": "2026-10-05T00:14:10.126Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 77,
+      "closed": 78,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 38,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -1647,8 +1647,8 @@
       "number": 536,
       "title": "refactor(cli): faire du superviseur le seul à écrire dans le terminal",
       "url": "https://github.com/nodefony/nodefony-core/issues/536",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -1664,7 +1664,7 @@
       "title": "feat(cli): figer la barre d'état en bas pendant le défilement",
       "url": "https://github.com/nodefony/nodefony-core/issues/537",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
