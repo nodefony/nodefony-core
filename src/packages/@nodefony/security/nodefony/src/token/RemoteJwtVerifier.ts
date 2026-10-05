@@ -229,6 +229,8 @@ export class RemoteJwtVerifier {
       expiresAt: typeof payload.exp === "number" ? payload.exp : undefined,
       issuedAt: typeof payload.iat === "number" ? payload.iat : undefined,
       tokenId: typeof payload.jti === "string" ? payload.jti : undefined,
+      // Référence, pas copie : l'objet existe déjà, le transmettre ne coûte rien.
+      claims: payload,
     };
   }
 

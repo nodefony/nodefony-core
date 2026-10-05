@@ -22,7 +22,16 @@ import {
   listOAuthProviders,
   oauthProviderRequiresIssuer,
 } from "../src/oauth/oauthProviderRegistry";
-import { generateCodeVerifier, generateState } from "../src/oauth/oauth2Client";
+import {
+  generateCodeVerifier,
+  generateState,
+  type OAuth2Tokens,
+} from "../src/oauth/oauth2Client";
+import {
+  compileProviderRoleMapping,
+  mapProviderRoles,
+  type IProviderRoleMapping,
+} from "../src/oauth/providerRoles";
 
 const serviceName = "oauth2";
 
@@ -221,6 +230,26 @@ export function checkProviderIssuer(
 }
 
 /**
+ * Claims du jeton d'ACCÈS, quand c'est un JWT — `null` sinon (jeton opaque).
+ *
+ * Keycloak pose les rôles dans le jeton d'accès, et seulement là par défaut
+ * (`realm_access`, `resource_access`) : ni le jeton d'identité ni userinfo ne
+ * les portent sans « mapper » ajouté. La signature n'est pas vérifiée, pour la
+ * raison qui vaut pour le jeton d'identité (OpenID Connect Core §3.1.3.7) : il
+ * vient d'être reçu du point de jeton, sur un canal TLS direct et authentifié.
+ */
+async function accessTokenClaims(
+  tokens: OAuth2Tokens,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const jose = await import("jose");
+    return jose.decodeJwt(tokens.accessToken()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * **Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code*.
  *
  * Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit /
@@ -260,6 +289,9 @@ class OAuth2Service extends Service {
   // `jti` des jetons de déconnexion déjà reçus → fin de validité (ms). Lazy :
   // `null` tant qu'aucun fournisseur n'a appelé le canal arrière.
   #seenLogoutTokens: Map<string, number> | null = null;
+  // Tables de correspondance des rôles, compilées au boot. Lazy : `null` tant
+  // qu'aucun fournisseur n'en déclare — le cas courant.
+  #roleMappings: Record<string, IProviderRoleMapping> | null = null;
   #ready = false;
 
   constructor(public module: Module) {
@@ -300,7 +332,17 @@ class OAuth2Service extends Service {
     }
     const active = configured.filter((n) => known.has(n));
     for (const name of active) {
-      checkProviderIssuer(name, config.oauth2.providers[name]?.issuer);
+      const provider = config.oauth2.providers[name];
+      checkProviderIssuer(name, provider?.issuer);
+      const mapping =
+        provider === undefined ? null : compileProviderRoleMapping(provider);
+      if (mapping !== null) {
+        this.#roleMappings ??= Object.create(null) as Record<
+          string,
+          IProviderRoleMapping
+        >;
+        this.#roleMappings[name] = mapping;
+      }
     }
     this.#config = config;
     this.#ready = true;
@@ -452,9 +494,24 @@ class OAuth2Service extends Service {
     // la CRÉATION seulement — OAuth = authentification, pas autorisation).
     const defaultRoles =
       cfg.providers[provider]?.defaultRoles ?? cfg.defaultRoles;
+    // Sauf déclaration contraire : un fournisseur doté d'une `roleMapping`
+    // GÈRE les rôles qu'elle traduit, recalculés à chaque connexion.
+    const mapping = this.#roleMappings?.[provider];
+    const providerRoles =
+      mapping === undefined
+        ? undefined
+        : mapProviderRoles(
+            mapping,
+            await accessTokenClaims(tokens),
+            profile.raw,
+          );
     const user: IUser = await this.#resolveProvisioner().provisionOAuthUser(
       profile,
-      { defaultRoles: [...defaultRoles], allowSignup: cfg.allowSignup },
+      {
+        defaultRoles: [...defaultRoles],
+        allowSignup: cfg.allowSignup,
+        ...(providerRoles === undefined ? {} : { providerRoles }),
+      },
     );
     // L'ID token n'est retenu QUE si le fournisseur sait fermer sa session :
     // sans adresse de déconnexion, il ne servirait à rien.

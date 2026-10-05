@@ -130,3 +130,9 @@ export {
   mergeProfileIntoMetadata,
   profileFromClaims,
 } from "./nodefony/src/userProfile";
+export {
+  PROVIDER_ROLES_KEY,
+  readProviderRoles,
+  reconcileProviderRoles,
+} from "./nodefony/src/providerRoles";
+export type { IProviderRolesReconciliation } from "./nodefony/src/providerRoles";

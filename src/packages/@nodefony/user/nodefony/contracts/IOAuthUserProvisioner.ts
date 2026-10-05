@@ -42,6 +42,16 @@ export interface IOAuthProvisionPolicy {
    * un compte préexistant lié est requis, sinon échec (fail-closed).
    */
   readonly allowSignup: boolean;
+  /**
+   * Rôles que le fournisseur accorde MAINTENANT, déjà traduits en rôles de
+   * l'application (`roleMapping` de `@nodefony/security`).
+   *
+   * Présent : le fournisseur GÈRE ces rôles — ceux qu'il accordait au calcul
+   * précédent et n'accorde plus sont retirés, les nouveaux ajoutés, à chaque
+   * connexion ; les rôles donnés à la main sont conservés. Absent : rôles
+   * entièrement locaux, posés à la création puis jamais réécrits.
+   */
+  readonly providerRoles?: readonly string[];
 }
 
 /**
@@ -54,9 +64,11 @@ export interface IOAuthProvisionPolicy {
  * `@nodefony/security`) : le framework fournit le point d'extension, l'application
  * branche sa politique (le défaut est `UserService.provisionOAuthUser`).
  *
- * @remarks OAuth = **authentification**, pas autorisation : les rôles sont fixés
- * à la création (`policy.defaultRoles`) puis **jamais réécrits** par un re-login —
- * la base locale reste la source de vérité des droits.
+ * @remarks Par défaut, OAuth = **authentification**, pas autorisation : les rôles
+ * sont fixés à la création (`policy.defaultRoles`) puis **jamais réécrits** par un
+ * re-login — la base locale reste la source de vérité des droits. L'exception se
+ * DÉCLARE : un fournisseur doté d'une table de correspondance passe
+ * `policy.providerRoles`, et seuls les rôles qu'il gère suivent l'annuaire.
  */
 export interface IOAuthUserProvisioner {
   /**
@@ -71,5 +83,24 @@ export interface IOAuthUserProvisioner {
   provisionOAuthUser(
     profile: IOAuthProfile,
     policy: IOAuthProvisionPolicy,
+  ): Promise<IUser>;
+
+  /**
+   * Recalcule les rôles gérés par un fournisseur pour le compte qui lui est
+   * lié — appelé à chaque jeton d'API, sans passer par une connexion.
+   *
+   * N'écrit en base QUE si l'ensemble a changé : l'appel tombe sur chaque
+   * requête porteuse de jeton.
+   *
+   * @param provider - nom du fournisseur.
+   * @param providerId - identifiant du compte chez lui (`sub`).
+   * @param roles - rôles qu'il accorde maintenant, déjà traduits.
+   * @returns le compte, rôles à jour.
+   * @throws Si aucun compte n'est lié à `(provider, providerId)`.
+   */
+  syncOAuthRoles?(
+    provider: string,
+    providerId: string,
+    roles: readonly string[],
   ): Promise<IUser>;
 }

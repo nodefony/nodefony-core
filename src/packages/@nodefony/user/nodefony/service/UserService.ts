@@ -24,6 +24,11 @@ import { UserNotFoundError } from "../errors/UserNotFoundError";
 import { IdentifierTakenError } from "../errors/IdentifierTakenError";
 import { WeakPasswordError } from "../errors/WeakPasswordError";
 import { profileFromClaims } from "../src/userProfile";
+import {
+  readProviderRoles,
+  reconcileProviderRoles,
+  writeProviderRoles,
+} from "../src/providerRoles";
 
 /**
  * Données d'entrée de création d'un utilisateur — le mot de passe est fourni en
@@ -367,7 +372,13 @@ export class UserService
       profile.providerId,
     );
     if (existing !== null) {
-      return existing;
+      return policy.providerRoles === undefined
+        ? existing
+        : this.#applyProviderRoles(
+            existing,
+            profile.provider,
+            policy.providerRoles,
+          );
     }
     if (!policy.allowSignup) {
       // Fail-closed : sans création autorisée, un compte préexistant lié est requis.
@@ -406,19 +417,77 @@ export class UserService
     if (profile.name) claims.name = profile.name;
     if (profile.email) claims.email = profile.email;
     const oauthProfile = profileFromClaims(claims);
+    // Création : les rôles du fournisseur s'AJOUTENT aux rôles par défaut, et
+    // la trace (`metadata`) dit lesquels il gère — sans elle, le prochain
+    // calcul ne saurait pas quoi retirer.
+    const roles =
+      policy.providerRoles === undefined
+        ? [...policy.defaultRoles]
+        : reconcileProviderRoles(policy.defaultRoles, [], policy.providerRoles)
+            .roles;
     const data: Partial<IPasswordAuthenticatedUser> & {
       socialProviders: ISocialProvider[];
       metadata?: Record<string, unknown>;
     } = {
       identifier,
-      roles: [...policy.defaultRoles],
+      roles,
       password: null,
       socialProviders: [link],
     };
     if (Object.keys(oauthProfile).length > 0) {
       data.metadata = { profile: oauthProfile };
     }
+    if (policy.providerRoles !== undefined) {
+      data.metadata = writeProviderRoles(
+        data.metadata,
+        profile.provider,
+        policy.providerRoles,
+      );
+    }
     return this.create(data);
+  }
+
+  /**
+   * {@inheritDoc IOAuthUserProvisioner.syncOAuthRoles}
+   */
+  async syncOAuthRoles(
+    provider: string,
+    providerId: string,
+    roles: readonly string[],
+  ): Promise<IUser> {
+    const user = await this.repository.findBySocialProvider(
+      provider,
+      providerId,
+    );
+    if (user === null) {
+      throw new UserNotFoundError(`social ${provider}:${providerId}`);
+    }
+    return this.#applyProviderRoles(user, provider, roles);
+  }
+
+  /**
+   * Applique au compte les rôles que `provider` gère désormais — écrit
+   * seulement si l'ensemble effectif ou la trace change.
+   */
+  async #applyProviderRoles(
+    user: IPasswordAuthenticatedUser,
+    provider: string,
+    next: readonly string[],
+  ): Promise<IPasswordAuthenticatedUser> {
+    // `metadata` est un champ d'ENTITÉ, hors du contrat credential : lu
+    // défensivement, il peut manquer sur un dépôt applicatif.
+    const metadata: unknown = (user as { metadata?: unknown }).metadata;
+    const { roles, changed } = reconcileProviderRoles(
+      user.roles,
+      readProviderRoles(metadata, provider),
+      next,
+    );
+    if (!changed) return user;
+    const update: Partial<IPasswordAuthenticatedUser> & {
+      metadata: Record<string, unknown>;
+    } = { roles, metadata: writeProviderRoles(metadata, provider, next) };
+    const updated = await this.updateOne({ id: user.id }, update);
+    return updated ?? user;
   }
 
   /**

@@ -277,7 +277,17 @@ backchannel-logout` (`bypassFirewall`, 0 session, 0 CSRF — la signature authen
 - **`IOAuthUserProvisioner` / `IOAuthProfile`** (@nodefony/user) : capability de provisioning **Shadow User JIT**
   (find-or-create). `UserService.provisionOAuthUser(profile, {defaultRoles, allowSignup})` = défaut : crée
   `password:null` + rôles `policy.defaultRoles` (ROLE_USER) + `addSocialProvider` ; **zéro liaison-email auto**
-  (anti account-takeover). OAuth = authn pas authz (rôles à la création, base=vérité). user n'importe RIEN de security.
+  (anti account-takeover). OAuth = authn pas authz (rôles à la création, base=vérité) SAUF `roleMapping` déclaré.
+  user n'importe RIEN de security.
+- **Rôles gérés par l'annuaire** : `providers.<n>.roleMapping` (rôle IdP → rôle app) + `rolesSource`
+  (`client` défaut = `resource_access.<clientId>.roles`, `realm`, `groups`). Logique PURE unique
+  `src/oauth/providerRoles.ts` (`compileProviderRoleMapping`/`mapProviderRoles`) — connexion ET API.
+  Connexion : claims du JETON D'ACCÈS (`decodeJwt`, canal TLS direct ; Keycloak n'y met les rôles que là)
+  ∪ `profile.raw` → `policy.providerRoles`. API : `IAccessPrincipal.claims` (vérifiés) →
+  `syncOAuthRoles(provider, sub, roles)` (duck-type sur `users`) au lieu de `loadUserByOAuth`. Côté user :
+  `roles` = ensemble EFFECTIF, trace `metadata.providerRoles.<provider>` ; recalcul = (roles − trace) ∪
+  accordés ; écriture seulement si changé. Rôle absent de la table = ignoré. `ROLE_NODEFONY_*` en valeur
+  → refus Zod au boot (`BootConfigurationError`). Jeton d'accès opaque → aucun rôle géré (fail-closed).
 - **API Keys / PAT (P6.12)** — clé = bearer **opaque** `nf_<pubid(8)><secret(43)><crc(6)>` (base64url
   positionnel, 1 seul `_`). `apiKeyFormat.ts` (PUR) : `generateApiKey`/`parseApiKey`/`hashApiKey`/
   `looksLikeApiKey` + **CRC32 local** (checksum PUBLIC : rejet O(1) sans store = anti-DoS + secret-scanning).

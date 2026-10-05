@@ -8,7 +8,12 @@ import {
   type IAccessTokenVerifier,
 } from "nodefony";
 import type { ContextType } from "@nodefony/http";
-import { BaseUser, type IUser, type IUserProvider } from "@nodefony/user";
+import {
+  BaseUser,
+  type IOAuthUserProvisioner,
+  type IUser,
+  type IUserProvider,
+} from "@nodefony/user";
 import type { IAuthenticator } from "../../contracts/IAuthenticator";
 import type { ISecuredArea } from "../../contracts/ISecuredArea";
 import type { IToken } from "../../contracts/IToken";
@@ -21,6 +26,10 @@ import {
   type ExternalSubjectMapping,
 } from "./externalSubject";
 import { peekIssuer } from "./peekIssuer";
+import {
+  mapProviderRoles,
+  type IProviderRoleMapping,
+} from "../oauth/providerRoles";
 
 /**
  * Message UNIFORME de refus — la cause fine (expiré, audience, signature, sujet
@@ -66,7 +75,15 @@ export interface IExternalJwtAuthenticatorOptions {
    * alors le lien `(fournisseur, sub)`. Le chercher d'abord évite qu'un jeton
    * d'API désigne un AUTRE compte que la session de son porteur.
    */
-  oauthProviders?: readonly { name: string; issuer: string }[];
+  oauthProviders?: readonly {
+    name: string;
+    issuer: string;
+    /**
+     * Table de correspondance des rôles du fournisseur, compilée — absente ou
+     * `null` : les rôles du compte lié restent locaux.
+     */
+    roleMapping?: IProviderRoleMapping | null;
+  }[];
 }
 
 /**
@@ -114,6 +131,8 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
   readonly #ephemeralRoles: readonly string[];
   /** Émetteur canonique → fournisseur de connexion ; `null` = aucun lien. */
   readonly #linkedProviders: ReadonlyMap<string, string> | null;
+  /** Fournisseur de connexion → table des rôles ; `null` = aucune table. */
+  readonly #roleMappings: ReadonlyMap<string, IProviderRoleMapping> | null;
   #userProvider: IUserProvider | null = null;
 
   /**
@@ -139,6 +158,7 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     this.#policy = options.subjectPolicy;
     this.#ephemeralRoles = options.ephemeralRoles;
     this.#linkedProviders = linkProviders(issuers, options.oauthProviders);
+    this.#roleMappings = collectRoleMappings(options.oauthProviders);
   }
 
   /**
@@ -248,7 +268,12 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
       );
     }
 
-    const user = await this.#resolveUser(principal.issuer, subject, mapping);
+    const user = await this.#resolveUser(
+      principal.issuer,
+      subject,
+      mapping,
+      principal.claims,
+    );
     const ut = token as UserToken;
     ut.promote(user);
     ut.setAttribute("scopes", [...principal.scopes]);
@@ -338,6 +363,7 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     issuer: string,
     subject: string,
     mapping: ExternalSubjectMapping,
+    claims: Readonly<Record<string, unknown>> | undefined,
   ): Promise<IUser> {
     // UNE seule composition, quelle que soit la politique. En `ephemeral` aussi
     // le sujet doit porter son émetteur : sans cela, deux annuaires distincts
@@ -364,7 +390,19 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     const linked = this.#linkedProviders?.get(issuer);
     if (linked !== undefined) {
       try {
-        user = await provider.loadUserByOAuth(linked, subject);
+        // Le fournisseur GÈRE des rôles : ils suivent l'annuaire à chaque
+        // jeton, pas seulement à la connexion — un rôle retiré chez lui ne
+        // survit pas jusqu'au prochain passage par le navigateur. L'écriture
+        // n'a lieu que si l'ensemble change.
+        const roleMapping = this.#roleMappings?.get(linked);
+        user =
+          roleMapping !== undefined && canSyncRoles(provider)
+            ? await provider.syncOAuthRoles(
+                linked,
+                subject,
+                mapProviderRoles(roleMapping, claims),
+              )
+            : await provider.loadUserByOAuth(linked, subject);
       } catch {
         // Aucun lien (appelant machine, compte créé autrement) : la règle
         // d'espace de noms ci-dessous s'applique.
@@ -399,6 +437,31 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     }
     return this.#userProvider;
   }
+}
+
+/** Le fournisseur d'utilisateurs sait-il recalculer les rôles gérés par un annuaire ? */
+function canSyncRoles(
+  provider: IUserProvider,
+): provider is IUserProvider &
+  Required<Pick<IOAuthUserProvisioner, "syncOAuthRoles">> {
+  return (
+    typeof (provider as Partial<IOAuthUserProvisioner>).syncOAuthRoles ===
+    "function"
+  );
+}
+
+/** Tables de rôles par fournisseur de connexion — `null` quand aucun n'en déclare. */
+function collectRoleMappings(
+  providers: IExternalJwtAuthenticatorOptions["oauthProviders"],
+): ReadonlyMap<string, IProviderRoleMapping> | null {
+  if (!providers) return null;
+  let mappings: Map<string, IProviderRoleMapping> | null = null;
+  for (const { name, roleMapping } of providers) {
+    if (roleMapping == null) continue;
+    mappings ??= new Map();
+    mappings.set(name, roleMapping);
+  }
+  return mappings;
 }
 
 /**

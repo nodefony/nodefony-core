@@ -9,6 +9,7 @@ import { JwtAuthenticator } from "./JwtAuthenticator";
 import { ApiKeyAuthenticator } from "./ApiKeyAuthenticator";
 import { ExternalJwtAuthenticator } from "./ExternalJwtAuthenticator";
 import { resolveJwtRuntime } from "../token/jwtRuntime";
+import { compileProviderRoleMapping } from "../oauth/providerRoles";
 import type { LoginThrottler } from "../throttle/LoginThrottler";
 
 /**
@@ -134,7 +135,16 @@ registerAuthenticatorFactory("external-jwt", ({ container, config }) => {
     // Seuls les fournisseurs qui DÉCLARENT leur émetteur peuvent être liés :
     // c'est l'émetteur, pas le nom, qui fait l'identité d'un `sub`.
     oauthProviders: Object.entries(config.oauth2.providers).flatMap(
-      ([name, p]) => (p.issuer ? [{ name, issuer: p.issuer }] : []),
+      ([name, p]) =>
+        p.issuer
+          ? [
+              {
+                name,
+                issuer: p.issuer,
+                roleMapping: compileProviderRoleMapping(p),
+              },
+            ]
+          : [],
     ),
   });
 });

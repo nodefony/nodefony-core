@@ -88,6 +88,7 @@ export class InMemoryUserRepository implements IUserRepository {
       socialProviders?: ISocialProvider[];
       enabled?: boolean;
       locked?: boolean;
+      metadata?: Record<string, unknown>;
     };
     // L'identifiant est UNIQUE (`userContract`, `unique: true`) : Drizzle et
     // Mongoose le tiennent par un index, ce dépôt doit le tenir lui-même. Sans
@@ -106,6 +107,9 @@ export class InMemoryUserRepository implements IUserRepository {
       socialProviders: d.socialProviders,
       enabled: d.enabled,
       locked: d.locked,
+      // Colonne reconstruite par `BaseUser` : `attachExtraColumns` ne la
+      // reporte donc pas — l'omettre ici la perdait à la création.
+      ...(d.metadata ? { metadata: { ...d.metadata } } : {}),
     });
     this.#store.set(user.id, user);
     // Parité avec les backends réels : un champ métier écrit doit se relire.

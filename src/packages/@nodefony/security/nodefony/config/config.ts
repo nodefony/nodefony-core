@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { parseKeySet } from "../src/token/JwtKeystore";
+import {
+  isPlatformRole,
+  PLATFORM_ROLE_PREFIX,
+} from "../src/oauth/providerRoles";
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -1038,6 +1042,40 @@ const oauthProviderSchema = z
       .describe(
         "Rôles du Shadow User à la création — surcharge le global pour CE fournisseur.",
       ),
+    roleMapping: z
+      .record(
+        z.string().min(1),
+        z
+          .string()
+          .min(1)
+          .refine((role) => !isPlatformRole(role), {
+            error: (issue) =>
+              `« ${String(issue.input)} » est un rôle de PLATEFORME ` +
+              `(${PLATFORM_ROLE_PREFIX}*) : un annuaire externe ne l'accorde ` +
+              `jamais. Le donner à la main (\`security:user:add --admin\`, ` +
+              `console d'administration) — il survit alors à chaque connexion.`,
+          }),
+      )
+      .optional()
+      .describe(
+        "Rôles du FOURNISSEUR traduits en rôles de l'application, recalculés à " +
+          'chaque connexion ET à chaque jeton présenté à l\'API : `{ "app-admin": ' +
+          '"ROLE_ADMIN" }`. Un rôle du fournisseur absent de la table est ignoré, ' +
+          "jamais recopié. Les rôles donnés à la main sont conservés. OMIS = les " +
+          "rôles restent entièrement locaux (posés à la création, puis la base " +
+          "fait foi). Un rôle `ROLE_NODEFONY_*` refuse le démarrage.",
+      ),
+    rolesSource: z
+      .array(z.enum(["client", "realm", "groups"]))
+      .min(1)
+      .optional()
+      .describe(
+        "Où lire les rôles du fournisseur pour `roleMapping`. `client` (défaut) : " +
+          "les rôles du client de CETTE application (`resource_access.<clientId>." +
+          "roles`, Keycloak). `realm` : les rôles du realm (`realm_access.roles`). " +
+          "`groups` : le claim `groups` (mapper de groupes à poser chez le " +
+          "fournisseur). Sans `roleMapping`, sans effet.",
+      ),
     label: z
       .string()
       .min(1)
@@ -1078,7 +1116,7 @@ const oauth2Schema = z
       .array(z.string())
       .default(["ROLE_USER"])
       .describe(
-        "Rôles du Shadow User à la CRÉATION uniquement (OAuth = authentification, pas autorisation : les rôles ne sont jamais réécrits ensuite, la base fait foi).",
+        "Rôles du Shadow User à la CRÉATION uniquement. Les rôles ne sont jamais réécrits ensuite, la base fait foi — sauf ceux qu'un fournisseur gère par sa `roleMapping`.",
       ),
     allowSignup: z
       .boolean()

@@ -373,6 +373,16 @@ export interface IAccessPrincipal {
    * ne sert qu'à interroger une liste de révocation qui, elle, peut le connaître.
    */
   tokenId?: string | undefined;
+  /**
+   * Claims VÉRIFIÉS du jeton — signature, émetteur, audience et validité
+   * contrôlés par le vérificateur.
+   *
+   * Pour ce que le protocole ne normalise pas et que seule l'application sait
+   * lire : les rôles d'un annuaire (`realm_access`, `resource_access` chez
+   * Keycloak, `groups` ailleurs). Lecture seule ; jamais réémis, jamais
+   * journalisé tel quel.
+   */
+  claims?: Readonly<Record<string, unknown>> | undefined;
 }
 
 /**
