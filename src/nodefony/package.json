@@ -182,6 +182,7 @@
     "docs",
     "templates",
     "assets",
+    "!assets/brand-assets.json",
     ".ai",
     "man"
   ],
