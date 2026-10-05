@@ -242,7 +242,7 @@ C'est le différenciateur, en trente lignes.
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
 `modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1649`) puis
-chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1760`). L'ordre du tableau **est** l'ordre
+chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1772`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
 
@@ -326,8 +326,8 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
 (`Events`, `Kernel.ts:332`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
-`Kernel.start()` (`Kernel.ts:831`), `Kernel.boot()` (`Kernel.ts:1291`), `Kernel.onReady()`
-(`Kernel.ts:1321`) et `Kernel.initServers()` (`Kernel.ts:1442`).
+`Kernel.start()` (`Kernel.ts:831`), `Kernel.boot()` (`Kernel.ts:1303`), `Kernel.onReady()`
+(`Kernel.ts:1333`) et `Kernel.initServers()` (`Kernel.ts:1442`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
 `onKernelReady` : `Module.setEvents()` (`Module.ts:236`) les attache, et n'attache **que** ceux qui
@@ -336,7 +336,7 @@ existent — pas de listener orphelin.
 > [!TIP]
 > Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:4033`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3446`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3459`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 

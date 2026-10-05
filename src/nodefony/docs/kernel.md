@@ -423,8 +423,8 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
-| `getModule(nom)` | `Kernel.ts:1906` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1909` | la table complète, **par référence** (ne pas la muter) |
+| `getModule(nom)` | `Kernel.ts:1918` | le module, ou `undefined` s'il n'est pas chargé        |
+| `getModules()`   | `Kernel.ts:1921` | la table complète, **par référence** (ne pas la muter) |
 | `modules`        | `Kernel.ts:634`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
@@ -457,7 +457,7 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | `environment`               | `Kernel.ts:439`  | Le mode **moteur** : `"development"` ou `"production"`.                |
 | `domain`                    | `Kernel.ts:648`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
-| `getBootReport()`           | `Kernel.ts:3497` | Le verdict du dernier boot : modules, serveurs, santé.                 |
+| `getBootReport()`           | `Kernel.ts:3510` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
 > [!WARNING]
 > Ne **jamais** déréférencer le kernel au premier niveau d'un fichier de configuration : il est
@@ -494,7 +494,7 @@ même chose.
 | Émetteur                | Ancre            | Comportement                                                     | Employé pour           |
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
 | `fire(nom, …)`          | `Kernel.ts:3236` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
-| `fireAsync(nom, …)`     | `Kernel.ts:3255` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
+| `fireAsync(nom, …)`     | `Kernel.ts:3264` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
 | `fireLifecycle(nom, …)` | `Kernel.ts:4033` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon

@@ -143,7 +143,7 @@ navigateur — le socle (`client`, `roles`, `debugbar`) et une liaison par moteu
 | `nodefony` (au front) | La **même chose** que `nodefony/client`, via la condition `browser`      | Code partagé front/back ; sinon préfère l'explicite |
 
 Ces entrées navigateur sont produites par une compilation dédiée — `clientConfig`
-(`rolldown.config.ts:112`) déclare exactement ces sept fichiers d'entrée, en conservant la structure
+(`rolldown.config.ts:116`) déclare exactement ces sept fichiers d'entrée, en conservant la structure
 des modules pour que le client temps réel ne soit émis **qu'une fois** même s'il est tiré par deux
 subpaths.
 
@@ -153,13 +153,13 @@ Deux choix méritent d'être explicités, parce qu'ils se voient dans ton bundle
   ne tire ni React, ni la barre de debug. C'est ce qui permet à la barre de peser **zéro octet** en
   production : personne ne l'importe.
 - **React, Vue, Angular et Svelte sont des dépendances externes, jamais empaquetées.** `clientExternal`
-  (`rolldown.config.ts:94`) marque `react`/`react-dom`, `vue`, `@angular/*` et `svelte` comme
+  (`rolldown.config.ts:105`) marque `react`/`react-dom`, `vue`, `@angular/*` et `svelte` comme
   externes : c'est **ton** runtime qui sera utilisé, donc pas de double
   instance et pas de règle des hooks violée.
 
 Le compromis assumé : côté navigateur, quelques API Node manquent. Nodefony ne charge pas de
 polyfill lourd — il substitue au build deux **shims** minimaux, `browserShim`
-(`rolldown.config.ts:80`), qui redirigent `node:events` et `node:util` vers des implémentations
+(`rolldown.config.ts:88`), qui redirigent `node:events` et `node:util` vers des implémentations
 navigateur de quelques dizaines de lignes.
 
 ## 🚀 Démarrage rapide

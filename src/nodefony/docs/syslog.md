@@ -288,7 +288,7 @@ avance la tête (`CircularBuffer.ts:32`), `toArray()` restitue l'ordre FIFO du p
 
 - Capacité par défaut **100** (`defaultSettings`, `Syslog.ts:343`) ; le Kernel la porte à **2000 en
   développement** pour qu'une requête complète tienne dans la fenêtre malgré le bruit
-  (`maxStack` résolu au boot, `Kernel.ts:2864`).
+  (`maxStack` résolu au boot, `Kernel.ts:2879`).
 - Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:793`) reconstruit le buffer
   en préservant les Pdu existants.
 - Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:758`) : les compteurs de
@@ -556,7 +556,7 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2811`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2823`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En

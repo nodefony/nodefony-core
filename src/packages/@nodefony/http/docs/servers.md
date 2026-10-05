@@ -249,7 +249,7 @@ export default PingController;
 
 ### 4. Ce qu'on observe au boot
 
-Le kernel démarre les serveurs à la phase `onReady` (`Kernel.ts:1321`). En développement, le
+Le kernel démarre les serveurs à la phase `onReady` (`Kernel.ts:1333`). En développement, le
 bilan de démarrage (`renderStartupHuman`, `startupScreen.ts`) dit d'abord **où aller**,
 puis **ce qui est à regarder**, puis les adresses d'écoute :
 

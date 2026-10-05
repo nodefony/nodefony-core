@@ -306,7 +306,7 @@ absente mais que `NF_X_FILE` pointe un fichier (secret Docker, `Secret` Kubernet
 
 Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathLooksSecret()`,
 `envOverride.ts:417`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
-(`Kernel.ts:2383`).
+(`Kernel.ts:2395`).
 
 Les fichiers `.env` eux-mêmes sont chargés **avant** le boot par `loadEnv()` (`loadEnv.ts:131`), en
 cascade : les variantes `*.local` (gitignorées) priment sur les fichiers committés, et **rien**
@@ -355,11 +355,11 @@ simplement sans auto-complétion.
 
 - **`policy: "dev"`** → l'entrée est retirée quand le runtime est `production` (`Kernel.ts:1653`) ;
 - **`when(config)`** → une garde évaluée sur la config résolue ; `false` retire l'entrée
-  (`Kernel.ts:1624`).
+  (`Kernel.ts:1682`).
 
 Un module retiré n'est pas « chargé puis désactivé » : il n'est **jamais importé**. En ESM, un module
 non importé n'existe pas — le gain est réel, en mémoire comme en temps de boot. Les entrées écartées
-sont tout de même journalisées avec leur raison (`Kernel.recordModuleGated()`, `Kernel.ts:1701`), pour
+sont tout de même journalisées avec leur raison (`Kernel.recordModuleGated()`, `Kernel.ts:1713`), pour
 qu'un module absent reste explicable.
 
 ## ⚙️ Mises en situation — varier sans dupliquer
@@ -572,10 +572,10 @@ Les points de passage, dans l'ordre du code :
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
    est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:106`)
-   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2383`).
+   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2395`).
 5. **Les modules suivent la même mécanique, un cran plus tard** : chargement dans l'ordre du manifeste
    et deep-merge de la config `use()` sur leurs défauts (`Kernel.loadModulesFromManifest()`,
-   `Kernel.ts:1760`), puis overrides inter-modules `module-<nom>`
+   `Kernel.ts:1772`), puis overrides inter-modules `module-<nom>`
    (`Module.readOverrideModuleConfig()`, `Module.ts:386`) et d'environnement
    (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1947`).
 6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1895`) — et l'ordre
@@ -591,7 +591,7 @@ s'y branchent via `resolveAutoStore()` (`infra.ts:297`).
 La doctrine est explicite : `auto` ne choisit que parmi les backends **réellement enregistrés**, et
 tout repli est **annoncé**, jamais silencieux. Une valeur explicite ne passe jamais par `auto`. La
 résolution effective de chaque brique est enregistrée au boot (`Kernel.registerStoreResolution()`,
-`Kernel.ts:2182`) — donc consultable après coup, plutôt que devinée.
+`Kernel.ts:2194`) — donc consultable après coup, plutôt que devinée.
 
 ### Quand la config est invalide — le boot s'arrête proprement
 
@@ -599,7 +599,7 @@ Une config cassée n'est pas récupérable : le framework ne peut pas deviner te
 `Kernel.bootConfigError()` (`Kernel.ts:2412`) en fait un échec **soigné** plutôt qu'une trace brute :
 
 - un diagnostic lisible : titre, cause, champ Zod nommé, **et les valeurs par défaut du framework**
-  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2440`) ;
+  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2452`) ;
 - pas de pile d'appels — c'est une faute de configuration, pas un bogue du framework ;
 - un **code de sortie dédié** — `err.exitCode = SysExit.CONFIG`, soit `EX_CONFIG` (78)
   (`Kernel.ts:1527`) — pour qu'un orchestrateur
@@ -669,7 +669,7 @@ précisément l'objectif du modèle « résoudre puis figer ».
 
 | Symptôme                                               | Cause (dans le code)                                                 | Correction                                                                        |
 | ------------------------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2517`)                            |
+| Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2529`)                            |
 | `NF__APP__X=…` sans effet, avec « vouliez-vous dire »  | Le chemin n'existe pas dans les défauts (`applyResolvedPath` refuse) | Déclarer la clé dans `nodefony.config.ts` (`envOverride.ts:300`)                  |
 | Le champ ciblé refuse la valeur d'un `envEnum`         | `as const` oublié → l'union littérale est élargie en `string`        | `envEnum([...] as const, …)`                                                      |
 | `NF__…__ENABLED=false` interprété comme vrai           | Attendu d'une coercion naïve — ce n'est pas le cas ici               | Rien à faire : `coerceEnvValue()` est explicite (`envOverride.ts:59`)             |

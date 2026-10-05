@@ -388,8 +388,8 @@ un simple drapeau `timedOut` (`Event.ts:322`), et aucune valeur qui ne soit pas 
 peut remonter.
 
 Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:4033`) branche la politique : délai issu de
-`Kernel.bootTimeoutMs()` (`Kernel.ts:3266`) — 20 s en développement, 60 s en production, surchargeable
-par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3278`), 5 s par
+`Kernel.bootTimeoutMs()` (`Kernel.ts:3279`) — 20 s en développement, 60 s en production, surchargeable
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3291`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service
