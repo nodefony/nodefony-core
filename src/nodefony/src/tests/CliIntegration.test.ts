@@ -1842,6 +1842,19 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
             1,
             `après rechargement, toujours UNE barre\n${screenText(reloaded)}`,
           );
+          // Un rechargement est PRÉCIS : ni page ni bandeau reposés — la ligne
+          // « ↻ Rechargé » dit ce qui s'est passé, l'historique reste lisible.
+          const afterReload = [...reloaded.history, ...reloaded.screen];
+          assert.strictEqual(
+            afterReload.filter((l) => /\bapp\s{2,}\S+ · development/.test(l))
+              .length,
+            1,
+            `le rechargement ne repose pas le bandeau\n${screenText(reloaded)}`,
+          );
+          assert.ok(
+            afterReload.some((l) => l.includes("Rechargé")),
+            `la ligne du rechargement\n${screenText(reloaded)}`,
+          );
           assert.deepStrictEqual(
             garbage(reloaded),
             [],

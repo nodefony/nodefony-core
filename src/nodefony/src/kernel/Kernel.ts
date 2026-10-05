@@ -120,6 +120,7 @@ import {
   CLEAR_SCREEN,
   isDebugRequested,
   readOutputFlag,
+  reloadCount,
   resolveOutputMode,
   type StartupOutputMode,
 } from "../service/dev/outputMode";
@@ -1072,23 +1073,23 @@ class Kernel extends Service implements IKernel {
     const devChild =
       this.environment === "development" && process.env.NF_DEV_CHILD === "1";
     // Ni en rendu machine (`plain`/`json`). Dans un terminal, hors --debug :
-    // page propre dès que l'écran de Nodefony s'affiche — au démarrage comme
-    // à chaque rechargement (l'historique du terminal reste intact).
+    // page propre au PREMIER démarrage (l'historique du terminal reste
+    // intact) ; un rechargement n'écrit que ce qui a changé.
     const devSplash = devChild && this.startupOutputMode() === "human";
-    if (
-      this.cli &&
-      devSplash &&
-      this.isTTY &&
-      !isDebugRequested(process.argv)
-    ) {
-      // Page propre à venir : le bandeau attend le BootReporter, qui le pose
-      // UNE fois — l'imprimer aussi ici le doublait dans l'historique.
-      process.stdout.write(CLEAR_SCREEN);
-      this.devHeaderDeferred = true;
-    } else if (this.cli && devSplash) {
-      // Sans page propre (débogage, hors terminal) : bannière AVANT tout log
-      // de boot, ordre stable. Précalculée : plus de figlet au démarrage.
-      this.printDevHeader();
+    // Un RECHARGEMENT ne repose ni page ni bandeau : la barre d'état porte
+    // l'identité, et l'historique doit garder ce qui s'est passé. Le
+    // BootReporter n'y écrit que ce qui a changé.
+    if (this.cli && devSplash && reloadCount(process.env) === 0) {
+      if (this.isTTY && !isDebugRequested(process.argv)) {
+        // Page propre à venir : le bandeau attend le BootReporter, qui le
+        // pose UNE fois — l'imprimer aussi ici le doublait dans l'historique.
+        process.stdout.write(CLEAR_SCREEN);
+        this.devHeaderDeferred = true;
+      } else {
+        // Sans page propre (débogage, hors terminal) : bannière AVANT tout
+        // log de boot, ordre stable. Précalculée : plus de figlet au démarrage.
+        this.printDevHeader();
+      }
     }
     // L'identité (version, environnement) est portée par le bilan du
     // BootReporter dans TOUS ses rendus : `initCluster()` ne ré-imprime donc

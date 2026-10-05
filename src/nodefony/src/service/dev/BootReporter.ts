@@ -449,7 +449,7 @@ class BootReporter {
       // page propre — l'écran est remis à zéro, la bannière reposée en haut
       // (logo + versions), le bilan dessous. La checklist et le bruit du build
       // ont fait leur office. Sur un échec, RIEN n'est effacé : l'erreur reste.
-      if (this.#animated && view.ready) {
+      if (this.#animated && view.ready && !this.#reload) {
         process.stdout.write(`${CLEAR_SCREEN}${this.#kernel.devHeader()}`);
         this.#kernel.devHeaderDeferred = false;
       } else if (this.#kernel.devHeaderDeferred) {
@@ -458,13 +458,21 @@ class BootReporter {
         process.stdout.write(this.#kernel.devHeader());
         this.#kernel.devHeaderDeferred = false;
       }
-      // La ligne « ↻ » dit ce qui a changé ; le bilan complet suit dessous.
-      lines = [
-        "",
-        ...(diff ? [...renderReloadHuman(diff, view, options), ""] : []),
-        ...renderStartupHuman(view, options),
-        "",
-      ];
+      // Un rechargement est PRÉCIS : rien de changé dans le bilan, la ligne
+      // « ↻ » seule ; sinon elle, puis le bilan (les points apparus y sont).
+      // Un rechargement en échec n'a pas de diff : le bilan entier, l'erreur.
+      const unchanged =
+        diff?.added.length === 0 &&
+        diff.resolved.length === 0 &&
+        !diff.openChanged;
+      lines = unchanged
+        ? renderReloadHuman(diff, view, options)
+        : [
+            "",
+            ...(diff ? [...renderReloadHuman(diff, view, options), ""] : []),
+            ...renderStartupHuman(view, options),
+            "",
+          ];
     }
     process.stdout.write(`${lines.join("\n")}\n`);
     if (this.#animated && view.ready) this.#showStatus(view);
