@@ -388,6 +388,19 @@ export function relayServerOutput(
   );
 }
 
+/** Options de {@link runCapturedCommand}. */
+export interface IRunCapturedOptions {
+  /**
+   * La commande devient chef de son propre groupe (POSIX ; ignoré sous
+   * Windows, où l'arbre se suit par filiation). Elle ne reçoit alors plus le
+   * Ctrl+C du terminal : seul un appelant qui tue lui-même l'arbre à l'arrêt
+   * peut le demander.
+   */
+  readonly detached?: boolean;
+  /** Reçoit le processus lancé, pour pouvoir tuer son arbre à l'arrêt. */
+  readonly onSpawn?: (child: ChildProcess) => void;
+}
+
 /**
  * Lance une commande en CAPTURANT sa sortie au lieu de l'hériter — le
  * spinner remplace le mur de logs turbo/rolldown. La sortie n'est révélée que sur
@@ -401,6 +414,7 @@ export function relayServerOutput(
  * @param args - ses arguments.
  * @param cwd - le répertoire de travail.
  * @param idleMs - silence toléré avant de déclarer la commande calée.
+ * @param options - groupe de processus propre, et accès au processus lancé.
  * @returns `ok` (sortie 0 et jamais calée) et la sortie capturée.
  */
 export function runCapturedCommand(
@@ -408,6 +422,7 @@ export function runCapturedCommand(
   args: readonly string[],
   cwd: string,
   idleMs = BUILD_IDLE_TIMEOUT_MS,
+  options: IRunCapturedOptions = {},
 ): Promise<{ ok: boolean; output: string }> {
   return new Promise((resolve) => {
     let output = "";
@@ -419,8 +434,10 @@ export function runCapturedCommand(
     const p = spawn(run.file, run.args, {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
+      detached: options.detached === true && process.platform !== "win32",
       windowsVerbatimArguments: run.windowsVerbatimArguments,
     });
+    options.onSpawn?.(p);
     const arm = (): void => {
       if (idle) clearTimeout(idle);
       idle = setTimeout(() => {
@@ -611,6 +628,10 @@ export class DevSupervisor {
   #spinFrame = 0;
   #spinLabel = "";
   #stopping = false;
+  /** Signaux d'arrêt branchés : le superviseur tue lui-même l'arbre du build. */
+  #supervising = false;
+  /** Le build en cours (turbo, rolldown), tant qu'il vit. */
+  #buildChild: ChildProcess | null = null;
   /**
    * Relit `#stopping` APRÈS un `await` ou dans un callback : un arrêt a pu être
    * demandé entre-temps. Le compilateur, lui, garde le rétrécissement du test
@@ -830,13 +851,35 @@ export class DevSupervisor {
     );
   }
 
-  /** {@link runCapturedCommand} dans le répertoire de l'application. */
+  /**
+   * {@link runCapturedCommand} dans le répertoire de l'application.
+   *
+   * Superviseur en marche : le build est chef de son groupe et retenu, pour
+   * que l'arrêt l'emporte (`#killBuild`) — en plein écran, Ctrl+C est une
+   * touche, et un SIGTERM (second démarrage, `nodefony stop`) n'atteint que
+   * le superviseur. Sans superviseur (`--no-watch`), le build reste dans le
+   * groupe du terminal : c'est le Ctrl+C du terminal qui l'atteint.
+   */
   #runCaptured(
     cmd: string,
     args: readonly string[],
     idleMs?: number,
   ): Promise<{ ok: boolean; output: string }> {
-    return runCapturedCommand(cmd, args, this.#cwd, idleMs);
+    if (!this.#supervising) {
+      return runCapturedCommand(cmd, args, this.#cwd, idleMs);
+    }
+    // L'étape suivante d'un build tué par l'arrêt ne part pas : lancée après
+    // `#killBuild`, personne ne la tuerait plus.
+    if (this.#stopping) return Promise.resolve({ ok: false, output: "" });
+    return runCapturedCommand(cmd, args, this.#cwd, idleMs, {
+      detached: true,
+      onSpawn: (child) => {
+        this.#buildChild = child;
+        child.once("exit", () => {
+          if (this.#buildChild === child) this.#buildChild = null;
+        });
+      },
+    });
   }
 
   /**
@@ -993,6 +1036,8 @@ export class DevSupervisor {
       missing = missingWorkspaceDists(this.#cwd);
     }
 
+    // Arrêt demandé pendant le build : il a été tué exprès, rien à annoncer.
+    if (this.#isStopping()) return;
     const ms = Date.now() - t0;
     if (missing.length > 0) {
       // fail-LOUD : ces modules NE se chargeront PAS → app DÉGRADÉE. On le CRIE
@@ -1671,6 +1716,7 @@ export class DevSupervisor {
     this.#terminal?.setPhase("building");
     const ok = await this.#build(dirty);
     this.#building = false;
+    if (this.#isStopping()) return;
     if (!ok) {
       // Le serveur courant est conservé : sa barre revient.
       if (before !== null) this.#terminal?.setPhase(before);
@@ -1745,6 +1791,7 @@ export class DevSupervisor {
     for (const [label, bin, args] of steps) {
       this.#startSpin(label);
       const result = await this.#runBin(bin, args);
+      if (this.#isStopping()) return false;
       if (!result.ok) {
         this.#stopSpin(`${ANSI.red}✗${ANSI.reset}`, `${label} en échec`, "red");
         this.#dumpBuild(result.output);
@@ -1839,6 +1886,26 @@ export class DevSupervisor {
     });
   }
 
+  /**
+   * Tue l'arbre du build en cours (SIGTERM, SIGKILL après 2 s) et attend sa
+   * fin : laissé vivant, turbo/rolldown écrirait `dist/` pendant que le
+   * développeur relance.
+   */
+  #killBuild(): Promise<void> {
+    return new Promise((resolve) => {
+      const b = this.#buildChild;
+      if (b?.exitCode !== null || b.signalCode !== null) {
+        return resolve();
+      }
+      const kill9 = setTimeout(() => this.#signalGroup(b, "SIGKILL"), 2000);
+      b.once("exit", () => {
+        clearTimeout(kill9);
+        resolve();
+      });
+      this.#signalGroup(b, "SIGTERM");
+    });
+  }
+
   /** `true` si rien n'écoute sur `port` en loopback (connexion refusée). */
   #isPortFree(port: number): Promise<boolean> {
     return new Promise((resolve) => {
@@ -1891,6 +1958,7 @@ export class DevSupervisor {
     if (this.#timer) clearTimeout(this.#timer);
     await this.#watcher?.close();
     this.#terminal?.setPhase("restarting");
+    await this.#killBuild();
     await this.#killChild();
     this.#terminal?.close();
     this.#releaseLock();
@@ -1920,6 +1988,7 @@ export class DevSupervisor {
    * recours (kill non interceptable, ou sortie inattendue).
    */
   #installSignals(): void {
+    this.#supervising = true;
     process.once("SIGINT", () => void this.#shutdown());
     process.once("SIGTERM", () => void this.#shutdown());
     process.once("SIGHUP", () => void this.#shutdown());

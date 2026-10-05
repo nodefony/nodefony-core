@@ -1,8 +1,10 @@
+import type { ChildProcess } from "node:child_process";
 import { describe, it, expect } from "vitest";
 import {
   failedTaskOutput,
   runCapturedCommand,
 } from "../service/dev/DevSupervisor";
+import { signalProcessGroup } from "../service/dev/devProcess";
 
 /**
  * Un build qui échoue sous le superviseur montre SON erreur, pas la sortie
@@ -80,10 +82,75 @@ describe("runCapturedCommand — borne d'inactivité", () => {
     expect(r.output).not.toContain("déclaré calé");
   }, 30_000);
 
+  // Ce cas ne porte pas sur la borne : il la prend large, sinon le démarrage
+  // de `node` sous la suite entière (vu > 3 s) le fait déclarer calé.
   it("un échec ordinaire reste un échec, sans être dit calé", async () => {
-    const r = await node("process.stderr.write('boom\\n'); process.exit(2);");
+    const r = await node(
+      "process.stderr.write('boom\\n'); process.exit(2);",
+      20_000,
+    );
     expect(r.ok).toBe(false);
     expect(r.output).toContain("boom");
     expect(r.output).not.toContain("déclaré calé");
   });
 });
+
+/**
+ * Un arrêt pendant un build doit emporter TOUT l'arbre (turbo → rolldown) :
+ * laissé vivant, il écrit `dist/` pendant que le développeur relance. En
+ * plein écran Ctrl+C est une touche, et un SIGTERM n'atteint que le
+ * superviseur — c'est donc lui qui tue le groupe du build, qui doit en être
+ * le chef. Sous Windows l'arbre se suit par filiation (`taskkill /T`).
+ */
+describe.skipIf(process.platform === "win32")(
+  "runCapturedCommand — groupe propre pour l'arrêt",
+  () => {
+    const alive = (pid: number): boolean => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    // Un enfant qui lance un petit-enfant (comme turbo lance rolldown), donne
+    // son pid, puis attend.
+    const TREE =
+      "import('node:child_process').then(({ spawn }) => {" +
+      " const g = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });" +
+      " process.stdout.write(g.pid + '\\n'); setInterval(() => {}, 1000); });";
+
+    it("detached : le signal au groupe emporte le petit-enfant, et onSpawn livre le processus", async () => {
+      let child: ChildProcess | null = null;
+      let grandchild = 0;
+      const ready = new Promise<void>((resolve) => {
+        const run = runCapturedCommand(
+          process.execPath,
+          ["-e", TREE],
+          process.cwd(),
+          15_000,
+          {
+            detached: true,
+            onSpawn: (c) => {
+              child = c;
+              c.stdout?.once("data", (d: Buffer) => {
+                grandchild = Number.parseInt(d.toString(), 10);
+                resolve();
+              });
+            },
+          },
+        );
+        void run;
+      });
+      await ready;
+      const c = child as ChildProcess | null;
+      expect(c?.pid).toBeTypeOf("number");
+      expect(alive(grandchild)).toBe(true);
+      expect(signalProcessGroup(c?.pid ?? 0, "SIGTERM")).toBe("group");
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const survived = alive(grandchild);
+      if (survived) process.kill(grandchild, "SIGKILL");
+      expect(survived, "petit-enfant survivant").toBe(false);
+    }, 20_000);
+  },
+);
