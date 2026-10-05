@@ -422,6 +422,7 @@ function ToolsBar() {
   const pending = state === "connecting" || state === "reconnecting";
   return (
     <div className="outils">
+      {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- hôte d'une fiche CSS (:focus-within) : sans arrêt de tabulation, le détail ne s'ouvrirait qu'au survol */}
       <span className="sonde-hote" tabIndex={0}>
         <span className="sonde">
           <span

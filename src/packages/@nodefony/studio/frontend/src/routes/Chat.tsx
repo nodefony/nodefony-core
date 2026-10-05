@@ -90,11 +90,11 @@ export const Chat = observer(() => {
               </Alert>
             )}
             {chat.messages.map((m) => (
-              <ChatBubble key={m.id} role={m.role} content={m.content} />
+              <ChatBubble key={m.id} author={m.role} content={m.content} />
             ))}
             {chat.isStreaming && chat.currentResponse && (
               <ChatBubble
-                role="assistant"
+                author="assistant"
                 content={chat.currentResponse}
                 streaming
               />
@@ -146,15 +146,15 @@ export const Chat = observer(() => {
 });
 
 function ChatBubble({
-  role,
+  author,
   content,
   streaming,
 }: {
-  role: "user" | "assistant" | "system";
+  author: "user" | "assistant" | "system";
   content: string;
   streaming?: boolean;
 }) {
-  const isUser = role === "user";
+  const isUser = author === "user";
   return (
     <Group
       align="flex-start"

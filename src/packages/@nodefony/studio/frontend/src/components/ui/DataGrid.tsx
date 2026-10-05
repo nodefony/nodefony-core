@@ -486,6 +486,8 @@ function ensureResizerStyle() {
   background:var(--mantine-color-default-border);opacity:.35;
   transition:opacity 120ms ease,height 120ms ease,background-color 120ms ease;}
 .nf-dg-resizer:hover::before{opacity:1;height:70%;}
+.nf-dg-resizer:focus-visible{outline:2px solid var(--mantine-primary-color-filled);outline-offset:-2px;}
+.nf-dg-resizer:focus-visible::before{opacity:1;height:100%;background:var(--mantine-primary-color-filled);}
 .nf-dg-resizer[data-resizing="true"]::before{opacity:1;height:100%;
   background:var(--mantine-primary-color-filled);}
 `;
@@ -1178,10 +1180,43 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
                               onTouchStart={h.getResizeHandler()}
                               onClick={(e) => e.stopPropagation()}
                               onDoubleClick={() => h.column.resetSize()}
+                              // Séparateur FOCUSABLE (patron ARIA « window
+                              // splitter ») : sans clavier, la largeur d'une
+                              // colonne n'était réglable qu'à la souris
+                              // (WCAG 2.1.1). Flèches = ±10 px (Maj : ±50),
+                              // Origine = largeur d'origine — le double-clic.
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === "Home") {
+                                  e.preventDefault();
+                                  h.column.resetSize();
+                                  return;
+                                }
+                                const dir =
+                                  e.key === "ArrowRight"
+                                    ? 1
+                                    : e.key === "ArrowLeft"
+                                      ? -1
+                                      : 0;
+                                if (dir === 0) return;
+                                e.preventDefault();
+                                const id = h.column.id;
+                                const min = h.column.columnDef.minSize ?? 20;
+                                const next = Math.max(
+                                  min,
+                                  h.getSize() + dir * (e.shiftKey ? 50 : 10),
+                                );
+                                setColumnSizing((old) => ({
+                                  ...old,
+                                  [id]: next,
+                                }));
+                              }}
                               role="separator"
                               aria-orientation="vertical"
+                              aria-valuenow={h.getSize()}
+                              aria-valuemin={h.column.columnDef.minSize ?? 20}
                               aria-label={`redimensionner ${String(h.column.columnDef.header)}`}
-                              title="Glisser pour redimensionner · double-clic pour réinitialiser"
+                              title="Glisser pour redimensionner · double-clic pour réinitialiser · au clavier : flèches"
                             />
                           )}
                         </Table.Th>

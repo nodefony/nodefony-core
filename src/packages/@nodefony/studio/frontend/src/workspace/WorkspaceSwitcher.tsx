@@ -430,6 +430,7 @@ export const WorkspaceSwitcher = observer(() => {
                     <TextInput
                       size="xs"
                       value={draft}
+                      // oxlint-disable-next-line jsx-a11y/no-autofocus -- champ de renommage ouvert par un clic sur « renommer » : le focus suit l'intention
                       autoFocus
                       aria-label="Nom du bureau"
                       onChange={(e) => setDraft(e.currentTarget.value)}

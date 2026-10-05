@@ -215,6 +215,7 @@ export function TwoFactorModal({
                   inputType="tel"
                   inputMode="numeric"
                   oneTimeCode
+                  // oxlint-disable-next-line jsx-a11y/no-autofocus -- le champ du code s'ouvre à la demande de l'utilisateur : y porter le focus est le geste attendu
                   autoFocus
                   size="lg"
                   gap="md"

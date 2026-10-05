@@ -780,6 +780,7 @@ export const Login = observer(() => {
                       inputType="tel"
                       inputMode="numeric"
                       oneTimeCode
+                      // oxlint-disable-next-line jsx-a11y/no-autofocus -- étape du code, atteinte après validation du mot de passe : le focus suit le parcours
                       autoFocus
                       size="lg"
                       gap="md"

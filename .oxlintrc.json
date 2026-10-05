@@ -1,6 +1,16 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc", "promise", "import"],
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "promise",
+    "import",
+    // Les écrans (console d'administration, bancs front) : règles des hooks,
+    // clés de liste, et accessibilité vérifiée À L'ÉCRITURE plutôt qu'à l'audit.
+    "react",
+    "jsx-a11y"
+  ],
   // Règles TYPÉES (paquet `oxlint-tsgolint`) : elles lisent les types du
   // compilateur, là où les autres ne voient que la syntaxe. Et une directive
   // de désactivation qui ne couvre plus rien est signalée — sans quoi elle
@@ -370,9 +380,159 @@
     // où le premier arrivé gagne (`end` / `error` / `timeout`). Cinq signalements
     // permanents, tous vérifiés un par un. Les laisser visibles coûte moins cher
     // que de perdre le seul cas qui mord.
-    "promise/no-multiple-resolved": "warn"
+    "promise/no-multiple-resolved": "warn",
+    // Périmée depuis React 17 : le JSX automatique importe `jsx` lui-même, plus
+    // personne n'écrit `import React`. Active, elle signalait chaque balise du
+    // dépôt (8 000 fois) et noyait les vrais signalements.
+    "react/react-in-jsx-scope": "off",
+    // Elle réclame une balise native à la place d'un rôle, et se trompe sur nos
+    // cas, vérifiés un par un : `role="img"` sur un `<svg>` est le patron
+    // recommandé (un `<img>` n'a pas d'enfants SVG) ; une poignée de colonne
+    // `separator` focusable n'est pas un `<hr>` ; et chaque `role="button"` porte
+    // déjà `tabIndex` et clavier, posé sur un conteneur qui RENFERME d'autres
+    // commandes — or un `<button>` ne s'imbrique pas.
+    "jsx-a11y/prefer-tag-over-role": "off"
   },
   "overrides": [
+    // ── CLIQUET des règles React : la DETTE, nommée fichier par fichier ──────
+    // Ces règles remontaient ~130 sites à leur activation. Elles demandent un
+    // jugement au cas par cas (une dépendance d'effet ajoutée à l'aveugle boucle
+    // le rendu), donc elles ne se corrigent pas en masse. Chaque règle reste
+    // ACTIVE partout ailleurs : un fichier NEUF est protégé dès sa création.
+    // Corriger un fichier = le retirer de sa liste ; la liste ne doit que
+    // décroître. Un fichier listé n'est pas protégé contre une NOUVELLE
+    // occurrence de la même règle — c'est le prix d'un cliquet par fichier.
+    {
+      "files": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/PageFilters.tsx",
+        "src/packages/@nodefony/studio/frontend/src/hooks/useResource.ts",
+        "src/packages/@nodefony/studio/frontend/src/routes/Cluster.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/Modules.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/OrmWorker.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/RealtimeConsole.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/apikeys/ApiKeysTable.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/logs/LogExplorer.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/sessions/SessionsTable.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/users/UsersTable.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/webhooks/WebhooksTable.tsx",
+        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/SystemWidgets.tsx"
+      ],
+      "rules": { "react-hooks/exhaustive-deps": "off" }
+    },
+    {
+      "files": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/DataGrid.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/PageFilters.tsx",
+        "src/packages/@nodefony/studio/frontend/src/realtime/twin/TwinMap.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/Cluster.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/RealtimeConsole.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/create/CreateTerminal.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/logs/DebugTab.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/users/AvatarUpload.tsx",
+        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/SystemWidgets.tsx"
+      ],
+      "rules": { "react/exhaustive-effect-dependencies": "off" }
+    },
+    {
+      "files": [
+        "src/nodefony/src/client/vue/index.ts",
+        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx"
+      ],
+      "rules": { "react/immutability": "off" }
+    },
+    {
+      "files": [
+        "src/modules/test-frontend-react/frontend/src/App.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/RealtimeHubContent.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/DocHint.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/DocPageHeader.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/MiniChart.tsx",
+        "src/packages/@nodefony/studio/frontend/src/realtime/twin/TwinMap.tsx",
+        "src/packages/@nodefony/studio/frontend/src/realtime/twin/TwinNodePanel.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/Documentation.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/LogFiles.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/ModuleDetail.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/Modules.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/OrmConnector.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/Runtime.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/Twin.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/create/EntityIndexesEditor.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/logs/DebugTab.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/webhooks/DeliveriesPanel.tsx",
+        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/LogsWidget.tsx",
+        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/MoreWidgets.tsx"
+      ],
+      "rules": { "react/no-array-index-key": "off" }
+    },
+    {
+      "files": [
+        "src/packages/@nodefony/studio/frontend/src/components/ui/DocHint.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/KpiCard.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/MiniChart.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/StatCard.tsx"
+      ],
+      "rules": { "react/no-object-type-as-default-prop": "off" }
+    },
+    {
+      "files": [
+        "src/packages/@nodefony/studio/frontend/src/components/ui/MarkdownDoc.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/apikeys/ApiKeysTable.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/sessions/SessionsTable.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/users/UsersTable.tsx"
+      ],
+      "rules": { "react/no-unstable-nested-components": "off" }
+    },
+    {
+      "files": [
+        "src/packages/@nodefony/studio/frontend/src/routes/logs/profileVisuals.tsx"
+      ],
+      "rules": { "react/preserve-manual-memoization": "off" }
+    },
+    {
+      "files": [
+        "src/packages/@nodefony/studio/frontend/src/routes/RealtimeConsole.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/logs/DebugTab.tsx"
+      ],
+      "rules": { "react/purity": "off" }
+    },
+    {
+      "files": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/DocToc.tsx"
+      ],
+      "rules": { "react/refs": "off" }
+    },
+    {
+      "files": [
+        "src/packages/@nodefony/studio/frontend/src/blocks/useBlockSource.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ProcessGraphGrid.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/DataGrid.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/PageFilters.tsx",
+        "src/packages/@nodefony/studio/frontend/src/components/ui/json/JsonView.tsx",
+        "src/packages/@nodefony/studio/frontend/src/hooks/useResource.ts",
+        "src/packages/@nodefony/studio/frontend/src/realtime/twin/TwinMap.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/ModuleDetail.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/RealtimeConsole.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/audit/AuditFilters.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/logs/BackplanePanel.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/orm/ConnectorCard.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/playground/Radiography.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/profile/TwoFactorModal.tsx",
+        "src/packages/@nodefony/studio/frontend/src/routes/users/AvatarUpload.tsx",
+        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/LogsWidget.tsx",
+        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/SystemWidgets.tsx",
+        "src/packages/@nodefony/studio/frontend/src/workspace/widgets/_kit.tsx"
+      ],
+      "rules": { "react/set-state-in-effect": "off" }
+    },
     {
       // Le point de contact UNIQUE avec TanStack Table — la seule dérogation à la
       // garde posée plus haut. `off` en entier plutôt qu'une liste réduite : la

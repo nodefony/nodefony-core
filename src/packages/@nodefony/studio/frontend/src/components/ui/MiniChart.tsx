@@ -80,6 +80,7 @@ export function MiniChart({
     .join(", ");
 
   return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- lecture au survol, simple confort : les dernières valeurs sont déjà dans aria-label
     <div
       style={{ position: "relative" }}
       onMouseMove={onMove}

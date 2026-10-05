@@ -157,6 +157,7 @@ export function StatCard({
                   Le clic y est ARRÊTÉ : sur une carte cliquable, ouvrir l'aide
                   ne doit pas filtrer le tableau — deux intentions distinctes
                   partagent la même surface. */}
+              {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- barrière d'événements, pas une commande : la cible interactive est le DocHint qu'elle contient */}
               <span
                 onClick={interactive ? (e) => e.stopPropagation() : undefined}
                 onKeyDown={interactive ? (e) => e.stopPropagation() : undefined}
