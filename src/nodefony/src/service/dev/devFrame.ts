@@ -256,8 +256,8 @@ function wrappedOrigins(seq: number, lines: readonly string[]): IRowOrigin[] {
 }
 
 /**
- * Les `height` lignes du journal, de haut en bas, complétées par le haut,
- * avec leur origine dans l'historique.
+ * Les `height` lignes du journal, de haut en bas, avec leur origine dans
+ * l'historique — complétées par le bas en direct, par le haut remonté.
  */
 function journalLines(
   model: IFrameModel,
@@ -315,9 +315,18 @@ function journalLines(
       }
     }
   }
+  // En direct, une page courte s'écrit DEPUIS LE HAUT, comme dans un
+  // terminal : alignée en bas, la page propre du serveur prêt naissait collée
+  // à la barre puis sautait en haut quand le bilan la remplissait.
+  const live = model.anchor === null;
   while (out.length < height) {
-    out.unshift("");
-    origins.unshift(null);
+    if (live) {
+      out.push("");
+      origins.push(null);
+    } else {
+      out.unshift("");
+      origins.unshift(null);
+    }
   }
   return { lines: out, origins };
 }

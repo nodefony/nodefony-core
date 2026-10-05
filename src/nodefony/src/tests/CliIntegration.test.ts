@@ -1798,6 +1798,30 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
             [],
             "aucune séquence imprimée en clair",
           );
+          // UN bandeau dans tout l'historique : celui de la page « prêt ». Le
+          // splash du début le doublait (même processus, deux versions).
+          assert.strictEqual(
+            all.filter((l) => /\bapp\s{2,}\S+ · development/.test(l)).length,
+            1,
+            `un seul bandeau dans l'historique\n${screenText(ready)}`,
+          );
+          // « Nodefony x.y.z » dit la version du FRAMEWORK, jamais celle de l'app.
+          const frameworkVersion = (
+            JSON.parse(
+              fs.readFileSync(path.join(CORE_ROOT, "package.json"), "utf8"),
+            ) as { version: string }
+          ).version;
+          const shown = all.flatMap((l) =>
+            [...l.matchAll(/Nodefony (\d+\.\d+\.\d+\S*)/g)].map((m) => m[1]),
+          );
+          assert.ok(shown.length > 0, "la version est affichée");
+          for (const v of shown) {
+            assert.strictEqual(
+              v,
+              frameworkVersion,
+              `version affichée\n${screenText(ready)}`,
+            );
+          }
 
           // Rechargement : dates seulement, l'arbre git reste intact.
           const watched = path.join(

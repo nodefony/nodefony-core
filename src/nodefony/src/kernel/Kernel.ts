@@ -667,6 +667,15 @@ class Kernel extends Service implements IKernel {
    * boot-only — 0 impact runtime/requête.
    */
   reporterOwnsHeader: boolean = false;
+
+  /**
+   * En dev, le bandeau de démarrage est DIFFÉRÉ : une page propre suivra, et
+   * c'est elle qui le pose (BootReporter). Imprimé ici ET là, il apparaissait
+   * deux fois dans l'historique du terminal. Le BootReporter le pose une seule
+   * fois — en haut de la page « prêt », ou au-dessus du bilan quand il n'y a
+   * pas de page propre (échec, débogage) — puis remet ce drapeau à `false`.
+   */
+  devHeaderDeferred: boolean = false;
   // Buffer FIFO des `MODULE ADD` émis avant l'en-tête `SERVER` (logEnv) —
   // flushé par `initCluster()` après le banner. Tant qu'il n'est pas null
   // les logs sont différés ; passé à `null`, addModule() log immédiatement.
@@ -1072,12 +1081,13 @@ class Kernel extends Service implements IKernel {
       this.isTTY &&
       !isDebugRequested(process.argv)
     ) {
+      // Page propre à venir : le bandeau attend le BootReporter, qui le pose
+      // UNE fois — l'imprimer aussi ici le doublait dans l'historique.
       process.stdout.write(CLEAR_SCREEN);
-    }
-    if (this.cli && devSplash) {
-      // Bannière (logo + mot + encart version/env/meta), AVANT tout log de boot →
-      // ordre stable dans tous les modes dev (animé / debug / non-TTY). Précalculée :
-      // plus de figlet au démarrage. Le BootReporter ne pose que la checklist.
+      this.devHeaderDeferred = true;
+    } else if (this.cli && devSplash) {
+      // Sans page propre (débogage, hors terminal) : bannière AVANT tout log
+      // de boot, ordre stable. Précalculée : plus de figlet au démarrage.
       this.printDevHeader();
     }
     // L'identité (version, environnement) est portée par le bilan du
@@ -3102,18 +3112,16 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
-   * Version de Nodefony, telle que la ligne de commande la porte — vide si la
-   * commande n'en déclare pas.
+   * Version de Nodefony — celle du paquet `nodefony` qui tourne, jamais celle
+   * de l'application. La version portée par la ligne de commande ne convient
+   * pas : au chargement de l'application, `setCommandVersion` la remplace par
+   * celle de l'APP (le bandeau du bilan affichait « Nodefony 0.1.0 » pour une
+   * application en 0.1.0).
    *
-   * @returns la version, ou `""`.
+   * @returns la version du framework.
    */
   frameworkVersion(): string {
-    try {
-      const v: unknown = this.cli?.commander?.version();
-      return typeof v === "string" ? v : "";
-    } catch {
-      return ""; // commander sans version définie
-    }
+    return Nodefony.version;
   }
 
   /**

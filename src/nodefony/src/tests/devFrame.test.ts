@@ -78,12 +78,17 @@ describe("renderFrame — zones", () => {
     expect(frame.cursor).to.equal(null);
   });
 
-  it("historique court : complété par le haut", () => {
+  it("historique court, en direct : la page s'écrit depuis le HAUT, comme dans un terminal", () => {
     const frame = renderFrame(model(transcriptOf(["a"]), { status: null }), {
       columns: 20,
       rows: 3,
     });
-    expect(frame.lines).to.deep.equal(["", "", "a"]);
+    expect(frame.lines).to.deep.equal(["a", "", ""]);
+    expect(frame.origins?.map((o) => o !== null)).to.deep.equal([
+      true,
+      false,
+      false,
+    ]);
   });
 
   it("serveur prêt : la barre est le bloc d'état, ou sa ligne si la place manque", () => {
@@ -335,11 +340,12 @@ describe("floorSeq — la page propre d'ESC[2J", () => {
   it("en direct, rien d'antérieur au plancher ne s'affiche", () => {
     const t = transcriptOf(range(10));
     const frame = renderFrame(model(t, { floorSeq: 8 }), size);
+    // La page propre du serveur prêt part du haut — elle ne saute plus.
     expect(frame.lines).to.deep.equal([
-      "",
-      "",
       "l9",
       "l10",
+      "",
+      "",
       "mon-app · démarrage…",
     ]);
   });

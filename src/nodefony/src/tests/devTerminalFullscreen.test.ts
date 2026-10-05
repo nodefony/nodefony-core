@@ -453,8 +453,9 @@ describe("plein écran — sélection à la souris (--mouse)", () => {
     const long = "abcdefghijklmnopqrstuvwxyz0123";
     terminal.ingest("server", "out", `${long}\n`);
     await nextFrame();
-    // Largeur de repli 19 : la ligne occupe les deux dernières lignes du journal.
-    input.type(press(1, 10) + drag(11, 11) + release(11, 11));
+    // Largeur de repli 19 : la ligne occupe les deux PREMIÈRES lignes du
+    // journal (en direct, une page courte part du haut).
+    input.type(press(1, 1) + drag(11, 2) + release(11, 2));
     await settle();
     expect(copy).toHaveBeenCalledWith(long);
     terminal.close();

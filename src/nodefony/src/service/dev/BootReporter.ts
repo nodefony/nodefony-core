@@ -451,6 +451,12 @@ class BootReporter {
       // ont fait leur office. Sur un échec, RIEN n'est effacé : l'erreur reste.
       if (this.#animated && view.ready) {
         process.stdout.write(`${CLEAR_SCREEN}${this.#kernel.devHeader()}`);
+        this.#kernel.devHeaderDeferred = false;
+      } else if (this.#kernel.devHeaderDeferred) {
+        // Pas de page propre (échec : l'erreur reste à l'écran) : le bandeau
+        // différé se pose au-dessus du bilan — jamais zéro, jamais deux.
+        process.stdout.write(this.#kernel.devHeader());
+        this.#kernel.devHeaderDeferred = false;
       }
       // La ligne « ↻ » dit ce qui a changé ; le bilan complet suit dessous.
       lines = [

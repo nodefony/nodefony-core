@@ -653,7 +653,10 @@ export class DevTerminal {
       frameJournalRows(live, size),
     );
     this.#restoreTerminal(full);
+    // Le remplissage n'est pas du journal : ni en tête (remonté), ni en fin
+    // (page en direct alignée en haut) il ne part dans l'historique du shell.
     while (journal.length > 0 && journal[0] === "") journal.shift();
+    while (journal.length > 0 && journal.at(-1) === "") journal.pop();
     if (journal.length > 0) this.#stdout.write(`${journal.join("\n")}\n`);
     this.#renderStatus();
   }
