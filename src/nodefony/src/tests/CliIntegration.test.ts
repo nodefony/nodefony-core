@@ -2069,6 +2069,11 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
     it(
       "plein écran : Ctrl+C pendant un rechargement emporte le build en cours",
       async () => {
+        let rebuilt: {
+          status: number | null;
+          stdout: string;
+          stderr: string;
+        } | null = null;
         // En mode brut, Ctrl+C est une TOUCHE : aucun SIGINT n'atteint le
         // groupe du terminal. Seul le superviseur peut tuer turbo — laissé
         // vivant, il écrirait `dist/` pendant que le développeur relance.
@@ -2159,7 +2164,20 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           );
         } finally {
           await cleanup(s);
+          // Le build interrompu a pu vider `dist/` du cœur (rolldown le
+          // nettoie AVANT d'écrire) : les cas suivants démarreraient sur un
+          // CLI absent — vécu en CI macOS, deux rouges en moins d'une seconde.
+          // Le cache turbo le restaure (entrées inchangées).
+          rebuilt = spawnSync(
+            "npx",
+            ["turbo", "run", "build", "--filter=nodefony"],
+            { cwd: REPO_ROOT, encoding: "utf8" },
+          );
         }
+        assert.ok(
+          fs.existsSync(path.join(CORE_ROOT, "dist", "node", "index.js")),
+          `dist du cœur non restauré après le build interrompu (turbo ${rebuilt?.status})\n${rebuilt?.stdout ?? ""}${rebuilt?.stderr ?? ""}`,
+        );
       },
       SCREEN_READY_TIMEOUT_MS * 2 + 60_000,
     );
