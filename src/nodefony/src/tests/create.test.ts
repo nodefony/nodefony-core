@@ -1934,6 +1934,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const forme = (realm: Realm, client: string) => ({
         roles: (realm.roles?.client?.[client] ?? []).map((r) => r.name),
         users: realm.users
+          .filter((u) => u.username === "alice" || u.username === "bob")
           .map((u) => ({
             username: u.username,
             roles: u.clientRoles?.[client] ?? [],

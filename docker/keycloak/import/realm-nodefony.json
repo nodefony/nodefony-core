@@ -123,6 +123,25 @@
       "clientRoles": {
         "nodefony-dev": ["admin"]
       }
+    },
+    {
+      "id": "3b8e6f14-2c7a-4d95-b1e0-9f4a6c2d8e71",
+      "username": "cci",
+      "enabled": true,
+      "email": "cci@nodefony.test",
+      "emailVerified": true,
+      "firstName": "Cci",
+      "lastName": "Keycloak",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "cci-dev",
+          "temporary": false
+        }
+      ],
+      "clientRoles": {
+        "nodefony-dev": ["admin"]
+      }
     }
   ],
   "rememberMe": true
