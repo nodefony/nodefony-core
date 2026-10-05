@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T14:03:41.958Z",
+  "generatedAt": "2026-10-05T17:02:12.829Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 80,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -1840,13 +1840,29 @@
       "title": "feat(security): fournir aux pods de production une clé de signature partagée",
       "url": "https://github.com/nodefony/nodefony-core/issues/478",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 3.05,
       "debut": "2026-10-08",
       "cible": "2026-10-08",
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 542,
+      "title": "feat(env): générer la matrice des variables d'environnement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/542",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.06,
+      "debut": null,
+      "cible": null,
       "labels": [
         "beta-3"
       ]
