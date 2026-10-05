@@ -25,6 +25,7 @@ import { openableHost } from "../../kernel/bootReport";
 import { sanitizeTerminalText } from "./devTranscript";
 import { visibleWidth } from "../../runtime/textWidth";
 import { fitStatus } from "./statusLine";
+import { BAR_STYLES, renderBar } from "../../cli/progress";
 import {
   createPalette,
   pluralize,
@@ -829,16 +830,87 @@ export interface IStatusContext {
    */
   help?: string;
   /**
-   * Ce que fait le serveur quand il n'est PAS prêt (build, redémarrage,
-   * crash) : la barre garde le dernier bilan et sa ligne d'état dit la phase
-   * — elle survit au serveur au lieu de disparaître.
+   * Ce qui se passe EN CE MOMENT (build, démarrage, redémarrage, crash, build
+   * en échec) : la barre garde le dernier bilan et sa ligne d'état dit
+   * l'activité — elle survit au serveur au lieu de disparaître. Absente :
+   * le verdict du bilan.
    */
-  phase?: { label: string; failed: boolean };
+  activity?: IStatusActivity;
   /**
    * Version du framework, pour le bloc dessiné AVANT le premier bilan (qui,
    * lui, porte la sienne).
    */
   version?: string;
+}
+
+/**
+ * Une activité de la partie centrale de la barre — ce que fait le serveur
+ * (ou, demain, l'invite) : un libellé, un ton, et ce qu'on sait de son
+ * avancement. Pure donnée : qui l'anime fournit l'image du tourniquet.
+ */
+export interface IStatusActivity {
+  /** La phase, en un mot (« construction… », « arrêté »). */
+  label: string;
+  /** `busy` anime, `warning` alerte sans bloquer, `failed` dit l'échec. */
+  tone: "busy" | "warning" | "failed";
+  /** L'étape en cours (« framework (turbo) », « Services & ORM »). */
+  step?: string;
+  /** Unités connues : étapes du noyau, bundles Vite. */
+  progress?: { done: number; total: number };
+  /** Durée écoulée depuis le début de la phase. */
+  elapsedMs?: number;
+  /** L'image courante du tourniquet — fournie par qui anime. */
+  frame?: string;
+}
+
+/** Au-delà, la barre de progression d'une activité est trop longue pour la ligne. */
+const ACTIVITY_BAR_MAX = 12;
+
+/**
+ * La ligne d'une activité : tourniquet, libellé, étape, jauge, durée —
+ * dessinés avec le tourniquet et la jauge de `cli/progress.ts`, jamais un
+ * second jeu d'images.
+ *
+ * @param activity - l'activité.
+ * @param p - la palette.
+ * @param sym - les symboles du jeu de caractères.
+ * @param ascii - jeu de caractères ASCII (jauge `==--`).
+ * @returns la ligne, colorée.
+ */
+export function renderActivity(
+  activity: IStatusActivity,
+  p: IPalette,
+  sym: (typeof SCREEN_SYMBOLS)[ScreenCharset],
+  ascii: boolean,
+): string {
+  const mark =
+    activity.tone === "failed"
+      ? p.failure(sym.fail)
+      : activity.tone === "warning"
+        ? p.warning(sym.warn)
+        : p.action(activity.frame ?? sym.reload);
+  const head =
+    activity.tone === "failed"
+      ? p.failure(activity.label)
+      : activity.tone === "warning"
+        ? p.warning(activity.label)
+        : activity.label;
+  const parts = [`${mark} ${head}`];
+  if (activity.step) parts.push(p.dim(activity.step));
+  const progress = activity.progress;
+  if (progress && progress.total > 0) {
+    const bar = renderBar(progress.done, progress.total, {
+      width: Math.min(progress.total, ACTIVITY_BAR_MAX),
+      style: ascii ? BAR_STYLES.ascii : BAR_STYLES.blocks,
+    });
+    parts.push(
+      `${p.action(bar)} ${p.dim(`${progress.done}/${progress.total}`)}`,
+    );
+  }
+  if (activity.elapsedMs !== undefined && activity.elapsedMs >= 1000) {
+    parts.push(p.dim(formatSeconds(activity.elapsedMs)));
+  }
+  return parts.join(p.dim("  ·  "));
 }
 
 /**
@@ -851,10 +923,8 @@ function statusState(
   p: IPalette,
   sym: (typeof SCREEN_SYMBOLS)[ScreenCharset],
 ): string {
-  if (ctx.phase) {
-    return ctx.phase.failed
-      ? p.failure(`${sym.fail} ${ctx.phase.label}`)
-      : p.warning(`${sym.reload} ${ctx.phase.label}`);
+  if (ctx.activity) {
+    return renderActivity(ctx.activity, p, sym, sym === SCREEN_SYMBOLS.ascii);
   }
   if (view === null) return p.dim(`${sym.reload} démarrage…`);
   const errors = view.notices.filter((n) => n.level === "error").length;

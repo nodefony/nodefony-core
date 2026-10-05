@@ -25,6 +25,7 @@
  * chaîne de foyers (§4) — défilement, puis global (Ctrl+C, Ctrl+D).
  */
 import { StringDecoder } from "node:string_decoder";
+import { BRAILLE_FRAMES, LINE_FRAMES } from "../../cli/progress";
 import { isIncompleteControlSequence } from "../../runtime/textWidth";
 import { guardTerminal } from "../../runtime/terminalGuard";
 import {
@@ -262,6 +263,21 @@ const HELP_SEPARATOR: Readonly<Record<ScreenCharset, string>> = {
   ascii: "  -  ",
 };
 
+/** Cadence du tourniquet de la barre — celle de l'indicateur du superviseur. */
+const SPIN_INTERVAL_MS = 80;
+
+/**
+ * L'image courante du tourniquet, tirée de l'horloge : aucun compteur à
+ * tenir, et deux images d'une même seconde concordent. Les jeux d'images
+ * sont ceux de `cli/progress.ts`.
+ */
+function spinnerFrame(charset: ScreenCharset): string {
+  const frames = charset === "ascii" ? LINE_FRAMES : BRAILLE_FRAMES;
+  return (
+    frames[Math.floor(Date.now() / SPIN_INTERVAL_MS) % frames.length] ?? ""
+  );
+}
+
 /** Délai entre deux clics au même endroit pour un double (ou triple) clic. */
 const MULTI_CLICK_MS = 400;
 
@@ -363,6 +379,8 @@ interface IFullscreenState {
   /** Glisser au bord du journal : sens (1 = remonter) et point du bord. */
   edge: { direction: 1 | -1; row: number; column: number } | null;
   edgeTimer: NodeJS.Timeout | null;
+  /** Anime le tourniquet de la barre pendant une phase active. */
+  spinTimer: NodeJS.Timeout | null;
   /** Ligne du dernier évènement du glisser — le bord haut s'arme à l'ARRIVÉE. */
   dragRow: number;
   /**
@@ -440,6 +458,13 @@ export class DevTerminal {
   #view: IStartupView | null = null;
   #context: IStatusContext | null = null;
   #phase: DevPhase = "booting";
+  /** Début de la phase courante — la durée affichée en part. */
+  #phaseSince = Date.now();
+  /** L'étape de la phase en cours et sa progression (build, démarrage). */
+  #step: string | null = null;
+  #progress: { done: number; total: number } | null = null;
+  /** Un problème qui persiste serveur prêt (build en échec, serveur conservé). */
+  #issue: string | null = null;
   #closed = false;
   #surface: DevSurface = "inline";
   /** Tout ce que le plein écran possède — `null` sur la surface `inline`. */
@@ -573,8 +598,66 @@ export class DevTerminal {
    * @param phase - où en est le serveur.
    */
   setPhase(phase: DevPhase): void {
+    if (phase !== this.#phase) {
+      this.#phaseSince = Date.now();
+      this.#step = null;
+      this.#progress = null;
+    }
     this.#phase = phase;
+    this.#syncSpinner();
     this.#renderStatus();
+  }
+
+  /**
+   * L'étape en cours de la phase — ce que la partie centrale de la barre
+   * dit, avec sa progression quand elle est connue (étapes du noyau, bundles
+   * Vite). Remise à zéro par un changement de phase.
+   *
+   * @param step - le libellé, ou `null` pour l'effacer.
+   * @param progress - unités faites sur le total, si on le sait.
+   */
+  setActivity(
+    step: string | null,
+    progress?: { done: number; total: number },
+  ): void {
+    this.#step = step;
+    this.#progress = progress ?? null;
+    if (this.#full) this.#scheduleFrame();
+  }
+
+  /**
+   * Un problème qui PERSISTE serveur prêt — un build en échec, le serveur
+   * précédent conservé : la ligne d'état le dit au lieu de « prêt ».
+   *
+   * @param issue - le message, ou `null` quand il est levé.
+   */
+  setIssue(issue: string | null): void {
+    if (issue === this.#issue) return;
+    this.#issue = issue;
+    this.#renderStatus();
+  }
+
+  /**
+   * Le tourniquet de la barre n'anime que pendant une phase ACTIVE, en plein
+   * écran : une image toutes les 80 ms, aucun minuteur serveur prêt.
+   */
+  #syncSpinner(): void {
+    const full = this.#full;
+    if (!full) return;
+    const busy =
+      this.#phase === "building" ||
+      this.#phase === "booting" ||
+      this.#phase === "restarting";
+    if (busy && full.spinTimer === null) {
+      full.spinTimer = setInterval(
+        () => this.#scheduleFrame(),
+        SPIN_INTERVAL_MS,
+      );
+      full.spinTimer.unref();
+    } else if (!busy && full.spinTimer !== null) {
+      clearInterval(full.spinTimer);
+      full.spinTimer = null;
+    }
   }
 
   /**
@@ -769,6 +852,7 @@ export class DevTerminal {
       lastPress: null,
       edge: null,
       edgeTimer: null,
+      spinTimer: null,
       dragRow: 0,
       copying: Promise.resolve(),
       range: null,
@@ -798,6 +882,7 @@ export class DevTerminal {
     full.input.setRawMode?.(true);
     full.input.on("data", full.onData);
     full.input.resume();
+    this.#syncSpinner();
     this.#scheduleFrame();
   }
 
@@ -810,6 +895,7 @@ export class DevTerminal {
     if (full.escapeTimer) clearTimeout(full.escapeTimer);
     if (full.noticeTimer) clearTimeout(full.noticeTimer);
     if (full.edgeTimer) clearInterval(full.edgeTimer);
+    if (full.spinTimer) clearInterval(full.spinTimer);
     full.input.removeListener("data", full.onData);
     full.input.setRawMode?.(false);
     full.input.pause();
@@ -1135,6 +1221,15 @@ export class DevTerminal {
               },
               phase: this.#phase,
               notice: full.notice,
+              activity: {
+                ...(this.#step === null ? {} : { step: this.#step }),
+                ...(this.#progress === null
+                  ? {}
+                  : { progress: this.#progress }),
+                ...(this.#issue === null ? {} : { issue: this.#issue }),
+                elapsedMs: Date.now() - this.#phaseSince,
+                frame: spinnerFrame(this.#charset),
+              },
             },
       color: this.#color,
       charset: this.#charset,

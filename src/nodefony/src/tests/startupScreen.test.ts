@@ -22,6 +22,8 @@ import {
   renderReloadPlain,
   renderStartupHuman,
   renderStartupPlain,
+  renderActivity,
+  SCREEN_SYMBOLS,
   renderStatusBlock,
   renderStatusLine,
   resolveOutputMode,
@@ -47,6 +49,7 @@ import {
 import { DEV_CHANNEL, isDevChannelMessage } from "../service/dev/devChannel";
 import { visibleWidth } from "../runtime/textWidth";
 import { brandMark } from "../cli/brand";
+import { createPalette } from "../kernel/checks/report";
 import {
   collectBootNotices,
   openableHost,
@@ -950,5 +953,80 @@ describe("bloc d'état avec le logo — et le canal qui le nourrit", () => {
       }),
     ).to.equal(false);
     expect(isDevChannelMessage(null)).to.equal(false);
+  });
+});
+
+describe("barre d'état — l'activité (partie centrale)", () => {
+  const p = createPalette(false);
+  it("en cours : tourniquet, libellé, étape, jauge du chargeur, durée", () => {
+    const line = renderActivity(
+      {
+        label: "démarrage…",
+        tone: "busy",
+        frame: "⠙",
+        step: "Services & ORM",
+        progress: { done: 3, total: 5 },
+        elapsedMs: 12_300,
+      },
+      p,
+      SCREEN_SYMBOLS.unicode,
+      false,
+    );
+    expect(line).to.equal(
+      "⠙ démarrage…  ·  Services & ORM  ·  ▰▰▰▱▱ 3/5  ·  12,3 s",
+    );
+  });
+
+  it("ASCII : la jauge `==--` ; sous la seconde, pas de durée", () => {
+    const line = renderActivity(
+      {
+        label: "construction…",
+        tone: "busy",
+        frame: "|",
+        progress: { done: 1, total: 2 },
+        elapsedMs: 400,
+      },
+      p,
+      SCREEN_SYMBOLS.ascii,
+      true,
+    );
+    expect(line).to.equal("| construction…  ·  =- 1/2");
+  });
+
+  it("alerte et échec gardent leur symbole, jamais le tourniquet", () => {
+    const sym = SCREEN_SYMBOLS.unicode;
+    expect(
+      renderActivity(
+        { label: "build en échec", tone: "warning", frame: "⠙" },
+        p,
+        sym,
+        false,
+      ),
+    ).to.equal(`${sym.warn} build en échec`);
+    expect(
+      renderActivity(
+        { label: "arrêté", tone: "failed", frame: "⠙" },
+        p,
+        sym,
+        false,
+      ),
+    ).to.equal(`${sym.fail} arrêté`);
+  });
+
+  it("canal : un boot-step bien formé passe ; libellé trop long, compteurs faux, refusés", () => {
+    const step = (over: Record<string, unknown>) => ({
+      channel: DEV_CHANNEL,
+      type: "boot-step",
+      step: "Modules",
+      done: 1,
+      total: 5,
+      ...over,
+    });
+    expect(isDevChannelMessage(step({}))).to.equal(true);
+    expect(isDevChannelMessage(step({ step: "x".repeat(81) }))).to.equal(false);
+    expect(isDevChannelMessage(step({ step: "" }))).to.equal(false);
+    expect(isDevChannelMessage(step({ done: 6 }))).to.equal(false);
+    expect(isDevChannelMessage(step({ done: 1.5 }))).to.equal(false);
+    expect(isDevChannelMessage(step({ total: 5000, done: 1 }))).to.equal(false);
   });
 });

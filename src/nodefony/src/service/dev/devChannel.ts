@@ -45,13 +45,54 @@ export interface IDevStatusView {
   context: IStatusContext;
 }
 
+/**
+ * Serveur → superviseur : l'étape du démarrage en cours, suivie sur le cycle
+ * d'évènements du noyau (`onStart`, `onRegister`, `onBoot`, `onReady`,
+ * `onServersReady`) puis sur les bundles Vite. La barre d'état la montre
+ * pendant que le serveur démarre — elle survit au serveur, elle ne devine
+ * pas.
+ */
+export interface IDevBootStep {
+  channel: typeof DEV_CHANNEL;
+  type: "boot-step";
+  /** Libellé de l'étape (« Services & ORM », « Frontend (Vite) »). */
+  step: string;
+  /** Unités faites, sur `total`. */
+  done: number;
+  total: number;
+}
+
 /** Tout ce qui peut transiter sur le canal. */
-export type DevChannelMessage = IDevStatusView | IDevResize;
+export type DevChannelMessage = IDevStatusView | IDevResize | IDevBootStep;
+
+/** Longueur maximale d'un libellé d'étape — au-delà, le message est refusé. */
+const MAX_STEP_LENGTH = 80;
+
+/**
+ * Un `boot-step` bien formé : libellé court, compteurs entiers bornés.
+ *
+ * @param message - ce que l'IPC a livré, déjà reconnu comme du canal.
+ * @returns `true` si la forme est exploitable.
+ */
+function isBootStep(message: object): boolean {
+  const m = message as { step?: unknown; done?: unknown; total?: unknown };
+  return (
+    typeof m.step === "string" &&
+    m.step.length > 0 &&
+    m.step.length <= MAX_STEP_LENGTH &&
+    Number.isInteger(m.done) &&
+    Number.isInteger(m.total) &&
+    (m.done as number) >= 0 &&
+    (m.total as number) >= (m.done as number) &&
+    (m.total as number) <= 1000
+  );
+}
 
 /** Les types connus — la seule liste que le garde consulte. */
 const KNOWN_TYPES: ReadonlySet<string> = new Set<DevChannelMessage["type"]>([
   "status-view",
   "resize",
+  "boot-step",
 ]);
 
 /**
@@ -76,6 +117,7 @@ export function isDevChannelMessage(
     return isStatusView(m.view) && isStatusContext(m.context);
   }
   if (m.type === "resize") return isDevResize(message);
+  if (m.type === "boot-step") return isBootStep(message);
   return true;
 }
 

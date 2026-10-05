@@ -1008,6 +1008,94 @@ describe("barre étroite — le geste d'arrêt ne tombe pas avec l'aide", () => 
   });
 });
 
+describe("plein écran — la partie centrale de la barre est vivante", () => {
+  function sized() {
+    const stdout = output(120, 40);
+    const terminal = new DevTerminal({
+      stdout,
+      color: false,
+      charset: "unicode",
+      mark: brandMark("unicode", false),
+      project: "mon-app",
+      version: "10.0.0-beta.2",
+      fullscreen: { input: new FakeInput(), synchronized: false, onQuit() {} },
+    });
+    return { stdout, terminal };
+  }
+  const barText = async (written: readonly string[]) =>
+    (await screen(written, 120, 40)).slice(-7).join("\n");
+
+  it("phase active : tourniquet ANIMÉ, étape et jauge des étapes du noyau", async () => {
+    const { stdout, terminal } = sized();
+    terminal.setPhase("booting");
+    terminal.setActivity("Services & ORM", { done: 3, total: 5 });
+    await nextFrame();
+    const first = await barText(stdout.written);
+    expect(first).to.include("démarrage…");
+    expect(first).to.include("Services & ORM");
+    expect(first).to.include("▰▰▰▱▱ 3/5");
+    // Le tourniquet change d'image sans que rien d'autre n'arrive.
+    const frames = new Set<string>();
+    for (let i = 0; i < 4; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 90));
+      const m = /([⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]) démarrage/.exec(await barText(stdout.written));
+      if (m?.[1]) frames.add(m[1]);
+    }
+    expect(frames.size).to.be.greaterThan(1);
+    terminal.close();
+  });
+
+  it("hors phase active : AUCUN minuteur ne reste armé (pas d'animation au repos)", () => {
+    vi.useFakeTimers();
+    const { terminal } = sized();
+    terminal.setPhase("building");
+    vi.advanceTimersByTime(200);
+    expect(vi.getTimerCount()).to.be.greaterThan(0); // le tourniquet tourne
+    terminal.setPhase("crashed");
+    vi.advanceTimersByTime(200); // l'image en attente part
+    // Une image inchangée n'écrit rien : seul le compte des minuteurs voit
+    // une animation qui tournerait pour rien.
+    expect(vi.getTimerCount()).to.equal(0);
+    terminal.close();
+  });
+
+  it("build en échec, serveur conservé : la ligne d'état le dit au lieu de « prêt », jusqu'au build suivant", async () => {
+    const { stdout, terminal } = sized();
+    terminal.setStatus(
+      {
+        schema: 1,
+        ready: true,
+        durationMs: 1,
+        version: "10.0.0",
+        environment: "development",
+        open: [],
+        notices: [],
+        listening: [],
+        frontend: null,
+        modules: { loaded: 1, gated: [], failed: 0 },
+        journal: { warnings: 0, errors: 0, criticals: [] },
+        data: [],
+        processes: null,
+        firewall: null,
+        supervised: true,
+        inspector: null,
+      },
+      ctx,
+      "ready",
+    );
+    terminal.setIssue("build en échec — serveur précédent conservé");
+    await nextFrame();
+    let bar = await barText(stdout.written);
+    expect(bar).to.include("build en échec — serveur précédent conservé");
+    expect(bar).to.not.include("prêt à");
+    terminal.setIssue(null);
+    await nextFrame();
+    bar = await barText(stdout.written);
+    expect(bar).to.include("prêt à");
+    terminal.close();
+  });
+});
+
 describe("plein écran — le logo dès le démarrage", () => {
   it("avant le premier bilan, la barre est déjà le BLOC : logo, projet, version du framework, phase", async () => {
     const stdout = output(120, 40);

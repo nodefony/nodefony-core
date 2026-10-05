@@ -875,6 +875,8 @@ export class DevSupervisor {
   /** Démarre le spinner `[dev] ⠋ <label>…` (TTY) ou une ligne statique (non-TTY). */
   #startSpin(label: string): void {
     this.#spinLabel = label;
+    // La barre d'état dit la même étape que l'indicateur du journal.
+    this.#terminal?.setActivity(label);
     if (!isTerminal(this.#out)) {
       this.#log(`⚙ ${label}…`, "yellow");
       return;
@@ -1503,6 +1505,12 @@ export class DevSupervisor {
       listenToServer(child, (message) => {
         if (message.type === "status-view" && this.#child === child) {
           terminal.setStatus(message.view, message.context, "ready");
+        } else if (message.type === "boot-step" && this.#child === child) {
+          // Le cycle du noyau, suivi en direct dans la barre.
+          terminal.setActivity(message.step, {
+            done: message.done,
+            total: message.total,
+          });
         }
       });
     }
@@ -1785,8 +1793,10 @@ export class DevSupervisor {
     this.#building = false;
     if (this.#isStopping()) return;
     if (!ok) {
-      // Le serveur courant est conservé : sa barre revient.
+      // Le serveur courant est conservé : sa barre revient, et dit pourquoi
+      // elle n'a pas bougé tant que le build ne repasse pas.
       if (before !== null) this.#terminal?.setPhase(before);
+      this.#terminal?.setIssue("build en échec — serveur précédent conservé");
       this.#log(
         "build en échec — serveur courant conservé, corrige puis sauvegarde",
         "red",
@@ -1797,8 +1807,11 @@ export class DevSupervisor {
       `✓ build OK (${Date.now() - t0}ms) — rechargement backend…`,
       "green",
     );
+    this.#terminal?.setIssue(null);
     this.#terminal?.setPhase("restarting");
+    this.#terminal?.setActivity("arrêt du serveur");
     await this.#killChild();
+    this.#terminal?.setActivity("libération des ports");
     await this.#waitPortsFree();
     this.#spawnRetries = 0;
     this.#spawnChild(true);

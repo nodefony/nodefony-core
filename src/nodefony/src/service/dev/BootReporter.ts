@@ -223,6 +223,7 @@ class BootReporter {
     for (const phase of PHASES) {
       this.#kernel.once(phase.event, () => this.#phaseDone(phase.label));
     }
+    this.#announceStep();
     this.#kernel.once("onPostReady", () => this.#finish());
     this.#kernel.once("onTerminate", (_k: unknown, code?: number) =>
       this.#abort(typeof code === "number" ? code : 0),
@@ -238,6 +239,7 @@ class BootReporter {
       const p = payload as { ready?: number; total?: number } | undefined;
       if (typeof p?.ready === "number") this.#frontendDone = p.ready;
       if (typeof p?.total === "number") this.#frontendTotal = p.total;
+      this.#announceStep();
       if (this.#frontendTotal === 0 || this.#animated || this.#reload) return;
       if (this.#mode === "plain") {
         process.stdout.write(
@@ -335,6 +337,26 @@ class BootReporter {
     this.#renderPhaseDetail(label);
     this.#phaseStart = now;
     this.#phaseIndex++;
+    this.#announceStep();
+  }
+
+  /**
+   * Dit au superviseur l'étape en cours — sa barre d'état la montre pendant
+   * le démarrage. Sans superviseur, rien ne part (`sendToSupervisor` rend
+   * `false`) : quelques messages par démarrage, aucun en régime établi.
+   */
+  #announceStep(): void {
+    if (!this.#supervised || this.#done) return;
+    const frontend = this.#frontendLabel !== null;
+    sendToSupervisor({
+      channel: DEV_CHANNEL,
+      type: "boot-step",
+      step: this.#label(),
+      done: frontend
+        ? Math.min(this.#frontendDone, this.#frontendTotal)
+        : Math.min(this.#phaseIndex, PHASES.length),
+      total: frontend ? this.#frontendTotal : PHASES.length,
+    });
   }
 
   /**
@@ -586,6 +608,7 @@ class BootReporter {
     this.#frontendLabel = "Frontend (Vite)";
     this.#frontendTotal = payload?.bundles ?? 0;
     this.#frontendDone = 0;
+    this.#announceStep();
   }
 
   /**

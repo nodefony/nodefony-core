@@ -19,6 +19,7 @@ import { sanitizeTerminalText, type ITranscriptEntry } from "./devTranscript";
 import {
   renderStatusBar,
   renderStatusBlock,
+  type IStatusActivity,
   type IStartupView,
   type IStatusContext,
   type ScreenCharset,
@@ -56,6 +57,18 @@ export interface IFrameStatus {
    * prêt, il prend la place de l'aide ; sinon il suit la phase.
    */
   readonly notice?: string | null;
+  /**
+   * Ce qu'on sait de l'activité en cours, au-delà de la phase : l'étape, sa
+   * progression, la durée, l'image du tourniquet — et un problème qui
+   * persiste serveur prêt (build en échec, serveur précédent conservé).
+   */
+  readonly activity?: {
+    readonly step?: string;
+    readonly progress?: { done: number; total: number };
+    readonly elapsedMs?: number;
+    readonly frame?: string;
+    readonly issue?: string;
+  };
 }
 
 /** L'invite (#538) : ses lignes et la position du curseur DANS ces lignes. */
@@ -201,49 +214,52 @@ export class FrameHeights {
  * Les lignes de la barre d'état : le bloc (ou la ligne) du bilan quand le
  * serveur est prêt, sinon la phase.
  */
+/**
+ * L'activité de la barre pour une phase — `undefined` serveur prêt sans
+ * problème : la ligne d'état dit alors le verdict du bilan.
+ */
+function activityOf(status: IFrameStatus): IStatusActivity | undefined {
+  const extra = status.activity ?? {};
+  if (status.phase === "ready") {
+    return extra.issue === undefined
+      ? undefined
+      : { label: extra.issue, tone: "warning" };
+  }
+  if (status.phase === "crashed") {
+    return { label: PHASE_LABELS.crashed, tone: "failed" };
+  }
+  return {
+    label: PHASE_LABELS[status.phase],
+    tone: "busy",
+    ...(extra.step === undefined ? {} : { step: extra.step }),
+    ...(extra.progress === undefined ? {} : { progress: extra.progress }),
+    ...(extra.elapsedMs === undefined ? {} : { elapsedMs: extra.elapsedMs }),
+    ...(extra.frame === undefined ? {} : { frame: extra.frame }),
+  };
+}
+
 function statusLines(model: IFrameModel, size: IFrameSize): readonly string[] {
   const status = model.status;
   if (status === null) return [];
-  const { view, context, phase } = status;
+  const { view, phase } = status;
+  const activity = activityOf(status);
+  const context =
+    activity === undefined ? status.context : { ...status.context, activity };
+  const options = {
+    color: model.color,
+    columns: size.columns,
+    rows: size.rows,
+    charset: model.charset,
+  };
   // Un bilan existe : la barre le GARDE pendant un build, un redémarrage, un
-  // crash — seule sa ligne d'état dit la phase. Elle survit au serveur.
-  if (view !== null) {
-    return renderStatusBar(
-      view,
-      phase === "ready"
-        ? context
-        : {
-            ...context,
-            phase: { label: PHASE_LABELS[phase], failed: phase === "crashed" },
-          },
-      {
-        color: model.color,
-        columns: size.columns,
-        rows: size.rows,
-        charset: model.charset,
-      },
-      model.mark,
-    );
-  }
+  // crash — seule sa ligne d'état dit l'activité. Elle survit au serveur.
+  if (view !== null) return renderStatusBar(view, context, options, model.mark);
   // Pas encore de bilan : le bloc avec le logo dit déjà où l'on est.
-  const early = renderStatusBlock(
-    null,
-    {
-      ...context,
-      phase: { label: PHASE_LABELS[phase], failed: phase === "crashed" },
-    },
-    {
-      color: model.color,
-      columns: size.columns,
-      rows: size.rows,
-      charset: model.charset,
-    },
-    model.mark,
-  );
+  const early = renderStatusBlock(null, context, options, model.mark);
   if (early !== null) return early.map((line) => sanitizeTerminalText(line));
   const notice = status.notice ? ` · ${status.notice}` : "";
   const label = sanitizeTerminalText(
-    `${context.project} · ${PHASE_LABELS[phase]}${notice}`,
+    `${status.context.project} · ${PHASE_LABELS[phase]}${notice}`,
   );
   return [model.color ? `\x1b[2m${label}\x1b[0m` : label];
 }
