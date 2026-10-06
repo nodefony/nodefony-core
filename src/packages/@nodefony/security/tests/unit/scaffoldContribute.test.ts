@@ -14,10 +14,10 @@ import { createAppContributionContext, runScaffold } from "nodefony";
 import {
   APP_KEYCLOAK_REALM_FILE,
   APP_KEYCLOAK_THEME_DIR,
-  contribute,
   devClientSecret,
   keycloakThemeSource,
-} from "../../nodefony/scaffold/contribute";
+} from "../../nodefony/keycloak/scaffold";
+import { contribute } from "../../nodefony/scaffold/contribute";
 
 /**
  * La contribution de `@nodefony/security` à une application neuve : realm

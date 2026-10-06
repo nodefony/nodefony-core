@@ -8,7 +8,7 @@ import {
   type IKeycloakMachineInput,
   type TKeycloakJson,
   type TKeycloakObject,
-} from "../src/oauth/keycloakRealm.js";
+} from "./keycloakRealm.js";
 import {
   defineSecurityConfig,
   type ISecurityConfigInput,
@@ -18,7 +18,7 @@ import {
   deriveKeycloakRealmInput,
   KeycloakRealmError,
   type IAppServers,
-} from "../src/oauth/keycloakRealmInput.js";
+} from "./keycloakRealmInput.js";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPTES ET SECRETS",

@@ -10,7 +10,7 @@ import {
   type IKeycloakRealmInput,
   type TKeycloakJson,
   type TKeycloakObject,
-} from "../../nodefony/src/oauth/keycloakRealm.js";
+} from "../../nodefony/keycloak/keycloakRealm.js";
 
 /**
  * Le realm Keycloak se CONSTRUIT depuis ce que dit la configuration, et la

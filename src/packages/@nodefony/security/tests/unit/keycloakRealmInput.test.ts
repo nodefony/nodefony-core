@@ -6,7 +6,7 @@ import {
   mergeKeycloakRealm,
   renderKeycloakRealm,
   type TKeycloakObject,
-} from "../../nodefony/src/oauth/keycloakRealm.js";
+} from "../../nodefony/keycloak/keycloakRealm.js";
 import { defineSecurityConfig } from "../../nodefony/config/defineModuleConfig";
 import type { ISecurityConfigInput } from "../../nodefony/config/config";
 import {
@@ -14,7 +14,7 @@ import {
   KeycloakRealmError,
   realmNameFromIssuer,
   type IKeycloakRealmContext,
-} from "../../nodefony/src/oauth/keycloakRealmInput";
+} from "../../nodefony/keycloak/keycloakRealmInput";
 
 /**
  * Le realm Keycloak se DÉRIVE de la configuration de l'application (#520).

@@ -20,7 +20,7 @@ import SecurityUserDelete from "./nodefony/command/security-user-delete";
 import SecurityUserPassword from "./nodefony/command/security-user-password";
 import { publicRoutesNotice } from "./nodefony/src/boot/publicRoutesNotice";
 import SecurityToken from "./nodefony/command/security-token";
-import SecurityKeycloakRealm from "./nodefony/command/security-keycloak-realm";
+import SecurityKeycloakRealm from "./nodefony/keycloak/security-keycloak-realm";
 import SecurityOAuthDoctor from "./nodefony/command/security-oauth-doctor";
 import { registerSecurityAdminApi } from "./nodefony/src/admin/SecurityAdminApi";
 import { registerUserAdminApi } from "@nodefony/user";

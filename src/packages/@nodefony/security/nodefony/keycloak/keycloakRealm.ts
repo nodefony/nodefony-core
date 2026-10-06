@@ -2,7 +2,7 @@
  * Le realm Keycloak d'une application — construit, jamais recopié.
  *
  * Deux usages, UNE construction : la contribution du paquet à une application
- * neuve (`nodefony/scaffold/contribute.ts`, jouée par `create app` après
+ * neuve (`nodefony/keycloak/scaffold.ts`, jouée par `create app` après
  * l'installation) écrit son realm d'import, et `security:keycloak:realm` le
  * réécrit depuis la configuration EFFECTIVE d'une application qui tourne. Le
  * cœur n'en sait rien : Keycloak est l'affaire de ce paquet.

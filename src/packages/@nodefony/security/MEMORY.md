@@ -480,6 +480,12 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   endpoint admin `security/oauth/diagnosis` et famille `oauth` de `doctor --live` (échecs seuls).
   ⚠️ La sonde d'autorisation passe par le `fetch` GLOBAL : un fournisseur à transport injecté
   (fixture `test-oidc`) y est vu injoignable — c'est vrai, son IdP n'existe pas.
+- **Kit Keycloak = un dossier de code + un dossier d'assets** : `nodefony/keycloak/` (`keycloakRealm.ts`
+  construit/fusionne, `keycloakRealmInput.ts` dérive de la config, `security-keycloak-realm.ts`
+  commande, `scaffold.ts` contribution realm + thème) et `keycloak/themes/` à la racine du paquet
+  (publié, `files`). Tout le reste d'OAuth est GÉNÉRIQUE OIDC (`src/oauth/`) ; `keycloak` n'y est qu'un
+  fournisseur préréglé (`oauthProviderRegistry.ts`). `scaffold/contribute.ts` = point d'entrée
+  générique du paquet (`nodefony.contribute`), il délègue à `contributeKeycloak`.
 - Thème Keycloak (`keycloak/themes/nodefony/`) : 5 types — `login` (parent `keycloak.v2`), `account`
   (`keycloak.v3`), `admin` (`keycloak.v2`), `email` (`keycloak`, seule `html/template.ftl`),
   `welcome` (`keycloak`, choisi par le SERVEUR `KC_SPI_THEME__WELCOME_THEME`). Consoles : propriétés
@@ -494,9 +500,9 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   n'accorde que les rôles listés ; sans lui la console du compte rend 401.
 - `security:keycloak:realm` (`--write [f]`, `--check [f]`, `--provider`, `--machine`,
   `--backchannel-origin`) : realm d'import DÉRIVÉ de la config effective
-  (`deriveKeycloakRealmInput`, `src/oauth/keycloakRealmInput.ts` — PUR) puis construit et
-  FUSIONNÉ (`buildKeycloakRealm`/`mergeKeycloakRealm`, `src/oauth/keycloakRealm.ts` — le même
-  constructeur que la contribution `nodefony/scaffold/contribute.ts`). Fichier défaut = l'UNIQUE `.json` de `docker/keycloak/import/`, sinon
+  (`deriveKeycloakRealmInput`, `keycloak/keycloakRealmInput.ts` — PUR) puis construit et
+  FUSIONNÉ (`buildKeycloakRealm`/`mergeKeycloakRealm`, `keycloak/keycloakRealm.ts` — le même
+  constructeur que la contribution `keycloak/scaffold.ts`). Fichier défaut = l'UNIQUE `.json` de `docker/keycloak/import/`, sinon
   `realm.json`. `onReady`, sans profil de données (aucune base lue). Exit 1 = `--check`
   désaccordé, 78 = fournisseur absent / émetteur sans `/realms/<nom>`.
   Audience = `oauth2.providers.<p>.audiences`, sinon la `resource` de TOUTES les zones

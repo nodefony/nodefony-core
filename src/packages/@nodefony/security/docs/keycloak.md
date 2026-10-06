@@ -168,7 +168,8 @@ avertissement.
 
 Le realm `docker/keycloak/import/realm.json` (realm et client nommés comme l'application,
 utilisateur `alice`) et le thème `docker/keycloak/themes/nodefony/` ne viennent PAS du
-générateur : ils sont **livrés par ce paquet** (`nodefony/scaffold/contribute.ts`, déclaré dans
+générateur : ils sont **livrés par ce paquet** (`nodefony/keycloak/scaffold.ts`, appelé par le point
+de contribution `nodefony/scaffold/contribute.ts` déclaré dans
 `package.json` sous `nodefony.contribute`), et posés après l'installation. Ce sont de vrais
 fichiers, versionnés avec l'application : le thème se retouche à ses couleurs. Ils manquent (création
 en `--no-install`, ou fichier supprimé pour reprendre la version du paquet après un `npm update`) :
@@ -257,7 +258,7 @@ npx nodefony security:keycloak:realm --check     # sort en 1 s'il ne suit plus l
 
 - **Il fusionne, il n'écrase pas.** Ce que la configuration dit est réécrit ; ce qu'un humain a
   ajouté survit : comptes, titres, secret du client machine, rôles déjà déclarés, mappers qui ne sont
-  pas d'audience, autres clients (`mergeKeycloakRealm`, `src/oauth/keycloakRealm.ts`).
+  pas d'audience, autres clients (`mergeKeycloakRealm`, `nodefony/keycloak/keycloakRealm.ts`).
 - **Hors développement, aucun secret n'est écrit** et seules les adresses de `redirectUri` sont
   déclarées : Keycloak génère le secret, tu le copies dans ton gestionnaire.
 - **Keycloak n'importe un realm qu'à sa création.** Un realm déjà là se met à jour par

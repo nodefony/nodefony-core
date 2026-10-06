@@ -38,11 +38,16 @@ nodefony/
 │   ├── SecuredArea.ts         match pattern + host/vhost
 │   ├── RoleHierarchyWalker.ts précompute DFS au boot + détection cycles
 │   └── token/AnonymousToken.ts
+├── keycloak/                  KIT KEYCLOAK (outillage) — realm dérivé de la config, commande
+│                              security:keycloak:realm, contribution realm + thème à l'app.
+│                              Le reste d'OAuth (src/oauth/) est OIDC générique.
+├── scaffold/contribute.ts     point de contribution du paquet (nodefony.contribute) → délègue
 └── service/
     ├── firewall.ts            isSecure (hot-path) + handleSecurity (auth→ALS→Zero Trust) + enforceCsrf + handleCors
     ├── csrf.ts                Csrf — Fetch Metadata + repli Origin (logique pure, J5)
     ├── cors.ts                Cors — preflight/actual headers, reflet origine + Vary (logique pure, J5)
     └── securityHeaders.ts     SecurityHeaders — CSP/Referrer/COOP/COEP/CORP (applicatif ; transport=http, J5)
+keycloak/themes/nodefony/     thème Keycloak livré (5 types : login, account, admin, email, welcome)
 ```
 
 ## Capacités en place

@@ -3,7 +3,7 @@ import type {
   IKeycloakRealmInput,
   IKeycloakRoleInput,
 } from "./keycloakRealm.js";
-import type { ISecurityConfig } from "../../config/config.js";
+import type { ISecurityConfig } from "../config/config.js";
 
 /** Un fournisseur OAuth tel que la config validée le rend. */
 type TProvider = ISecurityConfig["oauth2"]["providers"][string];
