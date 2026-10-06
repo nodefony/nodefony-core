@@ -465,6 +465,20 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 - `security:user:list` / `security:user:delete` : liste et suppression. La suppression
   REFUSE le dernier administrateur actif (`countActiveAdmins`) — sans lui, plus personne
   n'administre l'app et le seul recours est une écriture directe en base.
+- `security:keycloak:realm` (`--write [f]`, `--check [f]`, `--provider`, `--machine`,
+  `--backchannel-origin`) : realm d'import DÉRIVÉ de la config effective
+  (`deriveKeycloakRealmInput`, `src/oauth/keycloakRealmInput.ts` — PUR) puis construit et
+  FUSIONNÉ par le cœur (`buildKeycloakRealm`/`mergeKeycloakRealm`, le même constructeur que
+  `create app`). Fichier défaut = l'UNIQUE `.json` de `docker/keycloak/import/`, sinon
+  `realm.json`. `onReady`, sans profil de données (aucune base lue). Exit 1 = `--check`
+  désaccordé, 78 = fournisseur absent / émetteur sans `/realms/<nom>`.
+  Audience = `oauth2.providers.<p>.audiences`, sinon la `resource` de TOUTES les zones
+  `external-jwt` (+ avertissement s'il y en a plusieurs). La clé n'a AUCUN effet sur la
+  vérification (la `resource` de la zone la porte seule) — elle ne sert qu'à écrire le realm.
+  Hôte des URL de retour = celui de `redirectUri`, JAMAIS `kernel.domain` (adresse
+  d'ÉCOUTE : `127.0.0.1` en dev). Production : ni secret ni adresse locale.
+  ⚠️ Keycloak n'importe qu'à la CRÉATION du realm : mise à jour = import partiel (clients
+  en Overwrite), jamais `down -v` sur le realm du dépôt (TOTP de `cci`).
 
 ## Behaviors
 

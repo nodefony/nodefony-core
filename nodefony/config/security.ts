@@ -103,6 +103,12 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
                 // table refuse le démarrage. Décor de DÉVELOPPEMENT seulement —
                 // l'administrateur du Keycloak de dev administre cette instance.
                 allowPlatformRoles: true,
+                // Les jetons de ce realm ne valent QUE pour la zone `test-keycloak`
+                // du module test. Sans cette liste, l'audience se déduirait de
+                // TOUTES les zones external-jwt — dont `test-foreign-audience`,
+                // qui existe pour refuser un jeton délivré pour un autre service.
+                // Lue par `security:keycloak:realm`, qui en écrit les mappers.
+                audiences: ["https://localhost:5152/nodefony/test/keycloak"],
                 ...oauthPerProvider,
               },
             }

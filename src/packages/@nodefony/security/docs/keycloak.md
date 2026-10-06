@@ -198,14 +198,41 @@ ni avertissement.
    (`$env:NODE_EXTRA_CA_CERTS = "…"` en PowerShell, `set NODE_EXTRA_CA_CERTS=…` en `cmd`).
 
 Le realm généré porte aussi, comme celui du dépôt, un client **machine** `<app>-machine` (compte de
-service, `client_credentials`) et un mapper d'audience `https://localhost:5152` sur ses deux clients :
-un jeton du realm nomme d'office l'application, prêt pour la zone de la section
-« Le jeton Keycloak sur ton API », plus bas.
+service, `client_credentials`). Il ne porte **aucune audience** : l'application née n'a pas de zone
+qui accepte les jetons du realm. Quand tu en ouvres une (section « Le jeton Keycloak sur ton API »,
+plus bas), `npx nodefony security:keycloak:realm --write` ajoute le mapper qui inscrit sa `resource`
+dans les jetons.
 
 Le port de Keycloak (8444) se change par `KEYCLOAK_PORT` au `up` — l'émetteur suit, donc
 `NF_KEYCLOAK_ISSUER` aussi. En production, le décor ne sert plus : les trois variables pointent
 ton Keycloak, et `NF_OAUTH_REDIRECT_BASE` porte l'URL publique de l'application, base de l'URL de
 retour.
+
+### Le realm écrit depuis ta configuration
+
+Les sections 1 et 2 ci-dessous déroulent les réglages à la main. Une fois le fournisseur branché
+(section 4), Nodefony sait les écrire lui-même : **`nodefony security:keycloak:realm`** dérive le
+realm de la configuration EFFECTIVE de l'application — client, URL de retour, déconnexion par canal
+arrière, audience de chaque zone, rôles de `roleMapping`.
+
+```bash
+npx nodefony security:keycloak:realm             # affiche le realm
+npx nodefony security:keycloak:realm --write     # l'écrit dans docker/keycloak/import/
+npx nodefony security:keycloak:realm --check     # sort en 1 s'il ne suit plus la config (CI)
+```
+
+- **Il fusionne, il n'écrase pas.** Ce que la configuration dit est réécrit ; ce qu'un humain a
+  ajouté survit : comptes, titres, secret du client machine, rôles déjà déclarés, mappers qui ne sont
+  pas d'audience, autres clients (`mergeKeycloakRealm`, cœur).
+- **Hors développement, aucun secret n'est écrit** et seules les adresses de `redirectUri` sont
+  déclarées : Keycloak génère le secret, tu le copies dans ton gestionnaire.
+- **Keycloak n'importe un realm qu'à sa création.** Un realm déjà là se met à jour par
+  **Realm settings** › **Action** › **Partial import**, clients en « Overwrite » : comptes et seconds
+  facteurs restent.
+
+Le client machine suivi est celui qu'on nomme (`--machine <clientId>`), sinon le compte de service
+que le fichier déclare déjà. Le canal arrière vise `http://host.docker.internal:<port>` en
+développement (Keycloak vit dans un conteneur) ; `--backchannel-origin` le déplace.
 
 ### 1. Créer le realm
 
@@ -335,20 +362,21 @@ Les écrans **Utilisateurs** et **Sessions** de Studio montrent le compte et sa 
 Les clés de `security.oauth2.providers.keycloak` — le schéma complet vit sur la page
 [OAuth2](oauth2.md).
 
-| Clé                  | Requise | Effet                                                                                                                                            |
-| -------------------- | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `issuer`             |   ✅    | URL `https` du realm. Absente ou mal formée : le démarrage est refusé.                                                                           |
-| `clientId`           |   ✅    | **Client ID** du client Keycloak.                                                                                                                |
-| `clientSecret`       |   ✅    | **Client secret** de l'onglet _Credentials_. Jamais journalisé.                                                                                  |
-| `redirectUri`        |   ✅    | URL de retour, identique à l'une des **Valid redirect URIs** du client.                                                                          |
-| `clientAuthMethod`   |         | `client_secret_basic` par défaut ; `client_secret_post` si le client Keycloak l'exige.                                                           |
-| `scopes`             |         | Vide = `openid`, `profile`, `email`.                                                                                                             |
-| `defaultRoles`       |         | Rôles du compte à sa création, pour CE fournisseur (sinon la valeur globale `oauth2.defaultRoles`).                                              |
-| `roleMapping`        |         | Rôles Keycloak → rôles de l'application, recalculés à chaque connexion et à chaque jeton. Voir [Rôles](#-rôles--gérer-les-droits-dans-keycloak). |
-| `rolesSource`        |         | Où lire les rôles : `client` (défaut), `realm`, `groups`. Sans `roleMapping`, sans effet.                                                        |
-| `allowPlatformRoles` |         | `true` autorise `roleMapping` à donner un `ROLE_NODEFONY_*`. Omis : démarrage refusé.                                                            |
-| `label`              |         | Libellé du bouton. Omis : « Keycloak ».                                                                                                          |
-| `hidden`             |         | Retire le bouton sans fermer le flux (lien direct, sous-domaine dédié).                                                                          |
+| Clé                  | Requise | Effet                                                                                                                                                     |
+| -------------------- | :-----: | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issuer`             |   ✅    | URL `https` du realm. Absente ou mal formée : le démarrage est refusé.                                                                                    |
+| `clientId`           |   ✅    | **Client ID** du client Keycloak.                                                                                                                         |
+| `clientSecret`       |   ✅    | **Client secret** de l'onglet _Credentials_. Jamais journalisé.                                                                                           |
+| `redirectUri`        |   ✅    | URL de retour, identique à l'une des **Valid redirect URIs** du client.                                                                                   |
+| `clientAuthMethod`   |         | `client_secret_basic` par défaut ; `client_secret_post` si le client Keycloak l'exige.                                                                    |
+| `scopes`             |         | Vide = `openid`, `profile`, `email`.                                                                                                                      |
+| `defaultRoles`       |         | Rôles du compte à sa création, pour CE fournisseur (sinon la valeur globale `oauth2.defaultRoles`).                                                       |
+| `roleMapping`        |         | Rôles Keycloak → rôles de l'application, recalculés à chaque connexion et à chaque jeton. Voir [Rôles](#-rôles--gérer-les-droits-dans-keycloak).          |
+| `rolesSource`        |         | Où lire les rôles : `client` (défaut), `realm`, `groups`. Sans `roleMapping`, sans effet.                                                                 |
+| `allowPlatformRoles` |         | `true` autorise `roleMapping` à donner un `ROLE_NODEFONY_*`. Omis : démarrage refusé.                                                                     |
+| `audiences`          |         | Ressources pour lesquelles ce realm émet des jetons à l'application. Lue par `security:keycloak:realm` seulement. Omis : toutes les zones `external-jwt`. |
+| `label`              |         | Libellé du bouton. Omis : « Keycloak ».                                                                                                                   |
+| `hidden`             |         | Retire le bouton sans fermer le flux (lien direct, sous-domaine dédié).                                                                                   |
 
 ## 🎭 Rôles — gérer les droits dans Keycloak
 
@@ -421,9 +449,17 @@ Une fois les humains connectés par le navigateur, un script ou un service veut 
 avec un **jeton d'accès** du même realm. La page [Jetons d'un émetteur tiers](external-jwt.md)
 décrit cette brique en entier ; voici ce que Keycloak y ajoute.
 
-**Côté Keycloak**, le jeton doit nommer ton API dans son audience. Dans le client : **Client
-scopes** › le scope dédié › **Add mapper** › _Audience_, avec **Included Custom Audience** = l'URL de
-ton API et **Add to access token** coché.
+**Côté Keycloak**, le jeton doit nommer ton API dans son audience (`aud`) — par défaut il porte
+`account`, que toute zone refuse. `nodefony security:keycloak:realm --write` écrit le mapper pour
+chaque ressource listée dans `audiences` du fournisseur, sinon pour la `resource` de chaque zone
+`external-jwt`. À la main : dans le client, **Client scopes** › le scope dédié › **Add mapper** ›
+_Audience_, avec **Included Custom Audience** = la `resource` de la zone et **Add to access token**
+coché.
+
+> [!TIP]
+> Écris `audiences` dès qu'une zone `external-jwt` ne doit PAS recevoir les jetons de ce realm (une
+> API d'un autre domaine de confiance, une zone de test) : sans la liste, la commande déduit
+> l'audience de toutes les zones, et Keycloak imprimerait aussi l'adresse de celle-là.
 
 **Côté Nodefony**, déclarer le realm comme émetteur de confiance et ouvrir une zone qui accepte ses
 jetons :
@@ -490,7 +526,7 @@ Sans ce lien, le jeton désignerait un compte distinct, sous l'identifiant `<ém
 | Retour sur `failureRedirect` + WARNING `invalid_client`                                                                            | Mauvais secret, ou client public (_Client authentication OFF_)                                                          | Recopier le secret de l'onglet _Credentials_ ; passer le client en ON                                                             |
 | Retour sur `failureRedirect` + WARNING `OAuth issuer mismatch`                                                                     | Keycloak joint par deux adresses différentes : l'émetteur varie                                                         | Fixer `KC_HOSTNAME` à l'URL publique complète                                                                                     |
 | Retour sur `failureRedirect` + WARNING `local account exists without a keycloak link`                                              | Un compte local porte déjà cet identifiant (`UserService.ts:389`) — typiquement un `sub` changé après réimport du realm | Rattacher le compte explicitement, ou fixer l'`id` des utilisateurs dans l'export du realm                                        |
-| API : `401` avec un jeton Keycloak valide                                                                                          | Audience absente du jeton : pas de mapper _Audience_                                                                    | Ajouter le mapper ; `aud` doit contenir la `resource` de la zone                                                                  |
+| API : `401` avec un jeton Keycloak valide                                                                                          | Audience absente du jeton : pas de mapper _Audience_                                                                    | `security:keycloak:realm --write` puis import partiel ; `aud` doit contenir la `resource` de la zone                              |
 | Session de l'application vivante après une déconnexion chez Keycloak ; Keycloak journalise `Some clients have not been logged out` | _Front channel logout_ ON, ou **Backchannel logout URL** absente ou injoignable depuis Keycloak                         | _Front channel logout_ OFF ; une URL que Keycloak joint (en développement Linux : serveur à l'écoute au-delà de la boucle locale) |
 
 | Démarrage refusé : `… est un rôle de PLATEFORME` | `roleMapping` traduit vers un `ROLE_NODEFONY_*` | Donner ce rôle à la main, ou écrire `allowPlatformRoles: true` en connaissance de cause |
@@ -506,6 +542,8 @@ journal du serveur, préfixée `oauth2 callback "keycloak"` (`OAuth2Controller.t
 | Unitaire    | `security/tests/unit/oauth2Service.test.ts`               | Démarrage refusé sur émetteur absent ou mal formé ; bouton retiré puis rendu quand l'émetteur tombe.                                                                                                                                                                                                                                                                          |
 | Unitaire    | `security/tests/unit/oauthProviders.test.ts`              | Découverte, refus d'un serveur sans PKCE S256, contrôle des claims de l'ID token.                                                                                                                                                                                                                                                                                             |
 | Unitaire    | `security/tests/unit/providerRoles.test.ts`               | Lecture des claims (client, realm, groupes), rôle inconnu ignoré, refus des rôles de plateforme sauf `allowPlatformRoles`, recalcul à la connexion et au jeton, aucune écriture sans changement.                                                                                                                                                                              |
+| Unitaire    | `security/tests/unit/keycloakRealmInput.test.ts`          | La configuration de l'application de dev, dérivée puis fusionnée, rend `realm-nodefony.json` octet pour octet ; audiences déduites ou écrites, production sans secret, rôles rangés selon `rolesSource`.                                                                                                                                                                      |
+| Unitaire    | `nodefony/src/tests/keycloakRealm.test.ts`                | Fusion : ce que la config dit est réécrit, ce qu'un humain a écrit survit ; mapper d'audience remplacé, jamais doublé.                                                                                                                                                                                                                                                        |
 | Unitaire    | `user/tests/unit/providerRoles.test.ts`                   | Rôles gérés contre rôles locaux : retrait, ajout, rôle à la main conservé, profil préservé.                                                                                                                                                                                                                                                                                   |
 | Intégration | `http/nodefony/tests/integration/oauth2-keycloak.test.ts` | Contre un **vrai** Keycloak : flux complet, même compte entre session et jeton d'API, `invalid_grant` rendu par Keycloak, déconnexion dans les deux sens, jeton de déconnexion forgé refusé ; `bob` obtient puis perd `ROLE_ADMIN` (session et jeton) quand le rôle bouge dans le realm, un rôle local survit ; `cci` obtient `ROLE_NODEFONY_ADMIN` par `allowPlatformRoles`. |
 

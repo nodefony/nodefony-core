@@ -1054,6 +1054,19 @@ const oauthProviderSchema = z
           "fait foi). Un rôle `ROLE_NODEFONY_*` refuse le démarrage, sauf " +
           "`allowPlatformRoles`.",
       ),
+    audiences: z
+      .array(z.string().min(1))
+      .optional()
+      .describe(
+        "Ressources pour lesquelles CE fournisseur émet des jetons à " +
+          "l'application — la mention « valable pour » (`aud`) qu'il doit " +
+          "imprimer. Chaque entrée est la `resource` d'une zone `external-jwt`. " +
+          "Lue par `security:keycloak:realm`, qui en écrit les mappers " +
+          "d'audience ; sans effet sur la vérification, que la `resource` de la " +
+          "zone porte seule. OMIS = la `resource` de TOUTES les zones " +
+          "`external-jwt`. À écrire dès qu'une zone existe pour REFUSER les " +
+          "jetons de ce fournisseur : la déduire ferait imprimer son adresse.",
+      ),
     allowPlatformRoles: z
       .boolean()
       .default(false)

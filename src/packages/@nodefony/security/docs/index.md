@@ -157,6 +157,7 @@ sans ouvrir de port (profil console) :
 | `nodefony security:user:delete <id>` | supprime, après confirmation ; refuse le dernier administrateur |
 | `nodefony security:secrets [--write]` | engendre les clés attendues et guide leur câblage |
 | `nodefony security:token` | émet un jeton d'accès pour la porte MCP |
+| `nodefony security:keycloak:realm [--write\|--check]` | écrit le realm Keycloak déduit de la configuration ([Keycloak](keycloak.md)) |
 
 En terminal, le mot de passe est **demandé masqué** et confirmé ; pour un script, `--password <pwd>`
 l'accepte en argument — au prix de l'historique du shell, que la commande rappelle.
