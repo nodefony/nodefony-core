@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T14:19:25.587Z",
+  "generatedAt": "2026-10-06T15:16:59.944Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 83,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 40,
       "title": "10.0.0-beta"
     },
     {
@@ -2193,6 +2193,70 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.57,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 546,
+      "title": "feat(client): fournir le déroulé de connexion sans interface imposée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/546",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.58,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 547,
+      "title": "feat(security): servir une page de connexion par défaut, sans front",
+      "url": "https://github.com/nodefony/nodefony-core/issues/547",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.585,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 548,
+      "title": "fix(security): conduire un visiteur anonyme à la page de connexion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/548",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.59,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 549,
+      "title": "refactor(studio): passer la connexion de la console sur le déroulé partagé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/549",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.595,
       "debut": null,
       "cible": null,
       "labels": [
