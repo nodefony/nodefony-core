@@ -149,9 +149,10 @@
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
-  /* 0,82 et non 0,65 (valeur de Studio) : sur la zone la plus sombre du
-     dégradé (#00579c), 0,65 donne ~4,1:1 — sous AA pour 12 px. */
-  color: rgba(255, 255, 255, 0.82);
+  /* Blanc PLEIN : le coin bas-droit est la zone la plus CLAIRE du dégradé
+     (brand-6 + halo). Mesuré au pixel, 0,82 y donnait 4,43:1 — sous AA
+     (4,5:1) pour du 12 px. */
+  color: #ffffff;
 }
 
 .nf-hero-footer a {
@@ -211,13 +212,20 @@
   display: none;
 }
 
-.nf-compact-brand {
+/* `keycloak.v2` habille `#kc-header-wrapper` en capitales de 29 px, avec
+   `color: var(--pf-v5-global--Color--light-100) !important` — blanc sur blanc
+   en clair. Plutôt que surenchérir d'un `!important`, la variable qu'il lit
+   est redéfinie SUR l'élément ; l'identifiant donne la priorité au reste. */
+.nf-body #kc-header-wrapper.nf-compact-brand {
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 20px;
   font-weight: 700;
-  color: var(--nf-heading);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-transform: none;
+  --pf-v5-global--Color--light-100: var(--nf-heading);
 }
 
 .nf-body .pf-v5-c-login__main {
@@ -283,6 +291,12 @@
   border-color: var(--nf-focus);
 }
 
+/* Le focus se voit sur le CONTRÔLE (bordure + anneau ci-dessous) : le contour
+   natif de l'input s'y ajoutait en un second cadre, intérieur. */
+.nf-body .pf-v5-c-form-control > input:focus-visible {
+  outline: none;
+}
+
 /* Sélecteur de langue : assez large pour « Français » sans troncature. */
 .nf-body .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control {
   min-width: 132px;
@@ -292,26 +306,59 @@
   border-color: var(--pf-v5-global--danger-color--100);
 }
 
-/* Champ mot de passe : le bouton « œil » prolonge le champ. */
+/* Champ mot de passe : le champ et le bouton « œil » forment UN contrôle,
+   comme le PasswordInput de Studio. C'est le GROUPE qui porte bordure, rayon,
+   focus et erreur : bordés séparément, un trait apparaissait entre les deux en
+   sombre et pas en clair, et l'anneau de focus coupait le contrôle en deux. */
+.nf-body .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control) {
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  background: var(--nf-input);
+}
+
+.nf-body .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control):focus-within {
+  border-color: var(--nf-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nf-focus) 28%, transparent);
+}
+
+.nf-body .pf-v5-c-input-group:has(.pf-m-error) {
+  border-color: var(--pf-v5-global--danger-color--100);
+}
+
 .nf-body
-  .pf-v5-c-input-group
-  .pf-v5-c-input-group__item:first-child
-  .pf-v5-c-form-control,
+  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
+  .pf-v5-c-form-control {
+  min-height: 40px;
+}
+
 .nf-body
-  .pf-v5-c-input-group
-  .pf-v5-c-input-group__item:first-child
-  .pf-v5-c-form-control::before {
-  border-start-end-radius: 0;
-  border-end-end-radius: 0;
+  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
+  .pf-v5-c-form-control::before,
+.nf-body
+  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
+  .pf-v5-c-form-control:focus-within::before {
+  border: 0;
+  box-shadow: none;
+}
+
+/* La feuille de `keycloak.v2` borde l'item du bouton à gauche : c'est le trait
+   qui coupait le contrôle en deux, visible en sombre seulement. */
+.nf-body
+  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
+  .pf-v5-c-input-group__item {
+  border: 0;
 }
 
 .nf-body .pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
-  min-height: 42px;
-  border: 1px solid var(--nf-border);
-  border-inline-start: 0;
+  min-height: 40px;
+  border: 0;
   border-radius: 0 var(--nf-radius) var(--nf-radius) 0;
-  background: var(--nf-input);
+  background: transparent;
   color: var(--nf-muted);
+}
+
+.nf-body .pf-v5-c-input-group .pf-v5-c-button.pf-m-control:hover {
+  color: var(--nf-heading);
 }
 
 .nf-body .pf-v5-c-input-group .pf-v5-c-button.pf-m-control::after {
@@ -370,9 +417,11 @@
     padding: 0 0 24px;
   }
 
+  /* Le haut est réservé au sélecteur de langue, posé dans le coin : sans
+     cette marge il chevauchait le bouton de retour. */
   .nf-panel {
     align-items: flex-start;
-    padding: 40px 16px;
+    padding: 72px 16px 40px;
   }
 }
 
@@ -474,8 +523,10 @@
 
 /* ── Langue : repliée dans le coin, comme un réglage, pas comme un titre ── */
 
+/* `absolute`, pas `fixed` : il défile avec la page au lieu de flotter
+   au-dessus du formulaire sur un petit écran. */
 .nf-body .pf-v5-c-login__main-header-utilities {
-  position: fixed;
+  position: absolute;
   top: 20px;
   right: 24px;
   z-index: 1;
@@ -553,8 +604,8 @@
 /* « Se souvenir de moi » : case à la couleur de la marque. */
 .nf-body .pf-v5-c-check__input {
   accent-color: var(--nf-primary);
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 .nf-body .pf-v5-c-check__label {

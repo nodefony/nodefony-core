@@ -112,6 +112,23 @@ const DECLARED: { file: string; kind: "logo" | "favicon"; why: string }[] = [
     kind: "logo",
     why: "fichier lu par Keycloak dans le thème que livre @nodefony/security",
   },
+  {
+    file: path.join(
+      "src",
+      "packages",
+      "@nodefony",
+      "security",
+      "keycloak",
+      "themes",
+      "nodefony",
+      "login",
+      "resources",
+      "img",
+      "favicon.ico",
+    ),
+    kind: "favicon",
+    why: "icône d'onglet du thème Keycloak — sans elle, celle de Keycloak s'affiche",
+  },
 ];
 
 /** Fichiers suivis par git — la frontière de ce qui part dans le dépôt. */

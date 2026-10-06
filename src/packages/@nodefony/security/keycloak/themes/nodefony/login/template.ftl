@@ -39,6 +39,9 @@
         </#list>
     </#if>
     <title>${title!}</title>
+    <#-- NODEFONY : la page est `noindex` (Keycloak), mais un agent ou un lecteur
+         d'onglets lit encore sa description. -->
+    <meta name="description" content="${msg("nfMetaDescription", (realm.displayName!realm.name))}">
     <#if themeResources?? && themeResources.favicons?has_content>
         <@themeResourceTags.renderFavicons themeResources.favicons url.resourcesPath />
     <#else>
