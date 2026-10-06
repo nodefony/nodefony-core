@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T18:06:42.474Z",
+  "generatedAt": "2026-10-06T18:46:28.001Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 83,
+      "closed": 84,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 40,
+      "open": 39,
       "title": "10.0.0-beta"
     },
     {
@@ -2091,8 +2091,8 @@
       "number": 520,
       "title": "feat(cli): dériver le realm et le thème Keycloak de l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/520",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 3,
