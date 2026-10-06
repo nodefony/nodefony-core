@@ -798,7 +798,6 @@ process.stdout.write("studio: policy mandatory constatée dans le gabarit\n");
   # éprouve un démarrage.
   docker run -d --name "$SCTN" -p "$SPORT:5151" \
     -e NF_CSRF_SECRET="$SMOKE_SECRET" \
-    -e NF_SESSION_SECRET="$SMOKE_SECRET" \
     -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" \
     "$SIMG" >/dev/null
   migrate_in "$SCTN"
@@ -956,11 +955,9 @@ services:
   migrate:
     environment:
       NF_CSRF_SECRET: "$SMOKE_SECRET"
-      NF_SESSION_SECRET: "$SMOKE_SECRET"
   app-edge:
     environment:
       NF_CSRF_SECRET: "$SMOKE_SECRET"
-      NF_SESSION_SECRET: "$SMOKE_SECRET"
       NF_ADMIN_PASSWORD: "$EDGE_ADMIN_PASSWORD"
       NF_JWT_KEYSET: '$SMOKE_JWT_KEYSET'
 YML
@@ -1268,11 +1265,9 @@ services:
   migrate:
     environment:
       NF_CSRF_SECRET: "$SMOKE_SECRET"
-      NF_SESSION_SECRET: "$SMOKE_SECRET"
   app:
     environment:
       NF_CSRF_SECRET: "$SMOKE_SECRET"
-      NF_SESSION_SECRET: "$SMOKE_SECRET"
       NF_ADMIN_PASSWORD: "$SQL_ADMIN_PASSWORD"
       NF_JWT_KEYSET: '$SMOKE_JWT_KEYSET'
 YML
@@ -1518,7 +1513,7 @@ if runs cluster; then
   # Les secrets que la production exige, partagés par les N workers (hérités au
   # fork) : NF_CSRF_SECRET (requiredIn) et la clé de signature des jetons.
   docker run -d --name "$CCTN" -e NF_WORKERS="$CWORKERS" \
-    -e NF_CSRF_SECRET="$SMOKE_SECRET" -e NF_SESSION_SECRET="$SMOKE_SECRET" \
+    -e NF_CSRF_SECRET="$SMOKE_SECRET" \
     -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" -p "$CPORT:5151" "$CIMG" >/dev/null
   # Chaque worker annonce son écoute HTTP : on attend les N, pas le premier.
   listening=0
@@ -1688,7 +1683,7 @@ process.exit(typeof m.packageManagerToolchain === "function" ? 0 : 1);') \
     # exemplaire qui sert refuse de démarrer — NF_CSRF_SECRET (requiredIn) et
     # la clé de signature des jetons (jwt.keystore).
     docker run -d --name "$PCTN" -p "$PM_PORT:5151" \
-      -e NF_CSRF_SECRET="$SMOKE_SECRET" -e NF_SESSION_SECRET="$SMOKE_SECRET" \
+      -e NF_CSRF_SECRET="$SMOKE_SECRET" \
       -e NF_JWT_KEYSET="$SMOKE_JWT_KEYSET" "$PIMG" >/dev/null
     migrate_in "$PCTN"
     wait_ready "$PCTN" "$PM_PORT"

@@ -86,12 +86,10 @@ jobs:
 <% if (it.hasMigrations) { %>            migrate:
               environment:
                 NF_CSRF_SECRET: "$SECRET"
-                NF_SESSION_SECRET: "$SECRET"
                 NF_ADMIN_PASSWORD: "$SECRET"
 <% } %>            app:
               environment:
                 NF_CSRF_SECRET: "$SECRET"
-                NF_SESSION_SECRET: "$SECRET"
                 NF_ADMIN_PASSWORD: "$SECRET"
                 NF_JWT_KEYSET: '$KEYSET'
           YML
@@ -305,12 +303,10 @@ jobs:
 <% if (it.hasMigrations) { %>            migrate:
               environment:
                 NF_CSRF_SECRET: "${NF_CI_SECRET}"
-                NF_SESSION_SECRET: "${NF_CI_SECRET}"
                 NF_ADMIN_PASSWORD: "${NF_CI_ADMIN_PASSWORD}"
 <% } %>            app-edge:
               environment:
                 NF_CSRF_SECRET: "${NF_CI_SECRET}"
-                NF_SESSION_SECRET: "${NF_CI_SECRET}"
                 NF_ADMIN_PASSWORD: "${NF_CI_ADMIN_PASSWORD}"
                 NF_JWT_KEYSET: '${NF_CI_JWT_KEYSET}'
           YML
