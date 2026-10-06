@@ -286,7 +286,28 @@ for (const { verb, target, value } of ACTIONS) {
       break;
     }
   }
-  locator ??= page.locator(target).first();
+  // Aucun candidat visible À CET INSTANT ne dit pas que la cible est un
+  // sélecteur : juste après un clic qui navigue, la page suivante n'est pas
+  // encore rendue. On attend donc le texte OU le sélecteur — et le texte seul
+  // quand la cible n'est pas du CSS valide. Trancher sur l'instant faisait
+  // chercher une balise `<FreeOTP>` une fois sur trois.
+  if (locator === null) {
+    // Une navigation en vol détruirait le contexte de l'évaluation ci-dessous.
+    await page.waitForLoadState("domcontentloaded").catch(() => {});
+    const isCss = await page
+      .evaluate((s) => {
+        try {
+          document.querySelector(s);
+          return true;
+        } catch {
+          return false;
+        }
+      }, target)
+      .catch(() => false);
+    locator = isCss
+      ? candidates.or(page.locator(target)).first()
+      : candidates.first();
+  }
   try {
     await locator.waitFor({ timeout: 15000 });
     if (verb === "clic") await locator.click();
