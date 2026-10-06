@@ -227,6 +227,11 @@ jobs:
           npm run test:externals
           npm run externals:check
           npm run test:pilotage
+          # La chaîne de publication, éprouvée sans rien publier (~2 s). Jouée
+          # SEULEMENT par les workflows de release, elle est restée rouge un jour
+          # entier après l'ADR-0014 sans que la branche le voie : le jour de la
+          # publication, c'est la release qui serait tombée.
+          npm run test:release
 
       # Licences — Nodefony se distribue sous CeCILL-B, permissive de type BSD.
       # Une dépendance copyleft fort (GPL, AGPL, SSPL) entrée TRANSITIVEMENT par

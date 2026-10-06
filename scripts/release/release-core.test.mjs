@@ -942,7 +942,8 @@ describe("detecterSuspectsImage — la même règle, sur une image publiée", ()
 
   it("rend l'inventaire RÉEL de l'image 10.0.0-alpha.4 fautive", () => {
     // Les cinq fichiers constatés dans l'image publiée le 2026-09-09, plus le
-    // `.env` qui l'accompagne et qui, lui, est légitime.
+    // `.env` qui l'accompagnait — légitime à l'époque, refusé depuis l'ADR-0014
+    // (le `.env` porte les valeurs du POSTE : il n'entre jamais dans une image).
     expect(
       detecterSuspectsImage([
         "app/index.js",
@@ -953,7 +954,7 @@ describe("detecterSuspectsImage — la même règle, sur une image publiée", ()
         "app/nodefony/config/certificates/server/privkey.pem",
         "app/nodefony/config/certificates/server/publickey.pem",
       ]),
-    ).toHaveLength(5);
+    ).toHaveLength(6);
   });
 });
 
