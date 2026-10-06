@@ -193,6 +193,12 @@ Keycloak, donc justes à chaque mise à jour) :
 Le compose pose aussi `KC_SPI_THEME__DEFAULT: nodefony` : le realm `master`, que l'import ne touche
 pas, prend le même thème — sa connexion et sa console d'administration comprises. Clair et sombre
 suivent le réglage du système (`prefers-color-scheme`) ; le réglage _Dark mode_ du realm le coupe.
+Le realm `master` n'est **pas importé** (Keycloak le crée au premier démarrage, l'import ne le touche
+pas) : il naît sans internationalisation, donc en anglais et sans sélecteur de langue. Le régler une
+fois dans sa console — _Realm settings › Localization_ : internationalisation activée, `fr` et `en`,
+`fr` par défaut. Le réglage vit dans le volume `keycloak-data` : il survit aux redémarrages, pas à
+un `down -v`. Sur sa page de connexion, le bouton « Retour à … » n'apparaît pas : il annule la
+connexion, et les consoles de Keycloak lui-même ne savent pas traiter cette annulation.
 
 Les comptes du realm généré reçoivent le rôle `default-roles-<realm>` : un compte importé n'a QUE
 les rôles qu'on lui liste, et sans celui-là la console du compte lui refuse son propre profil

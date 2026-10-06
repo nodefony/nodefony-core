@@ -210,8 +210,12 @@
          `error=access_denied` + `state` (OAuth 2.0, RFC 6749 §4.1.2.1) — c'est
          l'application appelante, quelle qu'elle soit, qui décide où atterrir.
          Seule la page identifiant/mot de passe connaît `cancel` : ailleurs,
-         pas de bouton plutôt qu'un bouton sans effet. -->
-    <#if pageId == "login" && url.loginAction?has_content>
+         pas de bouton plutôt qu'un bouton sans effet.
+         Jamais sur les consoles de Keycloak lui-même (administration,
+         compte) : elles n'ont pas d'autre méthode vers laquelle revenir, et
+         reçoivent `access_denied` en affichant « Something went wrong ». -->
+    <#assign nfKeycloakConsole = client?? && ["security-admin-console", "account-console"]?seq_contains(client.clientId!"")>
+    <#if pageId == "login" && url.loginAction?has_content && !nfKeycloakConsole>
     <form class="nf-back-form" action="${url.loginAction}" method="post" novalidate="novalidate">
       <input type="hidden" name="cancel" value="on"/>
       <button type="submit" class="nf-back">
