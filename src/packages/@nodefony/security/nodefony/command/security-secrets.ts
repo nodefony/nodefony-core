@@ -55,13 +55,14 @@ const ROLES: Record<string, { protected: string; without: string }> = {
   },
   NF_CSRF_SECRET: {
     protected: "signe les jetons anti-rejeu des mutations (`@CsrfProtect`)",
-    without: "en cluster, le jeton émis par un pod est rejeté par les autres",
+    without:
+      "démarrage REFUSÉ en production (code 78) — une valeur tirée au hasard différerait d'un exemplaire à l'autre",
   },
   NF_JWT_KEYSET: {
     protected:
       "signe les jetons JWT (paire Ed25519) — la MÊME pour tous les pods et workers",
     without:
-      "chaque process signe avec la sienne : 401 au hasard derrière plusieurs pods ou workers, et tous les jetons perdus au redémarrage",
+      "démarrage REFUSÉ en production dès que l'application émet des jetons — sinon 401 au hasard derrière plusieurs exemplaires, et tous les jetons perdus au redémarrage",
   },
 };
 
@@ -91,6 +92,10 @@ class SecuritySecrets extends Command {
     this.addOption(
       "-w, --write",
       "écrit les clés manquantes dans le .env du projet (jamais de remplacement)",
+    );
+    this.addOption(
+      "-e, --env",
+      "les 4 secrets en lignes CLÉ=valeur (docker run --env-file, gestionnaire de secrets)",
     );
     this.addOption(
       "-k, --jwt-keyset",
@@ -139,6 +144,7 @@ class SecuritySecrets extends Command {
     json?: boolean;
     write?: boolean;
     jwtKeyset?: boolean;
+    env?: boolean;
   }): Promise<this> {
     // La valeur SEULE, sur la sortie standard : elle se redirige telle quelle
     // vers un gestionnaire de secrets (`| kubectl create secret … --from-file`).
@@ -154,6 +160,20 @@ class SecuritySecrets extends Command {
     if (opts.json) {
       secrets["NF_JWT_KEYSET"] = await generateKeySet();
       process.stdout.write(JSON.stringify(secrets, null, 2) + "\n");
+      return this;
+    }
+    // Une ligne `CLÉ=valeur` par secret, SANS guillemets ni commentaire : c'est
+    // le format que `docker run --env-file` lit tel quel (la valeur est prise
+    // littéralement, le JSON du jeu de clés compris). C'est ce qui permet à une
+    // image de produire ses propres secrets sans outil sur le poste :
+    // `docker run --rm <image> node_modules/.bin/nodefony security:secrets --env > nodefony.env`.
+    if (opts.env) {
+      secrets["NF_JWT_KEYSET"] = await generateKeySet();
+      process.stdout.write(
+        Object.entries(secrets)
+          .map(([k, v]) => `${k}=${v}`)
+          .join("\n") + "\n",
+      );
       return this;
     }
 

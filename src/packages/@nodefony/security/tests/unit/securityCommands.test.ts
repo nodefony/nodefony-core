@@ -231,6 +231,31 @@ describe("security:secrets — on doit savoir QUOI et POURQUOI", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("🔴 --env rend les 4 secrets au format que `docker run --env-file` lit tel quel", async () => {
+    // C'est la voie de la page Docker Hub : l'image produit ses propres
+    // secrets, sans outil sur le poste. `--env-file` prend la valeur
+    // LITTÉRALEMENT — un guillemet ajouté entrerait dans le secret, une ligne
+    // de commentaire ou un saut de ligne dans le JSON casserait la lecture.
+    const cmd = commandeAvecKernel(SecuritySecrets, {});
+    const sortie = await sortieDe(() => cmd.generate({ env: true }));
+    const lignes = sortie.trimEnd().split("\n");
+    expect(lignes.map((l) => l.slice(0, l.indexOf("=")))).toEqual([
+      "NF_TOTP_KEY",
+      "NF_WEBHOOK_KEY",
+      "NF_CSRF_SECRET",
+      "NF_JWT_KEYSET",
+    ]);
+    for (const ligne of lignes) {
+      expect(ligne, "ni guillemet autour de la valeur").toMatch(
+        /^NF_[A-Z_]+=[^"'\s]/u,
+      );
+    }
+    const keyset = lignes[3]?.slice("NF_JWT_KEYSET=".length) ?? "";
+    expect(
+      (JSON.parse(keyset) as { keys: unknown[] }).keys.length,
+    ).toBeGreaterThan(0);
+  });
 });
 
 /**

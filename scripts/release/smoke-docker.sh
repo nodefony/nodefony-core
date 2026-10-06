@@ -205,13 +205,14 @@ for (const type of ["login", "account", "email", "admin"]) {
 }' "$dir/docker/keycloak/import/realm.json" "$theme" \
     || fail "$pm : realm.json absent ou sans les types de thème livrés"
   # Rejoué, le geste ne réécrit RIEN : un fichier présent appartient à l'app.
-  (cd "$dir" && sh -c "$exec_line scaffold:sync --json") > "$WORK/.sync-$pm-2.json" 2>&1 \
-    || fail "$pm : scaffold:sync (2ᵉ passe)"
-  node -e '
-const r = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
-const w = r.flatMap((x) => x.written);
-if (w.length > 0) { throw new Error("2ᵉ passe a réécrit : " + w.join(", ")); }' "$WORK/.sync-$pm-2.json" \
-    || fail "$pm : scaffold:sync n'est pas idempotent"
+  # La sortie HUMAINE, pas `--json` : le lanceur du gestionnaire écrit sur la
+  # même sortie (`yarn run v1.22…`), et un JSON précédé de sa bannière ne
+  # s'analyse plus — l'échec accusait alors l'idempotence à tort.
+  local second
+  second=$(cd "$dir" && sh -c "$exec_line scaffold:sync" 2>&1) \
+    || { printf '%s\n' "$second" | tail -20; fail "$pm : scaffold:sync (2ᵉ passe)"; }
+  [[ "$second" != *"(posé)"* ]] \
+    || { printf '%s\n' "$second" | grep "(posé)"; fail "$pm : scaffold:sync n'est pas idempotent — la 2ᵉ passe a réécrit"; }
   ok "$pm : décor Keycloak posé en vrais fichiers ($(find "$theme" -type f | wc -l | tr -d ' ') fichiers), realm aligné, 2ᵉ passe inerte"
 }
 
@@ -1502,8 +1503,13 @@ if runs cluster; then
   done
   [[ "$cstate" == "exited 78" ]] \
     || { docker logs "$CCTN" 2>&1 | tail -20; fail "sans NF_CSRF_SECRET, la production devait refuser en 78 — état : ${cstate:-inconnu}"; }
-  docker logs "$CCTN" 2>&1 | grep -q "NF_CSRF_SECRET" \
-    || { docker logs "$CCTN" 2>&1 | tail -20; fail "le refus ne nomme pas NF_CSRF_SECRET"; }
+  # Le journal se CAPTURE avant d'être filtré : sous `pipefail`, `docker logs |
+  # grep -q` rend 141 quand grep s'arrête à la première occurrence et que
+  # `docker logs` écrit encore (SIGPIPE) — le banc concluait « absent » sur un
+  # refus qui nommait pourtant la variable (run 37501600076).
+  clogs=$(docker logs "$CCTN" 2>&1)
+  [[ "$clogs" == *NF_CSRF_SECRET* ]] \
+    || { printf '%s\n' "$clogs" | tail -20; fail "le refus ne nomme pas NF_CSRF_SECRET"; }
   docker rm -f "$CCTN" >/dev/null 2>&1 || true
   ok "sans NF_CSRF_SECRET : refus en 78, la variable nommée (la garde MORD)"
 
