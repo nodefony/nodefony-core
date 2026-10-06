@@ -35,7 +35,9 @@
   }
 </style>
 </head>
-<body style="margin:0;padding:0;">
+<#-- Le fond se pose AUSSI sur le corps : sans lui, une boîte en sombre peint
+     sous l'enveloppe le fond par défaut de son moteur, d'une autre teinte. -->
+<body class="nf-page" style="margin:0;padding:0;background:#f1f3f5;">
 <table role="presentation" class="nf-page" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f3f5;">
   <tr>
     <td align="center" style="padding:32px 16px;">
