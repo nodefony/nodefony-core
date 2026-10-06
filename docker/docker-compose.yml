@@ -356,6 +356,11 @@ services:
       # ne parle pas TLS — sans exposer quoi que ce soit hors du conteneur.
       KC_HEALTH_ENABLED: "true"
       KC_HTTP_MANAGEMENT_SCHEME: http
+      # Thème Nodefony par DÉFAUT : il habille aussi le realm `master` — sa
+      # console d'administration et sa connexion —, que l'import ne touche pas.
+      # La page d'accueil ne se choisit que par le serveur, jamais par realm.
+      KC_SPI_THEME__DEFAULT: nodefony
+      KC_SPI_THEME__WELCOME_THEME: nodefony
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-8444}:8443"
     volumes:
@@ -379,6 +384,22 @@ services:
       timeout: 3s
       retries: 30
       start_period: 20s
+
+  # --- Mailpit (profils keycloak + mail — boîte de test, jamais en prod) ---
+  # Reçoit TOUT ce qu'on lui envoie, sans rien délivrer : les courriels de
+  # Keycloak (mot de passe oublié, vérification d'adresse) se lisent dans
+  # l'interface web. Le realm du dépôt le désigne (`smtpServer`, hôte
+  # `mailpit:1025`) ; il démarre donc avec le profil `keycloak`.
+  # Interface : http://localhost:8025 · SMTP depuis l'hôte : localhost:1025.
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    container_name: nodefony-mailpit
+    restart: unless-stopped
+    profiles: ["keycloak", "mail"]
+    networks: [nodefony]
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
 
   # --- OpenSearch (profile opensearch — destination de logs LB.4, driver `opensearch`) ---
   # Single-node. Plugin de sécurité DÉSACTIVÉ en dev (DISABLE_SECURITY_PLUGIN=true) → HTTP simple

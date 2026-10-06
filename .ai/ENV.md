@@ -176,7 +176,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_BASE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:66` |
 | `NF_BROWSER_CATEGORIES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:141` |
 | `NF_BROWSER_CHANNEL` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:57` |
-| `NF_BROWSER_COLOR_SCHEME` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:142` |
+| `NF_BROWSER_COLOR_SCHEME` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:145` |
 | `NF_BROWSER_ENGINE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:75` |
 | `NF_BROWSER_EXPECT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:55` |
 | `NF_BROWSER_FAMILIES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:92` |
@@ -194,7 +194,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_SEUIL_LOURD` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:758` |
 | `NF_BROWSER_SOCKET` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:32` |
 | `NF_BROWSER_SOCKET_WAIT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:61` |
-| `NF_BROWSER_STORAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:154` |
+| `NF_BROWSER_STORAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:157` |
 | `NF_BROWSER_UNTIL` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:24` |
 | `NF_BROWSER_USER` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:85` |
 | `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:852` |

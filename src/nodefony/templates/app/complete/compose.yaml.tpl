@@ -600,6 +600,10 @@ services:
       # healthcheck (dans le conteneur) l'interroge, en clair.
       KC_HEALTH_ENABLED: "true"
       KC_HTTP_MANAGEMENT_SCHEME: http
+      # Thème Nodefony par DÉFAUT : il habille aussi le realm `master` (console
+      # d'administration). La page d'accueil ne se choisit que par le serveur.
+      KC_SPI_THEME__DEFAULT: nodefony
+      KC_SPI_THEME__WELCOME_THEME: nodefony
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-8444}:8443"
     volumes:

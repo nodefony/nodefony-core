@@ -161,7 +161,9 @@
   <#-- NODEFONY : le panneau de gauche montre le REALM et l'APPLICATION qui
        demande la connexion — uniquement avec ce que Keycloak expose aux
        gabarits, donc réglable depuis SA console, sans toucher au thème :
-         · realm.displayNameHtml / displayName / name (Realm settings › General)
+         · realm.displayName / name (Realm settings › General) — jamais
+           `displayNameHtml` : il porte le logo d'un thème qui n'en a pas (le
+           realm `master` y met celui de Keycloak, qui chevauchait le nôtre)
          · client.name / client.description          (Clients › Settings)
          · capacités du realm, lues et non décrites (Realm settings › Login)
          · textes `nf*` surchargeables par realm et par langue
@@ -170,7 +172,7 @@
   <aside class="nf-hero">
     <div class="nf-hero-brand">
       <img src="${url.resourcesPath}/img/logo.png" alt="" class="nf-logo" width="26" height="42"/>
-      <span class="nf-hero-name"><#if realm.displayNameHtml?has_content>${kcSanitize(realm.displayNameHtml)?no_esc}<#else>${nfRealmLabel}</#if></span>
+      <span class="nf-hero-name">${nfRealmLabel}</span>
     </div>
     <div class="nf-hero-body">
       <span class="nf-pill">${msg("nfRealmPill", realm.name)}</span>

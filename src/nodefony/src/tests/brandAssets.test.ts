@@ -95,41 +95,50 @@ const DECLARED: { file: string; kind: "logo" | "favicon"; why: string }[] = [
     kind: "favicon",
     why: "application de développement du dépôt",
   },
-  {
-    file: path.join(
-      "src",
-      "packages",
-      "@nodefony",
-      "security",
-      "keycloak",
-      "themes",
-      "nodefony",
-      "login",
-      "resources",
-      "img",
-      "logo.png",
-    ),
-    kind: "logo",
-    why: "fichier lu par Keycloak dans le thème que livre @nodefony/security",
-  },
-  {
-    file: path.join(
-      "src",
-      "packages",
-      "@nodefony",
-      "security",
-      "keycloak",
-      "themes",
-      "nodefony",
-      "login",
-      "resources",
-      "img",
-      "favicon.ico",
-    ),
-    kind: "favicon",
-    why: "icône d'onglet du thème Keycloak — sans elle, celle de Keycloak s'affiche",
-  },
+  ...keycloakThemeCopies(),
 ];
+
+/**
+ * Les copies que porte le thème Keycloak livré par `@nodefony/security` :
+ * Keycloak ne sert à un type de thème que SES ressources, aucun ne lit celles
+ * d'un autre — d'où une copie par type.
+ */
+function keycloakThemeCopies(): {
+  file: string;
+  kind: "logo" | "favicon";
+  why: string;
+}[] {
+  const theme = path.join(
+    "src",
+    "packages",
+    "@nodefony",
+    "security",
+    "keycloak",
+    "themes",
+    "nodefony",
+  );
+  const copies: [string, "logo" | "favicon", string][] = [
+    ["login", "logo", "panneau de marque de la page de connexion"],
+    ["login", "favicon", "icône d'onglet de la page de connexion"],
+    ["account", "logo", "bandeau de la console du compte"],
+    ["account", "favicon", "icône d'onglet de la console du compte"],
+    ["admin", "logo", "bandeau de la console d'administration"],
+    ["admin", "favicon", "icône d'onglet de la console d'administration"],
+    ["email", "logo", "en-tête des courriels (URL absolue)"],
+    ["welcome", "logo", "page d'accueil du serveur Keycloak"],
+  ];
+  return copies.map(([type, kind, why]) => ({
+    file: path.join(
+      theme,
+      type,
+      "resources",
+      "img",
+      kind === "logo" ? "logo.png" : "favicon.ico",
+    ),
+    kind,
+    why: `thème Keycloak livré par @nodefony/security — ${why}`,
+  }));
+}
 
 /** Fichiers suivis par git — la frontière de ce qui part dans le dépôt. */
 function trackedFiles(): string[] {

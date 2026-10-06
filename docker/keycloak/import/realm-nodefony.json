@@ -6,6 +6,16 @@
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "loginTheme": "nodefony",
+  "accountTheme": "nodefony",
+  "emailTheme": "nodefony",
+  "adminTheme": "nodefony",
+  "resetPasswordAllowed": true,
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "sso@nodefony.test",
+    "fromDisplayName": "Nodefony SSO"
+  },
   "internationalizationEnabled": true,
   "supportedLocales": ["fr", "en"],
   "defaultLocale": "fr",
@@ -107,7 +117,8 @@
           "value": "alice-dev",
           "temporary": false
         }
-      ]
+      ],
+      "realmRoles": ["default-roles-nodefony"]
     },
     {
       "id": "7c0f3b52-9d1e-4a6b-8f2a-3e5c1d9b7a40",
@@ -124,6 +135,7 @@
           "temporary": false
         }
       ],
+      "realmRoles": ["default-roles-nodefony"],
       "clientRoles": {
         "nodefony-dev": ["admin"]
       }
@@ -143,6 +155,7 @@
           "temporary": false
         }
       ],
+      "realmRoles": ["default-roles-nodefony"],
       "requiredActions": ["CONFIGURE_TOTP"],
       "clientRoles": {
         "nodefony-dev": ["admin", "admin-nodefony"]

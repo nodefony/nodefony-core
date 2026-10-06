@@ -111,12 +111,15 @@ if (USER && !LOGIN) {
  * Sans lui, chaque inspection rejoue le parcours de connexion — quelques
  * secondes perdues et une occasion d'échec de plus à chaque exécution.
  *
- * Son nom porte l'IDENTIFIANT (cf {@link authStateName}) : un état est la session
+ * Son nom porte l'IDENTIFIANT et l'ORIGINE (cf {@link authStateName}) : un état est la session
  * de quelqu'un, et le réutiliser pour un autre compte fait mesurer une identité
  * qu'on n'a pas demandée. Effet de bord bienvenu — deux comptes gardent chacun
  * leur session, donc aucun des deux ne se reconnecte à cause de l'autre.
  */
-const STATE = path.join(OUT, authStateName(process.env.NF_BROWSER_USER));
+const STATE = path.join(
+  OUT,
+  authStateName(process.env.NF_BROWSER_USER, baseUrl),
+);
 // Créé AVANT la première écriture : en local, le dossier n'existe pas encore,
 // et l'échec ne surviendrait qu'à la sauvegarde — après la connexion, donc
 // après avoir fait croire que tout allait bien.
@@ -303,7 +306,16 @@ export async function signIn(page, ctx) {
   }
   await pw.fill(PASSWORD, { timeout: 15000 });
   await pw.press("Enter");
-  await page.waitForURL((u) => !u.pathname.endsWith(LOGIN), { timeout: 20000 });
+  // Connexion aboutie = on a quitté l'écran de connexion, OU le formulaire a
+  // disparu. Le second cas est celui d'un fournisseur d'identité (OpenID
+  // Connect) : la page demandée renvoie chez lui, et il RAMÈNE sur cette même
+  // page — l'URL finit donc comme elle a commencé, et attendre de la quitter
+  // expirait sur une connexion réussie. Un mot de passe refusé laisse le champ
+  // en place : les deux attentes expirent, comme avant.
+  await Promise.any([
+    page.waitForURL((u) => !u.pathname.endsWith(LOGIN), { timeout: 20000 }),
+    pw.waitFor({ state: "detached", timeout: 20000 }),
+  ]);
   await ctx.storageState({ path: STATE });
 }
 

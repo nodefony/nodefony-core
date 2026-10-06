@@ -480,6 +480,18 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   endpoint admin `security/oauth/diagnosis` et famille `oauth` de `doctor --live` (échecs seuls).
   ⚠️ La sonde d'autorisation passe par le `fetch` GLOBAL : un fournisseur à transport injecté
   (fixture `test-oidc`) y est vu injoignable — c'est vrai, son IdP n'existe pas.
+- Thème Keycloak (`keycloak/themes/nodefony/`) : 5 types — `login` (parent `keycloak.v2`), `account`
+  (`keycloak.v3`), `admin` (`keycloak.v2`), `email` (`keycloak`, seule `html/template.ftl`),
+  `welcome` (`keycloak`, choisi par le SERVEUR `KC_SPI_THEME__WELCOME_THEME`). Consoles : propriétés
+  `logo=/img/logo.png` (barre INITIALE : la console admin concatène sans séparateur → 404 sinon),
+  `favIcon`, `styles` = variables PatternFly 5 seules ; `nodefony.css` en DEUX exemplaires
+  identiques (account/admin — un type ne lit que SES ressources ; test `scaffoldContribute`).
+  Sombre : `:root.pf-v5-theme-dark` redéfinit les liens en brand-4 (brand-6 sur #1b1d21 = 2,93:1).
+  Courriel : tableaux + styles en ligne, image en `url.resourcesUrl` (absolue). Login : nom du realm
+  en TEXTE (`displayName`/`name`), jamais `displayNameHtml` (celui de `master` porte le logo
+  Keycloak). Copies du logo déclarées dans `brandAssets.test.ts` (`keycloakThemeCopies`).
+- Comptes importés : `realmRoles: [default-roles-<realm>]` (`keycloakDefaultRole`) — l'import
+  n'accorde que les rôles listés ; sans lui la console du compte rend 401.
 - `security:keycloak:realm` (`--write [f]`, `--check [f]`, `--provider`, `--machine`,
   `--backchannel-origin`) : realm d'import DÉRIVÉ de la config effective
   (`deriveKeycloakRealmInput`, `src/oauth/keycloakRealmInput.ts` — PUR) puis construit et

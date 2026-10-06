@@ -51,10 +51,9 @@ const browserOrder = fonctionDe<(explicit: string | undefined) => string[]>(
   probes,
   "browserOrder",
 );
-const authStateName = fonctionDe<(login: string | undefined) => string>(
-  probes,
-  "authStateName",
-);
+const authStateName = fonctionDe<
+  (login: string | undefined, origin?: string) => string
+>(probes, "authStateName");
 const colorSchemeLaunchArgs = fonctionDe<(schema: string | null) => string[]>(
   probes,
   "colorSchemeLaunchArgs",
@@ -556,6 +555,15 @@ describe("authStateName — un état d'authentification a un propriétaire", () 
 
   it("un identifiant absent ne produit pas un nom vide", () => {
     expect(authStateName(undefined).length).toBeGreaterThan("‌.json".length);
+  });
+
+  it("le même identifiant sur deux origines n'est pas la même session", () => {
+    expect(authStateName("admin", "https://127.0.0.1:5152")).not.toBe(
+      authStateName("admin", "https://localhost:8444"),
+    );
+    expect(authStateName("admin", "https://localhost:8444")).toBe(
+      authStateName("admin", "https://localhost:8444"),
+    );
   });
 });
 

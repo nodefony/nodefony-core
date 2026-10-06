@@ -108,6 +108,29 @@ describe("contribution Keycloak de @nodefony/security", () => {
     assert.strictEqual(realm.loginTheme, "nodefony");
   });
 
+  it("le thème livré couvre les CINQ types, et les deux consoles portent la même feuille", () => {
+    const source = keycloakThemeSource();
+    for (const type of ["login", "account", "email", "admin", "welcome"]) {
+      assert.isTrue(
+        existsSync(path.join(source, type, "theme.properties")),
+        `type ${type} absent du thème livré`,
+      );
+    }
+    // Keycloak ne sert à un type que SES ressources : la feuille des consoles
+    // existe en deux exemplaires, qui ne doivent pas diverger.
+    const sheet = (type: string) =>
+      readFileSync(path.join(source, type, "resources", "css", "nodefony.css"));
+    assert.isTrue(
+      sheet("account").equals(sheet("admin")),
+      "account/ et admin/ : nodefony.css divergent",
+    );
+    // La page d'accueil ne se choisit PAS par realm : c'est le serveur qui la
+    // désigne, dans le compose de l'application.
+    const compose = lire(dossierKeycloak(), "compose.yaml");
+    assert.include(compose, "KC_SPI_THEME__WELCOME_THEME: nodefony");
+    assert.include(compose, "KC_SPI_THEME__DEFAULT: nodefony");
+  });
+
   it("ne remplace JAMAIS un fichier présent : une retouche de l'app survit à une nouvelle passe", () => {
     const { dest } = scaffoldWithContribution();
     const css = path.join(

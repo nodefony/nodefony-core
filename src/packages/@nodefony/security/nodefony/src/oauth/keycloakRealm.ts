@@ -194,7 +194,23 @@ function machineClient(
   };
 }
 
+/**
+ * Le rôle composite que Keycloak donne à tout compte CRÉÉ dans le realm —
+ * `manage-account`, `view-profile`, `offline_access`, `uma_authorization`.
+ *
+ * ⚠️ Un compte IMPORTÉ ne le reçoit pas : l'import n'accorde que les rôles
+ * qu'il liste. Sans lui, la console du compte rend 401 sur le profil même de
+ * l'utilisateur.
+ *
+ * @param realm - nom du realm
+ * @returns le nom du rôle par défaut
+ */
+export function keycloakDefaultRole(realm: string): string {
+  return `default-roles-${realm}`;
+}
+
 function userObject(
+  realm: string,
   clientId: string,
   user: IKeycloakUserInput,
 ): TKeycloakObject {
@@ -207,6 +223,7 @@ function userObject(
     firstName: user.firstName,
     lastName: user.lastName,
     credentials: [{ type: "password", value: user.password, temporary: false }],
+    realmRoles: [keycloakDefaultRole(realm)],
     ...(user.clientRoles === undefined || user.clientRoles.length === 0
       ? {}
       : { clientRoles: { [clientId]: [...user.clientRoles] } }),
@@ -255,7 +272,11 @@ export function buildKeycloakRealm(
     ...(Object.keys(roles).length === 0 ? {} : { roles }),
     ...(input.users === undefined || input.users.length === 0
       ? {}
-      : { users: input.users.map((u) => userObject(input.clientId, u)) }),
+      : {
+          users: input.users.map((u) =>
+            userObject(input.realm, input.clientId, u),
+          ),
+        }),
     rememberMe: true,
   };
 }

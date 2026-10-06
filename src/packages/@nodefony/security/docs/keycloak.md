@@ -177,6 +177,30 @@ en `--no-install`, ou fichier supprimé pour reprendre la version du paquet apr�
 npx nodefony scaffold:sync     # pose ce qui manque, ne remplace jamais un fichier présent
 ```
 
+Le thème couvre les **cinq types** de Keycloak, chacun hérité du thème de Keycloak qu'il habille
+(seuls le logo, les couleurs et quelques textes sont posés — les pages restent celles de
+Keycloak, donc justes à chaque mise à jour) :
+
+| Type      | Ce qu'il habille                                   | Hérite de     | Choisi par                                           |
+| --------- | -------------------------------------------------- | ------------- | ---------------------------------------------------- |
+| `login`   | connexion, mot de passe oublié, erreurs            | `keycloak.v2` | le realm (`loginTheme`)                              |
+| `account` | console du compte de l'utilisateur                 | `keycloak.v3` | le realm (`accountTheme`)                            |
+| `admin`   | console d'administration                           | `keycloak.v2` | le realm (`adminTheme`)                              |
+| `email`   | enveloppe HTML de tous les courriels               | `keycloak`    | le realm (`emailTheme`)                              |
+| `welcome` | page d'accueil du serveur (avant le premier admin) | `keycloak`    | le SERVEUR : `KC_SPI_THEME__WELCOME_THEME: nodefony` |
+
+Le compose pose aussi `KC_SPI_THEME__DEFAULT: nodefony` : le realm `master`, que l'import ne touche
+pas, prend le même thème — sa connexion et sa console d'administration comprises. Clair et sombre
+suivent le réglage du système (`prefers-color-scheme`) ; le réglage _Dark mode_ du realm le coupe.
+
+Les comptes du realm généré reçoivent le rôle `default-roles-<realm>` : un compte importé n'a QUE
+les rôles qu'on lui liste, et sans celui-là la console du compte lui refuse son propre profil
+(`401`).
+
+Le realm généré ne déclare **aucun serveur d'envoi** de courriels : « mot de passe oublié » reste
+coupé tant que l'application n'en branche pas un (console : _Realm settings › Email_). Le dépôt,
+lui, en a un de test — Mailpit (`--profile keycloak`, interface `http://localhost:8025`).
+
 1. **Fabriquer le certificat de développement** (une fois — Keycloak le sert en `https`) :
 
    ```bash

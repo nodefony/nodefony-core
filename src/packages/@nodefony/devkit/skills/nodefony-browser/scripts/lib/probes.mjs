@@ -273,15 +273,22 @@ export function environmentDefaults({ inContainer, base, out } = {}) {
  * fragment (`a@b` et `a-b`) — et une collision de nom rouvrirait exactement le
  * trou qu'on ferme.
  *
+ * L'ORIGINE entre dans l'empreinte : le même identifiant sur deux
+ * applications n'est pas la même session. Vécu — `admin` de la console
+ * d'administration (port 5152) et `admin` de Keycloak (port 8444) partageaient
+ * un fichier : la sonde reprenait l'un sur l'autre, retombait sur l'écran de
+ * connexion et le mesurait à la place de la page demandée.
+ *
  * @param {string|undefined} login - l'identifiant de connexion demandé.
+ * @param {string} [origin] - l'origine visée (`NF_BROWSER_BASE`).
  * @returns {string} le nom de fichier, sans dossier.
  */
-export function authStateName(login) {
+export function authStateName(login, origin = "") {
   const raw = login ?? "";
   const readable =
     raw.replace(/[^A-Za-z0-9._-]/gu, "_").slice(0, 40) || "anonyme";
   const fingerprint = createHash("sha256")
-    .update(raw)
+    .update(`${origin}\n${raw}`)
     .digest("hex")
     .slice(0, 8);
   return `.auth-state-${readable}-${fingerprint}.json`;

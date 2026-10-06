@@ -4,6 +4,7 @@ import { describe, it } from "vitest";
 import { assert } from "chai";
 import {
   buildKeycloakRealm,
+  keycloakDefaultRole,
   mergeKeycloakRealm,
   renderKeycloakRealm,
   type IKeycloakRealmInput,
@@ -191,5 +192,36 @@ describe("realm Keycloak — construction depuis la configuration", () => {
       () => mergeKeycloakRealm([], buildKeycloakRealm(devInput)),
       /n'est pas un objet JSON/,
     );
+  });
+
+  it("chaque compte importé porte le rôle par défaut du realm — sinon la console du compte rend 401", () => {
+    // L'import n'accorde QUE les rôles listés : sans `default-roles-<realm>`,
+    // le compte n'a ni `manage-account` ni `view-profile`.
+    const built = buildKeycloakRealm({
+      ...devInput,
+      users: [
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          username: "dora",
+          email: "dora@nodefony.test",
+          firstName: "Dora",
+          lastName: "Test",
+          password: "dora-dev",
+        },
+      ],
+    });
+    const role = keycloakDefaultRole("nodefony");
+    assert.strictEqual(role, "default-roles-nodefony");
+    for (const realm of [built, readRepoRealm()]) {
+      const users = realm.users as TKeycloakObject[];
+      assert.isAbove(users.length, 0);
+      for (const user of users) {
+        assert.include(
+          user.realmRoles as string[],
+          role,
+          `${JSON.stringify(user.username)} sans ${role}`,
+        );
+      }
+    }
   });
 });

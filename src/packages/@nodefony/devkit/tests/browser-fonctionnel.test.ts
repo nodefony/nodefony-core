@@ -24,7 +24,9 @@ afterAll(() => {
  * définition ici déposerait un état que plus personne ne lit — un test de
  * reprise vert qui n'aurait rien repris.
  */
-const authStateName = fonctionDe<(identifiant: string) => string>(
+const authStateName = fonctionDe<
+  (identifiant: string, origine: string) => string
+>(
   await chargerModule("../skills/nodefony-browser/scripts/lib/probes.mjs"),
   "authStateName",
 );
@@ -240,7 +242,7 @@ function sortieJson(r: IResultatSonde): Record<string, unknown> {
  * @param identifiant - le compte pour lequel la sonde le cherchera.
  */
 function poserEtat(contenu: string, identifiant: string = USER): void {
-  const nom = authStateName(identifiant);
+  const nom = authStateName(identifiant, BASE_CONTENEUR);
   const dossier = temporaire(
     mkdtempSync(path.join(tmpdir(), "nf-browser-test-")),
   );
@@ -265,7 +267,12 @@ function poserEtat(contenu: string, identifiant: string = USER): void {
 function relireEtat(identifiant: string = USER): string {
   const res = spawnSync(
     "docker",
-    ["exec", CONTENEUR, "cat", `/output/${authStateName(identifiant)}`],
+    [
+      "exec",
+      CONTENEUR,
+      "cat",
+      `/output/${authStateName(identifiant, BASE_CONTENEUR)}`,
+    ],
     { encoding: "utf8", timeout: 20000 },
   );
   return res.stdout ?? "";
