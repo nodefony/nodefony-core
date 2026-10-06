@@ -635,7 +635,7 @@ Le data plane admin du module expose trois routes (`SecurityAdminApi.ts:308`), t
 | `DELETE /nodefony/security/api/users/{id}/passkeys/{credentialId}` | Reset administrateur, audité (`SecurityAdminApi.ts:590`) |
 
 Deux comportements à connaître : la **redaction est par construction** — la vue admin omet la clé
-publique et le `userId` déjà présent dans le chemin (`toCredentialView()`, `SecurityAdminApi.ts:267`),
+publique et le `userId` déjà présent dans le chemin (`toCredentialView()`, `SecurityAdminApi.ts:275`),
 et ce n'est pas un masquage tardif, le contrat de store ne la produit jamais ; la **lecture est
 défensive** — passkeys désactivées → `{ enabled: false, items: [] }` et non une erreur, la console
 doit afficher « passkeys désactivées », pas un 503 (`SecurityAdminApi.ts:532`). `total: -1` signale un

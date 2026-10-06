@@ -41,14 +41,23 @@ import type { IModuleGated } from "../moduleGating";
  * « 2 » était écrit en dur dans trois tests et dans `liveNotRun`, qui les
  * énumérait à la main. Une famille de plus, et chacun d'eux mentait à sa façon.
  */
-export const LIVE_FAMILIES = ["migrations", "firewall", "gating"] as const;
+export const LIVE_FAMILIES = [
+  "migrations",
+  "firewall",
+  "oauth",
+  "gating",
+] as const;
 
 /** Une famille que seul un boot peut renseigner. */
 export type LiveFamily = (typeof LIVE_FAMILIES)[number];
 
 /** Un manquement constaté sur l'application VIVANTE. */
 export interface ILiveFinding {
-  kind: "migrations-not-ok" | "firewall-config-invalid" | "service-lost";
+  kind:
+    | "migrations-not-ok"
+    | "firewall-config-invalid"
+    | "oauth-provider-failed"
+    | "service-lost";
   /**
    * La phrase du PRODUCTEUR, telle qu'il l'a écrite.
    *
@@ -303,6 +312,108 @@ async function checkFirewall(
   };
 }
 
+/** Le nom lisible de chaque sonde du diagnostic OAuth, côté rapport. */
+const OAUTH_CHECK_LABELS: Record<string, string> = {
+  discovery: "découverte",
+  authorization: "URL de retour",
+  token: "secret",
+};
+
+/**
+ * Le branchement de chaque fournisseur OAuth, tel que le service `oauth2` le
+ * diagnostique — émetteur, URL de retour, secret.
+ *
+ * Ce que seul un boot peut dire, ET seul le réseau : la configuration est
+ * valide dans les fichiers, et le fournisseur la refuse quand même. Le
+ * diagnostic vit dans `@nodefony/security` (le même que
+ * `security:oauth:doctor`) ; on n'en rend que les sondes en ÉCHEC — une sonde
+ * non concluante n'est ni un quitus ni un manquement, la commande dédiée la
+ * montre.
+ */
+async function checkOAuth(
+  broker: IAdminBrokerLike | undefined,
+  caller: IAdminCaller,
+): Promise<{ findings: ILiveFinding[]; execution: IExecution }> {
+  const read = await callAdminEndpoint(
+    broker,
+    {
+      namespace: "security",
+      path: "oauth/diagnosis",
+      label: "diagnostic OAuth",
+    },
+    caller,
+  );
+
+  if (!read.ok) {
+    if (read.reason === "producer-missing")
+      return {
+        findings: [],
+        execution: {
+          ran: false,
+          reason:
+            "aucun module de sécurité chargé — il n'y a pas de fournisseur " +
+            "OAuth dont le branchement pourrait être constaté",
+          short: "sans sécurité",
+          notApplicable: true,
+        },
+      };
+    return {
+      findings: [],
+      execution: {
+        ran: false,
+        reason: read.message,
+        short: "non lisible",
+        ...(read.reason === "endpoint-missing"
+          ? { unlock: "vérifie la version de @nodefony/security" }
+          : {}),
+      },
+    };
+  }
+
+  const providers = isBag(read.data) ? read.data.providers : undefined;
+  if (!Array.isArray(providers))
+    return {
+      findings: [],
+      execution: {
+        ran: false,
+        reason:
+          "le module de sécurité a répondu sans liste de fournisseurs — " +
+          "format inattendu, rien ne peut en être conclu",
+        short: "format inattendu",
+      },
+    };
+  if (providers.length === 0)
+    return {
+      findings: [],
+      execution: {
+        ran: false,
+        reason:
+          "aucun fournisseur OAuth configuré — il n'y a pas de branchement " +
+          "à éprouver",
+        short: "aucun fournisseur",
+        notApplicable: true,
+      },
+    };
+
+  const findings: ILiveFinding[] = [];
+  for (const diagnosis of providers) {
+    const name = readString(diagnosis, "provider") ?? "?";
+    const checks = isBag(diagnosis) ? diagnosis.checks : undefined;
+    if (!Array.isArray(checks)) continue;
+    for (const check of checks) {
+      if (readString(check, "status") !== "failed") continue;
+      const label = OAUTH_CHECK_LABELS[readString(check, "name") ?? ""] ?? "";
+      findings.push({
+        kind: "oauth-provider-failed",
+        message: `${name} — ${label} : ${readString(check, "message") ?? ""}`,
+        action: `nodefony security:oauth:doctor --provider ${name}`,
+        source: "security/oauth/diagnosis",
+      });
+    }
+  }
+  return { findings, execution: { ran: true } };
+}
+
 /**
  * Interroge l'application démarrée, et rend ce qu'elle SAIT d'elle-même.
  *
@@ -320,21 +431,24 @@ export async function collectLiveReport(
   caller: IAdminCaller,
   target: ITargetContext | null = null,
 ): Promise<ILiveResult> {
-  const [migrations, firewall, gating] = await Promise.all([
+  const [migrations, firewall, oauth, gating] = await Promise.all([
     checkMigrations(broker, caller),
     checkFirewall(broker, caller),
+    checkOAuth(broker, caller),
     checkTargetEnv(broker, caller, target),
   ]);
   return {
     findings: [
       ...migrations.findings,
       ...firewall.findings,
+      ...oauth.findings,
       ...gating.findings,
     ],
     ...(gating.gated.length > 0 ? { gatedModules: gating.gated } : {}),
     execution: {
       migrations: migrations.execution,
       firewall: firewall.execution,
+      oauth: oauth.execution,
       gating: gating.execution,
     },
   };

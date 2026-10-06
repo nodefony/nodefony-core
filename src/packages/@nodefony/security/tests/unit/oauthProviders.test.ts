@@ -10,7 +10,10 @@ import {
   getOAuthProviderFactory,
   listOAuthProviders,
 } from "../../nodefony/src/oauth/oauthProviderRegistry";
-import { OAuth2Tokens } from "../../nodefony/src/oauth/oauth2Client";
+import {
+  OAuth2RequestError,
+  OAuth2Tokens,
+} from "../../nodefony/src/oauth/oauth2Client";
 import type { IOidcPkceClient } from "../../nodefony/src/oauth/providers/oidc";
 
 /**
@@ -286,6 +289,42 @@ describe("createGithubProvider (non-OIDC, profil via API)", () => {
     const p = createGithubProvider(ctx);
     await assert.rejects(() =>
       p.fetchProfile(fakeTokens({ access_token: "gh-token" })),
+    );
+  });
+
+  // Codes relevés sur le point de jeton RÉEL de GitHub (200 + `error`) : un
+  // code inventé, puis un secret faux. Non traduits, le diagnostic prenait un
+  // secret accepté pour un refus.
+  it.each([
+    ["bad_verification_code", "invalid_grant"],
+    ["incorrect_client_credentials", "invalid_client"],
+    ["redirect_uri_mismatch", "invalid_grant"],
+  ])(
+    "code GitHub « %s » → « %s » (RFC 6749 §5.2), l'original gardé",
+    async (gh, rfc) => {
+      mockFetch({
+        "https://github.com/login/oauth/access_token": { error: gh },
+      });
+      const p = createGithubProvider(ctx);
+      await assert.rejects(
+        () => p.validateAuthorizationCode({ code: "x", codeVerifier: null }),
+        (error: unknown) =>
+          error instanceof OAuth2RequestError &&
+          error.code === rfc &&
+          (error.description ?? "").includes(gh),
+      );
+    },
+  );
+
+  it("un code GitHub inconnu traverse intact", async () => {
+    mockFetch({
+      "https://github.com/login/oauth/access_token": { error: "autre_chose" },
+    });
+    const p = createGithubProvider(ctx);
+    await assert.rejects(
+      () => p.validateAuthorizationCode({ code: "x", codeVerifier: null }),
+      (error: unknown) =>
+        error instanceof OAuth2RequestError && error.code === "autre_chose",
     );
   });
 });

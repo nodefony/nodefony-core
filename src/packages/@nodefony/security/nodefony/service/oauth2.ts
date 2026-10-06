@@ -28,6 +28,10 @@ import {
   type OAuth2Tokens,
 } from "../src/oauth/oauth2Client";
 import {
+  diagnoseOAuthProvider,
+  type IOAuthDiagnosis,
+} from "../src/oauth/providerDiagnosis";
+import {
   compileProviderRoleMapping,
   isPlatformRole,
   mapProviderRoles,
@@ -727,6 +731,39 @@ class OAuth2Service extends Service {
     url.search = "";
     url.hash = "";
     return url.toString();
+  }
+
+  /**
+   * Diagnostique les fournisseurs CONFIGURÉS sans connexion humaine : découverte
+   * et émetteur, URL de retour acceptée, secret accepté (cf
+   * `diagnoseOAuthProvider`).
+   *
+   * Le fournisseur est construit à NEUF, hors de la mémoïsation du login : un
+   * diagnostic doit voir le serveur tel qu'il est maintenant, et son échec ne
+   * doit pas retirer un bouton de l'écran de connexion.
+   *
+   * @param name - un seul fournisseur ; à défaut, tous ceux de la configuration.
+   * @returns un diagnostic par fournisseur ; vide si le social login est éteint.
+   */
+  async diagnose(name?: string): Promise<IOAuthDiagnosis[]> {
+    if (!this.#ready || this.#config === null) {
+      return [];
+    }
+    const providers = this.#config.oauth2.providers;
+    const names = name === undefined ? Object.keys(providers) : [name];
+    return Promise.all(
+      names.map((n) => {
+        const cfg = Object.hasOwn(providers, n) ? providers[n] : undefined;
+        return diagnoseOAuthProvider({
+          name: n,
+          build: async () => (await this.#buildProvider(n)).provider,
+          clientId: cfg?.clientId ?? "",
+          redirectUri: cfg?.redirectUri ?? "",
+          clientAuthMethod: cfg?.clientAuthMethod,
+          scopes: cfg?.scopes,
+        });
+      }),
+    );
   }
 
   // ── Internes ─────────────────────────────────────────────────────────────────

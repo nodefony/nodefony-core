@@ -133,7 +133,7 @@ Trois partis pris, tous vérifiables au code.
 
 **Le service ne touche ni HTTP ni session.** `OAuth2Service` rend à l'appelant les éléments à
 persister (`url`, `state`, `codeVerifier`) et un simple `{ identifier }` en sortie
-(`IOAuthAuthorization`, `oauth2.ts:173`). Conséquence pratique : la logique OAuth se teste **sans
+(`IOAuthAuthorization`, `oauth2.ts:177`). Conséquence pratique : la logique OAuth se teste **sans
 serveur**, comme `AuthFlow`. Le transport (cookies, redirections 302) vit dans le controller BFF.
 
 **Le login social finit exactement comme un login classique.** Le callback appelle
@@ -144,7 +144,7 @@ d'audit. Il n'existe **aucun** authenticator `oauth2` dans la chaîne du firewal
 c'est l'authenticator `session` qui identifie chaque requête, comme après un mot de passe.
 
 **Coût nul quand on ne s'en sert pas.** Aucune dépendance tierce : le client OAuth 2.0 est écrit
-dans le module (`OAuth2Client`, `oauth2Client.ts:321`), et `jose` — seul recours externe, pour lire les claims de
+dans le module (`OAuth2Client`, `oauth2Client.ts:335`), et `jose` — seul recours externe, pour lire les claims de
 l'ID token — est importé **paresseusement**. Les fournisseurs sont construits une fois puis
 mémoïsés (`OAuth2Service.#resolveProvider()`) : c'est là, une seule fois par processus, que les
 points d'entrée d'un émetteur OIDC sont découverts. Un run qui sert (ports ouverts) les construit
@@ -368,7 +368,7 @@ authentification, pas autorisation » (`oauth2.ts:414-418`, `config.ts:1059-1064
 ### Brancher sa propre politique
 
 Le provisioner est le service `users` **s'il implémente la capability**, détecté par duck-typing
-(`OAuth2Service.#resolveProvisioner()`, `oauth2.ts:812-820`). S'il ne l'implémente pas, le login
+(`OAuth2Service.#resolveProvisioner()`, `oauth2.ts:849-857`). S'il ne l'implémente pas, le login
 **échoue** — jamais de création silencieuse par défaut. Une application qui veut sa propre politique
 (quota d'inscriptions, allowlist de domaines e-mail, rattachement à un tenant) implémente
 `provisionOAuthUser()` sur son service `users` : le profil normalisé `IOAuthProfile`
@@ -462,9 +462,9 @@ donnerait l'illusion de PKCE.
 
 Pas de PKCE, pas d'ID token, pas d'`iss` (`usesPkce: false`, `issuerPolicy: null`,
 `github.ts:68-69`) : ici, la défense anti-CSRF repose **entièrement** sur le `state`. Le profil vient
-de l'API REST `/user` (`createGithubProvider()`, `github.ts:53`). Subtilité GitHub : l'e-mail
+de l'API REST `/user` (`createGithubProvider()`, `github.ts:78`). Subtilité GitHub : l'e-mail
 primaire est souvent privé — l'adaptateur bascule alors sur `/user/emails` et n'accepte
-`emailVerified` que si GitHub le certifie (`github.ts:98-107`).
+`emailVerified` que si GitHub le certifie (`github.ts:127-136`).
 
 ### Enregistrer le sien — sans éditer le cœur
 
@@ -499,7 +499,7 @@ protocole vient de `OAuth2Client`, la fabrique ne fait que lire le profil. C'est
 lignes — `github.ts` en est le modèle.
 
 Un fournisseur qui n'est pas OIDC (pas d'ID token, profil lu à son API) s'écrit comme GitHub
-(`createGithubProvider()`, `github.ts:53`) : `OAuth2Client` porte le protocole, la fabrique ne fait
+(`createGithubProvider()`, `github.ts:78`) : `OAuth2Client` porte le protocole, la fabrique ne fait
 que le mapping du profil. Exemple sans réseau dans le dépôt :
 `src/modules/test/nodefony/secure/oauthTestProvider.ts`.
 
@@ -566,7 +566,7 @@ retenu.
 
 Pour que le fournisseur puisse, à l'inverse, fermer lui-même ces sessions, le login retient aussi
 un **index** — fournisseur et `sid`, **sans** l'ID token — dans les métadonnées de la session
-(`oauth2.ts:532`). Il est là parce que l'énumération des sessions efface les attributs, dans tous
+(`oauth2.ts:536`). Il est là parce que l'énumération des sessions efface les attributs, dans tous
 les stores : c'est la seule partie que le canal arrière peut lire en parcourant le parc. L'écran
 **Sessions** ne l'affiche pas (résumé construit par liste blanche).
 
@@ -708,7 +708,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | Callback échoue au **deuxième** essai                | `state` à usage unique, consommé (`OAuth2Controller.ts:163-165`)                   | Refaire le flux depuis `authorize` — comportement attendu                       |
 | `OAuth issuer mismatch`                              | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:402-408`)                              | Corriger `issuer` (Keycloak : URL exacte du realm)                              |
 | Boot refusé : `….providers.<nom>.issuer`             | Émetteur absent (fabrique `requiresIssuer`) ou mal formé (`checkProviderIssuer()`) | Renseigner l'URL https du realm / de l'émetteur                                 |
-| « provisioning indisponible »                        | `users` n'implémente pas la capability (`oauth2.ts:812-820`)                       | Implémenter `provisionOAuthUser()` sur le service `users`                       |
+| « provisioning indisponible »                        | `users` n'implémente pas la capability (`oauth2.ts:849-857`)                       | Implémenter `provisionOAuthUser()` sur le service `users`                       |
 | Profil connu refusé                                  | `allowSignup: false` sans lien préexistant (`UserService.ts:374`)                  | Activer `allowSignup` ou lier le compte au préalable                            |
 | Doublon de compte pour un utilisateur existant       | Aucune liaison auto par e-mail (choix de sécurité)                                 | Rattacher explicitement, utilisateur connecté                                   |
 | Rôle attendu absent après re-login                   | Rôles posés à la **création** seulement (`UserService.ts:416`), sauf `roleMapping` | Modifier les rôles en base, ou déclarer `roleMapping` ([Keycloak](keycloak.md)) |

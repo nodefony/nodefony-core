@@ -33,6 +33,7 @@ import type {
   IWebAuthnCredentialSummary,
   IWebAuthnListQuery,
 } from "../../contracts/IWebAuthnCredentialStore";
+import type { IOAuthDiagnosis } from "../oauth/providerDiagnosis";
 import { adminActor, auditAdmin } from "./adminAudit";
 import { webhookAdminEndpoints } from "./WebhookAdminApi";
 
@@ -44,6 +45,12 @@ import { webhookAdminEndpoints } from "./WebhookAdminApi";
 interface IAuditReader {
   isEnabled(): boolean;
   listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>>;
+}
+
+/** Vue MINIMALE du service `oauth2` : son diagnostic, rien d'autre. */
+interface IOAuthDiagnoser {
+  isEnabled(): boolean;
+  diagnose(name?: string): Promise<IOAuthDiagnosis[]>;
 }
 
 /**
@@ -339,6 +346,32 @@ export function createSecurityAdminApi(container: Container): IAdminApi {
           return { status: 503, body: { error: "firewall unavailable" } };
         }
         return firewall.describe();
+      },
+    },
+    {
+      path: "oauth/diagnosis",
+      method: "GET",
+      role: "ROLE_NODEFONY_ADMIN",
+      summary:
+        "Diagnostic des fournisseurs OAuth sans connexion humaine : émetteur, " +
+        "URL de retour, secret (?provider=<nom>). Interroge les fournisseurs " +
+        "à chaque appel ; aucun secret rendu.",
+      handler: async (
+        request: IAdminRequest,
+      ): Promise<
+        | { enabled: boolean; providers: IOAuthDiagnosis[] }
+        | IAdminResponse<{ error: string }>
+      > => {
+        const oauth = container.get("oauth2") as IOAuthDiagnoser | undefined;
+        // Social login éteint : une RÉPONSE, pas une panne — il n'y a aucun
+        // fournisseur dont le branchement pourrait échouer.
+        if (!oauth || !oauth.isEnabled()) {
+          return { enabled: false, providers: [] };
+        }
+        const raw = request.query.provider;
+        const provider =
+          typeof raw === "string" && raw !== "" ? raw : undefined;
+        return { enabled: true, providers: await oauth.diagnose(provider) };
       },
     },
     {

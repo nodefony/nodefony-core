@@ -373,7 +373,7 @@ Les modules externes s'enregistrent depuis leur propre `onKernelBoot` :
 | Namespace  | Module               | Enregistrement                                       |
 | ---------- | -------------------- | ---------------------------------------------------- |
 | `http`     | `@nodefony/http`     | `createHttpAdminApi` (`http/index.ts:121`)           |
-| `security` | `@nodefony/security` | `registerSecurityAdminApi` (`security/index.ts:104`) |
+| `security` | `@nodefony/security` | `registerSecurityAdminApi` (`security/index.ts:109`) |
 | `user`     | `@nodefony/user`     | `adminNamespace` (`UserAdminApi.ts:945`)             |
 | `orm`      | `@nodefony/orm-core` | `adminNamespace` (`OrmAdminApi.ts:709`)              |
 

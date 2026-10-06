@@ -866,6 +866,7 @@ export {
   authorizationServerMetadataPath,
   issuerMetadataUrls,
   validateIssuerMetadata,
+  IssuerMismatchError,
   buildAuthorizationServerMetadata,
   extractScopes,
   JWKS_PATH,

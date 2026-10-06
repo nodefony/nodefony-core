@@ -940,6 +940,16 @@ function renderSummary(
           ? "configuration INVALIDE"
           : "zones et authentificateurs cohérents",
     },
+    oauth: {
+      n: manquementsLive(report, "oauth-provider-failed").length,
+      text:
+        manquementsLive(report, "oauth-provider-failed").length > 0
+          ? pluralize(
+              manquementsLive(report, "oauth-provider-failed").length,
+              "sonde",
+            ) + " en échec"
+          : "émetteur, URL de retour et secret acceptés",
+    },
     gating: {
       n: manquementsLive(report, "service-lost").length,
       text:
@@ -1180,6 +1190,12 @@ function findingGroups(
       title: TITLES.firewall,
       items: manquementsLive(report, "firewall-config-invalid").map((f) => ({
         message: f.message,
+      })),
+    },
+    {
+      title: TITLES.oauth,
+      items: manquementsLive(report, "oauth-provider-failed").map((f) => ({
+        message: f.action ? `${f.message}\n  → ${f.action}` : f.message,
       })),
     },
     // `gating` n'est PAS ici : ce qu'il relève n'est pas un problème, et il a

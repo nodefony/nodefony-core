@@ -25,12 +25,14 @@
  */
 import { describe, expect, it } from "vitest";
 import https from "node:https";
+import { isIP } from "node:net";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createDiscoveredOidcProvider,
+  diagnoseOAuthProvider,
   generateCodeVerifier,
   generateState,
   OAuth2RequestError,
@@ -104,7 +106,11 @@ function send({
         // Keycloak : la vraie chaîne de confiance (CA de dev). L'application,
         // jointe par 127.0.0.1, garde la convention des autres bancs.
         ...(toKeycloak
-          ? { ca: readFileSync(CA_FILE), servername: url.hostname }
+          ? {
+              ca: readFileSync(CA_FILE),
+              // Le SNI refuse une adresse IP (RFC 6066 §3) : Node lève.
+              ...(isIP(url.hostname) === 0 ? { servername: url.hostname } : {}),
+            }
           : { rejectUnauthorized: false }),
       },
       (res) => {
@@ -790,6 +796,70 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         OAuth2RequestError,
       );
       expect((refused as OAuth2RequestError).code).toBe("invalid_grant");
+    });
+
+    describe("diagnostic sans connexion (#520) — les verdicts que Keycloak rend VRAIMENT", () => {
+      /** Le diagnostic du framework, sur le client du login à un détail près. */
+      const diagnose = (
+        over: { secret?: string; redirectUri?: string; issuer?: string } = {},
+      ) =>
+        diagnoseOAuthProvider({
+          name: "keycloak",
+          clientId: CLIENT_ID,
+          redirectUri: over.redirectUri ?? REDIRECT_URI,
+          fetch: caFetch,
+          build: () =>
+            createDiscoveredOidcProvider(
+              "keycloak",
+              {
+                clientId: CLIENT_ID,
+                clientSecret: over.secret ?? CLIENT_SECRET,
+                redirectUri: over.redirectUri ?? REDIRECT_URI,
+                issuer: over.issuer ?? ISSUER,
+              },
+              { fetch: caFetch },
+            ),
+        });
+      const kindOf = (d: Awaited<ReturnType<typeof diagnose>>, name: string) =>
+        d.checks.find((c) => c.name === name);
+
+      it("le branchement du dépôt : trois sondes vertes", async () => {
+        const d = await diagnose();
+        expect(
+          d.checks.map((c) => `${c.name}:${c.status}`),
+          JSON.stringify(d.checks),
+        ).toEqual(["discovery:ok", "authorization:ok", "token:ok"]);
+      });
+
+      it("secret faux → secret-rejected (Keycloak : unauthorized_client en 401)", async () => {
+        const d = await diagnose({ secret: "pas-le-bon-secret" });
+        expect(kindOf(d, "authorization")?.status).toBe("ok");
+        expect(kindOf(d, "token")?.kind).toBe("secret-rejected");
+      });
+
+      it("URL de retour non enregistrée → redirect-uri-rejected, le secret reste bon", async () => {
+        const d = await diagnose({
+          redirectUri:
+            "https://inconnue.example/nodefony/security/api/oauth2/keycloak/callback",
+        });
+        expect(kindOf(d, "authorization")?.kind).toBe("redirect-uri-rejected");
+        expect(kindOf(d, "token")?.status).toBe("ok");
+      });
+
+      it("émetteur écrit autrement que Keycloak ne l'annonce → issuer-mismatch", async () => {
+        // `KC_HOSTNAME` fige l'émetteur sur `localhost` : l'interroger par
+        // `127.0.0.1` rend un document qui se déclare d'un autre émetteur.
+        const other = ISSUER.replace("//localhost:", "//127.0.0.1:");
+        expect(other, "émetteur du décor attendu sur localhost").not.toBe(
+          ISSUER,
+        );
+        const d = await diagnose({ issuer: other });
+        expect(
+          kindOf(d, "discovery")?.kind,
+          kindOf(d, "discovery")?.message,
+        ).toBe("issuer-mismatch");
+        expect(kindOf(d, "token")?.status).toBe("skipped");
+      });
     });
   },
 );

@@ -259,6 +259,131 @@ describe("doctor --live — une absence n'est JAMAIS un quitus", () => {
   });
 });
 
+/**
+ * Un module de sécurité à DEUX endpoints — firewall et diagnostic OAuth. Le
+ * décor `producteur` n'en porte qu'un : le diagnostic y serait « endpoint
+ * absent », et l'on n'éprouverait que le refus.
+ */
+const securite = (diagnostic: unknown): IAdminApi =>
+  ({
+    adminNamespace: "security",
+    adminDescriptor: () => ({ name: "security", title: "security" }),
+    adminEndpoints: (): IAdminEndpoint[] => [
+      {
+        path: "firewall",
+        method: "GET",
+        handler: () => ({ configValid: true, configError: null }),
+      },
+      { path: "oauth/diagnosis", method: "GET", handler: () => diagnostic },
+    ],
+  }) as unknown as IAdminApi;
+
+/** Un diagnostic tel que `@nodefony/security` le rend. */
+const diagnostic = (
+  ...sondes: { name: string; status: string; message: string }[]
+) => ({
+  enabled: true,
+  providers: [{ provider: "keycloak", ok: false, checks: sondes }],
+});
+
+describe("doctor --live — les fournisseurs OAuth (#520)", () => {
+  it("🔴 le vocabulaire du décor est celui que @nodefony/security rend VRAIMENT", () => {
+    // Même raison que pour le migrateur : le cœur ne peut pas importer le type,
+    // il lit donc les noms au source quand le module est là.
+    const racine = path.resolve(
+      import.meta.dirname,
+      "../../../packages/@nodefony/security/nodefony/src",
+    );
+    const diag = path.join(racine, "oauth", "providerDiagnosis.ts");
+    const api = path.join(racine, "admin", "SecurityAdminApi.ts");
+    if (!existsSync(diag) || !existsSync(api)) {
+      console.warn(
+        "SAUTÉ — @nodefony/security n'est pas dans cet arbre : le " +
+          "vocabulaire du diagnostic OAuth n'a PAS été confronté à sa source.",
+      );
+      return;
+    }
+    const texte = readFileSync(diag, "utf8");
+    const union = (nom: string): Set<string> => {
+      const debut = texte.indexOf(`export type ${nom}`);
+      assert.isAbove(debut, -1, `type ${nom} introuvable`);
+      const bloc = texte.slice(debut, texte.indexOf(";", debut));
+      return new Set(
+        [...bloc.matchAll(/"([a-z-]+)"/gu)].map((m) => m[1] ?? ""),
+      );
+    };
+    const statuts = union("OAuthCheckStatus");
+    const sondes = union("OAuthCheckName");
+    assert.isTrue(statuts.has("failed"), [...statuts].join(", "));
+    for (const s of ["discovery", "authorization", "token"]) {
+      assert.isTrue(sondes.has(s), `sonde « ${s} » absente du producteur`);
+    }
+    assert.include(readFileSync(api, "utf8"), 'path: "oauth/diagnosis"');
+  });
+
+  it("⭐ une sonde en ÉCHEC devient un manquement : phrase du producteur + geste", async () => {
+    const live = await lire(
+      brokerDe(
+        migrationsSaines,
+        securite(
+          diagnostic(
+            { name: "discovery", status: "ok", message: "métadonnées lues" },
+            { name: "authorization", status: "ok", message: "acceptée" },
+            { name: "token", status: "failed", message: "secret refusé" },
+          ),
+        ),
+      ),
+    );
+    assert.isTrue(live.execution.oauth.ran);
+    assert.lengthOf(live.findings, 1);
+    const [f] = live.findings;
+    assert.equal(f?.kind, "oauth-provider-failed");
+    assert.equal(f?.message, "keycloak — secret : secret refusé");
+    assert.equal(
+      f?.action,
+      "nodefony security:oauth:doctor --provider keycloak",
+    );
+  });
+
+  it("une sonde NON CONCLUANTE ou sautée n'est pas un manquement", async () => {
+    const live = await lire(
+      brokerDe(
+        securite(
+          diagnostic(
+            { name: "discovery", status: "ok", message: "lues" },
+            { name: "authorization", status: "inconclusive", message: "?" },
+            { name: "token", status: "skipped", message: "-" },
+          ),
+        ),
+      ),
+    );
+    assert.deepEqual(live.findings, []);
+    assert.isTrue(live.execution.oauth.ran);
+  });
+
+  it("aucun fournisseur configuré : NON CONTRÔLÉ, pas « tout va bien »", async () => {
+    const live = await lire(
+      brokerDe(securite({ enabled: false, providers: [] })),
+    );
+    assert.isFalse(live.execution.oauth.ran);
+    assert.isTrue(live.execution.oauth.notApplicable);
+    assert.equal(live.execution.oauth.short, "aucun fournisseur");
+  });
+
+  it("un module de sécurité SANS l'endpoint (version ancienne) : non lisible, avec le geste", async () => {
+    const live = await lire(brokerDe(firewallSain));
+    assert.isFalse(live.execution.oauth.ran);
+    assert.isUndefined(live.execution.oauth.notApplicable);
+    assert.include(live.execution.oauth.unlock ?? "", "@nodefony/security");
+  });
+
+  it("une réponse sans liste de fournisseurs ne vaut pas quitus", async () => {
+    const live = await lire(brokerDe(securite({ enabled: true })));
+    assert.isFalse(live.execution.oauth.ran);
+    assert.equal(live.execution.oauth.short, "format inattendu");
+  });
+});
+
 describe("doctor --live — la greffe sur le rapport statique", () => {
   /** Un rapport statique minimal, tel que la lecture pure le produit. */
   const statique = (): IDoctorReport => ({
@@ -331,6 +456,7 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
       dialect: { ran: true },
       migrations: { ran: false, reason: "non demandé", short: "non demandé" },
       firewall: { ran: false, reason: "non demandé", short: "non demandé" },
+      oauth: { ran: false, reason: "non demandé", short: "non demandé" },
       gating: { ran: false, reason: "non demandé", short: "non demandé" },
     },
     // 🔴 Pas de `as unknown as` : il ANNULE le typecheck, et c'est lui qui a

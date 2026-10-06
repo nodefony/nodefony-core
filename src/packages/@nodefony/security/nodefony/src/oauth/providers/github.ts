@@ -1,5 +1,5 @@
 import type { OAuth2Tokens } from "../oauth2Client";
-import { OAuth2Client } from "../oauth2Client";
+import { OAuth2Client, OAuth2RequestError } from "../oauth2Client";
 import { readJsonBounded } from "../httpJson";
 import type { IOAuthProfile } from "@nodefony/user";
 import type { IOAuthProvider } from "../../../contracts/IOAuthProvider";
@@ -45,6 +45,31 @@ async function ghGet(url: string, accessToken: string): Promise<unknown> {
 }
 
 /**
+ * Codes d'erreur PROPRES à GitHub, rendus dans leur équivalent RFC 6749 §5.2
+ * (relevés sur le point de jeton réel : un code inventé rend
+ * `bad_verification_code`, un secret faux `incorrect_client_credentials`,
+ * tous deux en HTTP 200).
+ *
+ * Sans cette traduction, tout ce qui lit le code normalisé — le diagnostic
+ * `security:oauth:doctor` d'abord — prendrait un secret ACCEPTÉ pour un refus.
+ * Le code d'origine reste dans la description, pour le journal.
+ */
+const GITHUB_ERROR_CODES: Readonly<Record<string, string>> = {
+  bad_verification_code: "invalid_grant",
+  incorrect_client_credentials: "invalid_client",
+  // Au point de jeton, une URL de retour discordante invalide le CODE (§5.2).
+  redirect_uri_mismatch: "invalid_grant",
+};
+
+function normalizeGithubError(error: unknown): unknown {
+  if (!(error instanceof OAuth2RequestError)) return error;
+  const code = GITHUB_ERROR_CODES[error.code];
+  if (code === undefined) return error;
+  const description = `${error.description ?? error.code} (GitHub : ${error.code})`;
+  return new OAuth2RequestError(code, description, error.status);
+}
+
+/**
  * Fournisseur **GitHub** (OAuth 2.0 simple, NON-OIDC). Pas de PKCE, pas d'ID
  * token : le profil est lu via l'API REST (`/user`), et l'email — souvent privé —
  * via `/user/emails` (scope `user:email`). GitHub n'émet pas de paramètre `iss`
@@ -73,11 +98,15 @@ export function createGithubProvider(
       // nulle part ailleurs — le reste de la demande passe intact.
       return client.createAuthorizationURL({ ...request, codeVerifier: null });
     },
-    validateAuthorizationCode(request) {
-      return client.validateAuthorizationCode({
-        ...request,
-        codeVerifier: null,
-      });
+    async validateAuthorizationCode(request) {
+      try {
+        return await client.validateAuthorizationCode({
+          ...request,
+          codeVerifier: null,
+        });
+      } catch (error) {
+        throw normalizeGithubError(error);
+      }
     },
     async fetchProfile(tokens: OAuth2Tokens): Promise<IOAuthProfile> {
       const accessToken = tokens.accessToken();

@@ -93,12 +93,26 @@ export class OAuth2RequestError extends Error {
   override readonly code: string;
   /** Description lisible fournie par le serveur, ou `null`. */
   readonly description: string | null;
+  /**
+   * Statut HTTP de la réponse, ou `null` s'il n'est pas connu.
+   *
+   * Le code `error` ne suffit pas toujours à dire QUI est refusé : la RFC 6749
+   * §5.2 réserve `401` à l'échec d'authentification du client, et Keycloak
+   * répond `unauthorized_client` en `401` sur un secret faux — le même code
+   * qu'en `400` pour un flux que le client n'a pas le droit d'employer.
+   */
+  readonly status: number | null;
 
-  constructor(code: string, description: string | null) {
+  constructor(
+    code: string,
+    description: string | null,
+    status: number | null = null,
+  ) {
     super(description === null ? code : `${code}: ${description}`);
     this.name = "OAuth2RequestError";
     this.code = code;
     this.description = description;
+    this.status = status;
   }
 }
 
@@ -428,6 +442,7 @@ export class OAuth2Client {
         typeof data.error_description === "string"
           ? data.error_description
           : null,
+        response.status,
       );
     }
     if (!response.ok) {

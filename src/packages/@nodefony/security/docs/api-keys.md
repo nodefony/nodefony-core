@@ -419,7 +419,7 @@ Trois sources, et il faut connaître les limites de chacune :
 /nodefony/security/api/apikeys` (`SecurityAdminApi.ts:394`), servi par `listPagePat()`
    (`apiKeys.ts:209`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor` et tri
    `order=champ:ASC` (`parseTokenListQuery()`, `SecurityAdminApi.ts:126`), plafonnée à 200 entrées
-   (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts:114`).
+   (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts:122`).
 
    Le tri n'est accepté que sur les champs que le backend branché **déclare** savoir trier
    (`sortableFields()`, `apiKeys.ts:102` → `ITokenStore.sortableFields`) : `createdAt`, `name`,
@@ -634,7 +634,7 @@ deux portées dans une seule page :
 - **Badge « où on écrit »** — la classe réelle du store et son driver, lu défensivement pour que la
   console affiche toujours un état honnête (`API_KEYS_STATUS_ENDPOINT`,
   `studio/frontend/src/routes/apikeys/apiKeysModel.ts:99` ; handler `IApiKeysStatus`,
-  `SecurityAdminApi.ts:54`).
+  `SecurityAdminApi.ts:61`).
 
 Les types du front sont des **miroirs** du contrat serveur — le secret est exclu par construction,
 pas masqué à l'affichage. Voir aussi l'écran **Audit** pour les événements `apikey.created` /

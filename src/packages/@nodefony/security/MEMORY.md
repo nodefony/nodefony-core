@@ -465,6 +465,21 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 - `security:user:list` / `security:user:delete` : liste et suppression. La suppression
   REFUSE le dernier administrateur actif (`countActiveAdmins`) — sans lui, plus personne
   n'administre l'app et le seul recours est une écriture directe en base.
+- `security:oauth:doctor` (`-p <nom>`, `--json`) : diagnostic SANS connexion humaine,
+  `OAuth2Service.diagnose()` → `diagnoseOAuthProvider` (`src/oauth/providerDiagnosis.ts`). Trois
+  sondes : découverte (`IssuerMismatchError` du cœur → `issuer-mismatch`), point d'autorisation
+  (`redirect: "manual"` ; 400 dont la page NOMME `redirect_uri` → `redirect-uri-rejected` — le
+  nom du paramètre ne se traduit pas, la phrase si), point de jeton (code inventé :
+  `invalid_grant` = secret accepté). Un `401`/`invalid_client` n'accuse le SECRET que si la
+  sonde d'autorisation a prouvé le client connu ; sinon `client-rejected`. Keycloak 26.8 :
+  secret faux = `unauthorized_client` 401, client inconnu = `invalid_client` 401 (d'où le statut
+  porté par `OAuth2RequestError.status`). GitHub : codes propres traduits à la source
+  (`providers/github.ts`, `bad_verification_code` → `invalid_grant`, `incorrect_client_credentials`
+  → `invalid_client`). Fournisseur construit à NEUF (hors mémoïsation du login : un échec ne
+  retire pas le bouton). Exit 1 = une sonde échoue, 78 = rien à diagnostiquer. Mêmes données :
+  endpoint admin `security/oauth/diagnosis` et famille `oauth` de `doctor --live` (échecs seuls).
+  ⚠️ La sonde d'autorisation passe par le `fetch` GLOBAL : un fournisseur à transport injecté
+  (fixture `test-oidc`) y est vu injoignable — c'est vrai, son IdP n'existe pas.
 - `security:keycloak:realm` (`--write [f]`, `--check [f]`, `--provider`, `--machine`,
   `--backchannel-origin`) : realm d'import DÉRIVÉ de la config effective
   (`deriveKeycloakRealmInput`, `src/oauth/keycloakRealmInput.ts` — PUR) puis construit et

@@ -167,6 +167,34 @@ export function issuerMetadataUrls(issuer: string): string[] {
 }
 
 /**
+ * Refus d'un document de métadonnées qui se déclare d'un AUTRE émetteur que
+ * celui interrogé (RFC 8414 §3.3, OpenID Connect Discovery §4.3).
+ *
+ * Une classe à part, et non une `Error` de plus : c'est le seul refus de la
+ * découverte qui désigne une configuration fausse plutôt qu'un serveur absent
+ * ou malformé — le plus souvent l'adresse du realm écrite autrement que celle
+ * que Keycloak annonce (hôte, port, proxy). Un diagnostic doit pouvoir le
+ * nommer sans lire la phrase.
+ */
+export class IssuerMismatchError extends Error {
+  /** Émetteur que le document déclare, sous sa forme canonique. */
+  readonly declaredIssuer: string;
+  /** Émetteur interrogé, tel que la configuration l'écrit. */
+  readonly expectedIssuer: string;
+
+  constructor(declared: string, expected: string) {
+    super(
+      `métadonnées d'émetteur : le document déclare « ${declared} » alors ` +
+        `qu'il a été demandé à « ${expected} ». RFC 8414 §3.3 impose ` +
+        `l'égalité — un document qui parle au nom d'un autre est rejeté.`,
+    );
+    this.name = "IssuerMismatchError";
+    this.declaredIssuer = declared;
+    this.expectedIssuer = expected;
+  }
+}
+
+/**
  * Juge un document de métadonnées reçu.
  *
  * ⭐ **L'égalité stricte de l'émetteur est la garde centrale** (RFC 8414 §3.3,
@@ -186,7 +214,8 @@ export function issuerMetadataUrls(issuer: string): string[] {
  * @param document - le document tel que reçu (JSON déjà analysé)
  * @param expectedIssuer - émetteur canonique utilisé pour composer l'URL
  * @returns les deux champs retenus
- * @throws Error si le document ne peut pas être utilisé
+ * @throws IssuerMismatchError si le document se déclare d'un autre émetteur
+ * @throws Error si le document ne peut pas être utilisé pour une autre raison
  */
 export function validateIssuerMetadata(
   document: unknown,
@@ -209,11 +238,7 @@ export function validateIssuerMetadata(
     );
   }
   if (declared !== canonicalIssuer(expectedIssuer)) {
-    throw new Error(
-      `métadonnées d'émetteur : le document déclare « ${declared} » alors ` +
-        `qu'il a été demandé à « ${expectedIssuer} ». RFC 8414 §3.3 impose ` +
-        `l'égalité — un document qui parle au nom d'un autre est rejeté.`,
-    );
+    throw new IssuerMismatchError(declared, expectedIssuer);
   }
   const jwksUri = doc.jwks_uri;
   if (typeof jwksUri !== "string" || jwksUri.length === 0) {

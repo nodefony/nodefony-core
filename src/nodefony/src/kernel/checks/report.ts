@@ -142,6 +142,8 @@ export type DoctorFamily =
   | "migrations"
   /** Étage 2 — la cohérence des zones, née de la confrontation au boot. */
   | "firewall"
+  /** Étage 2 — le branchement de chaque fournisseur OAuth (réseau). */
+  | "oauth"
   /** Étage 2 — ce que l'environnement VISÉ fera disparaître (`--env`). */
   | "gating"
   /** Étage 3 — les scripts que le projet DÉCLARE, réellement lancés (`--deep`). */
@@ -169,6 +171,7 @@ export const TITLES: Record<DoctorFamily, string> = {
   guards: "Gardes du projet",
   migrations: "Migrations de schéma",
   firewall: "Cohérence du firewall",
+  oauth: "Fournisseurs OAuth",
   gating: "Écart avec l'environnement visé",
   verify: "Gardes du projet, LANCÉES",
   outdated: "Paquets en retard",
@@ -197,6 +200,7 @@ export const FAMILIES: readonly DoctorFamily[] = [
   // c'est ce qui répond quand l'application ne démarre plus.
   "migrations",
   "firewall",
+  "oauth",
   "gating",
   // L'étage 3 après l'étage 2 : il LANCE des commandes, donc il coûte des
   // secondes là où tout le reste coûte des millisecondes. Ce qui est cher se
