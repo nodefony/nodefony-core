@@ -55,7 +55,7 @@ static shared(opts?: RealtimeOptions): RealtimeClient;
 constructor(opts?: RealtimeOptions, transportFactory?: RealtimeTransportFactory);
 ```
 
-`RealtimeClient.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `RealtimeClient.ts:269-278`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. C'est la forme utilisée par le front (Studio `RootStore.ts:54`).
+`RealtimeClient.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `RealtimeClient.ts:299-309`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. Le noyau client l'appelle lui-même — `RealtimeClient.shared(opt)` (`ClientKernel.ts:224`) ; une application comme Studio ne la nomme plus, elle passe par `createClientKernel` (`RootStore.ts:76`).
 
 `RealtimeOptions` (`RealtimeClient.ts:103-123`) :
 
@@ -209,7 +209,7 @@ receive(frame): JsonRpcFrameKind;       // ingestion d'une frame entrante déjà
 dispose(reason?): void;                 // annule les requêtes sortantes en attente (:743)
 ```
 
-Sans handler `register`, une requête entrante reçoit `-32601` (method not found). Avec, le `result` repart au serveur (confirmation d'action, invalidation de cache poussée, health serveur→client). Côté protocole, un handler qui throw renvoie `-32603` générique au pair (Zero Trust) sauf s'il lève une `RpcError` (alors `code`/`message`/`data` sont exposés volontairement) — `JsonRpcPeer.ts:538-461`.
+Sans handler `register`, une requête entrante reçoit `-32601` (method not found). Avec, le `result` repart au serveur (confirmation d'action, invalidation de cache poussée, health serveur→client). Côté protocole, un handler qui throw renvoie `-32603` générique au pair (Zero Trust) sauf s'il lève une `RpcError` (alors `code`/`message`/`data` sont exposés volontairement) — `JsonRpcPeer.ts:526-577`.
 
 ---
 

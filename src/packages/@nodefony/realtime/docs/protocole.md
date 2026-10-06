@@ -123,7 +123,7 @@ n'a aucune dépendance Node — seulement `setTimeout`. Classer, router, corrél
 est identique des deux côtés, il est donc écrit **une seule fois**. Chaque côté l'entoure de son
 transport et de ses handlers. Historiquement, cette discrimination vivait à deux endroits qui
 divergeaient ; c'est précisément la classe de bug que l'isomorphisme supprime. Le classement
-lui-même est `classifyJsonRpcFrame` (`jsonrpc/index.ts:181`), la brique que partage aussi le
+lui-même est `classifyJsonRpcFrame` (`jsonrpc/index.ts:178`), la brique que partage aussi le
 serveur MCP du framework : les deux portes ne peuvent plus diverger sur ce qu'est une frame valide.
 
 **Le rôle se lit sur `method`, pas sur `id`.** La lecture naïve (« `id` présent = requête ») casse
@@ -485,7 +485,7 @@ décrits dans [la page sécurité](./securite.md).
 | `subscribe` répond `-32601 method not found`                     | Envoyé **avec un `id`** : classé requête, or c'est une notification (`RealtimeController.ts:809`)               | L'émettre sans `id` — `socket.subscribe(canal)`                                   |
 | Le handler passé à `subscribe` n'est jamais appelé               | `RealtimeClient.subscribe()` prend **un seul** argument (`RealtimeClient.ts:533`)                               | `subscribe(canal)` **et** `on(canal, handler)`, deux gestes distincts             |
 | `request()` expire immédiatement, ou ignore le délai             | Signature **positionnelle** `(méthode, params, ms)` (`RealtimeClient.ts:728`) — un objet d'options n'est pas lu | `request(m, p, 5000)` ; le défaut est 30 000 ms                                   |
-| Un tableau de frames n'obtient aucune réponse                    | Le batch n'est pas implémenté : un tableau n'a pas de `jsonrpc` → `invalid` (`jsonrpc/index.ts:181`)            | Une frame = un objet ; le multiplexage remplace le batch                          |
+| Un tableau de frames n'obtient aucune réponse                    | Le batch n'est pas implémenté : un tableau n'a pas de `jsonrpc` → `invalid` (`jsonrpc/index.ts:178`)            | Une frame = un objet ; le multiplexage remplace le batch                          |
 | Une frame malformée ne renvoie **aucune** erreur                 | Ni `-32700` ni `-32600` ne sont émis — silence + audit (`JsonRpcPeer.ts:423`)                                   | Lire le motif `invalid` côté serveur, pas la réponse                              |
 | L'exception du serveur n'arrive jamais au client                 | Zero Trust : tout throw ordinaire devient `-32603` générique (`JsonRpcPeer.ts:573`)                             | Lever une `RpcError` pour exposer volontairement code et `data`                   |
 | Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:219`)                                     | Écouter `realtime:denied` via `onDenied()` (`RealtimeClient.ts:472`)              |

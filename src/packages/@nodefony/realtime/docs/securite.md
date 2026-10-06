@@ -295,7 +295,7 @@ n'est jamais traitée.
 `RealtimeController.onHandshake()` (`RealtimeController.ts:407`) exécute, une fois par connexion :
 
 1. Construction d'un DTO neutre `IRealtimeHandshake` par `buildHandshakeFromContext()`
-   (`RealtimeController.ts:1280`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
+   (`RealtimeController.ts:1288`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
    dépendance à `@nodefony/security` dans le contrat.
 2. Contrôle d'origine (verrou 1).
 3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:961`) :
@@ -321,7 +321,7 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 - `host` optionnel → comparaison **stricte** (insensible à la casse) sur l'en-tête `Host`, sans
   wildcard.
 - Le match porte sur le **path**, query comprise, jamais sur l'URL absolue : `handshakePath()`
-  (`RealtimeController.ts:1332`) extrait `pathname + search` du `WebsocketContext.url`, qui est
+  (`RealtimeController.ts:1340`) extrait `pathname + search` du `WebsocketContext.url`, qui est
   absolu. Sans cette extraction, un matcher `^/nodefony/…` ne se déclencherait jamais.
 
 `@nodefony/security` enregistre ces matchers automatiquement dans `Firewall.#wireRealtime()`
