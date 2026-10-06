@@ -745,6 +745,22 @@ export type {
   IScaffoldContext,
   IScaffoldConnector,
 } from "./cli/scaffold/engine";
+// Le realm Keycloak d'une application : UNE construction pour `create app`
+// (avant installation, `@nodefony/security` n'est pas encore là) et pour
+// `security:keycloak:realm`, qui le réécrit depuis la config effective.
+export {
+  buildKeycloakRealm,
+  mergeKeycloakRealm,
+  renderKeycloakRealm,
+} from "./cli/scaffold/keycloakRealm";
+export type {
+  IKeycloakRealmInput,
+  IKeycloakRoleInput,
+  IKeycloakUserInput,
+  IKeycloakMachineInput,
+  TKeycloakJson,
+  TKeycloakObject,
+} from "./cli/scaffold/keycloakRealm";
 // Où une app créée DEPUIS LE WEB a le droit de naître. En CLI la destination est le
 // `cwd` (l'utilisateur est chez lui) ; par le réseau, elle doit être RECOMPOSÉE côté
 // serveur sous une racine autorisée — un endpoint qui écrit au chemin qu'on lui donne

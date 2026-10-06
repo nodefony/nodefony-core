@@ -1859,10 +1859,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
 
     it("le realm généré a la MÊME forme que celui que le dépôt éprouve", () => {
-      // Deux realms, une seule vérité : le banc Keycloak réel joue celui du
-      // dépôt. Ce qu'il porte (client machine, mapper d'audience, PKCE, pas de
-      // front-channel) doit exister dans celui de l'app — vécu : le realm
-      // généré était né sans audience, et la doc § API y échouait sur `aud`.
+      // Deux realms, UN constructeur (`buildKeycloakRealm`) : le banc Keycloak
+      // réel joue celui du dépôt. Ce qu'il porte (client machine, PKCE, pas de
+      // front-channel, canal arrière) existe dans celui de l'app. L'AUDIENCE,
+      // elle, dérive des zones `external-jwt` (#520) : l'app née n'en a pas,
+      // donc pas de mapper — `security:keycloak:realm --write` le pose quand la
+      // zone arrive. Une audience écrite d'avance ne valait que si l'utilisateur
+      // choisissait exactement cette ressource.
       type Client = {
         clientId: string;
         standardFlowEnabled?: boolean;
@@ -1884,6 +1887,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
                 c.attributes?.["backchannel.logout.session.required"] ?? null,
               mappers: (c.protocolMappers ?? [])
                 .map((m) => m.protocolMapper)
+                .filter((m) => m !== "oidc-audience-mapper")
                 .sort(),
             }),
           )
@@ -1903,6 +1907,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         lire(dossierKeycloak(), "docker", "keycloak", "import", "realm.json"),
       ) as { clients: Client[] };
       assert.deepEqual(forme(genere.clients), forme(depot.clients));
+      for (const c of genere.clients) {
+        assert.notInclude(
+          (c.protocolMappers ?? []).map((m) => m.protocolMapper),
+          "oidc-audience-mapper",
+          `${c.clientId} : aucune zone external-jwt, donc aucune audience`,
+        );
+      }
       // Le front-channel exige une page que l'app n'a pas : back-channel seul.
       for (const c of [...depot.clients, ...genere.clients]) {
         assert.notStrictEqual(c.frontchannelLogout, true, c.clientId);
