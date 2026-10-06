@@ -376,6 +376,20 @@
     </footer>
   </div>
 </div>
+<#-- NODEFONY : un libellé dont la cible `for` n'existe pas est rattaché au champ
+     de son groupe. Keycloak 26.8 écrit `for="form-vertical-name"` sur les deux
+     libellés de `login-config-totp.ftl` : axe relève deux champs sans nom
+     accessible (critique). Réparer ici plutôt que recopier ce gabarit : la copie
+     masquerait ses évolutions, et ce geste est inerte quand la cible existe. -->
+<script>
+  for (const label of document.querySelectorAll("label[for]")) {
+    if (document.getElementById(label.htmlFor)) continue;
+    const field = label
+      .closest(".pf-v5-c-form__group")
+      ?.querySelector("input:not([type=hidden]), select, textarea");
+    if (field?.id) label.htmlFor = field.id;
+  }
+</script>
 </body>
 </html>
 </#macro>
