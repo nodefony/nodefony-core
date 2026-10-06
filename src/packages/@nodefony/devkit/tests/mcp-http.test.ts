@@ -78,8 +78,19 @@ function poster(
   headers: Record<string, string> = {},
   chemin: string = MCP_ENDPOINT_PATH,
 ): Promise<IReponse> {
+  return posterTexte(JSON.stringify(message), headers, chemin);
+}
+
+/**
+ * Poste un corps BRUT — ce que {@link poster} ne sait pas produire : un JSON
+ * illisible, ou un JSON valide qui n'est pas un objet (`null`).
+ */
+function posterTexte(
+  charge: string,
+  headers: Record<string, string> = {},
+  chemin: string = MCP_ENDPOINT_PATH,
+): Promise<IReponse> {
   return new Promise((resoudre, rejeter) => {
-    const charge = JSON.stringify(message);
     const porteur =
       typeof JETON === "string" && chemin === MCP_ENDPOINT_PATH
         ? { authorization: `Bearer ${JETON}` }
@@ -685,6 +696,37 @@ describe.skipIf(raison !== null)(
         "/.well-known/oauth-protected-resource/nodefony/mcp",
       );
       expect(MCP_METADATA_PATH.endsWith(MCP_ENDPOINT_PATH)).toBe(true);
+    });
+
+    describe("corps JSON-RPC limites — sur la route réelle", () => {
+      /** Code d'erreur JSON-RPC d'une réponse, ou `undefined`. */
+      const codeOf = (r: IReponse): number | undefined =>
+        (r.body as { error?: { code: number } } | null)?.error?.code;
+
+      it("CARACTÉRISATION — corps `null` (JSON VALIDE) → 400 + -32700", async () => {
+        const reponse = await posterTexte("null");
+        expect(reponse.status).toBe(400);
+        expect(codeOf(reponse)).toBe(-32700);
+      });
+
+      it("CARACTÉRISATION — corps ILLISIBLE → 400 + -32600", async () => {
+        const reponse = await posterTexte('{"jsonrpc":"2.0","id":1,');
+        expect(reponse.status).toBe(400);
+        expect(codeOf(reponse)).toBe(-32600);
+      });
+
+      it("un LOT (tableau) → 400 + -32600", async () => {
+        const reponse = await posterTexte(
+          '[{"jsonrpc":"2.0","id":1,"method":"ping"}]',
+        );
+        expect(reponse.status).toBe(400);
+        expect(codeOf(reponse)).toBe(-32600);
+      });
+
+      it("CARACTÉRISATION — sans `jsonrpc` → 200", async () => {
+        const reponse = await poster({ id: 1, method: "ping" });
+        expect(reponse.status).toBe(200);
+      });
     });
   },
 );

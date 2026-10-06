@@ -274,6 +274,38 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       expect((resp!.error as { code: number }).code).to.equal(-32601);
     });
 
+    it("action qui rend un résultat NON SÉRIALISABLE → frame -32603 exacte, rien d'autre", async () => {
+      // Une structure circulaire fait lever `JSON.stringify` dans le `send` du
+      // transport : sans repli, l'appelant attendrait son délai pour rien.
+      class CircularRt extends TestRt {
+        protected override realtimeActions(): Record<string, RpcActionHandler> {
+          return {
+            circular: () => {
+              const o: Record<string, unknown> = {};
+              o.self = o;
+              return o;
+            },
+          };
+        }
+      }
+      const { ctx, sent } = makeCtx();
+      const rt = new CircularRt(ctx);
+      rt.feed(null);
+      const before = sent.length;
+      rt.feed(frame({ id: 11, method: "circular" }));
+      await flush();
+      expect(sent.slice(before)).to.deep.equal([
+        {
+          jsonrpc: "2.0",
+          id: 11,
+          error: {
+            code: -32603,
+            message: "internal error: non-serializable payload",
+          },
+        },
+      ]);
+    });
+
     it("RÉPONSE entrante (id sans method) → IGNORÉE (pas de -32601 à tort)", () => {
       const { ctx, sent } = makeCtx();
       const rt = new TestRt(ctx);

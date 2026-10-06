@@ -16,6 +16,9 @@ import {
   MCP_PROTOCOL_VERSION,
   MCP_SUPPORTED_VERSIONS,
   MCP_DEFAULT_NEGOTIATED_VERSION,
+  jsonRpcFailure,
+  jsonRpcSuccess,
+  isNotification,
 } from "../mcp/protocol";
 import type { IMcpCaller, IMcpTool } from "../types/IMcpTool";
 import type { IAdminApi } from "../types/IAdminApi";
@@ -1534,5 +1537,124 @@ describe("mcpDeclaredScopes — la porte publie ce qu'elle EXIGE", () => {
         scopesSupported: [],
       }).scopes_supported,
     ).toBeUndefined();
+  });
+});
+
+/**
+ * Frames LIMITES sur la porte MCP : ce que le serveur fait d'un message que
+ * JSON-RPC 2.0 ou MCP ne permet pas. Chaque cas cite la clause qui le tranche.
+ */
+describe("MCP — frames JSON-RPC limites", () => {
+  /** Code d'erreur d'une réponse, ou `undefined` si ce n'en est pas une. */
+  const codeOf = (body: unknown): number | undefined =>
+    (body as { error?: { code: number } } | null)?.error?.code;
+
+  it("CARACTÉRISATION — sans `jsonrpc` → servi en 200", async () => {
+    const reply = await handleMcpMessage({ id: 1, method: "ping" }, context());
+    expect(reply.status).toBe(200);
+  });
+
+  it('CARACTÉRISATION — `jsonrpc: "1.0"` → servi en 200', async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "1.0", id: 1, method: "ping" },
+      context(),
+    );
+    expect(reply.status).toBe(200);
+  });
+
+  it("CARACTÉRISATION — `id: null` + method → 202, traité en notification", async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: null, method: "ping" },
+      context(),
+    );
+    expect(reply.status).toBe(202);
+    expect(reply.body).toBeNull();
+  });
+
+  it("CARACTÉRISATION — `id` objet → 200, et l'objet est RENVOYÉ en écho", async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: {}, method: "ping" },
+      context(),
+    );
+    expect(reply.status).toBe(200);
+    expect((reply.body as { id: unknown }).id).toEqual({});
+  });
+
+  it("CARACTÉRISATION — `id` fractionnaire → 200", async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 1.5, method: "ping" },
+      context(),
+    );
+    expect(reply.status).toBe(200);
+  });
+
+  it("CARACTÉRISATION — `params` primitif → servi en 200 (remplacé par `{}`)", async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 1, method: "ping", params: "x" },
+      context(),
+    );
+    expect(reply.status).toBe(200);
+  });
+
+  it("CARACTÉRISATION — `params` tableau → servi en 200", async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 1, method: "ping", params: [1] },
+      context(),
+    );
+    expect(reply.status).toBe(200);
+  });
+
+  it("un LOT (tableau) → 400 + -32600, `id: null`", async () => {
+    const reply = await handleMcpMessage(
+      [{ jsonrpc: "2.0", id: 1, method: "ping" }] as never,
+      context(),
+    );
+    expect(reply.status).toBe(400);
+    expect(codeOf(reply.body)).toBe(-32600);
+    expect((reply.body as { id: unknown }).id).toBeNull();
+  });
+
+  it("une RÉPONSE postée par le client → 400 + -32600 (streamable-http : MUST NOT send responses)", async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", id: 1, result: {} },
+      context(),
+    );
+    expect(reply.status).toBe(400);
+    expect(codeOf(reply.body)).toBe(-32600);
+  });
+
+  it("une notification de méthode INCONNUE → 202 (aucune réponse due)", async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", method: "notifications/nope" },
+      context(),
+    );
+    expect(reply.status).toBe(202);
+    expect(reply.body).toBeNull();
+  });
+
+  it("forme EXACTE des réponses — `data` absent quand il n'est pas donné", () => {
+    expect(jsonRpcFailure(1, -32600, "m")).toStrictEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      error: { code: -32600, message: "m" },
+    });
+    expect(jsonRpcFailure(null, -32602, "m", { x: 1 })).toStrictEqual({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32602, message: "m", data: { x: 1 } },
+    });
+    expect(jsonRpcSuccess("a", 1)).toStrictEqual({
+      jsonrpc: "2.0",
+      id: "a",
+      result: 1,
+    });
+  });
+
+  it("CARACTÉRISATION — `isNotification` tient `id: null` pour une notification", () => {
+    expect(isNotification({ jsonrpc: "2.0", method: "x" })).toBe(true);
+    expect(isNotification({ jsonrpc: "2.0", id: null, method: "x" })).toBe(
+      true,
+    );
+    expect(isNotification({ jsonrpc: "2.0", id: 0, method: "x" })).toBe(false);
   });
 });

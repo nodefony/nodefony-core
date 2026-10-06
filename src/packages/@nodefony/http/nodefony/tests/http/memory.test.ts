@@ -341,6 +341,26 @@ const ACTIONS = {
       ws.once("close", () => resolve());
       ws.once("error", reject);
     }),
+  // Le pair JSON-RPC du temps réel (#545) : les scénarios WS ci-dessus font de
+  // l'écho BRUT et ne traversent jamais `JsonRpcPeer`. Celui-ci passe par les
+  // trois voies du pair — notification émise (l'accueil), requête entrante
+  // refusée en `-32601`, notification entrante — sur une socket anonyme.
+  wsJsonRpc: () =>
+    new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(`${WSS}/api/live/realtime`, wsOpts);
+      ws.on("message", (raw: Buffer) => {
+        const frame = JSON.parse(raw.toString()) as {
+          id?: unknown;
+          method?: unknown;
+        };
+        if (frame.method === "realtime:welcome") {
+          ws.send('{"jsonrpc":"2.0","method":"live:say","params":{"text":""}}');
+          ws.send('{"jsonrpc":"2.0","id":1,"method":"bench.absent"}');
+        } else if (frame.id === 1) ws.close();
+      });
+      ws.once("close", () => resolve());
+      ws.once("error", reject);
+    }),
   // Proxy inverse (#528) : relayés AVANT le routage, vers le Vite de la console.
   proxyGet: () => relayedGet(`${VITE}/@vite/env`),
   proxyWs: () => relayedHmr(),
@@ -369,6 +389,7 @@ const WARMUP = {
   wsEcho: 400,
   requestService: 450,
   wsRequestService: 400,
+  wsJsonRpc: 400,
   proxyGet: 450,
   proxyWs: 300,
 } satisfies Record<keyof typeof ACTIONS, number>;
@@ -575,6 +596,14 @@ describe("Memory leaks — WebSocket (requires server)", function () {
       THRESHOLDS.wsRequestService,
     );
     await probesReleased("WS connections resolving a request-scoped service");
+  });
+
+  it("WS JSON-RPC peer round-trips (welcome, -32601, inbound notification) — retains nothing per connection", async () => {
+    await wsLoop(
+      "WS JSON-RPC peer round-trips",
+      plan("wsJsonRpc", 50),
+      THRESHOLDS.wsJsonRpc,
+    );
   });
 
   it("WS upgrade relayed by the reverse proxy — retains nothing per connection", async () => {

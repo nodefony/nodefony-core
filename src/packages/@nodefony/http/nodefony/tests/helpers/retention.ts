@@ -87,6 +87,12 @@ export const THRESHOLDS = {
   requestService: 1024,
   /** connexion WS résolvant un service `request` à chaque message — (0,14 Ko) */
   wsRequestService: 1024,
+  /**
+   * connexion temps réel servie par le pair JSON-RPC (`JsonRpcPeer`) : accueil,
+   * requête refusée en `-32601`, notification entrante — seuil commun appliqué,
+   * pas encore re-mesuré sur 10 passages.
+   */
+  wsJsonRpc: 1024,
   // Bancs de charge (`npm run test:load`, 10 passages sur serveur neuf), par
   // unité indiquée — maximum observé entre parenthèses.
   /** par connexion WS portant 10 messages (`als-load`) — (0,46 Ko) */

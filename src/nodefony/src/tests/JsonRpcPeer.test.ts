@@ -550,4 +550,170 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       });
     });
   });
+
+  // Frames LIMITES : ce que le pair fait de ce que JSON-RPC 2.0 ne permet pas,
+  // ou permet du bout des lèvres. Chaque cas cite la clause qui le tranche.
+  describe("frames limites (JSON-RPC 2.0)", () => {
+    /** Un pair qui journalise aussi ses évènements d'audit. */
+    function auditedPeer() {
+      const sent: unknown[] = [];
+      const notes: { method: string; params: unknown }[] = [];
+      const audits: string[] = [];
+      const peer = new JsonRpcPeer<
+        DefaultEventsMap,
+        DefaultEventsMap,
+        TestActions
+      >({
+        send: (f) => {
+          sent.push(f);
+        },
+        onNotification: (method, params) => notes.push({ method, params }),
+        onFrameAudit: (reason) => audits.push(reason),
+      });
+      return { peer, sent, notes, audits };
+    }
+
+    it("CARACTÉRISATION — `id: null` + method → traité en NOTIFICATION", () => {
+      const { peer, sent, notes, audits } = auditedPeer();
+      expect(peer.receive({ jsonrpc: "2.0", id: null, method: "x" })).to.equal(
+        "notification",
+      );
+      expect(notes).to.deep.equal([{ method: "x", params: undefined }]);
+      expect(sent).to.have.length(0);
+      expect(audits).to.have.length(0);
+    });
+
+    it("CARACTÉRISATION — `id` objet ou booléen + method → traité en NOTIFICATION", () => {
+      const { peer, sent, notes } = auditedPeer();
+      expect(peer.receive({ jsonrpc: "2.0", id: {}, method: "x" })).to.equal(
+        "notification",
+      );
+      expect(peer.receive({ jsonrpc: "2.0", id: true, method: "x" })).to.equal(
+        "notification",
+      );
+      expect(notes).to.have.length(2);
+      expect(sent).to.have.length(0);
+    });
+
+    it("CARACTÉRISATION — `{jsonrpc, id}` sans result ni error → « response » muette", () => {
+      const { peer, sent, audits } = auditedPeer();
+      expect(peer.receive({ jsonrpc: "2.0", id: 5 })).to.equal("response");
+      expect(sent).to.have.length(0);
+      expect(audits).to.have.length(0);
+    });
+
+    it("CARACTÉRISATION — `error` mal formé sur une réponse attendue → rejette (code -32000, message vide)", async () => {
+      const { peer } = auditedPeer();
+      const p = peer.request("do", { a: 1 });
+      peer.receive({ jsonrpc: "2.0", id: 1, error: "boom" });
+      const err = await p.catch((e: unknown) => e);
+      expect(err).to.be.instanceOf(RpcError);
+      expect((err as RpcError).code).to.equal(-32000);
+      expect((err as RpcError).message).to.equal("");
+    });
+
+    it("`id` fractionnaire (§4 « SHOULD NOT », toléré) → réponse avec le MÊME id", async () => {
+      const { peer, sent } = auditedPeer();
+      peer.register("x", () => 1);
+      expect(peer.receive({ jsonrpc: "2.0", id: 1.5, method: "x" })).to.equal(
+        "request",
+      );
+      await flush();
+      expect(sent).to.deep.equal([{ jsonrpc: "2.0", id: 1.5, result: 1 }]);
+    });
+
+    it("`result` ET `error` sur une réponse attendue → l'ERREUR gagne (rejet fidèle)", async () => {
+      const { peer } = auditedPeer();
+      const p = peer.request("do", { a: 1 });
+      peer.receive({
+        jsonrpc: "2.0",
+        id: 1,
+        result: 1,
+        error: { code: -32000, message: "e", data: { status: 409 } },
+      });
+      const err = await p.catch((e: unknown) => e);
+      expect(err).to.be.instanceOf(RpcError);
+      expect((err as RpcError).code).to.equal(-32000);
+      expect((err as RpcError).message).to.equal("e");
+      expect((err as RpcError).data).to.deep.equal({ status: 409 });
+    });
+
+    it("un LOT (§6, tableau) → invalid + audit, aucune réponse", () => {
+      const { peer, sent, audits } = auditedPeer();
+      peer.register("x", () => 1);
+      expect(peer.receive([{ jsonrpc: "2.0", id: 1, method: "x" }])).to.equal(
+        "invalid",
+      );
+      expect(audits).to.deep.equal(["invalid"]);
+      expect(sent).to.have.length(0);
+    });
+
+    it("`params` primitif → transmis TEL QUEL (charges de canal arbitraires)", async () => {
+      const { peer, notes } = auditedPeer();
+      let seen: unknown = null;
+      peer.register("x", (params) => {
+        seen = params;
+        return 1;
+      });
+      peer.receive({ jsonrpc: "2.0", id: 1, method: "x", params: "str" });
+      peer.receive({ jsonrpc: "2.0", method: "chan", params: 42 });
+      await flush();
+      expect(seen).to.equal("str");
+      expect(notes).to.deep.equal([{ method: "chan", params: 42 }]);
+    });
+
+    it("réponse à `id` STRING (jamais émis par nous) → ignorée, l'appel en cours n'est pas touché", async () => {
+      const { peer } = auditedPeer();
+      const p = peer.request("do", { a: 1 });
+      expect(peer.receive({ jsonrpc: "2.0", id: "1", result: 0 })).to.equal(
+        "response",
+      );
+      peer.receive({ jsonrpc: "2.0", id: 1, result: { ok: true } });
+      expect(await p).to.deep.equal({ ok: true });
+    });
+
+    it("`method` non chaîne + `id` → lu comme une réponse", () => {
+      const { peer, sent } = auditedPeer();
+      expect(peer.receive({ jsonrpc: "2.0", id: 3, method: 5 })).to.equal(
+        "response",
+      );
+      expect(sent).to.have.length(0);
+    });
+
+    it("forme EXACTE des frames émises — `params` absent du fil quand il n'est pas donné", () => {
+      const { peer, sent } = auditedPeer();
+      peer.notify("evt");
+      void peer.request("x").catch(() => {});
+      expect(sent).to.deep.equal([
+        { jsonrpc: "2.0", method: "evt", params: undefined },
+        { jsonrpc: "2.0", id: 1, method: "x", params: undefined },
+      ]);
+      expect(sent.map((f) => JSON.stringify(f))).to.deep.equal([
+        '{"jsonrpc":"2.0","method":"evt"}',
+        '{"jsonrpc":"2.0","id":1,"method":"x"}',
+      ]);
+      peer.dispose();
+    });
+
+    it("forme EXACTE d'une erreur émise — `data` absent quand il n'est pas donné", async () => {
+      const { peer, sent } = auditedPeer();
+      peer.register("a", () => {
+        throw new RpcError("refus", -32010);
+      });
+      peer.register("b", () => {
+        throw new RpcError("refus", -32011, { status: 403 });
+      });
+      peer.receive({ jsonrpc: "2.0", id: 1, method: "a" });
+      peer.receive({ jsonrpc: "2.0", id: 2, method: "b" });
+      await flush();
+      expect(sent).to.deep.equal([
+        { jsonrpc: "2.0", id: 1, error: { code: -32010, message: "refus" } },
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          error: { code: -32011, message: "refus", data: { status: 403 } },
+        },
+      ]);
+    });
+  });
 });
