@@ -1734,11 +1734,18 @@ const screenText = (sc: IScreen): string =>
 
 /**
  * Un reste de séquence imprimé en clair : ce qu'on lit quand une séquence a été
- * coupée entre deux paquets ou mal relayée (`[2K`, `[0m`, octet ESC, `�`).
+ * coupée entre deux paquets ou mal relayée (`[2K`, `[0m`, `[?25h`, octet ESC, `�`).
+ *
+ * La lettre finale est BORNÉE aux commandes que le superviseur émet (curseur,
+ * effacement, défilement, couleur, modes) : un journal de requête se termine
+ * par son identifiant hexadécimal (`… 127.0.0.1 [0e46`), et une classe
+ * `[A-Za-z]` le prenait pour une séquence coupée — rouge au hasard, chaque
+ * fois que l'identifiant commençait par un chiffre suivi d'une lettre. Aucune
+ * lettre hexadécimale minuscule n'est dans la liste.
  */
 function garbage(sc: IScreen): string[] {
   return [...sc.history, ...sc.screen].filter((l) =>
-    /\x1b|\[[0-9;]+[A-Za-z]|�/.test(l),
+    /\x1b|\[\??[0-9;]+[ABCDGHJKSTmhl]|�/.test(l),
   );
 }
 
