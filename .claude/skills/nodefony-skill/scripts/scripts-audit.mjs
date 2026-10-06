@@ -117,13 +117,21 @@ function protocolSignals(path) {
   }
   const executes = [];
   const vocabulaire = [];
+  // Un APPEL se cherche dans le CODE, jamais dans un commentaire : une garde qui
+  // EXPLIQUE qu'une page promettait un `docker run` ne lance aucun conteneur.
+  // Ne sont retirés que les commentaires qui OUVRENT une ligne (bloc `/* … */`,
+  // `//`, `#`) — un `/*` ou un `//` au milieu d'une chaîne (`src/**/*.ts`,
+  // `http://`) resterait du code, et l'appel qui le suit ne disparaît pas.
+  const code = src
+    .replace(/^[ \t]*\/\*[\s\S]*?\*\//gmu, "")
+    .replace(/^[ \t]*(?:\/\/|#).*$/gmu, "");
   // Mentionner « docker » ou « localhost » ne suffit pas : un générateur de fichier d'exemple en
   // parle sans jamais s'en servir. On exige un APPEL — lancer le conteneur, frapper le port.
-  if (/(?:docker\s+(?:run|exec|compose|ps)|docker-compose)/i.test(src))
+  if (/(?:docker\s+(?:run|exec|compose|ps)|docker-compose)/i.test(code))
     executes.push("monte un décor docker");
   if (
     /(?:fetch|request|curl|WebSocket|autocannon|got)\s*\(?["'`]?[^\n]{0,40}(?:localhost|127\.0\.0\.1)/i.test(
-      src,
+      code,
     )
   )
     executes.push("frappe un serveur en écoute");

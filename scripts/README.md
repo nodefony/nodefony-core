@@ -23,4 +23,4 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | [`site/lib/`](site/lib/README.md) | Helpers propres au rendu du site de documentation. | 2 |
 | [`repo/`](repo/README.md) | Hygiène de l'arbre de travail : verrous, rangement de tmp/, commit sans verrou orphelin. | 5 |
 | [`ci/`](ci/README.md) | Ce que la forge lance ou éprouve sur elle-même. | 4 |
-| [`release/`](release/README.md) | Chaîne de publication du produit. | 23 |
+| [`release/`](release/README.md) | Chaîne de publication du produit. | 24 |

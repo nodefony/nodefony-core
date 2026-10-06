@@ -81,6 +81,12 @@ Attend le verdict de la CI du commit qu'on s'apprête à publier — et REFUSE s
 - **Appelé par** : `release.yml` · `release/release.mjs`
 - **Utilise** : `release/release-core.mjs`
 
+## [`env-docs.test.mjs`](env-docs.test.mjs)
+
+Les pages qui disent à un DÉPLOYEUR quelles variables poser — la page de l'image sur Docker Hub, le guide Docker, le guide Kubernetes — confrontées aux catalogues qui font foi.
+
+- **Lancé par** : `npm run test:release`
+
 ## [`fix-dts-extensions.mjs`](fix-dts-extensions.mjs)
 
 Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS RELATIFS pour rendre les types publiés conformes à la résolution Node ESM (`node16`/`nodenext` : extension OBLIGATOIRE, doc Node esm.md) — décision d'audit 0.7, cf docs/release/nodefony-10.md §6bis.

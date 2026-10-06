@@ -1383,6 +1383,19 @@
       "testedBy": []
     },
     {
+      "path": "scripts/release/env-docs.test.mjs",
+      "test": true,
+      "purpose": "Les pages qui disent à un DÉPLOYEUR quelles variables poser — la page de l'image sur Docker Hub, le guide Docker, le guide Kubernetes — confrontées aux catalogues qui font foi.",
+      "usage": [],
+      "options": [],
+      "env": [],
+      "output": "",
+      "calledBy": [
+        "npm run test:release"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/release/fix-dts-extensions.mjs",
       "test": false,
       "purpose": "Post-processing des `.d.ts` générés : ajoute les extensions AUX SPECIFIERS RELATIFS pour rendre les types publiés conformes à la résolution Node ESM (`node16`/`nodenext` : extension OBLIGATOIRE, doc Node esm.md) — décision d'audit 0.7, cf docs/release/nodefony-10.md §6bis.",
