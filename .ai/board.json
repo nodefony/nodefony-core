@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T22:02:27.141Z",
+  "generatedAt": "2026-10-06T10:05:03.367Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 81,
+      "closed": 83,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 35,
       "title": "10.0.0-beta"
     },
     {
@@ -1855,8 +1855,8 @@
       "number": 542,
       "title": "feat(env): générer la matrice des variables d'environnement",
       "url": "https://github.com/nodefony/nodefony-core/issues/542",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2075,8 +2075,8 @@
       "number": 519,
       "title": "feat(security): dériver les rôles de l'application des rôles Keycloak",
       "url": "https://github.com/nodefony/nodefony-core/issues/519",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -2097,6 +2097,22 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 3.52,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 544,
+      "title": "feat(security): ajouter une commande d'exemple qui appelle l'API par jeton",
+      "url": "https://github.com/nodefony/nodefony-core/issues/544",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.525,
       "debut": null,
       "cible": null,
       "labels": [
