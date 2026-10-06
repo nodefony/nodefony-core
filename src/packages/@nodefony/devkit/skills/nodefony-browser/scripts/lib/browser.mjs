@@ -141,6 +141,8 @@ mkdirSync(OUT, { recursive: true });
 const { schema: COLOR_SCHEME, invalid: invalidScheme } = parseColorScheme(
   process.env.NF_BROWSER_COLOR_SCHEME,
 );
+/** Schéma de couleurs demandé, `null` sans demande — l'audit le pose aussi au moteur. */
+export { COLOR_SCHEME };
 if (invalidScheme) {
   console.error(
     `NF_BROWSER_COLOR_SCHEME inconnu : « ${invalidScheme} ».\n` +

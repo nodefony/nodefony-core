@@ -19,6 +19,7 @@
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion — aucun défaut deviné
  * `@env` NF_BROWSER_USER identifiant ; sans lui, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
+ * `@env` NF_BROWSER_COLOR_SCHEME `light` ou `dark` — posé au MOTEUR, seul réglage que l'onglet de Lighthouse reçoit ; sans lui, le thème du système
  * `@env` NF_BROWSER_CATEGORIES catégories à jouer, séparées par des virgules (défaut : toutes celles que ce Lighthouse connaît)
  * `@env` NF_BROWSER_FORMFACTOR `desktop` (défaut) ou `mobile` — un score de performance ne veut RIEN dire sans son appareil
  * `@env` NF_BROWSER_SEUIL_AUDIT score en deçà duquel un audit est retenu, en pourcentage (défaut 90)
@@ -31,8 +32,19 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { BASE, LOGIN, PASSWORD, OUTPUT, USER } from "./lib/browser.mjs";
-import { summarizeLighthouse } from "./lib/probes.mjs";
+import {
+  BASE,
+  COLOR_SCHEME,
+  LOGIN,
+  PASSWORD,
+  OUTPUT,
+  USER,
+} from "./lib/browser.mjs";
+import {
+  captureSlug,
+  colorSchemeLaunchArgs,
+  summarizeLighthouse,
+} from "./lib/probes.mjs";
 
 const PAGE = process.argv[2] ?? process.env.NF_BROWSER_PAGE ?? "/";
 const THRESHOLD = Number(process.env.NF_BROWSER_SEUIL_AUDIT ?? 90) / 100;
@@ -88,7 +100,14 @@ const profile = mkdtempSync(path.join(tmpdir(), "nf-audit-"));
 const ctx = await chromium.launchPersistentContext(profile, {
   channel: "chromium",
   ignoreHTTPSErrors: true,
-  args: [`--remote-debugging-port=${port}`, "--no-sandbox"],
+  // `null` : le pilote n'émule rien — c'est le réglage du moteur qui décide,
+  // le même pour la connexion et pour l'onglet de Lighthouse.
+  colorScheme: null,
+  args: [
+    `--remote-debugging-port=${port}`,
+    "--no-sandbox",
+    ...colorSchemeLaunchArgs(COLOR_SCHEME),
+  ],
 });
 
 try {
@@ -153,13 +172,17 @@ try {
   // vérifier — et à comparer dans le temps.
   mkdirSync(OUTPUT, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/gu, "-").slice(0, 19);
-  const slug = PAGE.replace(/\//gu, "-").replace(/^-/u, "") || "racine";
+  const slug = captureSlug(PAGE);
   const fullPath = path.join(OUTPUT, `lighthouse-${slug}-${stamp}.json`);
   writeFileSync(fullPath, JSON.stringify(lhr), "utf8");
 
   console.log(
     JSON.stringify(
-      { ...summarizeLighthouse(lhr, THRESHOLD), fullReport: fullPath },
+      {
+        ...summarizeLighthouse(lhr, THRESHOLD),
+        colorScheme: COLOR_SCHEME ?? "système",
+        fullReport: fullPath,
+      },
       null,
       2,
     ),

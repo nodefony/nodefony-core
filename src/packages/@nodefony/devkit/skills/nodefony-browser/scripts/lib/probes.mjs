@@ -179,6 +179,24 @@ export function parseColorScheme(raw) {
 }
 
 /**
+ * Arguments de lancement qui imposent le schéma de couleurs AU MOTEUR.
+ *
+ * L'émulation du pilote (`colorScheme` d'un contexte) ne vaut que pour les
+ * pages qu'il ouvre lui-même. Lighthouse ouvre son onglet par le protocole de
+ * débogage : sans ce réglage, l'audit mesure le thème du SYSTÈME, sans le dire.
+ * Blink connaît deux valeurs (`0` sombre, `1` clair) — `no-preference` n'en a
+ * pas, et ne pose donc rien.
+ *
+ * @param {string|null} schema - schéma rendu par `parseColorScheme`.
+ * @returns {string[]} arguments à ajouter au lancement du navigateur.
+ */
+export function colorSchemeLaunchArgs(schema) {
+  if (schema === "dark") return ["--blink-settings=preferredColorScheme=0"];
+  if (schema === "light") return ["--blink-settings=preferredColorScheme=1"];
+  return [];
+}
+
+/**
  * Analyse les entrées de stockage à poser avant chargement (`NF_BROWSER_STORAGE`).
  *
  * Pourquoi ce détour plutôt qu'un réglage de thème tout fait : une application
@@ -267,6 +285,35 @@ export function authStateName(login) {
     .digest("hex")
     .slice(0, 8);
   return `.auth-state-${readable}-${fingerprint}.json`;
+}
+
+/**
+ * Nom de fichier d'une capture ou d'un rapport, DÉRIVÉ de la page visée.
+ *
+ * Le chemin donne un fragment LISIBLE ; la requête et le fragment d'URL n'y
+ * entrent jamais tels quels : une page d'autorisation OAuth en porte plusieurs
+ * centaines de caractères (`ENAMETOOLONG`), et `?`, `&`, `%` ou `:` sont
+ * refusés par certains systèmes de fichiers (Windows). Une requête présente
+ * laisse une EMPREINTE, pour que deux variantes d'une même page (`?ui_locales=fr`
+ * et `?ui_locales=en`) ne s'écrasent pas.
+ *
+ * @param {string} page - chemin demandé, requête comprise.
+ * @returns {string} le fragment de nom, sans dossier ni extension (≤ 80 caractères).
+ */
+export function captureSlug(page) {
+  const cut = page.search(/[?#]/u);
+  const pathname = cut === -1 ? page : page.slice(0, cut);
+  const readable =
+    pathname
+      .replace(/[^A-Za-z0-9._-]+/gu, "-")
+      .replace(/^-+|-+$/gu, "")
+      .slice(0, 70) || "racine";
+  if (cut === -1) return readable;
+  const fingerprint = createHash("sha256")
+    .update(page.slice(cut))
+    .digest("hex")
+    .slice(0, 8);
+  return `${readable}-${fingerprint}`;
 }
 
 /**

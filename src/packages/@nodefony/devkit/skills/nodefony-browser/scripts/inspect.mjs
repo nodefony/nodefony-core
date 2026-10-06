@@ -42,6 +42,7 @@ import { open, goTo, LOGIN, OUTPUT } from "./lib/browser.mjs";
 import { sourceWcag } from "./lib/wcag.mjs";
 import {
   FAMILIES,
+  captureSlug,
   parseActions,
   parseFamilies,
   parseProbes,
@@ -836,7 +837,7 @@ if (active.has("stockage")) {
 }
 
 // ── Capture — AVANT la famille responsive, qui déforme le viewport ──────────
-const slug = PAGE.replace(/\//g, "-").replace(/^-/, "") || "racine";
+const slug = captureSlug(PAGE);
 const shot = path.join(OUTPUT, `${slug}-${stamp}.png`);
 // `NF_BROWSER_FULLPAGE=1` : la page ENTIÈRE, pas la fenêtre. Un formulaire long
 // (ou une page qu'on vient de déplier) a l'essentiel SOUS la ligne de flottaison

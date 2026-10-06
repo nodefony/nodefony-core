@@ -55,6 +55,11 @@ const authStateName = fonctionDe<(login: string | undefined) => string>(
   probes,
   "authStateName",
 );
+const colorSchemeLaunchArgs = fonctionDe<(schema: string | null) => string[]>(
+  probes,
+  "colorSchemeLaunchArgs",
+);
+const captureSlug = fonctionDe<(page: string) => string>(probes, "captureSlug");
 const environmentDefaults = fonctionDe<
   (stage: { inContainer: boolean; base?: string; out?: string }) => {
     base: string;
@@ -551,6 +556,60 @@ describe("authStateName — un état d'authentification a un propriétaire", () 
 
   it("un identifiant absent ne produit pas un nom vide", () => {
     expect(authStateName(undefined).length).toBeGreaterThan("‌.json".length);
+  });
+});
+
+/**
+ * Lighthouse ouvre SON onglet par le protocole de débogage : l'émulation posée
+ * par le pilote sur ses propres pages ne l'atteint pas, et l'audit suivait le
+ * thème du SYSTÈME sans le dire. Seul un réglage du moteur, posé au lancement,
+ * vaut pour tous les onglets.
+ */
+describe("colorSchemeLaunchArgs — le thème d'un audit se choisit au lancement", () => {
+  it("sombre et clair donnent deux réglages distincts", () => {
+    expect(colorSchemeLaunchArgs("dark")).toEqual([
+      "--blink-settings=preferredColorScheme=0",
+    ]);
+    expect(colorSchemeLaunchArgs("light")).toEqual([
+      "--blink-settings=preferredColorScheme=1",
+    ]);
+  });
+
+  it("sans demande, aucun réglage : le moteur garde sa valeur", () => {
+    expect(colorSchemeLaunchArgs(null)).toEqual([]);
+    expect(colorSchemeLaunchArgs("no-preference")).toEqual([]);
+  });
+});
+
+/**
+ * Le nom d'une capture dérive de la page visée. Défaut vécu : une page
+ * d'autorisation OAuth (`/realms/x/protocol/openid-connect/auth?client_id=…`)
+ * portait sa requête ENTIÈRE dans le nom — ENAMETOOLONG au moment d'écrire, et
+ * un `?` que Windows refuse de toute façon.
+ */
+describe("captureSlug — une page devient un nom de fichier sûr", () => {
+  const auth =
+    "/realms/nodefony/protocol/openid-connect/auth?client_id=nodefony-dev&response_type=code&scope=openid&state=abc&redirect_uri=https%3A%2F%2Flocalhost%3A5152%2Fcallback";
+
+  it("aucun caractère refusé par un système de fichiers, requête comprise", () => {
+    expect(captureSlug(auth)).not.toMatch(/[/\\:*?"<>|%&=]/u);
+  });
+
+  it("reste court, même sur une requête de plusieurs centaines de caractères", () => {
+    expect(
+      captureSlug(auth + "&x=" + "y".repeat(400)).length,
+    ).toBeLessThanOrEqual(80);
+  });
+
+  it("garde le chemin lisible — on reconnaît sa capture dans le dossier", () => {
+    expect(captureSlug("/nodefony/supervision")).toBe("nodefony-supervision");
+    expect(captureSlug("/")).toBe("racine");
+  });
+
+  it("sens négatif : deux requêtes différentes sur le même chemin ne se confondent pas", () => {
+    expect(captureSlug("/auth?ui_locales=fr")).not.toBe(
+      captureSlug("/auth?ui_locales=en"),
+    );
   });
 });
 
