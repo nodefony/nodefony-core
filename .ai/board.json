@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T13:39:47.038Z",
+  "generatedAt": "2026-10-06T14:19:25.587Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 83,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -2270,6 +2270,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 545,
+      "title": "refactor(core): partager les briques JSON-RPC entre temps réel et MCP",
+      "url": "https://github.com/nodefony/nodefony-core/issues/545",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.9,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 155,
