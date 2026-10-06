@@ -161,6 +161,60 @@ scaffold_app() { # nom dir preset frontend [database] [gestionnaire]
   ok "app « $name » générée ($preset / front=$front${db:+ / database=$db}${pm:+ / $pm})"
 }
 
+# Ligne de commande d'un gestionnaire, rendue par la règle du paquet INSTALLÉ.
+pm_line() { # gestionnaire clé [argument]
+  (cd "$SCAFFOLDER" && node --input-type=module -e '
+const [pm, key, arg] = process.argv.slice(1);
+const m = await import("nodefony");
+if (typeof m.packageManagerToolchain !== "function") {
+  throw new Error("le tarball nodefony n exporte pas packageManagerToolchain");
+}
+const lines = { ...m.packageManagerCommandLines(pm), ...m.packageManagerToolchain(pm) };
+const v = lines[key];
+if (v === undefined || v === null) { throw new Error("clé inconnue : " + key); }
+process.stdout.write(typeof v === "function" ? v(arg) : String(v));
+' "$@")
+}
+
+# Les fichiers que livrent les paquets installés (`nodefony.contribute`) — le
+# geste que `create app --no-install` NOMME (« install puis scaffold:sync »),
+# joué tel que le produit l'écrit pour CE gestionnaire. Le décor Keycloak du
+# preset complet en est la seule contribution aujourd'hui : le compose le monte
+# depuis `docker/keycloak/`, il doit donc y être EN VRAIS FICHIERS. Un lien
+# (pnpm, `--link`) se monterait mal sous Windows ; une copie partielle ferait
+# retomber Keycloak sur son thème par défaut sans le dire.
+assert_contributions() { # dir gestionnaire
+  local dir="$1" pm="$2" exec_line src theme
+  exec_line="$(pm_line "$pm" exec nodefony)"
+  (cd "$dir" && sh -c "$exec_line scaffold:sync") > "$WORK/.sync-$pm.out" 2>&1 \
+    || { tail -30 "$WORK/.sync-$pm.out"; fail "$pm : scaffold:sync"; }
+  src="$dir/node_modules/@nodefony/security/keycloak/themes/nodefony"
+  theme="$dir/docker/keycloak/themes/nodefony"
+  [ -d "$src" ] || fail "$pm : le paquet installé ne livre pas keycloak/themes/nodefony (files du tarball ?)"
+  [ -z "$(find "$theme" -type l 2>/dev/null)" ] || fail "$pm : le thème posé contient des liens symboliques"
+  diff -r "$src" "$theme" > /dev/null || fail "$pm : le thème posé diffère de celui du paquet"
+  node -e '
+const fs = require("node:fs");
+const [realmFile, themeDir] = process.argv.slice(1);
+const realm = JSON.parse(fs.readFileSync(realmFile, "utf8"));
+for (const type of ["login", "account", "email", "admin"]) {
+  if (!fs.existsSync(themeDir + "/" + type)) continue;
+  if (realm[type + "Theme"] !== "nodefony") {
+    throw new Error("le realm ne déclare pas le thème " + type + " livré");
+  }
+}' "$dir/docker/keycloak/import/realm.json" "$theme" \
+    || fail "$pm : realm.json absent ou sans les types de thème livrés"
+  # Rejoué, le geste ne réécrit RIEN : un fichier présent appartient à l'app.
+  (cd "$dir" && sh -c "$exec_line scaffold:sync --json") > "$WORK/.sync-$pm-2.json" 2>&1 \
+    || fail "$pm : scaffold:sync (2ᵉ passe)"
+  node -e '
+const r = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+const w = r.flatMap((x) => x.written);
+if (w.length > 0) { throw new Error("2ᵉ passe a réécrit : " + w.join(", ")); }' "$WORK/.sync-$pm-2.json" \
+    || fail "$pm : scaffold:sync n'est pas idempotent"
+  ok "$pm : décor Keycloak posé en vrais fichiers ($(find "$theme" -type f | wc -l | tr -d ' ') fichiers), realm aligné, 2ᵉ passe inerte"
+}
+
 # L'identité que la suite e2e générée présentera — lue à SA source, la
 # constante que `tests/e2e.setup.ts` importe de `nodefony/testing`, depuis
 # l'application INSTALLÉE (donc le tarball). Jamais extraite du texte du
@@ -725,6 +779,7 @@ process.stdout.write("studio: policy mandatory constatée dans le gabarit\n");
   step "[studio] deps + migration initiale + image"
   rewrite_deps "$SAPP"
   write_initial_migration "$SAPP"
+  assert_contributions "$SAPP" npm
   build_image "$SAPP" "$SIMG"
 
   step "[studio] run — l'UI publiée est-elle servie ?"
@@ -1548,21 +1603,6 @@ fi
 # `packageManagerCommandLines` du tarball) : le banc ne recopie aucune syntaxe,
 # il exécute celle que le gabarit écrit pour l'utilisateur.
 
-# Ligne de commande d'un gestionnaire, rendue par la règle du paquet INSTALLÉ.
-pm_line() { # gestionnaire clé [argument]
-  (cd "$SCAFFOLDER" && node --input-type=module -e '
-const [pm, key, arg] = process.argv.slice(1);
-const m = await import("nodefony");
-if (typeof m.packageManagerToolchain !== "function") {
-  throw new Error("le tarball nodefony n exporte pas packageManagerToolchain");
-}
-const lines = { ...m.packageManagerCommandLines(pm), ...m.packageManagerToolchain(pm) };
-const v = lines[key];
-if (v === undefined || v === null) { throw new Error("clé inconnue : " + key); }
-process.stdout.write(typeof v === "function" ? v(arg) : String(v));
-' "$@")
-}
-
 if runs pm; then
   case "$SCENARIO" in
     pm:*) PM_LIST="${SCENARIO#pm:}" ;;
@@ -1600,6 +1640,7 @@ const m = await import("nodefony");
 process.exit(typeof m.packageManagerToolchain === "function" ? 0 : 1);') \
       || fail "$PM : le nodefony installé n'est PAS celui des tarballs (résolu au registre ?)"
     ok "nodefony résolu depuis les tarballs (marqueur du build courant présent)"
+    assert_contributions "$PAPP" "$PM"
 
     for script in build typecheck; do
       (cd "$PAPP" && sh -c "$(pm_line "$PM" run "$script")") > "$WORK/.pm-$PM-$script.out" 2>&1 \
