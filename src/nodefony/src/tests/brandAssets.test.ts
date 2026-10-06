@@ -97,7 +97,10 @@ const DECLARED: { file: string; kind: "logo" | "favicon"; why: string }[] = [
   },
   {
     file: path.join(
-      "docker",
+      "src",
+      "packages",
+      "@nodefony",
+      "security",
       "keycloak",
       "themes",
       "nodefony",
@@ -107,7 +110,7 @@ const DECLARED: { file: string; kind: "logo" | "favicon"; why: string }[] = [
       "logo.png",
     ),
     kind: "logo",
-    why: "fichier lu par Keycloak dans son thème (copie outillée par #520)",
+    why: "fichier lu par Keycloak dans le thème que livre @nodefony/security",
   },
 ];
 

@@ -55,7 +55,7 @@ qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`deve
 va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
 
 **Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
-le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:577`). Les **commandes de
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:589`). Les **commandes de
 module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
 elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
 
@@ -190,7 +190,7 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Vingt-trois commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:577`),
+Vingt-quatre commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:589`),
 plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
 <!-- prettier-ignore -->
@@ -214,6 +214,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 | `card` | `devkit:card` | **Carte de visite** de l'app : identité, modules installés, où aller, quoi lancer — `--json`, `--cwd` (**0 boot**) | `0 boot` | `CardCommand.ts` |
 | `symbols` | — | Signature et TSDoc d'un symbole du framework, depuis le graphe publié — `--module`, `--json` (**0 boot**) | `0 boot` | `SymbolsCommand.ts` |
 | `ai:sync` | — | Pose dans `.agents/skills/` les **pointeurs** vers les skills livrés par les paquets installés — `--dry-run`, `--json`, `--cwd` (**0 boot**) | `0 boot` | `cli/aiSync.ts` |
+| `scaffold:sync` | — | Pose les **fichiers** que livrent les paquets installés (`nodefony.contribute`), sans jamais remplacer un fichier présent — `--dry-run`, `--json`, `--cwd` (**0 boot**) | `0 boot` | `cli/contributions.ts` |
 | `ai:mcp` | — | Déclare le serveur MCP de l'app à ton agent (**0 boot**) | `0 boot` | `AiMcpCommand.ts` |
 | `see` | — | Ouvre une page dans un navigateur piloté et la **mesure** (**0 boot**) | `0 boot` | `SeeCommand.ts` |
 | `image:check` | — | Refuse une image de conteneur qui embarque un secret (**0 boot**) | `0 boot` | `ImageCommand.ts` |
@@ -249,6 +250,23 @@ des différences surprises. Un pointeur identique n'est jamais réécrit (l'horo
 un pointeur que plus aucun paquet ne livre est **nommé**, jamais supprimé — quelqu'un a pu en
 écrire un à la main sous le même nom.
 
+**`scaffold:sync` pose des COPIES, et c'est voulu.** Certains fichiers doivent exister EN VRAI dans
+l'application : un thème que Keycloak monte depuis le compose (un lien vers `node_modules` se monte
+mal sous Windows, et yarn moderne n'a pas de `node_modules`), un realm d'import que l'application
+fera évoluer. Un paquet le déclare dans son `package.json` :
+
+```json
+{ "nodefony": { "contribute": "./dist/nodefony/scaffold/contribute.js" } }
+```
+
+Ce module exporte `contribute(context)` (type `TAppContributor`) ; le contexte
+(`IAppContributionContext`) n'écrit qu'un fichier ABSENT — un fichier présent appartient à
+l'application, qui a pu le retoucher, et il est rapporté « gardé ». Pour reprendre la version du
+paquet, on supprime le fichier puis on relance. Le cœur ne connaît aucun contributeur : c'est ce qui
+permet à `@nodefony/security` de livrer son décor Keycloak sans que le cœur en sache rien.
+`create app` joue les contributions après l'installation, avant le premier commit ; la commande les
+rejoue après un `--no-install` ou un `npm update`. Elle sort en 1 si une contribution échoue.
+
 ### Les commandes de module
 
 Chaque module ajoute ses commandes dans son constructeur (`Module.addCommand()`, `Module.ts:656`),
@@ -264,13 +282,13 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 | `security:user:add` | Crée un utilisateur (`-p`, `-r roles`, `-a` admin)     | `security-user-add.ts:36`    |
 
 > Une commande introuvable rend le code `EX_USAGE` (64) — **jamais** un repli silencieux sur le
-> serveur (`CliKernel.ts:788`).
+> serveur (`CliKernel.ts:807`).
 
 ## 🏗️ Échafauder — `create`
 
 `create` prend un **type** en argument — **sept** (`app | module | controller | service | front |
 entity | command`, `CREATE_TYPES`, `create.ts:61`) — et route vers un moteur de scaffold unique
-(`runCreateCommand()`, `create.ts:1190`) :
+(`runCreateCommand()`, `create.ts:1228`) :
 
 ```bash
 nodefony create app mon-app --preset complete --frontend react   # nouveau projet
@@ -345,7 +363,7 @@ nodefony completion install zsh       # installation gérée (bloc idempotent da
 
 Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
 suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
-`CliKernel.writeCompletionManifest()`, `CliKernel.ts:614`) ; hors projet, le repli est la liste des
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:628`) ; hors projet, le repli est la liste des
 intégrées en mémoire.
 
 ## 🩺 Codes de sortie

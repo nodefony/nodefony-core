@@ -483,8 +483,8 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 - `security:keycloak:realm` (`--write [f]`, `--check [f]`, `--provider`, `--machine`,
   `--backchannel-origin`) : realm d'import DÉRIVÉ de la config effective
   (`deriveKeycloakRealmInput`, `src/oauth/keycloakRealmInput.ts` — PUR) puis construit et
-  FUSIONNÉ par le cœur (`buildKeycloakRealm`/`mergeKeycloakRealm`, le même constructeur que
-  `create app`). Fichier défaut = l'UNIQUE `.json` de `docker/keycloak/import/`, sinon
+  FUSIONNÉ (`buildKeycloakRealm`/`mergeKeycloakRealm`, `src/oauth/keycloakRealm.ts` — le même
+  constructeur que la contribution `nodefony/scaffold/contribute.ts`). Fichier défaut = l'UNIQUE `.json` de `docker/keycloak/import/`, sinon
   `realm.json`. `onReady`, sans profil de données (aucune base lue). Exit 1 = `--check`
   désaccordé, 78 = fournisseur absent / émetteur sans `/realms/<nom>`.
   Audience = `oauth2.providers.<p>.audiences`, sinon la `resource` de TOUTES les zones

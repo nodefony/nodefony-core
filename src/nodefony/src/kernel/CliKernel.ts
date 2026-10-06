@@ -27,6 +27,7 @@ import Check from "./commands/DoctorCommand";
 import Inspect from "./commands/InspectCommand";
 import Stop from "./commands/StopCommand";
 import AiSync from "./commands/AiSyncCommand";
+import ScaffoldSync from "./commands/ScaffoldSyncCommand";
 import AiMcp from "./commands/AiMcpCommand";
 import GitHooks from "./commands/GitHooksCommand";
 import {
@@ -72,6 +73,7 @@ import { runSymbolsCli } from "../cli/symbols";
 import Image from "./commands/ImageCommand";
 import { runImageCheckCommand } from "../cli/image";
 import { runAiSyncCommand } from "../cli/aiSync";
+import { runScaffoldSyncCommand } from "../cli/contributions";
 import { runAiMcpCommand } from "../cli/aiMcp";
 import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
@@ -360,6 +362,14 @@ class CliKernel extends Cli {
       return process.exit(runAiSyncCommand(process.argv));
     }
 
+    // ─── `scaffold:sync` : les FICHIERS livrés par les paquets — même famille ──
+    // Elle ne lit et n'écrit que des fichiers, et sert justement quand l'app
+    // n'est pas encore construite (après un `--no-install`) : un boot exigerait
+    // un `dist/` qui n'existe pas.
+    if (requested === "scaffold:sync") {
+      return process.exit(await runScaffoldSyncCommand(process.argv));
+    }
+
     // ─── `ai:mcp` : le CÂBLAGE du serveur MCP, même famille ───────────────────
     // Elle n'écrit qu'un fichier (`.mcp.json`) et ne démarre RIEN : le serveur
     // MCP est une route de l'application (`POST /nodefony/mcp`), pas un process.
@@ -605,6 +615,7 @@ class CliKernel extends Cli {
     this.addCommand(See);
     this.addCommand(Image);
     this.addCommand(AiSync);
+    this.addCommand(ScaffoldSync);
     this.addCommand(AiMcp);
     this.addCommand(GitHooks);
   }

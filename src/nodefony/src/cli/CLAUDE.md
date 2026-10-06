@@ -191,27 +191,28 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 Filet d'intégration : `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1` pour les boots réels).
 
-| Command      | Alias         | Fichier                | Note                                                                              |
-| ------------ | ------------- | ---------------------- | --------------------------------------------------------------------------------- |
-| `Start`      | —             | `StartCommand.ts`      | menu interactif (TTY)                                                             |
-| `Dev`        | `dev`         | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone)                         |
-| `Build`      | `compile`     | `BuildCommand.ts`      | point d'arrêt `onRegister`                                                        |
-| `Prod`       | `prod`        | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`                                  |
-| `Cluster`    | —             | `ClusterCommand.ts`    | `--workers`, `--detach`                                                           |
-| `Install`    | —             | `InstallCommand.ts`    |                                                                                   |
-| `Outdated`   | —             | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                                           |
-| `Status`     | —             | `StatusCommand.ts`     | **standalone** (0 boot)                                                           |
-| `Stop`       | —             | `StopCommand.ts`       | **standalone** (0 boot)                                                           |
-| `Completion` | —             | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)                           |
-| `Create`     | —             | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)                                  |
-| `Env`        | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)                           |
-| `Card`       | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)                             |
-| `See`        | —             | `SeeCommand.ts`        | **standalone** — mesure un ÉCRAN, 3 modes (cf § see)                              |
-| `Check`      | `doctor`      | `DoctorCommand.ts`     | **standalone** — diagnostic STATIQUE (cf § check)                                 |
-| `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect)                     |
-| `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — lit le graphe ; `--generate` écrit celui de l'app (cf § symbols) |
-| `ai:sync`    | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)                               |
-| `git:hooks`  | —             | `cli/gitHooks.ts`      | **standalone** — hooks git natifs (cf § git:hooks)                                |
+| Command         | Alias         | Fichier                | Note                                                                              |
+| --------------- | ------------- | ---------------------- | --------------------------------------------------------------------------------- |
+| `Start`         | —             | `StartCommand.ts`      | menu interactif (TTY)                                                             |
+| `Dev`           | `dev`         | `DevCommand.ts`        | + `--detach/--wait/--health/--log` (fast-path standalone)                         |
+| `Build`         | `compile`     | `BuildCommand.ts`      | point d'arrêt `onRegister`                                                        |
+| `Prod`          | `prod`        | `ProdCommand.ts`       | foreground cloud-native, `--workers`, `--detach`                                  |
+| `Cluster`       | —             | `ClusterCommand.ts`    | `--workers`, `--detach`                                                           |
+| `Install`       | —             | `InstallCommand.ts`    |                                                                                   |
+| `Outdated`      | —             | `OutdatedCommand.ts`   | `-j/--json`, `-a/--all` (cf § outdated)                                           |
+| `Status`        | —             | `StatusCommand.ts`     | **standalone** (0 boot)                                                           |
+| `Stop`          | —             | `StopCommand.ts`       | **standalone** (0 boot)                                                           |
+| `Completion`    | —             | `CompletionCommand.ts` | **standalone** — script bash/zsh/fish (cf § Complétion)                           |
+| `Create`        | —             | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)                                  |
+| `Env`           | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)                           |
+| `Card`          | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)                             |
+| `See`           | —             | `SeeCommand.ts`        | **standalone** — mesure un ÉCRAN, 3 modes (cf § see)                              |
+| `Check`         | `doctor`      | `DoctorCommand.ts`     | **standalone** — diagnostic STATIQUE (cf § check)                                 |
+| `Inspect`       | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect)                     |
+| `Symbols`       | —             | `SymbolsCommand.ts`    | **standalone** — lit le graphe ; `--generate` écrit celui de l'app (cf § symbols) |
+| `ai:sync`       | —             | `cli/aiSync.ts`        | **standalone** — pointeurs de skills (cf § ai:sync)                               |
+| `scaffold:sync` | —             | `cli/contributions.ts` | **standalone** — fichiers livrés par les paquets (cf § scaffold:sync)             |
+| `git:hooks`     | —             | `cli/gitHooks.ts`      | **standalone** — hooks git natifs (cf § git:hooks)                                |
 
 Les commandes de MODULE (`http:network`, `proxy:generate`, `frontend:build`…) passent par le
 dispatch différé de `CliKernel` — happy-path couvert e2e (exit 0, 1 Kernel, 0 serveur).
@@ -484,6 +485,30 @@ supprimé. Sort en 66 (`EX_NOINPUT`) hors projet.
 d'installation sont un vecteur d'attaque connu de l'écosystème npm, et écrire dans un dossier
 VERSIONNÉ à chaque installation produirait des différences surprises. `create app` pose une fois
 (après l'install, avant le premier commit) ; cette commande remet à jour quand on le demande.
+
+## `nodefony scaffold:sync` — les FICHIERS livrés par les paquets (standalone 0-boot)
+
+`nodefony scaffold:sync [--dry-run] [--json] [--cwd <path>]` — exécute la contribution de chaque
+paquet installé qui la déclare (`package.json` → `nodefony.contribute`, module ESM exportant
+`contribute(ctx: IAppContributionContext)`). Découverte = `installedPackageRoots`
+(`cli/installedPackages.ts`), la MÊME que `ai:sync` : une règle, une implémentation.
+
+**Le cœur ne connaît aucun contributeur.** C'est la raison d'être du mécanisme : le décor Keycloak
+(realm d'import + thème) vivait dans le cœur parce que `create app` tourne avant l'installation ;
+il est désormais livré par `@nodefony/security`, et le cœur ne nomme plus Keycloak que dans les
+GABARITS du preset `complete` (compose, `.env`), contenu de l'application générée.
+
+- **Copie, pas pointeur** (≠ `ai:sync`) : ces fichiers doivent exister EN VRAI (montés par Docker,
+  retouchés par l'app). Le contexte n'écrit qu'un fichier ABSENT ; un présent est rapporté `kept`.
+- **Chemins en `/`** (ils voyagent : déclarés, affichés) ; `resolveInside` refuse toute sortie de
+  la racine — de l'app pour l'écriture, du paquet pour le module déclaré.
+- **Une contribution qui lève est RAPPORTÉE** (`error`), jamais propagée : les autres passent ;
+  la commande sort alors en 1.
+- `create app` la joue après l'install, avant git (`poseContributions`, même moment que les
+  pointeurs de skills) ; `--no-install` → note qui nomme `scaffold:sync`.
+- `createAppContributionContext` est PUBLIC : un paquet éprouve sa contribution sur sa SOURCE
+  (`security/tests/unit/scaffoldContribute.test.ts`), sans paquet bâti ni installé.
+- Limite : yarn PnP n'a pas de `node_modules` → rien de découvert ; la commande le DIT.
 
 ## `nodefony ai:mcp --agent` — déclarer la porte CHEZ l'agent, par SA CLI
 

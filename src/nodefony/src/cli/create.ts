@@ -30,6 +30,7 @@ import { formatFilesOnDisk } from "./scaffold/format";
 import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
 import { syncSkillPointers } from "./aiSync";
+import { runAppContributions, summarizeContributions } from "./contributions";
 import {
   LicenseInventoryError,
   NOTICES_FILE,
@@ -943,6 +944,38 @@ export function migrationFailureCause(
 }
 
 /**
+ * Pose les fichiers que livrent les paquets installés (`nodefony.contribute`).
+ *
+ * **Pourquoi APRÈS l'install** : la contribution est du code du paquet, qui
+ * n'existe qu'une fois `node_modules` peuplé ; `create app` ne connaît aucun
+ * contributeur, il les découvre. **Pourquoi AVANT le premier commit** : ces
+ * fichiers appartiennent ensuite à l'application, qui peut les retoucher.
+ *
+ * @param dest - racine de l'app générée.
+ * @param installed - l'installation a-t-elle réussi ?
+ * @param cmd - lignes de commande du gestionnaire de l'app, pour les gestes nommés.
+ * @returns la note à afficher. Ne lève JAMAIS : une application entièrement
+ *   générée ne s'annule pas parce qu'une contribution échoue.
+ */
+async function poseContributions(
+  dest: string,
+  installed: boolean,
+  cmd: TCommandLines,
+): Promise<string> {
+  const again = `${cmd.exec("nodefony")} scaffold:sync`;
+  if (!installed) {
+    return `non posés (rien d'installé) → ${cmd.install} puis ${again}`;
+  }
+  try {
+    const reports = await runAppContributions(dest);
+    const failed = reports.some((r) => r.error !== null);
+    return summarizeContributions(reports) + (failed ? ` → ${again}` : "");
+  } catch (e) {
+    return `non posés (${(e as Error).message}) → ${again}`;
+  }
+}
+
+/**
  * Pose les pointeurs vers les skills d'agent livrés par les paquets installés.
  *
  * **Pourquoi ici, et pas par un `postinstall`** : `--ignore-scripts` est courant
@@ -1542,6 +1575,13 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // AVANT git : ces pointeurs entrent dans le premier commit, comme le lockfile.
   process.stdout.write(
     `\n🤖 skills d'agent : ${poseSkillPointers(result.dest, cmd)}\n`,
+  );
+  // Les FICHIERS que livrent les paquets installés (décor Keycloak de
+  // `@nodefony/security`…) : même moment, même raison — ils vivent dans
+  // `node_modules` et entrent dans le premier commit. Le cœur ne sait pas
+  // lesquels : chaque paquet déclare sa contribution.
+  process.stdout.write(
+    `\n🧩 fichiers livrés par les paquets : ${await poseContributions(result.dest, installed, cmd)}\n`,
   );
   // Le câblage MCP AUSSI avant git : le `.mcp.json` est un fichier de PROJET —
   // versionné, lu tel quel par les agents qui suivent le dépôt — il a donc sa

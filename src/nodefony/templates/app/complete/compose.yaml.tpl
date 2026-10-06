@@ -604,7 +604,11 @@ services:
       - "127.0.0.1:${KEYCLOAK_PORT:-8444}:8443"
     volumes:
       - keycloak-data:/opt/keycloak/data
+      # Realm d'import et thème : posés par la contribution de
+      # `@nodefony/security` (`create app`, puis `nodefony scaffold:sync`) — de
+      # vrais fichiers, versionnés avec l'app, donc retouchables à ses couleurs.
       - ./docker/keycloak/import:/opt/keycloak/data/import:ro
+      - ./docker/keycloak/themes/nodefony:/opt/keycloak/themes/nodefony:ro
       - ./nodefony/config/certificates/server:/opt/keycloak/conf/tls:ro
     healthcheck:
       # L'image n'a ni curl ni wget : la sonde passe par le /dev/tcp de bash.

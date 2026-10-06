@@ -1,12 +1,11 @@
 /**
  * Le realm Keycloak d'une application — construit, jamais recopié.
  *
- * Deux usages, UNE construction : `create app` écrit le realm d'import de
- * l'application qu'il génère, et `security:keycloak:realm` (paquet
- * `@nodefony/security`) le réécrit depuis la configuration EFFECTIVE d'une
- * application qui tourne. Le constructeur vit dans le cœur parce que le
- * générateur s'exécute AVANT l'installation : `@nodefony/security` n'est pas
- * encore là pour lui prêter le sien.
+ * Deux usages, UNE construction : la contribution du paquet à une application
+ * neuve (`nodefony/scaffold/contribute.ts`, jouée par `create app` après
+ * l'installation) écrit son realm d'import, et `security:keycloak:realm` le
+ * réécrit depuis la configuration EFFECTIVE d'une application qui tourne. Le
+ * cœur n'en sait rien : Keycloak est l'affaire de ce paquet.
  *
  * Avant lui, deux realms écrits à la main — celui du dépôt et le gabarit de
  * l'application générée — répétaient ce que disait la configuration
@@ -96,6 +95,7 @@ export interface IKeycloakRealmInput {
     readonly login?: string;
     readonly account?: string;
     readonly email?: string;
+    readonly admin?: string;
   };
   /** Comptes de démonstration (développement seulement). */
   readonly users?: readonly IKeycloakUserInput[];
@@ -245,6 +245,9 @@ export function buildKeycloakRealm(
     ...(input.themes?.email === undefined
       ? {}
       : { emailTheme: input.themes.email }),
+    ...(input.themes?.admin === undefined
+      ? {}
+      : { adminTheme: input.themes.admin }),
     internationalizationEnabled: true,
     supportedLocales: ["fr", "en"],
     defaultLocale: "fr",
@@ -340,7 +343,12 @@ export function mergeKeycloakRealm(
     if (!(key in merged)) merged[key] = value;
   }
   merged.realm = derived.realm ?? merged.realm ?? null;
-  for (const key of ["loginTheme", "accountTheme", "emailTheme"]) {
+  for (const key of [
+    "loginTheme",
+    "accountTheme",
+    "emailTheme",
+    "adminTheme",
+  ]) {
     const theme = derived[key];
     if (theme !== undefined) merged[key] = theme;
   }

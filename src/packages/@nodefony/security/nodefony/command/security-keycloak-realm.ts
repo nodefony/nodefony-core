@@ -1,16 +1,14 @@
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
 import {
-  OptionsCommandInterface,
-  CliKernel,
-  Command,
   buildKeycloakRealm,
   mergeKeycloakRealm,
   renderKeycloakRealm,
   type IKeycloakMachineInput,
   type TKeycloakJson,
   type TKeycloakObject,
-} from "nodefony";
+} from "../src/oauth/keycloakRealm.js";
 import {
   defineSecurityConfig,
   type ISecurityConfigInput,

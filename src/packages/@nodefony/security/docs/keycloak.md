@@ -161,11 +161,21 @@ La console d'administration du realm est sur `https://localhost:8444/admin` (`ad
 ### Essayer dans une application générée
 
 Une application créée par `nodefony create app` avec le préréglage `complete` porte déjà le
-même décor, **à son nom** : un profil `keycloak` dans son `compose.yaml`, un realm
-`docker/keycloak/import/realm.json` (realm et client nommés comme l'application, utilisateur
-`alice`), les variables `NF_KEYCLOAK_*` déclarées dans `env.ts` et le fournisseur conditionnel
-dans `nodefony/config/security.ts`. Tant qu'on ne l'allume pas, l'application démarre sans bouton
-ni avertissement.
+même décor, **à son nom** : un profil `keycloak` dans son `compose.yaml`, les variables
+`NF_KEYCLOAK_*` déclarées dans `env.ts` et le fournisseur conditionnel dans
+`nodefony/config/security.ts`. Tant qu'on ne l'allume pas, l'application démarre sans bouton ni
+avertissement.
+
+Le realm `docker/keycloak/import/realm.json` (realm et client nommés comme l'application,
+utilisateur `alice`) et le thème `docker/keycloak/themes/nodefony/` ne viennent PAS du
+générateur : ils sont **livrés par ce paquet** (`nodefony/scaffold/contribute.ts`, déclaré dans
+`package.json` sous `nodefony.contribute`), et posés après l'installation. Ce sont de vrais
+fichiers, versionnés avec l'application : le thème se retouche à ses couleurs. Ils manquent (création
+en `--no-install`, ou fichier supprimé pour reprendre la version du paquet après un `npm update`) :
+
+```bash
+npx nodefony scaffold:sync     # pose ce qui manque, ne remplace jamais un fichier présent
+```
 
 1. **Fabriquer le certificat de développement** (une fois — Keycloak le sert en `https`) :
 
@@ -223,7 +233,7 @@ npx nodefony security:keycloak:realm --check     # sort en 1 s'il ne suit plus l
 
 - **Il fusionne, il n'écrase pas.** Ce que la configuration dit est réécrit ; ce qu'un humain a
   ajouté survit : comptes, titres, secret du client machine, rôles déjà déclarés, mappers qui ne sont
-  pas d'audience, autres clients (`mergeKeycloakRealm`, cœur).
+  pas d'audience, autres clients (`mergeKeycloakRealm`, `src/oauth/keycloakRealm.ts`).
 - **Hors développement, aucun secret n'est écrit** et seules les adresses de `redirectUri` sont
   déclarées : Keycloak génère le secret, tu le copies dans ton gestionnaire.
 - **Keycloak n'importe un realm qu'à sa création.** Un realm déjà là se met à jour par
@@ -560,7 +570,7 @@ journal du serveur, préfixée `oauth2 callback "keycloak"` (`OAuth2Controller.t
 | Unitaire    | `security/tests/unit/providerRoles.test.ts`               | Lecture des claims (client, realm, groupes), rôle inconnu ignoré, refus des rôles de plateforme sauf `allowPlatformRoles`, recalcul à la connexion et au jeton, aucune écriture sans changement.                                                                                                                                                                                                                                                                                                                        |
 | Unitaire    | `security/tests/unit/keycloakRealmInput.test.ts`          | La configuration de l'application de dev, dérivée puis fusionnée, rend `realm-nodefony.json` octet pour octet ; audiences déduites ou écrites, production sans secret, rôles rangés selon `rolesSource`.                                                                                                                                                                                                                                                                                                                |
 | Unitaire    | `security/tests/unit/providerDiagnosis.test.ts`           | Diagnostic : trois verdicts distincts (émetteur, URL de retour, secret) ; un `401` n'accuse le secret que si le client est prouvé connu ; non concluant ≠ échec ; sondes passées par le client du login.                                                                                                                                                                                                                                                                                                                |
-| Unitaire    | `nodefony/src/tests/keycloakRealm.test.ts`                | Fusion : ce que la config dit est réécrit, ce qu'un humain a écrit survit ; mapper d'audience remplacé, jamais doublé.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Unitaire    | `security/tests/unit/keycloakRealm.test.ts`               | Fusion : ce que la config dit est réécrit, ce qu'un humain a écrit survit ; mapper d'audience remplacé, jamais doublé.                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Unitaire    | `user/tests/unit/providerRoles.test.ts`                   | Rôles gérés contre rôles locaux : retrait, ajout, rôle à la main conservé, profil préservé.                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Intégration | `http/nodefony/tests/integration/oauth2-keycloak.test.ts` | Contre un **vrai** Keycloak : flux complet, même compte entre session et jeton d'API, `invalid_grant` rendu par Keycloak, déconnexion dans les deux sens, jeton de déconnexion forgé refusé ; `bob` obtient puis perd `ROLE_ADMIN` (session et jeton) quand le rôle bouge dans le realm, un rôle local survit ; `cci` obtient `ROLE_NODEFONY_ADMIN` par `allowPlatformRoles` ; le diagnostic rend ses trois verdicts sur des branchements faussés (secret, URL de retour, émetteur `127.0.0.1` au lieu de `localhost`). |
 

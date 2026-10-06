@@ -6,7 +6,8 @@
   "main": "./dist/index.js",
   "type": "module",
   "nodefony": {
-    "consumesStores": true
+    "consumesStores": true,
+    "contribute": "./dist/nodefony/scaffold/contribute.js"
   },
   "types": "./dist/types/index.d.ts",
   "exports": {
@@ -73,7 +74,8 @@
   },
   "files": [
     "dist",
-    "docs"
+    "docs",
+    "keycloak"
   ],
   "publishConfig": {
     "access": "public"

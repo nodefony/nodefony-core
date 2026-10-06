@@ -623,7 +623,7 @@ Deux mécanismes, à ne pas confondre.
 
 **Le profil d'exécution** — `IRunProfile` (`Kernel.ts:370`) — décrit ce dont le run a besoin :
 `{ servers, lifetime, interactive }`. Le défaut est console pur : `CONSOLE_RUN_PROFILE`
-(`Kernel.ts:396`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:1038`).
+(`Kernel.ts:396`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:1052`).
 
 **La phase cible** — chaque commande déclare la phase qui lui suffit. Dès qu'elle est atteinte,
 `Kernel.setCommandComplete()` (`Kernel.ts:2832`) coupe la chaîne et `Kernel.finishOrPark()`
@@ -647,7 +647,7 @@ Certaines invocations **ne bootent rien du tout** : `--version`, la complétion 
 
 Enfin, les commandes **de module** (`frontend:build`, `network`…) posent un problème d'ordre : elles
 n'existent dans l'analyseur d'arguments qu'après `onPreRegister`. Leur exécution est donc **différée**
-par `CliKernel.dispatchModuleCommand()` (`CliKernel.ts:762`) jusqu'à ce que les modules les aient
+par `CliKernel.dispatchModuleCommand()` (`CliKernel.ts:789`) jusqu'à ce que les modules les aient
 enregistrées. Le noyau reste en mode console — une commande inconnue termine en erreur, elle ne
 démarre jamais un serveur par accident.
 

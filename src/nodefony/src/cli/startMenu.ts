@@ -233,6 +233,12 @@ export const START_MENU_CATALOG: readonly ICatalogEntry[] = [
     when: "Pose les pointeurs vers les skills d'agent livrés par les paquets installés — à rejouer après un npm update.",
   },
   {
+    value: "scaffold:sync",
+    contexts: ["project"],
+    group: { project: menuGroup("AGENTS ET OUTILLAGE"), outside: null },
+    when: "Pose les fichiers que livrent les paquets installés (décor Keycloak…) sans remplacer les tiens — après un --no-install ou un npm update.",
+  },
+  {
     // 🔴 Elle manquait, et c'est la porte d'entrée du MCP : sans elle au menu,
     // brancher un agent sur son application supposait d'avoir lu `--help`.
     value: "ai:mcp",

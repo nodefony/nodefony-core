@@ -559,10 +559,10 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 | Membre                  | Ancre               | Rôle                                                                                          |
 | ----------------------- | ------------------- | --------------------------------------------------------------------------------------------- |
 | `runProfile`            | `CliKernel.ts:122`  | `{ servers, lifetime, interactive }` — ce dont le run a besoin.                               |
-| `setRunProfile(profil)` | `CliKernel.ts:1041` | Déclaré par une commande ; recopié dans le kernel à `onStart`.                                |
+| `setRunProfile(profil)` | `CliKernel.ts:1052` | Déclaré par une commande ; recopié dans le kernel à `onStart`.                                |
 | `packageManager`        | `CliKernel.ts:127`  | `npm` par défaut (config, puis fichier de verrou, puis user-agent) ; `pnpm` / `yarn` / `bun`. |
-| `addCommand(Ctor)`      | `CliKernel.ts:1081` | Enregistre une commande intégrée (les modules passent par `Module`).                          |
-| `quietBoot`             | `CliKernel.ts:128`  | Boot silencieux : seules les erreurs sortent. Pour une sortie propre.                         |
+| `addCommand(Ctor)`      | `CliKernel.ts:1095` | Enregistre une commande intégrée (les modules passent par `Module`).                          |
+| `quietBoot`             | `CliKernel.ts:137`  | Boot silencieux : seules les erreurs sortent. Pour une sortie propre.                         |
 | `parseCommand(argv?)`   | `CliKernel.ts:199`  | Analyse Commander synchrone.                                                                  |
 
 Le défaut de `runProfile` est **console pur** : `{ servers: false, lifetime: "oneshot" }`. Une
@@ -573,7 +573,7 @@ runtime.
 ### Le piège du constructeur
 
 > [!WARNING]
-> `environment` peut être **`undefined`** dans le constructeur de `CliKernel` (`CliKernel.ts:100`) :
+> `environment` peut être **`undefined`** dans le constructeur de `CliKernel` (`CliKernel.ts:123`) :
 > ce sont les sous-commandes qui le posent, plus tard. Ne conditionne jamais du code sur
 > `this.environment` dans un constructeur — le réglage va dans le hook `onKernelStart()` de la
 > commande, qui tourne avant le boot.

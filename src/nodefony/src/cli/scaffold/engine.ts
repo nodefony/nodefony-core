@@ -5,7 +5,7 @@ import {
   readFileSync,
   writeFileSync,
 } from "node:fs";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { pointeursInstructions } from "../agentTargets";
 import { fileURLToPath } from "node:url";
@@ -97,7 +97,6 @@ import {
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
 import { writeBrandAssets } from "./brandAssets";
-import { buildKeycloakRealm, renderKeycloakRealm } from "./keycloakRealm";
 import {
   manifestFileWith,
   withoutComments,
@@ -864,92 +863,6 @@ function renderLayer(
     writer.write(path.join(destDir, rel), rendered);
     written.push(rel);
   }
-}
-
-/** Les valeurs du décor Keycloak tirées à la création de l'application. */
-interface IAppKeycloakFixture {
-  readonly clientSecret: string;
-  readonly machineSecret: string;
-  readonly userId: string;
-  readonly adminUserId: string;
-}
-
-/**
- * Écrit le realm d'import d'une application générée
- * (`docker/keycloak/import/realm.json`).
- *
- * Ce que dit la configuration rendue par le gabarit `security.ts` : client
- * `<app>`, URL de retour sur les deux ports de développement, rôle client
- * `admin` (`roleMapping: { admin: "ROLE_ADMIN" }`). AUCUNE audience : l'app
- * née n'a pas de zone `external-jwt`, et une audience écrite d'avance ne
- * vaut que si l'utilisateur choisit exactement cette ressource. Sa zone posée,
- * `security:keycloak:realm --write` ajoute le mapper.
- *
- * @returns le chemin relatif écrit
- */
-function writeAppKeycloakRealm(
-  writer: ScaffoldWriter,
-  dest: string,
-  appName: string,
-  fixture: IAppKeycloakFixture,
-): string {
-  const callback = "/nodefony/security/api/oauth2/keycloak/callback";
-  const realm = buildKeycloakRealm({
-    realm: appName,
-    clientId: appName,
-    clientSecret: fixture.clientSecret,
-    clientName: `${appName} (dev)`,
-    clientDescription:
-      "Client confidentiel de l'application en développement — secret PUBLIC, jamais en production.",
-    redirectUris: [
-      `https://localhost:5152${callback}`,
-      `http://localhost:5151${callback}`,
-    ],
-    postLogoutRedirectUris: [
-      "https://localhost:5152/*",
-      "http://localhost:5151/*",
-    ],
-    backchannelLogoutUrl:
-      "http://host.docker.internal:5151/nodefony/security/api/oauth2/keycloak/backchannel-logout",
-    audiences: [],
-    clientRoles: [
-      {
-        name: "admin",
-        description:
-          "Administrateur de l'application — traduit en ROLE_ADMIN par la table roleMapping du fournisseur keycloak.",
-      },
-    ],
-    realmRoles: [],
-    machine: {
-      clientId: `${appName}-machine`,
-      secret: fixture.machineSecret,
-      name: `${appName} — appelant machine (compte de service)`,
-      description:
-        "Appelant machine : obtient un jeton d'accès par client_credentials, sans utilisateur. Secret PUBLIC, jamais en production.",
-    },
-    users: [
-      {
-        id: fixture.userId,
-        username: "alice",
-        email: `alice@${appName}.test`,
-        firstName: "Alice",
-        lastName: "Keycloak",
-        password: "alice-dev",
-      },
-      {
-        id: fixture.adminUserId,
-        username: "bob",
-        email: `bob@${appName}.test`,
-        firstName: "Bob",
-        lastName: "Keycloak",
-        password: "bob-dev",
-        clientRoles: ["admin"],
-      },
-    ],
-  });
-  const rel = path.join("docker", "keycloak", "import", "realm.json");
-  writer.write(path.join(dest, rel), renderKeycloakRealm(realm));
-  return rel;
 }
 
 /** Marqueurs du bloc que le framework possède dans `AGENTS.md`. */
@@ -2040,17 +1953,12 @@ function dispatchScaffold(
       NF_WEBHOOK_KEY: randomBytes(32).toString("base64"),
       NF_CSRF_SECRET: randomBytes(32).toString("base64"),
     },
-    // Décor Keycloak du profil `keycloak` — lu par le realm d'import, `.env` et
-    // `.env.example` : une seule valeur, sinon le client refuse l'app au premier
-    // login. Le secret est PUBLIC par nature (écrit dans le realm commité) : il
-    // n'existe que dans ce décor de développement. L'`id` de l'utilisateur est
-    // FIXÉ à la création : laissé à Keycloak, il change à chaque réimport, et
-    // la connexion suivante est refusée (identifiant déjà lié à un autre `sub`).
+    // Décor Keycloak du profil `keycloak` — lu par `.env` et `.env.example`.
+    // Le realm d'import qui porte le même secret est écrit par la contribution
+    // de `@nodefony/security` (`devClientSecret`, même règle, gardée par un
+    // test de ce paquet). Secret PUBLIC par nature : décor de développement.
     keycloak: {
       clientSecret: `${String(answers.name)}-dev-keycloak-secret`,
-      machineSecret: `${String(answers.name)}-machine-dev-secret`,
-      userId: randomUUID(),
-      adminUserId: randomUUID(),
     },
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des
@@ -2169,12 +2077,6 @@ function dispatchScaffold(
       data,
       written,
       writer,
-    );
-    // Le realm d'import du profil `keycloak` : CONSTRUIT, jamais rendu par un
-    // gabarit — `security:keycloak:realm` le réécrit avec le même constructeur
-    // depuis la config effective, et deux sources avaient déjà divergé.
-    written.push(
-      writeAppKeycloakRealm(writer, dest, String(answers.name), data.keycloak),
     );
     // Controller temps réel de la vitrine : rendu par le template de `create
     // controller --kind realtime` (même principe que HelloController — le

@@ -9,7 +9,7 @@ import {
   type IKeycloakRealmInput,
   type TKeycloakJson,
   type TKeycloakObject,
-} from "../cli/scaffold/keycloakRealm";
+} from "../../nodefony/src/oauth/keycloakRealm.js";
 
 /**
  * Le realm Keycloak se CONSTRUIT depuis ce que dit la configuration, et la
@@ -22,7 +22,7 @@ import {
 
 const repoRealmPath = fileURLToPath(
   new URL(
-    "../../../../docker/keycloak/import/realm-nodefony.json",
+    "../../../../../../docker/keycloak/import/realm-nodefony.json",
     import.meta.url,
   ),
 );

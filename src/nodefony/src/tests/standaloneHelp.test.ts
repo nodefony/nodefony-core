@@ -7,6 +7,7 @@ import { runEnvCommand } from "../cli/env";
 import { runSymbolsCommand } from "../cli/symbols";
 import { runImageCheckCommand } from "../cli/image";
 import { runAiSyncCommand } from "../cli/aiSync";
+import { runScaffoldSyncCommand } from "../cli/contributions";
 import { runAiMcpCommand } from "../cli/aiMcp";
 import { runGitHooksCommand } from "../cli/gitHooks";
 import { runCreateCommand } from "../cli/create";
@@ -48,6 +49,7 @@ const STANDALONE: ReadonlyArray<
   ["symbols", runSymbolsCommand],
   ["image:check", runImageCheckCommand],
   ["ai:sync", runAiSyncCommand],
+  ["scaffold:sync", runScaffoldSyncCommand],
   ["ai:mcp", runAiMcpCommand],
   ["git:hooks", runGitHooksCommand],
   ["create", runCreateCommand],

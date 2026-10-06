@@ -6,7 +6,7 @@ import {
   mergeKeycloakRealm,
   renderKeycloakRealm,
   type TKeycloakObject,
-} from "nodefony";
+} from "../../nodefony/src/oauth/keycloakRealm.js";
 import { defineSecurityConfig } from "../../nodefony/config/defineModuleConfig";
 import type { ISecurityConfigInput } from "../../nodefony/config/config";
 import {

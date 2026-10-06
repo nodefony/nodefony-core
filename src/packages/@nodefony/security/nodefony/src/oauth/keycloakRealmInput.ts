@@ -2,7 +2,7 @@ import type {
   IKeycloakMachineInput,
   IKeycloakRealmInput,
   IKeycloakRoleInput,
-} from "nodefony";
+} from "./keycloakRealm.js";
 import type { ISecurityConfig } from "../../config/config.js";
 
 /** Un fournisseur OAuth tel que la config validée le rend. */
