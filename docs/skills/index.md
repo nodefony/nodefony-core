@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-10-05
+updated: 2026-10-06
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -131,7 +131,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "nodefony-rfc.md",
     "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de…",
-    "meta": "🟢 conforme v1.5.0 · ⚙️ 1 script" },
+    "meta": "🟢 conforme v1.6.0 · ⚙️ 1 script" },
   { "icon": "🗓️", "title": "roadmap", "href": "nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket…",
     "meta": "🟢 conforme v2.0.0" }
@@ -200,7 +200,7 @@ source: "docs/skills/index.md"
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.1.0 | 384 | 0 | 1 | ✅ |
-| [`nodefony-rfc`](nodefony-rfc.md) | 1.5.0 | 275 | 0 | 1 | ✅ |
+| [`nodefony-rfc`](nodefony-rfc.md) | 1.6.0 | 287 | 0 | 1 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | — | 197 | 1 | 9 | ✅ |

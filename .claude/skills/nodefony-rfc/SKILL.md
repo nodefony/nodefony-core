@@ -1,7 +1,7 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.5.0
+  version: 1.6.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
   depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md,
@@ -12,7 +12,7 @@ description: >
   "resource server OAuth", "RFC 9728", "AGENTS.md", "spec AGENTS.md", "AAIF",
   "quelle taille pour AGENTS.md", "dossier .agents",
   "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm", "importer un realm",
-  "audience Keycloak", "hostname Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
+  "audience Keycloak", "hostname Keycloak", "thème Keycloak", "courriel Keycloak", "proxy inverse", "reverse proxy", "en-têtes hop-by-hop",
   "request smuggling", "que fait nginx", "norme périmée", "souris dans le terminal", "OSC 52".
 ---
 
@@ -198,7 +198,7 @@ le cas de `mcp-2026-07-28`, figé à la main.
 
 Pas une norme : le **produit** contre lequel le fournisseur `keycloak` de `@nodefony/security`
 s'éprouve (login BFF, jetons d'API, compte de service, serveur d'autorisation MCP). Sélection de
-37 guides AsciiDoc figés au tag `26.8.0` dans `references/keycloak-26.8/` (`AMONT.json` → suivie par
+43 guides AsciiDoc figés au tag `26.8.0` dans `references/keycloak-26.8/` (`AMONT.json` → suivie par
 `check-amont.mjs`). Le décor qui les met en œuvre : profil `keycloak` de `docker/docker-compose.yml`.
 
 | Ce qu'on veut savoir                                      | Où le lire, hors ligne                                                                                                                                  |
@@ -208,6 +208,7 @@ s'éprouve (login BFF, jetons d'API, compte de service, serveur d'autorisation M
 | Points d'entrée OIDC, flux, client confidentiel, audience | `documentation/server_admin/topics/sso-protocols/*`, `.../clients/oidc/*`                                                                               |
 | Échange de jetons, DPoP, serveur d'autorisation MCP       | `guides/securing-apps/{token-exchange,dpop,mcp-authz-server}.adoc`                                                                                      |
 | Ruptures de la version figée                              | `documentation/upgrading/topics/changes/changes-26_8_0.adoc`                                                                                            |
+| Thèmes (5 types), propriétés, mode sombre, courriels      | `guides/ui-customization/themes.adoc` ; langues → `localization.adoc` ; page d'accueil → `welcome-theme.adoc` ; consoles React → `themes-react.adoc`    |
 
 🔴 **Les faits qui décident d'une conception :**
 
@@ -220,6 +221,17 @@ s'éprouve (login BFF, jetons d'API, compte de service, serveur d'autorisation M
 4. **TLS activé ⇒ le port de gestion passe en https aussi** ; `http-management-scheme=http` le
    garde en clair pour une sonde interne au conteneur.
 5. Le `sub` est un **UUID** de l'utilisateur Keycloak, unique dans le realm seulement.
+6. **Un thème a CINQ types** (`login`, `account`, `email`, `admin`, `welcome`), chacun son dossier et
+   son `theme.properties` ; `welcome` n'appartient à aucun realm — option serveur
+   `--spi-theme--welcome-theme=<nom>`, jamais le realm.
+7. **Une langue n'est offerte que si `login`, `account` ET `email` la déclarent** (`locales=` de
+   chaque `theme.properties`) — l'oublier sur un type la retire du realm.
+8. **Courriel = URL ABSOLUE** : `url.resourcesCommonUrl` / `url.resourcesUrl`, jamais `…Path` —
+   un client de messagerie ne résout pas un chemin relatif.
+9. **Mode sombre et favicons par notation pointée** dans `theme.properties` :
+   `styles.dark.media=(prefers-color-scheme: dark)`, `favicons.ico=…`. Le cache des thèmes se coupe
+   en dev (`--spi-theme--cache-themes=false --spi-theme--cache-templates=false`), sinon une
+   retouche ne se voit pas.
 
 ### 10. Proxy inverse — **HORS LIGNE, dans le corpus UNIQUE** + proxys de référence
 
