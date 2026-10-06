@@ -115,7 +115,9 @@ function fetchPublished({ name, location, from, outDir, root }) {
       .trim()
       .split("\n")
       .pop();
-    runPortable("tar", ["-xzf", tarball, "-C", target], target);
+    // `-C .` et non le chemin absolu (déjà le `cwd`) : sous Windows, GNU tar lit
+    // le `C:` d'un chemin absolu comme un hôte distant.
+    runPortable("tar", ["-xzf", tarball, "-C", "."], target);
     fs.rmSync(path.join(target, tarball), { force: true });
   }
   const localModules = path.join(root, location, "node_modules");

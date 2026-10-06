@@ -68,7 +68,9 @@ function fetchPackage(spec) {
       .trim()
       .split("\n")
       .pop();
-    runPortable("tar", ["-xzf", tarball, "-C", target], target);
+    // `-C .` et non le chemin absolu (déjà le `cwd`) : sous Windows, GNU tar lit
+    // le `C:` d'un chemin absolu comme un hôte distant.
+    runPortable("tar", ["-xzf", tarball, "-C", "."], target);
     fs.rmSync(path.join(target, tarball), { force: true });
   }
   return packageDir;

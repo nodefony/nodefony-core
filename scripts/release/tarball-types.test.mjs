@@ -65,9 +65,19 @@ describe("types publiés — résolus depuis le tarball, comme chez l'installeur
     const app = path.join(decor, "app");
     const scope = path.join(app, "node_modules", "@nodefony");
     fs.mkdirSync(scope, { recursive: true });
-    const tar = spawnSync("tar", ["-xzf", path.join(decor, tgz), "-C", scope], {
-      encoding: "utf8",
-    });
+    // Arguments RELATIFS sous `cwd`, comme `pack-all.mjs` : sous Windows, un
+    // chemin absolu porte un `C:` que GNU tar (celui de Git Bash) lit comme
+    // `hôte:chemin` — « Cannot connect to C: resolve failed ».
+    const tar = spawnSync(
+      "tar",
+      [
+        "-xzf",
+        tgz,
+        "-C",
+        path.relative(decor, scope).split(path.sep).join("/"),
+      ],
+      { cwd: decor, encoding: "utf8" },
+    );
     expect(tar.status, tar.stderr).toBe(0);
     fs.renameSync(path.join(scope, "package"), path.join(scope, "http"));
 
