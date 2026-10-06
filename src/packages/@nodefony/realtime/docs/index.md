@@ -119,7 +119,7 @@ Quatre propriétés, toutes vérifiables dans le code — c'est ce qui justifie 
 WebSocket brute.
 
 **Un contrôleur temps réel est un contrôleur.** `RealtimeController`
-(`RealtimeController.ts:173`) étend le `Controller` du framework : il se déclare avec les mêmes
+(`RealtimeController.ts:176`) étend le `Controller` du framework : il se déclare avec les mêmes
 décorateurs de route, reçoit la même injection, passe par le même pare-feu. HTTP et WebSocket ne sont
 pas deux applications à écrire deux fois, mais deux entrées du même pipeline.
 

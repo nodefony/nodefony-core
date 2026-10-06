@@ -131,6 +131,7 @@
     "globs": [
       "src/nodefony/src/tests/Realtime*.test.ts",
       "src/nodefony/src/tests/JsonRpcPeer*.test.ts",
+      "src/nodefony/src/tests/jsonrpc.test.ts",
       "src/nodefony/src/tests/AdaptiveRate.test.ts",
       "src/nodefony/src/tests/clientShimEvents.test.ts",
       "src/nodefony/src/tests/roles.test.ts",

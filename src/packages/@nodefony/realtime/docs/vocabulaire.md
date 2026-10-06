@@ -113,7 +113,7 @@ Trois mots du lexique ne sont pas des synonymes de ce que proposent les autres b
 temps réel. Ce sont les différenciateurs du framework.
 
 **`socket` est isomorphe.** Le même contrat `IRealtimeSocket` (`IRealtimeSocket.ts:122`) décrit la
-prise **côté navigateur** (`RealtimeClient`, `RealtimeClient.ts:194`) **et côté serveur**
+prise **côté navigateur** (`RealtimeClient`, `RealtimeClient.ts:195`) **et côté serveur**
 (`ServerRealtimeSocket`, `ServerRealtimeSocket.ts:44`). Un service back publie exactement comme une
 page front : `publish("chat:room-42", payload)`. Il n'y a pas une API cliente et une API serveur à
 apprendre, il y en a **une**.
@@ -125,9 +125,9 @@ vers un autre service — et le consommateur ne voit jamais la différence
 (`IRealtimeChannel`, `IRealtimeSocket.ts:87`).
 
 **`contrôleur` est le même mot qu'en HTTP.** Un endpoint temps réel est un contrôleur qui étend
-`RealtimeController` (`RealtimeController.ts:173`) et porte une route WebSocket : HTTP et WebSocket
+`RealtimeController` (`RealtimeController.ts:176`) et porte une route WebSocket : HTTP et WebSocket
 vivent dans le **même contexte de contrôleur**. C'est ce qui permet au pont `api.request`
-(`RealtimeController.realtimeApiRequest()`, `RealtimeController.ts:291`) de rejouer sur la socket
+(`RealtimeController.realtimeApiRequest()`, `RealtimeController.ts:294`) de rejouer sur la socket
 **la même action** que celle servie en REST.
 
 ## 🚀 Démarrage rapide — les mots en situation
@@ -218,7 +218,7 @@ Le **handle unique** manipulé par le code applicatif : quatre verbes (`subscrib
 `request`) et une vue par canal. Le mot vient de la prise murale : on branche, on ignore le câblage.
 
 Contrat isomorphe `IRealtimeSocket` (`IRealtimeSocket.ts:122`), implémenté côté navigateur par
-`RealtimeClient` (`RealtimeClient.ts:194`) et côté serveur par `ServerRealtimeSocket`
+`RealtimeClient` (`RealtimeClient.ts:195`) et côté serveur par `ServerRealtimeSocket`
 (`ServerRealtimeSocket.ts:44`). ⚠️ La socket **n'est pas** le [transport](#transport--la-couche-octets).
 
 → [Architecture](./architecture.md) pour la pile complète.
@@ -264,13 +264,13 @@ sur expiration. Déclarée côté serveur par `@RealtimeAction` (`realtimeDecora
 côté client par `request()` (`IRealtimeSocket.ts:166`).
 
 Un handler qui lève une erreur rend un `-32603` **générique** ; seule une `RpcError`
-(`JsonRpcPeer.ts:70`) choisit ce qu'elle expose au pair.
+(`JsonRpcPeer.ts:101`) choisit ce qu'elle expose au pair.
 
 ### `canal entrant` (inbound) — le client pousse
 
 Un canal où le **client a le droit d'émettre** vers le serveur. Défaut sûr : **aucun**. Un canal
 n'accepte d'entrée que déclaré explicitement, par `@RealtimeInbound` (`realtimeDecorators.ts:231`) ou
-par l'override `realtimeInbound()` (`RealtimeController.ts:277`).
+par l'override `realtimeInbound()` (`RealtimeController.ts:280`).
 
 Le handler reçoit `(params, reply)` — `params` vient du réseau, donc **jamais fiable** :
 `RealtimeInboundHandler` (`IRealtimeController.ts:16`).
@@ -285,7 +285,7 @@ point d'accroche des canaux à état — un appel SIP, une connexion pontée.
 
 ### `client` — la socket côté navigateur
 
-`RealtimeClient` (`RealtimeClient.ts:161`) : reconnexion automatique, réémission des abonnements,
+`RealtimeClient` (`RealtimeClient.ts:162`) : reconnexion automatique, réémission des abonnements,
 compteurs par canal, heartbeat. Publié dans le sous-chemin `nodefony/client` du cœur — donc
 importable **sans** aucune dépendance serveur, ce qui est la condition de l'isomorphisme.
 
@@ -297,7 +297,7 @@ importable **sans** aucune dépendance serveur, ce qui est la condition de l'iso
 (`ServerRealtimeSocket.ts:223`) : un service métier tient un handle et publie **comme une page
 front**. Une différence assumée : `request()` n'y est pas supporté — au-dessus du hub il n'y a pas
 **un** pair mais N clients. Pour un appel serveur → un client précis, c'est `requestClient()`
-(`RealtimeController.ts:359`).
+(`RealtimeController.ts:362`).
 
 ### `accueil` (welcome) — la première frame
 
@@ -419,8 +419,8 @@ Politique de forward du hub — `#broadcastPrefixes` (`RealtimeHub.ts:393`).
 La classe de base d'un endpoint : elle porte tout le protocole (handshake, accueil, discrimination
 des frames, cycle de vie des canaux) et ne laisse au métier que ses canaux et ses actions.
 
-`RealtimeController` (`RealtimeController.ts:173`), point d'entrée `handleRealtime()`
-(`RealtimeController.ts:299`). C'est un **contrôleur** au sens habituel de Nodefony : la même classe
+`RealtimeController` (`RealtimeController.ts:176`), point d'entrée `handleRealtime()`
+(`RealtimeController.ts:317`). C'est un **contrôleur** au sens habituel de Nodefony : la même classe
 peut porter des routes HTTP.
 
 ### `service realtime` — la façade d'injection
@@ -437,31 +437,32 @@ L'option qui expose la méthode `api.request { path }` : la connexion rejoue **l
 contrôleur** que celle servie en REST, avec **la même garde**. Le pont n'atteint que les routes qui
 déclarent explicitement le transport WebSocket — aucun contournement possible.
 
-`realtimeApiRequest()` (`RealtimeController.ts:291`), mise en œuvre `invokeApiRequest()`
-(`RealtimeController.ts:1009`). Désactivé par défaut.
+`realtimeApiRequest()` (`RealtimeController.ts:294`), mise en œuvre `invokeApiRequest()`
+(`RealtimeController.ts:1011`). Désactivé par défaut.
 
 ## 🔌 Le protocole et le transport — ce qui passe sur le fil
 
-| Terme          | En une ligne                                               |
-| -------------- | ---------------------------------------------------------- |
-| `frame`        | l'unité atomique qui passe sur le fil                      |
-| `pair`         | le moteur de protocole, identique client et serveur        |
-| `requête`      | frame avec `method` **et** `id` — appelle une réponse      |
-| `notification` | frame avec `method` seul — sans réponse                    |
-| `réponse`      | frame avec `id` seul — résout une requête en attente       |
-| `dispatch`     | classer une frame entrante puis la router vers son handler |
-| `transport`    | la couche octets, interchangeable                          |
-| `enveloppe`    | joindre des métadonnées serveur à côté du résultat         |
-| `cadence`      | la fréquence d'un canal d'état, portée par son nom         |
-| `AIMD`         | l'auto-ajustement de cadence face à un client lent         |
+| Terme          | En une ligne                                                |
+| -------------- | ----------------------------------------------------------- |
+| `frame`        | l'unité atomique qui passe sur le fil                       |
+| `pair`         | le moteur de protocole, identique client et serveur         |
+| `requête`      | frame avec `method` **et** `id` — appelle une réponse       |
+| `notification` | frame avec `method` seul — sans réponse                     |
+| `réponse`      | `id` + `result` ou `error`, sans `method` — résout un appel |
+| `dispatch`     | classer une frame entrante puis la router vers son handler  |
+| `transport`    | la couche octets, interchangeable                           |
+| `enveloppe`    | joindre des métadonnées serveur à côté du résultat          |
+| `cadence`      | la fréquence d'un canal d'état, portée par son nom          |
+| `AIMD`         | l'auto-ajustement de cadence face à un client lent          |
 
 ### `frame` — l'unité qui passe sur le fil
 
 Une enveloppe JSON-RPC 2.0. Sa **nature se lit sur `method`**, pas sur `id` : `method` + `id` =
-requête, `method` seul = notification, `id` seul = réponse. Tout le reste est invalide.
+requête, `method` seul = notification, `id` + `result` ou `error` = réponse. Tout le reste est
+invalide.
 
-`JsonRpcFrameKind` (`JsonRpcPeer.ts:133`). Le classement est fait par `JsonRpcPeer.receive()`
-(`JsonRpcPeer.ts:390`), qui **ne lève jamais**.
+`JsonRpcFrameKind` (`jsonrpc/index.ts:138`). Le classement est fait par `JsonRpcPeer.receive()`
+(`JsonRpcPeer.ts:419`), qui **ne lève jamais**.
 
 ### `pair` (peer) — le moteur de protocole
 
@@ -469,14 +470,14 @@ Client et serveur sont des **pairs** : classer une frame, router, corréler les 
 travail des deux côtés. Nodefony l'écrit **une seule fois** ; chaque côté l'entoure de son transport
 et de ses handlers. Aucune dépendance Node — le même fichier tourne dans le navigateur.
 
-`JsonRpcPeer` (`JsonRpcPeer.ts:280`), contrat `IRealtimePeer` (`JsonRpcPeer.ts:213`).
+`JsonRpcPeer` (`JsonRpcPeer.ts:311`), contrat `IRealtimePeer` (`JsonRpcPeer.ts:261`).
 
 ### `dispatch` — classer puis router
 
 Le geste du pair sur une frame entrante : décider de sa nature, trouver le handler, l'appeler,
 renvoyer la réponse s'il en faut une. Ce n'est pas une méthode publique — c'est un **moment**, et
 c'est précisément là que se greffe le [verrou de frame](#verrou-de-frame--la-décision-par-frame),
-par le crochet `beforeDispatch` (`JsonRpcPeer.ts:192`).
+par le crochet `beforeDispatch` (`JsonRpcPeer.ts:219`).
 
 ### `transport` — la couche octets
 
@@ -494,7 +495,7 @@ Quand un handler veut joindre des métadonnées serveur à sa réponse, il rend 
 `result` reste **exactement** ce que rendrait la même route en REST, et la méta voyage dans un champ
 frère. Un pair qui n'en connaît pas les clés les ignore.
 
-`RpcEnvelope` (`JsonRpcPeer.ts:104`), `RpcMeta` (`JsonRpcPeer.ts:90`).
+`RpcEnvelope` (`JsonRpcPeer.ts:139`), `RpcMeta` (`JsonRpcPeer.ts:125`).
 
 ### `cadence` — la fréquence portée par le nom
 
@@ -630,7 +631,7 @@ l'authenticator tourne et que l'identité est figée. Tout ce qui coûte cher se
 frame.
 
 DTO neutre `IRealtimeHandshake` (`IRealtimeHandshake.ts:14`) — en-têtes, cookies, URL, origine,
-sous-protocoles. Traitement dans `onHandshake()` (`RealtimeController.ts:404`).
+sous-protocoles. Traitement dans `onHandshake()` (`RealtimeController.ts:407`).
 
 ### `authenticator` — du handshake à l'identité
 
@@ -708,7 +709,7 @@ Le signal émis sur les événements protocolaires qui méritent une trace : fra
 refusée, méthode inconnue, erreur interne. Émis sans attente, avec le pair — ce qui permet de
 retrouver **qui** a été refusé, pas seulement d'où venait le paquet.
 
-`FrameAuditReason` (`JsonRpcPeer.ts:155`), crochet `onFrameAudit` (`JsonRpcPeer.ts:210`).
+`FrameAuditReason` (`JsonRpcPeer.ts:182`), crochet `onFrameAudit` (`JsonRpcPeer.ts:236`).
 
 ### `seam` — le point de greffe
 
@@ -716,8 +717,8 @@ Littéralement une **couture** : un point prévu dans une couche basse pour qu'u
 greffe du comportement **sans modifier la couche basse**. Le module en expose cinq, et c'est ce qui
 permet à la couche sécurité de se brancher sans qu'aucune ligne de realtime ne la connaisse.
 
-Les deux du protocole sont `beforeDispatch` (`JsonRpcPeer.ts:192`) et `onFrameAudit`
-(`JsonRpcPeer.ts:210`) ; les trois du hub sont l'authenticator, le matcher et le contrôle d'origine.
+Les deux du protocole sont `beforeDispatch` (`JsonRpcPeer.ts:219`) et `onFrameAudit`
+(`JsonRpcPeer.ts:236`) ; les trois du hub sont l'authenticator, le matcher et le contrôle d'origine.
 
 → [Sécurité](./securite.md) pour le détail de chacun.
 

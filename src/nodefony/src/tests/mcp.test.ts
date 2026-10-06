@@ -1549,59 +1549,101 @@ describe("MCP — frames JSON-RPC limites", () => {
   const codeOf = (body: unknown): number | undefined =>
     (body as { error?: { code: number } } | null)?.error?.code;
 
-  it("CARACTÉRISATION — sans `jsonrpc` → servi en 200", async () => {
+  /** Refus attendu : statut, code, et l'`id` renvoyé. */
+  const expectRefusal = (
+    reply: { status: number; body: unknown },
+    code: number,
+    id: unknown,
+  ): void => {
+    expect(reply.status).toBe(400);
+    expect(codeOf(reply.body)).toBe(code);
+    expect((reply.body as { id: unknown }).id).toEqual(id);
+  };
+
+  it('🔴 sans `jsonrpc` → 400 + -32600, `id: null` (§4 : « MUST be exactly "2.0" »)', async () => {
     const reply = await handleMcpMessage({ id: 1, method: "ping" }, context());
-    expect(reply.status).toBe(200);
+    expectRefusal(reply, -32600, null);
   });
 
-  it('CARACTÉRISATION — `jsonrpc: "1.0"` → servi en 200', async () => {
+  it('🔴 `jsonrpc: "1.0"` → 400 + -32600', async () => {
     const reply = await handleMcpMessage(
       { jsonrpc: "1.0", id: 1, method: "ping" },
       context(),
     );
-    expect(reply.status).toBe(200);
+    expectRefusal(reply, -32600, null);
   });
 
-  it("CARACTÉRISATION — `id: null` + method → 202, traité en notification", async () => {
+  it("🔴 `id: null` + method → 400 + -32600 (MCP : « the ID MUST NOT be null »)", async () => {
     const reply = await handleMcpMessage(
       { jsonrpc: "2.0", id: null, method: "ping" },
       context(),
     );
-    expect(reply.status).toBe(202);
-    expect(reply.body).toBeNull();
+    expectRefusal(reply, -32600, null);
   });
 
-  it("CARACTÉRISATION — `id` objet → 200, et l'objet est RENVOYÉ en écho", async () => {
-    const reply = await handleMcpMessage(
-      { jsonrpc: "2.0", id: {}, method: "ping" },
-      context(),
-    );
-    expect(reply.status).toBe(200);
-    expect((reply.body as { id: unknown }).id).toEqual({});
+  it("🔴 `id` objet ou booléen → 400 + -32600, et l'`id` n'est JAMAIS renvoyé en écho", async () => {
+    for (const id of [{}, true]) {
+      const reply = await handleMcpMessage(
+        { jsonrpc: "2.0", id, method: "ping" },
+        context(),
+      );
+      expectRefusal(reply, -32600, null);
+    }
   });
 
-  it("CARACTÉRISATION — `id` fractionnaire → 200", async () => {
+  it("🔴 `id` fractionnaire → 400 + -32600 (MCP : « a string or integer ID »)", async () => {
     const reply = await handleMcpMessage(
       { jsonrpc: "2.0", id: 1.5, method: "ping" },
       context(),
     );
-    expect(reply.status).toBe(200);
+    expectRefusal(reply, -32600, null);
   });
 
-  it("CARACTÉRISATION — `params` primitif → servi en 200 (remplacé par `{}`)", async () => {
-    const reply = await handleMcpMessage(
-      { jsonrpc: "2.0", id: 1, method: "ping", params: "x" },
-      context(),
-    );
-    expect(reply.status).toBe(200);
+  it("🔴 `id` fractionnaire ET `params` fautifs → l'`id` n'est PAS renvoyé en écho", async () => {
+    for (const params of ["x", [1]]) {
+      const reply = await handleMcpMessage(
+        { jsonrpc: "2.0", id: 1.5, method: "ping", params },
+        context(),
+      );
+      expectRefusal(reply, -32600, null);
+    }
   });
 
-  it("CARACTÉRISATION — `params` tableau → servi en 200", async () => {
+  it("🔴 `params` primitif → 400 + -32600 avec l'`id` lu (§4.2 : valeur STRUCTURÉE)", async () => {
+    for (const params of ["x", 1, true, null]) {
+      const reply = await handleMcpMessage(
+        { jsonrpc: "2.0", id: 1, method: "ping", params },
+        context(),
+      );
+      expectRefusal(reply, -32600, 1);
+    }
+  });
+
+  it("🔴 `params` tableau → 400 + -32602 (JSON-RPC valide, mais le MCP nomme ses paramètres)", async () => {
     const reply = await handleMcpMessage(
       { jsonrpc: "2.0", id: 1, method: "ping", params: [1] },
       context(),
     );
-    expect(reply.status).toBe(200);
+    expectRefusal(reply, -32602, 1);
+  });
+
+  it("🔴 une NOTIFICATION aux `params` primitifs → 400, erreur SANS `id` (streamable-http : « cannot accept it »)", async () => {
+    const reply = await handleMcpMessage(
+      { jsonrpc: "2.0", method: "notifications/initialized", params: "x" },
+      context(),
+    );
+    expectRefusal(reply, -32600, null);
+  });
+
+  it("une requête à `id` chaîne, entier ou zéro reste servie", async () => {
+    for (const id of ["a", 7, 0]) {
+      const reply = await handleMcpMessage(
+        { jsonrpc: "2.0", id, method: "ping", params: {} },
+        context(),
+      );
+      expect(reply.status).toBe(200);
+      expect((reply.body as { id: unknown }).id).toBe(id);
+    }
   });
 
   it("un LOT (tableau) → 400 + -32600, `id: null`", async () => {
@@ -1650,10 +1692,10 @@ describe("MCP — frames JSON-RPC limites", () => {
     });
   });
 
-  it("CARACTÉRISATION — `isNotification` tient `id: null` pour une notification", () => {
+  it("🔴 `isNotification` : un `id` présent, même `null`, n'en fait PAS une notification", () => {
     expect(isNotification({ jsonrpc: "2.0", method: "x" })).toBe(true);
     expect(isNotification({ jsonrpc: "2.0", id: null, method: "x" })).toBe(
-      true,
+      false,
     );
     expect(isNotification({ jsonrpc: "2.0", id: 0, method: "x" })).toBe(false);
   });

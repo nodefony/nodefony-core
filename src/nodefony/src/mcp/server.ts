@@ -6,13 +6,17 @@ import {
   MCP_DEFAULT_NEGOTIATED_VERSION,
   META_PROTOCOL_VERSION,
   META_SERVER_INFO,
-  isNotification,
   jsonRpcFailure,
   jsonRpcSuccess,
   type IJsonRpcMessage,
   type IMcpHttpReply,
   type JsonRpcId,
 } from "./protocol";
+import {
+  classifyJsonRpcFrame,
+  type IJsonRpcNotification,
+  type IJsonRpcRequest,
+} from "../jsonrpc/index";
 import {
   callMcpTool,
   publishMcpTools,
@@ -278,6 +282,20 @@ function checkProtocolVersion(
 }
 
 /**
+ * Refus d'un message qui n'est pas une requête MCP acceptable : `400` + `-32600`.
+ *
+ * @param id - l'`id` de la requête quand il a été lu, sinon `null`
+ * @param message - motif, une phrase
+ * @returns la réponse HTTP à écrire
+ */
+function invalidRequest(id: JsonRpcId | null, message: string): IMcpHttpReply {
+  return {
+    status: 400,
+    body: jsonRpcFailure(id, JsonRpcError.INVALID_REQUEST, message),
+  };
+}
+
+/**
  * Traite UN message JSON-RPC.
  *
  * @param message - corps du `POST`, déjà parsé
@@ -291,36 +309,69 @@ export async function handleMcpMessage(
   context: IMcpServerContext,
   headers: IMcpHeaders = {},
 ): Promise<IMcpHttpReply> {
-  if (
-    message === null ||
-    typeof message !== "object" ||
-    typeof message.method !== "string"
-  ) {
-    return {
-      status: 400,
-      body: jsonRpcFailure(
-        null,
-        JsonRpcError.INVALID_REQUEST,
-        "message JSON-RPC invalide : `method` manquante",
-      ),
-    };
+  // Le prédicat est PARTAGÉ avec le pair temps réel ; la réaction est propre à
+  // cette porte : une frame non conforme reçoit `400` + `-32600`, `id: null`
+  // (JSON-RPC 2.0 §5 : l'`id` d'un message invalide n'est pas réputé lu).
+  const kind = classifyJsonRpcFrame(message);
+  if (kind === "invalid") {
+    return invalidRequest(null, "message JSON-RPC 2.0 invalide");
+  }
+  if (kind === "response") {
+    // streamable-http : « The client MUST NOT send JSON-RPC responses ».
+    return invalidRequest(
+      null,
+      "un client MCP n'envoie pas de réponse JSON-RPC sur cette porte",
+    );
+  }
+  // `classifyJsonRpcFrame` garantit ici `jsonrpc: "2.0"`, une `method` chaîne
+  // et, pour une requête, un `id` chaîne ou nombre.
+  const frame = message as IJsonRpcRequest | IJsonRpcNotification;
+  const method = frame.method;
+  // Une notification fautive reçoit aussi un `400` : la spec l'impose quand le
+  // serveur ne peut pas l'accepter, avec une erreur SANS `id`.
+  const replyId = kind === "request" ? (frame as IJsonRpcRequest).id : null;
+  // Plus strict que JSON-RPC : « Requests MUST include a string or integer
+  // ID » (MCP 2026-07-28, `basic/index.mdx`). Jugé AVANT tout autre refus :
+  // un `id` invalide n'est jamais renvoyé en écho, quel que soit le défaut.
+  if (typeof replyId === "number" && !Number.isInteger(replyId)) {
+    return invalidRequest(
+      null,
+      "l'identifiant d'une requête MCP est une chaîne ou un entier",
+    );
   }
 
-  const method = message.method;
+  // `params` : une valeur STRUCTURÉE (JSON-RPC 2.0 §4.2), et pour le MCP un
+  // OBJET nommé — jamais remplacé en silence par `{}`, ce qui ferait servir
+  // une requête que le client n'a pas écrite.
+  const rawParams = frame.params;
+  if (rawParams !== undefined) {
+    if (rawParams === null || typeof rawParams !== "object") {
+      return invalidRequest(
+        replyId,
+        "`params` doit être une valeur structurée (JSON-RPC 2.0 §4.2)",
+      );
+    }
+    if (Array.isArray(rawParams)) {
+      return {
+        status: 400,
+        body: jsonRpcFailure(
+          replyId,
+          JsonRpcError.INVALID_PARAMS,
+          "`params` doit être un objet nommé : le MCP n'emploie pas de paramètres positionnels",
+        ),
+      };
+    }
+  }
 
   // Une NOTIFICATION n'attend aucune réponse. La spec impose `202 Accepted`
   // sans corps quand on l'accepte — répondre un objet JSON ici ferait échouer
   // un client conforme, qui n'attend rien à lire.
-  if (isNotification(message)) {
+  if (kind === "notification") {
     return { status: 202, body: null };
   }
 
-  const id = message.id as JsonRpcId;
-  const params = (
-    typeof message.params === "object" && message.params !== null
-      ? message.params
-      : {}
-  ) as Record<string, unknown>;
+  const id = (frame as IJsonRpcRequest).id;
+  const params = (rawParams ?? {}) as Record<string, unknown>;
 
   const refusal = checkProtocolVersion(id, params, headers);
   if (refusal) return refusal;

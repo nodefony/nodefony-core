@@ -573,43 +573,74 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       return { peer, sent, notes, audits };
     }
 
-    it("CARACTÉRISATION — `id: null` + method → traité en NOTIFICATION", () => {
+    it("🔴 `id: null` + method → INVALID + audit, ni notification ni réponse (§4, MCP « MUST NOT be null »)", () => {
       const { peer, sent, notes, audits } = auditedPeer();
       expect(peer.receive({ jsonrpc: "2.0", id: null, method: "x" })).to.equal(
-        "notification",
+        "invalid",
       );
-      expect(notes).to.deep.equal([{ method: "x", params: undefined }]);
+      expect(notes).to.have.length(0);
       expect(sent).to.have.length(0);
-      expect(audits).to.have.length(0);
+      expect(audits).to.deep.equal(["invalid"]);
     });
 
-    it("CARACTÉRISATION — `id` objet ou booléen + method → traité en NOTIFICATION", () => {
-      const { peer, sent, notes } = auditedPeer();
+    it("🔴 `id` objet ou booléen + method → INVALID (§4 : « MUST contain a String, Number, or NULL »)", () => {
+      const { peer, sent, notes, audits } = auditedPeer();
       expect(peer.receive({ jsonrpc: "2.0", id: {}, method: "x" })).to.equal(
-        "notification",
+        "invalid",
       );
       expect(peer.receive({ jsonrpc: "2.0", id: true, method: "x" })).to.equal(
-        "notification",
+        "invalid",
       );
-      expect(notes).to.have.length(2);
+      expect(notes).to.have.length(0);
       expect(sent).to.have.length(0);
+      expect(audits).to.deep.equal(["invalid", "invalid"]);
     });
 
-    it("CARACTÉRISATION — `{jsonrpc, id}` sans result ni error → « response » muette", () => {
+    it("🔴 `{jsonrpc, id}` sans result ni error → INVALID + audit (§5 : l'un des deux est REQUIRED)", () => {
       const { peer, sent, audits } = auditedPeer();
-      expect(peer.receive({ jsonrpc: "2.0", id: 5 })).to.equal("response");
+      expect(peer.receive({ jsonrpc: "2.0", id: 5 })).to.equal("invalid");
       expect(sent).to.have.length(0);
-      expect(audits).to.have.length(0);
+      expect(audits).to.deep.equal(["invalid"]);
     });
 
-    it("CARACTÉRISATION — `error` mal formé sur une réponse attendue → rejette (code -32000, message vide)", async () => {
-      const { peer } = auditedPeer();
+    it("🔴 réponse invalide à une requête EN ATTENTE → l'appel échoue tout de suite, sans attendre son délai", async () => {
+      const { peer, audits } = auditedPeer();
       const p = peer.request("do", { a: 1 });
-      peer.receive({ jsonrpc: "2.0", id: 1, error: "boom" });
+      peer.receive({ jsonrpc: "2.0", id: 1 });
       const err = await p.catch((e: unknown) => e);
       expect(err).to.be.instanceOf(RpcError);
-      expect((err as RpcError).code).to.equal(-32000);
-      expect((err as RpcError).message).to.equal("");
+      expect((err as RpcError).code).to.equal(-32603);
+      expect((err as RpcError).message).to.equal("réponse JSON-RPC invalide");
+      expect(audits).to.deep.equal(["invalid"]);
+    });
+
+    it("une frame d'un AUTRE protocole qui porte notre `id` ne règle PAS l'appel (pas de `jsonrpc: \"2.0\"`)", async () => {
+      const { peer, audits } = auditedPeer();
+      const p = peer.request("do", { a: 1 });
+      peer.receive({ id: 1 });
+      peer.receive({ jsonrpc: "1.0", id: 1, result: 0 });
+      expect(audits).to.deep.equal(["invalid", "invalid"]);
+      // L'appel attend toujours SA réponse.
+      peer.receive({ jsonrpc: "2.0", id: 1, result: { ok: true } });
+      expect(await p).to.deep.equal({ ok: true });
+    });
+
+    it("🔴 `error` mal formé (§5.1 : code ENTIER, message chaîne) → rejette en -32603, plus en « -32000 vide »", async () => {
+      const { peer, audits } = auditedPeer();
+      const p1 = peer.request("do", { a: 1 });
+      const p2 = peer.request("do", { a: 2 });
+      peer.receive({ jsonrpc: "2.0", id: 1, error: "boom" });
+      peer.receive({
+        jsonrpc: "2.0",
+        id: 2,
+        error: { code: -32000.5, message: "m" },
+      });
+      for (const p of [p1, p2]) {
+        const err = await p.catch((e: unknown) => e);
+        expect(err).to.be.instanceOf(RpcError);
+        expect((err as RpcError).code).to.equal(-32603);
+      }
+      expect(audits).to.deep.equal(["invalid", "invalid"]);
     });
 
     it("`id` fractionnaire (§4 « SHOULD NOT », toléré) → réponse avec le MÊME id", async () => {
@@ -623,7 +654,7 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
     });
 
     it("`result` ET `error` sur une réponse attendue → l'ERREUR gagne (rejet fidèle)", async () => {
-      const { peer } = auditedPeer();
+      const { peer, audits } = auditedPeer();
       const p = peer.request("do", { a: 1 });
       peer.receive({
         jsonrpc: "2.0",
@@ -636,6 +667,9 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       expect((err as RpcError).code).to.equal(-32000);
       expect((err as RpcError).message).to.equal("e");
       expect((err as RpcError).data).to.deep.equal({ status: 409 });
+      // §5 : « both members MUST NOT be included » — la frame est invalide, et
+      // auditée comme telle ; l'appel reçoit tout de même l'erreur annoncée.
+      expect(audits).to.deep.equal(["invalid"]);
     });
 
     it("un LOT (§6, tableau) → invalid + audit, aucune réponse", () => {
@@ -672,12 +706,17 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       expect(await p).to.deep.equal({ ok: true });
     });
 
-    it("`method` non chaîne + `id` → lu comme une réponse", () => {
-      const { peer, sent } = auditedPeer();
-      expect(peer.receive({ jsonrpc: "2.0", id: 3, method: 5 })).to.equal(
-        "response",
+    it("🔴 `method` non chaîne + `id` → INVALID, et une requête en attente au même `id` n'est PAS touchée", async () => {
+      const { peer, sent, audits } = auditedPeer();
+      const p = peer.request("do", { a: 1 });
+      expect(peer.receive({ jsonrpc: "2.0", id: 1, method: 5 })).to.equal(
+        "invalid",
       );
-      expect(sent).to.have.length(0);
+      expect(audits).to.deep.equal(["invalid"]);
+      // Ce n'était pas une réponse : l'appel attend toujours la sienne.
+      peer.receive({ jsonrpc: "2.0", id: 1, result: { ok: true } });
+      expect(await p).to.deep.equal({ ok: true });
+      expect(sent).to.have.length(1); // la seule requête émise
     });
 
     it("forme EXACTE des frames émises — `params` absent du fil quand il n'est pas donné", () => {
@@ -693,6 +732,38 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
         '{"jsonrpc":"2.0","id":1,"method":"x"}',
       ]);
       peer.dispose();
+    });
+
+    it("🔴 une action qui ne rend RIEN, à travers le fil (JSON) → l'appelant reçoit `null`, sans attendre son délai", async () => {
+      // Deux pairs reliés par une VRAIE sérialisation : c'est là que
+      // `result: undefined` disparaît. Sans `result`, la frame n'est plus une
+      // réponse (§5) — l'appel attendait son délai (30 s), puis aurait été
+      // rejeté par le pair qui la juge invalide.
+      let server: JsonRpcPeer<
+        DefaultEventsMap,
+        DefaultEventsMap,
+        TestActions
+      > | null = null;
+      const wire: string[] = [];
+      const client = new JsonRpcPeer<
+        DefaultEventsMap,
+        DefaultEventsMap,
+        TestActions
+      >({
+        send: (f) => {
+          server!.receive(JSON.parse(JSON.stringify(f)));
+        },
+      });
+      server = new JsonRpcPeer({
+        send: (f) => {
+          const text = JSON.stringify(f);
+          wire.push(text);
+          client.receive(JSON.parse(text));
+        },
+      });
+      server.register("x", () => undefined);
+      expect(await client.request("x", undefined, 1000)).to.equal(null);
+      expect(wire).to.deep.equal(['{"jsonrpc":"2.0","id":1,"result":null}']);
     });
 
     it("forme EXACTE d'une erreur émise — `data` absent quand il n'est pas donné", async () => {

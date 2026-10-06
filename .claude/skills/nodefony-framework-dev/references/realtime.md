@@ -498,7 +498,7 @@ Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) �
 - Entrant/callee : `register<K>(method, handler)` `:255` · `unregister` `:266` · `receive(frame): JsonRpcFrameKind` `:315` · `methods` `:271` · `dispose(reason?)` `:378`.
 - `RpcError extends Error` `:70` — `{ code: number, data?: unknown }`, plage applicative `-32000..-32099`. **Seule** façon d'exposer un code/message au pair (tout autre throw → `-32603` opaque). Isomorphe : `catch (e) { if (e instanceof RpcError) e.data.status }`.
 
-`IRealtimeSocket<Emit, Listen, Actions>` `core/src/realtime/IRealtimeSocket.ts:122` — contrat de « la socket » (`subscribe`/`on`/`publish`/`request`/`channel`). Sous-types : `IRealtimeChannel` (`:87`, vue par-canal `on`/`send`/`open`/`close`) · `IChannelStats` (`:64`) · `RealtimeHandler` (`:58`). `IRealtimePeer<Emit, Actions>` = surface bidirectionnelle (`JsonRpcPeer.ts:183`).
+`IRealtimeSocket<Emit, Listen, Actions>` `core/src/realtime/IRealtimeSocket.ts:122` — contrat de « la socket » (`subscribe`/`on`/`publish`/`request`/`channel`). Sous-types : `IRealtimeChannel` (`:87`, vue par-canal `on`/`send`/`open`/`close`) · `IChannelStats` (`:64`) · `RealtimeHandler` (`:58`). `IRealtimePeer<Emit, Actions>` = surface bidirectionnelle (`JsonRpcPeer.ts:261`).
 
 <a id="27-backplane"></a>
 

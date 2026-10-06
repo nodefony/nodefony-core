@@ -233,6 +233,36 @@ Nodefony.getKernel();
 
 ---
 
+## JSON-RPC 2.0 (`src/jsonrpc/`) — les BRIQUES partagées par les deux portes
+
+UNE définition pour le pair temps réel (`realtime/JsonRpcPeer.ts`) ET la porte MCP
+(`mcp/server.ts`). On partage les briques, JAMAIS les machines : le pair est duplex
+et répond lui-même par `send`, le MCP est sans état et rend un verdict HTTP.
+
+<!-- prettier-ignore -->
+| Symbole | Rôle |
+| --- | --- |
+| `JsonRpcError` | les 5 codes standard (§5.1). Nom public historique (était dans `mcp/protocol`, réexporté par lui) |
+| `JsonRpcServerError` | `DEFAULT` -32000 (défaut de `RpcError`), `MIN`/`MAX` de la plage serveur. Le MCP PARTITIONNE la plage (-32000…-32019 hérité, -32020…-32099 réservé à la spec MCP) |
+| `classifyJsonRpcFrame(v)` | `request`/`notification`/`response`/`invalid` — lectures de propriétés seules, 0 alloc. Ne juge PAS `params` |
+| `isJsonRpcId` / `isJsonRpcErrorObject` | `id` chaîne\|nombre (jamais null) / `error` à code ENTIER + message chaîne |
+| `jsonRpcRequest`/`jsonRpcNotification`/`jsonRpcSuccess`/`jsonRpcFailure` | fabriques — forme CONSTANTE (`params` toujours clé, omis du fil si `undefined`), `data` absent si non donné. `jsonRpcSuccess(id, undefined)` → `result: null` (§5 REQUIRED : sans lui, une action `void` laissait l'appelant attendre son délai) |
+| `isNotification(m)` | `true` seulement SANS membre `id` (`id: null` n'en est PAS une) |
+
+- 🔴 **Isomorphe, sens unique** : n'importe RIEN de `mcp/` ni `realtime/`, aucun `node:`.
+  Garde : `tests/jsonrpcSingleSource.test.ts` lit le `dist/client` BÂTI (0 `node:`, 0 `mcp/`)
+  et refuse tout code standard ou `-32000` en littéral, toute frame `{ jsonrpc: "2.0" }` ou
+  comparaison `x.jsonrpc === "2.0"` écrite à la main hors de `jsonrpc/` (AST TypeScript,
+  commentaires ignorés). Exclus : bancs, `realtime/nodefony/testing/`.
+- **Réaction propre à chaque porte** : pair → frame `invalid` jetée + audit, jamais répondue ;
+  une `invalid` `jsonrpc: "2.0"` SANS `method` qui porte l'`id` numérique d'un appel en attente
+  le REJETTE aussitôt (`-32603` « réponse JSON-RPC invalide », ou l'`error` annoncée si bien
+  formée) ; une frame d'un autre protocole ne règle rien. `RealtimeClient` ne lève sa notice
+  « erreur globale » que pour une `invalid` SANS `id` lisible (la corrélée est déjà réglée).
+  MCP → `400` ; `id` non entier jugé AVANT `params` (jamais renvoyé en écho).
+- **Pair TOLÈRE `params` primitif** (charges de canal arbitraires, `notify(canal, "texte")`) ;
+  le MCP le refuse. Lot (tableau) = `invalid` des deux côtés.
+
 ## Model Context Protocol (`src/mcp/`) — le protocole, pas la porte
 
 Tout est PUR : aucun socket, aucun conteneur, aucune horloge. La PORTE HTTP vit
@@ -243,7 +273,7 @@ rien à redéclarer.
 <!-- prettier-ignore -->
 | Symbole | Fichier | Rôle |
 | --- | --- | --- |
-| `handleMcpMessage` | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue |
+| `handleMcpMessage` | `src/mcp/server.ts` | 1 message JSON-RPC → `{status, body}`. Reçoit des outils **déjà résolus** (`IMcpTool[]`), jamais un catalogue. STRICT : `classifyJsonRpcFrame` ≠ request/notification → `400`+`-32600` `id:null` ; `params` primitif → `-32600`, tableau → `-32602` ; `id` non entier → `-32600` (MCP : « string or integer ») ; une réponse postée → `400` |
 | `checkMcpAccess`/`isLocalAddress` | `src/mcp/guard.ts` | `Origin` (**absent = client natif → passe**) + localité. Localité jugée AVANT l'origine |
 | `builtinMcpTools(deps)` | `src/mcp/tools.ts` | 4 intégrés (`inspect`, `check`, `symbols`, `card`) → briques existantes (`readAdminSubject`, `collectDoctorReport`, `lookupSymbol`, `getCard`) |
 | `declareMcpTools(opts)` | `src/mcp/tools.ts` | intégrés filtrés par allowlist **puis** `getMcpTools()` de chaque module. Écarts → `onSkip`. **Non servable tel quel** : contient les réservés |

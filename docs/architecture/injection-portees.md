@@ -424,7 +424,7 @@ Le décorateur `Scope()` (`routerDecorators.ts:795`) rend à une classe une inst
 par CONNEXION en WebSocket. À déclarer quand le contrôleur injecte un service `request` à son
 constructeur, prépare chaque requête dans `initialize()`, ou garde un état sur `this`.
 
-`RealtimeController` l'est par construction (`RealtimeController.ts:173`), et refuse le singleton au
+`RealtimeController` l'est par construction (`RealtimeController.ts:176`), et refuse le singleton au
 démarrage : son pair JSON-RPC et `notifyClient`/`requestClient` désignent la connexion par
 l'instance.
 
@@ -580,7 +580,7 @@ attendue** qui continue après la réponse, non — elle tombe dans le troisièm
 besoin avant que la réponse parte.
 
 Le pont `api.request` du temps réel pose lui aussi le scope dans sa bulle
-(`RealtimeController.ts:1010`) : c'est celui de la **connexion**, partagé par les invocations
+(`RealtimeController.ts:1012`) : c'est celui de la **connexion**, partagé par les invocations
 concurrentes de la même socket.
 
 > [!NOTE]

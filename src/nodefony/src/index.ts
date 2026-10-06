@@ -162,6 +162,34 @@ export type {
   OpenSearchTransportOptions,
 } from "./syslog/transports/index";
 
+// ─── JSON-RPC 2.0 — les briques PARTAGÉES par toutes les portes ───────────────
+// Codes, formes de message, fabriques et classification d'une frame : une seule
+// définition pour le pair temps réel ET la porte MCP, qui divergeaient en
+// silence quand chacune portait sa copie. Isomorphe (aussi dans `nodefony/client`).
+export {
+  JSON_RPC_VERSION,
+  JsonRpcError,
+  JsonRpcServerError,
+  classifyJsonRpcFrame,
+  isJsonRpcId,
+  isJsonRpcErrorObject,
+  isNotification,
+  jsonRpcRequest,
+  jsonRpcNotification,
+  jsonRpcSuccess,
+  jsonRpcFailure,
+} from "./jsonrpc/index";
+export type {
+  JsonRpcId,
+  JsonRpcFrameKind,
+  IJsonRpcErrorObject,
+  IJsonRpcRequest,
+  IJsonRpcNotification,
+  IJsonRpcSuccess,
+  IJsonRpcFailure,
+  IJsonRpcMessage,
+} from "./jsonrpc/index";
+
 // ─── Realtime (protocole JSON-RPC 2.0 isomorphe) ───────────────────────────────
 export {
   default as JsonRpcPeer,
@@ -174,7 +202,6 @@ export type {
   RpcNotificationHandler,
   RpcMeta,
   RpcTracedResult,
-  JsonRpcFrameKind,
   JsonRpcErrorObject,
   JsonRpcPeerOptions,
   FrameAuditReason,
@@ -888,19 +915,11 @@ export {
   MCP_ENDPOINT_PATH,
   META_PROTOCOL_VERSION,
   META_SERVER_INFO,
-  JsonRpcError,
   McpProtocolError,
-  jsonRpcSuccess,
-  jsonRpcFailure,
-  isNotification,
 } from "./mcp/protocol";
-export type {
-  IJsonRpcMessage,
-  IJsonRpcSuccess,
-  IJsonRpcFailure,
-  IMcpHttpReply,
-  JsonRpcId,
-} from "./mcp/protocol";
+// Les codes et fabriques JSON-RPC qu'emploie le MCP sont exportés plus haut,
+// depuis `jsonrpc/` — même nom, une seule source.
+export type { IMcpHttpReply } from "./mcp/protocol";
 export { handleMcpMessage } from "./mcp/server";
 export type { IMcpServerContext, IMcpHeaders } from "./mcp/server";
 export { checkMcpAccess, isLocalAddress } from "./mcp/guard";

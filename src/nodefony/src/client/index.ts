@@ -51,10 +51,28 @@ export type {
   IRealtimePeer,
   RpcActionHandler,
   RpcNotificationHandler,
-  JsonRpcFrameKind,
   JsonRpcErrorObject,
   JsonRpcPeerOptions,
 } from "../realtime/JsonRpcPeer";
+// Briques JSON-RPC 2.0 partagées avec le serveur (`jsonrpc/`) : un client qui
+// lit un code d'erreur le compare à la MÊME constante que le serveur émet.
+export {
+  JSON_RPC_VERSION,
+  JsonRpcError,
+  JsonRpcServerError,
+  classifyJsonRpcFrame,
+  isJsonRpcId,
+  isJsonRpcErrorObject,
+} from "../jsonrpc/index";
+export type {
+  JsonRpcId,
+  JsonRpcFrameKind,
+  IJsonRpcErrorObject,
+  IJsonRpcRequest,
+  IJsonRpcNotification,
+  IJsonRpcSuccess,
+  IJsonRpcFailure,
+} from "../jsonrpc/index";
 export type {
   IRealtimeTransport,
   TransportStateValue,

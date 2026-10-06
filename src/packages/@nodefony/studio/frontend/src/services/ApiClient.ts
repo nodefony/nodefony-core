@@ -22,6 +22,10 @@
  * Sera enrichi en P6 (Security) : refresh token, redirect sur 401, etc.
  */
 
+// Le code « méthode inconnue » vient de la source PARTAGÉE avec le serveur qui
+// l'émet (`nodefony` → bundle client). Une copie locale divergerait en silence.
+import { JsonRpcError } from "nodefony";
+
 /**
  * Vue MINIMALE de la Socket Nodefony consommée par le pont (typage structurel —
  * `RealtimeClient` s'y conforme ; pas d'import runtime → 0 couplage, mockable).
@@ -101,9 +105,6 @@ interface RpcErrorLike {
   message?: string;
   data?: { status?: number; body?: unknown };
 }
-
-/** Code JSON-RPC « méthode inconnue » → le serveur n'expose pas le pont `api.request`. */
-const RPC_METHOD_NOT_FOUND = -32601;
 
 /** Clé de route : le path SANS query (l'éligibilité au pont dépend de la ROUTE). */
 function routeKey(url: string): string {
@@ -270,7 +271,8 @@ export class ApiClient {
   private learnFromSocketError(method: string, url: string, e: unknown): void {
     const rpc = e as RpcErrorLike;
     if (!e || typeof e !== "object" || rpc.name !== "RpcError") return;
-    if (rpc.code === RPC_METHOD_NOT_FOUND) {
+    // Méthode inconnue → le serveur n'expose pas le pont `api.request`.
+    if (rpc.code === JsonRpcError.METHOD_NOT_FOUND) {
       this.socketBridgeDown = true;
       return;
     }

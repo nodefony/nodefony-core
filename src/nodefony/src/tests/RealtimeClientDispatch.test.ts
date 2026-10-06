@@ -170,3 +170,55 @@ describe("RealtimeClient — realtime:denied (refus de canal observable)", () =>
     client.disconnect();
   });
 });
+
+describe("RealtimeClient — erreur GLOBALE serveur vs réponse corrélée", () => {
+  it("frame `{jsonrpc, error}` SANS id → notice « Temps réel »", () => {
+    const { client, internal } = newClient();
+    const notices: Array<{ message: string }> = [];
+    client.onNotice((n) => notices.push(n));
+    internal.handleMessage(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "refus tardif" },
+      }),
+    );
+    expect(notices.map((n) => n.message)).to.deep.equal(["refus tardif"]);
+    client.disconnect();
+  });
+
+  it("erreur à `id: null` (§5 : id illisible) → notice, elle aussi globale", () => {
+    const { client, internal } = newClient();
+    const notices: unknown[] = [];
+    client.onNotice((n) => notices.push(n));
+    internal.handleMessage(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32700, message: "Parse error" },
+      }),
+    );
+    expect(notices).to.have.length(1);
+    client.disconnect();
+  });
+
+  it("🔴 frame invalide qui porte l'`id` d'un appel → l'appel échoue, SANS notice globale en double", async () => {
+    const { client, internal } = newClient();
+    openTransport(internal);
+    const notices: unknown[] = [];
+    client.onNotice((n) => notices.push(n));
+    const p = client.request<"nodefony:kernel:ping">("nodefony:kernel:ping");
+    // `result` ET `error` : interdit par §5, donc invalide — mais corrélé.
+    internal.handleMessage(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        result: 1,
+        error: { code: -32000, message: "e" },
+      }),
+    );
+    const err = await p.catch((e: unknown) => e);
+    expect((err as Error).message).to.equal("e");
+    expect(notices).to.have.length(0);
+    client.disconnect();
+  });
+});

@@ -117,7 +117,7 @@ Trois faits, vérifiés :
    identité gravée au handshake → fuite de données (**vécu en prod**). Toute app qui recâble sa
    glue sans reproduire cette reaction MobX **reproduit la faille**. Une règle de sécurité ne doit
    pas dépendre de la qualité du câblage artisanal de chaque app.
-3. **La façade client viole les règles du core** : `src/client/index.ts:57-78` = `class Nodefony`
+3. **La façade client viole les règles du core** : `src/client/index.ts:56-78` = `class Nodefony`
    singleton + **`export default`** (règle « named exports only » violée), et cette façade est
    **incohérente** avec le node (`Nodefony` statique, `getKernel()`). Audit client de mai
    (points B/C), jamais soldé. Fait nouveau vérifié ce jour : **aucun consommateur n'importe ce
@@ -273,7 +273,7 @@ contractuelle), **pas** un container à décorateurs :
 
 ### D4 — Façade unique : mort de l'export default et du singleton `class Nodefony` client
 
-La 10.0.0 supprime du barrel client (`src/client/index.ts:57-78`) la `class Nodefony` singleton
+La 10.0.0 supprime du barrel client (`src/client/index.ts:56-78`) la `class Nodefony` singleton
 et son `export default`. Une seule forme d'accès : **named exports** + factory
 **`createClientKernel(options)`**.
 
@@ -317,7 +317,7 @@ depuis `client/index.ts` ; ② le barrel node (`src/index.ts`) ne tire jamais `s
 ### D7 — Opt-in strict : le kernel compose, il n'impose pas
 
 Chaque primitive reste utilisable **nue**, sans kernel : `RealtimeClient.shared()` (utilisé par
-Studio et la debug bar aujourd'hui — `RealtimeClient.ts:295`) continue de fonctionner tel quel,
+Studio et la debug bar aujourd'hui — `RealtimeClient.ts:296`) continue de fonctionner tel quel,
 de même que `mountDebugBar()`, les hooks `nodefony/react`, `Storage`. Le ClientKernel est la
 **voie recommandée** pour une app complète, jamais un péage. **Pourquoi** : la DX des cas simples
 (un widget, une page, un POC) est un actif — un kernel obligatoire pour afficher 3 stats serait
@@ -501,7 +501,7 @@ ferait du kernel un moule du legacy Studio.
 ## Références
 
 - Code (ancrages vérifiés 2026-07-03) : `src/nodefony/package.json` (exports browser+subpaths) ·
-  `src/nodefony/src/client/index.ts:57-78` (façade à supprimer) · `tsconfigClient.json`
+  `src/nodefony/src/client/index.ts:56-78` (façade à supprimer) · `tsconfigClient.json`
   (garantie `types:[]` + shims) · `createClientConfig` (alors dans `rollup.config.ts`,
   aujourd'hui `rolldown.config.ts`) ·
   `studio/frontend/src/stores/RootStore.ts` (composition manuelle ; :31 pas de DI front ;

@@ -703,14 +703,21 @@ describe.skipIf(raison !== null)(
       const codeOf = (r: IReponse): number | undefined =>
         (r.body as { error?: { code: number } } | null)?.error?.code;
 
-      it("CARACTÉRISATION — corps `null` (JSON VALIDE) → 400 + -32700", async () => {
+      it("🔴 corps `null` — JSON VALIDE, mais pas un message → 400 + -32600 (§5.1)", async () => {
         const reponse = await posterTexte("null");
         expect(reponse.status).toBe(400);
-        expect(codeOf(reponse)).toBe(-32700);
+        expect(codeOf(reponse)).toBe(-32600);
       });
 
-      it("CARACTÉRISATION — corps ILLISIBLE → 400 + -32600", async () => {
+      it("🔴 corps ILLISIBLE → 400 + -32700, malgré le parseur HTTP qui le tait (§5.1)", async () => {
         const reponse = await posterTexte('{"jsonrpc":"2.0","id":1,');
+        expect(reponse.status).toBe(400);
+        expect(codeOf(reponse)).toBe(-32700);
+        expect((reponse.body as { id: unknown }).id).toBeNull();
+      });
+
+      it("un corps `{}` — JSON lisible, message vide → 400 + -32600, pas -32700", async () => {
+        const reponse = await posterTexte("{}");
         expect(reponse.status).toBe(400);
         expect(codeOf(reponse)).toBe(-32600);
       });
@@ -723,9 +730,30 @@ describe.skipIf(raison !== null)(
         expect(codeOf(reponse)).toBe(-32600);
       });
 
-      it("CARACTÉRISATION — sans `jsonrpc` → 200", async () => {
+      it('🔴 sans `jsonrpc` → 400 + -32600 (§4 : « MUST be exactly "2.0" »)', async () => {
         const reponse = await poster({ id: 1, method: "ping" });
-        expect(reponse.status).toBe(200);
+        expect(reponse.status).toBe(400);
+        expect(codeOf(reponse)).toBe(-32600);
+      });
+
+      it("🔴 `id: null` → 400 + -32600 (MCP : « the ID MUST NOT be null »)", async () => {
+        const reponse = await poster({
+          jsonrpc: "2.0",
+          id: null,
+          method: "ping",
+        });
+        expect(reponse.status).toBe(400);
+        expect(codeOf(reponse)).toBe(-32600);
+      });
+
+      it("🔴 une NOTIFICATION aux `params` primitifs → 400, pas 202", async () => {
+        const reponse = await poster({
+          jsonrpc: "2.0",
+          method: "notifications/initialized",
+          params: "x",
+        });
+        expect(reponse.status).toBe(400);
+        expect(codeOf(reponse)).toBe(-32600);
       });
     });
   },

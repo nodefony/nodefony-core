@@ -29,18 +29,18 @@ Trois couches, séparées pour rester isomorphes (seule la dernière diffère cl
 
 ```
 RealtimeClient            ← la « socket » (orchestration : reconnect, heartbeat, stats,
-  (IRealtimeSocket)          ref-count subscribe, identité, frameLog). RealtimeClient.ts:154
+  (IRealtimeSocket)          ref-count subscribe, identité, frameLog). RealtimeClient.ts:155
    └─ JsonRpcPeer         ← moteur protocole JSON-RPC 2.0 ISOMORPHE (classe une frame,
-        (IRealtimePeer)      route, corrèle les id, gère erreurs). realtime/JsonRpcPeer.ts:280
+        (IRealtimePeer)      route, corrèle les id, gère erreurs). realtime/JsonRpcPeer.ts:311
          └─ IRealtimeTransport  ← LES OCTETS — seul maillon qui diffère. Front =
                                   BrowserWsTransport (wrap WebSocket). IRealtimeTransport.ts:34
 ```
 
-- `RealtimeClient` **compose** un `JsonRpcPeer` (`RealtimeClient.ts:680`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
+- `RealtimeClient` **compose** un `JsonRpcPeer` (`RealtimeClient.ts:681`) et lui **délègue** tout le plan de contrôle (request/notify/stream/receive/register/erreurs/corrélation d'id). Il ne garde que le « client » : transport, reconnect, heartbeat, stats, ref-count, identité. `send` est déréférencé à chaque frame (pas `.bind`) → testable.
 - Le transport est **injectable** (constructeur, 2ᵉ arg `RealtimeTransportFactory`, `RealtimeClient.ts:45`) → tests sans vrai socket ; défaut = `BrowserWsTransport`.
-- `RealtimeClient` implémente `IRealtimeSocket` (`IRealtimeSocket.ts:122`) ET `IRealtimePeer` (`JsonRpcPeer.ts:233`) — le MÊME contrat qu'exposera une façade serveur. Du code écrit contre ces interfaces tourne des deux côtés.
+- `RealtimeClient` implémente `IRealtimeSocket` (`IRealtimeSocket.ts:122`) ET `IRealtimePeer` (`JsonRpcPeer.ts:261`) — le MÊME contrat qu'exposera une façade serveur. Du code écrit contre ces interfaces tourne des deux côtés.
 
-Discrimination JSON-RPC (le cœur, `JsonRpcPeer.ts:315-375`) : le rôle d'une frame se lit sur `method`, PAS sur `id` —
+Discrimination JSON-RPC (le cœur, `JsonRpcPeer.ts:419-477`) : le rôle d'une frame se lit sur `method`, PAS sur `id` —
 `method`+`id` = **requête** entrante ; `method` seul = **notification** ; `id` sans `method` = **réponse** à une de nos requêtes sortantes.
 
 ---
@@ -48,16 +48,16 @@ Discrimination JSON-RPC (le cœur, `JsonRpcPeer.ts:315-375`) : le rôle d'une fr
 ## 2. Obtenir un client : `shared` / constructeur / `connect`
 
 ```ts
-// Singleton PAR URL (recommandé) — RealtimeClient.ts:236
+// Singleton PAR URL (recommandé) — RealtimeClient.ts:237
 static shared(opts?: RealtimeOptions): RealtimeClient;
 
-// Constructeur direct — RealtimeClient.ts:216
+// Constructeur direct — RealtimeClient.ts:217
 constructor(opts?: RealtimeOptions, transportFactory?: RealtimeTransportFactory);
 ```
 
-`RealtimeClient.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `RealtimeClient.ts:268-278`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. C'est la forme utilisée par le front (Studio `RootStore.ts:54`).
+`RealtimeClient.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `RealtimeClient.ts:269-278`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. C'est la forme utilisée par le front (Studio `RootStore.ts:54`).
 
-`RealtimeOptions` (`RealtimeClient.ts:102-123`) :
+`RealtimeOptions` (`RealtimeClient.ts:103-123`) :
 
 ```ts
 interface RealtimeOptions {
@@ -97,7 +97,7 @@ retryNow(): void;                           // force une reco immédiate, annule
 - **Heartbeat** : ping `{ ts }` toutes les `heartbeatInterval` ms tant que le transport est OPEN (`startHeartbeat`, `:1160`). Timer `unref` (n'empêche pas la sortie de process côté Node/test).
 - **Sémantique des close codes** (RFC 6455 §7.4) : un code **définitif** (1000, 1002, 1003, 1007, 1008=401/403, 1010, 4004 privé Nodefony) **ne relance PAS** la reco (sinon un anonyme martèle un endpoint protégé) → état `error`, l'app doit agir (login) puis `connect()`/`retryNow()`. Les codes **transitoires** (1001 restart, 1006 perte réseau, 1011, code absent) relancent la reco. Décidé par `isReconnectableCloseCode` (`notice.ts:171`, set `FATAL_CLOSE_CODES` `:140`).
 
-Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `RealtimeClient.ts:1385-1389`).
+Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `RealtimeClient.ts:1389-1389`).
 
 ---
 
@@ -116,7 +116,7 @@ channel(name): IRealtimeChannel;     // handle par-canal {on,send,open,close} (:
 
 **Distinction fondamentale** : `on(channel, h)` **REÇOIT** (branche le handler local) ; `subscribe(channel)` **DEMANDE** au serveur de pousser. Les deux sont nécessaires : `on` sans `subscribe` ne reçoit rien (le serveur ne pousse pas) ; `subscribe` sans `on` reçoit mais n'a aucun handler.
 
-**Ref-comptage** (`_subscriptions: Map<channel, count>`, `RealtimeClient.ts:189`) : la notification réseau `subscribe`/`unsubscribe` n'est émise qu'aux **transitions 0↔1**. N consommateurs (hooks React + store) sur le même canal partagent **UN seul abonnement serveur** sans se couper l'un l'autre :
+**Ref-comptage** (`_subscriptions: Map<channel, count>`, `RealtimeClient.ts:190`) : la notification réseau `subscribe`/`unsubscribe` n'est émise qu'aux **transitions 0↔1**. N consommateurs (hooks React + store) sur le même canal partagent **UN seul abonnement serveur** sans se couper l'un l'autre :
 
 - `subscribe` : `count++` ; émet `subscribe` réseau **seulement** au 1ᵉʳ (`count === 1`, `:501`).
 - `unsubscribe` : `count--` ; émet `unsubscribe` réseau **seulement** au dernier (`:438-440`).
@@ -131,7 +131,7 @@ Convention de **cadence dans le nom du canal** (`channelRate.ts`) : `base` nu = 
 ## 5. RPC : `request`, `mutate`, `ping`, `stream` + pont `api.request`
 
 ```ts
-// Trois surcharges (RealtimeClient.ts:729-763) :
+// Trois surcharges (RealtimeClient.ts:730-763) :
 request<T>(path: `/${string}`, timeoutMs?): Promise<T>;          // forme PATH → pont api.request (lecture GET)
 request<K, T>(method: K, params?, timeoutMs?): Promise<…>;       // forme RPC — K = NOM de la méthode, T = résultat
 request<K extends ActionNames<Actions>>(method: K, params?, …);  // contrat IRealtimePeer rendu explicite
@@ -158,7 +158,7 @@ mutate<T>(path: `/${string}`, init: {
   body?: unknown;
   idempotencyKey: string;          // OBLIGATOIRE
   timeoutMs?: number;              // défaut 30000
-}): Promise<T>;                    // RealtimeClient.ts:616
+}): Promise<T>;                    // RealtimeClient.ts:617
 ```
 
 Pendant **écriture** de `request` (qui ne fait que des GET). Transporte la méthode HTTP logique + le corps + une **clé d'idempotence obligatoire** : une socket reconnecte et peut rejouer une frame en vol → la clé dédoublonne le rejeu (anti double-effet) côté serveur. Échec → `RpcError` (`data.status` : 400 clé absente, 409 rejeu concurrent, 403 refus, 404 path inconnu…).
@@ -173,7 +173,7 @@ await socket.mutate("/nodefony/security/api/apikeys/42/revoke", {
 ### `ping` — RTT
 
 ```ts
-ping(timeoutMs = 5000): Promise<KernelPingResult & { rtt: number }>;   // RealtimeClient.ts:645
+ping(timeoutMs = 5000): Promise<KernelPingResult & { rtt: number }>;   // RealtimeClient.ts:646
 // KernelPingResult (:145) = { pong: true; ts; uptime; pid; version? }
 ```
 
@@ -187,7 +187,7 @@ Helper réutilisable (topbar, debug bar) : mesure le round-trip via la méthode 
 
 ### Erreur RPC
 
-`RpcError` (réexportée par `nodefony/client`, `JsonRpcPeer.ts:66-79`) : `{ message, code, data? }`. `code`/`data` préservés de bout en bout — un appelant discrimine un 404 d'un refus voter via `e.data.status` sans parser le message :
+`RpcError` (réexportée par `nodefony/client`, `JsonRpcPeer.ts:97-114`) : `{ message, code, data? }`. `code`/`data` préservés de bout en bout — un appelant discrimine un 404 d'un refus voter via `e.data.status` sans parser le message :
 
 ```ts
 try { await socket.request("/nodefony/x"); }
@@ -209,7 +209,7 @@ receive(frame): JsonRpcFrameKind;       // ingestion d'une frame entrante déjà
 dispose(reason?): void;                 // annule les requêtes sortantes en attente (:743)
 ```
 
-Sans handler `register`, une requête entrante reçoit `-32601` (method not found). Avec, le `result` repart au serveur (confirmation d'action, invalidation de cache poussée, health serveur→client). Côté protocole, un handler qui throw renvoie `-32603` générique au pair (Zero Trust) sauf s'il lève une `RpcError` (alors `code`/`message`/`data` sont exposés volontairement) — `JsonRpcPeer.ts:419-461`.
+Sans handler `register`, une requête entrante reçoit `-32601` (method not found). Avec, le `result` repart au serveur (confirmation d'action, invalidation de cache poussée, health serveur→client). Côté protocole, un handler qui throw renvoie `-32603` générique au pair (Zero Trust) sauf s'il lève une `RpcError` (alors `code`/`message`/`data` sont exposés volontairement) — `JsonRpcPeer.ts:538-461`.
 
 ---
 
@@ -571,6 +571,6 @@ Pendant serveur, bornes et politique du canal → `nodefony-framework-dev` (`ref
 - **Réponse mémorisée ≠ replay d'un `render` manuel** (côté serveur idempotence) : la valeur rejouée est la valeur RETOURNÉE par l'action.
 - **`onNotice`/`useNodefonyNotifications` : monter une seule fois** (shell) sinon toasts dupliqués.
 - **Canaux d'événements ≠ cadence adaptative** : ne JAMAIS `adaptiveChannel`/`useNodefonyAdaptiveChannel*` sur syslog/frames (chaque item compte) — réservé aux canaux d'ÉTAT latest-wins.
-- **Pas de buffering offline** : une frame émise hors connexion est droppée (`RealtimeClient.ts:705`).
+- **Pas de buffering offline** : une frame émise hors connexion est droppée (`RealtimeClient.ts:706`).
 - **`disconnect()` ≠ perte réseau** : volontaire → identité `null` (login) + requêtes en vol rejetées ; perte réseau → identité conservée + reco (selon close code, §3).
 - **Close code fatal (1008=401/403, 4004…) ne relance pas la reco** → état `error` ; l'app doit corriger (login) puis `connect()`/`retryNow()`.

@@ -10,6 +10,8 @@
  * @see https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
  */
 
+import type { IJsonRpcSuccess, IJsonRpcFailure } from "../jsonrpc/index";
+
 /** Révision PRÉFÉRÉE de ce serveur — celle qu'il met en tête de ce qu'il sait faire. */
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
 
@@ -94,20 +96,21 @@ export const META_SERVER_INFO = "io.modelcontextprotocol/serverInfo";
  */
 export const MCP_ENDPOINT_PATH = "/nodefony/mcp";
 
-/** Codes d'erreur JSON-RPC 2.0 employés par ce serveur. */
-export const JsonRpcError = {
-  /** Corps illisible. */
-  PARSE_ERROR: -32700,
-  /** Message qui n'est pas une requête JSON-RPC valide. */
-  INVALID_REQUEST: -32600,
-  /** Méthode inconnue — la spec exige alors un `404` HTTP. */
-  METHOD_NOT_FOUND: -32601,
-  /** Paramètres absents ou mal typés. */
-  INVALID_PARAMS: -32602,
-  /** Échec côté serveur. */
-  INTERNAL_ERROR: -32603,
-} as const;
-
+// Les briques JSON-RPC 2.0 (codes, formes de message, fabriques) vivent dans
+// `jsonrpc/`, partagées avec le pair temps réel : une seule définition, deux
+// portes. Réexportées ici pour les appelants du protocole MCP.
+export {
+  JsonRpcError,
+  jsonRpcSuccess,
+  jsonRpcFailure,
+  isNotification,
+} from "../jsonrpc/index";
+export type {
+  JsonRpcId,
+  IJsonRpcMessage,
+  IJsonRpcSuccess,
+  IJsonRpcFailure,
+} from "../jsonrpc/index";
 /**
  * Codes réservés par la spec MCP, hors plage JSON-RPC standard.
  *
@@ -129,32 +132,6 @@ export const McpProtocolError = {
   UNSUPPORTED_PROTOCOL_VERSION: -32022,
 } as const;
 
-/** Identifiant d'une requête JSON-RPC (jamais `null` pour une requête). */
-export type JsonRpcId = string | number;
-
-/** Message entrant : requête (avec `id`) ou notification (sans `id`). */
-export interface IJsonRpcMessage {
-  jsonrpc?: unknown;
-  id?: unknown;
-  method?: unknown;
-  params?: unknown;
-}
-
-/** Réponse JSON-RPC de succès. */
-export interface IJsonRpcSuccess {
-  jsonrpc: "2.0";
-  id: JsonRpcId;
-  result: unknown;
-}
-
-/** Réponse JSON-RPC d'erreur. */
-export interface IJsonRpcFailure {
-  jsonrpc: "2.0";
-  /** `null` quand l'erreur survient avant d'avoir pu lire un `id`. */
-  id: JsonRpcId | null;
-  error: { code: number; message: string; data?: unknown };
-}
-
 /** Ce que le serveur MCP rend, avant traduction en réponse HTTP. */
 export interface IMcpHttpReply {
   /** Statut HTTP à poser. */
@@ -164,36 +141,4 @@ export interface IMcpHttpReply {
    * pour une notification acceptée.
    */
   body: IJsonRpcSuccess | IJsonRpcFailure | null;
-}
-
-/** Fabrique une réponse de succès. */
-export function jsonRpcSuccess(
-  id: JsonRpcId,
-  result: unknown,
-): IJsonRpcSuccess {
-  return { jsonrpc: "2.0", id, result };
-}
-
-/** Fabrique une réponse d'erreur. */
-export function jsonRpcFailure(
-  id: JsonRpcId | null,
-  code: number,
-  message: string,
-  data?: unknown,
-): IJsonRpcFailure {
-  return {
-    jsonrpc: "2.0",
-    id,
-    error: data === undefined ? { code, message } : { code, message, data },
-  };
-}
-
-/**
- * Un message est-il une NOTIFICATION (pas d'`id`) plutôt qu'une requête ?
- *
- * La distinction commande le statut HTTP : une notification acceptée rend
- * `202` **sans corps**, une requête rend son objet JSON.
- */
-export function isNotification(message: IJsonRpcMessage): boolean {
-  return message.id === undefined || message.id === null;
 }

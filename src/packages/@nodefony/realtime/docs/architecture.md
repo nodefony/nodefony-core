@@ -124,9 +124,9 @@ Nodefony étiquette avec **JSON-RPC 2.0**, une norme publique plutôt qu'un form
 | **notification** | non          | non                             | pousser un événement, s'abonner, se désabonner |
 
 Le point remarquable : le **même** moteur de protocole tourne des deux côtés du fil. La
-classe `JsonRpcPeer` (`JsonRpcPeer.ts:271`) est du code isomorphe du cœur — le navigateur
+classe `JsonRpcPeer` (`JsonRpcPeer.ts:311`) est du code isomorphe du cœur — le navigateur
 l'exécute dans `RealtimeClient`, le serveur l'instancie une fois par connexion dans
-`RealtimeController.onHandshake()` (`RealtimeController.ts:404`). Le serveur peut donc
+`RealtimeController.onHandshake()` (`RealtimeController.ts:407`). Le serveur peut donc
 appeler le client, pas seulement l'inverse : c'est du vrai duplex, pas un aller-retour
 déguisé.
 
@@ -141,7 +141,7 @@ Trois partis pris distinguent cette pile d'un simple « serveur WebSocket ».
 et explicite : `ServerRealtimeSocket.request()` (`ServerRealtimeSocket.ts:131`) **rejette
 toujours** — un handle posé sur le hub n'a pas d'interlocuteur unique, puisque le hub est
 multi-clients. Pour un appel serveur→client ciblé, on passe par la connexion :
-`RealtimeController.requestClient()` (`RealtimeController.ts:359`).
+`RealtimeController.requestClient()` (`RealtimeController.ts:362`).
 
 **Un provider par canal, pas un par client.** Si mille onglets s'abonnent au même canal de
 santé, le calcul ne doit tourner qu'une fois. Le hub crée le producteur au **premier**
@@ -322,7 +322,7 @@ La pile se lit de haut en bas ; chaque étage ne connaît que son voisin du dess
 | Étage      | Qui                                                     | Sa seule responsabilité                 | Ce qu'il ignore               |
 | ---------- | ------------------------------------------------------- | --------------------------------------- | ----------------------------- |
 | Applicatif | ton contrôleur, tes services                            | le métier : quoi publier, quoi accepter | tout le reste                 |
-| Protocole  | `JsonRpcPeer` (`JsonRpcPeer.ts:271`)                    | étiqueter, corréler, refuser une frame  | par où passent les octets     |
+| Protocole  | `JsonRpcPeer` (`JsonRpcPeer.ts:311`)                    | étiqueter, corréler, refuser une frame  | par où passent les octets     |
 | Transport  | `WsConnectionTransport` (`WsConnectionTransport.ts:46`) | déplacer des octets, mesurer la file    | ce que veut dire un message   |
 | Hub        | `RealtimeHub` (`RealtimeHub.ts:213`)                    | table des abonnés locaux + fan-out      | qu'il existe d'autres process |
 | Backplane  | `IBackplane` (`IBackplane.ts:107`)                      | porter un message aux autres process    | ce qu'est un abonné           |
@@ -338,11 +338,11 @@ La pile se lit de haut en bas ; chaque étage ne connaît que son voisin du dess
 dispatch des notifications, gestion des erreurs, `dispose()` propre. Deux points
 d'interception y sont posés :
 
-- `beforeDispatch` (`JsonRpcPeer.ts:192`) — un verrou **synchrone** appelé avant tout
+- `beforeDispatch` (`JsonRpcPeer.ts:219`) — un verrou **synchrone** appelé avant tout
   traitement de frame. Il rend `true`/`false`. Un refus sur une requête produit
   `-32001 unauthorized` ; sur une notification, la frame est jetée
-  (`JsonRpcPeer.ts:413`).
-- `onFrameAudit` (`JsonRpcPeer.ts:210`) — la trace des événements protocolaires notables
+  (`JsonRpcPeer.ts:449`).
+- `onFrameAudit` (`JsonRpcPeer.ts:236`) — la trace des événements protocolaires notables
   (frame invalide, refusée, méthode inconnue, erreur interne).
 
 La contrainte de synchronisme n'est pas un oubli : un `await` par frame coûterait une
@@ -388,7 +388,7 @@ Le schéma ci-dessous rend ces étages vivants : active le temps réel et il res
 
 ## 🔌 Le cycle de vie d'une connexion
 
-Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:404`), appelé
+Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:407`), appelé
 une seule fois par connexion, en chemin froid.
 
 ```mermaid
@@ -431,7 +431,7 @@ Les étapes, dans l'ordre exact du code :
    jeton disparaît avec le peer, sans fuite.
 4. **Enregistrement des actions** — celles des décorateurs `@RealtimeAction`, puis celles
    de la surcharge `realtimeActions()`, qui gagne en cas de conflit. Le pont API
-   `api.request` n'est ajouté que si `realtimeApiRequest()` (`RealtimeController.ts:291`)
+   `api.request` n'est ajouté que si `realtimeApiRequest()` (`RealtimeController.ts:294`)
    rend `true`.
 5. **Inscription aux registres** : sonde de connexion, révocation périodique si le jeton
    est révocable, préfixes de canaux broadcast, canaux entrants.
@@ -439,7 +439,7 @@ Les étapes, dans l'ordre exact du code :
    l'identité résolue (type, authentifié ou non, rôles, portées). Le client sait **qui il
    est** sans appeler la moindre route.
 
-À la fermeture, un unique `onFinish` (`RealtimeController.ts:733`) fait le ménage complet :
+À la fermeture, un unique `onFinish` (`RealtimeController.ts:735`) fait le ménage complet :
 désabonnement de chaque canal tenu, retrait des deux registres, `fireClose()` du transport,
 `dispose()` du peer. C'est ce qui garantit qu'aucun minuteur ni écouteur ne survit à une
 déconnexion.
@@ -453,7 +453,7 @@ déconnexion.
 
 | Garde                 | Déclencheur                                                            | Effet                                               | Ancrage                     |
 | --------------------- | ---------------------------------------------------------------------- | --------------------------------------------------- | --------------------------- |
-| Plafond de canaux     | une connexion dépasse son quota d'abonnements (256 par défaut)         | abonnement refusé + `realtime:denied` motif `limit` | `RealtimeController.ts:618` |
+| Plafond de canaux     | une connexion dépasse son quota d'abonnements (256 par défaut)         | abonnement refusé + `realtime:denied` motif `limit` | `RealtimeController.ts:852` |
 | Révocation d'identité | tick périodique ; `token.isValid()` rend `false` ou lève une exception | fermeture `4001` « session revoked »                | `RealtimeHub.ts:48`         |
 
 La seconde mérite une explication. Le verrou de frame est synchrone et lit une identité
@@ -737,7 +737,7 @@ refonte. Ici, seulement **où** ils sont ; le **quoi** et le **comment** sont da
 | Authentificateur réseau      | hub       | au handshake   | `RealtimeHub.ts:579`        |
 | Verrou de frame              | protocole | à chaque frame | `RealtimeHub.ts:675`        |
 | Politique déclarée par canal | hub       | au handshake   | `RealtimeHub.ts:713`        |
-| Audit de frame               | protocole | sur refus      | `RealtimeController.ts:404` |
+| Audit de frame               | protocole | sur refus      | `RealtimeController.ts:522` |
 
 Deux propriétés architecturales méritent d'être notées ici, parce qu'elles expliquent des
 choix de conception visibles partout dans le module :
@@ -750,7 +750,7 @@ chaud ne paie **rien** du tout.
 **Échec bruyant plutôt que faux sentiment de sécurité.** Si des canaux déclarent une
 politique sans qu'aucun décideur ne soit câblé, `hasUnenforcedChannelPolicies()`
 (`RealtimeHub.ts:1117`) le détecte et un avertissement est émis une fois par process
-(`RealtimeController.ts:487`). Un canal qui **se croit** gardé alors qu'il est ouvert est
+(`RealtimeController.ts:639`). Un canal qui **se croit** gardé alors qu'il est ouvert est
 bien plus dangereux qu'un canal ouvertement public.
 
 ## 📡 Observabilité — la sonde et Studio

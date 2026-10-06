@@ -117,7 +117,7 @@ attendre trop longtemps et repartir.
 
 Techniquement, ce numéro est le champ `id` de la frame JSON-RPC 2.0. Le pair l'attribue, garde
 l'appel en attente dans une table, arme une minuterie, et résout la `Promise` quand la réponse
-portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:556`). Une frame sans
+portant cet `id` revient (`JsonRpcPeer.handleResponse()`, `JsonRpcPeer.ts:579`). Une frame sans
 `id` ne crée aucune de ces trois choses — c'est pourquoi une publication ne coûte rien au repos.
 
 ## La vision Nodefony — un nom, un handler, une découverte
@@ -131,13 +131,13 @@ retour de la méthode devient le `result` de la réponse.
 
 **Le contrat du handler est minuscule, volontairement.** Une action reçoit **un seul argument**,
 les paramètres bruts du client, et rend une valeur — `RpcActionHandler`
-(`JsonRpcPeer.ts:118`). Pas de contexte injecté dans la signature : le `this` est lié à
+(`JsonRpcPeer.ts:153`). Pas de contexte injecté dans la signature : le `this` est lié à
 l'instance du contrôleur au handshake, ce qui donne accès au noyau, aux services et à la
 connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
 `IRealtimeWelcome` (`RealtimeController.ts:12`) — et se lit côté client par
-`RealtimeClient.serverMethods` (`RealtimeClient.ts:597`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`RealtimeClient.serverMethods` (`RealtimeClient.ts:598`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
@@ -277,17 +277,17 @@ Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par 
 | Voie                                                   | Quand la choisir                                            |
 | ------------------------------------------------------ | ----------------------------------------------------------- |
 | `@RealtimeAction("nom")` (`realtimeDecorators.ts:101`) | le cas courant — un nom fixe, une méthode, déclaratif       |
-| `realtimeActions()` (`RealtimeController.ts:251`)      | la table est **calculée** (noms dynamiques, boucle, config) |
+| `realtimeActions()` (`RealtimeController.ts:254`)      | la table est **calculée** (noms dynamiques, boucle, config) |
 
 Les deux sont fusionnées au handshake, et **l'override gagne** en cas de conflit de nom : une
 classe peut ainsi remplacer une action héritée sans toucher au parent
-(`RealtimeController.ts:453`). Un endpoint sans aucune action ne paie rien — la table du pair est
+(`RealtimeController.ts:598`). Un endpoint sans aucune action ne paie rien — la table du pair est
 allouée au premier enregistrement seulement.
 
 ### Ce que ton `return` et ton `throw` deviennent sur le fil
 
 Le retour du handler est envoyé tel quel en `result`. Les erreurs, elles, suivent une règle Zero
-Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:499`) :
+Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:526`) :
 
 | Côté serveur                    | Ce que reçoit le client                  | Pourquoi                                        |
 | ------------------------------- | ---------------------------------------- | ----------------------------------------------- |
@@ -299,7 +299,7 @@ Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:49
 
 > [!WARNING]
 > **Le temps réel n'a qu'UNE erreur, et elle vient du cœur.** Pour choisir ce que voit le client,
-> c'est `RpcError` (`JsonRpcPeer.ts:71`), importée depuis `nodefony` — son `code` est un entier
+> c'est `RpcError` (`JsonRpcPeer.ts:101`), importée depuis `nodefony` — son `code` est un entier
 > JSON-RPC et son `data` traverse le fil. Toute autre exception donne un `-32603` opaque. Ne pas
 > chercher d'erreur maison dans `@nodefony/realtime` : il n'y en a pas, et
 > `tests/unit/errorSurface.test.ts` refuse d'en exporter une que personne ne lève.
@@ -379,7 +379,7 @@ use("@nodefony/security", {
 
 Une action authentifiée sait que l'appelant est identifié ; elle peut aussi savoir **qui** il est.
 Les décorateurs de paramètres d'une route y prennent le même sens
-(`actionParamsWrapper`, `RealtimeController.ts:967`) :
+(`actionParamsWrapper`, `RealtimeController.ts:969`) :
 
 ```ts ignore
 import { Body, CurrentUser } from "@nodefony/framework";
@@ -431,7 +431,7 @@ drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le
 ### Le délai d'expiration est la seule libération automatique
 
 `request()` prend le délai en **troisième argument positionnel**, en millisecondes — il n'y a pas
-d'objet d'options (`RealtimeClient.request()`, `RealtimeClient.ts:727`) :
+d'objet d'options (`RealtimeClient.request()`, `RealtimeClient.ts:728`) :
 
 ```ts ignore
 await socket.request("orders:quote", { orderId }); // 30 000 ms par défaut
@@ -440,12 +440,12 @@ await socket.request("orders:export", { scope }, 120_000); // action longue
 
 | Défaut    | Valeur    | Ancrage              |
 | --------- | --------- | -------------------- |
-| `request` | 30 000 ms | `JsonRpcPeer.ts:319` |
+| `request` | 30 000 ms | `JsonRpcPeer.ts:353` |
 
 À l'expiration, l'entrée en attente est **retirée** et la `Promise` rejetée avec
-`RPC timeout: <méthode>` (`JsonRpcPeer.ts:455`). Conséquence à connaître : une réponse qui
+`RPC timeout: <méthode>` (`JsonRpcPeer.ts:502`). Conséquence à connaître : une réponse qui
 arriverait après coup ne trouve plus personne et est ignorée en silence
-(`JsonRpcPeer.ts:539`) — pas de résolution tardive, pas de fuite.
+(`JsonRpcPeer.ts:584`) — pas de résolution tardive, pas de fuite.
 
 ### Abandonner : ce qui existe vraiment
 
@@ -459,8 +459,8 @@ Trois leviers existent, et ils ne font pas la même chose :
 
 1. **Le délai d'expiration** — libère le client, laisse le serveur travailler.
 2. **La fermeture de la connexion** — `dispose()` rejette **tous** les appels en attente d'un
-   coup (`JsonRpcPeer.ts:453`), appelé au nettoyage de la socket
-   (`RealtimeController.ts:553`). Là encore : côté client seulement.
+   coup (`JsonRpcPeer.ts:480`), appelé au nettoyage de la socket
+   (`RealtimeController.ts:749`). Là encore : côté client seulement.
 3. **Une action compagnon** — la seule vraie annulation. On expose une seconde action qui prend
    l'identifiant du travail et l'interrompt côté serveur. Le modèle du dépôt est
    `nodefony:scaffold:cancel` (`StudioRealtimeController.ts:159`), pendant de `nodefony:scaffold:run`.
@@ -481,7 +481,7 @@ fois ? »**.
 | une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
-par la signature** de `mutate()` (`RealtimeClient.ts:797`), et c'est la garde `@Idempotent`
+par la signature** de `mutate()` (`RealtimeClient.ts:798`), et c'est la garde `@Idempotent`
 (`routerDecorators.ts:1171`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
@@ -532,7 +532,7 @@ le début (`ScaffoldService.subscribe()`, `ScaffoldService.ts:456`). C'est ce qu
 
 ### Et le streaming du protocole ?
 
-**Il n'y en a pas.** Une action rend **une** valeur (`RpcActionHandler`, `JsonRpcPeer.ts:118`), que
+**Il n'y en a pas.** Une action rend **une** valeur (`RpcActionHandler`, `JsonRpcPeer.ts:153`), que
 le pair emballe en une réponse unique. Pour tout ce qui progresse — une réponse mot à mot d'un
 modèle de langage, un export qui avance, un traitement long — la voie est le motif
 **« travail + canal »** : l'action accuse réception, et la progression arrive sur un canal.
@@ -547,15 +547,15 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:1009`). Il est **désactivé par défaut** et s'active en surchargeant
-`realtimeApiRequest()` (`RealtimeController.ts:291`).
+(`RealtimeController.ts:1011`). Il est **désactivé par défaut** et s'active en surchargeant
+`realtimeApiRequest()` (`RealtimeController.ts:294`).
 
 ```ts ignore
 const modules = await socket.request("/nodefony/kernel/api/modules");
 ```
 
 La forme se discrimine toute seule : un chemin commence par `/`, jamais un nom d'action —
-`RealtimeClient.request()` (`RealtimeClient.ts:727`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
+`RealtimeClient.request()` (`RealtimeClient.ts:728`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
 passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit dans le
 [vocabulaire](./vocabulaire.md) et l'[architecture](./architecture.md).
 

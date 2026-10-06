@@ -95,6 +95,7 @@ export type {
   IRealtimeWelcome,
 } from "../../realtime/RealtimeEventMap";
 import { PLATFORM_METHODS } from "../../realtime/platformChannels";
+import { isJsonRpcId } from "../../jsonrpc/index";
 
 export type RealtimeState =
   "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
@@ -1146,11 +1147,14 @@ export class RealtimeClient<
   }
 
   /**
-   * Frame `invalid` (JSON-RPC strict) portant un `error` sans `id`/`method` = erreur
-   * GLOBALE serveur (extension Nodefony hors spec, ex. refus tardif) → notice pour le
-   * centre de notifications. Frame réellement malformée (sans `.error`) → no-op.
+   * Frame `invalid` (JSON-RPC strict) portant un `error` sans `id` lisible = erreur
+   * GLOBALE serveur (extension Nodefony hors spec, ex. refus tardif ; ou erreur à
+   * `id: null`, §5) → notice pour le centre de notifications. Une frame qui porte
+   * un `id` chaîne ou nombre est CORRÉLÉE : le pair a déjà réglé l'appel concerné,
+   * une notice globale la doublerait. Frame sans `.error` → no-op.
    */
   private handleServerError(frame: unknown): void {
+    if (isJsonRpcId((frame as { id?: unknown } | null)?.id)) return;
     const err = (frame as { error?: { code?: number; message?: string } })
       .error;
     if (!err || typeof err !== "object") return;

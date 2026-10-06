@@ -128,6 +128,37 @@ class McpController extends Controller {
   }
 
   /**
+   * Le corps reçu est-il un texte qui ne se PARSE pas en JSON ?
+   *
+   * Le parseur HTTP ignore un JSON malformé et laisse `@Body()` à `{}` : seul
+   * le brut (`request.data`) permet alors de distinguer un `{}` envoyé d'un
+   * texte illisible. Relu uniquement quand le corps n'a aucune clé.
+   *
+   * @param body - corps tel que `@Body()` le rend
+   * @returns `true` si le texte reçu n'est pas du JSON
+   */
+  #unparsableBody(body: unknown): boolean {
+    if (
+      body === null ||
+      typeof body !== "object" ||
+      Array.isArray(body) ||
+      Object.keys(body).length > 0
+    ) {
+      return false;
+    }
+    const request = this.request;
+    if (!request || !("data" in request)) return false;
+    const text = request.data.toString(request.charset).trim();
+    if (text === "") return false;
+    try {
+      JSON.parse(text);
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
    * `POST /nodefony/mcp` — un message JSON-RPC entre, une réponse sort.
    *
    * Les trois statuts que rend cette route sont ceux que la spec impose, et pas
@@ -167,12 +198,27 @@ class McpController extends Controller {
       );
     }
 
-    if (body === null || typeof body !== "object") {
+    // JSON-RPC 2.0 §5.1 distingue deux refus que le corps reçu confond :
+    // `-32700` pour un texte qui ne se PARSE pas, `-32600` pour un JSON lisible
+    // qui n'est pas un message. Le parseur HTTP est tolérant — un JSON illisible
+    // est ignoré et `@Body()` rend alors `{}` —, d'où la relecture du brut, sur
+    // ce seul chemin froid (corps vide d'apparence).
+    if (this.#unparsableBody(body)) {
       return this.renderJson(
         jsonRpcFailure(
           null,
           JsonRpcError.PARSE_ERROR,
-          "corps attendu : un message JSON-RPC",
+          "corps illisible : JSON invalide",
+        ),
+        400,
+      );
+    }
+    if (body === null || typeof body !== "object") {
+      return this.renderJson(
+        jsonRpcFailure(
+          null,
+          JsonRpcError.INVALID_REQUEST,
+          "corps attendu : un message JSON-RPC (objet)",
         ),
         400,
       );

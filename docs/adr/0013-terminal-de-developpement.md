@@ -46,7 +46,7 @@ Les faits qui contraignent la solution, au code :
 
 - `src/nodefony/src/service/dev/DevSupervisor.ts:1684` — le serveur est lancé `detached` sous
   POSIX : un groupe en arrière-plan qui LIT le terminal reçoit `SIGTTIN` et est suspendu. Seul le
-  superviseur (`DevSupervisor.ts:1657`, il reçoit Ctrl+C) peut lire le clavier.
+  superviseur (il reçoit Ctrl+C, `SIGINT` — `DevSupervisor.ts:2285`) peut lire le clavier.
 - `src/nodefony/src/service/dev/DevSupervisor.ts:1134` — `stdio: ["inherit", "inherit", "inherit",
 "ipc"]` : le serveur écrit directement dans le terminal.
 - `src/nodefony/src/service/dev/DevSupervisor.ts:971` (`#log`) et `:980` (`#startSpin`) — le
@@ -54,7 +54,7 @@ Les faits qui contraignent la solution, au code :
 - Un terminal ne fige rien dans son propre historique. Une zone de défilement (`DECSTBM`) a été
   essayée en #533 : historique vidé, Windows Terminal ne garde pas ce qui en sort, terminal cassé
   au `kill -9`.
-- `src/nodefony/src/runtime/isTerminal.ts:12` — la porte unique où le code constate « suis-je dans
+- `src/nodefony/src/runtime/isTerminal.ts:197` (`isTerminal`, qui lit `isTTY`) — la porte unique où le code constate « suis-je dans
   un terminal ? ». Quatorze lectures directes de `process.stdout.columns` la contournent encore,
   dans sept fichiers.
 - Vite n'est PAS concerné : le serveur le lance déjà en tube, sans couleur
@@ -364,10 +364,11 @@ interface IConfirmDecision {
   provoque lui-même (auto-développement, livre blanc §6.6), mais sans conteneur, sans syslog ni
   RBAC propres ; dans le serveur, tout cela existe, mais l'état meurt à chaque rechargement.
 - **Outils** : ceux du serveur MCP de l'application (`POST /nodefony/mcp`,
-  `src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts:139`) — les MÊMES qu'un
+  `src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts:171`) — les MÊMES qu'un
   agent externe, soumis au même RBAC. Aucun outil propre à l'invite.
 - **Confirmation** : pour tout outil dont `annotations.readOnlyHint !== true`. Ce champ, la
-  définition d'outil du dépôt ne le porte PAS encore (`src/nodefony/src/types/IMcpTool.ts:76`) :
+  définition d'outil du dépôt (`IMcpTool`, `src/nodefony/src/types/IMcpTool.ts:126`) ne le porte
+  PAS encore — `rg -c readOnlyHint src/nodefony/src` ne rend rien :
   [#540](https://github.com/nodefony/nodefony-core/issues/540) l'ajoute et l'émet dans
   `tools/list` AVANT #539 — sans lui, les défauts de la spécification rendent tout outil
   destructif. Les annotations d'un serveur local de l'application sont tenues pour fiables ;

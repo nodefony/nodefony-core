@@ -55,7 +55,7 @@ aucune écoute réseau (`security-token.ts:36`). C'est ce qui la rend utilisable
 ne tourne pas, en intégration continue, ou dans un conteneur d'amorçage.
 
 **Le jeton vise une porte, et une seule.** L'audience est celle de la porte visée — la porte MCP par
-défaut, `/nodefony/mcp` (`src/nodefony/src/mcp/protocol.ts:95`). Un jeton d'une autre audience est
+défaut, `/nodefony/mcp` (`src/nodefony/src/mcp/protocol.ts:97`). Un jeton d'une autre audience est
 refusé, et c'est toute la raison d'être de la liaison d'audience
 ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)).
 

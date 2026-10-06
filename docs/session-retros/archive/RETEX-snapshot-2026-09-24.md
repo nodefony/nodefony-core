@@ -820,7 +820,7 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   Session réelle d'un agent tiers : `ChatController.ts:37-45` porte l'exemple
   `RealtimeClient.shared({ url: "/api/live/realtime" })` — URL relative, façade résolvant seule le
   schéma. Il a ouvert ce fichier, puis composé dans sa page
-  `location.protocol === "https:" ? "wss:" : "ws:"` — ce que `RealtimeClient.ts:335-339` fait déjà —
+  `location.protocol === "https:" ? "wss:" : "ws:"` — ce que `RealtimeClient.ts:336-339` fait déjà —
   et coupé la socket PARTAGÉE en croyant libérer son abonnement. La correction n'a pas été
   d'écrire mieux la prose : c'est le GABARIT de la page qui manquait l'exemple. Un exemple agit
   dans le fichier qu'on ÉDITE ; à côté, il informe.

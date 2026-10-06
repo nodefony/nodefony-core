@@ -26,7 +26,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
 | `buildCard` | `nodefony/src/card.ts` | ré-export du cœur (`nodefony` → `cli/cardReport.ts`) |
 | `DevkitService` | `nodefony/service/DevkitService.ts` | `getCard()` — dérive du Kernel, `source: "runtime"` |
 | `DevkitController` | `nodefony/controllers/DevkitController` | `GET /nodefony/devkit/api/card` — mince, délègue |
-| `McpController` | `nodefony/controllers/McpController.ts` | `POST /nodefony/mcp` — SEULE pièce MCP de ce paquet : traduit HTTP ↔ JSON-RPC, ramasse les outils (`collectMcpTools`) et fournit ce que lui seul connaît (service, broker, racine). Le protocole vient de `nodefony` |
+| `McpController` | `nodefony/controllers/McpController.ts` | `POST /nodefony/mcp` — SEULE pièce MCP de ce paquet : traduit HTTP ↔ JSON-RPC, ramasse les outils (`collectMcpTools`) et fournit ce que lui seul connaît (service, broker, racine). Le protocole vient de `nodefony`. Corps : texte illisible → `-32700` (le parseur HTTP le TAIT et rend `{}` : relecture de `request.data` sur ce seul chemin froid), JSON non-objet (`null`) → `-32600` |
 | `devkitConfigSchema` | `nodefony/config/config.ts` | `{ enabled, mcp }` — source unique des défauts |
 | `defineDevkitConfig` | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot |
 | `DevkitError` | `nodefony/src/errors/DevkitError.ts` | erreurs typées du module |

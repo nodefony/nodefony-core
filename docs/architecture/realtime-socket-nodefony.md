@@ -121,7 +121,7 @@ formes d'adressage, en couches :
 
 1. Les primitives par **nom de canal** (`subscribe` / `on` / `publish`) — le moteur.
 2. Un **handle par canal**, `socket.channel(name)`, fine liaison au-dessus des primitives
-   (`RealtimeClient.channel()` (`RealtimeClient.ts:659`)). Il porte son nom, sa nature, son cycle de vie.
+   (`RealtimeClient.channel()` (`RealtimeClient.ts:660`)). Il porte son nom, sa nature, son cycle de vie.
 
 Le handle est le bon point d'accroche parce qu'il permet d'ajouter des couches **sans retoucher le
 hub** — c'est écrit dans le contrat lui-même (`IRealtimeChannel` (`IRealtimeSocket.ts:81`)) :

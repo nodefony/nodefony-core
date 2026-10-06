@@ -1,4 +1,9 @@
-import { RequestContext, RpcError, executeAdminEndpoint } from "nodefony";
+import {
+  JsonRpcServerError,
+  RequestContext,
+  RpcError,
+  executeAdminEndpoint,
+} from "nodefony";
 import type {
   IAdminExecution,
   IAdminGateVerdict,
@@ -63,7 +68,10 @@ class AdminApiController extends Controller {
       if (status >= 400) {
         const message =
           (body as { error?: string } | null)?.error ?? "admin error";
-        throw new RpcError(message, -32000, { status, body });
+        throw new RpcError(message, JsonRpcServerError.DEFAULT, {
+          status,
+          body,
+        });
       }
       return body;
     }

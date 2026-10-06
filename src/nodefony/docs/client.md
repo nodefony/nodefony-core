@@ -122,7 +122,7 @@ conséquences pratiques, dans l'ordre où on les rencontre.
 > [!IMPORTANT]
 > Isomorphe ne veut pas dire « identique ». Le navigateur n'a ni kernel, ni serveurs, ni accès à la
 > base. Le barrel client publie une **sélection** — `RealtimeClient`, `Syslog`, `Pdu`, `Service`,
-> `Container` (`client/index.ts:76`) : les briques qui ont un sens dans un onglet. Le reste n'est
+> `Container` (`client/index.ts:121`) : les briques qui ont un sens dans un onglet. Le reste n'est
 > simplement pas là, et n'alourdit donc pas ton bundle.
 
 ## La vision Nodefony
@@ -297,25 +297,25 @@ afficherait un message de rétablissement au chargement.
 
 ## 🔌 `RealtimeClient` — la socket vue du navigateur
 
-C'est la brique centrale du subpath. `RealtimeClient` (`client/realtime/RealtimeClient.ts:161`)
+C'est la brique centrale du subpath. `RealtimeClient` (`client/realtime/RealtimeClient.ts:162`)
 implémente le contrat de socket isomorphe **et** le contrat de pair JSON-RPC : il sait donc à la fois
 recevoir des messages poussés et **répondre** à des requêtes venues du serveur.
 
 ### Les options du constructeur
 
 `new RealtimeClient(options)` et `RealtimeClient.shared(options)` prennent le même objet,
-`RealtimeOptions` (`client/realtime/RealtimeClient.ts:102`). Toutes les clés sont facultatives ;
+`RealtimeOptions` (`client/realtime/RealtimeClient.ts:103`). Toutes les clés sont facultatives ;
 seule l'adresse doit être connue au moment de `connect()`.
 
 | Option              | Défaut  | Effet                                                                                                                                                                                                                      |
 | ------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`RealtimeClient.ts:398`). |
-| `token`             | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`RealtimeClient.ts:1216`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.        |
-| `autoReconnect`     | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`RealtimeClient.ts:1269`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                |
-| `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec (`RealtimeClient.ts:1283`).                                                                                                                            |
-| `reconnectDelayMax` | `30000` | Plafond de ce délai (ms) (`RealtimeClient.ts:1284`).                                                                                                                                                                       |
-| `heartbeatInterval` | `30000` | Intervalle du ping qui maintient la connexion et en mesure l'aller-retour (ms) (`RealtimeClient.ts:1302`).                                                                                                                 |
-| `banner`            | `true`  | Annonce du framework dans la console et handle `nodefony` (`RealtimeClient.ts:286`). `false` pour une application publiée qui ne veut rien dans la console de ses utilisateurs.                                            |
+| `url`               | —       | Point d'entrée WebSocket. Relatif (`/api/live/realtime`) : résolu contre la page, `http(s)` devenant `ws(s)`. Absente au `connect()` et sans argument → `requireUrl` lève une erreur qui le dit (`RealtimeClient.ts:399`). |
+| `token`             | —       | Jeton ajouté à l'URL de connexion en paramètre `token` (`RealtimeClient.ts:1220`). Inutile quand la session passe par le cookie — le cas par défaut, et le seul qui ne fait pas voyager le secret dans une adresse.        |
+| `autoReconnect`     | `true`  | `false` coupe la reconnexion automatique après une fermeture transitoire (`RealtimeClient.ts:1273`). Une fermeture définitive ne relance jamais, quelle que soit la valeur.                                                |
+| `reconnectDelay`    | `1000`  | Premier délai entre deux tentatives (ms) ; il double à chaque échec (`RealtimeClient.ts:1287`).                                                                                                                            |
+| `reconnectDelayMax` | `30000` | Plafond de ce délai (ms) (`RealtimeClient.ts:1288`).                                                                                                                                                                       |
+| `heartbeatInterval` | `30000` | Intervalle du ping qui maintient la connexion et en mesure l'aller-retour (ms) (`RealtimeClient.ts:1306`).                                                                                                                 |
+| `banner`            | `true`  | Annonce du framework dans la console et handle `nodefony` (`RealtimeClient.ts:287`). `false` pour une application publiée qui ne veut rien dans la console de ses utilisateurs.                                            |
 
 ⚠️ Avec `shared()`, les options ne s'appliquent qu'à la **première** création pour une URL : les
 appels suivants rendent l'instance existante, réglages compris.
@@ -341,7 +341,7 @@ politique (1008, c'est-à-dire un 401/403 traduit) ne la relance **pas**. Sans c
 anonyme martèlerait indéfiniment un point d'entrée protégé.
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
-(`client/realtime/RealtimeClient.ts:1280`) — plafonné à 30 secondes par défaut. La date de la
+(`client/realtime/RealtimeClient.ts:1284`) — plafonné à 30 secondes par défaut. La date de la
 prochaine tentative est exposée en lecture, ce qui permet d'afficher un compte à rebours exact plutôt
 qu'un sablier qui ment.
 
@@ -350,14 +350,14 @@ qu'un sablier qui ment.
 C'est le mécanisme qui évite la classe de bugs la plus pénible d'une application temps réel : deux
 composants écoutent le même canal, l'un se démonte, et **coupe le flux de l'autre**.
 
-`RealtimeClient.subscribe()` (`client/realtime/RealtimeClient.ts:530`) compte les consommateurs et
+`RealtimeClient.subscribe()` (`client/realtime/RealtimeClient.ts:531`) compte les consommateurs et
 n'envoie la demande au serveur qu'au **premier**. `RealtimeClient.unsubscribe()`
-(`client/realtime/RealtimeClient.ts:549`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
+(`client/realtime/RealtimeClient.ts:550`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
 est nul.
 
 Second effet, tout aussi important : la liste des abonnements est **rejouée à chaque reconnexion**.
 Le serveur repart d'un état vide après une coupure ; c'est le client qui se souvient de ce qu'il
-écoutait, dans la routine d'ouverture de socket (`client/realtime/RealtimeClient.ts:1007`).
+écoutait, dans la routine d'ouverture de socket (`client/realtime/RealtimeClient.ts:1008`).
 
 > [!WARNING]
 > `on(canal, handler)` et `subscribe(canal)` ne font **pas** la même chose et ne se remplacent pas.
@@ -369,29 +369,29 @@ Le serveur repart d'un état vide après une coupure ; c'est le client qui se so
 
 | Appel                                 | Ancre                                   | Ce que ça fait                                                   |
 | ------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
-| `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:518` | Notification sans réponse — la forme du pub/sub                  |
-| `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:727` | Requête/réponse ; un argument commençant par `/` cible une route |
-| `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:797` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
+| `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:519` | Notification sans réponse — la forme du pub/sub                  |
+| `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:728` | Requête/réponse ; un argument commençant par `/` cible une route |
+| `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:798` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
 
 Deux compléments moins courants. `RealtimeClient.call()`
-(`client/realtime/RealtimeClient.ts:839`) rend l'**enveloppe complète** — la valeur **et**
+(`client/realtime/RealtimeClient.ts:840`) rend l'**enveloppe complète** — la valeur **et**
 l'identifiant du profil serveur de cette trame, ce qui permet en développement d'aller lire la
 radiographie de l'appel. Et `RealtimeClient.register()`
-(`client/realtime/RealtimeClient.ts:916`) fait du navigateur un **appelé** : le serveur peut lui
+(`client/realtime/RealtimeClient.ts:917`) fait du navigateur un **appelé** : le serveur peut lui
 adresser une requête et attendre son résultat. C'est le duplex réel, pas seulement du push.
 
 ### Identité et refus — l'interface sait sans demander
 
 L'identité de la connexion n'est pas devinée par le front : le serveur l'annonce dans sa première
 trame, et le client la retient. `RealtimeClient.identity`
-(`client/realtime/RealtimeClient.ts:581`) vaut `null` tant que rien n'est reçu, puis porte un objet
+(`client/realtime/RealtimeClient.ts:582`) vaut `null` tant que rien n'est reçu, puis porte un objet
 dont `authenticated` vaut `false` pour un visiteur anonyme. Un écran de connexion se décide donc
 **sans appeler aucune route**.
 
 Le pendant côté refus : quand le serveur rejette un abonnement, il pousse un message dédié que le
 client transforme en deux signaux — une notice générique pour le centre de notifications, et un
 événement ciblé consommable par `RealtimeClient.onDenied()`
-(`client/realtime/RealtimeClient.ts:469`) pour une réaction précise (griser le contrôle concerné). Le
+(`client/realtime/RealtimeClient.ts:470`) pour une réaction précise (griser le contrôle concerné). Le
 motif reste volontairement générique : le serveur ne dit jamais **quel** rôle manquait, ce qui en
 ferait un oracle.
 
@@ -403,7 +403,7 @@ ne fait rien d'autre : ouvrir, envoyer, fermer, relayer quatre événements. Tou
 
 Cette séparation a une conséquence directe et très utile : le client accepte une **fabrique de
 transport** injectée en second argument de son constructeur
-(`client/realtime/RealtimeClient.ts:223`). Les tests branchent un transport factice et exercent toute
+(`client/realtime/RealtimeClient.ts:224`). Les tests branchent un transport factice et exercent toute
 la machine à états **sans ouvrir une seule socket**. C'est ce qui rend les 177 cas de test de cette
 page possibles hors navigateur.
 
@@ -413,15 +413,15 @@ Un onglet ouvert huit heures ne pardonne pas les allocations gratuites. Les choi
 
 - **Le journal de protocole est différé.** Chaque trame est poussée dans un anneau borné à 300
   entrées sous forme de **référence brute** ; la mise en forme et le masquage des secrets ne sont
-  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/RealtimeClient.ts:1333`). Un
+  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/RealtimeClient.ts:1337`). Un
   inspecteur qu'on n'ouvre jamais ne coûte donc presque rien.
 - **Les secrets ne transitent pas en clair dans l'inspecteur.** `redactFrame()`
-  (`client/realtime/RealtimeClient.ts:157`) remplace toute clé ressemblant à un jeton, un mot de
+  (`client/realtime/RealtimeClient.ts:158`) remplace toute clé ressemblant à un jeton, un mot de
   passe ou une autorisation, avec une profondeur bornée.
 - **Ce qui n'a pas servi n'existe pas.** L'anneau de trames, l'identité et les capacités annoncées
   démarrent à `null` et ne sont alloués qu'au premier usage.
 - **L'échantillonnage de débit ne retient pas le processus.** Le minuteur de statistiques est
-  déréférencé (`client/realtime/RealtimeClient.ts:949`) — utile quand le même code tourne dans un
+  déréférencé (`client/realtime/RealtimeClient.ts:950`) — utile quand le même code tourne dans un
   test Node.
 
 ## ⚡ Cadence adaptative — une capacité du CLIENT
@@ -550,7 +550,7 @@ par augmentation de module, comme le registre de configuration côté serveur.
 
 `ClientKernel` et `createClientKernel` sont publiés par `nodefony/client`, avec les types
 `IClientKernel`, `ClientKernelOptions`, `ClientKernelState`, `ClientKernelEvent`, `ClientIdentity` et
-`NodefonyClientServices` (`client/index.ts:81`). Le noyau compose les services techniques d'une
+`NodefonyClientServices` (`client/index.ts:106`). Le noyau compose les services techniques d'une
 application front (socket, journal, cycle d'identité) sans posséder le rendu, le routage ni l'état
 métier ; Studio compose les siens par lui. L'ADR-0007 en donne les onze décisions.
 
@@ -579,12 +579,12 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare aucun sous ce nom                              | Importer depuis `nodefony/client`                                                            |
 | `has no exported member 'RealtimeClient'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                   | Importer explicitement depuis `nodefony/client`                                              |
 | `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`              | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)    |
-| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                | Appeler les deux (`client/realtime/RealtimeClient.ts:532`)                                   |
+| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                | Appeler les deux (`client/realtime/RealtimeClient.ts:533`)                                   |
 | Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                | Ne pas contourner l'API en émettant `unsubscribe` à la main                                  |
 | Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                         | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                  |
-| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/RealtimeClient.ts:370`) |
-| Deux connexions WebSocket pour la même page                     | Deux `new RealtimeClient(…)` au lieu de l'instance partagée                                                  | `RealtimeClient.shared()` (`client/realtime/RealtimeClient.ts:295`)                          |
-| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:679`) | Émettre après la résolution de `connect()`                                                   |
+| La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/RealtimeClient.ts:371`) |
+| Deux connexions WebSocket pour la même page                     | Deux `new RealtimeClient(…)` au lieu de l'instance partagée                                                  | `RealtimeClient.shared()` (`client/realtime/RealtimeClient.ts:296`)                          |
+| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:680`) | Émettre après la résolution de `connect()`                                                   |
 | La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                     | La réserver aux canaux d'état, ou passer `enabled: false`                                    |
 | `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts:34`)                                         | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                           |
 | `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts:27`)                                            | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                       |
@@ -593,7 +593,7 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 
 ## 🧪 Tests & couverture
 
-Le client isomorphe est couvert par **177 cas** répartis sur **15 fichiers**, tous unitaires et tous
+Le client isomorphe est couvert par **203 cas** répartis sur **16 fichiers**, tous unitaires et tous
 exécutés **hors navigateur** — c'est l'injection de transport qui le permet.
 
 - **La machine à états et le transport** : ouverture, reconnexion à délai croissant, battement de
@@ -603,7 +603,9 @@ exécutés **hors navigateur** — c'est l'injection de transport qui le permet.
   écouteurs, joker, ingestion de la trame de bienvenue (`RealtimeClientDispatch.test.ts`,
   `RealtimeClientIdentity.test.ts`).
 - **Le protocole lui-même** : corrélation d'identifiants, délais, erreurs, flux en morceaux, actions
-  entrantes (`JsonRpcPeer.test.ts` — 30 cas, le plus fourni).
+  entrantes, trames limites (`JsonRpcPeer.test.ts` — 42 cas, le plus fourni) ; la classification
+  d'une trame et les fabriques, partagées avec le serveur MCP, confrontées à la spécification
+  JSON-RPC 2.0 exigence par exigence (`jsonrpc.test.ts`).
 - **Les types comme test** : deux fichiers vérifient des propriétés de typage, dont l'inférence
   de `params` et du résultat de `request` depuis le contrat `Actions` (`RealtimeClient.types.test.ts`,
   `JsonRpcPeer.types.test.ts`).

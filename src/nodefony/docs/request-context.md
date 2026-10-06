@@ -251,7 +251,7 @@ INFO    http        : GET /api/invoices/INV-42 200 — 12 ms
 
 Les trois lignes portent **le même** `requestId`, bien qu'aucune ne se le soit transmis : le
 journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:207`), branché sur
-`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:315`). C'est ce qui
+`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:343`). C'est ce qui
 rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md).
 
 ## 🧰 API publique
@@ -318,7 +318,7 @@ qui ouvre quoi.
 | --- | --- | --- |
 | HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1510`) | CORS, routage, firewall, ton action, rendu |
 | WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1940`) | poignée de main, firewall, **et toutes les trames** |
-| WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:949`) | **une** invocation : corps, clé d'idempotence, profil |
+| WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:951`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:535`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Les trois premières bulles portent le scope DI de la requête (`scope`, rendu par `getScope()`) ;
@@ -466,7 +466,7 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`) | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
 | Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                 | déjà traité pour les contextes (`Context.ts:244`) ; pour ton code, `run()` à nouveau |
 | Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                          | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |
-| Identité périmée sur une connexion WebSocket longue                | l'identité a été captée à la poignée de main                                         | revalider par invocation (`RealtimeController.ts:810`), ne pas mettre en cache       |
+| Identité périmée sur une connexion WebSocket longue                | l'identité a été captée à la poignée de main                                         | revalider par invocation (`RealtimeController.ts:812`), ne pas mettre en cache       |
 | Fuite mémoire autour d'un écouteur lié                             | `AsyncResource.bind` retient le payload, donc l'utilisateur et le contexte           | ne lier que ce qui meurt avec la requête ou la connexion                             |
 
 ## 🧪 Tests & couverture

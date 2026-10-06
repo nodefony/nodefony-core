@@ -63,7 +63,7 @@ Trois idées à retenir :
 1. **Le producteur ne connaît pas le transport** — un handler lit un `IAdminRequest`
    (`IAdminApi.ts:33`) et rend du JSON. Il ne touche jamais au socket ni à la `Response`.
 2. **Un seul controller pont** — toutes les routes admin pointent vers
-   `AdminApiController.dispatch()` (`AdminApiController.ts:60`). Pas de génération dynamique de
+   `AdminApiController.dispatch()` (`AdminApiController.ts:65`). Pas de génération dynamique de
    classes ; chaque route reste une vraie `Route` (404/405 du Router intacts).
 3. **Le broker possède le Router, pas le kernel** — c'est pourquoi il vit dans `@nodefony/framework`,
    niveau qui monte les routes, alors que le contrat producteur vit dans le core.
@@ -122,7 +122,7 @@ minimale** `IAdminRegistry` (`IAdminApi.ts:243`) — juste `register()` — depu
 kernel n'étant **pas** un `Module`, c'est le framework qui construit et enregistre l'`IAdminApi` du
 kernel à sa place (`createKernelAdminApi()`, cité plus bas).
 
-Le compromis assumé : **un seul controller pont** (`AdminApiController.ts:31`) sert les N endpoints.
+Le compromis assumé : **un seul controller pont** (`AdminApiController.ts:36`) sert les N endpoints.
 On y gagne zéro génération de classe, un dispatch O(1), et une garde RBAC + idempotence appliquée au
 même endroit pour tout le monde.
 
@@ -237,7 +237,7 @@ curl -s -b /tmp/jar http://localhost:5151/nodefony/framework/api/admin | head -c
 ```
 
 > [!NOTE]
-> Chaque réponse HTTP porte un en-tête `x-nodefony-instance` (`AdminApiController.ts:76`) : en
+> Chaque réponse HTTP porte un en-tête `x-nodefony-instance` (`AdminApiController.ts:84`) : en
 > multi-pod, il dit **quel process** a répondu (le data plane est per-instance).
 
 ## 🏗️ Architecture interne — register → mountAll → dispatch
@@ -268,8 +268,8 @@ sequenceDiagram
 | 2   | Le framework monte tout                   | `AdminBroker.mountAll()` (`AdminBroker.ts:112`)            |
 | 3   | Une route par endpoint (nom déterministe) | `Router.createRoute()` (`AdminBroker.ts:124`)              |
 | 4   | Le controller pont estampillé une fois    | `Router.setController()` idempotent (`AdminBroker.ts:146`) |
-| 5   | Dispatch : lookup de la route             | `AdminBroker.resolve()` (`AdminApiController.ts:94`)       |
-| 6   | Projection du contexte en requête admin   | `buildRequest()` (`AdminApiController.ts:175`)             |
+| 5   | Dispatch : lookup de la route             | `AdminBroker.resolve()` (`AdminApiController.ts:102`)      |
+| 6   | Projection du contexte en requête admin   | `buildRequest()` (`AdminApiController.ts:183`)             |
 | 7   | Normalisation du retour                   | `normalizeAdminResult()` (`executeAdmin.ts:90`)            |
 
 Points de conception saillants :
@@ -328,15 +328,15 @@ Toute action admin déclare **aussi** le transport `WEBSOCKET` (`AdminBroker.ts:
 montée avec `[method, "WEBSOCKET"]`. Elle devient donc invocable par le pont WS-RPC `api.request`
 (`WebsocketContext.ts:354`) — même action, même handler, même réponse. Seul l'emballage diffère :
 
-- **HTTP** : `renderJson` + statut + en-tête `x-nodefony-instance` (`AdminApiController.ts:74`).
+- **HTTP** : `renderJson` + statut + en-tête `x-nodefony-instance` (`AdminApiController.ts:82`).
 - **WS-RPC** : la valeur **nue** (le pont l'enveloppe `{id, result}`) ; un statut ≥ 400 devient un
   `RpcError` avec `data.status`/`data.body` (`AdminApiController.ts:66`), symétrie d'un `fetch` qui
   expose son statut.
 
 Les **mutations** sont pontables par socket. La sécurité d'écriture repose alors sur l'**idempotence**
-(`idempotencyGate()`, `AdminApiController.ts:131`) : la clé `Idempotency-Key` est **obligatoire en
+(`idempotencyGate()`, `AdminApiController.ts:139`) : la clé `Idempotency-Key` est **obligatoire en
 WS** (une socket reconnecte et rejoue), **optionnelle en HTTP** (`required: false`,
-`AdminApiController.ts:149`). Un `GET` n'est jamais idempotenté (`AdminApiController.ts:135`) ; la
+`AdminApiController.ts:157`). Un `GET` n'est jamais idempotenté (`AdminApiController.ts:143`) ; la
 porte est évaluée **après** le RBAC (un 403 ne consomme aucune entrée). Le helper est le **même** que
 le seam `@Idempotent` des controllers userland — voir [Idempotence](idempotence.md).
 
@@ -414,15 +414,15 @@ recopiées ici (elles s'y périmeraient).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                         | Cause (dans le code)                                                               | Correction                                                                           |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `register()` throw « routes figées »             | Appel **après** `mountAll()` (`AdminBroker.ts:112`)                                | Enregistrer au `onKernelBoot`, pas plus tard                                         |
-| `register()` throw « namespace déjà enregistré » | Deux producteurs sur le même `adminNamespace` (`AdminBroker.ts:51`)                | Namespace unique ; garder `register()` idempotent (`has(ns)` avant)                  |
-| 401 sur toute route `/nodefony/<ns>/api/*`       | Zone `nodefony-admin` : pas de session BFF (`config.ts:141`)                       | S'authentifier (login BFF) ; pour une sonde publique → `public: true` + zone anonyme |
-| 403 alors qu'on est connecté                     | Rôle manquant, `isAdminGranted` fail-closed (`adminRbac.ts:24`)                    | Doter le compte du rôle requis (défaut `ROLE_NODEFONY_ADMIN`)                        |
-| WS : mutation refusée `400` clé requise          | Idempotence : clé obligatoire par socket (`AdminApiController.ts:184`)             | Fournir `Idempotency-Key` sur la mutation WS                                         |
-| Route admin injoignable / collision Studio       | Endpoint mono-segment `/nodefony/<module>` (`IAdminBroker.ts:42`)                  | Toujours `≥ 3` segments `/nodefony/<ns>/api/<path>`                                  |
-| 500 « Admin endpoint not registered »            | `adminRoute` absent du registre — incohérence interne (`AdminApiController.ts:96`) | Vérifier que le producteur a bien été enregistré avant `mountAll()`                  |
+| Symptôme                                         | Cause (dans le code)                                                                | Correction                                                                           |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `register()` throw « routes figées »             | Appel **après** `mountAll()` (`AdminBroker.ts:112`)                                 | Enregistrer au `onKernelBoot`, pas plus tard                                         |
+| `register()` throw « namespace déjà enregistré » | Deux producteurs sur le même `adminNamespace` (`AdminBroker.ts:51`)                 | Namespace unique ; garder `register()` idempotent (`has(ns)` avant)                  |
+| 401 sur toute route `/nodefony/<ns>/api/*`       | Zone `nodefony-admin` : pas de session BFF (`config.ts:141`)                        | S'authentifier (login BFF) ; pour une sonde publique → `public: true` + zone anonyme |
+| 403 alors qu'on est connecté                     | Rôle manquant, `isAdminGranted` fail-closed (`adminRbac.ts:24`)                     | Doter le compte du rôle requis (défaut `ROLE_NODEFONY_ADMIN`)                        |
+| WS : mutation refusée `400` clé requise          | Idempotence : clé obligatoire par socket (`AdminApiController.ts:154`)              | Fournir `Idempotency-Key` sur la mutation WS                                         |
+| Route admin injoignable / collision Studio       | Endpoint mono-segment `/nodefony/<module>` (`IAdminBroker.ts:42`)                   | Toujours `≥ 3` segments `/nodefony/<ns>/api/<path>`                                  |
+| 500 « Admin endpoint not registered »            | `adminRoute` absent du registre — incohérence interne (`AdminApiController.ts:101`) | Vérifier que le producteur a bien été enregistré avant `mountAll()`                  |
 
 ## 🧪 Tests & couverture
 

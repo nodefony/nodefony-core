@@ -20,6 +20,9 @@ import {
   type ActionNames,
   type ActionParams,
   type ActionResult,
+  JsonRpcError,
+  JsonRpcServerError,
+  jsonRpcFailure,
 } from "nodefony";
 import type {
   ContextType,
@@ -89,7 +92,7 @@ function httpStatusOfFrameError(e: unknown): number | null {
     const status = (e.data as { status?: unknown } | undefined)?.status;
     if (typeof status === "number") return status;
     // Params invalides (JSON-RPC 2.0 §5.1 `-32602`) = requête malformée.
-    return e.code === -32602 ? 400 : null;
+    return e.code === JsonRpcError.INVALID_PARAMS ? 400 : null;
   }
   const code = (e as { code?: unknown }).code;
   return typeof code === "number" && code >= 400 && code <= 599 ? code : null;
@@ -121,7 +124,7 @@ function toFrameRpcError(
     if (requestId) data.requestId = requestId;
     return new RpcError(
       e instanceof Error ? e.message : String(e),
-      -32000,
+      JsonRpcServerError.DEFAULT,
       data,
     );
   }
@@ -478,14 +481,13 @@ export abstract class RealtimeController<
           );
           const id = (frame as { id?: number | string }).id;
           if (id === undefined) return;
-          json = JSON.stringify({
-            jsonrpc: "2.0",
-            id,
-            error: {
-              code: -32603,
-              message: "internal error: non-serializable payload",
-            },
-          });
+          json = JSON.stringify(
+            jsonRpcFailure(
+              id,
+              JsonRpcError.INTERNAL_ERROR,
+              "internal error: non-serializable payload",
+            ),
+          );
         }
         transport.send(json);
       },
@@ -1021,7 +1023,10 @@ export abstract class RealtimeController<
       | undefined;
     const path = p?.path;
     if (typeof path !== "string" || path.charCodeAt(0) !== 47 /* "/" */) {
-      throw new RpcError("api.request: params.path invalide", -32602);
+      throw new RpcError(
+        "api.request: params.path invalide",
+        JsonRpcError.INVALID_PARAMS,
+      );
     }
     // Méthode HTTP LOGIQUE de l'invocation. Défaut "GET" = lecture (forme
     // historique du pont, snapshot ≡ GET REST). Une MUTATION déclare sa méthode
@@ -1040,16 +1045,20 @@ export abstract class RealtimeController<
     ) {
       throw new RpcError(
         `api.request: méthode ${method} non supportée`,
-        -32602,
+        JsonRpcError.INVALID_PARAMS,
       );
     }
     // `ctx.router` est typé par le contrat de `@nodefony/http` ; le service est
     // le Router de `@nodefony/framework`, dont on lit ici des membres propres.
     const router = ctx.router as Router | null;
     if (!router) {
-      throw new RpcError("api.request: router indisponible", -32000, {
-        status: 500,
-      });
+      throw new RpcError(
+        "api.request: router indisponible",
+        JsonRpcServerError.DEFAULT,
+        {
+          status: 500,
+        },
+      );
     }
     // Query du path INVOQUÉ séparée avant le match (le Router matche un pathname).
     const qIdx = path.indexOf("?");
@@ -1076,9 +1085,13 @@ export abstract class RealtimeController<
         frame?.phaseEnd("resolve");
       }
       if (!resolver.resolve) {
-        throw new RpcError(`api.request: not found ${pathname}`, -32000, {
-          status: 404,
-        });
+        throw new RpcError(
+          `api.request: not found ${pathname}`,
+          JsonRpcServerError.DEFAULT,
+          {
+            status: 404,
+          },
+        );
       }
       // Route / controller / action du profil — lus par le Profiler au retour.
       if (frame) frame.resolver = resolver as unknown as ProfiledResolver;
@@ -1126,7 +1139,7 @@ export abstract class RealtimeController<
         if (!valid) {
           throw new RpcError(
             "api.request: identité de session expirée ou invalide",
-            -32000,
+            JsonRpcServerError.DEFAULT,
             { status: 401 },
           );
         }
@@ -1214,7 +1227,7 @@ export abstract class RealtimeController<
                   typeof error === "string"
                     ? error
                     : `api.request: HTTP ${status}`,
-                  -32000,
+                  JsonRpcServerError.DEFAULT,
                   { status, body },
                 );
               }

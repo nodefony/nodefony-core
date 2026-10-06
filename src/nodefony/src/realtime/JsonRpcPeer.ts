@@ -14,9 +14,12 @@
  *  Le RÔLE d'une frame se lit sur `method`, PAS sur `id` :
  *   - `method` + `id`        → **requête** entrante  → handler enregistré → réponse `result`/`error`
  *   - `method` seul          → **notification**      → `onNotification` (pas de réponse)
- *   - `id` sans `method`     → **réponse**           → résout/rejette un `pending` sortant
+ *   - `id` sans `method`, avec `result` OU `error` bien formé
+ *                            → **réponse**           → résout/rejette un `pending` sortant
  *  `id` autorisé string OU number (JSON-RPC 2.0 §id). Méthode inconnue → `-32601` ;
  *  handler qui throw → `-32603` (message GÉNÉRIQUE au pair, détail via `onError` = Zero Trust).
+ *  La classification est celle de `classifyJsonRpcFrame` (`jsonrpc/`), PARTAGÉE
+ *  avec la porte MCP : un `id` null, objet ou booléen rend la frame invalide.
  *
  * ── Types partagés (pattern Socket.IO) ────────────────────────────────────
  *  3 génériques (`Emit`, `Listen`, `Actions`) avec **défauts permissifs**
@@ -37,13 +40,40 @@ import type {
   EventsMap,
   TypedRpcActionHandler,
 } from "./RealtimeEventMap";
+import {
+  JSON_RPC_VERSION,
+  JsonRpcError,
+  JsonRpcServerError,
+  classifyJsonRpcFrame,
+  isJsonRpcErrorObject,
+  jsonRpcFailure,
+  jsonRpcNotification,
+  jsonRpcRequest,
+  jsonRpcSuccess,
+  type IJsonRpcErrorObject,
+  type IJsonRpcNotification,
+  type IJsonRpcRequest,
+  type IJsonRpcSuccess,
+  type JsonRpcFrameKind,
+  type JsonRpcId,
+} from "../jsonrpc/index";
 
-/** Erreur JSON-RPC 2.0 (objet `error` d'une réponse). */
-export interface JsonRpcErrorObject {
-  code: number;
-  message: string;
-  data?: unknown;
-}
+export type { JsonRpcFrameKind } from "../jsonrpc/index";
+
+/**
+ * Erreur JSON-RPC 2.0 (objet `error` d'une réponse).
+ *
+ * Alias de {@link IJsonRpcErrorObject}, la forme partagée par toutes les
+ * portes JSON-RPC du framework — conservé pour ses consommateurs.
+ */
+export type JsonRpcErrorObject = IJsonRpcErrorObject;
+
+/**
+ * Refus d'une frame entrante par `beforeDispatch` — code de la plage serveur
+ * (JSON-RPC 2.0 §5.1), propre au temps réel. Message GÉNÉRIQUE : le pair
+ * n'apprend pas pourquoi (Zero Trust).
+ */
+const REALTIME_UNAUTHORIZED = -32001;
 
 /**
  * Erreur RPC **applicative** — l'exception VOLONTAIRE au principe « throw →
@@ -72,7 +102,11 @@ export class RpcError extends Error {
   override readonly name = "RpcError";
   readonly data?: unknown;
 
-  constructor(message: string, code = -32000, data?: unknown) {
+  constructor(
+    message: string,
+    code: number = JsonRpcServerError.DEFAULT,
+    data?: unknown,
+  ) {
     super(message);
     this.code = code;
     if (data !== undefined) this.data = data;
@@ -130,24 +164,17 @@ export type RpcNotificationHandler<
   params: EventPayload<Listen, K>,
 ) => void;
 
-/** Nature d'une frame entrante (renvoyée par {@link JsonRpcPeer.handleFrame}). */
-export type JsonRpcFrameKind =
-  "request" | "notification" | "response" | "invalid";
-
 /**
  * Frame de notification sortante (JSON-RPC 2.0, sans `id` : aucune réponse
  * attendue). Type nommé parce que cette frame **sort du peer** : le fan-out d'un
- * canal diffusé la sérialise une fois pour tous ses abonnés.
+ * canal diffusé la sérialise une fois pour tous ses abonnés. Alias de
+ * {@link IJsonRpcNotification}, la forme partagée.
  */
-export interface JsonRpcNotification {
-  jsonrpc: "2.0";
-  method: string;
-  params?: unknown;
-}
+export type JsonRpcNotification = IJsonRpcNotification;
 
 /**
  * Motif d'un évènement audit protocolaire (consommé par P6.14 `AuditEventEntity`) :
- *  - `invalid`           : frame non conforme JSON-RPC 2.0 (pas d'objet, `jsonrpc`≠"2.0", `method` non string sans `id` valide).
+ *  - `invalid`           : frame non conforme JSON-RPC 2.0 (cf `classifyJsonRpcFrame` : lot, `jsonrpc`≠"2.0", `id` null/objet/booléen, `method` non chaîne, réponse sans `result` ni `error` valide).
  *  - `denied`            : frame entrante refusée par `beforeDispatch` (Zero Trust realtime — voter P6 a dit non).
  *  - `method_not_found`  : requête entrante pour une action non enregistrée (`-32601` envoyée).
  *  - `internal_error`    : handler d'action a throw (`-32603` envoyée, détail loggé via `onError` — Zero Trust : pas renvoyé au pair).
@@ -269,11 +296,14 @@ interface PendingCall {
   withMeta?: boolean | undefined;
 }
 
-/** Une réponse JSON-RPC entrante (succès ou erreur). */
+/**
+ * Une réponse JSON-RPC entrante, telle que `classifyJsonRpcFrame` la garantit :
+ * `id` chaîne ou nombre, et `result` OU `error` bien formé.
+ */
 interface JsonRpcInboundResponse {
-  id: number;
+  id: JsonRpcId;
   result?: unknown;
-  error?: JsonRpcErrorObject;
+  error?: IJsonRpcErrorObject;
   /** Métadonnées serveur (dev) — champ frère du `result`, cf {@link RpcMeta}. */
   meta?: RpcMeta;
 }
@@ -361,7 +391,7 @@ export class JsonRpcPeer<
     method: string,
     params?: unknown,
   ): JsonRpcNotification {
-    return { jsonrpc: "2.0", method, params };
+    return jsonRpcNotification(method, params);
   }
 
   /**
@@ -387,65 +417,63 @@ export class JsonRpcPeer<
    * (Le pendant sortant = `request`/`notify` ; le `send` brut est injecté.)
    */
   receive(msg: unknown): JsonRpcFrameKind {
-    if (
-      !msg ||
-      typeof msg !== "object" ||
-      (msg as { jsonrpc?: unknown }).jsonrpc !== "2.0"
-    ) {
+    // Le prédicat est PARTAGÉ avec la porte MCP (`jsonrpc/`) ; la réaction est
+    // propre au pair : une frame invalide est jetée et auditée, jamais répondue.
+    const kind = classifyJsonRpcFrame(msg);
+    if (kind === "invalid") {
+      this.settleUnreadableResponse(msg);
       this.opts.onFrameAudit?.("invalid", msg, this);
       return "invalid";
     }
-
-    const id = (msg as { id?: unknown }).id;
-    const hasId = typeof id === "number" || typeof id === "string";
-    const rawMethod = (msg as { method?: unknown }).method;
-    const method = typeof rawMethod === "string" ? rawMethod : undefined;
-    const params = (msg as { params?: unknown }).params;
-
-    // Frame AVEC `method` = appel entrant (le pair nous appelle).
-    if (method !== undefined) {
-      // Seam sécu 1/5 : gate AVANT le dispatch (request ET notification). Hot-path
-      // sync — `undefined` → bypass 0-coût. Cf JsonRpcPeerOptions.beforeDispatch.
-      if (this.opts.beforeDispatch && !this.opts.beforeDispatch(msg, this)) {
-        this.opts.onFrameAudit?.("denied", msg, this);
-        if (hasId) {
-          // Requête refusée : -32001 dans la plage `Server error` (-32000 à -32099)
-          // réservée par JSON-RPC 2.0 §5.1 pour les erreurs serveur applicatives.
-          // Message GÉNÉRIQUE (Zero Trust : ne révèle pas pourquoi).
-          this.opts.send({
-            jsonrpc: "2.0",
-            id,
-            error: { code: -32001, message: "unauthorized" },
-          });
-          return "request";
-        }
-        // Notification refusée : drop silencieux (pas de canal de réponse).
-        return "notification";
-      }
-
-      if (hasId) {
-        this.handleRequest(id, method, params, msg);
-        return "request";
-      }
-      // Le handler typé `RpcNotificationHandler<Listen>` ne peut pas être appelé
-      // avec un `unknown` dynamique — TS n'a pas la corrélation `method ↔ params`
-      // au runtime. Cast vers la signature permissive (équivalente à l'API d'avant
-      // les types partagés) : c'est ce que voient les consommateurs non paramétrés.
-      (this.opts.onNotification as RpcNotificationHandler | undefined)?.(
-        method,
-        params,
-      );
-      return "notification";
-    }
-
-    // Frame SANS `method` mais AVEC `id` = réponse à une de NOS requêtes sortantes.
-    if (hasId) {
+    // Frame SANS `method` = réponse à une de NOS requêtes sortantes.
+    if (kind === "response") {
       this.handleResponse(msg as JsonRpcInboundResponse);
       return "response";
     }
 
-    this.opts.onFrameAudit?.("invalid", msg, this);
-    return "invalid";
+    // Requête ou notification entrante (le pair nous appelle) : `method` est
+    // une chaîne, et l'`id` d'une requête une chaîne ou un nombre.
+    const frame = msg as IJsonRpcRequest | IJsonRpcNotification;
+    const isRequest = kind === "request";
+
+    // Seam sécu 1/5 : gate AVANT le dispatch (request ET notification). Hot-path
+    // sync — `undefined` → bypass 0-coût. Cf JsonRpcPeerOptions.beforeDispatch.
+    if (this.opts.beforeDispatch && !this.opts.beforeDispatch(msg, this)) {
+      this.opts.onFrameAudit?.("denied", msg, this);
+      if (isRequest) {
+        // Requête refusée : code de la plage `Server error` (JSON-RPC 2.0
+        // §5.1), message GÉNÉRIQUE (Zero Trust : ne révèle pas pourquoi).
+        this.opts.send(
+          jsonRpcFailure(
+            (frame as IJsonRpcRequest).id,
+            REALTIME_UNAUTHORIZED,
+            "unauthorized",
+          ),
+        );
+        return "request";
+      }
+      // Notification refusée : drop silencieux (pas de canal de réponse).
+      return "notification";
+    }
+
+    if (isRequest) {
+      this.handleRequest(
+        (frame as IJsonRpcRequest).id,
+        frame.method,
+        frame.params,
+        msg,
+      );
+      return "request";
+    }
+    // Le handler typé `RpcNotificationHandler<Listen>` ne peut pas être appelé
+    // avec un `unknown` dynamique — TS n'a pas la corrélation `method ↔ params`
+    // au runtime. Cast vers la signature permissive (équivalente à l'API d'avant
+    // les types partagés) : c'est ce que voient les consommateurs non paramétrés.
+    (this.opts.onNotification as RpcNotificationHandler | undefined)?.(
+      frame.method,
+      frame.params,
+    );
+    return "notification";
   }
 
   /** Annule tous les pending (fermeture du transport). */
@@ -487,7 +515,7 @@ export class JsonRpcPeer<
       });
       // Un transport qui répond `false` n'a PAS émis : inutile de faire patienter
       // l'appelant jusqu'au timeout (30 s par défaut) pour une frame perdue.
-      if (this.opts.send({ jsonrpc: "2.0", id, method, params }) === false) {
+      if (this.opts.send(jsonRpcRequest(id, method, params)) === false) {
         clearTimeout(timer);
         pending.delete(id);
         reject(new Error(`RPC non émis (transport indisponible) : ${method}`));
@@ -496,7 +524,7 @@ export class JsonRpcPeer<
   }
 
   private handleRequest(
-    id: number | string,
+    id: JsonRpcId,
     method: string,
     params: unknown,
     rawFrame: unknown,
@@ -504,11 +532,13 @@ export class JsonRpcPeer<
     const handler = this.actions?.get(method);
     if (!handler) {
       this.opts.onFrameAudit?.("method_not_found", rawFrame, this);
-      this.opts.send({
-        jsonrpc: "2.0",
-        id,
-        error: { code: -32601, message: `method not found: ${method}` },
-      });
+      this.opts.send(
+        jsonRpcFailure(
+          id,
+          JsonRpcError.METHOD_NOT_FOUND,
+          `method not found: ${method}`,
+        ),
+      );
       return;
     }
     Promise.resolve()
@@ -518,37 +548,30 @@ export class JsonRpcPeer<
           // Le handler a JOINT une méta serveur (dev : l'id du profil de la
           // frame) → elle voyage en champ FRÈRE, le `result` reste la valeur nue.
           if (result instanceof RpcEnvelope) {
-            this.opts.send({
-              jsonrpc: "2.0",
+            // `instanceof` sur une classe générique rend `RpcEnvelope<any>`.
+            const reply: IJsonRpcSuccess & { meta?: RpcMeta } = jsonRpcSuccess(
               id,
-              // `instanceof` sur une classe générique rend `RpcEnvelope<any>`.
-              result: result.result as unknown,
-              meta: result.meta,
-            });
+              result.result as unknown,
+            );
+            reply.meta = result.meta;
+            this.opts.send(reply);
             return;
           }
-          this.opts.send({ jsonrpc: "2.0", id, result });
+          this.opts.send(jsonRpcSuccess(id, result));
         },
         (err: unknown) => {
           // Erreur APPLICATIVE assumée (RpcError) → renvoyée fidèlement au pair
           // (pas un internal_error : ni onError ni audit — le handler a choisi
           // d'exposer ce refus, il peut l'auditer lui-même s'il est notable).
           if (err instanceof RpcError) {
-            const error: JsonRpcErrorObject = {
-              code: err.code,
-              message: err.message,
-            };
-            if (err.data !== undefined) error.data = err.data;
-            this.opts.send({ jsonrpc: "2.0", id, error });
+            this.opts.send(jsonRpcFailure(id, err.code, err.message, err.data));
             return;
           }
           this.opts.onError?.(`rpc ${method}`, err);
           this.opts.onFrameAudit?.("internal_error", rawFrame, this);
-          this.opts.send({
-            jsonrpc: "2.0",
-            id,
-            error: { code: -32603, message: "internal error" },
-          });
+          this.opts.send(
+            jsonRpcFailure(id, JsonRpcError.INTERNAL_ERROR, "internal error"),
+          );
         },
       );
   }
@@ -559,8 +582,8 @@ export class JsonRpcPeer<
     if (typeof msg.id !== "number" || !this.pending) return;
     const pending = this.pending.get(msg.id);
     if (!pending) return; // réponse inattendue (déjà résolue/timeout) → ignore
+    this.pending.delete(msg.id);
     if (msg.error) {
-      this.pending.delete(msg.id);
       // `code`/`data` préservés (ex. `data.status` HTTP d'un `api.request`) —
       // l'appelant discrimine un 404 d'un refus voter sans parser le message.
       pending.reject(
@@ -568,14 +591,51 @@ export class JsonRpcPeer<
       );
       return;
     }
-    if ("result" in msg) {
-      this.pending.delete(msg.id);
-      // Appel tracé → l'appelant reçoit la méta serveur avec le résultat ; appel
-      // ordinaire → il ne voit que le `result` (contrat historique inchangé).
-      pending.resolve(
-        pending.withMeta ? { result: msg.result, meta: msg.meta } : msg.result,
-      );
+    // Appel tracé → l'appelant reçoit la méta serveur avec le résultat ; appel
+    // ordinaire → il ne voit que le `result` (contrat historique inchangé).
+    pending.resolve(
+      pending.withMeta ? { result: msg.result, meta: msg.meta } : msg.result,
+    );
+  }
+
+  /**
+   * Frame INVALIDE qui répond pourtant à une de nos requêtes en attente
+   * (`jsonrpc: "2.0"`, même `id` numérique, pas de `method`) : l'appel échoue
+   * MAINTENANT au lieu d'attendre son délai pour une réponse qui ne viendra plus.
+   *
+   * Chemin froid — n'est atteint que par une frame déjà jugée invalide. Une
+   * erreur bien formée accompagnée d'un `result` (JSON-RPC 2.0 §5 l'interdit)
+   * est rendue fidèlement : l'erreur gagne. Tout autre défaut rejette avec
+   * `-32603`.
+   */
+  private settleUnreadableResponse(msg: unknown): void {
+    if (!this.pending || msg === null || typeof msg !== "object") return;
+    const f = msg as {
+      jsonrpc?: unknown;
+      id?: unknown;
+      method?: unknown;
+      error?: unknown;
+    };
+    // Une frame d'un AUTRE protocole n'est pas une réponse, même si elle porte
+    // un de nos `id` : seule une frame JSON-RPC 2.0 sans `method` en est une.
+    if (
+      f.jsonrpc !== JSON_RPC_VERSION ||
+      f.method !== undefined ||
+      typeof f.id !== "number"
+    ) {
+      return;
     }
+    const pending = this.pending.get(f.id);
+    if (!pending) return;
+    this.pending.delete(f.id);
+    pending.reject(
+      isJsonRpcErrorObject(f.error)
+        ? new RpcError(f.error.message, f.error.code, f.error.data)
+        : new RpcError(
+            "réponse JSON-RPC invalide",
+            JsonRpcError.INTERNAL_ERROR,
+          ),
+    );
   }
 }
 
