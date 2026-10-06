@@ -13,14 +13,59 @@ Le framework, lui, s'installe depuis npm ; le code vit sur GitHub.
 - **Documentation** — <https://nodefony.github.io/nodefony-core/>
 - **Licence** — Apache-2.0
 
-## Lancer
+## Lancer — trois lignes, et pourquoi trois
 
 ```bash
-docker run --rm -p 5151:5151 nodefony/nodefony:beta
+# 1. L'image fabrique ses propres secrets — une seule fois, gardés dans un fichier
+docker run --rm nodefony/nodefony:beta node_modules/.bin/nodefony security:secrets --env > nodefony.env
+
+# 2. Le mot de passe du compte « admin » de la console — choisis-le
+echo "NF_ADMIN_PASSWORD=choisis-un-mot-de-passe" >> nodefony.env
+
+# 3. Lancer, avec ce fichier
+docker run --rm -p 5151:5151 --env-file nodefony.env nodefony/nodefony:beta
 ```
 
 L'application répond sur <http://127.0.0.1:5151>. La console d'administration est
-sous `/nodefony`.
+sous <http://127.0.0.1:5151/nodefony> : identifiant `admin`, le mot de passe de la
+ligne 2.
+
+### Pourquoi pas une seule ligne ?
+
+Parce que cette image tourne **comme en production**, et qu'une application
+Nodefony en production **refuse de démarrer sans ses secrets**. Lancée sans rien,
+elle s'arrête aussitôt (code de sortie `78`) en nommant la variable qui manque.
+C'est voulu.
+
+Un secret, ici, c'est une longue valeur aléatoire qui signe ou chiffre quelque
+chose : le jeton anti-falsification des formulaires, la signature des jetons de
+connexion. Si l'application en tirait un au hasard à chaque démarrage, tout ce
+qu'elle a signé deviendrait invalide au redémarrage suivant — les utilisateurs
+seraient déconnectés — et, avec plusieurs exemplaires, chacun aurait le sien :
+une connexion acceptée par l'un serait refusée par l'autre. Un framework qui
+« dépanne » en inventant la valeur cache donc une panne qu'on découvre en
+production. Nodefony préfère s'arrêter et le dire.
+
+Ligne par ligne :
+
+1. **Les secrets, sans rien installer.** C'est l'image elle-même qui les fabrique
+   (`security:secrets --env`) : aucun outil sur ton poste, pas même Node. Le
+   fichier `nodefony.env` en reçoit quatre — voir le tableau plus bas. **Garde ce
+   fichier** et réutilise-le : le régénérer revient à changer les clés, donc à
+   invalider ce qui a été signé avec les précédentes. **Ne le commite jamais**.
+2. **Le compte administrateur.** En production, Nodefony ne crée aucun compte avec
+   un mot de passe par défaut — un mot de passe connu de tous ouvrirait toutes les
+   installations. Sans cette ligne, l'application démarre, mais personne ne peut
+   entrer dans la console.
+3. **Le lancement.** `--env-file` passe chaque ligne du fichier comme une variable
+   d'environnement. C'est exactement ce que fait un orchestrateur (Kubernetes,
+   Compose) avec ses secrets : tu fais, en trois lignes, le geste d'un vrai
+   déploiement.
+
+`--rm` supprime le conteneur à l'arrêt, **et la base SQLite avec lui** : chaque
+lancement repart d'une base neuve. Pour garder les données, retire `--rm` et
+relance le même conteneur (`docker start -a <nom>`), ou donne une base externe
+(voir « Déclarer l'infrastructure » plus bas).
 
 Elle embarque SQLite, déjà migrée à la construction de l'image : aucun service
 externe n'est requis pour ce premier essai. Une application réelle garde, elle, sa
@@ -59,6 +104,30 @@ npm run dev
 L'image ne définit pas de variables « à elle ». Elle expose le mécanisme de
 configuration du framework, qui vaut pour n'importe quelle application Nodefony.
 
+### Les secrets de la production — ce que fait chacun, et ce qui arrive sans lui
+
+Les quatre premiers sont ceux que `security:secrets --env` écrit (ligne 1 de
+« Lancer ») ; le cinquième, c'est toi qui le choisis (ligne 2).
+
+| Variable            | À quoi elle sert                                                        | Sans elle, en production                         |
+| ------------------- | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| `NF_CSRF_SECRET`    | signe le jeton qui empêche un autre site de soumettre tes formulaires   | **démarrage refusé** (code `78`)                 |
+| `NF_JWT_KEYSET`     | signe les jetons de connexion — une paire de clés, écrite en JSON       | **démarrage refusé**                             |
+| `NF_TOTP_KEY`       | chiffre, dans la base, le secret de double authentification des comptes | démarre, **double authentification désactivée**  |
+| `NF_WEBHOOK_KEY`    | chiffre, dans la base, les secrets qui signent les webhooks             | démarre, **webhooks désactivés**                 |
+| `NF_ADMIN_PASSWORD` | mot de passe du compte `admin`, créé au premier démarrage               | démarre, **aucun compte : console inaccessible** |
+
+Les trois du bas ne bloquent pas le démarrage : une application peut vivre sans
+double authentification ni webhooks. Mais rien n'est remplacé en silence — le
+journal le signale à chaque démarrage (`CRITIC` pour les deux clés, `WARNING`
+pour le compte).
+
+**Dans un vrai déploiement**, ces valeurs ne vivent pas dans un fichier sur un
+disque : elles vont dans le gestionnaire de secrets de l'hébergeur (Secret
+Kubernetes, coffre-fort), qui les injecte en variables d'environnement — le même
+geste que `--env-file`, en plus sûr. Elles se génèrent **une fois** et restent
+**les mêmes pour tous les exemplaires** de l'application.
+
 ### 1. Surcharger n'importe quel réglage — `NF__<MODULE>__<CHEMIN>`
 
 Tout réglage de tout module s'écrase par une variable d'environnement, sans
@@ -70,10 +139,10 @@ d'orthographier en casse mixte dans un fichier d'environnement.
 
 ```bash
 # Le module « http », clé « trustProxy »
-docker run -e NF__HTTP__TRUSTPROXY=true -p 5151:5151 nodefony/nodefony:beta
+docker run --env-file nodefony.env -e NF__HTTP__TRUSTPROXY=true -p 5151:5151 nodefony/nodefony:beta
 
 # Un chemin imbriqué : module « security », section « jwt », clé « accessTtls »
-docker run -e NF__SECURITY__JWT__ACCESSTTLS=900 nodefony/nodefony:beta
+docker run --env-file nodefony.env -e NF__SECURITY__JWT__ACCESSTTLS=900 -p 5151:5151 nodefony/nodefony:beta
 ```
 
 Trois propriétés qui comptent, et qui distinguent ce mécanisme d'un simple
@@ -103,7 +172,8 @@ L'alias sans préfixe existe parce que les hébergeurs le posent eux-mêmes ; la
 forme `NF_` gagne quand les deux sont présentes.
 
 ```bash
-docker run -e NF_DATABASE_URL="postgres://user:mdp@hote:5432/base" \
+docker run --env-file nodefony.env \
+           -e NF_DATABASE_URL="postgres://user:mdp@hote:5432/base" \
            -e NF_REDIS_URL="redis://hote:6379" \
            -p 5151:5151 nodefony/nodefony:beta
 ```
@@ -119,6 +189,7 @@ PostgreSQL et écrit ailleurs est un incident qu'on découvre trop tard.
 | Variable                 | Effet                                                                                  |
 | ------------------------ | -------------------------------------------------------------------------------------- |
 | `NODE_ENV`               | `production` dans cette image. En `development`, l'outillage de développement s'active |
+| `NF_WORKERS`             | nombre de processus dans le conteneur — `1` par défaut ; `auto` suit le quota CPU      |
 | `NF__HTTP__TRUSTPROXY`   | faire confiance aux en-têtes d'un frontal (`X-Forwarded-*`)                            |
 | `NF__HTTP__TRUSTEDHOSTS` | les noms d'hôte servis — défense contre l'empoisonnement d'en-tête `Host`              |
 | `NF_BOOT_TIMEOUT_MS`     | délai au-delà duquel un démarrage est déclaré en échec                                 |

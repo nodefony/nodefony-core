@@ -8,7 +8,7 @@ audience: [devops]
 tags: [docker, kubernetes, cloud-native, production, signaux, probes, cluster]
 version: "doc"
 status: stable
-updated: 2026-09-01
+updated: 2026-10-06
 source: "docs/guides/docker-cloud-native.md"
 related: project_pm2_deprecation, project_cloud_native_plan
 ---
@@ -127,6 +127,50 @@ changer sont en tête du `Dockerfile` généré, et sur la page publique de l'im
   en charge vient des répliques de l'orchestrateur. Pour un VPS multi-cœurs sans
   orchestrateur, `CMD ["node_modules/.bin/nodefony","cluster","-w","4"]` reste le seul cas où
   plusieurs process partagent un conteneur.
+
+## Configurer l'image — les secrets que la production exige
+
+Une image Nodefony tourne en `NODE_ENV=production`, et une application en production
+**refuse de démarrer sans ses secrets** : elle s'arrête en code `78` (`EX_CONFIG`) en nommant
+la variable qui manque. C'est voulu. Un secret tiré au hasard au démarrage invaliderait tout ce
+qu'il a signé au redémarrage suivant, et différerait d'un exemplaire à l'autre — une connexion
+acceptée par un pod serait refusée par son voisin. S'arrêter en le disant vaut mieux qu'une
+panne intermittente découverte en production.
+
+| Variable            | Ce qu'elle protège                                                     | Sans elle, en production                      |
+| ------------------- | ---------------------------------------------------------------------- | --------------------------------------------- |
+| `NF_CSRF_SECRET`    | le jeton anti-falsification des formulaires                            | **démarrage refusé** (78)                     |
+| `NF_JWT_KEYSET`     | la signature des jetons de connexion (paire Ed25519, en JSON)          | **démarrage refusé** si l'application en émet |
+| `NF_TOTP_KEY`       | le secret de double authentification de chaque compte, chiffré en base | démarre, double authentification désactivée   |
+| `NF_WEBHOOK_KEY`    | les secrets de signature des webhooks, chiffrés en base                | démarre, webhooks désactivés                  |
+| `NF_ADMIN_PASSWORD` | le compte `admin` créé au premier démarrage                            | démarre, aucun compte — console inaccessible  |
+
+**Les générer — une fois, et depuis l'image elle-même** (aucun outil sur le poste) :
+
+```bash
+docker run --rm mon-app:1.0 node_modules/.bin/nodefony security:secrets --env > nodefony.env
+echo "NF_ADMIN_PASSWORD=…" >> nodefony.env
+docker run -p 5151:5151 --env-file nodefony.env mon-app:1.0
+```
+
+`--env` écrit une ligne `CLÉ=valeur` par secret, sans guillemets : le format que
+`--env-file` lit littéralement. Trois règles, et chacune évite une panne :
+
+- **Les mêmes valeurs pour tous les exemplaires.** Générées une fois, rangées dans le
+  gestionnaire de secrets (Secret Kubernetes, coffre-fort), injectées en variables
+  d'environnement — jamais régénérées au déploiement.
+- **Jamais dans l'image.** Le `.dockerignore` généré écarte `.env` : un secret entré dans une
+  couche y reste lisible, même effacé par la couche suivante.
+- **Stables dans le temps.** Changer `NF_JWT_KEYSET` refuse les jetons en vol ; une rotation
+  ajoute la nouvelle clé au jeu, la rend active, et garde l'ancienne le temps qu'elle expire.
+
+En Kubernetes, ces valeurs vont dans un `Secret` :
+[`kubernetes.md`](./kubernetes.md#secret-et-configmap--ce-qui-va-où).
+
+**La liste COMPLÈTE n'est pas recopiée ici** — elle dépend des modules de l'application, et une
+copie se périmerait. Elle est générée par l'application elle-même : `.env.example` (par section,
+chaque variable avec son exigence et sa place en production), et `npx nodefony env`, qui dit ce
+qui est posé, d'où vient chaque valeur, et sort en `78` s'il manque une variable requise.
 
 ## Kubernetes — probes & timeouts
 

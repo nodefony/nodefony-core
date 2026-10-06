@@ -127,6 +127,16 @@ kind: Secret
 metadata: { name: mon-app-secrets }
 type: Opaque
 stringData:
+  # 🔴 Sans ces deux-là, le pod REFUSE de démarrer (code 78, la variable nommée) :
+  # générés UNE fois, identiques pour tous les pods — jamais régénérés au déploiement.
+  #   docker run --rm mon-app:1.0 node_modules/.bin/nodefony security:secrets --env
+  NF_CSRF_SECRET: "…"
+  NF_JWT_KEYSET: '{"active":"…","keys":[…]}'
+  # Sans elles, le pod démarre, mais 2FA et webhooks sont désactivés (CRITIC au boot).
+  NF_TOTP_KEY: "…"
+  NF_WEBHOOK_KEY: "…"
+  # Le compte `admin` créé au premier démarrage — sans lui, aucun compte.
+  NF_ADMIN_PASSWORD: "…"
   # La base : le SCHÉMA de l'URL décide du dialecte (`infra.ts:91`), et un schéma
   # inconnu fait échouer le boot — jamais de choix silencieux.
   NF_DATABASE_URL: "postgres://app:…@postgres:5432/app"

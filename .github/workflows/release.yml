@@ -676,9 +676,40 @@ jobs:
           # L'image SERT-elle ? Le job la construisait, contrôlait ses couches
           # et ses étiquettes — et ne la démarrait jamais : une image à 503
           # permanent est partie de l'alpha.6 à la beta.1 sans qu'une étape le
-          # voie. On la lance comme la page de l'image le dit, sans rien lui
-          # fournir, et on exige `/readyz` à 200 dans un délai borné.
-          docker run -d --name nf-demo-readyz -p 5151:5151 "nodefony/nodefony:${V}"
+          # voie. On la lance EXACTEMENT comme la page de l'image le dit
+          # (`docker/hub-overview.md`, « Lancer ») : secrets fabriqués par
+          # l'image elle-même, mot de passe admin, puis `--env-file` — et on
+          # exige `/readyz` à 200 dans un délai borné.
+          #
+          # 🔴 Depuis l'ADR-0014 et #478, une application en production REFUSE
+          # de démarrer sans NF_CSRF_SECRET ni NF_JWT_KEYSET. Lancer l'image
+          # « sans rien » ne sert donc plus : c'est ce que la page promettait
+          # jusqu'à la beta.2, et cette étape aurait bloqué la beta.3.
+          envfile="$(mktemp)"
+          docker run --rm "nodefony/nodefony:${V}" \
+            node_modules/.bin/nodefony security:secrets --env > "$envfile" \
+            || { echo "::error::l'image ne sait pas produire ses secrets (security:secrets --env) — la ligne 1 de la page échoue"; exit 1; }
+          for k in NF_CSRF_SECRET NF_JWT_KEYSET NF_TOTP_KEY NF_WEBHOOK_KEY; do
+            grep -q "^${k}=" "$envfile" \
+              || { echo "::error::security:secrets --env n'a pas rendu ${k} — la ligne 1 de la page ment"; exit 1; }
+          done
+          echo "NF_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$envfile"
+
+          # Et la garde de la page MORD : sans rien, l'image refuse (78) en
+          # nommant la variable — sinon la page décrirait un refus qui n'a pas lieu.
+          # Borné : une image qui NE refuse PAS resterait au premier plan et
+          # tiendrait le job jusqu'à sa limite — `timeout` rend alors 124.
+          refus=0
+          refuslog="$(timeout 90 docker run --rm --name nf-demo-refus "nodefony/nodefony:${V}" 2>&1)" || refus=$?
+          docker rm -f nf-demo-refus >/dev/null 2>&1 || true
+          if [ "$refus" != "78" ] || [[ "$refuslog" != *NF_CSRF_SECRET* ]]; then
+            printf '%s\n' "$refuslog" | tail -20
+            echo "::error::lancée sans secrets, l'image devait refuser en 78 en nommant NF_CSRF_SECRET (code ${refus})"
+            exit 1
+          fi
+
+          docker run -d --name nf-demo-readyz -p 5151:5151 --env-file "$envfile" "nodefony/nodefony:${V}"
+          rm -f "$envfile"
           code=000
           for _ in $(seq 1 45); do
             code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5151/readyz || true)
