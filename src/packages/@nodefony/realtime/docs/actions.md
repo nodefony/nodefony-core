@@ -367,10 +367,7 @@ use("@nodefony/security", {
   realtimeChannels: [
     // Couvre AUSSI bien le canal `orders:feed` que l'action `orders:quote` :
     // le verrou résout une politique par NOM, sans savoir ce qu'il garde.
-    {
-      prefix: "orders:",
-      policy: { authenticated: true, roles: ["ROLE_USER"] },
-    },
+    { pattern: "orders:", authenticated: true, roles: ["ROLE_USER"] },
   ],
 });
 ```

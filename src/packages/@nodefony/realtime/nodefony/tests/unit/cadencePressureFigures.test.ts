@@ -23,14 +23,15 @@ const PAGE = path.join(
 );
 const md = readFileSync(PAGE, "utf8");
 
-/** Les valeurs de la série `line [...]` du xychart dont le titre est donné. */
-function figure(title: string): number[] {
+/** Les valeurs de la `n`-ième série `line [...]` du xychart dont le titre est donné. */
+function figure(title: string, n = 0): number[] {
   const bloc = md
     .split("```mermaid")
     .find((b) => b.includes(`title "${title}"`));
   if (!bloc) throw new Error(`figure absente de la page : « ${title} »`);
-  const line = /^\s*line \[(.*)\]\s*$/m.exec(bloc);
-  if (!line?.[1]) throw new Error(`série absente de la figure « ${title} »`);
+  const line = [...bloc.matchAll(/^\s*line \[(.*)\]\s*$/gm)][n];
+  if (!line?.[1])
+    throw new Error(`série ${n + 1} absente de la figure « ${title} »`);
   return line[1].split(",").map((v) => Number(v.trim()));
 }
 
@@ -64,7 +65,7 @@ function aimdScenario(): { cadences: number[]; decisions: string[] } {
     return v;
   };
   const cadences: number[] = [];
-  for (let s = 0; s <= 125; s += 5) cadences.push(at(s));
+  for (let s = 0; s <= 125; s += 1) cadences.push(at(s));
   return { cadences, decisions };
 }
 
@@ -134,19 +135,20 @@ describe("docs/cadence-et-contre-pression.md — les courbes sont celles du code
       figure("File d'envoi d'un client qui ne suit plus (seuil 4 Mio)"),
     ).toEqual(r.mib);
     expect(
-      figure("Solde de refus d'un client mort — fermeture à 1000"),
+      figure("Solde de refus — client mort (bleu) et pic passager (orange)", 0),
     ).toEqual(r.balance);
     expect(r.closedCode).toBe(1013);
     expect(r.closedAt).toBe(29470);
-    expect(md).toContain(
+    // Le texte se coupe au fil des lignes : on compare la prose, pas sa mise en page.
+    expect(md.replace(/\s+/g, " ")).toContain(
       `après ${r.dropped} trames refusées et ${r.sent} envoyées`,
     );
   });
 
   it("un pic passager : le solde redescend, aucune fermeture", () => {
-    const r = pressureScenario(2000, 9000, 15000);
+    const r = pressureScenario(2000, 9000, 29000);
     expect(
-      figure("Solde de refus d'un pic passager — aucune fermeture"),
+      figure("Solde de refus — client mort (bleu) et pic passager (orange)", 1),
     ).toEqual(r.balance);
     expect(r.closedCode).toBeNull();
   });

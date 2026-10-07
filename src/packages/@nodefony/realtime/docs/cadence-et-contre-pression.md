@@ -37,27 +37,22 @@ coverageModule: realtime
 
 ## 🧠 Schéma général
 
-Deux étages, deux endroits du code, deux signaux — et les sondes qui les rendent visibles.
+Deux étages, deux endroits du code, deux signaux. Les sondes, qui les observent, viennent plus bas.
 
 ```mermaid
-flowchart TB
-  PROD["Producteur serveur<br/>ticker d'un canal d'état"] -->|"publie à la cadence du canal"| HUB["RealtimeHub<br/>fan-out vers les abonnés"]
-  HUB --> T["WsConnectionTransport.send()<br/>une trame, un client"]
-  T --> D{"decideSend()<br/>file d'envoi > seuil ?"}
-  D -->|"non"| SEND["envoi"]
-  D -->|"oui"| DROP["trame refusée<br/>solde + 1"]
-  DROP -->|"solde atteint N"| CLOSE["fermeture 1013<br/>Try Again Later"]
-  SEND --> NET["réseau TCP"]
-  NET --> CLI["Navigateur<br/>RealtimeClient"]
-  CLI --> AR["AdaptiveRate<br/>mesure l'écart entre trames"]
-  AR -->|"famine : se réabonne à base:2000"| HUB
-  AR -->|"sain 4 fois : se réabonne à base:1000"| HUB
-  HUB -.->|"probe()"| SONDE["Sonde du hub<br/>clients lents, refus"]
-  CLOSE -.->|"code transitoire"| CLI
+flowchart LR
+  T["Ticker<br/>1 trame / s"] --> H["Hub"]
+  H --> D{"File d'envoi<br/>> 4 Mio ?"}
+  D -->|"non"| C["Navigateur<br/>mesure l'écart"]
+  D -->|"oui"| J["Trame jetée<br/>solde + 1"]
+  J -->|"solde = 1000"| X["Fermeture<br/>1013"]
+  C -->|"trop lent"| L["Cadence × 2"]
+  C -->|"4 fois sain"| F["Cadence ÷ 2"]
 ```
 
 - **Étage 1 — la cadence adaptative**, côté **client** : il mesure l'écart entre deux trames et se
-  réabonne à une cadence plus lente ou plus rapide. Le serveur ne fait qu'honorer le nom du canal.
+  réabonne à une cadence plus lente ou plus rapide. Ce réabonnement retourne au hub, qui démarre
+  (ou rejoint) le ticker de la nouvelle cadence : le serveur ne fait qu'honorer le nom du canal.
 - **Étage 2 — la contre-pression**, côté **serveur**, trame par trame : au-delà de la file permise,
   la trame est jetée ; un client qui refuse plus qu'il n'accepte finit fermé.
 - **Les sondes** comptent les clients lents et les refus, sans rien décider.
@@ -125,17 +120,21 @@ la mesure. Voir [Comment les deux étages se rencontrent](#-comment-les-deux-ét
 
 ## 🚀 Démarrage rapide
 
-**Le besoin vécu** : ton tableau de bord affiche la charge d'un atelier, publiée chaque seconde. Sur
-le réseau d'un client en déplacement, l'écran prend du retard et la console du serveur grossit.
+**Le besoin vécu** : ton tableau de bord affiche la charge du serveur, publiée chaque seconde. Sur
+le réseau d'un client en déplacement, l'écran prend du retard et la mémoire du serveur grossit.
 Tu veux que **chaque écran** tienne la cadence qu'il peut, et que **le serveur** ne retienne jamais
 un client mort.
 
 ### Le contrôleur — fichier créé
 
-Le serveur publie **à la cadence que le nom du canal demande**, bornée pour se protéger.
+Le serveur publie **à la cadence que le nom du canal demande**, bornée pour se protéger. Le
+décorateur `@RealtimeChannel` ne reconnaît que des noms **exacts** : une famille cadencée
+(`atelier:load`, `atelier:load:2000`, …) passe donc par la surcharge de `createRealtimeChannel()`,
+la voie que le framework prévoit pour elle.
 
 ```ts
 // modules/atelier/nodefony/controllers/AtelierController.ts
+import { performance } from "node:perf_hooks";
 import { controller, route } from "@nodefony/framework";
 import { RealtimeController } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
@@ -145,7 +144,7 @@ import { isRateChannel, parseRate } from "nodefony";
 /** Le canal de base, partagé avec le client. */
 export const ATELIER_LOAD = "atelier:load";
 
-/** Bornes : jamais plus vite que 250 ms (anti-déni de service), jamais plus lent que 60 s. */
+/** Le serveur garde la main : jamais plus vite que 250 ms, jamais plus lent que 60 s. */
 const BOUNDS = { default: 1000, min: 250, max: 60000 };
 
 @controller("/atelier")
@@ -162,18 +161,29 @@ class AtelierController extends RealtimeController {
     this.handleRealtime(message);
   }
 
-  /** `atelier:load` ET ses variantes `atelier:load:<ms>` — un ticker par cadence. */
+  /**
+   * Sert `atelier:load` ET ses variantes `atelier:load:<ms>`.
+   *
+   * Le hub appelle cette fabrique au PREMIER abonné d'un canal et garde sa
+   * fonction de nettoyage pour le DERNIER : un seul ticker par cadence, partagé
+   * par tous ses abonnés. Il survit à la connexion qui l'a créé — il ne doit
+   * donc rien capturer de `this.context`.
+   */
   override createRealtimeChannel(
     channel: string,
     publish: RealtimePublish,
   ): (() => void) | null {
     if (!isRateChannel(channel, ATELIER_LOAD)) return null;
     const ms = parseRate(channel, ATELIER_LOAD, BOUNDS);
-    const timer = setInterval(
-      () => publish(channel, { ts: Date.now(), load: Math.random() }),
-      ms,
-    );
-    timer.unref();
+    // Utilisation de la boucle d'événements depuis le tick précédent, de 0 à 1 :
+    // une mesure que Node tient déjà, identique sur Linux, macOS et Windows.
+    let since = performance.eventLoopUtilization();
+    const timer = setInterval(() => {
+      const delta = performance.eventLoopUtilization(since);
+      since = performance.eventLoopUtilization();
+      publish(channel, { ts: Date.now(), load: delta.utilization });
+    }, ms);
+    timer.unref(); // le ticker ne retient pas l'arrêt du processus
     return () => clearInterval(timer);
   }
 }
@@ -207,8 +217,13 @@ export function useAtelierLoad(): { load: number | null; everyMs: number } {
 
 ### La configuration — fichier modifié
 
-La contre-pression est **déjà active** avec ses défauts. On ne la règle que pour la serrer, et sur
-**les deux** serveurs WebSocket.
+Deux réglages, et le second est celui qu'on oublie :
+
+- la **contre-pression** est déjà active avec ses défauts ; on ne la règle que pour la serrer, et
+  sur **les deux** serveurs WebSocket ;
+- la **garde du canal** se pose par **préfixe** : une règle sur `atelier:` couvre `atelier:load` et
+  toutes ses cadences. Une politique posée sur le nom exact `atelier:load` laisserait
+  `atelier:load:2000` ouvert à n'importe qui.
 
 ```ts
 // nodefony.config.ts — extrait
@@ -224,6 +239,10 @@ export default defineConfig(() => ({
       },
     }),
     "@nodefony/framework",
+    use("@nodefony/security", {
+      // Préfixe : garde atelier:load ET atelier:load:2000, atelier:load:4000…
+      realtimeChannels: [{ pattern: "atelier:", authenticated: true }],
+    }),
     use("@nodefony/realtime", { backplane: { driver: "loopback" } }),
     "@mon-app/atelier",
   ],
@@ -232,13 +251,14 @@ export default defineConfig(() => ({
 
 ### Ce qu'on observe
 
-| Situation                                | Ce qui se passe                                                                                       |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Réseau sain                              | `everyMs` reste à `1000` ; le client est abonné à `atelier:load` (le défaut ne porte pas de suffixe). |
-| Réseau dégradé (trames toutes les 4–5 s) | `everyMs` passe à `2000` puis `4000` ; le client est abonné à `atelier:load:4000`.                    |
-| Retour à la normale                      | `everyMs` redescend d'un cran tous les 4 échantillons sains : `2000`, puis `1000`.                    |
-| Client qui ne lit plus du tout           | file à 1 Mio, trames refusées, puis fermeture `1013` après un solde de 200 ; reconnexion automatique. |
-| Deux écrans à la même cadence            | **un seul** ticker serveur : le canal `atelier:load:2000` est partagé et compté par référence.        |
+| Situation                                    | Ce qui se passe                                                                                       |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Réseau sain                                  | `everyMs` reste à `1000` ; le client est abonné à `atelier:load` (le défaut ne porte pas de suffixe). |
+| Réseau dégradé (trames toutes les 4–5 s)     | `everyMs` passe à `2000` puis `4000` ; le client est abonné à `atelier:load:4000`.                    |
+| Retour à la normale                          | `everyMs` redescend d'un cran tous les 4 échantillons sains : `2000`, puis `1000`.                    |
+| Client qui ne lit plus du tout               | file à 1 Mio, trames refusées, puis fermeture `1013` après un solde de 200 ; reconnexion automatique. |
+| Deux écrans à la même cadence                | **un seul** ticker serveur : le canal `atelier:load:2000` est partagé et compté par référence.        |
+| Un client anonyme demande `atelier:load:250` | refusé : la règle de préfixe exige une identité, quelle que soit la cadence demandée.                 |
 
 ```bash
 # La sonde du hub, sans WebSocket : clients lents et refus cumulés.
@@ -263,20 +283,24 @@ Conséquences voulues :
 - **Aucun message de contrôle** : changer de cadence, c'est changer d'abonnement. Le protocole
   reste celui des canaux, rien de plus.
 
+> [!WARNING]
+> **Une politique de canal posée sur le nom exact ne garde pas ses cadences.** Le registre des
+> politiques s'indexe par nom : protéger `atelier:load` laisse `atelier:load:2000` ouvert, et le hub
+> le signale par un avertissement. Garder une famille cadencée, c'est poser une règle par
+> **préfixe** (`realtimeChannels`, configuration de `@nodefony/security`) ou par motif
+> (`atelier:load:*`).
+
 ### Ce que le client mesure
 
 À chaque trame reçue, `AdaptiveRate.noteFrame()` (`AdaptiveRate.ts:137`) compare l'écart depuis
 la trame précédente à la cadence courante. Trois zones, et une seule décision par trame :
 
 ```mermaid
-stateDiagram-v2
-  [*] --> Sain
-  Sain --> Famine : écart > 1,8 × cadence
-  Sain --> BandeMorte : écart entre 1,25 et 1,8 × cadence
-  BandeMorte --> Sain : écart ≤ 1,25 × cadence
-  BandeMorte --> Famine : écart > 1,8 × cadence
-  Famine --> Sain : cadence ×2, mesure réamorcée
-  Sain --> Sain : 4 écarts sains d'affilée → cadence ÷2
+flowchart LR
+  E{"Écart entre<br/>deux trames ?"} -->|"> 1,8 × cadence"| FAM["Famine<br/>cadence × 2"]
+  E -->|"1,25 à 1,8 ×"| BM["Bande morte<br/>rien ne bouge"]
+  E -->|"≤ 1,25 ×"| S["Sain"]
+  S -->|"4 fois de suite"| UP["Cadence ÷ 2"]
 ```
 
 | Zone            | Condition (défauts)      | Décision                                                             |
@@ -310,20 +334,15 @@ avec ces défauts (`AdaptiveRate.ts:100`).
 
 ### Changer de cadence sans trou
 
-`bindAdaptiveChannel()` (`AdaptiveRate.ts:242`) applique une décision en **s'abonnant au nouveau
-canal avant de quitter l'ancien** (`applyDecision()`, `AdaptiveRate.ts:295`) :
+**L'image** : on change de voie sur l'autoroute en s'insérant dans la nouvelle **avant** de quitter
+l'ancienne, jamais l'inverse. `bindAdaptiveChannel()` (`AdaptiveRate.ts:242`) fait pareil : il
+**s'abonne au nouveau canal, puis quitte l'ancien**, dans le même geste (`applyDecision()`,
+`AdaptiveRate.ts:295`).
 
 ```mermaid
-sequenceDiagram
-  participant C as Navigateur (AIMD)
-  participant H as Serveur (hub)
-  H->>C: atelier:load (toutes les 1 s)
-  Note over C: écart 4,5 s > 1,8 × 1 s → famine
-  C->>H: subscribe atelier:load:2000
-  H-->>C: atelier:load:2000 (ticker à 2 s, partagé)
-  C->>H: unsubscribe atelier:load
-  Note over H: dernier abonné parti → ticker 1 s arrêté
-  H->>C: atelier:load:2000 (toutes les 2 s)
+flowchart LR
+  A["Écoute<br/>atelier:load<br/>1 trame / s"] -->|"famine"| B["1. s'abonne à<br/>atelier:load:2000<br/>2. quitte atelier:load"]
+  B --> C["Écoute<br/>atelier:load:2000<br/>1 trame / 2 s"]
 ```
 
 Le gestionnaire de l'écran reçoit les trames des deux canaux sans interruption : la page ne voit
@@ -337,11 +356,12 @@ Le scénario : cadence désirée 1 s ; **de 20 s à 70 s**, le client met 4,5 s 
 [Tests](#-tests)).
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
 xychart-beta
   title "Cadence AIMD — dégradation de 20 s à 70 s"
-  x-axis "temps (s)" [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125]
-  y-axis "cadence (ms)" 0 --> 4500
-  line [1000, 1000, 1000, 1000, 1000, 2000, 2000, 4000, 4000, 4000, 4000, 2000, 2000, 4000, 4000, 4000, 4000, 2000, 2000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
+  x-axis "temps (s)" 0 --> 125
+  y-axis "cadence (ms)" 0 --> 5000
+  line [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 4000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
 ```
 
 Ce que la courbe raconte, décision par décision :
@@ -382,15 +402,12 @@ La décision est prise **trame par trame**, par une seule fonction : `decideSend
 `WsConnectionTransport.ts:82`). Une seule règle, deux usages.
 
 ```mermaid
-flowchart TB
-  F["une trame à envoyer"] --> Q{"file d'envoi ≤ maxBackpressure ?"}
-  Q -->|"oui"| S["envoi<br/>solde − 1 s'il était positif"]
-  Q -->|"non"| P{"backpressurePolicy"}
-  P -->|"close"| C1["fermeture 1013<br/>dès le premier dépassement"]
-  P -->|"drop (défaut)"| D["trame jetée<br/>solde + 1, refus cumulés + 1"]
-  D --> N{"solde ≥ backpressureCloseAfterDrops ?"}
-  N -->|"oui"| C2["fermeture 1013"]
-  N -->|"non"| R["la connexion reste ouverte"]
+flowchart LR
+  F["Trame<br/>à envoyer"] --> Q{"File d'envoi<br/>> 4 Mio ?"}
+  Q -->|"non"| S["Envoyée<br/>solde − 1"]
+  Q -->|"oui · close"| C1["Fermeture<br/>1013"]
+  Q -->|"oui · drop"| D["Jetée<br/>solde + 1"]
+  D -->|"solde = 1000"| C2["Fermeture<br/>1013"]
 ```
 
 Sous le seuil, le chemin est **nominal** : une lecture de `bufferedAmount`, aucune allocation. Le
@@ -421,6 +438,7 @@ fermeture à un solde de 1000. Les valeurs sont calculées par `decideSend()` lu
 durée :
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
 xychart-beta
   title "File d'envoi d'un client qui ne suit plus (seuil 4 Mio)"
   x-axis "temps (s)" [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
@@ -428,26 +446,24 @@ xychart-beta
   line [0.03, 0.03, 0.05, 2.22, 4.02, 4, 4.02, 4, 4.02, 4, 4.02, 4, 4.02, 4, 4.02, 4.03, 4.01, 4.03, 4.01, 4.03, 4.01, 4.03, 4.01, 4.03, 4.01, 4.02, 4.01, 4.02, 4.01, 4.02]
 ```
 
-**Le solde monte, régulièrement** — environ 39 par seconde, l'écart entre les refus et les envois.
-Il atteint 1000 à **29,5 s** : fermeture `1013`, après 1781 trames refusées et 1166 envoyées.
+**Le solde distingue un client mort d'un pic passager.** Deux clients, même début : ils ralentissent
+à 2 s. Le premier ne se rétablit jamais, le second se rétablit à 9 s.
+
+- **Client mort (bleu)** : le solde monte d'environ 39 par seconde, l'écart entre les refus et les
+  envois. Il atteint 1000 à **29,5 s** : fermeture `1013`, après 1781 trames refusées et 1166
+  envoyées.
+- **Pic passager (orange)** : le solde monte jusqu'à 201, puis redescend d'une unité par envoi,
+  donc très vite : à 12 s il est revenu à 0. Aucune fermeture.
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
 xychart-beta
-  title "Solde de refus d'un client mort — fermeture à 1000"
+  title "Solde de refus — client mort (bleu) et pic passager (orange)"
   x-axis "temps (s)" [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
   y-axis "solde de refus" 0 --> 1000
+  %% series: client mort | pic passager
   line [0, 0, 0, 0, 7, 47, 85, 125, 163, 203, 241, 281, 319, 359, 397, 435, 475, 513, 553, 591, 631, 669, 709, 747, 787, 825, 865, 903, 943, 981]
-```
-
-**Un pic passager ne ferme rien** — même scénario, mais le client se rétablit à 9 s. Le solde
-redescend d'une unité par envoi, donc très vite : à 12 s il est revenu à 0.
-
-```mermaid
-xychart-beta
-  title "Solde de refus d'un pic passager — aucune fermeture"
-  x-axis "temps (s)" [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-  y-axis "solde de refus" 0 --> 1000
-  line [0, 0, 0, 0, 7, 47, 85, 125, 163, 201, 101, 1, 0, 0, 0, 0]
+  line [0, 0, 0, 0, 7, 47, 85, 125, 163, 201, 101, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 ```
 
 ### `drop` ou `close` — choisir en situation
@@ -481,19 +497,11 @@ Aucune ligne de code ne relie la contre-pression du serveur à la cadence du cli
 rencontrent par la **mesure** :
 
 ```mermaid
-sequenceDiagram
-  participant P as Ticker serveur (1 s)
-  participant T as decideSend()
-  participant C as Client (AIMD)
-  P->>T: trame n
-  T-->>C: envoyée
-  P->>T: trame n+1
-  Note over T: file au-dessus du seuil → trame jetée
-  P->>T: trame n+2
-  T-->>C: envoyée
-  Note over C: écart 2 s > 1,8 × 1 s → famine
-  C->>P: subscribe base:2000 puis unsubscribe base
-  Note over P,C: deux fois moins de trames pour ce client → la file se vide
+flowchart LR
+  A["Serveur<br/>trame jetée"] --> B["Client<br/>attend 2 s<br/>au lieu d'1"]
+  B --> C["AIMD<br/>famine"]
+  C --> D["Réabonné<br/>à 2 s"]
+  D --> E["Moitié moins<br/>de trames :<br/>la file se vide"]
 ```
 
 Une seule trame jetée sur un canal cadencé suffit à doubler l'écart mesuré, donc à faire ralentir le
@@ -564,17 +572,18 @@ La table complète des réglages du module et leurs schémas : [Configuration](c
 
 ## ⚠️ Pièges
 
-| Symptôme                                              | Cause                                                                                 | Correction                                                                          |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Des événements métier manquent chez un client lent    | la politique `drop` jette toute trame au-delà du seuil, événements compris            | accusé de réception et reprise applicatifs, ou politique `close` pour ce flux       |
-| Une requête RPC expire sans erreur serveur            | sa réponse a été jetée par la contre-pression                                         | surveiller `drops` dans la sonde ; serrer la cadence des canaux d'état de ce client |
-| La cadence adaptative ne bouge jamais                 | le serveur ne sert que le nom exact (`@RealtimeChannel`), pas `base:<ms>`             | surcharger `createRealtimeChannel()` avec `isRateChannel()` et `parseRate()`        |
-| Un client demande 100 ms et reçoit autre chose        | `parseRate()` borne la cadence demandée                                               | c'est voulu (anti-déni de service) : ajuster les bornes du contrôleur               |
-| Le réglage de contre-pression semble ignoré           | seule la section `websocket` est réglée, l'application est servie en `wss`            | régler aussi `websocketSecure`                                                      |
-| `slowConsumers` est non nul mais personne n'est coupé | `slowConsumer.bytes` (1 Mio) est un seuil de comptage, sous `maxBackpressure` (4 Mio) | normal : la sonde prévient avant que la contre-pression agisse                      |
-| Un client est coupé au premier ralentissement         | `backpressurePolicy: "close"` ferme dès le premier dépassement                        | revenir à `drop` avec un solde de fermeture                                         |
-| L'écran oscille entre deux cadences                   | réseau à la limite : l'AIMD sonde, recule, sonde                                      | normal et borné ; élargir `recoveryWindow` pour sonder moins souvent                |
-| La cadence adaptative est activée sur un journal      | un canal d'événements a été déclaré adaptatif                                         | revenir à un abonnement fixe ; regrouper les messages côté serveur                  |
+| Symptôme                                                          | Cause                                                                                 | Correction                                                                                 |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Des événements métier manquent chez un client lent                | la politique `drop` jette toute trame au-delà du seuil, événements compris            | accusé de réception et reprise applicatifs, ou politique `close` pour ce flux              |
+| Une requête RPC expire sans erreur serveur                        | sa réponse a été jetée par la contre-pression                                         | surveiller `drops` dans la sonde ; serrer la cadence des canaux d'état de ce client        |
+| `atelier:load` est gardé, `atelier:load:2000` répond à un anonyme | la politique vise le nom exact ; les variantes cadencées n'en héritent pas            | règle par préfixe dans `realtimeChannels` (`{ pattern: "atelier:", authenticated: true }`) |
+| La cadence adaptative ne bouge jamais                             | le serveur ne sert que le nom exact (`@RealtimeChannel`), pas `base:<ms>`             | surcharger `createRealtimeChannel()` avec `isRateChannel()` et `parseRate()`               |
+| Un client demande 100 ms et reçoit autre chose                    | `parseRate()` borne la cadence demandée                                               | c'est voulu (anti-déni de service) : ajuster les bornes du contrôleur                      |
+| Le réglage de contre-pression semble ignoré                       | seule la section `websocket` est réglée, l'application est servie en `wss`            | régler aussi `websocketSecure`                                                             |
+| `slowConsumers` est non nul mais personne n'est coupé             | `slowConsumer.bytes` (1 Mio) est un seuil de comptage, sous `maxBackpressure` (4 Mio) | normal : la sonde prévient avant que la contre-pression agisse                             |
+| Un client est coupé au premier ralentissement                     | `backpressurePolicy: "close"` ferme dès le premier dépassement                        | revenir à `drop` avec un solde de fermeture                                                |
+| L'écran oscille entre deux cadences                               | réseau à la limite : l'AIMD sonde, recule, sonde                                      | normal et borné ; élargir `recoveryWindow` pour sonder moins souvent                       |
+| La cadence adaptative est activée sur un journal                  | un canal d'événements a été déclaré adaptatif                                         | revenir à un abonnement fixe ; regrouper les messages côté serveur                         |
 
 ## 🧪 Tests
 
