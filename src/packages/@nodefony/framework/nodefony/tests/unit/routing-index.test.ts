@@ -441,3 +441,52 @@ describe("Routing index — routes de repli (`fallback`)", () => {
     ).to.equal("spa");
   });
 });
+
+describe("Option `method` d'une route — elle RESTREINT, elle n'orne pas", () => {
+  // Vécu : `@route("devkit-mcp", { path: "/mcp", method: "POST" })` servait
+  // aussi GET — l'option n'était lue que pour l'affichage (`inspect`, journal),
+  // jamais au match. Le client MCP recevait 400 au lieu de 405 et bouclait.
+  it('method: "POST" → GET rend 405 avec Allow: POST', () => {
+    Router.createRoute("only-post", { path: "/only/post-m", method: "POST" });
+    const router = makeRouter();
+    const ctx = makeCtx("/only/post-m", "GET");
+    expect(() => router.resolve(ctx)).to.throw(/Not Allowed/);
+    expect(ctx.response.headers.Allow).to.equal("POST");
+    expect(
+      makeRouter().resolve(makeCtx("/only/post-m", "POST")).route?.name,
+    ).to.equal("only-post");
+  });
+
+  it('method: "GET" sert aussi HEAD (RFC 9110 §9.1), pas POST', () => {
+    Router.createRoute("only-get", { path: "/only/get-m", method: "GET" });
+    const router = makeRouter();
+    expect(router.resolve(makeCtx("/only/get-m", "HEAD")).route?.name).to.equal(
+      "only-get",
+    );
+    expect(() => router.resolve(makeCtx("/only/get-m", "POST"))).to.throw(
+      /Not Allowed/,
+    );
+  });
+
+  it("method ET requirements.methods → l'UNION, jamais l'écrasement", () => {
+    Router.createRoute("both", {
+      path: "/only/both",
+      method: "POST",
+      requirements: { methods: ["PUT"] },
+    });
+    const router = makeRouter();
+    expect(router.resolve(makeCtx("/only/both", "POST")).route?.name).to.equal(
+      "both",
+    );
+    expect(router.resolve(makeCtx("/only/both", "PUT")).route?.name).to.equal(
+      "both",
+    );
+  });
+
+  it("sans method ni requirements → toutes les méthodes passent (inchangé)", () => {
+    Router.createRoute("any", { path: "/only/any" });
+    expect(
+      makeRouter().resolve(makeCtx("/only/any", "DELETE")).route?.name,
+    ).to.equal("any");
+  });
+});

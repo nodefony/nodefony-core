@@ -222,6 +222,33 @@ export interface RouteRequirements {
   protocol?: string | undefined;
 }
 
+/**
+ * Exigences d'une route, l'option `method` versée dans `requirements.methods`.
+ *
+ * Seul `requirements.methods` restreint le match ; l'option `method` n'était
+ * lue que pour l'affichage, si bien qu'une route « POST » servait toutes les
+ * méthodes. Les deux déclarations s'UNISSENT, comme le font les décorateurs
+ * `@Get`/`@Post` : déclarer n'élargit jamais en silence ni n'écrase.
+ *
+ * @param requirements - exigences déclarées (jamais mutées)
+ * @param method - méthode(s) de l'option `method`
+ * @returns les exigences à poser sur la route
+ */
+function withDeclaredMethod(
+  requirements: RouteRequirements | undefined,
+  method: HTTPMethod | HTTPMethod[] | undefined,
+): RouteRequirements {
+  if (method === undefined) {
+    return requirements ?? {};
+  }
+  const own = requirements?.methods;
+  const union = new Set<HTTPMethod>(Array.isArray(method) ? method : [method]);
+  if (own !== undefined) {
+    for (const m of Array.isArray(own) ? own : [own]) union.add(m);
+  }
+  return { ...requirements, methods: [...union] };
+}
+
 /** Canal chiffré : `https` (HTTP) ou `wss` (WebSocket). */
 function isSecureScheme(scheme: SchemeType): boolean {
   return scheme === "https" || scheme === "wss";
@@ -306,7 +333,7 @@ class Route implements IRoute {
       this.method = obj.method as HTTPMethod;
       this.setHostname(obj.host);
       this.setDefaults(obj.defaults);
-      this.requirements = obj.requirements ?? {};
+      this.requirements = withDeclaredMethod(obj.requirements, obj.method);
       this.bypassFirewall = obj.bypassFirewall ?? false;
       this.areaRoleExempt = obj.areaRoleExempt ?? false;
       this.fallback = obj.fallback ?? false;
