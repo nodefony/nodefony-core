@@ -279,7 +279,7 @@ Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque
 | 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:978`)                 | une mutation cross-site est refusée (403)                        |
 | 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1299`)          | `context.session` existe **si** la route ou un cookie l'exige    |
 | 17  | firewall               | `Firewall.handleSecurity()` (`firewall.ts:784`)              | `context.user` est résolu — ou 401/403                           |
-| 18  | action                 | `HttpContext.handle()` (`HttpContext.ts:287`)                | **ton code s'exécute**, la valeur retournée est rendue           |
+| 18  | action                 | `HttpContext.handle()` (`HttpContext.ts:330`)                | **ton code s'exécute**, la valeur retournée est rendue           |
 | 19  | teardown               | `HttpKernel.teardownHttp()` (`http-kernel.ts:1359`)          | log, profil, hooks d'après-réponse, **scope libéré**             |
 
 ### Trois ordres qui surprennent (et pourquoi ils sont ainsi)
@@ -354,7 +354,7 @@ sequenceDiagram
 | 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1863`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
 | 3   | bulle ALS              | `http-kernel.ts:1645`                                          | ouverte pour le handshake **et** toutes les trames     |
 | 4   | hôte + Origin          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)     | origine tierce refusée → close **1008** (anti-CSWSH)   |
-| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:2047`)               | route et protocole vérifiés **avant** l'accept         |
+| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:2051`)               | route et protocole vérifiés **avant** l'accept         |
 | 6   | session                | `http-kernel.ts:1550`                                          | même point d'activation unique qu'en HTTP              |
 | 7   | `connect()`            | `WebsocketContext.connect()` (`WebsocketContext.ts:257`)       | listeners `close`/`error`/`message` branchés           |
 | 8   | firewall               | `http-kernel.ts:1450`                                          | mêmes zones, mêmes rôles qu'en HTTP                    |
@@ -549,7 +549,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | Domaine                      | Norme             | Ancrage                                                 |
 | ---------------------------- | ----------------- | ------------------------------------------------------- |
 | Codes de fermeture WebSocket | RFC 6455 §7.4     | `toWsCloseCode()` (`WebsocketContext.ts:79`)            |
-| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:2089`) |
+| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:2093`) |
 | Message de statut US-ASCII   | RFC 7230 §3.1.2   | `Response.writeHead()` (`Response.ts:529`)              |
 | Valeurs d'en-tête sûres      | RFC 9110 §5.5     | `sanitizeRequestId()` (`requestId.ts:38`)               |
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |
@@ -574,7 +574,7 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
 - **Chronométrage désactivé par défaut en production** : sans lui, `phases` est un tableau gelé
   partagé et `phaseStart`/`phaseEnd` sont des no-ops (`Context.ts:435`).
 - **Le délai d'inactivité est armé par socket, pas par requête** —
-  `HttpContext.setTimeout()` (`HttpContext.ts:316`) : en keep-alive, ré-armer un minuteur à chaque
+  `HttpContext.setTimeout()` (`HttpContext.ts:359`) : en keep-alive, ré-armer un minuteur à chaque
   requête coûtait pour une valeur constante.
 - **Session paresseuse** : ni intention de route ni cookie entrant → aucune session, aucune écriture
   (`http-kernel.ts:1014`).
