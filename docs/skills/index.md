@@ -58,7 +58,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme · 📎 1 réf" },
   { "icon": "📘", "title": "documentation", "href": "nodefony-documentation.md",
     "desc": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort.",
-    "meta": "🟢 conforme v3.0.0 · ⚙️ 12 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme v3.0.0 · ⚙️ 15 scripts · 📎 2 réf" },
   { "icon": "⚙️", "title": "framework-dev", "href": "nodefony-framework-dev.md",
     "desc": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM).",
     "meta": "🟢 conforme v2.1.0 · 📎 11 réf" },
@@ -190,7 +190,7 @@ source: "docs/skills/index.md"
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.4.0 | 405 | 9 | 14 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.0.0 | 131 | 0 | 0 | ✅ |
-| [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 479 | 2 | 12 | ✅ |
+| [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 482 | 2 | 15 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.1.0 | 405 | 11 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 115 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 367 | 3 | 9 | ✅ |

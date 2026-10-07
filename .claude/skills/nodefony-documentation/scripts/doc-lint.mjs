@@ -6,6 +6,7 @@ import fs, { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { resoudreCorpus, instructionsDe } from "./corpus.mjs";
 import { indexerIdentifiants, symbolesFantomes } from "./symboles.mjs";
+import { defautsDesFigures } from "./figures.mjs";
 
 // Les compteurs sont des ARTEFACTS régénérables (gen-counters.mjs) → tmp/scratch/doc-work/.
 import { execSync } from "node:child_process";
@@ -391,8 +392,14 @@ for (const f of files) {
       "HTML brut détecté (interdit — le portail Studio n'a pas rehype-raw)",
     );
 
+  // 7) LISIBILITÉ DES FIGURES — ce qu'on ne voyait qu'en regardant le rendu de
+  // la console : courbe pâle ou trop haute (erreur), schéma vertical réduit à
+  // l'illisible (avertissement, qui ne casse pas les pages existantes).
+  const figures = defautsDesFigures(src);
+  errs.push(...figures.erreurs);
+
   if (errs.length) failed++;
-  report.push([f, errs]);
+  report.push([f, errs, figures.avertissements]);
 }
 
 console.log("\n=== doc-lint — Definition of Done ===\n");
@@ -439,7 +446,7 @@ for (const [f] of report) {
   const n = f.split("/").pop();
   seen.set(n, (seen.get(n) || 0) + 1);
 }
-for (const [f, errs] of report) {
+for (const [f, errs, avertissements = []] of report) {
   const short = f.split("/").pop();
   const name =
     seen.get(short) > 1 ? path.relative(REPO, path.resolve(f)) : short;
@@ -448,6 +455,7 @@ for (const [f, errs] of report) {
     console.log(`❌ ${name}`);
     for (const e of errs) console.log(`     - ${e}`);
   }
+  for (const a of avertissements) console.log(`     ⚠️  ${a}`);
 }
 const ok = report.length - failed;
 console.log(

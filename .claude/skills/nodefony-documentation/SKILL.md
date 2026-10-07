@@ -314,6 +314,8 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 | `scripts/anchor-fix.mjs` | **RÉPARE** les ancres SUSPECT : relit la sortie d'`anchor-check` sur stdin et recale chaque ancre sur la LIGNE DE DÉFINITION du symbole qu'elle cite. Sans `--apply` = simulation. |
 | `scripts/anchor-inpage.mjs <page.md>` | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts) |
 | `scripts/code-check.mjs <page.md>` | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict |
+| `scripts/render-figures.mjs <page.md>` | **Regarder les figures** : rend chaque schéma comme la console (mermaid 11, colonne de 860 px, plafond à 60 % de l'écran) ET comme le site, en images sous `tmp/reports/figures-<page>/` — à OUVRIR. Standard §4bis |
+| `scripts/figures.mjs` (via `doc-lint`) | **Lisibilité des figures** : refuse une courbe sans couleur ni taille déclarées, avertit d'un schéma vertical de plus de 4 rangs. Éprouvé par `figures.selftest.mjs` |
 | `scripts/doc-lint.mjs --instructions <racines>` | **Dérive des fichiers d'INSTRUCTIONS** (`CLAUDE.md`, `MEMORY.md`) : un identifiant FRANÇAIS qu'ils citent et que le code ne porte plus a forcément été renommé — la page ne l'a pas suivi. Dictionnaire emprunté à `check:lang` (jamais une copie). Ne mord PAS sur un symbole anglais absent : mesuré, 49 sur 55 étaient des retraits énoncés, des travaux futurs ou des noms empruntés |
 | `scripts/symboles.selftest.mjs` | Éprouve ce contrôle : il doit attraper un identifiant français disparu ET se taire sur un retrait annoncé. Lancé par la forge avec le gate |
 | `scripts/gen-counters.mjs [topic]` | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
@@ -348,6 +350,7 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 lire le CODE réel → rédiger (standard §8→§8sexies) → `gen-counters.mjs <topic>` (MAJ `test-map.json`
 si nouveaux fichiers de test) → `build-docs-site.mjs --only` → **les 4 gates verts : `doc-lint.mjs`,
 `anchor-check.mjs` (0 SUSPECT), `anchor-inpage.mjs` (0 ancre morte), `code-check.mjs` (compile)** →
+**`render-figures.mjs` puis REGARDER chaque image, console et site** (standard §4bis) →
 commit `docs(<module>): …` sur la branche `doc` (jamais mergée sans validation humaine).
 
 ---

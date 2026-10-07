@@ -880,7 +880,8 @@
         "node.js.yml",
         "pages.yml",
         ".githooks/pre-push",
-        ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs"
+        ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs",
+        ".claude/skills/nodefony-documentation/scripts/render-figures.mjs"
       ],
       "testedBy": []
     },
@@ -3923,8 +3924,8 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 479,
-        "approxTokens": 8293
+        "bodyLines": 482,
+        "approxTokens": 8431
       },
       "requires": [],
       "resources": {
@@ -4090,12 +4091,61 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/figures.mjs",
+            "purpose": "Lisibilité des figures mermaid d'une page — ce qu'on ne voit qu'en REGARDANT le rendu, ramené à des règles qu'une machine relit.",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "DIRECTIVE_COURBE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/figures.selftest.mjs",
+            "purpose": "Auto-contrôle des règles de lisibilité des figures (`figures.mjs`).",
+            "usage": [
+              "node .claude/skills/nodefony-documentation/scripts/figures.selftest.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/gen-counters.mjs",
             "purpose": "gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT les cas réels (`it(`/`test(`) dans les fichiers de `test-map.json`.",
             "usage": [
               "Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)"
             ],
             "options": [
+              {
+                "flag": "--show-toplevel",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/render-figures.mjs",
+            "purpose": "Rend les figures mermaid d'une page COMME LE LECTEUR LES VOIT, dans les deux moteurs, et les dépose en images — pour les REGARDER avant de dire « fait ».",
+            "usage": [
+              "Usage : node render-figures.mjs <page.md> [--console-seulement]"
+            ],
+            "options": [
+              {
+                "flag": "--console-seulement",
+                "help": ""
+              },
+              {
+                "flag": "--only",
+                "help": ""
+              },
               {
                 "flag": "--show-toplevel",
                 "help": ""
@@ -4207,7 +4257,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "479",
+            "detail": "482",
             "advisory": true
           }
         ]

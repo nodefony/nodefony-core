@@ -8,6 +8,7 @@
     ".claude/skills/nodefony-devkit-bench/scripts/suivre-run.mjs",
     ".claude/skills/nodefony-devkit-bench/suites/harness.ts",
     ".claude/skills/nodefony-documentation/scripts/code-check.mjs",
+    ".claude/skills/nodefony-documentation/scripts/render-figures.mjs",
     ".claude/skills/nodefony-framework-dev/scripts/typing/exact-optional.mjs",
     ".claude/skills/nodefony-framework-dev/scripts/typing/non-null-index.mjs",
     ".claude/skills/nodefony-html-report/scripts/demo.mjs",
@@ -77,7 +78,7 @@
     ".claude/skills/nodefony-ticket/scripts/francise.mjs",
     ".claude/skills/nodefony-ticket/scripts/pose-lexique.mjs",
     "scripts/generate/brand-assets.mjs",
-    "scripts/test/realtime-coverage-map.mjs",
-    "scripts/repo/safe-commit.sh"
+    "scripts/repo/safe-commit.sh",
+    "scripts/test/realtime-coverage-map.mjs"
   ]
 }

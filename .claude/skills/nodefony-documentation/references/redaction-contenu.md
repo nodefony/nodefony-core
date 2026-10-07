@@ -107,7 +107,7 @@ Rendu Studio (`MarkdownDoc.tsx`) : **Mermaid 11.16** + react-markdown + remark-g
 | ----------------------------------------------------------- | ----------------------------------------------------- |
 | Flux, séquence, état, classe, ER                            | **Mermaid** dans le MD                                |
 | **Kanban**, timeline, gantt, mindmap                        | **Mermaid 11** (types natifs)                         |
-| Barres, lignes                                              | **Mermaid `xychart-beta`**                            |
+| Barres, lignes                                              | **Mermaid `xychart-beta`** + sa directive (§4bis)     |
 | Scatter+régression, heatmap, waterfall, jauge, donut        | **Compagnon HTML** (`report.mjs`) ou composant Studio |
 | Interactif : tri/filtre, calculateur, kanban éditable, drag | **Compagnon HTML** (`report.mjs`) ou `FlowGraph`      |
 
@@ -116,6 +116,45 @@ Rendu Studio (`MarkdownDoc.tsx`) : **Mermaid 11.16** + react-markdown + remark-g
 > HTML / composant Studio (data-riche, interactif). C'est ce qui rend la reconstruction HTML **parfaite**.
 
 Admonitions supportées (remark-gfm + override) : `> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`.
+
+## 4bis. Une figure se juge À L'IMAGE — dans les DEUX moteurs
+
+> Vécu : une page livrée tous contrôles verts, dont les courbes étaient presque invisibles dans la
+> console, les organigrammes réduits à un texte illisible et les échelles fausses. Aucun contrôle ne
+> regardait le rendu. La source d'une figure ne dit RIEN de ce que voit le lecteur.
+
+**Deux moteurs, deux rendus.** La console (Studio, `MarkdownDoc.tsx`) dessine avec mermaid 11 et
+met chaque schéma à l'échelle de la colonne, **plafonné à 60 % de la hauteur d'écran** ; le site
+dessine avec `nodefony-html-report/lib/schemas.mjs`. Une figure se regarde dans les deux, par
+`scripts/render-figures.mjs <page.md>`, avant de dire « fait ».
+
+Les règles, chacune née d'un défaut constaté à l'image :
+
+1. **Horizontal et court.** `flowchart LR` par défaut. Un schéma vertical de plus de **4 rangs** est
+   réduit jusqu'à l'illisible dans la console (`doc-lint` l'avertit). Trop de nœuds → deux schémas.
+2. **Pas de cycle dans un organigramme.** Le moteur du site place les nœuds en couches : une flèche
+   de retour traverse tout le schéma et se pose sur les libellés. Le retour se dit **en texte**.
+3. **Deux ou trois mots par ligne** de nœud, coupés par `<br/>`. Un losange au long texte devient
+   un losange géant ; une question courte suffit (« File > 4 Mio ? »).
+4. **Une séquence seulement si trois acteurs ou plus échangent.** Un passage d'un état à un autre en
+   deux ou trois étapes se dessine en **blocs de gauche à droite**, avec une analogie dans le texte.
+   La séquence de mermaid répète les acteurs en bas et se lit mal pour qui découvre.
+5. **Une courbe porte sa directive**, en tête du bloc — couleur ET taille (`doc-lint` le
+   **refuse** sinon : sans couleur, la console trace en lavande pâle ; sans taille, 540 px) :
+
+   ```text
+   %%{init: {"xyChart": {"width": 800, "height": 260}, "themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
+   ```
+
+6. **Des échelles qui disent vrai.** Bornes de l'axe Y **déclarées** (`0 --> 5000`), et le zéro
+   dès qu'on compare des grandeurs. Une valeur par **palier** (une cadence, un seuil) se trace avec
+   des points rapprochés, sinon chaque bascule devient une rampe.
+7. **Ce qui se compare partage un graphique et une échelle.** Deux séries sur deux figures à deux
+   échelles ne se comparent pas. Les séries se nomment par `%% series: a | b` (mermaid l'ignore,
+   le site en fait la légende) et le titre dit quelle couleur est quoi.
+8. **Une figure calculée se garde par un test.** Une courbe tirée du code se recopie une fois puis
+   ment au premier réglage changé. Un test rejoue le scénario avec le vrai code et compare chaque
+   valeur à la page (modèle : `realtime/nodefony/tests/unit/cadencePressureFigures.test.ts`).
 
 ## 5. Deux classes de livrables
 

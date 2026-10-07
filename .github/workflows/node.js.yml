@@ -581,6 +581,7 @@ jobs:
         shell: bash
         run: |
           node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs
+          node .claude/skills/nodefony-documentation/scripts/figures.selftest.mjs
           node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs --instructions \
             src/nodefony src/packages/@nodefony src/modules
 

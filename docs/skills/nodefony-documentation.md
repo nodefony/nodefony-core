@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-05
+updated: 2026-10-07
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -28,12 +28,12 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | --- | --- |
 | Version | `3.0.0` |
 | Famille | Développer le framework |
-| Corps | 479 lignes |
-| Coût d'activation | ~8 293 tokens (le corps est chargé à l'invocation) |
+| Corps | 482 lignes |
+| Coût d'activation | ~8 431 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 12 |
+| Scripts | 15 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -73,7 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/briques-front.md` | Briques front de la doc — API exacte | 128 |
-| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 584 |
+| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 623 |
 
 
 ## Scripts embarqués
@@ -91,7 +91,10 @@ script, donc toujours à jour après régénération.
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
 | `scripts/corpus.mjs` | Dossiers qu'on ne descend jamais. | — | — |
 | `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. Une page ne peut être marquée ✅ que si elle PASSE ce linter. Usage : node doc-lint.mjs /tmp/corpus/*.md | `--instructions` `--list` `--published` `--show-toplevel` | `COVERAGE` `NAV_MAX` |
+| `scripts/figures.mjs` | Lisibilité des figures mermaid d'une page — ce qu'on ne voit qu'en REGARDANT le rendu, ramené à des règles qu'une machine relit. | — | `DIRECTIVE_COURBE` |
+| `scripts/figures.selftest.mjs` | Auto-contrôle des règles de lisibilité des figures (`figures.mjs`). | — | — |
 | `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT les cas réels (`it(`/`test(`) dans les fichiers de `test-map.json`. | `--show-toplevel` | — |
+| `scripts/render-figures.mjs` | Rend les figures mermaid d'une page COMME LE LECTEUR LES VOIT, dans les deux moteurs, et les dépose en images — pour les REGARDER avant de dire « fait ». | `--console-seulement` `--only` `--show-toplevel` | — |
 | `scripts/symboles.mjs` | Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`, `MEMORY.md`) après un renommage du français vers l'anglais. | — | — |
 | `scripts/symboles.selftest.mjs` | Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que le code ne porte plus, et ne PAS crier sur ce qui est vivant, externe ou hors grammaire. Un gate qu'on n'a jamais vu échouer n'est pas un gate. | — | — |
 | `lib/slug-heading.mjs` | Slug d'un titre de page — la SEULE implémentation côté Node. | — | — |
@@ -105,11 +108,13 @@ Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_O
 Usage : node anchor-inpage.mjs <page.md ...>
 Usage : node code-check.mjs <page.md ...>
 Usage : node doc-lint.mjs /tmp/corpus/*.md
+node .claude/skills/nodefony-documentation/scripts/figures.selftest.mjs
 Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
+Usage : node render-figures.mjs <page.md> [--console-seulement]
 `@usage` node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `APPLY` · `COVERAGE` · `NAV_MAX` · `NF_BOOT_TIMEOUT_MS`
+**Toutes les variables lues par ce skill** : `APPLY` · `COVERAGE` · `DIRECTIVE_COURBE` · `NAV_MAX` · `NF_BOOT_TIMEOUT_MS`
 
 ## Conformité au standard Agent Skills
 
@@ -130,7 +135,7 @@ Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 479 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 482 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
