@@ -17,7 +17,7 @@ import {
   thenMaybe,
   finallyMaybe,
 } from "nodefony";
-import type { MaybePromise } from "nodefony";
+import type { MaybePromise, RequestContextPayload } from "nodefony";
 import type { IRouteResolver, IRequestRouter } from "../interfaces/IRouting";
 import HttpError from "../src/errors/httpError";
 import {
@@ -1561,21 +1561,25 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     context.profiling = profilerQueries !== null;
     // P1.4 — enter ALS scope so requestId is propagated to every
     // downstream async hop (logs, ORM, security decorators, etc.).
-    return RequestContext.run(
-      {
-        requestId: context.requestId,
-        scheme: context.scheme,
-        traceparent: context.traceparent,
-        queries: profilerQueries ?? undefined,
-        // V4.1 — le contexte transport voyage dans l'ALS : les controllers
-        // singleton (stateless) le retrouvent sans le porter sur `this`.
-        context,
-        // Le scope DI de la requête (`context.container`), rendu par
-        // `RequestContext.getScope()`. Une propriété de plus dans ce
-        // littéral déjà alloué : aucune allocation.
-        scope,
-      },
-      () => this.runHttpPipeline(context, request, response),
+    const store: RequestContextPayload = {
+      requestId: context.requestId,
+      scheme: context.scheme,
+      traceparent: context.traceparent,
+      queries: profilerQueries ?? undefined,
+      // V4.1 — le contexte transport voyage dans l'ALS : les controllers
+      // singleton (stateless) le retrouvent sans le porter sur `this`.
+      context,
+      // Le scope DI de la requête (`context.container`), rendu par
+      // `RequestContext.getScope()`. Une propriété de plus dans ce
+      // littéral déjà alloué : aucune allocation.
+      scope,
+    };
+    // Le contexte vide ce magasin à son nettoyage : un minuteur armé pendant
+    // la requête (celui de la socket persistante) le capture et le garde
+    // au-delà de la réponse (#561).
+    context.holdRequestStore(store);
+    return RequestContext.run(store, () =>
+      this.runHttpPipeline(context, request, response),
     );
   }
 

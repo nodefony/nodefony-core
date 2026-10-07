@@ -540,6 +540,52 @@ describe("Memory leaks — HTTP (requires server)", function () {
     );
   });
 
+  it("idle keep-alive connections retain no context", async () => {
+    // Vécu : la table socket → contexte actif (`HttpContext`, routage du
+    // délai d'inactivité) n'était jamais vidée — chaque connexion persistante
+    // INACTIVE gardait le contexte entier de sa dernière requête jusqu'à sa
+    // fermeture. Sous Windows le serveur voit la fermeture tard : le compte des
+    // contextes rougissait par intermittence (#561). Derrière un répartiteur
+    // qui garde ses connexions, c'est un contexte par connexion, en permanence.
+    const N = 8;
+    const idle = new https.Agent({ keepAlive: true, maxSockets: N });
+    const fetchOn = (): Promise<void> =>
+      new Promise((resolve, reject) => {
+        https
+          .get(
+            { ...BASE, path: "/nodefony/test/index", agent: idle },
+            (res) => {
+              res.resume();
+              res.on("end", resolve);
+            },
+          )
+          .on("error", reject);
+      });
+    try {
+      await get("/nodefony/test/als-test/contexts/mark");
+      await Promise.all(Array.from({ length: N }, fetchOn));
+      // Attente bornée BIEN SOUS `keepAliveTimeout` (5 s) : passé ce délai le
+      // serveur ferme les connexions inactives et le défaut ne se voit plus.
+      const delta = await drainTo(liveContexts, 1, 1, 2000);
+      const openIdle = Object.values(idle.freeSockets).reduce(
+        (n, list) => n + (list?.length ?? 0),
+        0,
+      );
+      expect(openIdle, "décor : les connexions sont restées ouvertes").to.equal(
+        N,
+      );
+      console.log(
+        `[contexts] ${N} connexions inactives : ${delta} contexte(s) retenu(s)`,
+      );
+      expect(
+        delta,
+        `${delta} contexte(s) retenu(s) par ${N} connexions persistantes inactives`,
+      ).to.be.at.most(0);
+    } finally {
+      idle.destroy();
+    }
+  });
+
   it("server is alive after load — /index returns 200", async () => {
     const req = https.request({
       ...BASE,

@@ -25,13 +25,14 @@ import {
   //Pdu,
   //KernelEventsType,
 } from "nodefony";
-import type { MaybePromise } from "nodefony";
+import type { MaybePromise, RequestContextPayload } from "nodefony";
 import HttpRequest from "./Request";
 import HttpResponse from "./Response";
 import Http2Request from "../http2/Request";
 import Http2Response from "../http2/Response";
 import http2 from "node:http2";
 import http from "node:http";
+import type { Socket } from "node:net";
 import url, { URL } from "node:url";
 import Session from "../../../src/session/session";
 import Cookie from "../../cookies/cookie";
@@ -88,10 +89,46 @@ export type HttpRsponseType = Http2Response | HttpResponse;
 // par serveur (`httpKernel.responseTimeout[type]`) — ~2,6 % du profil CPU
 // (`setStreamTimeout`). Le handler permanent (1/socket) route vers le context
 // ACTIF via WeakMap → la sémantique 408/504 + abort PAR REQUÊTE est intacte.
-// Mémoire bornée : ≤ 1 entrée par socket VIVANT (écrasée à chaque requête,
-// collectée avec le socket — WeakMap). HTTP/2 : hors de ce chemin (per-stream).
+// L'entrée est RETIRÉE au nettoyage du contexte (`clean`) : sans cela, une
+// connexion persistante INACTIVE gardait le contexte entier de sa dernière
+// requête jusqu'à sa fermeture — un contexte par connexion du pool d'un
+// répartiteur de charge, en permanence (#561). HTTP/2 : hors de ce chemin
+// (per-stream).
 const socketActiveContext = new WeakMap<object, HttpContext>();
 const socketTimeoutArmed = new WeakSet<object>();
+
+/**
+ * Gestionnaire `timeout` PERMANENT d'une socket h1, fabriqué hors de toute
+ * méthode : une fermeture créée dans `HttpContext.setTimeout()` partageait
+ * l'environnement d'une autre qui lit `this`, et retenait ainsi le contexte de
+ * la PREMIÈRE requête de la connexion tant que celle-ci vivait (#561).
+ *
+ * @param socket - la socket h1 dont on route le délai d'inactivité
+ * @returns l'écouteur à attacher une fois par socket
+ */
+function idleSocketTimeoutHandler(socket: Socket): () => void {
+  return () => {
+    const ctx = socketActiveContext.get(socket);
+    // `cleaned` d'abord : après `clean()`, `response.response` vaut null
+    // et le test d'envoi seul prendrait un contexte MORT pour actif.
+    if (
+      ctx !== undefined &&
+      !ctx.cleaned &&
+      !ctx.response.response?.writableEnded
+    ) {
+      ctx._onTimeout();
+      return;
+    }
+    // Socket INACTIF (keep-alive entre deux requêtes) : le fermer ici.
+    // Node ne le fait plus lui-même — le serveur passe un callback à
+    // `server.setTimeout` (`server-http.ts`, `server-https.ts`), et un
+    // écouteur `timeout` côté serveur suspend la destruction automatique.
+    // Sans cette fermeture, `keepAliveTimeout` restait lettre morte : la
+    // connexion vivait jusqu'à ce que le CLIENT la ferme, en retenant son
+    // dernier contexte.
+    socket.destroy();
+  };
+}
 
 // Sonde perf in-situ (cf http-kernel.ts) — flag lu 1× ; éteinte, les
 // sous-marques de ce fichier ne coûtent rien (branche morte).
@@ -105,6 +142,12 @@ import { responseEnded } from "../responseEnded";
 class HttpContext extends Context implements IHttpContextInterface {
   //url: string;
   proxy: ProxyType | null = null;
+  // Champs privés TypeScript, pas `#` : des tests fabriquent un contexte sans
+  // passer par le constructeur, et un champ `#` y refuse toute écriture.
+  /** Socket h1 inscrite dans `socketActiveContext` — retirée par `clean()`. */
+  private activeSocket: object | null = null;
+  /** Magasin `RequestContext` de la requête — vidé par `clean()`. */
+  private requestStore: RequestContextPayload | null = null;
   isRedirect: boolean = false;
   sended: boolean = false;
   //isHtml: boolean = false;
@@ -337,6 +380,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       return;
     }
     socketActiveContext.set(socket, this);
+    this.activeSocket = socket;
     // ⚠️ Re-arm CONDITIONNEL par requête (pas « 1× par socket ») : node
     // lui-même ré-arme le socket aux transitions keep-alive (`server.timeout`
     // 120 s à la requête, `keepAliveTimeout` 5 s à l'idle) → un arm unique
@@ -352,28 +396,50 @@ class HttpContext extends Context implements IHttpContextInterface {
       // `on` (PAS `once`, et UNE closure par socket — plus une par requête) :
       // le handler survit aux fires no-op (idle keep-alive) et route toujours
       // vers le context ACTIF du socket.
-      socket.on("timeout", () => {
-        const ctx = socketActiveContext.get(socket);
-        // `cleaned` d'abord : après `clean()`, `response.response` vaut null
-        // et le test d'envoi seul prendrait un contexte MORT pour actif.
-        if (
-          ctx !== undefined &&
-          !ctx.cleaned &&
-          !ctx.response.response?.writableEnded
-        ) {
-          ctx._onTimeout();
-          return;
-        }
-        // Socket INACTIF (keep-alive entre deux requêtes) : le fermer ici.
-        // Node ne le fait plus lui-même — le serveur passe un callback à
-        // `server.setTimeout` (`server-http.ts`, `server-https.ts`), et un
-        // écouteur `timeout` côté serveur suspend la destruction automatique.
-        // Sans cette fermeture, `keepAliveTimeout` restait lettre morte : la
-        // connexion vivait jusqu'à ce que le CLIENT la ferme, en retenant son
-        // dernier contexte.
-        socket.destroy();
-      });
+      socket.on("timeout", idleSocketTimeoutHandler(socket));
     }
+  }
+
+  /**
+   * Nettoie le contexte, et le DÉTACHE de sa socket h1 : la connexion
+   * persistante survit à la requête, et l'entrée de `socketActiveContext`
+   * retiendrait sinon tout le contexte jusqu'à sa fermeture. Seule l'entrée qui
+   * pointe encore sur CE contexte est retirée — une requête suivante sur la
+   * même socket a pu la réécrire. Le gestionnaire `timeout` de la socket ne
+   * trouve alors rien et prend le chemin « socket inactive → `destroy()` »,
+   * celui qu'il prenait déjà pour un contexte nettoyé.
+   */
+  override clean(): void {
+    // Lu sans présumer de l'initialisation (contexte fabriqué hors
+    // constructeur dans les tests) : absent ou `null`, rien à détacher.
+    const socket = this.activeSocket;
+    if (socket) {
+      if (socketActiveContext.get(socket) === this) {
+        socketActiveContext.delete(socket);
+      }
+      this.activeSocket = null;
+    }
+    const store = this.requestStore;
+    if (store) {
+      // `scope` RESTE : la bulle doit encore le porter, refermé, pour que
+      // `getScope()` refuse en le disant (contrat de `request-scope.test.ts`).
+      store.context = undefined;
+      store.queries = undefined;
+      this.requestStore = null;
+    }
+    super.clean();
+  }
+
+  /**
+   * Confie au contexte le magasin `RequestContext` de sa requête, pour qu'il
+   * le VIDE à son nettoyage : un minuteur armé pendant la requête (celui de la
+   * socket persistante, `AsyncContextFrame`) capture ce magasin et le garde
+   * au-delà de la réponse — avec le contexte entier. Le scope, refermé, y reste.
+   *
+   * @param store - le magasin passé à `RequestContext.run`
+   */
+  holdRequestStore(store: RequestContextPayload): void {
+    this.requestStore = store;
   }
 
   /**
