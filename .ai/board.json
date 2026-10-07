@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-06T20:54:57.583Z",
+  "generatedAt": "2026-10-07T21:45:34.373Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 85,
+      "closed": 86,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 38,
+      "open": 47,
       "title": "10.0.0-beta"
     },
     {
@@ -2294,6 +2294,86 @@
       ]
     },
     {
+      "number": 553,
+      "title": "fix(router): faire passer les routes de repli en dernier",
+      "url": "https://github.com/nodefony/nodefony-core/issues/553",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.6,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 559,
+      "title": "feat(http): servir un flux SSE et son client SseClient",
+      "url": "https://github.com/nodefony/nodefony-core/issues/559",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 3.605,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 560,
+      "title": "feat(client): adapter SseClient à React, Vue, Svelte et Angular",
+      "url": "https://github.com/nodefony/nodefony-core/issues/560",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.607,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 554,
+      "title": "feat(mcp): répondre en flux SSE aux appels d'outils longs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/554",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 3.61,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 561,
+      "title": "test(memory): stabiliser le compte des contextes sous Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/561",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.62,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 146,
       "title": "feat(cli): faire naître une application avec son utilisateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/146",
@@ -2352,6 +2432,38 @@
       ]
     },
     {
+      "number": 551,
+      "title": "fix(mcp): ne plus renvoyer le message brut d'un outil qui échoue",
+      "url": "https://github.com/nodefony/nodefony-core/issues/551",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 3.91,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 552,
+      "title": "feat(security): signaler une zone ouverte à quiconque peut créer un compte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/552",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 3.92,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 155,
       "title": "docs(agents): rendre le dépôt lisible par un agent web",
       "url": "https://github.com/nodefony/nodefony-core/issues/155",
@@ -2392,6 +2504,54 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 555,
+      "title": "feat(studio): montrer en direct la contre-pression du temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/555",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.001,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 556,
+      "title": "feat(studio): suivre en direct le transcript d'un agent de code",
+      "url": "https://github.com/nodefony/nodefony-core/issues/556",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.002,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 557,
+      "title": "feat(studio): simuler les écrans de l'atelier IA d'après le livre blanc",
+      "url": "https://github.com/nodefony/nodefony-core/issues/557",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.003,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
     },
     {
       "number": 396,
@@ -7756,6 +7916,22 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 913.5,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 558,
+      "title": "docs: rendre lisibles les schémas verticaux trop hauts de la doc",
+      "url": "https://github.com/nodefony/nodefony-core/issues/558",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 914,
       "debut": null,
       "cible": null,
       "labels": [
