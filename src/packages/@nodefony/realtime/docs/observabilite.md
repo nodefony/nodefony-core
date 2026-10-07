@@ -318,11 +318,13 @@ La source par connexion est `IRealtimeConnProbe` (`IRealtimeProbe.ts:25`), impl�
 transport. Les seuils d'ACTION sont distincts du seuil de comptage, et ils sont
 **configurables** (`@nodefony/http`, `http/nodefony/config/config.ts:1210`) : au-delà de
 `websocket.maxBackpressure` (4 MiB par défaut) la politique `websocket.backpressurePolicy`
-s'applique — `drop` par défaut, la frame est **jetée** puisque les canaux d'état sont « le
-dernier gagne » et que le prochain instantané la remplacera. La connexion est **fermée** en
-`1013` (« réessaie plus tard ») après `websocket.backpressureCloseAfterDrops` frames jetées
-CONSÉCUTIVES (1000 par défaut) — une seule frame qui repart remet le compteur à zéro — ou
-dès le premier dépassement si la politique est `close`.
+s'applique — `drop` par défaut, la frame est **jetée**. Sur un canal d'état c'est sans
+conséquence, le prochain instantané la remplace ; mais le rejet ne trie rien, et une réponse RPC
+ou un événement jetés sont **perdus**. La connexion est **fermée** en `1013` (« réessaie plus
+tard ») quand le **solde** de refus atteint `websocket.backpressureCloseAfterDrops` (1000 par
+défaut) — +1 par frame jetée, −1 par frame envoyée, si bien qu'un pic passager redescend — ou
+dès le premier dépassement si la politique est `close`. Le mécanisme complet, avec ses courbes :
+[Cadence et contre-pression](./cadence-et-contre-pression.md).
 
 > [!IMPORTANT]
 > `drops` qui croît n'est **pas** une panne : c'est la protection qui fonctionne. Ce qui serait une

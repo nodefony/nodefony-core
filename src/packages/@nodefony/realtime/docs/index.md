@@ -37,7 +37,7 @@ coverageModule: realtime
 
 ## 🧭 Par où commencer
 
-Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppose la précédente.
+Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppose la précédente.
 
 **Je découvre le temps réel Nodefony** — comprendre le modèle avant d'écrire quoi que ce soit.
 
@@ -69,20 +69,31 @@ abonné connecté à l'autre.
 3. [`@nodefony/security`](../../security/docs/index.md) — le pare-feu applicatif, qui protège le
    temps réel avec **le même** modèle de zones que le web.
 
+**Un client ne suit plus** — l'écran prend du retard, la mémoire du serveur monte, une connexion
+se ferme en `1013`.
+
+1. [Cadence et contre-pression](./cadence-et-contre-pression.md) — les deux étages qui encaissent
+   un client lent : la cadence que le client ralentit lui-même, la file que le serveur refuse de
+   laisser grossir. **Commence par le schéma général**, puis les courbes.
+2. [Observabilité](./observabilite.md) — lire les clients lents et les trames refusées dans la
+   sonde, avant que quelqu'un ne se plaigne.
+3. [Configuration](./configuration.md) — serrer les seuils, sur les **deux** serveurs WebSocket.
+
 ## 🗂️ Les pages du module
 
 Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce qu'on y trouve.
 
-| Page                                     | Ce qu'elle résout                                  | Tu en as besoin quand…                       |
-| ---------------------------------------- | -------------------------------------------------- | -------------------------------------------- |
-| [Vocabulaire](./vocabulaire.md)          | les mots du domaine, une bonne fois                | tu lis la doc, ou tu discutes archi          |
-| [Architecture](./architecture.md)        | le trajet d'une frame, étage par étage             | tu veux comprendre plutôt que régler         |
-| [Configuration](./configuration.md)      | drivers, cloisonnement, bornes, contrôle d'origine | tu déploies, ou tu changes de topologie      |
-| [Sécurité](./securite.md)                | identité à la poignée de main, droits par canal    | ta socket est joignable depuis un navigateur |
-| [Protocole](./protocole.md)              | la grammaire d'une frame, et les codes d'erreur    | tu débogues le fil, ou tu écris un client    |
-| [Actions RPC](./actions.md)              | appeler le serveur et attendre une réponse         | tu veux savoir si l'appel a marché           |
-| [Observabilité](./observabilite.md)      | la sonde, les canaux de santé, les écrans          | tu te demandes si ta socket va bien          |
-| [Cookbook — un chat](./cookbook-chat.md) | l'exemple complet, client et serveur               | tu veux du code qui marche tout de suite     |
+| Page                                                          | Ce qu'elle résout                                  | Tu en as besoin quand…                        |
+| ------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| [Vocabulaire](./vocabulaire.md)                               | les mots du domaine, une bonne fois                | tu lis la doc, ou tu discutes archi           |
+| [Architecture](./architecture.md)                             | le trajet d'une frame, étage par étage             | tu veux comprendre plutôt que régler          |
+| [Configuration](./configuration.md)                           | drivers, cloisonnement, bornes, contrôle d'origine | tu déploies, ou tu changes de topologie       |
+| [Sécurité](./securite.md)                                     | identité à la poignée de main, droits par canal    | ta socket est joignable depuis un navigateur  |
+| [Protocole](./protocole.md)                                   | la grammaire d'une frame, et les codes d'erreur    | tu débogues le fil, ou tu écris un client     |
+| [Actions RPC](./actions.md)                                   | appeler le serveur et attendre une réponse         | tu veux savoir si l'appel a marché            |
+| [Observabilité](./observabilite.md)                           | la sonde, les canaux de santé, les écrans          | tu te demandes si ta socket va bien           |
+| [Cadence et contre-pression](./cadence-et-contre-pression.md) | un client trop lent : ralentir, refuser, couper    | un écran prend du retard, ou la mémoire monte |
+| [Cookbook — un chat](./cookbook-chat.md)                      | l'exemple complet, client et serveur               | tu veux du code qui marche tout de suite      |
 
 ```nodefony-cards
 [
@@ -107,6 +118,9 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour savoir ce q
   { "icon": "📡", "title": "observabilite", "href": "./observabilite.md",
     "desc": "Ce que la sonde du hub expose, les canaux de santé et leur cadence, ce que Studio en montre — et comment écrire la sienne sans faire fuir la mémoire ni empêcher le processus de s'arrêter.",
     "meta": "tu te demandes si ta socket va bien" },
+  { "icon": "🚦", "title": "cadence-et-contre-pression", "href": "./cadence-et-contre-pression.md",
+    "desc": "Deux étages qui ne se parlent pas et se rencontrent quand même : le client ralentit la cadence de ses canaux d'état (AIMD), le serveur refuse d'empiler au-delà de 4 Mio puis ferme en 1013. Avec les courbes calculées par le vrai code, et les sondes qui le montrent en production.",
+    "meta": "un écran prend du retard, ou la mémoire du serveur monte" },
   { "icon": "🍳", "title": "cookbook-chat", "href": "./cookbook-chat.md",
     "desc": "Un salon de discussion complet : configuration, service métier, contrôleur, client navigateur, puis le passage en cluster.",
     "meta": "du code qui tourne, à déformer vers ton besoin" }

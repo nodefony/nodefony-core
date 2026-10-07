@@ -73,7 +73,7 @@ src/packages/@nodefony/realtime/
 ├── tsconfig.json                       ← NE PAS MODIFIER sans accord
 ├── vitest.config.ts
 ├── CLAUDE.md / MEMORY.md / README.md
-├── docs/                               ← surfacé dans Studio — 9 pages
+├── docs/                               ← surfacé dans Studio — 10 pages
 │   ├── index.md                        ← hub (catalogue en cards)
 │   ├── vocabulaire.md
 │   ├── architecture.md
@@ -82,6 +82,7 @@ src/packages/@nodefony/realtime/
 │   ├── configuration.md
 │   ├── securite.md
 │   ├── observabilite.md                ← sonde, canaux de santé, écrans
+│   ├── cadence-et-contre-pression.md   ← AIMD client + contre-pression transport ; courbes gardées par cadencePressureFigures.test.ts
 │   └── cookbook-chat.md
 └── nodefony/
     ├── interfaces/                     ← IBackplane, IRealtimeController, IRealtimeProbe, IRealtimeAuthenticator

@@ -364,17 +364,19 @@ leviers sont des clés de configuration du serveur WebSocket, lues par le transp
 (`WsConnectionTransport.ts:63-75`) et documentées dans `@nodefony/http`
 (`http/nodefony/config/config.ts:1210`).
 
-| File non drainée (`bufferedAmount`)     | Décision                                            | Réglage (défaut)                                                                      |
-| --------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| sous le seuil                           | envoi normal                                        | —                                                                                     |
-| au-dessus du seuil                      | politique appliquée : frame **jetée**, ou fermeture | `websocket.maxBackpressure` (**4 MiB**) · `websocket.backpressurePolicy` (**`drop`**) |
-| drops **consécutifs** au-delà du compte | fermeture `1013` (_Try Again Later_)                | `websocket.backpressureCloseAfterDrops` (**1000**)                                    |
+| File non drainée (`bufferedAmount`) | Décision                                            | Réglage (défaut)                                                                      |
+| ----------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| sous le seuil                       | envoi normal                                        | —                                                                                     |
+| au-dessus du seuil                  | politique appliquée : frame **jetée**, ou fermeture | `websocket.maxBackpressure` (**4 MiB**) · `websocket.backpressurePolicy` (**`drop`**) |
+| **solde** de refus atteint          | fermeture `1013` (_Try Again Later_)                | `websocket.backpressureCloseAfterDrops` (**1000**)                                    |
 
 Deux points que la formulation « deux seuils d'octets » faisait manquer : la fermeture ne
-se déclenche pas sur un volume mais sur une **suite de frames jetées** — une seule frame
-qui repart remet le compteur à zéro — et `drop` est un choix, `close` fermant dès le
-premier dépassement. Jeter est acceptable parce que les canaux d'état sont « le dernier
-gagne » : le prochain instantané remplace celui qu'on a sauté.
+se déclenche pas sur un volume mais sur un **solde de frames jetées** — +1 par refus, −1 par
+envoi, si bien qu'un pic passager redescend et qu'un client qui n'absorbe plus finit coupé — et
+`drop` est un choix, `close` fermant dès le premier dépassement. Jeter est sans conséquence sur
+un canal d'état, où le prochain instantané remplace celui qu'on a sauté ; mais le rejet ne trie
+rien, et une réponse RPC ou un événement jetés sont perdus. Détail et courbes :
+[Cadence et contre-pression](./cadence-et-contre-pression.md).
 
 À ne pas confondre avec `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:63`, 1 MiB) : ce seuil-là
 ne jette rien, il **compte** — c'est celui à partir duquel la sonde marque une connexion

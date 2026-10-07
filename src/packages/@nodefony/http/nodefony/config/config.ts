@@ -665,12 +665,14 @@ const websocketSchema = z
       .nonnegative()
       .default(1000)
       .describe(
-        "Nombre de frames refusées D'AFFILÉE au-delà duquel la connexion est FERMÉE " +
-          "(1013), en politique 'drop'. Une frame qui repart remet le compteur à zéro. " +
-          "POURQUOI une série et pas un second seuil d'octets : une fois qu'on jette, plus " +
+        "SOLDE de frames refusées au-delà duquel la connexion est FERMÉE (1013), en " +
+          "politique 'drop' : +1 par frame refusée, −1 par frame envoyée. " +
+          "POURQUOI un solde et pas un second seuil d'octets : une fois qu'on jette, plus " +
           "rien n'alimente la file — elle plafonne au seuil de drop et n'atteint jamais un " +
-          "seuil supérieur, qui serait donc inatteignable (mesuré). Une série de refus, elle, " +
-          "distingue le pic passager du client mort. 0 = ne jamais fermer. Défaut 1000.",
+          "seuil supérieur, qui serait donc inatteignable (mesuré). Et pas une série remise à " +
+          "zéro au premier envoi : la file d'un client bloqué oscille autour du seuil, chaque " +
+          "envoi effacerait la série et il ne serait jamais fermé. Le solde, lui, distingue le " +
+          "pic passager du client mort. 0 = ne jamais fermer. Défaut 1000.",
       ),
     backpressurePolicy: z
       .enum(["drop", "close"])

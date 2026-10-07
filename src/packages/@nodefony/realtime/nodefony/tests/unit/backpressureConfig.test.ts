@@ -63,7 +63,7 @@ describe("WsConnectionTransport — applique la contre-pression de @nodefony/htt
     expect(conn.closed.map((c) => c.code)).to.deep.equal([1013]);
   });
 
-  it("⭐ ferme après N refus CONSÉCUTIFS — le seuil d'octets seul ne suffit pas", () => {
+  it("⭐ ferme quand le SOLDE de refus atteint N — le seuil d'octets seul ne suffit pas", () => {
     const conn = fakeConn(8192);
     const t = new WsConnectionTransport(conn, {
       max: 4096,
