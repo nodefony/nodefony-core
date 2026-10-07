@@ -326,7 +326,7 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 | `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1282`)             |
 | `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1232`)             |
 | `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1223`)                       |
-| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1326`)               |
+| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1336`)               |
 | `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:341`) |
 | `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:351`) |
 

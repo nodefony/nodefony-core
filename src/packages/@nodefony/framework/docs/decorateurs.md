@@ -342,15 +342,15 @@ async index(@Param("page") page: string) { /* … */ }
 
 ### Paramètres — ce que l'action reçoit
 
-Onze décorateurs, tous produits par `paramDecoratorFactory()` (`routerDecorators.ts:1191`) sauf
+Onze décorateurs, tous produits par `paramDecoratorFactory()` (`routerDecorators.ts:1196`) sauf
 `@Body`, qui accepte une option supplémentaire. Chacun pose `{ source, key, index }` ; la valeur est
-calculée par `resolveParamArg()` (`routerDecorators.ts:1326`), une fonction **pure** — ce qui la rend
+calculée par `resolveParamArg()` (`routerDecorators.ts:1336`), une fonction **pure** — ce qui la rend
 testable sans démarrer de serveur.
 
 | Décorateur          | Sans clé renvoie…                    | Avec clé renvoie…                          | Ancre                                        |
 | ------------------- | ------------------------------------ | ------------------------------------------ | -------------------------------------------- |
-| `@Param("id")`      | toutes les variables d'URL (objet)   | la variable d'URL nommée                   | `Param` (`routerDecorators.ts:1212`)         |
-| `@Query("q")`       | toute la query string                | un paramètre de la query string            | `Query` (`routerDecorators.ts:1213`)         |
+| `@Param("id")`      | toutes les variables d'URL (objet)   | la variable d'URL nommée                   | `Param` (`routerDecorators.ts:1217`)         |
+| `@Query("q")`       | toute la query string                | un paramètre de la query string            | `Query` (`routerDecorators.ts:1218`)         |
 | `@Body("field")`    | le corps parsé entier                | un champ du corps parsé                    | `Body()` (`routerDecorators.ts:1253`)        |
 | `@Headers("x-foo")` | tous les en-têtes de requête         | un en-tête (**lookup en minuscules**)      | `Headers` (`routerDecorators.ts:1279`)       |
 | `@Cookie("sid")`    | la map des cookies                   | un cookie (objet `Cookie`, champ `.value`) | `Cookie` (`routerDecorators.ts:1280`)        |
@@ -544,7 +544,7 @@ héritées de la classe.
 
 | Décorateur                   | Cible | Effet                                                                                                      | Ancre                             |
 | ---------------------------- | ----- | ---------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `@UseSession({ readOnly? })` | dual  | Déclare le besoin d'une session serveur ; **méthode > classe** (`UseSession()`, `routerDecorators.ts:800`) | `@UseSession({ readOnly: true })` |
+| `@UseSession({ readOnly? })` | dual  | Déclare le besoin d'une session serveur ; **méthode > classe** (`UseSession()`, `routerDecorators.ts:830`) | `@UseSession({ readOnly: true })` |
 | `@Idempotent({ required? })` | dual  | Protège une mutation du double effet via `Idempotency-Key` (`Idempotent()`, `routerDecorators.ts:1171`)    | `@Idempotent()`                   |
 
 **`@UseSession` est la seule façon d'ouvrir une session** (avec un paramètre `@Session`, ou la reprise
@@ -623,7 +623,7 @@ Trois faits à retenir :
   (`routerDecorators.ts:535`).
 - **Les décorateurs de paramètre fonctionnent pareil.** Pour une invocation par socket, le corps de
   la mutation voyage dans l'ALS et **prime** sur le corps HTTP (vide dans ce cas) — c'est traité dans
-  `resolveParamArg()` (`routerDecorators.ts:1326`), et `@Query` lit la query du chemin **invoqué**,
+  `resolveParamArg()` (`routerDecorators.ts:1336`), et `@Query` lit la query du chemin **invoqué**,
   pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:929`).
 - **Les gardes s'appliquent identiquement.** `@IsGranted` protège une action joignable par socket
   exactement comme une action HTTP : la décision est prise avant l'instanciation, quel que soit le

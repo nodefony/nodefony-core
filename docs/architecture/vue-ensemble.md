@@ -512,7 +512,7 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 
 | Domaine                      | Norme                          | Ancrage code                                              |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
-| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:343`)                          |
+| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:393`)                          |
 | Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:784`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:79`)              |
 | Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1625`)           |

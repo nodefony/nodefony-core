@@ -259,7 +259,7 @@ Si ton `initialize()` lève, l'exception remonte le pipeline et sort en réponse
 (`LifecycleController.initialize()`, `LifecycleController.ts:21`, exercée par
 `lifecycle-init-crash.test.ts`). Aucune requête pendue, aucun timeout muet. Pour un singleton,
 une création en échec ne reste pas en cache : la requête suivante recrée l'instance
-(`Router.getSingletonController()`, `router.ts:197`) — une base pas encore prête au premier appel ne
+(`Router.getSingletonController()`, `router.ts:232`) — une base pas encore prête au premier appel ne
 tue pas le contrôleur jusqu'au redémarrage.
 
 ### Les phases mesurées

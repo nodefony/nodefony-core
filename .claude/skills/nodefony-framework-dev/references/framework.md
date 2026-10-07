@@ -136,12 +136,12 @@ Service `@injectable()` `"router"` (`nodefony/service/router.ts:124`). Table `st
 
 | Méthode | Signature | Rôle |
 | ------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------- |
-| `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts:260`) | point d'entrée du routage |
-| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:425`) | forward interne |
-| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:442`) | lookup / dump |
-| `removeRoutes` | `(name?) → void` (`router.ts:451`) | retire 1 route (ou tout si vide) + invalide l'index |
-| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:431`) | toutes les routes dont le pattern matche |
-| `getSingletonController` | `(ctor, create) → Promise<Controller>` (`router.ts:205`) | cache promesse singleton (V4.3) |
+| `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts:287`) | point d'entrée du routage |
+| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:452`) | forward interne |
+| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:469`) | lookup / dump |
+| `removeRoutes` | `(name?) → void` (`router.ts:478`) | retire 1 route (ou tout si vide) + invalide l'index |
+| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:458`) | toutes les routes dont le pattern matche |
+| `getSingletonController` | `(ctor, create) → Promise<Controller>` (`router.ts:232`) | cache promesse singleton (V4.3) |
 | `static createRoute` | `(name, RouteOptions) → Route` (`router.ts:350`) | push table + invalide l'index |
 | `static setController` | `(ctor, module) → ctor` (`router.ts:356`) | `proto.module` (writable:false) + clé `module:Class` + propage `route.module` |
 | `static getRoutesForController` | `(ctor) → Route[]` (`router.ts:390`) | log des routes d'un controller |
@@ -150,19 +150,19 @@ Service `@injectable()` `"router"` (`nodefony/service/router.ts:124`). Table `st
 
 ## API — `Route`
 
-`Route implements IRoute` (`nodefony/src/Route.ts:218`). `RouteOptions` (`Route.ts:158`) :
+`Route implements IRoute` (`nodefony/src/Route.ts:257`). `RouteOptions` (`Route.ts:158`) :
 `path`, `constructor`, `classMethod`, `prefix`, `method`, `host`, `defaults`, `requirements`,
 `filePath`, **`bypassFirewall?`** (court-circuite le firewall, défaut `false`). `RouteRequirements`
-(`Route.ts:202`) : `domain`, `scheme`, `methods` (`HTTPMethod[]|HTTPMethod|"a,b"`), `protocol`.
+(`Route.ts:214`) : `domain`, `scheme`, `methods` (`HTTPMethod[]|HTTPMethod|"a,b"`), `protocol`.
 
 Champs notables : `variables: string[]` = **NOMS** des params `{x}` (`Route.ts:131`) ; `pattern: RegExp`
 (compilée flag `i`) ; `methodsSet`/`methodsAllow`/`varRegexp` (pré-compilés au boot) ; `hostRegexp`
 (vhosts) ; `bodyStream?`/`actionMeta?` (memo lazy) ; `bypassFirewall`.
 
-Méthodes : `static cleanPathname(ctx)` (`Route.ts:313`, pathname sans slash final, **1×/req**) ·
-`match(ctx, cleanPath?, methodOverride?)` (`Route.ts:351`) · `compile()` (`Route.ts:472`) ·
-`compileRequirements()` (`Route.ts:526`) · `matchRequirements(ctx, methodOverride?)` (`Route.ts:771`) ·
-`matchHostname(ctx)` (`Route.ts:709`, 403 si vhost interdit) · `addRequirement`/`getRequirement` ·
+Méthodes : `static cleanPathname(ctx)` (`Route.ts:355`, pathname sans slash final, **1×/req**) ·
+`match(ctx, cleanPath?, methodOverride?)` (`Route.ts:393`) · `compile()` (`Route.ts:514`) ·
+`compileRequirements()` (`Route.ts:568`) · `matchRequirements(ctx, methodOverride?)` (`Route.ts:816`) ·
+`matchHostname(ctx)` (`Route.ts:754`, 403 si vhost interdit) · `addRequirement`/`getRequirement` ·
 `generateId()` (md5) · `toObject()`/`toLogLine()`.
 
 ---
@@ -397,12 +397,12 @@ directes de `routes` des bancs de test). Ne court-circuite JAMAIS `resolver.matc
 
 ## Internals — `match()` + methodOverride + 405/host
 
-`Route.match(ctx, cleanPath?, methodOverride?)` (`Route.ts:351`) : pattern-test → `hydrateDefaultParameters`
+`Route.match(ctx, cleanPath?, methodOverride?)` (`Route.ts:393`) : pattern-test → `hydrateDefaultParameters`
 → **`matchHostname` AVANT `matchRequirements`** (la ressource cible inclut le host : un vhost interdit
 jette **403**, jamais une 405 qui fuiterait les méthodes d'un autre vhost) → renvoie `map` = captures
 `res.slice(1)` (array hybride + accès par nom + `*`).
 
-`matchRequirements(ctx, methodOverride?)` (`Route.ts:771`) : `methods` via `methodsSet` (Set UPPERCASE
+`matchRequirements(ctx, methodOverride?)` (`Route.ts:816`) : `methods` via `methodsSet` (Set UPPERCASE
 pré-compilé) → 405 `HttpError{code:405, allow}`. **methodOverride** (pont WS-RPC d'une mutation) : sur
 le transport `WEBSOCKET` unique, exige `methodsSet.has("WEBSOCKET") && has(methodOverride)` pour lever
 l'ambiguïté GET-via-WS / POST-via-WS. `protocol` WS → 1002.

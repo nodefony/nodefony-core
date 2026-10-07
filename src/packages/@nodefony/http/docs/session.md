@@ -601,7 +601,7 @@ paramètre `@Session()` suffit à déclarer l'intent.
 | Renouveler l'identifiant         | `session.regenerateId()`             | Nouvel identifiant, état conservé (`session.ts:236`).   |
 | Savoir si une écriture aura lieu | `session.dirty`                      | Le drapeau de dirty-tracking (`session.ts:128`).        |
 
-**Intent de route** — `UseSession(options)` (`routerDecorators.ts:800`) s'applique à une classe **ou** à
+**Intent de route** — `UseSession(options)` (`routerDecorators.ts:830`) s'applique à une classe **ou** à
 une méthode ; la méthode l'emporte, par fusion et non par remplacement
 (`resolveSessionIntent()`, `routerDecorators.ts:858`). **Une seule** option (`SessionIntent`,
 `ISession.ts:17`) :

@@ -396,7 +396,7 @@ Tu n'ouvres jamais un scope toi-même dans une application : le pipeline le fait
 ### Le contrôleur singleton — le défaut, sous contrat strict
 
 Un contrôleur est un **singleton** par défaut : construit à sa première requête, mis en cache par
-le routeur (`Router.getSingletonController()`, `router.ts:197`), puis partagé par toutes les
+le routeur (`Router.getSingletonController()`, `router.ts:232`), puis partagé par toutes les
 requêtes, concurrentes comprises. Son `initialize()` tourne une fois, à la création.
 
 Le **contrat est strict** : l'action ne lit ni n'écrit **aucun** état de requête sur `this`. Tout

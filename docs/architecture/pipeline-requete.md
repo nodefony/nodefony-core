@@ -119,7 +119,7 @@ sont traités **avant** toute allocation de contexte, de scope DI ou de bulle AL
 (`HttpKernel.onHttpRequest()`, `http-kernel.ts:1062`). Un flood est refusé au prix d'une recherche dans
 une `Map`.
 
-**2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:260`) est appelé **avant** de lire
+**2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:287`) est appelé **avant** de lire
 le corps de la requête (`http-kernel.ts:1408`). C'est ce qui permet à une action de recevoir le flux
 brut plutôt qu'un corps déjà chargé en mémoire — et ce qui évite de payer le disque sur une route qui
 n'est pas un fichier.
@@ -270,7 +270,7 @@ Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque
 | 6   | `traceparent`          | `http-kernel.ts:1568`                                        | la trace W3C est résolue (héritée ou générée)                    |
 | 7   | `RequestContext.run()` | `http-kernel.ts:496`                                         | **la bulle ALS est ouverte** — `requestId` propagé partout       |
 | 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:1037`)                 | un **preflight** répond 204 et **sort** du pipeline              |
-| 9   | routage                | `Router.resolve()` (`router.ts:260`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
+| 9   | routage                | `Router.resolve()` (`router.ts:287`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
 | 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1076`)       | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
 | 11  | fallback statique      | `serverStatic` (`http-kernel.ts:276`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
 | 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1451`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
