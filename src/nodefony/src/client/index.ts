@@ -63,6 +63,12 @@ export {
   classifyJsonRpcFrame,
   isJsonRpcId,
   isJsonRpcErrorObject,
+  // Fabriques pures : une frame se FABRIQUE, elle ne s'écrit pas à la main
+  // (garde `jsonrpcSingleSource.test.ts`) — y compris côté navigateur.
+  jsonRpcRequest,
+  jsonRpcNotification,
+  jsonRpcSuccess,
+  jsonRpcFailure,
 } from "../jsonrpc/index";
 export type {
   JsonRpcId,

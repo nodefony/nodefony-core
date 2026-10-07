@@ -15,6 +15,8 @@
  * simulation se remplace par le vrai flux sans redessiner l'écran.
  */
 
+import { jsonRpcRequest } from "nodefony";
+
 // ─── Accès modèle — miroir de `ILLMProvider` (@nodefony/llm) ─────────────────
 
 /** Fournisseur de modèle. `mistral` n'est pas encore dans l'esquisse : le livre blanc le cite (§3.1). */
@@ -930,16 +932,11 @@ export const MCP_CLIENTS: IPreviewMcpClient[] = [
 ];
 
 /** Une trame `tools/call` telle qu'elle passe — JSON-RPC 2.0, révision 2026-07-28. */
-export const MCP_SAMPLE_FRAME = {
-  jsonrpc: "2.0",
-  id: 17,
-  method: "tools/call",
-  params: {
-    name: "nodefony_inspect",
-    arguments: { subject: "routes", filter: "/api/orders" },
-    _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" },
-  },
-};
+export const MCP_SAMPLE_FRAME = jsonRpcRequest(17, "tools/call", {
+  name: "nodefony_inspect",
+  arguments: { subject: "routes", filter: "/api/orders" },
+  _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28" },
+});
 
 // ─── Chat — la réponse d'un agent, étape par étape ───────────────────────────
 
