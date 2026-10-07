@@ -278,8 +278,8 @@ faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:733`).
 
 ## ⚙️ Configuration
 
-Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:786`) et son sous-schéma
-`sessionCookieSchema` (`config.ts:752`).
+Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:790`) et son sous-schéma
+`sessionCookieSchema` (`config.ts:756`).
 
 | Option              | Type    | Défaut       | Effet                                                                                    |
 | ------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------- |
@@ -572,7 +572,7 @@ Trois barrières superposées :
 
 | Menace                            | Défense                                           | Ancrage                                            |
 | --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
-| Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:752`)            |
+| Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:756`)            |
 | Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:733`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `cookieDefaultSettings` (`cookie.ts:39`)           |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:177`)              |

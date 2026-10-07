@@ -676,7 +676,7 @@ rate-limit**. Un kubelet qui reçoit un `429` croit le pod mort → cascade de r
 
 | Option          | Type   | Défaut    | Effet                                                                  |
 | --------------- | ------ | --------- | ---------------------------------------------------------------------- |
-| `enabled`       | bool   | `true`    | Expose les probes (`healthSchema`, `config.ts:944`).                   |
+| `enabled`       | bool   | `true`    | Expose les probes (`healthSchema`, `config.ts:948`).                   |
 | `livenessPath`  | string | `/livez`  | Chemin de la sonde de vie (`livenessProbe.httpGet.path` k8s).          |
 | `readinessPath` | string | `/readyz` | Chemin de la sonde de disponibilité.                                   |
 | `shutdownDelay` | ms     | `0`       | Délai entre la bascule `503` et le début du drain (propagation du LB). |
