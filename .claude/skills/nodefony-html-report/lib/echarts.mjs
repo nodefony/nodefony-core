@@ -272,13 +272,18 @@ const echappe = (s) =>
  * @param {{titre?: string, sousTitre?: string, legende?: string[], largeur: number}} o
  * @returns {{haut: number, bas: number}} marges en pixels.
  */
-const marges = ({ titre, sousTitre, legende, largeur }) => {
+const marges = ({ titre, sousTitre, legende, largeur, axeY }) => {
   // 🔴 On ne réserve QUE le titre et la légende. Les étiquettes et les noms
   // d'axes sont placés par le mécanisme d'« outer bounds » d'ECharts 6, activé
   // par défaut — doc conservée dans `references/echarts/grid.md`. Y ajouter des
   // marges à la main revenait à corriger deux fois le même écart, et déplaçait
   // la figure au lieu de la caler.
-  const haut = (titre ? 24 : 0) + (sousTitre ? 18 : 0) + 14;
+  // Le NOM d'un axe vertical se pose au-dessus de la grille (`nameLocation:
+  // "end"`) : les « outer bounds » d'ECharts le contiennent dans la figure,
+  // mais ignorent le titre — sans cette réserve, « cadence (ms) » s'écrivait
+  // SOUS le titre, les deux textes superposés.
+  const haut =
+    (titre ? 24 : 0) + (sousTitre ? 18 : 0) + (titre && axeY ? 16 : 0) + 14;
   if (!legende?.length) return { haut, bas: 12 };
   // ~7,4 px par caractère + 26 px de pastille et d'espace, replié à la largeur.
   const parLigne = Math.max(
@@ -671,6 +676,11 @@ export function lines(o) {
     // laisseraient le lecteur faire la soustraction de tête.
     empile = false,
     lisse = true,
+    // Bornes IMPOSÉES de l'axe de gauche (`{min, max}`), quand la figure les
+    // déclare : comparer deux courbes publiées côte à côte, ou montrer qu'une
+    // valeur reste loin d'un plafond, exige la même échelle, pas une échelle
+    // recalculée au plus serré des données.
+    bornesY,
     largeur = 640,
     hauteur = 340,
     theme = "clair",
@@ -679,7 +689,15 @@ export function lines(o) {
     desc,
   } = o;
   const legende = series.length > 1 ? series.map((s) => s.nom) : undefined;
-  const s = socle({ titre, sousTitre, legende, largeur, hauteur, theme });
+  const s = socle({
+    titre,
+    sousTitre,
+    legende,
+    largeur,
+    hauteur,
+    theme,
+    axeY: axeY || axeYDroite,
+  });
   const categoriel = typeof series[0].points[0][0] === "string";
   // Des courbes HÉTÉROGÈNES — des req/s et des millisecondes — ne partagent pas
   // une échelle : la seconde vit sur un axe de droite, qu'une série demande par
@@ -719,7 +737,11 @@ export function lines(o) {
           {
             type: log ? "log" : "value",
             alignTicks: aDroite,
-            ...(log ? {} : echelle(valeursDe(false))),
+            ...(log
+              ? {}
+              : bornesY
+                ? { min: bornesY.min, max: bornesY.max }
+                : echelle(valeursDe(false))),
             axisLabel: {
               color: s.T.muet,
               fontSize: 11,
@@ -755,6 +777,9 @@ export function lines(o) {
         type: "line",
         smooth: lisse,
         symbolSize: 6,
+        // Au-delà de quarante points, les marqueurs ne disent plus rien de plus
+        // que le trait : ils l'épaississent jusqu'à masquer les bascules.
+        showSymbol: serie.points.length <= 40,
         yAxisIndex: serie.droite && aDroite ? 1 : 0,
         // Une série peut rester HORS de la pile (`horsPile`) : c'est ce qui
         // permet de tracer le total mesuré par-dessus les couches, et de

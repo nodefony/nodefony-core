@@ -103,6 +103,21 @@ cas(
   true,
 );
 
+console.log("━━ les lignes %% (directives et commentaires mermaid)");
+const dirige = lireMermaid(
+  '%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#0072B2"}}}}%%\nxychart-beta\n  %% series: client mort | pic passager\n  line [1, 2]\n  line [2, 1]',
+);
+cas("une directive en tête ne masque pas le type", dirige.type, "xy");
+cas("les séries sont nommées par le commentaire", dirige.noms, [
+  "client mort",
+  "pic passager",
+]);
+cas(
+  "un commentaire dans un flux est ignoré",
+  lireMermaid("flowchart LR\n  %% note\n  A --> B").aretes.length,
+  1,
+);
+
 console.log(
   rouges ? `\n❌ ${rouges} cas rouge(s)` : "\n✅ tous les cas passent",
 );

@@ -142,8 +142,13 @@ const libelle = (t) =>
  * @returns {{type: "flux"|"sequence"|"inconnu", …}}
  */
 export function lireMermaid(src) {
-  const lignes = src.split("\n");
-  const tete = lignes[0].trim();
+  // Les lignes `%%` sont des commentaires ou des directives mermaid
+  // (`%%{init: …}%%`, qui règle par exemple la couleur des courbes dans la
+  // console) : elles ne décrivent rien du schéma. Placée en tête, une directive
+  // faisait prendre le bloc pour un type inconnu, rendu en source brute.
+  const toutes = src.split("\n");
+  const lignes = toutes.filter((l) => !l.trim().startsWith("%%"));
+  const tete = (lignes[0] ?? "").trim();
   if (tete.startsWith("sequenceDiagram")) return lireSequence(lignes.slice(1));
   if (/^(flowchart|graph)\b/.test(tete)) {
     const dir = /(TD|TB|LR|RL|BT)/.exec(tete)?.[1] ?? "TD";
@@ -152,7 +157,12 @@ export function lireMermaid(src) {
   if (/^stateDiagram(-v2)?\b/.test(tete))
     return { type: "flux", dir: "TD", ...lireEtats(lignes.slice(1)) };
   if (/^xychart(-beta)?\b/.test(tete))
-    return { type: "xy", ...lireXy(lignes.slice(1)) };
+    // Le lecteur de courbes reçoit AUSSI les commentaires : `%% series:` y
+    // nomme les séries.
+    return {
+      type: "xy",
+      ...lireXy(toutes.slice(toutes.findIndex((l) => l.trim() === tete) + 1)),
+    };
   return { type: "inconnu", src };
 }
 
@@ -180,6 +190,7 @@ function lireXy(lignes) {
     axeX: { libelle: "", categories: null, min: null, max: null },
     axeY: { libelle: "", min: null, max: null },
     series: [],
+    noms: [],
   };
   const axe = (reste, cible) => {
     const lib = /^"([^"]*)"\s*/.exec(reste);
@@ -204,6 +215,16 @@ function lireXy(lignes) {
   };
   for (const brute of lignes) {
     const l = brute.trim();
+    // Mermaid 11 ne nomme pas les séries d'un xychart ; un commentaire
+    // `%% series: a | b` les nomme pour la légende du site, sans gêner la console.
+    const noms = /^%%\s*series:\s*(.*)$/.exec(l);
+    if (noms) {
+      xy.noms = noms[1]
+        .split("|")
+        .map((n) => n.trim())
+        .filter(Boolean);
+      continue;
+    }
     if (!l || l.startsWith("%%")) continue;
     let m;
     if ((m = /^title\s+"?([^"]*)"?$/.exec(l))) xy.titre = m[1];
@@ -237,7 +258,8 @@ function graphiqueXy(xy, o) {
         : String(i + 1),
     );
   const nom = (i) =>
-    xy.series.length > 1 ? `série ${i + 1}` : xy.titre || "série";
+    xy.noms[i] ??
+    (xy.series.length > 1 ? `série ${i + 1}` : xy.titre || "série");
   const commun = {
     titre: o.titre ?? xy.titre,
     desc: o.desc ?? xy.titre,
@@ -258,6 +280,9 @@ function graphiqueXy(xy, o) {
     axeX: xy.axeX.libelle,
     axeY: xy.axeY.libelle,
     lisse: false,
+    ...(xy.axeY.min !== null && xy.axeY.max !== null
+      ? { bornesY: { min: xy.axeY.min, max: xy.axeY.max } }
+      : {}),
     series: xy.series
       .filter((s) => s.kind === "line")
       .map((s, i) => ({
