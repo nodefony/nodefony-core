@@ -144,7 +144,7 @@ règle par controller divergerait au premier correctif.
 @Get(path?, options?)    // → requirements: { methods: ["GET"] }
 @Post(path?, options?)   // → requirements: { methods: ["POST"] }
 @Put / @Delete / @Patch / @Options / @Head  // idem (1 méthode chacun)
-@All(path?, options?)    // → AUCUN requirements.methods → matche TOUTES les méthodes (NestJS-like)
+@All(path?, options?)    // → AUCUN requirements.methods → tous les verbes HTTP, JAMAIS WEBSOCKET (connexion ni pont : à déclarer)
 ```
 
 Auto-name : `ClassName::methodName` — déterministe, unique par (classe, méthode).

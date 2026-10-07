@@ -483,10 +483,18 @@ describe("Route — matchRequirements() — scheme", () => {
   });
 
   it("https exigé : wss accepté, ws refusé (même exigence de chiffrement)", () => {
-    expect(thrown(() => httpsOnly().match(withScheme("WEBSOCKET", "wss")))).to
-      .be.undefined;
+    // La route DÉCLARE le WebSocket : sans déclaration, elle le refuserait en
+    // 405 avant même de regarder le schéma (règle « rien de déclaré = verbes
+    // HTTP seulement »).
+    const httpsWs = () =>
+      new Route("r", {
+        path: "/x",
+        requirements: { scheme: "https", methods: ["WEBSOCKET"] },
+      });
+    expect(thrown(() => httpsWs().match(withScheme("WEBSOCKET", "wss")))).to.be
+      .undefined;
     expect(
-      thrown(() => httpsOnly().match(withScheme("WEBSOCKET", "ws")))?.code,
+      thrown(() => httpsWs().match(withScheme("WEBSOCKET", "ws")))?.code,
     ).to.equal(403);
   });
 

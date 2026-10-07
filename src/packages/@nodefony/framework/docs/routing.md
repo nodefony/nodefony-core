@@ -256,11 +256,11 @@ npx wscat -c ws://localhost:5151/api/catalog/live
 La **syntaxe** des décorateurs est détaillée dans [decorateurs](./decorateurs.md) ; ce qui suit est ce
 que chaque forme **produit dans la table**.
 
-| Forme                                     | Nom de la route                    | Méthodes déclarées               | Quand l'utiliser                             |
-| ----------------------------------------- | ---------------------------------- | -------------------------------- | -------------------------------------------- |
-| `@Get` `@Post` `@Put` `@Delete` `@Patch`… | auto : `` `Classe::methode` ``     | exactement une                   | le cas courant, REST                         |
-| `@All(path)`                              | auto : `` `Classe::methode` ``     | **aucune** → toutes les méthodes | proxy, capture-tout, page de repli           |
-| `@route(nom, options)`                    | **le tien** (stable, réutilisable) | `requirements.methods` (libre)   | WebSocket, multi-méthodes, contraintes fines |
+| Forme                                     | Nom de la route                    | Méthodes déclarées                                     | Quand l'utiliser                             |
+| ----------------------------------------- | ---------------------------------- | ------------------------------------------------------ | -------------------------------------------- |
+| `@Get` `@Post` `@Put` `@Delete` `@Patch`… | auto : `` `Classe::methode` ``     | exactement une                                         | le cas courant, REST                         |
+| `@All(path)`                              | auto : `` `Classe::methode` ``     | **aucune** → tous les verbes HTTP, jamais le WebSocket | proxy, capture-tout, page de repli           |
+| `@route(nom, options)`                    | **le tien** (stable, réutilisable) | `requirements.methods` (libre)                         | WebSocket, multi-méthodes, contraintes fines |
 
 - Les décorateurs de méthode HTTP délèguent tous à `@route` avec un nom auto `Classe::methode`, et
   posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:489`).

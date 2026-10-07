@@ -490,3 +490,46 @@ describe("Option `method` d'une route — elle RESTREINT, elle n'orne pas", () =
     ).to.equal("any");
   });
 });
+
+describe("Route sans méthode déclarée — tous les verbes HTTP, JAMAIS le WebSocket", () => {
+  // Vécu : une connexion WebSocket s'ouvrait sur `/nodefony/test/memory`,
+  // action écrite pour HTTP — le contrôle des méthodes ne tournait pas faute
+  // de déclaration. Le WebSocket (connexion ou pont `api.request`) se DÉCLARE.
+  it("GET, POST, DELETE passent", () => {
+    Router.createRoute("plain", { path: "/plain/any" });
+    const router = makeRouter();
+    for (const m of ["GET", "POST", "DELETE"]) {
+      expect(router.resolve(makeCtx("/plain/any", m)).route?.name).to.equal(
+        "plain",
+      );
+    }
+  });
+
+  it("une connexion WebSocket est refusée (405)", () => {
+    Router.createRoute("plain", { path: "/plain/any" });
+    expect(() =>
+      makeRouter().resolve(makeCtx("/plain/any", "WEBSOCKET")),
+    ).to.throw(/Not Allowed/);
+  });
+
+  it("le pont `api.request` est refusé (405)", () => {
+    Router.createRoute("plain", { path: "/plain/any" });
+    expect(() =>
+      makeRouter().resolve(
+        makeCtx("/plain/any", "WEBSOCKET"),
+        "/plain/any",
+        "GET",
+      ),
+    ).to.throw(/Not Allowed/);
+  });
+
+  it("WEBSOCKET déclaré → la connexion passe", () => {
+    Router.createRoute("ws", {
+      path: "/plain/ws",
+      requirements: { methods: ["WEBSOCKET"] },
+    });
+    expect(
+      makeRouter().resolve(makeCtx("/plain/ws", "WEBSOCKET")).route?.name,
+    ).to.equal("ws");
+  });
+});

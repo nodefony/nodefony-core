@@ -814,6 +814,22 @@ class Route implements IRoute {
     return Object.keys(this.requirements).length;
   }
   matchRequirements(context: ContextType, methodOverride?: string): boolean {
+    // Aucune méthode déclarée = tous les verbes HTTP, JAMAIS le WebSocket : une
+    // action écrite pour HTTP ne reçoit pas une connexion persistante (ni le
+    // pont `api.request`) sans l'avoir déclaré (`WEBSOCKET`). Le contrôle des
+    // méthodes ci-dessous ne tourne que sur une déclaration — d'où ce garde.
+    if (
+      this.requirements.methods === undefined &&
+      (methodOverride !== undefined || context.method === "WEBSOCKET")
+    ) {
+      const error = new HttpError(
+        `Method ${methodOverride ?? "WEBSOCKET"} Not Allowed`,
+      );
+      error.code = 405;
+      error.type = "method";
+      error.allow = "";
+      throw error;
+    }
     if (this.hasRequirements()) {
       for (const i in this.requirements) {
         switch (i) {
