@@ -381,3 +381,63 @@ describe("Routing index — raccourci littéral (le motif n'est pas exécuté)",
     ).to.equal("post-only");
   });
 });
+
+describe("Routing index — routes de repli (`fallback`)", () => {
+  // Vécu : le repli du Studio `GET /nodefony/{page}`, déclaré tôt, capturait
+  // `GET /nodefony/mcp` de devkit (déclaré après) → 200 + HTML au lieu de 405,
+  // et le client MCP se reconnectait chaque seconde.
+  it("un repli déclaré EN PREMIER perd face à une littérale déclarée après", () => {
+    Router.createRoute("spa", { path: "/nodefony/{page}", fallback: true });
+    Router.createRoute("mcp", { path: "/nodefony/mcp" });
+    const router = makeRouter();
+    expect(router.resolve(makeCtx("/nodefony/mcp")).route?.name).to.equal(
+      "mcp",
+    );
+    // Le repli sert toujours ce que personne d'autre ne sert.
+    expect(router.resolve(makeCtx("/nodefony/logs")).route?.name).to.equal(
+      "spa",
+    );
+  });
+
+  it("…et face à une DYNAMIQUE déclarée après", () => {
+    Router.createRoute("spa", { path: "/app/{page}", fallback: true });
+    Router.createRoute("item", { path: "/app/{id}" });
+    expect(makeRouter().resolve(makeCtx("/app/7")).route?.name).to.equal(
+      "item",
+    );
+  });
+
+  it("sans le drapeau, la règle reste « première déclarée gagne »", () => {
+    Router.createRoute("spa", { path: "/nodefony/{page}" });
+    Router.createRoute("mcp", { path: "/nodefony/mcp" });
+    expect(makeRouter().resolve(makeCtx("/nodefony/mcp")).route?.name).to.equal(
+      "spa",
+    );
+  });
+
+  it("les replis gardent leur ordre RELATIF entre eux", () => {
+    Router.createRoute("first", { path: "/f/{a}", fallback: true });
+    Router.createRoute("second", { path: "/f/{b}", fallback: true });
+    expect(makeRouter().resolve(makeCtx("/f/x")).route?.name).to.equal("first");
+  });
+
+  it("les méthodes départagent : POST → la route ordinaire, GET → le repli", () => {
+    // La littérale ne sert que POST, le repli que GET : chacun garde sa méthode.
+    Router.createRoute("spa", {
+      path: "/nodefony/{page}",
+      fallback: true,
+      requirements: { methods: ["GET"] },
+    });
+    Router.createRoute("mcp", {
+      path: "/nodefony/mcp",
+      requirements: { methods: ["POST"] },
+    });
+    const router = makeRouter();
+    expect(
+      router.resolve(makeCtx("/nodefony/mcp", "POST")).route?.name,
+    ).to.equal("mcp");
+    expect(
+      router.resolve(makeCtx("/nodefony/mcp", "GET")).route?.name,
+    ).to.equal("spa");
+  });
+});

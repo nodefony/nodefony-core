@@ -132,6 +132,50 @@ function posterTexte(
   });
 }
 
+/**
+ * Frappe la porte MCP avec une méthode HTTP autre que `POST`, sur l'autorité
+ * de la ressource — exactement ce que fait un client MCP d'une révision
+ * antérieure qui tente d'ouvrir son flux SSE.
+ */
+function frapper(
+  methode: string,
+): Promise<{
+  status: number;
+  allow: string | undefined;
+  type: string;
+  raw: string;
+}> {
+  return new Promise((resoudre, rejeter) => {
+    const req = httpRequest(
+      `${RESOURCE_BASE}${MCP_ENDPOINT_PATH}`,
+      {
+        method: methode,
+        timeout: 8000,
+        headers: { accept: "text/event-stream" },
+      },
+      (res) => {
+        let texte = "";
+        res.setEncoding("utf8");
+        res.on("data", (morceau: string) => (texte += morceau));
+        res.on("end", () =>
+          resoudre({
+            status: res.statusCode ?? 0,
+            allow: res.headers.allow,
+            type: res.headers["content-type"] ?? "",
+            raw: texte,
+          }),
+        );
+      },
+    );
+    req.on("error", rejeter);
+    req.on("timeout", () => {
+      req.destroy();
+      rejeter(new Error("timeout"));
+    });
+    req.end();
+  });
+}
+
 /** Lit un chemin en `GET` — pour les routes qui ne parlent pas JSON-RPC. */
 /**
  * Lit un document bien connu sur l'autorité de la RESSOURCE, en clair.
@@ -511,6 +555,23 @@ describe.skipIf(raison !== null)(
       expect(reponse.status).toBe(202);
       expect(reponse.raw).toBe("");
     });
+
+    it.each(["GET", "DELETE"])(
+      "🔴 `%s` sur la porte rend 405 + `Allow: POST` — jamais la page du Studio",
+      async (methode) => {
+        // Un client d'une révision antérieure ouvre un flux SSE en `GET` (et
+        // clôt sa session en `DELETE`). La révision 2026-07-28 les a retirés et
+        // demande `405` (transports, « Earlier Streamable HTTP Revisions »).
+        // Sans route, la requête tombait dans le repli SPA `/nodefony/{page}` :
+        // `200` + HTML, que le client prenait pour un flux cassé — et qu'il
+        // rouvrait à chaque seconde, indéfiniment.
+        const reponse = await frapper(methode);
+        expect(reponse.status).toBe(405);
+        expect(reponse.allow).toBe("POST");
+        expect(reponse.type).not.toMatch(/text\/html/u);
+        expect(reponse.raw).not.toMatch(/<!DOCTYPE/iu);
+      },
+    );
 
     it("une méthode inconnue rend 404 ET -32601", async () => {
       const reponse = await poster({

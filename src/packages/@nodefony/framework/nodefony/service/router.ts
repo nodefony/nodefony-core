@@ -59,7 +59,8 @@ const serviceName: string = "router";
 //    partition ne doit jamais être plus permissive que le matching qu'elle
 //    remplace, et le gain porterait sur des chemins qui n'existent pas.
 // resolve() fusionne les deux flux PAR POSITION D'INSERTION → même séquence de
-// candidats que le scan linéaire complet, MOINS les littérales d'autres paths
+// candidats que le scan linéaire de la table où les replis (`Route.fallback`)
+// sont repoussés en fin, dans leur ordre relatif, MOINS les littérales d'autres paths
 // (pattern ancré ^…$ : elles ne pouvaient pas matcher, et Resolver.match est
 // sans effet de bord avant un path-match → les sauter est inobservable).
 // Contrat figé par le banc routing-nonregression.test.ts (invariants A→J).
@@ -128,24 +129,20 @@ function invalidateRouteIndex(): void {
 function buildRouteIndex(): RouteIndex {
   const statics = new Map<string, IndexedRoute[]>();
   const dynamics: IndexedRoute[] = [];
-  for (const [i, route] of routes.entries()) {
-    const path = route.path;
-    if (
-      path !== undefined &&
-      route.variables.length === 0 &&
-      !REG_NON_LITERAL.test(path)
-    ) {
-      const key = path.toLowerCase();
-      let list = statics.get(key);
-      if (list === undefined) {
-        list = [];
-        statics.set(key, list);
+  // Deux passes : les routes ordinaires, puis les replis (`Route.fallback`),
+  // dont la position est décalée de la longueur de la table. Les deux listes
+  // restent ainsi triées par `pos` — ce que la fusion de `resolve` exige — et
+  // un repli ne passe jamais devant une route ordinaire, quel que soit l'ordre
+  // de déclaration des modules. Coût : un second parcours, au build seulement.
+  const total = routes.length;
+  for (let pass = 0; pass < 2; pass++) {
+    const fallbackPass = pass === 1;
+    for (const [rank, route] of routes.entries()) {
+      if (route.fallback !== fallbackPass) {
+        continue;
       }
-      // Une littérale est déjà trouvée par son chemin exact : son préfixe ne
-      // sert à rien, et le pré-filtre ne s'applique pas à elle.
-      list.push({ route, pos: i, prefix: "" });
-    } else {
-      dynamics.push({ route, pos: i, prefix: literalPrefix(path) });
+      const i = fallbackPass ? total + rank : rank;
+      indexRoute(route, i, statics, dynamics);
     }
   }
   return (routeIndex = {
@@ -155,6 +152,36 @@ function buildRouteIndex(): RouteIndex {
     first: routes[0],
     last: routes[routes.length - 1],
   });
+}
+
+/**
+ * Range une route dans l'index — littérale par son chemin exact, dynamique
+ * sinon — à la position `i` qui décide de son rang dans la fusion de `resolve`.
+ */
+function indexRoute(
+  route: Route,
+  i: number,
+  statics: Map<string, IndexedRoute[]>,
+  dynamics: IndexedRoute[],
+): void {
+  const path = route.path;
+  if (
+    path !== undefined &&
+    route.variables.length === 0 &&
+    !REG_NON_LITERAL.test(path)
+  ) {
+    const key = path.toLowerCase();
+    let list = statics.get(key);
+    if (list === undefined) {
+      list = [];
+      statics.set(key, list);
+    }
+    // Une littérale est déjà trouvée par son chemin exact : son préfixe ne
+    // sert à rien, et le pré-filtre ne s'applique pas à elle.
+    list.push({ route, pos: i, prefix: "" });
+  } else {
+    dynamics.push({ route, pos: i, prefix: literalPrefix(path) });
+  }
 }
 
 @injectable()

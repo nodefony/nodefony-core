@@ -332,6 +332,9 @@ function route(name: string, options: RouteOptions) {
       // P6 : une route déclarée publique (liveness, login…) court-circuite le
       // firewall. Défaut `false` côté `Route` → omis = comportement inchangé.
       bypassFirewall: options.bypassFirewall,
+      // Liste BLANCHE : une option de `RouteOptions` absente d'ici est jetée
+      // sans un mot entre le décorateur et la route (vécu : `fallback`).
+      fallback: options.fallback,
     };
     Reflect.defineMetadata(metadataKey, metadata, target.constructor); // Enregistrer les métadonnées mises à jour
     return descriptor;

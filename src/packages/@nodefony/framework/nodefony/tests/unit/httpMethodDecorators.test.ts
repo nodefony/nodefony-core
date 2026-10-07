@@ -174,6 +174,33 @@ describe("HTTP method decorators — route auto-naming", () => {
 
 // ─── @Options / @Head / @All (+ limites) ─────────────────────────────────────
 
+describe("HTTP method decorators — l'option `fallback` atteint la route", () => {
+  afterEach(() => {
+    while (Router.routes.length) Router.routes.pop();
+  });
+
+  // `route()` recopie les options dans une LISTE BLANCHE : une option absente
+  // y est jetée sans un mot. Vécu : `@Get("/{page}", { fallback: true })`
+  // compilait, et la route du Studio restait un repli ordinaire.
+  it("@Get(path, { fallback: true }) → Route.fallback vaut true", () => {
+    @controller("/nodefony")
+    class SpaCtrl extends StubCtrl {
+      @Get("/{page}", { fallback: true })
+      page() {
+        return null;
+      }
+      @Get("/home")
+      home() {
+        return null;
+      }
+    }
+    void SpaCtrl;
+    const byName = (n: string) => Router.routes.find((r) => r.name === n);
+    expect(byName("SpaCtrl::page")?.fallback).to.equal(true);
+    expect(byName("SpaCtrl::home")?.fallback).to.equal(false);
+  });
+});
+
 describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () => {
   afterEach(() => {
     while (Router.routes.length) Router.routes.pop();

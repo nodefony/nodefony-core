@@ -115,6 +115,9 @@ export function createFrameworkAdminApi(
     module: route.module?.name ?? null,
     host: route.host ?? null,
     bypassFirewall: route.bypassFirewall,
+    // Un repli se résout après toutes les autres routes : sa place dans
+    // cette liste (ordre de déclaration) n'est pas son rang de résolution.
+    fallback: route.fallback,
   });
 
   const descriptor: IAdminDescriptor = {

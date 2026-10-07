@@ -75,8 +75,15 @@ class StudioController extends Controller {
     return this.render(html);
   }
 
-  /** SPA fallback — toute route /nodefony/<page> retourne la même page React. */
-  @Get("/{page}")
+  /**
+   * SPA fallback — toute route /nodefony/<page> retourne la même page React.
+   *
+   * `fallback: true` : le Studio est chargé tôt ; sans ce drapeau, ce motif
+   * capturait le `GET /nodefony/<x>` de tout module chargé après lui (vécu :
+   * la porte MCP de devkit, dont le client se reconnectait chaque seconde).
+   * Vaut pour chaque repli de ce controller.
+   */
+  @Get("/{page}", { fallback: true })
   renderSpaFallback(): unknown {
     return this.renderStudio();
   }
@@ -92,7 +99,7 @@ class StudioController extends Controller {
    * (régression). On ne capture donc QUE le préfixe SPA connu. Toute nouvelle
    * page SPA à ≥2 segments → ajouter son fallback littéral ici.
    */
-  @Get("/modules/{name}")
+  @Get("/modules/{name}", { fallback: true })
   renderSpaFallbackDeep(): unknown {
     return this.renderStudio();
   }
@@ -103,7 +110,7 @@ class StudioController extends Controller {
    * segment littéral `cluster` (PAS de générique `/{section}/{page}` qui masquerait les
    * routes des autres modules sous `/nodefony/<x>/<y>`).
    */
-  @Get("/cluster/{pid}")
+  @Get("/cluster/{pid}", { fallback: true })
   renderSpaFallbackCluster(): unknown {
     return this.renderStudio();
   }
@@ -114,7 +121,7 @@ class StudioController extends Controller {
    * littéral `orm` (PAS de générique `/{section}/{page}` qui masquerait les routes
    * des autres modules sous `/nodefony/<x>/<y>`).
    */
-  @Get("/orm/{pid}")
+  @Get("/orm/{pid}", { fallback: true })
   renderSpaFallbackOrm(): unknown {
     return this.renderStudio();
   }
@@ -124,7 +131,7 @@ class StudioController extends Controller {
    * `logs/trace/:requestId` (ex `/nodefony/logs/trace/<uuid>`). Préfixe littéral
    * `logs/trace` (PAS de générique) — même règle que `modules/:name`.
    */
-  @Get("/logs/trace/{requestId}")
+  @Get("/logs/trace/{requestId}", { fallback: true })
   renderSpaFallbackTrace(): unknown {
     return this.renderStudio();
   }
@@ -134,7 +141,7 @@ class StudioController extends Controller {
    * utilisateur : `users/:id` (ex `/nodefony/users/<uuid>`). Préfixe littéral
    * `users` (PAS de générique) — même règle que `modules/:name`.
    */
-  @Get("/users/{id}")
+  @Get("/users/{id}", { fallback: true })
   renderSpaFallbackUser(): unknown {
     return this.renderStudio();
   }
@@ -144,7 +151,7 @@ class StudioController extends Controller {
    * d'un controller : `playground/:controller` (ex `/nodefony/playground/AppController`).
    * Préfixe littéral `playground` (PAS de générique) — même règle que `modules/:name`.
    */
-  @Get("/playground/{controller}")
+  @Get("/playground/{controller}", { fallback: true })
   renderSpaFallbackPlayground(): unknown {
     return this.renderStudio();
   }

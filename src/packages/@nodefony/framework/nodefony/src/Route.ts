@@ -197,6 +197,18 @@ export interface RouteOptions {
    * exception qui se justifie. Défaut `false`.
    */
   areaRoleExempt?: boolean;
+  /**
+   * Route de REPLI : elle ne sert un chemin que si aucune autre route ne le
+   * sert, quel que soit l'ordre de déclaration.
+   *
+   * Le routeur retient la première route déclarée qui correspond ; un repli à
+   * variable (`/nodefony/{page}`, la page d'une application monopage) déclaré
+   * tôt capturerait donc les routes de même forme des modules chargés après
+   * lui — sans erreur ni avertissement. Les replis sont rangés après toutes les
+   * autres routes, dans leur ordre relatif, à la construction de l'index :
+   * aucun coût par requête. Défaut `false`.
+   */
+  fallback?: boolean;
 }
 
 export interface RouteRequirements {
@@ -259,6 +271,8 @@ class Route implements IRoute {
    * pas son rôle par défaut. Cf {@link RouteOptions.areaRoleExempt}.
    */
   areaRoleExempt: boolean = false;
+  /** Route de repli, résolue après toutes les autres. Cf {@link RouteOptions.fallback}. */
+  fallback: boolean = false;
   /**
    * P2.9 — Cache mémoïsé : l'action attend-elle le **flux brut** du body
    * (`@Body({ stream:true })`) ? `undefined` = pas encore calculé (résolu au 1er
@@ -295,6 +309,7 @@ class Route implements IRoute {
       this.requirements = obj.requirements ?? {};
       this.bypassFirewall = obj.bypassFirewall ?? false;
       this.areaRoleExempt = obj.areaRoleExempt ?? false;
+      this.fallback = obj.fallback ?? false;
       this.compile();
     }
     this.generateId();
@@ -634,7 +649,9 @@ class Route implements IRoute {
       : this.areaRoleExempt
         ? "  (hors rôle de zone)"
         : "";
-    return `${method} ${this.path} → ${mod}${ctrl}.${action}${auth}`;
+    // Un repli ne se résout pas à sa place dans la liste : le dire.
+    const fallback = this.fallback ? "  (repli)" : "";
+    return `${method} ${this.path} → ${mod}${ctrl}.${action}${auth}${fallback}`;
   }
 
   toObject(): object {
@@ -649,6 +666,7 @@ class Route implements IRoute {
       variables: this.variables,
       bypassFirewall: this.bypassFirewall,
       areaRoleExempt: this.areaRoleExempt,
+      fallback: this.fallback,
     };
   }
   setDefaults(arg?: Record<string, unknown>) {

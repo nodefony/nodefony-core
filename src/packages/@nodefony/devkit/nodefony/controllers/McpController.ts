@@ -167,7 +167,9 @@ class McpController extends Controller {
    * inconnue (afin de la distinguer d'un serveur qui n'hébergerait pas
    * d'endpoint MCP du tout).
    */
-  @route("devkit-mcp", { path: "/mcp", method: "POST" })
+  // `requirements.methods`, pas l'option `method` : seule la première
+  // restreint le match — avec la seconde, cette route servait aussi `GET`.
+  @route("devkit-mcp", { path: "/mcp", requirements: { methods: ["POST"] } })
   async mcp(
     @Body() body: unknown,
     @Headers("origin") origin?: string,
@@ -431,6 +433,28 @@ class McpController extends Controller {
       return this.renderResponse("", undefined, reply.status);
     }
     return this.renderJson(reply.body, reply.status);
+  }
+
+  /**
+   * `GET` et `DELETE /nodefony/mcp` — refusés en `405`, avec `Allow: POST`.
+   *
+   * Un client d'une révision antérieure du transport ouvre un flux SSE en `GET`
+   * et clôt sa session en `DELETE` ; la révision `2026-07-28` a retiré les deux
+   * et demande ce `405` (transports, « Earlier Streamable HTTP Revisions »).
+   * Sans cette route, la requête tombait dans le repli SPA du Studio
+   * (`/nodefony/{page}`) : `200` + HTML, que le client prenait pour un flux
+   * rompu et rouvrait à chaque seconde, indéfiniment.
+   */
+  @route("devkit-mcp-unsupported", {
+    path: "/mcp",
+    requirements: { methods: ["GET", "DELETE"] },
+  })
+  unsupported() {
+    if (!this.#service().mcpSettings().enabled) {
+      // Même réponse que `POST` quand la porte est coupée : elle n'existe pas.
+      return this.renderJson({ error: "MCP désactivé" }, 404);
+    }
+    return this.renderResponse("", undefined, 405, { allow: "POST" });
   }
 }
 
