@@ -41,7 +41,7 @@
  * `schema()` reconnaît le type et route ; `organigramme()` et `sequence()`
  * s'appellent directement quand on sait ce qu'on a.
  */
-import { PALETTE, POLICE, THEMES } from "./echarts.mjs";
+import { PALETTE, POLICE, THEMES, bars, lines } from "./echarts.mjs";
 
 /* ────────────────────────── 1. Lire le Mermaid ─────────────────────────── */
 
@@ -151,7 +151,120 @@ export function lireMermaid(src) {
   }
   if (/^stateDiagram(-v2)?\b/.test(tete))
     return { type: "flux", dir: "TD", ...lireEtats(lignes.slice(1)) };
+  if (/^xychart(-beta)?\b/.test(tete))
+    return { type: "xy", ...lireXy(lignes.slice(1)) };
   return { type: "inconnu", src };
+}
+
+/** Une liste mermaid `[a, "b c", 3]` en éléments, guillemets retirés. */
+const elementsListe = (corps) =>
+  corps
+    .split(",")
+    .map((e) => e.trim().replace(/^"(.*)"$/, "$1"))
+    .filter((e) => e !== "");
+
+/**
+ * Diagramme `xychart-beta` — des COURBES et des BARRES, lues comme le fait
+ * mermaid 11 dans la console d'administration.
+ *
+ * C'est le type que le standard de rédaction prescrit pour « barres, lignes ».
+ * Sans cette lecture, le site publié le rendait en source brute : la même
+ * page montrait une courbe dans la console et un bloc de texte en ligne.
+ * La grammaire couverte est celle de mermaid : `title`, `x-axis` (liste de
+ * catégories ou intervalle `min --> max`), `y-axis` (libellé, intervalle),
+ * puis une ou plusieurs séries `line [...]` / `bar [...]`.
+ */
+function lireXy(lignes) {
+  const xy = {
+    titre: "",
+    axeX: { libelle: "", categories: null, min: null, max: null },
+    axeY: { libelle: "", min: null, max: null },
+    series: [],
+  };
+  const axe = (reste, cible) => {
+    const lib = /^"([^"]*)"\s*/.exec(reste);
+    if (lib) {
+      cible.libelle = lib[1];
+      reste = reste.slice(lib[0].length);
+    } else {
+      const nu = /^([^\s[]+)\s*(?=\[|$|-?\d)/.exec(reste);
+      if (nu && !/^-?\d/.test(nu[1])) {
+        cible.libelle = nu[1];
+        reste = reste.slice(nu[0].length);
+      }
+    }
+    const liste = /^\[(.*)\]\s*$/.exec(reste.trim());
+    if (liste && "categories" in cible)
+      cible.categories = elementsListe(liste[1]);
+    const intervalle = /(-?[\d.]+)\s*-->\s*(-?[\d.]+)/.exec(reste);
+    if (intervalle) {
+      cible.min = Number(intervalle[1]);
+      cible.max = Number(intervalle[2]);
+    }
+  };
+  for (const brute of lignes) {
+    const l = brute.trim();
+    if (!l || l.startsWith("%%")) continue;
+    let m;
+    if ((m = /^title\s+"?([^"]*)"?$/.exec(l))) xy.titre = m[1];
+    else if ((m = /^x-axis\s*(.*)$/.exec(l))) axe(m[1], xy.axeX);
+    else if ((m = /^y-axis\s*(.*)$/.exec(l))) axe(m[1], xy.axeY);
+    else if ((m = /^(line|bar)\s*(?:"[^"]*"\s*)?\[(.*)\]$/.exec(l)))
+      xy.series.push({ kind: m[1], valeurs: elementsListe(m[2]).map(Number) });
+  }
+  return xy;
+}
+
+/**
+ * Rend un `xychart-beta` par le moteur de graphes (ECharts, côté serveur).
+ *
+ * Les catégories de l'axe X viennent de la liste ; à défaut (intervalle
+ * numérique), elles se répartissent régulièrement sur l'intervalle. Les
+ * courbes ne sont PAS lissées : une valeur mesurée par palier (une cadence,
+ * un seuil) dessinée en courbe douce mentirait sur les instants de bascule.
+ */
+function graphiqueXy(xy, o) {
+  const n = Math.max(0, ...xy.series.map((s) => s.valeurs.length));
+  const cats =
+    xy.axeX.categories ??
+    Array.from({ length: n }, (_, i) =>
+      xy.axeX.min !== null && xy.axeX.max !== null && n > 1
+        ? String(
+            Math.round(
+              (xy.axeX.min + ((xy.axeX.max - xy.axeX.min) * i) / (n - 1)) * 100,
+            ) / 100,
+          )
+        : String(i + 1),
+    );
+  const nom = (i) =>
+    xy.series.length > 1 ? `série ${i + 1}` : xy.titre || "série";
+  const commun = {
+    titre: o.titre ?? xy.titre,
+    desc: o.desc ?? xy.titre,
+    theme: o.theme ?? "clair",
+    largeur: o.largeur ?? 640,
+  };
+  if (xy.series.length > 0 && xy.series.every((s) => s.kind === "bar"))
+    return bars({
+      ...commun,
+      axeValeur: xy.axeY.libelle,
+      series: xy.series.map((s, i) => ({
+        nom: nom(i),
+        data: s.valeurs.map((v, j) => [cats[j] ?? String(j + 1), v]),
+      })),
+    });
+  return lines({
+    ...commun,
+    axeX: xy.axeX.libelle,
+    axeY: xy.axeY.libelle,
+    lisse: false,
+    series: xy.series
+      .filter((s) => s.kind === "line")
+      .map((s, i) => ({
+        nom: nom(i),
+        points: s.valeurs.map((v, j) => [cats[j] ?? String(j + 1), v]),
+      })),
+  });
 }
 
 /**
@@ -838,6 +951,8 @@ export function schema(o) {
   const modele = lireMermaid(o.source);
   if (modele.type === "flux") return organigramme({ ...o, source: modele });
   if (modele.type === "sequence") return sequence({ ...o, source: modele });
+  if (modele.type === "xy" && modele.series.length > 0)
+    return graphiqueXy(modele, o);
   const T = THEMES[o.theme ?? "clair"];
   return (
     `<pre style="border:1px solid ${T.trait};border-radius:8px;padding:12px;` +

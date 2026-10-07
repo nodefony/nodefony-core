@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-04
+updated: 2026-10-07
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-html-report/SKILL.md"
 ---
@@ -28,9 +28,9 @@ source: ".claude/skills/nodefony-html-report/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Références et livrables |
-| Corps | 362 lignes |
-| Coût d'activation | ~5 479 tokens (le corps est chargé à l'invocation) |
-| Description | 1000 / 1024 caractères |
+| Corps | 367 lignes |
+| Coût d'activation | ~5 587 tokens (le corps est chargé à l'invocation) |
+| Description | 999 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 3 page(s), 13 fichiers au total |
 | Scripts | 9 |
@@ -38,7 +38,7 @@ source: ".claude/skills/nodefony-html-report/SKILL.md"
 
 ## Ce qu'il fait
 
-Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et `lib/echarts.mjs`, qui rend CÔTÉ SERVEUR en SVG statique — sans un octet de JavaScript servi, en thème clair ET sombre — barres avec étendue, courbes à deux axes alignés, nuages, boîtes à moustaches, Sankey, radars, cartes de chaleur, arbres pondérés, entonnoirs, cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine les organigrammes et diagrammes de séquence mermaid sans toucher à leur source.
+Fabrique des rapports HTML autonomes (zéro CDN) pour des humains qui doivent DÉCIDER — audits, bancs de performance, revues, dashboards figés. Deux moteurs de figures : `lib/report.mjs` (tableaux triables et filtrables, calculateurs interactifs, onglets, export CSV, impression PDF soignée) et `lib/echarts.mjs`, qui rend CÔTÉ SERVEUR en SVG statique — sans un octet de JavaScript servi, en thème clair ET sombre — barres avec étendue, courbes à deux axes alignés, nuages, boîtes à moustaches, Sankey, radars, cartes de chaleur, arbres pondérés, entonnoirs, cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine organigrammes, états, séquences et courbes mermaid sans toucher à leur source.
 
 ## Prérequis
 
@@ -123,14 +123,14 @@ node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1000 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 999 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 362 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 367 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

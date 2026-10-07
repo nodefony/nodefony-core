@@ -13,7 +13,7 @@
  * node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs
  * ```
  */
-import { lireMermaid } from "../lib/schemas.mjs";
+import { lireMermaid, schema } from "../lib/schemas.mjs";
 
 let rouges = 0;
 const cas = (nom, obtenu, attendu) => {
@@ -65,6 +65,42 @@ cas(
     (n) => n.texte.join(" "),
   ),
   ["Carte", "Calque"],
+);
+
+console.log(
+  "━━ les courbes xychart-beta (rendues en source brute avant d'être lues)",
+);
+const xy = lireMermaid(
+  'xychart-beta\n  title "Cadence"\n  x-axis "temps (s)" [0, 5, "10"]\n  y-axis "ms" 0 --> 5000\n  line [1000, 2000, 4000]',
+);
+cas("le type est reconnu", xy.type, "xy");
+cas("le titre est lu", xy.titre, "Cadence");
+cas("les catégories de l'axe X, guillemets retirés", xy.axeX.categories, [
+  "0",
+  "5",
+  "10",
+]);
+cas(
+  "l'intervalle de l'axe Y",
+  [xy.axeY.libelle, xy.axeY.min, xy.axeY.max],
+  ["ms", 0, 5000],
+);
+cas("la série est numérique", xy.series, [
+  { kind: "line", valeurs: [1000, 2000, 4000] },
+]);
+cas(
+  "des barres sont reconnues",
+  lireMermaid("xychart-beta\n  bar [3, 1]").series.map((x) => x.kind),
+  ["bar"],
+);
+const svg = schema({
+  source: 'xychart-beta\n  title "T"\n  line [1, 2, 3]',
+  theme: "sombre",
+});
+cas(
+  "le rendu est un SVG accessible, pas la source",
+  svg.startsWith('<svg role="img"'),
+  true,
 );
 
 console.log(

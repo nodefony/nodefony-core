@@ -7,8 +7,8 @@ description: >
   soignée) et `lib/echarts.mjs`, qui rend CÔTÉ SERVEUR en SVG statique — sans un octet de
   JavaScript servi, en thème clair ET sombre — barres avec étendue, courbes à deux axes alignés,
   nuages, boîtes à moustaches, Sankey, radars, cartes de chaleur, arbres pondérés, entonnoirs,
-  cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine les organigrammes et diagrammes
-  de séquence mermaid sans toucher à leur source. Déclencheurs : "rapport HTML", "rapport
+  cascades, jauges, graphes de relations. `lib/schemas.mjs` dessine organigrammes, états,
+  séquences et courbes mermaid sans toucher à leur source. Déclencheurs : "rapport HTML", "rapport
   imprimable", "dashboard statique", "restituer des mesures", "quel graphe choisir", "diagramme de
   Sankey", "boîtes à moustaches", "deux axes", "échelle d'un graphe", "rendre un schéma mermaid",
   "calculateur interactif", "deck de présentation", "export CSV".
@@ -238,8 +238,9 @@ résultat reste une figure plausible.
 
 ## Les schémas mermaid — `lib/schemas.mjs`
 
-Organigrammes et diagrammes de séquence, rendus à la charte **depuis leur source mermaid, qui ne
-bouge pas** : la console d'administration, les agents et l'affichage de GitHub continuent de la lire.
+Organigrammes, diagrammes d'états, de séquence et **courbes `xychart-beta`**, rendus à la charte
+**depuis leur source mermaid, qui ne bouge pas** : la console d'administration, les agents et
+l'affichage de GitHub continuent de la lire.
 
 ```js
 import { schema } from "./lib/schemas.mjs";
@@ -250,8 +251,12 @@ const svg = schema({
 });
 ```
 
-`schema()` reconnaît le type et route vers `organigramme()` ou `sequence()` ; un type non couvert
-rend la source encadrée plutôt qu'un dessin faux. Le placement en couches (`placerEnCouches`) est
+`schema()` reconnaît le type et route vers `organigramme()` (un `stateDiagram` est lu comme un
+flux), `sequence()`, ou les familles `lines()`/`bars()` d'ECharts pour un `xychart-beta` (courbes
+**non lissées** : une valeur par palier dessinée en courbe douce mentirait sur l'instant de bascule).
+Un type non couvert rend la source encadrée plutôt qu'un dessin faux. Les séries d'un `xychart` ne
+portent pas de nom en mermaid 11 : une figure à **une** série se lit seule, une figure à plusieurs
+séries doit être expliquée par sa légende en prose. Le placement en couches (`placerEnCouches`) est
 calculé ici — rang par plus long chemin, croisements réduits au barycentre — et le tracé aussi : le
 type `graph` d'ECharts relie les CENTRES des nœuds et fait pivoter les étiquettes le long du trait,
 ce qui est juste pour un réseau et faux pour un organigramme.
