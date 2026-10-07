@@ -74,6 +74,12 @@ export interface NavItem {
    */
   wip?: boolean;
   /**
+   * Page `wip` qui porte déjà un APERÇU interactif — données simulées, dans la
+   * forme visée. Elle reste hors du menu (ce n'est pas une capacité livrée) ;
+   * la Feuille de route la marque « aperçu », pour qu'on sache qu'elle se visite.
+   */
+  preview?: boolean;
+  /**
    * Page dont le BACK n'existe qu'en développement → masquée en production
    * (sinon l'entrée mène à un écran mort : l'API n'est pas montée).
    *
@@ -302,11 +308,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     // Phase 12 — construire & utiliser des agents IA métier (8 modules IA).
     //
-    // Le groupe ENTIER est à venir, Chat compris : sa console répond, mais son
-    // magasin SIMULE la réponse jeton par jeton (`ChatStore.mockStream`) — le
-    // pipeline réel arrive en P12. Une page qui affiche une conversation
-    // fabriquée n'est pas une page livrée ; la laisser dans le menu sans marque
-    // la faisait passer pour une capacité du produit.
+    // Le groupe ENTIER est à venir, Chat compris. Chaque écran porte un APERÇU
+    // (`routes/ai/`, données simulées dans la forme des contrats esquissés) : ce
+    // n'est pas une capacité livrée, donc pas dans le menu — mais la Feuille de
+    // route le marque « aperçu », et il se visite.
     // Réservé aux développeurs (et admin) — surface de construction.
     id: "ai-studio",
     label: "IA — Atelier",
@@ -318,33 +323,50 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Chat",
         icon: IconMessageChatbot,
         wip: true,
+        preview: true,
       },
-      { to: "/nodefony/agents", label: "Agents", icon: IconRobot, wip: true },
+      {
+        to: "/nodefony/agents",
+        label: "Agents",
+        icon: IconRobot,
+        wip: true,
+        preview: true,
+      },
       {
         to: "/nodefony/knowledge",
         label: "Connaissances (RAG)",
         icon: IconBooks,
         wip: true,
+        preview: true,
       },
       {
         to: "/nodefony/llm",
         label: "Fournisseurs LLM",
         icon: IconBrain,
         wip: true,
+        preview: true,
       },
       {
         to: "/nodefony/vector",
         label: "Bases vectorielles",
         icon: IconVector,
         wip: true,
+        preview: true,
       },
       {
         to: "/nodefony/memory",
         label: "Mémoire",
         icon: IconArchive,
         wip: true,
+        preview: true,
       },
-      { to: "/nodefony/mcp", label: "MCP", icon: IconPlug, wip: true },
+      {
+        to: "/nodefony/mcp",
+        label: "MCP",
+        icon: IconPlug,
+        wip: true,
+        preview: true,
+      },
     ],
   },
   {

@@ -139,10 +139,16 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
   `.d.ts` généré. Studio est une **application** admin embarquée, jamais consommée comme lib typée ;
   son `exports` est import-only (+ `./package.json`). Ne pas « réparer » ce trou en ajoutant des
   déclarations : il n'y a pas de surface d'API à publier.
-- Stubs restants — inventaire exact dans `frontend/src/routes/stubs.tsx` : couche IA (Agents,
-  Knowledge, LlmProviders, VectorStores, AgentMemory, Mcp, AgentGuard, Approvals, AiAudit, AiCosts,
-  Insights) + Services, Npm, Migrate, Settings. Toute page **absente de ce fichier** est réelle
-  (Sessions, Users, Firewall, Audit, ApiKeys, Webhooks, Profile, Modules, Routes, Database…).
+- Stubs restants — inventaire exact dans `frontend/src/routes/stubs.tsx` : gouvernance IA
+  (AgentGuard, Approvals, AiAudit, AiCosts, Insights) + Services, Npm, Settings.
+- **Aperçus IA — Atelier** (`frontend/src/routes/ai/`) : Agents, Connaissances, Fournisseurs LLM,
+  Bases vectorielles, Mémoire, MCP + le Chat — données **simulées** (`aiPreviewModel.ts`, types
+  miroirs des contrats esquissés `@nodefony/{llm,vector,rag,memory,agent}` + chiffres du livre
+  blanc), bandeau « Aperçu » obligatoire, **zéro requête serveur**. Entrées `wip` + `preview` :
+  hors menu, marquées « aperçu » sur la Feuille de route. Le vrai flux remplacera le modèle
+  sans redessiner l'écran.
+- Toute page **absente de `stubs.tsx` et de `routes/ai/`** est réelle (Sessions, Users,
+  Firewall, Audit, ApiKeys, Webhooks, Profile, Modules, Routes, Database…).
 
 ### Backlog UX page Logs (`frontend/src/routes/Logs.tsx`)
 

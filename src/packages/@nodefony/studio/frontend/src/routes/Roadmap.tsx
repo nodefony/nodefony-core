@@ -1,4 +1,12 @@
-import { Card, Group, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
+import {
+  Badge,
+  Card,
+  Group,
+  SimpleGrid,
+  Stack,
+  Text,
+  ThemeIcon,
+} from "@mantine/core";
 import { Link } from "react-router";
 import { PageHeader } from "../components/ui";
 import { NAV_GROUPS } from "../layouts/navConfig";
@@ -28,12 +36,16 @@ export function Roadmap() {
   })).filter((g) => g.items.length > 0);
 
   const total = groups.reduce((n, g) => n + g.items.length, 0);
+  const previews = groups.reduce(
+    (n, g) => n + g.items.filter((i) => i.preview).length,
+    0,
+  );
 
   return (
     <Stack gap="md">
       <PageHeader
         title="Feuille de route"
-        subtitle={`${total} écrans en préparation, dans ${groups.length} domaines`}
+        subtitle={`${total} écrans en préparation, dans ${groups.length} domaines — ${previews} déjà visitables en aperçu`}
       />
 
       <Group gap={6}>
@@ -91,6 +103,16 @@ export function Roadmap() {
                       <Text size="sm" fw={600}>
                         {item.label}
                       </Text>
+                      {item.preview && (
+                        <Badge
+                          variant="light"
+                          color="violet"
+                          size="xs"
+                          ml="auto"
+                        >
+                          aperçu
+                        </Badge>
+                      )}
                     </Group>
                   </Card>
                 );

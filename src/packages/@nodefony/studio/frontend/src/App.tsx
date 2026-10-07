@@ -129,17 +129,42 @@ const UserProfile = lazy(() =>
 const Webhooks = lazy(() =>
   import("./routes/Webhooks").then((m) => ({ default: m.Webhooks })),
 );
+// IA — Atelier : écrans SIMULÉS de la couche IA (aperçu, données inventées).
+const LlmProvidersPreview = lazy(() =>
+  import("./routes/ai/LlmProvidersPreview").then((m) => ({
+    default: m.LlmProvidersPreview,
+  })),
+);
+const KnowledgePreview = lazy(() =>
+  import("./routes/ai/KnowledgePreview").then((m) => ({
+    default: m.KnowledgePreview,
+  })),
+);
+const MemoryPreview = lazy(() =>
+  import("./routes/ai/MemoryPreview").then((m) => ({
+    default: m.MemoryPreview,
+  })),
+);
+const AgentsPreview = lazy(() =>
+  import("./routes/ai/AgentsPreview").then((m) => ({
+    default: m.AgentsPreview,
+  })),
+);
+const McpPreview = lazy(() =>
+  import("./routes/ai/McpPreview").then((m) => ({
+    default: m.McpPreview,
+  })),
+);
+const VectorStoresPreview = lazy(() =>
+  import("./routes/ai/VectorStoresPreview").then((m) => ({
+    default: m.VectorStoresPreview,
+  })),
+);
 
 import {
   Services,
   Npm,
   Settings,
-  Agents,
-  Knowledge,
-  LlmProviders,
-  VectorStores,
-  AgentMemory,
-  Mcp,
   AgentGuard,
   Approvals,
   AiAudit,
@@ -219,12 +244,12 @@ const router = createBrowserRouter([
             element: <RoleGuardOutlet roles={VIEW_ROLES.dev} />,
             children: [
               { path: "chat", element: <Chat /> },
-              { path: "agents", element: <Agents /> },
-              { path: "knowledge", element: <Knowledge /> },
-              { path: "llm", element: <LlmProviders /> },
-              { path: "vector", element: <VectorStores /> },
-              { path: "memory", element: <AgentMemory /> },
-              { path: "mcp", element: <Mcp /> },
+              { path: "agents", element: <AgentsPreview /> },
+              { path: "knowledge", element: <KnowledgePreview /> },
+              { path: "llm", element: <LlmProvidersPreview /> },
+              { path: "vector", element: <VectorStoresPreview /> },
+              { path: "memory", element: <MemoryPreview /> },
+              { path: "mcp", element: <McpPreview /> },
               { path: "orm", element: <OrmOverview /> },
               { path: "orm/:pid", element: <OrmWorker /> },
               { path: "databases", element: <Database /> },

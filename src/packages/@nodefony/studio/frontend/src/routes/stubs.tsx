@@ -28,54 +28,6 @@ export const Settings = () => (
 
 // ─── Couche IA agentic (Phase 12 — le différenciateur serveur + IA + gouvernance) ───
 
-export const Agents = () => (
-  <StubPage
-    title="Agents"
-    description="Orchestrateur + sous-agents (@Agent/@Tool), streaming AsyncGenerator, abort. Module @nodefony/agent."
-    phase="P12.2 + P12.5"
-  />
-);
-
-export const Knowledge = () => (
-  <StubPage
-    title="Knowledge (RAG)"
-    description="Pipeline RAG + citation des sources (traçabilité AI Act). Module @nodefony/rag."
-    phase="P12.1.4 + P12.5"
-  />
-);
-
-export const LlmProviders = () => (
-  <StubPage
-    title="LLM Providers"
-    description="ILLMProvider + adapters (OpenAI, Mistral EU, Groq, Ollama souverain). Mode air-gap. Module @nodefony/llm."
-    phase="P12.1.1 + P12.5"
-  />
-);
-
-export const VectorStores = () => (
-  <StubPage
-    title="Vector Stores"
-    description="Adapters pgvector / Qdrant / Chroma via orm-core+Drizzle. Module @nodefony/vector."
-    phase="P12.1.3 + P12.5"
-  />
-);
-
-export const AgentMemory = () => (
-  <StubPage
-    title="Memory"
-    description="Mémoire des agents — court / long / épisodique, storée via orm-core. Module @nodefony/memory."
-    phase="P12.1.5 + P12.5"
-  />
-);
-
-export const Mcp = () => (
-  <StubPage
-    title="MCP"
-    description="Model Context Protocol — server + client JSON-RPC 2.0 (standard Anthropic). Module @nodefony/mcp."
-    phase="P12.3 + P12.5"
-  />
-);
-
 export const AgentGuard = () => (
   <StubPage
     title="Agent Guard"

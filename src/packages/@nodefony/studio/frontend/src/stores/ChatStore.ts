@@ -1,15 +1,26 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { RealtimeClient } from "nodefony";
+import {
+  AGENTS,
+  planChatReply,
+  type IChatCitation,
+  type IChatStep,
+  type IPreviewAgent,
+} from "../routes/ai/aiPreviewModel";
 
 /**
- * ChatStore — prépare l'UI du chat IA temps réel.
+ * ChatStore — l'UI du chat IA temps réel, sur une réponse SIMULÉE.
  *
- * Pipeline cible (P12 — couche IA agentic), motif « travail + canal » :
- *  - user envoie un message → une action accuse réception
- *  - les jetons du modèle arrivent sur un canal abonné → `currentResponse`
- *  - à la fin → flush dans `messages` + clear `currentResponse`
+ * Pipeline cible (couche IA), motif « travail + canal » :
+ *  - l'utilisateur envoie un message → une action accuse réception ;
+ *  - les événements de l'agent (réflexion, appels d'outils, jetons) arrivent
+ *    sur un canal abonné ;
+ *  - à la fin → le message rejoint `messages`, avec ses citations et son usage.
  *
- * Pour le POC, on garde la structure de données + un mock "echo" local.
+ * Aujourd'hui, l'agent est simulé (`planChatReply`) : il interroge VRAIMENT un
+ * petit corpus, puis répond en citant ce qu'il a trouvé. Le rythme et la forme
+ * sont ceux du flux visé, pour que le vrai canal se branche sans redessiner
+ * l'écran.
  */
 
 export interface ChatMessage {
@@ -18,60 +29,119 @@ export interface ChatMessage {
   content: string;
   ts: number;
   streaming?: boolean;
+  /** Ce que l'agent a fait avant de répondre : réflexion, outils, résultats. */
+  steps?: IChatStep[];
+  citations?: IChatCitation[];
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    costEur: number;
+    model: string;
+  };
+  /** Réponse interrompue par l'utilisateur avant la fin. */
+  aborted?: boolean;
+  /** L'agent qui a répondu — la conversation peut en changer en cours de route. */
+  agent?: string;
 }
+
+/** Délai entre deux étapes visibles, puis entre deux mots de la réponse. */
+const STEP_MS = 450;
+const WORD_MS = 28;
 
 export class ChatStore {
   messages: ChatMessage[] = [];
   /** Buffer en cours de streaming pour le message assistant courant. */
   currentResponse = "";
+  /** Étapes déjà reçues pour la réponse en cours. */
+  currentSteps: IChatStep[] = [];
   isStreaming = false;
   error: string | null = null;
+  /** L'agent interrogé : il porte le modèle, les collections, les outils et la zone. */
+  agentName: string = (AGENTS[0] as IPreviewAgent).name;
+  /** Levé par `abort()` : la boucle de flux s'arrête au prochain mot. */
+  private abortRequested = false;
 
   constructor(private readonly client: RealtimeClient) {
-    makeAutoObservable(this);
+    makeAutoObservable<ChatStore, "client" | "abortRequested">(this, {
+      client: false,
+      abortRequested: false,
+    });
   }
 
   clear(): void {
+    if (this.isStreaming) return;
     this.messages = [];
     this.currentResponse = "";
+    this.currentSteps = [];
     this.error = null;
   }
 
-  /**
-   * Envoie un message + reçoit la réponse jeton par jeton.
-   * POC : mock local — le pipeline réel arrive en P12.
-   */
+  get agent(): IPreviewAgent {
+    return (
+      AGENTS.find((a) => a.name === this.agentName) ??
+      (AGENTS[0] as IPreviewAgent)
+    );
+  }
+
+  setAgent(name: string): void {
+    if (!this.isStreaming) this.agentName = name;
+  }
+
+  /** Interrompt la réponse en cours ; ce qui a déjà été reçu est conservé. */
+  abort(): void {
+    if (this.isStreaming) this.abortRequested = true;
+  }
+
+  /** Envoie un message, puis reçoit la réponse de l'agent étape par étape. */
   async send(content: string): Promise<void> {
     if (!content.trim() || this.isStreaming) return;
 
-    const userMsg: ChatMessage = {
-      id: `u-${Date.now()}`,
-      role: "user",
-      content,
-      ts: Date.now(),
-    };
     runInAction(() => {
-      this.messages.push(userMsg);
+      this.messages.push({
+        id: `u-${Date.now()}`,
+        role: "user",
+        content,
+        ts: Date.now(),
+      });
       this.isStreaming = true;
       this.currentResponse = "";
+      this.currentSteps = [];
       this.error = null;
+      this.abortRequested = false;
     });
 
     try {
-      // Mock local — simule une réponse jeton par jeton. Le pipeline réel (P12)
-      // passera par le motif « travail + canal » : l'action accuse réception,
-      // les jetons arrivent sur un canal abonné (le protocole n'a pas de
-      // streaming RPC — une action rend UNE valeur).
-      await this.mockStream(content);
+      const agent = this.agent;
+      const plan = planChatReply(content, agent);
+      for (const step of plan.steps) {
+        if (this.abortRequested) break;
+        await sleep(STEP_MS);
+        runInAction(() => this.currentSteps.push(step));
+      }
+      const words = plan.answer.split(" ");
+      for (let i = 0; i < words.length && !this.abortRequested; i++) {
+        await sleep(WORD_MS);
+        runInAction(() => {
+          this.currentResponse += (i === 0 ? "" : " ") + words[i];
+        });
+      }
       runInAction(() => {
+        const aborted = this.abortRequested;
         this.messages.push({
           id: `a-${Date.now()}`,
           role: "assistant",
           content: this.currentResponse,
           ts: Date.now(),
+          steps: [...this.currentSteps],
+          agent: agent.name,
+          ...(aborted
+            ? { aborted: true }
+            : { citations: plan.citations, usage: plan.usage }),
         });
         this.currentResponse = "";
+        this.currentSteps = [];
         this.isStreaming = false;
+        this.abortRequested = false;
       });
     } catch (e) {
       runInAction(() => {
@@ -80,12 +150,8 @@ export class ChatStore {
       });
     }
   }
+}
 
-  private async mockStream(input: string): Promise<void> {
-    const echo = `[mock] Reçu "${input}". Le pipeline @nodefony/agent (P12) répondra ici en streaming via RealtimeClient + JSON-RPC 2.0.`;
-    for (const ch of echo.split("")) {
-      await new Promise((r) => setTimeout(r, 15));
-      runInAction(() => (this.currentResponse += ch));
-    }
-  }
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
