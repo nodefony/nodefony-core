@@ -113,6 +113,13 @@ cas("les séries sont nommées par le commentaire", dirige.noms, [
   "pic passager",
 ]);
 cas(
+  "la taille déclarée par la directive est lue",
+  lireMermaid(
+    '%%{init: {"xyChart": {"width": 800, "height": 260}}}%%\nxychart-beta\n  line [1, 2]',
+  ).taille,
+  { largeur: 800, hauteur: 260 },
+);
+cas(
   "un commentaire dans un flux est ignoré",
   lireMermaid("flowchart LR\n  %% note\n  A --> B").aretes.length,
   1,

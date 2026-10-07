@@ -162,8 +162,30 @@ export function lireMermaid(src) {
     return {
       type: "xy",
       ...lireXy(toutes.slice(toutes.findIndex((l) => l.trim() === tete) + 1)),
+      taille: tailleDirective(toutes),
     };
   return { type: "inconnu", src };
+}
+
+/**
+ * La taille qu'une directive `%%{init: {"xyChart": {"width": …, "height": …}}}%%`
+ * impose au graphique. Mermaid la lit dans la console ; le site la lit ici :
+ * UNE déclaration règle les deux rendus, au lieu de deux figures de tailles
+ * différentes pour la même page.
+ */
+function tailleDirective(lignes) {
+  for (const l of lignes) {
+    const m = /^%%\{\s*init:\s*(\{[\s\S]*\})\s*\}%%$/.exec(l.trim());
+    if (!m) continue;
+    try {
+      const xy = JSON.parse(m[1])?.xyChart;
+      if (xy && (Number.isFinite(xy.width) || Number.isFinite(xy.height)))
+        return { largeur: xy.width ?? null, hauteur: xy.height ?? null };
+    } catch {
+      // Directive illisible : mermaid l'ignore, le site aussi.
+    }
+  }
+  return null;
 }
 
 /** Une liste mermaid `[a, "b c", 3]` en éléments, guillemets retirés. */
@@ -264,7 +286,8 @@ function graphiqueXy(xy, o) {
     titre: o.titre ?? xy.titre,
     desc: o.desc ?? xy.titre,
     theme: o.theme ?? "clair",
-    largeur: o.largeur ?? 640,
+    largeur: o.largeur ?? xy.taille?.largeur ?? 640,
+    ...(xy.taille?.hauteur ? { hauteur: xy.taille.hauteur } : {}),
   };
   if (xy.series.length > 0 && xy.series.every((s) => s.kind === "bar"))
     return bars({

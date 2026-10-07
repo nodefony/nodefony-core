@@ -356,7 +356,7 @@ Le scénario : cadence désirée 1 s ; **de 20 s à 70 s**, le client met 4,5 s 
 [Tests](#-tests)).
 
 ```mermaid
-%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
+%%{init: {"xyChart": {"width": 800, "height": 260}, "themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
 xychart-beta
   title "Cadence AIMD — dégradation de 20 s à 70 s"
   x-axis "temps (s)" 0 --> 125
@@ -438,7 +438,7 @@ fermeture à un solde de 1000. Les valeurs sont calculées par `decideSend()` lu
 durée :
 
 ```mermaid
-%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
+%%{init: {"xyChart": {"width": 800, "height": 260}, "themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
 xychart-beta
   title "File d'envoi d'un client qui ne suit plus (seuil 4 Mio)"
   x-axis "temps (s)" [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
@@ -456,7 +456,7 @@ xychart-beta
   donc très vite : à 12 s il est revenu à 0. Aucune fermeture.
 
 ```mermaid
-%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
+%%{init: {"xyChart": {"width": 800, "height": 260}, "themeVariables": {"xyChart": {"plotColorPalette": "#0072B2, #D55E00"}}}}%%
 xychart-beta
   title "Solde de refus — client mort (bleu) et pic passager (orange)"
   x-axis "temps (s)" [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
