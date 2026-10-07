@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T21:45:34.373Z",
+  "generatedAt": "2026-10-07T21:58:48.898Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 86,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 47,
+      "open": 49,
       "title": "10.0.0-beta"
     },
     {
@@ -2367,6 +2367,38 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.62,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 562,
+      "title": "fix(http): ne plus annoncer de type sur une réponse sans corps",
+      "url": "https://github.com/nodefony/nodefony-core/issues/562",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 3.63,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 563,
+      "title": "feat(security): poser un jeton d'agent valable 8 h par défaut",
+      "url": "https://github.com/nodefony/nodefony-core/issues/563",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 3.64,
       "debut": null,
       "cible": null,
       "labels": [
