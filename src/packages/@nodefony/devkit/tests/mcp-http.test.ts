@@ -137,9 +137,7 @@ function posterTexte(
  * de la ressource — exactement ce que fait un client MCP d'une révision
  * antérieure qui tente d'ouvrir son flux SSE.
  */
-function frapper(
-  methode: string,
-): Promise<{
+function frapper(methode: string): Promise<{
   status: number;
   allow: string | undefined;
   type: string;
