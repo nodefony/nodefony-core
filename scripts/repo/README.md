@@ -56,3 +56,22 @@ Arborescence de `tmp/` — catégories créées, README régénéré, égarés s
 
 - **Lancé par** : `node.js.yml` · `npm run test:tooling`
 - **Utilise** : `repo/tmp-layout.mjs`
+
+## [`turbo.mjs`](turbo.mjs)
+
+Lance turbo pour les scripts du dépôt — et, sous `CI`, lui reprend la main quand il a fini son travail mais ne se termine pas.
+
+- **Usage** : `node scripts/repo/turbo.mjs run build [options turbo…]`
+- **Appelé par** : `npm run build` · `npm run build:force` · `npm run build:packages` · `npm run clean` · `npm run test` · `npm run test:boot` · `npm run test:cluster` · `npm run test:integration` · `npm run test:load` · `npm run test:memory` · `npm run typecheck`
+- **Testé par** : `repo/turbo.test.mjs`
+
+## [`turbo.test.mjs`](turbo.test.mjs)
+
+Le lanceur turbo rend la main quand turbo a affiché son bilan mais ne se termine pas (#479) — avec le code que le bilan annonce — et ne tue jamais un turbo qui n'a pas encore fini.
+
+- **Variable** `GREEN`
+- **Variable** `HANG`
+- **Variable** `LOG`
+- **Variable** `RED`
+- **Lancé par** : `npm run test:tooling`
+- **Utilise** : `repo/turbo.mjs`
