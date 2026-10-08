@@ -174,7 +174,7 @@ function posterFlux(
         const fin = () =>
           resoudre({
             status: res.statusCode ?? 0,
-            contentType: String(res.headers["content-type"] ?? ""),
+            contentType: res.headers["content-type"] ?? "",
             events,
             raw,
           });

@@ -875,5 +875,14 @@
       "src/packages/@nodefony/security/tests/support/webhookPaginationContract.ts",
       "src/packages/@nodefony/drizzle/tests/integration/webhook-store-contract.ts"
     ]
+  },
+  "mcp": {
+    "globs": [
+      "src/nodefony/src/tests/mcp.test.ts",
+      "src/nodefony/src/tests/mcpProgress.test.ts",
+      "src/nodefony/src/tests/mcpStream.test.ts",
+      "src/nodefony/src/tests/mcpAdminPlane.attack.test.ts",
+      "src/packages/@nodefony/devkit/tests/mcp-http.test.ts"
+    ]
   }
 }
