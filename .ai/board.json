@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T09:06:35.639Z",
+  "generatedAt": "2026-10-08T10:21:44.222Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 87,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 50,
+      "open": 51,
       "title": "10.0.0-beta"
     },
     {
@@ -2330,7 +2330,7 @@
       "title": "feat(http): servir un flux SSE et son client NodefonySse",
       "url": "https://github.com/nodefony/nodefony-core/issues/559",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -2611,6 +2611,22 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.003,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 566,
+      "title": "fix(orm): écrire la première migration d'une application neuve",
+      "url": "https://github.com/nodefony/nodefony-core/issues/566",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.004,
       "debut": null,
       "cible": null,
       "labels": [
