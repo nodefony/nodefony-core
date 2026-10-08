@@ -70,7 +70,7 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   Annulation = `context.signal` (abattu par le noyau à la fermeture sans `end()`).
   Règle de progression (jeton, croissance, cadence 100 ms, muet après fin) = cœur
   `mcp/progress.ts`. `subscriptions/listen` → 404/-32601 explicite (cœur
-  `server.ts`). Journal `notifications/message` NON servi (déprécié 2026-07-28).
+  `server.ts`). Journal `notifications/message` NON servi (déprécié par la révision courante de la norme, `MCP_PROTOCOL_VERSION`).
   Banc : outils `test_progress`/`test_progress_last` du module `test`.
 
 ## Gotchas
