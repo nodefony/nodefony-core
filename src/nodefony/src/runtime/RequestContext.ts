@@ -32,8 +32,12 @@ export interface IProfilerQuery {
  * accessible from any downstream service (logs, ORM, security decorators)
  * without manually threading the context.
  *
- * Open shape — modules add their own keys (security adds `user`, audit
- * adds `traceparent`, etc.). Keep keys flat and primitive when possible.
+ * Forme FERMÉE : chaque clé est déclarée ici, et {@link RequestContext.release}
+ * vide celles qui portent une identité ou une donnée de la requête quand
+ * l'unité de travail se termine. Une clé ajoutée ici s'ajoute aussi à
+ * `release()` — `requestContextRelease.test.ts` l'exige. Un module qui
+ * augmente ce type depuis son propre code (`declare module`) porte la même
+ * obligation : sa clé n'est pas vidée d'office.
  */
 export interface RequestContextPayload {
   requestId: string;
@@ -124,7 +128,12 @@ export interface RequestContextPayload {
    * connexion WebSocket est partagé par ses messages concurrents.
    */
   resolver?: unknown;
-  [key: string]: unknown;
+  /**
+   * Jeton d'authentification posé par le pare-feu après `afterAuth` (rôles,
+   * périmètres, attributs). Typé `unknown` : le cœur ne connaît pas
+   * `@nodefony/security`. Vidé en fin d'unité de travail.
+   */
+  token?: unknown;
 }
 
 /**

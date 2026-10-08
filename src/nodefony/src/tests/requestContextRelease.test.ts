@@ -34,17 +34,16 @@ describe("RequestContext.release() — le magasin d'une unité de travail finie 
     expect(keys).to.include.members(["requestId", "user", "userId", "scope"]);
   });
 
-  it("vide chaque clé déclarée hors corrélation et scope, plus le jeton du pare-feu", () => {
-    const toClear = [
-      ...declaredKeys().filter((k) => !KEPT.has(k)),
-      // Posé par le pare-feu par la signature d'index ouverte, pas déclaré.
-      "token",
-    ];
+  it("vide chaque clé déclarée hors corrélation et scope, jeton du pare-feu compris", () => {
+    const toClear = declaredKeys().filter((k) => !KEPT.has(k));
+    expect(toClear).to.include("token");
     const store: RequestContextPayload = { requestId: "rid" };
-    for (const key of toClear) store[key] = { value: key };
+    for (const key of toClear) Reflect.set(store, key, { value: key });
     RequestContext.release(store);
     for (const key of toClear) {
-      expect(store[key], `clé « ${key} » non vidée`).to.equal(undefined);
+      expect(Reflect.get(store, key), `clé « ${key} » non vidée`).to.equal(
+        undefined,
+      );
     }
   });
 

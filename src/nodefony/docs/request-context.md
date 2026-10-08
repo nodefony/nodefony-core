@@ -118,14 +118,15 @@ exactement où la bulle existe, et où elle n'existe plus.
 par processus (`RequestContext.ts:191`). Quatre décisions de conception en découlent.
 
 - **Allocation paresseuse.** L'instance n'est créée qu'au **premier** `run()` — le getter privé
-  `RequestContext.als` (`RequestContext.ts:181`). Importer la classe sans jamais ouvrir de bulle
+  `RequestContext.als` (`RequestContext.ts:190`). Importer la classe sans jamais ouvrir de bulle
   (bundle client, script CLI, test unitaire) ne coûte rien.
 - **Lecture à sortie rapide.** `RequestContext.get()` (`RequestContext.ts:204`) rend `undefined`
   **sans toucher à l'ALS** quand aucune bulle n'a jamais été ouverte. Le cas « pas de requête » est
   gratuit.
-- **Forme ouverte.** `RequestContextPayload` (`RequestContext.ts:37`) déclare les clés connues puis
-  laisse une signature d'index : un module ajoute les siennes sans modifier le cœur. C'est ainsi que
-  le module de sécurité y dépose son jeton complet, sans que le cœur connaisse son type.
+- **Forme fermée.** `RequestContextPayload` (`RequestContext.ts:37`) déclare **chacune** de ses
+  clés — le jeton du module de sécurité compris, typé `unknown` pour que le cœur ne dépende pas de
+  son type. Une faute de frappe sur une clé ne compile pas, et toute clé nouvelle passe par une
+  déclaration, donc par le vidage de fin de requête (`release()`) et le test qui l'exige.
 - **Un seul mécanisme pour HTTP et WebSocket.** La même bulle est ouverte des deux côtés — c'est ce
   qui permet à un décorateur de sécurité ou à un adapter ORM d'être écrit **une fois** et de marcher
   sur les deux transports.
@@ -263,15 +264,15 @@ graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 | ------------------ | ----------------------- | ---------------------------------------------------- | ----------- |
 | `run(payload, fn)` | `RequestContext.ts:185` | ouvre une bulle et **renvoie ce que renvoie `fn`**   | —           |
 | `get()`            | `RequestContext.ts:204` | le payload entier (objet **mutable**, par référence) | `undefined` |
-| `getRequestId()`   | `RequestContext.ts:198` | l'identifiant de corrélation                         | `undefined` |
-| `getUser()`        | `RequestContext.ts:203` | l'utilisateur authentifié, typé `unknown`            | `undefined` |
-| `getUserId()`      | `RequestContext.ts:220` | son identifiant sous forme de chaîne                 | `undefined` |
+| `getRequestId()`   | `RequestContext.ts:207` | l'identifiant de corrélation                         | `undefined` |
+| `getUser()`        | `RequestContext.ts:212` | l'utilisateur authentifié, typé `unknown`            | `undefined` |
+| `getUserId()`      | `RequestContext.ts:229` | son identifiant sous forme de chaîne                 | `undefined` |
 | `getContext<T>()`  | `RequestContext.ts:215` | le contexte transport HTTP/WS, générique             | `undefined` |
 | `getScope()`       | `RequestContext.ts:247` | le scope DI de la requête, s'il est encore ouvert    | `undefined` |
 | `requireScope()`   | `RequestContext.ts:261` | le même scope, ou une erreur qui nomme la cause      | **lève**    |
-| `set(clé, valeur)` | `RequestContext.ts:312` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |
+| `set(clé, valeur)` | `RequestContext.ts:320` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |
 | `isProfiling()`    | `RequestContext.ts:327` | `true` si un buffer de profilage est actif           | `false`     |
-| `pushQuery(query)` | `RequestContext.ts:337` | ajoute une requête mesurée au buffer                 | **no-op**   |
+| `pushQuery(query)` | `RequestContext.ts:345` | ajoute une requête mesurée au buffer                 | **no-op**   |
 | `release(store)`   | `RequestContext.ts:292` | vide un store dont l'unité de travail est finie      | —           |
 
 > [!IMPORTANT]
@@ -279,10 +280,10 @@ graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 > requête et en script), mais ça veut dire qu'une écriture peut se perdre en silence. Si l'écriture
 > est critique, teste `RequestContext.get()` d'abord.
 
-### Le payload — une forme ouverte
+### Le payload — une forme fermée
 
-`RequestContextPayload` (`RequestContext.ts:37`) déclare les clés que le cœur connaît, puis autorise
-les autres par une signature d'index. Chaque couche y dépose ce qui la concerne.
+`RequestContextPayload` (`RequestContext.ts:37`) déclare toutes ses clés ; il n'accepte aucune clé
+arbitraire. Chaque couche y dépose ce qui la concerne, parmi les clés ci-dessous.
 
 | Clé               | Posée par                          | À quoi elle sert                                                            |
 | ----------------- | ---------------------------------- | --------------------------------------------------------------------------- |
@@ -298,6 +299,12 @@ les autres par une signature d'index. Chaque couche y dépose ce qui la concerne
 | `body`            | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
 | `idempotencyKey`  | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:712`)                                |
 | `renderSink`      | le pont WS-RPC                     | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
+
+> [!NOTE]
+> **Ajouter une clé.** Un module qui a besoin de la sienne l'ajoute au type — dans le cœur, ou par
+> augmentation depuis son propre code (`declare module "nodefony" { interface RequestContextPayload
+{ … } }`). Si elle porte une identité ou une donnée de la requête, il l'ajoute aussi à
+> `RequestContext.release()` : une clé augmentée depuis un autre module n'est **pas** vidée d'office.
 
 Les couches supérieures exposent ces clés sous une forme **typée**, à préférer quand elle existe :
 
@@ -358,7 +365,7 @@ flowchart LR
 Deux lectures possibles, et elles ne sont **pas** équivalentes :
 
 - `RequestContext.isProfiling()` (`RequestContext.ts:327`) + `RequestContext.pushQuery()`
-  (`RequestContext.ts:337`) — le chemin simple, quand tout se passe dans la bulle.
+  (`RequestContext.ts:345`) — le chemin simple, quand tout se passe dans la bulle.
 - **capturer la référence** du buffer une fois (`RequestContext.get()?.queries`) puis pousser
   dedans — le chemin **robuste**, celui des adapters livrés : `DrizzleRepository.#prof()`
   (`DrizzleRepository.ts:433`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:115`).
@@ -500,14 +507,14 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | `getRequestId()` vaut `undefined` dans un écouteur / une minuterie | le rappel se déclenche dans un tick postérieur, hors bulle                                 | `AsyncResource.bind(fn)` **au branchement**, pas à l'appel                           |
 | Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux                   | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
-| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:312`)                      | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
+| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:320`)                      | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
 | `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall              | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
 | `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                      | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1283`)         |
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`)       | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
 | Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                       | déjà traité pour les contextes (`Context.ts:244`) ; pour ton code, `run()` à nouveau |
 | Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                                | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |
 | Identité périmée sur une connexion WebSocket longue                | l'identité a été captée à la poignée de main                                               | revalider par invocation (`RealtimeController.ts:812`), ne pas mettre en cache       |
-| `getUser()` vide dans une minuterie armée pendant la requête       | la minuterie s'est déclenchée après la fin : le store a été vidé (`RequestContext.ts:203`) | passer l'identité en argument au travail détaché, et réautoriser au moment d'agir    |
+| `getUser()` vide dans une minuterie armée pendant la requête       | la minuterie s'est déclenchée après la fin : le store a été vidé (`RequestContext.ts:212`) | passer l'identité en argument au travail détaché, et réautoriser au moment d'agir    |
 | Fuite mémoire autour d'un écouteur lié                             | `AsyncResource.bind` retient le payload, donc l'utilisateur et le contexte                 | ne lier que ce qui meurt avec la requête ou la connexion                             |
 
 ## 🧪 Tests & couverture
