@@ -179,18 +179,19 @@ poids non nul : `*/*` ne suffit pas — un client qui ne nomme pas le flux ne sa
 
 ### Côté client — `NodefonySse`
 
-`NodefonySse` (`NodefonySse.ts:89`) reprend le vocabulaire d'`EventSource` — `onopen`,
+`NodefonySse` (`NodefonySse.ts:110`) reprend le vocabulaire d'`EventSource` — `onopen`,
 `onmessage`, `onerror`, `addEventListener(type)`, `readyState`, `lastEventId`, `close()`,
 reconnexion avec `Last-Event-ID` — et ajoute ce que le natif refuse : `method`, `headers` (un
 `Authorization: Bearer`), `body`. Il est bâti sur `fetch`, donc tourne aussi sous Node, où
 `EventSource` reste expérimental.
 
-| Réponse du serveur                         | Ce que fait le client                                   |
-| ------------------------------------------ | ------------------------------------------------------- |
-| 200 `text/event-stream`                    | `OPEN`, événements                                      |
-| fin du flux, coupure réseau                | `error`, puis reconnexion après le délai `retry:`       |
-| autre statut (204 compris), autre type     | `error`, `CLOSED`, **sans** reconnexion (WHATWG §9.2.3) |
-| événement au-delà de `maxEventSize` (4 Mi) | `CLOSED` sans reconnexion                               |
+| Réponse du serveur                          | Ce que fait le client                                                               |
+| ------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 200 `text/event-stream`                     | `OPEN`, événements                                                                  |
+| fin du flux, coupure réseau                 | `error`, puis reconnexion après le délai `retry:`, plus une gigue jusqu'à sa moitié |
+| aucune réponse dans `connectTimeout` (10 s) | `error`, puis reconnexion — jamais figé en `CONNECTING`                             |
+| autre statut (204 compris), autre type      | `error`, `CLOSED`, **sans** reconnexion (WHATWG §9.2.3)                             |
+| événement au-delà de `maxEventSize` (4 Mi)  | `CLOSED` sans reconnexion                                                           |
 
 L'analyseur du format est `SseParser` (`SseParser.ts:61`), exporté par `nodefony/client` : c'est
 le même qui relit le flux dans les tests du serveur.

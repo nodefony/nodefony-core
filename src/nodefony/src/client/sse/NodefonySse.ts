@@ -44,6 +44,13 @@ export interface NodefonySseOptions {
    * épuiserait la mémoire du client. Défaut : 4 Mi.
    */
   maxEventSize?: number | undefined;
+  /**
+   * Délai d'ouverture (ms) : une réponse qui n'arrive pas dans ce délai est
+   * abandonnée, et la reconnexion prend le relais. Sans lui, un serveur qui
+   * accepte la connexion sans jamais répondre immobilise le client en
+   * `CONNECTING`, pour toujours. Défaut : 10000 ; `0` retire la borne.
+   */
+  connectTimeout?: number | undefined;
   /** `fetch` à employer — injectable pour un certificat, un agent ou un test. Défaut : le global. */
   fetch?: typeof fetch | undefined;
 }
@@ -60,9 +67,23 @@ const DEFAULT_RETRY_MS = 3000;
 const MIN_RETRY_MS = 250;
 const MAX_RETRY_MS = 2_147_483_647;
 
+/** Délai d'ouverture par défaut (ms) — cf {@link NodefonySseOptions.connectTimeout}. */
+const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
+
 /** Délai de reconnexion ramené dans ses bornes. */
 function clampRetry(ms: number): number {
   return Math.min(Math.max(ms, MIN_RETRY_MS), MAX_RETRY_MS);
+}
+
+/**
+ * Délai effectif avant une reconnexion : celui du serveur, plus une gigue
+ * jusqu'à la moitié. La gigue va vers le HAUT — le `retry:` du serveur est un
+ * minimum qu'il demande, pas un maximum — et désynchronise N clients coupés au
+ * même instant, qui sans elle reviendraient tous ensemble frapper le serveur
+ * qui redémarre.
+ */
+function jitteredRetry(ms: number): number {
+  return Math.min(Math.round(ms + Math.random() * (ms / 2)), MAX_RETRY_MS);
 }
 
 /**
@@ -110,6 +131,8 @@ export class NodefonySse extends EventTarget {
   #lastEventId: string;
   #controller: AbortController | null = null;
   #timer: ReturnType<typeof setTimeout> | null = null;
+  // Borne de l'ouverture en cours — `null` dès la réponse reçue.
+  #openTimer: ReturnType<typeof setTimeout> | null = null;
   readonly #init: Omit<NodefonySseOptions, "retry" | "lastEventId">;
 
   /**
@@ -161,6 +184,7 @@ export class NodefonySse extends EventTarget {
       clearTimeout(this.#timer);
       this.#timer = null;
     }
+    this.#clearOpenTimer();
     const controller = this.#controller;
     this.#controller = null;
     controller?.abort();
@@ -187,6 +211,18 @@ export class NodefonySse extends EventTarget {
       signal: controller.signal,
     };
     if (this.#init.body !== undefined) request.body = this.#init.body;
+    // Abandonner l'attente fait rejeter `fetch` : la reconnexion suit le même
+    // chemin qu'une coupure réseau.
+    const timeout = this.#init.connectTimeout ?? DEFAULT_CONNECT_TIMEOUT_MS;
+    if (timeout > 0) {
+      this.#openTimer = setTimeout(
+        () => {
+          this.#openTimer = null;
+          controller.abort();
+        },
+        Math.min(timeout, MAX_RETRY_MS),
+      );
+    }
     const doFetch = this.#init.fetch ?? fetch;
     doFetch(this.url, request)
       .then(
@@ -199,6 +235,7 @@ export class NodefonySse extends EventTarget {
   /** Valide la réponse (§9.2.3), puis lit son corps. */
   async #read(response: Response, controller: AbortController): Promise<void> {
     if (controller !== this.#controller) return;
+    this.#clearOpenTimer();
     const type = response.headers.get("Content-Type") ?? "";
     const essence = type.split(";")[0]?.trim().toLowerCase();
     if (response.status !== 200 || essence !== EVENT_STREAM) {
@@ -261,16 +298,28 @@ export class NodefonySse extends EventTarget {
   /** Coupure : nouvelle tentative après le délai courant (§9.2.3). */
   #reestablish(controller: AbortController): void {
     if (controller !== this.#controller) return;
+    this.#clearOpenTimer();
     if (this.#readyState === NodefonySse.CLOSED) return;
     this.#readyState = NodefonySse.CONNECTING;
     this.#emit(new Event("error"), this.onerror);
     // Un gestionnaire `onerror` a pu fermer.
     if (this.#readyState !== NodefonySse.CONNECTING) return;
-    this.#timer = setTimeout(() => this.#connect(), this.#retryMs);
+    this.#timer = setTimeout(
+      () => this.#connect(),
+      jitteredRetry(this.#retryMs),
+    );
+  }
+
+  /** Désarme la borne d'ouverture, si elle court encore. */
+  #clearOpenTimer(): void {
+    if (this.#openTimer === null) return;
+    clearTimeout(this.#openTimer);
+    this.#openTimer = null;
   }
 
   /** Échec définitif : `CLOSED`, sans reconnexion (§9.2.3). */
   #fail(): void {
+    this.#clearOpenTimer();
     this.#readyState = NodefonySse.CLOSED;
     this.#controller = null;
     this.#emit(new Event("error"), this.onerror);

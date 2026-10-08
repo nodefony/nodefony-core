@@ -1,7 +1,8 @@
 // Dérogation de FICHIER : ce banc éprouve les gestionnaires `on…` d'EventSource.
 /* oxlint-disable unicorn/prefer-add-event-listener */
-import { expect } from "vitest";
+import { expect, vi } from "vitest";
 import http from "node:http";
+import net from "node:net";
 import type { AddressInfo } from "node:net";
 import { NodefonySse } from "../client/sse/NodefonySse";
 import { SseParser, type ISseEvent } from "../client/sse/SseParser";
@@ -60,6 +61,60 @@ afterEach(async () => {
 });
 
 describe("RED-TEAM NodefonySse — serveur hostile", () => {
+  it("V38 · la reconnexion a une GIGUE : N clients coupés ensemble ne reviennent pas au même instant", async () => {
+    // Hasard figé au maximum : le délai vaut alors 1,5 × `retry`. Sans gigue,
+    // la 2ᵉ tentative partirait à 400 ms — tous les clients ensemble.
+    const random = vi.spyOn(Math, "random").mockReturnValue(1);
+    try {
+      const decor = await serve((_req, res) => {
+        stream(res);
+        res.end("data: x\n\n");
+      });
+      track(new NodefonySse(decor.url, { retry: 400 }));
+      await wait(500);
+      expect(decor.hits.length, "reconnexion avant 1,5 × retry").to.equal(1);
+      await wait(300);
+      expect(decor.hits.length).to.equal(2);
+    } finally {
+      random.mockRestore();
+    }
+  });
+
+  it("V39 · une réponse qui ne vient jamais n'immobilise pas le client : délai d'ouverture, puis reconnexion", async () => {
+    let hits = 0;
+    const socks: net.Socket[] = [];
+    const silent = net.createServer((sock) => {
+      hits++;
+      socks.push(sock);
+      sock.on("error", () => {});
+      // Accepte la connexion TCP, ne répond jamais.
+    });
+    await new Promise<void>((r) => silent.listen(0, "127.0.0.1", r));
+    const { port } = silent.address() as AddressInfo;
+    try {
+      const sse = track(
+        new NodefonySse(`http://127.0.0.1:${port}/flux`, {
+          connectTimeout: 300,
+          retry: 250,
+        }),
+      );
+      let errors = 0;
+      sse.onerror = () => errors++;
+      await wait(1000);
+      expect(
+        errors,
+        "aucune erreur : client figé en CONNECTING",
+      ).to.be.at.least(1);
+      expect(hits, "aucune nouvelle tentative").to.be.at.least(2);
+    } finally {
+      for (const sse of open.splice(0)) sse.close();
+      // `net.Server.close` attend la fin de chaque connexion : le serveur muet
+      // les tient ouvertes, il faut les couper.
+      for (const sock of socks) sock.destroy();
+      await new Promise((r) => silent.close(r));
+    }
+  });
+
   it("V26 · `retry: 0` du serveur ne provoque pas une tempête de reconnexions", async () => {
     const decor = await serve((_req, res) => {
       stream(res);
