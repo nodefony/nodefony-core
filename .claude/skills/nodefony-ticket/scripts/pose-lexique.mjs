@@ -9,6 +9,7 @@
  *
  *   node scripts/pose-lexique.mjs            # rapport seul, n'écrit rien
  *   node scripts/pose-lexique.mjs --write    # applique via `gh issue edit`
+ *   node scripts/pose-lexique.mjs 564 565    # ces tickets seulement (avec ou sans --write)
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -58,6 +59,14 @@ const comprehensionZone = (title, body) => {
 
 const entries = readLexicon();
 const write = process.argv.includes("--write");
+// Des numéros en argument bornent le geste à ces tickets : poser le lexique d'un
+// ticket qu'on vient d'ouvrir ne doit pas réécrire le reste du lot.
+const only = new Set(
+  process.argv
+    .slice(2)
+    .filter((a) => /^\d+$/.test(a))
+    .map(Number),
+);
 const gh = (args) =>
   execFileSync("gh", args, { encoding: "utf8", maxBuffer: 32 << 20 });
 const issues = JSON.parse(
@@ -74,6 +83,7 @@ const issues = JSON.parse(
 );
 
 for (const { number, title, body } of issues) {
+  if (only.size > 0 && !only.has(number)) continue;
   const stripped = body.replace(/^\*\*Lexique\*\*\n\n(?:- .+\n)+\n/, "");
   const hit = entries.filter((e) =>
     e.detect.test(comprehensionZone(title, stripped)),

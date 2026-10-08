@@ -132,6 +132,7 @@ Poser ou rafraîchir les blocs sur tout le lot ouvert se fait par
 ```bash
 node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs            # rapport seul
 node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs --write    # applique
+node .claude/skills/nodefony-ticket/scripts/pose-lexique.mjs 565 --write    # ce ticket seulement — à la création
 ```
 
 Il est idempotent (un bloc posé est remplacé, jamais empilé) et ne lit, pour décider, que le titre
