@@ -126,7 +126,7 @@ Nodefony étiquette avec **JSON-RPC 2.0**, une norme publique plutôt qu'un form
 Le point remarquable : le **même** moteur de protocole tourne des deux côtés du fil. La
 classe `JsonRpcPeer` (`JsonRpcPeer.ts:311`) est du code isomorphe du cœur — le navigateur
 l'exécute dans `NodefonySocket`, le serveur l'instancie une fois par connexion dans
-`RealtimeController.onHandshake()` (`RealtimeController.ts:407`). Le serveur peut donc
+`RealtimeController.onHandshake()` (`RealtimeController.ts:450`). Le serveur peut donc
 appeler le client, pas seulement l'inverse : c'est du vrai duplex, pas un aller-retour
 déguisé.
 
@@ -137,11 +137,11 @@ Trois partis pris distinguent cette pile d'un simple « serveur WebSocket ».
 **Un seul contrat de socket, des deux côtés.** Un service back qui pousse des événements
 écrit le même code qu'une page front : `publish` / `subscribe` / `on`. Côté serveur c'est
 `ServerRealtimeSocket` (`ServerRealtimeSocket.ts:43`), obtenu par `serverSocket()`
-(`ServerRealtimeSocket.ts:223`) ; côté navigateur, `NodefonySocket`. Une exception, assumée
-et explicite : `ServerRealtimeSocket.request()` (`ServerRealtimeSocket.ts:131`) **rejette
+(`ServerRealtimeSocket.ts:243`) ; côté navigateur, `NodefonySocket`. Une exception, assumée
+et explicite : `ServerRealtimeSocket.request()` (`ServerRealtimeSocket.ts:150`) **rejette
 toujours** — un handle posé sur le hub n'a pas d'interlocuteur unique, puisque le hub est
 multi-clients. Pour un appel serveur→client ciblé, on passe par la connexion :
-`RealtimeController.requestClient()` (`RealtimeController.ts:362`).
+`RealtimeController.requestClient()` (`RealtimeController.ts:395`).
 
 **Un provider par canal, pas un par client.** Si mille onglets s'abonnent au même canal de
 santé, le calcul ne doit tourner qu'une fois. Le hub crée le producteur au **premier**
@@ -390,7 +390,7 @@ Le schéma ci-dessous rend ces étages vivants : active le temps réel et il res
 
 ## 🔌 Le cycle de vie d'une connexion
 
-Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:407`), appelé
+Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:450`), appelé
 une seule fois par connexion, en chemin froid.
 
 ```mermaid
@@ -433,7 +433,7 @@ Les étapes, dans l'ordre exact du code :
    jeton disparaît avec le peer, sans fuite.
 4. **Enregistrement des actions** — celles des décorateurs `@RealtimeAction`, puis celles
    de la surcharge `realtimeActions()`, qui gagne en cas de conflit. Le pont API
-   `api.request` n'est ajouté que si `realtimeApiRequest()` (`RealtimeController.ts:294`)
+   `api.request` n'est ajouté que si `realtimeApiRequest()` (`RealtimeController.ts:321`)
    rend `true`.
 5. **Inscription aux registres** : sonde de connexion, révocation périodique si le jeton
    est révocable, préfixes de canaux broadcast, canaux entrants.
@@ -512,7 +512,7 @@ une connexion fautive n'interrompt pas la diffusion aux autres.
 ### Le forward est OPT-IN — le défaut est l'isolement
 
 Par défaut, **aucun canal ne traverse le backplane**. Il faut déclarer un préfixe, via
-`@RealtimeBroadcast` sur ton contrôleur (`realtimeDecorators.ts:366`) ou
+`@RealtimeBroadcast` sur ton contrôleur (`realtimeDecorators.ts:420`) ou
 directement `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`).
 
 Trois raisons à ce choix, qui prend à contre-pied la plupart des bibliothèques temps réel :
@@ -580,7 +580,7 @@ resynchronise. Ne construis pas au-dessus une fiabilité que le support n'offre 
 | ---------- | ----------------------------------------------- | -------------- | ---------------------------------- | :---------------: |
 | `loopback` | `LoopbackBackplane` (`LoopbackBackplane.ts:24`) | `local`        | aucun (no-op complet)              |        non        |
 | `cluster`  | `ClusterBackplane` (`ClusterBackplane.ts:89`)   | `ipc`          | les workers du même process maître |        non        |
-| `redis`    | `RedisBackplane` (`RedisBackplane.ts:161`)      | `redis-pubsub` | tous les pods abonnés au canal     |      **oui**      |
+| `redis`    | `RedisBackplane` (`RedisBackplane.ts:219`)      | `redis-pubsub` | tous les pods abonnés au canal     |      **oui**      |
 
 **`loopback`** est le défaut. En réalité, le hub garde son backplane à `null` en
 mono-process : le coût est un test de nullité, pas un appel. La classe existe pour
@@ -596,7 +596,7 @@ multi-process avant d'ajouter du réseau.
 
 **`redis`** franchit la frontière de l'hôte, sans dépendre de la bibliothèque `redis` : il
 consomme deux connexions du module `@nodefony/redis` via un adaptateur purement structurel,
-`createRedisServiceTransport()` (`RedisBackplane.ts:100`). Deux connexions et non une, parce
+`createRedisServiceTransport()` (`RedisBackplane.ts:137`). Deux connexions et non une, parce
 qu'un client Redis abonné ne peut plus émettre de commandes ordinaires. Module absent ou
 connexions indisponibles → avertissement, `null`, hub local, démarrage poursuivi
 (`src/packages/@nodefony/realtime/index.ts:108`).
@@ -622,7 +622,7 @@ et non une :
 
 1. **Côté hub** : l'arrivée passe par `publishLocal`, jamais par `publish`. Rien ne repart.
 2. **Côté backplane** : à la réception, on compare l'`originId` de l'enveloppe au sien et
-   on jette si c'est le même (`RedisBackplane.ts:209`, `ClusterBackplane.ts:134`).
+   on jette si c'est le même (`RedisBackplane.ts:235`, `ClusterBackplane.ts:134`).
 
 L'étiquette elle-même est calculée par `resolveBackplaneOriginId()` (`originId.ts:24`), et
 sa recette mérite qu'on s'y arrête :
@@ -788,7 +788,7 @@ périodiquement sa santé au maître (`ClusterProbeClient.ts:179`), le maître a
 rediffuse, chaque worker met en cache. **N'importe lequel** sert alors la vue pod en O(1),
 sans latence de requête.
 
-L'agrégation, `mergeClusterHealth()` (`ClusterProbeClient.ts:46`), est une fonction pure :
+L'agrégation, `mergeClusterHealth()` (`ClusterProbeClient.ts:60`), est une fonction pure :
 elle somme les scalaires, mais prend le **maximum** de `maxBufferedAmount` — la santé d'une
 flotte se juge sur son pire membre, pas sur sa moyenne. `buildRealtimeHealth()`
 (`RealtimeAdminApi.ts:74`) choisit ensuite la vue agrégée si elle existe, la per-instance
@@ -798,7 +798,7 @@ Sonde désactivée ? Elle n'est pas muette : **elle n'existe pas**. Aucun client
 minuteur, aucun écouteur, aucun message IPC
 (`src/packages/@nodefony/realtime/index.ts:351`) — coupable par la configuration ou par une
 variable d'environnement. Enfin, le maître peut demander à un worker précis d'enrichir sa
-remontée (`requestEnrich()`, `ClusterProbeClient.ts:239`) : la sonde riche n'est allouée que
+remontée (`requestEnrich()`, `ClusterProbeClient.ts:259`) : la sonde riche n'est allouée que
 pendant l'inspection, puis libérée — on paie ce qu'on regarde.
 
 ## ⚡ Performance & mémoire

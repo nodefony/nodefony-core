@@ -326,7 +326,7 @@ qui ouvre quoi.
 | --- | --- | --- |
 | HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1510`) | CORS, routage, firewall, ton action, rendu |
 | WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1953`) | poignée de main, firewall, **et toutes les trames** |
-| WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:951`) | **une** invocation : corps, clé d'idempotence, profil |
+| WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:1070`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:535`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Les trois premières bulles portent le scope DI de la requête (`scope`, rendu par `getScope()`) ;

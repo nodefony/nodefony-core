@@ -292,10 +292,10 @@ n'est jamais traitée.
 
 ### Le pipeline exact
 
-`RealtimeController.onHandshake()` (`RealtimeController.ts:407`) exécute, une fois par connexion :
+`RealtimeController.onHandshake()` (`RealtimeController.ts:450`) exécute, une fois par connexion :
 
 1. Construction d'un DTO neutre `IRealtimeHandshake` par `buildHandshakeFromContext()`
-   (`RealtimeController.ts:1309`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
+   (`RealtimeController.ts:1356`) — headers, cookies aplatis, url, origin, sous-protocoles. Aucune
    dépendance à `@nodefony/security` dans le contrat.
 2. Contrôle d'origine (verrou 1).
 3. Résolution de l'authenticator par `RealtimeHub.resolveAuthenticator()` (`RealtimeHub.ts:924`) :
@@ -321,7 +321,7 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 - `host` optionnel → comparaison **stricte** (insensible à la casse) sur l'en-tête `Host`, sans
   wildcard.
 - Le match porte sur le **path**, query comprise, jamais sur l'URL absolue : `handshakePath()`
-  (`RealtimeController.ts:1361`) extrait `pathname + search` du `WebsocketContext.url`, qui est
+  (`RealtimeController.ts:1408`) extrait `pathname + search` du `WebsocketContext.url`, qui est
   absolu. Sans cette extraction, un matcher `^/nodefony/…` ne se déclencherait jamais.
 
 `@nodefony/security` enregistre ces matchers automatiquement dans `Firewall.#wireRealtime()`
@@ -479,8 +479,8 @@ jamais de canal d'audit non gardé.
 
 ### La policy métier — déclarer sur le canal
 
-`@RealtimeChannel(name, policy)` (`realtimeDecorators.ts:192`) et `@RealtimeInbound(name, policy)`
-(`realtimeDecorators.ts:231`) attachent un `IChannelPolicy` au **nom** du canal. Les trois axes sont
+`@RealtimeChannel(name, policy)` (`realtimeDecorators.ts:240`) et `@RealtimeInbound(name, policy)`
+(`realtimeDecorators.ts:278`) attachent un `IChannelPolicy` au **nom** du canal. Les trois axes sont
 cumulatifs (ET) ; un axe absent n'impose rien :
 
 | Axe             | Sens                                                                          | Évalué par                               |
@@ -489,11 +489,11 @@ cumulatifs (ET) ; un axe absent n'impose rien :
 | `roles`         | un des rôles suffit, **hiérarchie comprise**                                  | `Firewall.hasRole()` (`firewall.ts:493`) |
 | `scopes`        | un des scopes suffit — axe API (JWT, clé API), une session BFF n'en porte pas | comparaison directe                      |
 
-Une policy **vide** n'est pas enregistrée : `definePolicy()` (`realtimeDecorators.ts:40`) ignore un
+Une policy **vide** n'est pas enregistrée : `definePolicy()` (`realtimeDecorators.ts:91`) ignore un
 objet sans contrainte — le canal reste libre, le registre reste vide. Les déclarations sont publiées
 au hub **au handshake**, pas au boot (`RealtimeHub.registerChannelPolicy()`, `RealtimeHub.ts:1105`,
 idempotent) ; le décideur les relit par `RealtimeService.resolveChannelPolicy()`
-(`RealtimeService.ts:277`).
+(`RealtimeService.ts:291`).
 
 ### ⚠️ Une policy est attachée à un nom EXACT — les canaux dérivés n'héritent pas
 
@@ -604,7 +604,7 @@ Nodefony ferme l'écart par deux mécanismes de granularité différente.
 
 | Surface                     | Re-validation        | Fenêtre d'exposition | Où                                                                     |
 | --------------------------- | -------------------- | -------------------- | ---------------------------------------------------------------------- |
-| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:1011`) |
+| `api.request` (data plane)  | **à chaque frame**   | nulle                | `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:1070`) |
 | `subscribe` / flux de canal | **périodique**, 30 s | ≤ 30 s               | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:809`)             |
 
 **Sur `api.request`**, `token.isValid()` est appelé avant l'exécution de l'action ; identité périmée
@@ -656,7 +656,7 @@ pas** borné.
 Chaque canal ouvert coûte un provider, un ticker et une entrée de Map. Sans borne, une connexion
 peut abonner jusqu'à l'OOM — un déni de service mémoire déclenché par **un seul** client.
 
-`RealtimeController.startChannel()` (`RealtimeController.ts:835`) refuse au-delà de
+`RealtimeController.startChannel()` (`RealtimeController.ts:869`) refuse au-delà de
 `limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:142`), défaut **256**,
 `null` pour illimité. Points prouvés par `realtimeChannelCap.attack.test.ts` :
 

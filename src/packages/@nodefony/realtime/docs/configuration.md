@@ -439,7 +439,7 @@ des canaux d'état, où seul le dernier instantané compte.
 Chaque canal ouvert coûte un producteur côté hub, un minuteur le plus souvent, et une entrée de table
 côté connexion. Sans borne, **un seul** client peut s'abonner jusqu'à épuiser la mémoire du
 processus. Le plafond est vérifié à chaque abonnement (`RealtimeController.startChannel()`,
-`RealtimeController.ts:835`).
+`RealtimeController.ts:869`).
 
 Quatre propriétés qui décident du bon réglage :
 
@@ -552,7 +552,7 @@ use("@nodefony/realtime", {
 
 **Comment il se branche.** Le driver ne dépend pas de la bibliothèque `redis` : il consomme deux
 connexions du module `@nodefony/redis` par un adaptateur purement structurel
-(`createRedisServiceTransport()`, `RedisBackplane.ts:100`). Deux et non une, parce qu'un client Redis
+(`createRedisServiceTransport()`, `RedisBackplane.ts:137`). Deux et non une, parce qu'un client Redis
 abonné ne peut plus émettre de commandes ordinaires — le module fournit précisément des connexions
 nommées `publish` et `subscribe` dans ses défauts.
 
@@ -722,7 +722,7 @@ const cfg = defineRealtimeConfig({ backplane: { driver: "redis" } });
 // Une valeur invalide ou une clé inconnue lève une BootConfigurationError, avec le chemin exact du champ fautif.
 ```
 
-`realtimeConfigJsonSchema()` (`defineModuleConfig.ts:69`) produit le schéma JSON du module, chaque
+`realtimeConfigJsonSchema()` (`defineModuleConfig.ts:111`) produit le schéma JSON du module, chaque
 champ portant sa description. C'est ce que consomme la page module de Studio pour afficher la
 configuration attendue. L'instance de backplane éventuelle en est absente : une classe n'a rien à
 faire dans un schéma sérialisable.

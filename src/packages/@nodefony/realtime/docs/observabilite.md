@@ -464,11 +464,11 @@ instantané est exact — et ne dit rien des trois autres. Pire : deux appels co
 sur deux workers et sembler se contredire.
 
 **La réponse de Nodefony est un modèle _push_.** Chaque worker remonte périodiquement sa santé au
-maître via `ClusterProbeClient.start()` (`ClusterProbeClient.ts:170`) ; le maître fusionne et
+maître via `ClusterProbeClient.start()` (`ClusterProbeClient.ts:190`) ; le maître fusionne et
 rediffuse ; chaque worker met le résultat en cache. **N'importe lequel** sert alors la vue pod en temps
-constant, sans latence de requête (`ClusterProbeClient.getClusterHealth()`, `ClusterProbeClient.ts:291`).
+constant, sans latence de requête (`ClusterProbeClient.getClusterHealth()`, `ClusterProbeClient.ts:306`).
 
-La fusion, `mergeClusterHealth()` (`ClusterProbeClient.ts:46`), est une fonction pure — et sa règle
+La fusion, `mergeClusterHealth()` (`ClusterProbeClient.ts:60`), est une fonction pure — et sa règle
 mérite d'être connue :
 
 | Grandeur                                                         | Agrégation  | Pourquoi                                                                   |
@@ -485,7 +485,7 @@ garde le détail par worker pour le forage.
 ### On paie ce qu'on regarde
 
 Les sondes coûteuses ne tournent pas en permanence. Le maître peut demander à un worker précis
-d'**enrichir** sa remontée — `ClusterProbeClient.requestEnrich()` (`ClusterProbeClient.ts:239`) — quand
+d'**enrichir** sa remontée — `ClusterProbeClient.requestEnrich()` (`ClusterProbeClient.ts:259`) — quand
 un humain ouvre le forage de ce `pid`. La sonde riche (espaces mémoire, cycles de ramasse-miettes,
 descripteurs actifs) est alors allouée ; à la fermeture de l'écran, elle est libérée et son observateur
 détaché.

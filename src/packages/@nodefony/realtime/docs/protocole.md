@@ -341,7 +341,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 
 | Méthode            | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
-| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:541` |
+| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:577` |
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:816` |
 | `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `NodefonySocket.ts:1085`    |
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`** du `notify`   | `RealtimeController.ts:874` |
@@ -349,7 +349,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:796` |
 | `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:573` |
 | `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:615` |
-| `<action>`         | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:101` |
+| `<action>`         | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:191` |
 
 > [!TIP]
 > **L'accueil est ta carte du territoire.** `channels` ne liste que les canaux que ce visiteur
@@ -369,7 +369,7 @@ Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma 
 > n'attend jamais de réponse.
 
 `subscribe` et `unsubscribe` ne sont **pas** des actions enregistrées : elles sont traitées dans
-`onRealtimeNotification()` (`RealtimeController.ts:804`). Envoyées avec un `id`, elles seraient
+`onRealtimeNotification()` (`RealtimeController.ts:840`). Envoyées avec un `id`, elles seraient
 classées « requête », ne trouveraient aucun handler et récolteraient un `-32601`.
 
 ## Une conversation type, de bout en bout

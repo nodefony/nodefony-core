@@ -126,7 +126,7 @@ Trois partis pris distinguent les actions Nodefony d'une couche RPC classique.
 
 **Il n'y a pas de couche RPC séparée.** Une action est une **méthode de contrôleur**, dans la même
 classe que tes canaux et — si tu le veux — que tes routes HTTP. Pas de service dédié, pas de
-schéma à compiler : `@RealtimeAction("orders:quote")` (`realtimeDecorators.ts:101`) suffit, et le
+schéma à compiler : `@RealtimeAction("orders:quote")` (`realtimeDecorators.ts:191`) suffit, et le
 retour de la méthode devient le `result` de la réponse.
 
 **Le contrat du handler est minuscule, volontairement.** Une action reçoit **un seul argument**,
@@ -276,8 +276,8 @@ Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par 
 
 | Voie                                                   | Quand la choisir                                            |
 | ------------------------------------------------------ | ----------------------------------------------------------- |
-| `@RealtimeAction("nom")` (`realtimeDecorators.ts:101`) | le cas courant — un nom fixe, une méthode, déclaratif       |
-| `realtimeActions()` (`RealtimeController.ts:254`)      | la table est **calculée** (noms dynamiques, boucle, config) |
+| `@RealtimeAction("nom")` (`realtimeDecorators.ts:191`) | le cas courant — un nom fixe, une méthode, déclaratif       |
+| `realtimeActions()` (`RealtimeController.ts:281`)      | la table est **calculée** (noms dynamiques, boucle, config) |
 
 Les deux sont fusionnées au handshake, et **l'override gagne** en cas de conflit de nom : une
 classe peut ainsi remplacer une action héritée sans toucher au parent
@@ -376,7 +376,7 @@ use("@nodefony/security", {
 
 Une action authentifiée sait que l'appelant est identifié ; elle peut aussi savoir **qui** il est.
 Les décorateurs de paramètres d'une route y prennent le même sens
-(`actionParamsWrapper`, `RealtimeController.ts:969`) :
+(`actionParamsWrapper`, `RealtimeController.ts:1007`) :
 
 ```ts ignore
 import { Body, CurrentUser } from "@nodefony/framework";
@@ -544,8 +544,8 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:1011`). Il est **désactivé par défaut** et s'active en surchargeant
-`realtimeApiRequest()` (`RealtimeController.ts:294`).
+(`RealtimeController.ts:1070`). Il est **désactivé par défaut** et s'active en surchargeant
+`realtimeApiRequest()` (`RealtimeController.ts:321`).
 
 ```ts ignore
 const modules = await socket.request("/nodefony/kernel/api/modules");

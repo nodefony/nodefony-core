@@ -571,9 +571,9 @@ recherches inutiles.
 | `@injectable()`                     | `nodefony`           | Rend une classe résoluble par le conteneur (`injectable()`, `kernelDecorator.ts:135`)          |
 | `@inject("nom")`                    | `nodefony`           | Injecte un service à une position de constructeur (`inject()`, `kernelDecorator.ts:186`)       |
 | `@Inject("nom")`                    | `nodefony`           | Idem, sur une propriété (`Inject()`, `kernelDecorator.ts:215`)                                 |
-| `@RealtimeAction("méthode")`        | `@nodefony/realtime` | Expose une action JSON-RPC sur socket (`RealtimeAction()`, `realtimeDecorators.ts:101`)        |
-| `@RealtimeChannel("canal", policy)` | `@nodefony/realtime` | Déclare un canal temps réel et sa politique (`RealtimeChannel()`, `realtimeDecorators.ts:192`) |
-| `@RealtimeInbound("méthode")`       | `@nodefony/realtime` | Traite un message entrant typé (`RealtimeInbound()`, `realtimeDecorators.ts:231`)              |
+| `@RealtimeAction("méthode")`        | `@nodefony/realtime` | Expose une action JSON-RPC sur socket (`RealtimeAction()`, `realtimeDecorators.ts:191`)        |
+| `@RealtimeChannel("canal", policy)` | `@nodefony/realtime` | Déclare un canal temps réel et sa politique (`RealtimeChannel()`, `realtimeDecorators.ts:240`) |
+| `@RealtimeInbound("méthode")`       | `@nodefony/realtime` | Traite un message entrant typé (`RealtimeInbound()`, `realtimeDecorators.ts:278`)              |
 
 Injection et portées → [injection-portees](../../../../../docs/architecture/injection-portees.md) ·
 socket → [realtime](../../realtime/docs/index.md).

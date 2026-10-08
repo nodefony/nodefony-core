@@ -133,15 +133,15 @@ Quatre propriétés, toutes vérifiables dans le code — c'est ce qui justifie 
 WebSocket brute.
 
 **Un contrôleur temps réel est un contrôleur.** `RealtimeController`
-(`RealtimeController.ts:176`) étend le `Controller` du framework : il se déclare avec les mêmes
+(`RealtimeController.ts:203`) étend le `Controller` du framework : il se déclare avec les mêmes
 décorateurs de route, reçoit la même injection, passe par le même pare-feu. HTTP et WebSocket ne sont
 pas deux applications à écrire deux fois, mais deux entrées du même pipeline.
 
 **Une connexion, N canaux, dans les deux sens.** Le client s'abonne à autant de canaux qu'il veut sur
 la même socket. Trois formes de trafic coexistent : le serveur diffuse (`@RealtimeChannel`,
-`realtimeDecorators.ts:192`), le client appelle et attend une réponse (`@RealtimeAction`,
-`realtimeDecorators.ts:142`), le client pousse sans attendre (`@RealtimeInbound`,
-`realtimeDecorators.ts:231`). Rien n'est ouvert qui n'ait été déclaré.
+`realtimeDecorators.ts:240`), le client appelle et attend une réponse (`@RealtimeAction`,
+`realtimeDecorators.ts:191`), le client pousse sans attendre (`@RealtimeInbound`,
+`realtimeDecorators.ts:278`). Rien n'est ouvert qui n'ait été déclaré.
 
 **Le travail est fait une fois par processus, pas une fois par client.** Le `RealtimeHub`
 (`RealtimeHub.ts:213`) tient **un seul producteur par canal** : le premier abonné le démarre, le
@@ -157,7 +157,7 @@ toucher au cœur.
 > [!IMPORTANT]
 > **Rien ne franchit la frontière du processus sans intention explicite.** Par défaut, un canal reste
 > local. Il faut le déclarer diffusable (`@RealtimeBroadcast`,
-> `realtimeDecorators.ts:366`) pour qu'il emprunte le backplane. C'est volontaire : un canal
+> `realtimeDecorators.ts:420`) pour qu'il emprunte le backplane. C'est volontaire : un canal
 > d'observation qui décrit l'état d'**un** pod n'aurait aucun sens répliqué sur les autres.
 
 Le module se déclare par ailleurs **non critique** (`Realtime.critical`, `index.ts:144`) et son
