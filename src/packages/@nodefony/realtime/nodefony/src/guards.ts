@@ -30,3 +30,14 @@ export function isCallable(
 ): value is (...args: unknown[]) => unknown {
   return typeof value === "function";
 }
+
+/**
+ * Vrai si la valeur se comporte comme une promesse (transport asynchrone) —
+ * un client Redis rend une promesse, un faux transport de test rend `void`.
+ *
+ * @param value - retour d'un transport
+ * @returns `true` si la valeur porte une méthode `then`
+ */
+export function isThenable(value: unknown): value is Promise<unknown> {
+  return isRecord(value) && typeof value.then === "function";
+}

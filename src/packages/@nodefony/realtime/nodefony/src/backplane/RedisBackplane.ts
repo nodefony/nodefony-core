@@ -5,6 +5,7 @@ import type {
   IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
 import { resolveBackplaneOriginId } from "./originId.js";
+import { isCallable, isRecord, isThenable } from "../guards.js";
 import { openBackplaneEnvelope, sealBackplaneEnvelope } from "./envelope.js";
 import {
   BackplanePublishQueue,
@@ -111,6 +112,28 @@ export interface IRedisSubscriber {
  * Le listener Redis est conservé pour un `unsubscribe(channel, listener)` ciblé
  * (n'arrache pas d'éventuels autres abonnés du même client).
  */
+/**
+ * Vrai si la valeur expose la surface d'un client Redis publisher — vérifié au
+ * démarrage, sur le client que rend le service `redis`.
+ */
+export function isRedisPublisher(value: unknown): value is IRedisPublisher {
+  return isRecord(value) && isCallable(value.publish);
+}
+
+/** Vrai si la valeur expose la surface d'un client Redis subscriber dédié. */
+export function isRedisSubscriber(value: unknown): value is IRedisSubscriber {
+  return (
+    isRecord(value) &&
+    isCallable(value.subscribe) &&
+    isCallable(value.unsubscribe)
+  );
+}
+
+/** Ramène l'acquittement d'une commande Redis au contrat du transport. */
+function settled(ack: unknown): void | Promise<void> {
+  return isThenable(ack) ? ack.then(() => undefined) : undefined;
+}
+
 export function createRedisServiceTransport(
   publisher: IRedisPublisher,
   subscriber: IRedisSubscriber,
@@ -121,20 +144,23 @@ export function createRedisServiceTransport(
       // Retourné, pas avalé : c'est l'acquittement qui rend sa place dans la file
       // bornée du backplane — et le rejet y est absorbé (un `void` ici laissait
       // remonter un `unhandledRejection` quand Redis coupait en plein envoi).
-      return publisher.publish(channel, message) as void | Promise<unknown>;
+      // Une vérification de forme par publication (quelques ns face à un
+      // aller-retour réseau) plutôt qu'une conversion crue sur parole.
+      const ack = publisher.publish(channel, message);
+      return isThenable(ack) ? ack : undefined;
     },
     subscribe(channel, onMessage): void | Promise<void> {
       listener = (message): void => onMessage(message);
-      return subscriber.subscribe(channel, listener) as void | Promise<void>;
+      return settled(subscriber.subscribe(channel, listener));
     },
     unsubscribe(channel): void | Promise<void> {
       const current = listener;
       listener = null;
-      return (
+      return settled(
         current
           ? subscriber.unsubscribe(channel, current)
-          : subscriber.unsubscribe(channel)
-      ) as void | Promise<void>;
+          : subscriber.unsubscribe(channel),
+      );
     },
   };
 }

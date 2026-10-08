@@ -23,11 +23,12 @@
 import { Kernel, Module, services, withTimeout } from "nodefony";
 import defaultConfig from "./nodefony/config/config";
 import {
-  defineRealtimeConfig,
+  buildRealtimeConfig,
   realtimeConfigJsonSchema,
   type IRealtimeConfig,
   type IRealtimeConfigInput,
 } from "./nodefony/config/defineModuleConfig";
+import { isCallable, isRecord } from "./nodefony/src/guards";
 import {
   realtimeBackplaneDownNotice,
   realtimeLocalOnlyNotice,
@@ -50,8 +51,8 @@ import RedisBackplane, {
   createRedisServiceTransport,
   resolveRedisChannel,
   REDIS_RT_CHANNEL,
-  type IRedisPublisher,
-  type IRedisSubscriber,
+  isRedisPublisher,
+  isRedisSubscriber,
 } from "./nodefony/src/backplane/RedisBackplane";
 import { resolveBackplaneOriginId } from "./nodefony/src/backplane/originId";
 import ClusterBackplane, {
@@ -76,7 +77,6 @@ import {
   buildRealtimeHealth,
   buildOwnHealth,
 } from "./nodefony/src/server/RealtimeAdminApi";
-import type { IAdminBroker } from "@nodefony/framework";
 import type { IBackplane } from "./nodefony/interfaces/IBackplane";
 
 /**
@@ -110,20 +110,17 @@ registerBackplaneDriver(ClusterBackplane.driver, (ctx) =>
 // `publish`/`subscribe` de `@nodefony/redis` (RedisService) — couplage structurel
 // par l'adaptateur, aucune dépendance directe. Fail-soft si redis absent.
 registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
-  const redisService = ctx.module.kernel?.container?.get("redis") as
-    { getClient(name: string): unknown } | undefined;
-  if (!redisService) {
+  const redisService = ctx.module.kernel?.container?.get("redis");
+  if (!isRecord(redisService) || !isCallable(redisService.getClient)) {
     ctx.module.log(
       `driver "${RedisBackplane.driver}" : module @nodefony/redis absent (non listé dans @modules) — RealtimeHub reste local`,
       "WARNING",
     );
     return null;
   }
-  const publisher = redisService.getClient("publish") as IRedisPublisher | null;
-  const subscriber = redisService.getClient(
-    "subscribe",
-  ) as IRedisSubscriber | null;
-  if (!publisher || !subscriber) {
+  const publisher = redisService.getClient("publish");
+  const subscriber = redisService.getClient("subscribe");
+  if (!isRedisPublisher(publisher) || !isRedisSubscriber(subscriber)) {
     ctx.module.log(
       `driver "${RedisBackplane.driver}" : connexions Redis publish/subscribe indisponibles — RealtimeHub reste local`,
       "WARNING",
@@ -220,10 +217,10 @@ class Realtime extends Module<IRealtimeConfig> {
     // se trouvait ici la RE-EMBALLAIT en `Error` ordinaire, que le kernel absorbe
     // en développement (fail-soft) — le refus disparaissait précisément là où la
     // faute vient d'être écrite.
-    const validated: IRealtimeConfig = defineRealtimeConfig(
-      // Sans config déclarée, le module peut n'avoir reçu aucune section.
-      (this.options as IRealtimeConfigInput | undefined) ?? {},
-    );
+    // La forme se décide au schéma, pas à une conversion. Sans config
+    // déclarée, le module peut n'avoir reçu aucune section : le builder prend
+    // alors ses défauts.
+    const validated: IRealtimeConfig = buildRealtimeConfig(this.options);
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le RealtimeService la lit sur son module (`this.module.config`).
     this.options = validated;
@@ -252,9 +249,13 @@ class Realtime extends Module<IRealtimeConfig> {
       );
       return this;
     }
-    const broker = this.kernel?.container?.get("adminBroker") as
-      IAdminBroker | undefined;
-    if (broker && !broker.has("realtime")) {
+    const broker = this.kernel?.container?.get("adminBroker");
+    if (
+      isRecord(broker) &&
+      isCallable(broker.has) &&
+      isCallable(broker.register) &&
+      broker.has("realtime") !== true
+    ) {
       broker.register(createRealtimeAdminApi());
     }
     await this.#wireBackplane();
@@ -324,12 +325,15 @@ class Realtime extends Module<IRealtimeConfig> {
       // serveurs ne montent pas (cf KIT résilience de boot, Phase 2).
       this.log(
         `realtime backplane driver=${driverName} indisponible ` +
-          `(${(e as Error).message}) — fallback hub LOCAL, boot poursuivi ` +
+          `(${e instanceof Error ? e.message : String(e)}) — fallback hub LOCAL, boot poursuivi ` +
           `(pas de fan-out cross-pod)`,
         "WARNING",
       );
       this.kernel?.reportBootNotice(
-        realtimeBackplaneDownNotice(driverName, (e as Error).message),
+        realtimeBackplaneDownNotice(
+          driverName,
+          e instanceof Error ? e.message : String(e),
+        ),
       );
       return;
     }

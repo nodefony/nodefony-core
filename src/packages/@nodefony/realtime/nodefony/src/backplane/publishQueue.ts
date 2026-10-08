@@ -27,6 +27,7 @@
  */
 
 import type { IBackplaneQueueInfo } from "../../interfaces/IBackplane.js";
+import { isThenable } from "../guards.js";
 
 /** Sévérité d'une transition de la file — mappée telle quelle sur le syslog. */
 export type BackplaneNoticeSeverity = "WARNING" | "INFO";
@@ -47,15 +48,6 @@ const DEFAULT_MAX_BYTES = 1 << 23;
  * au-dessus du régime nominal — le pod a un problème bien avant d'y arriver.
  */
 export const DEFAULT_MAX_QUEUE_BYTES = DEFAULT_MAX_BYTES;
-
-/** Vrai si la valeur se comporte comme une promesse (transport asynchrone). */
-function isThenable(v: unknown): v is Promise<unknown> {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    typeof (v as { then?: unknown }).then === "function"
-  );
-}
 
 /**
  * File d'envoi bornée : décide d'admettre ou de jeter une publication, puis suit

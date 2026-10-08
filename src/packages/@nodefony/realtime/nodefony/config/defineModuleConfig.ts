@@ -37,6 +37,23 @@ export function defineRealtimeConfig(
   config: IRealtimeConfigInput = {},
   options: { backplane?: IBackplane } = {},
 ): IRealtimeConfig {
+  return buildRealtimeConfig(config, options);
+}
+
+/**
+ * Le builder pour une entrée NON typée — la config reçue par le module au
+ * démarrage, dont le schéma décide seul de la forme. Interne au paquet : une
+ * application passe par {@link defineRealtimeConfig}, qui type ce qu'elle écrit.
+ *
+ * @param config - configuration brute, validée par le schéma
+ * @param options.backplane - instance `IBackplane` custom
+ * @returns config gelée prête pour `RealtimeService`.
+ * @throws BootConfigurationError si invalide.
+ */
+export function buildRealtimeConfig(
+  config: unknown = {},
+  options: { backplane?: IBackplane } = {},
+): IRealtimeConfig {
   const parsed = parseModuleConfig(
     realtimeConfigSchema,
     config,
