@@ -18,6 +18,7 @@ import type { Module } from "nodefony";
 import { Router, Scope } from "@nodefony/framework";
 import type { ContextType } from "@nodefony/http";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
+import { RealtimeAction } from "../../decorators/realtimeDecorators.js";
 import { createRealtimeHarness } from "../../testing/index.js";
 
 const fakeModule = {
@@ -62,5 +63,50 @@ describe("RealtimeController — portée par connexion (#506)", () => {
     expect(() =>
       createRealtimeHarness((ctx) => new SharedByNewRt("SharedByNewRt", ctx)),
     ).to.throw(BootConfigurationError, /SharedByNewRt/);
+  });
+
+  // L'unicité n'est PAS garantie pour la durée de la connexion : le framework
+  // réutilise l'instance par un pointeur du conteneur de la connexion
+  // (`Resolver._acquireAndInvoke`), que `Controller.forward()` réécrit. Un
+  // `api.request` vers une action qui `forward(...)` fait donc construire une
+  // instance NEUVE à la frame suivante. L'état du protocole appartient à la
+  // CONNEXION : posé sur l'instance, cette nouvelle venue n'en aurait aucun et
+  // toutes les frames entrantes tomberaient en silence — une socket sourde.
+  //
+  // Débrancher : lire l'état realtime sur l'instance au lieu du contexte
+  // (`handleRealtime`) — la réponse de la seconde instance n'arrive plus.
+  it("une instance NEUVE sur la même connexion (après un forward) sert encore ses frames", async () => {
+    class ForwardRt extends RealtimeController {
+      constructor(context: ContextType) {
+        super("ForwardRt", context);
+      }
+      @RealtimeAction("ping", { authenticated: false })
+      ping(): string {
+        return "pong";
+      }
+      feed(message: string): void {
+        this.handleRealtime(message);
+      }
+    }
+    let connection: ContextType | null = null;
+    const h = createRealtimeHarness((ctx) => {
+      connection = ctx;
+      return new ForwardRt(ctx);
+    });
+    await h.connect();
+    if (connection === null) throw new Error("contexte non capturé");
+
+    // Ce que fait le Resolver après un forward : une instance neuve, même contexte.
+    const reborn = new ForwardRt(connection);
+    expect(reborn).to.not.equal(h.controller);
+    reborn.feed(JSON.stringify({ jsonrpc: "2.0", id: 4242, method: "ping" }));
+
+    let reply = h.received.find((f) => f.id === 4242);
+    for (let i = 0; i < 20 && reply === undefined; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      reply = h.received.find((f) => f.id === 4242);
+    }
+    expect(reply?.result).to.equal("pong");
+    h.dispose();
   });
 });
