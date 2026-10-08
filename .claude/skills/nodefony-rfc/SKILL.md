@@ -1,14 +1,14 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.6.0
+  version: 1.7.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
   depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md,
   Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec
   un script de dérive amont. Dit quelles RFC tranchent un proxy inverse.
   Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
-  "SameSite cookies", "spec MCP", "Model Context Protocol", "autorisation MCP",
+  "SameSite cookies", "norme SSE", "EventSource", "spec MCP", "Model Context Protocol", "autorisation MCP",
   "resource server OAuth", "RFC 9728", "AGENTS.md", "spec AGENTS.md", "AAIF",
   "quelle taille pour AGENTS.md", "dossier .agents",
   "Agent Skills", "quel fichier lit tel agent", "Keycloak", "realm", "importer un realm",
@@ -288,6 +288,14 @@ sous Terminal.app) ; le mode 1007 n'est pas actif par défaut sous Terminal.app,
 OSC 52 n'accuse jamais réception et reste bloqué par défaut dans iTerm2 et xterm — un repli, pas
 une voie. Le relevé a été fait sur les dépôts amont du jour : une case qui décide se recontrôle
 avant de s'y appuyer.
+
+### 12. Server-sent events (SSE) — **HORS LIGNE, dans le corpus UNIQUE**
+
+SSE n'a **pas de RFC** : la norme est la section §9.2 du standard HTML (WHATWG), figée en
+`.claude/skills/nodefony-framework-dev/references/rfc/specs/whatwg-sse.md` (commit amont dans son
+en-tête). Le transport relève de RFC 9112 §7.1 (chunked, HTTP/1.1) et RFC 9113 §8.2.2
+(`Transfer-Encoding` interdit en HTTP/2). Ce que chaque section tranche : §22 du README du corpus.
+Node : `EventSource` reste expérimental (`--experimental-eventsource`, `specs/nodejs/globals.md`).
 
 ## Pattern d'usage
 

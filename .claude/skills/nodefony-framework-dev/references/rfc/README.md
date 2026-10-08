@@ -18,7 +18,8 @@
   - Cloud-native : `cloud-12factor.md`, `cloud-k8s-pod-lifecycle.md`, `cloud-k8s-probes.md`.
   - OWASP cheat sheets : `owasp-{authentication,authorization,csp,csrf,jwt,mfa,password-storage,rest-security,security-headers,session-management,ssrf-prevention,tls,xss-prevention}.md`.
   - `standard-webhooks.md` (Standard Webhooks v1), `draft-idempotency-key-header-06.txt` (IETF draft).
-- **`specs/nodejs/*.md`** — 16 docs API Node.js : `async_context` (ALS), `http`, `http2`, `https`, `net`, `dgram`, `tls`, `stream`, `worker_threads`, `cluster`, `crypto`, `events`, `process`, `perf_hooks`, `buffer`, `fs`.
+  - `whatwg-sse.md` — WHATWG HTML §9.2 Server-sent events (format `text/event-stream`, `EventSource`, `Last-Event-ID`) ; SSE n'a PAS de RFC, la norme est cette section.
+- **`specs/nodejs/*.md`** — 17 docs API Node.js : `async_context` (ALS), `http`, `http2`, `https`, `net`, `dgram`, `tls`, `stream`, `worker_threads`, `cluster`, `crypto`, `events`, `process`, `perf_hooks`, `buffer`, `fs`, `globals` (`fetch`, `WebSocket`, `EventSource`).
 
 > Manquant ici (HTML-only, fetch on-demand via `nodefony-rfc`/proxy) : W3C WebAuthn/Trace-Context/CSP, WHATWG Fetch/URL, NIST SP 800-63B, OWASP ASVS/WSTG/Top10. Les **règles** qu'on en tire sont déjà dans ce README (§1-22).
 
@@ -153,4 +154,5 @@ Pour une revue/veille sécurité → skill **`nodefony-security-review`** (mode 
 
 > Citées dans la vision (auth agents IA / realtime). Les implémenter = nouveau code ; ici pour ne pas les réinventer.
 
+- **WHATWG HTML §9.2 — Server-sent events** (`specs/whatwg-sse.md`, #559) — §9.2.5 : `text/event-stream`, **UTF-8 seul**, fins de ligne CRLF/CR/LF toutes trois admises (le serveur émet LF), BOM initial ignoré. §9.2.6 : ligne vide = dispatch ; ligne `:` = commentaire ignoré ; champs comparés SANS repli de casse ; `data` multiples joints par LF ; `id` contenant NUL ignoré, `id` VIDE remet l'identifiant à zéro (plus de `Last-Event-ID`) ; `retry` = chiffres ASCII seuls, sinon ignoré ; un champ inconnu est ignoré ; **un bloc non terminé par une ligne vide n'est jamais dispatché**. §9.2.3 : statut ≠ 200 ou type ≠ `text/event-stream` → échec SANS reconnexion ; **204 = « cesse de te reconnecter »** ; erreur réseau → reconnexion après le délai `retry`, avec `Last-Event-ID`. §9.2.7 : commentaire de garde ~15 s contre les proxys qui coupent ; plafond de connexions par serveur côté navigateur en HTTP/1.1 (pas en HTTP/2, RFC 9113 : un flux du multiplexage). Côté transport : RFC 9112 §7.1 chunked en HTTP/1.1 ; RFC 9113 §8.2.2 `Transfer-Encoding` INTERDIT en HTTP/2. Node 26 : `EventSource` global seulement sous `--experimental-eventsource` (`specs/nodejs/globals.md`) → client bâti sur `fetch`.
 - **RFC 8693 (OAuth Token Exchange)** — délégation « on-behalf-of » (agents IA / MCP). **RFC 9449 (DPoP)** — token sender-constrained (anti-vol/replay, service-to-service). **RFC 8707 (Resource Indicators)** — `aud` ciblée (déjà partiellement, cf §9). **RFC 7118 / SIP** — bridge VoIP/RTC futur (P15, `PlainTransport` RTP).
