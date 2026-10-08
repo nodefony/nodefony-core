@@ -181,6 +181,15 @@ describe("RED-TEAM #568 — gardes d'un flux SSE, parité WebSocket (requires se
   afterEach(async () => {
     for (const s of streams.splice(0)) s.close();
     for (const ws of sockets.splice(0)) ws.terminate();
+    // Attendre que le serveur ait CONSTATÉ chaque fermeture avant de remettre
+    // les compteurs à zéro : une fermeture vue après le `reset` incrémente le
+    // compteur du cas SUIVANT (vécu : contrôle positif de V35 rouge sur macOS en
+    // production, le flux du cas précédent se fermant après la remise à zéro).
+    for (let i = 0; i < 100; i++) {
+      const { opened, closed } = await state();
+      if (closed >= opened) break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
     await call("GET", `${SSE}/reset`);
   });
 
