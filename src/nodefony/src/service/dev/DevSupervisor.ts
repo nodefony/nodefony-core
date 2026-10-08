@@ -73,6 +73,12 @@ import {
   waitGroupDead,
   terminateDevProcesses,
 } from "./devProcess";
+import {
+  describeTurboFreeze,
+  TurboFreezeWatch,
+  turboVerbosityArgs,
+  type ITurboFreezeVerdict,
+} from "./turboFreeze";
 
 /** Options du superviseur de dev. */
 export interface DevSupervisorOptions {
@@ -476,6 +482,14 @@ export interface IRunCapturedOptions {
   readonly detached?: boolean;
   /** Reçoit le processus lancé, pour pouvoir tuer son arbre à l'arrêt. */
   readonly onSpawn?: (child: ChildProcess) => void;
+  /**
+   * La commande est un `turbo run` : son bilan est lu, et un turbo qui l'a
+   * affiché puis se tait `turboGraceMs` est FIGÉ (#479) — arbre arrêté, verdict
+   * pris sur le bilan, au lieu d'attendre la borne d'inactivité.
+   */
+  readonly turbo?: boolean;
+  /** Silence toléré après le bilan de turbo (défaut {@link TURBO_FREEZE_GRACE_MS}). */
+  readonly turboGraceMs?: number;
 }
 
 /**
@@ -504,7 +518,12 @@ export function runCapturedCommand(
   return new Promise((resolve) => {
     let output = "";
     let stalled = false;
+    let frozen: ITurboFreezeVerdict | null = null;
     let idle: ReturnType<typeof setTimeout> | null = null;
+    let lastOutputAt = Date.now();
+    const turboWatch = options.turbo
+      ? new TurboFreezeWatch(lastOutputAt, options.turboGraceMs)
+      : null;
     // `portableSpawn` : sous Windows le gestionnaire est un `.cmd`, et
     // `shell: true` concaténerait les arguments sans les échapper (DEP0190).
     const run = portableSpawn(cmd, args);
@@ -515,29 +534,70 @@ export function runCapturedCommand(
       windowsVerbatimArguments: run.windowsVerbatimArguments,
     });
     options.onSpawn?.(p);
-    const arm = (): void => {
+    const kill = (): void => {
+      if (p.pid !== undefined) signalProcessGroup(p.pid, "SIGKILL");
+    };
+    const schedule = (ms: number): void => {
       if (idle) clearTimeout(idle);
-      idle = setTimeout(() => {
+      idle = setTimeout(check, ms);
+      idle.unref();
+    };
+    // Une seule horloge pour les deux bornes : le gel (bilan + silence court)
+    // et l'inactivité (silence long, sans bilan).
+    function check(): void {
+      const now = Date.now();
+      const verdict = turboWatch?.verdict(now) ?? null;
+      if (verdict) {
+        frozen = verdict;
+        output += describeTurboFreeze(verdict, turboWatch?.logTail ?? []);
+        kill();
+        return;
+      }
+      const silent = now - lastOutputAt;
+      if (silent >= idleMs) {
         stalled = true;
         output +=
           `\n${[cmd, ...args].join(" ")} : aucune sortie depuis ` +
           `${Math.round(idleMs / 1000)} s — déclaré calé, arbre tué (pid ${p.pid})\n`;
-        if (p.pid !== undefined) signalProcessGroup(p.pid, "SIGKILL");
-      }, idleMs);
-      idle.unref();
+        kill();
+        return;
+      }
+      schedule(
+        Math.max(
+          1,
+          Math.min(idleMs - silent, turboWatch?.remaining(now) ?? idleMs),
+        ),
+      );
+    }
+    const heard = (): void => {
+      lastOutputAt = Date.now();
+      schedule(Math.min(idleMs, turboWatch?.remaining(lastOutputAt) ?? idleMs));
     };
     const settle = (ok: boolean): void => {
       if (idle) clearTimeout(idle);
-      resolve({ ok: ok && !stalled, output });
+      if (turboWatch) {
+        output += turboWatch.flush();
+        // Turbo en échec sous `CI` : la fin de son journal détaillé dit où.
+        if (!frozen && !ok && turboWatch.logTail.length > 0) {
+          output += `\n[turbo] fin du journal détaillé :\n${turboWatch.logTail.slice(-20).join("\n")}\n`;
+        }
+      }
+      // Figé : le BILAN dit le verdict — un échec annoncé ne devient jamais un vert.
+      if (frozen) resolve({ ok: frozen.code === 0, output });
+      else resolve({ ok: ok && !stalled, output });
     };
-    arm();
+    schedule(idleMs);
     p.stdout.on("data", (d: Buffer) => {
-      output += d.toString();
-      arm();
+      const text = d.toString();
+      output += text;
+      turboWatch?.stdout(text, Date.now());
+      heard();
     });
     p.stderr.on("data", (d: Buffer) => {
-      output += d.toString();
-      arm();
+      const text = d.toString();
+      // Le journal détaillé de turbo est gardé à part, jamais mêlé à la sortie.
+      output += turboWatch ? turboWatch.stderr(text, Date.now()) : text;
+      heard();
     });
     p.once("exit", (code) => settle(code === 0));
     p.once("error", () => settle(false));
@@ -1035,14 +1095,16 @@ export class DevSupervisor {
     args: readonly string[],
     idleMs?: number,
     cwd: string = this.#cwd,
+    turbo = false,
   ): Promise<{ ok: boolean; output: string }> {
     if (!this.#supervising) {
-      return runCapturedCommand(cmd, args, cwd, idleMs);
+      return runCapturedCommand(cmd, args, cwd, idleMs, { turbo });
     }
     // L'étape suivante d'un build tué par l'arrêt ne part pas : lancée après
     // `#killBuild`, personne ne la tuerait plus.
     if (this.#stopping) return Promise.resolve({ ok: false, output: "" });
     return runCapturedCommand(cmd, args, cwd, idleMs, {
+      turbo,
       detached: true,
       onSpawn: (child) => {
         this.#buildChild = child;
@@ -1081,7 +1143,18 @@ export class DevSupervisor {
     idleMs?: number,
     cwd?: string,
   ): Promise<{ ok: boolean; output: string }> {
-    return this.#runCaptured(...this.#binCommand(bin, args), idleMs, cwd);
+    // Turbo : sous garde de gel (#479), et en journal détaillé sous `CI` —
+    // l'option va AVANT la sous-commande, un `--` l'enverrait aux tâches.
+    const turbo = bin === "turbo";
+    const binArgs = turbo
+      ? [...turboVerbosityArgs(process.env.CI), ...args]
+      : args;
+    return this.#runCaptured(
+      ...this.#binCommand(bin, binArgs),
+      idleMs,
+      cwd,
+      turbo,
+    );
   }
 
   /** Déverse la sortie d'un build qui a échoué (après avoir figé le spinner). */

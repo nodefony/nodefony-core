@@ -16,7 +16,9 @@
  * Sous `CI` :
  *
  * 1. la sortie transite par ce lanceur, qui y lit le bilan ;
- * 2. bilan affiché puis {@link GRACE_SECONDS} s sans un octet : l'arbre turbo est
+ * 2. bilan affiché puis {@link GRACE_SECONDS} s sans un octet (règle unique :
+ *    `src/nodefony/src/service/dev/turboFreeze.ts`, que le superviseur de dev
+ *    emploie aussi) : l'arbre turbo est
  *    arrêté, et le lanceur rend le code que le BILAN annonce — 0 si tout est
  *    `successful`, 1 sinon. La suite d'un `turbo run build && rolldown …`
  *    s'exécute donc normalement ; tuer turbo sans rendre ce code l'aurait coupée ;
@@ -29,7 +31,7 @@
  *
  * RETRAIT : ce lanceur n'existe que pour un défaut amont. Quand une montée de
  * turbo passe un mois de CI sans qu'aucun journal Windows ne porte la ligne
- * `[turbo.mjs] bilan affiché`, on le supprime et les scripts de `package.json`
+ * `[turbo] bilan affiché`, on le supprime et les scripts de `package.json`
  * reviennent à `turbo run …` — le garder masquerait le comportement réel.
  *
  * @usage node scripts/repo/turbo.mjs run build [options turbo…]
@@ -40,51 +42,17 @@ import { pathToFileURL } from "node:url";
 // La SOURCE, pas le barrel `nodefony` : ce lanceur bâtit le `dist` qu'il
 // faudrait sinon importer. Node retire les types nativement (`engines` >= 24).
 import { signalProcessGroup } from "../../src/nodefony/src/service/dev/devProcess.ts";
+// La règle du gel vit dans le PRODUIT (le superviseur de dev l'emploie aussi) :
+// une implémentation, deux clients.
+import {
+  describeTurboFreeze,
+  TURBO_FREEZE_GRACE_MS,
+  TurboFreezeWatch,
+  turboVerbosityArgs,
+} from "../../src/nodefony/src/service/dev/turboFreeze.ts";
 
-/** Silence toléré APRÈS le bilan avant de déclarer turbo figé. Mesuré : turbo sort en ~10 ms. */
-export const GRACE_SECONDS = 30;
-
-/** Lignes du journal détaillé gardées pour le rapport de gel. */
-const LOG_TAIL = 60;
-
-const ANSI = /\x1b\[[0-9;]*m/gu;
-
-/** Ligne de journal de turbo en mode détaillé : `2026-10-08T07:12:49.635+0200 [DEBUG] crate: …`. */
-const TURBO_LOG_LINE =
-  /^\d{4}-\d\d-\d\dT[\d:.]+(?:Z|[+-]\d\d:?\d\d) \[(?:TRACE|DEBUG|INFO)\] /u;
-
-/**
- * Lit le bilan de turbo dans une ligne de sa sortie.
- *
- * @param {string} line - une ligne, codes de couleur compris.
- * @returns {{successful:number, total:number} | null} le bilan, ou `null` si la ligne n'en est pas un.
- */
-export function parseSummary(line) {
-  const m = /Tasks:\s+(\d+) successful, (\d+) total/u.exec(
-    line.replace(ANSI, ""),
-  );
-  return m ? { successful: Number(m[1]), total: Number(m[2]) } : null;
-}
-
-/**
- * Dit si une ligne de stderr appartient au journal détaillé de turbo.
- *
- * @param {string} line - une ligne de stderr.
- * @returns {boolean} vrai pour une ligne de journal (gardée, non affichée).
- */
-export function isTurboLogLine(line) {
-  return TURBO_LOG_LINE.test(line.replace(ANSI, ""));
-}
-
-/**
- * Le code de sortie qu'annonce un bilan : celui que turbo aurait rendu.
- *
- * @param {{successful:number, total:number}} summary - le bilan lu.
- * @returns {number} 0 si toutes les tâches ont réussi, 1 sinon.
- */
-export function summaryExitCode(summary) {
-  return summary.successful === summary.total ? 0 : 1;
-}
+/** Silence toléré APRÈS le bilan avant de déclarer turbo figé. */
+export const GRACE_SECONDS = TURBO_FREEZE_GRACE_MS / 1000;
 
 /** Arrête l'arbre de `child` par l'implémentation unique du cœur. */
 function killTree(child) {
@@ -95,22 +63,6 @@ function killTree(child) {
 function defaultCommand() {
   const require = createRequire(import.meta.url);
   return [process.execPath, require.resolve("turbo/bin/turbo")];
-}
-
-/** Découpe un flux en lignes ; la dernière, incomplète, attend le paquet suivant. */
-function lineSplitter(onLine) {
-  let rest = "";
-  return {
-    push(chunk) {
-      const parts = (rest + chunk.toString("utf8")).split(/\r?\n/u);
-      rest = parts.pop() ?? "";
-      for (const p of parts) onLine(p, true);
-    },
-    flush() {
-      if (rest) onLine(rest, false);
-      rest = "";
-    },
-  };
 }
 
 /**
@@ -145,8 +97,9 @@ export async function runTurbo(args, options = {}) {
     return code;
   }
 
-  // `--verbosity` AVANT la sous-commande : après, un `--` l'enverrait aux tâches.
-  const child = spawn(file, [...pre, "--verbosity=2", ...args], {
+  // Garde active = journal détaillé, comme sous `CI` (la garde se force aussi
+  // hors `CI`, dans les tests) ; l'option précède la sous-commande.
+  const child = spawn(file, [...pre, ...turboVerbosityArgs("1"), ...args], {
     stdio: ["ignore", "pipe", "pipe"],
     // Un groupe POSIX à lui : l'arbre se tue d'un seul signal. Sous Windows,
     // `taskkill /T` suit les parents — et `detached` y ouvrirait une console.
@@ -154,29 +107,14 @@ export async function runTurbo(args, options = {}) {
     windowsHide: true,
   });
 
-  let last = Date.now();
-  let summary = null;
-  const logTail = [];
-
-  const out = lineSplitter((line) => {
-    summary = parseSummary(line) ?? summary;
-  });
-  const err = lineSplitter((line, complete) => {
-    if (isTurboLogLine(line)) {
-      logTail.push(line.replace(ANSI, ""));
-      if (logTail.length > LOG_TAIL) logTail.shift();
-    } else {
-      process.stderr.write(complete ? `${line}\n` : line);
-    }
-  });
+  const watch = new TurboFreezeWatch(Date.now(), graceSeconds * 1000);
   child.stdout.on("data", (c) => {
-    last = Date.now();
     process.stdout.write(c);
-    out.push(c);
+    watch.stdout(c.toString("utf8"), Date.now());
   });
   child.stderr.on("data", (c) => {
-    last = Date.now();
-    err.push(c);
+    const shown = watch.stderr(c.toString("utf8"), Date.now());
+    if (shown) process.stderr.write(shown);
   });
 
   const exited = new Promise((resolve) => {
@@ -190,8 +128,9 @@ export async function runTurbo(args, options = {}) {
 
   let frozen = null;
   const timer = setInterval(() => {
-    if (summary && !frozen && Date.now() - last > graceSeconds * 1000) {
-      frozen = summary;
+    frozen ??= watch.verdict(Date.now());
+    if (frozen) {
+      clearInterval(timer);
       killTree(child);
     }
   }, 1000);
@@ -200,28 +139,21 @@ export async function runTurbo(args, options = {}) {
   clearInterval(timer);
   process.off("SIGINT", forward);
   process.off("SIGTERM", forward);
-  out.flush();
-  err.flush();
+  const rest = watch.flush();
+  if (rest) process.stderr.write(rest);
 
   if (!frozen) {
-    if (naturalCode !== 0 && logTail.length > 0) {
+    if (naturalCode !== 0 && watch.logTail.length > 0) {
       process.stderr.write(
         `\n[turbo.mjs] turbo a échoué (code ${naturalCode}) — fin de son journal détaillé :\n` +
-          `${logTail.slice(-20).join("\n")}\n`,
+          `${watch.logTail.slice(-20).join("\n")}\n`,
       );
     }
     return naturalCode;
   }
 
-  const code = summaryExitCode(frozen);
-  process.stderr.write(
-    `\n[turbo.mjs] bilan affiché (${frozen.successful}/${frozen.total} réussies) mais turbo ` +
-      `ne rend pas la main depuis ${graceSeconds} s — arbre arrêté, code ${code} rendu ` +
-      "d'après le bilan (#479). Fin du journal détaillé de turbo — la dernière ligne " +
-      "est l'étape où il s'est figé :\n" +
-      `${logTail.join("\n")}\n\n`,
-  );
-  return code;
+  process.stderr.write(`${describeTurboFreeze(frozen, watch.logTail)}\n`);
+  return frozen.code;
 }
 
 if (

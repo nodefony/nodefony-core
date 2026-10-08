@@ -44,9 +44,9 @@ Trois besoins dépassent ce modèle :
 
 Les faits qui contraignent la solution, au code :
 
-- `src/nodefony/src/service/dev/DevSupervisor.ts:1684` — le serveur est lancé `detached` sous
+- `src/nodefony/src/service/dev/DevSupervisor.ts:1754` — le serveur est lancé `detached` sous
   POSIX : un groupe en arrière-plan qui LIT le terminal reçoit `SIGTTIN` et est suspendu. Seul le
-  superviseur (il reçoit Ctrl+C, `SIGINT` — `DevSupervisor.ts:2285`) peut lire le clavier.
+  superviseur (il reçoit Ctrl+C, `SIGINT` — `DevSupervisor.ts:2355`) peut lire le clavier.
 - `src/nodefony/src/service/dev/DevSupervisor.ts:1134` — `stdio: ["inherit", "inherit", "inherit",
 "ipc"]` : le serveur écrit directement dans le terminal.
 - `src/nodefony/src/service/dev/DevSupervisor.ts:971` (`#log`) et `:980` (`#startSpin`) — le
@@ -406,7 +406,7 @@ interface IConfirmDecision {
   `uncaughtException`, `exit` — par le protocole unique (§5). Seul `kill -9` laisse un terminal à
   `reset` : c'est la raison d'être de la surface `inline`.
 - Le verdict de crash du serveur s'arme sur l'évènement `close` de l'enfant (émis après la fin de
-  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts:559`) : sinon la pile d'un crash
+  ses flux), plus sur `exit` (`onServerEnded`, `DevSupervisor.ts:616`) : sinon la pile d'un crash
   au démarrage arrive après le message, ou se perd.
 
 ### 10. Hors du rendu humain, rien ne change

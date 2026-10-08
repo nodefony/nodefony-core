@@ -10,12 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import {
-  isTurboLogLine,
-  parseSummary,
-  runTurbo,
-  summaryExitCode,
-} from "./turbo.mjs";
+import { runTurbo } from "./turbo.mjs";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-turbo-guard-"));
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
@@ -37,46 +32,9 @@ const HANG = "setInterval(() => {}, 1000);";
 const LOG =
   "console.error('2026-10-08T07:12:49.887+0200 [DEBUG] turborepo_run: visitor completed, calculating exit code');";
 
-describe("parseSummary — le bilan de turbo, couleurs comprises", () => {
-  it("lit le bilan vert, le bilan rouge, et ignore le reste", () => {
-    expect(
-      parseSummary(
-        "\x1b[1m Tasks:    \x1b[32m\x1b[1m21 successful\x1b[0m, 21 total\x1b[0m",
-      ),
-    ).toEqual({ successful: 21, total: 21 });
-    expect(parseSummary(" Tasks:    20 successful, 21 total")).toEqual({
-      successful: 20,
-      total: 21,
-    });
-    expect(parseSummary("Cached:    21 cached, 21 total")).toBeNull();
-    expect(parseSummary("@nodefony/http:build: Tasks: done")).toBeNull();
-  });
-
-  it("rend le code que turbo aurait rendu", () => {
-    expect(summaryExitCode({ successful: 21, total: 21 })).toBe(0);
-    expect(summaryExitCode({ successful: 20, total: 21 })).toBe(1);
-    expect(summaryExitCode({ successful: 0, total: 0 })).toBe(0);
-  });
-});
-
-describe("isTurboLogLine — le journal détaillé se garde, le reste s'affiche", () => {
-  it("reconnaît les lignes horodatées de turbo, pas une sortie de tâche", () => {
-    expect(
-      isTurboLogLine(
-        "2026-10-08T07:12:49.635+0200 [DEBUG] turborepo_shim::run: Global turbo version: 2.11.7",
-      ),
-    ).toBe(true);
-    expect(
-      isTurboLogLine("2026-10-08T05:12:49.635Z [TRACE] turborepo_lib: x"),
-    ).toBe(true);
-    // Un avertissement reste VISIBLE : il est adressé au lecteur du journal.
-    expect(
-      isTurboLogLine("2026-10-08T07:12:49.635+0200 [WARN] turborepo: x"),
-    ).toBe(false);
-    expect(isTurboLogLine("error TS2307: Cannot find module")).toBe(false);
-  });
-});
-
+// La règle elle-même (bilan, journal détaillé, verdict) s'éprouve dans le
+// produit, horloge simulée : `src/nodefony/src/tests/turboFreeze.test.ts`.
+// Ici : le lanceur qui l'emploie, sur un vrai process.
 describe("runTurbo sous garde — le gel après bilan", () => {
   it("bilan vert puis gel : arbre arrêté, code 0 rendu", async () => {
     const t0 = Date.now();
