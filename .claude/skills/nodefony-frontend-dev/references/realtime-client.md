@@ -55,7 +55,7 @@ static shared(opts?: NodefonySocketOptions): NodefonySocket;
 constructor(opts?: NodefonySocketOptions, transportFactory?: RealtimeTransportFactory);
 ```
 
-`NodefonySocket.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `NodefonySocket.ts:299-309`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. Le noyau client l'appelle lui-même — `NodefonySocket.shared(opt)` (`ClientKernel.ts:224`) ; une application comme Studio ne la nomme plus, elle passe par `createClientKernel` (`RootStore.ts:76`).
+`NodefonySocket.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `NodefonySocket.ts:500-510`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. Le noyau client l'appelle lui-même — `NodefonySocket.shared(opt)` (`ClientKernel.ts:224`) ; une application comme Studio ne la nomme plus, elle passe par `createClientKernel` (`RootStore.ts:76`).
 
 `NodefonySocketOptions` (`NodefonySocket.ts:96-116`) :
 
@@ -95,9 +95,9 @@ retryNow(): void;                           // force une reco immédiate, annule
 - **Backoff exponentiel** (`scheduleReconnect`, `:986-1004`) : `delay = min(reconnectDelay × 2^(attempt-1), reconnectDelayMax)`. Émet l'event local `__reconnect__` `{ attempt, delay, nextRetryAt }` → l'UI peut afficher un compte à rebours.
 - **Re-subscribe automatique** : à chaque (ré)ouverture, tous les canaux ref-comptés sont ré-émis au serveur (`openSocket` `:937-939`) — couvre le reconnect ET un `subscribe` appelé avant l'ouverture.
 - **Heartbeat** : ping `{ ts }` toutes les `heartbeatInterval` ms tant que le transport est OPEN (`startHeartbeat`, `:1160`). Timer `unref` (n'empêche pas la sortie de process côté Node/test).
-- **Sémantique des close codes** (RFC 6455 §7.4) : un code **définitif** (1000, 1002, 1003, 1007, 1008=401/403, 1010, 4004 privé Nodefony) **ne relance PAS** la reco (sinon un anonyme martèle un endpoint protégé) → état `error`, l'app doit agir (login) puis `connect()`/`retryNow()`. Les codes **transitoires** (1001 restart, 1006 perte réseau, 1011, code absent) relancent la reco. Décidé par `isReconnectableCloseCode` (`notice.ts:171`, set `FATAL_CLOSE_CODES` `:140`).
+- **Sémantique des close codes** (RFC 6455 §7.4) : un code **définitif** (1000, 1002, 1003, 1007, 1008=401/403, 1010, 4004 privé Nodefony) **ne relance PAS** la reco (sinon un anonyme martèle un endpoint protégé) → état `error`, l'app doit agir (login) puis `connect()`/`retryNow()`. Les codes **transitoires** (1001 restart, 1006 perte réseau, 1011, code absent) relancent la reco. Décidé par `isReconnectableCloseCode` (`notice.ts:185`, set `FATAL_CLOSE_CODES` `:140`).
 
-Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `NodefonySocket.ts:1389-1389`).
+Limite assumée : une frame émise hors connexion (`send` quand le transport n'est pas OPEN) est **droppée** (pas de buffering offline, `NodefonySocket.ts:1669-1672`).
 
 ---
 
@@ -116,7 +116,7 @@ channel(name): IRealtimeChannel;     // handle par-canal {on,send,open,close} (:
 
 **Distinction fondamentale** : `on(channel, h)` **REÇOIT** (branche le handler local) ; `subscribe(channel)` **DEMANDE** au serveur de pousser. Les deux sont nécessaires : `on` sans `subscribe` ne reçoit rien (le serveur ne pousse pas) ; `subscribe` sans `on` reçoit mais n'a aucun handler.
 
-**Ref-comptage** (`_subscriptions: Map<channel, count>`, `NodefonySocket.ts:190`) : la notification réseau `subscribe`/`unsubscribe` n'est émise qu'aux **transitions 0↔1**. N consommateurs (hooks React + store) sur le même canal partagent **UN seul abonnement serveur** sans se couper l'un l'autre :
+**Ref-comptage** (`_subscriptions: Map<channel, count>`, `NodefonySocket.ts:866`) : la notification réseau `subscribe`/`unsubscribe` n'est émise qu'aux **transitions 0↔1**. N consommateurs (hooks React + store) sur le même canal partagent **UN seul abonnement serveur** sans se couper l'un l'autre :
 
 - `subscribe` : `count++` ; émet `subscribe` réseau **seulement** au 1ᵉʳ (`count === 1`, `:501`).
 - `unsubscribe` : `count--` ; émet `unsubscribe` réseau **seulement** au dernier (`:438-440`).
@@ -571,6 +571,6 @@ Pendant serveur, bornes et politique du canal → `nodefony-framework-dev` (`ref
 - **Réponse mémorisée ≠ replay d'un `render` manuel** (côté serveur idempotence) : la valeur rejouée est la valeur RETOURNÉE par l'action.
 - **`onNotice`/`useNodefonyNotifications` : monter une seule fois** (shell) sinon toasts dupliqués.
 - **Canaux d'événements ≠ cadence adaptative** : ne JAMAIS `adaptiveChannel`/`useNodefonyAdaptiveChannel*` sur syslog/frames (chaque item compte) — réservé aux canaux d'ÉTAT latest-wins.
-- **Pas de buffering offline** : une frame émise hors connexion est droppée (`NodefonySocket.ts:706`).
+- **Pas de buffering offline** : une frame émise hors connexion est droppée (`NodefonySocket.ts:907`).
 - **`disconnect()` ≠ perte réseau** : volontaire → identité `null` (login) + requêtes en vol rejetées ; perte réseau → identité conservée + reco (selon close code, §3).
 - **Close code fatal (1008=401/403, 4004…) ne relance pas la reco** → état `error` ; l'app doit corriger (login) puis `connect()`/`retryNow()`.

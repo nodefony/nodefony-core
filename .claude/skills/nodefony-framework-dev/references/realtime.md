@@ -468,7 +468,7 @@ Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish
 
 ### 2.5 `NodefonySocket` — client isomorphe (core)
 
-`core/src/client/realtime/NodefonySocket.ts:304`. `import { NodefonySocket } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
+`core/src/client/realtime/NodefonySocket.ts:506`. `import { NodefonySocket } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
 
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle |
