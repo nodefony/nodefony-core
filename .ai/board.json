@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T14:29:25.935Z",
+  "generatedAt": "2026-10-08T15:37:54.310Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 89,
+      "closed": 91,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 52,
+      "open": 50,
       "title": "10.0.0-beta"
     },
     {
@@ -2345,8 +2345,8 @@
       "number": 568,
       "title": "test(security): même couverture d'attaque pour SSE et WebSocket",
       "url": "https://github.com/nodefony/nodefony-core/issues/568",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -2361,8 +2361,8 @@
       "number": 569,
       "title": "docs(http): dire où servir HTTP/2 quand un proxy porte les flux SSE",
       "url": "https://github.com/nodefony/nodefony-core/issues/569",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
