@@ -3,7 +3,7 @@
 //
 // ⚠️ Cible la socket STUDIO `/nodefony/studio/api/realtime` (JSON-RPC pub/sub) : c'est
 // elle qui passe par le RealtimeHub. Les routes WS du module test (ws/echo, ws/broadcast)
-// BYPASSENT le hub → elles ne bougent PAS realtime:health.
+// BYPASSENT le hub → elles ne bougent PAS la sonde (canal nodefony:socket).
 //
 // Deux modes :
 //   MODE=fanout (défaut) — N abonnés SAINS (drainent) à un canal qui tique

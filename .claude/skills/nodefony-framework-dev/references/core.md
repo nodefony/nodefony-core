@@ -586,7 +586,7 @@ sur le **constructeur**), `@Inject("name")` (propriété → `inject:properties`
 - **Statics process-global** : `setOutputBuffering(mode)` `:1405` / `flushOutput()` `:1410` · `setLogSink(sink \| null)` `:1421`
   (`ILogSink` : stdout/file/null) · `overrideConsole(instance)` `:1459`.
 - 3 axes ORTHOGONAUX : ① **sink write** (`ILogSink`) ② **driver query** (`ILogDriver` : memory/file/loki/opensearch, chemin FROID)
-  ③ **bus realtime** (`syslog:stream`). Tous enfichables + exportés du barrel.
+  ③ **bus realtime** (`nodefony:syslog`). Tous enfichables + exportés du barrel.
 
 `syslog/Pdu.ts:132` — `class Pdu` (entrée de log immuable). Champs : `payload`, `uid` (monotone par process), `severity:number`,
 `severityName:string` `:137`, `timeStamp:number` (**pas** d'objet `Date`), `moduleName`, `msgid`, `msg`, `status`, `pid`

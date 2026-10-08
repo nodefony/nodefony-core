@@ -48,6 +48,7 @@ import http from "node:http";
 import http2 from "node:http2";
 import { writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { PLATFORM_METHODS } from "nodefony";
 
 const require = createRequire(import.meta.url);
 const WebSocket = require("ws");
@@ -101,7 +102,7 @@ const PASS = process.env.NF_ADMIN_PASSWORD ?? "secret-de-dev-42"; // DEV_FIXTURE
  * l'environnement dont les chiffres ne valent rien pour dimensionner.
  *
  * `--target studio` bascule sur ce que la prod expose réellement :
- *   - mémoire : `kernel:gc` (RPC du hub, force le GC) + `/studio/api/stats`
+ *   - mémoire : `nodefony:kernel:gc` (RPC du hub, force le GC) + `/studio/api/stats`
  *   - HTTP    : `/nodefony/studio/api/health` (public, sans session)
  *   - sockets : le hub Studio ; le débit se mesure sur le PONT `api.request`
  *               (la vraie porte socket) au lieu d'un echo.
@@ -174,14 +175,14 @@ function reqJson(
  * heapUsed RETENU (après GC forcé).
  *
  * En dev : la sonde du module test force `global.gc()`. En prod, ce module
- * n'existe pas → on passe par l'action RPC `kernel:gc` du hub Studio (qui force
+ * n'existe pas → on passe par l'action RPC `nodefony:kernel:gc` du hub Studio (qui force
  * le GC si le process a `--expose-gc`), puis on lit `/studio/api/stats`.
  * Sans GC forcé, on mesurerait le déchet transitoire, pas la mémoire RETENUE.
  */
 let GC_PEER = null; // socket de service, ouverte une fois
 const mem = async () => {
   if (!STUDIO) return (await reqJson("/nodefony/test/memory")).body;
-  await rpc(await gcPeer(), "kernel:gc", {});
+  await rpc(await gcPeer(), PLATFORM_METHODS.gc, {});
   const s = await stats();
   return s.memory;
 };

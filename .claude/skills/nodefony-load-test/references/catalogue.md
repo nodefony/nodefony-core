@@ -172,7 +172,7 @@ chacun, jamais le même :
 | Banc | Son décor, et pourquoi |
 | --- | --- |
 | `idempotency-cluster-e2e` | un **cluster de 2 workers**, pas le serveur dev : il exige ≥ 2 pids servants. `NF_IDEMPOTENCY_STORE=redis NF_REDIS_URL=… NF_ADMIN_PASSWORD=secret-de-dev-42 NF_USER_STORE=memory NF_WITH_DEV_MODULES=1 nodefony cluster --workers 2 --detach --wait 120`. ⚠️ L'entête du script prescrit `NF_REDIS_PASSWORD` : la configuration charge le module Redis sur `NF_REDIS_URL` (`nodefony.config.ts`, `when: () => !!ctx.infra.cache`) — sans elle, le cluster part en **boucle de redémarrage** sur « the @nodefony/redis module is not loaded ». |
-| `scaffold-ws-probe`, `app-download-probe` | un **cookie de session** en premier argument, qu'aucune autre ligne ne mentionne. ⚠️ Les deux sont **PÉRIMÉS** : ils appellent une méthode `scaffold:run` qui n'existe plus (la génération passe par un controller HTTP et le canal `nodefony:scaffold:job@<id>`) — voir #217. |
+| `scaffold-ws-probe`, `app-download-probe` | un **cookie de session** en premier argument, qu'aucune autre ligne ne mentionne. Ils lisent méthode et canal au registre (`PLATFORM_METHODS.scaffoldRun`, `PLATFORM_CHANNELS.scaffoldJob`) : leur `method not found: scaffold:run` venait du passage à l'espace de noms `nodefony:`. La méthode répond de nouveau ; le parcours complet de génération n'a pas été rejoué — voir #217. |
 | `micro/micro-route-scan` | la table de routes de l'app : `npx nodefony inspect routes --json > tmp/routes-inspect.json`. Il le dit en sortant. |
 | `poc-hmr-perf` | le port Vite du module visé **en `wss://`** — son défaut `ws://127.0.0.1:5173` ne se connecte plus (Vite sert en TLS auto-signé, ports attribués par module). Voir #217. |
 

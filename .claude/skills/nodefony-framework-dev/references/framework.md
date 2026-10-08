@@ -415,17 +415,17 @@ vhosts) → 405 unique. Pseudo-méthode `WEBSOCKET` exposée dans l'agrégat d'u
 
 ## Internals — seam sécurité
 
-`_enforceSecurity(req: SecurityRequirement)` (`Resolver.ts:853`), appelé dans `executeAction` **AVANT
+`_enforceSecurity(req: SecurityRequirement)` (`Resolver.ts:866`), appelé dans `executeAction` **AVANT
 `newController()`** — un 403 court-circuite donc réellement l'instanciation DI et `initialize()`, y
 compris sur le trajet HTTP (le kernel n'instancie plus en amont, cf entrée `initialize()` ci-dessus ;
 c'était une promesse que le pipeline contredisait). Résout le service
 `authorization` **par nom** (`IAuthorizer.decide(token, attribute, subject?) → Promise<boolean>`,
 `Resolver.ts:57`) ; `token = RequestContext.get()?.token`. **Fail-closed** : `!authz || token===undefined`
 → 403. Clauses en **AND** (`req.clauses`), attributs d'une clause en **OR** (`clause.anyOf`) ; `subject`
-résolu via `_resolveSubject(name)` (`Resolver.ts:923`, depuis `route.variables`). `meta.security===null`
+résolu via `_resolveSubject(name)` (`Resolver.ts:936`, depuis `route.variables`). `meta.security===null`
 (99 % des routes) → 0 lookup/await/alloc.
 
-`SecurityRequirement` figé par `computeSecurityRequirement` (`routerDecorators.ts:1620`) = fusion
+`SecurityRequirement` figé par `computeSecurityRequirement` (`routerDecorators.ts:1645`) = fusion
 `@IsGranted` (rôles) **+** `@RequireScope` (scopes) classe+méthode en AND. `@Anonymous` méthode →
 `null` (override classe). Découverte boot des scopes : `collectDeclaredApiScopes()`
 (`nodefony/src/scopeCatalog.ts:29`, scanne `Router.routes` → groupes par API).
@@ -532,7 +532,7 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
 
 ## Internals — `RouteActionMeta` (memo)
 
-`RouteActionMeta` (`routerDecorators.ts:1512`) gèle par route : `paramsMeta`, `redirectMeta`, `httpCode`,
+`RouteActionMeta` (`routerDecorators.ts:1537`) gèle par route : `paramsMeta`, `redirectMeta`, `httpCode`,
 `headerEntries` (`Object.entries` 1×), `sessionIntent`, `security`, `cspDirectives`, `csrfProtect`,
 `csrfExempt`, `idempotent`. **Mémoïsé** au 1er hit sur `route.actionMeta` via `resolveActionMeta(route)`
 (`:1386`) → **0 `Reflect.getMetadata` par requête** (avant ~6/req). `computeActionMeta(ctor, method)`
@@ -565,7 +565,7 @@ transport (`switch(typeOf)`) :
 | `void`/`null` + `isRedirect` | `context.send()` |
 | `void`/`null` | `waitAsync=true` (l'action a géré elle-même) |
 
-`@Redirect` : action `void`/`null` → `_handleRedirect` (`Resolver.ts:984`) appelle `context.redirect(url,
+`@Redirect` : action `void`/`null` → `_handleRedirect` (`Resolver.ts:997`) appelle `context.redirect(url,
 code)` puis `returnController(undefined)` (un objet `{url, statusCode?}` retourné par l'action override).
 
 ---
@@ -595,7 +595,7 @@ code)` puis `returnController(undefined)` (un objet `{url, statusCode?}` retourn
   comme donnée brute → `{body:{body:…}}`. Succès défaut 200 = renvoyer la donnée BRUTE.
 - **`@Scope` homonyme** : le core `nodefony` exporte aussi `Scope` (scope DI du Container) — le
   décorateur controller s'importe depuis `@nodefony/framework`.
-- **`extractControllerFilePath`** (`routerDecorators.ts:342`) : regex stack-trace `controllers?/.*\.js`
+- **`extractControllerFilePath`** (`routerDecorators.ts:347`) : regex stack-trace `controllers?/.*\.js`
   → ne capture le `filePath` d'une route qu'avec des fichiers **compilés `.js`** (no-op en ts-node).
 - **Singleton par défaut, stateless strict** : JAMAIS `this.x=…` par requête (data race) — les setters
   d'état lèvent partout, tout champ lève en dev (`singletonGuard.ts`). Déclarer `@Scope("request")`

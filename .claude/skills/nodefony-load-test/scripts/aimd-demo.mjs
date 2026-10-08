@@ -11,6 +11,7 @@
 
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { PLATFORM_CHANNELS } from "nodefony";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -77,20 +78,25 @@ const sock = new MockSocket();
 let t = 0;
 const clock = () => t;
 
-const binding = bindAdaptiveChannel(sock, "orm:health", () => {}, {
-  intervalMs: 1000, // cadence DÉSIRÉE = plancher
-  defaultMs: 5000,
-  ladder: [1000, 2000, 4000, 8000, 16000],
-  starvationFactor: 1.8,
-  healthyFactor: 1.25,
-  recoveryWindow: 3,
-  clock,
-  scheduler: noop,
-  onRate: (ms, reason) =>
-    console.log(
-      `  [t=${(t / 1000).toFixed(0).padStart(3)}s]  CADENCE → ${String(ms).padStart(5)} ms   (${reason})`,
-    ),
-});
+const binding = bindAdaptiveChannel(
+  sock,
+  PLATFORM_CHANNELS.ormHealth,
+  () => {},
+  {
+    intervalMs: 1000, // cadence DÉSIRÉE = plancher
+    defaultMs: 5000,
+    ladder: [1000, 2000, 4000, 8000, 16000],
+    starvationFactor: 1.8,
+    healthyFactor: 1.25,
+    recoveryWindow: 3,
+    clock,
+    scheduler: noop,
+    onRate: (ms, reason) =>
+      console.log(
+        `  [t=${(t / 1000).toFixed(0).padStart(3)}s]  CADENCE → ${String(ms).padStart(5)} ms   (${reason})`,
+      ),
+  },
+);
 
 // Émet une frame `gap` ms après la précédente, sur le canal cadencé COURANT.
 const frame = (gap) => {

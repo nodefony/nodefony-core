@@ -4,14 +4,15 @@
  * Enchaîne exactement ce que fera la page Studio :
  *   1. ouvre la socket JSON-RPC avec le cookie de session (le handshake WS n'accepte
  *      pas d'en-tête via l'API WebSocket standard → transport `ws` custom),
- *   2. appelle l'action `scaffold:run` (frame AVEC id → réponse attendue),
- *   3. s'abonne au canal `scaffold:job@<id>` APRÈS coup — volontairement en retard,
+ *   2. appelle l'action `nodefony:scaffold:run` (frame AVEC id → réponse attendue),
+ *   3. s'abonne au canal `nodefony:scaffold:job@<id>` APRÈS coup — volontairement en retard,
  *      pour vérifier que le backlog est rejoué et qu'aucune ligne n'est perdue,
  *   4. compte les lignes par nature et affiche le terminal.
  *
  * Usage : node scaffold-ws-probe.mjs <cookie> [type] [name]
  */
 import WebSocket from "ws";
+import { PLATFORM_CHANNELS, PLATFORM_METHODS } from "nodefony";
 
 const cookie = process.argv[2];
 const type = process.argv[3] ?? "controller";
@@ -37,11 +38,11 @@ let subscribedAt = 0;
 const send = (msg) => ws.send(JSON.stringify(msg));
 
 ws.on("open", () => {
-  console.log("socket ouverte → action scaffold:run");
+  console.log(`socket ouverte → action ${PLATFORM_METHODS.scaffoldRun}`);
   send({
     jsonrpc: "2.0",
     id: 1,
-    method: "scaffold:run",
+    method: PLATFORM_METHODS.scaffoldRun,
     params: {
       type,
       answers: { name, kind: "hello" },
@@ -57,7 +58,7 @@ ws.on("message", (raw) => {
   // Réponse à l'action : on récupère le job, PUIS on s'abonne (en retard, exprès).
   if (msg.id === 1) {
     if (msg.error) {
-      console.error("scaffold:run a échoué:", msg.error);
+      console.error(`${PLATFORM_METHODS.scaffoldRun} a échoué :`, msg.error);
       ws.close();
       return;
     }
@@ -70,7 +71,7 @@ ws.on("message", (raw) => {
       send({
         jsonrpc: "2.0",
         method: "subscribe",
-        params: { channel: `scaffold:job@${jobId}` },
+        params: { channel: `${PLATFORM_CHANNELS.scaffoldJob}@${jobId}` },
       });
     }, 250);
     return;

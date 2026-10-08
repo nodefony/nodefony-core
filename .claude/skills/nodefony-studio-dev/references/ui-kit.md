@@ -104,7 +104,7 @@ useNodefonyChannelData<T>(channel, initial?=null): T|null  // dernière valeur r
 useNodefonyAdaptiveChannel(channel, (payload)=>void, opts?)        // canal à cadence ADAPTATIVE (AIMD) — suffixe :ms piloté côté serveur
 useNodefonyAdaptiveChannelData<T>(channel, initial?, opts?): T|null // idem, dernière valeur (cadence pilotée par UiStore.adaptiveCadence)
 useNodefonyChannelStats(channel): { msgCount; lastMessage; rate; series } | null
-useNodefonySyslog({ max?=500; severities?; channel?="syslog:stream" }): unknown[]   // ring buffer prêt
+useNodefonySyslog({ max?=500; severities?; channel?="nodefony:syslog" }): unknown[]   // ring buffer prêt
 useNodefonyNotifications((notice: NodefonyNotice)=>void, deps?=[])   // chaque notice normalisée → handler (bridge snackbar). Monter 1× au shell.
 useNodefonyNoticeLog({ max?=50; sources? }): NodefonyNotice[]        // ring buffer des notices (hub « incidents temps réel »)
 ```

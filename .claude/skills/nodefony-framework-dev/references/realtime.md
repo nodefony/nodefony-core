@@ -45,8 +45,8 @@
 import { NodefonySocket } from "nodefony"; // ou nodefony/client côté navigateur
 const c = NodefonySocket.shared({ url: "/nodefony/studio/api/realtime" }); // singleton PAR URL (globalThis)
 await c.connect();
-c.subscribe("dashboard:stats"); // ref-compté (réseau émis aux seules transitions 0↔1)
-const off = c.on("dashboard:stats", (p) => {
+c.subscribe("nodefony:supervision"); // ref-compté (réseau émis aux seules transitions 0↔1)
+const off = c.on("nodefony:supervision", (p) => {
   /* … */
 }); // off() pour se désabonner
 const data = await c.request<"method", T>("method", params); // RPC requête/réponse
@@ -107,7 +107,7 @@ class MyRealtime extends RealtimeController {
     return null;
   }
   protected override realtimeActions() {
-    return { "kernel:ping": () => ({ pong: true }) };
+    return { "nodefony:kernel:ping": () => ({ pong: true }) };
   } // requête→result
   protected override realtimeChannels() {
     return ["my:chan"];
@@ -123,7 +123,7 @@ class MyRealtime extends RealtimeController {
   (`WsConnectionTransport`, garde `readyState===1`). **SSE supprimé** (mort + `flushHeaders` absent sur `Http2ServerResponse`
   → `code=000`) ; tout futur SSE écoute `rawRes.once("close")` (RESPONSE), pas `request` (fire trop tôt HTTP/2).
 
-**Côté client (lib, déjà là)** : `client.request<"kernel:ping", T>("kernel:ping")` (Promise id-matchée) ; helper réutilisable
+**Côté client (lib, déjà là)** : `client.request<"nodefony:kernel:ping", T>("nodefony:kernel:ping")` (Promise id-matchée) ; helper réutilisable
 `client.ping()` (RTT). Le générique vit dans `NodefonySocket`, pas le front.
 
 **Tests realtime (BÉTON, sans navigateur)** :
@@ -151,7 +151,7 @@ sur le hub → la sonde les rend MESURABLES **avant** d'optimiser :
   (handshake/onFinish, **symétrique**) auprès du hub (registre lazy, lu QUE dans `probe`). Cumuls **monotones** →
   débit dérivé côté lecteur (delta total/ts, comme CPU%/flux ORM). `SLOW_CONSUMER_BYTES=1 MiB` (alerte, **pas** de drop).
 - Endpoint `GET /nodefony/realtime/api/health` (`buildRealtimeHealth`=probe+`instanceId`, namespace `realtime` →
-  déménagera dans `@nodefony/realtime` P13.1) + canal Studio `realtime:health` (ticker broker `createBrokerTicker`).
+  déménagera dans `@nodefony/realtime` P13.1) + canal Studio `nodefony:socket` (ticker broker `createBrokerTicker`).
 - **Ordre des optims** (la sonde = préalable « mesurer avant d'optimiser ») : sonde → **stringify unique broadcast**
   (gratuit, 1× par publish au lieu de N) → **seuil bufferedAmount** drop (latest-wins) / close 1013 (slow-consumer) →
   coalescing si la sonde le justifie. Panneau Studio Hub = côté `nodefony-studio-dev`. [[project_realtime_socket_probe]].
@@ -188,7 +188,7 @@ l'archi multi-process AVANT toute infra (c'est le mode cluster sans PM2 : cf [[p
 - Impls à venir : **`ClusterBackplane`** (IPC **master-gateway** : worker→`process.send` ; master sert 0 HTTP =
   relay IPC + agrège les sondes + **pont unique** Redis = 1 conn/pod, worker découplé) puis **`RedisBackplane`** (P13, drop-in).
 - ⚠️ **Politique par canal** (à trancher Phase 3) : `publish` forward TOUT pour l'instant. Or un canal per-instance
-  (`realtime:health` = snapshot du pod) ne doit PAS se mélanger cross-pod. Le harnais cluster RÉVÉLERA ces cas =
+  (`nodefony:socket` = snapshot du pod) ne doit PAS se mélanger cross-pod. Le harnais cluster RÉVÉLERA ces cas =
   l'intérêt de tester tôt. Phase 2 = lifecycle cluster core (`nodefony cluster`, fork cgroup-aware, respawn, `isPrimary`).
 
 ## 6. Realtime — LE différenciateur (WS natif + RealtimeService TCP/UDP/Redis)
@@ -482,7 +482,7 @@ Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish
 | `mutate` | `(path, { method, body?, idempotencyKey, timeoutMs? }): Promise<T>` | Mutation via pont (clé d'idempotence **obligatoire**). `:616` |
 | `stream` | `(method, params, onChunk, timeoutMs?): Promise<TChunk[]>` | Streaming token-by-token (LLM). `:665` |
 | `register` / `unregister` | `(method, handler): void` | Expose une action **appelable par le serveur** (duplex). `:713/:721` |
-| `ping` | `(timeoutMs?): Promise<KernelPingResult & { rtt }>` | RTT via `kernel:ping` (helper réutilisable). `:645` |
+| `ping` | `(timeoutMs?): Promise<KernelPingResult & { rtt }>` | RTT via `nodefony:kernel:ping` (helper réutilisable). `:645` |
 | `adaptiveChannel` | `(base, handler, options): AdaptiveChannelBinding` | Canal d'ÉTAT en cadence AIMD (latest-wins). `:533` |
 
 Getters : `state` · `identity` (résolue au `realtime:welcome`, `null` avant) · `serverChannels`/`serverMethods` (découverte) · `subscribedChannels` · `framesReceived` · `frameLog` (ring lazy, redacté) · `reconnectAttempts`/`nextRetryAt`. Events locaux (jamais réseau) : `onNotice`/`onDenied`/`onIdentity`. Transport injectable (2ᵉ arg ctor) → testable sans vrai socket.
@@ -611,9 +611,9 @@ Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtime
 
 - **Cleanup symétrique connect/close.** Chaque ressource posée au handshake DOIT être retirée sur `ctx.once("onFinish")` (`onHandshake:422`) : désabonner CHAQUE canal (`hub.unsubscribe` par sink → le hub dispose le provider au dernier), `hub.unregisterConnection(transport)` (sonde), `transport.fireClose()`, `peer.dispose()`. Règle générale : `registerConnection`↔`unregisterConnection`, `subscribe`↔`unsubscribe`. Un sink oublié = provider/timer orphelin + fuite mémoire (gate `memory.test`).
 
-- **Per-instance vs cluster.** Un canal est **instance-local par défaut** : un `realtime:health`, un état de pod, un compteur ne traversent PAS le backplane. Il faut `markBroadcastChannel(prefix)` (ou `realtimeBroadcastChannels()`) pour qu'un canal (chat/présence/notif) soit cross-pod. Inverse : ne PAS broadcaster un canal per-instance (snapshot du pod) sinon les pods se mélangent. `RealtimeHub` = **1 par pod** → `probe()` est per-instance ; l'agrégat multi-pod vient de la sonde cluster / Prometheus, pas du hub.
+- **Per-instance vs cluster.** Un canal est **instance-local par défaut** : un `nodefony:socket`, un état de pod, un compteur ne traversent PAS le backplane. Il faut `markBroadcastChannel(prefix)` (ou `realtimeBroadcastChannels()`) pour qu'un canal (chat/présence/notif) soit cross-pod. Inverse : ne PAS broadcaster un canal per-instance (snapshot du pod) sinon les pods se mélangent. `RealtimeHub` = **1 par pod** → `probe()` est per-instance ; l'agrégat multi-pod vient de la sonde cluster / Prometheus, pas du hub.
 
-- **Canal combiné = 1 provider = 1 effet de bord.** Le provider étant **partagé** (ref-compté), un canal coûteux (drill `orm:rich@<pid>`, enrich, ticker) s'exécute **une seule fois** par pod quel que soit le nombre d'abonnés (N onglets Studio sur le même canal = 1 enrich, pas N). Corollaire : le provider **survit** à la connexion qui l'a créé → la factory doit capturer des deps **long-lived** (broker/syslog/kernel), JAMAIS `this.context` (lié à la connexion créatrice qui peut fermer alors que d'autres abonnés restent).
+- **Canal combiné = 1 provider = 1 effet de bord.** Le provider étant **partagé** (ref-compté), un canal coûteux (drill `nodefony:orm:rich@<pid>`, enrich, ticker) s'exécute **une seule fois** par pod quel que soit le nombre d'abonnés (N onglets Studio sur le même canal = 1 enrich, pas N). Corollaire : le provider **survit** à la connexion qui l'a créé → la factory doit capturer des deps **long-lived** (broker/syslog/kernel), JAMAIS `this.context` (lié à la connexion créatrice qui peut fermer alors que d'autres abonnés restent).
 
 - **Singleton client par URL.** Côté navigateur, NE créez pas 2 `NodefonySocket` sur la même URL → `NodefonySocket.shared({ url })`. Normaliser `http(s)→ws(s)` (clé + `WebSocket`) sinon une URL relative hérite de `https` → 2 instances + `new WebSocket("https://…")` throw. Tous les consommateurs **ref-comptent** (`subscribe`/`unsubscribe`) ; jamais d'`emit("subscribe")` brut (un unsub à ref→0 couperait le canal pour tous).
 

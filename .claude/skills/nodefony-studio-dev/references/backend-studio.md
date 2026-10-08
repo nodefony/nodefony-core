@@ -96,7 +96,7 @@ garanti au `unsubscribe` ET `ctx.once("onFinish")`. ⚠️ Après le handshake `
 >    « Disable cache » ON** (sinon vieux `index.html` → chunk hashé supprimé → **404 import lazy = "la
 >    page ne marche plus"**, ≠ bug code). Ne PAS saturer le cluster (ELU 100 %) en testant → la **socket
 >    Studio meurt en premier** (famine event-loop) → charge **modérée**.
-> 3. **Diag drill cluster** : un canal `dashboard:supervision@<pid>` muet se prouve côté serveur par un
+> 3. **Diag drill cluster** : un canal `nodefony:supervision@<pid>` muet se prouve côté serveur par un
 >    mini-client `ws` (subscribe + compte frames) lancé **depuis `.claude/skills/nodefony-load-test/scripts/`**
 >    (résout `ws`), PAS depuis `/tmp`. Vrai bug trouvé ainsi : `mapInstanceToSupervision` faisait
 >    `r?.elu.active` → **TypeError dès que la sonde riche arrive** (`r.elu` undefined) → 0 frame →

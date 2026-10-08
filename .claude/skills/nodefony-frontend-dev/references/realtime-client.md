@@ -142,7 +142,7 @@ request<K extends ActionNames<Actions>>(method: K, params?, …);  // contrat IR
 > rendait inopérant le contrôle des `params` (un payload hors contrat compilait). S'écrit
 > désormais `request<"ma:methode", MonType>("ma:methode")`. La forme PATH est inchangée.
 
-- **Forme RPC** : `request("kernel:ping", params, timeout)` → requête JSON-RPC corrélée, Promise résolue avec `result`, rejette avec `RpcError` sur `error`/timeout (défaut 30000 ms).
+- **Forme RPC** : `request("nodefony:kernel:ping", params, timeout)` → requête JSON-RPC corrélée, Promise résolue avec `result`, rejette avec `RpcError` sur `error`/timeout (défaut 30000 ms).
 - **Forme PATH** (« API souveraine » : 1 action controller = N transports) : un argument commençant par `/` est détecté au runtime (charCode 47, `:773`) et réécrit en méthode `api.request` avec `params = { path }`. Le 2ᵉ argument devient alors le **timeout**. Exemple :
   ```ts
   const modules = await socket.request("/nodefony/kernel/api/modules");
@@ -177,7 +177,7 @@ ping(timeoutMs = 5000): Promise<KernelPingResult & { rtt: number }>;   // Nodefo
 // KernelPingResult (:145) = { pong: true; ts; uptime; pid; version? }
 ```
 
-Helper réutilisable (topbar, debug bar) : mesure le round-trip via la méthode RPC standard `kernel:ping` (convention : tout endpoint realtime y répond). `rtt` = aller-retour mesuré côté client (ms).
+Helper réutilisable (topbar, debug bar) : mesure le round-trip via la méthode RPC standard `nodefony:kernel:ping` (convention : tout endpoint realtime y répond). `rtt` = aller-retour mesuré côté client (ms).
 
 ### `stream` — réponse en chunks
 
@@ -383,7 +383,7 @@ function useNodefonySyslog(opts?: {
   severities?: string[];
   channel?: string;
 }): unknown[];
-//   défauts : max=500, channel="syslog:stream"
+//   défauts : max=500, channel="nodefony:syslog"
 
 // Notices normalisées (snackbar) — monter UNE fois (shell) — :320
 function useNodefonyNotifications(

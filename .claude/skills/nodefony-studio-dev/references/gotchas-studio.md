@@ -174,8 +174,8 @@ dans un `<Text>` = `<p>`. Y mettre une valeur **RICHE** (`<Badge>`, `<div>`, `<G
 - **`useSyncExternalStore` + snapshot OBJET = boucle de render** (réf instable) → réserver `useSyncExternalStore`
   aux snapshots **primitifs** (ex. `client.state`) ; les stats via `state` + effet.
 - **Nouveau subpath** (`nodefony/react`, …) pas résolu par Vite à chaud → **redémarrer** le serveur (`optimizeDeps`).
-- **Canal à granularité** (`dashboard:supervision:<ms>`) est poussé sur le canal **EXACT** souscrit (suffixe inclus)
-  → un listener de test/debug doit matcher `startsWith("dashboard:supervision")`, pas le nom nu.
+- **Canal à granularité** (`nodefony:supervision:<ms>`) est poussé sur le canal **EXACT** souscrit (suffixe inclus)
+  → un listener de test/debug doit matcher `startsWith("nodefony:supervision")`, pas le nom nu.
 - **🔥 Ne JAMAIS cycler la socket partagée au boot** : un `disconnect()`+`connect()` au montage (réaction d'identité
   `null→id`) coupe les requêtes data-plane **EN VOL** qui passent par le pont `api.request` → la page reste en spinner
   jusqu'au timeout du pont. Réserver `disconnect()` au **vrai changement de compte** (`prevId !== null && prevId !== id`).
@@ -186,8 +186,8 @@ key={user.id}`), PAS un retry (`useResource` ne retry pas). Lire « X / Y reques
   le popover du chip se met dans **`RealtimeHubContent`** (le composant partagé), PAS dans `RealtimeConsole` (qui ne le
   rend pas). Les pages d'état (ORM…) **lisent** `ui.adaptiveCadence`, pas de switch local par page.
 - **Un job long (terminal live) = action pour LANCER + canal pour SUIVRE, et le canal porte l'ÉTAT, pas que les lignes.**
-  Patron de la page « Créer » (`routes/create/`) : `conn.request("scaffold:run")` rend le `jobId` **tout de suite**, puis
-  `useNodefonyChannel("scaffold:job@<id>")` streame. Deux pièges, tous deux vécus :
+  Patron de la page « Créer » (`routes/create/`) : `conn.request("nodefony:scaffold:run")` rend le `jobId` **tout de suite**, puis
+  `useNodefonyChannel("nodefony:scaffold:job@<id>")` streame. Deux pièges, tous deux vécus :
   1. **Course « je reçois l'id / je m'abonne »** — les premières lignes sont AUSSI les plus rapides (écriture des fichiers) :
      elles partent avant l'abonnement et un pub/sub nu les perdrait (terminal qui démarre au milieu, sans raison visible).
      → le serveur **garde son backlog et le REJOUE à l'abonnement** ; le front **dédoublonne par `seq`**. Un F5 en plein

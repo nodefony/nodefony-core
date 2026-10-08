@@ -15,7 +15,7 @@
 //   1. broadcast cross-process : A reçoit le chat de B, et B reçoit le chat de A.
 //   2. anti-echo               : l'auteur reçoit son propre chat UNE seule fois (fan-out
 //                                local), jamais re-livré par l'aller-retour relay.
-//   3. politique instance-local: un canal NON déclaré broadcast (`realtime:health`) ne
+//   3. politique instance-local: un canal NON déclaré broadcast (`nodefony:socket`) ne
 //                                traverse PAS le backplane → A ne reçoit jamais la santé de B.
 //   4. fan-out local intact    : l'auteur reçoit bien sa propre santé (publish local).
 //
@@ -24,7 +24,7 @@
 //   node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs
 import cluster from "node:cluster";
 import process from "node:process";
-import { ClusterRelay } from "nodefony";
+import { ClusterRelay, PLATFORM_CHANNELS } from "nodefony";
 import {
   RealtimeHub,
   ClusterBackplane,
@@ -34,7 +34,7 @@ import {
 const CTRL = "nf:e2e"; // kind de contrôle master↔worker (le relay l'ignore : pas rt)
 const SETTLE_MS = Number(process.env.SETTLE || 600); // attente des allers-retours IPC
 const CHAT = "chat:room"; // canal BROADCAST (déclaré opt-in)
-const HEALTH = "realtime:health"; // canal INSTANCE-LOCAL (jamais forwardé)
+const HEALTH = PLATFORM_CHANNELS.socket; // canal INSTANCE-LOCAL (jamais forwardé)
 
 // ───────────────────────────── MASTER (gateway) ─────────────────────────────
 if (cluster.isPrimary) {

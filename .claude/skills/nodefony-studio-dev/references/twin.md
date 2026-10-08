@@ -19,7 +19,7 @@ icon, pos{x,y}, emphasis?, external?, enter?, info? }` — **`enter`** = id du s
 2. **LE RENDU — `realtime/twin/TwinMap.tsx`** (PUR). `TwinMap` rend N'IMPORTE QUEL `TwinSchema` (SVG liens
    en `viewBox 0..100`, briques HTML absolues en %, drag local, dot d'état + pulse, liens animés `live`-gated).
    **`TwinMapView`** aiguille **statique/live** (`live ? <TwinMapLive/> : …`) — `TwinMapLive` s'abonne
-   (`useTwinLive` ← `realtime:health` + `useRecentLogActivity` ← `syslog:stream`) et appelle `buildSchema` ;
+   (`useTwinLive` ← `nodefony:socket` + `useRecentLogActivity` ← `nodefony:syslog`) et appelle `buildSchema` ;
    **« 0 ticker quand OFF »** = le sous-arbre live est DÉMONTÉ quand `live=false` (jamais `live={false}` qui
    s'abonnerait quand même).
 3. **LA NAV — `routes/Twin.tsx`**. `stack: string[]` (`["root"]`) = pile de schemaId ; `current = stack.at(-1)` ;
@@ -72,5 +72,5 @@ désormais `BlockBody` (même cœur). **Preuve** : `TwinNodePanel` (dialog ⓘ d
 (liens animés `live`-gated, dot d'état à couleur STABLE, pulse = `opacity` only, `prefers-reduced-motion`,
 `contain: content`) · **jamais de drawer** (dialogs = **Modal centrés**, règle ferme) · route
 **mono-segment** `/nodefony/twin` → déjà couverte par le fallback SPA (0 ajout backend) · sources data toutes
-DÉJÀ servies (`realtime:health`, `kernel/api/info`+`/modules`, `orm/api/connection/health`, `syslog:stream`)
+DÉJÀ servies (`nodefony:socket`, `kernel/api/info`+`/modules`, `orm/api/connection/health`, `nodefony:syslog`)
 → **0 seam back** (évolution Twin = front-only).

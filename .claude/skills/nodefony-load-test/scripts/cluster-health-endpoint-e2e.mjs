@@ -3,7 +3,7 @@
 //
 // `fork` un cluster Node natif et, sur CHAQUE worker, appelle la VRAIE fonction
 // `buildRealtimeHealth()` (= le handler de `GET /nodefony/realtime/api/health` et du canal
-// `realtime:health`). En cluster avec sonde active, elle renvoie `IRealtimeClusterHealth`
+// `nodefony:socket`). En cluster avec sonde active, elle renvoie `IRealtimeClusterHealth`
 // (`cluster:true`, `instanceCount`, `instances[]`, `totals`) au lieu de `IRealtimeHealth`.
 //
 //   worker A/B : getRealtimeHub() + N connexions ; ClusterProbeClient.start(buildOwnHealth)

@@ -87,10 +87,10 @@ revenu.
 ### Charge du HUB realtime (`hub-load.mjs`) — panneau `/nodefony/hub`
 
 Fait bouger la sonde de **la Socket Nodefony** (`RealtimeHub.probe` → endpoint
-`/nodefony/realtime/api/health` + canal `realtime:health` + panneau « Realtime Hub »
+`/nodefony/realtime/api/health` + canal `nodefony:socket` + panneau « Realtime Hub »
 de Studio). **Vise la socket STUDIO** `/nodefony/studio/api/realtime` (JSON-RPC
 pub/sub) — c'est elle qui passe par le hub. ⚠️ Les routes WS du module test
-(`ws/echo`, `ws/broadcast`) **BYPASSENT le hub** → elles ne bougent PAS `realtime:health`.
+(`ws/echo`, `ws/broadcast`) **BYPASSENT le hub** → elles ne bougent PAS `nodefony:socket`.
 Le script **sonde lui-même** l'endpoint toutes les 2 s (conn/abonnés/diffusion/backpressure).
 
 ```bash
@@ -190,7 +190,7 @@ MODE=rtt WORKERS=2 RATE=2000 run.sh cluster-ipc            # latence aller-retou
 
 # Preuve E2E (Phase 4b) : monte le RealtimeHub COMPLET + la politique de forward (4a)
 # et ASSERTE (exit 0/1) : broadcast cross-process, anti-echo, canal instance-local NON
-# forwardé (realtime:health), fan-out local intact. 8 checks.
+# forwardé (nodefony:socket), fan-out local intact. 8 checks.
 bash .claude/skills/nodefony-load-test/scripts/run.sh cluster-e2e
 
 # Preuve E2E (Phase 4c) : sonde agrégée pod en PUSH — chaque worker reporte sa santé au

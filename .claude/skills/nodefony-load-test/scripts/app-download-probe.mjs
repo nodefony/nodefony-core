@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { PLATFORM_CHANNELS, PLATFORM_METHODS } from "nodefony";
 const cookie = process.argv[2];
 const ws = new WebSocket("wss://127.0.0.1:5152/nodefony/studio/api/realtime", {
   headers: { Cookie: cookie },
@@ -10,7 +11,7 @@ ws.on("open", () =>
   send({
     jsonrpc: "2.0",
     id: 1,
-    method: "scaffold:run",
+    method: PLATFORM_METHODS.scaffoldRun,
     params: {
       type: "app",
       answers: {
@@ -36,7 +37,7 @@ ws.on("message", (raw) => {
     send({
       jsonrpc: "2.0",
       method: "subscribe",
-      params: { channel: `scaffold:job@${jobId}` },
+      params: { channel: `${PLATFORM_CHANNELS.scaffoldJob}@${jobId}` },
     });
     return;
   }

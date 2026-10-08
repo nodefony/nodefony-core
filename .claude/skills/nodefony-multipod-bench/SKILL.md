@@ -82,7 +82,7 @@ sur un Redis mutualisé, ou quiconque a récupéré le mot de passe.
 | -------------------------- | ------------------------------------------------------------------------ | ------------------------------------------- |
 | Fan-out nominal            | `curl -X POST :5171/api/chat/say` + écouteur sur 5172                    | reçu                                        |
 | Injection non scellée      | `redis-cli PUBLISH nodefony:realtime:bench '{"channel":"chat:room1",…}'` | ignorée si un secret est posé               |
-| Secret volé, canal système | `node scripts/forge.mjs "security:audit" "<secret>"` puis PUBLISH        | ignorée — l'admission par canal tient seule |
+| Secret volé, canal système | `node scripts/forge.mjs "nodefony:audit" "<secret>"` puis PUBLISH        | ignorée — l'admission par canal tient seule |
 | Application tierce         | `curl -X POST :5183/api/chat/say` (app sans le secret)                   | rien chez les pods scellés                  |
 | **Contrôle négatif**       | même injection, sur un pod **sans** secret                               | **reçue**                                   |
 

@@ -33,9 +33,9 @@ isomorphe, **vanilla TS + Shadow DOM** — **AUCUN React/Mantine/JSX, AUCUN UI k
 
 ## Gotchas debug bar
 
-- **Canal DÉDIÉ `debugbar:stats`** (≠ `dashboard:supervision`, réservé à la page Supervision) : la barre est
+- **Canal DÉDIÉ `nodefony:debugbar`** (≠ `nodefony:supervision`, réservé à la page Supervision) : la barre est
   présente en permanence en dev → un canal partagé maintiendrait le ticker supervision actif. Le dispatcher serveur
-  route `debugbar:stats[:ms]` ET `dashboard:supervision[:ms]` vers le **même** `createStatsTicker` (canaux distincts).
+  route `nodefony:debugbar[:ms]` ET `nodefony:supervision[:ms]` vers le **même** `createStatsTicker` (canaux distincts).
 - **Bouton live ○/●** (temps réel opt-in, **OFF par défaut**, `nf.debugbar.live`) : `startLive`/`stopLive`
   (subscribe/unsubscribe ref-compté). Les listeners `.on` sont TOUJOURS branchés (gratuit) ; seul l'**abonnement** est gaté.
 - ⚠️ **Graphe « frames/s » figé en OFF** : il s'alimente de `__stats__` = compteur **GLOBAL** du client partagé (frames

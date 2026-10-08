@@ -284,7 +284,8 @@ docker exec -e NF_BROWSER_PAGE=/nodefony/supervision \
 Il rend, étape par étape : l'accueil (canaux et méthodes annoncés, identité et rôles reçus),
 l'abonnement et les poussées horodatées, une action RPC, la **latence médiane** aller-retour, le
 pont `api.request`, et une reconnexion avec comparaison d'identité. Sur Studio, l'accueil annonce
-six canaux (`nodefony:syslog`, `supervision`, `debugbar`, `orm:health`, `orm:flow`, `socket`).
+six canaux (`nodefony:syslog`, `nodefony:supervision`, `nodefony:debugbar`, `nodefony:orm:health`,
+`nodefony:orm:flow`, `nodefony:socket`).
 
 **Prouver qu'un canal est bien PROTÉGÉ** — rejouer le même canal sous un compte qui n'y a pas
 droit : le compte de fixture `user` (`ROLE_USER` seul) contre `nodefony:syslog`, qui exige
