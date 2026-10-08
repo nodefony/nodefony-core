@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T05:01:12.690Z",
+  "generatedAt": "2026-10-08T08:22:40.966Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 86,
+      "closed": 87,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 49,
+      "open": 50,
       "title": "10.0.0-beta"
     },
     {
@@ -2310,8 +2310,24 @@
       ]
     },
     {
+      "number": 564,
+      "title": "refactor(client)!: nommer le client WebSocket NodefonySocket avant la 10.0",
+      "url": "https://github.com/nodefony/nodefony-core/issues/564",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.603,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 559,
-      "title": "feat(http): servir un flux SSE et son client SseClient",
+      "title": "feat(http): servir un flux SSE et son client NodefonySse",
       "url": "https://github.com/nodefony/nodefony-core/issues/559",
       "state": "OPEN",
       "status": "Todo",
@@ -2327,7 +2343,7 @@
     },
     {
       "number": 560,
-      "title": "feat(client): adapter SseClient à React, Vue, Svelte et Angular",
+      "title": "feat(client): adapter NodefonySse à React, Vue, Svelte et Angular",
       "url": "https://github.com/nodefony/nodefony-core/issues/560",
       "state": "OPEN",
       "status": "Todo",
@@ -2361,8 +2377,8 @@
       "number": 561,
       "title": "test(memory): stabiliser le compte des contextes sous Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/561",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2563,6 +2579,22 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.002,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 565,
+      "title": "refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique",
+      "url": "https://github.com/nodefony/nodefony-core/issues/565",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 4.0025,
       "debut": null,
       "cible": null,
       "labels": [
