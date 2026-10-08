@@ -31,6 +31,9 @@ const WELCOME = JSON.stringify({ jsonrpc: "2.0", method: "realtime:welcome" });
 const open: NodefonySocket[] = [];
 const decors: IDecor[] = [];
 const raws: net.Server[] = [];
+// Connexions acceptées par les serveurs bruts : `net.Server.close` attend leur
+// fin, et un serveur hostile les tient ouvertes — il faut les couper.
+const rawSockets: net.Socket[] = [];
 
 async function serve(
   onConn?: OnConn,
@@ -72,6 +75,7 @@ async function raw(
   let count = 0;
   const server = net.createServer((sock) => {
     count++;
+    rawSockets.push(sock);
     sock.on("error", () => {});
     sock.once("data", () => onData(sock));
   });
@@ -140,6 +144,7 @@ const settled = async (
 afterEach(async () => {
   for (const c of open.splice(0)) c.disconnect();
   for (const d of decors.splice(0)) await d.close();
+  for (const sock of rawSockets.splice(0)) sock.destroy();
   for (const s of raws.splice(0)) await new Promise((r) => s.close(r));
 });
 
