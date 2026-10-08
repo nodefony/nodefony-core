@@ -238,6 +238,28 @@
       "testedBy": []
     },
     {
+      "path": "scripts/gates/check-type-assertions.mjs",
+      "test": false,
+      "purpose": "check-type-assertions — PROVISOIRE : le total des conversions de type qui RESSERRENT un type (`x as T` plus étroit que `x`, donc `as unknown as T`) ne monte pas, paquet par paquet, d'ici à leur correction.",
+      "usage": [
+        "node scripts/gates/check-type-assertions.mjs            # contrôle",
+        "node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)"
+      ],
+      "options": [],
+      "env": [
+        {
+          "name": "RULE",
+          "help": ""
+        }
+      ],
+      "output": "l'écart par paquet ; sortie 0 tenu · 1 refusé · 78 oxlint n'a pas répondu",
+      "calledBy": [
+        "node.js.yml",
+        ".githooks/pre-commit"
+      ],
+      "testedBy": []
+    },
+    {
       "path": "scripts/gates/dev-credentials.test.mjs",
       "test": true,
       "purpose": "Gate — UN SEUL mot de passe de développement, et tout ce qui l'annonce dit vrai.",

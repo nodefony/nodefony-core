@@ -11,7 +11,7 @@ de forge, autre script). Tout est extrait du source — l'en-tête du script (`@
 | Dossier | Contenu | Scripts |
 | --- | --- | --- |
 | [`lib/`](lib/README.md) | Helpers transverses, importés par les scripts des autres dossiers. | 4 |
-| [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 11 |
+| [`gates/`](gates/README.md) | Gardes de commit et de forge : chacune refuse un état précis du dépôt. | 12 |
 | [`scaffold/`](scaffold/README.md) | Contrôles et mise en forme des gabarits d'application. | 3 |
 | [`deps/`](deps/README.md) | Inventaire et garde des dépendances, gabarits compris. | 3 |
 | [`deps/lib/`](deps/lib/README.md) | Helpers propres à l'inventaire des dépendances. | 1 |
