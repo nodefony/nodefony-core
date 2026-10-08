@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-08 11:34** (UTC).
+> Empreinte prise le **2026-10-08 12:53** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████░░░░` 63% | 87 | 51 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██████░░░░` 64% | 89 | 50 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 134 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 32 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -35,7 +35,7 @@
 
 Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise 2026-10-05 → 10-07
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 51 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 50 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -47,7 +47,7 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 51 ouverts
+## Jalon 10.0.0-beta — 50 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -62,8 +62,7 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | 3.585 | P1 — figé à la création | 1 | — | #547 | feat(security): servir une page de connexion par défaut, sans front |
 | 3.59 | P1 — figé à la création | 0.5 | — | #548 | fix(security): conduire un visiteur anonyme à la page de connexion |
 | 3.595 | P2 — décision | 1 | — | #549 | refactor(studio): passer la connexion de la console sur le déroulé partagé |
-| 3.603 | P2 — décision | 1 | — | #564 | refactor(client)!: nommer le client WebSocket NodefonySocket avant la 10.0 |
-| 3.605 | P2 — décision | 2 | — | #559 | feat(http): servir un flux SSE et son client NodefonySse |
+| 3.606 | P1 — figé à la création | 2 | — | #568 | test(security): même couverture d'attaque pour SSE et WebSocket |
 | 3.607 | P2 — décision | 1 | — | #560 | feat(client): adapter NodefonySse à React, Vue, Svelte et Angular |
 | 3.61 | P2 — décision | 2 | — | #554 | feat(mcp): répondre en flux SSE aux appels d'outils longs |
 | 3.63 | P3 — fin de cycle | 0.5 | — | #562 | fix(http): ne plus annoncer de type sur une réponse sans corps |
@@ -206,7 +205,7 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | 174 | P3 — fin de cycle | 3 | — | #503 | feat(mcp): exposer une route annotée comme outil pour les agents |
 | 175 | P2 — décision | 2 | — | #550 | feat(mcp): rendre un serveur MCP publiable au registre officiel |
 
-## Backlog — aucune date promise · 15 ouverts
+## Backlog — aucune date promise · 16 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -225,4 +224,5 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | 913.45 | P2 — décision | 0.5 | — | #540 | feat(mcp): publier quels outils lisent et lesquels modifient |
 | 913.5 | P3 — fin de cycle | 3 | — | #539 | feat(cli): brancher un assistant à modèle local sur l'invite |
 | 914 | P2 — décision | 2 | — | #558 | docs: rendre lisibles les schémas verticaux trop hauts de la doc |
+| 915 | P3 — fin de cycle | 2 | — | #567 | feat(realtime): ajouter WebTransport comme second transport temps réel |
 

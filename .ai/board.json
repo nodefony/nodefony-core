@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T11:34:36.506Z",
+  "generatedAt": "2026-10-08T12:53:06.707Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 87,
+      "closed": 89,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 51,
+      "open": 50,
       "title": "10.0.0-beta"
     },
     {
@@ -2313,8 +2313,8 @@
       "number": 564,
       "title": "refactor(client)!: nommer le client WebSocket NodefonySocket avant la 10.0",
       "url": "https://github.com/nodefony/nodefony-core/issues/564",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2329,12 +2329,28 @@
       "number": 559,
       "title": "feat(http): servir un flux SSE et son client NodefonySse",
       "url": "https://github.com/nodefony/nodefony-core/issues/559",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 3.605,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 568,
+      "title": "test(security): même couverture d'attaque pour SSE et WebSocket",
+      "url": "https://github.com/nodefony/nodefony-core/issues/568",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 3.606,
       "debut": null,
       "cible": null,
       "labels": [
@@ -8012,6 +8028,22 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 914,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 567,
+      "title": "feat(realtime): ajouter WebTransport comme second transport temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/567",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 2,
+      "ordre": 915,
       "debut": null,
       "cible": null,
       "labels": [
