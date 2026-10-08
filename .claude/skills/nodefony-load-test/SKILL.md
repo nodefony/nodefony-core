@@ -87,21 +87,22 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > coût réel) — **tout % de profil se convertit en ns AVANT d'ouvrir un lot**. Ils mentent dans
 > l'autre sens (tas froid, sites d'appel monomorphes) : l'arbitre reste la sonde in-situ.
 >
-> | Micro-banc                      | Ce qu'il isole                                                                                                        |
-> | ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-> | `micro/micro-enterscope.mjs`    | entrée/sortie d'une portée DI sur un conteneur peuplé (dist du cœur)                                                  |
-> | `micro/micro-request-scope.mjs` | l'injection par requête : un contrôleur construit par l'injecteur, et le surcoût d'un service de portée `request`     |
-> | `micro/micro-extend.mjs`        | le coût de `Tools.extend` face au spread et à une version mémoïsée                                                    |
-> | `micro/micro-route-scan.mjs`    | le scan des motifs sur la table RÉELLE de l'app (`NF_ROUTES_JSON`)                                                    |
-> | `micro/micro-route-scale.mjs`   | la même chose à N croissant : la COURBE, de 136 à 2 400 routes                                                        |
-> | `micro/micro-host.mjs`          | le traitement de l'en-tête `Host` (port, forme canonique, domaines) — `split` 197 ns contre `indexOf`+`slice` 25      |
-> | `micro/micro-header-values.mjs` | la fabrication des valeurs d'en-têtes : Content-Type, traceparent, CSP à nonce, hostname — avant/après                |
-> | `micro/micro-service-bus.mjs`   | un `Service` construit dans un scope de requête (chaque `Context`) + son bus interrogé sans abonné — avant/après      |
-> | `micro/micro-write-head.mjs`    | N `setHeader` + `writeHead` contre un objet remis à `writeHead` — ~210 ns/en-tête payés par Node dans les DEUX formes |
-> | `micro/micro-zone-match.mjs`    | les 7 zones du pare-feu (`isSecure`), Nodefony contre témoin, avec et sans le drapeau `u` des motifs                  |
-> | `micro/micro-update-pick.mjs`   | l'UPDATE borné par sous-requête (`#pickOne`) contre le `WHERE` nu du témoin, et leur seule compilation SQLite         |
-> | `micro/micro-select-ops.mjs`    | un SELECT à comparaison (`jti = ? AND expiresAt > ?`) reconstruit à chaque appel contre préparé une fois              |
-> | `micro/micro-store-release.mjs` | le vidage du magasin `RequestContext` en fin de requête (`release()`) et la réaction posée sur une action décorée     |
+> | Micro-banc                       | Ce qu'il isole                                                                                                         |
+> | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+> | `micro/micro-enterscope.mjs`     | entrée/sortie d'une portée DI sur un conteneur peuplé (dist du cœur)                                                   |
+> | `micro/micro-request-scope.mjs`  | l'injection par requête : un contrôleur construit par l'injecteur, et le surcoût d'un service de portée `request`      |
+> | `micro/micro-extend.mjs`         | le coût de `Tools.extend` face au spread et à une version mémoïsée                                                     |
+> | `micro/micro-route-scan.mjs`     | le scan des motifs sur la table RÉELLE de l'app (`NF_ROUTES_JSON`)                                                     |
+> | `micro/micro-route-scale.mjs`    | la même chose à N croissant : la COURBE, de 136 à 2 400 routes                                                         |
+> | `micro/micro-host.mjs`           | le traitement de l'en-tête `Host` (port, forme canonique, domaines) — `split` 197 ns contre `indexOf`+`slice` 25       |
+> | `micro/micro-header-values.mjs`  | la fabrication des valeurs d'en-têtes : Content-Type, traceparent, CSP à nonce, hostname — avant/après                 |
+> | `micro/micro-service-bus.mjs`    | un `Service` construit dans un scope de requête (chaque `Context`) + son bus interrogé sans abonné — avant/après       |
+> | `micro/micro-write-head.mjs`     | N `setHeader` + `writeHead` contre un objet remis à `writeHead` — ~210 ns/en-tête payés par Node dans les DEUX formes  |
+> | `micro/micro-zone-match.mjs`     | les 7 zones du pare-feu (`isSecure`), Nodefony contre témoin, avec et sans le drapeau `u` des motifs                   |
+> | `micro/micro-update-pick.mjs`    | l'UPDATE borné par sous-requête (`#pickOne`) contre le `WHERE` nu du témoin, et leur seule compilation SQLite          |
+> | `micro/micro-select-ops.mjs`     | un SELECT à comparaison (`jti = ? AND expiresAt > ?`) reconstruit à chaque appel contre préparé une fois               |
+> | `micro/micro-store-release.mjs`  | le vidage du magasin `RequestContext` en fin de requête (`release()`) et la réaction posée sur une action décorée      |
+> | `micro/micro-realtime-state.mjs` | la lecture par frame de l'état d'une connexion temps réel : propriété du contexte contre `WeakMap` typée (+11 à 13 ns) |
 >
 > **Rapport du dossier de performance** : `scripts/perf-dossier-report.mjs` rend en une page HTML
 > autonome ce que `docs/performance/` établit en Markdown (graphes, schémas, calculateur de pods).

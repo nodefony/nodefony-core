@@ -236,6 +236,7 @@ export function createRealtimeHarness<C extends RealtimeController>(
   const connection = {
     readyState: OPEN,
     send: (data: string, cb?: (err?: Error) => void): void => {
+      // Conversion ASSUMÉE (#573) — harnais de test : les frames viennent du contrôleur sous test.
       received.push(JSON.parse(data) as IRealtimeFrame);
       cb?.();
     },
@@ -255,10 +256,12 @@ export function createRealtimeHarness<C extends RealtimeController>(
     origin: options.origin ?? "",
   };
 
+  // Conversion ASSUMÉE (#573) — harnais de test : faux contexte réduit à ce que la base touche.
   const controller = create(context as unknown as ContextType);
   // `handleRealtime` est `protected` : la route générée l'appelle depuis la
   // sous-classe. Un test n'a pas cette position — le pont est absorbé ici, une
   // fois, plutôt que recopié dans chaque application.
+  // Conversion ASSUMÉE (#573) — harnais de test : accès au point d'entrée `protected`.
   const bridge = controller as unknown as IRealtimeControllerBridge;
 
   let nextId = 1;
@@ -356,6 +359,7 @@ export function createRealtimeHarness<C extends RealtimeController>(
           { rpc: response.error },
         );
       }
+      // Conversion ASSUMÉE (#573) — harnais de test : `T` est déclaré par l'appelant du test.
       return response.result as T;
     },
 
@@ -374,9 +378,12 @@ export function createRealtimeHarness<C extends RealtimeController>(
     },
 
     denials(): readonly IHarnessDenied[] {
-      return received
-        .filter((f) => f.method === "realtime:denied")
-        .map((f) => f.params as IHarnessDenied);
+      return (
+        received
+          .filter((f) => f.method === "realtime:denied")
+          // Conversion ASSUMÉE (#573) — harnais de test : refus émis par le contrôleur sous test.
+          .map((f) => f.params as IHarnessDenied)
+      );
     },
 
     close(): void {
