@@ -315,9 +315,11 @@ function route(name: string, options: RouteOptions) {
     }
     // Forme ouverte : `filePath` peut porter l'erreur de pile, `prefix` un
     // `null` — la lecture typée est faite par `controller()`.
-    const metadata =
-      (Reflect.getMetadata(metadataKey, target.constructor) as
-        Record<string, unknown> | undefined) ?? {};
+    // Copie : sur une sous-classe, la lecture rend l'objet du PARENT (#574).
+    const metadata = {
+      ...(Reflect.getMetadata(metadataKey, target.constructor) as
+        Record<string, unknown> | undefined),
+    };
     metadata[name] = {
       path,
       filePath,
@@ -620,9 +622,11 @@ function Header(key: string, value: string) {
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ): PropertyDescriptor {
-    const existing =
-      (Reflect.getMetadata(HEADERS_METADATA, target, propertyKey) as
-        Record<string, string> | undefined) ?? {};
+    // Copie : sur une sous-classe, la lecture rend l'objet du PARENT (#574).
+    const existing = {
+      ...(Reflect.getMetadata(HEADERS_METADATA, target, propertyKey) as
+        Record<string, string> | undefined),
+    };
     existing[key] = value;
     Reflect.defineMetadata(HEADERS_METADATA, existing, target, propertyKey);
     return descriptor;
@@ -925,17 +929,24 @@ function IsGranted(
   ): any {
     if (propertyKey === undefined) {
       // Classe → clauses sur le constructeur (défaut de toutes les actions).
-      const existing =
-        (Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target) as
-          SecurityClause[] | undefined) ?? [];
+      // Copie : sur une sous-classe, la lecture rend l'objet du PARENT (#574).
+      const existing = [
+        ...((Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target) as
+          SecurityClause[] | undefined) ?? []),
+      ];
       existing.push(clause);
       Reflect.defineMetadata(SECURITY_CLAUSES_METADATA, existing, target);
       return target;
     }
     // Méthode → clauses sur le prototype, keyées par nom (comme PARAM_ARGS).
-    const existing =
-      (Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target, propertyKey) as
-        SecurityClause[] | undefined) ?? [];
+    // Copie : sur une sous-classe, la lecture rend l'objet du PARENT (#574).
+    const existing = [
+      ...((Reflect.getMetadata(
+        SECURITY_CLAUSES_METADATA,
+        target,
+        propertyKey,
+      ) as SecurityClause[] | undefined) ?? []),
+    ];
     existing.push(clause);
     Reflect.defineMetadata(
       SECURITY_CLAUSES_METADATA,
@@ -1018,17 +1029,24 @@ function RequireScope(scope: string | readonly string[]) {
   ): any {
     if (propertyKey === undefined) {
       // Classe → scopes sur le constructeur (s'appliquent à toutes les actions).
-      const existing =
-        (Reflect.getMetadata(SECURITY_SCOPES_METADATA, target) as
-          SecurityClause[] | undefined) ?? [];
+      // Copie : sur une sous-classe, la lecture rend l'objet du PARENT (#574).
+      const existing = [
+        ...((Reflect.getMetadata(SECURITY_SCOPES_METADATA, target) as
+          SecurityClause[] | undefined) ?? []),
+      ];
       existing.push(clause);
       Reflect.defineMetadata(SECURITY_SCOPES_METADATA, existing, target);
       return target;
     }
     // Méthode → scopes sur le prototype, keyés par nom (comme SECURITY_CLAUSES).
-    const existing =
-      (Reflect.getMetadata(SECURITY_SCOPES_METADATA, target, propertyKey) as
-        SecurityClause[] | undefined) ?? [];
+    // Copie : sur une sous-classe, la lecture rend l'objet du PARENT (#574).
+    const existing = [
+      ...((Reflect.getMetadata(
+        SECURITY_SCOPES_METADATA,
+        target,
+        propertyKey,
+      ) as SecurityClause[] | undefined) ?? []),
+    ];
     existing.push(clause);
     Reflect.defineMetadata(
       SECURITY_SCOPES_METADATA,
@@ -1200,8 +1218,11 @@ function paramDecoratorFactory(source: ParamSource) {
       propertyKey: string,
       parameterIndex: number,
     ): void {
+      // Métadonnée PROPRE : les paramètres décrivent la signature de LA
+      // méthode qui les porte. Lus en héritage, ceux d'une redéfinition
+      // s'ajoutaient à ceux de la méthode parente (#574).
       const existing =
-        (Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) as
+        (Reflect.getOwnMetadata(PARAM_ARGS_METADATA, target, propertyKey) as
           ParamMeta[] | undefined) ?? [];
       existing.push({ source, key, index: parameterIndex });
       Reflect.defineMetadata(
@@ -1266,8 +1287,9 @@ function Body(keyOrOptions?: string | { stream?: boolean }) {
     propertyKey: string,
     parameterIndex: number,
   ): void {
+    // Métadonnée PROPRE, comme les autres paramètres (#574).
     const existing =
-      (Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) as
+      (Reflect.getOwnMetadata(PARAM_ARGS_METADATA, target, propertyKey) as
         ParamMeta[] | undefined) ?? [];
     // `stream` n'est posé QUE s'il vaut true → `@Body()`/`@Body("k")` gardent
     // exactement la forme historique `{source,key,index}` (rétro-compat tests).
