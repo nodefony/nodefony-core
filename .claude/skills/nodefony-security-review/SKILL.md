@@ -7,7 +7,8 @@ description: >
   AVANT de lire le code, anti-biais) puis code-first (couvrir les branches restantes) — avec le cycle
   faille trouvée → corrigée → re-prouvée, et un rapport par vecteur. Conçoit des attaques propres à
   l'architecture (pipeline HTTP+WS partagé, token dans l'ALS, pont api.request, canaux WS, zones et
-  bypass du firewall, scopes DI, trust-proxy), pas seulement des attaques OWASP génériques.
+  bypass du firewall, scopes DI, trust-proxy, porte MCP, flux SSE, proxy inverse), référentiels IA
+  compris (OWASP LLM, Agentic).
   Déclencheurs : "revue sécurité", "audit sécurité", "security review", "check sécurité avant commit",
   "c'est safe ?", "vérifie la sécurité", "red-team", "blue-team", "matrice d'attaque", "test d'attaque",
   "attaquer le framework", "attaquer cette brique", "durcir la sécurité", "pentest".
@@ -127,10 +128,19 @@ git diff HEAD -- 'src/**/*.ts' | grep -nE ':\s*any\b|as any|@ts-ignore|@ts-noche
 - Pas de fuite de stack/détails internes au client en prod (errorRenderer).
 - Uploads : limites taille/type. WS : limites taille/séquence de frames.
 
-### G. Agentic (couche IA, Phase 12) ⚠️
+### G. Agentic — porte MCP, outils, jetons d'agent ⚠️→⛔
 
-- Outils d'agent = surface d'attaque : permissions explicites, sandbox, anti prompt-injection,
-  pas d'exécution arbitraire. Tracer (AI Act).
+La porte MCP existe (`src/nodefony/src/mcp/` : `server.ts`, `guard.ts`, `tools.ts`) : ce n'est plus
+une surface future.
+
+- **Jeton** : audience liée à CE serveur (RFC 8707, RFC 9728) — un jeton émis pour un autre
+  service est REFUSÉ, jamais relayé en aval (« token passthrough » interdit, _confused deputy_).
+  Source : `nodefony-rfc` → `references/mcp-2026-07-28/spec/basic/authorization/security-considerations.mdx`.
+- **Outil** : moindre privilège (un scope par outil, ASI02/ASI03), aucune exécution arbitraire
+  (ASI05), sortie d'outil traitée comme DONNÉE non fiable — jamais réinjectée comme instruction
+  (LLM01, ASI01 détournement d'objectif par injection indirecte).
+- **Consommation** : délai, quota et taille bornés par appel et par jeton (LLM10).
+- **Traçabilité** : qui (sujet du jeton), quel outil, quels arguments rédactés (AI Act).
 
 ### H. Dépendances vulnérables (si `package.json`/lockfile touché) ⚠️→⛔
 
@@ -252,30 +262,36 @@ Nodefony). Posture :
 
 **Surfaces architecturales Nodefony à attaquer** (table de conception) :
 
-| Surface (pont/seam)                       | Attaque à CONCEVOIR                                                                                                                            | Invariant à prouver                                                   |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Pipeline **HTTP+WS partagé**              | une garde `@IsGranted` testée en HTTP est-elle rejouée au **handshake WS** ET à la **frame** ?                                                 | 1 garde = N transports                                                |
-| **Token dans l'ALS** (handshake→messages) | le token est-il **figé** au handshake et **non re-trustable** par une frame suivante ? identité forgée dans un message ?                       | ALS = source de vérité, 0 re-trust par frame                          |
-| Pont **`api.request`** (souverain)        | une route REST gardée (ou `> GET`) est-elle contournable via `api.request` WS ? fuite `syslog:stream` ?                                        | `api.request` ≤ GET REST, MÊME firewall                               |
-| **Channels WS** subscribe/publish         | RBAC par canal ? un user s'abonne-t-il à un namespace réservé (`admin`/`syslog`) ? plancher système ROLE_ADMIN contournable par config ?       | deny par défaut + plancher système non affaiblissable                 |
-| **Firewall zones + `bypassFirewall`**     | une route en bypass (login/liveness) expose-t-elle des données ? une zone est-elle mal matchée (préfixe/casse d'URL) → mauvaise zone ?         | bypass = surface minimale ; match de zone exact                       |
-| **Décorateurs → meta**                    | `@Anonymous` méthode neutralise-t-il un `@IsGranted` de classe à tort ? un `forward` re-vérifie-t-il l'autz ? la meta gelée est-elle mutable ? | fusion classe+méthode = AND ; forward re-check ; meta `Object.freeze` |
-| **Scopes DI** (`@Scope("singleton")`)     | un controller singleton **capture-t-il** un état per-request (user/session) → **fuite inter-utilisateur** ?                                    | singleton = stateless ; contexte via ALS uniquement                   |
-| **Trust-proxy / `Forwarded`**             | un `X-Forwarded-For`/`Forwarded` spoofé → fausse IP client (bypass allowlist IP, faux audit, throttle contourné) ?                             | trustProxy CIDR strict, hop count                                     |
-| **Multi-`Set-Cookie`**                    | un cookie (csrf/session) **écrase-t-il** l'autre dans la réponse ?                                                                             | `setCookies` multi (bug latent corrigé)                               |
+| Surface (pont/seam)                       | Attaque à CONCEVOIR                                                                                                                                                                                                                   | Invariant à prouver                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Pipeline **HTTP+WS partagé**              | une garde `@IsGranted` testée en HTTP est-elle rejouée au **handshake WS** ET à la **frame** ?                                                                                                                                        | 1 garde = N transports                                                |
+| **Token dans l'ALS** (handshake→messages) | le token est-il **figé** au handshake et **non re-trustable** par une frame suivante ? identité forgée dans un message ?                                                                                                              | ALS = source de vérité, 0 re-trust par frame                          |
+| Pont **`api.request`** (souverain)        | une route REST gardée (ou `> GET`) est-elle contournable via `api.request` WS ? fuite `syslog:stream` ?                                                                                                                               | `api.request` ≤ GET REST, MÊME firewall                               |
+| **Channels WS** subscribe/publish         | RBAC par canal ? un user s'abonne-t-il à un namespace réservé (`admin`/`syslog`) ? plancher système ROLE_ADMIN contournable par config ?                                                                                              | deny par défaut + plancher système non affaiblissable                 |
+| **Firewall zones + `bypassFirewall`**     | une route en bypass (login/liveness) expose-t-elle des données ? une zone est-elle mal matchée (préfixe/casse d'URL) → mauvaise zone ?                                                                                                | bypass = surface minimale ; match de zone exact                       |
+| **Décorateurs → meta**                    | `@Anonymous` méthode neutralise-t-il un `@IsGranted` de classe à tort ? un `forward` re-vérifie-t-il l'autz ? la meta gelée est-elle mutable ?                                                                                        | fusion classe+méthode = AND ; forward re-check ; meta `Object.freeze` |
+| **Scopes DI** (`@Scope("singleton")`)     | un controller singleton **capture-t-il** un état per-request (user/session) → **fuite inter-utilisateur** ?                                                                                                                           | singleton = stateless ; contexte via ALS uniquement                   |
+| **Trust-proxy / `Forwarded`**             | un `X-Forwarded-For`/`Forwarded` spoofé → fausse IP client (bypass allowlist IP, faux audit, throttle contourné) ?                                                                                                                    | trustProxy CIDR strict, hop count                                     |
+| **Porte MCP** (JSON-RPC sur HTTP)         | un outil gardé par un scope est-il appelable par `tools/call` avec un jeton d'une AUTRE audience, ou par le pont `api.request` ? une erreur d'outil fuit-elle un secret ? `Origin` contrôlé (DNS rebinding) ?                         |
+| **Flux SSE** (réponse qui ne finit pas)   | un saut de ligne dans `event`/`id` forge-t-il un événement ? le jeton expiré en cours de flux coupe-t-il le flux ? un lecteur lent fait-il gonfler la mémoire ? N flux ouverts épuisent-ils les connexions ? `Last-Event-ID` énorme ? |
+| **Proxy inverse embarqué**                | contrebande de requête (TE/CL, RFC 9112 §11.2), transition `Upgrade` optimiste (RFC 9931), en-têtes de connexion relayés, boucle `Via`, `Forwarded` d'un pair non fiable                                                              |
+| **Multi-`Set-Cookie`**                    | un cookie (csrf/session) **écrase-t-il** l'autre dans la réponse ?                                                                                                                                                                    | `setCookies` multi (bug latent corrigé)                               |
 
 ### 4.5 Sources de menace OWASP/RFC par brique (attaques canoniques)
 
-| Brique             | Réf menace                      | Attaques canoniques                                                                                                            |
-| ------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Password/login     | OWASP ASVS, NIST 800-63B        | anti-énum (message uniforme), throttle 429+backoff, timing-leurre (comptage), credential incomplet                             |
-| Session BFF        | OWASP Session Mgmt, RFC 6265bis | fixation **closure** (ancien cookie rejoué post-login), id forgé, `__Host-`/Secure/SameSite, révocation immédiate              |
-| JWT                | **RFC 8725**, 7519/8037         | alg=none, confusion HS/RS, aud/iss/exp/nbf, kid inconnu, sig falsifiée, jti denylist, typ refresh-as-access                    |
-| Clés API/PAT       | OWASP                           | forge/CRC/longueur (0 store = anti-DoS), révoquée/expirée/ban, IDOR (404), secret jamais ré-exposé                             |
-| Origin (CSRF/CORS) | OWASP CSRF/CORS, Fetch Std      | spoofing **suffixe/préfixe/sous-domaine/userinfo/scheme/port/casse** (match EXACT), `null` origin, token HMAC splicing/parsing |
-| Autorisation       | OWASP Access Control            | escalade verticale (hiérarchie unidirectionnelle), confusion d'attribut, IDOR/ownership, DoS cycle hiérarchie, default-DENY    |
-| WebAuthn           | W3C WebAuthn L3                 | challenge usage unique (replay), counter anti-clone régressif, rpId/origin mismatch, register sans session                     |
-| OAuth2             | RFC 6749/7636/9207              | state anti-CSRF, PKCE S256, iss, account-takeover (0 liaison-email auto), replay du code                                       |
+| Brique                      | Réf menace                                                     | Attaques canoniques                                                                                                                                                            |
+| --------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Password/login              | OWASP ASVS, NIST 800-63B                                       | anti-énum (message uniforme), throttle 429+backoff, timing-leurre (comptage), credential incomplet                                                                             |
+| Session BFF                 | OWASP Session Mgmt, RFC 6265bis                                | fixation **closure** (ancien cookie rejoué post-login), id forgé, `__Host-`/Secure/SameSite, révocation immédiate                                                              |
+| JWT                         | **RFC 8725**, 7519/8037                                        | alg=none, confusion HS/RS, aud/iss/exp/nbf, kid inconnu, sig falsifiée, jti denylist, typ refresh-as-access                                                                    |
+| Clés API/PAT                | OWASP                                                          | forge/CRC/longueur (0 store = anti-DoS), révoquée/expirée/ban, IDOR (404), secret jamais ré-exposé                                                                             |
+| Origin (CSRF/CORS)          | OWASP CSRF/CORS, Fetch Std                                     | spoofing **suffixe/préfixe/sous-domaine/userinfo/scheme/port/casse** (match EXACT), `null` origin, token HMAC splicing/parsing                                                 |
+| Autorisation                | OWASP Access Control                                           | escalade verticale (hiérarchie unidirectionnelle), confusion d'attribut, IDOR/ownership, DoS cycle hiérarchie, default-DENY                                                    |
+| WebAuthn                    | W3C WebAuthn L3                                                | challenge usage unique (replay), counter anti-clone régressif, rpId/origin mismatch, register sans session                                                                     |
+| Serveur de ressources (MCP) | RFC 9728/8707/6750, spec MCP                                   | jeton d'une autre audience, `resource` absent, scope insuffisant → 403 `insufficient_scope`, métadonnées `/.well-known/oauth-protected-resource` cohérentes                    |
+| Agent / outil               | OWASP LLM Top 10 2025, OWASP Agentic Top 10 2026 (ASI01-ASI10) | injection indirecte via sortie d'outil, outil hors scope, consommation non bornée, identité d'agent réemployée                                                                 |
+| Flux SSE                    | WHATWG HTML §9.2, RFC 9112 §7.1, RFC 9113 §8.2.2               | injection CR/LF dans `event`/`id`/`data`, flux sans fin côté client (tampon non borné), `Transfer-Encoding` posé en HTTP/2, fermeture lue sur la requête au lieu de la réponse |
+| OAuth2                      | RFC 6749/7636/9207                                             | state anti-CSRF, PKCE S256, iss, account-takeover (0 liaison-email auto), replay du code                                                                                       |
 
 ### 4.6 Procédure
 
@@ -335,6 +351,14 @@ VERDICT : ✅ brique SAINE prouvée par attaque | ⛔ faille OUVERTE : <liste>
 - **CAPEC** (`capec.mitre.org`) — **patterns d'attaque** réutilisables (mécanique + conditions +
   impact). Source #1 pour CONCEVOIR des vecteurs au-delà d'OWASP.
 - **MITRE ATT&CK** — tactiques/techniques adversaires (plutôt infra/post-exploitation).
+- **IA / agents** : **OWASP Top 10 for LLM Applications 2025** (LLM01 injection de prompt … LLM10
+  consommation non bornée) et **OWASP Top 10 for Agentic Applications 2026** (ASI01 détournement
+  d'objectif · ASI02 mésusage d'outil · ASI03 abus d'identité et de privilège · ASI04 chaîne
+  d'approvisionnement · ASI05 exécution de code · ASI06 empoisonnement de mémoire · ASI07
+  communication inter-agents · ASI08 défaillances en cascade · ASI09 exploitation de la confiance
+  humaine · ASI10 agents hors politique), tous deux du projet OWASP GenAI Security. **MITRE ATLAS**
+  pour les techniques d'attaque propres aux modèles. La spec MCP porte ses propres considérations de
+  sécurité, hors ligne dans `nodefony-rfc`.
 
 ### C. Bases de vulnérabilités — du n-day au 0-day (le « connu exploité »)
 

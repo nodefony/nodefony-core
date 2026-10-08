@@ -202,7 +202,7 @@ source: "docs/skills/index.md"
 | [`nodefony-release`](nodefony-release.md) | 2.1.0 | 384 | 0 | 1 | ✅ |
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.7.0 | 306 | 0 | 2 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
-| [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
+| [`nodefony-security-review`](nodefony-security-review.md) | — | 379 | 0 | 0 | ✅ |
 | [`nodefony-session`](nodefony-session.md) | — | 197 | 1 | 9 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 4 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |

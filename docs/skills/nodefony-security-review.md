@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-26
+updated: 2026-10-08
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-security-review/SKILL.md"
 ---
@@ -28,9 +28,9 @@ source: ".claude/skills/nodefony-security-review/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Inspecter et auditer |
-| Corps | 356 lignes |
-| Coût d'activation | ~6 341 tokens (le corps est chargé à l'invocation) |
-| Description | 973 / 1024 caractères |
+| Corps | 379 lignes |
+| Coût d'activation | ~7 585 tokens (le corps est chargé à l'invocation) |
+| Description | 1010 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 0 page(s) |
 | Scripts | 0 |
@@ -38,7 +38,7 @@ source: ".claude/skills/nodefony-security-review/SKILL.md"
 
 ## Ce qu'il fait
 
-Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any). RED/BLUE-TEAM : campagne d'attaque sur une brique en 2 passes — threat-first (matrice depuis OWASP/RFC AVANT de lire le code, anti-biais) puis code-first (couvrir les branches restantes) — avec le cycle faille trouvée → corrigée → re-prouvée, et un rapport par vecteur. Conçoit des attaques propres à l'architecture (pipeline HTTP+WS partagé, token dans l'ALS, pont api.request, canaux WS, zones et bypass du firewall, scopes DI, trust-proxy), pas seulement des attaques OWASP génériques.
+Hub SÉCURITÉ de Nodefony, deux modes. REVIEW : conformité d'un diff AVANT commit (injection bindée, secrets hors logs, RFC HTTP/WS/cookies/CORS, Zero Trust 403, JWT, crypto mot de passe, zéro any). RED/BLUE-TEAM : campagne d'attaque sur une brique en 2 passes — threat-first (matrice depuis OWASP/RFC AVANT de lire le code, anti-biais) puis code-first (couvrir les branches restantes) — avec le cycle faille trouvée → corrigée → re-prouvée, et un rapport par vecteur. Conçoit des attaques propres à l'architecture (pipeline HTTP+WS partagé, token dans l'ALS, pont api.request, canaux WS, zones et bypass du firewall, scopes DI, trust-proxy, porte MCP, flux SSE, proxy inverse), référentiels IA compris (OWASP LLM, Agentic).
 
 ## Skills voisins
 
@@ -75,14 +75,14 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 973 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1010 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 356 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 379 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
