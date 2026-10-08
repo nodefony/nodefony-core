@@ -187,7 +187,7 @@ curl -s 'http://localhost:5151/hello/%3Cb%3Ex%3C%2Fb%3E'
 > [!TIP]
 > Tu n'as écrit **aucun** appel d'envoi (`send`, `res.end`). `renderView()` produit le corps **et**
 > l'envoie. Pour piloter l'envoi toi-même, retourne plutôt une chaîne via `render()`
-> (`Controller.render()`, `Controller.ts:485`).
+> (`Controller.render()`, `Controller.ts:499`).
 
 ## 🏗️ Architecture interne — le parcours d'un `renderView()`
 
@@ -220,7 +220,7 @@ sequenceDiagram
 | --- | -------------------------------------------- | ------------------------------------------------------------- |
 | 1   | Résolution + lecture async du fichier        | `FileClass` dans `renderView()` (`Controller.ts:544`)         |
 | 2   | Ouverture de la phase mesurée `render`       | `phaseStart("render")` (`Controller.ts:485`)                  |
-| 3   | Injection des aides frontend dans les locals | `withFrontendLocals()` (`Controller.ts:562`)                  |
+| 3   | Injection des aides frontend dans les locals | `withFrontendLocals()` (`Controller.ts:584`)                  |
 | 4   | Rendu de la source par le moteur             | `Eta.render()` → `renderStringAsync` (`Eta.ts:51`)            |
 | 5   | `Content-Type: text/html` puis envoi         | `setContextHtml()` + `renderResponse()` (`Controller.ts:523`) |
 
@@ -269,7 +269,7 @@ scaffold). Les deux sont **asynchrones** (I/O non bloquante).
 | Helper                              | Pour…                                                   | Ancre               |
 | ----------------------------------- | ------------------------------------------------------- | ------------------- |
 | `renderView(path, locals, status?)` | Rendre une vue `.eta` (lit le fichier + aides frontend) | `Controller.ts:524` |
-| `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts:485` |
+| `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts:499` |
 | `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:619` |
 
 Les signatures exactes vivent dans le graphe symbolique `.ai/symbols.json` — jamais recopiées ici.
@@ -324,7 +324,7 @@ template), et le framework l'isole pour ça :
   `Template.ts:20`) ; le coût de parsing n'est payé qu'au premier rendu.
 - **Lecture non bloquante** : le fichier est lu en async (`FileClass.readAsync()` côté `renderView`,
   `readFile` côté `renderFile`, `Eta.ts:66`) — l'event loop n'est jamais gelé par un `readFileSync`.
-- **Aides frontend paresseuses** : `withFrontendLocals()` (`Controller.ts:562`) ne construit les
+- **Aides frontend paresseuses** : `withFrontendLocals()` (`Controller.ts:584`) ne construit les
   fonctions `frontendTags`/`asset` que si le service `frontend` répond — sinon il rend les locals tels
   quels, zéro allocation superflue.
 

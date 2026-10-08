@@ -208,13 +208,13 @@ n'admet qu'une portée la fait respecter ; `RealtimeController` refuse le single
 | `render` | `(data, encoding?, status?, headers?)` (`Controller.ts:497`) | délègue `context.render` |
 | `renderResponse` | `(data, encoding?, status?, headers?)` (`Controller.ts:523`) | `context.send` brut |
 | `renderView` | `(path                                                                     | FileClass, param={}, status?, headers?)` (`Controller.ts:544`) | lit le fichier → `template.render` (Eta) → HTML, injecte les helpers frontend |
-| `renderFileDownload` | `(file, options?, headers={}) → Promise<ReadStream>` (`Controller.ts:778`) | `attachment` |
-| `renderMediaStream` | `(file, headers={}, options={})` (`Controller.ts:942`) | Range RFC 9110 (`parseByteRange` → 206/416) |
-| `streamFile` | `(file, headers?, options={}) → Promise<ReadStream>` (`Controller.ts:818`) | pipe + cleanup fd (client parti) |
-| `redirect` | `(url, status?, headers?)` (`Controller.ts:653`) | délègue `context.redirect` |
-| `forward` | `("module:ctrl:action", param?)` (`Controller.ts:687`) | re-route interne (`reload:true`) |
-| `getSession`/`getFlashBag`/`setFlashBag`/`addFlash` | (`Controller.ts:683`,`386`) | session/flash |
-| `getFileAsync` | `(file                                                                     | string) → Promise<FileClass>` (`Controller.ts:739`) | stats async (préférer à `getFile`, sync `@deprecated`) |
+| `renderFileDownload` | `(file, options?, headers={}) → Promise<ReadStream>` (`Controller.ts:825`) | `attachment` |
+| `renderMediaStream` | `(file, headers={}, options={})` (`Controller.ts:989`) | Range RFC 9110 (`parseByteRange` → 206/416) |
+| `streamFile` | `(file, headers?, options={}) → Promise<ReadStream>` (`Controller.ts:865`) | pipe + cleanup fd (client parti) |
+| `redirect` | `(url, status?, headers?)` (`Controller.ts:700`) | délègue `context.redirect` |
+| `forward` | `("module:ctrl:action", param?)` (`Controller.ts:734`) | re-route interne (`reload:true`) |
+| `getSession`/`getFlashBag`/`setFlashBag`/`addFlash` | (`Controller.ts:730`,`386`) | session/flash |
+| `getFileAsync` | `(file                                                                     | string) → Promise<FileClass>` (`Controller.ts:786`) | stats async (préférer à `getFile`, sync `@deprecated`) |
 
 **`ResourceController<T>`** (`nodefony/src/ResourceController.ts:67`) — controller souverain
 **`static scope = "singleton"`** (stateless). Service injecté `IResourceService<T>` (`find`/`findById`

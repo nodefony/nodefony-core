@@ -334,7 +334,7 @@ sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ 
 | Raccourci        | Ce que tu obtiens                                  | Ancre               |
 | ---------------- | -------------------------------------------------- | ------------------- |
 | `this.context`   | Le contexte transport de la requête courante       | `Controller.ts:238` |
-| `this.route`     | La route matchée                                   | `Controller.ts:202` |
+| `this.route`     | La route matchée                                   | `Controller.ts:256` |
 | `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts:269` |
 | `this.response`  | La réponse du transport                            | `Controller.ts:277` |
 | `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts:212` |
@@ -360,16 +360,16 @@ n'est créée** — donc aucun coût de stockage.
 Deux corollaires :
 
 - Dans `initialize()`, `this.session` vaut `null` (l'activation vient plus tard — étape 6 du cycle).
-- `this.getSession()` (`Controller.ts:647`) ne « démarre » rien : il retourne la session existante,
+- `this.getSession()` (`Controller.ts:694`) ne « démarre » rien : il retourne la session existante,
   ou `undefined`.
 
-Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts:667`)
-journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts:683`)
+Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts:714`)
+journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts:730`)
 retournent `null` sans rien journaliser — pas de crash, mais rien n'est mémorisé.
 
 ### Contrôleur singleton — le défaut : `this` n'est pas à toi
 
-Par défaut, `Controller.scope` vaut `"singleton"` (`Controller.ts:182`) : UNE instance par classe,
+Par défaut, `Controller.scope` vaut `"singleton"` (`Controller.ts:402`) : UNE instance par classe,
 construite à sa première requête puis partagée par toutes les suivantes, concurrentes comprises.
 
 - **une seule instance** pour tout le process, liée au container du **kernel**, pas à celui de la
@@ -437,19 +437,19 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 | Helper                                       | Pour…                                                    | Ancre               |
 | -------------------------------------------- | -------------------------------------------------------- | ------------------- |
 | `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:619` |
-| `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:485` |
+| `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:499` |
 | `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:544` |
 | `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:523` |
-| `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:663` |
-| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:687` |
+| `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:700` |
+| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:734` |
 | `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:430` |
 
 `renderView()` mesure sa propre phase `render` et injecte automatiquement les aides frontend
 (`frontendTags`, `frontendDocument`, `asset`) dans les variables du template
-(`withFrontendLocals()`, `Controller.ts:562`) — tes propres valeurs restent prioritaires.
+(`withFrontendLocals()`, `Controller.ts:584`) — tes propres valeurs restent prioritaires.
 
 `forward()` re-résout un contrôleur sur le **même** contexte et rappelle son action
-(`Controller.ts:687`) : c'est une délégation interne, la requête cliente reste unique.
+(`Controller.ts:734`) : c'est une délégation interne, la requête cliente reste unique.
 
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
@@ -463,15 +463,15 @@ Deux besoins distincts, deux helpers.
 
 ### Téléchargement — `renderFileDownload()`
 
-`renderFileDownload(file, options?, headers?)` (`Controller.ts:778`) pose
+`renderFileDownload(file, options?, headers?)` (`Controller.ts:825`) pose
 `Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier, puis délègue au moteur
-de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:739`) ;
+de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:786`) ;
 la variante synchrone `getFile()` existe encore mais est marquée obsolète — elle appelle `lstatSync`
 et gèle le process le temps du stat.
 
 ### Lecture en continu — `renderMediaStream()`
 
-`renderMediaStream(file, headers?, options?)` (`Controller.ts:942`) implémente les **requêtes par
+`renderMediaStream(file, headers?, options?)` (`Controller.ts:989`) implémente les **requêtes par
 plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le flux :
 
 | Le client envoie…                             | Réponse                                                         |
@@ -487,11 +487,11 @@ donc testable sans serveur.
 
 ### Ce que `streamFile()` garantit
 
-`streamFile()` (`Controller.ts:818`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
+`streamFile()` (`Controller.ts:865`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
 **nettoyage** : le flux est ouvert avec `autoClose: false`, et un client qui raccroche en plein
 téléchargement laisserait sinon un descripteur de fichier ouvert et une promesse pendue à jamais. Un
 écouteur `close` sur la réponse détruit le flux, ce qui déclenche la fermeture du descripteur et
-résout la promesse (`Controller.ts:762-804`), puis se retire lui-même (`Controller.ts:746`). Un
+résout la promesse (`Controller.ts:931-969`), puis se retire lui-même (`Controller.ts:961`). Un
 téléchargement interrompu ne coûte donc **rien** en ressource retenue.
 
 ## ⚠️ Erreurs — lever, rendre, observer
@@ -628,7 +628,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |
 | Contrôleur singleton : données d'un autre utilisateur | État muté que les filets ne voient pas (`#privé`, objet muté) sur l'instance partagée | Passer par les arguments décorés, ou déclarer `@Scope("request")` |
 | « Contrôleur … : écriture de « this.x » refusée » | Un état de requête écrit sur un singleton (le défaut) | Argument décoré, service `request`, ou `@Scope("request")` sur la classe |
-| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:709`) | Utiliser `getFileAsync()` (`Controller.ts:739`) |
+| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:746`) | Utiliser `getFileAsync()` (`Controller.ts:786`) |
 
 ## 🧪 Tests & couverture
 

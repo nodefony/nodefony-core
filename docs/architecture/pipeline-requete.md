@@ -574,7 +574,7 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
 - **Chronométrage désactivé par défaut en production** : sans lui, `phases` est un tableau gelé
   partagé et `phaseStart`/`phaseEnd` sont des no-ops (`Context.ts:435`).
 - **Le délai d'inactivité est armé par socket, pas par requête** —
-  `HttpContext.setTimeout()` (`HttpContext.ts:359`) : en keep-alive, ré-armer un minuteur à chaque
+  `HttpContext.setTimeout()` (`HttpContext.ts:364`) : en keep-alive, ré-armer un minuteur à chaque
   requête coûtait pour une valeur constante.
 - **Session paresseuse** : ni intention de route ni cookie entrant → aucune session, aucune écriture
   (`http-kernel.ts:1014`).

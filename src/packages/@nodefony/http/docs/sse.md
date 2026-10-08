@@ -144,8 +144,8 @@ data: {"step":"écriture"}
 | `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts:155`)              |
 | `sse.comment(text)`             | un commentaire, ignoré par le client                                                               |
 | `sse.retry(ms)`                 | impose le délai de reconnexion du client                                                           |
-| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts:199`) |
-| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts:214`)                           |
+| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts:209`) |
+| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts:224`)                           |
 | `sse.closed`                    | le flux est-il fermé — à tester dans une boucle longue                                             |
 
 Options de `renderSse()` : `heartbeat` (ms, `false` pour l'éteindre — défaut 15 000,
@@ -169,7 +169,7 @@ poids non nul : `*/*` ne suffit pas — un client qui ne nomme pas le flux ne sa
 
 ### Côté client — `NodefonySse`
 
-`NodefonySse` (`NodefonySse.ts:60`) reprend le vocabulaire d'`EventSource` — `onopen`,
+`NodefonySse` (`NodefonySse.ts:89`) reprend le vocabulaire d'`EventSource` — `onopen`,
 `onmessage`, `onerror`, `addEventListener(type)`, `readyState`, `lastEventId`, `close()`,
 reconnexion avec `Last-Event-ID` — et ajoute ce que le natif refuse : `method`, `headers` (un
 `Authorization: Bearer`), `body`. Il est bâti sur `fetch`, donc tourne aussi sous Node, où
@@ -190,7 +190,7 @@ le même qui relit le flux dans les tests du serveur.
 1. **La réponse est prise** (`context.sended`) : plus rien ne peut répondre à la place du flux.
 2. **La session est sauvée** s'il y en a une — ses cookies partent avec les en-têtes.
 3. **Le transport se constate** : flux HTTP/2, ou réponse HTTP/1.1 ; ni l'un ni l'autre → 500,
-   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts:319`).
+   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts:340`).
 4. **Les en-têtes partent** — `respond()` en HTTP/2, `flushHeaders()` en HTTP/1.1 — et le délai
    d'inactivité de la requête est **désarmé** : sans cela, le flux vivant prendrait un 408 au bout
    de 30 s.
