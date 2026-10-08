@@ -10,13 +10,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { killTreeCommand } from "../../src/nodefony/src/service/dev/devProcess.ts";
 import {
   isTurboLogLine,
   parseSummary,
   runTurbo,
   summaryExitCode,
-  treeKillCommand,
 } from "./turbo.mjs";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nf-turbo-guard-"));
@@ -76,16 +74,6 @@ describe("isTurboLogLine — le journal détaillé se garde, le reste s'affiche"
       isTurboLogLine("2026-10-08T07:12:49.635+0200 [WARN] turborepo: x"),
     ).toBe(false);
     expect(isTurboLogLine("error TS2307: Cannot find module")).toBe(false);
-  });
-});
-
-describe("treeKillCommand — même règle que le cœur", () => {
-  it("rend exactement la commande de killTreeCommand, sur les trois plateformes", () => {
-    for (const platform of ["win32", "linux", "darwin"]) {
-      expect(treeKillCommand(4242, platform)).toEqual(
-        killTreeCommand(4242, platform),
-      );
-    }
   });
 });
 

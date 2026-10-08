@@ -79,7 +79,9 @@ describe("Bancs et scripts — le kill d'arbre vient du framework", () => {
   });
 
   for (const fichier of scripts) {
-    const relatif = path.relative(REPO_ROOT, fichier);
+    // En `/` : ce chemin VOYAGE dans un titre de test, où `\r` et `\t` d'un chemin
+    // Windows (`scripts\repo\turbo.mjs`) s'affichaient comme des caractères de contrôle.
+    const relatif = path.relative(REPO_ROOT, fichier).split(path.sep).join("/");
     const source = readFileSync(fichier, "utf8");
     // Le motif apparaît légitimement dans une PROSE qui l'explique.
     const code = source
@@ -125,7 +127,9 @@ describe("Bancs et scripts — la sonde de port vient du framework", () => {
   });
 
   for (const fichier of scripts) {
-    const relatif = path.relative(REPO_ROOT, fichier);
+    // En `/` : ce chemin VOYAGE dans un titre de test, où `\r` et `\t` d'un chemin
+    // Windows (`scripts\repo\turbo.mjs`) s'affichaient comme des caractères de contrôle.
+    const relatif = path.relative(REPO_ROOT, fichier).split(path.sep).join("/");
     const source = readFileSync(fichier, "utf8");
     const code = source
       .split("\n")

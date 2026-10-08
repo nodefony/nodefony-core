@@ -34,9 +34,12 @@
  *
  * @usage node scripts/repo/turbo.mjs run build [options turbo…]
  */
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
+// La SOURCE, pas le barrel `nodefony` : ce lanceur bâtit le `dist` qu'il
+// faudrait sinon importer. Node retire les types nativement (`engines` >= 24).
+import { signalProcessGroup } from "../../src/nodefony/src/service/dev/devProcess.ts";
 
 /** Silence toléré APRÈS le bilan avant de déclarer turbo figé. Mesuré : turbo sort en ~10 ms. */
 export const GRACE_SECONDS = 30;
@@ -83,33 +86,9 @@ export function summaryExitCode(summary) {
   return summary.successful === summary.total ? 0 : 1;
 }
 
-/**
- * La commande qui emporte un ARBRE sous Windows — même règle que
- * `killTreeCommand` du cœur (`src/nodefony/src/service/dev/devProcess.ts`),
- * qu'un script lancé AVANT tout build ne peut pas importer ; un test compare
- * les deux sorties.
- *
- * @param {number} pid - racine de l'arbre.
- * @param {NodeJS.Platform} platform - `process.platform`, injecté pour l'éprouver partout.
- * @returns {{file:string, args:string[]} | null} le programme, ou `null` quand on passe par le groupe POSIX.
- */
-export function treeKillCommand(pid, platform) {
-  if (platform !== "win32") return null;
-  return { file: "taskkill", args: ["/PID", String(pid), "/T", "/F"] };
-}
-
-/** Arrête l'arbre de `child` : `taskkill /T` sous Windows, le groupe POSIX ailleurs. */
+/** Arrête l'arbre de `child` par l'implémentation unique du cœur. */
 function killTree(child) {
-  const tree = treeKillCommand(child.pid, process.platform);
-  if (tree) {
-    spawnSync(tree.file, tree.args, { stdio: "ignore", windowsHide: true });
-    return;
-  }
-  try {
-    process.kill(-child.pid, "SIGKILL");
-  } catch {
-    child.kill("SIGKILL");
-  }
+  signalProcessGroup(child.pid, "SIGKILL");
 }
 
 /** Le shim node de turbo, lancé par `process.execPath` : aucun shell, aucun `.cmd`. */
