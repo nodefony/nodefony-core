@@ -22,6 +22,7 @@
  */
 
 import { BROWSER_ORIGIN, Pdu, Syslog } from "nodefony";
+import { isRecord } from "../guards";
 import type { RealtimeInboundHandler } from "../../interfaces/IRealtimeController";
 
 // L'origine imposée vient du cœur ISOMORPHE : le pod l'écrit, la console
@@ -151,8 +152,9 @@ export function createSyslogUplinkHandler(
       if (windowCount >= maxEntriesPerWindow) return; // débit dépassé : on cesse, en silence
       windowCount += 1;
 
-      const raw = entries[i] as IncomingEntry | null;
-      if (raw === null || typeof raw !== "object") continue;
+      const entry: unknown = entries[i];
+      if (!isRecord(entry)) continue;
+      const raw: IncomingEntry = entry;
 
       const severity = clampSeverity(raw.severity);
       const msgid = str(raw.msgid, 64) ?? "";

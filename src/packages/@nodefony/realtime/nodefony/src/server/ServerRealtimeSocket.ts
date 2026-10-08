@@ -103,17 +103,10 @@ export class ServerRealtimeSocket<
       ? (payload: EventPayload<Listen, K>) => void
       : RealtimeHandler,
   ): () => void {
-    const handlers = (this.#handlers ??= new Map<
-      string,
-      Set<RealtimeHandler>
-    >());
-    let set = handlers.get(channel);
-    if (!set) {
-      set = new Set<RealtimeHandler>();
-      handlers.set(channel, set);
-    }
-    set.add(handler as RealtimeHandler);
-    return () => this.off(channel, handler);
+    // Conversion ASSUMÉE (#573) — frontière du contrat typé : le handler d'un
+    // canal reçoit ce que le hub publie ; la forme est promise par `Listen`,
+    // jamais vérifiée. Directive d'exception à poser quand la règle passera en erreur.
+    return this.#addHandler(channel, handler as RealtimeHandler);
   }
 
   /** Retire un handler d'un canal. */
@@ -123,7 +116,30 @@ export class ServerRealtimeSocket<
       ? (payload: EventPayload<Listen, K>) => void
       : RealtimeHandler,
   ): void {
-    this.#handlers?.get(channel)?.delete(handler as RealtimeHandler);
+    // Conversion ASSUMÉE (#573) — frontière du contrat typé : le handler d'un
+    // canal reçoit ce que le hub publie ; la forme est promise par `Listen`,
+    // jamais vérifiée. Directive d'exception à poser quand la règle passera en erreur.
+    this.#removeHandler(channel, handler as RealtimeHandler);
+  }
+
+  /** Porte non typée de {@link on} : un nom de canal quelconque, un handler `unknown`. */
+  #addHandler(channel: string, handler: RealtimeHandler): () => void {
+    const handlers = (this.#handlers ??= new Map<
+      string,
+      Set<RealtimeHandler>
+    >());
+    let set = handlers.get(channel);
+    if (!set) {
+      set = new Set<RealtimeHandler>();
+      handlers.set(channel, set);
+    }
+    set.add(handler);
+    return () => this.#removeHandler(channel, handler);
+  }
+
+  /** Porte non typée de {@link off}. */
+  #removeHandler(channel: string, handler: RealtimeHandler): void {
+    this.#handlers?.get(channel)?.delete(handler);
   }
 
   /**
@@ -151,7 +167,10 @@ export class ServerRealtimeSocket<
     return {
       name,
       on(handler: RealtimeHandler): () => void {
-        const dispose = hub.on(name, handler as never);
+        // `on<K>` résout son handler par un type conditionnel que `string`
+        // laisse indéterminé : un canal nommé à l'exécution passe par la
+        // porte non typée.
+        const dispose = hub.#addHandler(name, handler);
         disposers.add(dispose);
         return () => {
           dispose();
@@ -159,7 +178,7 @@ export class ServerRealtimeSocket<
         };
       },
       send(payload?: unknown): void {
-        hub.publish(name, payload as never);
+        hub.hub.publish(name, payload);
       },
       open(): void {
         hub.subscribe(name);

@@ -1,4 +1,4 @@
-import { Service, Container, Module, type JsonRpcPeer } from "nodefony";
+import { Service, Module, type JsonRpcPeer } from "nodefony";
 
 import {
   getRealtimeHub,
@@ -12,7 +12,10 @@ import {
 import { applyDeclaredBroadcastPrefixes } from "../../decorators/realtimeDecorators";
 import type { IBackplane } from "../../interfaces/IBackplane";
 import type { IRealtimeProbe } from "../../interfaces/IRealtimeProbe";
-import type { IRealtimeConfig } from "../../config/defineModuleConfig";
+import {
+  isRealtimeConfig,
+  type IRealtimeConfig,
+} from "../../config/defineModuleConfig";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
 import type { IRealtimeAuthenticatorMatcher } from "../../interfaces/IRealtimeAuthenticatorMatcher";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
@@ -55,7 +58,7 @@ class RealtimeService extends Service {
   constructor(public module: Module) {
     super(
       serviceName,
-      module.container as Container,
+      module.container ?? undefined,
       module.notificationsCenter,
       module.options,
     );
@@ -78,8 +81,8 @@ class RealtimeService extends Service {
    */
   async init(_module: Module): Promise<this> {
     // Posée par la classe `Module` à `onKernelRegister` : absente avant.
-    const config = this.module.config as IRealtimeConfig | undefined;
-    if (!config) {
+    const config: unknown = this.module.config;
+    if (!isRealtimeConfig(config)) {
       throw new Error(
         `${serviceName}: realtimeConfig absente (this.module.config vide) — la Module class doit la valider à onKernelRegister`,
       );

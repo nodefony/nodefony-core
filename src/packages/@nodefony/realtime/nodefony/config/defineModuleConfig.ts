@@ -81,7 +81,27 @@ export function buildRealtimeConfig(
       instance: options.backplane,
     },
   };
-  return Object.freeze(out);
+  const frozen = Object.freeze(out);
+  built.add(frozen);
+  return frozen;
+}
+
+/**
+ * Configs produites par ce builder. Marquer la sortie plutôt que d'en vérifier
+ * la forme : une seule appartenance (`has`) prouve que l'objet a traversé le
+ * schéma, ce qu'aucune inspection de champs ne dit.
+ */
+const built = new WeakSet<object>();
+
+/**
+ * Vrai si la valeur est une config produite par {@link buildRealtimeConfig}
+ * (donc validée par le schéma). Lu une fois, à l'init du service.
+ *
+ * @param value - la config lue sur le module
+ * @returns `true` si elle sort du builder
+ */
+export function isRealtimeConfig(value: unknown): value is IRealtimeConfig {
+  return typeof value === "object" && value !== null && built.has(value);
 }
 
 /**

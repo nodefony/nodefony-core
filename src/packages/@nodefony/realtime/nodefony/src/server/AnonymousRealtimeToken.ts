@@ -13,8 +13,6 @@ import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
  * token avec `isAuthenticated() === false` et appliqueront leur politique
  * (Zero Trust : zone protégée → frame refusée par `beforeDispatch`).
  */
-const anonymousAttributes = Object.freeze<Record<string, unknown>>({});
-
 export const ANONYMOUS_REALTIME_TOKEN: IRealtimeToken = Object.freeze({
   type: "anonymous",
   getUserIdentifier(): string {
@@ -30,9 +28,11 @@ export const ANONYMOUS_REALTIME_TOKEN: IRealtimeToken = Object.freeze({
     return [];
   },
   // Implémente la signature générique du contrat public `IRealtimeToken`.
+  // Un anonyme ne porte aucun attribut. Lire un objet vide renverrait aussi
+  // ce qu'il hérite de `Object.prototype` (`constructor`, `toString`…).
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
-  getAttribute<T = unknown>(key: string): T | undefined {
-    return anonymousAttributes[key] as T | undefined;
+  getAttribute<T = unknown>(_key: string): T | undefined {
+    return undefined;
   },
 });
 

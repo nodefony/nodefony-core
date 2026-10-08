@@ -12,6 +12,20 @@ import type {
   IRealtimeHealth,
   IRealtimeClusterHealth,
 } from "../../interfaces/IRealtimeProbe.js";
+import { isRecord } from "../guards.js";
+
+/**
+ * Vrai si la valeur est une liste de santés d'instance. Le snapshot vient du
+ * master du cluster par IPC — un process de la MÊME application, pas le
+ * réseau : on vérifie la forme qui sert de clé (`instanceId`), le reste est
+ * la sonde du même code.
+ */
+function isRealtimeHealthList(value: unknown): value is IRealtimeHealth[] {
+  return (
+    Array.isArray(value) &&
+    value.every((h: unknown) => isRecord(h) && typeof h.instanceId === "string")
+  );
+}
 
 /**
  * Transport IPC de la sonde cluster côté worker — abstrait `process.send` / la réception
@@ -280,10 +294,11 @@ export class ClusterProbeClient {
     if (!isClusterMessage(msg) || msg.kind !== CLUSTER_PROBE_SNAPSHOT_KIND) {
       return;
     }
-    const snap = msg as { ts?: unknown; instances?: unknown };
-    if (Array.isArray(snap.instances)) {
-      this.#lastInstances = snap.instances as IRealtimeHealth[];
-      this.#snapTs = typeof snap.ts === "number" ? snap.ts : Date.now();
+    if (!isRecord(msg)) return;
+    const { ts, instances } = msg;
+    if (isRealtimeHealthList(instances)) {
+      this.#lastInstances = instances;
+      this.#snapTs = typeof ts === "number" ? ts : Date.now();
     }
   }
 
