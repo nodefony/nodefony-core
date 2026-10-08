@@ -445,7 +445,9 @@ import { ChatRoom } from "./ChatRoom";
 
 // La connexion s'ouvre UNE fois, au démarrage de l'application. Les hooks ne
 // gèrent que les abonnements : le cycle de vie de la socket reste à toi.
-void chatSocket.connect();
+// `connect()` rejette si cette première tentative échoue (serveur absent) ;
+// la socket se reconnecte seule ensuite, et l'état se lit par les hooks.
+chatSocket.connect().catch(() => {});
 
 createRoot(document.getElementById("app")!).render(
   <NodefonyProvider client={chatSocket}>
@@ -1619,5 +1621,5 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 | Le point de mesure d'administration | `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:98`), `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`), `buildOwnHealth()` (`RealtimeAdminApi.ts:52`) |
 | Le service injectable | `RealtimeService.publish()` (`RealtimeService.ts:161`), `RealtimeService.probe()` (`RealtimeService.ts:213`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:222`) |
 | Les hooks React | `useNodefony()` (`client/react/index.ts:145`), `useNodefonyState()` (`client/react/index.ts:163`), `useNodefonyIdentity()` (`client/react/index.ts:182`), `useNodefonyChannel()` (`client/react/index.ts:198`), `useNodefonyChannelData()` (`client/react/index.ts:221`), `useNodefonyAdaptiveChannel()` (`client/react/index.ts:255`) |
-| Le client navigateur | `NodefonySocket.connect()` (`NodefonySocket.ts:402`), `NodefonySocket.subscribe()` (`NodefonySocket.ts:549`), `NodefonySocket.request()` (`NodefonySocket.ts:746`), `NodefonySocket.onDenied()` (`NodefonySocket.ts:488`) |
+| Le client navigateur | `NodefonySocket.connect()` (`NodefonySocket.ts:592`), `NodefonySocket.subscribe()` (`NodefonySocket.ts:739`), `NodefonySocket.request()` (`NodefonySocket.ts:936`), `NodefonySocket.onDenied()` (`NodefonySocket.ts:678`) |
 | L'upload | `UploadedFile` (`routerDecorators.ts:1286`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:215`) |

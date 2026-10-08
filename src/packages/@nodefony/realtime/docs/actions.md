@@ -137,7 +137,7 @@ connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
 `IRealtimeWelcome` (`RealtimeController.ts:12`) — et se lit côté client par
-`NodefonySocket.serverMethods` (`NodefonySocket.ts:610`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`NodefonySocket.serverMethods` (`NodefonySocket.ts:800`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
@@ -428,7 +428,7 @@ drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le
 ### Le délai d'expiration est la seule libération automatique
 
 `request()` prend le délai en **troisième argument positionnel**, en millisecondes — il n'y a pas
-d'objet d'options (`NodefonySocket.request()`, `NodefonySocket.ts:746`) :
+d'objet d'options (`NodefonySocket.request()`, `NodefonySocket.ts:936`) :
 
 ```ts ignore
 await socket.request("orders:quote", { orderId }); // 30 000 ms par défaut
@@ -478,7 +478,7 @@ fois ? »**.
 | une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
-par la signature** de `mutate()` (`NodefonySocket.ts:819`), et c'est la garde `@Idempotent`
+par la signature** de `mutate()` (`NodefonySocket.ts:1009`), et c'est la garde `@Idempotent`
 (`routerDecorators.ts:1171`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
@@ -552,7 +552,7 @@ const modules = await socket.request("/nodefony/kernel/api/modules");
 ```
 
 La forme se discrimine toute seule : un chemin commence par `/`, jamais un nom d'action —
-`NodefonySocket.request()` (`NodefonySocket.ts:746`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
+`NodefonySocket.request()` (`NodefonySocket.ts:936`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
 passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit dans le
 [vocabulaire](./vocabulaire.md) et l'[architecture](./architecture.md).
 

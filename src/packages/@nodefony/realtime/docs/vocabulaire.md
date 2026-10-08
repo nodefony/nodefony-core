@@ -218,7 +218,7 @@ Le **handle unique** manipulé par le code applicatif : quatre verbes (`subscrib
 `request`) et une vue par canal. Le mot vient de la prise murale : on branche, on ignore le câblage.
 
 Contrat isomorphe `IRealtimeSocket` (`IRealtimeSocket.ts:122`), implémenté côté navigateur par
-`NodefonySocket` (`NodefonySocket.ts:195`) et côté serveur par `ServerRealtimeSocket`
+`NodefonySocket` (`NodefonySocket.ts:394`) et côté serveur par `ServerRealtimeSocket`
 (`ServerRealtimeSocket.ts:44`). ⚠️ La socket **n'est pas** le [transport](#transport--la-couche-octets).
 
 → [Architecture](./architecture.md) pour la pile complète.

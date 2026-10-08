@@ -488,8 +488,8 @@ Le client **n'apprend jamais** les seuils : il ne reçoit que leur effet.
 - Une trame jetée **n'existe pas** pour lui : il voit seulement un écart plus long entre deux
   trames.
 - Une fermeture arrive avec le code `1013`. Il le classe **transitoire** : ce n'est pas un des codes
-  définitifs (`FATAL_CLOSE_CODES`, `notice.ts:155`), donc `isReconnectableCloseCode()`
-  (`notice.ts:171`) répond oui, et il se reconnecte avec une attente croissante.
+  définitifs (`FATAL_CLOSE_CODES`, `notice.ts:169`), donc `isReconnectableCloseCode()`
+  (`notice.ts:185`) répond oui, et il se reconnecte avec une attente croissante.
 
 ## 🔌 Comment les deux étages se rencontrent
 

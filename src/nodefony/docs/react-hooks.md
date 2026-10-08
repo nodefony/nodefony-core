@@ -108,9 +108,9 @@ Le binding existe pour que ces trois cas soient traités **une fois**, au bon en
 
 Le parti pris est de mettre l'intelligence **sous** React, pas dedans. Le comptage de références et
 le ré-abonnement après coupure vivent dans `NodefonySocket.subscribe()`
-(`client/realtime/NodefonySocket.ts:549`) et `NodefonySocket.unsubscribe()`
-(`client/realtime/NodefonySocket.ts:562`), au-dessus d'une carte `_subscriptions`
-(`client/realtime/NodefonySocket.ts:244`).
+(`client/realtime/NodefonySocket.ts:739`) et `NodefonySocket.unsubscribe()`
+(`client/realtime/NodefonySocket.ts:752`), au-dessus d'une carte `_subscriptions`
+(`client/realtime/NodefonySocket.ts:429`).
 
 Conséquence directe : cette autorité est **partagée**. Les hooks et un store applicatif (MobX, Zustand,
 Redux) peuvent tenir le même canal sans se marcher dessus — chacun compte pour un.
@@ -213,7 +213,7 @@ socket est celle de son handshake ; se connecter dans un formulaire ne la change
 
 - la socket a été **refusée** (point d'entrée protégé, visiteur anonyme) : fermeture définitive
   1008, état `"error"`, et le client ne retente **pas** de lui-même — sinon un anonyme
-  martèlerait le serveur. `socket.retryNow()` (`client/realtime/NodefonySocket.ts:385`) rouvre
+  martèlerait le serveur. `socket.retryNow()` (`client/realtime/NodefonySocket.ts:566`) rouvre
   immédiatement ;
 - la socket était **ouverte en anonyme** : `retryNow()` ne fait rien sur une socket connectée.
   `socket.disconnect()` (`:403`) puis `await socket.connect()` (`:390`) renégocient le handshake
@@ -345,7 +345,7 @@ Rend `"disconnected" | "connecting" | "connected" | "reconnecting" | "error"`. L
 `useSyncExternalStore`, donc **sans tearing** en rendu concurrent : le snapshot est une chaîne, la
 comparaison est exacte.
 
-Le re-rendu suit `NodefonySocket.setState()` (`client/realtime/NodefonySocket.ts:1445`), qui
+Le re-rendu suit `NodefonySocket.setState()` (`client/realtime/NodefonySocket.ts:1714`), qui
 court-circuite si l'état est inchangé — un état stable ne coûte rien, même sous un flux dense.
 
 C'est le hook des badges de connexion et des écrans dégradés (« temps réel indisponible »).
@@ -357,7 +357,7 @@ Rend l'identité **annoncée par le serveur** dans la trame d'accueil : `authent
 reçu ; une fois reçu, un visiteur anonyme vaut `authenticated: false` — jamais `null`.
 
 Elle est rafraîchie à chaque (re)connexion par `ingestWelcome()`
-(`client/realtime/NodefonySocket.ts:1048`) et remise à `null` au `disconnect()` volontaire.
+(`client/realtime/NodefonySocket.ts:1242`) et remise à `null` au `disconnect()` volontaire.
 
 L'intérêt pratique : basculer anonyme ↔ authentifié **sans appeler la moindre route** `/auth/me`. La
 socket porte déjà l'information.
@@ -450,13 +450,13 @@ const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
 ### `useNodefonyChannelStats()` — débit et série d'un canal
 
 Rend `{ msgCount, lastMessage, rate, series }` pour un canal, calculé par le client à partir des
-trames reçues (`getChannelStats()`, `client/realtime/NodefonySocket.ts:1001`). La série glisse sur 32
-points — `STATS_SERIES_POINTS` (`client/realtime/NodefonySocket.ts:128`) —, échantillonnés une fois par seconde par
-`startStatsSampler()` (`client/realtime/NodefonySocket.ts:1184`).
+trames reçues (`getChannelStats()`, `client/realtime/NodefonySocket.ts:1195`). La série glisse sur 32
+points — `STATS_SERIES_POINTS` (`client/realtime/NodefonySocket.ts:137`) —, échantillonnés une fois par seconde par
+`startStatsSampler()` (`client/realtime/NodefonySocket.ts:1381`).
 
 > [!WARNING]
 > Ce hook ne se rafraîchit **pas** tout seul après sa première valeur. Le client réutilise le même
-> objet de statistiques et le mute en place (`trackFrame()`, `client/realtime/NodefonySocket.ts:1008`) :
+> objet de statistiques et le mute en place (`trackFrame()`, `client/realtime/NodefonySocket.ts:1202`) :
 > l'état React reçoit une référence identique, et React court-circuite le rendu. La valeur affichée
 > n'est correcte que si le composant se re-rend pour une autre raison. Pour un VU-mètre fiable,
 > compte toi-même sur `useNodefonyChannel()`.
@@ -637,7 +637,7 @@ Leur seul usage légitime est **l'ergonomie** :
 > Un contrôle de rôle côté navigateur n'est **pas** une mesure de sécurité. Les rôles arrivent dans
 > une trame, et une trame se falsifie. L'autorité est **entièrement** serveur : le pare-feu décide,
 > et un refus revient explicitement en `realtime:denied`, qu'on capte via `onDenied()`
-> (`client/realtime/NodefonySocket.ts:488`) pour réagir canal par canal. Ne protège jamais une donnée
+> (`client/realtime/NodefonySocket.ts:678`) pour réagir canal par canal. Ne protège jamais une donnée
 > en te contentant de ne pas afficher le composant qui l'affiche.
 
 La règle pratique : **cache pour le confort, refuse au serveur**. Voir la
@@ -662,16 +662,16 @@ Studio.
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
 | `useNodefony() doit être utilisé dans un <NodefonyProvider>`   | Hook monté hors du sous-arbre du fournisseur (`client/react/index.ts:145`)                                   | Remonter `NodefonyProvider` au shell, au-dessus du routeur                                               |
 | `Module 'nodefony' has no exported member 'NodefonySocket'`    | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app                                       | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]`                            |
-| Rien n'arrive et l'état reste `disconnected`                   | Les hooks s'abonnent mais ne connectent pas                                                                  | Appeler `socket.connect()` une fois (`client/realtime/NodefonySocket.ts:402`)                            |
-| Après la connexion, l'état reste `error` jusqu'au rechargement | La socket refusée en 1008 ne retente pas seule ; l'identité est figée au handshake                           | `retryNow()` (`client/realtime/NodefonySocket.ts:385`) si `error`, sinon `disconnect()` puis `connect()` |
+| Rien n'arrive et l'état reste `disconnected`                   | Les hooks s'abonnent mais ne connectent pas                                                                  | Appeler `socket.connect()` une fois (`client/realtime/NodefonySocket.ts:592`)                            |
+| Après la connexion, l'état reste `error` jusqu'au rechargement | La socket refusée en 1008 ne retente pas seule ; l'identité est figée au handshake                           | `retryNow()` (`client/realtime/NodefonySocket.ts:566`) si `error`, sinon `disconnect()` puis `connect()` |
 | Un `subscribe`/`unsubscribe`/`subscribe` par montage           | StrictMode double le montage ; le comptage est symétrique                                                    | Comportement attendu en développement ; absent en production                                             |
-| Le débit de `useNodefonyChannelStats()` reste figé             | `trackFrame()` mute le même objet de stats (`client/realtime/NodefonySocket.ts:1008`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                                              |
+| Le débit de `useNodefonyChannelStats()` reste figé             | `trackFrame()` mute le même objet de stats (`client/realtime/NodefonySocket.ts:1202`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                                              |
 | `useNodefonySyslog({ severities })` ne rend rien               | Le filtre compare un champ numérique à des noms (`client/react/index.ts:373`)                                | Filtrer au rendu sur `severityName` (`Pdu.ts:180`)                                                       |
 | L'abonnement se refait à chaque frappe                         | Le nom du canal est recalculé et passé dans `deps`                                                           | Ne mettre dans `deps` que ce qui doit vraiment ré-abonner                                                |
 | Changer un réglage AIMD ne change rien                         | Les options sont capturées par référence (`client/react/index.ts:192`)                                       | Passer par `desiredMs`/`enabled`, ou ajouter la valeur aux `deps`                                        |
 | Toasts en double, voire en triple                              | `useNodefonyNotifications` monté dans plusieurs composants                                                   | Un seul montage, au shell (`client/react/index.ts:398`)                                                  |
-| Une exception dans un handler disparaît sans trace             | Le dispatch avale les erreurs de handler (`client/realtime/NodefonySocket.ts:1131`)                          | Envelopper le corps du handler dans son propre `try`/`catch`                                             |
-| Un écran perd son flux quand un autre se démonte               | N'arrive plus : le compteur vit dans le client (`client/realtime/NodefonySocket.ts:544`)                     | Rien à faire — vérifier qu'on n'appelle pas `unsubscribe` à la main                                      |
+| Une exception dans un handler disparaît sans trace             | Le dispatch avale les erreurs de handler (`client/realtime/NodefonySocket.ts:1335`)                          | Envelopper le corps du handler dans son propre `try`/`catch`                                             |
+| Un écran perd son flux quand un autre se démonte               | N'arrive plus : le compteur vit dans le client (`client/realtime/NodefonySocket.ts:752`)                     | Rien à faire — vérifier qu'on n'appelle pas `unsubscribe` à la main                                      |
 | Un canal cadencé ne renvoie jamais rien                        | Le serveur n'a pas déclaré de bornes pour ce canal                                                           | Vérifier la résolution serveur (`realtime/channelRate.ts:63`)                                            |
 | L'écran de connexion clignote à chaque micro-coupure           | L'identité est conservée pendant une perte réseau, pas pendant un logout                                     | Croiser `useNodefonyIdentity()` avec `useNodefonyState()`                                                |
 
