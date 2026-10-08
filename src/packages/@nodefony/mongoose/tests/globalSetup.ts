@@ -16,6 +16,9 @@ declare module "vitest" {
   }
 }
 
+/** Délai de démarrage de `mongod` — 10 s par défaut dans mongodb-memory-server. */
+const MONGOD_LAUNCH_TIMEOUT_MS = 120_000;
+
 /**
  * Provisionne UN SEUL serveur Mongo (ReplSet 1 nœud — supporte CRUD ET
  * transactions) partagé par TOUS les bancs d'intégration mongoose.
@@ -45,9 +48,17 @@ export default async function setup(
   const dbPath = mkdtempSync(path.join(os.tmpdir(), "nf-mongo-"));
   const removeDbPath = (): void =>
     rmSync(dbPath, { recursive: true, force: true });
+  // Délai de démarrage LARGE, et c'est le remède, pas un confort : quand le délai
+  // expire, `MongoInstance.create()` lève AVANT de rendre l'instance — le `mongod`,
+  // seulement lent, continue de tourner, orphelin, hors de portée de `stop()`, et
+  // tient `dbPath` jusqu'à la fin du process. Sous Windows le dossier ne se
+  // supprime alors pas (EPERM, axiome 7) et la passe tombe (vu en forge, runner
+  // chargé : 10 s par défaut dépassées). Un binaire absent ou un crash lèvent tout
+  // de suite, par `instanceError`/`instanceClosed` : seul le délai fabrique
+  // l'orphelin. Et un banc sauté faute de patience est un banc NON exercé.
   const replset = new MongoMemoryReplSet({
     replSet: { count: 1 },
-    instanceOpts: [{ dbPath }],
+    instanceOpts: [{ dbPath, launchTimeout: MONGOD_LAUNCH_TIMEOUT_MS }],
   });
   try {
     await replset.start();
