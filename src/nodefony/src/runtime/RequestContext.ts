@@ -128,18 +128,6 @@ export interface RequestContextPayload {
 }
 
 /**
- * Clés qu'un magasin garde après {@link RequestContext.release} : la
- * corrélation des journaux tardifs, et le scope (refermé, que `getScope()`
- * écarte déjà).
- */
-const KEPT_AFTER_RELEASE: ReadonlySet<string> = new Set([
-  "requestId",
-  "scheme",
-  "traceparent",
-  "scope",
-]);
-
-/**
  * Message d'échec de {@link RequestContext.requireScope} : il nomme LA cause
  * parmi trois, parce que chacune appelle un geste différent. Chemin froid —
  * construit seulement quand l'appel échoue.
@@ -278,22 +266,22 @@ class RequestContext {
   }
 
   /**
-   * Mutate the current payload in place. No-op outside a scope.
-   * Used by security after login to inject `user`/`userId` without re-running.
-   */
-  /**
    * Vide un magasin dont l'unité de travail est finie : requête HTTP,
-   * connexion WebSocket, appel `api.request`. Seules restent les clés de
-   * CORRÉLATION (`requestId`, `scheme`, `traceparent`) et le `scope`, que
-   * {@link getScope} refuse déjà une fois refermé.
+   * connexion WebSocket, appel `api.request`, action temps réel décorée.
+   * Restent la CORRÉLATION (`requestId`, `scheme`, `traceparent`) et le
+   * `scope`, que {@link getScope} refuse déjà une fois refermé.
    *
    * Pourquoi : un minuteur ou une promesse armé pendant l'unité de travail
    * garde son magasin bien après la réponse. Sans ce vidage, `getUser()`,
    * `getUserId()` et le `token` du pare-feu y restent lisibles — une
    * autorisation prise plus tard le serait sur une identité périmée, et le
-   * jeton reste en mémoire aussi longtemps que le minuteur. Le vidage porte
-   * sur TOUTES les autres clés, pas sur une liste : une clé ajoutée demain par
-   * un module est vidée par défaut.
+   * jeton reste en mémoire aussi longtemps que le minuteur.
+   *
+   * La liste est ÉCRITE, pas parcourue : le magasin vit sur le chemin de
+   * chaque requête, et une boucle `for…in` y coûtait ~90 ns contre ~0 ici
+   * (`micro-store-release.mjs`). Un module qui pose une clé porteuse
+   * d'identité ou de données de la requête l'AJOUTE ici — le test
+   * `requestContextRelease.test.ts` couvre chaque clé.
    *
    * Ce n'est pas une révocation : une valeur déjà copiée dans une fermeture
    * survit. Un travail détaché reçoit ses données explicitement, et revérifie
@@ -302,13 +290,24 @@ class RequestContext {
    * @param store - le magasin passé à {@link run} pour cette unité de travail
    */
   static release(store: RequestContextPayload): void {
-    for (const key in store) {
-      if (KEPT_AFTER_RELEASE.has(key)) continue;
-      // Affectation, pas `delete` : la forme de l'objet reste stable.
-      store[key] = undefined;
-    }
+    // Écriture seulement si la clé porte une valeur : affecter une clé
+    // absente l'ajouterait, et changerait la forme de l'objet.
+    if (store.user !== undefined) store.user = undefined;
+    if (store.userId !== undefined) store.userId = undefined;
+    if (store.token !== undefined) store.token = undefined;
+    if (store.context !== undefined) store.context = undefined;
+    if (store.queries !== undefined) store.queries = undefined;
+    if (store.body !== undefined) store.body = undefined;
+    if (store.resolver !== undefined) store.resolver = undefined;
+    if (store.renderSink !== undefined) store.renderSink = undefined;
+    if (store.invocation !== undefined) store.invocation = undefined;
+    if (store.idempotencyKey !== undefined) store.idempotencyKey = undefined;
   }
 
+  /**
+   * Mutate the current payload in place. No-op outside a scope.
+   * Used by security after login to inject `user`/`userId` without re-running.
+   */
   static set<K extends keyof RequestContextPayload>(
     key: K,
     value: RequestContextPayload[K],

@@ -50,6 +50,7 @@
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scan.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-select-ops.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-service-bus.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-store-release.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-update-pick.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-write-head.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-zone-match.mjs",

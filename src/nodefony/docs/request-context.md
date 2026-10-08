@@ -115,12 +115,12 @@ exactement où la bulle existe, et où elle n'existe plus.
 ## La vision Nodefony
 
 `RequestContext` est une **façade statique** au-dessus d'une instance unique d'`AsyncLocalStorage`
-par processus (`RequestContext.ts:164`). Quatre décisions de conception en découlent.
+par processus (`RequestContext.ts:191`). Quatre décisions de conception en découlent.
 
 - **Allocation paresseuse.** L'instance n'est créée qu'au **premier** `run()` — le getter privé
-  `RequestContext.als` (`RequestContext.ts:179`). Importer la classe sans jamais ouvrir de bulle
+  `RequestContext.als` (`RequestContext.ts:181`). Importer la classe sans jamais ouvrir de bulle
   (bundle client, script CLI, test unitaire) ne coûte rien.
-- **Lecture à sortie rapide.** `RequestContext.get()` (`RequestContext.ts:180`) rend `undefined`
+- **Lecture à sortie rapide.** `RequestContext.get()` (`RequestContext.ts:204`) rend `undefined`
   **sans toucher à l'ALS** quand aucune bulle n'a jamais été ouverte. Le cas « pas de requête » est
   gratuit.
 - **Forme ouverte.** `RequestContextPayload` (`RequestContext.ts:37`) déclare les clés connues puis
@@ -256,22 +256,23 @@ rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md
 
 ## 🧰 API publique
 
-Onze membres statiques, tous sûrs hors bulle sauf `requireScope()`, qui lève exprès. Les signatures exactes vivent dans le
+Douze membres statiques, tous sûrs hors bulle sauf `requireScope()`, qui lève exprès. Les signatures exactes vivent dans le
 graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 
 | Appel              | Ancre                   | Rend / fait                                          | Hors bulle  |
 | ------------------ | ----------------------- | ---------------------------------------------------- | ----------- |
 | `run(payload, fn)` | `RequestContext.ts:185` | ouvre une bulle et **renvoie ce que renvoie `fn`**   | —           |
-| `get()`            | `RequestContext.ts:180` | le payload entier (objet **mutable**, par référence) | `undefined` |
-| `getRequestId()`   | `RequestContext.ts:196` | l'identifiant de corrélation                         | `undefined` |
-| `getUser()`        | `RequestContext.ts:201` | l'utilisateur authentifié, typé `unknown`            | `undefined` |
-| `getUserId()`      | `RequestContext.ts:218` | son identifiant sous forme de chaîne                 | `undefined` |
+| `get()`            | `RequestContext.ts:204` | le payload entier (objet **mutable**, par référence) | `undefined` |
+| `getRequestId()`   | `RequestContext.ts:198` | l'identifiant de corrélation                         | `undefined` |
+| `getUser()`        | `RequestContext.ts:203` | l'utilisateur authentifié, typé `unknown`            | `undefined` |
+| `getUserId()`      | `RequestContext.ts:220` | son identifiant sous forme de chaîne                 | `undefined` |
 | `getContext<T>()`  | `RequestContext.ts:215` | le contexte transport HTTP/WS, générique             | `undefined` |
-| `getScope()`       | `RequestContext.ts:232` | le scope DI de la requête, s'il est encore ouvert    | `undefined` |
-| `requireScope()`   | `RequestContext.ts:259` | le même scope, ou une erreur qui nomme la cause      | **lève**    |
-| `set(clé, valeur)` | `RequestContext.ts:270` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |
-| `isProfiling()`    | `RequestContext.ts:285` | `true` si un buffer de profilage est actif           | `false`     |
-| `pushQuery(query)` | `RequestContext.ts:295` | ajoute une requête mesurée au buffer                 | **no-op**   |
+| `getScope()`       | `RequestContext.ts:247` | le scope DI de la requête, s'il est encore ouvert    | `undefined` |
+| `requireScope()`   | `RequestContext.ts:261` | le même scope, ou une erreur qui nomme la cause      | **lève**    |
+| `set(clé, valeur)` | `RequestContext.ts:312` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |
+| `isProfiling()`    | `RequestContext.ts:327` | `true` si un buffer de profilage est actif           | `false`     |
+| `pushQuery(query)` | `RequestContext.ts:337` | ajoute une requête mesurée au buffer                 | **no-op**   |
+| `release(store)`   | `RequestContext.ts:292` | vide un store dont l'unité de travail est finie      | —           |
 
 > [!IMPORTANT]
 > `set()` hors bulle ne **lève pas** — il ne fait rien. C'est délibéré (le même code doit tourner en
@@ -291,7 +292,7 @@ les autres par une signature d'index. Chaque couche y dépose ce qui la concerne
 | `user` / `userId` | le firewall après auth             | identité résolue — `firewall.ts:889`                                        |
 | `token`           | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:805`        |
 | `context`         | le serveur HTTP/WS                 | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
-| `scope`           | le serveur HTTP/WS, le pont WS-RPC | scope DI de la requête — le lire par `getScope()` (`RequestContext.ts:225`) |
+| `scope`           | le serveur HTTP/WS, le pont WS-RPC | scope DI de la requête — le lire par `getScope()` (`RequestContext.ts:247`) |
 | `queries`         | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
 | `invocation`      | le pont WS-RPC                     | profil de **la trame** en cours (phases + requêtes ORM)                     |
 | `body`            | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
@@ -356,8 +357,8 @@ flowchart LR
 
 Deux lectures possibles, et elles ne sont **pas** équivalentes :
 
-- `RequestContext.isProfiling()` (`RequestContext.ts:285`) + `RequestContext.pushQuery()`
-  (`RequestContext.ts:295`) — le chemin simple, quand tout se passe dans la bulle.
+- `RequestContext.isProfiling()` (`RequestContext.ts:327`) + `RequestContext.pushQuery()`
+  (`RequestContext.ts:337`) — le chemin simple, quand tout se passe dans la bulle.
 - **capturer la référence** du buffer une fois (`RequestContext.get()?.queries`) puis pousser
   dedans — le chemin **robuste**, celui des adapters livrés : `DrizzleRepository.#prof()`
   (`DrizzleRepository.ts:433`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:115`).
@@ -391,6 +392,45 @@ Ce que ça implique concrètement :
 
 Ces trois propriétés sont exercées par la suite de tests (voir plus bas), dont un cas qui fait
 tourner deux bulles concurrentes avec des `await` entrelacés et vérifie qu'aucune ne voit l'autre.
+
+## Après la fin — ce qui reste dans une bulle refermée
+
+Une minuterie, une promesse non attendue, un rappel armé **pendant** la requête garde son store
+**après** la réponse : l'ALS le retient aussi longtemps que ce travail détaché vit. Le framework
+VIDE donc ce store à la fin de chaque unité de travail (`RequestContext.release()`,
+`RequestContext.ts:292`) — requête HTTP et connexion WebSocket au nettoyage du contexte
+(`Context.ts:587`), appel `api.request` et action temps réel décorée à la fin de l'appel
+(`RealtimeController.ts:1261`, `RealtimeController.ts:999`).
+
+| Après la fin                                                                           | Rend                               | Pourquoi                                                                               |
+| -------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `getRequestId()`, `scheme`, `traceparent`                                              | la valeur de la requête            | les journaux tardifs restent corrélés                                                  |
+| `getScope()`                                                                           | `undefined` — le scope est refermé | une écriture n'y aurait plus de propriétaire                                           |
+| `getUser()`, `getUserId()`, `token`                                                    | `undefined`                        | une décision prise plus tard le serait sur une identité périmée                        |
+| `context`, `queries`, `body`, `resolver`, `renderSink`, `invocation`, `idempotencyKey` | `undefined`                        | le transport, le corps et le profil d'une requête finie n'ont plus de lecteur légitime |
+
+La liste des clés vidées est **écrite**, pas parcourue : le store vit sur le chemin de chaque
+requête, et la parcourir coûtait ~90 ns contre ~3 ns. Un module qui pose sa **propre** clé portant
+une identité ou une donnée de la requête l'ajoute à `release()` — un test du cœur
+(`requestContextRelease.test.ts`) exige que chaque clé déclarée dans le type soit vidée.
+
+Les hooks `onAfterResponse` passent **avant** ce vidage : ils lisent encore l'identité. Ce qu'ils
+lancent sans l'attendre, non.
+
+> [!WARNING]
+> **Vider n'est pas révoquer.** Une valeur déjà copiée dans une variable
+> (`const token = RequestContext.get()?.token`) survit au vidage. Un travail détaché reçoit
+> **explicitement** les données dont il a besoin, et revérifie l'autorisation au moment où il agit —
+> jamais en relisant une identité ambiante.
+
+Deux règles d'usage complètent ce contrat :
+
+- **En WebSocket, une trame n'est pas une requête isolée.** Le scope DI est celui de la
+  **connexion** : un service de portée `request` est partagé par toutes ses trames, concurrentes
+  comprises. N'y poser que ce qui vaut pour la connexion entière.
+- **Le nettoyage n'attend pas un `clean()` asynchrone.** La fermeture du scope reste synchrone ; un
+  `async clean()` part en arrière-plan et son rejet est seulement journalisé
+  (`Container.ts:458`). Un rollback ou un flush indispensable n'a pas sa place dans `clean()`.
 
 ## ⚡ Performance & mémoire
 
@@ -456,18 +496,19 @@ socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:257`) et les rapp
 dans `Context.onAfterResponse()` (`Context.ts:445`). Si tu branches **ton** écouteur sur une socket
 ou une minuterie, la règle est à toi de l'appliquer.
 
-| Symptôme                                                           | Cause                                                                                | Correction                                                                           |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `getRequestId()` vaut `undefined` dans un écouteur / une minuterie | le rappel se déclenche dans un tick postérieur, hors bulle                           | `AsyncResource.bind(fn)` **au branchement**, pas à l'appel                           |
-| Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux             | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
-| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:270`)                | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
-| `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall        | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
-| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1283`)         |
-| `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`) | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
-| Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                 | déjà traité pour les contextes (`Context.ts:244`) ; pour ton code, `run()` à nouveau |
-| Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                          | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |
-| Identité périmée sur une connexion WebSocket longue                | l'identité a été captée à la poignée de main                                         | revalider par invocation (`RealtimeController.ts:812`), ne pas mettre en cache       |
-| Fuite mémoire autour d'un écouteur lié                             | `AsyncResource.bind` retient le payload, donc l'utilisateur et le contexte           | ne lier que ce qui meurt avec la requête ou la connexion                             |
+| Symptôme                                                           | Cause                                                                                      | Correction                                                                           |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `getRequestId()` vaut `undefined` dans un écouteur / une minuterie | le rappel se déclenche dans un tick postérieur, hors bulle                                 | `AsyncResource.bind(fn)` **au branchement**, pas à l'appel                           |
+| Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux                   | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
+| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:312`)                      | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
+| `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall              | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
+| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                      | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1283`)         |
+| `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`)       | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
+| Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                       | déjà traité pour les contextes (`Context.ts:244`) ; pour ton code, `run()` à nouveau |
+| Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                                | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |
+| Identité périmée sur une connexion WebSocket longue                | l'identité a été captée à la poignée de main                                               | revalider par invocation (`RealtimeController.ts:812`), ne pas mettre en cache       |
+| `getUser()` vide dans une minuterie armée pendant la requête       | la minuterie s'est déclenchée après la fin : le store a été vidé (`RequestContext.ts:203`) | passer l'identité en argument au travail détaché, et réautoriser au moment d'agir    |
+| Fuite mémoire autour d'un écouteur lié                             | `AsyncResource.bind` retient le payload, donc l'utilisateur et le contexte                 | ne lier que ce qui meurt avec la requête ou la connexion                             |
 
 ## 🧪 Tests & couverture
 

@@ -101,6 +101,7 @@ Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétr
 > | `micro/micro-zone-match.mjs`    | les 7 zones du pare-feu (`isSecure`), Nodefony contre témoin, avec et sans le drapeau `u` des motifs                  |
 > | `micro/micro-update-pick.mjs`   | l'UPDATE borné par sous-requête (`#pickOne`) contre le `WHERE` nu du témoin, et leur seule compilation SQLite         |
 > | `micro/micro-select-ops.mjs`    | un SELECT à comparaison (`jti = ? AND expiresAt > ?`) reconstruit à chaque appel contre préparé une fois              |
+> | `micro/micro-store-release.mjs` | le vidage du magasin `RequestContext` en fin de requête (`release()`) et la réaction posée sur une action décorée     |
 >
 > **Rapport du dossier de performance** : `scripts/perf-dossier-report.mjs` rend en une page HTML
 > autonome ce que `docs/performance/` établit en Markdown (graphes, schémas, calculateur de pods).

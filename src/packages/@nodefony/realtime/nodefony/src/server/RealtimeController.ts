@@ -994,10 +994,13 @@ export abstract class RealtimeController<
         // Cette bulle est une COPIE du magasin de la connexion, identité
         // comprise : vider celui de la connexion ne la touche pas. Elle est
         // vidée à la fin de l'appel (#571).
+        // La réaction est posée À CÔTÉ de la promesse, qui est rendue telle
+        // quelle : `finally` chaînerait deux promesses de plus par appel
+        // (~270 ns, `micro-store-release.mjs`), ceci n'en coûte qu'une.
         if (isPromise(result)) {
-          return Promise.resolve(result).finally(() =>
-            RequestContext.release(store),
-          );
+          const release = (): void => RequestContext.release(store);
+          result.then(release, release);
+          return result;
         }
         RequestContext.release(store);
         return result;
