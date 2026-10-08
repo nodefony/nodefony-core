@@ -105,6 +105,32 @@ battement du WebSocket.
 | HAProxy : `Forwarded` entrant **effacé** avant le nôtre                                                               | un en-tête forgé conservé à côté du vrai (RFC 7239 §8.1)                                                              |
 | HAProxy : le schéma **constaté** sur `ssl_fc`                                                                         | annoncer `proto=https` à un client venu en clair — le défaut a existé, il a été corrigé par le banc contre proxy réel |
 
+### Les flux SSE derrière le proxy
+
+Un flux SSE est une réponse HTTP qui ne finit pas : le proxy n'a rien à apprendre de neuf, mais
+trois réglages décident s'il le relaie bien. `proxy:generate` les pose tous.
+
+| De quel côté       | Ce qui est réglé                                                     | Pourquoi                                                                                                                          |
+| ------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| navigateur ↔ proxy | HTTP/2 servi par le proxy (`http2 on`, `generateProxyConfig.ts:270`) | le plafond d'environ six connexions par origine est celui du navigateur envers le **proxy** : c'est là que le multiplexage compte |
+| proxy ↔ Nodefony   | HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts:351`)    | une connexion par flux vers le backend ; activer HTTP/2 sur Nodefony n'y change rien                                              |
+| mise en tampon     | Nodefony envoie `X-Accel-Buffering: no` (`SseStream.ts:495`)         | nginx relaie chaque événement au lieu d'attendre de remplir son tampon                                                            |
+| inactivité         | délai d'au moins 300 s, soit vingt battements SSE de 15 s            | un flux muet n'est tenu que par son battement ; un test lie les deux valeurs, il tombe si le battement est relevé au-delà         |
+
+Sous Kubernetes, l'**ingress-nginx** a ses propres réglages, que ce générateur n'écrit pas — à poser
+en annotations sur l'`Ingress` :
+
+```yaml
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+```
+
+L'en-tête `X-Accel-Buffering: no` suffit déjà à nginx ; l'annotation de tampon protège un ingress
+configuré pour l'ignorer.
+
 ### Et côté application — l'autre moitié
 
 ```typescript
@@ -164,6 +190,7 @@ d'hébergeur) ne transmettra la bonne IP que si cet amont est déclaré.
 | `413` sur un envoi que l'application accepte pourtant    | la limite de corps du proxy est plus basse que `maxBodySize`                                                       | régénérer : `client_max_body_size` est dérivé de la configuration applicative                    |
 | Les statiques d'un module répondent `404` derrière nginx | une seule racine statique déclarée, alors que chaque module monte la sienne                                        | régénérer : la chaîne de `try_files` est construite depuis les montages réels                    |
 | Le déploiement coupe des requêtes en cours               | le proxy interroge `/livez` au lieu de `/readyz`                                                                   | `/readyz` bascule en `503` **dès le début de l'arrêt** ; `/livez` reste à `200` pendant le drain |
+| Un flux SSE n'arrive qu'en bloc, ou à la fin             | le proxy met la réponse en tampon                                                                                  | ne pas filtrer `X-Accel-Buffering` ; sur un ingress, `proxy-buffering: "off"`                    |
 | Les cookies de session ne reviennent jamais              | `X-Forwarded-Proto` annonce `http` alors que le client est en `https`, donc le cookie `Secure` est refusé          | le schéma se **constate** sur la connexion entrante, il ne se suppose pas                        |
 
 > 🔴 **Le piège du proxy en cascade.** Un `X-Forwarded-For` correct chez le proxy de tête devient

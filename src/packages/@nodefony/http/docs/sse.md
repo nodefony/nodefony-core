@@ -66,7 +66,19 @@ ce que fait une porte MCP.
 > [!NOTE]
 > En HTTP/1.1, un navigateur n'ouvre qu'environ six connexions par origine : six onglets chacun
 > abonné à un flux, et les requêtes suivantes attendent leur tour (WHATWG §9.2.7). En HTTP/2, un
-> flux SSE n'est qu'un flux du multiplexage de la connexion — servez les flux en HTTP/2.
+> flux SSE n'est qu'un flux du multiplexage de la connexion.
+>
+> Ce plafond vaut pour l'origine que **voit le navigateur**. Derrière nginx, HAProxy ou un
+> ingress qui termine le TLS, cette origine est le proxy : c'est **lui** qui doit servir HTTP/2,
+> et `proxy:generate` le pose déjà (`http2 on`, `generateProxyConfig.ts:270`). Nodefony reçoit
+> alors du HTTP/1.1 (`proxy_http_version 1.1`, `generateProxyConfig.ts:351`) — y activer HTTP/2
+> n'y change rien. Sans proxy, c'est Nodefony qui sert HTTP/2.
+>
+> De chaque côté du proxy, un flux est une connexion qui se tait entre deux événements. Le
+> battement (`SSE_HEARTBEAT_MS`, 15 s, `SseStream.ts:76`) la garde vivante ; le délai
+> d'inactivité généré (300 s au moins) en tient vingt. Le seul piège réel : une action qui éteint
+> le battement (`heartbeat: false`) et se tait plus longtemps que ce délai se fait couper par le
+> proxy. Le guide [reverse-proxy](../../../../../docs/guides/reverse-proxy.md) détaille le reste.
 
 ## 🚀 Démarrage rapide
 
@@ -243,7 +255,8 @@ minuteur arrêté, écouteurs `close` et `drain` retirés, attente de `drain` li
 | Le flux n'apparaît qu'en entier, à la fin         | un proxy (nginx) le met en tampon                                                             | `X-Accel-Buffering: no` est posé ; vérifier un `proxy_buffering on` explicite |
 | Le serveur ne voit jamais le client partir        | fermeture écoutée sur la REQUÊTE : en HTTP/1.1 elle a déjà émis `close` (corps lu, Node ≥ 16) | `sse.onClose()` — la fermeture est lue sur la RÉPONSE                         |
 | `error` en boucle côté client après la fin voulue | une fin de flux est une coupure pour `EventSource` : il reconnecte                            | `close()` dans `onerror`, ou répondre 204 pour dire « fini »                  |
-| Six onglets, et le site ne répond plus            | plafond de connexions HTTP/1.1 du navigateur                                                  | servir en HTTP/2                                                              |
+| Six onglets, et le site ne répond plus            | plafond de connexions HTTP/1.1 du navigateur envers l'origine qu'il voit                      | faire servir HTTP/2 par le proxy — ou par Nodefony s'il n'y a pas de proxy    |
+| Un flux muet coupé au bout de quelques minutes    | `heartbeat: false`, et un silence plus long que le délai d'inactivité du proxy                | garder le battement, ou allonger ce délai sur le proxy                        |
 | Le flux répond 429 sans avoir rien fait           | `wsMaxConnectionsPerIp` atteint — sockets WebSocket et flux SSE de l'IP comptent ensemble     | relever le plafond, ou fermer les connexions laissées ouvertes                |
 | `RangeError` à `send()`, le flux continue         | événement plus gros que `maxEventBytes`                                                       | découper la donnée, ou relever `maxEventBytes` pour ce flux                   |
 
