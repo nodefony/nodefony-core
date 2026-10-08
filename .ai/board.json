@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T17:58:54.485Z",
+  "generatedAt": "2026-10-08T19:22:55.783Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 91,
+      "closed": 94,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 50,
+      "open": 49,
       "title": "10.0.0-beta"
     },
     {
@@ -2342,6 +2342,22 @@
       ]
     },
     {
+      "number": 571,
+      "title": "fix(http): effacer l'identité du contexte de requête à la fin de la requête",
+      "url": "https://github.com/nodefony/nodefony-core/issues/571",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.605,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 568,
       "title": "test(security): même couverture d'attaque pour SSE et WebSocket",
       "url": "https://github.com/nodefony/nodefony-core/issues/568",
@@ -2350,6 +2366,22 @@
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
+      "ordre": 3.606,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 572,
+      "title": "refactor(types): remplacer les conversions de type qui resserrent un type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/572",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 5,
       "ordre": 3.606,
       "debut": null,
       "cible": null,
@@ -2393,8 +2425,8 @@
       "number": 554,
       "title": "feat(mcp): répondre en flux SSE aux appels d'outils longs",
       "url": "https://github.com/nodefony/nodefony-core/issues/554",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,
@@ -4206,8 +4238,8 @@
       "number": 479,
       "title": "ci: empêcher un process détaché de figer les jobs Windows après leur succès",
       "url": "https://github.com/nodefony/nodefony-core/issues/479",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
