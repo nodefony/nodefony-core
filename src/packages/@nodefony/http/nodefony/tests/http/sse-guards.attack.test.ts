@@ -5,6 +5,7 @@ import https from "node:https";
 import net from "node:net";
 import WebSocket from "ws";
 import { SseParser, type ISseEvent } from "nodefony/client";
+import { IS_PROD_TARGET } from "../helpers/targetEnv";
 
 /**
  * RED-TEAM #568 — un flux SSE porte les MÊMES gardes qu'une socket WebSocket,
@@ -183,76 +184,90 @@ describe("RED-TEAM #568 — gardes d'un flux SSE, parité WebSocket (requires se
     await call("GET", `${SSE}/reset`);
   });
 
-  afterAll(async () => {
-    // Le décor À CHAUD se défait même si un cas a échoué : sinon les bancs
-    // suivants tourneraient sous un plafond de 2 connexions.
-    await patch("wsMaxConnectionsPerIp", null);
+  // En production, la config est IMMUABLE (12-factor) : le plafond ne se pose
+  // pas à chaud, et ce bloc n'a pas de décor. Le cas ci-dessous constate ce
+  // refus — un saut qui s'appuie sur un fait observé, pas sur une supposition.
+  describe.runIf(IS_PROD_TARGET)("plafond par IP — cible production", () => {
+    it("le plafond ne se pose pas à chaud : 409 prod_immutable", async () => {
+      const r = await patch("wsMaxConnectionsPerIp", 50);
+      expect(r.status).to.equal(409);
+      expect(JSON.stringify(r.body)).to.include("prod_immutable");
+    });
   });
 
-  describe("plafond par IP (wsMaxConnectionsPerIp), un budget pour deux transports", () => {
-    // `trustProxy` ne s'édite qu'au démarrage : le banc ne peut pas se donner
-    // une IP à lui. Il partage donc 127.0.0.1 avec ce qui est déjà ouvert (un
-    // onglet sur l'application) — d'où un plafond large, et des preuves qui ne
-    // dépendent pas de ce qui occupait déjà le budget : on remplit jusqu'au
-    // refus, puis on observe ce qu'une place rendue permet.
-    const CAP = 50;
-    const H1V4 = "http://127.0.0.1:5151";
-
-    /** Ouvre des flux jusqu'au premier refus ; rend le refus. */
-    async function fill(): Promise<IStream> {
-      for (let i = 0; i <= CAP; i++) {
-        const s = track(await open(`${H1V4}${SSE}/hold`));
-        if (s.status !== 200) return s;
-      }
-      throw new Error(`aucun refus après ${CAP + 1} flux`);
-    }
-
-    /** Ferme un flux accepté et attend que le serveur ait vu la fermeture. */
-    async function release(): Promise<void> {
-      const before = (await state()).closed;
-      const accepted = streams.find((s) => s.status === 200);
-      if (accepted === undefined)
-        throw new Error("aucun flux accepté à fermer");
-      streams.splice(streams.indexOf(accepted), 1);
-      accepted.close();
-      for (let i = 0; i < 100 && (await state()).closed <= before; i++) {
-        await new Promise((r) => setTimeout(r, 20));
-      }
-    }
-
-    beforeAll(async () => {
-      expect(
-        (await patch("wsMaxConnectionsPerIp", CAP)).status,
-        "plafond",
-      ).to.equal(200);
-    });
-
-    it("V30 · au-delà du plafond, un flux SSE est refusé en 429 — sans un octet de flux", async () => {
-      const refused = await fill();
-      expect(refused.status).to.equal(429);
-      expect(refused.events).to.have.length(0);
-    });
-
-    it("V30 · la place est RENDUE quand le client part", async () => {
-      await fill();
-      await release();
-      expect(track(await open(`${H1V4}${SSE}/hold`)).status).to.equal(200);
-    });
-
-    it("V31 · une socket WebSocket et un flux SSE partagent le MÊME budget", async () => {
-      await fill();
-      await release();
-      // La place rendue par un flux SSE, une socket WebSocket la prend…
-      const ws = new WebSocket("ws://127.0.0.1:5151/nodefony/test/ws/echo");
-      sockets.push(ws);
-      await new Promise<void>((resolve, reject) => {
-        ws.once("open", () => resolve());
-        ws.once("error", reject);
+  describe.skipIf(IS_PROD_TARGET)(
+    "plafond par IP (wsMaxConnectionsPerIp), un budget pour deux transports",
+    () => {
+      afterAll(async () => {
+        // Le décor À CHAUD se défait même si un cas a échoué : sinon les bancs
+        // suivants tourneraient sous un plafond de 2 connexions.
+        await patch("wsMaxConnectionsPerIp", null);
       });
-      // … et le flux SSE suivant ne la retrouve pas.
-      expect(track(await open(`${H1V4}${SSE}/hold`)).status).to.equal(429);
-    });
-  });
+
+      // `trustProxy` ne s'édite qu'au démarrage : le banc ne peut pas se donner
+      // une IP à lui. Il partage donc 127.0.0.1 avec ce qui est déjà ouvert (un
+      // onglet sur l'application) — d'où un plafond large, et des preuves qui ne
+      // dépendent pas de ce qui occupait déjà le budget : on remplit jusqu'au
+      // refus, puis on observe ce qu'une place rendue permet.
+      const CAP = 50;
+      const H1V4 = "http://127.0.0.1:5151";
+
+      /** Ouvre des flux jusqu'au premier refus ; rend le refus. */
+      async function fill(): Promise<IStream> {
+        for (let i = 0; i <= CAP; i++) {
+          const s = track(await open(`${H1V4}${SSE}/hold`));
+          if (s.status !== 200) return s;
+        }
+        throw new Error(`aucun refus après ${CAP + 1} flux`);
+      }
+
+      /** Ferme un flux accepté et attend que le serveur ait vu la fermeture. */
+      async function release(): Promise<void> {
+        const before = (await state()).closed;
+        const accepted = streams.find((s) => s.status === 200);
+        if (accepted === undefined)
+          throw new Error("aucun flux accepté à fermer");
+        streams.splice(streams.indexOf(accepted), 1);
+        accepted.close();
+        for (let i = 0; i < 100 && (await state()).closed <= before; i++) {
+          await new Promise((r) => setTimeout(r, 20));
+        }
+      }
+
+      beforeAll(async () => {
+        expect(
+          (await patch("wsMaxConnectionsPerIp", CAP)).status,
+          "plafond",
+        ).to.equal(200);
+      });
+
+      it("V30 · au-delà du plafond, un flux SSE est refusé en 429 — sans un octet de flux", async () => {
+        const refused = await fill();
+        expect(refused.status).to.equal(429);
+        expect(refused.events).to.have.length(0);
+      });
+
+      it("V30 · la place est RENDUE quand le client part", async () => {
+        await fill();
+        await release();
+        expect(track(await open(`${H1V4}${SSE}/hold`)).status).to.equal(200);
+      });
+
+      it("V31 · une socket WebSocket et un flux SSE partagent le MÊME budget", async () => {
+        await fill();
+        await release();
+        // La place rendue par un flux SSE, une socket WebSocket la prend…
+        const ws = new WebSocket("ws://127.0.0.1:5151/nodefony/test/ws/echo");
+        sockets.push(ws);
+        await new Promise<void>((resolve, reject) => {
+          ws.once("open", () => resolve());
+          ws.once("error", reject);
+        });
+        // … et le flux SSE suivant ne la retrouve pas.
+        expect(track(await open(`${H1V4}${SSE}/hold`)).status).to.equal(429);
+      });
+    },
+  );
 
   describe("zone protégée : pare-feu, CSRF, révocation", () => {
     it("V32 · un anonyme n'ouvre pas de flux dans une zone protégée (401)", async () => {
