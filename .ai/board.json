@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T13:07:56.647Z",
+  "generatedAt": "2026-10-08T14:29:25.935Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2346,7 +2346,7 @@
       "title": "test(security): même couverture d'attaque pour SSE et WebSocket",
       "url": "https://github.com/nodefony/nodefony-core/issues/568",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
