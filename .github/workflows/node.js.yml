@@ -15,6 +15,12 @@ on:
       # qu'on désactive en croyant économiser du runner est le pire des deux.
       - "docs/**"
       - "MIGRATION_STATUS.md"
+      # L'empreinte du tableau (`npm run board:snapshot`) : GÉNÉRÉE depuis les
+      # tickets, lue par aucune étape. Commitée seule à chaque fin de session,
+      # elle relançait toute la suite et prenait la file derrière la CI du vrai
+      # travail — runner brûlé pour rien, verdict attendu retardé d'autant.
+      - ".ai/BOARD.md"
+      - ".ai/board.json"
   pull_request:
     branches: ["main", "dev"]
     paths-ignore: *prose
