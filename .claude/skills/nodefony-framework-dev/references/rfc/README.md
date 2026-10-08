@@ -20,6 +20,7 @@
   - Cloud-native : `cloud-12factor.md`, `cloud-k8s-pod-lifecycle.md`, `cloud-k8s-probes.md`.
   - OWASP cheat sheets : `owasp-{authentication,authorization,csp,csrf,jwt,mfa,password-storage,rest-security,security-headers,session-management,ssrf-prevention,tls,xss-prevention}.md`.
   - `standard-webhooks.md` (Standard Webhooks v1), `draft-idempotency-key-header-07.txt` (IETF draft, **expiré** le 2026-04-18 ; la 07 ne change rien à la 06, gardée tant que du code la cite).
+  - Brouillons OAuth cités par la spec MCP 2026-07-28 (qui cite des révisions plus anciennes) : `draft-ietf-oauth-v2-1-16.txt` (OAuth 2.1 — la 16 retire PKCE `plain` et rend `iss` obligatoire côté serveur d'autorisation ; Nodefony envoie déjà S256 seul et vérifie `iss`, RFC 9207) · `draft-ietf-oauth-client-id-metadata-document-02.txt` (CIMD, `client_id` = URL ; non implémenté par Nodefony, qui n'est que serveur de ressources MCP).
   - `whatwg-sse.md` — WHATWG HTML §9.2 Server-sent events (format `text/event-stream`, `EventSource`, `Last-Event-ID`) ; SSE n'a PAS de RFC, la norme est cette section.
 - **`specs/nodejs/*.md`** — 17 docs API Node.js **v26.11.1** (`doc/api/` du tag, passés à prettier — comparer à format égal) : `async_context` (ALS), `http`, `http2`, `https`, `net`, `dgram`, `tls`, `stream`, `worker_threads`, `cluster`, `crypto`, `events`, `process`, `perf_hooks`, `buffer`, `fs`, `globals` (`fetch`, `WebSocket`, `EventSource`).
 
