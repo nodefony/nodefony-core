@@ -103,7 +103,8 @@ function definePolicy(
   ) {
     return;
   }
-  const map = readMetadataMap(POLICIES_KEY, ctor) ?? {};
+  // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
+  const map = { ...readMetadataMap(POLICIES_KEY, ctor) };
   map[name] = policy;
   Reflect.defineMetadata(POLICIES_KEY, map, ctor);
 }
@@ -195,7 +196,8 @@ export function RealtimeAction(
     // `target` = prototype de la classe instance. On stocke sur le constructor
     // (target.constructor) → la même clé qu'utilisera la base au handshake.
     const ctor = (target as { constructor: object }).constructor;
-    const map = readMetadataMap(ACTIONS_KEY, ctor) ?? {};
+    // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
+    const map = { ...readMetadataMap(ACTIONS_KEY, ctor) };
     map[method] = propertyKey;
     Reflect.defineMetadata(ACTIONS_KEY, map, ctor);
     // Politique explicite de l'auteur, sinon le défaut FERMÉ — et jamais par
@@ -241,7 +243,8 @@ export function RealtimeChannel(
 ): MethodDecorator {
   return function (target, propertyKey) {
     const ctor = (target as { constructor: object }).constructor;
-    const map = readMetadataMap(CHANNELS_KEY, ctor) ?? {};
+    // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
+    const map = { ...readMetadataMap(CHANNELS_KEY, ctor) };
     map[channel] = propertyKey;
     Reflect.defineMetadata(CHANNELS_KEY, map, ctor);
     // Politique d'autorisation (opt-in) — lue par `@nodefony/security` au
@@ -278,7 +281,8 @@ export function RealtimeInbound(
 ): MethodDecorator {
   return function (target, propertyKey) {
     const ctor = (target as { constructor: object }).constructor;
-    const map = readMetadataMap(INBOUND_KEY, ctor) ?? {};
+    // Copie : sur une sous-classe, la lecture rend l'objet du PARENT.
+    const map = { ...readMetadataMap(INBOUND_KEY, ctor) };
     map[method] = propertyKey;
     Reflect.defineMetadata(INBOUND_KEY, map, ctor);
     // Même politique que les canaux : un client ne peut pousser sur un canal

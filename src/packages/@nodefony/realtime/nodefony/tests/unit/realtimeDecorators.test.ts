@@ -340,3 +340,71 @@ describe("getters — robustesse défensive (entrée non-fonction ignorée)", ()
     expect(getRealtimeInbound(inst)).to.deep.equal({});
   });
 });
+
+// `Reflect.getMetadata` remonte la chaîne des prototypes : sur une sous-classe,
+// il rend l'OBJET du parent. L'écrire en place ajoutait les actions, canaux et
+// politiques du fils au parent — et, par lui, à toutes les classes sœurs.
+//
+// Débrancher : écrire dans l'objet lu au lieu d'une copie
+// (`readMetadataMap(KEY, ctor) ?? {}` dans les quatre décorateurs).
+describe("héritage — une sous-classe décorée ne modifie pas son parent", () => {
+  class BaseRt {
+    @RealtimeAction("base:ping", { authenticated: false })
+    ping(): string {
+      return "pong";
+    }
+    @RealtimeChannel("base:feed")
+    feed(): () => void {
+      return () => {};
+    }
+    @RealtimeInbound("base:in")
+    onIn(): void {}
+  }
+  class ChildRt extends BaseRt {
+    @RealtimeAction("child:act", { roles: ["ROLE_CHILD"] })
+    act(): string {
+      return "child";
+    }
+    @RealtimeChannel("child:feed")
+    childFeed(): () => void {
+      return () => {};
+    }
+    @RealtimeInbound("child:in")
+    onChildIn(): void {}
+  }
+  class SiblingRt extends BaseRt {}
+
+  it("le parent et la classe sœur ne voient pas les déclarations du fils", () => {
+    for (const inst of [new BaseRt(), new SiblingRt()]) {
+      expect(Object.keys(getRealtimeActions(inst) ?? {})).to.deep.equal([
+        "base:ping",
+      ]);
+      expect(Object.keys(getRealtimeChannels(inst) ?? {})).to.deep.equal([
+        "base:feed",
+      ]);
+      expect(Object.keys(getRealtimeInbound(inst) ?? {})).to.deep.equal([
+        "base:in",
+      ]);
+      expect(getRealtimeChannelPolicies(inst)).to.not.have.property(
+        "child:act",
+      );
+    }
+  });
+
+  it("le fils hérite des déclarations du parent et ajoute les siennes", () => {
+    const child = new ChildRt();
+    expect(Object.keys(getRealtimeActions(child) ?? {}).sort()).to.deep.equal([
+      "base:ping",
+      "child:act",
+    ]);
+    expect(Object.keys(getRealtimeChannels(child) ?? {}).sort()).to.deep.equal([
+      "base:feed",
+      "child:feed",
+    ]);
+    expect(Object.keys(getRealtimeInbound(child) ?? {}).sort()).to.deep.equal([
+      "base:in",
+      "child:in",
+    ]);
+    expect(getRealtimeChannelPolicies(child)).to.have.property("child:act");
+  });
+});
