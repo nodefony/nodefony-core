@@ -289,6 +289,17 @@ OSC 52 n'accuse jamais réception et reste bloqué par défaut dans iTerm2 et xt
 une voie. Le relevé a été fait sur les dépôts amont du jour : une case qui décide se recontrôle
 avant de s'y appuyer.
 
+### Fraîcheur du corpus — une RFC ne change pas, mais elle se fait REMPLACER
+
+```bash
+node .claude/skills/nodefony-rfc/scripts/check-rfc-status.mjs
+# 0 = rien d'obsolète sans remplaçante · 3 = RFC obsolète ou brouillon dépassé · 78 = réseau
+```
+
+Lit l'éditeur des RFC (`obsoleted_by`, `updated_by`) et le datatracker. Une obsolète dont la
+remplaçante est au corpus est CONSERVÉE tant que du code la cite — listée, pas comptée. Complète
+`check-amont.mjs`, qui suit les specs VIVANTES.
+
 ### 12. Server-sent events (SSE) — **HORS LIGNE, dans le corpus UNIQUE**
 
 SSE n'a **pas de RFC** : la norme est la section §9.2 du standard HTML (WHATWG), figée en

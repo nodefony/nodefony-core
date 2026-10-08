@@ -13,13 +13,15 @@
 
 ## 0. Fichiers PRÉSENTS offline (~5,6 Mo — `grep`/`awk` sans réseau)
 
-- **`ietf/rfc<N>.txt`** — 42 RFC full-text : 1918 2818 4226 4648 5280 5424 5737 5789 5842 6125 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7230 7235 7239 7519 7617 7636 7638 7692 7807 8259 8414 8707 8725 8941 9106 9110 9112 9113 9207 9449 9700 9728.
+- **`ietf/rfc<N>.txt`** — 46 RFC full-text : 1918 2818 4226 4648 5280 5424 5737 5789 5842 6125 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7230 7235 7239 7519 7617 7636 7638 7692 7807 8259 8414 8707 8725 8941 9106 9110 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
+  - 🔴 **Obsolètes CONSERVÉES** (du code les cite encore — citer la REMPLAÇANTE dans tout texte neuf) : 2818 → **9110** · 6125 → **9525** · 7230 → **9110/9112** · 7235 → **9110** · 7807 → **9457** · 8941 → **9651**. RFC **9931** (2026) met à jour 9112 : sécurité des transitions de protocole optimistes (`Upgrade`, donc WebSocket et proxy inverse).
+  - **Fraîcheur** : `node .claude/skills/nodefony-rfc/scripts/check-rfc-status.mjs` — obsolescence et mises à jour d'après l'éditeur des RFC, révision courante d'un brouillon d'après le datatracker (0 à jour · 3 dépassé · 78 réseau).
 - **`specs/` (non-RFC)** :
   - Cloud-native : `cloud-12factor.md`, `cloud-k8s-pod-lifecycle.md`, `cloud-k8s-probes.md`.
   - OWASP cheat sheets : `owasp-{authentication,authorization,csp,csrf,jwt,mfa,password-storage,rest-security,security-headers,session-management,ssrf-prevention,tls,xss-prevention}.md`.
-  - `standard-webhooks.md` (Standard Webhooks v1), `draft-idempotency-key-header-06.txt` (IETF draft).
+  - `standard-webhooks.md` (Standard Webhooks v1), `draft-idempotency-key-header-07.txt` (IETF draft, **expiré** le 2026-04-18 ; la 07 ne change rien à la 06, gardée tant que du code la cite).
   - `whatwg-sse.md` — WHATWG HTML §9.2 Server-sent events (format `text/event-stream`, `EventSource`, `Last-Event-ID`) ; SSE n'a PAS de RFC, la norme est cette section.
-- **`specs/nodejs/*.md`** — 17 docs API Node.js : `async_context` (ALS), `http`, `http2`, `https`, `net`, `dgram`, `tls`, `stream`, `worker_threads`, `cluster`, `crypto`, `events`, `process`, `perf_hooks`, `buffer`, `fs`, `globals` (`fetch`, `WebSocket`, `EventSource`).
+- **`specs/nodejs/*.md`** — 17 docs API Node.js **v26.11.1** (`doc/api/` du tag, passés à prettier — comparer à format égal) : `async_context` (ALS), `http`, `http2`, `https`, `net`, `dgram`, `tls`, `stream`, `worker_threads`, `cluster`, `crypto`, `events`, `process`, `perf_hooks`, `buffer`, `fs`, `globals` (`fetch`, `WebSocket`, `EventSource`).
 
 > Manquant ici (HTML-only, fetch on-demand via `nodefony-rfc`/proxy) : W3C WebAuthn/Trace-Context/CSP, WHATWG Fetch/URL, NIST SP 800-63B, OWASP ASVS/WSTG/Top10. Les **règles** qu'on en tire sont déjà dans ce README (§1-22).
 

@@ -667,7 +667,8 @@ process.on("SIGTERM", handle);
 - `'SIGTERM'` and `'SIGINT'` have default handlers on non-Windows platforms that
   reset the terminal mode before exiting with code `128 + signal number`. If one
   of these signals has a listener installed, its default behavior will be
-  removed (Node.js will no longer exit).
+  removed. Signal events are emitted asynchronously, so Node.js may exit before
+  the listener is called if the event loop is otherwise empty.
 - `'SIGPIPE'` is ignored by default. It can have a listener installed.
 - `'SIGHUP'` is generated on Windows when the console window is closed, and on
   other platforms under various similar conditions. See signal(7). It can have a
@@ -720,8 +721,7 @@ This feature is not available in [`Worker`][] threads.
 ## `process.addUncaughtExceptionCaptureCallback(fn)`
 
 <!-- YAML
-added:
- - v25.9.0
+added: v25.9.0
 -->
 
 > Stability: 1 - Experimental
@@ -3129,7 +3129,8 @@ added: v20.0.0
 
 - Type: {Object}
 
-This API is available through the [`--permission`][] flag.
+This API is available through the [`--permission`][] or
+[`--permission-audit`][] flags.
 
 `process.permission` is an object whose methods are used to manage permissions
 for the current process. Additional documentation is available in the
@@ -3150,6 +3151,9 @@ If no reference is provided, a global scope is assumed, for instance,
 `process.permission.has('fs.read')` will check if the process has ALL
 file system read permissions.
 
+In audit mode ([`--permission-audit`][]), this method still returns the actual
+permission status, but denied operations will not throw `ERR_ACCESS_DENIED`.
+
 The reference has a meaning based on the provided scope. For example,
 the reference when the scope is File System means files and folders.
 
@@ -3159,6 +3163,7 @@ The available scopes are:
 - `fs.read` - File System read operations
 - `fs.write` - File System write operations
 - `child` - Child process spawning operations
+- `openssl.store` - Loading keys through OpenSSL STORE loaders
 - `worker` - Worker thread spawning operation
 - `ffi` - Foreign function interface operations
 
@@ -3183,6 +3188,10 @@ added: v26.3.0
 Drops the specified permission from the current process. This operation is
 **irreversible** — once a permission is dropped, it cannot be restored through
 any Node.js API.
+
+In audit mode ([`--permission-audit`][]), dropping a permission takes effect,
+but since denied operations do not throw, the impact is limited to changing the
+return value of `permission.has()`.
 
 If no reference is provided, the entire scope is dropped. For example,
 `process.permission.drop('fs.read')` will revoke ALL file system read
@@ -3209,6 +3218,7 @@ The available scopes are the same as [`process.permission.has()`][]:
 - `fs.read` - File System read operations
 - `fs.write` - File System write operations
 - `child` - Child process spawning operations
+- `openssl.store` - Loading keys through OpenSSL STORE loaders
 - `worker` - Worker thread spawning operation
 - `net` - Network operations
 - `inspector` - Inspector operations
@@ -3283,7 +3293,7 @@ const { platform } = require("node:process");
 console.log(`This platform is ${platform}`);
 ```
 
-The value `'android'` may also be returned if the Node.js is built on the
+The value `'android'` may also be returned if Node.js is built on the
 Android operating system. However, Android support in Node.js
 [is experimental][Android building].
 
@@ -3319,9 +3329,11 @@ console.log(`The parent process is pid ${ppid}`);
 added:
   - v23.6.0
   - v22.14.0
+changes:
+  - version: v26.11.0
+    pr-url: https://github.com/nodejs/node/pull/66213
+    description: This API is no longer experimental.
 -->
-
-> Stability: 1 - Experimental
 
 - `maybeRefable` {any} An object that may be "refable".
 
@@ -4079,8 +4091,7 @@ This implies calling `module.setSourceMapsSupport()` with an option
 <!-- YAML
 added: v9.3.0
 changes:
-  - version:
-     - v25.9.0
+  - version: v25.9.0
     pr-url: https://github.com/nodejs/node/pull/61227
     description: Use `process.addUncaughtExceptionCaptureCallback()` to
       register multiple callbacks.
@@ -4423,9 +4434,11 @@ In [`Worker`][] threads, `process.umask(mask)` will throw an exception.
 added:
   - v23.6.0
   - v22.14.0
+changes:
+  - version: v26.11.0
+    pr-url: https://github.com/nodejs/node/pull/66213
+    description: This API is no longer experimental.
 -->
-
-> Stability: 1 - Experimental
 
 - `maybeRefable` {any} An object that may be "unref'd".
 
@@ -4589,6 +4602,8 @@ ERROR`.
 - `14` **Snapshot Failure**: Node.js was started to build a V8 startup
   snapshot and it failed because certain requirements of the state of
   the application were not met.
+- `124` **Process Timeout**: The process was still running when the duration
+  set with [`--process-timeout`][] elapsed.
 - `>128` **Signal Exits**: If Node.js receives a fatal signal such as
   `SIGKILL` or `SIGHUP`, then its exit code will be `128` plus the
   value of the signal code. This is a standard POSIX practice, since
@@ -4615,7 +4630,9 @@ ERROR`.
 [`'message'`]: child_process.md#event-message
 [`'uncaughtException'`]: #event-uncaughtexception
 [`--no-deprecation`]: cli.md#--no-deprecation
+[`--permission-audit`]: cli.md#--permission-audit
 [`--permission`]: cli.md#--permission
+[`--process-timeout`]: cli.md#--process-timeoutduration
 [`--unhandled-rejections`]: cli.md#--unhandled-rejectionsmode
 [`Buffer`]: buffer.md
 [`ChildProcess.disconnect()`]: child_process.md#subprocessdisconnect

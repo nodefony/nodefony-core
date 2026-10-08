@@ -196,7 +196,7 @@ changes:
                  strings anymore.
 -->
 
-- `data` {string|Buffer|TypedArray|DataView|AsyncIterable|Iterable|Stream}
+- `data` {string|Buffer|TypedArray|DataView|AsyncIterable|Iterable}
 - `options` {Object|string}
   - `encoding` {string|null} **Default:** `'utf8'`
   - `signal` {AbortSignal|undefined} allows aborting an in-progress writeFile. **Default:** `undefined`
@@ -323,6 +323,9 @@ fd.createReadStream({ start: 90, end: 99 });
 <!-- YAML
 added: v16.11.0
 changes:
+  - version: v22.0.0
+    pr-url: https://github.com/nodejs/node/pull/52037
+    description: bump default highWaterMark.
   - version:
     - v21.0.0
     - v20.10.0
@@ -335,7 +338,8 @@ changes:
   - `autoClose` {boolean} **Default:** `true`
   - `emitClose` {boolean} **Default:** `true`
   - `start` {integer}
-  - `highWaterMark` {number} **Default:** `16384`
+  - `highWaterMark` {number} **Default:** See
+    [`stream.getDefaultHighWaterMark()`][].
   - `flush` {boolean} If `true`, the underlying file descriptor is flushed
     prior to closing it. **Default:** `false`.
 - Returns: {fs.WriteStream}
@@ -380,8 +384,7 @@ added: v10.0.0
 #### `filehandle.pull([...transforms][, options])`
 
 <!-- YAML
-added:
- - v25.9.0
+added: v25.9.0
 -->
 
 > Stability: 1 - Experimental
@@ -400,7 +403,7 @@ added:
     reached, whichever comes first. **Default:** read until EOF.
   - `chunkSize` {number} Size in bytes of the buffer allocated for each
     read operation. **Default:** `131072` (128 KB).
-- Returns: {AsyncIterable\<Uint8Array\[]>}
+- Returns: {AsyncIterable} whose chunks fulfill with {Uint8Array\[]}
 
 Return the file contents as an async iterable using the
 [`node:stream/iter`][] pull model. Reads are performed in `chunkSize`-byte
@@ -460,8 +463,7 @@ run().catch(console.error);
 #### `filehandle.pullSync([...transforms][, options])`
 
 <!-- YAML
-added:
- - v25.9.0
+added: v25.9.0
 -->
 
 > Stability: 1 - Experimental
@@ -477,7 +479,7 @@ added:
     iterator. **Default:** read until EOF.
   - `chunkSize` {number} Size in bytes of the buffer allocated for each
     read operation. **Default:** `131072` (128 KB).
-- Returns: {Iterable\<Uint8Array\[]>}
+- Returns: {Iterable} whose chunks return {Uint8Array\[]}
 
 Synchronous counterpart of [`filehandle.pull()`][]. Returns a sync iterable
 that reads the file using synchronous I/O on the main thread. Reads are
@@ -823,9 +825,7 @@ Read from a file and write to an array of {ArrayBufferView}s
 <!-- YAML
 added: v10.0.0
 changes:
-  - version:
-     - v26.1.0
-     - v24.16.0
+  - version: v26.1.0
     pr-url: https://github.com/nodejs/node/pull/57775
     description: Now accepts an additional `signal` property to allow aborting the operation.
   - version: v10.5.0
@@ -1006,7 +1006,7 @@ changes:
                  strings anymore.
 -->
 
-- `data` {string|Buffer|TypedArray|DataView|AsyncIterable|Iterable|Stream}
+- `data` {string|Buffer|TypedArray|DataView|AsyncIterable|Iterable}
 - `options` {Object|string}
   - `encoding` {string|null} The expected character encoding when `data` is a
     string. **Default:** `'utf8'`
@@ -1059,8 +1059,7 @@ the end of the file.
 #### `filehandle.writer([options])`
 
 <!-- YAML
-added:
- - v25.9.0
+added: v25.9.0
 -->
 
 > Stability: 1 - Experimental
@@ -1184,8 +1183,14 @@ changes:
    description: No longer experimental.
 -->
 
+- Returns: {Promise}
+
 Calls `filehandle.close()` and returns a promise that fulfills when the
 filehandle is closed.
+
+This method enables the filehandle to be used with [`await using`][], which
+will automatically close the file when the scope exits. For more information,
+see the [MDN documentation on `using` statements][`using`].
 
 ### `fsPromises.access(path[, mode])`
 
@@ -1237,10 +1242,15 @@ changes:
     - v20.10.0
     pr-url: https://github.com/nodejs/node/pull/50095
     description: The `flush` option is now supported.
+  - version:
+      - v15.14.0
+      - v14.18.0
+    pr-url: https://github.com/nodejs/node/pull/37490
+    description: The `data` argument supports `AsyncIterable`, `Iterable`, and `Stream`.
 -->
 
 - `path` {string|Buffer|URL|FileHandle} filename or {FileHandle}
-- `data` {string|Buffer}
+- `data` {string|Buffer|TypedArray|DataView|AsyncIterable|Iterable}
 - `options` {Object|string}
   - `encoding` {string|null} **Default:** `'utf8'`
   - `mode` {integer} **Default:** `0o666`
@@ -1250,7 +1260,7 @@ changes:
 - Returns: {Promise} Fulfills with `undefined` upon success.
 
 Asynchronously append data to a file, creating the file if it does not yet
-exist. `data` can be a string or a {Buffer}.
+`data` can be a string, a buffer, an {AsyncIterable}, or an {Iterable} object.
 
 If `options` is a string, then it specifies the `encoding`.
 
@@ -1315,6 +1325,10 @@ changes:
 
 Asynchronously copies `src` to `dest`. By default, `dest` is overwritten if it
 already exists.
+
+Symbolic links are followed. If `src` is a symbolic link, the target file is
+copied. If `dest` is a symbolic link, the target file is overwritten unless
+`mode` contains `fs.constants.COPYFILE_EXCL`.
 
 No guarantees are made about the atomicity of the copy operation. If an
 error occurs after the destination file has been opened for writing, an attempt
@@ -1399,9 +1413,10 @@ behavior is similar to `cp dir1/ dir2/`.
 <!-- YAML
 added: v22.0.0
 changes:
-  - version:
-     - v26.1.0
-     - v24.16.0
+  - version: v26.9.0
+    pr-url: https://github.com/nodejs/node/pull/64003
+    description: Add support for the `maxDepth` option.
+  - version: v26.1.0
     pr-url: https://github.com/nodejs/node/pull/62695
     description: Add support for the `followSymlinks` option.
   - version:
@@ -1435,6 +1450,8 @@ changes:
     not supported.
   - `followSymlinks` {boolean} When `true`, symbolic links to directories are
     followed while expanding `**` patterns. **Default:** `false`.
+  - `maxDepth` {integer} Maximum number of directory levels to traverse.
+    The `cwd` directory has a depth of `0`. **Default:** `Infinity`.
   - `withFileTypes` {boolean} `true` if the glob should return paths as Dirents,
     `false` otherwise. **Default:** `false`.
 - Returns: {AsyncIterator} An AsyncIterator that yields the paths of files
@@ -1460,6 +1477,7 @@ const { glob } = require("node:fs/promises");
 ### `fsPromises.lchmod(path, mode)`
 
 <!-- YAML
+added: v10.0.0
 deprecated: v10.0.0
 -->
 
@@ -1526,6 +1544,10 @@ link(2) documentation for more detail.
 <!-- YAML
 added: v10.0.0
 changes:
+  - version: v26.8.0
+    pr-url: https://github.com/nodejs/node/pull/63143
+    description: Accepts an additional `signal` option to allow aborting the
+                 operation.
   - version: v10.5.0
     pr-url: https://github.com/nodejs/node/pull/20220
     description: Accepts an additional `options` object to specify whether
@@ -1536,6 +1558,8 @@ changes:
 - `options` {Object}
   - `bigint` {boolean} Whether the numeric values in the returned
     {fs.Stats} object should be `bigint`. **Default:** `false`.
+  - `signal` {AbortSignal} An AbortSignal to cancel the operation.
+    **Default:** `undefined`.
 - Returns: {Promise} Fulfills with the {fs.Stats} object for the given
   symbolic link `path`.
 
@@ -1613,8 +1637,10 @@ changes:
 - `prefix` {string|Buffer|URL}
 - `options` {string|Object}
   - `encoding` {string} **Default:** `'utf8'`
-- Returns: {Promise} Fulfills with a string containing the file system path
-  of the newly created temporary directory.
+- Returns: {Promise} Fulfills with the created directory path.
+  If `encoding` is `'buffer'`, then the resulting directory
+  path is returned as a {Buffer}. Otherwise, the path is returned as a
+  {string} using the specified encoding.
 
 Creates a unique temporary directory. A unique directory name is generated by
 appending six random characters to the end of the provided `prefix`. Due to
@@ -1653,21 +1679,23 @@ added: v24.4.0
 - `options` {string|Object}
   - `encoding` {string} **Default:** `'utf8'`
 - Returns: {Promise} Fulfills with a Promise for an async-disposable Object:
-  - `path` {string} The path of the created directory.
+  - `path` {string|Buffer} The path of the created directory.
   - `remove` {AsyncFunction} A function which removes the created directory.
   - `[Symbol.asyncDispose]` {AsyncFunction} The same as `remove`.
 
 The resulting Promise holds an async-disposable object whose `path` property
-holds the created directory path. When the object is disposed, the directory
-and its contents will be removed asynchronously if it still exists. If the
-directory cannot be deleted, disposal will throw an error. The object has an
+holds the created directory path. If `encoding` is `'buffer'`, the `path` will
+also be a {Buffer}, otherwise a {string}. When the object is disposed, the
+directory and its contents will be removed asynchronously if it still exists. If
+the directory cannot be deleted, disposal will throw an error. The object has an
 async `remove()` method which will perform the same task.
 
 Both this function and the disposal function on the resulting object are
-async, so it should be used with `await` + `await using` as in
+async, so it should be used with `await` + [`await using`][] as in
 `await using dir = await fsPromises.mkdtempDisposable('prefix')`.
 
-<!-- TODO: link MDN docs for disposables once https://github.com/mdn/content/pull/38027 lands -->
+See the [MDN documentation on `using` statements][`using`] for more information about
+explicit resource management.
 
 For detailed information, see the documentation of [`fsPromises.mkdtemp()`][].
 
@@ -2061,6 +2089,10 @@ Removes files and directories (modeled on the standard POSIX `rm` utility).
 <!-- YAML
 added: v10.0.0
 changes:
+  - version: v26.8.0
+    pr-url: https://github.com/nodejs/node/pull/63143
+    description: Accepts an additional `signal` option to allow aborting the
+                 operation.
   - version: v25.7.0
     pr-url: https://github.com/nodejs/node/pull/61178
     description: Accepts a `throwIfNoEntry` option to specify whether
@@ -2078,6 +2110,8 @@ changes:
   - `throwIfNoEntry` {boolean} Whether an exception will be thrown
     if no file system entry exists, rather than returning `undefined`.
     **Default:** `true`.
+  - `signal` {AbortSignal} An AbortSignal to cancel the operation.
+    **Default:** `undefined`.
 - Returns: {Promise} Fulfills with the {fs.Stats} object for the
   given `path`.
 
@@ -2193,9 +2227,9 @@ added:
     should stop.
   - `maxQueue` {number} Specifies the number of events to queue between iterations
     of the {AsyncIterator} returned. **Default:** `2048`.
-  - `overflow` {string} Either `'ignore'` or `'throw'` when there are more events to be
+  - `overflow` {string} Either `'ignore'` or `'error'` when there are more events to be
     queued than `maxQueue` allows. `'ignore'` means overflow events are dropped and a
-    warning is emitted, while `'throw'` means to throw an exception. **Default:** `'ignore'`.
+    warning is emitted, while `'error'` means to throw an exception. **Default:** `'ignore'`.
   - `ignore` {string|RegExp|Function|Array} Pattern(s) to ignore. Strings are
     glob patterns (using [`minimatch`][]), RegExp patterns are tested against
     the filename, and functions receive the filename and return `true` to
@@ -2258,7 +2292,7 @@ changes:
 -->
 
 - `file` {string|Buffer|URL|FileHandle} filename or `FileHandle`
-- `data` {string|Buffer|TypedArray|DataView|AsyncIterable|Iterable|Stream}
+- `data` {string|Buffer|TypedArray|DataView|AsyncIterable|Iterable}
 - `options` {Object|string}
   - `encoding` {string|null} **Default:** `'utf8'`
   - `mode` {integer} **Default:** `0o666`
@@ -2824,6 +2858,10 @@ callback function. Node.js makes no guarantees about the atomicity of the copy
 operation. If an error occurs after the destination file has been opened for
 writing, Node.js will attempt to remove the destination.
 
+Symbolic links are followed. If `src` is a symbolic link, the target file is
+copied. If `dest` is a symbolic link, the target file is overwritten unless
+`mode` contains `fs.constants.COPYFILE_EXCL`.
+
 `mode` is an optional integer that specifies the behavior
 of the copy operation. It is possible to create a mask consisting of the bitwise
 OR of two or more values (e.g.
@@ -2919,6 +2957,9 @@ behavior is similar to `cp dir1/ dir2/`.
 <!-- YAML
 added: v0.1.31
 changes:
+  - version: v26.8.0
+    pr-url: https://github.com/nodejs/node/pull/63851
+    description: Add the `windowsHandle` option.
   - version: v16.10.0
     pr-url: https://github.com/nodejs/node/pull/40013
     description: The `fs` option does not need `open` method if an `fd` was provided.
@@ -2975,6 +3016,8 @@ changes:
   - `highWaterMark` {integer} **Default:** `64 * 1024`
   - `fs` {Object|null} **Default:** `null`
   - `signal` {AbortSignal|null} **Default:** `null`
+  - `windowsHandle` {bigint} A raw Win32 `HANDLE` value to read from, in place
+    of `fd`. Windows only. **Default:** `null`
 - Returns: {fs.ReadStream}
 
 `options` can include `start` and `end` values to read a range of bytes from
@@ -2994,6 +3037,12 @@ If `fd` points to a character device that only supports blocking reads
 (such as keyboard or sound card), read operations do not finish until data is
 available. This can prevent the process from exiting and the stream from
 closing naturally.
+
+On Windows, a value passed in `fd` is interpreted as a CRT file descriptor. To
+use a raw Win32 `HANDLE` instead, such as an inherited anonymous pipe handle
+obtained from another process, pass it as `windowsHandle`. The handle is wrapped
+in a file descriptor that the stream owns and closes. The `windowsHandle` option
+throws on non-Windows platforms and cannot be combined with the `fs` option.
 
 By default, the stream will emit a `'close'` event after it has been
 destroyed. Set the `emitClose` option to `false` to change this behavior.
@@ -3045,6 +3094,12 @@ If `options` is a string, then it specifies the encoding.
 <!-- YAML
 added: v0.1.31
 changes:
+  - version: v26.8.0
+    pr-url: https://github.com/nodejs/node/pull/63851
+    description: Add the `windowsHandle` option.
+  - version: v22.0.0
+    pr-url: https://github.com/nodejs/node/pull/52037
+    description: bump default highWaterMark.
   - version:
     - v21.0.0
     - v20.10.0
@@ -3102,9 +3157,12 @@ changes:
   - `start` {integer}
   - `fs` {Object|null} **Default:** `null`
   - `signal` {AbortSignal|null} **Default:** `null`
-  - `highWaterMark` {number} **Default:** `16384`
+  - `highWaterMark` {number} **Default:** See
+    [`stream.getDefaultHighWaterMark()`][].
   - `flush` {boolean} If `true`, the underlying file descriptor is flushed
     prior to closing it. **Default:** `false`.
+  - `windowsHandle` {bigint} A raw Win32 `HANDLE` value to write to, in place
+    of `fd`. Windows only. **Default:** `null`
 - Returns: {fs.WriteStream}
 
 `options` may also include a `start` option to allow writing data at some
@@ -3118,6 +3176,12 @@ the file descriptor will be closed automatically. If `autoClose` is false,
 then the file descriptor won't be closed, even if there's an error.
 It is the application's responsibility to close it and make sure there's no
 file descriptor leak.
+
+On Windows, a value passed in `fd` is interpreted as a CRT file descriptor. To
+use a raw Win32 `HANDLE` instead, such as an inherited anonymous pipe handle
+obtained from another process, pass it as `windowsHandle`. The handle is wrapped
+in a file descriptor that the stream owns and closes. The `windowsHandle` option
+throws on non-Windows platforms and cannot be combined with the `fs` option.
 
 By default, the stream will emit a `'close'` event after it has been
 destroyed. Set the `emitClose` option to `false` to change this behavior.
@@ -3386,6 +3450,10 @@ exception are given to the completion callback.
 <!-- YAML
 added: v0.1.95
 changes:
+  - version: v26.8.0
+    pr-url: https://github.com/nodejs/node/pull/63143
+    description: Accepts an additional `signal` option to allow aborting the
+                 operation.
   - version: v18.0.0
     pr-url: https://github.com/nodejs/node/pull/41678
     description: Passing an invalid callback to the `callback` argument
@@ -3409,6 +3477,8 @@ changes:
 - `options` {Object}
   - `bigint` {boolean} Whether the numeric values in the returned
     {fs.Stats} object should be `bigint`. **Default:** `false`.
+  - `signal` {AbortSignal} An AbortSignal to cancel the operation.
+    **Default:** `undefined`.
 - `callback` {Function}
   - `err` {Error}
   - `stats` {fs.Stats}
@@ -3549,9 +3619,10 @@ descriptor. See [`fs.utimes()`][].
 <!-- YAML
 added: v22.0.0
 changes:
-  - version:
-     - v26.1.0
-     - v24.16.0
+  - version: v26.9.0
+    pr-url: https://github.com/nodejs/node/pull/64003
+    description: Add support for the `maxDepth` option.
+  - version: v26.1.0
     pr-url: https://github.com/nodejs/node/pull/62695
     description: Add support for the `followSymlinks` option.
   - version:
@@ -3583,6 +3654,8 @@ changes:
     `true` to exclude the item, `false` to include it. **Default:** `undefined`.
   - `followSymlinks` {boolean} When `true`, symbolic links to directories are
     followed while expanding `**` patterns. **Default:** `false`.
+  - `maxDepth` {integer} Maximum number of directory levels to traverse.
+    The `cwd` directory has a depth of `0`. **Default:** `Infinity`.
   - `withFileTypes` {boolean} `true` if the glob should return paths as Dirents,
     `false` otherwise. **Default:** `false`.
 
@@ -3615,7 +3688,8 @@ glob("**/*.js", (err, matches) => {
 ### `fs.lchmod(path, mode, callback)`
 
 <!-- YAML
-deprecated: v0.4.7
+added: v0.5.0
+deprecated: v0.5.0
 changes:
   - version: v18.0.0
     pr-url: https://github.com/nodejs/node/pull/41678
@@ -3752,6 +3826,10 @@ exception are given to the completion callback.
 <!-- YAML
 added: v0.1.30
 changes:
+  - version: v26.8.0
+    pr-url: https://github.com/nodejs/node/pull/63143
+    description: Accepts an additional `signal` option to allow aborting the
+                 operation.
   - version: v18.0.0
     pr-url: https://github.com/nodejs/node/pull/41678
     description: Passing an invalid callback to the `callback` argument
@@ -3779,6 +3857,8 @@ changes:
 - `options` {Object}
   - `bigint` {boolean} Whether the numeric values in the returned
     {fs.Stats} object should be `bigint`. **Default:** `false`.
+  - `signal` {AbortSignal} An AbortSignal to cancel the operation.
+    **Default:** `undefined`.
 - `callback` {Function}
   - `err` {Error}
   - `stats` {fs.Stats}
@@ -3908,7 +3988,7 @@ changes:
   - `encoding` {string} **Default:** `'utf8'`
 - `callback` {Function}
   - `err` {Error}
-  - `directory` {string}
+  - `directory` {string|Buffer}
 
 Creates a unique temporary directory.
 
@@ -3918,11 +3998,13 @@ inconsistencies, avoid trailing `X` characters in `prefix`. Some platforms,
 notably the BSDs, can return more than six random characters, and replace
 trailing `X` characters in `prefix` with random characters.
 
-The created directory path is passed as a string to the callback's second
-parameter.
-
 The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use.
+
+The created directory path is passed to the callback's second parameter. If
+`encoding` is `'buffer'`, then the resulting directory path is passed as a
+{Buffer}. Otherwise, the path is passed as a {string} using the specified
+encoding.
 
 ```mjs
 import { mkdtemp } from "node:fs";
@@ -5203,9 +5285,7 @@ The `atime` and `mtime` arguments follow these rules:
 <!-- YAML
 added: v0.5.10
 changes:
-  - version:
-     - v26.1.0
-     - v24.16.0
+  - version: v26.1.0
     pr-url: https://github.com/nodejs/node/pull/61870
     description: Added `throwIfNoEntry` option.
   - version: v19.1.0
@@ -5967,6 +6047,10 @@ already exists. Returns `undefined`. Node.js makes no guarantees about the
 atomicity of the copy operation. If an error occurs after the destination file
 has been opened for writing, Node.js will attempt to remove the destination.
 
+Symbolic links are followed. If `src` is a symbolic link, the target file is
+copied. If `dest` is a symbolic link, the target file is overwritten unless
+`mode` contains `fs.constants.COPYFILE_EXCL`.
+
 `mode` is an optional integer that specifies the behavior
 of the copy operation. It is possible to create a mask consisting of the bitwise
 OR of two or more values (e.g.
@@ -6182,9 +6266,10 @@ Synchronous version of [`fs.futimes()`][]. Returns `undefined`.
 <!-- YAML
 added: v22.0.0
 changes:
-  - version:
-     - v26.1.0
-     - v24.16.0
+  - version: v26.9.0
+    pr-url: https://github.com/nodejs/node/pull/64003
+    description: Add support for the `maxDepth` option.
+  - version: v26.1.0
     pr-url: https://github.com/nodejs/node/pull/62695
     description: Add support for the `followSymlinks` option.
   - version:
@@ -6215,6 +6300,8 @@ changes:
     `true` to exclude the item, `false` to include it. **Default:** `undefined`.
   - `followSymlinks` {boolean} When `true`, symbolic links to directories are
     followed while expanding `**` patterns. **Default:** `false`.
+  - `maxDepth` {integer} Maximum number of directory levels to traverse.
+    The `cwd` directory has a depth of `0`. **Default:** `Infinity`.
   - `withFileTypes` {boolean} `true` if the glob should return paths as Dirents,
     `false` otherwise. **Default:** `false`.
 - Returns: {string\[]} paths of files that match the pattern.
@@ -6237,7 +6324,8 @@ console.log(globSync("**/*.js"));
 ### `fs.lchmodSync(path, mode)`
 
 <!-- YAML
-deprecated: v0.4.7
+added: v0.5.0
+deprecated: v0.5.0
 -->
 
 > Stability: 0 - Deprecated
@@ -6390,9 +6478,11 @@ changes:
 - `prefix` {string|Buffer|URL}
 - `options` {string|Object}
   - `encoding` {string} **Default:** `'utf8'`
-- Returns: {string}
+- Returns: {string|Buffer}
 
-Returns the created directory path.
+Returns the created directory path. If `encoding` is `'buffer'`, then the
+resulting directory path is returned as a {Buffer}. Otherwise, the path
+is returned as a {string} using the specified encoding.
 
 For detailed information, see the documentation of the asynchronous version of
 this API: [`fs.mkdtemp()`][].
@@ -6410,25 +6500,40 @@ added: v24.4.0
 - `options` {string|Object}
   - `encoding` {string} **Default:** `'utf8'`
 - Returns: {Object} A disposable object:
-  - `path` {string} The path of the created directory.
+  - `path` {string|Buffer} The path of the created directory.
   - `remove` {Function} A function which removes the created directory.
   - `[Symbol.dispose]` {Function} The same as `remove`.
 
 Returns a disposable object whose `path` property holds the created directory
-path. When the object is disposed, the directory and its contents will be
-removed if it still exists. If the directory cannot be deleted, disposal will
-throw an error. The object has a `remove()` method which will perform the same
-task.
+path. If `encoding` is `'buffer'`, the `path` will be a {Buffer}. When the
+object is disposed, the directory and its contents will be removed if it still
+exists. If the directory cannot be deleted, disposal will throw an error. The
+object has a `remove()` method which will perform the same task.
 
-<!-- TODO: link MDN docs for disposables once https://github.com/mdn/content/pull/38027 lands -->
+See the [MDN documentation on `using` statements][`using`] for more information about
+explicit resource management.
 
 For detailed information, see the documentation of [`fs.mkdtemp()`][].
 
 There is no callback-based version of this API because it is designed for use
-with the `using` syntax.
+with the [`using`][] syntax.
 
 The optional `options` argument can be a string specifying an encoding, or an
 object with an `encoding` property specifying the character encoding to use.
+
+### `fs.openAsBlobSync(path[, options])`
+
+<!-- YAML
+added: v26.10.0
+-->
+
+- `path` {string|Buffer|URL}
+- `options` {Object}
+  - `type` {string} An optional mime type for the blob.
+- Returns: {Blob}
+
+For detailed information, see the documentation of the Promise-returning
+version of this API: [`fs.openAsBlob()`][].
 
 ### `fs.opendirSync(path[, options])`
 
@@ -7216,8 +7321,9 @@ Asynchronously read the next directory entry via readdir(3) as an
 A promise is returned that will be fulfilled with an {fs.Dirent}, or `null`
 if there are no more directory entries to read.
 
-Directory entries returned by this function are in no particular order as
-provided by the operating system's underlying directory mechanisms.
+For directory reads handled by the native file system, directory entries
+returned by this function are in no particular order as provided by the
+operating system's underlying directory mechanisms.
 Entries added or removed while iterating over the directory might not be
 included in the iteration results.
 
@@ -7293,8 +7399,14 @@ changes:
    description: No longer experimental.
 -->
 
+- Returns: {Promise}
+
 Calls `dir.close()` if the directory handle is open, and returns a promise that
 fulfills when disposal is complete.
+
+This method enables the directory to be used with [`await using`][], which
+will automatically close the directory when the scope exits. For more
+information, see the [MDN documentation on `using` statements][`using`].
 
 #### `dir[Symbol.dispose]()`
 
@@ -7311,6 +7423,10 @@ changes:
 Calls `dir.closeSync()` if the directory handle is open, and returns
 `undefined`.
 
+This method enables the directory to be used with [`using`][], which
+will automatically close the directory when the scope exits. For more
+information, see the [MDN documentation on `using` statements][`using`].
+
 ### Class: `fs.Dirent`
 
 <!-- YAML
@@ -7324,6 +7440,13 @@ directory entry is a combination of the file name and file type pairs.
 Additionally, when [`fs.readdir()`][] or [`fs.readdirSync()`][] is called with
 the `withFileTypes` option set to `true`, the resulting array is filled with
 {fs.Dirent} objects, rather than strings or {Buffer}s.
+
+When a directory is read, such as with [`fs.readdir()`][] or
+[`fs.opendir()`][], the file type of each entry is the type reported by the
+operating system and may depend on the file system; for example, some file
+systems may report a type that differs from what [`fs.lstat()`][] returns.
+Node.js calls [`fs.lstat()`][] on such an entry only when the reported type
+is unknown. Use [`fs.lstat()`][] when an accurate file type is required.
 
 #### `dirent.isBlockDevice()`
 
@@ -8218,9 +8341,7 @@ Optimal transfer block size in bytes.
 #### `statfs.frsize`
 
 <!-- YAML
-added:
- - v26.1.0
- - v24.16.0
+added: v26.1.0
 -->
 
 - Type: {number|bigint}
@@ -8432,12 +8553,12 @@ Reopen the file in place, useful for log rotation.
 
 #### `utf8Stream.write(data)`
 
-- `data` {string|Buffer} The data to write.
+- `data` {string|Buffer|TypedArray|DataView} The data to write.
 - Returns {boolean}
 
 When the `options.contentMode` is set to `'utf8'` when the stream is created,
 the `data` argument must be a string. If the `contentMode` is set to `'buffer'`,
-the `data` argument must be a {Buffer}.
+the `data` argument must be a {Buffer}, {TypedArray}, or {DataView}.
 
 #### `utf8Stream.writing`
 
@@ -8446,6 +8567,10 @@ the `data` argument must be a {Buffer}.
 #### `utf8Stream[Symbol.dispose]()`
 
 Calls `utf8Stream.destroy()`.
+
+This method enables the stream to be used with [`using`][], which
+will automatically destroy the stream when the scope exits. For more
+information, see the [MDN documentation on `using` statements][`using`].
 
 ### Class: `fs.WriteStream`
 
@@ -8691,12 +8816,14 @@ The following constants are meant for use with `fs.open()`.
   <tr>
     <td><code>O_SYNC</code></td>
     <td>Flag indicating that the file is opened for synchronized I/O with write
-    operations waiting for file integrity.</td>
+    operations waiting for file integrity. On Windows, this maps to
+    <code>FILE_FLAG_WRITE_THROUGH</code>.</td>
   </tr>
   <tr>
     <td><code>O_DSYNC</code></td>
     <td>Flag indicating that the file is opened for synchronized I/O with write
-    operations waiting for data integrity.</td>
+    operations waiting for data integrity. On Windows, this maps to
+    <code>FILE_FLAG_WRITE_THROUGH</code>.</td>
   </tr>
   <tr>
     <td><code>O_SYMLINK</code></td>
@@ -8706,7 +8833,7 @@ The following constants are meant for use with `fs.open()`.
   <tr>
     <td><code>O_DIRECT</code></td>
     <td>When set, an attempt will be made to minimize caching effects of file
-    I/O.</td>
+    I/O. On Windows, this maps to <code>FILE_FLAG_NO_BUFFERING</code>.</td>
   </tr>
   <tr>
     <td><code>O_NONBLOCK</code></td>
@@ -8718,10 +8845,36 @@ The following constants are meant for use with `fs.open()`.
     is available on Windows operating systems only. On other operating systems,
     this flag is ignored.</td>
   </tr>
+  <tr>
+    <td><code>UV_FS_O_TEMPORARY</code></td>
+    <td>When set, the file is deleted automatically when the last handle to it
+    is closed. This flag is available on Windows operating systems only. On
+    other operating systems, this flag is ignored.</td>
+  </tr>
+  <tr>
+    <td><code>UV_FS_O_SHORT_LIVED</code></td>
+    <td>Hint that the file is short-lived, so the system avoids flushing it to
+    disk when possible. This flag is available on Windows operating systems
+    only. On other operating systems, this flag is ignored.</td>
+  </tr>
+  <tr>
+    <td><code>UV_FS_O_SEQUENTIAL</code></td>
+    <td>Hint that the file is accessed sequentially from beginning to end, to
+    optimize caching. This flag is available on Windows operating systems only.
+    On other operating systems, this flag is ignored.</td>
+  </tr>
+  <tr>
+    <td><code>UV_FS_O_RANDOM</code></td>
+    <td>Hint that the file is accessed randomly, to optimize caching. This flag
+    is available on Windows operating systems only. On other operating systems,
+    this flag is ignored.</td>
+  </tr>
 </table>
 
 On Windows, only `O_APPEND`, `O_CREAT`, `O_EXCL`, `O_RDONLY`, `O_RDWR`,
-`O_TRUNC`, `O_WRONLY`, and `UV_FS_O_FILEMAP` are available.
+`O_TRUNC`, `O_WRONLY`, `UV_FS_O_FILEMAP`, `UV_FS_O_TEMPORARY`,
+`UV_FS_O_SHORT_LIVED`, `UV_FS_O_SEQUENTIAL`, and `UV_FS_O_RANDOM` are
+available.
 
 ##### File type constants
 
@@ -9253,12 +9406,13 @@ the file contents.
 [MSDN-Rel-Path]: https://docs.microsoft.com/en-us/windows/desktop/FileIO/naming-a-file#fully-qualified-vs-relative-paths
 [MSDN-Using-Streams]: https://docs.microsoft.com/en-us/windows/desktop/FileIO/using-streams
 [Naming Files, Paths, and Namespaces]: https://docs.microsoft.com/en-us/windows/desktop/FileIO/naming-a-file
-[`AHAFS`]: https://developer.ibm.com/articles/au-aix_event_infrastructure/
+[`AHAFS`]: https://www.ibm.com/docs/en/aix/7.3.0?topic=management-aix-event-infrastructure-aix-aix-clusters-ahafs
 [`Buffer.byteLength`]: buffer.md#static-method-bufferbytelengthstring-encoding
 [`FSEvents`]: https://developer.apple.com/documentation/coreservices/file_system_events
 [`Number.MAX_SAFE_INTEGER`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/MAX_SAFE_INTEGER
 [`ReadDirectoryChangesW`]: https://docs.microsoft.com/en-us/windows/desktop/api/winbase/nf-winbase-readdirectorychangesw
 [`UV_THREADPOOL_SIZE`]: cli.md#uv_threadpool_sizesize
+[`await using`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/await_using
 [`event ports`]: https://illumos.org/man/port_create
 [`filehandle.createReadStream()`]: #filehandlecreatereadstreamoptions
 [`filehandle.createWriteStream()`]: #filehandlecreatewritestreamoptions
@@ -9281,6 +9435,7 @@ the file contents.
 [`fs.mkdir()`]: #fsmkdirpath-options-callback
 [`fs.mkdtemp()`]: #fsmkdtempprefix-options-callback
 [`fs.open()`]: #fsopenpath-flags-mode-callback
+[`fs.openAsBlob()`]: #fsopenasblobpath-options
 [`fs.opendir()`]: #fsopendirpath-options-callback
 [`fs.opendirSync()`]: #fsopendirsyncpath-options
 [`fs.read()`]: #fsreadfd-buffer-offset-length-position-callback
@@ -9315,9 +9470,11 @@ the file contents.
 [`minimatch`]: https://github.com/isaacs/minimatch
 [`node:stream/iter`]: stream_iter.md
 [`statfs.bsize`]: #statfsbsize
-[`stream/iter pipeTo()`]: stream_iter.md#pipetosource-transforms-writer
+[`stream.getDefaultHighWaterMark()`]: stream.md#streamgetdefaulthighwatermarkobjectmode
+[`stream/iter pipeTo()`]: stream_iter.md#pipetosource-transforms-writer-options
 [`stream/iter pull()`]: stream_iter.md#pullsource-transforms-options
 [`stream/iter pullSync()`]: stream_iter.md#pullsyncsource-transforms
+[`using`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/using
 [`util.promisify()`]: util.md#utilpromisifyoriginal
 [bigints]: https://tc39.github.io/proposal-bigint
 [caveats]: #caveats
