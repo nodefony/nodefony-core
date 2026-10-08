@@ -184,7 +184,11 @@ describe("SSE — renderSse() sur le serveur réel (requires server)", () => {
   ] as const) {
     it(`${name} : le départ du client ferme le flux côté serveur — et pas AVANT`, async () => {
       await getJson(`${SSE}/reset`);
-      const r = await read(`${SSE}/hold`, init, ready);
+      const r: IRead & { session?: http2.ClientHttp2Session } = await read(
+        `${SSE}/hold`,
+        init,
+        ready,
+      );
       // Le client est encore là : rien ne doit être fermé.
       await new Promise((res) => setTimeout(res, 200));
       const during = await getJson(`${SSE}/state`);
@@ -193,7 +197,7 @@ describe("SSE — renderSse() sur le serveur réel (requires server)", () => {
       // Le client s'en va — en HTTP/2, le FLUX seul : la session reste ouverte.
       r.leave();
       await until(async () => (await getJson(`${SSE}/state`)).closed === 1);
-      if ("session" in r) r.session.close();
+      r.session?.close();
       const after = await getJson(`${SSE}/state`);
       // L'écouteur de fermeture voit encore la requête dans l'ALS.
       const seen = after.closeSawRequestId as Array<string | null>;
@@ -205,11 +209,13 @@ describe("SSE — renderSse() sur le serveur réel (requires server)", () => {
       `${name} : battement de cœur — un commentaire, ignoré par le client`,
       async () => {
         // `/hold` bat toutes les 50 ms : on lit jusqu'au premier battement.
-        const r = await read(`${SSE}/hold`, {}, (_e, raw) =>
-          raw.includes(":\n\n"),
+        const r: IRead & { session?: http2.ClientHttp2Session } = await read(
+          `${SSE}/hold`,
+          {},
+          (_e, raw) => raw.includes(":\n\n"),
         );
         r.leave();
-        if ("session" in r) r.session.close();
+        r.session?.close();
         expect(r.raw).to.include(":\n\n");
         expect(r.events.map((e) => e.type)).to.deep.equal(["ready"]);
       },
