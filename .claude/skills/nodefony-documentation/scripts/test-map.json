@@ -392,6 +392,15 @@
       "src/nodefony/src/tests/resolveModuleEntry.test.ts"
     ]
   },
+  "keycloak": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/oauth2Service.test.ts",
+      "src/packages/@nodefony/security/tests/unit/oauthProviders.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/integration/oauth2-keycloak.test.ts"
+    ]
+  },
   "kubernetes-guide": {
     "unit": [
       "src/nodefony/src/tests/Cli.test.ts",
@@ -402,15 +411,6 @@
     "integration": [
       "src/nodefony/src/tests/CliIntegration.test.ts",
       "src/nodefony/src/tests/detachedStart.test.ts"
-    ]
-  },
-  "keycloak": {
-    "unit": [
-      "src/packages/@nodefony/security/tests/unit/oauth2Service.test.ts",
-      "src/packages/@nodefony/security/tests/unit/oauthProviders.test.ts"
-    ],
-    "integration": [
-      "src/packages/@nodefony/http/nodefony/tests/integration/oauth2-keycloak.test.ts"
     ]
   },
   "mongoose": {
@@ -451,6 +451,35 @@
   },
   "orm-core": {
     "globs": ["src/packages/@nodefony/orm-core/tests/**/*.test.ts"]
+  },
+  "orm-parity-guide": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/tokenStoreContract.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webAuthnCredentialStoreContract.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookStore.test.ts",
+      "src/packages/@nodefony/security/tests/unit/totpStoreContract.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-sqlite.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-sqlite.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-sqlite.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-sqlite.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/repository-contract.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/token-store.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/webauthn-credential-store.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/webhook-store.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/token-store-contract.test.ts"
+    ]
   },
   "persistence-guide": {
     "unit": [
@@ -534,6 +563,15 @@
   },
   "request-context": {
     "globs": ["src/nodefony/src/tests/RequestContext.test.ts"]
+  },
+  "reverse-proxy": {
+    "unit": [
+      "src/packages/@nodefony/http/nodefony/tests/unit/reverseProxy.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/proxyConfig.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/vite-relay.test.ts"
+    ]
   },
   "reverse-proxy-guide": {
     "unit": [
@@ -653,6 +691,16 @@
     "e2e": [
       "src/packages/@nodefony/drizzle/tests/integration/session-store-postgres.e2e.test.ts",
       "src/packages/@nodefony/drizzle/tests/integration/session-store-mysql.e2e.test.ts"
+    ]
+  },
+  "sse": {
+    "unit": [
+      "src/nodefony/src/tests/SseParser.test.ts",
+      "src/nodefony/src/tests/NodefonySse.test.ts",
+      "src/packages/@nodefony/http/nodefony/tests/unit/acceptsEventStream.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/http/nodefony/tests/http/sse.test.ts"
     ]
   },
   "studio": {
@@ -826,44 +874,6 @@
     "contract": [
       "src/packages/@nodefony/security/tests/support/webhookPaginationContract.ts",
       "src/packages/@nodefony/drizzle/tests/integration/webhook-store-contract.ts"
-    ]
-  },
-  "orm-parity-guide": {
-    "unit": [
-      "src/packages/@nodefony/security/tests/unit/tokenStoreContract.test.ts",
-      "src/packages/@nodefony/security/tests/unit/webAuthnCredentialStoreContract.test.ts",
-      "src/packages/@nodefony/security/tests/unit/webhookStore.test.ts",
-      "src/packages/@nodefony/security/tests/unit/totpStoreContract.test.ts"
-    ],
-    "integration": [
-      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-sqlite.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/token-store-sqlite.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-sqlite.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-sqlite.test.ts"
-    ],
-    "e2e": [
-      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-postgres.e2e.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-mysql.e2e.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/token-store-postgres.e2e.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/token-store-mysql.e2e.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-postgres.e2e.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-mysql.e2e.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-postgres.e2e.test.ts",
-      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-mysql.e2e.test.ts",
-      "src/packages/@nodefony/mongoose/tests/integration/repository-contract.test.ts",
-      "src/packages/@nodefony/mongoose/tests/integration/token-store.test.ts",
-      "src/packages/@nodefony/mongoose/tests/integration/webauthn-credential-store.test.ts",
-      "src/packages/@nodefony/mongoose/tests/integration/webhook-store.test.ts",
-      "src/packages/@nodefony/redis/nodefony/tests/integration/token-store-contract.test.ts"
-    ]
-  },
-  "reverse-proxy": {
-    "unit": [
-      "src/packages/@nodefony/http/nodefony/tests/unit/reverseProxy.test.ts",
-      "src/packages/@nodefony/http/nodefony/tests/unit/proxyConfig.test.ts"
-    ],
-    "integration": [
-      "src/packages/@nodefony/http/nodefony/tests/http/vite-relay.test.ts"
     ]
   }
 }
