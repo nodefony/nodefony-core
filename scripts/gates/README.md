@@ -82,6 +82,16 @@ check-script-descriptions — chaque script `npm` dit ce qu'il fait.
 - **Produit** : la liste des manquants et des orphelines ; sortie 1 si l'une existe
 - **Appelé par** : `npm run check:scripts`
 
+## [`check-type-assertions.mjs`](check-type-assertions.mjs)
+
+check-type-assertions — PROVISOIRE : le total des conversions de type qui RESSERRENT un type (`x as T` plus étroit que `x`, donc `as unknown as T`) ne monte pas, paquet par paquet, d'ici à leur correction.
+
+- **Usage** : `node scripts/gates/check-type-assertions.mjs            # contrôle`
+- **Usage** : `node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)`
+- **Variable** `RULE`
+- **Produit** : l'écart par paquet ; sortie 0 tenu · 1 refusé · 78 oxlint n'a pas répondu
+- **Appelé par** : `node.js.yml` · `.githooks/pre-commit`
+
 ## [`dev-credentials.test.mjs`](dev-credentials.test.mjs)
 
 Gate — UN SEUL mot de passe de développement, et tout ce qui l'annonce dit vrai.

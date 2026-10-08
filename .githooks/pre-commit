@@ -154,6 +154,17 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -qE '\.tsx?$'; then
   fi
 fi
 
+# PROVISOIRE — le total des conversions de type qui resserrent un type (`x as T`,
+# `as unknown as T`) ne monte pas, paquet par paquet, d'ici à leur correction ;
+# la règle `no-unsafe-type-assertion` passera alors en "error" dans
+# `.oxlintrc.json` et ce bloc disparaîtra avec le script. ~4 s, seulement quand
+# du code de production TypeScript est indexé.
+if echo "$STAGED_SRC" | grep -qE '\.(ts|tsx|mts)$'; then
+  if ! node scripts/gates/check-type-assertions.mjs; then
+    exit 1
+  fi
+fi
+
 # Garde anti-dérive : un paquet qui importe sans déclarer ne casse RIEN ici (npm
 # hisse tout à la racine) — il casse l'ordre de build après un `clean`, et
 # l'installation chez le consommateur. Deux endroits où nous ne sommes jamais.
