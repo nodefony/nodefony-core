@@ -407,7 +407,7 @@ Une minuterie, une promesse non attendue, un rappel armé **pendant** la requêt
 VIDE donc ce store à la fin de chaque unité de travail (`RequestContext.release()`,
 `RequestContext.ts:292`) — requête HTTP et connexion WebSocket au nettoyage du contexte
 (`Context.ts:587`), appel `api.request` et action temps réel décorée à la fin de l'appel
-(`RealtimeController.ts:1261`, `RealtimeController.ts:999`).
+(`RealtimeController.ts:1304`, `RealtimeController.ts:1040`).
 
 | Après la fin                                                                           | Rend                               | Pourquoi                                                                               |
 | -------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------- |

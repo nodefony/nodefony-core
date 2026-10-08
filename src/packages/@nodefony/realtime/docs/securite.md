@@ -540,7 +540,7 @@ C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:290`) : san
 évaluée — ni métier, ni système. `nodefony:syslog` redevient un canal ordinaire.
 
 Deuxième subtilité : `beforeDispatch` n'est branché sur une connexion que si le verrou est **déjà**
-posé au moment de son handshake (`RealtimeController.ts:521`, via
+posé au moment de son handshake (`RealtimeController.ts:562`, via
 `RealtimeHub.hasFrameAuthorizer()` — `RealtimeHub.ts:1020`). Choix de performance délibéré (un hub
 non sécurisé garde un coût nul par frame), mais avec une conséquence : **une connexion ouverte avant
 la pose du verrou n'est jamais gardée**, et ce jusqu'à sa fermeture. En fonctionnement normal le
@@ -612,7 +612,7 @@ ou changée → `-32000` avec `status: 401`, et le client bascule sur un `fetch`
 courant. Une erreur de re-validation vaut refus (fail-closed).
 
 **Sur les canaux**, le hub n'inscrit au registre de révocation que les connexions dont le token porte
-`isValid` (`RealtimeController.ts:679`) — anonymes et JWT n'y entrent jamais, coût nul.
+`isValid` (`RealtimeController.ts:715`) — anonymes et JWT n'y entrent jamais, coût nul.
 `RealtimeHub.registerRevocable()` (`RealtimeHub.ts:790`) démarre un `setInterval` `unref` au premier
 inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Période :
 `REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:111`), 30 s, alignée sur le heartbeat WS.

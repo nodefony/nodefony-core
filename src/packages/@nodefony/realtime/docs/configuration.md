@@ -682,7 +682,7 @@ L'ordre de recouvrement, du plus faible au plus fort :
    avertissement avec une suggestion, jamais une clé fantôme.
 4. **`NF_REALTIME_DRIVER`**, **`NF_REALTIME_BACKPLANE_NAMESPACE`** et
    **`NF_REALTIME_BACKPLANE_SECRET`** — appliqués **après** l'analyse, dans le builder
-   (`defineModuleConfig.ts:41`). Ils gagnent sur tout le reste, y compris sur le mécanisme
+   (`defineModuleConfig.ts:67`). Ils gagnent sur tout le reste, y compris sur le mécanisme
    générique `NF__REALTIME__BACKPLANE__…`.
 
 Le mécanisme générique mérite d'être connu : le double tiret bas sépare les niveaux, les segments

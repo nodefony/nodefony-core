@@ -441,7 +441,7 @@ Les étapes, dans l'ordre exact du code :
    l'identité résolue (type, authentifié ou non, rôles, portées). Le client sait **qui il
    est** sans appeler la moindre route.
 
-À la fermeture, un unique `onFinish` (`RealtimeController.ts:735`) fait le ménage complet :
+À la fermeture, un unique `onFinish` (`RealtimeController.ts:771`) fait le ménage complet :
 désabonnement de chaque canal tenu, retrait des deux registres, `fireClose()` du transport,
 `dispose()` du peer. C'est ce qui garantit qu'aucun minuteur ni écouteur ne survit à une
 déconnexion.
