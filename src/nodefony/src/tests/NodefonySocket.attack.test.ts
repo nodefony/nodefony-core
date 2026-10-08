@@ -121,6 +121,12 @@ const recordOf = (d: RawData): Record<string, unknown> => {
 };
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Attend qu'une condition soit vraie, sondée toutes les 50 ms, au plus `maxMs`. */
+async function until(done: () => boolean, maxMs: number): Promise<void> {
+  const deadline = Date.now() + maxMs;
+  while (!done() && Date.now() < deadline) await wait(50);
+}
 const make = (
   opts: NodefonySocketOptions,
   factory?: ConstructorParameters<typeof NodefonySocket>[1],
@@ -946,9 +952,11 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     });
     const c = make({ url: decor.url, autoReconnect: false });
     await c.connect();
-    await wait(600);
+    // Attente sur la CONDITION, pas sur une durée : un runner lent n'avait
+    // encore rien rendu à 600 ms (macOS, Node 24) ; la borne ne sert qu'à échouer.
+    await until(() => replies >= 5000, 10_000);
     expect(c.state).to.equal("connected");
-    expect(replies).to.be.above(0);
+    expect(replies).to.equal(5000);
   });
 
   it("V8 · le journal de protocole reste borné sous flood", async () => {
