@@ -1983,47 +1983,49 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       const wsRunId = context?.requestId ?? "ws-no-ctx";
       const wsScheme = context?.scheme ?? "ws";
       const wsTrace = context?.traceparent ?? null;
-      return await RequestContext.run(
-        {
-          requestId: wsRunId,
-          scheme: wsScheme,
-          ...(wsTrace ? { traceparent: wsTrace } : {}),
-          // V4.1 — même seam que HTTP : contexte WS accessible via l'ALS
-          // (messages inclus — AsyncResource.bind propage la bulle, BUG-001).
-          context,
-          // Le scope de la CONNEXION : tous ses messages le partagent.
-          scope,
-        },
-        async () => {
-          await this.onConnect(context, error);
-          // FIREWALL
-          if (this.firewall && context?.secure) {
-            context.phaseStart("firewall");
+      const store: RequestContextPayload = {
+        requestId: wsRunId,
+        scheme: wsScheme,
+        ...(wsTrace ? { traceparent: wsTrace } : {}),
+        // V4.1 — même seam que HTTP : contexte WS accessible via l'ALS
+        // (messages inclus — AsyncResource.bind propage la bulle, BUG-001).
+        context,
+        // Le scope de la CONNEXION : tous ses messages le partagent.
+        scope,
+      };
+      // Le contexte vide ce magasin à la fermeture de la connexion : un
+      // minuteur armé dans la bulle y garderait sinon l'identité et le jeton
+      // posés par le pare-feu (#571).
+      context?.holdRequestStore(store);
+      return await RequestContext.run(store, async () => {
+        await this.onConnect(context, error);
+        // FIREWALL
+        if (this.firewall && context?.secure) {
+          context.phaseStart("firewall");
+          try {
             try {
-              try {
-                await this.firewall.handleSecurity(context);
-                await this.fireAsync("afterAuth", context);
-              } catch (authError) {
-                await this.fireAsync("onAuthFailure", context, authError).catch(
-                  (e: unknown) => this.log(e, "ERROR", "onAuthFailure"),
-                );
-                throw authError;
-              }
-            } finally {
-              context.phaseEnd("firewall");
+              await this.firewall.handleSecurity(context);
+              await this.fireAsync("afterAuth", context);
+            } catch (authError) {
+              await this.fireAsync("onAuthFailure", context, authError).catch(
+                (e: unknown) => this.log(e, "ERROR", "onAuthFailure"),
+              );
+              throw authError;
             }
+          } finally {
+            context.phaseEnd("firewall");
           }
-          if (context) {
-            context.phaseStart("action");
-            try {
-              return await context.handle();
-            } finally {
-              context.phaseEnd("action");
-            }
+        }
+        if (context) {
+          context.phaseStart("action");
+          try {
+            return await context.handle();
+          } finally {
+            context.phaseEnd("action");
           }
-          return;
-        },
-      );
+        }
+        return;
+      });
     } catch (e) {
       try {
         await this.onError(e as Error, context as WebsocketContext);

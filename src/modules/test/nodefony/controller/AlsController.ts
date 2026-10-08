@@ -29,7 +29,56 @@ export const alsTestState = {
   // Après le teardown, la bulle porte ENCORE `scope`, mais refermé :
   // getScope() doit rendre undefined. Indexé par requestId.
   scopeAfterTeardown: {} as Record<string, boolean>,
+  // #571 — ce qu'un travail DÉTACHÉ (minuteur armé pendant l'unité de
+  // travail) lit dans l'ALS une fois le contexte nettoyé. Indexé par requestId.
+  detached: {} as Record<string, IDetachedReading>,
 };
+
+/** Lecture de l'ALS par un travail détaché, après le nettoyage du contexte (#571). */
+interface IDetachedReading {
+  /** Le contexte était-il nettoyé au moment de la lecture ? Faux = lecture sans valeur. */
+  cleaned: boolean;
+  user: string | null;
+  userId: string | null;
+  token: boolean;
+  requestId: string | null;
+}
+
+/**
+ * Arme, DANS la bulle de l'unité de travail, un minuteur qui attend le
+ * nettoyage du contexte (signal `cleaned`, jamais un délai fixe) puis relit
+ * l'ALS — c'est le magasin qu'un travail détaché garde après la réponse.
+ */
+function readAlsAfterCleaned(ctx: { cleaned: boolean }, key: string): void {
+  const step = (left: number): void => {
+    if (!ctx.cleaned && left > 0) {
+      setTimeout(() => step(left - 1), 5);
+      return;
+    }
+    const user: unknown = RequestContext.getUser();
+    alsTestState.detached[key] = {
+      cleaned: ctx.cleaned,
+      user:
+        typeof user === "object" &&
+        user !== null &&
+        "id" in user &&
+        typeof user.id === "string"
+          ? user.id
+          : null,
+      userId: RequestContext.getUserId() ?? null,
+      token: RequestContext.get()?.token !== undefined,
+      requestId: RequestContext.getRequestId() ?? null,
+    };
+  };
+  setTimeout(() => step(2000), 0);
+}
+
+/** Pose une identité comme le fait le pare-feu (`user`, `userId`, `token`). */
+function setFirewallIdentity(id: string): void {
+  RequestContext.set("user", { id });
+  RequestContext.set("userId", id);
+  RequestContext.set("token", { user: id });
+}
 
 type ContextEmitter = {
   on(event: string, fn: (context: object) => void): unknown;
@@ -206,6 +255,20 @@ class AlsController extends Controller {
     });
   }
 
+  // ── #571 HTTP — un travail détaché ne relit plus l'identité ─────
+  @Get("/detached")
+  detachedHttp() {
+    const ctx = this.#requireContext();
+    setFirewallIdentity("http-detached");
+    readAlsAfterCleaned(ctx, ctx.requestId);
+    return this.renderJson({ contextRequestId: ctx.requestId });
+  }
+
+  @Get("/detached/state")
+  detachedState() {
+    return this.renderJson(alsTestState.detached);
+  }
+
   // Verdicts des hooks de `/scope`. Route À PART : `/state` est la cible du banc
   // comparatif (`bench-frameworks/payload.mjs` en recopie la réponse pour
   // Express et Fastify) — un champ de plus ici fausserait l'égalité des camps.
@@ -312,6 +375,7 @@ class AlsController extends Controller {
     alsTestState.hookCount = 0;
     alsTestState.scopeInHook = {};
     alsTestState.scopeAfterTeardown = {};
+    alsTestState.detached = {};
     return this.renderJson({ ok: true });
   }
 
@@ -352,6 +416,21 @@ class AlsController extends Controller {
       alsUser:
         (RequestContext.getUser() as { id?: string } | undefined)?.id ?? null,
     });
+  }
+
+  // ── #571 WS — la connexion fermée ne laisse plus son identité ───
+  @route("als-test-ws-detached", {
+    path: "/ws/detached",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async wsAlsDetached(message: string | Buffer | null | undefined) {
+    if (message == null) {
+      const ctx = this.#requireContext();
+      setFirewallIdentity("ws-detached");
+      readAlsAfterCleaned(ctx, ctx.requestId);
+      return this.renderJson({ handshake: true, requestId: ctx.requestId });
+    }
+    return this.renderJson({ echo: message.toString() });
   }
 
   // ── BUG-002 WS — after-response hook (onFinish) reads ALS ───────

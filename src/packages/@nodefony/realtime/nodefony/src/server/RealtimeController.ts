@@ -7,6 +7,8 @@ import {
   RequestContext,
   Scope,
   identityHint,
+  isPromise,
+  type RequestContextPayload,
   type RpcActionHandler,
   type JsonRpcPeerOptions,
   type IRealtimeWelcome,
@@ -971,21 +973,35 @@ export abstract class RealtimeController<
     return (method, propertyKey) => {
       const metas = getParamArgsMeta(proto, propertyKey);
       if (metas === null) return method;
-      return (params: unknown) =>
-        RequestContext.run(
-          { requestId: ctx.requestId, ...RequestContext.get(), body: params },
-          () =>
-            method(
-              ...buildContextParamArgs(
-                metas,
-                ctx as unknown as IParamArgSource,
-                NO_ROUTE_PARAMS,
-                // Une action n'a pas d'URL : `@Query` y lit un objet vide,
-                // jamais la query du handshake.
-                NO_ROUTE_PARAMS,
-              ),
+      return (params: unknown) => {
+        const store: RequestContextPayload = {
+          requestId: ctx.requestId,
+          ...RequestContext.get(),
+          body: params,
+        };
+        const result = RequestContext.run(store, () =>
+          method(
+            ...buildContextParamArgs(
+              metas,
+              ctx as unknown as IParamArgSource,
+              NO_ROUTE_PARAMS,
+              // Une action n'a pas d'URL : `@Query` y lit un objet vide,
+              // jamais la query du handshake.
+              NO_ROUTE_PARAMS,
             ),
+          ),
         );
+        // Cette bulle est une COPIE du magasin de la connexion, identité
+        // comprise : vider celui de la connexion ne la touche pas. Elle est
+        // vidée à la fin de l'appel (#571).
+        if (isPromise(result)) {
+          return Promise.resolve(result).finally(() =>
+            RequestContext.release(store),
+          );
+        }
+        RequestContext.release(store);
+        return result;
+      };
     };
   }
 
@@ -1152,42 +1168,41 @@ export abstract class RealtimeController<
       // vécu au Playground). Le sink vit dans l'ALS → zéro bleed entre frames
       // concurrentes de la même socket.
       const renderSink: { body?: string | Buffer; status?: number } = {};
-      const result = await RequestContext.run(
-        {
-          requestId: ctx.requestId,
-          scheme: ctx.scheme,
-          token,
-          user: token.getAttribute("user"),
-          userId: token.getUserIdentifier(),
-          // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
-          context: ctx,
-          // Le résolveur de CET appel : un contrôleur singleton y lit la route
-          // et la query du chemin INVOQUÉ. `ctx.resolver`, lui, reste celui de
-          // la connexion — partagé par tous ses messages. Posé dans cette charge
-          // (une bulle par appel), jamais par `RequestContext.set` : deux
-          // appels concurrents de la même socket ne se voient pas.
-          resolver,
-          // Le scope de la CONNEXION, pour `RequestContext.getScope()`. Un
-          // `instanceof` et non un cast : sans conteneur de kernel,
-          // `ctx.container` est un Container RACINE, que getScope() ne doit
-          // jamais rendre — une écriture y fuirait vers toutes les requêtes.
-          scope: ctx.container instanceof Scope ? ctx.container : undefined,
-          // Mutation : corps + clé d'idempotence portés par l'ALS (pas de corps
-          // HTTP parsé en WS) → lus par `AdminApiController.buildRequest`. Absents
-          // pour un GET (`p?.body === undefined` → fallback queryPost vide).
-          body: p?.body,
-          idempotencyKey:
-            typeof p?.idempotencyKey === "string"
-              ? p.idempotencyKey
-              : undefined,
-          renderSink,
-          // Radiographie : le profil de la frame (phases émises par le Resolver
-          // et le Controller) + son buffer SQL. Le kernel refusait ce buffer au
-          // handshake — il aurait cumulé N messages ; per-invocation, il est exact.
-          invocation: frame ?? undefined,
-          queries: frame?.profilerQueries ?? undefined,
-        },
-        async () => {
+      const store: RequestContextPayload = {
+        requestId: ctx.requestId,
+        scheme: ctx.scheme,
+        token,
+        user: token.getAttribute("user"),
+        userId: token.getUserIdentifier(),
+        // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
+        context: ctx,
+        // Le résolveur de CET appel : un contrôleur singleton y lit la route
+        // et la query du chemin INVOQUÉ. `ctx.resolver`, lui, reste celui de
+        // la connexion — partagé par tous ses messages. Posé dans cette charge
+        // (une bulle par appel), jamais par `RequestContext.set` : deux
+        // appels concurrents de la même socket ne se voient pas.
+        resolver,
+        // Le scope de la CONNEXION, pour `RequestContext.getScope()`. Un
+        // `instanceof` et non un cast : sans conteneur de kernel,
+        // `ctx.container` est un Container RACINE, que getScope() ne doit
+        // jamais rendre — une écriture y fuirait vers toutes les requêtes.
+        scope: ctx.container instanceof Scope ? ctx.container : undefined,
+        // Mutation : corps + clé d'idempotence portés par l'ALS (pas de corps
+        // HTTP parsé en WS) → lus par `AdminApiController.buildRequest`. Absents
+        // pour un GET (`p?.body === undefined` → fallback queryPost vide).
+        body: p?.body,
+        idempotencyKey:
+          typeof p?.idempotencyKey === "string" ? p.idempotencyKey : undefined,
+        renderSink,
+        // Radiographie : le profil de la frame (phases émises par le Resolver
+        // et le Controller) + son buffer SQL. Le kernel refusait ce buffer au
+        // handshake — il aurait cumulé N messages ; per-invocation, il est exact.
+        invocation: frame ?? undefined,
+        queries: frame?.profilerQueries ?? undefined,
+      };
+      let result: unknown;
+      try {
+        result = await RequestContext.run(store, async () => {
           frame?.phaseStart("action");
           try {
             // `reload = true` : le container de la connexion porte CE hub sous
@@ -1237,8 +1252,12 @@ export abstract class RealtimeController<
           } finally {
             frame?.phaseEnd("action");
           }
-        },
-      );
+        });
+      } finally {
+        // L'appel est fini : son magasin porte encore le jeton, l'identité et
+        // le corps — un travail détaché de l'action les garderait (#571).
+        RequestContext.release(store);
+      }
       frame?.finish(200);
       // Le client repart avec l'identifiant du profil de SA frame (dev) — le
       // `result` reste la valeur nue (snapshot ≡ GET REST). Hors profiling :

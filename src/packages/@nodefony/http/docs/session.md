@@ -115,7 +115,7 @@ défaut** dans Nodefony :
 - **Vol du cookie (hijacking).** Un script injecté (XSS) ou un réseau en clair capte le cookie et
   rejoue la session. → `HttpOnly` et `Secure` sont à `true` par défaut (`sessionCookieSchema`,
   `config.ts:752-755`), et le nom du cookie prend le préfixe `__Host-` dès que le transport est TLS
-  (`Context.getSessionCookieName()`, `Context.ts:733`).
+  (`Context.getSessionCookieName()`, `Context.ts:757`).
 - **Fixation.** L'attaquant pose lui-même un identifiant dans le navigateur de la victime, attend
   qu'elle se connecte, puis réutilise **le même** identifiant. → double défense : `strictMode` rejette
   tout identifiant inconnu du store (`Session.resume()`, `session.ts:177`), et le login **régénère**
@@ -144,7 +144,7 @@ seule présence d'un paramètre `@Session` — ou si un cookie arrive déjà : c
 ni `Set-Cookie`**.
 
 **3. Un seul modèle d'état pour le web et le temps réel.** Le même `startSession()` sert
-`HttpKernel.onRequestEnd()` (`http-kernel.ts:1769`) et `HttpKernel.onConnect()` (`http-kernel.ts:2062`) ;
+`HttpKernel.onRequestEnd()` (`http-kernel.ts:1769`) et `HttpKernel.onConnect()` (`http-kernel.ts:2067`) ;
 l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:421`).
 
 **4. L'administration ne voit jamais un identifiant.** Un opérateur manipule une `ref`, HMAC tronqué
@@ -274,7 +274,7 @@ curl -sk -b /tmp/jar https://localhost:5152/panier
 Le cookie obtenu porte `__Host-`, `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/` et **aucun** `Domain` :
 c'est exactement ce qu'assert le banc d'intégration `session-runtime` (« Set-Cookie de session sur TLS »).
 Sur un transport en clair (port 5151), le préfixe `__Host-` est omis — le navigateur le rejetterait
-faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:733`).
+faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:757`).
 
 ## ⚙️ Configuration
 
@@ -503,7 +503,7 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 <!-- prettier-ignore -->
 | Aspect | HTTP | WebSocket |
 | --- | --- | --- |
-| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1769`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:2062`) |
+| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1769`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:2067`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
 | Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1873`) |
@@ -573,7 +573,7 @@ Trois barrières superposées :
 | Menace                            | Défense                                           | Ancrage                                            |
 | --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
 | Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:756`)            |
-| Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:733`)        |
+| Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:757`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `cookieDefaultSettings` (`cookie.ts:39`)           |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:177`)              |
 | Identifiant deviné                | 32 octets CSPRNG (43 caractères base64url)        | `Session.generateId()` (`session.ts:231`)          |
@@ -643,7 +643,7 @@ Trois règles de conception se dégagent du contrat, et méritent d'être respec
 | Domaine                       | Norme                     | Comment le code s'y conforme                                                  |
 | ----------------------------- | ------------------------- | ----------------------------------------------------------------------------- |
 | Attributs et préfixes cookie  | RFC 6265bis §4.1.3        | `__Host-` impose `Secure` + `Path=/`, interdit `Domain` (`cookie.ts:386-403`) |
-| Nom du cookie selon transport | RFC 6265bis / OWASP       | `getSessionCookieName()` (`Context.ts:733`)                                   |
+| Nom du cookie selon transport | RFC 6265bis / OWASP       | `getSessionCookieName()` (`Context.ts:757`)                                   |
 | Idle timeout                  | NIST SP 800-63B-4 / OWASP | défaut 1800 s, glissant par `touch` (`config.ts:831`)                         |
 | Absolute timeout              | NIST SP 800-63B-4 / OWASP | défaut 43200 s, jamais prolongé (`config.ts:808`)                             |
 | Identifiant de session        | OWASP Session Management  | 32 octets CSPRNG, opaque (`session.ts:226`)                                   |

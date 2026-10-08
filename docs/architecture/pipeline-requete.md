@@ -354,7 +354,7 @@ sequenceDiagram
 | 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1876`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
 | 3   | bulle ALS              | `http-kernel.ts:1645`                                          | ouverte pour le handshake **et** toutes les trames     |
 | 4   | hôte + Origin          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)     | origine tierce refusée → close **1008** (anti-CSWSH)   |
-| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:2062`)               | route et protocole vérifiés **avant** l'accept         |
+| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:2067`)               | route et protocole vérifiés **avant** l'accept         |
 | 6   | session                | `http-kernel.ts:1550`                                          | même point d'activation unique qu'en HTTP              |
 | 7   | `connect()`            | `WebsocketContext.connect()` (`WebsocketContext.ts:257`)       | listeners `close`/`error`/`message` branchés           |
 | 8   | firewall               | `http-kernel.ts:1450`                                          | mêmes zones, mêmes rôles qu'en HTTP                    |
@@ -549,7 +549,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | Domaine                      | Norme             | Ancrage                                                 |
 | ---------------------------- | ----------------- | ------------------------------------------------------- |
 | Codes de fermeture WebSocket | RFC 6455 §7.4     | `toWsCloseCode()` (`WebsocketContext.ts:79`)            |
-| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:2104`) |
+| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:2109`) |
 | Message de statut US-ASCII   | RFC 9112 §4       | `Response.writeHead()` (`Response.ts:529`)              |
 | Valeurs d'en-tête sûres      | RFC 9110 §5.5     | `sanitizeRequestId()` (`requestId.ts:38`)               |
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |
@@ -594,7 +594,7 @@ indicatif.
 - **Journal d'accès** : format remplaçable via `HttpKernel.setRequestLogger()`
   (`http-kernel.ts:974`) — JSON d'audit, ligne lisible, ou le tien.
 - **Détail phase par phase** dans les logs : opt-in `timing.verbose`
-  (`Context.logPhasesVerbose()`, `Context.ts:636`).
+  (`Context.logPhasesVerbose()`, `Context.ts:660`).
 
 ## ⚠️ Pièges
 

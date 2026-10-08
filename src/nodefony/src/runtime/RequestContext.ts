@@ -128,6 +128,18 @@ export interface RequestContextPayload {
 }
 
 /**
+ * Clés qu'un magasin garde après {@link RequestContext.release} : la
+ * corrélation des journaux tardifs, et le scope (refermé, que `getScope()`
+ * écarte déjà).
+ */
+const KEPT_AFTER_RELEASE: ReadonlySet<string> = new Set([
+  "requestId",
+  "scheme",
+  "traceparent",
+  "scope",
+]);
+
+/**
  * Message d'échec de {@link RequestContext.requireScope} : il nomme LA cause
  * parmi trois, parce que chacune appelle un geste différent. Chemin froid —
  * construit seulement quand l'appel échoue.
@@ -269,6 +281,34 @@ class RequestContext {
    * Mutate the current payload in place. No-op outside a scope.
    * Used by security after login to inject `user`/`userId` without re-running.
    */
+  /**
+   * Vide un magasin dont l'unité de travail est finie : requête HTTP,
+   * connexion WebSocket, appel `api.request`. Seules restent les clés de
+   * CORRÉLATION (`requestId`, `scheme`, `traceparent`) et le `scope`, que
+   * {@link getScope} refuse déjà une fois refermé.
+   *
+   * Pourquoi : un minuteur ou une promesse armé pendant l'unité de travail
+   * garde son magasin bien après la réponse. Sans ce vidage, `getUser()`,
+   * `getUserId()` et le `token` du pare-feu y restent lisibles — une
+   * autorisation prise plus tard le serait sur une identité périmée, et le
+   * jeton reste en mémoire aussi longtemps que le minuteur. Le vidage porte
+   * sur TOUTES les autres clés, pas sur une liste : une clé ajoutée demain par
+   * un module est vidée par défaut.
+   *
+   * Ce n'est pas une révocation : une valeur déjà copiée dans une fermeture
+   * survit. Un travail détaché reçoit ses données explicitement, et revérifie
+   * l'autorisation au moment d'agir.
+   *
+   * @param store - le magasin passé à {@link run} pour cette unité de travail
+   */
+  static release(store: RequestContextPayload): void {
+    for (const key in store) {
+      if (KEPT_AFTER_RELEASE.has(key)) continue;
+      // Affectation, pas `delete` : la forme de l'objet reste stable.
+      store[key] = undefined;
+    }
+  }
+
   static set<K extends keyof RequestContextPayload>(
     key: K,
     value: RequestContextPayload[K],

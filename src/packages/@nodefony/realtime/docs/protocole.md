@@ -341,7 +341,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 
 | Méthode            | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
-| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:812` |
+| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:541` |
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:816` |
 | `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `NodefonySocket.ts:1085`    |
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`** du `notify`   | `RealtimeController.ts:874` |

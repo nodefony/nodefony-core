@@ -477,7 +477,7 @@ vhosts, et ne coûte rien au matching (`hostRegexp` absent → aucun test, `Rout
 > [!WARNING]
 > `@Domain` déclare quels vhosts une route **sert** ; il ne remplace pas la barrière d'entrée. Un
 > `Host` inconnu du serveur est rejeté en amont (421 Misdirected Request, `checkValidDomain()`,
-> `http-kernel.ts:2104`) via la liste `trustedHosts` de `@nodefony/http`.
+> `http-kernel.ts:2109`) via la liste `trustedHosts` de `@nodefony/http`.
 
 ## Préfixes — contrôleur, module, data plane
 
@@ -577,7 +577,7 @@ alloué par requête.
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:393`) |
 | 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:754`)                        |
 | 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
-| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:2104`)                    |
+| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:2109`)                    |
 | Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:816`)                    |
 | Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:79`)                                      |
 

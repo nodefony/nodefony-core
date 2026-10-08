@@ -315,7 +315,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 | `fetchMetadata` | boolean · `true` | Défense primaire `Sec-Fetch-Site` (`config.ts:169-174`). |
 | `checkOrigin` | boolean · `true` | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:176-181`). |
 | `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:182-187`). |
-| `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:604`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:650`). |
+| `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:604`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:634`). |
 | `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:188-193`). |
 | `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:194-200`). |
 

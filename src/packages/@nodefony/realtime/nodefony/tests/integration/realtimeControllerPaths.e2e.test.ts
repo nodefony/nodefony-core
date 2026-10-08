@@ -99,8 +99,25 @@ type RouterMode =
   | "actionOpaque"
   | "actionOk"
   | "scopeProbe"
-  | "sharedProbe";
+  | "sharedProbe"
+  | "detached";
 let routerMode: RouterMode = "ok";
+
+/** Ce que lit l'ALS d'un travail détaché de l'appel : pendant, puis après la réponse. */
+interface IAlsReading {
+  user: unknown;
+  userId: unknown;
+  token: boolean;
+  requestId: unknown;
+}
+const readAls = (): IAlsReading => ({
+  user: RequestContext.getUser(),
+  userId: RequestContext.getUserId(),
+  token: RequestContext.get()?.token !== undefined,
+  requestId: RequestContext.getRequestId(),
+});
+/** Lecture faite par le minuteur armé dans l'action (mode `detached`). */
+let detachedRead: Promise<IAlsReading> = Promise.resolve(readAls());
 /** Conteneur posé sur le faux contexte, que le mode `scopeProbe` compare à `getScope()`. */
 let probeScope: unknown = undefined;
 
@@ -179,6 +196,14 @@ function makeRouter() {
                 scopeIsConnection: scope !== undefined && scope === probeScope,
               },
             };
+          }
+          if (routerMode === "detached") {
+            const during = readAls();
+            // Un travail détaché de l'action : il lit l'ALS APRÈS la réponse.
+            detachedRead = new Promise((done) =>
+              setTimeout(() => done(readAls()), 20),
+            );
+            return { result: during };
           }
           if (routerMode === "sharedProbe") {
             const { probe } =
@@ -815,5 +840,44 @@ describe("RealtimeController E2E — scope de la connexion sous api.request (#48
     );
     client.disconnect();
     root.leaveScope(scope);
+  });
+});
+
+describe("RealtimeController E2E — pont api.request : identité après l'appel (#571)", () => {
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    routerMode = "detached";
+    lastFinish = null;
+  });
+
+  it("un minuteur armé dans l'action ne lit plus l'identité ni le jeton une fois l'appel fini", async () => {
+    const okAuth: IRealtimeAuthenticator = {
+      name: "ok",
+      supports: () => true,
+      authenticate: async () => mkToken(true),
+      onSuccess: () => {},
+    };
+    getRealtimeHub().useAuthenticator({ pattern: /.*/ }, okAuth);
+    const { client } = await connect();
+    const during = await client.request<"api.request", IAlsReading>(
+      "api.request",
+      { path: "/detached" },
+    );
+    // Pendant l'appel : l'identité est là — le décor est authentifié.
+    expect(during).to.deep.equal({
+      user: { id: "u" },
+      userId: "u",
+      token: true,
+      requestId: "rid-test",
+    });
+    const after = await detachedRead;
+    expect(after).to.deep.equal({
+      user: undefined,
+      userId: undefined,
+      token: false,
+      // La corrélation survit : les journaux tardifs restent rattachés.
+      requestId: "rid-test",
+    });
+    client.disconnect();
   });
 });

@@ -13,7 +13,7 @@ import {
   //DebugType,
   Scope,
 } from "nodefony";
-import type { IProfilerQuery } from "nodefony";
+import type { IProfilerQuery, RequestContextPayload } from "nodefony";
 import type { IRouteResolver, IRequestRouter } from "../../interfaces/IRouting";
 import type { ISecurityZone } from "../../interfaces/ISecurity";
 import { buildMetaData } from "./metaData.js";
@@ -286,6 +286,9 @@ class Context extends Service implements IContextInterface {
   // Lazy alloc — most requests never register an after-response hook.
   private _afterResponseFns: AfterResponseHandler[] | null = null;
   private _afterResponseFired: boolean = false;
+  // Magasin `RequestContext` de l'unité de travail (requête HTTP, connexion
+  // WebSocket) — vidé par `clean()`, cf {@link holdRequestStore}.
+  private requestStore: RequestContextPayload | null = null;
   // Lazy abort signal — created on first access (see `get signal`).
   // Zero per-request overhead if no consumer reads `context.signal`.
   private _abortController: AbortController | null = null;
@@ -559,9 +562,31 @@ class Context extends Service implements IContextInterface {
     return super.log(pci, severity, msgid, msg);
   }
 
+  /**
+   * Confie au contexte le magasin `RequestContext` de son unité de travail
+   * (requête HTTP, connexion WebSocket), pour qu'il le VIDE à son nettoyage.
+   *
+   * Un minuteur ou une promesse armé pendant l'unité de travail capture ce
+   * magasin et le garde au-delà de la réponse — avec le contexte, l'identité
+   * et le jeton du pare-feu. Le vidage ({@link RequestContext.release}) n'y
+   * laisse que la corrélation et le scope refermé.
+   *
+   * @param store - le magasin passé à `RequestContext.run`
+   */
+  holdRequestStore(store: RequestContextPayload): void {
+    this.requestStore = store;
+  }
+
   override clean(): void {
     this.cleaned = true;
     this.httpKernel = null;
+    // Lu sans présumer de l'initialisation (contexte fabriqué hors
+    // constructeur dans les tests) : absent ou `null`, rien à vider.
+    const store = this.requestStore;
+    if (store) {
+      RequestContext.release(store);
+      this.requestStore = null;
+    }
     return super.clean();
   }
 

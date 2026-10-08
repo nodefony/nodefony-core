@@ -24,6 +24,13 @@ interface IAppUser {
   readonly identifier: string;
 }
 
+/** Lecture de l'ALS faite par le minuteur de `chat:detached`, après la réponse. */
+let detachedRead: Promise<{
+  user: unknown;
+  token: boolean;
+  requestId: unknown;
+}> = Promise.resolve({ user: undefined, token: false, requestId: undefined });
+
 class ChatRt extends RealtimeController {
   constructor(context: ContextType) {
     super("chat-rt", context);
@@ -70,6 +77,27 @@ class ChatRt extends RealtimeController {
   @RealtimeAction("chat:query")
   readQuery(@Query() query?: Record<string, unknown>) {
     return { query: query ?? null };
+  }
+
+  /**
+   * Arme un travail détaché qui relit l'ALS APRÈS la réponse : la bulle de
+   * l'appel recopie l'identité de la connexion, elle doit la rendre (#571).
+   */
+  @RealtimeAction("chat:detached")
+  detached(@Body() _payload: unknown) {
+    detachedRead = new Promise((done) =>
+      setTimeout(
+        () =>
+          done({
+            user: RequestContext.getUser(),
+            token: RequestContext.get()?.token !== undefined,
+            requestId: RequestContext.getRequestId(),
+          }),
+        20,
+      ),
+    );
+    const user = RequestContext.getUser() as IAppUser | undefined;
+    return { user: user?.identifier ?? null };
   }
 
   /** Sans aucun décorateur de paramètre : la charge brute, comme avant. */
@@ -186,6 +214,20 @@ describe("@RealtimeAction — paramètres décorés", () => {
     });
     await h.connect();
     expect(await h.call("chat:als")).to.deep.equal({ user: "alice" });
+    h.dispose();
+  });
+
+  it("un minuteur armé dans une action décorée ne lit plus l'identité une fois l'appel fini (#571)", async () => {
+    const h = createRealtimeHarness((ctx) => new ChatRt(ctx), {
+      identity: mkToken(),
+    });
+    await h.connect();
+    // Pendant l'appel : l'utilisateur est là — le décor est authentifié.
+    expect(await h.call("chat:detached", {})).to.deep.equal({ user: "alice" });
+    const after = await detachedRead;
+    expect(after.user).to.equal(undefined);
+    expect(after.token).to.equal(false);
+    expect(after.requestId).to.be.a("string");
     h.dispose();
   });
 

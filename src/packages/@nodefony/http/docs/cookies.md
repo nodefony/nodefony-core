@@ -255,9 +255,9 @@ constructeur de `Cookie` (`cookie.ts:130`).
 
 | Besoin                         | Appel                                                 | Où                                       |
 | ------------------------------ | ----------------------------------------------------- | ---------------------------------------- |
-| Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:674`) |
+| Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:698`) |
 | Lire tous les cookies entrants | `context.cookies` → `Record<string, Cookie>`          | `cookies` (`Context.ts:193`)             |
-| Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:685`)         |
+| Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:709`)         |
 | Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts:213`                   |
 
 Côté réponse HTTP, `addCookie()` (`http/Response.ts:195`) enregistre le cookie, et `setCookies()`
@@ -269,7 +269,7 @@ boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un co
 
 `cookiesParser(context)` (`cookie.ts:87`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`,
 `parser()` `cookie.ts:50`), crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
-(`Context.ts:664`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
+(`Context.ts:688`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
 l'initialisation du contexte HTTP (`HttpContext.ts:255`) **et** WebSocket (`WebsocketContext.ts:170`).
 
 ### Côté WebSocket — lecture oui, écriture non
@@ -289,7 +289,7 @@ de la **session** — bloc Zod `sessionCookieSchema` (`config.ts:756`), avec not
 cette page ne le duplique pas.
 
 Le nom effectif du cookie de session (avec ou sans `__Host-` selon le transport) est calculé par
-`getSessionCookieName()` (`Context.ts:733`) — encore un détail qui appartient à la page Sessions.
+`getSessionCookieName()` (`Context.ts:757`) — encore un détail qui appartient à la page Sessions.
 
 ## 🛡️ Défenses par attribut
 

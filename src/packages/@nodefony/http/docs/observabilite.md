@@ -256,7 +256,7 @@ Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse H
 ### Le contrat de logger — `IRequestLogger`
 
 Le kernel tient un `IRequestLogger` singleton (`http-kernel.ts:329`) et lui délègue le rendu de la ligne
-de bilan, au teardown, via `Context.logRequest()` (`Context.ts:608`) côté HTTP et
+de bilan, au teardown, via `Context.logRequest()` (`Context.ts:632`) côté HTTP et
 `WebsocketContext.logRequest()` (`WebsocketContext.ts:233`) côté WS. Le contrat a trois méthodes
 (`IRequestLogger.ts:25`) :
 

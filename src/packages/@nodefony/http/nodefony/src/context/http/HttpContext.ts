@@ -25,7 +25,7 @@ import {
   //Pdu,
   //KernelEventsType,
 } from "nodefony";
-import type { MaybePromise, RequestContextPayload } from "nodefony";
+import type { MaybePromise } from "nodefony";
 import HttpRequest from "./Request";
 import HttpResponse from "./Response";
 import Http2Request from "../http2/Request";
@@ -151,8 +151,6 @@ class HttpContext extends Context implements IHttpContextInterface {
   // passer par le constructeur, et un champ `#` y refuse toute écriture.
   /** Socket h1 inscrite dans `socketActiveContext` — retirée par `clean()`. */
   private activeSocket: object | null = null;
-  /** Magasin `RequestContext` de la requête — vidé par `clean()`. */
-  private requestStore: RequestContextPayload | null = null;
   isRedirect: boolean = false;
   sended: boolean = false;
   //isHtml: boolean = false;
@@ -424,27 +422,8 @@ class HttpContext extends Context implements IHttpContextInterface {
       }
       this.activeSocket = null;
     }
-    const store = this.requestStore;
-    if (store) {
-      // `scope` RESTE : la bulle doit encore le porter, refermé, pour que
-      // `getScope()` refuse en le disant (contrat de `request-scope.test.ts`).
-      store.context = undefined;
-      store.queries = undefined;
-      this.requestStore = null;
-    }
+    // Le magasin de la requête est vidé par `Context.clean()`.
     super.clean();
-  }
-
-  /**
-   * Confie au contexte le magasin `RequestContext` de sa requête, pour qu'il
-   * le VIDE à son nettoyage : un minuteur armé pendant la requête (celui de la
-   * socket persistante, `AsyncContextFrame`) capture ce magasin et le garde
-   * au-delà de la réponse — avec le contexte entier. Le scope, refermé, y reste.
-   *
-   * @param store - le magasin passé à `RequestContext.run`
-   */
-  holdRequestStore(store: RequestContextPayload): void {
-    this.requestStore = store;
   }
 
   /**
