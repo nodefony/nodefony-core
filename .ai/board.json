@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T19:22:55.783Z",
+  "generatedAt": "2026-10-08T21:06:36.684Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,14 +39,14 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 94,
+      "closed": 95,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 49,
       "title": "10.0.0-beta"
     },
     {
-      "closed": 134,
+      "closed": 135,
       "dueOn": "2026-11-15T00:00:00Z",
       "number": 1,
       "open": 3,
@@ -2498,6 +2498,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 573,
+      "title": "refactor(realtime): remplacer les conversions de type qui resserrent un type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/573",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.7,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 147,
@@ -6573,6 +6589,20 @@
       "labels": [
         "alpha-9"
       ]
+    },
+    {
+      "number": 574,
+      "title": "fix(framework): corriger le forward WebSocket et l'héritage de @route",
+      "url": "https://github.com/nodefony/nodefony-core/issues/574",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 57.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 410,
