@@ -29,6 +29,19 @@ interface IHeartbeatSocket extends Ws {
 }
 
 /**
+ * Ce que le tick lit et écrit d'une connexion — la socket `ws` en production.
+ */
+export interface IHeartbeatClient {
+  readonly readyState: number;
+  ping(): void;
+  terminate(): void;
+  /** Dernier signe de vie (date du dernier `pong`, ou de la connexion). */
+  _nfLastPong?: number;
+  /** Date du dernier `ping` émis ; `0` = aucun ping en attente de réponse. */
+  _nfPingedAt?: number;
+}
+
+/**
  * Arme le suivi keep-alive d'UNE connexion : initialise l'horodatage de vie et
  * attache l'unique listener `pong` qui le rafraîchit.
  *
@@ -45,6 +58,48 @@ export const trackPong = (ws: Ws): void => {
   ws.on("pong", () => {
     (ws as IHeartbeatSocket)._nfLastPong = performance.now();
   });
+};
+
+/**
+ * Un tick du keep-alive : pingue les connexions muettes depuis `interval`, et
+ * coupe celles dont le ping attend sa réponse depuis plus de `grace`.
+ *
+ * Fonction PURE du temps : l'horloge est passée en argument, si bien que la
+ * règle se prouve pas à pas, sans minuteur réel — un banc qui la prouverait à
+ * l'horloge murale confondrait une boucle d'événements chargée avec un zombie.
+ *
+ * @param clients - les connexions du serveur
+ * @param now - l'instant du tick (`performance.now()` en production)
+ * @param interval - délai sans signe de vie avant un ping, ms
+ * @param grace - délai accordé au pong avant de couper, ms
+ */
+export const heartbeatTick = (
+  clients: Iterable<IHeartbeatClient>,
+  now: number,
+  interval: number,
+  grace: number,
+): void => {
+  for (const client of clients) {
+    if (client.readyState !== Ws.OPEN) {
+      continue;
+    }
+    const sock = client;
+    // Connexion non passée par trackPong (sécurité) → on l'amorce.
+    sock._nfLastPong ??= now;
+    // Un ping est « en attente » si on a pingé APRÈS le dernier pong reçu.
+    const pingedAt = sock._nfPingedAt ?? 0;
+    if (pingedAt > sock._nfLastPong) {
+      if (now - pingedAt > grace) {
+        // Ping resté sans réponse au-delà du délai de grâce → zombie.
+        client.terminate();
+      }
+      continue; // ping déjà en vol → ne pas re-pinguer
+    }
+    if (now - sock._nfLastPong >= interval) {
+      sock._nfPingedAt = now;
+      client.ping(); // `ws` répondra par un pong → _nfLastPong rafraîchi
+    }
+  }
 };
 
 /**
@@ -80,28 +135,7 @@ export const startHeartbeat = (
   // jamais gêner la prod (10–20 s ne touchent jamais ce plancher).
   const tick = Math.max(250, grace > 0 ? Math.min(interval, grace) : interval);
   const timer = setInterval(() => {
-    const now = performance.now();
-    for (const client of server.clients) {
-      if (client.readyState !== Ws.OPEN) {
-        continue;
-      }
-      const sock = client as IHeartbeatSocket;
-      // Connexion non passée par trackPong (sécurité) → on l'amorce.
-      sock._nfLastPong ??= now;
-      // Un ping est « en attente » si on a pingé APRÈS le dernier pong reçu.
-      const pingPending = (sock._nfPingedAt ?? 0) > sock._nfLastPong;
-      if (pingPending) {
-        if (now - (sock._nfPingedAt as number) > grace) {
-          // Ping resté sans réponse au-delà du délai de grâce → zombie.
-          client.terminate();
-        }
-        continue; // ping déjà en vol → ne pas re-pinguer
-      }
-      if (now - sock._nfLastPong >= interval) {
-        sock._nfPingedAt = now;
-        client.ping(); // `ws` répondra par un pong → _nfLastPong rafraîchi
-      }
-    }
+    heartbeatTick(server.clients, performance.now(), interval, grace);
   }, tick);
   timer.unref();
   return timer;

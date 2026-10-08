@@ -11,6 +11,7 @@ import {
   resolvePortPolicy,
   DEFAULT_PORT_RETRY_ATTEMPTS,
   type Listenable,
+  type PortListeningProbe,
 } from "../../src/servers/portBinder.js";
 
 /**
@@ -226,6 +227,15 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
    * noyau — c'est la DÉCISION de `bindWithFallback` face à un code d'erreur, la
    * seule chose qui puisse être fausse depuis macOS ou linux.
    */
+  /**
+   * Personne n'écoute — la sonde du port désiré, rendue déterministe. La sonde
+   * réelle interroge la MACHINE : sous turbo, un autre banc peut tenir le port
+   * désiré, et le repli partait alors d'un cran avant le faux serveur (vécu en
+   * forge : 40003 au lieu de 40002). Ce banc éprouve la décision face à un
+   * code d'erreur, pas la machine.
+   */
+  const nobodyListens: PortListeningProbe = () => Promise.resolve(false);
+
   function refusing(code: string, times: number): Listenable {
     let left = times;
     const handlers = new Map<string, (...a: never[]) => void>();
@@ -257,11 +267,12 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   it("enjambe un EACCES sur port éphémère — les plages réservées de Windows", async () => {
     // Hyper-V/WSL réservent des plages entières : `listen` y rend EACCES, pas
     // EADDRINUSE. Sans ce cas, une app Windows qui glisse meurt sur la première.
-    const res = await bindWithFallback(refusing("EACCES", 2), HOST, {
-      desired: 40000,
-      reserved: [],
-      attempts: 10,
-    });
+    const res = await bindWithFallback(
+      refusing("EACCES", 2),
+      HOST,
+      { desired: 40000, reserved: [], attempts: 10 },
+      nobodyListens,
+    );
     expect(res.address.port).to.equal(40002);
     expect(res.shiftedFrom).to.equal(40000);
   });
@@ -269,11 +280,12 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
   it("un EACCES sous 1024 REJETTE : c'est un refus de privilège, pas un port pris", async () => {
     let code: string | undefined;
     try {
-      await bindWithFallback(refusing("EACCES", 1), HOST, {
-        desired: 80,
-        reserved: [],
-        attempts: 10,
-      });
+      await bindWithFallback(
+        refusing("EACCES", 1),
+        HOST,
+        { desired: 80, reserved: [], attempts: 10 },
+        nobodyListens,
+      );
       expect.fail(
         "glisser de 80 à 81 en silence serait une dégradation muette",
       );

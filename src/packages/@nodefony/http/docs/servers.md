@@ -782,14 +782,14 @@ ferme explicitement (`handleClientError()`, `clientError.ts:15`) : `431` si les 
 
 Une socket dont le pair a disparu sans frame Close reste « ouverte » côté TCP : slot mémoire et
 descripteur retenus pour personne. Le battement de cœur les réclame
-(`startHeartbeat()`, `wsHeartbeat.ts:69`) : un ping toutes les `keepaliveInterval` ms ; sans pong dans
-les `keepaliveGracePeriod` ms, la socket est détruite (`terminate`, `wsHeartbeat.ts:98`).
+(`startHeartbeat()`, `wsHeartbeat.ts:124`) : un ping toutes les `keepaliveInterval` ms ; sans pong dans
+les `keepaliveGracePeriod` ms, la socket est détruite (`terminate`, `wsHeartbeat.ts:37`).
 
 L'implémentation est délibérément frugale — c'est du chemin chaud : **un seul `setInterval` par
 serveur**, jamais un timer par connexion ; deux horodatages posés directement sur la socket
-(`trackPong()`, `wsHeartbeat.ts:41`), donc zéro allocation par tick et aucun nettoyage à prévoir (les
+(`trackPong()`, `wsHeartbeat.ts:54`), donc zéro allocation par tick et aucun nettoyage à prévoir (les
 horodatages meurent avec la socket) ; une granularité de réveil plancher à 250 ms pour borner une
-configuration pathologique (`tick`, `wsHeartbeat.ts:81`) ; et un timer `unref` qui ne retient jamais le
+configuration pathologique (`tick`, `wsHeartbeat.ts:136`) ; et un timer `unref` qui ne retient jamais le
 processus à l'arrêt.
 
 ### Floods de connexions
@@ -819,7 +819,7 @@ Le transport est du **chemin chaud absolu** : ce qui coûte ici est multiplié p
 par seconde. Les choix visibles dans le code :
 
 - **Aucun timer par connexion** — un `setInterval` par serveur WebSocket, `unref`, et deux `number` par
-  socket (`wsHeartbeat.ts:69`).
+  socket (`wsHeartbeat.ts:137`).
 - **Rien de compilé par requête** — la politique de trust-proxy, celle des `Origin` WS et les motifs de
   `trustedHosts` sont compilés une fois et mémoïsés (`getTrustProxyChecker()`, `http-kernel.ts:615` ; `getWsOriginPolicy()`, `http-kernel.ts:622` ; `compileAlias()`, `http-kernel.ts:1051`).
 - **Rejets avant allocation** — rate-limit HTTP et bornes WS sont vérifiés avant le contexte, la portée
