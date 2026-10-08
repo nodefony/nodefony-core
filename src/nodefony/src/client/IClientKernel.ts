@@ -17,7 +17,7 @@
 import type Syslog from "../syslog/Syslog";
 import type {
   NodefonySocket,
-  RealtimeOptions,
+  NodefonySocketOptions,
 } from "./realtime/NodefonySocket";
 
 /**
@@ -120,7 +120,7 @@ export interface ClientKernelOptions {
    * une instance déjà composée, les options d'une socket partagée
    * (`NodefonySocket.shared`), ou `false`/absent pour ne pas en avoir.
    */
-  realtime?: NodefonySocket | RealtimeOptions | false;
+  realtime?: NodefonySocket | NodefonySocketOptions | false;
   /**
    * Ponter les événements du navigateur (`visibilitychange`, `online`/`offline`,
    * `pagehide`) sur les événements du kernel.

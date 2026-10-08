@@ -473,7 +473,7 @@ Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle |
 | --- | --- | --- |
-| `static shared` | `(opts?: RealtimeOptions): NodefonySocket` | **Singleton par URL** (`globalThis`) — 1 seule socket/origine. `:236` |
+| `static shared` | `(opts?: NodefonySocketOptions): NodefonySocket` | **Singleton par URL** (`globalThis`) — 1 seule socket/origine. `:236` |
 | `connect` / `disconnect` / `retryNow` | `(url?) => Promise<void>` / `()` / `()` | Cycle de vie (idempotent). `:304/:311/:287` |
 | `subscribe` / `unsubscribe` | `(channel): void` | **Ref-compté** : `subscribe` réseau émis aux seules transitions 0↔1, ré-émis au reconnect. `:423/:434` |
 | `on` / `off` | `(channel, handler): () => void` / `void` | REÇOIT (≠ `subscribe` qui DEMANDE). `:329/:340` |

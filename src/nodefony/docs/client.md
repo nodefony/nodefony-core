@@ -304,7 +304,7 @@ recevoir des messages poussés et **répondre** à des requêtes venues du serve
 ### Les options du constructeur
 
 `new NodefonySocket(options)` et `NodefonySocket.shared(options)` prennent le même objet,
-`RealtimeOptions` (`client/realtime/NodefonySocket.ts:96`). Toutes les clés sont facultatives ;
+`NodefonySocketOptions` (`client/realtime/NodefonySocket.ts:96`). Toutes les clés sont facultatives ;
 seule l'adresse doit être connue au moment de `connect()`.
 
 | Option              | Défaut  | Effet                                                                                                                                                                                                                      |

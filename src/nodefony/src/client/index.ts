@@ -27,7 +27,7 @@ import { pduProtocol } from "../syslog/drivers/pduProtocol";
 import { pduFlowStep, FLOW_STEPS } from "../syslog/drivers/pduFlow";
 export type {
   RealtimeState,
-  RealtimeOptions,
+  NodefonySocketOptions,
   MessageStats,
   RealtimeFrame,
   KernelPingResult,

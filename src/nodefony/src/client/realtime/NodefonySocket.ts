@@ -93,7 +93,7 @@ import { isJsonRpcId } from "../../jsonrpc/index";
 export type RealtimeState =
   "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
 
-export interface RealtimeOptions {
+export interface NodefonySocketOptions {
   url?: string | undefined;
   token?: string | null | undefined;
   /** Reconnexion auto. Défaut: true. */
@@ -283,7 +283,7 @@ export class NodefonySocket<
   private _serverMethods: string[] | null = null;
 
   constructor(
-    private readonly opts: RealtimeOptions = {},
+    private readonly opts: NodefonySocketOptions = {},
     // Fabrique de transport injectable (tests = transport mock ; défaut = WebSocket
     // navigateur). Garde NodefonySocket testable sans vrai socket.
     transportFactory?: RealtimeTransportFactory,
@@ -307,7 +307,7 @@ export class NodefonySocket<
    * @param opts - options (au moins `url`), appliquées seulement à la création.
    * @returns l'instance partagée pour cette URL.
    */
-  static shared(opts: RealtimeOptions = {}): NodefonySocket {
+  static shared(opts: NodefonySocketOptions = {}): NodefonySocket {
     const key = NodefonySocket.resolveUrl(opts.url);
     const g = globalThis as { __nfRealtime__?: Map<string, NodefonySocket> };
     const map = (g.__nfRealtime__ ??= new Map<string, NodefonySocket>());

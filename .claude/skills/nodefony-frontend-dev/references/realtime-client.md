@@ -49,18 +49,18 @@ Discrimination JSON-RPC (le cœur, `JsonRpcPeer.ts:419-477`) : le rôle d'une fr
 
 ```ts
 // Singleton PAR URL (recommandé) — NodefonySocket.ts:237
-static shared(opts?: RealtimeOptions): NodefonySocket;
+static shared(opts?: NodefonySocketOptions): NodefonySocket;
 
 // Constructeur direct — NodefonySocket.ts:217
-constructor(opts?: RealtimeOptions, transportFactory?: RealtimeTransportFactory);
+constructor(opts?: NodefonySocketOptions, transportFactory?: RealtimeTransportFactory);
 ```
 
 `NodefonySocket.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `NodefonySocket.ts:299-309`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. Le noyau client l'appelle lui-même — `NodefonySocket.shared(opt)` (`ClientKernel.ts:224`) ; une application comme Studio ne la nomme plus, elle passe par `createClientKernel` (`RootStore.ts:76`).
 
-`RealtimeOptions` (`NodefonySocket.ts:96-116`) :
+`NodefonySocketOptions` (`NodefonySocket.ts:96-116`) :
 
 ```ts
-interface RealtimeOptions {
+interface NodefonySocketOptions {
   url?: string; // défaut : wss?://<host>/nodefony/api/realtime (resolveUrl, :249)
   token?: string | null; // ajouté en ?token=… à l'URL (openSocket, :918)
   autoReconnect?: boolean; // défaut true
