@@ -6,6 +6,7 @@ import {
   defaultIntrospection,
   type ProxyIntrospection,
 } from "../../src/proxy/generateProxyConfig.js";
+import { SSE_HEARTBEAT_MS } from "../../src/context/http/SseStream.js";
 
 function intro(over: Partial<ProxyIntrospection> = {}): ProxyIntrospection {
   return { ...defaultIntrospection, ...over };
@@ -317,4 +318,27 @@ describe("generateProxyConfig — haproxy", () => {
     const c = generateHaproxyConfig(intro({ staticRoots: ["/app/public"] }));
     expect(c).to.match(/haproxy ne sert pas de fichiers/i);
   });
+});
+
+describe("generateProxyConfig — flux SSE", () => {
+  // Un flux SSE muet n'est tenu que par son battement : un proxy dont le délai
+  // d'inactivité tombe sous quelques battements coupe chaque flux qui se tait.
+  // Rien d'autre ne LIE les deux valeurs — ce test importe la constante (jamais
+  // une copie du nombre) et rougit si le battement est relevé au-delà.
+  const seconds = (conf: string, re: RegExp): number[] =>
+    [...conf.matchAll(re)].map((m) => Number(m[1]));
+
+  for (const keepaliveIntervalMs of [0, 20_000, 30_000, 120_000]) {
+    it(`le délai d'inactivité tient quatre battements SSE (heartbeat WS ${keepaliveIntervalMs} ms)`, () => {
+      const floor = (4 * SSE_HEARTBEAT_MS) / 1000;
+      const nginx = generateNginxConfig(intro({ keepaliveIntervalMs }));
+      const haproxy = generateHaproxyConfig(intro({ keepaliveIntervalMs }));
+      const found = [
+        ...seconds(nginx, /proxy_read_timeout (\d+)s;/gu),
+        ...seconds(haproxy, /timeout server +(\d+)s/gu),
+      ];
+      expect(found.length).to.be.at.least(2);
+      for (const s of found) expect(s).to.be.at.least(floor);
+    });
+  }
 });
