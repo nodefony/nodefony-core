@@ -17,6 +17,8 @@ import {
   isSubclassOf,
 } from "../Tools";
 import { NodefonySocket } from "./realtime/NodefonySocket";
+import { NodefonySse } from "./sse/NodefonySse";
+import { SseParser, SseLimitError, SSE_MAX_EVENT_SIZE } from "./sse/SseParser";
 import { closeCodeToNotice } from "./realtime/notice";
 import { JsonRpcPeer, RpcError } from "../realtime/JsonRpcPeer";
 import { TransportState } from "../realtime/IRealtimeTransport";
@@ -44,6 +46,9 @@ export type {
   RealtimeReconnectInfo,
 } from "./realtime/NodefonySocket";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
+// Flux d'événements serveur (SSE) — client et analyseur UNIQUE du format.
+export type { NodefonySseOptions } from "./sse/NodefonySse";
+export type { ISseEvent, ISseParserHandlers } from "./sse/SseParser";
 // Vocabulaire des sévérités RFC 5424 — isomorphe : la console
 // d'administration en tirait deux copies locales, dans deux ordres.
 export type { Severity, SeverityName } from "../syslog/Pdu";
@@ -143,6 +148,10 @@ export {
   isPromise,
   isSubclassOf,
   NodefonySocket,
+  NodefonySse,
+  SseParser,
+  SseLimitError,
+  SSE_MAX_EVENT_SIZE,
   JsonRpcPeer,
   RpcError,
   TransportState,

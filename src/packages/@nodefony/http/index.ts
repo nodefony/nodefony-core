@@ -239,6 +239,19 @@ export {
   Profiler,
 };
 
+// Flux d'événements serveur (SSE) — format de réponse choisi par l'action,
+// HTTP/1.1 et HTTP/2. Le raccourci de contrôleur est `this.renderSse()`.
+export {
+  SseStream,
+  openSseStream,
+  acceptsEventStream,
+  SSE_HEARTBEAT_MS,
+} from "./nodefony/src/context/http/SseStream";
+export type {
+  ISseStreamOptions,
+  ISseSendOptions,
+} from "./nodefony/src/context/http/SseStream";
+
 // Détecteur UNIQUE du « schéma en retard sur le code ». Publié parce qu'il a
 // plusieurs lecteurs hors de ce paquet — le rechargement d'un instantané au
 // démarrage, notamment : deux reconnaissances du même fait divergeraient en

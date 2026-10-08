@@ -114,6 +114,12 @@ export const THRESHOLDS = {
   proxyGet: 1024,
   /** socket du rechargement à chaud relayée, ouverte puis fermée */
   proxyWs: 1024,
+  // Flux d'événements serveur (#559) — seuil commun appliqué, pas encore
+  // re-mesuré sur 10 passages.
+  /** flux SSE ouvert, trois événements, fermé par le serveur */
+  sseServerClose: 1024,
+  /** flux SSE tenu (battement de cœur), abandonné par le client */
+  sseClientLeave: 1024,
   /**
    * COÛT d'une connexion WS TENUE ouverte (`ws-connections-load`) — pas une
    * rétention : ce que le serveur paye tant que la connexion vit. Mesuré

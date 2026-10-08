@@ -138,6 +138,11 @@ type PerfSubMarks = { t0: bigint; uploadNs: number; reqResNs: number };
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
 import { describeSessionStoreFailure } from "../../session/sessionStoreFailure";
 import { responseEnded } from "../responseEnded";
+import {
+  openSseStream,
+  type ISseStreamOptions,
+  type SseStream,
+} from "./SseStream";
 
 class HttpContext extends Context implements IHttpContextInterface {
   //url: string;
@@ -676,6 +681,19 @@ class HttpContext extends Context implements IHttpContextInterface {
         return this.close();
       },
     );
+  }
+
+  /**
+   * Répond par un flux d'événements serveur (`text/event-stream`).
+   *
+   * La requête ne se termine qu'à `close()` du flux, ou au départ du client.
+   *
+   * @param options - battement de cœur, délai `retry:` initial.
+   * @returns le flux, ou sa promesse quand une session est à sauver d'abord.
+   * @throws HttpError 500 quand la réponse est déjà partie.
+   */
+  openSse(options?: ISseStreamOptions): SseStream | Promise<SseStream> {
+    return openSseStream(this, options);
   }
 
   flush(chunk: unknown, encoding: BufferEncoding) {

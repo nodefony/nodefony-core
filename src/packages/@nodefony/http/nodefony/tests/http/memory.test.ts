@@ -301,6 +301,31 @@ const probesReleased = async (quoi: string): Promise<void> => {
   ).to.be.at.most(0);
 };
 
+/**
+ * Un flux SSE lu jusqu'à sa fin (fermé par le serveur), ou abandonné par le
+ * client dès son premier octet — HTTP/1.1 sur TLS, comme les autres boucles.
+ */
+function sseStream(path: string, leave: boolean): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        ...BASE,
+        path,
+        method: "GET",
+        headers: { Accept: "text/event-stream" },
+      },
+      (res) => {
+        if (leave) res.once("data", () => req.destroy());
+        else res.resume();
+        res.once("end", () => resolve());
+        res.once("close", () => resolve());
+      },
+    );
+    req.once("error", (e) => (leave ? resolve() : reject(e)));
+    req.end();
+  });
+}
+
 // ── actions ──────────────────────────────────────────────────────────────────
 
 const MIXED_ROUTES = [
@@ -364,6 +389,11 @@ const ACTIONS = {
   // Proxy inverse (#528) : relayés AVANT le routage, vers le Vite de la console.
   proxyGet: () => relayedGet(`${VITE}/@vite/env`),
   proxyWs: () => relayedHmr(),
+  // Flux d'événements serveur (#559) : fermé par le serveur, puis abandonné
+  // par le client — minuteur de battement, écouteurs et attente de `drain`
+  // doivent tous être libérés.
+  sseServerClose: () => sseStream("/nodefony/test/sse/three", false),
+  sseClientLeave: () => sseStream("/nodefony/test/sse/hold", true),
 } satisfies Record<string, (i: number) => Promise<unknown>>;
 
 /**
@@ -392,6 +422,8 @@ const WARMUP = {
   wsJsonRpc: 400,
   proxyGet: 450,
   proxyWs: 300,
+  sseServerClose: 400,
+  sseClientLeave: 300,
 } satisfies Record<keyof typeof ACTIONS, number>;
 
 /**
@@ -537,6 +569,22 @@ describe("Memory leaks — HTTP (requires server)", function () {
       "GET relayed by the reverse proxy",
       plan("proxyGet", 150),
       THRESHOLDS.proxyGet,
+    );
+  });
+
+  it("SSE streams closed by the server — retains nothing per stream", async () => {
+    await httpLoop(
+      "SSE streams closed by the server",
+      plan("sseServerClose", 150),
+      THRESHOLDS.sseServerClose,
+    );
+  });
+
+  it("SSE streams left by the client — retains nothing per stream", async () => {
+    await httpLoop(
+      "SSE streams left by the client",
+      plan("sseClientLeave", 100),
+      THRESHOLDS.sseClientLeave,
     );
   });
 

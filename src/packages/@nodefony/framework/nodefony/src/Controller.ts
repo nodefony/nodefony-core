@@ -29,7 +29,9 @@ import {
   //HttpKernel,
   HttpContext,
   HttpError,
+  acceptsEventStream,
 } from "@nodefony/http";
+import type { ISseStreamOptions, SseStream } from "@nodefony/http";
 
 //import { runInThisContext } from "node:vm";
 import {
@@ -624,6 +626,51 @@ class Controller extends Service implements IController {
     const data = JSON.stringify(obj);
     this.setContextJson();
     return this.renderResponse(data, "utf8", status, headers);
+  }
+
+  /**
+   * Le client demande-t-il un flux d'événements (`Accept: text/event-stream`) ?
+   *
+   * La route ne change pas de méthode pour autant : un même `POST` répond en
+   * JSON ou en flux selon cette réponse. Toujours `false` sur WebSocket.
+   *
+   * @returns `true` quand `text/event-stream` est accepté avec un poids non nul.
+   */
+  acceptsSse(): boolean {
+    if (!(this.context instanceof HttpContext)) return false;
+    return acceptsEventStream(this.context.request.headers.accept);
+  }
+
+  /**
+   * Répond par un flux d'événements serveur, en HTTP/1.1 comme en HTTP/2.
+   *
+   * L'action garde la main : elle `send()` à son rythme et `close()` quand elle
+   * a fini ; le départ du client ferme le flux (`sse.closed`, `sse.onClose`).
+   * Rendre le flux depuis l'action est sans effet — la réponse est déjà prise.
+   *
+   * @example
+   * ```ts
+   * @Get("/progress")
+   * async progress() {
+   *   const sse = await this.renderSse();
+   *   for (const step of steps) await sse.send(step, { event: "step" });
+   *   return sse.close();
+   * }
+   * ```
+   *
+   * @param options - battement de cœur, délai `retry:` initial.
+   * @returns le flux, ou sa promesse quand une session est à sauver d'abord.
+   * @throws HttpError 500 hors HTTP (WebSocket) ou quand la réponse est partie.
+   */
+  renderSse(options?: ISseStreamOptions): SseStream | Promise<SseStream> {
+    if (!(this.context instanceof HttpContext)) {
+      throw new HttpError(
+        "SSE : un flux d'événements exige une requête HTTP",
+        500,
+        this.context,
+      );
+    }
+    return this.context.openSse(options);
   }
 
   /**
