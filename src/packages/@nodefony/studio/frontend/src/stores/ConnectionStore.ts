@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import type { RealtimeClient, RealtimeState } from "nodefony";
+import type { NodefonySocket, RealtimeState } from "nodefony";
 
 /** Transport sous-jacent d'un flux temps réel. */
 export type RealtimeTransport = "ws" | "sse" | "webrtc" | "tcp";
@@ -45,7 +45,7 @@ export interface SubscriptionStats extends SubscriptionMeta {
 }
 
 /**
- * ConnectionStore — état réactif du `RealtimeClient` + hub d'abonnements
+ * ConnectionStore — état réactif du `NodefonySocket` + hub d'abonnements
  * temps réel cross-pages.
  *
  * Pattern : chaque page subscribe au mount via `conn.subscribe(channel, handler)`,
@@ -69,7 +69,7 @@ export class ConnectionStore {
   nextRetryAt: number | null = null;
   /** URL de l'endpoint WS (affichée dans le hub). */
   endpointUrl = "";
-  /** Miroirs des stats du `RealtimeClient` (source de vérité, Core isomorphe) —
+  /** Miroirs des stats du `NodefonySocket` (source de vérité, Core isomorphe) —
    *  rafraîchis à chaque échantillon du client (1×/s). framesReceived = total frames. */
   framesReceived = 0;
   lastFrameAt: number | null = null;
@@ -82,7 +82,7 @@ export class ConnectionStore {
   >();
 
   constructor(
-    private readonly client: RealtimeClient,
+    private readonly client: NodefonySocket,
     endpointUrl = "",
   ) {
     this.endpointUrl = endpointUrl;
@@ -101,13 +101,13 @@ export class ConnectionStore {
         }
       });
       // Le ré-abonnement au (re)connect est désormais porté par le CLIENT
-      // (`RealtimeClient.subscribe` ref-compté + re-subscribe à l'ouverture du
+      // (`NodefonySocket.subscribe` ref-compté + re-subscribe à l'ouverture du
       // socket) — autorité unique partagée avec le binding `nodefony/react`.
     });
     // Les stats (framesReceived + msgCount/rate/série par canal) sont calculées
-    // par le RealtimeClient (Core) — source unique réutilisable. Le store n'en est
+    // par le NodefonySocket (Core) — source unique réutilisable. Le store n'en est
     // qu'un MIROIR réactif (MobX), rafraîchi à chaque échantillon (1×/s) par le
-    // client. cf RealtimeClient.startStatsSampler / getChannelStats.
+    // client. cf NodefonySocket.startStatsSampler / getChannelStats.
     this.client.onStats(() => this.syncStats());
     // Backoff de reconnexion (Core) → compte à rebours live dans l'overlay.
     this.client.onReconnect((info) => {
@@ -215,7 +215,7 @@ export class ConnectionStore {
    * pas le login. Le badge topbar montrera `disconnected`.
    */
   async connect(token?: string | null): Promise<void> {
-    void token; // TODO P6 — exposer token sur RealtimeClient.opts
+    void token; // TODO P6 — exposer token sur NodefonySocket.opts
     if (this.state === "connected" || this.state === "connecting") return;
     const start = performance.now();
     try {
@@ -234,7 +234,7 @@ export class ConnectionStore {
       });
     } catch (e) {
       // Le 1er connect a dépassé 3s : on N'APPELLE PAS disconnect() (qui poserait
-      // intentionalClose=true et tuerait l'autoReconnect). Le RealtimeClient
+      // intentionalClose=true et tuerait l'autoReconnect). Le NodefonySocket
       // continue d'essayer en arrière-plan ; le badge passera "connected" via le
       // observateur d'état dès que le WS s'ouvre. On n'empêche pas le login.
       runInAction(() => {

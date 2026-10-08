@@ -56,7 +56,7 @@ erreur de console et zéro réponse HTTP ≥ 400.
 `ClientKernel` existe (`src/nodefony/src/client/ClientKernel.ts`), et l'exercice par le compilateur
 a fait tomber ce qu'aucune relecture n'avait vu — c'est très exactement ce que la révision
 précédente annonçait. Trois corrections, détaillées sous D2 : le registre typé sur la **classe**
-`RealtimeClient` ; une porte d'entrée pour l'identité (`setIdentity`), sans quoi **D9 restait
+`NodefonySocket` ; une porte d'entrée pour l'identité (`setIdentity`), sans quoi **D9 restait
 inapplicable** ; et le membre `log` renommé `syslog`, parce qu'il masquait la méthode d'écriture de
 `Service`. Le kernel **compose** un `Service` au lieu d'en hériter (raison sous D3). D10 est câblé,
 avec un outil différent de celui écrit ici (voir D10).
@@ -80,7 +80,7 @@ Le package `nodefony` a **deux visages compilés depuis la même source** :
   `lib DOM`, et 3 shims d'alias (`node:util`, `node:events`, `cli-color` →
   `src/client/shim/*`) ;
 - des primitives **déjà isomorphes** : `Container`, `Service`, `Syslog`/`Pdu`, `Tools`
-  (zéro import `node:` direct — vérifié), `Event` (via shim `EventEmitter`), `RealtimeClient`,
+  (zéro import `node:` direct — vérifié), `Event` (via shim `EventEmitter`), `NodefonySocket`,
   `JsonRpcPeer`, `AdaptiveRate`, `Storage`, la debug bar ;
 - le pattern « 1 source, N consommateurs » **fonctionne déjà** : le modèle pur du profiler
   (`NetworkModel`, `computeWaterfall` — `src/client/debugbar/index.ts`) est consommé à la fois
@@ -98,7 +98,7 @@ Côté navigateur, **aucun équivalent**. Chaque app front doit recâbler à la 
 le lifecycle et l'observabilité. La preuve vivante est Studio :
 
 - `frontend/src/stores/` = **1 511 lignes** de glue MobX, dont `RootStore.ts` (173 l) =
-  composition root manuelle (instancie `RealtimeClient.shared`, `ApiClient`, `AuthService`,
+  composition root manuelle (instancie `NodefonySocket.shared`, `ApiClient`, `AuthService`,
   8 stores, câble les erreurs API → notifications, l'URL WS dérivée de l'origine, etc.) ;
 - `ConnectionStore.ts` (326 l) = gestion connexion/reconnexion/abonnements/stats ;
 - `AuthStore.ts` (265 l) = identité.
@@ -121,7 +121,7 @@ Trois faits, vérifiés :
    singleton + **`export default`** (règle « named exports only » violée), et cette façade est
    **incohérente** avec le node (`Nodefony` statique, `getKernel()`). Audit client de mai
    (points B/C), jamais soldé. Fait nouveau vérifié ce jour : **aucun consommateur n'importe ce
-   default** (Studio importe `{ RealtimeClient }` en named) → le retirer coûte ~0 aujourd'hui,
+   default** (Studio importe `{ NodefonySocket }` en named) → le retirer coûte ~0 aujourd'hui,
    une major demain.
 
 ### 4. La release 10 rend le contrat public — c'est maintenant ou dans une major
@@ -163,11 +163,11 @@ HTTP, firewall, ORM, serveurs — ces concepts n'existent pas dans un navigateur
 > **Révisé le 2026-08-27 — le contrat N'est PAS publié en 10.0.0.** La décision ci-dessous tient
 > par son intention (spécifier avant d'implémenter) mais pas par son geste : elle a mis sur npm un
 > contrat que **rien n'exerçait**. Le précédent qu'elle invoque — `IRealtimeSocket`, publié avant
-> que le hub serveur ne soit complet — ne s'applique pas : celui-là avait `RealtimeClient` pour
+> que le hub serveur ne soit complet — ne s'applique pas : celui-là avait `NodefonySocket` pour
 > l'implémenter, donc le compilateur l'a vérifié dès le premier jour. `IClientKernel` n'a jamais eu
 > ce garde-fou, et il portait déjà deux défauts qu'une implémentation aurait fait tomber : son
 > registre (`realtime?: IRealtimeSocket`) ne pouvait pas nourrir `NodefonyProvider`, qui exige la
-> classe `RealtimeClient` ; et `IRealtimeSocket` n'ayant ni `connect`, ni `disconnect`, ni `state`,
+> classe `NodefonySocket` ; et `IRealtimeSocket` n'ayant ni `connect`, ni `disconnect`, ni `state`,
 > ni `identity`, le contrat ne savait pas exprimer le re-handshake d'identité de **D9**.
 >
 > Les coûts sont asymétriques : publier maintenant un contrat faux, c'est une **majeure** pour le
@@ -182,7 +182,7 @@ HTTP, firewall, ORM, serveurs — ces concepts n'existent pas dans un navigateur
 > **Révision du 2026-08-31 — ce que l'implémentation a corrigé.** Écrire `ClientKernel` a fait
 > tomber trois points, dont deux étaient déjà soupçonnés et un ne l'était pas :
 >
-> 1. **Le registre est typé sur la classe `RealtimeClient`**, non sur `IRealtimeSocket`. Le seul
+> 1. **Le registre est typé sur la classe `NodefonySocket`**, non sur `IRealtimeSocket`. Le seul
 >    consommateur publié du registre est `NodefonyProvider`, dont la prop `client` exige la classe ;
 >    et l'interface n'ayant ni `connect`, ni `disconnect`, ni `state`, ni `identity`, le contrat ne
 >    savait pas exprimer le re-handshake de D9. Un registre nomme des services **composés**, pas des
@@ -316,8 +316,8 @@ depuis `client/index.ts` ; ② le barrel node (`src/index.ts`) ne tire jamais `s
 
 ### D7 — Opt-in strict : le kernel compose, il n'impose pas
 
-Chaque primitive reste utilisable **nue**, sans kernel : `RealtimeClient.shared()` (utilisé par
-Studio et la debug bar aujourd'hui — `RealtimeClient.ts:296`) continue de fonctionner tel quel,
+Chaque primitive reste utilisable **nue**, sans kernel : `NodefonySocket.shared()` (utilisé par
+Studio et la debug bar aujourd'hui — `NodefonySocket.ts:310`) continue de fonctionner tel quel,
 de même que `mountDebugBar()`, les hooks `nodefony/react`, `Storage`. Le ClientKernel est la
 **voie recommandée** pour une app complète, jamais un péage. **Pourquoi** : la DX des cas simples
 (un widget, une page, un POC) est un actif — un kernel obligatoire pour afficher 3 stats serait
@@ -341,7 +341,7 @@ Ce qui vaut sans noyau en est donc sorti, dans `src/nodefony/src/client/announce
   identité, canaux, actions) au premier `realtime:welcome` — avant l'accueil il n'y aurait rien à
   montrer, et une socket s'efface toujours devant un noyau.
 
-Le handle **ne retient rien** : il lit le registre que `RealtimeClient.shared()` tient déjà. Une
+Le handle **ne retient rien** : il lit le registre que `NodefonySocket.shared()` tient déjà. Une
 socket construite hors du partage fait sortir le badge sans figurer dans `sockets()` — la retenir en
 ferait une fuite pour un confort.
 
@@ -381,7 +381,7 @@ Le cycle « identité change → re-handshake socket + purge des états scopés 
 comportement **du kernel** (`onIdentityChange`) :
 
 - le kernel re-négocie la socket (`disconnect()`/`connect()` — relecture du cookie courant, les
-  abonnements se rejouent par ref-counting déjà dans `RealtimeClient`) ;
+  abonnements se rejouent par ref-counting déjà dans `NodefonySocket`) ;
 - il notifie `onIdentityChange` pour que l'app purge ses propres caches ;
 - il applique les gardes déjà apprises : jamais de `disconnect()` au boot (couperait les
   requêtes en vol via le pont), purge uniquement sur un **vrai** changement de compte.

@@ -229,7 +229,7 @@ interface ChannelState {
  * multiplexe des canaux ; le hub aiguille entre les sockets. La façade *consommateur*
  * côté serveur EXISTE — {@link ServerRealtimeSocket} (`subscribe/on/publish`), exportée
  * par le barrel du module : c'est elle qu'un service back tient, jamais ce hub
- * directement. Même rôle que `RealtimeClient` côté navigateur.
+ * directement. Même rôle que `NodefonySocket` côté navigateur.
  */
 export class RealtimeHub {
   // Lazy : alloué au 1ᵉʳ subscribe (un process sans abonné n'alloue rien).

@@ -96,7 +96,7 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
 > (`.claude/skills/nodefony-frontend-dev/references/realtime-client.md`). Ici = la **liste exacte** des hooks utilisés par Studio.
 
 ```ts
-useNodefony(): RealtimeClient                              // client brut (RPC request/stream) — rare
+useNodefony(): NodefonySocket                              // client brut (RPC request/stream) — rare
 useNodefonyState(): "connected"|"connecting"|"reconnecting"|"disconnected"|"error"
 useNodefonyIdentity(): RealtimeIdentity | null            // identité résolue au handshake (realtime:welcome) ; null si anonyme
 useNodefonyChannel(channel, (payload)=>void, deps?=[])    // sub/unsub auto + reconnect ; handler capturé (pas besoin de deps)
@@ -109,7 +109,7 @@ useNodefonyNotifications((notice: NodefonyNotice)=>void, deps?=[])   // chaque n
 useNodefonyNoticeLog({ max?=50; sources? }): NodefonyNotice[]        // ring buffer des notices (hub « incidents temps réel »)
 ```
 
-`NodefonyNotice = { level:"success"|"info"|"warning"|"error"; title?; message; source:"realtime"|"api"|"server"; code?; ts }` (import depuis `nodefony`). Émise par `RealtimeClient` sur close anormal (RFC 6455 → `closeCodeToNotice`), erreur serveur poussée, reconnexion. **Studio ne consomme PAS ces hooks** : il branche `NotificationStore` (MobX) sur `realtime.onNotice` au constructeur (les hooks servent les apps React non-MobX).
+`NodefonyNotice = { level:"success"|"info"|"warning"|"error"; title?; message; source:"realtime"|"api"|"server"; code?; ts }` (import depuis `nodefony`). Émise par `NodefonySocket` sur close anormal (RFC 6455 → `closeCodeToNotice`), erreur serveur poussée, reconnexion. **Studio ne consomme PAS ces hooks** : il branche `NotificationStore` (MobX) sur `realtime.onNotice` au constructeur (les hooks servent les apps React non-MobX).
 `<NodefonyProvider>` est DÉJÀ monté dans `App.tsx` et la connexion ouverte par l'app
 (`AdminLayout`). **NE JAMAIS** remonter le Provider ni appeler `client.connect()` dans une page.
 

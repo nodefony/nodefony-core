@@ -11,7 +11,7 @@ isomorphe, **vanilla TS + Shadow DOM** — **AUCUN React/Mantine/JSX, AUCUN UI k
   `format.ts`, `hmr.ts`, `index.ts` (barrel).
 - **Particularité vanilla** : DOM créé à la main, monté dans un **Shadow DOM**
   (`host.attachShadow({ mode:"open" })`) → styles 100 % isolés de la page hôte (0 fuite CSS, pas de
-  Mantine). **JAMAIS** de splice `</body>` rendu serveur (≠ legacy « sale »). Realtime = `RealtimeClient`
+  Mantine). **JAMAIS** de splice `</body>` rendu serveur (≠ legacy « sale »). Realtime = `NodefonySocket`
   Core **direct** (PAS les hooks `nodefony/react`), `Pdu` Core pour les logs.
 - **API** : `import { mountDebugBar } from "nodefony/debugbar"; mountDebugBar(opts)`. Handle global
   `window.__NODEFONY_DEBUGBAR__.setVisible(bool)/toggle()` ; localStorage **`nf.debugbar.visible`**

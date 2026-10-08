@@ -74,7 +74,7 @@ const CASES = [
   ["fais une page studio avec un dashboard", "nodefony-studio-dev"],
   ["la debug bar de studio", "nodefony-studio-dev"],
   [
-    "câble le RealtimeClient et les hooks realtime côté front",
+    "câble le NodefonySocket et les hooks realtime côté front",
     "nodefony-frontend-dev",
   ],
   [

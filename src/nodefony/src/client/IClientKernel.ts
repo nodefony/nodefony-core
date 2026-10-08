@@ -16,9 +16,9 @@
  */
 import type Syslog from "../syslog/Syslog";
 import type {
-  RealtimeClient,
+  NodefonySocket,
   RealtimeOptions,
-} from "./realtime/RealtimeClient";
+} from "./realtime/NodefonySocket";
 
 /**
  * États du kernel client, ordonnés et non régressifs (symétrie nominale avec les
@@ -79,7 +79,7 @@ export interface ClientIdentity {
  * config `NodefonyModuleConfig` back, ADR-0006) : un module/une app déclare ses
  * services sans jamais modifier ce contrat.
  *
- * `realtime` est typé sur la **classe** `RealtimeClient`, pas sur l'interface
+ * `realtime` est typé sur la **classe** `NodefonySocket`, pas sur l'interface
  * `IRealtimeSocket` : c'est la correction du premier défaut relevé par #41. Le
  * consommateur publié du registre est `NodefonyProvider`, dont la prop `client`
  * exige la classe ; et `IRealtimeSocket` n'a ni `connect`, ni `disconnect`, ni
@@ -99,7 +99,7 @@ export interface ClientIdentity {
  */
 export interface NodefonyClientServices {
   /** La socket Nodefony de l'app (multiplexage de canaux, isomorphe). */
-  realtime?: RealtimeClient;
+  realtime?: NodefonySocket;
 }
 
 /**
@@ -118,9 +118,9 @@ export interface ClientKernelOptions {
   /**
    * La socket de l'application. Trois formes, par DX décroissante :
    * une instance déjà composée, les options d'une socket partagée
-   * (`RealtimeClient.shared`), ou `false`/absent pour ne pas en avoir.
+   * (`NodefonySocket.shared`), ou `false`/absent pour ne pas en avoir.
    */
-  realtime?: RealtimeClient | RealtimeOptions | false;
+  realtime?: NodefonySocket | RealtimeOptions | false;
   /**
    * Ponter les événements du navigateur (`visibilitychange`, `online`/`offline`,
    * `pagehide`) sur les événements du kernel.

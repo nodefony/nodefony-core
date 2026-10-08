@@ -1,7 +1,7 @@
 /**
  * `nodefony/vue` — liaisons **Vue 3** du client temps réel isomorphe.
  *
- * Adapte le {@link RealtimeClient} (agnostique : `on()`/`emit()`/`state`) à la
+ * Adapte le {@link NodefonySocket} (agnostique : `on()`/`emit()`/`state`) à la
  * réactivité de Vue, sans glue à recopier dans chaque application. Le pendant
  * exact de `nodefony/react` : même surface, mêmes noms, mêmes garanties — seule
  * la traduction vers la réactivité change.
@@ -59,17 +59,17 @@ import {
   type Plugin,
   type Ref,
 } from "vue";
-// `RealtimeClient` n'est importé qu'en TYPE : la fabrication de la socket
+// `NodefonySocket` n'est importé qu'en TYPE : la fabrication de la socket
 // partagée passe par `connectShared` (socle agnostique), qui porte la précédence
 // `client` sur `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
-import type { RealtimeClient } from "../realtime/RealtimeClient";
+import type { NodefonySocket } from "../realtime/NodefonySocket";
 import type {
   MessageStats,
   NodefonyNotice,
   RealtimeIdentity,
   RealtimeState,
-} from "../realtime/RealtimeClient";
+} from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 import {
   adaptiveRebindKey,
@@ -104,7 +104,7 @@ export type {
   RealtimeIdentity,
   RealtimeState,
   NodefonyNotice,
-} from "../realtime/RealtimeClient";
+} from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
 
 /**
@@ -114,7 +114,7 @@ export type { SocketSnapshot } from "../realtime/observe";
  * socket que celle de l'application : `provide(nodefonyClientKey, uneAutre)`
  * dans le composant parent suffit, et les composables du sous-arbre suivent.
  */
-export const nodefonyClientKey: InjectionKey<RealtimeClient> =
+export const nodefonyClientKey: InjectionKey<NodefonySocket> =
   Symbol("nodefony:realtime");
 
 /** Réglages du plugin — l'un des deux au moins doit être donné. */
@@ -124,7 +124,7 @@ export interface NodefonyVueOptions {
    * socket partagée pour cette URL et la connecte lui-même.
    *
    * Deux consommateurs qui donnent la même URL obtiennent la MÊME socket
-   * ({@link RealtimeClient.shared}), donc une seule connexion réseau.
+   * ({@link NodefonySocket.shared}), donc une seule connexion réseau.
    */
   url?: string;
   /**
@@ -132,7 +132,7 @@ export interface NodefonyVueOptions {
    * cycle de connexion. Fournie, elle l'emporte sur `url` et le plugin ne
    * touche pas au cycle : ni `connect`, ni `disconnect`.
    */
-  client?: RealtimeClient;
+  client?: NodefonySocket;
 }
 
 /**
@@ -176,7 +176,7 @@ export const nodefonyVue: Plugin<[NodefonyVueOptions]> = {
  *   donnerait une page qui marche en développement et parle au mauvais hôte
  *   en production — mieux vaut une erreur au premier rendu.
  */
-export function useNodefony(): RealtimeClient {
+export function useNodefony(): NodefonySocket {
   const client = inject(nodefonyClientKey, null);
   if (!client) {
     throw new Error(

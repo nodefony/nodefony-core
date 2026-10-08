@@ -180,9 +180,9 @@ est **dans le même paquet que le serveur**, et il partage ses types. Le contrat
 d'un message, la hiérarchie des rôles — on les écrit une fois, et les deux côtés en dépendent :
 
 ```typescript
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
-const socket = RealtimeClient.shared({ url: "wss://localhost:5152" });
+const socket = NodefonySocket.shared({ url: "wss://localhost:5152" });
 
 await socket.subscribe("chat:room"); // canaux
 socket.on("chat:room", (message) => render(message));

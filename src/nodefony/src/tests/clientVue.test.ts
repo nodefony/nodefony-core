@@ -20,7 +20,7 @@
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { createApp, effectScope, isReactive, ref, type App } from "vue";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -73,15 +73,15 @@ class MockTransport implements IRealtimeTransport {
 
 let transports: MockTransport[] = [];
 
-function newClient(): RealtimeClient {
-  return new RealtimeClient({ url: "ws://loopback/realtime" }, () => {
+function newClient(): NodefonySocket {
+  return new NodefonySocket({ url: "ws://loopback/realtime" }, () => {
     const t = new MockTransport();
     transports.push(t);
     return t;
   });
 }
 
-async function connected(client: RealtimeClient): Promise<MockTransport> {
+async function connected(client: NodefonySocket): Promise<MockTransport> {
   const promise = client.connect();
   transports[transports.length - 1]!.fireOpen();
   await promise;
@@ -117,7 +117,7 @@ function monter<T>(
   return { valeur, arreter: () => scope.stop() };
 }
 
-function appAvec(client: RealtimeClient): App {
+function appAvec(client: NodefonySocket): App {
   const app = createApp({});
   app.use(nodefonyVue, { client });
   return app;

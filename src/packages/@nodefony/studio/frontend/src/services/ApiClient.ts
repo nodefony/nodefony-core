@@ -28,14 +28,14 @@ import { JsonRpcError } from "nodefony";
 
 /**
  * Vue MINIMALE de la Socket Nodefony consommée par le pont (typage structurel —
- * `RealtimeClient` s'y conforme ; pas d'import runtime → 0 couplage, mockable).
+ * `NodefonySocket` s'y conforme ; pas d'import runtime → 0 couplage, mockable).
  */
 export interface ApiSocketLike {
   /** "connected" quand la socket est opérationnelle. */
   readonly state: string;
-  /** Forme path de `RealtimeClient.request` — lecture GET via `api.request`. */
+  /** Forme path de `NodefonySocket.request` — lecture GET via `api.request`. */
   request<T = unknown>(path: `/${string}`, timeoutMs?: number): Promise<T>;
-  /** Forme mutation de `RealtimeClient.mutate` — POST/PUT/PATCH/DELETE + clé d'idempotence. */
+  /** Forme mutation de `NodefonySocket.mutate` — POST/PUT/PATCH/DELETE + clé d'idempotence. */
   mutate<T = unknown>(
     path: `/${string}`,
     init: {

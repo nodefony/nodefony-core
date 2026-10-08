@@ -30,14 +30,14 @@
  *
  * @module nodefony/client
  */
-import { RealtimeClient } from "./RealtimeClient";
+import { NodefonySocket } from "./NodefonySocket";
 import type {
   RealtimeState,
   RealtimeIdentity,
   RealtimeReconnectInfo,
   NodefonyNotice,
   MessageStats,
-} from "./RealtimeClient";
+} from "./NodefonySocket";
 import type {
   BindAdaptiveOptions,
   AdaptiveChannelBinding,
@@ -55,7 +55,7 @@ export type Dispose = () => void;
  * NON paramétré : une liaison de vue ne connaît pas les cartes d'événements
  * typées de l'application.
  */
-export type ObservableClient = RealtimeClient;
+export type ObservableClient = NodefonySocket;
 
 /* ────────────────────────── connexion partagée ────────────────────────── */
 
@@ -125,7 +125,7 @@ export interface SharedConnection {
  */
 export function connectShared(opts: ConnectSharedOptions): SharedConnection {
   const provided = opts.client;
-  const socket = provided ?? RealtimeClient.shared({ url: opts.url });
+  const socket = provided ?? NodefonySocket.shared({ url: opts.url });
   const owned = !provided;
   return {
     socket,
@@ -191,7 +191,7 @@ export function observeReconnect(
  * Observe un canal pub/sub : `emit` est appelé pour chaque message reçu.
  *
  * L'appariement `on`↔`subscribe` et `dispose`↔`unsubscribe` n'est pas réécrit
- * ici : c'est {@link RealtimeClient.channel} qui l'encapsule, et le rejouer
+ * ici : c'est {@link NodefonySocket.channel} qui l'encapsule, et le rejouer
  * mettrait la même règle deux fois dans le cœur. L'abonnement serveur est
  * ref-compté (N observateurs du même canal = un seul abonnement réseau) et
  * rejoué à chaque reconnexion.

@@ -12,7 +12,7 @@
  * 🔴 Sa SECONDE limite était de ne voir que l'import DIRECT — un module atteint
  * à travers un autre sortait « éprouvé par personne » alors qu'un banc l'exerce.
  * Elle a fabriqué DEUX faux verdicts, donc deux tickets : `BrowserWsTransport`
- * (que `RealtimeClient` construit lui-même) et `publishQueue` (que
+ * (que `NodefonySocket` construit lui-même) et `publishQueue` (que
  * `RedisBackplane` porte, et qu'un banc nommé `backplanePublishQueue.test.ts`
  * exerçait déjà — le relevé l'avait sous les yeux). Ce script mesure donc
  * désormais l'atteinte INDIRECTE : un module importé par un module source

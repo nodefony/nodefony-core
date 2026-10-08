@@ -1,6 +1,6 @@
 import { makeAutoObservable } from "mobx";
 import { notifications } from "@mantine/notifications";
-import type { RealtimeClient, NodefonyNotice, NoticeLevel } from "nodefony";
+import type { NodefonySocket, NodefonyNotice, NoticeLevel } from "nodefony";
 
 /** Historique borné des notices (le hub affiche les incidents temps réel). */
 const MAX_RECENT = 50;
@@ -30,7 +30,7 @@ const LEVEL_AUTOCLOSE: Record<NoticeLevel, number> = {
  * Centre de notifications de Studio.
  *
  * Source unique des snackbars : consomme le flux **normalisé** de notices du
- * client temps réel (`RealtimeClient.onNotice` — close codes RFC 6455 interprétés,
+ * client temps réel (`NodefonySocket.onNotice` — close codes RFC 6455 interprétés,
  * erreurs serveur poussées, rétablissement) ET expose {@link notify} pour les
  * sources non-realtime (erreurs du data plane via `ApiClient`). Chaque notice →
  * toast Mantine + historique borné réutilisé par le hub.
@@ -39,7 +39,7 @@ export class NotificationStore {
   /** Dernières notices reçues (ring borné), plus ancienne en tête. */
   recent: NodefonyNotice[] = [];
 
-  constructor(realtime: RealtimeClient) {
+  constructor(realtime: NodefonySocket) {
     makeAutoObservable(this, {}, { autoBind: true });
     // Branché au constructeur (comme ConnectionStore) : le store vit autant que
     // la connexion partagée (singleton appli) → pas de dispose à gérer.

@@ -214,7 +214,7 @@ function LiveCard() {
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
     // WS métier, génère la bonne couche (`nodefony create controller <nom>
-    // --kind realtime`) et consomme-la par la FAÇADE client (`RealtimeClient`,
+    // --kind realtime`) et consomme-la par la FAÇADE client (`NodefonySocket`,
     // hooks `nodefony/react`) au lieu d'un `new WebSocket` à la main.
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${scheme}://${location.host}/api/echo`);

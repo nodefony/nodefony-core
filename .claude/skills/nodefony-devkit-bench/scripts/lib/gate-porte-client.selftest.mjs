@@ -86,8 +86,8 @@ cas(
 );
 
 cas(
-  "la façade RealtimeClient est acceptée quel que soit le moteur",
-  jugerPorteClient(pkgDe("vue"), ["const c = new RealtimeClient({ url });"])
+  "la façade NodefonySocket est acceptée quel que soit le moteur",
+  jugerPorteClient(pkgDe("vue"), ["const c = new NodefonySocket({ url });"])
     .code === 0,
 );
 
@@ -157,7 +157,7 @@ cas(
     "--- a/tests/e2e.test.ts",
     "+++ b/tests/e2e.test.ts",
     "@@ -9 +9,2 @@",
-    ' import { RealtimeClient } from "nodefony/client";',
+    ' import { NodefonySocket } from "nodefony/client";',
     "+// retouche de l'agent, rien du client",
     "diff --git a/nodefony/controllers/Chat.ts b/nodefony/controllers/Chat.ts",
     "+++ b/nodefony/controllers/Chat.ts",
@@ -167,12 +167,12 @@ cas(
     '+import "nodefony/client";',
     "diff --git a/README.md b/README.md",
     "+++ b/README.md",
-    "+RealtimeClient est la façade",
+    "+NodefonySocket est la façade",
   ].join("\n");
   const lues = lignesAjoutees(diff);
   cas(
     "une ligne de CONTEXTE du gabarit (façade livrée) n'est PAS lue",
-    !lues.some((l) => l.includes("RealtimeClient")),
+    !lues.some((l) => l.includes("NodefonySocket")),
   );
   cas(
     "une ligne AJOUTÉE dans un source est lue",

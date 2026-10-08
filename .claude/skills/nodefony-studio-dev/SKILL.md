@@ -28,7 +28,7 @@ description: >
 > Le **détail** (UI kit, recettes, Twin, realtime, back) vit dans `references/*.md` (progressive disclosure)
 > — garder ce fichier **< 350 lignes**. Avancement = les **tickets** (hors ligne : `.ai/BOARD.md`, généré) **uniquement**.
 
-> **Périmètre** : mécanismes front **généraux** (isomorphisme, socket `RealtimeClient` + hooks `nodefony/react`,
+> **Périmètre** : mécanismes front **généraux** (isomorphisme, socket `NodefonySocket` + hooks `nodefony/react`,
 > HMR/Vite, data-plane BFF `ApiClient`/`useResource`, RBAC isomorphe, temps-réel-calme/perf/a11y) → **`nodefony-frontend-dev`**
 > (skill PARENT dont CE skill dérive — l'y consulter, ne pas redocumenter). Scaffolder un module avec front
 > → **`nodefony-create-frontend-module`**. Le CŒUR back (service, module, endpoint, canal/action serveur,
@@ -112,7 +112,7 @@ src/packages/@nodefony/studio/
     ├── components/ui/   UI kit : PageHeader, PageLayout/StickyTabsList, DataGrid, DataState, StatCard,
     │                    KpiCard, DocHint(+presets), JsonViewer/Json*, MiniChart, FlowGraph, ConfigLayout…
     ├── stores/          MobX : Root, Auth, Connection, Ui, Admin, Notification, Profiler
-    ├── services/        ApiClient (BFF + pont socket), AuthService, RealtimeClient (← Core nodefony)
+    ├── services/        ApiClient (BFF + pont socket), AuthService, NodefonySocket (← Core nodefony)
     ├── routes/<feat>/   pages éclatées : <feat>Model.ts (types miroir, 0 JSX) · <feat>Format.tsx · <Comp>.tsx
     ├── realtime/twin/   Jumeau Vivant (twinSchemas, TwinMap, Twin.tsx) · workspace/ (bureau composable + blocks/)
     └── auth/            roles.ts (isomorphe nodefony/roles), VIEW_ROLES, RoleGuard/RoleGuardOutlet

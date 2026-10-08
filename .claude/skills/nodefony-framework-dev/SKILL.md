@@ -55,7 +55,7 @@ section correspondante de `nodefony-frontend-dev` (et inversement).
 
 - **core** (`src/nodefony`) : `Service`, `Container`, `Kernel`, `Module`, `CliKernel`, `Cli`/`Command`,
   `Injector`/DI, `Syslog`/`Pdu`, `RequestContext` (ALS), `Nodefony` façade, **lib client isomorphe**
-  (`RealtimeClient`, subpaths `nodefony/client|react|roles|debugbar`).
+  (`NodefonySocket`, subpaths `nodefony/client|react|roles|debugbar`).
 - **pipeline http** (`@nodefony/http`) : `HttpKernel`, `Context`/`HttpContext`/`WebsocketContext`,
   `Request`/`Response`, serveurs, **certificats TLS** (`Certificate`/mkcert), `SessionsService`,
   `Profiler`, loggers/error-renderer, realtime WS JSON-RPC.

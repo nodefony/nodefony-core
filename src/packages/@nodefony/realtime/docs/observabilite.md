@@ -228,10 +228,10 @@ Côté navigateur, deux lignes suffisent à consommer le canal :
 
 ```ts
 // frontend/src/shopHealth.ts
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
 const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-const socket = new RealtimeClient({
+const socket = new NodefonySocket({
   url: `${scheme}://${window.location.host}/shop/realtime`,
 });
 

@@ -353,7 +353,7 @@ gaspillerait une socket par écran.
 
 ```ts
 // frontend/src/realtime.ts
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
 // `wss` si la page est en HTTPS, `ws` sinon. Une application Nodefony sert en
 // HTTPS par défaut, y compris en développement : ce sera donc `wss` chez toi.
@@ -366,7 +366,7 @@ const scheme = window.location.protocol === "https:" ? "wss" : "ws";
  * La reconnexion automatique, le renvoi des abonnements après une coupure et le
  * heartbeat sont inclus — rien à écrire pour ça.
  */
-export const chatSocket = new RealtimeClient({
+export const chatSocket = new NodefonySocket({
   url: `${scheme}://${window.location.host}/chat/realtime`,
 });
 ```
@@ -1619,5 +1619,5 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 | Le point de mesure d'administration | `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:98`), `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`), `buildOwnHealth()` (`RealtimeAdminApi.ts:52`) |
 | Le service injectable | `RealtimeService.publish()` (`RealtimeService.ts:161`), `RealtimeService.probe()` (`RealtimeService.ts:213`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:222`) |
 | Les hooks React | `useNodefony()` (`client/react/index.ts:145`), `useNodefonyState()` (`client/react/index.ts:163`), `useNodefonyIdentity()` (`client/react/index.ts:182`), `useNodefonyChannel()` (`client/react/index.ts:198`), `useNodefonyChannelData()` (`client/react/index.ts:221`), `useNodefonyAdaptiveChannel()` (`client/react/index.ts:255`) |
-| Le client navigateur | `RealtimeClient.connect()` (`RealtimeClient.ts:390`), `RealtimeClient.subscribe()` (`RealtimeClient.ts:531`), `RealtimeClient.request()` (`RealtimeClient.ts:730`), `RealtimeClient.onDenied()` (`RealtimeClient.ts:472`) |
+| Le client navigateur | `NodefonySocket.connect()` (`NodefonySocket.ts:402`), `NodefonySocket.subscribe()` (`NodefonySocket.ts:549`), `NodefonySocket.request()` (`NodefonySocket.ts:746`), `NodefonySocket.onDenied()` (`NodefonySocket.ts:488`) |
 | L'upload | `UploadedFile` (`routerDecorators.ts:1286`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:215`) |

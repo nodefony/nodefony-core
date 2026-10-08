@@ -68,11 +68,14 @@ Tant qu'un canal à membres n'existe pas dans le framework, le geste montrable e
 ## Côté client — la façade, pas le socket
 
 ```ts
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
-const client = RealtimeClient.shared();
+const client = NodefonySocket.shared({ url: "/api/live/realtime" });
 client.subscribe("ops:alerts", (payload) => { … });
 ```
+
+L'adresse est **obligatoire** : `shared()` sans `url` lève une erreur, parce que la route dépend de
+l'application. Une application générée monte `/api/live/realtime`.
 
 En React, les hooks du paquet client font la même chose avec le cycle de vie du composant.
 **Importe depuis `nodefony/client`**, jamais depuis la racine `nodefony` : côté navigateur, elle

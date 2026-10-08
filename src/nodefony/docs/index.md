@@ -319,7 +319,7 @@ c'est le sous-chemin qui décide de ce qui atterrit dans ton bundle.
 | Import | Ce qu'on y trouve | Où ça tourne |
 | --- | --- | --- |
 | `nodefony` | `Kernel`, `Module`, `Service`, `Container`, `RequestContext`, `Syslog`, `Pdu`, `defineConfig`, `use`, les décorateurs d'injection, `Cli` et `Command` | serveur (Node.js) |
-| `nodefony/client` | `RealtimeClient`, le pair JSON-RPC, la cadence adaptative, et les briques isomorphes | navigateur |
+| `nodefony/client` | `NodefonySocket`, le pair JSON-RPC, la cadence adaptative, et les briques isomorphes | navigateur |
 | `nodefony/react` | `NodefonyProvider` et les hooks (`useNodefony`, `useNodefonyChannel`, …) | navigateur (React) |
 | `nodefony/vue` | le plugin `nodefonyVue` et les composables `useNodefony*` | navigateur (Vue 3) |
 | `nodefony/svelte` | `configureNodefony` et les sources réactives lues `.current` | navigateur (Svelte 5) |
@@ -339,8 +339,8 @@ l'isomorphisme transparent — tu importes le même nom, tu obtiens la variante 
 > sur **`nodefony/client`**, ou directement sur `nodefony` dans un contexte navigateur.
 >
 > ```ts ignore
-> import { RealtimeClient } from "nodefony/client"; // ✅ le sous-chemin publié
-> import { RealtimeClient } from "nodefony/realtime"; // ❌ non résolu
+> import { NodefonySocket } from "nodefony/client"; // ✅ le sous-chemin publié
+> import { NodefonySocket } from "nodefony/realtime"; // ❌ non résolu
 > ```
 
 Les signatures exactes ne sont jamais recopiées ici — elles divergeraient en silence. Elles vivent

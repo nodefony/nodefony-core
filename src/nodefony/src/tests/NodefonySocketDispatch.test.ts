@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 
 /**
  * Discrimination des frames JSON-RPC 2.0 : le RÔLE se lit sur `method`, pas sur
@@ -21,15 +21,15 @@ const openTransport = (internal: Internals): void => {
   internal.send = () => true;
 };
 
-function newClient(): { client: RealtimeClient; internal: Internals } {
-  const client = new RealtimeClient({
+function newClient(): { client: NodefonySocket; internal: Internals } {
+  const client = new NodefonySocket({
     url: "ws://localhost/nodefony/api/realtime",
     autoReconnect: false,
   });
   return { client, internal: client as unknown as Internals };
 }
 
-describe("RealtimeClient — discrimination des frames (entrant vs sortant)", () => {
+describe("NodefonySocket — discrimination des frames (entrant vs sortant)", () => {
   it("RÉPONSE (id, result, SANS method) → résout la requête sortante", async () => {
     const { client, internal } = newClient();
     openTransport(internal);
@@ -138,7 +138,7 @@ describe("RealtimeClient — discrimination des frames (entrant vs sortant)", ()
   });
 });
 
-describe("RealtimeClient — realtime:denied (refus de canal observable)", () => {
+describe("NodefonySocket — realtime:denied (refus de canal observable)", () => {
   it("notification realtime:denied → onDenied {channel, reason} + onNotice", () => {
     const { client, internal } = newClient();
     const denials: Array<{ channel: string; reason: string }> = [];
@@ -171,7 +171,7 @@ describe("RealtimeClient — realtime:denied (refus de canal observable)", () =>
   });
 });
 
-describe("RealtimeClient — erreur GLOBALE serveur vs réponse corrélée", () => {
+describe("NodefonySocket — erreur GLOBALE serveur vs réponse corrélée", () => {
   it("frame `{jsonrpc, error}` SANS id → notice « Temps réel »", () => {
     const { client, internal } = newClient();
     const notices: Array<{ message: string }> = [];

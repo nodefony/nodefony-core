@@ -3,7 +3,7 @@ import { ApiClient } from "../services/ApiClient";
 import { AuthService } from "../services/AuthService";
 import {
   createClientKernel,
-  RealtimeClient,
+  NodefonySocket,
   Syslog,
   installErrorCapture,
   installRequestIdProvider,
@@ -56,7 +56,7 @@ export class RootStore {
    * application en hérite au lieu de le recopier.
    */
   readonly kernel: ClientKernel;
-  readonly realtime: RealtimeClient;
+  readonly realtime: NodefonySocket;
   /** Journal des incidents de CETTE page, remonté au pod (#35). */
   readonly browserLog: Syslog;
 
@@ -65,9 +65,9 @@ export class RootStore {
     this.workspace = new WorkspaceStore();
 
     // Connexion realtime PARTAGÉE par URL : la même socket sert Studio ET la
-    // barre de debug (qui appelle aussi RealtimeClient.shared sur la même URL)
+    // barre de debug (qui appelle aussi NodefonySocket.shared sur la même URL)
     // → une seule connexion WebSocket, pas deux. C'est le noyau qui la compose
-    // désormais : `RealtimeClient.shared` reste dessous, mais l'application ne
+    // désormais : `NodefonySocket.shared` reste dessous, mais l'application ne
     // le nomme plus — elle déclare ce qu'elle veut, le noyau le fournit.
     //
     // `connectOnBoot: false` : la socket de Studio est AUTHENTIFIÉE. Elle

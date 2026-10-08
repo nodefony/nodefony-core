@@ -42,10 +42,10 @@ let publishToChannel: RealtimePublish | null = null;
  * Côté client (navigateur OU script Node — la façade est isomorphe, le
  * subpath `nodefony/client` est sa porte explicite) :
  * ```ts
- * import { RealtimeClient } from "nodefony/client";
+ * import { NodefonySocket } from "nodefony/client";
  * // URL RELATIVE, résolue contre la page (https → wss automatique) ;
  * // `.shared()` = UNE socket par URL, partagée par toute la page.
- * const socket = RealtimeClient.shared({ url: "<%= it.route %>/realtime" });
+ * const socket = NodefonySocket.shared({ url: "<%= it.route %>/realtime" });
  * socket.on("<%= it.channel %>:events", (msg) => console.log("reçu", msg));
  * await socket.connect();
  * socket.subscribe("<%= it.channel %>:events");        // flux serveur → client

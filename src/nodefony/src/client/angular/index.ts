@@ -1,7 +1,7 @@
 /**
  * `nodefony/angular` — liaisons **Angular** du client temps réel isomorphe.
  *
- * Adapte le {@link RealtimeClient} (agnostique : `on()`/`emit()`/`state`) aux
+ * Adapte le {@link NodefonySocket} (agnostique : `on()`/`emit()`/`state`) aux
  * *signals* d'Angular, sans glue à recopier dans chaque application. Le pendant
  * exact de `nodefony/react` et `nodefony/vue` : même surface, mêmes noms, mêmes
  * garanties — seule la traduction vers la réactivité change.
@@ -80,17 +80,17 @@ import {
   type EnvironmentProviders,
   type Signal,
 } from "@angular/core";
-// `RealtimeClient` n'est importé qu'en TYPE : la fabrication de la socket
+// `NodefonySocket` n'est importé qu'en TYPE : la fabrication de la socket
 // partagée passe par `connectShared` (socle agnostique), qui porte la précédence
 // `client` sur `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
-import type { RealtimeClient } from "../realtime/RealtimeClient";
+import type { NodefonySocket } from "../realtime/NodefonySocket";
 import type {
   MessageStats,
   NodefonyNotice,
   RealtimeIdentity,
   RealtimeState,
-} from "../realtime/RealtimeClient";
+} from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 import {
   adaptiveRebindKey,
@@ -125,7 +125,7 @@ export type {
   RealtimeIdentity,
   RealtimeState,
   NodefonyNotice,
-} from "../realtime/RealtimeClient";
+} from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
 
 /**
@@ -135,7 +135,7 @@ export type { SocketSnapshot } from "../realtime/observe";
  * que celle de l'application : le fournir à nouveau dans les `providers` d'un
  * composant suffit, et les fonctions du sous-arbre suivent.
  */
-export const NODEFONY_CLIENT = new InjectionToken<RealtimeClient>(
+export const NODEFONY_CLIENT = new InjectionToken<NodefonySocket>(
   "nodefony:realtime",
 );
 
@@ -146,7 +146,7 @@ export interface NodefonyAngularOptions {
    * socket partagée pour cette URL et la connecte lui-même.
    *
    * Deux consommateurs qui donnent la même URL obtiennent la MÊME socket
-   * ({@link RealtimeClient.shared}), donc une seule connexion réseau.
+   * ({@link NodefonySocket.shared}), donc une seule connexion réseau.
    */
   url?: string;
   /**
@@ -154,7 +154,7 @@ export interface NodefonyAngularOptions {
    * cycle de connexion. Fournie, elle l'emporte sur `url` et le fournisseur ne
    * touche pas au cycle : ni `connect`, ni `disconnect`.
    */
-  client?: RealtimeClient;
+  client?: NodefonySocket;
 }
 
 /**
@@ -193,7 +193,7 @@ export function provideNodefony(
   return makeEnvironmentProviders([
     {
       provide: NODEFONY_CLIENT,
-      useFactory: (): RealtimeClient => {
+      useFactory: (): NodefonySocket => {
         // Hors zone : c'est `connect()` qui fabrique le transport, donc c'est
         // ici que `zone.js` accrocherait la socket à la détection de
         // changements. La reconnexion automatique hérite de la même zone.
@@ -220,7 +220,7 @@ export function provideNodefony(
  *   fabriquée à la volée donnerait une page qui marche en développement et parle
  *   au mauvais hôte en production — mieux vaut une erreur au premier rendu.
  */
-export function injectNodefony(): RealtimeClient {
+export function injectNodefony(): NodefonySocket {
   assertInInjectionContext(injectNodefony);
   const client = inject(NODEFONY_CLIENT, { optional: true });
   if (!client) {

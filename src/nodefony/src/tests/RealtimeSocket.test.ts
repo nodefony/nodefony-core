@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -7,7 +7,7 @@ import {
 import type { IRealtimeSocket } from "../realtime/IRealtimeSocket";
 
 /**
- * RealtimeClient implémente le contrat ISOMORPHE {@link IRealtimeSocket} (« la socket
+ * NodefonySocket implémente le contrat ISOMORPHE {@link IRealtimeSocket} (« la socket
  * Nodefony »). On vérifie la conformité de la surface (primitives duplex + handle de
  * canal) via un transport MOCK injecté — sans vrai WebSocket ni navigateur.
  */
@@ -59,11 +59,11 @@ class MockTransport implements IRealtimeTransport {
 }
 
 async function openClient(): Promise<{
-  client: RealtimeClient;
+  client: NodefonySocket;
   transport: MockTransport;
 }> {
   const transports: MockTransport[] = [];
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://x/nodefony/api/realtime", autoReconnect: false },
     () => {
       const t = new MockTransport();
@@ -77,7 +77,7 @@ async function openClient(): Promise<{
   return { client, transport: transports[0]! };
 }
 
-describe("RealtimeClient — conformité IRealtimeSocket (la socket Nodefony)", () => {
+describe("NodefonySocket — conformité IRealtimeSocket (la socket Nodefony)", () => {
   it("est assignable à IRealtimeSocket (surface du contrat présente)", async () => {
     const { client } = await openClient();
     const socket: IRealtimeSocket = client; // compile-time : conformité structurelle

@@ -98,7 +98,7 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
     });
 
     // Régression J3b : un refus d'AUTH au handshake (401/403) DOIT fermer en
-    // 1008 (Policy Violation) → le RealtimeClient n'essaie PAS de reconnecter.
+    // 1008 (Policy Violation) → le NodefonySocket n'essaie PAS de reconnecter.
     // Le clamp brut `< 1000 → 1011` (corrigé) écrasait 401 en 1011 (Internal
     // Error) → reconnexion en boucle → Studio bloquée au chargement anonyme.
     it("auth refusal 401 in connected phase → 1008 (Policy Violation, no reconnect)", () => {

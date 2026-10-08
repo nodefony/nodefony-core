@@ -18,7 +18,7 @@ import { FrameProfile } from "@nodefony/http";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
-import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/RealtimeClient.js";
+import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 import { RpcError } from "../../../../../../nodefony/src/realtime/JsonRpcPeer.js";
 import {
   TransportState,
@@ -324,11 +324,11 @@ function makeServer(
 async function connectCtx(opts: {
   headers?: Record<string, string | string[]>;
   url?: unknown;
-}): Promise<RealtimeClient> {
+}): Promise<NodefonySocket> {
   const wire = new LoopbackWire();
   makeServer(wire, opts);
   const transport = new LoopbackClientTransport(wire);
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://loopback/realtime", autoReconnect: false },
     () => transport,
   );
@@ -340,11 +340,11 @@ async function connectCtx(opts: {
 
 async function connectWith(opts: {
   noRouter?: boolean;
-}): Promise<RealtimeClient> {
+}): Promise<NodefonySocket> {
   const wire = new LoopbackWire();
   makeServer(wire, opts);
   const transport = new LoopbackClientTransport(wire);
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://loopback/realtime", autoReconnect: false },
     () => transport,
   );
@@ -373,14 +373,14 @@ const mkToken = (auth: boolean): IRealtimeToken => ({
 async function connect(
   opts: { profiling?: boolean; container?: unknown } = {},
 ): Promise<{
-  client: RealtimeClient;
+  client: NodefonySocket;
   rt: ApiRt;
   transport: LoopbackClientTransport;
 }> {
   const wire = new LoopbackWire();
   const rt = makeServer(wire, opts);
   const transport = new LoopbackClientTransport(wire);
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://loopback/realtime", autoReconnect: false },
     () => transport,
   );

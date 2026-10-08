@@ -60,8 +60,8 @@ describe("adoption du noyau client (ADR-0007 D11.4)", () => {
   it("le magasin racine compose par le noyau, pas par la socket nue", () => {
     const src = code(ROOT_STORE);
     expect(src).toContain("createClientKernel(");
-    // `RealtimeClient.shared` reste dessous — mais c'est le noyau qui l'appelle.
-    expect(src).not.toContain("RealtimeClient.shared(");
+    // `NodefonySocket.shared` reste dessous — mais c'est le noyau qui l'appelle.
+    expect(src).not.toContain("NodefonySocket.shared(");
   });
 
   it("la règle de sécurité D9 n'est PLUS dans le magasin", () => {

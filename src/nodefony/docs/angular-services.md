@@ -48,7 +48,7 @@ tient les deux bouts : **le fil est unique et long**, **les branchements sont no
 ```mermaid
 flowchart LR
   APP["main.ts<br/>provideNodefony({ url }) — UNE fois"] --> CL
-  subgraph CL["RealtimeClient (hors Angular)"]
+  subgraph CL["NodefonySocket (hors Angular)"]
     direction TB
     S["état · identité · notices"]
     C["canaux ref-comptés"]
@@ -191,10 +191,10 @@ libération et n'en oublier aucune.
 ### 3. Quand l'application possède son cycle de connexion
 
 ```ts
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 import { provideNodefony } from "nodefony/angular";
 
-declare const maSocket: RealtimeClient;
+declare const maSocket: NodefonySocket;
 
 // La socket fournie l'emporte sur `url`, et son cycle n'est pas touché :
 // ni `connect`, ni `disconnect`.
@@ -231,7 +231,7 @@ socket, elle, n'est pas un signal : c'est un objet, pas un état.
 | Fonction                                  | Rend                               | À quoi ça sert                                               |
 | ----------------------------------------- | ---------------------------------- | ------------------------------------------------------------ |
 | `provideNodefony(opts)`                   | `EnvironmentProviders`             | le fournisseur : enregistre la socket, connecte hors zone    |
-| `injectNodefony()`                        | `RealtimeClient`                   | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `injectNodefony()`                        | `NodefonySocket`                   | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
 | `injectNodefonyState()`                   | `Signal<RealtimeState>`            | afficher l'état, griser un bouton pendant une reconnexion    |
 | `injectNodefonyIdentity()`                | `Signal<RealtimeIdentity \| null>` | savoir qui est connecté — sans appeler `/auth/me`            |
 | `injectNodefonyChannel(canal, onMessage)` | —                                  | réagir à chaque message (journal, son, animation)            |
@@ -282,7 +282,7 @@ destruction trancherait les requêtes en vol des autres consommateurs.
 | Le fournisseur lève à la composition                                | Ni `url` ni `client` fourni — le framework ne devine aucune adresse           | Passer l'URL du serveur temps réel                                            |
 | L'application rame dès qu'un canal débite                           | La socket a été ouverte DANS la zone (câblage manuel, `zone.js` actif)        | Passer par `provideNodefony`, qui ouvre hors zone                             |
 | Rien n'arrive et l'état reste `disconnected`                        | Le serveur n'écoute pas cette adresse, ou la socket a été coupée              | Vérifier l'adresse du fournisseur, et qu'aucun code n'appelle `disconnect()`  |
-| `Module 'nodefony' has no exported member 'RealtimeClient'`         | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app        | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]` |
+| `Module 'nodefony' has no exported member 'NodefonySocket'`         | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app        | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]` |
 | Le canal se ré-abonne sans raison                                   | Le nom du canal est recalculé par une fonction qui lit trop de signals        | Ne faire dépendre la source que de ce qui doit vraiment ré-abonner            |
 | `needs to be compiled using the JIT compiler` dans un test          | Un contexte Angular est monté sans compilateur                                | `import "@angular/compiler";` en tête du banc — jamais dans le code livré     |
 | Notices en double                                                   | `injectNodefonyNotifications` appelé dans plusieurs composants                | Un seul appel, au shell de l'application                                      |

@@ -518,10 +518,24 @@ const SAMPLES = {
     pass: { added: `  @RealtimeChannel("chat")` },
     fail: { added: `  const wss = new WebSocketServer({ port: 8080 });` },
   },
-  "3 :: côté client : la façade isomorphe est montrée (RealtimeClient / nodefony/react)":
+  "3 :: côté client : la façade isomorphe est montrée (NodefonySocket / nodefony/react)":
     {
       pass: { content: `import { useRealtime } from "nodefony/react";` },
       fail: { content: `const socket = new WebSocket("ws://localhost:5151");` },
+      // La paire de base ne passe que par `nodefony/react` : sans ce cas, la
+      // branche de la façade pouvait garder un nom de classe disparu (#564)
+      // et recaler une application qui l'emploie, sans qu'aucun cas tombe.
+      extra: [
+        {
+          label: "accepte la façade NodefonySocket employée directement",
+          matter: {
+            content:
+              'import { NodefonySocket } from "nodefony/client";\n' +
+              'const socket = NodefonySocket.shared({ url: "/api/live/realtime" });',
+          },
+          expect: true,
+        },
+      ],
     },
   "3 :: pas de client WS recomposé à la main (new WebSocket)": {
     pass: { added: `  const { messages } = useRealtime("chat");` },

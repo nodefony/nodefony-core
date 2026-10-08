@@ -243,7 +243,7 @@ export const PORTES_CLIENT = Object.freeze([
  *
  * 🔴 Le critère client ne peut pas être écrit pour un seul moteur. Le banc
  * était React-centré exactement comme le gabarit qu'il éprouve : sa sonde
- * cherchait `RealtimeClient|nodefony/react`, si bien qu'une application Svelte
+ * cherchait le nom de la façade ou `nodefony/react`, si bien qu'une application Svelte
  * — moteur que le premier essai réel a effectivement choisi — aurait rendu un
  * FAUX ROUGE sur un travail juste, et un FAUX VERT sur le trou que #347 a
  * fermé. Ce qui se mesure est « l'agent a-t-il employé LA façade de SON
@@ -296,7 +296,7 @@ export function porteClientDe(pkg) {
 /**
  * Le motif qui constate l'emploi d'une porte cliente donnée.
  *
- * `RealtimeClient` est accepté partout : c'est la façade isomorphe elle-même,
+ * `NodefonySocket` est accepté partout : c'est la façade isomorphe elle-même,
  * exportée par `nodefony/client`, et l'employer directement est légitime quel
  * que soit le moteur. Ce qu'on refuse est le WebSocket recomposé à la main —
  * et cela se mesure par la sonde négative jumelle, pas par celle-ci.
@@ -309,7 +309,7 @@ export function porteClientDe(pkg) {
  */
 export function motifPorteClient(subpath) {
   const echappe = subpath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  return new RegExp(`RealtimeClient|${echappe}`, "u");
+  return new RegExp(`NodefonySocket|${echappe}`, "u");
 }
 
 /**

@@ -5,7 +5,7 @@ import {
   isReconnectableCloseCode,
 } from "../client/realtime/notice";
 
-describe("RealtimeClient — closeCodeToNotice (pendant client de toWsCloseCode)", () => {
+describe("NodefonySocket — closeCodeToNotice (pendant client de toWsCloseCode)", () => {
   it("fermetures propres/attendues → null (pas de bruit)", () => {
     expect(closeCodeToNotice(1000)).to.equal(null);
     expect(closeCodeToNotice(1001)).to.equal(null);
@@ -91,7 +91,7 @@ describe("RealtimeClient — closeCodeToNotice (pendant client de toWsCloseCode)
   });
 });
 
-describe("RealtimeClient — deniedToNotice (refus de canal, pendant FRAME)", () => {
+describe("NodefonySocket — deniedToNotice (refus de canal, pendant FRAME)", () => {
   it("produit TOUJOURS une notice error (≠ close-code qui peut être null)", () => {
     const n = deniedToNotice({ channel: "admin:metrics", reason: "forbidden" });
     expect(n.level).to.equal("error");
@@ -128,7 +128,7 @@ describe("RealtimeClient — deniedToNotice (refus de canal, pendant FRAME)", ()
   });
 });
 
-describe("RealtimeClient — isReconnectableCloseCode (respect sémantique RFC 6455)", () => {
+describe("NodefonySocket — isReconnectableCloseCode (respect sémantique RFC 6455)", () => {
   it("codes DÉFINITIFS → false (pas de reco : la cause ne disparaît pas)", () => {
     // 1008 = policy (401/403) : le cas central — un anonyme ne doit pas marteler.
     for (const code of [1000, 1002, 1003, 1007, 1008, 1010, 4004]) {

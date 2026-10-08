@@ -12,7 +12,7 @@
  *
  * Le harnais pilote le **côté serveur** : il injecte des frames JSON-RPC 2.0
  * telles qu'un client les enverrait, et lit celles qui sortent. Il n'embarque
- * PAS `RealtimeClient` — le client est un artefact navigateur du cœur, et le
+ * PAS `NodefonySocket` — le client est un artefact navigateur du cœur, et le
  * tirer ici le ferait entrer dans le paquet serveur publié. Ce qu'on veut
  * prouver d'un controller (ses canaux, ses actions, son plein-duplex, son
  * nettoyage) s'observe entièrement aux frames.

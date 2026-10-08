@@ -7,7 +7,7 @@
  * d'intégration existent, et pas un seul n'emploie le client que les
  * utilisateurs emploient.** Tous ouvrent une socket `ws` nue et composent les
  * trames JSON-RPC à la main. Ils prouvent donc le SERVEUR — jamais que
- * `RealtimeClient`, ses observateurs agnostiques et les hooks bâtis dessus
+ * `NodefonySocket`, ses observateurs agnostiques et les hooks bâtis dessus
  * savent lui parler. Une conformité ne se mesure que sur un client.
  *
  * Symétriquement, `src/nodefony/src/tests/clientObserve.test.ts` tient les
@@ -18,7 +18,7 @@
  * abonnements et le rejeu à la reconnexion sont confrontés au vrai pod.
  *
  * Ce qui est exercé, DE BOUT EN BOUT : la globale `WebSocket` →
- * `BrowserWsTransport` → `RealtimeClient` → `connectShared`/`observe*` — soit
+ * `BrowserWsTransport` → `NodefonySocket` → `connectShared`/`observe*` — soit
  * le chemin exact du navigateur, à une seule différence de décor près, dite
  * plus bas (le cookie).
  *
@@ -44,7 +44,7 @@ import {
   observeState,
   observeSyslog,
   PLATFORM_CHANNELS,
-  RealtimeClient,
+  NodefonySocket,
   type RealtimeIdentity,
   type RealtimeState,
 } from "nodefony/client";
@@ -147,7 +147,7 @@ function installWebSocket(cookie: string | null): void {
 
 /** Purge le registre de `shared()` — sans quoi un cas hérite de la socket du précédent. */
 function resetShared(): void {
-  const g = globalThis as { __nfRealtime__?: Map<string, RealtimeClient> };
+  const g = globalThis as { __nfRealtime__?: Map<string, NodefonySocket> };
   for (const client of g.__nfRealtime__?.values() ?? []) client.disconnect();
   delete g.__nfRealtime__;
 }

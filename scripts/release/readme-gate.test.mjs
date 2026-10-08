@@ -175,7 +175,7 @@ describe("symboles importés", () => {
     // Juger `nodefony/client` sur la surface de `nodefony` ferait rougir un
     // symbole parfaitement exporté — un faux positif est pire qu'un trou connu.
     expect(
-      lire('```ts\nimport { RealtimeClient } from "nodefony/client";\n```')
+      lire('```ts\nimport { NodefonySocket } from "nodefony/client";\n```')
         .ecarts,
     ).toEqual([]);
   });

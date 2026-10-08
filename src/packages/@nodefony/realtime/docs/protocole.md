@@ -206,14 +206,14 @@ export default ChatController;
 
 ```ts
 // frontend/src/chat.ts
-import { RealtimeClient, RpcError } from "nodefony/client";
+import { NodefonySocket, RpcError } from "nodefony/client";
 
 interface ChatHistory {
   messages: string[];
 }
 
 export async function joinChat(): Promise<void> {
-  const socket = new RealtimeClient({
+  const socket = new NodefonySocket({
     url: "wss://127.0.0.1:5152/chat/realtime",
   });
   await socket.connect();
@@ -343,7 +343,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
 | `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:812` |
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:816` |
-| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:883`     |
+| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `NodefonySocket.ts:895`     |
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`** du `notify`   | `RealtimeController.ts:874` |
 | `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:825` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:796` |
@@ -364,7 +364,7 @@ Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma 
 > `nodefony:kernel:ping` et `nodefony:kernel:gc` (`StudioRealtimeController.ts:114`) sont des exemples d'actions,
 > **pas des méthodes du cœur temps réel** : elles sont déclarées par le contrôleur
 > d'administration de `@nodefony/studio`. Un endpoint applicatif ne les expose pas. Le helper
-> `RealtimeClient.ping()` (`RealtimeClient.ts:879`) mesure le RTT en les appelant — il suppose donc
+> `NodefonySocket.ping()` (`NodefonySocket.ts:895`) mesure le RTT en les appelant — il suppose donc
 > un endpoint qui les déclare, contrairement à la notification `ping` du battement de cœur, qui
 > n'attend jamais de réponse.
 
@@ -453,7 +453,7 @@ attaquant y lirait la carte des droits. Trois motifs circulent : `forbidden` (le
 `limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:852`) et `unknown`
 (aucun producteur ne sert ce nom — jamais un oracle : un canal gardé rend `forbidden`, qu'il existe ou
 non). Côté client,
-`onDenied()` (`RealtimeClient.ts:470`) branche un handler dessus.
+`onDenied()` (`NodefonySocket.ts:488`) branche un handler dessus.
 
 > [!CAUTION]
 > Un `-32403 Forbidden` circule dans d'anciennes notes. **Ce code n'existe pas** dans Nodefony, et il
@@ -483,14 +483,14 @@ décrits dans [la page sécurité](./securite.md).
 | Symptôme                                                         | Cause                                                                                                           | Correction                                                                        |
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `subscribe` répond `-32601 method not found`                     | Envoyé **avec un `id`** : classé requête, or c'est une notification (`RealtimeController.ts:809`)               | L'émettre sans `id` — `socket.subscribe(canal)`                                   |
-| Le handler passé à `subscribe` n'est jamais appelé               | `RealtimeClient.subscribe()` prend **un seul** argument (`RealtimeClient.ts:533`)                               | `subscribe(canal)` **et** `on(canal, handler)`, deux gestes distincts             |
-| `request()` expire immédiatement, ou ignore le délai             | Signature **positionnelle** `(méthode, params, ms)` (`RealtimeClient.ts:728`) — un objet d'options n'est pas lu | `request(m, p, 5000)` ; le défaut est 30 000 ms                                   |
+| Le handler passé à `subscribe` n'est jamais appelé               | `NodefonySocket.subscribe()` prend **un seul** argument (`NodefonySocket.ts:549`)                               | `subscribe(canal)` **et** `on(canal, handler)`, deux gestes distincts             |
+| `request()` expire immédiatement, ou ignore le délai             | Signature **positionnelle** `(méthode, params, ms)` (`NodefonySocket.ts:746`) — un objet d'options n'est pas lu | `request(m, p, 5000)` ; le défaut est 30 000 ms                                   |
 | Un tableau de frames n'obtient aucune réponse                    | Le batch n'est pas implémenté : un tableau n'a pas de `jsonrpc` → `invalid` (`jsonrpc/index.ts:178`)            | Une frame = un objet ; le multiplexage remplace le batch                          |
 | Une frame malformée ne renvoie **aucune** erreur                 | Ni `-32700` ni `-32600` ne sont émis — silence + audit (`JsonRpcPeer.ts:423`)                                   | Lire le motif `invalid` côté serveur, pas la réponse                              |
 | L'exception du serveur n'arrive jamais au client                 | Zero Trust : tout throw ordinaire devient `-32603` générique (`JsonRpcPeer.ts:573`)                             | Lever une `RpcError` pour exposer volontairement code et `data`                   |
-| Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:219`)                                     | Écouter `realtime:denied` via `onDenied()` (`RealtimeClient.ts:472`)              |
+| Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:219`)                                     | Écouter `realtime:denied` via `onDenied()` (`NodefonySocket.ts:488`)              |
 | `nodefony:kernel:ping` répond `-32601` sur mon endpoint          | L'action `nodefony:kernel:ping` est déclarée par `@nodefony/studio` (`StudioRealtimeController.ts:114`)         | Déclarer la sienne, ou lire `serverMethods` avant d'appeler                       |
-| Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:831`)                                       | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`RealtimeClient.ts:879`) |
+| Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:831`)                                       | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`NodefonySocket.ts:895`) |
 | Une réponse reçue est ignorée sans message                       | Corrélation sur `id` **numériques** seulement (`JsonRpcPeer.ts:582`)                                            | Ne pas fabriquer soi-même de réponse à `id` chaîne                                |
 | Les premières frames envoyées après `connect()` semblent perdues | Le transport n'est branché qu'une fois le handshake terminé                                                     | Attendre `realtime:welcome` — le client le fait déjà                              |
 
@@ -502,7 +502,7 @@ carte de l'aperçu, régénérée depuis les résultats réels — jamais figés
 
 - **Le moteur, dans le cœur** (`src/nodefony/src/tests/`) : `JsonRpcPeer.test.ts` (classement des
   frames, corrélation, timeout, erreurs), `JsonRpcPeer.types.test.ts` (le contrat générique tient à
-  la compilation), et la famille `RealtimeClient*.test.ts` — dispatch, identité annoncée par
+  la compilation), et la famille `NodefonySocket*.test.ts` — dispatch, identité annoncée par
   l'accueil, transport, `ping`. Ces suites **ne sont pas comptées** dans la carte du module
   `@nodefony/realtime` : elles appartiennent au workspace `nodefony`.
 - **Le câblage serveur, dans ce module** : `RealtimeController.test.ts` couvre les réponses

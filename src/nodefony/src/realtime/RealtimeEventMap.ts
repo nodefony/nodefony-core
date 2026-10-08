@@ -4,7 +4,7 @@
  *
  * Le contrat (canaux pub/sub + RPC) est déclaré UNE fois côté partagé, puis injecté
  * en générique sur `IRealtimePeer<Emit, Listen, Actions>`, `JsonRpcPeer<...>` et
- * `RealtimeClient<...>`. Bénéfices : autocomplétion IDE, refactor safe (rename canal
+ * `NodefonySocket<...>`. Bénéfices : autocomplétion IDE, refactor safe (rename canal
  * → erreur compile partout), doc-as-code. **0 coût runtime** — génériques effacés
  * à la compile.
  *
@@ -159,7 +159,7 @@ export type ContractActionNames<M extends ActionsMap> = LiteralKeys<M>;
 
 /**
  * `params` d'une RPC : dictés par le contrat quand `K` lui appartient, libres
- * sinon. Règle UNIQUE — `IRealtimeSocket`, `RealtimeClient` et
+ * sinon. Règle UNIQUE — `IRealtimeSocket`, `NodefonySocket` et
  * `ServerRealtimeSocket` la partagent au lieu de la recopier.
  */
 export type ContractParams<M extends ActionsMap, K> =

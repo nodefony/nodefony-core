@@ -14,7 +14,7 @@ import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 // câble le hub. AUCUN frameAuthorizer posé à la main : on prouve la chaîne RÉELLE
 // firewall → hub → client. security ⊥ realtime au runtime ; un TEST relie les deux.
 import { Firewall } from "../../../../security/index.js";
-import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/RealtimeClient.js";
+import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -27,7 +27,7 @@ import {
  *   roleHierarchy + realtimeChannels) → `#wireRealtime` câble le hub realtime
  *   (`useAuthenticator(FirewallRealtimeAuthenticator)` + `setFrameAuthorizer`)
  *   → VRAI RealtimeController résout l'identité au handshake VIA L'ALS (comme le
- *   HttpKernel en prod) → VRAI RealtimeClient observe la décision.
+ *   HttpKernel en prod) → VRAI NodefonySocket observe la décision.
  *
  * Rien n'est mocké du côté décision : ni le verrou, ni la hiérarchie de rôles, ni
  * le câblage. On pose seulement l'`IUser` dans l'ALS au handshake (ce que fait le
@@ -209,11 +209,11 @@ function makeServer(wire: Wire): WiredRt {
  * (`null` = anonyme : ALS vide → FirewallRealtimeAuthenticator ne supporte pas →
  * ANONYMOUS_REALTIME_TOKEN, comme un vrai visiteur non loggué).
  */
-async function connectAs(user: IUser | null): Promise<RealtimeClient> {
+async function connectAs(user: IUser | null): Promise<NodefonySocket> {
   const wire = new Wire();
   const rt = makeServer(wire);
   const transport = new ManualTransport(wire);
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://loopback/realtime", autoReconnect: false },
     () => transport,
   );
@@ -232,7 +232,7 @@ async function connectAs(user: IUser | null): Promise<RealtimeClient> {
 }
 
 async function trySubscribe(
-  client: RealtimeClient,
+  client: NodefonySocket,
   channel: string,
 ): Promise<{ ticks: unknown[]; denied: Array<{ channel: string }> }> {
   const ticks: unknown[] = [];

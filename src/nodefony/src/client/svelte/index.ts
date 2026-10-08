@@ -1,7 +1,7 @@
 /**
  * `nodefony/svelte` — liaisons **Svelte 5** du client temps réel isomorphe.
  *
- * Adapte le {@link RealtimeClient} (agnostique : `on()`/`emit()`/`state`) au
+ * Adapte le {@link NodefonySocket} (agnostique : `on()`/`emit()`/`state`) au
  * système d'effets de Svelte, sans glue à recopier dans chaque application. Le
  * pendant exact de `nodefony/react`, `nodefony/vue` et `nodefony/angular` :
  * même surface, mêmes noms, mêmes garanties — seule la traduction change.
@@ -67,17 +67,17 @@
  * @module nodefony/svelte
  */
 import { createSubscriber } from "svelte/reactivity";
-// `RealtimeClient` n'est importé qu'en TYPE : la fabrication de la socket
+// `NodefonySocket` n'est importé qu'en TYPE : la fabrication de la socket
 // partagée passe par `connectShared` (socle agnostique), qui porte la précédence
 // `client` sur `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
-import type { RealtimeClient } from "../realtime/RealtimeClient";
+import type { NodefonySocket } from "../realtime/NodefonySocket";
 import type {
   MessageStats,
   NodefonyNotice,
   RealtimeIdentity,
   RealtimeState,
-} from "../realtime/RealtimeClient";
+} from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 import {
   adaptiveRebindKey,
@@ -112,7 +112,7 @@ export type {
   RealtimeIdentity,
   RealtimeState,
   NodefonyNotice,
-} from "../realtime/RealtimeClient";
+} from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
 
 /**
@@ -132,7 +132,7 @@ export interface NodefonySvelteOptions {
    * URL est fabriquée et connectée.
    *
    * Deux consommateurs qui donnent la même URL obtiennent la MÊME socket
-   * ({@link RealtimeClient.shared}), donc une seule connexion réseau.
+   * ({@link NodefonySocket.shared}), donc une seule connexion réseau.
    */
   url?: string;
   /**
@@ -140,11 +140,11 @@ export interface NodefonySvelteOptions {
    * cycle de connexion. Fournie, elle l'emporte sur `url` et son cycle n'est
    * pas touché : ni `connect`, ni `disconnect`.
    */
-  client?: RealtimeClient;
+  client?: NodefonySocket;
 }
 
 /** La socket de la page, posée par {@link configureNodefony}. */
-let pageSocket: RealtimeClient | null = null;
+let pageSocket: NodefonySocket | null = null;
 
 /**
  * Installe la politique temps réel de l'application — à appeler UNE fois, dans
@@ -186,7 +186,7 @@ export function configureNodefony(options: NodefonySvelteOptions): void {
  *   volée donnerait une page qui marche en développement et parle au mauvais
  *   hôte en production — mieux vaut une erreur au premier rendu.
  */
-export function nodefony(): RealtimeClient {
+export function nodefony(): NodefonySocket {
   if (!pageSocket) {
     throw new Error(
       "nodefony() : configureNodefony() n'a pas été appelé — " +

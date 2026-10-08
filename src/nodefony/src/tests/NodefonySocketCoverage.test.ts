@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
 } from "../realtime/IRealtimeTransport";
 
 /**
- * Couverture exhaustive du `RealtimeClient` (core isomorphe) : cycle de connexion
+ * Couverture exhaustive du `NodefonySocket` (core isomorphe) : cycle de connexion
  * (open/close/reconnect/backoff), heartbeat, échantillonneur de stats, canaux
  * (ref-count + handle + adaptatif), pont `api.request`, log protocole + redaction,
  * notices serveur. Transport MOCK piloté à la main + timers simulés.
@@ -77,7 +77,7 @@ class MockTransport implements IRealtimeTransport {
 let transports: MockTransport[] = [];
 function newClient(opts: Record<string, unknown> = {}) {
   transports = [];
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://loopback/realtime", ...opts },
     () => {
       const t = new MockTransport();
@@ -97,7 +97,7 @@ async function connected(opts: Record<string, unknown> = {}) {
   return client;
 }
 
-describe("RealtimeClient — cycle de connexion", () => {
+describe("NodefonySocket — cycle de connexion", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
@@ -223,7 +223,7 @@ describe("RealtimeClient — cycle de connexion", () => {
   });
 });
 
-describe("RealtimeClient — heartbeat + stats sampler (timers)", () => {
+describe("NodefonySocket — heartbeat + stats sampler (timers)", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
@@ -266,7 +266,7 @@ describe("RealtimeClient — heartbeat + stats sampler (timers)", () => {
   });
 });
 
-describe("RealtimeClient — la fenêtre où le serveur écoute (welcome)", () => {
+describe("NodefonySocket — la fenêtre où le serveur écoute (welcome)", () => {
   /** Les canaux effectivement demandés au serveur, dans l'ordre d'émission. */
   const abonnements = (t: MockTransport): string[] =>
     t.sent
@@ -317,7 +317,7 @@ describe("RealtimeClient — la fenêtre où le serveur écoute (welcome)", () =
   });
 });
 
-describe("RealtimeClient — canaux (ref-count, handle, adaptatif)", () => {
+describe("NodefonySocket — canaux (ref-count, handle, adaptatif)", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
@@ -378,7 +378,7 @@ describe("RealtimeClient — canaux (ref-count, handle, adaptatif)", () => {
   });
 });
 
-describe("RealtimeClient — RPC (path, ping, register)", () => {
+describe("NodefonySocket — RPC (path, ping, register)", () => {
   it("request forme PATH → routé en api.request {path} (2e arg = timeout)", async () => {
     const client = await connected();
     const p = client.request("/nodefony/kernel/api/x", 5000);
@@ -428,7 +428,7 @@ describe("RealtimeClient — RPC (path, ping, register)", () => {
   });
 });
 
-describe("RealtimeClient — log protocole, redaction, erreurs serveur", () => {
+describe("NodefonySocket — log protocole, redaction, erreurs serveur", () => {
   it("frameLog + redaction des champs sensibles (token/password/…)", async () => {
     const client = await connected();
     client.notify("auth:login" as never, {
@@ -516,7 +516,7 @@ describe("RealtimeClient — log protocole, redaction, erreurs serveur", () => {
   });
 });
 
-describe("RealtimeClient — edge (parsing, redaction, dispose, frameLog)", () => {
+describe("NodefonySocket — edge (parsing, redaction, dispose, frameLog)", () => {
   it("handleMessage : binaire (non-string) ignoré + JSON invalide ignoré", async () => {
     const client = await connected();
     const before = client.framesReceived;
@@ -604,13 +604,13 @@ describe("RealtimeClient — edge (parsing, redaction, dispose, frameLog)", () =
   });
 });
 
-describe("RealtimeClient — shared (singleton par URL) + events d'état", () => {
+describe("NodefonySocket — shared (singleton par URL) + events d'état", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
   it("shared : même URL → même instance", () => {
-    const a = RealtimeClient.shared({ url: "ws://x/realtime" });
-    const b = RealtimeClient.shared({ url: "ws://x/realtime" });
+    const a = NodefonySocket.shared({ url: "ws://x/realtime" });
+    const b = NodefonySocket.shared({ url: "ws://x/realtime" });
     expect(a).to.equal(b);
   });
 

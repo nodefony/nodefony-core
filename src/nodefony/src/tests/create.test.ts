@@ -3289,7 +3289,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le NOM de la façade reste cité par la redirection (commentaire) — on
       // vérifie l'absence d'USAGE, pas du mot (même règle que la vitrine
       // example dégradée).
-      assert.notInclude(app, "import { RealtimeClient }");
+      assert.notInclude(app, "import { NodefonySocket }");
       assert.notInclude(app, "NodefonyProvider");
       assertNoEtaResidue(dest);
     });
@@ -3380,7 +3380,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           "..",
           "client",
           "realtime",
-          "RealtimeClient.ts",
+          "NodefonySocket.ts",
         ),
         "utf8",
       );
@@ -3390,7 +3390,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       for (const m of conseils) {
         assert.isTrue(
           reelles.has(m[1]!),
-          `RealtimeClient conseille « ${m[1]} », qu'aucune route ne monte`,
+          `NodefonySocket conseille « ${m[1]} », qu'aucune route ne monte`,
         );
       }
     });
@@ -3414,7 +3414,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(rapp, "new WebSocket(");
       // Les deux concepts RETIRÉS ne doivent pas revenir par la bande : sans ces
       // deux refus, on retomberait à quatre étapes sans qu'aucun test ne tombe.
-      assert.notInclude(rapp, "RealtimeClient.shared(");
+      assert.notInclude(rapp, "NodefonySocket.shared(");
       assert.notInclude(rapp, ".connect()");
       // Vue — composables `nodefony/vue`, et la MÊME forme qu'en React : la
       // politique reçoit l'adresse (ici un plugin, le vocabulaire de Vue), un
@@ -3441,7 +3441,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(vapp, "new WebSocket(");
       // Les mêmes deux refus qu'en React, pour la même raison : sans eux, on
       // retomberait au câblage manuel sans qu'aucun test ne tombe.
-      assert.notInclude(vapp, "RealtimeClient.shared(");
+      assert.notInclude(vapp, "NodefonySocket.shared(");
       assert.notInclude(vapp, "connectShared(");
       // Et ce que les composables font DISPARAÎTRE : la liste de libérations,
       // qui est exactement l'endroit où un abonnement fuit sans se voir.
@@ -3478,7 +3478,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(aapp, "new WebSocket(");
       // Les mêmes refus qu'en React et en Vue : sans eux, on retomberait au
       // câblage manuel sans qu'aucun test ne tombe.
-      assert.notInclude(aapp, "RealtimeClient.shared(");
+      assert.notInclude(aapp, "NodefonySocket.shared(");
       assert.notInclude(aapp, "connectShared(");
       // Et ce que la liaison fait DISPARAÎTRE : la liste de libérations, qui
       // est exactement l'endroit où un abonnement fuit sans se voir.
@@ -3511,7 +3511,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(sapp2, 'nodefonyChannelData<LiveEvent>("live:events")');
       assert.include(sapp2, 'live.request("live:ping"');
       assert.notInclude(sapp2, "new WebSocket(");
-      assert.notInclude(sapp2, "RealtimeClient.shared(");
+      assert.notInclude(sapp2, "NodefonySocket.shared(");
       assert.notInclude(sapp2, "connectShared(");
       assert.notInclude(sapp2, "offLive");
 
@@ -3537,7 +3537,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // refait à la main — les trois recopies que #36 a supprimées.
         assert.notInclude(
           src,
-          "RealtimeClient.shared(",
+          "NodefonySocket.shared(",
           `${front} : la socket ne se fabrique plus à la main`,
         );
         assert.notInclude(
@@ -3652,7 +3652,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(mapp, "new WebSocket(");
       // La façade n'est pas IMPORTÉE en minimal (le commentaire du gabarit la
       // MENTIONNE — c'est voulu : il pointe vers `create controller --kind realtime`).
-      assert.notInclude(mapp, "import { RealtimeClient }");
+      assert.notInclude(mapp, "import { NodefonySocket }");
       assertNoEtaResidue(mdest);
     });
 
@@ -4227,7 +4227,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       for (const recopie of [
         "nodefony env",
         "nodefony stop",
-        "RealtimeClient",
+        "NodefonySocket",
       ]) {
         assert.notInclude(claude, recopie);
         assert.include(agents, recopie);
@@ -4860,7 +4860,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(src, "realtimeChannels()");
       // La TSDoc client cite les VRAIS symboles de la façade (une API inventée
       // dans un exemple coûte plus cher qu'aucun exemple).
-      assert.include(src, "RealtimeClient.shared");
+      assert.include(src, "NodefonySocket.shared");
       assert.include(src, "useNodefonyChannelData");
 
       // Le controller naît avec SON test, nommé d'après la route qu'il éprouve.
@@ -6262,8 +6262,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // `create app --frontend`, qui montre la liaison temps réel du moteur, et
       // un squelette de dix-huit lignes rendu ici, qui n'en montrait rien.
       // Mesuré sur une session réelle (agent tiers) : parti du squelette,
-      // l'agent a recomposé à la main la résolution d'URL que `RealtimeClient`
-      // fait déjà (`src/client/realtime/RealtimeClient.ts`), puis a coupé la
+      // l'agent a recomposé à la main la résolution d'URL que `NodefonySocket`
+      // fait déjà (`src/client/realtime/NodefonySocket.ts`), puis a coupé la
       // socket PARTAGÉE de la page en croyant libérer son abonnement. Il avait
       // pourtant lu le TSDoc du controller qui montrait la bonne forme : un
       // exemple de CODE dans le fichier qu'on édite agit, la prose à côté non.

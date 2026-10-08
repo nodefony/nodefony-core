@@ -6,7 +6,7 @@
 } from "./e2e.setup";<% } else { %>import { appBaseUrl, isExternalTarget } from "./e2e.setup";<% } %>
 import { <% if (it.hasSecurity) { %>AUTH_LOGIN_PATH, <% } %>readRuntimeState } from "nodefony";
 <% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 <% } %>import { describe, it, expect, beforeAll } from "vitest";
 
 /**
@@ -79,7 +79,7 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
 <% if (it.complete) { %>
   it("realtime — RPC live:ping + aller-retour sur le canal live:events", async () => {
     // La MÊME façade que les vitrines navigateur — zéro `ws` à la main.
-    const live = new RealtimeClient({ url: `${WS_BASE}/api/live/realtime` });
+    const live = new NodefonySocket({ url: `${WS_BASE}/api/live/realtime` });
     try {
       // Listener posé AVANT subscribe : le fournisseur démarre au 1ᵉʳ abonné.
       const receivedP = new Promise<unknown>((resolve, reject) => {

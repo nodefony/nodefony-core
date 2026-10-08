@@ -34,7 +34,7 @@
  *    naturelle des canaux à état (SIP, bridge) et point d'accroche des futures couches
  *    (codec, cadence AIMD, politique drop/coalesce/batch par canal).
  *
- * Impl de référence : {@link RealtimeClient} (navigateur). Côté serveur, le hub à canaux
+ * Impl de référence : {@link NodefonySocket} (navigateur). Côté serveur, le hub à canaux
  * partagés ({@link RealtimeHub}, fan-out + backings) et une façade consommateur dériveront
  * de ce même contrat.
  *
@@ -58,7 +58,7 @@ export type RealtimeHandler = (...args: unknown[]) => void;
 
 /**
  * Compteurs d'un canal — **génériques**, calculés au point d'arrivée des frames donc
- * fiables et réutilisables par toute app. (`RealtimeClient.MessageStats` en est l'alias.)
+ * fiables et réutilisables par toute app. (`NodefonySocket.MessageStats` en est l'alias.)
  */
 export interface IChannelStats {
   /** Méthode JSON-RPC == nom du canal pub/sub. */
@@ -103,7 +103,7 @@ export interface IRealtimeChannel {
 
 /**
  * Contrat de « la socket Nodefony » — voir le bloc de tête du fichier. Implémenté par
- * {@link RealtimeClient} (front) et, à terme, par une façade serveur au-dessus du hub.
+ * {@link NodefonySocket} (front) et, à terme, par une façade serveur au-dessus du hub.
  *
  * @typeParam Emit    — canaux pub/sub SORTANTS (typage de `publish`).
  * @typeParam Listen  — canaux pub/sub RÉCEPTIONNÉS (typage de `subscribe`/`on`/`off`).

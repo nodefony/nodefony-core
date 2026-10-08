@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -92,8 +92,8 @@ class MockTransport implements IRealtimeTransport {
 
 let transports: MockTransport[] = [];
 
-function newClient(opts: Record<string, unknown> = {}): RealtimeClient {
-  return new RealtimeClient({ url: "ws://loopback/realtime", ...opts }, () => {
+function newClient(opts: Record<string, unknown> = {}): NodefonySocket {
+  return new NodefonySocket({ url: "ws://loopback/realtime", ...opts }, () => {
     const t = new MockTransport();
     transports.push(t);
     return t;
@@ -101,7 +101,7 @@ function newClient(opts: Record<string, unknown> = {}): RealtimeClient {
 }
 
 /** Ouvre la socket et rend le transport courant, prêt à pousser des frames. */
-async function connected(client: RealtimeClient): Promise<MockTransport> {
+async function connected(client: NodefonySocket): Promise<MockTransport> {
   const promise = client.connect();
   transports[transports.length - 1]!.fireOpen();
   await promise;

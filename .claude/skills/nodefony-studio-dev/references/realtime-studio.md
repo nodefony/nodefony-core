@@ -1,7 +1,7 @@
 # Référence — Realtime Studio (canaux · hub UI · log protocole · patron sondes)
 
 > Le temps réel est **le différenciateur** Nodefony. Les **mécanismes généraux** de la socket client
-> (`RealtimeClient`, ref-comptage, pont `api.request`, reconnexion) vivent dans **`nodefony-frontend-dev`**
+> (`NodefonySocket`, ref-comptage, pont `api.request`, reconnexion) vivent dans **`nodefony-frontend-dev`**
 > (`.claude/skills/nodefony-frontend-dev/references/realtime-client.md`) — ne pas les redocumenter ici. CE fichier = la part **Studio** :
 > canaux servis, hub UI, log de protocole, et le PATRON observabilité (sondes back + abonnement hub).
 
@@ -17,7 +17,7 @@
 ## 1. Canaux realtime Studio
 
 Architecture : WS JSON-RPC 2.0 `WS /nodefony/studio/api/realtime` (`StudioRealtimeController`) ⇄
-`RealtimeClient` (Core, `nodefony`). Pub/sub PAR CANAL on-demand ; providers serveur
+`NodefonySocket` (Core, `nodefony`). Pub/sub PAR CANAL on-demand ; providers serveur
 **transport-agnostiques** (`nodefony/realtime/providers.ts`).
 
 **Ajouter un canal realtime** :
@@ -49,7 +49,7 @@ paint = `GET /nodefony/realtime/api/health`. Panneau « Hub » = KpiCard canaux/
   → skill `nodefony-framework-dev`.** Le générique (protocole, RTT) vit dans la lib/le framework, PAS dupliqué front.
 
 **Architecture « la socket Nodefony »** (north-star) : `RealtimeHub` (broker serveur) = lien fusionnel isomorphe ;
-sous lui Endpoint(`IRealtimePeer`) > Peer(`JsonRpcPeer`) > Transport(`IRealtimeTransport`, seul seam). `RealtimeClient`
+sous lui Endpoint(`IRealtimePeer`) > Peer(`JsonRpcPeer`) > Transport(`IRealtimeTransport`, seul seam). `NodefonySocket`
 et `StudioRealtimeController` composent le MÊME peer. Front = consommateur du hub → hooks/stores, ne touche jamais le
 protocole.
 
@@ -58,7 +58,7 @@ protocole.
 > Mécanisme **général** → détail dans `nodefony-frontend-dev` (`.claude/skills/nodefony-frontend-dev/references/realtime-client.md`). Rappel des points
 > qui mordent en Studio :
 
-- **1 SEULE socket par origine** : `RealtimeClient.shared({url})` (singleton par URL sur `globalThis`, scheme
+- **1 SEULE socket par origine** : `NodefonySocket.shared({url})` (singleton par URL sur `globalThis`, scheme
   normalisé ws/wss). Studio (`RootStore`) ET la debug bar l'utilisent → pas 2 connexions.
 - **TOUS les consommateurs ref-comptent** (`client.subscribe`/`useNodefonyChannel`/`conn.subscribe`) — **JAMAIS**
   de raw `client.emit("subscribe")` : sur le client partagé, un `unsubscribe` (ref→0) coupe le canal pour TOUS.
@@ -67,7 +67,7 @@ protocole.
 
 ## 4. Log protocole (inspecteur de frames)
 
-- `RealtimeClient` garde un **ring always-on bon marché** : `recordFrame` ne pousse qu'une réf brute
+- `NodefonySocket` garde un **ring always-on bon marché** : `recordFrame` ne pousse qu'une réf brute
   `{ts,dir,msg}` ; la construction + **redaction des secrets** sont DIFFÉRÉES à la lecture
   (`get frameLog`) ou au live (`__frame__`, émis seulement si un listener écoute). → la console
   « retrace l'instant » dès l'ouverture (seed depuis `frameLog`), sans surcoût hors console.

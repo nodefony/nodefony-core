@@ -27,7 +27,7 @@ export type RealtimeInboundHandler = (
  * (Les hooks `realtimeActions()` / `realtimeChannels()` sont `protected` sur la base
  * — détail d'implémentation surchargeable, hors contrat public.)
  *
- * Côté client, le pendant n'est PAS un controller mais `RealtimeClient` — tous deux
+ * Côté client, le pendant n'est PAS un controller mais `NodefonySocket` — tous deux
  * composent le même peer ; cf vision « la socket Nodefony ».
  */
 export interface IRealtimeController {

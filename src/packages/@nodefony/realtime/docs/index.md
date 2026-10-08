@@ -253,11 +253,11 @@ export default ChatController;
 Le client est isomorphe : c'est le cœur `nodefony` lui-même, importable côté navigateur.
 
 ```ts
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
 // `shared` réutilise la connexion existante pour une même URL : dix composants
 // qui écoutent dix canaux ouvrent UNE socket, pas dix.
-const socket = RealtimeClient.shared({
+const socket = NodefonySocket.shared({
   url: "wss://127.0.0.1:5152/chat/realtime",
 });
 
@@ -309,7 +309,7 @@ Côté serveur : `RealtimeController` (la classe à étendre), les décorateurs 
 publier depuis n'importe quel service injecté, le `RealtimeHub` et sa sonde, les trois backplanes
 natifs, et le registre de drivers pour brancher le tien.
 
-Côté client : `RealtimeClient` via le subpath `nodefony/client`, et les hooks React via
+Côté client : `NodefonySocket` via le subpath `nodefony/client`, et les hooks React via
 `nodefony/react`.
 
 Les signatures exactes vivent dans le graphe généré — `jq '.symbols.RealtimeHub' .ai/symbols.json` —

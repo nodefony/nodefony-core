@@ -47,7 +47,7 @@ tient les deux bouts : **le fil est unique et long**, **les branchements sont no
 ```mermaid
 flowchart LR
   APP["main.ts<br/>configureNodefony({ url }) — UNE fois"] --> CL
-  subgraph CL["RealtimeClient (hors Svelte)"]
+  subgraph CL["NodefonySocket (hors Svelte)"]
     direction TB
     S["état · identité · notices"]
     C["canaux ref-comptés"]
@@ -211,7 +211,7 @@ un **teardown**, à donner à `$effect`.
 | Liaison                             | Rend                                 | À quoi ça sert                                               |
 | ----------------------------------- | ------------------------------------ | ------------------------------------------------------------ |
 | `configureNodefony(opts)`           | —                                    | la politique : socket de la page, connexion lancée           |
-| `nodefony()`                        | `RealtimeClient`                     | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `nodefony()`                        | `NodefonySocket`                     | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
 | `nodefonyState()`                   | `Reactive<RealtimeState>`            | afficher l'état, griser un bouton pendant une reconnexion    |
 | `nodefonyIdentity()`                | `Reactive<RealtimeIdentity \| null>` | savoir qui est connecté — sans appeler `/auth/me`            |
 | `nodefonyChannel(canal, onMessage)` | `teardown`                           | réagir à chaque message — **non paresseux**                  |
@@ -261,7 +261,7 @@ démontage trancherait les requêtes en vol des autres consommateurs.
 | La configuration lève au démarrage                          | Ni `url` ni `client` fourni — le framework ne devine aucune adresse    | Passer l'URL du serveur temps réel                                            |
 | `mount(...) is not available on the server`                 | Svelte a été résolu en construction SERVEUR (test, SSR)                | Résoudre `svelte` en condition `browser` — cf `vitest.config.ts` du cœur      |
 | L'état reste `disconnected`                                 | Le serveur n'écoute pas cette adresse, ou la socket a été coupée       | Vérifier l'adresse, et qu'aucun code n'appelle `disconnect()`                 |
-| `Module 'nodefony' has no exported member 'RealtimeClient'` | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]` |
+| `Module 'nodefony' has no exported member 'NodefonySocket'` | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]` |
 | Notices en double                                           | `nodefonyNotifications` monté dans plusieurs composants                | Un seul appel, au shell de l'application                                      |
 | Une exception dans un rappel disparaît sans trace           | Le dispatch du client isole les erreurs de handler                     | Envelopper le corps du rappel dans son propre `try`/`catch`                   |
 

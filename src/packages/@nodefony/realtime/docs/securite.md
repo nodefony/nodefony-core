@@ -220,9 +220,9 @@ refus est **visible**, jamais un silence.
 
 ```typescript
 // frontend — le client isomorphe du core
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
-const socket = new RealtimeClient({ url: "wss://app.exemple.com/rt/orders" });
+const socket = new NodefonySocket({ url: "wss://app.exemple.com/rt/orders" });
 
 // Refus poussés par le serveur — première classe côté client.
 socket.onDenied((denied) => {

@@ -144,7 +144,7 @@ Le `Resolver.returnController` normalise le retour d'action. **Connaître le con
   `WebsocketContext`). Émissibles conservés (1000-1003, 1007-1011, 3000-4999) ; HTTP 5xx→**1011**, 401/403→**1008**,
   autre 4xx (404…)→**4004** privé (⚠️ **PAS** de `4000+code`/`4404` inventé) ; 0-999 + réservés non émissibles
   (1004/1005/1006/1015)→1011. **`connection.on("error")` OBLIGATOIRE** sur toute socket ws (un `error` sans
-  listener = crash process). Côté client (RealtimeClient) : politique de reco PAR code (cf `[[project_realtime_close_codes_client]]`).
+  listener = crash process). Côté client (NodefonySocket) : politique de reco PAR code (cf `[[project_realtime_close_codes_client]]`).
 - **`maxPayload` WS** (config `websocket.maxPayload`, défaut sûr **1 MiB** anti-DoS) → message trop gros = `ws`
   ferme **1009 « Message Too Big »** (RFC 6455 §7.4.1) ; l'`error` est captée par `onConnectionError` (pas de crash).
 - **Throws** : pas de `try { … } catch (e) { throw e }` (no-op) ni `return await` dans le hot path (microtask

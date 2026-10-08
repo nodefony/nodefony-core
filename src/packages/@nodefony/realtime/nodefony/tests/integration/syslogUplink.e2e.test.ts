@@ -7,7 +7,7 @@ import type { ContextType } from "@nodefony/http";
 import type Pdu from "../../../../../../nodefony/src/syslog/Pdu.js";
 // Les DEUX bords en SOURCE : le client isomorphe et son journal, tels qu'un
 // navigateur les exécute.
-import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/RealtimeClient.js";
+import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -25,7 +25,7 @@ import { PLATFORM_INBOUND } from "../../../../../../nodefony/src/realtime/platfo
 /**
  * Pose un faux `window` et rend son retrait. Il DOIT passer par `afterEach` : une
  * assertion qui jette avant un retrait écrit à la main laisse un `window` sans
- * `location`, et le `RealtimeClient` des tests SUIVANTS meurt en le lisant —
+ * `location`, et le `NodefonySocket` des tests SUIVANTS meurt en le lisant —
  * l'échec se déplace alors sur des cas qui n'ont rien fait de mal.
  */
 let restoreWindow: (() => void) | null = null;
@@ -44,7 +44,7 @@ function fakeWindow(): EventTarget {
 
 /**
  * BOUT-EN-BOUT du canal MONTANT des journaux (#35) — un vrai `Syslog` de
- * navigateur, un vrai `RealtimeClient`, un vrai `RealtimeController`, et le
+ * navigateur, un vrai `NodefonySocket`, un vrai `RealtimeController`, et le
  * journal du pod à l'arrivée.
  *
  * POURQUOI cette suite, alors que les deux bords sont déjà testés : parce qu'ils
@@ -121,7 +121,7 @@ class UplinkRt extends RealtimeController {
 
 /** Monte le pair complet ; `serverSeen` reçoit les Pdu réinjectés dans le pod. */
 async function connectPair(): Promise<{
-  client: RealtimeClient;
+  client: NodefonySocket;
   rt: UplinkRt;
   serverSeen: Pdu[];
 }> {
@@ -159,7 +159,7 @@ async function connectPair(): Promise<{
   });
   wire.feedServer = (raw) => rt.feed(raw);
   const transport = new LoopbackTransport(wire);
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://loopback/realtime", autoReconnect: false },
     () => transport,
   );

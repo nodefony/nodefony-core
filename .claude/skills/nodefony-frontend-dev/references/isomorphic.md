@@ -2,7 +2,7 @@
 
 Référence du **paquet `nodefony` partagé front/back** : comment le même paquet npm sert un build serveur ET un build navigateur, quels sous-chemins (subpaths) le front consomme, où passe la frontière (interdit d'importer le serveur), et le RBAC isomorphe `nodefony/roles`. Ancres `fichier:ligne` vérifiées (chemins relatifs à la racine du repo).
 
-> Pour le client temps réel (`RealtimeClient`) et les hooks React → voir [`realtime-client.md`](./realtime-client.md).
+> Pour le client temps réel (`NodefonySocket`) et les hooks React → voir [`realtime-client.md`](./realtime-client.md).
 
 ## Sommaire
 
@@ -22,14 +22,14 @@ Référence du **paquet `nodefony` partagé front/back** : comment le même paqu
 Le paquet npm s'appelle **`nodefony`** (pas `@nodefony/core` — héritage JS). Un SEUL paquet est publié, mais il porte **deux faces** :
 
 - une face **serveur** (Node.js) — Kernel, Container, http, etc. ;
-- une face **navigateur** (browser) — `RealtimeClient`, `Syslog`/`Pdu` (pour le rendu de logs), roles, hooks React, debug bar.
+- une face **navigateur** (browser) — `NodefonySocket`, `Syslog`/`Pdu` (pour le rendu de logs), roles, hooks React, debug bar.
 
 Le code « plan de contrôle » réellement partagé (protocole JSON-RPC 2.0, contrats de socket, convention de cadence, RBAC) est écrit **une seule fois** et tourne **des deux côtés** — c'est le pari isomorphe de Nodefony. Le seul maillon qui diffère est le transport des octets (`IRealtimeTransport`, cf [`realtime-client.md`](./realtime-client.md)).
 
 Un front (Studio, ou n'importe quelle app servie par `@nodefony/frontend`) écrit simplement :
 
 ```ts
-import { RealtimeClient } from "nodefony"; // face browser (cf §3)
+import { NodefonySocket } from "nodefony"; // face browser (cf §3)
 import { NodefonyProvider, useNodefonyState } from "nodefony/react";
 import { hasRole, RoleSet } from "nodefony/roles";
 ```
@@ -91,7 +91,7 @@ Comme `"."` a deux faces, le front DOIT forcer la condition `browser` pour que `
 
 Explication figée dans le commentaire du fichier (`tsconfig.json:3`) :
 
-> « `customConditions:['browser']` aligne tsc sur Vite : l'import `nodefony` résout vers le build client isomorphe (condition d'export `browser`) qui expose `RealtimeClient`/`RealtimeState` et **ne tire PAS la source serveur http/security**. Sans ça, tsc prenait les types node (33 erreurs cross-package). »
+> « `customConditions:['browser']` aligne tsc sur Vite : l'import `nodefony` résout vers le build client isomorphe (condition d'export `browser`) qui expose `NodefonySocket`/`RealtimeState` et **ne tire PAS la source serveur http/security**. Sans ça, tsc prenait les types node (33 erreurs cross-package). »
 
 - **Vite** (le bundler runtime du front) applique nativement la condition `browser` → il résout la face navigateur tout seul.
 - **`tsc --noEmit`** (le filet de typage, `npm run typecheck`) ne le fait PAS par défaut → sans `customConditions: ["browser"]` il prend la face node, importe transitivement la source serveur, et part en erreurs cross-package.
@@ -119,7 +119,7 @@ La règle d'or : **du code front n'importe jamais la face serveur**. Concrèteme
 - Importer depuis `"nodefony"` est OK **uniquement** sous condition `browser` (§3) — sinon on tire `dist/node/` (Kernel, http, security) dans le bundle navigateur.
 - Les subpaths `nodefony/client`, `nodefony/react`, `nodefony/roles`, `nodefony/debugbar` sont **toujours sûrs** (pas de face node).
 - Le code protocole partagé (`src/nodefony/src/realtime/*` : `JsonRpcPeer`, `IRealtimeSocket`, `IRealtimeTransport`, `RealtimeEventMap`, `channelRate`) est **sans dépendance Node** (browser-safe par construction) — c'est ce qui rend l'isomorphisme possible.
-- Le barrel client (`src/client/index.ts`) ne réexporte QUE des briques browser-safe : `Service`, `Container`, `Syslog`, `Pdu`, helpers `Tools`, `RealtimeClient`, `JsonRpcPeer`, transports, AdaptiveRate, drivers Pdu. Il N'expose PAS `Kernel`/`Module`/http.
+- Le barrel client (`src/client/index.ts`) ne réexporte QUE des briques browser-safe : `Service`, `Container`, `Syslog`, `Pdu`, helpers `Tools`, `NodefonySocket`, `JsonRpcPeer`, transports, AdaptiveRate, drivers Pdu. Il N'expose PAS `Kernel`/`Module`/http.
 
 Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/`react-dom` sont **optionnels** (`peerDependenciesMeta`, lignes 98-104) — tirés seulement si on importe `nodefony/react` ; `zod` reste requis. Aucun JSX dans le build Core : le provider React est créé via `React.createElement` (cf `src/client/react/index.ts:53`) → le build Core ne dépend d'aucun transform JSX.
 
@@ -131,7 +131,7 @@ Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/
 | Subpath | Source | Contient |
 | --- | --- | --- |
 | `nodefony` (browser) | `src/client/index.ts` | Barrel client = tout `nodefony/client` (alias) ; c'est l'import « par défaut » du front. |
-| `nodefony/client` | `src/client/index.ts` | `RealtimeClient`, `JsonRpcPeer`, `RpcError`, `TransportState`, `BrowserWsTransport`, `AdaptiveRate`, `bindAdaptiveChannel`, `closeCodeToNotice`, `rateChannel`/`parseRate`/`isRateChannel`, drivers `pduProtocol`/`pduFlowStep`/`FLOW_STEPS`, et `Service`/`Container`/`Syslog`/`Pdu` + helpers `Tools` (`extend`, `typeOf`, `isArray`…). Default export = singleton `Nodefony` (`generateId`, `generateV5Id`). |
+| `nodefony/client` | `src/client/index.ts` | `NodefonySocket`, `JsonRpcPeer`, `RpcError`, `TransportState`, `BrowserWsTransport`, `AdaptiveRate`, `bindAdaptiveChannel`, `closeCodeToNotice`, `rateChannel`/`parseRate`/`isRateChannel`, drivers `pduProtocol`/`pduFlowStep`/`FLOW_STEPS`, et `Service`/`Container`/`Syslog`/`Pdu` + helpers `Tools` (`extend`, `typeOf`, `isArray`…). Default export = singleton `Nodefony` (`generateId`, `generateV5Id`). |
 | `nodefony/react` | `src/client/react/index.ts` | `NodefonyProvider` + hooks `useNodefony*` (état, canaux, identité, syslog, notifications). Réexporte `rateChannel`/`parseRate`/`isRateChannel`. Voir [`realtime-client.md`](./realtime-client.md). |
 | `nodefony/roles` | `src/client/roles/index.ts` | RBAC pur isomorphe : `hasRole`/`hasAnyRole`/`hasAllRoles`, `RoleSet`, `RoleRegistry`, `ROLE_MASK_CAPACITY`. Voir §6. |
 | `nodefony/debugbar` | `src/client/debugbar/index.ts` | Debug bar Nodefony (vanilla TS + Shadow DOM, dev-only — ≠ React/Mantine). Détails dans le skill `nodefony-studio-dev`. |
@@ -139,7 +139,7 @@ Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/
 
 Barrel client — points d'ancrage (`src/client/index.ts`) :
 
-- Réexports nommés (`RealtimeClient`, `JsonRpcPeer`, `RpcError`, `TransportState`, `BrowserWsTransport`, `closeCodeToNotice`, `rateChannel`, `parseRate`, `isRateChannel`, `AdaptiveRate`, `bindAdaptiveChannel`, `pduProtocol`, `pduFlowStep`, `FLOW_STEPS`, `Service`, `Container`, `Pdu`, `Syslog`, helpers) → lignes 83-113.
+- Réexports nommés (`NodefonySocket`, `JsonRpcPeer`, `RpcError`, `TransportState`, `BrowserWsTransport`, `closeCodeToNotice`, `rateChannel`, `parseRate`, `isRateChannel`, `AdaptiveRate`, `bindAdaptiveChannel`, `pduProtocol`, `pduFlowStep`, `FLOW_STEPS`, `Service`, `Container`, `Pdu`, `Syslog`, helpers) → lignes 83-113.
 - Singleton `Nodefony` (default export) avec `generateId()`/`generateV5Id()` → lignes 58-82.
 
 ---
@@ -239,9 +239,9 @@ Exemples vérifiés dans le front Studio (`src/packages/@nodefony/studio/fronten
 
 ```ts
 // stores/RootStore.ts:4 — le client (face browser, via customConditions)
-import { RealtimeClient } from "nodefony";
+import { NodefonySocket } from "nodefony";
 // …
-this.realtime = RealtimeClient.shared({ /* url, token… */ });   // RootStore.ts:54 — singleton par URL
+this.realtime = NodefonySocket.shared({ /* url, token… */ });   // RootStore.ts:54 — singleton par URL
 
 // App.tsx:12 + :278 — le provider React au-dessus du shell
 import { NodefonyProvider } from "nodefony/react";
@@ -253,7 +253,7 @@ import { hasAnyRole, hasRole } from "nodefony/roles";
 
 Pattern :
 
-1. L'**app** est maîtresse du cycle de connexion : elle crée/partage le client (`RealtimeClient.shared`) et appelle `connect()` une fois (au shell).
+1. L'**app** est maîtresse du cycle de connexion : elle crée/partage le client (`NodefonySocket.shared`) et appelle `connect()` une fois (au shell).
 2. Elle monte `<NodefonyProvider client={…}>` une fois au-dessus de l'arbre.
 3. Les composants consomment les hooks `useNodefony*` (état, canaux, identité) et `nodefony/roles` (gating).
 

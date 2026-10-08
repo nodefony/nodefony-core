@@ -8,7 +8,7 @@
  * collecte/agrégation, exactement comme les providers serveur sont découplés du
  * transport. Découplage collecte / rendu.
  */
-import type { RealtimeState } from "../realtime/RealtimeClient";
+import type { RealtimeState } from "../realtime/NodefonySocket";
 import Pdu, { type Severity } from "../../syslog/Pdu";
 import { stripAnsi } from "./format";
 

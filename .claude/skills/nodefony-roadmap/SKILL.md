@@ -89,7 +89,7 @@ Container = orchestration de sous-agents · multi-ORM = persistance audit/coûts
 
 `@nodefony/realtime` (hub + TCP/UDP + backplanes Loopback/IPC/Redis, bus authentifié) et
 `@nodefony/redis` sont **livrés et durcis**. La lib cliente est livrée en **subpaths du core** —
-`nodefony/client` (RealtimeClient), `nodefony/react` (hooks), `nodefony/debugbar` — **pas** de package
+`nodefony/client` (NodefonySocket), `nodefony/react` (hooks), `nodefony/debugbar` — **pas** de package
 `@nodefony/client` séparé ([[project_client_lib_subpaths_decision]]).
 
 **Reste** : `@nodefony/kafka` (P13.6, attend un 2ᵉ consommateur — bus events métier / agents P12),

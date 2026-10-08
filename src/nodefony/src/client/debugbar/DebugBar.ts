@@ -5,7 +5,7 @@
  *
  * 2ᵉ consommateur navigateur du Core isomorphe après Studio : MÊME backbone
  * realtime (WS JSON-RPC 2.0, canaux `nodefony:supervision` / `nodefony:syslog`) via
- * {@link RealtimeClient}. Aucun rendu serveur splicé dans le body : le serveur
+ * {@link NodefonySocket}. Aucun rendu serveur splicé dans le body : le serveur
  * *collecte*, le client *rend*.
  *
  * UI : **onglets** (Realtime / Network / Perf / Logs / Runtime) — un seul pane
@@ -24,7 +24,7 @@
  * `X-Request-Id`) → **waterfall des phases** du pipeline. SPA-first : on profile
  * les appels, pas la page. Le `traceparent` W3C (RFC-propre) est aussi remonté.
  */
-import { RealtimeClient } from "../realtime/RealtimeClient";
+import { NodefonySocket } from "../realtime/NodefonySocket";
 import {
   DebugBarModel,
   FEED_MAX,
@@ -139,7 +139,7 @@ export interface DebugBarOptions {
   /** URL/chemin du WS realtime. Défaut : `/nodefony/studio/api/realtime`. */
   url?: string;
   /** Client realtime injectable (partage / tests). Sinon créé en interne. */
-  client?: RealtimeClient;
+  client?: NodefonySocket;
   /** Position verticale du widget. Défaut `bottom`. */
   position?: "bottom" | "top";
   /** Ouvre le panneau au montage. Défaut `false`. */
@@ -553,7 +553,7 @@ const GLOBAL_KEY = "__NODEFONY_DEBUGBAR__";
  * (un seul `#nodefony-debugbar` par page).
  */
 export class DebugBar {
-  private readonly client: RealtimeClient;
+  private readonly client: NodefonySocket;
   private readonly model = new DebugBarModel();
   private readonly url: string;
   private readonly position: "bottom" | "top";
@@ -622,7 +622,7 @@ export class DebugBar {
     this.position = opts.position ?? "bottom";
     this.startOpen = opts.open ?? false;
     // Client TOUJOURS partagé : `opts.client` explicite OU le singleton par URL
-    // (`RealtimeClient.shared`) → mutualise la socket avec l'app hôte (Studio).
+    // (`NodefonySocket.shared`) → mutualise la socket avec l'app hôte (Studio).
     // Jamais « possédé » → la barre ne déconnecte JAMAIS au démontage.
     this.ownClient = false;
     this.frontend = opts.frontend ?? null;
@@ -631,7 +631,7 @@ export class DebugBar {
       /\/$/,
       "",
     );
-    this.client = opts.client ?? RealtimeClient.shared({ url: this.url });
+    this.client = opts.client ?? NodefonySocket.shared({ url: this.url });
     // AVANT la première lecture : un état écrit par un format précédent est
     // jeté ici, pas interprété plus bas.
     lsMigrate();

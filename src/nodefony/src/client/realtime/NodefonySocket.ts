@@ -1,17 +1,10 @@
 /**
- * RealtimeClient — Core isomorphe Nodefony côté navigateur (P14.11).
+ * La socket cliente de Nodefony — classe {@link NodefonySocket}, publiée par
+ * `nodefony/client`.
  *
- * Protocole : JSON-RPC 2.0 maison sur WebSocket (+ HTTP long-polling fallback TODO P13).
- * State machine : disconnected → connecting → connected → reconnecting → error.
- *
- * Features :
- *  - reconnect exponentiel avec back-off
- *  - pub/sub (on/off/emit) — notifications JSON-RPC sans id
- *  - request/response — RPC bidirectionnel typé
- *  - streaming — chunks `{ id, stream: { chunk, done } }` pour LLM token-by-token
- *
- * Le backend WS de référence (RealtimeService) sera implémenté en P13.4.
- * En attendant, ce client peut parler à n'importe quel serveur JSON-RPC 2.0.
+ * Machine d'états : disconnected → connecting → connected → reconnecting → error.
+ * Le transport est injectable ({@link IRealtimeTransport}) ; le transport par
+ * défaut est le WebSocket du navigateur ({@link BrowserWsTransport}).
  */
 import {
   closeCodeToNotice,
@@ -31,7 +24,7 @@ import {
 import { LOCAL_EVENTS } from "./localEvents";
 
 /**
- * Enveloppe d'un appel {@link RealtimeClient.call} : la valeur rendue par la
+ * Enveloppe d'un appel {@link NodefonySocket.call} : la valeur rendue par la
  * route, et l'identifiant du profil serveur de cette frame (dev — `null` en
  * production, où le serveur n'émet aucune méta).
  */
@@ -171,7 +164,7 @@ function redactFrame(value: unknown, depth = 0): unknown {
 /**
  * Réponse de la méthode RPC standard `nodefony:kernel:ping` — CONVENTION Nodefony : tout
  * endpoint realtime (Studio aujourd'hui, `RealtimeService` en P13.4) y répond.
- * Sert de liveness + base de mesure du round-trip (cf {@link RealtimeClient.ping}).
+ * Sert de liveness + base de mesure du round-trip (cf {@link NodefonySocket.ping}).
  */
 export interface KernelPingResult {
   pong: true;
@@ -184,7 +177,7 @@ export interface KernelPingResult {
 
 /**
  * Tentative de reconnexion programmée par le back-off — charge utile de
- * {@link RealtimeClient.onReconnect}.
+ * {@link NodefonySocket.onReconnect}.
  */
 export interface RealtimeReconnectInfo {
   /** Numéro de la tentative depuis la dernière connexion réussie (1 = la première). */
@@ -195,7 +188,25 @@ export interface RealtimeReconnectInfo {
   nextRetryAt: number;
 }
 
-export class RealtimeClient<
+/**
+ * Socket cliente de Nodefony : une connexion WebSocket JSON-RPC 2.0 vers le
+ * serveur temps réel de l'application, qui rétablit la liaison après une coupure.
+ *
+ * `NodefonySocket.shared({ url })` rend l'instance unique de la page pour cette
+ * adresse — l'adresse est obligatoire, la route dépend de l'application. Les
+ * liaisons `nodefony/{react,vue,angular,svelte}` et le noyau client s'appuient
+ * sur cette instance partagée. Elle porte le pub/sub par canal (`subscribe`),
+ * les appels corrélés (`request`) et les événements locaux (`onState`,
+ * `onIdentity`, `onNotice`, `onStats`).
+ *
+ * Implémente {@link IRealtimeSocket}, le contrat que la connexion serveur
+ * implémente aussi.
+ *
+ * @typeParam Emit - événements que la page émet vers le serveur.
+ * @typeParam Listen - événements que la page reçoit du serveur.
+ * @typeParam Actions - actions RPC appelables par `request`.
+ */
+export class NodefonySocket<
   Emit extends EventsMap = DefaultEventsMap,
   Listen extends EventsMap = DefaultEventsMap,
   Actions extends ActionsMap = DefaultActionsMap,
@@ -274,7 +285,7 @@ export class RealtimeClient<
   constructor(
     private readonly opts: RealtimeOptions = {},
     // Fabrique de transport injectable (tests = transport mock ; défaut = WebSocket
-    // navigateur). Garde RealtimeClient testable sans vrai socket.
+    // navigateur). Garde NodefonySocket testable sans vrai socket.
     transportFactory?: RealtimeTransportFactory,
   ) {
     this.transportFactory =
@@ -296,13 +307,13 @@ export class RealtimeClient<
    * @param opts - options (au moins `url`), appliquées seulement à la création.
    * @returns l'instance partagée pour cette URL.
    */
-  static shared(opts: RealtimeOptions = {}): RealtimeClient {
-    const key = RealtimeClient.resolveUrl(opts.url);
-    const g = globalThis as { __nfRealtime__?: Map<string, RealtimeClient> };
-    const map = (g.__nfRealtime__ ??= new Map<string, RealtimeClient>());
+  static shared(opts: RealtimeOptions = {}): NodefonySocket {
+    const key = NodefonySocket.resolveUrl(opts.url);
+    const g = globalThis as { __nfRealtime__?: Map<string, NodefonySocket> };
+    const map = (g.__nfRealtime__ ??= new Map<string, NodefonySocket>());
     let client = map.get(key);
     if (!client) {
-      client = new RealtimeClient({ ...opts, url: key });
+      client = new NodefonySocket({ ...opts, url: key });
       map.set(key, client);
     }
     return client;
@@ -321,7 +332,7 @@ export class RealtimeClient<
   private static missingUrl(): Error {
     return new Error(
       "[nodefony] adresse du serveur temps réel manquante.\n" +
-        '  Donne-la explicitement : RealtimeClient.shared({ url: "/api/live/realtime" })\n' +
+        '  Donne-la explicitement : NodefonySocket.shared({ url: "/api/live/realtime" })\n' +
         '  ou, en React : <NodefonyProvider url="/api/live/realtime">\n' +
         "  Il n'y a pas de valeur par défaut : la route dépend de ton application " +
         "(une application générée monte /api/live/realtime, la console d'administration " +
@@ -331,7 +342,7 @@ export class RealtimeClient<
 
   /** Résout une URL (relative ou absolue) en chaîne absolue stable = clé du singleton. */
   private static resolveUrl(url?: string): string {
-    if (!url) throw RealtimeClient.missingUrl();
+    if (!url) throw NodefonySocket.missingUrl();
     if (typeof window === "undefined") return url;
     try {
       const u = new URL(url, window.location.href);
@@ -397,7 +408,7 @@ export class RealtimeClient<
 
   /** L'URL configurée, ou l'échec franc — jamais une valeur devinée. */
   private requireUrl(): string {
-    if (!this.opts.url) throw RealtimeClient.missingUrl();
+    if (!this.opts.url) throw NodefonySocket.missingUrl();
     return this.opts.url;
   }
 
@@ -1325,7 +1336,7 @@ export class RealtimeClient<
    */
   get frameLog(): readonly RealtimeFrame[] {
     return (this._rawFrames ?? []).map((f) =>
-      RealtimeClient.buildFrame(f.dir, f.msg, f.ts),
+      NodefonySocket.buildFrame(f.dir, f.msg, f.ts),
     );
   }
 
@@ -1345,7 +1356,7 @@ export class RealtimeClient<
     if (this._rawFrames.length > FRAME_LOG_MAX) this._rawFrames.shift();
     const listeners = this.handlers.get("__frame__");
     if (listeners && listeners.size > 0)
-      this.fireLocal("__frame__", RealtimeClient.buildFrame(dir, msg, ts));
+      this.fireLocal("__frame__", NodefonySocket.buildFrame(dir, msg, ts));
   }
 
   /** Construit une frame affichable (kind/canal/id + payload redacté). */
@@ -1441,4 +1452,4 @@ export class RealtimeClient<
   }
 }
 
-export default RealtimeClient;
+export default NodefonySocket;

@@ -203,19 +203,19 @@ export const DEFAULT_EXCEPTIONS = [
       "moitié traduite chez l'utilisateur.",
   },
   {
-    path: "src/nodefony/src/client/realtime/RealtimeClient.ts",
+    path: "src/nodefony/src/client/realtime/NodefonySocket.ts",
     identifier: "valeur",
     reason: "même table de console que `ClientKernel.ts` ci-dessus.",
   },
   {
-    path: "src/nodefony/src/client/realtime/RealtimeClient.ts",
+    path: "src/nodefony/src/client/realtime/NodefonySocket.ts",
     identifier: "adresse",
     reason:
       "clé de LIGNE de la même table : elle s'affiche telle quelle, aux côtés " +
       "d'`état`, `identité` et `actions`, que le dictionnaire ne voit pas.",
   },
   {
-    path: "src/nodefony/src/client/realtime/RealtimeClient.ts",
+    path: "src/nodefony/src/client/realtime/NodefonySocket.ts",
     identifier: "canaux",
     reason: "même clé de ligne affichée que `adresse` ci-dessus.",
   },

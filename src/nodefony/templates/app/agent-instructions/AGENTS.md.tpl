@@ -119,7 +119,7 @@ s'enrichit, ta mémoire non.
 
 - **Le cœur `nodefony` est ISOMORPHE** : le même paquet se charge côté Node
   ET navigateur. La porte client EXPLICITE est le subpath `nodefony/client`
-  (`RealtimeClient`, notices, rôles — résolu à l'identique par Vite, Node et
+  (`NodefonySocket`, notices, rôles — résolu à l'identique par Vite, Node et
   le typecheck)<% if (it.client) { %>, et le moteur front de CE projet a la sienne :
   `<%= it.client.subpath %>`<% } %>. Ne réécris
   JAMAIS un client WebSocket/JSON-RPC, ne duplique JAMAIS un type entre front

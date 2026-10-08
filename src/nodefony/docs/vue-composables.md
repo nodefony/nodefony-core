@@ -45,7 +45,7 @@ tient les deux bouts : **le fil est unique et long**, **les branchements sont no
 ```mermaid
 flowchart LR
   APP["main.ts<br/>app.use(nodefonyVue, { url }) — UNE fois"] --> CL
-  subgraph CL["RealtimeClient (hors Vue)"]
+  subgraph CL["NodefonySocket (hors Vue)"]
     direction TB
     S["état · identité · notices"]
     R["abonnements ref-comptés<br/>canal → nb de consommateurs"]
@@ -175,7 +175,7 @@ déballe). La socket, elle, n'est pas réactive : c'est un objet, pas un état.
 | Composable                             | Rend                            | À quoi ça sert                                               |
 | -------------------------------------- | ------------------------------- | ------------------------------------------------------------ |
 | `nodefonyVue`                          | —                               | le plugin : fournit la socket et lance la connexion          |
-| `useNodefony()`                        | `RealtimeClient`                | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `useNodefony()`                        | `NodefonySocket`                | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
 | `useNodefonyState()`                   | `Readonly<Ref<RealtimeState>>`  | afficher l'état, griser un bouton pendant une reconnexion    |
 | `useNodefonyIdentity()`                | `Ref<RealtimeIdentity \| null>` | savoir qui est connecté — sans appeler `/auth/me`            |
 | `useNodefonyChannel(canal, onMessage)` | —                               | réagir à chaque message (journal, son, animation)            |
@@ -223,7 +223,7 @@ démontage trancherait les requêtes en vol des autres consommateurs.
 | `… doit être appelé dans un composant (setup) ou une portée` | Appel au niveau d'un module, dans un `setTimeout` ou un gestionnaire   | Appeler au `setup`, ou envelopper dans `effectScope()`                        |
 | Le plugin lève à l'installation                              | Ni `url` ni `client` fourni — le framework ne devine aucune adresse    | Passer l'URL du serveur temps réel                                            |
 | Rien n'arrive et l'état reste `disconnected`                 | Le serveur n'écoute pas cette adresse, ou la socket a été coupée       | Vérifier l'adresse du plugin, et qu'aucun code n'appelle `disconnect()`       |
-| `Module 'nodefony' has no exported member 'RealtimeClient'`  | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]` |
+| `Module 'nodefony' has no exported member 'NodefonySocket'`  | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]` |
 | Le canal se ré-abonne à chaque frappe                        | Le nom du canal est recalculé à chaque rendu par une fonction          | Ne faire dépendre le getter que de ce qui doit vraiment ré-abonner            |
 | Un objet du client semble « ne pas réagir »                  | Il est `markRaw` — c'est voulu                                         | Lire l'état par les composables, pas sur l'objet                              |
 | Notices en double                                            | `useNodefonyNotifications` appelé dans plusieurs composants            | Un seul appel, au shell de l'application                                      |

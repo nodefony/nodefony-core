@@ -2,7 +2,7 @@
  * Juge de la PORTE CLIENTE — l'agent a-t-il employé la façade de SON moteur ?
  *
  * 🔴 **Le banc était React-centré exactement comme le gabarit qu'il éprouve.**
- * Sa sonde cherchait `RealtimeClient|nodefony/react`, écrit en dur. Lâché sur
+ * Sa sonde cherchait le nom de la façade ou `nodefony/react`, écrit en dur. Lâché sur
  * une application Svelte — le moteur qu'a effectivement choisi l'agent du
  * premier essai réel du 2026-09-12 — il aurait recalé un travail juste, et
  * n'aurait rien vu du trou que #347 a fermé. Ce qui se mesure est « l'agent
@@ -185,7 +185,7 @@ export function jugerPorteClient(pkg, sources) {
       cause: "porte-client-absente",
       detail:
         `moteur « ${porte.moteur} » : aucune source n'emploie ${porte.subpath} ` +
-        "ni la façade RealtimeClient — le client a été recomposé au lieu " +
+        "ni la façade NodefonySocket — le client a été recomposé au lieu " +
         "d'utiliser ce que le framework offre de plus haut niveau",
     };
   }

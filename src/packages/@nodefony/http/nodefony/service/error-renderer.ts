@@ -535,7 +535,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
       // (RFC 6455 §7.4, source unique) mappe correctement les codes HTTP : 401/403
       // → 1008 (Policy Violation, le client NE reconnecte PAS), 5xx → 1011, 404/
       // autre 4xx → 4004. Le clamp brut `< 1000 → 1011` écrasait 401 en 1011
-      // (Internal Error) → le RealtimeClient reconnectait en boucle au lieu
+      // (Internal Error) → le NodefonySocket reconnectait en boucle au lieu
       // d'abandonner (un refus d'auth au handshake = policy, pas erreur serveur).
       code = toWsCloseCode(code);
     } else {

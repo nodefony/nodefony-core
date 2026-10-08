@@ -69,7 +69,7 @@ jamais éprouvés dans la jonction.
 | Module               | Chemin d'atteinte                                                                                                                                                                                                                                                          |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `publishQueue`       | via `RedisBackplane` — `backplanePublishQueue.test.ts` (11 cas : saturation, anti-famine, drainage, échec du bus, hystérésis de l'annonce, ordre du jeté, contrôle négatif synchrone) et le banc de contre-pression RÉELLE de `RedisBackplane.test.ts` contre un vrai bus. |
-| `BrowserWsTransport` | via `RealtimeClient` — `client-isomorphe-e2e.test.ts` (`@nodefony/http`) monte un vrai serveur WSS et un vrai client. Sa logique propre (états, reconnexion, codes de fermeture) n'est éprouvée qu'à travers ce que le client en fait.                                     |
+| `BrowserWsTransport` | via `NodefonySocket` — `client-isomorphe-e2e.test.ts` (`@nodefony/http`) monte un vrai serveur WSS et un vrai client. Sa logique propre (états, reconnexion, codes de fermeture) n'est éprouvée qu'à travers ce que le client en fait.                                     |
 
 ### Éprouvés en unitaire, jamais dans la jonction
 
@@ -110,9 +110,9 @@ les deux qui ne portait pas.
 | `originId`               | unit · charge       | `originId.test.ts`, `RealtimeHub.test.ts`, `cluster-ipc.mjs`                                                        |
 | `platformChannels`       | unit · e2e          | `platformChannels.test.ts`, `clientSyslogUplink.test.ts`, `clientObserve.test.ts`                                   |
 | `RealtimeAdminApi`       | unit                | `healthBackplaneDrivers.test.ts`                                                                                    |
-| `RealtimeClient`         | unit · e2e          | `NodefonyProvider.test.ts`, `clientAngular.test.ts`, `clientSvelte.test.ts`                                         |
+| `NodefonySocket`         | unit · e2e          | `NodefonyProvider.test.ts`, `clientAngular.test.ts`, `clientSvelte.test.ts`                                         |
 | `RealtimeController`     | unit · e2e          | `realtimeChannelCap.attack.test.ts`, `realtimeUnknownChannel.test.ts`, `RealtimeController.test.ts`                 |
-| `RealtimeEventMap`       | unit · e2e          | `JsonRpcPeer.types.test.ts`, `RealtimeClient.types.test.ts`, `JsonRpcPeer.test.ts`                                  |
+| `RealtimeEventMap`       | unit · e2e          | `JsonRpcPeer.types.test.ts`, `NodefonySocket.types.test.ts`, `JsonRpcPeer.test.ts`                                  |
 | `RealtimeHub`            | unit · e2e · charge | `realtimeUnenforcedPolicy.attack.test.ts`, `realtimeRevocation.attack.test.ts`, `realtimeChannelCap.attack.test.ts` |
 | `RealtimeService`        | unit · e2e          | `RealtimeService.test.ts`, `realtimeFirewallWiring.e2e.test.ts`                                                     |
 | `RedisBackplane`         | unit · e2e          | `RedisBackplane.test.ts`, `backplaneInjection.attack.test.ts`, `backplanePublishQueue.test.ts`                      |
@@ -124,7 +124,7 @@ les deux qui ne portait pas.
 ## Ce qui est éprouvé, et bien
 
 - **La jonction client ↔ serveur** : `realtimeLoopback.e2e.test.ts` relie un VRAI
-  `RealtimeClient` à un VRAI `RealtimeController` par un câble en mémoire.
+  `NodefonySocket` à un VRAI `RealtimeController` par un câble en mémoire.
 - **L'autorisation, identité par identité** : `realtimeChannelAuth.e2e.test.ts` —
   matrice `identité × canal` pour `subscribe`, et désormais pour ce que le
   `realtime:welcome` ANNONCE.

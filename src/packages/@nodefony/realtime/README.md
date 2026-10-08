@@ -31,9 +31,9 @@ Le client navigateur **n'est pas dans ce module** : il vit dans le cœur, import
 du serveur (isomorphisme). Le subpath est **`nodefony/client`**.
 
 ```typescript
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
-const socket = RealtimeClient.shared({ url: "wss://app.com/realtime" });
+const socket = NodefonySocket.shared({ url: "wss://app.com/realtime" });
 
 await socket.subscribe("chat:room");
 socket.on("chat:room", (msg) => console.log(msg));

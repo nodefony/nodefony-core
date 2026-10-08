@@ -137,7 +137,7 @@ connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
 `IRealtimeWelcome` (`RealtimeController.ts:12`) — et se lit côté client par
-`RealtimeClient.serverMethods` (`RealtimeClient.ts:598`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`NodefonySocket.serverMethods` (`NodefonySocket.ts:610`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
@@ -199,7 +199,7 @@ export default OrdersRealtimeController;
 
 ```ts
 // frontend/src/orders.ts
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
 interface IQuote {
   orderId: string;
@@ -207,7 +207,7 @@ interface IQuote {
   currency: string;
 }
 
-const socket = RealtimeClient.shared({
+const socket = NodefonySocket.shared({
   url: "wss://127.0.0.1:5152/orders/realtime",
 });
 
@@ -428,7 +428,7 @@ drapeau d'interface. Cacher un bouton n'empêche personne de forger la frame. Le
 ### Le délai d'expiration est la seule libération automatique
 
 `request()` prend le délai en **troisième argument positionnel**, en millisecondes — il n'y a pas
-d'objet d'options (`RealtimeClient.request()`, `RealtimeClient.ts:728`) :
+d'objet d'options (`NodefonySocket.request()`, `NodefonySocket.ts:746`) :
 
 ```ts ignore
 await socket.request("orders:quote", { orderId }); // 30 000 ms par défaut
@@ -478,7 +478,7 @@ fois ? »**.
 | une mutation (`socket.mutate`) | **non** par nature             | oui, **avec une clé d'idempotence**  |
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
-par la signature** de `mutate()` (`RealtimeClient.ts:798`), et c'est la garde `@Idempotent`
+par la signature** de `mutate()` (`NodefonySocket.ts:819`), et c'est la garde `@Idempotent`
 (`routerDecorators.ts:1171`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
@@ -552,7 +552,7 @@ const modules = await socket.request("/nodefony/kernel/api/modules");
 ```
 
 La forme se discrimine toute seule : un chemin commence par `/`, jamais un nom d'action —
-`RealtimeClient.request()` (`RealtimeClient.ts:728`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
+`NodefonySocket.request()` (`NodefonySocket.ts:746`). Écris une action RPC pour ce qui n'a de sens **que** sur la socket ;
 passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit dans le
 [vocabulaire](./vocabulaire.md) et l'[architecture](./architecture.md).
 
@@ -582,7 +582,7 @@ vivent dans la carte de l'aperçu, régénérée depuis les résultats réels, j
 - **Unitaires, déclaration** (`realtimeDecorators.test.ts`) : `@RealtimeAction` enregistre bien le
   nom et lie le `this` ; (`RealtimeController.test.ts`) : fusion décorateurs + override et
   annonce dans l'accueil.
-- **Unitaires, client** (`RealtimeClientCoverage.test.ts`) : formes de `request`, contrat de
+- **Unitaires, client** (`NodefonySocketCoverage.test.ts`) : formes de `request`, contrat de
   streaming, rejet des appels en attente au `dispose`.
 - **Attaque, autorisation** (`realtimeFrameLock.test.ts`) : `nodefony:kernel:ping` et `nodefony:kernel:gc` refusés à
   l'anonyme **et** à l'utilisateur authentifié, acceptés à l'administrateur — la preuve que le

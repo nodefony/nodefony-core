@@ -300,7 +300,7 @@ cas(
 
 cas(
   "la façade isomorphe elle-même reste acceptée, quel que soit le moteur",
-  motifPorteClient("nodefony/vue").test("new RealtimeClient({ url })"),
+  motifPorteClient("nodefony/vue").test("new NodefonySocket({ url })"),
 );
 
 // ── Le poste ne doit pas fuir dans le décor ────────────────────────────────

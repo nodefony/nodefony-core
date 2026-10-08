@@ -27,7 +27,7 @@ interface Props {
  *  1. Ping serveur (`GET /api/health`)
  *  2. Authentification (`POST /api/auth/login`)
  *  3. Chargement profil (`GET /api/auth/me`)
- *  4. Connexion realtime (WS via `RealtimeClient` — stub P13)
+ *  4. Connexion realtime (WS via `NodefonySocket` — stub P13)
  */
 export function ConnectionStepper({ active, status, completed }: Props) {
   const idx = ORDER.indexOf(active);

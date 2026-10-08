@@ -16,7 +16,7 @@ import {
   isPromise,
   isSubclassOf,
 } from "../Tools";
-import { RealtimeClient } from "./realtime/RealtimeClient";
+import { NodefonySocket } from "./realtime/NodefonySocket";
 import { closeCodeToNotice } from "./realtime/notice";
 import { JsonRpcPeer, RpcError } from "../realtime/JsonRpcPeer";
 import { TransportState } from "../realtime/IRealtimeTransport";
@@ -32,7 +32,7 @@ export type {
   RealtimeFrame,
   KernelPingResult,
   IApiCallResult,
-  // Ré-export DX promis par `RealtimeClient.ts` : le consommateur navigateur
+  // Ré-export DX promis par `NodefonySocket.ts` : le consommateur navigateur
   // type `socket.identity` / la trame de refus depuis le MÊME subpath que le
   // client. Sans ces trois lignes les types n'existent qu'au barrel node, que
   // la condition `browser` ne résout jamais (TS2724 chez le consommateur).
@@ -42,7 +42,7 @@ export type {
   // Charge utile de `onReconnect` / `observeReconnect` : l'écran qui rend un
   // compte à rebours doit pouvoir NOMMER ce qu'il reçoit.
   RealtimeReconnectInfo,
-} from "./realtime/RealtimeClient";
+} from "./realtime/NodefonySocket";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
 // Vocabulaire des sévérités RFC 5424 — isomorphe : la console
 // d'administration en tirait deux copies locales, dans deux ordres.
@@ -142,7 +142,7 @@ export {
   isArray,
   isPromise,
   isSubclassOf,
-  RealtimeClient,
+  NodefonySocket,
   JsonRpcPeer,
   RpcError,
   TransportState,

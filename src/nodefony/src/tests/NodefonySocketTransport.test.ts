@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -7,7 +7,7 @@ import {
 
 /**
  * Vérifie que l'extraction du transport ({@link IRealtimeTransport}) préserve
- * l'orchestration de RealtimeClient (connect/reconnect/heartbeat/disconnect) — via
+ * l'orchestration de NodefonySocket (connect/reconnect/heartbeat/disconnect) — via
  * un transport MOCK injecté, sans vrai WebSocket ni navigateur.
  */
 class MockTransport implements IRealtimeTransport {
@@ -73,7 +73,7 @@ const delay = (ms: number): Promise<void> =>
 
 function setup(opts: Record<string, unknown> = {}) {
   const transports: MockTransport[] = [];
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://x/nodefony/api/realtime", ...opts },
     () => {
       const t = new MockTransport();
@@ -84,7 +84,7 @@ function setup(opts: Record<string, unknown> = {}) {
   return { client, transports };
 }
 
-describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
+describe("NodefonySocket — extraction transport (IRealtimeTransport)", () => {
   it("connect() crée + ouvre un transport → state connected", async () => {
     const { client, transports } = setup();
     const p = client.connect();

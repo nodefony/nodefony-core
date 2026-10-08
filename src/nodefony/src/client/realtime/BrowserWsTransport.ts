@@ -5,7 +5,7 @@ import { TransportState } from "../../realtime/IRealtimeTransport";
  * BrowserWsTransport — transport {@link IRealtimeTransport} pour le navigateur :
  * wrap d'un `WebSocket` natif. Volontairement « bête » : il ouvre/envoie/ferme et
  * relaie les events. L'orchestration (reconnect, backoff, heartbeat, state machine)
- * vit AU-DESSUS dans `RealtimeClient` — qui crée un transport NEUF à chaque tentative.
+ * vit AU-DESSUS dans `NodefonySocket` — qui crée un transport NEUF à chaque tentative.
  *
  * L'URL reçue est déjà normalisée (ws/wss, token) par l'appelant.
  */

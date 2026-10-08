@@ -125,7 +125,7 @@ Nodefony étiquette avec **JSON-RPC 2.0**, une norme publique plutôt qu'un form
 
 Le point remarquable : le **même** moteur de protocole tourne des deux côtés du fil. La
 classe `JsonRpcPeer` (`JsonRpcPeer.ts:311`) est du code isomorphe du cœur — le navigateur
-l'exécute dans `RealtimeClient`, le serveur l'instancie une fois par connexion dans
+l'exécute dans `NodefonySocket`, le serveur l'instancie une fois par connexion dans
 `RealtimeController.onHandshake()` (`RealtimeController.ts:407`). Le serveur peut donc
 appeler le client, pas seulement l'inverse : c'est du vrai duplex, pas un aller-retour
 déguisé.
@@ -137,7 +137,7 @@ Trois partis pris distinguent cette pile d'un simple « serveur WebSocket ».
 **Un seul contrat de socket, des deux côtés.** Un service back qui pousse des événements
 écrit le même code qu'une page front : `publish` / `subscribe` / `on`. Côté serveur c'est
 `ServerRealtimeSocket` (`ServerRealtimeSocket.ts:43`), obtenu par `serverSocket()`
-(`ServerRealtimeSocket.ts:223`) ; côté navigateur, `RealtimeClient`. Une exception, assumée
+(`ServerRealtimeSocket.ts:223`) ; côté navigateur, `NodefonySocket`. Une exception, assumée
 et explicite : `ServerRealtimeSocket.request()` (`ServerRealtimeSocket.ts:131`) **rejette
 toujours** — un handle posé sur le hub n'a pas d'interlocuteur unique, puisque le hub est
 multi-clients. Pour un appel serveur→client ciblé, on passe par la connexion :
@@ -260,7 +260,7 @@ export default ChatController;
 
 ```ts
 // frontend/src/chat.ts
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
 interface ChatMessage {
   from: string;
@@ -271,7 +271,7 @@ interface ChatMessage {
 const scheme = location.protocol === "https:" ? "wss" : "ws";
 // `shared` = une seule socket par URL pour toute la page, même si dix
 // composants la demandent (les options ne comptent qu'à la création).
-const socket = RealtimeClient.shared({
+const socket = NodefonySocket.shared({
   url: `${scheme}://${location.host}/chat/realtime`,
 });
 
@@ -449,7 +449,7 @@ déconnexion.
 > [!IMPORTANT]
 > Les frames reçues **pendant** l'authentification sont jetées silencieusement : le
 > transport n'est pas encore branché. C'est au client d'attendre `realtime:welcome` avant
-> de pousser — ce que `RealtimeClient` fait nativement.
+> de pousser — ce que `NodefonySocket` fait nativement.
 
 ### Deux gardes qui ferment la connexion
 
@@ -841,7 +841,7 @@ dans la sonde, et le plafond de canaux par connexion.
 | Abonnement refusé avec `realtime:denied` motif `limit`         | plafond de canaux par connexion atteint (256 par défaut)                                 | regrouper les canaux, ou relever le plafond en connaissance de cause        |
 | Fermeture `1013` sur un client lent                            | file au-delà de `websocket.maxBackpressure` (4 MiB) pendant 1000 frames jetées d'affilée | attendu ; le client se reconnecte et se resynchronise                       |
 | Fermeture `4001` en cours de session                           | identité révoquée, détectée par le tick de re-validation                                 | se réauthentifier ; le comportement est voulu                               |
-| Frames envoyées juste après `connect()` perdues                | le transport n'est pas branché tant que le handshake n'est pas fini                      | attendre `realtime:welcome` (`RealtimeClient` le fait déjà)                 |
+| Frames envoyées juste après `connect()` perdues                | le transport n'est pas branché tant que le handshake n'est pas fini                      | attendre `realtime:welcome` (`NodefonySocket` le fait déjà)                 |
 | Avertissement « channel policies … NOT enforced » au démarrage | des canaux déclarent une politique sans décideur câblé                                   | charger `@nodefony/security` avec une zone realtime                         |
 | `ServerRealtimeSocket.request()` rejette systématiquement      | un handle posé sur le hub n'a pas d'interlocuteur unique                                 | utiliser `RealtimeController.requestClient()` pour un appel ciblé           |
 | `TS2550: RegExp.escape does not exist` à la compilation        | `lib` du tsconfig sous ES2025 (les paquets exposent leurs types en source)               | `"lib": ["ESNext", …]`, comme le tsconfig généré par `nodefony create app`  |

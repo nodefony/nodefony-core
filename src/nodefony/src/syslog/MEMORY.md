@@ -282,7 +282,7 @@ d'un incident sur la même ligne de temps. Pendant serveur = `@nodefony/realtime
   `UPLINK_MSGID` (un échec d'envoi journalisé déclencherait un envoi, qui échoue…).
 - **Un envoi qui échoue est PERDU, volontairement** : le réempiler ferait grossir la file à chaque
   échec — un journal n'est pas une file de messages garantie.
-- `UplinkPublisher` = `{ publish(channel, payload?) }`, pas `RealtimeClient` : le journal ne dépend
+- `UplinkPublisher` = `{ publish(channel, payload?) }`, pas `NodefonySocket` : le journal ne dépend
   pas du module realtime, et le transport se teste sans ouvrir de socket.
 
 **Gotchas**

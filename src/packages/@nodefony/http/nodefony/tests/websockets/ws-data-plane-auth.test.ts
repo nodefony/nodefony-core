@@ -223,7 +223,7 @@ function hubConnect(cookie: string | null): Promise<{
 
 /**
  * Observe un handshake attendu REFUSÉ : `refused=true` si fermé sans welcome, +
- * le `code` de fermeture WS (doit être 1008 Policy Violation → le RealtimeClient
+ * le `code` de fermeture WS (doit être 1008 Policy Violation → le NodefonySocket
  * n'essaie PAS de reconnecter ; 1011 relancerait une boucle de reco).
  */
 function expectRefused(
@@ -267,7 +267,7 @@ describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
     const { refused, code } = await expectRefused(null);
     expect(refused, "anonyme ne reçoit jamais le welcome").to.equal(true);
     // 1008 (≠ 1011) : un refus d'auth est une violation de POLITIQUE → le
-    // RealtimeClient abandonne au lieu de reconnecter en boucle (régression J3b
+    // NodefonySocket abandonne au lieu de reconnecter en boucle (régression J3b
     // qui bloquait la Studio au chargement anonyme).
     expect(code).to.equal(1008);
   });

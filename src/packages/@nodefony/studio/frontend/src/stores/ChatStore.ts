@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import type { RealtimeClient } from "nodefony";
+import type { NodefonySocket } from "nodefony";
 import {
   AGENTS,
   planChatReply,
@@ -61,7 +61,7 @@ export class ChatStore {
   /** Levé par `abort()` : la boucle de flux s'arrête au prochain mot. */
   private abortRequested = false;
 
-  constructor(private readonly client: RealtimeClient) {
+  constructor(private readonly client: NodefonySocket) {
     makeAutoObservable<ChatStore, "client" | "abortRequested">(this, {
       client: false,
       abortRequested: false,

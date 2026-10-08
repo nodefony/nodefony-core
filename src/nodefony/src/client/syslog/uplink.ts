@@ -23,7 +23,7 @@ import type Syslog from "../../syslog/Syslog";
 import { PLATFORM_INBOUND } from "../../realtime/platformChannels";
 import { getPageId } from "./context";
 
-/** Le strict nécessaire pour pousser — n'impose pas `RealtimeClient` à l'appelant. */
+/** Le strict nécessaire pour pousser — n'impose pas `NodefonySocket` à l'appelant. */
 export interface UplinkPublisher {
   publish(channel: string, payload?: unknown): void;
 }
@@ -59,7 +59,7 @@ export interface UplinkBatch {
 export interface SyslogUplinkOptions {
   /** Le journal client à écouter. */
   syslog: Syslog;
-  /** La socket par laquelle pousser (typiquement le `RealtimeClient` partagé). */
+  /** La socket par laquelle pousser (typiquement le `NodefonySocket` partagé). */
   publisher: UplinkPublisher;
   /**
    * Sévérité maximale retenue (RFC 5424 : plus le nombre est petit, plus c'est grave).

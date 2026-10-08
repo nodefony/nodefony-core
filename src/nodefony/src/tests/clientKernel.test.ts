@@ -21,7 +21,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { ClientKernel, createClientKernel } from "../client/ClientKernel";
-import type { RealtimeClient } from "../client/realtime/RealtimeClient";
+import type { NodefonySocket } from "../client/realtime/NodefonySocket";
 
 /** Socket double — on ne mesure que ce que le kernel LUI demande. */
 interface FakeSocket {
@@ -52,8 +52,8 @@ const fakeSocket = (opts: { failConnect?: boolean } = {}): FakeSocket => {
   return s;
 };
 
-const asClient = (s: FakeSocket): RealtimeClient =>
-  s as unknown as RealtimeClient;
+const asClient = (s: FakeSocket): NodefonySocket =>
+  s as unknown as NodefonySocket;
 
 /** Kernel muni d'une socket double, sans passer par la fabrique de socket. */
 const kernelWith = (s: FakeSocket): ClientKernel => {

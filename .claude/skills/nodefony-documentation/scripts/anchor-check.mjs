@@ -176,10 +176,10 @@ function voisinsDeLaLigne(mdLine, refCourante) {
  * est citée par un nom que sa ligne de déclaration ne porte pas telle quelle.
  *
  * Une phrase cite volontiers plusieurs symboles, chacun avec sa propre ancre —
- * « `RealtimeClient` (`RealtimeClient.ts:194`) et côté serveur par
+ * « `NodefonySocket` (`NodefonySocket.ts:194`) et côté serveur par
  * `ServerRealtimeSocket` (`ServerRealtimeSocket.ts:44`) ». Chercher TOUS les
  * symboles de la ligne dans CHAQUE fichier cible fabrique des suspects : on
- * exigeait de `RealtimeClient.ts` qu'il contienne `ServerRealtimeSocket`. Le
+ * exigeait de `NodefonySocket.ts` qu'il contienne `ServerRealtimeSocket`. Le
  * seul symbole qu'une ancre engage est celui qui la précède immédiatement ;
  * les autres ont la leur.
  *
@@ -233,7 +233,7 @@ function segmentDeLAncre(mdLine, offset, longueur) {
  * Le symbole cité est-il DÉCLARÉ à la ligne pointée (à trois lignes près) ?
  *
  * C'est un critère d'ACCEPTATION, jamais de rejet. Une phrase cite plusieurs
- * symboles — « `RealtimeClient` (`RealtimeClient.ts:194`) et côté serveur
+ * symboles — « `NodefonySocket` (`NodefonySocket.ts:194`) et côté serveur
  * `ServerRealtimeSocket` (`ServerRealtimeSocket.ts:44`) » — et chercher TOUS les
  * mots de la phrase dans CHAQUE fichier faisait déclarer suspectes une vingtaine
  * d'ancres parfaitement justes. Quand le symbole que l'ancre PROUVE est là où

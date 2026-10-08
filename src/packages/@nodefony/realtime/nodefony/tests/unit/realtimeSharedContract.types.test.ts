@@ -3,7 +3,7 @@ import "reflect-metadata";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import type { ContextType } from "@nodefony/http";
 import { expectType, type EventsMap, type ActionsMap } from "nodefony";
-import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/RealtimeClient.js";
+import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 
 /**
  * Test d'INFÉRENCE de TYPES (compile-only) — le « contrat de canaux typé partagé »
@@ -11,7 +11,7 @@ import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/R
  * bout-en-bout (renommer un canal casse à la compile des 2 côtés), autocomplétion
  * des deux côtés — le typage ne s'arrête plus à la frontière réseau.
  *
- * Pendant DX de `RealtimeClient.types.test.ts`, mais étendu au serveur
+ * Pendant DX de `NodefonySocket.types.test.ts`, mais étendu au serveur
  * (`RealtimeController` générique). `_typeOnly` n'est jamais appelé : `declare` +
  * `void` = typage pur. La vérité est rendue par la gate `tsc --noEmit` (esbuild,
  * lui, efface les types → vitest ne « voit » que des `it` triviaux).
@@ -33,7 +33,7 @@ interface AppActions extends ActionsMap {
 // `declare const` est une déclaration AMBIANTE : elle n'existe qu'à la compilation
 // (jamais instanciée au runtime). Elle doit vivre au niveau MODULE — un modificateur
 // `declare` est illégal dans un corps de fonction (TS1184).
-declare const client: RealtimeClient<
+declare const client: NodefonySocket<
   ClientToServer,
   ServerToClient,
   AppActions

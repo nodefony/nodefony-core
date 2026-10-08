@@ -30,20 +30,20 @@
 // subpaths client : nodefony/client · nodefony/react · nodefony/roles · nodefony/debugbar · nodefony/debugbar.js
 ```
 
-- **Isomorphe** (tourne des 2 côtés) : `RealtimeClient`, `Pdu`, `Syslog`, `Tools`, `roles` (`hasRole`…).
+- **Isomorphe** (tourne des 2 côtés) : `NodefonySocket`, `Pdu`, `Syslog`, `Tools`, `roles` (`hasRole`…).
   Build client dédié (`createClientConfig` + `tsconfigClient.json` `types:[]` + shims `node:util/events/cli-color`,
-  `preserveModules` → `RealtimeClient`/`Pdu` **partagés** entre subpaths, 0 dup, bundle ~25 KB gz).
+  `preserveModules` → `NodefonySocket`/`Pdu` **partagés** entre subpaths, 0 dup, bundle ~25 KB gz).
 - 🚨 **Frontière (sécu MAX)** : ne JAMAIS embarquer de code/données SERVEUR dans le bundle client. La
   condition `browser` résout vers le build client (sans `node:*`, sans services/secrets). Besoin d'un type
   serveur côté front → **type miroir local**, jamais d'import runtime. Seul pont front↔serveur = data plane
   `/nodefony/<module>/api/*` (JSON, secrets redactés serveur).
 - **Côté front** (consommation) : hooks `nodefony/react` (`useNodefony*`) → skill `nodefony-studio-dev`.
 
-**`RealtimeClient` (Core, JSON-RPC 2.0, isomorphe)** :
+**`NodefonySocket` (Core, JSON-RPC 2.0, isomorphe)** :
 
 ```typescript
-import { RealtimeClient } from "nodefony"; // ou nodefony/client côté navigateur
-const c = RealtimeClient.shared({ url: "/nodefony/studio/api/realtime" }); // singleton PAR URL (globalThis)
+import { NodefonySocket } from "nodefony"; // ou nodefony/client côté navigateur
+const c = NodefonySocket.shared({ url: "/nodefony/studio/api/realtime" }); // singleton PAR URL (globalThis)
 await c.connect();
 c.subscribe("dashboard:stats"); // ref-compté (réseau émis aux seules transitions 0↔1)
 const off = c.on("dashboard:stats", (p) => {
@@ -85,7 +85,7 @@ UNE fois, composé des 2 côtés. ZÉRO dépendance node (pub/sub via `Map`+call
 **`IRealtimeTransport` (core, seam)** — `connect/send/close/readyState` + `onOpen/onMessage/onClose/onError`.
 `TransportState` (0..3, aligné WebSocket). `BrowserWsTransport` (navigateur, wrap `WebSocket`) ; `WsConnectionTransport`
 (serveur, wrap `ctx.connection` — inbound poussé par `feed()`, fermeture par `fireClose()`). Le transport est « bête » ;
-reconnect/backoff/heartbeat vivent au-dessus (`RealtimeClient` crée un transport NEUF par tentative).
+reconnect/backoff/heartbeat vivent au-dessus (`NodefonySocket` crée un transport NEUF par tentative).
 
 **Endpoint SERVEUR = étendre `RealtimeController` (framework)** — le protocole (handshake/welcome, dispatch,
 pub/sub, cleanup) est factorisé ; le contrôleur ne déclare QUE son métier :
@@ -124,14 +124,14 @@ class MyRealtime extends RealtimeController {
   → `code=000`) ; tout futur SSE écoute `rawRes.once("close")` (RESPONSE), pas `request` (fire trop tôt HTTP/2).
 
 **Côté client (lib, déjà là)** : `client.request<"kernel:ping", T>("kernel:ping")` (Promise id-matchée) ; helper réutilisable
-`client.ping()` (RTT). Le générique vit dans `RealtimeClient`, pas le front.
+`client.ping()` (RTT). Le générique vit dans `NodefonySocket`, pas le front.
 
 **Tests realtime (BÉTON, sans navigateur)** :
 
 - `JsonRpcPeer` : `send` capturé dans un tableau, `receive(frame)` → asserte la discrimination + le cycle req/rép
   (`src/nodefony/src/tests/JsonRpcPeer.test.ts`, 14).
-- `RealtimeClient` : transport **mock** injecté (2e param ctor) + délais réels → connect/reconnect/heartbeat/disconnect
-  (`RealtimeClientTransport.test.ts`, 6) ; discrimination + `ping()` en stubant `request` (`RealtimeClient{Dispatch,Ping}.test.ts`).
+- `NodefonySocket` : transport **mock** injecté (2e param ctor) + délais réels → connect/reconnect/heartbeat/disconnect
+  (`NodefonySocketTransport.test.ts`, 6) ; discrimination + `ping()` en stubant `request` (`NodefonySocket{Dispatch,Ping}.test.ts`).
 - `RealtimeController` : **faux Context** `{ connection: mockConn, once }` (Controller se construit avec `{} as ContextType`),
   sous-classe de test → handshake/welcome/subscribe/actions/-32601/-32603/réponse-ignorée/onFinish
   (`@nodefony/framework` vitest `RealtimeController.test.ts`, 12) + `WsConnectionTransport.test.ts` (7).
@@ -292,7 +292,7 @@ synchrone) se bat sur un thread.
 - **Go** : goroutines = 1 conn = 1 goroutine, vrai parallélisme, tue le fan-out de connexions.
 - **Rust** : perf/p99 ultimes, 0 GC — mais vélocité trop lente (solo) + ergonomie DI/agentic pénible.
 
-**MAIS le pari #1 de Nodefony = le Core ISOMORPHE** (même code client+serveur : `RealtimeClient`
+**MAIS le pari #1 de Nodefony = le Core ISOMORPHE** (même code client+serveur : `NodefonySocket`
 partagé, debug bar, hooks). **Seul TS tourne nativement dans le navigateur** — aucun langage
 compilé/BEAM n'est isomorphe. Changer = tuer l'isomorphisme (re-créer une lib cliente = ce que P13.3
 a justement supprimé).
@@ -324,7 +324,7 @@ a justement supprimé).
   - [2.2 `RealtimeHub` — broker singleton](#22-realtimehub)
   - [2.3 `RealtimeController` — base endpoint WS](#23-realtimecontroller)
   - [2.4 `ServerRealtimeSocket` — handle serveur](#24-serverrealtimesocket)
-  - [2.5 `RealtimeClient` — client isomorphe (core)](#25-realtimeclient)
+  - [2.5 `NodefonySocket` — client isomorphe (core)](#25-nodefonysocket)
   - [2.6 `JsonRpcPeer` + `IRealtimeSocket` (core)](#26-jsonrpcpeer)
   - [2.7 Backplane — `IBackplane`, drivers, registre](#27-backplane)
   - [2.8 Décorateurs realtime](#28-decorateurs)
@@ -348,7 +348,7 @@ Quatre briques :
 - **Backplane cross-process** — port `IBackplane` à drivers interchangeables : `loopback` (mono), `cluster` (IPC workers d'un pod), `redis` (pub/sub cross-pod multi-host). Même hub, le front ne change pas. Kafka/NATS/Pulsar = drivers userland via le registre.
 - **Pont protocolaire** — un canal n'est pas qu'un pub/sub : son backing est pluggable côté serveur (encapsulation SIP-over-WS, bridge TCP/UDP, proxy). Un navigateur n'ouvre pas de socket TCP → le serveur décapsule. Fondation des cas média (mediasoup) et agents IA vocaux.
 
-**Isomorphe** : le client `RealtimeClient` vit dans le **core** (subpath `nodefony/realtime`, importable navigateur, 0 dép serveur) et compose le **même** `JsonRpcPeer` que la connexion serveur. Écrire le protocole une fois, tourner des 2 côtés. Vocabulaire : `socket` = la prise (`IRealtimeSocket`, ce qu'on tient) · `hub` = broker serveur · `peer` = `JsonRpcPeer` · `transport` = la couche octets · `backplane` = fond de panier cross-pod.
+**Isomorphe** : le client `NodefonySocket` vit dans le **core** (subpath `nodefony/realtime`, importable navigateur, 0 dép serveur) et compose le **même** `JsonRpcPeer` que la connexion serveur. Écrire le protocole une fois, tourner des 2 côtés. Vocabulaire : `socket` = la prise (`IRealtimeSocket`, ce qu'on tient) · `hub` = broker serveur · `peer` = `JsonRpcPeer` · `transport` = la couche octets · `backplane` = fond de panier cross-pod.
 
 ---
 
@@ -464,16 +464,16 @@ plateforme :
 
 Lazy : aucune structure allouée tant que le service n'`on`/`subscribe`/`publish` pas.
 
-<a id="25-realtimeclient"></a>
+<a id="25-nodefonysocket"></a>
 
-### 2.5 `RealtimeClient` — client isomorphe (core)
+### 2.5 `NodefonySocket` — client isomorphe (core)
 
-`core/src/client/realtime/RealtimeClient.ts:304`. `import { RealtimeClient } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
+`core/src/client/realtime/NodefonySocket.ts:304`. `import { NodefonySocket } from "nodefony"` (ou `nodefony/client` navigateur). `implements IRealtimeSocket<Emit, Listen, Actions>, IRealtimePeer<Emit, Actions>`. Compose le **même** `JsonRpcPeer` que le serveur ; n'ajoute que transport/reconnect/heartbeat/stats/identité/ref-count.
 
 <!-- prettier-ignore -->
 | Méthode | Signature | Rôle |
 | --- | --- | --- |
-| `static shared` | `(opts?: RealtimeOptions): RealtimeClient` | **Singleton par URL** (`globalThis`) — 1 seule socket/origine. `:236` |
+| `static shared` | `(opts?: RealtimeOptions): NodefonySocket` | **Singleton par URL** (`globalThis`) — 1 seule socket/origine. `:236` |
 | `connect` / `disconnect` / `retryNow` | `(url?) => Promise<void>` / `()` / `()` | Cycle de vie (idempotent). `:304/:311/:287` |
 | `subscribe` / `unsubscribe` | `(channel): void` | **Ref-compté** : `subscribe` réseau émis aux seules transitions 0↔1, ré-émis au reconnect. `:423/:434` |
 | `on` / `off` | `(channel, handler): () => void` / `void` | REÇOIT (≠ `subscribe` qui DEMANDE). `:329/:340` |
@@ -615,7 +615,7 @@ Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtime
 
 - **Canal combiné = 1 provider = 1 effet de bord.** Le provider étant **partagé** (ref-compté), un canal coûteux (drill `orm:rich@<pid>`, enrich, ticker) s'exécute **une seule fois** par pod quel que soit le nombre d'abonnés (N onglets Studio sur le même canal = 1 enrich, pas N). Corollaire : le provider **survit** à la connexion qui l'a créé → la factory doit capturer des deps **long-lived** (broker/syslog/kernel), JAMAIS `this.context` (lié à la connexion créatrice qui peut fermer alors que d'autres abonnés restent).
 
-- **Singleton client par URL.** Côté navigateur, NE créez pas 2 `RealtimeClient` sur la même URL → `RealtimeClient.shared({ url })`. Normaliser `http(s)→ws(s)` (clé + `WebSocket`) sinon une URL relative hérite de `https` → 2 instances + `new WebSocket("https://…")` throw. Tous les consommateurs **ref-comptent** (`subscribe`/`unsubscribe`) ; jamais d'`emit("subscribe")` brut (un unsub à ref→0 couperait le canal pour tous).
+- **Singleton client par URL.** Côté navigateur, NE créez pas 2 `NodefonySocket` sur la même URL → `NodefonySocket.shared({ url })`. Normaliser `http(s)→ws(s)` (clé + `WebSocket`) sinon une URL relative hérite de `https` → 2 instances + `new WebSocket("https://…")` throw. Tous les consommateurs **ref-comptent** (`subscribe`/`unsubscribe`) ; jamais d'`emit("subscribe")` brut (un unsub à ref→0 couperait le canal pour tous).
 
 - **`getTokenForPeer` ne renvoie jamais `null`** → `ANONYMOUS_REALTIME_TOKEN` (Zero Trust). Les voters P6 n'ont pas à garder le null. Matcher `string` d'authenticator = RegExp **préfixe ancré** (`^<escaped>`), pas EXACT — pour EXACT passer une RegExp avec `$`.
 

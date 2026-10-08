@@ -23,7 +23,7 @@
  */
 import Service from "../Service";
 import type Syslog from "../syslog/Syslog";
-import { RealtimeClient } from "./realtime/RealtimeClient";
+import { NodefonySocket } from "./realtime/NodefonySocket";
 import { announceKernel, consoleDetails, isVerbose } from "./announce";
 import type {
   ClientIdentity,
@@ -83,7 +83,7 @@ export class ClientKernel implements IClientKernel {
     // magasins sur les services du kernel AVANT de le démarrer — le portage de
     // la console d'administration l'a montré, elle a besoin de la socket pour
     // construire son centre de notifications et son client d'API. Composer
-    // n'ouvre rien : `RealtimeClient.shared()` fabrique, `boot()` connecte.
+    // n'ouvre rien : `NodefonySocket.shared()` fabrique, `boot()` connecte.
     // L'annonce est posée AVANT la composition, et c'est ce qui lui donne son
     // nom : `#composeRealtime` fabrique la socket, qui s'annonce elle aussi
     // (ADR-0007 D7 révisé — le diagnostic ne se compose pas). Le badge ne sort
@@ -100,7 +100,7 @@ export class ClientKernel implements IClientKernel {
    *
    * Rend `undefined` pour un service absent — le registre est décrit par des
    * propriétés optionnelles, si bien que `kernel.get("realtime")` est de type
-   * `RealtimeClient | undefined` et nourrit `<NodefonyProvider client={…}>` sans
+   * `NodefonySocket | undefined` et nourrit `<NodefonyProvider client={…}>` sans
    * la moindre conversion de type forcée.
    */
   get<K extends keyof NodefonyClientServices>(
@@ -159,7 +159,7 @@ export class ClientKernel implements IClientKernel {
         await socket.connect();
       } catch (e) {
         // Une socket qui ne s'ouvre pas ne doit pas empêcher l'application de
-        // vivre : `RealtimeClient` se reconnecte seul. Le kernel devient `ready`
+        // vivre : `NodefonySocket` se reconnecte seul. Le kernel devient `ready`
         // — les écrans qui ne dépendent pas du temps réel doivent s'afficher.
         this.syslog.log(e instanceof Error ? e.message : String(e), "WARNING");
       }
@@ -221,7 +221,7 @@ export class ClientKernel implements IClientKernel {
     if (!opt) return;
     this.set(
       "realtime",
-      opt instanceof RealtimeClient ? opt : RealtimeClient.shared(opt),
+      opt instanceof NodefonySocket ? opt : NodefonySocket.shared(opt),
     );
   }
 

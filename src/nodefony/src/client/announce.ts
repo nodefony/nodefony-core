@@ -18,20 +18,20 @@
  * toujours son nom qui s'affiche.
  *
  * **Aucune rétention nouvelle** : le handle ne garde pas les sockets, il lit le
- * registre que `RealtimeClient.shared()` tient déjà (`globalThis.__nfRealtime__`).
+ * registre que `NodefonySocket.shared()` tient déjà (`globalThis.__nfRealtime__`).
  * Une socket construite hors du partage fait sortir le badge mais n'apparaît pas
  * dans `sockets()` — la retenir ici en ferait une fuite pour un confort.
  *
  * @module nodefony/client
  */
-import type { RealtimeClient } from "./realtime/RealtimeClient";
+import type { NodefonySocket } from "./realtime/NodefonySocket";
 
 /** Ce que `nodefony` rend dans la console. Dev uniquement — jamais publié. */
 interface NodefonyConsoleHandle {
   /** Le noyau vivant, s'il y en a un. */
   readonly kernel?: unknown;
   /** La première socket partagée — le raccourci du cas courant. */
-  readonly socket?: RealtimeClient | undefined;
+  readonly socket?: NodefonySocket | undefined;
   /** Les sockets partagées de la page : adresse et état. */
   sockets(): Array<{ url: string; state: string }>;
   /** L'identité courante — du noyau s'il y en a un, sinon de la socket. */
@@ -112,9 +112,9 @@ export function isDevBuild(): boolean {
   return (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
 }
 
-/** Les sockets partagées, lues dans le registre de `RealtimeClient.shared()`. */
-function sharedSockets(): RealtimeClient[] {
-  const g = globalThis as { __nfRealtime__?: Map<string, RealtimeClient> };
+/** Les sockets partagées, lues dans le registre de `NodefonySocket.shared()`. */
+function sharedSockets(): NodefonySocket[] {
+  const g = globalThis as { __nfRealtime__?: Map<string, NodefonySocket> };
   return g.__nfRealtime__ ? [...g.__nfRealtime__.values()] : [];
 }
 

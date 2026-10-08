@@ -15,7 +15,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { fileURLToPath } from "node:url";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import { createClientKernel } from "../client/ClientKernel";
 
 type Globals = {
@@ -61,7 +61,7 @@ describe("Sans noyau — une socket nue annonce, et se laisse inspecter", () => 
   it("une socket NUE pose le badge et le handle — c'est le cas des vitrines", () => {
     const spy = spyConsole();
     try {
-      RealtimeClient.shared({ url: "https://exemple.test/api/live/realtime" });
+      NodefonySocket.shared({ url: "https://exemple.test/api/live/realtime" });
       // Le badge : sans lui, une page qui emploie Nodefony ne le dit nulle part.
       expect(spy.calls.filter((l) => l.includes("nodefony"))).toHaveLength(1);
       // Le handle : `nodefony` qui rend `undefined` se lit « pas chargé ».
@@ -83,9 +83,9 @@ describe("Sans noyau — une socket nue annonce, et se laisse inspecter", () => 
   it("UN seul badge par page, quel que soit le nombre de sockets", () => {
     const spy = spyConsole();
     try {
-      RealtimeClient.shared({ url: "https://exemple.test/a" });
-      RealtimeClient.shared({ url: "https://exemple.test/b" });
-      new RealtimeClient({ url: "https://exemple.test/c" });
+      NodefonySocket.shared({ url: "https://exemple.test/a" });
+      NodefonySocket.shared({ url: "https://exemple.test/b" });
+      new NodefonySocket({ url: "https://exemple.test/c" });
       // Une console de navigateur est partagée : trois badges pour une page,
       // c'est du bruit qui pousse les messages de l'application hors de vue.
       expect(spy.calls.filter((l) => l.includes("nodefony"))).toHaveLength(1);
@@ -100,7 +100,7 @@ describe("Sans noyau — une socket nue annonce, et se laisse inspecter", () => 
   it("`banner: false` fait taire l'annonce ET le handle", () => {
     const spy = spyConsole();
     try {
-      new RealtimeClient({ url: "https://exemple.test/muet", banner: false });
+      new NodefonySocket({ url: "https://exemple.test/muet", banner: false });
       expect(spy.calls).toEqual([]);
       expect(g.nodefony).toBeUndefined();
     } finally {

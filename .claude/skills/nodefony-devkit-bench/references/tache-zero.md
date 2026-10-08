@@ -182,7 +182,7 @@ du catalogue.
 Le juge `scripts/lib/gate-porte-client.mjs` lit le moteur front dans le **manifeste** de
 l'application — `FRONTEND_PARAMS[…].client.marker`, le mot du produit — puis exige SA
 porte : `nodefony/svelte`, `/vue`, `/angular`, `/react`, ou `nodefony/client` sans
-moteur front. `RealtimeClient` reste accepté partout : c'est la façade elle-même.
+moteur front. `NodefonySocket` reste accepté partout : c'est la façade elle-même.
 
 **Pourquoi ce n'est pas un détail** : l'ancien critère était écrit en dur pour React.
 Le banc était donc React-centré exactement comme le gabarit qu'il éprouve — et l'agent

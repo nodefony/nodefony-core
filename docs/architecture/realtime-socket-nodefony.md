@@ -81,7 +81,7 @@ Si tu cherches comment ça marche aujourd'hui, va directement à la bonne page d
 
 Le principe DX tient en une phrase : **la socket, c'est le patron**. Un consommateur ne parle jamais
 au transport brut, il parle à sa socket — et cela vaut des deux côtés du fil. Côté navigateur,
-`RealtimeClient` implémente le contrat ; côté serveur, `ServerRealtimeSocket` implémente
+`NodefonySocket` implémente le contrat ; côté serveur, `ServerRealtimeSocket` implémente
 `IRealtimeSocket` (`ServerRealtimeSocket.ts:47`) au-dessus du hub, si bien qu'un service back code
 comme une page front.
 
@@ -121,7 +121,7 @@ formes d'adressage, en couches :
 
 1. Les primitives par **nom de canal** (`subscribe` / `on` / `publish`) — le moteur.
 2. Un **handle par canal**, `socket.channel(name)`, fine liaison au-dessus des primitives
-   (`RealtimeClient.channel()` (`RealtimeClient.ts:660`)). Il porte son nom, sa nature, son cycle de vie.
+   (`NodefonySocket.channel()` (`NodefonySocket.ts:676`)). Il porte son nom, sa nature, son cycle de vie.
 
 Le handle est le bon point d'accroche parce qu'il permet d'ajouter des couches **sans retoucher le
 hub** — c'est écrit dans le contrat lui-même (`IRealtimeChannel` (`IRealtimeSocket.ts:81`)) :

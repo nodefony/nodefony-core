@@ -28,7 +28,7 @@
 
 - **`customConditions: ["browser"]`** dans le `tsconfig` front = LE réglage clé : résout `nodefony` vers le
   client isomorphe (comme Vite) ; sans lui `tsc` sort des dizaines d'erreurs cross-package (il tire les sources
-  http/security) et ne voit pas `RealtimeClient`/`RealtimeState` en types.
+  http/security) et ne voit pas `NodefonySocket`/`RealtimeState` en types.
 - **`tsc` est le SEUL gate de types** : esbuild/Vite transpile **fichier par fichier** sans vérifier les symboles
   cross-fichier → un composant non importé (`TS2304`), un `Table` Mantine oublié passent le `curl` du transform
   Vite mais cassent au build. **Toujours `npm run typecheck`** avant de dire « fait » (cf `nodefony-frontend-dev` §4).
@@ -166,7 +166,7 @@ dans un `<Text>` = `<p>`. Y mettre une valeur **RICHE** (`<Badge>`, `<div>`, `<G
 > Invariant socket partagée + log protocole + actions : `realtime-studio.md`. Mécanisme client : `nodefony-frontend-dev`.
 
 - **Canal PARTAGÉ + ref-comptage** : un canal souscrit par 2 consommateurs (hook + store, ou Logs + Dashboard) → le
-  ref-comptage doit être l'**autorité de `RealtimeClient.subscribe/unsubscribe`** (réseau émis aux seules transitions
+  ref-comptage doit être l'**autorité de `NodefonySocket.subscribe/unsubscribe`** (réseau émis aux seules transitions
   0↔1, re-subscribe au `onopen`) ; binding + store ne font qu'appeler. JAMAIS de raw `client.emit("subscribe")`.
 - **Hub réconcilie depuis le client** : la table d'abonnements (`syncStats`) se reconstruit depuis
   `client.subscribedChannels` (+ `getChannelStats`), pas depuis un état parallèle qui se désynchronise quand une page

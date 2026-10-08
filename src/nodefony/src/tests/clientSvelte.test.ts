@@ -27,7 +27,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount, unmount, flushSync } from "svelte";
 // `unmount` rend la promesse de fin des transitions de sortie ; ces tests
 // lisent l'état SYNCHRONE après `flushSync`, ils ne l'attendent donc pas.
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -84,15 +84,15 @@ class MockTransport implements IRealtimeTransport {
 
 let transports: MockTransport[] = [];
 
-function newClient(): RealtimeClient {
-  return new RealtimeClient({ url: "ws://loopback/realtime" }, () => {
+function newClient(): NodefonySocket {
+  return new NodefonySocket({ url: "ws://loopback/realtime" }, () => {
     const t = new MockTransport();
     transports.push(t);
     return t;
   });
 }
 
-async function connected(client: RealtimeClient): Promise<MockTransport> {
+async function connected(client: NodefonySocket): Promise<MockTransport> {
   const promise = client.connect();
   transports[transports.length - 1]!.fireOpen();
   await promise;

@@ -154,8 +154,8 @@ await fetch("/api/books", {
 });
 
 // B) ABONNEMENT — on me prévient à CHAQUE changement (la Socket)
-import { RealtimeClient } from "nodefony/realtime";
-const socket = new RealtimeClient("wss://monsite/realtime");
+import { NodefonySocket } from "nodefony/realtime";
+const socket = new NodefonySocket("wss://monsite/realtime");
 socket.subscribe("book:created", (book) => ajouter(book));
 socket.subscribe("book:*", (evt) => onChange(evt)); // tous les changements des livres
 ```
@@ -276,7 +276,7 @@ Le **« Google Sheets complet »** (édition concurrente + offline sans conflit)
    les routes CRUD décorées sur la base ? (parcours `Object.getPrototypeOf` à l'enregistrement).
 2. ✅ **Enveloppe WS — TRANCHÉ (Ph.3, 2026-06-12)** : méthode JSON-RPC 2.0 `api.request {path}` sur le hub
    realtime (opt-in `realtimeApiRequest()`), cachée côté client par `socket.request("/path")` (overload
-   `RealtimeClient`). Query du path invoqué → `Resolver.queryOverride` (per-invocation, zéro bleed) ;
+   `NodefonySocket`). Query du path invoqué → `Resolver.queryOverride` (per-invocation, zéro bleed) ;
    erreurs fetch-like via `RpcError` (`data.status` 404/405…). Restes : `@Body`/mutations par socket NON
    conçus (routes non-GET = HTTP-only) ; parse query = paires plates `URLSearchParams` (nested `a[b]=c`
    non supporté par le pont — mutualisation du parse `qs` du transport HTTP à trancher en Ph.6).
@@ -301,7 +301,7 @@ Le **« Google Sheets complet »** (édition concurrente + offline sans conflit)
 | `Controller` HTTP+WS co-citoyen, `@route/@Get/@Post`, `@Param/@Body/@Query`, `initialize()` | ✅ |
 | `AbstractCrudService` (find/create/update/delete + events `onCreated…`) | ✅ |
 | `@entity`/`@repository`, `Criteria<T>` opérateurs riches | ✅ |
-| La Socket client (`RealtimeClient`, `subscribe`/`request`), `JsonRpcPeer` req/resp | ✅ |
+| La Socket client (`NodefonySocket`, `subscribe`/`request`), `JsonRpcPeer` req/resp | ✅ |
 | Data plane REST (`IAdminApi`/`AdminBroker`), Log Backplane (write/query/bus) | ✅ |
 | `ResourceController` (CRUD multi-surface) | ✅ Ph.2 (V4.2 stateless+singleton) |
 | Routage **invoke WS** vers une action + enveloppe normalisée (`api.request` JSON-RPC + `@Param/@Query`) | ✅ Ph.3 (pont opt-in `RealtimeController` + `socket.request("/path")` + `RpcError`) |

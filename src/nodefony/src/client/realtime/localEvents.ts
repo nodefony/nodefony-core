@@ -23,11 +23,11 @@
  */
 
 /**
- * Événements locaux du {@link RealtimeClient} — jamais émis ni reçus par le réseau.
+ * Événements locaux du {@link NodefonySocket} — jamais émis ni reçus par le réseau.
  *
- * @see {@link RealtimeClient.onState} · {@link RealtimeClient.onIdentity} ·
- *   {@link RealtimeClient.onStats} · {@link RealtimeClient.onNotice} ·
- *   {@link RealtimeClient.onDenied} — les portes publiques à préférer partout.
+ * @see {@link NodefonySocket.onState} · {@link NodefonySocket.onIdentity} ·
+ *   {@link NodefonySocket.onStats} · {@link NodefonySocket.onNotice} ·
+ *   {@link NodefonySocket.onDenied} — les portes publiques à préférer partout.
  */
 export const LOCAL_EVENTS = {
   /** État de la connexion (`"connected" | "reconnecting" | …`), à chaque transition. */

@@ -203,7 +203,7 @@ describe("vitrines — les quatre consomment le SOCLE, aucune ne le réécrit", 
       // Les trois recopies que l'extraction a supprimées. Chacune s'affiche
       // parfaitement tant qu'on ne coupe pas le réseau — d'où ce refus écrit.
       expect(src, `${front} : socket fabriquée à la main`).not.toContain(
-        "RealtimeClient.shared(",
+        "NodefonySocket.shared(",
       );
       expect(src, `${front} : nom d'événement local recopié`).not.toContain(
         "__state__",

@@ -5,14 +5,14 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-03
+updated: 2026-10-08
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 ---
 
 # `nodefony-frontend-dev`
 
-> Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`.
+> Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-frontend-dev**
 
@@ -38,7 +38,7 @@ source: ".claude/skills/nodefony-frontend-dev/SKILL.md"
 
 ## Ce qu'il fait
 
-Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`. Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ; back → `nodefony-framework-dev`.
+Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`. Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ; back → `nodefony-framework-dev`.
 
 ## Skills voisins
 
@@ -50,7 +50,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`dev front nodefony` · `isomorphisme` · `socket client` · `RealtimeClient` · `useNodefony` · `hooks realtime` · `HMR` · `Vite nodefony` · `ApiClient` · `useResource` · `data plane front` · `BFF` · `RBAC front` · `accessibilité front` · `perf front` · `vérifie le front` · `ma modif front passe ?` · `transform Vite` · `prébundle Vite périmé`
+`dev front nodefony` · `isomorphisme` · `socket client` · `NodefonySocket` · `useNodefony` · `hooks realtime` · `HMR` · `Vite nodefony` · `ApiClient` · `useResource` · `data plane front` · `BFF` · `RBAC front` · `accessibilité front` · `perf front` · `vérifie le front` · `ma modif front passe ?` · `transform Vite` · `prébundle Vite périmé`
 
 ## Ce que contient le corps
 
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/front-quality.md` | Qualité front (Nodefony) — temps réel calme · perf CSS · a11y · sécu | 154 |
 | `references/isomorphic.md` | Cœur isomorphe nodefony côté navigateur | 270 |
 | `references/patterns.md` | Patterns d'écran front (Nodefony) — framework-agnostique | 168 |
-| `references/realtime-client.md` | RealtimeClient & hooks React (nodefony/client, nodefony/react) | 577 |
+| `references/realtime-client.md` | NodefonySocket & hooks React (nodefony/client, nodefony/react) | 577 |
 
 _(+ 11 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 

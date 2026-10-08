@@ -38,7 +38,7 @@ import {
   ApplicationRef,
   NgZone,
 } from "@angular/core";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -98,8 +98,8 @@ let horsZone = false;
 /** Le transport a-t-il été fabriqué hors zone ? `null` tant qu'aucun ne l'a été. */
 let transportHorsZone: boolean | null = null;
 
-function newClient(): RealtimeClient {
-  return new RealtimeClient({ url: URL_BANC }, () => {
+function newClient(): NodefonySocket {
+  return new NodefonySocket({ url: URL_BANC }, () => {
     transportHorsZone = horsZone;
     const t = new MockTransport();
     transports.push(t);
@@ -107,7 +107,7 @@ function newClient(): RealtimeClient {
   });
 }
 
-async function connected(client: RealtimeClient): Promise<MockTransport> {
+async function connected(client: NodefonySocket): Promise<MockTransport> {
   const promise = client.connect();
   transports[transports.length - 1]!.fireOpen();
   await promise;
@@ -133,9 +133,9 @@ function abonnements(t: MockTransport): string[] {
  * diverger de la résolution réelle. On laisse donc le client créer son entrée,
  * puis on remplace la valeur : la clé reste celle du produit.
  */
-function partagerSous(url: string, client: RealtimeClient): void {
-  RealtimeClient.shared({ url });
-  const map = (globalThis as { __nfRealtime__?: Map<string, RealtimeClient> })
+function partagerSous(url: string, client: NodefonySocket): void {
+  NodefonySocket.shared({ url });
+  const map = (globalThis as { __nfRealtime__?: Map<string, NodefonySocket> })
     .__nfRealtime__!;
   for (const cle of map.keys()) map.set(cle, client);
 }

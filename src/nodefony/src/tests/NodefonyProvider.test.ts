@@ -21,7 +21,7 @@ import * as React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NodefonyProvider, useNodefony } from "../client/react/index";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 
 /** Sockets instanciées depuis le début du cas courant. */
 let ouvertes: string[] = [];
@@ -63,14 +63,14 @@ afterEach(() => {
 });
 
 /** Rend le client vu par un enfant du Provider — c'est ce que l'app consomme. */
-function Sonde({ vers }: { vers: (c: RealtimeClient) => void }): null {
+function Sonde({ vers }: { vers: (c: NodefonySocket) => void }): null {
   vers(useNodefony());
   return null;
 }
 
 describe("NodefonyProvider", () => {
   it("fabrique et connecte la socket quand on lui donne une url", () => {
-    let vu: RealtimeClient | null = null;
+    let vu: NodefonySocket | null = null;
     act(() => {
       root!.render(
         React.createElement(
@@ -80,14 +80,14 @@ describe("NodefonyProvider", () => {
         ),
       );
     });
-    expect(vu).toBeInstanceOf(RealtimeClient);
+    expect(vu).toBeInstanceOf(NodefonySocket);
     // UNE connexion : le Provider a bien appelé `connect()` de lui-même.
     expect(ouvertes).toHaveLength(1);
     expect(ouvertes[0]).toContain("/api/live/realtime");
   });
 
   it("n'ouvre QU'UNE connexion pour deux Providers de même url", () => {
-    const clients: RealtimeClient[] = [];
+    const clients: NodefonySocket[] = [];
     const unProvider = (cle: string) =>
       React.createElement(
         NodefonyProvider,
@@ -115,7 +115,7 @@ describe("NodefonyProvider", () => {
     // La console d'administration est dans ce cas : elle possède son cycle et
     // re-négocie la socket sur changement d'identité. Le Provider qui
     // appellerait `connect()` par-dessus lui volerait cette décision.
-    const mien = RealtimeClient.shared({
+    const mien = NodefonySocket.shared({
       url: "/nodefony/studio/api/realtime",
     });
     ouvertes = [];
@@ -134,10 +134,10 @@ describe("NodefonyProvider", () => {
   it("refuse franchement une url manquante, en nommant la route attendue", () => {
     // Sans URL il n'y a rien à deviner : le client visait autrefois une route
     // montée nulle part, et l'utilisateur n'obtenait qu'une socket qui retente.
-    expect(() => RealtimeClient.shared({})).toThrow(
+    expect(() => NodefonySocket.shared({})).toThrow(
       /adresse du serveur temps réel manquante/,
     );
-    expect(() => RealtimeClient.shared({})).toThrow(/api\/live\/realtime/);
+    expect(() => NodefonySocket.shared({})).toThrow(/api\/live\/realtime/);
     expect(ouvertes).toHaveLength(0);
   });
 });

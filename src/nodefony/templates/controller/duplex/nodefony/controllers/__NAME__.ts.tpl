@@ -44,10 +44,10 @@ interface IItem {
  * Côté client (navigateur OU script Node — la façade est isomorphe, le
  * subpath `nodefony/client` est sa porte explicite) :
  * ```ts
- * import { RealtimeClient } from "nodefony/client";
+ * import { NodefonySocket } from "nodefony/client";
  * // URL RELATIVE, résolue contre la page (https → wss automatique) ;
  * // `.shared()` = UNE socket par URL, partagée par toute la page.
- * const socket = RealtimeClient.shared({ url: "<%= it.route %>/realtime" });
+ * const socket = NodefonySocket.shared({ url: "<%= it.route %>/realtime" });
  * await socket.connect();
  * // LECTURE — la même action que `GET <%= it.route %>` :
  * const items = await socket.request("<%= it.route %>?limit=10");

@@ -138,7 +138,7 @@
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du WS
     // métier, génère la bonne couche (`nodefony create controller <nom> --kind
-    // realtime`) et consomme-la par la FAÇADE client (`RealtimeClient`) au lieu
+    // realtime`) et consomme-la par la FAÇADE client (`NodefonySocket`) au lieu
     // d'un `new WebSocket` à la main.
     const scheme = location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${scheme}://${location.host}/api/echo`);
@@ -331,7 +331,7 @@
         <code>LiveController</code> (<code>--kind realtime</code>) publie le
         canal <code>live:events</code> quand il se passe quelque chose — jamais
         sur une horloge ; la page le consomme par la façade
-        <code>RealtimeClient</code> — zéro <code>WebSocket</code> à la main.
+        <code>NodefonySocket</code> — zéro <code>WebSocket</code> à la main.
         Ouvrez un second onglet pour voir arriver ce que celui-ci envoie.
       </p>
       <p>

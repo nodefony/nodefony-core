@@ -1745,7 +1745,7 @@ export const TASKS = [
         // ⚠️ Ce critère est écrit pour la façade, pas pour un moteur — et c'est
         // JUSTE ICI, parce que l'application témoin naît en `--frontend none` :
         // aucun moteur front n'y est installé, donc aucun agent ne peut en
-        // choisir un, et `RealtimeClient` est bien la porte attendue.
+        // choisir un, et `NodefonySocket` est bien la porte attendue.
         //
         // Le critère qui suit le moteur CHOISI vit dans `gate-porte-client.mjs`
         // et sert la TÂCHE 0, seule tâche où l'agent crée l'application — donc
@@ -1755,8 +1755,8 @@ export const TASKS = [
         // ait rien montré. Une sonde `code` sur `where: "content"` ne lit, elle,
         // que les fichiers qu'il a TOUCHÉS.
         kind: "code",
-        name: "côté client : la façade isomorphe est montrée (RealtimeClient / nodefony/react)",
-        pattern: /RealtimeClient|nodefony\/react/u,
+        name: "côté client : la façade isomorphe est montrée (NodefonySocket / nodefony/react)",
+        pattern: /NodefonySocket|nodefony\/react/u,
         where: "content",
       },
       {

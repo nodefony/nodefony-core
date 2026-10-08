@@ -419,7 +419,7 @@ try {
 - **`Nodefony`** — façade statique (singleton kernel, version, génération d'id).
 
 Build Rollup `preserveModules` → un build **client** dédié (`src/client/`, condition `browser`) shimme `node:*`
-et expose un sous-ensemble (RealtimeClient, Pdu, Syslog, Tools…) ⇒ le même paquet est importable côté navigateur.
+et expose un sous-ensemble (NodefonySocket, Pdu, Syslog, Tools…) ⇒ le même paquet est importable côté navigateur.
 
 ---
 

@@ -159,7 +159,7 @@ let warnedUnenforcedPolicies = false;
  * — écrit UNE fois, partagé par tous les modules. Un contrôleur concret ne déclare que
  * son métier : {@link createRealtimeChannel} (providers de canaux) + {@link realtimeActions}.
  *
- * Chaque connexion compose un `JsonRpcPeer` (le MÊME que `RealtimeClient` côté navigateur
+ * Chaque connexion compose un `JsonRpcPeer` (le MÊME que `NodefonySocket` côté navigateur
  * — symétrie isomorphe) branché sur un {@link WsConnectionTransport}.
  *
  * Usage : le sous-classe garde sa route WS et délègue —
@@ -306,13 +306,13 @@ export abstract class RealtimeController<
    * est structurel, pas un choix : c'est au client d'attendre `realtime:welcome`
    * avant de pousser.
    *
-   * ⚠️ Cette phrase a longtemps ajouté « ce que `RealtimeClient` fait nativement ».
+   * ⚠️ Cette phrase a longtemps ajouté « ce que le client fait nativement ».
    * C'était FAUX : le client rejouait ses abonnements dès l'ouverture de la socket,
    * si bien qu'un `subscribe` posé avant le démarrage et TOUS ceux d'après une
    * reconnexion étaient perdus ici même, sans un mot des deux côtés. Un contrat écrit
    * d'un seul côté du fil n'est pas tenu ; il l'est désormais par
-   * `RealtimeClient.replaySubscriptions` et les deux cas « la fenêtre où le serveur
-   * écoute (welcome) » de `RealtimeClientCoverage.test.ts`.
+   * `NodefonySocket.replaySubscriptions` et les deux cas « la fenêtre où le serveur
+   * écoute (welcome) » de `NodefonySocketCoverage.test.ts`.
    */
   protected handleRealtime(message: string | Buffer | null): void {
     const ctx = this.context as WebsocketContext | undefined;

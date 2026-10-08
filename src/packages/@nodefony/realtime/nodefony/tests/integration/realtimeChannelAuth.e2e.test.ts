@@ -22,14 +22,14 @@ import {
   type IFrameAuthorizerFirewall,
 } from "../../../../security/nodefony/src/realtime/frameAuthorizer.js";
 // VRAI client navigateur (core isomorphe), en source.
-import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/RealtimeClient.js";
+import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 import {
   TransportState,
   type IRealtimeTransport,
 } from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
 
 /**
- * MATRICE E2E « protection des canaux » — VRAI {@link RealtimeClient} ↔ VRAI
+ * MATRICE E2E « protection des canaux » — VRAI {@link NodefonySocket} ↔ VRAI
  * {@link RealtimeController} reliés par un câble loopback in-process, avec le VRAI
  * verrou de frame de `@nodefony/security` ({@link buildFrameAuthorizer}) posé sur
  * le hub. On exerce la décision RBAC sur CHAQUE combinaison identité × canal :
@@ -274,7 +274,7 @@ const testAuth: IRealtimeAuthenticator = {
 async function connectAs(
   token: IRealtimeToken,
   environment?: string,
-): Promise<{ client: RealtimeClient; welcome: Partial<IRealtimeWelcome> }> {
+): Promise<{ client: NodefonySocket; welcome: Partial<IRealtimeWelcome> }> {
   const hub = getRealtimeHub();
   hub.clear();
   currentToken = token;
@@ -311,7 +311,7 @@ async function connectAs(
   };
   makeServer(wire, environment);
   const transport = new LoopbackClientTransport(wire);
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://loopback/realtime", autoReconnect: false },
     () => transport,
   );

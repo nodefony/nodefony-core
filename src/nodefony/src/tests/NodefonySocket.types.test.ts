@@ -1,8 +1,8 @@
 /**
- * Tests d'INFÉRENCE TYPES — `RealtimeClient<Emit, Listen, Actions>` paramétré
+ * Tests d'INFÉRENCE TYPES — `NodefonySocket<Emit, Listen, Actions>` paramétré
  * (pattern Socket.IO typed-events, P13 Bloc A étape 4b).
  *
- * Pendant DX de `JsonRpcPeer.types.test.ts` mais côté `RealtimeClient` (front
+ * Pendant DX de `JsonRpcPeer.types.test.ts` mais côté `NodefonySocket` (front
  * isomorphe). Spécificités :
  * - les méthodes utilisent un **type conditionnel inline** (pas d'overloads)
  *   pour préserver les noms système (`__notice__`, `*`, `subscribe`/`unsubscribe`
@@ -15,7 +15,7 @@
  */
 
 import { describe, it } from "vitest";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
   expectType,
   type ActionNames,
@@ -45,13 +45,13 @@ interface AppActions extends ActionsMap {
 // vivent au scope module (ambient → aucun emit runtime, `_typeOnly` jamais appelé).
 
 // Côté CLIENT : Emit=ClientToServer, Listen=ServerToClient, Actions=AppActions
-declare const client: RealtimeClient<
+declare const client: NodefonySocket<
   ClientToServer,
   ServerToClient,
   AppActions
 >;
 // RÉTRO-COMPAT — client sans paramétrage (défauts permissifs)
-declare const rawClient: RealtimeClient;
+declare const rawClient: NodefonySocket;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SENTINELLES — TROUS DE TYPAGE du code source, prouvés ici et RAPPORTÉS (le
@@ -141,7 +141,7 @@ function _typeOnly(): void {
   expectType<Promise<unknown>>(rawClient.request("any-method"));
 }
 
-describe("RealtimeClient — type inference (compile-only)", () => {
+describe("NodefonySocket — type inference (compile-only)", () => {
   it("compiles when types match the contract", () => {
     void _typeOnly;
   });

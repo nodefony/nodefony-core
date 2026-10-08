@@ -1,7 +1,7 @@
 /**
  * `nodefony/react` — bindings React **fins** du client temps réel isomorphe.
  *
- * Adapte le {@link RealtimeClient} (agnostique : `on()`/`emit()`/`state`) à la
+ * Adapte le {@link NodefonySocket} (agnostique : `on()`/`emit()`/`state`) à la
  * réactivité React, sans MobX ni glue à recopier dans chaque app. Réutilisable
  * par Studio ET n'importe quelle app React servie par `@nodefony/frontend`.
  *
@@ -27,17 +27,17 @@
  * @module nodefony/react
  */
 import * as React from "react";
-// `RealtimeClient` n'est importé qu'en TYPE : la fabrication de la socket
+// `NodefonySocket` n'est importé qu'en TYPE : la fabrication de la socket
 // partagée passe par `connectShared` (socle agnostique), qui porte la précédence
 // `client` sur `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
-import type { RealtimeClient } from "../realtime/RealtimeClient";
+import type { NodefonySocket } from "../realtime/NodefonySocket";
 import type {
   RealtimeState,
   NodefonyNotice,
   RealtimeIdentity,
   MessageStats,
-} from "../realtime/RealtimeClient";
+} from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 import {
   connectShared,
@@ -71,10 +71,10 @@ export type {
   RealtimeIdentity,
   RealtimeState,
   NodefonyNotice,
-} from "../realtime/RealtimeClient";
+} from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
 
-const NodefonyContext = React.createContext<RealtimeClient | null>(null);
+const NodefonyContext = React.createContext<NodefonySocket | null>(null);
 
 export interface NodefonyProviderProps {
   /**
@@ -82,7 +82,7 @@ export interface NodefonyProviderProps {
    * socket partagée pour cette URL et la connecte lui-même.
    *
    * Deux consommateurs qui donnent la même URL obtiennent la MÊME socket
-   * ({@link RealtimeClient.shared}), donc une seule connexion réseau.
+   * ({@link NodefonySocket.shared}), donc une seule connexion réseau.
    */
   url?: string;
   /**
@@ -93,7 +93,7 @@ export interface NodefonyProviderProps {
    * Fournie, elle l'emporte sur `url` et le Provider ne touche pas au cycle :
    * ni `connect`, ni `disconnect`.
    */
-  client?: RealtimeClient;
+  client?: NodefonySocket;
   children?: React.ReactNode;
 }
 
@@ -142,7 +142,7 @@ export function NodefonyProvider(
  *
  * @throws si appelé hors d'un `<NodefonyProvider>`.
  */
-export function useNodefony(): RealtimeClient {
+export function useNodefony(): NodefonySocket {
   const client = React.useContext(NodefonyContext);
   if (!client) {
     throw new Error(
@@ -244,7 +244,7 @@ export interface AdaptiveChannelData<T> {
 
 /**
  * `useNodefonyAdaptiveChannel()` — équivalent **handler-based** de {@link useNodefonyChannel}
- * mais en **cadence adaptative** (AIMD client-driven, cf {@link RealtimeClient.adaptiveChannel}) :
+ * mais en **cadence adaptative** (AIMD client-driven, cf {@link NodefonySocket.adaptiveChannel}) :
  * la lib recule la cadence sous famine puis la remonte quand c'est sain. `onMessage` reçoit
  * chaque frame (handler riche autorisé) ; **renvoie la cadence effective** (ms) pour un badge.
  * Primitif commun à tous les dashboards d'état (Supervision, ORM…) → **logique live identique**.

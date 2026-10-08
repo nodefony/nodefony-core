@@ -37,7 +37,7 @@ export type { NetEntry } from "./network";
 
 /**
  * Monte la debug bar sur la page courante. Idempotent (un seul widget par page).
- * No-op hors navigateur (SSR). Branche un {@link RealtimeClient} sur le WS
+ * No-op hors navigateur (SSR). Branche un {@link NodefonySocket} sur le WS
  * realtime et rend l'overlay live.
  *
  * @param opts - URL du WS, client partagé, position, ouverture initiale

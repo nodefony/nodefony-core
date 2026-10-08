@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { RealtimeClient } from "../client/realtime/RealtimeClient";
+import { NodefonySocket } from "../client/realtime/NodefonySocket";
 
 /**
  * Le client ingère le `realtime:welcome` (1ʳᵉ frame serveur) : il en extrait
@@ -11,8 +11,8 @@ interface Internals {
   handleMessage(raw: string): void;
 }
 
-function newClient(): { client: RealtimeClient; internal: Internals } {
-  const client = new RealtimeClient({
+function newClient(): { client: NodefonySocket; internal: Internals } {
+  const client = new NodefonySocket({
     url: "ws://localhost/nodefony/api/realtime",
     autoReconnect: false,
   });
@@ -45,7 +45,7 @@ const welcome = (
     params: { ts: 1, protocol: "jsonrpc-2.0", channels, methods, identity },
   });
 
-describe("RealtimeClient — identité au welcome", () => {
+describe("NodefonySocket — identité au welcome", () => {
   it("avant tout welcome → identity/serverChannels/serverMethods = null", () => {
     const { client } = newClient();
     expect(client.identity).to.equal(null);

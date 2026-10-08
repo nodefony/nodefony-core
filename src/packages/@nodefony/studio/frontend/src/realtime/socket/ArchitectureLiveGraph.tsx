@@ -30,7 +30,7 @@ const NODES: FlowGraphNode[] = [
   {
     id: "client",
     data: {
-      label: "RealtimeClient",
+      label: "NodefonySocket",
       sub: "Navigateur · isomorphe · subscribe / on / publish / request",
       icon: <IconDeviceDesktop size={20} />,
       color: "blue",

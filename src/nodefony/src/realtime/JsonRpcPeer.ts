@@ -244,7 +244,7 @@ export interface JsonRpcPeerOptions<
 
 /**
  * Surface BIDIRECTIONNELLE d'un endpoint temps réel — **contrat ISOMORPHE**,
- * identique back et front. `RealtimeClient` (navigateur) ET la connexion serveur
+ * identique back et front. `NodefonySocket` (navigateur) ET la connexion serveur
  * l'exposent, en composant le même {@link JsonRpcPeer}. Du code métier écrit
  * contre cette interface tourne des deux côtés (le pari isomorphe de Nodefony).
  *
@@ -256,7 +256,7 @@ export interface JsonRpcPeerOptions<
  * @typeParam Actions — contrat RPC bidirectionnel (typage de `request`/`register`).
  *
  * Note : `Listen` (notifications ENTRANTES) n'est PAS sur cette interface raw —
- * il est consommé par `JsonRpcPeerOptions.onNotification` et par `RealtimeClient.on()`.
+ * il est consommé par `JsonRpcPeerOptions.onNotification` et par `NodefonySocket.on()`.
  */
 export interface IRealtimePeer<
   Emit extends EventsMap = DefaultEventsMap,

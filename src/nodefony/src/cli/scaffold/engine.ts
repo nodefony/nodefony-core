@@ -2082,7 +2082,7 @@ function dispatchScaffold(
     // controller --kind realtime` (même principe que HelloController — le
     // premier exemple realtime lu est celui que la commande régénérera).
     // C'est LUI que la carte « Temps réel » des vitrines consomme via la
-    // façade client (RealtimeClient / hooks nodefony/react) : canal sortant
+    // façade client (NodefonySocket / hooks nodefony/react) : canal sortant
     // `live:events`, canal entrant `live:say`, actions `live:ping` /
     // `live:snapshot`.
     renderLayer(
@@ -5737,7 +5737,7 @@ function runFrontScaffold(
   // exemplaires — une vitrine qui montrait la liaison temps réel du moteur, et
   // un squelette de dix-huit lignes qui n'en montrait rien — si bien qu'un
   // agent parti de `create front` recomposait à la main une résolution d'URL
-  // que `RealtimeClient` fait déjà, et coupait la socket PARTAGÉE de la page en
+  // que `NodefonySocket` fait déjà, et coupait la socket PARTAGÉE de la page en
   // croyant libérer son abonnement.
   //
   // Ce que la page MONTRE dépend de ce que l'application porte VRAIMENT : une

@@ -1,8 +1,8 @@
 import { expect } from "vitest";
 import {
-  RealtimeClient,
+  NodefonySocket,
   type KernelPingResult,
-} from "../client/realtime/RealtimeClient";
+} from "../client/realtime/NodefonySocket";
 
 /**
  * `ping()` est un helper RÉUTILISABLE de la lib cliente (Core isomorphe) : il
@@ -19,9 +19,9 @@ interface RequestStub {
   request: RequestFn;
 }
 
-describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", () => {
+describe("NodefonySocket — ping() (helper RTT réutilisable, lib cliente)", () => {
   it("appelle la méthode RPC standard `nodefony:kernel:ping` et ajoute `rtt` au résultat", async () => {
-    const client = new RealtimeClient({
+    const client = new NodefonySocket({
       url: "ws://localhost/nodefony/api/realtime",
       autoReconnect: false,
     });
@@ -66,7 +66,7 @@ describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", ()
   });
 
   it("propage le `timeoutMs` passé à `ping()` jusqu'à `request()`", async () => {
-    const client = new RealtimeClient({ url: "ws://x", autoReconnect: false });
+    const client = new NodefonySocket({ url: "ws://x", autoReconnect: false });
     let seenTimeout: number | undefined;
     (client as unknown as RequestStub).request = async (_m, _p, timeoutMs) => {
       seenTimeout = timeoutMs;
@@ -80,7 +80,7 @@ describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", ()
   });
 
   it("rejette si le serveur ne répond pas (timeout) ou ignore la méthode (-32601)", async () => {
-    const client = new RealtimeClient({ url: "ws://x", autoReconnect: false });
+    const client = new NodefonySocket({ url: "ws://x", autoReconnect: false });
     (client as unknown as RequestStub).request = async () => {
       throw new Error("RPC timeout: nodefony:kernel:ping");
     };

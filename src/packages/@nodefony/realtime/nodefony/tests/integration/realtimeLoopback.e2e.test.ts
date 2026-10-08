@@ -17,10 +17,10 @@ import type {
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator.js";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken.js";
 // ── Client importé EN SOURCE (pas le subpath `nodefony/client` qui résout vers le
-// dist) : ce test exerce la refacto L0 du RealtimeClient SANS rebuild du core. Le
+// dist) : ce test exerce la refacto L0 du NodefonySocket SANS rebuild du core. Le
 // serveur (RealtimeController relatif source) tire `JsonRpcPeer` du dist `nodefony`
 // — le moteur n'est PAS modifié par L0, donc dist === source (protocole JSON pur).
-import { RealtimeClient } from "../../../../../../nodefony/src/client/realtime/RealtimeClient.js";
+import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 import { RpcError } from "../../../../../../nodefony/src/realtime/JsonRpcPeer.js";
 import {
   TransportState,
@@ -28,7 +28,7 @@ import {
 } from "../../../../../../nodefony/src/realtime/IRealtimeTransport.js";
 
 /**
- * INTÉGRATION BÉTON « la socket Nodefony » — VRAI `RealtimeClient` (navigateur,
+ * INTÉGRATION BÉTON « la socket Nodefony » — VRAI `NodefonySocket` (navigateur,
  * core isomorphe) ↔ VRAI `RealtimeController` (serveur, @nodefony/realtime),
  * reliés par un câble loopback in-process.
  *
@@ -74,7 +74,7 @@ class LoopbackWire {
 
 /**
  * Transport client loopback ({@link IRealtimeTransport}) injecté dans le VRAI
- * `RealtimeClient`. `connect()` ouvre + déclenche le handshake serveur (le vrai
+ * `NodefonySocket`. `connect()` ouvre + déclenche le handshake serveur (le vrai
  * pipeline framework appelle `handleRealtime(null)` à l'upgrade).
  */
 class LoopbackClientTransport implements IRealtimeTransport {
@@ -239,7 +239,7 @@ async function connectPair(
   clientOpts: Record<string, unknown> = {},
   serverHs: ServerHandshake = {},
 ): Promise<{
-  client: RealtimeClient;
+  client: NodefonySocket;
   rt: LoopbackRt;
   /** Connexion serveur factice — `bufferedAmount` pilotable (back-pressure). */
   conn: { bufferedAmount: number };
@@ -249,7 +249,7 @@ async function connectPair(
   const wire = new LoopbackWire();
   const { rt, conn, fireFinish, closeServer } = makeServer(wire, serverHs);
   const transport = new LoopbackClientTransport(wire);
-  const client = new RealtimeClient(
+  const client = new NodefonySocket(
     { url: "ws://loopback/realtime", autoReconnect: false, ...clientOpts },
     () => transport,
   );
@@ -531,7 +531,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     const wire = new LoopbackWire();
     makeServer(wire); // branche wire.feedServer
     const transport = new LoopbackClientTransport(wire);
-    const client = new RealtimeClient(
+    const client = new NodefonySocket(
       { url: "ws://loopback/realtime", autoReconnect: false },
       () => transport,
     );

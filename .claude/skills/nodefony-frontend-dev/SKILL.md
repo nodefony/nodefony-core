@@ -4,14 +4,14 @@ metadata:
   version: 1.0.0
 description: >
   Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé
-  front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR
+  front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR
   (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC
   isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans
   navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un
   navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`.
   Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ;
   back → `nodefony-framework-dev`.
-  Déclencheurs : "dev front nodefony", "isomorphisme", "socket client", "RealtimeClient",
+  Déclencheurs : "dev front nodefony", "isomorphisme", "socket client", "NodefonySocket",
   "useNodefony", "hooks realtime", "HMR", "Vite nodefony", "ApiClient",
   "useResource", "data plane front", "BFF", "RBAC front", "accessibilité front",
   "perf front", "vérifie le front", "ma modif front passe ?", "transform Vite",
@@ -46,7 +46,7 @@ description: >
 jamais une copie figée) :
 
 - **Data-plane** `/nodefony/<mod>/api/*` : back l'expose via `IAdminApi` → front via `ApiClient`/`useResource`. → `references/data-bff.md`.
-- **Realtime** : back = hub + `RealtimeController` (canaux) → front = `RealtimeClient` + hooks `nodefony/react`. → `references/realtime-client.md`.
+- **Realtime** : back = hub + `RealtimeController` (canaux) → front = `NodefonySocket` + hooks `nodefony/react`. → `references/realtime-client.md`.
 - **RBAC** : rôles dérivés CÔTÉ SERVEUR, exposés dans le DTO ; le front les lit via `nodefony/roles` (cosmétique). → `references/isomorphic.md`.
 
 **RÈGLE** : une feature qui traverse back+front → MAJ **les deux skills dans la MÊME session**. Tu changes
@@ -57,7 +57,7 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 **Utiliser** quand tu codes côté CLIENT avec Nodefony :
 
 - **isomorphisme** : partager du code `nodefony` front/back, `customConditions:["browser"]`, subpaths `nodefony/client|react|roles`.
-- **socket Nodefony** : `RealtimeClient` (subscribe/request/mutate/ping), socle agnostique `observe*` (une liaison de vue ne contient QUE rappel+libération → réactivité), liaisons idiomatiques `nodefony/react` (hooks), `nodefony/vue` (plugin + composables) `nodefony/angular` (fournisseur + fonctions d'injection, ZÉRO décorateur publié) et `nodefony/svelte` (configuration de module + valeurs `.current`, ZÉRO rune publiée, abonnement PARESSEUX), canaux temps réel.
+- **socket Nodefony** : `NodefonySocket` (subscribe/request/mutate/ping), socle agnostique `observe*` (une liaison de vue ne contient QUE rappel+libération → réactivité), liaisons idiomatiques `nodefony/react` (hooks), `nodefony/vue` (plugin + composables) `nodefony/angular` (fournisseur + fonctions d'injection, ZÉRO décorateur publié) et `nodefony/svelte` (configuration de module + valeurs `.current`, ZÉRO rune publiée, abonnement PARESSEUX), canaux temps réel.
 - **builder/HMR** : `@nodefony/frontend` (`registerEntry`, Vite dev HMR, build prod, multi-bundle, relais `/_vite/<famille>/`).
 - **data-plane BFF** : `ApiClient` (`getAbsolute`/`postAbsolute`/…), `useResource`, session BFF cookie opaque, RBAC front.
 - **qualité front** : ergonomie, temps réel « calme », a11y (WCAG/ARIA), perf CSS compositor-only.
@@ -79,7 +79,7 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 - **RBAC front = cosmétique** : masquer/afficher selon les rôles du **DTO** (`hasRole` isomorphe) — l'autorité reste le SERVEUR (le front ne décode jamais un token, ne décide jamais l'accès).
 - **Perf = compositor-only** : animer **uniquement** `transform`/`opacity` (jamais `width`/`top`/`left` → reflow). `will-change`/`contain`/`content-visibility` à bon escient. (→ `references/front-quality.md` + `references/specs/`.)
 - **Temps réel CALME** (WCAG 2.2.2) : paliers ms↔s, `tabular-nums`, respecter `prefers-reduced-motion` (flashes → opacité douce). Test des 30 s : l'œil ne doit rien voir bouger sans raison.
-- **Socket PARTAGÉE** : 1 `RealtimeClient` par URL (singleton) ; canaux **ref-comptés** (subscribe au montage, unsubscribe au démontage) ; reconnect → re-subscribe auto. Ne JAMAIS ouvrir une 2ᵉ socket.
+- **Socket PARTAGÉE** : 1 `NodefonySocket` par URL (singleton) ; canaux **ref-comptés** (subscribe au montage, unsubscribe au démontage) ; reconnect → re-subscribe auto. Ne JAMAIS ouvrir une 2ᵉ socket.
 - **a11y** : 1 seul `<h1>`, `aria-label` sur les icônes-boutons, `aria-expanded` sur les toggles, `aria-live` pour le live. (→ `references/specs/w3c-wcag22.md` + `w3c-aria-apg-patterns.md`.)
 - **Assets = import normal** (`import x from "./x.png"`, `url()` CSS) — **jamais `?inline` pour contourner l'origine** en dev : Nodefony relaie le chemin réservé `/_vite/<famille>/` vers Vite, et toute URL Vite émise doit le porter (passer par `renderTags`/`renderDocument`, jamais une balise écrite à la main). Mécanisme, limites (chaîne `src="./x"` non transformée, `styles: […]` Angular) → `references/build-hmr.md` §4.9.
 - **TS strict** : 0 `any`, 0 `@ts-ignore`. Gate `npm run typecheck` du module front AVANT de dire « fait ».
@@ -92,7 +92,7 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 | Ta tâche                                                                                                                                | Lis ce fichier                                  |
 | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | Isomorphisme (`nodefony` front/back, `customConditions`, subpaths), `nodefony/roles` RBAC                                               | `references/isomorphic.md`                      |
-| Socket client `RealtimeClient`, socle agnostique `observe*`/`connectShared` + les QUATRE liaisons `nodefony/{react,vue,angular,svelte}` | `references/realtime-client.md`                 |
+| Socket client `NodefonySocket`, socle agnostique `observe*`/`connectShared` + les QUATRE liaisons `nodefony/{react,vue,angular,svelte}` | `references/realtime-client.md`                 |
 | Builder Vite + HMR (`@nodefony/frontend`, `registerEntry`, multi-bundle, prod, CDN)                                                     | `references/build-hmr.md`                       |
 | Consommer le data-plane BFF (`ApiClient`, `useResource`, session, RBAC, mutations)                                                      | `references/data-bff.md`                        |
 | Patterns d'écran (data-driven, live ref-compté, détail/drill) — framework-agnostique                                                    | `references/patterns.md`                        |

@@ -45,7 +45,7 @@ export interface SocketLiveSnapshot {
    * pas encore livrée.
    */
   backplane: InstanceHealth["backplane"] | null;
-  /** État de la socket côté client (RealtimeClient). */
+  /** État de la socket côté client (NodefonySocket). */
   clientState: ReturnType<typeof useNodefonyState>;
 }
 

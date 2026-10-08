@@ -17,10 +17,10 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { DebugBar } from "../client/debugbar/DebugBar";
-import type { RealtimeClient } from "../client/realtime/RealtimeClient";
+import type { NodefonySocket } from "../client/realtime/NodefonySocket";
 
 /** Socket double — la barre s'y abonne, elle ne reçoit rien. */
-const fakeClient = (): RealtimeClient =>
+const fakeClient = (): NodefonySocket =>
   ({
     state: "disconnected",
     on: () => () => {},
@@ -42,7 +42,7 @@ const fakeClient = (): RealtimeClient =>
       open: () => {},
       close: () => {},
     }),
-  }) as unknown as RealtimeClient;
+  }) as unknown as NodefonySocket;
 
 let bar: DebugBar | null = null;
 

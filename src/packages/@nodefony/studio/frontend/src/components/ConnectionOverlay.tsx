@@ -106,7 +106,7 @@ function Ring({ color, delay }: { color: string; delay: string }) {
 /**
  * Overlay plein écran affiché quand la connexion temps réel au serveur est
  * rompue (serveur coupé) — radar pulsé, compte à rebours live synchronisé au
- * backoff réel du `RealtimeClient`, reconnexion auto + bouton « réessayer », et
+ * backoff réel du `NodefonySocket`, reconnexion auto + bouton « réessayer », et
  * flash vert à la reprise. Ne s'affiche qu'après une 1ʳᵉ connexion réussie.
  *
  * Perf : **0 `backdrop-filter`** (blur plein écran = paint GPU permanent), et

@@ -113,7 +113,7 @@ Trois mots du lexique ne sont pas des synonymes de ce que proposent les autres b
 temps réel. Ce sont les différenciateurs du framework.
 
 **`socket` est isomorphe.** Le même contrat `IRealtimeSocket` (`IRealtimeSocket.ts:122`) décrit la
-prise **côté navigateur** (`RealtimeClient`, `RealtimeClient.ts:195`) **et côté serveur**
+prise **côté navigateur** (`NodefonySocket`, `NodefonySocket.ts:195`) **et côté serveur**
 (`ServerRealtimeSocket`, `ServerRealtimeSocket.ts:44`). Un service back publie exactement comme une
 page front : `publish("chat:room-42", payload)`. Il n'y a pas une API cliente et une API serveur à
 apprendre, il y en a **une**.
@@ -179,10 +179,10 @@ export class ChatController extends RealtimeController {
 Côté client — la même **socket**, les quatre verbes :
 
 ```ts
-import { RealtimeClient } from "nodefony/client";
+import { NodefonySocket } from "nodefony/client";
 
 export async function joinChat(): Promise<void> {
-  const socket = new RealtimeClient({ url: "wss://127.0.0.1:5152/chat" });
+  const socket = new NodefonySocket({ url: "wss://127.0.0.1:5152/chat" });
   await socket.connect();
 
   socket.subscribe("chat:room-42"); // DEMANDE le flux au pair
@@ -218,7 +218,7 @@ Le **handle unique** manipulé par le code applicatif : quatre verbes (`subscrib
 `request`) et une vue par canal. Le mot vient de la prise murale : on branche, on ignore le câblage.
 
 Contrat isomorphe `IRealtimeSocket` (`IRealtimeSocket.ts:122`), implémenté côté navigateur par
-`RealtimeClient` (`RealtimeClient.ts:195`) et côté serveur par `ServerRealtimeSocket`
+`NodefonySocket` (`NodefonySocket.ts:195`) et côté serveur par `ServerRealtimeSocket`
 (`ServerRealtimeSocket.ts:44`). ⚠️ La socket **n'est pas** le [transport](#transport--la-couche-octets).
 
 → [Architecture](./architecture.md) pour la pile complète.
@@ -285,7 +285,7 @@ point d'accroche des canaux à état — un appel SIP, une connexion pontée.
 
 ### `client` — la socket côté navigateur
 
-`RealtimeClient` (`RealtimeClient.ts:162`) : reconnexion automatique, réémission des abonnements,
+`NodefonySocket` (`NodefonySocket.ts:162`) : reconnexion automatique, réémission des abonnements,
 compteurs par canal, heartbeat. Publié dans le sous-chemin `nodefony/client` du cœur — donc
 importable **sans** aucune dépendance serveur, ce qui est la condition de l'isomorphisme.
 

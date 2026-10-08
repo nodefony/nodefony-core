@@ -4464,12 +4464,12 @@
     },
     {
       "name": "nodefony-frontend-dev",
-      "summary": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`.",
+      "summary": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`.",
       "family": "Développer le framework",
       "version": "1.0.0",
       "keywords": [
         "nodefony",
-        "RealtimeClient",
+        "NodefonySocket",
         "@nodefony/frontend",
         "ApiClient",
         "useResource",
@@ -4483,7 +4483,7 @@
         "dev front nodefony",
         "isomorphisme",
         "socket client",
-        "RealtimeClient",
+        "NodefonySocket",
         "useNodefony",
         "hooks realtime",
         "HMR",
@@ -4500,7 +4500,7 @@
         "transform Vite",
         "prébundle Vite périmé"
       ],
-      "description": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`RealtimeClient`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`. Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ; back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"isomorphisme\", \"socket client\", \"RealtimeClient\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"accessibilité front\", \"perf front\", \"vérifie le front\", \"ma modif front passe ?\", \"transform Vite\", \"prébundle Vite périmé\".",
+      "description": "Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`. Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ; back → `nodefony-framework-dev`. Déclencheurs : \"dev front nodefony\", \"isomorphisme\", \"socket client\", \"NodefonySocket\", \"useNodefony\", \"hooks realtime\", \"HMR\", \"Vite nodefony\", \"ApiClient\", \"useResource\", \"data plane front\", \"BFF\", \"RBAC front\", \"accessibilité front\", \"perf front\", \"vérifie le front\", \"ma modif front passe ?\", \"transform Vite\", \"prébundle Vite périmé\".",
       "cost": {
         "bodyLines": 115,
         "approxTokens": 3156
@@ -10299,8 +10299,8 @@
       ],
       "description": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main. Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger AVANT d'écrire du code WebSocket, un canal, ou un abonnement client. Déclencheurs : \"flux temps réel\", \"websocket\", \"canal\", \"push\", \"notifications en direct\", \"abonnement\", \"RealtimeController\", \"@RealtimeChannel\", \"socket client\", \"temps réel privé\", \"réserver un canal à un rôle\", \"mon canal est public\", \"diffuser à plusieurs onglets\".",
       "cost": {
-        "bodyLines": 93,
-        "approxTokens": 1121
+        "bodyLines": 96,
+        "approxTokens": 1171
       },
       "requires": [],
       "resources": {
@@ -10369,7 +10369,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "93",
+            "detail": "96",
             "advisory": true
           }
         ]
