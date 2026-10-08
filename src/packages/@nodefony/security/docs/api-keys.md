@@ -589,7 +589,7 @@ révocation ne traverse pas. Le détail de la résolution, des avertissements et
 | Domaine                           | Norme                                  | Ancrage                                                |
 | --------------------------------- | -------------------------------------- | ------------------------------------------------------ |
 | Schéma `Bearer` (transport)       | RFC 6750 §2.1                          | `readBearerHeader()` (`runtime/bearer.ts:68`)          |
-| `invalid_token` → 401 + challenge | RFC 6750 §3.1 · RFC 7235               | `challenge()` (`ApiKeyAuthenticator.ts:205`)           |
+| `invalid_token` → 401 + challenge | RFC 6750 §3.1 · RFC 9110 §11           | `challenge()` (`ApiKeyAuthenticator.ts:205`)           |
 | Secret **jamais** stocké en clair | OWASP ASVS (secret storage)            | `hashApiKey()` (`apiKeyFormat.ts:70`)                  |
 | Secret montré une seule fois      | Pratique « shown once »                | `IApiKeyCreated.token` (`IApiKey.ts:46`)               |
 | Anti-énumération des ressources   | OWASP API1:2023 (BOLA/IDOR)            | 404 indiscernable (`ApiKeyController.ts:139-142`)      |

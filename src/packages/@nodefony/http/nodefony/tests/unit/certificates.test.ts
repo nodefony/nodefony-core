@@ -89,7 +89,7 @@ describe("certificates — conformité crypto de l'auto-signé", () => {
     expect(second.serialNumber).to.not.equal(parsed.serialNumber);
   });
 
-  it("porte un SAN couvrant les noms DNS et IP demandés (RFC 6125)", () => {
+  it("porte un SAN couvrant les noms DNS et IP demandés (RFC 9525)", () => {
     expect(parsed.checkHost("nodefony.com")).to.equal("nodefony.com");
     expect(parsed.checkHost("localhost")).to.equal("localhost");
     expect(parsed.checkIP("127.0.0.1")).to.equal("127.0.0.1");

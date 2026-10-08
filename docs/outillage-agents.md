@@ -168,7 +168,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 3 réf" },
   { "icon": "📜", "title": "rfc", "href": "skills/nodefony-rfc.md",
     "desc": "Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md, Keycloak 26.8 et un relevé des terminaux (souris, molette, presse-papiers, séquences xterm), avec un script de…",
-    "meta": "🟢 conforme v1.7.0 · ⚙️ 2 scripts" },
+    "meta": "🟢 conforme v1.8.0 · ⚙️ 3 scripts" },
   { "icon": "🗓️", "title": "roadmap", "href": "skills/nodefony-roadmap.md",
     "desc": "Contexte de la couche IA agentic de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket…",
     "meta": "🟢 conforme v2.0.0" }

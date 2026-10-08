@@ -53,7 +53,7 @@ export const httpConfig = (ctx: ConfigContext<typeof env>) =>
         ],
       },
       // Subject Alternative Name — fait foi pour la vérification d'hôte
-      // (RFC 6125 : le commonName est ignoré). Vide = dérivé du kernel
+      // (RFC 9525 : le commonName est ignoré). Vide = dérivé du kernel
       // (localhost + domain ; une IP va en iPAddress). Banc reverse-proxy
       // par domaine (NF_BIND_ALL) : couvrir `nodefony.com` pour permettre à
       // haproxy `verify required` + `sni` de valider le cert backend.

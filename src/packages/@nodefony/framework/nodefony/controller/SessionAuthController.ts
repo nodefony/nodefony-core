@@ -56,7 +56,7 @@ let mounted = false;
  * `Retry-After` (RFC 6585) posé par le throttler NIST ; tout le reste remonte
  * au pipeline d'erreurs standard (500, détail loggé jamais fuité).
  *
- * @remarks Dérogation RFC 7235 §3.1 DÉLIBÉRÉE : les 401 de `login`/`me` ne
+ * @remarks Dérogation RFC 9110 §15.5.2 DÉLIBÉRÉE : les 401 de `login`/`me` ne
  * portent PAS de `WWW-Authenticate` — aucun scheme HTTP ne décrit un cookie de
  * session, et un challenge `Basic` mensonger déclencherait le popup natif du
  * navigateur (l'anti-pattern que le BFF élimine). Les zones du firewall, elles,
@@ -204,7 +204,7 @@ export function mountSessionAuthRoutes(frameworkModule: Module): void {
       // Ces routes SONT le mécanisme d'auth : l'aire data plane
       // (/nodefony/security/api/* la matche) ne peut pas les garder, sinon le
       // login exigerait d'être déjà loggé (deadlock). Le controller applique sa
-      // propre sémantique (401 sans challenge — dérogation RFC 7235 §3.1, supra).
+      // propre sémantique (401 sans challenge — dérogation RFC 9110 §15.5.2, supra).
       bypassFirewall: true,
     });
   }

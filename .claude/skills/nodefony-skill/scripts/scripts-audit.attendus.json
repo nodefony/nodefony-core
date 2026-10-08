@@ -73,7 +73,6 @@
     ".claude/skills/nodefony-multipod-bench/scripts/setup.sh",
     ".claude/skills/nodefony-release/scripts/compare-exports.mjs",
     ".claude/skills/nodefony-rfc/references/mcp-2026-07-28/schema/schema.ts",
-    ".claude/skills/nodefony-rfc/scripts/check-rfc-status.mjs",
     ".claude/skills/nodefony-session/scripts/session-cost.mjs",
     ".claude/skills/nodefony-start-server/stop.sh",
     ".claude/skills/nodefony-ticket/scripts/francise.mjs",

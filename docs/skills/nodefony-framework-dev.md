@@ -32,7 +32,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | Coût d'activation | ~8 843 tokens (le corps est chargé à l'invocation) |
 | Description | 980 / 1024 caractères |
 | Déclencheurs | 17 |
-| Ressources `references/` | 11 page(s), 97 fichiers au total |
+| Ressources `references/` | 11 page(s), 91 fichiers au total |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/security.md` | Référence SÉCURITÉ (coder AVEC la sécurité) — intemporel | 69 |
 | `references/typage-strict.md` | Durcir le typage par cliquet — options du compilateur et codemods | 68 |
 
-_(+ 86 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
+_(+ 80 fichiers dans des sous-dossiers : specs et normes bundlées hors ligne.)_
 
 ## Conformité au standard Agent Skills
 

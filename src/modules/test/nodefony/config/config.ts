@@ -30,7 +30,7 @@ export default {
       // dossier = préfixe = nom de zone : capture les routes de `secure/`.
       // mode "first" : session BFF (cookie, J3) OU Basic (RFC 7617) — la
       // session est tentée d'abord (cookie repris AVANT le firewall) ; sans
-      // preuve → 401 + WWW-Authenticate (RFC 7235, challenge Basic).
+      // preuve → 401 + WWW-Authenticate (RFC 9110 §11, challenge Basic).
       "test-secure": {
         pattern: "^/nodefony/test/secure",
         authenticators: ["session", "userpassword"],

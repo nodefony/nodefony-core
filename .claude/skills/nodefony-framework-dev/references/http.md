@@ -83,7 +83,7 @@ export class ThingsController extends Controller {
   (`setBody`/`setStatus`/`redirect`) — le cas courant passe par `renderJson`/`render*`.
 - **Points d'extension HttpKernel** (pluggables, singleton stateless 0-alloc) : `setRequestLogger(IRequestLogger)`
   (`DefaultRequestLogger`/`PrettyRequestLogger`/`JsonAuditLogger`) · `setErrorRenderer(IErrorRenderer)`
-  (`DefaultErrorRenderer` → override pour RFC 7807, hide-stack prod, auth-challenge headers).
+  (`DefaultErrorRenderer` → override pour RFC 9457, hide-stack prod, auth-challenge headers).
 
 ### Autorisation par scope `@RequireScope` (P6.8 ✅ — axe distinct des rôles)
 
@@ -257,7 +257,7 @@ Exports config : `defineHttpConfig`, `httpConfigSchema`, `httpConfigJsonSchema`,
 | `onError` | `(error, context?, _extraHeaders?): Promise<HttpContext \| WebsocketContext>` `:559` | Rend l'erreur via `errorRenderer` ; HTTP→status, WS→close code (1011/1008/4004). |
 | `startSession` | `(context): Promise<Session \| null>` `:709` | Point d'activation **UNIQUE** session (HTTP+WS). Lazy : `null` si pas d'intent ni cookie. |
 | `setRequestLogger` / `getRequestLogger` | `(IRequestLogger): void` `:551` / `: IRequestLogger` `:555` | Échange le logger de requête (singleton stateless). |
-| `setErrorRenderer` / `getErrorRenderer` | `(IErrorRenderer): void` `:539` / `: IErrorRenderer` `:543` | Échange le renderer d'erreur (RFC 7807, hide-stack prod…). |
+| `setErrorRenderer` / `getErrorRenderer` | `(IErrorRenderer): void` `:539` / `: IErrorRenderer` `:543` | Échange le renderer d'erreur (RFC 9457, hide-stack prod…). |
 | `isValidDomain` / `checkValidDomain` | `(context): boolean` `:1227` / `: number` `:1216` | Barrière Host (trustedHosts) → 401 si Host non trusté. |
 | `createHttpContext` / `createWebsocketContext` | `:781` / `:1015` | Fabriques de contexte (wirent teardown via event `finish`/`onFinish`). |
 
@@ -345,7 +345,7 @@ singleton stateless, **zéro alloc per-request** au nominal) :
 Interface `IErrorRenderer` : `renderHttp(err, ctx) → {status, message, body, headers?}` +
 `renderWebsocket(err, ctx) → {code, reason}`. `DefaultErrorRenderer` préserve la shape JSON legacy
 `{code, message, error, nodefony:{requestId, scheme,…}, result:null}`. WS : code clampé 1000-4999.
-Override via `HttpKernel.setErrorRenderer()` (RFC 7807, hide-stack prod, auth-challenge headers).
+Override via `HttpKernel.setErrorRenderer()` (RFC 9457, hide-stack prod, auth-challenge headers).
 
 ### `Profiler` + data plane admin
 
@@ -367,7 +367,7 @@ Per-instance (header `x-nodefony-instance`) — vue cluster = Redis.
   `compileTrustedHosts(...)` `:95`, `isDomainAllowed(regAlias, domain): boolean` `:124`.
 - Types : `DomainPattern = string \| RegExp` `:24`, `ITrustedHostsConfig = boolean \| DomainPattern \| DomainPattern[]` `:35`.
 - Politique de pattern UNIQUE (partagée kernel ↔ route) : string exact ancré (`.` littéral) / `*` wildcard
-  un-label (RFC 6125) / `RegExp` libre. ReDoS-safe (`[^.]+`, ancré). ~40 ns/req, 0 alloc.
+  un-label (RFC 9525) / `RegExp` libre. ReDoS-safe (`[^.]+`, ancré). ~40 ns/req, 0 alloc.
 
 ### Cookies
 
@@ -470,7 +470,7 @@ trustProxy). Storage = IoC (cf `SessionsService`) : un service infra (Drizzle) d
 
 Conformité auto-signé : SHA-256 (jamais SHA-1 — `node-forge sign()` sans digest = SHA-1, piège), serial
 `crypto.randomBytes(16)` 128 bits (RFC 5280 §4.1.2.2, ≠ `01`), privkey 0600 + dossier 0700, `notBefore`
-backdaté, SKI (§4.2.1.2), SAN = vérité d'hôte (RFC 6125 ; CN ignoré ; IP littérale → `iPAddress`). SAN dérivé
+backdaté, SKI (§4.2.1.2), SAN = vérité d'hôte (RFC 9525 ; CN ignoré ; IP littérale → `iPAddress`). SAN dérivé
 kernel si vide (`localhost`+`domain`, `0.0.0.0` exclu). `isCertAdequate` régénère si expiré / SHA-1 / SAN
 incomplet. Commandes CLI : `nodefony certificates [--force] [--json]`, `nodefony proxy:generate <nginx|haproxy>`.
 

@@ -25,7 +25,7 @@ export interface IKernelConfigDefaults {
  *   Sans ce remplissage, le certificat auto-signé n'aurait pas de commonName.
  * - `certificates.san` vide → Subject Alternative Name dérivé du kernel
  *   (`localhost` + `kernel.domain` en DNS ; `127.0.0.1`/`::1` en IP). Le SAN fait
- *   foi pour la vérification d'hôte (RFC 6125) — Chrome ignore le commonName.
+ *   foi pour la vérification d'hôte (RFC 9525) — Chrome ignore le commonName.
  *   `0.0.0.0` (bind toutes interfaces) n'est PAS un nom DNS valide → exclu.
  *
  * Muté EN PLACE (pas de copie) : la config est ré-assignée à `module.options`
@@ -58,7 +58,7 @@ function applyKernelDefaults(
     const dns = ["localhost"];
     const ip = ["127.0.0.1", "::1"];
     // `0.0.0.0` = bind toutes interfaces, PAS un nom d'hôte → jamais en SAN.
-    // Une IP littérale (ex. domain `127.0.0.1`) va en `ip`, pas en `dns` (RFC 6125).
+    // Une IP littérale (ex. domain `127.0.0.1`) va en `ip`, pas en `dns` (RFC 9525).
     if (domain && domain !== "localhost" && domain !== "0.0.0.0") {
       if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain) || domain.includes(":")) {
         if (!ip.includes(domain)) {

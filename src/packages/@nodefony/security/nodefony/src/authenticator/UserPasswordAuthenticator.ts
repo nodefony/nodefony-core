@@ -7,7 +7,7 @@ import { ThrottledError } from "../../errors/ThrottledError";
 import type { LoginThrottler } from "../throttle/LoginThrottler";
 import { UserToken } from "../token/UserToken";
 
-// Scheme HTTP case-insensitive (RFC 7235 §2.1) suivi d'au moins un espace.
+// Scheme HTTP case-insensitive (RFC 9110 §11.1) suivi d'au moins un espace.
 const BASIC_SCHEME = /^basic\s+/i;
 
 // Message UNIFORME quelle que soit la cause (identifiant inconnu, compte
@@ -125,7 +125,7 @@ export class UserPasswordAuthenticator implements IAuthenticator {
     return Promise.resolve();
   }
 
-  /** Challenge RFC 7235 posé par le firewall sur les 401 de la zone. */
+  /** Challenge RFC 9110 §11 posé par le firewall sur les 401 de la zone. */
   challenge(): string {
     return 'Basic realm="nodefony", charset="UTF-8"';
   }

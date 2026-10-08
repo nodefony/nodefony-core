@@ -470,7 +470,7 @@ const SCHEMA_MISMATCH_HINT: IErrorHint = {
  *   reason: error.message
  *
  * Stateless singleton — zero per-request allocation. Override via
- * `httpKernel.setErrorRenderer(custom)` for prod hardening or RFC 7807.
+ * `httpKernel.setErrorRenderer(custom)` for prod hardening or RFC 9457.
  */
 class DefaultErrorRenderer implements IErrorRenderer {
   renderHttp(error: Error, context: IHttpContext): IErrorHttpResult {

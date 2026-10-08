@@ -406,7 +406,7 @@ class HttpResponse {
 
     this.statusCode = (status as number) || this.statusCode;
     if (message) {
-      // HTTP status messages must be printable US-ASCII only (RFC 7230 §3.1.2)
+      // HTTP status messages must be printable US-ASCII only (RFC 9112 §4)
       const ascii = stripAnsi(message)
         .replace(/[^\x20-\x7E]/g, "")
         .trim();
@@ -563,7 +563,7 @@ class HttpResponse {
           headers as http.OutgoingHttpHeaders,
         );
       } else {
-        // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
+        // RFC 9112 §4 — status-message must be printable US-ASCII
         const safeMsg =
           this.statusMessage.replace(/[^\x20-\x7E]/g, "").trim() ||
           (std ?? "Unknown Error");

@@ -13,9 +13,9 @@
 
 ## 0. Fichiers PRÉSENTS offline (~5,6 Mo — `grep`/`awk` sans réseau)
 
-- **`ietf/rfc<N>.txt`** — 46 RFC full-text : 1918 2818 4226 4648 5280 5424 5737 5789 5842 6125 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7230 7235 7239 7519 7617 7636 7638 7692 7807 8259 8414 8707 8725 8941 9106 9110 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
-  - 🔴 **Obsolètes CONSERVÉES** (du code les cite encore — citer la REMPLAÇANTE dans tout texte neuf) : 2818 → **9110** · 6125 → **9525** · 7230 → **9110/9112** · 7235 → **9110** · 7807 → **9457** · 8941 → **9651**. RFC **9931** (2026) met à jour 9112 : sécurité des transitions de protocole optimistes (`Upgrade`, donc WebSocket et proxy inverse).
-  - **Fraîcheur** : `node .claude/skills/nodefony-rfc/scripts/check-rfc-status.mjs` — obsolescence et mises à jour d'après l'éditeur des RFC, révision courante d'un brouillon d'après le datatracker (0 à jour · 3 dépassé · 78 réseau).
+- **`ietf/rfc<N>.txt`** — 40 RFC full-text : 1918 4226 4648 5280 5424 5737 5789 5842 6238 6265 6455 6585 6749 6750 6797 6890 7009 7118 7239 7519 7617 7636 7638 7692 8259 8414 8707 8725 9106 9110 9112 9113 9207 9449 9457 9525 9651 9700 9728 9931.
+  - 🔴 **Obsolètes RETIRÉES du corpus** (le dépôt cite la REMPLAÇANTE, jamais l'ancienne) : 2818 → **9110 §4.2.2** · 6125 → **9525** · 7230 → **9110/9112** · 7235 → **9110 §11** · 7807 → **9457** · 8941 → **9651**. RFC **9931** (2026) met à jour 9112 : sécurité des transitions de protocole optimistes (`Upgrade`, donc WebSocket et proxy inverse).
+  - **Fraîcheur** : `npm run refs:check` (volet `nodefony-rfc/scripts/check-rfc-status.mjs`) — obsolescence et mises à jour d'après l'éditeur des RFC, révision courante d'un brouillon d'après le datatracker (0 à jour · 3 dépassé · 78 réseau).
 - **`specs/` (non-RFC)** :
   - Cloud-native : `cloud-12factor.md`, `cloud-k8s-pod-lifecycle.md`, `cloud-k8s-probes.md`.
   - OWASP cheat sheets : `owasp-{authentication,authorization,csp,csrf,jwt,mfa,password-storage,rest-security,security-headers,session-management,ssrf-prevention,tls,xss-prevention}.md`.
@@ -41,8 +41,8 @@
 - **RFC 9110 (HTTP Semantics)** — §15.4 redirections (whitelist `{301,302,303,307,308}`, défaut 302) · §15.5.21 (422) · §6.4.1 (204/304 sans corps) · §15.5.6 (405 + en-tête `Allow`) · §9.3.2 (HEAD sans corps) · §9.2.1 (méthodes sûres GET/HEAD/OPTIONS/TRACE → jamais 403 CSRF) · §8.3 Content-Type · §8.6 Content-Length exact. → `http-kernel.ts`, `Response.ts`, `ErrorRenderer.ts`.
 - **RFC 9112 (HTTP/1.1)** — §7.1 chunked Transfer-Encoding (backpressure `highWaterMark`, resolve sur drain, pas de Content-Length avec chunked). → `src/context/http/Response.ts`.
 - **RFC 9113 (HTTP/2)** — frames + pseudo-headers, serveur natif `node:http2`.
-- **RFC 7230** — §3.1.2 reason-phrase US-ASCII imprimable · §3.2.6 quoted-string. → `forwarded.ts`, `tests/integration/http-rfc-errors.test.ts`.
-- **RFC 6585** — 429 Too Many Requests + `Retry-After` (posé par le throttler). **RFC 6797** — HSTS (TLS-only, `max-age`+`includeSubDomains`). **RFC 7807** — Problem Details = OPTION (Nodefony diverge : champ `code`, pas `status`).
+- **RFC 9112 §4** — reason-phrase US-ASCII imprimable · **RFC 9110 §5.6.4** quoted-string. → `forwarded.ts`, `tests/integration/http-rfc-errors.test.ts`.
+- **RFC 6585** — 429 Too Many Requests + `Retry-After` (posé par le throttler). **RFC 6797** — HSTS (TLS-only, `max-age`+`includeSubDomains`). **RFC 9457** — Problem Details = OPTION (Nodefony diverge : champ `code`, pas `status`).
 
 ## 2. WebSocket
 
@@ -78,7 +78,7 @@
 
 ## 7. Auth — challenge / Basic / Bearer
 
-- **RFC 7235** — §2.1 scheme case-insensitive · §3.1 tout **401 DOIT porter** `WWW-Authenticate: <scheme> realm="…"`. → `firewall.ts:poseChallengeHeader()`.
+- **RFC 9110 §11** — §11.1 scheme case-insensitive · §15.5.2 tout **401 DOIT porter** `WWW-Authenticate: <scheme> realm="…"`. → `firewall.ts:#setChallenge()`.
 - **RFC 7617 (Basic)** — base64(user:pass), charset UTF-8, split au **1er** `:`. → `UserPasswordAuthenticator.ts`.
 - **RFC 6750 (Bearer)** — `Authorization: Bearer <token>`, scheme case-insensitive, §3.1 jamais exposer le secret en erreur. → `JwtAuthenticator.ts`, `ApiKeyAuthenticator.ts`.
 
@@ -102,11 +102,11 @@
 
 ## 12. Certificats & TLS
 
-- **RFC 5280 (X.509)** — §4.1.2.2 serial aléatoire **128 bits** unique (jamais fixe) · §4.2.1.2 SKI · §4.2.1.6 SAN. **RFC 6125 / 2818** — hostname via **SAN** (CN ignoré), wildcard 1 label, IP littérale en `iPAddress`. → `http/service/certificates.ts`, `test/unit/certificates.test.ts`.
+- **RFC 5280 (X.509)** — §4.1.2.2 serial aléatoire **128 bits** unique (jamais fixe) · §4.2.1.2 SKI · §4.2.1.6 SAN. **RFC 9525** — hostname via **SAN** (CN ignoré), wildcard 1 label, IP littérale en `iPAddress`. → `http/service/certificates.ts`, `test/unit/certificates.test.ts`.
 
 ## 13. En-têtes de sécurité
 
-- **RFC 8941 (Structured Fields)** — `Origin-Agent-Cluster: ?1` (booléen structuré). → `security/service/securityHeaders.ts`. (+ COOP/COEP/CORP, Referrer-Policy, Permissions-Policy, CSP nonce/statique.)
+- **RFC 9651 (Structured Fields, §3.3.6)** — `Origin-Agent-Cluster: ?1` (booléen structuré). → `security/service/securityHeaders.ts`. (+ COOP/COEP/CORP, Referrer-Policy, Permissions-Policy, CSP nonce/statique.)
 
 ## 14. Syslog & trace
 

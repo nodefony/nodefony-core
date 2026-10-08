@@ -85,7 +85,7 @@ Trois idées à retenir, et tout le reste en découle :
 | Drain                | Vidange : laisser finir les requêtes en cours avant de fermer, plutôt que couper les sockets.                     |
 | Liveness / Readiness | Sondes cloud : « le processus est-il vivant ? » / « peut-il recevoir du trafic ? ».                               |
 | SIGTERM              | Signal d'arrêt poli envoyé par l'orchestrateur (k8s, `docker stop`) avant le `SIGKILL`.                           |
-| SAN                  | _Subject Alternative Name_ : la liste des noms/IP qu'un certificat couvre réellement (RFC 6125).                  |
+| SAN                  | _Subject Alternative Name_ : la liste des noms/IP qu'un certificat couvre réellement (RFC 9525).                  |
 | mkcert               | Outil de développement qui installe une autorité de certification locale **de confiance** sur la machine.         |
 | Reverse-proxy / edge | Le nginx / HAProxy / ingress placé devant l'application, souvent porteur du TLS.                                  |
 | `X-Forwarded-*`      | En-têtes ajoutés par un proxy pour dire l'IP, l'hôte et le protocole d'origine du client.                         |
@@ -601,7 +601,7 @@ invalid »). Celui de Nodefony respecte les règles qui comptent :
 | --------------------------------------- | -------------------- | --------------------------------------------------------- |
 | Signature SHA-256, **jamais** SHA-1     | RFC 5280, CA/B Forum | `selfSigned.hash` par défaut `sha256` (`config.ts:400`)   |
 | Numéro de série aléatoire 128 bits      | RFC 5280 §4.1.2.2    | `Certificate.generateSerialHex()` (`certificates.ts:314`) |
-| Le SAN fait foi, pas le CN              | RFC 6125             | SAN dérivé du kernel si non fourni (`config.ts:444`)      |
+| Le SAN fait foi, pas le CN              | RFC 9525             | SAN dérivé du kernel si non fourni (`config.ts:444`)      |
 | `notBefore` reculé (décalage d'horloge) | pratique             | `selfSigned.backdateMinutes`, défaut 5 (`config.ts:415`)  |
 | Clé privée non lisible par tous         | hygiène              | `privateKeyMode` `0600` (`config.ts:499`)                 |
 
@@ -858,7 +858,7 @@ demande le backplane realtime.
 | CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)                  |
 | En-têtes forwarded                    | RFC 7239           | `resolveForwarded()` (`forwarded.ts:253`)                                   |
 | Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:314`)                   |
-| Certificat — identité par le SAN      | RFC 6125           | `sanSchema` (`config.ts:446`)                                               |
+| Certificat — identité par le SAN      | RFC 9525           | `sanSchema` (`config.ts:446`)                                               |
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 

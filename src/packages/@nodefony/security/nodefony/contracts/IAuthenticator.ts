@@ -40,7 +40,7 @@ export interface IAuthenticator {
   onFailure(context: ContextType, error: Error): Promise<void>;
 
   /**
-   * Challenge `WWW-Authenticate` (RFC 7235 : tout 401 DOIT en porter un).
+   * Challenge `WWW-Authenticate` (RFC 9110 §11 : tout 401 DOIT en porter un).
    * Le firewall pose celui du premier authenticator de la zone qui en déclare.
    * Ex. `'Basic realm="nodefony", charset="UTF-8"'`, `'Bearer'`.
    *

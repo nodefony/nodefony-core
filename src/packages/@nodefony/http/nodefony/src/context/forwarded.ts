@@ -51,7 +51,7 @@ export interface ResolvedProxy {
 
 /**
  * Découpe une chaîne sur `sep` au **niveau supérieur uniquement**, en respectant
- * les `quoted-string` RFC 7230 (`value = token / quoted-string`, §4) : un
+ * les `quoted-string` RFC 9110 §5.6.4 (`value = token / quoted-string`, RFC 7239 §4) : un
  * séparateur à l'intérieur de guillemets (ex. un host quoté, un IPv6) n'est PAS
  * un point de coupe. Les `\"` échappés à l'intérieur des guillemets sont préservés.
  */
@@ -93,7 +93,7 @@ function splitTopLevel(input: string, sep: string): string[] {
   return out;
 }
 
-/** Retire les guillemets d'une `quoted-string` et déséchappe `\x` (RFC 7230 §3.2.6). */
+/** Retire les guillemets d'une `quoted-string` et déséchappe `\x` (RFC 9110 §5.6.4). */
 function unquote(value: string): string {
   const v = value.trim();
   if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {

@@ -3,8 +3,8 @@
  * RFC compliance + symbiose http↔framework — error paths.
  *
  * RFC 9110 (HTTP semantics)
- * RFC 7230 §3.1.2 (status-line reason-phrase)
- * RFC 7807 (Problem Details for HTTP APIs) — informational
+ * RFC 9112 §4 (status-line reason-phrase)
+ * RFC 9457 (Problem Details for HTTP APIs) — informational
  *
  * Tests run against a live Nodefony server on 127.0.0.1:5152 (HTTPS).
  */
@@ -50,9 +50,9 @@ function req(
 
 const isAsciiPrintable = (s: string) => /^[\x20-\x7E]*$/.test(s);
 
-// ─── RFC 7230 §3.1.2 — reason-phrase ─────────────────────────────────────────
+// ─── RFC 9112 §4 — reason-phrase ─────────────────────────────────────────
 
-describe("RFC 7230 §3.1.2 — Reason-phrase US-ASCII printable", () => {
+describe("RFC 9112 §4 — Reason-phrase US-ASCII printable", () => {
   it("200 OK status-message is ASCII printable", async () => {
     const r = await req("GET", "/nodefony/test/index");
     expect(r.status).to.equal(200);
@@ -177,7 +177,7 @@ describe("Symbiose http↔framework — status code preservation", () => {
 
 // ─── Error JSON shape — current Nodefony contract ────────────────────────────
 
-describe("Error JSON body — Nodefony contract (NOT RFC 7807)", () => {
+describe("Error JSON body — Nodefony contract (NOT RFC 9457)", () => {
   it("404 body is valid JSON", async () => {
     const r = await req("GET", "/nodefony/test/nonexistent");
     expect(() => JSON.parse(r.body)).to.not.throw();
@@ -372,16 +372,16 @@ describe("RFC 9112 §6.3 — Content-Length exact sur OPTIONS et TRACE (pas de d
   }
 });
 
-// ─── RFC 7807 Problem Details — informational (current Nodefony format) ─────
+// ─── RFC 9457 Problem Details — informational (current Nodefony format) ─────
 
-describe("RFC 7807 — Problem Details (informational: current format diverges)", () => {
+describe("RFC 9457 — Problem Details (informational: current format diverges)", () => {
   it("[INFO] Nodefony does NOT use application/problem+json (uses application/json)", async () => {
     const r = await req("GET", "/nodefony/test/crash/sync");
     expect(String(r.headers["content-type"])).to.include("application/json");
     expect(String(r.headers["content-type"])).to.not.include("problem+json");
   });
 
-  it("[INFO] Nodefony error body has 'code' (Nodefony) instead of 'status' (RFC 7807)", async () => {
+  it("[INFO] Nodefony error body has 'code' (Nodefony) instead of 'status' (RFC 9457)", async () => {
     const r = await req("GET", "/nodefony/test/crash/sync");
     const body = JSON.parse(r.body);
     expect(body).to.have.property("code");

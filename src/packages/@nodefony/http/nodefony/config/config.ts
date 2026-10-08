@@ -462,7 +462,7 @@ const sanSchema = z
   })
   .describe(
     "Subject Alternative Name explicite. Vide = dérivé (localhost + domaine " +
-      "kernel). Chrome ignore le commonName depuis RFC 2818 → le SAN fait foi.",
+      "kernel). Chrome ignore le commonName ; le SAN seul fait foi (RFC 9525).",
   );
 
 const certDevSchema = z

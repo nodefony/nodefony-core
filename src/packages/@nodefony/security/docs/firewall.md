@@ -64,7 +64,7 @@ le plus long gagne, pas le premier déclaré (`firewall.ts:257`).
 | Zone          | Un motif d'URL (+ host) avec sa politique (`config.areas`, un objet par nom).   |
 | Authenticator | Une stratégie d'identification (session, userpassword, jwt, apikey, anonymous). |
 | Zero Trust    | Sans preuve valide sur une zone protégée → 401.                                 |
-| Challenge     | En-tête `WWW-Authenticate` (RFC 7235) qui dit comment s'authentifier.           |
+| Challenge     | En-tête `WWW-Authenticate` (RFC 9110 §11) qui dit comment s'authentifier.       |
 | BFF           | Backend-For-Frontend : le serveur gère session/jetons pour le front web.        |
 | PAT           | Personal Access Token : une clé d'API opaque, révocable côté serveur.           |
 | Bearer        | Schéma `Authorization: Bearer <token>` (RFC 6750).                              |
@@ -533,7 +533,7 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:1239`)        |
+| Challenge d'auth (401) | RFC 9110 §11    | `Firewall.#setChallenge()` (`firewall.ts:1239`)        |
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |

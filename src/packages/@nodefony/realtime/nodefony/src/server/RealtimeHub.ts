@@ -1429,7 +1429,7 @@ function compileMatcher(
     host,
     match(handshake): boolean {
       if (host !== undefined) {
-        // Le host est dans l'en-tête `host:` (RFC 7230 §5.4) — déjà lowercasé
+        // Le host est dans l'en-tête `host:` (RFC 9110 §7.2) — déjà lowercasé
         // côté http natif Node.js. Comparaison stricte (vhost exact, pas de wildcard).
         const raw = handshake.headers["host"];
         const got = Array.isArray(raw) ? raw[0] : raw;

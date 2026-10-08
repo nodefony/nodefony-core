@@ -84,7 +84,7 @@ export interface IRsaKeyPair {
 
 /**
  * Vrai si `host` est une IP littérale (IPv4 `n.n.n.n` ou IPv6 — contient `:`).
- * Une IP doit aller en SAN `iPAddress`, jamais en `dNSName` (RFC 6125).
+ * Une IP doit aller en SAN `iPAddress`, jamais en `dNSName` (RFC 9525).
  */
 function isIpLiteral(host: string): boolean {
   return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
@@ -214,7 +214,7 @@ const defaultOptions: CertificateOptions = {
  *
  * Conformité (génération auto-signée) : signature SHA-256 (jamais SHA-1,
  * RFC 5280 / CA-B Forum), numéro de série aléatoire 128 bits unique
- * (RFC 5280 §4.1.2.2), SAN qui fait foi (RFC 6125), `notBefore` reculé,
+ * (RFC 5280 §4.1.2.2), SAN qui fait foi (RFC 9525), `notBefore` reculé,
  * clé privée écrite en `0600`.
  */
 
@@ -535,7 +535,7 @@ class Certificate extends Service {
   /**
    * SAN effectif : config explicite si fournie, sinon dérivé du kernel
    * (localhost + domain en DNS ; loopback en IP). Une IP littérale (ex. domain
-   * `127.0.0.1` en dev) est classée en `ip`, pas en `dns` (RFC 6125).
+   * `127.0.0.1` en dev) est classée en `ip`, pas en `dns` (RFC 9525).
    */
   private derivedSan(): CertificateSanOptions {
     const san = this.certOptions.san;
@@ -641,7 +641,7 @@ class Certificate extends Service {
     }
   }
 
-  /** Le SAN présent couvre-t-il tous les noms DNS requis (RFC 6125) ? */
+  /** Le SAN présent couvre-t-il tous les noms DNS requis (RFC 9525) ? */
   private sanCovers(presentDns: string[]): boolean {
     return this.sanDnsNames().every((name) => presentDns.includes(name));
   }

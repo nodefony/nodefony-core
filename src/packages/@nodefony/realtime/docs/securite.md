@@ -769,7 +769,7 @@ n'est pas appliquée.
 | **RFC 6455 §7.4.2** (codes 4000-4999) | `4001` unauthorized / session revoked, `4003` origin not allowed                             |
 | **RFC 6455 §7.4.1 / registre IANA**   | `1008` Policy Violation (origine transport), `1009` Message Too Big, `1013` Try Again Later  |
 | **RFC 6455 §4.1**                     | `Sec-WebSocket-Protocol` normalisé en liste dans le DTO de handshake                         |
-| **RFC 7230 §5.4**                     | Comparaison du `Host` par le matcher d'authenticator                                         |
+| **RFC 9110 §7.2**                     | Comparaison du `Host` par le matcher d'authenticator                                         |
 | **JSON-RPC 2.0 §5.1**                 | `-32001` (plage `Server error`) pour une requête refusée, `-32602` pour des params invalides |
 | **OWASP WSTG-CLNT-10**                | Anti-CSWSH : validation d'`Origin` obligatoire, les navigateurs n'appliquent pas CORS aux WS |
 | **Zero Trust / OWASP A01**            | Zone protégée + anonyme = refus ; token toujours présent, jamais `null`                      |

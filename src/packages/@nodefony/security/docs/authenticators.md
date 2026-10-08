@@ -67,7 +67,7 @@ pose le 401 et son challenge — l'authenticator, lui, ne touche jamais à la r�
 | EdDSA            | Algorithme de signature asymétrique (Ed25519) — le seul accepté par le vérificateur JWT.                           |
 | CRC              | Somme de contrôle embarquée dans une clé API — filtre les valeurs malformées avant la base.                        |
 | ALS              | _AsyncLocalStorage_ : le contexte ambiant de la requête où le firewall pose `user` + `token`.                      |
-| Challenge        | En-tête `WWW-Authenticate` renvoyé avec un 401 (RFC 7235) indiquant comment s'authentifier.                        |
+| Challenge        | En-tête `WWW-Authenticate` renvoyé avec un 401 (RFC 9110 §11) indiquant comment s'authentifier.                    |
 | Zero Trust       | Sur une zone protégée, **aucune preuve valide ⇒ 401** ; l'anonymat n'est accepté que s'il est déclaré.             |
 
 ## Qu'est-ce qu'un authenticator — et quelle faille il ferme
@@ -100,7 +100,7 @@ totalement agnostique de la stratégie :
 | `authenticate(token)` | **Vérifie** (signature/hash/session), applique la **révocation**, **re-résout le sujet** — ou lève un 401. |
 | `onSuccess(ctx,tok)`  | Effet de bord au succès (poser l'identité en session, audit).                                              |
 | `onFailure(ctx,err)`  | Slot d'audit (le 401 + challenge sont posés par le firewall).                                              |
-| `challenge()`         | **Optionnel** (`IAuthenticator.ts:55`) — la valeur `WWW-Authenticate` (RFC 7235) des 401 de la zone.       |
+| `challenge()`         | **Optionnel** (`IAuthenticator.ts:55`) — la valeur `WWW-Authenticate` (RFC 9110 §11) des 401 de la zone.   |
 
 ### Le registre pluggable
 
@@ -435,7 +435,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
-| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1239`) |
+| Challenge d'auth (401) | RFC 9110 §11 | `Firewall.#setChallenge()` (`firewall.ts:1239`) |
 | Bearer | RFC 6750 | `readBearerHeader()` (`runtime/bearer.ts:68`, cœur) — une porte UNIQUE au cœur, plus une constante par authenticator |
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |

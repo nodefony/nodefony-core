@@ -72,7 +72,7 @@ function AuthenticatorsPanel({
           sections={[
             {
               label: "Challenge",
-              body: "Un authenticator « avec challenge » fournit l'en-tête WWW-Authenticate (RFC 7235) du 401 de sa zone.",
+              body: "Un authenticator « avec challenge » fournit l'en-tête WWW-Authenticate (RFC 9110 §11) du 401 de sa zone.",
             },
           ]}
         />

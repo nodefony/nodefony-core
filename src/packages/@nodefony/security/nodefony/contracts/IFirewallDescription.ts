@@ -40,7 +40,7 @@ export interface IFirewallAuthenticatorDescription {
   mounted: boolean;
   /** Présent dans le registre de fabriques (utilisable en config). */
   available: boolean;
-  /** Déclare un challenge `WWW-Authenticate` (RFC 7235). */
+  /** Déclare un challenge `WWW-Authenticate` (RFC 9110 §11). */
   challenge: boolean;
 }
 

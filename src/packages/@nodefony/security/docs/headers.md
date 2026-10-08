@@ -359,7 +359,7 @@ propres sous-domaines ; `cross-origin` ouvre — c'est ce qu'il faut sur une CDN
 **La menace** : plusieurs origines partageant heap et processus, donc des canaux auxiliaires
 mesurables.
 
-Nodefony l'émet comme un **booléen de champ structuré** RFC 8941 : la valeur est littéralement `?1`
+Nodefony l'émet comme un **booléen de champ structuré** RFC 9651 : la valeur est littéralement `?1`
 (`securityHeaders.ts:75`). C'est une **demande**, pas une garantie — le navigateur décide.
 
 ### `Permissions-Policy` — coupe le micro par défaut
@@ -520,7 +520,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Politique de sécurité du contenu     | W3C CSP Level 3                  | `mergeCspFragments()` (`csp.ts:56`), directive non dupliquée |
 | Nonce CSP (unicité, imprévisibilité) | W3C CSP Level 3 §6.7.4           | `Context.cspNonce` — 128 bits CSPRNG (`Context.ts:253`)      |
 | HSTS                                 | RFC 6797                         | posé sur TLS uniquement (`http-kernel.ts:969`)               |
-| Champ structuré booléen              | RFC 8941                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
+| Champ structuré booléen              | RFC 9651                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:267`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
 | Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1099`)              |

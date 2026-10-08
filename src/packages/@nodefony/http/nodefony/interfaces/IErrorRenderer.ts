@@ -51,7 +51,7 @@ export interface IErrorWebsocketResult {
  *
  * Override via `httpKernel.setErrorRenderer(custom)` to customise:
  *   - hide stack traces in prod
- *   - emit RFC 7807 problem+json
+ *   - emit RFC 9457 problem+json
  *   - inject auth challenge headers
  */
 export interface IErrorRenderer {

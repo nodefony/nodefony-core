@@ -179,7 +179,7 @@ au boot. Blocs : `areas` (zones + authenticators), `cors`, `csrf`, `headers`, `r
 <!-- prettier-ignore -->
 | Domaine | Normes |
 | --- | --- |
-| Auth / challenge (401) | RFC 7235 |
+| Auth / challenge (401) | RFC 9110 §11 |
 | JWT | RFC 7519, 8725 (BCP) |
 | OAuth 2 | RFC 9700 (BCP), 8707, 8693, 9449 (DPoP) |
 | Passkeys | W3C WebAuthn L3, CTAP2 |

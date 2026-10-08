@@ -138,7 +138,7 @@ de brique détaille son bloc et ses défauts réels.
 ## 📜 Normes appliquées
 
 RFC 9110/9111/9112 (sémantique HTTP, cache, HTTP/1.1), RFC 9113 (HTTP/2), RFC 6455 (WebSocket et ses
-codes de fermeture), RFC 6265bis (cookies), RFC 6585 (429), RFC 6125 (identité des certificats),
+codes de fermeture), RFC 6265bis (cookies), RFC 6585 (429), RFC 9525 (identité des certificats),
 WHATWG Fetch (CORS), W3C Trace Context (`traceparent`).
 
 ## 📡 Observabilité — Studio

@@ -72,7 +72,7 @@ describe("HTTPS/TLS — port 5152 (requires server)", function () {
     it("server certificate advertises 'localhost' in SAN", async () => {
       const s = await tlsConnect();
       const cert = s.getPeerCertificate();
-      // Le hostname doit être dans le subjectAltName (RFC 6125) — le CN est
+      // Le hostname doit être dans le subjectAltName (RFC 9525) — le CN est
       // déprécié et n'est plus posé par mkcert ni par le fallback auto-signé.
       expect(cert.subjectaltname).to.match(/DNS:localhost/);
       s.destroy();

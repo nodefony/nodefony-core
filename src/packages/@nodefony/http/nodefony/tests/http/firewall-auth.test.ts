@@ -7,7 +7,7 @@ import https from "node:https";
  *
  * Banc : module test `nodefony/secure/` (routes `/nodefony/test/secure/*`,
  * comptes admin/secret-de-dev-42 + user/secret-de-dev-42 en annuaire in-memory). Gates :
- * - Zero Trust : aucune preuve → 401 + `WWW-Authenticate` (RFC 7235) ;
+ * - Zero Trust : aucune preuve → 401 + `WWW-Authenticate` (RFC 9110 §11) ;
  * - credential invalide → 401 au message UNIFORME (anti-énumération) ;
  * - credential valide → 200, identité propagée dans l'ALS (`/whoami`) ;
  * - hors zone : le reste du module test reste public.
@@ -103,7 +103,7 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
   afterEach(async () => {
     await forgetThrottle("admin");
   });
-  it("Zero Trust : aucune preuve → 401 + WWW-Authenticate Basic (RFC 7235)", async () => {
+  it("Zero Trust : aucune preuve → 401 + WWW-Authenticate Basic (RFC 9110 §11)", async () => {
     const { status, headers } = await get("/nodefony/test/secure/ping");
     expect(status).to.equal(401);
     expect(headers["www-authenticate"]).to.be.a("string");
@@ -198,7 +198,7 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
     expect(status).to.equal(200);
   });
 
-  it("scheme case-insensitive (RFC 7235) : `basic` minuscule accepté", async () => {
+  it("scheme case-insensitive (RFC 9110 §11) : `basic` minuscule accepté", async () => {
     const header = basic("admin", "secret-de-dev-42").authorization.replace(
       "Basic",
       "basic",

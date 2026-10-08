@@ -117,7 +117,7 @@ rouge chez tout installeur). Ne pas le réintroduire.
 - **Conformité auto-signé** : SHA-256 (jamais SHA-1 ; `allowedHash` ramène toute valeur hors contrat
   à SHA-256), serial **`crypto.randomBytes(16)`** 128 bits (RFC 5280 §4.1.2.2, ≠ `01` fixe),
   privkey **0600** + dossier 0700, `notBefore` backdaté (`backdateMinutes`), **SKI** (RFC 5280 §4.2.1.2),
-  SAN = vérité d'hôte (RFC 6125 ; CN ignoré). IP littérale → `iPAddress` jamais `dNSName`. Sujet vide
+  SAN = vérité d'hôte (RFC 9525 ; CN ignoré). IP littérale → `iPAddress` jamais `dNSName`. Sujet vide
   → SAN **critique** (RFC 5280 §4.2.1.6). Clé privée PEM **PKCS#1**, publique **SPKI**.
 - **x509.ts gotchas** : `X509Certificate.signatureAlgorithmOid` absent du plancher Node 24 → OID lu
   dans le DER (`signatureAlgorithmOid(raw)`) ; `subject` vaut `undefined` si sujet vide ; `serialNumber`
@@ -398,7 +398,7 @@ Extension de l'`AuditErrorEntry` :
 - Préserve la shape JSON erreur legacy : `{code, message, error: HttpError.toJSON(), nodefony: {requestId, scheme, ...}, result: null}` — aucune régression
 - WS : code clamp 1000-4999 (1011 si HTTP-style code en phase connected), reason = `error.message`
 - `HttpKernel.errorRenderer: IErrorRenderer = new DefaultErrorRenderer()` (instance unique)
-- `HttpKernel.setErrorRenderer(custom)` pour override (hide stack en prod, RFC 7807, auth challenge headers...)
+- `HttpKernel.setErrorRenderer(custom)` pour override (hide stack en prod, RFC 9457, auth challenge headers...)
 - `HttpKernel.getErrorRenderer()` pour lecture
 - Exporté dans `index.ts` : `DefaultErrorRenderer`, types `IErrorRenderer`, `IErrorHttpResult`, `IErrorWebsocketResult`
 - Préalable : P1.7 hooks security (AuthFailureHandler), P3.5 erreur enrichie audit
@@ -655,6 +655,6 @@ http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHtt
 - **`domainAlias` SUPPRIMÉ** (ex-liste vhosts fine kernel) → remplacé par `trustedHosts`. La
   liste des vhosts SERVIS = `@Domain` côté framework (source unique), pas le kernel.
 - **Politique de pattern UNIQUE** (partagée avec `@Domain`) : string exact ancré (`.` littéral) /
-  `*` wildcard un-label (RFC 6125) / `RegExp` libre. ReDoS-safe (`[^.]+`, ancré). ~40 ns/req, 0 alloc.
+  `*` wildcard un-label (RFC 9525) / `RegExp` libre. ReDoS-safe (`[^.]+`, ancré). ~40 ns/req, 0 alloc.
 - Exports publics : `compileDomainPattern(s)`, `compileTrustedHosts`, `isDomainAllowed`, types
   `DomainPattern`/`ITrustedHostsConfig` (réutilisés par `@nodefony/framework`).

@@ -47,7 +47,7 @@ declare module "nodefony" {
  * + Zod validée au boot (fail-closed si invalide). Consomme `@nodefony/user`
  * (IUser/IUserProvider/IPasswordVerifier) — jamais l'inverse.
  *
- * Livré : firewall (zones, mode first|all, challenge RFC 7235), authenticators
+ * Livré : firewall (zones, mode first|all, challenge RFC 9110 §11), authenticators
  * `anonymous`/`userpassword` (Basic RFC 7617)/`session` (BFF, J3), flux
  * login/logout/me (`AuthFlow`, anti-fixation + throttling partagé).
  * Jwt/oauth2/mtls/apikey, CORS, CSRF, autorisation par décorateurs et data

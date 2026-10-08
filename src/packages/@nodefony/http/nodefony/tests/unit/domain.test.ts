@@ -24,7 +24,7 @@ describe("domainMatcher", () => {
       expect(reg.test("evil-app.example.com")).to.equal(false);
     });
 
-    it("wildcard `*` → UN label (RFC 6125)", () => {
+    it("wildcard `*` → UN label (RFC 9525)", () => {
       const reg = compileDomainPattern("*.cdn.example.com");
       expect(reg.test("img.cdn.example.com")).to.equal(true);
       // un seul label : pas deux niveaux, pas le domaine nu.

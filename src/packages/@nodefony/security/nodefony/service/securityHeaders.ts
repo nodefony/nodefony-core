@@ -76,7 +76,7 @@ export class SecurityHeaders {
     if (o.coop) h["Cross-Origin-Opener-Policy"] = o.coop;
     if (o.coep) h["Cross-Origin-Embedder-Policy"] = o.coep;
     if (o.corp) h["Cross-Origin-Resource-Policy"] = o.corp;
-    // Structured field boolean (RFC 8941) : présence = activé.
+    // Structured field boolean (RFC 9651) : présence = activé.
     if (o.originAgentCluster) h["Origin-Agent-Cluster"] = "?1";
     if (o.permissionsPolicy) h["Permissions-Policy"] = o.permissionsPolicy;
     this.#headers = Object.freeze(h);

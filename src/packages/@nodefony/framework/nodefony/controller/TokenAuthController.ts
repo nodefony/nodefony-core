@@ -53,7 +53,7 @@ function parseScope(scope: unknown): string[] | undefined {
  * framework ne peut pas importer les classes d'erreur de security ; un 429
  * reporte le `Retry-After` (RFC 6585) du throttler NIST.
  *
- * @remarks Dérogation RFC 7235 §3.1 (comme `SessionAuthController`) : ces 401 ne
+ * @remarks Dérogation RFC 9110 §15.5.2 (comme `SessionAuthController`) : ces 401 ne
  * portent pas de `WWW-Authenticate` — l'endpoint d'émission n'est pas une
  * ressource protégée par Bearer, il DÉLIVRE le Bearer.
  */

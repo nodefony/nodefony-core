@@ -61,7 +61,7 @@ function jws(claims: Record<string, unknown>): string {
 }
 
 describe("Zone serveur de ressource — jetons émis par un tiers", () => {
-  it("sans jeton → 401 avec le défi RFC 7235", async () => {
+  it("sans jeton → 401 avec le défi RFC 9110 §11", async () => {
     const res = await send();
     expect(res.status).to.equal(401);
     expect(String(res.headers["www-authenticate"] ?? "")).to.match(/Bearer/i);

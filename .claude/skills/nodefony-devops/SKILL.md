@@ -91,7 +91,7 @@ compte dans la limite du conteneur, que l'**absence** d'un profil seccomp est el
 par la politique Restricted, qu'une sonde de démarrage se dimensionne sur le pire cas.
 
 > ⚠️ **La dérive de ce corpus n'est PAS contrôlée aujourd'hui, et il faut le savoir avant de
-> citer.** `npm run refs:check` (`nodefony-rfc/scripts/check-amont.mjs`) ne balaye que le dossier
+> citer.** `npm run refs:check` (son volet `nodefony-rfc/scripts/check-amont.mjs`) ne balaye que le dossier
 > `references/` de `nodefony-rfc`, et son manifeste `AMONT.json` n'accepte qu'**un seul** dépôt
 > GitHub. Or 15 des 24 pages viennent de sites rendus en Markdown par un proxy (docs.docker.com,
 > kubernetes.io, docs.podman.io) et les 9 autres de **cinq** dépôts distincts. Conséquence à

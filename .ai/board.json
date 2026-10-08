@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T13:05:21.960Z",
+  "generatedAt": "2026-10-08T13:07:56.647Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2362,7 +2362,7 @@
       "title": "docs(http): dire où servir HTTP/2 quand un proxy porte les flux SSE",
       "url": "https://github.com/nodefony/nodefony-core/issues/569",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -2670,7 +2670,7 @@
       "title": "feat(http): servir HTTP/2 en clair (h2c) aux proxys qui le parlent",
       "url": "https://github.com/nodefony/nodefony-core/issues/570",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 2,

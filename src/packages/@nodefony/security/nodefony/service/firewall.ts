@@ -779,7 +779,7 @@ class Firewall extends Service implements IFirewall {
 
   /**
    * Pipeline complet de la zone : chaîne d'authenticators (selon `mode`) → ALS
-   * → Zero Trust. Rejette (401, challenge RFC 7235 posé) ou résout.
+   * → Zero Trust. Rejette (401, challenge RFC 9110 §11 posé) ou résout.
    */
   async handleSecurity(context: ContextType): Promise<ContextType> {
     if (this.#configError) {
@@ -1233,7 +1233,7 @@ class Firewall extends Service implements IFirewall {
     return token;
   }
 
-  // Pose le challenge WWW-Authenticate (RFC 7235 : tout 401 DOIT en porter un)
+  // Pose le challenge WWW-Authenticate (RFC 9110 §11 : tout 401 DOIT en porter un)
   // du premier authenticator de la zone qui en déclare. Cold path (401 only).
   // Capability check : une réponse WS n'a pas d'en-têtes (le close code suffit).
   #setChallenge(context: ContextType, area: ISecuredArea): void {

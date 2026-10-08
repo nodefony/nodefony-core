@@ -15,7 +15,7 @@ import type { ISecurityAreaConfig } from "../../nodefony/config/defineModuleConf
 
 /**
  * Sémantique de la chaîne d'authenticators (mode `first` | `all`) + Zero Trust
- * + challenge RFC 7235 — testée via le contrat PUBLIC du firewall
+ * + challenge RFC 9110 §11 — testée via le contrat PUBLIC du firewall
  * (`registerAuthenticator` + `handleSecurity`), hors kernel (pas de `#build`).
  */
 
@@ -267,7 +267,7 @@ describe("Firewall — mode all (MFA)", () => {
   });
 });
 
-describe("Firewall — challenge RFC 7235 + zones publiques", () => {
+describe("Firewall — challenge RFC 9110 §11 + zones publiques", () => {
   it("tout 401 porte le WWW-Authenticate du premier authenticator à challenge", async () => {
     const silent = new SpyAuthenticator("silent", {
       supports: false,

@@ -18,7 +18,7 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.7.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.8.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,14 +26,14 @@ source: ".claude/skills/nodefony-rfc/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.7.0` |
+| Version | `1.8.0` |
 | Famille | Références et livrables |
-| Corps | 306 lignes |
-| Coût d'activation | ~5 737 tokens (le corps est chargé à l'invocation) |
+| Corps | 311 lignes |
+| Coût d'activation | ~5 812 tokens (le corps est chargé à l'invocation) |
 | Description | 1005 / 1024 caractères |
 | Déclencheurs | 35 |
 | Ressources `references/` | 0 page(s), 215 fichiers au total |
-| Scripts | 2 |
+| Scripts | 3 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -67,6 +67,7 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/check-amont.mjs` | Dit si une spec VIVANTE figée sous `references/` a dérivé de son amont. | — | `GITHUB_TOKEN` |
+| `scripts/check-refs.mjs` | Joue les deux contrôles de fraîcheur du corpus des normes et rend UN verdict. | — | — |
 | `scripts/check-rfc-status.mjs` | Dit si une RFC (ou un brouillon IETF) du corpus hors ligne est DÉPASSÉE. | — | — |
 
 **Toutes les variables lues par ce skill** : `GITHUB_TOKEN`
@@ -90,7 +91,7 @@ script, donc toujours à jour après régénération.
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 306 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 311 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

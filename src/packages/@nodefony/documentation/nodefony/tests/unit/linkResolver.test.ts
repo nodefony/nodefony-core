@@ -47,7 +47,7 @@ describe("rewriteInternalLinks", () => {
 
   it("ne touche ni aux URL absolues ni aux ancres pures", () => {
     const md =
-      "[RFC](https://www.rfc-editor.org/rfc/rfc7235.html) et [haut](#top)";
+      "[RFC](https://www.rfc-editor.org/rfc/rfc9110.html) et [haut](#top)";
     expect(rewrite(md)).toBe(md);
   });
 

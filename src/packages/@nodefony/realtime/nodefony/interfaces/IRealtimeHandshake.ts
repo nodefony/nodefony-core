@@ -12,7 +12,7 @@
  * @see IRealtimeAuthenticator
  */
 export interface IRealtimeHandshake {
-  /** En-têtes de la requête upgrade (clés en lowercase RFC 7230 §3.2). */
+  /** En-têtes de la requête upgrade (clés en lowercase RFC 9110 §5.1). */
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
 
   /** Cookies parsés depuis `Cookie:` (vide si en-tête absent ou mal formé). */

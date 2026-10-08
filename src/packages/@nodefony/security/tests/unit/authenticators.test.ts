@@ -104,7 +104,7 @@ describe("UserPasswordAuthenticator — HTTP Basic (RFC 7617)", () => {
     verifier.calls = [];
   });
 
-  it("supports : en-tête Basic présent (scheme case-insensitive RFC 7235)", () => {
+  it("supports : en-tête Basic présent (scheme case-insensitive RFC 9110 §11)", () => {
     assert.equal(auth.supports(httpContext()), false);
     assert.equal(auth.supports(httpContext("Bearer xyz")), false);
     assert.equal(auth.supports(httpContext(basic("a", "b"))), true);
@@ -171,7 +171,7 @@ describe("UserPasswordAuthenticator — HTTP Basic (RFC 7617)", () => {
     assert.deepEqual(verifier.calls, []);
   });
 
-  it("challenge RFC 7235 : Basic + realm + charset", () => {
+  it("challenge RFC 9110 §11 : Basic + realm + charset", () => {
     assert.equal(auth.challenge(), 'Basic realm="nodefony", charset="UTF-8"');
   });
 

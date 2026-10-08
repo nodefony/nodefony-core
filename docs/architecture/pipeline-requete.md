@@ -550,7 +550,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | ---------------------------- | ----------------- | ------------------------------------------------------- |
 | Codes de fermeture WebSocket | RFC 6455 §7.4     | `toWsCloseCode()` (`WebsocketContext.ts:79`)            |
 | Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:2093`) |
-| Message de statut US-ASCII   | RFC 7230 §3.1.2   | `Response.writeHead()` (`Response.ts:529`)              |
+| Message de statut US-ASCII   | RFC 9112 §4       | `Response.writeHead()` (`Response.ts:529`)              |
 | Valeurs d'en-tête sûres      | RFC 9110 §5.5     | `sanitizeRequestId()` (`requestId.ts:38`)               |
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |
 | Contexte de trace distribuée | W3C Trace Context | `http-kernel.ts:1136` · `Response.ts:386`               |

@@ -1,7 +1,7 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.7.0
+  version: 1.8.0
 description: >
   Cite et applique les normes qui font foi pour Nodefony — RFC, W3C/WHATWG, MCP, AGENTS.md —
   depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE MCP 2026-07-28, AGENTS.md,
@@ -297,8 +297,13 @@ node .claude/skills/nodefony-rfc/scripts/check-rfc-status.mjs
 ```
 
 Lit l'éditeur des RFC (`obsoleted_by`, `updated_by`) et le datatracker. Une obsolète dont la
-remplaçante est au corpus est CONSERVÉE tant que du code la cite — listée, pas comptée. Complète
-`check-amont.mjs`, qui suit les specs VIVANTES.
+remplaçante est au corpus est listée, pas comptée : c'est une citation à repointer, puis un
+fichier à retirer — le dépôt ne cite que la remplaçante. Complète `check-amont.mjs`, qui suit les
+specs VIVANTES.
+
+**Les deux contrôles en une commande** : `npm run refs:check` (`scripts/check-refs.mjs`) les joue
+TOUS LES DEUX et rend le code le plus grave — un plantage avant `78`, avant `3`, avant `0`. Un
+réseau muet ne se lit jamais comme « à jour ».
 
 ### 12. Server-sent events (SSE) — **HORS LIGNE, dans le corpus UNIQUE**
 

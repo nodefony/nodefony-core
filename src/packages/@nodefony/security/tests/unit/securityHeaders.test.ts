@@ -54,7 +54,7 @@ describe("SecurityHeaders — avancés (opt-in)", () => {
     assert.equal(h["Cross-Origin-Embedder-Policy"], "require-corp");
     assert.equal(h["Cross-Origin-Resource-Policy"], "same-origin");
   });
-  it("Origin-Agent-Cluster → '?1' (structured field bool, RFC 8941)", () => {
+  it("Origin-Agent-Cluster → '?1' (structured field bool, RFC 9651)", () => {
     assert.equal(h["Origin-Agent-Cluster"], "?1");
   });
   it("Permissions-Policy posé", () => {

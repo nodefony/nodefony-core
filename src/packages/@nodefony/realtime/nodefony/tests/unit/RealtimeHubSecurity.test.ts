@@ -160,7 +160,7 @@ describe("RealtimeHub — Seam #2/#3 Authenticators et matchers", () => {
     expect(
       hub.resolveAuthenticator(makeHandshake({ url: "/admin/x", headers: {} })),
     ).to.equal(null);
-    // En-tête Host en ARRAY (multi-valeurs) → 1ʳᵉ valeur prise (RFC 7230)
+    // En-tête Host en ARRAY (multi-valeurs) → 1ʳᵉ valeur prise (RFC 9110 §7.2)
     expect(
       hub.resolveAuthenticator(
         makeHandshake({

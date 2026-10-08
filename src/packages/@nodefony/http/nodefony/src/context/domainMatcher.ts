@@ -13,7 +13,7 @@
  * Politique de compilation (sûre, ancrée, ReDoS-free) :
  * - string sans `*` → match EXACT ancré (`^...$`, le `.` est littéral).
  * - string avec `*` → wildcard UN label (`*.example.com` → `^[^.]+\.example\.com$`,
- *   RFC 6125 TLS-wildcard : matche `img.example.com`, pas `a.b.example.com` ni `example.com`).
+ *   RFC 9525 TLS-wildcard : matche `img.example.com`, pas `a.b.example.com` ni `example.com`).
  * - `RegExp` → reprise telle quelle (l'auteur assume l'ancrage).
  *
  * Compilation faite UNE fois (boot / enregistrement de route) ; le test par

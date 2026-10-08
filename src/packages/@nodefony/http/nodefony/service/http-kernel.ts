@@ -946,7 +946,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    */
   /**
    * Override the default error renderer — e.g. to hide stack traces in prod
-   * or emit RFC 7807 problem+json. Stateless singleton expected.
+   * or emit RFC 9457 problem+json. Stateless singleton expected.
    */
   setErrorRenderer(renderer: IErrorRenderer): void {
     this.errorRenderer = renderer;
