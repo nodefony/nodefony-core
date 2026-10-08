@@ -96,17 +96,17 @@ Le script **sonde lui-même** l'endpoint toutes les 2 s (conn/abonnés/diffusion
 ```bash
 bash .claude/skills/nodefony-load-test/scripts/run.sh hub        # MODE=fanout (défaut)
 MODE=slow run.sh hub                                             # backpressure (consommateurs lents)
-N=400 CH=dashboard:supervision:250 run.sh hub                    # plus d'abonnés / cadence + fine
+N=400 CH=nodefony:supervision:250 run.sh hub                    # plus d'abonnés / cadence + fine
 ```
 
 Deux modes :
 
 - **`MODE=fanout`** (défaut) — N abonnés **SAINS** (drainent) à un canal qui tique
-  (`dashboard:supervision:500`) → **connexions / abonnés / Diffusion (fan-out) / débit**
+  (`nodefony:supervision:500`) → **connexions / abonnés / Diffusion (fan-out) / débit**
   montent ; **backpressure reste 0** (loopback + lecteurs sains = aucune congestion, c'est sain).
-- **`MODE=slow`** — N **consommateurs LENTS** : ils s'abonnent (défaut `syslog:stream`)
+- **`MODE=slow`** — N **consommateurs LENTS** : ils s'abonnent (défaut `nodefony:syslog`)
   puis **cessent de lire** (`socket.pause()`). Couplé à un flot de logs (`HTTP_RPS` →
-  remplit `syslog:stream`), la file d'envoi du serveur (`ws.bufferedAmount`) grossit pour
+  remplit `nodefony:syslog`), la file d'envoi du serveur (`ws.bufferedAmount`) grossit pour
   eux → **backpressure grimpe** (jauge jaune/rouge), `slowConsumers` ↑. C'est LE moyen de
   voir la congestion bouger (impossible avec des lecteurs sains sur loopback).
 
@@ -117,7 +117,7 @@ Deux modes :
 > (mémoire `project_realtime_socket_probe`).
 
 ENV : `MODE`(fanout|slow) `N`(fanout 250 / slow 150) `BATCH`(40) `HOLD_MS`(60000)
-`CH`(fanout `dashboard:supervision:500` / slow `syslog:stream`) `HTTP_RPS`(slow 300, fanout 0)
+`CH`(fanout `nodefony:supervision:500` / slow `nodefony:syslog`) `HTTP_RPS`(slow 300, fanout 0)
 `HTTP_PATH`(/nodefony/test/index) `HOST` `PORT`.
 
 ### Stress COMBINÉ « supervision » (`supervision-stress.mjs`)

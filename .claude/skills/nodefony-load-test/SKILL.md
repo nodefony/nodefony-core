@@ -333,7 +333,13 @@ Contrôles en place : `http-load.mjs` (RPS servi + exit 1) · `bench-ab-mono.sh`
 (octets écrits vs attendus) · `capacity.mjs` (statut vérifié en HTTP/1.1 ET HTTP/2 — ses
 chiffres deviennent des constantes de dimensionnement de pod).
 
-Reste à durcir (chiffres publiés, contrôle partiel ou absent) : `hub-load.mjs`,
+Contrôle en place aussi dans `hub-load.mjs` : session d'administration, frames
+reçues par abonné, refus et fermetures comptés, sonde de santé exigée en 200. Sans
+eux, il a affiché `conn=undefined subs=0` pendant des mois et sorti en 0 : la socket
+Studio était passée en zone d'administration (1008) et son canal par défaut avait été
+renommé (« aucun producteur »).
+
+Reste à durcir (chiffres publiés, contrôle partiel ou absent) :
 `supervision-stress.mjs`, `cluster-ipc.mjs`, `aimd-demo.mjs`, `ws-connections.mjs`.
 
 ## 🚨 RÈGLE N°1 bis — LATENCE et BLOCAGE sont deux grandeurs ; une seule plafonne un process
