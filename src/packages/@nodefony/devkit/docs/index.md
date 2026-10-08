@@ -277,6 +277,50 @@ est absent de `tools/list` **et** inappelable en le nommant, et le refus dit
 > `policy: "dev"`. Avant d'exposer une donnée par un outil, se demander si elle
 > supporterait d'être lue **sans identification**, par qui a accès à la machine.
 
+### Un outil LONG — progression et annulation
+
+Le troisième paramètre du handler sert l'outil qui dure : `run.signal` est
+abattu quand l'agent abandonne l'appel, `run.progress()` lui donne signe de vie.
+Un outil court l'ignore ; un appel direct (un test) ne le fournit pas, d'où le
+`run?.` :
+
+```ts
+{
+  name: "shop_reindex",
+  description: "Réindexe le catalogue, lot par lot. Long : signale chaque lot.",
+  inputSchema: { type: "object", properties: {} },
+  handler: async (_args, _caller, run) => {
+    const lots = await this.lots();
+    for (const [i, lot] of lots.entries()) {
+      if (run?.signal.aborted) return mcpText("interrompu", true);
+      await this.reindex(lot, run?.signal);
+      run?.progress(i + 1, lots.length, `lot ${i + 1}/${lots.length}`);
+    }
+    return mcpText(`${lots.length} lots réindexés`);
+  },
+}
+```
+
+Ce que la porte fait du reste :
+
+- **le flux ne s'ouvre qu'à la première progression.** Un agent qui envoie un
+  `progressToken` et accepte `text/event-stream` reçoit des
+  `notifications/progress`, puis la réponse, qui clôt le flux. Sans jeton, ou
+  pour un outil qui ne signale rien, la réponse reste du JSON ;
+- **la norme est tenue pour vous** : une valeur qui ne croît pas est ignorée, la
+  cadence est bornée (une notification par 100 ms au plus), et plus rien ne
+  part une fois l'outil terminé ;
+- **fermer le flux, c'est annuler** (transport HTTP, révision 2026-07-28) :
+  `run.signal` est abattu, à l'outil de s'arrêter.
+
+Le journal `notifications/message` n'est **pas** proposé : la révision
+2026-07-28 le déprécie (« New implementations SHOULD NOT adopt it »). Ce qu'un
+outil veut dire en route passe par le `message` de la progression ; ce qui doit
+atteindre le modèle va dans la réponse finale. `subscriptions/listen` est refusé
+par une erreur explicite (`-32601`) : le catalogue ne change qu'au rechargement
+de l'application, qui redémarre son process, si bien qu'un flux d'abonnement
+casserait au lieu de notifier. Le `tools/list` suivant rend l'état à jour.
+
 ## Les skills d'agent — répondre à « comment fait-on ça, ici ? »
 
 La carte dit **où aller**. Elle ne dit pas **comment faire**. Or c'est là qu'un
