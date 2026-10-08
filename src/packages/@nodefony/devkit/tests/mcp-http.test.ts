@@ -132,6 +132,88 @@ function posterTexte(
   });
 }
 
+/** Ce qu'un appel lu en flux a rendu : chaque événement `data:` parsé. */
+interface IFlux {
+  status: number;
+  contentType: string;
+  events: Record<string, unknown>[];
+  raw: string;
+}
+
+/**
+ * Poste un message en acceptant un flux SSE, et lit les événements au fil de
+ * l'eau. `couperApres` ferme la connexion après N événements — l'annulation
+ * telle qu'un client MCP la pratique sur ce transport.
+ */
+function posterFlux(
+  message: unknown,
+  accept: string,
+  couperApres = Number.POSITIVE_INFINITY,
+): Promise<IFlux> {
+  const charge = JSON.stringify(message);
+  return new Promise((resoudre, rejeter) => {
+    const porteur =
+      typeof JETON === "string" ? { authorization: `Bearer ${JETON}` } : {};
+    const req = httpsRequest(
+      `${BASE}${MCP_ENDPOINT_PATH}`,
+      {
+        method: "POST",
+        rejectUnauthorized: false,
+        timeout: 15_000,
+        headers: {
+          "content-type": "application/json",
+          "content-length": Buffer.byteLength(charge),
+          accept,
+          ...porteur,
+        },
+      },
+      (res) => {
+        let raw = "";
+        let reste = "";
+        const events: Record<string, unknown>[] = [];
+        const fin = () =>
+          resoudre({
+            status: res.statusCode ?? 0,
+            contentType: String(res.headers["content-type"] ?? ""),
+            events,
+            raw,
+          });
+        res.setEncoding("utf8");
+        res.on("data", (morceau: string) => {
+          raw += morceau;
+          reste += morceau;
+          // Un événement SSE se termine par une ligne vide.
+          let cut = reste.indexOf("\n\n");
+          while (cut !== -1) {
+            const bloc = reste.slice(0, cut);
+            reste = reste.slice(cut + 2);
+            const data = bloc
+              .split("\n")
+              .filter((l) => l.startsWith("data:"))
+              .map((l) => l.slice(5).trimStart())
+              .join("\n");
+            if (data) events.push(JSON.parse(data) as Record<string, unknown>);
+            cut = reste.indexOf("\n\n");
+          }
+          if (events.length >= couperApres) {
+            req.destroy();
+            fin();
+          }
+        });
+        res.on("end", fin);
+      },
+    );
+    req.on("error", (e: Error) => {
+      if (!req.destroyed) rejeter(e);
+    });
+    req.on("timeout", () => {
+      req.destroy();
+      rejeter(new Error("timeout"));
+    });
+    req.end(charge);
+  });
+}
+
 /**
  * Frappe la porte MCP avec une méthode HTTP autre que `POST`, sur l'autorité
  * de la ressource — exactement ce que fait un client MCP d'une révision
@@ -813,6 +895,99 @@ describe.skipIf(raison !== null)(
         });
         expect(reponse.status).toBe(400);
         expect(codeOf(reponse)).toBe(-32600);
+      });
+    });
+    describe("flux SSE — progression, annulation, abonnement (#554)", () => {
+      const appel = (args: Record<string, unknown>, jeton?: string) => ({
+        jsonrpc: "2.0",
+        id: 42,
+        method: "tools/call",
+        params: {
+          name: "test_progress",
+          arguments: args,
+          ...(jeton === undefined ? {} : { _meta: { progressToken: jeton } }),
+        },
+      });
+      const SSE = "application/json, text/event-stream";
+      const codeOf = (r: IReponse): number | undefined =>
+        (r.body as { error?: { code?: number } } | null)?.error?.code;
+
+      it("🔴 un outil qui progresse : notifications/progress PUIS la réponse, qui clôt le flux", async () => {
+        const flux = await posterFlux(
+          appel({ steps: 3, delayMs: 150 }, "p-554"),
+          SSE,
+        );
+        expect(flux.status).toBe(200);
+        expect(flux.contentType).toContain("text/event-stream");
+        const progres = flux.events.filter(
+          (e) => e.method === "notifications/progress",
+        );
+        expect(progres.length).toBeGreaterThanOrEqual(1);
+        expect(progres[0]?.params).toMatchObject({
+          progressToken: "p-554",
+          total: 3,
+        });
+        // La réponse finale vient EN DERNIER, et c'est elle qui termine le flux.
+        const derniere = flux.events.at(-1);
+        expect(derniere?.id).toBe(42);
+        const resultat = derniere?.result as { content: { text: string }[] };
+        expect(JSON.parse(resultat.content[0]?.text ?? "null")).toMatchObject({
+          done: 3,
+          aborted: false,
+        });
+      });
+
+      it("sans `progressToken` : JSON, comme toujours — aucun flux ouvert pour rien", async () => {
+        const flux = await posterFlux(appel({ steps: 2, delayMs: 0 }), SSE);
+        expect(flux.contentType).toContain("application/json");
+        expect(flux.events).toEqual([]);
+      });
+
+      it("client sans `text/event-stream` : JSON, la progression se tait", async () => {
+        const flux = await posterFlux(
+          appel({ steps: 2, delayMs: 120 }, "p-json"),
+          "application/json",
+        );
+        expect(flux.contentType).toContain("application/json");
+        expect(JSON.parse(flux.raw).result).toBeDefined();
+      });
+
+      it("🔴 fermer le flux ANNULE l'outil : il s'arrête avant la fin", async () => {
+        await posterFlux(
+          appel({ steps: 30, delayMs: 150 }, "p-cancel"),
+          SSE,
+          1,
+        );
+        // L'outil consulte son signal à chaque étape (150 ms) : lui laisser le
+        // temps de le voir, puis relire son dernier passage.
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        const reponse = await poster({
+          jsonrpc: "2.0",
+          id: 43,
+          method: "tools/call",
+          params: { name: "test_progress_last", arguments: {} },
+        });
+        const texte = (
+          reponse.body as { result: { content: { text: string }[] } }
+        ).result.content[0]?.text;
+        const etat = JSON.parse(texte ?? "null") as {
+          done: number;
+          aborted: boolean;
+        };
+        expect(etat.aborted).toBe(true);
+        expect(etat.done).toBeLessThan(30);
+      });
+
+      it("`subscriptions/listen` : 404 + -32601, refus EXPLICITE", async () => {
+        const reponse = await poster({
+          jsonrpc: "2.0",
+          id: 44,
+          method: "subscriptions/listen",
+          params: { notifications: { toolsListChanged: true } },
+        });
+        expect(reponse.status).toBe(404);
+        expect(codeOf(reponse)).toBe(-32601);
+        expect(JSON.stringify(reponse.body)).toContain("tools/list");
       });
     });
   },

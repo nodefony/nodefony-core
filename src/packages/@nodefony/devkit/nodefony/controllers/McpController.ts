@@ -10,6 +10,7 @@ import {
   Nodefony,
   checkMcpAccess,
   handleMcpMessage,
+  createMcpResponseStream,
   collectMcpTools,
   authorizeProtectedResource,
   protectedResourceMetadataUrl,
@@ -21,6 +22,12 @@ import {
 } from "nodefony";
 import type { IMcpCaller, IAccessTokenVerifier } from "nodefony";
 import type { IDevkitService } from "../interfaces/IDevkitService";
+
+/**
+ * Plafond d'un événement sur le flux de réponse MCP, octets UTF-8 — celui de la
+ * réponse finale, qui porte le résultat entier de l'outil (16 Mio).
+ */
+const MCP_STREAM_MAX_EVENT_BYTES = 16 * 1024 * 1024;
 
 /**
  * Serveur **Model Context Protocol** de l'application — la porte par laquelle
@@ -409,12 +416,35 @@ class McpController extends Controller {
       deps: this.#service().mcpToolDeps(),
     });
 
+    // Le flux de réponse : la règle (ouverture paresseuse, ordre, réponse
+    // finale qui clôt) est celle de la boîte à outils ; la porte ne fournit que
+    // l'ouverture. Annulation = `context.signal`, que le noyau abat quand la
+    // réponse se ferme avant sa fin — flux compris : aucun écouteur ajouté.
+    const context = this.context;
+    const stream = createMcpResponseStream({
+      signal: context?.signal,
+      open: this.acceptsSse()
+        ? () =>
+            // La réponse finale peut dépasser le plafond d'un événement
+            // ordinaire : un résultat d'outil n'a pas de borne en JSON, il
+            // n'en reçoit pas une plus basse en flux.
+            this.renderSse({ maxEventBytes: MCP_STREAM_MAX_EVENT_BYTES })
+        : undefined,
+      onError: (error, final) =>
+        this.log(
+          `MCP — ${final ? "réponse finale" : "notification"} perdue sur le flux : ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          final ? "WARNING" : "DEBUG",
+        ),
+    });
     const reply = await handleMcpMessage(
       body,
       {
         tools,
         caller,
         withheldCount,
+        transport: stream.transport,
         serverInfo: {
           name: kernel?.projectName ?? "nodefony",
           version: Nodefony.version,
@@ -425,6 +455,12 @@ class McpController extends Controller {
       // intermédiaires liraient des versions différentes.
       { protocolVersion },
     );
+
+    // Un flux a été ouvert en route : la réponse finale le CLÔT (« SHOULD
+    // terminate the stream »). Sinon, rien n'a été dit avant : JSON, comme
+    // toujours.
+    const sse = await stream.finish(reply.body);
+    if (sse !== null) return sse.close();
 
     if (reply.body === null) {
       // `202 Accepted` **sans corps** — la spec l'exige pour une notification

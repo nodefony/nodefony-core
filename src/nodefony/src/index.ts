@@ -926,7 +926,23 @@ export {
 // depuis `jsonrpc/` — même nom, une seule source.
 export type { IMcpHttpReply } from "./mcp/protocol";
 export { handleMcpMessage } from "./mcp/server";
-export type { IMcpServerContext, IMcpHeaders } from "./mcp/server";
+export type {
+  IMcpServerContext,
+  IMcpHeaders,
+  IMcpTransport,
+} from "./mcp/server";
+export {
+  createProgressReporter,
+  readProgressToken,
+  MCP_PROGRESS_MIN_INTERVAL_MS,
+} from "./mcp/progress";
+export type { IMcpProgressReporter, McpProgressToken } from "./mcp/progress";
+export { createMcpResponseStream } from "./mcp/stream";
+export type {
+  IMcpEventSink,
+  IMcpResponseStream,
+  IMcpResponseStreamOptions,
+} from "./mcp/stream";
 export { checkMcpAccess, isLocalAddress } from "./mcp/guard";
 export type { GuardVerdict, IGuardInput, IGuardPolicy } from "./mcp/guard";
 export {
@@ -945,6 +961,7 @@ export type {
   IMcpToolResult,
   IMcpToolDeps,
   IMcpCaller,
+  IMcpToolRun,
   IMcpDeclareOptions,
   IMcpCollectOptions,
   BuiltinMcpToolKey,

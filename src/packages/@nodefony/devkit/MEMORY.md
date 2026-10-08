@@ -63,6 +63,15 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   module de `kernel.modules`. Un module ajouté ou rechargé apparaît sans cache à
   invalider. Un écart (nom hors forme, collision, déclaration en échec) part en
   `WARNING` — jamais en silence.
+- **Flux SSE PARESSEUX** (`McpController.#transport`) : `notify` n'existe que si
+  `acceptsSse()` ; le flux s'ouvre au PREMIER `notifications/progress`
+  (`renderSse({ maxEventBytes: 16 Mio })`), envois chaînés en série ; la réponse
+  finale part sur le flux puis `close()`. Aucun envoi → JSON inchangé.
+  Annulation = `context.signal` (abattu par le noyau à la fermeture sans `end()`).
+  Règle de progression (jeton, croissance, cadence 100 ms, muet après fin) = cœur
+  `mcp/progress.ts`. `subscriptions/listen` → 404/-32601 explicite (cœur
+  `server.ts`). Journal `notifications/message` NON servi (déprécié 2026-07-28).
+  Banc : outils `test_progress`/`test_progress_last` du module `test`.
 
 ## Gotchas
 

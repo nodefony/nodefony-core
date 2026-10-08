@@ -27,9 +27,16 @@ import type {
   IMcpToolDefinition,
   IMcpToolResult,
   IMcpCaller,
+  IMcpToolRun,
 } from "../types/IMcpTool";
 
-export type { IMcpTool, IMcpToolDefinition, IMcpToolResult, IMcpCaller };
+export type {
+  IMcpTool,
+  IMcpToolDefinition,
+  IMcpToolResult,
+  IMcpCaller,
+  IMcpToolRun,
+};
 
 /**
  * Outils MCP : le **catalogue intégré** du framework, et la **collecte** de ceux
@@ -1366,6 +1373,7 @@ export function publishMcpTools(
  * @param args - arguments fournis par l'agent
  * @param tools - outils servis, tels que {@link collectMcpTools} les a ramassés
  * @param caller - appelant établi, transmis au handler (anonyme par défaut)
+ * @param run - annulation et progression de CET appel (détaché par défaut)
  * @returns le résultat de l'outil, ou `null` si le nom n'est pas exposé
  */
 export async function callMcpTool(
@@ -1373,6 +1381,7 @@ export async function callMcpTool(
   args: Record<string, unknown>,
   tools: readonly IMcpTool[],
   caller: IMcpCaller = ANONYMOUS,
+  run: IMcpToolRun = DETACHED_RUN,
 ): Promise<IMcpToolResult | null> {
   const tool = tools.find((candidate) => candidate.name === name);
   if (!tool) {
@@ -1382,8 +1391,17 @@ export async function callMcpTool(
   if (refusal !== null) {
     return mcpText(refusal, true);
   }
-  return tool.handler(args, caller);
+  return tool.handler(args, caller, run);
 }
+
+/**
+ * L'exécution d'un appel SANS porte qui l'observe (appel direct, test) : jamais
+ * annulé, progression muette. Partagé — un signal jamais abattu ne retient rien.
+ */
+const DETACHED_RUN: IMcpToolRun = {
+  signal: new AbortController().signal,
+  progress: () => {},
+};
 
 /**
  * Arguments que l'outil ne déclare pas — refusés, jamais ignorés.

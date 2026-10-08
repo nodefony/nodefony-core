@@ -243,6 +243,10 @@ class Test extends Module {
    * controller du devkit, sur un serveur qui tourne — resterait sans témoin.
    * C'est ce que ce module existe pour faire.
    */
+  /** Dernier passage de l'outil `test_progress` (banc du flux MCP). */
+  #lastProgressRun: { steps: number; done: number; aborted: boolean } | null =
+    null;
+
   override getMcpTools(): IMcpTool[] {
     return [
       {
@@ -262,6 +266,54 @@ class Test extends Module {
             module: this.name,
             echo: typeof args.message === "string" ? args.message : null,
           }),
+      },
+      {
+        // Décor du FLUX : un outil long qui signale chaque étape et s'arrête
+        // quand l'agent part. Son dernier passage est relu par
+        // `test_progress_last` — c'est ce qui prouve l'annulation sur la route.
+        name: "test_progress",
+        description:
+          "Sonde du module de test : avance de `steps` étapes espacées de " +
+          "`delayMs`, signale chacune (progression MCP), s'arrête si l'appel " +
+          "est abandonné. Sert au banc du flux SSE de la porte MCP.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            steps: { type: "integer", description: "Étapes (1 à 50)" },
+            delayMs: {
+              type: "integer",
+              description: "Pause entre étapes (0 à 2000 ms)",
+            },
+          },
+        },
+        handler: async (args, _caller, run) => {
+          const steps = Math.min(50, Math.max(1, Number(args.steps) || 3));
+          const delayMs = Math.min(
+            2000,
+            Math.max(0, Number(args.delayMs) || 150),
+          );
+          const state = { steps, done: 0, aborted: false };
+          this.#lastProgressRun = state;
+          for (let i = 1; i <= steps; i++) {
+            if (run?.signal.aborted) {
+              state.aborted = true;
+              break;
+            }
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            state.done = i;
+            run?.progress(i, steps, `étape ${i}/${steps}`);
+          }
+          if (run?.signal.aborted) state.aborted = true;
+          return mcpText(state);
+        },
+      },
+      {
+        name: "test_progress_last",
+        description:
+          "Sonde du module de test : rend le dernier passage de " +
+          "`test_progress` (étapes faites, abandon constaté).",
+        inputSchema: { type: "object", properties: {} },
+        handler: () => mcpText(this.#lastProgressRun),
       },
       {
         // Décor de la RÉTENTION : cette porte n'authentifie personne, donc cet

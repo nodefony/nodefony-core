@@ -72,6 +72,37 @@ export interface IMcpCaller {
   subject?: string | undefined;
 }
 
+/**
+ * Ce que la porte prête à un outil pendant SON exécution : de quoi savoir que
+ * l'agent est parti, et de quoi lui donner signe de vie.
+ *
+ * Construit à chaque appel, jamais retenu : il ne vaut que pour la requête qui
+ * l'a porté. Un outil court l'ignore — un handler à deux paramètres reste
+ * parfaitement valide.
+ */
+export interface IMcpToolRun {
+  /**
+   * Abattu quand l'agent abandonne l'appel. Sur le transport HTTP, fermer le
+   * flux de réponse EST l'annulation (`basic/patterns/cancellation`) : un outil
+   * long le consulte entre deux étapes, ou le passe à ce qu'il attend
+   * (`fetch`, minuteur, requête de base).
+   */
+  readonly signal: AbortSignal;
+  /**
+   * Signale l'avancement (`notifications/progress`).
+   *
+   * Sans effet quand l'agent n'en a pas demandé (aucun `progressToken`), quand
+   * la porte ne sait pas tenir un flux, ou une fois l'outil terminé — l'outil
+   * n'a donc jamais à s'en soucier. Une valeur qui ne CROÎT pas est ignorée (la
+   * norme exige une suite croissante), et la cadence est bornée par la porte.
+   *
+   * @param progress - l'avancement atteint (une durée, un compte, une part).
+   * @param total - le total, s'il est connu.
+   * @param message - une phrase lisible : ce qui se passe à cet instant.
+   */
+  progress(progress: number, total?: number, message?: string): void;
+}
+
 /** Un outil tel que `tools/list` le publie — sans son implémentation. */
 export interface IMcpToolDefinition {
   /**
@@ -152,10 +183,14 @@ export interface IMcpTool extends IMcpToolDefinition {
    *
    * Le second paramètre porte l'appelant ÉTABLI : un outil authentifié doit
    * pouvoir borner ce qu'il rend à son sujet, et pas seulement décider s'il
-   * répond. Un handler qui l'ignore reste parfaitement valide.
+   * répond. Le troisième ({@link IMcpToolRun}) sert l'outil LONG : annulation
+   * et progression. Un handler qui les ignore reste parfaitement valide.
+   * Optionnel pour l'APPELANT : la porte le fournit toujours, un appel direct
+   * (un test) peut s'en passer — l'outil écrit donc `run?.progress(…)`.
    */
   handler: (
     args: Record<string, unknown>,
     caller: IMcpCaller,
+    run?: IMcpToolRun,
   ) => IMcpToolResult | Promise<IMcpToolResult>;
 }

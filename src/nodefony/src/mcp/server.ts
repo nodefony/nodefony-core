@@ -17,6 +17,7 @@ import {
   type IJsonRpcNotification,
   type IJsonRpcRequest,
 } from "../jsonrpc/index";
+import { createProgressReporter, readProgressToken } from "./progress";
 import {
   callMcpTool,
   publishMcpTools,
@@ -78,7 +79,30 @@ export interface IMcpServerContext {
    * nom. Absent ou `0` = rien à signaler.
    */
   withheldCount?: number;
+  /**
+   * Ce que la porte sait faire PENDANT un appel — absent, l'appel est servi
+   * comme une lecture courte : jamais annulé, sans progression.
+   */
+  transport?: IMcpTransport;
 }
+
+/**
+ * Le transport d'UNE requête, vu du protocole.
+ *
+ * Le protocole décide QUOI émettre (une progression liée à la requête) ; la
+ * porte décide COMMENT — et c'est à elle d'ouvrir son flux au premier envoi.
+ * Une porte qui ne sait pas tenir de flux ne fournit pas `notify` : la
+ * progression devient muette, la réponse reste du JSON.
+ */
+export interface IMcpTransport {
+  /** Abattu quand le client abandonne la requête. */
+  signal?: AbortSignal;
+  /** Émet une notification liée à la requête, AVANT la réponse finale. */
+  notify?: (notification: IJsonRpcNotification) => void;
+}
+
+/** Signal des appels sans transport qui annule : jamais abattu, partagé. */
+const NEVER_ABORTED = new AbortController().signal;
 
 /** En-têtes HTTP dont le protocole se sert. */
 export interface IMcpHeaders {
@@ -456,9 +480,19 @@ export async function handleMcpMessage(
         };
       }
 
+      // La progression ne vit que le temps de l'appel : `end()` la rend muette
+      // dès la réponse rendue (« MUST stop after completion »).
+      const reporter = createProgressReporter(
+        readProgressToken(params),
+        context.transport?.notify,
+      );
       let result;
       try {
-        result = await callMcpTool(name, args, context.tools, context.caller);
+        result = await callMcpTool(name, args, context.tools, context.caller, {
+          signal: context.transport?.signal ?? NEVER_ABORTED,
+          progress: (value, total, text) =>
+            reporter.progress(value, total, text),
+        });
       } catch (error) {
         return {
           status: 200,
@@ -468,6 +502,8 @@ export async function handleMcpMessage(
             `l'outil « ${name} » a échoué : ${(error as Error).message}`,
           ),
         };
+      } finally {
+        reporter.end();
       }
 
       if (result === null) {
@@ -491,6 +527,26 @@ export async function handleMcpMessage(
         ),
       };
     }
+
+    // ─── `subscriptions/listen` : REFUSÉ, et le refus le dit ─────────────────
+    // Le flux d'abonnement porte `notifications/tools/list_changed`. Or ici le
+    // catalogue ne change qu'au RECHARGEMENT du serveur de développement, qui
+    // redémarre le process : le flux casserait au lieu de notifier, et l'agent
+    // apprendrait la nouvelle par une coupure. Le remède est déjà dans la
+    // porte — rien n'est retenu entre deux appels, le `tools/list` suivant
+    // vient du code rechargé. Un refus EXPLICITE plutôt que « méthode
+    // inconnue » : un client qui lit le message sait qu'il n'a rien manqué.
+    case "subscriptions/listen":
+      return {
+        status: 404,
+        body: jsonRpcFailure(
+          id,
+          JsonRpcError.METHOD_NOT_FOUND,
+          "`subscriptions/listen` n'est pas servi : le catalogue ne change " +
+            "qu'au rechargement de l'application, qui redémarre son process — " +
+            "rappeler `tools/list` après une coupure rend l'état à jour.",
+        ),
+      };
 
     default:
       // `404`, et pas `200` : la spec l'exige explicitement pour une méthode
