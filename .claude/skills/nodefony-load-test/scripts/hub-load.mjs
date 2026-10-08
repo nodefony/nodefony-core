@@ -118,8 +118,14 @@ function connect() {
       } else {
         // consommateur SAIN : draine, et compte ce qu'il reçoit du canal
         ws.on("message", (raw) => {
-          // Le serveur n'émet que du texte JSON : une trame binaire ne compte pas.
-          const text = Buffer.isBuffer(raw) ? raw.toString("utf8") : "";
+          // `ws` 7 (résolu depuis la racine) livre une trame texte en chaîne,
+          // `ws` 8 en Buffer : les deux formes comptent.
+          const text =
+            typeof raw === "string"
+              ? raw
+              : Buffer.isBuffer(raw)
+                ? raw.toString("utf8")
+                : "";
           if (text.includes('"realtime:denied"')) denied++;
           else if (text.includes(`"method":"${CH}"`)) received[index]++;
         });
