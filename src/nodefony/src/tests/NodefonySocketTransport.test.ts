@@ -124,7 +124,7 @@ describe("NodefonySocket — extraction transport (IRealtimeTransport)", () => {
     await p;
     transports[0]!.fireClose(1006); // perte non intentionnelle
     expect(client.state).to.equal("reconnecting");
-    await delay(20);
+    await delay(150); // plancher de 100 ms
     expect(transports.length).to.equal(2); // un transport NEUF par tentative
     expect(transports[1]!.connectCalls).to.equal(1);
     transports[1]!.fireOpen();
@@ -190,8 +190,9 @@ describe("NodefonySocket — extraction transport (IRealtimeTransport)", () => {
 
   it("send dropé tant que le transport n'est pas OPEN", () => {
     const { client, transports } = setup();
-    // Non attendue : la connexion reste CONNECTING, c'est l'état éprouvé.
-    void client.connect(); // CONNECTING, pas encore OPEN
+    // Non attendue : la connexion reste CONNECTING, c'est l'état éprouvé. Le
+    // `disconnect()` final la fait rejeter — une ouverture annulée le dit.
+    client.connect().catch(() => {}); // CONNECTING, pas encore OPEN
     client.emit("evt", { x: 1 });
     expect(transports[0]!.sent).to.have.length(0);
     client.disconnect();

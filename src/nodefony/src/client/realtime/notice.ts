@@ -120,6 +120,17 @@ export function closeCodeToNotice(
       level = "error";
       message = "Erreur serveur temps réel";
       break;
+    case 4001:
+      // Code privé Nodefony (RealtimeController / RealtimeHub) : authentification
+      // refusée, ou session révoquée en cours de route.
+      level = "error";
+      message = "Session temps réel refusée ou révoquée";
+      break;
+    case 4003:
+      // Code privé Nodefony (RealtimeController) : origine refusée.
+      level = "error";
+      message = "Origine refusée par le serveur temps réel";
+      break;
     case 4004:
       // Code privé Nodefony (toWsCloseCode) : 4xx applicatif (404…).
       level = "error";
@@ -149,11 +160,14 @@ export function closeCodeToNotice(
  * reconnexion automatique est INUTILE ou NUISIBLE — la cause ne disparaît pas en
  * réessayant : fin propre (1000), erreurs de protocole/négociation
  * (1002/1003/1007/1010), violation de politique = 401/403 mappés (1008), et
- * ressource introuvable (4004, privé Nodefony). Une boucle de reco sur ces codes
- * martèle le serveur pour rien (vécu : un anonyme sur un endpoint protégé).
+ * les codes privés Nodefony : authentification refusée ou session révoquée
+ * (4001), origine refusée (4003), ressource introuvable (4004). Une boucle de
+ * reco sur ces codes martèle le serveur pour rien (vécu : un anonyme sur un
+ * endpoint protégé) — et après une révocation, elle rejouerait l'identité
+ * révoquée à chaque tentative.
  */
 const FATAL_CLOSE_CODES: ReadonlySet<number> = new Set([
-  1000, 1002, 1003, 1007, 1008, 1010, 4004,
+  1000, 1002, 1003, 1007, 1008, 1010, 4001, 4003, 4004,
 ]);
 
 /**

@@ -144,7 +144,7 @@
 
   const toggle = (): void => {
     if (liveState === "connected") live.disconnect();
-    else void live.connect();
+    else live.connect().catch(() => {}); // l'échec se lit dans l'état
   };
 
 

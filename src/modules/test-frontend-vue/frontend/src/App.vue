@@ -152,7 +152,7 @@ const body = (v: string | null): string =>
   v?.split("\n").slice(1).join("\n") ?? "—";
 const toggle = (): void => {
   if (liveState.value === "connected") live.disconnect();
-  else void live.connect();
+  else live.connect().catch(() => {}); // l'échec se lit dans l'état
 };
 
 const pollApi = async (): Promise<void> => {

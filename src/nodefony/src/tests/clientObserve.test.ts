@@ -188,7 +188,13 @@ describe("observeState / observeIdentity — l'état courant, puis ses transitio
     );
     expect(vues).toEqual([null]);
     t.push("realtime:welcome", {
-      identity: { authenticated: true, userIdentifier: "alice", roles: [] },
+      identity: {
+        type: "session",
+        authenticated: true,
+        userIdentifier: "alice",
+        roles: [],
+        scopes: [],
+      },
     });
     expect(vues).toEqual([null, "alice"]);
   });

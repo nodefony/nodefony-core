@@ -288,7 +288,9 @@ export class ClientKernel implements IClientKernel {
     const socket = this.get("realtime");
     if (socket) {
       if (previousKey !== null) socket.disconnect();
-      if (key !== null) void socket.connect();
+      // Un échec d'ouverture rejette `connect()` ; la reconnexion continue en
+      // fond, et l'état se lit par `onState` — rien à faire de ce rejet ici.
+      if (key !== null) socket.connect().catch(() => {});
     }
     this.#service.fire("onIdentityChange", identity, previous);
   }

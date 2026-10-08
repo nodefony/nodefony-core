@@ -206,7 +206,8 @@ export class ConnectionStore {
   /** Reconnexion manuelle (no-op si déjà connecté). Préserve les abonnements
    *  (l'observateur d'état les ré-émet au "connected"). */
   reconnect(): void {
-    void this.client.connect();
+    // Un échec d'ouverture rejette ; l'observateur d'état en rend compte.
+    this.client.connect().catch(() => {});
   }
 
   /**

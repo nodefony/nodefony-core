@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { NodefonySocket } from "../client/realtime/NodefonySocket";
+import {
+  NodefonySocket,
+  type RealtimeReconnectInfo,
+} from "../client/realtime/NodefonySocket";
 import {
   TransportState,
   type IRealtimeTransport,
@@ -88,11 +91,17 @@ function newClient(opts: Record<string, unknown> = {}) {
   return client;
 }
 const last = () => transports[transports.length - 1];
+/** Dernier transport créé — échoue franchement si aucun (décor mal monté). */
+const current = (): MockTransport => {
+  const t = last();
+  if (!t) throw new Error("aucun transport créé");
+  return t;
+};
 
 async function connected(opts: Record<string, unknown> = {}) {
   const client = newClient(opts);
   const p = client.connect();
-  last()!.fireOpen();
+  current().fireOpen();
   await p;
   return client;
 }
@@ -105,8 +114,8 @@ describe("NodefonySocket — cycle de connexion", () => {
     const client = newClient();
     expect(client.state).to.equal("disconnected");
     const p = client.connect();
-    expect(last()!.connectCalls).to.equal(1);
-    last()!.fireOpen();
+    expect(current().connectCalls).to.equal(1);
+    current().fireOpen();
     await p;
     expect(client.state).to.equal("connected");
   });
@@ -114,13 +123,13 @@ describe("NodefonySocket — cycle de connexion", () => {
   it("URL http(s) normalisée en ws(s) au connect", async () => {
     const a = newClient({ url: "http://localhost/realtime" });
     const pa = a.connect();
-    last()!.fireOpen();
+    current().fireOpen();
     await pa;
     expect(a.state).to.equal("connected");
     a.disconnect();
     const b = newClient({ url: "https://localhost/realtime" });
     const pb = b.connect();
-    last()!.fireOpen();
+    current().fireOpen();
     await pb;
     expect(b.state).to.equal("connected");
     b.disconnect();
@@ -131,7 +140,7 @@ describe("NodefonySocket — cycle de connexion", () => {
     const p = client.connect();
     await Promise.resolve();
     // l'URL passée au factory contient le token (transport créé)
-    last()!.fireOpen();
+    current().fireOpen();
     await p;
     client.disconnect();
   });
@@ -139,68 +148,90 @@ describe("NodefonySocket — cycle de connexion", () => {
   it("disconnect (intentionnel) → close → state disconnected, pas de reconnect", async () => {
     const client = await connected();
     client.disconnect();
-    last()!.fireClose(1000, "bye");
+    current().fireClose(1000, "bye");
     expect(client.state).to.equal("disconnected");
     expect(client.reconnectAttempts).to.equal(0);
   });
 
   it("close TRANSITOIRE (1006) → scheduleReconnect (backoff + __reconnect__ + nextRetryAt)", async () => {
+    // Gigue neutralisée : le délai retenu vaut alors exactement le doublement.
+    vi.spyOn(Math, "random").mockReturnValue(1);
     const client = await connected({ reconnectDelay: 1000 });
-    const events: Array<{ attempt: number; delay: number }> = [];
-    client.on(
-      "__reconnect__" as never,
-      ((e: { attempt: number; delay: number }) => events.push(e)) as never,
-    );
-    last()!.fireClose(1006);
+    const events: RealtimeReconnectInfo[] = [];
+    client.onReconnect((e) => events.push(e));
+    current().fireClose(1006);
     expect(client.state).to.equal("reconnecting");
     expect(client.reconnectAttempts).to.equal(1);
     expect(client.nextRetryAt).to.be.a("number");
-    expect(events[0]!.delay).to.equal(1000);
+    expect(events[0]?.delay).to.equal(1000);
     // Le timer de reco recrée un transport + reconnecte.
     vi.advanceTimersByTime(1000);
     expect(transports.length).to.equal(2);
-    last()!.fireOpen();
-    expect(client.reconnectAttempts).to.equal(0); // reset au succès
+    current().fireOpen();
+    // Une connexion ne remet le back-off à zéro qu'une fois STABLE (5 s) : un
+    // serveur qui accepte puis coupe aussitôt n'est pas sondé à cadence fixe.
+    expect(client.reconnectAttempts).to.equal(1);
+    vi.advanceTimersByTime(5000);
+    current().fireClose(1006);
+    expect(client.reconnectAttempts).to.equal(1); // remis à zéro, puis 1ʳᵉ tentative
+    expect(events[1]?.delay).to.equal(1000);
+    client.disconnect();
+    vi.restoreAllMocks();
   });
 
   it("backoff exponentiel plafonné (reconnectDelayMax)", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(1);
     const client = await connected({
       reconnectDelay: 1000,
       reconnectDelayMax: 3000,
     });
     const delays: number[] = [];
-    client.on(
-      "__reconnect__" as never,
-      ((e: { delay: number }) => delays.push(e.delay)) as never,
-    );
-    last()!.fireClose(1006); // attempt 1 → 1000
+    client.onReconnect((e) => delays.push(e.delay));
+    current().fireClose(1006); // attempt 1 → 1000
     vi.advanceTimersByTime(1000);
-    last()!.fireClose(1006); // attempt 2 → 2000
+    current().fireClose(1006); // attempt 2 → 2000
     vi.advanceTimersByTime(2000);
-    last()!.fireClose(1006); // attempt 3 → min(4000,3000)=3000
+    current().fireClose(1006); // attempt 3 → min(4000,3000)=3000
     expect(delays).to.deep.equal([1000, 2000, 3000]);
+    client.disconnect();
+    vi.restoreAllMocks();
+  });
+
+  it("gigue : le délai tombe entre la moitié et la totalité du doublement", async () => {
+    const spy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = await connected({ reconnectDelay: 1000 });
+    const delays: number[] = [];
+    client.onReconnect((e) => delays.push(e.delay));
+    current().fireClose(1006);
+    expect(delays).to.deep.equal([500]);
+    spy.mockReturnValue(0.5);
+    vi.advanceTimersByTime(500);
+    current().fireClose(1006); // 2ᵉ tentative : 2000 → 1000 + 0,5 × 1000
+    expect(delays).to.deep.equal([500, 1500]);
+    client.disconnect();
+    vi.restoreAllMocks();
   });
 
   it("close FATAL (1008 policy) → state error, AUCUN reconnect", async () => {
     const client = await connected();
-    last()!.fireClose(1008, "unauthorized");
+    current().fireClose(1008, "unauthorized");
     expect(client.state).to.equal("error");
     expect(client.reconnectAttempts).to.equal(0);
   });
 
   it("close transitoire mais autoReconnect:false → disconnected (pas de reco)", async () => {
     const client = await connected({ autoReconnect: false });
-    last()!.fireClose(1006);
+    current().fireClose(1006);
     expect(client.state).to.equal("disconnected");
   });
 
   it("retryNow : annule le backoff et relance immédiatement", async () => {
     const client = await connected({ reconnectDelay: 5000 });
-    last()!.fireClose(1006);
+    current().fireClose(1006);
     expect(client.state).to.equal("reconnecting");
     client.retryNow(); // annule le timer, relance openSocket
     expect(client.nextRetryAt).to.equal(null);
-    last()!.fireOpen();
+    current().fireOpen();
     expect(client.state).to.equal("connected");
   });
 
@@ -216,9 +247,9 @@ describe("NodefonySocket — cycle de connexion", () => {
     const client = await connected({ reconnectDelay: 100 });
     const notices: Array<{ level: string }> = [];
     client.onNotice((n) => notices.push(n));
-    last()!.fireClose(1006);
+    current().fireClose(1006);
     vi.advanceTimersByTime(100);
-    last()!.fireOpen(); // reconnecté
+    current().fireOpen(); // reconnecté
     expect(notices.some((n) => n.level === "success")).to.equal(true);
   });
 });
@@ -229,9 +260,9 @@ describe("NodefonySocket — heartbeat + stats sampler (timers)", () => {
 
   it("heartbeat : ping émis périodiquement quand le transport est ouvert", async () => {
     const client = await connected({ heartbeatInterval: 1000 });
-    last()!.sent.length = 0;
+    current().sent.length = 0;
     vi.advanceTimersByTime(1000);
-    expect(last()!.sent.some((s) => s.includes('"ping"'))).to.equal(true);
+    expect(current().sent.some((s) => s.includes('"ping"'))).to.equal(true);
     client.disconnect();
   });
 
@@ -239,10 +270,10 @@ describe("NodefonySocket — heartbeat + stats sampler (timers)", () => {
     const client = await connected();
     let statsTicks = 0;
     client.on("__stats__" as never, (() => statsTicks++) as never);
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", method: "chan:a", params: { v: 1 } }),
     );
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", method: "chan:a", params: { v: 2 } }),
     );
     vi.advanceTimersByTime(1000); // 1er tick : prev initialisé à msgCount → rate 0
@@ -250,7 +281,7 @@ describe("NodefonySocket — heartbeat + stats sampler (timers)", () => {
     const st = client.getChannelStats("chan:a");
     expect(st!.msgCount).to.equal(2);
     expect(st!.rate).to.equal(0); // pas d'historique compté au 1er échantillon
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", method: "chan:a", params: { v: 3 } }),
     );
     vi.advanceTimersByTime(1000); // 2e tick : 1 nouveau msg depuis prev → rate 1
@@ -323,18 +354,18 @@ describe("NodefonySocket — canaux (ref-count, handle, adaptatif)", () => {
 
   it("subscribe ref-compté : 1 seul subscribe réseau pour N consommateurs", async () => {
     const client = await connected();
-    last()!.sent.length = 0;
+    current().sent.length = 0;
     client.subscribe("room:1");
     client.subscribe("room:1"); // 2e consommateur → pas de 2e subscribe réseau
-    const subs = last()!.sent.filter((s) => s.includes('"subscribe"'));
+    const subs = current().sent.filter((s) => s.includes('"subscribe"'));
     expect(subs.length).to.equal(1);
     client.unsubscribe("room:1"); // encore 1 consommateur → pas d'unsubscribe
     expect(
-      last()!.sent.filter((s) => s.includes('"unsubscribe"')).length,
+      current().sent.filter((s) => s.includes('"unsubscribe"')).length,
     ).to.equal(0);
     client.unsubscribe("room:1"); // dernier → unsubscribe réseau
     expect(
-      last()!.sent.filter((s) => s.includes('"unsubscribe"')).length,
+      current().sent.filter((s) => s.includes('"unsubscribe"')).length,
     ).to.equal(1);
     client.disconnect();
   });
@@ -342,11 +373,13 @@ describe("NodefonySocket — canaux (ref-count, handle, adaptatif)", () => {
   it("ré-abonnement automatique des canaux au reconnect", async () => {
     const client = await connected({ reconnectDelay: 50 });
     client.subscribe("room:persist");
-    last()!.fireClose(1006);
-    vi.advanceTimersByTime(50);
-    last()!.sent.length = 0;
-    last()!.fireOpen(); // reconnecté → ré-émet les subscribe
-    expect(last()!.sent.some((s) => s.includes("room:persist"))).to.equal(true);
+    current().fireClose(1006);
+    vi.advanceTimersByTime(100); // plancher de 100 ms
+    current().sent.length = 0;
+    current().fireOpen(); // reconnecté → ré-émet les subscribe
+    expect(current().sent.some((s) => s.includes("room:persist"))).to.equal(
+      true,
+    );
     client.disconnect();
   });
 
@@ -357,7 +390,7 @@ describe("NodefonySocket — canaux (ref-count, handle, adaptatif)", () => {
     const got: unknown[] = [];
     const dispose = ch.on((p) => got.push(p));
     ch.open(); // subscribe
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", method: "sip:line1", params: { v: 9 } }),
     );
     expect(got).to.deep.equal([{ v: 9 }]);
@@ -383,12 +416,12 @@ describe("NodefonySocket — RPC (path, ping, register)", () => {
     const client = await connected();
     const p = client.request("/nodefony/kernel/api/x", 5000);
     // le serveur répond (id 1)
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", id: 1, result: { ok: true } }),
     );
     expect(await p).to.deep.equal({ ok: true });
     // la frame sortante est bien api.request
-    expect(last()!.sent.some((s) => s.includes('"api.request"'))).to.equal(
+    expect(current().sent.some((s) => s.includes('"api.request"'))).to.equal(
       true,
     );
     client.disconnect();
@@ -397,7 +430,7 @@ describe("NodefonySocket — RPC (path, ping, register)", () => {
   it("ping : mesure le RTT via nodefony:kernel:ping", async () => {
     const client = await connected();
     const p = client.ping(5000);
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
@@ -421,9 +454,9 @@ describe("NodefonySocket — RPC (path, ping, register)", () => {
 
   it("notify : notification sortante (sans réponse)", async () => {
     const client = await connected();
-    last()!.sent.length = 0;
+    current().sent.length = 0;
     client.notify("app:event" as never, { x: 1 });
-    expect(last()!.sent.some((s) => s.includes("app:event"))).to.equal(true);
+    expect(current().sent.some((s) => s.includes("app:event"))).to.equal(true);
     client.disconnect();
   });
 });
@@ -436,7 +469,7 @@ describe("NodefonySocket — log protocole, redaction, erreurs serveur", () => {
       password: "p",
       safe: "ok",
     });
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", method: "x", params: { apikey: "K" } }),
     );
     const log = client.frameLog;
@@ -467,7 +500,7 @@ describe("NodefonySocket — log protocole, redaction, erreurs serveur", () => {
     const client = await connected();
     const notices: Array<{ source: string; message: string }> = [];
     client.onNotice((n) => notices.push(n));
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", error: { code: 500, message: "boom" } }),
     );
     expect(
@@ -478,14 +511,14 @@ describe("NodefonySocket — log protocole, redaction, erreurs serveur", () => {
 
   it("welcome partiel / non-objet → toléré (pas de crash)", async () => {
     const client = await connected();
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({
         jsonrpc: "2.0",
         method: "realtime:welcome",
         params: null,
       }),
     );
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({
         jsonrpc: "2.0",
         method: "realtime:welcome",
@@ -520,18 +553,18 @@ describe("NodefonySocket — edge (parsing, redaction, dispose, frameLog)", () =
   it("handleMessage : binaire (non-string) ignoré + JSON invalide ignoré", async () => {
     const client = await connected();
     const before = client.framesReceived;
-    last()!.fireMsg(new ArrayBuffer(4) as unknown as string); // binaire → ignoré
-    last()!.fireMsg("{ pas du json"); // parse error → ignoré
+    current().fireMsg(new ArrayBuffer(4) as unknown as string); // binaire → ignoré
+    current().fireMsg("{ pas du json"); // parse error → ignoré
     expect(client.framesReceived).to.equal(before);
     client.disconnect();
   });
 
   it("frameLog buildFrame : kinds error/response + redaction d'array", async () => {
     const client = await connected();
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", error: { code: 1, message: "e" } }),
     );
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", id: 6, result: { ok: 1 } }),
     );
     client.notify("arr:x" as never, [{ token: "SECRET" }, "plain"] as never);
@@ -551,7 +584,7 @@ describe("NodefonySocket — edge (parsing, redaction, dispose, frameLog)", () =
   it("frameLog : ring borné (anciennes frames évincées au-delà du max)", async () => {
     const client = await connected();
     for (let i = 0; i < 320; i++) {
-      last()!.fireMsg(
+      current().fireMsg(
         JSON.stringify({ jsonrpc: "2.0", method: "spam", params: { i } }),
       );
     }
@@ -569,7 +602,7 @@ describe("NodefonySocket — edge (parsing, redaction, dispose, frameLog)", () =
 
   it("buildFrame : extrait le canal depuis params.channel", async () => {
     const client = await connected();
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({
         jsonrpc: "2.0",
         method: "chan:x",
@@ -596,7 +629,7 @@ describe("NodefonySocket — edge (parsing, redaction, dispose, frameLog)", () =
         reached = true;
       }) as never,
     );
-    last()!.fireMsg(
+    current().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", method: "boom", params: {} }),
     );
     expect(reached).to.equal(true); // le wildcard est atteint malgré le throw
@@ -619,7 +652,7 @@ describe("NodefonySocket — shared (singleton par URL) + events d'état", () =>
     const states: string[] = [];
     client.on("__state__" as never, ((s: string) => states.push(s)) as never);
     const p = client.connect();
-    last()!.fireOpen();
+    current().fireOpen();
     await p;
     expect(states).to.include("connected");
     client.disconnect();

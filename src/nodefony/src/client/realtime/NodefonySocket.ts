@@ -53,7 +53,6 @@ import type {
   EventNames,
   EventPayload,
   EventsMap,
-  IRealtimeWelcome,
   RealtimeIdentity,
   TypedRpcActionHandler,
   ContractParams,
@@ -98,10 +97,20 @@ export interface NodefonySocketOptions {
   token?: string | null | undefined;
   /** Reconnexion auto. Défaut: true. */
   autoReconnect?: boolean | undefined;
-  /** Délai initial entre tentatives (ms). Défaut: 1000. */
+  /**
+   * Délai initial entre tentatives (ms). Défaut: 1000. Il double à chaque échec,
+   * avec une gigue, et ne descend jamais sous un plancher de 100 ms — quelle que
+   * soit la valeur donnée ici.
+   */
   reconnectDelay?: number | undefined;
-  /** Délai max entre tentatives (ms). Défaut: 30000. */
+  /** Délai max entre tentatives (ms). Défaut: 30000. Le plancher l'emporte s'il est plus bas. */
   reconnectDelayMax?: number | undefined;
+  /**
+   * Délai d'ouverture (ms) : une poignée de main qui n'aboutit pas dans ce délai
+   * est abandonnée, `connect()` rejette et la reconnexion prend le relais.
+   * Défaut : 10000. `0` désactive la borne.
+   */
+  connectTimeout?: number | undefined;
   /** Heartbeat ping interval (ms). Défaut: 30000. */
   heartbeatInterval?: number | undefined;
   /**
@@ -146,6 +155,126 @@ export interface RealtimeFrame {
 /** Taille max du ring du log protocole (inspecteur realtime). */
 const FRAME_LOG_MAX = 300;
 
+/**
+ * Budget du log protocole, en caractères sérialisés. Le compte de trames seul ne
+ * borne rien : 300 trames de 2 Mo retenaient 80 Mo choisis par le serveur.
+ */
+const FRAME_LOG_MAX_CHARS = 2 * 1024 * 1024;
+
+/** Au-delà, une trame n'est journalisée qu'en résumé (méthode, id, canal, taille). */
+const FRAME_LOG_ENTRY_MAX_CHARS = 64 * 1024;
+
+/**
+ * Plancher d'un délai de reconnexion (ms). Ni la configuration ni un serveur qui
+ * coupe chaque connexion ne font descendre une relance en dessous : sans lui, un
+ * délai de 0 transformait chaque client en tempête de poignées de main.
+ */
+const RECONNECT_DELAY_FLOOR = 100;
+
+/** Plus grand délai que `setTimeout` respecte (2^31-1 ms) ; au-delà il tire à 1 ms. */
+const TIMER_MAX = 2 ** 31 - 1;
+
+/**
+ * Durée d'ouverture (ms) au-delà de laquelle une connexion compte comme STABLE et
+ * remet le back-off à zéro. Un serveur qui accepte puis coupe aussitôt ne le remet
+ * donc jamais : il est ménagé de plus en plus, au lieu d'être sondé à cadence fixe.
+ */
+const STABLE_CONNECTION_MS = 5000;
+
+/** Délai d'ouverture par défaut (ms) — cf {@link NodefonySocketOptions.connectTimeout}. */
+const CONNECT_TIMEOUT_DEFAULT = 10_000;
+
+/**
+ * Délai de la tentative `attempt` (1 = la première) : doublement depuis `base`,
+ * plafonné par `max`, puis gigue « égale » — la moitié fixe garde la croissance,
+ * l'autre moitié désynchronise N clients coupés au même instant (sinon ils
+ * reviennent tous ensemble frapper le serveur qui redémarre).
+ *
+ * @param attempt - numéro de la tentative, à partir de 1.
+ * @param base - délai initial configuré (ms).
+ * @param max - plafond configuré (ms).
+ * @returns un délai entier dans `[RECONNECT_DELAY_FLOOR, TIMER_MAX]`.
+ */
+function reconnectDelay(attempt: number, base: number, max: number): number {
+  const start = Number.isFinite(base) && base > 0 ? base : 0;
+  const ceiling = Math.min(
+    Math.max(Number.isNaN(max) ? 0 : max, RECONNECT_DELAY_FLOOR),
+    TIMER_MAX,
+  );
+  // Exposant borné : 2^1024 vaut Infinity, et 0 × Infinity vaut NaN.
+  const grown = Math.min(start * 2 ** Math.min(attempt - 1, 31), ceiling);
+  const jittered = grown / 2 + Math.random() * (grown / 2);
+  return Math.max(RECONNECT_DELAY_FLOOR, Math.round(jittered));
+}
+
+/**
+ * Adresse WebSocket d'une URL donnée par l'application — la règle du
+ * constructeur WHATWG `new WebSocket()` (`http:` → `ws:`, `https:` → `wss:`,
+ * tout autre schéma refusé), plus un refus que le navigateur ne fait pas : des
+ * identifiants dans l'adresse. Ils finiraient dans les journaux, l'historique et
+ * les en-têtes ; le jeton passe par l'option `token`.
+ *
+ * @param url - adresse absolue ou relative.
+ * @param base - base de résolution d'une adresse relative.
+ * @returns l'URL `ws:`/`wss:` résolue.
+ * @throws Error si l'adresse est illisible, d'un autre schéma, ou porte des identifiants.
+ */
+function toSocketUrl(url: string, base: string): URL {
+  let u: URL;
+  try {
+    u = new URL(url, base);
+  } catch {
+    // Une URL que `new URL()` refuse est une faute de frappe, pas un cas à
+    // rattraper : la rendre telle quelle laisserait le transport échouer plus
+    // loin, sans dire ce qui était mal écrit.
+    throw new Error(
+      `[nodefony] adresse du serveur temps réel illisible : ${JSON.stringify(url)}`,
+    );
+  }
+  if (u.protocol === "http:") u.protocol = "ws:";
+  else if (u.protocol === "https:") u.protocol = "wss:";
+  if (u.protocol !== "ws:" && u.protocol !== "wss:") {
+    throw new Error(
+      `[nodefony] schéma refusé pour le temps réel : ${u.protocol} (ws:, wss:, http: ou https: attendus)`,
+    );
+  }
+  if (u.username || u.password) {
+    throw new Error(
+      "[nodefony] identifiants refusés dans l'adresse temps réel : passer le jeton par l'option `token`",
+    );
+  }
+  return u;
+}
+
+/**
+ * Résumé journalisable d'une trame démesurée : méthode, id, canal et taille,
+ * jamais la charge. Garde les clés `result`/`error` pour que le log en lise la
+ * nature.
+ */
+function frameSummary(msg: unknown, size: number): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    truncated: `${size} caractères — charge non journalisée`,
+  };
+  if (msg === null || typeof msg !== "object") return out;
+  if ("method" in msg && typeof msg.method === "string")
+    out.method = msg.method;
+  if ("id" in msg && (typeof msg.id === "number" || typeof msg.id === "string"))
+    out.id = msg.id;
+  if ("params" in msg) {
+    const p = msg.params;
+    out.params =
+      p !== null &&
+      typeof p === "object" &&
+      "channel" in p &&
+      typeof p.channel === "string"
+        ? { channel: p.channel }
+        : "[tronqué]";
+  }
+  if ("result" in msg) out.result = "[tronqué]";
+  if ("error" in msg) out.error = "[tronqué]";
+  return out;
+}
+
 /** Clés sensibles masquées dans le log protocole (sécurité — jamais de secret en clair). */
 const FRAME_REDACT_RE =
   /(token|password|secret|api[_-]?key|apikey|authorization|bearer)/i;
@@ -154,11 +283,67 @@ const FRAME_REDACT_RE =
 function redactFrame(value: unknown, depth = 0): unknown {
   if (depth > 4 || value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map((v) => redactFrame(v, depth + 1));
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    out[k] = FRAME_REDACT_RE.test(k) ? "[redacted]" : redactFrame(v, depth + 1);
-  }
-  return out;
+  // `fromEntries` crée des propriétés PROPRES : une clé `__proto__` reçue reste
+  // une donnée, là où une affectation `out[k] = …` changerait le prototype.
+  return Object.fromEntries(
+    Object.entries(value).map(([k, v]) => [
+      k,
+      FRAME_REDACT_RE.test(k) ? "[redacted]" : redactFrame(v, depth + 1),
+    ]),
+  );
+}
+
+/**
+ * Champ `key` d'une valeur reçue du réseau — `undefined` si ce n'est pas un
+ * objet qui le porte. Le serveur est un pair, pas une source de confiance : ce
+ * qu'il envoie se lit champ par champ, jamais se déclare d'un type.
+ */
+function fieldOf(value: unknown, key: string): unknown {
+  // Propriété PROPRE seulement : `constructor` ou `toString` hérités ne sont
+  // pas des champs envoyés par le serveur.
+  return value !== null && typeof value === "object"
+    ? Object.getOwnPropertyDescriptor(value, key)?.value
+    : undefined;
+}
+
+/** Les chaînes d'une liste reçue (le reste est écarté) ; `null` si ce n'est pas une liste. */
+function stringsOf(value: unknown): string[] | null {
+  return Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === "string")
+    : null;
+}
+
+/**
+ * Identité annoncée par le `realtime:welcome`, recopiée champ par champ — ou
+ * `null` si un seul champ n'a pas son type. Une identité à moitié valide n'en
+ * est pas une : `roles: "ROLE_ADMIN"` typé `string[]` ferait répondre vrai à
+ * `roles.includes("ROLE_ADMIN")`.
+ */
+function identityOf(value: unknown): RealtimeIdentity | null {
+  const type = fieldOf(value, "type");
+  const authenticated = fieldOf(value, "authenticated");
+  const userIdentifier = fieldOf(value, "userIdentifier");
+  const roles = fieldOf(value, "roles");
+  const scopes = fieldOf(value, "scopes");
+  if (
+    typeof type !== "string" ||
+    typeof authenticated !== "boolean" ||
+    typeof userIdentifier !== "string" ||
+    !Array.isArray(roles) ||
+    !Array.isArray(scopes)
+  )
+    return null;
+  const roleList = stringsOf(roles);
+  const scopeList = stringsOf(scopes);
+  if (roleList?.length !== roles.length || scopeList?.length !== scopes.length)
+    return null;
+  return {
+    type,
+    authenticated,
+    userIdentifier,
+    roles: roleList,
+    scopes: scopeList,
+  };
 }
 
 /**
@@ -252,6 +437,8 @@ export class NodefonySocket<
   private _nextRetryAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  // Borne de la poignée de main en cours — `null` hors ouverture.
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalClose = false;
   // Stats génériques par méthode/canal — calculées ici (au point d'arrivée des
   // frames), donc fiables et réutilisables par toute app.
@@ -273,8 +460,11 @@ export class NodefonySocket<
   // pousse qu'une RÉF brute (`{ts,dir,msg}`) ; la construction + la redaction
   // sont DIFFÉRÉES à la lecture (`frameLog`) ou au live (`__frame__`). Toujours
   // alimenté → la console « retrace l'instant » dès l'ouverture (pas de vide).
-  private _rawFrames: { ts: number; dir: "in" | "out"; msg: unknown }[] | null =
+  private _rawFrames:
+    { ts: number; dir: "in" | "out"; msg: unknown; size: number }[] | null =
     null;
+  // Somme des `size` du ring — tenue à jour au push/shift, jamais recalculée.
+  private _rawFramesChars = 0;
   // Identité résolue + capabilities annoncées par le serveur au `realtime:welcome`
   // (cold path, 1×/connexion). `null` tant que pas reçu → lazy, 0 alloc « au cas
   // où ». Réfs brutes vers les objets du welcome (pas de copie).
@@ -344,28 +534,19 @@ export class NodefonySocket<
   private static resolveUrl(url?: string): string {
     if (!url) throw NodefonySocket.missingUrl();
     if (typeof window === "undefined") return url;
-    try {
-      const u = new URL(url, window.location.href);
-      // Normaliser http(s)→ws(s) : une URL RELATIVE résout vers le scheme de la
-      // page (https) → sinon la clé `https://…` ≠ `wss://…` → 2 instances/2 sockets.
-      if (u.protocol === "http:") u.protocol = "ws:";
-      else if (u.protocol === "https:") u.protocol = "wss:";
-      return u.toString();
-    } catch {
-      // Une URL que `new URL()` refuse est une faute de frappe, pas un cas à
-      // rattraper : la rendre telle quelle laisserait le transport échouer plus
-      // loin, sans dire ce qui était mal écrit.
-      throw new Error(
-        `[nodefony] adresse du serveur temps réel illisible : ${JSON.stringify(url)}`,
-      );
-    }
+    // Normaliser http(s)→ws(s) : une URL RELATIVE résout vers le scheme de la
+    // page (https) → sinon la clé `https://…` ≠ `wss://…` → 2 instances/2 sockets.
+    return toSocketUrl(url, window.location.href).toString();
   }
 
   get state(): RealtimeState {
     return this._state;
   }
 
-  /** Nombre de tentatives de reconnexion depuis la dernière connexion réussie. */
+  /**
+   * Nombre de tentatives de reconnexion depuis la dernière connexion STABLE —
+   * restée ouverte au moins 5 s. Une connexion éphémère ne le remet pas à zéro.
+   */
   get reconnectAttempts(): number {
     return this.reconnectAttempt;
   }
@@ -397,7 +578,16 @@ export class NodefonySocket<
 
   /**
    * Ouvre la connexion WS. Idempotent — si déjà ouverte, no-op.
-   * Resolve une fois `connected` ou reject sur erreur fatale.
+   *
+   * Se règle sur CETTE tentative : résout à l'ouverture, rejette si la socket se
+   * ferme avant de s'ouvrir (refus, délai `connectTimeout` dépassé, réseau,
+   * `disconnect()`). Avec `autoReconnect`, la reconnexion continue en fond après
+   * un rejet — l'état se suit par {@link onState}. Un appel non attendu s'écrit
+   * donc `socket.connect().catch(() => {})`, jamais `void socket.connect()`.
+   *
+   * @param url - adresse à utiliser à la place de celle des options.
+   * @throws Error si l'adresse manque, est illisible, d'un autre schéma que
+   *   `ws:`/`wss:`/`http:`/`https:`, ou porte des identifiants.
    */
   async connect(url?: string): Promise<void> {
     if (this._state === "connected" || this._state === "connecting") return;
@@ -951,9 +1141,13 @@ export class NodefonySocket<
    * Ingestion d'une frame ENTRANTE déjà parsée → log + classification/route par le
    * moteur. Renvoie sa nature. Une frame `invalid` peut porter une erreur GLOBALE
    * serveur (`{jsonrpc, error}` hors spec JSON-RPC) → notice (cf {@link handleServerError}).
+   *
+   * @param frame - la frame déjà parsée.
+   * @param size - sa taille sérialisée (caractères), pour le budget du log protocole.
+   * @returns la nature de la frame selon le moteur JSON-RPC.
    */
-  receive(frame: unknown): JsonRpcFrameKind {
-    this.recordFrame("in", frame); // log protocole (lazy)
+  receive(frame: unknown, size = 0): JsonRpcFrameKind {
+    this.recordFrame("in", frame, size); // log protocole (lazy)
     const kind = this.peer.receive(frame);
     if (kind === "invalid") this.handleServerError(frame);
     return kind;
@@ -1046,16 +1240,16 @@ export class NodefonySocket<
    * welcome partiel/legacy (champs absents → `null`). Cold path (1×/connexion).
    */
   private ingestWelcome(params: unknown): void {
-    const w = params as Partial<IRealtimeWelcome> | null;
-    if (!w || typeof w !== "object") return;
-    this._identity = w.identity ?? null;
-    this._serverChannels = Array.isArray(w.channels) ? w.channels : null;
-    this._serverMethods = Array.isArray(w.methods) ? w.methods : null;
+    if (params === null || typeof params !== "object") return;
+    this._identity = identityOf(fieldOf(params, "identity"));
+    this._serverChannels = stringsOf(fieldOf(params, "channels"));
+    this._serverMethods = stringsOf(fieldOf(params, "methods"));
     // Le serveur dit son mode quand il n'est pas en production : c'est ce qui
     // permet de parler dans la console d'un bundle bâti pour la production mais
     // servi par un serveur de développement, cas qu'`import.meta.env.DEV` ne
     // peut pas voir.
-    noteServerEnv(w.env);
+    const env = fieldOf(params, "env");
+    noteServerEnv(typeof env === "string" ? env : undefined);
     // Détail dans la console — SEULEMENT s'il n'y a pas de noyau : quand il y en
     // a un, c'est lui qui parle, il a plus à dire (état, identité, services).
     // C'est le moment juste : avant l'accueil, il n'y aurait rien à montrer.
@@ -1097,17 +1291,13 @@ export class NodefonySocket<
    * payload partiel (motif par défaut `forbidden`). Cold path (refus rare).
    */
   private ingestDenied(params: unknown): void {
-    const p = params as {
-      channel?: unknown;
-      reason?: unknown;
-      detail?: unknown;
-    } | null;
-    const channel = typeof p?.channel === "string" ? p.channel : "";
+    const rawChannel = fieldOf(params, "channel");
+    const channel = typeof rawChannel === "string" ? rawChannel : "";
     // Motif NORMALISÉ sur le contrat : un serveur plus récent (ou un pont mal
     // écrit) qui inventerait un motif ne doit pas faire tomber l'écran dans un
     // cas que personne ne traite. Repli sur `forbidden`, le motif le plus
     // prudent : il n'annonce jamais qu'un accès était possible.
-    const brut = p?.reason;
+    const brut = fieldOf(params, "reason");
     const reason: IRealtimeDenied["reason"] =
       brut === "unknown" || brut === "limit" ? brut : "forbidden";
     // Le DÉTAIL est repris tel quel quand le serveur en pose un — il n'existe
@@ -1117,7 +1307,8 @@ export class NodefonySocket<
     // protocole que du code lit, c'est une phrase qu'un humain lit. Filtré sur
     // le TYPE seulement — une frame hostile ne doit pas glisser un objet là où
     // l'écran attend du texte.
-    const detail = typeof p?.detail === "string" ? p.detail : undefined;
+    const rawDetail = fieldOf(params, "detail");
+    const detail = typeof rawDetail === "string" ? rawDetail : undefined;
     const denied: IRealtimeDenied = {
       channel,
       reason,
@@ -1165,16 +1356,22 @@ export class NodefonySocket<
    * une notice globale la doublerait. Frame sans `.error` → no-op.
    */
   private handleServerError(frame: unknown): void {
-    if (isJsonRpcId((frame as { id?: unknown } | null)?.id)) return;
-    const err = (frame as { error?: { code?: number; message?: string } })
-      .error;
-    if (!err || typeof err !== "object") return;
+    // `null`, un nombre ou un tableau sont des frames `invalid` comme les autres :
+    // les lire sans garde levait hors de tout `try`, jusqu'au processus.
+    if (frame === null || typeof frame !== "object" || !("error" in frame))
+      return;
+    if ("id" in frame && isJsonRpcId(frame.id)) return;
+    const err = frame.error;
+    if (err === null || typeof err !== "object") return;
+    const message =
+      "message" in err && typeof err.message === "string" ? err.message : "";
     this.fireNotice({
       level: "error",
       title: "Temps réel",
-      message: err.message || "Erreur serveur temps réel",
+      message: message || "Erreur serveur temps réel",
       source: "server",
-      code: err.code,
+      code:
+        "code" in err && typeof err.code === "number" ? err.code : undefined,
       ts: Date.now(),
     });
   }
@@ -1217,17 +1414,21 @@ export class NodefonySocket<
       // que le welcome de CETTE connexion n'est pas arrivé.
       this._welcomed = false;
       this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
+      // Un écouteur d'état a pu appeler `disconnect()` : rien ne s'ouvre après.
+      if (this.intentionalClose) {
+        reject(
+          new Error("[nodefony] connexion temps réel annulée par disconnect()"),
+        );
+        return;
+      }
       let transport: IRealtimeTransport;
       try {
-        const base =
+        const url = toSocketUrl(
+          this.requireUrl(),
           typeof window !== "undefined"
             ? window.location.href
-            : "http://localhost";
-        const url = new URL(this.requireUrl(), base);
-        // Une URL relative hérite du scheme de la page (http/https) → WebSocket
-        // exige ws/wss. Normaliser systématiquement (sinon throw "scheme must be…").
-        if (url.protocol === "http:") url.protocol = "ws:";
-        else if (url.protocol === "https:") url.protocol = "wss:";
+            : "http://localhost",
+        );
         if (this.opts.token) url.searchParams.set("token", this.opts.token);
         // Transport NEUF à chaque tentative (le précédent est clos). Le transport
         // ne sait QUE ouvrir/envoyer/fermer ; l'orchestration reste ici.
@@ -1238,11 +1439,18 @@ export class NodefonySocket<
         reject(e instanceof Error ? e : new Error(String(e), { cause: e }));
         return;
       }
+      let openedAt = 0;
       transport.onOpen(() => {
+        if (this.connectTimer) clearTimeout(this.connectTimer);
+        this.connectTimer = null;
+        openedAt = Date.now();
         const wasReconnecting = this.reconnectAttempt > 0;
-        this.reconnectAttempt = 0;
         this._nextRetryAt = null;
         this.setState("connected");
+        if (this.intentionalClose) {
+          resolve();
+          return;
+        }
         this.startHeartbeat();
         // Le rejeu des abonnements N'A PAS LIEU ICI : la socket est ouverte, mais le
         // serveur authentifie encore et jette toute frame reçue avant son welcome.
@@ -1267,19 +1475,34 @@ export class NodefonySocket<
       transport.onClose((code, reason) => {
         this.clearTimers();
         this.transport = null;
+        // Fermée avant de s'ouvrir (refus, délai, réseau) : la promesse de
+        // `connect()` le dit, au lieu de rester pendante à jamais. La reconnexion,
+        // elle, continue en fond.
+        if (openedAt === 0) {
+          reject(
+            new Error(
+              `[nodefony] connexion temps réel fermée avant ouverture (code ${code})`,
+            ),
+          );
+        }
         if (this.intentionalClose) {
           this.setState("disconnected");
           return;
         }
+        // Seule une connexion STABLE remet le back-off à zéro.
+        if (openedAt !== 0 && Date.now() - openedAt >= STABLE_CONNECTION_MS)
+          this.reconnectAttempt = 0;
         // Criticité qui casse le temps réel (RFC 6455 §7.4) → notice normalisée,
         // pendant client du `toWsCloseCode` serveur (@nodefony/http).
         const notice = closeCodeToNotice(code, reason);
         if (notice) this.fireNotice(notice);
+        // Un écouteur de notice a pu appeler `disconnect()`.
+        if (this.disconnectRequested()) return;
         // Respect de la SÉMANTIQUE du close code : un code DÉFINITIF (policy 1008
-        // = 401/403, protocole, introuvable) ne RELANCE PAS la boucle de reco —
-        // sinon un anonyme martèle un endpoint protégé. L'app rétablit après
-        // l'action corrective (login → `connect()`/`retryNow()`). Reco réservée
-        // aux codes transitoires (perte réseau, restart, erreur serveur).
+        // = 401/403, révocation 4001, protocole, introuvable) ne RELANCE PAS la
+        // boucle de reco — sinon un anonyme martèle un endpoint protégé. L'app
+        // rétablit après l'action corrective (login → `connect()`/`retryNow()`).
+        // Reco réservée aux codes transitoires (perte réseau, restart, erreur serveur).
         const reconnectable = isReconnectableCloseCode(code);
         if (reconnectable && this.opts.autoReconnect !== false) {
           this.scheduleReconnect();
@@ -1289,28 +1512,53 @@ export class NodefonySocket<
           this.setState(reconnectable ? "disconnected" : "error");
         }
       });
+      // Une poignée de main sans réponse ne laisse pas `connect()` pendue : la
+      // fermer la fait échouer (1006), et la reconnexion prend le relais.
+      const timeout = this.opts.connectTimeout ?? CONNECT_TIMEOUT_DEFAULT;
+      if (timeout > 0) {
+        this.connectTimer = setTimeout(
+          () => {
+            this.connectTimer = null;
+            transport.close(1000, "connect timeout");
+          },
+          Math.min(timeout, TIMER_MAX),
+        );
+      }
       transport.connect();
     });
   }
 
+  /**
+   * Un `disconnect()` est-il passé ? Relu APRÈS chaque écouteur, qui a pu
+   * l'appeler — un effet que le resserrement de type ne voit pas sur un champ.
+   */
+  private disconnectRequested(): boolean {
+    return this.intentionalClose;
+  }
+
   private scheduleReconnect(): void {
     this.reconnectAttempt++;
-    const base = this.opts.reconnectDelay ?? 1000;
-    const max = this.opts.reconnectDelayMax ?? 30000;
-    const delay = Math.min(base * 2 ** (this.reconnectAttempt - 1), max);
+    const delay = reconnectDelay(
+      this.reconnectAttempt,
+      this.opts.reconnectDelay ?? 1000,
+      this.opts.reconnectDelayMax ?? 30000,
+    );
     this._nextRetryAt = Date.now() + delay;
+    // Armé AVANT les écouteurs : un `disconnect()` appelé depuis l'un d'eux
+    // l'annule (`clearTimers`) au lieu de passer avant lui.
+    this.reconnectTimer = setTimeout(() => {
+      this.openSocket().catch(() => {
+        /* swallow — onclose re-déclenchera */
+      });
+    }, delay);
     this.setState("reconnecting");
+    if (this.intentionalClose) return;
     // Event dédié → l'UI peut afficher tentative + compte à rebours live.
     this.fireLocal(LOCAL_EVENTS.reconnect, {
       attempt: this.reconnectAttempt,
       delay,
       nextRetryAt: this._nextRetryAt,
     });
-    this.reconnectTimer = setTimeout(() => {
-      this.openSocket().catch(() => {
-        /* swallow — onclose re-déclenchera */
-      });
-    }, delay);
   }
 
   private startHeartbeat(): void {
@@ -1325,8 +1573,10 @@ export class NodefonySocket<
   private clearTimers(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.connectTimer) clearTimeout(this.connectTimer);
     this.reconnectTimer = null;
     this.heartbeatTimer = null;
+    this.connectTimer = null;
   }
 
   /**
@@ -1343,20 +1593,37 @@ export class NodefonySocket<
   /** Purge le log protocole. */
   clearFrameLog(): void {
     if (this._rawFrames) this._rawFrames.length = 0;
+    this._rawFramesChars = 0;
   }
 
   /**
    * Enregistre une frame dans le ring — coût = 1 push de réf (construction +
-   * redaction DIFFÉRÉES). Émet `__frame__` (frame construite) seulement si la
-   * console écoute.
+   * redaction DIFFÉRÉES). Le ring est borné en nombre ET en caractères : une
+   * trame démesurée n'y entre qu'en résumé, et les plus anciennes sortent tant
+   * que le budget est dépassé. Émet `__frame__` (frame construite) seulement si
+   * la console écoute.
+   *
+   * @param size - taille sérialisée de la frame (caractères), `0` si inconnue.
    */
-  private recordFrame(dir: "in" | "out", msg: unknown): void {
+  private recordFrame(dir: "in" | "out", msg: unknown, size: number): void {
     const ts = Date.now();
-    (this._rawFrames ??= []).push({ ts, dir, msg });
-    if (this._rawFrames.length > FRAME_LOG_MAX) this._rawFrames.shift();
+    const big = size > FRAME_LOG_ENTRY_MAX_CHARS;
+    const kept = big ? frameSummary(msg, size) : msg;
+    const keptSize = big ? 0 : size;
+    const ring = (this._rawFrames ??= []);
+    ring.push({ ts, dir, msg: kept, size: keptSize });
+    this._rawFramesChars += keptSize;
+    while (
+      ring.length > FRAME_LOG_MAX ||
+      this._rawFramesChars > FRAME_LOG_MAX_CHARS
+    ) {
+      const old = ring.shift();
+      if (!old) break;
+      this._rawFramesChars -= old.size;
+    }
     const listeners = this.handlers.get("__frame__");
     if (listeners && listeners.size > 0)
-      this.fireLocal("__frame__", NodefonySocket.buildFrame(dir, msg, ts));
+      this.fireLocal("__frame__", NodefonySocket.buildFrame(dir, kept, ts));
   }
 
   /** Construit une frame affichable (kind/canal/id + payload redacté). */
@@ -1365,20 +1632,21 @@ export class NodefonySocket<
     msg: unknown,
     ts: number,
   ): RealtimeFrame {
-    const m = (msg ?? {}) as Record<string, unknown>;
+    const method = fieldOf(msg, "method");
+    const id = fieldOf(msg, "id");
     let kind = "?";
     let channel: string | undefined;
-    if (typeof m.method === "string") {
-      kind = m.method;
-      const p = m.params as { channel?: unknown } | undefined;
-      if (p && typeof p.channel === "string") channel = p.channel;
-    } else if ("error" in m) kind = "error";
-    else if ("result" in m) kind = "response";
+    if (typeof method === "string") {
+      kind = method;
+      const c = fieldOf(fieldOf(msg, "params"), "channel");
+      if (typeof c === "string") channel = c;
+    } else if (fieldOf(msg, "error") !== undefined) kind = "error";
+    else if (fieldOf(msg, "result") !== undefined) kind = "response";
     return {
       ts,
       dir,
       kind,
-      id: typeof m.id === "number" ? m.id : undefined,
+      id: typeof id === "number" ? id : undefined,
       channel,
       payload: redactFrame(msg),
     };
@@ -1402,8 +1670,9 @@ export class NodefonySocket<
       this._framesUnsent++;
       return false;
     }
-    this.transport.send(JSON.stringify(msg));
-    this.recordFrame("out", msg);
+    const raw = JSON.stringify(msg);
+    this.transport.send(raw);
+    this.recordFrame("out", msg, raw.length);
     return true;
   }
 
@@ -1439,7 +1708,7 @@ export class NodefonySocket<
     // Discrimination (request/notification/response), routage et corrélation d'id
     // délégués au moteur isomorphe via `receive` (log + welcome + stats + handlers
     // y sont rebranchés). Plus aucune classification dupliquée côté client.
-    this.receive(msg);
+    this.receive(msg, raw.length);
   }
 
   private setState(s: RealtimeState): void {

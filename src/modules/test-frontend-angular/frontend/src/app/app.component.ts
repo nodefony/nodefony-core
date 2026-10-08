@@ -467,7 +467,7 @@ injectNodefonyChannel("live:salon", (m) => …)`;
 
   toggle(): void {
     if (this.liveState() === "connected") this.nodefony.disconnect();
-    else void this.nodefony.connect();
+    else this.nodefony.connect().catch(() => {}); // l'échec se lit dans l'état
   }
 
   ngOnInit(): void {
