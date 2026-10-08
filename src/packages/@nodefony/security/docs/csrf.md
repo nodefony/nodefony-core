@@ -148,7 +148,7 @@ export default ProfileController;
 
 (Wiring : `@controllers([ProfileController])` dans le module de l'app — `nodefony create controller`
 le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les actions : les marqueurs
-`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1725-1729`.)
+`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1747-1751`.)
 
 ### Comment le front obtient — puis rejoue — le token
 
@@ -241,7 +241,7 @@ autorisation :
 ```
 
 > [!WARNING]
-> `@CsrfExempt` (`routerDecorators.ts:1142`) est un opt-out **ciblé CSRF**. Ne jamais « débloquer un
+> `@CsrfExempt` (`routerDecorators.ts:1165`) est un opt-out **ciblé CSRF**. Ne jamais « débloquer un
 > webhook » avec `@BypassFirewall`/`@Anonymous` : eux désactivent l'authentification de la zone.
 
 Cas voisin — **façade multi-domaine** (`www.example.com` poste vers l'API d'un autre domaine à toi) :

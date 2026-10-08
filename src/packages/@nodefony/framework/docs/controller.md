@@ -410,20 +410,20 @@ de ce que tu as retourné :
 <!-- prettier-ignore -->
 | Tu retournes… | Ce qui se passe | Ancre |
 | --- | --- | --- |
-| Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts:830-840` |
+| Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts:843-853` |
 | Une `string` | Envoyée telle quelle en corps | `Resolver.ts:711` |
 | Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts:1081` |
 | Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts:734` |
 | Un `Buffer` | Envoyé brut | `Resolver.ts:1074` |
-| Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:581` |
-| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:1172`) |
-| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:1147` |
+| Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:594` |
+| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:1185`) |
+| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:1160` |
 | Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:1108-1117` |
 
 > [!WARNING]
 > **Le piège n° 1 : `return null` sur un statut à corps.** Le framework l'interprète comme « je
 > répondrai moi-même » et attend — jusqu'au timeout. La distinction se fait sur le **statut** :
-> `NO_BODY_STATUS` (`Resolver.ts:1172`) contient 204, 205 et 304. Donc un `@Delete` qui fait
+> `NO_BODY_STATUS` (`Resolver.ts:1185`) contient 204, 205 et 304. Donc un `@Delete` qui fait
 > `@HttpCode(204)` puis `return null` répond bien 204 vide ; le même `return null` sans `@HttpCode`
 > laisse la requête pendue.
 
@@ -595,7 +595,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 
 | Domaine                          | Norme                    | Comment le code s'y conforme                                    |
 | -------------------------------- | ------------------------ | --------------------------------------------------------------- |
-| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:1172`)                           |
+| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:1185`)                           |
 | Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:107`)                        |
 | Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:523`)               |
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:666`)                   |
@@ -618,13 +618,13 @@ code du framework applique — et attend de toi — les règles suivantes :
 <!-- prettier-ignore -->
 | Symptôme | Cause (dans le code) | Correction |
 | --- | --- | --- |
-| La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts:1147`) | Retourner une valeur, ou poser `@HttpCode(204)` |
+| La requête pend puis expire, alors que l'action a bien tourné | `return null`/`undefined` avec un statut à corps → `waitAsync` (`Resolver.ts:1160`) | Retourner une valeur, ou poser `@HttpCode(204)` |
 | Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:1117`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
 | `Route Action not found` | L'action porte un nom déjà utilisé par un membre de `Controller` | Renommer : `session`, `request`, `response`, `context`, `route`, `method`, `query*`, `get`, `set`, `render*`, `redirect`, `forward` sont réservés |
 | `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts:1752`) | Lire la session dans l'action, pas dans le hook |
 | Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1834`) | Déplacer l'effet de bord dans l'action |
 | Redirection permanente non voulue | Un statut invalide retombe sur 302, un `301` explicite reste 301 | Passer le code voulu : `this.redirect(url, 302)` |
-| WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée — par TOUTES les connexions en singleton (le défaut), par toute la connexion en `@Scope("request")` (`Resolver.ts:805`) | Porter l'état par message, ou sur le contexte de la connexion |
+| WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée — par TOUTES les connexions en singleton (le défaut), par toute la connexion en `@Scope("request")` (`Resolver.ts:955`) | Porter l'état par message, ou sur le contexte de la connexion |
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |
 | Contrôleur singleton : données d'un autre utilisateur | État muté que les filets ne voient pas (`#privé`, objet muté) sur l'instance partagée | Passer par les arguments décorés, ou déclarer `@Scope("request")` |
 | « Contrôleur … : écriture de « this.x » refusée » | Un état de requête écrit sur un singleton (le défaut) | Argument décoré, service `request`, ou `@Scope("request")` sur la classe |

@@ -238,7 +238,7 @@ une route que d'anciens clients appellent déjà sans clé, le temps de la migra
 async subscribe(@Body() body: SubscribeInput) { /* … */ }
 ```
 
-Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1682`), comme
+Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1707`), comme
 `@UseSession`. Poser `@Idempotent()` sur la **classe** couvre toutes les mutations du controller ;
 une méthode peut resserrer ou relâcher le mode. Les méthodes sûres (GET…) restent des no-op même
 sous une classe décorée.
@@ -266,7 +266,7 @@ Deux mécanismes rendent ça possible côté socket :
   frame `socket.mutate` créerait un doublon. Le Resolver teste donc
   `isMutationMethod(this.methodOverride ?? context.method)` (`Resolver.ts:126`).
 
-Le pont utilise `executeActionGuarded()` (`Resolver.ts:647`) : porte d'idempotence **sans** rendu HTTP
+Le pont utilise `executeActionGuarded()` (`Resolver.ts:660`) : porte d'idempotence **sans** rendu HTTP
 — la valeur nue est enveloppée par le peer WS, jamais écrite sur un transport HTTP.
 
 ## 🏗️ Architecture interne
@@ -312,7 +312,7 @@ sequenceDiagram
    le verdict devient `execute` (`idempotency.ts:176`) — jamais de partage cross-identité.
 5. **Réservation.** `store.begin()` compose la clé scopée et tranche.
 6. **Mémorisation.** En succès, `complete(clé, {status, body})` où `status` est le code de réponse
-   courant et `body` la **valeur retournée** par l'action (`Resolver.ts:704`). En erreur,
+   courant et `body` la **valeur retournée** par l'action (`Resolver.ts:717`). En erreur,
    `abort(clé)` libère la clé : **un échec ne se mémorise pas**, il doit rester réessayable.
 
 > [!CAUTION]
@@ -328,7 +328,7 @@ sequenceDiagram
 | Appelant                     | Point d'entrée                                                       | Traduction du verdict              |
 | ---------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
 | Controller userland HTTP     | `callController()` (`Resolver.ts:613`)                               | `nodefonyError` + rendu normal     |
-| Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:647`)                         | valeur nue, enveloppée par le peer |
+| Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:660`)                         | valeur nue, enveloppée par le peer |
 | Data plane admin `/nodefony` | `AdminApiController.idempotencyGate()` (`AdminApiController.ts:139`) | `{status, headers, body}`          |
 
 ## ⚙️ Configuration
@@ -647,7 +647,7 @@ pour l'affichage Studio, `idempotencyStoreRegistry.ts:81`).
 ## ⚡ Performance et mémoire
 
 Le coût est **nul hors mutations décorées**. Sans `@Idempotent`, `RouteActionMeta.idempotent` vaut
-`null` (`routerDecorators.ts:1151`) : `callController()` fait **une comparaison** et repart en flux
+`null` (`routerDecorators.ts:1194`) : `callController()` fait **une comparaison** et repart en flux
 normal — zéro lookup de container, zéro `await` supplémentaire, zéro allocation (`Resolver.ts:613`).
 La métadonnée est **figée par route** et mémoïsée : aucune lecture `Reflect` par requête.
 

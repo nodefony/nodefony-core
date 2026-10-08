@@ -331,7 +331,7 @@ Dès le `DENY`, le jury **s'arrête** — court-circuit, inutile de finir (`auth
 
 **Contre-exemple piégeux** : le veto ne traverse **pas** une clause OR. Dans
 `@IsGranted(["ROLE_ADMIN", "doc.edit"])`, chaque attribut est un **jury séparé**
-(`Resolver.ts:878-885`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
+(`Resolver.ts:891-898`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
 consulté. Un interdit absolu se porte en clause **AND** : empiler `@IsGranted("ROLE_ADMIN")` puis
 `@IsGranted("doc.edit", { subject: "id" })`.
 
@@ -362,18 +362,18 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:903`)                                             |
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:424-433`)                              |
-| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1648`)                          |
-| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1620`)                         |
-| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:923`)                                      |
+| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1673`)                          |
+| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1645`)                         |
+| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:936`)                                      |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:1002`)         |
-| `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:953`) |
-| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1283`)                                |
+| `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:969`) |
+| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1308`)                                |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
-403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:489-491`). Le
+403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:502-504`). Le
 même `executeAction` sert le pipeline HTTP **et** l'invoke WS-RPC : une garde, tous les
 transports. L'enforcement déroule chaque clause : OR interne via un `decide()` par attribut, AND
-entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:853`).
+entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:866`).
 
 > [!IMPORTANT]
 > **Fail-closed intégral** : route gardée mais moteur `authorization` absent (module security non

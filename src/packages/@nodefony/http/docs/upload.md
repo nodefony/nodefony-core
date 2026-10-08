@@ -322,16 +322,16 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 
 | Accès                                              | Source lue                           | Ancrage                                                             |
 | -------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1283`)            |
-| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1282`)             |
+| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1312`)            |
+| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1311`)             |
 | `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1232`)             |
-| `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1223`)                       |
-| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1336`)               |
+| `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1279`)                       |
+| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1358`)               |
 | `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:341`) |
 | `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:351`) |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
-(`routerDecorators.ts:1287`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
+(`routerDecorators.ts:1312`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
 `IParsedUploadFile` viennent de `@nodefony/http` (`interfaces/IUpload.ts:49`, `interfaces/IUpload.ts:7`).
 
 ### Un fichier uploadé — `UploadedFile`
@@ -357,7 +357,7 @@ destination est bâtie avec `filename` — d'où l'avertissement de sécurité c
 Pour piper directement un très gros corps (vidéo, backup) vers le disque ou S3 sans passer par busboy ni
 par la RAM, `@Body({ stream: true })` court-circuite le parse et injecte l'`IncomingMessage` brut (un
 `Readable`). Le pipeline sait le sauter en amont via `routeExpectsBodyStream()`
-(`routerDecorators.ts:1484`), mémoïsé sur la route.
+(`routerDecorators.ts:1509`), mémoïsé sur la route.
 
 ```ts
 // fragment — le contrôleur pipe le flux lui-même (0 parse, 0 pic RAM)

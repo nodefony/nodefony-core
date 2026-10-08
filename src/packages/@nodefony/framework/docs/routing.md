@@ -263,7 +263,7 @@ que chaque forme **produit dans la table**.
 | `@route(nom, options)`                    | **le tien** (stable, réutilisable) | `requirements.methods` (libre)                         | WebSocket, multi-méthodes, contraintes fines |
 
 - Les décorateurs de méthode HTTP délèguent tous à `@route` avec un nom auto `Classe::methode`, et
-  posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:489`).
+  posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:494`).
 - `@All` n'émet **aucun** requirement de méthode : la route sert alors GET, POST, DELETE… et ne peut
   donc jamais produire un 405 sur la méthode (`All()`, `routerDecorators.ts:548`).
 - `@route` est la forme complète : elle seule permet `protocol` (sous-protocole WS), un nom lisible, et
