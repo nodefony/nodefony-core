@@ -25,6 +25,7 @@ import type {
   RealtimeInboundHandler,
 } from "../interfaces/IRealtimeController";
 import type { IChannelPolicy } from "../interfaces/IChannelPolicy";
+import { isCallable, isRecord } from "../src/guards";
 
 /** Clés de métadonnées posées sur le constructor de la classe controller. */
 const ACTIONS_KEY = "realtime:actions";
@@ -35,6 +36,56 @@ const INBOUND_KEY = "realtime:inbound";
 // des maps nom→méthode ci-dessus : la policy est attachée au NOM (ce que le
 // firewall security résout), pas à la méthode TS qui l'implémente.
 const POLICIES_KEY = "realtime:policies";
+
+/**
+ * Lit une métadonnée de classe posée par ces décorateurs : un objet nom → valeur,
+ * ou `undefined` quand la classe n'en porte pas. Les valeurs restent `unknown` :
+ * `Reflect.defineMetadata` est public, n'importe qui peut écrire sous ces clés.
+ * Lu au démarrage et à la poignée de main, jamais par frame.
+ */
+function readMetadataMap(
+  key: string,
+  ctor: object,
+): Record<string, unknown> | undefined {
+  const raw: unknown = Reflect.getMetadata(key, ctor);
+  return isRecord(raw) ? raw : undefined;
+}
+
+/** Vrai si la valeur est un tableau de chaînes. */
+function isStringArray(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) && value.every((v: unknown) => typeof v === "string")
+  );
+}
+
+/** Vrai si la valeur a la forme d'une {@link IChannelPolicy}. */
+function isChannelPolicy(value: unknown): value is IChannelPolicy {
+  if (!isRecord(value)) return false;
+  const { authenticated, roles, scopes } = value;
+  return (
+    (authenticated === undefined || typeof authenticated === "boolean") &&
+    (roles === undefined || isStringArray(roles)) &&
+    (scopes === undefined || isStringArray(scopes))
+  );
+}
+
+/** Vrai si chaque entrée du registre est une {@link IChannelPolicy}. */
+function isPolicyMap(
+  map: Record<string, unknown>,
+): map is Record<string, IChannelPolicy> {
+  for (const name in map) if (!isChannelPolicy(map[name])) return false;
+  return true;
+}
+
+/** Méthode de l'instance que désigne une entrée de registre, ou `undefined`. */
+function methodOf(instance: object, prop: unknown): unknown {
+  return typeof prop === "string" || typeof prop === "symbol"
+    ? Reflect.get(instance, prop)
+    : undefined;
+}
+
+/** Libération d'un canal dont la fabrique décorée n'en a rendu aucune. */
+const NO_DISPOSE = (): void => {};
 
 /** Enregistre (idempotent) une politique non vide sous son nom de canal/méthode. */
 function definePolicy(
@@ -52,9 +103,7 @@ function definePolicy(
   ) {
     return;
   }
-  const map =
-    (Reflect.getMetadata(POLICIES_KEY, ctor) as
-      Record<string, IChannelPolicy> | undefined) ?? {};
+  const map = readMetadataMap(POLICIES_KEY, ctor) ?? {};
   map[name] = policy;
   Reflect.defineMetadata(POLICIES_KEY, map, ctor);
 }
@@ -71,8 +120,7 @@ export const DEFAULT_ACTION_POLICY: IChannelPolicy = Object.freeze({
 
 /** Une politique est-elle DÉJÀ déclarée sous ce nom ? */
 function hasPolicy(ctor: object, name: string): boolean {
-  const map = Reflect.getMetadata(POLICIES_KEY, ctor) as
-    Record<string, IChannelPolicy> | undefined;
+  const map = readMetadataMap(POLICIES_KEY, ctor);
   return map ? Object.prototype.hasOwnProperty.call(map, name) : false;
 }
 
@@ -147,9 +195,7 @@ export function RealtimeAction(
     // `target` = prototype de la classe instance. On stocke sur le constructor
     // (target.constructor) → la même clé qu'utilisera la base au handshake.
     const ctor = (target as { constructor: object }).constructor;
-    const map =
-      (Reflect.getMetadata(ACTIONS_KEY, ctor) as
-        Record<string, string | symbol> | undefined) ?? {};
+    const map = readMetadataMap(ACTIONS_KEY, ctor) ?? {};
     map[method] = propertyKey;
     Reflect.defineMetadata(ACTIONS_KEY, map, ctor);
     // Politique explicite de l'auteur, sinon le défaut FERMÉ — et jamais par
@@ -195,9 +241,7 @@ export function RealtimeChannel(
 ): MethodDecorator {
   return function (target, propertyKey) {
     const ctor = (target as { constructor: object }).constructor;
-    const map =
-      (Reflect.getMetadata(CHANNELS_KEY, ctor) as
-        Record<string, string | symbol> | undefined) ?? {};
+    const map = readMetadataMap(CHANNELS_KEY, ctor) ?? {};
     map[channel] = propertyKey;
     Reflect.defineMetadata(CHANNELS_KEY, map, ctor);
     // Politique d'autorisation (opt-in) — lue par `@nodefony/security` au
@@ -234,9 +278,7 @@ export function RealtimeInbound(
 ): MethodDecorator {
   return function (target, propertyKey) {
     const ctor = (target as { constructor: object }).constructor;
-    const map =
-      (Reflect.getMetadata(INBOUND_KEY, ctor) as
-        Record<string, string | symbol> | undefined) ?? {};
+    const map = readMetadataMap(INBOUND_KEY, ctor) ?? {};
     map[method] = propertyKey;
     Reflect.defineMetadata(INBOUND_KEY, map, ctor);
     // Même politique que les canaux : un client ne peut pousser sur un canal
@@ -272,14 +314,14 @@ export function getRealtimeActions(
   instance: object,
   wrap?: RealtimeActionWrapper,
 ): Record<string, RpcActionHandler> | null {
-  const map = Reflect.getMetadata(ACTIONS_KEY, instance.constructor) as
-    Record<string, string | symbol> | undefined;
+  const map = readMetadataMap(ACTIONS_KEY, instance.constructor);
   if (!map) return null;
   const out: Record<string, RpcActionHandler> = {};
   for (const [name, prop] of Object.entries(map)) {
-    const fn = (instance as Record<string | symbol, unknown>)[prop];
-    if (typeof fn === "function") {
-      const bound = (fn as RealtimeActionMethod).bind(instance);
+    if (typeof prop !== "string" && typeof prop !== "symbol") continue;
+    const fn = methodOf(instance, prop);
+    if (isCallable(fn)) {
+      const bound = fn.bind(instance);
       out[name] = wrap !== undefined ? wrap(bound, prop) : bound;
     }
   }
@@ -290,15 +332,19 @@ export function getRealtimeActions(
 export function getRealtimeChannels(
   instance: object,
 ): Record<string, RealtimeChannelFactory> | null {
-  const map = Reflect.getMetadata(CHANNELS_KEY, instance.constructor) as
-    Record<string, string | symbol> | undefined;
+  const map = readMetadataMap(CHANNELS_KEY, instance.constructor);
   if (!map) return null;
   const out: Record<string, RealtimeChannelFactory> = {};
   for (const [name, prop] of Object.entries(map)) {
-    const fn = (instance as Record<string | symbol, unknown>)[prop];
-    if (typeof fn === "function") {
-      out[name] = (fn as RealtimeChannelFactory).bind(instance);
-    }
+    const fn = methodOf(instance, prop);
+    if (!isCallable(fn)) continue;
+    const factory = fn.bind(instance);
+    // Appelée à l'ouverture du canal (1ᵉʳ abonné), jamais par frame : la
+    // libération rendue se vérifie ici plutôt que de la croire sur parole.
+    out[name] = (channel, publish) => {
+      const dispose = factory(channel, publish);
+      return isCallable(dispose) ? (): void => void dispose() : NO_DISPOSE;
+    };
   }
   return out;
 }
@@ -307,15 +353,12 @@ export function getRealtimeChannels(
 export function getRealtimeInbound(
   instance: object,
 ): Record<string, RealtimeInboundHandler> | null {
-  const map = Reflect.getMetadata(INBOUND_KEY, instance.constructor) as
-    Record<string, string | symbol> | undefined;
+  const map = readMetadataMap(INBOUND_KEY, instance.constructor);
   if (!map) return null;
   const out: Record<string, RealtimeInboundHandler> = {};
   for (const [name, prop] of Object.entries(map)) {
-    const fn = (instance as Record<string | symbol, unknown>)[prop];
-    if (typeof fn === "function") {
-      out[name] = (fn as RealtimeInboundHandler).bind(instance);
-    }
+    const fn = methodOf(instance, prop);
+    if (isCallable(fn)) out[name] = fn.bind(instance);
   }
   return out;
 }
@@ -330,9 +373,16 @@ export function getRealtimeInbound(
 export function getRealtimeChannelPolicies(
   instance: object,
 ): Record<string, IChannelPolicy> | null {
-  const map = Reflect.getMetadata(POLICIES_KEY, instance.constructor) as
-    Record<string, IChannelPolicy> | undefined;
-  return map ?? null;
+  const map = readMetadataMap(POLICIES_KEY, instance.constructor);
+  if (map === undefined) return null;
+  // Une politique illisible ne se laisse pas tomber : sans elle, le canal
+  // s'ouvrirait à qui la politique fermait (fail-closed).
+  if (!isPolicyMap(map)) {
+    throw new TypeError(
+      `${instance.constructor.name} : politique de canal temps réel illisible`,
+    );
+  }
+  return map;
 }
 
 /**
