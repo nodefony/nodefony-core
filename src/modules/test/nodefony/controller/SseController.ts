@@ -132,6 +132,56 @@ class SseController extends Controller {
     }
   }
 
+  /**
+   * Banc des BORNES d'un flux : `stall` (ms, délai de blocage d'écriture),
+   * `max` (octets, taille d'un événement), `duration` (ms, durée de vie). Avec
+   * `flood=1`, écrit des événements de 64 Kio sans fin en attendant chaque
+   * `drain` : un client qui ne lit plus doit être COUPÉ, pas laissé pendre.
+   * Avec `big=<n>`, tente un événement de `n` caractères.
+   */
+  @route("sse-limits", { path: "/limits" })
+  async limits() {
+    const query = this.queryGet;
+    const num = (name: string): number | undefined => {
+      const value = query[name];
+      return typeof value === "string" ? Number(value) : undefined;
+    };
+    const sse = await this.renderSse({
+      heartbeat: false,
+      stallTimeout: num("stall"),
+      maxEventBytes: num("max"),
+      maxDuration: num("duration"),
+    });
+    sseState.opened++;
+    sse.onClose(() => {
+      sseState.closed++;
+    });
+    await sse.send("prêt", { event: "ready" });
+    const big = num("big");
+    if (big !== undefined) {
+      try {
+        await sse.send("x".repeat(big));
+      } catch (error) {
+        const name = error instanceof Error ? error.name : "unknown";
+        await sse.send(name, { event: "refused" });
+      }
+    }
+    if (query.flood === "1") {
+      const chunk = "y".repeat(65_536);
+      while (!sse.closed) await sse.send(chunk);
+    }
+  }
+
+  /**
+   * Déclenche la re-validation des flux à identité révocable — ce que le tick
+   * du noyau fait toutes les 30 s —, pour un banc déterministe.
+   */
+  @route("sse-revalidate", { path: "/revalidate" })
+  async revalidate() {
+    await this.context?.httpKernel?.revalidateStreams();
+    return { ...sseState };
+  }
+
   /** État relu par le banc. */
   @route("sse-state", { path: "/state" })
   state() {
@@ -148,4 +198,32 @@ class SseController extends Controller {
   }
 }
 
+/**
+ * Le même flux DERRIÈRE le pare-feu : `/nodefony/test/secure/*` tombe dans la
+ * zone `test-secure` (session BFF ou Basic). Éprouve sur un flux ce que la
+ * zone impose à toute requête — anonyme refusé, CSRF sur la mutation — et ce
+ * qu'elle impose à une connexion LONGUE : la fermeture à la révocation.
+ */
+@controller("/nodefony/test/secure/sse")
+class SecureSseController extends Controller {
+  constructor(context: Context) {
+    super("SecureSseController", context);
+  }
+
+  /** Tenu ouvert ; `GET` et `POST` (la mutation passe par le CSRF). */
+  @route("secure-sse-hold", {
+    path: "/hold",
+    requirements: { methods: ["GET", "POST"] },
+  })
+  async hold() {
+    const sse = await this.renderSse({ heartbeat: 50 });
+    sseState.opened++;
+    sse.onClose(() => {
+      sseState.closed++;
+    });
+    await sse.send("prêt", { event: "ready" });
+  }
+}
+
+export { SecureSseController };
 export default SseController;

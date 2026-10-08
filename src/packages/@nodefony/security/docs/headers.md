@@ -39,7 +39,7 @@ source: "src/packages/@nodefony/security/docs/headers.md"
 > (`@nodefony/http`, dès l'entrée brute — couvre aussi les fichiers statiques et les erreurs) et la
 > couche **applicative** (`@nodefony/security`, dans le pipeline — CSP, Referrer-Policy, isolation
 > cross-origin). Ancré sur `SecurityHeaders` (`securityHeaders.ts:42`) et
-> `Firewall.applySecurityHeaders()` (`firewall.ts:1076`).
+> `Firewall.applySecurityHeaders()` (`firewall.ts:1094`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **En-têtes de sécurité**
 
@@ -122,7 +122,7 @@ fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage*
   statique) et la **gèle** avec `Object.freeze` (`securityHeaders.ts:77`). Par requête, le firewall
   se contente de la parcourir et de la poser : zéro concaténation, zéro objet créé.
 - Côté transport, même principe : `HttpKernel.computeSecurityHeaderCaches()`
-  (`http-kernel.ts:388`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
+  (`http-kernel.ts:399`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
   boot ; `onHttpRequest` (`http-kernel.ts:1062`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
   (`Context.ts:253`) ne tire ses 128 bits (16 octets CSPRNG, en base64) d'un pool amorti (`randomFillSync`, 4 Ko pour 256 nonces) qu'à la première lecture,
@@ -275,7 +275,7 @@ privilégient `frame-ancestors`, `X-Frame-Options` reste le filet pour les ancie
 victime est capté par ton interface.
 
 Posé par le **transport** depuis un cache calculé au boot — `secFrameOptions`
-(`http-kernel.ts:1102`) — et configuré côté `@nodefony/http` avec `frameOptions`
+(`http-kernel.ts:1113`) — et configuré côté `@nodefony/http` avec `frameOptions`
 (`http/nodefony/config/config.ts:136`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
 s'auto-encadre. C'est un des trois en-têtes que security **ne ré-émet pas** : il doit valoir aussi
 pour un HTML statique servi directement depuis `public/`.
@@ -287,7 +287,7 @@ pour un HTML statique servi directement depuis `public/`.
 avec tes cookies.
 
 Valeur unique reconnue : `nosniff`, posée depuis le cache `secContentTypeOptions`
-(`http-kernel.ts:1099`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
+(`http-kernel.ts:1110`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
 vient précisément des fichiers servis hors pipeline applicatif — un banc live le prouve sur une 404
 (`security-headers.test.ts:38`).
 
@@ -297,10 +297,10 @@ vient précisément des fichiers servis hors pipeline applicatif — un banc liv
 installer un intercepteur.
 
 La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
-(`http-kernel.ts:388`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
+(`http-kernel.ts:399`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
-de serveur (`http-kernel.ts:1105`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
+de serveur (`http-kernel.ts:1116`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
 soit ignoré : l'émettre sur du HTTP simple ne ferait que polluer. Défaut : un an, sous-domaines
 inclus.
 
@@ -397,7 +397,7 @@ Dérivé du schéma Zod `headersSchema` (`config.ts:211`).
 ### Socle transport — `use("@nodefony/http", { securityHeaders })`
 
 Dérivé de `securityHeadersSchema` (`http/nodefony/config/config.ts:123`). Ces trois réglages sont
-**éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts:438`)
+**éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts:449`)
 recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
 | Option                                      | Type              | Défaut     | Effet                                                              |
@@ -439,7 +439,7 @@ Le chemin complet, sans surprise :
 
 1. **Au boot**, la chaîne CSP est **pré-découpée** autour de `{{nonce}}` (`securityHeaders.ts:58`).
    Aucun parsing ni regex n'aura lieu pendant une requête.
-2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts:1076`) lit `context.cspNonce` —
+2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts:1094`) lit `context.cspNonce` —
    ce qui **génère** le jeton à cet instant (`Context.ts:253`) — puis appelle
    `SecurityHeaders.cspFor()` (`securityHeaders.ts:100`) : un seul `join`.
 3. **Dans la vue**, le contrôleur relit `context.cspNonce`, qui est **mémoïsé** : l'en-tête et le
@@ -452,7 +452,7 @@ rester imprévisible, jamais pilotable par le client — contrairement au `reque
 une corrélation entrante.
 
 **Placement dans le pipeline** : `applySecurityHeaders` est appelé **après le resolve** et **avant**
-le repli statique et le `writeHead` (`http-kernel.ts:1624`). Cet ordre n'est pas cosmétique : il
+le repli statique et le `writeHead` (`http-kernel.ts:1635`). Cet ordre n'est pas cosmétique : il
 faut que le routeur ait posé les directives `@Csp` de la route pour pouvoir les fusionner, et il faut
 être avant l'écriture des en-têtes pour pouvoir en poser.
 
@@ -476,7 +476,7 @@ directive absente est ajoutée en fin. La fonction est **pure et déterministe**
 les tests fiables.
 
 **Coût** : le merge d'un module est payé **une fois**, au (dés)enregistrement
-(`Firewall.#rebuildSecurityHeaders()`, `firewall.ts:1133`), jamais par requête. Le merge d'une route
+(`Firewall.#rebuildSecurityHeaders()`, `firewall.ts:1151`), jamais par requête. Le merge d'une route
 `@Csp` est payé **uniquement sur les routes décorées** (`SecurityHeaders.cspForExtra()`,
 `securityHeaders.ts:131`) ; le cas courant reste le simple `join`.
 
@@ -502,10 +502,10 @@ Trois propriétés à retenir :
 
 - **Aucun couplage** : la résolution par nom de service évite un cycle de dépendances, et
   `registerCspOrigins` est optionnel — un module fonctionne dans une app **sans** security.
-- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1122`) retire le fragment et
+- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1140`) retire le fragment et
   reconstruit le CSP de base. C'est ce que fait `@nodefony/frontend` à l'arrêt du serveur Vite.
 - **Idempotent** : la reconstruction repart **toujours** du `headers.csp` d'origine
-  (`firewall.ts:1136`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
+  (`firewall.ts:1154`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
   enregistrements.
 
 L'exemple de référence vit dans le framework : en développement, `@nodefony/frontend` déclare les
@@ -523,8 +523,8 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Champ structuré booléen              | RFC 9651                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:267`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
-| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1099`)              |
-| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:388`)       |
+| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1110`)              |
+| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:399`)       |
 
 ## ⚡ Performance & mémoire
 

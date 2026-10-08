@@ -517,11 +517,11 @@ scopes, métier), un même jury, combinables.
 (opt-out, `firewall.ts:277`), le `FirewallRealtimeAuthenticator` au handshake (`firewall.ts:300`)
 **et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:348`). Même résolution de zone que HTTP.
 Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setChallenge()`,
-`firewall.ts:1239`) : le **code de fermeture** suffit.
+`firewall.ts:1257`) : le **code de fermeture** suffit.
 
 ## 🛡️ En-têtes de sécurité, CSRF, CORS
 
-- **`Firewall.applySecurityHeaders()`** (`firewall.ts:1076`) : CSP, Referrer-Policy, COOP/COEP/CORP
+- **`Firewall.applySecurityHeaders()`** (`firewall.ts:1094`) : CSP, Referrer-Policy, COOP/COEP/CORP
   au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:1045`) :
   alloué seulement si une directive en a besoin.
 - **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:978`) : Fetch Metadata
@@ -533,7 +533,7 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 9110 §11    | `Firewall.#setChallenge()` (`firewall.ts:1239`)        |
+| Challenge d'auth (401) | RFC 9110 §11    | `Firewall.#setChallenge()` (`firewall.ts:1257`)        |
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |

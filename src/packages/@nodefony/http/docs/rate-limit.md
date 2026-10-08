@@ -147,7 +147,7 @@ export default defineConfig(() => ({
 ```
 
 Les trois clés `enabled` / `windowS` / `max` sont **éditables à chaud** (`runtimeMutable`) : le kernel
-reconstruit le compteur sans redémarrage (`configureRateLimit()`, `http-kernel.ts:474`).
+reconstruit le compteur sans redémarrage (`configureRateLimit()`, `http-kernel.ts:485`).
 
 ### 2. Observer le 429 et les en-têtes
 
@@ -203,7 +203,7 @@ flowchart TD
 
 Autour de ce cœur, le kernel orchestre le cycle de vie :
 
-- **Construction / reconfiguration** : `configureRateLimit()` (`http-kernel.ts:474`) instancie le store
+- **Construction / reconfiguration** : `configureRateLimit()` (`http-kernel.ts:485`) instancie le store
   depuis la config (`windowMs = windowS × 1000`, `http-kernel.ts:454`) et arme un `GcScheduler`
   (`http-kernel.ts:490`) qui **purge les fenêtres expirées** hors du chemin chaud.
 - **Émission HTTP** : sous le quota, les en-têtes `X-RateLimit-*` sont posés (`http-kernel.ts:1151`) et
@@ -242,13 +242,13 @@ Et un réglage **séparé**, propre au WebSocket, à la racine du module :
 Un WebSocket ne peut **pas** recevoir un `429` : au moment où le rate-limit décide, le `101 Switching
 Protocols` est déjà parti sur le fil (émis par la bibliothèque `ws`). Le refoulement se fait donc par
 une **fermeture RFC 6455 `1013 Try Again Later`**, décidée dans `onWebsocketRequest()`
-(`http-kernel.ts:1920`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
+(`http-kernel.ts:1933`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
 
 Deux plafonds distincts, tous deux par IP forwarded-aware :
 
 | Plafond                | Ce qu'il borne                                 | Source de config        | Refus                                                      |
 | ---------------------- | ---------------------------------------------- | ----------------------- | ---------------------------------------------------------- |
-| Débit de handshakes    | Ouvertures/seconde (le **même** compteur HTTP) | `rateLimit`             | close `1013` (`http-kernel.ts:448`)                        |
+| Débit de handshakes    | Ouvertures/seconde (le **même** compteur HTTP) | `rateLimit`             | close `1013` (`http-kernel.ts:459`)                        |
 | Connexions simultanées | Sockets **ouvertes** en même temps par IP      | `wsMaxConnectionsPerIp` | close `1013` — `tryAcquire` refuse (`http-kernel.ts:2164`) |
 
 Le cap concurrent est porté par un compteur dédié, `WsConnectionCounter` (`WsConnectionCounter.ts:18`) :

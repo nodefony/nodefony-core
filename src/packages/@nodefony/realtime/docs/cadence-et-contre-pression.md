@@ -514,7 +514,7 @@ sans activer de trace.
 
 ### Ce que la sonde du hub expose
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:865`) parcourt les connexions et rend un bloc
+`RealtimeHub.probe()` (`RealtimeHub.ts:828`) parcourt les connexions et rend un bloc
 `backpressure` :
 
 | Champ                 | Ce qu'il dit                                                                | Lecture                                                 |

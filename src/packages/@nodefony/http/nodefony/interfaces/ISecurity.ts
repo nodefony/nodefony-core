@@ -44,4 +44,10 @@ export interface IFirewallGate {
   handleCors(context: ContextType): number | undefined;
   /** Pose les en-têtes de sécurité (CSP, HSTS…) de la réponse. */
   applySecurityHeaders(context: ContextType): void;
+  /**
+   * Le revalidateur de l'identité authentifiée de la requête courante, pour une
+   * connexion longue qui la gardera (flux SSE) : la même règle que les sockets
+   * WebSocket. `null` pour un anonyme — rien à révoquer.
+   */
+  currentRevalidator?(): ((nowMs?: number) => Promise<boolean>) | null;
 }

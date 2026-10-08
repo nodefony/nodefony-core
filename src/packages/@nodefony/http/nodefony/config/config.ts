@@ -1242,11 +1242,12 @@ export const httpConfigSchema = z
       .meta({
         runtimeMutable: true,
         description:
-          "Backstop OPT-IN : plafond de connexions WebSocket CONCURRENTES par IP " +
-          "cliente. `null` (DÉFAUT) = désactivé. Distinct de `rateLimit` (qui borne " +
-          "le DÉBIT d'ouverture par fenêtre) : ici on borne le NOMBRE de sockets " +
-          "simultanément ouvertes par IP. Au-delà, l'upgrade est fermé (RFC 6455 " +
-          "close 1013). ⚠️ PORTÉE PAR PROCESS (1 pod) : un vrai plafond GLOBAL/IP se " +
+          "Backstop OPT-IN : plafond de connexions LONGUES CONCURRENTES par IP " +
+          "cliente — sockets WebSocket ET flux SSE, un seul budget pour les deux. " +
+          "`null` (DÉFAUT) = désactivé. Distinct de `rateLimit` (qui borne " +
+          "le DÉBIT d'ouverture par fenêtre) : ici on borne le NOMBRE de connexions " +
+          "simultanément ouvertes par IP. Au-delà, l'upgrade WebSocket est fermé " +
+          "(RFC 6455 close 1013) et un flux SSE répond 429. ⚠️ PORTÉE PAR PROCESS (1 pod) : un vrai plafond GLOBAL/IP se " +
           "fait à l'INGRESS/LB — nginx `limit_conn`, HAProxy `sc_conn_cur`, " +
           "annotation k8s `nginx.ingress.kubernetes.io/limit-connections` — qui voit " +
           "TOUT le trafic, rejette AVANT que l'app paie le fd + le handshake TLS, et " +

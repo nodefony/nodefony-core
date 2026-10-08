@@ -112,12 +112,12 @@ un `requestId`, un `traceparent` et un contrat de logger **uniques** couvrent le
 
 **Le `requestId` est un citoyen du contexte, pas un décor.** Il naît dans le constructeur de base
 `Context.requestId = randomUUID()` (`Context.ts:244`), voyage dans l'ALS via `RequestContext.run(...)`
-(`http-kernel.ts:496` pour HTTP, `http-kernel.ts:1929` pour WS), et se lit de n'importe où avec
+(`http-kernel.ts:507` pour HTTP, `http-kernel.ts:1929` pour WS), et se lit de n'importe où avec
 `RequestContext.getRequestId()` — un controller, un service, un adapter ORM, sans jamais le threader.
 
 **La ligne de bilan est branchable.** Le kernel ne code pas un format en dur : il consulte un
 `IRequestLogger` (`IRequestLogger.ts:25`) résolu au boot depuis la config (`applyRequestLoggerFromConfig`,
-`http-kernel.ts:744`), remplaçable à chaud par `httpKernel.setRequestLogger(...)` (`http-kernel.ts:963`).
+`http-kernel.ts:744`), remplaçable à chaud par `httpKernel.setRequestLogger(...)` (`http-kernel.ts:974`).
 Trois formateurs sont livrés ; un quatrième maison s'écrit en implémentant l'interface.
 
 **Zero Trust sur l'entrée cliente.** Un `X-Request-Id` fourni par le client finit réfléchi en réponse,
@@ -229,8 +229,8 @@ GET  200 /trace/whoami 3.1ms 127.0.0.1                   [demo-abc]
 | Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts:162`)   | Même validation, stable sur toute la durée de la socket (handshake → close).                                                                                                            |
 | Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:248`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                                                                                                                                       |
 | Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts:71`) | Sinon les réponses du port 5152 sortiraient sans corrélation.                                                                                                                           |
-| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:496`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                                                                                                                                      |
-| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:496`)       | Handshake **et** messages : la bulle ouverte à la connexion est reliée à chaque message par `AsyncResource.bind`, sinon l'identité résolue au handshake se perdrait au premier message. |
+| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:507`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                                                                                                                                      |
+| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:507`)       | Handshake **et** messages : la bulle ouverte à la connexion est reliée à chaque message par `AsyncResource.bind`, sinon l'identité résolue au handshake se perdrait au premier message. |
 | Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts:262`)          | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur.                                                                                                            |
 
 > [!IMPORTANT]
@@ -337,7 +337,7 @@ Singleton sans état, 0 allocation par requête (`request-logger.ts:21`). Conser
 ### Écrire son propre formateur
 
 Implémenter `IRequestLogger` (`IRequestLogger.ts:25`) et l'injecter — NCSA Common Log Format, syslog RFC
-5424 texte, OpenTelemetry logs… `httpKernel.setRequestLogger(monLogger)` (`http-kernel.ts:963`). Les trois
+5424 texte, OpenTelemetry logs… `httpKernel.setRequestLogger(monLogger)` (`http-kernel.ts:974`). Les trois
 formateurs et le type sont exportés depuis `@nodefony/http` (`index.ts:221`).
 
 ## 🔐 Sécurité

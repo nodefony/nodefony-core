@@ -128,7 +128,7 @@ Nodefony crée un serveur HTTP/2 sécurisé avec `allowHTTP1: true` (`ServerHttp
 
 **Le WebSocket n'est jamais un citoyen de seconde zone.** Il est adossé au serveur HTTP porteur
 (`server-websocket.ts:80`), passe par le **même** rate-limit d'IP que les requêtes HTTP — un upgrade
-_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1920`) —, hérite de la même
+_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1933`) —, hérite de la même
 session et du même firewall, et se ferme avec le même soin qu'une réponse HTTP.
 
 > [!NOTE]
@@ -336,7 +336,7 @@ Choisir en cinq secondes :
 | `server-websocket-secure` | `wss://` — 5152     | `server-https` actif      | WebSocket adossé au serveur TLS.                   |
 | `server-static`           | (aucun port propre) | toujours enregistré       | Fichiers statiques, en **repli** après le routing. |
 
-L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1181`) : chaque serveur est
+L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1192`) : chaque serveur est
 consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:1192`).
 Les serveurs WebSocket ne sont montés que si leur porteur l'a été.
 
@@ -630,7 +630,7 @@ sont ignorés** (`config.ts:965`), et l'IP retenue est celle de la socket réell
 | `"loopback"`, `"linklocal"`, `"uniquelocal"` | Préréglages de plages privées.                                     |
 
 La politique est compilée **une seule fois** au premier usage (`HttpKernel.getTrustProxyChecker()`,
-`http-kernel.ts:604`, via `buildTrustProxy()`, `trustProxy.ts:103`) : aucune structure allouée par
+`http-kernel.ts:615`, via `buildTrustProxy()`, `trustProxy.ts:103`) : aucune structure allouée par
 requête. La résolution de l'IP cliente remonte la chaîne **de droite à gauche** depuis la socket réelle
 (`resolveForwarded()`, `forwarded.ts:253`) — conforme RFC 7239 et à la recommandation OWASP.
 
@@ -638,7 +638,7 @@ requête. La résolution de l'IP cliente remonte la chaîne **de droite à gauch
 
 Barrière testée **avant le routage**, contre l'injection d'en-tête `Host`. Le domaine canonique du
 kernel est toujours accepté, plus le loopback en développement (`HttpKernel.compileAlias()`,
-`http-kernel.ts:1040`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
+`http-kernel.ts:1051`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
 d'un seul niveau, `*.cdn.example.com`) ; `true` désactive la barrière — à réserver au cas où le proxy
 filtre déjà le `Host` (`config.ts:974`).
 
@@ -671,7 +671,7 @@ protéger.
 
 Implémentation : court-circuit **total** du pipeline dans `HttpKernel.onHttpRequest()`
 (`http-kernel.ts:1062`) — pas de contexte, pas de portée DI, pas de session, pas de journal par sonde,
-réponses pré-allouées (`HttpKernel.#respondHealth()`, `http-kernel.ts:538`). Et surtout : **avant le
+réponses pré-allouées (`HttpKernel.#respondHealth()`, `http-kernel.ts:549`). Et surtout : **avant le
 rate-limit**. Un kubelet qui reçoit un `429` croit le pod mort → cascade de redémarrages.
 
 | Option          | Type   | Défaut    | Effet                                                                  |
@@ -796,7 +796,7 @@ processus à l'arrêt.
 
 L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** compteur de rate-limit par
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
-(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1920`). Le `101` étant déjà émis par `ws`, un `429`
+(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1933`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
 (`websocketQuotaRefusal()`, `http-kernel.ts:2140`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
@@ -821,7 +821,7 @@ par seconde. Les choix visibles dans le code :
 - **Aucun timer par connexion** — un `setInterval` par serveur WebSocket, `unref`, et deux `number` par
   socket (`wsHeartbeat.ts:69`).
 - **Rien de compilé par requête** — la politique de trust-proxy, celle des `Origin` WS et les motifs de
-  `trustedHosts` sont compilés une fois et mémoïsés (`getTrustProxyChecker()`, `http-kernel.ts:604` ; `getWsOriginPolicy()`, `http-kernel.ts:622` ; `compileAlias()`, `http-kernel.ts:1040`).
+  `trustedHosts` sont compilés une fois et mémoïsés (`getTrustProxyChecker()`, `http-kernel.ts:615` ; `getWsOriginPolicy()`, `http-kernel.ts:622` ; `compileAlias()`, `http-kernel.ts:1051`).
 - **Rejets avant allocation** — rate-limit HTTP et bornes WS sont vérifiés avant le contexte, la portée
   DI et l'ALS : un flood coûte une recherche dans une table de hachage.
 - **Probes hors pipeline** — réponses pré-allouées, aucun objet créé, aucun journal

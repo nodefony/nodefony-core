@@ -130,7 +130,7 @@ data: {"step":"écriture"}
 
 - Les en-têtes partent dès `renderSse()` : `Content-Type: text/event-stream; charset=utf-8`,
   `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no` (`openSseStream()`,
-  `SseStream.ts:297`).
+  `SseStream.ts:415`).
 - `await sse.send()` freine l'action si le client lit lentement — c'est la contre-pression.
 
 ## ⚙️ Les deux bouts de l'API
@@ -141,15 +141,25 @@ data: {"step":"écriture"}
 | ------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `this.renderSse(options?)`      | ouvre le flux (`Controller.renderSse()`, `Controller.ts:665`) ; lève sur WebSocket                 |
 | `this.acceptsSse()`             | le client a-t-il demandé `text/event-stream` ? (`Controller.acceptsSse()`, `Controller.ts:639`)    |
-| `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts:155`)              |
+| `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts:248`)              |
 | `sse.comment(text)`             | un commentaire, ignoré par le client                                                               |
 | `sse.retry(ms)`                 | impose le délai de reconnexion du client                                                           |
-| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts:209`) |
-| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts:224`)                           |
+| `sse.onClose(fn)`               | appelé à la fermeture, quel que soit le bout qui ferme (`SseStream.onClose()`, `SseStream.ts:294`) |
+| `sse.close()`                   | termine la requête, idempotent (`SseStream.close()`, `SseStream.ts:309`)                           |
 | `sse.closed`                    | le flux est-il fermé — à tester dans une boucle longue                                             |
 
-Options de `renderSse()` : `heartbeat` (ms, `false` pour l'éteindre — défaut 15 000,
-`SSE_HEARTBEAT_MS`, `SseStream.ts:53`) et `retry` (délai `retry:` envoyé à l'ouverture).
+Options de `renderSse()` :
+
+| Option          | Rôle                                                                                  | Défaut                            |
+| --------------- | ------------------------------------------------------------------------------------- | --------------------------------- |
+| `heartbeat`     | période du battement (commentaire `:`), ms ; `false` l'éteint                         | 15 000 (`SSE_HEARTBEAT_MS`)       |
+| `retry`         | délai `retry:` envoyé à l'ouverture                                                   | aucun                             |
+| `stallTimeout`  | délai maximal d'une écriture bloquée (le client ne lit plus) avant coupure ; `false`  | 30 000 (`SSE_STALL_TIMEOUT_MS`)   |
+| `maxEventBytes` | taille maximale d'un événement, octets UTF-8 ; au-delà `send()` lève une `RangeError` | 1 048 576 (`SSE_MAX_EVENT_BYTES`) |
+| `maxDuration`   | durée de vie du flux, ms ; il est fermé ensuite et `EventSource` se reconnecte        | `false` — pas de borne            |
+
+Un délai hors de 1 à 2^31-1 ms est refusé à l'ouverture (`RangeError`) : au-delà, Node ramène un
+minuteur à 1 ms.
 
 ### Même route, deux réponses — la négociation
 
@@ -163,7 +173,7 @@ async runTask() {
 }
 ```
 
-`acceptsEventStream()` (`SseStream.ts:269`) ne retient `text/event-stream` que **nommé** avec un
+`acceptsEventStream()` (`SseStream.ts:383`) ne retient `text/event-stream` que **nommé** avec un
 poids non nul : `*/*` ne suffit pas — un client qui ne nomme pas le flux ne sait pas le lire —, et
 `q=0` est un refus (RFC 9110 §12.4.2).
 
@@ -190,7 +200,7 @@ le même qui relit le flux dans les tests du serveur.
 1. **La réponse est prise** (`context.sended`) : plus rien ne peut répondre à la place du flux.
 2. **La session est sauvée** s'il y en a une — ses cookies partent avec les en-têtes.
 3. **Le transport se constate** : flux HTTP/2, ou réponse HTTP/1.1 ; ni l'un ni l'autre → 500,
-   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts:340`).
+   avant d'avoir rien écrit (`startSseStream()`, `SseStream.ts:468`).
 4. **Les en-têtes partent** — `respond()` en HTTP/2, `flushHeaders()` en HTTP/1.1 — et le délai
    d'inactivité de la requête est **désarmé** : sans cela, le flux vivant prendrait un 408 au bout
    de 30 s.
@@ -203,13 +213,27 @@ minuteur arrêté, écouteurs `close` et `drain` retirés, attente de `drain` li
 ## 🔐 Sécurité
 
 - **Injection de flux** : `event` et `id` sont refusés s'ils contiennent CR, LF ou NUL
-  (`singleLine()`, `SseStream.ts:71`) — une valeur venue d'un utilisateur ne peut pas clore
+  (`singleLine()`, `SseStream.ts:104`) — une valeur venue d'un utilisateur ne peut pas clore
   l'événement pour en forger un autre. Les `data` sur plusieurs lignes sont découpés en autant de
   champs, jamais recopiés tels quels.
 - **Client** : un serveur qui n'envoie jamais de fin de ligne ferait grossir la mémoire du client
   sans limite — `maxEventSize` (4 Mi par défaut) ferme la connexion.
 - Le flux passe par le pipeline complet : pare-feu, CSRF et `@IsGranted` s'appliquent avant
   l'action, comme pour toute route.
+- **Les mêmes gardes qu'une socket WebSocket** — un attaquant prend le transport le plus faible :
+  - **plafond de connexions par IP** : `wsMaxConnectionsPerIp` compte les sockets WebSocket ET les
+    flux SSE, **un seul budget** (sinon N sockets plus N flux doubleraient le plafond). Au-delà, le
+    flux répond **429** avant d'écrire un octet de flux. Désactivé par défaut, comme pour le
+    WebSocket : en cloud, le plafond vit à l'ingress.
+  - **révocation** : un flux ouvert par une identité authentifiée est re-validé toutes les 30 s
+    (`REVOCATION_REVALIDATE_MS`) par la même règle que les sockets — session détruite ou passée à un
+    autre compte, jeton expiré ou annulé — et fermé si elle est morte. Une identité vivante ne
+    perd jamais son flux ; un anonyme n'est jamais re-validé.
+  - **lecteur bloqué** : le délai d'inactivité étant désarmé, `stallTimeout` le remplace — une
+    écriture qui attend un `drain` plus de 30 s coupe la connexion. Un client inactif mais qui lit
+    n'est jamais concerné : le minuteur ne s'arme que sous contre-pression.
+  - **taille d'un événement** : `maxEventBytes` refuse un événement démesuré avant de le mettre en
+    mémoire d'écriture ; le flux reste ouvert.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
@@ -219,6 +243,8 @@ minuteur arrêté, écouteurs `close` et `drain` retirés, attente de `drain` li
 | Le serveur ne voit jamais le client partir        | fermeture écoutée sur la REQUÊTE : en HTTP/1.1 elle a déjà émis `close` (corps lu, Node ≥ 16) | `sse.onClose()` — la fermeture est lue sur la RÉPONSE                         |
 | `error` en boucle côté client après la fin voulue | une fin de flux est une coupure pour `EventSource` : il reconnecte                            | `close()` dans `onerror`, ou répondre 204 pour dire « fini »                  |
 | Six onglets, et le site ne répond plus            | plafond de connexions HTTP/1.1 du navigateur                                                  | servir en HTTP/2                                                              |
+| Le flux répond 429 sans avoir rien fait           | `wsMaxConnectionsPerIp` atteint — sockets WebSocket et flux SSE de l'IP comptent ensemble     | relever le plafond, ou fermer les connexions laissées ouvertes                |
+| `RangeError` à `send()`, le flux continue         | événement plus gros que `maxEventBytes`                                                       | découper la donnée, ou relever `maxEventBytes` pour ce flux                   |
 
 ## 🧪 Tests & couverture
 

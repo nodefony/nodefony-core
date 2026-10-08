@@ -300,7 +300,7 @@ Commence par sa page si tu veux comprendre « pourquoi tout hérite de la même 
 
 Serveurs HTTP/1.1, HTTP/2, HTTPS et WebSocket, contextes de requête, sessions, certificats TLS. C'est
 ici que naît le `Context` que ton contrôleur reçoit, et ici que vit le pipeline unique
-(`HttpKernel`, `http-kernel.ts:262`). À lire quand tu touches au transport, aux sessions ou aux
+(`HttpKernel`, `http-kernel.ts:270`). À lire quand tu touches au transport, aux sessions ou aux
 en-têtes.
 
 ### [`@nodefony/framework`](../../src/packages/@nodefony/framework/docs/index.md) — écrire des routes
@@ -528,7 +528,7 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:62`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1557`) ; le nonce CSP
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1568`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.

@@ -16,6 +16,7 @@ import {
   isPromise,
   thenMaybe,
   finallyMaybe,
+  RevocationWatch,
 } from "nodefony";
 import type { MaybePromise, RequestContextPayload } from "nodefony";
 import type { IRouteResolver, IRequestRouter } from "../interfaces/IRouting";
@@ -41,7 +42,8 @@ import http from "node:http";
 //import https from "node:https";
 import http2 from "node:http2";
 import { responseEnded } from "../src/context/responseEnded";
-import type { IncomingMessage } from "node:http";
+import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
+import type { SseStream } from "../src/context/http/SseStream";
 import Ws from "ws";
 import httpServer from "../service/servers/server-http";
 import httpsServer from "../service/servers/server-https";
@@ -75,6 +77,12 @@ import {
  * Config interne (shape déclarée par `config/config.ts`). Locale au module —
  * pas exportée tant que la surface publique n'a pas vocation à être étendue.
  */
+/** Ce qu'il faut d'une requête pour en compter la connexion par IP. */
+export interface IConnectionRequest {
+  readonly headers: IncomingHttpHeaders;
+  readonly socket: { readonly remoteAddress?: string | undefined };
+}
+
 interface SecurityHeadersConfig {
   contentTypeOptions: string | null;
   frameOptions: string | null;
@@ -349,6 +357,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // l'ingress). Construit au boot depuis `options.wsMaxConnectionsPerIp`, reconstruit
   // sur édition live. Auto-borné (pas de GC) — cf WsConnectionCounter.
   #wsConnCounter: WsConnectionCounter | null = null;
+  // Flux SSE à identité révocable — même registre que les sockets du hub
+  // (`RevocationWatch`, cœur). Lazy : naît au premier flux authentifié.
+  #streams: RevocationWatch<SseStream> | null = null;
   // Probes de santé cloud-native (0.7) — null = désactivé (0 coût hot path :
   // 1 null-check + 2 comparaisons de string par requête quand actif).
   #healthPaths: { liveness: string; readiness: string } | null = null;
@@ -2145,25 +2156,87 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     req: IncomingMessage,
     connection: { once(event: "close", listener: () => void): unknown },
   ): "rate limit" | "too many connections" | null {
-    const wsConnCounter = this.#wsConnCounter;
-    if (this.rateLimiter === null && wsConnCounter === null) return null;
-    const ip = resolveForwarded(
-      req.headers,
-      req.socket.remoteAddress,
-      this.getTrustProxyChecker(),
-    ).clientIp;
+    if (this.rateLimiter === null && this.#wsConnCounter === null) return null;
+    const ip = this.#clientIp(req);
     // ip null = aucun socket réel fiable → on ne compte pas (ne JAMAIS agréger
     // tout le trafic sous une même clé null, qui deviendrait un point de DoS).
     if (ip === null) return null;
     if (this.rateLimiter?.hit(ip).limited) return "rate limit";
-    // `wsConnCounter` capturé (const) → la connexion décrémente TOUJOURS
-    // l'instance qui l'a comptée, même après reconfiguration. `once("close")`
-    // part à toute fermeture (y compris `terminate` heartbeat, rejet pare-feu).
-    if (wsConnCounter !== null) {
-      if (!wsConnCounter.tryAcquire(ip)) return "too many connections";
-      connection.once("close", () => wsConnCounter.release(ip));
-    }
-    return null;
+    return this.#acquireSlot(ip, connection) ? null : "too many connections";
+  }
+
+  /**
+   * Prend une place de connexion LONGUE pour l'IP de la requête — le plafond
+   * `wsMaxConnectionsPerIp`, partagé par les sockets WebSocket ET les flux SSE :
+   * un seul budget par IP, sinon N sockets plus N flux doubleraient le plafond.
+   * Le débit n'est pas recompté ici : la requête qui ouvre un flux l'a déjà été
+   * à l'entrée du pipeline.
+   *
+   * @param req - la requête qui ouvre le flux (en-têtes + socket du pair)
+   * @param connection - ce dont la fermeture rend la place (la réponse)
+   * @returns `true` si la place est prise — ou si aucun plafond n'est armé
+   */
+  acquireConnectionSlot(
+    req: IConnectionRequest,
+    connection: { once(event: "close", listener: () => void): unknown },
+  ): boolean {
+    if (this.#wsConnCounter === null) return true;
+    const ip = this.#clientIp(req);
+    return ip === null || this.#acquireSlot(ip, connection);
+  }
+
+  /** IP cliente, résolue comme en HTTP (RFC 7239 + `trustProxy`). */
+  #clientIp(req: IConnectionRequest): string | null {
+    return resolveForwarded(
+      req.headers,
+      req.socket.remoteAddress,
+      this.getTrustProxyChecker(),
+    ).clientIp;
+  }
+
+  /**
+   * Compte une connexion de `ip` ; sa place est rendue à la fermeture de
+   * `connection`. Le compteur est capturé : la connexion décrémente TOUJOURS
+   * l'instance qui l'a comptée, même après reconfiguration — et `once("close")`
+   * part à toute fermeture (`terminate` du battement, rejet du pare-feu…).
+   */
+  #acquireSlot(
+    ip: string,
+    connection: { once(event: "close", listener: () => void): unknown },
+  ): boolean {
+    const counter = this.#wsConnCounter;
+    if (counter === null) return true;
+    if (!counter.tryAcquire(ip)) return false;
+    connection.once("close", () => counter.release(ip));
+    return true;
+  }
+
+  /**
+   * Inscrit un flux SSE à identité révocable : il sera fermé dans la fenêtre de
+   * re-validation qui suit la mort de son identité (déconnexion, session
+   * révoquée, jeton expiré ou annulé) — le même registre et la même règle que
+   * les sockets WebSocket.
+   *
+   * @internal — appelé par le flux lui-même.
+   */
+  watchStream(stream: SseStream): void {
+    (this.#streams ??= new RevocationWatch<SseStream>({
+      isValid: (entry) => entry.revalidate(),
+      revoke: (entry) => void entry.close(),
+    })).register(stream);
+  }
+
+  /** Retire un flux du registre de révocation (à sa fermeture). @internal */
+  unwatchStream(stream: SseStream): void {
+    this.#streams?.unregister(stream);
+  }
+
+  /**
+   * Re-valide tous les flux SSE et ferme ceux dont l'identité est morte.
+   * Publique pour qu'un banc la déclenche sans attendre le tick.
+   */
+  revalidateStreams(): Promise<void> {
+    return this.#streams?.revalidate() ?? Promise.resolve();
   }
 }
 

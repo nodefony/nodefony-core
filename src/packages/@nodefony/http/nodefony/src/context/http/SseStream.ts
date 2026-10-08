@@ -23,7 +23,12 @@ import HttpError from "../../errors/httpError";
  *   défaut qui avait tué l'ancien flux de la console d'administration ;
  * - le délai d'inactivité de la requête DÉSARMÉ (un flux n'a pas de fin
  *   attendue), remplacé par un battement de cœur sur un minuteur `unref` ;
- * - la contre-pression : un client lent freine l'émetteur qui attend `send()`.
+ * - la contre-pression : un client lent freine l'émetteur qui attend `send()` ;
+ *   un client qui ne lit PLUS est coupé au bout de `stallTimeout` ;
+ * - les gardes des connexions longues, les mêmes que pour une socket
+ *   WebSocket : plafond de connexions par IP (`wsMaxConnectionsPerIp`, un seul
+ *   budget pour les deux transports) et fermeture du flux quand l'identité qui
+ *   l'a ouvert est révoquée (`RevocationWatch`, cœur).
  *
  * Norme : WHATWG HTML §9.2 (copie hors ligne
  * `nodefony-framework-dev/references/rfc/specs/whatwg-sse.md`).
@@ -39,6 +44,24 @@ export interface ISseStreamOptions {
   heartbeat?: number | false | undefined;
   /** Délai de reconnexion imposé au client (champ `retry:`), en ms. */
   retry?: number | undefined;
+  /**
+   * Délai maximal pendant lequel une écriture peut rester bloquée — le client
+   * ne lit plus —, en ms entre 1 et 2^31-1 ; au-delà, la connexion est coupée.
+   * Remplace le délai d'inactivité de la requête, désarmé pendant un flux.
+   * `false` pour l'éteindre. Défaut : 30 000.
+   */
+  stallTimeout?: number | false | undefined;
+  /**
+   * Taille maximale d'un événement écrit, en octets (UTF-8). Au-delà, `send()`
+   * lève une `RangeError` au lieu d'écrire. Défaut : 1 Mio.
+   */
+  maxEventBytes?: number | undefined;
+  /**
+   * Durée de vie maximale du flux, en ms entre 1 et 2^31-1 : il est fermé
+   * ensuite, et un `EventSource` se reconnecte — en repassant par le pare-feu.
+   * `false` (défaut) : pas de borne.
+   */
+  maxDuration?: number | false | undefined;
 }
 
 /** Ce qu'un événement porte en plus de ses données. */
@@ -51,6 +74,10 @@ export interface ISseSendOptions {
 
 /** Battement de cœur par défaut, en ms (§9.2.7 : « every 15 seconds or so »). */
 export const SSE_HEARTBEAT_MS = 15_000;
+/** Délai de blocage d'écriture par défaut, en ms. */
+export const SSE_STALL_TIMEOUT_MS = 30_000;
+/** Taille maximale d'un événement par défaut, en octets (1 Mio). */
+export const SSE_MAX_EVENT_BYTES = 1_048_576;
 /**
  * Plus long délai qu'un minuteur sait tenir (2^31-1 ms). Au-delà, Node le
  * ramène à 1 ms : un `retry` qui le dépasse ferait reconnecter le client en
@@ -95,6 +122,30 @@ function serialize(data: unknown): string {
   return typeof json === "string" ? json : "";
 }
 
+/**
+ * Refuse une option de délai hors de ce qu'un minuteur sait tenir.
+ *
+ * @throws RangeError quand la valeur n'est ni `false` ni un entier entre 1 et 2^31-1.
+ */
+function checkTimer(name: string, value: number | false | undefined): void {
+  if (value === undefined || value === false) return;
+  if (!Number.isInteger(value) || value < 1 || value > MAX_TIMER_MS) {
+    throw new RangeError(
+      `SSE : ${name} entier entre 1 et ${MAX_TIMER_MS} ms, ou false, attendu`,
+    );
+  }
+}
+
+/** Ce que le flux reçoit de son ouverture, options résolues. */
+interface ISseSettings {
+  heartbeat: number | false;
+  stallTimeout: number | false;
+  maxEventBytes: number;
+  maxDuration: number | false;
+  /** Revalidateur de l'identité du flux — `null` pour un anonyme. */
+  revalidate: (() => Promise<boolean>) | null;
+}
+
 /** Préfixe chaque ligne d'un texte par `prefix` — `data: ` ou `: `. */
 function lines(prefix: string, text: string): string {
   let out = "";
@@ -114,8 +165,15 @@ export class SseStream {
   readonly #target: SseTarget;
   /** La réponse dont on écoute la fermeture — en HTTP/2, l'objet de compatibilité. */
   readonly #response: http.ServerResponse | http2.Http2ServerResponse;
+  readonly #stallTimeout: number | false;
+  readonly #maxEventBytes: number;
+  readonly #revalidate: (() => Promise<boolean>) | null;
   #closed = false;
   #heartbeat: ReturnType<typeof setInterval> | null = null;
+  /** Coupure d'un client qui ne lit plus — armée seulement sous pression. */
+  #stall: ReturnType<typeof setTimeout> | null = null;
+  /** Fin de vie du flux — armée seulement si `maxDuration` est posé. */
+  #lifetime: ReturnType<typeof setTimeout> | null = null;
   /** Écouteurs de fermeture — `null` tant que personne n'en pose (lazy). */
   #onClose: Array<() => void> | null = null;
   /** Attente de `drain` en cours, partagée par tous les `send()` sous pression. */
@@ -123,18 +181,37 @@ export class SseStream {
   #releaseDrain: (() => void) | null = null;
   readonly #onResponseClose = (): void => this.#finish();
   readonly #onDrain = (): void => this.#settleDrain();
+  /**
+   * Le client ne lit plus depuis `stallTimeout` : on coupe la connexion, comme
+   * s'il était parti — la fermeture de la réponse termine le flux.
+   */
+  readonly #onStall = (): void => {
+    this.#stall = null;
+    this.#target.destroy();
+  };
 
   /** @internal — passer par {@link openSseStream}. */
   constructor(
     context: HttpContext,
     target: SseTarget,
     response: http.ServerResponse | http2.Http2ServerResponse,
-    heartbeat: number | false,
+    settings: ISseSettings,
   ) {
     this.#context = context;
     this.#target = target;
     this.#response = response;
+    this.#stallTimeout = settings.stallTimeout;
+    this.#maxEventBytes = settings.maxEventBytes;
+    this.#revalidate = settings.revalidate;
     response.on("close", this.#onResponseClose);
+    const heartbeat = settings.heartbeat;
+    if (settings.maxDuration !== false) {
+      this.#lifetime = setTimeout(
+        () => void this.close(),
+        settings.maxDuration,
+      );
+      this.#lifetime.unref();
+    }
     if (heartbeat !== false && heartbeat > 0) {
       this.#heartbeat = setInterval(() => {
         // Sous pression, un battement n'apprend rien au client : on le saute.
@@ -150,6 +227,18 @@ export class SseStream {
   }
 
   /**
+   * L'identité qui a ouvert le flux est-elle toujours valable ? Lu par le
+   * registre de révocation du noyau HTTP.
+   *
+   * @internal
+   */
+  revalidate(): Promise<boolean> {
+    return this.#revalidate === null
+      ? Promise.resolve(true)
+      : this.#revalidate();
+  }
+
+  /**
    * Envoie un événement.
    *
    * @param data - texte envoyé tel quel, ou valeur sérialisée en JSON ; un
@@ -159,6 +248,7 @@ export class SseStream {
    *   `drain` quand le client lit moins vite qu'on écrit — l'attendre borne la
    *   mémoire du serveur. Sans effet une fois le flux fermé.
    * @throws TypeError quand `event` ou `id` contient une fin de ligne.
+   * @throws RangeError quand l'événement dépasse `maxEventBytes`.
    */
   send(data: unknown, options?: ISseSendOptions): Promise<void> | undefined {
     let frame = "";
@@ -231,17 +321,31 @@ export class SseStream {
   /** Écrit une trame ; une promesse seulement sous contre-pression. */
   #write(frame: string): Promise<void> | undefined {
     if (this.#closed) return undefined;
+    // Un caractère vaut au plus 3 octets UTF-8 (UTF-16 → UTF-8) : le compte
+    // exact n'est payé que pour une trame qui POURRAIT dépasser.
+    const max = this.#maxEventBytes;
+    if (frame.length * 3 > max && Buffer.byteLength(frame) > max) {
+      throw new RangeError(`SSE : événement de plus de ${max} octets refusé`);
+    }
     if (this.#target.write(frame)) return undefined;
     if (this.#drain === null) {
       this.#drain = new Promise<void>((resolve) => {
         this.#releaseDrain = resolve;
       });
       this.#target.once("drain", this.#onDrain);
+      if (this.#stallTimeout !== false) {
+        this.#stall = setTimeout(this.#onStall, this.#stallTimeout);
+        this.#stall.unref();
+      }
     }
     return this.#drain;
   }
 
   #settleDrain(): void {
+    if (this.#stall !== null) {
+      clearTimeout(this.#stall);
+      this.#stall = null;
+    }
     const release = this.#releaseDrain;
     this.#drain = null;
     this.#releaseDrain = null;
@@ -258,6 +362,12 @@ export class SseStream {
       clearInterval(this.#heartbeat);
       this.#heartbeat = null;
     }
+    if (this.#lifetime !== null) {
+      clearTimeout(this.#lifetime);
+      this.#lifetime = null;
+    }
+    if (this.#revalidate !== null)
+      this.#context.httpKernel?.unwatchStream(this);
     this.#settleDrain();
     const listeners = this.#onClose;
     this.#onClose = null;
@@ -303,25 +413,49 @@ export function acceptsEventStream(
  * @param options - battement de cœur, délai `retry:` initial.
  * @returns le flux ouvert, ou sa promesse quand une session est à sauver.
  * @throws HttpError 500 quand la réponse est déjà partie.
- * @throws RangeError quand `heartbeat` n'est ni `false` ni un entier entre 1 et 2^31-1.
+ * @throws HttpError 429 quand l'IP du client a déjà tous ses flux et sockets
+ *   (`wsMaxConnectionsPerIp`) — refusé AVANT d'écrire quoi que ce soit.
+ * @throws RangeError quand un délai n'est ni `false` ni un entier entre 1 et
+ *   2^31-1, ou que `maxEventBytes` n'est pas un entier positif.
  */
 export function openSseStream(
   context: HttpContext,
   options: ISseStreamOptions = {},
 ): SseStream | Promise<SseStream> {
-  const heartbeat = options.heartbeat;
-  if (
-    heartbeat !== undefined &&
-    heartbeat !== false &&
-    (!Number.isInteger(heartbeat) || heartbeat < 1 || heartbeat > MAX_TIMER_MS)
-  ) {
-    throw new RangeError(
-      `SSE : heartbeat entier entre 1 et ${MAX_TIMER_MS} ms, ou false, attendu`,
-    );
+  checkTimer("heartbeat", options.heartbeat);
+  checkTimer("stallTimeout", options.stallTimeout);
+  checkTimer("maxDuration", options.maxDuration);
+  const maxEventBytes = options.maxEventBytes ?? SSE_MAX_EVENT_BYTES;
+  if (!Number.isInteger(maxEventBytes) || maxEventBytes < 1) {
+    throw new RangeError("SSE : maxEventBytes entier positif attendu");
   }
   if (context.sended || context.finished || context.response.isHeaderSent()) {
     throw new HttpError("SSE : la réponse est déjà partie", 500, context);
   }
+  // Une connexion longue de plus pour cette IP : le budget est celui des
+  // sockets WebSocket. La place est rendue à la fermeture de la réponse.
+  const kernel = context.httpKernel;
+  const nodeResponse = context.response.response;
+  if (
+    kernel !== null &&
+    nodeResponse !== null &&
+    !kernel.acquireConnectionSlot(context.request.request, nodeResponse)
+  ) {
+    throw new HttpError(
+      "SSE : trop de connexions ouvertes depuis cette adresse",
+      429,
+      context,
+    );
+  }
+  // Lu dans la bulle de la requête, là où le pare-feu a posé l'identité.
+  const revalidate = kernel?.firewall?.currentRevalidator?.() ?? null;
+  const settings: ISseSettings = {
+    heartbeat: options.heartbeat ?? SSE_HEARTBEAT_MS,
+    stallTimeout: options.stallTimeout ?? SSE_STALL_TIMEOUT_MS,
+    maxEventBytes,
+    maxDuration: options.maxDuration ?? false,
+    revalidate,
+  };
   // Pris AVANT toute attente : l'action ne doit plus pouvoir répondre autrement.
   context.sended = true;
   if (context.session != null) {
@@ -331,15 +465,16 @@ export function openSseStream(
         context.log(e, "ERROR", "SESSION-STORE");
         return null;
       })
-      .then(() => startSseStream(context, options));
+      .then(() => startSseStream(context, options, settings));
   }
-  return startSseStream(context, options);
+  return startSseStream(context, options, settings);
 }
 
 /** En-têtes, désarmement du délai, puis le flux. */
 function startSseStream(
   context: HttpContext,
   options: ISseStreamOptions,
+  settings: ISseSettings,
 ): SseStream {
   const response = context.response;
   const nodeResponse = response.response;
@@ -369,12 +504,10 @@ function startSseStream(
     h1.flushHeaders();
     h1.socket?.setTimeout(0);
   }
-  const sse = new SseStream(
-    context,
-    target,
-    nodeResponse,
-    options.heartbeat ?? SSE_HEARTBEAT_MS,
-  );
+  const sse = new SseStream(context, target, nodeResponse, settings);
+  // Seule une identité révocable entre au registre : un anonyme n'a rien à
+  // perdre, et ne coûte rien.
+  if (settings.revalidate !== null) context.httpKernel?.watchStream(sse);
   if (options.retry !== undefined) void sse.retry(options.retry);
   return sse;
 }

@@ -321,7 +321,7 @@ action se tromperait d'objet.
 > `@Scope("request")`, chaque requête HTTP repart d'une instance neuve ; un singleton, lui, refuse
 > tout état de requête sur `this`.
 
-Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:2051`)
+Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:2062`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
 (`http-kernel.ts:1299`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).
@@ -506,7 +506,7 @@ throw new nodefonyError("Article introuvable", 404); // statut porté par l'erre
 throw new HttpError("Not Found", 404, this.context); // variante enrichie du contexte
 ```
 
-L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:971`), qui délègue la mise en
+L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:982`), qui délègue la mise en
 forme au rendeur d'erreurs. Ce qui en sort :
 
 - **statut normalisé** — un code absent (ou l'ancien quirk `200`) devient **500**

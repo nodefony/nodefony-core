@@ -22,3 +22,29 @@ describe("openSseStream — bornes de l'option heartbeat", () => {
     });
   }
 });
+
+/**
+ * RED-TEAM #568 — les délais d'un flux suivent la même borne que le battement :
+ * au-delà de 2^31-1 ms Node ramène un minuteur à 1 ms, et une coupure de
+ * blocage ou une fin de vie à 1 ms tuerait tout flux. Refusés AVANT de toucher
+ * au contexte.
+ */
+describe("openSseStream — bornes de stallTimeout, maxDuration, maxEventBytes", () => {
+  const context = {} as HttpContext;
+  for (const name of ["stallTimeout", "maxDuration"] as const) {
+    for (const value of [2 ** 31, 0.5, -1, Number.NaN, 0]) {
+      it(`${name} ${String(value)} est refusé`, () => {
+        expect(() => openSseStream(context, { [name]: value })).to.throw(
+          RangeError,
+        );
+      });
+    }
+  }
+  for (const maxEventBytes of [0, -1, 1.5, Number.NaN]) {
+    it(`maxEventBytes ${String(maxEventBytes)} est refusé`, () => {
+      expect(() => openSseStream(context, { maxEventBytes })).to.throw(
+        RangeError,
+      );
+    });
+  }
+});

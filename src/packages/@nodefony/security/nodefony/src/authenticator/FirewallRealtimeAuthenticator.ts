@@ -95,17 +95,9 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
       // `Promise<IRealtimeToken>` et le `await … catch` du hub au handshake.
       throw new AuthenticationError("Invalid realtime session");
     }
-    // Le jeton du firewall SAIT comment l'identité a été prouvée — on le lui
-    // demande plutôt que de le deviner. Absent (zone historique) → on retombe
-    // sur le mode le plus strict, la session : un repli sûr, jamais permissif.
     const issued = readFirewallToken();
-    const type =
-      typeof issued?.type === "string" && issued.type ? issued.type : "session";
-
-    const revalidate =
-      type === "session"
-        ? buildSessionRevalidator(user.identifier)
-        : this.#buildBearerRevalidator(issued as IToken, user.identifier, type);
+    const type = issuedType(issued);
+    const revalidate = this.#revalidatorFor(user, issued, type);
 
     // Les scopes suivent l'identité : sans eux, `ScopeVoter` verrait un jeton
     // machine sans aucun droit délégué et refuserait tout. Vide pour un humain,
@@ -113,6 +105,39 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
     const scopes = issued ? issued.getScopes() : undefined;
 
     return new UserRealtimeToken(user, revalidate, type, scopes);
+  }
+
+  /**
+   * Le revalidateur de l'identité que le firewall a posée sur la requête
+   * COURANTE (ALS), pour toute connexion longue — socket WebSocket ou flux SSE.
+   *
+   * Une seule règle décide qu'une identité est morte, quel que soit le
+   * transport qui la porte : c'est celle-ci, et le hub comme le noyau HTTP
+   * l'appellent au lieu de la recopier.
+   *
+   * @returns `null` pour un anonyme (rien à révoquer), sinon la fonction qui
+   *   dit si l'identité est TOUJOURS valable — fail-closed : `false` quand elle
+   *   ne peut pas le prouver.
+   */
+  currentRevalidator(): ((nowMs?: number) => Promise<boolean>) | null {
+    const user = RequestContext.getUser();
+    if (!isAuthenticatedUser(user)) return null;
+    const issued = readFirewallToken();
+    return this.#revalidatorFor(user, issued, issuedType(issued));
+  }
+
+  /**
+   * Choisit la preuve de révocation selon le mode d'authentification : la
+   * session se relit, un jeton porteur se borne par `exp` et la denylist.
+   */
+  #revalidatorFor(
+    user: IUser,
+    issued: IToken | undefined,
+    type: string,
+  ): (nowMs?: number) => Promise<boolean> {
+    return type === "session"
+      ? buildSessionRevalidator(user.identifier)
+      : this.#buildBearerRevalidator(issued as IToken, user.identifier, type);
   }
 
   /**
@@ -208,6 +233,16 @@ function secondsToMs(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value)
     ? value * 1000
     : null;
+}
+
+/**
+ * Le mode d'authentification du jeton du firewall. Absent (zone historique) →
+ * le mode le plus strict, la session : un repli sûr, jamais permissif.
+ */
+function issuedType(issued: IToken | undefined): string {
+  return typeof issued?.type === "string" && issued.type
+    ? issued.type
+    : "session";
 }
 
 /** Le jeton posé dans l'ALS par `firewall.handleSecurity`, s'il y en a un. */

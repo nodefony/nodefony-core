@@ -26,7 +26,9 @@ import DecoratorController from "./nodefony/controller/DecoratorController";
 import AlsController from "./nodefony/controller/AlsController";
 import DiController from "./nodefony/controller/DiController";
 import LifecycleController from "./nodefony/controller/LifecycleController";
-import SseController from "./nodefony/controller/SseController";
+import SseController, {
+  SecureSseController,
+} from "./nodefony/controller/SseController";
 // S5-R — télécommande du registre de disponibilité (/readyz vu basculer 200⇄503).
 import ReadinessController from "./nodefony/controller/ReadinessController";
 import DomainController from "./nodefony/controller/DomainController";
@@ -139,6 +141,7 @@ function overlayProbe(context: unknown): void {
   LifecycleController,
   // Flux d'événements serveur — /nodefony/test/sse/*, HTTP/1.1 et HTTP/2
   SseController,
+  SecureSseController,
   ReadinessController,
   DomainController,
   DomainClassController,

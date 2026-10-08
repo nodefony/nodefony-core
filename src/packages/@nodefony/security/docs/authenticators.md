@@ -203,7 +203,7 @@ Requête par requête, qui répond :
 | le cookie de session                 | `session`              | identifié — rôles frais re-résolus en base                |
 | `Authorization: Bearer eyJ…` (a.b.c) | `jwt`                  | identifié — signature EdDSA + claims vérifiés             |
 | `Authorization: Bearer nf_…`         | `apikey`               | identifié — clé vérifiée au store, révocable              |
-| rien                                 | aucun                  | **401** + `WWW-Authenticate: Bearer` (`firewall.ts:1223`) |
+| rien                                 | aucun                  | **401** + `WWW-Authenticate: Bearer` (`firewall.ts:1241`) |
 
 ## 🔐 Les authenticators intégrés
 
@@ -343,9 +343,9 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
   (`FirewallRealtimeAuthenticator.ts:105-107`) — la socket peut survivre à l'identité qui l'a
   ouverte (logout, changement de compte, `jti` denylisté). En mode session,
   `buildSessionRevalidator()` re-lit `storage.read(id)` et compare l'identifiant ; toute erreur de
-  lecture invalide, fail-closed (`FirewallRealtimeAuthenticator.ts:227`). En mode jeton porteur, la
+  lecture invalide, fail-closed (`FirewallRealtimeAuthenticator.ts:260`). En mode jeton porteur, la
   preuve est autre : `exp`, `jti` denylisté, `invalidBefore`
-  (`FirewallRealtimeAuthenticator.ts:179`).
+  (`FirewallRealtimeAuthenticator.ts:204`).
 
 > [!NOTE]
 > **Asymétrie de révocation HTTP↔WS (assumée)** : le jeton realtime est figé au handshake (les
@@ -365,7 +365,7 @@ Deux preuves différentes, mêmes routes — c'est la config du Démarrage rapid
 de lecture :
 
 - un maillon dont `supports()` est faux est simplement **sauté** en mode `first`
-  (`firewall.ts:1137`) ;
+  (`firewall.ts:1155`) ;
 - un credential **présenté mais invalide échoue immédiatement** — l'échec d'`authenticate()`
   remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:1160`). Une clé
   API révoquée donne un 401 direct, même si un autre maillon aurait pu réussir.
@@ -409,7 +409,7 @@ paresse : c'est une **défense anti-énumération / anti-oracle**.
 Distinguer « compte inconnu » de « mot de passe faux », ou « token expiré » de « signature
 invalide », donnerait à un attaquant une sonde. La cause fine part **toujours** en log d'audit ; le
 client n'obtient qu'un 401 + son challenge — posé par le firewall, premier maillon de la zone qui
-en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1239`).
+en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1257`).
 
 ## 🧩 Ajouter un authenticator maison
 
@@ -435,7 +435,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
-| Challenge d'auth (401) | RFC 9110 §11 | `Firewall.#setChallenge()` (`firewall.ts:1239`) |
+| Challenge d'auth (401) | RFC 9110 §11 | `Firewall.#setChallenge()` (`firewall.ts:1257`) |
 | Bearer | RFC 6750 | `readBearerHeader()` (`runtime/bearer.ts:68`, cœur) — une porte UNIQUE au cœur, plus une constante par authenticator |
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |

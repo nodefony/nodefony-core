@@ -599,7 +599,7 @@ flowchart TD
 ```
 
 L'ordre est obtenu par construction : la bascule de disponibilité est attachée **en tête**
-(`prependOnceListener("onTerminate")`, `http-kernel.ts:540`), les serveurs WebSocket aussi, et les
+(`prependOnceListener("onTerminate")`, `http-kernel.ts:551`), les serveurs WebSocket aussi, et les
 serveurs HTTP en écouteur normal — donc en dernier. C'est nécessaire : le drain HTTP détruit les
 sockets promues en WebSocket **sans** trame de fermeture, il faut donc que les WS aient déjà dit au
 revoir (`createDrainTerminator()`, `serverShutdown.ts:25`).

@@ -186,6 +186,9 @@ class Firewall extends Service implements IFirewall {
   // Fail-closed : posée si la config sécurité est invalide au boot → le
   // firewall capture toutes les requêtes et les rejette tant que c'est cassé.
   #configError: Error | null = null;
+  // Revalidateur des connexions longues HTTP (flux SSE) : la MÊME règle que les
+  // sockets WebSocket. Paresseux — créé au premier flux authentifié.
+  #longLivedRevalidation: FirewallRealtimeAuthenticator | null = null;
 
   constructor(public module: Module) {
     super(
@@ -1061,6 +1064,21 @@ class Firewall extends Service implements IFirewall {
       }
     }
     return isPreflight ? 204 : undefined;
+  }
+
+  /**
+   * Le revalidateur de l'identité de la requête courante, pour une connexion
+   * longue qui la gardera (flux SSE). Même règle, même store de jetons que les
+   * sockets WebSocket — un transport qui en aurait une autre serait celui
+   * qu'un attaquant prendrait pour survivre à sa révocation.
+   *
+   * @returns `null` pour un anonyme ; sinon la fonction qui re-valide.
+   */
+  currentRevalidator(): ((nowMs?: number) => Promise<boolean>) | null {
+    this.#longLivedRevalidation ??= new FirewallRealtimeAuthenticator(
+      () => this.container?.get<IRealtimeRevocationStore>("tokenStore") ?? null,
+    );
+    return this.#longLivedRevalidation.currentRevalidator();
   }
 
   /**

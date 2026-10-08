@@ -144,7 +144,7 @@ seule présence d'un paramètre `@Session` — ou si un cookie arrive déjà : c
 ni `Set-Cookie`**.
 
 **3. Un seul modèle d'état pour le web et le temps réel.** Le même `startSession()` sert
-`HttpKernel.onRequestEnd()` (`http-kernel.ts:1769`) et `HttpKernel.onConnect()` (`http-kernel.ts:2051`) ;
+`HttpKernel.onRequestEnd()` (`http-kernel.ts:1769`) et `HttpKernel.onConnect()` (`http-kernel.ts:2062`) ;
 l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:421`).
 
 **4. L'administration ne voit jamais un identifiant.** Un opérateur manipule une `ref`, HMAC tronqué
@@ -503,14 +503,14 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 <!-- prettier-ignore -->
 | Aspect | HTTP | WebSocket |
 | --- | --- | --- |
-| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1769`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:2051`) |
+| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1769`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:2062`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
 | Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1873`) |
 | Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
-handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:496`). L'identité résolue une fois est donc
+handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:507`). L'identité résolue une fois est donc
 disponible à chaque frame sans relire la base — c'est ce dont profite
 `FirewallRealtimeAuthenticator.supports()` (`FirewallRealtimeAuthenticator.ts:80`), câblé automatiquement
 par le firewall sur les zones temps réel protégées (`firewall.ts:297`).
