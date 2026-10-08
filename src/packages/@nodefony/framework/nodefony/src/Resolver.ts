@@ -347,12 +347,25 @@ class Resolver implements IResolver {
    * `instanceof` au message suivant — le hub était RÉINSTANCIÉ (DI +
    * `initialize()`) à chaque frame qui suivait un `api.request`.
    *
+   * Ni pour un `forward` sur une connexion WebSocket : son résolveur est neuf,
+   * pas une invocation par message, et réécrivait le pointeur que la poignée
+   * de main a posé — même réinstanciation à la frame suivante (#574). Une
+   * connexion garde le contrôleur qui l'a ouverte. Chemin froid : seulement
+   * quand un contrôleur est créé.
+   *
    * @returns le controller reçu, pour enchaîner.
    */
   private _pinController(controller: Controller): Controller {
-    if (!this.messageInvocation) {
-      this.context.container?.set("controller", controller);
+    if (this.messageInvocation) return controller;
+    const container = this.context.container;
+    if (!container) return controller;
+    if (
+      this.context.method === "WEBSOCKET" &&
+      container.get("controller") !== null
+    ) {
+      return controller;
     }
+    container.set("controller", controller);
     return controller;
   }
 

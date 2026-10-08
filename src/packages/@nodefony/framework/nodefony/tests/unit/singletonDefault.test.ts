@@ -395,6 +395,54 @@ describe("Contrôleur singleton — pont api.request", () => {
     expect(hubBuilt).to.equal(1);
   });
 
+  // Un `forward()` crée un résolveur neuf, qui n'est PAS une invocation par
+  // message : il posait sa cible sur le pointeur de la connexion, et la frame
+  // suivante reconstruisait le contrôleur de la connexion (DI + initialize()),
+  // perdant tout état posé sur l'instance (#574).
+  // Débrancher : réécrire le pointeur sans condition dans `_pinController`.
+  it("un forward sur une connexion WebSocket ne remplace pas son contrôleur", async () => {
+    let hubBuilt = 0;
+    @Scope("request")
+    class Hub extends TestController {
+      constructor(context: ContextType) {
+        super(context);
+        hubBuilt += 1;
+      }
+      frame() {
+        return "frame";
+      }
+    }
+    const { ctx } = makeCtx("socket-forward");
+    (ctx as unknown as { method: string }).method = "WEBSOCKET";
+    (ctx as unknown as { router: Router }).router = makeRouter();
+    const hubRoute = { name: "hub" } as unknown as Route;
+    const frame = () =>
+      RequestContext.run({ requestId: "frame", context: ctx }, () =>
+        makeResolver(Hub, ctx, hubRoute, "frame").executeAction(),
+      );
+
+    await frame(); // handshake : le hub de la connexion
+    const hub = ctx.container?.get("controller");
+    expect(hubBuilt).to.equal(1);
+
+    // Ce que fait `Controller.forward()` : un résolveur neuf, rechargé.
+    const forwarded = makeResolver(
+      Probe,
+      ctx,
+      { name: "route-forward" } as unknown as Route,
+      "whoami",
+    );
+    await RequestContext.run(
+      { requestId: "forward", context: ctx, resolver: forwarded },
+      async () =>
+        (await forwarded.executeActionGuarded(undefined, true)).result,
+    );
+    expect(ctx.container?.get("controller")).to.equal(hub);
+
+    await frame(); // frame suivante : même hub, aucune reconstruction
+    expect(hubBuilt).to.equal(1);
+  });
+
   it("hors du pont, la route et la query restent celles du contexte", async () => {
     const { ctx } = makeCtx("http");
     (ctx as unknown as { router: Router }).router = makeRouter();
