@@ -33,6 +33,15 @@ describe("BcryptEncoder (P5.6)", () => {
       assert.equal(await enc.verify("wrong", hash), false);
     });
 
+    it("refuse un clair de plus de 72 octets au lieu de le tronquer", async () => {
+      const enc = new BcryptEncoder(FAST);
+      // 36 « é » = 72 octets UTF-8 : la borne exacte passe.
+      const atLimit = "é".repeat(36);
+      const hash = await enc.hash(atLimit);
+      assert.equal(await enc.verify(atLimit, hash), true);
+      await assert.rejects(enc.hash(`${atLimit}x`), RangeError);
+    });
+
     it("deux hashs du même clair diffèrent (sel aléatoire)", async () => {
       const enc = new BcryptEncoder(FAST);
       const [a, b] = await Promise.all([enc.hash("x"), enc.hash("x")]);

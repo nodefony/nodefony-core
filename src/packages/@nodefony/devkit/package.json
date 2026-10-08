@@ -38,7 +38,7 @@
     "nodefony": "^10.0.0-beta.2"
   },
   "dependencies": {
-    "axe-core": "4.13.0",
+    "axe-core": "4.14.0",
     "tslib": "2.8.1"
   },
   "peerDependenciesMeta": {

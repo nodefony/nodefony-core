@@ -62,11 +62,22 @@ export class BcryptEncoder implements IPasswordEncoder {
   /**
    * Hache un mot de passe en clair (sel généré et inclus dans la sortie).
    *
+   * Un clair de plus de 72 octets UTF-8 est REFUSÉ : bcrypt n'en lit que les
+   * 72 premiers, si bien que deux mots de passe partageant ce préfixe se
+   * valideraient l'un l'autre. Une phrase de passe accentuée ou à émojis atteint
+   * vite cette borne — mieux vaut le dire à la création que tronquer en silence.
+   * Les hashs déjà stockés ne sont pas concernés : {@link BcryptEncoder.verify}
+   * n'applique pas cette borne.
+   *
    * @param plain - mot de passe en clair.
    * @returns le hash bcrypt à persister.
+   * @throws {RangeError} si `plain` dépasse 72 octets UTF-8.
    */
   async hash(plain: string): Promise<string> {
-    return (await loadBcrypt()).hash(plain, this.rounds);
+    return (await loadBcrypt()).hash(plain, {
+      cost: this.rounds,
+      rejectLongPasswords: true,
+    });
   }
 
   /**

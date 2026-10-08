@@ -4,7 +4,7 @@
   "description": "Banc comparatif Nodefony vs Express/Fastify/node nu — sandbox isolé, ne touche PAS aux workspaces",
   "type": "module",
   "dependencies": {
-    "@fastify/helmet": "13.1.1",
+    "@fastify/helmet": "13.1.2",
     "@nestjs/common": "12.1.2",
     "@nestjs/core": "12.1.2",
     "@nestjs/platform-express": "12.1.2",
@@ -13,7 +13,7 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "cors": "2.8.6",
-    "drizzle-orm": "0.45.3",
+    "drizzle-orm": "0.45.4",
     "express": "^5.2.1",
     "fastify": "^5.12.5",
     "helmet": "8.3.0",

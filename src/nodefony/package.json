@@ -135,9 +135,9 @@
     }
   },
   "devDependencies": {
-    "@angular/compiler": "~22.2.1",
-    "@angular/core": "~22.2.1",
-    "@angular/platform-browser": "~22.2.1",
+    "@angular/compiler": "~22.2.2",
+    "@angular/core": "~22.2.2",
+    "@angular/platform-browser": "~22.2.2",
     "@types/figlet": "1.7.0",
     "@types/mime-types": "3.0.1",
     "@types/node": "26.6.4",
@@ -152,8 +152,8 @@
     "prettier": "3.9.9",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "rolldown": "1.2.12",
-    "svelte": "^5.57.1",
+    "rolldown": "1.2.13",
+    "svelte": "^5.57.2",
     "tsx": "4.23.15",
     "typedoc": "0.28.20",
     "typedoc-plugin-markdown": "4.13.1",

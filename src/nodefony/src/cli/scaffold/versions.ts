@@ -23,7 +23,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // racine de l'app, et le typecheck échoue sur un import introuvable.
   // Version ÉPINGLÉE comme dans le monorepo : en 0.x la mineure porte les
   // ruptures, et le repository dépend de comportements fins (cf `limit(-1)`).
-  "drizzle-orm": "0.45.3",
+  "drizzle-orm": "0.45.4",
   // ── Les trois pilotes de base, et pourquoi l'APPLICATION les déclare ──
   //
   // `@nodefony/drizzle` les porte en dépendance de pair OPTIONNELLE : la
@@ -72,7 +72,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Sans cette ligne, une application fraîchement générée démarre en
   // développement et MEURT en production — `Cannot find package
   // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
-  "@node-rs/argon2": "^2.2.1",
+  "@node-rs/argon2": "^2.2.2",
   "@types/node": "^26.6.4",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
   oxlint: "^1.87.0",
@@ -80,7 +80,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
   "oxlint-tsgolint": "^7.0.2003",
   prettier: "^3.9.9",
-  rolldown: "^1.2.12",
+  rolldown: "^1.2.13",
   typescript: "^6.0.3",
   vitest: "^5.0.3",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
@@ -89,7 +89,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
   "@vitest/coverage-v8": "5.0.3",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
-  vite: "^8.3.2",
+  vite: "^8.3.4",
   react: "^19.3.0",
   "react-dom": "^19.3.0",
   "@vitejs/plugin-react": "^6.1.2",
@@ -97,7 +97,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@types/react-dom": "^19.3.0",
   vue: "^3.5.43",
   "@vitejs/plugin-vue": "^6.0.9",
-  svelte: "^5.57.1",
+  svelte: "^5.57.2",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
   // 🔴 Angular BORNÉ à la mineure (tilde, pas caret) : le plugin Vite
   // d'analogjs dépend d'API PRIVÉES de `@angular/build`. La 22.2 a cessé de
@@ -107,12 +107,12 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Un caret laisserait une application générée tirer la mineure suivante
   // avant qu'analogjs l'ait suivie. Monter les deux ENSEMBLE, et prouver par
   // `frontend-families.test.ts` sur le serveur de développement.
-  "@angular/core": "~22.2.1",
-  "@angular/common": "~22.2.1",
-  "@angular/platform-browser": "~22.2.1",
+  "@angular/core": "~22.2.2",
+  "@angular/common": "~22.2.2",
+  "@angular/platform-browser": "~22.2.2",
   "@analogjs/vite-plugin-angular": "^2.8.0",
-  "@angular/build": "~22.2.1",
-  "@angular/compiler-cli": "~22.2.1",
+  "@angular/build": "~22.2.2",
+  "@angular/compiler-cli": "~22.2.2",
 };
 
 /**
