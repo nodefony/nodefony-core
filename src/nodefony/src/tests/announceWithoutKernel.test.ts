@@ -54,9 +54,27 @@ function pageVierge(): void {
   delete g.__nfRealtime__;
 }
 
+/**
+ * Une PAGE : l'annonce n'existe que pour la console d'un navigateur, et la
+ * présence d'une page se constate par `document`. Ce banc tourne sous Node — il
+ * la pose à la main, et la retire, sinon les bancs suivants croiraient en avoir.
+ */
+function posePage(): void {
+  (globalThis as { document?: unknown }).document = {};
+}
+function retirePage(): void {
+  delete (globalThis as { document?: unknown }).document;
+}
+
 describe("Sans noyau — une socket nue annonce, et se laisse inspecter", () => {
-  beforeEach(pageVierge);
-  afterEach(pageVierge);
+  beforeEach(() => {
+    pageVierge();
+    posePage();
+  });
+  afterEach(() => {
+    pageVierge();
+    retirePage();
+  });
 
   it("une socket NUE pose le badge et le handle — c'est le cas des vitrines", () => {
     const spy = spyConsole();
@@ -109,9 +127,40 @@ describe("Sans noyau — une socket nue annonce, et se laisse inspecter", () => 
   });
 });
 
-describe("Avec noyau — le noyau garde ce qui lui appartient", () => {
+describe("Sans page — sous Node, la socket ne parle pas dans le terminal", () => {
   beforeEach(pageVierge);
   afterEach(pageVierge);
+
+  it("ni badge, ni handle posé sur le global du PROCESSUS", () => {
+    const spy = spyConsole();
+    try {
+      expect(typeof (globalThis as { document?: unknown }).document).toBe(
+        "undefined",
+      );
+      NodefonySocket.shared({ url: "https://exemple.test/api/live/realtime" });
+      // Un script ou un test e2e qui emploie la socket ne doit pas recevoir
+      // l'objet entier dans son terminal, ni un `nodefony` global que toutes
+      // les requêtes d'un serveur partageraient.
+      expect(spy.calls.filter((l) => l.includes("nodefony"))).toHaveLength(0);
+      expect(
+        g.nodefony,
+        "aucun handle sur le global d'un processus",
+      ).toBeUndefined();
+    } finally {
+      spy.restore();
+    }
+  });
+});
+
+describe("Avec noyau — le noyau garde ce qui lui appartient", () => {
+  beforeEach(() => {
+    pageVierge();
+    posePage();
+  });
+  afterEach(() => {
+    pageVierge();
+    retirePage();
+  });
 
   it("le badge porte le NOM du noyau, pas le générique de la socket", async () => {
     // Le noyau compose sa socket dans son CONSTRUCTEUR : s'il ne s'annonçait pas

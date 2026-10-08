@@ -49,6 +49,19 @@ interface NodefonyConsoleHandle {
  */
 let liveKernel: { identity?: unknown } | null = null;
 
+/**
+ * Y a-t-il une PAGE ? L'annonce est faite pour la console d'un navigateur.
+ *
+ * Sous Node (une socket employée par un script, un test e2e, un rendu côté
+ * serveur), la même sortie devient un vidage brut de l'objet dans le terminal —
+ * les styles `%c` n'y sont pas interprétés — et le handle `nodefony` se pose sur
+ * le global d'un PROCESSUS, que toutes les requêtes partagent. La présence d'une
+ * page se CONSTATE (`document`), elle ne se déduit pas d'une plateforme.
+ */
+function hasPage(): boolean {
+  return typeof (globalThis as { document?: unknown }).document === "object";
+}
+
 /** Le badge est-il déjà sorti sur cette page ? Posé même en production. */
 function alreadyAnnounced(): boolean {
   return (globalThis as { __nfAnnounced__?: boolean }).__nfAnnounced__ === true;
@@ -204,7 +217,7 @@ export function announceKernel(
   name: string,
   annoncer?: boolean,
 ): () => void {
-  if (annoncer === false) return () => undefined;
+  if (annoncer === false || !hasPage()) return () => undefined;
   liveKernel = kernel;
   badge(name);
   poseHandle();
@@ -225,7 +238,7 @@ export function announceKernel(
  *   l'appeler — il existe pour les bancs, qui doivent repartir d'une page vierge.
  */
 export function announceRealtime(annoncer?: boolean): () => void {
-  if (annoncer === false) return () => undefined;
+  if (annoncer === false || !hasPage()) return () => undefined;
   badge("client");
   poseHandle();
   return () => {
@@ -257,7 +270,7 @@ export function consoleDetails(
   subject: unknown,
   title: string,
 ): boolean {
-  if (alreadyDetailed() || !isVerbose()) return false;
+  if (!hasPage() || alreadyDetailed() || !isVerbose()) return false;
   const c = globalThis.console as Partial<Console> | undefined;
   if (!c?.log || !c.groupCollapsed || !c.groupEnd) return false;
   (globalThis as { __nfDetailed__?: boolean }).__nfDetailed__ = true;

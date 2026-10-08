@@ -210,6 +210,12 @@ describe("ClientKernel — l'annonce dans la console", () => {
     delete g.nodefony;
     delete g.__nfAnnounced__;
     delete g.__nfDetailed__;
+    // L'annonce n'existe que pour la console d'un navigateur : la page se
+    // constate par `document`, que ce banc (sous Node) pose à la main.
+    (globalThis as { document?: unknown }).document = {};
+  });
+  afterEach(() => {
+    delete (globalThis as { document?: unknown }).document;
   });
 
   /** Console double : on compte ce que le kernel écrit, sans polluer la sortie. */
