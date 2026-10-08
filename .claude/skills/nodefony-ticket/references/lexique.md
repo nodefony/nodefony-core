@@ -39,6 +39,8 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 - **SSE** (detect: SSE|Server-Sent Events) — _Server-Sent Events_ : un flux HTTP que le serveur garde ouvert pour pousser des événements au navigateur au fil de l'eau, dans un seul sens (l'aller-retour, lui, est le rôle du WebSocket).
 - **QUIC** (detect: QUIC) — le transport sur UDP qui porte HTTP/3 : plusieurs flux indépendants sur une connexion, sans qu'un paquet perdu bloque les autres.
 - **WebTransport** (detect: WebTransport) — l'API navigateur (W3C) d'échange bidirectionnel bâtie sur HTTP/3 : plusieurs flux d'octets et des datagrammes non fiables, là où un WebSocket n'offre qu'un seul canal de messages.
+- **h2c** (detect: h2c) — HTTP/2 « en clair », sans TLS : la forme que parlent les proxys et maillages de services (Envoy, Istio, HAProxy) vers les serveurs derrière eux.
+- **ingress** (detect: [Ii]ngress) — sous Kubernetes, le point d'entrée HTTP du cluster (souvent nginx) qui termine le TLS et relaie vers les pods.
 - **DDL** (detect: DDL) — _Data Definition Language_ : la partie du SQL qui crée et modifie la structure des tables (`CREATE TABLE`, `ALTER TABLE`), par opposition à celle qui manipule les données.
 - **migration** (detect: migration de schéma|migrations de schéma) — un fichier de SQL versionné qui fait passer une base d'une version du schéma à la suivante, et qui garde trace de son passage.
 - **TOTP** (detect: TOTP|totp) — _Time-based One-Time Password_ : le code à six chiffres qui change toutes les trente secondes, second facteur d'authentification.
