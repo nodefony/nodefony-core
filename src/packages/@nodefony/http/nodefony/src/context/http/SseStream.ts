@@ -32,9 +32,9 @@ import HttpError from "../../errors/httpError";
 /** Options d'ouverture d'un flux. */
 export interface ISseStreamOptions {
   /**
-   * Période du battement de cœur (commentaire `:`), en ms — `false` pour
-   * l'éteindre. Défaut : 15 000, la valeur que la norme suggère contre les
-   * proxys qui coupent une connexion muette (§9.2.7).
+   * Période du battement de cœur (commentaire `:`), en ms entre 1 et 2^31-1 —
+   * `false` pour l'éteindre. Défaut : 15 000, la valeur que la norme suggère
+   * contre les proxys qui coupent une connexion muette (§9.2.7).
    */
   heartbeat?: number | false | undefined;
   /** Délai de reconnexion imposé au client (champ `retry:`), en ms. */
@@ -51,6 +51,12 @@ export interface ISseSendOptions {
 
 /** Battement de cœur par défaut, en ms (§9.2.7 : « every 15 seconds or so »). */
 export const SSE_HEARTBEAT_MS = 15_000;
+/**
+ * Plus long délai qu'un minuteur sait tenir (2^31-1 ms). Au-delà, Node le
+ * ramène à 1 ms : un `retry` qui le dépasse ferait reconnecter le client en
+ * rafale, un battement qui le dépasse battrait mille fois par seconde.
+ */
+const MAX_TIMER_MS = 2_147_483_647;
 /** Commentaire de battement de cœur — ignoré par tout client conforme. */
 const HEARTBEAT = ":\n\n";
 /** Fin de ligne : CRLF, CR ou LF (§9.2.5). */
@@ -181,11 +187,13 @@ export class SseStream {
    *
    * @param ms - délai en millisecondes, entier positif.
    * @returns comme {@link send}.
-   * @throws RangeError quand `ms` n'est pas un entier positif.
+   * @throws RangeError quand `ms` n'est pas un entier entre 0 et 2^31-1.
    */
   retry(ms: number): Promise<void> | undefined {
-    if (!Number.isInteger(ms) || ms < 0) {
-      throw new RangeError("retry : entier positif attendu");
+    if (!Number.isInteger(ms) || ms < 0 || ms > MAX_TIMER_MS) {
+      throw new RangeError(
+        `retry : entier entre 0 et ${MAX_TIMER_MS} ms attendu`,
+      );
     }
     return this.#write(`retry: ${ms}\n\n`);
   }
@@ -295,11 +303,22 @@ export function acceptsEventStream(
  * @param options - battement de cœur, délai `retry:` initial.
  * @returns le flux ouvert, ou sa promesse quand une session est à sauver.
  * @throws HttpError 500 quand la réponse est déjà partie.
+ * @throws RangeError quand `heartbeat` n'est ni `false` ni un entier entre 1 et 2^31-1.
  */
 export function openSseStream(
   context: HttpContext,
   options: ISseStreamOptions = {},
 ): SseStream | Promise<SseStream> {
+  const heartbeat = options.heartbeat;
+  if (
+    heartbeat !== undefined &&
+    heartbeat !== false &&
+    (!Number.isInteger(heartbeat) || heartbeat < 1 || heartbeat > MAX_TIMER_MS)
+  ) {
+    throw new RangeError(
+      `SSE : heartbeat entier entre 1 et ${MAX_TIMER_MS} ms, ou false, attendu`,
+    );
+  }
   if (context.sended || context.finished || context.response.isHeaderSent()) {
     throw new HttpError("SSE : la réponse est déjà partie", 500, context);
   }

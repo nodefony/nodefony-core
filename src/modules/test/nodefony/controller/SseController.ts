@@ -73,6 +73,65 @@ class SseController extends Controller {
     return sse.close();
   }
 
+  /**
+   * Banc d'ATTAQUE : renvoie dans le flux ce que la requête lui donne, et
+   * publie chaque refus de l'API dans un événement `refused` (nom de l'erreur).
+   * Paramètres : `event`, `id`, `data`, `comment`, `retry`, `kind`
+   * (`circular` · `bigint` · `undefined`), `after` (`send` après `close()`).
+   */
+  @route("sse-echo", { path: "/echo" })
+  async echo() {
+    // Les paramètres se LISENT comme des chaînes, jamais par conversion de type.
+    const query = this.queryGet;
+    const param = (name: string): string | undefined => {
+      const value = query[name];
+      return typeof value === "string" ? value : undefined;
+    };
+    const q = {
+      event: param("event"),
+      id: param("id"),
+      data: param("data"),
+      comment: param("comment"),
+      retry: param("retry"),
+      kind: param("kind"),
+      after: param("after"),
+    };
+    const sse = await this.renderSse({ heartbeat: false });
+    const attempt = async (step: () => unknown): Promise<void> => {
+      try {
+        await step();
+      } catch (error) {
+        const name = error instanceof Error ? error.name : "unknown";
+        await sse.send(name, { event: "refused" });
+      }
+    };
+    if (q.retry !== undefined) await attempt(() => sse.retry(Number(q.retry)));
+    if (q.comment !== undefined) await attempt(() => sse.comment(q.comment));
+    if (q.kind !== undefined) {
+      const values: Record<string, unknown> = {
+        bigint: 1n,
+        undefined,
+        circular: (() => {
+          const o: Record<string, unknown> = {};
+          o.self = o;
+          return o;
+        })(),
+      };
+      const kind = q.kind;
+      await attempt(() => sse.send(values[kind]));
+    }
+    if (q.data !== undefined || q.event !== undefined || q.id !== undefined) {
+      await attempt(() => sse.send(q.data ?? "", { event: q.event, id: q.id }));
+    }
+    await sse.send("fin", { event: "end" });
+    await sse.close();
+    if (q.after !== undefined) {
+      // Après fermeture : ni exception, ni écriture.
+      await attempt(() => sse.send("trop tard"));
+      await sse.close();
+    }
+  }
+
   /** État relu par le banc. */
   @route("sse-state", { path: "/state" })
   state() {

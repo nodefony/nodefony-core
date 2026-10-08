@@ -18,6 +18,11 @@
  * - un paquet est SOUS son plafond — le plafond s'abaisse dans le même commit
  *   (`--update`), sinon la marge regagnée serait reprise en silence ailleurs.
  *
+ * ⚠️ L'analyse lit les types PUBLIÉS des paquets (`dist/types`) : pendant qu'un
+ * build les vide (superviseur de développement qui rebâtit), le compte d'un
+ * paquet voisin saute de quelques unités. Un rouge sur un paquet qu'on n'a pas
+ * touché se RELANCE une fois le build fini, avant de se lire.
+ *
  * @usage    node scripts/gates/check-type-assertions.mjs            # contrôle
  * @usage    node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)
  * @output   l'écart par paquet ; sortie 0 tenu · 1 refusé · 78 oxlint n'a pas répondu

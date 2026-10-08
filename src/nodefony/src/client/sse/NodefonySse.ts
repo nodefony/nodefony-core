@@ -30,7 +30,11 @@ export interface NodefonySseOptions {
   body?: string | undefined;
   /** Envoyer les cookies vers une autre origine (`credentials: "include"`). Défaut : non. */
   withCredentials?: boolean | undefined;
-  /** Délai de reconnexion initial (ms), jusqu'à ce que le serveur en impose un par `retry:`. Défaut : 3000. */
+  /**
+   * Délai de reconnexion initial (ms), jusqu'à ce que le serveur en impose un
+   * par `retry:`. Défaut : 3000 ; ramené entre 250 ms et 2^31-1 ms, comme
+   * celui du serveur.
+   */
   retry?: number | undefined;
   /** Identifiant à reprendre dès la première connexion (en-tête `Last-Event-ID`). */
   lastEventId?: string | undefined;
@@ -48,6 +52,31 @@ export interface NodefonySseOptions {
 const EVENT_STREAM = "text/event-stream";
 /** Délai de reconnexion par défaut, « de l'ordre de quelques secondes » (§9.2.2). */
 const DEFAULT_RETRY_MS = 3000;
+/**
+ * Bornes du délai de reconnexion. Le plancher empêche un serveur hostile (ou
+ * cassé) d'imposer `retry: 0` — une tempête de reconnexions ; le plafond est
+ * celui de `setTimeout`, au-delà duquel Node ramène le délai à 1 ms.
+ */
+const MIN_RETRY_MS = 250;
+const MAX_RETRY_MS = 2_147_483_647;
+
+/** Délai de reconnexion ramené dans ses bornes. */
+function clampRetry(ms: number): number {
+  return Math.min(Math.max(ms, MIN_RETRY_MS), MAX_RETRY_MS);
+}
+
+/**
+ * Valeur de `Last-Event-ID` telle que Fetch l'émet : les OCTETS UTF-8 de
+ * l'identifiant, un caractère par octet (« isomorphic encode »). Un en-tête ne
+ * porte que du Latin-1 : passé tel quel, un `id` comme « é€ » ferait lever
+ * `fetch` — et le client ne se reconnecterait plus jamais.
+ */
+function headerValue(id: string): string {
+  let out = "";
+  for (const byte of new TextEncoder().encode(id))
+    out += String.fromCharCode(byte);
+  return out;
+}
 
 /**
  * Client d'un flux `text/event-stream`, compatible `EventSource`, sur `fetch`.
@@ -94,9 +123,22 @@ export class NodefonySse extends EventTarget {
     super();
     const base = (globalThis as { location?: { href?: string } }).location
       ?.href;
-    this.url = new URL(url, base).href;
+    const target = new URL(url, base);
+    // Seuls les schémas que `fetch` sert en réseau : `file:`, `data:` ou
+    // `javascript:` échoueraient à chaque tentative, en boucle de reconnexion.
+    if (target.protocol !== "http:" && target.protocol !== "https:") {
+      throw new TypeError(
+        `NodefonySse : schéma non pris en charge (${target.protocol})`,
+      );
+    }
+    if (/[\r\n\0]/.test(options.lastEventId ?? "")) {
+      throw new TypeError(
+        "NodefonySse : lastEventId ne peut contenir ni CR, ni LF, ni NUL",
+      );
+    }
+    this.url = target.href;
     this.withCredentials = options.withCredentials === true;
-    this.#retryMs = options.retry ?? DEFAULT_RETRY_MS;
+    this.#retryMs = clampRetry(options.retry ?? DEFAULT_RETRY_MS);
     this.#lastEventId = options.lastEventId ?? "";
     this.#init = options;
     this.#connect();
@@ -134,7 +176,9 @@ export class NodefonySse extends EventTarget {
       "Cache-Control": "no-cache",
       ...this.#init.headers,
     };
-    if (this.#lastEventId !== "") headers["Last-Event-ID"] = this.#lastEventId;
+    if (this.#lastEventId !== "") {
+      headers["Last-Event-ID"] = headerValue(this.#lastEventId);
+    }
     const request: RequestInit = {
       method: this.#init.method ?? "GET",
       headers,
@@ -173,6 +217,8 @@ export class NodefonySse extends EventTarget {
     const parser = new SseParser(
       {
         onEvent: (event) => {
+          // Un écouteur a pu fermer pendant ce morceau : plus rien n'est délivré.
+          if (controller !== this.#controller) return;
           this.#lastEventId = event.lastEventId;
           const message = new MessageEvent<string>(event.type, {
             data: event.data,
@@ -182,7 +228,7 @@ export class NodefonySse extends EventTarget {
           this.#emit(message, event.type === "message" ? this.onmessage : null);
         },
         onRetry: (ms) => {
-          this.#retryMs = ms;
+          this.#retryMs = clampRetry(ms);
         },
       },
       this.#lastEventId,
