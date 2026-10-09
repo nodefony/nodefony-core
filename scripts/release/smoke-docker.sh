@@ -1629,10 +1629,14 @@ if runs global; then
   rewrite_deps "$GAPP"
   (cd "$GAPP" && npm install --no-audit --no-fund) > "$WORK/.global-app-install.out" 2>&1 \
     || { tail -30 "$WORK/.global-app-install.out"; fail "npm install de l'application"; }
+  # La séquence que `create app --no-install` prescrit : installer, PUIS bâtir.
+  # Une application non construite est refusée au démarrage (« NON CONSTRUIT »).
+  (cd "$GAPP" && npm run build) > "$WORK/.global-app-build.out" 2>&1 \
+    || { tail -30 "$WORK/.global-app-build.out"; fail "npm run build de l'application"; }
   # Le lanceur travaille sur le chemin RÉEL (`process.cwd()`), qui diffère du
   # chemin tapé dès qu'un lien est en jeu (`/var` → `/private/var` sous macOS).
   GAPP_REAL="$(cd "$GAPP" && pwd -P)"
-  ok "application engendrée par le global, installée depuis les tarballs"
+  ok "application engendrée par le global, installée depuis les tarballs et construite"
 
   step "[global] dans l'application, c'est le CLI LOCAL qui s'exécute"
   # Rend 0 si la trace du lanceur désigne le binaire du projet.
@@ -1666,6 +1670,45 @@ fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
   [[ "$JSONERR" != *"CLI lancé en"* ]] \
     || { printf '%s\n' "$JSONERR"; fail "annonce d'écart émise sous --json"; }
   ok "écart annoncé sur la sortie d'erreur, muet à versions égales et sous --json"
+
+  # Le piège de la délégation : elle charge le CLI du projet DANS le process du
+  # global, et le superviseur de développement relance son serveur à partir
+  # d'`argv`. Sans `alignArgvWithDelegate`, l'enfant repartirait sur le paquet
+  # GLOBAL pendant que la configuration de l'app importe celui du projet — deux
+  # cœurs dans un process, démarrage refusé. Le mode SUPERVISÉ, donc, et pas
+  # `--no-watch`, qui sert sans superviseur. L'enfant hérite de `NF_CLI_DEBUG` :
+  # sa trace nomme le paquet dont il s'exécute, et c'est elle qui tranche.
+  step "[global] development supervisé, lancé par le global"
+  GDEV_PORT=15198
+  GDEV_LOG="$WORK/.global-dev.out"
+  stop_global_dev() { (cd "$GAPP" && "$GBIN" stop > /dev/null 2>&1) || true; }
+  (cd "$GAPP" && NF_PORT="$GDEV_PORT" NF_CLI_DEBUG=1 NF_NO_TTY=1 \
+    "$GBIN" development > "$GDEV_LOG" 2>&1 &)
+  GDEV_CODE=""
+  for _ in $(seq 1 120); do
+    GDEV_CODE=$(http_code "http://127.0.0.1:$GDEV_PORT/readyz")
+    [[ "$GDEV_CODE" == "200" ]] && break
+    sleep 1
+  done
+  [[ "$GDEV_CODE" == "200" ]] \
+    || { tail -40 "$GDEV_LOG"; stop_global_dev; fail "development lancé par le global : /readyz → $GDEV_CODE"; }
+  # Deux exécutions déléguées au moins : le superviseur (dans le process du
+  # global) puis son serveur enfant. Aucune ne doit venir du paquet global.
+  GDEV_SELF=$(grep -c "soi-même — already-delegated" "$GDEV_LOG" || true)
+  [[ "$GDEV_SELF" -ge 2 ]] \
+    || { tail -40 "$GDEV_LOG"; stop_global_dev; fail "le serveur enfant n'a pas tracé sa décision ($GDEV_SELF trace(s))"; }
+  if grep "already-delegated" "$GDEV_LOG" | grep -q "$GPREFIX"; then
+    grep "already-delegated" "$GDEV_LOG"; stop_global_dev
+    fail "le serveur enfant s'exécute depuis le paquet GLOBAL — argv non réaligné"
+  fi
+  stop_global_dev
+  for _ in $(seq 1 30); do
+    [[ "$(http_code "http://127.0.0.1:$GDEV_PORT/readyz")" == "000" ]] && break
+    sleep 1
+  done
+  [[ "$(http_code "http://127.0.0.1:$GDEV_PORT/readyz")" == "000" ]] \
+    || fail "development lancé par le global ne s'arrête pas (nodefony stop)"
+  ok "development supervisé : serveur prêt, enfant sur le CLI du projet, arrêt propre"
 fi
 
 # ═══ SCÉNARIO « pm » — pnpm, yarn et bun, chacun avec SON gabarit ═══════════
