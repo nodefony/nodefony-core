@@ -2108,29 +2108,36 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
         };
         const before = new Set(build());
         const ours = (): number[] => build().filter((pid) => !before.has(pid));
+        // Les autres fichiers de la suite lancent le binaire EN PARALLÈLE de
+        // ce cas : si le `dist/` du cœur disparaît un instant (rolldown le
+        // vide avant d'écrire), l'un d'eux échoue sur un module introuvable
+        // — vécu en CI macOS, `storeOrderBoot` sur `dist/node/Tools.js`.
+        const coreEntry = path.join(CORE_ROOT, "dist", "node", "Tools.js");
+        let coreVanished = false;
+        const sentinel = setInterval(() => {
+          if (!fs.existsSync(coreEntry)) coreVanished = true;
+        }, 20);
+        // Un VRAI build, pas un rejeu de cache qui finit en quelques centaines
+        // de millisecondes — mais d'une FEUILLE : `documentation` n'a aucun
+        // dépendant et aucun test ne lit son `dist`. Un fichier neuf, non
+        // suivi, change son empreinte turbo ; ses dépendances, le cœur
+        // compris, restent en cache et sont rejouées sans être vidées.
+        // `TURBO_FORCE` rebâtissait au contraire TOUT le graphe, cœur compris.
+        const probe = path.join(
+          REPO_ROOT,
+          "src",
+          "packages",
+          "@nodefony",
+          "documentation",
+          "nodefony",
+          `reloadProbe${process.pid}.ts`,
+        );
         let s: IPtySession | null = null;
         try {
-          // `TURBO_FORCE` (hérité par le build) : un VRAI build, pas un rejeu
-          // de cache qui finit en quelques centaines de millisecondes.
-          s = startPty(
-            flavor,
-            ["development", "--ui"],
-            { ...process.env, TURBO_FORCE: "true" },
-            true,
-          );
+          s = startPty(flavor, ["development", "--ui"], process.env, true);
           await waitFor(s, BAR_RE);
           await new Promise((r) => setTimeout(r, 3000));
-          // Le CŒUR : turbo rejoue tous ses dépendants, assez long pour être
-          // interrompu. Dates seulement, l'arbre git reste intact.
-          const watched = path.join(
-            REPO_ROOT,
-            "src",
-            "nodefony",
-            "src",
-            "Service.ts",
-          );
-          const now = new Date();
-          fs.utimesSync(watched, now, now);
+          fs.writeFileSync(probe, "export {};\n");
           await waitFor(s, /construction…/);
           // Sans build vivant au moment du Ctrl+C, le cas ne prouverait rien.
           // Le binaire turbo LUI-MÊME, pas seulement l'enveloppe `npm exec` :
@@ -2183,19 +2190,36 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST) || FLAVOR === null)(
           );
         } finally {
           await cleanup(s);
-          // Le build interrompu a pu vider `dist/` du cœur (rolldown le
-          // nettoie AVANT d'écrire) : les cas suivants démarreraient sur un
-          // CLI absent — vécu en CI macOS, deux rouges en moins d'une seconde.
-          // Le cache turbo le restaure (entrées inchangées).
+          fs.rmSync(probe, { force: true });
+          // Le build interrompu a pu vider `dist/` de la feuille (rolldown le
+          // nettoie AVANT d'écrire). Témoin retiré, l'empreinte redevient
+          // celle du cache : turbo le restaure.
           rebuilt = spawnSync(
             "npx",
-            ["turbo", "run", "build", "--filter=nodefony"],
+            ["turbo", "run", "build", "--filter=@nodefony/documentation"],
             { cwd: REPO_ROOT, encoding: "utf8" },
           );
+          clearInterval(sentinel);
         }
         assert.ok(
-          fs.existsSync(path.join(CORE_ROOT, "dist", "node", "index.js")),
-          `dist du cœur non restauré après le build interrompu (turbo ${rebuilt?.status})\n${rebuilt?.stdout ?? ""}${rebuilt?.stderr ?? ""}`,
+          fs.existsSync(
+            path.join(
+              REPO_ROOT,
+              "src",
+              "packages",
+              "@nodefony",
+              "documentation",
+              "dist",
+              "index.js",
+            ),
+          ),
+          `dist de la feuille non restauré après le build interrompu (turbo ${rebuilt?.status})\n${rebuilt?.stdout ?? ""}${rebuilt?.stderr ?? ""}`,
+        );
+        assert.strictEqual(
+          coreVanished,
+          false,
+          "le dist du cœur a disparu pendant le cas : les fichiers voisins qui " +
+            "lancent le binaire au même moment échouent sur un module introuvable",
         );
       },
       SCREEN_READY_TIMEOUT_MS * 2 + 60_000,
