@@ -132,7 +132,7 @@ WebAuthn et OAuth : le firewall n'a qu'un seul mécanisme à connaître, la **se
 > Le couplage est fait **par nom de service**, jamais par import : `AuthFlow` ne connaît du 2FA
 > qu'une interface locale de trois méthodes (`ITotpLoginVerifier`, `authFlow.ts:44`). 2FA désactivé
 > ⇒ service absent ⇒ le login nominal **ne paie strictement rien** (`AuthFlow.#resolveTotp()`,
-> `authFlow.ts:487`).
+> `authFlow.ts:494`).
 
 ## 🚀 Démarrage rapide
 
@@ -340,7 +340,7 @@ Trois propriétés à retenir de `AuthFlow.completeMfaLogin()` (`authFlow.ts:257
    (`authFlow.ts:18`), posée par le login, **consommée** avant l'ouverture de session
    (`authFlow.ts:301`).
 2. **Le code à 6 chiffres est throttlé** comme un mot de passe — même backoff partagé
-   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:476`) : 10⁶ combinaisons se forcent brute en
+   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:483`) : 10⁶ combinaisons se forcent brute en
    quelques minutes sans lui. Trop de tentatives → `429` + `Retry-After`.
 3. **Un échec ne détruit pas le défi** — l'utilisateur qui s'est trompé de chiffre ressaisit ; il
    n'a pas à refaire son mot de passe.
@@ -710,7 +710,7 @@ hachage — c'est la preuve d'interopérabilité, pas une auto-évaluation.
 
 Le 2FA est un chemin **froid** : il ne coûte rien tant qu'on ne se connecte pas.
 
-- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:487`)
+- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:494`)
   résout le service **une seule fois** puis met le résultat en cache. Service absent ⇒ `null` ⇒
   **zéro accès au store**, zéro allocation par login.
 - **Aucun coût par requête** : le TOTP n'est pas un authenticator du firewall, il ne s'exécute donc

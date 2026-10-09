@@ -526,7 +526,7 @@ par le firewall sur les zones temps réel protégées (`firewall.ts:297`).
 ### Régénération d'identifiant à la connexion (anti-fixation)
 
 C'est la défense la plus importante et elle est **active**. `AuthFlow.#openSession()`
-(`authFlow.ts:410`) : reprise ou ouverture de la session, mémorisation de l'ancien identifiant, puis
+(`authFlow.ts:417`) : reprise ou ouverture de la session, mémorisation de l'ancien identifiant, puis
 appel **inconditionnel** de `Session.regenerateId()` (`authFlow.ts:388`), et enfin destruction de
 l'ancienne entrée du store (`authFlow.ts:390`). Un cookie pré-posé par un attaquant **ne survit donc pas
 au login**. Le nouvel identifiant est un CSPRNG frais, l'état applicatif est conservé

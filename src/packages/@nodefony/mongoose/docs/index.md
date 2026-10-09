@@ -680,12 +680,12 @@ devient alors un pur driver de données, sans schéma framework.
 
 Trois comportements valent d'être connus :
 
-- **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts:189`)) :
+- **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts:199`)) :
   l'inactivité (depuis la dernière activité) et l'âge absolu (depuis la création, **jamais prolongé** —
   la ré-authentification finit par être imposée, conformément aux recommandations NIST/OWASP).
-- **Prolongation sans réécriture** (`SessionStorage.touch()` (`SessionStorage.ts:195`)) : rafraîchir
+- **Prolongation sans réécriture** (`SessionStorage.touch()` (`SessionStorage.ts:229`)) : rafraîchir
   l'activité ne réécrit pas le contenu de la session, juste son horodatage.
-- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:313`)) :
+- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:323`)) :
   le contenu applicatif et les messages flash **ne sortent pas de la base**. Studio affiche qui est
   connecté, jamais ce qu'il y a dans sa session.
 

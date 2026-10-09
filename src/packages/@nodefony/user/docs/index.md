@@ -902,7 +902,7 @@ verrais ta donnée en base et vide dans ton code.
 
 > [!WARNING]
 > **Un champ métier ne sort JAMAIS dans la console d'administration.** `toUserSummary` construit son
-> résumé champ par champ (`UserAdminApi.ts:98`) : ni ton `salaire` ni ta `note RH` ne partent dans
+> résumé champ par champ (`UserAdminApi.ts:107`) : ni ton `salaire` ni ta `note RH` ne partent dans
 > le data plane. Un test le garde (`UserAdminApi.test.ts:270`) — l'étanchéité ne tient pas à la
 > prudence de qui édite ce fichier.
 
@@ -989,7 +989,7 @@ Prouvée par `oauth.attack.test.ts:71`.
 Trois barrières, indépendantes :
 
 1. **Au type** : le contrat de base `IUser` n'a pas de champ `password` (`IUser.ts:70`).
-2. **Au DTO** : `toUserSummary()` construit sa sortie par **allowlist** (`UserAdminApi.ts:98`). Il
+2. **Au DTO** : `toUserSummary()` construit sa sortie par **allowlist** (`UserAdminApi.ts:107`). Il
    n'expose ni `password`, ni `metadata` (qui peut contenir du sensible), ni le moindre jeton dans
    les liens sociaux — seulement `provider`, `providerId` et une date. Le champ `hasPassword` dit
    qu'un mot de passe local **existe**, sans rien en révéler.
