@@ -454,7 +454,7 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
 > RFC 9110 §15.4 (301, 302, 303, 307, 308) retombe sur 302 avec un log d'avertissement
-> (`Response.redirect()`, `Response.ts:735`). Un 301 par défaut piégeait : les navigateurs le mettent
+> (`Response.redirect()`, `Response.ts:755`). Un 301 par défaut piégeait : les navigateurs le mettent
 > en cache de façon quasi irréversible.
 
 ## 📁 Servir un fichier — téléchargement et flux média

@@ -258,10 +258,10 @@ constructeur de `Cookie` (`cookie.ts:130`).
 | Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:698`) |
 | Lire tous les cookies entrants | `context.cookies` → `Record<string, Cookie>`          | `cookies` (`Context.ts:193`)             |
 | Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:709`)         |
-| Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts:213`                   |
+| Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts:233`                   |
 
-Côté réponse HTTP, `addCookie()` (`http/Response.ts:195`) enregistre le cookie, et `setCookies()`
-(`http/Response.ts:221`) émet **une ligne `Set-Cookie` par cookie** — un tableau passé à Node, jamais une
+Côté réponse HTTP, `addCookie()` (`http/Response.ts:215`) enregistre le cookie, et `setCookies()`
+(`http/Response.ts:241`) émet **une ligne `Set-Cookie` par cookie** — un tableau passé à Node, jamais une
 boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un cookie chez le client :
 `clearCookie()` (`cookie.ts:200`) recule `Expires` à l'époque.
 
@@ -322,7 +322,7 @@ Le nom effectif du cookie de session (avec ou sans `__Host-` selon le transport)
 | `new Cookie(..., { signed: true })` **jette**             | Aucun `secret` configuré → refus du secret prévisible (fail-closed)       | Passer un `secret` réel (`{ signed: true, secret: … }`)                  |
 | Modifier un cookie entrant ne change rien côté client     | Lecture (`context.cookies`) et écriture (réponse) ne sont pas symétriques | (Re)poser le cookie sur la réponse : `context.setCookie(new Cookie(…))`  |
 | Le cookie WS posé au handshake n'arrive jamais            | `setCookie`/`setCookies` de la réponse WS sont des no-op (`ws`)           | Poser le cookie pendant la phase HTTP avant l'upgrade (cf session)       |
-| Deux `Set-Cookie` s'écrasent, un seul survit              | Un `setHeader('Set-Cookie', str)` remplace le précédent                   | Déjà géré : `setCookies()` passe un **tableau** (`http/Response.ts:221`) |
+| Deux `Set-Cookie` s'écrasent, un seul survit              | Un `setHeader('Set-Cookie', str)` remplace le précédent                   | Déjà géré : `setCookies()` passe un **tableau** (`http/Response.ts:241`) |
 | `SameSite` mal orthographié devient `Lax` silencieusement | Fallback fail-safe sur `Lax`                                              | Attendu — vérifier la casse ; `Strict`/`Lax`/`None` seulement            |
 | `maxAge` interprété en millisecondes                      | `maxAge` est en **secondes** (comme `Set-Cookie` Max-Age)                 | Passer des secondes (`30*24*60*60`), pas des ms                          |
 
@@ -330,7 +330,7 @@ Le nom effectif du cookie de session (avec ou sans `__Host-` selon le transport)
 
 Il n'y a pas d'écran Studio dédié aux cookies applicatifs (le cookie **de session** est surfacé dans
 l'écran **Sessions**). En développement, chaque écriture de cookie est journalisée en `DEBUG` par la
-réponse HTTP (`ADD COOKIE ==> …`, `setCookie()` `http/Response.ts:241`) — visible via le skill
+réponse HTTP (`ADD COOKIE ==> …`, `setCookie()` `http/Response.ts:261`) — visible via le skill
 `nodefony-tail-error-logs` ou le Suivi de requête. Sur le fil, un `curl -i` montre les lignes `Set-Cookie`.
 
 ## 🧪 Tests & couverture

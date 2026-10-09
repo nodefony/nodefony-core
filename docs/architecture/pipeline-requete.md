@@ -506,7 +506,7 @@ d'une seule**. La clé est le `requestId`, et tu n'as rien à câbler.
 
 1. **propagé** à tout l'asynchrone via la bulle ALS (`http-kernel.ts:1151`) ;
 2. **posé sur chaque ligne de log** émise pendant la requête (`Context.log()`, `Context.ts:535`) ;
-3. **réfléchi au client** dans l'en-tête `x-request-id` de la réponse (`Response.ts:547`) ;
+3. **réfléchi au client** dans l'en-tête `x-request-id` de la réponse (`Response.ts:567`) ;
 4. **stable pour toute une connexion** WebSocket, handshake et trames compris.
 
 Depuis n'importe quel service, sans porter le contexte :
@@ -559,7 +559,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | ---------------------------- | ----------------- | ------------------------------------------------------- |
 | Codes de fermeture WebSocket | RFC 6455 §7.4     | `toWsCloseCode()` (`WebsocketContext.ts:79`)            |
 | Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:2109`) |
-| Message de statut US-ASCII   | RFC 9112 §4       | `Response.writeHead()` (`Response.ts:529`)              |
+| Message de statut US-ASCII   | RFC 9112 §4       | `Response.writeHead()` (`Response.ts:549`)              |
 | Valeurs d'en-tête sûres      | RFC 9110 §5.5     | `sanitizeRequestId()` (`requestId.ts:38`)               |
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |
 | Contexte de trace distribuée | W3C Trace Context | `http-kernel.ts:1136` · `Response.ts:386`               |
