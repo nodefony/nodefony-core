@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T08:29:08.546Z",
+  "generatedAt": "2026-10-09T11:28:43.701Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 95,
+      "closed": 96,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 50,
+      "open": 49,
       "title": "10.0.0-beta"
     },
     {
@@ -2374,22 +2374,6 @@
       ]
     },
     {
-      "number": 572,
-      "title": "refactor(types): remplacer les conversions de type qui resserrent un type",
-      "url": "https://github.com/nodefony/nodefony-core/issues/572",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 5,
-      "ordre": 3.606,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
       "number": 569,
       "title": "docs(http): dire où servir HTTP/2 quand un proxy porte les flux SSE",
       "url": "https://github.com/nodefony/nodefony-core/issues/569",
@@ -2533,8 +2517,8 @@
       "number": 575,
       "title": "refactor(mongoose): remplacer les conversions de type qui resserrent un type",
       "url": "https://github.com/nodefony/nodefony-core/issues/575",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": null,
       "jours": 0.5,
@@ -3027,6 +3011,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 572,
+      "title": "refactor(types): remplacer les conversions de type qui resserrent un type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/572",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.11,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-4"
+      ]
     },
     {
       "number": 465,
@@ -7973,7 +7973,7 @@
       "title": "refactor(core): découper le noyau, un fichier de 4 255 lignes",
       "url": "https://github.com/nodefony/nodefony-core/issues/488",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 3,
