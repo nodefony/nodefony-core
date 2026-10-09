@@ -8,7 +8,7 @@
     "modules/test-frontend-react": 9,
     "modules/test-frontend-svelte": 2,
     "modules/test-frontend-vue": 2,
-    "nodefony": 644,
+    "nodefony": 643,
     "packages/@nodefony/agent": 1,
     "packages/@nodefony/devkit": 4,
     "packages/@nodefony/documentation": 6,

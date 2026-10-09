@@ -94,6 +94,12 @@ export interface FeedLog {
   pid: number;
   /** Requête corrélée, quand elle est connue. */
   requestId?: string | undefined;
+  /**
+   * Rang d'arrivée dans CETTE page — strictement croissant. `uid` ne l'est pas
+   * (en cluster, chaque worker a sa séquence) : c'est sur `seq` qu'une vue
+   * reconnaît ce qui est neuf et retrouve une ligne.
+   */
+  seq: number;
 }
 
 /** Vue dénormalisée consommée par le rendu. */
@@ -143,8 +149,17 @@ const SEVERITY_ERROR_MAX = 3;
 const SEVERITY_WARNING = 4;
 /** Points conservés dans les séries de sparkline (~1 min à 1 tick/s). */
 const SERIES_POINTS = 60;
-/** Logs conservés dans le feed. */
-export const FEED_MAX = 40;
+/**
+ * Entrées conservées dans le journal. Le DOM n'en porte qu'une fenêtre
+ * (`feedView.ts`) : ce nombre coûte de la mémoire (quelques centaines de Ko),
+ * pas du rendu.
+ */
+export const FEED_MAX = 2000;
+/**
+ * Marge avant de tailler : on retire par LOTS, pas une entrée par arrivée — un
+ * `splice` en tête de tableau déplace tout le reste.
+ */
+const FEED_SLACK = 200;
 
 function pushCapped(arr: number[], v: number, cap: number): void {
   arr.push(v);
@@ -179,6 +194,7 @@ export class DebugBarModel {
   private _warnCount = 0;
   private _dropped = 0;
   private readonly _feed: FeedLog[] = [];
+  private _seq = 0;
 
   setState(state: RealtimeState): void {
     this._state = state;
@@ -246,9 +262,10 @@ export class DebugBarModel {
           pid: typeof entry.pid === "number" ? entry.pid : 0,
           requestId:
             typeof entry.requestId === "string" ? entry.requestId : undefined,
+          seq: ++this._seq,
         });
       }
-      if (this._feed.length > FEED_MAX)
+      if (this._feed.length > FEED_MAX + FEED_SLACK)
         this._feed.splice(0, this._feed.length - FEED_MAX);
     }
     if (typeof payload.dropped === "number") this._dropped += payload.dropped;

@@ -27,7 +27,6 @@
 import { NodefonySocket } from "../realtime/NodefonySocket";
 import {
   DebugBarModel,
-  FEED_MAX,
   type DebugBarView,
   type FeedLog,
   type StatsPayload,
@@ -40,6 +39,7 @@ import {
   sparklinePoints,
 } from "./format";
 import { observeViteHmr, type HmrEvent } from "./hmr";
+import { FeedView } from "./feedView";
 import { installNetworkInterceptor, type NetEntry } from "./network";
 import {
   NetworkModel,
@@ -291,7 +291,6 @@ const STYLES = `
 .kv .k { color:var(--muted); } .kv .v { font-weight:600; text-align:right; overflow:hidden; text-overflow:ellipsis; }
 
 .counts { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
-.feed { font-size:11px; }
 /* ── Explorateur de journal ─────────────────────────────────────────────── */
 .counts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
 .counts .spacer { flex:1 1 auto; }
@@ -305,21 +304,52 @@ const STYLES = `
   border:1px solid var(--line); border-radius:6px; padding:3px 7px; cursor:pointer; }
 .toolbtn:hover { color:#fff; }
 .toolbtn.on { color:var(--ok); border-color:var(--ok); }
-.log { display:flex; align-items:baseline; gap:8px; padding:2px 0; cursor:pointer; }
-.log:hover { background:rgba(255,255,255,.04); }
-.log .ts { color:var(--muted); font-variant-numeric: tabular-nums; flex:none; }
-.log .rid { color:var(--muted); font-family:monospace; flex:none; margin-left:auto;
-  border:1px solid var(--line); border-radius:4px; padding:0 4px; }
-.logdetail { margin:2px 0 6px 0; padding:6px 8px; border-left:2px solid var(--line);
-  background:rgba(255,255,255,.03); border-radius:0 6px 6px 0; }
+/* ── Journal fenêtré (feedView.ts) ────────────────────────────────────────
+   Colonnes ALIGNÉES (l'œil descend une colonne, il ne cherche pas l'heure ligne
+   par ligne), chiffres à chasse fixe, zébrure discrète, filet coloré à gauche
+   pour ce qui compte (erreur, alerte). Lignes de hauteur FIXE : c'est ce qui
+   rend le fenêtrage exact. Positionnées par transform — aucune mise en page. */
+.pane.logp.active { display:flex; flex-direction:column; padding:10px 14px 12px; }
+.logbody { flex:1; min-height:0; display:flex; gap:10px; }
+.feedbox { --cols: 88px 62px 120px minmax(0,1fr) 70px; position:relative; flex:1; min-width:0;
+  display:flex; flex-direction:column; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#111317; }
+.loghead { display:grid; grid-template-columns:var(--cols); gap:10px; flex:none; height:26px; align-items:center;
+  padding:0 10px 0 12px; border-bottom:1px solid var(--line); background:#171a20;
+  font:600 10px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); }
+.feedscroll { position:relative; flex:1; min-height:0; overflow-y:auto; overflow-x:hidden;
+  contain:strict; overscroll-behavior:contain; outline:none; }
+.feedscroll:focus-visible { box-shadow: inset 0 0 0 2px var(--ok); }
+.feedspacer { width:1px; }
+.feedlayer { position:absolute; top:0; left:0; right:0; }
+.log { position:absolute; top:0; left:0; right:0; height:22px; display:grid; grid-template-columns:var(--cols);
+  gap:10px; align-items:center; padding:0 10px; border-left:2px solid transparent; cursor:pointer;
+  font-size:11.5px; line-height:22px; }
+.log[hidden] { display:none; }
+.log.odd { background:rgba(255,255,255,.022); }
+.log:hover { background:rgba(255,255,255,.06); }
+.log.sel { background:rgba(58,160,255,.16); }
+.log.t-crit { border-left-color:var(--crit); }
+.log.t-warn { border-left-color:var(--warn); }
+.log .ts { color:var(--muted); font-variant-numeric:tabular-nums; }
+.log .sev { font:700 9.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:.4px; text-transform:uppercase; }
+.log .mod { color:#9aa3ae; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.log .txt { color:#e8eaed; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.log .rid { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
+.feedjump { position:absolute; top:34px; left:50%; transform:translateX(-50%); z-index:2; height:28px; padding:0 12px; border-radius:999px;
+  font:600 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#fff; cursor:pointer;
+  background:#0067ba; border:1px solid #3aa0ff; box-shadow:0 4px 16px rgba(0,0,0,.45); }
+.feedjump:hover { background:#0a78d1; }
+.feedjump[hidden], .feedempty[hidden], .logside[hidden] { display:none; }
+.feedempty { position:absolute; inset:26px 0 0 0; display:flex; align-items:center; justify-content:center;
+  color:var(--muted); pointer-events:none; }
+.logside { width:340px; flex:none; overflow:auto; padding:10px 12px; border:1px solid var(--line);
+  border-radius:8px; background:#16191e; }
+.sidehead { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
+  font:600 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+@media (max-width: 900px) { .logside { width:240px; } .feedbox { --cols: 78px 54px 90px minmax(0,1fr) 0; } }
 .drow { display:flex; gap:8px; padding:1px 0; }
 .drow .dk { color:var(--muted); min-width:92px; flex:none; }
 .drow .dv { word-break:break-word; }
-.feed .empty { color:var(--muted); padding:6px 0; }
-.log { display:flex; gap:7px; padding:2px 0; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.04); }
-.log .sev { flex:none; width:54px; font-size:9px; font-weight:800; text-transform:uppercase; }
-.log .mod { flex:none; color:var(--muted); max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.log .txt { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .card.fe { border-color: rgba(255,138,61,.3);
   background: linear-gradient(160deg, rgba(255,138,61,.12), rgba(28,31,38,.7) 60%); }
@@ -334,10 +364,18 @@ const STYLES = `
 .fe polyline { fill:none; stroke-width:1.75; vector-effect:non-scaling-stroke; }
 .spark.fe { stroke:var(--orange); } .area.fe { fill:rgba(255,138,61,.16); }
 
-.env-badge { padding:.2em .7em; border-radius:6px; font-size:.76em; font-weight:800;
-  letter-spacing:.6px; text-transform:uppercase; color:#0b0d10; background:var(--muted); flex:none; }
-.env-badge.dev { background: var(--ok); } .env-badge.prod { background: var(--crit); color:#fff; }
-.env-badge.test { background: var(--warn); } .env-badge.staging { background:#a06bff; color:#fff; }
+/* Badge d'environnement : une puce SOMBRE comme ses voisines, la couleur portée
+   par un point et par le texte. Un aplat vert vif tranchait sur toute la bande
+   et attirait l'œil sur l'information la moins changeante de l'écran. */
+.env-badge { display:flex; align-items:center; gap:6px; padding:.25em .7em; border-radius:11px; flex:none;
+  font-size:.76em; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+  color:#c4c9d1; background:#22262e; border:1px solid var(--line); }
+.env-badge[hidden] { display:none; }
+.env-badge::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--muted); flex:none; }
+.env-badge.dev::before { background:var(--ok); } .env-badge.dev { color:#7fd3ac; }
+.env-badge.prod::before { background:var(--crit); } .env-badge.prod { color:#ff8f75; border-color:rgba(255,86,48,.45); }
+.env-badge.test::before { background:var(--warn); } .env-badge.test { color:#ffcf66; }
+.env-badge.staging::before { background:#a06bff; } .env-badge.staging { color:#c7a6ff; }
 .branch[hidden] { display:none; }
 .branch .k { color:var(--muted); font-size:.82em; text-transform:uppercase; }
 .branch { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; flex:none;
@@ -643,7 +681,6 @@ export class DebugBar {
   /** dispose des abonnements realtime (null quand OFF). */
   private liveOff: (() => void) | null = null;
   private rafPending = false;
-  private feedLen = -1;
   /** Filtre de sévérité de l'onglet Logs — `all` par défaut. */
   private feedSev: "all" | "err" | "warn" = "all";
   /** Recherche courante, déjà en minuscules (comparée telle quelle). */
@@ -683,6 +720,12 @@ export class DebugBar {
   private selectedRid: string | null = null;
   private selRowId: number | null = null;
   private selNoRid = false; // ligne cliquée sans requestId lisible
+  /** Le journal fenêtré (null tant que la barre n'est pas montée). */
+  private feedView: FeedView | null = null;
+  /** Dernière séquence remise à la vue — ce qui la dépasse est neuf. */
+  private feedSeen = 0;
+  /** Séquence à laquelle « vider » a été demandé : rien d'antérieur ne s'affiche. */
+  private feedCleared = 0;
   /** Le serveur a refusé la socket faute de session administrateur (1008). */
   private refused = false;
   /** Environnement transmis au montage — en attendant celui des mesures. */
@@ -1058,8 +1101,14 @@ export class DebugBar {
       }
     });
     this.wireBtn("btnCopy", () => {
-      const node = this.el.feed;
-      const text = node ? node.textContent : "";
+      // Tout le jeu affiché, une ligne par entrée — l'écran ne porte qu'une
+      // fenêtre, copier le DOM ne rendrait que quelques lignes.
+      const text = (this.feedView?.shown ?? [])
+        .map(
+          (l) =>
+            `${fmtClock(l.ts)} ${l.name} ${l.module} ${l.text}${l.requestId ? ` [${l.requestId}]` : ""}`,
+        )
+        .join("\n");
       // Absent hors contexte sécurisé (HTTP autre que localhost) malgré lib.dom.
       void (navigator.clipboard as Clipboard | undefined)?.writeText(text).then(
         () => this.flashBtn("btnCopy", "✓"),
@@ -1069,49 +1118,38 @@ export class DebugBar {
       );
     });
     this.wireBtn("btnClearFeed", () => {
-      const node = this.el.feed;
-      if (node)
-        node.innerHTML = `<div class="empty">liste vidée — les nouvelles entrées s'afficheront ici.</div>`;
-      // On ne touche pas au modèle : la barre n'efface rien côté serveur, et un
-      // changement de filtre doit pouvoir tout ramener.
-      this.feedLen = this.model.view.feed.length;
+      // On ne touche pas au modèle : la barre n'efface rien côté serveur. On
+      // retient seulement OÙ la liste a été vidée — tout ce qui arrive ensuite
+      // s'affiche.
+      const feed = this.model.view.feed;
+      this.feedCleared = feed.at(-1)?.seq ?? 0;
+      this.feedDirty = true;
+      this.render();
     });
-    // Détail d'une entrée : ouvre sous la ligne, se referme au second clic.
-    const feed = this.el.feed;
-    if (feed) {
-      const onFeed = (ev: Event): void => {
-        const row = closestFrom(ev.target, ".log");
-        if (!row) return;
-        const open = row.nextElementSibling?.classList.contains("logdetail");
-        if (open) {
-          row.nextElementSibling?.remove();
-          row.setAttribute("aria-expanded", "false");
-          return;
-        }
-        const uid = Number(row.getAttribute("data-uid"));
-        const entry = this.model.view.feed.find((l) => l.uid === uid);
-        if (!entry) return;
-        feed.querySelectorAll(".logdetail").forEach((n) => n.remove());
-        feed
-          .querySelectorAll(".log[aria-expanded='true']")
-          .forEach((n) => n.setAttribute("aria-expanded", "false"));
-        row.insertAdjacentHTML("afterend", this.feedDetail(entry));
-        row.setAttribute("aria-expanded", "true");
-      };
-      const onFeedKey = (ev: Event): void => {
-        const k = (ev as KeyboardEvent).key;
-        if (k !== "Enter" && k !== " ") return;
-        const row = closestFrom(ev.target, ".log");
-        if (!row) return;
-        ev.preventDefault();
-        row.click();
-      };
-      feed.addEventListener("click", onFeed);
-      feed.addEventListener("keydown", onFeedKey);
-      this.disposers.push(() => {
-        feed.removeEventListener("click", onFeed);
-        feed.removeEventListener("keydown", onFeedKey);
+    // Le journal : une vue FENÊTRÉE (quelques dizaines de nœuds recyclés, quel
+    // que soit le tampon). Le détail s'ouvre dans un volet À CÔTÉ — l'ouvrir
+    // dans la liste poussait les lignes sous l'œil.
+    const feedBox = this.el.feedBox;
+    if (feedBox instanceof HTMLElement) {
+      const view = new FeedView(feedBox, {
+        onSelect: (entry) => this.showLogDetail(entry),
+        tierOf: (sev) => DebugBar.tierOf(sev),
+        formatTime: fmtClock,
       });
+      this.feedView = view;
+      this.disposers.push(() => {
+        view.destroy();
+        this.feedView = null;
+      });
+    }
+    const side = this.el.logSide;
+    if (side instanceof HTMLElement) {
+      const onSide = (ev: Event): void => {
+        if (closestFrom(ev.target, "[data-act='close']"))
+          this.feedView?.select(-1);
+      };
+      side.addEventListener("click", onSide);
+      this.disposers.push(() => side.removeEventListener("click", onSide));
     }
 
     this.wireBtn("btnPurge", () => {
@@ -1281,7 +1319,7 @@ export class DebugBar {
    * montrer.
    */
   private logsPane(): string {
-    return `<div class="pane" data-pane="logs">
+    return `<div class="pane logp" data-pane="logs">
       <div class="counts">
         <button type="button" class="chip sevf" data-sev="all" data-tip="Tout afficher"><span class="k">total</span><span data-el="cTotal">0</span></button>
         <button type="button" class="chip sevf" data-sev="err" data-tip="N'afficher que les erreurs (sévérité 0 à 3)"><span class="k">err</span><span class="crit" data-el="cErr">0</span></button>
@@ -1291,10 +1329,15 @@ export class DebugBar {
         <input class="search" data-el="logSearch" type="search" placeholder="rechercher…"
                aria-label="Filtrer les journaux sur leur texte, leur module ou leur requête" />
         <button type="button" class="toolbtn" data-el="btnPause" aria-pressed="false" data-tip="Suspendre l'affichage — les entrées continuent d'arriver et se rattrapent à la reprise">⏸</button>
-        <button type="button" class="toolbtn" data-el="btnCopy" data-tip="Copier les entrées affichées dans le presse-papiers">⧉</button>
+        <button type="button" class="toolbtn" data-el="btnCopy" data-tip="Copier les entrées affichées (tout le jeu filtré, pas seulement l'écran) dans le presse-papiers">⧉</button>
         <button type="button" class="toolbtn" data-el="btnClearFeed" data-tip="Vider la liste affichée (n'efface rien côté serveur)">⌫</button>
       </div>
-      <div class="feed" data-el="feed" role="log" aria-label="Journaux du serveur"><div class="empty">en attente de logs…</div></div>
+      <div class="logbody">
+        <div class="feedbox" data-el="feedBox">
+          <div class="loghead" aria-hidden="true"><span>heure</span><span>niveau</span><span>module</span><span>message</span><span>requête</span></div>
+        </div>
+        <aside class="logside" data-el="logSide" aria-label="Détail de l'entrée" hidden></aside>
+      </div>
     </div>`;
   }
 
@@ -2044,13 +2087,15 @@ export class DebugBar {
     );
   }
 
-  /** Une ligne de journal — horodatage, sévérité, module, texte, requête. */
-  private feedRow(l: FeedLog): string {
-    const tier = DebugBar.tierOf(l.severity);
-    const rid = l.requestId
-      ? `<span class="rid" data-tip="requête ${escapeHtml(l.requestId)} — la même valeur relie ce journal à sa route, à ses requêtes de base et à sa réponse">${escapeHtml(l.requestId.slice(0, 8))}</span>`
-      : "";
-    return `<div class="log" data-uid="${l.uid}" tabindex="0" role="button" aria-expanded="false" aria-label="Entrée ${escapeHtml(l.name)} de ${escapeHtml(l.module)} — ouvrir le détail"><span class="ts">${fmtClock(l.ts)}</span><span class="sev ${tier}">${escapeHtml(l.name)}</span><span class="mod">${escapeHtml(l.module)}</span><span class="txt">${escapeHtml(l.text)}</span>${rid}</div>`;
+  /** Ouvre (ou referme) le volet de détail d'une entrée. */
+  private showLogDetail(entry: FeedLog | null): void {
+    const side = this.el.logSide;
+    if (!(side instanceof HTMLElement)) return;
+    side.hidden = entry === null;
+    side.innerHTML =
+      entry === null
+        ? ""
+        : `<div class="sidehead"><span>Détail</span><button type="button" class="toolbtn" data-act="close" aria-label="Fermer le détail">✕</button></div>${this.feedDetail(entry)}`;
   }
 
   /** Le détail d'une entrée — ce qu'on colle dans un ticket. */
@@ -2070,62 +2115,42 @@ export class DebugBar {
   }
 
   /**
-   * Rendu du journal — **incrémental**, et c'est le point.
+   * Rendu du journal — la vue fenêtrée reçoit le jeu, elle ne peint que l'écran.
    *
-   * L'ancienne version réassignait `innerHTML` en entier à chaque arrivée. Deux
-   * conséquences qu'on ne voit pas dans le code et qu'on subit à l'écran : la
-   * SÉLECTION de texte s'efface — impossible de copier une ligne pendant que le
-   * flux tourne — et la position de DÉFILEMENT saute. Ici, seules les entrées
-   * nouvelles sont insérées en tête ; ce qui est affiché n'est jamais reconstruit.
-   *
-   * Un changement de filtre ou de recherche, lui, refait bien la liste : le jeu
-   * affiché change entièrement, il n'y a rien à préserver.
+   * Sans filtre, le jeu EST le tampon du modèle (aucune copie). Avec un filtre,
+   * une recherche ou après « vider », il est recalculé — seulement quand quelque
+   * chose a changé, et seulement panneau ouvert sur cet onglet (`render`) :
+   * barre fermée, le flux ne fait qu'entrer dans le tampon.
    */
   private renderFeed(feed: FeedLog[]): void {
-    const node = this.el.feed;
-    if (!node) return;
-    if (this.feedPaused) return;
+    const view = this.feedView;
+    if (!view || this.feedPaused) return;
+    const last = feed.at(-1)?.seq ?? 0;
     const refilter = this.feedDirty;
-    if (!refilter && feed.length === this.feedLen) return;
-    const previous = this.feedLen;
-    this.feedLen = feed.length;
+    if (!refilter && last === this.feedSeen) return;
+    const since = this.feedSeen;
+    this.feedSeen = last;
     this.feedDirty = false;
-
-    if (refilter) {
-      const rows: string[] = [];
-      for (let i = feed.length - 1; i >= 0; i--) {
-        const l = feed[i];
-        if (l !== undefined && this.feedMatch(l)) rows.push(this.feedRow(l));
+    const filtering =
+      this.feedSev !== "all" || this.feedQuery !== "" || this.feedCleared > 0;
+    const list = filtering
+      ? feed.filter((l) => l.seq > this.feedCleared && this.feedMatch(l))
+      : feed;
+    let appended = -1;
+    if (!refilter) {
+      appended = 0;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if ((list[i]?.seq ?? 0) <= since) break;
+        appended++;
       }
-      node.innerHTML =
-        rows.length === 0
-          ? `<div class="empty">${feed.length === 0 ? "en attente de logs…" : "aucune entrée ne correspond au filtre."}</div>`
-          : rows.join("");
-      return;
     }
-
-    // Le tampon du modèle est une fenêtre glissante : quand il déborde, les plus
-    // anciennes disparaissent et l'écart d'index ne suffit plus à savoir ce qui
-    // est neuf. On repart alors d'une liste complète — cas rare, borné.
-    const added = feed.length - previous;
-    if (previous < 0 || added < 0 || added > feed.length) {
-      this.feedDirty = true;
-      this.renderFeed(feed);
-      return;
-    }
-    if (added === 0) return;
-    let html = "";
-    for (let i = feed.length - 1; i >= feed.length - added; i--) {
-      const l = feed[i];
-      if (l !== undefined && this.feedMatch(l)) html += this.feedRow(l);
-    }
-    if (html === "") return;
-    const empty = node.querySelector(".empty");
-    if (empty) node.innerHTML = "";
-    node.insertAdjacentHTML("afterbegin", html);
-    // Fenêtre bornée à l'écran comme elle l'est en mémoire : sans cela le DOM
-    // croîtrait indéfiniment pendant une session longue.
-    while (node.childElementCount > FEED_MAX) node.lastElementChild?.remove();
+    const emptyText =
+      feed.length === 0
+        ? "en attente de journaux…"
+        : this.feedCleared > 0 && !this.feedQuery && this.feedSev === "all"
+          ? "liste vidée — les nouvelles entrées s'afficheront ici."
+          : "aucune entrée ne correspond au filtre.";
+    view.setEntries(list, appended, emptyText);
   }
 
   // ── Rendu Network ───────────────────────────────────────────────────────

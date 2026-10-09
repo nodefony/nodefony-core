@@ -118,12 +118,19 @@ disponibilité, cœurs, mémoire), et **ce que la barre garde sur ce navigateur*
 
 ## L'onglet Logs
 
-Chaque entrée affiche son heure, sa sévérité, son module, son message et — quand
-elle est connue — sa **requête** (`requestId`). C'est ce dernier champ qui fait la
+Un tableau à colonnes alignées — heure, niveau, module, message et, quand elle est
+connue, la **requête** (`requestId`). C'est ce dernier champ qui fait la
 différence : la même valeur relie ce journal à sa route, à ses requêtes de base de
-données et à sa réponse. Une entrée s'ouvre au clic (ou à `Entrée` au clavier)
-et montre son horodatage complet, sa catégorie, son worker et sa requête —
-de quoi coller une trace dans un ticket.
+données et à sa réponse. Les erreurs et alertes portent un filet coloré à gauche.
+Une entrée s'ouvre au clic (ou à `Entrée` au clavier) dans un **volet à côté** :
+horodatage complet, catégorie, worker, requête — de quoi coller une trace dans un
+ticket. Le volet s'ouvre à côté plutôt que dans la liste, qui ne bouge donc pas.
+
+**La plus récente est en haut**, visible sans défiler. Tant que la liste est
+tout en haut, elle suit le flux. Dès qu'on descend lire, elle **se fige** :
+ni les nouvelles qui arrivent au-dessus, ni les anciennes qui partent en dessous
+ne déplacent la ligne qu'on lit, et un bouton « ↑ N nouvelles » ramène au flux
+(`Début` au clavier fait de même).
 
 La barre d'outils permet de :
 
@@ -132,12 +139,21 @@ La barre d'outils permet de :
 - **chercher** dans le texte, le module, la catégorie ou la requête ;
 - **suspendre** l'affichage. Les entrées continuent d'arriver : à la reprise, la
   liste se recompose complète — une pause ne fait rien perdre ;
-- **copier** ce qui est affiché, **vider** la liste (sans rien effacer côté
-  serveur).
+- **copier** tout le jeu affiché (filtré), pas seulement l'écran ; **vider** la
+  liste (sans rien effacer côté serveur).
 
-La liste est mise à jour **en insérant** les nouvelles entrées, jamais en la
-reconstruisant : une sélection de texte survit à l'arrivée d'une ligne, et la
-position de défilement ne saute pas.
+### Ce que le journal coûte à l'application
+
+- **Mémoire** : 2 000 entrées au plus (`FEED_MAX`), taillées par lots — quelques
+  centaines de Ko. Au-delà, les plus anciennes partent.
+- **DOM** : une trentaine de lignes **quel que soit le nombre d'entrées**. Seules
+  les lignes visibles et une petite marge existent, et elles sont recyclées : à
+  l'arrivée d'une entrée on change leur texte, on ne reconstruit aucun HTML.
+  Mesuré sur la console d'administration en direct : 25 lignes dans le DOM.
+- **Rendu** : au plus une fois par image, positionné par `transform` (aucune
+  mise en page relancée). Panneau fermé ou onglet caché, rien n'est peint : le
+  flux ne fait qu'entrer dans le tampon. Et sans temps réel démarré, rien
+  n'arrive du tout.
 
 ## Ce que la barre garde sur votre navigateur
 
@@ -197,7 +213,7 @@ publication (`npm run size:check`).
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Entrée séparée**     | Un sous-chemin du paquet (`nodefony/debugbar`) importé à part. Ce qui n'est pas importé n'entre pas dans votre bundle.                                                                                         |
 | **`mountDebugBar`**    | La seule fonction à appeler (`index.ts:46`). Elle installe la barre et rend une poignée pour la piloter ou la retirer.                                                                                         |
-| **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:610`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
+| **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:648`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
 | **Options**            | Ce qu'on passe au montage (`DebugBarOptions`, `DebugBar.ts:138`) — l'adresse du socket, la position (`bottom` ou `top`), le panneau ouvert d'emblée, et l'interception réseau, qu'on peut refuser entièrement. |
 | **Charge utile**       | Ce que le serveur pousse : statistiques (`StatsPayload`, `model.ts:25`) et journaux (`LogEntry`, `model.ts:49`).                                                                                               |
 | **`requestId`**        | L'identifiant qu'une requête porte de bout en bout. C'est lui qui relie une ligne de journal à l'appel réseau qui l'a produite.                                                                                |
