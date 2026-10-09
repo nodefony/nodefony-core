@@ -722,7 +722,9 @@ useNodefonyChannel("live:salon", (m) =&gt; …)</code></pre>
             <button class="counter" @click="triggerIncident()">
               Provoquer un incident
             </button>
-            <p v-if="incidentNote" class="hint" role="status">{{ incidentNote }}</p>
+            <p v-if="incidentNote" class="hint" role="status">
+              {{ incidentNote }}
+            </p>
             <p class="hint">
               La remontée exige une session : le canal n'accepte pas les
               connexions anonymes. Connectez-vous à la console d'administration
