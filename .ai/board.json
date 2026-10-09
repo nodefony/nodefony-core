@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T11:32:07.856Z",
+  "generatedAt": "2026-10-09T12:54:33.240Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 96,
+      "closed": 97,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 49,
@@ -2393,12 +2393,28 @@
       "number": 560,
       "title": "feat(client): adapter NodefonySse à React, Vue, Svelte et Angular",
       "url": "https://github.com/nodefony/nodefony-core/issues/560",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.607,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 576,
+      "title": "feat(client): rendre le noyau client accessible aux composants",
+      "url": "https://github.com/nodefony/nodefony-core/issues/576",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.608,
       "debut": null,
       "cible": null,
       "labels": [

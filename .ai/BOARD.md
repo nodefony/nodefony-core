@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-09 11:32** (UTC).
+> Empreinte prise le **2026-10-09 12:54** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 66% | 96 | 49 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 66% | 97 | 49 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 32 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -62,7 +62,7 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | 3.585 | P1 — figé à la création | 1 | — | #547 | feat(security): servir une page de connexion par défaut, sans front |
 | 3.59 | P1 — figé à la création | 0.5 | — | #548 | fix(security): conduire un visiteur anonyme à la page de connexion |
 | 3.595 | P2 — décision | 1 | — | #549 | refactor(studio): passer la connexion de la console sur le déroulé partagé |
-| 3.607 | P2 — décision | 1 | — | #560 | feat(client): adapter NodefonySse à React, Vue, Svelte et Angular |
+| 3.608 | P1 — figé à la création | 1 | — | #576 | feat(client): rendre le noyau client accessible aux composants |
 | 3.63 | P3 — fin de cycle | 0.5 | — | #562 | fix(http): ne plus annoncer de type sur une réponse sans corps |
 | 3.64 | P2 — décision | 0.5 | — | #563 | feat(security): poser un jeton d'agent valable 8 h par défaut |
 | 3.91 | P2 — décision | 0.5 | — | #551 | fix(mcp): ne plus renvoyer le message brut d'un outil qui échoue |
