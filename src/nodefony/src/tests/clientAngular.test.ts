@@ -56,7 +56,7 @@ import {
   provideNodefony,
 } from "../client/angular/index";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
-import { createClientKernel } from "../client/ClientKernel";
+import { NodefonyKernel } from "../client/NodefonyKernel";
 
 /** L'adresse du banc — jamais atteinte : le transport est un mock. */
 const URL_BANC = "ws://loopback/realtime";
@@ -427,7 +427,7 @@ describe("injectNodefonySse — Angular", () => {
 
 describe("noyau client — Angular", () => {
   function noyau() {
-    return createClientKernel({
+    return new NodefonyKernel({
       realtime: newClient(),
       browserEvents: false,
       banner: false,

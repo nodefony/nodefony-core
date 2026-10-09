@@ -193,7 +193,7 @@ export const DEFAULT_EXCEPTIONS = [
     reason: "même contrat de données que `LANCER` ci-dessus.",
   },
   {
-    path: "src/nodefony/src/client/ClientKernel.ts",
+    path: "src/nodefony/src/client/NodefonyKernel.ts",
     identifier: "valeur",
     reason:
       "LIBELLÉ affiché : le tableau composé ici part dans `console.table` " +
@@ -205,7 +205,7 @@ export const DEFAULT_EXCEPTIONS = [
   {
     path: "src/nodefony/src/client/realtime/NodefonySocket.ts",
     identifier: "valeur",
-    reason: "même table de console que `ClientKernel.ts` ci-dessus.",
+    reason: "même table de console que `NodefonyKernel.ts` ci-dessus.",
   },
   {
     path: "src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/probes.mjs",

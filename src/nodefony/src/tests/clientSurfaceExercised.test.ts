@@ -8,7 +8,8 @@
  * publiée est une promesse » (ADR-0007 D2). Or un contrat que **personne
  * n'exerce** n'a jamais été confronté au compilateur : ses trous ne se voient
  * pas, et la publication les grave pour toute la série majeure. C'est ce qui est
- * arrivé à `IClientKernel`, publié types-only sans une seule implémentation :
+ * arrivé au contrat du noyau client (`INodefonyKernel`, alors `IClientKernel`),
+ * publié types-only sans une seule implémentation :
  * son registre ne pouvait pas nourrir `NodefonyProvider`, et il ne savait pas
  * exprimer le re-handshake d'identité de sa propre décision D9. Deux défauts
  * qu'un unique `implements` aurait fait tomber à la compilation.

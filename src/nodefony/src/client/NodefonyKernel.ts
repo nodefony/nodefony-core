@@ -1,5 +1,5 @@
 /**
- * `ClientKernel` — implémentation du kernel client isomorphe (ADR-0007).
+ * `NodefonyKernel` — implémentation du kernel client isomorphe (ADR-0007).
  *
  * Le pendant navigateur du `Kernel` serveur : il compose les services techniques
  * d'une application front, porte son cycle de vie, son observabilité et son cycle
@@ -10,7 +10,7 @@
  * s'est décidé au compilateur : `Service.get`/`set` sont la façade du container
  * d'injection, dont la sémantique est « n'importe quel objet sous n'importe quel
  * nom » (`get<T>(name: string): T | null`), tandis que le registre du kernel est
- * **typé et fermé** par le contrat (`get(name): NodefonyClientServices[K]`).
+ * **typé et fermé** par le contrat (`get(name): NodefonyKernelServices[K]`).
  * Hériter revenait à resserrer une méthode publique de la classe de base — TS2416,
  * et le refus dit une vérité de conception : deux mécanismes différents portaient
  * le même nom. La composition garde les briques isomorphes du cœur (bus
@@ -26,33 +26,41 @@ import type Syslog from "../syslog/Syslog";
 import { NodefonySocket } from "./realtime/NodefonySocket";
 import { announceKernel, consoleDetails, isVerbose } from "./announce";
 import type {
-  ClientIdentity,
-  ClientKernelEvent,
-  ClientKernelOptions,
-  ClientKernelState,
-  IClientKernel,
-  NodefonyClientServices,
-} from "./IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelEvent,
+  NodefonyKernelOptions,
+  NodefonyKernelState,
+  INodefonyKernel,
+  NodefonyKernelServices,
+} from "./INodefonyKernel";
 
 /** Un débranchement de listener navigateur, mémorisé pour être défait. */
 type Unbind = () => void;
 
 /**
- * Kernel client — obtenu par {@link createClientKernel}, jamais construit en
- * singleton de module (testabilité, HMR-safe : un module réévalué par Vite
- * dédoublerait un singleton, gotcha vécu sur le contexte React de Studio).
+ * Kernel client — se construit par `new`, comme {@link NodefonySocket} et
+ * `NodefonySse` : jamais un singleton de module (testabilité, HMR-safe : un
+ * module réévalué par Vite dédoublerait un singleton, gotcha vécu sur le
+ * contexte React de Studio), et plusieurs kernels coexistent en test.
+ *
+ * @example
+ * ```typescript
+ * const kernel = new NodefonyKernel({ realtime: { url: "/nodefony/realtime" } });
+ * await kernel.boot();
+ * kernel.setIdentity({ key: user.id });
+ * ```
  */
-export class ClientKernel implements IClientKernel {
+export class NodefonyKernel implements INodefonyKernel {
   /** Journal client de série — `Pdu` isomorphes, corrélables au back. */
   readonly syslog: Syslog;
 
   /** Bus d'événements et journal du cœur — la brique isomorphe, pas une copie. */
   readonly #service: Service;
   /** Options de composition, relues au `boot()` — le constructeur ne connecte rien. */
-  readonly #options: ClientKernelOptions;
+  readonly #options: NodefonyKernelOptions;
 
-  #state: ClientKernelState = "created";
-  #identity: ClientIdentity | null = null;
+  #state: NodefonyKernelState = "created";
+  #identity: NodefonyKernelIdentity | null = null;
   /**
    * Promesse du `boot()` en cours — c'est ELLE qui rend l'appel idempotent, y
    * compris pour deux appels concurrents : le second attend le premier au lieu
@@ -73,7 +81,7 @@ export class ClientKernel implements IClientKernel {
   /** Retire le handle de console — posé par la bannière, libéré à la mort. */
   #disposeHandle: Unbind | null = null;
 
-  constructor(options: ClientKernelOptions = {}) {
+  constructor(options: NodefonyKernelOptions = {}) {
     this.#options = options;
     // `Service` fabrique son propre `Syslog` quand aucun container ne lui en
     // fournit : le journal du kernel est donc celui du cœur, pas un doublon.
@@ -103,17 +111,17 @@ export class ClientKernel implements IClientKernel {
    * `NodefonySocket | undefined` et nourrit `<NodefonyProvider client={…}>` sans
    * la moindre conversion de type forcée.
    */
-  get<K extends keyof NodefonyClientServices>(
+  get<K extends keyof NodefonyKernelServices>(
     name: K,
-  ): NodefonyClientServices[K] | undefined {
+  ): NodefonyKernelServices[K] | undefined {
     if (!this.#services) return undefined;
-    return this.#services[name as string] as NodefonyClientServices[K];
+    return this.#services[name as string] as NodefonyKernelServices[K];
   }
 
   /** Enregistre un service sous son nom contractuel. */
-  set<K extends keyof NodefonyClientServices>(
+  set<K extends keyof NodefonyKernelServices>(
     name: K,
-    svc: NodefonyClientServices[K],
+    svc: NodefonyKernelServices[K],
   ): void {
     (this.#services ??= Object.create(null) as Record<string, unknown>)[
       name as string
@@ -128,7 +136,7 @@ export class ClientKernel implements IClientKernel {
   // ── Lifecycle (D5) ─────────────────────────────────────────────────────────
 
   /** État courant — jamais régressif. */
-  get state(): ClientKernelState {
+  get state(): NodefonyKernelState {
     return this.#state;
   }
 
@@ -149,7 +157,7 @@ export class ClientKernel implements IClientKernel {
   async #doBoot(): Promise<void> {
     // Élargi : sans cela TS garde `"booting"` rétréci à travers le `await`,
     // alors que `terminate()` peut changer l'état pendant la connexion.
-    this.#state = "booting" as ClientKernelState;
+    this.#state = "booting" as NodefonyKernelState;
     this.#service.fire("onBoot", this);
     this.#bindBrowser();
     const socket =
@@ -256,7 +264,7 @@ export class ClientKernel implements IClientKernel {
   }
 
   /** Identité runtime courante, telle que l'application l'a déclarée. */
-  get identity(): ClientIdentity | null {
+  get identity(): NodefonyKernelIdentity | null {
     return this.#identity;
   }
 
@@ -279,7 +287,7 @@ export class ClientKernel implements IClientKernel {
    * Une clé inchangée n'est pas un changement de compte : le profil est rafraîchi
    * en silence, sans toucher à la socket ni réveiller l'application.
    */
-  setIdentity(identity: ClientIdentity | null): void {
+  setIdentity(identity: NodefonyKernelIdentity | null): void {
     const previous = this.#identity;
     const previousKey = previous ? previous.key : null;
     const key = identity ? identity.key : null;
@@ -303,7 +311,7 @@ export class ClientKernel implements IClientKernel {
    * Sans effet sur un kernel terminé : il n'émettra plus rien, et son bus a été
    * détaché par `terminate()` — l'atteindre lèverait.
    */
-  on(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this {
+  on(event: NodefonyKernelEvent, handler: (...args: unknown[]) => void): this {
     if (this.#state === "terminated") return this;
     this.#service.on(event, handler);
     return this;
@@ -315,7 +323,7 @@ export class ClientKernel implements IClientKernel {
    * Sans effet sur un kernel terminé : `terminate()` a déjà retiré tous les
    * handlers, et un composant démonté après le `pagehide` ne doit pas lever.
    */
-  off(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this {
+  off(event: NodefonyKernelEvent, handler: (...args: unknown[]) => void): this {
     if (this.#state === "terminated") return this;
     this.#service.removeListener(event, handler);
     return this;
@@ -370,24 +378,3 @@ export class ClientKernel implements IClientKernel {
     return this.#unbind ? this.#unbind.length : 0;
   }
 }
-
-/**
- * Fabrique un kernel client.
- *
- * Factory et non singleton : plusieurs kernels doivent pouvoir coexister en test,
- * et un état de module global se dédouble sous le rechargement à chaud de Vite.
- *
- * @example
- * ```typescript
- * const kernel = createClientKernel({ realtime: { url: "/nodefony/realtime" } });
- * await kernel.boot();
- * kernel.setIdentity({ key: user.id });
- * ```
- */
-export function createClientKernel(
-  options: ClientKernelOptions = {},
-): ClientKernel {
-  return new ClientKernel(options);
-}
-
-export default ClientKernel;

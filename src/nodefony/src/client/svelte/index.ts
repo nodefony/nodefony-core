@@ -80,10 +80,10 @@ import type {
 } from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 import type {
-  ClientIdentity,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 import {
   adaptiveRebindKey,
   connectShared,
@@ -130,10 +130,10 @@ export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
 export type {
-  ClientIdentity,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 
 /**
  * Une valeur réactive à la mode de Svelte 5 : on la lit `.current`.
@@ -156,7 +156,7 @@ export interface NodefonySvelteOptions {
    * touché : c'est le noyau qui ouvre sa socket (`connectOnBoot`,
    * `setIdentity`).
    */
-  kernel?: IClientKernel;
+  kernel?: INodefonyKernel;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. La socket partagée de cette
    * URL est fabriquée et connectée.
@@ -176,7 +176,7 @@ export interface NodefonySvelteOptions {
 /** La socket de la page, posée par {@link configureNodefony}. */
 let pageSocket: NodefonySocket | null = null;
 /** Le noyau de la page, posé par {@link configureNodefony} quand il est fourni. */
-let pageKernel: IClientKernel | null = null;
+let pageKernel: INodefonyKernel | null = null;
 
 /**
  * Installe la politique temps réel de l'application — à appeler UNE fois, dans
@@ -308,7 +308,7 @@ export function nodefonyIdentity(): Reactive<RealtimeIdentity | null> {
  * C'est la porte d'un composant profond vers `kernel.setIdentity()` : déclarer
  * une connexion sans que l'application exporte son noyau elle-même.
  */
-export function nodefonyKernel(): IClientKernel | null {
+export function nodefonyKernel(): INodefonyKernel | null {
   return pageKernel;
 }
 
@@ -319,10 +319,10 @@ const noKernel: Reactive<null> = { current: null };
  * `nodefonyKernelState()` — l'état du noyau (`created` → `booting` → `ready` →
  * `terminated`), ou `null` sans noyau fourni. Abonnement paresseux.
  */
-export function nodefonyKernelState(): Reactive<ClientKernelState | null> {
+export function nodefonyKernelState(): Reactive<NodefonyKernelState | null> {
   const kernel = nodefonyKernel();
   if (!kernel) return noKernel;
-  return observedValue<ClientKernelState | null>(kernel.state, (emit) =>
+  return observedValue<NodefonyKernelState | null>(kernel.state, (emit) =>
     observeKernelState(kernel, emit),
   );
 }
@@ -336,10 +336,10 @@ export function nodefonyKernelState(): Reactive<ClientKernelState | null> {
  * À ne pas confondre avec {@link nodefonyIdentity}, l'identité RÉSOLUE par le
  * serveur au welcome de la socket.
  */
-export function nodefonyKernelIdentity(): Reactive<ClientIdentity | null> {
+export function nodefonyKernelIdentity(): Reactive<NodefonyKernelIdentity | null> {
   const kernel = nodefonyKernel();
   if (!kernel) return noKernel;
-  return observedValue<ClientIdentity | null>(kernel.identity, (emit) =>
+  return observedValue<NodefonyKernelIdentity | null>(kernel.identity, (emit) =>
     observeKernelIdentity(kernel, emit),
   );
 }

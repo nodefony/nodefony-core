@@ -45,7 +45,7 @@ import {
   nodefonyState,
 } from "../client/svelte/index";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
-import { createClientKernel } from "../client/ClientKernel";
+import { NodefonyKernel } from "../client/NodefonyKernel";
 import LitValeur from "./fixtures/LitValeur.svelte";
 import NeLitRien from "./fixtures/NeLitRien.svelte";
 import CanalMobile from "./fixtures/CanalMobile.svelte";
@@ -394,7 +394,7 @@ describe("nodefonySse — Svelte", () => {
 
 describe("noyau client — Svelte", () => {
   function noyau() {
-    return createClientKernel({
+    return new NodefonyKernel({
       realtime: newClient(),
       browserEvents: false,
       banner: false,

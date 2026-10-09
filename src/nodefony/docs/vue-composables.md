@@ -87,7 +87,7 @@ c'est la même garantie, dite dans la langue du framework.**
 1. **Le client n'entre jamais dans un `ref()`.** Il serait enveloppé dans un proxy réactif profond :
    ses égalités de référence internes casseraient, et chaque accès paierait une interception — pour
    une réactivité dont il n'a aucun besoin, ses changements passant par ses propres `on*`. Le plugin
-   le pose `markRaw` (`src/nodefony/src/client/vue/index.ts:155`), et un test le vérifie
+   le pose `markRaw` (`src/nodefony/src/client/vue/index.ts:200`), et un test le vérifie
    (`isReactive(useNodefony()) === false`).
 2. **La libération passe par `onScopeDispose`**, jamais par `onUnmounted` seul : c'est le seul des
    deux qui couvre aussi une portée créée hors composant (`effectScope()`). Un abonnement qui fuit
@@ -158,6 +158,14 @@ libération et n'en oublier aucune.
 app.use(nodefonyVue, { client: maSocket });
 ```
 
+Et quand l'application a un **noyau client**, c'est lui qu'on passe : le plugin prend la socket
+qu'il a composée sans toucher à son cycle, et le rend lisible par `useNodefonyKernel()`. `kernel`
+l'emporte sur `client` et `url` ; le noyau est décrit dans [le client isomorphe](./client.md#-nodefonykernel--le-noyau-client-et-ses-quatre-liaisons).
+
+```ts
+app.use(nodefonyVue, { kernel });
+```
+
 ### 4. Un canal qui change
 
 ```ts
@@ -172,27 +180,32 @@ const messages = useNodefonyChannelData<Message>(() => salle.value);
 Tous rendent une `Ref` en lecture — on lit `.value` (ou rien du tout dans un template, Vue
 déballe). La socket, elle, n'est pas réactive : c'est un objet, pas un état.
 
-| Composable                             | Rend                            | À quoi ça sert                                               |
-| -------------------------------------- | ------------------------------- | ------------------------------------------------------------ |
-| `nodefonyVue`                          | —                               | le plugin : fournit la socket et lance la connexion          |
-| `useNodefony()`                        | `NodefonySocket`                | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
-| `useNodefonyState()`                   | `Readonly<Ref<RealtimeState>>`  | afficher l'état, griser un bouton pendant une reconnexion    |
-| `useNodefonyIdentity()`                | `Ref<RealtimeIdentity \| null>` | savoir qui est connecté — sans appeler `/auth/me`            |
-| `useNodefonyChannel(canal, onMessage)` | —                               | réagir à chaque message (journal, son, animation)            |
-| `useNodefonyChannelData<T>(canal)`     | `Ref<T \| null>`                | la dernière valeur — le cas le plus courant                  |
-| `useNodefonyAdaptiveChannel(…)`        | `Ref<number>`                   | même chose, en cadence auto-ajustée ; rend la cadence        |
-| `useNodefonyAdaptiveChannelData<T>(…)` | `{ data, intervalMs }`          | la dernière valeur **et** la cadence                         |
-| `useNodefonyChannelStats(canal)`       | `Ref<MessageStats \| null>`     | débit et série d'un canal, pour un VU-mètre                  |
-| `useNodefonySnapshot()`                | `Ref<SocketSnapshot \| null>`   | ce que la socket sait d'elle-même : canaux, trames, dernière |
-| `useNodefonySyslog(opts?)`             | `Ref<unknown[]>`                | le flux de journal, anneau borné et filtre de sévérité       |
-| `useNodefonyNotifications(onNotice)`   | —                               | les notices normalisées — à monter **une seule fois**        |
-| `useNodefonyNoticeLog(opts?)`          | `Ref<NodefonyNotice[]>`         | l'historique borné des incidents                             |
+| Composable                             | Rend                                  | À quoi ça sert                                               |
+| -------------------------------------- | ------------------------------------- | ------------------------------------------------------------ |
+| `nodefonyVue`                          | —                                     | le plugin : fournit la socket et lance la connexion          |
+| `useNodefony()`                        | `NodefonySocket`                      | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `useNodefonyState()`                   | `Readonly<Ref<RealtimeState>>`        | afficher l'état, griser un bouton pendant une reconnexion    |
+| `useNodefonyIdentity()`                | `Ref<RealtimeIdentity \| null>`       | savoir qui est connecté — sans appeler `/auth/me`            |
+| `useNodefonyKernel()`                  | `INodefonyKernel \| null`             | le noyau fourni au plugin — la porte vers `setIdentity()`    |
+| `useNodefonyKernelState()`             | `Ref<NodefonyKernelState \| null>`    | le cycle du noyau : `created` → … → `terminated`             |
+| `useNodefonyKernelIdentity()`          | `Ref<NodefonyKernelIdentity \| null>` | l'identité DÉCLARÉE, suivie par compte                       |
+| `useNodefonyChannel(canal, onMessage)` | —                                     | réagir à chaque message (journal, son, animation)            |
+| `useNodefonyChannelData<T>(canal)`     | `Ref<T \| null>`                      | la dernière valeur — le cas le plus courant                  |
+| `useNodefonyAdaptiveChannel(…)`        | `Ref<number>`                         | même chose, en cadence auto-ajustée ; rend la cadence        |
+| `useNodefonyAdaptiveChannelData<T>(…)` | `{ data, intervalMs }`                | la dernière valeur **et** la cadence                         |
+| `useNodefonyChannelStats(canal)`       | `Ref<MessageStats \| null>`           | débit et série d'un canal, pour un VU-mètre                  |
+| `useNodefonySnapshot()`                | `Ref<SocketSnapshot \| null>`         | ce que la socket sait d'elle-même : canaux, trames, dernière |
+| `useNodefonySyslog(opts?)`             | `Ref<unknown[]>`                      | le flux de journal, anneau borné et filtre de sévérité       |
+| `useNodefonyNotifications(onNotice)`   | —                                     | les notices normalisées — à monter **une seule fois**        |
+| `useNodefonyNoticeLog(opts?)`          | `Ref<NodefonyNotice[]>`               | l'historique borné des incidents                             |
 
 La déclaration de chacun se lit dans `src/nodefony/src/client/vue/index.ts:179` et suivantes.
 
 Sont aussi réexportés depuis ce subpath : `rateChannel`, `parseRate`, `isRateChannel` (fabriquer un
 nom de canal cadencé), et les types `RealtimeIdentity`, `RealtimeState`, `NodefonyNotice`,
-`SocketSnapshot` — pour qu'un composant puisse **nommer** ce qu'il reçoit.
+`SocketSnapshot`, `INodefonyKernel`, `NodefonyKernelState`, `NodefonyKernelIdentity` — pour qu'un
+composant puisse **nommer** ce qu'il reçoit. `nodefonyKernelKey` est la clé sous laquelle le plugin
+fournit le noyau.
 
 Les arguments « canal » et « cadence » acceptent une valeur, une `ref` ou une fonction : l'abonnement
 suit, sans liste de dépendances.

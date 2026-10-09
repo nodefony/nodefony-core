@@ -401,7 +401,7 @@ adresser une requête et attendre son résultat. C'est le duplex réel, pas seul
 
 `socketSnapshot()` (`client/realtime/snapshot.ts:80`) lit l'état de la socket sans émettre une
 trame : adresse, état, identité, canaux tenus, canaux et actions annoncés à l'accueil, trames
-reçues. `observeSnapshot()` (`client/realtime/observe.ts:314`) le pousse à chaque échantillon, à
+reçues. `observeSnapshot()` (`client/realtime/observe.ts:396`) le pousse à chaque échantillon, à
 chaque changement d'état et à chaque accueil — c'est ce dernier qui apporte l'identité, après le
 passage à « connecté ».
 
@@ -588,9 +588,77 @@ readonly flux = injectNodefonySse("/progress/run", {
 ```
 
 Deux écarts entre les fronts, et ce sont ceux de la socket. **Angular ouvre le flux hors zone**
-(`client/angular/index.ts:599`) : avec `zone.js`, chaque morceau lu par `fetch` relancerait une
+(`client/angular/index.ts:692`) : avec `zone.js`, chaque morceau lu par `fetch` relancerait une
 détection de changements globale. **Svelte est paresseux** : une valeur créée mais jamais lue
 n'ouvre aucun flux, et `onEvent` ne court que tant qu'elle est affichée.
+
+## 🧠 `NodefonyKernel` — le noyau client, et ses quatre liaisons
+
+La socket parle au serveur ; le noyau tient l'application. `NodefonyKernel`
+(`client/NodefonyKernel.ts:53`) compose les services techniques d'une application front — la
+socket, le journal, le cycle d'identité — et porte leur cycle de vie dans le navigateur. Il ne
+possède jamais le rendu, le routage ni l'état métier : React, Vue, Angular et Svelte restent
+maîtres de la vue. Il se construit par `new`, comme `NodefonySocket` et `NodefonySse` — jamais un
+singleton de module, qu'un rechargement à chaud dédoublerait.
+
+```ts ignore
+import { NodefonyKernel } from "nodefony/client";
+
+const kernel = new NodefonyKernel({
+  connectOnBoot: false, // socket authentifiée : elle s'ouvre au login
+  realtime: { url: "/api/live/realtime" },
+});
+await kernel.boot();
+kernel.setIdentity({ key: user.id }); // ouvre la socket, ou la renégocie au changement de compte
+```
+
+`setIdentity()` porte une règle de sécurité : sur un **vrai** changement de compte, et lui seul, le
+noyau coupe la socket et en rouvre une — sans cela le pont `api.request` rejouerait des requêtes
+avec le jeton du compte précédent. Une clé inchangée (profil rafraîchi) ne touche à rien. Le
+contrat complet est `INodefonyKernel` (`client/INodefonyKernel.ts:173`) ; le registre de services
+`NodefonyKernelServices` (`client/INodefonyKernel.ts:101`) s'étend par augmentation de module,
+comme le registre de configuration côté serveur. L'ADR-0007 en donne les décisions.
+
+**Un composant profond doit pouvoir l'atteindre** — déclarer une connexion, lire l'état du noyau,
+suivre l'identité — sans que l'application écrive son propre contexte. C'est le rôle de la
+troisième source des fournisseurs, `kernel`, à côté de `client` et `url`. La socket se prend alors
+dans `kernel.get("realtime")`, et **son cycle reste au noyau** : le fournisseur ne l'ouvre ni ne la
+ferme. La précédence `kernel` > `client` > `url` s'écrit une fois, dans `connectShared()`
+(`client/realtime/observe.ts:143`) ; un noyau composé sans socket (`realtime: false`) cède la place
+à `client`, puis à `url`.
+
+| Front   | Fournir                              | Lire le noyau            | Son état                         | Son identité                        |
+| ------- | ------------------------------------ | ------------------------ | -------------------------------- | ----------------------------------- |
+| React   | `<NodefonyProvider kernel={kernel}>` | `useNodefonyKernel()`    | `useNodefonyKernelState()`       | `useNodefonyKernelIdentity()`       |
+| Vue     | `app.use(nodefonyVue, { kernel })`   | `useNodefonyKernel()`    | `useNodefonyKernelState()` (ref) | `useNodefonyKernelIdentity()` (ref) |
+| Angular | `provideNodefony({ kernel })`        | `injectNodefonyKernel()` | `injectNodefonyKernelState()`    | `injectNodefonyKernelIdentity()`    |
+| Svelte  | `configureNodefony({ kernel })`      | `nodefonyKernel()`       | `nodefonyKernelState()`          | `nodefonyKernelIdentity()`          |
+
+Sans noyau fourni, les trois rendent `null` — une application qui n'en compose pas n'a rien à
+changer. L'état suit le cycle `created` → `booting` → `ready` → `terminated` ; l'identité est celle
+que l'application a DÉCLARÉE par `setIdentity()`, et elle suit les changements de **compte**, pas
+de profil. Ne pas la confondre avec `useNodefonyIdentity()`, l'identité RÉSOLUE par le serveur au
+welcome de la socket. Toutes s'appuient sur `observeKernelState()` et `observeKernelIdentity()`
+(`client/realtime/observe.ts:263`), et libèrent leurs écouteurs au démontage — y compris après un
+`terminate()`, sur lequel `on` et `off` sont inertes.
+
+```tsx ignore
+// React — un bouton de déconnexion, n'importe où sous le fournisseur
+function Deconnexion() {
+  const kernel = useNodefonyKernel();
+  const identite = useNodefonyKernelIdentity();
+  if (!kernel || !identite) return null;
+  return (
+    <button onClick={() => kernel.setIdentity(null)}>
+      Quitter {identite.key}
+    </button>
+  );
+}
+```
+
+Les vitrines de démonstration restent **sans** noyau, par décision (ADR-0007 D7) : un noyau vide n'y
+démontrerait rien. La console d'administration est son premier consommateur réel — elle passe
+`kernel={rootStore.kernel}` à son fournisseur.
 
 ## 🔐 Les rôles isomorphes — de l'ergonomie, jamais une garantie
 
@@ -655,19 +723,6 @@ Tu ne les importes jamais — ils sont substitués au moment du build. Leur seul
 savoir **où sont les limites** : ce sont des shims, pas des implémentations complètes. Le shim
 d'événements ne distingue pas un écouteur « une fois » d'un écouteur ordinaire, et ne gère pas
 l'événement `error` spécial de Node.
-
-### Le kernel client
-
-`IClientKernel` (`client/IClientKernel.ts:172`) décrit le futur chef d'orchestre de la couche
-technique d'une application front : composition de services, cycle de vie navigateur, changement
-d'identité. Le registre de services `NodefonyClientServices` (`client/IClientKernel.ts:100`) s'étend
-par augmentation de module, comme le registre de configuration côté serveur.
-
-`ClientKernel` et `createClientKernel` sont publiés par `nodefony/client`, avec les types
-`IClientKernel`, `ClientKernelOptions`, `ClientKernelState`, `ClientKernelEvent`, `ClientIdentity` et
-`NodefonyClientServices` (`client/index.ts:106`). Le noyau compose les services techniques d'une
-application front (socket, journal, cycle d'identité) sans posséder le rendu, le routage ni l'état
-métier ; Studio compose les siens par lui. L'ADR-0007 en donne les onze décisions.
 
 ## 🏗️ Comment la lib arrive dans ton bundle
 

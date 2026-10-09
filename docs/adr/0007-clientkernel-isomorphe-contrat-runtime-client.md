@@ -1,8 +1,8 @@
 ---
 adr: 7
-title: ClientKernel isomorphe — geler le contrat runtime client du framework (design only)
+title: NodefonyKernel isomorphe — geler le contrat runtime client du framework (design only)
 lang: fr
-navTitle: ClientKernel isomorphe
+navTitle: NodefonyKernel isomorphe
 date: 2026-07-03
 status: accepted
 deciders: [Christophe CAMENSULI]
@@ -19,7 +19,7 @@ tags:
   ]
 ---
 
-# ADR-0007 — ClientKernel isomorphe : geler le contrat runtime client (design only, implémentation Phase 3.2)
+# ADR-0007 — NodefonyKernel isomorphe : geler le contrat runtime client (design only, implémentation Phase 3.2)
 
 ## Statut
 
@@ -27,6 +27,22 @@ Accepté (2026-07-03). **Design only** : cet ADR gèle le **contrat** (nom, pér
 budgets, invariants) qui sera publié avec `nodefony@10.0.0`. **L'implémentation est différée en
 Phase 3.2 post-MVP**. Comme l'ADR-0006, ce document EST la spécification à respecter le jour de
 l'implémentation.
+
+**Révision du 2026-10-09 — le noyau prend son nom de famille, et entre dans les composants.**
+Le noyau s'appelle désormais **`NodefonyKernel`** (`src/nodefony/src/client/NodefonyKernel.ts`), comme
+`NodefonySocket` et `NodefonySse` : la référence du framework porte son nom, pas un préfixe
+`Client` qu'aucune autre brique n'emploie. Toute la famille suit — `INodefonyKernel`,
+`NodefonyKernelOptions`, `NodefonyKernelState`, `NodefonyKernelEvent`, `NodefonyKernelIdentity`,
+`NodefonyKernelServices` (registre augmentable) — et la fabrique `createClientKernel` disparaît :
+elle ne faisait que `return new`, et une seule façon de construire vaut mieux que deux. Pas de
+période de dépréciation : rien de tout cela n'a encore été publié. Les révisions datées ci-dessous
+gardent les noms de leur époque.
+Dans le même geste (#576), **D2 gagne `off()`** — sans lui, une liaison de vue ne pouvait pas
+suivre le noyau sans fuir un écouteur par montage — et `on`/`off` deviennent inertes sur un noyau
+terminé. Les quatre fournisseurs acceptent une troisième source, `kernel`, qui l'emporte sur
+`client` et `url` (règle écrite une fois, dans `connectShared`), et chaque front lit le noyau, son
+état et son identité déclarée (`useNodefonyKernel*`, `injectNodefonyKernel*`, `nodefonyKernel*`).
+**D7 est inchangé** : les vitrines restent nues, et leur verrou cherche désormais `NodefonyKernel`.
 
 **Révision du 2026-09-01 — l'opt-in strict porte sur la COMPOSITION, pas sur le DIAGNOSTIC.**
 D7 est précisé (voir sa section) : les quatre vitrines restent nues, décision confirmée, et ce qui
@@ -53,7 +69,7 @@ ouverte 1,1 s après le login, `realtime:welcome` reçu, 12 requêtes du pont po
 erreur de console et zéro réponse HTTP ≥ 400.
 
 **Révision du 2026-08-31 — l'implémentation a démenti trois points du contrat.**
-`ClientKernel` existe (`src/nodefony/src/client/ClientKernel.ts`), et l'exercice par le compilateur
+`ClientKernel` existe (`src/nodefony/src/client/ClientKernel.ts`, aujourd'hui `NodefonyKernel.ts`), et l'exercice par le compilateur
 a fait tomber ce qu'aucune relecture n'avait vu — c'est très exactement ce que la révision
 précédente annonçait. Trois corrections, détaillées sous D2 : le registre typé sur la **classe**
 `NodefonySocket` ; une porte d'entrée pour l'identité (`setIdentity`), sans quoi **D9 restait
@@ -133,13 +149,14 @@ document ; après, une major.
 
 ## Décision
 
-> Nommage : **`ClientKernel`** (classe), **`IClientKernel`** (contrat), conventions `I*` du repo.
+> Nommage : **`NodefonyKernel`** (classe), **`INodefonyKernel`** (contrat), conventions `I*` du repo —
+> la famille `Nodefony*` de `NodefonySocket` et `NodefonySse`. Construit par `new`, sans fabrique.
 > Le terme « kernel » est assumé : c'est le **même modèle mental** que le back — un chef
 > d'orchestre de la couche technique — appliqué au navigateur. L'isomorphisme de Nodefony n'est
 > pas « le même code partout », c'est **« le même modèle mental partout, le même code quand c'est
 > pertinent »**.
 
-### D1 — Périmètre fermé : le ClientKernel possède l'INFRA, jamais la VUE
+### D1 — Périmètre fermé : le NodefonyKernel possède l'INFRA, jamais la VUE
 
 **Il possède** (liste fermée) :
 
@@ -158,13 +175,13 @@ deviennent des **adaptateurs minces** au-dessus des services du kernel. Un frame
 possède le rendu se bat contre React — ligne rouge. Sont exclus aussi, par définition : routeur
 HTTP, firewall, ORM, serveurs — ces concepts n'existent pas dans un navigateur.
 
-### D2 — Contrat d'abord : `IClientKernel` publié types-only en 10.0.0, implémentation différée
+### D2 — Contrat d'abord : `INodefonyKernel` publié types-only en 10.0.0, implémentation différée
 
 > **Révisé le 2026-08-27 — le contrat N'est PAS publié en 10.0.0.** La décision ci-dessous tient
 > par son intention (spécifier avant d'implémenter) mais pas par son geste : elle a mis sur npm un
 > contrat que **rien n'exerçait**. Le précédent qu'elle invoque — `IRealtimeSocket`, publié avant
 > que le hub serveur ne soit complet — ne s'applique pas : celui-là avait `NodefonySocket` pour
-> l'implémenter, donc le compilateur l'a vérifié dès le premier jour. `IClientKernel` n'a jamais eu
+> l'implémenter, donc le compilateur l'a vérifié dès le premier jour. `INodefonyKernel` n'a jamais eu
 > ce garde-fou, et il portait déjà deux défauts qu'une implémentation aurait fait tomber : son
 > registre (`realtime?: IRealtimeSocket`) ne pouvait pas nourrir `NodefonyProvider`, qui exige la
 > classe `NodefonySocket` ; et `IRealtimeSocket` n'ayant ni `connect`, ni `disconnect`, ni `state`,
@@ -179,7 +196,7 @@ HTTP, firewall, ORM, serveurs — ces concepts n'existent pas dans un navigateur
 > Gardé par `src/nodefony/src/tests/clientSurfaceExercised.test.ts`, qui refuse toute interface
 > publiée par le barrel client que rien n'exerce dans le dépôt.
 >
-> **Révision du 2026-08-31 — ce que l'implémentation a corrigé.** Écrire `ClientKernel` a fait
+> **Révision du 2026-08-31 — ce que l'implémentation a corrigé.** Écrire `NodefonyKernel` a fait
 > tomber trois points, dont deux étaient déjà soupçonnés et un ne l'était pas :
 >
 > 1. **Le registre est typé sur la classe `NodefonySocket`**, non sur `IRealtimeSocket`. Le seul
@@ -198,12 +215,12 @@ HTTP, firewall, ORM, serveurs — ces concepts n'existent pas dans un navigateur
 >    objet — l'isomorphisme, c'est le même modèle mental des deux côtés du fil.
 >
 > Le contrat reste **hors du barrel** : la classe, sa fabrique et les types d'usage sont publiés,
-> `IClientKernel` non. Le gate `clientSurfaceExercised` serait déjà vert — une classe l'implémente
+> `INodefonyKernel` non. Le gate `clientSurfaceExercised` serait déjà vert — une classe l'implémente
 > vraiment — mais l'ordre de D11 tient : ce qui éprouve une architecture est une **application**,
 > et un kernel testé contre lui-même se donne toujours raison. Le retour du contrat est le livrable
 > de #91, pas une formalité à avancer.
 
-La 10.0.0 publie **l'interface** (`src/client/IClientKernel.ts`, exportée `export type` depuis le
+La 10.0.0 publie **l'interface** (`src/client/INodefonyKernel.ts`, exportée `export type` depuis le
 barrel client) : **0 octet de runtime, 0 risque, et le nom + la surface sont gelés SemVer**.
 C'est le pattern déjà éprouvé par le realtime : le contrat `IRealtimeSocket`/`IRealtimeChannel` a
 été publié et stabilisé avant que le hub serveur ne soit complet — les consommateurs ont codé
@@ -212,14 +229,14 @@ contre le contrat, l'implémentation a suivi par incréments verts.
 Surface gelée (v1 du contrat — volontairement minimale) :
 
 ```typescript
-export interface IClientKernel {
+export interface INodefonyKernel {
   // ── Composition (registre de services nommés, typé par augmentation) ──
-  get<K extends keyof NodefonyClientServices>(
+  get<K extends keyof NodefonyKernelServices>(
     name: K,
-  ): NodefonyClientServices[K];
-  set<K extends keyof NodefonyClientServices>(
+  ): NodefonyKernelServices[K];
+  set<K extends keyof NodefonyKernelServices>(
     name: K,
-    svc: NodefonyClientServices[K],
+    svc: NodefonyKernelServices[K],
   ): void;
   has(name: string): boolean;
 
@@ -229,15 +246,16 @@ export interface IClientKernel {
   readonly state: "created" | "booting" | "ready" | "terminated";
 
   // ── Événements (mêmes noms nominaux que le back quand le sens est le même) ──
-  on(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this;
+  on(event: NodefonyKernelEvent, handler: (...args: unknown[]) => void): this;
   // "onBoot" | "onReady" | "onTerminate" | "onIdentityChange" | "onVisibility" | "onOnline"
+  off(event: NodefonyKernelEvent, handler: (...args: unknown[]) => void): this; // révision #576 — inerte une fois terminé
 
   // ── Observabilité (D8) ──
   readonly log: Syslog; // logger client de série (Pdu isomorphes)
 }
 
 /** Registre typé par augmentation de module — même mécanique que NodefonyModuleConfig back. */
-export interface NodefonyClientServices {
+export interface NodefonyKernelServices {
   realtime?: IRealtimeSocket;
   // "api", "storage", "notifications"… : ajoutés par augmentation, pas par le contrat v1.
 }
@@ -267,15 +285,15 @@ contractuelle), **pas** un container à décorateurs :
   rien qu'une factory explicite ne donne pas dans une app front ;
 - cette décision **entérine** le choix déjà posé par Studio (`RootStore.ts:31` : « Pas de DI lib
   côté front : MobX + un objet RootStore suffit, durable, facile à mocker en test ») — le
-  ClientKernel formalise ce qui marche, il n'impose pas ce qui manque ;
+  NodefonyKernel formalise ce qui marche, il n'impose pas ce qui manque ;
 - le `Container` isomorphe existant (déjà exporté par le barrel client) reste disponible pour qui
-  en veut, mais le contrat `IClientKernel` n'expose que le registre `get`/`set` typé.
+  en veut, mais le contrat `INodefonyKernel` n'expose que le registre `get`/`set` typé.
 
 ### D4 — Façade unique : mort de l'export default et du singleton `class Nodefony` client
 
 La 10.0.0 supprime du barrel client (`src/client/index.ts:56-78`) la `class Nodefony` singleton
 et son `export default`. Une seule forme d'accès : **named exports** + factory
-**`createClientKernel(options)`**.
+**`new NodefonyKernel(options)`**.
 
 - **Pourquoi une factory et pas un singleton** : testabilité (N kernels en test), pas d'état de
   module global (piège HMR Vite vécu : un contexte dédoublé par réévaluation de module —
@@ -307,7 +325,7 @@ un détail navigateur susceptible d'évoluer.
 
 ### D6 — Habitat : le subpath `nodefony/client` existant — pas de nouveau subpath
 
-`IClientKernel` (types) et, en Phase 3.2, `createClientKernel` (runtime) vivent dans le barrel
+`INodefonyKernel` (types) et, en Phase 3.2, `new NodefonyKernel` (runtime) vivent dans le barrel
 `nodefony/client`. Pas de `nodefony/kernel-client`. **Pourquoi** : le kernel est le cœur du
 client, pas une option périphérique ; les subpaths séparés (`react`, `debugbar`, `roles`,
 futurs `sip`/`media`) restent réservés à ce qui doit être tree-shaké à 0 octet. Les deux règles
@@ -318,7 +336,7 @@ depuis `client/index.ts` ; ② le barrel node (`src/index.ts`) ne tire jamais `s
 
 Chaque primitive reste utilisable **nue**, sans kernel : `NodefonySocket.shared()` (utilisé par
 Studio et la debug bar aujourd'hui — `NodefonySocket.ts:500`) continue de fonctionner tel quel,
-de même que `mountDebugBar()`, les hooks `nodefony/react`, `Storage`. Le ClientKernel est la
+de même que `mountDebugBar()`, les hooks `nodefony/react`, `Storage`. Le NodefonyKernel est la
 **voie recommandée** pour une app complète, jamais un péage. **Pourquoi** : la DX des cas simples
 (un widget, une page, un POC) est un actif — un kernel obligatoire pour afficher 3 stats serait
 un échec produit, et c'est la même philosophie que le hub realtime (« le hub c'est le patron »
@@ -397,12 +415,12 @@ Mesures du jour (gzip, dist réel, 21 fichiers `preserveModules`) : total entrie
 ≈ 50 KB, dont debug bar ≈ 26,4 KB, react+roles ≈ 6 KB → **cœur `nodefony/client` ≈ 17,6 KB**.
 Budgets gelés :
 
-| Entry                         | Aujourd'hui        | Budget 10.x (gzip) |
-| ----------------------------- | ------------------ | ------------------ |
-| `nodefony/client` (barrel)    | ~17,6 KB           | **≤ 30 KB**        |
-| dont ClientKernel (Phase 3.2) | 0 (types)          | **≤ +6 KB**        |
-| `nodefony/react`              | ~6 KB (avec roles) | ≤ 10 KB            |
-| `nodefony/debugbar`           | ~26,4 KB           | ≤ 35 KB (dev-only) |
+| Entry                           | Aujourd'hui        | Budget 10.x (gzip) |
+| ------------------------------- | ------------------ | ------------------ |
+| `nodefony/client` (barrel)      | ~17,6 KB           | **≤ 30 KB**        |
+| dont NodefonyKernel (Phase 3.2) | 0 (types)          | **≤ +6 KB**        |
+| `nodefony/react`                | ~6 KB (avec roles) | ≤ 10 KB            |
+| `nodefony/debugbar`             | ~26,4 KB           | ≤ 35 KB (dev-only) |
 
 Gate : **un contrôle par entry câblé dans le pipeline release**, avant le pack — après, le
 tarball existe et la tentation de « voir plus tard » gagne.
@@ -416,7 +434,7 @@ tarball existe et la tentation de « voir plus tard » gagne.
 >
 > Le fichier de budgets porte aussi une `referenceKB` par entry — la mesure du jour du gel. Un
 > seuil dit « ça passe » ; l'écart à la référence dit **ce qu'une brique nouvelle a coûté**, et
-> c'est cette seconde information qui a servi : le ClientKernel pèse **+0,57 KB gzip** (17,68 →
+> c'est cette seconde information qui a servi : le NodefonyKernel pèse **+0,57 KB gzip** (17,68 →
 > 18,25 KB, mesuré en retirant l'export du barrel publié), très en deçà des +6 KB budgétés —
 > conséquence directe du choix de composer `Service` et `Syslog`, déjà présents dans le bundle,
 > plutôt que de réécrire un bus et un journal pour le navigateur. Un dépassement de budget = blocker de release, pas un warning.
@@ -428,11 +446,11 @@ tarball existe et la tentation de « voir plus tard » gagne.
 Ordre gelé (chaque étape livre un produit vert, méthode realtime) :
 
 1. **10.0.0 (design only)** : D4 (façade nettoyée) + budgets D10 outillés. Studio inchangé.
-   ~~Publier `IClientKernel` (types)~~ — **révisé** : le contrat sort de la surface publiée tant
+   ~~Publier `INodefonyKernel` (types)~~ — **révisé** : le contrat sort de la surface publiée tant
    que rien ne l'exerce (cf D2). Il y revient à l'étape 4, une fois Studio porté dessus.
 2. **Phase 3.2a** : `ApiClient` core (D8.1) — Studio le consomme via un alias local le temps de
    migrer ses imports ; le debug-client naît directement dessus.
-3. **Phase 3.2b** : `createClientKernel` minimal (registre + lifecycle + identité D9) — le
+3. **Phase 3.2b** : `new NodefonyKernel` minimal (registre + lifecycle + identité D9) — le
    **debug-client est le 1ᵉʳ consommateur pur** (client neuf, zéro legacy).
 4. **Phase 3.2c** : `RootStore` Studio devient un consommateur du kernel (la reaction identité
    et la composition migrent dans le kernel ; les stores restent, amincis en adaptateurs).
@@ -489,14 +507,14 @@ ferait du kernel un moule du legacy Studio.
 **Critères d'acceptation de l'implémentation (Phase 3.2 — repris de cet ADR)**
 
 1. Prototype + `size-limit` : budgets D10 tenus, mesures dans le message de commit.
-2. **Studio** — l'application réelle — tourne sur `createClientKernel` : c'est elle qui éprouve
+2. **Studio** — l'application réelle — tourne sur `new NodefonyKernel` : c'est elle qui éprouve
    l'architecture, le debug-client n'ayant ni identité qui bascule, ni caches à purger.
 3. Studio migré (D11.4) : e2e vertes, `RootStore` ≤ ~80 lignes (composition déléguée au kernel),
    la reaction identité supprimée au profit d'`onIdentityChange`.
 4. Le contrat est **rendu au barrel client** — `src/nodefony/src/tests/clientSurfaceExercised.test.ts`
    passe au vert avec l'export remis, ce qui prouve mécaniquement que quelqu'un le tient — et le
    smoke test de parité release (npm pack → install vierge → `tsc --noEmit`) type-check un
-   `import type { IClientKernel } from "nodefony/client"`.
+   `import type { INodefonyKernel } from "nodefony/client"`.
 
 ## Références
 

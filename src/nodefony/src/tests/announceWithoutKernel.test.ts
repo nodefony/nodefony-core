@@ -16,7 +16,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { fileURLToPath } from "node:url";
 import { NodefonySocket } from "../client/realtime/NodefonySocket";
-import { createClientKernel } from "../client/ClientKernel";
+import { NodefonyKernel } from "../client/NodefonyKernel";
 
 type Globals = {
   nodefony?: {
@@ -168,7 +168,7 @@ describe("Avec noyau — le noyau garde ce qui lui appartient", () => {
     // le nom de l'application ne s'afficherait jamais.
     const spy = spyConsole();
     try {
-      const k = createClientKernel({
+      const k = new NodefonyKernel({
         browserEvents: false,
         name: "MON APP",
         realtime: { url: "https://exemple.test/api/live/realtime" },
@@ -238,7 +238,7 @@ describe("La décision de #136 est gravée : les vitrines restent NUES", () => {
       for (const f of fichiers) {
         const src = await readFile(f, "utf8");
         expect(
-          src.includes("createClientKernel"),
+          /\bNodefonyKernel\b/.test(src),
           `${f} compose un noyau — la vitrine doit rester nue (#136, ADR-0007 D7)`,
         ).toBe(false);
       }

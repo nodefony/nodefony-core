@@ -16,12 +16,12 @@ import {
   useNodefonyKernel,
   useNodefonyKernelIdentity,
   useNodefonyKernelState,
-  type ClientIdentity,
-  type ClientKernelState,
-  type IClientKernel,
+  type NodefonyKernelIdentity,
+  type NodefonyKernelState,
+  type INodefonyKernel,
 } from "../client/react/index";
 import { NodefonySocket } from "../client/realtime/NodefonySocket";
-import { createClientKernel } from "../client/ClientKernel";
+import { NodefonyKernel } from "../client/NodefonyKernel";
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -43,19 +43,19 @@ function socketInerte(): NodefonySocket {
 }
 
 function noyau(realtime: NodefonySocket | false = socketInerte()) {
-  return createClientKernel({ realtime, browserEvents: false, banner: false });
+  return new NodefonyKernel({ realtime, browserEvents: false, banner: false });
 }
 
 interface IVu {
-  kernel: IClientKernel | null;
+  kernel: INodefonyKernel | null;
   socket: NodefonySocket | null;
-  state: ClientKernelState | null;
-  identity: ClientIdentity | null;
+  state: NodefonyKernelState | null;
+  identity: NodefonyKernelIdentity | null;
 }
 
 /** Un composant PROFOND qui lit le noyau par les hooks — et rien d'autre. */
 function monter(props: {
-  kernel?: IClientKernel;
+  kernel?: INodefonyKernel;
   client?: NodefonySocket;
 }): () => IVu {
   let vu: IVu | null = null;

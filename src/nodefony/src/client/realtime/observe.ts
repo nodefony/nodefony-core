@@ -45,11 +45,11 @@ import type {
 import { socketSnapshot, type SocketSnapshot } from "./snapshot";
 import { PLATFORM_CHANNELS } from "../../realtime/platformChannels";
 import type {
-  ClientIdentity,
-  ClientKernelEvent,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelEvent,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 
 /** Rappel d'une liaison de vue : reçoit la valeur courante. */
 export type Emit<T> = (value: T) => void;
@@ -76,7 +76,7 @@ export interface ConnectSharedOptions {
    * Fourni, il l'emporte sur `client` et sur `url`. Un noyau composé SANS
    * socket (`realtime: false`) laisse la place à `client`, puis à `url`.
    */
-  kernel?: IClientKernel | null | undefined;
+  kernel?: INodefonyKernel | null | undefined;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. La socket partagée de cette
    * URL est fabriquée (ou réutilisée) et connectée par {@link SharedConnection.start}.
@@ -216,8 +216,8 @@ export function observeReconnect(
  * inerte, `terminate()` ayant déjà tout retiré).
  */
 function onKernel(
-  kernel: IClientKernel,
-  events: readonly ClientKernelEvent[],
+  kernel: INodefonyKernel,
+  events: readonly NodefonyKernelEvent[],
   handler: () => void,
 ): Dispose {
   for (const event of events) kernel.on(event, handler);
@@ -230,7 +230,7 @@ function onKernel(
 }
 
 /** Les transitions du cycle de vie du noyau, dans leur ordre. */
-const KERNEL_LIFECYCLE: readonly ClientKernelEvent[] = [
+const KERNEL_LIFECYCLE: readonly NodefonyKernelEvent[] = [
   "onBoot",
   "onReady",
   "onTerminate",
@@ -242,8 +242,8 @@ const KERNEL_LIFECYCLE: readonly ClientKernelEvent[] = [
  * transition.
  */
 export function observeKernelState(
-  kernel: IClientKernel,
-  emit: Emit<ClientKernelState>,
+  kernel: INodefonyKernel,
+  emit: Emit<NodefonyKernelState>,
 ): Dispose {
   emit(kernel.state);
   return onKernel(kernel, KERNEL_LIFECYCLE, () => emit(kernel.state));
@@ -261,8 +261,8 @@ export function observeKernelState(
  * par le serveur au welcome de la socket.
  */
 export function observeKernelIdentity(
-  kernel: IClientKernel,
-  emit: Emit<ClientIdentity | null>,
+  kernel: INodefonyKernel,
+  emit: Emit<NodefonyKernelIdentity | null>,
 ): Dispose {
   emit(kernel.identity);
   return onKernel(kernel, ["onIdentityChange"], () => emit(kernel.identity));

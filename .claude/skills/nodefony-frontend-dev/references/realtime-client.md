@@ -56,7 +56,7 @@ static shared(opts?: NodefonySocketOptions): NodefonySocket;
 constructor(opts?: NodefonySocketOptions, transportFactory?: RealtimeTransportFactory);
 ```
 
-`NodefonySocket.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `NodefonySocket.ts:500-510`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. Le noyau client l'appelle lui-même — `NodefonySocket.shared(opt)` (`ClientKernel.ts:224`) ; une application comme Studio ne la nomme plus, elle passe par `createClientKernel` (`RootStore.ts:76`).
+`NodefonySocket.shared(opts)` renvoie **une seule instance par URL** (résolue en absolu, stockée sur `globalThis.__nfRealtime__`, `NodefonySocket.ts:500-510`) → plusieurs consommateurs d'une même page (app + debug bar) partagent **une seule socket WebSocket**. Les `opts` ne s'appliquent qu'à la 1ʳᵉ création. Le noyau client l'appelle lui-même — `NodefonySocket.shared(opt)` (`NodefonyKernel.ts:232`) ; une application comme Studio ne la nomme plus, elle passe par `new NodefonyKernel` (`RootStore.ts:76`) et donne le noyau à son fournisseur (`kernel={…}`).
 
 `NodefonySocketOptions` (`NodefonySocket.ts:96-116`) :
 

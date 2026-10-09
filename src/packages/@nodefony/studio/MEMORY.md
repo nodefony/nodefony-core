@@ -4,7 +4,7 @@
 
 ## Noyau client (ADR-0007) — RootStore n'est plus une composition artisanale
 
-`RootStore` compose par **`createClientKernel`** (`nodefony`), pas par `NodefonySocket.shared` :
+`RootStore` compose par **`new NodefonyKernel`** (`nodefony`), passé tel quel au fournisseur (`<NodefonyProvider kernel={rootStore.kernel}>`, `App.tsx`), pas par `NodefonySocket.shared` :
 `kernel.get("realtime")` nourrit `<NodefonyProvider>` **sans conversion de type forcée**.
 `connectOnBoot: false` — la socket de Studio est AUTHENTIFIÉE, elle s'ouvre au login
 (`setIdentity`), jamais au démarrage (sinon connexion anonyme refusée par le pod).

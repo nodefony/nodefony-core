@@ -20,7 +20,7 @@
  * on COMPTE les appels.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { ClientKernel, createClientKernel } from "../client/ClientKernel";
+import { NodefonyKernel } from "../client/NodefonyKernel";
 import type { NodefonySocket } from "../client/realtime/NodefonySocket";
 
 /** Socket double — on ne mesure que ce que le kernel LUI demande. */
@@ -56,15 +56,15 @@ const asClient = (s: FakeSocket): NodefonySocket =>
   s as unknown as NodefonySocket;
 
 /** Kernel muni d'une socket double, sans passer par la fabrique de socket. */
-const kernelWith = (s: FakeSocket): ClientKernel => {
-  const k = createClientKernel({ browserEvents: false });
+const kernelWith = (s: FakeSocket): NodefonyKernel => {
+  const k = new NodefonyKernel({ browserEvents: false });
   k.set("realtime", asClient(s));
   return k;
 };
 
-describe("ClientKernel — composition et registre", () => {
+describe("NodefonyKernel — composition et registre", () => {
   it("rend `undefined` (et non `null`) pour un service absent", () => {
-    const k = createClientKernel({ browserEvents: false });
+    const k = new NodefonyKernel({ browserEvents: false });
     expect(k.get("realtime")).toBeUndefined();
     expect(k.has("realtime")).toBe(false);
   });
@@ -77,7 +77,7 @@ describe("ClientKernel — composition et registre", () => {
   });
 
   it("ne compose RIEN sans option — l'opt-in est strict (D7)", async () => {
-    const k = createClientKernel({ browserEvents: false });
+    const k = new NodefonyKernel({ browserEvents: false });
     await k.boot();
     expect(k.state).toBe("ready");
     expect(k.has("realtime")).toBe(false);
@@ -87,7 +87,7 @@ describe("ClientKernel — composition et registre", () => {
     // Une application câble ses magasins sur les services du kernel avant de le
     // démarrer : si la composition attendait `boot()`, elle n'aurait rien à
     // câbler. Composer n'ouvre rien — la connexion reste l'affaire de `boot()`.
-    const k = createClientKernel({
+    const k = new NodefonyKernel({
       browserEvents: false,
       realtime: { url: "ws://127.0.0.1:1/none" },
     });
@@ -97,7 +97,7 @@ describe("ClientKernel — composition et registre", () => {
   });
 });
 
-describe("ClientKernel — cycle de vie (D5)", () => {
+describe("NodefonyKernel — cycle de vie (D5)", () => {
   it("boot() émet onBoot puis onReady, une seule fois chacun", async () => {
     const s = fakeSocket();
     const k = kernelWith(s);
@@ -137,7 +137,7 @@ describe("ClientKernel — cycle de vie (D5)", () => {
     // Une socket authentifiée ne s'ouvre pas avant de savoir QUI se connecte —
     // sinon le démarrage produit une connexion anonyme que le pod refuse.
     const s = fakeSocket();
-    const k = createClientKernel({
+    const k = new NodefonyKernel({
       browserEvents: false,
       connectOnBoot: false,
     });
@@ -196,7 +196,7 @@ describe("ClientKernel — cycle de vie (D5)", () => {
   });
 });
 
-describe("ClientKernel — l'annonce dans la console", () => {
+describe("NodefonyKernel — l'annonce dans la console", () => {
   /**
    * Badge et détail ne sortent qu'UNE fois par page : sans page vierge, un banc
    * précédent les aurait déjà consommés et celui-ci mesurerait le silence.
@@ -251,7 +251,7 @@ describe("ClientKernel — l'annonce dans la console", () => {
   it("annonce le kernel une fois, et referme son groupe", async () => {
     const spy = spyConsole();
     try {
-      const k = createClientKernel({ browserEvents: false, name: "MON APP" });
+      const k = new NodefonyKernel({ browserEvents: false, name: "MON APP" });
       await k.boot();
       expect(spy.calls[0]).toContain("nodefony");
       expect(spy.groupes).toBe(1);
@@ -274,7 +274,7 @@ describe("ClientKernel — l'annonce dans la console", () => {
     delete g.__nfRealtime__;
     delete g.__nfAnnounced__;
     try {
-      const k = createClientKernel({ browserEvents: false });
+      const k = new NodefonyKernel({ browserEvents: false });
       await k.boot();
       // Le vrai apport : taper `nodefony` dans la console rend l'objet vivant.
       expect(g.nodefony?.kernel).toBe(k);
@@ -306,7 +306,7 @@ describe("ClientKernel — l'annonce dans la console", () => {
     delete g.__nfAnnounced__;
     g.__nfRealtime__ = new Map([["/api/live/realtime", { state: "closed" }]]);
     try {
-      const k = createClientKernel({ browserEvents: false });
+      const k = new NodefonyKernel({ browserEvents: false });
       await k.boot();
       expect(g.nodefony?.kernel).toBe(k);
       await k.terminate();
@@ -327,7 +327,7 @@ describe("ClientKernel — l'annonce dans la console", () => {
   it("`banner: false` n'écrit RIEN — la console d'une app publiée n'est pas à nous", async () => {
     const spy = spyConsole();
     try {
-      const k = createClientKernel({ browserEvents: false, banner: false });
+      const k = new NodefonyKernel({ browserEvents: false, banner: false });
       await k.boot();
       expect(spy.calls).toEqual([]);
       expect(spy.groupes).toBe(0);
@@ -337,7 +337,7 @@ describe("ClientKernel — l'annonce dans la console", () => {
   });
 });
 
-describe("ClientKernel — cycle d'identité (D9, règle de sécurité)", () => {
+describe("NodefonyKernel — cycle d'identité (D9, règle de sécurité)", () => {
   it("premier login : connect() SANS disconnect() — jamais couper au boot", async () => {
     const s = fakeSocket();
     const k = kernelWith(s);
@@ -397,14 +397,14 @@ describe("ClientKernel — cycle d'identité (D9, règle de sécurité)", () => 
   });
 
   it("sans socket composée, déclarer une identité ne jette pas", async () => {
-    const k = createClientKernel({ browserEvents: false });
+    const k = new NodefonyKernel({ browserEvents: false });
     await k.boot();
     expect(() => k.setIdentity({ key: "alice" })).not.toThrow();
     expect(k.identity).toEqual({ key: "alice" });
   });
 });
 
-describe("ClientKernel — pont navigateur et fuite d'écouteurs (D5)", () => {
+describe("NodefonyKernel — pont navigateur et fuite d'écouteurs (D5)", () => {
   type Listener = () => void;
   interface FakeTarget {
     listeners: Map<string, Set<Listener>>;
@@ -456,7 +456,7 @@ describe("ClientKernel — pont navigateur et fuite d'écouteurs (D5)", () => {
   });
 
   it("ponte visibilité et connectivité sur les événements du kernel", async () => {
-    const k = createClientKernel();
+    const k = new NodefonyKernel();
     const seen: unknown[][] = [];
     k.on("onVisibility", (...a) => seen.push(["visibility", ...a]));
     k.on("onOnline", (...a) => seen.push(["online", ...a]));
@@ -473,14 +473,14 @@ describe("ClientKernel — pont navigateur et fuite d'écouteurs (D5)", () => {
   });
 
   it("`pagehide` termine le kernel (best-effort de fin de page)", async () => {
-    const k = createClientKernel();
+    const k = new NodefonyKernel();
     await k.boot();
     win.dispatch("pagehide");
     expect(k.state).toBe("terminated");
   });
 
   it("terminate() ne laisse AUCUN écouteur derrière lui", async () => {
-    const k = createClientKernel();
+    const k = new NodefonyKernel();
     await k.boot();
     expect(k.browserListenerCount).toBeGreaterThan(0);
     expect(doc.count() + win.count()).toBe(k.browserListenerCount);
@@ -490,7 +490,7 @@ describe("ClientKernel — pont navigateur et fuite d'écouteurs (D5)", () => {
   });
 
   it("`browserEvents: false` ne pose aucun écouteur", async () => {
-    const k = createClientKernel({ browserEvents: false });
+    const k = new NodefonyKernel({ browserEvents: false });
     await k.boot();
     expect(k.browserListenerCount).toBe(0);
     expect(doc.count() + win.count()).toBe(0);

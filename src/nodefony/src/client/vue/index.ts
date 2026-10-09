@@ -72,10 +72,10 @@ import type {
 } from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 import type {
-  ClientIdentity,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 import {
   adaptiveRebindKey,
   connectShared,
@@ -122,10 +122,10 @@ export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
 export type {
-  ClientIdentity,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 
 /**
  * La clé sous laquelle le plugin fournit la socket.
@@ -141,7 +141,7 @@ export const nodefonyClientKey: InjectionKey<NodefonySocket> =
  * La clé sous laquelle le plugin fournit le noyau client, quand l'application
  * en compose un. Absente de l'arbre → {@link useNodefonyKernel} rend `null`.
  */
-export const nodefonyKernelKey: InjectionKey<IClientKernel> =
+export const nodefonyKernelKey: InjectionKey<INodefonyKernel> =
   Symbol("nodefony:kernel");
 
 /** Réglages du plugin — l'un des trois au moins doit être donné. */
@@ -155,7 +155,7 @@ export interface NodefonyVueOptions {
    * cycle : c'est le noyau qui ouvre sa socket (`connectOnBoot`,
    * `setIdentity`).
    */
-  kernel?: IClientKernel;
+  kernel?: INodefonyKernel;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. Le plugin fabrique la
    * socket partagée pour cette URL et la connecte lui-même.
@@ -320,7 +320,7 @@ export function useNodefonyIdentity(): Readonly<Ref<RealtimeIdentity | null>> {
  * C'est la porte d'un composant profond vers `kernel.setIdentity()` : déclarer
  * une connexion sans que l'application écrive sa propre clé d'injection.
  */
-export function useNodefonyKernel(): IClientKernel | null {
+export function useNodefonyKernel(): INodefonyKernel | null {
   return inject(nodefonyKernelKey, null);
 }
 
@@ -329,10 +329,10 @@ export function useNodefonyKernel(): IClientKernel | null {
  * `ready` → `terminated`), ou `null` sans noyau fourni.
  */
 export function useNodefonyKernelState(): Readonly<
-  Ref<ClientKernelState | null>
+  Ref<NodefonyKernelState | null>
 > {
   const kernel = useNodefonyKernel();
-  const state = shallowRef<ClientKernelState | null>(kernel?.state ?? null);
+  const state = shallowRef<NodefonyKernelState | null>(kernel?.state ?? null);
   if (kernel) {
     observeReactive("useNodefonyKernelState()", kernel, (k) =>
       observeKernelState(k, (value) => {
@@ -353,10 +353,12 @@ export function useNodefonyKernelState(): Readonly<
  * le serveur au welcome de la socket.
  */
 export function useNodefonyKernelIdentity(): Readonly<
-  Ref<ClientIdentity | null>
+  Ref<NodefonyKernelIdentity | null>
 > {
   const kernel = useNodefonyKernel();
-  const identity = shallowRef<ClientIdentity | null>(kernel?.identity ?? null);
+  const identity = shallowRef<NodefonyKernelIdentity | null>(
+    kernel?.identity ?? null,
+  );
   if (kernel) {
     observeReactive("useNodefonyKernelIdentity()", kernel, (k) =>
       observeKernelIdentity(k, (value) => {

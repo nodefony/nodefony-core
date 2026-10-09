@@ -7,7 +7,7 @@
  * fuite vécue en production, et elle a vécu des mois dans un magasin MobX de
  * cette seule application. Tant qu'elle y était, toute autre application
  * Nodefony devait la recopier pour ne pas reproduire la fuite. Elle vit
- * désormais dans le framework (`ClientKernel.setIdentity`).
+ * désormais dans le framework (`NodefonyKernel.setIdentity`).
  *
  * Ce que ce test surveille, c'est qu'elle n'y revienne pas : un magasin qui
  * rappellerait `disconnect()` de lui-même reprendrait la responsabilité au
@@ -59,7 +59,7 @@ const code = (file: string): string =>
 describe("adoption du noyau client (ADR-0007 D11.4)", () => {
   it("le magasin racine compose par le noyau, pas par la socket nue", () => {
     const src = code(ROOT_STORE);
-    expect(src).toContain("createClientKernel(");
+    expect(src).toContain("new NodefonyKernel(");
     // `NodefonySocket.shared` reste dessous — mais c'est le noyau qui l'appelle.
     expect(src).not.toContain("NodefonySocket.shared(");
   });
@@ -78,15 +78,14 @@ describe("adoption du noyau client (ADR-0007 D11.4)", () => {
     expect(src).toContain('kernel.on("onIdentityChange"');
   });
 
-  it("le fournisseur React est nourri par le REGISTRE du noyau", () => {
-    // Sans conversion de type forcée : c'était le premier défaut du contrat,
-    // qui typait la socket sur une interface que ce fournisseur n'accepte pas.
-    // Le compilateur en est le juge ; ce cas empêche le retour d'un raccourci.
+  it("le fournisseur React reçoit le NOYAU, pas sa socket", () => {
+    // Le Provider tire la socket du noyau et rend le noyau lisible par
+    // `useNodefonyKernel()` : passer la socket seule priverait l'arbre du
+    // noyau, et ramènerait le contexte maison que la liaison remplace.
     const src = code(APP);
-    expect(src).toMatch(
-      /<NodefonyProvider\s+client=\{rootStore\.kernel\.get\("realtime"\)\}/,
-    );
-    expect(src).not.toMatch(/client=\{[^}]*\bas\b[^}]*\}/);
+    expect(src).toMatch(/<NodefonyProvider\s+kernel=\{rootStore\.kernel\}/);
+    expect(src).not.toMatch(/<NodefonyProvider\s+client=/);
+    expect(src).not.toMatch(/kernel=\{[^}]*\bas\b[^}]*\}/);
   });
 
   it("le noyau est démarré par l'application", () => {

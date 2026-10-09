@@ -112,15 +112,15 @@ export type {
 // restait une intention), un membre `log` qui masquait la méthode d'écriture de
 // `Service`, et une composition différée au `boot()` alors qu'une application
 // câble ses magasins avant de démarrer.
-export { ClientKernel, createClientKernel } from "./ClientKernel";
+export { NodefonyKernel } from "./NodefonyKernel";
 export type {
-  ClientIdentity,
-  ClientKernelEvent,
-  ClientKernelOptions,
-  ClientKernelState,
-  IClientKernel,
-  NodefonyClientServices,
-} from "./IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelEvent,
+  NodefonyKernelOptions,
+  NodefonyKernelState,
+  INodefonyKernel,
+  NodefonyKernelServices,
+} from "./INodefonyKernel";
 
 /**
  * Génère un identifiant unique (UUID v4) côté client.

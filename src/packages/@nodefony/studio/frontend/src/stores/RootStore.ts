@@ -2,14 +2,14 @@ import { reaction } from "mobx";
 import { ApiClient } from "../services/ApiClient";
 import { AuthService } from "../services/AuthService";
 import {
-  createClientKernel,
+  NodefonyKernel,
   NodefonySocket,
   Syslog,
   installErrorCapture,
   installRequestIdProvider,
   installSyslogUplink,
 } from "nodefony";
-import type { ClientIdentity, ClientKernel, NoticeLevel } from "nodefony";
+import type { NodefonyKernelIdentity, NoticeLevel } from "nodefony";
 import { AuthStore } from "./AuthStore";
 import { ConnectionStore } from "./ConnectionStore";
 import { UiStore } from "./UiStore";
@@ -55,7 +55,7 @@ export class RootStore {
    * vivait ici en glue MobX vit désormais dans le framework, où toute
    * application en hérite au lieu de le recopier.
    */
-  readonly kernel: ClientKernel;
+  readonly kernel: NodefonyKernel;
   readonly realtime: NodefonySocket;
   /** Journal des incidents de CETTE page, remonté au pod (#35). */
   readonly browserLog: Syslog;
@@ -73,7 +73,7 @@ export class RootStore {
     // `connectOnBoot: false` : la socket de Studio est AUTHENTIFIÉE. Elle
     // s'ouvre au login (`setIdentity`), jamais au démarrage — ouvrir avant de
     // savoir qui se connecte produirait une connexion anonyme que le pod refuse.
-    this.kernel = createClientKernel({
+    this.kernel = new NodefonyKernel({
       name: "STUDIO",
       connectOnBoot: false,
       realtime: {
@@ -158,7 +158,7 @@ export class RootStore {
     // L'application DÉCLARE qui est connecté ; le noyau en tire les conséquences
     // de sécurité. Les deux gardes qui vivaient ici — ne couper la socket que
     // sur un VRAI changement de compte, et la rouvrir HORS de cette garde —
-    // sont désormais dans le framework (`ClientKernel.setIdentity`), donc
+    // sont désormais dans le framework (`NodefonyKernel.setIdentity`), donc
     // valables pour TOUTE application Nodefony et non plus pour celle-ci seule.
     // C'est tout l'objet du portage : une règle de sécurité ne doit pas dépendre
     // de la qualité du câblage artisanal de chaque application.
@@ -173,8 +173,8 @@ export class RootStore {
     // Le noyau n'en connaît aucun — il notifie, l'application purge.
     this.kernel.on("onIdentityChange", (...args) => {
       const [, previous] = args as [
-        ClientIdentity | null,
-        ClientIdentity | null,
+        NodefonyKernelIdentity | null,
+        NodefonyKernelIdentity | null,
       ];
       // Purge les réponses d'endpoints admin mémorisées : aucune donnée d'une
       // identité précédente ne survit dans un store singleton. Le remontage

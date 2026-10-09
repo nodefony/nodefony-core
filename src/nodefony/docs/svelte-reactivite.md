@@ -203,32 +203,44 @@ liste de fonctions de libération et n'en oublier aucune.
 configureNodefony({ client: maSocket });
 ```
 
+Et quand l'application a un **noyau client**, c'est lui qu'on passe : la configuration prend la
+socket qu'il a composée sans toucher à son cycle, et le rend lisible par `nodefonyKernel()`.
+`kernel` l'emporte sur `client` et `url` ; le noyau est décrit dans [le client isomorphe](./client.md#-nodefonykernel--le-noyau-client-et-ses-quatre-liaisons).
+
+```ts
+configureNodefony({ kernel });
+```
+
 ## 🧰 Les liaisons
 
 Les **valeurs** se lisent `.current` et se libèrent seules. Les trois liaisons à `onMessage` rendent
 un **teardown**, à donner à `$effect`.
 
-| Liaison                             | Rend                                 | À quoi ça sert                                               |
-| ----------------------------------- | ------------------------------------ | ------------------------------------------------------------ |
-| `configureNodefony(opts)`           | —                                    | la politique : socket de la page, connexion lancée           |
-| `nodefony()`                        | `NodefonySocket`                     | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
-| `nodefonyState()`                   | `Reactive<RealtimeState>`            | afficher l'état, griser un bouton pendant une reconnexion    |
-| `nodefonyIdentity()`                | `Reactive<RealtimeIdentity \| null>` | savoir qui est connecté — sans appeler `/auth/me`            |
-| `nodefonyChannel(canal, onMessage)` | `teardown`                           | réagir à chaque message — **non paresseux**                  |
-| `nodefonyChannelData<T>(canal)`     | `Reactive<T \| null>`                | la dernière valeur — le cas le plus courant                  |
-| `nodefonyAdaptiveChannel(…)`        | `teardown`                           | même chose, en cadence auto-ajustée                          |
-| `nodefonyAdaptiveChannelData<T>(…)` | `{ data, intervalMs }`               | la dernière valeur **et** la cadence, les deux réactives     |
-| `nodefonyChannelStats(canal)`       | `Reactive<MessageStats \| null>`     | débit et série d'un canal, pour un VU-mètre                  |
-| `nodefonySnapshot()`                | `Reactive<SocketSnapshot \| null>`   | ce que la socket sait d'elle-même : canaux, trames, dernière |
-| `nodefonySyslog(opts?)`             | `Reactive<unknown[]>`                | le flux de journal, anneau borné et filtre de sévérité       |
-| `nodefonyNotifications(onNotice)`   | `teardown`                           | les notices normalisées — à monter **une seule fois**        |
-| `nodefonyNoticeLog(opts?)`          | `Reactive<NodefonyNotice[]>`         | l'historique borné des incidents                             |
+| Liaison                             | Rend                                       | À quoi ça sert                                               |
+| ----------------------------------- | ------------------------------------------ | ------------------------------------------------------------ |
+| `configureNodefony(opts)`           | —                                          | la politique : socket de la page, connexion lancée           |
+| `nodefony()`                        | `NodefonySocket`                           | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `nodefonyState()`                   | `Reactive<RealtimeState>`                  | afficher l'état, griser un bouton pendant une reconnexion    |
+| `nodefonyIdentity()`                | `Reactive<RealtimeIdentity \| null>`       | savoir qui est connecté — sans appeler `/auth/me`            |
+| `nodefonyKernel()`                  | `INodefonyKernel \| null`                  | le noyau fourni — la porte vers `setIdentity()`              |
+| `nodefonyKernelState()`             | `Reactive<NodefonyKernelState \| null>`    | le cycle du noyau : `created` → … → `terminated`             |
+| `nodefonyKernelIdentity()`          | `Reactive<NodefonyKernelIdentity \| null>` | l'identité DÉCLARÉE, suivie par compte                       |
+| `nodefonyChannel(canal, onMessage)` | `teardown`                                 | réagir à chaque message — **non paresseux**                  |
+| `nodefonyChannelData<T>(canal)`     | `Reactive<T \| null>`                      | la dernière valeur — le cas le plus courant                  |
+| `nodefonyAdaptiveChannel(…)`        | `teardown`                                 | même chose, en cadence auto-ajustée                          |
+| `nodefonyAdaptiveChannelData<T>(…)` | `{ data, intervalMs }`                     | la dernière valeur **et** la cadence, les deux réactives     |
+| `nodefonyChannelStats(canal)`       | `Reactive<MessageStats \| null>`           | débit et série d'un canal, pour un VU-mètre                  |
+| `nodefonySnapshot()`                | `Reactive<SocketSnapshot \| null>`         | ce que la socket sait d'elle-même : canaux, trames, dernière |
+| `nodefonySyslog(opts?)`             | `Reactive<unknown[]>`                      | le flux de journal, anneau borné et filtre de sévérité       |
+| `nodefonyNotifications(onNotice)`   | `teardown`                                 | les notices normalisées — à monter **une seule fois**        |
+| `nodefonyNoticeLog(opts?)`          | `Reactive<NodefonyNotice[]>`               | l'historique borné des incidents                             |
 
 La déclaration de chacune se lit dans `src/nodefony/src/client/svelte/index.ts:247` et suivantes.
 
 Sont aussi réexportés depuis ce subpath : `rateChannel`, `parseRate`, `isRateChannel` (fabriquer un
 nom de canal cadencé), et les types `RealtimeIdentity`, `RealtimeState`, `NodefonyNotice`,
-`SocketSnapshot`, `Reactive<T>` — pour qu'un composant puisse **nommer** ce qu'il reçoit.
+`SocketSnapshot`, `Reactive<T>`, `INodefonyKernel`, `NodefonyKernelState`, `NodefonyKernelIdentity` —
+pour qu'un composant puisse **nommer** ce qu'il reçoit.
 
 Les arguments « canal » et « cadence » acceptent une valeur ou une fonction : lue dans un `$derived`,
 elle fait suivre l'abonnement.

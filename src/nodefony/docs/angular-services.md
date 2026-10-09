@@ -118,7 +118,7 @@ canal à 10 Hz coûte dix détections par seconde à toute l'application — et 
 s'affiche parfaitement.
 
 `provideNodefony` ouvre donc la connexion dans `NgZone.runOutsideAngular`
-(`src/nodefony/src/client/angular/index.ts:202`). Les valeurs, elles, arrivent par des **signals**,
+(`src/nodefony/src/client/angular/index.ts:226`). Les valeurs, elles, arrivent par des **signals**,
 qui notifient leurs lecteurs sans zone : justes dans les deux mondes, `zone.js` ou
 `provideZonelessChangeDetection()`.
 
@@ -201,6 +201,14 @@ declare const maSocket: NodefonySocket;
 provideNodefony({ client: maSocket });
 ```
 
+Et quand l'application a un **noyau client**, c'est lui qu'on passe : le fournisseur prend la
+socket qu'il a composée sans toucher à son cycle, et le rend lisible par `injectNodefonyKernel()`.
+`kernel` l'emporte sur `client` et `url` ; le noyau est décrit dans [le client isomorphe](./client.md#-nodefonykernel--le-noyau-client-et-ses-quatre-liaisons).
+
+```ts
+provideNodefony({ kernel });
+```
+
 ### 4. Un canal qui change
 
 ```ts
@@ -221,35 +229,39 @@ export class SalonComponent {
 ```
 
 Un argument constant ne coûte **aucun** effet : le branchement est direct, et seule une source
-_fonction_ installe un `effect` (`src/nodefony/src/client/angular/index.ts:280`).
+_fonction_ installe un `effect` (`src/nodefony/src/client/angular/index.ts:315`).
 
 ## 🧰 Les fonctions
 
 Toutes rendent un `Signal` en lecture — on l'appelle (`etat()`), y compris dans un gabarit. La
 socket, elle, n'est pas un signal : c'est un objet, pas un état.
 
-| Fonction                                  | Rend                               | À quoi ça sert                                               |
-| ----------------------------------------- | ---------------------------------- | ------------------------------------------------------------ |
-| `provideNodefony(opts)`                   | `EnvironmentProviders`             | le fournisseur : enregistre la socket, connecte hors zone    |
-| `injectNodefony()`                        | `NodefonySocket`                   | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
-| `injectNodefonyState()`                   | `Signal<RealtimeState>`            | afficher l'état, griser un bouton pendant une reconnexion    |
-| `injectNodefonyIdentity()`                | `Signal<RealtimeIdentity \| null>` | savoir qui est connecté — sans appeler `/auth/me`            |
-| `injectNodefonyChannel(canal, onMessage)` | —                                  | réagir à chaque message (journal, son, animation)            |
-| `injectNodefonyChannelData<T>(canal)`     | `Signal<T \| null>`                | la dernière valeur — le cas le plus courant                  |
-| `injectNodefonyAdaptiveChannel(…)`        | `Signal<number>`                   | même chose, en cadence auto-ajustée ; rend la cadence        |
-| `injectNodefonyAdaptiveChannelData<T>(…)` | `{ data, intervalMs }`             | la dernière valeur **et** la cadence                         |
-| `injectNodefonyChannelStats(canal)`       | `Signal<MessageStats \| null>`     | débit et série d'un canal, pour un VU-mètre                  |
-| `injectNodefonySnapshot()`                | `Signal<SocketSnapshot \| null>`   | ce que la socket sait d'elle-même : canaux, trames, dernière |
-| `injectNodefonySyslog(opts?)`             | `Signal<unknown[]>`                | le flux de journal, anneau borné et filtre de sévérité       |
-| `injectNodefonyNotifications(onNotice)`   | —                                  | les notices normalisées — à monter **une seule fois**        |
-| `injectNodefonyNoticeLog(opts?)`          | `Signal<NodefonyNotice[]>`         | l'historique borné des incidents                             |
+| Fonction                                  | Rend                                     | À quoi ça sert                                               |
+| ----------------------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| `provideNodefony(opts)`                   | `EnvironmentProviders`                   | le fournisseur : enregistre la socket, connecte hors zone    |
+| `injectNodefony()`                        | `NodefonySocket`                         | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
+| `injectNodefonyState()`                   | `Signal<RealtimeState>`                  | afficher l'état, griser un bouton pendant une reconnexion    |
+| `injectNodefonyIdentity()`                | `Signal<RealtimeIdentity \| null>`       | savoir qui est connecté — sans appeler `/auth/me`            |
+| `injectNodefonyKernel()`                  | `INodefonyKernel \| null`                | le noyau fourni — la porte vers `setIdentity()`              |
+| `injectNodefonyKernelState()`             | `Signal<NodefonyKernelState \| null>`    | le cycle du noyau : `created` → … → `terminated`             |
+| `injectNodefonyKernelIdentity()`          | `Signal<NodefonyKernelIdentity \| null>` | l'identité DÉCLARÉE, suivie par compte                       |
+| `injectNodefonyChannel(canal, onMessage)` | —                                        | réagir à chaque message (journal, son, animation)            |
+| `injectNodefonyChannelData<T>(canal)`     | `Signal<T \| null>`                      | la dernière valeur — le cas le plus courant                  |
+| `injectNodefonyAdaptiveChannel(…)`        | `Signal<number>`                         | même chose, en cadence auto-ajustée ; rend la cadence        |
+| `injectNodefonyAdaptiveChannelData<T>(…)` | `{ data, intervalMs }`                   | la dernière valeur **et** la cadence                         |
+| `injectNodefonyChannelStats(canal)`       | `Signal<MessageStats \| null>`           | débit et série d'un canal, pour un VU-mètre                  |
+| `injectNodefonySnapshot()`                | `Signal<SocketSnapshot \| null>`         | ce que la socket sait d'elle-même : canaux, trames, dernière |
+| `injectNodefonySyslog(opts?)`             | `Signal<unknown[]>`                      | le flux de journal, anneau borné et filtre de sévérité       |
+| `injectNodefonyNotifications(onNotice)`   | —                                        | les notices normalisées — à monter **une seule fois**        |
+| `injectNodefonyNoticeLog(opts?)`          | `Signal<NodefonyNotice[]>`               | l'historique borné des incidents                             |
 
 La déclaration de chacune se lit dans `src/nodefony/src/client/angular/index.ts:284` et suivantes.
 
 Sont aussi réexportés depuis ce subpath : `NODEFONY_CLIENT` (le jeton, pour fournir une AUTRE socket
-à un sous-arbre), `rateChannel`, `parseRate`, `isRateChannel` (fabriquer un nom de canal cadencé), et
-les types `RealtimeIdentity`, `RealtimeState`, `NodefonyNotice`, `SocketSnapshot` — pour qu'un
-composant puisse **nommer** ce qu'il reçoit.
+à un sous-arbre), `NODEFONY_KERNEL` (le jeton du noyau), `rateChannel`, `parseRate`, `isRateChannel` (fabriquer un nom de canal cadencé), et
+les types `RealtimeIdentity`, `RealtimeState`, `NodefonyNotice`, `SocketSnapshot`, `INodefonyKernel`,
+`NodefonyKernelState`, `NodefonyKernelIdentity` — pour qu'un composant puisse **nommer** ce qu'il
+reçoit.
 
 Les arguments « canal » et « cadence » acceptent une valeur, un signal ou une fonction : l'abonnement
 suit, sans liste de dépendances.

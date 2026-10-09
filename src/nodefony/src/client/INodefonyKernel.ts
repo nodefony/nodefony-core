@@ -1,7 +1,7 @@
 /**
- * `IClientKernel` — contrat du kernel client isomorphe de Nodefony (ADR-0007).
+ * `INodefonyKernel` — contrat du kernel client isomorphe de Nodefony (ADR-0007).
  *
- * Le ClientKernel est le chef d'orchestre de la couche **INFRA** d'une app front
+ * Le `NodefonyKernel` est le chef d'orchestre de la couche **INFRA** d'une app front
  * (composition des services techniques, lifecycle navigateur, observabilité,
  * cycle d'identité). Il ne possède JAMAIS le rendu, le routing ni l'état métier
  * (React/Vue/Angular + stores restent maîtres de la vue) — clause anti-dérive
@@ -25,7 +25,8 @@ import type {
  * lifecycle flags du Kernel serveur — `booted`/`ready`/… — sans en singer la
  * sémantique process).
  */
-export type ClientKernelState = "created" | "booting" | "ready" | "terminated";
+export type NodefonyKernelState =
+  "created" | "booting" | "ready" | "terminated";
 
 /**
  * Événements émis par le kernel client.
@@ -45,7 +46,7 @@ export type ClientKernelState = "created" | "booting" | "ready" | "terminated";
  * - `onOnline` — bascule `online`/`offline` du navigateur.
  * - `onTerminate` — page en cours de déchargement (`pagehide`, best-effort).
  */
-export type ClientKernelEvent =
+export type NodefonyKernelEvent =
   | "onBoot"
   | "onReady"
   | "onIdentityChange"
@@ -65,7 +66,7 @@ export type ClientKernelEvent =
  * `data` reste à l'usage de l'application (profil, rôles, ce qu'elle veut
  * retrouver dans le handler) — le kernel ne l'interprète jamais.
  */
-export interface ClientIdentity {
+export interface NodefonyKernelIdentity {
   /** Clé stable du compte — l'unique critère du re-handshake (D9). */
   readonly key: string;
   /** Charge libre, opaque au kernel. */
@@ -91,24 +92,24 @@ export interface ClientIdentity {
  * @example
  * ```typescript
  * declare module "nodefony/client" {
- *   interface NodefonyClientServices {
+ *   interface NodefonyKernelServices {
  *     api?: MyApiClient;
  *   }
  * }
  * ```
  */
-export interface NodefonyClientServices {
+export interface NodefonyKernelServices {
   /** La socket Nodefony de l'app (multiplexage de canaux, isomorphe). */
   realtime?: NodefonySocket;
 }
 
 /**
- * Options de `createClientKernel()`.
+ * Options de `new NodefonyKernel()`.
  *
  * Tout est facultatif : un kernel sans option est légal et ne compose rien —
  * l'opt-in est strict (ADR-0007 D7), le kernel compose, il n'impose pas.
  */
-export interface ClientKernelOptions {
+export interface NodefonyKernelOptions {
   /**
    * Nom du kernel — sert de `msgid` dans les journaux client.
    *
@@ -165,20 +166,20 @@ export interface ClientKernelOptions {
  * Contrat du kernel client isomorphe (ADR-0007 D2 — surface v1, volontairement
  * minimale : chaque méthode publiée est une promesse SemVer).
  *
- * Obtenu via la factory `createClientKernel()` — jamais un singleton de module
+ * Construit par `new NodefonyKernel()` — jamais un singleton de module
  * (testabilité, HMR-safe). Chaque primitive du Core reste utilisable NUE sans
  * kernel (opt-in strict, ADR-0007 D7).
  */
-export interface IClientKernel {
+export interface INodefonyKernel {
   // ── Composition — registre de services nommés, typé par augmentation ──────
   /** Récupère un service enregistré (ou `undefined` s'il n'est pas composé). */
-  get<K extends keyof NodefonyClientServices>(
+  get<K extends keyof NodefonyKernelServices>(
     name: K,
-  ): NodefonyClientServices[K] | undefined;
+  ): NodefonyKernelServices[K] | undefined;
   /** Enregistre un service sous son nom contractuel. */
-  set<K extends keyof NodefonyClientServices>(
+  set<K extends keyof NodefonyKernelServices>(
     name: K,
-    svc: NodefonyClientServices[K],
+    svc: NodefonyKernelServices[K],
   ): void;
   /** Teste la présence d'un service (nom libre, y compris hors contrat). */
   has(name: string): boolean;
@@ -189,7 +190,7 @@ export interface IClientKernel {
   /** Flush l'observabilité et déconnecte (best-effort sur `pagehide`). Émet `onTerminate`. */
   terminate(): Promise<void>;
   /** État courant du kernel — jamais régressif. */
-  readonly state: ClientKernelState;
+  readonly state: NodefonyKernelState;
 
   // ── Identité (ADR-0007 D9) ─────────────────────────────────────────────────
   /**
@@ -200,13 +201,13 @@ export interface IClientKernel {
    * socket puis émet `onIdentityChange`. Sans cette porte d'entrée, D9 resterait
    * une intention : le kernel n'a aucun moyen d'apprendre qu'un login a eu lieu.
    */
-  setIdentity(identity: ClientIdentity | null): void;
+  setIdentity(identity: NodefonyKernelIdentity | null): void;
   /** Identité runtime courante, telle que l'application l'a déclarée. */
-  readonly identity: ClientIdentity | null;
+  readonly identity: NodefonyKernelIdentity | null;
 
   // ── Événements ─────────────────────────────────────────────────────────────
   /** Abonne un handler à un événement du kernel (API `Event` du Core, chaînable). */
-  on(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this;
+  on(event: NodefonyKernelEvent, handler: (...args: unknown[]) => void): this;
   /**
    * Retire un handler abonné par `on` (chaînable).
    *
@@ -215,7 +216,7 @@ export interface IClientKernel {
    * désabonner sans lever. C'est ce membre qui permet à une liaison de vue de
    * suivre l'état ou l'identité du kernel sans fuir un handler par montage.
    */
-  off(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this;
+  off(event: NodefonyKernelEvent, handler: (...args: unknown[]) => void): this;
 
   // ── Observabilité (ADR-0007 D8) ────────────────────────────────────────────
   /**

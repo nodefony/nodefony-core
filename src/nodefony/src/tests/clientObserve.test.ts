@@ -23,7 +23,7 @@ import {
 } from "../realtime/IRealtimeTransport";
 import { LOCAL_EVENTS, isLocalEvent } from "../client/realtime/localEvents";
 import { PLATFORM_CHANNELS } from "../realtime/platformChannels";
-import { createClientKernel } from "../client/ClientKernel";
+import { NodefonyKernel } from "../client/NodefonyKernel";
 import {
   connectShared,
   observeChannel,
@@ -171,7 +171,7 @@ describe("connectShared — le cycle de connexion, une seule fois pour quatre fr
   it("précédence kernel > client > url : la socket du NOYAU gagne, et son cycle reste au noyau", () => {
     const duNoyau = newClient();
     const fournie = newClient();
-    const kernel = createClientKernel({
+    const kernel = new NodefonyKernel({
       realtime: duNoyau,
       browserEvents: false,
       banner: false,
@@ -196,7 +196,7 @@ describe("connectShared — le cycle de connexion, une seule fois pour quatre fr
   });
 
   it("un noyau composé SANS socket cède la place à `client`, puis à `url`", () => {
-    const kernel = createClientKernel({
+    const kernel = new NodefonyKernel({
       realtime: false,
       browserEvents: false,
       banner: false,
@@ -208,7 +208,7 @@ describe("connectShared — le cycle de connexion, une seule fois pour quatre fr
   });
 
   it("un noyau SANS socket et rien d'autre : échec qui NOMME le noyau", () => {
-    const kernel = createClientKernel({
+    const kernel = new NodefonyKernel({
       realtime: false,
       browserEvents: false,
       banner: false,
@@ -221,7 +221,7 @@ describe("connectShared — le cycle de connexion, une seule fois pour quatre fr
 
 describe("observeKernelState / observeKernelIdentity — le noyau client, observé", () => {
   function noyau() {
-    return createClientKernel({
+    return new NodefonyKernel({
       realtime: false,
       browserEvents: false,
       banner: false,

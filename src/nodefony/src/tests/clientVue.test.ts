@@ -38,7 +38,7 @@ import {
   useNodefonyState,
 } from "../client/vue/index";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
-import { createClientKernel } from "../client/ClientKernel";
+import { NodefonyKernel } from "../client/NodefonyKernel";
 
 class MockTransport implements IRealtimeTransport {
   readyState: number = TransportState.CONNECTING;
@@ -329,7 +329,7 @@ describe("useNodefonySse — Vue", () => {
 
 describe("noyau client — Vue", () => {
   function noyau() {
-    return createClientKernel({
+    return new NodefonyKernel({
       realtime: newClient(),
       browserEvents: false,
       banner: false,

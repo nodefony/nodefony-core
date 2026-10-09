@@ -90,11 +90,11 @@ est raté — et il l'est pour l'humain pressé comme pour l'agent.
 
 Trois choses le ratent, toujours :
 
-| Interdit en titre                                                                                          | Pourquoi                                                                                               | À la place                                                                                                    |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| Un **code de planification interne** — `S5`, `R6`, `P10`, `D9`, `LB.3b`                                    | Il renvoie à un document que le lecteur n'a pas. Ce n'est pas une abréviation, c'est un pointeur mort. | Ce qu'il désigne : « les migrations de schéma », « la publication npm »                                       |
-| Un **nom de symbole ou de variable nu** — `IClientKernel`, `ROLE_NODEFONY_ADMIN`, `NF__APP__*`, `navTitle` | Il nomme l'implémentation, pas le changement. Le lecteur ne sait pas ce que ça fait.                   | Le mot commun : « le contrat du noyau client », « un rôle administrateur », « la config par l'environnement » |
-| Un **anglicisme quand le français existe** — override, allowlist, subpath, binding, drift                  | Une seule langue par corpus, sinon le lecteur traduit avant de comprendre.                             | surcharge · liste d'exceptions · sous-chemin · liaison · dérive                                               |
+| Interdit en titre                                                                                            | Pourquoi                                                                                               | À la place                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Un **code de planification interne** — `S5`, `R6`, `P10`, `D9`, `LB.3b`                                      | Il renvoie à un document que le lecteur n'a pas. Ce n'est pas une abréviation, c'est un pointeur mort. | Ce qu'il désigne : « les migrations de schéma », « la publication npm »                                       |
+| Un **nom de symbole ou de variable nu** — `INodefonyKernel`, `ROLE_NODEFONY_ADMIN`, `NF__APP__*`, `navTitle` | Il nomme l'implémentation, pas le changement. Le lecteur ne sait pas ce que ça fait.                   | Le mot commun : « le contrat du noyau client », « un rôle administrateur », « la config par l'environnement » |
+| Un **anglicisme quand le français existe** — override, allowlist, subpath, binding, drift                    | Une seule langue par corpus, sinon le lecteur traduit avant de comprendre.                             | surcharge · liste d'exceptions · sous-chemin · liaison · dérive                                               |
 
 **Restent autorisés** : les noms propres d'outils (`gitleaks`, `npm`, `Svelte`), les noms de
 commandes que l'utilisateur tape (`orm:migrate`, `security:user:password`), et les termes officiels
@@ -108,7 +108,7 @@ d'un framework (_composable_ Vue, _rune_ Svelte) — **à condition que le titre
 
 ❌ feat(orm): livrer le DDL de production et orm:migrate      → sigle non expliqué
 ❌ chore(release): exécuter R6 et publier sur npm             → code interne
-❌ fix(client): ne pas geler IClientKernel en l'état          → symbole nu + geste flou
+❌ fix(client): ne pas geler INodefonyKernel en l'état        → symbole nu + geste flou
 ```
 
 ### Le lexique — quand une abréviation reste nécessaire

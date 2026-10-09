@@ -93,10 +93,10 @@ import type {
 } from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 import type {
-  ClientIdentity,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 import {
   adaptiveRebindKey,
   connectShared,
@@ -143,10 +143,10 @@ export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
 export type {
-  ClientIdentity,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 
 /**
  * Le jeton sous lequel {@link provideNodefony} enregistre la socket.
@@ -164,7 +164,7 @@ export const NODEFONY_CLIENT = new InjectionToken<NodefonySocket>(
  * quand l'application en compose un. Absent → {@link injectNodefonyKernel}
  * rend `null`.
  */
-export const NODEFONY_KERNEL = new InjectionToken<IClientKernel>(
+export const NODEFONY_KERNEL = new InjectionToken<INodefonyKernel>(
   "nodefony:kernel",
 );
 
@@ -179,7 +179,7 @@ export interface NodefonyAngularOptions {
    * pas au cycle : c'est le noyau qui ouvre sa socket (`connectOnBoot`,
    * `setIdentity`).
    */
-  kernel?: IClientKernel;
+  kernel?: INodefonyKernel;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. Le fournisseur fabrique la
    * socket partagée pour cette URL et la connecte lui-même.
@@ -361,7 +361,7 @@ export function injectNodefonyIdentity(): Signal<RealtimeIdentity | null> {
  * C'est la porte d'un composant profond vers `kernel.setIdentity()` : déclarer
  * une connexion sans que l'application écrive son propre jeton.
  */
-export function injectNodefonyKernel(): IClientKernel | null {
+export function injectNodefonyKernel(): INodefonyKernel | null {
   assertInInjectionContext(injectNodefonyKernel);
   return inject(NODEFONY_KERNEL, { optional: true }) ?? null;
 }
@@ -370,10 +370,10 @@ export function injectNodefonyKernel(): IClientKernel | null {
  * `injectNodefonyKernelState()` — l'état du noyau (`created` → `booting` →
  * `ready` → `terminated`), ou `null` sans noyau fourni.
  */
-export function injectNodefonyKernelState(): Signal<ClientKernelState | null> {
+export function injectNodefonyKernelState(): Signal<NodefonyKernelState | null> {
   assertInInjectionContext(injectNodefonyKernelState);
   const kernel = injectNodefonyKernel();
-  const state = signal<ClientKernelState | null>(kernel?.state ?? null);
+  const state = signal<NodefonyKernelState | null>(kernel?.state ?? null);
   if (kernel) {
     observeReactive(kernel, (k) =>
       observeKernelState(k, (value) => state.set(value)),
@@ -391,10 +391,12 @@ export function injectNodefonyKernelState(): Signal<ClientKernelState | null> {
  * À ne pas confondre avec {@link injectNodefonyIdentity}, l'identité RÉSOLUE
  * par le serveur au welcome de la socket.
  */
-export function injectNodefonyKernelIdentity(): Signal<ClientIdentity | null> {
+export function injectNodefonyKernelIdentity(): Signal<NodefonyKernelIdentity | null> {
   assertInInjectionContext(injectNodefonyKernelIdentity);
   const kernel = injectNodefonyKernel();
-  const identity = signal<ClientIdentity | null>(kernel?.identity ?? null);
+  const identity = signal<NodefonyKernelIdentity | null>(
+    kernel?.identity ?? null,
+  );
   if (kernel) {
     observeReactive(kernel, (k) =>
       observeKernelIdentity(k, (value) => identity.set(value)),

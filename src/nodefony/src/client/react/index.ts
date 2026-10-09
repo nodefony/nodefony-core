@@ -40,10 +40,10 @@ import type {
 } from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 import type {
-  ClientIdentity,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 import {
   connectShared,
   observeChannel,
@@ -90,14 +90,14 @@ export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
 export type {
-  ClientIdentity,
-  ClientKernelState,
-  IClientKernel,
-} from "../IClientKernel";
+  NodefonyKernelIdentity,
+  NodefonyKernelState,
+  INodefonyKernel,
+} from "../INodefonyKernel";
 
 const NodefonyContext = React.createContext<NodefonySocket | null>(null);
 /** Le noyau client fourni au Provider — `null` quand l'application n'en compose pas. */
-const NodefonyKernelContext = React.createContext<IClientKernel | null>(null);
+const NodefonyKernelContext = React.createContext<INodefonyKernel | null>(null);
 
 export interface NodefonyProviderProps {
   /**
@@ -109,7 +109,7 @@ export interface NodefonyProviderProps {
    * au cycle : c'est le noyau qui ouvre sa socket (`connectOnBoot`,
    * `setIdentity`).
    */
-  kernel?: IClientKernel;
+  kernel?: INodefonyKernel;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. Le Provider fabrique la
    * socket partagée pour cette URL et la connecte lui-même.
@@ -186,7 +186,7 @@ export function NodefonyProvider(
  * C'est la porte d'un composant profond vers `kernel.setIdentity()` : déclarer
  * une connexion sans que l'application écrive son propre contexte.
  */
-export function useNodefonyKernel(): IClientKernel | null {
+export function useNodefonyKernel(): INodefonyKernel | null {
   return React.useContext(NodefonyKernelContext);
 }
 
@@ -199,7 +199,7 @@ const noKernelSnapshot = (): null => null;
  * `ready` → `terminated`), ou `null` sans noyau fourni. Re-render uniquement
  * aux transitions.
  */
-export function useNodefonyKernelState(): ClientKernelState | null {
+export function useNodefonyKernelState(): NodefonyKernelState | null {
   const kernel = useNodefonyKernel();
   return React.useSyncExternalStore(
     kernel
@@ -219,7 +219,7 @@ export function useNodefonyKernelState(): ClientKernelState | null {
  * À ne pas confondre avec {@link useNodefonyIdentity}, l'identité RÉSOLUE par
  * le serveur au welcome de la socket.
  */
-export function useNodefonyKernelIdentity(): ClientIdentity | null {
+export function useNodefonyKernelIdentity(): NodefonyKernelIdentity | null {
   const kernel = useNodefonyKernel();
   return React.useSyncExternalStore(
     kernel
