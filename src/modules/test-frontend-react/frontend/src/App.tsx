@@ -207,20 +207,17 @@ function IncidentsSection() {
    * `requestId` est réellement connu, et le seul qui prouve la corrélation de
    * bout en bout.
    */
-  const provoquer = async () => {
+  const triggerIncident = async () => {
     const response = await fetch(`/${FRONT.toLowerCase()}/api/data`);
     const requestId = response.headers.get("x-request-id") ?? undefined;
-    const json = (await response.json()) as {
-      result?: Record<string, unknown>;
-    };
     withRequestId(requestId, () => {
       try {
-        // Une faute ordinaire : on lit un champ d'un objet qui n'existe pas.
-        const absent = (json.result as { absent?: { value: string } }).absent;
+        // Une faute ordinaire : on lit un champ que la réponse ne porte pas.
+        const expected: { absent?: { value: string } } = {};
         // Faute VOULUE : la vitrine montre une TypeError remontée au journal ;
         // un `?.` la ferait disparaître.
         // oxlint-disable-next-line typescript/no-non-null-assertion
-        setSaid(absent!.value);
+        setSaid(expected.absent!.value);
       } catch (e) {
         journal.log(
           e instanceof Error ? e.message : String(e),
@@ -238,7 +235,7 @@ function IncidentsSection() {
   };
 
   return (
-    <section>
+    <section id="observabilite">
       <div className="sec-head">
         <p className="kicker">Observabilité</p>
         <h2>Ce qui casse ici se lit là-bas</h2>
@@ -248,26 +245,43 @@ function IncidentsSection() {
           l'application, rien de plus.
         </p>
       </div>
-      <p>
-        <button type="button" onClick={() => void provoquer()}>
-          Provoquer un incident
-        </button>
-      </p>
-      {said ? <p role="status">{said}</p> : null}
-      <p>
-        <small>
-          La remontée exige une session : le canal n'accepte pas les connexions
-          anonymes. Connectez-vous à la console d'administration dans ce même
-          navigateur, puis rechargez — l'entrée apparaîtra dans{" "}
-          <code>/nodefony/logs</code>, et aussitôt dans le journal en direct
-          ci-dessus, avec le même <code>requestId</code>. Socket : {state}.
-        </small>
-      </p>
-      <pre>
-        <code>{`installRequestIdProvider()
+      <div className="grid">
+        <div className="card">
+          <h3>💥 Provoquer un incident</h3>
+          <p className="hint">
+            Le clic lit un champ absent d'une réponse : une TypeError,
+            journalisée avec le requestId de cette requête, puis poussée au
+            serveur par la socket.
+          </p>
+          <button className="counter" onClick={() => void triggerIncident()}>
+            Provoquer un incident
+          </button>
+          {said ? (
+            <p className="hint" role="status">
+              {said}
+            </p>
+          ) : null}
+          <p className="hint">
+            La remontée exige une session : le canal n'accepte pas les
+            connexions anonymes. Connectez-vous à la console d'administration
+            dans ce navigateur, puis rechargez — l'entrée apparaît dans le
+            journal en direct ci-dessus (VITRINE), avec le même requestId.
+            Socket : {STATES[state] ?? state}.
+          </p>
+        </div>
+        <div className="card">
+          <h3>🧩 Trois appels</h3>
+          <pre className="code">
+            <code>{`installRequestIdProvider()
 installErrorCapture({ syslog })
 installSyslogUplink({ syslog, publisher: socket })`}</code>
-      </pre>
+          </pre>
+          <p className="hint">
+            Les erreurs que personne ne rattrape y passent aussi : la capture
+            est posée pour toute la page, et retirée au démontage.
+          </p>
+        </div>
+      </div>
     </section>
   );
 }
@@ -824,6 +838,7 @@ export function App() {
               <a href="#comparaison">Par comparaison</a>
               <a href="#journal">Journal SSE</a>
               <a href="#client">Le client</a>
+              <a href="#observabilite">Observabilité</a>
             </nav>
           </div>
 

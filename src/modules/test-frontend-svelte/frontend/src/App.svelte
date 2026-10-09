@@ -12,7 +12,15 @@
     nodefonySse,
     nodefonyState,
   } from "nodefony/svelte";
-  import { describeSocket, type SocketSnapshot } from "nodefony/client";
+  import {
+    describeSocket,
+    installErrorCapture,
+    installRequestIdProvider,
+    installSyslogUplink,
+    Syslog,
+    withRequestId,
+    type SocketSnapshot,
+  } from "nodefony/client";
   // Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
   // page d'accueil du framework. Seule `--accent` change d'une vitrine à l'autre.
   import "./showcase.css";
@@ -249,6 +257,49 @@
     }),
   );
 
+  // Les incidents de CETTE page remontent au serveur — trois appels. Le
+  // nettoyage rendu par `$effect` les retire au démontage.
+  const journal = new Syslog({ moduleName: "vitrine-svelte" });
+  let said = $state<string | null>(null);
+  $effect(() => {
+    installRequestIdProvider();
+    const stopCapture = installErrorCapture({ syslog: journal });
+    const stopUplink = installSyslogUplink({ syslog: journal, publisher: live });
+    return () => {
+      stopUplink();
+      stopCapture();
+    };
+  });
+
+  /**
+   * Provoque une erreur DANS le traitement d'une réponse — le chemin où le
+   * `requestId` est réellement connu, et le seul qui prouve la corrélation.
+   */
+  async function triggerIncident(): Promise<void> {
+    const response = await fetch(`/${FRONT.toLowerCase()}/api/data`);
+    const requestId = response.headers.get("x-request-id") ?? undefined;
+    withRequestId(requestId, () => {
+      try {
+        // Une faute ordinaire : on lit un champ que la réponse ne porte pas.
+        const expected: { absent?: { value: string } } = {};
+        // Faute VOULUE : la vitrine montre une TypeError remontée au journal ;
+        // un `?.` la ferait disparaître.
+        // oxlint-disable-next-line typescript/no-non-null-assertion
+        said = expected.absent!.value;
+      } catch (e) {
+        journal.log(
+          e instanceof Error ? e.message : String(e),
+          3,
+          "VITRINE",
+          "clic sur « provoquer un incident »",
+        );
+        said = requestId
+          ? `Incident journalisé et poussé au serveur, corrélé à la requête ${requestId.slice(0, 8)}…`
+          : "Incident journalisé et poussé au serveur (aucun requestId sur cette réponse).";
+      }
+    });
+  }
+
   onMount(() => {
     // Il ne reste ici que ce que la PAGE possède vraiment : son sondage HTTP.
     pollApi();
@@ -346,6 +397,7 @@
         <a href="#comparaison">Par comparaison</a>
         <a href="#journal">Journal SSE</a>
         <a href="#client">Le client</a>
+        <a href="#observabilite">Observabilité</a>
       </nav>
     </div>
 
@@ -631,6 +683,51 @@ $effect(() =&gt; nodefonyChannel("live:salon", (m) =&gt; …))</code
           <code>nodefony.sockets()</code> et <code>nodefony.identity()</code>. En
           production, rien de tout cela n'est posé.
         </p>
+      </div>
+    </section>
+
+    <section id="observabilite">
+      <div class="sec-head">
+        <p class="kicker">Observabilité</p>
+        <h2>Ce qui casse ici se lit là-bas</h2>
+        <p>
+          Une erreur survenue dans ce navigateur rejoint le journal du serveur, à
+          côté de la ligne de la requête qui l'a provoquée. Trois appels dans
+          l'application, rien de plus.
+        </p>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h3>💥 Provoquer un incident</h3>
+          <p class="hint">
+            Le clic lit un champ absent d'une réponse : une TypeError,
+            journalisée avec le requestId de cette requête, puis poussée au
+            serveur par la socket.
+          </p>
+          <button class="counter" onclick={() => void triggerIncident()}>
+            Provoquer un incident
+          </button>
+          {#if said}<p class="hint" role="status">{said}</p>{/if}
+          <p class="hint">
+            La remontée exige une session : le canal n'accepte pas les
+            connexions anonymes. Connectez-vous à la console d'administration
+            dans ce navigateur, puis rechargez — l'entrée apparaît dans le
+            journal en direct ci-dessus (VITRINE), avec le même requestId.
+            Socket : {STATES[liveState] ?? liveState}.
+          </p>
+        </div>
+        <div class="card">
+          <h3>🧩 Trois appels</h3>
+          <pre class="code"><code
+              >installRequestIdProvider()
+installErrorCapture(&#123; syslog &#125;)
+installSyslogUplink(&#123; syslog, publisher: socket &#125;)</code
+            ></pre>
+          <p class="hint">
+            Les erreurs que personne ne rattrape y passent aussi : la capture est
+            posée pour toute la page, et retirée au démontage.
+          </p>
+        </div>
       </div>
     </section>
 

@@ -1,12 +1,21 @@
 import {
   Component,
+  DestroyRef,
   OnDestroy,
   OnInit,
   VERSION,
   computed,
+  inject,
   signal,
 } from "@angular/core";
-import { describeSocket } from "nodefony/client";
+import {
+  describeSocket,
+  installErrorCapture,
+  installRequestIdProvider,
+  installSyslogUplink,
+  Syslog,
+  withRequestId,
+} from "nodefony/client";
 // La liaison Angular de `nodefony/angular` — le pendant exact des hooks React
 // et des composables Vue. Des fonctions d'injection qui rendent des signals :
 // l'abonnement est libéré à la destruction du composant, sans un `ngOnDestroy`
@@ -233,6 +242,7 @@ const FRONTS = [
             <a href="#comparaison">Par comparaison</a>
             <a href="#journal">Journal SSE</a>
             <a href="#client">Le client</a>
+            <a href="#observabilite">Observabilité</a>
           </nav>
         </div>
 
@@ -524,6 +534,49 @@ const FRONTS = [
           </div>
         </section>
 
+        <section id="observabilite">
+          <div class="sec-head">
+            <p class="kicker">Observabilité</p>
+            <h2>Ce qui casse ici se lit là-bas</h2>
+            <p>
+              Une erreur survenue dans ce navigateur rejoint le journal du
+              serveur, à côté de la ligne de la requête qui l'a provoquée. Trois
+              appels dans l'application, rien de plus.
+            </p>
+          </div>
+          <div class="grid">
+            <div class="card">
+              <h3>💥 Provoquer un incident</h3>
+              <p class="hint">
+                Le clic lit un champ absent d'une réponse : une TypeError,
+                journalisée avec le requestId de cette requête, puis poussée au
+                serveur par la socket.
+              </p>
+              <button class="counter" (click)="triggerIncident()">
+                Provoquer un incident
+              </button>
+              @if (said(); as message) {
+                <p class="hint" role="status">{{ message }}</p>
+              }
+              <p class="hint">
+                La remontée exige une session : le canal n'accepte pas les
+                connexions anonymes. Connectez-vous à la console
+                d'administration dans ce navigateur, puis rechargez — l'entrée
+                apparaît dans le journal en direct ci-dessus (VITRINE), avec le
+                même requestId. Socket : {{ stateLabel() }}.
+              </p>
+            </div>
+            <div class="card">
+              <h3>🧩 Trois appels</h3>
+              <pre class="code"><code>{{ incidentsExcerpt }}</code></pre>
+              <p class="hint">
+                Les erreurs que personne ne rattrape y passent aussi : la
+                capture est posée pour toute la page, et retirée au démontage.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <p class="foot">
           La même page en <a href="/react/app">React</a>,
           <a href="/vue/app">Vue</a> et <a href="/svelte/app">Svelte</a> — ou la
@@ -594,6 +647,45 @@ injectNodefonyChannel("live:salon", (m) => …)`;
   onEvent: (e) => …,
 })`;
 
+  // Les incidents de CETTE page remontent au serveur — trois appels, posés
+  // dans le constructeur (contexte d'injection), retirés par `DestroyRef`.
+  private readonly journal = new Syslog({ moduleName: "vitrine-angular" });
+  readonly said = signal<string | null>(null);
+  readonly incidentsExcerpt = `installRequestIdProvider()
+installErrorCapture({ syslog })
+installSyslogUplink({ syslog, publisher: socket })`;
+
+  /**
+   * Provoque une erreur DANS le traitement d'une réponse — le chemin où le
+   * `requestId` est réellement connu, et le seul qui prouve la corrélation.
+   */
+  async triggerIncident(): Promise<void> {
+    const response = await fetch(`/${FRONT.toLowerCase()}/api/data`);
+    const requestId = response.headers.get("x-request-id") ?? undefined;
+    withRequestId(requestId, () => {
+      try {
+        // Une faute ordinaire : on lit un champ que la réponse ne porte pas.
+        const expected: { absent?: { value: string } } = {};
+        // Faute VOULUE : la vitrine montre une TypeError remontée au journal ;
+        // un `?.` la ferait disparaître.
+        // oxlint-disable-next-line typescript/no-non-null-assertion
+        this.said.set(expected.absent!.value);
+      } catch (e) {
+        this.journal.log(
+          e instanceof Error ? e.message : String(e),
+          3,
+          "VITRINE",
+          "clic sur « provoquer un incident »",
+        );
+        this.said.set(
+          requestId
+            ? `Incident journalisé et poussé au serveur, corrélé à la requête ${requestId.slice(0, 8)}…`
+            : "Incident journalisé et poussé au serveur (aucun requestId sur cette réponse).",
+        );
+      }
+    });
+  }
+
   toggleListening(): void {
     this.listening.update((v) => !v);
   }
@@ -606,6 +698,16 @@ injectNodefonyChannel("live:salon", (m) => …)`;
    * libération était à tenir à la main.
    */
   constructor() {
+    installRequestIdProvider();
+    const stopCapture = installErrorCapture({ syslog: this.journal });
+    const stopUplink = installSyslogUplink({
+      syslog: this.journal,
+      publisher: this.nodefony,
+    });
+    inject(DestroyRef).onDestroy(() => {
+      stopUplink();
+      stopCapture();
+    });
     injectNodefonyChannel("live:salon", (m) =>
       this.messages.update((list) => [...list, m as Message].slice(-6)),
     );

@@ -6,7 +6,15 @@ import {
   ref,
   version as vueVersion,
 } from "vue";
-import { describeSocket, type SocketSnapshot } from "nodefony/client";
+import {
+  describeSocket,
+  installErrorCapture,
+  installRequestIdProvider,
+  installSyslogUplink,
+  Syslog,
+  withRequestId,
+  type SocketSnapshot,
+} from "nodefony/client";
 // Les composables de `nodefony/vue` — de MINCES enveloppes sur le socle
 // agnostique que consomment aussi React, Angular et Svelte. Aucune règle de
 // temps réel n'est écrite ici, et il n'y a plus rien à libérer à la main : la
@@ -193,6 +201,51 @@ const refused = computed(
 );
 // Ce que le client sait de SA socket — les mêmes lignes que la console.
 const rows = computed(() => (vue.value ? describeSocket(vue.value) : []));
+// Les incidents de CETTE page remontent au serveur — trois appels : d'où
+// vient le `requestId`, la capture des erreurs non rattrapées, la remontée
+// par la socket déjà ouverte. Posés au montage, retirés au démontage.
+const journal = new Syslog({ moduleName: "vitrine-vue" });
+const said = ref<string | null>(null);
+let stopIncidents: (() => void) | null = null;
+onMounted(() => {
+  installRequestIdProvider();
+  const stopCapture = installErrorCapture({ syslog: journal });
+  const stopUplink = installSyslogUplink({ syslog: journal, publisher: live });
+  stopIncidents = () => {
+    stopUplink();
+    stopCapture();
+  };
+});
+onUnmounted(() => stopIncidents?.());
+
+/**
+ * Provoque une erreur DANS le traitement d'une réponse — le chemin où le
+ * `requestId` est réellement connu, et le seul qui prouve la corrélation.
+ */
+const triggerIncident = async (): Promise<void> => {
+  const response = await fetch(`/${FRONT.toLowerCase()}/api/data`);
+  const requestId = response.headers.get("x-request-id") ?? undefined;
+  withRequestId(requestId, () => {
+    try {
+      // Une faute ordinaire : on lit un champ que la réponse ne porte pas.
+      const expected: { absent?: { value: string } } = {};
+      // Faute VOULUE : la vitrine montre une TypeError remontée au journal ;
+      // un `?.` la ferait disparaître.
+      // oxlint-disable-next-line typescript/no-non-null-assertion
+      said.value = expected.absent!.value;
+    } catch (e) {
+      journal.log(
+        e instanceof Error ? e.message : String(e),
+        3,
+        "VITRINE",
+        "clic sur « provoquer un incident »",
+      );
+      said.value = requestId
+        ? `Incident journalisé et poussé au serveur, corrélé à la requête ${requestId.slice(0, 8)}…`
+        : "Incident journalisé et poussé au serveur (aucun requestId sur cette réponse).";
+    }
+  });
+};
 const text = ref("");
 const parHttp = ref<string | null>(null);
 const parSocket = ref<string | null>(null);
@@ -358,6 +411,7 @@ onUnmounted(() => {
           <a href="#comparaison">Par comparaison</a>
           <a href="#journal">Journal SSE</a>
           <a href="#client">Le client</a>
+          <a href="#observabilite">Observabilité</a>
         </nav>
       </div>
 
@@ -644,6 +698,49 @@ useNodefonyChannel("live:salon", (m) =&gt; …)</code></pre>
             <code>nodefony.sockets()</code> et <code>nodefony.identity()</code>.
             En production, rien de tout cela n'est posé.
           </p>
+        </div>
+      </section>
+
+      <section id="observabilite">
+        <div class="sec-head">
+          <p class="kicker">Observabilité</p>
+          <h2>Ce qui casse ici se lit là-bas</h2>
+          <p>
+            Une erreur survenue dans ce navigateur rejoint le journal du
+            serveur, à côté de la ligne de la requête qui l'a provoquée. Trois
+            appels dans l'application, rien de plus.
+          </p>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>💥 Provoquer un incident</h3>
+            <p class="hint">
+              Le clic lit un champ absent d'une réponse : une TypeError,
+              journalisée avec le requestId de cette requête, puis poussée au
+              serveur par la socket.
+            </p>
+            <button class="counter" @click="triggerIncident()">
+              Provoquer un incident
+            </button>
+            <p v-if="said" class="hint" role="status">{{ said }}</p>
+            <p class="hint">
+              La remontée exige une session : le canal n'accepte pas les
+              connexions anonymes. Connectez-vous à la console d'administration
+              dans ce navigateur, puis rechargez — l'entrée apparaît dans le
+              journal en direct ci-dessus (VITRINE), avec le même requestId.
+              Socket : {{ STATES[liveState] ?? liveState }}.
+            </p>
+          </div>
+          <div class="card">
+            <h3>🧩 Trois appels</h3>
+            <pre class="code"><code>installRequestIdProvider()
+installErrorCapture(&#123; syslog &#125;)
+installSyslogUplink(&#123; syslog, publisher: socket &#125;)</code></pre>
+            <p class="hint">
+              Les erreurs que personne ne rattrape y passent aussi : la capture
+              est posée pour toute la page, et retirée au démontage.
+            </p>
+          </div>
         </div>
       </section>
 

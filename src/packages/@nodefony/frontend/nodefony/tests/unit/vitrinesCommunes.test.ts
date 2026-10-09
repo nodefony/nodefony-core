@@ -222,6 +222,15 @@ describe("vitrines — les quatre consomment le SOCLE, aucune ne le réécrit", 
       expect(src, `${front} : la vignette lit describeSocket`).toContain(
         "describeSocket(",
       );
+      // Les incidents remontent par les trois appels du client, et l'extrait
+      // affiché cite le même appel que le câblage.
+      expect(
+        src.split("installSyslogUplink(").length - 1,
+        `${front} : remontée des incidents (câblage + extrait)`,
+      ).toBeGreaterThanOrEqual(2);
+      expect(src, `${front} : capture des erreurs`).toContain(
+        "installErrorCapture(",
+      );
       // Ouvrir un flux à la main, c'est oublier de le fermer au démontage.
       expect(src, `${front} : flux ouvert à la main`).not.toContain(
         "new NodefonySse(",
@@ -285,6 +294,10 @@ describe("vitrines — le même écran, et de quoi le comparer", () => {
       "Journal du serveur en direct",
       "WebSocket ou SSE ?",
       "Le client vu de l'intérieur",
+      // La remontée des incidents du navigateur — longtemps présente dans la
+      // seule vitrine React, sans que rien ne le signale.
+      "Ce qui casse ici se lit là-bas",
+      "Provoquer un incident",
     ];
     for (const { front, page } of VITRINES) {
       const src = lire(front, page);
