@@ -465,7 +465,66 @@ describe("MCP — le protocole", () => {
     const error = (reply.body as { error: { code: number; message: string } })
       .error;
     expect(error.code).toBe(-32603);
-    expect(error.message).toMatch(/pas de chance/u);
+    expect(error.message).toMatch(/« boom »/u);
+  });
+
+  it("🔴 l'exception d'un outil reste au serveur : l'agent ne lit ni chemin ni secret", async () => {
+    const thrown = new Error("/home/x/.ssh/id_rsa");
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 32,
+        method: "tools/call",
+        params: { name: "leak", arguments: {} },
+      },
+      context([], {
+        modules: {
+          app: moduleDeclaring({
+            name: "leak",
+            description: "lève avec un chemin sensible",
+            inputSchema: { type: "object", properties: {} },
+            handler: () => {
+              throw thrown;
+            },
+          }),
+        },
+      }),
+    );
+    const raw = JSON.stringify(reply.body);
+    expect(raw).not.toMatch(/id_rsa/u);
+    expect(raw).not.toMatch(/\/home\//u);
+    expect((reply.body as { error: { code: number } }).error.code).toBe(-32603);
+    // Le détail n'est pas perdu : il part À CÔTÉ, pour le journal du transport.
+    expect(reply.failure).toEqual({ tool: "leak", error: thrown });
+  });
+
+  it("un échec MÉTIER (`isError`) parvient toujours à l'agent", async () => {
+    const reply = await handleMcpMessage(
+      {
+        jsonrpc: "2.0",
+        id: 33,
+        method: "tools/call",
+        params: { name: "refuse", arguments: {} },
+      },
+      context([], {
+        modules: {
+          app: moduleDeclaring({
+            name: "refuse",
+            description: "refuse avec une raison",
+            inputSchema: { type: "object", properties: {} },
+            handler: () => mcpText("stock épuisé pour cette référence", true),
+          }),
+        },
+      }),
+    );
+    const result = (
+      reply.body as {
+        result: { isError?: boolean; content: { text: string }[] };
+      }
+    ).result;
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toMatch(/stock épuisé/u);
+    expect(reply.failure).toBeUndefined();
   });
 });
 

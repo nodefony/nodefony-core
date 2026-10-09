@@ -456,6 +456,21 @@ class McpController extends Controller {
       { protocolVersion },
     );
 
+    // L'agent n'a reçu qu'un message générique : le détail de l'exception
+    // n'existe QU'ICI. Sans ce journal, l'auteur de l'outil n'aurait rien pour
+    // comprendre son échec.
+    if (reply.failure) {
+      const { tool, error } = reply.failure;
+      this.log(
+        `MCP — l'outil « ${tool} » a levé : ${
+          error instanceof Error
+            ? (error.stack ?? error.message)
+            : String(error)
+        }`,
+        "ERROR",
+      );
+    }
+
     // Un flux a été ouvert en route : la réponse finale le CLÔT (« SHOULD
     // terminate the stream »). Sinon, rien n'a été dit avant : JSON, comme
     // toujours.

@@ -141,4 +141,15 @@ export interface IMcpHttpReply {
    * pour une notification acceptée.
    */
   body: IJsonRpcSuccess | IJsonRpcFailure | null;
+  /**
+   * L'exception levée par un outil, rendue À CÔTÉ de la réponse — jamais
+   * sérialisée.
+   *
+   * Le client ne reçoit qu'un message générique : le message d'une exception
+   * peut porter un chemin de disque, une chaîne de connexion ou un secret, et
+   * l'outil qui la lève est du code d'application arbitraire. Le détail reste
+   * donc au serveur, et c'est au TRANSPORT de le journaliser : le protocole est
+   * une fonction pure, qui n'a pas de journal.
+   */
+  failure?: { tool: string; error: unknown } | undefined;
 }

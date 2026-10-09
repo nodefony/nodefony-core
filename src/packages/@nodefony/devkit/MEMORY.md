@@ -72,6 +72,9 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   `mcp/progress.ts`. `subscriptions/listen` → 404/-32601 explicite (cœur
   `server.ts`). Journal `notifications/message` NON servi (déprécié par la révision courante de la norme, `MCP_PROTOCOL_VERSION`).
   Banc : outils `test_progress`/`test_progress_last` du module `test`.
+- Exception d'outil : réponse `-32603` générique (cœur `server.ts`), détail rendu
+  à côté (`IMcpHttpReply.failure`, jamais sérialisé) → journalisé `ERROR` par le
+  controller. Banc : outil `test_crash` du module `test`.
 
 ## Gotchas
 

@@ -182,7 +182,10 @@ Trois règles qui évitent les défauts les plus coûteux :
 
 - **Un échec métier se rend en `isError`, jamais en exception.** `mcpText(message, true)`
   (`tools.ts:218`). Une exception devient une erreur de protocole (`-32603`), que l'agent lit comme
-  « le serveur est cassé » au lieu de « corrige ta demande ».
+  « le serveur est cassé » au lieu de « corrige ta demande ». Elle est de plus **opaque** : l'agent
+  ne reçoit qu'un message qui nomme l'outil, le message de l'exception part au journal du serveur
+  (`ERROR`) — il pourrait porter un chemin ou un secret. `isError` est le seul canal qui parvient à
+  l'agent.
 - **Un argument non déclaré est refusé.** `unknownArguments()` (`tools.ts:1425`) rend un `isError`
   qui le nomme : un paramètre accepté puis jeté donnerait une réponse qui _a l'air_ d'avoir honoré la
   demande. Un outil qui veut des arguments libres l'écrit (`additionalProperties: true`).

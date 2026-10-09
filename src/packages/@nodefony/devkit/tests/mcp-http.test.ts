@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { request as httpsRequest } from "node:https";
 import { request as httpRequest } from "node:http";
@@ -489,6 +490,78 @@ if (raison !== null) {
   );
 }
 
+/** Requête HTTPS sur le serveur de la suite, corps texte rendu tel quel. */
+function demander(
+  methode: string,
+  chemin: string,
+  headers: Record<string, string>,
+  charge?: string,
+): Promise<{ status: number; texte: string; cookie: string }> {
+  return new Promise((resoudre, rejeter) => {
+    const req = httpsRequest(
+      `${BASE}${chemin}`,
+      { method: methode, rejectUnauthorized: false, timeout: 8000, headers },
+      (res) => {
+        const premier = res.headers["set-cookie"]?.[0] ?? "";
+        let texte = "";
+        res.setEncoding("utf8");
+        res.on("data", (morceau: string) => (texte += morceau));
+        res.on("end", () =>
+          resoudre({
+            status: res.statusCode ?? 0,
+            texte,
+            cookie: premier.split(";")[0] ?? "",
+          }),
+        );
+      },
+    );
+    req.on("error", rejeter);
+    req.on("timeout", () => {
+      req.destroy();
+      rejeter(new Error("timeout"));
+    });
+    req.end(charge);
+  });
+}
+
+/**
+ * Entrées `ERROR` du journal du serveur pour une requête, chacune sérialisée.
+ *
+ * Le journal se lit par le plan d'administration (`/nodefony/syslog/api`),
+ * protégé : connexion `admin` d'abord, comme le banc de traçage WebSocket. Le
+ * ring est relu avec quelques relances — l'écriture et la lecture ne partagent
+ * aucune horloge.
+ */
+async function journalErreurs(requestId: string): Promise<string[]> {
+  const charge = JSON.stringify({
+    username: "admin",
+    password: "secret-de-dev-42",
+  });
+  const login = await demander(
+    "POST",
+    "/nodefony/security/api/auth/login",
+    {
+      "content-type": "application/json",
+      "content-length": String(Buffer.byteLength(charge)),
+    },
+    charge,
+  );
+  expect(login.cookie, "connexion admin refusée — journal illisible").not.toBe(
+    "",
+  );
+  for (let essai = 0; essai < 6; essai++) {
+    const lu = await demander(
+      "GET",
+      `/nodefony/syslog/api/logs/search?requestId=${requestId}&severity=ERROR&limit=50`,
+      { cookie: login.cookie },
+    );
+    const rows = (JSON.parse(lu.texte) as { rows?: unknown[] }).rows ?? [];
+    if (rows.length > 0) return rows.map((r) => JSON.stringify(r));
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return [];
+}
+
 /** Extrait la liste d'outils d'une réponse `tools/list`. */
 function outilsDe(reponse: IReponse): { name: string; description: string }[] {
   return (
@@ -577,6 +650,34 @@ describe.skipIf(raison !== null)(
       // « inconnu », pas « interdit » : l'existence même n'est pas révélée.
       expect(error.message).toMatch(/inconnu/u);
       expect(reponse.raw).not.toMatch(/scope|autoris/iu);
+    });
+
+    it("🔴 l'exception d'un outil reste au JOURNAL, jamais dans la réponse", async () => {
+      // L'identifiant de requête est imposé : c'est lui qui retrouve l'entrée
+      // de journal écrite par le controller pendant CETTE requête.
+      const requestId = randomUUID();
+      const reponse = await poster(
+        {
+          jsonrpc: "2.0",
+          id: 22,
+          method: "tools/call",
+          params: { name: "test_crash", arguments: {} },
+        },
+        { "x-request-id": requestId },
+      );
+      expect(reponse.status).toBe(200);
+      const error = (
+        reponse.body as { error: { code: number; message: string } }
+      ).error;
+      expect(error.code).toBe(-32603);
+      expect(error.message).toMatch(/« test_crash »/u);
+      expect(reponse.raw).not.toMatch(/id_rsa|\/home\//u);
+
+      const lignes = await journalErreurs(requestId);
+      expect(
+        lignes.some((l) => /test_crash/u.test(l) && /id_rsa/u.test(l)),
+        `aucune entrée ERROR ne nomme l'outil pour la requête ${requestId}`,
+      ).toBe(true);
     });
 
     it("un outil intégré traverse le controller sans se déformer", async () => {

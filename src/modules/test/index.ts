@@ -310,6 +310,18 @@ class Test extends Module {
         },
       },
       {
+        // Décor de l'OPACITÉ : l'exception porte un faux chemin sensible, qui
+        // doit rester au journal du serveur et ne jamais atteindre l'agent.
+        name: "test_crash",
+        description:
+          "Sonde du module de test : lève toujours une exception. Sert au banc " +
+          "qui vérifie que son message reste au journal du serveur.",
+        inputSchema: { type: "object", properties: {} },
+        handler: () => {
+          throw new Error("/home/x/.ssh/id_rsa — sonde de fuite MCP");
+        },
+      },
+      {
         name: "test_progress_last",
         description:
           "Sonde du module de test : rend le dernier passage de " +

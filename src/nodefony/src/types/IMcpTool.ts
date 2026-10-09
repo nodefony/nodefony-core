@@ -181,6 +181,12 @@ export interface IMcpTool extends IMcpToolDefinition {
   /**
    * Implémentation. Un échec métier se rend en `isError`, pas en exception.
    *
+   * ⚠️ **Une exception est OPAQUE pour l'agent** : il ne reçoit qu'un
+   * `-32603` générique qui nomme l'outil, et le message part au journal du
+   * serveur — il pourrait porter un chemin, une chaîne de connexion ou un
+   * secret. Pour EXPLIQUER un échec à l'agent, rendre `isError` (par
+   * `mcpText(raison, true)`) : c'est le seul canal qui lui parvient.
+   *
    * Le second paramètre porte l'appelant ÉTABLI : un outil authentifié doit
    * pouvoir borner ce qu'il rend à son sujet, et pas seulement décider s'il
    * répond. Le troisième ({@link IMcpToolRun}) sert l'outil LONG : annulation

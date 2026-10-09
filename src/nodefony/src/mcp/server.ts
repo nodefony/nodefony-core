@@ -494,13 +494,17 @@ export async function handleMcpMessage(
             reporter.progress(value, total, text),
         });
       } catch (error) {
+        // Opaque pour l'agent, comme le `-32603` du temps réel : le message
+        // d'une exception d'outil peut porter un chemin ou un secret. Le
+        // détail part à côté (`failure`), le transport le journalise.
         return {
           status: 200,
           body: jsonRpcFailure(
             id,
             JsonRpcError.INTERNAL_ERROR,
-            `l'outil « ${name} » a échoué : ${(error as Error).message}`,
+            `l'outil « ${name} » a échoué — détail dans le journal du serveur`,
           ),
+          failure: { tool: name, error },
         };
       } finally {
         reporter.end();
