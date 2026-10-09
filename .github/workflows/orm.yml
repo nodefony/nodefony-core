@@ -66,6 +66,7 @@ on:
       # devenue introuvable.
       - ".github/actions/redis/**"
       - ".github/actions/mongo/**"
+      - ".github/actions/dockerhub-login/**"
       # Les bancs de pod que ce workflow LANCE — sans eux dans les chemins,
       # le banc pouvait casser sans que rien ne se déclenche pour le dire.
       - ".claude/skills/nodefony-multipod-bench/scripts/**"
@@ -119,6 +120,7 @@ on:
       # devenue introuvable.
       - ".github/actions/redis/**"
       - ".github/actions/mongo/**"
+      - ".github/actions/dockerhub-login/**"
       # Les bancs de pod que ce workflow LANCE — sans eux dans les chemins,
       # le banc pouvait casser sans que rien ne se déclenche pour le dire.
       - ".claude/skills/nodefony-multipod-bench/scripts/**"

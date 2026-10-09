@@ -33,10 +33,17 @@ runs:
           echo "::warning title=Docker Hub en anonyme::NF_DOCKERHUB_USER ou NF_DOCKERHUB_TOKEN absent — les images seront tirées sur le quota anonyme par IP, partagé par tous les runners."
           exit 0
         fi
-        # Un jeton refusé ne fait pas échouer le job : il retombe en anonyme,
-        # mais le DIT — un jeton expiré ne doit pas passer inaperçu.
-        if ! echo "${JETON}" | docker login -u "${IDENTIFIANT}" --password-stdin > /dev/null 2>&1; then
-          echo "::warning title=Identifiants Docker Hub refusés::Jeton expiré, révoqué, ou identifiant erroné — téléchargements en anonyme."
+        # Un échec ne fait pas échouer le job : il retombe en anonyme, mais le
+        # DIT avec le motif de Docker — un refus d'identifiants et une panne de
+        # Docker Hub (délai expiré sur auth.docker.io) appellent deux gestes
+        # opposés, et un message unique a déjà fait accuser un jeton valide.
+        if ! SORTIE=$(echo "${JETON}" | docker login -u "${IDENTIFIANT}" --password-stdin 2>&1); then
+          MOTIF=$(printf '%s' "${SORTIE}" | tr '\n' ' ' | cut -c1-300)
+          if printf '%s' "${SORTIE}" | grep -qiE 'unauthorized|incorrect username or password'; then
+            echo "::warning title=Identifiants Docker Hub refusés::Jeton expiré, révoqué, ou identifiant erroné — téléchargements en anonyme. Docker : ${MOTIF}"
+          else
+            echo "::warning title=Docker Hub injoignable::Connexion impossible SANS refus d'identifiants (panne Docker Hub ? voir dockerstatus.com) — téléchargements en anonyme. Docker : ${MOTIF}"
+          fi
           exit 0
         fi
         echo "Docker Hub : connecté en ${IDENTIFIANT}"
