@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T13:18:13.892Z",
+  "generatedAt": "2026-10-09T16:36:18.966Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 97,
+      "closed": 98,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 50,
+      "open": 49,
       "title": "10.0.0-beta"
     },
     {
@@ -1743,8 +1743,8 @@
       "number": 577,
       "title": "fix(http): refuser par un statut HTTP une socket sans route",
       "url": "https://github.com/nodefony/nodefony-core/issues/577",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
