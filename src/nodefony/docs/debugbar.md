@@ -100,7 +100,7 @@ lit, il ne se confond pas avec une panne.
 > l'application un travail que personne ne regarde. C'est un choix d'adhésion,
 > pas une option cachée.
 
-## Les cinq onglets
+## Les six onglets
 
 **Realtime** — débit, transport, protocole, état de la socket, frames reçues,
 pic. C'est la vue de la socket elle-même.
@@ -112,6 +112,18 @@ instrumente des fonctions globales du navigateur.
 **Perf** — processeur, mémoire, boucle d'événements du serveur.
 
 **Logs** — les journaux du serveur, en direct. Voir la section suivante.
+
+**Noyau** — le noyau client de la page (`NodefonyKernel`), quand elle en compose
+un : nom, état et heures de son cycle (datées par le noyau lui-même, donc justes
+même si la barre est montée après), compte déclaré par `setIdentity` (la clé
+seulement : la charge appartient à l'application), le même diagnostic que le
+détail affiché dans la console, ses options, et le journal horodaté de ses
+événements (`onBoot`, `onReady`, `onIdentityChange`, `onVisibility`, `onOnline`,
+`onTerminate`). Chaque libellé porte une explication courte, au survol comme au
+clavier. Une puce « noyau · prêt » apparaît dans la bande dès qu'un noyau est
+détecté — qu'il soit né avant ou après la barre. Sans noyau, l'onglet dit comment
+en créer un. Le noyau publie cette sonde **en développement seulement** : en
+production, rien n'est posé sur la page.
 
 **Runtime** — l'identité du processus servi (version, environnement, `pid`,
 disponibilité, cœurs, mémoire), et **ce que la barre garde sur ce navigateur**.
@@ -213,8 +225,8 @@ publication (`npm run size:check`).
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Entrée séparée**     | Un sous-chemin du paquet (`nodefony/debugbar`) importé à part. Ce qui n'est pas importé n'entre pas dans votre bundle.                                                                                         |
 | **`mountDebugBar`**    | La seule fonction à appeler (`index.ts:46`). Elle installe la barre et rend une poignée pour la piloter ou la retirer.                                                                                         |
-| **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:648`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
-| **Options**            | Ce qu'on passe au montage (`DebugBarOptions`, `DebugBar.ts:138`) — l'adresse du socket, la position (`bottom` ou `top`), le panneau ouvert d'emblée, et l'interception réseau, qu'on peut refuser entièrement. |
+| **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:758`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
+| **Options**            | Ce qu'on passe au montage (`DebugBarOptions`, `DebugBar.ts:148`) — l'adresse du socket, la position (`bottom` ou `top`), le panneau ouvert d'emblée, et l'interception réseau, qu'on peut refuser entièrement. |
 | **Charge utile**       | Ce que le serveur pousse : statistiques (`StatsPayload`, `model.ts:25`) et journaux (`LogEntry`, `model.ts:49`).                                                                                               |
 | **`requestId`**        | L'identifiant qu'une requête porte de bout en bout. C'est lui qui relie une ligne de journal à l'appel réseau qui l'a produite.                                                                                |
 

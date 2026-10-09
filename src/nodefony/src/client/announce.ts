@@ -25,6 +25,7 @@
  * @module nodefony/client
  */
 import type { NodefonySocket } from "./realtime/NodefonySocket";
+import type { INodefonyKernel } from "./INodefonyKernel";
 
 /** Ce que `nodefony` rend dans la console. Dev uniquement — jamais publié. */
 interface NodefonyConsoleHandle {
@@ -303,4 +304,73 @@ export function consoleDetails(
 /** Un noyau est-il vivant sur cette page ? La socket s'efface devant lui. */
 export function hasKernel(): boolean {
   return liveKernel !== null;
+}
+
+/* ───────────────────── sonde du noyau pour les outils ───────────────────── */
+
+/** Événement émis sur la page quand un noyau apparaît ou disparaît. */
+export const KERNEL_PROBE_EVENT = "nodefony:kernel";
+
+/**
+ * Ce qu'un noyau client donne à voir aux outils de développement de la page —
+ * la barre de debug en tête. Publiée par le noyau LUI-MÊME, en développement
+ * seulement : en production, rien n'est posé sur le global.
+ *
+ * Pourquoi un registre sur `globalThis` et non une variable de module : la
+ * barre est servie comme un fichier à part, donc par une AUTRE instance de ce
+ * module que celle de l'application — la même raison que `__nfRealtime__`.
+ */
+export interface IKernelProbe {
+  /** Le noyau observé — `on`/`off`, `state`, `identity`, `get`. */
+  readonly kernel: INodefonyKernel;
+  /** Son nom (celui de l'annonce console). */
+  readonly name: string;
+  /** Instant de création (ms epoch). */
+  readonly createdAt: number;
+  /**
+   * Instant de chaque transition du cycle (`created`, `booting`, `ready`,
+   * `terminated`), daté par le noyau lui-même — un outil arrivé après ne
+   * pourrait pas le reconstituer.
+   */
+  timeline(): Readonly<Partial<Record<string, number>>>;
+  /** Les options reçues, rendues lisibles. */
+  readonly options: Readonly<Record<string, string>>;
+  /** Le diagnostic courant — les MÊMES lignes que le détail de la console. */
+  rows(): ReadonlyArray<readonly [string, string]>;
+}
+
+declare global {
+  /** Registre des sondes de noyau de la page — posé en développement seulement. */
+  // `var` : seule forme qui déclare une propriété du global.
+  var __nfKernels__: IKernelProbe[] | undefined;
+}
+
+/** Les sondes publiées sur cette page, la plus récente en dernier. */
+export function exposedKernels(): readonly IKernelProbe[] {
+  return globalThis.__nfKernels__ ?? [];
+}
+
+/**
+ * Publie la sonde d'un noyau pour les outils de la page.
+ *
+ * @returns le retrait, à appeler à la mort du noyau — sans quoi un
+ *   rechargement à chaud accumulerait des noyaux morts.
+ */
+export function exposeKernel(probe: IKernelProbe): () => void {
+  if (!hasPage() || !isVerbose()) return () => undefined;
+  const g = globalThis;
+  (g.__nfKernels__ ??= []).push(probe);
+  notifyKernels();
+  return () => {
+    const list = g.__nfKernels__;
+    const i = list ? list.indexOf(probe) : -1;
+    if (list && i >= 0) list.splice(i, 1);
+    notifyKernels();
+  };
+}
+
+function notifyKernels(): void {
+  const target = globalThis as { dispatchEvent?: (e: Event) => boolean };
+  if (typeof Event === "function")
+    target.dispatchEvent?.(new Event(KERNEL_PROBE_EVENT));
 }

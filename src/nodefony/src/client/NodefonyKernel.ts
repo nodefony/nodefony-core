@@ -24,7 +24,12 @@
 import Service from "../Service";
 import type Syslog from "../syslog/Syslog";
 import { NodefonySocket } from "./realtime/NodefonySocket";
-import { announceKernel, consoleDetails, isVerbose } from "./announce";
+import {
+  announceKernel,
+  consoleDetails,
+  exposeKernel,
+  isVerbose,
+} from "./announce";
 import type {
   NodefonyKernelIdentity,
   NodefonyKernelEvent,
@@ -74,6 +79,16 @@ export class NodefonyKernel implements INodefonyKernel {
    */
   #services: Record<string, unknown> | null = null;
   /**
+   * Instant de chaque transition du cycle — quatre `Date.now()` par vie de
+   * noyau. Les outils de la page arrivent souvent APRÈS les faits : seul le
+   * noyau peut dater ce qui s'est passé avant eux.
+   */
+  readonly #timeline: Partial<Record<NodefonyKernelState, number>> = {
+    created: Date.now(),
+  };
+  /** Retire la sonde publiée pour les outils de la page (barre de debug). */
+  #unexpose: () => void = () => undefined;
+  /**
    * Débranchements des listeners navigateur. `null` tant qu'aucun n'est posé —
    * un kernel monté en test, ou hors document, n'en pose aucun.
    */
@@ -99,6 +114,27 @@ export class NodefonyKernel implements INodefonyKernel {
     // le badge générique de la socket que le développeur verrait.
     this.#disposeHandle = announceKernel(this, this.name, this.#options.banner);
     this.#composeRealtime();
+    // La sonde des outils de la page (barre de debug), en développement
+    // seulement : le même diagnostic que la console, sans le recopier.
+    const opts = this.#options;
+    this.#unexpose = exposeKernel({
+      kernel: this,
+      name: this.name,
+      createdAt: this.#timeline.created ?? Date.now(),
+      timeline: () => ({ ...this.#timeline }),
+      options: {
+        connectOnBoot: String(opts.connectOnBoot ?? true),
+        browserEvents: String(opts.browserEvents ?? "auto"),
+        banner: String(opts.banner ?? "auto"),
+        realtime:
+          opts.realtime === false || opts.realtime === undefined
+            ? "aucun"
+            : opts.realtime instanceof NodefonySocket
+              ? "socket fournie"
+              : "composée par le noyau",
+      },
+      rows: () => this.#detailRows(),
+    });
   }
 
   // ── Composition ────────────────────────────────────────────────────────────
@@ -158,6 +194,7 @@ export class NodefonyKernel implements INodefonyKernel {
     // Élargi : sans cela TS garde `"booting"` rétréci à travers le `await`,
     // alors que `terminate()` peut changer l'état pendant la connexion.
     this.#state = "booting" as NodefonyKernelState;
+    this.#timeline.booting = Date.now();
     this.#service.fire("onBoot", this);
     this.#bindBrowser();
     const socket =
@@ -177,6 +214,7 @@ export class NodefonyKernel implements INodefonyKernel {
     // `terminated`.
     if (this.#state !== "booting") return;
     this.#state = "ready";
+    this.#timeline.ready = Date.now();
     this.#details();
     this.#service.fire("onReady", this);
   }
@@ -200,21 +238,29 @@ export class NodefonyKernel implements INodefonyKernel {
     // cas d'un bundle de production servi par un serveur de développement, que
     // `import.meta.env.DEV` ne pouvait pas voir.
     if (this.#options.banner !== true && !isVerbose()) return;
-    const socket = this.get("realtime");
-    const rows: Record<string, { valeur: string }> = {
-      état: { valeur: this.state },
-      identité: { valeur: this.identity ? this.identity.key : "anonyme" },
-      "temps réel": {
-        valeur: socket ? (socket.url ?? "socket fournie") : "aucun",
-      },
-      socket: { valeur: socket ? socket.state : "—" },
-    };
-    for (const name of this.#services ? Object.keys(this.#services) : [])
-      rows[`service · ${name}`] = { valeur: "composé" };
+    const rows: Record<string, { valeur: string }> = {};
+    for (const [k, v] of this.#detailRows()) rows[k] = { valeur: v };
     // Le groupe, le tableau et les rappels vivent dans `announce.ts` : une
     // vitrine sans noyau obtient EXACTEMENT la même présentation, et une seule
     // implémentation la porte.
     consoleDetails(rows, this, "noyau client — détail et raccourcis");
+  }
+
+  /**
+   * Le diagnostic du noyau, ligne à ligne — UNE implémentation pour la console
+   * et pour la barre de debug, qui en montrent donc exactement le même état.
+   */
+  #detailRows(): Array<readonly [string, string]> {
+    const socket = this.get("realtime");
+    const rows: Array<readonly [string, string]> = [
+      ["état", this.state],
+      ["identité", this.identity ? this.identity.key : "anonyme"],
+      ["temps réel", socket ? (socket.url ?? "socket fournie") : "aucun"],
+      ["socket", socket ? socket.state : "—"],
+    ];
+    for (const name of this.#services ? Object.keys(this.#services) : [])
+      rows.push([`service · ${name}`, "composé"]);
+    return rows;
   }
 
   /**
@@ -243,12 +289,15 @@ export class NodefonyKernel implements INodefonyKernel {
     // L'état bascule AVANT l'émission : un handler qui rappellerait `boot()`
     // depuis `onTerminate` ne doit pas ressusciter le kernel.
     this.#state = "terminated";
+    this.#timeline.terminated = Date.now();
     this.#service.fire("onTerminate", this);
     const socket = this.get("realtime");
     if (socket) socket.disconnect();
     this.#unbindBrowser();
     this.#disposeHandle?.();
     this.#disposeHandle = null;
+    this.#unexpose();
+    this.#unexpose = () => undefined;
     this.#booting = null;
     this.#services = null;
     // Retire les listeners trackés par `Service` et détache son container : sans

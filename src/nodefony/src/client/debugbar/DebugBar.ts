@@ -40,6 +40,15 @@ import {
 } from "./format";
 import { observeViteHmr, type HmrEvent } from "./hmr";
 import { FeedView } from "./feedView";
+import {
+  exposedKernels,
+  KERNEL_PROBE_EVENT,
+  type IKernelProbe,
+} from "../announce";
+import type {
+  NodefonyKernelEvent,
+  NodefonyKernelIdentity,
+} from "../INodefonyKernel";
 import { installNetworkInterceptor, type NetEntry } from "./network";
 import {
   NetworkModel,
@@ -92,12 +101,13 @@ function detailPanelH(): number {
 }
 
 /** Onglets disponibles (ordre d'affichage). */
-type TabId = "realtime" | "network" | "perf" | "logs" | "runtime";
+type TabId = "realtime" | "network" | "perf" | "logs" | "kernel" | "runtime";
 const TAB_IDS: readonly string[] = [
   "realtime",
   "network",
   "perf",
   "logs",
+  "kernel",
   "runtime",
 ] satisfies TabId[];
 
@@ -161,6 +171,65 @@ export interface DebugBarOptions {
   env?: string;
 }
 
+/**
+ * L'explication de chaque valeur de l'onglet Noyau — courte, au survol et au
+ * focus. Une seule table : le libellé affiché est la clé.
+ */
+const KERNEL_HELP: ReadonlyMap<string, string> = new Map([
+  ["nom", "Nom donné au noyau (option name)."],
+  [
+    "état",
+    "Cycle : créé → démarrage (boot) → prêt (services connectés) → terminé.",
+  ],
+  ["créé", "Construction du noyau (new NodefonyKernel)."],
+  ["démarrage", "Appel à boot()."],
+  ["prêt", "Services composés et connectés (onReady)."],
+  ["terminé", "Appel à terminate(), en général au départ de la page."],
+  [
+    "compte",
+    "Clé du compte déclarée par setIdentity. Changer de clé renégocie la socket (anti-élévation de privilège).",
+  ],
+  [
+    "changements",
+    "Changements de COMPTE vus par la barre — pas un profil rafraîchi.",
+  ],
+  ["dernier", "Dernier changement de compte."],
+  ["identité", "Clé du compte déclaré, ou « anonyme »."],
+  ["temps réel", "Adresse de la socket du noyau, ou « aucun »."],
+  ["socket", "État de la connexion."],
+  [
+    "connectOnBoot",
+    "Ouvrir la socket au boot() ? false : elle s'ouvre au login (setIdentity).",
+  ],
+  [
+    "browserEvents",
+    "Relayer visibilité, réseau et départ de la page en événements du noyau.",
+  ],
+  [
+    "banner",
+    "Annonce console : auto = détaillée en développement ; false = silence.",
+  ],
+  [
+    "realtime",
+    "Origine de la socket : composée par le noyau, fournie, ou aucune.",
+  ],
+]);
+
+/** L'explication d'un libellé de l'onglet Noyau — les services composés compris. */
+function kernelHelp(label: string): string | undefined {
+  if (label.startsWith("service · "))
+    return "Service composé par le noyau — kernel.get(nom).";
+  return KERNEL_HELP.get(label);
+}
+
+/** L'état du noyau, en français — le code (`ready`…) reste dans l'infobulle des outils. */
+const KERNEL_STATE_LABEL: Readonly<Record<string, string>> = {
+  created: "créé",
+  booting: "démarrage",
+  ready: "prêt",
+  terminated: "terminé",
+};
+
 /** Métadonnées d'affichage par framework (couleur de marque officielle). */
 const FRAMEWORKS: Record<string, { label: string; color: string }> = {
   react19: { label: "React 19", color: "#61dafb" },
@@ -171,16 +240,19 @@ const FRAMEWORKS: Record<string, { label: string; color: string }> = {
   vanilla: { label: "Vanilla", color: "#f7df1e" },
 };
 
-const STYLES = `
+const STYLES =
+  `
 :host { all: initial; }
 * { box-sizing: border-box; }
 .bar {
   position: fixed; left: 0; right: 0; z-index: 2147483000;
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: #e8eaed;
-  /* Fond OPAQUE (pas de backdrop-filter sur le conteneur scrollable : il
-     recompositait le blur à chaque frame de scroll → lag). Blur seulement sur
-     .strip (fin, non scrollé). */
+  ` +
+  // Fond OPAQUE (pas de backdrop-filter sur le conteneur scrollable : il
+  // recompositait le blur à chaque frame de scroll → lag). Blur seulement sur
+  // .strip (fin, non scrollé).
+  `
   background: #14161a;
   --blue:#0067ba; --blue2:#3aa0ff; --orange:#ff8a3d; --ok:#36b37e; --warn:#ffab00;
   --crit:#ff5630; --info:#4c9aff; --muted:#8a9099; --line:#2a2e36; --card:#1c1f26;
@@ -196,8 +268,10 @@ const STYLES = `
 .bar.bottom::before { top:0; } .bar.top::before { bottom:0; }
 @keyframes flow { to { background-position: 200% 0; } }
 
-/* Strip responsive : police (et tout le contenu en em) scale avec la largeur
-   d'écran, bornée 12→15px. Padding scale aussi. */
+` +
+  // Strip responsive : police (et tout le contenu en em) scale avec la largeur
+  // d'écran, bornée 12→15px. Padding scale aussi.
+  `
 .strip { display: flex; align-items: center; gap: clamp(12px,1.1vw,20px);
   padding: clamp(8px,1vh,13px) clamp(14px,1.4vw,26px); cursor: pointer;
   font-size: clamp(12px, 0.35vw + 8px, 16px); flex-wrap: nowrap; overflow: hidden;
@@ -221,8 +295,10 @@ const STYLES = `
 .dot.connected { background: var(--ok); color: var(--ok); animation: pulse 2s infinite; }
 .dot.connecting, .dot.reconnecting { background: var(--warn); color: var(--warn); }
 .dot.error { background: var(--crit); color: var(--crit); }
-/* Fermée n'est pas en panne : une socket qu'on n'a pas encore ouverte (elle s'ouvre
-   avec le panneau) reste neutre. Le rouge est réservé à l'erreur. */
+` +
+  // Fermée n'est pas en panne : une socket qu'on n'a pas encore ouverte (elle s'ouvre
+  // avec le panneau) reste neutre. Le rouge est réservé à l'erreur.
+  `
 .dot.disconnected { background: var(--muted); color: var(--muted); }
 @keyframes pulse { 0%{box-shadow:0 0 0 0 currentColor} 70%{box-shadow:0 0 0 5px transparent} 100%{box-shadow:0 0 0 0 transparent} }
 
@@ -240,7 +316,9 @@ const STYLES = `
 .spark.ok{stroke:var(--ok)} .spark.warn{stroke:var(--warn)} .spark.crit{stroke:var(--crit)} .spark.rt{stroke:var(--blue2)}
 .area.ok{fill:rgba(54,179,126,.12)} .area.warn{fill:rgba(255,171,0,.14)} .area.crit{fill:rgba(255,86,48,.16)} .area.rt{fill:rgba(58,160,255,.16)}
 
-/* ── Panneau : resize + onglets + panes ──────────────────────────────────── */
+` +
+  // ── Panneau : resize + onglets + panes ────────────────────────────────────
+  `
 .panelwrap { display:none; flex-direction:column; border-top:1px solid var(--line); }
 .bar.open .panelwrap { display:flex; }
 .resize { height:8px; cursor:ns-resize; display:flex; align-items:center; justify-content:center;
@@ -265,9 +343,11 @@ const STYLES = `
 .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:11px 13px; }
 .card.hero { border-color: rgba(58,160,255,.35);
   background: linear-gradient(160deg, rgba(0,103,186,.16), rgba(28,31,38,.7) 60%); }
-/* Intitulés de carte, PAS des titres : la barre se superpose à une page qui a son
-   propre plan (h1, h2…) ; des <h4> s'y inséraient en sautant des niveaux (axe :
-   heading-order). Un outil superposé ne touche pas au plan de l'application. */
+` +
+  // Intitulés de carte, PAS des titres : la barre se superpose à une page qui a son
+  // propre plan (h1, h2…) ; des <h4> s'y inséraient en sautant des niveaux (axe :
+  // heading-order). Un outil superposé ne touche pas au plan de l'application.
+  `
 .card > .ttl { margin:0 0 9px; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); font-weight:800; display:flex; gap:6px; align-items:center; }
 
 .hero .big { font-size:30px; font-weight:800; line-height:1; letter-spacing:-.5px;
@@ -291,7 +371,9 @@ const STYLES = `
 .kv .k { color:var(--muted); } .kv .v { font-weight:600; text-align:right; overflow:hidden; text-overflow:ellipsis; }
 
 .counts { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
-/* ── Explorateur de journal ─────────────────────────────────────────────── */
+` +
+  // ── Explorateur de journal ───────────────────────────────────────────────
+  `
 .counts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
 .counts .spacer { flex:1 1 auto; }
 .counts button { font: inherit; color: inherit; background:none; border:1px solid transparent; cursor:pointer; }
@@ -304,11 +386,13 @@ const STYLES = `
   border:1px solid var(--line); border-radius:6px; padding:3px 7px; cursor:pointer; }
 .toolbtn:hover { color:#fff; }
 .toolbtn.on { color:var(--ok); border-color:var(--ok); }
-/* ── Journal fenêtré (feedView.ts) ────────────────────────────────────────
-   Colonnes ALIGNÉES (l'œil descend une colonne, il ne cherche pas l'heure ligne
-   par ligne), chiffres à chasse fixe, zébrure discrète, filet coloré à gauche
-   pour ce qui compte (erreur, alerte). Lignes de hauteur FIXE : c'est ce qui
-   rend le fenêtrage exact. Positionnées par transform — aucune mise en page. */
+` +
+  // ── Journal fenêtré (feedView.ts) ────────────────────────────────────────
+  // Colonnes ALIGNÉES (l'œil descend une colonne, il ne cherche pas l'heure ligne
+  // par ligne), chiffres à chasse fixe, zébrure discrète, filet coloré à gauche
+  // pour ce qui compte (erreur, alerte). Lignes de hauteur FIXE : c'est ce qui
+  // rend le fenêtrage exact. Positionnées par transform — aucune mise en page.
+  `
 .pane.logp.active { display:flex; flex-direction:column; padding:10px 14px 12px; }
 .logbody { flex:1; min-height:0; display:flex; gap:10px; }
 .feedbox { --cols: 88px 62px 120px minmax(0,1fr) 70px; position:relative; flex:1; min-width:0;
@@ -347,6 +431,21 @@ const STYLES = `
 .sidehead { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;
   font:600 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
 @media (max-width: 900px) { .logside { width:240px; } .feedbox { --cols: 78px 54px 90px minmax(0,1fr) 0; } }
+` +
+  // ── Onglet Noyau ──
+  `
+.kv .k.help { cursor:help; text-decoration: underline dotted rgba(138,144,153,.6); text-underline-offset:3px; }
+.kv .k.help:focus-visible { outline:2px solid var(--ok); outline-offset:2px; border-radius:3px; }
+.tab .tdot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok); margin-left:4px; vertical-align:middle; }
+.tab .tdot[hidden] { display:none; }
+.kempty { max-width:640px; color:#c4c9d1; line-height:1.6; }
+.kempty p { margin:6px 0; }
+.kempty code, .card code { color:#9ecbff; }
+.card.kevents { grid-column: 1 / -1; }
+.kev { display:grid; grid-template-columns: 96px 150px minmax(0,1fr); gap:10px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.04); }
+.kev .ts { color:var(--muted); font-variant-numeric:tabular-nums; }
+.kev .kn { color:#9ecbff; }
+.kev .kd { color:#e8eaed; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .drow { display:flex; gap:8px; padding:1px 0; }
 .drow .dk { color:var(--muted); min-width:92px; flex:none; }
 .drow .dv { word-break:break-word; }
@@ -364,9 +463,11 @@ const STYLES = `
 .fe polyline { fill:none; stroke-width:1.75; vector-effect:non-scaling-stroke; }
 .spark.fe { stroke:var(--orange); } .area.fe { fill:rgba(255,138,61,.16); }
 
-/* Badge d'environnement : une puce SOMBRE comme ses voisines, la couleur portée
-   par un point et par le texte. Un aplat vert vif tranchait sur toute la bande
-   et attirait l'œil sur l'information la moins changeante de l'écran. */
+` +
+  // Badge d'environnement : une puce SOMBRE comme ses voisines, la couleur portée
+  // par un point et par le texte. Un aplat vert vif tranchait sur toute la bande
+  // et attirait l'œil sur l'information la moins changeante de l'écran.
+  `
 .env-badge { display:flex; align-items:center; gap:6px; padding:.25em .7em; border-radius:11px; flex:none;
   font-size:.76em; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
   color:#c4c9d1; background:#22262e; border:1px solid var(--line); }
@@ -381,20 +482,24 @@ const STYLES = `
 .branch { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; flex:none;
   background:#22262e; font-weight:700; max-width:200px; cursor:help; }
 .branch .git { color:var(--blue2); } .branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-/* Les contrôles et les indicateurs du bandeau sont de VRAIS <button> : ils
-   s'atteignent au clavier et s'annoncent. Ce bloc leur retire l'apparence
-   native que le navigateur leur donne, sans leur retirer leur nature. */
+` +
+  // Les contrôles et les indicateurs du bandeau sont de VRAIS <button> : ils
+  // s'atteignent au clavier et s'annoncent. Ce bloc leur retire l'apparence
+  // native que le navigateur leur donne, sans leur retirer leur nature.
+  `
 .strip button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }
 .strip button:focus-visible, .tab:focus-visible, .toolbtn:focus-visible {
   outline: 2px solid var(--ok); outline-offset: 2px; border-radius: 4px; }
 .goto:hover .v, .goto:hover .k { color: #fff; }
 
-/* ── Infobulles ────────────────────────────────────────────────────────────
-   Maison, et non l'attribut « title » du navigateur : celui-là met environ une
-   seconde à venir, ne se style pas, et surtout n'apparaît JAMAIS au focus
-   clavier — l'aide restait donc inaccessible à qui n'utilise pas la souris.
-   Celle-ci s'ouvre au survol ET au focus, ce qui la rend utilisable par tout le
-   monde. En CSS pur : aucun script, aucun écouteur, rien à libérer. */
+` +
+  // ── Infobulles ────────────────────────────────────────────────────────────
+  // Maison, et non l'attribut « title » du navigateur : celui-là met environ une
+  // seconde à venir, ne se style pas, et surtout n'apparaît JAMAIS au focus
+  // clavier — l'aide restait donc inaccessible à qui n'utilise pas la souris.
+  // Celle-ci s'ouvre au survol ET au focus, ce qui la rend utilisable par tout le
+  // monde. En CSS pur : aucun script, aucun écouteur, rien à libérer.
+  `
 [data-tip] { position: relative; }
 [data-tip]::after {
   content: attr(data-tip);
@@ -407,22 +512,33 @@ const STYLES = `
   opacity: 0; visibility: hidden; transition: opacity .12s ease; pointer-events: none; z-index: 20;
 }
 [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; visibility: visible; }
-/* Barre ancrée en haut : l'infobulle bascule dessous, sinon elle sort de l'écran. */
+` +
+  // Barre ancrée en haut : l'infobulle bascule dessous, sinon elle sort de l'écran.
+  `
 .bar.top [data-tip]::after { bottom: auto; top: calc(100% + 9px); }
-/* Les bords : l'infobulle se recale pour ne pas déborder de la fenêtre. */
+` +
+  // Dans un panneau défilant, une infobulle ouverte AU-DESSUS est rognée par le
+  // bord : elle s'ouvre dessous, alignée sur le libellé.
+  `
+.pane [data-tip]::after { bottom: auto; top: calc(100% + 6px); left: 0; transform: none; }
+` +
+  // Les bords : l'infobulle se recale pour ne pas déborder de la fenêtre.
+  `
 .strip > :first-child[data-tip]::after { left: 0; transform: none; }
 .strip > :last-child[data-tip]::after { left: auto; right: 0; transform: none; }
 @media (prefers-reduced-motion: reduce) { [data-tip]::after { transition: none; } }
 
-/* Contrôles de la barre. Trois choix, chacun contre un défaut vu à l'écran :
-   — une police d'INTERFACE, pas le monospace des mesures : un libellé de bouton
-     se lit, il ne s'aligne pas en colonne ;
-   — des icônes TRACÉES (SVG, 16 px, trait 1,6) : les glyphes de police (▴, ▁, ⇄)
-     changent de taille et de graisse d'une police à l'autre, et lisaient
-     « grossier » ;
-   — une hiérarchie : « Réduire » et « Ouvrir » sont un seul contrôle segmenté,
-     discret ; seul « Ouvrir » porte l'accent, en couleur de texte, pas en aplat.
-   Cible : 28 px de haut, au-delà des 24 px de WCAG 2.5.8. */
+` +
+  // Contrôles de la barre. Trois choix, chacun contre un défaut vu à l'écran :
+  // — une police d'INTERFACE, pas le monospace des mesures : un libellé de bouton
+  // se lit, il ne s'aligne pas en colonne ;
+  // — des icônes TRACÉES (SVG, 16 px, trait 1,6) : les glyphes de police (▴, ▁, ⇄)
+  // changent de taille et de graisse d'une police à l'autre, et lisaient
+  // « grossier » ;
+  // — une hiérarchie : « Réduire » et « Ouvrir » sont un seul contrôle segmenté,
+  // discret ; seul « Ouvrir » porte l'accent, en couleur de texte, pas en aplat.
+  // Cible : 28 px de haut, au-delà des 24 px de WCAG 2.5.8.
+  `
 .strip button.ui, .strip .ui button { font: 600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: 0; }
 .ico { width: 16px; height: 16px; flex: none; display: block; }
 .ico path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -437,10 +553,12 @@ const STYLES = `
 .strip .seg button.toggle:hover { color: #fff; background: rgba(0,103,186,.35); }
 .toggle .chev { transition: transform .2s ease; }
 .bar.open .toggle .chev { transform: rotate(180deg); }
-/* « Temps réel » : UN contrôle, qui dit l'état ET le bascule. Il y en avait
-   deux — une pastille « REALTIME » (la connexion) et un interrupteur « Direct »
-   (l'abonnement) — et personne ne savait lequel lire. L'état est écrit en
-   toutes lettres à côté du nom ; la couleur ne fait que le confirmer. */
+` +
+  // « Temps réel » : UN contrôle, qui dit l'état ET le bascule. Il y en avait
+  // deux — une pastille « REALTIME » (la connexion) et un interrupteur « Direct »
+  // (l'abonnement) — et personne ne savait lequel lire. L'état est écrit en
+  // toutes lettres à côté du nom ; la couleur ne fait que le confirmer.
+  `
 .strip button.rt { display:flex; align-items:center; gap:8px; height:28px; padding:0 12px 0 10px; flex:none;
   border:1px solid var(--line); border-radius:999px; background:#1a1d23; color:#b8bec8;
   transition: border-color .15s, background .15s, color .15s; }
@@ -463,7 +581,9 @@ const STYLES = `
 .strip button.brand { display:flex; align-items:center; gap:8px; font-weight:800; letter-spacing:.2px; border-radius:7px; padding:4px 8px; margin:-4px -8px; }
 .strip button.brand:hover { background:rgba(58,160,255,.12); }
 @media (prefers-reduced-motion: reduce) { .toggle .chev { transition: none; } .rt.live .rt-dot { animation: none; } }
-/* Écran étroit : les libellés se replient, l'icône et le nom accessible restent. */
+` +
+  // Écran étroit : les libellés se replient, l'icône et le nom accessible restent.
+  `
 @media (max-width: 1100px) { .seg .lbl { display: none; } .strip .seg button { padding: 0 8px; } }
 .conn-refused { color: var(--crit); border-color: rgba(255,86,48,.5); }
 
@@ -490,7 +610,9 @@ const STYLES = `
 .side-choice { display:flex; gap:6px; margin-top:6px; }
 .side-choice .toolbtn[aria-pressed="true"] { color:#fff; border-color:#3aa0ff; background:rgba(58,160,255,.15); }
 
-/* ── Network ─────────────────────────────────────────────────────────────── */
+` +
+  // ── Network ───────────────────────────────────────────────────────────────
+  `
 .net-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
 .net-clear { margin-left:auto; color:var(--muted); cursor:pointer; font-size:10px;
   text-transform:uppercase; letter-spacing:.5px; padding:2px 6px; border-radius:6px; }
@@ -534,14 +656,18 @@ const STYLES = `
 .wf-bar.identity { background:#ff5c8a; }
 .det-loading,.det-err { color:var(--muted); padding:6px 0; } .det-err { color:var(--crit); }
 
-/* Network pane = split DevTools : liste (scroll) + détail (scroll), détail
-   TOUJOURS visible (≠ tout dans un seul scroll où le détail finit hors écran). */
+` +
+  // Network pane = split DevTools : liste (scroll) + détail (scroll), détail
+  // TOUJOURS visible (≠ tout dans un seul scroll où le détail finit hors écran).
+  `
 .pane.np.active { display:flex; flex-direction:column; padding:0; }
 .np .net-head { padding:10px 14px 8px; flex:none; margin:0; }
 .np .net-list { flex:1 1 auto; min-height:56px; overflow:auto; padding:0 14px; border-top:1px solid var(--line); }
-/* Détail : placeholder = petit (flex:0). Sélection active (.np.sel) → le détail
-   prend une vraie part (60%) avec son propre scroll → le waterfall est visible,
-   la liste se réduit. */
+` +
+  // Détail : placeholder = petit (flex:0). Sélection active (.np.sel) → le détail
+  // prend une vraie part (60%) avec son propre scroll → le waterfall est visible,
+  // la liste se réduit.
+  `
 .np .net-detail { flex:0 1 auto; max-height:50%; overflow:auto; padding:8px 14px 12px; margin-top:0; border-top:1px solid var(--line); }
 .np.sel .net-list { flex:1 1 40%; min-height:48px; }
 .np.sel .net-detail { flex:1 1 60%; max-height:none; }
@@ -726,6 +852,17 @@ export class DebugBar {
   private feedSeen = 0;
   /** Séquence à laquelle « vider » a été demandé : rien d'antérieur ne s'affiche. */
   private feedCleared = 0;
+  // ── Noyau client (onglet « Noyau ») ──
+  /** La sonde du noyau observé — gardée après sa mort, pour montrer « terminé ». */
+  private kprobe: IKernelProbe | null = null;
+  private kstate = "";
+  private kident: NodefonyKernelIdentity | null = null;
+  private kidentChanges = 0;
+  private kidentAt = 0;
+  /** Journal des événements du noyau, le plus récent en premier, borné. */
+  private kevents: Array<{ t: number; name: string; detail: string }> = [];
+  private kdirty = true;
+  private koff: (() => void) | null = null;
   /** Le serveur a refusé la socket faute de session administrateur (1008). */
   private refused = false;
   /** Environnement transmis au montage — en attendant celui des mesures. */
@@ -771,6 +908,7 @@ export class DebugBar {
     this.wireRealtime();
     this.wireHmr();
     this.wireNetwork();
+    this.wireKernel();
     this.applyChrome();
     this.registerHandle();
     // Pas de connexion au montage : la socket est PARTAGÉE avec l'application
@@ -927,6 +1065,168 @@ export class DebugBar {
       "--nodefony-debugbar-height",
       `${h}px`,
     );
+  }
+
+  /**
+   * Détecte le noyau client de la page — à tout moment : il peut naître avant
+   * la barre, ou après (le registre et son événement vivent sur le global, la
+   * barre étant servie par une autre instance du module que l'application).
+   */
+  private wireKernel(): void {
+    const pick = (): void => {
+      const list = exposedKernels();
+      const probe = list[list.length - 1] ?? null;
+      // Un noyau retiré du registre (terminé) reste affiché : l'onglet dit
+      // « terminé » au lieu de disparaître sous les yeux.
+      if (probe && probe !== this.kprobe) this.attachKernel(probe);
+      this.kdirty = true;
+      this.scheduleRender();
+    };
+    pick();
+    const target = globalThis as {
+      addEventListener?: (t: string, h: () => void) => void;
+      removeEventListener?: (t: string, h: () => void) => void;
+    };
+    target.addEventListener?.(KERNEL_PROBE_EVENT, pick);
+    this.disposers.push(() => {
+      target.removeEventListener?.(KERNEL_PROBE_EVENT, pick);
+      this.koff?.();
+      this.koff = null;
+    });
+  }
+
+  /** S'abonne au noyau — par les MÊMES briques que les liaisons de vue. */
+  private attachKernel(probe: IKernelProbe): void {
+    this.koff?.();
+    this.kprobe = probe;
+    this.kevents = [];
+    this.kidentChanges = 0;
+    this.kidentAt = 0;
+    const k = probe.kernel;
+    const offs: Array<() => void> = [];
+    // L'état et l'identité se lisent SUR les événements du noyau, auxquels la
+    // barre s'abonne de toute façon pour son journal : un second abonnement
+    // (`observeKernel*`) ne dirait rien de plus et pèserait dans le bundle.
+    this.kstate = k.state;
+    this.kident = k.identity;
+    const events: NodefonyKernelEvent[] = [
+      "onBoot",
+      "onReady",
+      "onIdentityChange",
+      "onVisibility",
+      "onOnline",
+      "onTerminate",
+    ];
+    for (const name of events) {
+      const handler = (...args: unknown[]): void => {
+        this.kstate = k.state;
+        if (name === "onIdentityChange") {
+          this.kident = k.identity;
+          this.kidentChanges++;
+          this.kidentAt = Date.now();
+        }
+        this.logKernelEvent(name, args);
+      };
+      k.on(name, handler);
+      offs.push(() => k.off(name, handler));
+    }
+    this.koff = () => {
+      for (const off of offs) off();
+    };
+  }
+
+  /** Une ligne du journal des événements — ce que l'événement a dit, en clair. */
+  private logKernelEvent(name: NodefonyKernelEvent, args: unknown[]): void {
+    const keyOf = (v: unknown): string =>
+      v && typeof v === "object" && "key" in v ? String(v.key) : "anonyme";
+    let detail = "";
+    if (name === "onIdentityChange")
+      detail = `${keyOf(args[1])} → ${keyOf(args[0])}`;
+    else if (name === "onVisibility")
+      detail = args[0] ? "page visible" : "page cachée";
+    else if (name === "onOnline")
+      detail = args[0] ? "réseau rétabli" : "réseau perdu";
+    this.kevents.unshift({ t: Date.now(), name, detail });
+    if (this.kevents.length > 100) this.kevents.length = 100;
+    this.kdirty = true;
+    this.scheduleRender();
+  }
+
+  /** L'onglet Noyau — reconstruit seulement quand quelque chose a changé. */
+  private renderKernel(): void {
+    const body = this.el.kBody;
+    if (!(body instanceof HTMLElement) || !this.kdirty) return;
+    this.kdirty = false;
+    const probe = this.kprobe;
+    if (!probe) {
+      body.innerHTML = `<div class="kempty">
+        <div class="ttl">Aucun noyau client sur cette page</div>
+        <p>Le noyau (<code>NodefonyKernel</code>) compose la socket, le journal et le cycle d'identité d'une application front. Cette page n'en crée pas — c'est permis : chaque brique s'emploie aussi seule.</p>
+        <p>Pour le voir ici : <code>new NodefonyKernel({ realtime: { url } })</code>, puis le passer au fournisseur de votre front (<code>kernel={…}</code>).</p>
+      </div>`;
+      return;
+    }
+    // Chaque libellé porte son explication (survol ET focus clavier) : une
+    // valeur comme « connectOnBoot false » ne dit rien à qui ne connaît pas
+    // le noyau. Le pointillé signale qu'il y a quelque chose à lire.
+    const kv = (k: string, v: string, cls = ""): string => {
+      const help = kernelHelp(k);
+      const label = help
+        ? `<span class="k help" tabindex="0" data-tip="${escapeHtml(help)}">${escapeHtml(k)}</span>`
+        : `<span class="k">${escapeHtml(k)}</span>`;
+      return `<div class="kv">${label}<span class="v ${cls}">${escapeHtml(v)}</span></div>`;
+    };
+    const marks = probe.timeline();
+    const at = (t: number | undefined): string => (t ? fmtClock(t) : "—");
+    const stateCls =
+      this.kstate === "ready"
+        ? "ok"
+        : this.kstate === "terminated"
+          ? "crit"
+          : "warn";
+    const ident = this.kident;
+    const events = this.kevents
+      .map(
+        (e) =>
+          `<div class="kev"><span class="ts">${fmtClock(e.t)}</span><span class="kn">${escapeHtml(e.name)}</span><span class="kd">${escapeHtml(e.detail)}</span></div>`,
+      )
+      .join("");
+    body.innerHTML = `<div class="cards">
+      <div class="card hero">
+        <div class="ttl">Noyau</div>
+        ${kv("nom", probe.name)}
+        ${kv("état", KERNEL_STATE_LABEL[this.kstate] ?? this.kstate, stateCls)}
+        ${kv("créé", at(marks.created))}
+        ${kv("démarrage", at(marks.booting))}
+        ${kv("prêt", at(marks.ready))}
+        ${marks.terminated ? kv("terminé", at(marks.terminated), "crit") : ""}
+      </div>
+      <div class="card">
+        <div class="ttl">Identité déclarée</div>
+        ${kv("compte", ident ? ident.key : "aucun — hors session", ident ? "ok" : "muted")}
+        ${kv("changements", String(this.kidentChanges))}
+        ${kv("dernier", at(this.kidentAt))}
+        <div class="tag">Déclarée par l'application (<code>setIdentity</code>). Sa charge (<code>data</code>) lui appartient : elle n'est pas affichée.</div>
+      </div>
+      <div class="card">
+        <div class="ttl">Diagnostic</div>
+        ${probe
+          .rows()
+          .map(([k, v]) => kv(k, v))
+          .join("")}
+        <div class="tag">Les mêmes lignes que le détail du noyau dans la console.</div>
+      </div>
+      <div class="card">
+        <div class="ttl">Options</div>
+        ${Object.entries(probe.options)
+          .map(([k, v]) => kv(k, v))
+          .join("")}
+      </div>
+      <div class="card kevents">
+        <div class="ttl">Événements <span class="muted">— le plus récent en haut</span></div>
+        ${events || `<div class="muted">Aucun événement depuis l'ouverture de la barre.</div>`}
+      </div>
+    </div>`;
   }
 
   private registerHandle(): void {
@@ -1237,6 +1537,7 @@ export class DebugBar {
         ${this.miniMetric("mem", "mem", "memMini", "0%", "perf", "Mémoire utilisée par le serveur — cliquer pour ouvrir l'onglet Perf")}
         <span class="spacer"></span>
         ${this.networkEnabled ? `<button type="button" class="chip goto" data-goto="network" data-tip="Requêtes réseau observées — cliquer pour ouvrir l'onglet Network"><span class="k">net</span><span class="blue" data-el="netChip">0</span></button>` : ""}
+        <button type="button" class="chip goto" data-goto="kernel" data-el="kChip" data-tip="Noyau client de la page (NodefonyKernel) — cliquer pour ouvrir son onglet" hidden><span class="k">noyau</span><span data-el="kChipState"></span></button>
         ${this.frontend ? `<button type="button" class="chip goto" data-goto="realtime" data-tip="Mises à jour à chaud (HMR) appliquées depuis le chargement de la page — cliquer pour ouvrir le détail"><span class="k">hmr</span><span class="hmrv" data-el="hmrChip">0</span></button>` : ""}
         <button type="button" class="chip goto" data-goto="logs" data-tip="Entrées de journal reçues — cliquer pour ouvrir l'onglet Logs"><span class="k">logs</span><span data-el="logs">0</span></button>
         <button type="button" class="chip goto" data-goto="logs" data-tip="Erreurs et alertes — cliquer pour ouvrir l'onglet Logs"><span class="k">err</span><span class="crit" data-el="err">0</span></button>
@@ -1252,6 +1553,7 @@ export class DebugBar {
           ${this.networkEnabled ? `<button class="tab" data-tab="network">Network <span class="tcount" data-el="netTab">0</span></button>` : ""}
           <button class="tab" data-tab="perf">Perf</button>
           <button class="tab" data-tab="logs">Logs <span class="tcount" data-el="logsTab">0</span></button>
+          <button class="tab" data-tab="kernel">Noyau <span class="tdot" data-el="kTabDot" hidden></span></button>
           <button class="tab" data-tab="runtime">Runtime</button>
         </div>
         <div class="panes" data-el="panes">
@@ -1259,6 +1561,7 @@ export class DebugBar {
           ${this.networkEnabled ? this.networkPane() : ""}
           ${this.perfPane()}
           ${this.logsPane()}
+          <div class="pane" data-pane="kernel"><div data-el="kBody"></div></div>
           ${this.runtimePane()}
         </div>
       </div>`;
@@ -1936,6 +2239,9 @@ export class DebugBar {
       case "logs":
         this.renderLogsPane(v);
         break;
+      case "kernel":
+        this.renderKernel();
+        break;
       case "runtime":
         this.renderRuntime(v);
         break;
@@ -1968,6 +2274,13 @@ export class DebugBar {
     this.text("mrate", `${this.rtRate}/s`);
     this.renderRealtimeControl(v.state);
     this.text("hmrChip", String(this.hmrCount));
+    const kchip = this.el.kChip;
+    if (kchip instanceof HTMLElement) {
+      kchip.hidden = this.kprobe === null;
+      this.text("kChipState", KERNEL_STATE_LABEL[this.kstate] ?? this.kstate);
+    }
+    const kdot = this.el.kTabDot;
+    if (kdot instanceof HTMLElement) kdot.hidden = this.kprobe === null;
     this.text("rt", `${this.rtRate}/s`);
     this.cls("rt", "v blue");
     this.el.rtMini?.setAttribute(
