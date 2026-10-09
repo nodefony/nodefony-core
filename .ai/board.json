@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T21:09:58.839Z",
+  "generatedAt": "2026-10-09T08:29:08.546Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 95,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 49,
+      "open": 50,
       "title": "10.0.0-beta"
     },
     {
@@ -2528,6 +2528,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 575,
+      "title": "refactor(mongoose): remplacer les conversions de type qui resserrent un type",
+      "url": "https://github.com/nodefony/nodefony-core/issues/575",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": null,
+      "jours": 0.5,
+      "ordre": 3.8,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 148,
