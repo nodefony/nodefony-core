@@ -56,6 +56,7 @@ export interface ILiveFinding {
   kind:
     | "migrations-not-ok"
     | "firewall-config-invalid"
+    | "firewall-zone-open-to-signup"
     | "oauth-provider-failed"
     | "service-lost";
   /**
@@ -294,7 +295,11 @@ async function checkFirewall(
       },
     };
 
-  if (valid) return { findings: [], execution: { ran: true } };
+  if (valid)
+    return {
+      findings: zonesOpenToSignup(description),
+      execution: { ran: true },
+    };
 
   const cause = readString(description, "configError");
   return {
@@ -310,6 +315,36 @@ async function checkFirewall(
       },
     ],
   };
+}
+
+/**
+ * Les zones que le firewall déclare ouvertes à toute inscription OAuth.
+ *
+ * LUES, jamais recalculées : la règle vit dans `@nodefony/security`, qui rédige
+ * aussi le constat et ses gestes. Un firewall qui ne publie pas le champ (plus
+ * ancien) ne produit aucun constat — son silence n'accuse personne.
+ *
+ * @param description - la description publiée par `security/firewall`.
+ * @returns un constat par zone ouverte.
+ */
+function zonesOpenToSignup(description: unknown): ILiveFinding[] {
+  const zones = isBag(description) ? description.zones : undefined;
+  if (!Array.isArray(zones)) return [];
+  const found: ILiveFinding[] = [];
+  for (const zone of zones) {
+    if (!isBag(zone) || zone.openToSignup !== true) continue;
+    const notice = zone.openToSignupNotice;
+    const message = readString(notice, "message");
+    if (!message) continue;
+    const action = readString(notice, "action");
+    found.push({
+      kind: "firewall-zone-open-to-signup",
+      message,
+      ...(action ? { action } : {}),
+      source: "security/firewall",
+    });
+  }
+  return found;
 }
 
 /** Le nom lisible de chaque sonde du diagnostic OAuth, côté rapport. */

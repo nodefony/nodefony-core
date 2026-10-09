@@ -338,6 +338,15 @@ défaut est `UserService.provisionOAuthUser()` (`UserService.ts:363`), en **find
 | E-mail identique à un compte local       | **Aucune liaison automatique** — un compte SÉPARÉ est créé.                    |
 | Même `providerId` chez deux fournisseurs | Comptes séparés (le couple `provider` + `providerId` fait la clé).             |
 
+⚠️ **`allowSignup: true` (le défaut) + une zone sans `roles` = une zone ouverte à tout compte du
+fournisseur.** Une zone qui n'exige aucun rôle laisse passer toute identité authentifiée ; avec la
+création à la volée, cela veut dire quiconque obtient un compte chez Google ou GitHub. Le pare-feu le
+signale au démarrage (`WARNING`), dans la console (`openToSignup` de la zone) et dans
+`nodefony doctor --live` — c'est un constat, pas une faute (`findZonesOpenToSignup`,
+`openToSignup.ts:40`). Deux gestes le soldent : `roles: ["ROLE_USER"]` sur la zone, qui ne change
+rien au comportement mais **écrit** l'intention, ou `allowSignup: false`, qui exige un compte
+préexistant.
+
 ### Pourquoi l'e-mail ne lie jamais automatiquement un compte
 
 C'est le point le plus contre-intuitif, et c'est une décision de sécurité. Si un compte externe dont

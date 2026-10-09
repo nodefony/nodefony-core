@@ -340,6 +340,22 @@ export function renderReport(
     lines.push(...openings);
   }
 
+  const openZones = manquementsLive(report, "firewall-zone-open-to-signup");
+  if (openZones.length > 0) {
+    // Un CONSTAT, pas un verdict : une application peut vouloir ouvrir une
+    // zone à tout compte du fournisseur. Le pare-feu a rédigé le constat et
+    // ses deux gestes — ils sont rendus tels quels.
+    section("ZONES OUVERTES À TOUTE INSCRIPTION", p.warning);
+    for (const f of openZones) {
+      for (const [i, l] of wrap(f.message, width, BODY).entries()) {
+        lines.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
+      }
+      if (f.action) {
+        for (const l of wrap(`→ ${f.action}`, width, BODY)) lines.push(l);
+      }
+    }
+  }
+
   const retires = manquementsLive(report, "service-lost");
   if (retires.length > 0) {
     // Un RELEVÉ, pas un verdict — même esprit que « SURFACE OUVERTE ». Ce que
@@ -775,6 +791,7 @@ function renderSummary(
     family: DoctorFamily,
     n: number,
     detail: string,
+    notice = false,
   ): ISummaryLine => {
     // Même garde que `skippedChecks` : un état absent se DIT, il ne se rend
     // pas en vert et ne fait pas lever le rapport.
@@ -782,8 +799,12 @@ function renderSummary(
     return exec.ran
       ? {
           title: TITLES[family],
+          // `notice` : la famille n'a rien à accuser, mais un constat
+          // informatif à montrer — orange, jamais rouge.
           state:
-            n > 0 && REPORTING_ONLY.has(family) ? "avertissement" : state(n),
+            (n > 0 && REPORTING_ONLY.has(family)) || (n === 0 && notice)
+              ? "avertissement"
+              : state(n),
           detail,
         }
       : {
@@ -794,7 +815,14 @@ function renderSummary(
           detail: exec.short ?? "non contrôlé",
         };
   };
-  const detail: Record<DoctorFamily, { n: number; text: string }> = {
+  const openToSignup = manquementsLive(
+    report,
+    "firewall-zone-open-to-signup",
+  ).length;
+  const detail: Record<
+    DoctorFamily,
+    { n: number; text: string; notice?: boolean }
+  > = {
     freshness: {
       n: freshness.findings.length,
       text:
@@ -938,7 +966,10 @@ function renderSummary(
       text:
         manquementsLive(report, "firewall-config-invalid").length > 0
           ? "configuration INVALIDE"
-          : "zones et authentificateurs cohérents",
+          : openToSignup > 0
+            ? `${pluralize(openToSignup, "zone")} ouverte${openToSignup > 1 ? "s" : ""} à toute inscription OAuth`
+            : "zones et authentificateurs cohérents",
+      notice: openToSignup > 0,
     },
     oauth: {
       n: manquementsLive(report, "oauth-provider-failed").length,
@@ -976,7 +1007,7 @@ function renderSummary(
     (f) =>
       !isSubrule(f) ||
       (!execution[f]?.ran && execution[subruleParent(f) ?? f]?.ran === true),
-  ).map((f) => line(f, detail[f].n, detail[f].text));
+  ).map((f) => line(f, detail[f].n, detail[f].text, detail[f].notice));
 
   const titleWidth = Math.max(...lines.map((l) => l.title.length));
   return lines.map((l) => {

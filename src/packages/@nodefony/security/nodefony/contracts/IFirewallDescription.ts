@@ -30,6 +30,20 @@ export interface IFirewallZoneDescription {
   host: string | null;
   /** Zone valable aussi pour les frames WebSocket (api.request + subscribe). */
   realtime: boolean;
+  /** Rôles exigés par défaut dans la zone (en OU) ; vide = toute identité authentifiée. */
+  roles?: readonly string[] | undefined;
+  /**
+   * Zone ouverte à tout compte que la connexion OAuth crée à la volée : sans
+   * rôle, avec `session`, et `oauth2.allowSignup` actif. Un constat, pas une
+   * faute — `roles: ["ROLE_USER"]` l'assume en une ligne.
+   */
+  openToSignup?: boolean | undefined;
+  /**
+   * Le constat et ses deux gestes, rédigés par le pare-feu — `null` quand la
+   * zone n'est pas ouverte. Un lecteur (console, `doctor`) les rend TELS
+   * QUELS : deux rédactions du même fait finiraient par se contredire.
+   */
+  openToSignupNotice?: { message: string; action: string } | null | undefined;
 }
 
 /** Un authenticator : disponible (registre de fabriques) et/ou monté (≥1 zone). */

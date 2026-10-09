@@ -383,9 +383,9 @@ Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non auto
 ### `auth` — la chaîne d'authentification
 
 Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recordAuth()`
-(`firewall.ts:930`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
+(`firewall.ts:953`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
 
-- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:781`) ;
+- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:801`) ;
 - `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:807`) ;
 - `auth.unverifiable` — le vérificateur de jetons est indisponible : réponse 503, sans défi
   (`firewall.ts:795`) ;
@@ -466,7 +466,7 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:930`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:363`).
+(`firewall.ts:953`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:373`).
 Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:333`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et
@@ -672,7 +672,7 @@ Deux autres propriétés de sécurité valent d'être connues :
 | Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts:48`)                |
 | Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:934`)                       |
 | Détection de rejeu de jeton               | RFC 9700 §4.14                    | `token.reuse_detected` + coupure de famille (`tokenService.ts:585`)               |
-| Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:773`)                   |
+| Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:941`)                   |
 
 ## 📡 Observabilité — Studio
 

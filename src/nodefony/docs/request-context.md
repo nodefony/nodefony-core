@@ -291,7 +291,7 @@ arbitraire. Chaque couche y dépose ce qui la concerne, parmi les clés ci-desso
 | `scheme`          | le serveur HTTP/WS                 | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
 | `traceparent`     | le serveur HTTP/WS                 | trace distribuée W3C, honorée si le client l'envoie                         |
 | `user` / `userId` | le firewall après auth             | identité résolue — `firewall.ts:889`                                        |
-| `token`           | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:805`        |
+| `token`           | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:828`        |
 | `context`         | le serveur HTTP/WS                 | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
 | `scope`           | le serveur HTTP/WS, le pont WS-RPC | scope DI de la requête — le lire par `getScope()` (`RequestContext.ts:247`) |
 | `queries`         | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |

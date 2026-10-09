@@ -118,8 +118,8 @@ politiques.**
   `security/nodefony/config/config.ts:126`). L'opt-out est explicite ; un opt-in aurait été
   _fail-open_ (une zone qui oublie le flag laisserait le WS anonyme).
 - Le verrou de frame consulte la **même** fonction de match que le HTTP, `Firewall.matchPath()`
-  (`firewall.ts:742`), et la **même** hiérarchie de rôles, `Firewall.hasRole()`
-  (`firewall.ts:493`). Invariant par construction : `api.request {path}` n'accorde jamais plus que
+  (`firewall.ts:762`), et la **même** hiérarchie de rôles, `Firewall.hasRole()`
+  (`firewall.ts:500`). Invariant par construction : `api.request {path}` n'accorde jamais plus que
   `GET {path}`.
 - L'identité du handshake est celle du firewall HTTP : `FirewallRealtimeAuthenticator`
   (`FirewallRealtimeAuthenticator.ts:57`) ne relit ni cookie ni base, il **promeut** l'`IUser` déjà
@@ -325,7 +325,7 @@ d'audit défectueux ne peut pas empêcher la fermeture.
   absolu. Sans cette extraction, un matcher `^/nodefony/…` ne se déclencherait jamais.
 
 `@nodefony/security` enregistre ces matchers automatiquement dans `Firewall.#wireRealtime()`
-(`firewall.ts:290`) : **une instance d'authenticator par zone protégée**, car le hub dédoublonne par
+(`firewall.ts:297`) : **une instance d'authenticator par zone protégée**, car le hub dédoublonne par
 identité d'instance et une instance partagée n'enregistrerait que le premier matcher.
 
 ### Zero Trust — il y a toujours un token
@@ -486,7 +486,7 @@ cumulatifs (ET) ; un axe absent n'impose rien :
 | Axe             | Sens                                                                          | Évalué par                               |
 | --------------- | ----------------------------------------------------------------------------- | ---------------------------------------- |
 | `authenticated` | token non anonyme                                                             | `satisfies()` (`frameAuthorizer.ts:290`) |
-| `roles`         | un des rôles suffit, **hiérarchie comprise**                                  | `Firewall.hasRole()` (`firewall.ts:493`) |
+| `roles`         | un des rôles suffit, **hiérarchie comprise**                                  | `Firewall.hasRole()` (`firewall.ts:500`) |
 | `scopes`        | un des scopes suffit — axe API (JWT, clé API), une session BFF n'en porte pas | comparaison directe                      |
 
 Une policy **vide** n'est pas enregistrée : `definePolicy()` (`realtimeDecorators.ts:91`) ignore un
@@ -535,7 +535,7 @@ Le verrou n'existe que si quelqu'un le pose. Deux conditions doivent être vraie
 1. `@nodefony/security` est chargé, et
 2. au moins une zone a `security: true` **et** `realtime: true`.
 
-C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:290`) : sans zone qualifiante,
+C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:297`) : sans zone qualifiante,
 `wired` reste faux, `setFrameAuthorizer` n'est jamais appelé, et **aucune** policy de canal n'est
 évaluée — ni métier, ni système. `nodefony:syslog` redevient un canal ordinaire.
 

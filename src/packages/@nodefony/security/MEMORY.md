@@ -363,6 +363,12 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   audit). `SecurityAdminApi` ajoute `GET /nodefony/security/api/{firewall,roleHierarchy}` RBAC
   `ROLE_NODEFONY_ADMIN`, 503 sans service. ⚠️ 401 via curl = gate broker AVANT le handler → test
   `firewallIntrospection.test.ts` (10) prouve le handler lui-même + redaction secret. Conso = Studio page Firewall.
+- **Zone ouverte à toute inscription** — `findZonesOpenToSignup(config)` (`src/openToSignup.ts`, PURE, SEULE
+  implémentation) : zone `security` + `session` + sans `anonymous` + `roles` vide, ET `oauth2` actif + ≥1
+  fournisseur + `allowSignup`. Rend constat + 2 gestes rédigés. Consommée par `#build` (1 `WARNING` par zone,
+  au boot) et `describe()` (`roles`, `openToSignup`, `openToSignupNotice`) ; `doctor --live` LIT ces champs
+  (kind `firewall-zone-open-to-signup`, informatif : orange, ne compte pas). Remède = `roles: ["ROLE_USER"]`
+  (déclaration, comportement inchangé) ou `allowSignup: false`. Jamais par requête.
 - **CSRF (J5)** — `Csrf` (`service/csrf.ts`, logique PURE sync, testable sans serveur) : défense **Fetch
   Metadata d'abord** (modèle Go 1.25 / OWASP 2025) + repli `Origin`/`Referer`. `enforce(req)` sur méthode
   state-changing (RFC 9110 §9.2.1 ; GET/HEAD/OPTIONS/TRACE = no-op) ; chaîne : (1) origine de confiance

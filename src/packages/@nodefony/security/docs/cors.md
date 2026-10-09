@@ -322,7 +322,7 @@ sequenceDiagram
   R-->>B: 200 + Access-Control-*
 ```
 
-`Firewall.handleCors()` (`firewall.ts:1037`) est appelé **en tête de** `HttpKernel.handleHttp()`
+`Firewall.handleCors()` (`firewall.ts:1060`) est appelé **en tête de** `HttpKernel.handleHttp()`
 (`http-kernel.ts:1522`), à la ligne `http-kernel.ts:1522` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
@@ -371,7 +371,7 @@ Trois briques voisines, souvent confondues. Une seule ligne chacune :
 | **[En-têtes](./headers.md)** (CSP, COOP) | ce que la **page** a le droit de faire | dans le navigateur     | XSS, injection, fenêtres croisées    |
 
 Les deux premières se parlent. Au boot, la liste des origines de confiance CSRF est l'**union** de
-`csrf.trustedOrigins` et de `cors.origins` (`firewall.ts:605`) : ce que tu autorises explicitement en
+`csrf.trustedOrigins` et de `cors.origins` (`firewall.ts:639`) : ce que tu autorises explicitement en
 CORS ne peut pas être, au même instant, traité comme une tentative CSRF.
 
 L'inverse n'est pas vrai, et c'est délibéré : `csrf.trustedOrigins` déclare un **alias de domaine**
@@ -384,7 +384,7 @@ origine (`config.ts:188`). Ajouter une origine à `cors.origins` est **plus** pe
 **Les navigateurs n'appliquent pas CORS aux WebSockets.** Une page tierce peut ouvrir un
 `new WebSocket("wss://api.example.com/…")` et le handshake partira **avec le cookie de session de la
 victime** : c'est le CSWSH. C'est pourquoi `handleCors` s'arrête net sur un contexte WS
-(`firewall.ts:1037`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
+(`firewall.ts:1060`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
 
 La garde équivalente vit dans le transport : `HttpKernel.checkWebsocketOrigin()`
 (`http-kernel.ts:712`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
@@ -428,9 +428,9 @@ Le coût par requête est donc :
 ## 📡 Observabilité — Studio
 
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
-`Firewall.describe()` (`firewall.ts:560`), qui délègue à `Firewall.#describeDefenses()`
-(`firewall.ts:602`). La projection CORS y expose `origins`, `credentials`, `methods`,
-`allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:610`) — aucun secret ne transite par
+`Firewall.describe()` (`firewall.ts:570`), qui délègue à `Firewall.#describeDefenses()`
+(`firewall.ts:625`). La projection CORS y expose `origins`, `credentials`, `methods`,
+`allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:644`) — aucun secret ne transite par
 cette surface.
 
 - **Data plane** : `GET /nodefony/security/api/firewall` (`SecurityAdminApi.ts:328`), protégé

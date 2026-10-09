@@ -406,9 +406,9 @@ Les décorateurs, l'ordre d'instanciation et les pièges de portée →
 ## 🔐 La sécurité en un coup d'œil
 
 Le pare-feu applicatif de `@nodefony/security` raisonne par **zones** : un motif d'URL, une politique.
-`Firewall.matchPath()` (`firewall.ts:742`) rattache la requête à la zone dont le motif est le plus
-spécifique ; `Firewall.isSecure()` (`firewall.ts:751`) répond « protégée ou non » sur le chemin chaud ;
-`Firewall.handleSecurity()` (`firewall.ts:784`) ne travaille que sur zone protégée.
+`Firewall.matchPath()` (`firewall.ts:765`) rattache la requête à la zone dont le motif est le plus
+spécifique ; `Firewall.isSecure()` (`firewall.ts:774`) répond « protégée ou non » sur le chemin chaud ;
+`Firewall.handleSecurity()` (`firewall.ts:807`) ne travaille que sur zone protégée.
 
 ```mermaid
 flowchart TD
@@ -513,7 +513,7 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 | Domaine                      | Norme                          | Ancrage code                                              |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
 | Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:393`)                          |
-| Challenge d'authentification | RFC 9110 §11                   | `Firewall.handleSecurity()` (`firewall.ts:784`)           |
+| Challenge d'authentification | RFC 9110 §11                   | `Firewall.handleSecurity()` (`firewall.ts:807`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:79`)              |
 | Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1646`)           |
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1819`)          |

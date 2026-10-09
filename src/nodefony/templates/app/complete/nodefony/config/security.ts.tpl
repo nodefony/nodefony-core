@@ -224,6 +224,13 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
       secure: {
         pattern: "^/api/secure",
         authenticators: ["session"],
+        // Tout compte connecté — et quand la connexion OAuth crée les comptes
+        // à la volée (`oauth2.allowSignup`, vrai par défaut), cela veut dire
+        // tout compte que le fournisseur délivre. Ce rôle ne change rien au
+        // comportement (un compte créé le reçoit) : il ÉCRIT l'intention, et
+        // le démarrage cesse de le signaler. Pour réserver la zone, nommer un
+        // autre rôle ; pour exiger un compte préexistant, `allowSignup: false`.
+        roles: ["ROLE_USER"],
       },
       // Appelant qui n'est PAS un navigateur — service partenaire, script,
       // agent. Zone ACTIVE, et non un exemple en commentaire : c'est le code

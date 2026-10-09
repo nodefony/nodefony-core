@@ -22,6 +22,7 @@ import {
 } from "../kernel/checks/live";
 import { attachLive, type IDoctorReport } from "../kernel/checks/runDoctor";
 import { countFindings, skippedChecks } from "../kernel/checks/report";
+import { renderReport } from "../kernel/checks/renderReport";
 import type { IAdminApi, IAdminEndpoint } from "../types/IAdminApi";
 import { localOperatorCaller } from "../kernel/adminPlane/adminCaller";
 
@@ -500,6 +501,53 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
     // additions écrites à deux endroits avaient déjà divergé.
     assert.equal(countFindings(attachLive(statique(), live)), 1);
     assert.equal(countFindings(statique()), 0);
+  });
+
+  it("⭐ une zone OUVERTE À TOUTE INSCRIPTION est un constat lu, pas un manquement", async () => {
+    // La règle vit dans `@nodefony/security` : `doctor` relaie la phrase et
+    // les gestes que le firewall a rédigés, il ne les recompose pas.
+    const message =
+      "la zone « secure » est ouverte à tout compte que keycloak délivre";
+    const action =
+      'déclarer `roles: ["ROLE_USER"]` ; ou `oauth2.allowSignup: false`';
+    const live = await lire(
+      brokerDe(
+        migrationsSaines,
+        producteur("security", "firewall", {
+          configValid: true,
+          configError: null,
+          zones: [
+            {
+              name: "secure",
+              openToSignup: true,
+              openToSignupNotice: { message, action },
+            },
+            { name: "api", openToSignup: false, openToSignupNotice: null },
+          ],
+        }),
+      ),
+    );
+    assert.lengthOf(live.findings, 1);
+    assert.equal(live.findings[0]?.kind, "firewall-zone-open-to-signup");
+    assert.equal(live.findings[0]?.message, message);
+    assert.equal(live.findings[0]?.action, action);
+    // Une SaaS peut VOULOIR ouvrir à tout compte Google : `doctor` ne rougit pas.
+    const rapport = attachLive(statique(), live);
+    assert.equal(countFindings(rapport), 0);
+    const lignes = renderReport(rapport, {
+      width: 100,
+      color: false,
+      now: Date.now(),
+      strict: false,
+    }).join("\n");
+    assert.include(lignes, "ZONES OUVERTES À TOUTE INSCRIPTION");
+    assert.include(lignes, "keycloak");
+    assert.include(lignes, "allowSignup: false");
+    // Orange dans le sommaire, jamais rouge ; et absent des gestes à faire :
+    // c'est un constat, son geste est sous lui.
+    assert.match(lignes, /!\s+Cohérence du firewall\W+1 zone ouverte/u);
+    const aFaire = lignes.slice(lignes.indexOf("À FAIRE ENSUITE"));
+    assert.notInclude(aFaire, "allowSignup");
   });
 
   it("sans boot, TOUTES les familles d'étage 2 sont annoncées « non contrôlé » avec leur geste", () => {

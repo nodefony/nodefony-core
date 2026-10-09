@@ -514,7 +514,7 @@ export interface ICountableReport {
   guards: { findings: readonly unknown[] };
   /**
    * L'étage 2. Le `kind` est le SEUL champ typé ici, parce que le compte doit
-   * distinguer un manquement d'un simple constat (`service-lost`) — et que ce
+   * distinguer un manquement d'un simple constat (`INFORMATIVE_LIVE_KINDS`) — et que ce
    * module ne veut rien savoir d'autre de la forme des trouvailles.
    */
   live?: { findings: readonly { kind: string }[] } | undefined;
@@ -535,6 +535,23 @@ export interface ICountableReport {
 }
 
 /**
+ * Les constats de l'étage 2 qui INFORMENT sans accuser : ils s'affichent, ils
+ * ne comptent pas comme manquements et ne font pas sortir `doctor` en échec.
+ *
+ * `service-lost` : un module `policy: "dev"` écarté en production, c'est sa
+ * raison d'être. `firewall-zone-open-to-signup` : une SaaS peut vouloir ouvrir
+ * une zone à tout compte Google — et une ligne de configuration le déclare.
+ *
+ * 🔴 Vit ICI, pas dans `live.ts` : ce module entre dans le binaire `nodefony`,
+ * et importer `live.ts` y tirerait ses imports à effets de bord — dont une
+ * seconde copie du cœur, que le démarrage en production refuse.
+ */
+export const INFORMATIVE_LIVE_KINDS: ReadonlySet<string> = new Set([
+  "service-lost",
+  "firewall-zone-open-to-signup",
+]);
+
+/**
  * Le nombre total de manquements d'un rapport — le verdict, en UN endroit.
  *
  * @param report - le rapport, étage 2 greffé ou non
@@ -551,14 +568,15 @@ export function countFindings(report: ICountableReport): number {
     // L'étage 2 pèse comme les autres : une migration en échec n'est pas une
     // information de second rang, c'est la panne qu'on vient chercher.
     //
-    // 🔴 SAUF `service-lost`, qui n'est pas un manquement. Qu'un module
+    // 🔴 SAUF les constats informatifs (`INFORMATIVE_LIVE_KINDS`), comme
+    // `service-lost`, qui n'est pas un manquement. Qu'un module
     // `policy: "dev"` — et le service qu'il porte — disparaisse en production
     // est sa RAISON D'ÊTRE. Ce contrôle ne sait pas distinguer la perte voulue
     // de celle qui casse : il faudrait pouvoir déclarer qu'un service est
     // requis là-bas, et rien ne le permet. Il informait donc en accusant, et
     // `doctor --env production` sortait en 1 sur une application saine.
-    (report.live?.findings.filter((f) => f.kind !== "service-lost").length ??
-      0) +
+    (report.live?.findings.filter((f) => !INFORMATIVE_LIVE_KINDS.has(f.kind))
+      .length ?? 0) +
     // L'étage 3, au même titre : une garde du projet qui échoue est un
     // manquement du projet — c'est même le plus direct de tous, puisque c'est
     // celui que son auteur a lui-même déclaré vouloir tenir.

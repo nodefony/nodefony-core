@@ -57,6 +57,7 @@ import type { IFirewall } from "../contracts/IFirewall";
 import type { IAuthenticator } from "../contracts/IAuthenticator";
 import type { IToken } from "../contracts/IToken";
 import type { ISecuredArea } from "../contracts/ISecuredArea";
+import { findZonesOpenToSignup } from "../src/openToSignup";
 import type {
   IFirewallDescription,
   IFirewallDefensesDescription,
@@ -271,6 +272,12 @@ class Firewall extends Service implements IFirewall {
       list.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
       this.#areas = list;
       this.#instantiateAuthenticators(list);
+    }
+    // Une fois au démarrage : une zone que l'inscription OAuth ouvre à tout
+    // compte du fournisseur ne se voit dans aucun fichier — elle naît de la
+    // rencontre de deux réglages qui, chacun, sont des défauts sains.
+    for (const z of findZonesOpenToSignup(this.#config)) {
+      this.log(`${z.message} → ${z.action}`, "WARNING");
     }
 
     if (!this.#configError) {
@@ -564,17 +571,30 @@ class Firewall extends Service implements IFirewall {
     const config = this.#config;
     const mounted = this.#authenticators;
 
-    const zones: IFirewallZoneDescription[] = (this.#areas ?? []).map((a) => ({
-      name: a.name,
-      pattern: a.pattern.source,
-      security: a.security,
-      stateless: a.stateless,
-      mode: a.mode,
-      authenticators: [...a.authenticators],
-      allowsAnonymous: a.authenticators.includes("anonymous"),
-      host: a.host ?? null,
-      realtime: a.realtime,
-    }));
+    // La règle vit dans `findZonesOpenToSignup` (seule implémentation) : elle
+    // ne se recalcule ici qu'à la lecture de la console, jamais par requête.
+    const open = new Map(
+      (config ? findZonesOpenToSignup(config) : []).map((z) => [z.zone, z]),
+    );
+    const zones: IFirewallZoneDescription[] = (this.#areas ?? []).map((a) => {
+      const notice = open.get(a.name);
+      return {
+        name: a.name,
+        pattern: a.pattern.source,
+        security: a.security,
+        stateless: a.stateless,
+        mode: a.mode,
+        authenticators: [...a.authenticators],
+        allowsAnonymous: a.authenticators.includes("anonymous"),
+        host: a.host ?? null,
+        realtime: a.realtime,
+        roles: a.roles ? [...a.roles] : [],
+        openToSignup: notice !== undefined,
+        openToSignupNotice: notice
+          ? { message: notice.message, action: notice.action }
+          : null,
+      };
+    });
 
     // Union registre (disponibles en config) ∪ montés (référencés par ≥1 zone) :
     // la console montre à la fois ce qui est utilisable et ce qui est actif.
