@@ -15,6 +15,11 @@
  * - **Les peerDeps de vue restent externes** (react, vue, angular, svelte) :
  *   elles sont fournies par l'application ; les compter gonflerait un budget de
  *   code qu'on ne livre pas.
+ * - **Une entry qui s'appuie sur une autre se mesure en INCRÉMENT** (`base`
+ *   dans le fichier de budgets). `nodefony/react` importe le client (socket,
+ *   SSE, JSON-RPC) : une application React charge les deux, et mesurée seule
+ *   l'entry comptait le client une seconde fois. On mesure alors
+ *   gzip(base + entry) − gzip(base) : ce que l'entry AJOUTE à la page.
  *
  * Sortie : un tableau, et un code de sortie non nul au premier dépassement.
  *
@@ -44,12 +49,30 @@ const isPeer = (id) =>
   id.startsWith("@angular/") ||
   id.startsWith("svelte/");
 
-/** Taille gzip, en kilo-octets, de l'entry une fois tirée et minifiée. */
-async function measure(file, gzipLevel) {
+/**
+ * Taille gzip, en kilo-octets, des fichiers donnés une fois tirés ensemble et
+ * minifiés. Chacun est importé en espace de noms : aucun export n'est élagué,
+ * et deux entries qui exportent le même nom ne s'annulent pas.
+ */
+async function measure(files, gzipLevel, { wrap = true } = {}) {
+  const ENTRY = "\0size-entry";
+  const source =
+    files
+      .map((f, i) => `import * as e${i} from ${JSON.stringify(f)};`)
+      .join("\n") + `\nexport { ${files.map((_, i) => `e${i}`).join(", ")} };`;
   const bundle = await rolldown({
-    input: file,
+    // Une entry seule se tire telle quelle : l'enveloppe en espace de noms
+    // n'est utile qu'à la soustraction, où les deux mesures la portent.
+    input: wrap ? ENTRY : files[0],
     platform: "browser",
     external: isPeer,
+    plugins: [
+      {
+        name: "size-entry",
+        resolveId: (id) => (id === ENTRY ? id : null),
+        load: (id) => (id === ENTRY ? source : null),
+      },
+    ],
     // Le journal de rolldown n'a rien à dire ici : un avertissement de
     // résolution rendrait la sortie illisible sans changer la mesure.
     onLog: () => {},
@@ -83,7 +106,19 @@ for (const entry of config.entries) {
     );
     process.exit(2);
   }
-  const kb = await measure(file, config.gzipLevel ?? 9);
+  const level = config.gzipLevel ?? 9;
+  const base = entry.base
+    ? config.entries.find((e) => e.subpath === entry.base)
+    : null;
+  if (entry.base && !base) {
+    console.error(`✖ ${entry.subpath} — base inconnue : ${entry.base}`);
+    process.exit(2);
+  }
+  const baseFile = base ? path.join(ROOT, ...base.file.split("/")) : null;
+  const kb = baseFile
+    ? (await measure([baseFile, file], level)) -
+      (await measure([baseFile], level))
+    : await measure([file], level, { wrap: false });
   const over = kb > entry.budgetKB;
   if (over) failed += 1;
   rows.push({
@@ -92,6 +127,7 @@ for (const entry of config.entries) {
     budgetKB: entry.budgetKB,
     referenceKB: entry.referenceKB,
     deltaKB: Number((kb - entry.referenceKB).toFixed(2)),
+    base: entry.base ?? null,
     over,
     builtAt: statSync(file).mtime.toISOString(),
   });
@@ -107,7 +143,8 @@ if (asJson) {
     console.log(
       `  ${pad(r.subpath, 20)} ${pad(r.kb.toFixed(1) + " KB", 10)}` +
         `/ ${pad(r.budgetKB + " KB", 8)} ${r.over ? "✖ DÉPASSÉ" : "✅"}` +
-        `   (référence ${r.referenceKB} KB, ${sign}${r.deltaKB})`,
+        `   (référence ${r.referenceKB} KB, ${sign}${r.deltaKB})` +
+        (r.base ? `   au-delà de ${r.base}` : ""),
     );
   }
   console.log("");

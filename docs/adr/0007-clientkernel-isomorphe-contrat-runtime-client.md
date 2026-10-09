@@ -437,7 +437,16 @@ tarball existe et la tentation de « voir plus tard » gagne.
 > c'est cette seconde information qui a servi : le NodefonyKernel pèse **+0,57 KB gzip** (17,68 →
 > 18,25 KB, mesuré en retirant l'export du barrel publié), très en deçà des +6 KB budgétés —
 > conséquence directe du choix de composer `Service` et `Syslog`, déjà présents dans le bundle,
-> plutôt que de réécrire un bus et un journal pour le navigateur. Un dépassement de budget = blocker de release, pas un warning.
+> plutôt que de réécrire un bus et un journal pour le navigateur.
+
+> **Révisé le 2026-10-09 — `nodefony/react` se mesure en INCRÉMENT au-dessus de `nodefony/client`.**
+> Le budget de 10 KB visait le code PROPRE des hooks (« react+roles ≈ 6 KB », à côté d'un cœur
+> client compté à part). Depuis que les fournisseurs construisent eux-mêmes la socket et le flux
+> SSE, l'entry importe statiquement le client : mesurée seule, elle le comptait une seconde fois
+> (12,3 KB, dont 1,2 KB de hooks). Une application React charge les deux ; ce qui compte est ce
+> que `react` AJOUTE à la page. Le fichier de budgets déclare donc `base: "nodefony/client"` et
+> le gate mesure gzip(client + react) − gzip(client) : **0,8 KB**. Le budget est **resserré à
+> 3 KB** (référence 0,8) — laissé à 10 KB, il ne mordrait qu'après un décuplement des hooks. Un dépassement de budget = blocker de release, pas un warning.
 > L'implémentation Phase 3.2 commence par un **prototype + mesure** avant tout engagement de code
 > définitif (garde-fou déjà acté dans la vision).
 
