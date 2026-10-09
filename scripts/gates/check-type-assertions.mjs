@@ -25,7 +25,9 @@
  *
  * @usage    node scripts/gates/check-type-assertions.mjs            # contrôle
  * @usage    node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)
+ * @usage    node scripts/gates/check-type-assertions.mjs --triage   # relevé : d'où vient chaque valeur convertie (#572)
  * @output   l'écart par paquet ; sortie 0 tenu · 1 refusé · 78 oxlint n'a pas répondu
+ * @output   --triage : tableau paquet × famille, détail dans tmp/reports/type-assertions-triage.json
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -45,6 +47,7 @@ const CEILINGS = path.join(
 );
 const RULE = "typescript/no-unsafe-type-assertion";
 const UPDATE = process.argv.includes("--update");
+const TRIAGE = process.argv.includes("--triage");
 
 /** Paquet d'un fichier : `nodefony`, `packages/@nodefony/http`, `modules/test`… */
 function packageOf(file) {
@@ -54,8 +57,8 @@ function packageOf(file) {
   return m ? m[1] : file;
 }
 
-/** Conversions par paquet, code de PRODUCTION seul (les tests sont exemptés). */
-function measure() {
+/** Diagnostics de la règle, code de PRODUCTION seul (les tests sont exemptés). */
+function collect() {
   // Le point d'entrée JS, lancé par `node` : sous Windows, `node_modules/.bin`
   // ne porte qu'un `oxlint.cmd`, qu'`execFileSync` ne sait pas lancer sans shell.
   const oxlint = path.join(ROOT, "node_modules", "oxlint", "bin", "oxlint");
@@ -101,17 +104,107 @@ function measure() {
     );
     process.exit(78);
   }
-  const counts = {};
-  for (const d of report.diagnostics) {
-    // Sans `code` : les directives `oxlint-disable` rendues inutiles par `-A all`.
-    if (!d.code?.includes("no-unsafe-type-assertion")) continue;
-    const key = packageOf(d.filename);
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-  return counts;
+  // Sans `code` : les directives `oxlint-disable` rendues inutiles par `-A all`.
+  return report.diagnostics.filter((d) =>
+    d.code?.includes("no-unsafe-type-assertion"),
+  );
 }
 
-const current = measure();
+/**
+ * Familles du relevé, testées dans l'ordre sur l'expression CONVERTIE (le texte
+ * que l'étiquette d'oxlint désigne). Heuristique par le nom de la source : elle
+ * oriente la lecture, elle ne la remplace pas — `frontier` dit si la famille
+ * porte une valeur venue de l'extérieur (#572), seules celles-là se traitent.
+ */
+const FAMILIES = [
+  ["metadata", true, /Reflect\.(get|getOwn)Metadata/],
+  ["file", true, /JSON\.parse\(\s*(await\s+)?(fs\.)?readFile(Sync)?\(/],
+  ["parsed", true, /JSON\.parse|\.json\(\)/],
+  ["thrown", false, /^\(?(e|err|error|reason|cause|ex)\)?$/],
+  [
+    "database",
+    true,
+    /\b(rows?|result|records?|docs?|lean)\b|\.(get|all|first)\(\)|\[0\]$/,
+  ],
+  [
+    "wire",
+    true,
+    /\b(payload|message|msg|frame|body|chunk|packet|claims|parsed|headers|state|detail|data)\b/,
+  ],
+  ["storage", true, /(local|session)Storage|import\(/],
+  ["container", true, /\b(container|getService)\b|\.get\(["'`]/],
+  [
+    "config",
+    false,
+    /module\.options|useConfig|\b(options|config|settings)\b|process\.env/,
+  ],
+  [
+    "internal",
+    false,
+    /Object\.create|extend\(|getPrototypeOf|getProto|\.prototype|\bas unknown$|\bthis\.(context|controller|kernel|cli|server)\b|\bstore\??\.|\bcontext\b/,
+  ],
+];
+
+/** Relevé #572 : chaque conversion rangée par l'origine probable de sa valeur. */
+function triage(diagnostics) {
+  const sources = new Map();
+  const rows = diagnostics.map((d) => {
+    const span = d.labels[0].span;
+    if (!sources.has(d.filename))
+      sources.set(d.filename, fs.readFileSync(path.join(ROOT, d.filename)));
+    // L'étendue d'oxlint est en OCTETS : découper le Buffer, pas la chaîne.
+    const text = sources
+      .get(d.filename)
+      .subarray(span.offset, span.offset + span.length)
+      .toString("utf8")
+      .replace(/\s+/g, " ")
+      .trim();
+    const fromAny = /from `any`/.test(d.message);
+    const [family, frontier] = FAMILIES.find(([, , re]) => re.test(text)) ?? [
+      "unclassified",
+      false,
+    ];
+    return {
+      package: packageOf(d.filename),
+      file: d.filename.split(path.sep).join("/"),
+      line: span.line,
+      fromAny,
+      family,
+      frontier,
+      text,
+    };
+  });
+  const table = {};
+  for (const r of rows) {
+    const t = (table[r.package] ??= { frontière: 0, total: 0 });
+    t.total++;
+    if (r.frontier) t.frontière++;
+    t[r.family] = (t[r.family] ?? 0) + 1;
+  }
+  const out = path.join(ROOT, "tmp", "reports", "type-assertions-triage.json");
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, `${JSON.stringify(rows, null, 1)}\n`);
+  console.table(
+    Object.fromEntries(
+      Object.entries(table).sort((a, b) => b[1].frontière - a[1].frontière),
+    ),
+  );
+  const frontier = rows.filter((r) => r.frontier).length;
+  console.log(
+    `${rows.length} conversions, ${frontier} de frontière probable — détail : ${path.relative(ROOT, out)}`,
+  );
+}
+
+const diagnostics = collect();
+if (TRIAGE) {
+  triage(diagnostics);
+  process.exit(0);
+}
+const current = {};
+for (const d of diagnostics) {
+  const key = packageOf(d.filename);
+  current[key] = (current[key] ?? 0) + 1;
+}
 const ceilings = fs.existsSync(CEILINGS)
   ? JSON.parse(fs.readFileSync(CEILINGS, "utf8")).ceilings
   : {};
