@@ -359,7 +359,12 @@ export {
   WEBAUTHN_LOGIN_VERIFY_PATH,
   OAUTH2_PROVIDERS_PATH,
   oauth2AuthorizePath,
+  LOGIN_PAGE_PATH,
+  LOGIN_PAGE_ASSETS_BASE,
+  LOGIN_PAGE_SCRIPT_PATH,
+  LOGIN_PAGE_STYLE_PATH,
 } from "./runtime/authRoutes";
+export { safeRedirectPath } from "./runtime/safeRedirect";
 export {
   loadEnv,
   findLegacyEnvFiles,

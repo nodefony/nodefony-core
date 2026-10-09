@@ -57,8 +57,34 @@ export const OAUTH2_PROVIDERS_PATH = `${OAUTH2_API_BASE}/providers`;
  * vers le fournisseur et revenir avec le cookie de session posé au retour.
  *
  * @param provider - nom du fournisseur, tel que le rend {@link OAUTH2_PROVIDERS_PATH}
+ * @param from - page où revenir après la connexion ; le serveur la revalide
+ *   (chemin local seulement) avant de s'en servir
  * @returns le chemin `…/oauth2/<provider>/authorize`, le nom encodé
  */
-export function oauth2AuthorizePath(provider: string): string {
-  return `${OAUTH2_API_BASE}/${encodeURIComponent(provider)}/authorize`;
+export function oauth2AuthorizePath(provider: string, from?: string): string {
+  const path = `${OAUTH2_API_BASE}/${encodeURIComponent(provider)}/authorize`;
+  return from ? `${path}?from=${encodeURIComponent(from)}` : path;
 }
+
+/**
+ * Chemin par défaut de la page de connexion servie par le framework.
+ *
+ * Défaut de `security.loginPage.path`, et donc de la redirection d'échec d'un
+ * fournisseur : une seule écriture, pour que « là où l'on renvoie » et « là où
+ * la page existe » ne puissent pas diverger.
+ */
+export const LOGIN_PAGE_PATH = "/login";
+
+/**
+ * Base des fichiers de la page de connexion par défaut (script, feuille de
+ * style). Distincte de la page elle-même, dont le chemin se règle
+ * (`loginPage.path`) : ces fichiers ne changent pas d'adresse quand la page
+ * en change.
+ */
+export const LOGIN_PAGE_ASSETS_BASE = "/nodefony/security/login";
+
+/** Script de la page de connexion par défaut (bundle `nodefony/login.js`). */
+export const LOGIN_PAGE_SCRIPT_PATH = `${LOGIN_PAGE_ASSETS_BASE}/login.js`;
+
+/** Feuille de style de la page de connexion par défaut. */
+export const LOGIN_PAGE_STYLE_PATH = `${LOGIN_PAGE_ASSETS_BASE}/login.css`;

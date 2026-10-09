@@ -435,9 +435,13 @@ export class NodefonyLogin {
    * Part chez un fournisseur, en navigation PLEINE PAGE — jamais par `fetch` :
    * le navigateur doit suivre les redirections et revenir avec le cookie de
    * session posé au retour.
+   *
+   * @param name - nom du fournisseur, tel que le rend {@link loadProviders}
+   * @param from - page où revenir une fois connecté ; le serveur n'accepte
+   *   qu'un chemin local, et retombe sinon sur sa redirection de succès
    */
-  startProvider(name: string): void {
-    this.#navigate(`${this.#base}${oauth2AuthorizePath(name)}`);
+  startProvider(name: string, from?: string): void {
+    this.#navigate(`${this.#base}${oauth2AuthorizePath(name, from)}`);
   }
 
   /** Reprend une session existante ; `null` quand il n'y en a pas. */
