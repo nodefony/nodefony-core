@@ -214,7 +214,15 @@ describe("SSE — renderSse() sur le serveur réel (requires server)", () => {
           {},
           (_e, raw) => raw.includes(":\n\n"),
         );
+        // Attendre la fermeture VUE par le serveur avant de rendre la main : un
+        // `close` tardif tombait après le reset du test suivant, qui comptait
+        // alors `closed = 1` avant le départ de son client (vu rouge en CI
+        // macOS, HTTP/2).
+        const closedCount = async () =>
+          (await getJson(`${SSE}/state`)).closed as number;
+        const before = await closedCount();
         r.leave();
+        await until(async () => (await closedCount()) > before);
         r.session?.close();
         expect(r.raw).to.include(":\n\n");
         expect(r.events.map((e) => e.type)).to.deep.equal(["ready"]);
