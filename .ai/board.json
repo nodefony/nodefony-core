@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T19:19:14.821Z",
+  "generatedAt": "2026-10-09T19:29:44.800Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1788,22 +1788,6 @@
       ]
     },
     {
-      "number": 268,
-      "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
-      "url": "https://github.com/nodefony/nodefony-core/issues/268",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 14,
-      "ordre": 3.01,
-      "debut": "2026-10-05",
-      "cible": "2026-10-07",
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
       "number": 269,
       "title": "test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak",
       "url": "https://github.com/nodefony/nodefony-core/issues/269",
@@ -2113,166 +2097,6 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 3.52,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 544,
-      "title": "feat(security): ajouter une commande d'exemple qui appelle l'API par jeton",
-      "url": "https://github.com/nodefony/nodefony-core/issues/544",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 3.525,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 521,
-      "title": "feat(security): joindre Keycloak par un certificat ou une adresse interne",
-      "url": "https://github.com/nodefony/nodefony-core/issues/521",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 3.53,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 522,
-      "title": "feat(studio): ajouter un écran Identité pour les fournisseurs de connexion",
-      "url": "https://github.com/nodefony/nodefony-core/issues/522",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 2,
-      "ordre": 3.54,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 523,
-      "title": "feat(security): guider la connexion Keycloak et brancher plusieurs realms",
-      "url": "https://github.com/nodefony/nodefony-core/issues/523",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 3.55,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 524,
-      "title": "feat(security): lier un compte existant à Keycloak et exporter les comptes",
-      "url": "https://github.com/nodefony/nodefony-core/issues/524",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 2,
-      "ordre": 3.56,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 525,
-      "title": "test(security): compléter les bancs Keycloak réels",
-      "url": "https://github.com/nodefony/nodefony-core/issues/525",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 3.57,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 546,
-      "title": "feat(client): fournir le déroulé de connexion sans interface imposée",
-      "url": "https://github.com/nodefony/nodefony-core/issues/546",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 3.58,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 547,
-      "title": "feat(security): servir une page de connexion par défaut, sans front",
-      "url": "https://github.com/nodefony/nodefony-core/issues/547",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 3.585,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 548,
-      "title": "fix(security): conduire un visiteur anonyme à la page de connexion",
-      "url": "https://github.com/nodefony/nodefony-core/issues/548",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 3.59,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
-      "number": 549,
-      "title": "refactor(studio): passer la connexion de la console sur le déroulé partagé",
-      "url": "https://github.com/nodefony/nodefony-core/issues/549",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 3.595,
       "debut": null,
       "cible": null,
       "labels": [
@@ -2617,6 +2441,182 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 3.92,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 268,
+      "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
+      "url": "https://github.com/nodefony/nodefony-core/issues/268",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 14,
+      "ordre": 3.93,
+      "debut": "2026-10-05",
+      "cible": "2026-10-07",
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 544,
+      "title": "feat(security): ajouter une commande d'exemple qui appelle l'API par jeton",
+      "url": "https://github.com/nodefony/nodefony-core/issues/544",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.935,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 521,
+      "title": "feat(security): joindre Keycloak par un certificat ou une adresse interne",
+      "url": "https://github.com/nodefony/nodefony-core/issues/521",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.94,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 522,
+      "title": "feat(studio): ajouter un écran Identité pour les fournisseurs de connexion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/522",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 3.945,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 523,
+      "title": "feat(security): guider la connexion Keycloak et brancher plusieurs realms",
+      "url": "https://github.com/nodefony/nodefony-core/issues/523",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.95,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 524,
+      "title": "feat(security): lier un compte existant à Keycloak et exporter les comptes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/524",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 3.955,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 525,
+      "title": "test(security): compléter les bancs Keycloak réels",
+      "url": "https://github.com/nodefony/nodefony-core/issues/525",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.96,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 546,
+      "title": "feat(client): fournir le déroulé de connexion sans interface imposée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/546",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.965,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 547,
+      "title": "feat(security): servir une page de connexion par défaut, sans front",
+      "url": "https://github.com/nodefony/nodefony-core/issues/547",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.97,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 548,
+      "title": "fix(security): conduire un visiteur anonyme à la page de connexion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/548",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.975,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 549,
+      "title": "refactor(studio): passer la connexion de la console sur le déroulé partagé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/549",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.98,
       "debut": null,
       "cible": null,
       "labels": [

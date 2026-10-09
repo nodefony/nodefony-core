@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-09 19:19** (UTC).
+> Empreinte prise le **2026-10-09 19:29** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -31,9 +31,9 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#268 — feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe**
+**#576 — feat(client): rendre le noyau client accessible aux composants**
 
-Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise 2026-10-05 → 10-07
+Ordre 3.608 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise —
 
 > Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 49 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -51,22 +51,22 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 3.01 | P1 — figé à la création | 14 | 2026-10-05 → 10-07 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
-| 3.525 | P1 — figé à la création | 1 | — | #544 | feat(security): ajouter une commande d'exemple qui appelle l'API par jeton |
-| 3.53 | P1 — figé à la création | 1 | — | #521 | feat(security): joindre Keycloak par un certificat ou une adresse interne |
-| 3.54 | P1 — figé à la création | 2 | — | #522 | feat(studio): ajouter un écran Identité pour les fournisseurs de connexion |
-| 3.55 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
-| 3.56 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
-| 3.57 | P2 — décision | 1 | — | #525 | test(security): compléter les bancs Keycloak réels |
-| 3.58 | P1 — figé à la création | 1 | — | #546 | feat(client): fournir le déroulé de connexion sans interface imposée |
-| 3.585 | P1 — figé à la création | 1 | — | #547 | feat(security): servir une page de connexion par défaut, sans front |
-| 3.59 | P1 — figé à la création | 0.5 | — | #548 | fix(security): conduire un visiteur anonyme à la page de connexion |
-| 3.595 | P2 — décision | 1 | — | #549 | refactor(studio): passer la connexion de la console sur le déroulé partagé |
 | 3.608 | P1 — figé à la création | 1 | — | #576 | feat(client): rendre le noyau client accessible aux composants |
 | 3.63 | P3 — fin de cycle | 0.5 | — | #562 | fix(http): ne plus annoncer de type sur une réponse sans corps |
 | 3.64 | P2 — décision | 0.5 | — | #563 | feat(security): poser un jeton d'agent valable 8 h par défaut |
 | 3.91 | P2 — décision | 0.5 | — | #551 | fix(mcp): ne plus renvoyer le message brut d'un outil qui échoue |
 | 3.92 | P2 — décision | 0.5 | — | #552 | feat(security): signaler une zone ouverte à quiconque peut créer un compte |
+| 3.93 | P1 — figé à la création | 14 | 2026-10-05 → 10-07 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
+| 3.935 | P1 — figé à la création | 1 | — | #544 | feat(security): ajouter une commande d'exemple qui appelle l'API par jeton |
+| 3.94 | P1 — figé à la création | 1 | — | #521 | feat(security): joindre Keycloak par un certificat ou une adresse interne |
+| 3.945 | P1 — figé à la création | 2 | — | #522 | feat(studio): ajouter un écran Identité pour les fournisseurs de connexion |
+| 3.95 | P2 — décision | 1 | — | #523 | feat(security): guider la connexion Keycloak et brancher plusieurs realms |
+| 3.955 | P2 — décision | 2 | — | #524 | feat(security): lier un compte existant à Keycloak et exporter les comptes |
+| 3.96 | P2 — décision | 1 | — | #525 | test(security): compléter les bancs Keycloak réels |
+| 3.965 | P1 — figé à la création | 1 | — | #546 | feat(client): fournir le déroulé de connexion sans interface imposée |
+| 3.97 | P1 — figé à la création | 1 | — | #547 | feat(security): servir une page de connexion par défaut, sans front |
+| 3.975 | P1 — figé à la création | 0.5 | — | #548 | fix(security): conduire un visiteur anonyme à la page de connexion |
+| 3.98 | P2 — décision | 1 | — | #549 | refactor(studio): passer la connexion de la console sur le déroulé partagé |
 | 4.001 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
 | 4.002 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
 | 4.0025 | P2 — décision | 2 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
