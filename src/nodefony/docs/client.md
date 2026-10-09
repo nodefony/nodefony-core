@@ -344,7 +344,7 @@ indéfiniment un point d'entrée protégé — et une session révoquée rejouer
 tentative.
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
-(`client/realtime/NodefonySocket.ts:1539`) — plafonné à 30 secondes par défaut. Trois garde-fous
+(`client/realtime/NodefonySocket.ts:1531`) — plafonné à 30 secondes par défaut. Trois garde-fous
 le tiennent face à un serveur qui coupe tout le monde au même instant :
 
 - une **gigue** : le délai tombe entre la moitié et la totalité du doublement, pour que mille
@@ -397,6 +397,20 @@ radiographie de l'appel. Et `NodefonySocket.register()`
 (`client/realtime/NodefonySocket.ts:1123`) fait du navigateur un **appelé** : le serveur peut lui
 adresser une requête et attendre son résultat. C'est le duplex réel, pas seulement du push.
 
+### Ce que la socket dit d'elle-même — instantané et description
+
+`socketSnapshot()` (`client/realtime/snapshot.ts:80`) lit l'état de la socket sans émettre une
+trame : adresse, état, identité, canaux tenus, canaux et actions annoncés à l'accueil, trames
+reçues. `observeSnapshot()` (`client/realtime/observe.ts:314`) le pousse à chaque échantillon, à
+chaque changement d'état et à chaque accueil — c'est ce dernier qui apporte l'identité, après le
+passage à « connecté ».
+
+`describeSocket()` (`client/realtime/snapshot.ts:128`) met cet instantané en mots : une ligne par
+fait, avec sa valeur ET une phrase qui dit ce qu'elle garantit. C'est la source UNIQUE du tableau
+que la console du navigateur affiche en développement, et de la vignette « Le client vu de
+l'intérieur » des quatre vitrines — écrit dans chaque page, le texte des explications divergerait
+de celui de la console à la première retouche.
+
 ### Identité et refus — l'interface sait sans demander
 
 L'identité de la connexion n'est pas devinée par le front : le serveur l'annonce dans sa première
@@ -430,7 +444,7 @@ Un onglet ouvert huit heures ne pardonne pas les allocations gratuites. Les choi
 
 - **Le journal de protocole est différé.** Chaque trame est poussée dans un anneau borné à 300
   entrées sous forme de **référence brute** ; la mise en forme et le masquage des secrets ne sont
-  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/NodefonySocket.ts:1608`). Un
+  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/NodefonySocket.ts:1600`). Un
   inspecteur qu'on n'ouvre jamais ne coûte donc presque rien.
 - **Les secrets ne transitent pas en clair dans l'inspecteur.** `redactFrame()`
   (`client/realtime/NodefonySocket.ts:283`) remplace toute clé ressemblant à un jeton, un mot de

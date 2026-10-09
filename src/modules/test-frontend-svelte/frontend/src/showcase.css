@@ -713,3 +713,179 @@ section {
   border-top: 1px solid var(--border);
   color: var(--muted);
 }
+
+/* ── Sommaire de la page ─────────────────────────────────────────────── */
+.sommaire {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.sommaire a {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--fg);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.sommaire a:hover {
+  border-color: var(--accent);
+}
+
+/* ── Journal du serveur (flux SSE) ───────────────────────────────────── */
+.refus {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid #c2410c;
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.journal {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  overflow: hidden;
+}
+
+.journal li {
+  display: grid;
+  grid-template-columns: auto auto minmax(6em, auto) 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.journal li:last-child {
+  border-bottom: 0;
+}
+
+.journal .vide {
+  display: block;
+  opacity: 0.7;
+}
+
+.journal time,
+.journal .rid {
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+.journal .msgid {
+  color: #7dd3fc;
+}
+
+.journal .txt {
+  overflow-wrap: anywhere;
+}
+
+.sev {
+  padding: 0 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sev--error,
+.sev--critic,
+.sev--alert,
+.sev--emergency {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.sev--warning {
+  background: #b45309;
+  color: #fff;
+}
+
+.sev--debug {
+  opacity: 0.7;
+}
+
+@media (max-width: 640px) {
+  .journal li {
+    grid-template-columns: auto 1fr;
+  }
+  .journal .msgid,
+  .journal .rid {
+    display: none;
+  }
+}
+
+.versus {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.versus th,
+.versus td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.versus thead th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* ── Le client vu de l'intérieur ─────────────────────────────────────── */
+.fiche {
+  margin: 0;
+}
+
+.fiche > div {
+  display: grid;
+  grid-template-columns: minmax(8em, 11em) 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.fiche > div:last-child {
+  border-bottom: 0;
+}
+
+.fiche dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.fiche dd {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.fiche .val {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.fiche .pourquoi {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .fiche > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

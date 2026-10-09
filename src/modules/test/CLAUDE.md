@@ -61,6 +61,18 @@ src/modules/test/
 | `/memory/syslog-ring/off` · `/on` | GET | coupe / rétablit le ring de relecture du syslog — le gate mémoire le coupe pendant sa mesure |
 | `/forward` | GET | Forward vers `app:AppController:method1` |
 
+### Vitrines de front — `LiveSalonController` + `LiveSyslogController`
+
+| Route                       | Méthode   | Description                                                                                   |
+| --------------------------- | --------- | --------------------------------------------------------------------------------------------- |
+| `/api/live/realtime`        | WEBSOCKET | socket des quatre vitrines : canal libre `live:salon`, pont `api.request`                     |
+| `/nodefony/test/api/syslog` | GET (SSE) | journal du serveur en direct, événements `log` (INFO et plus graves), reprise `Last-Event-ID` |
+
+- Zone **`test-live`** (`^/api/live/`, `session` puis `anonymous`) : sans elle la poignée de main
+  ne lisait jamais la session — identité toujours anonyme, remontée d'incidents impossible.
+- Le flux syslog tombe dans la zone `nodefony-admin` du framework (`/nodefony/<ns>/api/`) :
+  anonyme 401, `user` 403, `admin` 200. Banc : `framework/tests/integration/live-syslog.test.ts`.
+
 ### AlsController (`/nodefony/test/als-test`)
 
 Sondes ALS (AsyncLocalStorage) pour BUG-001 (WS messages) + BUG-002 (`onAfterResponse`). État partagé `alsTestState` exporté, relu via `/state`.

@@ -243,7 +243,8 @@
       "purpose": "check-type-assertions — PROVISOIRE : le total des conversions de type qui RESSERRENT un type (`x as T` plus étroit que `x`, donc `as unknown as T`) ne monte pas, paquet par paquet, d'ici à leur correction.",
       "usage": [
         "node scripts/gates/check-type-assertions.mjs            # contrôle",
-        "node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)"
+        "node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)",
+        "node scripts/gates/check-type-assertions.mjs --triage   # relevé : d'où vient chaque valeur convertie (#572)"
       ],
       "options": [],
       "env": [

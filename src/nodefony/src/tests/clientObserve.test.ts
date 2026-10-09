@@ -36,6 +36,7 @@ import {
   observeState,
   observeSyslog,
   socketSnapshot,
+  describeSocket,
   adaptiveRebindKey,
   type ConnectSharedOptions,
   type SharedConnection,
@@ -305,6 +306,53 @@ describe("socketSnapshot — ce que le client sait de sa PROPRE socket", () => {
     expect(vu.frames).toBeGreaterThan(0);
     expect(vu.lastFrame.method).toBe("live:salon");
     expect(vu.lastFrame.at).toBeTypeOf("number");
+  });
+
+  it("describeSocket : chaque ligne a une valeur ET une explication", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    observeChannel(client, "live:salon", () => {});
+    t.push("live:salon", {});
+    const lignes = describeSocket(socketSnapshot(client));
+    expect(lignes.map((l) => l.label)).toEqual([
+      "adresse",
+      "état",
+      "identité",
+      "canaux tenus",
+      "canaux offerts",
+      "actions",
+      "trames reçues",
+      "dernière trame",
+    ]);
+    const par = Object.fromEntries(lignes.map((l) => [l.label, l.value]));
+    expect(par.adresse).toBe("ws://loopback/realtime");
+    expect(par["état"]).toBe("connecté");
+    expect(par["canaux tenus"]).toBe("live:salon");
+    // L'accueil du mock n'a pas de paramètres : aucune identité n'est connue,
+    // et la ligne le dit plutôt que d'affirmer « anonyme ».
+    expect(par["identité"]).toBe("— (avant l'accueil)");
+    for (const l of lignes) expect(l.hint.length, l.label).toBeGreaterThan(20);
+  });
+
+  it("observeSnapshot réémet quand l'ACCUEIL apporte l'identité", async () => {
+    const client = newClient();
+    const t = await connected(client);
+    const vus: Array<string | null> = [];
+    const dispose = observeSnapshot(client, (v) =>
+      vus.push(v.identity?.userIdentifier ?? null),
+    );
+    // Un accueil qui porte une identité, sans aucun échantillon entre-temps.
+    t.push("realtime:welcome", {
+      identity: {
+        type: "session",
+        authenticated: true,
+        userIdentifier: "admin",
+        roles: ["ROLE_ADMIN"],
+        scopes: [],
+      },
+    });
+    expect(vus.at(-1)).toBe("admin");
+    dispose();
   });
 
   it("ne provoque AUCUNE trame — l'afficher ne coûte rien au réseau", async () => {

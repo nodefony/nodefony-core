@@ -27,6 +27,17 @@ export default {
       legacy: { type: "bcrypt", rounds: 10 },
     },
     areas: {
+      // La socket des quatre vitrines (`/api/live/realtime`). Sans zone, la
+      // poignée de main ne lisait JAMAIS la session : la socket restait
+      // anonyme même connecté à la console, et la remontée des incidents
+      // (canal montant réservé aux connexions authentifiées) ne pouvait pas
+      // marcher. Mode "first" : la session identifie qui en a une, l'anonyme
+      // passe toujours — une vitrine s'affiche sans compte (patron de la zone
+      // `nodefony-liveness` du framework).
+      "test-live": {
+        pattern: "^/api/live/",
+        authenticators: ["session", "anonymous"],
+      },
       // dossier = préfixe = nom de zone : capture les routes de `secure/`.
       // mode "first" : session BFF (cookie, J3) OU Basic (RFC 7617) — la
       // session est tentée d'abord (cookie repris AVANT le firewall) ; sans

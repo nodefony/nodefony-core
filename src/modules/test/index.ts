@@ -48,6 +48,7 @@ import PipelineOrderController from "./nodefony/controller/PipelineOrderControll
 // Décor de banc contre-pression WS — monté SEULEMENT sous interrupteur (voir plus bas).
 import BackpressureRealtimeController from "./nodefony/controller/BackpressureRealtimeController";
 import LiveSalonController from "./nodefony/controller/LiveSalonController";
+import LiveSyslogController from "./nodefony/controller/LiveSyslogController";
 // Portée `request` de l'injecteur : sondes + bancs (/nodefony/test/request-scope*).
 import {
   RequestProbe,
@@ -173,6 +174,7 @@ function overlayProbe(context: unknown): void {
   // Angular, Svelte) : un seul endpoint `/api/live/realtime`, un seul canal
   // `live:salon`, quatre pages qui doivent s'y brancher à l'identique.
   LiveSalonController,
+  LiveSyslogController,
   // Portée `request` de l'injecteur — HTTP et WS
   RequestScopeController,
   // Décor du banc de contre-pression WS (opt-in `NF_BENCH_WS_BACKPRESSURE=1`)

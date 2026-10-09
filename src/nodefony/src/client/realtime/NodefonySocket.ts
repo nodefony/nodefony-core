@@ -60,6 +60,7 @@ import type {
 } from "../../realtime/RealtimeEventMap";
 import { unrefTimer } from "../../runtime/unrefTimer";
 import { BrowserWsTransport } from "./BrowserWsTransport";
+import { describeSocket, socketSnapshot } from "./snapshot";
 import {
   announceRealtime,
   hasKernel,
@@ -1267,21 +1268,12 @@ export class NodefonySocket<
    * fois par page, et jamais en production.
    */
   private detailsSocket(): void {
-    consoleDetails(
-      {
-        adresse: { valeur: this.url ?? "—" },
-        état: { valeur: this.state },
-        identité: {
-          valeur: this._identity?.authenticated
-            ? this._identity.userIdentifier || "authentifié"
-            : "anonyme",
-        },
-        canaux: { valeur: this._serverChannels?.join(", ") || "aucun" },
-        actions: { valeur: this._serverMethods?.join(", ") || "aucune" },
-      },
-      this,
-      "socket nodefony — détail et raccourcis",
-    );
+    // Les MÊMES lignes que la vignette d'une page (`describeSocket`) : une
+    // seule source pour ce que la socket dit d'elle-même, console ou écran.
+    const rows: Record<string, { valeur: string }> = {};
+    for (const row of describeSocket(socketSnapshot(this)))
+      rows[row.label] = { valeur: row.value };
+    consoleDetails(rows, this, "socket nodefony — détail et raccourcis");
   }
 
   /**

@@ -113,7 +113,13 @@ describe("vitrines — la feuille de style est la MÊME dans les quatre", () => 
  */
 const LIAISONS: Record<
   string,
-  { jetons: string[]; instantane: string; cite: string; pourquoi: string }
+  {
+    jetons: string[];
+    instantane: string;
+    cite: string;
+    sse: string;
+    pourquoi: string;
+  }
 > = {
   react: {
     jetons: [
@@ -122,6 +128,7 @@ const LIAISONS: Record<
     ],
     instantane: "observeSnapshot(",
     cite: "useNodefonyState()",
+    sse: "useNodefonySse(",
     pourquoi: "React a ses hooks (`nodefony/react`)",
   },
   vue: {
@@ -132,6 +139,7 @@ const LIAISONS: Record<
     ],
     instantane: "useNodefonySnapshot()",
     cite: "useNodefonyState()",
+    sse: "useNodefonySse(",
     pourquoi: "Vue a ses composables (`nodefony/vue`)",
   },
   angular: {
@@ -142,12 +150,14 @@ const LIAISONS: Record<
     ],
     instantane: "injectNodefonySnapshot()",
     cite: "injectNodefonyState()",
+    sse: "injectNodefonySse(",
     pourquoi: "Angular a ses fonctions d'injection (`nodefony/angular`)",
   },
   svelte: {
     jetons: ["nodefony()", "nodefonyState()", 'nodefonyChannel("live:salon"'],
     instantane: "nodefonySnapshot()",
     cite: "nodefonyState()",
+    sse: "nodefonySse(",
     pourquoi: "Svelte a ses liaisons (`nodefony/svelte`)",
   },
 };
@@ -193,6 +203,31 @@ describe("vitrines — les quatre consomment le SOCLE, aucune ne le réécrit", 
       ).toContain('emit("live:say", { text: said, front: FRONT })');
       expect(src, `${front} : la même action par les deux portes`).toContain(
         `/${front}/api/data`,
+      );
+    }
+  });
+
+  it("le journal passe par SA liaison SSE, la vignette par describeSocket", () => {
+    for (const { front, page } of VITRINES) {
+      const src = lire(front, page);
+      const sse = LIAISONS[front]!.sse;
+      // Le câblage ET l'extrait affiché : un extrait qui ne cite pas l'appel
+      // réel se périme sans que personne ne le voie.
+      expect(
+        src.split(sse).length - 1,
+        `${front} : le journal doit passer par ${sse} (câblage + extrait)`,
+      ).toBeGreaterThanOrEqual(2);
+      // Les explications de la vignette sont celles de la console : une seule
+      // source, jamais un tableau recopié dans la page.
+      expect(src, `${front} : la vignette lit describeSocket`).toContain(
+        "describeSocket(",
+      );
+      // Ouvrir un flux à la main, c'est oublier de le fermer au démontage.
+      expect(src, `${front} : flux ouvert à la main`).not.toContain(
+        "new NodefonySse(",
+      );
+      expect(src, `${front} : EventSource brut`).not.toContain(
+        "new EventSource(",
       );
     }
   });
@@ -245,6 +280,11 @@ describe("vitrines — le même écran, et de quoi le comparer", () => {
       // La sonde de socket et la bascule de la barre de debug, dans la barre.
       "Barre de debug",
       "sonde-detail",
+      // Le sommaire, le journal SSE et la vignette du client.
+      "Sur cette page",
+      "Journal du serveur en direct",
+      "WebSocket ou SSE ?",
+      "Le client vu de l'intérieur",
     ];
     for (const { front, page } of VITRINES) {
       const src = lire(front, page);

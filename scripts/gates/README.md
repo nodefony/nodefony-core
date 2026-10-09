@@ -88,6 +88,7 @@ check-type-assertions — PROVISOIRE : le total des conversions de type qui RESS
 
 - **Usage** : `node scripts/gates/check-type-assertions.mjs            # contrôle`
 - **Usage** : `node scripts/gates/check-type-assertions.mjs --update   # abaisse les plafonds (jamais ne les monte)`
+- **Usage** : `node scripts/gates/check-type-assertions.mjs --triage   # relevé : d'où vient chaque valeur convertie (#572)`
 - **Variable** `RULE`
 - **Produit** : l'écart par paquet ; sortie 0 tenu · 1 refusé · 78 oxlint n'a pas répondu
 - **Appelé par** : `node.js.yml` · `.githooks/pre-commit`

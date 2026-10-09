@@ -9,8 +9,10 @@
     nodefony,
     nodefonyChannel,
     nodefonySnapshot,
+    nodefonySse,
     nodefonyState,
   } from "nodefony/svelte";
+  import { describeSocket, type SocketSnapshot } from "nodefony/client";
   // Mise en page COMMUNE aux quatre vitrines — même fichier, même charte que la
   // page d'accueil du framework. Seule `--accent` change d'une vitrine à l'autre.
   import "./showcase.css";
@@ -27,6 +29,57 @@
     front: string;
     ts: number;
     pid: number;
+  }
+
+  /** Une ligne du journal du serveur, telle que le flux SSE la pousse. */
+  interface LogLine {
+    id: number;
+    time: number;
+    severity: string;
+    msgid: string;
+    text: string;
+    requestId?: string | undefined;
+    dropped?: number | undefined;
+  }
+
+  /**
+   * Le flux SSE du journal du serveur — sous `/nodefony/<ns>/api/`, donc dans la
+   * zone d'administration : une session de la console est exigée.
+   */
+  const JOURNAL = "/nodefony/test/api/syslog";
+
+  /** Lit une ligne poussée par le serveur ; tout ce qui n'en a pas la forme est ignoré. */
+  function lineOf(data: string): LogLine | null {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(data);
+    } catch {
+      return null;
+    }
+    if (typeof raw !== "object" || raw === null) return null;
+    const r: Record<string, unknown> = { ...raw };
+    if (typeof r.id !== "number" || typeof r.text !== "string") return null;
+    return {
+      id: r.id,
+      time: typeof r.time === "number" ? r.time : Date.now(),
+      severity: typeof r.severity === "string" ? r.severity : "INFO",
+      msgid: typeof r.msgid === "string" ? r.msgid : "",
+      text: r.text,
+      requestId: typeof r.requestId === "string" ? r.requestId : undefined,
+      dropped: typeof r.dropped === "number" ? r.dropped : undefined,
+    };
+  }
+
+  /** L'état d'un flux, dit pour un humain — `readyState` et `error` du socle. */
+  function fluxLabel(listening: boolean, readyState: number, error: boolean) {
+    if (!listening) return { text: "écoute arrêtée", dot: "dot" };
+    if (readyState === 1) return { text: "à l'écoute", dot: "dot dot--on" };
+    if (readyState === 0)
+      return {
+        text: error ? "reconnexion automatique…" : "connexion…",
+        dot: "dot dot--wait",
+      };
+    return { text: error ? "refusé par le serveur" : "fermé", dot: "dot" };
   }
 
   /** La couleur du framework de vue — le SEUL écart de style entre les quatre. */
@@ -104,6 +157,33 @@
   let parSocket = $state<string | null>(null);
   const instantane = nodefonySnapshot();
   const vue = $derived(instantane.current);
+  // Ce que le client sait de SA socket — les mêmes lignes que la console.
+  const rows = $derived(vue ? describeSocket(vue) : []);
+
+  // Le journal du serveur, par un flux SSE. La valeur est recréée quand
+  // `listening` change : l'ancienne n'est plus lue, son flux se ferme — c'est
+  // la libération paresseuse de la liaison, et le démontage fait de même.
+  let listening = $state(true);
+  let lines = $state<LogLine[]>([]);
+  const flux = $derived(
+    nodefonySse(listening ? JOURNAL : null, {
+      events: ["log"],
+      onEvent: (e) => {
+        const line = lineOf(e.data);
+        if (!line) return;
+        // Une reprise rejoue la fin du tampon : on n'ajoute que le neuf.
+        const last = lines.at(-1);
+        if (last && line.id <= last.id) return;
+        lines = [...lines, line].slice(-12);
+      },
+    }),
+  );
+  const streamStatus = $derived(
+    fluxLabel(listening, flux.current.readyState, flux.current.error),
+  );
+  const refused = $derived(
+    listening && flux.current.readyState === 2 && flux.current.error,
+  );
   let barVisible = $state(debugbar()?.isVisible() ?? false);
 
   const toggleBar = (): void => {
@@ -146,7 +226,6 @@
     if (liveState === "connected") live.disconnect();
     else live.connect().catch(() => {}); // l'échec se lit dans l'état
   };
-
 
   const pollApi = async (): Promise<void> => {
     try {
@@ -262,9 +341,15 @@
         <span class="badge">Vite dev server</span>
         {#if data}<span class="badge">env : {data.env}</span>{/if}
       </div>
+      <nav class="sommaire" aria-label="Sur cette page">
+        <a href="#temps-reel">Temps réel</a>
+        <a href="#comparaison">Par comparaison</a>
+        <a href="#journal">Journal SSE</a>
+        <a href="#client">Le client</a>
+      </nav>
     </div>
 
-    <section>
+    <section id="temps-reel">
       <div class="sec-head">
         <p class="kicker">Temps réel</p>
         <h2>Ce que cette socket change</h2>
@@ -376,7 +461,7 @@ $effect(() =&gt; nodefonyChannel("live:salon", (m) =&gt; …))</code
       </div>
     </section>
 
-    <section>
+    <section id="comparaison">
       <div class="sec-head">
         <p class="kicker">Par comparaison</p>
         <h2>Ce que la page fait quand elle DEMANDE</h2>
@@ -413,6 +498,139 @@ $effect(() =&gt; nodefonyChannel("live:salon", (m) =&gt; …))</code
             complet, pas un rechargement à chaud.
           </p>
         </div>
+      </div>
+    </section>
+
+    <section id="journal">
+      <div class="sec-head">
+        <p class="kicker">Flux SSE</p>
+        <h2>Journal du serveur en direct</h2>
+        <p>
+          Le serveur parle, la page écoute — sur une réponse HTTP ordinaire qui
+          ne se termine pas. Chaque ligne porte un identifiant : coupé puis
+          rétabli, le flux reprend là où il s'était arrêté.
+        </p>
+      </div>
+
+      <div class="bandeau">
+        <p class="live-state">
+          <span class={streamStatus.dot}></span>
+          {streamStatus.text}
+        </p>
+        <p class="live-meta">
+          {lines.length} ligne{lines.length > 1 ? "s" : ""} — les douze dernières
+        </p>
+        <button class="btn btn--ghost" onclick={() => (listening = !listening)}>
+          {listening ? "Arrêter l'écoute" : "Écouter"}
+        </button>
+      </div>
+
+      {#if refused}
+        <p class="refus" role="status">
+          Le serveur a refusé le flux : le journal d'exploitation est réservé à
+          l'administration.
+          <a href="/nodefony/login">Connectez-vous à la console</a> dans ce
+          navigateur, puis revenez ici.
+        </p>
+      {/if}
+
+      <ol class="journal">
+        {#each lines as l (l.id)}
+          <li>
+            <time>{new Date(l.time).toLocaleTimeString()}</time>
+            <span class="sev sev--{l.severity.toLowerCase()}">{l.severity}</span>
+            <span class="msgid">{l.msgid}</span>
+            <span class="txt"
+              >{l.text}{l.dropped ? ` (+${l.dropped} perdues)` : ""}</span
+            >
+            {#if l.requestId}<code class="rid">{l.requestId.slice(0, 8)}</code
+              >{/if}
+          </li>
+        {:else}
+          <li class="vide">Rien encore — le serveur n'a rien dit.</li>
+        {/each}
+      </ol>
+
+      <div class="grid" style="margin-top: 16px">
+        <div class="card">
+          <h3>📡 WebSocket ou SSE ?</h3>
+          <table class="versus">
+            <thead>
+              <tr>
+                <th scope="col">Critère</th>
+                <th scope="col">WebSocket</th>
+                <th scope="col">SSE</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Sens</th>
+                <td>les deux</td>
+                <td>serveur → page</td>
+              </tr>
+              <tr>
+                <th scope="row">Transport</th>
+                <td>protocole à part</td>
+                <td>réponse HTTP ordinaire</td>
+              </tr>
+              <tr>
+                <th scope="row">Reprise</th>
+                <td>rejoue les abonnements</td>
+                <td>Last-Event-ID, rien de perdu</td>
+              </tr>
+              <tr>
+                <th scope="row">Ici</th>
+                <td>le salon, le pont d'API</td>
+                <td>le journal du serveur</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>🧩 Un appel, fermé tout seul</h3>
+          <pre class="code"><code
+              >const flux = nodefonySse(JOURNAL, &#123;
+  events: ["log"],
+  onEvent: (e) =&gt; …,
+&#125;)</code
+            ></pre>
+          <p class="hint">
+            Plus personne ne lit la valeur : le flux se ferme. Aucune requête ne
+            reste ouverte derrière une page quittée. Les mêmes trois lignes en
+            React, Vue et Angular.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="client">
+      <div class="sec-head">
+        <p class="kicker">Diagnostic</p>
+        <h2>Le client vu de l'intérieur</h2>
+        <p>
+          Ce que la socket sait d'elle-même, sans rien demander au serveur. Le
+          même tableau s'affiche dans la console du navigateur ; ici, chaque
+          ligne dit ce qu'elle garantit.
+        </p>
+      </div>
+      <div class="card">
+        <dl class="fiche">
+          {#each rows as r (r.label)}
+            <div>
+              <dt>{r.label}</dt>
+              <dd>
+                <span class="val">{r.value}</span>
+                <span class="pourquoi">{r.hint}</span>
+              </dd>
+            </div>
+          {/each}
+        </dl>
+        <p class="hint">
+          Dans la console (F12) : le badge <code>◆ nodefony client</code>, son
+          groupe replié, puis <code>nodefony.socket</code>,
+          <code>nodefony.sockets()</code> et <code>nodefony.identity()</code>. En
+          production, rien de tout cela n'est posé.
+        </p>
       </div>
     </section>
 

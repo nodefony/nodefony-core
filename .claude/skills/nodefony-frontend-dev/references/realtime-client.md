@@ -19,6 +19,7 @@ Source : `src/nodefony/src/client/realtime/NodefonySocket.ts` (1300 l). Contrats
 9. [Stats & inspecteur de frames](#9-stats--inspecteur-de-frames)
 10. [Cadence adaptative (`adaptiveChannel`)](#10-cadence-adaptative-adaptivechannel)
 11. [Liaisons de vue : socle agnostique `observe*`, hooks React, composables Vue, injection Angular, liaisons Svelte](#11-liaisons-de-vue--socle-agnostique-observe--hooks-react)
+    11 ter. [Flux SSE : `observeSse` et ses quatre liaisons](#11-ter-flux-sse--observesse-et-ses-quatre-liaisons)
 12. [Gotchas](#12-gotchas)
 
 ---
@@ -562,6 +563,34 @@ Pendant serveur, bornes et politique du canal → `nodefony-framework-dev` (`ref
 « Canal MONTANT des journaux navigateur »).
 
 ---
+
+## 11 ter. Flux SSE : `observeSse` et ses quatre liaisons
+
+`NodefonySse` (`nodefony/client`) est le client d'un flux `text/event-stream` (API d'`EventSource`
+
+- `method`/`headers`/`body`, sur `fetch`). Côté vue, une seule règle : **ouvrir au montage, FERMER
+  au démontage** — un flux oublié est une requête HTTP ouverte que personne ne lit. Elle vit dans le
+  socle `observeSse(url, emit, options) → dispose` ; les liaisons n'en sont que l'enveloppe :
+
+```ts
+useNodefonySse(url: string | null, options?): SseSnapshot;                          // React
+useNodefonySse(url: MaybeRefOrGetter<string | null>, options?): Readonly<Ref<SseSnapshot>>; // Vue
+injectNodefonySse(url: Source<string | null>, options?): Signal<SseSnapshot>;      // Angular (HORS zone)
+nodefonySse(url: Source<string | null>, options?): Reactive<SseSnapshot>;          // Svelte (paresseux)
+// SseSnapshot = { readyState: 0|1|2, lastEvent: ISseEvent | null, error: boolean }
+// options = NodefonySseOptions + events (défaut ["message"]) + onEvent (CHAQUE événement)
+```
+
+- **Un flux n'est PAS partagé** (≠ socket) : c'est la réponse à UNE requête, chaque composant ouvre le sien.
+- **Accumuler dans `onEvent`**, jamais à partir de `lastEvent` : React regroupe les rendus d'un tour, des événements seraient perdus.
+- `url === null` suspend l'écoute sans démonter. React ne rouvre que si l'adresse ou `events` changent (`sseRebindKey`) — un `onEvent` neuf à chaque rendu ne coupe rien.
+- `CLOSED` + `error` = le serveur a REFUSÉ (401/403/autre type) et le client abandonne ; `CONNECTING` + `error` = reconnexion avec `Last-Event-ID`.
+- Svelte : ouverture au premier `.current` lu dans un effet. Pour suspendre, recréer la valeur dans un `$derived` (`nodefonySse(listening ? URL : null, …)`) : l'ancienne n'est plus lue, son flux se ferme.
+
+**Ce que la socket dit d'elle-même** : `socketSnapshot()` (instantané, zéro trame) +
+`describeSocket(snapshot)` (lignes `{ label, value, hint }`) — source UNIQUE du tableau de la
+console du navigateur ET des vignettes de diagnostic. Ne jamais recopier ces libellés dans une page.
+Côté serveur (contrat jumeau) : `this.renderSse()` → skill `nodefony-framework-dev`.
 
 ## 12. Gotchas
 

@@ -96,7 +96,7 @@ Syslog.log(pdu)
        ├─→ Console transport       (stdout coloré)
        ├─→ File transport           (logs/*.log)
        ├─→ JSON transport           (pipeline ELK/Loki)
-       └─→ SSE transport            (Studio /nodefony/api/logs/stream)
+       └─→ flux SSE des vitrines    (/nodefony/test/api/syslog, LiveSyslogController)
 ```
 
 ## Pattern d'usage typique
@@ -138,7 +138,7 @@ terminal de développement.
 **Usages** :
 
 - Studio (Phase 10) — `kernel.syslog.buffer.toArray()` → snapshot rapide
-- SSE Logs panel — stream live (cf `@nodefony/studio/frontend/src/pages/Logs.tsx`)
+- Reprise `Last-Event-ID` du flux SSE des vitrines (`LiveSyslogController`)
 - Debug en cours d'exécution
 
 **Implémentation** : tableau de taille fixe + pointeur de tête. `push()`, `shift()` et `at(i)` en O(1),
@@ -154,30 +154,20 @@ svc.initSyslog("test", false); // silencieux ou WARN+
 
 Applique les **conditions par défaut** selon environnement.
 
-## Pattern SSE Studio (Phase 10)
+## Pousser le journal en SSE — patron éprouvé
 
-```typescript
-// @nodefony/studio
-@Controller("/nodefony/api/logs")
-class LogsController {
-  @Get("/stream")
-  async stream(ctx: HttpContext) {
-    ctx.response.setHeader("Content-Type", "text/event-stream");
+Le flux SSE de Studio (`/studio/api/logs/stream`) a été RETIRÉ (Studio lit le canal WS
+`nodefony:syslog`). Le patron vivant est `LiveSyslogController`
+(`src/modules/test/nodefony/controller/LiveSyslogController.ts`), consommé par les quatre vitrines :
 
-    const handler = (pdu: Pdu) => {
-      ctx.response.write(`data: ${JSON.stringify(pdu)}\n\n`);
-    };
-
-    this.kernel.syslog.on("onLog", handler);
-
-    // ⚠️ Cleanup : listener sur RESPONSE (rawRes), pas REQUEST en HTTP/2
-    // cf mémoire feedback_sse_http2_request_close
-    ctx.rawRes.on("close", () => {
-      this.kernel.syslog.off("onLog", handler);
-    });
-  }
-}
-```
+- `this.renderSse()` (jamais `setHeader` + `write` à la main) ; écouteur `syslog.on("onLog", …)`
+  retiré dans `sse.onClose(…)` — quel que soit le bout qui ferme ;
+- une ligne = un DTO borné (`uid`, `timeStamp`, `severityName`, `msgid`, texte tronqué,
+  `requestId`), JAMAIS le `Pdu` entier (charge = pile d'erreur, objet arbitraire) ;
+- filtrer DEBUG (`pdu.severity > 6`) : chaque requête en produit plusieurs ;
+- `id:` = `pdu.uid` → la reprise `Last-Event-ID` rejoue `ringStack` filtré `uid > id` ;
+- client lent : tant qu'un `send()` attend son `drain`, COMPTER et jeter, jamais empiler ;
+- route sous `/nodefony/<ns>/api/` = zone `nodefony-admin` : un journal n'est pas public.
 
 ## Format texte
 

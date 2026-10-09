@@ -345,7 +345,7 @@ Rend `"disconnected" | "connecting" | "connected" | "reconnecting" | "error"`. L
 `useSyncExternalStore`, donc **sans tearing** en rendu concurrent : le snapshot est une chaîne, la
 comparaison est exacte.
 
-Le re-rendu suit `NodefonySocket.setState()` (`client/realtime/NodefonySocket.ts:1714`), qui
+Le re-rendu suit `NodefonySocket.setState()` (`client/realtime/NodefonySocket.ts:1706`), qui
 court-circuite si l'état est inchangé — un état stable ne coûte rien, même sous un flux dense.
 
 C'est le hook des badges de connexion et des écrans dégradés (« temps réel indisponible »).
@@ -452,7 +452,7 @@ const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
 Rend `{ msgCount, lastMessage, rate, series }` pour un canal, calculé par le client à partir des
 trames reçues (`getChannelStats()`, `client/realtime/NodefonySocket.ts:1195`). La série glisse sur 32
 points — `STATS_SERIES_POINTS` (`client/realtime/NodefonySocket.ts:137`) —, échantillonnés une fois par seconde par
-`startStatsSampler()` (`client/realtime/NodefonySocket.ts:1381`).
+`startStatsSampler()` (`client/realtime/NodefonySocket.ts:1373`).
 
 > [!WARNING]
 > Ce hook ne se rafraîchit **pas** tout seul après sa première valeur. Le client réutilise le même
@@ -478,7 +478,7 @@ jointe (`sevKey`, `client/react/index.ts:387`), pas le tableau.
 
 > [!CAUTION]
 > Le filtre — porté par le socle, pas par le hook — compare la valeur du champ `severity` de chaque entrée aux chaînes fournies
-> (`client/realtime/observe.ts:422`). Or une entrée de journal Nodefony porte sa sévérité **numérique**
+> (`client/realtime/observe.ts:382`). Or une entrée de journal Nodefony porte sa sévérité **numérique**
 > dans `severity` et son nom dans `severityName` (`Pdu.ts:180`) : filtrer sur `["ERROR"]` ne retient
 > donc rien du flux standard. Filtre côté rendu tant que ce n'est pas aligné, ou lis
 > [Journalisation](syslog.md) pour la forme exacte d'une entrée.
