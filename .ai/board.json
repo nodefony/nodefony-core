@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T20:05:17.145Z",
+  "generatedAt": "2026-10-09T20:54:07.675Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 99,
+      "closed": 101,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 48,
+      "open": 47,
       "title": "10.0.0-beta"
     },
     {
@@ -2297,8 +2297,8 @@
       "number": 562,
       "title": "fix(http): ne plus annoncer de type sur une réponse sans corps",
       "url": "https://github.com/nodefony/nodefony-core/issues/562",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
@@ -2313,8 +2313,8 @@
       "number": 563,
       "title": "feat(security): poser un jeton d'agent valable 8 h par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/563",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -2349,6 +2349,22 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 3.7,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 578,
+      "title": "feat(cli): éprouver et rendre visible l'installation globale du CLI",
+      "url": "https://github.com/nodefony/nodefony-core/issues/578",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.75,
       "debut": null,
       "cible": null,
       "labels": [
@@ -2420,7 +2436,7 @@
       "title": "fix(mcp): ne plus renvoyer le message brut d'un outil qui échoue",
       "url": "https://github.com/nodefony/nodefony-core/issues/551",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -2436,7 +2452,7 @@
       "title": "feat(security): signaler une zone ouverte à quiconque peut créer un compte",
       "url": "https://github.com/nodefony/nodefony-core/issues/552",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
