@@ -62,7 +62,7 @@ laissait passer.
 - **Le store de jetons Redis laissait RECULER le seuil de révocation en masse** sous
   concurrence (`GET` puis `SET`) : deux déconnexions simultanées pouvaient rendre valides des
   jetons révoqués. Il pose désormais le seuil en une instruction serveur
-  (`MONOTONIC_SET_SCRIPT`, `RedisTokenStore.ts:62`). Il gardait aussi l'ancien secret d'un jeton
+  (`MONOTONIC_SET_SCRIPT`, `RedisTokenStore.ts:115`). Il gardait aussi l'ancien secret d'un jeton
   réécrit, acceptait deux jetons pour un même secret, et ne purgeait jamais un PAT enregistré
   déjà révoqué.
 - **Le journal d'audit sous MongoDB parcourait toute la collection puis triait en mémoire**

@@ -118,11 +118,11 @@ défaut** dans Nodefony :
   (`Context.getSessionCookieName()`, `Context.ts:757`).
 - **Fixation.** L'attaquant pose lui-même un identifiant dans le navigateur de la victime, attend
   qu'elle se connecte, puis réutilise **le même** identifiant. → double défense : `strictMode` rejette
-  tout identifiant inconnu du store (`Session.resume()`, `session.ts:177`), et le login **régénère**
+  tout identifiant inconnu du store (`Session.resume()`, `session.ts:197`), et le login **régénère**
   l'identifiant (`AuthFlow` — voir plus bas).
 - **Exploitation prolongée d'un identifiant volé.** Une session maintenue artificiellement vivante
   resterait exploitable indéfiniment. → l'**absolute timeout** borne l'âge depuis la création et n'est
-  **jamais** prolongé (`Session.isValidSession()`, `session.ts:371`), en plus de l'idle timeout.
+  **jamais** prolongé (`Session.isValidSession()`, `session.ts:389`), en plus de l'idle timeout.
 
 > [!IMPORTANT]
 > Le cookie **ne chiffre rien** et n'a pas à le faire : il ne porte qu'un numéro. La sécurité repose
@@ -134,7 +134,7 @@ défaut** dans Nodefony :
 Quatre partis pris, chacun vérifiable dans le code.
 
 **1. Le cookie ne transporte que l'identifiant.** `Session.getSession()` lit la **valeur brute** du
-cookie, sans déchiffrement (`session.ts:160`) ; l'identifiant vient de `Session.generateId()`
+cookie, sans déchiffrement (`session.ts:180`) ; l'identifiant vient de `Session.generateId()`
 (`session.ts:231`). Modèle BFF : le web reste sur un cookie opaque, le JWT est réservé aux API et aux
 agents (voir [Firewall](../../security/docs/firewall.md)).
 
@@ -145,7 +145,7 @@ ni `Set-Cookie`**.
 
 **3. Un seul modèle d'état pour le web et le temps réel.** Le même `startSession()` sert
 `HttpKernel.onRequestEnd()` (`http-kernel.ts:1769`) et `HttpKernel.onConnect()` (`http-kernel.ts:2067`) ;
-l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:421`).
+l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:454`).
 
 **4. L'administration ne voit jamais un identifiant.** Un opérateur manipule une `ref`, HMAC tronqué
 non réversible produit par `computeSessionRef()` (`sessions-service.ts:100`) — comme la liste
@@ -380,17 +380,17 @@ traduit (`$null`) au lieu de chercher `""` (`@nodefony/drizzle/nodefony/src/Sess
 ### `redis` — TTL natif, zéro balayage
 
 Ici l'expiration **idle** est portée par Redis lui-même : `SET … EX` pose le TTL à chaque écriture
-(`@nodefony/redis/nodefony/src/SessionStorage.ts:137`) et `touch` le repositionne par un `EXPIRE` O(1)
+(`@nodefony/redis/nodefony/src/SessionStorage.ts:247`) et `touch` le repositionne par un `EXPIRE` O(1)
 (`@nodefony/redis/nodefony/src/SessionStorage.ts:166`). Conséquence : `gc()` est un **no-op assumé**
 (`@nodefony/redis/nodefony/src/SessionStorage.ts:168`) — aucun balayage périodique.
 
 L'absolute timeout, lui, n'est pas exprimable par un TTL glissant : il reste honoré **à la lecture**
-par `Session.isValidSession()` (`session.ts:371`). Une entrée trop vieille peut donc survivre côté
+par `Session.isValidSession()` (`session.ts:389`). Une entrée trop vieille peut donc survivre côté
 Redis jusqu'à son TTL idle, mais elle est **refusée à la reprise**.
 
 Capacités réduites, annoncées et non simulées : la pagination est **par curseur** (pas de `total`, pas
 d'ordre global) et `countSessions()` renvoie **`-1`** = « je ne sais pas »
-(`@nodefony/redis/nodefony/src/SessionStorage.ts:460`). L'appelant affiche l'inconnu, il ne l'invente pas.
+(`@nodefony/redis/nodefony/src/SessionStorage.ts:474`). L'appelant affiche l'inconnu, il ne l'invente pas.
 
 ### `mongoose` — MongoDB, parité de comportement
 
@@ -435,12 +435,12 @@ sequenceDiagram
   end
 ```
 
-**Reprise ou création.** `Session.start()` (`session.ts:144`) délègue à `getSession()` : cookie présent
-→ `resume()` (`session.ts:177`), sinon `create()` (`session.ts:204`) qui tire un identifiant CSPRNG,
+**Reprise ou création.** `Session.start()` (`session.ts:164`) délègue à `getSession()` : cookie présent
+→ `resume()` (`session.ts:197`), sinon `create()` (`session.ts:227`) qui tire un identifiant CSPRNG,
 pose le cookie et marque la session à persister.
 
-**Validation à la reprise.** `Session.isValidSession()` (`session.ts:371`) applique l'**absolute**
-(âge depuis `created`) puis l'**idle** (depuis `updated`). Échec → `invalidate()` (`session.ts:290`)
+**Validation à la reprise.** `Session.isValidSession()` (`session.ts:389`) applique l'**absolute**
+(âge depuis `created`) puis l'**idle** (depuis `updated`). Échec → `invalidate()` (`session.ts:308`)
 détruit l'entrée et recrée une session vierge.
 
 > [!WARNING]
@@ -450,7 +450,7 @@ détruit l'entrée et recrée une session vierge.
 > activer `refererCheck` quand l'expiration des sessions compte — c'est-à-dire presque toujours.
 
 **Écriture minimale.** `SessionsService.saveSession()` (`sessions-service.ts:463`) n'écrit **que** si la
-session est `dirty` et non `readOnly` ; sinon il appelle `Session.touchIfNeeded()` (`session.ts:421`),
+session est `dirty` et non `readOnly` ; sinon il appelle `Session.touchIfNeeded()` (`session.ts:454`),
 qui prolonge l'idle **sans réécrire le blob**, et seulement au-delà d'une demi-vie d'idle
 (`session.ts:445`). Une requête de lecture coûte donc au pire un `UPDATE` d'horodatage toutes les
 15 minutes (défaut).
@@ -530,7 +530,7 @@ C'est la défense la plus importante et elle est **active**. `AuthFlow.#openSess
 appel **inconditionnel** de `Session.regenerateId()` (`authFlow.ts:388`), et enfin destruction de
 l'ancienne entrée du store (`authFlow.ts:390`). Un cookie pré-posé par un attaquant **ne survit donc pas
 au login**. Le nouvel identifiant est un CSPRNG frais, l'état applicatif est conservé
-(`Session.regenerateId()`, `session.ts:236`).
+(`Session.regenerateId()`, `session.ts:260`).
 
 Au passage, la provenance est capturée dans le `metaBag` : `ip` (`authFlow.ts:438`) et `ua`
 (`authFlow.ts:407`), en mode « au mieux » — ce sont ces deux champs que la console d'administration
@@ -540,7 +540,7 @@ affiche.
 
 | Surface                  | Méthode                                         | Portée                                      |
 | ------------------------ | ----------------------------------------------- | ------------------------------------------- |
-| Déconnexion locale       | `Session.destroy()` (`session.ts:306`)          | la session courante + pierre tombale        |
+| Déconnexion locale       | `Session.destroy()` (`session.ts:324`)          | la session courante + pierre tombale        |
 | Révocation par un admin  | `destroyByRef()` (`sessions-service.ts:745`)    | une session désignée par sa `ref` publique  |
 | « Déconnecter partout »  | `destroyByUser()` (`sessions-service.ts:831`)   | toutes les sessions d'un utilisateur        |
 | « Mes appareils » (self) | `destroyOwnByRef()` (`sessions-service.ts:898`) | une session, **restreinte au propriétaire** |
@@ -575,10 +575,10 @@ Trois barrières superposées :
 | Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:756`)            |
 | Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:757`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `cookieDefaultSettings` (`cookie.ts:39`)           |
-| Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:177`)              |
+| Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:197`)              |
 | Identifiant deviné                | 32 octets CSPRNG (43 caractères base64url)        | `Session.generateId()` (`session.ts:231`)          |
-| Session volée exploitée longtemps | absolute timeout, jamais prolongé                 | `absoluteTimeoutS` à la reprise (`session.ts:388`) |
-| Session oubliée ouverte           | idle timeout glissant                             | `idleTimeoutS` à la reprise (`session.ts:401`)     |
+| Session volée exploitée longtemps | absolute timeout, jamais prolongé                 | `absoluteTimeoutS` à la reprise (`session.ts:411`) |
+| Session oubliée ouverte           | idle timeout glissant                             | `idleTimeoutS` à la reprise (`session.ts:426`)     |
 | Résurrection après révocation     | pierre tombale 5 min sur `write` **et** `touch`   | `RevocationGuardStorage.ts:127-171`                |
 | Fuite d'identifiant en admin      | `ref` HMAC + projection en liste blanche          | `toSessionSummary()` (`sessions-service.ts:112`)   |
 | IDOR sur « mes sessions »         | périmètre depuis l'identité ALS, jamais du client | `destroyOwnByRef()` (`sessions-service.ts:898`)    |
@@ -595,11 +595,11 @@ paramètre `@Session()` suffit à déclarer l'intent.
 | Lire une valeur                  | `session.get("panier")`              | `null` si absente — jamais `undefined`.                 |
 | Écrire une valeur                | `session.set("panier", items)`       | Marque la session `dirty` → écriture en fin de requête. |
 | Message « une seule lecture »    | `session.setFlashBag("notice", "…")` | Consommé (et effacé) au premier `getFlashBag`.          |
-| Lire ce message                  | `session.getFlashBag("notice")`      | Rend la valeur puis la supprime (`session.ts:530`).     |
+| Lire ce message                  | `session.getFlashBag("notice")`      | Rend la valeur puis la supprime (`session.ts:551`).     |
 | Métadonnée technique             | `session.getMetaBag("ip")`           | ip / ua / host / remoteAddress posés à la création.     |
 | Se déconnecter                   | `await session.destroy(true)`        | Détruit l'entrée store **et** efface le cookie.         |
-| Renouveler l'identifiant         | `session.regenerateId()`             | Nouvel identifiant, état conservé (`session.ts:236`).   |
-| Savoir si une écriture aura lieu | `session.dirty`                      | Le drapeau de dirty-tracking (`session.ts:128`).        |
+| Renouveler l'identifiant         | `session.regenerateId()`             | Nouvel identifiant, état conservé (`session.ts:260`).   |
+| Savoir si une écriture aura lieu | `session.dirty`                      | Le drapeau de dirty-tracking (`session.ts:148`).        |
 
 **Intent de route** — `UseSession(options)` (`routerDecorators.ts:830`) s'applique à une classe **ou** à
 une méthode ; la méthode l'emporte, par fusion et non par remplacement
@@ -607,7 +607,7 @@ une méthode ; la méthode l'emporte, par fusion et non par remplacement
 `ISession.ts:17`) :
 
 - `readOnly: true` — la session est reprise et lue mais **jamais** persistée ; une mutation tentée est
-  journalisée en WARNING sans écriture (`Session.save()`, `session.ts:255-264`). C'est le seul champ
+  journalisée en WARNING sans écriture (`Session.save()`, `session.ts:273-282`). C'est le seul champ
   propagé par le kernel (`http-kernel.ts:1210`).
 
 En décorateur de **classe**, `@UseSession` se place **sous** `@controller` (`routerDecorators.ts:189`).
@@ -658,7 +658,7 @@ Le coût d'une session est **payé seulement quand elle sert** :
 - **Zéro par défaut** — sans intent ni cookie, `startSession()` sort immédiatement
   (`http-kernel.ts:1299`) : ni objet `Session`, ni lecture de store.
 - **Objet léger** — trois sacs `{}` à plat, pas de container DI par session (`session.ts:100-104`).
-- **Zéro écriture en lecture** — le dirty-tracking court-circuite `save()` (`session.ts:255`) ; le
+- **Zéro écriture en lecture** — le dirty-tracking court-circuite `save()` (`session.ts:278`) ; le
   `touch` est throttlé à une écriture par demi-vie d'idle (`session.ts:445`).
 - **GC hors requête** — timer déterministe avec jitter par process, à la place du tirage
   probabiliste hérité de PHP (`sessions-service.ts:306-312`).
@@ -676,7 +676,7 @@ plus un plafond de croissance du tas.
 > [!NOTE]
 > Les trois sacs sont des objets **littéraux** et non `Object.create(null)`. C'est délibéré :
 > `drizzle-orm` déréférence le prototype via `is()`, et un objet sans prototype ferait échouer
-> l'écriture (`session.ts:95-98`).
+> l'écriture (`session.ts:113-116`).
 
 ## 📡 Observabilité — Studio
 
@@ -721,7 +721,7 @@ SQLite quand c'est pertinent (`SessionStorage.location`,
 | ------------------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Aucun `Set-Cookie`, `session` toujours vide            | La route n'a **aucun intent** : ni `@UseSession`, ni paramètre `@Session` | Ajouter l'un des deux — l'activation est paresseuse (`http-kernel.ts:1283`)                               |
 | `context.session` est `null` dans un contrôleur WS     | Intent posé sur la classe au lieu de la route, ou absent                  | `@UseSession()` **sur la route** WebSocket ; `Controller.startSession()` n'existe plus                    |
-| Mutation ignorée, WARNING « READONLY SESSION mutated » | La route est en `@UseSession({ readOnly: true })`                         | Retirer `readOnly` sur les routes qui écrivent (`session.ts:255-264`)                                     |
+| Mutation ignorée, WARNING « READONLY SESSION mutated » | La route est en `@UseSession({ readOnly: true })`                         | Retirer `readOnly` sur les routes qui écrivent (`session.ts:273-282`)                                     |
 | Session détruite qui « revient » après logout          | Une requête en vol réécrit le blob supprimé                               | Déjà couvert : pierre tombale 5 min (`RevocationGuardStorage.ts:121`)                                     |
 | Sessions perdues à chaque redémarrage ou entre pods    | Store `memory` (volatil, per-pod)                                         | Déclarer une infra (`NF_DATABASE_URL`/`NF_REDIS_URL`) ou nommer le store                                  |
 | Le boot s'arrête sur « session store … inconnu »       | Nom de store explicite non enregistré, en production                      | Charger le module fournisseur, ou corriger le nom (`sessions-service.ts:258-262`)                         |

@@ -291,7 +291,7 @@ démarrage raté, la connexion existe, le client existe — mais il est fermé.
 Prenons une lecture de session. Elle traverse exactement quatre gestes :
 
 1. Le store résout le service **paresseusement**, au premier accès seulement :
-   `RedisSessionStorage.#client()` (`SessionStorage.ts:73`) mémorise le service puis demande
+   `RedisSessionStorage.#client()` (`SessionStorage.ts:96`) mémorise le service puis demande
    `getClient("main")` à chaque appel. La résolution tardive est nécessaire — l'ordre de démarrage
    des modules n'est pas garanti, le store est construit avant que Redis soit prêt.
 2. `RedisService.getClient()` (`redis.ts:220`) rend le client de la connexion nommée, ou `null`.
@@ -341,13 +341,13 @@ vue d'ensemble ; les fiches détaillent les choix qui surprennent.
 
 ### `nf:sess:*` — la session, une chaîne et un TTL
 
-Une session est un blob JSON écrit d'un coup. `RedisSessionStorage.write()` (`SessionStorage.ts:140`)
+Une session est un blob JSON écrit d'un coup. `RedisSessionStorage.write()` (`SessionStorage.ts:165`)
 pose **systématiquement** un `EX` : une clé de session sans TTL serait une session immortelle, donc un
 défaut de sécurité, pas une commodité.
 
 L'expiration par inactivité (« idle ») est donc portée par Redis lui-même. Deux conséquences
 directes : `gc()` (`SessionStorage.ts:151`) est un **no-op** assumé — aucun balayage, aucune requête
-de purge périodique — et `touch()` (`SessionStorage.ts:222`) se réduit à un `EXPIRE`, en O(1), **sans
+de purge périodique — et `touch()` (`SessionStorage.ts:247`) se réduit à un `EXPIRE`, en O(1), **sans
 réécrire la valeur**. C'est le renouvellement le moins coûteux de tous les backends de session.
 
 L'expiration **absolue** (âge maximal, jamais prolongé) ne s'exprime pas par un TTL glissant. Elle est
@@ -357,22 +357,22 @@ survivre dans Redis jusqu'à la fin de son TTL d'inactivité, mais elle est refu
 ### `nf:tok:*` — les jetons, un HASH et quatre index
 
 Pourquoi un HASH plutôt qu'un blob JSON comme la session ? Parce qu'un jeton est **mis à jour en
-place** à chaque usage. `RedisTokenStore.markUsed()` (`RedisTokenStore.ts:479`) écrit un à trois
+place** à chaque usage. `RedisTokenStore.markUsed()` (`RedisTokenStore.ts:533`) écrit un à trois
 champs (`lastUsedAt`, IP, agent) sans relire l'enregistrement, sans le réécrire, et **sans toucher au
 TTL**. Avec un blob, chaque appel d'API coûterait une lecture, une désérialisation, une réécriture —
 et remettrait en jeu la date d'expiration.
 
 Ce choix impose une précaution : `HSET` sur une clé absente la **recrée**, et une clé recréée n'a pas
-de TTL. Le store vérifie donc l'existence d'abord (`RedisTokenStore.ts:494`) et ne fait rien si
+de TTL. Le store vérifie donc l'existence d'abord (`RedisTokenStore.ts:539`) et ne fait rien si
 l'identifiant est inconnu. Sans ce test, un jeton expiré ressusciterait, immortel, à sa prochaine
 utilisation.
 
 Les quatre index secondaires sont des SET (`subj`, `fam`) et des chaînes (`hash`, `revsub`). Aucun
 n'a de TTL : ils sont nettoyés **paresseusement**, quand une lecture tombe sur un membre dont
-l'enregistrement a expiré — voir `RedisTokenStore.findBySubject()` (`RedisTokenStore.ts:348`) et
-`RedisTokenStore.findByHash()` (`RedisTokenStore.ts:330`).
+l'enregistrement a expiré — voir `RedisTokenStore.findBySubject()` (`RedisTokenStore.ts:405`) et
+`RedisTokenStore.findByHash()` (`RedisTokenStore.ts:387`).
 
-La révocation combine les deux régimes. `RedisTokenStore.#applyRevoke()` (`RedisTokenStore.ts:542`)
+La révocation combine les deux régimes. `RedisTokenStore.#applyRevoke()` (`RedisTokenStore.ts:596`)
 pose la date et la raison, puis — si le jeton n'avait **pas** d'expiration (cas d'un PAT) — lui donne
 un TTL égal à la durée de rétention. Un jeton révoqué reste donc consultable un temps, puis disparaît
 tout seul.
@@ -384,7 +384,7 @@ d'ailleurs pas de méthode de maintenance. Deux structures suffisent : un HASH p
 SET d'identifiants par utilisateur.
 
 Un point de conception mérite d'être connu : `countByUser()`
-(`RedisWebAuthnCredentialStore.ts:199`) utilise `SCARD`, en O(1), sans lire un seul HASH. Il peut donc
+(`RedisWebAuthnCredentialStore.ts:220`) utilise `SCARD`, en O(1), sans lire un seul HASH. Il peut donc
 **sur-compter** les membres orphelins qu'une lecture n'a pas encore nettoyés. L'écart est assumé et
 orienté **fail-closed** : au pire un enrôlement supplémentaire est refusé, jamais un de trop accepté.
 
@@ -523,9 +523,9 @@ L'ordre compte : les écouteurs sont retirés même si la fermeture échoue.
 | Idempotence : `redis` demandé, module absent | échec franc au démarrage | ✅ fail-loud |
 
 Les deux lignes rouges sont un **écart réel au principe** du framework : `RedisSessionStorage.write()`
-(`SessionStorage.ts:140`) rend la charge utile sans la persister et sans un mot. Sur la fenêtre
+(`SessionStorage.ts:165`) rend la charge utile sans la persister et sans un mot. Sur la fenêtre
 étroite qu'il couvre — avant l'ouverture, après la fermeture — l'impact est faible ; le principe, lui,
-voudrait une trace. À l'inverse, `RedisSessionStorage.destroy()` (`SessionStorage.ts:191`) rend `true`
+voudrait une trace. À l'inverse, `RedisSessionStorage.destroy()` (`SessionStorage.ts:216`) rend `true`
 sans connexion **délibérément** : l'appelant est une déconnexion, et lui répondre « échec » laisserait
 l'utilisateur croire qu'il est resté connecté.
 
@@ -594,9 +594,9 @@ pire d'une page, transmettre une valeur arbitraire échouerait à coup sûr.
 ### Les vidages complets
 
 À côté de la pagination, deux méthodes déversent tout. `RedisSessionStorage.listAll()`
-(`SessionStorage.ts:267`) est **plafonnée** à un maximum de clés parcourues et journalise un
+(`SessionStorage.ts:293`) est **plafonnée** à un maximum de clés parcourues et journalise un
 `WARNING` quand elle tronque — listing partiel signalé, jamais silencieux.
-`RedisTokenStore.listAll()` (`RedisTokenStore.ts:378`) l'est aussi, à `MAX_SCAN` clés, avec le même
+`RedisTokenStore.listAll()` (`RedisTokenStore.ts:435`) l'est aussi, à `MAX_SCAN` clés, avec le même
 `WARNING` de listing partiel : à grande échelle, préférez la pagination ou le système de référence
 SQL pour la gouvernance.
 
@@ -618,7 +618,7 @@ Le module suit la règle de coût du framework : ne rien allouer « au cas où �
 - **Trames de maintenance coupées** (`buildClientOptions.ts:58`) : zéro écouteur et zéro trame
   superflus sur un Redis OSS.
 - **Renouvellement de session en O(1)** : `EXPIRE` seul, sans réécrire la valeur
-  (`redis/nodefony/src/SessionStorage.ts:161`). Sur une application authentifiée, c'est le geste le plus fréquent de tout
+  (`redis/nodefony/src/SessionStorage.ts:253`). Sur une application authentifiée, c'est le geste le plus fréquent de tout
   le store.
 - **Aucun balayage périodique** : le TTL natif remplace le ramasse-miettes applicatif que les backends
   SQL doivent programmer.
@@ -656,9 +656,9 @@ surfacé par les écrans transverses ci-dessus.
 | Le démarrage pend sans Redis                             | Tentatives illimitées : `connect()` ne rend pas la main                   | Fixer un maximum fini ; hors production c'est déjà fait (`defineModuleConfig.ts:65`)        |
 | Deux applications se renvoient leurs messages temps réel | Le pub/sub ignore le numéro de base — cloisonnement inexistant            | Poser un namespace de canal explicite (`RedisBackplane.ts:31`)                              |
 | Les mêmes messages sont diffusés deux fois localement    | Anti-echo court-circuité (identifiant d'origine partagé)                  | Un identifiant d'origine distinct par pod (`RedisBackplane.ts:212`)                         |
-| Un jeton expiré « revient » et n'expire plus             | `HSET` recrée une clé absente, sans TTL                                   | Le test d'existence préalable (`RedisTokenStore.ts:494`) — ne pas le retirer                |
+| Un jeton expiré « revient » et n'expire plus             | `HSET` recrée une clé absente, sans TTL                                   | Le test d'existence préalable (`RedisTokenStore.ts:539`) — ne pas le retirer                |
 | L'écran d'administration n'affiche aucun total           | `countSessions` / `countTokens` rendent `-1` (comptage O(N) refusé)       | Afficher « inconnu » ; ne jamais inventer un total                                          |
-| Un `offset` envoyé n'a aucun effet                       | Le mode curseur ne lit que `cursor` (`SessionStorage.ts:282`)             | Paginer par curseur, pas par décalage                                                       |
+| Un `offset` envoyé n'a aucun effet                       | Le mode curseur ne lit que `cursor` (`SessionStorage.ts:308`)             | Paginer par curseur, pas par décalage                                                       |
 | Des passkeys disparaissent                               | Politique d'éviction Redis (`allkeys-lru`) sur des clés **sans** TTL      | `noeviction` + persistance sur l'instance qui porte les passkeys                            |
 | Une session survit à son âge maximal côté Redis          | Le TTL glissant n'exprime pas l'absolu (`SessionStorage.ts:168`)          | Comportement voulu — l'âge est refusé à la lecture, pas dans le stockage                    |
 | Une surcharge de connexion écrase l'hôte global          | Un schéma partiel qui réapplique ses défauts clobberait la valeur globale | Ne poser que les champs voulus dans la surcharge — voir [Configuration](./configuration.md) |

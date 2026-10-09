@@ -409,12 +409,12 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 ### `redis` — cluster, TTL natif
 
 - Enregistré par le module redis (`redis/nodefony/registerStores.ts:75`).
-- TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts:41`) — l'expiration ne
+- TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts:94`) — l'expiration ne
   dépend pas du gc.
 - Listing par `SCAN` : curseur opaque `skip:scanCursor`, `decodeCursor()`
   (`RedisTokenStore.ts:428`) — sans ordre global ni total, capacité réduite **assumée**.
 - `countTokens()` renvoie `-1` : un comptage exact exigerait un SCAN complet O(N), refusé
-  (`RedisTokenStore.ts:475`).
+  (`RedisTokenStore.ts:529`).
 
 ### Le record — une seule table pour PAT et refresh
 

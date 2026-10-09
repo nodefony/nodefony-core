@@ -570,10 +570,10 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
 - Enregistré par le module redis (`redis/nodefony/registerStores.ts:62`) ;
   `RedisWebAuthnCredentialStore` (`RedisWebAuthnCredentialStore.ts:93`) stocke un **HASH** par
   credential + un **SET** d'ids par porteur — `update` réécrit 1 à 4 champs sans relire
-  l'enregistrement (`RedisWebAuthnCredentialStore.ts:219`).
-- Listing par `SCAN`, curseur composite `skip:scanCursor` (`RedisWebAuthnCredentialStore.ts:257`) :
+  l'enregistrement (`RedisWebAuthnCredentialStore.ts:240`).
+- Listing par `SCAN`, curseur composite `skip:scanCursor` (`RedisWebAuthnCredentialStore.ts:299`) :
   **ni ordre global ni total**, pages de taille variable — capacité réduite **déclarée**, pas un
-  défaut. `countCredentials()` renvoie `-1` (`RedisWebAuthnCredentialStore.ts:321`).
+  défaut. `countCredentials()` renvoie `-1` (`RedisWebAuthnCredentialStore.ts:339`).
 
 ### Brancher son propre store
 
