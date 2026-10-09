@@ -279,7 +279,11 @@ describe("bande — ce qu'on ne sait pas ne s'affiche pas", () => {
       env: "development",
     });
     bar.mount();
-    expect(q("[data-el='envBadge']").textContent).toBe("development");
+    // Le nom se dit en français ; le code reste dans l'infobulle.
+    expect(q("[data-el='envBadge']").textContent).toBe("développement");
+    expect(q("[data-el='envBadge']").getAttribute("data-tip")).toContain(
+      "development",
+    );
     expect(q("[data-el='envBadge']").hasAttribute("hidden")).toBe(false);
     // Sans mesure du serveur, la branche n'est pas connue : pas de « — ».
     expect(q("[data-el='branch']").hasAttribute("hidden")).toBe(true);

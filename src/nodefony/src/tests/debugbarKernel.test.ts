@@ -85,7 +85,9 @@ describe("onglet Noyau — détection", () => {
     monter();
     expect(q("[data-el='kChip']").hidden).toBe(true);
     const body = await ongletNoyau();
-    expect(body.textContent).toContain("Aucun noyau client sur cette page");
+    expect(body.textContent).toContain(
+      "Cette page ne compose pas de noyau client",
+    );
     expect(body.textContent).toContain("new NodefonyKernel");
   });
 
@@ -121,22 +123,60 @@ describe("onglet Noyau — ce qu'il montre", () => {
     expect(q("[data-el='kChipState']").textContent).toBe("prêt");
     const body = await ongletNoyau();
     const texte = body.textContent ?? "";
+    // Le compte est affiché ; les événements sont dits en clair, le nom d'API
+    // reste en infobulle.
     expect(texte).toContain("bob");
-    expect(texte).toContain("onIdentityChange");
-    expect(texte).toContain("alice → bob");
-    expect(texte).toContain("anonyme → alice");
-    expect(texte).toContain("onReady");
+    // Le geste se dit — connexion, changement — jamais un « anonyme » que le
+    // noyau ne connaît pas.
+    expect(texte).toContain("changement de compte : alice → bob");
+    expect(texte).toContain("connexion de alice");
+    expect(texte).not.toContain("anonyme");
+    const noms = [...body.querySelectorAll(".kev .kn")].map((n) =>
+      n.getAttribute("data-tip"),
+    );
+    expect(noms).toContain("onIdentityChange");
+    expect(noms).toContain("onReady");
     // La charge de l'identité appartient à l'application.
     expect(texte).not.toContain("ne-pas-afficher");
   });
 
-  it("le diagnostic est CELUI de la console — mêmes lignes, une seule source", async () => {
+  it("quatre questions, quatre cartes — sans doublon ni état en anglais", async () => {
     const k = noyau();
+    await k.boot();
     k.setIdentity({ key: "carol" });
     monter();
     const body = await ongletNoyau();
-    for (const v of ["état", "identité", "carol", "temps réel", "aucun"])
-      expect(body.textContent).toContain(v);
+    const titres = [...body.querySelectorAll(".card > .ttl")].map((t) =>
+      (t.textContent ?? "").split("—")[0]?.trim(),
+    );
+    expect(titres).toEqual([
+      "État de l'application",
+      "Compte déclaré",
+      "Connexion au serveur",
+      "Événements",
+    ]);
+    const texte = body.textContent ?? "";
+    expect(texte).not.toContain("ready"); // l'état se dit « prêt »
+    expect(texte.split("carol").length - 1).toBe(1); // le compte, une fois
+  });
+
+  it("une socket fermée VOLONTAIREMENT se dit, au lieu de passer pour une panne", async () => {
+    const socket = new NodefonySocket(
+      { url: "ws://loopback/rt" },
+      () => new TransportMuet(),
+    );
+    const k = new NodefonyKernel({
+      realtime: socket,
+      connectOnBoot: false,
+      browserEvents: false,
+      banner: false,
+    });
+    kernels.push(k);
+    await k.boot();
+    monter();
+    const body = await ongletNoyau();
+    expect(body.textContent).toContain("fermée — volontairement");
+    expect(body.textContent).toContain("à la déclaration du compte");
   });
 
   it("un noyau terminé reste affiché — « terminé », pas un onglet qui disparaît", async () => {
@@ -160,8 +200,8 @@ describe("onglet Noyau — chaque valeur s'explique", () => {
       [...body.querySelectorAll(".kv")]
         .find((r) => r.querySelector(".k")?.textContent === nom)
         ?.querySelector(".v")?.textContent ?? "";
-    expect(ligne("démarrage")).toMatch(/^\d\d:\d\d:\d\d/);
-    expect(ligne("prêt")).toMatch(/^\d\d:\d\d:\d\d/);
+    expect(ligne("démarrée à")).toMatch(/^\d\d:\d\d:\d\d/);
+    expect(ligne("prête en")).toMatch(/^\d+ ms$/);
   });
 
   it("chaque libellé porte une explication, atteignable au clavier", async () => {
@@ -175,6 +215,19 @@ describe("onglet Noyau — chaque valeur s'explique", () => {
       expect(l.getAttribute("data-tip"), l.textContent ?? "").toBeTruthy();
       expect(l.getAttribute("tabindex"), l.textContent ?? "").toBe("0");
     }
+  });
+});
+
+describe("onglet Nodefony client — les événements se lisent", () => {
+  it("la page qui revient à l'écran le DIT, sans jargon (« page visible »)", async () => {
+    const k = new NodefonyKernel({ banner: false }); // relais du navigateur actif
+    kernels.push(k);
+    await k.boot(); // le relais du navigateur se branche au démarrage
+    monter();
+    document.dispatchEvent(new Event("visibilitychange"));
+    const body = await ongletNoyau();
+    expect(body.textContent).toContain("la page est de nouveau à l'écran");
+    expect(body.textContent).not.toContain("page visible");
   });
 });
 

@@ -113,17 +113,30 @@ instrumente des fonctions globales du navigateur.
 
 **Logs** — les journaux du serveur, en direct. Voir la section suivante.
 
-**Noyau** — le noyau client de la page (`NodefonyKernel`), quand elle en compose
-un : nom, état et heures de son cycle (datées par le noyau lui-même, donc justes
-même si la barre est montée après), compte déclaré par `setIdentity` (la clé
-seulement : la charge appartient à l'application), le même diagnostic que le
-détail affiché dans la console, ses options, et le journal horodaté de ses
-événements (`onBoot`, `onReady`, `onIdentityChange`, `onVisibility`, `onOnline`,
-`onTerminate`). Chaque libellé porte une explication courte, au survol comme au
-clavier. Une puce « noyau · prêt » apparaît dans la bande dès qu'un noyau est
-détecté — qu'il soit né avant ou après la barre. Sans noyau, l'onglet dit comment
-en créer un. Le noyau publie cette sonde **en développement seulement** : en
-production, rien n'est posé sur la page.
+**Nodefony client** — ce que Nodefony fait dans le navigateur, quand la page
+compose un noyau client (`NodefonyKernel`). Quatre cartes, chacune répond à une
+question :
+
+- **État de l'application** — tourne-t-elle, depuis quand ? Nom, état (`créé`,
+  `démarrage`, `prêt`, `terminé`), heure de démarrage, délai jusqu'à « prêt »,
+  annonce console, services composés. Les heures sont datées par le noyau
+  lui-même : justes même si la barre est montée après.
+- **Compte déclaré** — pour quel compte partent mes requêtes ? La clé déclarée
+  par `setIdentity` (la charge appartient à l'application et n'est pas
+  affichée), depuis quand, combien de changements.
+- **Connexion au serveur** — ma socket est-elle ouverte, vers où, et sinon
+  pourquoi ? L'état se dit en clair, anomalies comprises : « fermée —
+  volontairement : s'ouvrira à la déclaration du compte » n'est pas une panne,
+  « fermée alors qu'un compte est déclaré » en est une.
+- **Événements** — le journal horodaté, le plus récent en haut, amorcé avec ce
+  que le noyau a daté avant l'arrivée de la barre. Les noms se lisent en clair
+  (`démarrage`, `prêt`, `compte`, `à l'écran`, `réseau`), le nom d'API en infobulle.
+
+Chaque libellé porte une explication courte, au survol comme au clavier. Une
+puce « client · prêt » apparaît dans la bande dès qu'un noyau est détecté —
+qu'il soit né avant ou après la barre. Sans noyau, l'onglet dit comment en créer
+un. Le noyau publie cette sonde **en développement seulement** : en production,
+rien n'est posé sur la page.
 
 **Runtime** — l'identité du processus servi (version, environnement, `pid`,
 disponibilité, cœurs, mémoire), et **ce que la barre garde sur ce navigateur**.
@@ -225,7 +238,7 @@ publication (`npm run size:check`).
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Entrée séparée**     | Un sous-chemin du paquet (`nodefony/debugbar`) importé à part. Ce qui n'est pas importé n'entre pas dans votre bundle.                                                                                         |
 | **`mountDebugBar`**    | La seule fonction à appeler (`index.ts:46`). Elle installe la barre et rend une poignée pour la piloter ou la retirer.                                                                                         |
-| **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:758`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
+| **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:798`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
 | **Options**            | Ce qu'on passe au montage (`DebugBarOptions`, `DebugBar.ts:148`) — l'adresse du socket, la position (`bottom` ou `top`), le panneau ouvert d'emblée, et l'interception réseau, qu'on peut refuser entièrement. |
 | **Charge utile**       | Ce que le serveur pousse : statistiques (`StatsPayload`, `model.ts:25`) et journaux (`LogEntry`, `model.ts:49`).                                                                                               |
 | **`requestId`**        | L'identifiant qu'une requête porte de bout en bout. C'est lui qui relie une ligne de journal à l'appel réseau qui l'a produite.                                                                                |

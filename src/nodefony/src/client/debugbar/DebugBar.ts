@@ -176,49 +176,50 @@ export interface DebugBarOptions {
  * focus. Une seule table : le libellé affiché est la clé.
  */
 const KERNEL_HELP: ReadonlyMap<string, string> = new Map([
-  ["nom", "Nom donné au noyau (option name)."],
+  [
+    "application",
+    "Nom donné au noyau (option name) ; « CLIENT KERNEL » si l'application n'en donne pas.",
+  ],
   [
     "état",
-    "Cycle : créé → démarrage (boot) → prêt (services connectés) → terminé.",
+    "créé → démarrage (boot) → prêt → terminé. Prêt : l'application peut s'afficher, socket ouverte ou non.",
   ],
-  ["créé", "Construction du noyau (new NodefonyKernel)."],
-  ["démarrage", "Appel à boot()."],
-  ["prêt", "Services composés et connectés (onReady)."],
-  ["terminé", "Appel à terminate(), en général au départ de la page."],
+  ["démarrée à", "Appel à boot()."],
+  [
+    "prête en",
+    "Délai de boot() à prêt — inclut l'ouverture de la socket quand elle s'ouvre au démarrage.",
+  ],
+  ["terminée à", "terminate() : départ de la page, ou appel de l'application."],
+  [
+    "annonce console",
+    "Badge et détail replié dans la console du navigateur (option banner).",
+  ],
+  ["services", "Services composés par le noyau — kernel.get(nom)."],
   [
     "compte",
-    "Clé du compte déclarée par setIdentity. Changer de clé renégocie la socket (anti-élévation de privilège).",
+    "Clé déclarée par setIdentity : ce que l'application AFFIRME, pas ce que le serveur a vérifié.",
+  ],
+  ["depuis", "Heure de la dernière déclaration de compte."],
+  [
+    "changements de compte",
+    "Depuis l'ouverture de la barre. Même clé redéclarée (profil rafraîchi) : pas un changement.",
   ],
   [
-    "changements",
-    "Changements de COMPTE vus par la barre — pas un profil rafraîchi.",
+    "socket",
+    "État de la socket. Le bouton « Temps réel » de la barre règle le FLUX, pas la connexion.",
   ],
-  ["dernier", "Dernier changement de compte."],
-  ["identité", "Clé du compte déclaré, ou « anonyme »."],
-  ["temps réel", "Adresse de la socket du noyau, ou « aucun »."],
-  ["socket", "État de la connexion."],
+  ["adresse", "URL de la socket partagée — une seule connexion par URL."],
   [
-    "connectOnBoot",
-    "Ouvrir la socket au boot() ? false : elle s'ouvre au login (setIdentity).",
+    "s'ouvre",
+    "Option connectOnBoot. false : socket authentifiée, elle attend setIdentity — jamais anonyme.",
   ],
   [
-    "browserEvents",
-    "Relayer visibilité, réseau et départ de la page en événements du noyau.",
-  ],
-  [
-    "banner",
-    "Annonce console : auto = détaillée en développement ; false = silence.",
-  ],
-  [
-    "realtime",
-    "Origine de la socket : composée par le noyau, fournie, ou aucune.",
+    "origine",
+    "Option realtime : socket créée par le noyau, fournie par l'application, ou aucune.",
   ],
 ]);
 
-/** L'explication d'un libellé de l'onglet Noyau — les services composés compris. */
 function kernelHelp(label: string): string | undefined {
-  if (label.startsWith("service · "))
-    return "Service composé par le noyau — kernel.get(nom).";
   return KERNEL_HELP.get(label);
 }
 
@@ -228,6 +229,29 @@ const KERNEL_STATE_LABEL: Readonly<Record<string, string>> = {
   booting: "démarrage",
   ready: "prêt",
   terminated: "terminé",
+};
+
+/** Les événements du noyau, dits en clair — le nom d'API reste en infobulle. */
+const KERNEL_EVENT_LABEL: Readonly<Record<string, string>> = {
+  onBoot: "démarrage",
+  onReady: "prêt",
+  onIdentityChange: "compte",
+  onVisibility: "à l'écran",
+  onOnline: "réseau",
+  onTerminate: "terminé",
+};
+
+/** Une clé de compte abrégée pour l'œil (souvent un UUID) — la complète va en infobulle. */
+function shortKey(key: string): string {
+  return key.length > 14 ? `${key.slice(0, 6)}…${key.slice(-5)}` : key;
+}
+
+/** Le nom de l'environnement, en français — le code reste dans l'infobulle. */
+const ENV_LABEL: Readonly<Record<string, string>> = {
+  development: "développement",
+  production: "production",
+  test: "test",
+  staging: "pré-production",
 };
 
 /** Métadonnées d'affichage par framework (couleur de marque officielle). */
@@ -438,6 +462,11 @@ const STYLES =
 .kv .k.help:focus-visible { outline:2px solid var(--ok); outline-offset:2px; border-radius:3px; }
 .tab .tdot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok); margin-left:4px; vertical-align:middle; }
 .tab .tdot[hidden] { display:none; }
+.chip .word { font:600 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:0; }
+.strip .env-badge { font:600 11.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; text-transform:none; letter-spacing:0; }
+.kintro { margin:0 0 12px; color:#c4c9d1; font:400 12.5px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+.kwarn { margin:0 0 12px; color:var(--warn); }
+.kv .v[title] { cursor:default; }
 .kempty { max-width:640px; color:#c4c9d1; line-height:1.6; }
 .kempty p { margin:6px 0; }
 .kempty code, .card code { color:#9ecbff; }
@@ -1099,7 +1128,19 @@ export class DebugBar {
   private attachKernel(probe: IKernelProbe): void {
     this.koff?.();
     this.kprobe = probe;
-    this.kevents = [];
+    // Amorce : ce que le noyau a daté AVANT l'arrivée de la barre.
+    const tl = probe.timeline();
+    this.kevents = (
+      [
+        ["onBoot", tl.booting],
+        ["onReady", tl.ready],
+      ] as const
+    )
+      .filter(
+        (e): e is readonly ["onBoot" | "onReady", number] => e[1] !== undefined,
+      )
+      .map(([name, t]) => ({ t, name, detail: "" }))
+      .reverse();
     this.kidentChanges = 0;
     this.kidentAt = 0;
     const k = probe.kernel;
@@ -1137,22 +1178,43 @@ export class DebugBar {
 
   /** Une ligne du journal des événements — ce que l'événement a dit, en clair. */
   private logKernelEvent(name: NodefonyKernelEvent, args: unknown[]): void {
-    const keyOf = (v: unknown): string =>
-      v && typeof v === "object" && "key" in v ? String(v.key) : "anonyme";
+    // Le noyau ne connaît pas d'« anonyme » : avant le premier setIdentity(),
+    // il n'a AUCUN compte déclaré (null). Le journal dit le geste — connexion,
+    // déconnexion, changement — pas un état qui n'existe pas.
+    const keyOf = (v: unknown): string | null =>
+      v && typeof v === "object" && "key" in v ? String(v.key) : null;
     let detail = "";
-    if (name === "onIdentityChange")
-      detail = `${keyOf(args[1])} → ${keyOf(args[0])}`;
-    else if (name === "onVisibility")
-      detail = args[0] ? "page visible" : "page cachée";
+    if (name === "onIdentityChange") {
+      const next = keyOf(args[0]);
+      const prev = keyOf(args[1]);
+      detail =
+        prev === null && next !== null
+          ? `connexion de ${shortKey(next)}`
+          : next === null && prev !== null
+            ? `déconnexion de ${shortKey(prev)}`
+            : `changement de compte : ${shortKey(prev ?? "")} → ${shortKey(next ?? "")}`;
+    } else if (name === "onVisibility")
+      // `visibilitychange` du navigateur : l'application peut suspendre son
+      // travail quand personne ne regarde.
+      detail = args[0]
+        ? "la page est de nouveau à l'écran"
+        : "la page n'est plus à l'écran (autre onglet du navigateur, fenêtre réduite)";
     else if (name === "onOnline")
-      detail = args[0] ? "réseau rétabli" : "réseau perdu";
+      detail = args[0]
+        ? "connexion internet rétablie"
+        : "connexion internet perdue (hors ligne)";
     this.kevents.unshift({ t: Date.now(), name, detail });
     if (this.kevents.length > 100) this.kevents.length = 100;
     this.kdirty = true;
     this.scheduleRender();
   }
 
-  /** L'onglet Noyau — reconstruit seulement quand quelque chose a changé. */
+  /**
+   * L'onglet « Nodefony client » — quatre cartes, chacune répond à UNE question du
+   * développeur : mon application tourne-t-elle ? pour quel compte ? ma socket
+   * est-elle ouverte, et sinon pourquoi ? que s'est-il passé ? Reconstruit
+   * seulement quand quelque chose a changé.
+   */
   private renderKernel(): void {
     const body = this.el.kBody;
     if (!(body instanceof HTMLElement) || !this.kdirty) return;
@@ -1160,70 +1222,130 @@ export class DebugBar {
     const probe = this.kprobe;
     if (!probe) {
       body.innerHTML = `<div class="kempty">
-        <div class="ttl">Aucun noyau client sur cette page</div>
-        <p>Le noyau (<code>NodefonyKernel</code>) compose la socket, le journal et le cycle d'identité d'une application front. Cette page n'en crée pas — c'est permis : chaque brique s'emploie aussi seule.</p>
+        <div class="ttl">Cette page ne compose pas de noyau client</div>
+        <p>Le noyau (<code>NodefonyKernel</code>) démarre l'application dans le navigateur, porte le compte connecté et tient la socket vers le serveur. Une page peut s'en passer : chaque brique s'emploie aussi seule.</p>
         <p>Pour le voir ici : <code>new NodefonyKernel({ realtime: { url } })</code>, puis le passer au fournisseur de votre front (<code>kernel={…}</code>).</p>
       </div>`;
       return;
     }
-    // Chaque libellé porte son explication (survol ET focus clavier) : une
-    // valeur comme « connectOnBoot false » ne dit rien à qui ne connaît pas
-    // le noyau. Le pointillé signale qu'il y a quelque chose à lire.
-    const kv = (k: string, v: string, cls = ""): string => {
+    const kv = (k: string, v: string, cls = "", full = ""): string => {
       const help = kernelHelp(k);
       const label = help
         ? `<span class="k help" tabindex="0" data-tip="${escapeHtml(help)}">${escapeHtml(k)}</span>`
         : `<span class="k">${escapeHtml(k)}</span>`;
-      return `<div class="kv">${label}<span class="v ${cls}">${escapeHtml(v)}</span></div>`;
+      const title = full ? ` title="${escapeHtml(full)}"` : "";
+      return `<div class="kv">${label}<span class="v ${cls}"${title}>${escapeHtml(v)}</span></div>`;
     };
-    const marks = probe.timeline();
     const at = (t: number | undefined): string => (t ? fmtClock(t) : "—");
-    const stateCls =
-      this.kstate === "ready"
-        ? "ok"
-        : this.kstate === "terminated"
-          ? "crit"
-          : "warn";
+    const k = probe.kernel;
+    const tl = probe.timeline();
+    const opts = probe.options;
+    const state = this.kstate;
     const ident = this.kident;
+
+    // État de l'application
+    const stateText =
+      state === "created"
+        ? "créé — pas démarré"
+        : state === "booting"
+          ? "démarrage…"
+          : (KERNEL_STATE_LABEL[state] ?? state);
+    const stateCls =
+      state === "ready" ? "ok" : state === "terminated" ? "crit" : "warn";
+    const readyIn =
+      tl.ready !== undefined && tl.booting !== undefined
+        ? `${Math.max(0, tl.ready - tl.booting)} ms`
+        : "—";
+    const banner =
+      opts.banner === "false"
+        ? "aucune"
+        : opts.banner === "true"
+          ? "forcée"
+          : "auto — détaillée en développement";
+    const services = probe
+      .rows()
+      .filter(([label]) => label.startsWith("service · "))
+      .map(([label]) => label.slice("service · ".length))
+      .join(", ");
+
+    // Connexion au serveur — l'état normal se dit, l'anomalie aussi.
+    const socket = k.get("realtime");
+    const sockState = socket?.state ?? "";
+    const opensAtLogin = opts.connectOnBoot === "false";
+    let sockText = "aucune";
+    let sockCls = "muted";
+    if (socket) {
+      if (sockState === "connected") {
+        sockText = "ouverte";
+        sockCls = "ok";
+      } else if (sockState === "connecting" || sockState === "reconnecting") {
+        sockText = sockState === "connecting" ? "connexion…" : "reconnexion…";
+        sockCls = "warn";
+      } else if (this.refused) {
+        sockText =
+          "refusée par le serveur (1008) — pas de session administrateur";
+        sockCls = "crit";
+      } else if (ident) {
+        sockText = "fermée alors qu'un compte est déclaré — voir la console";
+        sockCls = "crit";
+      } else if (opensAtLogin) {
+        sockText =
+          "fermée — volontairement : s'ouvrira à la déclaration du compte";
+      } else if (state === "ready") {
+        sockText = "le démarrage n'a pas pu l'ouvrir — reconnexion automatique";
+        sockCls = "warn";
+      } else {
+        sockText = sockState === "error" ? "en erreur" : "fermée";
+        sockCls = sockState === "error" ? "crit" : "muted";
+      }
+    }
+    const origin =
+      opts.realtime === "aucun"
+        ? "aucune — realtime: false"
+        : opts.realtime === "socket fournie"
+          ? "fournie par l'application"
+          : "créée par le noyau";
+    const relays =
+      opts.browserEvents === "false"
+        ? "navigateur non relayé (browserEvents: false)"
+        : "relaie : page à l'écran ou non, connexion internet, fermeture de la page";
+    const many = exposedKernels().length > 1;
     const events = this.kevents
       .map(
         (e) =>
-          `<div class="kev"><span class="ts">${fmtClock(e.t)}</span><span class="kn">${escapeHtml(e.name)}</span><span class="kd">${escapeHtml(e.detail)}</span></div>`,
+          `<div class="kev"><span class="ts">${fmtClock(e.t)}</span><span class="kn" data-tip="${escapeHtml(e.name)}" tabindex="0">${escapeHtml(KERNEL_EVENT_LABEL[e.name] ?? e.name)}</span><span class="kd">${escapeHtml(e.detail)}</span></div>`,
       )
       .join("");
-    body.innerHTML = `<div class="cards">
+
+    body.innerHTML = `<p class="kintro">Ce que Nodefony fait dans votre navigateur (<code>NodefonyKernel</code>) : démarrer l'application, porter le compte connecté, tenir la socket vers le serveur.</p>
+    ${many ? `<p class="kwarn">${exposedKernels().length} noyaux sur la page — le plus récent est affiché.</p>` : ""}
+    <div class="cards">
       <div class="card hero">
-        <div class="ttl">Noyau</div>
-        ${kv("nom", probe.name)}
-        ${kv("état", KERNEL_STATE_LABEL[this.kstate] ?? this.kstate, stateCls)}
-        ${kv("créé", at(marks.created))}
-        ${kv("démarrage", at(marks.booting))}
-        ${kv("prêt", at(marks.ready))}
-        ${marks.terminated ? kv("terminé", at(marks.terminated), "crit") : ""}
+        <div class="ttl">État de l'application</div>
+        ${kv("application", probe.name)}
+        ${kv("état", stateText, stateCls)}
+        ${kv("démarrée à", at(tl.booting))}
+        ${kv("prête en", readyIn)}
+        ${tl.terminated ? kv("terminée à", at(tl.terminated), "crit") : ""}
+        ${kv("annonce console", banner, "muted")}
+        ${services ? kv("services", services) : ""}
       </div>
       <div class="card">
-        <div class="ttl">Identité déclarée</div>
-        ${kv("compte", ident ? ident.key : "aucun — hors session", ident ? "ok" : "muted")}
-        ${kv("changements", String(this.kidentChanges))}
-        ${kv("dernier", at(this.kidentAt))}
-        <div class="tag">Déclarée par l'application (<code>setIdentity</code>). Sa charge (<code>data</code>) lui appartient : elle n'est pas affichée.</div>
+        <div class="ttl">Compte déclaré</div>
+        ${kv("compte", ident ? shortKey(ident.key) : "aucun — pas encore déclaré", ident ? "ok" : "muted", ident?.key ?? "")}
+        ${kv("depuis", at(this.kidentAt))}
+        ${kv("changements de compte", String(this.kidentChanges))}
+        <div class="tag">Changer de compte coupe et rouvre la socket : rien ne part avec le jeton du compte précédent.</div>
       </div>
       <div class="card">
-        <div class="ttl">Diagnostic</div>
-        ${probe
-          .rows()
-          .map(([k, v]) => kv(k, v))
-          .join("")}
-        <div class="tag">Les mêmes lignes que le détail du noyau dans la console.</div>
-      </div>
-      <div class="card">
-        <div class="ttl">Options</div>
-        ${Object.entries(probe.options)
-          .map(([k, v]) => kv(k, v))
-          .join("")}
+        <div class="ttl">Connexion au serveur</div>
+        ${kv("socket", sockText, sockCls)}
+        ${socket ? kv("adresse", socket.url ?? "fournie sans adresse", "", socket.url ?? "") : ""}
+        ${kv("s'ouvre", opensAtLogin ? "à la déclaration du compte (login)" : "au démarrage (boot)")}
+        ${kv("origine", origin)}
       </div>
       <div class="card kevents">
-        <div class="ttl">Événements <span class="muted">— le plus récent en haut</span></div>
+        <div class="ttl">Événements <span class="muted">— le plus récent en haut · ${escapeHtml(relays)}</span></div>
         ${events || `<div class="muted">Aucun événement depuis l'ouverture de la barre.</div>`}
       </div>
     </div>`;
@@ -1537,7 +1659,7 @@ export class DebugBar {
         ${this.miniMetric("mem", "mem", "memMini", "0%", "perf", "Mémoire utilisée par le serveur — cliquer pour ouvrir l'onglet Perf")}
         <span class="spacer"></span>
         ${this.networkEnabled ? `<button type="button" class="chip goto" data-goto="network" data-tip="Requêtes réseau observées — cliquer pour ouvrir l'onglet Network"><span class="k">net</span><span class="blue" data-el="netChip">0</span></button>` : ""}
-        <button type="button" class="chip goto" data-goto="kernel" data-el="kChip" data-tip="Noyau client de la page (NodefonyKernel) — cliquer pour ouvrir son onglet" hidden><span class="k">noyau</span><span data-el="kChipState"></span></button>
+        <button type="button" class="chip goto" data-goto="kernel" data-el="kChip" data-tip="Nodefony client de la page (NodefonyKernel) — cliquer pour ouvrir l'onglet" hidden><span class="k">client</span><span class="word" data-el="kChipState"></span></button>
         ${this.frontend ? `<button type="button" class="chip goto" data-goto="realtime" data-tip="Mises à jour à chaud (HMR) appliquées depuis le chargement de la page — cliquer pour ouvrir le détail"><span class="k">hmr</span><span class="hmrv" data-el="hmrChip">0</span></button>` : ""}
         <button type="button" class="chip goto" data-goto="logs" data-tip="Entrées de journal reçues — cliquer pour ouvrir l'onglet Logs"><span class="k">logs</span><span data-el="logs">0</span></button>
         <button type="button" class="chip goto" data-goto="logs" data-tip="Erreurs et alertes — cliquer pour ouvrir l'onglet Logs"><span class="k">err</span><span class="crit" data-el="err">0</span></button>
@@ -1553,7 +1675,7 @@ export class DebugBar {
           ${this.networkEnabled ? `<button class="tab" data-tab="network">Network <span class="tcount" data-el="netTab">0</span></button>` : ""}
           <button class="tab" data-tab="perf">Perf</button>
           <button class="tab" data-tab="logs">Logs <span class="tcount" data-el="logsTab">0</span></button>
-          <button class="tab" data-tab="kernel">Noyau <span class="tdot" data-el="kTabDot" hidden></span></button>
+          <button class="tab" data-tab="kernel">Nodefony client <span class="tdot" data-el="kTabDot" hidden></span></button>
           <button class="tab" data-tab="runtime">Runtime</button>
         </div>
         <div class="panes" data-el="panes">
@@ -2256,7 +2378,7 @@ export class DebugBar {
     // Ce qu'on ne sait pas ne s'affiche pas : un badge « env » ou une branche
     // « — » se lisent comme des valeurs, et ne disent rien.
     const env = v.env || this.initialEnv;
-    this.text("envBadge", env);
+    this.text("envBadge", ENV_LABEL[env] ?? env);
     this.cls("envBadge", `env-badge ${envClass(env)}`);
     this.el.envBadge?.toggleAttribute("hidden", !env);
     this.el.envBadge?.setAttribute(
