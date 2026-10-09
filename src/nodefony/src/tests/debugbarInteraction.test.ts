@@ -285,6 +285,9 @@ describe("bande — ce qu'on ne sait pas ne s'affiche pas", () => {
       "development",
     );
     expect(q("[data-el='envBadge']").hasAttribute("hidden")).toBe(false);
+    // La pastille réduite dit le MÊME mot que la bande — pas « DEVELOPMENT ».
+    expect(q("[data-el='mEnv']").textContent).toBe("développement");
+    expect(q("[data-el='mEnv']").classList.contains("dev")).toBe(true);
     // Sans mesure du serveur, la branche n'est pas connue : pas de « — ».
     expect(q("[data-el='branch']").hasAttribute("hidden")).toBe(true);
   });
@@ -319,5 +322,17 @@ describe("gabarit — un identifiant d'élément, un seul élément", () => {
     }
     const doublons = [...vus].filter(([, n]) => n > 1).map(([k]) => k);
     expect(doublons).toEqual([]);
+  });
+});
+
+describe("feuille de style — ce qui part dans la page", () => {
+  it("aucun commentaire de CODE dans la feuille injectée", () => {
+    // Les commentaires vivent dans le source TS, entre les morceaux de la
+    // chaîne `STYLES`. Un `//` glissé DANS la chaîne devient du CSS invalide,
+    // qui fait sauter la règle suivante sans un mot.
+    const css = shadow().querySelector("style")?.textContent ?? "";
+    expect(css.length).toBeGreaterThan(1000);
+    const fautives = css.split("\n").filter((l) => /^\s*\/\//.test(l));
+    expect(fautives).toEqual([]);
   });
 });

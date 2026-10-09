@@ -507,10 +507,15 @@ const STYLES =
 .env-badge.test::before { background:var(--warn); } .env-badge.test { color:#ffcf66; }
 .env-badge.staging::before { background:#a06bff; } .env-badge.staging { color:#c7a6ff; }
 .branch[hidden] { display:none; }
-.branch .k { color:var(--muted); font-size:.82em; text-transform:uppercase; }
-.branch { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; flex:none;
-  background:#22262e; font-weight:700; max-width:200px; cursor:help; }
-.branch .git { color:var(--blue2); } .branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+` +
+  // La branche : une puce sombre comme celle de l'environnement — l'icône dit
+  // « git », le nom se lit en police d'interface ; le mot « branche » est dans
+  // l'infobulle. Une étiquette en majuscules + un nom en chasse fixe juraient.
+  `.branch { display:flex; align-items:center; gap:6px; padding:.25em .7em; border-radius:11px; flex:none;
+  max-width:220px; background:#22262e; border:1px solid var(--line); color:#c4c9d1;
+  font:600 11.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+.branch .ico { width:14px; height:14px; color:var(--blue2); }
+.branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 ` +
   // Les contrôles et les indicateurs du bandeau sont de VRAIS <button> : ils
   // s'atteignent au clavier et s'annoncent. Ce bloc leur retire l'apparence
@@ -625,10 +630,13 @@ const STYLES =
 .minbar.bottom { bottom:14px; } .minbar.top { top:14px; }
 .minbar.dock-left { left:14px; } .minbar.dock-right { right:14px; }
 .minbar .dot { width:8px; height:8px; border-radius:50%; background:#36b37e; }
-.minbar .dot.connected { background:#36b37e; } .minbar .dot.disconnected,.minbar .dot.error { background:#ff5630; }
+.minbar .dot.connected { background:#36b37e; } .minbar .dot.error { background:#ff5630; }
+.minbar .dot.disconnected { background:#8a9099; }
 .minbar .dot.connecting,.minbar .dot.reconnecting { background:#ffab00; }
 .minbar .mlogo { color:#ff8a3d; } .minbar .mrate { font-weight:800; }
-.minbar .mbadge { font-size:9px; font-weight:800; text-transform:uppercase; color:#8a9099; }
+.minbar .mbadge { font:600 11.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:#c4c9d1; }
+.minbar .mbadge.dev { color:#7fd3ac; } .minbar .mbadge.prod { color:#ff8f75; }
+.minbar .mbadge.test { color:#ffcf66; } .minbar .mbadge.staging { color:#c7a6ff; }
 .minbar .mname { font-weight:800; }
 .minbar .mopen { display:flex; align-items:center; gap:4px; font:600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color:#3aa0ff; padding:4px 6px 4px 10px; border-left:1px solid #2a2e36; }
@@ -1652,7 +1660,7 @@ export class DebugBar {
       <div class="strip">
         <button type="button" class="brand" data-el="btnBrand" aria-controls="nf-db-panel" aria-expanded="${this.startOpen}" data-tip="Barre de débogage Nodefony (développement uniquement) — cliquer pour ouvrir ou fermer le panneau"><span class="logo">◆</span><span class="name">nodefony</span></button>
         <span class="env-badge" data-el="envBadge" data-tip="Environnement dans lequel tourne l'application">env</span>
-        <span class="branch" data-el="branch" data-tip="Branche git de la copie de travail" hidden><span class="k">branche</span><span data-el="branchName"></span></span>
+        <span class="branch" data-el="branch" data-tip="Branche git de la copie de travail" hidden><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2.5v11M5 13.5a1.5 1.5 0 1 0 0-.01M11 5.5a1.5 1.5 0 1 0 0-.01M11 7c0 3.5-6 2.5-6 5"/></svg><span data-el="branchName"></span></span>
         <button type="button" class="rt ui" data-el="btnLive" aria-pressed="false" data-tip="Temps réel"><span class="rt-dot" aria-hidden="true"></span><span class="rt-name">Temps réel</span><span class="rt-state" data-el="rtCtlState">arrêté</span></button>
         ${this.miniMetric("rt", "rt", "rtMini", "0/s", "realtime", "Messages temps réel reçus par seconde — cliquer pour ouvrir l'onglet Realtime")}
         ${this.miniMetric("cpu", "cpu", "cpuMini", "0%", "perf", "Charge processeur du serveur — cliquer pour ouvrir l'onglet Perf")}
@@ -2391,7 +2399,9 @@ export class DebugBar {
       "data-tip",
       `Branche git de la copie de travail : ${v.branch}`,
     );
-    this.text("mEnv", env);
+    // La pastille dit l'environnement comme la bande : même mot, même couleur.
+    this.text("mEnv", ENV_LABEL[env] ?? env);
+    this.cls("mEnv", `mbadge ${envClass(env)}`);
     this.cls("mdot", `dot ${v.state}`);
     this.text("mrate", `${this.rtRate}/s`);
     this.renderRealtimeControl(v.state);
