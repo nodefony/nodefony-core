@@ -257,11 +257,11 @@ const toggleBar = (): void => {
 };
 
 const send = (): void => {
-  const said = text.value.trim();
-  if (!said) return;
+  const message = text.value.trim();
+  if (!message) return;
   // Une notification client → serveur : pas de réponse attendue, c'est le
   // serveur qui rediffuse à tous les abonnés du canal.
-  live.emit("live:say", { text: said, front: FRONT });
+  live.emit("live:say", { text: message, front: FRONT });
   text.value = "";
 };
 

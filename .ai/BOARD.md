@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-09 13:09** (UTC).
+> Empreinte prise le **2026-10-09 13:18** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#268 — feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe**
+**#577 — fix(http): refuser par un statut HTTP une socket sans route**
 
-Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise 2026-10-05 → 10-07
+Ordre 3.005 · P0 — bloque le reste · 1 j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 49 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 50 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -47,10 +47,11 @@ Ordre 3.01 · P1 — figé à la création · 14 j · jalon 10.0.0-beta · frise
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 49 ouverts
+## Jalon 10.0.0-beta — 50 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
+| 3.005 | P0 — bloque le reste | 1 | — | #577 | fix(http): refuser par un statut HTTP une socket sans route |
 | 3.01 | P1 — figé à la création | 14 | 2026-10-05 → 10-07 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 3.525 | P1 — figé à la création | 1 | — | #544 | feat(security): ajouter une commande d'exemple qui appelle l'API par jeton |
 | 3.53 | P1 — figé à la création | 1 | — | #521 | feat(security): joindre Keycloak par un certificat ou une adresse interne |
