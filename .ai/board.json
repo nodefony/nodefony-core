@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T22:07:25.289Z",
+  "generatedAt": "2026-10-09T22:59:30.625Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 104,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 40,
+      "open": 41,
       "title": "10.0.0-beta"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 36,
+      "open": 35,
       "title": "10.1.0"
     }
   ],
@@ -2574,7 +2574,7 @@
       "title": "feat(client): fournir le déroulé de connexion sans interface imposée",
       "url": "https://github.com/nodefony/nodefony-core/issues/546",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2623,13 +2623,15 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/549",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.1.0",
+      "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.98,
       "debut": null,
       "cible": null,
-      "labels": []
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 155,
