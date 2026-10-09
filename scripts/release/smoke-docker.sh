@@ -11,7 +11,7 @@
 # `create-nodefony` installé depuis SON tarball. C'est le premier paquet qu'un
 # inconnu exécute (`npm create nodefony <app>`), et il n'était éprouvé par rien.
 #
-# SEPT scénarios, sélectionnables :
+# HUIT scénarios, sélectionnables :
 #
 #   base   — app minimale sans front : sondes, node PID 1, drain au SIGTERM
 #   front  — app à frontend React : tags `/_assets/…` servis, et les DEUX
@@ -30,6 +30,9 @@
 #   cluster — l'image lancée avec `NF_WORKERS=4` sur sa base SQLite NEUVE : les
 #            quatre workers démarrent ensemble (WAL et port partagé), aucun ne
 #            meurt, et le trafic les atteint TOUS
+#   global — `npm i -g` du tarball, `create app` par ce global, puis le CLI
+#            de l'APPLICATION qui s'exécute dedans (délégation constatée, et
+#            l'écart de version annoncé quand global et projet divergent)
 #   pm     — les TROIS autres gestionnaires (`pm:pnpm|yarn|bun`), chacun avec
 #            SON gabarit : installation depuis les tarballs, build, typecheck,
 #            `create module`, migration, puis l'image construite par le
@@ -37,10 +40,10 @@
 #            cinq autres scénarios. Exige l'outil sur l'hôte.
 #
 # Usage (racine repo) :
-#   npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|pm]
+#   npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|global|pm]
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 #
-# @usage npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|pm]
+# @usage npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|global|pm]
 set -euo pipefail
 
 # Secret jetable des scénarios qui démarrent une app du preset complet : le
@@ -65,7 +68,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 case "$SCENARIO" in
-  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql|cluster|pm|pm:pnpm|pm:yarn|pm:bun) ;;
+  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql|cluster|global|pm|pm:pnpm|pm:yarn|pm:bun) ;;
   *) echo "scénario inconnu : $SCENARIO" >&2; exit 64 ;;
 esac
 # `sql` se DÉCOUPE par moteur, et ce n'est pas un raffinement : le job de forge
@@ -1588,6 +1591,81 @@ if runs cluster; then
   ok "worker $VICTIM tué, relancé, et le trafic atteint de nouveau $SERVED workers"
   docker rm -f "$CCTN" >/dev/null 2>&1 || true
   docker rmi -f "$CIMG" >/dev/null 2>&1 || true
+fi
+
+# ═══ SCÉNARIO « global » — `npm i -g nodefony`, puis le CLI de l'APPLICATION ══
+#
+# Le geste le plus courant d'un utilisateur, et il n'était éprouvé par RIEN :
+# installer le CLI en global, engendrer une application, puis taper `nodefony …`
+# DEDANS. La règle « le CLI du projet prime » n'était testée qu'en fonction pure,
+# sur de faux paquets. Ici, le global vient du TARBALL, sous un préfixe jetable
+# (`npm i -g --prefix`) : la mécanique d'installation globale est la vraie, et
+# le poste n'en garde aucune trace.
+#
+# Le contrôle de délégation se rejoue avec la délégation NEUTRALISÉE
+# (`NF_CLI_DELEGATED=1`, la garde anti-boucle) : il doit alors échouer. Un
+# contrôle qui passerait aussi sans délégation ne prouverait rien.
+#
+# L'écart de version (global ≠ projet) se fabrique en réétiquetant le paquet
+# global : la décision du lanceur lit la version dans SON `package.json`, c'est
+# donc exactement ce qu'un global plus ancien présente.
+if runs global; then
+  step "[global] installation globale du tarball nodefony"
+  GPREFIX="$WORK/global"
+  npm install -g --prefix "$GPREFIX" --no-audit --no-fund \
+    "$ROOT/release/tarballs/$NODEFONY_TGZ" > "$WORK/.global-install.out" 2>&1 \
+    || { tail -30 "$WORK/.global-install.out"; fail "npm install -g du tarball nodefony"; }
+  GBIN="$GPREFIX/bin/nodefony"
+  GPKG="$GPREFIX/lib/node_modules/nodefony/package.json"
+  [[ -x "$GBIN" && -f "$GPKG" ]] || fail "binaire global absent : $GBIN"
+  ok "nodefony installé en global ($GPREFIX)"
+
+  step "[global] create app par le global, dépendances depuis les tarballs"
+  GAPP="$WORK/global-app"
+  "$GBIN" create app smokeglobal --dir "$GAPP" --yes \
+    --preset minimal --frontend none --no-install --no-git > "$WORK/.global-create.out" 2>&1 \
+    || { tail -30 "$WORK/.global-create.out"; fail "create app par le CLI global"; }
+  assert_app_conforme "$GAPP" "create app (global)"
+  rewrite_deps "$GAPP"
+  (cd "$GAPP" && npm install --no-audit --no-fund) > "$WORK/.global-app-install.out" 2>&1 \
+    || { tail -30 "$WORK/.global-app-install.out"; fail "npm install de l'application"; }
+  # Le lanceur travaille sur le chemin RÉEL (`process.cwd()`), qui diffère du
+  # chemin tapé dès qu'un lien est en jeu (`/var` → `/private/var` sous macOS).
+  GAPP_REAL="$(cd "$GAPP" && pwd -P)"
+  ok "application engendrée par le global, installée depuis les tarballs"
+
+  step "[global] dans l'application, c'est le CLI LOCAL qui s'exécute"
+  # Rend 0 si la trace du lanceur désigne le binaire du projet.
+  delegates_to_local() {
+    local trace
+    trace=$(cd "$GAPP" && NF_CLI_DEBUG=1 "$GBIN" --version 2>&1 >/dev/null || true)
+    [[ "$trace" == *"cli → $GAPP_REAL/node_modules/nodefony/"* ]]
+  }
+  delegates_to_local || fail "le global ne passe pas la main au CLI de l'application"
+  if NF_CLI_DELEGATED=1 delegates_to_local; then
+    fail "le contrôle de délégation passe aussi délégation neutralisée — il ne prouve rien"
+  fi
+  ok "délégation global → projet constatée (et le contrôle mord quand on la neutralise)"
+
+  step "[global] écart de version : dit quand il existe, tu sinon"
+  GV="$(node -p 'require(process.argv[1]).version' "$GPKG")"
+  QUIET="$(cd "$GAPP" && "$GBIN" --version 2>&1 >/dev/null || true)"
+  [[ "$QUIET" != *"CLI lancé en"* ]] \
+    || { printf '%s\n' "$QUIET"; fail "annonce d'écart alors que global et projet sont en $GV"; }
+  node -e '
+const fs = require("node:fs");
+const p = process.argv[1];
+const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
+pkg.version = "9.9.9-smoke.0";
+fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+' "$GPKG" || fail "réétiquetage du paquet global"
+  LOUD="$(cd "$GAPP" && "$GBIN" --version 2>&1 >/dev/null || true)"
+  [[ "$LOUD" == *"CLI lancé en 9.9.9-smoke.0, projet en $GV"* && "$LOUD" == *"c'est la $GV du projet qui s'exécute"* ]] \
+    || { printf '%s\n' "$LOUD"; fail "l'écart global 9.9.9-smoke.0 / projet $GV n'est pas annoncé"; }
+  JSONERR="$(cd "$GAPP" && "$GBIN" env --json 2>&1 >/dev/null || true)"
+  [[ "$JSONERR" != *"CLI lancé en"* ]] \
+    || { printf '%s\n' "$JSONERR"; fail "annonce d'écart émise sous --json"; }
+  ok "écart annoncé sur la sortie d'erreur, muet à versions égales et sous --json"
 fi
 
 # ═══ SCÉNARIO « pm » — pnpm, yarn et bun, chacun avec SON gabarit ═══════════

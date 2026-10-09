@@ -9,6 +9,12 @@ import { afterEach, beforeEach } from "vitest";
 // par passe dans `nodeDist.global.ts` (globalSetup). Ici, un `afterAll` ne
 // tournait pas pour un fichier dont tous les tests sont sautés.
 
+// `create app` hors réseau : la vérification de fraîcheur du CLI interroge le
+// registre npm. Posée ici, elle vaut aussi pour les binaires que les tests
+// lancent (ils héritent de l'environnement). `cliFreshness.test.ts` l'éprouve
+// avec un `fetch` injecté.
+process.env.NF_NO_UPDATE_CHECK ??= "1";
+
 // ── Perf-skip (port de src/tests/perf-skip.cjs) ────────────────────────────────
 // Les tests de perf (titre à seuil "< Nms" OU sous un describe `performance`) sont
 // OPT-IN : skippés par défaut et en CI (microbench non déterministe en fin de suite,

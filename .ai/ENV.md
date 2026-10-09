@@ -15,7 +15,7 @@
 | Infrastructure | 13 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 38 |
-| Runtime produit | 80 |
+| Runtime produit | 81 |
 
 ## Décor de banc
 
@@ -152,7 +152,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (80)
+## Runtime produit (81)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -208,7 +208,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:770` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:211` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:210` |
-| `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:93` |
+| `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:94` |
 | `NF_GATES_ALLOW` | `scripts/test/vitest/gates.ts:640` |
 | `NF_GATES_EXPECT` | `scripts/test/vitest/gates.ts:659` |
 | `NF_HUB_API` | `scripts/release/hub-description.mjs:56` |
@@ -221,6 +221,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:65` |
 | `NF_MONGODB_DEBUG` | `src/packages/@nodefony/mongoose/tests/unit/config.test.ts:135` |
 | `NF_NO_TTY` | `src/nodefony/src/cli/scaffold/interactive.ts:84` |
+| `NF_NO_UPDATE_CHECK` | `src/nodefony/src/tests/vitest.setup.ts:16` |
 | `NF_NODE_DIST_URL` | `src/nodefony/src/kernel/checks/nodeSecurity.ts:132` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |

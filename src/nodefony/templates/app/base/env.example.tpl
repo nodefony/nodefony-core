@@ -43,8 +43,8 @@
 #        NF_ENV, NF_CLUSTER_PROBE, NF_INSTANCE_ID, NF_BOOT_TIMEOUT_MS,
 #        NF_BOOT_WARN_MS
 #   4. Framework : poste et diagnostic
-#        NF_CLI_DEBUG, NF_DEV_UI, NF_DEV_MOUSE, NF_DEV_PORTS,
-#        NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF_PERF_PROBE
+#        NF_CLI_DEBUG, NF_NO_UPDATE_CHECK, NF_DEV_UI, NF_DEV_MOUSE,
+#        NF_DEV_PORTS, NF_KERNEL_TRACE_FILE, NF_NO_TTY, NF_PERF_PROBE
 
 
 # ============================================================================
@@ -215,6 +215,17 @@
 # @placement=workstation
 # @default=désactivée
 # NF_CLI_DEBUG=
+
+
+# ─── Vérification de version du CLI ─────────────────────────────────────────
+#
+# Empêche `create app` de demander au registre npm si une version plus récente
+# du CLI existe.
+#
+# @optional
+# @placement=workstation
+# @default="active (désactivée d'office quand `CI` est posée)"
+# NF_NO_UPDATE_CHECK=
 
 
 # ─── Plein écran du terminal de développement ───────────────────────────────

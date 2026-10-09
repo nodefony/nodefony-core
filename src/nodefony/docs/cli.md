@@ -48,6 +48,19 @@ qui fait autorité — elle seule connaît ses modules et ses commandes. Le lanc
 le **même processus** (`bin/nodefony.ts`). C'est le pattern du wrapper de projet (`gradlew`, `mvnw`) :
 _le projet gagne_.
 
+| Où tu tapes `nodefony`                    | CLI qui s'exécute                                          |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| hors de tout projet (`create app`)        | celui que tu as lancé — le **global**                      |
+| dans un projet aux dépendances installées | celui du **projet** (`node_modules/nodefony`) — délégation |
+| dans un projet sans `node_modules`        | le global, faute d'autre                                   |
+
+Pour **voir** la décision, pose `NF_CLI_DEBUG=1` : le lanceur écrit `[nodefony] cli → <chemin>` sur
+la sortie d'erreur. Quand global et projet n'ont pas la même version, une ligne le dit d'office
+(`versionMismatchNotice`, `resolveLocalCli.ts:94`) — jamais sous `--json`. Et `create app`, qui
+tourne par le global, demande au registre si une version plus récente du même canal est publiée
+(`startFreshnessCheck`, `cliFreshness.ts:148`) : il l'annonce avec le geste `npm i -g nodefony@<tag>`,
+se tait hors ligne, en CI ou sous `NF_NO_UPDATE_CHECK=1`.
+
 **Une commande choisit son point d'arrêt.** Chaque commande déclare un `kernelEvent` : la phase du
 boot à laquelle elle s'exécute **et où le démarrage s'arrête**. Une commande qui n'a besoin de rien
 (`status`, `stop`, `create`) ne boote **aucun** kernel — c'est un _fast-path standalone_. Une commande

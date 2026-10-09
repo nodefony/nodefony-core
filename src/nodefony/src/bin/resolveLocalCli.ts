@@ -76,6 +76,43 @@ export function alignArgvWithDelegate(
   return next;
 }
 
+/**
+ * Rend la ligne qui annonce un écart de version entre le CLI lancé et celui du
+ * projet auquel il passe la main — `null` quand il n'y a rien à dire.
+ *
+ * Sans elle, un global en 10.0.0 qui délègue à un projet en 10.2.0 s'efface
+ * en silence : l'utilisateur lit `nodefony --version`, voit 10.2.0, et ne
+ * comprend plus pourquoi `create app` (lancé hors projet, donc par le global)
+ * engendre une application sur une autre version. La ligne part sur la sortie
+ * d'ERREUR et se tait sous `--json` comme pendant une complétion : un flux
+ * qu'une machine lit ne porte jamais d'annonce.
+ *
+ * @param decision - la décision du lanceur.
+ * @param argv - les arguments de la commande (sans l'exécutable ni le script).
+ * @returns la ligne à écrire, ou `null`.
+ */
+export function versionMismatchNotice(
+  decision: TLocalCliDecision,
+  argv: readonly string[],
+): string | null {
+  if (decision.reason !== "local-cli") return null;
+  const { selfVersion, localVersion } = decision;
+  if (!selfVersion || !localVersion || selfVersion === localVersion) {
+    return null;
+  }
+  if (
+    argv[0] === "__complete" ||
+    argv.some((a) => a === "--json" || a.startsWith("--json="))
+  ) {
+    return null;
+  }
+  return (
+    `nodefony: CLI lancé en ${selfVersion}, projet en ${localVersion} — ` +
+    `c'est la ${localVersion} du projet qui s'exécute ` +
+    `(${decision.projectRoot}).\n`
+  );
+}
+
 /** Lit un `package.json` — `null` si absent ou illisible (jamais de throw). */
 function readPackageJson(dir: string): Record<string, unknown> | null {
   try {

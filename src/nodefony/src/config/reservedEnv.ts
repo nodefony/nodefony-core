@@ -77,6 +77,15 @@ export const RESERVED_ENV = Object.freeze({
       placement: "workstation",
     },
   },
+  NF_NO_UPDATE_CHECK: {
+    name: "NF_NO_UPDATE_CHECK",
+    role: "empêche `create app` de demander au registre npm si une version plus récente du CLI existe",
+    tunable: {
+      title: "Vérification de version du CLI",
+      defaultNote: "active (désactivée d'office quand `CI` est posée)",
+      placement: "workstation",
+    },
+  },
   NF_MODE_START: {
     name: "NF_MODE_START",
     role: "posée par la commande de démarrage — le mode par lequel l'application a été lancée",

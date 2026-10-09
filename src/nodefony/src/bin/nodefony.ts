@@ -5,6 +5,7 @@ import type { EnvironmentType } from "nodefony";
 import {
   resolveLocalCli,
   alignArgvWithDelegate,
+  versionMismatchNotice,
   DEBUG_ENV,
   DELEGATED_ENV,
   type TLocalCliDecision,
@@ -142,6 +143,8 @@ const decision = resolveLocalCli({
   env: process.env,
 });
 traceDecision(decision, selfDir);
+const mismatch = versionMismatchNotice(decision, process.argv.slice(2));
+if (mismatch) process.stderr.write(mismatch);
 
 if (decision.reason === "local-cli-broken") {
   process.stderr.write(

@@ -14,7 +14,9 @@ import path from "node:path";
 import {
   resolveLocalCli,
   alignArgvWithDelegate,
+  versionMismatchNotice,
   DELEGATED_ENV,
+  type TLocalCliDecision,
 } from "../bin/resolveLocalCli";
 
 /** Écrit un `package.json` (crée l'arborescence au passage). */
@@ -192,5 +194,52 @@ describe("alignArgvWithDelegate — argv[1] désigne le CLI qui s'exécute VRAIM
     assert.deepStrictEqual(alignArgvWithDelegate(["/usr/bin/node"], delegate), [
       "/usr/bin/node",
     ]);
+  });
+});
+
+describe("versionMismatchNotice — l'écart de version se DIT", () => {
+  const delegation = (
+    selfVersion: string | null,
+    localVersion: string | null,
+  ): TLocalCliDecision => ({
+    delegate: "/app/node_modules/nodefony/bin/nodefony",
+    reason: "local-cli",
+    projectRoot: "/app",
+    selfVersion,
+    localVersion,
+  });
+
+  it("nomme les deux versions et dit laquelle s'exécute", () => {
+    const line = versionMismatchNotice(delegation("10.0.0", "10.2.0"), [
+      "inspect",
+    ]);
+    assert.ok(line !== null, "un écart doit s'annoncer");
+    assert.match(line, /10\.0\.0/);
+    assert.match(line, /c'est la 10\.2\.0 du projet qui s'exécute/);
+  });
+
+  it("se tait quand les versions sont égales", () => {
+    assert.strictEqual(
+      versionMismatchNotice(delegation("10.2.0", "10.2.0"), ["inspect"]),
+      null,
+    );
+  });
+
+  it("se tait sous --json, et pendant une complétion", () => {
+    const d = delegation("10.0.0", "10.2.0");
+    assert.strictEqual(versionMismatchNotice(d, ["inspect", "--json"]), null);
+    assert.strictEqual(versionMismatchNotice(d, ["env", "--json=true"]), null);
+    assert.strictEqual(versionMismatchNotice(d, ["__complete", "--"]), null);
+  });
+
+  it("se tait sans délégation, ou quand une version est illisible", () => {
+    assert.strictEqual(
+      versionMismatchNotice({ delegate: null, reason: "no-project" }, []),
+      null,
+    );
+    assert.strictEqual(
+      versionMismatchNotice(delegation(null, "10.2.0"), []),
+      null,
+    );
   });
 });

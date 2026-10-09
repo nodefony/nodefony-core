@@ -14,6 +14,7 @@ import {
 import type { PackageManagerName } from "../Cli";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
+import { startFreshnessCheck } from "./cliFreshness";
 // Les sept listes de choix ont disparu d'ici AVEC la section qui les recopiait :
 // l'aide les DÉRIVE désormais de la spec (`scaffold/help.ts`).
 import { capAllows, FRONTEND_CHOICES, getScaffoldSpec } from "./scaffold/spec";
@@ -1518,6 +1519,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     );
     return createExitCode(depsInstall, "skipped");
   }
+  // Le CLI qui engendre l'application fixe sa version (`^<version>`). Un global
+  // périmé engendrerait donc sur une ancienne version sans un mot : on demande
+  // au registre, en parallèle de l'installation, et on le DIT à la fin. Sauté
+  // en `--link`, où le CLI est le checkout lui-même.
+  const freshness =
+    answers.link === true ? null : startFreshnessCheck(version, process.env);
   const linkNote = result.linked.length
     ? `\n🔗 link : ${result.linked.length} paquets nodefony câblés en file: sur le checkout local ` +
       `(dev framework — ne pas publier ce package.json tel quel)\n`
@@ -1748,6 +1755,8 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (installed) {
     await showAppState(result.dest);
   }
+  const staleNotice = await freshness;
+  if (staleNotice !== null) process.stderr.write(staleNotice);
   // Tout ce qui précède a été écrit et dit ; le code de sortie, lui, porte le
   // verdict — un build tenté et raté rend `SOFTWARE`, sans quoi aucun automate
   // ne peut distinguer une application prête d'une application à réparer.

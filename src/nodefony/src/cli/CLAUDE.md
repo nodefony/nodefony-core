@@ -230,6 +230,11 @@ Install cassée (paquet local présent, binaire absent) → **stderr + exit 1**,
 sur le global : piloter une app avec une version de framework qu'elle n'a pas choisie est un faux
 service. Détail des cas + variables (`NF_CLI_DELEGATED`, `NF_CLI_DEBUG`) : [`MEMORY.md`](./MEMORY.md).
 
+Les deux écarts de version se DISENT : délégation vers un projet d'une autre version → une ligne
+stderr (`versionMismatchNotice`) ; `create app` par un global périmé → annonce + `npm i -g
+nodefony@<tag>` (`cli/cliFreshness.ts`). ⚠️ Le tag `latest` de `nodefony` désigne l'ancien
+framework 7.x : ne jamais conseiller `@latest` sans l'avoir comparé.
+
 > Conséquence pour le dev du framework : `npm link` depuis `src/nodefony` rend `nodefony` disponible
 > partout et suit le checkout (symlink) ; dans le repo self-hosted comme dans une app `create app --link`,
 > le paquet local EST le checkout (`same-package`) → aucun aller-retour.
