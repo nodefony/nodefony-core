@@ -57,7 +57,7 @@ laissait passer.
   requête rendait plus de lignes en production MongoDB. Corrigé dans `#mongoOps()`
   (`MongooseRepository.ts:173`).
 - **`describeEntity()` parlait le vocabulaire du moteur** (`_id`, `__v`) : l'ERD et le contexte
-  IA changeaient de noms selon l'adaptateur (`MongooseOrm.ts:639`).
+  IA changeaient de noms selon l'adaptateur (`MongooseOrm.ts:672`).
 - **Le store de jetons MongoDB rendait le document brut**, champs du moteur compris.
 - **Le store de jetons Redis laissait RECULER le seuil de révocation en masse** sous
   concurrence (`GET` puis `SET`) : deux déconnexions simultanées pouvaient rendre valides des

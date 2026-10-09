@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import mongoose from "mongoose";
+import { isPlainObject } from "nodefony";
 import type { Container } from "nodefony";
 import type {
   ConnectOptions,
@@ -59,7 +60,7 @@ function indexName(definition: unknown): string {
   if (!definition || typeof definition !== "object") {
     return String(definition);
   }
-  return Object.entries(definition as Record<string, unknown>)
+  return Object.entries(definition)
     .map(([field, direction]) => `${field}_${String(direction)}`)
     .join("_");
 }
@@ -87,7 +88,7 @@ export class MongooseOrm extends Orm {
    * empilerait sinon un jeu de listeners par cycle (règle « pas de listener
    * sans cleanup »). `null` tant qu'aucune connexion n'est ouverte.
    */
-  #lifecycle: Array<[string, (...a: never[]) => void]> | null = null;
+  #lifecycle: Array<[string, (...a: unknown[]) => void]> | null = null;
 
   /**
    * Mongoose traduit les signaux de topologie du driver MongoDB (SDAM) : il
@@ -151,6 +152,9 @@ export class MongooseOrm extends Orm {
     await connection.asPromise();
     this.#connection = connection;
     this.#wireLifecycle(connection);
+    // Conversion ASSUMÉE (#575) — `Object.create(null)` rend `any` : un
+    // dictionnaire sans prototype ne s'écrit pas autrement, et ses clés sont des
+    // noms d'entités déclarés par le code, jamais une entrée extérieure.
     this.#models = Object.create(null) as Record<string, LooseModel>;
 
     const entities = this.#ownEntities();
@@ -158,6 +162,18 @@ export class MongooseOrm extends Orm {
     // 1) Schémas (virtuels activés à la sérialisation pour exposer `id`/populates).
     const schemas = new Map<string, Schema>();
     for (const entity of entities) {
+      // Le schéma d'une entité est OPAQUE pour orm-core (`unknown`) : chaque
+      // adaptateur le lit dans son format. Une table Drizzle rattachée par
+      // erreur à un connecteur mongoose est une instance de classe — refusée
+      // ici en nommant l'entité, au lieu d'un échec obscur dans mongoose.
+      if (!isPlainObject(entity.schema)) {
+        throw new TypeError(
+          `MongooseOrm "${this.name}": entity "${entity.name}" does not carry a mongoose SchemaDefinition (plain object expected).`,
+        );
+      }
+      // Conversion ASSUMÉE (#575) — la forme d'un champ (`SchemaDefinitionProperty`)
+      // se valide dans `mongoose.Schema` lui-même, qui refuse un type inconnu :
+      // la recopier ici dupliquerait sa grammaire.
       const schema = new mongoose.Schema(entity.schema as SchemaDefinition, {
         toObject: { virtuals: true },
         toJSON: { virtuals: true },
@@ -239,10 +255,12 @@ export class MongooseOrm extends Orm {
 
     // 3) Compilation des modèles.
     for (const entity of entities) {
-      const model = connection.model(
+      const schema = schemas.get(entity.name);
+      if (schema === undefined) continue; // bâti à l'étape 1 pour CHAQUE entité
+      const model = connection.model<Record<string, unknown>>(
         entity.name,
-        schemas.get(entity.name) as Schema,
-      ) as unknown as LooseModel;
+        schema,
+      );
       this.#models[entity.name] = model;
       entity.model = model;
     }
@@ -430,7 +448,7 @@ export class MongooseOrm extends Orm {
    */
   #wireLifecycle(connection: Connection): void {
     const lost = (why: string) => (): void => this.connectionLost(why);
-    const listeners: Array<[string, (...a: never[]) => void]> = [
+    const listeners: Array<[string, (...a: unknown[]) => void]> = [
       ["disconnected", lost("mongoose: disconnected")],
       ["close", lost("mongoose: close")],
       [
@@ -444,7 +462,7 @@ export class MongooseOrm extends Orm {
       ["connected", (): void => this.connectionRestored()],
     ];
     for (const [event, handler] of listeners) {
-      connection.on(event, handler as (...a: unknown[]) => void);
+      connection.on(event, handler);
     }
     this.#lifecycle = listeners;
   }
@@ -454,7 +472,7 @@ export class MongooseOrm extends Orm {
     const connection = this.#connection;
     if (connection && this.#lifecycle) {
       for (const [event, handler] of this.#lifecycle) {
-        connection.removeListener(event, handler as (...a: unknown[]) => void);
+        connection.removeListener(event, handler);
       }
     }
     this.#lifecycle = null;
@@ -523,6 +541,7 @@ export class MongooseOrm extends Orm {
         ) {
           return;
         }
+        // Conversion ASSUMÉE (#575) — dictionnaire sans prototype (`any`), clés = noms d'entités.
         index ??= Object.create(null) as Record<string, IMongooseReferrer[]>;
         (index[ref] ??= []).push({
           model,
@@ -552,6 +571,7 @@ export class MongooseOrm extends Orm {
         `MongooseOrm "${this.name}": no entity model registered under "${name}".`,
       );
     }
+    // Conversion ASSUMÉE (#575) — dictionnaire sans prototype (`any`), clés = noms d'entités.
     this.#repositories ??= Object.create(null) as Record<string, IRepository>;
     let repository = this.#repositories[name];
     if (repository === undefined) {
@@ -563,6 +583,8 @@ export class MongooseOrm extends Orm {
       );
       this.#repositories[name] = repository;
     }
+    // Conversion ASSUMÉE (#575) — frontière du contrat `IOrm.getRepository<T>` :
+    // `T` est déclaré par l'appelant, le schéma de l'entité fait foi à l'exécution.
     return repository as IRepository<T>;
   }
 
@@ -590,6 +612,7 @@ export class MongooseOrm extends Orm {
     if (!this.#connection) {
       throw new Error(`MongooseOrm "${this.name}": not connected.`);
     }
+    // Conversion ASSUMÉE (#575) — trappe typée par l'appelant (cf ci-dessus).
     return this.#connection as C;
   }
 
@@ -722,11 +745,10 @@ export class MongooseOrm extends Orm {
       for (let i = 0; i < 8; i++) {
         const pkgPath = path.join(dir, "package.json");
         if (fs.existsSync(pkgPath)) {
-          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
-            name?: string;
-            version?: string;
-          };
-          if (pkg.name === name) return pkg.version;
+          const pkg: unknown = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+          if (isPlainObject(pkg) && pkg.name === name) {
+            return typeof pkg.version === "string" ? pkg.version : undefined;
+          }
         }
         const parent = path.dirname(dir);
         if (parent === dir) break;

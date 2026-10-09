@@ -508,7 +508,7 @@ l'application monte quand même, l'échec est journalisé, et c'est l'orchestrat
 
 `repo.find({ views: { $gte: 10 } }, { limit: 20 })` traverse quatre étapes :
 
-1. **Traduction du critère** (`MongooseRepository.#filter()` (`MongooseRepository.ts:248`)) : chaque
+1. **Traduction du critère** (`MongooseRepository.#filter()` (`MongooseRepository.ts:255`)) : chaque
    champ est résolu (`id` devient `_id`), chaque opérateur portable est converti.
 2. **Validation du champ** (`MongooseRepository.#resolveField()` (`MongooseRepository.ts:222`)) : un
    champ absent du schéma lève `UnknownCriteriaField` — plutôt que de renvoyer zéro résultat sans
@@ -543,8 +543,8 @@ drivers. Les signatures exactes vivent dans le graphe généré
 | `withTransaction` | rejouer les mêmes opérations dans une transaction | ajoute la `session` à chaque opération |
 
 Les écritures qui « lisent puis écrivent » sont **atomiques par construction**
-(`MongooseRepository.upsert()` (`MongooseRepository.ts:422`),
-`MongooseRepository.increment()` (`MongooseRepository.ts:507`)) : un seul aller-retour, la
+(`MongooseRepository.upsert()` (`MongooseRepository.ts:439`),
+`MongooseRepository.increment()` (`MongooseRepository.ts:524`)) : un seul aller-retour, la
 comparaison est faite par le serveur. Ce n'est pas une optimisation cosmétique — c'est ce qui évite
 que deux requêtes simultanées lisent le même état et s'écrasent mutuellement.
 
@@ -630,7 +630,7 @@ await orm.transaction(async (tx) => {
 }); // commit si la fonction résout, annulation si elle échoue
 ```
 
-`MongooseOrm.transaction()` (`MongooseOrm.ts:571`) s'appuie sur les sessions Mongo « managées »
+`MongooseOrm.transaction()` (`MongooseOrm.ts:591`) s'appuie sur les sessions Mongo « managées »
 (commit, annulation et **reprises** gérées par le driver).
 
 > [!IMPORTANT]
@@ -642,7 +642,7 @@ await orm.transaction(async (tx) => {
 
 ### La trappe native — quand le contrat ne suffit plus
 
-`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:589`) rend la connexion Mongoose telle quelle :
+`MongooseOrm.getNativeConnection()` (`MongooseOrm.ts:611`) rend la connexion Mongoose telle quelle :
 agrégations, `$or`, index, `$text`, `bulkWrite`, changements de flux. Le module lui-même s'en sert
 là où le contrat portable ne suffit pas — par exemple pour la recherche texte du listing des
 webhooks, qui a besoin d'un `$or` sur deux champs
@@ -680,18 +680,18 @@ devient alors un pur driver de données, sans schéma framework.
 
 Trois comportements valent d'être connus :
 
-- **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts:163`)) :
+- **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts:189`)) :
   l'inactivité (depuis la dernière activité) et l'âge absolu (depuis la création, **jamais prolongé** —
   la ré-authentification finit par être imposée, conformément aux recommandations NIST/OWASP).
 - **Prolongation sans réécriture** (`SessionStorage.touch()` (`SessionStorage.ts:195`)) : rafraîchir
   l'activité ne réécrit pas le contenu de la session, juste son horodatage.
-- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:286`)) :
+- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:313`)) :
   le contenu applicatif et les messages flash **ne sortent pas de la base**. Studio affiche qui est
   connecté, jamais ce qu'il y a dans sa session.
 
 Quand l'ORM n'est plus connecté — typiquement pendant l'arrêt du serveur, alors que des requêtes sont
 encore en vol — le store dégrade **gracieusement** au lieu de lever une exception
-(`SessionStorage.#repo()` (`SessionStorage.ts:66`)). Une session non persistée le temps de l'arrêt
+(`SessionStorage.#repo()` (`SessionStorage.ts:84`)). Une session non persistée le temps de l'arrêt
 vaut mieux qu'une erreur 500 et un rejet non capturé.
 
 ### Utilisateurs
@@ -707,7 +707,7 @@ pas des documents nus. Deux recherches lui sont propres :
   native bornée (`skip`/`limit + 1`), tri sur liste blanche, `_id` en départage. Une page est une page,
   jamais la collection entière rapatriée en mémoire.
 
-Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:328`))
+Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:343`))
 compte côté serveur — c'est le garde-fou qui empêche de supprimer le dernier administrateur.
 
 ### Jetons
@@ -836,10 +836,10 @@ Schema). Le module fournit les sondes correspondantes :
 
 | Sonde                  | Ce qu'elle renvoie                                                          |
 | ---------------------- | --------------------------------------------------------------------------- |
-| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:603`)                    |
-| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:617`)              |
-| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:649`)    |
-| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:676`) |
+| `ping()`               | un aller-retour réel vers la base (`MongooseOrm.ts:626`)                    |
+| `probe()`              | les connexions du serveur et sa version (`MongooseOrm.ts:640`)              |
+| `describeEntity()`     | les champs d'une entité, depuis le schéma compilé (`MongooseOrm.ts:672`)    |
+| `describeConnection()` | le pilote, la cible et la version de la bibliothèque (`MongooseOrm.ts:699`) |
 
 > [!IMPORTANT]
 > **Aucun identifiant ne sort jamais.** La cible affichée est nettoyée de tout `utilisateur:mot de
@@ -857,7 +857,7 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
   (`MongooseRepository.#prof()` (`MongooseRepository.ts:118`)). En production, le chemin est celui d'un
   appel direct.
 - **Repositories alloués à la demande.** Le cache est créé au premier accès, pas à la connexion
-  (`MongooseOrm.getRepository()` (`MongooseOrm.ts:548`)).
+  (`MongooseOrm.getRepository()` (`MongooseOrm.ts:567`)).
 - **Un aller-retour par écriture.** Les opérations « lire puis écrire » sont exprimées en une seule
   requête atomique — moins de latence _et_ pas de course.
 - **Le comptage reste côté serveur.** Les listings paginés lisent `limit + 1` documents pour savoir

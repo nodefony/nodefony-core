@@ -361,7 +361,7 @@ renoncer aux autres.
 > **`frameworkEntities: false` ne désactive pas le stockage de session.** L'entité `session` et son
 > store ne passent pas par ce commutateur : ils s'enregistrent à l'**import** du module, par
 > décorateur (`sessionEntity.ts:41`) et par appel direct au registre de `@nodefony/http`
-> (`SessionsService.registerStorage("mongoose", …)` (`mongoose/nodefony/src/SessionStorage.ts:353`)). Charger le module
+> (`SessionsService.registerStorage("mongoose", …)` (`mongoose/nodefony/src/SessionStorage.ts:389`)). Charger le module
 > rend donc toujours `session: { store: "mongoose" }` disponible, quelle que soit la valeur du champ.
 > C'est cohérent avec le texte du schéma, qui n'énumère que jetons, WebAuthn et webhooks — mais
 > contre-intuitif si l'on lit « entités du framework » au sens large.
@@ -563,10 +563,10 @@ données d'un coup. La règle est donc sans nuance.
 - **Jamais dans le dépôt.** Ni dans `nodefony.config.ts`, ni dans un fichier d'exemple, ni « juste
   pour le développement ». Le secret arrive par `MONGODB_URI` ou `NF_DATABASE_URL`.
 - **Ni dans les journaux, ni dans Studio.** L'URI est systématiquement nettoyée de tout
-  `utilisateur:motdepasse@` avant d'être affichée (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:688`)),
+  `utilisateur:motdepasse@` avant d'être affichée (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:711`)),
   y compris pour les URI multi-hôtes que l'analyseur d'URL standard ne sait pas découper. C'est cette
   cible nettoyée que voit le plan d'administration
-  (`MongooseOrm.describeConnection()` (`MongooseOrm.ts:676`)) et le message de connexion au démarrage.
+  (`MongooseOrm.describeConnection()` (`MongooseOrm.ts:699`)) et le message de connexion au démarrage.
 - **Les identifiants passés par `options`** (`user`, `pass`) suivent la même règle : ils viennent de
   l'environnement, pas du fichier. Le framework rédige d'ailleurs la valeur de tout override
   d'environnement dont le chemin ressemble à un secret, avant de le journaliser
@@ -687,7 +687,7 @@ disponibilité (`/readyz`) qui dit à l'orchestrateur de ne pas lui envoyer de t
 
 À l'arrêt, les connexions se ferment alors que des requêtes peuvent encore être en vol. Le stockage de
 session **dégrade gracieusement** plutôt que de lever une exception
-(`SessionStorage.#repo()` (`SessionStorage.ts:66`)) : une session non persistée le temps de l'arrêt
+(`SessionStorage.#repo()` (`SessionStorage.ts:84`)) : une session non persistée le temps de l'arrêt
 vaut mieux qu'une erreur 500 et un rejet non capturé. À l'inverse, une entité absente sur un ORM
 **connecté** est une vraie erreur de configuration : celle-là est levée sans ménagement.
 
@@ -696,7 +696,7 @@ vaut mieux qu'une erreur 500 et un rejet non capturé. À l'inverse, une entité
 La configuration ne se contente pas d'être validée : elle se **montre**.
 
 - Le module publie son schéma en JSON Schema (`Mongoose.configSchema()` (`mongoose/index.ts:55`) →
-  `mongooseConfigJsonSchema()` (`defineModuleConfig.ts:78`)). C'est ce qui permet à Studio d'afficher
+  `mongooseConfigJsonSchema()` (`defineModuleConfig.ts:91`)). C'est ce qui permet à Studio d'afficher
   chaque clé avec son type, son défaut et son texte d'aide — sans qu'une seule ligne de description
   soit recopiée quelque part.
 - L'écran `/nodefony/config` montre la configuration **effective** après toutes les couches, et la

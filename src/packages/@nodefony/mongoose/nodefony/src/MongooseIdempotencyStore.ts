@@ -221,6 +221,10 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
       return { state: "fresh" };
     }
     // Contention : la clé était VIVANTE à l'instant de l'upsert → lire son état.
+    // Conversion ASSUMÉE (#575) — lecture `lean()` d'une collection que CE store
+    // est seul à écrire (`begin`/`complete`). Une garde de forme de la réponse
+    // mémorisée vaudrait pour les quatre stockages (mémoire, Drizzle, Redis,
+    // mongoose) : elle se pose au contrat `IdempotentResponse` du cœur, pas ici.
     const existing = (await model
       .findById(key)
       .lean()
@@ -348,6 +352,8 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
       filter._id = { $regex: `^${escapeRegExp(query.q)}` };
     }
     // `limit + 1` → `hasNext` sans dépendre du total (mode tranche possible).
+    // Conversion ASSUMÉE (#575) — projection `lean()` d'une collection que ce
+    // store est seul à écrire ; chemin d'administration.
     const docs = (await model
       .find(filter, { _id: 1, state: 1, expiresAt: 1 })
       .sort({ expiresAt: 1, _id: 1 })

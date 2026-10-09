@@ -63,6 +63,19 @@ function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
 export function defineMongooseConfig(
   config: IMongooseConfigInput = {},
 ): IMongooseConfig {
+  return buildMongooseConfig(config);
+}
+
+/**
+ * Le builder pour une entrée NON typée — la config reçue par le module au
+ * démarrage, dont le schéma décide seul de la forme. Interne au paquet : une
+ * application passe par {@link defineMongooseConfig}, qui type ce qu'elle écrit.
+ *
+ * @param config - configuration brute, validée par le schéma
+ * @returns config validée, surchargée par l'env, et gelée.
+ * @throws BootConfigurationError si invalide.
+ */
+export function buildMongooseConfig(config: unknown = {}): IMongooseConfig {
   const parsed = parseModuleConfig(
     mongooseConfigSchema,
     config,

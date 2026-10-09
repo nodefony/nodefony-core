@@ -117,6 +117,9 @@ export class MongooseUserRepository implements IUserRepository {
     // dépôt de les taire.
     return attachExtraColumns(
       user,
+      // Conversion ASSUMÉE (#575) — écart de types avec @nodefony/user :
+      // `attachExtraColumns` lit un dictionnaire, et une interface de ligne n'a
+      // pas de signature d'index. La valeur EST l'objet plat rendu par mongoose.
       row as unknown as Record<string, unknown>,
       MONGOOSE_INTERNAL_KEYS,
     );
@@ -211,6 +214,9 @@ export class MongooseUserRepository implements IUserRepository {
     field: keyof IPasswordAuthenticatedUser,
     criteria?: Criteria<IPasswordAuthenticatedUser>,
   ): Promise<number> {
+    // Conversion ASSUMÉE (#575) — frontière du contrat `IUserRepository` : une
+    // clé du contrat utilisateur hors des colonnes persistées est refusée à
+    // l'exécution par le dépôt de base (`UnknownCriteriaField`).
     return this.#base.countDistinct(field as keyof UserRow, criteria);
   }
 
@@ -247,7 +253,10 @@ export class MongooseUserRepository implements IUserRepository {
     }
     const doc = await query.exec();
     return doc
-      ? this.#toUser(doc.toObject({ virtuals: true }) as unknown as UserRow)
+      ? this.#toUser(
+          // Conversion ASSUMÉE (#575) — document HYDRATÉ, casté selon le schéma.
+          doc.toObject({ virtuals: true }) as unknown as UserRow,
+        )
       : null;
   }
 
@@ -309,7 +318,11 @@ export class MongooseUserRepository implements IUserRepository {
     const hasNext = docs.length > limit;
     const page = hasNext ? docs.slice(0, limit) : docs;
     const items = page.map((doc) =>
-      this.#toUser(doc.toObject({ virtuals: true }) as unknown as UserRow),
+      this.#toUser(
+        // Conversion ASSUMÉE (#575) — document HYDRATÉ : mongoose caste chaque champ
+        // selon le schéma (dérivé de `USER_COLUMNS`) ; `toObject` ne rend pas son type.
+        doc.toObject({ virtuals: true }) as unknown as UserRow,
+      ),
     );
 
     let total: number | undefined;

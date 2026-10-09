@@ -11,6 +11,7 @@ import type {
   IWebAuthnListQuery,
   WebAuthnAuthUpdate,
 } from "@nodefony/security";
+import { documentId } from "./documentId";
 import type { MongooseOrm } from "./orm-core/index";
 import {
   WEBAUTHN_CREDENTIAL_ENTITY,
@@ -71,7 +72,7 @@ export class MongooseWebAuthnCredentialStore implements IWebAuthnCredentialStore
 
   /** Identité réelle d'un credential : `_id` fait foi, le virtuel `id` en repli. */
   #idOf(row: WebAuthnCredentialRow): string {
-    return (row as { _id?: string })._id ?? row.id;
+    return documentId(row);
   }
 
   /** Row plate → credential du contrat (`nickname?` omis si `null`/absent). */

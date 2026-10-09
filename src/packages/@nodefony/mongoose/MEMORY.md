@@ -55,6 +55,13 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 
 ## Gotchas
 
+- **Conversions de type : frontière = garde, interne = `Conversion ASSUMÉE (#575)` commentée.**
+  `_id` d'un store → `documentId(row)` (`nodefony/src/documentId.ts`, seule lecture ; `_id` non chaîne
+  → virtuel `id`). Sac de session mixte → `bag()` (`SessionStorage.ts`, objet simple sinon `{}`).
+  Config reçue au boot → `buildMongooseConfig(unknown)` (schéma seul juge). `$like` non chaîne et
+  branche de `$or` non objet → `TypeError` nommant l'opérateur. Schéma d'entité non objet simple
+  (table Drizzle) → `TypeError` nommant l'entité au `connect()`. Garde objet = `isPlainObject`
+  (prédicat du cœur), jamais une copie locale. Plafond : `scripts/gates/type-assertions.ceiling.json`.
 - 🔴 **Aucune intégrité référentielle — et ce n'est pas un manque à combler.** MongoDB n'a ni clé
   étrangère ni `ON DELETE` : un `ref: ObjectId` sert au `populate()`, il ne contraint RIEN. Une
   entité dont le parent est effacé garde donc un identifiant qui ne désigne plus rien, en silence

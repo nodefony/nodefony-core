@@ -20,6 +20,7 @@ import {
   tokenStatusCriteria,
 } from "@nodefony/security";
 import { mongoOrder } from "./mongoOrder";
+import { documentId } from "./documentId";
 import type { MongooseOrm } from "./orm-core/index";
 
 /**
@@ -140,7 +141,7 @@ export class MongooseTokenStore implements ITokenStore {
 
   /** Identité réelle d'un record (jti) : `_id` fait foi, le virtuel `id` en repli. */
   #idOf(row: IAccessTokenRecord): string {
-    return (row as { _id?: string })._id ?? row.id;
+    return documentId(row);
   }
 
   /**

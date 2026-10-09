@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import type { ConnectOptions } from "mongoose";
 import { Service, runNeedsExternalServices } from "nodefony";
-import type { Container, Module } from "nodefony";
+import type { Module } from "nodefony";
 import {
   queryFlowMonitor,
   resolveOrmFlowEnabled,
@@ -46,7 +46,7 @@ class MongooseService extends Service {
   constructor(module: Module) {
     super(
       serviceName,
-      module.container as Container,
+      module.container ?? undefined,
       module.notificationsCenter,
       module.options,
     );

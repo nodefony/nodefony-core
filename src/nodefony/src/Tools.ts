@@ -41,9 +41,10 @@ const isRegExp = (value: unknown): value is RegExp => value instanceof RegExp;
  * Implémentation alignée sur jQuery.isPlainObject (compatible cross-realm).
  *
  * @param obj - valeur à tester.
- * @returns `true` si l'objet vient directement de `Object` ou n'a pas de prototype.
+ * @returns `true` si l'objet vient directement de `Object` ou n'a pas de prototype —
+ *   ses propriétés se lisent alors typées `unknown`, chacune à vérifier avant usage.
  */
-const isPlainObject = (obj: unknown): boolean => {
+const isPlainObject = (obj: unknown): obj is Record<string, unknown> => {
   if (!obj || _toString(obj) !== "[object Object]") return false;
   const proto = getProto(obj) as object | null;
   if (!proto) return true; // Object.create(null)

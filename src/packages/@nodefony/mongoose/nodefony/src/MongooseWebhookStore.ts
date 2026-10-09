@@ -17,6 +17,7 @@ import type {
   WebhookEndpointUpdate,
 } from "@nodefony/security";
 import type { Connection, Model } from "mongoose";
+import { documentId } from "./documentId";
 import type { MongooseOrm } from "./orm-core/index";
 
 /** Modèle Mongoose à document libre (boundary — comme `MongooseRepository`). */
@@ -100,7 +101,7 @@ export class MongooseWebhookStore implements IWebhookStore {
 
   /** Identité réelle d'un endpoint : `_id` fait foi, le virtuel `id` en repli. */
   #idOf(row: WebhookEndpointRow): string {
-    return (row as { _id?: string })._id ?? row.id;
+    return documentId(row);
   }
 
   /** Row plate → endpoint du contrat (sans `_id`/`__v` ; `events` en `readonly`). */
@@ -247,6 +248,8 @@ export class MongooseWebhookStore implements IWebhookStore {
     const page = hasNext ? docs.slice(0, limit) : docs;
     const items = page.map((doc) =>
       this.#toEndpoint(
+        // Conversion ASSUMÉE (#575) — document HYDRATÉ : mongoose caste chaque
+        // champ selon le schéma de l'entité ; `toObject` ne rend pas son type.
         doc.toObject({ virtuals: true }) as unknown as WebhookEndpointRow,
       ),
     );

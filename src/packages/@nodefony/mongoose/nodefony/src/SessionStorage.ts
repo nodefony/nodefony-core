@@ -12,10 +12,28 @@ import type {
   ISessionListQuery,
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
-import { assertPageQuery, pickOrder, renameOrderFields } from "nodefony";
+import {
+  assertPageQuery,
+  isPlainObject,
+  pickOrder,
+  renameOrderFields,
+} from "nodefony";
 import { ormRegistry, paginate } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
 import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
+
+/**
+ * Un sac de session lu en base : un objet simple, sinon vide. Le schéma le
+ * déclare `Object` (type mixte, rien n'y est casté) — une valeur d'une autre
+ * forme, écrite par un autre outil, s'écarte ici au lieu de traverser le code
+ * sous un type qui ment.
+ *
+ * @param value - champ `Attributes`, `metaBag` ou `flashBag` de la ligne
+ * @returns le sac, ou un sac vide
+ */
+function bag(value: unknown): Record<string, unknown> {
+  return isPlainObject(value) ? value : {};
+}
 
 /**
  * Stockage de session **Mongoose** (driver NoSQL), branché sur `@nodefony/orm-core`.
@@ -75,16 +93,24 @@ class SessionStorage implements ISessionStorage {
     const criteria: Partial<SessionRow> = { session_id: id };
     const repo = this.#repo();
     if (!repo) {
+      // Conversion ASSUMÉE (#575) — `{}` dit « session absente » : convention
+      // partagée par les trois stockages (mémoire, Drizzle, mongoose) et gardée
+      // par le consommateur (`Session.resume`, @nodefony/http). L'énoncer au
+      // type, c'est changer le contrat `ISessionStorage` d'http, pas ce paquet.
       return {} as ISerializedSession;
     }
     const row = await repo.findOne(criteria);
     if (!row) {
+      // Conversion ASSUMÉE (#575) — `{}` dit « session absente » : convention
+      // partagée par les trois stockages (mémoire, Drizzle, mongoose) et gardée
+      // par le consommateur (`Session.resume`, @nodefony/http). L'énoncer au
+      // type, c'est changer le contrat `ISessionStorage` d'http, pas ce paquet.
       return {} as ISerializedSession;
     }
     return {
-      Attributes: (row.Attributes ?? {}) as Record<string, unknown>,
-      metaBag: (row.metaBag ?? {}) as Record<string, unknown>,
-      flashBag: (row.flashBag ?? {}) as Record<string, unknown>,
+      Attributes: bag(row.Attributes),
+      metaBag: bag(row.metaBag),
+      flashBag: bag(row.flashBag),
       user: row.user ?? "",
       createdAt: new Date(row.createdAt),
       updatedAt: new Date(row.updatedAt),
@@ -234,7 +260,7 @@ class SessionStorage implements ISessionStorage {
       data: {
         Attributes: {},
         flashBag: {},
-        metaBag: (row.metaBag ?? {}) as Record<string, unknown>,
+        metaBag: bag(row.metaBag),
         user: row.user ?? "",
         createdAt: new Date(row.createdAt),
         updatedAt: new Date(row.updatedAt),

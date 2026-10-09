@@ -75,6 +75,7 @@ export class MongooseTransaction implements ITransaction {
   // retirer `C` casserait `getNative<…>()` chez chaque consommateur.
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getNative<C = unknown>(): C {
+    // Conversion ASSUMÉE (#575) — trappe typée par l'appelant (cf ci-dessus).
     return this.#session as C;
   }
 }

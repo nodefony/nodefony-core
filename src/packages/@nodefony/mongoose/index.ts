@@ -16,6 +16,7 @@ import { wireOrmAdminPlane } from "@nodefony/orm-core";
 import { registerUserStore } from "@nodefony/user";
 import config from "./nodefony/config/config";
 import {
+  buildMongooseConfig,
   defineMongooseConfig,
   mongooseConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
@@ -58,7 +59,7 @@ class Mongoose extends Module<IMongooseConfig> {
 
   /**
    * Valide la config (défauts + `module.options` + surcharge env) au boot via
-   * `defineMongooseConfig`, et l'expose au container sous `mongooseConfig` pour
+   * `buildMongooseConfig`, et l'expose au container sous `mongooseConfig` pour
    * que le `MongooseService` la consomme sans redupliquer la validation. Plante
    * propre avec messages clairs si la config est invalide (convention Zod).
    */
@@ -68,9 +69,8 @@ class Mongoose extends Module<IMongooseConfig> {
     // se trouvait ici la RE-EMBALLAIT en `Error` ordinaire, que le kernel absorbe
     // en développement (fail-soft) — le refus disparaissait précisément là où la
     // faute vient d'être écrite.
-    const validated: IMongooseConfig = defineMongooseConfig(
-      this.options as IMongooseConfigInput,
-    );
+    // La forme se décide au schéma, pas à une conversion.
+    const validated: IMongooseConfig = buildMongooseConfig(this.options);
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le MongooseService la lit sur son module (`this.module.config`).
     this.options = validated;

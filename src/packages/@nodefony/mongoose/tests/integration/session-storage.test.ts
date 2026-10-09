@@ -115,6 +115,25 @@ describe.skipIf(!URI)(
         assert.equal(r.user, "bob2");
       });
 
+      it("un sac de forme inattendue en base ressort VIDE, pas sous un type qui ment", async () => {
+        // Écrit par un autre outil : le schéma déclare `Object` (mixte), rien n'y est casté.
+        const now = Date.now();
+        await orm.getRepository<SessionRow>("session").create({
+          session_id: "sid-corrompu",
+          Attributes: "pas un objet",
+          metaBag: [1, 2, 3],
+          flashBag: { f: 1 },
+          user: "eve",
+          createdAt: now,
+          updatedAt: now,
+        });
+        const r = await storage.read("sid-corrompu");
+        assert.deepEqual(r.Attributes, {});
+        assert.deepEqual(r.metaBag, {});
+        assert.deepEqual(r.flashBag, { f: 1 });
+        assert.equal(await storage.destroy("sid-corrompu"), true);
+      });
+
       it("destroy supprime ; read renvoie un objet vide", async () => {
         assert.equal(await storage.destroy("sid1"), true);
         const r = await storage.read("sid1");

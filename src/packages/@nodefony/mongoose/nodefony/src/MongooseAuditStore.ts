@@ -9,6 +9,7 @@ import type {
   IAuditStore,
 } from "@nodefony/security";
 import type { Connection, Model } from "mongoose";
+import { documentId } from "./documentId";
 import type { MongooseOrm } from "./orm-core/index";
 import { writeCount } from "./writeCount";
 import {
@@ -203,6 +204,8 @@ export class MongooseAuditStore implements IAuditStore {
     const hasNext = docs.length > limit;
     const page = hasNext ? docs.slice(0, limit) : docs;
     const rows = page.map(
+      // Conversion ASSUMÉE (#575) — document HYDRATÉ : mongoose caste chaque
+      // champ selon le schéma de l'entité ; `toObject` ne rend pas son type.
       (doc) => doc.toObject({ virtuals: true }) as unknown as AuditEventRow,
     );
     const items = rows.map((row) => this.#toEvent(row));
@@ -279,7 +282,7 @@ export class MongooseAuditStore implements IAuditStore {
 
   /** Identité réelle d'un événement : `_id` fait foi, le virtuel `id` en repli. */
   #idOf(row: AuditEventRow): string {
-    return (row as { _id?: string })._id ?? row.id;
+    return documentId(row);
   }
 
   /**

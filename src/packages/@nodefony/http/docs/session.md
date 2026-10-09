@@ -395,9 +395,9 @@ d'ordre global) et `countSessions()` renvoie **`-1`** = « je ne sais pas »
 ### `mongoose` — MongoDB, parité de comportement
 
 Même sémantique que le store SQL : `findOneAndUpdate({ upsert: true })` en une passe
-(`@nodefony/mongoose/nodefony/src/SessionStorage.ts:195`), `touch` en `updateOne`
-(`@nodefony/mongoose/nodefony/src/SessionStorage.ts:174`), GC en deux suppressions `$lt`
-(`@nodefony/mongoose/nodefony/src/SessionStorage.ts:144-166`). Les horodatages sont des **nombres**
+(`@nodefony/mongoose/nodefony/src/SessionStorage.ts:149`), `touch` en `updateOne`
+(`@nodefony/mongoose/nodefony/src/SessionStorage.ts:219`), GC en deux suppressions `$lt`
+(`@nodefony/mongoose/nodefony/src/SessionStorage.ts:189-211`). Les horodatages sont des **nombres**
 (epoch ms) et non des `Date` Mongo, précisément pour que le store reste interchangeable avec Drizzle.
 
 > [!TIP]

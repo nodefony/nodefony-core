@@ -1,5 +1,5 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
-import { RequestContext, redactSecrets } from "nodefony";
+import { RequestContext, isPlainObject, redactSecrets } from "nodefony";
 import { writeCount } from "../writeCount";
 import {
   assertOrderOption,
@@ -171,7 +171,14 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(ops)) {
       if (key === "$like") {
-        out.$regex = likePatternToRegExp(value as string);
+        // Les critères viennent aussi d'un filtre HTTP : un motif d'une autre
+        // forme se refuse ici, en nommant l'opérateur.
+        if (typeof value !== "string") {
+          throw new TypeError(
+            `MongooseRepository(${this.#model.modelName}): $like attend une chaîne.`,
+          );
+        }
+        out.$regex = likePatternToRegExp(value);
       } else if (key === "$null") {
         const target = value ? "$eq" : "$ne";
         if (target in out) {
@@ -245,7 +252,9 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
    * Traduit le critère portable : `id` → `_id` (PK MongoDB) + opérateurs riches.
    * Chaque champ est validé contre le schéma (strict, cf {@link MongooseRepository.#resolveField}).
    */
-  #filter(criteria?: Criteria<T>): QueryFilter<Record<string, unknown>> {
+  #filter(
+    criteria?: Criteria<T> | Readonly<Record<string, unknown>>,
+  ): QueryFilter<Record<string, unknown>> {
     if (!criteria) {
       return {};
     }
@@ -267,9 +276,14 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           out.$and = [{ _id: { $in: [] } }];
           continue;
         }
-        const branches = value.map((branch) =>
-          this.#filter(branch as Criteria<T>),
-        );
+        const branches = value.map((branch: unknown) => {
+          if (!isPlainObject(branch)) {
+            throw new TypeError(
+              `MongooseRepository(${this.#model.modelName}): chaque branche de $or est un critère (objet).`,
+            );
+          }
+          return this.#filter(branch);
+        });
         if (branches.some((f) => Object.keys(f).length === 0)) continue;
         out.$or = branches;
         continue;
@@ -282,6 +296,9 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
 
   /** Sérialise un document en objet plat (virtuels inclus → `id`, populates). */
   #plain(doc: { toObject: (o: { virtuals: boolean }) => unknown }): T {
+    // Conversion ASSUMÉE (#575) — frontière du contrat `IRepository<T>` : `T` est
+    // déclaré par l'appelant, et l'hydratation mongoose caste chaque champ selon
+    // le schéma — c'est lui, pas une garde recopiée ici, qui fait foi.
     return doc.toObject({ virtuals: true }) as T;
   }
 
@@ -517,7 +534,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
         const doc = await this.#model
           .findOneAndUpdate(
             filter,
-            { $inc: changes as Record<string, number> },
+            { $inc: changes },
             { returnDocument: "after", session: this.#session },
           )
           .exec();
