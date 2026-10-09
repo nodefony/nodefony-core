@@ -38,8 +38,10 @@ import {
   nodefonyChannel,
   nodefonyChannelData,
   nodefonySnapshot,
+  nodefonySse,
   nodefonyState,
 } from "../client/svelte/index";
+import { sseFetchBench, settle } from "./fixtures/sseFetch";
 import LitValeur from "./fixtures/LitValeur.svelte";
 import NeLitRien from "./fixtures/NeLitRien.svelte";
 import CanalMobile from "./fixtures/CanalMobile.svelte";
@@ -344,5 +346,44 @@ describe("nodefonyChannel — la forme NON paresseuse", () => {
       nodefony: () => unknown;
     };
     expect(() => frais.nodefony()).toThrow(/configureNodefony/u);
+  });
+});
+
+describe("nodefonySse — Svelte", () => {
+  it("🔴 la LECTURE ouvre le flux, la valeur suit, le démontage le FERME", async () => {
+    const banc = sseFetchBench();
+    const journal: string[] = [];
+    const flux = nodefonySse("http://127.0.0.1/flux", {
+      fetch: banc.fetch,
+      events: ["log"],
+      onEvent: (e) => journal.push(e.data),
+    });
+    const app = mount(LitValeur, { target: cible(), props: { source: flux } });
+    flushSync();
+    expect(banc.open()).toBe(1);
+    await settle();
+    flushSync();
+    banc.calls[0]!.push("event: log\ndata: a\n\n");
+    await settle();
+    flushSync();
+    expect(journal).toEqual(["a"]);
+    expect(document.body.textContent).toContain('"data":"a"');
+
+    void unmount(app);
+    flushSync();
+    expect(banc.open()).toBe(0);
+  });
+
+  it("une valeur que PERSONNE ne lit n'ouvre aucun flux", () => {
+    const banc = sseFetchBench();
+    const app = mount(NeLitRien, {
+      target: cible(),
+      props: {
+        source: nodefonySse("http://127.0.0.1/flux", { fetch: banc.fetch }),
+      },
+    });
+    flushSync();
+    expect(banc.calls).toHaveLength(0);
+    void unmount(app);
   });
 });

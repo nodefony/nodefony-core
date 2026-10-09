@@ -95,6 +95,12 @@ import {
   type ObserveSyslogOptions,
   type SocketSnapshot,
 } from "../realtime/observe";
+import {
+  initialSseSnapshot,
+  observeSse,
+  type ObserveSseOptions,
+  type SseSnapshot,
+} from "../sse/observe";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le
 // front fabrique ses canaux cadencés depuis le même subpath que les liaisons.
@@ -114,6 +120,8 @@ export type {
   NodefonyNotice,
 } from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
+export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
+export type { ISseEvent } from "../sse/SseParser";
 
 /**
  * Une valeur réactive à la mode de Svelte 5 : on la lit `.current`.
@@ -507,4 +515,38 @@ export function nodefonyNoticeLog(
     };
     return observeNoticeLog(client, emit, settings);
   });
+}
+
+/**
+ * `nodefonySse()` — l'état d'un flux SSE (`readyState`, dernier événement,
+ * erreur), lu `.current`.
+ *
+ * Indépendant de {@link configureNodefony} : un flux n'est pas la socket
+ * partagée, c'est la réponse à une requête. Comme toutes les valeurs de ce
+ * module, l'ouverture est **paresseuse** : le flux s'ouvre au premier
+ * `.current` lu dans un effet, et se FERME quand le dernier effet lecteur est
+ * détruit — un composant démonté ne laisse aucune requête ouverte. Le rappel
+ * `onEvent` n'est donc appelé que tant que la valeur est affichée.
+ *
+ * L'adresse accepte une fonction ; `null` n'ouvre rien.
+ *
+ * @example
+ * ```svelte
+ * <script lang="ts">
+ *   let lignes = $state<string[]>([]);
+ *   const flux = nodefonySse("/progress/run", {
+ *     events: ["step"],
+ *     onEvent: (e) => lignes.push(e.data),
+ *   });
+ * </script>
+ * <p>état : {flux.current.readyState}</p>
+ * ```
+ */
+export function nodefonySse(
+  url: Source<string | null>,
+  options: ObserveSseOptions = {},
+): Reactive<SseSnapshot> {
+  return observedValue<SseSnapshot>(initialSseSnapshot(read(url)), (emit) =>
+    observeSse(read(url), emit, options),
+  );
 }

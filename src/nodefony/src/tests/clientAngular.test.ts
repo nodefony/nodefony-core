@@ -48,9 +48,11 @@ import {
   injectNodefonyChannel,
   injectNodefonyChannelData,
   injectNodefonySnapshot,
+  injectNodefonySse,
   injectNodefonyState,
   provideNodefony,
 } from "../client/angular/index";
+import { sseFetchBench, settle } from "./fixtures/sseFetch";
 
 /** L'adresse du banc — jamais atteinte : le transport est un mock. */
 const URL_BANC = "ws://loopback/realtime";
@@ -339,5 +341,82 @@ describe("fonctions d'injection — la traduction vers les signals", () => {
     expect(valeur()?.channels).toContain("live:events");
     arreter();
     app.destroy();
+  });
+});
+
+describe("injectNodefonySse — Angular", () => {
+  it("🔴 le contexte OUVRE le flux, le signal suit, sa destruction le FERME", async () => {
+    const banc = sseFetchBench();
+    const journal: string[] = [];
+    const app = await appAvec([]);
+    const { valeur: flux, arreter } = monter(app, () =>
+      injectNodefonySse("http://127.0.0.1/flux", {
+        fetch: banc.fetch,
+        events: ["log"],
+        onEvent: (e) => journal.push(e.data),
+      }),
+    );
+    expect(banc.open()).toBe(1);
+    await settle();
+    expect(flux().readyState).toBe(1);
+    banc.calls[0]!.push("event: log\ndata: a\n\n");
+    await settle();
+    expect(journal).toEqual(["a"]);
+    expect(flux().lastEvent?.data).toBe("a");
+    arreter();
+    expect(banc.open()).toBe(0);
+    app.destroy();
+  });
+
+  it("le flux est ouvert HORS ZONE — aucune détection par morceau lu", async () => {
+    const banc = sseFetchBench();
+    const app = await appAvec([]);
+    const zone = app.injector.get(NgZone);
+    const vraie = zone.runOutsideAngular.bind(zone);
+    vi.spyOn(zone, "runOutsideAngular").mockImplementation(((
+      fn: () => unknown,
+    ) =>
+      vraie(() => {
+        horsZone = true;
+        try {
+          return fn();
+        } finally {
+          horsZone = false;
+        }
+      })) as typeof zone.runOutsideAngular);
+    let fetchHorsZone: boolean | null = null;
+    const espion: typeof fetch = (input, init) => {
+      fetchHorsZone = horsZone;
+      return banc.fetch(input, init);
+    };
+    const { arreter } = monter(app, () =>
+      injectNodefonySse("http://127.0.0.1/flux", { fetch: espion }),
+    );
+    expect(fetchHorsZone).toBe(true);
+    arreter();
+    app.destroy();
+  });
+
+  it("une adresse SIGNAL déplace le flux, et null le ferme", async () => {
+    const banc = sseFetchBench();
+    const app = await appAvec([]);
+    const adresse = signal<string | null>("http://127.0.0.1/a");
+    const { arreter } = monter(app, () =>
+      injectNodefonySse(adresse, { fetch: banc.fetch }),
+    );
+    app.tick();
+    adresse.set("http://127.0.0.1/b");
+    app.tick();
+    expect(banc.calls.map((c) => c.url)).toEqual([
+      "http://127.0.0.1/a",
+      "http://127.0.0.1/b",
+    ]);
+    expect(banc.open()).toBe(1);
+    adresse.set(null);
+    app.tick();
+    expect(banc.open()).toBe(0);
+    arreter();
+    app.destroy();
+    await settle();
   });
 });

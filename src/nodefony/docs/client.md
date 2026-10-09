@@ -494,6 +494,90 @@ binding.dispose(); // coupe le chien de garde, l'écouteur ET l'abonnement
 > Le réglage `enabled: false` (`client/realtime/AdaptiveRate.ts:200`) bascule en abonnement fixe sans
 > changer le code appelant.
 
+## 📡 `NodefonySse` — un flux serveur, et ses quatre liaisons de vue
+
+La socket est un téléphone, le flux SSE une radio : le serveur parle, le navigateur écoute. Côté
+serveur, une action ouvre le flux par `this.renderSse()` — tout est dans la page
+[Flux SSE](../../packages/@nodefony/http/docs/sse.md). Côté navigateur, `NodefonySse`
+(`client/sse/NodefonySse.ts:110`) parle le vocabulaire d'`EventSource` et y ajoute `method`,
+`headers` et `body`.
+
+Une différence avec la socket, et elle est voulue : **un flux n'est pas partagé**. C'est la
+réponse à UNE requête — ses en-têtes et son `Last-Event-ID` lui appartiennent. Chaque composant
+ouvre donc le sien, et le doit FERMER à son démontage : un flux oublié est une requête HTTP qui
+reste ouverte, que personne ne lit.
+
+C'est la seule raison d'être des liaisons. Toutes s'appuient sur `observeSse()`
+(`client/sse/observe.ts:117`), qui ouvre le flux, rend son état et le ferme à la libération ;
+aucune n'écrit d'ouverture de flux elle-même.
+
+| Front   | Fonction                                 | Rend                         | Fermé quand                             |
+| ------- | ---------------------------------------- | ---------------------------- | --------------------------------------- |
+| React   | `useNodefonySse(url, options)`           | `SseSnapshot`                | le composant est démonté                |
+| Vue     | `useNodefonySse(url, options)`           | `Readonly<Ref<SseSnapshot>>` | la portée meurt (`onScopeDispose`)      |
+| Angular | `injectNodefonySse(url, options)`        | `Signal<SseSnapshot>`        | le contexte d'injection est détruit     |
+| Svelte  | `nodefonySse(url, options)` (`.current`) | `Reactive<SseSnapshot>`      | le dernier effet qui la lit est détruit |
+
+L'état, `SseSnapshot`, porte trois champs : `readyState` (0 `CONNECTING`, 1 `OPEN`, 2 `CLOSED`),
+`lastEvent` (le dernier événement reçu, `null` avant le premier) et `error` (la dernière transition
+était une coupure). `CONNECTING` avec `error` : le client se reconnecte. `CLOSED` avec `error` : le
+serveur a refusé le flux (401, 403, autre type de contenu) et le client a abandonné.
+
+Les options sont celles de `NodefonySse`, plus deux :
+
+- `events` — les types écoutés (le champ `event:` du serveur). Défaut : `["message"]`. Un flux qui
+  nomme ses événements n'est entendu que si leur type est listé, comme avec `addEventListener`.
+- `onEvent` — appelé pour CHAQUE événement. L'état ne garde que le dernier : un journal s'accumule
+  ici, sans quoi React, qui regroupe les rendus d'un même tour, en perdrait.
+
+Une adresse `null` n'ouvre rien : la vue suspend l'écoute sans se démonter. Le flux n'est rouvert
+que si l'adresse ou les types écoutés changent (`sseRebindKey()`, `client/sse/observe.ts:95`) —
+un `onEvent` recréé à chaque rendu ne coupe rien.
+
+```tsx ignore
+// React
+const [lignes, setLignes] = useState<string[]>([]);
+const flux = useNodefonySse("/progress/run", {
+  events: ["step"],
+  onEvent: (e) => setLignes((l) => [...l, e.data]),
+});
+```
+
+```ts ignore
+// Vue — l'adresse peut être une ref : le flux la suit
+const lignes = ref<string[]>([]);
+const flux = useNodefonySse("/progress/run", {
+  events: ["step"],
+  onEvent: (e) => lignes.value.push(e.data),
+});
+```
+
+```ts ignore
+// Angular — dans un composant ou un service
+readonly lignes = signal<string[]>([]);
+readonly flux = injectNodefonySse("/progress/run", {
+  events: ["step"],
+  onEvent: (e) => this.lignes.update((l) => [...l, e.data]),
+});
+```
+
+```svelte ignore
+<!-- Svelte — le flux s'ouvre au premier `.current` lu -->
+<script lang="ts">
+  let lignes = $state<string[]>([]);
+  const flux = nodefonySse("/progress/run", {
+    events: ["step"],
+    onEvent: (e) => lignes.push(e.data),
+  });
+</script>
+<p>état : {flux.current.readyState}</p>
+```
+
+Deux écarts entre les fronts, et ce sont ceux de la socket. **Angular ouvre le flux hors zone**
+(`client/angular/index.ts:599`) : avec `zone.js`, chaque morceau lu par `fetch` relancerait une
+détection de changements globale. **Svelte est paresseux** : une valeur créée mais jamais lue
+n'ouvre aucun flux, et `onEvent` ne court que tant qu'elle est affichée.
+
 ## 🔐 Les rôles isomorphes — de l'ergonomie, jamais une garantie
 
 Le subpath `nodefony/roles` fournit des fonctions **pures**, sans état ni dépendance, utilisables

@@ -87,6 +87,12 @@ import {
   type ObserveSyslogOptions,
   type SocketSnapshot,
 } from "../realtime/observe";
+import {
+  initialSseSnapshot,
+  observeSse,
+  type ObserveSseOptions,
+  type SseSnapshot,
+} from "../sse/observe";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le
 // front fabrique ses canaux cadencés depuis le même subpath que les composables.
@@ -106,6 +112,8 @@ export type {
   NodefonyNotice,
 } from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
+export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
+export type { ISseEvent } from "../sse/SseParser";
 
 /**
  * La clé sous laquelle le plugin fournit la socket.
@@ -540,4 +548,39 @@ export function useNodefonyNoticeLog(
     },
   );
   return notices;
+}
+
+/**
+ * `useNodefonySse()` — ouvre un flux SSE, rend son état (`readyState`,
+ * dernier événement, erreur) et le FERME à la mort de la portée.
+ *
+ * Indépendant du plugin : un flux n'est pas la socket partagée, c'est la
+ * réponse à une requête. L'adresse accepte une `ref` ou une fonction : le flux
+ * suit la valeur (l'ancien fermé avant d'ouvrir le nouveau), et `null`
+ * suspend l'écoute. Les réglages sont lus à chaque ouverture.
+ *
+ * @example
+ * ```ts
+ * const lignes = ref<string[]>([]);
+ * const flux = useNodefonySse("/progress/run", {
+ *   events: ["step"],
+ *   onEvent: (e) => lignes.value.push(e.data),
+ * });
+ * ```
+ */
+export function useNodefonySse(
+  url: MaybeRefOrGetter<string | null>,
+  options: ObserveSseOptions = {},
+): Readonly<Ref<SseSnapshot>> {
+  const snapshot = shallowRef<SseSnapshot>(initialSseSnapshot(toValue(url)));
+  observeReactive("useNodefonySse()", url, (address) =>
+    observeSse(
+      address,
+      (value) => {
+        snapshot.value = value;
+      },
+      options,
+    ),
+  );
+  return snapshot;
 }

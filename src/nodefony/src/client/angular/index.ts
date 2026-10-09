@@ -108,6 +108,12 @@ import {
   type ObserveSyslogOptions,
   type SocketSnapshot,
 } from "../realtime/observe";
+import {
+  initialSseSnapshot,
+  observeSse,
+  type ObserveSseOptions,
+  type SseSnapshot,
+} from "../sse/observe";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le
 // front fabrique ses canaux cadencés depuis le même subpath que les fonctions.
@@ -127,6 +133,8 @@ export type {
   NodefonyNotice,
 } from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
+export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
+export type { ISseEvent } from "../sse/SseParser";
 
 /**
  * Le jeton sous lequel {@link provideNodefony} enregistre la socket.
@@ -564,4 +572,41 @@ export function injectNodefonyNoticeLog(
     wire,
   );
   return notices.asReadonly();
+}
+
+/**
+ * `injectNodefonySse()` — ouvre un flux SSE, rend son état (`readyState`,
+ * dernier événement, erreur) en signal, et le FERME à la destruction du
+ * contexte d'injection (composant ou service).
+ *
+ * Indépendant de {@link provideNodefony} : un flux n'est pas la socket
+ * partagée, c'est la réponse à une requête. L'adresse accepte un signal (ou
+ * toute fonction qui le lit) : le flux suit la valeur, et `null` suspend
+ * l'écoute.
+ *
+ * Le flux est ouvert **hors zone**, pour la même raison que la socket : avec
+ * `zone.js`, chaque morceau lu par `fetch` relancerait une détection de
+ * changements globale. Le signal, lui, notifie ses lecteurs sans zone.
+ *
+ * @example
+ * ```ts
+ * readonly flux = injectNodefonySse("/progress/run", {
+ *   events: ["step"],
+ *   onEvent: (e) => this.steps.update((s) => [...s, e.data]),
+ * });
+ * ```
+ */
+export function injectNodefonySse(
+  url: Source<string | null>,
+  options: ObserveSseOptions = {},
+): Signal<SseSnapshot> {
+  assertInInjectionContext(injectNodefonySse);
+  const zone = inject(NgZone);
+  const snapshot = signal<SseSnapshot>(initialSseSnapshot(read(url)));
+  observeReactive(url, (address) =>
+    zone.runOutsideAngular(() =>
+      observeSse(address, (value) => snapshot.set(value), options),
+    ),
+  );
+  return snapshot.asReadonly();
 }

@@ -31,8 +31,10 @@ import {
   useNodefonyChannel,
   useNodefonyChannelData,
   useNodefonySnapshot,
+  useNodefonySse,
   useNodefonyState,
 } from "../client/vue/index";
+import { sseFetchBench, settle } from "./fixtures/sseFetch";
 
 class MockTransport implements IRealtimeTransport {
   readyState: number = TransportState.CONNECTING;
@@ -268,5 +270,55 @@ describe("composables — la traduction vers la réactivité", () => {
     expect(valeur.value?.state).toBe("connected");
     expect(valeur.value?.channels).toContain("live:events");
     arreter();
+  });
+});
+
+describe("useNodefonySse — Vue", () => {
+  it("🔴 la portée OUVRE le flux, l'état suit, sa mort le FERME", async () => {
+    const banc = sseFetchBench();
+    const journal: string[] = [];
+    const portee = effectScope();
+    const flux = portee.run(() =>
+      useNodefonySse("http://127.0.0.1/flux", {
+        fetch: banc.fetch,
+        events: ["log"],
+        onEvent: (e) => journal.push(e.data),
+      }),
+    )!;
+    expect(banc.open()).toBe(1);
+    await settle();
+    expect(flux.value.readyState).toBe(1);
+    banc.calls[0]!.push("event: log\ndata: a\n\n");
+    await settle();
+    expect(journal).toEqual(["a"]);
+    expect(flux.value.lastEvent?.data).toBe("a");
+    portee.stop();
+    expect(banc.open()).toBe(0);
+  });
+
+  it("l'adresse en ref : le flux la SUIT, et null le ferme", async () => {
+    const banc = sseFetchBench();
+    const adresse = ref<string | null>("http://127.0.0.1/a");
+    const portee = effectScope();
+    portee.run(() => useNodefonySse(adresse, { fetch: banc.fetch }));
+    adresse.value = "http://127.0.0.1/b";
+    await settle();
+    expect(banc.calls.map((c) => c.url)).toEqual([
+      "http://127.0.0.1/a",
+      "http://127.0.0.1/b",
+    ]);
+    expect(banc.open()).toBe(1);
+    adresse.value = null;
+    await settle();
+    expect(banc.open()).toBe(0);
+    portee.stop();
+  });
+
+  it("hors portée : REFUS — le flux ne serait jamais fermé", () => {
+    expect(() =>
+      useNodefonySse("http://127.0.0.1/flux", {
+        fetch: sseFetchBench().fetch,
+      }),
+    ).toThrow(/portée/);
   });
 });

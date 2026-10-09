@@ -118,8 +118,8 @@ Redux) peuvent tenir le même canal sans se marcher dessus — chacun compte pou
 Le binding lui-même reste volontairement pauvre. Il ne fait que trois choses :
 
 1. **Publier le client** dans le contexte React — `NodefonyProvider` (`client/react/index.ts:116`)
-   au-dessus d'un `NodefonyContext` (`client/react/index.ts:77`).
-2. **Capturer les handlers par référence** — `handlerRef` (`client/react/index.ts:204`) : un handler
+   au-dessus d'un `NodefonyContext` (`client/react/index.ts:86`).
+2. **Capturer les handlers par référence** — `handlerRef` (`client/react/index.ts:213`) : un handler
    redéfini à chaque rendu ne re-déclenche jamais l'abonnement, donc **aucun `useCallback` requis**.
 3. **Lire l'état sans tearing** — `useNodefonyState()` (`client/react/index.ts:163`) passe par
    `useSyncExternalStore`, qui garantit une valeur cohérente en rendu concurrent.
@@ -305,19 +305,19 @@ décide du coût de ton écran.
 
 | Hook                                  | Rend                           | Re-rend quand                                   | Ancre                       |
 | ------------------------------------- | ------------------------------ | ----------------------------------------------- | --------------------------- |
-| `NodefonyProvider`                    | le sous-arbre                  | quand `client` change                           | `client/react/index.ts:146` |
-| `useNodefony()`                       | le client                      | **jamais** (référence stable)                   | `client/react/index.ts:145` |
+| `NodefonyProvider`                    | le sous-arbre                  | quand `client` change                           | `client/react/index.ts:155` |
+| `useNodefony()`                       | le client                      | **jamais** (référence stable)                   | `client/react/index.ts:154` |
 | `useNodefonyState()`                  | l'état de connexion            | à chaque changement d'état                      | `client/react/index.ts:163` |
-| `useNodefonyIdentity()`               | l'identité, ou `null`          | à l'accueil et au logout                        | `client/react/index.ts:166` |
-| `useNodefonyChannel()`                | rien                           | **jamais** — ton handler décide                 | `client/react/index.ts:198` |
-| `useNodefonyChannelData<T>()`         | la dernière valeur             | à chaque message du canal                       | `client/react/index.ts:210` |
-| `useNodefonyAdaptiveChannel()`        | la cadence effective (ms)      | à chaque changement de cadence                  | `client/react/index.ts:244` |
+| `useNodefonyIdentity()`               | l'identité, ou `null`          | à l'accueil et au logout                        | `client/react/index.ts:191` |
+| `useNodefonyChannel()`                | rien                           | **jamais** — ton handler décide                 | `client/react/index.ts:207` |
+| `useNodefonyChannelData<T>()`         | la dernière valeur             | à chaque message du canal                       | `client/react/index.ts:231` |
+| `useNodefonyAdaptiveChannel()`        | la cadence effective (ms)      | à chaque changement de cadence                  | `client/react/index.ts:266` |
 | `useNodefonyAdaptiveChannelData<T>()` | `{ data, intervalMs }`         | à chaque message **ou** changement de cadence   | `client/react/index.ts:221` |
-| `useNodefonyChannelStats()`           | débit, série, total            | ⚠️ une seule fois — voir Pièges                 | `client/react/index.ts:328` |
+| `useNodefonyChannelStats()`           | débit, série, total            | ⚠️ une seule fois — voir Pièges                 | `client/react/index.ts:339` |
 | `useNodefonySnapshot()`               | l'état de la socket, ou `null` | à chaque échantillon (canaux, trames, dernière) | `client/react/index.ts:350` |
-| `useNodefonySyslog()`                 | un tampon de lignes de log     | à chaque lot retenu par le filtre               | `client/react/index.ts:373` |
-| `useNodefonyNotifications()`          | rien                           | **jamais** — ton handler décide                 | `client/react/index.ts:398` |
-| `useNodefonyNoticeLog()`              | un tampon de notices           | à chaque notice retenue                         | `client/react/index.ts:428` |
+| `useNodefonySyslog()`                 | un tampon de lignes de log     | à chaque lot retenu par le filtre               | `client/react/index.ts:384` |
+| `useNodefonyNotifications()`          | rien                           | **jamais** — ton handler décide                 | `client/react/index.ts:410` |
+| `useNodefonyNoticeLog()`              | un tampon de notices           | à chaque notice retenue                         | `client/react/index.ts:437` |
 
 ### `NodefonyProvider` — publier le client dans l'arbre
 
@@ -384,7 +384,7 @@ Deux propriétés à connaître :
 - **Le handler n'a pas besoin d'être mémoïsé** : il est capturé par référence à chaque rendu
   (`client/react/index.ts:126`). Le passer en fonction fléchée inline est le bon usage.
 - **`deps` est réservé au nom du canal.** Le troisième argument est concaténé aux dépendances de
-  l'effet (`client/react/index.ts:201`) : n'y mets que ce qui doit provoquer un **ré-abonnement**.
+  l'effet (`client/react/index.ts:210`) : n'y mets que ce qui doit provoquer un **ré-abonnement**.
 
 ### `useNodefonyChannelData<T>()` — la dernière valeur
 
@@ -474,7 +474,7 @@ le lot groupé `{ logs, dropped }` — c'est la forme normale, produite par `cre
 | `channel`    | `"nodefony:syslog"` | Canal source                                                  |
 
 Le tableau `severities` n'a pas besoin d'être mémoïsé : la dépendance de l'effet est la **chaîne**
-jointe (`sevKey`, `client/react/index.ts:376`), pas le tableau.
+jointe (`sevKey`, `client/react/index.ts:387`), pas le tableau.
 
 > [!CAUTION]
 > Le filtre — porté par le socle, pas par le hook — compare la valeur du champ `severity` de chaque entrée aux chaînes fournies
@@ -506,7 +506,7 @@ filtrable par source (`"realtime" | "api" | "server"`). Utile pour un panneau «
 des toasts, qui eux disparaissent.
 
 Comme pour le journal, la liste `sources` n'a pas besoin d'être mémoïsée (`srcKey`,
-`client/react/index.ts:433`).
+`client/react/index.ts:442`).
 
 ### Fabriquer un nom de canal cadencé
 
@@ -660,16 +660,16 @@ Studio.
 
 | Symptôme                                                       | Cause                                                                                                        | Correction                                                                                               |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `useNodefony() doit être utilisé dans un <NodefonyProvider>`   | Hook monté hors du sous-arbre du fournisseur (`client/react/index.ts:145`)                                   | Remonter `NodefonyProvider` au shell, au-dessus du routeur                                               |
+| `useNodefony() doit être utilisé dans un <NodefonyProvider>`   | Hook monté hors du sous-arbre du fournisseur (`client/react/index.ts:154`)                                   | Remonter `NodefonyProvider` au shell, au-dessus du routeur                                               |
 | `Module 'nodefony' has no exported member 'NodefonySocket'`    | Condition d'export `browser` inactive dans le `tsconfig.json` de l'app                                       | Importer depuis `nodefony/client`, ou ajouter `customConditions: ["browser"]`                            |
 | Rien n'arrive et l'état reste `disconnected`                   | Les hooks s'abonnent mais ne connectent pas                                                                  | Appeler `socket.connect()` une fois (`client/realtime/NodefonySocket.ts:592`)                            |
 | Après la connexion, l'état reste `error` jusqu'au rechargement | La socket refusée en 1008 ne retente pas seule ; l'identité est figée au handshake                           | `retryNow()` (`client/realtime/NodefonySocket.ts:566`) si `error`, sinon `disconnect()` puis `connect()` |
 | Un `subscribe`/`unsubscribe`/`subscribe` par montage           | StrictMode double le montage ; le comptage est symétrique                                                    | Comportement attendu en développement ; absent en production                                             |
 | Le débit de `useNodefonyChannelStats()` reste figé             | `trackFrame()` mute le même objet de stats (`client/realtime/NodefonySocket.ts:1202`) → React court-circuite | Compter soi-même via `useNodefonyChannel()`                                                              |
-| `useNodefonySyslog({ severities })` ne rend rien               | Le filtre compare un champ numérique à des noms (`client/react/index.ts:373`)                                | Filtrer au rendu sur `severityName` (`Pdu.ts:180`)                                                       |
+| `useNodefonySyslog({ severities })` ne rend rien               | Le filtre compare un champ numérique à des noms (`client/react/index.ts:384`)                                | Filtrer au rendu sur `severityName` (`Pdu.ts:180`)                                                       |
 | L'abonnement se refait à chaque frappe                         | Le nom du canal est recalculé et passé dans `deps`                                                           | Ne mettre dans `deps` que ce qui doit vraiment ré-abonner                                                |
 | Changer un réglage AIMD ne change rien                         | Les options sont capturées par référence (`client/react/index.ts:192`)                                       | Passer par `desiredMs`/`enabled`, ou ajouter la valeur aux `deps`                                        |
-| Toasts en double, voire en triple                              | `useNodefonyNotifications` monté dans plusieurs composants                                                   | Un seul montage, au shell (`client/react/index.ts:398`)                                                  |
+| Toasts en double, voire en triple                              | `useNodefonyNotifications` monté dans plusieurs composants                                                   | Un seul montage, au shell (`client/react/index.ts:410`)                                                  |
 | Une exception dans un handler disparaît sans trace             | Le dispatch avale les erreurs de handler (`client/realtime/NodefonySocket.ts:1335`)                          | Envelopper le corps du handler dans son propre `try`/`catch`                                             |
 | Un écran perd son flux quand un autre se démonte               | N'arrive plus : le compteur vit dans le client (`client/realtime/NodefonySocket.ts:752`)                     | Rien à faire — vérifier qu'on n'appelle pas `unsubscribe` à la main                                      |
 | Un canal cadencé ne renvoie jamais rien                        | Le serveur n'a pas déclaré de bornes pour ce canal                                                           | Vérifier la résolution serveur (`realtime/channelRate.ts:63`)                                            |

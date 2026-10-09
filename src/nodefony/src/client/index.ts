@@ -49,6 +49,10 @@ export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
 // Flux d'événements serveur (SSE) — client et analyseur UNIQUE du format.
 export type { NodefonySseOptions } from "./sse/NodefonySse";
 export type { ISseEvent, ISseParserHandlers } from "./sse/SseParser";
+// Socle agnostique des liaisons SSE (`useNodefonySse`, `injectNodefonySse`,
+// `nodefonySse`) : ouverture, état, fermeture — écrits une fois pour les quatre.
+export { observeSse, initialSseSnapshot, sseRebindKey } from "./sse/observe";
+export type { SseSnapshot, ObserveSseOptions } from "./sse/observe";
 // Vocabulaire des sévérités RFC 5424 — isomorphe : la console
 // d'administration en tirait deux copies locales, dans deux ordres.
 export type { Severity, SeverityName } from "../syslog/Pdu";

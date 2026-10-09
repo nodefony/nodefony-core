@@ -54,6 +54,13 @@ import {
   type ObserveNoticeLogOptions,
   type SocketSnapshot,
 } from "../realtime/observe";
+import {
+  initialSseSnapshot,
+  observeSse,
+  sseRebindKey,
+  type ObserveSseOptions,
+  type SseSnapshot,
+} from "../sse/observe";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le front
 // fabrique ses canaux cadencés depuis le même subpath que les hooks canal.
@@ -73,6 +80,8 @@ export type {
   NodefonyNotice,
 } from "../realtime/NodefonySocket";
 export type { SocketSnapshot } from "../realtime/observe";
+export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
+export type { ISseEvent } from "../sse/SseParser";
 
 const NodefonyContext = React.createContext<NodefonySocket | null>(null);
 
@@ -442,4 +451,50 @@ export function useNodefonyNoticeLog(
   // oxlint-enable react-hooks/exhaustive-deps
 
   return notices;
+}
+
+/**
+ * `useNodefonySse()` — ouvre un flux SSE au montage, rend son état
+ * (`readyState`, dernier événement, erreur), et le FERME au démontage.
+ *
+ * Indépendant du Provider : un flux n'est pas la socket partagée, c'est la
+ * réponse à une requête — ce hook marche donc dans n'importe quel composant.
+ * Une adresse `null` n'ouvre rien (écoute suspendue sans démonter).
+ *
+ * Le flux n'est rouvert que si l'adresse ou les types écoutés changent : un
+ * `onEvent` ou un objet d'options recréé à chaque rendu ne coupe rien. Pour
+ * tenir un journal, accumuler dans `onEvent` — l'état ne garde que le dernier
+ * événement, et React regroupe les rendus d'un même tour.
+ *
+ * @example
+ * ```tsx
+ * const flux = useNodefonySse("/progress/run", {
+ *   events: ["step"],
+ *   onEvent: (e) => setSteps((s) => [...s, JSON.parse(e.data)]),
+ * });
+ * ```
+ */
+export function useNodefonySse(
+  url: string | null,
+  options: ObserveSseOptions = {},
+): SseSnapshot {
+  const optionsRef = React.useRef(options);
+  optionsRef.current = options;
+  const [snapshot, setSnapshot] = React.useState<SseSnapshot>(() =>
+    initialSseSnapshot(url),
+  );
+  const key = sseRebindKey(url, options);
+
+  // oxlint-disable react-hooks/exhaustive-deps -- `key` résume l'adresse et les types écoutés ; les autres réglages sont lus à l'ouverture, et `onEvent` passe par la ref
+  React.useEffect(
+    () =>
+      observeSse(url, setSnapshot, {
+        ...optionsRef.current,
+        onEvent: (event) => optionsRef.current.onEvent?.(event),
+      }),
+    [key],
+  );
+  // oxlint-enable react-hooks/exhaustive-deps
+
+  return snapshot;
 }
