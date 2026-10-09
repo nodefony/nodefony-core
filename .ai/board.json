@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T20:54:07.675Z",
+  "generatedAt": "2026-10-09T21:44:17.327Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 101,
+      "closed": 104,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 47,
+      "open": 44,
       "title": "10.0.0-beta"
     },
     {
@@ -2359,8 +2359,8 @@
       "number": 578,
       "title": "feat(cli): éprouver et rendre visible l'installation globale du CLI",
       "url": "https://github.com/nodefony/nodefony-core/issues/578",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2435,8 +2435,8 @@
       "number": 551,
       "title": "fix(mcp): ne plus renvoyer le message brut d'un outil qui échoue",
       "url": "https://github.com/nodefony/nodefony-core/issues/551",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -2451,8 +2451,8 @@
       "number": 552,
       "title": "feat(security): signaler une zone ouverte à quiconque peut créer un compte",
       "url": "https://github.com/nodefony/nodefony-core/issues/552",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
