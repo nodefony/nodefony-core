@@ -12,12 +12,7 @@ import type {
   ISessionListQuery,
 } from "@nodefony/http";
 import type { IPage } from "nodefony";
-import {
-  assertPageQuery,
-  isPlainObject,
-  pickOrder,
-  renameOrderFields,
-} from "nodefony";
+import { assertPageQuery, pickOrder, renameOrderFields } from "nodefony";
 import { ormRegistry, paginate } from "@nodefony/orm-core";
 import type { IRepository, Criteria } from "@nodefony/orm-core";
 import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
@@ -28,11 +23,26 @@ import { SESSION_CONNECTOR, type SessionRow } from "../entity/sessionEntity";
  * forme, écrite par un autre outil, s'écarte ici au lieu de traverser le code
  * sous un type qui ment.
  *
+ * Chemin CHAUD (trois appels par lecture de session) : la garde se borne à
+ * `typeof` + `Array.isArray`, quelques ns. `isPlainObject` du cœur, qui
+ * compare le source du constructeur, y coûtait ~1,1 µs par lecture.
+ *
  * @param value - champ `Attributes`, `metaBag` ou `flashBag` de la ligne
  * @returns le sac, ou un sac vide
  */
 function bag(value: unknown): Record<string, unknown> {
-  return isPlainObject(value) ? value : {};
+  return isBag(value) ? value : {};
+}
+
+/**
+ * Vrai pour un objet non nul qui n'est pas un tableau — la forme d'un sac lu
+ * par le pilote MongoDB (BSON ne produit que des objets simples ou des tableaux).
+ *
+ * @param value - champ lu en base
+ * @returns `true` si ses propriétés se lisent comme un dictionnaire
+ */
+function isBag(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
