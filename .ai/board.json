@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T16:36:18.966Z",
+  "generatedAt": "2026-10-09T18:45:56.719Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2426,7 +2426,7 @@
       "title": "feat(client): rendre le noyau client accessible aux composants",
       "url": "https://github.com/nodefony/nodefony-core/issues/576",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
