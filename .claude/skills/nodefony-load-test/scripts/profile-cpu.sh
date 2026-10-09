@@ -11,7 +11,12 @@
 # Env : NF_PROFILE_DIR (défaut tmp/profiles), BENCH_CONN (128 ; 25 sur un banc ORM
 #   synchrone, au-delà on profile une file), BENCH_DUR (20 s), XENV (variables passées au serveur,
 #   ex. « NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=30 » pour la route de
-#   banc de @nodefony/test, absente en production sinon — un 404 se profile aussi).
+#   banc de @nodefony/test, absente en production sinon — un 404 se profile aussi),
+#   BENCH_LOGIN (« identifiant:mot de passe » — requête AUTHENTIFIÉE : une
+#   connexion après le boot, puis le cookie de session porté par CHAQUE requête,
+#   contrôle et wrk compris. C'est le seul moyen de profiler la session, le
+#   pare-feu et le rechargement de l'utilisateur ; sans lui, une route protégée
+#   répond 401 et le contrôle refuse de mesurer).
 # ⚠️ Toujours en production : `phaseStart/phaseEnd` ne sont actifs qu'ailleurs,
 #   et un profil pris en développement surestime le coût du pipeline.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -26,10 +31,20 @@ env NODE_ENV=production NF_LOG_DRIVER=null NF_BENCH_ROUTE=1 ${XENV:-} PORT=$PORT
   node --cpu-prof --cpu-prof-dir="$OUT" --cpu-prof-interval 200 "$@" >"$OUT/server.log" 2>&1 &
 PID=$!
 for _ in $(seq 1 150); do curl -s -o /dev/null "$URL" && break; sleep 0.2; done
-CODE=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+HDR=()
+if [ -n "${BENCH_LOGIN:-}" ]; then
+  # Un seul cookie par nom, attributs retirés : ce que le navigateur renverrait.
+  COOKIE=$(curl -s -D - -o /dev/null -H 'content-type: application/json' \
+    -d "{\"username\":\"${BENCH_LOGIN%%:*}\",\"password\":\"${BENCH_LOGIN#*:}\"}" \
+    "http://127.0.0.1:$PORT/nodefony/security/api/auth/login" |
+    awk 'tolower($1)=="set-cookie:" { split($2, a, ";"); printf "%s; ", a[1] }')
+  [ -n "$COOKIE" ] || { echo "❌ connexion ${BENCH_LOGIN%%:*} refusée — aucun cookie de session"; kill -INT $PID; exit 1; }
+  HDR=(-H "Cookie: $COOKIE")
+fi
+CODE=$(curl -s -o /dev/null -w '%{http_code}' ${HDR[@]+"${HDR[@]}"} "$URL")
 [ "$CODE" = "200" ] || { echo "❌ $URL répond $CODE — rien ne serait valide"; kill -INT $PID; exit 1; }
-wrk -t4 -c"${BENCH_CONN:-128}" -d10s "$URL" >/dev/null
-wrk -t4 -c"${BENCH_CONN:-128}" -d"${BENCH_DUR:-20}"s "$URL" > "$OUT/wrk.txt"
+wrk -t4 -c"${BENCH_CONN:-128}" -d10s ${HDR[@]+"${HDR[@]}"} "$URL" >/dev/null
+wrk -t4 -c"${BENCH_CONN:-128}" -d"${BENCH_DUR:-20}"s ${HDR[@]+"${HDR[@]}"} "$URL" > "$OUT/wrk.txt"
 grep -E "Requests/sec|Latency|Non-2xx" "$OUT/wrk.txt"
 # Le débit SERVI fixe le dénominateur de profile-analyze (µs par requête).
 # Une réponse non-2xx coûte moins qu'une vraie : le profil serait faux.
