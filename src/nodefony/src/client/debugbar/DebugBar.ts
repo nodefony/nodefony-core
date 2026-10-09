@@ -153,6 +153,12 @@ export interface DebugBarOptions {
   network?: boolean;
   /** Base du data-plane profiler. Défaut `/nodefony/profiler/api`. */
   profilerBase?: string;
+  /**
+   * Environnement du serveur, connu AU RENDU de la page (`development`…).
+   * Affiché tout de suite, sans attendre la socket — qui ne s'ouvre qu'avec le
+   * panneau. Les mesures du serveur le remplacent dès qu'elles arrivent.
+   */
+  env?: string;
 }
 
 /** Métadonnées d'affichage par framework (couleur de marque officielle). */
@@ -214,7 +220,10 @@ const STYLES = `
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; color: var(--muted); }
 .dot.connected { background: var(--ok); color: var(--ok); animation: pulse 2s infinite; }
 .dot.connecting, .dot.reconnecting { background: var(--warn); color: var(--warn); }
-.dot.error, .dot.disconnected { background: var(--crit); color: var(--crit); }
+.dot.error { background: var(--crit); color: var(--crit); }
+/* Fermée n'est pas en panne : une socket qu'on n'a pas encore ouverte (elle s'ouvre
+   avec le panneau) reste neutre. Le rouge est réservé à l'erreur. */
+.dot.disconnected { background: var(--muted); color: var(--muted); }
 @keyframes pulse { 0%{box-shadow:0 0 0 0 currentColor} 70%{box-shadow:0 0 0 5px transparent} 100%{box-shadow:0 0 0 0 transparent} }
 
 .metric { display: flex; align-items: center; gap: 6px; white-space: nowrap; flex:none; }
@@ -225,9 +234,8 @@ const STYLES = `
 .chip { display:flex; align-items:center; gap:6px; padding:.2em .7em; border-radius:11px; flex:none;
   background:#22262e; font-weight:700; font-size:.92em; white-space:nowrap; }
 .chip .k { color: var(--muted); font-size:.82em; text-transform:uppercase; }
+.chip .hmrv { color: var(--orange); }
 .spacer { flex: 1 1 auto; min-width: 8px; }
-.toggle { color: var(--muted); font-size: .85em; transition: transform .25s; flex:none; }
-.bar.open .toggle { transform: rotate(180deg); }
 .ok{color:var(--ok)} .warn{color:var(--warn)} .crit{color:var(--crit)} .info{color:var(--info)} .muted{color:var(--muted)} .blue{color:var(--blue2)}
 .spark.ok{stroke:var(--ok)} .spark.warn{stroke:var(--warn)} .spark.crit{stroke:var(--crit)} .spark.rt{stroke:var(--blue2)}
 .area.ok{fill:rgba(54,179,126,.12)} .area.warn{fill:rgba(255,171,0,.14)} .area.crit{fill:rgba(255,86,48,.16)} .area.rt{fill:rgba(58,160,255,.16)}
@@ -257,7 +265,10 @@ const STYLES = `
 .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:11px 13px; }
 .card.hero { border-color: rgba(58,160,255,.35);
   background: linear-gradient(160deg, rgba(0,103,186,.16), rgba(28,31,38,.7) 60%); }
-.card > h4 { margin:0 0 9px; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); font-weight:800; display:flex; gap:6px; align-items:center; }
+/* Intitulés de carte, PAS des titres : la barre se superpose à une page qui a son
+   propre plan (h1, h2…) ; des <h4> s'y inséraient en sautant des niveaux (axe :
+   heading-order). Un outil superposé ne touche pas au plan de l'application. */
+.card > .ttl { margin:0 0 9px; font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); font-weight:800; display:flex; gap:6px; align-items:center; }
 
 .hero .big { font-size:30px; font-weight:800; line-height:1; letter-spacing:-.5px;
   background:linear-gradient(90deg,var(--blue2),var(--orange)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
@@ -327,6 +338,8 @@ const STYLES = `
   letter-spacing:.6px; text-transform:uppercase; color:#0b0d10; background:var(--muted); flex:none; }
 .env-badge.dev { background: var(--ok); } .env-badge.prod { background: var(--crit); color:#fff; }
 .env-badge.test { background: var(--warn); } .env-badge.staging { background:#a06bff; color:#fff; }
+.branch[hidden] { display:none; }
+.branch .k { color:var(--muted); font-size:.82em; text-transform:uppercase; }
 .branch { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; flex:none;
   background:#22262e; font-weight:700; max-width:200px; cursor:help; }
 .branch .git { color:var(--blue2); } .branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -363,15 +376,62 @@ const STYLES = `
 .strip > :last-child[data-tip]::after { left: auto; right: 0; transform: none; }
 @media (prefers-reduced-motion: reduce) { [data-tip]::after { transition: none; } }
 
-.ctrl { color:var(--muted); cursor:pointer; padding:0 4px; font-weight:800; font-size:1.05em; line-height:1; flex:none; }
-.ctrl:hover { color:#fff; }
-.ctrl.live { font-size:.78em; font-weight:700; border:1px solid var(--line); border-radius:6px; padding:2px 7px; letter-spacing:.3px; }
-.ctrl.live.on { color:var(--ok); border-color:var(--ok); }
-.ctrl.live:not(.on) { color:var(--muted); }
+/* Contrôles de la barre. Trois choix, chacun contre un défaut vu à l'écran :
+   — une police d'INTERFACE, pas le monospace des mesures : un libellé de bouton
+     se lit, il ne s'aligne pas en colonne ;
+   — des icônes TRACÉES (SVG, 16 px, trait 1,6) : les glyphes de police (▴, ▁, ⇄)
+     changent de taille et de graisse d'une police à l'autre, et lisaient
+     « grossier » ;
+   — une hiérarchie : « Réduire » et « Ouvrir » sont un seul contrôle segmenté,
+     discret ; seul « Ouvrir » porte l'accent, en couleur de texte, pas en aplat.
+   Cible : 28 px de haut, au-delà des 24 px de WCAG 2.5.8. */
+.strip button.ui, .strip .ui button { font: 600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: 0; }
+.ico { width: 16px; height: 16px; flex: none; display: block; }
+.ico path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.seg { display: flex; align-items: stretch; flex: none; border: 1px solid var(--line);
+  border-radius: 8px; background: #1a1d23; overflow: hidden; }
+.strip .seg button { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px;
+  color: #b8bec8; transition: background .15s, color .15s; }
+.strip .seg button + button { border-left: 1px solid var(--line); }
+.strip .seg button:hover { background: #242933; color: #fff; }
+.strip .seg button:focus-visible { outline-offset: -2px; }
+.strip .seg button.toggle { color: var(--blue2); }
+.strip .seg button.toggle:hover { color: #fff; background: rgba(0,103,186,.35); }
+.toggle .chev { transition: transform .2s ease; }
+.bar.open .toggle .chev { transform: rotate(180deg); }
+/* « Temps réel » : UN contrôle, qui dit l'état ET le bascule. Il y en avait
+   deux — une pastille « REALTIME » (la connexion) et un interrupteur « Direct »
+   (l'abonnement) — et personne ne savait lequel lire. L'état est écrit en
+   toutes lettres à côté du nom ; la couleur ne fait que le confirmer. */
+.strip button.rt { display:flex; align-items:center; gap:8px; height:28px; padding:0 12px 0 10px; flex:none;
+  border:1px solid var(--line); border-radius:999px; background:#1a1d23; color:#b8bec8;
+  transition: border-color .15s, background .15s, color .15s; }
+.strip button.rt:hover { border-color:#4a5160; color:#fff; }
+.rt .rt-dot { width:8px; height:8px; border-radius:50%; background:#5b6270; flex:none; }
+.rt .rt-name { color:#e8eaed; }
+.rt .rt-state { color:var(--muted); font-weight:500; }
+.rt .rt-state::before { content:"·"; margin-right:6px; color:#4a5160; }
+.strip button.rt.live { border-color:rgba(54,179,126,.55); background:rgba(54,179,126,.1); }
+.rt.live .rt-dot { background:var(--ok); animation: rtpulse 2s ease-out infinite; }
+.rt.live .rt-state { color:var(--ok); }
+.strip button.rt.wait { border-color:rgba(255,171,0,.5); }
+.rt.wait .rt-dot { background:var(--warn); }
+.rt.wait .rt-state { color:var(--warn); }
+.rt.paused .rt-dot { background:var(--blue2); }
+.strip button.rt.refused { border-color:rgba(255,86,48,.55); background:rgba(255,86,48,.08); }
+.rt.refused .rt-dot { background:var(--crit); }
+.rt.refused .rt-state { color:var(--crit); }
+@keyframes rtpulse { 0% { box-shadow:0 0 0 0 rgba(54,179,126,.6); } 70% { box-shadow:0 0 0 6px rgba(54,179,126,0); } 100% { box-shadow:0 0 0 0 rgba(54,179,126,0); } }
+.strip button.brand { display:flex; align-items:center; gap:8px; font-weight:800; letter-spacing:.2px; border-radius:7px; padding:4px 8px; margin:-4px -8px; }
+.strip button.brand:hover { background:rgba(58,160,255,.12); }
+@media (prefers-reduced-motion: reduce) { .toggle .chev { transition: none; } .rt.live .rt-dot { animation: none; } }
+/* Écran étroit : les libellés se replient, l'icône et le nom accessible restent. */
+@media (max-width: 1100px) { .seg .lbl { display: none; } .strip .seg button { padding: 0 8px; } }
+.conn-refused { color: var(--crit); border-color: rgba(255,86,48,.5); }
 
-.minbar { position:fixed; z-index:2147483000; display:none; align-items:center; gap:8px;
-  padding:6px 13px; border-radius:22px; cursor:pointer;
-  font:12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color:#e8eaed;
+.minbar { position:fixed; z-index:2147483000; display:none; align-items:center; gap:9px;
+  min-height:36px; padding:7px 9px 7px 14px; border-radius:22px; cursor:pointer; margin:0;
+  font:13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color:#e8eaed;
   background:rgba(18,20,25,.92); backdrop-filter:blur(12px);
   border:1px solid rgba(58,160,255,.45); box-shadow:0 4px 20px rgba(0,0,0,.5); }
 .minbar:hover { border-color:#3aa0ff; box-shadow:0 4px 26px rgba(58,160,255,.4); }
@@ -382,6 +442,15 @@ const STYLES = `
 .minbar .dot.connecting,.minbar .dot.reconnecting { background:#ffab00; }
 .minbar .mlogo { color:#ff8a3d; } .minbar .mrate { font-weight:800; }
 .minbar .mbadge { font-size:9px; font-weight:800; text-transform:uppercase; color:#8a9099; }
+.minbar .mname { font-weight:800; }
+.minbar .mopen { display:flex; align-items:center; gap:4px; font:600 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color:#3aa0ff; padding:4px 6px 4px 10px; border-left:1px solid #2a2e36; }
+.minbar .mopen .ico { width:16px; height:16px; }
+.minbar .mopen .ico path { fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.minbar:hover .mopen { color:#fff; }
+.minbar:focus-visible { outline:2px solid #36b37e; outline-offset:2px; }
+.side-choice { display:flex; gap:6px; margin-top:6px; }
+.side-choice .toolbtn[aria-pressed="true"] { color:#fff; border-color:#3aa0ff; background:rgba(58,160,255,.15); }
 
 /* ── Network ─────────────────────────────────────────────────────────────── */
 .net-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
@@ -614,6 +683,10 @@ export class DebugBar {
   private selectedRid: string | null = null;
   private selRowId: number | null = null;
   private selNoRid = false; // ligne cliquée sans requestId lisible
+  /** Le serveur a refusé la socket faute de session administrateur (1008). */
+  private refused = false;
+  /** Environnement transmis au montage — en attendant celui des mesures. */
+  private readonly initialEnv: string;
   private detailVersion = 0;
   private detailRendered = -1;
 
@@ -621,6 +694,7 @@ export class DebugBar {
     this.url = opts.url ?? DEFAULT_PATH;
     this.position = opts.position ?? "bottom";
     this.startOpen = opts.open ?? false;
+    this.initialEnv = opts.env ?? "";
     // Client TOUJOURS partagé : `opts.client` explicite OU le singleton par URL
     // (`NodefonySocket.shared`) → mutualise la socket avec l'app hôte (Studio).
     // Jamais « possédé » → la barre ne déconnecte JAMAIS au démontage.
@@ -656,12 +730,13 @@ export class DebugBar {
     this.wireNetwork();
     this.applyChrome();
     this.registerHandle();
-    // `connect()` SANS argument : utilise l'URL (normalisée wss) déjà portée par
-    // le client partagé — ne PAS repasser `this.url` (relatif) qui écraserait la
-    // clé. Idempotent : no-op si l'hôte (Studio) a déjà ouvert la socket. → 1 socket.
-    this.client.connect().catch(() => {
-      /* reconnexion gérée par le client */
-    });
+    // Pas de connexion au montage : la socket est PARTAGÉE avec l'application
+    // hôte, et c'est elle qui décide quand l'ouvrir. La console d'administration
+    // garde la sienne fermée jusqu'au login — l'ouvrir ici partait sans session,
+    // et le serveur la refusait (1008) à chaque affichage de l'écran de
+    // connexion. La barre se connecte quand on lui demande des données : panneau
+    // ouvert, ou direct activé (y compris retrouvé actif au rechargement).
+    if (this.startOpen || this.live) this.ensureConnected();
     this.render();
     return this;
   }
@@ -703,9 +778,9 @@ export class DebugBar {
     this.applyChrome();
   }
 
-  private toggleSide(): void {
-    this.side = this.side === "left" ? "right" : "left";
-    lsSet(LS.side, this.side);
+  private setSide(side: "left" | "right"): void {
+    this.side = side;
+    lsSet(LS.side, side);
     this.applyChrome();
   }
 
@@ -721,13 +796,21 @@ export class DebugBar {
     const bar = this.bar;
     if (!bar) return;
     bar.classList.toggle("open", open);
+    const verb = open ? "Fermer" : "Ouvrir";
     const btn = this.el.btnToggle;
     if (btn) {
       btn.setAttribute("aria-expanded", open ? "true" : "false");
-      const label = open ? "Replier le panneau" : "Déplier le panneau";
-      btn.setAttribute("aria-label", label);
-      btn.setAttribute("data-tip", label);
+      btn.setAttribute("aria-label", `${verb} le panneau de débogage`);
+      btn.setAttribute(
+        "data-tip",
+        `${verb} le panneau : temps réel, réseau, performances, journaux`,
+      );
     }
+    this.text("toggleLbl", verb);
+    this.el.btnBrand?.setAttribute("aria-expanded", open ? "true" : "false");
+    // Le panneau ouvert est une DEMANDE de données : c'est là, et non au
+    // montage, que la connexion s'ouvre.
+    if (open) this.ensureConnected();
     this.render();
   }
 
@@ -772,6 +855,14 @@ export class DebugBar {
       min.style.display = this.minimized ? "flex" : "none";
       min.setAttribute("class", `minbar ${this.position} dock-${this.side}`);
     }
+    this.el.btnSideLeft?.setAttribute(
+      "aria-pressed",
+      this.side === "left" ? "true" : "false",
+    );
+    this.el.btnSideRight?.setAttribute(
+      "aria-pressed",
+      this.side === "right" ? "true" : "false",
+    );
     this.setPanelH(this.panelH);
     this.applyTab();
     this.publishHeight();
@@ -834,9 +925,14 @@ export class DebugBar {
     const bar = document.createElement("div");
     bar.className = `bar ${this.position}${this.startOpen ? " open" : ""}`;
     bar.innerHTML = this.template();
-    const minbar = document.createElement("div");
+    // Un BOUTON, pas une division : la pastille est le seul chemin de retour vers
+    // la barre, et une division n'est atteignable ni au clavier ni par un lecteur
+    // d'écran. Son libellé dit ce que fait le clic.
+    const minbar = document.createElement("button");
+    minbar.type = "button";
     minbar.className = `minbar ${this.position} dock-${this.side}`;
-    minbar.innerHTML = `<span class="dot" data-el="mdot"></span><span class="mlogo">⚡</span><span class="mrate" data-el="mrate">0/s</span><span class="mbadge" data-el="mEnv"></span>`;
+    minbar.setAttribute("aria-label", "Afficher la barre de débogage Nodefony");
+    minbar.innerHTML = `<span class="dot" data-el="mdot"></span><span class="mname">◆ nodefony</span><span class="mrate" data-el="mrate">0/s</span><span class="mbadge" data-el="mEnv"></span><span class="mopen">Ouvrir<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg></span>`;
     shadow.append(style, bar, minbar);
     document.body.appendChild(host);
     this.host = host;
@@ -878,8 +974,14 @@ export class DebugBar {
     this.disposers.push(() => strip.removeEventListener("click", onGoto));
     // Contrôles de fenêtre. Plus de `stopPropagation` : plus rien au-dessus
     // d'eux n'écoute le clic.
+    // Le logo bascule le panneau : c'est là que l'œil et la souris vont en
+    // premier. Lui SEUL — la bande entière ne bascule toujours rien.
+    this.wireBtn("btnBrand", () =>
+      this.setOpen(!bar.classList.contains("open")),
+    );
     this.wireBtn("btnMin", () => this.setMinimized(true));
-    this.wireBtn("btnSide", () => this.toggleSide());
+    this.wireBtn("btnSideLeft", () => this.setSide("left"));
+    this.wireBtn("btnSideRight", () => this.setSide("right"));
     this.wireBtn("btnLive", () => this.setLive(!this.live));
     this.updateLiveBtn();
     // Onglets.
@@ -1088,22 +1190,22 @@ export class DebugBar {
   private template(): string {
     return `
       <div class="strip">
-        <span class="dot" data-el="dot" data-tip="État de la connexion temps réel"></span>
-        <span class="brand" data-tip="Barre de débogage Nodefony — visible en développement uniquement"><span class="logo">◆</span><span class="name">nodefony</span></span>
+        <button type="button" class="brand" data-el="btnBrand" aria-controls="nf-db-panel" aria-expanded="${this.startOpen}" data-tip="Barre de débogage Nodefony (développement uniquement) — cliquer pour ouvrir ou fermer le panneau"><span class="logo">◆</span><span class="name">nodefony</span></button>
         <span class="env-badge" data-el="envBadge" data-tip="Environnement dans lequel tourne l'application">env</span>
-        <span class="branch" data-el="branch" data-tip="Branche git de la copie de travail"><span class="git">⎇</span><span data-el="branchName">—</span></span>
-        <span class="rt-pill" data-el="rtPill" data-tip="Transport temps réel et état de la socket"><span class="bolt">⚡</span> realtime</span>
+        <span class="branch" data-el="branch" data-tip="Branche git de la copie de travail" hidden><span class="k">branche</span><span data-el="branchName"></span></span>
+        <button type="button" class="rt ui" data-el="btnLive" aria-pressed="false" data-tip="Temps réel"><span class="rt-dot" aria-hidden="true"></span><span class="rt-name">Temps réel</span><span class="rt-state" data-el="rtCtlState">arrêté</span></button>
         ${this.miniMetric("rt", "rt", "rtMini", "0/s", "realtime", "Messages temps réel reçus par seconde — cliquer pour ouvrir l'onglet Realtime")}
         ${this.miniMetric("cpu", "cpu", "cpuMini", "0%", "perf", "Charge processeur du serveur — cliquer pour ouvrir l'onglet Perf")}
         ${this.miniMetric("mem", "mem", "memMini", "0%", "perf", "Mémoire utilisée par le serveur — cliquer pour ouvrir l'onglet Perf")}
         <span class="spacer"></span>
         ${this.networkEnabled ? `<button type="button" class="chip goto" data-goto="network" data-tip="Requêtes réseau observées — cliquer pour ouvrir l'onglet Network"><span class="k">net</span><span class="blue" data-el="netChip">0</span></button>` : ""}
+        ${this.frontend ? `<button type="button" class="chip goto" data-goto="realtime" data-tip="Mises à jour à chaud (HMR) appliquées depuis le chargement de la page — cliquer pour ouvrir le détail"><span class="k">hmr</span><span class="hmrv" data-el="hmrChip">0</span></button>` : ""}
         <button type="button" class="chip goto" data-goto="logs" data-tip="Entrées de journal reçues — cliquer pour ouvrir l'onglet Logs"><span class="k">logs</span><span data-el="logs">0</span></button>
         <button type="button" class="chip goto" data-goto="logs" data-tip="Erreurs et alertes — cliquer pour ouvrir l'onglet Logs"><span class="k">err</span><span class="crit" data-el="err">0</span></button>
-        <button type="button" class="ctrl live" data-el="btnLive" aria-pressed="false" data-tip="Recevoir les mesures et les journaux en direct. Coupé par défaut : le flux maintient des compteurs côté serveur.">flux OFF</button>
-        <button type="button" class="ctrl" data-el="btnSide" aria-label="Changer la barre de côté" data-tip="Changer la barre de côté">⇄</button>
-        <button type="button" class="ctrl" data-el="btnMin" aria-label="Réduire la barre en pastille" data-tip="Réduire en pastille">—</button>
-        <button type="button" class="toggle" data-el="btnToggle" aria-expanded="${this.startOpen}" aria-controls="nf-db-panel" aria-label="${this.startOpen ? "Replier" : "Déplier"} le panneau" data-tip="${this.startOpen ? "Replier" : "Déplier"} le panneau">▴</button>
+        <div class="seg ui">
+          <button type="button" data-el="btnMin" aria-label="Réduire la barre en pastille" data-tip="Réduire la barre en une pastille, dans un coin de l'écran"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 11.5h9"/></svg><span class="lbl">Réduire</span></button>
+          <button type="button" class="toggle" data-el="btnToggle" aria-expanded="${this.startOpen}" aria-controls="nf-db-panel" aria-label="${this.startOpen ? "Fermer" : "Ouvrir"} le panneau de débogage" data-tip="${this.startOpen ? "Fermer" : "Ouvrir"} le panneau : temps réel, réseau, performances, journaux"><span class="lbl" data-el="toggleLbl">${this.startOpen ? "Fermer" : "Ouvrir"}</span><svg class="ico chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg></button>
+        </div>
       </div>
       <div class="panelwrap" id="nf-db-panel">
         <div class="resize" data-el="resize" title="Redimensionner"></div>
@@ -1127,7 +1229,7 @@ export class DebugBar {
   private realtimePane(): string {
     return `<div class="pane" data-pane="realtime"><div class="cards">
       <div class="card hero">
-        <h4><span class="blue">⚡</span> Realtime</h4>
+        <div class="ttl"><span class="blue">⚡</span> Realtime</div>
         <div class="big"><span data-el="rtBig">0</span><small>msg/s</small></div>
         <svg viewBox="0 0 ${CHART_W} 38" preserveAspectRatio="none">
           <polygon class="area rt" data-el="rtArea" points=""/>
@@ -1160,7 +1262,7 @@ export class DebugBar {
   private perfPane(): string {
     return `<div class="pane" data-pane="perf"><div class="cards">
       <div class="card">
-        <h4>Performance</h4>
+        <div class="ttl">Performance</div>
         ${this.chart("CPU", "cpuVal", "cpuPeak", "cpuLine", "cpuArea")}
         ${this.chart("Heap", "heapVal", "heapPeak", "heapLine", "heapArea")}
         ${this.chart("Event loop", "loopVal", "loopPeak", "loopLine", "loopArea")}
@@ -1212,9 +1314,14 @@ export class DebugBar {
       )
       .join("");
     return `<div class="card">
-      <h4>Stockage local</h4>
+      <div class="ttl">Stockage local</div>
       <div class="tag">Ces valeurs vivent dans ce navigateur, sur cet appareil. Elles ne quittent jamais la page et ne concernent que l'apparence de la barre.</div>
       ${rows}
+      <div class="tag" style="margin-top:8px">Pastille réduite — le coin où elle se pose quand la barre est réduite.</div>
+      <div class="side-choice">
+        <button type="button" class="toolbtn" data-el="btnSideLeft" aria-pressed="false">◧ À gauche</button>
+        <button type="button" class="toolbtn" data-el="btnSideRight" aria-pressed="false">◨ À droite</button>
+      </div>
       <div style="margin-top:8px"><button type="button" class="toolbtn" data-el="btnPurge" data-tip="Effacer les préférences de la barre sur ce navigateur — l'application n'est pas touchée">Purger l'état de la barre</button></div>
     </div>`;
   }
@@ -1223,7 +1330,7 @@ export class DebugBar {
     return `<div class="pane" data-pane="runtime"><div class="cards">
       ${this.storageCard()}
       <div class="card">
-        <h4>Runtime</h4>
+        <div class="ttl">Runtime</div>
         ${this.kv("app", "appName")}
         ${this.kv("version", "appVersion")}
         ${this.kv("environnement", "envRow")}
@@ -1299,7 +1406,7 @@ export class DebugBar {
       color: "#3aa0ff",
     };
     return `<div class="card fe">
-      <h4><span style="color:${fw.color}">●</span> Frontend</h4>
+      <div class="ttl"><span style="color:${fw.color}">●</span> Frontend</div>
       <div class="fw">
         <span class="badge" style="background:${fw.color}">${escapeHtml(fw.label)}</span>
         <span class="name">${escapeHtml(this.frontend.name ?? "")}</span>
@@ -1323,8 +1430,18 @@ export class DebugBar {
     // frames restent vivants même OFF (la socket est partagée avec l'app hôte).
     const offState = this.client.onState((state) => {
       this.model.setState(state);
+      if (state === "connected") this.refused = false;
       this.scheduleRender();
     });
+    // Un refus d'accès (1008) ne doit pas se lire comme une panne : la barre lit
+    // les données d'ADMINISTRATION, et sans session administrateur le serveur
+    // ferme la socket. On le dit, avec le geste qui le lève.
+    const offNotice = this.client.onNotice((notice) => {
+      if (notice.source !== "realtime" || notice.code !== 1008) return;
+      this.refused = true;
+      this.scheduleRender();
+    });
+    this.disposers.push(offNotice);
     const offTick = this.client.onStats(() => {
       // OFF → on N'ÉCHANTILLONNE PAS : le compteur de frames est GLOBAL au client
       // partagé (frames des autres consommateurs, ex. Studio) → sinon le graphe
@@ -1367,6 +1484,18 @@ export class DebugBar {
     };
   }
 
+  /**
+   * Ouvre la connexion partagée — à la DEMANDE (panneau ouvert, direct activé),
+   * jamais au montage. `connect()` sans argument : il réutilise l'adresse déjà
+   * portée par la socket partagée (repasser `this.url`, relative, écraserait la
+   * clé), et il est sans effet si l'hôte l'a déjà ouverte.
+   */
+  private ensureConnected(): void {
+    this.client.connect().catch(() => {
+      /* la reconnexion et l'état se lisent par `onState` / `onNotice` */
+    });
+  }
+
   /** Arrête les abonnements realtime (relâche la réf de la barre). Idempotent. */
   private stopLive(): void {
     if (!this.liveOff) return;
@@ -1382,6 +1511,7 @@ export class DebugBar {
     if (v) {
       // Recale la base du compteur GLOBAL → pas de pic « frames/s » au 1ᵉʳ tick.
       this.prevFrames = this.client.framesReceived;
+      this.ensureConnected();
       this.startLive();
     } else {
       this.stopLive();
@@ -1395,14 +1525,56 @@ export class DebugBar {
 
   /** Met à jour l'aspect du bouton « Temps réel » selon l'état. */
   private updateLiveBtn(): void {
+    this.renderRealtimeControl(this.model.view.state);
+  }
+
+  /**
+   * Le contrôle « Temps réel » — UN état lisible, tiré de deux faits : la
+   * connexion (partagée avec l'hôte) et l'abonnement de la barre (le direct).
+   *
+   * | direct | connexion          | affiché            |
+   * | ------ | ------------------ | ------------------ |
+   * | —      | refusée (1008)     | accès refusé       |
+   * | oui    | ouverte            | en direct          |
+   * | oui    | pas encore ouverte | connexion…         |
+   * | non    | ouverte            | en pause           |
+   * | non    | fermée             | arrêté             |
+   */
+  private renderRealtimeControl(state: string): void {
     const btn = this.el["btnLive"] as HTMLElement | undefined;
     if (!btn) return;
-    btn.textContent = this.live ? "flux ON" : "flux OFF";
-    btn.title = this.live
-      ? "Flux push ACTIF (stats + logs) — clic pour couper. ≠ état de la connexion (pastille « realtime »)."
-      : "Flux push coupé (perf) — clic pour activer (stats + logs). ≠ état de la connexion (pastille « realtime »).";
+    const connected = state === "connected";
+    let mode: "refused" | "live" | "wait" | "paused" | "off";
+    if (this.refused && !connected) mode = "refused";
+    else if (this.live && connected) mode = "live";
+    // Direct demandé mais socket pas (encore) ouverte : c'est une attente, pas
+    // un arrêt — afficher « arrêté » démentirait le clic qu'on vient de faire.
+    else if (this.live) mode = "wait";
+    else if (connected) mode = "paused";
+    else mode = "off";
+    const label = {
+      refused: "accès refusé",
+      live: "en direct",
+      wait: "connexion…",
+      paused: "en pause",
+      off: "arrêté",
+    }[mode];
+    const tip = {
+      refused:
+        "Accès refusé : la barre lit les données d'administration. Connecte-toi à la console (/nodefony) avec un compte administrateur, puis réessaie.",
+      live: "Mesures et journaux poussés en direct par le serveur — cliquer pour arrêter.",
+      wait: "Connexion au serveur en cours — cliquer pour arrêter.",
+      paused:
+        "Connecté, mais rien n'est poussé — cliquer pour recevoir mesures et journaux en direct.",
+      off: "Arrêté : rien n'est poussé — cliquer pour démarrer. Coupé par défaut : le direct maintient des compteurs côté serveur.",
+    }[mode];
+    this.text("rtCtlState", label);
+    btn.setAttribute("class", `rt ui ${mode}`);
+    btn.setAttribute("data-tip", tip);
     btn.setAttribute("aria-pressed", this.live ? "true" : "false");
-    btn.classList.toggle("on", this.live);
+    // Pas d'`aria-label` : le texte VISIBLE (« Temps réel arrêté ») est le nom.
+    // Un nom réécrit qui ne le reprend pas mot pour mot viole WCAG 2.5.3 — et
+    // trompe qui pilote à la voix en lisant l'écran.
   }
 
   private sampleThroughput(): void {
@@ -1729,26 +1901,30 @@ export class DebugBar {
 
   /** Bandeau toujours visible (chips + pouls) — léger. */
   private renderStrip(v: DebugBarView): void {
-    const connected = v.state === "connected";
     const cpuT = gauge(v.cpuPercent);
     const memT = gauge(v.heapPercent);
     // env + branche
-    this.text("envBadge", v.env || "env");
-    this.cls("envBadge", `env-badge ${envClass(v.env)}`);
-    this.text("branchName", v.branch || "—");
-    this.el.branch?.setAttribute(
-      "title",
-      v.branch ? `branche git : ${v.branch}` : "branche git",
+    // Ce qu'on ne sait pas ne s'affiche pas : un badge « env » ou une branche
+    // « — » se lisent comme des valeurs, et ne disent rien.
+    const env = v.env || this.initialEnv;
+    this.text("envBadge", env);
+    this.cls("envBadge", `env-badge ${envClass(env)}`);
+    this.el.envBadge?.toggleAttribute("hidden", !env);
+    this.el.envBadge?.setAttribute(
+      "data-tip",
+      `Environnement du serveur : ${env}`,
     );
-    this.text("mEnv", v.env);
-    // realtime — état de CONNEXION (≠ abonnement « flux » opt-in du bouton)
-    this.cls("dot", `dot ${v.state}`);
+    this.text("branchName", v.branch);
+    this.el.branch?.toggleAttribute("hidden", !v.branch);
+    this.el.branch?.setAttribute(
+      "data-tip",
+      `Branche git de la copie de travail : ${v.branch}`,
+    );
+    this.text("mEnv", env);
     this.cls("mdot", `dot ${v.state}`);
     this.text("mrate", `${this.rtRate}/s`);
-    this.cls("rtPill", connected ? "rt-pill connected" : "rt-pill");
-    const connTitle = `Connexion temps réel : ${v.state}`;
-    this.el.rtPill?.setAttribute("title", connTitle);
-    this.el.dot?.setAttribute("title", connTitle);
+    this.renderRealtimeControl(v.state);
+    this.text("hmrChip", String(this.hmrCount));
     this.text("rt", `${this.rtRate}/s`);
     this.cls("rt", "v blue");
     this.el.rtMini?.setAttribute(

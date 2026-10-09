@@ -59,28 +59,42 @@ Sur une page rendue par le serveur, sans étape de construction :
 ></script>
 ```
 
-La barre s'abonne au canal temps réel de l'application. Elle n'ouvre **aucune**
+La barre lit le canal temps réel de l'application. Elle n'ouvre **aucune**
 seconde connexion : elle partage la socket déjà présente si la page en a une.
+Et elle ne l'ouvre **pas au montage** : la socket appartient à l'application, qui
+décide quand l'ouvrir (la console d'administration attend le login). La barre ne
+se connecte que quand on lui demande des données — panneau ouvert, ou temps réel
+démarré.
 
 ## Ce qu'on voit, et ce qu'on peut faire
 
-Le **bandeau** porte l'essentiel en une ligne : l'état de la connexion,
-l'environnement, la branche git, puis le débit temps réel, la charge processeur
-et la mémoire, enfin les compteurs réseau, journaux et erreurs.
+Le **bandeau** porte l'essentiel en une ligne : le logo, l'environnement du
+serveur (connu dès le rendu de la page), la branche git (une fois connue), le
+contrôle « Temps réel », puis le débit, la charge processeur et la mémoire, enfin
+les compteurs réseau, rechargements à chaud (`hmr`, avec un front Vite), journaux
+et erreurs. Ce qui n'est pas encore connu ne s'affiche pas : un badge vide se
+lirait comme une valeur.
 
 Chaque élément du bandeau porte une aide qui s'ouvre au survol **et au focus
 clavier**, et chaque indicateur est un raccourci : cliquer « cpu » ouvre l'onglet
-qui le détaille. Le bandeau lui-même ne se replie pas au clic — seul le chevron
-de droite le fait, et lui seul.
+qui le détaille. Le bandeau lui-même ne se replie pas au clic : seuls le logo et
+le bouton « Ouvrir / Fermer » basculent le panneau.
 
-| Contrôle          | Ce qu'il fait                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| `flux OFF` / `ON` | Abonne aux mesures et aux journaux en direct. **Coupé par défaut** (voir ci-dessous). |
-| `⇄`               | Change la barre de côté.                                                              |
-| `—`               | Réduit la barre en pastille flottante.                                                |
-| `▴`               | Déplie ou replie le panneau.                                                          |
+| Contrôle                     | Ce qu'il fait                                                                                 |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| logo `◆ nodefony`            | Ouvre ou ferme le panneau.                                                                    |
+| `Temps réel · <état>`        | Démarre ou arrête les mesures et journaux en direct. **Arrêté par défaut** (voir ci-dessous). |
+| `Réduire`                    | Réduit la barre en pastille, dans un coin de l'écran ; la pastille la rouvre.                 |
+| `Ouvrir` / `Fermer`          | Ouvre ou ferme le panneau.                                                                    |
+| réglages : `À gauche/droite` | Coin où se pose la pastille réduite (onglet Runtime, carte « Stockage local »).               |
 
-> **Pourquoi le flux est coupé par défaut** : l'abonnement fait tourner des
+Le contrôle « Temps réel » dit son état en toutes lettres : `arrêté`, `connexion…`,
+`en direct`, `en pause` (la socket est ouverte par l'application, mais la barre ne
+reçoit rien), ou `accès refusé` — la barre lit les données d'administration, et
+sans session administrateur le serveur ferme la socket (code 1008). Le refus se
+lit, il ne se confond pas avec une panne.
+
+> **Pourquoi le temps réel est arrêté par défaut** : l'abonnement fait tourner des
 > compteurs et un émetteur de journaux côté serveur. En développement on ouvre
 > beaucoup d'onglets ; les laisser tous branchés en permanence ferait payer à
 > l'application un travail que personne ne regarde. C'est un choix d'adhésion,
@@ -154,6 +168,7 @@ mountDebugBar({
   position: "bottom", // ou "top"
   open: false, // panneau déplié au montage
   network: true, // onglet Network (instrumente fetch/XHR)
+  env: "development", // environnement affiché avant toute mesure (posé par le serveur)
 });
 ```
 
@@ -162,8 +177,10 @@ mountDebugBar({
 ## Accessibilité
 
 Tous les contrôles sont des boutons : ils s'atteignent au clavier, portent un nom
-et annoncent leur état (le replieur expose `aria-expanded`, le flux
-`aria-pressed`). L'aide de chaque indicateur s'ouvre aussi bien au focus qu'au
+et annoncent leur état (le replieur et le logo exposent `aria-expanded`, le
+temps réel `aria-pressed`). Leur nom est leur texte visible (WCAG 2.5.3), et leur
+cible fait 28 px de haut. La pastille réduite est un bouton, atteignable au
+clavier. Vérifié par axe-core sur la barre repliée et dépliée : aucun défaut. L'aide de chaque indicateur s'ouvre aussi bien au focus qu'au
 survol. La barre se déclare comme un contenu d'appoint (`complementary`), ce qui
 évite que tout ce qu'elle affiche soit compté hors de tout point de repère par un
 audit de la page hôte.
@@ -180,7 +197,7 @@ publication (`npm run size:check`).
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Entrée séparée**     | Un sous-chemin du paquet (`nodefony/debugbar`) importé à part. Ce qui n'est pas importé n'entre pas dans votre bundle.                                                                                         |
 | **`mountDebugBar`**    | La seule fonction à appeler (`index.ts:46`). Elle installe la barre et rend une poignée pour la piloter ou la retirer.                                                                                         |
-| **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:537`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
+| **Poignée** (_handle_) | Ce que le montage rend en retour (`DebugBarHandle`, `DebugBar.ts:610`) : de quoi fermer, rouvrir ou démonter proprement.                                                                                       |
 | **Options**            | Ce qu'on passe au montage (`DebugBarOptions`, `DebugBar.ts:138`) — l'adresse du socket, la position (`bottom` ou `top`), le panneau ouvert d'emblée, et l'interception réseau, qu'on peut refuser entièrement. |
 | **Charge utile**       | Ce que le serveur pousse : statistiques (`StatsPayload`, `model.ts:25`) et journaux (`LogEntry`, `model.ts:49`).                                                                                               |
 | **`requestId`**        | L'identifiant qu'une requête porte de bout en bout. C'est lui qui relie une ligne de journal à l'appel réseau qui l'a produite.                                                                                |

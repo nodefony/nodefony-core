@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
-import { PLATFORM_EVENTS, escapeRegExp } from "nodefony";
+import { Nodefony, PLATFORM_EVENTS, escapeRegExp } from "nodefony";
 import type {
   IViteSupervisor,
   IViteSupervisorStatus,
@@ -320,8 +320,11 @@ try {
       return `<!-- @nodefony/frontend: debugbar unresolved -->`;
     const norm = debugbarFile.replace(/\\/g, "/");
     const fsUrl = `${baseUrl}${norm.startsWith("/") ? `/@fs${norm}` : `/@fs/${norm}`}`;
+    // L'environnement est connu ICI, au rendu : la barre l'affiche tout de
+    // suite, sans attendre une socket qui ne s'ouvre qu'avec son panneau.
     const opts = JSON.stringify({
       frontend: { framework, name: entryName, viteOrigin: baseUrl },
+      env: Nodefony.getKernel()?.environment ?? "",
     });
     return `<script type="module"${nonceAttr}>
 import { mountDebugBar } from ${JSON.stringify(fsUrl)};
