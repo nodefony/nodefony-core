@@ -328,7 +328,7 @@ Avant de relayer, chaque contrôle rend la réponse qu'aurait rendue le serveur 
 | passe tous les contrôles                                                  | relayé  |
 
 Les quotas sont ceux d'un upgrade servi par Nodefony, appliqués par la **même** règle du noyau
-(`HttpKernel.websocketQuotaRefusal()`, `http-kernel.ts:2155`) ; un tunnel ouvert garde sa place
+(`HttpKernel.websocketQuotaRefusal()`, `http-kernel.ts:2199`) ; un tunnel ouvert garde sa place
 jusqu'à sa fermeture. Seule la forme du refus diffère : le proxy répond avant le `101`, il peut donc
 rendre un statut HTTP, là où le serveur WebSocket ne peut plus que fermer avec le code 1013.
 

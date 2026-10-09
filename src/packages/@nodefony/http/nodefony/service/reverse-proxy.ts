@@ -316,8 +316,8 @@ class ReverseProxy extends Service {
   }
 
   /**
-   * Relaie une requête HTTP si un montage la couvre — méthode comprise — et
-   * que sa cible est connue.
+   * Relaie une requête HTTP si un montage la couvre — méthode comprise. Cible
+   * pas encore connue → `503` + `Retry-After`, sans aller jusqu'au routage.
    *
    * L'appelant a déjà tranché la barrière d'hôte : c'est le pipeline HTTP, qui
    * la calcule pour toute requête (`Context.validDomain`). Un chemin ambigu
@@ -331,7 +331,8 @@ class ReverseProxy extends Service {
    * @param res - réponse au client
    * @param scheme - scheme par lequel le client est arrivé
    * @returns la promesse de fin d'échange, ou `undefined` si la requête n'est
-   *   pas relayée (elle suit alors son chemin normal)
+   *   pas relayée (hors préfixe ou méthode non relayée : elle suit alors son
+   *   chemin normal)
    */
   forward(
     req: ProxiedRequest,
@@ -343,15 +344,14 @@ class ReverseProxy extends Service {
     const method = req.method ?? "GET";
     if (mount.methods && !mount.methods.includes(method)) return undefined;
     const target = this.targetOf(mount);
-    if (target === undefined) return undefined;
+    if (target === undefined) {
+      // Le préfixe est À l'amont, même quand il n'écoute pas encore (Vite en
+      // démarrage) : laisser filer jusqu'au routage rendrait un 404 qui ment —
+      // la ressource existe, son serveur n'est pas prêt (RFC 9110 §15.6.4).
+      return answerPlain(res, 503, "Service Unavailable", "1");
+    }
     if (isAmbiguousPath(req.url ?? "/")) {
-      const out = res as http.ServerResponse;
-      out.writeHead(400, {
-        "content-type": "text/plain; charset=utf-8",
-        "cache-control": "no-store",
-      });
-      out.end("Bad Request");
-      return Promise.resolve();
+      return answerPlain(res, 400, "Bad Request");
     }
     const host =
       req.headers.host ?? (req.headers[":authority"] as string | undefined);
@@ -371,7 +371,7 @@ class ReverseProxy extends Service {
    * serveur WebSocket de Nodefony.
    *
    * Contrôles, dans l'ordre, chacun avec la réponse que rendrait le serveur
-   * WebSocket de Nodefony : `Host` hors `trustedHosts` (si `domainCheck`) →
+   * WebSocket de Nodefony : cible pas encore connue → 503 ; `Host` hors `trustedHosts` (si `domainCheck`) →
    * 421 ; chemin ambigu ou handshake non conforme (RFC 6455 §4.2.1 — seul
    * `Upgrade: websocket` est relayé, jamais un tunnel `h2c`) → 400 ;
    * `Origin` refusée par la MÊME règle que le serveur WebSocket (anti-CSWSH,
@@ -389,7 +389,14 @@ class ReverseProxy extends Service {
     const mount = this.match(req.url) as IMountRecord | undefined;
     if (mount?.websocket !== true) return false;
     const target = this.targetOf(mount);
-    if (target === undefined) return false;
+    if (target === undefined) {
+      // Amont pas encore prêt : un refus HTTP AVANT le 101 (RFC 6455 §4.2.2).
+      // Laisser filer vers le serveur WebSocket de Nodefony accepterait la
+      // socket puis la fermerait — et un client qui sonde « le serveur est-il
+      // revenu ? » par une ouverture (le client Vite) conclurait oui à tort.
+      refuseUpgrade(socket, 503, "Service Unavailable");
+      return true;
+    }
     const host = req.headers.host;
     const hostname = hostnameOf(host);
     const rules = this.rules();
@@ -451,6 +458,33 @@ class ReverseProxy extends Service {
  *
  * @returns le nom, ou `null` si l'autorité est absente ou invalide
  */
+/**
+ * Répond au client sans contacter l'amont : texte brut, jamais mis en cache.
+ *
+ * @param res - réponse au client (HTTP/1.1 ou HTTP/2, API de compatibilité)
+ * @param status - statut rendu
+ * @param body - corps texte
+ * @param retryAfter - valeur de `Retry-After` (secondes), si le refus est passager
+ * @returns une promesse déjà résolue — l'échange est terminé
+ */
+function answerPlain(
+  res: ProxiedResponse,
+  status: number,
+  body: string,
+  retryAfter?: string,
+): Promise<void> {
+  // Les deux réponses partagent `writeHead`/`end`, mais leurs surcharges
+  // diffèrent : l'union ne se laisse pas appeler telle quelle.
+  const out = res as http.ServerResponse;
+  out.writeHead(status, {
+    "content-type": "text/plain; charset=utf-8",
+    "cache-control": "no-store",
+    ...(retryAfter === undefined ? {} : { "retry-after": retryAfter }),
+  });
+  out.end(body);
+  return Promise.resolve();
+}
+
 function hostnameOf(host: string | undefined): string | null {
   if (!host) return null;
   try {

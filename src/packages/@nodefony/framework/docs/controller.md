@@ -306,7 +306,7 @@ class ChatController extends Controller {
 | Nombre d'appels d'action | 1 | 1 au handshake (`WebsocketContext.handle()`, `WebsocketContext.ts:297`) + 1 par frame (`handleMessage()`, `WebsocketContext.ts:507`) |
 | Argument de l'action | Variables de route (ou paramètres décorés) | Idem + **le message** en dernier argument (`WebsocketContext.ts:508`) |
 | Rendu d'un `return` | Corps de la réponse | Frame envoyée sur la socket |
-| Échec | Statut HTTP + corps d'erreur | **Code de fermeture** RFC 6455 (401/403 → 1008, 5xx → 1011, autre → 4004) |
+| Échec | Statut HTTP + corps d'erreur | **Code de fermeture** RFC 6455 (401/403 → 1008, 5xx → 1011, autre → 4004) ; chemin sans route WebSocket → **404 HTTP avant l'ouverture** |
 | `initialize()` | Singleton : **une fois**, à la création · `@Scope("request")` : à chaque requête | Singleton : une fois, à la création · `@Scope("request")` : **une fois par connexion**, au handshake |
 
 La réutilisation de l'instance vient du cache posé sur le container du contexte
@@ -520,7 +520,9 @@ forme au rendeur d'erreurs. Ce qui en sort :
 En **WebSocket**, il n'y a pas de statut : l'erreur devient un **code de fermeture** RFC 6455
 (`renderWebsocket()`, `error-renderer.ts:518`) — 401/403 → 1008 (violation de politique),
 5xx → 1011 (erreur interne), le reste → 4004 (plage privée). Si la socket n'est pas encore acceptée,
-c'est un **rejet** de handshake.
+c'est un **rejet** de handshake. Un chemin qu'aucune route WebSocket ne sert n'atteint jamais ton
+contrôleur : il reçoit un **404 HTTP** avant l'ouverture (RFC 6455 §4.2.2), le client ne voit donc
+jamais d'`open`.
 
 > [!NOTE]
 > Les erreurs de ton action remontent **seules** : le Resolver n'enveloppe pas l'appel dans un

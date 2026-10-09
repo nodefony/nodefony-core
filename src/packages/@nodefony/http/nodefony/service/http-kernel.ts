@@ -52,6 +52,7 @@ import websocketSecureServer from "../service/servers/server-websocket-secure";
 import Statics from "./servers/server-static";
 import type ReverseProxy from "./reverse-proxy";
 import WebsocketContext from "../src/context/websocket/WebsocketContext";
+import { parseWebsocketUrl } from "../src/context/websocket/websocketUrl";
 import HttpContext from "../src/context/http/HttpContext";
 import Context, { HTTPMethod, WebSocketState } from "../src/context/Context";
 import { logColor } from "nodefony";
@@ -2134,6 +2135,47 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    */
   isTrustedHostname(hostname: string): boolean {
     return isDomainAllowed(this.regAlias, hostname);
+  }
+
+  /**
+   * Refus d'un upgrade WebSocket AVANT le `101`, par un statut HTTP
+   * (RFC 6455 §4.2.2) — appelé par le répartiteur d'upgrade, après le proxy
+   * inverse et avant le serveur `ws`.
+   *
+   * Pourquoi avant : accepter puis fermer fait croire au client que le serveur
+   * a répondu. Le client Vite sonde « le serveur est-il revenu ? » en ouvrant
+   * une socket ; une ouverture suivie d'une fermeture `4004` lui faisait
+   * recharger la page avant que Vite soit prêt — page blanche.
+   *
+   * Ne juge que l'existence d'une route WebSocket pour le chemin
+   * ({@link IRequestRouter.servesWebsocket}) : hôte, origine, sous-protocole,
+   * quotas et pare-feu restent jugés après l'ouverture, comme avant. Un refus
+   * compte au limiteur de débit comme une requête HTTP refusée — sans quoi un
+   * flot d'upgrades vers des chemins inexistants y échapperait.
+   *
+   * @param req - requête d'upgrade
+   * @returns le statut du refus — `404` chemin sans route WebSocket, `400` URL
+   *   inanalysable, `429` débit dépassé, `503` routeur pas encore posé (boot) —
+   *   ou `null` si l'upgrade est admis
+   */
+  websocketUpgradeRefusal(req: IncomingMessage): 400 | 404 | 429 | 503 | null {
+    const router = this.router;
+    if (router === null || router === undefined) return 503;
+    let pathname: string;
+    try {
+      pathname = parseWebsocketUrl("ws", req.headers.host, req.url).pathname;
+    } catch {
+      return this.#rateLimitedRefusal(req) ?? 400;
+    }
+    if (router.servesWebsocket(pathname)) return null;
+    return this.#rateLimitedRefusal(req) ?? 404;
+  }
+
+  /** Compte un upgrade refusé au limiteur de débit : `429` s'il le dépasse. */
+  #rateLimitedRefusal(req: IncomingMessage): 429 | null {
+    if (this.rateLimiter === null) return null;
+    const ip = this.#clientIp(req);
+    return ip !== null && this.rateLimiter.hit(ip).limited ? 429 : null;
   }
 
   /**

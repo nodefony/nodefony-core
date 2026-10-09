@@ -2,6 +2,7 @@ import { expect } from "vitest";
 import { Pdu } from "nodefony";
 import Router from "../../service/router.js";
 import Route from "../../src/Route.js";
+import type { HTTPMethod } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
 
 /**
@@ -531,5 +532,57 @@ describe("Route sans méthode déclarée — tous les verbes HTTP, JAMAIS le Web
     expect(
       makeRouter().resolve(makeCtx("/plain/ws", "WEBSOCKET")).route?.name,
     ).to.equal("ws");
+  });
+});
+
+describe("Router.servesWebsocket — contrôle d'avant 101 (#577)", () => {
+  const ws = (methods: HTTPMethod[], extra: Record<string, string> = {}) => ({
+    requirements: { methods, ...extra },
+  });
+
+  it("seule une route qui DÉCLARE le transport WEBSOCKET sert le chemin", () => {
+    Router.createRoute("http-only", { path: "/h" });
+    Router.createRoute("get", { path: "/g", ...ws(["GET"]) });
+    Router.createRoute("sock", { path: "/s", ...ws(["GET", "WEBSOCKET"]) });
+    const router = makeRouter();
+    expect(router.servesWebsocket("/s")).to.equal(true);
+    expect(router.servesWebsocket("/h")).to.equal(false);
+    expect(router.servesWebsocket("/g")).to.equal(false);
+    expect(router.servesWebsocket("/inconnu")).to.equal(false);
+  });
+
+  it("même normalisation que resolve : barres finales et casse", () => {
+    Router.createRoute("sock", { path: "/chat", ...ws(["WEBSOCKET"]) });
+    const router = makeRouter();
+    expect(router.servesWebsocket("/chat/")).to.equal(true);
+    expect(router.servesWebsocket("/CHAT//")).to.equal(true);
+    expect(router.resolve(makeCtx("/CHAT//", "WEBSOCKET")).resolve).to.equal(
+      true,
+    );
+  });
+
+  it("variables et racine : le motif de la route décide", () => {
+    Router.createRoute("room", { path: "/room/{id}", ...ws(["WEBSOCKET"]) });
+    Router.createRoute("root", { path: "/", ...ws(["WEBSOCKET"]) });
+    const router = makeRouter();
+    expect(router.servesWebsocket("/room/42")).to.equal(true);
+    expect(router.servesWebsocket("/room")).to.equal(false);
+    expect(router.servesWebsocket("/")).to.equal(true);
+  });
+
+  it("SUR-ENSEMBLE de resolve : hôte, protocole et exigences restent jugés après l'ouverture", () => {
+    Router.createRoute("vhost", {
+      path: "/v",
+      host: "example.com",
+      ...ws(["WEBSOCKET"], { protocol: "chat" }),
+    });
+    Router.createRoute("digits", {
+      path: "/d/{n}",
+      ...ws(["WEBSOCKET"], { n: "^\\d+$" }),
+    });
+    const router = makeRouter();
+    // resolve refuserait (autre hôte, exigence de variable) : ce n'est pas un 404.
+    expect(router.servesWebsocket("/v")).to.equal(true);
+    expect(router.servesWebsocket("/d/abc")).to.equal(true);
   });
 });

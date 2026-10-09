@@ -90,6 +90,7 @@ class Websocket extends Service {
           serverHttp.server as http.Server,
           this.server,
           () => this.httpKernel.reverseProxy,
+          (req) => this.httpKernel.websocketUpgradeRefusal(req),
         );
         this.server.on("connection", this.onConnection.bind(this));
         // G2 — heartbeat keep-alive : UN seul interval/serveur, détecte les zombies.

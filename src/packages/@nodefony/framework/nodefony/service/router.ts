@@ -6,6 +6,7 @@ import {
   //inject,
   injectable,
   isPromise,
+  stripTrailingSlashes,
 } from "nodefony";
 import type { DefaultOptionsService, MaybePromise } from "nodefony";
 import Route, { RouteOptions } from "../src/Route";
@@ -268,6 +269,31 @@ class Router extends Service implements IRequestRouter {
       },
     );
     return pending;
+  }
+
+  /**
+   * Dit si au moins une route déclare le transport `WEBSOCKET` pour ce chemin
+   * — contrôle d'avant `101` du pipeline WebSocket (cf `IRequestRouter`).
+   *
+   * Parcours de la table entière, sans l'index de `resolve` : il est lu une
+   * fois par CONNEXION (pas par message), et une route dont les méthodes
+   * changent après coup (`addRequirement`) ne laisse ainsi aucun index périmé.
+   * Même normalisation que `resolve` (`stripTrailingSlashes`), même motif.
+   *
+   * @param pathname - chemin de l'URL d'upgrade
+   * @returns `true` si une route WebSocket a un motif qui couvre ce chemin
+   */
+  servesWebsocket(pathname: string): boolean {
+    const path = stripTrailingSlashes(pathname);
+    for (const route of routes) {
+      if (
+        route.methodsSet?.has("WEBSOCKET") === true &&
+        route.pattern?.test(path) === true
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

@@ -37,6 +37,7 @@ export type WsIncomingMessage = IncomingMessage & IWsRequestExtension;
 
 import type { IWebsocketContext as IWebsocketContextInterface } from "../../../interfaces/IContext";
 import type { IRouteResolver } from "../../../interfaces/IRouting";
+import { parseWebsocketUrl } from "./websocketUrl";
 
 /**
  * Appelle l'action résolue et rend TOUJOURS une promesse.
@@ -166,9 +167,7 @@ export default class WebsocketContext
       this.requestId = incomingId;
     }
     // Parse URL from IncomingMessage
-    const host = req.headers.host ?? "localhost";
-    const rawUrl = req.url ?? "/";
-    this.wsUrl = new URL(`${this.scheme}://${host}${rawUrl}`);
+    this.wsUrl = parseWebsocketUrl(this.scheme, req.headers.host, req.url);
     this.queryGet = Object.fromEntries(this.wsUrl.searchParams.entries());
     this.queryRequest = { ...this.queryGet };
     this.wsPath = this.wsUrl.pathname + this.wsUrl.search;

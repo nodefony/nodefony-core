@@ -476,9 +476,11 @@ class FrontendService extends Service implements IFrontendService {
    *
    * GET/HEAD seulement (Vite ne sert que des lectures) ; `cookie` et
    * `authorization` ne lui parviennent pas — un serveur de sources n'a pas à
-   * voir la session. Posé avant `start()` : tant que Vite n'a pas de port, la
-   * cible est inconnue et la requête suit son chemin normal. No-op sans
-   * proxy (application sans serveur HTTP).
+   * voir la session. Posé avant `start()` : tant que Vite n'est pas prêt, la
+   * cible est inconnue et le relais répond `503` — à la socket de sonde du
+   * client Vite comprise, AVANT tout `101` : la page ne recharge qu'une fois
+   * Vite revenu, jamais sur une page blanche (#577). No-op sans proxy
+   * (application sans serveur HTTP).
    *
    * @param devBase - chemin de base de la famille (`devBasePath`)
    * @param helper - helper de la famille, qui connaît son superviseur

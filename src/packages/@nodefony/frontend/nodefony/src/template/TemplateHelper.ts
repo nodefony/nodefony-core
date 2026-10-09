@@ -86,7 +86,8 @@ export class TemplateHelper {
    *
    * @returns l'origine (`http://127.0.0.1:5173`), ou `undefined` sans
    *   superviseur, tant que Vite n'a pas résolu son port, ou quand il ne sert
-   *   pas (rien à relayer : la requête suit son chemin normal)
+   *   pas (amont pas prêt : le relais répond `503`, avant tout `101` pour la
+   *   socket — le client Vite ne recharge la page qu'une fois Vite revenu)
    */
   devTarget(): string | undefined {
     if (!this.supervisor) return undefined;

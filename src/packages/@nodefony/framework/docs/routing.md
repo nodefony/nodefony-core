@@ -95,7 +95,7 @@ tranchent différemment :
 **L'arbitrage est explicite, pas calculé.** Beaucoup de routeurs trient les routes par « spécificité »
 (le motif le plus précis gagne) — pratique jusqu'au jour où l'on ne comprend plus pourquoi telle route
 passe devant telle autre. Nodefony garde l'**ordre de déclaration** : la table est parcourue de haut en
-bas, le premier motif satisfait l'emporte (`Router.resolve()`, `router.ts:287`). Le compromis assumé :
+bas, le premier motif satisfait l'emporte (`Router.resolve()`, `router.ts:313`). Le compromis assumé :
 c'est à toi de déclarer le littéral avant le paramétré. En échange, tu peux **lire** l'ordre dans ton
 contrôleur.
 
@@ -104,7 +104,7 @@ contrôleur.
 O(1) ; les chemins **dynamiques** restent un scan regex (`buildRouteIndex()`, `router.ts:130`). À la
 résolution, les deux flux sont fusionnés **par position d'insertion** — la séquence de candidats est
 exactement celle du scan linéaire complet, moins les littérales d'un autre chemin, qui ne pouvaient de
-toute façon pas correspondre (`Router.resolve()`, `router.ts:287`). C'est cette équivalence que fige le
+toute façon pas correspondre (`Router.resolve()`, `router.ts:313`). C'est cette équivalence que fige le
 banc de non-régression : un refacto du routeur doit le repasser à l'identique.
 
 **Une seule table pour HTTP et WebSocket.** Il n'y a pas de « routeur WS » séparé : une action WS est
@@ -114,7 +114,7 @@ mêmes décorateurs.
 
 **Le routeur passe avant les fichiers statiques.** Une requête qui correspond à une route ne paie
 jamais le `stat` du serveur de fichiers : le repli statique n'est tenté que si la résolution a échoué
-(`serverStatic.handle()`, `http-kernel.ts:815`).
+(`serverStatic.handle()`, `http-kernel.ts:827`).
 
 > [!NOTE]
 > **Le routage n'a aucune option de configuration.** Le schéma Zod du module n'expose qu'un sac
@@ -367,7 +367,7 @@ le suit — un `@All("*")` déclaré tôt masque le reste du contrôleur.
 
 Deux routes peuvent partager un chemin et se distinguer par la méthode. La passe 1 essaie la première,
 qui **lève** un 405 sur la méthode ; l'exception est mémorisée et le scan **continue** jusqu'à la route
-qui accepte la méthode (`Router.resolve()`, `router.ts:287`).
+qui accepte la méthode (`Router.resolve()`, `router.ts:313`).
 
 ```ts ignore
 @Get("/book/{id}")    show() {}
@@ -399,7 +399,7 @@ au lieu de participer au match (`Route.matchHostname()`, `Route.ts:754`). Le poi
 l'**ordre des vérifications** : le domaine est vérifié **avant** la méthode. Sans cela, une route d'un
 autre vhost pourrait répondre 405 en révélant SES méthodes — une fuite d'information cross-domaine
 (`Route.match()`, `Route.ts:393`). La passe 2 applique la même règle : les routes d'un autre vhost sont
-exclues du calcul de `Allow` (`isDomainAllowed`, `router.ts:406`).
+exclues du calcul de `Allow` (`isDomainAllowed`, `router.ts:432`).
 
 Si une autre route du même chemin sert **tous** les vhosts, le scan continue jusqu'à elle : le 403
 n'interrompt pas la recherche, il ne conclut que s'il ne reste aucune candidate.
@@ -426,7 +426,7 @@ Ce qui change par rapport au HTTP :
   erreur de code **1002** (Protocol Error, RFC 6455 §7.4) au lieu d'un statut HTTP
   (`acceptedProtocol`, `Route.ts:911`).
 - **Le 405 ne s'applique pas au WebSocket.** La passe 2 est réservée au HTTP : sur un contexte WS,
-  l'exception d'origine est préservée (`Router.resolve()`, `router.ts:287`).
+  l'exception d'origine est préservée (`Router.resolve()`, `router.ts:313`).
 - **Un `Resolver` par connexion, réutilisé à chaque frame.** Il est créé au handshake, puis chaque
   message rejoue `match()` sur la route déjà trouvée avant d'appeler l'action
   (`WebsocketContext.handle()`, `WebsocketContext.ts:297` · boucle message,
@@ -451,7 +451,7 @@ que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.m
 
 Le routage par **message** (invoquer un chemin porté par une frame, sans toucher l'URL de la connexion)
 passe par le même `resolve()`, avec un chemin fourni en argument — l'état partagé de la socket n'est
-jamais muté (`Router.resolve()`, `router.ts:287`). Détails côté socket :
+jamais muté (`Router.resolve()`, `router.ts:313`). Détails côté socket :
 [socket Nodefony](../../../../../docs/architecture/realtime-socket-nodefony.md).
 
 ## Vhosts — une route par domaine
@@ -489,7 +489,7 @@ Trois niveaux de préfixe coexistent, et un seul est à ta main.
    lui-même.
 2. **Le module propriétaire** — il n'ajoute **aucun** préfixe d'URL. `@controllers([…])` enregistre la
    classe au boot et propage le nom du module sur les routes déjà créées, pour l'introspection et les
-   logs (`Router.setController()`, `router.ts:516`). Un module tiers et ton app peuvent porter deux
+   logs (`Router.setController()`, `router.ts:542`). Un module tiers et ton app peuvent porter deux
    contrôleurs homonymes sans collision : la clé du registre est `module:Classe` (`router.ts:203`).
 3. **Le data plane d'administration** — réservé, non négociable : `/nodefony/<namespace>/api/<endpoint>`
    (`AdminBroker.resolvePath()`, `AdminBroker.ts:99`). Trois segments minimum, pour ne jamais entrer en
@@ -509,10 +509,10 @@ d'une route — il survit à un changement de chemin.
 | Besoin                                   | Comment                                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------- |
 | Retrouver une route par son nom          | `router.getRoutes("ma-route")` → l'objet `Route` (`router.ts:326`)        |
-| Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:469`)              |
-| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:458`) |
+| Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:495`)              |
+| Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:484`) |
 | Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:734`)          |
-| Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:478`)                       |
+| Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:504`)                       |
 
 **Il n'existe pas de générateur d'URL inverse côté serveur** (pas de `path("ma-route", {id})` à la
 Symfony). Le chemin déclaré est lisible sur l'objet `Route` (`route.path`), et la substitution des
@@ -563,7 +563,7 @@ alloué par requête.
   mutations directes de la liste (`routeIndex`, `router.ts:127`).
 - **Zéro journalisation en production** : le log « route trouvée » est promu au niveau NOTICE hors
   production seulement, et le test est résolu une fois puis mémoïsé — en production, aucune chaîne
-  n'est même construite (`routeNoticePromoted`, `router.ts:369`).
+  n'est même construite (`routeNoticePromoted`, `router.ts:395`).
 - **Métadonnées d'action mémoïsées par route** au premier passage (`@HttpCode`, `@Header`, `@Redirect`,
   paramètres, intention de session) : plus aucune lecture `Reflect` par requête
   (`resolveActionMeta`, `Resolver.ts:458`).

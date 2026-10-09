@@ -798,7 +798,7 @@ L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** c
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
 (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1933`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
-(`websocketQuotaRefusal()`, `http-kernel.ts:2160`), sans
+(`websocketQuotaRefusal()`, `http-kernel.ts:2199`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :

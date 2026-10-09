@@ -443,7 +443,7 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
       ws.on("error", done);
     }));
 
-  it("Unknown route returns close with error code", () =>
+  it("Unknown route is refused with HTTP 404 before the 101", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
         if (err) reject(asError(err));
@@ -453,12 +453,18 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
         `${WSS}/nodefony/test/ws/nonexistent/deeply/nested`,
         wsOpts,
       );
-      ws.on("close", (code) => {
-        expect(code).to.be.oneOf([1011, 4004]);
-        done();
+      ws.on("open", () =>
+        done(new Error("socket ouverte sur un chemin sans route")),
+      );
+      ws.on("unexpected-response", (_req, res) => {
+        try {
+          expect(res.statusCode).to.equal(404);
+          done();
+        } catch (e) {
+          done(e);
+        }
       });
-      ws.on("unexpected-response", () => done());
-      ws.on("error", () => done());
+      ws.on("error", done);
     }));
 
   it("Route variable: metadata in response (nodefony field)", () =>

@@ -86,6 +86,22 @@ export interface IRequestRouter {
     methodOverride?: string,
   ): IRouteResolver;
   /**
+   * Dit si au moins une route déclare le transport `WEBSOCKET` pour ce chemin.
+   *
+   * Lu AVANT le `101` : une socket vers un chemin sans route se refuse par un
+   * statut HTTP (RFC 6455 §4.2.2), jamais par une ouverture suivie d'une
+   * fermeture — un client qui sonde par une ouverture conclurait que le
+   * serveur l'a acceptée. La réponse est un SUR-ENSEMBLE de ce que
+   * {@link IRequestRouter.resolve} acceptera : l'hôte (`@Domain`), le
+   * sous-protocole et les exigences de variables ne sont pas jugés ici, ils
+   * restent des fermetures après ouverture — refuser à tort coûterait une
+   * connexion légitime.
+   *
+   * @param pathname - chemin de l'URL d'upgrade (WHATWG), barres finales comprises
+   * @returns `false` si aucune route WebSocket ne peut répondre à ce chemin
+   */
+  servesWebsocket(pathname: string): boolean;
+  /**
    * Instance partagée d'un controller `scope: "singleton"`, créée une seule fois.
    *
    * @param ctor - la classe du controller (clé du cache)

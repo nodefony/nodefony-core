@@ -27,7 +27,7 @@ source: "docs/guides/frontend-react.md"
 Pendant le développement, **deux** serveurs tournent : Nodefony sert votre application, Vite sert
 les modules du frontend et pousse le rechargement à chaud. Le visiteur, lui, n'en voit qu'un seul :
 Nodefony rend la page, y insère les balises du frontend (`FrontendService.renderTags()`,
-`FrontendService.ts:772`) — servies sur l'origine de la page et relayées vers Vite
+`FrontendService.ts:765`) — servies sur l'origine de la page et relayées vers Vite
 (`FrontendService.mountDevProxy()`, `FrontendService.ts:486`). Les appels d'API de la page
 partent sur cette même origine, donc directement vers tes contrôleurs. En production il n'y a plus qu'un serveur : les fichiers
 sont bâtis, et les mêmes balises pointent vers eux.

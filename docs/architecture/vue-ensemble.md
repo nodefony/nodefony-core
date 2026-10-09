@@ -515,11 +515,11 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 | Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:393`)                          |
 | Challenge d'authentification | RFC 9110 §11                   | `Firewall.handleSecurity()` (`firewall.ts:784`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:79`)              |
-| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1625`)           |
+| Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1646`)           |
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1819`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
 | Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:170`) · `Service.log()` (`Service.ts:364`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1510`)         |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1522`)         |
 
 ## ⚡ Performance & mémoire
 

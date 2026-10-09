@@ -119,7 +119,7 @@ sont traités **avant** toute allocation de contexte, de scope DI ou de bulle AL
 (`HttpKernel.onHttpRequest()`, `http-kernel.ts:1062`). Un flood est refusé au prix d'une recherche dans
 une `Map`.
 
-**2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:287`) est appelé **avant** de lire
+**2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:313`) est appelé **avant** de lire
 le corps de la requête (`http-kernel.ts:1408`). C'est ce qui permet à une action de recevoir le flux
 brut plutôt qu'un corps déjà chargé en mémoire — et ce qui évite de payer le disque sur une route qui
 n'est pas un fichier.
@@ -265,12 +265,12 @@ Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque
 | 1   | `onHttpRequest()`      | `http-kernel.ts:1062`                                        | en-têtes de transport posés (nosniff, frame, HSTS)               |
 | 2   | probes de santé        | `HttpKernel.#respondHealth()` (`http-kernel.ts:549`)         | `/livez` et `/readyz` répondent **sans** entrer dans le pipeline |
 | 3   | rate-limit par IP      | `http-kernel.ts:865`                                         | un flood est rejeté en 429, **sans** contexte ni scope           |
-| 4   | `handle()`             | `HttpKernel.handle()` (`http-kernel.ts:815`)                 | le **scope DI « request »** est ouvert                           |
+| 4   | `handle()`             | `HttpKernel.handle()` (`http-kernel.ts:827`)                 | le **scope DI « request »** est ouvert                           |
 | 5   | `createHttpContext()`  | `http-kernel.ts:1460`                                        | le contexte existe ; le teardown est armé (`on("close")`)        |
 | 6   | `traceparent`          | `http-kernel.ts:1568`                                        | la trace W3C est résolue (héritée ou générée)                    |
 | 7   | `RequestContext.run()` | `http-kernel.ts:507`                                         | **la bulle ALS est ouverte** — `requestId` propagé partout       |
 | 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:1037`)                 | un **preflight** répond 204 et **sort** du pipeline              |
-| 9   | routage                | `Router.resolve()` (`router.ts:287`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
+| 9   | routage                | `Router.resolve()` (`router.ts:313`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
 | 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1094`)       | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
 | 11  | fallback statique      | `serverStatic` (`http-kernel.ts:284`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
 | 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1451`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
@@ -330,7 +330,9 @@ sequenceDiagram
   participant K as HttpKernel
   participant X as WebsocketContext
   participant A as Ton contrôleur
-  C->>W: GET + Upgrade
+  C->>K: GET + Upgrade
+  K->>K: websocketUpgradeRefusal — aucune route WebSocket ? statut HTTP, pas de 101
+  K->>W: upgrade admis → 101
   W->>K: onWebsocketRequest — rate-limit, cap connexions par IP
   K->>K: scope DI « request » + createWebsocketContext
   K->>K: RequestContext.run — bulle ALS (handshake ET trames)
@@ -348,19 +350,20 @@ sequenceDiagram
   X->>K: onFinish — sauvegarde de session, leaveScope
 ```
 
-| #   | Étape                  | Ancrage                                                        | Ce qui devient vrai                                    |
-| --- | ---------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
-| 1   | `onWebsocketRequest()` | `http-kernel.ts:1933`                                          | rate-limit du handshake (close **1013**) et cap par IP |
-| 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1876`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
-| 3   | bulle ALS              | `http-kernel.ts:1645`                                          | ouverte pour le handshake **et** toutes les trames     |
-| 4   | hôte + Origin          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)     | origine tierce refusée → close **1008** (anti-CSWSH)   |
-| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:2067`)               | route et protocole vérifiés **avant** l'accept         |
-| 6   | session                | `http-kernel.ts:1550`                                          | même point d'activation unique qu'en HTTP              |
-| 7   | `connect()`            | `WebsocketContext.connect()` (`WebsocketContext.ts:257`)       | listeners `close`/`error`/`message` branchés           |
-| 8   | firewall               | `http-kernel.ts:1450`                                          | mêmes zones, mêmes rôles qu'en HTTP                    |
-| 9   | handshake applicatif   | `WebsocketContext.handle()` (`WebsocketContext.ts:297`)        | ton action est appelée avec `message = null`           |
-| 10  | trames                 | `WebsocketContext.handleMessage()` (`WebsocketContext.ts:507`) | ton action est rappelée par message reçu               |
-| 11  | fermeture              | `WebsocketContext.onClose()` (`WebsocketContext.ts:550`)       | `onFinish` → session sauvegardée, **scope libéré**     |
+| #   | Étape                  | Ancrage                                                        | Ce qui devient vrai                                                              |
+| --- | ---------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 0   | refus avant `101`      | `HttpKernel.websocketUpgradeRefusal()` (`http-kernel.ts:2161`) | chemin sans route WebSocket → **404** HTTP, jamais d'ouverture (RFC 6455 §4.2.2) |
+| 1   | `onWebsocketRequest()` | `http-kernel.ts:1934`                                          | rate-limit du handshake (close **1013**) et cap par IP                           |
+| 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1876`)  | scope DI ouvert ; `onFinish` armé pour le libérer                                |
+| 3   | bulle ALS              | `http-kernel.ts:1645`                                          | ouverte pour le handshake **et** toutes les trames                               |
+| 4   | hôte + Origin          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)     | origine tierce refusée → close **1008** (anti-CSWSH)                             |
+| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:2067`)               | route et protocole vérifiés **avant** l'accept                                   |
+| 6   | session                | `http-kernel.ts:1550`                                          | même point d'activation unique qu'en HTTP                                        |
+| 7   | `connect()`            | `WebsocketContext.connect()` (`WebsocketContext.ts:257`)       | listeners `close`/`error`/`message` branchés                                     |
+| 8   | firewall               | `http-kernel.ts:1450`                                          | mêmes zones, mêmes rôles qu'en HTTP                                              |
+| 9   | handshake applicatif   | `WebsocketContext.handle()` (`WebsocketContext.ts:297`)        | ton action est appelée avec `message = null`                                     |
+| 10  | trames                 | `WebsocketContext.handleMessage()` (`WebsocketContext.ts:507`) | ton action est rappelée par message reçu                                         |
+| 11  | fermeture              | `WebsocketContext.onClose()` (`WebsocketContext.ts:550`)       | `onFinish` → session sauvegardée, **scope libéré**                               |
 
 ### Ce que les deux trajets partagent, et ce qui diffère
 
@@ -477,12 +480,18 @@ est piégeuse (`0-999` refusé, `1004/1005/1006/1015` réservés non émissibles
 | déjà valide (1000-1003, 1007-1011, 3000-4999) | conservé             | tel quel                                |
 | 401 / 403 / 421                               | **1008**             | Policy Violation                        |
 | 5xx / interne / absent / hors plage           | **1011**             | Internal Error                          |
-| autre 4xx (ex. 404)                           | **4004**             | plage privée applicative (§7.4.2)       |
+| autre 4xx (ex. 404 levé par l'action)         | **4004**             | plage privée applicative (§7.4.2)       |
 | handshake au-delà du quota                    | **1013**             | Try Again Later (`http-kernel.ts:1377`) |
 | origine tierce (anti-CSWSH)                   | **1008**             | Policy Violation (`http-kernel.ts:509`) |
 
 En pratique : une action qui lève une erreur « 403 » produit un `close 1008` propre côté client, sans
 que tu aies à connaître la table des codes.
+
+Ces codes ne concernent qu'une socket **déjà ouverte**. Un chemin qu'aucune route WebSocket ne sert
+n'ouvre jamais la socket : il reçoit un **404 HTTP** avant le `101` (RFC 6455 §4.2.2,
+`HttpKernel.websocketUpgradeRefusal()`). La différence compte pour tout client qui teste « le serveur
+répond-il ? » en ouvrant une socket — le client Vite le fait à chaque redémarrage, et une ouverture
+suivie d'une fermeture lui faisait recharger la page trop tôt.
 
 Un dernier cas, visible dans les logs et souvent mal lu : le **499**. Ce n'est pas une erreur de ton
 code — c'est le client qui a coupé avant d'avoir sa réponse. Le kernel l'enregistre pour

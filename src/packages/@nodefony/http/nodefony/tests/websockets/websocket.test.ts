@@ -21,18 +21,23 @@ describe("WEBSOCKETS UNIT TESTS ", () => {
         if (err) reject(asError(err));
         else resolve();
       };
+      // Chemin sans route : refus HTTP 404 AVANT le 101 (RFC 6455 §4.2.2).
+      // Une ouverture, même suivie d'une fermeture, est un échec : c'est elle
+      // qui faisait recharger le client Vite trop tôt (#577).
       ws = new WebSocket(`${WSS}/nodefony/test/wsu`, wsOpts);
       ws.on("unexpected-response", (_req, res) => {
-        expect(res.statusCode).to.equal(404);
-        done();
+        try {
+          expect(res.statusCode).to.equal(404);
+          done();
+        } catch (e) {
+          done(e);
+        }
+      });
+      ws.on("open", () => {
+        done(new Error("socket ouverte sur un chemin sans route"));
       });
       ws.on("error", (error) => {
         done(error);
-      });
-      // ws accepts the upgrade then closes with an error code when route is not found
-      ws.on("close", (code) => {
-        expect(code).to.be.oneOf([1011, 4004]);
-        done();
       });
     }));
 

@@ -491,14 +491,14 @@ describe("ReverseProxy — requêtes HTTP/1.1", () => {
     expect((await get(port, "/a/c")).body).toBe("court");
   });
 
-  it("une cible calculée suit l'amont ; `undefined` = rien à relayer", async () => {
+  it("une cible calculée suit l'amont ; `undefined` = amont pas prêt (503)", async () => {
     const one = await upstream((_q, res) => res.end("un"));
     const two = await upstream((_q, res) => res.end("deux"));
     let current: string | undefined;
     const proxy = proxyWith({});
     proxy.mount("/svc/", { target: () => current });
     const p2 = await front(proxy);
-    expect((await get(p2, "/svc/")).body).toBe("routage");
+    expect((await get(p2, "/svc/")).status).toBe(503);
     current = one.origin;
     expect((await get(p2, "/svc/")).body).toBe("un");
     current = two.origin;
@@ -1242,6 +1242,114 @@ describe("ReverseProxy — upgrade : contrôles avant relais", () => {
     expect(r.toLowerCase()).not.toContain("transfer-encoding");
     expect(r).toContain("Connection: close");
     expect(r.endsWith("non !")).toBe(true);
+  });
+});
+
+describe("ReverseProxy — amont pas encore prêt (#577)", () => {
+  const key = "dGhlIHNhbXBsZSBub25jZQ==";
+  // Le montage que pose @nodefony/frontend, Vite pas encore prêt.
+  const notReady = (): ReverseProxy => {
+    const proxy = proxyWith({});
+    proxy.mount("/_vite/default/", {
+      target: () => undefined,
+      websocket: true,
+      methods: ["GET", "HEAD"],
+    });
+    return proxy;
+  };
+
+  it("upgrade : 503 AVANT tout 101, jamais laissé filer vers le routage", async () => {
+    const port = await front(notReady());
+    const answer = await raw(
+      port,
+      `GET /_vite/default/ HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: ${key}\r\nSec-WebSocket-Protocol: vite-ping\r\n\r\n`,
+      500,
+    );
+    expect(answer).toMatch(/^HTTP\/1\.1 503 /);
+  });
+
+  it("GET : 503 + Retry-After au lieu du 404 du routage", async () => {
+    const port = await front(notReady());
+    const r = await get(port, "/_vite/default/@vite/client");
+    expect(r.status).toBe(503);
+    expect(r.headers["retry-after"]).toBe("1");
+    expect(r.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("une méthode non relayée suit toujours le routage, cible prête ou non", async () => {
+    const port = await front(notReady());
+    const r = await get(port, "/_vite/default/x", { method: "POST" });
+    expect(r.body).toBe("routage");
+  });
+});
+
+describe("HttpKernel.websocketUpgradeRefusal — refus avant le 101 (#577)", () => {
+  const upgrade = (
+    url: string,
+    ip = "10.0.0.1",
+    host = "x",
+  ): http.IncomingMessage =>
+    ({
+      url,
+      headers: { host },
+      socket: { remoteAddress: ip },
+    }) as unknown as http.IncomingMessage;
+  const withRouter = (
+    kernel: HttpKernel,
+    served: (pathname: string) => boolean,
+  ): string[] => {
+    const seen: string[] = [];
+    kernel.router = {
+      servesWebsocket: (pathname: string) => {
+        seen.push(pathname);
+        return served(pathname);
+      },
+    } as unknown as HttpKernel["router"];
+    return seen;
+  };
+
+  it("routeur pas encore posé (boot) : 503", () => {
+    expect(kernelWith({}).websocketUpgradeRefusal(upgrade("/ws"))).toBe(503);
+  });
+
+  it("chemin sans route WebSocket : 404 ; avec : admis", () => {
+    const kernel = kernelWith({});
+    withRouter(kernel, (p) => p === "/ws");
+    expect(kernel.websocketUpgradeRefusal(upgrade("/ws?x=1"))).toBe(null);
+    expect(kernel.websocketUpgradeRefusal(upgrade("/inconnu"))).toBe(404);
+  });
+
+  it("le routeur reçoit le chemin WHATWG que lira le contexte (`//a` reste un chemin)", () => {
+    const kernel = kernelWith({});
+    const seen = withRouter(kernel, () => true);
+    kernel.websocketUpgradeRefusal(upgrade("//a/./b/../c?q"));
+    expect(seen).toEqual(["//a/c"]);
+  });
+
+  it("URL inanalysable : 400", () => {
+    const kernel = kernelWith({});
+    withRouter(kernel, () => true);
+    expect(
+      kernel.websocketUpgradeRefusal(upgrade("/ws", "10.0.0.1", "a b")),
+    ).toBe(400);
+  });
+
+  it("un refus compte au limiteur de débit : 404 puis 429", () => {
+    const kernel = kernelWith({ rateMax: 1 });
+    withRouter(kernel, () => false);
+    expect(kernel.websocketUpgradeRefusal(upgrade("/x"))).toBe(404);
+    expect(kernel.websocketUpgradeRefusal(upgrade("/x"))).toBe(429);
+    expect(kernel.websocketUpgradeRefusal(upgrade("/x", "10.0.0.2"))).toBe(404);
+  });
+
+  it("un upgrade admis n'est pas compté ici (il l'est après l'ouverture, une seule fois)", () => {
+    const kernel = kernelWith({ rateMax: 1 });
+    withRouter(kernel, () => true);
+    expect(kernel.websocketUpgradeRefusal(upgrade("/ws"))).toBe(null);
+    expect(kernel.websocketUpgradeRefusal(upgrade("/ws"))).toBe(null);
+    expect(
+      kernel.websocketQuotaRefusal(upgrade("/ws"), new EventEmitter()),
+    ).toBe(null);
   });
 });
 

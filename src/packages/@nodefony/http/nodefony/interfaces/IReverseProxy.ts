@@ -3,8 +3,9 @@
  *
  * Une fonction quand l'origine n'est connue qu'à l'exécution (un serveur
  * enfant qui choisit son port au démarrage) : elle est rappelée à chaque
- * requête, et `undefined` signifie « rien à relayer pour l'instant » — la
- * requête suit alors son chemin normal, jusqu'au routage.
+ * requête, et `undefined` signifie « l'amont n'est pas prêt » — la requête
+ * reçoit `503` (`Retry-After: 1`), l'upgrade WebSocket `503` avant tout `101` :
+ * le préfixe appartient à l'amont, le routage n'a rien à y répondre.
  */
 export type ProxyTarget = string | (() => string | undefined);
 
