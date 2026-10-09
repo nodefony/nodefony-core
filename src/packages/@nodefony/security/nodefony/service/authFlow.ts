@@ -1,5 +1,6 @@
 import { Service, Module, Container, RequestContext } from "nodefony";
 import type { ContextType, SessionsService, ISession } from "@nodefony/http";
+import { requestUser } from "@nodefony/user";
 import type { IUser, IUserProvider, IPasswordVerifier } from "@nodefony/user";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
@@ -390,6 +391,12 @@ class AuthFlow extends Service {
     const identifier = context.session?.user;
     if (typeof identifier !== "string" || identifier.length === 0) {
       return null;
+    }
+    // Dans une zone, le pare-feu a DÉJÀ relu ce compte pour cette requête (mêmes
+    // contrôles) : le réutiliser évite une seconde lecture en base.
+    const current = requestUser(RequestContext.getUser(), identifier);
+    if (current !== null) {
+      return toSafeUser(current);
     }
     try {
       const user = await resolveSessionIdentity(

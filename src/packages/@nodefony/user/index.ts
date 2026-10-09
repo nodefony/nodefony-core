@@ -41,6 +41,7 @@ export {
   anonymousUser,
   ROLE_ANONYMOUS,
 } from "./nodefony/src/AnonymousUser";
+export { requestUser } from "./nodefony/src/requestUser";
 
 // ─── Encoders (P5.6, P6 J2) ──────────────────────────────────────────────────
 export { BcryptEncoder } from "./nodefony/src/encoders/BcryptEncoder";

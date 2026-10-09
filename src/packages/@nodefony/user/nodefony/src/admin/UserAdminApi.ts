@@ -14,6 +14,7 @@ import type { UserService } from "../../service/UserService";
 import { WeakPasswordError } from "../../errors/WeakPasswordError";
 import { DEFAULT_PASSWORD_POLICY } from "../password/passwordPolicy";
 import { listUserStores } from "../userStoreRegistry";
+import { requestUser } from "../requestUser";
 import {
   USER_FILTERS,
   USER_FACETS,
@@ -754,7 +755,11 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!principal) {
           return { status: 401, body: { error: "unauthenticated" } };
         }
-        const me = (await users.findByIdentifier(principal)) as IUser | null;
+        // L'utilisateur que le pare-feu a chargé pour CETTE requête — le relire
+        // coûterait un aller-retour en base pour rien (cf `requestUser`).
+        const me =
+          requestUser(request.user, principal) ??
+          (await users.findByIdentifier(principal));
         if (!me) return { status: 404, body: { error: "not found" } };
         return toUserSummary(me);
       },
@@ -883,7 +888,11 @@ export function createUserAdminApi(container: Container): IAdminApi {
         if (!principal) {
           return { status: 401, body: { error: "unauthenticated" } };
         }
-        const me = (await users.findByIdentifier(principal)) as IUser | null;
+        // L'utilisateur que le pare-feu a chargé pour CETTE requête — le relire
+        // coûterait un aller-retour en base pour rien (cf `requestUser`).
+        const me =
+          requestUser(request.user, principal) ??
+          (await users.findByIdentifier(principal));
         if (!me) return { status: 404, body: { error: "not found" } };
         const parsed = validateProfilePatch(request.body ?? {});
         if (!parsed.ok) {

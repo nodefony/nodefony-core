@@ -823,6 +823,36 @@ describe("UserAdminApi — me (self profile)", () => {
   });
 });
 
+describe("UserAdminApi — me : une seule lecture du compte par requête", () => {
+  it("réutilise l'utilisateur déposé par le pare-feu, sans relire le fournisseur", async () => {
+    const alice = new BaseUser({
+      id: "alice",
+      identifier: "alice@x",
+      roles: ["ROLE_USER"],
+    });
+    const users = makeUsers([alice]);
+    let reads = 0;
+    const counted = {
+      ...users,
+      findByIdentifier: async (idf: string) => {
+        reads++;
+        return users.findByIdentifier(idf);
+      },
+    };
+    const api = createUserAdminApi(container(counted));
+    // `user` = l'objet que le pare-feu a chargé et vérifié pour cette requête.
+    const get = await call(api, "GET", "me", { user: alice });
+    const post = await call(api, "POST", "me/profile", {
+      user: alice,
+      body: { displayName: "Alice" },
+    });
+    assert.equal(get.status, 200);
+    assert.equal((get.body as IUserSummary).identifier, "alice@x");
+    assert.equal(post.status, 200);
+    assert.equal(reads, 0);
+  });
+});
+
 describe("UserAdminApi — users/stats et la RECHERCHE", () => {
   /** Annuaire où le terme « ali » ne désigne qu'un seul compte sur trois. */
   const seed = (): BaseUser[] => [
