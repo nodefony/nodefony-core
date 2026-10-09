@@ -852,6 +852,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Connexion Docker Hub (quota du compte, pas celui de l'IP partagée)
+        uses: ./.github/actions/dockerhub-login
+        with:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          token: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -1124,6 +1130,9 @@ jobs:
     services:
       postgres:
         image: postgres:16-alpine
+        credentials:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
         env:
           POSTGRES_USER: nodefony
           POSTGRES_PASSWORD: nodefony-dev
@@ -1137,6 +1146,9 @@ jobs:
           --health-retries 10
       mariadb:
         image: mariadb:11.4
+        credentials:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          password: ${{ secrets.NF_DOCKERHUB_TOKEN }}
         env:
           MARIADB_ROOT_PASSWORD: nodefony-dev
           MARIADB_USER: nodefony
@@ -1158,6 +1170,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Connexion Docker Hub (quota du compte, pas celui de l'IP partagée)
+        uses: ./.github/actions/dockerhub-login
+        with:
+          username: ${{ secrets.NF_DOCKERHUB_USER }}
+          token: ${{ secrets.NF_DOCKERHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

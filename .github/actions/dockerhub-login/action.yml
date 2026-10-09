@@ -1,0 +1,42 @@
+name: Connexion Docker Hub
+description: >-
+  Connecte le démon Docker du runner à Docker Hub AVANT tout `docker run`,
+  `docker compose` ou action qui tire une image. Anonymes, les runners GitHub
+  partagent leurs IP, et Docker Hub plafonne les téléchargements anonymes PAR
+  IP : les jobs tombaient sur `toomanyrequests` sans qu'aucun test ait tourné.
+  Connecté, le quota est celui du compte. Les conteneurs de `services:`, eux,
+  démarrent avant la première étape : ils prennent `credentials:` dans le job.
+
+inputs:
+  username:
+    description: Identifiant Docker Hub (`secrets.NF_DOCKERHUB_USER`).
+    required: false
+    default: ""
+  token:
+    description: Jeton d'accès Docker Hub (`secrets.NF_DOCKERHUB_TOKEN`).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: docker login
+      shell: bash
+      env:
+        IDENTIFIANT: ${{ inputs.username }}
+        JETON: ${{ inputs.token }}
+      run: |
+        set -uo pipefail
+        # Sans identifiants (fork, Dependabot), le job continue en anonyme :
+        # c'est la situation d'avant, dite au lieu d'être subie.
+        if [ -z "${IDENTIFIANT}" ] || [ -z "${JETON}" ]; then
+          echo "::warning title=Docker Hub en anonyme::NF_DOCKERHUB_USER ou NF_DOCKERHUB_TOKEN absent — les images seront tirées sur le quota anonyme par IP, partagé par tous les runners."
+          exit 0
+        fi
+        # Un jeton refusé ne fait pas échouer le job : il retombe en anonyme,
+        # mais le DIT — un jeton expiré ne doit pas passer inaperçu.
+        if ! echo "${JETON}" | docker login -u "${IDENTIFIANT}" --password-stdin > /dev/null 2>&1; then
+          echo "::warning title=Identifiants Docker Hub refusés::Jeton expiré, révoqué, ou identifiant erroné — téléchargements en anonyme."
+          exit 0
+        fi
+        echo "Docker Hub : connecté en ${IDENTIFIANT}"
