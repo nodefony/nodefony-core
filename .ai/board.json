@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T12:54:33.240Z",
+  "generatedAt": "2026-10-09T13:09:46.177Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 97,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 49,
+      "open": 50,
       "title": "10.0.0-beta"
     },
     {
