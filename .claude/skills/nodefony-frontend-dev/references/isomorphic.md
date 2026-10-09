@@ -121,7 +121,7 @@ La règle d'or : **du code front n'importe jamais la face serveur**. Concrèteme
 - Le code protocole partagé (`src/nodefony/src/realtime/*` : `JsonRpcPeer`, `IRealtimeSocket`, `IRealtimeTransport`, `RealtimeEventMap`, `channelRate`) est **sans dépendance Node** (browser-safe par construction) — c'est ce qui rend l'isomorphisme possible.
 - Le barrel client (`src/client/index.ts`) ne réexporte QUE des briques browser-safe : `Service`, `Container`, `Syslog`, `Pdu`, helpers `Tools`, `NodefonySocket`, `JsonRpcPeer`, transports, AdaptiveRate, drivers Pdu. Il N'expose PAS `Kernel`/`Module`/http.
 
-Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/`react-dom` sont **optionnels** (`peerDependenciesMeta`, lignes 98-104) — tirés seulement si on importe `nodefony/react` ; `zod` reste requis. Aucun JSX dans le build Core : le provider React est créé via `React.createElement` (cf `src/client/react/index.ts:53`) → le build Core ne dépend d'aucun transform JSX.
+Côté types, `peerDependencies` (`src/nodefony/package.json:93-105`) : `react`/`react-dom` sont **optionnels** (`peerDependenciesMeta`, lignes 98-104) — tirés seulement si on importe `nodefony/react` ; `zod` reste requis. Aucun JSX dans le build Core : le provider React est créé via `React.createElement` (cf `src/client/react/index.ts:140`) → le build Core ne dépend d'aucun transform JSX.
 
 ---
 
