@@ -218,7 +218,7 @@ release.mjs — PRÉPARE une release Nodefony, et refuse tout ce qui ne se rattr
 
 Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.
 
-- **Usage** : `npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|pm]`
+- **Usage** : `npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|global|pm]`
 - **Variable** `IMAGE`
 - **Variable** `MOTEUR`
 - **Variable** `QAPP_NAME`

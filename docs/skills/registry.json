@@ -1799,7 +1799,7 @@
       "test": false,
       "purpose": "Smoke test release (modèle B) + preuve Dockerfile/graceful shutdown/frontend.",
       "usage": [
-        "npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|pm]"
+        "npm run release:smoke -- [--scenario all|base|front|studio|edge|sql|cluster|global|pm]"
       ],
       "options": [],
       "env": [
