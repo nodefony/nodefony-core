@@ -18,7 +18,7 @@
  * `app.runWithContext` + `effectScope` donnent exactement ce qu'un composant
  * donne à un composable — un contexte d'injection et une portée d'effet.
  */
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createApp, effectScope, isReactive, ref, type App } from "vue";
 import { NodefonySocket } from "../client/realtime/NodefonySocket";
 import {
@@ -28,6 +28,9 @@ import {
 import {
   nodefonyVue,
   useNodefony,
+  useNodefonyKernel,
+  useNodefonyKernelIdentity,
+  useNodefonyKernelState,
   useNodefonyChannel,
   useNodefonyChannelData,
   useNodefonySnapshot,
@@ -35,6 +38,7 @@ import {
   useNodefonyState,
 } from "../client/vue/index";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
+import { createClientKernel } from "../client/ClientKernel";
 
 class MockTransport implements IRealtimeTransport {
   readyState: number = TransportState.CONNECTING;
@@ -320,5 +324,65 @@ describe("useNodefonySse — Vue", () => {
         fetch: sseFetchBench().fetch,
       }),
     ).toThrow(/portée/);
+  });
+});
+
+describe("noyau client — Vue", () => {
+  function noyau() {
+    return createClientKernel({
+      realtime: newClient(),
+      browserEvents: false,
+      banner: false,
+    });
+  }
+
+  it("🔴 un composable lit le noyau fourni, et son identité suit setIdentity()", () => {
+    const kernel = noyau();
+    const app = createApp({});
+    app.use(nodefonyVue, { kernel });
+    const { valeur, arreter } = monter(app, () => ({
+      kernel: useNodefonyKernel(),
+      socket: useNodefony(),
+      state: useNodefonyKernelState(),
+      identity: useNodefonyKernelIdentity(),
+    }));
+    expect(valeur.kernel).toBe(kernel);
+    expect(valeur.socket).toBe(kernel.get("realtime"));
+    // Même règle que la socket : le noyau n'est pas proxifié.
+    expect(isReactive(valeur.kernel)).toBe(false);
+    expect(valeur.state.value).toBe("created");
+    expect(valeur.identity.value).toBeNull();
+    kernel.setIdentity({ key: "alice" });
+    expect(valeur.identity.value?.key).toBe("alice");
+    kernel.setIdentity({ key: "bob" });
+    expect(valeur.identity.value?.key).toBe("bob");
+    arreter();
+  });
+
+  it("la portée détruite ne laisse AUCUN handler sur le noyau", () => {
+    const kernel = noyau();
+    const on = vi.spyOn(kernel, "on");
+    const off = vi.spyOn(kernel, "off");
+    const app = createApp({});
+    app.use(nodefonyVue, { kernel });
+    const { arreter } = monter(app, () => [
+      useNodefonyKernelState(),
+      useNodefonyKernelIdentity(),
+    ]);
+    expect(on).toHaveBeenCalled();
+    arreter();
+    expect(off.mock.calls).toEqual(on.mock.calls);
+  });
+
+  it("sans noyau fourni : `null` partout", () => {
+    const { valeur, arreter } = monter(appAvec(newClient()), () => ({
+      kernel: useNodefonyKernel(),
+      state: useNodefonyKernelState(),
+      identity: useNodefonyKernelIdentity(),
+    }));
+    expect(valeur.kernel).toBeNull();
+    expect(valeur.state.value).toBeNull();
+    expect(valeur.identity.value).toBeNull();
+    arreter();
   });
 });

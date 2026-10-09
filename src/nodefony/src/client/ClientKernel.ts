@@ -297,14 +297,26 @@ export class ClientKernel implements IClientKernel {
 
   // ── Événements ─────────────────────────────────────────────────────────────
 
-  /** Abonne un handler à un événement du kernel (bus `Event` du cœur, chaînable). */
+  /**
+   * Abonne un handler à un événement du kernel (bus `Event` du cœur, chaînable).
+   *
+   * Sans effet sur un kernel terminé : il n'émettra plus rien, et son bus a été
+   * détaché par `terminate()` — l'atteindre lèverait.
+   */
   on(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this {
+    if (this.#state === "terminated") return this;
     this.#service.on(event, handler);
     return this;
   }
 
-  /** Retire un handler abonné par {@link on}. */
+  /**
+   * Retire un handler abonné par {@link on}.
+   *
+   * Sans effet sur un kernel terminé : `terminate()` a déjà retiré tous les
+   * handlers, et un composant démonté après le `pagehide` ne doit pas lever.
+   */
   off(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this {
+    if (this.#state === "terminated") return this;
     this.#service.removeListener(event, handler);
     return this;
   }

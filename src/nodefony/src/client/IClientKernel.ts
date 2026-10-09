@@ -207,6 +207,15 @@ export interface IClientKernel {
   // ── Événements ─────────────────────────────────────────────────────────────
   /** Abonne un handler à un événement du kernel (API `Event` du Core, chaînable). */
   on(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this;
+  /**
+   * Retire un handler abonné par `on` (chaînable).
+   *
+   * Sans effet sur un kernel terminé : `terminate()` a déjà retiré tous les
+   * handlers, et un composant démonté APRÈS le `pagehide` doit pouvoir se
+   * désabonner sans lever. C'est ce membre qui permet à une liaison de vue de
+   * suivre l'état ou l'identité du kernel sans fuir un handler par montage.
+   */
+  off(event: ClientKernelEvent, handler: (...args: unknown[]) => void): this;
 
   // ── Observabilité (ADR-0007 D8) ────────────────────────────────────────────
   /**

@@ -82,7 +82,7 @@ import {
 } from "@angular/core";
 // `NodefonySocket` n'est importé qu'en TYPE : la fabrication de la socket
 // partagée passe par `connectShared` (socle agnostique), qui porte la précédence
-// `client` sur `url` et le cycle de connexion — la même fonction que celle
+// `kernel` > `client` > `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
 import type { NodefonySocket } from "../realtime/NodefonySocket";
 import type {
@@ -92,12 +92,19 @@ import type {
   RealtimeState,
 } from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
+import type {
+  ClientIdentity,
+  ClientKernelState,
+  IClientKernel,
+} from "../IClientKernel";
 import {
   adaptiveRebindKey,
   connectShared,
   observeChannel,
   observeChannelStats,
   observeIdentity,
+  observeKernelIdentity,
+  observeKernelState,
   observeNoticeLog,
   observeNotices,
   observeSnapshot,
@@ -135,6 +142,11 @@ export type {
 export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
+export type {
+  ClientIdentity,
+  ClientKernelState,
+  IClientKernel,
+} from "../IClientKernel";
 
 /**
  * Le jeton sous lequel {@link provideNodefony} enregistre la socket.
@@ -147,8 +159,27 @@ export const NODEFONY_CLIENT = new InjectionToken<NodefonySocket>(
   "nodefony:realtime",
 );
 
-/** Réglages de {@link provideNodefony} — l'un des deux au moins doit être donné. */
+/**
+ * Le jeton sous lequel {@link provideNodefony} enregistre le noyau client,
+ * quand l'application en compose un. Absent → {@link injectNodefonyKernel}
+ * rend `null`.
+ */
+export const NODEFONY_KERNEL = new InjectionToken<IClientKernel>(
+  "nodefony:kernel",
+);
+
+/** Réglages de {@link provideNodefony} — l'un des trois au moins doit être donné. */
 export interface NodefonyAngularOptions {
+  /**
+   * Le noyau client de l'application — la voie COMPOSÉE. La socket est celle
+   * qu'il a composée (`kernel.get("realtime")`), et le noyau devient lisible
+   * par {@link injectNodefonyKernel}.
+   *
+   * Fourni, il l'emporte sur `client` et `url`, et le fournisseur ne touche
+   * pas au cycle : c'est le noyau qui ouvre sa socket (`connectOnBoot`,
+   * `setIdentity`).
+   */
+  kernel?: IClientKernel;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. Le fournisseur fabrique la
    * socket partagée pour cette URL et la connecte lui-même.
@@ -177,9 +208,10 @@ export interface NodefonyAngularOptions {
  * refusée à la construction des providers, pas à la première injection) ; la
  * connexion, elle, n'est ouverte qu'au premier `inject`, et hors zone.
  *
- * @throws si ni `url` ni `client` n'est fourni — l'adresse dépend de
- *   l'application, et le framework n'en devine aucune (règle du socle : une
- *   adresse devinée marche en développement et se trompe en production).
+ * @throws si aucune socket ne se résout — ni noyau qui en porte une, ni
+ *   `client`, ni `url` : l'adresse dépend de l'application, et le
+ *   framework n'en devine aucune (règle du socle : une adresse devinée
+ *   marche en développement et se trompe en production).
  *
  * @example
  * ```ts
@@ -215,6 +247,9 @@ export function provideNodefony(
         return connection.socket;
       },
     },
+    ...(options.kernel
+      ? [{ provide: NODEFONY_KERNEL, useValue: options.kernel }]
+      : []),
   ]);
 }
 
@@ -314,6 +349,57 @@ export function injectNodefonyIdentity(): Signal<RealtimeIdentity | null> {
   observeReactive(client, (socket) =>
     observeIdentity(socket, (value) => identity.set(value)),
   );
+  return identity.asReadonly();
+}
+
+/**
+ * `injectNodefonyKernel()` — le noyau client fourni à {@link provideNodefony}
+ * (`{ kernel }`), ou `null` quand l'application n'en compose pas. Référence
+ * brute ; pour l'état réactif, prendre {@link injectNodefonyKernelState} et
+ * {@link injectNodefonyKernelIdentity}.
+ *
+ * C'est la porte d'un composant profond vers `kernel.setIdentity()` : déclarer
+ * une connexion sans que l'application écrive son propre jeton.
+ */
+export function injectNodefonyKernel(): IClientKernel | null {
+  assertInInjectionContext(injectNodefonyKernel);
+  return inject(NODEFONY_KERNEL, { optional: true }) ?? null;
+}
+
+/**
+ * `injectNodefonyKernelState()` — l'état du noyau (`created` → `booting` →
+ * `ready` → `terminated`), ou `null` sans noyau fourni.
+ */
+export function injectNodefonyKernelState(): Signal<ClientKernelState | null> {
+  assertInInjectionContext(injectNodefonyKernelState);
+  const kernel = injectNodefonyKernel();
+  const state = signal<ClientKernelState | null>(kernel?.state ?? null);
+  if (kernel) {
+    observeReactive(kernel, (k) =>
+      observeKernelState(k, (value) => state.set(value)),
+    );
+  }
+  return state.asReadonly();
+}
+
+/**
+ * `injectNodefonyKernelIdentity()` — l'identité DÉCLARÉE au noyau par
+ * l'application (`setIdentity`), ou `null` hors session ou sans noyau fourni.
+ * Suit les changements de COMPTE — un profil rafraîchi à clé inchangée ne
+ * réveille personne (règle d'identité du noyau).
+ *
+ * À ne pas confondre avec {@link injectNodefonyIdentity}, l'identité RÉSOLUE
+ * par le serveur au welcome de la socket.
+ */
+export function injectNodefonyKernelIdentity(): Signal<ClientIdentity | null> {
+  assertInInjectionContext(injectNodefonyKernelIdentity);
+  const kernel = injectNodefonyKernel();
+  const identity = signal<ClientIdentity | null>(kernel?.identity ?? null);
+  if (kernel) {
+    observeReactive(kernel, (k) =>
+      observeKernelIdentity(k, (value) => identity.set(value)),
+    );
+  }
   return identity.asReadonly();
 }
 

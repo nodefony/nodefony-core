@@ -61,7 +61,7 @@ import {
 } from "vue";
 // `NodefonySocket` n'est importé qu'en TYPE : la fabrication de la socket
 // partagée passe par `connectShared` (socle agnostique), qui porte la précédence
-// `client` sur `url` et le cycle de connexion — la même fonction que celle
+// `kernel` > `client` > `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
 import type { NodefonySocket } from "../realtime/NodefonySocket";
 import type {
@@ -71,12 +71,19 @@ import type {
   RealtimeState,
 } from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
+import type {
+  ClientIdentity,
+  ClientKernelState,
+  IClientKernel,
+} from "../IClientKernel";
 import {
   adaptiveRebindKey,
   connectShared,
   observeChannel,
   observeChannelStats,
   observeIdentity,
+  observeKernelIdentity,
+  observeKernelState,
   observeNoticeLog,
   observeNotices,
   observeSnapshot,
@@ -114,6 +121,11 @@ export type {
 export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
+export type {
+  ClientIdentity,
+  ClientKernelState,
+  IClientKernel,
+} from "../IClientKernel";
 
 /**
  * La clé sous laquelle le plugin fournit la socket.
@@ -125,8 +137,25 @@ export type { ISseEvent } from "../sse/SseParser";
 export const nodefonyClientKey: InjectionKey<NodefonySocket> =
   Symbol("nodefony:realtime");
 
-/** Réglages du plugin — l'un des deux au moins doit être donné. */
+/**
+ * La clé sous laquelle le plugin fournit le noyau client, quand l'application
+ * en compose un. Absente de l'arbre → {@link useNodefonyKernel} rend `null`.
+ */
+export const nodefonyKernelKey: InjectionKey<IClientKernel> =
+  Symbol("nodefony:kernel");
+
+/** Réglages du plugin — l'un des trois au moins doit être donné. */
 export interface NodefonyVueOptions {
+  /**
+   * Le noyau client de l'application — la voie COMPOSÉE. La socket est celle
+   * qu'il a composée (`kernel.get("realtime")`), et le noyau devient lisible
+   * par {@link useNodefonyKernel}.
+   *
+   * Fourni, il l'emporte sur `client` et `url`, et le plugin ne touche pas au
+   * cycle : c'est le noyau qui ouvre sa socket (`connectOnBoot`,
+   * `setIdentity`).
+   */
+  kernel?: IClientKernel;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. Le plugin fabrique la
    * socket partagée pour cette URL et la connecte lui-même.
@@ -151,9 +180,10 @@ export interface NodefonyVueOptions {
  * à un composant, et `disconnect()` tranche les requêtes en vol des autres
  * consommateurs de la même socket partagée.
  *
- * @throws si ni `url` ni `client` n'est fourni — l'adresse dépend de
- *   l'application, et le framework n'en devine aucune (règle du socle : une
- *   adresse devinée marche en développement et se trompe en production).
+ * @throws si aucune socket ne se résout — ni noyau qui en porte une, ni
+ *   `client`, ni `url` : l'adresse dépend de l'application, et le
+ *   framework n'en devine aucune (règle du socle : une adresse devinée
+ *   marche en développement et se trompe en production).
  *
  * @example
  * ```ts
@@ -168,6 +198,8 @@ export const nodefonyVue: Plugin<[NodefonyVueOptions]> = {
     // égalités de référence et paierait une interception par accès — pour une
     // réactivité dont il n'a aucun besoin, ses changements passant par `on*`.
     app.provide(nodefonyClientKey, markRaw(connection.socket));
+    // Même raison que pour la socket : un objet à état, observé par ses `on*`.
+    if (options.kernel) app.provide(nodefonyKernelKey, markRaw(options.kernel));
     // Idempotent, rejet avalé, et sans effet sur le cycle d'une socket fournie
     // — les trois règles vivent dans le socle, pas ici.
     connection.start();
@@ -276,6 +308,62 @@ export function useNodefonyIdentity(): Readonly<Ref<RealtimeIdentity | null>> {
       identity.value = value;
     }),
   );
+  return identity;
+}
+
+/**
+ * `useNodefonyKernel()` — le noyau client fourni au plugin (`{ kernel }`), ou
+ * `null` quand l'application n'en compose pas. Référence brute ; pour l'état
+ * réactif, prendre {@link useNodefonyKernelState} et
+ * {@link useNodefonyKernelIdentity}.
+ *
+ * C'est la porte d'un composant profond vers `kernel.setIdentity()` : déclarer
+ * une connexion sans que l'application écrive sa propre clé d'injection.
+ */
+export function useNodefonyKernel(): IClientKernel | null {
+  return inject(nodefonyKernelKey, null);
+}
+
+/**
+ * `useNodefonyKernelState()` — l'état du noyau (`created` → `booting` →
+ * `ready` → `terminated`), ou `null` sans noyau fourni.
+ */
+export function useNodefonyKernelState(): Readonly<
+  Ref<ClientKernelState | null>
+> {
+  const kernel = useNodefonyKernel();
+  const state = shallowRef<ClientKernelState | null>(kernel?.state ?? null);
+  if (kernel) {
+    observeReactive("useNodefonyKernelState()", kernel, (k) =>
+      observeKernelState(k, (value) => {
+        state.value = value;
+      }),
+    );
+  }
+  return state;
+}
+
+/**
+ * `useNodefonyKernelIdentity()` — l'identité DÉCLARÉE au noyau par
+ * l'application (`setIdentity`), ou `null` hors session ou sans noyau fourni.
+ * Suit les changements de COMPTE — un profil rafraîchi à clé inchangée ne
+ * réveille personne (règle d'identité du noyau).
+ *
+ * À ne pas confondre avec {@link useNodefonyIdentity}, l'identité RÉSOLUE par
+ * le serveur au welcome de la socket.
+ */
+export function useNodefonyKernelIdentity(): Readonly<
+  Ref<ClientIdentity | null>
+> {
+  const kernel = useNodefonyKernel();
+  const identity = shallowRef<ClientIdentity | null>(kernel?.identity ?? null);
+  if (kernel) {
+    observeReactive("useNodefonyKernelIdentity()", kernel, (k) =>
+      observeKernelIdentity(k, (value) => {
+        identity.value = value;
+      }),
+    );
+  }
   return identity;
 }
 

@@ -29,7 +29,7 @@
 import * as React from "react";
 // `NodefonySocket` n'est importé qu'en TYPE : la fabrication de la socket
 // partagée passe par `connectShared` (socle agnostique), qui porte la précédence
-// `client` sur `url` et le cycle de connexion — la même fonction que celle
+// `kernel` > `client` > `url` et le cycle de connexion — la même fonction que celle
 // appelée par les trois autres fronts.
 import type { NodefonySocket } from "../realtime/NodefonySocket";
 import type {
@@ -39,12 +39,19 @@ import type {
   MessageStats,
 } from "../realtime/NodefonySocket";
 import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
+import type {
+  ClientIdentity,
+  ClientKernelState,
+  IClientKernel,
+} from "../IClientKernel";
 import {
   connectShared,
   observeChannel,
   observeState,
   observeChannelStats,
   observeIdentity,
+  observeKernelState,
+  observeKernelIdentity,
   observeNotices,
   observeNoticeLog,
   observeSyslog,
@@ -82,10 +89,27 @@ export type {
 export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
+export type {
+  ClientIdentity,
+  ClientKernelState,
+  IClientKernel,
+} from "../IClientKernel";
 
 const NodefonyContext = React.createContext<NodefonySocket | null>(null);
+/** Le noyau client fourni au Provider — `null` quand l'application n'en compose pas. */
+const NodefonyKernelContext = React.createContext<IClientKernel | null>(null);
 
 export interface NodefonyProviderProps {
+  /**
+   * Le noyau client de l'application — la voie COMPOSÉE. La socket est celle
+   * qu'il a composée (`kernel.get("realtime")`), et le noyau devient lisible
+   * par {@link useNodefonyKernel} dans tout le sous-arbre.
+   *
+   * Fourni, il l'emporte sur `client` et `url`, et le Provider ne touche pas
+   * au cycle : c'est le noyau qui ouvre sa socket (`connectOnBoot`,
+   * `setIdentity`).
+   */
+  kernel?: IClientKernel;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. Le Provider fabrique la
    * socket partagée pour cette URL et la connecte lui-même.
@@ -121,26 +145,88 @@ export interface NodefonyProviderProps {
  * ```tsx
  * <NodefonyProvider client={monClient}>…</NodefonyProvider>
  * ```
+ *
+ * @example Cas composé — l'application a un noyau client :
+ * ```tsx
+ * <NodefonyProvider kernel={kernel}>…</NodefonyProvider>
+ * ```
  */
 export function NodefonyProvider(
   props: NodefonyProviderProps,
 ): React.ReactElement {
-  const { url, client } = props;
+  const { url, client, kernel } = props;
   // `connectShared` dédoublonne par URL absolue : deux Providers de même URL
   // rendent la même instance. Le `useMemo` n'est donc pas là pour la justesse
   // mais pour éviter la résolution d'URL à chaque rendu.
   const connection = React.useMemo(
-    () => connectShared({ url, client }),
-    [client, url],
+    () => connectShared({ url, client, kernel }),
+    [client, url, kernel],
   );
   // `start()` est idempotent, avale le rejet, et ne touche PAS au cycle d'une
   // socket fournie — les trois règles vivent dans le socle, pas ici. Toujours
   // pas de `disconnect()` au démontage : la connexion appartient à la PAGE.
   React.useEffect(() => connection.start(), [connection]);
   return React.createElement(
-    NodefonyContext.Provider,
-    { value: connection.socket },
-    props.children,
+    NodefonyKernelContext.Provider,
+    { value: kernel ?? null },
+    React.createElement(
+      NodefonyContext.Provider,
+      { value: connection.socket },
+      props.children,
+    ),
+  );
+}
+
+/**
+ * `useNodefonyKernel()` — le noyau client fourni au `<NodefonyProvider kernel>`,
+ * ou `null` quand l'application n'en compose pas. Référence stable ; pour l'état
+ * réactif, prendre {@link useNodefonyKernelState} et
+ * {@link useNodefonyKernelIdentity}.
+ *
+ * C'est la porte d'un composant profond vers `kernel.setIdentity()` : déclarer
+ * une connexion sans que l'application écrive son propre contexte.
+ */
+export function useNodefonyKernel(): IClientKernel | null {
+  return React.useContext(NodefonyKernelContext);
+}
+
+/** Abonnement inerte, pour la branche « aucun noyau fourni ». */
+const noKernelSubscription = (): (() => void) => () => {};
+const noKernelSnapshot = (): null => null;
+
+/**
+ * `useNodefonyKernelState()` — l'état du noyau (`created` → `booting` →
+ * `ready` → `terminated`), ou `null` sans noyau fourni. Re-render uniquement
+ * aux transitions.
+ */
+export function useNodefonyKernelState(): ClientKernelState | null {
+  const kernel = useNodefonyKernel();
+  return React.useSyncExternalStore(
+    kernel
+      ? (cb: () => void) => observeKernelState(kernel, () => cb())
+      : noKernelSubscription,
+    kernel ? () => kernel.state : noKernelSnapshot,
+    kernel ? () => kernel.state : noKernelSnapshot,
+  );
+}
+
+/**
+ * `useNodefonyKernelIdentity()` — l'identité DÉCLARÉE au noyau par
+ * l'application (`setIdentity`), ou `null` hors session ou sans noyau fourni.
+ * Re-render à chaque changement de COMPTE — un profil rafraîchi à clé
+ * inchangée ne réveille personne (règle d'identité du noyau).
+ *
+ * À ne pas confondre avec {@link useNodefonyIdentity}, l'identité RÉSOLUE par
+ * le serveur au welcome de la socket.
+ */
+export function useNodefonyKernelIdentity(): ClientIdentity | null {
+  const kernel = useNodefonyKernel();
+  return React.useSyncExternalStore(
+    kernel
+      ? (cb: () => void) => observeKernelIdentity(kernel, () => cb())
+      : noKernelSubscription,
+    kernel ? () => kernel.identity : noKernelSnapshot,
+    kernel ? () => kernel.identity : noKernelSnapshot,
   );
 }
 

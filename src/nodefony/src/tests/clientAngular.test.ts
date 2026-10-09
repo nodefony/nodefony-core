@@ -45,6 +45,9 @@ import {
 } from "../realtime/IRealtimeTransport";
 import {
   injectNodefony,
+  injectNodefonyKernel,
+  injectNodefonyKernelIdentity,
+  injectNodefonyKernelState,
   injectNodefonyChannel,
   injectNodefonyChannelData,
   injectNodefonySnapshot,
@@ -53,6 +56,7 @@ import {
   provideNodefony,
 } from "../client/angular/index";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
+import { createClientKernel } from "../client/ClientKernel";
 
 /** L'adresse du banc — jamais atteinte : le transport est un mock. */
 const URL_BANC = "ws://loopback/realtime";
@@ -418,5 +422,67 @@ describe("injectNodefonySse — Angular", () => {
     arreter();
     app.destroy();
     await settle();
+  });
+});
+
+describe("noyau client — Angular", () => {
+  function noyau() {
+    return createClientKernel({
+      realtime: newClient(),
+      browserEvents: false,
+      banner: false,
+    });
+  }
+
+  it("🔴 une fonction d'injection lit le noyau fourni, et son identité suit setIdentity()", async () => {
+    const kernel = noyau();
+    const app = await appAvec([provideNodefony({ kernel })]);
+    const { valeur, arreter } = monter(app, () => ({
+      kernel: injectNodefonyKernel(),
+      socket: injectNodefony(),
+      state: injectNodefonyKernelState(),
+      identity: injectNodefonyKernelIdentity(),
+    }));
+    expect(valeur.kernel).toBe(kernel);
+    expect(valeur.socket).toBe(kernel.get("realtime"));
+    // Le cycle reste au noyau : le fournisseur n'a rien ouvert.
+    expect(valeur.socket.state).toBe("disconnected");
+    expect(valeur.state()).toBe("created");
+    expect(valeur.identity()).toBeNull();
+    kernel.setIdentity({ key: "alice" });
+    expect(valeur.identity()?.key).toBe("alice");
+    kernel.setIdentity({ key: "bob" });
+    expect(valeur.identity()?.key).toBe("bob");
+    arreter();
+    app.destroy();
+  });
+
+  it("la destruction ne laisse AUCUN handler sur le noyau", async () => {
+    const kernel = noyau();
+    const on = vi.spyOn(kernel, "on");
+    const off = vi.spyOn(kernel, "off");
+    const app = await appAvec([provideNodefony({ kernel })]);
+    const { arreter } = monter(app, () => [
+      injectNodefonyKernelState(),
+      injectNodefonyKernelIdentity(),
+    ]);
+    expect(on).toHaveBeenCalled();
+    arreter();
+    expect(off.mock.calls).toEqual(on.mock.calls);
+    app.destroy();
+  });
+
+  it("sans noyau fourni : `null` partout", async () => {
+    const app = await appAvec([provideNodefony({ client: newClient() })]);
+    const { valeur, arreter } = monter(app, () => ({
+      kernel: injectNodefonyKernel(),
+      state: injectNodefonyKernelState(),
+      identity: injectNodefonyKernelIdentity(),
+    }));
+    expect(valeur.kernel).toBeNull();
+    expect(valeur.state()).toBeNull();
+    expect(valeur.identity()).toBeNull();
+    arreter();
+    app.destroy();
   });
 });

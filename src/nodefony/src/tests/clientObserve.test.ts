@@ -23,12 +23,15 @@ import {
 } from "../realtime/IRealtimeTransport";
 import { LOCAL_EVENTS, isLocalEvent } from "../client/realtime/localEvents";
 import { PLATFORM_CHANNELS } from "../realtime/platformChannels";
+import { createClientKernel } from "../client/ClientKernel";
 import {
   connectShared,
   observeChannel,
   observeChannelData,
   observeChannelStats,
   observeIdentity,
+  observeKernelIdentity,
+  observeKernelState,
   observeNoticeLog,
   observeNotices,
   observeReconnect,
@@ -163,6 +166,120 @@ describe("connectShared — le cycle de connexion, une seule fois pour quatre fr
 
   it("sans URL ni socket : échec FRANC (le framework ne devine aucune adresse)", () => {
     expect(() => connectShared({})).toThrow(/adresse du serveur temps réel/);
+  });
+
+  it("précédence kernel > client > url : la socket du NOYAU gagne, et son cycle reste au noyau", () => {
+    const duNoyau = newClient();
+    const fournie = newClient();
+    const kernel = createClientKernel({
+      realtime: duNoyau,
+      browserEvents: false,
+      banner: false,
+    });
+    const connect = vi.spyOn(duNoyau, "connect");
+    const connexion = connectShared({
+      kernel,
+      client: fournie,
+      url: "ws://loopback/autre",
+    });
+    expect(connexion.socket).toBe(duNoyau);
+    expect(connexion.owned).toBe(false);
+    connexion.start();
+    // C'est le noyau qui ouvre sa socket (`connectOnBoot`, `setIdentity`) —
+    // jamais la liaison : une socket authentifiée ouverte au montage partirait
+    // anonyme.
+    expect(connect).not.toHaveBeenCalled();
+    // Sans noyau, la socket fournie reprend la main — l'ordre est total.
+    expect(connectShared({ client: fournie, url: "ws://x/y" }).socket).toBe(
+      fournie,
+    );
+  });
+
+  it("un noyau composé SANS socket cède la place à `client`, puis à `url`", () => {
+    const kernel = createClientKernel({
+      realtime: false,
+      browserEvents: false,
+      banner: false,
+    });
+    const fournie = newClient();
+    expect(connectShared({ kernel, client: fournie }).socket).toBe(fournie);
+    const parUrl = connectShared({ kernel, url: "ws://loopback/realtime" });
+    expect(parUrl.owned).toBe(true);
+  });
+
+  it("un noyau SANS socket et rien d'autre : échec qui NOMME le noyau", () => {
+    const kernel = createClientKernel({
+      realtime: false,
+      browserEvents: false,
+      banner: false,
+    });
+    expect(() => connectShared({ kernel })).toThrow(
+      /noyau fourni n'a composé aucune socket/,
+    );
+  });
+});
+
+describe("observeKernelState / observeKernelIdentity — le noyau client, observé", () => {
+  function noyau() {
+    return createClientKernel({
+      realtime: false,
+      browserEvents: false,
+      banner: false,
+    });
+  }
+
+  it("l'état COURANT à la souscription, puis chaque transition du cycle", async () => {
+    const kernel = noyau();
+    const vus: string[] = [];
+    const dispose = observeKernelState(kernel, (s) => vus.push(s));
+    expect(vus).toEqual(["created"]);
+    await kernel.boot();
+    expect(vus).toEqual(["created", "booting", "ready"]);
+    await kernel.terminate();
+    expect(vus).toEqual(["created", "booting", "ready", "terminated"]);
+    // Démontage APRÈS le `pagehide` : `terminate()` a détaché le bus du noyau,
+    // et la libération ne doit pas lever.
+    expect(() => dispose()).not.toThrow();
+  });
+
+  it("l'identité suit setIdentity() — par COMPTE, pas par profil", () => {
+    const kernel = noyau();
+    const vues: (string | null)[] = [];
+    const dispose = observeKernelIdentity(kernel, (i) =>
+      vues.push(i ? i.key : null),
+    );
+    expect(vues).toEqual([null]);
+    kernel.setIdentity({ key: "alice" });
+    // Profil rafraîchi, même compte : la règle d'identité du noyau ne
+    // réveille personne.
+    kernel.setIdentity({ key: "alice", data: { nom: "Alice B." } });
+    kernel.setIdentity({ key: "bob" });
+    kernel.setIdentity(null);
+    expect(vues).toEqual([null, "alice", "bob", null]);
+    dispose();
+    dispose(); // idempotente
+    kernel.setIdentity({ key: "carol" });
+    expect(vues).toEqual([null, "alice", "bob", null]);
+  });
+
+  it("libérer ne laisse AUCUN handler sur le noyau", () => {
+    const kernel = noyau();
+    const on = vi.spyOn(kernel, "on");
+    const off = vi.spyOn(kernel, "off");
+    observeKernelState(kernel, () => {})();
+    observeKernelIdentity(kernel, () => {})();
+    // Chaque `on` a son `off`, avec le MÊME handler et le même événement.
+    expect(off.mock.calls).toEqual(on.mock.calls);
+  });
+
+  it("souscrire à un noyau DÉJÀ terminé rend son état, sans lever", async () => {
+    const kernel = noyau();
+    await kernel.terminate();
+    const vus: string[] = [];
+    expect(() =>
+      observeKernelState(kernel, (s) => vus.push(s))(),
+    ).not.toThrow();
+    expect(vus).toEqual(["terminated"]);
   });
 });
 

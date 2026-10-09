@@ -44,6 +44,12 @@ import type {
 } from "./AdaptiveRate";
 import { socketSnapshot, type SocketSnapshot } from "./snapshot";
 import { PLATFORM_CHANNELS } from "../../realtime/platformChannels";
+import type {
+  ClientIdentity,
+  ClientKernelEvent,
+  ClientKernelState,
+  IClientKernel,
+} from "../IClientKernel";
 
 /** Rappel d'une liaison de vue : reçoit la valeur courante. */
 export type Emit<T> = (value: T) => void;
@@ -60,8 +66,17 @@ export type ObservableClient = NodefonySocket;
 
 /* ────────────────────────── connexion partagée ────────────────────────── */
 
-/** Options de {@link connectShared} — l'adresse, ou la socket déjà construite. */
+/** Options de {@link connectShared} — le noyau, la socket déjà construite, ou l'adresse. */
 export interface ConnectSharedOptions {
+  /**
+   * Le noyau client de l'application — la voie COMPOSÉE. La socket est celle
+   * qu'il a composée (`kernel.get("realtime")`), et son cycle lui appartient :
+   * c'est lui qui l'ouvre (`connectOnBoot`, `setIdentity`), jamais la liaison.
+   *
+   * Fourni, il l'emporte sur `client` et sur `url`. Un noyau composé SANS
+   * socket (`realtime: false`) laisse la place à `client`, puis à `url`.
+   */
+  kernel?: IClientKernel | null | undefined;
   /**
    * Adresse du serveur temps réel — la voie SIMPLE. La socket partagée de cette
    * URL est fabriquée (ou réutilisée) et connectée par {@link SharedConnection.start}.
@@ -102,8 +117,8 @@ export interface SharedConnection {
  *
  * Trois règles tiennent dans cette fonction, et c'est pour cela qu'elle existe :
  *
- * 1. **`client` l'emporte sur `url`** ; une socket fournie appartient à
- *    l'application.
+ * 1. **`kernel` l'emporte sur `client`, qui l'emporte sur `url`** ; une
+ *    socket fournie — directement ou par le noyau — appartient à l'application.
  * 2. **`connect()` est idempotent et son rejet est avalé** — le double montage
  *    du mode strict de React n'ouvre pas deux sockets, et un serveur absent au
  *    premier essai ne remonte pas une erreur non gérée.
@@ -121,11 +136,18 @@ export interface SharedConnection {
  * observeChannelData(live.socket, "live:events", (e) => setDernier(e));
  * ```
  *
- * @throws si ni `url` ni `client` ne sont fournis — l'adresse dépend de
- *   l'application, le framework n'en devine aucune.
+ * @throws si aucune socket ne se résout — ni noyau qui en porte une, ni
+ *   `client`, ni `url` : l'adresse dépend de l'application, le framework n'en
+ *   devine aucune.
  */
 export function connectShared(opts: ConnectSharedOptions): SharedConnection {
-  const provided = opts.client;
+  const provided = opts.kernel?.get("realtime") ?? opts.client;
+  if (!provided && opts.kernel && !opts.url) {
+    throw new Error(
+      "connectShared : le noyau fourni n'a composé aucune socket temps réel " +
+        "(realtime: false) — lui en composer une, ou donner `client` ou `url`.",
+    );
+  }
   const socket = provided ?? NodefonySocket.shared({ url: opts.url });
   const owned = !provided;
   return {
@@ -184,6 +206,66 @@ export function observeReconnect(
   emit: Emit<RealtimeReconnectInfo>,
 ): Dispose {
   return client.onReconnect(emit);
+}
+
+/* ────────────────────────────── noyau client ──────────────────────────── */
+
+/**
+ * Branche un même handler sur plusieurs événements du noyau, et rend la
+ * libération — idempotente, et sans effet sur un noyau terminé (`off` y est
+ * inerte, `terminate()` ayant déjà tout retiré).
+ */
+function onKernel(
+  kernel: IClientKernel,
+  events: readonly ClientKernelEvent[],
+  handler: () => void,
+): Dispose {
+  for (const event of events) kernel.on(event, handler);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    for (const event of events) kernel.off(event, handler);
+  };
+}
+
+/** Les transitions du cycle de vie du noyau, dans leur ordre. */
+const KERNEL_LIFECYCLE: readonly ClientKernelEvent[] = [
+  "onBoot",
+  "onReady",
+  "onTerminate",
+];
+
+/**
+ * Observe l'état du noyau client (`created` → `booting` → `ready` →
+ * `terminated`). `emit` reçoit l'état courant **immédiatement**, puis à chaque
+ * transition.
+ */
+export function observeKernelState(
+  kernel: IClientKernel,
+  emit: Emit<ClientKernelState>,
+): Dispose {
+  emit(kernel.state);
+  return onKernel(kernel, KERNEL_LIFECYCLE, () => emit(kernel.state));
+}
+
+/**
+ * Observe l'identité DÉCLARÉE au noyau par l'application (`setIdentity`) —
+ * `null` hors session. `emit` reçoit la valeur courante immédiatement, puis à
+ * chaque changement de COMPTE.
+ *
+ * Suit la clé, pas le profil : un `setIdentity` à clé inchangée (profil
+ * rafraîchi) ne réveille personne — c'est la règle d'identité du noyau
+ * (ADR-0007 D9), et un profil affiché vit dans le magasin de l'application.
+ * À ne pas confondre avec {@link observeIdentity}, qui rend l'identité RÉSOLUE
+ * par le serveur au welcome de la socket.
+ */
+export function observeKernelIdentity(
+  kernel: IClientKernel,
+  emit: Emit<ClientIdentity | null>,
+): Dispose {
+  emit(kernel.identity);
+  return onKernel(kernel, ["onIdentityChange"], () => emit(kernel.identity));
 }
 
 /* ────────────────────────────── canaux ────────────────────────────────── */

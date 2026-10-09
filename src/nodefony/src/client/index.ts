@@ -229,6 +229,8 @@ export {
   connectShared,
   observeState,
   observeIdentity,
+  observeKernelState,
+  observeKernelIdentity,
   observeReconnect,
   observeChannel,
   observeChannelData,

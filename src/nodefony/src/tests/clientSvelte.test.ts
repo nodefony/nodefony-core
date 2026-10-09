@@ -35,6 +35,9 @@ import {
 import {
   configureNodefony,
   nodefony,
+  nodefonyKernel,
+  nodefonyKernelIdentity,
+  nodefonyKernelState,
   nodefonyChannel,
   nodefonyChannelData,
   nodefonySnapshot,
@@ -42,6 +45,7 @@ import {
   nodefonyState,
 } from "../client/svelte/index";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
+import { createClientKernel } from "../client/ClientKernel";
 import LitValeur from "./fixtures/LitValeur.svelte";
 import NeLitRien from "./fixtures/NeLitRien.svelte";
 import CanalMobile from "./fixtures/CanalMobile.svelte";
@@ -385,5 +389,75 @@ describe("nodefonySse — Svelte", () => {
     flushSync();
     expect(banc.calls).toHaveLength(0);
     void unmount(app);
+  });
+});
+
+describe("noyau client — Svelte", () => {
+  function noyau() {
+    return createClientKernel({
+      realtime: newClient(),
+      browserEvents: false,
+      banner: false,
+    });
+  }
+
+  /** Ce que le composant affiche — la valeur LUE, telle qu'un écran la rend. */
+  function affiche(el: HTMLElement): unknown {
+    const texte = el.querySelector('[data-testid="valeur"]')!.textContent!;
+    return JSON.parse(texte) as unknown;
+  }
+
+  it("🔴 un composant lit le noyau fourni, et son identité suit setIdentity()", () => {
+    const kernel = noyau();
+    configureNodefony({ kernel });
+    expect(nodefonyKernel()).toBe(kernel);
+    expect(nodefony()).toBe(kernel.get("realtime"));
+    // Le cycle reste au noyau : la configuration n'a rien ouvert.
+    expect(nodefony().state).toBe("disconnected");
+
+    const el = cible();
+    const app = mount(LitValeur, {
+      target: el,
+      props: { source: nodefonyKernelIdentity() },
+    });
+    flushSync();
+    expect(affiche(el)).toBeNull();
+    kernel.setIdentity({ key: "alice" });
+    flushSync();
+    expect(affiche(el)).toEqual({ key: "alice" });
+    kernel.setIdentity({ key: "bob" });
+    flushSync();
+    expect(affiche(el)).toEqual({ key: "bob" });
+    void unmount(app);
+  });
+
+  it("le démontage ne laisse AUCUN handler sur le noyau", () => {
+    const kernel = noyau();
+    configureNodefony({ kernel });
+    const on = vi.spyOn(kernel, "on");
+    const off = vi.spyOn(kernel, "off");
+    const el = cible();
+    const etat = mount(LitValeur, {
+      target: el,
+      props: { source: nodefonyKernelState() },
+    });
+    const identite = mount(LitValeur, {
+      target: cible(),
+      props: { source: nodefonyKernelIdentity() },
+    });
+    flushSync();
+    expect(affiche(el)).toBe("created");
+    expect(on).toHaveBeenCalled();
+    void unmount(etat);
+    void unmount(identite);
+    flushSync();
+    expect(off.mock.calls).toEqual(on.mock.calls);
+  });
+
+  it("sans noyau fourni : `null` partout", () => {
+    configureNodefony({ client: newClient() });
+    expect(nodefonyKernel()).toBeNull();
+    expect(nodefonyKernelState().current).toBeNull();
+    expect(nodefonyKernelIdentity().current).toBeNull();
   });
 });
