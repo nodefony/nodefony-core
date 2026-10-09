@@ -694,6 +694,10 @@ describe("RED-TEAM NodefonySocket — serveur WebSocket hostile", () => {
     const srv = http.createServer();
     let hits = 0;
     srv.on("upgrade", (_req, sock) => {
+      // La socket d'un `upgrade` n'a AUCUN écouteur `error` (Node retire le
+      // sien au passage) : sous Windows, le client coupe en RST, et le
+      // `ECONNRESET` qui en sort devient une exception non rattrapée.
+      sock.on("error", () => {});
       hits++;
       sock.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
     });

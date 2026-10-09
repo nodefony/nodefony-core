@@ -708,6 +708,10 @@ describe("ReverseProxy — upgrade WebSocket", () => {
   it("un refus de l'amont est rendu tel quel au client", async () => {
     const server = http.createServer();
     server.on("upgrade", (_req, socket: Duplex) => {
+      // La socket d'un `upgrade` n'a AUCUN écouteur `error` (Node retire le
+      // sien au passage) : sous Windows, le client coupe en RST, et le
+      // `ECONNRESET` qui en sort devient une exception non rattrapée.
+      socket.on("error", () => {});
       socket.end(
         "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
       );
@@ -790,7 +794,13 @@ describe("ReverseProxy — upgrade WebSocket", () => {
   it("amont qui accepte la connexion puis se tait : 504 au bout de `timeoutMs`", async () => {
     const held: Duplex[] = [];
     const server = http.createServer();
-    server.on("upgrade", (_req, socket: Duplex) => held.push(socket));
+    server.on("upgrade", (_req, socket: Duplex) => {
+      // La socket d'un `upgrade` n'a AUCUN écouteur `error` (Node retire le
+      // sien au passage) : sous Windows, le client coupe en RST, et le
+      // `ECONNRESET` qui en sort devient une exception non rattrapée.
+      socket.on("error", () => {});
+      held.push(socket);
+    });
     const upstreamPort = await listen(server);
     // Après `listen` : les nettoyeurs partent en ordre inverse, et le serveur
     // attendrait à sa fermeture ces sockets détachés.
@@ -1224,6 +1234,10 @@ describe("ReverseProxy — upgrade : contrôles avant relais", () => {
   it("refus de l'amont en chunked : recadré (pas de Transfer-Encoding recopié sur un corps décodé)", async () => {
     const server = http.createServer();
     server.on("upgrade", (_req, socket: Duplex) => {
+      // La socket d'un `upgrade` n'a AUCUN écouteur `error` (Node retire le
+      // sien au passage) : sous Windows, le client coupe en RST, et le
+      // `ECONNRESET` qui en sort devient une exception non rattrapée.
+      socket.on("error", () => {});
       socket.end(
         "HTTP/1.1 403 Forbidden\r\nTransfer-Encoding: chunked\r\nContent-Type: text/plain\r\n\r\n5\r\nnon !\r\n0\r\n\r\n",
       );
