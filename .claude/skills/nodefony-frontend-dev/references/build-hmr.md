@@ -170,7 +170,7 @@ Source unique des balises = `TemplateHelper` (`src/template/TemplateHelper.ts`).
   absolues inchangées (`FrontendService.ts:114`).
 
 Le `nonce` (issu de `Context.cspNonce`) est posé sur les `<script>` (preamble inline dev + entrée)
-pour satisfaire `script-src 'nonce-…'` sans `'unsafe-inline'` (`TemplateHelper.ts:185`).
+pour satisfaire `script-src 'nonce-…'` sans `'unsafe-inline'` (`TemplateHelper.ts:237`).
 
 **Aucune origine dans les balises.** En développement, toutes les URLs vers Vite sont relatives à
 la page (`/_vite/<famille>/…`) et relayées par Nodefony (§4.9) : elles suivent d'elles-mêmes l'hôte

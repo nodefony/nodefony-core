@@ -136,11 +136,11 @@ Service `@injectable()` `"router"` (`nodefony/service/router.ts:124`). Table `st
 
 | Méthode | Signature | Rôle |
 | ------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------- |
-| `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts:287`) | point d'entrée du routage |
-| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:452`) | forward interne |
-| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:469`) | lookup / dump |
-| `removeRoutes` | `(name?) → void` (`router.ts:478`) | retire 1 route (ou tout si vide) + invalide l'index |
-| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:458`) | toutes les routes dont le pattern matche |
+| `resolve` | `(ctx, cleanPathOverride?, methodOverride?) → Resolver` (`router.ts:313`) | point d'entrée du routage |
+| `resolveController` | `(ctx, "module:ctrl:action") → Resolver` (`router.ts:478`) | forward interne |
+| `getRoutes` | `(name) → Route                                                           | Route[]` (`router.ts:495`) | lookup / dump |
+| `removeRoutes` | `(name?) → void` (`router.ts:504`) | retire 1 route (ou tout si vide) + invalide l'index |
+| `matchRoutes` | `(path) → RegExpExecArray[]` (`router.ts:484`) | toutes les routes dont le pattern matche |
 | `getSingletonController` | `(ctor, create) → Promise<Controller>` (`router.ts:232`) | cache promesse singleton (V4.3) |
 | `static createRoute` | `(name, RouteOptions) → Route` (`router.ts:350`) | push table + invalide l'index |
 | `static setController` | `(ctor, module) → ctor` (`router.ts:356`) | `proto.module` (writable:false) + clé `module:Class` + propage `route.module` |
