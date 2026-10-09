@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { performance } from "node:perf_hooks";
+import vm from "node:vm";
 import Container from "../Container";
 import {
   extend,
@@ -505,6 +506,20 @@ describe("isPlainObject", () => {
 
   it("instance de classe → false", () => {
     expect(isPlainObject(new Dog())).to.be.false;
+  });
+
+  // Le raccourci `proto === Object.prototype` ne doit changer AUCUN verdict.
+  it("littéral d'un AUTRE realm (vm) → true (comparaison de source)", () => {
+    expect(isPlainObject(vm.runInNewContext("({ a: 1 })"))).to.be.true;
+  });
+
+  it("objet natif étiqueté (Math, Symbol.toStringTag) → false", () => {
+    expect(isPlainObject(Math)).to.be.false;
+    expect(isPlainObject({ [Symbol.toStringTag]: "Tagged" })).to.be.false;
+  });
+
+  it("objet dont le prototype est un autre objet simple → false", () => {
+    expect(isPlainObject(Object.create({}))).to.be.false;
   });
 
   it("Array → false", () => {

@@ -48,6 +48,10 @@ const isPlainObject = (obj: unknown): obj is Record<string, unknown> => {
   if (!obj || _toString(obj) !== "[object Object]") return false;
   const proto = getProto(obj) as object | null;
   if (!proto) return true; // Object.create(null)
+  // Raccourci du cas courant — un littéral du realm courant : son constructeur
+  // EST `Object`, la comparaison de source ci-dessous rendrait `true`. Elle
+  // reste pour les autres realms (`vm`, iframe), et elle coûtait ~240 ns.
+  if (proto === ObjProto) return true;
   const Ctor =
     Object.hasOwn(proto, "constructor") &&
     (proto as { constructor?: unknown }).constructor;
