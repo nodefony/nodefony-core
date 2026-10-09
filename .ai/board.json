@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T19:29:44.800Z",
+  "generatedAt": "2026-10-09T19:58:09.418Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 98,
+      "closed": 99,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 49,
+      "open": 48,
       "title": "10.0.0-beta"
     },
     {
@@ -2249,8 +2249,8 @@
       "number": 576,
       "title": "feat(client): rendre le noyau client accessible aux composants",
       "url": "https://github.com/nodefony/nodefony-core/issues/576",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2298,7 +2298,7 @@
       "title": "fix(http): ne plus annoncer de type sur une réponse sans corps",
       "url": "https://github.com/nodefony/nodefony-core/issues/562",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
@@ -2314,7 +2314,7 @@
       "title": "feat(security): poser un jeton d'agent valable 8 h par défaut",
       "url": "https://github.com/nodefony/nodefony-core/issues/563",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,

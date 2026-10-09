@@ -77,8 +77,19 @@ projet + issue épinglée, dans le même run), et le chemin du `_state` à écri
 
 ## 3. Pousser
 
+🔴 **Un push relance TOUTE la CI, et sur `push` le run précédent n'est PAS annulé**
+(`cancel-in-progress` ne vaut que pour les PR). Des push successifs empilent des runs qui se
+chevauchent, et l'on ne sait plus quel run juge quel commit. Donc :
+
+- **En session** : on pousse quand on a BESOIN d'un verdict de CI (un ticket à fermer, un rouge à
+  instruire), pas à chaque commit — les commits s'accumulent en local, un push les porte tous.
+- **À la clôture** : si une CI est **en cours** sur le dernier commit poussé et que seuls des
+  commits d'intendance restent à pousser (empreinte `.ai/`, ancres), **on ne pousse PAS le
+  dépôt** : ils partiront avec le prochain push. Le dire dans le `_state` (`## Reste`). La mémoire,
+  elle, se pousse toujours (dépôt privé sans CI).
+
 ```bash
-git push                                    # le dépôt — commits + .ai/ + docs/
+git push                                    # le dépôt — commits + .ai/ + docs/ (cf règle ci-dessus)
 MEM="$HOME/.claude/projects/-Users-cci-repository-nodefony-core/memory"
 git -C "$MEM" add -A
 git -C "$MEM" -c user.name="Christophe CAMENSULI" -c user.email="ccamensuli@gmail.com" \
