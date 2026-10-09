@@ -23,6 +23,24 @@ import { scanPage } from "./scanCursor";
 const KEY_BASE = "nf:wac";
 
 /**
+ * Transports relus (`usb`, `nfc`…). Ce n'est qu'une indication au navigateur,
+ * jamais une autorisation : une valeur illisible retombe sur `[]` (il les
+ * essaie tous) au lieu de faire échouer la connexion par clé d'accès.
+ */
+function transportsOf(raw: string | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) &&
+      v.every((x): x is string => typeof x === "string")
+      ? v
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Sous-ensemble structural du client `redis` v6 utilisé par le store de
  * credentials — permet de tester contre un double déterministe sans serveur (le
  * vrai `RedisClientType` satisfait cette forme par ses méthodes camelCase v6).
@@ -152,7 +170,7 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
       userId: req("userId"),
       publicKey: req("publicKey"),
       signCount: Number(h.signCount),
-      transports: h.transports ? (JSON.parse(h.transports) as string[]) : [],
+      transports: transportsOf(h.transports),
       backupEligible: h.backupEligible === "1",
       backupState: h.backupState === "1",
       uvInitialized: h.uvInitialized === "1",

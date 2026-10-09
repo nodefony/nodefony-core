@@ -28,6 +28,29 @@ type IndexClient = NonNullable<ReturnType<RedisService["getClient"]>> &
 const KEY_BASE = "nf:sess";
 
 /**
+ * Relit une session stockée : `null` si la valeur n'est pas du JSON, ou pas un
+ * objet. La forme des sacs se contrôle ensuite au seul consommateur
+ * (`Session.deSerialize`, @nodefony/http) — pour tous les stores à la fois.
+ */
+function parseSession(raw: string): ISerializedSession | null {
+  let v: unknown;
+  try {
+    v = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  return typeof v === "object" && v !== null && !Array.isArray(v)
+    ? (v as ISerializedSession)
+    : null;
+}
+
+/** Propriétaire d'une session relue, `""` s'il manque ou n'est pas une chaîne. */
+function ownerOf(data: ISerializedSession): string {
+  const user: unknown = data.user;
+  return typeof user === "string" ? user : "";
+}
+
+/**
  * Stockage de session **Redis** — branché sur la connexion `main` du
  * {@link RedisService}. Implémente le contrat unifié {@link ISessionStorage}
  * consommé par le `SessionsService` de `@nodefony/http`.
@@ -130,7 +153,9 @@ class RedisSessionStorage implements ISessionStorage {
     if (!raw) {
       return {} as ISerializedSession;
     }
-    return JSON.parse(raw) as ISerializedSession;
+    // Valeur corrompue = session inconnue : jamais une `SyntaxError` qui
+    // sortirait de `session.start()` sur le chemin de chaque requête.
+    return parseSession(raw) ?? ({} as ISerializedSession);
   }
 
   async start(id: string): Promise<ISerializedSession> {
@@ -246,11 +271,12 @@ class RedisSessionStorage implements ISessionStorage {
       // lire son propriétaire — chemin rare, une fois par session.
       const raw = await client.get(this.#key(id));
       if (!raw) return;
-      const data = JSON.parse(raw) as ISerializedSession;
+      const data = parseSession(raw);
+      if (!data) return;
       await this.#index()
         .add(client, {
           id,
-          user: data.user || "",
+          user: ownerOf(data),
           expiresAt,
         })
         .catch((e: unknown) => this.#indexFailed(client, e));
@@ -284,12 +310,8 @@ class RedisSessionStorage implements ISessionStorage {
         scanned++;
         const raw = await client.get(key);
         if (!raw) continue;
-        let data: ISerializedSession;
-        try {
-          data = JSON.parse(raw) as ISerializedSession;
-        } catch {
-          continue; // valeur corrompue → ignorée
-        }
+        const data = parseSession(raw);
+        if (!data) continue; // valeur corrompue → ignorée
         if (filter?.user !== undefined && data.user !== filter.user) continue;
         out.push({ id: key.slice(prefixLen), data });
       }
@@ -342,12 +364,8 @@ class RedisSessionStorage implements ISessionStorage {
       async (key): Promise<ISessionRecord | null> => {
         const raw = await client.get(key);
         if (!raw) return null;
-        let data: ISerializedSession;
-        try {
-          data = JSON.parse(raw) as ISerializedSession;
-        } catch {
-          return null; // valeur corrompue → ignorée
-        }
+        const data = parseSession(raw);
+        if (!data) return null; // valeur corrompue → ignorée
         if (query.user !== undefined && data.user !== query.user) return null;
         if (
           query.authenticated !== undefined &&
@@ -417,15 +435,11 @@ class RedisSessionStorage implements ISessionStorage {
             client.pTTL(key),
           ]);
           if (!raw || ttl <= 0) continue;
-          let data: ISerializedSession;
-          try {
-            data = JSON.parse(raw) as ISerializedSession;
-          } catch {
-            continue;
-          }
+          const data = parseSession(raw);
+          if (!data) continue;
           await index.add(client, {
             id: key.slice(prefixLen),
-            user: data.user || "",
+            user: ownerOf(data),
             expiresAt: Date.now() + ttl,
           });
           indexed += 1;

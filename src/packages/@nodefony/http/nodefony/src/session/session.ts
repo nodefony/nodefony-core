@@ -54,6 +54,24 @@ const defaultSessionOptions: OptionsSessionType = {
 /** Taille de l'identifiant opaque (octets CSPRNG → base64url, 43 chars). */
 const SESSION_ID_BYTES = 32;
 
+/** Un sac de session relu du storage : objet, ni `null` ni tableau. */
+function isBag(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/**
+ * Une date relue du storage : `Date` d'un store mémoire, chaîne ou nombre d'un
+ * store sérialisé. Toute autre forme → `undefined` (la valeur courante reste).
+ * Convertie UNE fois à la lecture : `created`/`updated` sont alors toujours des
+ * `Date`, et les contrôles du chemin chaud lisent `getTime()` sans allouer.
+ */
+function toDate(v: unknown): Date | undefined {
+  if (v instanceof Date) return v;
+  return typeof v === "string" || typeof v === "number"
+    ? new Date(v)
+    : undefined;
+}
+
 /**
  * Session serveur Nodefony — état persistant lié à une identité, indexé par un
  * identifiant **opaque** (porté par le cookie) dans un {@link ISessionStorage}
@@ -273,8 +291,8 @@ class Session implements ISession {
       return this; // rien muté → aucune écriture storage (dirty-tracking)
     }
     const stored = await this.storage.write(this.id, this.serialize(user));
-    this.created = stored.createdAt ?? this.created;
-    this.updated = stored.updatedAt ?? this.updated;
+    this.created = toDate(stored.createdAt) ?? this.created;
+    this.updated = toDate(stored.updatedAt) ?? this.updated;
     this.mutated = false;
     this.saved = true;
     if (this.context) {
@@ -391,8 +409,10 @@ class Session implements ISession {
     // l'activité — un identifiant volé ne reste pas exploitable indéfiniment même
     // si la session est maintenue active artificiellement.
     if (this.options.absoluteTimeoutS && this.created) {
-      const age = now - new Date(this.created).getTime();
-      if (age > this.options.absoluteTimeoutS * 1000) {
+      const age = now - this.created.getTime();
+      // Écrit pour que `NaN` REFUSE : une date illisible relue du storage
+      // rendait `age > limite` faux, donc une session sans expiration.
+      if (!(age <= this.options.absoluteTimeoutS * 1000)) {
         this.log(
           `SESSION EXPIRED (absolute) ==> ${this.name} : ${this.id}`,
           "WARNING",
@@ -405,8 +425,9 @@ class Session implements ISession {
     // (session-only) ne fait pas foi. `idleTimeoutS = 0`/absent → pas d'idle.
     const idleS = this.options.idleTimeoutS;
     if (idleS && idleS > 0 && this.updated) {
-      const lastUsed = new Date(this.updated).getTime();
-      if (lastUsed && lastUsed + idleS * 1000 < now) {
+      const lastUsed = this.updated.getTime();
+      // Même écriture : `NaN` (date illisible) expire, il ne prolonge pas.
+      if (!(lastUsed + idleS * 1000 >= now)) {
         this.log(
           `SESSION EXPIRED (idle) ==> ${this.name} : ${this.id}`,
           "WARNING",
@@ -451,7 +472,7 @@ class Session implements ISession {
       return;
     }
     const now = Date.now();
-    const lastUsed = new Date(this.updated).getTime();
+    const lastUsed = this.updated.getTime();
     // Throttle : un seul write par tranche (mi-vie de l'idle). Préserve le
     // dirty-tracking — pas d'écriture storage par requête.
     if (lastUsed && now - lastUsed < (idleS * 1000) / 2) {
@@ -578,26 +599,28 @@ class Session implements ISession {
 
   deSerialize(serialized: ISerializedSession): void {
     // Restauration depuis le storage — écriture DIRECTE (ne lève PAS `dirty`).
-    // Donnée relue d'un disque ou d'un réseau : chaque sac peut manquer.
-    const data = serialized as Partial<ISerializedSession>;
-    if (data.Attributes) {
+    // Donnée relue d'un disque, d'une base ou d'un réseau : la forme annoncée
+    // n'est qu'une promesse du store. Un sac absent ou d'une autre forme
+    // (chaîne, tableau, `null`) est ignoré ici, une fois pour tous les stores.
+    const data: Partial<Record<keyof ISerializedSession, unknown>> = serialized;
+    if (isBag(data.Attributes)) {
       for (const k in data.Attributes) {
         this.attributesBag[k] = data.Attributes[k];
       }
     }
-    if (data.metaBag) {
+    if (isBag(data.metaBag)) {
       for (const k in data.metaBag) {
         this.metaBagStore[k] = data.metaBag[k];
       }
     }
-    if (data.flashBag) {
+    if (isBag(data.flashBag)) {
       for (const k in data.flashBag) {
         this.flashBag[k] = data.flashBag[k];
       }
     }
-    this.created = data.createdAt ?? this.created;
-    this.updated = data.updatedAt ?? this.updated;
-    if (data.user) {
+    this.created = toDate(data.createdAt) ?? this.created;
+    this.updated = toDate(data.updatedAt) ?? this.updated;
+    if (typeof data.user === "string" && data.user) {
       this.user = data.user;
     }
   }

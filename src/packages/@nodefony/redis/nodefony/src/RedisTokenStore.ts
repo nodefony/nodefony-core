@@ -5,6 +5,7 @@ import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
 import type {
   IAccessTokenRecord,
+  IResourcePermission,
   ITokenListQuery,
   ITokenStore,
   ITokenUsage,
@@ -12,6 +13,58 @@ import type {
 } from "@nodefony/security";
 import type RedisService from "../service/redis";
 import { MAX_SCAN, scanPage } from "./scanCursor";
+
+/**
+ * Champ d'un jeton relu dont la forme n'est pas celle que ce store écrit : on
+ * REFUSE l'enregistrement plutôt que de le compléter. Une audience vide retombe
+ * sur l'audience par défaut, une ressource sans `ids` vaut « toutes » — rendre
+ * un défaut élargirait le jeton.
+ */
+function corruptField(field: string): Error {
+  return new Error(
+    `RedisTokenStore : champ « ${field} » illisible — enregistrement refusé`,
+  );
+}
+
+/** Liste de chaînes sérialisée (`scopes`, `audience`) ; absente → `[]`. */
+function stringList(raw: string | undefined, field: string): string[] {
+  if (!raw) return [];
+  const v: unknown = JSON.parse(raw);
+  if (Array.isArray(v) && v.every((x): x is string => typeof x === "string")) {
+    return v;
+  }
+  throw corruptField(field);
+}
+
+function isPermission(v: unknown): v is IResourcePermission {
+  if (typeof v !== "object" || v === null) return false;
+  const { type, ids, perms } = v as Record<string, unknown>;
+  return (
+    typeof type === "string" &&
+    (ids === undefined ||
+      (Array.isArray(ids) && ids.every((x) => typeof x === "string"))) &&
+    Array.isArray(perms) &&
+    perms.every((x) => x === "read" || x === "write")
+  );
+}
+
+/** Permissions par ressource ; absentes → `null` (le jeton n'en porte pas). */
+function resourceList(raw: string | undefined): IResourcePermission[] | null {
+  if (!raw) return null;
+  const v: unknown = JSON.parse(raw);
+  if (Array.isArray(v) && v.every(isPermission)) return v;
+  throw corruptField("resources");
+}
+
+/** Métadonnées libres ; absentes → `{}`. */
+function metadataOf(raw: string | undefined): Record<string, unknown> {
+  if (!raw) return {};
+  const v: unknown = JSON.parse(raw);
+  if (typeof v === "object" && v !== null && !Array.isArray(v)) {
+    return v as Record<string, unknown>;
+  }
+  throw corruptField("metadata");
+}
 
 /** Préfixe namespacé des clés de jetons dans Redis. */
 /**
@@ -229,19 +282,22 @@ export class RedisTokenStore implements ITokenStore {
     // Champ obligatoire absent (HASH tronqué) → chaîne vide, jamais un
     // `undefined` sous un type `string`. Une empreinte vide ne vérifie rien.
     const req = (k: string): string => h[k] ?? "";
+    const { kind, subjectType } = h;
+    if (kind !== "pat" && kind !== "refresh") throw corruptField("kind");
+    if (subjectType !== "user" && subjectType !== "service") {
+      throw corruptField("subjectType");
+    }
     return {
       id: req("id"),
-      kind: h.kind as "pat" | "refresh",
+      kind,
       name: req("name"),
       prefix: str("prefix"),
       subjectId: req("subjectId"),
-      subjectType: h.subjectType as "user" | "service",
+      subjectType,
       tenantId: str("tenantId"),
-      scopes: h.scopes ? (JSON.parse(h.scopes) as string[]) : [],
-      audience: h.audience ? (JSON.parse(h.audience) as string[]) : [],
-      resources: h.resources
-        ? (JSON.parse(h.resources) as IAccessTokenRecord["resources"])
-        : null,
+      scopes: stringList(h.scopes, "scopes"),
+      audience: stringList(h.audience, "audience"),
+      resources: resourceList(h.resources),
       secretHash: req("secretHash"),
       hashAlg: req("hashAlg"),
       clientId: str("clientId"),
@@ -255,9 +311,7 @@ export class RedisTokenStore implements ITokenStore {
       lastUsedUserAgent: str("lastUsedUserAgent"),
       revokedAt: num("revokedAt"),
       revokedReason: str("revokedReason") as TokenRevokeReason | null,
-      metadata: h.metadata
-        ? (JSON.parse(h.metadata) as Record<string, unknown>)
-        : {},
+      metadata: metadataOf(h.metadata),
     };
   }
 

@@ -181,6 +181,15 @@ describe.skipIf(!REAL_URL)(
       );
     });
 
+    // `read` est sur le chemin de CHAQUE requête qui porte un cookie : une valeur
+    // illisible y levait une `SyntaxError` que rien ne rattrapait au-dessus.
+    it("🔒 read d'une valeur corrompue ou non objet → session inconnue, jamais une erreur", async () => {
+      await client!.set("nf:sess:s-broken", "{ ceci n'est pas du JSON");
+      await client!.set("nf:sess:s-scalar", "42");
+      assert.deepEqual(await storage.read("s-broken"), {});
+      assert.deepEqual(await storage.start("s-scalar"), {});
+    });
+
     it("🔒 listPage ignore aussi les valeurs corrompues", async () => {
       await storage.write("s-ok", body("alice"));
       await client!.set("nf:sess:s-broken", "<html>pas du json</html>");

@@ -308,6 +308,20 @@ describe("Session — unit tests", () => {
       expect(s.user).to.equal("bob");
     });
 
+    it("deSerialize ignore un sac ou un user d'une autre forme (store corrompu)", () => {
+      const s = makeSession();
+      s.deSerialize({
+        Attributes: "abc",
+        metaBag: ["x", "y"],
+        flashBag: null,
+        user: 42,
+      } as unknown as ISerializedSession);
+      // Une chaîne énumérée par `for…in` déposait ses indices ("0", "1"…).
+      expect(s.getAttributes()).to.deep.equal({});
+      expect(s.getMetaBag("0")).to.equal(null);
+      expect(s.user).to.not.equal(42);
+    });
+
     it("round-trips serialize → deSerialize", () => {
       const s = makeSession();
       s.setFlashBag("k", "v");

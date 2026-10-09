@@ -140,6 +140,28 @@ describe("RED-TEAM session timeout — Passe 1 (threat-first)", () => {
     expect(c.session.idleTimeoutS).to.equal(1800);
     expect(c.session.absoluteTimeoutS).to.equal(43200);
   });
+
+  // ── V8 : une date ILLISIBLE relue du storage (store corrompu, autre écrivain)
+  // donne `NaN` : la comparaison doit REFUSER, jamais désactiver le délai. ─────
+  it("V8 — createdAt illisible relu du storage → absolute refuse (pas NaN = valide)", () => {
+    const s = makeSession({ idleTimeoutS: 86400, absoluteTimeoutS: 3600 });
+    s.deSerialize({
+      createdAt: "pas une date",
+      updatedAt: new Date().toISOString(),
+    } as never);
+    expect(s.isValidSession({} as never, {} as never)).to.equal(false);
+  });
+  it("V8 — updatedAt illisible relu du storage → idle refuse", () => {
+    const s = makeSession({ idleTimeoutS: 60, absoluteTimeoutS: 0 });
+    s.deSerialize({ updatedAt: "pas une date" } as never);
+    expect(s.isValidSession({} as never, {} as never)).to.equal(false);
+  });
+  it("V8 — dates sérialisées en chaîne (store JSON) restent lues", () => {
+    const s = makeSession({ idleTimeoutS: 60, absoluteTimeoutS: 3600 });
+    const now = new Date().toISOString();
+    s.deSerialize({ createdAt: now, updatedAt: now } as never);
+    expect(s.isValidSession({} as never, {} as never)).to.equal(true);
+  });
 });
 
 // ── V5 : MemoryStorage — le touch prolonge l'idle (`updatedAt`) mais JAMAIS

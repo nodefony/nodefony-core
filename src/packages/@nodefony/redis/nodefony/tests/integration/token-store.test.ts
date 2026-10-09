@@ -165,6 +165,50 @@ describe("Redis RedisTokenStore — ITokenStore + TTL natif (J4b, FakeRedis)", (
     });
   });
 
+  describe("HASH altéré (autre écrivain, valeur corrompue) — refus, jamais un défaut", () => {
+    // Une audience vide retombe sur l'audience par défaut, une ressource sans
+    // `ids` vaut « toutes » : compléter un champ illisible ÉLARGIRAIT le jeton.
+    async function tampered(
+      field: string,
+      value: string,
+    ): Promise<RedisTokenStore> {
+      const fake = new FakeRedis(now);
+      const s = new RedisTokenStore(() => fake, now, RET);
+      await s.put(makeRecord({ id: "t1", scopes: ["orders:read"] }));
+      const { keys } = await fake.scan("0", { MATCH: "*:rec:t1" });
+      assert.equal(keys.length, 1);
+      await fake.hSet(keys[0] as string, { [field]: value });
+      return s;
+    }
+
+    const cases: [string, string][] = [
+      ["scopes", JSON.stringify("orders:read")], // chaîne → éclatée en lettres
+      ["audience", JSON.stringify({ aud: "api" })],
+      [
+        "resources",
+        JSON.stringify([{ type: "repo", ids: "x", perms: ["write"] }]),
+      ],
+      ["metadata", JSON.stringify(["x"])],
+      ["kind", "admin"],
+      ["subjectType", "root"],
+    ];
+    for (const [field, value] of cases) {
+      it(`${field} = ${value} → enregistrement refusé`, async () => {
+        const s = await tampered(field, value);
+        await assert.rejects(s.findById("t1"), new RegExp(`« ${field} »`));
+      });
+    }
+
+    it("un HASH sain reste lu (garde sans faux positif)", async () => {
+      const s = await tampered(
+        "resources",
+        JSON.stringify([{ type: "repo", perms: ["read"] }]),
+      );
+      const r = await s.findById("t1");
+      assert.deepEqual(r?.resources, [{ type: "repo", perms: ["read"] }]);
+    });
+  });
+
   describe("denylist jti (TTL natif EX)", () => {
     it("denyJti → isJtiDenied true, puis false après expiration", async () => {
       store = withSharedFake();
