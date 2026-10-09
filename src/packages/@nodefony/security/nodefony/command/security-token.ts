@@ -83,6 +83,44 @@ export function ttlSeconds(
   return minutes * 60;
 }
 
+/**
+ * Durée d'un jeton POSÉ dans un agent : 8 h, une journée de travail.
+ *
+ * L'en-tête d'un agent est figé, rien ne le rafraîchit : le défaut de la
+ * configuration (15 min, taillé pour un client d'API qui renouvelle son jeton)
+ * y produisait un 401 au bout d'un quart d'heure, qui n'accusait pas
+ * l'expiration. Huit heures évitent la relance dans la journée et bornent une
+ * fuite à quelques heures. Le défaut global (`jwt.accessTtlS`) ne bouge pas :
+ * le relever allongerait TOUS les jetons de l'application.
+ */
+const AGENT_TTL_MINUTES = 8 * 60;
+
+/**
+ * Durée demandée à l'émetteur : `--ttl` explicite, sinon 8 h quand le jeton
+ * part chez les agents, sinon rien — la configuration décide.
+ *
+ * @param raw - la valeur de `--ttl` telle que tapée, ou rien
+ * @param write - le jeton sera posé dans la configuration des agents
+ * @returns les secondes, `undefined` pour le défaut de configuration, une `Error` sinon
+ */
+export function tokenTtlSeconds(
+  raw: string | undefined,
+  write: boolean,
+): number | undefined | Error {
+  if (raw !== undefined) return ttlSeconds(raw);
+  return write ? AGENT_TTL_MINUTES * 60 : undefined;
+}
+
+/** « 8 h », « 1 h 30 », « 15 min » — la durée telle qu'on la dit. */
+function humanDuration(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  return rest === 0
+    ? `${minutes / 60} h`
+    : `${Math.floor(minutes / 60)} h ${rest}`;
+}
+
 const GREEN = "\x1b[32m";
 const YELLOW = "\x1b[33m";
 const DIM = "\x1b[2m";
@@ -134,7 +172,7 @@ class SecurityToken extends Command {
     );
     this.addOption(
       "-t, --ttl <duree>",
-      "durée de validité, en minutes (défaut : celle de la config, 15 min)",
+      "durée de validité, en minutes (défaut : 8 h avec --write, sinon celle de la config, 15 min)",
     );
     this.addOption(
       "-w, --write",
@@ -421,13 +459,21 @@ class SecurityToken extends Command {
     const requestedScopes = (opts.scope ?? "").split(/\s+/u).filter(Boolean);
     const scopes =
       requestedScopes.length > 0 ? requestedScopes : [ADMIN_SCOPE_READ];
-    // Une durée EXPLICITE, bornée. Le défaut de configuration (15 min) est
-    // taillé pour un jeton d'API qu'un client rafraîchit ; l'en-tête statique
-    // d'un agent, lui, n'est renouvelé par personne — le porteur revient toutes
-    // les quinze minutes constater un 401 qui n'accuse pas la bonne chose. La
-    // borne haute existe pour que « pratique » ne devienne pas « éternel » : un
-    // jeton posé dans un fichier est une clé, et une clé se remplace.
-    const ttlS = ttlSeconds(opts.ttl);
+    // La durée suit `tokenTtlSeconds` : `--ttl` borné, sinon 8 h pour un
+    // agent, sinon la configuration. La question « poser chez les agents ? »
+    // vient donc AVANT l'émission — la réponse décide de la durée, et un jeton
+    // posé par ce chemin vivrait sinon 15 min. Sans `--write` mais en
+    // terminal, on propose de poser la valeur plutôt que de laisser copier un
+    // jeton de 400 caractères à la main.
+    let write = opts.write === true;
+    if (!write && !opts.json && process.stdin.isTTY) {
+      await this.loadPrompts();
+      write = await this.prompts.confirm({
+        message: `Poser ${MCP_TOKEN_ENV} dans la configuration des agents présents ?`,
+        default: true,
+      });
+    }
+    const ttlS = tokenTtlSeconds(opts.ttl, write);
     if (ttlS instanceof Error) {
       this.log(ttlS.message, "ERROR");
       process.exitCode = 1;
@@ -499,9 +545,12 @@ class SecurityToken extends Command {
     const accordes = issued.scope.split(/\s+/u).filter(Boolean);
     const nonAccordes = scopes.filter((s) => !accordes.includes(s));
 
+    // L'heure d'EXPIRATION, à la pose comme en JSON : c'est elle qui rend le
+    // futur 401 compréhensible.
+    const expiresAt = new Date(Date.now() + issued.expires_in * 1000);
     if (opts.json) {
       process.stdout.write(
-        `${JSON.stringify({ access_token: token, resource, scopes: accordes, requested: scopes, expires_in: issued.expires_in }, null, 2)}\n`,
+        `${JSON.stringify({ access_token: token, resource, scopes: accordes, requested: scopes, expires_in: issued.expires_in, expires_at: expiresAt.toISOString() }, null, 2)}\n`,
       );
       return this;
     }
@@ -509,16 +558,6 @@ class SecurityToken extends Command {
     const w = (s: string): void => {
       process.stdout.write(s);
     };
-    // Sans `--write` mais en terminal : proposer de poser la valeur plutôt que
-    // de laisser copier un jeton de 400 caractères à la main.
-    let write = opts.write === true;
-    if (!write && process.stdin.isTTY) {
-      await this.loadPrompts();
-      write = await this.prompts.confirm({
-        message: `Poser ${MCP_TOKEN_ENV} dans la configuration des agents présents ?`,
-        default: true,
-      });
-    }
     if (this.#ephemeralKey()) {
       // Avant le jeton, pas après : on ne laisse pas copier une valeur dont on
       // sait qu'elle sera refusée.
@@ -533,10 +572,9 @@ class SecurityToken extends Command {
           `    npx nodefony security:secrets --jwt-keyset).${RESET}\n`,
       );
     }
-    const minutes = Math.round(issued.expires_in / 60);
     w(
       `\n${BOLD}🔑 Jeton d'accès${RESET} ${DIM}— compte ${identifier}, audience ${resource}${RESET}\n` +
-        `${DIM}   valable ${minutes} min${accordes.length ? `, scopes : ${accordes.join(" ")}` : ", aucun scope"}${RESET}\n\n`,
+        `${DIM}   valable ${humanDuration(issued.expires_in)}, expire le ${expiresAt.toLocaleString()}${accordes.length ? `, scopes : ${accordes.join(" ")}` : ", aucun scope"}${RESET}\n\n`,
     );
     if (nonAccordes.length > 0) {
       // Le silence ici produirait un 403 inexplicable à la première lecture.

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { Cli } from "nodefony";
 import SecurityUserList from "../../nodefony/command/security-user-list";
 import SecurityToken, {
+  tokenTtlSeconds,
   ttlSeconds,
 } from "../../nodefony/command/security-token";
 import SecuritySecrets from "../../nodefony/command/security-secrets";
@@ -172,6 +173,87 @@ describe("security:token — un jeton mort-né doit s'ANNONCER", () => {
       expect(sortie).not.toContain("ÉPHÉMÈRE");
       expect(sortie).toContain("eyJ.FAUX.JETON");
     }
+  });
+});
+
+/**
+ * Ce que cette suite prouve : qu'un jeton POSÉ dans un agent vit une journée
+ * de travail. L'en-tête d'un agent est figé, rien ne le rafraîchit : avec le
+ * défaut de configuration (15 min), les outils réservés répondaient 401 au
+ * bout d'un quart d'heure, sans que le refus accuse l'expiration.
+ */
+describe("security:token --write — 8 h par défaut pour un agent", () => {
+  it("--ttl explicite > 8 h si --write > défaut de configuration", () => {
+    expect(tokenTtlSeconds(undefined, true)).toBe(8 * 3600);
+    expect(tokenTtlSeconds("30", true)).toBe(1800);
+    expect(tokenTtlSeconds("30", false)).toBe(1800);
+    expect(tokenTtlSeconds(undefined, false)).toBe(undefined);
+    expect(tokenTtlSeconds("abc", true)).toBeInstanceOf(Error);
+  });
+
+  function emetteurQuiNote(): {
+    tokenService: { issueTokens: (...a: unknown[]) => Promise<unknown> };
+    ttls: unknown[];
+  } {
+    const ttls: unknown[] = [];
+    return {
+      ttls,
+      tokenService: {
+        issueTokens: async (...a: unknown[]) => {
+          ttls.push(a[3]);
+          const ttl = typeof a[3] === "number" ? a[3] : 900;
+          return {
+            access_token: "eyJ.FAUX.JETON",
+            refresh_token: "",
+            token_type: "Bearer",
+            expires_in: ttl,
+            scope: "",
+          };
+        },
+      },
+    };
+  }
+  const annuaire = { findByIdentifier: async () => utilisateurAvecCredential };
+  const config = {
+    security: { options: { jwt: { keystore: { dir: "var/keys" } } } },
+  };
+
+  it("🔴 --write sans --ttl demande 8 h à l'émetteur, et annonce l'expiration", async () => {
+    const { tokenService, ttls } = emetteurQuiNote();
+    const cmd = commandeAvecKernel(
+      SecurityToken,
+      { tokenService, users: annuaire },
+      config,
+    );
+    // `--agent none` : aucune configuration d'agent n'est touchée.
+    const sortie = await sortieDe(() =>
+      cmd.generate(undefined, { write: true, agent: "none" }),
+    );
+    expect(ttls).toEqual([28_800]);
+    expect(sortie).toContain("valable 8 h");
+    expect(sortie).toMatch(/expire le /u);
+  });
+
+  it("sans --write, la configuration garde la main ; --ttl l'emporte toujours", async () => {
+    const sans = emetteurQuiNote();
+    const sortie = await sortieDe(() =>
+      commandeAvecKernel(
+        SecurityToken,
+        { tokenService: sans.tokenService, users: annuaire },
+        config,
+      ).generate(undefined, { json: true }),
+    );
+    expect(sans.ttls).toEqual([undefined]);
+    expect(JSON.parse(sortie).expires_at).toMatch(/^\d{4}-\d{2}-\d{2}T/u);
+    const explicite = emetteurQuiNote();
+    await sortieDe(() =>
+      commandeAvecKernel(
+        SecurityToken,
+        { tokenService: explicite.tokenService, users: annuaire },
+        config,
+      ).generate(undefined, { write: true, agent: "none", ttl: "30" }),
+    );
+    expect(explicite.ttls).toEqual([1800]);
   });
 });
 

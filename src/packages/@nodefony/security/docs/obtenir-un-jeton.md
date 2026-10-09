@@ -125,18 +125,25 @@ Puis `npm run build` — le runtime lit le `dist`, pas la source.
 
 ### Les options, et ce que chacune décide
 
-| Option                 | Défaut                        | Ce qu'elle change                                        |
-| ---------------------- | ----------------------------- | -------------------------------------------------------- |
-| `[identifier]`         | `admin`                       | le compte porteur du jeton                               |
-| `-s, --scope <liste>`  | `admin:read`                  | les pouvoirs demandés — ajouter `admin:write` pour muter |
-| `-r, --resource <uri>` | la porte MCP de l'application | viser une **autre** audience                             |
-| `-a, --agent <noms>`   | ceux détectés                 | quels agents servir — `none` pour aucun                  |
-| `-t, --ttl <minutes>`  | celle de la config (15 min)   | la durée de validité, **bornée à 30 jours**              |
-| `-w, --write`          | proposé en terminal           | poser `NF_MCP_TOKEN` chez les agents présents            |
-| `-j, --json`           | —                             | sortie machine, sans invite                              |
+| Option                 | Défaut                                       | Ce qu'elle change                                        |
+| ---------------------- | -------------------------------------------- | -------------------------------------------------------- |
+| `[identifier]`         | `admin`                                      | le compte porteur du jeton                               |
+| `-s, --scope <liste>`  | `admin:read`                                 | les pouvoirs demandés — ajouter `admin:write` pour muter |
+| `-r, --resource <uri>` | la porte MCP de l'application                | viser une **autre** audience                             |
+| `-a, --agent <noms>`   | ceux détectés                                | quels agents servir — `none` pour aucun                  |
+| `-t, --ttl <minutes>`  | 8 h avec `--write`, sinon la config (15 min) | la durée de validité, **bornée à 30 jours**              |
+| `-w, --write`          | proposé en terminal                          | poser `NF_MCP_TOKEN` chez les agents présents            |
+| `-j, --json`           | —                                            | sortie machine, sans invite                              |
 
 Le plafond de `--ttl` n'est pas décoratif : un jeton posé dans un fichier **est une clé**, et une
 clé se remplace (`security-token.ts:67-84`).
+
+**Posé chez un agent, le jeton vit 8 h par défaut** (`security-token.ts:106-110`). L'en-tête d'un
+agent est figé : rien ne le rafraîchit, et le défaut de la configuration (15 min, taillé pour un
+client d'API qui renouvelle son jeton) produisait un 401 au bout d'un quart d'heure. Huit heures
+couvrent une journée de travail et bornent une fuite à quelques heures ; `--ttl` explicite
+l'emporte toujours, et le défaut global `jwt.accessTtlS` ne bouge pas. La commande affiche l'heure
+d'**expiration** (`expires_at` en `--json`) : c'est elle qui explique le 401 du lendemain.
 
 ### Où `--write` pose la valeur
 
@@ -191,7 +198,7 @@ est décrit dans [tokens](tokens.md), pas ici.
 | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | `impossible d'émettre un jeton pour cette porte ici`                  | **en développement** : l'audience n'est pas déclarée à l'émetteur — c'est une liste blanche, pas un défaut ouvert                        | `use("@nodefony/security", { jwt: { audiences: ["<la porte>"] } })`, puis `npm run build`      |
 | Le même message, mais l'environnement affiché n'est pas `development` | la porte MCP est servie par un module `policy: "dev"` : **elle n'existe pas** dans cet environnement                                     | `NODE_ENV=development npx nodefony security:token`, ou viser une autre porte avec `--resource` |
-| Le jeton est émis, mais avec **moins** de scopes que demandé          | l'émetteur retire ceux que ce porteur ne peut pas obtenir, et il le dit ([RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749) §3.3) | lire le champ `scopes` de la sortie — c'est celui qui fait foi (`security-token.ts:494`)       |
+| Le jeton est émis, mais avec **moins** de scopes que demandé          | l'émetteur retire ceux que ce porteur ne peut pas obtenir, et il le dit ([RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749) §3.3) | lire le champ `scopes` de la sortie — c'est celui qui fait foi (`security-token.ts:460`)       |
 | L'agent reçoit `401` alors que le jeton vient d'être posé             | la valeur a été écrite dans un dossier que **cet** agent ne lit pas                                                                      | `--agent <nom>` pour viser explicitement, ou l'`export` dans le shell qui lance l'agent        |
 | `--write` ne fait rien et n'écrit aucun fichier                       | aucun agent n'est **constaté** dans ce projet                                                                                            | la commande liste alors les emplacements connus et donne la ligne d'`export`                   |
 
