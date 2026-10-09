@@ -587,7 +587,9 @@ class HttpContext extends Context implements IHttpContextInterface {
     body: unknown,
     encoding?: BufferEncoding,
   ): MaybePromise<Http2Response | HttpResponse> {
-    if (body) {
+    // La chaîne vide se pose aussi : un corps VIDE n'est pas un corps absent
+    // (flux à venir), et le filet `Content-Type` les distingue (#562).
+    if (body || body === "") {
       this.response.setBody(body);
     }
     // Hook utilisateur — aucun listener dans le cas nominal : le check évite

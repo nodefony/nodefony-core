@@ -63,6 +63,8 @@ interface IReponse {
   status: number;
   body: unknown;
   raw: string;
+  /** `Content-Type` reçu, `""` quand l'en-tête est absent. */
+  type: string;
 }
 
 /**
@@ -119,7 +121,12 @@ function posterTexte(
           } catch {
             body = null;
           }
-          resoudre({ status: res.statusCode ?? 0, body, raw: texte });
+          resoudre({
+            status: res.statusCode ?? 0,
+            body,
+            raw: texte,
+            type: res.headers["content-type"] ?? "",
+          });
         });
       },
     );
@@ -279,7 +286,12 @@ function lireDocument(chemin: string): Promise<IReponse> {
           } catch {
             body = null;
           }
-          resoudre({ status: res.statusCode ?? 0, body, raw: texte });
+          resoudre({
+            status: res.statusCode ?? 0,
+            body,
+            raw: texte,
+            type: res.headers["content-type"] ?? "",
+          });
         });
       },
     );
@@ -308,7 +320,12 @@ function lire(chemin: string): Promise<IReponse> {
           } catch {
             body = null;
           }
-          resoudre({ status: res.statusCode ?? 0, body, raw: texte });
+          resoudre({
+            status: res.statusCode ?? 0,
+            body,
+            raw: texte,
+            type: res.headers["content-type"] ?? "",
+          });
         });
       },
     );
@@ -634,6 +651,8 @@ describe.skipIf(raison !== null)(
       });
       expect(reponse.status).toBe(202);
       expect(reponse.raw).toBe("");
+      // Rien à décrire : aucun type annoncé sur zéro octet (RFC 9110 §8.3).
+      expect(reponse.type).toBe("");
     });
 
     it.each(["GET", "DELETE"])(
@@ -648,8 +667,8 @@ describe.skipIf(raison !== null)(
         const reponse = await frapper(methode);
         expect(reponse.status).toBe(405);
         expect(reponse.allow).toBe("POST");
-        expect(reponse.type).not.toMatch(/text\/html/u);
-        expect(reponse.raw).not.toMatch(/<!DOCTYPE/iu);
+        expect(reponse.type).toBe("");
+        expect(reponse.raw).toBe("");
       },
     );
 

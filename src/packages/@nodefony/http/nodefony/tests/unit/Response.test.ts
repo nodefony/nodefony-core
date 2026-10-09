@@ -420,7 +420,7 @@ describe("HttpResponse — Vary ne s'écrase pas (F12)", () => {
 describe("writeHead() — filet Content-Type + ligne de statut standard", () => {
   // Harnais dédié : capture les arguments du writeHead natif pour prouver
   // le fast path (message standard NON transmis) et le filet Content-Type.
-  function makeCapturingResponse(): {
+  function makeCapturingResponse(method = "GET"): {
     r: HttpResponse;
     headers: Record<string, number | string | string[]>;
     writeHeadCalls: unknown[][];
@@ -446,7 +446,7 @@ describe("writeHead() — filet Content-Type + ligne de statut standard", () => 
     } as unknown as http.ServerResponse;
     const ctx = {
       type: "http",
-      method: "GET",
+      method,
       log: () => undefined,
     } as unknown as HttpContext;
     return {
@@ -458,6 +458,40 @@ describe("writeHead() — filet Content-Type + ligne de statut standard", () => 
 
   it("émet application/octet-stream quand AUCUN Content-Type n'a été choisi", () => {
     const { r, headers } = makeCapturingResponse();
+    r.writeHead(200);
+    expect(headers["content-type"]).to.equal("application/octet-stream");
+  });
+
+  it("corps posé VIDE : aucun Content-Type (RFC 9110 §8.3)", () => {
+    const texte = makeCapturingResponse();
+    texte.r.setBody("");
+    texte.r.writeHead(202);
+    expect(texte.headers).to.not.have.property("content-type");
+    const octets = makeCapturingResponse();
+    octets.r.setBody(Buffer.alloc(0));
+    octets.r.writeHead(405);
+    expect(octets.headers).to.not.have.property("content-type");
+  });
+
+  it("204 et 304 : aucun Content-Type, même avec un corps posé", () => {
+    for (const status of [204, 304]) {
+      const { r, headers } = makeCapturingResponse();
+      r.setBody("ignoré");
+      r.writeHead(status);
+      expect(headers).to.not.have.property("content-type");
+    }
+  });
+
+  it("HEAD à corps vide : le défaut reste, comme sous GET", () => {
+    const { r, headers } = makeCapturingResponse("HEAD");
+    r.setBody("");
+    r.writeHead(200);
+    expect(headers["content-type"]).to.equal("application/octet-stream");
+  });
+
+  it("corps NON vide sans type : le défaut reste", () => {
+    const { r, headers } = makeCapturingResponse();
+    r.setBody(Buffer.from([1, 2, 3]));
     r.writeHead(200);
     expect(headers["content-type"]).to.equal("application/octet-stream");
   });

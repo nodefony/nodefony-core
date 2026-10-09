@@ -130,11 +130,31 @@ class HttpResponse {
    * n'a été choisi (ni négociation, ni `render`, ni controller), émet le défaut
    * `this.contentType` (application/octet-stream) — comportement identique à
    * l'ancienne pose au constructeur, sans le ping-pong set/remove/re-set.
+   *
+   * Une réponse SANS corps n'annonce aucun type : `Content-Type` décrit le
+   * contenu (RFC 9110 §8.3), et il n'y en a pas.
    */
   protected ensureContentTypeHeader(): void {
-    if (this.response && !this.response.hasHeader("content-type")) {
+    if (
+      this.response &&
+      !this.response.hasHeader("content-type") &&
+      !this.#isBodyless()
+    ) {
       this.response.setHeader("content-type", this.contentType);
     }
+  }
+
+  /**
+   * Vrai quand la réponse n'a pas de corps : 204 et 304 n'en ont jamais
+   * (RFC 9110 §15.3.5, §15.4.5) ; ailleurs, un corps posé et VIDE. Un corps
+   * jamais posé ne dit rien — un flux peut suivre l'en-tête — et `HEAD` rend
+   * les en-têtes du `GET` (§9.3.2) : tous deux gardent le défaut.
+   */
+  #isBodyless(): boolean {
+    if (NO_CONTENT_LENGTH_STATUS.has(this.statusCode)) return true;
+    if (this.context.method === "HEAD") return false;
+    if (this.#text !== null) return this.#text === "" && !this.flushing;
+    return this.#buffer?.length === 0 && !this.flushing;
   }
 
   /**
