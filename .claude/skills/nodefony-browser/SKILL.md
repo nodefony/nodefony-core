@@ -402,7 +402,9 @@ en HTTPS, sur la même origine, avec un seul certificat.
 - **Une capture ne s'écrase pas.** Réutiliser un nom laisse l'ancienne image en place pendant que
   l'appel répond « OK » : on lit un écran périmé. Le script horodate ; ne pas le contourner.
 - **Un état d'authentification sauvegardé peut être périmé** (session expirée, serveur redémarré) :
-  le script le constate et refait le parcours, plutôt que de mesurer l'écran de connexion.
+  le script le PROUVE avant de mesurer (`NF_BROWSER_WHOAMI`, défaut
+  `/nodefony/security/api/auth/me`) et refait le parcours en le disant sur stderr. Un renvoi vers le
+  formulaire ne suffisait pas : une page publique n'en fait jamais, et l'on mesurait en anonyme.
 - **Chaque compte a SON état sauvegardé** (le fichier porte l'identifiant). C'est ce qui permet
   d'enchaîner deux sondes sous deux comptes sans que la seconde reprenne la session de la première —
   la façon de prouver qu'une protection MORD : `admin` voit, `user` se fait refuser. Un état commun

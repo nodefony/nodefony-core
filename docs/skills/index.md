@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-10-08
+updated: 2026-10-09
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -182,7 +182,7 @@ source: "docs/skills/index.md"
 
 | Skill | Version | Corps | Réf. | Scripts | Conforme |
 | --- | --- | ---: | ---: | ---: | :---: |
-| [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 423 | 1 | 0 | ✅ |
+| [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 425 | 1 | 0 | ✅ |
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 116 | 0 | 0 | ✅ |
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.0 | 113 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |

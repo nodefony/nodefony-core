@@ -205,7 +205,7 @@ const rows = computed(() => (vue.value ? describeSocket(vue.value) : []));
 // vient le `requestId`, la capture des erreurs non rattrapées, la remontée
 // par la socket déjà ouverte. Posés au montage, retirés au démontage.
 const journal = new Syslog({ moduleName: "vitrine-vue" });
-const said = ref<string | null>(null);
+const incidentNote = ref<string | null>(null);
 let stopIncidents: (() => void) | null = null;
 onMounted(() => {
   installRequestIdProvider();
@@ -232,7 +232,7 @@ const triggerIncident = async (): Promise<void> => {
       // Faute VOULUE : la vitrine montre une TypeError remontée au journal ;
       // un `?.` la ferait disparaître.
       // oxlint-disable-next-line typescript/no-non-null-assertion
-      said.value = expected.absent!.value;
+      incidentNote.value = expected.absent!.value;
     } catch (e) {
       journal.log(
         e instanceof Error ? e.message : String(e),
@@ -240,7 +240,7 @@ const triggerIncident = async (): Promise<void> => {
         "VITRINE",
         "clic sur « provoquer un incident »",
       );
-      said.value = requestId
+      incidentNote.value = requestId
         ? `Incident journalisé et poussé au serveur, corrélé à la requête ${requestId.slice(0, 8)}…`
         : "Incident journalisé et poussé au serveur (aucun requestId sur cette réponse).";
     }
@@ -257,11 +257,11 @@ const toggleBar = (): void => {
 };
 
 const send = (): void => {
-  const message = text.value.trim();
-  if (!message) return;
+  const said = text.value.trim();
+  if (!said) return;
   // Une notification client → serveur : pas de réponse attendue, c'est le
   // serveur qui rediffuse à tous les abonnés du canal.
-  live.emit("live:say", { text: message, front: FRONT });
+  live.emit("live:say", { text: said, front: FRONT });
   text.value = "";
 };
 
@@ -722,7 +722,7 @@ useNodefonyChannel("live:salon", (m) =&gt; …)</code></pre>
             <button class="counter" @click="triggerIncident()">
               Provoquer un incident
             </button>
-            <p v-if="said" class="hint" role="status">{{ said }}</p>
+            <p v-if="incidentNote" class="hint" role="status">{{ incidentNote }}</p>
             <p class="hint">
               La remontée exige une session : le canal n'accepte pas les
               connexions anonymes. Connectez-vous à la console d'administration
