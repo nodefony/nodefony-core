@@ -121,6 +121,8 @@ describe("onglet Noyau — ce qu'il montre", () => {
     k.setIdentity({ key: "bob" });
     await image();
     expect(q("[data-el='kChipState']").textContent).toBe("prêt");
+    // Comme l'environnement : le point de couleur dit l'état d'un coup d'œil.
+    expect(q("[data-el='kChip']").classList.contains("st-ready")).toBe(true);
     const body = await ongletNoyau();
     const texte = body.textContent ?? "";
     // Le compte est affiché ; les événements sont dits en clair, le nom d'API

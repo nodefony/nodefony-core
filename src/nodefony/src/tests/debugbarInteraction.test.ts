@@ -325,6 +325,14 @@ describe("gabarit — un identifiant d'élément, un seul élément", () => {
   });
 });
 
+describe("marque — le logo Nodefony, pas un glyphe", () => {
+  it("le logo SVG ouvre la bande ET la pastille", () => {
+    expect(shadow().querySelector(".brand .logo svg.nflogo")).not.toBeNull();
+    expect(shadow().querySelector(".minbar .mlogo svg.nflogo")).not.toBeNull();
+    expect(q(".brand").textContent).not.toContain("◆");
+  });
+});
+
 describe("feuille de style — ce qui part dans la page", () => {
   it("aucun commentaire de CODE dans la feuille injectée", () => {
     // Les commentaires vivent dans le source TS, entre les morceaux de la

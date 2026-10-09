@@ -241,6 +241,13 @@ const KERNEL_EVENT_LABEL: Readonly<Record<string, string>> = {
   onTerminate: "terminé",
 };
 
+/**
+ * Le logo Nodefony (`src/nodefony/assets/nodefony-logo.svg`), en ligne :
+ * coordonnées arrondies au dixième — invisible à 18 px, et plus léger dans
+ * le bundle de chaque application qui monte la barre.
+ */
+const NODEFONY_LOGO = `<svg class="nflogo" viewBox="0 0 107 170.4" aria-hidden="true"><path fill="#0067ba" d="M0 85.2C0 42.7 52.7 13.6 86.7 0C90.8 0.4 94.8 1.8 98.3 3.9C79.8 12.7 61.7 21.2 45.8 34.1C30 47 16.4 64.3 16.4 85.2C16.4 106.1 30 123.4 45.8 136.3C61.7 149.2 79.8 157.7 98.3 166.5C94.8 168.6 90.8 170 86.7 170.4C52.7 156.8 0 127.7 0 85.2Z"/><path fill="#448438" d="M33.1 85.2C33.1 56 68 35.3 91.7 25.6C95.2 26.7 99.3 28.3 102.6 30.2C81.3 40 49.3 58.1 49.3 85.2C49.3 112.3 81.3 130.4 102.6 140.2C99.3 142.1 95.2 143.8 91.7 144.9C68 135.1 33.1 114.4 33.1 85.2Z"/><path fill="#00a0f2" d="M64.7 85.2C64.7 68.7 82.2 57.6 95.7 51.6C99.6 52.5 103.4 54.6 107 56.4C101.4 60.1 95.3 63 90.3 67.6C85.2 72.2 81.3 78.5 81.3 85.2C81.3 91.9 85.2 98.2 90.3 102.8C95.3 107.4 101.4 110.3 107 114C103.4 115.8 99.6 117.9 95.7 118.8C82.2 112.8 64.7 101.7 64.7 85.2Z"/></svg>`;
+
 /** Une clé de compte abrégée pour l'œil (souvent un UUID) — la complète va en infobulle. */
 function shortKey(key: string): string {
   return key.length > 14 ? `${key.slice(0, 6)}…${key.slice(-5)}` : key;
@@ -302,8 +309,9 @@ const STYLES =
   background: rgba(20,22,26,.6); backdrop-filter: blur(14px) saturate(140%); }
 .strip:hover { background: rgba(255,255,255,.03); }
 .brand { display:flex; align-items:center; gap:8px; font-weight:800; letter-spacing:.2px; flex:none; }
-.brand .logo { color: var(--blue2); font-size:1.05em; filter: drop-shadow(0 0 6px rgba(58,160,255,.6)); }
-.brand .name { background: linear-gradient(90deg,#fff,var(--blue2)); -webkit-background-clip:text;
+.brand .logo, .minbar .mlogo { display:flex; align-items:center; flex:none; }
+.nflogo { display:block; height:18px; width:auto; }
+.brand .name, .minbar .mname { background: linear-gradient(90deg,#5fa04e,#3aa0ff); -webkit-background-clip:text;
   background-clip:text; -webkit-text-fill-color:transparent; }
 .rt-pill { display:flex; align-items:center; gap:5px; padding:.2em .7em; border-radius:11px; flex:none;
   font-size:.76em; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
@@ -462,6 +470,12 @@ const STYLES =
 .kv .k.help:focus-visible { outline:2px solid var(--ok); outline-offset:2px; border-radius:3px; }
 .tab .tdot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok); margin-left:4px; vertical-align:middle; }
 .tab .tdot[hidden] { display:none; }
+.strip .kchip { gap:6px; padding:.25em .7em; border:1px solid var(--line); color:#c4c9d1; }
+.kchip::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--muted); flex:none; }
+.kchip.st-ready::before { background:var(--ok); } .kchip.st-ready .kstate { color:#7fd3ac; }
+.kchip.st-booting::before { background:var(--warn); } .kchip.st-booting .kstate { color:#ffcf66; }
+.kchip.st-terminated::before { background:var(--crit); } .kchip.st-terminated .kstate { color:#ff8f75; }
+.kchip .word + .word::before { content:"·"; margin-right:5px; color:#4a5160; }
 .chip .word { font:600 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:0; }
 .strip .env-badge { font:600 11.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; text-transform:none; letter-spacing:0; }
 .kintro { margin:0 0 12px; color:#c4c9d1; font:400 12.5px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
@@ -630,7 +644,7 @@ const STYLES =
 .minbar.bottom { bottom:14px; } .minbar.top { top:14px; }
 .minbar.dock-left { left:14px; } .minbar.dock-right { right:14px; }
 .minbar .dot { width:8px; height:8px; border-radius:50%; background:#36b37e; }
-.minbar .dot.connected { background:#36b37e; } .minbar .dot.error { background:#ff5630; }
+.minbar .dot.connected { background:#36b37e; color:#36b37e; } .minbar .dot.error { background:#ff5630; }
 .minbar .dot.disconnected { background:#8a9099; }
 .minbar .dot.connecting,.minbar .dot.reconnecting { background:#ffab00; }
 .minbar .mlogo { color:#ff8a3d; } .minbar .mrate { font-weight:800; }
@@ -1405,7 +1419,7 @@ export class DebugBar {
     minbar.type = "button";
     minbar.className = `minbar ${this.position} dock-${this.side}`;
     minbar.setAttribute("aria-label", "Afficher la barre de débogage Nodefony");
-    minbar.innerHTML = `<span class="dot" data-el="mdot"></span><span class="mname">◆ nodefony</span><span class="mrate" data-el="mrate">0/s</span><span class="mbadge" data-el="mEnv"></span><span class="mopen">Ouvrir<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg></span>`;
+    minbar.innerHTML = `<span class="dot" data-el="mdot"></span><span class="mlogo">${NODEFONY_LOGO}</span><span class="mname">nodefony</span><span class="mrate" data-el="mrate">0/s</span><span class="mbadge" data-el="mEnv"></span><span class="mopen">Ouvrir<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg></span>`;
     shadow.append(style, bar, minbar);
     document.body.appendChild(host);
     this.host = host;
@@ -1658,7 +1672,7 @@ export class DebugBar {
   private template(): string {
     return `
       <div class="strip">
-        <button type="button" class="brand" data-el="btnBrand" aria-controls="nf-db-panel" aria-expanded="${this.startOpen}" data-tip="Barre de débogage Nodefony (développement uniquement) — cliquer pour ouvrir ou fermer le panneau"><span class="logo">◆</span><span class="name">nodefony</span></button>
+        <button type="button" class="brand" data-el="btnBrand" aria-controls="nf-db-panel" aria-expanded="${this.startOpen}" data-tip="Barre de débogage Nodefony (développement uniquement) — cliquer pour ouvrir ou fermer le panneau"><span class="logo">${NODEFONY_LOGO}</span><span class="name">nodefony</span></button>
         <span class="env-badge" data-el="envBadge" data-tip="Environnement dans lequel tourne l'application">env</span>
         <span class="branch" data-el="branch" data-tip="Branche git de la copie de travail" hidden><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2.5v11M5 13.5a1.5 1.5 0 1 0 0-.01M11 5.5a1.5 1.5 0 1 0 0-.01M11 7c0 3.5-6 2.5-6 5"/></svg><span data-el="branchName"></span></span>
         <button type="button" class="rt ui" data-el="btnLive" aria-pressed="false" data-tip="Temps réel"><span class="rt-dot" aria-hidden="true"></span><span class="rt-name">Temps réel</span><span class="rt-state" data-el="rtCtlState">arrêté</span></button>
@@ -1667,7 +1681,7 @@ export class DebugBar {
         ${this.miniMetric("mem", "mem", "memMini", "0%", "perf", "Mémoire utilisée par le serveur — cliquer pour ouvrir l'onglet Perf")}
         <span class="spacer"></span>
         ${this.networkEnabled ? `<button type="button" class="chip goto" data-goto="network" data-tip="Requêtes réseau observées — cliquer pour ouvrir l'onglet Network"><span class="k">net</span><span class="blue" data-el="netChip">0</span></button>` : ""}
-        <button type="button" class="chip goto" data-goto="kernel" data-el="kChip" data-tip="Nodefony client de la page (NodefonyKernel) — cliquer pour ouvrir l'onglet" hidden><span class="k">client</span><span class="word" data-el="kChipState"></span></button>
+        <button type="button" class="chip goto kchip" data-goto="kernel" data-el="kChip" data-tip="Nodefony client de la page (NodefonyKernel) — cliquer pour ouvrir l'onglet" hidden><span class="word">client</span><span class="word kstate" data-el="kChipState"></span></button>
         ${this.frontend ? `<button type="button" class="chip goto" data-goto="realtime" data-tip="Mises à jour à chaud (HMR) appliquées depuis le chargement de la page — cliquer pour ouvrir le détail"><span class="k">hmr</span><span class="hmrv" data-el="hmrChip">0</span></button>` : ""}
         <button type="button" class="chip goto" data-goto="logs" data-tip="Entrées de journal reçues — cliquer pour ouvrir l'onglet Logs"><span class="k">logs</span><span data-el="logs">0</span></button>
         <button type="button" class="chip goto" data-goto="logs" data-tip="Erreurs et alertes — cliquer pour ouvrir l'onglet Logs"><span class="k">err</span><span class="crit" data-el="err">0</span></button>
@@ -2409,6 +2423,7 @@ export class DebugBar {
     const kchip = this.el.kChip;
     if (kchip instanceof HTMLElement) {
       kchip.hidden = this.kprobe === null;
+      kchip.setAttribute("class", `chip goto kchip st-${this.kstate}`);
       this.text("kChipState", KERNEL_STATE_LABEL[this.kstate] ?? this.kstate);
     }
     const kdot = this.el.kTabDot;
