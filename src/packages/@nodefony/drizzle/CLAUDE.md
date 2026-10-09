@@ -120,6 +120,15 @@ Deux usages :
   (`nodefony/src/sqliteJournal.ts`) : lit le mode (persistant, seul le premier bascule), réessaie
   le conflit sous échéance. Aucun banc ne l'attrapait : tests mono-processus, bancs multi-instances
   sur PG/MySQL ou sur une base déjà en WAL — une sonde non SYNCHRONISÉE rend 0/30.
+- 🔴 **En SQLite, un `LIMIT ?` NU fait RECOMPILER la requête à CHAQUE exécution** (un paramètre
+  qui peut changer le plan) : +11 µs mesurés, payés par chaque `findOne` — donc par la lecture de
+  session et le rechargement de l'utilisateur sur toute requête authentifiée. Le LIMIT lié passe
+  par `sqliteLimit` (dépôt) / `limitSql` (queryKit) → `CAST(? AS INTEGER)`. `OFFSET ?` n'a pas ce
+  défaut. Ne pas « simplifier » en `limit(placeholder)` : le banc `prepared-select` le refuse.
+- **Requêtes compilées une fois** : forme du dépôt (`#preparedSelect`, `$in` compris jusqu'à 32
+  valeurs, budget de 32 formes `$in`) et requêtes de `queryKit` (cache par connexion et par texte,
+  64 au plus, `WeakMap`). Un texte SQL n'y porte JAMAIS une valeur (toutes liées) : c'est ce qui
+  borne les caches. L'eager-load (`options.relations`) construit encore ses `IN` à chaque appel.
 - `better-sqlite3` = natif (compile via node-gyp) ; OK sur Node 26 (prebuild 12.x).
 - `db.query.*` (API relationnelle Drizzle) **non** utilisée → typage générique
   sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.

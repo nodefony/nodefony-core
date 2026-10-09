@@ -1,6 +1,6 @@
 {
   "_provisoire": "supprimer avec check-type-assertions.mjs une fois les sites corrigés",
-  "total": 1920,
+  "total": 1919,
   "ceilings": {
     "modules/mediasoup": 2,
     "modules/test": 58,
@@ -12,7 +12,7 @@
     "packages/@nodefony/agent": 1,
     "packages/@nodefony/devkit": 4,
     "packages/@nodefony/documentation": 6,
-    "packages/@nodefony/drizzle": 204,
+    "packages/@nodefony/drizzle": 203,
     "packages/@nodefony/framework": 239,
     "packages/@nodefony/frontend": 21,
     "packages/@nodefony/http": 287,

@@ -14,8 +14,8 @@ import { createFrameworkTableFactory } from "../../nodefony/entity/colKit";
  *
  * La preuve du MÉCANISME passe par un compteur de compilations NATIVES :
  * `Database.prototype.prepare` (better-sqlite3) est espionné — une forme
- * mémoïsée ne compile qu'UNE fois, un repli (opérateurs riches, `$or`,
- * transaction, cache plein) recompile à chaque exécution. La preuve du
+ * mémoïsée ne compile qu'UNE fois, un repli (`$or`, `$nin`, `$like`, `$in`
+ * vide ou long, transaction, cache plein) recompile à chaque exécution. La preuve du
  * CONTRAT (les résultats ne changent pas d'un chemin à l'autre) s'appuie sur
  * `withTransaction`, qui garde le chemin non préparé par construction — le
  * banc de parité 3 dialectes (`repository-contract-*`) reste le filet global.
@@ -133,6 +133,22 @@ describe("DrizzleRepository — SELECT préparés mémoïsés (sqlite)", () => {
     assert.deepEqual(r3, r1, "re-exécution stable de la même forme");
   });
 
+  it("SQLite : le LIMIT lié passe par CAST, jamais un `?` nu (recompilé à chaque exécution)", async () => {
+    // Un `LIMIT ?` nu fait RECOMPILER la requête par SQLite à chaque exécution
+    // (+11 µs mesurés) : findOne le payait sur chaque requête authentifiée.
+    // Formes propres à ce test (aucun autre ne les compile avant lui).
+    await repo.findOne({ active: true });
+    await repo.find({ note: "n3" }, { limit: 2, offset: 1 });
+    const selects = prepareCalls.filter((s) =>
+      s.includes("prepared_select_probe"),
+    );
+    assert.ok(selects.length > 0, "des SELECT ont été compilés");
+    for (const text of selects) {
+      assert.match(text, /limit cast\(\? as integer\)/i, text);
+      assert.doesNotMatch(text, /limit \?/i, text);
+    }
+  });
+
   it("findOne réutilise la forme (limit = placeholder) et re-binde", async () => {
     const a = await repo.findOne({ name: "alice" });
     const c = await repo.findOne({ name: "chloé" });
@@ -185,16 +201,69 @@ describe("DrizzleRepository — SELECT préparés mémoïsés (sqlite)", () => {
     );
   });
 
-  it("opérateurs riches et $or = REPLI (le SQL varie avec la cardinalité) — recompile à chaque exécution", async () => {
+  it("$in court = PRÉPARÉ : sa CARDINALITÉ fait la forme, ses valeurs sont RE-BINDÉES", async () => {
     const in1 = await repo.find({ age: { $in: [25, 30] } });
-    const in2 = await repo.find({ age: { $in: [25, 30] } });
-    assert.equal(probeSelects(), 2, "repli : 2 exécutions = 2 compilations");
+    const in2 = await repo.find({ age: { $in: [35, 40] } });
+    // Débranché (`$in` en repli), chaque find recompile → 2.
+    assert.equal(probeSelects(), 1, "même cardinalité = 1 forme");
     assert.deepEqual(in1.map((r) => r.name).sort(), ["alice", "bob", "dan"]);
-    assert.deepEqual(in2, in1);
+    assert.deepEqual(in2.map((r) => r.name).sort(), ["chloé", "eve"]);
+    await repo.find({ age: { $in: [25] } });
+    assert.equal(probeSelects(), 2, "autre cardinalité = autre forme");
+    // Chaque valeur est encodée par SA colonne : `false` doit partir en 0.
+    const inactive = await repo.find({ active: { $in: [false] } });
+    assert.deepEqual(
+      inactive.map((r) => r.name),
+      ["eve"],
+    );
+    const direct = await orm.transaction(async (tx) =>
+      repo.withTransaction(tx).find({ age: { $in: [25, 30] } }),
+    );
+    assert.deepEqual(direct, in1, "parité préparé / chemin direct");
+  });
+
+  it("$or, $in VIDE et $in LONG = REPLI — recompilent à chaque exécution, résultats justes", async () => {
+    const empty1 = await repo.find({ age: { $in: [] } });
+    const empty2 = await repo.find({ age: { $in: [] } });
+    assert.equal(probeSelects(), 2, "$in vide : 2 exécutions = 2 compilations");
+    assert.deepEqual(empty1, []);
+    assert.deepEqual(empty2, []);
+    prepareCalls = [];
+    const many = Array.from({ length: 33 }, (_, k) => k + 10);
+    const long1 = await repo.find({ age: { $in: many } });
+    await repo.find({ age: { $in: many } });
+    assert.equal(probeSelects(), 2, "$in de 33 valeurs : repli");
+    assert.deepEqual(long1.map((r) => r.age).sort(), [25, 25, 30, 35, 40]);
+    prepareCalls = [];
     const or = await repo.find({
       $or: [{ name: "alice" }, { name: "eve" }],
     });
+    await repo.find({ $or: [{ name: "alice" }, { name: "eve" }] });
+    assert.equal(probeSelects(), 2, "$or : repli");
     assert.deepEqual(or.map((r) => r.name).sort(), ["alice", "eve"]);
+  });
+
+  it("les formes $in ont leur BUDGET : au-delà, repli, sans prendre le cache commun", async () => {
+    const twin = orm.getRepository<ProbeRow>("prepared_select_twin");
+    const twinSelects = (): number =>
+      prepareCalls.filter(
+        (s) =>
+          s.includes("prepared_select_twin") &&
+          s.trimStart().toLowerCase().startsWith("select"),
+      ).length;
+    // 32 cardinalités = 32 formes `$in` : le budget est plein.
+    for (let n = 1; n <= 32; n++) {
+      await twin.find({ age: { $in: Array.from({ length: n }, (_, k) => k) } });
+    }
+    assert.equal(twinSelects(), 32);
+    prepareCalls = [];
+    await twin.find({ name: { $in: ["alice"] } });
+    await twin.find({ name: { $in: ["alice"] } });
+    assert.equal(twinSelects(), 2, "budget `$in` épuisé : repli");
+    prepareCalls = [];
+    await twin.find({ name: "alice" });
+    await twin.find({ name: "bob" });
+    assert.equal(twinSelects(), 1, "une forme SANS `$in` reste préparée");
   });
 
   it("comparaisons scalaires préparées : UNE compilation, bornes RE-BINDÉES, parité avec le chemin direct", async () => {
@@ -245,11 +314,16 @@ describe("DrizzleRepository — SELECT préparés mémoïsés (sqlite)", () => {
     );
   });
 
-  it("$in mêlé à une comparaison sur le même champ = REPLI (la forme entière)", async () => {
-    await repo.find({ age: { $gt: 20, $in: [25, 30] } });
-    const again = await repo.find({ age: { $gt: 20, $in: [25, 30] } });
-    assert.equal(probeSelects(), 2, "repli : chaque exécution recompile");
-    assert.deepEqual(again.map((r) => r.name).sort(), ["alice", "bob", "dan"]);
+  it("$in mêlé à une comparaison sur le même champ = UNE forme (la combinaison)", async () => {
+    const wide = await repo.find({ age: { $gt: 20, $in: [25, 30] } });
+    const narrow = await repo.find({ age: { $gt: 26, $in: [25, 30] } });
+    assert.equal(probeSelects(), 1, "même combinaison = 1 forme");
+    assert.deepEqual(wide.map((r) => r.name).sort(), ["alice", "bob", "dan"]);
+    assert.deepEqual(
+      narrow.map((r) => r.name),
+      ["alice"],
+      "la borne $gt est re-bindée",
+    );
   });
 
   it("transaction = REPLI (handle éphémère) — et rend EXACTEMENT ce que rend le chemin préparé", async () => {

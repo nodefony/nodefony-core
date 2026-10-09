@@ -88,6 +88,46 @@ type ProfiledQuery<R> = PromiseLike<R> & { toSQL: () => { sql: string } };
  */
 const PREPARED_CACHE_MAX = 128;
 
+/**
+ * Un fragment SQL remis à `limit()`, qui n'est typé que `number | Placeholder`
+ * alors que Drizzle émet tel quel ce qu'il reçoit. Deux usages : le `-1` de
+ * l'OFFSET-sans-LIMIT SQLite, et le `LIMIT` lié de SQLite (cf {@link sqliteLimit}).
+ */
+function limitFragment(fragment: SQL): number {
+  // Conversion ASSUMÉE (#572) — seule porte d'un fragment vers `limit()` :
+  // Drizzle le rend dans le SQL sans le lire comme un nombre.
+  return fragment as unknown as number;
+}
+
+/**
+ * `LIMIT` lié, pour SQLite : `CAST(? AS INTEGER)` et jamais un `?` nu.
+ *
+ * SQLite RECOMPILE à chaque exécution une requête dont un paramètre peut
+ * changer le plan, et un `LIMIT ?` nu en fait partie : +11 µs par exécution,
+ * mesuré (`micro-me-sql` : 19,5 µs contre 8,4 µs). `findOne` passe par là —
+ * lecture de session et rechargement de l'utilisateur payaient ce surcoût sur
+ * CHAQUE requête authentifiée. Le `CAST` masque la valeur au planificateur ;
+ * pour un entier, le résultat est identique. PostgreSQL et MySQL n'ont pas ce
+ * défaut (et MySQL ne connaît pas `CAST … AS INTEGER`) : ils gardent le `?`.
+ *
+ * @param value - placeholder (chemin préparé) ou valeur (chemin direct)
+ * @returns le fragment, typé pour `limit()`
+ */
+function sqliteLimit(value: unknown): number {
+  return limitFragment(sql`cast(${value} as integer)`);
+}
+
+/**
+ * Bornes des formes préparées qui portent un `$in`. Le texte SQL d'un `$in`
+ * suit le NOMBRE de valeurs (`IN (?, ?, …)`) : chaque cardinalité est une
+ * forme. Sans budget dédié, une liste de taille variable (venue d'un filtre)
+ * occuperait le cache commun, et toute forme nouvelle retomberait ensuite sur
+ * le chemin direct — sans que rien ne le dise. Au-delà : chemin direct, comme
+ * avant (correct, seulement non préparé).
+ */
+const PREPARED_IN_MAX_VALUES = 32;
+const PREPARED_IN_SHAPES_MAX = 32;
+
 /** Séquence des noms de prepared statements (PG les exige uniques par process). */
 let preparedNameSeq = 0;
 
@@ -115,8 +155,13 @@ const COMPARISONS: readonly Comparison[] = [
   ["$lte", lte],
 ];
 
-/** Opérateurs qu'une forme préparée sait rendre : les comparaisons et `$null`. */
+/**
+ * Opérateurs qu'une forme préparée sait rendre : les comparaisons, `$null`, et
+ * `$in` non vide sous {@link PREPARED_IN_MAX_VALUES} (sa cardinalité entre
+ * dans la forme).
+ */
 const PREPARABLE_OPERATORS: ReadonlySet<string> = new Set([
+  "$in",
   ...COMPARISONS.map(([op]) => op),
   "$null",
 ]);
@@ -196,6 +241,8 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    * `disconnect()` avec les statements qu'il retient.
    */
   #preparedSelects: Map<string, IPreparedSelectEntry> | null = null;
+  /** Formes préparées portant un `$in` — budget {@link PREPARED_IN_SHAPES_MAX}. */
+  #preparedInShapes = 0;
   /** `true` = repository lié à une transaction : mémoïsation coupée (cf ctor). */
   readonly #transactional: boolean;
 
@@ -593,16 +640,22 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    * lectures bornées dans le temps (`expiresAt: { $gt: now }` — la révocation
    * des jetons, lue à chaque requête authentifiée).
    *
-   * Repli (`null`) par construction : `$or`, `$in`/`$nin` (le SQL suit la
-   * cardinalité), `$like` (clause d'échappement propre au dialecte), valeur
+   * `$in` y entre aussi quand sa liste est non vide et courte : sa CARDINALITÉ
+   * fait partie de la clé (`$in<n>`), ses valeurs deviennent `p<i>$in<k>`.
+   * C'est le chemin de la relecture d'une page par identifiants (liste des
+   * utilisateurs : ~320 µs reconstruits à chaque requête, ~100 µs préparée).
+   *
+   * Repli (`null`) par construction : `$or`, `$nin`, `$in` vide ou long (le
+   * SQL suit la cardinalité), `$like` (clause d'échappement propre au dialecte), valeur
    * `undefined` (le chemin actuel la rejette, même contrat), transaction
    * (cf ctor), cache plein ({@link PREPARED_CACHE_MAX}).
    */
   #selectShape(
     criteria?: Criteria<T>,
     options?: RepositoryReadOptions,
-  ): { key: string; params: Record<string, unknown> } | null {
+  ): { key: string; params: Record<string, unknown>; hasIn: boolean } | null {
     let key = "";
+    let hasIn = false;
     const params: Record<string, unknown> = {};
     if (criteria) {
       let i = 0;
@@ -625,6 +678,17 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
               ops += op;
               params[`p${i}${op}`] = operand;
             }
+          }
+          const list = value.$in;
+          if (list !== undefined) {
+            if (list.length === 0 || list.length > PREPARED_IN_MAX_VALUES) {
+              return null;
+            }
+            ops += `$in${list.length}`;
+            for (let k = 0; k < list.length; k++) {
+              params[`p${i}$in${k}`] = list[k];
+            }
+            hasIn = true;
           }
           // La VALEUR de `$null` décide du texte (IS NULL / IS NOT NULL) :
           // elle appartient à la forme, jamais aux paramètres.
@@ -658,7 +722,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       key += "O";
       params["off"] = options.offset;
     }
-    return { key, params };
+    return { key, params, hasIn };
   }
 
   /**
@@ -691,6 +755,19 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
                 compare(col, sql.param(sql.placeholder(`p${i}${op}`), col)),
               );
             }
+          }
+          // Même place que dans `#pushOperators` (après les comparaisons) ;
+          // chaque valeur encodée par la colonne, comme `inArray` le fait.
+          const list = value.$in;
+          if (list !== undefined) {
+            conds.push(
+              inArray(
+                col,
+                list.map((_, k) =>
+                  sql.param(sql.placeholder(`p${i}$in${k}`), col),
+                ),
+              ),
+            );
           }
           if (value.$null !== undefined) {
             conds.push(value.$null ? isNull(col) : isNotNull(col));
@@ -726,10 +803,14 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       );
     }
     if (options?.limit !== undefined) {
-      query = query.limit(sql.placeholder("lim"));
+      query = query.limit(
+        this.#dialect === "sqlite"
+          ? sqliteLimit(sql.placeholder("lim"))
+          : sql.placeholder("lim"),
+      );
     } else if (options?.offset !== undefined && this.#dialect === "sqlite") {
       // Mêmes hacks OFFSET-sans-LIMIT que le chemin non préparé (cf #runSelect).
-      query = query.limit(sql`-1` as unknown as number);
+      query = query.limit(limitFragment(sql`-1`));
     } else if (options?.offset !== undefined && this.#dialect === "mysql") {
       query = query.limit(Number.MAX_SAFE_INTEGER);
     }
@@ -767,6 +848,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (entry === undefined) {
       if (cache.size >= PREPARED_CACHE_MAX) {
         return null;
+      }
+      if (shape.hasIn) {
+        if (this.#preparedInShapes >= PREPARED_IN_SHAPES_MAX) {
+          return null;
+        }
+        this.#preparedInShapes++;
       }
       entry = this.#buildPreparedSelect(criteria, options);
       cache.set(shape.key, entry);
@@ -808,7 +895,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       );
     }
     if (options?.limit !== undefined) {
-      query = query.limit(options.limit);
+      query = query.limit(
+        this.#dialect === "sqlite" ? sqliteLimit(options.limit) : options.limit,
+      );
     } else if (options?.offset !== undefined && this.#dialect === "sqlite") {
       // SQLite : OFFSET exige un LIMIT → `-1` = illimité quand seul l'offset
       // est posé. PG accepte OFFSET seul (et REJETTE `LIMIT -1`) → rien à poser.
@@ -816,7 +905,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       // NUMÉRIQUE (émet `OFFSET` seul → SqliteError) — bug attrapé par le banc
       // de contrat 3-dialectes, jamais vu avant car ce chemin n'était couvert
       // qu'en PG (où rien n'est posé).
-      query = query.limit(sql`-1` as unknown as number);
+      query = query.limit(limitFragment(sql`-1`));
     } else if (options?.offset !== undefined && this.#dialect === "mysql") {
       // MySQL : OFFSET exige aussi un LIMIT ; le sentinel documenté (2^64-1)
       // n'est pas représentable en double JS → MAX_SAFE_INTEGER (2^53-1),

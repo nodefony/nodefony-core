@@ -25,6 +25,12 @@ LABEL=$1; PORT=$2; shift 2
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 OUT="${NF_PROFILE_DIR:-$ROOT/tmp/profiles}/$LABEL"
 URL="http://127.0.0.1:$PORT${BENCH_PATH:-/nodefony/test/als-test/state}"
+# Un serveur DÉJÀ à l'écoute répondrait à la charge à la place de celui qu'on
+# profile : profil vide, débit d'un autre code, et aucune erreur (vécu : un
+# serveur de diagnostic oublié a été « mesuré » à 1 441 req/s).
+if curl -s -o /dev/null --max-time 1 "http://127.0.0.1:$PORT/"; then
+  echo "❌ le port $PORT répond déjà — arrêter ce serveur avant de profiler"; exit 1
+fi
 rm -rf "$OUT"; mkdir -p "$OUT"
 cd "$ROOT"
 env NODE_ENV=production NF_LOG_DRIVER=null NF_BENCH_ROUTE=1 ${XENV:-} PORT=$PORT \

@@ -6696,6 +6696,10 @@
               {
                 "flag": "--cpu-prof-interval",
                 "help": ""
+              },
+              {
+                "flag": "--max-time",
+                "help": ""
               }
             ],
             "env": [

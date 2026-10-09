@@ -626,7 +626,7 @@ PG** ; **reste** `user` (⚠️ `findBySocialProvider` `json_each` SQLite → `j
 **Mapping row → entité**
 
 - **Drizzle** : schema-as-code → la ligne EST l'entité, `DrizzleRepository` fait un **cast** `rows as T[]`
-  (`DrizzleRepository.ts:898`) — **aucun remap générique**.
+  (`DrizzleRepository.ts:987`) — **aucun remap générique**.
 - **Mongoose** : `toObject({ virtuals:true })` + `_id`→`id` (hex string).
 - **Stores domaine** (User/token/session) : remap **manuel** ligne ↔ objet métier — ex.
   `DrizzleUserRepository.#toUser(row)` → `new BaseUser({...})` (`DrizzleUserRepository.ts:64`). **C'est ici
@@ -650,7 +650,7 @@ process-wide, **indépendant de l'ALS**, **OFF par défaut** (`enabled = false` 
 sur le chemin lent** (`durationMs >= slowMs`, défaut 50 `:62`) → jamais `toSQL()` au cas nominal. Débit/s
 **dérivé** côté lecteur (delta `total`/`ts`), **0 persistance** (RAM, reset au restart). Gating = job du
 driver : `resolveOrmFlowEnabled` (`ormWiring.ts:96`) → `setEnabled(env !== "production")` (override
-`NF_ORM_FLOW=1/0`). Tap : chaque op du repo passe par `#prof` (Drizzle `DrizzleRepository.ts:442`,
+`NF_ORM_FLOW=1/0`). Tap : chaque op du repo passe par `#prof` (Drizzle `DrizzleRepository.ts:489`,
 Mongoose `MongooseRepository.ts:77`), gardé par les 2 drapeaux (buffer ALS dev + flux) → `if (!buf &&
 !flow) return builder`. **Couverture** : Drizzle alimente le tap ; Mongoose aussi (middleware repo) —
 les finders natifs `sql\`…\``(ex.`findBySocialProvider`, `db.all`brut) ne passent **pas** par`#prof`.

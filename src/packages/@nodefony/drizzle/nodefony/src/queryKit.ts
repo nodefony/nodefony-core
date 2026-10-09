@@ -1,5 +1,7 @@
+import type BetterSqlite3 from "better-sqlite3";
 import { sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import { pickOrder } from "nodefony";
 import type { IPageQuery } from "nodefony";
 import { escapeLikeTerm } from "@nodefony/orm-core";
@@ -328,6 +330,87 @@ function orderBySql(
   return sql.join(chunks, sql`, `);
 }
 
+/**
+ * `LIMIT` lié d'une requête de ce module. En SQLite, `CAST(? AS INTEGER)` :
+ * un `LIMIT ?` nu fait RECOMPILER la requête à chaque exécution (+11 µs,
+ * mêmes mesure et raison que `sqliteLimit` du dépôt). Les autres dialectes
+ * gardent le paramètre nu (MySQL ne connaît pas `CAST … AS INTEGER`).
+ */
+function limitSql(dialect: SqlDialect, limit: number): SQL {
+  return dialect === "sqlite" ? sql`CAST(${limit} AS INTEGER)` : sql`${limit}`;
+}
+
+/** Traduit un fragment `sql` en texte + paramètres encodés (dialecte SQLite). */
+const sqliteDialect = new SQLiteSyncDialect();
+
+/**
+ * Statements SQLite compilés, par connexion puis par texte SQL. Le texte d'une
+ * requête de ce module ne dépend que des FILTRES présents et du tri — jamais
+ * des valeurs, toutes bindées —, d'où un ensemble petit et borné. Sans ce
+ * cache, `db.all(sql…)` recompilait la même requête à chaque appel (mesuré sur
+ * la liste des utilisateurs : 77 → 43 µs la page d'identifiants, 44 → 9 µs le
+ * comptage). `WeakMap` : une connexion fermée emporte ses statements.
+ */
+const sqliteStatements = new WeakMap<
+  BetterSqlite3.Database,
+  Map<string, SqliteRowStatement>
+>();
+/**
+ * Un SELECT better-sqlite3 hors mode `raw` rend des objets-lignes : c'est le
+ * contrat du pilote, que `db.all()` de Drizzle type déjà de la même façon.
+ */
+type SqliteRowStatement = BetterSqlite3.Statement<
+  unknown[],
+  Record<string, unknown>
+>;
+/** Au-delà, la requête s'exécute sans être gardée (correcte, seulement recompilée). */
+const SQLITE_STATEMENTS_MAX = 64;
+
+/**
+ * Le client better-sqlite3 d'un handle Drizzle, vérifié — `$client` n'est pas
+ * déclaré par le type `BetterSQLite3Database`. `null` : on retombe sur
+ * `db.all()`, le chemin d'origine.
+ */
+function sqliteClientOf(db: DrizzleDb): BetterSqlite3.Database | null {
+  if (!("$client" in db)) {
+    return null;
+  }
+  const client = db.$client;
+  return isSqliteClient(client) ? client : null;
+}
+
+/** Vrai pour un client better-sqlite3 (il compile et exécute ses requêtes). */
+function isSqliteClient(value: unknown): value is BetterSqlite3.Database {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "prepare" in value &&
+    typeof value.prepare === "function"
+  );
+}
+
+/** SELECT SQLite par un statement compilé une fois par connexion et par texte. */
+function allSqlite(db: DrizzleDb, query: SQL): Array<Record<string, unknown>> {
+  const client = sqliteClientOf(db);
+  if (client === null) {
+    return db.all(query);
+  }
+  const { sql: text, params } = sqliteDialect.sqlToQuery(query);
+  let statements = sqliteStatements.get(client);
+  if (statements === undefined) {
+    statements = new Map();
+    sqliteStatements.set(client, statements);
+  }
+  let statement = statements.get(text);
+  if (statement === undefined) {
+    statement = client.prepare<unknown[], Record<string, unknown>>(text);
+    if (statements.size < SQLITE_STATEMENTS_MAX) {
+      statements.set(text, statement);
+    }
+  }
+  return statement.all(...params);
+}
+
 /** Exécute un SELECT et normalise le retour en tableau de lignes (API native divergente). */
 async function runSelect(
   db: DrizzleDb,
@@ -336,7 +419,7 @@ async function runSelect(
 ): Promise<Array<Record<string, unknown>>> {
   switch (dialect) {
     case "sqlite":
-      return db.all(query) as Array<Record<string, unknown>>;
+      return allSqlite(db, query);
     case "postgres":
       return (await (db as unknown as PgExecutor).execute(query)).rows;
     case "mysql": {
@@ -364,7 +447,7 @@ export async function listUserIdsPage(
   const where = userWhere(dialect, filters);
   const whereSql = where ? sql` WHERE ${where}` : sql``;
   const query = sql`SELECT ${ident(dialect, "id")} AS id FROM ${ident(dialect, USER_TABLE_NAME)}${whereSql}
-      ORDER BY ${orderBySql(dialect, window.order, USER_SORTABLE_FIELDS, USER_DEFAULT_ORDER, "id")} LIMIT ${limit + 1} OFFSET ${offset}`;
+      ORDER BY ${orderBySql(dialect, window.order, USER_SORTABLE_FIELDS, USER_DEFAULT_ORDER, "id")} LIMIT ${limitSql(dialect, limit + 1)} OFFSET ${offset}`;
   const rows = await runSelect(db, dialect, query);
   const ids = rows
     .map((r) => r.id)
@@ -483,7 +566,7 @@ export async function listWebhookIdsPage(
   );
   const query = sql`SELECT ${ident(dialect, "id")} AS id FROM ${ident(dialect, "webhook_endpoint")}${whereSql}
       ORDER BY ${orderSql}
-      LIMIT ${limit + 1} OFFSET ${offset}`;
+      LIMIT ${limitSql(dialect, limit + 1)} OFFSET ${offset}`;
   const rows = await runSelect(db, dialect, query);
   const ids = rows
     .map((r) => r.id)
