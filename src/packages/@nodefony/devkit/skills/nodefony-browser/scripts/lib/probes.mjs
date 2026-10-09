@@ -258,6 +258,25 @@ export function environmentDefaults({ inContainer, base, out } = {}) {
 }
 
 /**
+ * Verdict sur une session REPRISE, d'après le statut du point « qui suis-je ».
+ *
+ * Une session se PROUVE, elle ne se déduit pas : l'absence de renvoi vers le
+ * formulaire de connexion ne dit rien sur une page publique, qui se sert aussi
+ * bien à un anonyme. Vécu — après un redémarrage du serveur, la sonde mesurait
+ * une page en anonyme, sans un mot, avec un état de session mort.
+ *
+ * @param {number} status - statut HTTP rendu par `NF_BROWSER_WHOAMI`.
+ * @returns {"alive"|"dead"|"unproven"} `alive` (2xx), `dead` (401/403), sinon
+ *   `unproven` — le point ne répond pas comme attendu, et une session qu'on ne
+ *   sait pas prouver ne se réutilise pas.
+ */
+export function sessionVerdict(status) {
+  if (status >= 200 && status < 300) return "alive";
+  if (status === 401 || status === 403) return "dead";
+  return "unproven";
+}
+
+/**
  * Nom du fichier d'état d'authentification, DÉRIVÉ de l'identifiant.
  *
  * Un état sauvegardé est réutilisé pour éviter de rejouer le parcours de

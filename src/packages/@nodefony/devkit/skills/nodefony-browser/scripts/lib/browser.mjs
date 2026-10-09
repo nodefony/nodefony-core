@@ -12,6 +12,7 @@
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion — REQUIS dès qu'un identifiant est donné, aucun défaut n'est deviné
  * `@env` NF_BROWSER_USER identifiant ; sans lui, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
+ * `@env` NF_BROWSER_WHOAMI chemin qui répond 2xx à une session authentifiée, 401/403 sinon — prouve une session reprise (défaut `/nodefony/security/api/auth/me` ; vide = aucune reprise)
  * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) ; sans lui, celui du navigateur
  * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`, séparées par des virgules)
@@ -22,6 +23,7 @@ import {
   environmentDefaults,
   authStateName,
   browserOrder,
+  sessionVerdict,
   parseColorScheme,
   parseStorage,
 } from "./probes.mjs";
@@ -102,6 +104,15 @@ if (USER && !LOGIN) {
   );
   process.exit(64); // EX_USAGE
 }
+
+/**
+ * Le point qui PROUVE qu'une session reprise est vivante : 2xx authentifié,
+ * 401/403 sinon. Défaut : celui de `@nodefony/security`, présent dans toute
+ * application qui l'installe. Chaîne VIDE = rien pour prouver, donc aucune
+ * session n'est reprise — la sonde se connecte à chaque lancement.
+ */
+export const WHOAMI =
+  process.env.NF_BROWSER_WHOAMI ?? "/nodefony/security/api/auth/me";
 
 /**
  * L'état d'authentification, SAUVEGARDÉ puis réutilisé d'une sonde à l'autre.
@@ -225,6 +236,22 @@ export async function open() {
       reuse = false;
     }
   }
+  if (reuse && ctx) {
+    const why = await staleSessionReason(ctx);
+    if (why !== null) {
+      // Un contexte NEUF plutôt que des cookies effacés : le stockage local
+      // peut avoir mémorisé un identifiant, et le jeton anti-CSRF est lié à la
+      // session morte. La reprise se DIT — rejouée en silence, elle cacherait
+      // qu'il y avait quelque chose à rejouer.
+      console.error(
+        `Session reprise ${why} — l'état est jeté et le parcours de connexion est rejoué.`,
+      );
+      await ctx.close();
+      rmSync(STATE, { force: true });
+      ctx = null;
+      reuse = false;
+    }
+  }
   if (!ctx) ctx = await browser.newContext(options);
   if (STORAGE.length > 0) {
     // AVANT tout script de la page, et à CHAQUE navigation : une application
@@ -245,6 +272,36 @@ export async function open() {
     }, STORAGE);
   }
   return { browser, ctx, page: await ctx.newPage(), reuse };
+}
+
+/**
+ * Prouve qu'une session reprise est vivante, AVANT toute navigation.
+ *
+ * Sans cette preuve, la sonde ne constatait une session morte que si la page
+ * renvoyait vers le formulaire de connexion — ce qu'une page PUBLIQUE ne fait
+ * jamais : elle mesurait alors en anonyme, sans le dire.
+ *
+ * @param ctx - le contexte ouvert sur l'état repris (ses cookies servent la requête).
+ * @returns `null` si la session est prouvée vivante, sinon la raison de la jeter.
+ */
+async function staleSessionReason(ctx) {
+  if (WHOAMI === "") return "non prouvable (NF_BROWSER_WHOAMI vide)";
+  let status;
+  try {
+    const answer = await ctx.request.get(`${BASE}${WHOAMI}`, {
+      failOnStatusCode: false,
+      maxRedirects: 0,
+      timeout: 10000,
+    });
+    status = answer.status();
+  } catch (e) {
+    return `non prouvable (${WHOAMI} injoignable : ${String(e).split("\n")[0].slice(0, 120)})`;
+  }
+  const verdict = sessionVerdict(status);
+  if (verdict === "alive") return null;
+  return verdict === "dead"
+    ? `PÉRIMÉE (${WHOAMI} → ${status})`
+    : `non prouvable (${WHOAMI} → ${status}, attendu 2xx ou 401/403 — NF_BROWSER_WHOAMI)`;
 }
 
 /**

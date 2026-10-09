@@ -178,7 +178,7 @@ pour un élément contre son fond. La sonde ne connaît donc aucun sélecteur �
 composants.
 
 Réglages par variables d'environnement : `NF_BROWSER_BASE`, `NF_BROWSER_PAGE`, `NF_BROWSER_EXPECT`,
-`NF_BROWSER_LOGIN`, `NF_BROWSER_USER`, `NF_BROWSER_PASSWORD`, `NF_BROWSER_PROBES`
+`NF_BROWSER_LOGIN`, `NF_BROWSER_USER`, `NF_BROWSER_PASSWORD`, `NF_BROWSER_WHOAMI`, `NF_BROWSER_PROBES`
 (`libellé=sélecteur`, séparés par des virgules), `NF_BROWSER_FAMILIES`, `NF_BROWSER_WIDTHS`,
 `NF_BROWSER_SEUIL_LOURD`, `NF_BROWSER_SEUIL_LENT`, `NF_BROWSER_ACTIONS`, `NF_BROWSER_FULLPAGE`. Le détail vit dans l'en-tête de chaque script.
 
@@ -417,7 +417,12 @@ Si un script de la page vise encore `127.0.0.1:5173`, le framework installé pr�
 - **Une capture ne s'écrase pas.** Réutiliser un nom laisse l'ancienne image en place pendant que
   l'appel répond « OK » : tu lis un écran périmé. Les sondes horodatent — ne le contourne pas.
 - **Un état d'authentification sauvegardé peut être périmé** (session expirée, serveur redémarré).
-  Les sondes le constatent et refont le parcours plutôt que de mesurer l'écran de connexion.
+  Les sondes le PROUVENT avant de mesurer : `NF_BROWSER_WHOAMI` (défaut
+  `/nodefony/security/api/auth/me`) doit répondre 2xx, sinon l'état est jeté, la reprise est
+  annoncée sur la sortie d'erreur et le parcours de connexion est rejoué. Attendre un renvoi vers le
+  formulaire ne suffisait pas : une page PUBLIQUE n'en fait jamais, et la sonde mesurait alors en
+  anonyme sans le dire. Application sans `@nodefony/security` : pointer `NF_BROWSER_WHOAMI` sur une
+  route qui rend 401/403 à un anonyme — ou le laisser vide, et la sonde se connecte à chaque fois.
 - **Chaque compte a SON état sauvegardé** (le fichier porte l'identifiant). C'est ce qui permet
   d'enchaîner deux sondes sous deux comptes — comparer ce que voit un administrateur et ce que voit
   un utilisateur ordinaire — sans que la seconde reprenne la session de la première. Sans cela on

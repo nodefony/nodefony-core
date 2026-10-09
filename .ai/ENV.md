@@ -15,7 +15,7 @@
 | Infrastructure | 13 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 38 |
-| Runtime produit | 79 |
+| Runtime produit | 80 |
 
 ## Décor de banc
 
@@ -152,7 +152,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (79)
+## Runtime produit (80)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -164,8 +164,8 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:90` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:86` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:83` |
-| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:794` |
-| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:105` |
+| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:806` |
+| `NF_BENCH_ROUTE` | `src/modules/test/index.ts:109` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3309` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3321` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
@@ -173,20 +173,20 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:90` |
 | `NF_BROWSER_API` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:60` |
 | `NF_BROWSER_AXE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:137` |
-| `NF_BROWSER_BASE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:66` |
+| `NF_BROWSER_BASE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:68` |
 | `NF_BROWSER_CATEGORIES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:141` |
 | `NF_BROWSER_CHANNEL` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:57` |
-| `NF_BROWSER_COLOR_SCHEME` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:145` |
-| `NF_BROWSER_ENGINE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:75` |
+| `NF_BROWSER_COLOR_SCHEME` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:156` |
+| `NF_BROWSER_ENGINE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:77` |
 | `NF_BROWSER_EXPECT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:55` |
 | `NF_BROWSER_FAMILIES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:92` |
 | `NF_BROWSER_FORMFACTOR` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:51` |
 | `NF_BROWSER_FULLPAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:868` |
-| `NF_BROWSER_LOGIN` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:96` |
+| `NF_BROWSER_LOGIN` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:98` |
 | `NF_BROWSER_MAXFRAMES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:25` |
-| `NF_BROWSER_OUT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:67` |
+| `NF_BROWSER_OUT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:69` |
 | `NF_BROWSER_PAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:49` |
-| `NF_BROWSER_PASSWORD` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:86` |
+| `NF_BROWSER_PASSWORD` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:88` |
 | `NF_BROWSER_PINGS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:62` |
 | `NF_BROWSER_PROBES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:117` |
 | `NF_BROWSER_SEUIL_AUDIT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:50` |
@@ -194,9 +194,10 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_SEUIL_LOURD` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:779` |
 | `NF_BROWSER_SOCKET` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:32` |
 | `NF_BROWSER_SOCKET_WAIT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:61` |
-| `NF_BROWSER_STORAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:157` |
+| `NF_BROWSER_STORAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:168` |
 | `NF_BROWSER_UNTIL` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:24` |
-| `NF_BROWSER_USER` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:85` |
+| `NF_BROWSER_USER` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:87` |
+| `NF_BROWSER_WHOAMI` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:115` |
 | `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:873` |
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:51` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
@@ -223,14 +224,14 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_NODE_DIST_URL` | `src/nodefony/src/kernel/checks/nodeSecurity.ts:132` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:102` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
-| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:149` |
+| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:158` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/tests/devProcess.test.ts:367` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/tests/devProcess.test.ts:368` |
 | `NF_README_ROOT` | `scripts/release/readme-gate.mjs:100` |
-| `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:56` |
-| `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:50` |
-| `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:46` |
+| `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:73` |
+| `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:67` |
+| `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:63` |
 | `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:24` |
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:23` |
 | `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:25` |

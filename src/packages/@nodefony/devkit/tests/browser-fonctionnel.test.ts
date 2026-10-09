@@ -404,6 +404,33 @@ describe.skipIf(raisons.length > 0)("sondes navigateur — fonctionnel", () => {
     expect(relireEtat()).not.toContain("nf-session-forgee");
   }, 180000);
 
+  it("reprise sur un état FORGÉ, page PUBLIQUE — la session se prouve, elle ne se déduit pas", () => {
+    // Une page publique ne renvoie jamais vers le formulaire : sans preuve
+    // d'identité, la sonde y mesurait en anonyme et rendait 0 sans un mot.
+    const hote = new URL(BASE_CONTENEUR).hostname;
+    poserEtat(
+      JSON.stringify({
+        cookies: [
+          {
+            name: "nf-session-forgee",
+            value: "invalide-0000",
+            domain: hote,
+            path: "/",
+            expires: -1,
+            httpOnly: true,
+            secure: true,
+            sameSite: "Lax",
+          },
+        ],
+        origins: [],
+      }),
+    );
+    const r = lancerSonde("inspect.mjs", [PAGE_PUBLIQUE], ENV_AUTH);
+    expect(r.code, r.stderr).toBe(0);
+    expect(r.stderr).toContain("PÉRIMÉE");
+    expect(relireEtat()).not.toContain("nf-session-forgee");
+  }, 180000);
+
   it("reprise sur un état d'authentification CORROMPU (JSON illisible)", () => {
     poserEtat("ceci nest pas du JSON{{{");
     const r = lancerSonde(

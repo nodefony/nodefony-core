@@ -10571,8 +10571,8 @@
       ],
       "description": "Ouvre un écran de ton application Nodefony dans un navigateur piloté pour le VOIR et surtout le MESURER — contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par axe-core, erreurs de console, requêtes HTTP, frames WebSocket, sur ta machine ou dans un conteneur jetable. Porte les sondes prêtes à l'emploi, le thème clair ou sombre — un défaut d'affichage n'existe souvent que dans l'un des deux —, et les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, ou observer un bundle qui n'est plus celui du code. Sait aussi piloter un socket temps réel de bout en bout. À charger AVANT de conclure quoi que ce soit sur un écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode sombre\", \"la page est-elle rapide ?\", \"quelles requêtes fait la page ?\", \"teste le socket\".",
       "cost": {
-        "bodyLines": 429,
-        "approxTokens": 6521
+        "bodyLines": 434,
+        "approxTokens": 6644
       },
       "requires": [
         "serveur UP",
@@ -10833,7 +10833,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "429",
+            "detail": "434",
             "advisory": true
           }
         ]
