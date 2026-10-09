@@ -76,11 +76,9 @@ function entryOf(packageName: string, caller: string): IModuleConfigEntry {
  */
 const mergeOverlay = (base: unknown, patch: unknown): unknown => {
   if (!isPlainObject(base) || !isPlainObject(patch)) return patch;
-  const out: Record<string, unknown> = {
-    ...(base as Record<string, unknown>),
-  };
-  for (const key of Object.keys(patch as object)) {
-    const value = (patch as Record<string, unknown>)[key];
+  const out: Record<string, unknown> = { ...base };
+  for (const key of Object.keys(patch)) {
+    const value = patch[key];
     if (value !== undefined) out[key] = mergeOverlay(out[key], value);
   }
   return out;
