@@ -41,6 +41,7 @@ import {
   USER,
 } from "./lib/browser.mjs";
 import {
+  browserOrder,
   captureSlug,
   colorSchemeLaunchArgs,
   summarizeLighthouse,
@@ -97,18 +98,40 @@ const port = await freePort();
 // Profil PERSISTANT : c'est lui qui porte la session entre notre connexion et
 // l'onglet que Lighthouse ouvrira. Jetable — il vit le temps de l'audit.
 const profile = mkdtempSync(path.join(tmpdir(), "nf-audit-"));
-const ctx = await chromium.launchPersistentContext(profile, {
-  channel: "chromium",
-  ignoreHTTPSErrors: true,
-  // `null` : le pilote n'émule rien — c'est le réglage du moteur qui décide,
-  // le même pour la connexion et pour l'onglet de Lighthouse.
-  colorScheme: null,
-  args: [
-    `--remote-debugging-port=${port}`,
-    "--no-sandbox",
-    ...colorSchemeLaunchArgs(COLOR_SCHEME),
-  ],
-});
+// Le navigateur se CONSTATE, dans le même ordre que les autres sondes
+// (`browserOrder` : celui du pilote, puis ceux DÉJÀ posés sur la machine). Un
+// `channel: "chromium"` codé en dur faisait échouer l'audit sur un poste où
+// seul Chrome est installé — là même où `inspect.mjs` passait.
+let ctx = null;
+const failures = [];
+for (const channel of browserOrder(process.env.NF_BROWSER_ENGINE)) {
+  try {
+    ctx = await chromium.launchPersistentContext(profile, {
+      channel,
+      ignoreHTTPSErrors: true,
+      // `null` : le pilote n'émule rien — c'est le réglage du moteur qui
+      // décide, le même pour la connexion et pour l'onglet de Lighthouse.
+      colorScheme: null,
+      args: [
+        `--remote-debugging-port=${port}`,
+        "--no-sandbox",
+        ...colorSchemeLaunchArgs(COLOR_SCHEME),
+      ],
+    });
+    break;
+  } catch (e) {
+    failures.push(`${channel} : ${String(e).split("\n")[0]}`);
+  }
+}
+if (!ctx) {
+  console.error(
+    `Aucun navigateur n'a répondu :\n  ${failures.join("\n  ")}\n` +
+      "Installer celui du pilote (npx playwright install chromium) ou viser un\n" +
+      "navigateur présent : NF_BROWSER_ENGINE=chrome (ou msedge).",
+  );
+  rmSync(profile, { recursive: true, force: true });
+  process.exit(69); // EX_UNAVAILABLE
+}
 
 try {
   const page = ctx.pages()[0] ?? (await ctx.newPage());

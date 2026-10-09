@@ -10619,6 +10619,10 @@
                 "help": ""
               },
               {
+                "name": "NF_BROWSER_ENGINE",
+                "help": ""
+              },
+              {
                 "name": "NF_BROWSER_FORMFACTOR",
                 "help": ""
               },
