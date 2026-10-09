@@ -1,6 +1,14 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import http from "node:http";
+import {
+  AUTH_LOGIN_PATH,
+  AUTH_LOGIN_TOTP_PATH,
+  AUTH_LOGOUT_PATH,
+  WEBAUTHN_API_BASE,
+  WEBAUTHN_LOGIN_OPTIONS_PATH,
+  WEBAUTHN_LOGIN_VERIFY_PATH,
+} from "nodefony";
 
 /**
  * CSRF (P6 J5) — banc d'INTÉGRATION RÉEL contre le serveur live (port 5151).
@@ -232,5 +240,115 @@ describe("CSRF @CsrfExempt — opt-out ciblé (auth conservée)", () => {
         "Sec-Fetch-Site": "cross-site",
       }),
     ).to.equal(403);
+  });
+});
+
+// ── Routes de connexion (bypassFirewall) — la provenance reste contrôlée ────────
+//
+// Ces routes SONT le mécanisme d'authentification : elles sautent le firewall,
+// mais pas la défense d'origine. Sans elle, un formulaire posté depuis un autre
+// site ouvre chez la victime une session sur le compte de l'attaquant (login
+// CSRF, CWE-352) : le cookie est POSÉ par la réponse, `SameSite` n'y peut rien.
+
+function post(
+  path: string,
+  headers: Record<string, string>,
+  body: string,
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const r = http.request(
+      {
+        ...BASE,
+        method: "POST",
+        path,
+        headers: {
+          ...headers,
+          "content-length": String(Buffer.byteLength(body)),
+        },
+      },
+      (res) => {
+        res.on("data", () => {});
+        res.on("end", () => resolve(res.statusCode!));
+      },
+    );
+    r.on("error", reject);
+    r.end(body);
+  });
+}
+
+const FORM = { "content-type": "application/x-www-form-urlencoded" };
+const CREDENTIALS = "username=admin&password=secret-de-dev-42";
+const LOGIN_ROUTES = [
+  AUTH_LOGIN_PATH,
+  AUTH_LOGIN_TOTP_PATH,
+  AUTH_LOGOUT_PATH,
+  WEBAUTHN_LOGIN_OPTIONS_PATH,
+  WEBAUTHN_LOGIN_VERIFY_PATH,
+  `${WEBAUTHN_API_BASE}/register/options`,
+  `${WEBAUTHN_API_BASE}/register/verify`,
+  "/nodefony/security/api/token",
+  "/nodefony/security/api/token/refresh",
+];
+
+describe("CSRF — routes de connexion en bypassFirewall (intégration live)", () => {
+  it.each(LOGIN_ROUTES)(
+    "POST %s depuis un autre site (Sec-Fetch-Site) → 403",
+    async (path) => {
+      expect(
+        await post(
+          path,
+          {
+            ...FORM,
+            "Sec-Fetch-Site": "cross-site",
+            Origin: "https://evil.example",
+          },
+          CREDENTIALS,
+        ),
+      ).to.equal(403);
+    },
+  );
+
+  it.each(LOGIN_ROUTES)(
+    "POST %s avec une Origin étrangère seule (repli) → 403",
+    async (path) => {
+      expect(
+        await post(
+          path,
+          { ...FORM, Origin: "https://evil.example" },
+          CREDENTIALS,
+        ),
+      ).to.equal(403);
+    },
+  );
+
+  it.each(LOGIN_ROUTES)(
+    "POST %s depuis la même origine → jamais 403",
+    async (path) => {
+      expect(
+        await post(
+          path,
+          { ...FORM, "Sec-Fetch-Site": "same-origin" },
+          CREDENTIALS,
+        ),
+      ).to.not.equal(403);
+    },
+  );
+
+  it("contrôle positif : la connexion légitime aboutit (même origine, JSON) → 200", async () => {
+    expect(
+      await post(
+        AUTH_LOGIN_PATH,
+        {
+          "content-type": "application/json",
+          "Sec-Fetch-Site": "same-origin",
+          Origin: SELF,
+        },
+        JSON.stringify({ username: "admin", password: "secret-de-dev-42" }),
+      ),
+    ).to.equal(200);
+  });
+
+  it("client non-navigateur (ni Sec-Fetch-Site ni Origin, canal arrière OIDC) → jamais 403", async () => {
+    expect(await post(AUTH_LOGIN_PATH, FORM, CREDENTIALS)).to.not.equal(403);
   });
 });

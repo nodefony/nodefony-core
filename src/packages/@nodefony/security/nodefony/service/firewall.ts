@@ -991,8 +991,13 @@ class Firewall extends Service implements IFirewall {
    *    synchronizer token (`context.csrfToken`) — HttpContext pose ensuite le cookie
    *    lisible `csrf-token`. Sinon, hot-path GET = retour immédiat (aucun en-tête lu).
    *  - **Étape 1 (globale)** : sur une mutation, défense Fetch Metadata / Origin
-   *    (rejet cross-site même sur route publique). Skippée si `@CsrfExempt` (webhook,
-   *    auth par signature/clé) ou `bypassFirewall` (callbacks OAuth).
+   *    (rejet cross-site même sur route publique). Skippée SEULEMENT par `@CsrfExempt`
+   *    (webhook, auth par signature/clé). `bypassFirewall` ne l'en dispense PAS : il
+   *    retire l'authentification, pas la provenance — les routes de connexion sont
+   *    en bypass, et c'est précisément là qu'un formulaire tiers ouvrirait chez la
+   *    victime une session sur le compte de l'attaquant (login CSRF, CWE-352). Un
+   *    appel de serveur à serveur (canal arrière OIDC) ne porte ni `Sec-Fetch-Site`
+   *    ni `Origin` : il passe toujours.
    *  - **Étape 2 (opt-in)** : sur une mutation `@CsrfProtect`, exige EN PLUS le
    *    synchronizer token (en-tête `x-csrf-token` ≡ cookie + HMAC valide).
    *
@@ -1000,9 +1005,6 @@ class Firewall extends Service implements IFirewall {
    */
   enforceCsrf(context: ContextType): void {
     if (!this.#csrf) return; // désactivé, ou config invalide (handleSecurity gère le fail-closed)
-    const bypass = (context as { resolver?: { bypassFirewall?: boolean } })
-      .resolver?.bypassFirewall;
-    if (bypass) return;
     const ctx = context as {
       csrfProtect?: boolean;
       csrfExempt?: boolean;
