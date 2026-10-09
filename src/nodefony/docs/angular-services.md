@@ -266,6 +266,45 @@ reçoit.
 Les arguments « canal » et « cadence » acceptent une valeur, un signal ou une fonction : l'abonnement
 suit, sans liste de dépendances.
 
+## 🔑 La connexion — `injectNodefonyLogin()`
+
+```ts ignore
+import { Component } from "@angular/core";
+import { injectNodefonyLogin } from "nodefony/angular";
+
+@Component({
+  selector: "app-login",
+  template: `
+    @if (login.state().step === "authenticated") {
+      <p>Bonjour {{ login.state().user?.username }}</p>
+    } @else if (login.state().step === "mfa") {
+      <input #code autocomplete="one-time-code" />
+      <button (click)="login.flow.submitMfaCode(code.value)">Valider</button>
+    } @else {
+      <input #user autocomplete="username" />
+      <input #pass type="password" />
+      <button
+        [disabled]="login.state().pending"
+        (click)="login.flow.login(user.value, pass.value)"
+      >
+        Se connecter
+      </button>
+    }
+  `,
+})
+export class LoginComponent {
+  readonly login = injectNodefonyLogin();
+}
+```
+
+`state` est un signal ; l'abonnement est libéré à la destruction du contexte d'injection. Les
+requêtes restent DANS la zone : elles répondent à un geste de l'utilisateur.
+
+Les règles (étapes, code TOTP, blocage après trop d'essais, échecs classés, fournisseurs,
+passkey) vivent dans `NodefonyLogin` (`nodefony/client`) ; cette liaison ne fait que relayer son
+état. Le modèle complet, l'état champ par champ et ce que la classe ne fait pas : page
+[Le client isomorphe](client.md), section `NodefonyLogin`.
+
 ## 🏗️ Cycle de vie d'un abonnement
 
 ```

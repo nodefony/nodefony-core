@@ -245,6 +245,39 @@ pour qu'un composant puisse **nommer** ce qu'il reçoit.
 Les arguments « canal » et « cadence » acceptent une valeur ou une fonction : lue dans un `$derived`,
 elle fait suivre l'abonnement.
 
+## 🔑 La connexion — `nodefonyLogin()`
+
+```svelte ignore
+<script lang="ts">
+  import { nodefonyLogin } from "nodefony/svelte";
+
+  const login = nodefonyLogin();
+  let user = $state("");
+  let pass = $state("");
+  let code = $state("");
+</script>
+
+{#if login.state.current.step === "authenticated"}
+  <p>Bonjour {login.state.current.user?.username}</p>
+{:else if login.state.current.step === "mfa"}
+  <input bind:value={code} autocomplete="one-time-code" />
+  <button onclick={() => login.flow.submitMfaCode(code)}>Valider</button>
+{:else}
+  <input bind:value={user} autocomplete="username" />
+  <input bind:value={pass} type="password" />
+  <button onclick={() => login.flow.login(user, pass)}>Se connecter</button>
+{/if}
+```
+
+Comme toutes les valeurs de ce subpath, l'abonnement est paresseux : il naît au premier
+`.current` lu. Le déroulé, lui, existe dès l'appel — une action lancée avant tout affichage
+n'est pas perdue.
+
+Les règles (étapes, code TOTP, blocage après trop d'essais, échecs classés, fournisseurs,
+passkey) vivent dans `NodefonyLogin` (`nodefony/client`) ; cette liaison ne fait que relayer son
+état. Le modèle complet, l'état champ par champ et ce que la classe ne fait pas : page
+[Le client isomorphe](client.md), section `NodefonyLogin`.
+
 ## 🏗️ Cycle de vie d'un abonnement
 
 ```

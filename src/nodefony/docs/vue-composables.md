@@ -210,6 +210,46 @@ fournit le noyau.
 Les arguments « canal » et « cadence » acceptent une valeur, une `ref` ou une fonction : l'abonnement
 suit, sans liste de dépendances.
 
+## 🔑 La connexion — `useNodefonyLogin()`
+
+```vue ignore
+<script setup lang="ts">
+import { ref } from "vue";
+import { useNodefonyLogin } from "nodefony/vue";
+
+const { state, flow } = useNodefonyLogin();
+const user = ref("");
+const pass = ref("");
+const code = ref("");
+</script>
+
+<template>
+  <p v-if="state.step === 'authenticated'">
+    Bonjour {{ state.user?.username }}
+  </p>
+  <form
+    v-else-if="state.step === 'mfa'"
+    @submit.prevent="flow.submitMfaCode(code)"
+  >
+    <input v-model="code" autocomplete="one-time-code" />
+    <button :disabled="state.pending">Valider</button>
+  </form>
+  <form v-else @submit.prevent="flow.login(user, pass)">
+    <input v-model="user" autocomplete="username" />
+    <input v-model="pass" type="password" />
+    <button :disabled="state.pending">Se connecter</button>
+  </form>
+</template>
+```
+
+`state` est une `ref` (remplacée, jamais mutée) ; le déroulé est posé `markRaw` et l'abonnement
+est libéré à la mort de la portée. Hors portée, l'appel est refusé.
+
+Les règles (étapes, code TOTP, blocage après trop d'essais, échecs classés, fournisseurs,
+passkey) vivent dans `NodefonyLogin` (`nodefony/client`) ; cette liaison ne fait que relayer son
+état. Le modèle complet, l'état champ par champ et ce que la classe ne fait pas : page
+[Le client isomorphe](client.md), section `NodefonyLogin`.
+
 ## 🏗️ Cycle de vie d'un abonnement
 
 ```

@@ -108,6 +108,12 @@ import {
   type ObserveSseOptions,
   type SseSnapshot,
 } from "../sse/observe";
+import {
+  NodefonyLogin,
+  observeLogin,
+  type NodefonyLoginOptions,
+  type NodefonyLoginState,
+} from "../auth/NodefonyLogin";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le
 // front fabrique ses canaux cadencés depuis le même subpath que les liaisons.
@@ -129,6 +135,16 @@ export type {
 export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
+export type {
+  NodefonyLogin,
+  NodefonyLoginOptions,
+  NodefonyLoginState,
+  NodefonyLoginError,
+  NodefonyLoginProvider,
+  NodefonyLoginUser,
+  LoginStep,
+  LoginErrorKind,
+} from "../auth/NodefonyLogin";
 export type {
   NodefonyKernelIdentity,
   NodefonyKernelState,
@@ -620,4 +636,42 @@ export function nodefonySse(
   return observedValue<SseSnapshot>(initialSseSnapshot(read(url)), (emit) =>
     observeSse(read(url), emit, options),
   );
+}
+
+/** Ce que rend {@link nodefonyLogin} : l'état lu `.current`, et le déroulé qui porte les actions. */
+export interface NodefonyLoginBinding {
+  /** Photographie du déroulé — `state.current` dans un template ou un `$effect`. */
+  readonly state: Reactive<NodefonyLoginState>;
+  /** Les actions : `login`, `submitMfaCode`, `startProvider`, `logout`… */
+  readonly flow: NodefonyLogin;
+}
+
+/**
+ * `nodefonyLogin()` — le déroulé de connexion du framework, lu `.current`.
+ * Le balisage reste entièrement à l'application ; les règles vivent dans
+ * `NodefonyLogin` (`nodefony/client`), jamais ici.
+ *
+ * Comme toutes les valeurs de ce module, l'abonnement est **paresseux** : il
+ * naît au premier `.current` lu dans un effet et se libère avec le dernier.
+ * Le déroulé, lui, existe dès l'appel : une action lancée avant tout affichage
+ * n'est pas perdue, son résultat se lit au premier `.current`.
+ *
+ * @example
+ * ```svelte
+ * <script lang="ts">
+ *   const login = nodefonyLogin();
+ * </script>
+ * {#if login.state.current.step === "mfa"} … {/if}
+ * ```
+ */
+export function nodefonyLogin(
+  options: NodefonyLoginOptions = {},
+): NodefonyLoginBinding {
+  const flow = new NodefonyLogin(options);
+  return {
+    state: observedValue<NodefonyLoginState>(flow.getState(), (emit) =>
+      observeLogin(flow, emit),
+    ),
+    flow,
+  };
 }

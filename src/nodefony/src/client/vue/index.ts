@@ -100,6 +100,12 @@ import {
   type ObserveSseOptions,
   type SseSnapshot,
 } from "../sse/observe";
+import {
+  NodefonyLogin,
+  observeLogin,
+  type NodefonyLoginOptions,
+  type NodefonyLoginState,
+} from "../auth/NodefonyLogin";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le
 // front fabrique ses canaux cadencés depuis le même subpath que les composables.
@@ -121,6 +127,16 @@ export type {
 export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
+export type {
+  NodefonyLogin,
+  NodefonyLoginOptions,
+  NodefonyLoginState,
+  NodefonyLoginError,
+  NodefonyLoginProvider,
+  NodefonyLoginUser,
+  LoginStep,
+  LoginErrorKind,
+} from "../auth/NodefonyLogin";
 export type {
   NodefonyKernelIdentity,
   NodefonyKernelState,
@@ -673,4 +689,41 @@ export function useNodefonySse(
     ),
   );
   return snapshot;
+}
+
+/** Ce que rend {@link useNodefonyLogin} : l'état en `ref`, et le déroulé qui porte les actions. */
+export interface NodefonyLoginBinding {
+  /** Photographie du déroulé, remplacée (jamais mutée) à chaque changement. */
+  readonly state: Readonly<Ref<NodefonyLoginState>>;
+  /** Les actions : `login`, `submitMfaCode`, `startProvider`, `logout`… */
+  readonly flow: NodefonyLogin;
+}
+
+/**
+ * `useNodefonyLogin()` — le déroulé de connexion du framework, relayé en `ref`
+ * Vue. Le balisage reste entièrement à l'application ; les règles vivent dans
+ * `NodefonyLogin` (`nodefony/client`), jamais ici.
+ *
+ * Le déroulé est posé `markRaw` (même raison que le client temps réel : un
+ * proxy réactif profond casserait ses égalités de référence) et l'abonnement
+ * est libéré à la mort de la portée.
+ *
+ * @example
+ * ```ts
+ * const { state, flow } = useNodefonyLogin();
+ * // <form v-if="state.step === 'mfa'" @submit.prevent="flow.submitMfaCode(code)">
+ * ```
+ */
+export function useNodefonyLogin(
+  options: NodefonyLoginOptions = {},
+): NodefonyLoginBinding {
+  requireScope("useNodefonyLogin()");
+  const flow = markRaw(new NodefonyLogin(options));
+  const state = shallowRef<NodefonyLoginState>(flow.getState());
+  onScopeDispose(
+    observeLogin(flow, (value) => {
+      state.value = value;
+    }),
+  );
+  return { state, flow };
 }

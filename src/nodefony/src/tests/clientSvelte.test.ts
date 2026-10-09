@@ -42,8 +42,10 @@ import {
   nodefonyChannelData,
   nodefonySnapshot,
   nodefonySse,
+  nodefonyLogin,
   nodefonyState,
 } from "../client/svelte/index";
+import { loginFetchBench } from "./fixtures/loginFetch";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
 import { NodefonyKernel } from "../client/NodefonyKernel";
 import LitValeur from "./fixtures/LitValeur.svelte";
@@ -459,5 +461,31 @@ describe("noyau client — Svelte", () => {
     expect(nodefonyKernel()).toBeNull();
     expect(nodefonyKernelState().current).toBeNull();
     expect(nodefonyKernelIdentity().current).toBeNull();
+  });
+});
+
+describe("nodefonyLogin — Svelte", () => {
+  it("🔴 la valeur affichée suit le déroulé, et le démontage libère l'abonnement", async () => {
+    const banc = loginFetchBench();
+    const login = nodefonyLogin({ fetch: banc.fetch, passkey: null });
+    const app = mount(LitValeur, {
+      target: cible(),
+      props: { source: login.state },
+    });
+    flushSync();
+    expect(document.body.textContent).toContain('"step":"identifier"');
+
+    await login.flow.login("admin", "secret");
+    flushSync();
+    expect(document.body.textContent).toContain('"step":"mfa"');
+    await login.flow.submitMfaCode("123456");
+    flushSync();
+    expect(document.body.textContent).toContain('"step":"authenticated"');
+
+    void unmount(app);
+    flushSync();
+    // Plus aucun lecteur : la valeur rend l'instantané figé au démontage.
+    login.flow.back();
+    expect(login.state.current.step).toBe("authenticated");
   });
 });

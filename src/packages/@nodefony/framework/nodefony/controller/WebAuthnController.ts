@@ -1,4 +1,4 @@
-import type { Module } from "nodefony";
+import { WEBAUTHN_API_BASE, type Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
 import Controller from "../src/Controller";
@@ -313,7 +313,9 @@ class WebAuthnController extends Controller {
  */
 export function mountWebAuthnRoutes(frameworkModule: Module): void {
   if (mounted) return;
-  const base = "/nodefony/security/api/webauthn";
+  // Base nommée par le cœur : le déroulé de connexion du navigateur cite
+  // les mêmes constantes, une divergence n'a donc plus où naître.
+  const base = WEBAUTHN_API_BASE;
   const routes: Array<[string, string, HTTPMethod, string, boolean]> = [
     // Cérémonies : SONT (ou précèdent) le mécanisme d'auth → bypassFirewall (login
     // = pas encore loggé ; register vérifie la session lui-même). Cf mountSessionAuthRoutes.

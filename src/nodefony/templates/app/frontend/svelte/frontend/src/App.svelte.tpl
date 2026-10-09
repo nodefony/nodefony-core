@@ -7,7 +7,11 @@
   import {
     nodefony,
     nodefonyChannelData,
+    nodefonyLogin,
     nodefonyState,
+    type NodefonyLoginState,
+    type NodefonyLoginError,
+    type LoginErrorKind,
   } from "nodefony/svelte";
 <% } %>  import { NODEFONY_LOGO } from "./brand";
   // Mise en page et palette de la démonstration — feuille PARTAGÉE par les
@@ -65,7 +69,13 @@
 <% } %>
 <% if (it.complete) { %>  let username = $state("admin");
   let password = $state("nodefony-dev-42");
-  let authMsg = $state<string | null>(null);
+  let mfaCode = $state("");
+  let notice = $state<string | null>(null);
+  // Le déroulé de connexion du FRAMEWORK : étapes, second facteur (TOTP),
+  // blocage après trop d'essais, fournisseurs (Keycloak…), passkey. Aucun
+  // `fetch` vers les routes de session n'est écrit à la main.
+  const login = nodefonyLogin();
+  const flow = login.flow;
   let secureData = $state<SecureData | null>(null);
 <% } %>
   // Rappelé après login/logout : la zone firewall `main` (^/api) résout
@@ -96,41 +106,63 @@
         error = e instanceof Error ? e.message : String(e);
       });
 <% if (it.complete) { %>
-  // Flux session BFF du framework (cookie opaque HttpOnly — le front ne voit
-  // jamais de token) : mêmes endpoints que le login de la console /nodefony.
-  const doLogin = async () => {
-    authMsg = null;
-    const r = await fetch("/nodefony/security/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ username, password }),
-    });
-    const j = (await r.json()) as {
-      result?: { user?: { username?: string } };
-      user?: { username?: string };
-    };
-    if (!r.ok) {
-      authMsg = "identifiants invalides";
+  // Session BFF du framework (cookie opaque HttpOnly — le front ne voit
+  // jamais de token) : le même déroulé que la console /nodefony.
+  const afterLogin = (next: NodefonyLoginState) => {
+    if (next.step !== "authenticated") return;
+    mfaCode = "";
+    notice = null;
+    refreshHello();
+  };
+  const doLogin = async () => afterLogin(await flow.login(username, password));
+  const doMfa = async () => afterLogin(await flow.submitMfaCode(mfaCode));
+  const doPasskey = async () => afterLogin(await flow.loginWithPasskey());
+
+  const doLogout = async () => {
+    // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
+    // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
+    const providerLogout = await flow.logout();
+    if (providerLogout !== null) {
+      location.assign(providerLogout);
       return;
     }
-    const u = j.result?.user ?? j.user;
-    authMsg = `session ouverte — ${u?.username ?? username}`;
+    notice = "session fermée";
     refreshHello();
   };
 
-  const doLogout = async () => {
-    await fetch("/nodefony/security/api/auth/logout", {
-      method: "POST",
-      credentials: "same-origin",
-    });
-    authMsg = "session fermée";
-    refreshHello();
+  /** Le texte de chaque sorte d'échec — une entrée par sorte, exigée par le type. */
+  const LOGIN_ERRORS: Record<LoginErrorKind, (error: NodefonyLoginError) => string> = {
+    credentials: (e) => e.message || "identifiants invalides",
+    throttled: (e) =>
+      `trop d'essais — réessaie dans ${Math.max(1, Math.ceil(((e.retryAt ?? 0) - Date.now()) / 1000))} s`,
+    network: () => "serveur injoignable",
+    server: (e) => `échec : ${e.message || String(e.status)}`,
+    cancelled: () => "passkey annulée",
+    unsupported: () => "passkey non prise en charge par ce navigateur",
   };
+
+  /**
+   * Ce que l'écran dit du déroulé. Les RÈGLES vivent dans le framework ; le
+   * TEXTE est à l'application. Un refus d'identifiants relaie le message
+   * uniforme du serveur : le préciser dirait à un inconnu si le compte existe.
+   */
+  const loginMessage = (state: NodefonyLoginState): string | null => {
+    const err = state.error;
+    if (err === null) {
+      return state.step === "authenticated" && state.user
+        ? `session ouverte — ${state.user.username}`
+        : notice;
+    }
+    return LOGIN_ERRORS[err.kind](err);
+  };
+  const message = $derived(loginMessage(login.state.current));
 <% } %>
   onMount(() => {
     refreshHello();
-<% if (it.complete) { %>
+<% if (it.complete) { %>    // Les boutons des fournisseurs (Keycloak, Google…) : c'est le serveur qui
+    // dit lesquels sont configurés.
+    void flow.loadProviders();
+
     // Rien à câbler ici : les deux valeurs ci-dessus s'abonnent au premier
     // affichage et rendent l'abonnement quand plus rien ne les lit. La
     // connexion, elle, est ouverte par `configureNodefony` (main.ts).
@@ -302,7 +334,7 @@
         <code>secure</code> (<code>^/api/secure</code>, session SEULE —
         pattern plus spécifique, il gagne le match ; sans session le
         firewall répond 401). Connecte-toi : le compte <code>admin</code> a
-        pour mot de passe <code>admin</code> en développement, et celui de
+        pour mot de passe <code>nodefony-dev-42</code> en développement, et celui de
         <code>NF_ADMIN_PASSWORD</code> en production — où il est EXIGÉ, car une
         application ne naît jamais en ligne avec un secret connu. Alors la
         carte 1 bascule sur
@@ -311,6 +343,18 @@
       {#if data?.who && data.who !== "anonyme"}
         <span style="margin-right: 8px">connecté — <strong>{data.who}</strong></span>
         <button onclick={doLogout}>Se déconnecter</button>
+      {:else if login.state.current.step === "mfa"}
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          bind:value={mfaCode}
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          aria-label="code à usage unique"
+          autofocus
+          onkeydown={(e) => e.key === "Enter" && doMfa()}
+        />
+        <button disabled={login.state.current.pending} onclick={doMfa}>Valider le code</button>
+        <button onclick={() => flow.back()}>Annuler</button>
       {:else}
         <input bind:value={username} autocomplete="username" aria-label="utilisateur" />
         <input
@@ -320,9 +364,15 @@
           aria-label="mot de passe"
           onkeydown={(e) => e.key === "Enter" && doLogin()}
         />
-        <button onclick={doLogin}>Se connecter</button>
+        <button disabled={login.state.current.pending} onclick={doLogin}>Se connecter</button>
+        {#if login.state.current.passkeyAvailable}
+          <button disabled={login.state.current.pending} onclick={doPasskey}>Passkey</button>
+        {/if}
+        {#each login.state.current.providers ?? [] as p (p.name)}
+          <button onclick={() => flow.startProvider(p.name)}>{p.label}</button>
+        {/each}
       {/if}
-      {#if authMsg}<p class="nf-dim">{authMsg}</p>{/if}
+      {#if message}<p class="nf-dim" role="status">{message}</p>{/if}
     </div>
 <% } %>
 <% if (it.complete) { %>    <div class="nf-card">

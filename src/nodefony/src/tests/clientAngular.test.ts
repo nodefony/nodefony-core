@@ -52,9 +52,11 @@ import {
   injectNodefonyChannelData,
   injectNodefonySnapshot,
   injectNodefonySse,
+  injectNodefonyLogin,
   injectNodefonyState,
   provideNodefony,
 } from "../client/angular/index";
+import { loginFetchBench } from "./fixtures/loginFetch";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
 import { NodefonyKernel } from "../client/NodefonyKernel";
 
@@ -483,6 +485,26 @@ describe("noyau client — Angular", () => {
     expect(valeur.state()).toBeNull();
     expect(valeur.identity()).toBeNull();
     arreter();
+    app.destroy();
+  });
+});
+
+describe("injectNodefonyLogin — Angular", () => {
+  it("🔴 le signal suit le déroulé, et la destruction du contexte libère l'abonnement", async () => {
+    const banc = loginFetchBench();
+    const app = await appAvec([]);
+    const { valeur: login, arreter } = monter(app, () =>
+      injectNodefonyLogin({ fetch: banc.fetch, passkey: null }),
+    );
+    expect(login.state().step).toBe("identifier");
+    await login.flow.login("admin", "secret");
+    expect(login.state().step).toBe("mfa");
+    await login.flow.submitMfaCode("123456");
+    expect(login.state().user?.username).toBe("admin");
+
+    arreter();
+    login.flow.back();
+    expect(login.state().step).toBe("authenticated");
     app.destroy();
   });
 });

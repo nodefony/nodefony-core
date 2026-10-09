@@ -347,7 +347,19 @@ export type {
 } from "./runtime/RequestContext";
 export { redactSecrets } from "./runtime/redact";
 export { identityHint } from "./runtime/identityHint";
-export { AUTH_LOGIN_PATH } from "./runtime/authRoutes";
+export {
+  AUTH_API_BASE,
+  WEBAUTHN_API_BASE,
+  OAUTH2_API_BASE,
+  AUTH_LOGIN_PATH,
+  AUTH_LOGIN_TOTP_PATH,
+  AUTH_LOGOUT_PATH,
+  AUTH_ME_PATH,
+  WEBAUTHN_LOGIN_OPTIONS_PATH,
+  WEBAUTHN_LOGIN_VERIFY_PATH,
+  OAUTH2_PROVIDERS_PATH,
+  oauth2AuthorizePath,
+} from "./runtime/authRoutes";
 export {
   loadEnv,
   findLegacyEnvFiles,

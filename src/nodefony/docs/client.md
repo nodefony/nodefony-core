@@ -6,7 +6,7 @@ module: "@nodefony/core"
 topic: client
 coverageModule: nodefony-core
 coveragePackage: "nodefony (cœur)"
-coverageFiles: "client/realtime/NodefonySocket.ts,client/realtime/AdaptiveRate.ts,client/roles/roles.ts"
+coverageFiles: "client/realtime/NodefonySocket.ts,client/realtime/AdaptiveRate.ts,client/roles/roles.ts,client/auth/NodefonyLogin.ts"
 section: "Cœur runtime"
 audience: [developer]
 tags:
@@ -21,6 +21,8 @@ tags:
     roles,
     debugbar,
     cadence,
+    connexion,
+    totp,
   ]
 version: "doc"
 status: stable
@@ -591,6 +593,89 @@ Deux écarts entre les fronts, et ce sont ceux de la socket. **Angular ouvre le 
 (`client/angular/index.ts:692`) : avec `zone.js`, chaque morceau lu par `fetch` relancerait une
 détection de changements globale. **Svelte est paresseux** : une valeur créée mais jamais lue
 n'ouvre aucun flux, et `onEvent` ne court que tant qu'elle est affichée.
+
+## 🔑 `NodefonyLogin` — la connexion, et ses quatre liaisons
+
+Le serveur sert toute l'API de connexion : mot de passe, second facteur (le code TOTP à six
+chiffres), passkey, fournisseurs externes (Keycloak, Google, GitHub…). Ce qui manquait, c'est
+le **déroulé** côté navigateur : identifiant, puis mot de passe, puis code si le compte en exige
+un ; le blocage après trop d'essais ; le bouton de chaque fournisseur. `NodefonyLogin`
+(`client/auth/NodefonyLogin.ts:267`) porte ces règles, **sans aucune interface** : le balisage et
+le design restent entièrement à l'application.
+
+```ts ignore
+import { NodefonyLogin } from "nodefony/client";
+
+const login = new NodefonyLogin();
+login.subscribe((state) => render(state)); // un objet NEUF à chaque changement
+await login.login("admin", "secret"); // ou submitIdentifier() puis submitPassword()
+if (login.getState().step === "mfa") await login.submitMfaCode("123456");
+```
+
+L'état, `NodefonyLoginState`, se lit en une ligne :
+
+- `step` — `identifier` → `password` → `mfa` → `authenticated`. Un compte sans second facteur
+  saute `mfa`. **Aucune session n'est ouverte avant `authenticated`** : le serveur répond `202`
+  au mot de passe d'un compte protégé, et ne pose le cookie qu'au bon code.
+- `pending` — une requête est en vol ; une seconde action est ignorée (double clic).
+- `error` — l'échec de la dernière action, **classé** pour que l'écran sache quoi dire :
+  `credentials` (refus, 401), `throttled` (trop d'essais, 429), `network` (aucune réponse),
+  `server` (5xx), `cancelled` (invite de passkey refermée), `unsupported` (le navigateur ne sait
+  pas). Un `throttled` porte son échéance `retryAt` ; tant qu'elle n'est pas passée, aucune
+  requête ne part.
+- `providers` — les fournisseurs configurés, chargés par `loadProviders()` ; `null` avant.
+- `passkeyAvailable` — le navigateur sait-il signer ? **Constaté** : il faut
+  `PublicKeyCredential.parseRequestOptionsFromJSON` et `navigator.credentials.get`
+  (`client/auth/NodefonyLogin.ts:224`), pas seulement l'existence de `PublicKeyCredential`.
+
+Les actions : `submitIdentifier`, `submitPassword`, `login` (les deux d'un coup, pour un
+formulaire d'un seul écran), `submitMfaCode`, `loginWithPasskey`, `loadProviders`,
+`startProvider(nom)` (navigation PLEINE PAGE, jamais un `fetch` : le navigateur doit suivre les
+redirections du fournisseur), `me()` pour reprendre une session, `logout()`, `back()`.
+
+Trois choses que la classe **ne fait pas**, et c'est délibéré :
+
+- **Elle ne redirige jamais après la connexion.** Elle rend `authenticated` ; c'est l'appelant
+  qui navigue.
+- **Elle ne reformule pas un refus.** Le message du 401 est uniforme côté serveur et relayé tel
+  quel : le préciser dans l'écran dirait à un inconnu si le compte existe.
+- **Elle ne mémorise rien.** Le dernier compte utilisé, s'il faut s'en souvenir, se passe en
+  option (`identifier`) ; où le garder est une décision de l'application.
+
+`logout()` rend l'adresse de déconnexion du fournisseur quand la session venait de lui : il faut
+la suivre pour fermer AUSSI la session Keycloak, sans quoi le prochain clic sur « Keycloak »
+reconnecte sans rien demander.
+
+Les chemins appelés sont des constantes du cœur (`runtime/authRoutes.ts:20`) que le module
+framework utilise aussi pour MONTER les routes : client et serveur ne peuvent pas diverger.
+
+Chaque liaison ne fait que relayer l'état par `observeLogin()`
+(`client/auth/NodefonyLogin.ts:623`) — aucune règle n'y est réécrite. Elles rendent toutes
+`{ state, flow }` : l'état dans la réactivité du front, et l'instance qui porte les actions.
+
+| Front   | Fonction                       | `state`                             | Libéré quand                            |
+| ------- | ------------------------------ | ----------------------------------- | --------------------------------------- |
+| React   | `useNodefonyLogin(options)`    | `NodefonyLoginState`                | le composant est démonté                |
+| Vue     | `useNodefonyLogin(options)`    | `Readonly<Ref<NodefonyLoginState>>` | la portée meurt (`onScopeDispose`)      |
+| Angular | `injectNodefonyLogin(options)` | `Signal<NodefonyLoginState>`        | le contexte d'injection est détruit     |
+| Svelte  | `nodefonyLogin(options)`       | `Reactive<NodefonyLoginState>`      | le dernier effet qui la lit est détruit |
+
+```tsx ignore
+// React — le second facteur n'est qu'une branche de plus du rendu
+const { state, flow } = useNodefonyLogin();
+if (state.step === "mfa") {
+  return (
+    <CodeForm
+      pending={state.pending}
+      onCode={(c) => void flow.submitMfaCode(c)}
+    />
+  );
+}
+```
+
+Les pages générées par `nodefony create app --preset complete` (les quatre fronts) sont écrites
+ainsi : un compte avec code TOTP s'y connecte, et les boutons des fournisseurs configurés y
+apparaissent sans une ligne de plus.
 
 ## 🧠 `NodefonyKernel` — le noyau client, et ses quatre liaisons
 

@@ -62,6 +62,11 @@ import {
   type SocketSnapshot,
 } from "../realtime/observe";
 import {
+  NodefonyLogin,
+  type NodefonyLoginOptions,
+  type NodefonyLoginState,
+} from "../auth/NodefonyLogin";
+import {
   initialSseSnapshot,
   observeSse,
   sseRebindKey,
@@ -89,6 +94,16 @@ export type {
 export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
+export type {
+  NodefonyLogin,
+  NodefonyLoginOptions,
+  NodefonyLoginState,
+  NodefonyLoginError,
+  NodefonyLoginProvider,
+  NodefonyLoginUser,
+  LoginStep,
+  LoginErrorKind,
+} from "../auth/NodefonyLogin";
 export type {
   NodefonyKernelIdentity,
   NodefonyKernelState,
@@ -583,4 +598,39 @@ export function useNodefonySse(
   // oxlint-enable react-hooks/exhaustive-deps
 
   return snapshot;
+}
+
+/** Ce que rend {@link useNodefonyLogin} : l'état, et le déroulé qui porte les actions. */
+export interface NodefonyLoginBinding {
+  /** Photographie du déroulé, renouvelée à chaque changement. */
+  readonly state: NodefonyLoginState;
+  /** Les actions : `login`, `submitMfaCode`, `startProvider`, `logout`… */
+  readonly flow: NodefonyLogin;
+}
+
+/**
+ * `useNodefonyLogin()` — le déroulé de connexion du framework, relayé en état
+ * React. Le balisage reste entièrement à l'application ; les règles (étapes,
+ * second facteur, blocage, fournisseurs, passkey) vivent dans
+ * `NodefonyLogin` (`nodefony/client`), jamais ici.
+ *
+ * Le déroulé est créé UNE fois par composant : les réglages sont lus au
+ * premier rendu.
+ *
+ * @example
+ * ```tsx
+ * const { state, flow } = useNodefonyLogin();
+ * if (state.step === "mfa") return <CodeForm onCode={(c) => flow.submitMfaCode(c)} />;
+ * ```
+ */
+export function useNodefonyLogin(
+  options: NodefonyLoginOptions = {},
+): NodefonyLoginBinding {
+  const [flow] = React.useState(() => new NodefonyLogin(options));
+  const state = React.useSyncExternalStore(
+    flow.subscribe,
+    flow.getState,
+    flow.getState,
+  );
+  return { state, flow };
 }

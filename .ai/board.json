@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T21:48:40.079Z",
+  "generatedAt": "2026-10-09T22:07:25.289Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 104,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 44,
+      "open": 40,
       "title": "10.0.0-beta"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 32,
+      "open": 36,
       "title": "10.1.0"
     }
   ],
@@ -2471,7 +2471,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 14,
+      "jours": 11.5,
       "ordre": 3.93,
       "debut": "2026-10-05",
       "cible": "2026-10-07",
@@ -2517,15 +2517,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/522",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 3.945,
       "debut": null,
       "cible": null,
-      "labels": [
-        "beta-3"
-      ]
+      "labels": []
     },
     {
       "number": 523,
@@ -2533,15 +2531,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/523",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.95,
       "debut": null,
       "cible": null,
-      "labels": [
-        "beta-3"
-      ]
+      "labels": []
     },
     {
       "number": 524,
@@ -2549,15 +2545,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/524",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 3.955,
       "debut": null,
       "cible": null,
-      "labels": [
-        "beta-3"
-      ]
+      "labels": []
     },
     {
       "number": 525,
@@ -2629,15 +2623,13 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/549",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.98,
       "debut": null,
       "cible": null,
-      "labels": [
-        "beta-3"
-      ]
+      "labels": []
     },
     {
       "number": 155,

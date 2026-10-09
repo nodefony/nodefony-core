@@ -10,6 +10,10 @@ import {
   useNodefony,
   useNodefonyState,
   useNodefonyChannelData,
+  useNodefonyLogin,
+  type NodefonyLoginState,
+  type NodefonyLoginError,
+  type LoginErrorKind,
 } from "nodefony/react";
 <% } %>import { NODEFONY_LOGO } from "./brand";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
@@ -123,6 +127,36 @@ function LiveCard() {
   );
 }
 
+/** Le texte de chaque sorte d'échec — une entrée par sorte, exigée par le type. */
+const LOGIN_ERRORS: Record<
+  LoginErrorKind,
+  (error: NodefonyLoginError) => string
+> = {
+  credentials: (e) => e.message || "identifiants invalides",
+  throttled: (e) =>
+    `trop d'essais — réessaie dans ${Math.max(1, Math.ceil(((e.retryAt ?? 0) - Date.now()) / 1000))} s`,
+  network: () => "serveur injoignable",
+  server: (e) => `échec : ${e.message || String(e.status)}`,
+  cancelled: () => "passkey annulée",
+  unsupported: () => "passkey non prise en charge par ce navigateur",
+};
+
+/**
+ * Ce que l'écran dit du déroulé de connexion. Les RÈGLES (étapes, second
+ * facteur, blocage, fournisseurs) vivent dans le framework ; le TEXTE est à
+ * l'application. Un refus d'identifiants relaie le message uniforme du
+ * serveur : le préciser dirait à un inconnu si le compte existe.
+ */
+function loginMessage(login: NodefonyLoginState): string | null {
+  const error = login.error;
+  if (error === null) {
+    return login.step === "authenticated" && login.user
+      ? `session ouverte — ${login.user.username}`
+      : null;
+  }
+  return LOGIN_ERRORS[error.kind](error);
+}
+
 <% } %>export function App() {
   const [data, setData] = useState<ApiData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +167,12 @@ function LiveCard() {
 <% } %>
 <% if (it.complete) { %>  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("nodefony-dev-42");
-  const [authMsg, setAuthMsg] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+  // Le déroulé de connexion du FRAMEWORK : étapes, second facteur (TOTP),
+  // blocage après trop d'essais, fournisseurs (Keycloak…), passkey. Aucun
+  // `fetch` vers les routes de session n'est écrit à la main.
+  const { state: login, flow } = useNodefonyLogin();
   const [secureData, setSecureData] = useState<SecureData | null>(null);
 <% } %>
   // Rappelé après login/logout : la zone firewall `main` (^/api) résout
@@ -168,49 +207,36 @@ function LiveCard() {
     }
   };
 <% if (it.complete) { %>
-  // Flux session BFF du framework (cookie opaque HttpOnly — le front ne voit
-  // jamais de token) : mêmes endpoints que le login de la console /nodefony.
-  const doLogin = async () => {
-    setAuthMsg(null);
-    try {
-      const r = await fetch("/nodefony/security/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ username, password }),
-      });
-      const j = (await r.json()) as {
-        result?: { user?: { username?: string } };
-        user?: { username?: string };
-      };
-      if (!r.ok) {
-        setAuthMsg("identifiants invalides");
-        return;
-      }
-      const u = j.result?.user ?? j.user;
-      setAuthMsg(`session ouverte — ${u?.username ?? username}`);
-      await refreshHello();
-    } catch (e: unknown) {
-      setAuthMsg(`échec : ${e instanceof Error ? e.message : String(e)}`);
-    }
+  // Session BFF du framework (cookie opaque HttpOnly — le front ne voit
+  // jamais de token) : le même déroulé que la console /nodefony.
+  const afterLogin = async (next: NodefonyLoginState) => {
+    if (next.step !== "authenticated") return;
+    setMfaCode("");
+    setNotice(null);
+    await refreshHello();
   };
+  const doLogin = async () => afterLogin(await flow.login(username, password));
+  const doMfa = async () => afterLogin(await flow.submitMfaCode(mfaCode));
+  const doPasskey = async () => afterLogin(await flow.loginWithPasskey());
 
   const doLogout = async () => {
-    try {
-      await fetch("/nodefony/security/api/auth/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      setAuthMsg("session fermée");
-      await refreshHello();
-    } catch (e: unknown) {
-      setAuthMsg(`échec : ${e instanceof Error ? e.message : String(e)}`);
+    // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
+    // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
+    const providerLogout = await flow.logout();
+    if (providerLogout !== null) {
+      location.assign(providerLogout);
+      return;
     }
+    setNotice("session fermée");
+    await refreshHello();
   };
 <% } %>
   useEffect(() => {
     void refreshHello();
-<% if (it.complete) { %><% } else { %>
+<% if (it.complete) { %>    // Les boutons des fournisseurs (Keycloak, Google…) : c'est le serveur qui
+    // dit lesquels sont configurés.
+    void flow.loadProviders();
+<% } else { %>
     // WS même origine que la page (ws en http, wss en https).
     // ⚠ Echo BRUT = démo du pipeline HTTP/WS partagé, pas un modèle : pour du
     // WS métier, génère la bonne couche (`nodefony create controller <nom>
@@ -364,11 +390,11 @@ function LiveCard() {
             <code>secure</code> (<code>^/api/secure</code>, session SEULE —
             pattern plus spécifique, il gagne le match ; sans session le
             firewall répond 401). Connecte-toi : le compte <code>admin</code> a
-            pour mot de passe <code>admin</code> en développement, et celui de{" "}
-            <code>NF_ADMIN_PASSWORD</code> en production — où il est EXIGÉ, car
-            une application ne naît jamais en ligne avec un secret connu. Alors
-            la carte 1 bascule sur <code>GET /api/secure/hello</code> → «
-            Bonjour admin ».
+            pour mot de passe <code>nodefony-dev-42</code> en développement, et
+            celui de <code>NF_ADMIN_PASSWORD</code> en production — où il est
+            EXIGÉ, car une application ne naît jamais en ligne avec un secret
+            connu. Alors la carte 1 bascule sur{" "}
+            <code>GET /api/secure/hello</code> → « Bonjour admin ».
           </p>
           {data?.who && data.who !== "anonyme" ? (
             <>
@@ -376,6 +402,24 @@ function LiveCard() {
                 connecté — <strong>{data.who}</strong>
               </span>{" "}
               <button onClick={() => void doLogout()}>Se déconnecter</button>
+            </>
+          ) : login.step === "mfa" ? (
+            <>
+              <input
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void doMfa();
+                }}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                aria-label="code à usage unique"
+                autoFocus
+              />{" "}
+              <button disabled={login.pending} onClick={() => void doMfa()}>
+                Valider le code
+              </button>{" "}
+              <button onClick={() => flow.back()}>Annuler</button>
             </>
           ) : (
             <>
@@ -395,10 +439,35 @@ function LiveCard() {
                 autoComplete="current-password"
                 aria-label="mot de passe"
               />{" "}
-              <button onClick={() => void doLogin()}>Se connecter</button>
+              <button disabled={login.pending} onClick={() => void doLogin()}>
+                Se connecter
+              </button>
+              {login.passkeyAvailable && (
+                <>
+                  {" "}
+                  <button
+                    disabled={login.pending}
+                    onClick={() => void doPasskey()}
+                  >
+                    Passkey
+                  </button>
+                </>
+              )}
+              {login.providers?.map((p) => (
+                <span key={p.name}>
+                  {" "}
+                  <button onClick={() => flow.startProvider(p.name)}>
+                    {p.label}
+                  </button>
+                </span>
+              ))}
             </>
           )}
-          {authMsg && <p className="nf-dim">{authMsg}</p>}
+          {(loginMessage(login) ?? notice) && (
+            <p className="nf-dim" role="status">
+              {loginMessage(login) ?? notice}
+            </p>
+          )}
         </div>
 <% } %>
 <% if (it.complete) { %>        {/* Deux concepts pour du temps réel : ce Provider, et un hook dans la

@@ -35,8 +35,10 @@ import {
   useNodefonyChannelData,
   useNodefonySnapshot,
   useNodefonySse,
+  useNodefonyLogin,
   useNodefonyState,
 } from "../client/vue/index";
+import { loginFetchBench } from "./fixtures/loginFetch";
 import { sseFetchBench, settle } from "./fixtures/sseFetch";
 import { NodefonyKernel } from "../client/NodefonyKernel";
 
@@ -384,5 +386,29 @@ describe("noyau client — Vue", () => {
     expect(valeur.state.value).toBeNull();
     expect(valeur.identity.value).toBeNull();
     arreter();
+  });
+});
+
+describe("useNodefonyLogin — Vue", () => {
+  it("🔴 la ref suit le déroulé, et la mort de la portée libère l'abonnement", async () => {
+    const banc = loginFetchBench();
+    const portee = effectScope();
+    const { state, flow } = portee.run(() =>
+      useNodefonyLogin({ fetch: banc.fetch, passkey: null }),
+    )!;
+    expect(state.value.step).toBe("identifier");
+    await flow.login("admin", "secret");
+    expect(state.value.step).toBe("mfa");
+    await flow.submitMfaCode("123456");
+    expect(state.value.user?.username).toBe("admin");
+
+    portee.stop();
+    flow.back();
+    // Libéré : la ref ne suit plus le déroulé.
+    expect(state.value.step).toBe("authenticated");
+  });
+
+  it("hors portée, l'appel est refusé — rien ne libérerait l'abonnement", () => {
+    expect(() => useNodefonyLogin({ passkey: null })).toThrow(/effectScope/u);
   });
 });

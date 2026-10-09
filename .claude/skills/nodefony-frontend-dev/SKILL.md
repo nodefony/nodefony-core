@@ -5,13 +5,14 @@ metadata:
 description: >
   Kit de dev FRONT de Nodefony — full-stack côté client : isomorphisme (`nodefony` partagé
   front/back), socket client (`NodefonySocket`, hooks React), builder Vite + HMR
-  (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), RBAC
-  isomorphe, ergonomie/a11y/perf (bundlés offline), et vérification d'une modif front — sans
-  navigateur (transform Vite en `curl`, purge du prébundle) ou en OBSERVANT l'écran depuis un
-  navigateur piloté — console, requêtes réelles, mesures d'accessibilité → `nodefony-browser`.
+  (`@nodefony/frontend`, React/Vue/Angular), data-plane BFF (`ApiClient`/`useResource`), connexion
+  sans interface (`NodefonyLogin`), RBAC isomorphe, ergonomie/a11y/perf (bundlés
+  offline), et vérification d'une modif front — sans navigateur (transform Vite en `curl`, purge
+  du prébundle) ou à l'écran → `nodefony-browser`.
   Studio → `nodefony-studio-dev` ; scaffold front → `nodefony-create-frontend-module` ;
   back → `nodefony-framework-dev`.
-  Déclencheurs : "dev front nodefony", "isomorphisme", "socket client", "NodefonySocket",
+  Déclencheurs : "dev front nodefony", "page de connexion", "formulaire de login",
+  "isomorphisme", "socket client", "NodefonySocket",
   "useNodefony", "hooks realtime", "HMR", "Vite nodefony", "ApiClient",
   "useResource", "data plane front", "BFF", "RBAC front", "accessibilité front",
   "perf front", "vérifie le front", "ma modif front passe ?", "transform Vite",
@@ -60,6 +61,7 @@ ici un appel `ApiClient`/un hook/un canal consommé → vérifier/MAJ la section
 - **socket Nodefony** : `NodefonySocket` (subscribe/request/mutate/ping), socle agnostique `observe*` (une liaison de vue ne contient QUE rappel+libération → réactivité), liaisons idiomatiques `nodefony/react` (hooks), `nodefony/vue` (plugin + composables) `nodefony/angular` (fournisseur + fonctions d'injection, ZÉRO décorateur publié) et `nodefony/svelte` (configuration de module + valeurs `.current`, ZÉRO rune publiée, abonnement PARESSEUX), canaux temps réel.
 - **builder/HMR** : `@nodefony/frontend` (`registerEntry`, Vite dev HMR, build prod, multi-bundle, relais `/_vite/<famille>/`).
 - **data-plane BFF** : `ApiClient` (`getAbsolute`/`postAbsolute`/…), `useResource`, session BFF cookie opaque, RBAC front.
+- **connexion** : `NodefonyLogin` (`nodefony/client`) — déroulé identifiant → mot de passe → code TOTP → connecté, blocage 429, fournisseurs (Keycloak…), passkey, SANS interface ; liaisons `useNodefonyLogin` (React, Vue), `nodefonyLogin` (Svelte), `injectNodefonyLogin` (Angular). Jamais un `fetch` écrit à la main vers `/nodefony/security/api/auth/*`. Détail : `src/nodefony/docs/client.md` § NodefonyLogin.
 - **qualité front** : ergonomie, temps réel « calme », a11y (WCAG/ARIA), perf CSS compositor-only.
 
 **Passer la main** :

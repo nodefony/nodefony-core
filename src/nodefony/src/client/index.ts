@@ -261,3 +261,30 @@ export type {
 // sert aux implémentations et à l'inspection bas niveau.
 export { LOCAL_EVENTS, isLocalEvent } from "./realtime/localEvents";
 export type { LocalEvent } from "./realtime/localEvents";
+// Déroulé de connexion côté navigateur — machine à états PURE, sans interface :
+// l'application écrit son balisage, le déroulé porte les règles (étapes, second
+// facteur, blocage, fournisseurs, passkey). Les liaisons de vue relaient son état.
+export { NodefonyLogin, observeLogin } from "./auth/NodefonyLogin";
+export type {
+  NodefonyLoginOptions,
+  NodefonyLoginState,
+  NodefonyLoginError,
+  NodefonyLoginProvider,
+  NodefonyLoginUser,
+  NodefonyPasskeyAgent,
+  LoginStep,
+  LoginErrorKind,
+} from "./auth/NodefonyLogin";
+export {
+  AUTH_API_BASE,
+  WEBAUTHN_API_BASE,
+  OAUTH2_API_BASE,
+  AUTH_LOGIN_PATH,
+  AUTH_LOGIN_TOTP_PATH,
+  AUTH_LOGOUT_PATH,
+  AUTH_ME_PATH,
+  WEBAUTHN_LOGIN_OPTIONS_PATH,
+  WEBAUTHN_LOGIN_VERIFY_PATH,
+  OAUTH2_PROVIDERS_PATH,
+  oauth2AuthorizePath,
+} from "../runtime/authRoutes";

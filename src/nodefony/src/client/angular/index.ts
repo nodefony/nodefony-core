@@ -121,6 +121,12 @@ import {
   type ObserveSseOptions,
   type SseSnapshot,
 } from "../sse/observe";
+import {
+  NodefonyLogin,
+  observeLogin,
+  type NodefonyLoginOptions,
+  type NodefonyLoginState,
+} from "../auth/NodefonyLogin";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le
 // front fabrique ses canaux cadencés depuis le même subpath que les fonctions.
@@ -142,6 +148,16 @@ export type {
 export type { SocketSnapshot } from "../realtime/observe";
 export type { SseSnapshot, ObserveSseOptions } from "../sse/observe";
 export type { ISseEvent } from "../sse/SseParser";
+export type {
+  NodefonyLogin,
+  NodefonyLoginOptions,
+  NodefonyLoginState,
+  NodefonyLoginError,
+  NodefonyLoginProvider,
+  NodefonyLoginUser,
+  LoginStep,
+  LoginErrorKind,
+} from "../auth/NodefonyLogin";
 export type {
   NodefonyKernelIdentity,
   NodefonyKernelState,
@@ -697,4 +713,37 @@ export function injectNodefonySse(
     ),
   );
   return snapshot.asReadonly();
+}
+
+/** Ce que rend {@link injectNodefonyLogin} : l'état en signal, et le déroulé qui porte les actions. */
+export interface NodefonyLoginBinding {
+  /** Photographie du déroulé, renouvelée à chaque changement. */
+  readonly state: Signal<NodefonyLoginState>;
+  /** Les actions : `login`, `submitMfaCode`, `startProvider`, `logout`… */
+  readonly flow: NodefonyLogin;
+}
+
+/**
+ * `injectNodefonyLogin()` — le déroulé de connexion du framework, relayé en
+ * signal. Le balisage reste entièrement à l'application ; les règles vivent
+ * dans `NodefonyLogin` (`nodefony/client`), jamais ici.
+ *
+ * L'abonnement est libéré à la destruction du contexte d'injection. Les
+ * requêtes restent DANS la zone : elles répondent à un geste de l'utilisateur,
+ * et la détection de changements qui suit est celle qu'on attend.
+ *
+ * @example
+ * ```ts
+ * readonly login = injectNodefonyLogin();
+ * // @if (login.state().step === "mfa") { … }
+ * ```
+ */
+export function injectNodefonyLogin(
+  options: NodefonyLoginOptions = {},
+): NodefonyLoginBinding {
+  assertInInjectionContext(injectNodefonyLogin);
+  const flow = new NodefonyLogin(options);
+  const state = signal<NodefonyLoginState>(flow.getState());
+  inject(DestroyRef).onDestroy(observeLogin(flow, (value) => state.set(value)));
+  return { state: state.asReadonly(), flow };
 }

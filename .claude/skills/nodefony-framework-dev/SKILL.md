@@ -44,6 +44,7 @@ description: >
 - **Contrat de page** : le back publie ce qu'il sait faire (`IAdminEndpoint.page` → tri, filtres, recherche, facettes), le front le **demande** au lieu de l'inventer. Une capacité non déclarée est **refusée en 400**, jamais ignorée. Recette → `references/pagination.md`.
 - **Realtime** : la **socket** (`IRealtimeSocket`) = la prise métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`) = broker serveur (canaux partagés + fan-out). Recette → `references/realtime.md`.
 - **Types** : exports `nodefony` (isomorphes) + `I*Controller`/`I*Api` = **source de vérité unique** du contrat (jamais une copie figée dans un skill → sinon dérive).
+- **Routes de connexion** : constantes `runtime/authRoutes.ts` (cœur) — MONTÉES par le module framework (`const base = AUTH_API_BASE`…), APPELÉES par `NodefonyLogin` côté navigateur. Une route de session neuve s'ajoute LÀ, jamais en littéral dans un monteur.
 
 **RÈGLE** : une feature qui traverse back+front → mettre à jour **LES DEUX skills dans la MÊME session**.
 Quand tu changes ici un **canal / action / endpoint / type** consommé par le front → vérifier/MAJ la

@@ -3,7 +3,15 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { version } from "../../package.json";
-import { AUTH_LOGIN_PATH } from "../runtime/authRoutes";
+import {
+  AUTH_LOGIN_PATH,
+  AUTH_LOGIN_TOTP_PATH,
+  AUTH_LOGOUT_PATH,
+  AUTH_ME_PATH,
+  OAUTH2_PROVIDERS_PATH,
+  WEBAUTHN_LOGIN_OPTIONS_PATH,
+  WEBAUTHN_LOGIN_VERIFY_PATH,
+} from "../runtime/authRoutes";
 import { runScaffold } from "../cli/scaffold/engine";
 
 /**
@@ -23,28 +31,66 @@ const LOGIN_ROUTE = /\/[\w./-]*\/api\/auth\/login(?![\w/-])/gu;
 // Sans `g` pour `toMatch` : un `RegExp` global garde son `lastIndex` d'un appel à l'autre.
 const HAS_LOGIN_ROUTE = new RegExp(LOGIN_ROUTE.source, "u");
 
+/**
+ * Toute écriture d'une route de session ou de passkey du framework. Le
+ * fournisseur OAuth (`…/oauth2/<nom>/callback`) n'y entre pas : son chemin
+ * porte un nom choisi par l'application, il n'a pas de constante à égaler.
+ */
+const AUTH_ROUTE =
+  /\/nodefony\/security\/api\/(?:auth|webauthn)(?:\/[\w-]+)*|\/nodefony\/security\/api\/oauth2\/providers/gu;
+
+/** Les seules écritures permises : celles que le cœur nomme. */
+const KNOWN_ROUTES = new Set<string>([
+  AUTH_LOGIN_PATH,
+  AUTH_LOGIN_TOTP_PATH,
+  AUTH_LOGOUT_PATH,
+  AUTH_ME_PATH,
+  WEBAUTHN_LOGIN_OPTIONS_PATH,
+  WEBAUTHN_LOGIN_VERIFY_PATH,
+  OAUTH2_PROVIDERS_PATH,
+]);
+
 const walk = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)],
   );
 
-describe("la route de connexion des gabarits est AUTH_LOGIN_PATH", () => {
-  it("toute écriture littérale de la route dans un gabarit égale la constante", () => {
-    const found: { file: string; route: string }[] = [];
-    for (const file of walk(TEMPLATES)) {
-      for (const m of readFileSync(file, "utf8").matchAll(LOGIN_ROUTE)) {
-        found.push({
-          file: path.relative(TEMPLATES, file).split(path.sep).join("/"),
-          route: m[0],
-        });
-      }
-    }
-    // Un contrôle qui ne trouve rien passerait sur n'importe quoi : les
-    // vitrines navigateur et le workflow de production citent la route en
-    // littéral (ils ne peuvent pas importer le cœur).
-    expect(found.length).toBeGreaterThanOrEqual(5);
+/** Écritures de `pattern` dans les gabarits, avec le fichier qui les porte. */
+const scan = (pattern: RegExp): { file: string; route: string }[] =>
+  walk(TEMPLATES).flatMap((file) =>
+    [...readFileSync(file, "utf8").matchAll(pattern)].map((m) => ({
+      file: path.relative(TEMPLATES, file).split(path.sep).join("/"),
+      route: m[0],
+    })),
+  );
+
+describe("les routes de connexion des gabarits sont celles que le cœur nomme", () => {
+  it("toute écriture littérale de la route de connexion égale AUTH_LOGIN_PATH", () => {
+    const found = scan(LOGIN_ROUTE);
+    // Un contrôle qui ne trouve rien passerait sur n'importe quoi : le workflow
+    // de production et `AGENTS.md` citent la route en littéral (ils ne peuvent
+    // pas importer le cœur).
+    expect(found.length).toBeGreaterThanOrEqual(4);
     const divergent = found.filter((f) => f.route !== AUTH_LOGIN_PATH);
     expect(divergent, `routes divergentes de ${AUTH_LOGIN_PATH}`).toEqual([]);
+  });
+
+  it("toute route de session ou de passkey écrite dans un gabarit est une constante du cœur", () => {
+    const found = scan(AUTH_ROUTE);
+    // Même garde : `AGENTS.md` cite la connexion, l'identité et la déconnexion.
+    expect(found.length).toBeGreaterThanOrEqual(6);
+    const unknown = found.filter((f) => !KNOWN_ROUTES.has(f.route));
+    expect(unknown, "routes de connexion inconnues du cœur").toEqual([]);
+  });
+
+  it("les pages générées n'appellent plus les routes de session à la main", () => {
+    // Le déroulé partagé (`NodefonyLogin`, via `nodefony/{react,vue,svelte,angular}`)
+    // porte les appels : une copie dans une page ne gérerait ni le second
+    // facteur, ni le blocage, ni les fournisseurs.
+    const pages = walk(path.join(TEMPLATES, "app", "frontend")).filter((f) =>
+      readFileSync(f, "utf8").includes('fetch("/nodefony/security'),
+    );
+    expect(pages).toEqual([]);
   });
 
   describe("les tests GÉNÉRÉS citent la constante, jamais une copie", () => {
