@@ -47,6 +47,19 @@ describe("page de connexion par défaut — servie derrière une zone fermée", 
     expect(res.status).toBe(401);
   });
 
+  it("🔴 ni la casse ni la barre finale ne sortent de la zone (CWE-178)", async () => {
+    // Le routeur sert ces formes comme la route nominale : la zone doit les
+    // couvrir aussi, sinon l'action tourne en anonyme.
+    for (const path of [
+      "/nodefony/test/LOGIN-GUARDED",
+      "/NODEFONY/TEST/login-guarded",
+      "/nodefony/test/login-guarded/",
+      "/nodefony/test/SECURE/whoami",
+    ]) {
+      expect((await get(path)).status, path).toBe(401);
+    }
+  });
+
   it("🔴 un anonyme reçoit la page : HTML, jamais en cache, jamais dans un cadre", async () => {
     const res = await get("/login");
     expect(res.status).toBe(200);

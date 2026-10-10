@@ -1,3 +1,4 @@
+import { stripTrailingSlashes } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import type { ISecuredArea } from "../contracts/ISecuredArea";
 import type { ISecurityAreaConfig } from "../config/defineModuleConfig";
@@ -25,15 +26,21 @@ export class SecuredArea implements ISecuredArea {
    * et aucune zone ne porte de tableau qu'elle n'utilise pas.
    */
   readonly roles: readonly string[] | null;
+  // Hôte comparé sans casse (RFC 9110 §4.2.3), calculé une fois.
+  readonly #hostKey: string | null;
 
   constructor(name: string, config: ISecurityAreaConfig) {
     this.name = name;
-    this.pattern = new RegExp(config.pattern, "u");
+    // `i` : le routeur résout les routes SANS tenir compte de la casse
+    // (`Route.compile`). Une zone plus stricte laisserait `/ADMIN` servi par la
+    // route de `/admin` sans qu'aucune zone ne le garde.
+    this.pattern = new RegExp(config.pattern, "iu");
     this.security = config.security;
     this.stateless = config.stateless;
     this.mode = config.mode;
     this.authenticators = config.authenticators;
     this.host = config.host;
+    this.#hostKey = config.host ? config.host.toLowerCase() : null;
     this.realtime = config.realtime;
     this.resource = config.resource;
     this.roles = config.roles.length > 0 ? config.roles : null;
@@ -46,8 +53,15 @@ export class SecuredArea implements ISecuredArea {
    */
   matchPath(pathname: string, host?: string): boolean {
     // Filtre domaine d'abord (vhost) : host = Host header de la requête/connexion.
-    if (this.host && this.host !== host) return false;
-    return this.pattern.test(pathname);
+    if (this.#hostKey !== null && this.#hostKey !== host?.toLowerCase())
+      return false;
+    if (this.pattern.test(pathname)) return true;
+    // Le routeur sert `/x/` comme `/x` (`Route.cleanPathname`) : la zone doit
+    // couvrir la même forme, sinon un motif ancré (`^/x$`) laisse passer la
+    // barre finale. `stripTrailingSlashes` rend la MÊME chaîne quand il n'y a
+    // rien à couper — le second test n'est payé que par ces requêtes-là.
+    const bare = stripTrailingSlashes(pathname);
+    return bare !== pathname && this.pattern.test(bare);
   }
 
   /** La requête tombe-t-elle dans cette zone ? (host éventuel + pathname). */
