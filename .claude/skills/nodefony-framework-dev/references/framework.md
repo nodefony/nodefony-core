@@ -482,7 +482,7 @@ IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,
   `execute`→ exécution directe ; `guarded`→ exécute puis `store.complete(key,{status,body})` (succès)
   ou `store.abort(key)` (échec). Réponse mémorisée = **valeur RETOURNÉE** par l'action (un `this.render`
   manuel n'est pas rejoué fidèlement).
-- **admin** → `AdminApiController.idempotencyGate(adminRoute, request)` (`AdminApiController.ts:139`) =
+- **admin** → `AdminApiController.idempotencyGate(adminRoute, request)` (`AdminApiController.ts:155`) =
   ne fait que TRADUIRE le verdict en `{shortCircuit}` / callbacks `onSuccess`/`onFailure`. `required:false`
   (admin n'exige la clé qu'en WS).
 
