@@ -40,7 +40,9 @@ function block(text: string, opener: string): string {
 function loginVars(body: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const m of body.matchAll(/--nf-login-([a-z-]+):\s*([^;]+);/g)) {
-    out[m[1]] = m[2].trim().toLowerCase();
+    const [, key, value] = m;
+    if (key !== undefined && value !== undefined)
+      out[key] = value.trim().toLowerCase();
   }
   return out;
 }
@@ -71,7 +73,7 @@ describe("login.css — la source des couleurs de la marque", () => {
   it("porte le bleu, le vert et le cyan du LOGO, et rien d'autre", () => {
     const svg = read("src", "nodefony", "assets", "nodefony-logo.svg");
     const logo = [...svg.matchAll(/fill="(#[0-9a-f]{6})"/gi)]
-      .map((m) => m[1].toLowerCase())
+      .map((m) => (m[1] ?? "").toLowerCase())
       .sort();
     assert.deepEqual(
       [dark["brand"], dark["brand-green"], dark["brand-cyan"]].sort(),
@@ -84,7 +86,7 @@ describe("login.css — la source des couleurs de la marque", () => {
     const fills = [
       ...new Set(
         [...arcs.matchAll(/fill="(#[0-9a-f]{6})"/gi)].map((m) =>
-          m[1].toLowerCase(),
+          (m[1] ?? "").toLowerCase(),
         ),
       ),
     ].sort();
@@ -153,7 +155,7 @@ describe("les copies confrontées à login.css", () => {
       "theme.ts",
     );
     const anchor = /"--mantine-color-anchor":\s*"(#[0-9a-f]{6})"/i.exec(theme);
-    assert.equal(anchor?.[1].toLowerCase(), dark["accent"]);
+    assert.equal(anchor?.[1]?.toLowerCase(), dark["accent"]);
   });
 
   it("barre de debug : la marque, l'accent et les surfaces", () => {
@@ -166,7 +168,7 @@ describe("les copies confrontées à login.css", () => {
       "DebugBar.ts",
     );
     const v = (name: string) =>
-      new RegExp(`--${name}:(#[0-9a-f]{6})`, "i").exec(bar)?.[1].toLowerCase();
+      new RegExp(`--${name}:(#[0-9a-f]{6})`, "i").exec(bar)?.[1]?.toLowerCase();
     assert.equal(v("blue"), dark["brand"]);
     assert.equal(v("blue2"), dark["accent"]);
     assert.equal(v("ok"), dark["ok"]);
@@ -175,7 +177,7 @@ describe("les copies confrontées à login.css", () => {
     assert.equal(v("card"), dark["surface"]);
     assert.equal(v("muted"), dark["muted"]);
     const background = /background: (#[0-9a-f]{6});\s*--blue:/i.exec(bar);
-    assert.equal(background?.[1].toLowerCase(), dark["bg"]);
+    assert.equal(background?.[1]?.toLowerCase(), dark["bg"]);
   });
 
   it("gabarits d'application : le bouton de la vitrine", () => {
@@ -193,6 +195,6 @@ describe("les copies confrontées à login.css", () => {
     const button = /\.nf-card button \{[^}]*background: (#[0-9a-f]{6})/i.exec(
       showcase,
     );
-    assert.equal(button?.[1].toLowerCase(), dark["brand"]);
+    assert.equal(button?.[1]?.toLowerCase(), dark["brand"]);
   });
 });
