@@ -34,7 +34,7 @@ aperçus) pour rejouer les étapes et les erreurs 401 et 429.
 | Fichier                   | Rôle                                                                                             |
 | ------------------------- | ------------------------------------------------------------------------------------------------ |
 | `base.css`                | composants et mises en page communs ; une idée qui vaut pour toutes les propositions se pose ICI |
-| `gen.py`                  | génère les propositions `v*` et la galerie : `python3 docs/design/login/gen.py`                  |
+| `gen.mjs`                 | génère les propositions `v*` et la galerie : `node docs/design/login/gen.mjs`                    |
 | `f01-…`, `f02-…`, `f03-…` | propositions écrites à la main (fable), décrites par `fable-manifest.json`                       |
 | `mock.js`                 | simulation du déroulé (étapes, erreurs) — n'existera pas dans la vraie page                      |
 | `img/`                    | photo allégée (2 400 px, 570 Ko) et sa vignette (800 px)                                         |
