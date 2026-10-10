@@ -91,6 +91,15 @@ entre deux bêtas — une rupture y reste possible, et chacune est annoncée en 
 CHANGELOG. Elle n'est pas destinée à porter une charge de production —
 elle montre une topologie qui fonctionne, et sert de point de départ.
 
+**Elle accepte un mot de passe envoyé en clair (HTTP)**, et c'est la seule entorse
+qu'elle fait à la production : sans elle, la connexion à la console sur
+<http://127.0.0.1:5151> serait refusée (« Credentials must be sent over HTTPS »).
+Une application Nodefony en production refuse un mot de passe qui n'arrive pas en
+HTTPS ; cette image le déclare explicitement
+(`NF__SECURITY__ALLOWINSECURECREDENTIALS=true`) parce qu'elle sert à un essai sur
+ton poste. **Ne l'expose pas telle quelle** : derrière un frontal TLS, repasse la
+variable à `false` et déclare le frontal (`NF__HTTP__TRUSTPROXY`).
+
 Pour une application à soi, le chemin est le générateur, pas cette image :
 
 ```bash

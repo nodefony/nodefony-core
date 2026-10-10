@@ -312,7 +312,11 @@ describe("security:secrets — on doit savoir QUOI et POURQUOI", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  });
+    // Délai EXPLICITE : chaque `--write` lance `git ls-files` (garde « .env
+    // suivi par git ? »), soit deux processus ici. ~0,4 s seul, 7,4 s mesurés
+    // sous `test:all` (24 tâches en parallèle) — au-delà des 5 s par défaut.
+    // Ce délai détecte un blocage ; il ne mesure aucune vitesse.
+  }, 30_000);
 
   it("🔴 --env rend les 4 secrets au format que `docker run --env-file` lit tel quel", async () => {
     // C'est la voie de la page Docker Hub : l'image produit ses propres

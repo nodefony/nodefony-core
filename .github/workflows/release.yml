@@ -646,9 +646,17 @@ jobs:
           # gabarit, lui, ne change pas : une application réelle garde sa base
           # hors de l'image et son job de migration (`deploy/migrate-job.yaml`).
           # Les étiquettes OCI de la couche précédente sont héritées.
+          #
+          # 🔓 LE CLAIR EST DÉCLARÉ, ICI SEULEMENT. La production refuse un mot de
+          # passe reçu en HTTP ; la page de l'image promet pourtant une console
+          # sur http://127.0.0.1:5151, pour un essai sur le poste. L'échappement
+          # vit dans CETTE couche de démonstration, jamais dans le gabarit : une
+          # application générée reste stricte. La page Hub le dit, et dit comment
+          # le retirer derrière un frontal TLS.
           docker build -t "nodefony/nodefony:${V}" - <<EOF
           FROM nf-demo-app:${V}
           RUN node_modules/.bin/nodefony orm:migrate
+          ENV NF__SECURITY__ALLOWINSECURECREDENTIALS=true
           EOF
 
           # AVANT le push, comme le contrôle de matière sensible : une image
