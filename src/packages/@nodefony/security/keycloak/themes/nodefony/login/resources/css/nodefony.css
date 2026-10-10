@@ -1,440 +1,254 @@
 /*
- * Thème de connexion Nodefony — l'écran Keycloak aux couleurs de Studio.
+ * Thème de connexion Nodefony — l'écran Keycloak, jumeau de la page /login.
  *
- * Source des valeurs : la console d'administration elle-même
- * (`@nodefony/studio/frontend/src/theme.ts` — teintes `brand`, police système ;
- * `layouts/AuthLayout.tsx` — dégradé et halos du panneau de marque). Mesurées au
- * navigateur sur Studio en sombre : bouton principal brand-4 (#4792cd), boutons
- * secondaires #2e2e2e, panneau #242424.
+ * Mise en page, panneau de marque (voile, courbe, arcs du logo) et TOUTES les
+ * couleurs viennent de `css/login.css`, copie conforme de `nodefony/login.css`
+ * (un test l'exige à l'octet). Cette feuille-ci ne fait que deux choses :
+ *   1. habiller les composants PatternFly que Keycloak génère (champs,
+ *      boutons, cases) avec les variables `--nf-login-*` ;
+ *   2. mettre en forme le CONTENU propre à Keycloak (domaine, capacités du
+ *      compte, retour à l'application).
  *
- * Seules des VARIABLES et l'enveloppe sont posées ici : les composants
- * PatternFly du thème parent (`keycloak.v2`) gardent leur structure.
+ * Une application change les couleurs par un thème enfant (`parent=nodefony`)
+ * qui ajoute sa feuille après celle-ci, et la mise en page par `nfLayout`.
  */
 
-.nf-body {
-  /* Teintes `brand` de Studio (theme.ts, nodefonyBlue). */
-  --nf-brand-4: #4792cd;
-  --nf-brand-5: #217bc3;
-  --nf-brand-6: #0067ba;
-  --nf-brand-7: #00579c;
-  --nf-brand-8: #00467e;
-  --nf-brand-9: #003864;
+/* Alias locaux : les règles PatternFly ci-dessous lisent `--nf-*`, la palette
+   vit dans `--nf-login-*`. Une seule source, des noms courts. */
+.nf-kc {
+  --nf-heading: var(--nf-login-heading);
+  --nf-text: var(--nf-login-text);
+  --nf-muted: var(--nf-login-muted);
+  --nf-border: var(--nf-login-line-strong);
+  --nf-input: var(--nf-login-field);
+  --nf-secondary: var(--nf-login-surface);
+  --nf-secondary-hover: var(--nf-login-raised);
+  --nf-primary: var(--nf-login-brand);
+  --nf-primary-hover: var(--nf-login-brand-hover);
+  --nf-focus: var(--nf-login-accent);
+  --nf-radius: var(--nf-login-radius);
 
-  /* Schéma CLAIR (défaut) — valeurs du thème Mantine de Studio. */
-  --nf-panel: #ffffff;
-  --nf-heading: #212529;
-  --nf-text: #343a40;
-  --nf-muted: #6c757d;
-  --nf-border: #ced4da;
-  --nf-input: #ffffff;
-  --nf-secondary: #ffffff;
-  --nf-secondary-hover: #f1f3f5;
-  --nf-primary: var(--nf-brand-6);
-  --nf-primary-hover: var(--nf-brand-7);
-  --nf-focus: var(--nf-brand-6);
-  --nf-radius: 8px;
-  --nf-font:
-    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
-
-  /* PatternFly reprend la police et la couleur de lien de la marque. */
-  --pf-v5-global--FontFamily--text: var(--nf-font);
-  --pf-v5-global--FontFamily--heading: var(--nf-font);
-  --pf-v5-global--link--Color: var(--nf-primary);
-  --pf-v5-global--link--Color--hover: var(--nf-primary-hover);
-  --pf-v5-global--primary-color--100: var(--nf-primary);
-  --pf-v5-global--primary-color--200: var(--nf-primary-hover);
-
-  margin: 0;
-  background: var(--nf-panel);
-  color: var(--nf-text);
-  font-family: var(--nf-font);
-}
-
-/* Schéma SOMBRE — basculé par le parent (`kcDarkModeClass`) selon le système. */
-.pf-v5-theme-dark .nf-body {
-  --nf-panel: #242424;
-  --nf-heading: #ffffff;
-  --nf-text: #c9c9c9;
-  --nf-muted: #8f8f8f;
-  --nf-border: #424242;
-  --nf-input: #2e2e2e;
-  --nf-secondary: #2e2e2e;
-  --nf-secondary-hover: #383838;
-  /* brand-6, PAS brand-4 : blanc sur #4792cd = 3,35:1 (sous AA 4,5:1) —
-     défaut mesuré aussi sur Studio. Blanc sur #0067ba = 5,75:1. */
-  --nf-primary: var(--nf-brand-6);
-  --nf-primary-hover: var(--nf-brand-7);
-  --nf-focus: var(--nf-brand-4);
-  /* Un LIEN est du texte sur le panneau, pas un fond sous du blanc : brand-6
-     y tombe à 2,70:1 (bascule QR / saisie manuelle de l'OTP, mesurée par axe).
-     brand-4 = 4,63:1, comme les liens des consoles du compte et d'administration. */
-  --pf-v5-global--link--Color: var(--nf-brand-4);
-  --pf-v5-global--link--Color--hover: #74b3e3;
+  /* PatternFly reprend la police et les couleurs de la marque. Un LIEN est du
+     texte sur le fond, pas un aplat sous du blanc : il prend l'accent, lisible
+     dans les deux thèmes (le bleu de marque tombe à 2,70:1 sur fond sombre). */
+  --pf-v5-global--FontFamily--text: var(--nf-login-font);
+  --pf-v5-global--FontFamily--heading: var(--nf-login-font);
+  --pf-v5-global--link--Color: var(--nf-login-accent);
+  --pf-v5-global--link--Color--hover: var(--nf-login-heading);
+  --pf-v5-global--primary-color--100: var(--nf-login-brand);
+  --pf-v5-global--primary-color--200: var(--nf-login-brand-hover);
 }
 
 /* Le parent pose un fond « polygones » sur le body : il n'a rien à faire ici. */
-.login-pf body.nf-body {
-  background: var(--nf-panel);
+.login-pf body.nf-kc {
+  background-color: var(--nf-login-bg);
+  background-image: var(--nf-login-backdrop);
 }
 
-/* ── Enveloppe : deux panneaux, comme Studio ─────────────────────────────── */
+/* ── Contenu du panneau de marque : le domaine et ce que le compte permet ── */
 
-.nf-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  min-height: 100vh;
-}
-
-.nf-hero {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 32px;
-  padding: 48px;
-  color: #ffffff;
-  background:
-    radial-gradient(
-      circle at 26% 16%,
-      rgba(255, 255, 255, 0.16),
-      transparent 46%
-    ),
-    radial-gradient(
-      circle at 88% 92%,
-      rgba(255, 255, 255, 0.08),
-      transparent 42%
-    ),
-    linear-gradient(
-      140deg,
-      var(--nf-brand-9) 0%,
-      var(--nf-brand-8) 45%,
-      var(--nf-brand-6) 100%
-    );
-}
-
-.nf-hero-brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.nf-hero-name {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+.nf-kc .nf-hero-brand .nf-logo {
+  height: 30px;
 }
 
 .nf-hero-body {
   max-width: 470px;
 }
 
-.nf-hero-title {
+/* Préfixés par `.nf-hero` : ce sont des <p>, et la règle `.nf-hero p` de
+   login.css (plus spécifique qu'une classe seule) les écraserait. */
+.nf-hero .nf-hero-title {
+  max-width: none;
   margin: 0 0 16px;
   font-size: 44px;
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.02em;
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--nf-login-hero-fg);
 }
 
-.nf-hero-lead {
+.nf-hero .nf-hero-lead {
   margin: 0 0 32px;
   font-size: 18px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.5;
+  color: var(--nf-login-hero-muted);
 }
 
-.nf-icon {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
+.nf-pill {
+  display: inline-block;
+  margin-bottom: 20px;
+  padding: 5px 12px;
+  border: 1px solid var(--nf-login-line-strong);
+  border-radius: 999px;
+  font: 600 11px/1.4 var(--nf-login-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nf-login-hero-muted);
+}
+
+.nf-hero .nf-caps-title {
+  margin: 0 0 14px;
+  font: 600 11px/1.4 var(--nf-login-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nf-login-hero-muted);
+}
+
+.nf-caps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nf-caps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.nf-kc .nf-caps .nf-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--nf-login-ok);
 }
 
 .nf-hero-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
-  /* Blanc PLEIN : le coin bas-droit est la zone la plus CLAIRE du dégradé
-     (brand-6 + halo). Mesuré au pixel, 0,82 y donnait 4,43:1 — sous AA
-     (4,5:1) pour du 12 px. */
-  color: #ffffff;
-}
-
-.nf-hero-footer a {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: rgba(255, 255, 255, 0.85);
-  text-decoration: none;
-}
-
-.nf-hero-footer a:hover {
-  color: #ffffff;
-}
-
-.nf-hero-footer .nf-icon {
-  width: 16px;
-  height: 16px;
+  gap: 16px;
+  font: 600 11px/1.4 var(--nf-login-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nf-login-hero-muted);
 }
 
 /* La hauteur se pose ICI, pas seulement dans l'attribut `height` du gabarit :
    la feuille de PatternFly rend `height: auto` aux images, et le logo
    s'afficherait alors à sa taille naturelle (256 px). */
-.nf-logo {
+.nf-kc .nf-logo {
   display: block;
   width: auto;
-  height: 42px;
-}
-
-.nf-compact-brand .nf-logo {
   height: 30px;
 }
 
-/* ── Panneau du formulaire ──────────────────────────────────────────────── */
-
-.nf-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  background: var(--nf-panel);
+.nf-kc .nf-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
 }
 
-.nf-body .pf-v5-c-login {
+/* ── Scène : la colonne du formulaire ───────────────────────────────────── */
+
+.nf-kc .nf-stage {
+  gap: 28px;
+}
+
+.nf-kc .pf-v5-c-login {
   min-height: auto;
   padding: 0;
   background: transparent;
 }
 
-.nf-body .pf-v5-c-login__container {
+.nf-kc .pf-v5-c-login__container {
   grid-template-columns: min(400px, 100%);
   grid-template-areas: "header" "main";
+  align-content: start;
+  row-gap: 0;
+  min-height: 0;
   padding: 0;
 }
 
-/* Logo compact : seulement quand le panneau de marque est masqué. */
-.nf-body .pf-v5-c-login__header {
+/* `backdrop-filter` (même à 0 px) fait de la carte le bloc conteneur de ses
+   descendants positionnés : le sélecteur de langue s'y accrochait au lieu du
+   coin de la page. Le flou de carte n'a pas de sens sur cet écran. */
+.nf-kc .nf-card {
+  backdrop-filter: none;
+}
+
+/* Mise en page « card » : le formulaire respire dans sa carte. */
+.nf-kc[data-layout="card"] .pf-v5-c-login__container {
+  padding: 26px 28px;
+}
+
+/* Logo compact et pied de périmètre SSO : seulement quand le panneau de marque
+   est absent — mises en page card et bare, et split sur petit écran. */
+.nf-kc .pf-v5-c-login__header {
+  display: block;
+  /* PatternFly y pose 64 px de marge haute : un vide au-dessus du logo. */
+  margin: 0;
+  padding: 0 0 24px;
+}
+
+.nf-kc[data-layout="split"] .pf-v5-c-login__header,
+.nf-kc[data-layout="split"] .nf-panel-footer {
   display: none;
+}
+
+@media (max-width: 899px) {
+  .nf-kc[data-layout="split"] .pf-v5-c-login__header {
+    display: block;
+  }
+
+  .nf-kc[data-layout="split"] .nf-panel-footer {
+    display: grid;
+  }
+
+  /* Le haut est réservé au sélecteur de langue, posé dans le coin : sans
+     cette marge il chevauchait le bouton de retour. */
+  .nf-kc .nf-stage {
+    justify-content: flex-start;
+    padding-top: 72px;
+  }
 }
 
 /* `keycloak.v2` habille `#kc-header-wrapper` en capitales de 29 px, avec
    `color: var(--pf-v5-global--Color--light-100) !important` — blanc sur blanc
    en clair. Plutôt que surenchérir d'un `!important`, la variable qu'il lit
    est redéfinie SUR l'élément ; l'identifiant donne la priorité au reste. */
-.nf-body #kc-header-wrapper.nf-compact-brand {
+.nf-kc #kc-header-wrapper.nf-compact-brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 650;
   letter-spacing: -0.01em;
   line-height: 1.2;
   text-transform: none;
   --pf-v5-global--Color--light-100: var(--nf-heading);
 }
 
-.nf-body .pf-v5-c-login__main {
+.nf-kc .nf-compact-brand .nf-logo {
+  height: 26px;
+}
+
+.nf-kc .pf-v5-c-login__main {
   background: transparent;
   box-shadow: none;
 }
 
-.nf-body .pf-v5-c-login__main-header {
+.nf-kc .pf-v5-c-login__main-header {
+  display: block;
   border-top: 0;
-  padding: 0 0 8px;
+  padding: 0 0 28px;
 }
 
-.nf-body .pf-v5-c-login__main-body,
-.nf-body .pf-v5-c-login__main-footer {
+.nf-kc .pf-v5-c-login__main-body,
+.nf-kc .pf-v5-c-login__main-footer {
   padding-inline: 0;
 }
 
-.nf-body #kc-page-title {
-  font-size: 28px;
-  font-weight: 700;
+.nf-kc #kc-page-title {
+  font-size: var(--nf-login-title-size);
+  font-weight: 650;
   letter-spacing: -0.01em;
   color: var(--nf-heading);
-}
-
-.nf-subtitle {
-  grid-column: 1 / -1;
-  margin: 6px 0 0;
-  font-size: 14px;
-  color: var(--nf-muted);
-}
-
-.nf-body .pf-v5-c-form__label-text {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--nf-heading);
-}
-
-/* Champs : bordure pleine et coins arrondis, comme les champs Mantine. */
-.nf-body .pf-v5-c-form-control {
-  --pf-v5-c-form-control--BackgroundColor: var(--nf-input);
-  --pf-v5-c-form-control--Color: var(--nf-heading);
-  min-height: 42px;
-  border-radius: var(--nf-radius);
-}
-
-.nf-body .pf-v5-c-form-control::before {
-  border: 1px solid var(--nf-border);
-  border-radius: var(--nf-radius);
-}
-
-.nf-body .pf-v5-c-form-control > input,
-.nf-body .pf-v5-c-form-control > select {
-  min-height: 40px;
-}
-
-/* PatternFly trace son focus par un trait bas en ::after — Mantine, par la
-   bordure seule. Garder les deux donnait un double trait. */
-.nf-body .pf-v5-c-form-control::after {
-  display: none;
-}
-
-.nf-body .pf-v5-c-form-control:focus-within::before {
-  border-color: var(--nf-focus);
-}
-
-/* Le focus se voit sur le CONTRÔLE (bordure + anneau ci-dessous) : le contour
-   natif de l'input s'y ajoutait en un second cadre, intérieur. */
-.nf-body .pf-v5-c-form-control > input:focus-visible {
-  outline: none;
-}
-
-/* Sélecteur de langue : assez large pour « Français » sans troncature. */
-.nf-body .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control {
-  min-width: 132px;
-}
-
-.nf-body .pf-v5-c-form-control.pf-m-error::before {
-  border-color: var(--pf-v5-global--danger-color--100);
-}
-
-/* Champ mot de passe : le champ et le bouton « œil » forment UN contrôle,
-   comme le PasswordInput de Studio. C'est le GROUPE qui porte bordure, rayon,
-   focus et erreur : bordés séparément, un trait apparaissait entre les deux en
-   sombre et pas en clair, et l'anneau de focus coupait le contrôle en deux. */
-.nf-body .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control) {
-  border: 1px solid var(--nf-border);
-  border-radius: var(--nf-radius);
-  background: var(--nf-input);
-}
-
-.nf-body .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control):focus-within {
-  border-color: var(--nf-focus);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nf-focus) 28%, transparent);
-}
-
-.nf-body .pf-v5-c-input-group:has(.pf-m-error) {
-  border-color: var(--pf-v5-global--danger-color--100);
-}
-
-.nf-body
-  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
-  .pf-v5-c-form-control {
-  min-height: 40px;
-}
-
-.nf-body
-  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
-  .pf-v5-c-form-control::before,
-.nf-body
-  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
-  .pf-v5-c-form-control:focus-within::before {
-  border: 0;
-  box-shadow: none;
-}
-
-/* La feuille de `keycloak.v2` borde l'item du bouton à gauche : c'est le trait
-   qui coupait le contrôle en deux, visible en sombre seulement. */
-.nf-body
-  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
-  .pf-v5-c-input-group__item {
-  border: 0;
-}
-
-.nf-body .pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
-  min-height: 40px;
-  border: 0;
-  border-radius: 0 var(--nf-radius) var(--nf-radius) 0;
-  background: transparent;
-  color: var(--nf-muted);
-}
-
-.nf-body .pf-v5-c-input-group .pf-v5-c-button.pf-m-control:hover {
-  color: var(--nf-heading);
-}
-
-.nf-body .pf-v5-c-input-group .pf-v5-c-button.pf-m-control::after {
-  border: 0;
-}
-
-/* Boutons : plein bleu pour l'action, bordé pour les secondaires. */
-.nf-body .pf-v5-c-button.pf-m-primary {
-  min-height: 42px;
-  border-radius: var(--nf-radius);
-  background: var(--nf-primary);
-  color: #ffffff;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.nf-body .pf-v5-c-button.pf-m-primary:hover,
-.nf-body .pf-v5-c-button.pf-m-primary:focus-visible {
-  background: var(--nf-primary-hover);
-}
-
-.nf-body .pf-v5-c-button.pf-m-secondary {
-  min-height: 42px;
-  border-radius: var(--nf-radius);
-  background: var(--nf-secondary);
-  color: var(--nf-heading);
-}
-
-.nf-body .pf-v5-c-button.pf-m-secondary::after {
-  border: 1px solid var(--nf-border);
-  border-radius: var(--nf-radius);
-}
-
-.nf-body .pf-v5-c-button.pf-m-secondary:hover {
-  background: var(--nf-secondary-hover);
-}
-
-.nf-body .pf-v5-c-button:focus-visible {
-  outline: 2px solid var(--nf-focus);
-  outline-offset: 2px;
-}
-
-/* ── Petits écrans : le panneau de marque cède la place ─────────────────── */
-
-@media (max-width: 61.99em) {
-  .nf-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .nf-hero {
-    display: none;
-  }
-
-  .nf-body .pf-v5-c-login__header {
-    display: block;
-    padding: 0 0 24px;
-  }
-
-  /* Le haut est réservé au sélecteur de langue, posé dans le coin : sans
-     cette marge il chevauchait le bouton de retour. */
-  .nf-panel {
-    align-items: flex-start;
-    padding: 72px 16px 40px;
-  }
-}
-
-/* ── SSO : badge, pastille, pied de panneau ─────────────────────────────── */
-
-.nf-body .pf-v5-c-login__main-header {
-  display: block;
-  padding: 0 0 28px;
 }
 
 .nf-heading {
@@ -442,6 +256,15 @@
   gap: 6px;
 }
 
+.nf-subtitle {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--nf-muted);
+}
+
+/* Badge SSO : micro-libellé à chasse fixe, filet de l'accent. */
 .nf-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -451,131 +274,202 @@
   padding: 4px 10px 4px 8px;
   border: 1px solid color-mix(in srgb, var(--nf-focus) 45%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--nf-focus) 12%, transparent);
-  color: var(--nf-eyebrow);
-  font-size: 12px;
-  font-weight: 600;
+  color: var(--nf-focus);
+  font: 600 11px/1.4 var(--nf-login-mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.nf-eyebrow .nf-icon {
-  width: 16px;
-  height: 16px;
-}
-
-.nf-body {
-  --nf-eyebrow: var(--nf-brand-7);
-}
-
-.pf-v5-theme-dark .nf-body {
-  --nf-eyebrow: #9ec5e5;
-}
-
-.nf-subtitle {
-  margin: 0;
-  line-height: 1.5;
-}
-
-.nf-pill {
-  display: inline-block;
-  margin-bottom: 20px;
-  padding: 5px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.nf-panel {
-  flex-direction: column;
-  gap: 40px;
-}
-
-.nf-panel-footer {
-  display: grid;
-  gap: 10px;
-  width: min(400px, 100%);
-  padding-top: 20px;
-  border-top: 1px solid var(--nf-border);
-  font-size: 13px;
-  color: var(--nf-muted);
-}
-
-.nf-panel-footer > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.nf-panel-footer .nf-icon {
-  width: 16px;
-  height: 16px;
-  flex: none;
-}
-
-.nf-dot {
-  width: 8px;
-  height: 8px;
-  margin-inline: 4px;
-  border-radius: 50%;
-  background: #12b886;
-  box-shadow: 0 0 0 3px color-mix(in srgb, #12b886 25%, transparent);
+.nf-kc .nf-eyebrow .nf-icon {
+  width: 15px;
+  height: 15px;
 }
 
 /* ── Langue : repliée dans le coin, comme un réglage, pas comme un titre ── */
 
 /* `absolute`, pas `fixed` : il défile avec la page au lieu de flotter
    au-dessus du formulaire sur un petit écran. */
-.nf-body .pf-v5-c-login__main-header-utilities {
+.nf-kc .pf-v5-c-login__main-header-utilities {
   position: absolute;
   top: 20px;
   right: 24px;
   z-index: 1;
 }
 
-.nf-body .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control {
-  min-width: 0;
+.nf-kc .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control {
+  min-width: 132px;
   min-height: 34px;
   font-size: 13px;
 }
 
-.nf-body .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control > select {
+.nf-kc .pf-v5-c-login__main-header-utilities .pf-v5-c-form-control > select {
   min-height: 32px;
   padding-inline-start: 10px;
 }
 
-/* ── Formulaire : rythme, icônes, focus ─────────────────────────────────── */
+/* ── Formulaire : champs, boutons, cases ────────────────────────────────── */
 
-.nf-body .pf-v5-c-form {
+.nf-kc .pf-v5-c-form {
   gap: 18px;
 }
 
-.nf-body .pf-v5-c-form-control:focus-within::before {
+.nf-kc .pf-v5-c-form__label-text {
+  font: var(--nf-login-label-font);
+  color: var(--nf-heading);
+}
+
+/* Champs : bordure pleine et coins arrondis. */
+.nf-kc .pf-v5-c-form-control {
+  --pf-v5-c-form-control--BackgroundColor: var(--nf-input);
+  --pf-v5-c-form-control--Color: var(--nf-heading);
+  min-height: 44px;
+  border-radius: var(--nf-radius);
+}
+
+.nf-kc .pf-v5-c-form-control::before {
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+}
+
+.nf-kc .pf-v5-c-form-control > input,
+.nf-kc .pf-v5-c-form-control > select {
+  min-height: 42px;
+}
+
+/* PatternFly trace son focus par un trait bas en ::after — la page /login, par
+   la bordure seule. Garder les deux donnait un double trait. */
+.nf-kc .pf-v5-c-form-control::after {
+  display: none;
+}
+
+.nf-kc .pf-v5-c-form-control:focus-within::before {
+  border-color: var(--nf-focus);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nf-focus) 28%, transparent);
 }
 
-.nf-body #username,
-.nf-body #password {
+/* Le focus se voit sur le CONTRÔLE (bordure + anneau) : le contour natif de
+   l'input s'y ajoutait en un second cadre, intérieur. */
+.nf-kc .pf-v5-c-form-control > input:focus-visible {
+  outline: none;
+}
+
+.nf-kc .pf-v5-c-form-control.pf-m-error::before {
+  border-color: var(--nf-login-crit);
+}
+
+/* Champ mot de passe : le champ et le bouton « œil » forment UN contrôle.
+   C'est le GROUPE qui porte bordure, rayon, focus et erreur : bordés
+   séparément, un trait apparaissait entre les deux en sombre et pas en clair,
+   et l'anneau de focus coupait le contrôle en deux. */
+.nf-kc .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control) {
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  background: var(--nf-input);
+}
+
+.nf-kc .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control):focus-within {
+  border-color: var(--nf-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nf-focus) 28%, transparent);
+}
+
+.nf-kc .pf-v5-c-input-group:has(.pf-m-error) {
+  border-color: var(--nf-login-crit);
+}
+
+.nf-kc
+  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
+  .pf-v5-c-form-control {
+  min-height: 42px;
+}
+
+.nf-kc
+  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
+  .pf-v5-c-form-control::before,
+.nf-kc
+  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
+  .pf-v5-c-form-control:focus-within::before {
+  border: 0;
+  box-shadow: none;
+}
+
+/* La feuille de `keycloak.v2` borde l'item du bouton à gauche : c'est le trait
+   qui coupait le contrôle en deux, visible en sombre seulement. */
+.nf-kc
+  .pf-v5-c-input-group:has(.pf-v5-c-button.pf-m-control)
+  .pf-v5-c-input-group__item {
+  border: 0;
+}
+
+.nf-kc .pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  min-height: 42px;
+  border: 0;
+  border-radius: 0 var(--nf-radius) var(--nf-radius) 0;
+  background: transparent;
+  color: var(--nf-muted);
+}
+
+.nf-kc .pf-v5-c-input-group .pf-v5-c-button.pf-m-control:hover {
+  color: var(--nf-heading);
+}
+
+.nf-kc .pf-v5-c-input-group .pf-v5-c-button.pf-m-control::after {
+  border: 0;
+}
+
+.nf-kc #username,
+.nf-kc #password {
   padding-inline-start: 40px;
   background-repeat: no-repeat;
   background-position: 12px center;
   background-size: 18px 18px;
 }
 
-.nf-body #username {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238f8f8f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0'/%3E%3Cpath d='M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2'/%3E%3C/svg%3E");
+.nf-kc #username {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a9099' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0'/%3E%3Cpath d='M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2'/%3E%3C/svg%3E");
 }
 
-.nf-body #password {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238f8f8f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6'/%3E%3Cpath d='M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");
+.nf-kc #password {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a9099' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6'/%3E%3Cpath d='M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");
 }
 
-/* Bouton principal : la flèche de Studio (« Continuer → »). */
-.nf-body #kc-login {
+/* Boutons : plein bleu pour l'action, bordé pour les secondaires. */
+.nf-kc .pf-v5-c-button.pf-m-primary {
+  min-height: 44px;
+  border-radius: var(--nf-radius);
+  background: var(--nf-primary);
+  color: var(--nf-login-on-brand);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.nf-kc .pf-v5-c-button.pf-m-primary:hover,
+.nf-kc .pf-v5-c-button.pf-m-primary:focus-visible {
+  background: var(--nf-primary-hover);
+}
+
+.nf-kc .pf-v5-c-button.pf-m-secondary {
+  min-height: 44px;
+  border-radius: var(--nf-radius);
+  background: var(--nf-secondary);
+  color: var(--nf-heading);
+}
+
+.nf-kc .pf-v5-c-button.pf-m-secondary::after {
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+}
+
+.nf-kc .pf-v5-c-button.pf-m-secondary:hover {
+  background: var(--nf-secondary-hover);
+}
+
+.nf-kc .pf-v5-c-button:focus-visible {
+  outline: 2px solid var(--nf-focus);
+  outline-offset: 2px;
+}
+
+/* Bouton principal : la flèche de la page /login (« Connexion → »). */
+.nf-kc #kc-login {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -586,7 +480,7 @@
 /* PatternFly dessine la bordure des boutons dans `::after`, en position
    absolue : la flèche doit rendre la position au flux, sinon elle se colle
    au coin haut-gauche. */
-.nf-body #kc-login::after {
+.nf-kc #kc-login::after {
   content: "";
   position: static;
   inset: auto;
@@ -602,29 +496,23 @@
   transition: transform 0.15s ease;
 }
 
-.nf-body #kc-login:hover::after {
+.nf-kc #kc-login:hover::after {
   transform: translateX(3px);
 }
 
 /* « Se souvenir de moi » : case à la couleur de la marque. */
-.nf-body .pf-v5-c-check__input {
+.nf-kc .pf-v5-c-check__input {
   accent-color: var(--nf-primary);
   width: 20px;
   height: 20px;
 }
 
-.nf-body .pf-v5-c-check__label {
+.nf-kc .pf-v5-c-check__label {
   font-size: 14px;
   color: var(--nf-text);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .nf-body #kc-login::after {
-    transition: none;
-  }
-}
-
-/* ── Retour à l'application (Home URL du client) ────────────────────────── */
+/* ── Retour à l'application qui a demandé la connexion ──────────────────── */
 
 .nf-back-form {
   width: min(400px, 100%);
@@ -641,7 +529,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--nf-border);
+  border: 1px solid var(--nf-login-line);
   border-radius: var(--nf-radius);
   color: var(--nf-text);
   text-decoration: none;
@@ -662,7 +550,7 @@
   outline-offset: 2px;
 }
 
-.nf-back .nf-icon {
+.nf-kc .nf-back .nf-icon {
   flex: none;
   width: 18px;
   height: 18px;
@@ -686,52 +574,42 @@
   color: var(--nf-muted);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .nf-back,
-  .nf-back .nf-icon {
-    transition: none;
-  }
-}
+/* ── Pied du panneau : le périmètre SSO, quand le panneau de marque manque ── */
 
-/* ── Ce que le compte permet — lu dans les réglages du realm ────────────── */
-
-.nf-caps-title {
-  margin: 0 0 14px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.82);
-}
-
-.nf-caps {
+.nf-panel-footer {
   display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.nf-caps li {
-  display: flex;
-  align-items: flex-start;
   gap: 10px;
-  font-size: 15px;
-  line-height: 1.45;
+  width: min(400px, 100%);
+  padding-top: 20px;
+  border-top: 1px solid var(--nf-login-line);
+  font-size: 13px;
+  color: var(--nf-muted);
 }
 
-.nf-caps .nf-icon {
+.nf-panel-footer > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nf-kc .nf-panel-footer .nf-icon {
+  width: 16px;
+  height: 16px;
   flex: none;
-  width: 20px;
-  height: 20px;
-  margin-top: 1px;
-  color: #8ce99a;
 }
 
-/* Le pied du panneau droit redit le périmètre SSO : utile seulement quand le
-   panneau du realm est masqué (petits écrans), redondant sinon. */
-@media (min-width: 62em) {
-  .nf-panel-footer {
-    display: none;
+.nf-kc .nf-dot {
+  width: 7px;
+  height: 7px;
+  margin-inline: 4px;
+  border-radius: 50%;
+  background: var(--nf-login-ok);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nf-kc #kc-login::after,
+  .nf-back,
+  .nf-kc .nf-back .nf-icon {
+    transition: none;
   }
 }

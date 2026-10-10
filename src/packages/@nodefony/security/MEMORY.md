@@ -505,7 +505,19 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   `favIcon`, `styles` = variables PatternFly 5 seules ; `nodefony.css` en DEUX exemplaires
   identiques (account/admin — un type ne lit que SES ressources ; test `scaffoldContribute`).
   Sombre : `:root.pf-v5-theme-dark` redéfinit les liens en brand-4 (brand-6 sur #1b1d21 = 2,93:1).
-  Courriel : tableaux + styles en ligne, image en `url.resourcesUrl` (absolue). Login : nom du realm
+  Courriel : tableaux + styles en ligne, image en `url.resourcesUrl` (absolue).
+- **Login Keycloak = jumeau de la page /login** : `template.ftl` pose le balisage de
+  `nodefony/login.css` (`nf-layout`/`nf-hero`/`nf-stage`/`nf-card`, racine `.nf-kc` — pas
+  `.nf-body`, classe du corps de carte de login.css) ; `resources/css/login.css` = COPIE À L'OCTET
+  (test `loginStylesheet.test.ts` du cœur), `nodefony.css` = adaptation PatternFly → `--nf-login-*`
+  seulement, aucune couleur en dur. Mise en page = `nfLayout` (theme.properties, split|card|bare),
+  surchargée par un thème ENFANT de l'app (`parent=nodefony`, sa feuille après la nôtre). Thème :
+  `data-theme` posé sur <html> d'après la décision de Keycloak (`darkMode` du realm, classe
+  `pf-v5-theme-dark`) ; `nf_theme` (`KEYCLOAK_THEME_PARAMETER`, posé par `withKeycloakThemeHint`
+  depuis `IAuthorizationRequest.theme`, lui-même `?theme=` sur `/authorize`) le force pour tout le
+  flux (sessionStorage) — Keycloak SEUL le reçoit. Pièges : `backdrop-filter` de `.nf-card` fait
+  un bloc conteneur (sélecteur de langue) → `none` ; PatternFly met 64 px de marge au-dessus de
+  l'en-tête. Login : nom du realm
   en TEXTE (`displayName`/`name`), jamais `displayNameHtml` (celui de `master` porte le logo
   Keycloak). Copies du logo déclarées dans `brandAssets.test.ts` (`keycloakThemeCopies`).
 - Comptes importés : `realmRoles: [default-roles-<realm>]` (`keycloakDefaultRole`) — l'import

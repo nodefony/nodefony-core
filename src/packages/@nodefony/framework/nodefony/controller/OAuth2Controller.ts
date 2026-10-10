@@ -20,7 +20,11 @@ export interface IOAuth2Service {
    */
   listDisplayProviders?(): { name: string; label: string }[];
   getRedirects(provider?: string): { success: string; failure: string };
-  createAuthorization(provider: string): Promise<{
+  /** `options` : une version de security qui ne le lit pas l'ignore. */
+  createAuthorization(
+    provider: string,
+    options?: { theme?: "light" | "dark" },
+  ): Promise<{
     url: string;
     state: string;
     codeVerifier: string | null;
@@ -100,6 +104,20 @@ const AUTHORIZATION_ERRORS: ReadonlySet<string> = new Set([
   "account_selection_required",
   "consent_required",
 ]);
+
+/**
+ * Thème que la page appelante a rendu (`?theme=`), à transmettre à l'écran du
+ * fournisseur. Liste FERMÉE : la chaîne vient de l'URL, toute autre valeur est
+ * ignorée sans un mot — rien d'arbitraire n'atteint la requête d'autorisation.
+ *
+ * @param value - paramètre `theme` de la requête, ou `null`
+ * @returns l'option à passer à `createAuthorization`, vide hors liste
+ */
+export function providerThemeOption(value: string | null): {
+  theme?: "light" | "dark";
+} {
+  return value === "light" || value === "dark" ? { theme: value } : {};
+}
 
 /**
  * Ajoute à l'adresse d'échec le code d'erreur rendu par le fournisseur, pour
@@ -185,7 +203,10 @@ class OAuth2Controller extends Controller {
     }
     let auth: Awaited<ReturnType<IOAuth2Service["createAuthorization"]>>;
     try {
-      auth = await svc.createAuthorization(provider);
+      auth = await svc.createAuthorization(
+        provider,
+        providerThemeOption(this.#queryString("theme")),
+      );
     } catch (error) {
       // Les points d'entrée d'un fournisseur OIDC sont DÉCOUVERTS auprès de son
       // émetteur : cette étape parle au réseau. Un émetteur muet ou incohérent est

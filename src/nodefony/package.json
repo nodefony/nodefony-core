@@ -57,6 +57,7 @@
     },
     "./debugbar.js": "./dist/client/debugbar.standalone.js",
     "./assets/nodefony-logo.svg": "./assets/nodefony-logo.svg",
+    "./login.css": "./assets/login.css",
     "./assets/nodefony-logo.png": "./assets/nodefony-logo.png",
     "./package.json": "./package.json"
   },

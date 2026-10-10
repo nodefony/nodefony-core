@@ -25,7 +25,10 @@
 
 <#macro registrationLayout bodyClass="" displayInfo=false displayMessage=true displayRequiredFields=false>
 <!DOCTYPE html>
-<html class="${properties.kcHtmlClass!}" lang="${lang}"<#if realm.internationalizationEnabled> dir="${(locale.rtl)?then('rtl','ltr')}"</#if>>
+<#-- NODEFONY : `data-theme` dit à login.css le thème que KEYCLOAK a choisi — le
+     domaine peut refuser le sombre (`darkMode`), et la feuille partagée ne doit
+     jamais suivre le système contre lui. -->
+<html class="${properties.kcHtmlClass!}"<#if !darkMode> data-theme="light"</#if> lang="${lang}"<#if realm.internationalizationEnabled> dir="${(locale.rtl)?then('rtl','ltr')}"</#if>>
 
 <head>
     <meta charset="utf-8">
@@ -74,11 +77,31 @@
           const DARK_MODE_CLASS = ${properties.kcDarkModeClass?c};
           const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
-          updateDarkMode(mediaQuery.matches);
-          mediaQuery.addEventListener("change", (event) => updateDarkMode(event.matches));
+          // NODEFONY : l'application transmet le thème qu'elle a RENDU (`nf_theme`,
+          // posé par @nodefony/security sur la demande d'autorisation). Il vaut pour
+          // tout le flux : retenu en session d'onglet, puisque les pages suivantes
+          // (mot de passe erroné, second facteur) n'ont plus ce paramètre. Liste
+          // fermée ; sans lui, le système décide, comme avant.
+          const NF_THEME_KEY = "nf.theme";
+          let nfForced = null;
+          try {
+            const asked = new URLSearchParams(window.location.search).get("nf_theme");
+            if (asked === "light" || asked === "dark") sessionStorage.setItem(NF_THEME_KEY, asked);
+            const kept = sessionStorage.getItem(NF_THEME_KEY);
+            if (kept === "light" || kept === "dark") nfForced = kept;
+          } catch {
+            // Stockage refusé (navigation privée stricte) : le système décide.
+          }
+
+          updateDarkMode(nfForced ? nfForced === "dark" : mediaQuery.matches);
+          mediaQuery.addEventListener("change", (event) => {
+            if (!nfForced) updateDarkMode(event.matches);
+          });
 
           function updateDarkMode(isEnabled) {
-            const { classList } = document.documentElement;
+            const { classList, dataset } = document.documentElement;
+            // NODEFONY : login.css suit la même décision que PatternFly.
+            dataset.theme = isEnabled ? "dark" : "light";
 
             if (isEnabled) {
               classList.add(DARK_MODE_CLASS);
@@ -151,13 +174,16 @@
     </script>
 </head>
 
-<#-- ── NODEFONY : enveloppe en deux panneaux, comme l'écran de connexion de Studio ──
-     Seul ce bloc d'ouverture et sa fermeture en bas de page diffèrent du cadre
-     `keycloak.v2` : tout le reste est recopié tel quel, pour que messages,
-     choix de langue, scripts de session et formulaires imbriqués restent ceux
-     de Keycloak. -->
-<body id="keycloak-bg" class="${properties.kcBodyClass!} nf-body" data-page-id="login-${pageId}">
-<div class="nf-shell">
+<#-- ── NODEFONY : le balisage de la page /login du framework ─────────────────
+     `nf-layout` · `nf-hero` · `nf-stage` · `nf-card` : les classes de
+     `nodefony/login.css`, dont `css/login.css` est la copie conforme. La mise en
+     page suit `nfLayout` (theme.properties : split | card | bare), qu'un thème
+     enfant de l'application surcharge — la même valeur que `loginPage.layout`.
+     Seuls ce bloc d'ouverture et sa fermeture diffèrent du cadre `keycloak.v2` :
+     messages, choix de langue, scripts de session et formulaires imbriqués
+     restent ceux de Keycloak. -->
+<body id="keycloak-bg" class="${properties.kcBodyClass!} nf-kc" data-layout="${properties.nfLayout!'split'}" data-page-id="login-${pageId}">
+<div class="nf-layout">
   <#-- NODEFONY : le panneau de gauche montre le REALM et l'APPLICATION qui
        demande la connexion — uniquement avec ce que Keycloak expose aux
        gabarits, donc réglable depuis SA console, sans toucher au thème :
@@ -200,7 +226,7 @@
       <span>${msg("nfThemeCredit")}</span>
     </div>
   </aside>
-  <div class="nf-panel">
+  <div class="nf-stage">
     <#-- NODEFONY : revenir à l'application qui a demandé la connexion — pour
          choisir une autre méthode (mot de passe local, passkey, autre
          fournisseur). GÉNÉRIQUE : aucune adresse n'est écrite ni configurée.
@@ -228,7 +254,7 @@
     </form>
     </#if>
 <div class="${properties.kcLogin!}">
-  <div class="${properties.kcLoginContainer!}">
+  <div class="${properties.kcLoginContainer!} nf-card">
     <header id="kc-header" class="pf-v5-c-login__header">
       <div id="kc-header-wrapper" class="nf-compact-brand">
         <img src="${url.resourcesPath}/img/logo.png" alt="" class="nf-logo" width="19" height="30"/>

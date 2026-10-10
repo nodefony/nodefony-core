@@ -462,9 +462,14 @@ class OAuth2Service extends Service {
    * Étape 1 — prépare l'URL d'autorisation + les éléments anti-replay à stocker
    * en session (`state`, et `code_verifier` si PKCE).
    *
+   * @param options.theme - thème rendu par l'application, transmis au seul
+   *   fournisseur qui sait l'afficher (Keycloak) ; les autres l'ignorent
    * @throws AuthenticationError — fournisseur non configuré / inconnu du registre.
    */
-  async createAuthorization(provider: string): Promise<IOAuthAuthorization> {
+  async createAuthorization(
+    provider: string,
+    options: { theme?: "light" | "dark" } = {},
+  ): Promise<IOAuthAuthorization> {
     const resolved = await this.#resolveProvider(provider);
     const state = generateState();
     const codeVerifier = resolved.provider.usesPkce
@@ -474,6 +479,7 @@ class OAuth2Service extends Service {
       state,
       codeVerifier,
       scopes: resolved.scopes,
+      ...(options.theme ? { theme: options.theme } : {}),
     });
     return { url: url.toString(), state, codeVerifier };
   }

@@ -123,6 +123,34 @@ export function listOAuthProviders(): string[] {
   return [...factories.keys()];
 }
 
+/**
+ * Paramètre d'autorisation que lit le thème Keycloak livré (`template.ftl`)
+ * pour afficher l'écran dans le thème de l'application (`light` | `dark`).
+ */
+export const KEYCLOAK_THEME_PARAMETER = "nf_theme";
+
+/**
+ * Ajoute le thème demandé ({@link IAuthorizationRequest.theme}) à l'URL
+ * d'autorisation d'un fournisseur Keycloak, sous {@link KEYCLOAK_THEME_PARAMETER}.
+ *
+ * @param provider - fournisseur OIDC découvert, inchangé pour tout le reste
+ * @returns le même fournisseur, dont l'URL d'autorisation porte le thème
+ */
+export function withKeycloakThemeHint(
+  provider: IOAuthProvider,
+): IOAuthProvider {
+  return {
+    ...provider,
+    createAuthorizationURL(request) {
+      const url = provider.createAuthorizationURL(request);
+      if (request.theme === "light" || request.theme === "dark") {
+        url.searchParams.set(KEYCLOAK_THEME_PARAMETER, request.theme);
+      }
+      return url;
+    },
+  };
+}
+
 // ─── Builtins ─────────────────────────────────────────────────────────────────
 // Trois entrées seulement, et deux archétypes : OIDC par découverte (l'émetteur
 // dit tout) et OAuth simple (profil lu à l'API du fournisseur).
@@ -135,7 +163,8 @@ registerOAuthProvider("google", (ctx) =>
 // sert À LA FOIS à découvrir les endpoints et à valider l'`iss` (anti-mix-up).
 registerOAuthProvider(
   "keycloak",
-  (ctx) => createDiscoveredOidcProvider("keycloak", ctx),
+  async (ctx) =>
+    withKeycloakThemeHint(await createDiscoveredOidcProvider("keycloak", ctx)),
   { requiresIssuer: true },
 );
 // Entrée générique : tout serveur OpenID Connect, décrit par son seul émetteur.

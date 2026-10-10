@@ -9,8 +9,16 @@ import {
 } from "../../nodefony/service/oauth2";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 import type { IOAuthProvider } from "../../nodefony/contracts/IOAuthProvider";
-import { registerOAuthProvider } from "../../nodefony/src/oauth/oauthProviderRegistry";
-import { OAuth2Tokens } from "../../nodefony/src/oauth/oauth2Client";
+import { readFileSync } from "node:fs";
+import {
+  KEYCLOAK_THEME_PARAMETER,
+  registerOAuthProvider,
+  withKeycloakThemeHint,
+} from "../../nodefony/src/oauth/oauthProviderRegistry";
+import {
+  OAuth2Tokens,
+  type IAuthorizationRequest,
+} from "../../nodefony/src/oauth/oauth2Client";
 
 /**
  * OAuth2Service — orchestrateur du flux social login (sans HTTP ni réseau) :
@@ -23,14 +31,20 @@ import { OAuth2Tokens } from "../../nodefony/src/oauth/oauth2Client";
 
 const ISSUER = "https://issuer.test";
 
+/** Dernière demande d'autorisation reçue par le fournisseur factice. */
+let lastRequest: IAuthorizationRequest | null = null;
+
 const fakeProvider: IOAuthProvider = {
   usesPkce: true,
   issuerPolicy: { issuer: ISSUER, requireIssParameter: true },
   defaultScopes: ["openid"],
-  createAuthorizationURL: ({ state, codeVerifier, scopes }) =>
-    new URL(
+  createAuthorizationURL: (request) => {
+    lastRequest = request;
+    const { state, codeVerifier, scopes } = request;
+    return new URL(
       `https://idp/auth?state=${state}&cv=${codeVerifier}&s=${scopes.join(",")}`,
-    ),
+    );
+  },
   validateAuthorizationCode: () => Promise.resolve(new OAuth2Tokens({})),
   fetchProfile: (): Promise<IOAuthProfile> =>
     Promise.resolve({
@@ -161,6 +175,15 @@ describe("OAuth2Service — createAuthorization (étape 1)", () => {
     assert.ok(a.state.length > 0);
     assert.ok(a.codeVerifier && a.codeVerifier.length > 0); // PKCE
     assert.ok(a.url.includes(`state=${a.state}`));
+  });
+
+  it("transmet le thème rendu par l'application, et seulement s'il est demandé", async () => {
+    const { svc, boot } = buildService(config, makeUsers());
+    boot();
+    await svc.createAuthorization("test-oidc", { theme: "dark" });
+    assert.equal(lastRequest?.theme, "dark");
+    await svc.createAuthorization("test-oidc");
+    assert.equal(lastRequest?.theme, undefined);
   });
 
   it("provider non configuré → AuthenticationError", async () => {
@@ -940,5 +963,55 @@ describe("OAuth2Service — déconnexion par le canal arrière (Back-Channel Log
     assert.deepEqual(await svc.backchannelLogout("test-oidc", "x"), {
       outcome: "unsupported",
     });
+  });
+});
+
+describe("withKeycloakThemeHint — le thème vers l'écran Keycloak", () => {
+  const request = { state: "s", codeVerifier: "v", scopes: ["openid"] };
+  const keycloak = withKeycloakThemeHint(fakeProvider);
+
+  it("ajoute nf_theme pour clair et sombre", () => {
+    for (const theme of ["light", "dark"] as const) {
+      const url = keycloak.createAuthorizationURL({ ...request, theme });
+      assert.equal(url.searchParams.get(KEYCLOAK_THEME_PARAMETER), theme);
+    }
+  });
+
+  it("n'ajoute rien sans thème, ni pour une valeur hors liste", () => {
+    assert.equal(
+      keycloak
+        .createAuthorizationURL(request)
+        .searchParams.has(KEYCLOAK_THEME_PARAMETER),
+      false,
+    );
+    const forged = { ...request, theme: "x&prompt=none" as unknown as "dark" };
+    assert.equal(
+      keycloak
+        .createAuthorizationURL(forged)
+        .searchParams.has(KEYCLOAK_THEME_PARAMETER),
+      false,
+    );
+  });
+
+  it("le fournisseur d'origine ne le reçoit jamais dans son URL", () => {
+    const url = fakeProvider.createAuthorizationURL({
+      ...request,
+      theme: "dark",
+    });
+    assert.equal(url.searchParams.has(KEYCLOAK_THEME_PARAMETER), false);
+  });
+
+  it("le thème Keycloak livré lit ce même paramètre", () => {
+    const template = readFileSync(
+      new URL(
+        "../../keycloak/themes/nodefony/login/template.ftl",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.ok(
+      template.includes(`.get("${KEYCLOAK_THEME_PARAMETER}")`),
+      "template.ftl ne lit pas le paramètre que le serveur pose",
+    );
   });
 });

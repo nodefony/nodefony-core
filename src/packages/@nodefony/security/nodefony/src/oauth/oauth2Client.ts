@@ -269,6 +269,16 @@ export interface IAuthorizationRequest {
   /** Portées demandées ; aucune n'est ajoutée d'office. */
   readonly scopes: readonly string[];
   /**
+   * Thème d'affichage que l'application a rendu (clair ou sombre), pour que
+   * l'écran du fournisseur le reprenne.
+   *
+   * Aucun paramètre normalisé ne le porte (OIDC n'a que `ui_locales`, pour la
+   * langue) : seul un fournisseur qui sait le lire le traduit — Keycloak, en
+   * `nf_theme` que lit le thème livré. Les autres l'ignorent, et ne le
+   * reçoivent jamais : un paramètre inconnu peut être refusé.
+   */
+  readonly theme?: "light" | "dark";
+  /**
    * Paramètres versés TELS QUELS dans la requête d'autorisation.
    *
    * Un champ dédié plutôt qu'une signature d'index sur tout l'objet : celle-ci
