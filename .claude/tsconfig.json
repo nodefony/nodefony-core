@@ -12,5 +12,13 @@
     "types": ["node"]
   },
   "include": ["**/*.mjs", "**/*.js", "**/*.ts"],
-  "exclude": ["**/node_modules/**", "**/references/**", "**/dist/**"]
+  // `worktrees/` porte des COPIES entières du dépôt (`git worktree`) : les
+  // vérifier ici rapporterait les erreurs d'une autre branche, et bloquerait
+  // le pre-push pour un travail qui n'est pas celui qu'on pousse.
+  "exclude": [
+    "**/node_modules/**",
+    "**/references/**",
+    "**/dist/**",
+    "worktrees/**"
+  ]
 }
