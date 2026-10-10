@@ -616,7 +616,9 @@ L'état, `NodefonyLoginState`, se lit en une ligne :
 
 - `step` — `identifier` → `password` → `mfa` → `authenticated`. Un compte sans second facteur
   saute `mfa`. **Aucune session n'est ouverte avant `authenticated`** : le serveur répond `202`
-  au mot de passe d'un compte protégé, et ne pose le cookie qu'au bon code.
+  au mot de passe d'un compte protégé, et ne pose le cookie qu'au bon code. Ce `202` est un
+  défi à liste ouverte : `mfaMethods` n'en garde que ce que le client sait conduire (`totp`), et
+  un défi sans méthode connue reste à `password` avec une erreur `server`.
 - `pending` — une requête est en vol ; une seconde action est ignorée (double clic).
 - `error` — l'échec de la dernière action, **classé** pour que l'écran sache quoi dire :
   `credentials` (refus, 401), `throttled` (trop d'essais, 429), `network` (aucune réponse),
@@ -626,7 +628,7 @@ L'état, `NodefonyLoginState`, se lit en une ligne :
 - `providers` — les fournisseurs configurés, chargés par `loadProviders()` ; `null` avant.
 - `passkeyAvailable` — le navigateur sait-il signer ? **Constaté** : il faut
   `PublicKeyCredential.parseRequestOptionsFromJSON` et `navigator.credentials.get`
-  (`client/auth/NodefonyLogin.ts:224`), pas seulement l'existence de `PublicKeyCredential`.
+  (`client/auth/NodefonyLogin.ts:231`), pas seulement l'existence de `PublicKeyCredential`.
 
 Les actions : `submitIdentifier`, `submitPassword`, `login` (les deux d'un coup, pour un
 formulaire d'un seul écran), `submitMfaCode`, `loginWithPasskey`, `loadProviders`,
@@ -650,7 +652,7 @@ Les chemins appelés sont des constantes du cœur (`runtime/authRoutes.ts:20`) q
 framework utilise aussi pour MONTER les routes : client et serveur ne peuvent pas diverger.
 
 Chaque liaison ne fait que relayer l'état par `observeLogin()`
-(`client/auth/NodefonyLogin.ts:623`) — aucune règle n'y est réécrite. Elles rendent toutes
+(`client/auth/NodefonyLogin.ts:645`) — aucune règle n'y est réécrite. Elles rendent toutes
 `{ state, flow }` : l'état dans la réactivité du front, et l'instance qui porte les actions.
 
 | Front   | Fonction                       | `state`                             | Libéré quand                            |

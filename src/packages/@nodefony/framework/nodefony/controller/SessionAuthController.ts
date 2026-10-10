@@ -17,7 +17,7 @@ import Controller from "../src/Controller";
 /** Issue d'un login BFF — identité établie, ou second facteur (2FA) requis. */
 type ILoginOutcome =
   | { status: "authenticated"; user: unknown }
-  | { status: "mfa_required"; methods: string[] };
+  | { status: "mfa_required"; methods: readonly string[] };
 
 export interface ISessionAuthFlow {
   login(

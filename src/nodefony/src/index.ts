@@ -364,6 +364,7 @@ export {
   LOGIN_PAGE_SCRIPT_PATH,
   LOGIN_PAGE_STYLE_PATH,
   LOGIN_PAGE_LAYOUTS,
+  MFA_METHOD_TOTP,
 } from "./runtime/authRoutes";
 export type {
   LoginPageLayout,

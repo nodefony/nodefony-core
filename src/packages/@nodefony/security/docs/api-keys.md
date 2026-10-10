@@ -446,12 +446,12 @@ applicatif qu'il faut alimenter, pas le store de jetons.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:755`), branché à la racine de la config du
+Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:760`), branché à la racine de la config du
 module (`config.ts:733`). Toutes les valeurs ci-dessous sont les **défauts réels**.
 
 | Option              | Type             | Défaut | Effet                                                                                  |
 | ------------------- | ---------------- | ------ | -------------------------------------------------------------------------------------- |
-| `enabled`           | boolean          | `true` | Coupe l'émission ET le listing (l'authenticator reste déclarable) (`config.ts:735`)    |
+| `enabled`           | boolean          | `true` | Coupe l'émission ET le listing (l'authenticator reste déclarable) (`config.ts:751`)    |
 | `prefix`            | string ≤ 12      | `"nf"` | Marque des clés ; minuscules/chiffres — discrimine du JWT (`config.ts:754`)            |
 | `defaultExpiryDays` | number \| null   | `90`   | Expiration appliquée si l'appelant n'en donne pas ; `null` = jamais (`config.ts:763`)  |
 | `lastUsedThrottleS` | number (s)       | `60`   | Coalescence d'écriture de `lastUsedAt` ; `0` = à chaque usage (`config.ts:770`)        |

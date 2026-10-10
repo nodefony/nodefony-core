@@ -66,7 +66,7 @@ flowchart TD
 
 Tant que le second facteur n'est pas validé, **l'identité n'est pas établie** : `session.user` reste
 vide et le Zero Trust du firewall répond 401 sur tout le reste (`AuthFlow.login()`,
-`authFlow.ts:117`).
+`authFlow.ts:142`).
 
 ## 📖 Lexique
 
@@ -130,9 +130,9 @@ WebAuthn et OAuth : le firewall n'a qu'un seul mécanisme à connaître, la **se
 
 > [!IMPORTANT]
 > Le couplage est fait **par nom de service**, jamais par import : `AuthFlow` ne connaît du 2FA
-> qu'une interface locale de trois méthodes (`ITotpLoginVerifier`, `authFlow.ts:61`). 2FA désactivé
+> qu'une interface locale de trois méthodes (`ITotpLoginVerifier`, `authFlow.ts:70`). 2FA désactivé
 > ⇒ service absent ⇒ le login nominal **ne paie strictement rien** (`AuthFlow.#resolveTotp()`,
-> `authFlow.ts:558`).
+> `authFlow.ts:571`).
 
 ## 🚀 Démarrage rapide
 
@@ -208,6 +208,12 @@ Et côté login, deux routes du flux de session BFF (`mountSessionAuthRoutes()`,
 | --------------------------------------------- | ------------------------ | ------------------------------------------ |
 | `POST /nodefony/security/api/auth/login`      | `{ username, password }` | `200` + identité, **ou** `202 mfaRequired` |
 | `POST /nodefony/security/api/auth/login/totp` | `{ code }`               | `200` + identité, `401`, ou `429`          |
+
+Le `202` est un **défi**, pas un succès : `{ mfaRequired: true, methods: [...] }`. La liste
+`methods` est **ouverte** — aujourd'hui `["totp"]` (`MFA_METHOD_TOTP`, exporté par `nodefony`),
+demain une passkey ou un code par courriel s'y ajouteront sans rupture. Un client ne retient que
+les méthodes qu'il sait conduire ; `NodefonyLogin` traite un défi sans aucune méthode connue comme
+une réponse inattendue (erreur `server`), jamais comme un écran de code.
 
 > [!WARNING]
 > Les routes `totp/*` **n'ont pas** `bypassFirewall` (`TotpController.ts:52`) : elles vivent dans la
@@ -340,7 +346,7 @@ Trois propriétés à retenir de `AuthFlow.completeMfaLogin()` (`authFlow.ts:278
    (`authFlow.ts:283`), posée par le login, **consommée** avant l'ouverture de session
    (`authFlow.ts:301`).
 2. **Le code à 6 chiffres est throttlé** comme un mot de passe — même backoff partagé
-   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:547`) : 10⁶ combinaisons se forcent brute en
+   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:560`) : 10⁶ combinaisons se forcent brute en
    quelques minutes sans lui. Trop de tentatives → `429` + `Retry-After`.
 3. **Un échec ne détruit pas le défi** — l'utilisateur qui s'est trompé de chiffre ressaisit ; il
    n'a pas à refaire son mot de passe.
@@ -710,7 +716,7 @@ hachage — c'est la preuve d'interopérabilité, pas une auto-évaluation.
 
 Le 2FA est un chemin **froid** : il ne coûte rien tant qu'on ne se connecte pas.
 
-- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:558`)
+- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:571`)
   résout le service **une seule fois** puis met le résultat en cache. Service absent ⇒ `null` ⇒
   **zéro accès au store**, zéro allocation par login.
 - **Aucun coût par requête** : le TOTP n'est pas un authenticator du firewall, il ne s'exécute donc

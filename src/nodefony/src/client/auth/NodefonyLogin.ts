@@ -3,6 +3,7 @@ import {
   AUTH_LOGIN_TOTP_PATH,
   AUTH_LOGOUT_PATH,
   AUTH_ME_PATH,
+  MFA_METHOD_TOTP,
   OAUTH2_PROVIDERS_PATH,
   WEBAUTHN_LOGIN_OPTIONS_PATH,
   WEBAUTHN_LOGIN_VERIFY_PATH,
@@ -19,13 +20,17 @@ import {
  */
 export type LoginStep = "identifier" | "password" | "mfa" | "authenticated";
 
+// Seconds facteurs que ce client sait conduire (`submitMfaCode`).
+const SUPPORTED_MFA: ReadonlySet<unknown> = new Set([MFA_METHOD_TOTP]);
+
 /**
  * Nature d'un échec, classée pour que l'écran sache QUOI dire.
  *
  * - `credentials` : refus du serveur (401/403) — message uniforme relayé tel quel ;
  * - `throttled` : trop d'essais (429) — porte son échéance ;
  * - `network` : aucune réponse du serveur ;
- * - `server` : le serveur a répondu autrement (5xx, réponse inattendue) ;
+ * - `server` : le serveur a répondu autrement (5xx, réponse inattendue — dont
+ *   un défi de second facteur qui ne propose aucune méthode connue) ;
  * - `cancelled` : l'utilisateur a refermé l'invite de passkey ;
  * - `unsupported` : le navigateur ne sait pas faire ce qui est demandé.
  */
@@ -76,7 +81,10 @@ export interface NodefonyLoginState {
   readonly pending: boolean;
   /** Identité de la session, `null` tant qu'elle n'est pas ouverte. */
   readonly user: NodefonyLoginUser | null;
-  /** Seconds facteurs proposés par le serveur à l'étape `mfa`. */
+  /**
+   * Seconds facteurs proposés par le serveur à l'étape `mfa`, réduits à ceux
+   * que ce client sait conduire (aujourd'hui `totp`).
+   */
   readonly mfaMethods: readonly string[];
   readonly error: NodefonyLoginError | null;
   /** Fournisseurs configurés ; `null` tant que {@link NodefonyLogin.loadProviders} n'a pas répondu. */
@@ -346,14 +354,24 @@ export class NodefonyLogin {
         password,
       });
       if (reply.status === 202 && field(reply.body, "mfaRequired") === true) {
+        // Défi : liste OUVERTE. On ne retient que ce qu'on sait conduire ;
+        // rien de connu = réponse inattendue, jamais un écran de code inutile.
         const methods = field(reply.body, "methods");
-        return this.#set({
-          step: "mfa",
-          pending: false,
-          mfaMethods: Array.isArray(methods)
-            ? methods.filter((m): m is string => typeof m === "string")
-            : ["totp"],
-        });
+        const usable = Array.isArray(methods)
+          ? methods.filter((m): m is string => SUPPORTED_MFA.has(m))
+          : [];
+        if (usable.length === 0) {
+          return this.#set({
+            pending: false,
+            error: {
+              kind: "server",
+              message: "",
+              status: reply.status,
+              retryAt: null,
+            },
+          });
+        }
+        return this.#set({ step: "mfa", pending: false, mfaMethods: usable });
       }
       return this.#settle(reply);
     });

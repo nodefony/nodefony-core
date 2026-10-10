@@ -705,7 +705,7 @@ sont `unref()` (`webhooks.ts:222`), donc ils n'empêchent jamais Node de sortir.
 
 ## ⚙️ Configuration
 
-Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:805`), lue via
+Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:810`), lue via
 `use("@nodefony/security", { webhooks: … })`.
 
 | Option                 | Type       | Défaut     | Effet                                                                                                       |

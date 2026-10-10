@@ -173,6 +173,45 @@ describe("NodefonyLogin — second facteur", () => {
     expect(srv.appels.at(-1)!.corps).toEqual({ code: "123456" });
   });
 
+  // Le 202 est un DÉFI à liste OUVERTE : le client ne garde que ce qu'il sait
+  // conduire, et ne montre jamais un écran de code qui ne peut pas aboutir.
+  const defi = (corps: Record<string, unknown>) =>
+    serveur({
+      [`POST ${AUTH_LOGIN_PATH}`]: () => ({ status: 202, body: corps }),
+    });
+
+  it("une méthode inconnue mêlée à `totp` est ignorée", async () => {
+    const srv = defi({ mfaRequired: true, methods: ["sms", "totp", 7] });
+    const flow = new NodefonyLogin({ fetch: srv.fetch, passkey: null });
+    expect(await flow.login("admin", "secret")).toMatchObject({
+      step: "mfa",
+      mfaMethods: ["totp"],
+      error: null,
+    });
+  });
+
+  for (const [titre, corps] of [
+    [
+      "seulement des méthodes inconnues",
+      { mfaRequired: true, methods: ["sms"] },
+    ],
+    ["une liste vide", { mfaRequired: true, methods: [] }],
+    ["sans liste", { mfaRequired: true }],
+  ] as const) {
+    it(`un défi avec ${titre} → erreur \`server\`, on reste au mot de passe`, async () => {
+      const srv = defi(corps);
+      const flow = new NodefonyLogin({ fetch: srv.fetch, passkey: null });
+      const etat = await flow.login("admin", "secret");
+      expect(etat).toMatchObject({
+        step: "password",
+        user: null,
+        mfaMethods: [],
+        pending: false,
+        error: { kind: "server", status: 202 },
+      });
+    });
+  }
+
   it("un code faux reste à `mfa`, avec le refus uniforme du serveur", async () => {
     const flow = new NodefonyLogin({
       fetch: avecTotp("123456").fetch,

@@ -135,7 +135,7 @@ lourds s'enregistrent depuis **leur** module. Un
 ## 🚀 Démarrage rapide
 
 Dans une app générée par `nodefony create app`, l'audit est **déjà actif** (`enabled: true` par
-défaut, `config.ts:729`) sur le store que résout `auto` : la base SQLite locale de l'application
+défaut, `config.ts:751`) sur le store que résout `auto` : la base SQLite locale de l'application
 générée, la mémoire seulement si aucun ORM n'est chargé. Voici le parcours complet : configurer, émettre,
 relire.
 
@@ -491,7 +491,7 @@ jamais faire tomber ce qu'on supervise.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `auditSchema` (`config.ts:905`), rattaché à la racine sous la clé `audit`
+Table dérivée du schéma Zod `auditSchema` (`config.ts:910`), rattaché à la racine sous la clé `audit`
 (`config.ts:1316`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
@@ -670,7 +670,7 @@ Deux autres propriétés de sécurité valent d'être connues :
 | Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts:49`)                                 |
 | Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts:61`) |
 | Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts:48`)                |
-| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:934`)                       |
+| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:939`)                       |
 | Détection de rejeu de jeton               | RFC 9700 §4.14                    | `token.reuse_detected` + coupure de famille (`tokenService.ts:585`)               |
 | Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:941`)                   |
 

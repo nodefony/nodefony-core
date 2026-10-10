@@ -3,6 +3,7 @@ import {
   Module,
   Container,
   RequestContext,
+  MFA_METHOD_TOTP,
   SESSION_AMR_KEY,
   SESSION_AUTH_AT_KEY,
 } from "nodefony";
@@ -28,6 +29,10 @@ interface IFederatedLogout {
 interface IDisplayProviders {
   listDisplayProviders(): readonly ILoginPageProvider[];
 }
+
+// Seconds facteurs proposés au défi (`202`). Liste OUVERTE : une méthode
+// s'ajoute ici sans rupture, un client qui ne la connaît pas l'ignore.
+const MFA_METHODS: readonly string[] = Object.freeze([MFA_METHOD_TOTP]);
 
 const serviceName = "authFlow";
 
@@ -55,7 +60,7 @@ export interface ISafeUser {
  */
 export type ILoginOutcome =
   | { status: "authenticated"; user: ISafeUser }
-  | { status: "mfa_required"; methods: ["totp"] };
+  | { status: "mfa_required"; methods: readonly string[] };
 
 /**
  * Vue MINIMALE du service `totp` (`@nodefony/security`) — couplage par NOM dans
@@ -205,7 +210,7 @@ class AuthFlow extends Service {
         reason: "totp",
         ...info,
       });
-      return { status: "mfa_required", methods: ["totp"] };
+      return { status: "mfa_required", methods: MFA_METHODS };
     }
 
     await this.#openSession(context, user.identifier, "password");

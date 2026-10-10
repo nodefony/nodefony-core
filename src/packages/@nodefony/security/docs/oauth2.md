@@ -692,7 +692,7 @@ retirer de la configuration.
 technique brut.
 
 Côté suivi, chaque login réussi produit un événement d'audit `auth` / `login.success` via
-`AuthFlow.establishSessionFor()` (`authFlow.ts:215-222`), consultable dans l'écran **Audit**. La
+`AuthFlow.establishSessionFor()` (`authFlow.ts:245-271`), consultable dans l'écran **Audit**. La
 session ouverte apparaît dans l'écran **Sessions** (IP et agent capturés à l'ouverture) ; le compte
 provisionné dans l'écran **Users**, avec ses rôles réels.
 

@@ -353,7 +353,7 @@ exactement les porteurs à risque de verrouillage.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `passkeysSchema` (`config.ts:483`), monté sous la clé `passkeys`
+Table dérivée du schéma Zod `passkeysSchema` (`config.ts:488`), monté sous la clé `passkeys`
 (`config.ts:1300`).
 
 | Option                    | Type                                       | Défaut       | Effet                                                                          |
@@ -453,7 +453,7 @@ Pour une session authentifiée, le serveur charge **toutes** les passkeys du por
 `allowCredentials` doit être complet ou il est faux : un authenticator absent de la liste ne peut pas
 répondre, et le protocole n'offre aucune « page suivante » (`IWebAuthnCredentialStore.ts:88`).
 
-Ce qui borne donc cette lecture, c'est **`passkeys.maxPerUser`** (défaut 20, `config.ts:515`) :
+Ce qui borne donc cette lecture, c'est **`passkeys.maxPerUser`** (défaut 20, `config.ts:542`) :
 
 - le refus est un `409` porté par `WebAuthnError` (`WebAuthnError.ts:15`), rendu **tel quel** au
   client parce qu'il est authentifié — rien à énumérer, et il doit comprendre qu'il faut retirer un
@@ -654,7 +654,7 @@ passkey (`AuthStore.loginWithPasskey()`, `AuthStore.ts:212`).
 | Flags de sauvegarde (BE/BS)         | W3C WebAuthn §6.1.3                | `IWebAuthnCredential.backupEligible` (`IWebAuthnCredential.ts:29`) |
 | Liaison à l'origine (anti-phishing) | W3C WebAuthn §13.4.8               | `WebAuthnService.#expectedOrigin()` (`webAuthn.ts:528`)            |
 | Clé publique COSE                   | RFC 8152 / RFC 9052                | `IWebAuthnCredential.publicKey` (`IWebAuthnCredential.ts:16`)      |
-| FIDO2 / CTAP2                       | plafond `maxCredentialCountInList` | `passkeys.maxPerUser` (`config.ts:515`)                            |
+| FIDO2 / CTAP2                       | plafond `maxCredentialCountInList` | `passkeys.maxPerUser` (`config.ts:542`)                            |
 | Assurance d'authentification        | NIST SP 800-63B (AAL2)             | `passkeys.userVerification` (`config.ts:483`)                      |
 | Contrôle d'accès (IDOR)             | OWASP A01                          | `WebAuthnService.removeUserCredential()` (`webAuthn.ts:502`)       |
 

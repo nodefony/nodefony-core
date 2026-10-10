@@ -67,6 +67,17 @@ export function oauth2AuthorizePath(provider: string, from?: string): string {
 }
 
 /**
+ * Méthode de second facteur « code à usage unique » : un code TOTP, ou un
+ * code de récupération, présenté à {@link AUTH_LOGIN_TOTP_PATH}.
+ *
+ * Le `202` du login est un DÉFI : il porte la liste `methods` des seconds
+ * facteurs acceptés, liste OUVERTE (passkey, code par courriel… s'y ajouteront
+ * sans rupture). Un client ne retient que celles qu'il sait conduire, et
+ * traite une liste sans aucune d'elles comme une réponse inattendue.
+ */
+export const MFA_METHOD_TOTP = "totp";
+
+/**
  * Chemin par défaut de la page de connexion servie par le framework.
  *
  * Défaut de `security.loginPage.path`, et donc de la redirection d'échec d'un
