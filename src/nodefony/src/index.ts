@@ -363,6 +363,12 @@ export {
   LOGIN_PAGE_ASSETS_BASE,
   LOGIN_PAGE_SCRIPT_PATH,
   LOGIN_PAGE_STYLE_PATH,
+  LOGIN_PAGE_LAYOUTS,
+} from "./runtime/authRoutes";
+export type {
+  LoginPageLayout,
+  ILoginPageProvider,
+  ILoginPageDescription,
 } from "./runtime/authRoutes";
 export { safeRedirectPath } from "./runtime/safeRedirect";
 export {

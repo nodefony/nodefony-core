@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T00:08:49.559Z",
+  "generatedAt": "2026-10-10T07:45:08.503Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 104,
+      "closed": 105,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 41,
+      "open": 40,
       "title": "10.0.0-beta"
     },
     {
@@ -2573,8 +2573,8 @@
       "number": 546,
       "title": "feat(client): fournir le déroulé de connexion sans interface imposée",
       "url": "https://github.com/nodefony/nodefony-core/issues/546",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2622,7 +2622,7 @@
       "title": "refactor(studio): passer la connexion de la console sur le déroulé partagé",
       "url": "https://github.com/nodefony/nodefony-core/issues/549",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,

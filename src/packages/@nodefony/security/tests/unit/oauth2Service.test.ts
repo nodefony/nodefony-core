@@ -130,6 +130,27 @@ describe("OAuth2Service — boot + introspection", () => {
     boot();
     assert.deepEqual(svc.getRedirects(), { success: "/", failure: "/login" });
   });
+
+  it("l'échec suit la page de connexion quand elle change de chemin", () => {
+    const { svc, boot } = buildService(
+      { ...config, loginPage: { path: "/connexion" } },
+      makeUsers(),
+    );
+    boot();
+    assert.equal(svc.getRedirects("test-oidc").failure, "/connexion");
+  });
+
+  it("un failureRedirect réglé l'emporte sur la page de connexion", () => {
+    const { svc, boot } = buildService(
+      {
+        oauth2: { ...config.oauth2, failureRedirect: "/oups" },
+        loginPage: { path: "/connexion" },
+      },
+      makeUsers(),
+    );
+    boot();
+    assert.equal(svc.getRedirects("test-oidc").failure, "/oups");
+  });
 });
 
 describe("OAuth2Service — createAuthorization (étape 1)", () => {

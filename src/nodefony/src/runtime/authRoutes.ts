@@ -76,6 +76,52 @@ export function oauth2AuthorizePath(provider: string, from?: string): string {
 export const LOGIN_PAGE_PATH = "/login";
 
 /**
+ * Modes de mise en page de la page de connexion par défaut.
+ *
+ * Le balisage ne change jamais : le mode se pose sur `<body data-layout>` et
+ * la feuille de style en dérive la disposition. `card` centre un panneau,
+ * `split` partage l'écran entre une illustration et le formulaire, `bare` ne
+ * garde que le formulaire. Source unique du schéma de `security.loginPage`.
+ */
+export const LOGIN_PAGE_LAYOUTS = ["card", "split", "bare"] as const;
+
+/** Un mode de mise en page de la page de connexion (`loginPage.layout`). */
+export type LoginPageLayout = (typeof LOGIN_PAGE_LAYOUTS)[number];
+
+/** Fournisseur d'identité proposé sur la page de connexion. */
+export interface ILoginPageProvider {
+  /** Nom du fournisseur, tel qu'il figure dans l'adresse d'autorisation. */
+  readonly name: string;
+  /** Libellé affiché sur le bouton. */
+  readonly label: string;
+}
+
+/**
+ * Ce que la page de connexion par défaut doit afficher, décrit par la sécurité
+ * et lu par le contrôleur qui la sert.
+ *
+ * Contrat entre `@nodefony/security` (qui le produit, `authFlow.describeLoginPage()`)
+ * et `@nodefony/framework` (qui le rend) : il vit au cœur parce qu'aucun des
+ * deux paquets n'importe l'autre.
+ */
+export interface ILoginPageDescription {
+  /** Chemin où la page est servie (`loginPage.path`). */
+  readonly path: string;
+  /** Titre de la page, ou `null` pour le titre par défaut. */
+  readonly title: string | null;
+  /** Adresse du logo, ou `null` pour celui de Nodefony. */
+  readonly logo: string | null;
+  /** Gabarit `.eta` de l'application qui remplace celui du framework, ou `null`. */
+  readonly template: string | null;
+  /** Mode de mise en page. */
+  readonly layout: LoginPageLayout;
+  /** Le formulaire identifiant et mot de passe est-il proposé ? */
+  readonly password: boolean;
+  /** Fournisseurs à proposer, dans l'ordre de la configuration. */
+  readonly providers: readonly ILoginPageProvider[];
+}
+
+/**
  * Base des fichiers de la page de connexion par défaut (script, feuille de
  * style). Distincte de la page elle-même, dont le chemin se règle
  * (`loginPage.path`) : ces fichiers ne changent pas d'adresse quand la page

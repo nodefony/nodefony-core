@@ -1,4 +1,8 @@
-import { AUTH_API_BASE, type Module } from "nodefony";
+import {
+  AUTH_API_BASE,
+  type ILoginPageDescription,
+  type Module,
+} from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
 import Controller from "../src/Controller";
@@ -33,6 +37,12 @@ export interface ISessionAuthFlow {
   ): Promise<{ destroyed: boolean; logoutUrl: string | null }>;
   /** Identité courante, ou `null` sans session authentifiée. */
   me(context: ContextType): Promise<unknown>;
+  /**
+   * Ce que la page de connexion par défaut doit afficher, ou `null` quand
+   * elle est désactivée. Optionnelle : une version de `@nodefony/security`
+   * qui ne l'expose pas encore laisse la page absente (404).
+   */
+  describeLoginPage?(): ILoginPageDescription | null;
 }
 
 // Montage one-shot par process (même sémantique que `Router.setController`,

@@ -1,4 +1,5 @@
 import { Service, Module, Container, RequestContext } from "nodefony";
+import type { ILoginPageDescription, ILoginPageProvider } from "nodefony";
 import type { ContextType, SessionsService, ISession } from "@nodefony/http";
 import { requestUser } from "@nodefony/user";
 import type { IUser, IUserProvider, IPasswordVerifier } from "@nodefony/user";
@@ -8,10 +9,16 @@ import type { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { resolveSessionIdentity } from "../src/sessionIdentity";
 import { recordAudit } from "../src/audit/recordAudit";
 import { readAuditContext } from "../src/audit/readAuditContext";
+import { securityConfigSchema, type ISecurityConfig } from "../config/config";
 
 /** Ce qu'AuthFlow lit du service `oauth2` — résolu par nom, absent sans social login. */
 interface IFederatedLogout {
   logoutUrlFor(session: ISession | null): Promise<string | null>;
+}
+
+/** Ce qu'AuthFlow lit du service `oauth2` pour la page de connexion. */
+interface IDisplayProviders {
+  listDisplayProviders(): readonly ILoginPageProvider[];
 }
 
 const serviceName = "authFlow";
@@ -90,6 +97,10 @@ class AuthFlow extends Service {
   // le chemin login nominal (sans 2FA) ne paie aucun accès store.
   #totp: ITotpLoginVerifier | null = null;
   #totpResolved = false;
+  // Section `loginPage` lue UNE fois, à la première description (seules les
+  // requêtes de la page la paient). null + résolu = configuration invalide.
+  #loginPage: ISecurityConfig["loginPage"] | null = null;
+  #loginPageResolved = false;
 
   constructor(public module: Module) {
     super(
@@ -408,6 +419,50 @@ class AuthFlow extends Service {
       if (error instanceof AuthenticationError) return null;
       throw error;
     }
+  }
+
+  /**
+   * Décrit la page de connexion par défaut : ce qu'elle propose et comment
+   * elle s'habille, depuis `security.loginPage` et les fournisseurs
+   * opérationnels.
+   *
+   * Lue par le contrôleur de `@nodefony/framework`, qui n'importe pas ce
+   * paquet. Les fournisseurs sont relus à chaque appel : l'un d'eux peut
+   * tomber ou revenir pendant que le serveur tourne.
+   *
+   * @returns la description, ou `null` quand la page par défaut est
+   *   désactivée (`loginPage.enabled: false`) ou la configuration invalide —
+   *   le contrôleur répond alors 404.
+   */
+  describeLoginPage(): ILoginPageDescription | null {
+    const page = this.#resolveLoginPage();
+    if (page === null || !page.enabled) {
+      return null;
+    }
+    const offered =
+      this.get<IDisplayProviders>("oauth2")?.listDisplayProviders() ?? [];
+    return {
+      path: page.path,
+      title: page.title ?? null,
+      logo: page.logo ?? null,
+      template: page.template ?? null,
+      layout: page.layout,
+      password: page.password,
+      // Copie au contrat : rien d'autre de la configuration d'un fournisseur
+      // n'atteint le gabarit.
+      providers: offered.map(({ name, label }) => ({ name, label })),
+    };
+  }
+
+  #resolveLoginPage(): ISecurityConfig["loginPage"] | null {
+    if (!this.#loginPageResolved) {
+      this.#loginPageResolved = true;
+      // Configuration invalide : le firewall la signale au boot (CRITIC) et
+      // ferme l'accès ; la page ne s'affiche pas.
+      const parsed = securityConfigSchema.safeParse(this.options);
+      this.#loginPage = parsed.success ? parsed.data.loginPage : null;
+    }
+    return this.#loginPage;
   }
 
   // Ouvre (ou reprend) la session puis applique l'anti-fixation : ID régénéré

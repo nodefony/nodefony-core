@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  LOGIN_PAGE_LAYOUTS,
+  LOGIN_PAGE_PATH,
+  safeRedirectPath,
+} from "nodefony";
 import { parseKeySet } from "../src/token/JwtKeystore";
 import {
   isPlatformRole,
@@ -970,6 +975,63 @@ const studioSchema = z
     "Sécurité de la console Studio — durcissement exposition publique.",
   );
 
+// Page de connexion servie par le framework (ADR-0015). Le contrôleur vit dans
+// @nodefony/framework et lit cette section par `authFlow.describeLoginPage()`.
+const loginPageSchema = z
+  .strictObject({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Sert la page de connexion par défaut. false = l'application sert la sienne au même chemin (`useNodefonyLogin`) : les redirections continuent d'y mener.",
+      ),
+    path: z
+      .string()
+      .default(LOGIN_PAGE_PATH)
+      .refine(
+        // `p.length` d'abord : le vide s'égalerait au repli vide.
+        (p) => p.length > 0 && safeRedirectPath(p, "") === p && !/[?#]/.test(p),
+        "chemin local attendu, sans requête ni fragment (`/login`)",
+      )
+      .describe(
+        "Chemin de la page de connexion. La redirection d'échec d'un fournisseur et le retour après déconnexion fédérée le suivent, sauf s'ils sont réglés.",
+      ),
+    title: z
+      .string()
+      .min(1)
+      .optional()
+      .describe("Titre de la page. Omis = titre par défaut."),
+    logo: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Adresse du logo affiché (chemin servi par l'application ou URL). Omis = logo Nodefony.",
+      ),
+    template: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Chemin d'un gabarit `.eta` de l'application qui REMPLACE celui du framework. Dernier recours : les variables `--nf-login-*` et `layout` suffisent à l'habillage.",
+      ),
+    password: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Propose le formulaire identifiant et mot de passe. false = connexion par fournisseur seulement (SSO).",
+      ),
+    layout: z
+      .enum(LOGIN_PAGE_LAYOUTS)
+      .default("split")
+      .describe(
+        "Mise en page : `split` (illustration et formulaire côte à côte), `card` (panneau centré), `bare` (formulaire seul).",
+      ),
+  })
+  .describe(
+    "Page de connexion servie par le framework, sans front (ADR-0015).",
+  );
+
 // Configuration d'UN fournisseur OAuth/OIDC (Google, GitHub, Microsoft...). Les
 // secrets (clientId/clientSecret) sont fournis par l'app depuis son `env.ts` —
 // JAMAIS loggés (le service ne journalise que les NOMS de fournisseurs).
@@ -1161,9 +1223,9 @@ const oauth2Schema = z
       .describe("Redirection après login réussi."),
     failureRedirect: z
       .string()
-      .default("/login")
+      .optional()
       .describe(
-        "Redirection après échec (state invalide, refus utilisateur...).",
+        "Redirection après échec (state invalide, refus utilisateur...). Omis = la page de connexion (`loginPage.path`).",
       ),
     providers: z
       .record(z.string(), oauthProviderSchema)
@@ -1251,6 +1313,7 @@ export const securityConfigSchema = z.strictObject({
         "RÉSERVÉ — Token Exchange RFC 8693 (délégation agents/MCP). Slot P12, aucun champ encore lu par le runtime.",
     }),
   oauth2: oauth2Schema.default(() => oauth2Schema.parse({})),
+  loginPage: loginPageSchema.default(() => loginPageSchema.parse({})),
   apiKeys: apiKeysSchema.default(() => apiKeysSchema.parse({})),
   webhooks: webhooksSchema.default(() => webhooksSchema.parse({})),
   audit: auditSchema.default(() => auditSchema.parse({})),

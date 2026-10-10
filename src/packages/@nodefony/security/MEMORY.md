@@ -406,6 +406,12 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
   passkeys/totp/tokenExchange/realtimeChannels). Tout `enabled` (désactivable). `oauth2` : `{enabled, defaultRoles:
 ["ROLE_USER"], allowSignup, successRedirect, failureRedirect, providers:{<name>:{clientId, clientSecret,
 redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
+- `loginPage` (ADR-0015) : `{enabled:true, path:LOGIN_PAGE_PATH (cœur), title?, logo?, template?, password:true,
+layout:"split"|"card"|"bare" (LOGIN_PAGE_LAYOUTS, cœur)}` ; `path` = chemin local sans `?`/`#` (`safeRedirectPath`).
+  Lue par `authFlow.describeLoginPage()` → `ILoginPageDescription | null` (type AU CŒUR, consommé par framework sans
+  importer security) ; `null` = désactivée ou config invalide → 404. Fournisseurs relus à chaque appel, réduits à
+  `{name,label}`. `oauth2.failureRedirect` OPTIONNEL : omis = `loginPage.path` (`getRedirects`), donc aussi le retour
+  de déconnexion fédérée.
 - `resourceServer` = **jetons émis AILLEURS** (≠ `jwt`, qui décrit ceux que Nodefony émet) :
   `{issuers:[{issuer, jwksUri?, algorithms:["RS256","ES256","EdDSA"], typ?, requiredClaims:[],
 subjectMapping:"prefixed"|"subject"}],

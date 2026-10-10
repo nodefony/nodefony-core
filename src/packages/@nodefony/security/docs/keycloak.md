@@ -105,7 +105,7 @@ le fournisseur `keycloak` les **découvre** à partir de l'émetteur, et c'est t
 pas une URL `https` sans requête ni fragment, lève une erreur qui nomme la clé
 (`checkProviderIssuer()`, `oauth2.ts:210`). Un Keycloak **éteint**, lui, ne bloque rien : le bouton
 disparaît de l'écran de connexion et revient tout seul quand le realm répond à nouveau
-(`#isReachable()`, `oauth2.ts:808`).
+(`#isReachable()`, `oauth2.ts:816`).
 
 **L'identité est la paire `(keycloak, sub)`, jamais l'email.** Au premier login, l'application crée
 un compte local lié à cette paire (`UserService.provisionOAuthUser()`, `UserService.ts:361`). Un

@@ -4,6 +4,7 @@ import {
   Container,
   BootConfigurationError,
   canonicalIssuer,
+  LOGIN_PAGE_PATH,
 } from "nodefony";
 import type { IUser, IOAuthUserProvisioner } from "@nodefony/user";
 import {
@@ -440,13 +441,20 @@ class OAuth2Service extends Service {
   /**
    * Redirections post-login (succès / échec) — lues par le controller.
    * Surcharge PAR FOURNISSEUR si fournie, sinon valeur globale, sinon défaut.
+   *
+   * @remarks L'échec mène par défaut à la page de connexion (`loginPage.path`) :
+   * déplacer la page déplace la redirection, les deux ne peuvent pas diverger.
    */
   getRedirects(provider?: string): { success: string; failure: string } {
     const o = this.#config?.oauth2;
     const p = provider ? o?.providers[provider] : undefined;
     return {
       success: p?.successRedirect ?? o?.successRedirect ?? "/",
-      failure: p?.failureRedirect ?? o?.failureRedirect ?? "/login",
+      failure:
+        p?.failureRedirect ??
+        o?.failureRedirect ??
+        this.#config?.loginPage.path ??
+        LOGIN_PAGE_PATH,
     };
   }
 
