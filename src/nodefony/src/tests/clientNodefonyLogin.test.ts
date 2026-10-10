@@ -7,7 +7,7 @@
  * réponse que le framework rend réellement (`SessionAuthController`,
  * `WebAuthnController`, `OAuth2Controller`).
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   NodefonyLogin,
   observeLogin,
@@ -473,6 +473,25 @@ describe("NodefonyLogin — fournisseurs, session, abonnement", () => {
     flow.startProvider("x y");
     expect(vers).toEqual([
       "https://app.test/nodefony/security/api/oauth2/x%20y/authorize",
+    ]);
+  });
+
+  it("`startProvider` revient par défaut sur la page qui lance le flux", () => {
+    const vers: string[] = [];
+    const flow = new NodefonyLogin({
+      fetch: serveur({}).fetch,
+      navigate: (url) => vers.push(url),
+    });
+    vi.stubGlobal("location", { pathname: "/nodefony/login", search: "?x=1" });
+    try {
+      flow.startProvider("keycloak", "/admin");
+      flow.startProvider("keycloak", undefined, "/ailleurs");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(vers).toEqual([
+      "/nodefony/security/api/oauth2/keycloak/authorize?from=%2Fadmin&back=%2Fnodefony%2Flogin%3Fx%3D1",
+      "/nodefony/security/api/oauth2/keycloak/authorize?back=%2Failleurs",
     ]);
   });
 

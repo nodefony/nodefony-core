@@ -225,7 +225,7 @@ export default defineConfig<typeof env>((ctx) => ({
 
 ### Les routes sont FOURNIES — tu n'écris aucun controller
 
-`mountOAuth2Routes()` (`OAuth2Controller.ts:394`) monte quatre routes sous
+`mountOAuth2Routes()` (`OAuth2Controller.ts:432`) monte quatre routes sous
 `/nodefony/security/api/oauth2` (`OAuth2Controller.ts:373`) dès que le service `oauth2` est
 enregistré, c'est-à-dire dès que `@nodefony/security` est chargé (`framework/index.ts:460`) :
 
@@ -245,7 +245,7 @@ Ton écran de login n'a donc qu'un lien à poser :
 ```
 
 > [!WARNING]
-> Ces routes portent `bypassFirewall: true` (`OAuth2Controller.ts:430`) — elles **sont** le mécanisme
+> Ces routes portent `bypassFirewall: true` (`OAuth2Controller.ts:468`) — elles **sont** le mécanisme
 > d'authentification : l'utilisateur est anonyme pendant tout l'aller-retour. Les protéger créerait
 > un interblocage (il faudrait être connecté pour pouvoir se connecter). La session anonyme ne porte
 > que `state`/`code_verifier`, et son ID est **régénéré** à la promotion. Le canal arrière, lui,
@@ -291,18 +291,18 @@ Séquence identique prouvée de bout en bout sur serveur réel par `oauth2-flow.
    (ceux de la config, sinon les scopes par défaut du fournisseur, `oauth2.ts:576`).
 
 Le controller pose les trois valeurs en session, **persiste** (`session.save()` — pas seulement en
-mémoire, `OAuth2Controller.ts:59`), puis redirige en 302.
+mémoire, `OAuth2Controller.ts:64`), puis redirige en 302.
 
 ### Étape 2 — le retour, validé avant tout appel réseau
 
-`OAuth2Controller.callback()` (`OAuth2Controller.ts:234`) travaille dans cet ordre, et l'ordre est la
+`OAuth2Controller.callback()` (`OAuth2Controller.ts:258`) travaille dans cet ordre, et l'ordre est la
 défense :
 
 1. **lire l'état de session, puis l'invalider immédiatement** (`OAuth2Controller.ts:158-166`) — le
    `state` est à **usage unique** : un rejeu du même retour échoue, même avec le bon cookie ;
 2. **comparer** : `code` et `state` présents, `state` reçu ≡ `state` attendu, **et** fournisseur du
    callback ≡ fournisseur démarré (`OAuth2Controller.ts:231-241`). Un seul écart → `302` vers
-   `failureRedirect`, **sans jamais contacter le fournisseur** ;
+   l'écran d'échec avec `reason=failed`, **sans jamais contacter le fournisseur** ;
 3. seulement ensuite, `exchangeAndProvision()`.
 
 ### Étape 3 — `exchangeAndProvision(provider, code, verifier, iss)`
@@ -317,9 +317,31 @@ défense :
 3. **provisionnement** du Shadow User avec la politique effective — rôles par défaut surchargeables
    **par fournisseur** (`oauth2.ts:417-418`), `allowSignup` global (`oauth2.ts:542`).
 
-Toute erreur de cette étape est convertie en **échec uniforme** par le controller (`302
-failureRedirect`, `OAuth2Controller.ts:198-209`) : le client ne distingue pas un `iss` invalide d'un
+Toute erreur de cette étape est convertie en **échec uniforme** par le controller (`302` vers
+l'écran d'échec avec `reason=failed`) : le client ne distingue pas un `iss` invalide d'un
 échange refusé ou d'un signup interdit.
+
+### Les retours — `from` et `back`
+
+La page qui lance le flux dit deux choses à `/authorize`, que le serveur revalide en chemins
+locaux (`safeRedirectPath`, garde anti-redirection ouverte du cœur), garde en session avec le
+`state` et purge au callback :
+
+| Paramètre | Sens                                                                                           | Absent ou refusé  |
+| --------- | ---------------------------------------------------------------------------------------------- | ----------------- |
+| `from`    | page où aller une fois connecté                                                                | `successRedirect` |
+| `back`    | écran où revenir si la connexion n'aboutit pas — le bouton « Retour » du fournisseur, un échec | `failureRedirect` |
+
+`back` l'emporte sur `failureRedirect` parce qu'une application peut avoir PLUSIEURS écrans de
+connexion (la page par défaut, la console d'administration) : une seule adresse d'échec renverrait
+l'un chez l'autre. La page par défaut et la console l'envoient d'elles-mêmes, et
+`NodefonyLogin.startProvider()` pose la page courante.
+
+L'écran d'échec reçoit `reason` et `from` (une `reason` ou un `from` déjà présents sont
+remplacés) : `reason=access_denied` dit une ANNULATION — l'écran se tait, l'utilisateur est revenu
+choisir une autre méthode —, toute autre valeur un échec à annoncer. Seuls les codes normalisés
+d'OAuth 2.0 et d'OpenID Connect sont recopiés, et seulement sous un `state` valide ; tout le reste
+devient `failed` (`OAUTH2_FAILED_REASON`, cœur).
 
 ## 🧑‍⚖️ Le Shadow User — l'identité locale, et pourquoi OAuth n'accorde aucun droit
 
@@ -517,14 +539,14 @@ que le mapping du profil. Exemple sans réseau dans le dépôt :
 Schéma Zod `oauth2Schema` (`config.ts:1266`), branché sur la section `oauth2` de la config du module
 (`config.ts:1381`). Table dérivée du schéma — les défauts sont ceux du code.
 
-| Option            | Type                 | Défaut                      | Effet                                                                                                                |
-| ----------------- | -------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `enabled`         | booléen              | `true`                      | Coupe le social login : `authorize`/`callback` rendent 503.                                                          |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]`             | Rôles du Shadow User **à la création** (`config.ts:1150`).                                                           |
-| `allowSignup`     | booléen              | `true`                      | `false` = compte préexistant lié exigé (`config.ts:1272`).                                                           |
-| `successRedirect` | chemin               | `/`                         | Où revient l'utilisateur après succès.                                                                               |
-| `failureRedirect` | chemin               | `loginPage.path` (`/login`) | Où il revient après échec (uniforme, sans détail). Omis = la page de connexion, qu'il suit si elle change de chemin. |
-| `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1288`).                                                                             |
+| Option            | Type                 | Défaut                      | Effet                                                                                                                                      |
+| ----------------- | -------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`         | booléen              | `true`                      | Coupe le social login : `authorize`/`callback` rendent 503.                                                                                |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]`             | Rôles du Shadow User **à la création** (`config.ts:1150`).                                                                                 |
+| `allowSignup`     | booléen              | `true`                      | `false` = compte préexistant lié exigé (`config.ts:1272`).                                                                                 |
+| `successRedirect` | chemin               | `/`                         | Où revient l'utilisateur après succès, quand la page de départ n'a pas donné `from`.                                                       |
+| `failureRedirect` | chemin               | `loginPage.path` (`/login`) | Où il revient après échec, quand la page de départ n'a pas donné `back`. Omis = la page de connexion, qu'il suit si elle change de chemin. |
+| `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1288`).                                                                                                   |
 
 Par fournisseur (`oauthProviderSchema`, `config.ts:1095`) :
 
@@ -698,7 +720,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 
 > [!NOTE]
 > L'événement d'audit du login social porte la raison `oauth` : le controller la passe à
-> `AuthFlow.establishSessionFor()` (`OAuth2Controller.ts:65`), comme WebAuthn passe `webauthn`.
+> `AuthFlow.establishSessionFor()` (`OAuth2Controller.ts:74`), comme WebAuthn passe `webauthn`.
 > `federated` n'est que la valeur par défaut d'un appelant qui n'a pas nommé son facteur
 > (`authFlow.ts:248`).
 
@@ -709,7 +731,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | `404` sur `…/oauth2/…`                               | Module `@nodefony/security` non chargé, ou nom de fournisseur inconnu                                    | Charger `@nodefony/security` ; vérifier le nom du fournisseur                   |
 | `503 OAuth unavailable`                              | `oauth2.enabled: false`, ou boot du service échoué                                                       | Activer `oauth2` ; lire le WARNING de boot                                      |
 | WARNING « inconnu du registre » au boot              | Nom configuré sans fabrique (`OAuth2Service.#build()`)                                                   | `registerOAuthProvider()` au chargement du module, ou builtin                   |
-| `404` « Unknown provider » sur `authorize`           | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:14`)                                       | Vérifier le nom exact **et** la présence des secrets                            |
+| `404` « Unknown provider » sur `authorize`           | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:19`)                                       | Vérifier le nom exact **et** la présence des secrets                            |
 | Bouton absent de l'écran de login                    | Secrets manquants → fournisseur non monté (spread conditionnel)                                          | Renseigner `clientId`/`clientSecret` dans l'env                                 |
 | Bouton absent + WARNING « indisponible » au boot     | Émetteur injoignable à la construction (`OAuth2Service.#resolveProvider()`)                              | Démarrer le serveur d'autorisation ; le bouton revient sous 30 s                |
 | `redirect_uri_mismatch` chez le fournisseur          | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:1108`)                                    | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`                   |

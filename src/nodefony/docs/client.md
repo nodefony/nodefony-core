@@ -636,8 +636,9 @@ L'état, `NodefonyLoginState`, se lit en une ligne :
 
 Les actions : `submitIdentifier`, `submitPassword`, `login` (les deux d'un coup, pour un
 formulaire d'un seul écran), `submitMfaCode`, `loginWithPasskey`, `loadProviders`,
-`startProvider(nom)` (navigation PLEINE PAGE, jamais un `fetch` : le navigateur doit suivre les
-redirections du fournisseur), `me()` pour reprendre une session, `logout()`, `back()`.
+`startProvider(nom, from?, back?)` (navigation PLEINE PAGE, jamais un `fetch` : le navigateur doit
+suivre les redirections du fournisseur ; `back`, l'écran où revenir si la connexion n'aboutit pas,
+vaut par défaut la page courante), `me()` pour reprendre une session, `logout()`, `back()`.
 
 Trois choses que la classe **ne fait pas**, et c'est délibéré :
 
@@ -656,7 +657,7 @@ Les chemins appelés sont des constantes du cœur (`runtime/authRoutes.ts:20`) q
 framework utilise aussi pour MONTER les routes : client et serveur ne peuvent pas diverger.
 
 Chaque liaison ne fait que relayer l'état par `observeLogin()`
-(`client/auth/NodefonyLogin.ts:645`) — aucune règle n'y est réécrite. Elles rendent toutes
+(`client/auth/NodefonyLogin.ts:658`) — aucune règle n'y est réécrite. Elles rendent toutes
 `{ state, flow }` : l'état dans la réactivité du front, et l'instance qui porte les actions.
 
 | Front   | Fonction                       | `state`                             | Libéré quand                            |

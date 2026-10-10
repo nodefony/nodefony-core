@@ -85,9 +85,15 @@ function stateFromLocation(location: string): string | null {
   }
 }
 
-/** Étape 1 : démarre le flux, renvoie le cookie de transit + le state émis. */
-async function startLogin(): Promise<{ cookie: string; state: string }> {
-  const res = await get(`${OAUTH}/authorize`);
+/**
+ * Étape 1 : démarre le flux, renvoie le cookie de transit + le state émis.
+ *
+ * @param query - requête de `/authorize` (`?from=…&back=…`), vide par défaut
+ */
+async function startLogin(
+  query = "",
+): Promise<{ cookie: string; state: string }> {
+  const res = await get(`${OAUTH}/authorize${query}`);
   expect(res.status, "authorize doit rediriger (302)").to.equal(302);
   const cookie = sessionCookieOf(res);
   const state = stateFromLocation(locationOf(res));
@@ -153,13 +159,66 @@ describe("OAuth2 social login — flux BFF (P6 J9)", () => {
       cookie,
     });
     expect(cb.status).to.equal(302);
-    expect(locationOf(cb)).to.equal("/oauth-failure");
+    expect(locationOf(cb)).to.equal("/oauth-failure?reason=failed");
   });
 
   it("5. callback sans session (pas de cookie) → 302 failureRedirect", async () => {
     const cb = await get(`${OAUTH}/callback?code=fake&state=whatever`);
     expect(cb.status).to.equal(302);
-    expect(locationOf(cb)).to.equal("/oauth-failure");
+    expect(locationOf(cb)).to.equal("/oauth-failure?reason=failed");
+  });
+
+  it("7. `from` voyage : le callback réussi mène à la page d'origine", async () => {
+    const { cookie, state } = await startLogin(
+      `?from=${encodeURIComponent("/admin/users?tab=2")}`,
+    );
+    const cb = await get(`${OAUTH}/callback?code=c-from&state=${state}`, {
+      cookie,
+    });
+    expect(cb.status).to.equal(302);
+    expect(locationOf(cb)).to.equal("/admin/users?tab=2");
+  });
+
+  it("8. 🔴 `from` hors de l'origine ignoré (CWE-601) → successRedirect", async () => {
+    for (const forged of [
+      "//evil.example",
+      "https://evil.example/x",
+      "/\\evil.example",
+    ]) {
+      const { cookie, state } = await startLogin(
+        `?from=${encodeURIComponent(forged)}&back=${encodeURIComponent(forged)}`,
+      );
+      const cb = await get(`${OAUTH}/callback?code=c-evil&state=${state}`, {
+        cookie,
+      });
+      expect(locationOf(cb), forged).to.equal("/oauth-success");
+    }
+  });
+
+  it("9. `back` : l'annulation ramène sur l'écran qui a lancé le flux, `from` gardé", async () => {
+    const { cookie, state } = await startLogin(
+      `?from=%2Fadmin&back=${encodeURIComponent("/nodefony/login?reason=failed")}`,
+    );
+    const cb = await get(
+      `${OAUTH}/callback?error=access_denied&state=${state}`,
+      { cookie },
+    );
+    expect(cb.status).to.equal(302);
+    expect(locationOf(cb)).to.equal(
+      "/nodefony/login?reason=access_denied&from=%2Fadmin",
+    );
+  });
+
+  it("10. une tentative relancée sans retours n'hérite pas de ceux de la précédente", async () => {
+    const first = await startLogin(`?from=%2Fadmin&back=%2Fnodefony%2Flogin`);
+    // Seconde tentative SUR LA MÊME session, sans retours : elle repart nue.
+    const again = await get(`${OAUTH}/authorize`, { cookie: first.cookie });
+    const state = stateFromLocation(locationOf(again));
+    const cookie = sessionCookieOf(again) ?? first.cookie;
+    const cb = await get(`${OAUTH}/callback?code=c-again&state=${state}`, {
+      cookie,
+    });
+    expect(locationOf(cb)).to.equal("/oauth-success");
   });
 
   it("6. provider inconnu → 404", async () => {

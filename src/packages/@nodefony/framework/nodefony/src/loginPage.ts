@@ -4,6 +4,7 @@ import {
   LOGIN_PAGE_SKIN_SPECS,
   isLoginPageSkin,
   loginPageSkinFile,
+  OAUTH2_CANCELLED_REASON,
   oauth2AuthorizePath,
   safeRedirectPath,
   type ILoginPageDescription,
@@ -50,6 +51,12 @@ export interface ILoginPageView {
   readonly providers: readonly ILoginPageViewProvider[];
   /** Destination après connexion, déjà passée par `safeRedirectPath`. */
   readonly from: string;
+  /**
+   * Message d'échec d'une connexion par fournisseur (`?reason=` posé par le
+   * callback OAuth), ou `null`. Texte FIXE : la raison reçue n'est jamais
+   * affichée, et une annulation (`access_denied`) n'en produit aucun.
+   */
+  readonly notice: string | null;
   readonly styleHref: string;
   /** Feuille de l'habillage, chargée après {@link styleHref}, ou `null`. */
   readonly skinHref: string | null;
@@ -67,6 +74,8 @@ export interface ILoginPageRequest {
   readonly from: unknown;
   /** Valeur brute de `?theme=`. */
   readonly theme: unknown;
+  /** Valeur brute de `?reason=`, posée par le callback OAuth sur un échec. */
+  readonly reason?: unknown;
   /** Valeur brute de `?skin=`, lue seulement quand {@link preview} est vrai. */
   readonly skin?: unknown;
   /** Valeur brute de `?layout=`, lue seulement quand {@link preview} est vrai. */
@@ -108,6 +117,10 @@ export const LOGIN_PAGE_ASSET_FILES = {
 } as const;
 
 const DEFAULT_TITLE = "Se connecter";
+
+/** Annonce d'un retour du fournisseur sans connexion, hors annulation. */
+const PROVIDER_FAILED_NOTICE =
+  "La connexion par le fournisseur n'a pas abouti. Réessayez, ou choisissez une autre méthode.";
 
 /** Dit si une valeur de requête nomme une mise en page connue. */
 function isLayout(value: unknown): value is LoginPageLayout {
@@ -178,11 +191,19 @@ export function buildLoginPageView(
     password: page.password,
     providers: page.providers.map(({ name, label, icon }) => ({
       label,
-      href: oauth2AuthorizePath(name, providerFrom),
+      // `back` = cette page : un « Retour » chez le fournisseur ramène ici,
+      // quelle que soit l'adresse d'échec configurée (Studio en a une autre).
+      href: oauth2AuthorizePath(name, providerFrom, page.path),
       icon: name === "github" ? "m-github" : "i-key",
       image: icon,
     })),
     from,
+    notice:
+      typeof request.reason === "string" &&
+      request.reason.length > 0 &&
+      request.reason !== OAUTH2_CANCELLED_REASON
+        ? PROVIDER_FAILED_NOTICE
+        : null,
     styleHref: asset(LOGIN_PAGE_ASSET_FILES.style),
     skinHref: skinFile === null ? null : asset(skinFile),
     stylesheetHref: page.stylesheet,
@@ -434,7 +455,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
               </div>
             </div>
 <% } %>
-            <div class="nf-message" aria-live="polite" data-message></div>
+            <div class="nf-message" aria-live="polite" data-message><% if (it.notice) { %><p class="nf-alert" role="alert"><span class="code">SSO</span><span><%= it.notice %></span></p><% } %></div>
 <% if (it.password) { %>
             <noscript><p class="nf-hint">Cette page a besoin de JavaScript pour vous connecter.</p></noscript>
 <% } %>

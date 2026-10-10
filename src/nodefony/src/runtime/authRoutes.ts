@@ -59,12 +59,33 @@ export const OAUTH2_PROVIDERS_PATH = `${OAUTH2_API_BASE}/providers`;
  * @param provider - nom du fournisseur, tel que le rend {@link OAUTH2_PROVIDERS_PATH}
  * @param from - page où revenir après la connexion ; le serveur la revalide
  *   (chemin local seulement) avant de s'en servir
+ * @param back - écran où revenir si la connexion n'aboutit pas (annulation
+ *   chez le fournisseur, échec) : celui qui lance le flux. Omis, le serveur
+ *   retombe sur sa redirection d'échec. Revalidé comme `from`.
  * @returns le chemin `…/oauth2/<provider>/authorize`, le nom encodé
  */
-export function oauth2AuthorizePath(provider: string, from?: string): string {
+export function oauth2AuthorizePath(
+  provider: string,
+  from?: string,
+  back?: string,
+): string {
   const path = `${OAUTH2_API_BASE}/${encodeURIComponent(provider)}/authorize`;
-  return from ? `${path}?from=${encodeURIComponent(from)}` : path;
+  const query: string[] = [];
+  if (from) query.push(`from=${encodeURIComponent(from)}`);
+  if (back) query.push(`back=${encodeURIComponent(back)}`);
+  return query.length === 0 ? path : `${path}?${query.join("&")}`;
 }
+
+/**
+ * Valeur de `reason` que le callback OAuth pose sur l'écran d'échec quand la
+ * cause n'est pas un code normalisé du fournisseur (`state` invalide, échange
+ * du code refusé, compte non provisionné). Seule `access_denied` dit une
+ * ANNULATION ; toute autre valeur est un échec à annoncer.
+ */
+export const OAUTH2_FAILED_REASON = "failed";
+
+/** Code OAuth 2.0 d'une annulation par l'utilisateur (RFC 6749 §4.1.2.1). */
+export const OAUTH2_CANCELLED_REASON = "access_denied";
 
 /**
  * Méthode de second facteur « code à usage unique » : un code TOTP, ou un

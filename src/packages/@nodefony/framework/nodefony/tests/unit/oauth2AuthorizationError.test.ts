@@ -1,58 +1,80 @@
 /// <reference types="node" />
 import { expect } from "vitest";
-import { withAuthorizationError } from "../../controller/OAuth2Controller.js";
+import { oauth2FailureTarget } from "../../controller/OAuth2Controller.js";
 
 /**
- * Le code d'erreur rendu par un fournisseur au callback OAuth ne parvient à
- * l'écran d'arrivée que s'il appartient à la liste normalisée.
+ * L'écran d'échec du callback OAuth reçoit une RAISON et la page où aller une
+ * fois connecté.
  *
- * C'est ce qui permet à l'écran de connexion de distinguer une ANNULATION
+ * La raison permet à l'écran de connexion de distinguer une ANNULATION
  * (`access_denied` : l'utilisateur est revenu choisir une autre méthode) d'un
  * échec — sans jamais recopier dans une URL une chaîne fournie par n'importe
- * qui. La condition « sous un `state` valide » vit dans le contrôleur et
- * s'éprouve sur le serveur réel (`oauth2-attack.test.ts`, @nodefony/http).
+ * qui : hors de la liste normalisée, c'est `failed`. La condition « sous un
+ * `state` valide » vit dans le contrôleur et s'éprouve sur le serveur réel
+ * (`oauth2-attack.test.ts`, `oauth2-flow.test.ts`, @nodefony/http).
  */
-describe("OAuth2 — code d'erreur transmis à l'adresse d'échec", () => {
+describe("OAuth2 — adresse de l'écran d'échec", () => {
   it("ajoute un code normalisé à une adresse sans requête", () => {
-    expect(withAuthorizationError("/login", "access_denied")).to.equal(
+    expect(oauth2FailureTarget("/login", "access_denied", null)).to.equal(
       "/login?reason=access_denied",
     );
   });
 
   it("conserve la requête déjà présente", () => {
     expect(
-      withAuthorizationError("/nodefony/login?error=oauth", "access_denied"),
+      oauth2FailureTarget("/nodefony/login?error=oauth", "access_denied", null),
     ).to.equal("/nodefony/login?error=oauth&reason=access_denied");
   });
 
   it("conserve le fragment, placé après la requête", () => {
     expect(
-      withAuthorizationError("/app?error=oauth#connexion", "login_required"),
+      oauth2FailureTarget("/app?error=oauth#connexion", "login_required", null),
     ).to.equal("/app?error=oauth&reason=login_required#connexion");
   });
 
-  it("garde une adresse absolue intacte hors du code ajouté", () => {
+  it("garde une adresse absolue intacte hors des paramètres ajoutés", () => {
     expect(
-      withAuthorizationError("https://app.example/login", "server_error"),
+      oauth2FailureTarget("https://app.example/login", "server_error", null),
     ).to.equal("https://app.example/login?reason=server_error");
   });
 
-  it("ne transmet RIEN d'un code hors de la liste — la chaîne vient de l'URL", () => {
+  it("rend `failed` pour un code hors de la liste — la chaîne vient de l'URL", () => {
     for (const forged of [
       "<script>alert(1)</script>",
       "access_denied&admin=1",
       "ACCESS_DENIED",
       "",
     ]) {
-      expect(withAuthorizationError("/login?error=oauth", forged)).to.equal(
-        "/login?error=oauth",
+      expect(oauth2FailureTarget("/login?error=oauth", forged, null)).to.equal(
+        "/login?error=oauth&reason=failed",
       );
     }
   });
 
-  it("rend l'adresse intacte sans code", () => {
-    expect(withAuthorizationError("/login?error=oauth", null)).to.equal(
-      "/login?error=oauth",
+  it("rend `failed` sans code (state invalide, échange refusé)", () => {
+    expect(oauth2FailureTarget("/login", null, null)).to.equal(
+      "/login?reason=failed",
     );
+  });
+
+  it("transmet la page où aller une fois connecté", () => {
+    expect(
+      oauth2FailureTarget("/login", "access_denied", "/admin?tab=2"),
+    ).to.equal("/login?reason=access_denied&from=%2Fadmin%3Ftab%3D2");
+  });
+
+  it("remplace la raison et la destination d'une tentative précédente", () => {
+    // `back` est la page qui a lancé le flux : elle peut porter les paramètres
+    // d'un échec antérieur, qui ne doivent ni se dupliquer ni mentir.
+    expect(
+      oauth2FailureTarget(
+        "/login?reason=failed&from=%2Fold&skin=ledger",
+        "access_denied",
+        "/new",
+      ),
+    ).to.equal("/login?reason=access_denied&from=%2Fnew&skin=ledger");
+    expect(
+      oauth2FailureTarget("/login?reason=failed&from=%2Fold", null, null),
+    ).to.equal("/login?reason=failed");
   });
 });

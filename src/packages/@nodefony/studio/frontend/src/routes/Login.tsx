@@ -34,6 +34,7 @@ import {
   type ProviderIconComponent,
 } from "../components/ProviderIcon";
 import { useNavigate, useLocation } from "react-router";
+import { OAUTH2_CANCELLED_REASON, oauth2AuthorizePath } from "nodefony";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { type ConnectionStep } from "../components/ConnectionStepper";
 import { useAuth, useConnection, useStore } from "../stores";
@@ -107,10 +108,20 @@ function startSocialLogin(provider: string): void {
     "data-mantine-color-scheme",
   );
   const theme =
-    scheme === "light" || scheme === "dark" ? `?theme=${scheme}` : "";
+    scheme === "light" || scheme === "dark" ? `&theme=${scheme}` : "";
+  // `back` = cet écran : le « Retour » du fournisseur et un échec ramènent
+  // ici, et non sur la page de connexion par défaut de l'application.
   window.location.assign(
-    `/nodefony/security/api/oauth2/${encodeURIComponent(provider)}/authorize${theme}`,
+    `${oauth2AuthorizePath(provider, undefined, "/nodefony/login")}${theme}`,
   );
+}
+
+/** Destination posée par `AuthGuard` dans l'état de navigation, sinon `undefined`. */
+function stateFrom(state: unknown): string | undefined {
+  if (typeof state !== "object" || state === null || !("from" in state)) {
+    return undefined;
+  }
+  return typeof state.from === "string" ? state.from : undefined;
 }
 
 function readLastUser(): string {
@@ -398,16 +409,30 @@ export const Login = observer(() => {
     };
   }, [store]);
 
-  // Retour d'un échec social (failureRedirect `?error=oauth`) → message dans la
+  // Session DÉJÀ ouverte (ici, ou sur la page de connexion par défaut : même
+  // cookie) → l'écran de connexion n'a rien à proposer, on file à la console.
+  // Pas pendant une soumission : `completeAndRedirect` conduit alors la suite
+  // (profil, temps réel) et redirige lui-même.
+  useEffect(() => {
+    if (auth.status !== "authenticated" || busy) return;
+    const from = stateFrom(loc.state);
+    const deepLink = from && from !== "/nodefony" && from !== "/nodefony/login";
+    void navigate(deepLink ? from : auth.homePath, { replace: true });
+  }, [auth.status, busy, auth.homePath, loc.state, navigate]);
+
+  // Retour d'un échec social (`?reason=`, ou `?error=oauth`) → message dans la
   // zone d'erreur RÉSERVÉE (aucun saut de mise en page). SAUF une annulation :
   // `reason=access_denied` (posé par le callback sous un `state` valide) dit
   // que l'utilisateur est revenu de lui-même choisir une autre méthode — lui
   // annoncer un échec serait faux.
   useEffect(() => {
     const query = new URLSearchParams(loc.search);
+    const reason = query.get("reason");
+    // `reason` est posé par le callback sur TOUT échec ; `error=oauth` reste lu
+    // pour une adresse d'échec configurée qui le porte encore.
     if (
-      query.get("error") === "oauth" &&
-      query.get("reason") !== "access_denied"
+      (reason !== null || query.get("error") === "oauth") &&
+      reason !== OAUTH2_CANCELLED_REASON
     ) {
       setErrKind("credentials");
       setError("La connexion via le fournisseur externe a échoué. Réessayez.");
@@ -469,7 +494,7 @@ export const Login = observer(() => {
     setStep("realtime");
     await conn.connect();
     setStep("done");
-    const from = (loc.state as { from?: string } | null)?.from;
+    const from = stateFrom(loc.state);
     const deepLink = from && from !== "/nodefony" && from !== "/nodefony/login";
     void navigate(deepLink ? from : auth.homePath, { replace: true });
   };
@@ -560,7 +585,7 @@ export const Login = observer(() => {
       setStep("realtime");
       await conn.connect();
       setStep("done");
-      const from = (loc.state as { from?: string } | null)?.from;
+      const from = stateFrom(loc.state);
       const deepLink =
         from && from !== "/nodefony" && from !== "/nodefony/login";
       void navigate(deepLink ? from : auth.homePath, { replace: true });

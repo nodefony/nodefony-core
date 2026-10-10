@@ -82,17 +82,29 @@ describe("page de connexion — données du gabarit", () => {
     ).toBeNull();
   });
 
-  it("les fournisseurs gardent la destination ; `/` ne voyage pas", () => {
+  it("les fournisseurs gardent la destination et reviennent sur CETTE page ; `/` ne voyage pas", () => {
     const view = buildLoginPageView(PAGE, REQUEST);
     expect(view.providers.map((p) => p.href)).toEqual([
-      "/nodefony/security/api/oauth2/keycloak/authorize?from=%2Fadmin%2Fusers%3Ftab%3D2",
-      "/nodefony/security/api/oauth2/github/authorize?from=%2Fadmin%2Fusers%3Ftab%3D2",
+      "/nodefony/security/api/oauth2/keycloak/authorize?from=%2Fadmin%2Fusers%3Ftab%3D2&back=%2Flogin",
+      "/nodefony/security/api/oauth2/github/authorize?from=%2Fadmin%2Fusers%3Ftab%3D2&back=%2Flogin",
     ]);
     const home = buildLoginPageView(PAGE, { ...REQUEST, from: undefined });
     expect(home.providers[0]?.href).toBe(
-      "/nodefony/security/api/oauth2/keycloak/authorize",
+      "/nodefony/security/api/oauth2/keycloak/authorize?back=%2Flogin",
     );
     expect(view.ssoFirst).toBe(true);
+  });
+
+  it("un retour du fournisseur sans connexion s'annonce — sauf une annulation, et jamais le texte reçu", () => {
+    expect(buildLoginPageView(PAGE, REQUEST).notice).toBeNull();
+    expect(
+      buildLoginPageView(PAGE, { ...REQUEST, reason: "access_denied" }).notice,
+    ).toBeNull();
+    for (const reason of ["failed", "server_error", "<b>forgé</b>"]) {
+      const notice = buildLoginPageView(PAGE, { ...REQUEST, reason }).notice;
+      expect(notice).toMatch(/n'a pas abouti/);
+      expect(notice).not.toContain(reason);
+    }
   });
 
   it("la marque vient du titre configuré, sinon du nom de l'application", () => {
@@ -104,6 +116,15 @@ describe("page de connexion — données du gabarit", () => {
 });
 
 describe("page de connexion — gabarit rendu", () => {
+  it("l'échec d'un fournisseur s'affiche dans la zone de message, l'annulation non", () => {
+    const failed = render(PAGE, { ...REQUEST, reason: "failed" });
+    const alert = failed.querySelector("[data-message] .nf-alert");
+    expect(alert?.getAttribute("role")).toBe("alert");
+    expect(alert?.textContent).toMatch(/n'a pas abouti/);
+    const cancelled = render(PAGE, { ...REQUEST, reason: "access_denied" });
+    expect(cancelled.querySelector("[data-message]")?.children.length).toBe(0);
+  });
+
   it("🔴 nonce sur le script, fichiers versionnés, mise en page et destination posées", () => {
     const doc = render();
     const script = doc.querySelector('script[type="module"]');

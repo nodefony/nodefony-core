@@ -248,6 +248,14 @@ function isCancellation(error: unknown): boolean {
   return name === "NotAllowedError" || name === "AbortError";
 }
 
+/** Chemin de la page courante (requête comprise), hors navigateur `undefined`. */
+function currentPage(): string | undefined {
+  const location = (globalThis as { location?: Location }).location;
+  return location === undefined
+    ? undefined
+    : `${location.pathname}${location.search}`;
+}
+
 /**
  * Le **déroulé de connexion** côté navigateur : une machine à états PURE, sans
  * DOM ni framework d'affichage, branchée sur les routes de session du
@@ -457,9 +465,14 @@ export class NodefonyLogin {
    * @param name - nom du fournisseur, tel que le rend {@link loadProviders}
    * @param from - page où revenir une fois connecté ; le serveur n'accepte
    *   qu'un chemin local, et retombe sinon sur sa redirection de succès
+   * @param back - écran où revenir si la connexion n'aboutit pas (bouton
+   *   « Retour » du fournisseur, échec). Défaut : la page courante — celle
+   *   qui lance le flux est celle où l'utilisateur choisira une autre méthode
    */
-  startProvider(name: string, from?: string): void {
-    this.#navigate(`${this.#base}${oauth2AuthorizePath(name, from)}`);
+  startProvider(name: string, from?: string, back?: string): void {
+    this.#navigate(
+      `${this.#base}${oauth2AuthorizePath(name, from, back ?? currentPage())}`,
+    );
   }
 
   /** Reprend une session existante ; `null` quand il n'y en a pas. */

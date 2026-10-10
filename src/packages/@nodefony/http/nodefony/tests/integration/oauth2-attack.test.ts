@@ -107,7 +107,7 @@ describe("OAuth2 social login — red-team (P6 J9)", () => {
     );
     expect(replay.status).to.equal(302);
     expect(locationOf(replay), "replay du state refusé").to.equal(
-      "/oauth-failure",
+      "/oauth-failure?reason=failed",
     );
   });
 
@@ -124,7 +124,7 @@ describe("OAuth2 social login — red-team (P6 J9)", () => {
       crossed.status,
       "pas d'échange : rejet avant le fournisseur",
     ).to.equal(302);
-    expect(locationOf(crossed)).to.equal("/oauth-failure");
+    expect(locationOf(crossed)).to.equal("/oauth-failure?reason=failed");
   });
 
   // S7 — l'utilisateur ANNULE chez le fournisseur (« retour à l'application ») :
@@ -143,24 +143,24 @@ describe("OAuth2 social login — red-team (P6 J9)", () => {
 
   // S8 — sans le state du flux, le code n'est PAS transmis : sinon n'importe
   // quel lien forgé ferait afficher « annulé » à la place d'un échec.
-  it("S8 — code d'erreur sans state valide → échec uniforme, aucun code transmis", async () => {
+  it("S8 — code d'erreur sans state valide → échec uniforme (`failed`), aucun code transmis", async () => {
     const { cookie } = await startLogin();
     const res = await get(`${OAUTH}/callback?error=access_denied&state=forge`, {
       cookie,
     });
     expect(res.status).to.equal(302);
-    expect(locationOf(res)).to.equal("/oauth-failure");
+    expect(locationOf(res)).to.equal("/oauth-failure?reason=failed");
   });
 
   // S9 — sous un state valide, un code HORS de la liste normalisée n'est pas
   // recopié : le paramètre `error` vient de l'URL.
-  it("S9 — code d'erreur inventé sous un state valide → aucun code transmis", async () => {
+  it("S9 — code d'erreur inventé sous un state valide → `failed`, rien de recopié", async () => {
     const { cookie, state } = await startLogin();
     const res = await get(
       `${OAUTH}/callback?error=${encodeURIComponent("<b>x</b>")}&state=${state}`,
       { cookie },
     );
     expect(res.status).to.equal(302);
-    expect(locationOf(res)).to.equal("/oauth-failure");
+    expect(locationOf(res)).to.equal("/oauth-failure?reason=failed");
   });
 });

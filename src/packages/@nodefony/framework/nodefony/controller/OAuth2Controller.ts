@@ -1,4 +1,9 @@
-import { OAUTH2_API_BASE, type Module } from "nodefony";
+import {
+  OAUTH2_API_BASE,
+  OAUTH2_FAILED_REASON,
+  safeRedirectPath,
+  type Module,
+} from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
 import SecurityApiController from "../src/SecurityApiController";
@@ -81,6 +86,11 @@ export interface IOAuth2BffFlow {
 const STATE_KEY = "oauth2:state";
 const VERIFIER_KEY = "oauth2:verifier";
 const PROVIDER_KEY = "oauth2:provider";
+// Retours choisis par la page qui lance le flux, revalidés à l'entrée : où
+// aller une fois connecté (`from`), où revenir si la connexion n'aboutit pas
+// (`back`). Même cycle de vie que `state` : posés à `authorize`, purgés au callback.
+const FROM_KEY = "oauth2:from";
+const BACK_KEY = "oauth2:back";
 
 // Montage one-shot par process (même sémantique que `mountWebAuthnRoutes`).
 let mounted = false;
@@ -119,43 +129,53 @@ export function providerThemeOption(value: string | null): {
   return value === "light" || value === "dark" ? { theme: value } : {};
 }
 
+// Origine factice : résout une adresse relative sans rien supposer de l'hôte.
+const PROBE_ORIGIN = "http://redirect.invalid";
+
 /**
- * Ajoute à l'adresse d'échec le code d'erreur rendu par le fournisseur, pour
- * que l'écran d'arrivée distingue une ANNULATION (`access_denied` : l'utilisateur
- * a choisi de revenir) d'une panne.
+ * Compose l'adresse de l'écran d'échec : la raison de l'échec, et la page où
+ * aller une fois connecté, pour que l'écran la garde à la tentative suivante.
  *
- * Le code n'est transmis que s'il appartient à la liste normalisée ; sinon
- * l'adresse est rendue intacte. La requête et le fragment déjà présents sont
- * conservés, et une adresse relative reste relative.
+ * `reason` vaut le code rendu par le fournisseur s'il appartient à la liste
+ * normalisée (`access_denied` = l'utilisateur a choisi de revenir), sinon
+ * {@link OAUTH2_FAILED_REASON} — jamais la chaîne reçue, qui vient de l'URL.
+ * Une `reason` ou un `from` déjà présents sont REMPLACÉS (l'écran qui a lancé
+ * le flux peut porter ceux d'une tentative précédente) ; le reste de la
+ * requête et le fragment sont conservés, et une adresse relative reste relative.
  *
- * @param failure - l'adresse d'échec configurée (`failureRedirect`).
- * @param error - le paramètre `error` reçu au callback, ou `null`.
- * @returns l'adresse d'échec, augmentée de `reason=<code>` si le code est connu.
+ * @param failure - l'écran d'échec : `back` revalidé, ou `failureRedirect`
+ * @param error - le paramètre `error` reçu au callback, ou `null`
+ * @param from - la page où aller une fois connecté (revalidée), ou `null`
+ * @returns l'adresse de redirection
  */
-export function withAuthorizationError(
+export function oauth2FailureTarget(
   failure: string,
   error: string | null,
+  from: string | null,
 ): string {
-  if (error === null || !AUTHORIZATION_ERRORS.has(error)) {
-    return failure;
-  }
-  const hashAt = failure.indexOf("#");
-  const base = hashAt === -1 ? failure : failure.slice(0, hashAt);
-  const hash = hashAt === -1 ? "" : failure.slice(hashAt);
-  const separator = base.includes("?") ? "&" : "?";
-  return `${base}${separator}reason=${error}${hash}`;
+  const reason =
+    error !== null && AUTHORIZATION_ERRORS.has(error)
+      ? error
+      : OAUTH2_FAILED_REASON;
+  const absolute = /^[a-z][a-z0-9+.-]*:/i.test(failure);
+  const url = new URL(failure, PROBE_ORIGIN);
+  url.searchParams.set("reason", reason);
+  if (from === null) url.searchParams.delete("from");
+  else url.searchParams.set("from", from);
+  return absolute ? url.href : `${url.pathname}${url.search}${url.hash}`;
 }
 
 /**
  * Endpoints HTTP du **social login OAuth 2.0** (P6 J9) — adaptateurs MINCES
  * au-dessus du service `oauth2` (`@nodefony/security`) :
  *
- *  - `GET /nodefony/security/api/oauth2/{provider}/authorize` — démarre le flux :
- *    pose `state`+`code_verifier` en session (anonyme), redirige (302) vers le
- *    fournisseur.
+ *  - `GET /nodefony/security/api/oauth2/{provider}/authorize?from=&back=` —
+ *    démarre le flux : pose `state`+`code_verifier` en session (anonyme), avec
+ *    les retours revalidés en chemins locaux, redirige (302) vers le fournisseur.
  *  - `GET /nodefony/security/api/oauth2/{provider}/callback` — valide le `state`
  *    (anti-CSRF), échange le `code`, provisionne le Shadow User et OUVRE la
- *    session BFF (302 vers `successRedirect`).
+ *    session BFF (302 vers `from`, sinon `successRedirect`). Un échec mène à
+ *    `back`, sinon à `failureRedirect`, avec `reason` et `from`.
  *
  * Montés UNIQUEMENT si le service `oauth2` existe (social login activé) — 404
  * sinon, zéro surface.
@@ -225,6 +245,10 @@ class OAuth2Controller extends SecurityApiController {
     session.set(STATE_KEY, auth.state);
     session.set(VERIFIER_KEY, auth.codeVerifier);
     session.set(PROVIDER_KEY, provider);
+    // Toujours écrits, `null` compris : une tentative abandonnée ne doit pas
+    // léguer ses retours à la suivante.
+    session.set(FROM_KEY, this.#localPath("from"));
+    session.set(BACK_KEY, this.#localPath("back"));
     await session.save(); // PERSISTE l'état (storage), pas juste en mémoire
     this.redirect(auth.url, 302);
     return undefined;
@@ -244,10 +268,19 @@ class OAuth2Controller extends SecurityApiController {
     const expectedState = session?.get(STATE_KEY);
     const storedVerifier = session?.get(VERIFIER_KEY);
     const expectedProvider = session?.get(PROVIDER_KEY);
+    // Relus par la garde : la session est une source, pas une preuve.
+    const from = safeRedirectPath(session?.get(FROM_KEY), "") || null;
+    const back = safeRedirectPath(session?.get(BACK_KEY), "") || null;
     session?.set(STATE_KEY, null);
     session?.set(VERIFIER_KEY, null);
     session?.set(PROVIDER_KEY, null);
+    session?.set(FROM_KEY, null);
+    session?.set(BACK_KEY, null);
     await session?.save();
+    // L'écran qui a lancé le flux l'emporte sur l'adresse configurée : avec
+    // deux écrans de connexion (la page par défaut, Studio), une seule adresse
+    // d'échec renverrait l'un des deux chez l'autre.
+    const failedAt = back ?? failure;
 
     const code = this.#queryString("code");
     const returnedState = this.#queryString("state");
@@ -265,7 +298,7 @@ class OAuth2Controller extends SecurityApiController {
       // `access_denied` quand l'utilisateur annule pour choisir une autre
       // méthode. Le code n'est transmis à l'écran d'arrivée que sous un `state`
       // valide : sans lui, n'importe qui pourrait faire afficher « annulé » à la
-      // place d'un échec, et l'échec reste uniforme.
+      // place d'un échec. Tout autre échec est UNIFORME (`reason=failed`).
       const returnedError =
         code === null && stateIsValid ? this.#queryString("error") : null;
       if (returnedError !== null) {
@@ -279,7 +312,7 @@ class OAuth2Controller extends SecurityApiController {
           "INFO",
         );
       }
-      this.redirect(withAuthorizationError(failure, returnedError), 302);
+      this.redirect(oauth2FailureTarget(failedAt, returnedError, from), 302);
       return;
     }
 
@@ -304,7 +337,7 @@ class OAuth2Controller extends SecurityApiController {
       if (opened && logoutHint !== undefined && svc.rememberLogout) {
         svc.rememberLogout(opened, logoutHint);
       }
-      this.redirect(success, 302);
+      this.redirect(from ?? success, 302);
       return;
     } catch (error) {
       // Le client reçoit un échec UNIFORME (aucune information sur la cause), mais
@@ -316,7 +349,7 @@ class OAuth2Controller extends SecurityApiController {
         `oauth2 callback "${provider}" : ${(error as Error).message.slice(0, 200)}`,
         "WARNING",
       );
-      this.redirect(failure, 302);
+      this.redirect(oauth2FailureTarget(failedAt, null, from), 302);
       return undefined;
     }
   }
@@ -378,6 +411,11 @@ class OAuth2Controller extends SecurityApiController {
 
   #flow(): IOAuth2BffFlow | null {
     return this.get<IOAuth2BffFlow>("authFlow") ?? null;
+  }
+
+  /** Paramètre de query string revalidé en chemin local, ou `null`. */
+  #localPath(key: string): string | null {
+    return safeRedirectPath(this.#queryString(key), "") || null;
   }
 
   /** Lit un paramètre de query string (GET), ou `null`. */

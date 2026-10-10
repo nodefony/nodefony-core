@@ -62,6 +62,17 @@ describe("oauth2AuthorizePath — page de retour", () => {
       "/nodefony/security/api/oauth2/keycloak/authorize",
     );
   });
+
+  it("encode l'écran de repli en paramètre `back`, avec ou sans `from`", () => {
+    expect(
+      oauth2AuthorizePath("keycloak", "/admin", "/login?skin=ledger"),
+    ).toBe(
+      "/nodefony/security/api/oauth2/keycloak/authorize?from=%2Fadmin&back=%2Flogin%3Fskin%3Dledger",
+    );
+    expect(oauth2AuthorizePath("keycloak", undefined, "/nodefony/login")).toBe(
+      "/nodefony/security/api/oauth2/keycloak/authorize?back=%2Fnodefony%2Flogin",
+    );
+  });
 });
 
 describe("LOGIN_PAGE_PATH", () => {

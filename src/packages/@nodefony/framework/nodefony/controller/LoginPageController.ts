@@ -128,6 +128,7 @@ class LoginPageController extends Controller {
     const query = this.queryGet as Record<string, unknown> | undefined;
     const view = buildLoginPageView(page, {
       from: query?.from,
+      reason: query?.reason,
       theme: query?.theme,
       skin: query?.skin,
       layout: query?.layout,

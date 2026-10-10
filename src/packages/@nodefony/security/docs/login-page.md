@@ -65,9 +65,9 @@ la personnaliser là où c'est sans risque : les textes, les couleurs, le conten
 
 - **Configuration dans `@nodefony/security`, rendu dans `@nodefony/framework`** : le premier décrit
   la page (`AuthFlow.describeLoginPage()`, `authFlow.ts:470`), le second la rend
-  (`buildLoginPageView()`, `loginPage.ts:147`) et la sert (`LoginPageController`,
+  (`buildLoginPageView()`, `loginPage.ts:163`) et la sert (`LoginPageController`,
   `LoginPageController.ts:102`). Le contrat entre les deux, `ILoginPageDescription`, vit au cœur
-  (`authRoutes.ts:215`).
+  (`authRoutes.ts:236`).
 - **Tout passe par du texte échappé** : aucune valeur de la configuration ni de la requête n'entre
   dans le balisage autrement que par `<%= %>`. L'image du panneau passe par votre feuille de style,
   jamais par une adresse injectée dans le HTML.
@@ -143,7 +143,7 @@ bouton prend son libellé (`oauth2.providers.<nom>.label`) et, si vous la régle
 
 Par défaut, quand des fournisseurs sont proposés, leurs boutons passent avant le formulaire : la
 plupart des comptes d'une entreprise sont ceux de son annuaire. `providersFirst: false` inverse
-l'ordre (`loginPage.ts:174`).
+l'ordre (`loginPage.ts:190`).
 
 ### Situation 4 — votre propre page
 
@@ -236,6 +236,12 @@ sequenceDiagram
   le serveur tourne, et un bouton qui mène à une erreur est retiré de l'offre.
 - **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts:151`) : une adresse
   hors de l'origine retombe sur `/`.
+- **Les boutons de fournisseur portent `from` et `back`** : `back` désigne cette page, si bien que
+  le « Retour » du fournisseur et un échec y ramènent, destination comprise, quel que soit
+  `failureRedirect` (cf `oauth2.md`, § Les retours).
+- **Un retour sans connexion s'annonce** : `?reason=` autre qu'`access_denied` affiche un message
+  FIXE dans la zone de message ; une annulation n'en affiche aucun. La raison reçue n'est jamais
+  recopiée dans la page.
 
 ## ⚙️ Configuration (schéma Zod `loginPageSchema`, `config.ts:980`)
 
