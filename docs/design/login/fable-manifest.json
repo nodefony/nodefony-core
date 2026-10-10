@@ -1,0 +1,23 @@
+[
+  {
+    "slug": "f01-fiche",
+    "name": "Fiche",
+    "usage": "Outil interne ou back-office : la connexion est une formalité de registre, lue d'un coup d'œil, sans carte ni décor.",
+    "layout": "bare",
+    "backdrop": "aucun — fond plein #14161a (clair : #f6f7f9), la structure vient des filets de 1 px : feuille en deux colonnes, étapes numérotées 01/02/03 en chasse fixe à gauche, formulaire à droite, pied en ligne de registre"
+  },
+  {
+    "slug": "f02-horizon",
+    "name": "Horizon",
+    "usage": "Application grand public ou produit SaaS : une carte postale qui donne un lieu et une chaleur sans illustration ni dégradé.",
+    "layout": "card",
+    "backdrop": "la photo (mer et ciel, img/fond-ecran-preview.jpg) vit DANS la carte, en bandeau de 150 px sous un filet ; marque et micro-légende de coordonnées posées sur la photo en pastilles pleines ; page unie autour, bandeau d'état sans fond"
+  },
+  {
+    "slug": "f03-frontispice",
+    "name": "Frontispice",
+    "usage": "Intranet ou application d'entreprise avec fournisseur d'identité : les comptes SSO passent avant le mot de passe local, la marque tient la moitié gauche en typographie seule.",
+    "layout": "split",
+    "backdrop": "panneau de marque plus profond que la scène (#0f1114 / #14161a), séparé par un filet ; filigrane du logo AU TRAIT (hairline SVG, sans aplat) qui déborde du panneau ; titre en corps 44–68 px serré ; fournisseurs en lignes de registre avec flèche"
+  }
+]

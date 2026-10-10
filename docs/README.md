@@ -40,6 +40,7 @@ docs/
 ├── ia/                ← vision IA : livre-blanc-couche-ia.md (source unique)
 ├── release/           ← notes de version (nodefony-10)
 ├── assets/            ← images de la documentation
+├── design/            ← maquettes (page de connexion) — non publiées
 ├── outillage-agents.md← état des lieux de l'outillage des agents
 ├── session-retros/    ← retex de session datés (archive, plus alimentée)
 └── archives/          ← docs périmés conservés pour l'historique (PROGRESS.md…)

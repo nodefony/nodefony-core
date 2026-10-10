@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Page de connexion — propositions</title>
+    <style>
+      :root {
+        --bg: #14161a;
+        --card: #1c1f26;
+        --raised: #22262e;
+        --line: #2a2e36;
+        --h: #f1f3f5;
+        --t: #cfd3d8;
+        --m: #8a9099;
+        --a: #3aa0ff;
+        color-scheme: dark;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f5f6f8;
+          --card: #fff;
+          --raised: #f0f2f5;
+          --line: #e3e6ea;
+          --h: #111317;
+          --t: #343a40;
+          --m: #5d646d;
+          --a: #0067ba;
+          color-scheme: light;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--t);
+        font:
+          14px/1.5 Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 20px;
+        padding: 14px 24px;
+        border-bottom: 1px solid var(--line);
+        background: var(--card);
+      }
+      h1 {
+        margin: 0;
+        font-size: 17px;
+        color: var(--h);
+      }
+      h1 small {
+        margin-left: 8px;
+        font:
+          700 10px/1 ui-monospace,
+          monospace;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: var(--m);
+      }
+      .ctl {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .ctl > span {
+        font:
+          700 10px/1 ui-monospace,
+          monospace;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: var(--m);
+      }
+      .ctl button {
+        min-height: 30px;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--raised);
+        color: var(--t);
+        font: 600 12px/1 inherit;
+        cursor: pointer;
+      }
+      .ctl button[aria-pressed="true"] {
+        border-color: var(--a);
+        color: var(--h);
+        box-shadow: inset 0 -2px 0 var(--a);
+      }
+      .spacer {
+        flex: 1;
+      }
+      .audit {
+        color: var(--a);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .audit:hover {
+        text-decoration: underline;
+      }
+      .audit-pick {
+        padding: 3px 9px;
+        border: 1px solid var(--a);
+        border-radius: 10px;
+        font:
+          700 10px/1.4 ui-monospace,
+          monospace;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: var(--h);
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        gap: 20px;
+        padding: 24px;
+      }
+      .g-card {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+      }
+      .g-shot {
+        position: relative;
+        display: block;
+        aspect-ratio: 16/10;
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+        background: var(--raised);
+      }
+      .g-shot iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1280px;
+        height: 800px;
+        border: 0;
+        transform-origin: 0 0;
+        pointer-events: none;
+      }
+      .g-shot:hover {
+        outline: 2px solid var(--a);
+        outline-offset: -2px;
+      }
+      .g-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--card);
+        color: var(--h);
+        font:
+          800 15px/1 ui-monospace,
+          monospace;
+      }
+      .g-by {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1;
+        padding: 5px 8px;
+        border: 1px solid var(--a);
+        border-radius: 6px;
+        background: var(--card);
+        color: var(--h);
+        font:
+          700 10px/1 ui-monospace,
+          monospace;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+      }
+      body.mobile .g-shot {
+        aspect-ratio: 16/10;
+        background: var(--raised);
+      }
+      body.mobile .g-shot iframe {
+        left: 50%;
+        width: 390px;
+        height: 844px;
+      }
+      .g-meta {
+        padding: 14px 16px 16px;
+      }
+      .g-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .g-title a {
+        color: var(--h);
+        font-weight: 650;
+        font-size: 15px;
+        text-decoration: none;
+      }
+      .g-title a:hover {
+        text-decoration: underline;
+      }
+      .g-num {
+        font:
+          700 11px/1 ui-monospace,
+          monospace;
+        color: var(--a);
+      }
+      .g-meta p {
+        margin: 6px 0 10px;
+        color: var(--m);
+        font-size: 13px;
+      }
+      .g-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .g-tags span {
+        padding: 3px 8px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--raised);
+        font:
+          700 10px/1.2 ui-monospace,
+          monospace;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        color: var(--m);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>
+        Page de connexion<small>#547 · propositions · un seul balisage</small>
+      </h1>
+      <a
+        class="audit"
+        href="https://github.com/nodefony/nodefony-core/issues/547#issuecomment-6091436273"
+        rel="noopener noreferrer"
+        >Audit et actions (#547) ↗</a
+      >
+      <span class="audit-pick">beta 3 : F03</span>
+      <span class="spacer"></span>
+      <div class="ctl" data-group="step">
+        <span>étape</span>
+        <button data-v="identifier" aria-pressed="true">identifiant</button
+        ><button data-v="password">mot de passe</button>
+        <button data-v="mfa">code</button><button data-v="error">erreur</button
+        ><button data-v="authenticated">connecté</button>
+      </div>
+      <div class="ctl" data-group="theme">
+        <span>thème</span> <button data-v="" aria-pressed="true">système</button
+        ><button data-v="light">clair</button
+        ><button data-v="dark">sombre</button>
+      </div>
+      <div class="ctl" data-group="format">
+        <span>format</span>
+        <button data-v="desktop" aria-pressed="true">bureau</button
+        ><button data-v="mobile">mobile</button>
+      </div>
+    </header>
+    <main>
+      <article class="g-card">
+        <a
+          class="g-shot"
+          href="v01-console.html"
+          aria-label="Ouvrir « Console »"
+        >
+          <span class="g-badge">01</span>
+          <iframe
+            data-src="v01-console.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Console"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">01</span><a href="v01-console.html">Console</a>
+          </div>
+          <p>
+            Défaut proposé. Outils, back-offices, consoles : la signature de la
+            barre de debug.
+          </p>
+          <div class="g-tags"><span>carte</span><span>fond : aucun</span></div>
+        </div>
+      </article>
+      <article class="g-card">
+        <a
+          class="g-shot"
+          href="v02-blueprint.html"
+          aria-label="Ouvrir « Plan technique »"
+        >
+          <span class="g-badge">02</span>
+          <iframe
+            data-src="v02-blueprint.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Plan technique"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">02</span
+            ><a href="v02-blueprint.html">Plan technique</a>
+          </div>
+          <p>
+            Produits techniques, API, plateformes de données : grille de plan,
+            fond bleu nuit.
+          </p>
+          <div class="g-tags">
+            <span>carte</span><span>fond : grille de plan</span>
+          </div>
+        </div>
+      </article>
+      <article class="g-card">
+        <a
+          class="g-shot"
+          href="v03-points.html"
+          aria-label="Ouvrir « Trame de points »"
+        >
+          <span class="g-badge">03</span>
+          <iframe
+            data-src="v03-points.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Trame de points"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">03</span
+            ><a href="v03-points.html">Trame de points</a>
+          </div>
+          <p>
+            SaaS grand public, applications métier : discret, clair d'abord,
+            ombre légère.
+          </p>
+          <div class="g-tags">
+            <span>carte</span><span>fond : trame de points</span>
+          </div>
+        </div>
+      </article>
+      <article class="g-card">
+        <a class="g-shot" href="v07-epure.html" aria-label="Ouvrir « Épuré »">
+          <span class="g-badge">07</span>
+          <iframe
+            data-src="v07-epure.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Épuré"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">07</span><a href="v07-epure.html">Épuré</a>
+          </div>
+          <p>
+            Produit qui veut s'effacer : pas de carte, beaucoup d'air, titre
+            plus grand.
+          </p>
+          <div class="g-tags"><span>nue</span><span>fond : aucun</span></div>
+        </div>
+      </article>
+      <article class="g-card">
+        <a
+          class="g-shot"
+          href="v08-entreprise-sso.html"
+          aria-label="Ouvrir « Entreprise — SSO d'abord »"
+        >
+          <span class="g-badge">08</span>
+          <iframe
+            data-src="v08-entreprise-sso.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Entreprise — SSO d'abord"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">08</span
+            ><a href="v08-entreprise-sso.html">Entreprise — SSO d'abord</a>
+          </div>
+          <p>
+            Intranet derrière Keycloak : le fournisseur de l'entreprise passe
+            AVANT le compte local. Rebrandé (sarcelle) pour montrer l'habillage.
+          </p>
+          <div class="g-tags">
+            <span>carte</span><span>fond : courbes de niveau</span>
+          </div>
+        </div>
+      </article>
+      <article class="g-card">
+        <a
+          class="g-shot"
+          href="v11-photo-carte.html"
+          aria-label="Ouvrir « Photo — carte console »"
+        >
+          <span class="g-badge">11</span>
+          <iframe
+            data-src="v11-photo-carte.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Photo — carte console"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">11</span
+            ><a href="v11-photo-carte.html">Photo — carte console</a>
+          </div>
+          <p>
+            L'image de l'application en fond (ici une vraie photo, 570 Ko
+            servis), la carte console reste pleine et lisible au-dessus.
+          </p>
+          <div class="g-tags">
+            <span>carte</span><span>fond : photo réelle + voile</span>
+          </div>
+        </div>
+      </article>
+      <article class="g-card">
+        <a class="g-shot" href="f01-fiche.html" aria-label="Ouvrir « Fiche »">
+          <span class="g-badge">F01</span><span class="g-by">fable</span>
+          <iframe
+            data-src="f01-fiche.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Fiche"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">F01</span><a href="f01-fiche.html">Fiche</a>
+          </div>
+          <p>
+            Outil interne ou back-office : la connexion est une formalité de
+            registre, lue d'un coup d'œil, sans carte ni décor.
+          </p>
+          <div class="g-tags">
+            <span>nue</span
+            ><span
+              >fond : aucun — fond plein #14161a (clair : #f6f7f9), la structure
+              vient des filets de 1 px : feuille en deux colonnes, étapes
+              numérotées 01/02/03 en chasse fixe à gauche, formulaire à droite,
+              pied en ligne de registre</span
+            >
+          </div>
+        </div>
+      </article>
+      <article class="g-card">
+        <a
+          class="g-shot"
+          href="f02-horizon.html"
+          aria-label="Ouvrir « Horizon »"
+        >
+          <span class="g-badge">F02</span><span class="g-by">fable</span>
+          <iframe
+            data-src="f02-horizon.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Horizon"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">F02</span><a href="f02-horizon.html">Horizon</a>
+          </div>
+          <p>
+            Application grand public ou produit SaaS : une carte postale qui
+            donne un lieu et une chaleur sans illustration ni dégradé.
+          </p>
+          <div class="g-tags">
+            <span>carte</span
+            ><span
+              >fond : la photo (mer et ciel, img/fond-ecran-preview.jpg) vit
+              DANS la carte, en bandeau de 150 px sous un filet ; marque et
+              micro-légende de coordonnées posées sur la photo en pastilles
+              pleines ; page unie autour, bandeau d'état sans fond</span
+            >
+          </div>
+        </div>
+      </article>
+      <article class="g-card">
+        <a
+          class="g-shot"
+          href="f03-frontispice.html"
+          aria-label="Ouvrir « Frontispice »"
+        >
+          <span class="g-badge">F03</span><span class="g-by">fable</span>
+          <iframe
+            data-src="f03-frontispice.html"
+            tabindex="-1"
+            loading="lazy"
+            title="Aperçu Frontispice"
+          ></iframe>
+        </a>
+        <div class="g-meta">
+          <div class="g-title">
+            <span class="g-num">F03</span
+            ><a href="f03-frontispice.html">Frontispice</a>
+          </div>
+          <p>
+            Intranet ou application d'entreprise avec fournisseur d'identité :
+            les comptes SSO passent avant le mot de passe local, la marque tient
+            la moitié gauche en typographie seule.
+          </p>
+          <div class="g-tags">
+            <span>scindée</span
+            ><span
+              >fond : panneau de marque plus profond que la scène (#0f1114 /
+              #14161a), séparé par un filet ; filigrane du logo AU TRAIT
+              (hairline SVG, sans aplat) qui déborde du panneau ; titre en corps
+              44–68 px serré ; fournisseurs en lignes de registre avec
+              flèche</span
+            >
+          </div>
+        </div>
+      </article>
+    </main>
+    <script>
+      const state = { step: "identifier", theme: "", format: "desktop" };
+      const frames = [...document.querySelectorAll("iframe[data-src]")];
+      function fit() {
+        for (const f of frames) {
+          const box = f.parentElement.getBoundingClientRect();
+          if (state.format === "mobile") {
+            const s = box.height / 844;
+            f.style.transform = `translateX(-50%) scale(${s})`;
+            f.style.transformOrigin = "50% 0";
+          } else {
+            f.style.transform = `scale(${box.width / 1280})`;
+            f.style.transformOrigin = "0 0";
+          }
+        }
+      }
+      function load() {
+        const q = new URLSearchParams({ embed: "1", step: state.step });
+        if (state.theme) q.set("theme", state.theme);
+        for (const f of frames) {
+          f.src = `${f.dataset.src}?${q}`;
+          const a = f.closest("article").querySelectorAll("a[href]");
+          const open = new URLSearchParams({ step: state.step });
+          if (state.theme) open.set("theme", state.theme);
+          a.forEach((el) => (el.href = `${f.dataset.src}?${open}`));
+        }
+        document.body.classList.toggle("mobile", state.format === "mobile");
+        fit();
+      }
+      document.querySelectorAll(".ctl").forEach((g) =>
+        g.addEventListener("click", (e) => {
+          const b = e.target.closest("button");
+          if (!b) return;
+          state[g.dataset.group] = b.dataset.v;
+          g.querySelectorAll("button").forEach((x) =>
+            x.setAttribute("aria-pressed", String(x === b)),
+          );
+          load();
+        }),
+      );
+      addEventListener("resize", fit);
+      load();
+    </script>
+  </body>
+</html>
