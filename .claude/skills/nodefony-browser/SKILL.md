@@ -1,20 +1,20 @@
 ---
 name: nodefony-browser
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 description: >
-  Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la
-  MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et
-  pilote un socket depuis la page, avec ses cookies et son origine. Sait imposer le thème clair ou
-  sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le
-  mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi
-  que ce soit à l'écran.
-  Déclencheurs : "regarde l'écran", "vérifie l'affichage",
-  "est-ce que ça s'affiche ?", "lis la console", "y a-t-il des erreurs JS ?", "mesure le contraste",
-  "cette couleur est-elle lisible ?", "capture d'écran", "vérifie l'accessibilité", "audit WCAG",
-  "en mode clair", "en mode sombre", "le thème sombre casse quelque chose ?",
-  "quelles requêtes fait la page ?", "le temps réel arrive-t-il à l'écran ?", "teste le websocket",
-  "quelle latence sur le socket ?", "la page déborde-t-elle sur mobile ?".
+  Ouvre une page réelle dans un navigateur piloté pour la VOIR et la MESURER : contrastes
+  calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements, proportions sur
+  l'écran choisi (téléphone émulé, bureau, grand écran) ; pilote aussi un socket depuis la page.
+  Impose le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que
+  l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti.
+  À charger AVANT de constater quoi que ce soit à l'écran.
+  Déclencheurs : "regarde l'écran", "vérifie l'affichage", "est-ce que ça s'affiche ?",
+  "lis la console", "erreurs JS ?", "mesure le contraste", "cette couleur est-elle lisible ?",
+  "capture d'écran", "audit WCAG", "en mode clair", "en mode sombre", "quelles requêtes fait la
+  page ?", "teste le websocket", "latence du socket ?", "rendu mobile", "faut-il défiler sur
+  téléphone ?", "le bouton est-il visible sans défiler ?", "la carte est-elle bien
+  proportionnée ?", "sur un grand écran".
 ---
 
 # nodefony-browser — voir et MESURER une page
@@ -32,6 +32,16 @@ cible, vérifier qu'une application générée démarre, prendre une capture pou
 > console »). Ce réflexe vient de la règle « pas de Chromium sur le poste », dont l'exception —
 > un environnement isolé — **est précisément ce conteneur**. Le navigateur du développeur ne reste
 > utile que pour juger le HMR, une animation ou un rendu fin.
+
+> 🔴 **La sonde ne sait pas mesurer ce dont tu as besoin ? L'ÉTENDRE, jamais la contourner.**
+> Un script Playwright jetable dans `tmp/scratch/` rend un chiffre une fois, sans tests, et casse au
+> premier texte ambigu — vécu : une tournée de pages Keycloak plantée sur « Mot de passe oublié »
+> présent deux fois, pendant que la sonde officielle, elle, savait déjà enchaîner un parcours
+> (`NF_BROWSER_ACTIONS`). L'écran (`NF_BROWSER_VIEWPORT`) et la famille `pli` sont nés de ce
+> contournement. Une mesure qui manque devient une option ou une famille des sondes du paquet
+> (`src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/`), avec son test pur dans
+> `devkit/tests/browser-probes.test.ts` — et elle sert alors aussi l'utilisateur d'une application.
+> Avant d'écrire le moindre script : relire les options (`NF_BROWSER_*`, en-tête de `inspect.mjs`).
 
 | Besoin                                                 | Skill                   |
 | ------------------------------------------------------ | ----------------------- |
@@ -246,6 +256,20 @@ longues) · `stockage` (attributs des cookies, inventaire du Web Storage — **j
 > donc en conteneur il faut le copier À PART :
 > `docker cp node_modules/axe-core/axe.min.js nodefony-browser:/app/see-screen/axe.min.js` — sans
 > quoi la famille s'annonce `INDISPONIBLE` plutôt que de rendre un verdict non mesuré.
+
+### Choisir l'ÉCRAN — `NF_BROWSER_VIEWPORT`, et la famille `pli`
+
+```bash
+NF_BROWSER_VIEWPORT=mobile-court NF_BROWSER_FAMILIES=pli \
+  node src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs "/login?skin=horizon" "Se connecter"
+```
+
+`mobile` · `mobile-court` (375 × 667, l'écran qui révèle un formulaire trop haut) · `tablette` ·
+`bureau` (défaut) · `large` · `tres-large`, ou `LARGEURxHAUTEUR` ; sous 600 px, téléphone émulé
+(tactile, densité 2). `pli` répond à « faut-il défiler pour AGIR ? » : le bouton principal face au
+bas de l'écran, et la part de l'écran que prend le bloc qui le porte. Un pied de page sous le pli
+n'est pas une alerte ; un bouton, si. Juger des proportions = la même page sur `mobile-court`,
+`bureau` et `tres-large`, jamais sur un seul écran.
 
 ### Choisir le THÈME — un défaut n'existe souvent que dans l'un des deux
 

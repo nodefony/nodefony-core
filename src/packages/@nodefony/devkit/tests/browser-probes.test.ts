@@ -703,3 +703,60 @@ describe("parseActions — le « = » des sélecteurs CSS n'est pas un séparate
     expect(parseActions("clic:#a||clic:#b")).toHaveLength(2);
   });
 });
+
+type TViewport =
+  | { name: string; width: number; height: number; mobile: boolean }
+  | { error: string };
+const parseViewport = fonctionDe<(raw: string | undefined) => TViewport>(
+  probes,
+  "parseViewport",
+);
+
+describe("parseViewport — l'écran mesuré", () => {
+  it("absent = `bureau`, l'écran historique de la sonde, sans émulation téléphone", () => {
+    expect(parseViewport(undefined)).toEqual({
+      name: "bureau",
+      width: 1440,
+      height: 900,
+      mobile: false,
+    });
+  });
+
+  it("un écran nommé ; sous 600 px, il est émulé en téléphone", () => {
+    expect(parseViewport("mobile-court")).toEqual({
+      name: "mobile-court",
+      width: 375,
+      height: 667,
+      mobile: true,
+    });
+    expect(parseViewport("tres-large")).toMatchObject({
+      width: 2560,
+      mobile: false,
+    });
+  });
+
+  it("LARGEURxHAUTEUR, dans les bornes", () => {
+    expect(parseViewport("390x844")).toEqual({
+      name: "390x844",
+      width: 390,
+      height: 844,
+      mobile: true,
+    });
+  });
+
+  it("🔴 un écran inconnu ou hors bornes est REFUSÉ, jamais remplacé par le défaut", () => {
+    for (const raw of [
+      "telephone",
+      "100x100",
+      "390*844",
+      "5000x900",
+      "toString",
+    ]) {
+      expect(parseViewport(raw), raw).toHaveProperty("error");
+    }
+  });
+
+  it("la famille `pli` est déclarée dans l'allowlist", () => {
+    expect(Object.hasOwn(FAMILIES, "pli")).toBe(true);
+  });
+});

@@ -29,6 +29,8 @@
  * `@env` NF_BROWSER_FULLPAGE 1 = capture la page ENTIÈRE (défaut : la fenêtre)
  * `@env` NF_BROWSER_PROBES sélecteurs CSS à sonder, séparés par des virgules (`libellé=sélecteur`)
  * `@env` NF_BROWSER_WIDTHS largeurs de la famille responsive (défaut 360,768,1280)
+ * `@env` NF_BROWSER_VIEWPORT écran mesuré : mobile, mobile-court, tablette, bureau (défaut), large, tres-large, ou LARGEURxHAUTEUR — sous 600 px, émulé en téléphone (tactile, densité 2)
+ * `@env` NF_BROWSER_PRIMARY sélecteur de l'action principale pour la famille pli (défaut : le plus grand bouton de validation visible)
  * `@env` NF_BROWSER_SEUIL_LOURD bytes au-delà desquels une ressource est « lourde » (défaut 512000)
  * `@env` NF_BROWSER_SEUIL_LENT millisecondes au-delà desquelles une réponse est « lente » (défaut 1000)
  * `@requires` conteneur du profil `browser` démarré · serveur joignable depuis le conteneur
@@ -857,6 +859,91 @@ if (active.has("stockage")) {
   delete measured.stockageWeb;
 }
 
+// ── Famille pli — les proportions, sur l'écran DEMANDÉ ──────────────────────
+// Deux questions qu'aucune autre famille ne pose : faut-il défiler pour AGIR
+// (l'action principale est-elle au-dessus du bas de l'écran ?), et quelle place
+// le bloc qui la porte prend-il dans l'écran ? Le défilement seul ne tranche
+// pas : un pied de page sous le pli est normal, un bouton sous le pli ne l'est
+// pas. Mesurée AVANT la famille responsive, qui redimensionne la fenêtre.
+if (active.has("pli")) {
+  const primarySelector = process.env.NF_BROWSER_PRIMARY ?? "";
+  measured.pli = await page.evaluate((selector) => {
+    const visible = (el) => {
+      const r = el.getBoundingClientRect();
+      const st = getComputedStyle(el);
+      return r.width > 0 && r.height > 0 && st.visibility !== "hidden";
+    };
+    let primary = null;
+    if (selector) {
+      primary = [...document.querySelectorAll(selector)].find(visible) ?? null;
+    } else {
+      // Le plus GRAND bouton de validation visible : un bouton « retour » est
+      // aussi de type submit, mais jamais le plus large.
+      let best = 0;
+      for (const el of document.querySelectorAll(
+        'button[type="submit"], input[type="submit"], button:not([type])',
+      )) {
+        if (!visible(el)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width * r.height > best) {
+          best = r.width * r.height;
+          primary = el;
+        }
+      }
+    }
+    const doc = document.scrollingElement ?? document.documentElement;
+    const view = { width: innerWidth, height: innerHeight };
+    const out = {
+      view: `${view.width}×${view.height}`,
+      pageHeight: doc.scrollHeight,
+      scrollPx: Math.max(0, doc.scrollHeight - view.height),
+      overflowXPx: Math.max(0, doc.scrollWidth - view.width),
+    };
+    if (primary === null) {
+      return {
+        ...out,
+        verdict: "ALERTE",
+        reason: "aucune action principale trouvée (NF_BROWSER_PRIMARY)",
+      };
+    }
+    const r = primary.getBoundingClientRect();
+    const bottom = Math.round(r.bottom + scrollY);
+    // Le BLOC principal : le plus grand ancêtre de l'action qui reste plus
+    // étroit que l'écran — une carte, une colonne de formulaire.
+    let frame = null;
+    for (
+      let el = primary.parentElement;
+      el && el !== document.body;
+      el = el.parentElement
+    ) {
+      const fr = el.getBoundingClientRect();
+      if (fr.width < view.width * 0.96) frame = el;
+    }
+    const fr = frame?.getBoundingClientRect();
+    const label = (primary.innerText || primary.value || "")
+      .trim()
+      .slice(0, 40);
+    const marginPx = view.height - bottom;
+    return {
+      ...out,
+      primary: { label, bottom, marginPx },
+      frame: fr
+        ? {
+            size: `${Math.round(fr.width)}×${Math.round(fr.height)}`,
+            widthShare: Math.round((fr.width / view.width) * 100),
+            heightShare: Math.round((fr.height / view.height) * 100),
+          }
+        : null,
+      verdict: marginPx < 0 || out.overflowXPx > 0 ? "ALERTE" : "OK",
+      ...(marginPx < 0
+        ? { reason: `défiler ${-marginPx} px pour atteindre « ${label} »` }
+        : out.overflowXPx > 0
+          ? { reason: `la page déborde de ${out.overflowXPx} px en largeur` }
+          : {}),
+    };
+  }, primarySelector);
+}
+
 // ── Capture — AVANT la famille responsive, qui déforme le viewport ──────────
 const slug = captureSlug(PAGE);
 const shot = path.join(OUTPUT, `${slug}-${stamp}.png`);
@@ -927,6 +1014,8 @@ console.log(
       // Le navigateur qui a produit ces chiffres — un Chrome de système et le
       // Chromium du pilote n'ont pas la même version.
       browserName: decor.browserUsed,
+      // L'écran mesuré : une proportion sans son écran ne conclut rien.
+      viewport: `${decor.VIEWPORT.name}${decor.VIEWPORT.mobile ? " (téléphone)" : ""}`,
       ...measured,
       consoleErrors,
       uncaughtErrors,

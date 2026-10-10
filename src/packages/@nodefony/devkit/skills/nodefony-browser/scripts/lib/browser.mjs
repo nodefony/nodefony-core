@@ -26,6 +26,7 @@ import {
   sessionVerdict,
   parseColorScheme,
   parseStorage,
+  parseViewport,
 } from "./probes.mjs";
 
 /**
@@ -68,6 +69,18 @@ const { base: baseUrl, out: OUT } = environmentDefaults({
   base: process.env.NF_BROWSER_BASE,
   out: process.env.NF_BROWSER_OUT,
 });
+
+/**
+ * L'écran mesuré (`NF_BROWSER_VIEWPORT`) — `bureau` (1 440 × 900) par défaut.
+ * Un nom inconnu est REFUSÉ (code 64) : mesurer sur un autre écran que celui
+ * demandé ferait conclure sur une page qu'on n'a pas regardée.
+ */
+const viewport = parseViewport(process.env.NF_BROWSER_VIEWPORT);
+if ("error" in viewport) {
+  console.error(`NF_BROWSER_VIEWPORT : ${viewport.error}`);
+  process.exit(64); // EX_USAGE
+}
+export const VIEWPORT = viewport;
 
 /** Où atterrissent captures et état d'authentification. */
 export const OUTPUT = OUT;
@@ -217,7 +230,13 @@ export async function open() {
   }
   const options = {
     ignoreHTTPSErrors: true, // certificat de développement auto-signé
-    viewport: { width: 1440, height: 900 },
+    viewport: { width: VIEWPORT.width, height: VIEWPORT.height },
+    // Un écran de téléphone se dit TACTILE et dense : des pages en dépendent
+    // (`pointer: coarse`, `hover: none`), et une fenêtre étroite seule ne
+    // l'annoncerait pas.
+    ...(VIEWPORT.mobile
+      ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
+      : {}),
     ...(COLOR_SCHEME ? { colorScheme: COLOR_SCHEME } : {}),
   };
   let reuse = Boolean(USER) && existsSync(STATE);

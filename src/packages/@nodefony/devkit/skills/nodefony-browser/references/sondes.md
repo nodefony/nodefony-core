@@ -164,6 +164,19 @@ pixels, ni tactile, ni `user-agent`. Une media query sur `pointer` ou `hover` ne
 capture PNG est prise AVANT cette famille, à la largeur d'origine : les débordements constatés ici
 ne s'y voient pas.
 
+## `pli` — les proportions, sur l'écran demandé
+
+Sur l'écran de `NF_BROWSER_VIEWPORT` : la hauteur de la page et le défilement (`scrollPx`), le
+débordement en largeur, l'**action principale** (`primary` : libellé, bas en pixels, `marginPx` =
+marge avant le bas de l'écran) et le **bloc** qui la porte (`frame` : taille, part de la largeur et
+de la hauteur de l'écran). `ALERTE` quand il faut défiler pour atteindre l'action, ou que la page
+déborde en largeur — un pied de page sous le pli n'est PAS une alerte.
+
+**Quand elle se trompe** : l'action principale est devinée — le plus GRAND bouton de validation
+visible (un bouton « retour » est aussi un `submit`, jamais le plus large). Sur une page à plusieurs
+formulaires, désigne-la : `NF_BROWSER_PRIMARY="#mon-bouton"`. Le bloc est le plus grand ancêtre de
+l'action resté plus étroit que l'écran : sur une page sans carte, c'est une colonne, pas un cadre.
+
 ## Lire un verdict sans se faire piéger
 
 1. **`ALERTE` n'est pas « cassé »** — c'est « mérite un regard ». Le détail dit lequel.

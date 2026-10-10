@@ -25,7 +25,66 @@ export const FAMILIES = Object.freeze({
   perf: "temps de rendu — TTFB, FCP, LCP, CLS, tâches longues",
   stockage: "cookies (attributs, jamais les valeurs) et Web Storage",
   responsive: "débordement horizontal à plusieurs largeurs d'écran",
+  pli: "proportions — l'action principale visible sans défiler, la place du bloc principal dans l'écran",
 });
+
+/**
+ * Écrans nommés pour `NF_BROWSER_VIEWPORT` — les tailles qu'on vérifie le plus
+ * souvent, pour ne pas les réécrire (et les mal recopier) à chaque mesure.
+ * `mobile-court` est l'écran qui révèle un formulaire trop haut : un téléphone
+ * de 667 px de haut, encore courant.
+ */
+export const VIEWPORT_PRESETS = Object.freeze({
+  mobile: { width: 390, height: 844 },
+  "mobile-court": { width: 375, height: 667 },
+  tablette: { width: 820, height: 1180 },
+  bureau: { width: 1440, height: 900 },
+  large: { width: 1920, height: 1080 },
+  "tres-large": { width: 2560, height: 1440 },
+});
+
+/** En deçà de cette largeur, l'écran est émulé comme un TÉLÉPHONE (tactile, densité 2). */
+export const MOBILE_MAX_WIDTH = 600;
+
+/**
+ * Analyse l'écran demandé (`NF_BROWSER_VIEWPORT`) : un nom de
+ * {@link VIEWPORT_PRESETS} ou `LARGEURxHAUTEUR`. Absent = `bureau`, l'écran
+ * historique de la sonde.
+ *
+ * Un écran étroit n'est pas qu'une fenêtre réduite : un téléphone annonce un
+ * écran tactile et une densité de pixels, et certaines pages en dépendent
+ * (`@media (pointer: coarse)`, `hover`). Sous {@link MOBILE_MAX_WIDTH}, la sonde
+ * l'émule donc comme un téléphone.
+ *
+ * @param {string|undefined} raw - `mobile`, `390x844`…
+ * @returns {{ name: string, width: number, height: number, mobile: boolean } | { error: string }}
+ */
+export function parseViewport(raw) {
+  const value = (raw ?? "").trim().toLowerCase();
+  const named = Object.hasOwn(VIEWPORT_PRESETS, value || "bureau")
+    ? VIEWPORT_PRESETS[value || "bureau"]
+    : null;
+  let size = named;
+  if (size === null) {
+    const m = /^(\d{3,4})x(\d{3,4})$/.exec(value);
+    const width = m ? Number(m[1]) : NaN;
+    const height = m ? Number(m[2]) : NaN;
+    if (!(width >= 240 && width <= 4000 && height >= 240 && height <= 4000)) {
+      return {
+        error:
+          `écran « ${raw} » inconnu : ${Object.keys(VIEWPORT_PRESETS).join(", ")}, ` +
+          "ou LARGEURxHAUTEUR (240 à 4000 px)",
+      };
+    }
+    size = { width, height };
+  }
+  return {
+    name: named ? value || "bureau" : `${size.width}x${size.height}`,
+    width: size.width,
+    height: size.height,
+    mobile: size.width < MOBILE_MAX_WIDTH,
+  };
+}
 
 /**
  * Analyse la liste de familles demandée (`NF_BROWSER_FAMILIES`).

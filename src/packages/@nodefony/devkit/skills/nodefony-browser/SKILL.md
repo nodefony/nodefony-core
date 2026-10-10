@@ -239,6 +239,20 @@ NF_BROWSER_STORAGE="ma-cle-de-theme=light" node .../scripts/inspect.mjs /
 Le champ `theme` de la sortie dit ce qui a été RÉELLEMENT appliqué. Vérifie-le : c'est ainsi qu'on
 sait qu'on a mesuré le bon écran.
 
+### Mesurer sur l'écran que tu veux — téléphone, bureau, grand écran
+
+La sonde mesure en 1 440 × 900 par défaut. Une page juste sur un bureau peut obliger à défiler pour
+atteindre son bouton sur un téléphone, ou flotter perdue sur un écran de 2 560 px :
+
+```bash
+NF_BROWSER_VIEWPORT=mobile-court NF_BROWSER_FAMILIES=pli node .../scripts/inspect.mjs /connexion "Se connecter"
+```
+
+Écrans nommés : `mobile` (390 × 844), `mobile-court` (375 × 667), `tablette` (820 × 1180),
+`bureau` (défaut), `large` (1 920 × 1080), `tres-large` (2 560 × 1440) — ou `LARGEURxHAUTEUR`.
+Sous 600 px de large, l'écran est émulé en **téléphone** (tactile, densité 2), pas seulement rétréci.
+Un nom inconnu est **refusé** (code 64). Le champ `viewport` de la sortie dit l'écran mesuré.
+
 ## Les familles de sondes — activables, jamais un mur de JSON
 
 Le socle ci-dessus sort toujours. Le reste s'active par famille, chacune rendant un **verdict**
@@ -248,15 +262,16 @@ Le socle ci-dessus sort toujours. Le reste s'active par famille, chacune rendant
 NF_BROWSER_FAMILIES=axe,perf,reseau node .../scripts/inspect.mjs /tableau-de-bord "Chiffre d affaires"
 ```
 
-| Famille      | Question à laquelle elle répond                                                                    |
-| ------------ | -------------------------------------------------------------------------------------------------- |
-| **`axe`**    | **Audit WCAG complet par `axe-core` — une centaine de règles, dont le contraste de TOUT le texte** |
-| `a11y`       | Étiquettes, noms accessibles, hiérarchie des titres, cibles < 24 px, arbre d'accessibilité         |
-| `rendu`      | Débordement horizontal, éléments hors viewport, polices RÉELLEMENT chargées                        |
-| `reseau`     | Requêtes, échecs, ressources lourdes et lentes, octets réellement transférés                       |
-| `perf`       | TTFB, FCP, LCP, CLS, tâches longues — verdict sur les seuils Web Vitals                            |
-| `stockage`   | Attributs des cookies et inventaire du Web Storage — **jamais les valeurs**                        |
-| `responsive` | Le débordement horizontal rejoué à plusieurs largeurs (`NF_BROWSER_WIDTHS`)                        |
+| Famille      | Question à laquelle elle répond                                                                       |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| **`axe`**    | **Audit WCAG complet par `axe-core` — une centaine de règles, dont le contraste de TOUT le texte**    |
+| `a11y`       | Étiquettes, noms accessibles, hiérarchie des titres, cibles < 24 px, arbre d'accessibilité            |
+| `rendu`      | Débordement horizontal, éléments hors viewport, polices RÉELLEMENT chargées                           |
+| `reseau`     | Requêtes, échecs, ressources lourdes et lentes, octets réellement transférés                          |
+| `perf`       | TTFB, FCP, LCP, CLS, tâches longues — verdict sur les seuils Web Vitals                               |
+| `stockage`   | Attributs des cookies et inventaire du Web Storage — **jamais les valeurs**                           |
+| `responsive` | Le débordement horizontal rejoué à plusieurs largeurs (`NF_BROWSER_WIDTHS`)                           |
+| `pli`        | Faut-il défiler pour AGIR ? Le bouton principal face au bas de l'écran, la place du bloc qui le porte |
 
 `NF_BROWSER_FAMILIES=toutes` active tout ; un nom inconnu est **refusé** (code 64), jamais ignoré.
 Ce que chaque champ veut dire, comment lire un verdict, et **quand chaque famille se trompe** :
