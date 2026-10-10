@@ -1754,13 +1754,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         bloc,
         "./docker/keycloak/import:/opt/keycloak/data/import:ro",
       );
-      // Le thème est une COPIE dans l'app (montage relatif — portable Windows),
-      // jamais `node_modules/…` : yarn moderne n'en a pas, et un lien
-      // symbolique se monte mal sous Windows.
-      assert.include(
-        bloc,
-        "./docker/keycloak/themes/nodefony:/opt/keycloak/themes/nodefony:ro",
-      );
+      // Les thèmes sont une COPIE dans l'app (montage relatif — portable
+      // Windows), jamais `node_modules/…` : yarn moderne n'en a pas, et un
+      // lien symbolique se monte mal sous Windows. Le dossier ENTIER : le
+      // thème `nodefony` et ses thèmes d'habillage `nodefony-<habillage>`.
+      assert.include(bloc, "./docker/keycloak/themes:/opt/keycloak/themes:ro");
       assert.notInclude(bloc, "node_modules");
       assert.include(
         bloc,

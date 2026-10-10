@@ -180,8 +180,8 @@ serait sans effet à la régénération suivante.
 ```nodefony-cards
 [
   { "icon": "🔧", "title": "browser", "href": "skills/nodefony-browser.md",
-    "desc": "Ouvre une page réelle dans un navigateur piloté — poste ou conteneur — pour la VOIR et surtout la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements ; et pilote un socket depuis la page, avec ses cookies et son origine.",
-    "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
+    "desc": "Ouvre une page réelle dans un navigateur piloté pour la VOIR et la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements, proportions sur l'écran choisi (téléphone émulé, bureau, grand écran) ; pilote aussi un socket depuis la page.",
+    "meta": "🟢 conforme v1.2.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un…",
     "meta": "🟢 conforme v1.4.0 · ⚙️ 14 scripts · 📎 9 réf" },

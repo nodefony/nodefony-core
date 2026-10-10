@@ -875,6 +875,24 @@ body[data-layout="bare"] .nf-steps {
     display: flex;
   }
 }
+/* Grand écran : le bloc de connexion grandit TOUT ENTIER — texte, champs,
+   boutons —, par paliers. Mesuré en 2 560 × 1 440 : la carte n'occupait que
+   16 % de la largeur et 33 % de la hauteur, perdue au milieu de l'écran.
+   Élargir la seule carte allongerait les lignes sans rien rendre plus lisible ;
+   `zoom` garde les proportions — le bandeau de marque grandit avec lui. La hauteur compte autant que la largeur : un
+   écran large mais bas n'a pas la place de grandir. */
+@media (min-width: 1800px) and (min-height: 1000px) {
+  .nf-strip,
+  .nf-stage {
+    zoom: 1.12;
+  }
+}
+@media (min-width: 2400px) and (min-height: 1300px) {
+  .nf-strip,
+  .nf-stage {
+    zoom: 1.3;
+  }
+}
 @media (max-width: 520px) {
   .nf-strip .hide-sm {
     display: none;

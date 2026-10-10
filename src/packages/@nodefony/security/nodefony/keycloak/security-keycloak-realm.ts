@@ -204,6 +204,8 @@ class SecurityKeycloakRealm extends Command {
         servers: appServers,
         production: this.kernel?.environment === "production",
         machine: machineClient(existing, opts.machine),
+        currentLoginTheme:
+          typeof existing?.loginTheme === "string" ? existing.loginTheme : null,
         ...(opts.backchannelOrigin === undefined
           ? {}
           : { backchannelOrigin: opts.backchannelOrigin }),

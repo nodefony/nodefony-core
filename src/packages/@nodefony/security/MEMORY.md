@@ -512,7 +512,13 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   `.nf-body`, classe du corps de carte de login.css) ; `resources/css/login.css` = COPIE À L'OCTET
   (test `loginStylesheet.test.ts` du cœur), `nodefony.css` = adaptation PatternFly → `--nf-login-*`
   seulement, aucune couleur en dur. Mise en page = `nfLayout` (theme.properties, split|card|bare),
-  surchargée par un thème ENFANT de l'app (`parent=nodefony`, sa feuille après la nôtre). Thème :
+  surchargée par un thème ENFANT. Habillages : 8 thèmes enfants LIVRÉS `keycloak/themes/nodefony-<skin>/login`
+  (`parent=nodefony`, `styles` + `css/skins/<skin>.css`, `nfSkin` → `<body data-skin>`, `nfLayout` =
+  `LOGIN_PAGE_SKIN_SPECS`) ; feuilles = COPIES À L'OCTET de `nodefony/assets/login/skins/` (test
+  `loginSkins.test.ts` du cœur). `loginTheme` dérivé de `loginPage.skin` (`keycloakLoginTheme`) SEULEMENT si le
+  realm a déjà un thème `nodefony*` (`currentLoginTheme`), sinon avertissement. Compose : dossier `themes/`
+  ENTIER monté. `nodefony.css` repose taille/position du fond (le parent `keycloak.v2` le met en `cover` →
+  motif étiré) ; page `login-login-config-totp` en 2 colonnes ≥ 960 px (`--nf-login-card-width: 820px`). Thème :
   `data-theme` posé sur <html> d'après la décision de Keycloak (`darkMode` du realm, classe
   `pf-v5-theme-dark`) ; `nf_theme` (`KEYCLOAK_THEME_PARAMETER`, posé par `withKeycloakThemeHint`
   depuis `IAuthorizationRequest.theme`, lui-même `?theme=` sur `/authorize`) le force pour tout le

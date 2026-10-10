@@ -366,11 +366,13 @@ services:
     volumes:
       - keycloak-data:/opt/keycloak/data
       - ./keycloak/import:/opt/keycloak/data/import:ro
-      # Thème Keycloak aux couleurs de Studio, LIVRÉ par `@nodefony/security` :
-      # le dépôt le monte depuis le paquet (une application en reçoit une COPIE
+      # Thèmes Keycloak aux couleurs de Studio, LIVRÉS par `@nodefony/security` :
+      # `nodefony` et un thème enfant par habillage de la page /login
+      # (`nodefony-<habillage>`, choisi par `loginTheme` du realm). Le dépôt
+      # monte le dossier entier depuis le paquet (une application en reçoit une COPIE
       # par `nodefony scaffold:sync`). `start-dev` ne met pas les thèmes en
       # cache : une retouche se voit au rechargement.
-      - ../src/packages/@nodefony/security/keycloak/themes/nodefony:/opt/keycloak/themes/nodefony:ro
+      - ../src/packages/@nodefony/security/keycloak/themes:/opt/keycloak/themes:ro
       - ${KEYCLOAK_TLS_DIR:-../nodefony/config/certificates/server}:/opt/keycloak/conf/tls:ro
     healthcheck:
       # L'image n'a ni curl ni wget : la sonde passe par le /dev/tcp de bash

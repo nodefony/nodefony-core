@@ -3,7 +3,9 @@ import type {
   IKeycloakRealmInput,
   IKeycloakRoleInput,
 } from "./keycloakRealm.js";
+import { DEFAULT_LOGIN_PAGE_SKIN, type LoginPageSkin } from "nodefony";
 import type { ISecurityConfig } from "../config/config.js";
+import { KEYCLOAK_THEME_NAME } from "./scaffold.js";
 
 /** Un fournisseur OAuth tel que la config validée le rend. */
 type TProvider = ISecurityConfig["oauth2"]["providers"][string];
@@ -42,6 +44,12 @@ export interface IKeycloakRealmContext {
    * Keycloak du compose vit dans un conteneur, `localhost` y désigne le sien.
    */
   readonly backchannelOrigin?: string;
+  /**
+   * `loginTheme` du realm déjà écrit, `null` s'il n'en déclare pas (ou s'il
+   * n'existe pas encore). Seul un realm déjà habillé par Nodefony change
+   * d'habillage : un thème propre à l'application n'est jamais remplacé.
+   */
+  readonly currentLoginTheme?: string | null;
 }
 
 /** Une dérivation, et ce qu'elle a remarqué en chemin. */
@@ -116,6 +124,31 @@ function backchannelPath(callbackPath: string): string {
  * @returns l'entrée du constructeur de realm et les constats
  * @throws {KeycloakRealmError} Si le fournisseur est absent ou sans émetteur
  */
+/**
+ * Le thème Keycloak de connexion qui porte un habillage de la page `/login`.
+ *
+ * @param skin - habillage (`loginPage.skin`)
+ * @returns `nodefony` pour l'habillage par défaut, `nodefony-<habillage>` sinon
+ *   (thème enfant livré sous `keycloak/themes/`)
+ */
+export function keycloakLoginTheme(skin: LoginPageSkin): string {
+  return skin === DEFAULT_LOGIN_PAGE_SKIN
+    ? KEYCLOAK_THEME_NAME
+    : `${KEYCLOAK_THEME_NAME}-${skin}`;
+}
+
+/**
+ * Dit si un thème Keycloak est l'un de ceux que livre Nodefony.
+ *
+ * @param theme - nom du thème
+ * @returns `true` pour `nodefony` et `nodefony-<habillage>`
+ */
+export function isNodefonyKeycloakTheme(theme: string): boolean {
+  return (
+    theme === KEYCLOAK_THEME_NAME || theme.startsWith(`${KEYCLOAK_THEME_NAME}-`)
+  );
+}
+
 export function deriveKeycloakRealmInput(
   ctx: IKeycloakRealmContext,
 ): IKeycloakRealmDerivation {
@@ -184,6 +217,24 @@ export function deriveKeycloakRealmInput(
     );
   }
 
+  // L'habillage suit `loginPage.skin`, mais seulement sur un realm déjà
+  // habillé par Nodefony : un thème de l'application lui appartient.
+  const skin = ctx.config.loginPage.skin;
+  const current = ctx.currentLoginTheme ?? null;
+  const loginTheme =
+    current !== null && isNodefonyKeycloakTheme(current)
+      ? keycloakLoginTheme(skin)
+      : null;
+  if (loginTheme === null && skin !== DEFAULT_LOGIN_PAGE_SKIN) {
+    warnings.push(
+      `loginPage.skin « ${skin} » non appliqué à Keycloak : le realm ` +
+        (current === null
+          ? "ne déclare aucun thème de connexion"
+          : `utilise le thème « ${current} », qui n'est pas un thème Nodefony`) +
+        ` — poser loginTheme « ${keycloakLoginTheme(skin)} » à la main si c'est voulu`,
+    );
+  }
+
   return {
     input: {
       realm,
@@ -196,6 +247,7 @@ export function deriveKeycloakRealmInput(
       clientRoles: sources.includes("client") ? roles : [],
       realmRoles: sources.includes("realm") ? roles : [],
       machine: ctx.machine,
+      ...(loginTheme === null ? {} : { themes: { login: loginTheme } }),
     },
     warnings,
   };

@@ -11,6 +11,8 @@ import { defineSecurityConfig } from "../../nodefony/config/defineModuleConfig";
 import type { ISecurityConfigInput } from "../../nodefony/config/config";
 import {
   deriveKeycloakRealmInput,
+  isNodefonyKeycloakTheme,
+  keycloakLoginTheme,
   KeycloakRealmError,
   realmNameFromIssuer,
   type IKeycloakRealmContext,
@@ -192,6 +194,64 @@ describe("realm Keycloak — dérivé de la configuration", () => {
       KeycloakRealmError,
     );
     assert.throws(() => realmNameFromIssuer(undefined), KeycloakRealmError);
+  });
+
+  it("le thème de connexion porte l'habillage : `nodefony` par défaut, `nodefony-<habillage>` sinon", () => {
+    assert.equal(keycloakLoginTheme("frontispiece"), "nodefony");
+    assert.equal(keycloakLoginTheme("photo-card"), "nodefony-photo-card");
+    assert.ok(isNodefonyKeycloakTheme("nodefony"));
+    assert.ok(isNodefonyKeycloakTheme("nodefony-blueprint"));
+    assert.ok(!isNodefonyKeycloakTheme("keycloak.v2"));
+    assert.ok(!isNodefonyKeycloakTheme("nodefonyish"));
+  });
+
+  it("🔴 un realm habillé par Nodefony suit `loginPage.skin`, dans les deux sens", () => {
+    const skinned = {
+      ...devConfig(),
+      loginPage: { skin: "blueprint" as const },
+    };
+    const realm = buildKeycloakRealm(
+      deriveKeycloakRealmInput(
+        context(skinned, { currentLoginTheme: "nodefony" }),
+      ).input,
+    );
+    assert.equal(realm.loginTheme, "nodefony-blueprint");
+    // Retour à l'habillage par défaut : le thème enfant est quitté.
+    const back = buildKeycloakRealm(
+      deriveKeycloakRealmInput(
+        context(devConfig(), { currentLoginTheme: "nodefony-blueprint" }),
+      ).input,
+    );
+    assert.equal(back.loginTheme, "nodefony");
+    const merged = mergeKeycloakRealm(
+      { realm: "nodefony", loginTheme: "nodefony", accountTheme: "nodefony" },
+      realm,
+    );
+    assert.equal(merged.loginTheme, "nodefony-blueprint");
+    assert.equal(
+      merged.accountTheme,
+      "nodefony",
+      "les autres types ne bougent pas",
+    );
+  });
+
+  it("🔴 un thème propre à l'application n'est JAMAIS remplacé — et l'habillage non appliqué se DIT", () => {
+    const skinned = { ...devConfig(), loginPage: { skin: "dots" as const } };
+    for (const current of ["acme", null]) {
+      const { input, warnings } = deriveKeycloakRealmInput(
+        context(skinned, { currentLoginTheme: current }),
+      );
+      assert.equal(input.themes, undefined, String(current));
+      assert.ok(
+        warnings.some((w) => w.includes("« dots » non appliqué")),
+        String(current),
+      );
+    }
+    // Habillage par défaut sur un thème propre : rien à dire.
+    const { warnings } = deriveKeycloakRealmInput(
+      context(devConfig(), { currentLoginTheme: "acme" }),
+    );
+    assert.ok(!warnings.some((w) => w.includes("non appliqué")));
   });
 
   it("la clé `audiences` est validée par le schéma : une entrée vide est refusée", () => {

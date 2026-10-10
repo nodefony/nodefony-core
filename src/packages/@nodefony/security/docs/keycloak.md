@@ -190,6 +190,17 @@ Keycloak, donc justes à chaque mise à jour) :
 | `email`   | enveloppe HTML de tous les courriels               | `keycloak`    | le realm (`emailTheme`)                              |
 | `welcome` | page d'accueil du serveur (avant le premier admin) | `keycloak`    | le SERVEUR : `KC_SPI_THEME__WELCOME_THEME: nodefony` |
 
+**L'habillage de la page `/login` suit jusqu'à Keycloak.** Chaque habillage de
+`loginPage.skin` a son thème de connexion Keycloak : `nodefony` pour `frontispiece` (le défaut),
+`nodefony-<habillage>` pour les huit autres (`nodefony-blueprint`, `nodefony-horizon`…). Ce sont
+des thèmes ENFANTS de `nodefony` : même gabarit, mêmes textes, plus la feuille de l'habillage (copie
+conforme de celle du framework) et sa mise en page. Toutes les pages du parcours en héritent —
+connexion, code à usage unique, configuration du second facteur, mot de passe oublié. Le compose
+monte le dossier `docker/keycloak/themes/` ENTIER, pour que Keycloak les voie tous ; la console les
+propose aussi dans _Realm settings › Themes_. Limite : seule l'enveloppe de la page est à Nodefony,
+les formulaires restent ceux de Keycloak — `ledger` (colonnes et étapes numérotées) et `horizon`
+(bandeau photo dans la carte) n'y portent que leurs couleurs et leur mise en page.
+
 Le compose pose aussi `KC_SPI_THEME__DEFAULT: nodefony` : le realm `master`, que l'import ne touche
 pas, prend le même thème — sa connexion et sa console d'administration comprises. Clair et sombre
 suivent le réglage du système (`prefers-color-scheme`) ; le réglage _Dark mode_ du realm le coupe.
@@ -267,7 +278,12 @@ npx nodefony security:keycloak:realm --check     # sort en 1 s'il ne suit plus l
   pas d'audience, autres clients (`mergeKeycloakRealm`, `nodefony/keycloak/keycloakRealm.ts`).
 - **Hors développement, aucun secret n'est écrit** et seules les adresses de `redirectUri` sont
   déclarées : Keycloak génère le secret, tu le copies dans ton gestionnaire.
-- **Keycloak n'importe un realm qu'à sa création.** Un realm déjà là se met à jour par
+- **Le thème de connexion suit `loginPage.skin`** (`loginTheme`, `keycloakLoginTheme`,
+  `nodefony/keycloak/keycloakRealmInput.ts`) — mais seulement sur un realm déjà habillé par
+  Nodefony : un thème propre à l'application n'est jamais remplacé, et l'habillage non appliqué
+  s'annonce en avertissement.
+- **Keycloak n'importe un realm qu'à sa création.** Un thème se change sur un realm déjà là dans
+  **Realm settings** › **Themes** › _Login theme_. Un realm déjà là se met à jour par
   **Realm settings** › **Action** › **Partial import**, clients en « Overwrite » : comptes et seconds
   facteurs restent.
 

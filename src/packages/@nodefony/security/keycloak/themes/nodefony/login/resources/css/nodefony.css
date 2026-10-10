@@ -39,10 +39,17 @@
   --pf-v5-global--primary-color--200: var(--nf-login-brand-hover);
 }
 
-/* Le parent pose un fond « polygones » sur le body : il n'a rien à faire ici. */
+/* Le parent pose un fond « polygones » sur le body, ÉTIRÉ (`cover`) : il n'a
+   rien à faire ici. Les quatre propriétés se reposent, pas seulement l'image —
+   sans la taille, le motif d'un habillage (grille, points : une tuile de
+   quelques dizaines de pixels) était étiré à tout l'écran. */
 .login-pf body.nf-kc {
   background-color: var(--nf-login-bg);
   background-image: var(--nf-login-backdrop);
+  background-size: var(--nf-login-backdrop-size);
+  background-position: var(--nf-login-backdrop-position);
+  background-repeat: repeat;
+  background-attachment: fixed;
 }
 
 /* ── Contenu du panneau de marque : le domaine et ce que le compte permet ── */
@@ -175,6 +182,66 @@
 /* Mise en page « card » : le formulaire respire dans sa carte. */
 .nf-kc[data-layout="card"] .pf-v5-c-login__container {
   padding: 26px 28px;
+}
+
+/* Habillage `ledger` : sur la page /login, il dispose SA carte en deux
+   colonnes (titre et étapes | formulaire) et remonte le sous-titre au-dessus
+   du titre. La carte de Keycloak porte d'autres enfants : la grille y
+   écrasait le formulaire dans la colonne de 260 px. On garde ses couleurs et
+   sa mise en page nue, pas sa structure. */
+.nf-kc[data-skin="ledger"] {
+  --nf-login-card-width: 400px;
+}
+
+.nf-kc[data-skin="ledger"] .nf-card {
+  grid-template-columns: min(400px, 100%);
+  grid-template-rows: none;
+}
+
+.nf-kc[data-skin="ledger"] .nf-card h1,
+.nf-kc[data-skin="ledger"] .nf-card .nf-sub {
+  order: 0;
+}
+
+/* Configuration du second facteur : consignes, code QR ET formulaire. Dans la
+   colonne de 400 px d'une connexion, la page dépassait 1 300 px de haut — un
+   écran de téléphone sur un bureau. Sur grand écran, la carte s'élargit en
+   deux colonnes : consignes et code QR à gauche, formulaire à droite ; le
+   reste (alerte, pied) occupe toute la largeur. Sur téléphone, rien ne change. */
+@media (min-width: 960px) {
+  .nf-kc[data-page-id="login-login-config-totp"] {
+    --nf-login-card-width: 820px;
+  }
+
+  .nf-kc[data-page-id="login-login-config-totp"] .pf-v5-c-login__container {
+    grid-template-columns: min(820px, 100%);
+  }
+
+  /* Le pied sous la carte suit sa largeur. */
+  .nf-kc[data-page-id="login-login-config-totp"] .nf-panel-footer {
+    width: min(820px, 100%);
+  }
+
+  .nf-kc[data-page-id="login-login-config-totp"] .pf-v5-c-login__main-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 40px;
+    align-items: start;
+  }
+
+  .nf-kc[data-page-id="login-login-config-totp"]
+    .pf-v5-c-login__main-body
+    > :not(#kc-totp-settings, #kc-totp-settings-form) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Téléphone : la carte garde ses bords mais rend de la place, pour que le
+   bouton de validation reste dans l'écran sans défiler. */
+@media (max-width: 520px) {
+  .nf-kc[data-layout="card"] .pf-v5-c-login__container {
+    padding: 20px 16px;
+  }
 }
 
 /* Logo compact et pied de périmètre SSO : seulement quand le panneau de marque

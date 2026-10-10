@@ -203,6 +203,12 @@ une couleur pleine.
 **La mise en page suit l'habillage** : sans `layout`, c'est celle pour laquelle il est dessiné ;
 un `layout` écrit gagne (`authFlow.ts:495`).
 
+**Keycloak suit le même habillage** : chaque habillage a son thème de connexion Keycloak
+(`nodefony-<habillage>`), que `security:keycloak:realm --write` pose dans le realm d'après
+`loginPage.skin` — voir [Keycloak](keycloak.md). Seuls `ledger` et `horizon` y perdent leur
+structure propre (les formulaires de Keycloak n'ont pas nos classes) et n'y gardent que leurs
+couleurs et leur mise en page.
+
 **Comparer sans redémarrer** : en développement, `/login?skin=dots` sert la page sous un autre
 habillage, et `&layout=card` force la mise en page — le temps d'une requête, sur vos vrais
 réglages. En production ces paramètres sont ignorés (`loginPage.ts:121`) : la page servie est

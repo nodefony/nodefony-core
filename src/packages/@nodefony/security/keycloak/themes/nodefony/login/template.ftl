@@ -177,12 +177,14 @@
 <#-- ── NODEFONY : le balisage de la page /login du framework ─────────────────
      `nf-layout` · `nf-hero` · `nf-stage` · `nf-card` : les classes de
      `nodefony/login.css`, dont `css/login.css` est la copie conforme. La mise en
-     page suit `nfLayout` (theme.properties : split | card | bare), qu'un thème
-     enfant de l'application surcharge — la même valeur que `loginPage.layout`.
+     page suit `nfLayout` (theme.properties : split | card | bare) et l'habillage
+     `nfSkin` : les thèmes enfants `nodefony-<habillage>` posent les deux, comme
+     `loginPage.skin` sur la page /login — un thème de l'application peut aussi
+     les surcharger.
      Seuls ce bloc d'ouverture et sa fermeture diffèrent du cadre `keycloak.v2` :
      messages, choix de langue, scripts de session et formulaires imbriqués
      restent ceux de Keycloak. -->
-<body id="keycloak-bg" class="${properties.kcBodyClass!} nf-kc" data-layout="${properties.nfLayout!'split'}" data-page-id="login-${pageId}">
+<body id="keycloak-bg" class="${properties.kcBodyClass!} nf-kc" data-skin="${properties.nfSkin!'frontispiece'}" data-layout="${properties.nfLayout!'split'}" data-page-id="login-${pageId}">
 <div class="nf-layout">
   <#-- NODEFONY : le panneau de gauche montre le REALM et l'APPLICATION qui
        demande la connexion — uniquement avec ce que Keycloak expose aux

@@ -14,8 +14,10 @@ import { createAppContributionContext, runScaffold } from "nodefony";
 import {
   APP_KEYCLOAK_REALM_FILE,
   APP_KEYCLOAK_THEME_DIR,
+  APP_KEYCLOAK_THEMES_DIR,
   devClientSecret,
   keycloakThemeSource,
+  keycloakThemesSource,
 } from "../../nodefony/keycloak/scaffold";
 import { contribute } from "../../nodefony/scaffold/contribute";
 
@@ -66,21 +68,28 @@ const lire = (dest: string, ...rel: string[]) =>
   readFileSync(path.join(dest, ...rel), "utf8");
 
 describe("contribution Keycloak de @nodefony/security", () => {
-  it("pose le realm et TOUT le thème, en vrais fichiers, à l'endroit que le compose monte", () => {
+  it("pose le realm et TOUS les thèmes, en vrais fichiers, à l'endroit que le compose monte", () => {
     const { dest, written, kept } = scaffoldWithContribution();
     assert.include(written, APP_KEYCLOAK_REALM_FILE);
     assert.isEmpty(kept);
     const compose = lire(dest, "compose.yaml");
-    assert.include(compose, `./${APP_KEYCLOAK_THEME_DIR}:`);
+    // Le dossier ENTIER est monté : un thème d'habillage non monté ferait
+    // retomber Keycloak sur son thème par défaut, avec un simple avertissement.
+    assert.include(
+      compose,
+      `./${APP_KEYCLOAK_THEMES_DIR}:/opt/keycloak/themes:`,
+    );
     assert.include(compose, "./docker/keycloak/import:");
-    // Chaque fichier du thème livré a sa copie, octet pour octet.
-    const source = keycloakThemeSource();
-    const files = written.filter((f) => f.startsWith(APP_KEYCLOAK_THEME_DIR));
+    // Chaque fichier des thèmes livrés a sa copie, octet pour octet.
+    const source = keycloakThemesSource();
+    const files = written.filter((f) =>
+      f.startsWith(`${APP_KEYCLOAK_THEMES_DIR}/`),
+    );
     assert.isNotEmpty(files);
     for (const rel of files) {
       const inPackage = path.join(
         source,
-        ...rel.slice(APP_KEYCLOAK_THEME_DIR.length + 1).split("/"),
+        ...rel.slice(APP_KEYCLOAK_THEMES_DIR.length + 1).split("/"),
       );
       assert.isTrue(
         readFileSync(path.join(dest, ...rel.split("/"))).equals(
@@ -90,6 +99,10 @@ describe("contribution Keycloak de @nodefony/security", () => {
       );
     }
     assert.include(files, `${APP_KEYCLOAK_THEME_DIR}/login/theme.properties`);
+    assert.include(
+      files,
+      `${APP_KEYCLOAK_THEMES_DIR}/nodefony-blueprint/login/theme.properties`,
+    );
   });
 
   it("le realm déclare le thème livré, et seulement les types qu'il couvre", () => {

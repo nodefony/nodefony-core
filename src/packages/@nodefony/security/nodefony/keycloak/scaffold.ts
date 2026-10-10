@@ -30,7 +30,8 @@ export const KEYCLOAK_THEME_NAME = "nodefony";
 
 /** Où l'application reçoit le décor Keycloak (chemins qui voyagent : `/`). */
 export const APP_KEYCLOAK_REALM_FILE = "docker/keycloak/import/realm.json";
-export const APP_KEYCLOAK_THEME_DIR = `docker/keycloak/themes/${KEYCLOAK_THEME_NAME}`;
+export const APP_KEYCLOAK_THEMES_DIR = "docker/keycloak/themes";
+export const APP_KEYCLOAK_THEME_DIR = `${APP_KEYCLOAK_THEMES_DIR}/${KEYCLOAK_THEME_NAME}`;
 
 /** Les types de thème que le realm sait déclarer, et la clé qui les porte. */
 const THEME_TYPES = ["login", "account", "email", "admin"] as const;
@@ -68,7 +69,18 @@ function packageRoot(): string {
  * @returns chemin natif absolu (`<paquet>/keycloak/themes/nodefony`)
  */
 export function keycloakThemeSource(): string {
-  return path.join(packageRoot(), "keycloak", "themes", KEYCLOAK_THEME_NAME);
+  return path.join(keycloakThemesSource(), KEYCLOAK_THEME_NAME);
+}
+
+/**
+ * Le dossier de TOUS les thèmes Keycloak livrés : `nodefony` et ses thèmes
+ * enfants `nodefony-<habillage>`, un par habillage de la page `/login`.
+ * Keycloak les monte côte à côte (`/opt/keycloak/themes/`).
+ *
+ * @returns chemin natif absolu (`<paquet>/keycloak/themes`)
+ */
+export function keycloakThemesSource(): string {
+  return path.join(packageRoot(), "keycloak", "themes");
 }
 
 /**
@@ -191,13 +203,13 @@ function mountsKeycloak(context: IAppContributionContext): boolean {
 }
 
 /**
- * Recopie le thème livré dans l'application, fichier par fichier, sans jamais
- * remplacer un fichier présent.
+ * Recopie les thèmes livrés dans l'application — `nodefony` et ses thèmes
+ * d'habillage —, fichier par fichier, sans jamais remplacer un fichier présent.
  *
  * @param context - contexte de contribution
  */
 export function copyKeycloakTheme(context: IAppContributionContext): void {
-  context.copyTree(keycloakThemeSource(), APP_KEYCLOAK_THEME_DIR);
+  context.copyTree(keycloakThemesSource(), APP_KEYCLOAK_THEMES_DIR);
 }
 
 /**
