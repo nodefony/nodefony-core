@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { Eta, type TemplateFunction } from "eta";
 import {
   LOGIN_PAGE_ASSETS_BASE,
+  LOGIN_PAGE_SKINS,
+  loginPageSkinFile,
   type ILoginPageDescription,
   type Module,
 } from "nodefony";
@@ -12,6 +14,7 @@ import type { ContextType } from "@nodefony/http";
 import { Csp } from "../decorators/routerDecorators";
 import Router from "../service/router";
 import Controller from "../src/Controller";
+import { isDevelopment } from "../src/singletonGuard";
 import {
   LOGIN_PAGE_ASSET_FILES,
   LOGIN_PAGE_TEMPLATE,
@@ -82,9 +85,15 @@ function templateFor(page: ILoginPageDescription): Promise<TemplateFunction> {
 const version = keepSuccess(async () => {
   const dir = assetsDir();
   const hash = createHash("sha256");
+  // Les habillages entrent dans l'empreinte : une feuille d'habillage changée
+  // par une mise à jour du framework ne doit pas rester servie depuis le cache.
+  const skins = LOGIN_PAGE_SKINS.map(loginPageSkinFile).filter(
+    (file): file is string => file !== null,
+  );
   for (const file of [
     LOGIN_PAGE_ASSET_FILES.script,
     LOGIN_PAGE_ASSET_FILES.style,
+    ...skins,
   ]) {
     hash.update(await readFile(path.join(dir, file)));
   }
@@ -120,6 +129,9 @@ class LoginPageController extends Controller {
     const view = buildLoginPageView(page, {
       from: query?.from,
       theme: query?.theme,
+      skin: query?.skin,
+      layout: query?.layout,
+      preview: isDevelopment(this.kernel?.environment),
       nonce: this.context?.cspNonce ?? "",
       projectName: this.kernel?.projectName ?? "Nodefony",
       assetsVersion: await version(),

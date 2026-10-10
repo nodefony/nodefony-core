@@ -113,6 +113,37 @@ describe("page de connexion par défaut — servie derrière une zone fermée", 
     }
   });
 
+  it("🔴 chaque habillage : sa feuille est PUBLIÉE et servie (aperçu `?skin=` du développement)", async () => {
+    // Le serveur de banc tourne en développement : `?skin=` y est lu. La
+    // feuille vient du `dist/login/skins/` bâti — la copie du build est
+    // éprouvée ici, sur l'artefact servi, pas sur la source.
+    for (const skin of [
+      "ledger",
+      "horizon",
+      "console",
+      "blueprint",
+      "dots",
+      "minimal",
+      "enterprise",
+      "photo-card",
+    ]) {
+      const page = await get(`/login?skin=${skin}`);
+      expect(attr(page.body, /<body[^>]*data-skin="([^"]+)"/u), skin).toBe(
+        skin,
+      );
+      const href = attr(
+        page.body,
+        /<link rel="stylesheet" href="(\/nodefony\/security\/login\/skins\/[^"]+)"/u,
+      );
+      expect(href, skin).toMatch(
+        new RegExp(`^/nodefony/security/login/skins/${skin}\\.css\\?v=`, "u"),
+      );
+      const res = await get(href ?? "");
+      expect(res.status, href).toBe(200);
+      expect(String(res.headers["content-type"]), href).toContain("text/css");
+    }
+  });
+
   it("HEAD répond comme GET, sans corps", async () => {
     const res = await get("/login", "HEAD");
     expect(res.status).toBe(200);

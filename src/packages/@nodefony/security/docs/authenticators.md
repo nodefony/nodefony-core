@@ -124,7 +124,7 @@ un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggabl
 ### Une zone, trois preuves — la même API pour le web et les machines
 
 Dans une app `nodefony create app`, on déclare quelles preuves une zone accepte — un **objet par
-nom**, validé Zod au boot (`areas: z.record(...)`, `config.ts:902`) :
+nom**, validé Zod au boot (`areas: z.record(...)`, `config.ts:1352`) :
 
 ```typescript
 // nodefony.config.ts (extrait)

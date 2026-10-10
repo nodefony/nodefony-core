@@ -1,0 +1,12 @@
+/* Feuille de la page de connexion de CETTE application (`loginPage.stylesheet`).
+
+   Le framework fournit la page et ses habillages, jamais de photo : c'est ici,
+   côté application, qu'on la pose. Une seule variable suffit — chaque
+   habillage la place où il veut (panneau, bandeau, fond de page), et changer
+   d'habillage la conserve. Photo de l'auteur (1 920 px, WebP, 93 Ko). */
+:root {
+  --nf-login-hero-image: url("/brand/login-hero.webp");
+  /* Habillage `horizon` : cadrage du bandeau et légende du lieu. */
+  --nf-login-band-position: center -94px;
+  --nf-login-band-caption: "43.27 N · 5.35 E";
+}

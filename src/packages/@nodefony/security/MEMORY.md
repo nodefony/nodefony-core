@@ -407,7 +407,8 @@ apiKeys.enabled` (keystore JWT seulement si jwt) ; `isEnabled()`=capacité JWT (
 ["ROLE_USER"], allowSignup, successRedirect, failureRedirect, providers:{<name>:{clientId, clientSecret,
 redirectUri, issuer?, scopes}}}` — `issuer` requis pour keycloak (URL realm).
 - `loginPage` (ADR-0015) : `{enabled:true, path:LOGIN_PAGE_PATH (cœur), title?, logo?, template?, password:true,
-layout:"split"|"card"|"bare" (LOGIN_PAGE_LAYOUTS, cœur)}` ; `path` = chemin local sans `?`/`#` (`safeRedirectPath`).
+skin:"frontispiece" (LOGIN_PAGE_SKINS, cœur), layout?:"split"|"card"|"bare" (LOGIN_PAGE_LAYOUTS ; omis =
+`LOGIN_PAGE_SKIN_SPECS[skin].layout`, résolu dans `describeLoginPage`)}` ; `path` = chemin local sans `?`/`#` (`safeRedirectPath`).
   Lue par `authFlow.describeLoginPage()` → `ILoginPageDescription | null` (type AU CŒUR, consommé par framework sans
   importer security) ; `null` = désactivée ou config invalide → 404. Fournisseurs relus à chaque appel, réduits à
   `{name,label}`. `oauth2.failureRedirect` OPTIONNEL : omis = `loginPage.path` (`getRedirects`), donc aussi le retour

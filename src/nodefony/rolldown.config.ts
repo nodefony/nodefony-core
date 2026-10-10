@@ -9,7 +9,7 @@
  * Les décorateurs legacy sont lus par rolldown depuis le tsconfig de chaque
  * bundle (option `tsconfig`).
  */
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "rolldown";
@@ -163,8 +163,10 @@ const debugbarStandaloneConfig: RolldownOptions = defineConfig({
 // framework monte tel quel sous `LOGIN_PAGE_ASSETS_BASE` (service
 // `server-static`) : le script (subpath d'asset `nodefony/login.js`,
 // mono-fichier, sans framework de vue), la feuille et le logo. Ces deux-là
-// sont COPIÉS depuis `assets/`, qui reste leur source (`nodefony/login.css`).
+// sont COPIÉS depuis `assets/`, qui reste leur source (`nodefony/login.css`),
+// comme les feuilles d'habillage (`assets/login/skins/` → `skins/`).
 const LOGIN_PAGE_COPIES = ["login.css", "nodefony-logo.svg"] as const;
+const LOGIN_PAGE_SKINS_DIR = path.join("login", "skins");
 
 const loginPageAssets: Plugin = {
   name: "nodefony-login-page-assets",
@@ -174,6 +176,16 @@ const loginPageAssets: Plugin = {
         type: "asset",
         fileName,
         source: await readFile(path.resolve(__dirname, "assets", fileName)),
+      });
+    }
+    const skinsDir = path.resolve(__dirname, "assets", LOGIN_PAGE_SKINS_DIR);
+    for (const skin of await readdir(skinsDir)) {
+      if (!skin.endsWith(".css")) continue;
+      this.emitFile({
+        type: "asset",
+        // Nom d'entrée du bundler : il voyage, donc en `/` sur les trois plateformes.
+        fileName: `skins/${skin}`,
+        source: await readFile(path.join(skinsDir, skin)),
       });
     }
   },

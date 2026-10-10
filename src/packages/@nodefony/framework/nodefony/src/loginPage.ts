@@ -1,10 +1,15 @@
 import {
   LOGIN_PAGE_ASSETS_BASE,
+  LOGIN_PAGE_LAYOUTS,
+  LOGIN_PAGE_SKIN_SPECS,
+  isLoginPageSkin,
+  loginPageSkinFile,
   oauth2AuthorizePath,
   safeRedirectPath,
   type ILoginPageDescription,
   type ILoginPageHero,
   type LoginPageLayout,
+  type LoginPageSkin,
 } from "nodefony";
 
 /** Fournisseur prêt à afficher : libellé, adresse d'autorisation, icône. */
@@ -33,7 +38,10 @@ export interface ILoginPageView {
   /** Pied de page affiché ? */
   readonly footer: boolean;
   readonly logo: string;
+  readonly skin: LoginPageSkin;
   readonly layout: LoginPageLayout;
+  /** Fond de page décoré par l'habillage (`<body data-backdrop>`). */
+  readonly backdrop: boolean;
   /** Thème imposé par `?theme=`, `null` = celui du système. */
   readonly theme: "light" | "dark" | null;
   /** Fournisseurs avant le formulaire (au moins un fournisseur proposé). */
@@ -43,6 +51,8 @@ export interface ILoginPageView {
   /** Destination après connexion, déjà passée par `safeRedirectPath`. */
   readonly from: string;
   readonly styleHref: string;
+  /** Feuille de l'habillage, chargée après {@link styleHref}, ou `null`. */
+  readonly skinHref: string | null;
   /** Feuille de l'application, chargée après {@link styleHref}, ou `null`. */
   readonly stylesheetHref: string | null;
   readonly scriptHref: string;
@@ -57,6 +67,15 @@ export interface ILoginPageRequest {
   readonly from: unknown;
   /** Valeur brute de `?theme=`. */
   readonly theme: unknown;
+  /** Valeur brute de `?skin=`, lue seulement quand {@link preview} est vrai. */
+  readonly skin?: unknown;
+  /** Valeur brute de `?layout=`, lue seulement quand {@link preview} est vrai. */
+  readonly layout?: unknown;
+  /**
+   * Aperçu autorisé (développement) : `?skin=` et `?layout=` remplacent la
+   * configuration le temps de la requête. Faux en production, où ils sont ignorés.
+   */
+  readonly preview?: boolean;
   readonly nonce: string;
   /** Nom de l'application, quand la configuration ne donne pas de titre. */
   readonly projectName: string;
@@ -90,12 +109,39 @@ export const LOGIN_PAGE_ASSET_FILES = {
 
 const DEFAULT_TITLE = "Se connecter";
 
+/** Dit si une valeur de requête nomme une mise en page connue. */
+function isLayout(value: unknown): value is LoginPageLayout {
+  return (LOGIN_PAGE_LAYOUTS as readonly unknown[]).includes(value);
+}
+
+/**
+ * Habillage et mise en page servis : la configuration, sauf aperçu demandé en
+ * développement. Un `?skin=` seul prend la mise en page de son habillage ; une
+ * valeur inconnue est ignorée.
+ */
+function resolveSkin(
+  page: ILoginPageDescription,
+  request: ILoginPageRequest,
+): { skin: LoginPageSkin; layout: LoginPageLayout } {
+  if (request.preview !== true) {
+    return { skin: page.skin, layout: page.layout };
+  }
+  const skin = isLoginPageSkin(request.skin) ? request.skin : page.skin;
+  const layout = isLayout(request.layout)
+    ? request.layout
+    : skin === page.skin
+      ? page.layout
+      : LOGIN_PAGE_SKIN_SPECS[skin].layout;
+  return { skin, layout };
+}
+
 /**
  * Prépare les données du gabarit à partir de la description de la page
  * (security) et de la requête.
  *
  * Fonction pure : `from` repasse par `safeRedirectPath` (un chemin hors de
- * l'origine retombe sur `/`), `theme` n'accepte que `light` ou `dark`.
+ * l'origine retombe sur `/`), `theme` n'accepte que `light` ou `dark`,
+ * `skin` et `layout` ne sont lus qu'en aperçu et contre leur liste fermée.
  *
  * @param page - description rendue par `authFlow.describeLoginPage()`
  * @param request - valeurs de la requête, non filtrées
@@ -112,6 +158,8 @@ export function buildLoginPageView(
   // L'adresse de retour ne voyage vers le fournisseur que si elle dit quelque
   // chose : `/` est déjà la destination par défaut.
   const providerFrom = from === "/" ? undefined : from;
+  const { skin, layout } = resolveSkin(page, request);
+  const skinFile = loginPageSkinFile(skin);
   return {
     brand: page.title ?? request.projectName,
     title: page.heading ?? DEFAULT_TITLE,
@@ -119,7 +167,9 @@ export function buildLoginPageView(
     hero: page.hero,
     footer: page.footer,
     logo: page.logo ?? logoHref,
-    layout: page.layout,
+    skin,
+    layout,
+    backdrop: LOGIN_PAGE_SKIN_SPECS[skin].backdrop,
     theme:
       request.theme === "light" || request.theme === "dark"
         ? request.theme
@@ -134,6 +184,7 @@ export function buildLoginPageView(
     })),
     from,
     styleHref: asset(LOGIN_PAGE_ASSET_FILES.style),
+    skinHref: skinFile === null ? null : asset(skinFile),
     stylesheetHref: page.stylesheet,
     scriptHref: asset(LOGIN_PAGE_ASSET_FILES.script),
     logoHref,
@@ -159,12 +210,15 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
     <title><%= it.title %> — <%= it.brand %></title>
     <link rel="icon" href="<%= it.logoHref %>" type="image/svg+xml" />
     <link rel="stylesheet" href="<%= it.styleHref %>" />
+<% if (it.skinHref) { %>
+    <link rel="stylesheet" href="<%= it.skinHref %>" />
+<% } %>
 <% if (it.stylesheetHref) { %>
     <link rel="stylesheet" href="<%= it.stylesheetHref %>" />
 <% } %>
     <script type="module" src="<%= it.scriptHref %>" nonce="<%= it.nonce %>"></script>
   </head>
-  <body data-layout="<%= it.layout %>"<% if (it.ssoFirst) { %> data-sso-first<% } %>>
+  <body data-skin="<%= it.skin %>" data-layout="<%= it.layout %>"<% if (it.backdrop) { %> data-backdrop<% } %><% if (it.ssoFirst) { %> data-sso-first<% } %>>
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
       <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" /><path d="M5.5 20a6.5 6.5 0 0 1 13 0" /></symbol>
       <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" /></symbol>

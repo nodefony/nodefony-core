@@ -42,6 +42,14 @@ const oauthPerProvider = {
  */
 export const securityConfig = (ctx: ConfigContext<typeof env>) =>
   ({
+    // Page de connexion servie par le framework : l'habillage par défaut, et
+    // la photo de l'application posée par sa propre feuille (`public/brand/`)
+    // — le framework n'en fournit aucune. En développement, `/login?skin=…`
+    // et `&layout=…` prévisualisent les neuf habillages.
+    loginPage: {
+      skin: "frontispiece",
+      stylesheet: "/brand/login.css",
+    },
     // Social login OAuth 2.0 — un fournisseur n'est monté que si SES deux
     // secrets sont présents (spread conditionnel) : pas de bouton mort sur
     // l'écran de connexion. Les secrets viennent d'`env.ts`, seul lecteur de

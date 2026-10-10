@@ -292,11 +292,18 @@ export {
   LOGIN_PAGE_SCRIPT_PATH,
   LOGIN_PAGE_STYLE_PATH,
   LOGIN_PAGE_LAYOUTS,
+  LOGIN_PAGE_SKINS,
+  LOGIN_PAGE_SKIN_SPECS,
+  DEFAULT_LOGIN_PAGE_SKIN,
+  isLoginPageSkin,
+  loginPageSkinFile,
   MFA_METHOD_TOTP,
   INSECURE_TRANSPORT_MESSAGE,
 } from "../runtime/authRoutes";
 export type {
   LoginPageLayout,
+  LoginPageSkin,
+  ILoginPageSkinSpec,
   ILoginPageProvider,
   ILoginPageDescription,
   ILoginPageHero,

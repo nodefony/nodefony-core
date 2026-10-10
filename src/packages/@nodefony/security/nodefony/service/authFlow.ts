@@ -3,6 +3,7 @@ import {
   Module,
   Container,
   RequestContext,
+  LOGIN_PAGE_SKIN_SPECS,
   MFA_METHOD_TOTP,
   SESSION_AMR_KEY,
   SESSION_AUTH_AT_KEY,
@@ -490,7 +491,8 @@ class AuthFlow extends Service {
             ? false
             : { heading: page.hero.heading, text: page.hero.text ?? null },
       footer: page.footer,
-      layout: page.layout,
+      skin: page.skin,
+      layout: page.layout ?? LOGIN_PAGE_SKIN_SPECS[page.skin].layout,
       password: page.password,
       // Copie au contrat : rien d'autre de la configuration d'un fournisseur
       // n'atteint le gabarit.

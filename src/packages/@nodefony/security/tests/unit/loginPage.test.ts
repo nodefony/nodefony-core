@@ -22,7 +22,7 @@ function buildFlow(options: unknown, oauth2?: unknown): AuthFlow {
 }
 
 describe("security.loginPage — schéma", () => {
-  it("défauts : servie sur LOGIN_PAGE_PATH, mot de passe proposé, mise en page split, fournisseurs d'abord, pied de page", () => {
+  it("défauts : servie sur LOGIN_PAGE_PATH, mot de passe proposé, habillage frontispiece sans mise en page imposée, fournisseurs d'abord, pied de page", () => {
     const page = securityConfigSchema.parse({}).loginPage;
     assert.deepEqual(page, {
       enabled: true,
@@ -30,7 +30,7 @@ describe("security.loginPage — schéma", () => {
       password: true,
       providersFirst: true,
       footer: true,
-      layout: "split",
+      skin: "frontispiece",
     });
   });
 
@@ -58,6 +58,14 @@ describe("security.loginPage — schéma", () => {
     );
   });
 
+  it("🔴 refuse un habillage inconnu (une faute de frappe arrête le démarrage)", () => {
+    assert.equal(
+      securityConfigSchema.safeParse({ loginPage: { skin: "horizont" } })
+        .success,
+      false,
+    );
+  });
+
   it("refuse une mise en page inconnue", () => {
     assert.equal(
       securityConfigSchema.safeParse({ loginPage: { layout: "grid" } }).success,
@@ -79,6 +87,7 @@ describe("AuthFlow.describeLoginPage", () => {
       providersFirst: true,
       hero: null,
       footer: true,
+      skin: "frontispiece",
       layout: "split",
       password: true,
       providers: [],
@@ -113,10 +122,19 @@ describe("AuthFlow.describeLoginPage", () => {
       providersFirst: false,
       hero: { heading: "Bienvenue", text: null },
       footer: false,
+      skin: "frontispiece",
       layout: "card",
       password: false,
       providers: [],
     });
+  });
+
+  it("🔴 sans `layout`, la mise en page est celle de l'habillage ; un `layout` écrit gagne", () => {
+    const skinned = buildFlow({ loginPage: { skin: "ledger" } });
+    assert.equal(skinned.describeLoginPage()?.skin, "ledger");
+    assert.equal(skinned.describeLoginPage()?.layout, "bare");
+    const forced = buildFlow({ loginPage: { skin: "ledger", layout: "card" } });
+    assert.equal(forced.describeLoginPage()?.layout, "card");
   });
 
   it("désactivée → null (le contrôleur répond 404)", () => {

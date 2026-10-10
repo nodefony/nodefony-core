@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | Version | `2.1.0` |
 | Famille | Développer le framework |
 | Corps | 409 lignes |
-| Coût d'activation | ~9 245 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~9 305 tokens (le corps est chargé à l'invocation) |
 | Description | 980 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 11 page(s), 91 fichiers au total |

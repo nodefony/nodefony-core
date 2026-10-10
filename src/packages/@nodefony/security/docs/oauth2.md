@@ -514,8 +514,8 @@ que le mapping du profil. Exemple sans réseau dans le dépôt :
 
 ## ⚙️ Configuration
 
-Schéma Zod `oauth2Schema` (`config.ts:1258`), branché sur la section `oauth2` de la config du module
-(`config.ts:1373`). Table dérivée du schéma — les défauts sont ceux du code.
+Schéma Zod `oauth2Schema` (`config.ts:1266`), branché sur la section `oauth2` de la config du module
+(`config.ts:1381`). Table dérivée du schéma — les défauts sont ceux du code.
 
 | Option            | Type                 | Défaut                      | Effet                                                                                                                |
 | ----------------- | -------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -526,7 +526,7 @@ Schéma Zod `oauth2Schema` (`config.ts:1258`), branché sur la section `oauth2` 
 | `failureRedirect` | chemin               | `loginPage.path` (`/login`) | Où il revient après échec (uniforme, sans détail). Omis = la page de connexion, qu'il suit si elle change de chemin. |
 | `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1288`).                                                                             |
 
-Par fournisseur (`oauthProviderSchema`, `config.ts:1087`) :
+Par fournisseur (`oauthProviderSchema`, `config.ts:1095`) :
 
 <!-- prettier-ignore -->
 | Option | Requis | Effet |
@@ -650,7 +650,7 @@ ou détruire les sessions), pas chez le fournisseur.
 | ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Flux Authorization Code               | RFC 6749                               | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:99`)                    |
 | PKCE                                  | RFC 7636                               | `usesPkce` (`IOAuthProvider.ts:72`) · `oidc.ts:104-111`                                  |
-| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:280`) · `oauth2Schema` (`config.ts:1258`)                    |
+| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:280`) · `oauth2Schema` (`config.ts:1266`)                    |
 | Anti-mix-up (`iss`)                   | RFC 9207                               | `issuerPolicy` (`IOAuthProvider.ts:79`) · `oauth2.ts:402-408`                            |
 | Callback en correspondance exacte     | RFC 9700 §4                            | `redirectUri` (`config.ts:1108`)                                                         |
 | Claims d'identité OIDC                | OpenID Connect Core                    | `fetchProfile()` du helper OIDC (`oidc.ts:205-220`)                                      |

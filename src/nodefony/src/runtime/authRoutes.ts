@@ -110,6 +110,74 @@ export const LOGIN_PAGE_LAYOUTS = ["card", "split", "bare"] as const;
 /** Un mode de mise en page de la page de connexion (`loginPage.layout`). */
 export type LoginPageLayout = (typeof LOGIN_PAGE_LAYOUTS)[number];
 
+/**
+ * Habillages de la page de connexion par défaut (`loginPage.skin`).
+ *
+ * Un habillage ne touche jamais au balisage : c'est une feuille qui redéfinit
+ * des variables `--nf-login-*` et, au plus, la disposition de sa mise en page.
+ * `frontispiece` est la page servie par défaut — `login.css` seule, sans
+ * feuille d'habillage. Aucun habillage ne fournit de photo : l'image vient de
+ * l'application (`--nf-login-hero-image`), chaque habillage la place où il
+ * veut, et la remplace par une couleur pleine en son absence. Source unique du
+ * schéma de `security.loginPage`.
+ */
+export const LOGIN_PAGE_SKINS = [
+  "frontispiece",
+  "ledger",
+  "horizon",
+  "console",
+  "blueprint",
+  "dots",
+  "minimal",
+  "enterprise",
+  "photo-card",
+] as const;
+
+/** Un habillage de la page de connexion (`loginPage.skin`). */
+export type LoginPageSkin = (typeof LOGIN_PAGE_SKINS)[number];
+
+/** Ce qu'un habillage impose au gabarit, au-delà de sa feuille. */
+export interface ILoginPageSkinSpec {
+  /** Mise en page pour laquelle l'habillage est dessiné, sauf `layout` explicite. */
+  readonly layout: LoginPageLayout;
+  /**
+   * Fond de page décoré (motif, image) : le pied passe alors sur une pastille
+   * pleine pour rester lisible (`<body data-backdrop>`).
+   */
+  readonly backdrop: boolean;
+}
+
+/** Habillage servi quand la configuration n'en choisit aucun. */
+export const DEFAULT_LOGIN_PAGE_SKIN: LoginPageSkin = "frontispiece";
+
+/** Mise en page et fond de chaque habillage — le `Record` exige les neuf. */
+export const LOGIN_PAGE_SKIN_SPECS: Readonly<
+  Record<LoginPageSkin, ILoginPageSkinSpec>
+> = Object.freeze({
+  frontispiece: { layout: "split", backdrop: false },
+  ledger: { layout: "bare", backdrop: false },
+  horizon: { layout: "card", backdrop: false },
+  console: { layout: "card", backdrop: false },
+  blueprint: { layout: "card", backdrop: true },
+  dots: { layout: "card", backdrop: true },
+  minimal: { layout: "bare", backdrop: false },
+  enterprise: { layout: "card", backdrop: true },
+  "photo-card": { layout: "card", backdrop: true },
+});
+
+/**
+ * Dit si une valeur nomme un habillage connu.
+ *
+ * @param value - valeur à éprouver (configuration, paramètre de requête)
+ * @returns `true` quand `value` est un des {@link LOGIN_PAGE_SKINS}
+ */
+export function isLoginPageSkin(value: unknown): value is LoginPageSkin {
+  return (
+    typeof value === "string" &&
+    (LOGIN_PAGE_SKINS as readonly string[]).includes(value)
+  );
+}
+
 /** Fournisseur d'identité proposé sur la page de connexion. */
 export interface ILoginPageProvider {
   /** Nom du fournisseur, tel qu'il figure dans l'adresse d'autorisation. */
@@ -168,7 +236,9 @@ export interface ILoginPageDescription {
   readonly hero: ILoginPageHero | false | null;
   /** Pied de page : protections de la session et mention du framework. */
   readonly footer: boolean;
-  /** Mode de mise en page. */
+  /** Habillage : feuille chargée entre celle du framework et celle de l'application. */
+  readonly skin: LoginPageSkin;
+  /** Mode de mise en page (`loginPage.layout`, sinon celui de l'habillage). */
   readonly layout: LoginPageLayout;
   /** Le formulaire identifiant et mot de passe est-il proposé ? */
   readonly password: boolean;
@@ -189,3 +259,14 @@ export const LOGIN_PAGE_SCRIPT_PATH = `${LOGIN_PAGE_ASSETS_BASE}/login.js`;
 
 /** Feuille de style de la page de connexion par défaut. */
 export const LOGIN_PAGE_STYLE_PATH = `${LOGIN_PAGE_ASSETS_BASE}/login.css`;
+
+/**
+ * Fichier de la feuille d'un habillage, relatif à {@link LOGIN_PAGE_ASSETS_BASE}.
+ *
+ * @param skin - habillage
+ * @returns `skins/<habillage>.css`, ou `null` pour {@link DEFAULT_LOGIN_PAGE_SKIN},
+ *   que `login.css` porte seule
+ */
+export function loginPageSkinFile(skin: LoginPageSkin): string | null {
+  return skin === DEFAULT_LOGIN_PAGE_SKIN ? null : `skins/${skin}.css`;
+}

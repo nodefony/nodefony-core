@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+  DEFAULT_LOGIN_PAGE_SKIN,
   LOGIN_PAGE_LAYOUTS,
   LOGIN_PAGE_PATH,
+  LOGIN_PAGE_SKINS,
   safeRedirectPath,
 } from "nodefony";
 import { parseKeySet } from "../src/token/JwtKeystore";
@@ -1070,11 +1072,17 @@ const loginPageSchema = z
       .describe(
         "Propose le formulaire identifiant et mot de passe. false = connexion par fournisseur seulement (SSO).",
       ),
+    skin: z
+      .enum(LOGIN_PAGE_SKINS)
+      .default(DEFAULT_LOGIN_PAGE_SKIN)
+      .describe(
+        "Habillage : `frontispiece` (défaut), `ledger`, `horizon`, `console`, `blueprint`, `dots`, `minimal`, `enterprise`, `photo-card`. Une feuille du framework chargée avant `stylesheet` ; aucune ne fournit de photo — elle vient de `stylesheet` (`--nf-login-hero-image`). En développement, `?skin=` et `?layout=` en donnent un aperçu.",
+      ),
     layout: z
       .enum(LOGIN_PAGE_LAYOUTS)
-      .default("split")
+      .optional()
       .describe(
-        "Mise en page : `split` (illustration et formulaire côte à côte), `card` (panneau centré), `bare` (formulaire seul).",
+        "Mise en page : `split` (illustration et formulaire côte à côte), `card` (panneau centré), `bare` (formulaire seul). Omis = celle pour laquelle l'habillage est dessiné.",
       ),
   })
   .describe(

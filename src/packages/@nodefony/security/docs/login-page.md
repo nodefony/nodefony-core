@@ -9,7 +9,7 @@ audience: [developer]
 tags: [security, login, page, theme, branding, sso, csp]
 version: "doc"
 status: stable
-updated: 2026-10-10
+updated: 2026-10-11
 source: "src/packages/@nodefony/security/docs/login-page.md"
 ---
 
@@ -32,12 +32,12 @@ flowchart LR
   CFG["security.loginPage<br/>(textes, moyens, panneau)"] --> DESC["authFlow.describeLoginPage()"]
   OAUTH["oauth2.providers<br/>(libellé, icône)"] --> DESC
   DESC --> VIEW["buildLoginPageView()<br/>données filtrées"]
-  VIEW --> HTML["page HTML<br/>login.css + votre feuille"]
+  VIEW --> HTML["page HTML<br/>login.css + habillage + votre feuille"]
   HTML --> JS["login.js<br/>déroulé de connexion"]
 ```
 
-La configuration décide de ce que la page **propose et dit** ; votre feuille de style décide de
-son **apparence** (couleurs, rayons, photo du panneau). Le balisage, lui, reste celui du framework :
+La configuration décide de ce que la page **propose et dit** ; l'**habillage** choisi et votre
+feuille de style décident de son **apparence** (couleurs, rayons, photo). Le balisage, lui, reste celui du framework :
 c'est ce qui vous laisse profiter de ses corrections sans rien recopier.
 
 ## 📖 Lexique
@@ -65,9 +65,9 @@ la personnaliser là où c'est sans risque : les textes, les couleurs, le conten
 
 - **Configuration dans `@nodefony/security`, rendu dans `@nodefony/framework`** : le premier décrit
   la page (`AuthFlow.describeLoginPage()`, `authFlow.ts:470`), le second la rend
-  (`buildLoginPageView()`, `loginPage.ts:104`) et la sert (`LoginPageController`,
+  (`buildLoginPageView()`, `loginPage.ts:147`) et la sert (`LoginPageController`,
   `LoginPageController.ts:102`). Le contrat entre les deux, `ILoginPageDescription`, vit au cœur
-  (`authRoutes.ts:147`).
+  (`authRoutes.ts:215`).
 - **Tout passe par du texte échappé** : aucune valeur de la configuration ni de la requête n'entre
   dans le balisage autrement que par `<%= %>`. L'image du panneau passe par votre feuille de style,
   jamais par une adresse injectée dans le HTML.
@@ -143,7 +143,7 @@ bouton prend son libellé (`oauth2.providers.<nom>.label`) et, si vous la régle
 
 Par défaut, quand des fournisseurs sont proposés, leurs boutons passent avant le formulaire : la
 plupart des comptes d'une entreprise sont ceux de son annuaire. `providersFirst: false` inverse
-l'ordre (`loginPage.ts:127`).
+l'ordre (`loginPage.ts:174`).
 
 ### Situation 4 — votre propre page
 
@@ -151,6 +151,62 @@ l'ordre (`loginPage.ts:127`).
 page, construite sur `NodefonyLogin` (voir la doc du client du cœur). Les redirections continuent
 d'y mener. `template` (un gabarit `.eta` qui remplace celui du framework) existe aussi, en dernier
 recours : un gabarit copié ne suit plus les évolutions du balisage.
+
+## 🎨 Habillages — neuf apparences, un seul balisage
+
+Le framework livre neuf habillages. Chacun est une feuille qui redéfinit les variables
+`--nf-login-*` et, au plus, la disposition de sa mise en page : le balisage ne change jamais, donc
+vos réglages (`heading`, `hero`, `providersFirst`…) et votre feuille valent pour les neuf.
+
+```typescript
+// nodefony/config/security.ts — extrait, compile tel quel
+import type { ISecurityConfigInput } from "@nodefony/security";
+
+export const acmeSkin = {
+  loginPage: {
+    skin: "horizon", // un des neuf ; un nom inconnu arrête le démarrage
+    stylesheet: "/brand/login.css", // votre photo et vos couleurs, chargée en dernier
+  },
+} satisfies ISecurityConfigInput;
+```
+
+<!-- prettier-ignore -->
+| `skin` | Mise en page | Fond de page | Pour quoi |
+| --- | --- | --- | --- |
+| `frontispiece` (défaut) | `split` | — | Intranet, application d'entreprise : panneau de marque à bord courbe, les comptes de l'organisation avant le mot de passe local. `login.css` seule. |
+| `ledger` | `bare` | — | Outil interne, back-office : feuille en deux colonnes, étapes numérotées, formulaire à droite. |
+| `horizon` | `card` | — | Grand public, SaaS : carte postale, la photo en bandeau dans la carte. |
+| `console` | `card` | — | Outils, consoles : la signature de la barre de debug, en carte centrée. |
+| `blueprint` | `card` | grille de plan | Produits techniques, API, données : fond bleu nuit. |
+| `dots` | `card` | trame de points | Applications métier : discret, clair d'abord, ombre légère. |
+| `minimal` | `bare` | — | Produit qui veut s'effacer : pas de carte, beaucoup d'air. |
+| `enterprise` | `card` | courbes de niveau | Intranet derrière un fournisseur d'identité, palette sarcelle ; à marier avec `providersFirst: true`. |
+| `photo-card` | `card` | photo voilée | La photo de l'application en fond de page, la carte reste pleine au-dessus. |
+
+**Trois feuilles, dans cet ordre** : `login.css` (le socle), la feuille de l'habillage
+(`/nodefony/security/login/skins/<skin>.css`, aucune pour `frontispiece`), puis la vôtre — vos
+variables l'emportent toujours (`loginPage.ts:210`).
+
+**La photo vient de vous.** Aucun habillage n'en publie : une photo par défaut alourdirait chaque
+installation et finirait à l'identique dans toutes les applications. Une seule variable suffit,
+chaque habillage la place où il veut — le panneau (`frontispiece`), le bandeau (`horizon`), le fond
+de page (`photo-card`) — et changer d'habillage la conserve. Sans elle, ces emplacements prennent
+une couleur pleine.
+
+```css
+/* /brand/login.css — servie par votre application (public/brand/) */
+:root {
+  --nf-login-hero-image: url("/brand/login-hero.webp");
+}
+```
+
+**La mise en page suit l'habillage** : sans `layout`, c'est celle pour laquelle il est dessiné ;
+un `layout` écrit gagne (`authFlow.ts:495`).
+
+**Comparer sans redémarrer** : en développement, `/login?skin=dots` sert la page sous un autre
+habillage, et `&layout=card` force la mise en page — le temps d'une requête, sur vos vrais
+réglages. En production ces paramètres sont ignorés (`loginPage.ts:121`) : la page servie est
+celle de la configuration, et rien d'autre.
 
 ## 🏗️ Architecture interne
 
@@ -172,7 +228,7 @@ sequenceDiagram
   exigerait d'être connecté pour se connecter.
 - **Les fournisseurs sont relus à chaque requête** : l'un d'eux peut tomber ou revenir pendant que
   le serveur tourne, et un bouton qui mène à une erreur est retiré de l'offre.
-- **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts:108`) : une adresse
+- **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts:151`) : une adresse
   hors de l'origine retombe sur `/`.
 
 ## ⚙️ Configuration (schéma Zod `loginPageSchema`, `config.ts:980`)
@@ -186,8 +242,9 @@ sequenceDiagram
 | `logo` | string · logo Nodefony | Adresse du logo (chemin servi, ou URL autorisée par la CSP). |
 | `heading` | string · « Se connecter » | Titre de la carte et de l'onglet. |
 | `subtitle` | string · déduit | Ligne sous le titre ; par défaut, déduite des moyens proposés. |
-| `stylesheet` | string · — | Feuille chargée après `login.css` (`config.ts:1018`). |
-| `layout` | `split` · `card` · `bare` | Mise en page : panneau et formulaire, carte centrée, formulaire seul (`config.ts:1073`). |
+| `stylesheet` | string · — | Feuille chargée après `login.css` et l'habillage (`config.ts:1018`). |
+| `skin` | un des neuf · `frontispiece` | Habillage (`config.ts:1075`) — voir « Habillages ». |
+| `layout` | `split` · `card` · `bare` · celle de l'habillage | Mise en page : panneau et formulaire, carte centrée, formulaire seul (`config.ts:1081`). |
 | `hero` | `{ heading, text? }` · `false` · vitrine | Contenu du panneau (`config.ts:1045`) ; une clé inconnue est refusée au démarrage. |
 | `providersFirst` | boolean · `true` | Fournisseurs avant le formulaire (`config.ts:1039`). |
 | `footer` | boolean · `true` | Protections de la session et « Propulsé par Nodefony » (`config.ts:1061`). |
@@ -214,7 +271,7 @@ nommant, au lieu d'être ignorée.
 ## ⚡ Performance & mémoire
 
 - Le gabarit est compilé **une fois par processus**, et un échec de chargement n'est pas mémorisé
-  (`keepSuccess()`, `loginPage.ts:75`) : la page ne reste pas en 500 après une correction.
+  (`keepSuccess()`, `loginPage.ts:94`) : la page ne reste pas en 500 après une correction.
 - Feuille et script sont servis en statique, versionnés par leur empreinte (`?v=`) : le navigateur
   les garde en cache jusqu'au prochain changement. Le script pèse 4 Ko.
 
@@ -236,7 +293,9 @@ nommant, au lieu d'être ignorée.
   page, et le **vrai** script monté sur le HTML rendu jusqu'à l'ouverture de la session ;
 - **unit (security)** : `tests/unit/loginPage.test.ts` — la section `loginPage` et sa lecture par
   `describeLoginPage()` ; `oauth2Service.test.ts` — libellé et image des boutons ;
-- **unit (cœur)** : `clientLoginPage.test.ts` — le script de la page : déroulé complet, destination
+- **unit (cœur)** : `loginSkins.test.ts` — une feuille par habillage et aucune hors catalogue,
+  jeu clair écrit deux fois à l'identique, aucune variable lue sans définition ni posée sans
+  lecteur, aucune image publiée ; `clientLoginPage.test.ts` — le script de la page : déroulé complet, destination
   hors origine refusée, message fixe, refus du clair reconnu ;
 - **intégration live** : `tests/integration/login-page.test.ts` chez `@nodefony/framework` (serveur
   réel : en-têtes, CSP, fichiers servis) ;

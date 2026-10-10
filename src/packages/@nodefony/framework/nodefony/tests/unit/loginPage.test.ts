@@ -30,6 +30,7 @@ const PAGE: ILoginPageDescription = {
   providersFirst: true,
   hero: null,
   footer: true,
+  skin: "frontispiece",
   layout: "split",
   password: true,
   providers: [
@@ -245,6 +246,98 @@ describe("page de connexion — gabarit rendu", () => {
         .theme,
     ).toBe("light");
     expect(render().documentElement.hasAttribute("data-theme")).toBe(false);
+  });
+});
+
+describe("page de connexion — habillages", () => {
+  const sheets = (doc: Document) =>
+    [...doc.querySelectorAll('link[rel="stylesheet"]')].map((l) =>
+      l.getAttribute("href"),
+    );
+
+  it("l'habillage par défaut n'ajoute aucune feuille ; `data-skin` toujours posé", () => {
+    const doc = render();
+    expect(doc.body.dataset.skin).toBe("frontispiece");
+    expect(doc.body.hasAttribute("data-backdrop")).toBe(false);
+    expect(sheets(doc)).toHaveLength(1);
+  });
+
+  it("🔴 ordre des feuilles : framework, habillage, application", () => {
+    const doc = render({
+      ...PAGE,
+      skin: "blueprint",
+      layout: "card",
+      stylesheet: "/assets/acme-login.css",
+    });
+    expect(sheets(doc)).toEqual([
+      "/nodefony/security/login/login.css?v=abc123",
+      "/nodefony/security/login/skins/blueprint.css?v=abc123",
+      "/assets/acme-login.css",
+    ]);
+    expect(doc.body.dataset.skin).toBe("blueprint");
+    expect(doc.body.dataset.layout).toBe("card");
+    // Fond décoré : le pied passe sur une pastille pleine (login.css).
+    expect(doc.body.hasAttribute("data-backdrop")).toBe(true);
+  });
+
+  it("🔴 hors aperçu (production), `?skin=` et `?layout=` sont ignorés", () => {
+    const doc = render(PAGE, {
+      ...REQUEST,
+      skin: "console",
+      layout: "bare",
+      preview: false,
+    });
+    expect(doc.body.dataset.skin).toBe("frontispiece");
+    expect(doc.body.dataset.layout).toBe("split");
+    expect(sheets(doc)).toHaveLength(1);
+  });
+
+  it("aperçu : `?skin=` seul prend la mise en page de son habillage", () => {
+    const view = buildLoginPageView(PAGE, {
+      ...REQUEST,
+      skin: "ledger",
+      preview: true,
+    });
+    expect(view.skin).toBe("ledger");
+    expect(view.layout).toBe("bare");
+    expect(view.skinHref).toBe(
+      "/nodefony/security/login/skins/ledger.css?v=abc123",
+    );
+  });
+
+  it("aperçu : `?layout=` remplace la mise en page, celle de la configuration sinon", () => {
+    expect(
+      buildLoginPageView(PAGE, {
+        ...REQUEST,
+        skin: "console",
+        layout: "split",
+        preview: true,
+      }).layout,
+    ).toBe("split");
+    expect(
+      buildLoginPageView(
+        { ...PAGE, layout: "card" },
+        { ...REQUEST, layout: "bare", preview: true },
+      ).layout,
+    ).toBe("bare");
+    expect(
+      buildLoginPageView(
+        { ...PAGE, layout: "card" },
+        { ...REQUEST, preview: true },
+      ).layout,
+    ).toBe("card");
+  });
+
+  it("🔴 aperçu : une valeur hors liste est ignorée, jamais injectée dans une adresse", () => {
+    const view = buildLoginPageView(PAGE, {
+      ...REQUEST,
+      skin: "../../etc/passwd",
+      layout: "<script>",
+      preview: true,
+    });
+    expect(view.skin).toBe("frontispiece");
+    expect(view.layout).toBe("split");
+    expect(view.skinHref).toBeNull();
   });
 });
 
