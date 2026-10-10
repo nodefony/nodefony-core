@@ -26,6 +26,12 @@
       "file": "src/nodefony/dist/client/client/roles/index.js",
       "budgetKB": 10,
       "referenceKB": 1
+    },
+    {
+      "subpath": "nodefony/login.js",
+      "file": "src/nodefony/dist/client/login.standalone.js",
+      "budgetKB": 6,
+      "referenceKB": 4
     }
   ]
 }

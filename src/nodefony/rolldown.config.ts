@@ -157,4 +157,24 @@ const debugbarStandaloneConfig: RolldownOptions = defineConfig({
   plugins: [browserShim],
 });
 
-export default [nodeConfig, binConfig, clientConfig, debugbarStandaloneConfig];
+// ─── 5. Page de connexion STANDALONE (dist/client/login.standalone.js) ───────
+// Script de la page `/login` rendue serveur (subpath d'asset `nodefony/login.js`) :
+// mono-fichier, sans framework de vue, chargé par `<script type="module">`.
+const loginStandaloneConfig: RolldownOptions = defineConfig({
+  input: "src/client/login/index.ts",
+  platform: "browser",
+  tsconfig: "tsconfigClient.json",
+  output: {
+    file: "dist/client/login.standalone.js",
+    format: "esm",
+    sourcemap: false,
+  },
+});
+
+export default [
+  nodeConfig,
+  binConfig,
+  clientConfig,
+  debugbarStandaloneConfig,
+  loginStandaloneConfig,
+];

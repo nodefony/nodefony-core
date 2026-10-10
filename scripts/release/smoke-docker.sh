@@ -430,23 +430,22 @@ node "$ROOT/scripts/release/pack-all.mjs" || fail "pack-all.mjs"
 ok "tarballs écrits dans release/tarballs/"
 
 # (profil esm-only : node10 et require() CJS ignorés — framework ESM-only).
-# `nodefony/debugbar.js` = export d'ASSET (bundle standalone pour <script src>,
-# consommé par URL, jamais importé en TS) → exclu de l'analyse de types.
-# Les exports qui ne sont pas du CODE (logo .svg/.png, feuille de style…) n'ont
-# pas de types par nature : attw les déclare « Resolution failed ». Ils sont
-# DÉDUITS des `exports` du tarball — une liste écrite ici oublierait le
-# prochain, et le banc rougirait sur un défaut qui n'en est pas un (vécu : le
-# logo exporté a rendu ce banc rouge sans que rien n'ait cassé).
+# Les exports d'ASSET n'ont pas de types par nature : bundles autonomes pour
+# <script src> (`nodefony/debugbar.js`, `nodefony/login.js`), logo, feuille de
+# style… attw les déclare « Resolution failed ». Ils sont DÉDUITS des `exports`
+# du tarball : une cible en chaîne nue (sans condition `types`) désigne un
+# fichier servi tel quel. Une liste écrite ici oublierait le prochain, et le
+# banc rougirait sur un défaut qui n'en est pas un (vécu : le logo exporté a
+# rendu ce banc rouge sans que rien n'ait cassé).
 step "attw — types publiés des 13 paquets"
 for tgz in "$ROOT"/release/tarballs/*.tgz; do
   ENTRIES="$(tar -xOzf "$tgz" package/package.json | node -e '
     let s = "";
     process.stdin.on("data", (d) => (s += d)).on("end", () => {
-      const keys = Object.keys(JSON.parse(s).exports ?? {});
-      const assets = keys.filter((k) => /\.[a-z0-9]+$/iu.test(k) && !/\.(m?js|cjs|json)$/iu.test(k));
+      const exp = JSON.parse(s).exports ?? {};
+      const assets = Object.keys(exp).filter((k) => typeof exp[k] === "string" && !/\.json$/iu.test(k));
       process.stdout.write(assets.join(" "));
     });')"
-  [[ "$(basename "$tgz")" == nodefony-10.* ]] && ENTRIES="./debugbar.js $ENTRIES"
   EXCLUDE=""
   [[ -n "${ENTRIES// /}" ]] && EXCLUDE="--exclude-entrypoints $ENTRIES"
   # shellcheck disable=SC2086 — $EXCLUDE volontairement non quoté (une liste de mots)
