@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T07:45:08.503Z",
+  "generatedAt": "2026-10-10T10:02:14.194Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 105,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 40,
+      "open": 41,
       "title": "10.0.0-beta"
     },
     {
@@ -2627,6 +2627,22 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 3.98,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 579,
+      "title": "feat(devkit): enseigner la connexion aux agents, prouvé par un banc",
+      "url": "https://github.com/nodefony/nodefony-core/issues/579",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 3.985,
       "debut": null,
       "cible": null,
       "labels": [

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-10 07:45** (UTC).
+> Empreinte prise le **2026-10-10 10:02** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 72% | 105 | 40 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 72% | 105 | 41 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 5 | 35 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -35,7 +35,7 @@
 
 Ordre 3.93 · P1 — figé à la création · 11.5 j · jalon 10.0.0-beta · frise 2026-10-05 → 10-07
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 40 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 41 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -47,7 +47,7 @@ Ordre 3.93 · P1 — figé à la création · 11.5 j · jalon 10.0.0-beta · fri
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-beta — 40 ouverts
+## Jalon 10.0.0-beta — 41 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -58,6 +58,7 @@ Ordre 3.93 · P1 — figé à la création · 11.5 j · jalon 10.0.0-beta · fri
 | 3.97 | P1 — figé à la création | 1 | — | #547 | feat(security): servir une page de connexion par défaut, sans front |
 | 3.975 | P1 — figé à la création | 0.5 | — | #548 | fix(security): conduire un visiteur anonyme à la page de connexion |
 | 3.98 | P2 — décision | 1 | — | #549 | refactor(studio): passer la connexion de la console sur le déroulé partagé |
+| 3.985 | P1 — figé à la création | 2 | — | #579 | feat(devkit): enseigner la connexion aux agents, prouvé par un banc |
 | 4.001 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
 | 4.002 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
 | 4.0025 | P2 — décision | 2 | — | #565 | refactor(ai)!: regrouper la boîte à outils MCP dans un module IA unique |
