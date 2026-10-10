@@ -260,6 +260,12 @@ export async function setup(): Promise<void> {
       // signature partagée (jwt.keystore). Il tourne seul, sur ce poste : la
       // source « dossier » est la bonne. Un déploiement pose NF_JWT_KEYSET.
       NF__SECURITY__JWT__KEYSTORE__DIR: "var/keys",
+      // La production refuse un mot de passe reçu en clair (403 avant toute
+      // vérification). Cette suite parle à l'application en HTTP sur la boucle
+      // locale, sans proxy TLS devant : le clair est ici un choix de DÉCOR, et il
+      // s'écrit. Jouée derrière le frontal (`NF_E2E_BASE_URL`), la suite ne passe
+      // pas par ici et la règle s'applique entière.
+      NF__SECURITY__ALLOWINSECURECREDENTIALS: "true",
 <% } %>    },
   });
 }

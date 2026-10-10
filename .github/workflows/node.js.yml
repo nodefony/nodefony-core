@@ -837,6 +837,12 @@ jobs:
       # répondant alors 429 même avec le bon mot de passe. Le backoff reste prouvé
       # unitairement ; son câblage se rejoue avec la variable à `true`.
       NF__SECURITY__RATELIMIT__ENABLED: "false"
+      # Le serveur de banc tourne en production et les suites lui parlent en HTTP
+      # sur la boucle locale : sans cet échappement, la production refuse tout
+      # mot de passe reçu en clair (403 avant vérification). Ce refus est le
+      # PRODUIT, éprouvé tel quel, sans échappement, par le banc live de
+      # `CliIntegration` (filet CLI). Ici on mesure le reste de l'application.
+      NF__SECURITY__ALLOWINSECURECREDENTIALS: "true"
       # Keycloak RÉEL (cible `KEYCLOAK_GATE`, banc `oauth2-keycloak.test.ts`) :
       # conteneur docker, donc les seules lignes Linux — les runners macOS et
       # Windows n'ont pas de docker. Les mêmes variables servent au SERVEUR (qui

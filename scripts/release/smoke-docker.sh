@@ -1272,6 +1272,10 @@ services:
       NF_CSRF_SECRET: "$SMOKE_SECRET"
       NF_ADMIN_PASSWORD: "$SQL_ADMIN_PASSWORD"
       NF_JWT_KEYSET: '$SMOKE_JWT_KEYSET'
+      # Connexion en HTTP direct au conteneur (aucun frontal TLS dans ce
+      # scénario) : la production refuserait ce mot de passe en clair. Le
+      # scénario edge, lui, se connecte à travers TLS, sans échappement.
+      NF__SECURITY__ALLOWINSECURECREDENTIALS: "true"
 YML
 
     step "[sql:$MOTEUR] docker compose --profile app up -d --build (le geste de l'utilisateur)"
