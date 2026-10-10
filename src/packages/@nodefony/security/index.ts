@@ -166,6 +166,7 @@ export type {
   IWebhookDeliveryPolicy,
 } from "./nodefony/service/webhooks";
 export type { ISafeUser, ILoginOutcome } from "./nodefony/service/authFlow";
+export { amrForFactor } from "./nodefony/src/sessionAuthentication";
 export type { ITokenResponse } from "./nodefony/service/tokenService";
 export type {
   IApiKeyView,

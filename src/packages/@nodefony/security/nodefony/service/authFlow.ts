@@ -1,4 +1,11 @@
-import { Service, Module, Container, RequestContext } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  RequestContext,
+  SESSION_AMR_KEY,
+  SESSION_AUTH_AT_KEY,
+} from "nodefony";
 import type { ILoginPageDescription, ILoginPageProvider } from "nodefony";
 import type { ContextType, SessionsService, ISession } from "@nodefony/http";
 import { requestUser } from "@nodefony/user";
@@ -9,6 +16,7 @@ import type { LoginThrottler } from "../src/throttle/LoginThrottler";
 import { resolveSessionIdentity } from "../src/sessionIdentity";
 import { recordAudit } from "../src/audit/recordAudit";
 import { readAuditContext } from "../src/audit/readAuditContext";
+import { amrForFactor } from "../src/sessionAuthentication";
 import { securityConfigSchema, type ISecurityConfig } from "../config/config";
 
 /** Ce qu'AuthFlow lit du service `oauth2` — résolu par nom, absent sans social login. */
@@ -200,7 +208,7 @@ class AuthFlow extends Service {
       return { status: "mfa_required", methods: ["totp"] };
     }
 
-    await this.#openSession(context, user.identifier);
+    await this.#openSession(context, user.identifier, "password");
     // Principal de la requête courante : string sur le contexte (lié au blob
     // par `saveSession`), objet riche dans l'ALS (logs/audit).
     context.user = user.identifier;
@@ -238,7 +246,7 @@ class AuthFlow extends Service {
       throw new AuthenticationError(INVALID_CREDENTIALS);
     }
     const user = await resolveSessionIdentity(this.#resolveUsers(), identifier);
-    await this.#openSession(context, user.identifier);
+    await this.#openSession(context, user.identifier, reason);
     context.user = user.identifier;
     RequestContext.set("user", user);
     // Ouverture de session sur preuve EXTERNE (passkey/OAuth/2FA/magic link).
@@ -469,7 +477,13 @@ class AuthFlow extends Service {
   // INCONDITIONNELLEMENT (un cookie pré-posé ne survit pas au login), ancienne
   // entrée storage détruite (best-effort : elle peut ne pas exister), blob
   // persisté immédiatement avec l'identifiant (le cookie part avec la réponse).
-  async #openSession(context: ContextType, identifier: string): Promise<void> {
+  // `factor` nomme le chemin d'authentification : la session retient quand et
+  // par quelles méthodes elle a été ouverte (`readSessionAuthentication`).
+  async #openSession(
+    context: ContextType,
+    identifier: string,
+    factor: string,
+  ): Promise<void> {
     const session: ISession | null =
       context.session ?? (await this.#resolveSessions().start(context));
     if (session === null) {
@@ -504,6 +518,9 @@ class AuthFlow extends Service {
     } catch {
       /* best-effort : provenance non bloquante pour l'établissement de session */
     }
+    // Hors du best-effort : ce sont des faits de sécurité, pas de la provenance.
+    session.setMetaBag(SESSION_AUTH_AT_KEY, Date.now());
+    session.setMetaBag(SESSION_AMR_KEY, amrForFactor(factor));
     await session.save(identifier);
   }
 

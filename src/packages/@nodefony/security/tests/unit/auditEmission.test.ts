@@ -78,6 +78,8 @@ function fakeSession(id: string): Record<string, unknown> {
     storage: { destroy: async () => undefined },
     save: async () => undefined,
     destroy: async () => undefined,
+    // Contrat ISession : l'ouverture y pose `authAt`/`amr`.
+    setMetaBag() {},
   };
 }
 

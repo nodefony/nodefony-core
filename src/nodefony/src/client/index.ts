@@ -299,3 +299,9 @@ export type {
   ILoginPageDescription,
 } from "../runtime/authRoutes";
 export { safeRedirectPath } from "../runtime/safeRedirect";
+export {
+  SESSION_AUTH_AT_KEY,
+  SESSION_AMR_KEY,
+  readSessionAuthentication,
+} from "../runtime/sessionAuthentication";
+export type { ISessionAuthentication } from "../runtime/sessionAuthentication";

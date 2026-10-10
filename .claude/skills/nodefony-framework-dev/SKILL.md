@@ -45,6 +45,8 @@ description: >
 - **Realtime** : la **socket** (`IRealtimeSocket`) = la prise métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`) = broker serveur (canaux partagés + fan-out). Recette → `references/realtime.md`.
 - **Types** : exports `nodefony` (isomorphes) + `I*Controller`/`I*Api` = **source de vérité unique** du contrat (jamais une copie figée dans un skill → sinon dérive).
 - **Routes de connexion** : constantes `runtime/authRoutes.ts` (cœur) — MONTÉES par le module framework (`const base = AUTH_API_BASE`…), APPELÉES par `NodefonyLogin` côté navigateur. Une route de session neuve s'ajoute LÀ, jamais en littéral dans un monteur.
+- **Page de connexion (ADR-0015)** : la config vit dans security (`security.loginPage`), le rendu dans framework ; le pont est `authFlow.describeLoginPage()` → `ILoginPageDescription | null` (type AU CŒUR, `runtime/authRoutes.ts`). `null` = page désactivée → 404. Toute redirection vers la page suit `loginPage.path` (jamais un `"/login"` littéral) ; tout retour `?from=` passe par `safeRedirectPath` (cœur, seule garde anti-redirection ouverte).
+- **Authentification de la session** : à chaque ouverture, la session retient `metaBag.authAt` + `metaBag.amr` (RFC 8176 : `pwd`, `otp`, `pop` ; vide pour un fournisseur). Lire par `readSessionAuthentication(session)` (cœur), jamais `getMetaBag("amr")` à la main. Un nouveau chemin de connexion nomme son facteur à `establishSessionFor(ctx, id, facteur)` et l'ajoute à `amrForFactor` (security).
 
 **RÈGLE** : une feature qui traverse back+front → mettre à jour **LES DEUX skills dans la MÊME session**.
 Quand tu changes ici un **canal / action / endpoint / type** consommé par le front → vérifier/MAJ la
