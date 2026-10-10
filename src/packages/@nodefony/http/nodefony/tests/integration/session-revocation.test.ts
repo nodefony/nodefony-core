@@ -166,27 +166,59 @@ async function listAllSessions(
   return [...byRef.values()];
 }
 
-async function refsOf(adminCookie: string, user: string): Promise<string[]> {
-  return (await listAllSessions(adminCookie, user)).map((i) => i.ref);
+/**
+ * Ref public de la session que porte `cookie` — celle que le SERVEUR désigne
+ * `current` dans `sessions/mine`, parcourue jusqu'au bout (curseur ou offset).
+ */
+async function currentRefOf(cookie: string): Promise<string> {
+  const current: string[] = [];
+  let cursor: string | undefined;
+  let offset = 0;
+  const deadline = Date.now() + PAGING_BUDGET_MS;
+  while (Date.now() < deadline) {
+    const params = new URLSearchParams({ limit: "100" });
+    if (cursor) params.set("cursor", cursor);
+    else if (offset > 0) params.set("offset", String(offset));
+    const res = await get(`/nodefony/http/api/sessions/mine?${params}`, {
+      cookie,
+    });
+    expect(res.status, "mes sessions (self-service)").to.equal(200);
+    const page = res.body as {
+      items?: Array<{ ref: string; current?: boolean }>;
+      nextCursor?: string | null;
+      total?: number;
+    };
+    const items = page.items ?? [];
+    for (const it of items) if (it.current === true) current.push(it.ref);
+    if (page.nextCursor) {
+      cursor = page.nextCursor;
+      continue;
+    }
+    if (page.nextCursor === null || items.length === 0) break;
+    offset += items.length;
+    if (page.total !== undefined && offset >= page.total) break;
+  }
+  expect(
+    current.length,
+    "le serveur désigne EXACTEMENT une session courante",
+  ).to.equal(1);
+  return current[0]!;
 }
 
 /**
- * Login + isolation déterministe de LA session créée : diff des refs avant/après
- * (le serveur dev peut porter d'autres sessions du même user). Renvoie le cookie
- * de la session fraîche et son ref public.
+ * Login + isolation de LA session créée : le serveur la désigne lui-même
+ * (`current`), sans comparer de listes. Le diff avant/après qu'on faisait ici
+ * tombait sur les comptes PARTAGÉS (`admin`, `user`) : les suites des autres
+ * paquets s'y connectent en parallèle, contre le même serveur, et une session
+ * ouverte par elles dans la fenêtre comptait comme « nouvelle » — vécu sur
+ * MongoDB, où l'écriture plus lente élargit la fenêtre : 3 au lieu de 1.
  */
 async function loginAndIsolate(
-  adminCookie: string,
   username: string,
   password: string,
 ): Promise<{ cookie: string; ref: string }> {
-  const before = new Set(await refsOf(adminCookie, username));
   const cookie = await loginAs(username, password);
-  const fresh = (await refsOf(adminCookie, username)).filter(
-    (r) => !before.has(r),
-  );
-  expect(fresh.length, `1 nouvelle session ${username} isolée`).to.equal(1);
-  return { cookie, ref: fresh[0]! };
+  return { cookie, ref: await currentRefOf(cookie) };
 }
 
 /**
@@ -232,12 +264,7 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
   // LE bug : l'admin révoque SA PROPRE session. L'autosave de la requête de
   // révocation NE DOIT PAS la ressusciter.
   it("1. révoquer MA session (admin self) → /me 401", async () => {
-    const viewer = await loginAs("admin", "secret-de-dev-42"); // 2ᵉ session admin (lister)
-    const { cookie, ref } = await loginAndIsolate(
-      viewer,
-      "admin",
-      "secret-de-dev-42",
-    );
+    const { cookie, ref } = await loginAndIsolate("admin", "secret-de-dev-42");
     expect(await meStatus(cookie), "admin loggé avant").to.equal(200);
     const rev = await post(revokeRefPath(ref), { cookie }); // je révoque MA session
     expect(rev.status, "revoke 200").to.equal(200);
@@ -247,7 +274,6 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
   it("2. révoquer la session d'un AUTRE → la victime tombe, l'admin reste", async () => {
     const admin = await loginAs("admin", "secret-de-dev-42");
     const { cookie: victim, ref } = await loginAndIsolate(
-      admin,
       "user",
       "secret-de-dev-42",
     );
@@ -348,7 +374,6 @@ describe("Pagination à curseur du listing de sessions", () => {
 describe("Provenance de session — ip/ua capturés au login (console Sessions)", () => {
   it("login avec un User-Agent connu → surfacé dans sessions/list (+ ip)", async () => {
     const admin = await loginAs("admin", "secret-de-dev-42");
-    const before = new Set(await refsOf(admin, "user"));
     const UA = "nodefony-provenance-probe/1.0";
     // node:https n'émet PAS de User-Agent par défaut → on l'impose explicitement
     // pour prouver la capture (sinon `ua` serait légitimement null).
@@ -359,10 +384,17 @@ describe("Provenance de session — ip/ua capturés au login (console Sessions)"
     );
     expect(res.status, "login user").to.equal(200);
     const cookie = sessionCookieOf(res);
+    expect(cookie, "cookie de session posé au login").to.be.a("string");
     try {
+      // La session est désignée par le serveur (`current`), pas devinée par un
+      // diff : `user` est un compte partagé avec les suites des autres paquets.
+      const ref = await currentRefOf(cookie!);
       const items = await listAllSessions(admin, "user");
-      const fresh = items.filter((i) => !before.has(i.ref));
-      expect(fresh.length, "1 session fraîche isolée").to.equal(1);
+      const fresh = items.filter((i) => i.ref === ref);
+      expect(
+        fresh.length,
+        "la session fraîche figure dans sessions/list",
+      ).to.equal(1);
       const s = fresh[0];
       expect(s!.ip, "ip capturée au login (loopback, non null)").to.be.a(
         "string",
