@@ -18,6 +18,7 @@
 import assert from "node:assert";
 import { spawn, spawnSync, ChildProcess } from "node:child_process";
 import { connect, createServer } from "node:net";
+import http from "node:http";
 import https from "node:https";
 import fs from "node:fs";
 import os from "node:os";
@@ -1217,6 +1218,100 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
         assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
       }
       assert.strictEqual(await isPortOpen(port), false);
+    }, 210000);
+
+    // ─── Un mot de passe en clair est refusé par la production RÉELLE ──────────
+    //
+    // Les bancs unitaires simulent la production par un faux kernel. Celui-ci
+    // démarre la vraie : configuration de production, modules de production,
+    // firewall bâti au boot — c'est le seul endroit où l'on voit que la politique
+    // `credentialTransport` est POSÉE sans aucune config, et que les quatre
+    // routes la consultent. Le refus doit précéder la vérification : un compte
+    // inexistant suffit, il ne doit jamais être cherché.
+    it("production : un mot de passe reçu en HTTP est refusé (403), en HTTPS il est jugé (401)", async () => {
+      const port = 5363;
+      const portHttps = 5364;
+      const base = "/nodefony/security/api";
+      const credentials = { username: "absent-du-banc", password: "x" };
+      const post = (
+        url: string,
+        body: unknown,
+        headers: Record<string, string> = {},
+      ): Promise<{ status: number; body: string }> =>
+        new Promise((resolve, reject) => {
+          const target = new URL(url);
+          const lib = target.protocol === "https:" ? https : http;
+          const payload = JSON.stringify(body);
+          const req = lib.request(
+            target,
+            {
+              method: "POST",
+              // Certificat de développement auto-signé : seul le TRANSPORT est
+              // éprouvé ici, pas la chaîne de confiance.
+              rejectUnauthorized: false,
+              headers: {
+                "content-type": "application/json",
+                "content-length": Buffer.byteLength(payload),
+                ...headers,
+              },
+            },
+            (res) => {
+              let data = "";
+              res.setEncoding("utf8");
+              res.on("data", (chunk: string) => (data += chunk));
+              res.on("end", () =>
+                resolve({ status: res.statusCode ?? 0, body: data }),
+              );
+            },
+          );
+          req.on("error", reject);
+          req.end(payload);
+        });
+      const r = await runCli(
+        ["production", "--detach", "--wait", "150"],
+        170000,
+        { NF_PORT: String(port), NF_PORT_HTTPS: String(portHttps) },
+      );
+      try {
+        assert.strictEqual(
+          r.code,
+          0,
+          `production doit démarrer\n${r.stdout}\n${r.stderr}`,
+        );
+        const plain = `http://127.0.0.1:${port}${base}`;
+        const tls = `https://127.0.0.1:${portHttps}${base}`;
+        const insecure = "Credentials must be sent over HTTPS";
+
+        const login = await post(`${plain}/auth/login`, credentials);
+        assert.strictEqual(login.status, 403, login.body);
+        assert.deepStrictEqual(JSON.parse(login.body), { error: insecure });
+
+        // Un `X-Forwarded-Proto` posé par le CLIENT ne vaut rien sans
+        // `trustProxy` : sinon n'importe qui ferait passer son clair pour du TLS.
+        const forged = await post(`${plain}/auth/login`, credentials, {
+          "x-forwarded-proto": "https",
+        });
+        assert.strictEqual(forged.status, 403, forged.body);
+
+        const totp = await post(`${plain}/auth/login/totp`, { code: "123456" });
+        assert.strictEqual(totp.status, 403, totp.body);
+
+        const token = await post(`${plain}/token`, credentials);
+        assert.strictEqual(token.status, 403, token.body);
+        assert.strictEqual(
+          (JSON.parse(token.body) as { error_description?: string })
+            .error_description,
+          insecure,
+        );
+
+        // Témoin : sur TLS, la même requête est JUGÉE — refus d'identifiants,
+        // pas refus de canal. Sans lui, un 403 partout passerait pour un succès.
+        const judged = await post(`${tls}/auth/login`, credentials);
+        assert.strictEqual(judged.status, 401, judged.body);
+      } finally {
+        const stop = await runCli(["stop"], CLI_TIMEOUT_MS);
+        assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
+      }
     }, 210000);
 
     // ─── Le port a glissé : l'application le DIT, personne n'a à le deviner ─────

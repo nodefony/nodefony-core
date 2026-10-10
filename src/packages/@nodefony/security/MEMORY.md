@@ -565,7 +565,10 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   (https/wss), jamais le transport → proxy TLS = `trustProxy`. Firewall : `InsecureTransportError`
   SANS challenge. Message = `INSECURE_TRANSPORT_MESSAGE` (cœur, `runtime/authRoutes.ts`), reconnu
   par login.js. Résolution de la politique : jamais figer un `null` (`??=` re-résout tant qu'absente).
-  Hors périmètre : refresh token, Bearer, clé API (pas un mot de passe).
+  Plan d'admin : endpoint `credentials: true` → `executeAdminEndpoint` appelle
+  `assertCredentialTransport` (fourni par `AdminApiController`) AVANT RBAC/handler — `UserAdminApi`
+  marque `POST users`, `users/{id}/password`, `me/password`. Banc live prod :
+  `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1`). Hors périmètre : refresh token, Bearer, clé API.
 - **Résurrection de session** : `session.destroy()` pose `mutated=false` (sinon le saveSession de
   fin de requête RE-CRÉE le blob détruit — vu au banc logout J3). `AuthFlow.logout` pose aussi
   `context.session = null`.

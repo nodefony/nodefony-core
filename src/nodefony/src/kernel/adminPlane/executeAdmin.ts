@@ -75,6 +75,13 @@ export interface IAdminExecuteInput {
    * un harnais de test veut relever l'exception telle quelle.
    */
   onServerError?: (error: Error) => void;
+  /**
+   * Garde du transport d'un secret, pour un endpoint `credentials: true` :
+   * lève une erreur 403 si la requête est arrivée en clair en production. La
+   * décision appartient à security (`credentialTransport`) — la porte qui a
+   * la REQUÊTE la fournit ; une porte sans transport (CLI) n'en passe pas.
+   */
+  assertCredentialTransport?: () => void;
 }
 
 /**
@@ -129,6 +136,21 @@ export async function executeAdminEndpoint(
   input: IAdminExecuteInput,
 ): Promise<IAdminExecution> {
   const { endpoint, request, requiredRole, gate, onServerError } = input;
+
+  // ── Secret reçu en clair (production) ──────────────────────────────────────
+  // AVANT le rôle et le handler : le secret a déjà traversé le réseau, rien de
+  // ce qui suit ne doit en dépendre — ni un 403 de rôle qui dirait « réessaie
+  // avec un autre compte », ni une mutation.
+  if (endpoint.credentials === true && input.assertCredentialTransport) {
+    try {
+      input.assertCredentialTransport();
+    } catch (error) {
+      if (error instanceof nodefonyError && error.code === 403) {
+        return { status: 403, body: { error: error.message } };
+      }
+      throw error;
+    }
+  }
 
   // ── RBAC (fail-closed) ─────────────────────────────────────────────────────
   // L'authentification est garantie en amont par la porte (firewall pour HTTP,

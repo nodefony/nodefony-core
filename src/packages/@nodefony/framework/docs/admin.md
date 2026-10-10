@@ -269,7 +269,7 @@ sequenceDiagram
 | 3   | Une route par endpoint (nom déterministe) | `Router.createRoute()` (`AdminBroker.ts:124`)              |
 | 4   | Le controller pont estampillé une fois    | `Router.setController()` idempotent (`AdminBroker.ts:146`) |
 | 5   | Dispatch : lookup de la route             | `AdminBroker.resolve()` (`AdminApiController.ts:102`)      |
-| 6   | Projection du contexte en requête admin   | `buildRequest()` (`AdminApiController.ts:183`)             |
+| 6   | Projection du contexte en requête admin   | `buildRequest()` (`AdminApiController.ts:199`)             |
 | 7   | Normalisation du retour                   | `normalizeAdminResult()` (`executeAdmin.ts:90`)            |
 
 Points de conception saillants :
@@ -316,6 +316,11 @@ laissez-passer.
   placer hors d'une zone fermée — sinon le firewall verrouille en amont. Exemple réel :
   `GET /nodefony/kernel/api/livez` (`KernelAdminApi.ts:615`), sorti de `nodefony-admin` par la zone
   publique `nodefony-liveness` (`config.ts:132`).
+- **Endpoint qui reçoit un mot de passe** : `credentials: true` (`IAdminApi.ts:189`). En
+  production, une requête arrivée en clair est refusée en **403 avant le rôle et le handler**
+  (`executeAdmin.ts:144`) — la décision est celle de security (`credentialTransport`), le
+  contrôleur la fournit pour HTTP et pour le pont WS. La CLI n'a pas de transport : rien n'est
+  jugé. Exemples : `POST me/password`, `POST users/{id}/password`, `POST users` (module `user`).
 
 > [!TIP]
 > `ROLE_NODEFONY_*` = rôles de la **plateforme** (administrer le framework), distincts des rôles
@@ -334,7 +339,7 @@ montée avec `[method, "WEBSOCKET"]`. Elle devient donc invocable par le pont WS
   expose son statut.
 
 Les **mutations** sont pontables par socket. La sécurité d'écriture repose alors sur l'**idempotence**
-(`idempotencyGate()`, `AdminApiController.ts:139`) : la clé `Idempotency-Key` est **obligatoire en
+(`idempotencyGate()`, `AdminApiController.ts:155`) : la clé `Idempotency-Key` est **obligatoire en
 WS** (une socket reconnecte et rejoue), **optionnelle en HTTP** (`required: false`,
 `AdminApiController.ts:157`). Un `GET` n'est jamais idempotenté (`AdminApiController.ts:143`) ; la
 porte est évaluée **après** le RBAC (un 403 ne consomme aucune entrée). Le helper est le **même** que
@@ -345,10 +350,10 @@ le seam `@Idempotent` des controllers userland — voir [Idempotence](idempotenc
 Trois pas, du point de vue d'un module :
 
 1. **Écrire un `IAdminApi`** : `adminNamespace` (url-safe, stable), `adminDescriptor()` (sidebar
-   Studio, `IAdminApi.ts:220`) et `adminEndpoints()` (`IAdminApi.ts:222`). Un endpoint peut renvoyer
+   Studio, `IAdminApi.ts:227`) et `adminEndpoints()` (`IAdminApi.ts:229`). Un endpoint peut renvoyer
    la donnée brute (assumée `{status:200, body}`) ou une `IAdminResponse` pour piloter statut/en-têtes
    (`IAdminApi.ts:67`).
-2. **S'enregistrer au `onKernelBoot`** via `IAdminRegistry.register()` (`IAdminApi.ts:249`), récupéré
+2. **S'enregistrer au `onKernelBoot`** via `IAdminRegistry.register()` (`IAdminApi.ts:256`), récupéré
    par `container.get("adminBroker")`. Rendre l'appel **idempotent** (`registry.has(ns)` avant
    `register`) — modèle de tous les producteurs.
 3. **Laisser le framework monter** : à `onKernelReady`, `Framework.onKernelReady()` enregistre les
@@ -422,7 +427,7 @@ recopiées ici (elles s'y périmeraient).
 | 403 alors qu'on est connecté                     | Rôle manquant, `isAdminGranted` fail-closed (`adminRbac.ts:24`)                     | Doter le compte du rôle requis (défaut `ROLE_NODEFONY_ADMIN`)                        |
 | WS : mutation refusée `400` clé requise          | Idempotence : clé obligatoire par socket (`AdminApiController.ts:154`)              | Fournir `Idempotency-Key` sur la mutation WS                                         |
 | Route admin injoignable / collision Studio       | Endpoint mono-segment `/nodefony/<module>` (`IAdminBroker.ts:42`)                   | Toujours `≥ 3` segments `/nodefony/<ns>/api/<path>`                                  |
-| 500 « Admin endpoint not registered »            | `adminRoute` absent du registre — incohérence interne (`AdminApiController.ts:101`) | Vérifier que le producteur a bien été enregistré avant `mountAll()`                  |
+| 500 « Admin endpoint not registered »            | `adminRoute` absent du registre — incohérence interne (`AdminApiController.ts:109`) | Vérifier que le producteur a bien été enregistré avant `mountAll()`                  |
 
 ## 🧪 Tests & couverture
 

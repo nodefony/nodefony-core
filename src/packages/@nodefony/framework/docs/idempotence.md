@@ -119,7 +119,7 @@ connaît **aucun transport**. Il rend un verdict neutre (`IdempotencyVerdict`, `
 que **deux** appelants traduisent dans leur monde :
 
 - le **data plane admin** — `AdminApiController.idempotencyGate()`
-  (`AdminApiController.ts:139`) → réponse `{status, headers, body}` ;
+  (`AdminApiController.ts:155`) → réponse `{status, headers, body}` ;
 - les **controllers userland** décorés `@Idempotent` — seam `Resolver._callWithIdempotency()`
   (`Resolver.ts:682`) → `nodefonyError` typée, ou réponse rejouée.
 
@@ -329,7 +329,7 @@ sequenceDiagram
 | ---------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
 | Controller userland HTTP     | `callController()` (`Resolver.ts:613`)                               | `nodefonyError` + rendu normal     |
 | Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:660`)                         | valeur nue, enveloppée par le peer |
-| Data plane admin `/nodefony` | `AdminApiController.idempotencyGate()` (`AdminApiController.ts:139`) | `{status, headers, body}`          |
+| Data plane admin `/nodefony` | `AdminApiController.idempotencyGate()` (`AdminApiController.ts:155`) | `{status, headers, body}`          |
 
 ## ⚙️ Configuration
 

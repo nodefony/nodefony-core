@@ -498,3 +498,81 @@ describe("mcpCallerRoles — une règle pour TOUTE porte MCP, présente ou futur
     ).to.deep.equal([]);
   });
 });
+
+describe("executeAdminEndpoint — secret reçu en clair (endpoint `credentials`)", () => {
+  const insecure = (): never => {
+    throw new nodefonyError("Credentials must be sent over HTTPS", 403);
+  };
+
+  it("garde levée → 403 AVANT le rôle et le handler", async () => {
+    let appele = false;
+    const execution = await executeAdminEndpoint({
+      endpoint: {
+        path: "me/password",
+        method: "POST",
+        credentials: true,
+        handler: async () => {
+          appele = true;
+          return { ok: true };
+        },
+      },
+      // Sans le rôle : le refus du canal doit passer AVANT celui du rôle.
+      request: requete({ roles: [] }),
+      requiredRole: ADMIN,
+      gate: null,
+      assertCredentialTransport: insecure,
+    });
+    expect(execution.status).toBe(403);
+    expect(execution.body).toEqual({
+      error: "Credentials must be sent over HTTPS",
+    });
+    expect(appele).toBe(false);
+  });
+
+  it("endpoint SANS drapeau → la garde n'est pas consultée", async () => {
+    let consultee = false;
+    const execution = await executeAdminEndpoint({
+      endpoint: { path: "users", handler: async () => "liste" },
+      request: requete(),
+      requiredRole: ADMIN,
+      gate: null,
+      assertCredentialTransport: () => {
+        consultee = true;
+      },
+    });
+    expect(execution.status).toBe(200);
+    expect(consultee).toBe(false);
+  });
+
+  it("porte sans transport (CLI) → aucune garde, le handler s'exécute", async () => {
+    const execution = await executeAdminEndpoint({
+      endpoint: {
+        path: "me/password",
+        credentials: true,
+        handler: async () => "ok",
+      },
+      request: requete(),
+      requiredRole: ADMIN,
+      gate: null,
+    });
+    expect(execution.status).toBe(200);
+  });
+
+  it("une panne de la garde (pas un 403) n'est pas avalée", async () => {
+    await expect(
+      executeAdminEndpoint({
+        endpoint: {
+          path: "me/password",
+          credentials: true,
+          handler: async () => "ok",
+        },
+        request: requete(),
+        requiredRole: ADMIN,
+        gate: null,
+        assertCredentialTransport: () => {
+          throw new Error("câblage");
+        },
+      }),
+    ).rejects.toThrow("câblage");
+  });
+});

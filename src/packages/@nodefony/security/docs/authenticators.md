@@ -418,9 +418,11 @@ en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1309`).
 ## Mot de passe en clair — refusé en production
 
 Un mot de passe, ou un code de second facteur, qui arrive sur une requête HTTP en clair a déjà
-traversé le réseau en lisible : le vérifier ne le protège plus. En production, les **quatre**
+traversé le réseau en lisible : le vérifier ne le protège plus. En production, toutes les
 portes qui reçoivent un secret le refusent donc **avant toute vérification** — formulaire de
-session, second facteur, Basic, émission de jeton (`/nodefony/security/api/token`) :
+session, second facteur, Basic, émission de jeton (`/nodefony/security/api/token`), et les
+endpoints d'administration marqués `credentials: true` (création d'un compte, changement de mot
+de passe — cf la doc du plan d'administration de `@nodefony/framework`) :
 
 - **403**, message constant `Credentials must be sent over HTTPS`
   (`INSECURE_TRANSPORT_MESSAGE`, exporté par `nodefony`) ; la page de connexion le reconnaît et

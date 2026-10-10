@@ -13,6 +13,14 @@ import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import type { IIdempotencyStore } from "../interfaces/IIdempotencyStore";
 import type { ContextType } from "@nodefony/http";
 import Controller from "../src/Controller";
+
+/**
+ * Vue MINIMALE de la politique `credentialTransport` (posée par security au
+ * boot) — couplage par nom de service, framework ne dépend jamais de security.
+ */
+interface ICredentialTransportGuard {
+  assert(context: { readonly scheme?: string }, door: string): void;
+}
 import {
   evaluateIdempotency,
   resolveIdempotencyKey,
@@ -121,6 +129,14 @@ class AdminApiController extends Controller {
       requiredRole: adminRoute.role,
       gate: (request) => this.idempotencyGate(adminRoute, request),
       onServerError: (error) => this.log(error, "ERROR"),
+      // Endpoint `credentials` (mot de passe dans le corps) : refus du clair en
+      // production. Sans security chargé, aucune politique : rien à juger.
+      assertCredentialTransport: () => {
+        this.get<ICredentialTransportGuard>("credentialTransport")?.assert(
+          this.context ?? {},
+          `admin ${name}`,
+        );
+      },
     });
   }
 

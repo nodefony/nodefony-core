@@ -538,6 +538,8 @@ export function createUserAdminApi(container: Container): IAdminApi {
     {
       path: "users",
       method: "POST",
+      // Le corps porte un mot de passe : refusé en clair en production.
+      credentials: true,
       summary:
         "Crée un utilisateur (identifier requis ; plainPassword/roles optionnels). " +
         "Audité. 409 si l'identifiant existe déjà.",
@@ -702,6 +704,8 @@ export function createUserAdminApi(container: Container): IAdminApi {
     {
       path: "users/{id}/password",
       method: "POST",
+      // Le corps porte un mot de passe : refusé en clair en production.
+      credentials: true,
       summary:
         "Change le mot de passe d'un utilisateur (plainPassword requis). " +
         "Audité (jamais la valeur). 404 si introuvable.",
@@ -783,6 +787,8 @@ export function createUserAdminApi(container: Container): IAdminApi {
       // ne peut pas enfermer dehors le propriétaire légitime.
       path: "me/password",
       method: "POST",
+      // Le corps porte un mot de passe : refusé en clair en production.
+      credentials: true,
       public: true,
       summary:
         "Change MON mot de passe (self-service). Body { currentPassword, " +

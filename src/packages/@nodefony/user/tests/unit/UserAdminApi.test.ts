@@ -931,3 +931,22 @@ describe("UserAdminApi — users/stats et la RECHERCHE", () => {
     );
   });
 });
+
+describe("UserAdminApi — endpoints qui reçoivent un mot de passe", () => {
+  // Le drapeau `credentials` fait refuser, en production, un corps arrivé en
+  // clair (porte unique `executeAdminEndpoint`). Un endpoint qui lit un mot de
+  // passe SANS le drapeau serait le canal clair qu'on croyait fermé.
+  it("seuls les trois endpoints porteurs d'un mot de passe sont marqués", () => {
+    const api = createUserAdminApi(container(makeUsers([])));
+    const marked = api
+      .adminEndpoints()
+      .filter((e) => e.credentials === true)
+      .map((e) => `${e.method ?? "GET"} ${e.path}`)
+      .sort();
+    assert.deepEqual(marked, [
+      "POST me/password",
+      "POST users",
+      "POST users/{id}/password",
+    ]);
+  });
+});

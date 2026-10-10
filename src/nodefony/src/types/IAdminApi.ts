@@ -180,6 +180,13 @@ export interface IAdminEndpoint<T = unknown> {
    * vocabulaire de filtre. Cf {@link IAdminPageCapabilities}.
    */
   page?: IAdminPageCapabilities;
+  /**
+   * Le corps porte un SECRET de connexion (mot de passe, code) : en production,
+   * la porte qui transporte la requête la refuse en 403 si elle est arrivée en
+   * clair (HTTP), AVANT le contrôle de rôle et le handler. Sans requête (CLI),
+   * il n'y a pas de transport à juger. Cf {@link IAdminExecuteInput.assertCredentialTransport}.
+   */
+  credentials?: boolean;
   /** Implémentation. */
   handler: AdminHandler<T>;
 }
