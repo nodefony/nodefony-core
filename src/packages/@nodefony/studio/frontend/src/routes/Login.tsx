@@ -100,7 +100,17 @@ function startSocialLogin(provider: string): void {
   } catch {
     /* localStorage indisponible (mode privé) — non bloquant */
   }
-  window.location.assign(`/nodefony/security/api/oauth2/${provider}/authorize`);
+  // Le thème RENDU (clair ou sombre, attribut que Mantine pose sur <html>)
+  // part avec la demande : l'écran du fournisseur peut le reprendre — Keycloak
+  // le fait, les autres ne le reçoivent pas (le serveur filtre).
+  const scheme = document.documentElement.getAttribute(
+    "data-mantine-color-scheme",
+  );
+  const theme =
+    scheme === "light" || scheme === "dark" ? `?theme=${scheme}` : "";
+  window.location.assign(
+    `/nodefony/security/api/oauth2/${encodeURIComponent(provider)}/authorize${theme}`,
+  );
 }
 
 function readLastUser(): string {

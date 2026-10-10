@@ -1,8 +1,6 @@
 import { makeAutoObservable } from "mobx";
-import type { StudioPalette } from "../theme";
 
 const THEME_KEY = "nodefony.studio.theme";
-const PALETTE_KEY = "nodefony.studio.palette";
 const RAIL_KEY = "nodefony.studio.sidebar.rail";
 // v3 : la sémantique par défaut a RE-changé (les groupes ne sont plus tous pliés :
 // le défaut est décidé par la sidebar selon le contenu du groupe — un groupe
@@ -35,8 +33,6 @@ export type ThemeMode = "light" | "dark" | "auto";
  */
 export class UiStore {
   theme: ThemeMode = "dark";
-  /** Palette de marque active (orange historique ou bleu Nodefony). Persisté. */
-  palette: StudioPalette = "nodefony";
   /** Mode rail : navbar étroite icônes-seules (desktop). Persisté. */
   rail = false;
   /**
@@ -134,16 +130,6 @@ export class UiStore {
     this.persist();
   }
 
-  setPalette(p: StudioPalette): void {
-    this.palette = p;
-    this.persist();
-  }
-
-  togglePalette(): void {
-    this.palette = this.palette === "nodefony" ? "orange" : "nodefony";
-    this.persist();
-  }
-
   /**
    * Le groupe est-il plié ? `fallback` = défaut décidé par l'appelant (la sidebar,
    * qui seule connaît le contenu du groupe) quand l'utilisateur n'a jamais tranché.
@@ -201,8 +187,6 @@ export class UiStore {
       if (typeof localStorage === "undefined") return;
       const t = localStorage.getItem(THEME_KEY);
       if (t === "light" || t === "dark" || t === "auto") this.theme = t;
-      const p = localStorage.getItem(PALETTE_KEY);
-      if (p === "orange" || p === "nodefony") this.palette = p;
       this.rail = localStorage.getItem(RAIL_KEY) === "1";
       this.debugBar = localStorage.getItem(DEBUGBAR_KEY) !== "0";
       this.adaptiveCadence = localStorage.getItem(ADAPTIVE_KEY) === "1";
@@ -234,7 +218,6 @@ export class UiStore {
     try {
       if (typeof localStorage === "undefined") return;
       localStorage.setItem(THEME_KEY, this.theme);
-      localStorage.setItem(PALETTE_KEY, this.palette);
       localStorage.setItem(RAIL_KEY, this.rail ? "1" : "0");
       localStorage.setItem(ADAPTIVE_KEY, this.adaptiveCadence ? "1" : "0");
       localStorage.setItem(GROUPS_KEY, JSON.stringify(this.collapsedGroups));

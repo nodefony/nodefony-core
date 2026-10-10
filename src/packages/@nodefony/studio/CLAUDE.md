@@ -50,7 +50,7 @@ src/packages/@nodefony/studio/
 └── frontend/                     ← SPA React 19 (Vite)
     ├── index.html · vite.config.generated.mjs (généré)
     └── src/
-        ├── main.tsx · App.tsx · theme.ts (palette `brand` togglable, nodefony défaut) · layouts/navConfig.ts (nav data-driven)
+        ├── main.tsx · App.tsx · theme.ts (thème figé, surfaces de la barre de debug) · layouts/navConfig.ts (nav data-driven)
         ├── stores/   ← MobX : Auth, Connection, Ui, Chat, Root
         ├── services/ ← ApiClient (JWT), AuthService, NodefonySocket (importé du Core isomorphe `nodefony` — PAS de package @nodefony/client séparé, P13.3 supprimé)
         ├── layouts/  ← AuthLayout, AdminLayout (sidebar v2 : rail + groupes repliables + filtre + groupe Data plane auto), navConfig
@@ -128,7 +128,7 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 ## Décisions figées
 
 - Stack frontend : **React 19** (P10.1 acté) + **Mantine v9** + **MobX 6** (classes, `makeAutoObservable` — pas Zustand/Redux) + React Router 7 + TanStack Table 8 (headless).
-- Theme : dark par défaut + toggle scheme persisté `localStorage`. **Palette de marque togglable** (couleur `brand` = alias dynamique `nodefonyBlue #0067ba` ↔ `nodefonyOrange`, `primaryColor:"brand"`, toggle 🎨 persisté `ui.palette`, **défaut nodefony**, dark-safe `primaryShade.dark=4`). Accents en dur écrits `color="brand"` ; warnings/DEBUG/palettes décoratives restent `color="orange"` (sémantique). Couleurs marque extraites du logo officiel (`theme.ts` `buildStudioTheme`).
+- Theme : sombre par défaut + bascule clair/sombre persistée. UN thème figé, sombre + clair, NON surchargeable par l'application (identité unique, contrastes mesurés une fois). `brand` = `nodefonyBlue` (bleu du logo `#0067ba`), `primaryShade` 6 dans les DEUX schémas (blanc dessus 5,75:1). Surfaces sombres = `nodefonyDark` (celles de la barre de debug : fond `#14161a`, cartes `#1c1f26`, filets `#2a2e36`, panneau de connexion `#0f1114`) ; liens sombres = accent `#3aa0ff`. Ces valeurs sont des COPIES de `nodefony/login.css`, confrontées par `src/nodefony/src/tests/loginStylesheet.test.ts` — changer une couleur = changer la source puis la copie. Restent `color="orange"` : warnings, badges DEBUG. Page de connexion (`AuthLayout`) : panneau plein (aucun dégradé), bascule clair/sombre, et le thème rendu part vers Keycloak (`?theme=` sur `/authorize`).
 - Routing (tranché) : UI `/nodefony` + `/nodefony/{page}` ; data plane `/nodefony/<module>/api/*` (Studio = `/nodefony/studio/api/*`). `/studio` rejeté (collision app user).
 - Deps frontend dans le `package.json` du module (pas de `frontend/package.json` séparé).
 

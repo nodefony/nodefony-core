@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Anchor,
   Box,
   Flex,
@@ -6,13 +7,18 @@ import {
   Stack,
   Text,
   ThemeIcon,
+  Tooltip,
+  useComputedColorScheme,
+  useMantineColorScheme,
 } from "@mantine/core";
 import type { ReactNode } from "react";
 import {
   IconActivity,
   IconBolt,
   IconBrandGithub,
+  IconMoonStars,
   IconShieldLock,
+  IconSun,
   type Icon,
 } from "@tabler/icons-react";
 import { NodefonyLogo } from "../components/NodefonyLogo";
@@ -22,33 +28,24 @@ import { NodefonyLogo } from "../components/NodefonyLogo";
  * **split** : panneau de marque à gauche (desktop), formulaire à droite. Sur
  * mobile, le hero disparaît et le formulaire occupe tout l'écran.
  *
- * Perf : le hero est volontairement STATIQUE (0 animation, dégradé + glow figés)
- * → aucun coût de rendu. Styles hissés au niveau module (jamais recréés).
+ * Le panneau de marque est celui de la page /login du framework et du thème
+ * Keycloak : une couleur PLEINE (aucun dégradé ni halo), séparée du formulaire
+ * par un filet, en clair comme en sombre. Le bouton en haut à droite bascule
+ * le thème — c'est ce choix que le lien vers Keycloak transmet (`?theme=`).
+ *
+ * Perf : le hero est STATIQUE (0 animation). Styles hissés au niveau module.
  */
 
 const heroStyle: React.CSSProperties = {
   position: "relative",
   flex: 1.05,
   overflow: "hidden",
-  // Dégradé de marque profond — suit la palette active (--mantine-color-brand-*).
   background:
-    "linear-gradient(140deg, var(--mantine-color-brand-9) 0%, var(--mantine-color-brand-8) 45%, var(--mantine-color-brand-6) 100%)",
-  color: "#fff",
-};
-// Voile lumineux STATIQUE (profondeur sans animation).
-const heroGlowStyle: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  background:
-    "radial-gradient(circle at 26% 16%, rgba(255,255,255,0.16), transparent 46%), radial-gradient(circle at 88% 92%, rgba(255,255,255,0.08), transparent 42%)",
-  pointerEvents: "none",
-};
-const glassIconStyle: React.CSSProperties = {
-  background: "rgba(255,255,255,0.14)",
-  color: "#fff",
-  border: "1px solid rgba(255,255,255,0.18)",
+    "light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8))",
+  borderRight: "1px solid var(--mantine-color-default-border)",
 };
 const formColStyle: React.CSSProperties = {
+  position: "relative",
   background: "var(--mantine-color-body)",
   display: "flex",
   flexDirection: "column",
@@ -86,12 +83,36 @@ const FEATURES: Feature[] = [
   },
 ];
 
+/** Bascule clair / sombre, mémorisée par Mantine comme dans la console. */
+function ThemeToggle() {
+  const { toggleColorScheme } = useMantineColorScheme();
+  const scheme = useComputedColorScheme("dark");
+  const label =
+    scheme === "dark" ? "Passer en thème clair" : "Passer en thème sombre";
+  return (
+    <Tooltip label={label}>
+      <ActionIcon
+        variant="default"
+        size="lg"
+        onClick={toggleColorScheme}
+        aria-label={label}
+        style={{ position: "absolute", top: 16, right: 16 }}
+      >
+        {scheme === "dark" ? (
+          <IconSun size={18} />
+        ) : (
+          <IconMoonStars size={18} />
+        )}
+      </ActionIcon>
+    </Tooltip>
+  );
+}
+
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <Flex mih="100vh" align="stretch">
       {/* HERO de marque — masqué sous `md` (le formulaire prend tout l'écran). */}
-      <Box visibleFrom="md" style={heroStyle}>
-        <Box style={heroGlowStyle} aria-hidden />
+      <Box component="aside" visibleFrom="md" style={heroStyle}>
         <Flex
           direction="column"
           justify="space-between"
@@ -101,17 +122,17 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         >
           <Group gap={14} align="center">
             <NodefonyLogo height={42} />
-            <Text fw={700} fz={26} c="white" lh={1}>
+            <Text fw={650} fz={22} lh={1}>
               Nodefony Studio
             </Text>
           </Group>
 
           <Stack gap="xl" maw={480}>
             <Stack gap="sm">
-              <Text fz={{ base: 34, lg: 42 }} fw={800} lh={1.12} c="white">
+              <Text fz={{ base: 34, lg: 42 }} fw={650} lh={1.08}>
                 Le temps réel, nativement.
               </Text>
-              <Text fz="lg" c="rgba(255,255,255,0.82)">
+              <Text fz="lg" c="dimmed">
                 Observez, comprenez et contrôlez chaque sous-système de Nodefony
                 — en direct.
               </Text>
@@ -119,14 +140,12 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             <Stack gap="lg">
               {FEATURES.map((f) => (
                 <Group key={f.title} gap="md" wrap="nowrap" align="flex-start">
-                  <ThemeIcon size={42} radius="md" style={glassIconStyle}>
+                  <ThemeIcon size={42} radius="md" variant="default">
                     <f.icon size={22} stroke={1.7} />
                   </ThemeIcon>
                   <div>
-                    <Text fw={600} c="white">
-                      {f.title}
-                    </Text>
-                    <Text size="sm" c="rgba(255,255,255,0.78)">
+                    <Text fw={600}>{f.title}</Text>
+                    <Text size="sm" c="dimmed">
                       {f.desc}
                     </Text>
                   </div>
@@ -136,14 +155,14 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           </Stack>
 
           <Group justify="space-between">
-            <Text size="xs" c="rgba(255,255,255,0.65)">
+            <Text size="xs" c="dimmed">
               Nodefony 10 · licence Apache 2.0
             </Text>
             <Anchor
               href="https://github.com/nodefony/nodefony-core"
               target="_blank"
               rel="noreferrer noopener"
-              c="rgba(255,255,255,0.7)"
+              c="dimmed"
             >
               <Group gap={6}>
                 <IconBrandGithub size={16} />
@@ -155,7 +174,8 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       </Box>
 
       {/* Colonne FORMULAIRE — fond du thème (clair/sombre). */}
-      <Box flex={1} style={formColStyle}>
+      <Box component="main" flex={1} style={formColStyle}>
+        <ThemeToggle />
         <Stack gap="xl" w="100%" maw={400}>
           {/* Logo compact — visible seulement quand le hero est masqué (mobile). */}
           <Group gap={8} hiddenFrom="md" justify="center">

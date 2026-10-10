@@ -51,7 +51,6 @@ import {
   IconStar,
   IconStarFilled,
   IconX,
-  IconPalette,
   IconChevronRight,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
@@ -355,11 +354,7 @@ export const AdminLayout = observer(() => {
                 <NodefonyLogo height={26} />
                 <Text fw={700} size="lg" c="brand">
                   Nodefony{" "}
-                  <Text
-                    span
-                    c={ui.palette === "nodefony" ? "nodefonyCyan" : "orange"}
-                    inherit
-                  >
+                  <Text span c="nodefonyCyan" inherit>
                     Studio
                   </Text>
                 </Text>
@@ -456,18 +451,6 @@ export const AdminLayout = observer(() => {
                 />
               </HoverCard.Dropdown>
             </HoverCard>
-            <Tooltip
-              label={`Palette : ${ui.palette === "nodefony" ? "Nodefony (bleu)" : "Orange"} — cliquer pour basculer`}
-            >
-              <ActionIcon
-                variant="subtle"
-                color="brand"
-                onClick={() => ui.togglePalette()}
-                aria-label="Toggle palette"
-              >
-                <IconPalette size={18} />
-              </ActionIcon>
-            </Tooltip>
             <Tooltip
               label={`Debug bar : ${ui.debugBar ? "visible" : "masquée"} — cliquer pour basculer`}
             >

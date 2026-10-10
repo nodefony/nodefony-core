@@ -13,10 +13,7 @@ import {
   type MantineTheme,
 } from "@mantine/core";
 
-/** Palette de marque sélectionnable (réversible à chaud, persistée). */
-export type StudioPalette = "orange" | "nodefony";
-
-/** Orange signature historique. */
+/** Orange des AVERTISSEMENTS — remplace la teinte `orange` de Mantine. */
 const nodefonyOrange: MantineColorsTuple = [
   "#fff5e6",
   "#ffe8cc",
@@ -68,11 +65,23 @@ const nodefonyCyan: MantineColorsTuple = [
   "#005683",
 ];
 
-// `brand` = couleur de marque ACTIVE (alias dynamique). `primaryColor: "brand"`
-// + tous les accents en dur écrits `color="brand"` → un seul point de bascule.
-// Les autres clés restent dispo (orange réel pour les warnings, vert/cyan accents).
-const brandTuple = (palette: StudioPalette): MantineColorsTuple =>
-  palette === "nodefony" ? nodefonyBlue : nodefonyOrange;
+// Surfaces du schéma SOMBRE — celles de la barre de debug (noir bleuté, filets
+// fins), au lieu des gris neutres de Mantine. Rôles tenus par la bibliothèque :
+// 0 texte · 1 texte secondaire (`dimmed`) · 2 placeholder · 4 bordures ·
+// 5 survol · 6 champs et boutons neutres · 7 fond de page et cartes ·
+// 8 panneau de marque de la connexion (le `--nf-login-hero-bg` de login.css).
+const nodefonyDark: MantineColorsTuple = [
+  "#cfd3d8",
+  "#a3a9b2",
+  "#8a9099",
+  "#5d646d",
+  "#2a2e36",
+  "#22262e",
+  "#1c1f26",
+  "#14161a",
+  "#0f1114",
+  "#0b0c0e",
+];
 
 const BASE = {
   defaultRadius: "md" as const,
@@ -84,13 +93,17 @@ const BASE = {
 };
 
 /**
- * Construit le thème Studio pour une palette donnée.
+ * Construit le thème de Studio : UN thème figé, sombre et clair, que
+ * l'application ne surcharge pas — la console garde la même identité dans
+ * toutes les applications, et ses contrastes, mesurés une fois, restent vrais.
  *
- * `nodefony` = primary bleu de marque (#0067ba) ; en **dark** on remonte le
- * `primaryShade` (index 4, plus clair) car le bleu de base est sombre et
- * manquerait de contraste sur fond sombre. `orange` = comportement historique.
+ * `brand` est le bleu du logo, aplat de l'action principale dans les DEUX
+ * schémas (`primaryShade` 6, `#0067ba` : blanc dessus 5,75:1). Les accents
+ * écrits `color="brand"` le suivent. Les surfaces sombres sont celles de la
+ * barre de debug (`nodefonyDark`), la même famille que la page /login
+ * (`nodefony/login.css`) et le thème Keycloak.
  */
-export function buildStudioTheme(palette: StudioPalette = "nodefony") {
+export function buildStudioTheme() {
   return createTheme({
     ...BASE,
     colors: {
@@ -98,25 +111,22 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
       nodefonyBlue,
       nodefonyGreen,
       nodefonyCyan,
-      brand: brandTuple(palette),
+      brand: nodefonyBlue,
+      dark: nodefonyDark,
     },
     primaryColor: "brand",
-    primaryShade:
-      palette === "nodefony" ? { light: 6, dark: 4 } : { light: 6, dark: 5 },
+    primaryShade: { light: 6, dark: 6 },
     // Le texte posé SUR un aplat de couleur est choisi par Mantine selon la
     // luminance du fond (clair ou foncé), au lieu d'être blanc par défaut.
     //
-    // Pourquoi : la couleur de MARQUE ne se négocie pas — c'est la teinte qui
-    // fait la ligne graphique. Mais en schéma sombre, `primaryShade: 4` rend
-    // `#4792cd`, un bleu assez clair : du texte blanc dessus donne **3,35:1**
-    // (mesuré sur le NavLink actif), sous le seuil AA. Le réflexe serait de
-    // foncer le bleu — ce serait changer la marque pour un problème de texte.
-    // `autoContrast` inverse la charge : le bleu reste `#4792cd`, c'est le
-    // texte qui s'adapte. Une seule ligne, valable pour tous les aplats.
+    // Pourquoi : un aplat de couleur CLAIRE (un badge `yellow`, une teinte
+    // basse d'une famille) sous du texte blanc tombe sous le seuil AA. Plutôt
+    // que de corriger chaque site d'appel, le texte s'adapte au fond — une
+    // seule ligne, valable pour tous les aplats.
     autoContrast: true,
     components: {
       // Entrée de menu ACTIVE — le fond descend d'un cran dans la MÊME famille
-      // de bleu (`brand.7`) au lieu du `primaryShade` (index 4 en sombre).
+      // de bleu (`brand.7`), plus profond que le `primaryShade`.
       //
       // Pourquoi : `brand.4` rend `#4792cd`, un bleu assez clair ; le libellé
       // blanc que Mantine pose dessus donne **3,35:1**, sous le seuil AA — c'est
@@ -255,7 +265,7 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
   });
 }
 
-/** Thème par défaut (palette Nodefony). */
+/** Le thème de Studio. */
 export const studioTheme = buildStudioTheme();
 
 /**
@@ -279,7 +289,7 @@ export const studioTheme = buildStudioTheme();
  * l'impression visuelle.
  *
  * Correctif : monter d'un cran la luminosité utile, sans changer de teinte.
- * `gray-7` (`#495057`) atteint ~7,4:1 sur blanc ; `dark-1` (`#A6A7AB`) ~6:1 sur
+ * `gray-7` (`#495057`) atteint ~7,4:1 sur blanc ; `dark-1` (`#a3a9b2`) ~7:1 sur
  * le fond sombre. Dans les deux cas le texte reste nettement en retrait du texte
  * principal : le rôle visuel de « secondaire » est préservé.
  */
@@ -358,11 +368,10 @@ export const studioCssVariablesResolver = (theme: MantineTheme) => ({
   },
   dark: {
     "--mantine-color-dimmed": "var(--mantine-color-dark-1)",
-    // Liens : la teinte par défaut en sombre est `brand.4` (`#4792cd`), soit
-    // **4,04:1** sur le fond d'une carte (`#2e2e2e`) — mesuré par axe-core sur
-    // le tableau de bord ORM, en 12 px, donc sous le seuil AA de 4,5. Un cran
-    // plus clair dans la MÊME famille (`brand.3`) atteint ~5,5:1 sur carte et
-    // ~6,2:1 sur le fond de page : la marque reste, la lisibilité passe.
-    "--mantine-color-anchor": "var(--mantine-color-brand-3)",
+    // Liens : l'ACCENT de la barre de debug et de la page /login (`#3aa0ff`),
+    // ~6:1 sur une carte et ~6,6:1 sur le fond. Un lien est du texte sur le
+    // fond, pas un aplat : la teinte par défaut `brand.4` (`#4792cd`) restait
+    // sous le seuil AA en 12 px (mesuré par axe-core, tableau de bord ORM).
+    "--mantine-color-anchor": "#3aa0ff",
   },
 });

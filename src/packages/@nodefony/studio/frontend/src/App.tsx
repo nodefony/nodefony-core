@@ -9,7 +9,7 @@ import { RouterProvider } from "react-router/dom";
 import { NodefonyProvider } from "nodefony/react";
 import { StoreProvider, RootStore, useAuth } from "./stores";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { buildStudioTheme, studioCssVariablesResolver } from "./theme";
+import { studioCssVariablesResolver, studioTheme } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
 import { RoleGuardOutlet } from "./components/RoleGuard";
 import { VIEW_ROLES } from "./auth/roles";
@@ -314,15 +314,14 @@ const SessionBootstrap = observer(
 );
 
 /**
- * Le thème Mantine dépend de `ui.palette` (réversible à chaud). Le
- * `MantineProvider` étant au-dessus du `StoreProvider`, on lit le `rootStore`
- * singleton directement ; `observer` re-render le provider au toggle de palette.
+ * Racine de Studio. Le thème est FIGÉ (`studioTheme`) : le `MantineProvider`
+ * étant au-dessus du `StoreProvider`, il lit le `rootStore` singleton
+ * directement.
  */
-export const App = observer(() => {
-  const theme = buildStudioTheme(rootStore.ui.palette);
+export const App = () => {
   return (
     <MantineProvider
-      theme={theme}
+      theme={studioTheme}
       defaultColorScheme="dark"
       cssVariablesResolver={studioCssVariablesResolver}
     >
@@ -346,6 +345,6 @@ export const App = observer(() => {
       </ModalsProvider>
     </MantineProvider>
   );
-});
+};
 
 export default App;
