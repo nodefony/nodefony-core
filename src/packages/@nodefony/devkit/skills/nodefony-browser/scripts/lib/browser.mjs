@@ -263,8 +263,7 @@ export async function open() {
     // prime sur ce qu'une session précédente avait laissé.
     await ctx.addInitScript((entries) => {
       try {
-        for (const { cle: key, valeur: value } of entries)
-          localStorage.setItem(key, value);
+        for (const { key, value } of entries) localStorage.setItem(key, value);
       } catch {
         // Stockage refusé (mode privé, origine opaque) : la sonde continue —
         // le thème sera celui par défaut, et la mesure le DIRA (champ `theme`).
