@@ -22,12 +22,14 @@ function buildFlow(options: unknown, oauth2?: unknown): AuthFlow {
 }
 
 describe("security.loginPage — schéma", () => {
-  it("défauts : servie sur LOGIN_PAGE_PATH, mot de passe proposé, mise en page split", () => {
+  it("défauts : servie sur LOGIN_PAGE_PATH, mot de passe proposé, mise en page split, fournisseurs d'abord, pied de page", () => {
     const page = securityConfigSchema.parse({}).loginPage;
     assert.deepEqual(page, {
       enabled: true,
       path: LOGIN_PAGE_PATH,
       password: true,
+      providersFirst: true,
+      footer: true,
       layout: "split",
     });
   });
@@ -71,6 +73,12 @@ describe("AuthFlow.describeLoginPage", () => {
       title: null,
       logo: null,
       template: null,
+      heading: null,
+      subtitle: null,
+      stylesheet: null,
+      providersFirst: true,
+      hero: null,
+      footer: true,
       layout: "split",
       password: true,
       providers: [],
@@ -84,6 +92,12 @@ describe("AuthFlow.describeLoginPage", () => {
         title: "Intranet",
         logo: "/img/logo.svg",
         template: "views/login.eta",
+        heading: "Espace client",
+        subtitle: "Votre compte Acme",
+        stylesheet: "/assets/acme.css",
+        providersFirst: false,
+        hero: { heading: "Bienvenue" },
+        footer: false,
         layout: "card",
         password: false,
       },
@@ -93,6 +107,12 @@ describe("AuthFlow.describeLoginPage", () => {
       title: "Intranet",
       logo: "/img/logo.svg",
       template: "views/login.eta",
+      heading: "Espace client",
+      subtitle: "Votre compte Acme",
+      stylesheet: "/assets/acme.css",
+      providersFirst: false,
+      hero: { heading: "Bienvenue", text: null },
+      footer: false,
       layout: "card",
       password: false,
       providers: [],
@@ -113,13 +133,28 @@ describe("AuthFlow.describeLoginPage", () => {
     );
   });
 
-  it("fournisseurs relus à chaque appel, réduits au contrat {name, label}", () => {
-    let offered = [
+  it("`hero: false` passe tel quel ; une clé inconnue du panneau est refusée", () => {
+    assert.equal(
+      buildFlow({ loginPage: { hero: false } }).describeLoginPage()?.hero,
+      false,
+    );
+    assert.equal(
+      securityConfigSchema.safeParse({
+        loginPage: { hero: { heading: "x", image: "/photo.jpg" } },
+      }).success,
+      false,
+    );
+  });
+
+  it("fournisseurs relus à chaque appel, réduits au contrat {name, label, icon}", () => {
+    let offered: Array<Record<string, string>> = [
       { name: "keycloak", label: "Keycloak", secret: "ne-doit-pas-sortir" },
+      { name: "acme", label: "Acme", icon: "/assets/acme.svg" },
     ];
     const flow = buildFlow({}, { listDisplayProviders: () => offered });
     assert.deepEqual(flow.describeLoginPage()?.providers, [
-      { name: "keycloak", label: "Keycloak" },
+      { name: "keycloak", label: "Keycloak", icon: null },
+      { name: "acme", label: "Acme", icon: "/assets/acme.svg" },
     ]);
     offered = [];
     assert.deepEqual(flow.describeLoginPage()?.providers, []);

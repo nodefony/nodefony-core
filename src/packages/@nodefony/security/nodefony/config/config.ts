@@ -1013,7 +1013,56 @@ const loginPageSchema = z
       .min(1)
       .optional()
       .describe(
-        "Chemin d'un gabarit `.eta` de l'application qui REMPLACE celui du framework. Dernier recours : les variables `--nf-login-*` et `layout` suffisent à l'habillage.",
+        "Chemin d'un gabarit `.eta` de l'application qui REMPLACE celui du framework. Dernier recours : `stylesheet` (variables `--nf-login-*`), `layout` et les textes (`heading`, `subtitle`, `hero`) suffisent à l'habillage, et survivent aux évolutions du balisage — un gabarit copié, non.",
+      ),
+    stylesheet: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Adresse d'une feuille de l'application chargée APRÈS celle du framework : elle redéfinit les variables `--nf-login-*` (couleurs, rayons, `--nf-login-hero-image` pour la photo du panneau). Chemin servi par l'application de préférence — une URL d'un autre site doit être autorisée par la CSP (`style-src`).",
+      ),
+    heading: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Titre de la carte et de l'onglet. Omis = « Se connecter ». Le nom de l'application, lui, vient de `title`.",
+      ),
+    subtitle: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Ligne sous le titre. Omis = phrase déduite des moyens proposés (identifiant local, compte de l'organisation, ou les deux).",
+      ),
+    providersFirst: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Les boutons des fournisseurs passent AVANT le formulaire identifiant et mot de passe. false = le formulaire d'abord. Sans fournisseur proposé, sans effet.",
+      ),
+    hero: z
+      .union([
+        z.literal(false),
+        z.strictObject({
+          heading: z.string().min(1).describe("Accroche du panneau."),
+          text: z
+            .string()
+            .min(1)
+            .optional()
+            .describe("Phrase sous l'accroche."),
+        }),
+      ])
+      .optional()
+      .describe(
+        "Panneau d'illustration de la mise en page `split`. Omis = vitrine Nodefony. `{ heading, text }` = votre texte à la place. false = la marque seule, sur l'image du panneau. L'image se règle dans `stylesheet` (`--nf-login-hero-image`), jamais ici.",
+      ),
+    footer: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Pied de page : protections de la session (cookie HttpOnly, anti-CSRF, CSP) et mention « Propulsé par Nodefony ». false = retiré.",
       ),
     password: z
       .boolean()
@@ -1160,6 +1209,15 @@ const oauthProviderSchema = z
           "fournisseur (`keycloak` → « Keycloak », `oidc` → « OIDC », " +
           "`mon-idp` → « Mon Idp »). À poser quand la marque ne se devine pas " +
           "du nom de la clé (« Connexion agent », « Annuaire interne »).",
+      ),
+    icon: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Image du bouton sur l'écran de connexion (chemin servi par " +
+          "l'application, ou URL autorisée par la CSP `img-src`). OMIS = " +
+          "icône du framework : la marque pour `github`, une clé sinon.",
       ),
     hidden: z
       .boolean()

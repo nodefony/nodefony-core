@@ -289,7 +289,7 @@ use("@nodefony/security", {
 
 > [!NOTE]
 > Sans section `encoders`, le défaut du schéma Zod est **déjà** un Argon2id sûr
-> (`security/nodefony/config/config.ts:1273`). Tu ne déclares cette section que pour ajouter un format
+> (`security/nodefony/config/config.ts:1334`). Tu ne déclares cette section que pour ajouter un format
 > legacy, ou pour ajuster les coûts.
 
 ### 2. Déclarer le service `users` (`nodefony/security/provisionUsers.ts`)
@@ -631,7 +631,7 @@ Des coûts **supérieurs** ne déclenchent rien — on ne rétrograde jamais une
 
 ### Le tableau des paramètres
 
-Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:1273`) — la source
+Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:1334`) — la source
 unique des bornes et des défauts.
 
 | Option        | Type                     | Défaut     | Bornes    | Effet                                            |

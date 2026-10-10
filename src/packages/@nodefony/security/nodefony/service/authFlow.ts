@@ -32,7 +32,11 @@ interface IFederatedLogout {
 
 /** Ce qu'AuthFlow lit du service `oauth2` pour la page de connexion. */
 interface IDisplayProviders {
-  listDisplayProviders(): readonly ILoginPageProvider[];
+  listDisplayProviders(): readonly {
+    readonly name: string;
+    readonly label: string;
+    readonly icon?: string;
+  }[];
 }
 
 // Seconds facteurs proposés au défi (`202`). Liste OUVERTE : une méthode
@@ -475,11 +479,26 @@ class AuthFlow extends Service {
       title: page.title ?? null,
       logo: page.logo ?? null,
       template: page.template ?? null,
+      heading: page.heading ?? null,
+      subtitle: page.subtitle ?? null,
+      stylesheet: page.stylesheet ?? null,
+      providersFirst: page.providersFirst,
+      hero:
+        page.hero === undefined
+          ? null
+          : page.hero === false
+            ? false
+            : { heading: page.hero.heading, text: page.hero.text ?? null },
+      footer: page.footer,
       layout: page.layout,
       password: page.password,
       // Copie au contrat : rien d'autre de la configuration d'un fournisseur
       // n'atteint le gabarit.
-      providers: offered.map(({ name, label }) => ({ name, label })),
+      providers: offered.map(({ name, label, icon }): ILoginPageProvider => ({
+        name,
+        label,
+        icon: icon ?? null,
+      })),
     };
   }
 

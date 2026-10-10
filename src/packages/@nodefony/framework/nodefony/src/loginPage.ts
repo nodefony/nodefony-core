@@ -3,6 +3,7 @@ import {
   oauth2AuthorizePath,
   safeRedirectPath,
   type ILoginPageDescription,
+  type ILoginPageHero,
   type LoginPageLayout,
 } from "nodefony";
 
@@ -10,8 +11,10 @@ import {
 export interface ILoginPageViewProvider {
   readonly label: string;
   readonly href: string;
-  /** Symbole du sprite d'icônes (`i-key`, `m-github`). */
+  /** Symbole du sprite d'icônes (`i-key`, `m-github`), quand `image` est nulle. */
   readonly icon: string;
+  /** Image réglée par l'application (`oauth2.providers.<nom>.icon`), ou `null`. */
+  readonly image: string | null;
 }
 
 /**
@@ -23,6 +26,12 @@ export interface ILoginPageView {
   readonly brand: string;
   /** Titre de la carte et de l'onglet. */
   readonly title: string;
+  /** Ligne sous le titre, ou `null` pour la phrase déduite des moyens proposés. */
+  readonly subtitle: string | null;
+  /** Panneau d'illustration : `null` = vitrine Nodefony, `false` = marque seule. */
+  readonly hero: ILoginPageHero | false | null;
+  /** Pied de page affiché ? */
+  readonly footer: boolean;
   readonly logo: string;
   readonly layout: LoginPageLayout;
   /** Thème imposé par `?theme=`, `null` = celui du système. */
@@ -34,6 +43,8 @@ export interface ILoginPageView {
   /** Destination après connexion, déjà passée par `safeRedirectPath`. */
   readonly from: string;
   readonly styleHref: string;
+  /** Feuille de l'application, chargée après {@link styleHref}, ou `null`. */
+  readonly stylesheetHref: string | null;
   readonly scriptHref: string;
   readonly logoHref: string;
   /** Nonce CSP de la requête, posé sur le `<script>`. */
@@ -103,22 +114,27 @@ export function buildLoginPageView(
   const providerFrom = from === "/" ? undefined : from;
   return {
     brand: page.title ?? request.projectName,
-    title: DEFAULT_TITLE,
+    title: page.heading ?? DEFAULT_TITLE,
+    subtitle: page.subtitle,
+    hero: page.hero,
+    footer: page.footer,
     logo: page.logo ?? logoHref,
     layout: page.layout,
     theme:
       request.theme === "light" || request.theme === "dark"
         ? request.theme
         : null,
-    ssoFirst: page.providers.length > 0,
+    ssoFirst: page.providersFirst && page.providers.length > 0,
     password: page.password,
-    providers: page.providers.map(({ name, label }) => ({
+    providers: page.providers.map(({ name, label, icon }) => ({
       label,
       href: oauth2AuthorizePath(name, providerFrom),
       icon: name === "github" ? "m-github" : "i-key",
+      image: icon,
     })),
     from,
     styleHref: asset(LOGIN_PAGE_ASSET_FILES.style),
+    stylesheetHref: page.stylesheet,
     scriptHref: asset(LOGIN_PAGE_ASSET_FILES.script),
     logoHref,
     nonce: request.nonce,
@@ -143,6 +159,9 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
     <title><%= it.title %> — <%= it.brand %></title>
     <link rel="icon" href="<%= it.logoHref %>" type="image/svg+xml" />
     <link rel="stylesheet" href="<%= it.styleHref %>" />
+<% if (it.stylesheetHref) { %>
+    <link rel="stylesheet" href="<%= it.stylesheetHref %>" />
+<% } %>
     <script type="module" src="<%= it.scriptHref %>" nonce="<%= it.nonce %>"></script>
   </head>
   <body data-layout="<%= it.layout %>"<% if (it.ssoFirst) { %> data-sso-first<% } %>>
@@ -162,13 +181,140 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
     <div class="nf-layout">
       <aside class="nf-hero" aria-hidden="true">
         <div class="nf-hero-brand"><img class="nf-logo" src="<%= it.logo %>" alt="" /><%= it.brand %></div>
+<% if (it.hero === null) { %>
+        <div class="nf-home">
+          <img
+            class="nf-home-logo"
+            src="<%= it.logoHref %>"
+            alt=""
+          />
+          <h2>Le framework Node.js fullstack</h2>
+          <p class="sub">
+            Temps réel natif · développement agentic-ready · socle TypeScript
+            isomorphe
+          </p>
+          <p class="sig">
+            Une action de contrôleur. Deux transports. La même session, la même
+            sécurité, le même code.
+          </p>
+          <ul class="badges">
+            <li class="agentic">Agentic ready</li>
+            <li>Node.js ≥ 24</li>
+            <li>TypeScript strict</li>
+            <li>ESM only</li>
+            <li>Licence Apache 2.0</li>
+          </ul>
+          <div
+            class="install"
+            role="img"
+            aria-label="Commande d'installation : npx nodefony create app"
+          >
+            <span class="p">$</span><span>npx nodefony create app</span>
+          </div>
+          <div class="features">
+            <div class="feature">
+              <span class="ic"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <polygon
+                    points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
+                  /></svg
+              ></span>
+              <h3>Temps réel natif</h3>
+              <p>
+                Le WebSocket n'est pas un ajout : même pipeline, même table de
+                routes, même sécurité que le HTTP.
+              </p>
+            </div>
+            <div class="feature">
+              <span class="ic"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="m9 12 2 2 4-4" /></svg
+              ></span>
+              <h3>Sécurité par conception</h3>
+              <p>
+                Pare-feu applicatif par zones, Zero Trust, CSRF Fetch Metadata,
+                sessions hybrides, WebAuthn.
+              </p>
+            </div>
+            <div class="feature">
+              <span class="ic"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" /></svg
+              ></span>
+              <h3>DI & modules</h3>
+              <p>
+                Injection de dépendances par décorateurs, modules autonomes,
+                configuration validée au boot.
+              </p>
+            </div>
+            <div class="feature">
+              <span class="ic"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path
+                    d="M3 12h18M12 3c2.5 2.6 4 5.7 4 9s-1.5 6.4-4 9c-2.5-2.6-4-5.7-4-9s1.5-6.4 4-9z"
+                  /></svg
+              ></span>
+              <h3>Socle isomorphe</h3>
+              <p>
+                Le même paquet côté serveur et côté navigateur : client temps
+                réel, règles et types écrits une fois.
+              </p>
+            </div>
+          </div>
+        </div>
+        <small>Propulsé par Nodefony</small>
+<% } else if (it.hero) { %>
+        <div class="nf-home">
+          <h2><%= it.hero.heading %></h2>
+<% if (it.hero.text) { %>
+          <p class="sub"><%= it.hero.text %></p>
+<% } %>
+        </div>
+<% } %>
       </aside>
       <main class="nf-stage" data-nf-login data-from="<%= it.from %>">
         <section class="nf-card" aria-labelledby="nf-title">
           <div class="nf-head">
             <div class="nf-brand"><img class="nf-logo" src="<%= it.logo %>" alt="" /><%= it.brand %></div>
             <h1 id="nf-title"><%= it.title %></h1>
-            <p class="nf-sub" id="nf-sub"><% if (it.password && it.providers.length > 0) { %>Compte de l'organisation ou identifiant local<% } else if (it.password) { %>Identifiant et mot de passe<% } else { %>Avec le compte de votre organisation<% } %></p>
+            <p class="nf-sub" id="nf-sub"><% if (it.subtitle) { %><%= it.subtitle %><% } else if (it.password && it.providers.length > 0) { %>Compte de l'organisation ou identifiant local<% } else if (it.password) { %>Identifiant et mot de passe<% } else { %>Avec le compte de votre organisation<% } %></p>
           </div>
 <% if (it.password) { %>
           <ol class="nf-steps" aria-label="Étapes">
@@ -229,7 +375,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
 <% } %>
               <div class="nf-alt">
 <% it.providers.forEach(function (provider) { %>
-                <a class="nf-btn" href="<%= provider.href %>"><svg class="<%= provider.icon === 'm-github' ? 'nf-mark' : 'nf-icon' %>" aria-hidden="true"><use href="#<%= provider.icon %>" /></svg><%= provider.label %></a>
+                <a class="nf-btn" href="<%= provider.href %>"><% if (provider.image) { %><img class="nf-icon" src="<%= provider.image %>" alt="" /><% } else { %><svg class="<%= provider.icon === 'm-github' ? 'nf-mark' : 'nf-icon' %>" aria-hidden="true"><use href="#<%= provider.icon %>" /></svg><% } %><%= provider.label %></a>
 <% }) %>
               </div>
             </div>
@@ -240,6 +386,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
 <% } %>
           </div>
         </section>
+<% if (it.footer) { %>
         <div class="nf-foot">
           <ul class="nf-facts" aria-label="Protection de la session">
             <li><svg class="nf-icon" aria-hidden="true"><use href="#i-shield" /></svg>cookie HttpOnly</li>
@@ -248,6 +395,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
           </ul>
           <a class="nf-powered" href="https://github.com/nodefony/nodefony-core" rel="noopener noreferrer"><img class="nf-logo nf-logo-mono" src="<%= it.logoHref %>" alt="" />Propulsé par Nodefony</a>
         </div>
+<% } %>
       </main>
     </div>
   </body>

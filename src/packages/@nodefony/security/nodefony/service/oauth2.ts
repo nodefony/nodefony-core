@@ -172,6 +172,8 @@ export interface IOAuthDisplayProvider {
   readonly name: string;
   /** Libellé du bouton : celui de la config, sinon dérivé du nom. */
   readonly label: string;
+  /** Image du bouton (`icon` de la config) — absente = icône du framework. */
+  readonly icon?: string;
 }
 
 /** Données à porter en session entre `authorize` et `callback` (anti-replay). */
@@ -431,10 +433,13 @@ class OAuth2Service extends Service {
         // fournisseur reste ouvert pour qui l'atteint directement : seule
         // l'offre disparaît, et revient dès qu'une tentative réussit.
         .filter((name) => this.#isReachable(name))
-        .map((name) => ({
-          name,
-          label: configured[name]?.label ?? oauthDisplayLabel(name),
-        }))
+        .map((name): IOAuthDisplayProvider => {
+          const label = configured[name]?.label ?? oauthDisplayLabel(name);
+          const icon = configured[name]?.icon;
+          // Omise quand elle n'est pas réglée : la réponse JSON de la route
+          // `/providers` ne porte pas un champ vide de plus.
+          return icon === undefined ? { name, label } : { name, label, icon };
+        })
     );
   }
 

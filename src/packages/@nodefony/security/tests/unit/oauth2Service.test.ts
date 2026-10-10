@@ -407,6 +407,30 @@ describe("OAuth2Service — ce qui s'affiche, et ce qui reste autorisable", () =
       { name: "keycloak", label: "Annuaire interne" },
     ]);
   });
+
+  it("l'image du bouton passe quand elle est réglée, et seulement alors", () => {
+    const { svc, boot } = buildService(
+      {
+        oauth2: {
+          enabled: true,
+          providers: {
+            keycloak: {
+              clientId: "id",
+              clientSecret: "sec",
+              redirectUri: "https://app/cb",
+              issuer: ISSUER,
+              icon: "/assets/annuaire.svg",
+            },
+          },
+        },
+      },
+      makeUsers(),
+    );
+    boot();
+    assert.deepEqual(svc.listDisplayProviders(), [
+      { name: "keycloak", label: "Keycloak", icon: "/assets/annuaire.svg" },
+    ]);
+  });
 });
 
 describe("oauthDisplayLabel — rendre un nom de configuration lisible", () => {

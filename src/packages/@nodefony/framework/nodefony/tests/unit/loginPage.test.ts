@@ -24,11 +24,17 @@ const PAGE: ILoginPageDescription = {
   title: null,
   logo: null,
   template: null,
+  heading: null,
+  subtitle: null,
+  stylesheet: null,
+  providersFirst: true,
+  hero: null,
+  footer: true,
   layout: "split",
   password: true,
   providers: [
-    { name: "keycloak", label: "Compte entreprise" },
-    { name: "github", label: "GitHub" },
+    { name: "keycloak", label: "Compte entreprise", icon: null },
+    { name: "github", label: "GitHub", icon: null },
   ],
 };
 
@@ -118,7 +124,11 @@ describe("page de connexion — gabarit rendu", () => {
   it("🔴 un titre ou un libellé hostile sort en TEXTE", () => {
     const hostile = '"><img src=x onerror=alert(1)>';
     const doc = render(
-      { ...PAGE, title: hostile, providers: [{ name: "x", label: hostile }] },
+      {
+        ...PAGE,
+        title: hostile,
+        providers: [{ name: "x", label: hostile, icon: null }],
+      },
       REQUEST,
     );
     expect(doc.querySelector('img[src="x"]')).toBeNull();
@@ -137,6 +147,96 @@ describe("page de connexion — gabarit rendu", () => {
     const doc = render({ ...PAGE, providers: [] }, REQUEST);
     expect(doc.querySelector("[data-alt]")).toBeNull();
     expect(doc.body.hasAttribute("data-sso-first")).toBe(false);
+  });
+
+  it("par défaut : « Se connecter », vitrine Nodefony, pied de page, aucune feuille de l'application", () => {
+    const doc = render();
+    expect(doc.querySelector("h1")?.textContent).toBe("Se connecter");
+    expect(doc.title.startsWith("Se connecter —")).toBe(true);
+    expect(doc.querySelector(".nf-hero .nf-home h2")?.textContent).toBe(
+      "Le framework Node.js fullstack",
+    );
+    expect(doc.querySelector(".nf-foot")).not.toBeNull();
+    expect(doc.querySelectorAll('link[rel="stylesheet"]')).toHaveLength(1);
+  });
+
+  it("titre, sous-titre et feuille de l'application (chargée APRÈS celle du framework)", () => {
+    const doc = render({
+      ...PAGE,
+      heading: "Espace client",
+      subtitle: "Votre compte Acme",
+      stylesheet: "/assets/acme-login.css",
+    });
+    expect(doc.querySelector("h1")?.textContent).toBe("Espace client");
+    expect(doc.title.startsWith("Espace client —")).toBe(true);
+    expect(doc.querySelector("#nf-sub")?.textContent).toBe("Votre compte Acme");
+    const sheets = [...doc.querySelectorAll('link[rel="stylesheet"]')].map(
+      (l) => l.getAttribute("href"),
+    );
+    expect(sheets).toHaveLength(2);
+    expect(sheets[0]).toMatch(/login\.css\?v=/);
+    expect(sheets[1]).toBe("/assets/acme-login.css");
+  });
+
+  it("🔴 un sous-titre, une accroche ou une adresse hostile sort en TEXTE", () => {
+    const hostile = '"><img src=x onerror=alert(1)>';
+    const doc = render({
+      ...PAGE,
+      subtitle: hostile,
+      hero: { heading: hostile, text: hostile },
+      stylesheet: hostile,
+    });
+    expect(doc.querySelector("#nf-sub")?.textContent).toBe(hostile);
+    expect(doc.querySelector(".nf-home h2")?.textContent).toBe(hostile);
+    expect(doc.querySelector('img[src="x"]')).toBeNull();
+  });
+
+  it("`providersFirst: false` : le formulaire d'abord", () => {
+    expect(
+      render({ ...PAGE, providersFirst: false }).body.hasAttribute(
+        "data-sso-first",
+      ),
+    ).toBe(false);
+    expect(render().body.hasAttribute("data-sso-first")).toBe(true);
+  });
+
+  it("panneau : texte de l'application à la place de la vitrine, ou marque seule", () => {
+    const custom = render({
+      ...PAGE,
+      hero: { heading: "Bienvenue chez Acme", text: null },
+    });
+    expect(custom.querySelector(".nf-home h2")?.textContent).toBe(
+      "Bienvenue chez Acme",
+    );
+    expect(custom.querySelector(".nf-home .sub")).toBeNull();
+    expect(custom.querySelector(".nf-home .features")).toBeNull();
+    const bare = render({ ...PAGE, hero: false });
+    expect(bare.querySelector(".nf-hero .nf-hero-brand")).not.toBeNull();
+    expect(bare.querySelector(".nf-hero .nf-home")).toBeNull();
+  });
+
+  it("`footer: false` retire le pied de page", () => {
+    expect(
+      render({ ...PAGE, footer: false }).querySelector(".nf-foot"),
+    ).toBeNull();
+  });
+
+  it("l'image d'un fournisseur remplace l'icône du framework", () => {
+    const doc = render({
+      ...PAGE,
+      providers: [
+        { name: "keycloak", label: "Acme SSO", icon: "/assets/acme.svg" },
+        { name: "github", label: "GitHub", icon: null },
+      ],
+    });
+    const [acme, github] = [...doc.querySelectorAll(".nf-alt .nf-btn")];
+    expect(acme?.querySelector("img")?.getAttribute("src")).toBe(
+      "/assets/acme.svg",
+    );
+    expect(acme?.querySelector("svg")).toBeNull();
+    expect(github?.querySelector("use")?.getAttribute("href")).toBe(
+      "#m-github",
+    );
   });
 
   it("le thème imposé se pose sur la racine", () => {

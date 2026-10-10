@@ -354,7 +354,7 @@ exactement les porteurs à risque de verrouillage.
 ## ⚙️ Configuration
 
 Table dérivée du schéma Zod `passkeysSchema` (`config.ts:488`), monté sous la clé `passkeys`
-(`config.ts:1300`).
+(`config.ts:1361`).
 
 | Option                    | Type                                       | Défaut       | Effet                                                                          |
 | ------------------------- | ------------------------------------------ | ------------ | ------------------------------------------------------------------------------ |

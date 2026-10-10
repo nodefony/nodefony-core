@@ -116,6 +116,24 @@ export interface ILoginPageProvider {
   readonly name: string;
   /** Libellé affiché sur le bouton. */
   readonly label: string;
+  /**
+   * Image du bouton (chemin servi par l'application ou URL), ou `null` pour
+   * l'icône du framework (marque GitHub, sinon une clé).
+   */
+  readonly icon: string | null;
+}
+
+/**
+ * Contenu du panneau d'illustration qui REMPLACE la vitrine Nodefony. Texte
+ * seul, échappé au rendu : l'image du panneau passe par la feuille de
+ * l'application (`--nf-login-hero-image`), jamais par une adresse injectée
+ * dans le balisage.
+ */
+export interface ILoginPageHero {
+  /** Accroche du panneau. */
+  readonly heading: string;
+  /** Phrase sous l'accroche, ou `null`. */
+  readonly text: string | null;
 }
 
 /**
@@ -135,6 +153,21 @@ export interface ILoginPageDescription {
   readonly logo: string | null;
   /** Gabarit `.eta` de l'application qui remplace celui du framework, ou `null`. */
   readonly template: string | null;
+  /** Titre de la carte et de l'onglet, ou `null` pour « Se connecter ». */
+  readonly heading: string | null;
+  /** Ligne sous le titre, ou `null` pour la phrase déduite des moyens proposés. */
+  readonly subtitle: string | null;
+  /** Feuille de l'application chargée APRÈS celle du framework, ou `null`. */
+  readonly stylesheet: string | null;
+  /** Les fournisseurs passent-ils avant le formulaire (quand il y en a) ? */
+  readonly providersFirst: boolean;
+  /**
+   * Panneau d'illustration : `null` = vitrine Nodefony, `false` = marque seule,
+   * sinon le contenu qui la remplace.
+   */
+  readonly hero: ILoginPageHero | false | null;
+  /** Pied de page : protections de la session et mention du framework. */
+  readonly footer: boolean;
   /** Mode de mise en page. */
   readonly layout: LoginPageLayout;
   /** Le formulaire identifiant et mot de passe est-il proposé ? */

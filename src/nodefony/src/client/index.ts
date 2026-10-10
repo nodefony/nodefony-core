@@ -299,6 +299,7 @@ export type {
   LoginPageLayout,
   ILoginPageProvider,
   ILoginPageDescription,
+  ILoginPageHero,
 } from "../runtime/authRoutes";
 export { safeRedirectPath } from "../runtime/safeRedirect";
 export {
