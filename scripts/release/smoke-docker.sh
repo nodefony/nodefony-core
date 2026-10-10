@@ -1734,6 +1734,15 @@ if runs pm; then
     *) PM_LIST="pnpm yarn bun" ;;
   esac
   PM_PORT=15181
+  # 🔴 CACHES ISOLÉS, propres à ce run. yarn 1 et bun rangent un tarball
+  # `file:` sous son nom ET SA VERSION : la version ne change pas d'un build à
+  # l'autre, et le gestionnaire ressert le contenu du run PRÉCÉDENT. Vécu : le
+  # nodefony du 6 octobre, sans `NodefonySocket`, installé le 10 à la place du
+  # tarball du jour — le typecheck de l'app générée tombait, et le banc aurait
+  # aussi bien pu passer en éprouvant du code périmé. npm et pnpm adressent leur
+  # cache par empreinte du contenu : ils ne sont pas concernés.
+  export YARN_CACHE_FOLDER="$WORK/.cache-yarn"
+  export BUN_INSTALL_CACHE_DIR="$WORK/.cache-bun"
   for PM in $PM_LIST; do
     PAPP="$WORK/pm-$PM"
     PIMG="nodefony-smoke-pm-$PM:smoke"
@@ -1755,16 +1764,22 @@ if runs pm; then
     [ -f "$PAPP/$LOCK" ] || fail "$PM install n'a pas écrit $LOCK"
     ok "dépendances installées, $LOCK écrit"
 
-    # 🔴 La PROVENANCE, pas seulement la présence : la version des tarballs peut
-    # exister sur le registre, et un gestionnaire qui résout un paquet interne
-    # là-bas plutôt que dans `tarballs/` installe — et le banc éprouve alors
-    # le paquet publié, pas celui qu'on s'apprête à publier. Le marqueur est
-    # un export que seul le build courant porte.
-    (cd "$PAPP" && node --input-type=module -e '
-const m = await import("nodefony");
-process.exit(typeof m.packageManagerToolchain === "function" ? 0 : 1);') \
-      || fail "$PM : le nodefony installé n'est PAS celui des tarballs (résolu au registre ?)"
-    ok "nodefony résolu depuis les tarballs (marqueur du build courant présent)"
+    # 🔴 La PROVENANCE, pas seulement la présence : la version des tarballs
+    # existe ailleurs — sur le registre, dans le cache d'un gestionnaire — et
+    # un paquet interne résolu là-bas installe sans bruit : le banc éprouve
+    # alors un autre code que celui qu'on s'apprête à publier. La preuve est
+    # donc le CONTENU : le paquet installé doit être, fichier pour fichier, le
+    # tarball du jour. (L'ancien « marqueur du build courant », un export, ne
+    # prouvait plus rien dès que l'export existait dans un build plus ancien.)
+    PROV="$WORK/.pm-$PM-provenance"
+    rm -rf "$PROV" && mkdir -p "$PROV"
+    tar -xzf "$PAPP/tarballs/$NODEFONY_TGZ" -C "$PROV" \
+      || fail "$PM : tarball nodefony illisible ($NODEFONY_TGZ)"
+    diff -rq -x node_modules "$PROV/package" "$PAPP/node_modules/nodefony/" \
+      > "$WORK/.pm-$PM-provenance.out" 2>&1 \
+      || { head -10 "$WORK/.pm-$PM-provenance.out"; \
+           fail "$PM : le nodefony installé n'est PAS le tarball du jour (cache ou registre)"; }
+    ok "nodefony installé = tarball du jour, fichier pour fichier"
     assert_contributions "$PAPP" "$PM"
 
     for script in build typecheck; do
