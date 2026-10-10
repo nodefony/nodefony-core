@@ -8,28 +8,16 @@
  * fable-manifest.json). Les habillages écartés par l'auteur (04, 05, 06, 09,
  * 10, 12) ne sont plus générés : ils vivent dans l'historique git.
  *
- * Chaque habillage ne change que des variables CSS et `data-layout` : c'est la
- * preuve que la page par défaut s'adapte à une application sans toucher au
- * gabarit. Galerie PROVISOIRE : elle disparaît avec la page réelle (#547).
+ * Chaque page charge les feuilles PUBLIÉES du framework — `login.css` puis
+ * `login/skins/<skin>.css` — et `mock.css` (photo + barre de test) : la
+ * galerie montre ce que l'application recevra, elle n'en porte aucune copie.
+ * L'aperçu fidèle reste la vraie page : `/login?skin=<skin>` en développement.
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const OUT = path.dirname(fileURLToPath(import.meta.url));
-const TAU = Math.PI * 2;
-
-// Tirage déterministe (mulberry32) : les courbes de niveau restent les mêmes
-// d'une génération à l'autre.
-let seed = 547;
-function random() {
-  seed = (seed + 0x6d2b79f5) | 0;
-  let t = seed;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-}
-
 // Le logo vient de SA source, jamais recopié (garde `brandAssets.test.ts` du
 // cœur) : les pages le chargent par `<img>`.
 const LOGO_URL = "../../../src/nodefony/assets/nodefony-logo.svg";
@@ -45,233 +33,68 @@ function logo(colors = null, cls = "nf-logo") {
   return `<img class="${cls}${tone}" src="${LOGO_URL}" alt="">`;
 }
 
-function dataUri(svg) {
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
+// Les feuilles PUBLIÉES du framework : la galerie n'en porte aucune copie.
+const ASSETS = "../../../src/nodefony/assets/";
 
-// ── Fonds ───────────────────────────────────────────────────────────────────
-function grid(color, size = 40, minor = 8) {
-  const lines = `<path d="M${size} 0H0V${size}" fill="none" stroke="${color}" stroke-width="1"/>`;
-  let sub = "";
-  for (let x = minor; x < size; x += minor) {
-    sub += `<path d="M${x} 0V${size}M0 ${x}H${size}" stroke="${color}" stroke-opacity=".35" stroke-width=".5"/>`;
-  }
-  return dataUri(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">${sub}${lines}</svg>`,
-  );
-}
-
-function dots(color, size = 22, r = 1.1) {
-  return dataUri(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="${color}"/></svg>`,
-  );
-}
-
-/** Courbes de niveau : anneaux bruités autour de quelques sommets. */
-function topo(color, { w = 1600, h = 1000, opacity = 0.5 } = {}) {
-  const peaks = [
-    [w * 0.78, h * 0.28, 11],
-    [w * 0.2, h * 0.82, 9],
-    [w * 0.55, h * 0.95, 6],
-  ];
-  const out = [];
-  for (const [cx, cy, rings] of peaks) {
-    const phase = Array.from({ length: 4 }, () => random() * TAU);
-    for (let k = 1; k <= rings; k++) {
-      const r = k * 46;
-      const pts = [];
-      for (let i = 0; i < 73; i++) {
-        const a = (i / 72) * TAU;
-        const n =
-          Math.sin(3 * a + phase[0]) * 0.09 +
-          Math.sin(5 * a + phase[1]) * 0.05 +
-          Math.sin(2 * a + phase[2] + k * 0.3) * 0.07;
-        const rr = r * (1 + n);
-        pts.push(
-          `${(cx + rr * Math.cos(a)).toFixed(1)},${(cy + rr * Math.sin(a) * 0.8).toFixed(1)}`,
-        );
-      }
-      out.push(`<polyline points="${pts.join(" ")}"/>`);
-    }
-  }
-  return dataUri(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice">` +
-      `<g fill="none" stroke="${color}" stroke-opacity="${opacity}" stroke-width="1.2">${out.join("")}</g></svg>`,
-  );
-}
-
-// ── Jeux de couleurs ──────────────────────────────────────────────────────────
-const LIGHT = {
-  "on-brand": "#ffffff",
-  accent: "#0067ba",
-  ok: "#1f8a5b",
-  warn: "#8a5a00",
-  crit: "#c4321a",
-  // Palette claire de la page d'accueil du cœur (nodefony/views/index.eta).
-  bg: "#fafbfd",
-  surface: "#ffffff",
-  raised: "#f1f5fa",
-  line: "#e3e9f2",
-  "line-strong": "#cfd8e6",
-  heading: "#0e1726",
-  text: "#2b3a52",
-  muted: "#5b6b84",
-  field: "#ffffff",
-  "crit-bg": "#fff3f0",
-  "ok-bg": "#edf8f2",
-};
-
-function block(vars) {
-  return Object.entries(vars)
-    .map(([k, v]) => `  --nf-login-${k}: ${v};`)
-    .join("\n");
-}
-
-function themeCss(darkIn, lightIn) {
-  // Vert « Agentic ready » : celui du logo en clair, éclairci en sombre (3,4:1 sinon).
-  const dark = { "home-green": "#7cc46c", ...darkIn };
-  const light = { "home-green": "#3f7a35", ...lightIn };
-  return (
-    `:root {\n${block(dark)}\n  color-scheme: dark;\n}\n` +
-    `@media (prefers-color-scheme: light) {\n:root:not([data-theme="dark"]) {\n${block(light)}\n  color-scheme: light;\n}\n}\n` +
-    `:root[data-theme="light"] {\n${block(light)}\n  color-scheme: light;\n}\n`
-  );
-}
-
-// ── Les habillages retenus ────────────────────────────────────────────────────
-const PHOTO = 'url("img/fond-ecran-2400.jpg")';
+// ── Les habillages générés ────────────────────────────────────────────────────
+// Ni couleur ni fond ici : ils vivent dans `login/skins/<skin>.css` du cœur.
+// Ces fiches ne disent que ce que la galerie affiche et le balisage d'exemple.
 const VARIANTS = [
   {
     slug: "v01-console",
+    skin: "console",
     name: "Console",
     layout: "card",
     usage:
-      "Défaut proposé. Outils, back-offices, consoles : la signature de la barre de debug.",
+      "Outils, back-offices, consoles : la signature de la barre de debug.",
     backdrop: "aucun",
-    dark: {},
-    light: { ...LIGHT },
   },
   {
     slug: "v02-blueprint",
+    skin: "blueprint",
     name: "Plan technique",
     layout: "card",
     usage:
       "Produits techniques, API, plateformes de données : grille de plan, fond bleu nuit.",
     backdrop: "grille de plan",
-    dark: {
-      bg: "#0b1622",
-      surface: "#0f1d2c",
-      raised: "#142638",
-      line: "#1d3247",
-      "line-strong": "#2a4560",
-      field: "#0b1825",
-      muted: "#8fa3b8",
-      backdrop: grid("#1a3550"),
-      "card-shadow": "0 0 0 6px rgba(11,22,34,.9)",
-    },
-    light: {
-      ...LIGHT,
-      bg: "#eef4fa",
-      line: "#d5e1ec",
-      "line-strong": "#bfd0e0",
-      raised: "#eef3f8",
-      backdrop: grid("#cfe0ef"),
-      "card-shadow": "0 0 0 6px rgba(238,244,250,.9)",
-    },
   },
   {
     slug: "v03-points",
+    skin: "dots",
     name: "Trame de points",
     layout: "card",
     usage:
       "SaaS grand public, applications métier : discret, clair d'abord, ombre légère.",
     backdrop: "trame de points",
-    dark: {
-      bg: "#111317",
-      backdrop: dots("#2c3038"),
-      "card-shadow": "0 1px 2px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.35)",
-    },
-    light: {
-      ...LIGHT,
-      bg: "#f7f7f8",
-      backdrop: dots("#d4d7dc"),
-      "card-shadow":
-        "0 1px 2px rgba(16,24,40,.06), 0 12px 32px rgba(16,24,40,.08)",
-    },
   },
   {
     slug: "v07-epure",
+    skin: "minimal",
     name: "Épuré",
     layout: "bare",
     usage:
       "Produit qui veut s'effacer : pas de carte, beaucoup d'air, titre plus grand.",
     backdrop: "aucun",
-    dark: { "title-size": "30px", "card-width": "380px" },
-    light: {
-      ...LIGHT,
-      bg: "#ffffff",
-      "title-size": "30px",
-      "card-width": "380px",
-    },
   },
   {
     slug: "v08-entreprise-sso",
+    skin: "enterprise",
     name: "Entreprise — SSO d'abord",
     layout: "card",
     ssoFirst: true,
     usage:
-      "Intranet derrière Keycloak : le fournisseur de l'entreprise passe AVANT le compte local. Rebrandé (sarcelle) pour montrer l'habillage.",
+      "Intranet derrière Keycloak : le fournisseur de l'entreprise passe AVANT le compte local (`providersFirst: true`). Palette sarcelle.",
     backdrop: "courbes de niveau",
     app: "Acme Intranet",
-    dark: {
-      brand: "#0f766e",
-      "brand-hover": "#0b5f58",
-      accent: "#2dd4bf",
-      bg: "#0e1514",
-      surface: "#141d1c",
-      raised: "#1a2625",
-      line: "#243432",
-      "line-strong": "#334744",
-      field: "#101918",
-      muted: "#8fa6a2",
-      backdrop: topo("#2dd4bf", { opacity: 0.16 }),
-      "backdrop-size": "cover",
-    },
-    light: {
-      ...LIGHT,
-      brand: "#0f766e",
-      "brand-hover": "#0b5f58",
-      accent: "#0f766e",
-      bg: "#f2f7f6",
-      line: "#dce8e6",
-      raised: "#edf4f3",
-      backdrop: topo("#0f766e", { opacity: 0.12 }),
-      "backdrop-size": "cover",
-    },
-    logoColors: ["#0f766e", "#14b8a6", "#5eead4"],
   },
   {
     slug: "v11-photo-carte",
+    skin: "photo-card",
     name: "Photo — carte console",
     layout: "card",
     usage:
-      "L'image de l'application en fond (ici une vraie photo, 570 Ko servis), la carte console reste pleine et lisible au-dessus.",
-    backdrop: "photo réelle + voile",
-    dark: {
-      backdrop: PHOTO,
-      "backdrop-size": "cover",
-      "backdrop-position": "center 40%",
-      veil: "rgba(10,14,20,.55)",
-      "card-shadow": "0 20px 50px rgba(0,0,0,.45)",
-    },
-    light: {
-      ...LIGHT,
-      backdrop: PHOTO,
-      "backdrop-size": "cover",
-      "backdrop-position": "center 40%",
-      veil: "rgba(245,246,248,.18)",
-      "card-shadow": "0 20px 50px rgba(10,30,50,.28)",
-    },
+      "La photo de l'application en fond de page, voilée ; la carte console reste pleine et lisible au-dessus.",
+    backdrop: "photo de l'application + voile",
   },
 ];
 
@@ -290,7 +113,7 @@ const ICONS = `<svg width="0" height="0" style="position:absolute" aria-hidden="
 
 function page(v) {
   const app = v.app ?? "Mon application";
-  const lg = logo(v.logoColors ?? null);
+  const lg = logo();
   const sso = v.ssoFirst === true;
   const altHtml = sso
     ? `<div data-alt>
@@ -308,11 +131,9 @@ function page(v) {
             </div>
           </div>`;
   const primaryCls = sso ? "nf-btn" : "nf-btn primary";
-  const extra = sso
-    ? "body[data-sso-first] form .nf-btn { width: 100%; }\n"
-    : "";
-  let attrs = `data-layout="${v.layout}"`;
-  if (v.backdrop !== "aucun" && v.layout !== "split") attrs += " data-backdrop";
+  // Mêmes attributs que la vraie page (gabarit du framework).
+  let attrs = `data-skin="${v.skin}" data-layout="${v.layout}"`;
+  if (v.backdrop !== "aucun") attrs += " data-backdrop";
   if (sso) attrs += " data-sso-first";
   return `<!doctype html>
 <html lang="fr">
@@ -321,10 +142,9 @@ function page(v) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
     <title>Se connecter — ${app}</title>
-    <link rel="stylesheet" href="base.css" />
-    <style>
-/* Habillage « ${v.name} » — variables seulement (+ mise en page). */
-${themeCss(v.dark, v.light)}${extra}    </style>
+    <link rel="stylesheet" href="${ASSETS}login.css" />
+    <link rel="stylesheet" href="${ASSETS}login/skins/${v.skin}.css" />
+    <link rel="stylesheet" href="mock.css" />
   </head>
   <body ${attrs}>
     ${ICONS}
@@ -434,7 +254,7 @@ function gallery() {
         <div class="g-meta">
           <div class="g-title"><span class="g-num">${num}</span><a href="${v.slug}.html">${v.name}</a></div>
           <p>${v.usage}</p>
-          <div class="g-tags"><span>${LAYOUT_LABEL[v.layout] ?? v.layout}</span><span>fond : ${v.backdrop}</span></div>
+          <div class="g-tags"><span>skin: ${v.skin}</span><span>${LAYOUT_LABEL[v.layout] ?? v.layout}</span><span>fond : ${v.backdrop}</span></div>
         </div>
       </article>`;
   });

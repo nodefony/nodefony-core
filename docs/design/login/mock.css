@@ -1,0 +1,50 @@
+/* ═══ Ce que la MAQUETTE ajoute aux vraies feuilles ═══════════════════════════
+   Les pages de cette galerie chargent les feuilles PUBLIÉES du framework —
+   `login.css` puis `login/skins/<habillage>.css` — et rien d'autre ne les
+   habille. Ce fichier ne porte que ce qui n'existera jamais dans la vraie page :
+
+   1. la photo, posée comme le ferait une application (`--nf-login-hero-image`)
+      — celle de l'application de dev du dépôt, `public/brand/`, en chemin
+      relatif pour s'ouvrir en `file://` ;
+   2. la barre de test (étapes, erreurs, thème), masquée dans les aperçus.     */
+
+:root {
+  --nf-login-hero-image: url("../../../public/brand/login-hero.webp");
+  --nf-login-band-position: center -94px;
+  --nf-login-band-caption: "43.27 N · 5.35 E";
+}
+
+.mock {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  border: 1px dashed #666;
+  border-radius: 8px;
+  background: #000;
+  font:
+    11px/1 ui-monospace,
+    monospace;
+}
+.mock a,
+.mock button {
+  padding: 5px 7px;
+  border: 1px solid #333;
+  border-radius: 5px;
+  background: #111;
+  color: #bbb;
+  text-decoration: none;
+  cursor: pointer;
+}
+.mock [aria-pressed="true"] {
+  border-color: #3aa0ff;
+  color: #fff;
+}
+html.embed .mock {
+  display: none;
+}
