@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T22:59:30.625Z",
+  "generatedAt": "2026-10-10T00:08:49.559Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2590,7 +2590,7 @@
       "title": "feat(security): servir une page de connexion par défaut, sans front",
       "url": "https://github.com/nodefony/nodefony-core/issues/547",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2606,7 +2606,7 @@
       "title": "fix(security): conduire un visiteur anonyme à la page de connexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/548",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
