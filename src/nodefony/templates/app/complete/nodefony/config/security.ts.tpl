@@ -253,6 +253,29 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
     csrf: { secret: ctx.env.NF_CSRF_SECRET },
 
     /**
+     * Page de connexion `/login`, servie par le framework — rien à écrire
+     * pour l'avoir. Son apparence se choisit parmi neuf habillages :
+     *
+     *   frontispiece (défaut) · ledger · horizon · console · blueprint
+     *   dots · minimal · enterprise · photo-card
+     *
+     * L'éditeur les complète (la valeur est typée) ; en développement,
+     * `/login?skin=horizon` (puis `&layout=card|split|bare`) en montre un sans
+     * redémarrer. Le framework ne fournit AUCUNE photo : la vôtre se pose dans
+     * une feuille servie par l'application, chargée en dernier —
+     *
+     *   stylesheet: "/brand/login.css",
+     *   // public/brand/login.css :
+     *   //   :root { --nf-login-hero-image: url("/brand/login-hero.webp"); }
+     *
+     * Chaque habillage place la photo à son endroit (panneau, bandeau, fond)
+     * et la remplace par une couleur pleine en son absence.
+     */
+    loginPage: {
+      skin: "frontispiece",
+    },
+
+    /**
      * Hiérarchie de rôles — un rôle COUVRE ceux qu'il liste, transitivement.
      * `ROLE_NODEFONY_*` = plateforme (console Studio) ; `ROLE_*` = applicatif.
      * Le compte admin semé par `nodefony/security/provisionUsers.ts` les porte.

@@ -42,10 +42,16 @@ const oauthPerProvider = {
  */
 export const securityConfig = (ctx: ConfigContext<typeof env>) =>
   ({
-    // Page de connexion servie par le framework : l'habillage par défaut, et
-    // la photo de l'application posée par sa propre feuille (`public/brand/`)
-    // — le framework n'en fournit aucune. En développement, `/login?skin=…`
-    // et `&layout=…` prévisualisent les neuf habillages.
+    // Page de connexion servie par le framework : l'habillage, et la photo de
+    // l'application posée par sa propre feuille (`public/brand/`) — le
+    // framework n'en fournit aucune. Les neuf habillages :
+    //
+    //   frontispiece (défaut) · ledger · horizon · console · blueprint
+    //   dots · minimal · enterprise · photo-card
+    //
+    // L'éditeur les complète (la valeur est typée), et en développement
+    // `/login?skin=horizon` (puis `&layout=card|split|bare`) en montre un sans
+    // redémarrer. Usage de chacun : `@nodefony/security`, docs/login-page.md.
     loginPage: {
       skin: "frontispiece",
       stylesheet: "/brand/login.css",
