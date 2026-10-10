@@ -13,6 +13,7 @@ import type { ILoginPageDescription } from "nodefony";
 import {
   LOGIN_PAGE_TEMPLATE,
   buildLoginPageView,
+  keepSuccess,
   type ILoginPageRequest,
 } from "../../src/loginPage.js";
 import { NodefonyLogin } from "../../../../../../nodefony/src/client/auth/NodefonyLogin.js";
@@ -208,5 +209,21 @@ describe("page de connexion — contrat avec le script du cœur", () => {
     } finally {
       unmount();
     }
+  });
+});
+
+describe("page de connexion — une panne de chargement n'est pas figée", () => {
+  it("🔴 un échec est oublié : l'appel suivant recharge ; un succès est gardé", async () => {
+    let calls = 0;
+    let fail = true;
+    const load = keepSuccess(() => {
+      calls += 1;
+      return fail ? Promise.reject(new Error("absent")) : Promise.resolve("ok");
+    });
+    await expect(load()).rejects.toThrow("absent");
+    fail = false;
+    expect(await load()).toBe("ok");
+    expect(await load()).toBe("ok");
+    expect(calls).toBe(2);
   });
 });

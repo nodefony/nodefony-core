@@ -16,6 +16,7 @@ import {
   LOGIN_PAGE_ASSET_FILES,
   LOGIN_PAGE_TEMPLATE,
   buildLoginPageView,
+  keepSuccess,
 } from "../src/loginPage";
 
 /**
@@ -42,9 +43,10 @@ let mounted = false;
 // sert jamais la page ne paie ni lecture de fichier ni compilation.
 let engine: Eta | null = null;
 let defaultTemplate: TemplateFunction | null = null;
-let appTemplate: { file: string; template: Promise<TemplateFunction> } | null =
-  null;
-let assetsVersion: Promise<string> | null = null;
+let appTemplate: {
+  file: string;
+  template: () => Promise<TemplateFunction>;
+} | null = null;
 
 /** Dossier des fichiers de la page (`dist/login/` du paquet `nodefony`). */
 function assetsDir(): string {
@@ -66,28 +68,28 @@ function templateFor(page: ILoginPageDescription): Promise<TemplateFunction> {
     const file = page.template;
     appTemplate = {
       file,
-      template: readFile(file, "utf8").then((source) => eta().compile(source)),
+      template: keepSuccess(() =>
+        readFile(file, "utf8").then((source) => eta().compile(source)),
+      ),
     };
   }
-  return appTemplate.template;
+  return appTemplate.template();
 }
 
 // Empreinte du script et de la feuille, ajoutée à leur adresse : elle change
 // avec le fichier, donc le cache long du service statique ne sert jamais le
 // script d'une autre version.
-function version(): Promise<string> {
-  return (assetsVersion ??= (async () => {
-    const dir = assetsDir();
-    const hash = createHash("sha256");
-    for (const file of [
-      LOGIN_PAGE_ASSET_FILES.script,
-      LOGIN_PAGE_ASSET_FILES.style,
-    ]) {
-      hash.update(await readFile(path.join(dir, file)));
-    }
-    return hash.digest("hex").slice(0, 12);
-  })());
-}
+const version = keepSuccess(async () => {
+  const dir = assetsDir();
+  const hash = createHash("sha256");
+  for (const file of [
+    LOGIN_PAGE_ASSET_FILES.script,
+    LOGIN_PAGE_ASSET_FILES.style,
+  ]) {
+    hash.update(await readFile(path.join(dir, file)));
+  }
+  return hash.digest("hex").slice(0, 12);
+});
 
 /**
  * Page de connexion par défaut (ADR-0015) : gabarit F03 rendu côté serveur,

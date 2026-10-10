@@ -297,4 +297,55 @@ describe("page de connexion — le déroulé sur le balisage", () => {
     expect(paste.defaultPrevented).toBe(true);
     expect(boxes.map((b) => b.value).join("")).toBe("123456");
   });
+
+  it("🔴 `?from=` hostile lu dans l'ADRESSE retombe sur `/` (CWE-601)", async () => {
+    const bench = loginFetchBench();
+    window.history.replaceState(null, "", "/login?from=%2F%2Fevil.example");
+    try {
+      document.body.innerHTML = PAGE;
+      const navigate = vi.fn();
+      unmount = mountLoginPage(document, {
+        login: new NodefonyLogin({ fetch: bench.fetch, passkey: null }),
+        navigate,
+      });
+      $as("#nf-username", HTMLInputElement).value = "admin";
+      submit("identifier");
+      submit("password");
+      await flush();
+      document
+        .querySelectorAll<HTMLInputElement>(".nf-otp input")
+        .forEach((box, i) => {
+          box.value = "123456".charAt(i);
+        });
+      submit("mfa");
+      await flush();
+      expect(navigate).toHaveBeenCalledWith("/");
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("une case du code n'accepte qu'un chiffre", () => {
+    mount(loginFetchBench().fetch);
+    const box = $as(".nf-otp input", HTMLInputElement);
+    box.value = "a<7";
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(box.value).toBe("7");
+  });
+
+  it("une passkey refermée par l'utilisateur n'affiche aucune erreur", async () => {
+    document.body.innerHTML = PAGE;
+    const cancelled = new DOMException("refermée", "NotAllowedError");
+    unmount = mountLoginPage(document, {
+      login: new NodefonyLogin({
+        fetch: () => json(200, { challenge: "x" }),
+        passkey: { sign: () => Promise.reject(cancelled) },
+      }),
+      navigate: vi.fn(),
+    });
+    expect($("[data-passkey]").hidden).toBe(false);
+    $("[data-passkey]").click();
+    await flush();
+    expect($("[data-message]").childElementCount).toBe(0);
+  });
 });

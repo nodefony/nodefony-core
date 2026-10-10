@@ -53,6 +53,23 @@ export interface ILoginPageRequest {
   readonly assetsVersion: string;
 }
 
+/**
+ * Mémoïse une ressource chargée de façon asynchrone : le SUCCÈS est gardé, un
+ * ÉCHEC est oublié. Garder la promesse rejetée figerait la panne — la page
+ * répondrait 500 jusqu'au redémarrage, même une fois le fichier corrigé.
+ *
+ * @param load - charge la ressource
+ * @returns la fonction qui la rend, chargée une seule fois tant qu'elle réussit
+ */
+export function keepSuccess<T>(load: () => Promise<T>): () => Promise<T> {
+  let pending: Promise<T> | null = null;
+  return () =>
+    (pending ??= load().catch((error: unknown) => {
+      pending = null;
+      throw error;
+    }));
+}
+
 /** Feuille, script et logo de la page, servis sous {@link LOGIN_PAGE_ASSETS_BASE}. */
 export const LOGIN_PAGE_ASSET_FILES = {
   style: "login.css",
