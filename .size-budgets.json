@@ -29,7 +29,7 @@
     },
     {
       "subpath": "nodefony/login.js",
-      "file": "src/nodefony/dist/client/login.standalone.js",
+      "file": "src/nodefony/dist/login/login.js",
       "budgetKB": 6,
       "referenceKB": 4
     }

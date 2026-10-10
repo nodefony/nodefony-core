@@ -9,6 +9,7 @@
  * Les décorateurs legacy sont lus par rolldown depuis le tsconfig de chaque
  * bundle (option `tsconfig`).
  */
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "rolldown";
@@ -157,18 +158,38 @@ const debugbarStandaloneConfig: RolldownOptions = defineConfig({
   plugins: [browserShim],
 });
 
-// ─── 5. Page de connexion STANDALONE (dist/client/login.standalone.js) ───────
-// Script de la page `/login` rendue serveur (subpath d'asset `nodefony/login.js`) :
-// mono-fichier, sans framework de vue, chargé par `<script type="module">`.
-const loginStandaloneConfig: RolldownOptions = defineConfig({
-  input: "src/client/login/index.ts",
+// ─── 5. Page de connexion (dist/login/) ──────────────────────────────────────
+// Les fichiers de la page `/login` rendue serveur, dans UN dossier que le
+// framework monte tel quel sous `LOGIN_PAGE_ASSETS_BASE` (service
+// `server-static`) : le script (subpath d'asset `nodefony/login.js`,
+// mono-fichier, sans framework de vue), la feuille et le logo. Ces deux-là
+// sont COPIÉS depuis `assets/`, qui reste leur source (`nodefony/login.css`).
+const LOGIN_PAGE_COPIES = ["login.css", "nodefony-logo.svg"] as const;
+
+const loginPageAssets: Plugin = {
+  name: "nodefony-login-page-assets",
+  async generateBundle() {
+    for (const fileName of LOGIN_PAGE_COPIES) {
+      this.emitFile({
+        type: "asset",
+        fileName,
+        source: await readFile(path.resolve(__dirname, "assets", fileName)),
+      });
+    }
+  },
+};
+
+const loginPageConfig: RolldownOptions = defineConfig({
+  input: { login: "src/client/login/index.ts" },
   platform: "browser",
   tsconfig: "tsconfigClient.json",
   output: {
-    file: "dist/client/login.standalone.js",
+    dir: "dist/login",
+    entryFileNames: "[name].js",
     format: "esm",
     sourcemap: false,
   },
+  plugins: [loginPageAssets],
 });
 
 export default [
@@ -176,5 +197,5 @@ export default [
   binConfig,
   clientConfig,
   debugbarStandaloneConfig,
-  loginStandaloneConfig,
+  loginPageConfig,
 ];

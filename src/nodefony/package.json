@@ -56,7 +56,7 @@
       "default": "./dist/client/client/roles/index.js"
     },
     "./debugbar.js": "./dist/client/debugbar.standalone.js",
-    "./login.js": "./dist/client/login.standalone.js",
+    "./login.js": "./dist/login/login.js",
     "./assets/nodefony-logo.svg": "./assets/nodefony-logo.svg",
     "./login.css": "./assets/login.css",
     "./assets/nodefony-logo.png": "./assets/nodefony-logo.png",

@@ -143,6 +143,14 @@ class DefaultController extends Controller {
     return this.forward("test:RouteController:method1");
   }
 
+  // Témoin de la zone `test-login-guarded` : une route ORDINAIRE sous la même
+  // zone que la page de connexion. Un anonyme y reçoit 401 — c'est ce qui
+  // prouve que la page, elle, répond parce qu'elle échappe au pare-feu.
+  @route("login-guarded", { path: "/login-guarded" })
+  loginGuarded() {
+    return this.renderJson({ ok: true });
+  }
+
   @route("index2", { path: "/index2" })
   index2() {
     throw new Error("myError", 502);

@@ -38,6 +38,15 @@ export default {
         pattern: "^/api/live/",
         authenticators: ["session", "anonymous"],
       },
+      // #547 — la page de connexion par défaut DERRIÈRE une zone fermée : le
+      // cas de l'application qui protège `^/`. La page et ses fichiers doivent
+      // rester joignables sans session, sinon il faudrait être connecté pour se
+      // connecter. Banc : `framework/nodefony/tests/integration/login-page.test.ts`.
+      "test-login-guarded": {
+        pattern:
+          "^/(login$|nodefony/security/login/|nodefony/test/login-guarded$)",
+        authenticators: ["session"],
+      },
       // dossier = préfixe = nom de zone : capture les routes de `secure/`.
       // mode "first" : session BFF (cookie, J3) OU Basic (RFC 7617) — la
       // session est tentée d'abord (cookie repris AVANT le firewall) ; sans

@@ -45,6 +45,9 @@ import AdminApiController from "./nodefony/controller/AdminApiController";
 import SessionAuthController, {
   mountSessionAuthRoutes,
 } from "./nodefony/controller/SessionAuthController";
+import LoginPageController, {
+  mountLoginPage,
+} from "./nodefony/controller/LoginPageController";
 import TokenAuthController, {
   mountTokenAuthRoutes,
 } from "./nodefony/controller/TokenAuthController";
@@ -410,6 +413,9 @@ class Framework extends Module<IFrameworkConfig> {
     // surface d'attaque, framework reste indépendant de security.
     if (this.kernel?.container?.get("authFlow")) {
       mountSessionAuthRoutes(this);
+      // Page de connexion par défaut (ADR-0015) — montée seulement quand
+      // security la décrit (`loginPage.enabled`).
+      mountLoginPage(this);
     }
     // P6 J4 — émission/rotation JWT : routes montées seulement si le service
     // `tokenService` est présent (security chargé). Sans security : 404 ; JWT
@@ -509,6 +515,8 @@ export {
   AdminApiController,
   SessionAuthController,
   mountSessionAuthRoutes,
+  LoginPageController,
+  mountLoginPage,
   TokenAuthController,
   mountTokenAuthRoutes,
   IssuerMetadataController,
