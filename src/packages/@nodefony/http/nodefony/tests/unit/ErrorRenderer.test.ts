@@ -582,6 +582,20 @@ describe("DefaultErrorRenderer — ce qui fuit en production (F189)", () => {
     expect(r.message).to.equal("Forbidden");
   });
 
+  it("HTTP 404 et 403 : ni stack ni chemin du serveur (red-team #547, A1)", () => {
+    // Vu en développement sur `/login;x` : la réponse d'un 404 portait la
+    // stack, donc `/Users/<compte>/…`. En production, AUCUN statut ne la porte.
+    pretendEnvironment("production");
+    for (const status of [404, 403]) {
+      const ctx = fakeHttpContext();
+      renderer.renderHttp(new HttpError("refus", status), ctx as never);
+      const body = JSON.stringify(ctx.metaData);
+      expect(body, String(status)).to.not.contain('"stack"');
+      expect(body, String(status)).to.not.contain(process.cwd());
+      expect(body, String(status)).to.not.contain("file://");
+    }
+  });
+
   it("HTTP 422 : les champs fautifs restent lisibles (le client doit corriger)", () => {
     pretendEnvironment("production");
     const ctx = fakeHttpContext();
