@@ -621,10 +621,14 @@ L'état, `NodefonyLoginState`, se lit en une ligne :
   un défi sans méthode connue reste à `password` avec une erreur `server`.
 - `pending` — une requête est en vol ; une seconde action est ignorée (double clic).
 - `error` — l'échec de la dernière action, **classé** pour que l'écran sache quoi dire :
-  `credentials` (refus, 401), `throttled` (trop d'essais, 429), `network` (aucune réponse),
-  `server` (5xx), `cancelled` (invite de passkey refermée), `unsupported` (le navigateur ne sait
-  pas). Un `throttled` porte son échéance `retryAt` ; tant qu'elle n'est pas passée, aucune
-  requête ne part.
+  `credentials` (refus, 401 ou 403), `throttled` (trop d'essais, 429), `network` (aucune
+  réponse), `server` (5xx), `cancelled` (invite de passkey refermée), `unsupported` (le
+  navigateur ne sait pas). Un `throttled` porte son échéance `retryAt` ; tant qu'elle n'est pas
+  passée, aucune requête ne part. Un 403 dont `message` vaut `INSECURE_TRANSPORT_MESSAGE`
+  (exporté par `nodefony/client`) n'est pas un mauvais mot de passe : en production, le serveur
+  refuse un secret qui arrive en HTTP, avant de le vérifier. L'écran doit le dire (« la
+  connexion doit passer par HTTPS ») — « mot de passe incorrect » ferait recommencer, et
+  renvoyer le secret en clair. La page de connexion du framework le fait.
 - `providers` — les fournisseurs configurés, chargés par `loadProviders()` ; `null` avant.
 - `passkeyAvailable` — le navigateur sait-il signer ? **Constaté** : il faut
   `PublicKeyCredential.parseRequestOptionsFromJSON` et `navigator.credentials.get`

@@ -171,8 +171,9 @@ class SessionAuthController extends SecurityApiController {
     return this.get<ISessionAuthFlow>("authFlow") ?? null;
   }
 
-  // 401 → message uniforme (anti-énumération) ; 429 → Retry-After (RFC 6585,
-  // jamais wrappé 401) ; le reste → pipeline 500 (fail-closed, zéro fuite).
+  // 401 → message uniforme (anti-énumération) ; 403 → secret reçu en clair ;
+  // 429 → Retry-After (RFC 6585, jamais wrappé 401) ; le reste → pipeline 500
+  // (fail-closed, zéro fuite).
   #renderAuthError(e: unknown) {
     const code = (e as { code?: unknown }).code;
     if (code === 429) {
@@ -183,6 +184,12 @@ class SessionAuthController extends SecurityApiController {
     }
     if (code === 401) {
       return this.renderJson({ error: "Invalid credentials" }, 401);
+    }
+    if (code === 403) {
+      // Secret reçu en clair en production : refusé avant vérification. Le
+      // message est une constante de security, sans topologie.
+      const message = e instanceof Error ? e.message : "Forbidden";
+      return this.renderJson({ error: message }, 403);
     }
     throw e;
   }

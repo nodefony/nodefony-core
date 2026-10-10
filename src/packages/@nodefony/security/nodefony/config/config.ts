@@ -1314,6 +1314,12 @@ export const securityConfigSchema = z.strictObject({
     }),
   oauth2: oauth2Schema.default(() => oauth2Schema.parse({})),
   loginPage: loginPageSchema.default(() => loginPageSchema.parse({})),
+  allowInsecureCredentials: z
+    .boolean()
+    .default(false)
+    .describe(
+      "Laisse passer, en production, un mot de passe ou un code de second facteur reçu en clair (HTTP). false (défaut) : refus 403 AVANT toute vérification, sur toutes les portes — formulaire de session, second facteur, Basic, émission de jeton. Le refus se décide sur le scheme EFFECTIF : derrière un proxy qui termine TLS, déclarer ce proxy de confiance (`trustProxy` de @nodefony/http) suffit, et c'est la bonne réponse — pas cette clé. Ne la passer à true que pour un réseau où le clair est un choix assumé (maillage chiffré au niveau inférieur). Hors production, sans effet.",
+    ),
   apiKeys: apiKeysSchema.default(() => apiKeysSchema.parse({})),
   webhooks: webhooksSchema.default(() => webhooksSchema.parse({})),
   audit: auditSchema.default(() => auditSchema.parse({})),

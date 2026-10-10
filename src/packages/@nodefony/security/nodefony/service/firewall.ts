@@ -15,6 +15,10 @@ import { encoderFromConfig } from "@nodefony/user";
 
 import { SecuredArea } from "../src/SecuredArea";
 import { LoginThrottler } from "../src/throttle/LoginThrottler";
+import {
+  CredentialTransportPolicy,
+  shouldEnforceCredentialTransport,
+} from "../src/transport/CredentialTransportPolicy";
 import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
 import { randomBytes } from "node:crypto";
 import { mergeCspFragments, type CspFragment } from "../src/csp";
@@ -25,6 +29,7 @@ import { SecurityHeaders } from "./securityHeaders";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import { UnverifiableTokenError } from "../errors/UnverifiableTokenError";
+import { InsecureTransportError } from "../errors/InsecureTransportError";
 import { CsrfError } from "../errors/CsrfError";
 import {
   defineSecurityConfig,
@@ -425,7 +430,19 @@ class Firewall extends Service implements IFirewall {
   //    login). L'app le consomme à la construction de son UserService.
   //  - `loginThrottler` : backoff NIST partagé — UNE instance pour TOUTES les
   //    portes (un attaquant ne contourne pas le compteur en changeant de porte).
+  //  - `credentialTransport` : refus d'un secret reçu en clair en production —
+  //    UNE décision pour toutes les portes qui reçoivent un mot de passe.
   #provisionSharedServices(config: ISecurityConfig): void {
+    this.container?.set(
+      "credentialTransport",
+      new CredentialTransportPolicy({
+        enforce: shouldEnforceCredentialTransport(
+          this.kernel?.environment,
+          config.allowInsecureCredentials,
+        ),
+        log: (message) => this.log(message, "WARNING"),
+      }),
+    );
     const specs = Object.values(config.encoders);
     if (specs.length > 0) {
       this.container?.set("passwordEncoder", encoderFromConfig(specs));
@@ -851,6 +868,19 @@ class Firewall extends Service implements IFirewall {
           "auth.unverifiable",
           "failure",
           "verifier_unavailable",
+          null,
+        );
+        throw error;
+      }
+      if (error instanceof InsecureTransportError) {
+        // 403 : le canal est refusé, pas la preuve. Surtout pas de défi : un
+        // `WWW-Authenticate: Basic` ferait renvoyer le mot de passe en clair.
+        this.#recordAuth(
+          context,
+          area,
+          "auth.failure",
+          "failure",
+          "insecure_transport",
           null,
         );
         throw error;

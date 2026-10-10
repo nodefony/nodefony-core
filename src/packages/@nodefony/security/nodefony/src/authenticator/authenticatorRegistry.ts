@@ -10,6 +10,7 @@ import { ApiKeyAuthenticator } from "./ApiKeyAuthenticator";
 import { ExternalJwtAuthenticator } from "./ExternalJwtAuthenticator";
 import { resolveJwtRuntime } from "../token/jwtRuntime";
 import { compileProviderRoleMapping } from "../oauth/providerRoles";
+import type { CredentialTransportPolicy } from "../transport/CredentialTransportPolicy";
 import type { LoginThrottler } from "../throttle/LoginThrottler";
 
 /**
@@ -79,18 +80,25 @@ registerAuthenticatorFactory("userpassword", ({ container }) => {
   // attaquant ne contourne pas le backoff en changeant de porte. Absent =
   // throttling désactivé en config.
   const throttler = container.get<LoginThrottler>("loginThrottler") ?? null;
-  return new UserPasswordAuthenticator(() => {
-    const verifier = container.get<IPasswordVerifier>("users");
-    if (!verifier) {
-      // Erreur de CÂBLAGE (pas d'authentification) : le firewall la loggue en
-      // ERROR puis répond 401 fail-closed — jamais de fuite du détail au client.
-      throw new Error(
-        `UserPasswordAuthenticator: aucun service "users" (IPasswordVerifier) ` +
-          `dans le container — enregistrer un UserService au boot de l'application.`,
-      );
-    }
-    return verifier;
-  }, throttler);
+  // Posée par le firewall AVANT d'instancier les authenticators (#build).
+  const transport =
+    container.get<CredentialTransportPolicy>("credentialTransport") ?? null;
+  return new UserPasswordAuthenticator(
+    () => {
+      const verifier = container.get<IPasswordVerifier>("users");
+      if (!verifier) {
+        // Erreur de CÂBLAGE (pas d'authentification) : le firewall la loggue en
+        // ERROR puis répond 401 fail-closed — jamais de fuite du détail au client.
+        throw new Error(
+          `UserPasswordAuthenticator: aucun service "users" (IPasswordVerifier) ` +
+            `dans le container — enregistrer un UserService au boot de l'application.`,
+        );
+      }
+      return verifier;
+    },
+    throttler,
+    transport,
+  );
 });
 
 registerAuthenticatorFactory("session", ({ container }) => {

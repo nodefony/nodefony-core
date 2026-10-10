@@ -78,6 +78,17 @@ export function oauth2AuthorizePath(provider: string, from?: string): string {
 export const MFA_METHOD_TOTP = "totp";
 
 /**
+ * Refus d'un secret de connexion reçu en clair (HTTP) en production — corps
+ * `error` d'une réponse 403 des routes de connexion.
+ *
+ * Écrit par le serveur, reconnu par le navigateur : un 403 sur ces routes peut
+ * aussi venir de la défense CSRF, et seul ce texte dit que c'est le CANAL qui
+ * est refusé, pas l'identifiant. L'écran ne dit alors pas « mot de passe
+ * incorrect » — l'utilisateur recommencerait, et renverrait son secret en clair.
+ */
+export const INSECURE_TRANSPORT_MESSAGE = "Credentials must be sent over HTTPS";
+
+/**
  * Chemin par défaut de la page de connexion servie par le framework.
  *
  * Défaut de `security.loginPage.path`, et donc de la redirection d'échec d'un

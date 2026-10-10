@@ -322,7 +322,7 @@ sequenceDiagram
   R-->>B: 200 + Access-Control-*
 ```
 
-`Firewall.handleCors()` (`firewall.ts:1060`) est appelé **en tête de** `HttpKernel.handleHttp()`
+`Firewall.handleCors()` (`firewall.ts:1092`) est appelé **en tête de** `HttpKernel.handleHttp()`
 (`http-kernel.ts:1522`), à la ligne `http-kernel.ts:1522` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
@@ -333,12 +333,12 @@ Quatre sorties en no-op, dans cet ordre (`firewall.ts:1007`) :
 1. CORS désactivé ⇒ `#cors` est `null`, retour immédiat ;
 2. pas d'en-tête `Origin` ⇒ requête same-origin ou client non-navigateur (`firewall.ts:1013`) ;
 3. la réponse n'expose pas `setHeader` ⇒ c'est un **WebSocket**, il n'y a pas d'en-tête HTTP à poser
-   (`firewall.ts:88`) ;
+   (`firewall.ts:93`) ;
 4. origine hors allowlist ⇒ la table est `null`, aucun en-tête n'est posé — mais un preflight reste
    court-circuité en 204 (`firewall.ts:1032`).
 
 **La détection du preflight est stricte** : méthode `OPTIONS` **et** présence de
-`Access-Control-Request-Method` (`firewall.ts:1018-1020`). Un `OPTIONS` nu — celui d'un client qui interroge
+`Access-Control-Request-Method` (`firewall.ts:1048-1050`). Un `OPTIONS` nu — celui d'un client qui interroge
 les méthodes supportées d'une route — est donc traité comme une requête réelle et continue le pipeline.
 
 ### Ce que chaque moment pose
@@ -384,7 +384,7 @@ origine (`config.ts:188`). Ajouter une origine à `cors.origins` est **plus** pe
 **Les navigateurs n'appliquent pas CORS aux WebSockets.** Une page tierce peut ouvrir un
 `new WebSocket("wss://api.example.com/…")` et le handshake partira **avec le cookie de session de la
 victime** : c'est le CSWSH. C'est pourquoi `handleCors` s'arrête net sur un contexte WS
-(`firewall.ts:1060`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
+(`firewall.ts:1092`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
 
 La garde équivalente vit dans le transport : `HttpKernel.checkWebsocketOrigin()`
 (`http-kernel.ts:712`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
@@ -420,16 +420,16 @@ ne reste à l'exécution qu'un `Set.has()` sur l'origine.
 Le coût par requête est donc :
 
 - **0 pour une requête same-origin** — pas d'en-tête `Origin`, sortie immédiate (`firewall.ts:1013`) ;
-- **0 pour un WebSocket** — sortie sur l'absence de `setHeader` (`firewall.ts:88`) ;
-- **0 si la section est désactivée** — `#cors` reste `null`, aucun objet n'est alloué (`firewall.ts:166`) ;
+- **0 pour un WebSocket** — sortie sur l'absence de `setHeader` (`firewall.ts:93`) ;
+- **0 si la section est désactivée** — `#cors` reste `null`, aucun objet n'est alloué (`firewall.ts:183`) ;
 - **une petite table d'en-têtes** allouée uniquement pour une requête cross-origin autorisée. Une
   origine refusée n'alloue rien du tout (retour `null` avant construction de la table, `cors.ts:74`).
 
 ## 📡 Observabilité — Studio
 
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
-`Firewall.describe()` (`firewall.ts:570`), qui délègue à `Firewall.#describeDefenses()`
-(`firewall.ts:625`). La projection CORS y expose `origins`, `credentials`, `methods`,
+`Firewall.describe()` (`firewall.ts:587`), qui délègue à `Firewall.#describeDefenses()`
+(`firewall.ts:642`). La projection CORS y expose `origins`, `credentials`, `methods`,
 `allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:644`) — aucun secret ne transite par
 cette surface.
 

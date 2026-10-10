@@ -137,7 +137,7 @@ persister (`url`, `state`, `codeVerifier`) et un simple `{ identifier }` en sort
 serveur**, comme `AuthFlow`. Le transport (cookies, redirections 302) vit dans le controller BFF.
 
 **Le login social finit exactement comme un login classique.** Le callback appelle
-`AuthFlow.establishSessionFor()` (`authFlow.ts:236`), qui re-résout l'identité, vérifie que le compte
+`AuthFlow.establishSessionFor()` (`authFlow.ts:254`), qui re-résout l'identité, vérifie que le compte
 est actif, **régénère l'ID de session** (anti-fixation, `session.regenerateId()`, `authFlow.ts:388`)
 et journalise l'événement
 d'audit. Il n'existe **aucun** authenticator `oauth2` dans la chaîne du firewall : après le retour,
@@ -700,7 +700,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 > L'événement d'audit du login social porte la raison `oauth` : le controller la passe à
 > `AuthFlow.establishSessionFor()` (`OAuth2Controller.ts:65`), comme WebAuthn passe `webauthn`.
 > `federated` n'est que la valeur par défaut d'un appelant qui n'a pas nommé son facteur
-> (`authFlow.ts:239`).
+> (`authFlow.ts:248`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 

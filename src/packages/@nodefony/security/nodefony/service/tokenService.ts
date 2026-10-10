@@ -27,6 +27,15 @@ import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import { InvalidTargetError } from "../errors/InvalidTargetError";
 import type { LoginThrottler } from "../src/throttle/LoginThrottler";
+import type {
+  CredentialTransportPolicy,
+  ICredentialTransportContext,
+} from "../src/transport/CredentialTransportPolicy";
+import { InsecureTransportError } from "../errors/InsecureTransportError";
+import {
+  readAuditContext,
+  type AuditContextInfo,
+} from "../src/audit/readAuditContext";
 import {
   getTokenStoreFactory,
   listTokenStores,
@@ -85,6 +94,7 @@ class TokenService extends Service {
   #users: UserSource | null = null;
   #throttler: LoginThrottler | null = null;
   #throttlerResolved = false;
+  #transport: CredentialTransportPolicy | null = null;
   // Maintenance des jetons expirés (refresh/PAT/denylist) — timer/jitter/
   // anti-empilement/désarmement mutualisés dans le GcScheduler du core.
   #gc: GcScheduler | null = null;
@@ -366,6 +376,11 @@ class TokenService extends Service {
    * Émet un couple access/refresh après vérification d'un credential
    * identifiant/mot de passe (grant M2M/CLI). Throttling NIST partagé si activé.
    *
+   * @param context - requête HTTP qui porte le credential. Présente, elle
+   *   soumet l'appel au refus du clair en production ; absente (CLI, appel
+   *   programmatique), il n'y a pas de transport à juger. Un endpoint HTTP DOIT
+   *   la passer.
+   * @throws InsecureTransportError (403) — credential reçu en clair en production.
    * @throws ThrottledError (429) — backoff actif.
    * @throws AuthenticationError (401, message uniforme) — credential invalide.
    */
@@ -374,7 +389,27 @@ class TokenService extends Service {
     password: unknown,
     requestedScopes?: string[],
     resource?: unknown,
+    context?: ICredentialTransportContext,
   ): Promise<ITokenResponse> {
+    if (context !== undefined) {
+      this.#transport ??=
+        this.get<CredentialTransportPolicy>("credentialTransport") ?? null;
+      try {
+        this.#transport?.assert(context, "token");
+      } catch (error) {
+        if (error instanceof InsecureTransportError) {
+          this.#auditGrant(
+            "login.failure",
+            typeof identifier === "string" && identifier.length > 0
+              ? identifier
+              : null,
+            "insecure_transport",
+            readAuditContext(context),
+          );
+        }
+        throw error;
+      }
+    }
     if (
       typeof identifier !== "string" ||
       identifier.length === 0 ||
@@ -418,6 +453,7 @@ class TokenService extends Service {
     action: "login.failure" | "login.throttled",
     actor: string | null,
     reason: string,
+    info?: AuditContextInfo,
   ): void {
     recordAudit(this.container, {
       category: "auth",
@@ -425,6 +461,7 @@ class TokenService extends Service {
       outcome: "failure",
       actor,
       reason,
+      ...info,
     });
   }
 

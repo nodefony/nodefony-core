@@ -519,7 +519,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
   et `IRealtimeToken` (WS) (`authorization.ts:119-122`).
 - **Le verrou de frame** (canaux realtime) applique son RBAC par canal avec la **même
   hiérarchie** : `satisfies()` (`frameAuthorizer.ts:290`) délègue à `Firewall.hasRole()`
-  (`firewall.ts:503`) — les rôles exigés par un canal héritent comme partout ailleurs.
+  (`firewall.ts:520`) — les rôles exigés par un canal héritent comme partout ailleurs.
 
 ## 📜 Normes appliquées
 

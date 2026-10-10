@@ -14,9 +14,14 @@ import type { IUser, IUserProvider, IPasswordVerifier } from "@nodefony/user";
 import { AuthenticationError } from "../errors/AuthenticationError";
 import { ThrottledError } from "../errors/ThrottledError";
 import type { LoginThrottler } from "../src/throttle/LoginThrottler";
+import type { CredentialTransportPolicy } from "../src/transport/CredentialTransportPolicy";
+import { InsecureTransportError } from "../errors/InsecureTransportError";
 import { resolveSessionIdentity } from "../src/sessionIdentity";
 import { recordAudit } from "../src/audit/recordAudit";
-import { readAuditContext } from "../src/audit/readAuditContext";
+import {
+  readAuditContext,
+  type AuditContextInfo,
+} from "../src/audit/readAuditContext";
 import { amrForFactor } from "../src/sessionAuthentication";
 import { securityConfigSchema, type ISecurityConfig } from "../config/config";
 
@@ -106,6 +111,7 @@ class AuthFlow extends Service {
   // l'instance au boot, avant toute requête).
   #throttler: LoginThrottler | null = null;
   #throttlerResolved = false;
+  #transport: CredentialTransportPolicy | null = null;
   // Service 2FA résolu UNE fois (lazy + caché). null = 2FA absent/désactivé →
   // le chemin login nominal (sans 2FA) ne paie aucun accès store.
   #totp: ITotpLoginVerifier | null = null;
@@ -135,6 +141,8 @@ class AuthFlow extends Service {
    * @param identifier - identifiant saisi (body JSON, non typé à la frontière).
    * @param password - mot de passe saisi.
    * @returns `authenticated` (identité établie) ou `mfa_required` (2ᵉ facteur requis).
+   * @throws InsecureTransportError (403) — mot de passe reçu en clair en
+   *   production (refusé AVANT le throttle et le verifier).
    * @throws ThrottledError (429 + `Retry-After`) — backoff actif.
    * @throws AuthenticationError (401, message uniforme) — credential absent ou
    *   invalide.
@@ -146,6 +154,7 @@ class AuthFlow extends Service {
   ): Promise<ILoginOutcome> {
     const info = readAuditContext(context);
     const who = typeof identifier === "string" ? identifier : null;
+    this.#assertTransport(context, "login", who, info);
     if (
       typeof identifier !== "string" ||
       identifier.length === 0 ||
@@ -280,6 +289,7 @@ class AuthFlow extends Service {
    * @param context - contexte HTTP (porte la session PENDING).
    * @param code - code présenté (TOTP ou code de récupération).
    * @returns la projection publique de l'utilisateur authentifié.
+   * @throws InsecureTransportError (403) — code reçu en clair en production.
    * @throws ThrottledError (429) — trop de tentatives.
    * @throws AuthenticationError (401, uniforme) — aucun défi en cours, code absent
    *   ou invalide (la session N'est PAS ouverte ; le défi reste pour un retry).
@@ -290,6 +300,12 @@ class AuthFlow extends Service {
   ): Promise<ISafeUser> {
     const info = readAuditContext(context);
     const pending = context.session?.get(PENDING_MFA_KEY);
+    this.#assertTransport(
+      context,
+      "login/totp",
+      typeof pending === "string" && pending.length > 0 ? pending : null,
+      info,
+    );
     if (typeof pending !== "string" || pending.length === 0) {
       // Aucun 1ᵉʳ facteur validé en amont → on ne révèle rien (message uniforme).
       throw new AuthenticationError(INVALID_CREDENTIALS);
@@ -555,6 +571,35 @@ class AuthFlow extends Service {
       this.#users = users;
     }
     return this.#users;
+  }
+
+  // Refus d'un secret reçu en clair (politique posée par le firewall au boot).
+  // Résolue à chaque appel TANT qu'elle est absente : figer un `null` lu avant
+  // le boot du firewall rendrait la garde muette pour la vie du process.
+  #assertTransport(
+    context: ContextType,
+    door: string,
+    actor: string | null,
+    info: AuditContextInfo,
+  ): void {
+    this.#transport ??=
+      this.get<CredentialTransportPolicy>("credentialTransport") ?? null;
+    if (this.#transport === null) return;
+    try {
+      this.#transport.assert(context, door);
+    } catch (error) {
+      if (error instanceof InsecureTransportError) {
+        recordAudit(this.container, {
+          category: "auth",
+          action: "login.failure",
+          outcome: "failure",
+          actor,
+          reason: "insecure_transport",
+          ...info,
+        });
+      }
+      throw error;
+    }
   }
 
   #resolveThrottler(): LoginThrottler | null {

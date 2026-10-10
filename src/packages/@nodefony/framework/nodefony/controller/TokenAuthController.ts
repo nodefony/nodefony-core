@@ -17,6 +17,8 @@ export interface ITokenIssuer {
     password: unknown,
     scopes?: string[],
     resource?: unknown,
+    /** Requête porteuse — soumet le credential au refus du clair en production. */
+    context?: ContextType,
   ): Promise<unknown>;
   /** Rotation d'un refresh token (nouveau couple, ancien révoqué). */
   refresh(rawRefresh: unknown, resource?: unknown): Promise<unknown>;
@@ -85,6 +87,7 @@ class TokenAuthController extends SecurityApiController {
         // ambiguë en demande implicite, et ferait décider la porte à la place
         // de l'autorité qui émet.
         body.resource,
+        this.context,
       );
       return await this.renderJson(tokens);
     } catch (e) {
@@ -120,7 +123,7 @@ class TokenAuthController extends SecurityApiController {
   }
 
   // 429 → Retry-After (RFC 6585) ; 400 → `invalid_target` (RFC 8707 §2) ;
-  // 401 → message uniforme (anti-énumération) ;
+  // 401 → message uniforme (anti-énumération) ; 403 → credential en clair ;
   // le reste → pipeline 500 (fail-closed, zéro fuite).
   #renderAuthError(e: unknown) {
     const code = (e as { code?: unknown }).code;
@@ -146,6 +149,16 @@ class TokenAuthController extends SecurityApiController {
     }
     if (code === 401) {
       return this.renderJson({ error: "invalid_grant" }, 401);
+    }
+    if (code === 403) {
+      // Credential reçu en clair en production (RFC 6749 §3.2 : l'endpoint de
+      // jeton EXIGE TLS). Le message est une constante de security, sans
+      // topologie — le relayer dit au client QUOI changer : le canal.
+      const description = e instanceof Error ? e.message : "Forbidden";
+      return this.renderJson(
+        { error: "invalid_request", error_description: description },
+        403,
+      );
     }
     throw e;
   }

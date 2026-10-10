@@ -125,14 +125,14 @@ différence de traitement, pas une négligence.
 
 **3. Le TOTP n'est pas un authenticator du firewall — c'est un step-up de login.** Il n'apparaît
 jamais dans `area.authenticators` : il s'insère **dans le flux de session BFF**, entre le mot de
-passe et l'ouverture de session (`AuthFlow.completeMfaLogin()`, `authFlow.ts:278`). Même dessin que
+passe et l'ouverture de session (`AuthFlow.completeMfaLogin()`, `authFlow.ts:297`). Même dessin que
 WebAuthn et OAuth : le firewall n'a qu'un seul mécanisme à connaître, la **session**.
 
 > [!IMPORTANT]
 > Le couplage est fait **par nom de service**, jamais par import : `AuthFlow` ne connaît du 2FA
 > qu'une interface locale de trois méthodes (`ITotpLoginVerifier`, `authFlow.ts:70`). 2FA désactivé
 > ⇒ service absent ⇒ le login nominal **ne paie strictement rien** (`AuthFlow.#resolveTotp()`,
-> `authFlow.ts:571`).
+> `authFlow.ts:616`).
 
 ## 🚀 Démarrage rapide
 
@@ -340,13 +340,13 @@ sequenceDiagram
   A-->>U: 200 { user }
 ```
 
-Trois propriétés à retenir de `AuthFlow.completeMfaLogin()` (`authFlow.ts:278`) :
+Trois propriétés à retenir de `AuthFlow.completeMfaLogin()` (`authFlow.ts:297`) :
 
 1. **Le défi vit en session, pas dans l'URL ni dans un jeton client** — clé `mfa:pending`
    (`authFlow.ts:283`), posée par le login, **consommée** avant l'ouverture de session
    (`authFlow.ts:301`).
 2. **Le code à 6 chiffres est throttlé** comme un mot de passe — même backoff partagé
-   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:560`) : 10⁶ combinaisons se forcent brute en
+   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:605`) : 10⁶ combinaisons se forcent brute en
    quelques minutes sans lui. Trop de tentatives → `429` + `Retry-After`.
 3. **Un échec ne détruit pas le défi** — l'utilisateur qui s'est trompé de chiffre ressaisit ; il
    n'a pas à refaire son mot de passe.
@@ -706,7 +706,7 @@ vérifie que ta projection n'expose ni secret ni condensat.
 | Dérivation de clé           | RFC 5869 (HKDF)          | `deriveKey()` (`secretCipher.ts:54`)                       |
 | Nonce GCM 96 bits           | NIST SP 800-38D §5.2.1.1 | `IV_BYTES` (`secretCipher.ts:30`)                          |
 | Codes de secours            | NIST SP 800-63B §5.1.2   | `generateRecoveryCodes()` (`totpCrypto.ts:330`)            |
-| Backoff des tentatives      | NIST SP 800-63B          | `AuthFlow.completeMfaLogin()` (`authFlow.ts:278`)          |
+| Backoff des tentatives      | NIST SP 800-63B          | `AuthFlow.completeMfaLogin()` (`authFlow.ts:297`)          |
 | Rate limit (429)            | RFC 6585                 | `429` + `Retry-After` (`SessionAuthController.ts:164-172`) |
 
 Les **vecteurs de test de la RFC 6238 (Appendix B)** sont rejoués en test sur les trois fonctions de
@@ -716,7 +716,7 @@ hachage — c'est la preuve d'interopérabilité, pas une auto-évaluation.
 
 Le 2FA est un chemin **froid** : il ne coûte rien tant qu'on ne se connecte pas.
 
-- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:571`)
+- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:616`)
   résout le service **une seule fois** puis met le résultat en cache. Service absent ⇒ `null` ⇒
   **zéro accès au store**, zéro allocation par login.
 - **Aucun coût par requête** : le TOTP n'est pas un authenticator du firewall, il ne s'exécute donc
@@ -767,7 +767,7 @@ Côté journal d'audit, quatre actions tracent le cycle : `login.mfa_required` (
 | Le QR est scanné mais aucun code ne passe         | `digits`/`algorithm` non standard, ignorés par l'app                 | Rester en `SHA1` / 6 chiffres                                      |
 | `202` au login au lieu de `200`                   | Comportement **attendu** : second facteur requis                     | Enchaîner sur `POST …/auth/login/totp`                             |
 | `401` sur `…/auth/me` juste après le mot de passe | L'identité n'est posée qu'après le 2ᵉ facteur (`authFlow.ts:170`)    | Terminer le step-up                                                |
-| `429` pendant la saisie du code                   | Throttle NIST dans `AuthFlow.completeMfaLogin()` (`authFlow.ts:278`) | Respecter `Retry-After` — attendu sous attaque                     |
+| `429` pendant la saisie du code                   | Throttle NIST dans `AuthFlow.completeMfaLogin()` (`authFlow.ts:297`) | Respecter `Retry-After` — attendu sous attaque                     |
 | `503 2FA unavailable` sur `…/totp/*`              | Service absent ou `isEnabled()` faux (`TotpController.ts:21`)        | Vérifier `totp.enabled` + la clé + les logs de boot                |
 | Utilisateur bloqué, plus aucun code               | Codes de récupération épuisés                                        | Reset admin via `…/users/{id}/totp/disable`, puis ré-enrôlement    |
 | Même code accepté deux fois                       | Impossible — anti-rejeu `lastUsedStep` (`totpOperations.ts:173`)     | —                                                                  |

@@ -383,12 +383,12 @@ Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non auto
 ### `auth` — la chaîne d'authentification
 
 Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recordAuth()`
-(`firewall.ts:953`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
+(`firewall.ts:983`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
 
-- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:801`) ;
+- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:818`) ;
 - `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:807`) ;
 - `auth.unverifiable` — le vérificateur de jetons est indisponible : réponse 503, sans défi
-  (`firewall.ts:795`) ;
+  (`firewall.ts:812`) ;
 - `auth.denied` / `no_credentials` — Zero Trust : rien n'a été présenté sur une zone protégée
   (`firewall.ts:822`) ;
 - `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts:850`).
@@ -466,7 +466,7 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:953`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:373`).
+(`firewall.ts:983`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:378`).
 Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:333`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et
@@ -492,7 +492,7 @@ jamais faire tomber ce qu'on supervise.
 ## ⚙️ Configuration
 
 Table dérivée du schéma Zod `auditSchema` (`config.ts:910`), rattaché à la racine sous la clé `audit`
-(`config.ts:1316`).
+(`config.ts:1325`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
@@ -665,7 +665,7 @@ Deux autres propriétés de sécurité valent d'être connues :
 
 | Exigence                                  | Norme                             | Comment le code s'y conforme                                                      |
 | ----------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------- |
-| Journaliser les échecs d'authentification | OWASP Logging Cheat Sheet         | `auth.failure`/`auth.throttled`/`auth.denied` (`firewall.ts:693`)                 |
+| Journaliser les échecs d'authentification | OWASP Logging Cheat Sheet         | `auth.failure`/`auth.throttled`/`auth.denied` (`firewall.ts:710`)                 |
 | Journaliser les refus d'autorisation      | OWASP A09:2021                    | `access.denied` sur tout refus du jury (`authorization.ts:130`)                   |
 | Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts:49`)                                 |
 | Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts:61`) |

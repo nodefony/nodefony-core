@@ -39,7 +39,7 @@ source: "src/packages/@nodefony/security/docs/headers.md"
 > (`@nodefony/http`, dès l'entrée brute — couvre aussi les fichiers statiques et les erreurs) et la
 > couche **applicative** (`@nodefony/security`, dans le pipeline — CSP, Referrer-Policy, isolation
 > cross-origin). Ancré sur `SecurityHeaders` (`securityHeaders.ts:42`) et
-> `Firewall.applySecurityHeaders()` (`firewall.ts:1114`).
+> `Firewall.applySecurityHeaders()` (`firewall.ts:1146`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **En-têtes de sécurité**
 
@@ -439,7 +439,7 @@ Le chemin complet, sans surprise :
 
 1. **Au boot**, la chaîne CSP est **pré-découpée** autour de `{{nonce}}` (`securityHeaders.ts:58`).
    Aucun parsing ni regex n'aura lieu pendant une requête.
-2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts:1114`) lit `context.cspNonce` —
+2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts:1146`) lit `context.cspNonce` —
    ce qui **génère** le jeton à cet instant (`Context.ts:253`) — puis appelle
    `SecurityHeaders.cspFor()` (`securityHeaders.ts:100`) : un seul `join`.
 3. **Dans la vue**, le contrôleur relit `context.cspNonce`, qui est **mémoïsé** : l'en-tête et le
@@ -476,7 +476,7 @@ directive absente est ajoutée en fin. La fonction est **pure et déterministe**
 les tests fiables.
 
 **Coût** : le merge d'un module est payé **une fois**, au (dés)enregistrement
-(`Firewall.#rebuildSecurityHeaders()`, `firewall.ts:1171`), jamais par requête. Le merge d'une route
+(`Firewall.#rebuildSecurityHeaders()`, `firewall.ts:1203`), jamais par requête. Le merge d'une route
 `@Csp` est payé **uniquement sur les routes décorées** (`SecurityHeaders.cspForExtra()`,
 `securityHeaders.ts:131`) ; le cas courant reste le simple `join`.
 
@@ -502,10 +502,10 @@ Trois propriétés à retenir :
 
 - **Aucun couplage** : la résolution par nom de service évite un cycle de dépendances, et
   `registerCspOrigins` est optionnel — un module fonctionne dans une app **sans** security.
-- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1160`) retire le fragment et
+- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1192`) retire le fragment et
   reconstruit le CSP de base. C'est ce que fait `@nodefony/frontend` à l'arrêt du serveur Vite.
 - **Idempotent** : la reconstruction repart **toujours** du `headers.csp` d'origine
-  (`firewall.ts:1174`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
+  (`firewall.ts:1206`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
   enregistrements.
 
 L'exemple de référence vit dans le framework : en développement, `@nodefony/frontend` déclare les
@@ -538,7 +538,7 @@ Le coût est concentré au boot, par construction :
   court-circuite entièrement ce chemin sinon. La paresse de `Context.cspNonce` (`Context.ts:253`)
   protège en plus les chemins internes qui n'atteignent jamais le firewall.
 - **Merge CSP** : jamais dans le chemin chaud. Le fragment d'un module est fusionné à
-  l'enregistrement (`firewall.ts:1106`) ; celui d'une route ne coûte que sur les routes `@Csp`.
+  l'enregistrement (`firewall.ts:1136`) ; celui d'une route ne coûte que sur les routes `@Csp`.
 - **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:1100-1106`), avec
   un test `!== null` qui annule le coût des en-têtes désactivés.
 
@@ -550,7 +550,7 @@ dans le périmètre du gate mémoire, qu'il ne peut structurellement pas dégrad
 L'écran **Firewall** de Studio affiche la section « En-têtes de sécurité » — pilotée par
 `headers.enabled` (`FirewallDefenses.tsx:219`) — avec le CSP effectif, l'état du nonce par requête, la
 Referrer-Policy et les valeurs d'isolation. Les données
-viennent de `Firewall.describe()` (`firewall.ts:570`), qui projette la config **sans aucun secret**,
+viennent de `Firewall.describe()` (`firewall.ts:587`), qui projette la config **sans aucun secret**,
 exposée par `GET /nodefony/security/api/firewall`.
 
 L'onglet **Configuration** de Studio rend les mêmes options depuis le schéma Zod — chaque champ y

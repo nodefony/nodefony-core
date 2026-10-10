@@ -331,7 +331,7 @@ zone est un simple `Bearer` (`challenge()`, `ApiKeyAuthenticator.ts:205`).
 L'authenticator n'est jamais instancié à la main : le firewall le construit depuis le registre, en
 lui injectant la config effective — `registerAuthenticatorFactory("apikey")`
 (`authenticatorRegistry.ts:52`), qui lit `prefix` et `lastUsedThrottleS`
-(`authenticatorRegistry.ts:143`). Conséquence pratique : changer `apiKeys.prefix` change **à la
+(`authenticatorRegistry.ts:166`). Conséquence pratique : changer `apiKeys.prefix` change **à la
 fois** l'émission et la reconnaissance — les anciennes clés ne sont plus reconnues.
 
 ## Quatre parcours vécus
@@ -650,7 +650,7 @@ pas masqué à l'affichage. Voir aussi l'écran **Audit** pour les événements 
 | Le token clair est introuvable après coup              | Seul `sha256` est stocké — non re-dérivable (`apiKeyFormat.ts:70`)                             | Émettre une nouvelle clé, révoquer l'ancienne                          |
 | 409 « API key limit reached »                          | Plafond de clés **actives** atteint (`apiKeys.ts:144-147`)                                     | Révoquer les clés inutilisées ou relever `maxPerSubject`               |
 | 400 « scope not allowed »                              | Scope hors du catalogue `allowedScopes` (`apiKeys.ts:284`)                                     | Ajouter le scope au catalogue, ou corriger la demande                  |
-| Toutes les clés rejetées après un changement de config | `prefix` modifié → les anciennes ne sont plus reconnues (`authenticatorRegistry.ts:142`)       | Garder le `prefix` STABLE après la première émission                   |
+| Toutes les clés rejetées après un changement de config | `prefix` modifié → les anciennes ne sont plus reconnues (`authenticatorRegistry.ts:165`)       | Garder le `prefix` STABLE après la première émission                   |
 | Clé valide mais 403 sur la route                       | Autorisation, pas authentification : scope manquant — `ScopeVoter.vote()` (`ScopeVoter.ts:50`) | Émettre une clé portant le scope exigé par `@RequireScope`             |
 | Clé rejetée alors qu'elle n'est ni expirée ni révoquée | Porteur désactivé/verrouillé, ou seuil `invalidBefore` (`ApiKeyAuthenticator.ts:121-124`)      | Réactiver le compte, ou réémettre après le bannissement                |
 | 404 en révoquant la clé d'un autre porteur             | Anti-énumération volontaire, jamais 403 (`ApiKeyController.ts:139-142`)                        | Attendu — passer par l'endpoint d'administration                       |

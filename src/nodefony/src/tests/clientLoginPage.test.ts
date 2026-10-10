@@ -13,6 +13,7 @@ import {
   DEFAULT_LOGIN_PAGE_MESSAGES,
 } from "../client/login/mountLoginPage";
 import { loginFetchBench } from "./fixtures/loginFetch";
+import { INSECURE_TRANSPORT_MESSAGE } from "../runtime/authRoutes";
 
 // Balisage de `docs/design/login/f03-frontispice.html`, réduit à ce que lit le script.
 const PAGE = `
@@ -202,6 +203,28 @@ describe("page de connexion — le déroulé sur le balisage", () => {
     expect($(".nf-account .who").textContent).toBe(hostile);
     expect(document.querySelector("img")).toBeNull();
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("🔴 un secret refusé parce qu'il est parti en clair ne dit PAS « mot de passe incorrect »", async () => {
+    mount(() => json(403, { error: INSECURE_TRANSPORT_MESSAGE }));
+    $as("#nf-username", HTMLInputElement).value = "alice";
+    submit("identifier");
+    submit("password");
+    await flush();
+    expect($("[data-message] .nf-alert").textContent).toBe(
+      `403${DEFAULT_LOGIN_PAGE_MESSAGES.insecureTransport}`,
+    );
+  });
+
+  it("un autre 403 (défense CSRF) garde le message uniforme", async () => {
+    mount(() => json(403, { error: "Cross-site request blocked" }));
+    $as("#nf-username", HTMLInputElement).value = "alice";
+    submit("identifier");
+    submit("password");
+    await flush();
+    expect($("[data-message] .nf-alert").textContent).toBe(
+      `403${DEFAULT_LOGIN_PAGE_MESSAGES.credentials}`,
+    );
   });
 
   it("🔴 trop d'essais : compte à rebours, puis « vous pouvez réessayer », minuteur arrêté", async () => {

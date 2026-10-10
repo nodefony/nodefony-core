@@ -5,6 +5,7 @@ import type { IToken } from "../../contracts/IToken";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import { ThrottledError } from "../../errors/ThrottledError";
 import type { LoginThrottler } from "../throttle/LoginThrottler";
+import type { CredentialTransportPolicy } from "../transport/CredentialTransportPolicy";
 import { UserToken } from "../token/UserToken";
 
 // Scheme HTTP case-insensitive (RFC 9110 §11.1) suivi d'au moins un espace.
@@ -44,18 +45,24 @@ export class UserPasswordAuthenticator implements IAuthenticator {
   // null si désactivé en config. Vit DANS authenticate() : la clé (identifiant)
   // n'existe que là, et NIST décrit le throttle comme partie de la vérification.
   readonly #throttler: LoginThrottler | null;
+  // Refus du mot de passe reçu en clair en production — même instance que le
+  // formulaire de session et l'émission de jeton.
+  readonly #transport: CredentialTransportPolicy | null;
 
   /**
    * @param resolveVerifier - résolution lazy de la source de vérification
    *   (typiquement `container.get("users")`) — appelée au premier login.
    * @param throttler - limiteur de tentatives (backoff NIST), `null` = désactivé.
+   * @param transport - politique du transport des secrets, `null` = aucune.
    */
   constructor(
     resolveVerifier: () => IPasswordVerifier,
     throttler: LoginThrottler | null = null,
+    transport: CredentialTransportPolicy | null = null,
   ) {
     this.#resolveVerifier = resolveVerifier;
     this.#throttler = throttler;
+    this.#transport = transport;
   }
 
   /** La requête porte-t-elle un en-tête `Authorization: Basic ...` ? */
@@ -64,8 +71,15 @@ export class UserPasswordAuthenticator implements IAuthenticator {
     return typeof auth === "string" && BASIC_SCHEME.test(auth);
   }
 
-  /** Décode l'enveloppe Basic — un contenu malformé donne un credential vide (échec uniforme). */
+  /**
+   * Décode l'enveloppe Basic — un contenu malformé donne un credential vide
+   * (échec uniforme).
+   *
+   * @throws InsecureTransportError (403) — en production, en-tête reçu hors
+   *   TLS : refusé avant même d'être décodé.
+   */
   createToken(context: ContextType): Promise<IToken> {
+    this.#transport?.assert(context, "basic");
     const auth = context.request?.headers.authorization as string;
     const decoded = Buffer.from(
       auth.replace(BASIC_SCHEME, ""),

@@ -153,7 +153,7 @@ le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les ac
 ### Comment le front obtient — puis rejoue — le token
 
 1. **Obtenir** : une requête **sûre** (GET) vers n'importe quelle route `@CsrfProtect` sème le token
-   (`firewall.ts:958-964`) ; la réponse pose le cookie **lisible** `csrf-token` — non `HttpOnly`
+   (`firewall.ts:988-994`) ; la réponse pose le cookie **lisible** `csrf-token` — non `HttpOnly`
    exprès, `SameSite=Strict`, `Secure` en HTTPS (`HttpContext.writeHead()`, `HttpContext.ts:570-590`).
 2. **Rejouer** : le SPA lit le cookie et renvoie sa valeur **à l'identique** dans l'en-tête
    `x-csrf-token` sur chaque mutation.
@@ -268,7 +268,7 @@ sûres → coût nul sur le GET dominant (`csrf.ts:88`). Pour une mutation, dans
 Lectures durcies côté firewall :
 
 - en-têtes lus en **première occurrence** — jamais un tableau d'en-têtes répétés (garde d'injection,
-  `headerValue()`, `firewall.ts:107`) ; cookie extrait de l'en-tête **brut**, sans dépendre du
+  `headerValue()`, `firewall.ts:113`) ; cookie extrait de l'en-tête **brut**, sans dépendre du
   parse du contexte (`cookieValue()`, `firewall.ts:116-129`) ;
 - hôte cible **brut avec port** — `:authority` en HTTP/2, `context.domain` en dernier recours
   (`firewall.ts:977-982`) ;
@@ -298,11 +298,11 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 2. Au match de la route, `Resolver.match()` recopie les marqueurs sur le contexte
    (`Resolver.ts:156-186`) — champs portés par le `Context` de base, HTTP comme WS
    (`Context.ts:241-243`).
-3. `Firewall.enforceCsrf()` (`firewall.ts:1001`) fait les trois rôles : **émission** du token sur
+3. `Firewall.enforceCsrf()` (`firewall.ts:1036`) fait les trois rôles : **émission** du token sur
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si
    `@CsrfProtect`. Les routes `bypassFirewall` (callbacks OAuth) sont exemptées
-   (`firewall.ts:970-973`), les `@CsrfExempt` sortent après la barrière méthode sûre
-   (`firewall.ts:987`).
+   (`firewall.ts:1000-1003`), les `@CsrfExempt` sortent après la barrière méthode sûre
+   (`firewall.ts:1017`).
 4. `HttpContext.writeHead()` matérialise `context.csrfToken` en cookie `csrf-token` — flush groupé
    avec le cookie de session (`HttpContext.ts:636-655`).
 
@@ -315,7 +315,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 | `fetchMetadata` | boolean · `true` | Défense primaire `Sec-Fetch-Site` (`config.ts:169-174`). |
 | `checkOrigin` | boolean · `true` | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:176-181`). |
 | `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:182-187`). |
-| `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:632`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:634`). |
+| `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:649`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:634`). |
 | `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:188-193`). |
 | `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:194-200`). |
 
@@ -334,7 +334,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 ## ⚡ Performance & mémoire
 
 - **GET = 0** : retour immédiat avant toute lecture d'en-tête (`csrf.ts:88`) ; seule exception, une
-  route `@CsrfProtect` mint le token **une fois** (skip si déjà posé, `firewall.ts:989`).
+  route `@CsrfProtect` mint le token **une fois** (skip si déjà posé, `firewall.ts:1019`).
 - **Zéro microtask** : la chaîne est synchrone de bout en bout (pas d'`async` pour du pur calcul).
 - **Lazy** : `#csrf`/`#csrfTokens` restent `null` si la défense est désactivée — aucune structure
   allouée « au cas où » (`firewall.ts:164`).
@@ -345,8 +345,8 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 
 L'écran **Firewall** de Studio expose la défense dans son onglet Défenses (`FirewallDefenses`,
 `Firewall.tsx:313-314`). La projection est **sans secret par construction** :
-`Firewall.#describeDefenses()` (`firewall.ts:625`) publie la config résolue, et `synchronizerToken`
-n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:635`).
+`Firewall.#describeDefenses()` (`firewall.ts:642`) publie la config résolue, et `synchronizerToken`
+n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:652`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
@@ -354,8 +354,8 @@ n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:63
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Mutation légitime cross-domaine bloquée en 403 | Domaine alias non déclaré                                                                      | Ajouter l'origine à `csrf.trustedOrigins` (ou CORS si lecture voulue)     |
 | Client non-navigateur (curl/CI) refusé         | N'arrive pas sur une route non décorée : ni Fetch Metadata ni `Origin` → passe (`csrf.ts:113`) | Attendu ; sur `@CsrfProtect`, semer le token (GET) avant la mutation      |
-| `@CsrfProtect` échoue en 403 côté SPA          | En-tête `x-csrf-token` non rejoué, ou ≠ cookie (`firewall.ts:821-826`)                         | Relire le cookie `csrf-token` et le rejouer à l'identique                 |
-| Tokens invalidés au redémarrage / entre pods   | `csrf.secret` absent → secret éphémère par process (`firewall.ts:227-237`)                     | Fixer `csrf.secret` (≥ 16 car., partagé cluster) — `security:secrets`     |
+| `@CsrfProtect` échoue en 403 côté SPA          | En-tête `x-csrf-token` non rejoué, ou ≠ cookie (`firewall.ts:838-843`)                         | Relire le cookie `csrf-token` et le rejouer à l'identique                 |
+| Tokens invalidés au redémarrage / entre pods   | `csrf.secret` absent → secret éphémère par process (`firewall.ts:232-242`)                     | Fixer `csrf.secret` (≥ 16 car., partagé cluster) — `security:secrets`     |
 | `same-site` refusé alors qu'attendu OK         | `strictSameSite` activé (`csrf.ts:102-104`)                                                    | Le désactiver si les sous-domaines sont de confiance                      |
 | `http://` accepté par le repli (même hôte)     | Le repli compare l'**hôte seul**, jamais le scheme (`Csrf.#sameHost()`, `csrf.ts:130-136`)     | Limite documentée (banc red-team) ; Fetch Metadata prime sur nav. moderne |
 | Webhook provider bloqué en 403                 | POST cross-site légitime, hors whitelist                                                       | `@CsrfExempt` sur la route — jamais `@BypassFirewall`                     |

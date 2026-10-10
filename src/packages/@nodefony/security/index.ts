@@ -478,6 +478,16 @@ export type {
 export { LoginThrottler } from "./nodefony/src/throttle/LoginThrottler";
 export type { ILoginThrottleOptions } from "./nodefony/src/throttle/LoginThrottler";
 
+// ─── Transport des secrets de connexion (refus du clair en production) ───────
+export {
+  CredentialTransportPolicy,
+  shouldEnforceCredentialTransport,
+} from "./nodefony/src/transport/CredentialTransportPolicy";
+export type {
+  ICredentialTransportContext,
+  ICredentialTransportPolicyOptions,
+} from "./nodefony/src/transport/CredentialTransportPolicy";
+
 // ─── Erreurs typées ──────────────────────────────────────────────────────────
 export {
   AuthenticationError,
@@ -487,6 +497,7 @@ export {
   InvalidTargetError,
   CsrfError,
   SsrfError,
+  InsecureTransportError,
 } from "./nodefony/errors";
 
 // ─── Contrats ────────────────────────────────────────────────────────────────

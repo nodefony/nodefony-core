@@ -5,6 +5,7 @@ import {
   type NodefonyLoginState,
 } from "../auth/NodefonyLogin";
 import { safeRedirectPath } from "../../runtime/safeRedirect";
+import { INSECURE_TRANSPORT_MESSAGE } from "../../runtime/authRoutes";
 
 /**
  * Textes que le script écrit lui-même dans la page. Tout le reste (libellés,
@@ -13,6 +14,8 @@ import { safeRedirectPath } from "../../runtime/safeRedirect";
 export interface ILoginPageMessages {
   /** Refus du serveur (401/403) : UN message, quel que soit le motif. */
   readonly credentials: string;
+  /** Secret refusé parce qu'il est parti en clair (HTTP) — le canal, pas l'identifiant. */
+  readonly insecureTransport: string;
   /** Trop d'essais : `{s}` est remplacé par les secondes restantes. */
   readonly throttled: string;
   /** Fin du blocage. */
@@ -29,6 +32,8 @@ export interface ILoginPageMessages {
 /** Textes par défaut, en français. */
 export const DEFAULT_LOGIN_PAGE_MESSAGES: ILoginPageMessages = {
   credentials: "Identifiant ou mot de passe incorrect.",
+  insecureTransport:
+    "Connexion refusée : elle doit passer par HTTPS. Prévenez l'administrateur du site.",
   throttled: "Trop d'essais. Réessayez dans {s} s.",
   throttleOver: "Vous pouvez réessayer.",
   network: "Le serveur ne répond pas. Vérifiez votre connexion.",
@@ -142,6 +147,12 @@ export function mountLoginPage(
       return;
     }
     const code = error.status === null ? "—" : String(error.status);
+    if (error.status === 403 && error.message === INSECURE_TRANSPORT_MESSAGE) {
+      // Le canal est refusé : « mot de passe incorrect » ferait recommencer,
+      // et renvoyer le secret par le même canal clair.
+      alert(code, messages.insecureTransport);
+      return;
+    }
     if (error.kind !== "throttled" || error.retryAt === null) {
       alert(code, messages[error.kind === "throttled" ? "server" : error.kind]);
       return;

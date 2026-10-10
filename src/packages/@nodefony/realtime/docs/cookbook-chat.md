@@ -1611,7 +1611,7 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 | Les canaux diffusables | `RealtimeBroadcast` (`realtimeDecorators.ts:420`), `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`) |
 | Le branchement du backplane | `RealtimeHub.setBackplane()` (`RealtimeHub.ts:714`), registre `registerBackplaneDriver()` (`backplaneRegistry.ts:55`), cloison `resolveBackplaneOriginId()` (`originId.ts:24`) |
 | Les politiques de canal | `IChannelPolicy` (`IChannelPolicy.ts:20`), `RealtimeHub.registerChannelPolicy()` (`RealtimeHub.ts:1105`), garde-fou `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1079`) |
-| Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:297`) |
+| Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:305`) |
 | Les refus | `IRealtimeDenied` (`RealtimeEventMap.ts:269`), erreur `unauthorized` (`JsonRpcPeer.ts:449`), fermetures `origin not allowed` (`RealtimeController.ts:422`) et `unauthorized` (`RealtimeController.ts:444`) |
 | La révocation en cours de session | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:809`) |
 | Le consommateur lent | seuil `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:65`), fermeture `slow consumer` (`RealtimeHub.ts:63`) |

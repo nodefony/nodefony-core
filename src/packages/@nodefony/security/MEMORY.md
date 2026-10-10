@@ -555,8 +555,17 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   firewall (J3) — lazy inchangé. Hooks `beforeResolve`/`afterAuth`/`onAuthFailure` existent (P1.7).
 - **Pont container (firewall `#provisionSharedServices`, au boot)** : `passwordEncoder`
   (= `encoderFromConfig(Object.values(config.encoders))`, 1re entrée = primary) + `loginThrottler`
-  (UNE instance pour TOUTES les portes — Basic + JSON, même compteur NIST). L'app résout
-  `passwordEncoder` pour construire son UserService.
+  (UNE instance pour TOUTES les portes — Basic + JSON, même compteur NIST) + `credentialTransport`
+  (`CredentialTransportPolicy`, toujours posée ; `enforce` = production && !`allowInsecureCredentials`).
+  L'app résout `passwordEncoder` pour construire son UserService.
+- **Secret en clair refusé en prod (403, avant throttle/verifier)** : 4 portes appellent
+  `credentialTransport.assert(context, porte)` — `AuthFlow.login`, `AuthFlow.completeMfaLogin`,
+  `UserPasswordAuthenticator.createToken`, `TokenService.issueForCredentials` (5ᵉ arg `context` :
+  absent = CLI, pas de transport ; un endpoint HTTP DOIT le passer). Décision sur `context.scheme`
+  (https/wss), jamais le transport → proxy TLS = `trustProxy`. Firewall : `InsecureTransportError`
+  SANS challenge. Message = `INSECURE_TRANSPORT_MESSAGE` (cœur, `runtime/authRoutes.ts`), reconnu
+  par login.js. Résolution de la politique : jamais figer un `null` (`??=` re-résout tant qu'absente).
+  Hors périmètre : refresh token, Bearer, clé API (pas un mot de passe).
 - **Résurrection de session** : `session.destroy()` pose `mutated=false` (sinon le saveSession de
   fin de requête RE-CRÉE le blob détruit — vu au banc logout J3). `AuthFlow.logout` pose aussi
   `context.session = null`.

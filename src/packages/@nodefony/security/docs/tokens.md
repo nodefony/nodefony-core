@@ -87,7 +87,7 @@ défaut » en prod.
 ## La vision Nodefony — un service propriétaire, des endpoints minces
 
 `TokenService` est **propriétaire** du store et du keystore : à `TokenService.#build()`
-(`tokenService.ts:148`), si `jwt.enabled` ou `apiKeys.enabled`, il résout le store pluggable, pose
+(`tokenService.ts:158`), si `jwt.enabled` ou `apiKeys.enabled`, il résout le store pluggable, pose
 `tokenStore` au container (`tokenService.ts:219`) puis crée le keystore et pose `jwtKeystore`
 (`tokenService.ts:225-231`) — consommés par le `JwtAuthenticator` et les endpoints. Il arme un
 **gc** via `GcScheduler` (timer `unref` + **jitter** de phase pour étaler les balayages entre pods,
@@ -144,7 +144,7 @@ le framework monte deux routes (`mountTokenAuthRoutes()`, `TokenAuthController.t
 > [!IMPORTANT]
 > Ces routes n'existent **que si** `@nodefony/security` est chargé — sinon 404, zéro surface
 > (`framework/index.ts:415`). Module chargé mais JWT désactivé : elles existent et répondent
-> `503 Token issuance unavailable` (`TokenAuthController.ts:69`). Elles sont `bypassFirewall: true` (`TokenAuthController.ts:145`) :
+> `503 Token issuance unavailable` (`TokenAuthController.ts:69`). Elles sont `bypassFirewall: true` (`TokenAuthController.ts:188`) :
 > elles SONT le mécanisme d'émission — protégées, obtenir un token exigerait d'être déjà
 > authentifié (deadlock). Le JWT part en **réponse JSON** (Bearer), jamais en cookie ni en URL.
 
@@ -231,10 +231,10 @@ Erreurs mappées par duck-typing dans `#renderAuthError()` (`TokenAuthController
 
 ### Émission (grant M2M/CLI)
 
-`issueForCredentials()` (`tokenService.ts:369`) vérifie l'identifiant/mot de passe via le
+`issueForCredentials()` (`tokenService.ts:387`) vérifie l'identifiant/mot de passe via le
 service `users`, avec le **throttling NIST partagé** — `ThrottledError` avant tout hachage
 (`tokenService.ts:398`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
-par `#auditGrant()` (`tokenService.ts:414-426`). Puis `issueTokens()` (`tokenService.ts:542`)
+par `#auditGrant()` (`tokenService.ts:414-426`). Puis `issueTokens()` (`tokenService.ts:582`)
 produit :
 
 - un **access token** : JWT signé EdDSA, en-tête `typ:"at+jwt"` + `kid`, claims
@@ -248,19 +248,19 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:50-58`). 
 
 ### Rotation & détection de rejeu (RFC 9700 §4.14)
 
-`refresh()` (`tokenService.ts:607`) est le cœur défensif, dans l'ordre :
+`refresh()` (`tokenService.ts:647`) est le cœur défensif, dans l'ordre :
 
-1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:616`).
+1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:653`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la
    famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:622-636`).
-3. Expiration `expiresAt` vérifiée (`tokenService.ts:756`).
+3. Expiration `expiresAt` vérifiée (`tokenService.ts:793`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
-   `#resolveUserForRefresh()` (`tokenService.ts:815`).
+   `#resolveUserForRefresh()` (`tokenService.ts:852`).
 5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus
-   (`tokenService.ts:645`).
+   (`tokenService.ts:684`).
 6. **Rotation** : nouveau refresh (même famille), l'ancien chaîné `replacedBy` + révoqué
-   `"rotated"` (`tokenService.ts:679-681`). Si `rotateRefresh` est désactivé, l'access est réémis
-   et le refresh courant reste valide (`tokenService.ts:665`).
+   `"rotated"` (`tokenService.ts:716-718`). Si `rotateRefresh` est désactivé, l'access est réémis
+   et le refresh courant reste valide (`tokenService.ts:702`).
 
 ### Mise en situation — ton refresh token a été volé
 
@@ -498,17 +498,17 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:367-443`) et `token
 | Domaine                          | Norme           | Ancrage                                                 |
 | -------------------------------- | --------------- | ------------------------------------------------------- |
 | Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts:50-58`)              |
-| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:607`)                     |
+| Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:647`)                     |
 | Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:694-707`)             |
-| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:694-702`)             |
+| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:731-739`)             |
 | Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts:275`)                |
 | Audiences liées à la ressource   | RFC 8707        | `audience` du record (`ITokenStore.ts:104-105`)         |
-| 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts:108-115`) |
-| Backoff de login                 | NIST SP 800-63B | `ThrottledError` avant hachage (`tokenService.ts:398`)  |
+| 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts:111-118`) |
+| Backoff de login                 | NIST SP 800-63B | `ThrottledError` avant hachage (`tokenService.ts:433`)  |
 
 ## ⚡ Performance & mémoire
 
-- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:789`)
+- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:826`)
   — le boot ne paie rien si le JWT n'est jamais sollicité ; keystore mémoïsé pareil.
 - **Rien sur le hot path requête** : émission et rotation sont des endpoints cold-path ; la
   vérification (hot path) vit chez le `JwtAuthenticator`.
