@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ADR-0015 — Page de connexion</title>
+
+    <style>
+      :root {
+        --bg: #fff;
+        --fg: #12161c;
+        --dim: #667085;
+        --line: #e4e7ec;
+        --card: #f8fafc;
+        --accent: #0067ba;
+        --warn-bg: #fff6e5;
+        --warn-fg: #7a4b00;
+        --note-bg: #eef5ff;
+        --note-fg: #0a4a86;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1319;
+          --fg: #e6e9ef;
+          --dim: #8a94a6;
+          --line: #232a35;
+          --card: #161b23;
+          --accent: #4c9aff;
+          --warn-bg: #2b2312;
+          --warn-fg: #ffc46b;
+          --note-bg: #0f2438;
+          --note-fg: #8fc6ff;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0f1319;
+        --fg: #e6e9ef;
+        --dim: #8a94a6;
+        --line: #232a35;
+        --card: #161b23;
+        --accent: #4c9aff;
+        --warn-bg: #2b2312;
+        --warn-fg: #ffc46b;
+        --note-bg: #0f2438;
+        --note-fg: #8fc6ff;
+      }
+      :root[data-theme="light"] {
+        --bg: #fff;
+        --fg: #12161c;
+        --dim: #667085;
+        --line: #e4e7ec;
+        --card: #f8fafc;
+        --accent: #0067ba;
+        --warn-bg: #fff6e5;
+        --warn-fg: #7a4b00;
+        --note-bg: #eef5ff;
+        --note-fg: #0a4a86;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      /* Les liens n'avaient AUCUNE règle : ils gardaient le bleu par défaut du
+   navigateur (#0000ee), correct sur blanc et à 1,8:1 sur fond sombre. Tout
+   rapport lu en thème sombre était concerné, pas seulement les pages de site. */
+      a {
+        color: var(--accent);
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 3px;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.62 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px 90px;
+      }
+      /* Site de documentation — la grille ne s'active QUE si la page fournit une
+   navigation. Un rapport qui n'en passe pas garde exactement sa colonne unique :
+   les pages deja publiees ne bougent pas d'un pixel. */
+      /* Un site de documentation occupe TOUTE la largeur : la nav et le sommaire sont
+   des colonnes fixes, le contenu prend le reste. Une largeur maximale centrée
+   convient à un rapport qu'on imprime, pas à une doc qu'on parcourt en gardant
+   l'arborescence sous les yeux. */
+      .wrap.has-nav {
+        max-width: none;
+        width: 100%;
+        display: grid;
+        gap: 0 40px;
+        padding: 26px 34px 80px;
+        grid-template-columns: 272px minmax(0, 1fr) 232px;
+        grid-template-areas: "head head head" "nav main toc";
+      }
+      .wrap.has-nav > .rep-head {
+        grid-area: head;
+      }
+      a.brand {
+        text-decoration: none;
+        color: inherit;
+      }
+      a.brand:hover .brand-name {
+        color: var(--accent);
+      }
+      a.brand:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 6px;
+      }
+      .wrap.has-nav > main {
+        grid-area: main;
+        min-width: 0;
+      }
+      .site-nav {
+        grid-area: nav;
+        position: sticky;
+        top: 76px;
+        align-self: start;
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+        font-size: 13.5px;
+        padding-right: 6px;
+      }
+      .site-toc {
+        grid-area: toc;
+        position: sticky;
+        top: 76px;
+        align-self: start;
+        max-height: calc(100vh - 150px);
+        overflow-y: auto;
+        font-size: 12.5px;
+      }
+      /* Pied COLLANT sur un site : la provenance de la page (source, version, commit)
+   reste lisible sans redescendre. Deux précautions, sans lesquelles il devient
+   illisible dès qu'on défile : un fond OPAQUE — la couleur de fond de
+   la page, jamais une transparence, sinon le texte défile derrière — et une
+   hauteur bornée, sinon il mange l'écran sur les petits appareils.
+   À l'impression il redevient un pied normal (cf le bloc @media print). */
+      .wrap.has-nav > .foot {
+        grid-column: 1/-1;
+        position: sticky;
+        bottom: 0;
+        z-index: 15;
+        background: var(--bg);
+        margin-top: 40px;
+        padding: 10px 0;
+        border-top: 1px solid var(--line);
+        max-height: 22vh;
+        overflow-y: auto;
+      }
+      /* L'en-tête est déjà collant ; sur un site il doit passer AU-DESSUS
+   des colonnes latérales, elles-mêmes collantes. */
+      .wrap.has-nav > .rep-head {
+        z-index: 25;
+      }
+      @media (max-width: 1180px) {
+        .site-toc {
+          display: none;
+        }
+        .wrap.has-nav {
+          grid-template-columns: 250px minmax(0, 1fr);
+          grid-template-areas: "head head" "nav main";
+        }
+      }
+      @media (max-width: 820px) {
+        .site-nav {
+          display: none;
+        }
+        .wrap.has-nav {
+          padding: 20px 18px 60px;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-areas: "head" "main";
+        }
+      }
+      @media print {
+        .site-nav,
+        .site-toc {
+          display: none;
+        }
+        .wrap.has-nav {
+          display: block;
+          max-width: none;
+          padding: 0;
+        }
+        .wrap.has-nav > .foot {
+          position: static;
+          max-height: none;
+          overflow: visible;
+        }
+      }
+      h1 {
+        font-size: 28px;
+        line-height: 1.22;
+        margin: 0 0 8px;
+        letter-spacing: -0.021em;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 0 0 10px;
+        letter-spacing: -0.012em;
+      }
+      h3 {
+        font-size: 15px;
+        margin: 22px 0 6px;
+      }
+      .sub {
+        color: var(--dim);
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      .lead {
+        color: var(--dim);
+        margin: 0 0 14px;
+      }
+      .sec {
+        margin-top: 46px;
+      }
+      .warn,
+      .note {
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 16px 0;
+        font-size: 14px;
+      }
+      .warn {
+        background: var(--warn-bg);
+        color: var(--warn-fg);
+      }
+      .note {
+        background: var(--note-bg);
+        color: var(--note-fg);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin: 16px 0;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .card .k {
+        color: var(--dim);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .card .v {
+        font-size: 22px;
+        font-weight: 650;
+        margin-top: 2px;
+        letter-spacing: -0.02em;
+      }
+      .card .u {
+        color: var(--dim);
+        font-size: 12px;
+        font-weight: 400;
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+        min-width: 520px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        color: var(--dim);
+        font-weight: 600;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      table.sortable th[data-sort] {
+        cursor: pointer;
+        user-select: none;
+      }
+      table.sortable th.asc .sort::after {
+        content: " ▲";
+      }
+      table.sortable th.desc .sort::after {
+        content: " ▼";
+      }
+      td.r,
+      th.r {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      td.strong {
+        font-weight: 650;
+      }
+      td.dim,
+      .dim {
+        color: var(--dim);
+      }
+      .chart {
+        width: 100%;
+        height: auto;
+        margin: 12px 0 4px;
+      }
+      .chart .lbl,
+      .chart .val {
+        fill: var(--fg);
+        font-size: 12px;
+      }
+      .chart .val {
+        font-variant-numeric: tabular-nums;
+      }
+      .chart .dim {
+        fill: var(--dim);
+      }
+      .chart .grid {
+        stroke: var(--line);
+      }
+      .chart .axis {
+        fill: var(--dim);
+        font-size: 11px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        font-size: 12px;
+        color: var(--dim);
+      }
+      .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: 5px;
+      }
+      .calc {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px;
+        margin-top: 14px;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 12px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--dim);
+        margin-bottom: 3px;
+      }
+      input[type="number"] {
+        width: 100%;
+        padding: 7px 9px;
+        font-size: 14px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      .switch {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        align-self: end;
+      }
+      .switch label {
+        margin: 0;
+        font-size: 14px;
+        color: var(--fg);
+      }
+      .out {
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+      }
+      .alerts {
+        margin-top: 14px;
+        font-size: 13px;
+      }
+      .alerts div {
+        padding: 6px 10px;
+        border-radius: 6px;
+        margin-bottom: 5px;
+        background: var(--warn-bg);
+        color: var(--warn-fg);
+      }
+      code {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 13px;
+      }
+      .foot {
+        margin-top: 56px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        color: var(--dim);
+        font-size: 12px;
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      button.ghost {
+        background: none;
+        border: 1px solid var(--line);
+        color: var(--dim);
+        border-radius: 7px;
+        padding: 5px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      /* ── marque : en-tête et pied ──────────────────────────────────────────────
+   Le logo est un data-URI (jamais un fichier externe) : le rapport reste
+   autonome hors ligne. Il est CONSERVÉ à l'impression — un PDF sans en-tête ne
+   dit pas d'où il vient, et un rapport dont on ignore la provenance ne prouve
+   rien. print-color-adjust:exact (plus haut) empêche le navigateur de le
+   vider de ses couleurs pour économiser l'encre. */
+      /* En-tête COLLANTE : la marque et la bascule de thème restent visibles pendant
+   qu'on parcourt le rapport. Un lecteur qui a scrollé 6 écrans plus bas doit
+   toujours savoir de QUEL document il lit une ligne — c'est la première question
+   qu'on se pose en rouvrant un PDF ou un onglet laissé ouvert la veille.
+   Fond OPAQUE obligatoire (var(--bg)) : sans lui, le contenu défile sous le
+   texte de l'en-tête et les deux deviennent illisibles. */
+      .rep-head {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: var(--bg);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 14px 0 12px;
+        margin-bottom: 22px;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+      }
+      .brand-logo {
+        height: 34px;
+        width: auto;
+        display: block;
+      }
+      .brand-name {
+        font-weight: 650;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+      }
+      .brand-tag {
+        color: var(--dim);
+        font-size: 12px;
+      }
+      .foot-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .foot-logo {
+        height: 26px;
+        width: auto;
+        flex: none;
+        opacity: 0.85;
+      }
+      .print-only {
+        display: none;
+      }
+      .hyp {
+        font-size: 13px;
+        color: var(--dim);
+      }
+
+      /* composants avancés */
+      .spark {
+        vertical-align: middle;
+      }
+      .tablist {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 14px;
+      }
+      /* Cibles de clic : 24x24 px minimum (WCAG 2.2 AA, critere 2.5.8). */
+      .tab {
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: var(--dim);
+        padding: 10px 14px;
+        min-height: 24px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .th-btn {
+        background: none;
+        border: none;
+        color: inherit;
+        font: inherit;
+        text-transform: inherit;
+        letter-spacing: inherit;
+        cursor: pointer;
+        padding: 4px 0;
+        min-height: 24px;
+      }
+      .det summary {
+        min-height: 24px;
+      }
+      .tab[aria-selected="true"] {
+        color: var(--fg);
+        border-bottom-color: var(--accent);
+        font-weight: 600;
+      }
+      .tab:focus-visible,
+      input:focus-visible,
+      button:focus-visible,
+      th:focus-visible,
+      .dnd-item:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .det {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 12px 0;
+      }
+      .det summary {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .det-body {
+        margin-top: 10px;
+      }
+      .filter {
+        width: 100%;
+        max-width: 320px;
+        padding: 7px 10px;
+        font-size: 14px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--bg);
+        color: var(--fg);
+        margin-bottom: 10px;
+      }
+      .dnd {
+        list-style: none;
+        padding: 0;
+        margin: 12px 0;
+      }
+      .dnd-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        margin-bottom: 6px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        cursor: grab;
+        font-size: 14px;
+      }
+      .dnd-item.dragging {
+        opacity: 0.45;
+        cursor: grabbing;
+      }
+      .dnd-item .grip {
+        color: var(--dim);
+        cursor: grab;
+      }
+      .dnd-item .rank {
+        color: var(--dim);
+        font-variant-numeric: tabular-nums;
+        width: 18px;
+        flex: none;
+      }
+      .dnd-label {
+        flex: 1;
+      }
+      /* ── mode présentation (« PowerPoint-like », sans PowerPoint) ─────────────── */
+      /* MODE PRÉSENTATION — même principe que la page : l'en-tête reste EN HAUT, la
+   diapositive défile DESSOUS. Une diapo plus haute que l'écran doit pouvoir se
+   parcourir : sans overflow-y:auto sur la section, le bas d'un long tableau est
+   simplement inatteignable (le body est en overflow:hidden). D'où la colonne
+   flex : en-tête figée (flex:none), section élastique et scrollable.
+   min-height:0 est indispensable — sans lui, un enfant flex refuse de rétrécir
+   sous sa hauteur de contenu et le scroll ne s'active jamais. */
+      body.deck {
+        overflow: hidden;
+        height: 100vh;
+      }
+      body.deck .wrap {
+        max-width: 1180px;
+        height: 100vh;
+        padding: 0 40px 64px;
+        display: flex;
+        flex-direction: column;
+      }
+      body.deck .rep-head {
+        flex: none;
+        margin-bottom: 14px;
+      }
+      /* Les sections vivent dans un element main, pas directement dans l'enveloppe :
+   sans relayer
+   la colonne flexible ici, le flex:1 d'une section ne s'applique à rien, sa
+   hauteur n'est pas contrainte, son overflow-y ne defile jamais — et le
+   overflow:hidden du corps COUPE ce qui depasse. Une diapositive longue
+   perdait ainsi sa fin, sans barre de défilement pour le dire. */
+      body.deck main {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      body.deck h1 {
+        display: none;
+      }
+      body.deck section.sec {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        margin-top: 0;
+        padding-right: 6px;
+        animation: slidein 0.28s ease-out;
+      }
+      body.deck h2 {
+        font-size: 32px;
+        margin-bottom: 14px;
+      }
+      body.deck .lead {
+        font-size: 18px;
+      }
+      body.deck .card .v {
+        font-size: 30px;
+      }
+      body.deck table {
+        font-size: 16px;
+      }
+      body.deck .foot,
+      body.deck .topbar,
+      body.deck .sub {
+        display: none;
+      }
+      @keyframes slidein {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        body.deck section.sec {
+          animation: none;
+        }
+      }
+      .deck-ui {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9;
+      }
+      .deck-bar {
+        height: 3px;
+        background: var(--line);
+      }
+      .deck-bar span {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--accent);
+        transition: width 0.25s ease;
+      }
+      .deck-nav {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 10px;
+        background: var(--bg);
+        border-top: 1px solid var(--line);
+      }
+      .deck-count {
+        color: var(--dim);
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── IMPRESSION / PDF ─────────────────────────────────────────────────────
+   Un rapport qui s'imprime mal n'est pas un rapport : il sera relu en PDF, en
+   réunion, joint à un dossier. Les règles qui comptent :
+   - forcer le thème CLAIR (une page sombre vide une cartouche d'encre)
+   - conserver les à-plats de couleur (sinon les graphes deviennent illisibles)
+   - ne jamais couper une carte, un graphe, un tableau court, ni orphelin de titre
+   - répéter l'en-tête d'un tableau qui court sur plusieurs pages
+   - masquer les contrôles interactifs, et figer les hypothèses en texte */
+      @page {
+        size: A4;
+        margin: 16mm 14mm;
+      }
+      @media print {
+        :root,
+        :root[data-theme="dark"] {
+          --bg: #fff;
+          --fg: #000;
+          --dim: #555;
+          --line: #ccc;
+          --card: #f6f7f9;
+          --accent: #0067ba;
+          --warn-bg: #fff6e5;
+          --warn-fg: #6b4200;
+          --note-bg: #eef5ff;
+          --note-fg: #0a4a86;
+        }
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        body {
+          font-size: 11pt;
+        }
+        .wrap {
+          max-width: none;
+          padding: 0;
+        }
+        .no-print,
+        button.ghost,
+        .rep-head button {
+          display: none !important;
+        }
+        /* La marque RESTE (c'est la provenance du document). */
+        /* position:sticky n'a pas de sens sur papier — et laissé tel quel, il décale
+     l'en-tête dans le PDF. On le neutralise explicitement. */
+        .rep-head {
+          position: static;
+          border-bottom: 1px solid #ccc;
+          padding: 0 0 10px;
+          margin-bottom: 16px;
+        }
+        .brand-logo {
+          height: 26px;
+        }
+        .foot-logo {
+          height: 20px;
+        }
+        .print-only {
+          display: block;
+        }
+        a {
+          color: inherit;
+          text-decoration: none;
+        }
+
+        /* Sauts de page maîtrisés.
+     ATTENTION — break-after:avoid (pour ne pas laisser un titre seul en bas de
+     page) est un NO-OP en Firefox ET Safari : seul Chrome l'honore. La seule
+     protection PORTABLE est break-inside:avoid sur un bloc qui contient le titre
+     ET son contenu : c'est le rôle de .sec.keep. On garde break-after en bonus
+     Chrome, mais on ne construit RIEN dessus.
+     De même, orphans/widows sont ignorés par Firefox. */
+        .page-break {
+          break-before: page;
+          page-break-before: always;
+        }
+        .sec.keep,
+        .card,
+        .calc,
+        .warn,
+        .note,
+        .legend,
+        .det {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .chart {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          max-height: 240mm;
+        }
+        h1,
+        h2,
+        h3 {
+          break-after: avoid;
+          page-break-after: avoid;
+        }
+        h2 {
+          margin-top: 18px;
+        }
+        p,
+        li {
+          orphans: 3;
+          widows: 3;
+        }
+
+        /* Une animation jamais jouée laisse un opacity:0 — donc du VIDE sur le papier. */
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+          opacity: 1 !important;
+          transform: none !important;
+        }
+        /* Le top layer (dialog/popover ouvert) a un rendu d'impression non spécifié. */
+        dialog,
+        [popover],
+        dialog::backdrop {
+          display: none !important;
+        }
+        /* content-visibility:auto provoque des pages blanches à l'impression. */
+        * {
+          content-visibility: visible !important;
+        }
+
+        /* Un tableau long PEUT couper — mais son en-tête se répète sur chaque page */
+        table {
+          break-inside: auto;
+        }
+        thead {
+          display: table-header-group;
+        }
+        tfoot {
+          display: table-footer-group;
+        }
+        tr {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        .scroll {
+          overflow: visible;
+        }
+        table {
+          min-width: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Avant le premier pixel : sans cette ligne, une page choisie en sombre
+      // apparaît en clair le temps que le script de fin de page s'exécute.
+      try {
+        var t = localStorage.getItem("nf-theme");
+        if (t === "dark" || t === "light")
+          document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+    <div class="wrap">
+      <header class="rep-head">
+        <div class="brand">
+          <img
+            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDcuMDMgMTcwLjQxIj48dGl0bGU+Tm9kZWZvbnk8L3RpdGxlPjxwYXRoIGZpbGw9IiMwMDY3YmEiIGQ9Ik0wIDg1LjJDMCA0Mi42NyA1Mi42OCAxMy41NiA4Ni42OCAwQzkwLjc5IDAuNDMgOTQuNzUgMS44MiA5OC4yNyAzLjkyQzc5Ljc2IDEyLjcxIDYxLjY4IDIxLjE5IDQ1Ljg0IDM0LjFDMzAuMDEgNDcuMDEgMTYuNDEgNjQuMzQgMTYuNDEgODUuMkMxNi40MSAxMDYuMDcgMzAuMDEgMTIzLjQgNDUuODQgMTM2LjMxQzYxLjY4IDE0OS4yMiA3OS43NiAxNTcuNyA5OC4yNyAxNjYuNDhDOTQuNzUgMTY4LjU5IDkwLjc5IDE2OS45OCA4Ni42OCAxNzAuNDFDNTIuNjggMTU2Ljg1IDAgMTI3Ljc0IDAgODUuMloiLz48cGF0aCBmaWxsPSIjNDQ4NDM4IiBkPSJNMzMuMDggODUuMkMzMy4wOCA1NiA2OC4wNSAzNS4zMSA5MS42OCAyNS41NUM5NS4yNCAyNi42NiA5OS4yOSAyOC4yOSAxMDIuNTkgMzAuMTZDODEuMjcgMzkuOTkgNDkuMzIgNTguMTUgNDkuMzIgODUuMkM0OS4zMiAxMTIuMjYgODEuMjcgMTMwLjQyIDEwMi41OSAxNDAuMjRDOTkuMjkgMTQyLjEyIDk1LjI0IDE0My43NSA5MS42OCAxNDQuODZDNjguMDUgMTM1LjEgMzMuMDggMTE0LjQxIDMzLjA4IDg1LjJaIi8+PHBhdGggZmlsbD0iIzAwYTBmMiIgZD0iTTY0LjY2IDg1LjJDNjQuNjYgNjguNjkgODIuMjQgNTcuNTcgOTUuNjggNTEuNjRDOTkuNTkgNTIuNSAxMDMuNDIgNTQuNjUgMTA3LjAzIDU2LjM5QzEwMS40MiA2MC4wNiA5NS4zMyA2Mi45OCA5MC4yOSA2Ny41OEM4NS4yNSA3Mi4xOSA4MS4yNiA3OC40OCA4MS4yNiA4NS4yQzgxLjI2IDkxLjkzIDg1LjI1IDk4LjIyIDkwLjI5IDEwMi44M0M5NS4zMyAxMDcuNDMgMTAxLjQyIDExMC4zNSAxMDcuMDMgMTE0LjAxQzEwMy40MiAxMTUuNzYgOTkuNTkgMTE3LjkxIDk1LjY4IDExOC43N0M4Mi4yNCAxMTIuODQgNjQuNjYgMTAxLjcyIDY0LjY2IDg1LjJaIi8+PC9zdmc+Cg=="
+            alt="Nodefony"
+            class="brand-logo"
+          />
+          <div>
+            <div class="brand-name">Nodefony</div>
+            <div class="brand-tag">
+              Framework Node.js fullstack — HTTP &amp; WebSocket, même contexte
+            </div>
+          </div>
+        </div>
+        <button
+          class="ghost no-print"
+          id="theme-toggle"
+          aria-label="Changer de thème"
+        >
+          ◐
+        </button>
+      </header>
+
+      <main>
+        <h1>ADR-0015 — Page de connexion</h1>
+        <p class="sub">
+          Servie par le framework, un balisage, un moteur partagé — décisions de
+          la revue d'architecture (#547).
+        </p>
+
+        <section class="sec keep">
+          <h2>Décisions</h2>
+
+          <h2>Statut</h2>
+          <p>
+            Proposé (2026-10-10), issu d'une revue d'architecture de tout le
+            système de connexion menée avant
+            <a href="https://github.com/nodefony/nodefony-core/issues/547"
+              >#547</a
+            >. Encadre #547 (page <code>/login</code>), #548 (anonyme conduit à
+            la page puis ramené), #549 (Studio sur le déroulé partagé). S'appuie
+            sur le déroulé navigateur <code>NodefonyLogin</code> livré par #546.
+          </p>
+          <h2>Contexte</h2>
+          <p>
+            Une application qui charge <code>@nodefony/security</code> n'avait
+            aucune page de connexion, alors que le framework y renvoie par
+            défaut (redirection d'échec OAuth vers <code>/login</code>).
+            Aujourd'hui, deux moteurs de connexion coexistent (celui de Studio
+            et <code>NodefonyLogin</code>) et six habillages (Studio, quatre
+            gabarits d'application, thème Keycloak), chacun avec ses couleurs
+            recopiées.
+          </p>
+          <p>
+            Ce qui part dans la 10.0 sera garanti toute la série majeure : noms
+            d'exports, clés de configuration, chemins de routes, contrat HTTP du
+            second facteur. La revue a donc cherché ce qui, décidé maintenant,
+            évite une refonte plus tard — y compris pour des cas de connexion
+            qui n'existent pas encore.
+          </p>
+          <h2>Décision</h2>
+          <ol>
+            <li>
+              <strong>La page est servie par le framework, sans front.</strong>
+              Rendu serveur (Eta) plus un script autonome sur
+              <code>NodefonyLogin</code> (<code>nodefony/login.js</code>), servi
+              depuis la même origine. Elle marche avec React, Vue, Svelte,
+              Angular ou aucun front ; les fronts n'ajoutent qu'un bouton « Se
+              connecter » vers <code>/login?from=…</code>. Une application qui
+              veut sa propre page pose <code>loginPage.enabled: false</code> et
+              utilise <code>useNodefonyLogin</code> (ou équivalent).
+            </li>
+            <li>
+              <strong
+                >Le contrôleur vit dans framework, la configuration dans
+                security</strong
+              >, reliés par une méthode optionnelle du service
+              <code>authFlow</code> (<code>describeLoginPage()</code>) :
+              framework n'importe jamais security, et une version de security
+              qui ne l'expose pas encore rend un 404.
+            </li>
+            <li>
+              <strong>Un seul chemin.</strong>
+              <code>LOGIN_PAGE_PATH</code> (<code>/login</code>) est écrit au
+              cœur ; la redirection d'échec d'un fournisseur et la redirection
+              après déconnexion fédérée <strong>suivent</strong>
+              <code>loginPage.path</code> au lieu de garder leur propre
+              littéral.
+            </li>
+            <li>
+              <strong>Un balisage, des variables.</strong> La page ne change
+              jamais de structure ; l'habillage passe par des variables
+              <code>--nf-login-*</code> et un mode de mise en page
+              (<code>card</code>, <code>split</code>, <code>bare</code>), un
+              gabarit <code>.eta</code> de l'application en dernier recours.
+              C'est ce qui permettra de proposer des thèmes au choix (Studio)
+              sans qu'une mise à jour écrase l'application. Les couleurs de
+              marque ont <strong>une</strong> source au cœur, contrôlée par un
+              test contre Studio, le thème Keycloak et les gabarits.
+            </li>
+            <li>
+              <strong
+                >Retour sur la page d'origine par <code>?from=</code></strong
+              >, sous une garde UNIQUE (<code>safeRedirectPath</code>, au cœur,
+              isomorphe) : seul un chemin local est suivi. Le même paramètre
+              traverse la connexion par fournisseur (gardé en session, purgé au
+              retour).
+            </li>
+            <li>
+              <strong
+                >Les routes de connexion restent soumises au contrôle de
+                provenance.</strong
+              >
+              Être exemptée de l'authentification (<code>bypassFirewall</code>)
+              ne dispense plus de la défense CSRF d'origine ; seul
+              <code>@CsrfExempt</code> en dispense (<code>6d29d0ce8</code>).
+            </li>
+            <li>
+              <strong
+                >La session retient quand et comment elle a été ouverte</strong
+              >
+              (heure de l'authentification, facteurs utilisés). C'est la seule
+              décision NON additive de la revue : sans elle, la
+              ré-authentification avant une action sensible, le second facteur
+              imposé par politique et l'enrôlement forcé exigeraient plus tard
+              d'invalider les sessions existantes.
+            </li>
+            <li>
+              <strong>Le second facteur est un ensemble ouvert.</strong> La
+              réponse « défi » (<code>202</code>) porte une liste de méthodes
+              non fermée ; un client qui ne connaît pas une méthode la classe en
+              erreur serveur au lieu de casser. Passkey en second facteur, code
+              par courriel ou SMS s'ajoutent sans rupture.
+            </li>
+            <li>
+              <strong>Redirection directe vers un fournisseur</strong> seulement
+              quand il est le seul, qu'il est opérationnel, qu'aucun mot de
+              passe local n'est proposé et que la page n'affiche pas déjà un
+              échec (anti-boucle).
+            </li>
+            <li>
+              <strong>La page n'est jamais mise en cache</strong> et ne
+              s'affiche pas dans le cadre d'un autre site.
+            </li>
+            <li>
+              <strong
+                >Les règles de connexion de Studio passent dans le moteur
+                partagé, son affichage reste à Studio.</strong
+              >
+              La console garde sa page (<code>/nodefony/login</code>, rendu
+              Mantine, indicateur de progression, icônes de marques). Trois
+              comportements qu'elle portait seule deviennent des règles de
+              <code>NodefonyLogin</code>, donc communes à la page
+              <code>/login</code> et aux fronts générés : le
+              <strong>« rebonjour »</strong> (dernier compte et dernière méthode
+              retenus ; un compte venu d'un fournisseur ne se voit jamais
+              proposer de mot de passe), la
+              <strong>lecture du motif de retour</strong> d'un fournisseur (une
+              annulation n'est pas une panne), et la
+              <strong>reconnexion de la socket</strong> une fois connecté, pour
+              que le temps réel reparte avec la bonne identité. Ajouts sans
+              rupture du moteur ; sans eux, chaque écran les recoderait et les
+              règles divergeraient.
+            </li>
+          </ol>
+          <h2>Conséquences</h2>
+          <ul>
+            <li>
+              Une seule connexion à maintenir à terme : #549 fait passer Studio
+              sur <code>NodefonyLogin</code>.
+            </li>
+            <li>
+              Les habillages deviennent des données (variables + mode), donc des
+              thèmes possibles.
+            </li>
+            <li>
+              Le chemin <code>/login</code> change d'un seul endroit ; les
+              redirections ne peuvent plus diverger.
+            </li>
+            <li>
+              Les cas futurs restent additifs : liaison de comptes, lien par
+              courriel, inscription, mot de passe oublié, appareil mémorisé,
+              autorisation d'appareil, agents et délégation.
+            </li>
+            <li>
+              Coût : une entrée de bundle au cœur (<code>login.js</code>) et une
+              feuille (<code>login.css</code>) publiées dans
+              <code>exports</code>, donc garanties toute la série.
+            </li>
+          </ul>
+          <h2>Alternatives écartées</h2>
+          <ul>
+            <li>
+              <strong>Réutiliser la page de Studio</strong> : elle tire Mantine,
+              MobX et le routeur React ; la page la plus sensible chargerait le
+              plus gros bundle, et imposerait React aux applications Vue ou
+              Angular.
+            </li>
+            <li>
+              <strong>Une page générée par front</strong> : quatre
+              implémentations du même écran, qui divergent.
+            </li>
+            <li>
+              <strong
+                >Détecter une route <code>/login</code> déjà déclarée par
+                l'application</strong
+              >
+              : inutile, la route de l'application passe toujours avant celle du
+              framework ; <code>enabled: false</code> dit la même chose
+              explicitement.
+            </li>
+            <li>
+              <strong>Un script en ligne signé par nonce</strong> : non
+              cacheable, et lié à la politique de contenu de chaque application
+              ; un fichier de même origine satisfait la politique stricte sans
+              nonce.
+            </li>
+          </ul>
+          <h2>Design</h2>
+          <p>
+            Maquettes et choix dans
+            <a href="README.md"><code>docs/design/login/</code></a
+            >. Retenu pour la beta 3 : <strong>F03 « Frontispice »</strong>.
+          </p>
+          <p><a href="index.html">← Retour à la galerie</a></p>
+        </section>
+      </main>
+      <footer class="foot">
+        <div class="foot-row">
+          <img
+            src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDcuMDMgMTcwLjQxIj48dGl0bGU+Tm9kZWZvbnk8L3RpdGxlPjxwYXRoIGZpbGw9IiMwMDY3YmEiIGQ9Ik0wIDg1LjJDMCA0Mi42NyA1Mi42OCAxMy41NiA4Ni42OCAwQzkwLjc5IDAuNDMgOTQuNzUgMS44MiA5OC4yNyAzLjkyQzc5Ljc2IDEyLjcxIDYxLjY4IDIxLjE5IDQ1Ljg0IDM0LjFDMzAuMDEgNDcuMDEgMTYuNDEgNjQuMzQgMTYuNDEgODUuMkMxNi40MSAxMDYuMDcgMzAuMDEgMTIzLjQgNDUuODQgMTM2LjMxQzYxLjY4IDE0OS4yMiA3OS43NiAxNTcuNyA5OC4yNyAxNjYuNDhDOTQuNzUgMTY4LjU5IDkwLjc5IDE2OS45OCA4Ni42OCAxNzAuNDFDNTIuNjggMTU2Ljg1IDAgMTI3Ljc0IDAgODUuMloiLz48cGF0aCBmaWxsPSIjNDQ4NDM4IiBkPSJNMzMuMDggODUuMkMzMy4wOCA1NiA2OC4wNSAzNS4zMSA5MS42OCAyNS41NUM5NS4yNCAyNi42NiA5OS4yOSAyOC4yOSAxMDIuNTkgMzAuMTZDODEuMjcgMzkuOTkgNDkuMzIgNTguMTUgNDkuMzIgODUuMkM0OS4zMiAxMTIuMjYgODEuMjcgMTMwLjQyIDEwMi41OSAxNDAuMjRDOTkuMjkgMTQyLjEyIDk1LjI0IDE0My43NSA5MS42OCAxNDQuODZDNjguMDUgMTM1LjEgMzMuMDggMTE0LjQxIDMzLjA4IDg1LjJaIi8+PHBhdGggZmlsbD0iIzAwYTBmMiIgZD0iTTY0LjY2IDg1LjJDNjQuNjYgNjguNjkgODIuMjQgNTcuNTcgOTUuNjggNTEuNjRDOTkuNTkgNTIuNSAxMDMuNDIgNTQuNjUgMTA3LjAzIDU2LjM5QzEwMS40MiA2MC4wNiA5NS4zMyA2Mi45OCA5MC4yOSA2Ny41OEM4NS4yNSA3Mi4xOSA4MS4yNiA3OC40OCA4MS4yNiA4NS4yQzgxLjI2IDkxLjkzIDg1LjI1IDk4LjIyIDkwLjI5IDEwMi44M0M5NS4zMyAxMDcuNDMgMTAxLjQyIDExMC4zNSAxMDcuMDMgMTE0LjAxQzEwMy40MiAxMTUuNzYgOTkuNTkgMTE3LjkxIDk1LjY4IDExOC43N0M4Mi4yNCAxMTIuODQgNjQuNjYgMTAxLjcyIDY0LjY2IDg1LjJaIi8+PC9zdmc+Cg=="
+            alt=""
+            class="foot-logo"
+          />
+          <div>
+            Généré par <code>node docs/design/login/audit.mjs</code> depuis
+            <code
+              >docs/adr/0015-page-de-connexion-servie-par-le-framework.md</code
+            >.
+          </div>
+        </div>
+      </footer>
+    </div>
+    <script>
+      // La MÊME fonction que `nombreDepuisTexte`, sérialisée : une seule règle, une
+      // seule implémentation, éprouvée par l'auto-contrôle.
+      const num = (v) =>
+        parseFloat(
+          String(v)
+            .replace(/[\s\u00a0\u202f]/g, "")
+            .replace(/(\d),(\d)/g, "$1.$2")
+            .replace(/[^\d.eE+-]/g, ""),
+        );
+      for (const t of document.querySelectorAll("table.sortable")) {
+        const tb = t.tBodies[0];
+        t.querySelectorAll("th[data-sort]").forEach((th) => {
+          let asc = false;
+          // Le bouton EST le contrôle (clic + Entrée + Espace natifs, focus natif) :
+          // pas de gestion clavier à réécrire, et le lecteur d'écran annonce le tri
+          // via aria-sort sur la colonne.
+          th.querySelector(".th-btn").addEventListener("click", () => {
+            const i = +th.dataset.sort;
+            asc = !asc;
+            const rows = [...tb.rows].sort((a, b) => {
+              const va = a.cells[i].dataset.v ?? a.cells[i].textContent;
+              const vb = b.cells[i].dataset.v ?? b.cells[i].textContent;
+              // Normaliser AVANT de convertir : « 12 226,45 » porte une espace fine
+              // insécable comme séparateur de milliers et une virgule décimale. Les
+              // effacer toutes les deux donnerait « 1222645 » — une colonne triée à
+              // l'envers, sans le moindre signe d'erreur.
+              const num = (v) =>
+                parseFloat(
+                  String(v)
+                    .replace(/[\s\u00a0\u202f]/g, "")
+                    .replace(/(\d),(\d)/g, "$1.$2")
+                    .replace(/[^\d.eE+-]/g, ""),
+                );
+              const na = num(va);
+              const nb = num(vb);
+              const cmp =
+                !isNaN(na) && !isNaN(nb)
+                  ? na - nb
+                  : String(va).localeCompare(String(vb), "fr");
+              return asc ? cmp : -cmp;
+            });
+            rows.forEach((r) => tb.appendChild(r));
+            t.querySelectorAll("th[data-sort]").forEach((x) => {
+              x.setAttribute("aria-sort", "none");
+              x.classList.remove("asc", "desc");
+            });
+            th.setAttribute("aria-sort", asc ? "ascending" : "descending");
+            th.classList.add(asc ? "asc" : "desc");
+          });
+        });
+      }
+      (function () {
+        var K = "nf-theme",
+          root = document.documentElement;
+        function lire() {
+          try {
+            return localStorage.getItem(K);
+          } catch (e) {
+            return null;
+          }
+        }
+        function ecrire(v) {
+          try {
+            localStorage.setItem(K, v);
+          } catch (e) {}
+        }
+        var choisi = lire();
+        if (choisi === "dark" || choisi === "light")
+          root.dataset.theme = choisi;
+        var tgl = document.getElementById("theme-toggle");
+        if (!tgl) return;
+        function etiquette() {
+          var t =
+            root.dataset.theme ||
+            (matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light");
+          tgl.setAttribute(
+            "aria-label",
+            t === "dark" ? "Passer au thème clair" : "Passer au thème sombre",
+          );
+          tgl.setAttribute("title", tgl.getAttribute("aria-label"));
+        }
+        etiquette();
+        tgl.addEventListener("click", function () {
+          var cur =
+            root.dataset.theme ||
+            (matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light");
+          var suivant = cur === "dark" ? "light" : "dark";
+          root.dataset.theme = suivant;
+          ecrire(suivant);
+          etiquette();
+        });
+      })();
+      let _printRestore = [];
+      addEventListener("beforeprint", () => {
+        _printRestore = [];
+        for (const d of document.querySelectorAll("details")) {
+          if (!d.open) {
+            _printRestore.push(d);
+            d.open = true;
+          } // sinon : ABSENT du PDF
+        }
+        for (const p of document.querySelectorAll("[role=tabpanel][hidden]")) {
+          _printRestore.push(p);
+          p.hidden = false; // idem pour un onglet masqué
+        }
+        for (const s of document.querySelectorAll("section.sec"))
+          s.style.display = "";
+      });
+      addEventListener("afterprint", () => {
+        for (const el of _printRestore) {
+          if (el.tagName === "DETAILS") el.open = false;
+          else el.hidden = true;
+        }
+        _printRestore = [];
+      });
+    </script>
+  </body>
+</html>
