@@ -1,7 +1,7 @@
 import { OAUTH2_API_BASE, type Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
-import Controller from "../src/Controller";
+import SecurityApiController from "../src/SecurityApiController";
 
 /**
  * Vue MINIMALE du service `oauth2` (`@nodefony/security`) — couplage par NOM
@@ -166,7 +166,7 @@ export function withAuthorizationError(
  * La session anonyme ne porte que `state`/`verifier` ; `establishSessionFor`
  * régénère l'ID (anti-fixation) à la promotion.
  */
-class OAuth2Controller extends Controller {
+class OAuth2Controller extends SecurityApiController {
   constructor(context: ContextType) {
     super("OAuth2Controller", context);
   }

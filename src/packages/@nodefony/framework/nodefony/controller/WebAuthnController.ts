@@ -1,7 +1,7 @@
 import { WEBAUTHN_API_BASE, type Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
-import Controller from "../src/Controller";
+import SecurityApiController from "../src/SecurityApiController";
 
 /**
  * Options de cérémonie renvoyées au navigateur (forme JSON WebAuthn) — seul le
@@ -104,7 +104,7 @@ let mounted = false;
  * firewall (qui, sur l'aire data plane, déclencherait un deadlock identique au
  * login BFF).
  */
-class WebAuthnController extends Controller {
+class WebAuthnController extends SecurityApiController {
   constructor(context: ContextType) {
     super("WebAuthnController", context);
   }

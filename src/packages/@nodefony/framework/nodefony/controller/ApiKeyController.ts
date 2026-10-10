@@ -1,7 +1,7 @@
 import type { Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
-import Controller from "../src/Controller";
+import SecurityApiController from "../src/SecurityApiController";
 import { collectDeclaredApiScopes } from "../src/scopeCatalog";
 
 /**
@@ -58,7 +58,7 @@ let mounted = false;
  * Erreurs mappées par DUCK-TYPING sur `code` (400/409/503) — framework ne peut pas
  * importer les classes d'erreur de security.
  */
-class ApiKeyController extends Controller {
+class ApiKeyController extends SecurityApiController {
   constructor(context: ContextType) {
     super("ApiKeyController", context);
   }

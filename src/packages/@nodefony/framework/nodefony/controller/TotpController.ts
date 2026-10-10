@@ -1,7 +1,7 @@
 import type { Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
-import Controller from "../src/Controller";
+import SecurityApiController from "../src/SecurityApiController";
 
 /** Vue minimale de l'utilisateur courant (`authFlow.me`) — anti-IDOR. */
 interface ISafeUserLike {
@@ -56,7 +56,7 @@ let mounted = false;
  * `totp` existe (security chargé) — sans security, 404 et zéro surface ; 2FA
  * désactivé, les routes répondent 503.
  */
-class TotpController extends Controller {
+class TotpController extends SecurityApiController {
   constructor(context: ContextType) {
     super("TotpController", context);
   }

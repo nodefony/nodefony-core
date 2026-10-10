@@ -1,7 +1,7 @@
 import type { Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
-import Controller from "../src/Controller";
+import SecurityApiController from "../src/SecurityApiController";
 
 /**
  * Vue MINIMALE du service d'émission de jetons (`tokenService`, posé au container
@@ -57,7 +57,7 @@ function parseScope(scope: unknown): string[] | undefined {
  * portent pas de `WWW-Authenticate` — l'endpoint d'émission n'est pas une
  * ressource protégée par Bearer, il DÉLIVRE le Bearer.
  */
-class TokenAuthController extends Controller {
+class TokenAuthController extends SecurityApiController {
   constructor(context: ContextType) {
     super("TokenAuthController", context);
   }

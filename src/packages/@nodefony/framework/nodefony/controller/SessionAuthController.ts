@@ -5,7 +5,7 @@ import {
 } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
-import Controller from "../src/Controller";
+import SecurityApiController from "../src/SecurityApiController";
 
 /**
  * Vue MINIMALE du flux de session BFF que consomme ce controller — le service
@@ -73,7 +73,7 @@ let mounted = false;
  * restent strictement conformes (challenge du premier authenticator qui en
  * déclare un).
  */
-class SessionAuthController extends Controller {
+class SessionAuthController extends SecurityApiController {
   constructor(context: ContextType) {
     super("SessionAuthController", context);
   }
