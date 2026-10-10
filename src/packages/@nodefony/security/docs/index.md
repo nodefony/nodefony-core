@@ -59,10 +59,11 @@ Quatre parcours selon ce que tu viens faire. L'ordre compte : chaque étape supp
 **J'ouvre un login à des humains** — navigateur, comptes, second facteur.
 
 1. [Authenticators](authenticators.md) — la session BFF, et pourquoi le login est **déjà fourni**.
-2. [OAuth2](oauth2.md) — « se connecter avec GitHub/Google » et le Shadow User.
-3. [Keycloak](keycloak.md) — brancher l'annuaire de l'entreprise, du realm au premier login.
-4. [WebAuthn / passkeys](webauthn.md) — se connecter sans mot de passe, résistant au phishing.
-5. [TOTP](totp.md) — le second facteur classique, et l'élévation de privilège (step-up).
+2. [Page de connexion](login-page.md) — la page servie à `/login`, et comment l'habiller à ton nom.
+3. [OAuth2](oauth2.md) — « se connecter avec GitHub/Google » et le Shadow User.
+4. [Keycloak](keycloak.md) — brancher l'annuaire de l'entreprise, du realm au premier login.
+5. [WebAuthn / passkeys](webauthn.md) — se connecter sans mot de passe, résistant au phishing.
+6. [TOTP](totp.md) — le second facteur classique, et l'élévation de privilège (step-up).
 
 **J'audite avant une mise en production** — la passe qu'on regrette de ne pas avoir faite.
 
@@ -87,6 +88,7 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
 | [CSRF](csrf.md)                         | requête authentifiée forgée par un site tiers | tu sers un front avec cookie de session          |
 | [CORS](cors.md)                         | lecture cross-origine de tes réponses         | ton front est sur un autre domaine               |
 | [En-têtes](headers.md)                  | CSP, HSTS, COOP/COEP, Referrer-Policy         | tu sers du HTML à un navigateur                  |
+| [Page de connexion](login-page.md)      | la page `/login` servie, habillable           | des humains se connectent à ton application      |
 | [OAuth2](oauth2.md)                     | login social + provisionnement d'identité     | « se connecter avec … »                          |
 | [Keycloak](keycloak.md)                 | connexion par l'annuaire auto-hébergé         | tes comptes vivent dans un realm Keycloak        |
 | [WebAuthn](webauthn.md)                 | passkeys, connexion résistante au phishing    | tu veux supprimer les mots de passe              |
@@ -105,6 +107,9 @@ Le tableau pour choisir en cinq secondes ; les cards en dessous pour le détail.
   { "icon": "⚖️", "title": "authorization", "href": "authorization.md",
     "desc": "Décider des droits : rôles hiérarchisés, scopes, et voters métier qui portent le vrai pouvoir applicatif. Le jury vote, la stratégie tranche.",
     "meta": "juste après les authenticators — authentifier sans autoriser ne protège rien" },
+  { "icon": "🚪", "title": "page de connexion", "href": "login-page.md",
+    "desc": "La page servie à /login : identifiant, mot de passe, second facteur, boutons des fournisseurs, thèmes clair et sombre. Textes, panneau et couleurs se règlent par la configuration et une feuille de style — sans copier son balisage.",
+    "meta": "le piège : une couleur qui dépend du thème se redéfinit pour les DEUX thèmes" },
   { "icon": "🎫", "title": "tokens", "href": "tokens.md",
     "desc": "L'identité matérialisée : émission, keystore, rotation, révocation — et le choix structurant du framework, session opaque côté serveur pour le web, JWT pour les API.",
     "meta": "et pourquoi ce n'est pas « full stateless »" },

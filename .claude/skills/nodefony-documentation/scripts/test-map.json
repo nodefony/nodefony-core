@@ -413,6 +413,20 @@
       "src/nodefony/src/tests/detachedStart.test.ts"
     ]
   },
+  "login-page": {
+    "unit": [
+      "src/packages/@nodefony/framework/nodefony/tests/unit/loginPage.test.ts",
+      "src/packages/@nodefony/security/tests/unit/loginPage.test.ts",
+      "src/packages/@nodefony/security/tests/unit/oauth2Service.test.ts",
+      "src/nodefony/src/tests/clientLoginPage.test.ts"
+    ],
+    "attack": [
+      "src/packages/@nodefony/security/tests/unit/securedArea.attack.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/framework/nodefony/tests/integration/login-page.test.ts"
+    ]
+  },
   "mongoose": {
     "globs": ["src/packages/@nodefony/mongoose/tests/**/*.test.ts"]
   },
