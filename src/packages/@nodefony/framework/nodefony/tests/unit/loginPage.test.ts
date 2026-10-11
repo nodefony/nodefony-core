@@ -15,6 +15,7 @@ import {
   buildLoginPageView,
   keepSuccess,
   LOGIN_PAGE_EMPTY_NOTICE,
+  ORGANIZATION_ACCOUNT_LABEL,
   type ILoginPageRequest,
 } from "../../src/loginPage.js";
 import { NodefonyLogin } from "../../../../../../nodefony/src/client/auth/NodefonyLogin.js";
@@ -35,6 +36,7 @@ const PAGE: ILoginPageDescription = {
   layout: "split",
   password: true,
   passkey: false,
+  previewPicker: false,
   providers: [
     { name: "keycloak", label: "Compte entreprise", icon: null },
     { name: "github", label: "GitHub", icon: null },
@@ -334,6 +336,64 @@ describe("page de connexion — gabarit rendu", () => {
       REQUEST,
     );
     expect(doc.body.hasAttribute("data-sso-first")).toBe(true);
+  });
+
+  it("🔴 un fournisseur d'organisation se lit « Compte de l'organisation », son logiciel en petit ; une marque grand public garde son nom", () => {
+    const doc = render();
+    const [keycloak, github] = Array.from(doc.querySelectorAll(".nf-alt a"));
+    expect(keycloak?.querySelector(".nf-label")?.firstChild?.textContent).toBe(
+      ORGANIZATION_ACCOUNT_LABEL,
+    );
+    expect(keycloak?.querySelector("small")?.textContent).toBe(
+      "SSO · Compte entreprise",
+    );
+    expect(github?.textContent?.trim()).toBe("GitHub");
+    expect(github?.querySelector("small")).toBeNull();
+  });
+
+  it("🔴 les onglets d'étapes sont collés au formulaire, sous les fournisseurs quand ils passent d'abord", () => {
+    const doc = render();
+    const steps = doc.querySelector(".nf-steps");
+    expect(steps?.parentElement?.classList.contains("nf-body")).toBe(true);
+    expect(steps?.nextElementSibling?.getAttribute("data-step")).toBe(
+      "identifier",
+    );
+  });
+
+  it("thème : la bascule est rendue ; le thème mémorisé ne se relit que si `?theme=` n'impose rien", () => {
+    const free = render();
+    expect(free.querySelector("[data-theme-toggle]")).not.toBeNull();
+    const inline = free.querySelector("head script:not([src])");
+    expect(inline?.getAttribute("nonce")).toBe("n0nce");
+    expect(inline?.textContent).toContain("nf-login-theme");
+    const imposed = render(PAGE, { ...REQUEST, theme: "dark" });
+    expect(imposed.querySelector("head script:not([src])")).toBeNull();
+  });
+
+  it("🔴 sélecteur d'aperçu : seulement en développement ET sur demande, avec la valeur affichée sélectionnée", () => {
+    const asked = { ...PAGE, previewPicker: true };
+    const dev = render(asked, { ...REQUEST, preview: true, skin: "ledger" });
+    const picker = dev.querySelector("form[data-preview-picker]");
+    expect(picker).not.toBeNull();
+    expect(
+      dev.querySelector<HTMLSelectElement>('select[name="skin"]')?.value,
+    ).toBe("ledger");
+    expect(
+      dev.querySelector<HTMLSelectElement>('select[name="layout"]')?.value,
+    ).toBe("bare");
+    expect(dev.querySelectorAll('select[name="skin"] option')).toHaveLength(9);
+    // Production : jamais, même demandé.
+    expect(
+      render(asked, { ...REQUEST, preview: false }).querySelector(
+        "[data-preview-picker]",
+      ),
+    ).toBeNull();
+    // Développement sans la demande : rien non plus.
+    expect(
+      render(PAGE, { ...REQUEST, preview: true }).querySelector(
+        "[data-preview-picker]",
+      ),
+    ).toBeNull();
   });
 
   it("par défaut : « Se connecter », vitrine Nodefony, pied de page, aucune feuille de l'application", () => {
@@ -667,6 +727,66 @@ describe("page de connexion — passkey, avec le vrai script", () => {
       expect(document.querySelector("[data-message]")?.textContent).toBe("");
     } finally {
       unmount();
+    }
+  });
+});
+
+describe("page de connexion — bascule de thème, avec le vrai script", () => {
+  it("🔴 un clic inverse le thème affiché et le retient ; un second clic revient", () => {
+    const rendered = render(PAGE, { ...REQUEST, theme: "light" });
+    document.documentElement.replaceWith(
+      document.importNode(rendered.documentElement, true),
+    );
+    const unmount = mountLoginPage(document, {
+      login: new NodefonyLogin({ passkey: null }),
+      navigate: vi.fn(),
+    });
+    try {
+      const toggle = document.querySelector<HTMLElement>("[data-theme-toggle]");
+      toggle?.click();
+      expect(document.documentElement.dataset.theme).toBe("dark");
+      expect(localStorage.getItem("nf-login-theme")).toBe("dark");
+      toggle?.click();
+      expect(document.documentElement.dataset.theme).toBe("light");
+      expect(localStorage.getItem("nf-login-theme")).toBe("light");
+    } finally {
+      unmount();
+      localStorage.clear();
+    }
+  });
+});
+
+describe("page de connexion — sélecteur d'aperçu, avec le vrai script", () => {
+  it("🔴 un choix recharge ; changer d'habillage rend la mise en page à l'habillage", () => {
+    const rendered = render(
+      { ...PAGE, previewPicker: true },
+      { ...REQUEST, preview: true },
+    );
+    document.documentElement.replaceWith(
+      document.importNode(rendered.documentElement, true),
+    );
+    const submit = vi
+      .spyOn(HTMLFormElement.prototype, "submit")
+      .mockImplementation(() => {});
+    const unmount = mountLoginPage(document, {
+      login: new NodefonyLogin({ passkey: null }),
+      navigate: vi.fn(),
+    });
+    try {
+      const skin = document.querySelector<HTMLSelectElement>(
+        'select[name="skin"]',
+      );
+      const layout = document.querySelector<HTMLSelectElement>(
+        'select[name="layout"]',
+      );
+      if (skin === null || layout === null) throw new Error("sélecteur absent");
+      skin.value = "horizon";
+      skin.dispatchEvent(new Event("change", { bubbles: true }));
+      expect(submit).toHaveBeenCalledTimes(1);
+      expect(layout.disabled).toBe(true);
+    } finally {
+      unmount();
+      submit.mockRestore();
     }
   });
 });

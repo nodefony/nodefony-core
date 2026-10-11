@@ -1403,8 +1403,11 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
       return ctx.request?.queryFile;
     case "user":
       // @CurrentUser — utilisateur posé par le firewall dans l'ALS (jamais le
-      // credential). O(1), 0 alloc. `undefined` si aucune zone n'a authentifié.
-      return RequestContext.getUser();
+      // credential). O(1), 0 alloc. `undefined` si aucune zone n'a authentifié
+      // — l'anonyme d'une zone `anonymous` compris : même règle que `this.user`.
+      return RequestContext.isAnonymous()
+        ? undefined
+        : RequestContext.getUser();
     default:
       return undefined;
   }

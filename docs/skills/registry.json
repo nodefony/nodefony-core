@@ -1892,8 +1892,8 @@
       ],
       "description": "Ouvre une page réelle dans un navigateur piloté pour la VOIR et la MESURER : contrastes calculés, WCAG par axe-core, Web Vitals, réseau, console, débordements, proportions sur l'écran choisi (téléphone émulé, bureau, grand écran) ; pilote aussi un socket depuis la page. Impose le thème clair ou sombre. Porte les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, viser le mauvais hôte, observer un autre bundle que celui qu'on a bâti. À charger AVANT de constater quoi que ce soit à l'écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"erreurs JS ?\", \"mesure le contraste\", \"cette couleur est-elle lisible ?\", \"capture d'écran\", \"audit WCAG\", \"en mode clair\", \"en mode sombre\", \"quelles requêtes fait la page ?\", \"teste le websocket\", \"latence du socket ?\", \"rendu mobile\", \"faut-il défiler sur téléphone ?\", \"le bouton est-il visible sans défiler ?\", \"la carte est-elle bien proportionnée ?\", \"sur un grand écran\".",
       "cost": {
-        "bodyLines": 449,
-        "approxTokens": 7319
+        "bodyLines": 454,
+        "approxTokens": 7400
       },
       "requires": [],
       "resources": {
@@ -1970,7 +1970,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "449",
+            "detail": "454",
             "advisory": true
           }
         ]
@@ -4379,8 +4379,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 409,
-        "approxTokens": 9440
+        "bodyLines": 410,
+        "approxTokens": 9661
       },
       "requires": [],
       "resources": {
@@ -4476,7 +4476,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "409",
+            "detail": "410",
             "advisory": true
           }
         ]

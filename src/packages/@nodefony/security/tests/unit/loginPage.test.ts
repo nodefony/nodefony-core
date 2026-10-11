@@ -36,6 +36,7 @@ describe("security.loginPage — schéma", () => {
       providersFirst: true,
       footer: true,
       skin: "frontispiece",
+      previewPicker: false,
     });
   });
 
@@ -96,6 +97,7 @@ describe("AuthFlow.describeLoginPage", () => {
       layout: "split",
       password: true,
       passkey: false,
+      previewPicker: false,
       providers: [],
     });
   });
@@ -132,6 +134,7 @@ describe("AuthFlow.describeLoginPage", () => {
       layout: "card",
       password: false,
       passkey: false,
+      previewPicker: false,
       providers: [],
     });
   });

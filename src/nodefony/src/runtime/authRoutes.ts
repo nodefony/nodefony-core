@@ -295,6 +295,11 @@ export interface ILoginPageDescription {
    * savoir faire, ce que le script de la page constate.
    */
   readonly passkey: boolean;
+  /**
+   * Sélecteur d'aperçu demandé (`loginPage.previewPicker`) ; la page ne
+   * l'affiche qu'en développement.
+   */
+  readonly previewPicker: boolean;
   /** Fournisseurs à proposer, dans l'ordre de la configuration. */
   readonly providers: readonly ILoginPageProvider[];
 }
@@ -306,6 +311,13 @@ export interface ILoginPageDescription {
  * en change.
  */
 export const LOGIN_PAGE_ASSETS_BASE = "/nodefony/security/login";
+
+/**
+ * Clé du stockage local où la page de connexion par défaut retient le thème
+ * choisi (`light` ou `dark`). Le gabarit la lit avant le premier rendu, le
+ * script de la page l'écrit à la bascule.
+ */
+export const LOGIN_PAGE_THEME_KEY = "nf-login-theme";
 
 /** Script de la page de connexion par défaut (bundle `nodefony/login.js`). */
 export const LOGIN_PAGE_SCRIPT_PATH = `${LOGIN_PAGE_ASSETS_BASE}/login.js`;

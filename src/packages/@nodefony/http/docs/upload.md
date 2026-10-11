@@ -327,8 +327,8 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 | `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1232`)             |
 | `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1279`)                       |
 | `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1358`)               |
-| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:341`) |
-| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:351`) |
+| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:354`) |
+| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:364`) |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
 (`routerDecorators.ts:1312`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /

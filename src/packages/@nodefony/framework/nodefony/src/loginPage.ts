@@ -1,9 +1,11 @@
 import {
   LOGIN_PAGE_ASSETS_BASE,
   LOGIN_PAGE_LAYOUTS,
+  LOGIN_PAGE_SKINS,
   LOGIN_PAGE_SKIN_SPECS,
   isLoginPageSkin,
   loginPageSkinFile,
+  LOGIN_PAGE_THEME_KEY,
   OAUTH2_CANCELLED_REASON,
   oauth2AuthorizePath,
   safeRedirectPath,
@@ -15,7 +17,10 @@ import {
 
 /** Fournisseur prêt à afficher : libellé, adresse d'autorisation, icône. */
 export interface ILoginPageViewProvider {
+  /** Ce que l'utilisateur lit : la marque d'un compte grand public, sinon « Compte de l'organisation ». */
   readonly label: string;
+  /** Petite ligne sous le libellé (`SSO · Keycloak`), ou `null` pour une marque grand public. */
+  readonly caption: string | null;
   readonly href: string;
   /** Symbole du sprite d'icônes (`i-key`, `m-github`), quand `image` est nulle. */
   readonly icon: string;
@@ -61,6 +66,11 @@ export interface ILoginPageView {
   /** Destination après connexion, déjà passée par `safeRedirectPath`. */
   readonly from: string;
   /**
+   * Sélecteur d'aperçu (habillage, mise en page), ou `null` : rendu seulement
+   * en développement ET quand `loginPage.previewPicker` le demande.
+   */
+  readonly picker: ILoginPagePicker | null;
+  /**
    * Message d'échec d'une connexion par fournisseur (`?reason=` posé par le
    * callback OAuth), ou `null`. Texte FIXE : la raison reçue n'est jamais
    * affichée, et une annulation (`access_denied`) n'en produit aucun.
@@ -75,6 +85,12 @@ export interface ILoginPageView {
   readonly logoHref: string;
   /** Nonce CSP de la requête, posé sur le `<script>`. */
   readonly nonce: string;
+}
+
+/** Le sélecteur d'aperçu : les choix possibles et ceux affichés. */
+export interface ILoginPagePicker {
+  readonly skins: readonly LoginPageSkin[];
+  readonly layouts: readonly LoginPageLayout[];
 }
 
 /** Ce que la requête apporte à la page. */
@@ -126,6 +142,28 @@ export const LOGIN_PAGE_ASSET_FILES = {
 } as const;
 
 const DEFAULT_TITLE = "Se connecter";
+
+/**
+ * Fournisseurs dont la MARQUE est le mot que l'utilisateur connaît : il a un
+ * compte GitHub, pas un « fournisseur OpenID Connect ». Tout autre fournisseur
+ * est un serveur d'identité d'organisation (Keycloak, Okta, un OIDC
+ * d'entreprise) dont le nom ne dit rien à qui se connecte.
+ */
+const PUBLIC_ACCOUNT_PROVIDERS: ReadonlySet<string> = new Set([
+  "apple",
+  "bitbucket",
+  "discord",
+  "facebook",
+  "github",
+  "gitlab",
+  "google",
+  "linkedin",
+  "microsoft",
+  "slack",
+]);
+
+/** Libellé d'un fournisseur d'organisation : ce qu'il ouvre, pas son logiciel. */
+export const ORGANIZATION_ACCOUNT_LABEL = "Compte de l'organisation";
 
 /** Annonce d'une page sans aucun moyen de connexion. */
 export const LOGIN_PAGE_EMPTY_NOTICE =
@@ -220,7 +258,11 @@ export function buildLoginPageView(
     empty: !page.password && !page.passkey && !sso,
     lead: page.subtitle ?? leadFor(page.password, page.passkey, sso),
     providers: page.providers.map(({ name, label, icon }) => ({
-      label,
+      // Le nom du logiciel (et le sigle SSO) reste lisible, en petit, pour
+      // qui le connaît ; le mot principal est celui de l'utilisateur.
+      ...(PUBLIC_ACCOUNT_PROVIDERS.has(name.toLowerCase())
+        ? { label, caption: null }
+        : { label: ORGANIZATION_ACCOUNT_LABEL, caption: `SSO · ${label}` }),
       // `back` = cette page : un « Retour » chez le fournisseur ramène ici,
       // quelle que soit l'adresse d'échec configurée (Studio en a une autre).
       href: oauth2AuthorizePath(name, providerFrom, page.path),
@@ -228,6 +270,10 @@ export function buildLoginPageView(
       image: icon,
     })),
     from,
+    picker:
+      request.preview === true && page.previewPicker
+        ? { skins: LOGIN_PAGE_SKINS, layouts: LOGIN_PAGE_LAYOUTS }
+        : null,
     notice:
       typeof request.reason === "string" &&
       request.reason.length > 0 &&
@@ -262,6 +308,9 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
     <meta name="robots" content="noindex" />
     <title><%= it.title %> — <%= it.brand %></title>
     <link rel="icon" href="<%= it.logoHref %>" type="image/svg+xml" />
+<% if (!it.theme) { %>
+    <script nonce="<%= it.nonce %>">try{var t=localStorage.getItem("${LOGIN_PAGE_THEME_KEY}");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
+<% } %>
     <link rel="stylesheet" href="<%= it.styleHref %>" />
 <% if (it.skinHref) { %>
     <link rel="stylesheet" href="<%= it.skinHref %>" />
@@ -280,6 +329,8 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
       <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="3.8" /><path d="M10.8 12.2 19.5 3.5M16.5 6.5l2.5 2.5M14 9l2 2" /></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></symbol>
       <symbol id="i-finger" viewBox="0 0 24 24"><path d="M18.9 7a8 8 0 0 1 1.1 5v1a6 6 0 0 0 .8 3" /><path d="M8 11a4 4 0 0 1 8 0v1a10 10 0 0 0 2 6" /><path d="M12 11v2a14 14 0 0 0 2.5 8" /><path d="M8 15a18 18 0 0 0 1.8 6" /><path d="M4.9 19a22 22 0 0 1-.9-7v-1a8 8 0 0 1 12-6.95" /></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" /></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" /></symbol>
       <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8-7.5 9.5-4.3-1.5-7.5-4.9-7.5-9.5V6z" /></symbol>
       <symbol id="m-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" /></symbol>
     </svg>
@@ -418,21 +469,20 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
 <% } %>
       </aside>
       <main class="nf-stage" data-nf-login data-from="<%= it.from %>">
+        <button type="button" class="nf-theme" data-theme-toggle aria-label="Basculer entre thème clair et thème sombre"><svg class="nf-icon t-sun" aria-hidden="true"><use href="#i-sun" /></svg><svg class="nf-icon t-moon" aria-hidden="true"><use href="#i-moon" /></svg></button>
         <section class="nf-card" aria-labelledby="nf-title">
           <div class="nf-head">
             <div class="nf-brand"><img class="nf-logo" src="<%= it.logo %>" alt="" /><%= it.brand %></div>
             <h1 id="nf-title"><%= it.title %></h1>
             <p class="nf-sub" id="nf-sub"><%= it.lead %></p>
           </div>
-<% if (it.password) { %>
-          <ol class="nf-steps" aria-label="Étapes">
-            <li data-tab="identifier" aria-current="step">Identifiant</li>
-            <li data-tab="password">Mot de passe</li>
-            <li data-tab="mfa" hidden>Vérification</li>
-          </ol>
-<% } %>
           <div class="nf-body">
 <% if (it.password) { %>
+            <ol class="nf-steps" aria-label="Étapes">
+              <li data-tab="identifier" aria-current="step">Identifiant</li>
+              <li data-tab="password">Mot de passe</li>
+              <li data-tab="mfa" hidden>Vérification</li>
+            </ol>
             <form data-step="identifier">
               <div class="nf-field">
                 <label for="nf-username">Identifiant ou adresse e-mail</label>
@@ -488,7 +538,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
                 <button type="button" class="nf-btn span" data-passkey hidden><svg class="nf-icon" aria-hidden="true"><use href="#i-finger" /></svg>Passkey / empreinte digitale</button>
 <% } %>
 <% it.providers.forEach(function (provider) { %>
-                <a class="nf-btn" href="<%= provider.href %>"><% if (provider.image) { %><img class="nf-icon" src="<%= provider.image %>" alt="" /><% } else { %><svg class="<%= provider.icon === 'm-github' ? 'nf-mark' : 'nf-icon' %>" aria-hidden="true"><use href="#<%= provider.icon %>" /></svg><% } %><%= provider.label %></a>
+                <a class="nf-btn" href="<%= provider.href %>"><% if (provider.image) { %><img class="nf-icon" src="<%= provider.image %>" alt="" /><% } else { %><svg class="<%= provider.icon === 'm-github' ? 'nf-mark' : 'nf-icon' %>" aria-hidden="true"><use href="#<%= provider.icon %>" /></svg><% } %><% if (provider.caption) { %><span class="nf-label"><%= provider.label %><small><%= provider.caption %></small></span><% } else { %><%= provider.label %><% } %></a>
 <% }) %>
               </div>
             </div>
@@ -499,6 +549,14 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
 <% } %>
           </div>
         </section>
+<% if (it.picker) { %>
+        <form class="nf-picker" method="get" data-preview-picker aria-label="Aperçu de la page (développement)">
+          <input type="hidden" name="from" value="<%= it.from %>" />
+          <label>Habillage <select name="skin"><% it.picker.skins.forEach(function (skin) { %><option value="<%= skin %>"<% if (skin === it.skin) { %> selected<% } %>><%= skin %></option><% }) %></select></label>
+          <label>Mise en page <select name="layout"><% it.picker.layouts.forEach(function (layout) { %><option value="<%= layout %>"<% if (layout === it.layout) { %> selected<% } %>><%= layout %></option><% }) %></select></label>
+          <noscript><button type="submit">Appliquer</button></noscript>
+        </form>
+<% } %>
 <% if (it.footer) { %>
         <div class="nf-foot">
           <ul class="nf-facts" aria-label="Protection de la session">

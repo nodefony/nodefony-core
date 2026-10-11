@@ -152,7 +152,7 @@ data: {"step":"écriture"}
 | Membre                          | Rôle                                                                                               |
 | ------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `this.renderSse(options?)`      | ouvre le flux (`Controller.renderSse()`, `Controller.ts:665`) ; lève sur WebSocket                 |
-| `this.acceptsSse()`             | le client a-t-il demandé `text/event-stream` ? (`Controller.acceptsSse()`, `Controller.ts:639`)    |
+| `this.acceptsSse()`             | le client a-t-il demandé `text/event-stream` ? (`Controller.acceptsSse()`, `Controller.ts:649`)    |
 | `sse.send(data, { event, id })` | un événement ; texte tel quel, objet en JSON (`SseStream.send()`, `SseStream.ts:248`)              |
 | `sse.comment(text)`             | un commentaire, ignoré par le client                                                               |
 | `sse.retry(ms)`                 | impose le délai de reconnexion du client                                                           |

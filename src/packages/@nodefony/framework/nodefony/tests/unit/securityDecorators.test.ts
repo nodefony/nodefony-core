@@ -192,6 +192,22 @@ describe("@CurrentUser — injection de l'utilisateur ALS", () => {
     });
   });
 
+  it("🔴 resolveParamArg('user') = undefined pour l'anonyme d'une zone `anonymous`", () => {
+    const pm: ParamMeta = { source: "user", index: 0 };
+    RequestContext.run(
+      {
+        requestId: "t",
+        user: { identifier: "anon." },
+        token: { isAuthenticated: () => false },
+      },
+      () => {
+        expect(
+          resolveParamArg(pm, undefined as unknown as IParamArgContext),
+        ).to.equal(undefined);
+      },
+    );
+  });
+
   it("resolveParamArg('user') = undefined hors scope authentifié", () => {
     const pm: ParamMeta = { source: "user", index: 0 };
     expect(

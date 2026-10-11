@@ -52,9 +52,23 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
     // L'éditeur les complète (la valeur est typée), et en développement
     // `/login?skin=horizon` (puis `&layout=card|split|bare`) en montre un sans
     // redémarrer. Usage de chacun : `@nodefony/security`, docs/login-page.md.
+    // L'accueil (`/` et `/app`) affiche qui est connecté. Mode "first" : la
+    // session identifie qui en a une — le contrôleur la lit par `this.user` —
+    // et l'anonyme passe toujours. Les deux pages SEULEMENT : une zone lit la
+    // session à chaque requête, ce que ni `/app/debugbar.js` ni la
+    // déconnexion n'ont besoin de payer.
+    areas: {
+      "app-pages": {
+        pattern: "^/(app)?$",
+        authenticators: ["session", "anonymous"],
+      },
+    },
     loginPage: {
       skin: "frontispiece",
       stylesheet: "/brand/login.css",
+      // Sélecteur d'habillage et de mise en page sur la page — en
+      // développement seulement : ce dépôt sert à les comparer.
+      previewPicker: true,
     },
     // Social login OAuth 2.0 — un fournisseur n'est monté que si SES deux
     // secrets sont présents (spread conditionnel) : pas de bouton mort sur

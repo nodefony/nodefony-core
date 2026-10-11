@@ -5,7 +5,10 @@ import {
   type NodefonyLoginState,
 } from "../auth/NodefonyLogin";
 import { safeRedirectPath } from "../../runtime/safeRedirect";
-import { INSECURE_TRANSPORT_MESSAGE } from "../../runtime/authRoutes";
+import {
+  INSECURE_TRANSPORT_MESSAGE,
+  LOGIN_PAGE_THEME_KEY,
+} from "../../runtime/authRoutes";
 
 /**
  * Textes que le script écrit lui-même dans la page. Tout le reste (libellés,
@@ -72,7 +75,8 @@ const SECOND_MS = 1000;
  * Branche le déroulé de connexion sur le balisage de la page par défaut
  * (`nodefony/login.css`) : étapes `[data-step]`, onglets `[data-tab]`, zone
  * de message `[data-message]`, fournisseurs `[data-alt]`, passkey
- * `[data-passkey]`, bascule du mot de passe `[data-reveal]`, code à chiffres
+ * `[data-passkey]`, bascule du mot de passe `[data-reveal]`, bascule du thème
+ * `[data-theme-toggle]` (choix retenu sous `LOGIN_PAGE_THEME_KEY`), code à chiffres
  * `.nf-otp`.
  *
  * Le script n'écrit que du texte (`textContent`), jamais de balisage : ce que
@@ -258,6 +262,23 @@ export function mountLoginPage(
     }
   };
 
+  // Le thème affiché : celui posé sur la racine, sinon celui du système.
+  const toggleTheme = (): void => {
+    const root = doc.documentElement;
+    const current =
+      root.dataset.theme ??
+      (view?.matchMedia("(prefers-color-scheme: light)").matches
+        ? "light"
+        : "dark");
+    const next = current === "light" ? "dark" : "light";
+    root.dataset.theme = next;
+    try {
+      view?.localStorage.setItem(LOGIN_PAGE_THEME_KEY, next);
+    } catch {
+      // Stockage refusé (navigation privée) : le choix vaut pour cette page.
+    }
+  };
+
   const onClick = (event: Event): void => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -265,6 +286,8 @@ export function mountLoginPage(
     if (control === null) return;
     if (control.dataset.go === "identifier") {
       login.back();
+    } else if (control.hasAttribute("data-theme-toggle")) {
+      toggleTheme();
     } else if (control.hasAttribute("data-passkey")) {
       void login.loginWithPasskey();
     } else if (control.hasAttribute("data-reveal")) {
@@ -310,8 +333,25 @@ export function mountLoginPage(
     otp[Math.min(digits.length, otp.length - 1)]?.focus();
   };
 
+  // Sélecteur d'aperçu (développement) : un choix recharge aussitôt. Changer
+  // d'habillage remet la mise en page de CET habillage, sauf choix explicite.
+  const onPickerChange = (event: Event): void => {
+    const select = event.target;
+    if (!(select instanceof HTMLSelectElement)) return;
+    const form = select.form;
+    if (form === null || !form.hasAttribute("data-preview-picker")) return;
+    if (select.name === "skin") {
+      const layout = form.querySelector<HTMLSelectElement>(
+        'select[name="layout"]',
+      );
+      if (layout !== null) layout.disabled = true;
+    }
+    form.submit();
+  };
+
   doc.addEventListener("submit", onSubmit);
   doc.addEventListener("click", onClick);
+  doc.addEventListener("change", onPickerChange);
   doc.addEventListener("input", onOtpInput);
   doc.addEventListener("keydown", onOtpKeydown);
   doc.addEventListener("paste", onOtpPaste);
@@ -325,6 +365,7 @@ export function mountLoginPage(
     unsubscribe();
     doc.removeEventListener("submit", onSubmit);
     doc.removeEventListener("click", onClick);
+    doc.removeEventListener("change", onPickerChange);
     doc.removeEventListener("input", onOtpInput);
     doc.removeEventListener("keydown", onOtpKeydown);
     doc.removeEventListener("paste", onOtpPaste);

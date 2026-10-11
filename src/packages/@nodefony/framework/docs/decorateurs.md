@@ -367,8 +367,9 @@ La liste des sources possibles est fermée et typée : `ParamSource` (`routerDec
 
 **`@CurrentUser` lit l'ALS, jamais un argument caché.** La valeur vient de `RequestContext.getUser()`
 (`routerDecorators.ts:1308`) : l'utilisateur posé par le firewall. C'est **l'utilisateur**, jamais le
-justificatif (mot de passe, jeton). Hors zone authentifiée, la valeur est `undefined` — le décorateur
-n'authentifie rien, il expose ce qui a déjà été prouvé.
+justificatif (mot de passe, jeton). Hors zone authentifiée, la valeur est `undefined` — y compris
+pour l'anonyme d'une zone qui l'accepte — : le décorateur n'authentifie rien, il expose ce qui a déjà
+été prouvé. Sans décorateur, la même valeur se lit par `this.user` dans le contrôleur.
 
 **`@Session` active la session à lui seul.** La simple présence d'un paramètre `@Session` vaut
 déclaration d'intention : `resolveSessionIntent()` (`routerDecorators.ts:858`) la détecte et pose

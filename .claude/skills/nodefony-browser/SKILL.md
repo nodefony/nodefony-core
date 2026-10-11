@@ -213,6 +213,11 @@ NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secre
   node $S/inspect.mjs /nodefony/create "Que voulez-vous créer"
 ```
 
+🔴 **Le texte attendu (2ᵉ argument) se vérifie sur la page D'ARRIVÉE, AVANT les actions** — l'état
+FINAL se vérifie par un `attendre:<texte>` en dernière action. Passer le texte de l'écran final
+comme argument fait échouer la sonde avant tout geste (vécu : un parcours de connexion « en
+panne » qui n'avait jamais été joué).
+
 Grammaire : `verbe:cible[=valeur]`, séquence séparée par `|`, verbe facultatif (`clic` par défaut),
 cible cherchée d'abord comme **texte visible** puis comme sélecteur CSS. Verbes : `clic` · `double`
 · `droit` (clic droit) · `survol` · `saisir:Nom=mon-app` · `touche:Enter` · `voir` · `defiler:600`

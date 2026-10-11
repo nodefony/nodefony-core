@@ -228,3 +228,67 @@ describe("RequestContext (AsyncLocalStorage façade)", () => {
     });
   });
 });
+
+describe("RequestContext.getAuthenticatedUser — « qui est connecté ? »", () => {
+  const admin = { id: "u-1", identifier: "admin", roles: ["ROLE_ADMIN"] };
+  const anonymous = { id: "anon", identifier: "anon.", roles: [] };
+  const token = (authenticated: boolean) => ({
+    isAuthenticated: () => authenticated,
+  });
+
+  it("hors de toute requête, ou hors zone (rien posé) : null", () => {
+    expect(RequestContext.getAuthenticatedUser()).to.equal(null);
+    RequestContext.run({ requestId: "hors-zone" }, () => {
+      expect(RequestContext.getAuthenticatedUser()).to.equal(null);
+    });
+  });
+
+  it("🔴 un jeton authentifié rend son utilisateur", () => {
+    RequestContext.run(
+      { requestId: "r", user: admin, token: token(true) },
+      () => {
+        expect(RequestContext.getAuthenticatedUser()).to.equal(admin);
+      },
+    );
+  });
+
+  it("🔴 l'anonyme d'une zone `anonymous` n'est PAS un utilisateur connecté, même si getUser() le rend", () => {
+    RequestContext.run(
+      { requestId: "r", user: anonymous, token: token(false) },
+      () => {
+        expect(RequestContext.getUser()).to.equal(anonymous);
+        expect(RequestContext.getAuthenticatedUser()).to.equal(null);
+      },
+    );
+  });
+
+  it("une valeur qui n'a pas la forme d'un utilisateur : null, jamais un objet mal typé", () => {
+    RequestContext.run(
+      { requestId: "r", user: { identifier: "x" }, token: token(true) },
+      () => {
+        expect(RequestContext.getAuthenticatedUser()).to.equal(null);
+      },
+    );
+  });
+});
+
+describe("RequestContext.isAnonymous", () => {
+  it("vrai seulement pour un jeton non authentifié ; faux hors zone ou connecté", () => {
+    expect(RequestContext.isAnonymous()).to.equal(false);
+    RequestContext.run({ requestId: "hors-zone" }, () => {
+      expect(RequestContext.isAnonymous()).to.equal(false);
+    });
+    RequestContext.run(
+      { requestId: "a", token: { isAuthenticated: () => false } },
+      () => {
+        expect(RequestContext.isAnonymous()).to.equal(true);
+      },
+    );
+    RequestContext.run(
+      { requestId: "c", token: { isAuthenticated: () => true } },
+      () => {
+        expect(RequestContext.isAnonymous()).to.equal(false);
+      },
+    );
+  });
+});

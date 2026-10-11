@@ -4,6 +4,13 @@ import fs from "node:fs";
 import { route, controller, Controller, UseSession } from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
+import { loginPagePath } from "nodefony";
+
+/** Ce que la déconnexion demande au déroulé de session de security. */
+interface ISessionFlow {
+  logout(context: ContextType): Promise<void>;
+  logoutWithProvider?(context: ContextType): Promise<{ logoutUrl?: string }>;
+}
 
 /**
  * Bundle standalone de la debug bar (`nodefony/debugbar.js` = build core), lu
@@ -37,10 +44,42 @@ class AppController extends Controller {
       "views",
       "index.eta",
     );
-    return this.renderView(
-      view,
-      this.context?.metaData as Record<string, unknown> | undefined,
-    );
+    // `this.user` : l'identité que le pare-feu a posée (zone `app-pages`,
+    // session ou anonyme) — les boutons de la barre marchent sans JavaScript.
+    const context = this.context as ContextType;
+    const url = context.request?.url;
+    return this.renderView(view, {
+      ...context.metaData,
+      session: {
+        user: this.user?.identifier ?? null,
+        loginHref: loginPagePath(
+          url instanceof URL ? url.pathname + url.search : "/",
+        ),
+      },
+    });
+  }
+
+  // Déconnexion par formulaire : un POST de même origine (CSRF : Fetch
+  // Metadata), puis retour à l'accueil — ou chez le fournisseur, qui ferme
+  // aussi SA session et sans quoi il reconnecterait au prochain passage.
+  @route("route-app-logout", {
+    path: "/logout",
+    requirements: { methods: ["POST"] },
+  })
+  async logout() {
+    const flow = this.#flow();
+    const context = this.context as ContextType;
+    let target = "/";
+    if (flow?.logoutWithProvider) {
+      target = (await flow.logoutWithProvider(context)).logoutUrl ?? "/";
+    } else if (flow) {
+      await flow.logout(context);
+    }
+    this.redirect(target, 303);
+  }
+
+  #flow(): ISessionFlow | null {
+    return this.get<ISessionFlow>("authFlow") ?? null;
   }
 
   // Sert le bundle standalone de la debug bar pour la page d'accueil (rendue

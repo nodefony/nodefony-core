@@ -65,7 +65,7 @@ la personnaliser là où c'est sans risque : les textes, les couleurs, le conten
 
 - **Configuration dans `@nodefony/security`, rendu dans `@nodefony/framework`** : le premier décrit
   la page (`AuthFlow.describeLoginPage()`, `authFlow.ts:470`), le second la rend
-  (`buildLoginPageView()`, `loginPage.ts:189`) et la sert (`LoginPageController`,
+  (`buildLoginPageView()`, `loginPage.ts:227`) et la sert (`LoginPageController`,
   `LoginPageController.ts:102`). Le contrat entre les deux, `ILoginPageDescription`, vit au cœur
   (`authRoutes.ts:262`).
 - **Tout passe par du texte échappé** : aucune valeur de la configuration ni de la requête n'entre
@@ -135,15 +135,20 @@ et ne laisse que votre marque sur l'image du panneau.
 ### Situation 2 — connexion par l'organisation seulement (SSO)
 
 `password: false` retire le formulaire : il ne reste que les boutons des fournisseurs. Chaque
-bouton prend son libellé (`oauth2.providers.<nom>.label`) et, si vous la réglez, son image
-(`oauth2.providers.<nom>.icon`, sinon la marque GitHub ou une clé) — `listDisplayProviders()`
-(`oauth2.ts:422`).
+bouton prend son image si vous la réglez (`oauth2.providers.<nom>.icon`, sinon la marque GitHub ou
+une clé) — `listDisplayProviders()` (`oauth2.ts:422`).
+
+Le libellé suit ce que l'utilisateur connaît. Une marque grand public (GitHub, Google, Microsoft…)
+garde son nom. Un serveur d'identité d'organisation (Keycloak, un OIDC d'entreprise) se lit
+**« Compte de l'organisation »**, son nom passant en petit dessous, `SSO · Keycloak` (votre
+`oauth2.providers.<nom>.label` y figure) : personne ne sait ce qu'est « Keycloak » en arrivant sur
+une page de connexion.
 
 ### Situation 3 — le formulaire d'abord
 
 Par défaut, quand des fournisseurs sont proposés, leurs boutons passent avant le formulaire : la
 plupart des comptes d'une entreprise sont ceux de son annuaire. `providersFirst: false` inverse
-l'ordre (`loginPage.ts:217`).
+l'ordre (`loginPage.ts:255`).
 
 ### Situation 4 — votre propre page
 
@@ -151,6 +156,13 @@ l'ordre (`loginPage.ts:217`).
 page, construite sur `NodefonyLogin` (voir la doc du client du cœur). Les redirections continuent
 d'y mener. `template` (un gabarit `.eta` qui remplace celui du framework) existe aussi, en dernier
 recours : un gabarit copié ne suit plus les évolutions du balisage.
+
+### Le thème clair ou sombre
+
+Le système décide par défaut (`prefers-color-scheme`). Un bouton en haut à droite bascule entre les
+deux, et le choix est retenu dans le navigateur (`LOGIN_PAGE_THEME_KEY`), relu avant le premier
+affichage — la page ne clignote pas. Un `?theme=light|dark` dans l'adresse l'emporte : c'est ainsi
+que Studio passe son thème à la page.
 
 ### Ce que la carte propose — tous les cas
 
@@ -231,7 +243,7 @@ couleurs et leur mise en page.
 
 **Comparer sans redémarrer** : en développement, `/login?skin=dots` sert la page sous un autre
 habillage, et `&layout=card` force la mise en page — le temps d'une requête, sur vos vrais
-réglages. En production ces paramètres sont ignorés (`loginPage.ts:169`) : la page servie est
+réglages. En production ces paramètres sont ignorés (`loginPage.ts:207`) : la page servie est
 celle de la configuration, et rien d'autre.
 
 ## 🏗️ Architecture interne
@@ -254,7 +266,7 @@ sequenceDiagram
   exigerait d'être connecté pour se connecter.
 - **Les fournisseurs sont relus à chaque requête** : l'un d'eux peut tomber ou revenir pendant que
   le serveur tourne, et un bouton qui mène à une erreur est retiré de l'offre.
-- **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts:193`) : une adresse
+- **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts:231`) : une adresse
   hors de l'origine retombe sur `/`.
 - **Les boutons de fournisseur portent `from` et `back`** : `back` désigne cette page, si bien que
   le « Retour » du fournisseur et un échec y ramènent, destination comprise, quel que soit
@@ -281,6 +293,7 @@ sequenceDiagram
 | `providersFirst` | boolean · `true` | Fournisseurs avant le formulaire (`config.ts:1039`). |
 | `footer` | boolean · `true` | Protections de la session et « Propulsé par Nodefony » (`config.ts:1061`). |
 | `password` | boolean · `true` | `false` = fournisseurs seulement. |
+| `previewPicker` | boolean · `false` | En **développement** seulement : un sélecteur d'habillage et de mise en page posé dans un coin, qui recharge avec `?skin=` / `?layout=`. Sans effet en production. |
 | `template` | string · — | Gabarit `.eta` de remplacement — dernier recours. |
 | `oauth2.providers.<nom>.icon` | string · icône du framework | Image du bouton du fournisseur (`config.ts:1213`). |
 
@@ -303,7 +316,7 @@ nommant, au lieu d'être ignorée.
 ## ⚡ Performance & mémoire
 
 - Le gabarit est compilé **une fois par processus**, et un échec de chargement n'est pas mémorisé
-  (`keepSuccess()`, `loginPage.ts:112`) : la page ne reste pas en 500 après une correction.
+  (`keepSuccess()`, `loginPage.ts:128`) : la page ne reste pas en 500 après une correction.
 - Feuille et script sont servis en statique, versionnés par leur empreinte (`?v=`) : le navigateur
   les garde en cache jusqu'au prochain changement. Le script pèse 4 Ko.
 

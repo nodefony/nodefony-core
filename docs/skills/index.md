@@ -6,7 +6,7 @@ audience: [developer]
 topic: skills
 tests: none
 status: stable
-updated: 2026-10-10
+updated: 2026-10-11
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -182,7 +182,7 @@ source: "docs/skills/index.md"
 
 | Skill | Version | Corps | Réf. | Scripts | Conforme |
 | --- | --- | ---: | ---: | ---: | :---: |
-| [`nodefony-browser`](nodefony-browser.md) | 1.2.0 | 449 | 1 | 0 | ✅ |
+| [`nodefony-browser`](nodefony-browser.md) | 1.2.0 | 454 | 1 | 0 | ✅ |
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 116 | 0 | 0 | ✅ |
 | [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.0 | 113 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 262 | 1 | 0 | ✅ |
@@ -191,7 +191,7 @@ source: "docs/skills/index.md"
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.4.0 | 405 | 9 | 14 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.0.0 | 131 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 482 | 2 | 15 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.1.0 | 409 | 11 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.1.0 | 410 | 11 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 116 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 367 | 3 | 9 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |

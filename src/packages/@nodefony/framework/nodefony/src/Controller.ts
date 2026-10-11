@@ -9,7 +9,7 @@ import {
   //inject,
   FileClass,
 } from "nodefony";
-import type { MaybePromise } from "nodefony";
+import type { IRequestUser, MaybePromise } from "nodefony";
 import type { IController } from "../interfaces/index.js";
 import Route from "./Route";
 import Router from "../service/router";
@@ -285,6 +285,16 @@ class Controller extends Service implements IController {
   ) {
     this.#assertPerRequest("response");
     this.#response = response;
+  }
+
+  /**
+   * L'utilisateur CONNECTÉ, ou `null` — anonyme, ou route hors de toute zone
+   * du pare-feu. C'est l'identité que le pare-feu a établie pour cette
+   * requête : aucun appel de plus. Une page publique qui veut savoir qui la
+   * visite se place sous une zone `authenticators: ["session", "anonymous"]`.
+   */
+  get user(): IRequestUser | null {
+    return RequestContext.getAuthenticatedUser();
   }
 
   get method(): HTTPMethod | undefined {

@@ -103,7 +103,7 @@ Le mot est surchargé dans Nodefony. Les confondre produit des bugs qui ne plant
 | Ce qu'on écrit                        | Ce que ça règle                                           | Où c'est implémenté                                                               |
 | ------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `@injectable({ scope: "request" })`   | la **durée de vie** d'un service (`DIScope`)              | `DIScope` (`injector.ts:27`)                                                      |
-| `RequestContext.getScope()`           | le **calque** de la requête en cours (un `Scope`)         | `RequestContext.getScope()` (`RequestContext.ts:247`)                             |
+| `RequestContext.getScope()`           | le **calque** de la requête en cours (un `Scope`)         | `RequestContext.getScope()` (`RequestContext.ts:321`)                             |
 | `Injector.getScope("nom")`            | la durée de vie **déclarée** d'un service — pas un calque | `Injector.getScope()` (`injector.ts:137`)                                         |
 | `@Scope("request")` sur un contrôleur | un contrôleur par requête au lieu d'une instance partagée | `Scope()` (`routerDecorators.ts:795`)                                             |
 | `@RequireScope("users:write")`        | une **permission** — rien à voir avec l'injection         | autorisation ([firewall](../../src/packages/@nodefony/security/docs/firewall.md)) |
@@ -573,8 +573,8 @@ requête — un service, un écouteur, une fonction utilitaire.
 | `RequestContext.getScope()`     | le scope ouvert, ou `undefined`                  | le code qui peut aussi tourner hors requête    |
 | `RequestContext.requireScope()` | le scope ouvert, ou **lève** en nommant la cause | le code qui n'a pas de sens hors d'une requête |
 
-`getScope()` (`RequestContext.ts:247`) rend `undefined` dans trois cas, et `requireScope()`
-(`RequestContext.ts:261`) les **distingue** dans son message, parce que chacun appelle un geste
+`getScope()` (`RequestContext.ts:321`) rend `undefined` dans trois cas, et `requireScope()`
+(`RequestContext.ts:335`) les **distingue** dans son message, parce que chacun appelle un geste
 différent :
 
 1. **aucune requête en cours** — démarrage, commande en ligne, minuterie armée hors requête ;

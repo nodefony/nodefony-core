@@ -132,7 +132,7 @@ WebAuthn et OAuth : le firewall n'a qu'un seul mécanisme à connaître, la **se
 > Le couplage est fait **par nom de service**, jamais par import : `AuthFlow` ne connaît du 2FA
 > qu'une interface locale de trois méthodes (`ITotpLoginVerifier`, `authFlow.ts:79`). 2FA désactivé
 > ⇒ service absent ⇒ le login nominal **ne paie strictement rien** (`AuthFlow.#resolveTotp()`,
-> `authFlow.ts:637`).
+> `authFlow.ts:642`).
 
 ## 🚀 Démarrage rapide
 
@@ -459,7 +459,7 @@ La saisie est tolérante — casse et tirets ignorés à la normalisation (`totp
 
 ## ⚙️ Configuration et mises en situation
 
-La section `totp` du schéma Zod (`config.ts:1370`) — validée au boot, donc une valeur hors bornes
+La section `totp` du schéma Zod (`config.ts:1376`) — validée au boot, donc une valeur hors bornes
 échoue **au démarrage**, pas au premier login :
 
 | Option          | Type                         | Défaut | Effet                                                           |
@@ -716,7 +716,7 @@ hachage — c'est la preuve d'interopérabilité, pas une auto-évaluation.
 
 Le 2FA est un chemin **froid** : il ne coûte rien tant qu'on ne se connecte pas.
 
-- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:637`)
+- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:642`)
   résout le service **une seule fois** puis met le résultat en cache. Service absent ⇒ `null` ⇒
   **zéro accès au store**, zéro allocation par login.
 - **Aucun coût par requête** : le TOTP n'est pas un authenticator du firewall, il ne s'exécute donc

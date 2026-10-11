@@ -338,10 +338,10 @@ sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ 
 | `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts:269` |
 | `this.response`  | La réponse du transport                            | `Controller.ts:277` |
 | `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts:212` |
-| `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts:302` |
-| `this.queryPost` | Le corps parsé                                     | `Controller.ts:351` |
-| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts:351` |
-| `this.queryFile` | Les fichiers uploadés                              | `Controller.ts:341` |
+| `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts:315` |
+| `this.queryPost` | Le corps parsé                                     | `Controller.ts:364` |
+| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts:364` |
+| `this.queryFile` | Les fichiers uploadés                              | `Controller.ts:354` |
 | `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts:384` |
 
 Pourquoi des accesseurs plutôt que des champs recopiés au constructeur : **la fraîcheur et le coût**.
@@ -351,7 +351,7 @@ gratuitement.
 
 ### La session est **lazy** — elle n'existe que si tu la demandes
 
-`this.session` est un simple getter sur `context.session` (`Controller.ts:384`). Il n'y a **pas** de
+`this.session` est un simple getter sur `context.session` (`Controller.ts:397`). Il n'y a **pas** de
 `startSession()` à appeler depuis un contrôleur : l'activation se déclare sur la route, avec
 `@UseSession()` (ou un paramètre `@Session()`, qui vaut déclaration implicite), et le pipeline
 l'exécute à son point unique. Sans déclaration et sans cookie de session entrant, **aucune session
@@ -360,16 +360,16 @@ n'est créée** — donc aucun coût de stockage.
 Deux corollaires :
 
 - Dans `initialize()`, `this.session` vaut `null` (l'activation vient plus tard — étape 6 du cycle).
-- `this.getSession()` (`Controller.ts:694`) ne « démarre » rien : il retourne la session existante,
+- `this.getSession()` (`Controller.ts:704`) ne « démarre » rien : il retourne la session existante,
   ou `undefined`.
 
-Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts:714`)
-journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts:730`)
+Les messages flash s'appuient dessus : sans session active, `getFlashBag()` (`Controller.ts:724`)
+journalise une **erreur** et retourne `null`, et `setFlashBag()`/`addFlash()` (`Controller.ts:740`)
 retournent `null` sans rien journaliser — pas de crash, mais rien n'est mémorisé.
 
 ### Contrôleur singleton — le défaut : `this` n'est pas à toi
 
-Par défaut, `Controller.scope` vaut `"singleton"` (`Controller.ts:402`) : UNE instance par classe,
+Par défaut, `Controller.scope` vaut `"singleton"` (`Controller.ts:412`) : UNE instance par classe,
 construite à sa première requête puis partagée par toutes les suivantes, concurrentes comprises.
 
 - **une seule instance** pour tout le process, liée au container du **kernel**, pas à celui de la
@@ -436,20 +436,20 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 
 | Helper                                       | Pour…                                                    | Ancre               |
 | -------------------------------------------- | -------------------------------------------------------- | ------------------- |
-| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:619` |
+| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:631` |
 | `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:499` |
-| `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:544` |
-| `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:523` |
-| `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:700` |
-| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:734` |
-| `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:430` |
+| `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:556` |
+| `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:535` |
+| `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:710` |
+| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:744` |
+| `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:443` |
 
 `renderView()` mesure sa propre phase `render` et injecte automatiquement les aides frontend
 (`frontendTags`, `frontendDocument`, `asset`) dans les variables du template
-(`withFrontendLocals()`, `Controller.ts:584`) — tes propres valeurs restent prioritaires.
+(`withFrontendLocals()`, `Controller.ts:594`) — tes propres valeurs restent prioritaires.
 
 `forward()` re-résout un contrôleur sur le **même** contexte et rappelle son action
-(`Controller.ts:734`) : c'est une délégation interne, la requête cliente reste unique.
+(`Controller.ts:744`) : c'est une délégation interne, la requête cliente reste unique.
 
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
@@ -471,7 +471,7 @@ et gèle le process le temps du stat.
 
 ### Lecture en continu — `renderMediaStream()`
 
-`renderMediaStream(file, headers?, options?)` (`Controller.ts:989`) implémente les **requêtes par
+`renderMediaStream(file, headers?, options?)` (`Controller.ts:999`) implémente les **requêtes par
 plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le flux :
 
 | Le client envoie…                             | Réponse                                                         |
@@ -599,7 +599,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | -------------------------------- | ------------------------ | --------------------------------------------------------------- |
 | Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:1185`)                           |
 | Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:107`)                        |
-| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:523`)               |
+| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:535`)               |
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:666`)                   |
 | Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:1081`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                   |

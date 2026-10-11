@@ -1084,6 +1084,12 @@ const loginPageSchema = z
       .describe(
         "Mise en page : `split` (illustration et formulaire côte à côte), `card` (panneau centré), `bare` (formulaire seul). Omis = celle pour laquelle l'habillage est dessiné.",
       ),
+    previewPicker: z
+      .boolean()
+      .default(false)
+      .describe(
+        "En DÉVELOPPEMENT seulement : un sélecteur d'habillage et de mise en page sur la page, qui recharge avec `?skin=` et `?layout=`. Sans effet en production, où ces paramètres sont ignorés. Pour choisir son habillage à l'écran, pas pour le livrer.",
+      ),
   })
   .describe(
     "Page de connexion servie par le framework, sans front (ADR-0015).",

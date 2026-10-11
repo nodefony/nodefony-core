@@ -344,6 +344,7 @@ export { default as RequestContext } from "./runtime/RequestContext";
 export type {
   RequestContextPayload,
   IProfilerQuery,
+  IRequestUser,
 } from "./runtime/RequestContext";
 export { redactSecrets } from "./runtime/redact";
 export { identityHint } from "./runtime/identityHint";
@@ -366,6 +367,7 @@ export {
   loginPagePath,
   LOGIN_PAGE_ASSETS_BASE,
   LOGIN_PAGE_SCRIPT_PATH,
+  LOGIN_PAGE_THEME_KEY,
   LOGIN_PAGE_STYLE_PATH,
   LOGIN_PAGE_LAYOUTS,
   LOGIN_PAGE_SKINS,

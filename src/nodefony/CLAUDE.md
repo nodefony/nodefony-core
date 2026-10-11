@@ -145,7 +145,8 @@ Vit dans `src/runtime/RequestContext.ts`. Façade statique au-dessus de `AsyncLo
 RequestContext.run({ requestId, user, scheme }, async () => { /* code */ });
 RequestContext.get();              // payload entier ou undefined
 RequestContext.getRequestId();     // string | undefined
-RequestContext.getUser();          // unknown | undefined
+RequestContext.getUser();          // unknown | undefined — BRUT, anonyme compris
+RequestContext.getAuthenticatedUser(); // IRequestUser | null — connecté, sinon null (= `this.user` d'un contrôleur)
 RequestContext.set("user", user);  // mute le store actuel
 RequestContext.getScope();         // IScope | undefined — scope DI de la requête (refermé → undefined)
 RequestContext.requireScope();     // IScope, ou lève en nommant la cause

@@ -39,6 +39,42 @@ export interface IProfilerQuery {
  * augmente ce type depuis son propre code (`declare module`) porte la même
  * obligation : sa clé n'est pas vidée d'office.
  */
+/**
+ * L'utilisateur AUTHENTIFIÉ d'une requête, tel que le lit un contrôleur
+ * (`this.user`). Contrat minimal du cœur, que l'`IUser` de `@nodefony/user`
+ * satisfait : le framework le type sans dépendre du paquet des comptes.
+ */
+export interface IRequestUser {
+  /** Identifiant interne (UUID). */
+  readonly id: string;
+  /** Identifiant de connexion (login, e-mail). */
+  readonly identifier: string;
+  /** Rôles accordés, sans hiérarchie résolue. */
+  readonly roles: readonly string[];
+}
+
+/** Dit si une valeur a la forme d'un {@link IRequestUser}. */
+function isRequestUser(value: unknown): value is IRequestUser {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    "identifier" in value &&
+    typeof value.identifier === "string" &&
+    "roles" in value &&
+    Array.isArray(value.roles)
+  );
+}
+
+/** Dit si le jeton du pare-feu se déclare NON authentifié (anonyme). */
+function isAnonymousToken(token: unknown): boolean {
+  if (typeof token !== "object" || token === null) return false;
+  if (!("isAuthenticated" in token)) return false;
+  const check: unknown = token.isAuthenticated;
+  return typeof check === "function" && check.call(token) === false;
+}
+
 export interface RequestContextPayload {
   requestId: string;
   scheme?: string | undefined;
@@ -208,9 +244,38 @@ class RequestContext {
     return this.get()?.requestId;
   }
 
-  /** Shortcut — returns the current authenticated user (P6) or `undefined`. */
+  /**
+   * Rend l'utilisateur posé par le pare-feu, BRUT — y compris l'utilisateur
+   * anonyme d'une zone qui accepte l'anonymat. Pour « qui est connecté ? »,
+   * {@link getAuthenticatedUser} (ou `this.user` dans un contrôleur).
+   *
+   * @returns l'utilisateur du pare-feu, ou `undefined` hors zone
+   */
   static getUser(): unknown {
     return this.get()?.user;
+  }
+
+  /**
+   * Rend l'utilisateur AUTHENTIFIÉ de la requête, ou `null` : hors zone du
+   * pare-feu, ou anonyme (jeton non authentifié). Une page publique qui veut
+   * savoir qui la visite se place sous une zone `["session", "anonymous"]`.
+   *
+   * @returns l'utilisateur connecté, ou `null`
+   */
+  static getAuthenticatedUser(): IRequestUser | null {
+    const store = this.get();
+    if (store === undefined || isAnonymousToken(store.token)) return null;
+    return isRequestUser(store.user) ? store.user : null;
+  }
+
+  /**
+   * Dit si la requête est servie à un ANONYME par le pare-feu : jeton non
+   * authentifié d'une zone qui accepte l'anonymat. Faux hors zone (aucun jeton).
+   *
+   * @returns `true` quand le jeton posé se déclare non authentifié
+   */
+  static isAnonymous(): boolean {
+    return isAnonymousToken(this.get()?.token);
   }
 
   /**
