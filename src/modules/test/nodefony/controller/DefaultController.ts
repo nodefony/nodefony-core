@@ -254,6 +254,26 @@ class DefaultController extends Controller {
     throw new TypeError("native error — no HttpError");
   }
 
+  // Erreur levée APRÈS `redirect()` (#581) : la requête doit recevoir l'ERREUR
+  // (500 ou son code), sans `Location` — jamais rester sans réponse.
+  @route("crash-after-redirect", { path: "/crash/after-redirect" })
+  crashAfterRedirect() {
+    this.redirect("/nodefony/test/index");
+    throw new TypeError("après redirection");
+  }
+
+  @route("crash-after-redirect-async", { path: "/crash/after-redirect/async" })
+  async crashAfterRedirectAsync() {
+    this.redirect("/nodefony/test/index");
+    await Promise.reject(new TypeError("après redirection (async)"));
+  }
+
+  @route("crash-after-redirect-http", { path: "/crash/after-redirect/http" })
+  crashAfterRedirectHttp() {
+    this.redirect("/nodefony/test/index");
+    throw new HttpError("refusé après redirection", 403, this.context);
+  }
+
   /**
    * Coupe (`off`) ou rétablit (`on`) le ring de relecture du syslog. Le banc
    * mémoire le coupe pendant sa mesure : ring borné mais RE-REMPLI à chaque

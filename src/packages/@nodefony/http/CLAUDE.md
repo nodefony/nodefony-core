@@ -232,8 +232,8 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 - `SecuredArea.match()` nécessite `request.url` comme `URL` object — toujours passer par `WsIncomingMessage`
 - **Ne PAS appeler `startSession()` dans `initialize()` d'un controller WS** : le point d'activation
   est unique et partagé avec le HTTP — `HttpKernel.onConnect()` l'appelle après le front controller
-  et avant `context.connect()` (`http-kernel.ts:1579-1584`), gardé par `context.sessionStarting`.
-  Il est **paresseux** : sans intent de route ni cookie entrant, il ne crée rien (`:1036-1053`).
+  et avant `context.connect()` (`http-kernel.ts:2116-2122`), gardé par `context.sessionStarting`.
+  Il est **paresseux** : sans intent de route ni cookie entrant, il ne crée rien (`:1365-1368`).
   L'appeler à la main dans un controller rétablit l'ancien « démarre sur toutes les routes » — donc
   une session persistée par connexion WS, y compris sur `echo`/`broadcast` qui n'en ont aucun besoin
   (le module `test` documente la tempête d'INSERT que ça avait causée, `WebSocketController.ts:19-26`).

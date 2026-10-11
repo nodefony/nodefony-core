@@ -112,7 +112,7 @@ un `requestId`, un `traceparent` et un contrat de logger **uniques** couvrent le
 
 **Le `requestId` est un citoyen du contexte, pas un décor.** Il naît dans le constructeur de base
 `Context.requestId = randomUUID()` (`Context.ts:244`), voyage dans l'ALS via `RequestContext.run(...)`
-(`http-kernel.ts:507` pour HTTP, `http-kernel.ts:1939` pour WS), et se lit de n'importe où avec
+(`http-kernel.ts:507` pour HTTP, `http-kernel.ts:1948` pour WS), et se lit de n'importe où avec
 `RequestContext.getRequestId()` — un controller, un service, un adapter ORM, sans jamais le threader.
 
 **La ligne de bilan est branchable.** Le kernel ne code pas un format en dur : il consulte un
@@ -251,7 +251,7 @@ Nodefony implémente **W3C Trace Context** (le code s'y réfère explicitement, 
 
 Le `traceparent` résolu est propagé en ALS **et** réfléchi sur la réponse HTTP (`context/http/Response.ts:572`). Côté
 **WebSocket**, il est propagé en ALS mais **pas** réfléchi dans la réponse de handshake — la bibliothèque
-`ws` n'expose pas proprement ce chemin (`http-kernel.ts:1429`) ; la corrélation reste visible côté serveur.
+`ws` n'expose pas proprement ce chemin (`http-kernel.ts:1438`) ; la corrélation reste visible côté serveur.
 
 ### Le contrat de logger — `IRequestLogger`
 
@@ -420,7 +420,7 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 | Le `X-Request-Id` que j'envoie n'est pas réfléchi   | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur |
 | Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts:545`)           |
 | Réponse HTTP/2 sans `x-request-id`                  | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts:106`) — le port 5152 réfléchit aussi                 |
-| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts:1969`)                |
+| Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts:1978`)                |
 | Frame WS binaire loggée en `{"0":..,"1":..}`        | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts:63`)                           |
 | Le format de log ne change pas malgré la config     | Un `setRequestLogger(...)` programmatique gagne sur la config       | L'override est volontaire (last setter wins) — retirer l'appel, ou le régler       |
 | Logs d'audit trop volumineux en prod                | `stack` sérialisée, ou 100 % des 2xx audités                        | `includeStack:false` (défaut prod) + `sampleRate` via `setRequestLogger`           |

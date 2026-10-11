@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "vitest";
 import https from "node:https";
+import http2 from "node:http2";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
 
 // Tests for JSON error response format in development mode
@@ -54,6 +55,82 @@ function get(
     );
     r.on("error", reject);
     r.end();
+  });
+}
+
+type RawResponse = {
+  status: number;
+  location: string | undefined;
+  contentLength: number;
+  body: string;
+};
+
+// Réponse BORNÉE : une requête restée sans réponse échoue en 2 s sur un message
+// qui la nomme, au lieu du délai du test (#581).
+function getBounded(path: string): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const r = https.request(
+      { ...BASE, path, method: "GET", timeout: 2000 },
+      (res: import("node:http").IncomingMessage) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () =>
+          resolve({
+            status: res.statusCode!,
+            location: res.headers.location,
+            contentLength: Number(res.headers["content-length"] ?? -1),
+            body: Buffer.concat(chunks).toString(),
+          }),
+        );
+        res.on("error", reject);
+      },
+    );
+    r.on("timeout", () =>
+      r.destroy(new Error(`${path} : aucune réponse complète en 2 s`)),
+    );
+    r.on("error", reject);
+    r.end();
+  });
+}
+
+// Même lecture en HTTP/2 : un `Content-Length` menteur y réinitialise le flux.
+function getBoundedH2(path: string): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const session = http2.connect(`https://localhost:${BASE.port}`, {
+      rejectUnauthorized: false,
+    });
+    session.on("error", reject);
+    const timer = setTimeout(() => {
+      session.destroy();
+      reject(new Error(`${path} : aucune réponse complète en 2 s (h2)`));
+    }, 2000);
+    const stream = session.request({ ":path": path, ":method": "GET" });
+    let status = 0;
+    let location: string | undefined;
+    let contentLength = -1;
+    const chunks: Buffer[] = [];
+    stream.on("response", (headers) => {
+      status = Number(headers[":status"]);
+      location = headers.location as string | undefined;
+      contentLength = Number(headers["content-length"] ?? -1);
+    });
+    stream.on("data", (c: Buffer) => chunks.push(c));
+    stream.on("end", () => {
+      clearTimeout(timer);
+      session.close();
+      resolve({
+        status,
+        location,
+        contentLength,
+        body: Buffer.concat(chunks).toString(),
+      });
+    });
+    stream.on("error", (e) => {
+      clearTimeout(timer);
+      session.destroy();
+      reject(e);
+    });
+    stream.end();
   });
 }
 
@@ -227,6 +304,36 @@ describe("Error response format — corps JSON d'erreur (requires server)", func
       const { body } = await get("/nodefony/test/crash/sync");
       const route = asError(body).nodefony.route;
       expect(route!["path"]).to.equal("/nodefony/test/crash/sync");
+    });
+  });
+
+  // ── Erreur levée APRÈS redirect() (#581) ──────────────────────────
+  // Une requête reçoit TOUJOURS une réponse : l'erreur est rendue, la
+  // redirection retirée. Seul le refus 401 du pare-feu reste une redirection
+  // voulue (#548, banc `framework/…/entry-point.test.ts`).
+
+  describe("erreur après redirect() — #581", () => {
+    const cases = [
+      ["/nodefony/test/crash/after-redirect", 500],
+      ["/nodefony/test/crash/after-redirect/async", 500],
+      ["/nodefony/test/crash/after-redirect/http", 403],
+    ] as const;
+
+    for (const [path, code] of cases) {
+      it(`${path} → ${code} complet, sans Location (HTTP/1.1)`, async () => {
+        const res = await getBounded(path);
+        expect(res.status).to.equal(code);
+        expect(res.location).to.equal(undefined);
+        expect(Buffer.byteLength(res.body)).to.equal(res.contentLength);
+        expect(asError(JSON.parse(res.body)).code).to.equal(code);
+      });
+    }
+
+    it("→ 500 complet, sans Location (HTTP/2)", async () => {
+      const res = await getBoundedH2("/nodefony/test/crash/after-redirect");
+      expect(res.status).to.equal(500);
+      expect(res.location).to.equal(undefined);
+      expect(Buffer.byteLength(res.body)).to.equal(res.contentLength);
     });
   });
 });

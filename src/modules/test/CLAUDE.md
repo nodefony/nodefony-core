@@ -57,6 +57,7 @@ src/modules/test/
 | `/crash/sync` | GET | `throw new Error(...)` → 500 |
 | `/crash/async` | GET | `await Promise.reject(...)` → 500 |
 | `/crash/native` | GET | `throw new TypeError(...)` → 500 |
+| `/crash/after-redirect` · `/async` · `/http` | GET | `redirect()` puis erreur → 500 / 500 / 403 complets, SANS `Location` (#581) |
 | `/memory` | GET | tas du serveur APRÈS GC forcé (`gcForced`), ressources actives, remplissage du ring syslog (`syslogRing`) |
 | `/memory/syslog-ring/off` · `/on` | GET | coupe / rétablit le ring de relecture du syslog — le gate mémoire le coupe pendant sa mesure |
 | `/forward` | GET | Forward vers `app:AppController:method1` |

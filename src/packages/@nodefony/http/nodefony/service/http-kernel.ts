@@ -1030,6 +1030,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         return context;
       }
       if (!context.response.isHeaderSent()) {
+        // Une erreur levée APRÈS `redirect()` reste une erreur (#581) : on
+        // retire la redirection. Sinon l'envoi prend la voie redirection, qui
+        // termine la réponse SANS corps alors que `Content-Length` annonce
+        // celui de l'erreur — HTTP/1 attend des octets qui ne viennent jamais,
+        // HTTP/2 réinitialise le flux.
+        if (context.isRedirect) {
+          context.isRedirect = false;
+          context.response.response?.removeHeader("Location");
+        }
         try {
           await context.render(result.body);
         } catch (e) {

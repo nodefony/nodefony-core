@@ -69,8 +69,8 @@ flowchart TD
 ```
 
 Le point d'activation est **unique et commun aux deux transports** : `HttpKernel.startSession()`
-(`http-kernel.ts:1309`). Il commence par la garde paresseuse `if (!intent && !context.hasSession())`
-(`http-kernel.ts:1293`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
+(`http-kernel.ts:1318`). Il commence par la garde paresseuse `if (!intent && !context.hasSession())`
+(`http-kernel.ts:1302`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
 
 ## 📖 Lexique
 
@@ -140,11 +140,11 @@ agents (voir [Firewall](../../security/docs/firewall.md)).
 
 **2. La session est paresseuse.** Elle n'existe que si une route la demande — `@UseSession`, ou la
 seule présence d'un paramètre `@Session` — ou si un cookie arrive déjà : c'est la garde de
-`HttpKernel.startSession()` (`http-kernel.ts:1309`). Une route publique ne paie **ni lecture de store,
+`HttpKernel.startSession()` (`http-kernel.ts:1318`). Une route publique ne paie **ni lecture de store,
 ni `Set-Cookie`**.
 
 **3. Un seul modèle d'état pour le web et le temps réel.** Le même `startSession()` sert
-`HttpKernel.onRequestEnd()` (`http-kernel.ts:1779`) et `HttpKernel.onConnect()` (`http-kernel.ts:2077`) ;
+`HttpKernel.onRequestEnd()` (`http-kernel.ts:1788`) et `HttpKernel.onConnect()` (`http-kernel.ts:2086`) ;
 l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:454`).
 
 **4. L'administration ne voit jamais un identifiant.** Un opérateur manipule une `ref`, HMAC tronqué
@@ -503,11 +503,11 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 <!-- prettier-ignore -->
 | Aspect | HTTP | WebSocket |
 | --- | --- | --- |
-| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1779`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:2077`) |
+| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1788`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:2086`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
-| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1883`) |
-| Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1505`) |
+| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1892`) |
+| Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1514`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
 handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:507`). L'identité résolue une fois est donc
@@ -608,7 +608,7 @@ une méthode ; la méthode l'emporte, par fusion et non par remplacement
 
 - `readOnly: true` — la session est reprise et lue mais **jamais** persistée ; une mutation tentée est
   journalisée en WARNING sans écriture (`Session.save()`, `session.ts:273-282`). C'est le seul champ
-  propagé par le kernel (`http-kernel.ts:1220`).
+  propagé par le kernel (`http-kernel.ts:1229`).
 
 En décorateur de **classe**, `@UseSession` se place **sous** `@controller` (`routerDecorators.ts:189`).
 
@@ -656,7 +656,7 @@ Trois règles de conception se dégagent du contrat, et méritent d'être respec
 Le coût d'une session est **payé seulement quand elle sert** :
 
 - **Zéro par défaut** — sans intent ni cookie, `startSession()` sort immédiatement
-  (`http-kernel.ts:1309`) : ni objet `Session`, ni lecture de store.
+  (`http-kernel.ts:1318`) : ni objet `Session`, ni lecture de store.
 - **Objet léger** — trois sacs `{}` à plat, pas de container DI par session (`session.ts:100-104`).
 - **Zéro écriture en lecture** — le dirty-tracking court-circuite `save()` (`session.ts:278`) ; le
   `touch` est throttlé à une écriture par demi-vie d'idle (`session.ts:445`).
@@ -719,7 +719,7 @@ SQLite quand c'est pertinent (`SessionStorage.location`,
 
 | Symptôme                                               | Cause                                                                     | Correction                                                                                                |
 | ------------------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Aucun `Set-Cookie`, `session` toujours vide            | La route n'a **aucun intent** : ni `@UseSession`, ni paramètre `@Session` | Ajouter l'un des deux — l'activation est paresseuse (`http-kernel.ts:1293`)                               |
+| Aucun `Set-Cookie`, `session` toujours vide            | La route n'a **aucun intent** : ni `@UseSession`, ni paramètre `@Session` | Ajouter l'un des deux — l'activation est paresseuse (`http-kernel.ts:1302`)                               |
 | `context.session` est `null` dans un contrôleur WS     | Intent posé sur la classe au lieu de la route, ou absent                  | `@UseSession()` **sur la route** WebSocket ; `Controller.startSession()` n'existe plus                    |
 | Mutation ignorée, WARNING « READONLY SESSION mutated » | La route est en `@UseSession({ readOnly: true })`                         | Retirer `readOnly` sur les routes qui écrivent (`session.ts:273-282`)                                     |
 | Session détruite qui « revient » après logout          | Une requête en vol réécrit le blob supprimé                               | Déjà couvert : pierre tombale 5 min (`RevocationGuardStorage.ts:121`)                                     |
