@@ -354,7 +354,7 @@ permettent de rouvrir le robinet **sans redémarrer**, du plus opérationnel au 
 2. **À chaud, par module** — `setDebugOverride()` (`Syslog.ts:972`) relève le seuil **d'un seul**
    module (clé = son `msgid`). Le joker `*` vaut « tout ». Un `ttlMs` arme une **auto-extinction**
    (minuterie `unref`, ré-armable) : un debug oublié allumé n'existe pas.
-3. **Depuis l'admin** — `PATCH /nodefony/kernel/api/log/level` (`KernelAdminApi.ts:1044`), réservé
+3. **Depuis l'admin** — `PATCH /nodefony/kernel/api/log/level` (`KernelAdminApi.ts:1511`), réservé
    au rôle administrateur, **par module uniquement**, niveau validé strictement, durée de vie
    imposée (défaut 15 min, plafond 60) et **auditée**.
 

@@ -369,7 +369,7 @@ sont enregistrés au `onKernelReady` du framework :
 
 | Namespace   | Producteur                                            | Rôle                                              |
 | ----------- | ----------------------------------------------------- | ------------------------------------------------- |
-| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:582`)      | modules, process, uptime, `livez`                 |
+| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:628`)      | modules, process, uptime, `livez`                 |
 | `framework` | `createFrameworkAdminApi` (`FrameworkAdminApi.ts:86`) | dump du Router + **catalogue** + Playground (dev) |
 | `syslog`    | `createSyslogAdminApi` (`SyslogAdminApi.ts:95`)       | viewer de logs (dev)                              |
 
