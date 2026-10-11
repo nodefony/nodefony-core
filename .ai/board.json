@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T21:41:09.425Z",
+  "generatedAt": "2026-10-11T22:08:31.065Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 111,
+      "closed": 112,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 38,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -2550,8 +2550,8 @@
       "number": 544,
       "title": "feat(security): ajouter une commande d'exemple qui appelle l'API par jeton",
       "url": "https://github.com/nodefony/nodefony-core/issues/544",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
