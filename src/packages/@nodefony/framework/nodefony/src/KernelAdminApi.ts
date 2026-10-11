@@ -19,6 +19,9 @@ import {
   outlineMarkdown,
   extractMarkdownSection,
   parseStoreManifest,
+  runAppContributions,
+  suspendSupervisor,
+  resumeSupervisor,
 } from "nodefony";
 import type {
   IKernel,
@@ -26,6 +29,7 @@ import type {
   IAdminEndpoint,
   IAdminDescriptor,
   IAdminRequest,
+  IAppContributionReport,
   IStoreResolution,
 } from "nodefony";
 import type { TestRunResult, DocSearchTarget, DocSummary } from "./docsReader";
@@ -581,6 +585,46 @@ export function nodefonyPackageCandidates(name: string): string[] {
   return candidats.filter(inScope);
 }
 
+/** Refus de `scaffold` hors développement. */
+const scaffoldRefused = (): { status: number; body: { error: string } } => ({
+  status: 403,
+  body: { error: "scaffold:sync is disabled outside development" },
+});
+
+/**
+ * La réponse de `scaffold` : les rapports tels quels, et les totaux qu'un écran
+ * affiche sans les recompter.
+ *
+ * @param reports - le rendu de `runAppContributions`
+ * @param dryRun - `true` pour un plan
+ * @returns le corps de la réponse
+ */
+function scaffoldPayload(
+  reports: IAppContributionReport[],
+  dryRun: boolean,
+): {
+  dryRun: boolean;
+  reports: IAppContributionReport[];
+  totals: Record<
+    "written" | "updated" | "outdated" | "modified" | "failed",
+    number
+  >;
+} {
+  const sum = (pick: (r: IAppContributionReport) => number): number =>
+    reports.reduce((n, r) => n + pick(r), 0);
+  return {
+    dryRun,
+    reports,
+    totals: {
+      written: sum((r) => r.written.length),
+      updated: sum((r) => r.updated.length),
+      outdated: sum((r) => r.outdated.length),
+      modified: sum((r) => r.modified.length),
+      failed: sum((r) => (r.error === null ? 0 : 1)),
+    },
+  };
+}
+
 export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   const descriptor: IAdminDescriptor = {
     label: "Kernel",
@@ -900,6 +944,52 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // Identité git (branche + commit court) — lecture `.git`, sans spawn.
         git: GitService.read(),
       }),
+    },
+    {
+      // Le PLAN de `scaffold:sync --update` : ce qui serait posé, rafraîchi,
+      // gardé. Simulation, aucune écriture — mais elle IMPORTE les modules de
+      // contribution des paquets installés : outillage de développement.
+      path: "scaffold",
+      summary:
+        "Files delivered by installed packages (dev only) — what `scaffold:sync --update` would do",
+      handler: async () => {
+        if (!devGuard()) return scaffoldRefused();
+        return scaffoldPayload(
+          await runAppContributions(REPO_ROOT, true, true),
+          true,
+        );
+      },
+    },
+    {
+      // `scaffold:sync` depuis la console — la MÊME fonction que la CLI. Les
+      // contributions écrivent dans l'application : le superviseur de dev est
+      // suspendu le temps du geste, sinon une écriture surveillée redémarre le
+      // serveur qui l'exécute.
+      path: "scaffold/sync",
+      method: "POST",
+      summary: "Run `scaffold:sync` (dev only) — body `{ update?: boolean }`",
+      handler: async (request) => {
+        if (!devGuard()) return scaffoldRefused();
+        const body: unknown = request.body;
+        const update =
+          typeof body === "object" &&
+          body !== null &&
+          "update" in body &&
+          body.update === true;
+        suspendSupervisor(
+          REPO_ROOT,
+          "synchronisation des fichiers livrés",
+          update ? "scaffold:sync --update" : "scaffold:sync",
+        );
+        try {
+          return scaffoldPayload(
+            await runAppContributions(REPO_ROOT, false, update),
+            false,
+          );
+        } finally {
+          resumeSupervisor(REPO_ROOT);
+        }
+      },
     },
     {
       path: "processes",

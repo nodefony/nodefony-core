@@ -171,12 +171,17 @@ utilisateur `alice`) et le thème `docker/keycloak/themes/nodefony/` ne viennent
 générateur : ils sont **livrés par ce paquet** (`nodefony/keycloak/scaffold.ts`, appelé par le point
 de contribution `nodefony/scaffold/contribute.ts` déclaré dans
 `package.json` sous `nodefony.contribute`), et posés après l'installation. Ce sont de vrais
-fichiers, versionnés avec l'application : le thème se retouche à ses couleurs. Ils manquent (création
-en `--no-install`, ou fichier supprimé pour reprendre la version du paquet après un `npm update`) :
+fichiers, versionnés avec l'application : le thème se retouche à ses couleurs. Les fichiers du thème
+sont des **copies suivies** (empreintes dans `scaffold.lock.json`) ; le realm est une **semence**,
+qui appartient à l'application dès qu'il existe (`security:keycloak:realm --write` le fait évoluer).
 
 ```bash
-npx nodefony scaffold:sync     # pose ce qui manque, ne remplace jamais un fichier présent
+npx nodefony scaffold:sync            # pose ce qui manque (création en --no-install)
+npx nodefony scaffold:sync --update   # après un npm update : rafraîchit le thème resté intact
 ```
+
+Un fichier du thème retouché par l'application n'est jamais remplacé : il est signalé, et pour
+reprendre la version du paquet on le supprime avant de relancer.
 
 Le thème couvre les **cinq types** de Keycloak, chacun hérité du thème de Keycloak qu'il habille
 (seuls le logo, les couleurs et quelques textes sont posés — les pages restent celles de

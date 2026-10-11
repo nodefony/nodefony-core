@@ -827,10 +827,16 @@ export type {
 export {
   runAppContributions,
   createAppContributionContext,
+  contributionFingerprint,
+  readScaffoldLock,
+  SCAFFOLD_LOCK_FILE,
 } from "./cli/contributions";
 export type {
   IAppContributionContext,
   IAppContributionReport,
+  IContributionWriteOptions,
+  IScaffoldLock,
+  IScaffoldLockPackage,
   TAppContributor,
 } from "./cli/contributions";
 // Où une app créée DEPUIS LE WEB a le droit de naître. En CLI la destination est le

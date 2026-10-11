@@ -505,6 +505,16 @@ GABARITS du preset `complete` (compose, `.env`), contenu de l'application géné
 
 - **Copie, pas pointeur** (≠ `ai:sync`) : ces fichiers doivent exister EN VRAI (montés par Docker,
   retouchés par l'app). Le contexte n'écrit qu'un fichier ABSENT ; un présent est rapporté `kept`.
+- **Semence ≠ copie suivie.** `write()` = SEMENCE (générée pour l'app, à elle dès qu'elle existe —
+  jamais remplacée). `copyTree()` / `write(…, { tracked: true })` = COPIE SUIVIE : empreinte
+  sha256 (CRLF→LF pour un texte, `contributionFingerprint`) au registre **`scaffold.lock.json`**
+  (racine de l'app, versionné). `--update` remplace une copie dont l'empreinte = celle de la
+  livraison précédente (intacte) ; différente → `modified`, gardée ; identique à la livraison →
+  inscrite même sans registre. Rapport : `written`/`kept`/`updated`/`outdated ⊂ kept`/`modified ⊂ kept`.
+  Registre réécrit seulement s'il change ; une contribution en échec garde son entrée.
+- **Porte d'administration** : `GET /nodefony/kernel/api/scaffold` (plan de `--update`) et
+  `POST …/scaffold/sync` (`{ update }`), dev seulement, superviseur suspendu — MÊME
+  `runAppContributions` (`framework/…/KernelAdminApi.ts`).
 - **Chemins en `/`** (ils voyagent : déclarés, affichés) ; `resolveInside` refuse toute sortie de
   la racine — de l'app pour l'écriture, du paquet pour le module déclaré.
 - **Une contribution qui lève est RAPPORTÉE** (`error`), jamais propagée : les autres passent ;

@@ -4,6 +4,8 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -11,8 +13,12 @@ import path from "node:path";
 import { afterAll, describe, it } from "vitest";
 import { assert } from "chai";
 import {
+  contributionFingerprint,
+  readScaffoldLock,
+  renderScaffoldSync,
   runAppContributions,
   runScaffoldSyncCommand,
+  SCAFFOLD_LOCK_FILE,
   summarizeContributions,
 } from "../cli/contributions";
 
@@ -77,6 +83,9 @@ describe("contributions des paquets à l'application", () => {
         packageName: "@nodefony/deco",
         written: ["docker/deco/demo.txt"],
         kept: [],
+        updated: [],
+        outdated: [],
+        modified: [],
         error: null,
       },
     ]);
@@ -225,5 +234,213 @@ describe("contributions des paquets à l'application", () => {
       process.stdout.write = write;
       process.stderr.write = ewrite;
     }
+  });
+});
+
+/**
+ * Un paquet `@nodefony/theme` qui recopie son dossier `assets/` (fichiers
+ * SUIVIS) et sème `seed.txt` (fichier de l'application). `deliver` réécrit les
+ * assets du paquet : c'est le `npm update`.
+ */
+const makeThemedApp = (): {
+  app: string;
+  deliver: (files: Record<string, string>) => void;
+  lock: () => Record<string, string>;
+  read: (relative: string) => string;
+} => {
+  const app = makeApp();
+  const pkg = addPackage(
+    app,
+    "theme",
+    `import path from "node:path";
+     import { fileURLToPath } from "node:url";
+     export function contribute(ctx) {
+       ctx.write("seed.txt", "semence " + Date.now());
+       ctx.copyTree(path.join(path.dirname(fileURLToPath(import.meta.url)), "assets"), "docker/theme");
+     }`,
+  );
+  const deliver = (files: Record<string, string>): void => {
+    rmSync(path.join(pkg, "assets"), { recursive: true, force: true });
+    for (const [file, content] of Object.entries(files)) {
+      const target = path.join(pkg, "assets", ...file.split("/"));
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, content);
+    }
+  };
+  return {
+    app,
+    deliver,
+    lock: () => ({ ...readScaffoldLock(app)["@nodefony/theme"]?.files }),
+    read: (relative) =>
+      readFileSync(path.join(app, ...relative.split("/")), "utf8"),
+  };
+};
+
+describe("scaffold:sync --update — registre de provenance", () => {
+  it("inscrit les copies livrées, jamais une semence", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "a{}", "img/x.txt": "x" });
+    await runAppContributions(t.app);
+    assert.deepEqual(t.lock(), {
+      "docker/theme/img/x.txt": contributionFingerprint("x"),
+      "docker/theme/login.css": contributionFingerprint("a{}"),
+    });
+    assert.isTrue(existsSync(path.join(t.app, SCAFFOLD_LOCK_FILE)));
+  });
+
+  it("rafraîchit une copie INTACTE avec --update, la signale sans --update", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    t.deliver({ "login.css": "v2" });
+
+    const [plain] = await runAppContributions(t.app);
+    assert.deepEqual(plain?.outdated, ["docker/theme/login.css"]);
+    assert.strictEqual(t.read("docker/theme/login.css"), "v1");
+    assert.strictEqual(
+      t.lock()["docker/theme/login.css"],
+      contributionFingerprint("v1"),
+      "sans --update, l'empreinte reste celle de ce qui est posé",
+    );
+
+    const [updated] = await runAppContributions(t.app, false, true);
+    assert.deepEqual(updated?.updated, ["docker/theme/login.css"]);
+    assert.strictEqual(t.read("docker/theme/login.css"), "v2");
+    assert.strictEqual(
+      t.lock()["docker/theme/login.css"],
+      contributionFingerprint("v2"),
+    );
+  });
+
+  it("ne remplace JAMAIS une copie retouchée, même avec --update", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    writeFileSync(path.join(t.app, "docker", "theme", "login.css"), "à moi");
+    t.deliver({ "login.css": "v2" });
+    const [report] = await runAppContributions(t.app, false, true);
+    assert.deepEqual(report?.modified, ["docker/theme/login.css"]);
+    assert.isEmpty(report?.updated ?? []);
+    assert.strictEqual(t.read("docker/theme/login.css"), "à moi");
+    assert.strictEqual(
+      t.lock()["docker/theme/login.css"],
+      contributionFingerprint("v1"),
+      "l'empreinte livrée reste : revenir sur la retouche rend le fichier rafraîchissable",
+    );
+  });
+
+  it("une copie posée AVANT le registre : gardée si elle diffère, adoptée si elle est identique", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "same.css": "pareil", "other.css": "du paquet" });
+    mkdirSync(path.join(t.app, "docker", "theme"), { recursive: true });
+    writeFileSync(path.join(t.app, "docker", "theme", "same.css"), "pareil");
+    writeFileSync(path.join(t.app, "docker", "theme", "other.css"), "ancien");
+    const [report] = await runAppContributions(t.app, false, true);
+    assert.deepEqual(report?.modified, ["docker/theme/other.css"]);
+    assert.strictEqual(t.read("docker/theme/other.css"), "ancien");
+    assert.deepEqual(t.lock(), {
+      "docker/theme/same.css": contributionFingerprint("pareil"),
+    });
+  });
+
+  it("une semence n'est jamais remplacée, même avec --update", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    const seed = t.read("seed.txt");
+    const [report] = await runAppContributions(t.app, false, true);
+    assert.strictEqual(t.read("seed.txt"), seed);
+    assert.include(report?.kept ?? [], "seed.txt");
+    assert.notInclude(report?.modified ?? [], "seed.txt");
+  });
+
+  it("en simulation, --update n'écrit ni fichier ni registre", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    const before = readFileSync(path.join(t.app, SCAFFOLD_LOCK_FILE), "utf8");
+    t.deliver({ "login.css": "v2" });
+    const [report] = await runAppContributions(t.app, true, true);
+    assert.deepEqual(report?.updated, ["docker/theme/login.css"]);
+    assert.strictEqual(t.read("docker/theme/login.css"), "v1");
+    assert.strictEqual(
+      readFileSync(path.join(t.app, SCAFFOLD_LOCK_FILE), "utf8"),
+      before,
+    );
+  });
+
+  it("une passe sans effet ne réécrit pas le registre ; sans copie suivie, il n'existe pas", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    const lockPath = path.join(t.app, SCAFFOLD_LOCK_FILE);
+    const content = readFileSync(lockPath, "utf8");
+    writeFileSync(lockPath, content);
+    const stamp = new Date("2020-01-01T00:00:00Z");
+    utimesSync(lockPath, stamp, stamp);
+    await runAppContributions(t.app);
+    assert.strictEqual(statSync(lockPath).mtimeMs, stamp.getTime());
+
+    const bare = makeApp();
+    addPackage(
+      bare,
+      "deco",
+      `export function contribute(ctx) { ctx.write("a.txt", "x"); }`,
+    );
+    await runAppContributions(bare);
+    assert.isFalse(existsSync(path.join(bare, SCAFFOLD_LOCK_FILE)));
+  });
+
+  it("une contribution en échec garde son entrée au registre", async () => {
+    const t = makeThemedApp();
+    t.deliver({ "login.css": "v1" });
+    await runAppContributions(t.app);
+    const before = t.lock();
+    // Un AUTRE module : `import()` garde en cache celui déjà chargé.
+    addPackage(
+      t.app,
+      "theme",
+      `export function contribute() { throw new Error("cassée"); }`,
+      "./broken.mjs",
+    );
+    writeFileSync(
+      path.join(t.app, "node_modules", "@nodefony", "theme", "broken.mjs"),
+      `export function contribute() { throw new Error("cassée"); }`,
+    );
+    const [report] = await runAppContributions(t.app);
+    assert.isNotNull(report?.error);
+    assert.deepEqual(t.lock(), before);
+  });
+
+  it("l'empreinte d'un texte ignore CRLF, celle d'un binaire non", () => {
+    assert.strictEqual(
+      contributionFingerprint("a\r\nb\r\n"),
+      contributionFingerprint("a\nb\n"),
+    );
+    assert.notStrictEqual(
+      contributionFingerprint(Buffer.from([0, 13, 10])),
+      contributionFingerprint(Buffer.from([0, 10])),
+    );
+  });
+
+  it("le rendu nomme ce qui demande un geste et compte le reste", () => {
+    const text = renderScaffoldSync(
+      [
+        {
+          packageName: "@nodefony/theme",
+          written: [],
+          kept: ["a.css", "b.css", "c.css", "seed.txt"],
+          updated: [],
+          outdated: ["a.css"],
+          modified: ["b.css"],
+          error: null,
+        },
+      ],
+      { dryRun: false, update: false },
+    );
+    assert.include(text, "~ a.css");
+    assert.include(text, "! b.css");
+    assert.include(text, "= 2 déjà là");
+    assert.include(text, "scaffold:sync --update");
   });
 });

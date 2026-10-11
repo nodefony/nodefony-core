@@ -14,7 +14,7 @@ const options: OptionsCommandInterface = {
 
 /**
  * Commande `nodefony scaffold:sync` — pose les fichiers que livrent les paquets
- * installés (`nodefony.contribute`), sans jamais remplacer un fichier présent.
+ * installés (`nodefony.contribute`) ; `--update` rafraîchit les copies intactes.
  *
  * **Exécutée en « standalone » (zéro boot)**, comme `ai:sync` : l'enregistrement
  * ici sert à l'aide et à la complétion ; l'exécution réelle est interceptée par
@@ -24,6 +24,7 @@ const options: OptionsCommandInterface = {
  * ```bash
  * nodefony scaffold:sync            # pose les fichiers manquants
  * nodefony scaffold:sync --dry-run  # le plan, sans rien écrire
+ * nodefony scaffold:sync --update   # rafraîchit les copies intactes en retard
  * ```
  */
 class ScaffoldSync extends Command {
@@ -34,6 +35,7 @@ class ScaffoldSync extends Command {
       cli,
       options,
     );
+    this.addOption("--update", "Rafraîchit les copies intactes en retard");
     this.addOption("--dry-run", "Le plan, sans rien écrire");
     this.addOption("--json", "Sortie exploitable par un script");
     this.addOption(
@@ -43,11 +45,13 @@ class ScaffoldSync extends Command {
   }
 
   override async generate(opts?: {
+    update?: boolean;
     dryRun?: boolean;
     json?: boolean;
     cwd?: string;
   }): Promise<this> {
     const argv = ["node", "nodefony", "scaffold:sync"];
+    if (opts?.update) argv.push("--update");
     if (opts?.dryRun) argv.push("--dry-run");
     if (opts?.json) argv.push("--json");
     if (opts?.cwd) argv.push("--cwd", opts.cwd);

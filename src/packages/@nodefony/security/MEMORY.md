@@ -539,7 +539,9 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   seulement (`NF_KEYCLOAK_ADMIN_USERNAME`/`_PASSWORD`). Thème hors `nodefony`/`nodefony-*` (ou
   absent) → `unmanaged`, jamais écrit. Les commandes et routes de dev passent par le service ; la
   contribution de scaffold (`create app`, `scaffold:sync` standalone, ZÉRO boot) appelle les
-  fonctions pures — pas de conteneur à ce moment-là.
+  fonctions pures — pas de conteneur à ce moment-là. Realm = `context.write` (SEMENCE, jamais
+  rafraîchie : UUID par app, évolue par `--write`) ; thème = `copyTree` (copie SUIVIE, empreintes
+  dans `scaffold.lock.json`, rafraîchie par `scaffold:sync --update` si intacte).
 - Sonde `theme` du diagnostic OAuth : `IOAuthDiagnosisInput.pageCheck` (générique) ; `oauth2.diagnose`
   y branche `keycloakLoginThemeCheck(loginPage.skin)` → lit `/resources/<v>/login/<thème>/` dans la
   page d'autorisation (sans identifiant), `failed`/`login-theme-mismatch` si écart. Libellé côté

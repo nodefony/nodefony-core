@@ -227,7 +227,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 | `card` | `devkit:card` | **Carte de visite** de l'app : identité, modules installés, où aller, quoi lancer — `--json`, `--cwd` (**0 boot**) | `0 boot` | `CardCommand.ts` |
 | `symbols` | — | Signature et TSDoc d'un symbole du framework, depuis le graphe publié — `--module`, `--json` (**0 boot**) | `0 boot` | `SymbolsCommand.ts` |
 | `ai:sync` | — | Pose dans `.agents/skills/` les **pointeurs** vers les skills livrés par les paquets installés — `--dry-run`, `--json`, `--cwd` (**0 boot**) | `0 boot` | `cli/aiSync.ts` |
-| `scaffold:sync` | — | Pose les **fichiers** que livrent les paquets installés (`nodefony.contribute`), sans jamais remplacer un fichier présent — `--dry-run`, `--json`, `--cwd` (**0 boot**) | `0 boot` | `cli/contributions.ts` |
+| `scaffold:sync` | — | Pose les **fichiers** que livrent les paquets installés (`nodefony.contribute`) ; `--update` rafraîchit les copies restées intactes — `--dry-run`, `--json`, `--cwd` (**0 boot**) | `0 boot` | `cli/contributions.ts` |
 | `ai:mcp` | — | Déclare le serveur MCP de l'app à ton agent (**0 boot**) | `0 boot` | `AiMcpCommand.ts` |
 | `see` | — | Ouvre une page dans un navigateur piloté et la **mesure** (**0 boot**) | `0 boot` | `SeeCommand.ts` |
 | `image:check` | — | Refuse une image de conteneur qui embarque un secret (**0 boot**) | `0 boot` | `ImageCommand.ts` |
@@ -272,13 +272,36 @@ fera évoluer. Un paquet le déclare dans son `package.json` :
 { "nodefony": { "contribute": "./dist/nodefony/scaffold/contribute.js" } }
 ```
 
-Ce module exporte `contribute(context)` (type `TAppContributor`) ; le contexte
-(`IAppContributionContext`) n'écrit qu'un fichier ABSENT — un fichier présent appartient à
-l'application, qui a pu le retoucher, et il est rapporté « gardé ». Pour reprendre la version du
-paquet, on supprime le fichier puis on relance. Le cœur ne connaît aucun contributeur : c'est ce qui
-permet à `@nodefony/security` de livrer son décor Keycloak sans que le cœur en sache rien.
-`create app` joue les contributions après l'installation, avant le premier commit ; la commande les
-rejoue après un `--no-install` ou un `npm update`. Elle sort en 1 si une contribution échoue.
+Ce module exporte `contribute(context)` (type `TAppContributor`). Le contexte
+(`IAppContributionContext`) distingue deux sortes de fichiers :
+
+| Geste                                                      | Nature                                                                           | Fichier présent                          |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------- |
+| `write(chemin, contenu)`                                   | **semence** : générée POUR l'application (un realm), qui la fait ensuite évoluer | jamais remplacé                          |
+| `copyTree(dossier, chemin)`, `write(…, { tracked: true })` | **copie suivie** : ce que le paquet livre tel quel (un thème)                    | rafraîchi par `--update` s'il est intact |
+
+Une copie suivie est inscrite avec son empreinte sha256 dans **`scaffold.lock.json`**, à la racine
+de l'application et **versionné avec elle**. C'est la preuve qui manquait pour suivre les versions du
+paquet sans écraser une retouche :
+
+- empreinte du fichier = celle de la livraison précédente → **intact** : sans `--update`, il est
+  signalé « en retard » ; avec, il est remplacé par la version du paquet ;
+- empreinte différente → **retouché**, ou posé avant le registre : gardé et signalé, jamais écrasé
+  (pour reprendre la version du paquet, supprimer le fichier puis relancer) ;
+- fichier identique à la livraison → inscrit, même s'il précède le registre.
+
+Les fins de ligne d'un texte sont ramenées à `\n` avant l'empreinte : un dépôt extrait sous Windows
+avec `core.autocrlf` ne fait pas passer chaque fichier intact pour retouché. Le registre n'est
+réécrit que s'il change, et une contribution en échec garde son entrée.
+
+Le cœur ne connaît aucun contributeur : c'est ce qui permet à `@nodefony/security` de livrer son
+décor Keycloak sans que le cœur en sache rien. `create app` joue les contributions après
+l'installation, avant le premier commit (le registre entre donc dans ce commit) ; la commande les
+rejoue après un `--no-install`, et `--update` après un `npm update`. Elle sort en 1 si une
+contribution échoue. Le même geste existe dans le plan d'administration, en développement
+seulement : `GET /nodefony/kernel/api/scaffold` (le plan de `--update`, sans écrire) et
+`POST /nodefony/kernel/api/scaffold/sync` (`{ "update": true }`), superviseur suspendu le temps
+de l'écriture.
 
 ### Les commandes de module
 
