@@ -58,7 +58,7 @@
      (`url(...)` posée par l'application), un voile PLEIN par-dessus. */
   --nf-login-hero-bg: #0f1114;
   --nf-login-hero-image: none;
-  --nf-login-hero-veil: rgba(10, 14, 22, 0.7);
+  --nf-login-hero-veil: rgba(10, 14, 22, 0.65);
   --nf-login-hero-fg: #f1f3f5;
   --nf-login-hero-muted: #8a9099;
   /* Les trois arcs du logo (bleu, vert, cyan) posés sur la jonction courbe. */
@@ -108,7 +108,7 @@
     --nf-login-ok-bg: #edf8f2;
     --nf-login-home-green: #2f6a27;
     --nf-login-hero-bg: #f5f6f8;
-    --nf-login-hero-veil: rgba(246, 248, 251, 0.62);
+    --nf-login-hero-veil: rgba(246, 248, 251, 0.65);
     --nf-login-hero-fg: #111317;
     --nf-login-hero-muted: #5d646d;
     color-scheme: light;
@@ -133,7 +133,7 @@
   --nf-login-ok-bg: #edf8f2;
   --nf-login-home-green: #2f6a27;
   --nf-login-hero-bg: #f5f6f8;
-  --nf-login-hero-veil: rgba(246, 248, 251, 0.62);
+  --nf-login-hero-veil: rgba(246, 248, 251, 0.65);
   --nf-login-hero-fg: #111317;
   --nf-login-hero-muted: #5d646d;
   color-scheme: light;
