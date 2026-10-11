@@ -9,6 +9,8 @@ description: >
   Déclencheurs : "reprends", "on en était où", "dernière session", "où en est la publication",
   "quels tickets restent", "prépare le contexte", "session sur <module>", "fin de session",
   "clôture la session".
+metadata:
+  version: 1.1.0
 ---
 
 # nodefony-session
@@ -80,6 +82,9 @@ contrôles que personne ne faisait. Ses règles vivent dans
    tickets. `_state` PÉRIMÉ ou contredit → le DIRE, le ticket gagne. ⚠️ L'ordre encode les
    **dépendances**, pas le moment : un petit ticket dont le contexte vient d'être chargé se prend
    **maintenant** — skill `nodefony-ticket`.
+   3bis. **🧸 Le ticket pour les nuls** — le ticket proposé, expliqué selon le rituel du skill
+   `nodefony-ticket` (§ « Entamer un ticket »), en prose normale. Toujours, même quand le
+   ticket paraît simple ; il ne compte pas dans les 30 lignes.
 4. **Avancement du jalon COURANT** (ligne `Jalon courant`), les 2 suivants ; les jalons ultérieurs
    en une ligne au plus. Hors ligne : « avancement non vérifié » + la date de l'empreinte.
 5. **Git** : non poussés, non commités, `dist` périmé — lignes du script

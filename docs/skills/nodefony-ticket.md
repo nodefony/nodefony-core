@@ -12,13 +12,13 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 # `nodefony-ticket`
 
-> Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus.
+> Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-ticket**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.8.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.9.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,19 +26,19 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.8.0` |
+| Version | `1.9.0` |
 | Famille | Autres |
-| Corps | 450 lignes |
-| Coût d'activation | ~8 776 tokens (le corps est chargé à l'invocation) |
-| Description | 998 / 1024 caractères |
-| Déclencheurs | 17 |
+| Corps | 474 lignes |
+| Coût d'activation | ~9 145 tokens (le corps est chargé à l'invocation) |
+| Description | 1014 / 1024 caractères |
+| Déclencheurs | 19 |
 | Ressources `references/` | 7 page(s) |
 | Scripts | 17 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue.
+Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue.
 
 ## Prérequis
 
@@ -54,7 +54,7 @@ Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pa
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`crée un ticket` · `ouvre une issue` · `corrige les tickets` · `ce titre est incompréhensible` · `renomme cette issue` · `ticket parent` · `découper cette issue` · `estimer un ticket` · `priorité d'un ticket` · `ce ticket est-il encore vrai ?` · `ferme ce ticket` · `quel ticket prendre maintenant ?` · `ce ticket est trop vague` · `quels tickets parlent de ce que j'ai changé ?` · `dater les tickets` · `la roadmap du projet est vide` · `recaler les estimations`
+`crée un ticket` · `ouvre une issue` · `corrige les tickets` · `ce titre est incompréhensible` · `renomme cette issue` · `ticket parent` · `découper cette issue` · `estimer un ticket` · `priorité d'un ticket` · `ce ticket est-il encore vrai ?` · `ferme ce ticket` · `quel ticket prendre maintenant ?` · `ce ticket est trop vague` · `quels tickets parlent de ce que j'ai changé ?` · `dater les tickets` · `la roadmap du projet est vide` · `recaler les estimations` · `explique le ticket` · `pour les nuls`
 
 ## Ce que contient le corps
 
@@ -65,6 +65,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 3. Le ticket est un instrument d'ÉCONOMIE — il achète du temps, ou il en coûte
 - 4. Parent et sous-tickets
 - 5. Inscrire, ordonner, dater — et quand prendre un ticket
+- 5bis. Entamer un ticket — l'expliquer « pour les nuls », AVANT tout code
 - 6. Fermer un ticket — le geste est TRIPLE
 - Pièges vécus
 - Les scripts de ce skill
@@ -137,14 +138,14 @@ node ticket-verify.mjs                       # ancres de tous les tickets ouvert
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 998 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1014 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 450 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 474 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

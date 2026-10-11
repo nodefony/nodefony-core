@@ -39,7 +39,7 @@ source: "docs/skills/index.md"
 [
   { "icon": "🧭", "title": "session", "href": "nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire…",
-    "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 1 réf" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 9 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 4 scripts" }
@@ -159,7 +159,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont…",
-    "meta": "🟢 conforme v1.8.0 · ⚙️ 17 scripts · 📎 7 réf" },
+    "meta": "🟢 conforme v1.9.0 · ⚙️ 17 scripts · 📎 7 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },
@@ -203,13 +203,13 @@ source: "docs/skills/index.md"
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.8.0 | 311 | 0 | 3 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 379 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | — | 197 | 1 | 9 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | 1.1.0 | 200 | 1 | 9 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 4 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 207 | 1 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.8.0 | 450 | 7 | 17 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.9.0 | 474 | 7 | 17 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 233 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 96 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 104 | 0 | 0 | ✅ |

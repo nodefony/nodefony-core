@@ -1,19 +1,19 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.8.0
+  version: 1.9.0
 description: >
   Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et
   compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une
   preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau
-  dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait
+  dont les DATES qui recalent les estimations, le moment où un ticket se fait
   dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes,
   pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : "crée un ticket", "ouvre une
   issue", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket
   parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il
   encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "ce ticket est trop vague",
   "quels tickets parlent de ce que j'ai changé ?", "dater les tickets", "la roadmap du projet est
-  vide", "recaler les estimations".
+  vide", "recaler les estimations", "explique le ticket", "pour les nuls".
 ---
 
 # nodefony-ticket — écrire un ticket qu'on comprend en dix secondes
@@ -359,6 +359,30 @@ d'ordonner ou d'estimer.
   Le lot, lui, ne promet rien : c'est sa fermeture complète qui DÉCLENCHE la publication —
   `gh issue list --label beta-1 --state open` vide, la beta.1 part. `LABEL-DOUBLE-JALON` le contrôle.
 - **Le contrôle se lance** : `npm run ticket:lint` (0 = le tableau se tient).
+
+## 5bis. Entamer un ticket — l'expliquer « pour les nuls », AVANT tout code
+
+**Rituel, sans exception** : au moment de prendre un ticket — en début de session (le mode
+RESUME de `nodefony-session` y renvoie) comme en cours de session —, la première chose rendue
+à l'auteur est le ticket expliqué pour les nuls. Pas une ligne de code, pas une lecture de
+source avant. En prose normale (le style télégraphique est suspendu ici), ~10-15 lignes :
+
+1. **Le décor** — ce qu'est la chose dont parle le ticket, si elle n'est pas évidente
+   (Keycloak, un thème, un registre), en une ou deux phrases.
+2. **Le problème** — ce qui ne va pas, vu par l'utilisateur d'une application, sans jargon ;
+   un terme technique inévitable se définit dans la même phrase.
+3. **Pourquoi c'est gênant** — la conséquence concrète si l'on ne fait rien.
+4. **Ce qu'on va faire** — le geste, en mots simples, et où il se branche (deux noms de
+   fichiers au plus).
+5. **Fini quand** — le critère observable du ticket, reformulé.
+
+Pourquoi : un ticket se lit en numéros, en noms de fonctions et en ancrages `fichier:ligne`.
+L'auteur y voit le QUOI, pas le POURQUOI, et approuve un travail qu'il ne suit plus. Le dire
+simplement l'oblige aussi à être compris par celui qui le rédige : un ticket qu'on ne sait pas
+expliquer en mots simples est un ticket qu'on n'a pas encore compris.
+
+Un ticket PARENT s'explique une fois, puis chaque enfant en deux ou trois lignes : ce qu'il
+ajoute au tout.
 
 ## 6. Fermer un ticket — le geste est TRIPLE
 
