@@ -379,7 +379,7 @@ config security est la première source de confusion sur ce sujet.
 
 ### Couche applicative — `use("@nodefony/security", { headers })`
 
-Dérivé du schéma Zod `headersSchema` (`config.ts:222`).
+Dérivé du schéma Zod `headersSchema` (`config.ts:256`).
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |

@@ -104,12 +104,44 @@ parce qu'il **est** cette application, ou parce que ses sujets sont déjà des i
   Absent, désactivé ou verrouillé : l'accès est refusé. C'est le mode d'une application dont les
   utilisateurs existent chez elle, l'émetteur ne servant qu'à les authentifier.
 - **`ephemeral`** — aucun compte local n'est exigé ni créé ; l'appelant vit le temps de la requête
-  avec les rôles d'`ephemeralRoles` (`config.ts:706`). C'est le mode de l'appelant **purement machine** : un agent, un
+  avec les rôles d'`ephemeralRoles` (`config.ts:745`). C'est le mode de l'appelant **purement machine** : un agent, un
   service. Sans rôle déclaré, il ne passe aucun `@IsGranted` et n'est autorisé que par ses **scopes**
   — qui viennent du jeton, donc bornés par le serveur d'autorisation.
 
 > Écrire un rôle dans `ephemeralRoles` accorde un pouvoir local à quiconque détient un jeton valide
 > pour cette ressource. À faire sciemment, jamais par confort.
+
+### Une politique PAR ZONE
+
+`resourceServer.subjectPolicy` vaut pour toute l'application. Une zone qui liste `external-jwt` peut
+la **surcharger** — c'est ce qui fait cohabiter une API d'appelants machine et une zone de personnes :
+
+```ts
+areas: {
+  partner: {
+    pattern: "^/api/partner",
+    stateless: true,
+    authenticators: ["jwt", "external-jwt"],
+    resource: "https://app.example/api/partner",
+    subjectPolicy: "ephemeral",        // l'appelant machine n'a pas de compte local
+    ephemeralRoles: ["ROLE_PARTNER"],  // facultatif — sinon : scopes seulement
+  },
+  staff: {
+    pattern: "^/staff",
+    authenticators: ["external-jwt"],
+    resource: "https://app.example/staff", // suit la globale (« require »)
+  },
+}
+```
+
+Trois règles, toutes vérifiées au boot ou au rattachement :
+
+- la zone qui ne dit rien suit la politique globale ;
+- `subjectPolicy` sur une zone **sans** `external-jwt` est refusé au boot : le réglage n'aurait
+  aucun effet, et l'auteur croirait sa zone ouverte aux machines ;
+- `ephemeralRoles` exige `subjectPolicy: "ephemeral"` écrit **dans la même zone**, et une zone
+  `ephemeral` muette n'accorde **aucun** rôle — jamais ceux de `resourceServer.ephemeralRoles`. Un
+  pouvoir local ne s'hérite pas d'un réglage écrit ailleurs.
 
 ## Comment ça s'articule
 

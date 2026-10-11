@@ -204,7 +204,7 @@ curl -si http://localhost:5151/api/articles -H 'Origin: https://evil.com'
 
 ## ⚙️ Configuration et mises en situation
 
-La section `cors` de la config du module (`corsSchema`, `config.ts:145` ; branchée à la racine en
+La section `cors` de la config du module (`corsSchema`, `config.ts:179` ; branchée à la racine en
 `config.ts:1143`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
 
 <!-- prettier-ignore -->

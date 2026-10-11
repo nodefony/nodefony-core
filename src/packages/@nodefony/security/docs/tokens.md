@@ -475,13 +475,13 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:373-449`) et `token
 | --- | --- | --- | --- |
 | `enabled` | boolean | `true` | Active signature + refresh (`config.ts:375`) |
 | `alg` | `EdDSA` \| `RS256` | `EdDSA` | `RS256` = slot non câblé (`jwtRuntime.ts:21`) |
-| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts:377`) |
-| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:382`) |
-| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:387`) |
+| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts:420`) |
+| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:425`) |
+| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:430`) |
 | `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
-| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:403`) |
+| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:446`) |
 | `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
-| `keystore.keySetJson` | string? | — | JWK Set privé partagé par tous les process (`NF_JWT_KEYSET`) — SECRET, forme vérifiée au démarrage (`security/nodefony/config/config.ts:411`) |
+| `keystore.keySetJson` | string? | — | JWK Set privé partagé par tous les process (`NF_JWT_KEYSET`) — SECRET, forme vérifiée au démarrage (`security/nodefony/config/config.ts:452`) |
 | `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600, création exclusive — dev, ou serveur unique à disque persistant (`config.ts:434`) |
 
 ### `tokenStore.*`
@@ -489,9 +489,9 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:373-449`) et `token
 | Option                 | Type       | Défaut   | Effet                                                                                 |
 | ---------------------- | ---------- | -------- | ------------------------------------------------------------------------------------- |
 | `store`                | string     | `"auto"` | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:452-457`)    |
-| `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts:458`) |
-| `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts:466`)              |
-| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:472`)              |
+| `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts:501`) |
+| `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts:509`)              |
+| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:515`)              |
 
 ## 📜 Normes appliquées
 

@@ -41,6 +41,12 @@ const INVALID_TOKEN = "Invalid token";
 /** Clé de transport de l'audience entre `createToken` et `authenticate`. */
 const AUDIENCE = "audience";
 
+/**
+ * Clé de transport de la zone qui SURCHARGE la politique de rattachement.
+ * Posée seulement par ces zones-là : les autres ne paient rien de plus.
+ */
+const SUBJECT_AREA = "subjectArea";
+
 /** Comment le sujet d'un jeton devient un utilisateur de cette application. */
 export type ExternalSubjectPolicy = "require" | "ephemeral";
 
@@ -202,6 +208,8 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     const token = new UserToken("external-jwt", bearerToken(auth) ?? "");
     const area = context.security as ISecuredArea | null | undefined;
     if (area?.resource) token.setAttribute(AUDIENCE, area.resource);
+    if (area?.subjectPolicy !== undefined)
+      token.setAttribute(SUBJECT_AREA, area);
     return Promise.resolve(token);
   }
 
@@ -273,6 +281,7 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
       subject,
       mapping,
       principal.claims,
+      token.getAttribute<ISecuredArea>(SUBJECT_AREA),
     );
     const ut = token as UserToken;
     ut.promote(user);
@@ -364,6 +373,7 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     subject: string,
     mapping: ExternalSubjectMapping,
     claims: Readonly<Record<string, unknown>> | undefined,
+    area: ISecuredArea | undefined,
   ): Promise<IUser> {
     // UNE seule composition, quelle que soit la politique. En `ephemeral` aussi
     // le sujet doit porter son émetteur : sans cela, deux annuaires distincts
@@ -371,13 +381,16 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
     // de limitation, même canal realtime privé. Aucun compte n'est pris, mais
     // deux identités se confondent, ce qui est le même défaut d'espace de noms.
     const identifier = localIdentifierFor(issuer, subject, mapping);
-    if (this.#policy === "ephemeral") {
+    // La zone qui déclare sa politique gagne sur la globale — et apporte SES
+    // rôles, jamais ceux de la globale (`SecuredArea` les résout au boot).
+    const policy = area?.subjectPolicy ?? this.#policy;
+    if (policy === "ephemeral") {
       // Identité qui ne survit pas à la requête : rien n'est écrit, rien n'est
       // à nettoyer.
       return new BaseUser({
         id: identifier,
         identifier,
-        roles: [...this.#ephemeralRoles],
+        roles: [...(area?.ephemeralRoles ?? this.#ephemeralRoles)],
       });
     }
     const provider = this.#resolveUserProvider();

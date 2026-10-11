@@ -21,6 +21,8 @@ export class SecuredArea implements ISecuredArea {
   readonly realtime: boolean;
   readonly resource?: string | undefined;
   readonly entryPoint?: string | undefined;
+  readonly subjectPolicy?: "require" | "ephemeral" | undefined;
+  readonly ephemeralRoles?: readonly string[] | undefined;
   /**
    * Rôles exigés par défaut dans la zone, ou `null` quand elle n'en exige
    * aucun. `null` plutôt qu'un tableau vide : le hot path teste une référence,
@@ -45,6 +47,13 @@ export class SecuredArea implements ISecuredArea {
     this.realtime = config.realtime;
     this.resource = config.resource;
     this.entryPoint = config.entryPoint;
+    this.subjectPolicy = config.subjectPolicy;
+    // Les rôles ne valent qu'avec la politique écrite à côté (garde du schéma) ;
+    // une zone « ephemeral » muette n'en accorde aucun.
+    this.ephemeralRoles =
+      config.subjectPolicy === "ephemeral"
+        ? (config.ephemeralRoles ?? [])
+        : undefined;
     this.roles = config.roles.length > 0 ? config.roles : null;
   }
 

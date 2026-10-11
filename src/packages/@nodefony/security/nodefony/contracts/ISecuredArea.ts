@@ -55,6 +55,22 @@ export interface ISecuredArea extends ISecurityZone {
   readonly resource?: string | undefined;
 
   /**
+   * Politique de rattachement du sujet d'un jeton TIERS propre à cette zone,
+   * ou `undefined` pour suivre `resourceServer.subjectPolicy`.
+   *
+   * C'est ce qui fait cohabiter une zone d'appelants machine (`ephemeral`) et
+   * une zone de personnes (`require`) dans la même application.
+   */
+  readonly subjectPolicy?: "require" | "ephemeral" | undefined;
+
+  /**
+   * Rôles accordés par cette zone à un appelant `ephemeral` — définis dès que
+   * la zone déclare `subjectPolicy: "ephemeral"` (vide si elle n'en écrit
+   * aucun : un pouvoir local ne s'hérite jamais de la politique globale).
+   */
+  readonly ephemeralRoles?: readonly string[] | undefined;
+
+  /**
    * Page de connexion vers laquelle le pare-feu conduit un visiteur anonyme
    * qui NAVIGUE (`302` vers `<entryPoint>?from=<chemin demandé>`), au lieu du
    * `401`. Un appel d'API, un POST ou un WebSocket gardent leur `401` : un

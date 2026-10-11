@@ -122,6 +122,62 @@ describe("defineSecurityConfig — défauts sûrs (S0)", () => {
 });
 
 describe("defineSecurityConfig — validation au boot", () => {
+  it("politique de sujet PAR ZONE : acceptée sur une zone à jetons tiers, rôles résolus à part", () => {
+    const c = defineSecurityConfig({
+      areas: {
+        partner: {
+          pattern: "^/api/partner",
+          stateless: true,
+          authenticators: ["jwt", "external-jwt"],
+          resource: "https://app.example/api/partner",
+          subjectPolicy: "ephemeral",
+          ephemeralRoles: ["ROLE_PARTNER"],
+        },
+      },
+    });
+    assert.equal(c.areas.partner!.subjectPolicy, "ephemeral");
+    assert.deepEqual(c.areas.partner!.ephemeralRoles, ["ROLE_PARTNER"]);
+  });
+
+  it("refuse une politique de sujet sur une zone sans jetons tiers (réglage sans effet)", () => {
+    let caught: unknown;
+    try {
+      defineSecurityConfig({
+        areas: {
+          app: {
+            pattern: "^/app",
+            authenticators: ["session"],
+            subjectPolicy: "ephemeral",
+          },
+        },
+      });
+    } catch (e) {
+      caught = e;
+    }
+    assert.ok(BootConfigurationError.is(caught));
+    assert.match((caught as Error).message, /external-jwt/);
+  });
+
+  it("refuse des rôles éphémères sans « ephemeral » écrit dans la MÊME zone", () => {
+    let caught: unknown;
+    try {
+      defineSecurityConfig({
+        areas: {
+          partner: {
+            pattern: "^/api/partner",
+            authenticators: ["external-jwt"],
+            resource: "https://app.example/api/partner",
+            ephemeralRoles: ["ROLE_PARTNER"],
+          },
+        },
+      });
+    } catch (e) {
+      caught = e;
+    }
+    assert.ok(BootConfigurationError.is(caught));
+    assert.match((caught as Error).message, /ne s'hérite pas/);
+  });
+
   it("refuse deux zones partageant le même motif (ambiguïté de match)", () => {
     let caught: unknown;
     try {

@@ -536,25 +536,25 @@ que le mapping du profil. Exemple sans réseau dans le dépôt :
 
 ## ⚙️ Configuration
 
-Schéma Zod `oauth2Schema` (`config.ts:1304`), branché sur la section `oauth2` de la config du module
-(`config.ts:1419`). Table dérivée du schéma — les défauts sont ceux du code.
+Schéma Zod `oauth2Schema` (`config.ts:1336`), branché sur la section `oauth2` de la config du module
+(`config.ts:1451`). Table dérivée du schéma — les défauts sont ceux du code.
 
 | Option            | Type                 | Défaut                      | Effet                                                                                                                                      |
 | ----------------- | -------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `enabled`         | booléen              | `true`                      | Coupe le social login : `authorize`/`callback` rendent 503.                                                                                |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]`             | Rôles du Shadow User **à la création** (`config.ts:1180`).                                                                                 |
-| `allowSignup`     | booléen              | `true`                      | `false` = compte préexistant lié exigé (`config.ts:1318`).                                                                                 |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]`             | Rôles du Shadow User **à la création** (`config.ts:1212`).                                                                                 |
+| `allowSignup`     | booléen              | `true`                      | `false` = compte préexistant lié exigé (`config.ts:1350`).                                                                                 |
 | `successRedirect` | chemin               | `/`                         | Où revient l'utilisateur après succès, quand la page de départ n'a pas donné `from`.                                                       |
 | `failureRedirect` | chemin               | `loginPage.path` (`/login`) | Où il revient après échec, quand la page de départ n'a pas donné `back`. Omis = la page de connexion, qu'il suit si elle change de chemin. |
-| `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1334`).                                                                                                   |
+| `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1366`).                                                                                                   |
 
-Par fournisseur (`oauthProviderSchema`, `config.ts:1117`) :
+Par fournisseur (`oauthProviderSchema`, `config.ts:1149`) :
 
 <!-- prettier-ignore -->
 | Option | Requis | Effet |
 | --- | :---: | --- |
 | `clientId` / `clientSecret` | ✅ | Identifiants délivrés par l'IdP. Secrets : par `env.ts`, jamais journalisés. |
-| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:1138`). |
+| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:1170`). |
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
 | `clientAuthMethod` |  | Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). Omis = `client_secret_basic`, ce que la RFC demande de préférer. Poser `client_secret_post` quand le serveur l'EXIGE — il le publie dans `token_endpoint_auth_methods_supported`. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
@@ -672,9 +672,9 @@ ou détruire les sessions), pas chez le fournisseur.
 | ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Flux Authorization Code               | RFC 6749                               | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:99`)                    |
 | PKCE                                  | RFC 7636                               | `usesPkce` (`IOAuthProvider.ts:72`) · `oidc.ts:104-111`                                  |
-| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:280`) · `oauth2Schema` (`config.ts:1304`)                    |
+| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:280`) · `oauth2Schema` (`config.ts:1336`)                    |
 | Anti-mix-up (`iss`)                   | RFC 9207                               | `issuerPolicy` (`IOAuthProvider.ts:79`) · `oauth2.ts:402-408`                            |
-| Callback en correspondance exacte     | RFC 9700 §4                            | `redirectUri` (`config.ts:1138`)                                                         |
+| Callback en correspondance exacte     | RFC 9700 §4                            | `redirectUri` (`config.ts:1170`)                                                         |
 | Claims d'identité OIDC                | OpenID Connect Core                    | `fetchProfile()` du helper OIDC (`oidc.ts:205-220`)                                      |
 | ID token consommé en code flow        | OIDC Core §3.1.3.7                     | `assertIdTokenClaims()` (`oidc.ts:143`)                                                  |
 | Anti-fixation de session              | OWASP Session Management               | `session.regenerateId()` au login (`authFlow.ts:388`)                                    |
@@ -734,7 +734,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | `404` « Unknown provider » sur `authorize`           | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:19`)                                       | Vérifier le nom exact **et** la présence des secrets                            |
 | Bouton absent de l'écran de login                    | Secrets manquants → fournisseur non monté (spread conditionnel)                                          | Renseigner `clientId`/`clientSecret` dans l'env                                 |
 | Bouton absent + WARNING « indisponible » au boot     | Émetteur injoignable à la construction (`OAuth2Service.#resolveProvider()`)                              | Démarrer le serveur d'autorisation ; le bouton revient sous 30 s                |
-| `redirect_uri_mismatch` chez le fournisseur          | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:1114`)                                    | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`                   |
+| `redirect_uri_mismatch` chez le fournisseur          | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:1170`)                                    | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`                   |
 | Retour systématique sur `failureRedirect`            | `state`/`verifier` absents (cookie perdu entre les deux requêtes)                                        | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev                     |
 | Callback échoue au **deuxième** essai                | `state` à usage unique, consommé (`OAuth2Controller.ts:163-165`)                                         | Refaire le flux depuis `authorize` — comportement attendu                       |
 | `OAuth issuer mismatch`                              | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:402-408`)                                                    | Corriger `issuer` (Keycloak : URL exacte du realm)                              |

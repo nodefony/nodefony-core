@@ -239,7 +239,7 @@ raison est dans le code (`apiKeyFormat.ts:8-10`) : le charset base64url contient
 
 | Morceau  | Taille               | Secret ? | À quoi ça sert                                                                                     |
 | -------- | -------------------- | :------: | -------------------------------------------------------------------------------------------------- |
-| `prefix` | ≤ 12 car. minuscules |   non    | Marque applicative — discrimine du JWT, aide le secret-scanning (`config.ts:760`)                  |
+| `prefix` | ≤ 12 car. minuscules |   non    | Marque applicative — discrimine du JWT, aide le secret-scanning (`config.ts:803`)                  |
 | `pubid`  | 6 octets → 8 car.    |   non    | Identifiant affichable dans la console (`nf_a1b2c3d4`) — `generateApiKey()` (`apiKeyFormat.ts:92`) |
 | `secret` | 32 octets → 43 car.  | **oui**  | 256 bits d'entropie — `SECRET_BYTES` (`apiKeyFormat.ts:30`)                                        |
 | `crc`    | 4 octets → 6 car.    |   non    | CRC32 du `prefix_pubid+secret` — `crcChunk()` (`apiKeyFormat.ts:63`)                               |
@@ -376,7 +376,7 @@ soit deux secrets valides sous le même id (ambigu à auditer), soit une coupure
 4. **Puis** révoquer la v1.
 
 Ce qui rend l'étape 3 fiable : `lastUsedAt` est écrit de façon **throttlée**, pas à chaque requête —
-la fenêtre par défaut est de 60 s (`lastUsedThrottleS`, `config.ts:776`). Attends donc une minute
+la fenêtre par défaut est de 60 s (`lastUsedThrottleS`, `config.ts:819`). Attends donc une minute
 avant de conclure qu'une clé « ne sert plus ».
 
 ### Révoquer une clé qui a fuité
@@ -446,17 +446,17 @@ applicatif qu'il faut alimenter, pas le store de jetons.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:766`), branché à la racine de la config du
+Table dérivée du schéma Zod `apiKeysSchema` (`config.ts:800`), branché à la racine de la config du
 module (`config.ts:739`). Toutes les valeurs ci-dessous sont les **défauts réels**.
 
 | Option              | Type             | Défaut | Effet                                                                                  |
 | ------------------- | ---------------- | ------ | -------------------------------------------------------------------------------------- |
-| `enabled`           | boolean          | `true` | Coupe l'émission ET le listing (l'authenticator reste déclarable) (`config.ts:757`)    |
-| `prefix`            | string ≤ 12      | `"nf"` | Marque des clés ; minuscules/chiffres — discrimine du JWT (`config.ts:760`)            |
-| `defaultExpiryDays` | number \| null   | `90`   | Expiration appliquée si l'appelant n'en donne pas ; `null` = jamais (`config.ts:769`)  |
-| `lastUsedThrottleS` | number (s)       | `60`   | Coalescence d'écriture de `lastUsedAt` ; `0` = à chaque usage (`config.ts:776`)        |
-| `maxPerSubject`     | number > 0       | `100`  | Plafond de clés **actives** par porteur ; au-delà → 409 (`config.ts:785`)              |
-| `allowedScopes`     | string[] \| null | `null` | Catalogue fermé à la création ; `null` = tout scope non vide accepté (`config.ts:794`) |
+| `enabled`           | boolean          | `true` | Coupe l'émission ET le listing (l'authenticator reste déclarable) (`config.ts:791`)    |
+| `prefix`            | string ≤ 12      | `"nf"` | Marque des clés ; minuscules/chiffres — discrimine du JWT (`config.ts:803`)            |
+| `defaultExpiryDays` | number \| null   | `90`   | Expiration appliquée si l'appelant n'en donne pas ; `null` = jamais (`config.ts:812`)  |
+| `lastUsedThrottleS` | number (s)       | `60`   | Coalescence d'écriture de `lastUsedAt` ; `0` = à chaque usage (`config.ts:819`)        |
+| `maxPerSubject`     | number > 0       | `100`  | Plafond de clés **actives** par porteur ; au-delà → 409 (`config.ts:828`)              |
+| `allowedScopes`     | string[] \| null | `null` | Catalogue fermé à la création ; `null` = tout scope non vide accepté (`config.ts:837`) |
 
 Deux réglages méritent une décision consciente :
 

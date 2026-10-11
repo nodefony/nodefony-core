@@ -85,6 +85,11 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
     de comptes — l'accepter d'office ferait de l'IdP l'unique autorité d'accès, supprimant la 2ᵉ décision
     locale qui EST le firewall. JIT/provisioning = l'app pose son propre vérificateur (le contrat est une
     fonction) ou son `users` (`provisionOAuthUser` existe déjà côté `@nodefony/user`).
+  - **Surcharge PAR ZONE** : `areas.<z>.subjectPolicy` / `ephemeralRoles` (schéma : `subjectPolicy`
+    exige `external-jwt` dans la zone ; `ephemeralRoles` exige `ephemeral` écrit dans la MÊME zone).
+    `SecuredArea` résout les rôles au boot (zone `ephemeral` muette ⇒ `[]`, jamais les globaux).
+    Transport : `createToken` pose la zone sous l'attribut `subjectArea` SEULEMENT si elle surcharge
+    (0 coût ailleurs) ; `#resolveUser` lit `area?.subjectPolicy ?? global`.
   - 🔴 **La BORNE du jeton voyage avec l'identité** : `IAccessPrincipal` porte `expiresAt`/`issuedAt`
     (**secondes** epoch, comme les claims) + `tokenId`, que `RemoteJwtVerifier` remonte du payload
     vérifié et que l'authenticator repose sous les MÊMES noms que `JwtAuthenticator` (`claims`,

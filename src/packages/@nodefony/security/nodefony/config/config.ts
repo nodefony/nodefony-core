@@ -84,65 +84,97 @@ const encoderSchema = z.strictObject({
     .describe("bcrypt : coût (10–15). Ignoré par argon2id."),
 });
 
-const areaSchema = z.strictObject({
-  pattern: z.string().describe("Pattern d'URL (RegExp) capturé par la zone."),
-  security: z
-    .boolean()
-    .default(true)
-    .describe("Zone protégée (Zero Trust). false = publique explicite."),
-  stateless: z
-    .boolean()
-    .default(false)
-    .describe(
-      "Stratégie d'identité AU-DESSUS du protocole (HTTP reste stateless par nature). false (défaut) : la zone PEUT tenir un registre serveur — la session n'est créée qu'AU LOGIN (jamais pour un anonyme, zéro alloc), cookie opaque révocable (BFF). true : aucun registre — chaque requête porte sa preuve complète (JWT/clé API), la session est ignorée même si un cookie est présent. ⚠️ Une zone destinée à un appelant NON-NAVIGATEUR (service partenaire, script, agent) doit être `true` : laissée à `false`, elle marche à l'essai — un navigateur ou un `curl -c` renvoie le cookie posé — puis échoue chez le vrai client, qui ne stocke rien et repart anonyme à chaque requête. Le symptôme est un 401 intermittent en production, que rien dans le code ne montre.",
-    ),
-  mode: z
-    .enum(["first", "all"])
-    .default("first")
-    .describe(
-      "Chaîne d'authenticators : 'first' = le premier qui reconnaît la requête authentifie (ex. cookie OU bearer) ; 'all' = tous doivent passer (ex. mtls+jwt zone admin).",
-    ),
-  authenticators: z
-    .array(z.string())
-    .default([])
-    .describe(
-      "Authenticators de la zone (sémantique selon `mode`). Validés au boot contre le registre.",
-    ),
-  roles: z
-    .array(z.string())
-    .default([])
-    .describe(
-      "Rôle(s) exigés PAR DÉFAUT dans la zone, en OU (l'un suffit ; hiérarchie comprise). Vide (défaut) = la zone n'exige qu'une identité, et toute route qu'elle couvre est ouverte à n'importe quel compte authentifié — c'est un défaut OUVERT, qu'une surface d'administration ne doit pas garder. Renseigné, le rôle s'applique à toute route de la zone qui ne décide PAS elle-même de son autorisation : une route gardée (`@IsGranted`, `@RequireScope`) et le pont du plan d'administration (qui résout un rôle par point d'entrée) gardent la main — sans quoi une zone fermée à l'administrateur écraserait un point d'entrée voulu accessible à son propriétaire (`me`, `sessions/mine`). Un refus ici est un 403 (authentifié, pas autorisé), jamais un 401.",
-    ),
-  entryPoint: z
-    .string()
-    .refine((value) => safeRedirectPath(value, "") === value, {
+const areaSchema = z
+  .strictObject({
+    pattern: z.string().describe("Pattern d'URL (RegExp) capturé par la zone."),
+    security: z
+      .boolean()
+      .default(true)
+      .describe("Zone protégée (Zero Trust). false = publique explicite."),
+    stateless: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Stratégie d'identité AU-DESSUS du protocole (HTTP reste stateless par nature). false (défaut) : la zone PEUT tenir un registre serveur — la session n'est créée qu'AU LOGIN (jamais pour un anonyme, zéro alloc), cookie opaque révocable (BFF). true : aucun registre — chaque requête porte sa preuve complète (JWT/clé API), la session est ignorée même si un cookie est présent. ⚠️ Une zone destinée à un appelant NON-NAVIGATEUR (service partenaire, script, agent) doit être `true` : laissée à `false`, elle marche à l'essai — un navigateur ou un `curl -c` renvoie le cookie posé — puis échoue chez le vrai client, qui ne stocke rien et repart anonyme à chaque requête. Le symptôme est un 401 intermittent en production, que rien dans le code ne montre.",
+      ),
+    mode: z
+      .enum(["first", "all"])
+      .default("first")
+      .describe(
+        "Chaîne d'authenticators : 'first' = le premier qui reconnaît la requête authentifie (ex. cookie OU bearer) ; 'all' = tous doivent passer (ex. mtls+jwt zone admin).",
+      ),
+    authenticators: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "Authenticators de la zone (sémantique selon `mode`). Validés au boot contre le registre.",
+      ),
+    roles: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "Rôle(s) exigés PAR DÉFAUT dans la zone, en OU (l'un suffit ; hiérarchie comprise). Vide (défaut) = la zone n'exige qu'une identité, et toute route qu'elle couvre est ouverte à n'importe quel compte authentifié — c'est un défaut OUVERT, qu'une surface d'administration ne doit pas garder. Renseigné, le rôle s'applique à toute route de la zone qui ne décide PAS elle-même de son autorisation : une route gardée (`@IsGranted`, `@RequireScope`) et le pont du plan d'administration (qui résout un rôle par point d'entrée) gardent la main — sans quoi une zone fermée à l'administrateur écraserait un point d'entrée voulu accessible à son propriétaire (`me`, `sessions/mine`). Un refus ici est un 403 (authentifié, pas autorisé), jamais un 401.",
+      ),
+    entryPoint: z
+      .string()
+      .refine((value) => safeRedirectPath(value, "") === value, {
+        message:
+          "entryPoint doit être un chemin de CETTE origine (`/login`), jamais une adresse externe",
+      })
+      .optional()
+      .describe(
+        "Page de connexion vers laquelle conduire un visiteur anonyme qui NAVIGUE (GET ou HEAD, `Accept: text/html`, `Sec-Fetch-Mode: navigate` s'il est présent) : 302 vers `<entryPoint>?from=<chemin demandé>`, et la page de connexion ramène au chemin demandé. Tout le reste — appel d'API, `fetch`, POST, WebSocket — garde son 401 et son `WWW-Authenticate`. Le refus reste journalisé (`auth.denied`). Absent (défaut) : 401 pour tous.",
+      ),
+    host: z
+      .string()
+      .optional()
+      .describe(
+        "Domaine/vhost de la zone (ex. admin.exemple.com). Omis = tous domaines.",
+      ),
+    resource: z
+      .string()
+      .optional()
+      .describe(
+        "URI canonique de la ressource protégée — l'AUDIENCE qu'un jeton doit porter pour être accepté ici (RFC 8707 §2). Obligatoire dès que la zone liste un authenticator de jetons TIERS (`external-jwt`), qui refuse de démarrer sans elle. C'est ce qui empêche un jeton valide, délivré au même porteur pour un AUTRE service, d'être rejoué sur celui-ci. Elle s'ÉCRIT et ne se dérive pas du `Host` : derrière un relais, ce que le processus croit être son adresse n'est pas ce que le client a demandé, et l'audience doit être exactement celle que le serveur d'autorisation a inscrite dans le jeton. Ex. « https://api.example.com/mcp ».",
+      ),
+    realtime: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Zone valable AUSSI pour les frames WebSocket (api.request + subscribe), pas seulement HTTP. Défaut `true` (Zero Trust : une zone protégée ferme TOUS ses transports — un opt-IN laisserait le WS anonyme par omission = fail-open). `false` = opt-out explicite pour une zone strictement HTTP. Le verrou WS consulte la MÊME zone que HTTP — invariant : `api.request {path}` n'accorde jamais plus que `GET {path}`.",
+      ),
+    subjectPolicy: z
+      .enum(["require", "ephemeral"])
+      .optional()
+      .describe(
+        "Surcharge, pour CETTE zone, de `resourceServer.subjectPolicy` — comment le sujet d'un jeton TIERS devient un utilisateur. Omis (défaut) = la politique globale. Sert à faire cohabiter une zone d'appelants machine (« ephemeral » : aucun compte local exigé) et une zone de personnes (« require ») dans la même application ; une politique globale ne sait pas l'exprimer. N'a de sens que si la zone liste `external-jwt` : déclarée ailleurs, le boot la refuse.",
+      ),
+    ephemeralRoles: z
+      .array(z.string().min(1))
+      .optional()
+      .describe(
+        "Rôles accordés à l'appelant accepté par CETTE zone en mode « ephemeral ». Exige `subjectPolicy: \"ephemeral\"` écrit dans la zone même : un pouvoir local ne s'hérite pas d'un réglage écrit ailleurs. Une zone qui déclare « ephemeral » sans ses rôles n'en accorde AUCUN — jamais ceux de `resourceServer.ephemeralRoles`, qui protègent une autre surface.",
+      ),
+  })
+  .refine(
+    (area) =>
+      area.subjectPolicy === undefined ||
+      area.authenticators.includes("external-jwt"),
+    {
       message:
-        "entryPoint doit être un chemin de CETTE origine (`/login`), jamais une adresse externe",
-    })
-    .optional()
-    .describe(
-      "Page de connexion vers laquelle conduire un visiteur anonyme qui NAVIGUE (GET ou HEAD, `Accept: text/html`, `Sec-Fetch-Mode: navigate` s'il est présent) : 302 vers `<entryPoint>?from=<chemin demandé>`, et la page de connexion ramène au chemin demandé. Tout le reste — appel d'API, `fetch`, POST, WebSocket — garde son 401 et son `WWW-Authenticate`. Le refus reste journalisé (`auth.denied`). Absent (défaut) : 401 pour tous.",
-    ),
-  host: z
-    .string()
-    .optional()
-    .describe(
-      "Domaine/vhost de la zone (ex. admin.exemple.com). Omis = tous domaines.",
-    ),
-  resource: z
-    .string()
-    .optional()
-    .describe(
-      "URI canonique de la ressource protégée — l'AUDIENCE qu'un jeton doit porter pour être accepté ici (RFC 8707 §2). Obligatoire dès que la zone liste un authenticator de jetons TIERS (`external-jwt`), qui refuse de démarrer sans elle. C'est ce qui empêche un jeton valide, délivré au même porteur pour un AUTRE service, d'être rejoué sur celui-ci. Elle s'ÉCRIT et ne se dérive pas du `Host` : derrière un relais, ce que le processus croit être son adresse n'est pas ce que le client a demandé, et l'audience doit être exactement celle que le serveur d'autorisation a inscrite dans le jeton. Ex. « https://api.example.com/mcp ».",
-    ),
-  realtime: z
-    .boolean()
-    .default(true)
-    .describe(
-      "Zone valable AUSSI pour les frames WebSocket (api.request + subscribe), pas seulement HTTP. Défaut `true` (Zero Trust : une zone protégée ferme TOUS ses transports — un opt-IN laisserait le WS anonyme par omission = fail-open). `false` = opt-out explicite pour une zone strictement HTTP. Le verrou WS consulte la MÊME zone que HTTP — invariant : `api.request {path}` n'accorde jamais plus que `GET {path}`.",
-    ),
-});
+        "subjectPolicy ne s'applique qu'aux jetons tiers : la zone doit lister l'authenticator « external-jwt »",
+      path: ["subjectPolicy"],
+    },
+  )
+  .refine(
+    (area) =>
+      area.ephemeralRoles === undefined || area.subjectPolicy === "ephemeral",
+    {
+      message:
+        'ephemeralRoles exige subjectPolicy: "ephemeral" écrit dans la MÊME zone — un pouvoir local ne s\'hérite pas',
+      path: ["ephemeralRoles"],
+    },
+  );
 
 const corsSchema = z
   .strictObject({

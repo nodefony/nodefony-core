@@ -7,6 +7,8 @@ import type { ExternalSubjectMapping } from "../../nodefony/src/authenticator/ex
 import { JwtAuthenticator } from "../../nodefony/src/authenticator/JwtAuthenticator";
 import { peekIssuer } from "../../nodefony/src/authenticator/peekIssuer";
 import type { ISecuredArea } from "../../nodefony/contracts/ISecuredArea";
+import { SecuredArea } from "../../nodefony/src/SecuredArea";
+import type { ISecurityAreaConfig } from "../../nodefony/config/defineModuleConfig";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 import { UnverifiableTokenError } from "../../nodefony/errors/UnverifiableTokenError";
 
@@ -640,6 +642,89 @@ describe("ExternalJwtAuthenticator — appelant purement machine (policy `epheme
       ["ROLE_AGENT"],
       "une identité éphémère ne doit rien emporter de la précédente",
     );
+  });
+});
+
+describe("ExternalJwtAuthenticator — politique de sujet PAR ZONE", () => {
+  const raw = jws({ iss: ISSUER, sub: "agent-7" });
+  // Zones construites par la VRAIE `SecuredArea` : c'est elle qui résout les
+  // rôles d'une zone « ephemeral » muette, pas le banc.
+  const zone = (over: Partial<ISecurityAreaConfig>): ISecuredArea =>
+    new SecuredArea("partner", {
+      pattern: "^/api/partner",
+      security: true,
+      stateless: true,
+      mode: "first",
+      authenticators: ["external-jwt"],
+      roles: [],
+      realtime: true,
+      resource: RESOURCE,
+      ...over,
+    });
+
+  it("zone « ephemeral » sous une politique globale « require » : aucun compte exigé", async () => {
+    const auth = build(
+      { accessTokenVerifier: verifier("accept"), users: provider({}) },
+      { subjectPolicy: "require" },
+    );
+    const token = await auth.authenticate(
+      await auth.createToken(
+        httpContext(`Bearer ${raw}`, zone({ subjectPolicy: "ephemeral" })),
+      ),
+    );
+    assert.equal(token.getUser().identifier, EXT_ID);
+    assert.deepEqual(token.getUser().roles, []);
+  });
+
+  it("🔴 la zone voisine sans surcharge garde « require » : sujet sans compte refusé", async () => {
+    const auth = build(
+      { accessTokenVerifier: verifier("accept"), users: provider({}) },
+      { subjectPolicy: "require" },
+    );
+    await assert.rejects(
+      auth.authenticate(await auth.createToken(httpContext(`Bearer ${raw}`))),
+      AuthenticationError,
+    );
+  });
+
+  it("🔴 zone « require » sous une politique globale « ephemeral » : le compte redevient exigé", async () => {
+    const auth = build(
+      { accessTokenVerifier: verifier("accept"), users: provider({}) },
+      { subjectPolicy: "ephemeral", ephemeralRoles: ["ROLE_AGENT"] },
+    );
+    await assert.rejects(
+      auth.authenticate(
+        await auth.createToken(
+          httpContext(`Bearer ${raw}`, zone({ subjectPolicy: "require" })),
+        ),
+      ),
+      AuthenticationError,
+    );
+  });
+
+  it("🔴 une zone « ephemeral » n'hérite JAMAIS des rôles globaux ; elle porte les siens", async () => {
+    const auth = build(
+      { accessTokenVerifier: verifier("accept") },
+      { subjectPolicy: "ephemeral", ephemeralRoles: ["ROLE_AGENT"] },
+    );
+    const silent = await auth.authenticate(
+      await auth.createToken(
+        httpContext(`Bearer ${raw}`, zone({ subjectPolicy: "ephemeral" })),
+      ),
+    );
+    assert.deepEqual(silent.getUser().roles, []);
+    const own = await auth.authenticate(
+      await auth.createToken(
+        httpContext(
+          `Bearer ${raw}`,
+          zone({
+            subjectPolicy: "ephemeral",
+            ephemeralRoles: ["ROLE_PARTNER"],
+          }),
+        ),
+      ),
+    );
+    assert.deepEqual(own.getUser().roles, ["ROLE_PARTNER"]);
   });
 });
 
