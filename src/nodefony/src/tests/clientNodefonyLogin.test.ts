@@ -505,9 +505,10 @@ describe("NodefonyLogin — fournisseurs, session, abonnement", () => {
     expect((await ouverte.me())?.identifier).toBe("admin");
     expect(ouverte.getState().step).toBe("authenticated");
 
+    // Le contrat du serveur : `200` + `{ user: null }` sans session.
     const fermee = new NodefonyLogin({
       fetch: serveur({
-        [`GET ${AUTH_ME_PATH}`]: () => ({ status: 401, body: {} }),
+        [`GET ${AUTH_ME_PATH}`]: () => ({ status: 200, body: { user: null } }),
       }).fetch,
       passkey: null,
     });
@@ -516,6 +517,16 @@ describe("NodefonyLogin — fournisseurs, session, abonnement", () => {
       step: "identifier",
       error: null,
     });
+
+    // Un serveur antérieur répondait `401` : toujours lu comme « pas de session ».
+    const ancien = new NodefonyLogin({
+      fetch: serveur({
+        [`GET ${AUTH_ME_PATH}`]: () => ({ status: 401, body: {} }),
+      }).fetch,
+      passkey: null,
+    });
+    expect(await ancien.me()).toBeNull();
+    expect(ancien.getState().step).toBe("identifier");
   });
 
   it("`logout()` rend l'adresse du fournisseur et revient à l'identifiant", async () => {

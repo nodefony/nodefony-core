@@ -530,7 +530,7 @@ describe("browserOrder — ne rien télécharger sans nécessité", () => {
  * l'administrateur, sans un mot. Un canal refusé s'ouvrait alors, et l'on
  * concluait que la protection ne mordait pas.
  */
-const sessionVerdict = fonctionDe<(status: number) => string>(
+const sessionVerdict = fonctionDe<(status: number, body?: unknown) => string>(
   probes,
   "sessionVerdict",
 );
@@ -539,6 +539,15 @@ describe("sessionVerdict — une session reprise se PROUVE", () => {
   it("2xx : vivante", () => {
     expect(sessionVerdict(200)).toBe("alive");
     expect(sessionVerdict(204)).toBe("alive");
+  });
+
+  it("2xx qui DIT l'anonymat (`user: null`) : périmée — le statut seul mentait", () => {
+    expect(sessionVerdict(200, { user: null })).toBe("dead");
+    // Une identité, un corps sans `user`, ou illisible : le statut fait foi.
+    expect(sessionVerdict(200, { user: { id: 1 } })).toBe("alive");
+    expect(sessionVerdict(200, { ok: true })).toBe("alive");
+    expect(sessionVerdict(200, undefined)).toBe("alive");
+    expect(sessionVerdict(200, null)).toBe("alive");
   });
 
   it("401/403 : périmée — la page publique ne l'aurait jamais dit", () => {

@@ -70,9 +70,11 @@ describe("routes de session — aucune réponse en cache partagé", () => {
     expect(res.headers["cache-control"]).toBe("no-store");
   });
 
-  it("🔴 `me` sans session : le refus part en `no-store`", async () => {
+  it("🔴 `me` sans session : la réponse anonyme part en `no-store`", async () => {
     const res = await call("GET", `${AUTH}/me`);
-    expect(res.status).toBe(401);
+    // Sonde d'état : 200, le corps dit l'anonymat (`user: null`).
+    expect(res.status).toBe(200);
+    expect(res.body).toContain('"user":null');
     expect(res.headers["cache-control"]).toBe("no-store");
   });
 

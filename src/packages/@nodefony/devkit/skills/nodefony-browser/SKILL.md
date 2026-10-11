@@ -433,11 +433,12 @@ Si un script de la page vise encore `127.0.0.1:5173`, le framework installé pr�
   l'appel répond « OK » : tu lis un écran périmé. Les sondes horodatent — ne le contourne pas.
 - **Un état d'authentification sauvegardé peut être périmé** (session expirée, serveur redémarré).
   Les sondes le PROUVENT avant de mesurer : `NF_BROWSER_WHOAMI` (défaut
-  `/nodefony/security/api/auth/me`) doit répondre 2xx, sinon l'état est jeté, la reprise est
+  `/nodefony/security/api/auth/me`) doit répondre 2xx SANS `{ user: null }` dans son corps (c'est
+  ainsi qu'il dit « anonyme »), sinon l'état est jeté, la reprise est
   annoncée sur la sortie d'erreur et le parcours de connexion est rejoué. Attendre un renvoi vers le
   formulaire ne suffisait pas : une page PUBLIQUE n'en fait jamais, et la sonde mesurait alors en
   anonyme sans le dire. Application sans `@nodefony/security` : pointer `NF_BROWSER_WHOAMI` sur une
-  route qui rend 401/403 à un anonyme — ou le laisser vide, et la sonde se connecte à chaque fois.
+  route qui rend 401/403 (ou `{ user: null }`) à un anonyme — ou le laisser vide, et la sonde se connecte à chaque fois.
 - **Chaque compte a SON état sauvegardé** (le fichier porte l'identifiant). C'est ce qui permet
   d'enchaîner deux sondes sous deux comptes — comparer ce que voit un administrateur et ce que voit
   un utilisateur ordinaire — sans que la seconde reprenne la session de la première. Sans cela on

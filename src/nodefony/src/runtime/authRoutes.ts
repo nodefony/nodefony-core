@@ -39,7 +39,10 @@ export const AUTH_LOGIN_TOTP_PATH = `${AUTH_API_BASE}/login/totp`;
 /** Déconnexion : `POST`, idempotente ; rend `logoutUrl` quand la session venait d'un fournisseur. */
 export const AUTH_LOGOUT_PATH = `${AUTH_API_BASE}/logout`;
 
-/** Identité de la session courante : `GET`, `401` sans session. */
+/**
+ * Identité de la session courante : `GET`, toujours `200` — `{ user }`, ou
+ * `{ user: null }` sans session.
+ */
 export const AUTH_ME_PATH = `${AUTH_API_BASE}/me`;
 
 /** Défi de connexion par passkey : `POST` (corps vide) → options WebAuthn en JSON. */

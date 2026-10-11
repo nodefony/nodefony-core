@@ -138,7 +138,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     expect(String(raw).toLowerCase()).to.include("httponly");
   });
 
-  it("me : la session re-résout l'identité (rôles frais) ; sans cookie → 401", async () => {
+  it("me : la session re-résout l'identité (rôles frais) ; sans cookie → 200 + user: null", async () => {
     const logged = await login("user", "secret-de-dev-42");
     const cookie = sessionCookieOf(logged);
     expect(cookie).to.be.a("string");
@@ -147,8 +147,10 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     expect(
       (me.body as { user: { identifier: string } }).user.identifier,
     ).to.equal("user");
+    // Sans session, `/me` est une sonde d'état : 200, et le corps DIT l'anonymat.
     const anonymous = await get(`${AUTH}/me`);
-    expect(anonymous.status).to.equal(401);
+    expect(anonymous.status).to.equal(200);
+    expect((anonymous.body as { user: unknown }).user).to.equal(null);
   });
 
   it("anti-fixation (OWASP) : l'ID de session CHANGE au login", async () => {
@@ -188,7 +190,11 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     // Rejeu de l'ANCIEN cookie : ni /me ni la zone — la session authentifiée de la
     // victime vit sous le NOUVEL id, l'ancien ne porte plus aucune identité.
     const me = await get(`${AUTH}/me`, { cookie: attackerCookie! });
-    expect(me.status, "ancien cookie ne doit pas ouvrir /me").to.equal(401);
+    expect(me.status).to.equal(200);
+    expect(
+      (me.body as { user: unknown }).user,
+      "ancien cookie ne doit porter aucune identité",
+    ).to.equal(null);
     const zone = await get("/nodefony/test/secure/ping", {
       cookie: attackerCookie!,
     });
@@ -197,14 +203,15 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     );
   });
 
-  it("RED-TEAM session id forgé (jamais émis par le serveur) → 401, aucune session ne se matérialise", async () => {
+  it("RED-TEAM session id forgé (jamais émis par le serveur) → zone 401, /me anonyme, aucune session ne se matérialise", async () => {
     // Découvre le NOM réel du cookie de session (préfixe __Host- sur TLS).
     const real = sessionCookieOf(await login("admin", "secret-de-dev-42"))!;
     const forged = `${cookieName(real)}=forged-${Date.now()}`;
     const zone = await get("/nodefony/test/secure/ping", { cookie: forged });
     expect(zone.status).to.equal(401);
     const me = await get(`${AUTH}/me`, { cookie: forged });
-    expect(me.status).to.equal(401);
+    expect(me.status).to.equal(200);
+    expect((me.body as { user: unknown }).user).to.equal(null);
   });
 
   it("le cookie de session SEUL franchit la zone protégée (SessionAuthenticator)", async () => {
@@ -228,7 +235,8 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     expect(out.status).to.equal(200);
     expect((out.body as { ok: boolean }).ok).to.equal(true);
     const me = await get(`${AUTH}/me`, { cookie });
-    expect(me.status).to.equal(401);
+    expect(me.status).to.equal(200);
+    expect((me.body as { user: unknown }).user).to.equal(null);
     const zone = await get("/nodefony/test/secure/ping", { cookie });
     expect(zone.status).to.equal(401);
     // Rejouer le logout sans session active : toujours 200 (idempotent).

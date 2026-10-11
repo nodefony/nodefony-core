@@ -55,7 +55,8 @@ let mounted = false;
  *
  *  - `POST /nodefony/security/api/auth/login`  — body JSON `{username, password}`
  *  - `POST /nodefony/security/api/auth/logout` — idempotent
- *  - `GET  /nodefony/security/api/auth/me`     — identité de la session courante
+ *  - `GET  /nodefony/security/api/auth/me`     — identité de la session courante :
+ *    TOUJOURS `200`, `{ user }` ou `{ user: null }` sans session
  *
  * Montés par le module framework UNIQUEMENT si le service `authFlow` existe
  * (module security chargé) — sans lui, les routes n'existent pas (404, zéro
@@ -66,7 +67,13 @@ let mounted = false;
  * `Retry-After` (RFC 6585) posé par le throttler NIST ; tout le reste remonte
  * au pipeline d'erreurs standard (500, détail loggé jamais fuité).
  *
- * @remarks Dérogation RFC 9110 §15.5.2 DÉLIBÉRÉE : les 401 de `login`/`me` ne
+ * `me` est une SONDE d'état, pas une ressource protégée : « pas de session »
+ * est un état normal du navigateur, pas une faute — d'où `200` + `{ user:
+ * null }`, comme les bibliothèques qui livrent aussi le client de connexion
+ * (Auth.js, better-auth). Le `401` y écrivait une erreur réseau dans la console
+ * de chaque visiteur anonyme, sans rien protéger : la réponse ne révèle rien.
+ *
+ * @remarks Dérogation RFC 9110 §15.5.2 DÉLIBÉRÉE : les 401 de `login` ne
  * portent PAS de `WWW-Authenticate` — aucun scheme HTTP ne décrit un cookie de
  * session, et un challenge `Basic` mensonger déclencherait le popup natif du
  * navigateur (l'anti-pattern que le BFF élimine). Les zones du firewall, elles,
@@ -154,16 +161,17 @@ class SessionAuthController extends SecurityApiController {
     return this.renderJson({ ok: true });
   }
 
-  /** Identité de la session courante, re-résolue (rôles frais), ou 401. */
+  /**
+   * Identité de la session courante, re-résolue (rôles frais). Toujours `200` :
+   * `{ user: null }` quand il n'y a pas de session (ou qu'elle ne mène plus à
+   * un compte actif) — l'absence de session est un état, pas une erreur.
+   */
   async me() {
     const flow = this.#flow();
     if (!flow) {
       return this.renderJson({ error: "Authentication unavailable" }, 503);
     }
     const user = await flow.me(this.context as ContextType);
-    if (user === null) {
-      return this.renderJson({ error: "Unauthorized" }, 401);
-    }
     return this.renderJson({ user });
   }
 

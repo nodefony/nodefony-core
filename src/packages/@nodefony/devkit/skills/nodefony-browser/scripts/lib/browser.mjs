@@ -12,7 +12,7 @@
  * `@env` NF_BROWSER_LOGIN chemin du formulaire de connexion — REQUIS dès qu'un identifiant est donné, aucun défaut n'est deviné
  * `@env` NF_BROWSER_USER identifiant ; sans lui, aucune authentification n'est tentée
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
- * `@env` NF_BROWSER_WHOAMI chemin qui répond 2xx à une session authentifiée, 401/403 sinon — prouve une session reprise (défaut `/nodefony/security/api/auth/me` ; vide = aucune reprise)
+ * `@env` NF_BROWSER_WHOAMI chemin qui répond 2xx à une session authentifiée, et 401/403 ou un 2xx portant `{ user: null }` sinon — prouve une session reprise (défaut `/nodefony/security/api/auth/me` ; vide = aucune reprise)
  * `@env` NF_BROWSER_ENGINE navigateur imposé (chromium, chrome, msedge) ; sans lui, le premier qui répond
  * `@env` NF_BROWSER_COLOR_SCHEME schéma de couleurs émulé (light, dark, no-preference) ; sans lui, celui du navigateur
  * `@env` NF_BROWSER_STORAGE entrées de stockage local posées AVANT chargement (`clé=valeur`, séparées par des virgules)
@@ -305,6 +305,7 @@ export async function open() {
 async function staleSessionReason(ctx) {
   if (WHOAMI === "") return "non prouvable (NF_BROWSER_WHOAMI vide)";
   let status;
+  let body;
   try {
     const answer = await ctx.request.get(`${BASE}${WHOAMI}`, {
       failOnStatusCode: false,
@@ -312,14 +313,16 @@ async function staleSessionReason(ctx) {
       timeout: 10000,
     });
     status = answer.status();
+    // Le corps dit l'anonymat quand le statut ne le dit pas (`{ user: null }`).
+    body = await answer.json().catch(() => undefined);
   } catch (e) {
     return `non prouvable (${WHOAMI} injoignable : ${String(e).split("\n")[0].slice(0, 120)})`;
   }
-  const verdict = sessionVerdict(status);
+  const verdict = sessionVerdict(status, body);
   if (verdict === "alive") return null;
   return verdict === "dead"
-    ? `PÉRIMÉE (${WHOAMI} → ${status})`
-    : `non prouvable (${WHOAMI} → ${status}, attendu 2xx ou 401/403 — NF_BROWSER_WHOAMI)`;
+    ? `PÉRIMÉE (${WHOAMI} → ${status}${status < 300 ? ", user: null" : ""})`
+    : `non prouvable (${WHOAMI} → ${status}, attendu 2xx, ou 401/403 — NF_BROWSER_WHOAMI)`;
 }
 
 /**

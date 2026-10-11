@@ -427,7 +427,8 @@ class AuthFlow extends Service {
    * (mêmes contrôles que le `SessionAuthenticator` — source unique).
    *
    * @returns la projection publique, ou `null` (pas de session, session
-   *   orpheline, compte verrouillé/désactivé) — le handler répond 401.
+   *   orpheline, compte verrouillé/désactivé) — le handler répond `200`
+   *   `{ user: null }`.
    */
   async me(context: ContextType): Promise<ISafeUser | null> {
     const identifier = context.session?.user;

@@ -326,13 +326,27 @@ export function environmentDefaults({ inContainer, base, out } = {}) {
  * bien à un anonyme. Vécu — après un redémarrage du serveur, la sonde mesurait
  * une page en anonyme, sans un mot, avec un état de session mort.
  *
+ * Un point « qui suis-je » peut répondre `200` à un anonyme en le DISANT dans
+ * son corps (`{ user: null }`) — c'est le contrat des bibliothèques qui livrent
+ * aussi le client de connexion. Juger au seul statut ferait alors reprendre une
+ * session morte, et mesurer en anonyme sans le dire.
+ *
  * @param {number} status - statut HTTP rendu par `NF_BROWSER_WHOAMI`.
- * @returns {"alive"|"dead"|"unproven"} `alive` (2xx), `dead` (401/403), sinon
- *   `unproven` — le point ne répond pas comme attendu, et une session qu'on ne
- *   sait pas prouver ne se réutilise pas.
+ * @param {unknown} [body] - corps JSON de la réponse, s'il a pu être lu.
+ * @returns {"alive"|"dead"|"unproven"} `alive` (2xx sans `user: null`), `dead`
+ *   (401/403, ou 2xx dont le corps porte `user: null`), sinon `unproven` — le
+ *   point ne répond pas comme attendu, et une session qu'on ne sait pas
+ *   prouver ne se réutilise pas.
  */
-export function sessionVerdict(status) {
-  if (status >= 200 && status < 300) return "alive";
+export function sessionVerdict(status, body) {
+  if (status >= 200 && status < 300) {
+    const anonymous =
+      body !== null &&
+      typeof body === "object" &&
+      Object.hasOwn(body, "user") &&
+      body.user === null;
+    return anonymous ? "dead" : "alive";
+  }
   if (status === 401 || status === 403) return "dead";
   return "unproven";
 }

@@ -8,10 +8,10 @@
  * Prouve bout-en-bout, sur serveur live, les 3 chemins admin du dialog Studio
  * Sessions + le logout volontaire (sentinelle, déjà sain car il passe par
  * `session.destroy()`) :
- *   0. logout volontaire              → /me 401
- *   1. révoquer MA session (self)     → /me 401   ← LE bug
+ *   0. logout volontaire              → /me anonyme
+ *   1. révoquer MA session (self)     → /me anonyme   ← LE bug
  *   2. révoquer la session d'un AUTRE → la victime tombe, l'admin reste
- *   3. déconnecter TOUT un user       → toutes 401 + count > 0
+ *   3. déconnecter TOUT un user       → toutes anonymes + count > 0
  *
  * Requires: server running on 5152 (https). Start: /start-server
  * Fixtures dev : admin/secret-de-dev-42 (ROLE_NODEFONY_ADMIN), user/secret-de-dev-42 (ROLE_USER).
@@ -100,9 +100,15 @@ async function loginAs(username: string, password: string): Promise<string> {
   return cookie!;
 }
 
-/** Statut de /me pour un cookie : 200 = authentifié, 401 = anonyme. */
-async function meStatus(cookie: string): Promise<number> {
-  return (await get(ME, { cookie })).status;
+/**
+ * Ce que `/me` dit d'un cookie. La route répond TOUJOURS 200 : c'est le corps
+ * qui distingue une session vivante (`user`) d'une session morte (`user: null`).
+ */
+async function meStatus(cookie: string): Promise<"authentifié" | "anonyme"> {
+  const res = await get(ME, { cookie });
+  expect(res.status, "/me répond toujours 200").to.equal(200);
+  const user = (res.body as { user?: unknown } | null)?.user;
+  return user === null || user === undefined ? "anonyme" : "authentifié";
 }
 
 /** Refs (HMAC public) des sessions d'un user — énumération admin (cookie admin). */
@@ -253,22 +259,26 @@ async function assurerCompteJetable(admin: string): Promise<void> {
 describe("Révocation de session — cycle de vie (3 chemins admin + logout)", () => {
   // Sentinelle : le logout volontaire passe par `session.destroy()` (objet en
   // mémoire neutralisé) → déjà sain. Verrouille qu'il le reste.
-  it("0. logout volontaire → /me 401 (sentinelle)", async () => {
+  it("0. logout volontaire → /me anonyme (sentinelle)", async () => {
     const cookie = await loginAs("user", "secret-de-dev-42");
-    expect(await meStatus(cookie), "loggé avant").to.equal(200);
+    expect(await meStatus(cookie), "loggé avant").to.equal("authentifié");
     const out = await post(LOGOUT, { cookie });
     expect(out.status, "logout 200 (idempotent)").to.equal(200);
-    expect(await meStatus(cookie), "déconnecté après logout").to.equal(401);
+    expect(await meStatus(cookie), "déconnecté après logout").to.equal(
+      "anonyme",
+    );
   });
 
   // LE bug : l'admin révoque SA PROPRE session. L'autosave de la requête de
   // révocation NE DOIT PAS la ressusciter.
-  it("1. révoquer MA session (admin self) → /me 401", async () => {
+  it("1. révoquer MA session (admin self) → /me anonyme", async () => {
     const { cookie, ref } = await loginAndIsolate("admin", "secret-de-dev-42");
-    expect(await meStatus(cookie), "admin loggé avant").to.equal(200);
+    expect(await meStatus(cookie), "admin loggé avant").to.equal("authentifié");
     const rev = await post(revokeRefPath(ref), { cookie }); // je révoque MA session
     expect(rev.status, "revoke 200").to.equal(200);
-    expect(await meStatus(cookie), "MA session révoquée → 401").to.equal(401);
+    expect(await meStatus(cookie), "MA session révoquée → anonyme").to.equal(
+      "anonyme",
+    );
   });
 
   it("2. révoquer la session d'un AUTRE → la victime tombe, l'admin reste", async () => {
@@ -279,11 +289,15 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
     );
     const rev = await post(revokeRefPath(ref), { cookie: admin });
     expect(rev.status).to.equal(200);
-    expect(await meStatus(victim), "la victime est déconnectée").to.equal(401);
-    expect(await meStatus(admin), "l'admin reste connecté").to.equal(200);
+    expect(await meStatus(victim), "la victime est déconnectée").to.equal(
+      "anonyme",
+    );
+    expect(await meStatus(admin), "l'admin reste connecté").to.equal(
+      "authentifié",
+    );
   });
 
-  it("3. déconnecter TOUT un user (logout everywhere) → toutes 401 + count > 0", async () => {
+  it("3. déconnecter TOUT un user (logout everywhere) → toutes anonymes + count > 0", async () => {
     // Compte JETABLE : ce cas révoque EN MASSE, il ne peut pas viser un compte
     // que d'autres fichiers utilisent au même moment. Cf `assurerCompteJetable`.
     const admin = await loginAs("admin", "secret-de-dev-42");
@@ -294,9 +308,11 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
     expect(rev.status).to.equal(200);
     const count = (rev.body as { count?: number }).count ?? 0;
     expect(count, "≥ 2 sessions détruites").to.be.greaterThan(1);
-    expect(await meStatus(u1), "session 1 coupée").to.equal(401);
-    expect(await meStatus(u2), "session 2 coupée").to.equal(401);
-    expect(await meStatus(admin), "l'admin reste connecté").to.equal(200);
+    expect(await meStatus(u1), "session 1 coupée").to.equal("anonyme");
+    expect(await meStatus(u2), "session 2 coupée").to.equal("anonyme");
+    expect(await meStatus(admin), "l'admin reste connecté").to.equal(
+      "authentifié",
+    );
   });
 });
 

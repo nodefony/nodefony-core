@@ -136,6 +136,16 @@ const app = (p: string, headers: Record<string, string> = {}) =>
   send({ url: new URL(`https://localhost:${APP.port}${p}`), headers });
 
 /**
+ * `/me` dit-il « anonyme » pour ce cookie ? La route répond TOUJOURS 200 : c'est
+ * le corps (`user: null`) qui dit qu'aucune session ne vit plus derrière.
+ */
+async function anonymousMe(cookie: string): Promise<boolean> {
+  const res = await app(ME, { cookie });
+  expect(res.status, "/me répond toujours 200").toBe(200);
+  return (JSON.parse(res.text) as { user?: unknown }).user === null;
+}
+
+/**
  * `fetch` minimal sur `node:https` qui fait confiance à la CA de dev — passé au
  * client du framework par son option `fetch`, sans toucher au `fetch` global ni
  * désarmer TLS dans le processus.
@@ -598,7 +608,7 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
       const end = new URL(logoutUrl ?? "");
       expect(end.href.startsWith(ISSUER), "vers l'émetteur").toBe(true);
       expect(end.searchParams.get("client_id")).toBe(CLIENT_ID);
-      expect((await app(ME, { cookie: cookieHeader(jar) })).status).toBe(401);
+      expect(await anonymousMe(cookieHeader(jar))).toBe(true);
 
       const left = await send({
         url: end,
@@ -668,12 +678,12 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
 
       // Le jeton de déconnexion arrive par le canal arrière : la session de
       // l'application doit être détruite, sans aucune action du navigateur.
-      let status = 0;
-      for (let i = 0; i < 50 && status !== 401; i += 1) {
-        status = (await app(ME, { cookie: cookieHeader(jar) })).status;
-        if (status !== 401) await new Promise((r) => setTimeout(r, 100));
+      let closed = false;
+      for (let i = 0; i < 50 && !closed; i += 1) {
+        closed = await anonymousMe(cookieHeader(jar));
+        if (!closed) await new Promise((r) => setTimeout(r, 100));
       }
-      expect(status, "session de l'application fermée par Keycloak").toBe(401);
+      expect(closed, "session de l'application fermée par Keycloak").toBe(true);
     });
 
     it("canal arrière : un jeton de déconnexion forgé est refusé (400), la session survit", async () => {

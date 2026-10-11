@@ -175,7 +175,9 @@ describe("AuthStore — déroulé partagé NodefonyLogin (#549)", () => {
   });
 
   it("deux reprises simultanées (StrictMode) ne font qu'UN aller-retour", async () => {
-    const { store, calls } = makeStore({ [ME]: { status: 401 } });
+    const { store, calls } = makeStore({
+      [ME]: { status: 200, body: { user: null } },
+    });
     await Promise.all([store.checkSession(), store.checkSession()]);
     expect(calls.filter((c) => c === ME)).to.have.length(1);
     expect(store.status).to.equal("unauthenticated");
@@ -185,7 +187,9 @@ describe("AuthStore — déroulé partagé NodefonyLogin (#549)", () => {
   });
 
   it("sans session, la reprise rend « non connecté » — pas une erreur", async () => {
-    const { store } = makeStore({ [ME]: { status: 401 } });
+    const { store } = makeStore({
+      [ME]: { status: 200, body: { user: null } },
+    });
     await store.checkSession();
     expect(store.status).to.equal("unauthenticated");
     expect(store.user).to.equal(null);
