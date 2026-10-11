@@ -11,7 +11,8 @@ description: >
   "zone protégée", "403", "401", "un rôle qui en implique un autre", "roleHierarchy",
   "un partenaire doit pouvoir poster", "erreur CSRF", "origine refusée", "@CsrfExempt",
   "@CsrfProtect", "mon POST passe sans jeton", "faut-il protéger une écriture",
-  "API pour un programme", "clé d'API", "désactiver la sécurité pour tester".
+  "API pour un programme", "clé d'API", "jeton d'un partenaire", "client_credentials",
+  "désactiver la sécurité pour tester".
 ---
 
 # protect-route — la garde vient du framework, jamais de l'action
@@ -190,8 +191,16 @@ d'appartenance à écrire dans l'action.
 
 ## Une API pour un PROGRAMME, pas pour un navigateur
 
-Un service partenaire, un script, un agent ne stockent aucun cookie. **La zone est déjà posée**
-dans le `nodefony/config/security.ts` généré :
+Un service partenaire, un script, un agent ne stockent aucun cookie. Le
+`nodefony/config/security.ts` généré (preset `complete`) pose **deux zones, une par sorte de
+preuve** — choisis selon ce que l'appelant détient, n'en ajoute pas une troisième :
+
+| L'appelant présente                            | Zone      | Préfixe        | Obtenir la preuve                       |
+| ---------------------------------------------- | --------- | -------------- | --------------------------------------- |
+| une **clé d'API** opaque (`nf_…`)              | `machine` | `/api/machine` | `POST /nodefony/security/api/keys`      |
+| un **jeton d'accès** (de l'app ou de Keycloak) | `partner` | `/api/partner` | `npx nodefony app:partner:call` le fait |
+
+### Clé d'API : la zone `machine`
 
 ```ts
 machine: {
@@ -215,6 +224,48 @@ contradiction, et l'application **refuse de démarrer** en nommant la zone. Règ
 qui ne stocke pas de cookie ne doit rien recevoir qu'il faille stocker.**
 
 Les clés s'émettent par `POST /nodefony/security/api/keys`.
+
+### Jeton d'accès : la zone `partner`, et la commande qui l'éprouve
+
+La zone accepte un jeton signé par l'application (`jwt`) **et** un jeton de Keycloak
+(`external-jwt`) ; les deux s'aiguillent sur l'émetteur, leur ordre ne décide de rien. Une route
+qui tombe sous `/api/partner` est protégée sans rien ajouter. L'exemple qui marche est déjà dans
+l'application — **lis-le avant d'écrire un appelant** :
+
+```bash
+npx nodefony app:partner:call                     # jeton signé par l'app pour `admin` (--as <compte>)
+npx nodefony app:partner:call --issuer keycloak   # client <app>-machine, flux client_credentials
+```
+
+Source : `nodefony/command/PartnerCallCommand.ts` (la commande) et
+`nodefony/controllers/PartnerController.ts` (`GET /api/partner/whoami`, qui rend l'identité ET
+l'émetteur). Un jeton Keycloak s'obtient par `requestClientCredentialsToken` de
+`@nodefony/security` — découverte du point de jeton comprise —, jamais par un `fetch` recopié.
+
+🔴 **L'audience vit en UN endroit.** Un jeton n'ouvre que la zone dont il porte la ressource
+(RFC 8707). `partnerResource(ctx.env)` est lue par la zone (`resource`), par `jwt.audiences` et par
+la commande. Une ressource recopiée à la main finit par différer, et le seul symptôme est un refus
+sans explication. Ouvrir une AUTRE ressource à des jetons, c'est trois gestes, pas un :
+
+| Oublié                                    | Symptôme                                                      |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| la ressource dans `jwt.audiences`         | **400 `invalid_target`** à l'émission du jeton de l'app       |
+| `security:keycloak:realm --write` relancé | **401** du jeton Keycloak : le realm n'inscrit pas l'audience |
+| la `resource` sur la zone                 | l'application **refuse de démarrer** en nommant la zone       |
+
+🔴 **`subjectPolicy: "ephemeral"` s'écrit SUR LA ZONE, jamais dans `resourceServer`.** Le client
+machine de Keycloak n'a pas de compte ici : `ephemeral` l'accepte le temps de la requête, avec les
+seuls `ephemeralRoles` de la zone (`ROLE_PARTNER`). Posé dans `resourceServer.subjectPolicy`
+(global), il ferait accepter un appelant sans compte par **toutes** les zones `external-jwt`. Et
+un rôle fort dans `ephemeralRoles` est accordé à **quiconque** détient un jeton valide du realm.
+
+`whoami` n'exige pas `ROLE_PARTNER` — un compte de l'app ne l'a pas. Pour réserver une action aux
+partenaires : `@IsGranted("ROLE_PARTNER")`.
+
+**Prouver** : `--issuer nodefony` rend 200 sans Keycloak ; `--issuer keycloak` rend 200 avec le
+profil `keycloak` du compose allumé ; et le MÊME jeton machine est refusé (401) sur une zone qui
+garde `subjectPolicy` par défaut (`require`). Chaque échec de la commande sort en code 1 avec le
+geste qui répare — lis-le avant de chercher ailleurs.
 
 ## Les gestes qui affaiblissent en silence
 
@@ -256,6 +307,7 @@ Chaque geste ci-dessus a sa référence INSTALLÉE — une recherche ordinaire n
 ne descendant pas dans `node_modules` :
 
 - **Zones, authentificateurs, CSRF, CORS, clés d'API** — `node_modules/@nodefony/security/docs/firewall.md`
+- **Jeton d'un tiers, `subjectPolicy`, `client_credentials`** — `node_modules/@nodefony/security/docs/external-jwt.md`
 - **`@IsGranted`, voters, hiérarchie de rôles** — `node_modules/@nodefony/security/docs/authorization.md`
 - **Contrat `IUser`, `UserService`, mot de passe** — `node_modules/@nodefony/user/docs/index.md`
 - **Politique de contenu, nonce, HSTS** — `node_modules/@nodefony/security/docs/headers.md`
