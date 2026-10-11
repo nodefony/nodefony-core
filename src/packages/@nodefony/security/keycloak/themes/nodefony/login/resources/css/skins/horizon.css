@@ -17,12 +17,12 @@
   --nf-login-line: #272d36;
   --nf-login-line-strong: #38404b;
   --nf-login-field: #11151a;
-  --nf-login-card-width: 420px;
+  --nf-login-card-width: 540px;
   --nf-login-card-radius: 14px;
   --nf-login-title-size: 24px;
   /* Le bandeau porte la photo de l'application (`--nf-login-hero-image`) ;
-     une photo de 800 px de large suffit à 420 px, même en Retina. */
-  --nf-login-band-height: 150px;
+     une photo de 1100 px de large suffit à 540 px, même en Retina. */
+  --nf-login-band-height: 170px;
   /* Décalage en px : un pourcentage se calculerait sur la boîte entière de .nf-head, pas sur le bandeau. */
   --nf-login-band-position: center 0;
   /* Micro-légende posée sur la photo (`"43.27 N · 5.35 E"`), ou rien. */

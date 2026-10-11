@@ -12,7 +12,7 @@
 :root {
   --nf-login-home-green: #7cc46c;
   --nf-login-title-size: 30px;
-  --nf-login-card-width: 380px;
+  --nf-login-card-width: 460px;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -35,7 +35,7 @@
     --nf-login-crit-bg: #fff3f0;
     --nf-login-ok-bg: #edf8f2;
     --nf-login-title-size: 30px;
-    --nf-login-card-width: 380px;
+    --nf-login-card-width: 460px;
     color-scheme: light;
   }
 }
@@ -58,6 +58,6 @@
   --nf-login-crit-bg: #fff3f0;
   --nf-login-ok-bg: #edf8f2;
   --nf-login-title-size: 30px;
-  --nf-login-card-width: 380px;
+  --nf-login-card-width: 460px;
   color-scheme: light;
 }

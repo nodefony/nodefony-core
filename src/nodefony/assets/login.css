@@ -67,7 +67,16 @@
   /* Forme */
   --nf-login-radius: 8px;
   --nf-login-card-radius: 12px;
-  --nf-login-card-width: 400px;
+  /* Largeur de la carte : une part de l'écran (`ratio`), bornée entre un
+     minimum et un MAXIMUM (`width`) — elle grandit avec l'écran sans jamais
+     s'étirer, et le téléphone garde toute sa largeur (`100%`). Le calcul
+     s'écrit sur `.nf-card`, jamais dans une variable de `:root` : celle-ci
+     serait figée à la racine, et une surcharge posée plus bas (le thème
+     Keycloak, une application) n'y entrerait plus. Au-delà de 1 800 px, le
+     `zoom` des paliers « grand écran » s'y ajoute. */
+  --nf-login-card-min: 380px;
+  --nf-login-card-ratio: 34vw;
+  --nf-login-card-width: 520px;
   --nf-login-card-shadow: none;
   --nf-login-card-blur: 0px;
   --nf-login-font:
@@ -264,7 +273,14 @@ input {
   padding: 40px 16px;
 }
 .nf-card {
-  width: min(var(--nf-login-card-width), 100%);
+  width: min(
+    clamp(
+      var(--nf-login-card-min),
+      var(--nf-login-card-ratio),
+      var(--nf-login-card-width)
+    ),
+    100%
+  );
   border: 1px solid var(--nf-login-line);
   border-radius: var(--nf-login-card-radius);
   background: var(--nf-login-surface);

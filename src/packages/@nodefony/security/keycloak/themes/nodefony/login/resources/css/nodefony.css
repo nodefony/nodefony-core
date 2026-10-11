@@ -190,11 +190,15 @@
    écrasait le formulaire dans la colonne de 260 px. On garde ses couleurs et
    sa mise en page nue, pas sa structure. */
 .nf-kc[data-skin="ledger"] {
-  --nf-login-card-width: 400px;
+  /* Une colonne : la largeur d'une carte ordinaire, pas celle des deux
+     volets de /login (dont le MINIMUM dépasserait ce maximum). */
+  --nf-login-card-min: 380px;
+  --nf-login-card-ratio: 34vw;
+  --nf-login-card-width: 460px;
 }
 
 .nf-kc[data-skin="ledger"] .nf-card {
-  grid-template-columns: min(400px, 100%);
+  grid-template-columns: 100%;
   grid-template-rows: none;
 }
 
@@ -210,6 +214,8 @@
    reste (alerte, pied) occupe toute la largeur. Sur téléphone, rien ne change. */
 @media (min-width: 960px) {
   .nf-kc[data-page-id="login-login-config-totp"] {
+    /* Largeur FIXE de deux colonnes : minimum = maximum. */
+    --nf-login-card-min: 820px;
     --nf-login-card-width: 820px;
   }
 
