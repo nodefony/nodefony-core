@@ -398,6 +398,70 @@ export function readProjectName(cwd: string): string {
 }
 
 /**
+ * `true` si le `dist/index.js` de l'application est absent, bâti pour la
+ * production (sans sourcemaps), ou plus ancien qu'une de ses sources : fichiers
+ * racine (`index.ts`, `nodefony.config.ts`, `env.ts`) et sources de l'app sous
+ * `nodefony/` et `config/`.
+ *
+ * La règle vaut DANS le dépôt du framework comme dans une application
+ * autonome : l'app racine du dépôt n'est pas un workspace turbo, `turbo run
+ * build` ne la couvre donc pas. Restreinte aux trois fichiers racine, elle
+ * laissait une config éditée serveur arrêté (`nodefony/config/security.ts`)
+ * démarrer sur l'ancien `dist`, sans un mot. `modules/` n'y est PAS : un
+ * module local est hors du bundle de l'app, sa fraîcheur se juge sur SON dist.
+ * Une app est petite : la marche récursive coûte quelques stats, une fois, au
+ * boot.
+ *
+ * @param cwd - la racine de l'application.
+ * @returns `true` s'il faut rebâtir.
+ */
+export function isRootDistStale(cwd: string): boolean {
+  const dist = path.join(cwd, "dist", "index.js");
+  if (!existsSync(dist)) return true;
+  // Un dist SANS maps vient de `npm run build` (production) : le dev le rebâtit,
+  // sinon les piles d'appels restent sur le `.js` jusqu'à la première édition.
+  if (!existsSync(`${dist}.map`)) return true;
+  let distMtime: number;
+  try {
+    distMtime = statSync(dist).mtimeMs;
+  } catch {
+    return true;
+  }
+  const newer = (p: string): boolean => {
+    try {
+      return statSync(p).mtimeMs > distMtime;
+    } catch {
+      return false;
+    }
+  };
+  if (
+    ["index.ts", "nodefony.config.ts", "env.ts"].some((src) =>
+      newer(path.join(cwd, src)),
+    )
+  ) {
+    return true;
+  }
+  // `nodefony` porte `nodefony/config/` ; `config` racine n'est gardé que pour
+  // l'existant.
+  for (const dirName of ["nodefony", "config"]) {
+    const dir = path.join(cwd, dirName);
+    if (!existsSync(dir)) continue;
+    try {
+      for (const entry of readdirSync(dir, {
+        withFileTypes: true,
+        recursive: true,
+      })) {
+        if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+        if (newer(path.join(entry.parentPath, entry.name))) return true;
+      }
+    } catch {
+      // dossier illisible → ne bloque pas la détection
+    }
+  }
+  return false;
+}
+
+/**
  * Le rendu du démarrage, vu du superviseur — il en dérive où écrire ses
  * lignes `[dev]` et s'il doit libérer une zone épinglée. Une valeur invalide
  * rend `human` : la commande l'a déjà refusée en la nommant.
@@ -1390,57 +1454,9 @@ export class DevSupervisor {
     this.#dumpBuild(res.output);
   }
 
-  /**
-   * `true` si le `dist/index.js` racine est absent ou plus ancien qu'une de ses
-   * sources — fichiers racine (`index.ts`/`nodefony.config.ts`/`env.ts`, 3 stats)
-   * et, en STANDALONE, les sources de l'app (`nodefony/`, `config/`, `modules/`)
-   * que turbo ne couvre pas (il n'y a pas de turbo). Une app est petite : la
-   * marche récursive coûte quelques stats, une fois, au boot.
-   */
+  /** `true` si le `dist/` de l'app racine doit être rebâti (cf {@link isRootDistStale}). */
   #rootDistStale(): boolean {
-    const dist = path.join(this.#cwd, "dist", "index.js");
-    if (!existsSync(dist)) return true;
-    // Un dist SANS maps vient de `npm run build` (production) : le dev le rebâtit,
-    // sinon les piles d'appels restent sur le `.js` jusqu'à la première édition.
-    if (!existsSync(`${dist}.map`)) return true;
-    let distMtime: number;
-    try {
-      distMtime = statSync(dist).mtimeMs;
-    } catch {
-      return true;
-    }
-    const stale = ["index.ts", "nodefony.config.ts", "env.ts"].some((src) => {
-      const p = path.join(this.#cwd, src);
-      try {
-        return existsSync(p) && statSync(p).mtimeMs > distMtime;
-      } catch {
-        return false;
-      }
-    });
-    if (stale || !this.#standalone) {
-      return stale;
-    }
-    // Même liste, même raison qu'au constructeur : `nodefony` porte
-    // `nodefony/config/`, et `config` racine n'est gardé que pour l'existant.
-    // `modules` n'y est PAS : un module local est hors du bundle de l'app, sa
-    // fraîcheur se juge sur SON dist (cf #staleLocalModules).
-    for (const dirName of ["nodefony", "config"]) {
-      const dir = path.join(this.#cwd, dirName);
-      if (!existsSync(dir)) continue;
-      try {
-        for (const entry of readdirSync(dir, {
-          withFileTypes: true,
-          recursive: true,
-        })) {
-          if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
-          const p = path.join(entry.parentPath, entry.name);
-          if (statSync(p).mtimeMs > distMtime) return true;
-        }
-      } catch {
-        // dossier illisible → ne bloque pas la détection
-      }
-    }
-    return false;
+    return isRootDistStale(this.#cwd);
   }
 
   /**
