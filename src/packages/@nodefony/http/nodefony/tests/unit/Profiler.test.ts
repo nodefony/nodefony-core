@@ -231,9 +231,9 @@ describe("Profiler — unit", () => {
   });
 
   describe("user — l'identité de la requête", () => {
-    it("🔴 lit l'identifiant posé sur le contexte (une chaîne)", () => {
+    it("🔴 lit l'identifiant que le pare-feu a posé sur le contexte", () => {
       const p = new Profiler();
-      p.collect(ctx({ user: "alice@acme.io" }));
+      p.collect(ctx({ userIdentifier: "alice@acme.io" }));
       expect(p.get("req-1")!.user).to.equal("alice@acme.io");
     });
 
@@ -241,7 +241,7 @@ describe("Profiler — unit", () => {
       const p = new Profiler();
       p.collect(
         ctx({
-          user: null,
+          userIdentifier: null,
           securityTrace: {
             authenticator: "jwt",
             outcome: "granted",

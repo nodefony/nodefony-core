@@ -11,6 +11,7 @@ function fakeHttpContext(
     method?: string;
     headers?: Record<string, string | string[] | undefined>;
     error?: Error | null;
+    userIdentifier?: string | null;
     phases?: {
       name: string;
       startMs: number;
@@ -23,6 +24,7 @@ function fakeHttpContext(
     url: opts.url ?? "/api/test",
     remoteAddress: "127.0.0.1",
     requestId: "audit-req-id",
+    userIdentifier: opts.userIdentifier ?? null,
     method: opts.method ?? "GET",
     type: "https",
     scheme: "https",
@@ -76,7 +78,15 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
       expect(j.host).to.equal("127.0.0.1:5152");
       expect(j.userAgent).to.include("test");
       expect(j.ts).to.match(/^\d{4}-\d{2}-\d{2}T/);
-      expect(j.userId).to.equal(null);
+      expect(j.userIdentifier).to.equal(null);
+      expect(j).not.to.have.property("userId");
+    });
+
+    it("🔴 nomme l'appelant authentifié que le pare-feu a posé sur le contexte", () => {
+      const e = logger.renderHttp(
+        fakeHttpContext({ userIdentifier: "alice@acme.io" }) as never,
+      );
+      expect(JSON.parse(e.text).userIdentifier).to.equal("alice@acme.io");
     });
 
     it("redacts Authorization / Cookie — presence flags only, no values", () => {

@@ -338,10 +338,10 @@ Extension de l'`AuditErrorEntry` :
 - `JsonAuditLogger implements IRequestLogger` (`service/audit-logger.ts`)
 - Activation : `httpKernel.setRequestLogger(new JsonAuditLogger())` (singleton stateless)
 - 1 PDU JSON canonique/req — msgid = `"audit"`
-- Format `AuditLogEntry` : `{ts, requestId, userId, type:"http"|"ws", scheme, method, url, status, durationMs, remoteAddress, host, userAgent, hasAuthorization, hasCookie, phases?[], error?{name,message,code}, protocol?}`
+- Format `AuditLogEntry` : `{ts, requestId, userIdentifier, type:"http"|"ws", scheme, method, url, status, durationMs, remoteAddress, host, userAgent, hasAuthorization, hasCookie, phases?[], error?{name,message,code}, protocol?}`
 - **P3.3** : `severityFromStatus(s)` exporté — 200/301→INFO, 404/405→WARNING, 500/502→ERROR
 - **P3.4** : flags `hasAuthorization`/`hasCookie` (boolean) — **valeurs JAMAIS loggées**
-- `userId` pull depuis `RequestContext.getUserId()` (P1.4 ALS) — sera rempli par security après login (P6)
+- `userIdentifier` lu sur `context.userIdentifier` (posé par le pare-feu pour tout jeton authentifié). JAMAIS l'ALS : l'audit s'écrit au teardown, hors bulle (`Context.logRequest`). Même source que `Profiler.readUser`.
 - `durationMs` = `performance.now() - phases[0].startMs` (utilise P1.1)
 - WS : ajoute `protocol`
 - Tests unit : `nodefony/tests/unit/AuditLogger.test.ts` (18 tests : shape JSON, redaction, severity, phases, error)

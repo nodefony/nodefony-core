@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import type { Severity } from "nodefony";
-import { RequestContext } from "nodefony";
 import { performance } from "node:perf_hooks";
 import type {
   IRequestLogger,
@@ -28,7 +27,8 @@ import type {
 export interface AuditLogEntry {
   ts: string;
   requestId: string;
-  userId: string | null;
+  /** Identifiant de l'appelant authentifié (`context.userIdentifier`), `null` sinon. */
+  userIdentifier: string | null;
   type: "http" | "ws";
   scheme: string;
   method: string | null;
@@ -194,6 +194,7 @@ class JsonAuditLogger implements IRequestLogger {
       url: string;
       remoteAddress: string | null;
       requestId: string;
+      userIdentifier?: string | null;
       method: string | null;
       type: string;
       scheme: string;
@@ -212,7 +213,7 @@ class JsonAuditLogger implements IRequestLogger {
     const entry: AuditLogEntry = {
       ts: new Date().toISOString(),
       requestId: ctx.requestId,
-      userId: RequestContext.getUserId() ?? null,
+      userIdentifier: ctx.userIdentifier ?? null,
       type: "http",
       scheme: ctx.scheme,
       method: ctx.method,
@@ -248,6 +249,7 @@ class JsonAuditLogger implements IRequestLogger {
       url: string;
       remoteAddress: string | null;
       requestId: string;
+      userIdentifier?: string | null;
       method: string | null;
       scheme: string;
       response: { statusCode?: number } | null;
@@ -263,7 +265,7 @@ class JsonAuditLogger implements IRequestLogger {
     const entry: AuditLogEntry = {
       ts: new Date().toISOString(),
       requestId: ctx.requestId,
-      userId: RequestContext.getUserId() ?? null,
+      userIdentifier: ctx.userIdentifier ?? null,
       type: "ws",
       scheme: ctx.scheme,
       method: ctx.method,

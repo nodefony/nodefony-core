@@ -123,6 +123,8 @@ export interface IContext {
 
   // User
   user: unknown;
+  /** Identifiant de l'appelant authentifié (pare-feu), lisible au démontage. */
+  userIdentifier: string | null;
 
   // Error
   error: Error | null | undefined;

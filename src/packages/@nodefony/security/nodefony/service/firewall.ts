@@ -920,6 +920,10 @@ class Firewall extends Service implements IFirewall {
     // le verrou de frame WS y lisent rôles/scopes/attributs — `user` seul ne
     // suffit pas (axe scopes ≠ rôles). Propagé sur tout le pipeline de la zone.
     RequestContext.set("token", token);
+    // Identifiant lisible au DÉMONTAGE (journal d'audit, profileur), hors ALS.
+    if (token.isAuthenticated()) {
+      context.userIdentifier = token.getUserIdentifier();
+    }
 
     // Défense en profondeur : seul l'anonymat EXPLICITE (authenticator
     // `anonymous` listé dans la zone) autorise un token non authentifié.

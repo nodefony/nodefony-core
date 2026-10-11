@@ -320,7 +320,7 @@ timing (`pretty-request-logger.ts:116`).
 
 ### `JsonAuditLogger` — un PDU par requête, pour la machine
 
-Émet un `AuditLogEntry` canonique (`audit-logger.ts:28`) : `ts`, `requestId`, `userId`, `type`, `method`,
+Émet un `AuditLogEntry` canonique (`audit-logger.ts:28`) : `ts`, `requestId`, `userIdentifier` (appelant authentifié, posé par le pare-feu sur `context.userIdentifier`), `type`, `method`,
 `url`, `status`, `durationMs`, `remoteAddress`, `host`, `userAgent`, phases, erreur enrichie (nom, code,
 `errorType`, `cause` bornée à 5, stack **dev seulement**). Deux propriétés majeures :
 

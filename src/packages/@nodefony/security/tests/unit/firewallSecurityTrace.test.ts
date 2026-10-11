@@ -178,6 +178,8 @@ describe("Firewall — radiographie (securityTrace)", () => {
     const trace = context.securityTrace!;
     assert.equal(trace.outcome, "anonymous");
     assert.equal(trace.authenticator, "anonymous");
+    // L'anonyme n'est pas un appelant authentifié : rien pour l'audit.
+    assert.equal(context.userIdentifier ?? null, null);
   });
 
   it("une route exemptée (bypassFirewall) est tracée `bypass`, pas `granted`", async () => {
@@ -218,6 +220,8 @@ describe("Firewall — radiographie (securityTrace)", () => {
       null,
       "le hot-path de production ne doit rien allouer",
     );
+    // 🔴 L'identité reste lisible au démontage (journal d'audit), même en prod.
+    assert.equal(context.userIdentifier, "session");
   });
 
   it("PROD : un refus non plus n'alloue rien", async () => {

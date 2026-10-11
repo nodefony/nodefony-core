@@ -196,6 +196,14 @@ class Context extends Service implements IContextInterface {
   session: Session | null | undefined = null;
   cookieSession: Cookie | null | undefined = null;
   user: unknown = null;
+  /**
+   * Identifiant de l'appelant AUTHENTIFIÉ, posé par le pare-feu ; `null` hors
+   * zone ou pour un anonyme. Lisible au démontage, hors de la bulle ALS : c'est
+   * ce que lisent le journal d'audit et le profileur. Distinct de `user`, qui
+   * lie la session à son principal de SESSION — y écrire l'identité d'un jeton
+   * rattacherait la session d'un autre compte.
+   */
+  userIdentifier: string | null = null;
   waitAsync: boolean = false;
   isJson: boolean = false;
   // F-C : backing lazy d'`isHtml` — `null` = pas encore résolu. La résolution

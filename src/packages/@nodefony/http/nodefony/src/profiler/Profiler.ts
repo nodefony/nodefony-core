@@ -122,6 +122,7 @@ export interface ProfileSummary {
 /** Forme structurelle minimale lue sur un `Context` (lecture défensive). */
 interface ProfilableContext {
   requestId?: string | undefined;
+  userIdentifier?: string | null | undefined;
   type?: string | undefined;
   scheme?: string | undefined;
   method?: string | null | undefined;
@@ -323,18 +324,14 @@ function readSecurity(ctx: ProfilableContext): ProfileSecurity | undefined {
 /**
  * Identité de la requête.
  *
- * `context.user` n'est PAS la source de vérité en zone firewall : le token
- * résolu vit dans l'ALS (`RequestContext`), qui n'est plus lisible au teardown
- * où `collect()` s'exécute. Sans le repli sur la trace, une requête pleinement
- * authentifiée (rôles compris) s'afficherait « anonyme ».
- *
- * `context.user` est l'IDENTIFIANT du principal (une chaîne posée par
- * l'authentificateur de session), jamais un objet.
+ * Le jeton résolu vit dans l'ALS, qui n'est plus lisible au teardown où
+ * `collect()` s'exécute : le pare-feu pose donc l'identifiant de l'appelant
+ * authentifié sur `context.userIdentifier` (même source que le journal
+ * d'audit). La trace du pare-feu prend le relais pour l'anonyme d'une zone
+ * `anonymous`, qu'elle nomme.
  */
 function readUser(ctx: ProfilableContext): string | null {
-  const u = (ctx as { user?: unknown }).user;
-  if (typeof u === "string" && u.length > 0) return u;
-  return ctx.securityTrace?.user ?? null;
+  return ctx.userIdentifier ?? ctx.securityTrace?.user ?? null;
 }
 
 export default Profiler;
