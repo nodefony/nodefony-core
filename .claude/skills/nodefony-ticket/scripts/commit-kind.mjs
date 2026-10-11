@@ -39,3 +39,23 @@ export const PILOTAGE = /^(docs\(session\)|chore\(pilotage\)|docs\(claude\))/;
 export function isPilotageCommit(message) {
   return PILOTAGE.test(String(message ?? "").split("\n", 1)[0]);
 }
+
+/**
+ * Numéros de tickets cités par un texte (`#123`), dédoublonnés, dans l'ordre.
+ *
+ * Un dièse ne cite un ticket que s'il commence un mot : `PKCS#11`, `C#7` ou
+ * `chemin/#12` ne sont pas des tickets. Vécu — « PKCS#11 » dans un message de
+ * commit faisait citer la demande de fusion #11 à la clôture de session. SEULE
+ * source de la règle : le hook qui passe les tickets en cours, la préparation de
+ * clôture et la lecture du `_state` l'appellent, aucun ne la recopie.
+ *
+ * @param {string} text - message de commit, ligne de mémoire…
+ * @returns {number[]} les numéros cités.
+ */
+export function mentionedTickets(text) {
+  return [
+    ...new Set(
+      [...text.matchAll(/(?<![\w/])#(\d+)\b/gu)].map((m) => Number(m[1])),
+    ),
+  ];
+}

@@ -23,14 +23,13 @@
  */
 import { execFileSync } from "node:child_process";
 
-import { isPilotageCommit } from "./commit-kind.mjs";
+import { isPilotageCommit, mentionedTickets } from "./commit-kind.mjs";
 
 const OWNER = "nodefony";
 const PROJECT = 2;
 /** Mots-clés de fermeture reconnus par GitHub (EN et FR, tels qu'employés ici). */
 const CLOSING =
   /\b(clos(?:e|es|ed)|fix(?:e|es|ed)?|resolv(?:e|es|ed))\s+#(\d+)/gi;
-const MENTION = /#(\d+)/g;
 
 const sh = (cmd, args) =>
   execFileSync(cmd, args, {
@@ -54,7 +53,7 @@ const sh = (cmd, args) =>
 export function parseTargets(message) {
   if (isPilotageCommit(message)) return [];
   const closed = new Set([...message.matchAll(CLOSING)].map((m) => m[2]));
-  const mentioned = new Set([...message.matchAll(MENTION)].map((m) => m[1]));
+  const mentioned = new Set(mentionedTickets(message).map(String));
   return [...mentioned].filter((n) => !closed.has(n));
 }
 

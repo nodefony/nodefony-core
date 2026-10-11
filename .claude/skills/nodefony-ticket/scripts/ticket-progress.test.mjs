@@ -76,4 +76,13 @@ describe("tickets mis en cours par un message de commit", () => {
       parseTargets("perf: passer de 35 MB à 12 MB — cf section #\n"),
     ).to.deep.equal([]);
   });
+
+  // Vécu : « PKCS#11 » dans un message faisait citer la demande de fusion #11.
+  it("ne prend pas un dièse collé à un mot (PKCS#11, C#7, chemin/#12)", () => {
+    expect(
+      parseTargets(
+        "docs: ajouter PKCS#11, C#7 et docs/#12 au glossaire (#583)\n",
+      ),
+    ).to.deep.equal(["583"]);
+  });
 });

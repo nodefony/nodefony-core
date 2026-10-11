@@ -9,6 +9,8 @@
  * courant. Une règle calculée ne s'oublie pas.
  */
 
+import { mentionedTickets } from "../../nodefony-ticket/scripts/commit-kind.mjs";
+
 /** Hashes courts (≥ 7 hex) cités dans un texte — `49b5010a`, `d1930bea`. */
 export function citedHashes(text) {
   return new Set(
@@ -135,11 +137,7 @@ export function firstPriority(text) {
   }
   if (!item.length) return null;
   const joined = item.join(" ");
-  const tickets = [
-    ...new Set(
-      [...joined.matchAll(/(?<![\w/])#(\d+)\b/gu)].map((m) => Number(m[1])),
-    ),
-  ];
+  const tickets = mentionedTickets(joined);
   return { text: joined, tickets };
 }
 

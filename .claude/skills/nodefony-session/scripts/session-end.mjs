@@ -26,6 +26,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { dependentsOf } from "../../nodefony-ticket/scripts/dependents.mjs";
+import { mentionedTickets } from "../../nodefony-ticket/scripts/commit-kind.mjs";
 import {
   ciVerdict,
   clip,
@@ -133,9 +134,7 @@ function prepare() {
   // Tickets cités par les commits de la session, et leur état.
   // Le corps compte autant que le sujet : `Refs #466` s'écrit en pied de message.
   const messages = range ? git("log", range, "--format=%B").out : "";
-  const cited = [
-    ...new Set([...messages.matchAll(/#(\d+)/gu)].map((m) => Number(m[1]))),
-  ];
+  const cited = mentionedTickets(messages);
   const online = sh("gh", ["api", "rate_limit", "--jq", ".rate.remaining"], {
     timeout: 10_000,
   }).ok;
