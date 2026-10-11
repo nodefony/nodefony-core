@@ -273,7 +273,7 @@ cors: { origins: ["https://app.example.com", "https://admin.example.com"], crede
 
 > [!WARNING]
 > `origins: ["*"]` **avec** `credentials: true` est rejeté par le schéma Zod au démarrage
-> (`config.ts:162-165`), avec un message qui dit quoi faire. La raison n'est pas cosmétique : cette
+> (`config.ts:194-197`), avec un message qui dit quoi faire. La raison n'est pas cosmétique : cette
 > combinaison, si un serveur la contournait en reflétant chaque origine, laisserait **tout site du
 > web** lire les réponses authentifiées de tes utilisateurs. Ne « corrige » jamais cette erreur en
 > reflétant l'origine reçue sans la valider.
@@ -447,7 +447,7 @@ secondes les « pourtant j'ai bien mis l'origine ».
 
 | Symptôme                                                  | Cause                                                                                  | Correction                                                                                |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Le boot échoue sur la config CORS                         | `origins:["*"]` **et** `credentials:true` (`config.ts:162-165`)                        | Lister les origines, ou passer `credentials:false`                                        |
+| Le boot échoue sur la config CORS                         | `origins:["*"]` **et** `credentials:true` (`config.ts:194-197`)                        | Lister les origines, ou passer `credentials:false`                                        |
 | Requête bloquée alors que l'origine « est » dans la liste | Match **exact** : port, scheme ou sous-domaine divergent                               | Écrire l'origine complète `scheme://host:port`, une entrée par variante                   |
 | `curl` fonctionne, le navigateur non                      | CORS s'applique dans le navigateur, pas au serveur                                     | Normal — reproduire avec un `Origin` explicite (`curl -H 'Origin: …'`)                    |
 | Cookie non envoyé malgré `credentials:true`               | Opt-in serveur seul : le client n'a pas `credentials: "include"`                       | Activer les deux côtés (et un cookie `SameSite=None; Secure` en cross-site)               |

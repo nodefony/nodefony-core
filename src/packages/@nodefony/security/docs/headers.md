@@ -255,7 +255,7 @@ Choisir en cinq secondes — puis le détail dans les cartes.
 **La menace** : n'importe quelle entrée non échappée (commentaire, nom d'utilisateur, paramètre
 réfléchi) devient un vecteur d'exécution de code. Le CSP est le filet quand l'échappement a raté.
 
-**Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts:244`) : seul `script-src`
+**Le défaut Nodefony** est délibérément « secure-but-usable » (`config.ts:276`) : seul `script-src`
 est **strict** — `'self'` plus le nonce de la requête, ce qui est la vraie défense XSS. Le reste
 couvre les besoins réels d'une app moderne (CSS-in-JS via `style-src 'unsafe-inline'`, images
 `data:`/`blob:`, workers, fetch/WS same-origin) et ajoute les durcissements gratuits :
@@ -315,7 +315,7 @@ inclus.
 **La menace** : la fuite d'URL. Chemins parlants, identifiants de session dans une query, jetons de
 réinitialisation — tout part chez le site suivant via le `Referer`.
 
-Défaut Nodefony : `no-referrer` (`security/nodefony/config/config.ts:284`), la valeur la plus stricte. La valeur est un
+Défaut Nodefony : `no-referrer` (`security/nodefony/config/config.ts:316`), la valeur la plus stricte. La valeur est un
 **enum W3C fermé** — huit valeurs validées au boot, donc pas de faute de frappe qui passerait en
 silence (l'écriture libre `no-refferer` casserait la protection sans prévenir).
 

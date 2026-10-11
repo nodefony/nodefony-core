@@ -591,7 +591,7 @@ use("@nodefony/security", {
 
 **Le même compte, pas un second.** Quand l'émetteur d'un jeton est celui d'un fournisseur de
 connexion déclaré (`oauth2.providers.keycloak.issuer`), l'authenticator cherche d'abord le compte lié
-à `(keycloak, sub)` — celui que le login par navigateur a créé (`ExternalJwtAuthenticator.ts:364`).
+à `(keycloak, sub)` — celui que le login par navigateur a créé (`ExternalJwtAuthenticator.ts:403`).
 Sans ce lien, le jeton désignerait un compte distinct, sous l'identifiant `<émetteur>#<sub>`.
 
 ## 🔐 Sécurité

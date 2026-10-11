@@ -314,12 +314,12 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 | Option | Type · défaut | Effet |
 | --- | --- | --- |
 | `enabled` | boolean · `true` | Active toute la défense — couches 1 **et** 2 (`config.ts:169-174`). |
-| `fetchMetadata` | boolean · `true` | Défense primaire `Sec-Fetch-Site` (`config.ts:175-180`). |
+| `fetchMetadata` | boolean · `true` | Défense primaire `Sec-Fetch-Site` (`config.ts:207-212`). |
 | `checkOrigin` | boolean · `true` | Repli `Origin`/`Referer` same-host pour les navigateurs sans `Sec-Fetch-*` (`config.ts:182-187`). |
-| `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:188-193`). |
+| `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:220-225`). |
 | `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:650`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:634`). |
-| `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:194-199`). |
-| `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:200-206`). |
+| `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:226-231`). |
+| `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:232-238`). |
 
 ## 📜 Normes appliquées
 

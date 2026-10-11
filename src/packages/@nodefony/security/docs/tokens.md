@@ -466,7 +466,7 @@ un futur worker cron — poser alors `gcIntervalS: 0` (`tokenService.ts:338`).
 ## ⚙️ Configuration
 
 Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:373-449`) et `tokenStoreSchema`
-(`config.ts:450-482`), défauts inclus.
+(`config.ts:482-514`), défauts inclus.
 
 ### `jwt.*`
 
