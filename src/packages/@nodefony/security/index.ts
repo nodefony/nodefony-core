@@ -13,6 +13,7 @@ import ApiKeyService from "./nodefony/service/apiKeys";
 import AuditService from "./nodefony/service/auditService";
 import TotpService from "./nodefony/service/totp";
 import WebhookService from "./nodefony/service/webhooks";
+import KeycloakService from "./nodefony/service/keycloak";
 import SecuritySecrets from "./nodefony/command/security-secrets";
 import SecurityUserAdd from "./nodefony/command/security-user-add";
 import SecurityUserList from "./nodefony/command/security-user-list";
@@ -65,6 +66,7 @@ declare module "nodefony" {
   AuditService,
   TotpService,
   WebhookService,
+  KeycloakService,
 ])
 // NOTE : PAS `extends Module<ISecurityConfig>` — security valide sa config de façon
 // DÉCENTRALISÉE (defineSecurityConfig() appelé dans chacun des 8 @services, gardé en
@@ -160,6 +162,11 @@ export { OAuth2Service };
 export { AuditService };
 export { TotpService };
 export { WebhookService };
+export { KeycloakService };
+export type {
+  IKeycloakRealmPlan,
+  IKeycloakRealmRequest,
+} from "./nodefony/service/keycloak";
 export type {
   IWebhookRegisterInput,
   IWebhookSecretReveal,
@@ -328,6 +335,22 @@ export type {
   OAuthCheckStatus,
   OAuthFailureKind,
 } from "./nodefony/src/oauth/providerDiagnosis";
+// API d'administration de Keycloak — un client, que le service `keycloak`
+// (toutes les actions Keycloak) rend par `admin()`.
+export {
+  KeycloakAdminClient,
+  KeycloakAdminError,
+  keycloakAdminTarget,
+  keycloakLoginThemeCheck,
+  readKeycloakLoginTheme,
+} from "./nodefony/keycloak/keycloakAdmin";
+export type {
+  IKeycloakAdminClientOptions,
+  IKeycloakAdminCredentials,
+  IKeycloakAdminTarget,
+  IKeycloakLoginThemeResult,
+  KeycloakLoginThemeOutcome,
+} from "./nodefony/keycloak/keycloakAdmin";
 export type {
   IDiscoveredAuthorizationServer,
   IDiscoveryOptions,

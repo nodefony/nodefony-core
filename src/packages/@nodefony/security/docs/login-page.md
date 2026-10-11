@@ -294,8 +294,9 @@ sequenceDiagram
 | `footer` | boolean · `true` | Protections de la session et « Propulsé par Nodefony » (`config.ts:1061`). |
 | `password` | boolean · `true` | `false` = fournisseurs seulement. |
 | `previewPicker` | boolean · `false` | En **développement** seulement : un sélecteur d'habillage et de mise en page posé dans un coin, qui recharge avec `?skin=` / `?layout=`. Sans effet en production. |
+| `previewHook` | chemin · — | Avec `previewPicker`, en **développement** : chemin de l'application prévenu en `POST` (`{ skin, layout }`, même origine) AVANT chaque rechargement de l'aperçu — pour qu'un tiers suive l'habillage choisi (le thème d'un Keycloak de développement). Un échec n'empêche pas le rechargement ; une autre origine est refusée au démarrage. |
 | `template` | string · — | Gabarit `.eta` de remplacement — dernier recours. |
-| `oauth2.providers.<nom>.icon` | string · icône du framework | Image du bouton du fournisseur (`config.ts:1213`). |
+| `oauth2.providers.<nom>.icon` | string · icône du framework | Image du bouton du fournisseur (`config.ts:1237`). |
 
 Toute la section est en `z.strictObject` : une clé mal orthographiée interrompt le démarrage en la
 nommant, au lieu d'être ignorée.

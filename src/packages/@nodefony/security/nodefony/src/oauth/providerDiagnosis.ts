@@ -32,8 +32,12 @@ import {
  * expire seule ; aucun compte n'est touché, aucun jeton n'est émis.
  */
 
-/** Les trois sondes, dans leur ordre. */
-export type OAuthCheckName = "discovery" | "authorization" | "token";
+/**
+ * Les sondes, dans leur ordre. `theme` n'existe que si l'appelant fournit un
+ * {@link IOAuthDiagnosisInput.pageCheck} ET que la page d'autorisation s'y
+ * prête (Keycloak).
+ */
+export type OAuthCheckName = "discovery" | "authorization" | "token" | "theme";
 
 /**
  * Verdict d'une sonde. `inconclusive` = le serveur a répondu quelque chose
@@ -61,7 +65,9 @@ export type OAuthFailureKind =
   /** Le point de jeton refuse pour une autre raison (flux non autorisé…). */
   | "token-refused"
   /** Le point de jeton n'a pas répondu. */
-  | "token-unreachable";
+  | "token-unreachable"
+  /** La page du fournisseur ne porte pas l'habillage de `/login`. */
+  | "login-theme-mismatch";
 
 /** Le résultat d'une sonde. */
 export interface IOAuthCheck {
@@ -103,6 +109,13 @@ export interface IOAuthDiagnosisInput {
   readonly fetch?: typeof globalThis.fetch | undefined;
   /** Délai d'attente de la sonde d'autorisation, en millisecondes. */
   readonly timeoutMs?: number | undefined;
+  /**
+   * Juge la page de connexion que le point d'autorisation sert (ses premiers
+   * octets). Rend une sonde de plus, ou `null` quand la page ne s'y prête
+   * pas. Le diagnostic reste générique : c'est le kit Keycloak qui sait lire
+   * le thème d'une page de Keycloak.
+   */
+  readonly pageCheck?: ((html: string) => IOAuthCheck | null) | undefined;
 }
 
 /** Le code présenté au point de jeton : il n'a jamais été émis, il sera refusé. */
@@ -220,7 +233,11 @@ async function probeDiscovery(
 async function probeAuthorization(
   input: IOAuthDiagnosisInput,
   provider: IOAuthProvider,
-): Promise<{ check: IOAuthCheck; client: ClientEvidence | null }> {
+): Promise<{
+  check: IOAuthCheck;
+  client: ClientEvidence | null;
+  page: IOAuthCheck | null;
+}> {
   const url = provider.createAuthorizationURL({
     state: generateState(),
     codeVerifier: provider.usesPkce ? generateCodeVerifier() : null,
@@ -239,6 +256,7 @@ async function probeAuthorization(
   } catch (error) {
     return {
       client: null,
+      page: null,
       check: {
         name: "authorization",
         status: "failed",
@@ -249,9 +267,18 @@ async function probeAuthorization(
   }
 
   if (response.status >= 200 && response.status < 300) {
-    await response.body?.cancel();
+    let page: IOAuthCheck | null = null;
+    if (input.pageCheck === undefined) {
+      await response.body?.cancel();
+    } else {
+      const html = await readHead(response, MAX_ERROR_PAGE_BYTES).catch(
+        () => "",
+      );
+      page = input.pageCheck(html);
+    }
     return {
       client: "known",
+      page,
       check: {
         name: "authorization",
         status: "ok",
@@ -269,6 +296,7 @@ async function probeAuthorization(
       if (refused === null) {
         return {
           client: "known",
+          page: null,
           check: {
             name: "authorization",
             status: "ok",
@@ -279,6 +307,7 @@ async function probeAuthorization(
       const description = location.searchParams.get("error_description");
       return {
         client: "known",
+        page: null,
         check: {
           name: "authorization",
           status: "failed",
@@ -291,6 +320,7 @@ async function probeAuthorization(
     }
     return {
       client: null,
+      page: null,
       check: {
         name: "authorization",
         status: "inconclusive",
@@ -308,6 +338,7 @@ async function probeAuthorization(
   if (page.includes("redirect_uri")) {
     return {
       client: null,
+      page: null,
       check: {
         name: "authorization",
         status: "failed",
@@ -321,6 +352,7 @@ async function probeAuthorization(
   }
   return {
     client: null,
+    page: null,
     check: {
       name: "authorization",
       status: "failed",
@@ -438,6 +470,7 @@ export async function diagnoseOAuthProvider(
       authorization.check,
       await probeToken(input, discovery.provider, authorization.client),
     );
+    if (authorization.page !== null) checks.push(authorization.page);
   }
   return {
     provider: input.name,

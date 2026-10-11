@@ -300,6 +300,13 @@ export interface ILoginPageDescription {
    * l'affiche qu'en développement.
    */
   readonly previewPicker: boolean;
+  /**
+   * Chemin de l'application appelé en `POST` (`{ skin, layout }`) avant chaque
+   * rechargement de l'aperçu (`loginPage.previewHook`), ou `null`/absent. Sert
+   * à faire suivre l'habillage choisi à un tiers — le thème d'un Keycloak de
+   * développement. Développement seulement, comme le sélecteur.
+   */
+  readonly previewHook?: string | null;
   /** Fournisseurs à proposer, dans l'ordre de la configuration. */
   readonly providers: readonly ILoginPageProvider[];
 }

@@ -103,6 +103,17 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
                 // Les rôles donnés ici à la main survivent ; un rôle Keycloak
                 // absent de la table est ignoré.
                 roleMapping: { admin: "ROLE_ADMIN" },
+                // Compte administrateur du Keycloak de DÉVELOPPEMENT : sa page
+                // de connexion suit `loginPage.skin` par
+                // `nodefony security:keycloak:realm --apply`.
+                ...(ctx.isDev
+                  ? {
+                      admin: {
+                        username: ctx.env.NF_KEYCLOAK_ADMIN_USERNAME,
+                        password: ctx.env.NF_KEYCLOAK_ADMIN_PASSWORD,
+                      },
+                    }
+                  : {}),
               },
             },
           },

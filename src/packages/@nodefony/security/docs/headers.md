@@ -173,7 +173,7 @@ export default defineConfig(() => ({
 ```
 
 Les clés sont **typées et auto-complétées** : le module augmente le registre `NodefonyModuleConfig`
-du core (`index.ts:33`), donc `use("@nodefony/security", …)` propose les clés **et** les valeurs
+du core (`index.ts:37`), donc `use("@nodefony/security", …)` propose les clés **et** les valeurs
 d'enum (`referrerPolicy`, `coop`, `corp`…). Une valeur hors enum casse le boot, pas la production.
 
 ### 2. Ce qu'on observe

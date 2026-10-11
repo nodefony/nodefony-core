@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { diagnoseOAuthProvider } from "../../nodefony/src/oauth/providerDiagnosis";
+import { keycloakLoginThemeCheck } from "../../nodefony/keycloak/keycloakAdmin";
 import { createDiscoveredOidcProvider } from "../../nodefony/src/oauth/providers/oidc";
 import type {
+  IOAuthCheck,
   IOAuthDiagnosis,
   OAuthCheckName,
 } from "../../nodefony/src/oauth/providerDiagnosis";
@@ -87,7 +89,10 @@ function idp(decor: IDecor) {
 
 function diagnose(
   decor: IDecor,
-  overrides: { clientAuthMethod?: "none" } = {},
+  overrides: {
+    clientAuthMethod?: "none";
+    pageCheck?: (html: string) => IOAuthCheck | null;
+  } = {},
 ): Promise<IOAuthDiagnosis> & { seen: ReturnType<typeof idp>["seen"] } {
   const server = idp(decor);
   const run = diagnoseOAuthProvider({
@@ -95,6 +100,7 @@ function diagnose(
     clientId: CLIENT_ID,
     redirectUri: REDIRECT,
     clientAuthMethod: overrides.clientAuthMethod,
+    pageCheck: overrides.pageCheck,
     fetch: server.fetch,
     build: () =>
       createDiscoveredOidcProvider(
@@ -270,5 +276,63 @@ describe("diagnoseOAuthProvider — ce qui ne se tranche pas ne se tranche pas",
       token: () => json(200, { access_token: "x", token_type: "Bearer" }),
     });
     assert.equal(check(d, "token").status, "inconclusive");
+  });
+});
+
+describe("diagnoseOAuthProvider — sonde de la page de connexion (pageCheck)", () => {
+  const KC_PAGE: Reply = () =>
+    html(
+      200,
+      '<link href="/resources/abc/login/nodefony/css/login.css" rel="stylesheet">',
+    );
+
+  it("la page servie est remise au juge, sa sonde s'ajoute EN DERNIER", async () => {
+    const pages: string[] = [];
+    const d = await diagnose(
+      { authorization: KC_PAGE },
+      {
+        pageCheck: (page) => {
+          pages.push(page);
+          return { name: "theme", status: "ok", message: "accord" };
+        },
+      },
+    );
+    assert.equal(pages.length, 1);
+    assert.match(pages[0] ?? "", /login\/nodefony\//u);
+    assert.deepEqual(
+      d.checks.map((c) => c.name),
+      ["discovery", "authorization", "token", "theme"],
+    );
+  });
+
+  it("thème en écart → le diagnostic n'est plus vert", async () => {
+    const d = await diagnose(
+      { authorization: KC_PAGE },
+      {
+        pageCheck: keycloakLoginThemeCheck("horizon"),
+      },
+    );
+    assert.equal(d.ok, false);
+    assert.equal(check(d, "theme").kind, "login-theme-mismatch");
+  });
+
+  it("juge qui ne reconnaît pas la page → aucune sonde de plus", async () => {
+    const d = await diagnose({}, { pageCheck: () => null });
+    assert.equal(d.checks.length, 3);
+    assert.equal(d.ok, true);
+  });
+
+  it("renvoi (pas de page servie) → le juge n'est pas appelé", async () => {
+    let called = false;
+    await diagnose(
+      { authorization: () => redirect(`${REDIRECT}?code=x`) },
+      {
+        pageCheck: () => {
+          called = true;
+          return null;
+        },
+      },
+    );
+    assert.equal(called, false);
   });
 });

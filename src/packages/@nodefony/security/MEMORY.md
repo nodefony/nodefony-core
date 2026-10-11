@@ -529,8 +529,23 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   Keycloak). Copies du logo déclarées dans `brandAssets.test.ts` (`keycloakThemeCopies`).
 - Comptes importés : `realmRoles: [default-roles-<realm>]` (`keycloakDefaultRole`) — l'import
   n'accorde que les rôles listés ; sans lui la console du compte rend 401.
-- `security:keycloak:realm` (`--write [f]`, `--check [f]`, `--provider`, `--machine`,
-  `--backchannel-origin`) : realm d'import DÉRIVÉ de la config effective
+- **Service `keycloak`** (`KeycloakService`, `service/keycloak.ts`) = TOUTES les actions Keycloak
+  sur une app VIVANTE : `realmPlan()`/`writeRealm()` (realm d'import dérivé + fusionné),
+  `admin(provider)` → `KeycloakAdminClient` (`keycloak/keycloakAdmin.ts` ; jeton `admin-cli` du realm
+  `master` GARDÉ jusqu'à expiration −10 s, 1 renouvellement sur 401 ; `request()`/`getRealm()`/
+  `updateRealm()` PUT partiel), `applyLoginTheme({provider?, skin?})`. Garde AU CONSTRUCTEUR du
+  client : `environment !== "development"` → `KeycloakAdminError`, émetteur non https refusé.
+  Compte = `oauth2.providers.<p>.admin` (`{username,password}`), passé par l'app en `ctx.isDev`
+  seulement (`NF_KEYCLOAK_ADMIN_USERNAME`/`_PASSWORD`). Thème hors `nodefony`/`nodefony-*` (ou
+  absent) → `unmanaged`, jamais écrit. Les commandes et routes de dev passent par le service ; la
+  contribution de scaffold (`create app`, `scaffold:sync` standalone, ZÉRO boot) appelle les
+  fonctions pures — pas de conteneur à ce moment-là.
+- Sonde `theme` du diagnostic OAuth : `IOAuthDiagnosisInput.pageCheck` (générique) ; `oauth2.diagnose`
+  y branche `keycloakLoginThemeCheck(loginPage.skin)` → lit `/resources/<v>/login/<thème>/` dans la
+  page d'autorisation (sans identifiant), `failed`/`login-theme-mismatch` si écart. Libellé côté
+  cœur : `OAUTH_CHECK_LABELS` (`kernel/checks/live.ts`), confronté au producteur par `doctorLive.test.ts`.
+- `security:keycloak:realm` (`--write [f]`, `--check [f]`, `--apply`, `--provider`, `--machine`,
+  `--backchannel-origin`) : coquille d'affichage sur le service `keycloak`. Realm d'import DÉRIVÉ de la config effective
   (`deriveKeycloakRealmInput`, `keycloak/keycloakRealmInput.ts` — PUR) puis construit et
   FUSIONNÉ (`buildKeycloakRealm`/`mergeKeycloakRealm`, `keycloak/keycloakRealm.ts` — le même
   constructeur que la contribution `keycloak/scaffold.ts`). Fichier défaut = l'UNIQUE `.json` de `docker/keycloak/import/`, sinon

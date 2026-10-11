@@ -271,6 +271,7 @@ arrière, audience de chaque zone, rôles de `roleMapping`.
 npx nodefony security:keycloak:realm             # affiche le realm
 npx nodefony security:keycloak:realm --write     # l'écrit dans docker/keycloak/import/
 npx nodefony security:keycloak:realm --check     # sort en 1 s'il ne suit plus la config (CI)
+npx nodefony security:keycloak:realm --apply     # pose le thème de connexion sur le realm VIVANT (dev)
 ```
 
 - **Il fusionne, il n'écrase pas.** Ce que la configuration dit est réécrit ; ce qu'un humain a
@@ -282,10 +283,41 @@ npx nodefony security:keycloak:realm --check     # sort en 1 s'il ne suit plus l
   `nodefony/keycloak/keycloakRealmInput.ts`) — mais seulement sur un realm déjà habillé par
   Nodefony : un thème propre à l'application n'est jamais remplacé, et l'habillage non appliqué
   s'annonce en avertissement.
-- **Keycloak n'importe un realm qu'à sa création.** Un thème se change sur un realm déjà là dans
-  **Realm settings** › **Themes** › _Login theme_. Un realm déjà là se met à jour par
+- **Keycloak n'importe un realm qu'à sa création.** Le thème d'un realm déjà là se pose par
+  `--apply` (ci-dessous), ou à la main dans **Realm settings** › **Themes** › _Login theme_. Le
+  reste d'un realm déjà là se met à jour par
   **Realm settings** › **Action** › **Partial import**, clients en « Overwrite » : comptes et seconds
   facteurs restent.
+
+### Le thème suit l'habillage de `/login` — `--apply`, et le service `keycloak`
+
+Changer `loginPage.skin` ne change pas la page de Keycloak : le thème vit dans SA base (réglage
+`loginTheme` du realm). `--apply` le pose par l'**API d'administration** de Keycloak, qui exige le
+compte administrateur du SERVEUR (realm `master`) — celui du compose de développement :
+
+```typescript
+// nodefony/config/security.ts — le compte ne passe qu'en développement
+keycloak: {
+  issuer: ctx.env.NF_KEYCLOAK_ISSUER,
+  // …
+  ...(ctx.isDev
+    ? { admin: { username: ctx.env.NF_KEYCLOAK_ADMIN_USERNAME, password: ctx.env.NF_KEYCLOAK_ADMIN_PASSWORD } }
+    : {}),
+},
+```
+
+- **Développement seulement** : refusé dans tout autre environnement, même compte posé ; le mot de
+  passe ne part qu'en https et n'est jamais journalisé.
+- **Un thème de l'application n'est jamais remplacé** : seul un realm déjà sur `nodefony` ou
+  `nodefony-*` change d'habillage.
+- **Toutes les actions Keycloak passent par le service `keycloak`** (`KeycloakService`) : realm
+  dérivé (`realmPlan`, `writeRealm`), client d'administration (`admin()`, jeton gardé jusqu'à son
+  expiration), thème (`applyLoginTheme`). La commande n'en garde que l'affichage ; une route de
+  développement l'appelle aussi — c'est ce que fait l'application de ce dépôt pour que le sélecteur
+  d'aperçu de `/login` (`loginPage.previewHook`) entraîne Keycloak.
+- **L'écart se voit sans rien appliquer** : `nodefony doctor --live` et `security:oauth:doctor`
+  lisent le thème sur la page publique de Keycloak (aucun identifiant) et signalent
+  `login-theme-mismatch` quand il ne suit pas `loginPage.skin`.
 
 Le client machine suivi est celui qu'on nomme (`--machine <clientId>`), sinon le compte de service
 que le fichier déclare déjà. Le canal arrière vise `http://host.docker.internal:<port>` en

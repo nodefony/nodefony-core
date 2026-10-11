@@ -40,6 +40,20 @@ describe("security.loginPage — schéma", () => {
     });
   });
 
+  it("previewHook : un chemin de l'application, jamais une autre origine", () => {
+    const parse = (previewHook: string) =>
+      securityConfigSchema.safeParse({ loginPage: { previewHook } }).success;
+    assert.equal(parse("/app/keycloak/theme"), true);
+    for (const bad of [
+      "//evil.example/x",
+      "/\\evil.example",
+      "https://evil.example/x",
+      "app/x",
+    ]) {
+      assert.equal(parse(bad), false, bad);
+    }
+  });
+
   for (const path of [
     "//evil.example/login",
     "/\\evil.example",
@@ -98,6 +112,7 @@ describe("AuthFlow.describeLoginPage", () => {
       password: true,
       passkey: false,
       previewPicker: false,
+      previewHook: null,
       providers: [],
     });
   });
@@ -117,6 +132,8 @@ describe("AuthFlow.describeLoginPage", () => {
         footer: false,
         layout: "card",
         password: false,
+        previewPicker: true,
+        previewHook: "/app/keycloak/theme",
       },
     });
     assert.deepEqual(flow.describeLoginPage(), {
@@ -134,7 +151,8 @@ describe("AuthFlow.describeLoginPage", () => {
       layout: "card",
       password: false,
       passkey: false,
-      previewPicker: false,
+      previewPicker: true,
+      previewHook: "/app/keycloak/theme",
       providers: [],
     });
   });

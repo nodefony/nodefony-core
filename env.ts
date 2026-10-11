@@ -494,6 +494,27 @@ export const env = defineEnv({
       "Le secret de ce client, copié depuis la console Keycloak (onglet « Credentials » du client).",
   }),
 
+  // Compte ADMINISTRATEUR du Keycloak de développement (realm `master`) : il
+  // sert seulement à poser le thème de connexion qui suit l'habillage de
+  // /login (`security:keycloak:realm --apply`, sélecteur d'aperçu). La config
+  // ne le passe qu'en développement ; les défauts sont ceux du compose.
+  NF_KEYCLOAK_ADMIN_USERNAME: envString({
+    default: "admin",
+    section: "Connexion Keycloak",
+    title: "Keycloak : administrateur (développement)",
+    description:
+      "Identifiant de l'administrateur du Keycloak de DÉVELOPPEMENT, pour que sa page de connexion suive l'habillage choisi. Jamais lu en production.",
+    sensitive: false,
+  }),
+
+  NF_KEYCLOAK_ADMIN_PASSWORD: envString({
+    default: "nodefony-dev",
+    section: "Connexion Keycloak",
+    title: "Keycloak : mot de passe administrateur (développement)",
+    description:
+      "Mot de passe de cet administrateur — celui du compose de développement par défaut. Jamais lu en production.",
+  }),
+
   /**
    * Base d'URL des callbacks OAuth (RFC 9700 : exact match avec l'URL
    * enregistrée chez le fournisseur). Callback complet = `<base>/nodefony/

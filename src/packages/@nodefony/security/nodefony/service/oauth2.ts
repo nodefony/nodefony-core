@@ -13,6 +13,7 @@ import {
   type ISecurityConfigInput,
 } from "../config/defineModuleConfig";
 import { AuthenticationError } from "../errors/AuthenticationError";
+import { keycloakLoginThemeCheck } from "../keycloak/keycloakAdmin";
 import type {
   ILogoutTokenClaims,
   IOAuthProvider,
@@ -770,6 +771,7 @@ class OAuth2Service extends Service {
     }
     const providers = this.#config.oauth2.providers;
     const names = name === undefined ? Object.keys(providers) : [name];
+    const pageCheck = keycloakLoginThemeCheck(this.#config.loginPage.skin);
     return Promise.all(
       names.map((n) => {
         const cfg = Object.hasOwn(providers, n) ? providers[n] : undefined;
@@ -780,6 +782,9 @@ class OAuth2Service extends Service {
           redirectUri: cfg?.redirectUri ?? "",
           clientAuthMethod: cfg?.clientAuthMethod,
           scopes: cfg?.scopes,
+          // La page de Keycloak suit-elle l'habillage de `/login` ? La sonde
+          // ne dit rien d'une page qui n'est pas de Keycloak.
+          pageCheck,
         });
       }),
     );

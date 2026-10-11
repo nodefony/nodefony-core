@@ -28,6 +28,7 @@ const LABELS: Record<OAuthCheckName, string> = {
   discovery: "découverte",
   authorization: "URL de retour",
   token: "secret",
+  theme: "thème",
 };
 
 /** Vue MINIMALE du service `oauth2`. */

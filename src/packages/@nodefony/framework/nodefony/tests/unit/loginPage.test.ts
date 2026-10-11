@@ -382,6 +382,17 @@ describe("page de connexion — gabarit rendu", () => {
       dev.querySelector<HTMLSelectElement>('select[name="layout"]')?.value,
     ).toBe("bare");
     expect(dev.querySelectorAll('select[name="skin"] option')).toHaveLength(9);
+    // Sans crochet configuré, aucun attribut : le script recharge seul.
+    expect(picker?.hasAttribute("data-preview-hook")).toBe(false);
+    const hooked = render(
+      { ...asked, previewHook: "/app/keycloak/theme" },
+      { ...REQUEST, preview: true },
+    );
+    expect(
+      hooked
+        .querySelector("form[data-preview-picker]")
+        ?.getAttribute("data-preview-hook"),
+    ).toBe("/app/keycloak/theme");
     // Production : jamais, même demandé.
     expect(
       render(asked, { ...REQUEST, preview: false }).querySelector(

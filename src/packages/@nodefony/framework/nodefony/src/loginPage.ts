@@ -91,6 +91,8 @@ export interface ILoginPageView {
 export interface ILoginPagePicker {
   readonly skins: readonly LoginPageSkin[];
   readonly layouts: readonly LoginPageLayout[];
+  /** Chemin prévenu avant chaque rechargement (`loginPage.previewHook`), ou `null`. */
+  readonly hook: string | null;
 }
 
 /** Ce que la requête apporte à la page. */
@@ -272,7 +274,11 @@ export function buildLoginPageView(
     from,
     picker:
       request.preview === true && page.previewPicker
-        ? { skins: LOGIN_PAGE_SKINS, layouts: LOGIN_PAGE_LAYOUTS }
+        ? {
+            skins: LOGIN_PAGE_SKINS,
+            layouts: LOGIN_PAGE_LAYOUTS,
+            hook: page.previewHook ?? null,
+          }
         : null,
     notice:
       typeof request.reason === "string" &&
@@ -550,7 +556,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
           </div>
         </section>
 <% if (it.picker) { %>
-        <form class="nf-picker" method="get" data-preview-picker aria-label="Aperçu de la page (développement)">
+        <form class="nf-picker" method="get" data-preview-picker<% if (it.picker.hook) { %> data-preview-hook="<%= it.picker.hook %>"<% } %> aria-label="Aperçu de la page (développement)">
           <input type="hidden" name="from" value="<%= it.from %>" />
           <label>Habillage <select name="skin"><% it.picker.skins.forEach(function (skin) { %><option value="<%= skin %>"<% if (skin === it.skin) { %> selected<% } %>><%= skin %></option><% }) %></select></label>
           <label>Mise en page <select name="layout"><% it.picker.layouts.forEach(function (layout) { %><option value="<%= layout %>"<% if (layout === it.layout) { %> selected<% } %>><%= layout %></option><% }) %></select></label>

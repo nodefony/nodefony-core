@@ -67,8 +67,11 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
       skin: "frontispiece",
       stylesheet: "/brand/login.css",
       // Sélecteur d'habillage et de mise en page sur la page — en
-      // développement seulement : ce dépôt sert à les comparer.
+      // développement seulement : ce dépôt sert à les comparer. Chaque choix
+      // prévient `AppController` (`/app/keycloak/theme`), qui fait suivre
+      // l'habillage à la page de connexion de Keycloak.
       previewPicker: true,
+      previewHook: "/app/keycloak/theme",
     },
     // Social login OAuth 2.0 — un fournisseur n'est monté que si SES deux
     // secrets sont présents (spread conditionnel) : pas de bouton mort sur
@@ -120,6 +123,16 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
                 clientId: ctx.env.NF_KEYCLOAK_CLIENT_ID,
                 clientSecret: ctx.env.NF_KEYCLOAK_CLIENT_SECRET,
                 redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/keycloak/callback`,
+                // Compte administrateur : DÉVELOPPEMENT seulement, pour poser
+                // le thème de connexion (`security:keycloak:realm --apply`).
+                ...(ctx.isDev
+                  ? {
+                      admin: {
+                        username: ctx.env.NF_KEYCLOAK_ADMIN_USERNAME,
+                        password: ctx.env.NF_KEYCLOAK_ADMIN_PASSWORD,
+                      },
+                    }
+                  : {}),
                 // Rôles CLIENT du realm → rôles de l'app, recalculés à chaque
                 // connexion et à chaque jeton. `admin` : bob et cci ;
                 // `admin-nodefony` : cci seul.

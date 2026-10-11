@@ -1,11 +1,21 @@
 import { resolve } from "node:path";
 import { createRequire } from "node:module";
 import fs from "node:fs";
-import { route, controller, Controller, UseSession } from "@nodefony/framework";
+import {
+  route,
+  controller,
+  Controller,
+  UseSession,
+  Body,
+} from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
-import { loginPagePath } from "nodefony";
-import type { AuthFlow } from "@nodefony/security";
+import { isLoginPageSkin, loginPagePath } from "nodefony";
+import {
+  KeycloakAdminError,
+  type AuthFlow,
+  type KeycloakService,
+} from "@nodefony/security";
 
 /**
  * Bundle standalone de la debug bar (`nodefony/debugbar.js` = build core), lu
@@ -69,6 +79,37 @@ class AppController extends Controller {
       target = (await flow.logoutWithProvider(context)).logoutUrl ?? "/";
     }
     this.redirect(target, 303);
+  }
+
+  // Développement : la page de connexion de Keycloak suit l'habillage choisi
+  // au sélecteur de /login (`loginPage.previewHook`). Même geste que
+  // `security:keycloak:realm --apply` — le SERVICE, jamais la commande.
+  @route("route-app-keycloak-theme", {
+    path: "/keycloak/theme",
+    requirements: { methods: ["POST"] },
+  })
+  async keycloakTheme(@Body("skin") skin?: unknown) {
+    const environment = this.kernel?.environment ?? "production";
+    if (environment !== "development") {
+      throw new HttpError("Not Found", 404, this.context);
+    }
+    if (!isLoginPageSkin(skin)) {
+      throw new HttpError("habillage inconnu", 400, this.context);
+    }
+    const keycloak = this.get<KeycloakService>("keycloak");
+    if (!keycloak) {
+      throw new HttpError("Not Found", 404, this.context);
+    }
+    try {
+      const result = await keycloak.applyLoginTheme({ skin });
+      return await this.renderJson(result);
+    } catch (error) {
+      if (!(error instanceof KeycloakAdminError)) throw error;
+      // Keycloak éteint ou absent : l'aperçu se recharge quand même, le
+      // journal dit pourquoi Keycloak n'a pas suivi.
+      this.log(error.message, "WARNING");
+      return this.renderJson({ error: error.message }, 503);
+    }
   }
 
   #flow(): AuthFlow | null {

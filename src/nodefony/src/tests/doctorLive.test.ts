@@ -288,7 +288,7 @@ const diagnostic = (
 });
 
 describe("doctor --live — les fournisseurs OAuth (#520)", () => {
-  it("🔴 le vocabulaire du décor est celui que @nodefony/security rend VRAIMENT", () => {
+  it("🔴 le vocabulaire du décor est celui que @nodefony/security rend VRAIMENT", async () => {
     // Même raison que pour le migrateur : le cœur ne peut pas importer le type,
     // il lit donc les noms au source quand le module est là.
     const racine = path.resolve(
@@ -318,6 +318,21 @@ describe("doctor --live — les fournisseurs OAuth (#520)", () => {
     assert.isTrue(statuts.has("failed"), [...statuts].join(", "));
     for (const s of ["discovery", "authorization", "token"]) {
       assert.isTrue(sondes.has(s), `sonde « ${s} » absente du producteur`);
+    }
+    // Chaque sonde du producteur a son libellé au cœur : sans lui, le
+    // manquement s'affichait « keycloak —  : … ».
+    for (const s of sondes) {
+      const live = await lire(
+        brokerDe(
+          migrationsSaines,
+          securite(diagnostic({ name: s, status: "failed", message: "m" })),
+        ),
+      );
+      assert.notEqual(
+        live.findings[0]?.message,
+        `keycloak — ${s} : m`,
+        `sonde « ${s} » sans libellé dans OAUTH_CHECK_LABELS (live.ts)`,
+      );
     }
     assert.include(readFileSync(api, "utf8"), 'path: "oauth/diagnosis"');
   });

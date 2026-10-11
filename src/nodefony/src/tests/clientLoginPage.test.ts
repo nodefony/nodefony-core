@@ -372,3 +372,92 @@ describe("page de connexion — le déroulé sur le balisage", () => {
     expect($("[data-message]").childElementCount).toBe(0);
   });
 });
+
+describe("page de connexion — sélecteur d'aperçu et son crochet", () => {
+  const PICKER = (hook: string | null): string => `
+<form class="nf-picker" method="get" data-preview-picker${hook === null ? "" : ` data-preview-hook="${hook}"`}>
+  <select name="skin"><option value="frontispiece" selected>frontispiece</option><option value="dots">dots</option></select>
+  <select name="layout"><option value="split" selected>split</option><option value="card">card</option></select>
+</form>`;
+
+  function mountPicker(hook: string | null): {
+    form: HTMLFormElement;
+    submitted: ReturnType<typeof vi.fn>;
+  } {
+    mount(loginFetchBench().fetch);
+    document.body.insertAdjacentHTML("beforeend", PICKER(hook));
+    const form = $as("form[data-preview-picker]", HTMLFormElement);
+    const submitted = vi.fn();
+    form.submit = submitted;
+    return { form, submitted };
+  }
+
+  const bodyOf = (init?: RequestInit): string =>
+    typeof init?.body === "string" ? init.body : "";
+
+  const choose = (name: string, value: string): void => {
+    const select = $as(`select[name="${name}"]`, HTMLSelectElement);
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sans crochet : recharge aussitôt, aucun appel réseau", () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const { submitted } = mountPicker(null);
+    choose("skin", "dots");
+    expect(submitted).toHaveBeenCalledTimes(1);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("🔴 avec crochet : le prévient AVANT de recharger, habillage seul (la mise en page suit l'habillage)", async () => {
+    const order: string[] = [];
+    const fetch = vi.fn((_url: string, _init?: RequestInit) => {
+      order.push("hook");
+      return Promise.resolve(new Response("{}"));
+    });
+    vi.stubGlobal("fetch", fetch);
+    const { submitted } = mountPicker("/app/keycloak/theme");
+    submitted.mockImplementation(() => order.push("submit"));
+    choose("skin", "dots");
+    expect(submitted).not.toHaveBeenCalled();
+    await flush();
+    expect(order).toEqual(["hook", "submit"]);
+    const [url, init] = fetch.mock.calls[0] ?? [];
+    expect(url).toBe("/app/keycloak/theme");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(bodyOf(init))).toEqual({
+      skin: "dots",
+      layout: null,
+    });
+  });
+
+  it("un choix de mise en page l'envoie avec l'habillage courant", async () => {
+    const fetch = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(new Response("{}")),
+    );
+    vi.stubGlobal("fetch", fetch);
+    mountPicker("/hook");
+    choose("layout", "card");
+    await flush();
+    expect(JSON.parse(bodyOf(fetch.mock.calls[0]?.[1]))).toEqual({
+      skin: "frontispiece",
+      layout: "card",
+    });
+  });
+
+  it("🔴 un crochet en panne n'empêche JAMAIS l'aperçu", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new TypeError("fetch failed"))),
+    );
+    const { submitted } = mountPicker("/hook");
+    choose("skin", "dots");
+    await flush();
+    expect(submitted).toHaveBeenCalledTimes(1);
+  });
+});

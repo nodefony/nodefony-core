@@ -335,18 +335,36 @@ export function mountLoginPage(
 
   // Sélecteur d'aperçu (développement) : un choix recharge aussitôt. Changer
   // d'habillage remet la mise en page de CET habillage, sauf choix explicite.
+  // Un crochet (`data-preview-hook`, `loginPage.previewHook`) est prévenu
+  // AVANT le rechargement — un Keycloak de développement y suit l'habillage ;
+  // son échec ne bloque jamais l'aperçu.
   const onPickerChange = (event: Event): void => {
     const select = event.target;
     if (!(select instanceof HTMLSelectElement)) return;
     const form = select.form;
     if (form === null || !form.hasAttribute("data-preview-picker")) return;
-    if (select.name === "skin") {
-      const layout = form.querySelector<HTMLSelectElement>(
-        'select[name="layout"]',
-      );
-      if (layout !== null) layout.disabled = true;
+    const layout = form.querySelector<HTMLSelectElement>(
+      'select[name="layout"]',
+    );
+    if (select.name === "skin" && layout !== null) layout.disabled = true;
+    const hook = form.getAttribute("data-preview-hook");
+    if (hook === null) {
+      form.submit();
+      return;
     }
-    form.submit();
+    const skin = form.querySelector<HTMLSelectElement>('select[name="skin"]');
+    form.setAttribute("aria-busy", "true");
+    fetch(hook, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        skin: skin?.value ?? null,
+        layout: layout === null || layout.disabled ? null : layout.value,
+      }),
+    })
+      .catch(() => undefined)
+      .finally(() => form.submit());
   };
 
   doc.addEventListener("submit", onSubmit);

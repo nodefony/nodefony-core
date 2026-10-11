@@ -48,7 +48,8 @@
 #   6. Jetons (JWT)
 #        NF_JWT_ISSUER, NF_JWT_KEYSET
 #   7. Connexion Keycloak
-#        NF_KEYCLOAK_ISSUER, NF_KEYCLOAK_CLIENT_ID, NF_KEYCLOAK_CLIENT_SECRET
+#        NF_KEYCLOAK_ISSUER, NF_KEYCLOAK_CLIENT_ID, NF_KEYCLOAK_CLIENT_SECRET,
+#        NF_KEYCLOAK_ADMIN_USERNAME, NF_KEYCLOAK_ADMIN_PASSWORD
 #   8. Connexion externe : réglage commun
 #        NF_OAUTH_REDIRECT_BASE
 #   9. Framework : déploiement
@@ -349,6 +350,29 @@
 # @placement=secrets
 # @default=aucun
 # NF_KEYCLOAK_CLIENT_SECRET=
+
+
+# ─── Keycloak : administrateur (développement) ──────────────────────────────
+#
+# Identifiant de l'administrateur du Keycloak de DÉVELOPPEMENT, pour que sa
+# page de connexion suive l'habillage choisi. Jamais lu en production.
+#
+# @optional
+# @placement=platform
+# @default=admin
+# NF_KEYCLOAK_ADMIN_USERNAME=admin
+
+
+# ─── Keycloak : mot de passe administrateur (développement) ─────────────────
+#
+# Mot de passe de cet administrateur — celui du compose de développement par
+# défaut. Jamais lu en production.
+#
+# @optional
+# @sensitive
+# @placement=secrets
+# @default=<%= it.appName %>-dev
+# NF_KEYCLOAK_ADMIN_PASSWORD=
 
 
 

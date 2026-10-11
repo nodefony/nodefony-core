@@ -352,6 +352,7 @@ const OAUTH_CHECK_LABELS: Record<string, string> = {
   discovery: "découverte",
   authorization: "URL de retour",
   token: "secret",
+  theme: "thème",
 };
 
 /**
@@ -437,7 +438,10 @@ async function checkOAuth(
     if (!Array.isArray(checks)) continue;
     for (const check of checks) {
       if (readString(check, "status") !== "failed") continue;
-      const label = OAUTH_CHECK_LABELS[readString(check, "name") ?? ""] ?? "";
+      // Une sonde que cette table ne connaît pas encore garde son NOM : un
+      // libellé vide a déjà rendu « keycloak —  : … ».
+      const checkName = readString(check, "name") ?? "?";
+      const label = OAUTH_CHECK_LABELS[checkName] ?? checkName;
       findings.push({
         kind: "oauth-provider-failed",
         message: `${name} — ${label} : ${readString(check, "message") ?? ""}`,

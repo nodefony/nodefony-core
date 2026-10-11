@@ -491,6 +491,7 @@ class AuthFlow extends Service {
       skin: page.skin,
       layout: page.layout ?? LOGIN_PAGE_SKIN_SPECS[page.skin].layout,
       previewPicker: page.previewPicker,
+      previewHook: page.previewHook ?? null,
       password: page.password,
       // Relu à chaque appel, comme les fournisseurs : `isEnabled()` dit que
       // les cérémonies répondront, pas seulement que la clé est posée.

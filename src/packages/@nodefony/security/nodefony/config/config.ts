@@ -1090,6 +1090,16 @@ const loginPageSchema = z
       .describe(
         "En DÉVELOPPEMENT seulement : un sélecteur d'habillage et de mise en page sur la page, qui recharge avec `?skin=` et `?layout=`. Sans effet en production, où ces paramètres sont ignorés. Pour choisir son habillage à l'écran, pas pour le livrer.",
       ),
+    previewHook: z
+      .string()
+      .regex(
+        /^\/(?![/\\])/u,
+        "chemin de l'application attendu (« /… »), jamais une autre origine",
+      )
+      .optional()
+      .describe(
+        "Avec `previewPicker`, en DÉVELOPPEMENT : chemin de l'application appelé en POST (`{ skin, layout }`, même origine) AVANT chaque rechargement de l'aperçu. Pour qu'un tiers suive l'habillage choisi — le thème d'un Keycloak de développement (`applyKeycloakLoginTheme`). Un échec n'empêche pas le rechargement.",
+      ),
   })
   .describe(
     "Page de connexion servie par le framework, sans front (ADR-0015).",
@@ -1232,6 +1242,22 @@ const oauthProviderSchema = z
         "Image du bouton sur l'écran de connexion (chemin servi par " +
           "l'application, ou URL autorisée par la CSP `img-src`). OMIS = " +
           "icône du framework : la marque pour `github`, une clé sinon.",
+      ),
+    admin: z
+      .strictObject({
+        username: z.string().min(1).describe("Identifiant administrateur."),
+        password: z
+          .string()
+          .min(1)
+          .describe("Mot de passe administrateur — SECRET, jamais loggé."),
+      })
+      .optional()
+      .describe(
+        "DÉVELOPPEMENT seulement — compte d'administration du serveur Keycloak " +
+          "(realm `master`). Sert à poser le thème de connexion qui suit " +
+          "`loginPage.skin` sur un realm EXISTANT (`security:keycloak:realm " +
+          "--apply`, aperçu de `/login`), ce que le fichier d'import ne fait " +
+          "pas. Refusé hors développement : ne le passer qu'en `ctx.isDev`.",
       ),
     hidden: z
       .boolean()
