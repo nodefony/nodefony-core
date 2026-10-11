@@ -184,6 +184,9 @@ export class JwtAuthenticator implements IAuthenticator {
     ut.setAttribute("scopes", scopes);
     ut.setAttribute("jti", payload.jti);
     ut.setAttribute("claims", payload);
+    // Même attribut que `ExternalJwtAuthenticator` : une route servie par une
+    // zone `["jwt", "external-jwt"]` lit `issuer` sans savoir lequel a parlé.
+    ut.setAttribute("issuer", payload.iss);
     return ut;
   }
 

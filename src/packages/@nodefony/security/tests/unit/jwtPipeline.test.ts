@@ -148,6 +148,11 @@ describe("Pont HTTP — Firewall.handleSecurity sur zone JWT", () => {
     await RequestContext.run({ requestId: "p-ok" }, async () => {
       await firewall.handleSecurity(context);
       assert.equal((RequestContext.getUser() as IUser).identifier, "alice");
+      // Même lecture que pour un jeton tiers : la route ne sait pas lequel
+      // des deux authenticators a parlé.
+      const token = RequestContext.get()?.token as
+        { getAttribute(key: string): unknown } | undefined;
+      assert.equal(token?.getAttribute("issuer"), RT.issuer);
     });
   });
 
