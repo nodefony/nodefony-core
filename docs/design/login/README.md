@@ -35,13 +35,20 @@ aperçus) pour rejouer les étapes et les erreurs 401 et 429.
 
 ## Modifier
 
-| Fichier                                 | Rôle                                                                                           |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `src/nodefony/assets/login/skins/*.css` | **les habillages** (dans le cœur) : une idée de design se pose ICI, la galerie la reprend      |
-| `gen.mjs`                               | génère les maquettes `v*` et la galerie : `node docs/design/login/gen.mjs`                     |
-| `f01-…`, `f02-…`, `f03-…`               | maquettes écrites à la main (balisage seul), décrites par `fable-manifest.json`                |
-| `mock.css`                              | ce que la maquette ajoute : la photo (posée comme le ferait l'application) et la barre de test |
-| `mock.js`                               | simulation du déroulé (étapes, erreurs) — n'existera pas dans la vraie page                    |
+| Fichier                                 | Rôle                                                                                                                                                                               |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/nodefony/assets/login/skins/*.css` | **les habillages** (dans le cœur) : une idée de design se pose ICI, la galerie la reprend                                                                                          |
+| `gen.mjs`                               | rend les neuf maquettes par le **vrai gabarit** (`LOGIN_PAGE_TEMPLATE` + `buildLoginPageView`, `@nodefony/framework`) et la galerie : `node docs/design/login/gen.mjs` (Node ≥ 23) |
+| `fable-manifest.json`                   | nom et usage des maquettes `f01-…`, `f02-…`, `f03-…` (propositions de fable), rendues comme les autres                                                                             |
+| `mock.css`                              | ce que la maquette ajoute : la photo (posée comme le ferait l'application) et la barre de test                                                                                     |
+| `mock.js`                               | simulation du déroulé (étapes, erreurs) — n'existera pas dans la vraie page                                                                                                        |
+
+**Aucun balisage n'est écrit dans la galerie.** Une copie à la main avait perdu le bouton
+passkey : chaque maquette sort désormais du gabarit de `/login`, et ne diffère de la vraie
+page que par trois adresses (feuilles du cœur, `mock.css`, `mock.js`) et la barre de test.
+Un habillage ajouté au catalogue du cœur sans entrée dans `gen.mjs` fait échouer la
+génération. Pour vérifier la galerie à l'écran, la servir depuis la racine du dépôt
+(`python3 -m http.server`) et la mesurer avec la sonde de `nodefony-browser`.
 
 La photo est celle de l'application de dev du dépôt (`public/brand/login-hero.webp`,
 1 920 px, 93 Ko) : le framework n'en publie aucune.

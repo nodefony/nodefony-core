@@ -1,44 +1,44 @@
 #!/usr/bin/env node
 /**
- * Maquettes de la page de connexion (#547) — génère les habillages d'UN même
- * balisage et la galerie.
+ * Maquettes de la page de connexion (#547) — rend chaque habillage par le VRAI
+ * gabarit du framework, puis la galerie.
  *
- * Lancer : `node docs/design/login/gen.mjs` (réécrit les v*.html et index.html ;
- * les f*.html, propositions de fable, sont écrites à la main et lues par
- * fable-manifest.json). Les habillages écartés par l'auteur (04, 05, 06, 09,
- * 10, 12) ne sont plus générés : ils vivent dans l'historique git.
+ * Lancer : `node docs/design/login/gen.mjs` (réécrit les v*.html, f*.html et
+ * index.html). Exige Node ≥ 23 (le gabarit est importé depuis sa source
+ * TypeScript) et un `npm install` à la racine (`eta`, `nodefony`).
  *
- * Chaque page charge les feuilles PUBLIÉES du framework — `login.css` puis
- * `login/skins/<skin>.css` — et `mock.css` (photo + barre de test) : la
- * galerie montre ce que l'application recevra, elle n'en porte aucune copie.
- * L'aperçu fidèle reste la vraie page : `/login?skin=<skin>` en développement.
+ * Aucun balisage n'est écrit ici : chaque page sort de `LOGIN_PAGE_TEMPLATE`
+ * et de `buildLoginPageView` (`@nodefony/framework`), exactement comme
+ * `/login`. Une copie du balisage avait perdu le bouton passkey ; la galerie ne
+ * peut plus dériver de la page. Ce que ce script change au rendu tient en trois
+ * adresses (feuilles PUBLIÉES du cœur, `mock.css`, `mock.js`) et la barre de
+ * test ajoutée avant `</body>`. L'aperçu fidèle reste la vraie page :
+ * `/login?skin=<skin>` en développement.
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { Eta } from "eta";
+import {
+  LOGIN_PAGE_SKINS,
+  LOGIN_PAGE_SKIN_SPECS,
+  loginPageSkinFile,
+} from "nodefony";
+import {
+  buildLoginPageView,
+  LOGIN_PAGE_TEMPLATE,
+} from "../../../src/packages/@nodefony/framework/nodefony/src/loginPage.ts";
 
 const OUT = path.dirname(fileURLToPath(import.meta.url));
-// Le logo vient de SA source, jamais recopié (garde `brandAssets.test.ts` du
-// cœur) : les pages le chargent par `<img>`.
-const LOGO_URL = "../../../src/nodefony/assets/nodefony-logo.svg";
-
-/** Le logo en `<img>` ; une couleur unique (blanc, `currentColor`) devient un filtre CSS. */
-function logo(colors = null, cls = "nf-logo") {
-  let tone = "";
-  if (colors && new Set(colors).size === 1) {
-    tone = ["#fff", "#ffffff"].includes(colors[0].toLowerCase())
-      ? " nf-logo-white"
-      : " nf-logo-mono";
-  }
-  return `<img class="${cls}${tone}" src="${LOGO_URL}" alt="">`;
-}
-
-// Les feuilles PUBLIÉES du framework : la galerie n'en porte aucune copie.
+// Les feuilles et le logo PUBLIÉS du cœur, en chemin relatif : la galerie
+// s'ouvre en `file://` et n'en porte aucune copie.
 const ASSETS = "../../../src/nodefony/assets/";
+const LOGO_URL = `${ASSETS}nodefony-logo.svg`;
 
 // ── Les habillages générés ────────────────────────────────────────────────────
-// Ni couleur ni fond ici : ils vivent dans `login/skins/<skin>.css` du cœur.
-// Ces fiches ne disent que ce que la galerie affiche et le balisage d'exemple.
+// Ni couleur ni fond ni balisage ici : les couleurs vivent dans
+// `login/skins/<skin>.css` du cœur, le balisage dans le gabarit du framework.
+// Ces fiches ne disent que ce que la galerie affiche.
 const VARIANTS = [
   {
     slug: "v01-console",
@@ -81,7 +81,6 @@ const VARIANTS = [
     skin: "enterprise",
     name: "Entreprise — SSO d'abord",
     layout: "card",
-    ssoFirst: true,
     usage:
       "Intranet derrière Keycloak : le fournisseur de l'entreprise passe AVANT le compte local (`providersFirst: true`). Palette sarcelle.",
     backdrop: "courbes de niveau",
@@ -98,152 +97,119 @@ const VARIANTS = [
   },
 ];
 
-const ICONS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></symbol>
-<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></symbol>
-<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></symbol>
-<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
-<symbol id="i-finger" viewBox="0 0 24 24"><path d="M12 11v2.5c0 2.8.9 4.8 2 6.5M8.5 13c0 2.8.5 4.8 1.6 7M6 9.5a6.5 6.5 0 0 1 12.3 1.4c.4 2 .4 4.8 0 7.6M9.2 9.2A3.5 3.5 0 0 1 15.5 11v2.2"/></symbol>
-<symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="3.8"/><path d="M10.8 12.2 19.5 3.5M16.5 6.5l2.5 2.5M14 9l2 2"/></symbol>
-<symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3"/></symbol>
-<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
-<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8-7.5 9.5-4.3-1.5-7.5-4.9-7.5-9.5V6z"/></symbol>
-<symbol id="m-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></symbol>
-</svg>`;
+// Les fiches des propositions de fable (f*.html) : leur nom et leur usage.
+const manifest = path.join(OUT, "fable-manifest.json");
+const FABLE = existsSync(manifest)
+  ? JSON.parse(readFileSync(manifest, "utf8")).map((f) =>
+      Object.assign(f, { by: "fable" }),
+    )
+  : [];
+const SHOWN = [...VARIANTS, ...FABLE];
 
-function page(v) {
-  const app = v.app ?? "Mon application";
-  const lg = logo();
-  const sso = v.ssoFirst === true;
-  const altHtml = sso
-    ? `<div data-alt>
-            <div class="nf-alt">
-              <a class="nf-btn primary span" href="#"><svg class="nf-icon" aria-hidden="true"><use href="#i-building"/></svg>Continuer avec ${app.split(" ")[0]} SSO</a>
-            </div>
-            <div class="nf-or">ou avec un compte local</div>
-          </div>`
-    : `<div data-alt>
-            <div class="nf-or">ou</div>
-            <div class="nf-alt">
-              <button type="button" class="nf-btn span"><svg class="nf-icon" aria-hidden="true"><use href="#i-finger"/></svg>Se connecter avec une passkey</button>
-              <a class="nf-btn" href="#"><svg class="nf-icon" aria-hidden="true"><use href="#i-key"/></svg>Keycloak</a>
-              <a class="nf-btn" href="#"><svg class="nf-mark" aria-hidden="true"><use href="#m-github"/></svg>GitHub</a>
-            </div>
-          </div>`;
-  const primaryCls = sso ? "nf-btn" : "nf-btn primary";
-  // Mêmes attributs que la vraie page (gabarit du framework).
-  let attrs = `data-skin="${v.skin}" data-layout="${v.layout}"`;
-  if (v.backdrop !== "aucun") attrs += " data-backdrop";
-  if (sso) attrs += " data-sso-first";
-  return `<!doctype html>
-<html lang="fr">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark light" />
-    <title>Se connecter — ${app}</title>
-    <link rel="stylesheet" href="${ASSETS}login.css" />
-    <link rel="stylesheet" href="${ASSETS}login/skins/${v.skin}.css" />
-    <link rel="stylesheet" href="mock.css" />
-  </head>
-  <body ${attrs}>
-    ${ICONS}
-    <header class="nf-strip">
-      <div class="nf-strip-brand">${lg}${app}</div>
-      <span class="nf-sep hide-sm" aria-hidden="true"></span>
-      <span class="nf-chip env hide-sm">développement</span>
-      <span class="nf-spacer"></span>
-      <span class="nf-chip"><span class="nf-dot" aria-hidden="true"></span>serveur joignable</span>
-    </header>
-    <div class="nf-layout">
+// Un habillage ajouté au catalogue du cœur doit avoir sa maquette : la galerie
+// prétend montrer les habillages, pas une partie d'entre eux.
+const missing = LOGIN_PAGE_SKINS.filter(
+  (skin) => !SHOWN.some((v) => v.skin === skin),
+);
+if (missing.length > 0) {
+  throw new Error(
+    `habillage(s) sans maquette : ${missing.join(", ")} — ajoute une entrée à VARIANTS`,
+  );
+}
 
-      <main class="nf-stage">
-        <section class="nf-card" aria-labelledby="nf-title">
-          <div class="nf-head">
-            <div class="nf-brand">${lg}${app}</div>
-            <h1 id="nf-title">Se connecter</h1>
-            <p class="nf-sub" id="nf-sub">à ${app}</p>
-          </div>
-          <ol class="nf-steps" aria-label="Étapes">
-            <li data-tab="identifier" aria-current="step">Identifiant</li>
-            <li data-tab="password">Mot de passe</li>
-            <li data-tab="mfa" hidden>Vérification</li>
-          </ol>
-          <div class="nf-body">
-          ${sso ? altHtml : ""}
-          <form data-step="identifier">
-            <div class="nf-field">
-              <label for="nf-username">Identifiant ou adresse e-mail</label>
-              <div class="nf-input"><svg class="nf-icon" aria-hidden="true"><use href="#i-user"/></svg>
-                <input id="nf-username" name="username" autocomplete="username webauthn" autocapitalize="none" spellcheck="false" required /></div>
-            </div>
-            <button class="${primaryCls}" type="submit">Continuer <svg class="nf-icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
-          </form>
-          <form data-step="password" hidden>
-            <div class="nf-account"><span class="nf-avatar" aria-hidden="true">A</span><span class="who">admin</span>
-              <button type="button" class="nf-link" data-go="identifier">Changer</button></div>
-            <div class="nf-field">
-              <div class="nf-label-row"><label for="nf-password">Mot de passe</label><a class="nf-link" href="#">Mot de passe oublié ?</a></div>
-              <div class="nf-input"><svg class="nf-icon" aria-hidden="true"><use href="#i-lock"/></svg>
-                <input id="nf-password" name="password" type="password" autocomplete="current-password" required />
-                <button type="button" class="nf-reveal" data-reveal aria-label="Afficher le mot de passe" aria-pressed="false"><svg class="nf-icon"><use href="#i-eye"/></svg></button></div>
-            </div>
-            <button class="${primaryCls}" type="submit">Se connecter <svg class="nf-icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
-          </form>
-          <form data-step="mfa" hidden>
-            <div class="nf-field">
-              <label id="nf-otp-label">Code à 6 chiffres</label>
-              <div class="nf-otp" role="group" aria-labelledby="nf-otp-label">
-                <input inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="Chiffre 1" /><input inputmode="numeric" maxlength="1" aria-label="Chiffre 2" /><input inputmode="numeric" maxlength="1" aria-label="Chiffre 3" /><input inputmode="numeric" maxlength="1" aria-label="Chiffre 4" /><input inputmode="numeric" maxlength="1" aria-label="Chiffre 5" /><input inputmode="numeric" maxlength="1" aria-label="Chiffre 6" />
-              </div>
-            </div>
-            <p class="nf-hint">Le code affiché par votre application d'authentification.</p>
-            <button class="nf-btn primary" type="submit">Vérifier</button>
-            <button type="button" class="nf-link nf-center">Utiliser un code de récupération</button>
-          </form>
-          <div data-step="authenticated" hidden>
-            <div class="nf-done" role="status"><span class="ring" aria-hidden="true"><svg class="nf-icon"><use href="#i-check"/></svg></span>
-              <strong>Session ouverte</strong><span class="dest">→ /admin/users</span><span class="nf-progress" aria-hidden="true"><span></span></span></div>
-          </div>
-          ${sso ? "" : altHtml}
-          <div class="nf-message" aria-live="polite" data-message></div>
-          <noscript><p class="nf-hint">Cette page a besoin de JavaScript pour vous connecter.</p></noscript>
-          </div>
-        </section>
-        <div class="nf-foot">
-          <ul class="nf-facts" aria-label="Protection de la session">
-            <li><svg class="nf-icon" aria-hidden="true"><use href="#i-shield"/></svg>cookie HttpOnly</li>
-            <li><svg class="nf-icon" aria-hidden="true"><use href="#i-shield"/></svg>anti-CSRF</li>
-            <li><svg class="nf-icon" aria-hidden="true"><use href="#i-shield"/></svg>CSP stricte</li>
-          </ul>
-          <a class="nf-powered" href="https://github.com/nodefony/nodefony-core" rel="noopener noreferrer">${logo(["currentColor", "currentColor", "currentColor"])}Propulsé par Nodefony</a>
-        </div>
-      </main>
-    </div>
-    <div class="mock" role="toolbar" aria-label="Maquette">
+// Même moteur et mêmes options que `LoginPageController` : tout sort échappé.
+const eta = new Eta({ autoEscape: true, useWith: false });
+const template = eta.compile(LOGIN_PAGE_TEMPLATE);
+
+/** La description qu'`authFlow.describeLoginPage()` rendrait pour cet habillage. */
+function describe(v) {
+  return {
+    path: "/login",
+    title: v.app ?? "Mon application",
+    logo: null,
+    template: null,
+    heading: null,
+    subtitle: null,
+    stylesheet: null,
+    // Défaut de `security.loginPage.providersFirst` : ce que reçoit une application.
+    providersFirst: v.providersFirst ?? true,
+    hero: null,
+    footer: true,
+    skin: v.skin,
+    layout: LOGIN_PAGE_SKIN_SPECS[v.skin].layout,
+    password: true,
+    passkey: true,
+    previewPicker: false,
+    providers: [
+      { name: "keycloak", label: "Keycloak", icon: null },
+      { name: "github", label: "GitHub", icon: null },
+    ],
+  };
+}
+
+const MOCK_BAR = `    <aside class="mock" aria-label="Barre de la maquette">
       <a href="index.html">← galerie</a>
       <button data-go="identifier">identifiant</button><button data-go="password">mot de passe</button>
       <button data-go="mfa">code</button><button data-go="authenticated">connecté</button>
       <button data-err="401">401</button><button data-err="429">429</button>
       <button data-alt-toggle>fournisseurs</button><button data-theme-toggle>thème</button>
-    </div>
-    <script src="mock.js"></script>
-  </body>
-</html>
-`;
+    </aside>
+  </body>`;
+
+/** La page de l'habillage, rendue par le gabarit du framework. */
+function page(v) {
+  const view = buildLoginPageView(describe(v), {
+    from: "/admin/users",
+    theme: undefined,
+    nonce: "maquette",
+    projectName: "Mon application",
+    assetsVersion: "galerie",
+  });
+  const skinFile = loginPageSkinFile(v.skin);
+  const html = template.call(eta, {
+    ...view,
+    logo: LOGO_URL,
+    logoHref: LOGO_URL,
+    styleHref: `${ASSETS}login.css`,
+    // `skins/<x>.css` est relatif au dossier SERVI ; dans les sources du cœur,
+    // les habillages vivent sous `assets/login/`.
+    skinHref: skinFile === null ? null : `${ASSETS}login/${skinFile}`,
+    // La place de la feuille de l'application porte la photo et la barre.
+    stylesheetHref: "mock.css",
+    scriptHref: "mock.js",
+    // Un fournisseur ne mène nulle part dans une maquette.
+    providers: view.providers.map(({ label, caption, icon, image }) => ({
+      label,
+      caption,
+      icon,
+      image,
+      href: "#",
+    })),
+  });
+  // `file://` refuse un script de module (origine nulle) : la maquette charge
+  // `mock.js` en script classique — DIFFÉRÉ, comme l'est un module, sinon il
+  // s'exécute dans `<head>` avant que le corps existe.
+  const out = html
+    .replace(
+      '<script type="module" src="mock.js"',
+      '<script defer src="mock.js"',
+    )
+    .replace("  </body>", MOCK_BAR);
+  if (
+    !out.includes('<script defer src="mock.js"') ||
+    !out.includes('class="mock"')
+  ) {
+    throw new Error(
+      `${v.slug} : le gabarit a changé, la maquette ne s'y greffe plus`,
+    );
+  }
+  return out;
 }
 
 const LAYOUT_LABEL = { card: "carte", split: "scindée", bare: "nue" };
 
 function gallery() {
-  const shown = [...VARIANTS];
-  const manifest = path.join(OUT, "fable-manifest.json");
-  if (existsSync(manifest)) {
-    for (const f of JSON.parse(readFileSync(manifest, "utf8"))) {
-      shown.push({ ...f, by: "fable" });
-    }
-  }
-  const cards = shown.map((v) => {
+  const cards = SHOWN.map((v) => {
     const num = v.slug.split("-")[0].toUpperCase().replace(/V/g, "");
     const by = v.by === "fable" ? '<span class="g-by">fable</span>' : "";
     return `      <article class="g-card">
@@ -362,8 +328,8 @@ ${cards.join("\n")}
 `;
 }
 
-for (const v of VARIANTS) {
+for (const v of SHOWN) {
   writeFileSync(path.join(OUT, `${v.slug}.html`), page(v), "utf8");
 }
 writeFileSync(path.join(OUT, "index.html"), gallery(), "utf8");
-console.log("ok", VARIANTS.length, "habillages");
+console.log("ok", SHOWN.length, "habillages");

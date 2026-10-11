@@ -6,6 +6,10 @@ if (params.get("embed") === "1") root.classList.add("embed");
 if (params.get("theme") === "light" || params.get("theme") === "dark")
   root.dataset.theme = params.get("theme");
 
+// La vraie page ne révèle la passkey qu'après avoir constaté que le navigateur
+// la prend en charge ; une maquette montre tout ce que la page peut afficher.
+for (const b of document.querySelectorAll("[data-passkey]")) b.hidden = false;
+
 const ORDER = ["identifier", "password", "mfa", "authenticated"];
 const msg = document.querySelector("[data-message]");
 const alt = document.querySelector("[data-alt]");
