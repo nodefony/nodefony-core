@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T23:35:06.535Z",
+  "generatedAt": "2026-10-11T09:36:10.238Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 105,
+      "closed": 106,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 41,
@@ -2464,6 +2464,22 @@
       ]
     },
     {
+      "number": 580,
+      "title": "fix(security): fiabiliser l'utilisateur courant d'une requête",
+      "url": "https://github.com/nodefony/nodefony-core/issues/580",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 3.92,
+      "debut": "2026-10-12",
+      "cible": "2026-10-12",
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 268,
       "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
       "url": "https://github.com/nodefony/nodefony-core/issues/268",
@@ -2473,8 +2489,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 11.5,
       "ordre": 3.93,
-      "debut": "2026-10-05",
-      "cible": "2026-10-07",
+      "debut": "2026-10-13",
+      "cible": "2026-10-15",
       "labels": [
         "beta-3"
       ]
@@ -2589,8 +2605,8 @@
       "number": 547,
       "title": "feat(security): servir une page de connexion par défaut, sans front",
       "url": "https://github.com/nodefony/nodefony-core/issues/547",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
