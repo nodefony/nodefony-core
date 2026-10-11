@@ -161,10 +161,15 @@ export default defineConfig<typeof env>((ctx) => ({
      * appareil du réseau local (`NF_BIND_ALL`) s'ajoute ici par l'IP de la
      * machine. Jamais en production.
      */
-    use(
-      "@nodefony/http",
-      ctx.isDev ? { trustedHosts: ["host.docker.internal"] } : {},
-    ),
+    use("@nodefony/http", {
+      ...(ctx.isDev ? { trustedHosts: ["host.docker.internal"] } : {}),
+      // Autorité à reconnaître pour les appels SORTANTS (Keycloak interne,
+      // autorité d'entreprise) — `NF_TLS_CA_FILE` dans `.env`. Celle de
+      // développement, que Nodefony fabrique, est reconnue d'office.
+      ...(ctx.env.NF_TLS_CA_FILE
+        ? { certificates: { extraCaFiles: [ctx.env.NF_TLS_CA_FILE] } }
+        : {}),
+    }),
 
     /** Router + controllers + décorateurs (`@controller`, `@route`). */
     "@nodefony/framework",

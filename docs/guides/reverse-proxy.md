@@ -19,7 +19,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-09-06
+updated: 2026-10-12
 source: "docs/guides/reverse-proxy.md"
 ---
 
@@ -148,6 +148,32 @@ Le détail de ces deux clés — préréglages, remontée de chaîne de droite �
 avant le routage — vit dans
 [servers](../../src/packages/@nodefony/http/docs/servers.md).
 
+### La connexion par un fournisseur d'identité, derrière le proxy
+
+Un fournisseur d'identité (Keycloak, Google…) renvoie l'utilisateur vers l'application après la
+connexion, à une adresse qu'il compare **au caractère près** à celle qu'on lui a enregistrée.
+Derrière un proxy, l'application ne voit pas sa propre adresse publique : elle doit la recevoir.
+
+```bash
+# Secret ou variables du conteneur — l'URL PUBLIQUE de l'application, sans chemin.
+# Absente, elle vaut https://localhost:<port> : correct en développement, faux en ligne.
+NF_OAUTH_REDIRECT_BASE=https://app.example.com
+```
+
+Si **Keycloak** a, lui aussi, un proxy devant lui, deux réglages de son côté évitent les deux
+pannes les plus fréquentes :
+
+- `KC_HOSTNAME` en **URL complète** (`https://sso.example.com`) : sans elle, Keycloak prend son
+  nom de l'adresse par laquelle on l'interroge, et l'application refuse un émetteur qui varie
+  (RFC 8414 §3.3) ;
+- si l'application joint Keycloak par une **autre adresse** que les navigateurs (réseau interne),
+  `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true` côté Keycloak et `NF_KEYCLOAK_DISCOVERY_URL` côté
+  application — le pas à pas est dans
+  [Keycloak › En cluster](../../src/packages/@nodefony/security/docs/keycloak.md#-en-cluster--joindre-keycloak-par-son-adresse-interne).
+
+Un Keycloak servi par une autorité de certification interne se déclare par `NF_TLS_CA_FILE`
+(fichier PEM), qui remplace `NODE_EXTRA_CA_CERTS` et s'écrit pareil sous Windows.
+
 ## Traefik — la seule cible qui n'est pas générée
 
 `proxy:generate` ne connaît que nginx et HAProxy. Pour Traefik, la déclaration vit là où vos
@@ -181,17 +207,19 @@ d'hébergeur) ne transmettra la bonne IP que si cet amont est déclaré.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                 | Cause                                                                                                              | Correction                                                                                       |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Toutes les IP des journaux sont celles du proxy          | `trustProxy` est resté à `false` — le **défaut sûr**                                                               | déclarer l'adresse ou le CIDR du proxy, jamais `true` s'il y a plusieurs entrées                 |
-| Une IP cliente **forgée** apparaît dans l'audit          | `trustProxy: true` alors que l'application est joignable **directement**, ou un proxy qui ajoute au lieu d'écraser | fermer l'accès direct au port applicatif, et vérifier que le proxy pose `$remote_addr`           |
-| Le WebSocket se ferme tout seul au bout d'une minute     | l'inactivité du proxy est plus courte que le battement de l'application                                            | régénérer la configuration — le délai en est **dérivé** — ou allonger l'inactivité à la main     |
-| Le WebSocket ne s'ouvre pas, aucune erreur nulle part    | `Upgrade`/`Connection` ne sont pas relayés                                                                         | `proxy:generate` les pose ; sur Traefik c'est natif ; sur un proxy écrit à la main, les ajouter  |
-| `413` sur un envoi que l'application accepte pourtant    | la limite de corps du proxy est plus basse que `maxBodySize`                                                       | régénérer : `client_max_body_size` est dérivé de la configuration applicative                    |
-| Les statiques d'un module répondent `404` derrière nginx | une seule racine statique déclarée, alors que chaque module monte la sienne                                        | régénérer : la chaîne de `try_files` est construite depuis les montages réels                    |
-| Le déploiement coupe des requêtes en cours               | le proxy interroge `/livez` au lieu de `/readyz`                                                                   | `/readyz` bascule en `503` **dès le début de l'arrêt** ; `/livez` reste à `200` pendant le drain |
-| Un flux SSE n'arrive qu'en bloc, ou à la fin             | le proxy met la réponse en tampon                                                                                  | ne pas filtrer `X-Accel-Buffering` ; sur un ingress, `proxy-buffering: "off"`                    |
-| Les cookies de session ne reviennent jamais              | `X-Forwarded-Proto` annonce `http` alors que le client est en `https`, donc le cookie `Secure` est refusé          | le schéma se **constate** sur la connexion entrante, il ne se suppose pas                        |
+| Symptôme                                                                  | Cause                                                                                                              | Correction                                                                                       |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Toutes les IP des journaux sont celles du proxy                           | `trustProxy` est resté à `false` — le **défaut sûr**                                                               | déclarer l'adresse ou le CIDR du proxy, jamais `true` s'il y a plusieurs entrées                 |
+| Une IP cliente **forgée** apparaît dans l'audit                           | `trustProxy: true` alors que l'application est joignable **directement**, ou un proxy qui ajoute au lieu d'écraser | fermer l'accès direct au port applicatif, et vérifier que le proxy pose `$remote_addr`           |
+| Le WebSocket se ferme tout seul au bout d'une minute                      | l'inactivité du proxy est plus courte que le battement de l'application                                            | régénérer la configuration — le délai en est **dérivé** — ou allonger l'inactivité à la main     |
+| Le WebSocket ne s'ouvre pas, aucune erreur nulle part                     | `Upgrade`/`Connection` ne sont pas relayés                                                                         | `proxy:generate` les pose ; sur Traefik c'est natif ; sur un proxy écrit à la main, les ajouter  |
+| `413` sur un envoi que l'application accepte pourtant                     | la limite de corps du proxy est plus basse que `maxBodySize`                                                       | régénérer : `client_max_body_size` est dérivé de la configuration applicative                    |
+| Les statiques d'un module répondent `404` derrière nginx                  | une seule racine statique déclarée, alors que chaque module monte la sienne                                        | régénérer : la chaîne de `try_files` est construite depuis les montages réels                    |
+| Le déploiement coupe des requêtes en cours                                | le proxy interroge `/livez` au lieu de `/readyz`                                                                   | `/readyz` bascule en `503` **dès le début de l'arrêt** ; `/livez` reste à `200` pendant le drain |
+| Un flux SSE n'arrive qu'en bloc, ou à la fin                              | le proxy met la réponse en tampon                                                                                  | ne pas filtrer `X-Accel-Buffering` ; sur un ingress, `proxy-buffering: "off"`                    |
+| Les cookies de session ne reviennent jamais                               | `X-Forwarded-Proto` annonce `http` alors que le client est en `https`, donc le cookie `Secure` est refusé          | le schéma se **constate** sur la connexion entrante, il ne se suppose pas                        |
+| Keycloak affiche `Invalid parameter: redirect_uri` en ligne, pas en local | `NF_OAUTH_REDIRECT_BASE` absente : l'adresse de retour vaut encore `https://localhost:<port>`                      | la poser à l'URL publique de l'application                                                       |
+| Retour de connexion refusé, WARNING `OAuth issuer mismatch`               | le Keycloak, derrière son propre proxy, prend son nom de l'hôte demandé                                            | `KC_HOSTNAME` = l'URL publique complète                                                          |
 
 > 🔴 **Le piège du proxy en cascade.** Un `X-Forwarded-For` correct chez le proxy de tête devient
 > faux dès qu'un second proxy s'intercale sans être déclaré. La résolution remonte la chaîne **de

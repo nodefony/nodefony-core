@@ -19,7 +19,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-10-02
+updated: 2026-10-12
 source: "docs/guides/kubernetes.md"
 ---
 
@@ -197,6 +197,49 @@ L'ingress est un reverse-proxy : la moitié applicative du contrat — `trustPro
 reste à poser, et elle est décrite dans [reverse-proxy](./reverse-proxy.md). Sans elle, toutes vos
 IP clientes seront celles de l'ingress.
 
+## Connexion Keycloak — le fournisseur d'identité dans le cluster
+
+Quand Keycloak tourne dans le même cluster, l'application le joint par son **service interne**
+(`http://keycloak.sso:8080`), et les navigateurs par son **adresse publique**
+(`https://sso.example.com`). Les deux sont légitimes ; il faut juste le dire à chacun.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata: { name: mon-app-keycloak }
+type: Opaque
+stringData:
+  # L'émetteur : l'adresse PUBLIQUE du realm, celle que portent les jetons.
+  NF_KEYCLOAK_ISSUER: https://sso.example.com/realms/mon-entreprise
+  NF_KEYCLOAK_CLIENT_ID: mon-app
+  NF_KEYCLOAK_CLIENT_SECRET: "…"
+  # Où l'application LIT la configuration du realm : le service interne. Le
+  # document doit toujours se déclarer de NF_KEYCLOAK_ISSUER, sinon refus.
+  NF_KEYCLOAK_DISCOVERY_URL: http://keycloak.sso:8080/realms/mon-entreprise/.well-known/openid-configuration
+  # L'adresse PUBLIQUE de l'application : Keycloak y renvoie l'utilisateur.
+  NF_OAUTH_REDIRECT_BASE: https://app.example.com
+```
+
+Côté Keycloak, `KC_HOSTNAME=https://sso.example.com` (URL complète) et
+`KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true` : le point de jeton et le jeu de clés suivent alors
+l'adresse interne, et l'émetteur reste public. Le `http` n'est accepté que sur l'origine exacte de
+`NF_KEYCLOAK_DISCOVERY_URL`, et seulement pour ces appels de serveur à serveur — le détail et ce
+qui reste vérifié : [Keycloak › En cluster](../../src/packages/@nodefony/security/docs/keycloak.md#-en-cluster--joindre-keycloak-par-son-adresse-interne).
+
+**Keycloak signé par l'autorité de l'entreprise ?** Monter le fichier PEM de l'autorité et le
+déclarer — l'application le charge au démarrage, et refuse de démarrer s'il manque :
+
+```yaml
+# deployment.yaml (extrait)
+env:
+  - { name: NF_TLS_CA_FILE, value: /etc/nodefony/ca/autorite.pem }
+volumeMounts:
+  - { name: autorite, mountPath: /etc/nodefony/ca, readOnly: true }
+volumes:
+  - name: autorite
+    configMap: { name: autorite-entreprise } # une autorité est publique : un ConfigMap suffit
+```
+
 ## Les migrations passent AVANT les pods
 
 ```yaml
@@ -276,6 +319,8 @@ Deux conditions pour que l'ajout d'un pod serve à quelque chose :
 | Les migrations s'appliquent N fois                             | elles sont dans un `initContainer`                                    | un `Job`, en amont du déploiement                                       |
 | Le pod démarre, sert, et rend des erreurs de colonne inconnue  | le schéma est en retard et rien ne retient la mise en service         | `kernel.setReadiness("schema", false, …)`                               |
 | La base refuse des connexions quand le nombre de pods augmente | dix connexions par process, multipliées par le nombre d'exemplaires   | confronter `maxReplicas × 10` au `max_connections` du serveur           |
+| Pas de bouton Keycloak, WARNING `fetch failed` au démarrage    | le pod ne joint pas l'adresse publique du realm                       | `NF_KEYCLOAK_DISCOVERY_URL` vers le service interne                     |
+| Le pod refuse de démarrer (78) : `extraCaFiles … illisible`    | `NF_TLS_CA_FILE` désigne un fichier non monté                         | monter le ConfigMap de l'autorité au chemin déclaré                     |
 
 ## 🧪 Tests & couverture
 
@@ -300,5 +345,6 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 - 🐳 **Le modèle, les signaux, le Dockerfile** : [`docker-cloud-native.md`](./docker-cloud-native.md)
 - 🛡️ **Ce que l'ingress doit poser, et ce que l'application doit croire** : [`reverse-proxy.md`](./reverse-proxy.md)
 - 🗄️ **Les trois familles d'infrastructure et les profils qui en découlent** : [`persistence.md`](./persistence.md)
+- 🔑 **Brancher Keycloak, adresse interne comprise** : [`keycloak.md`](../../src/packages/@nodefony/security/docs/keycloak.md)
 - 🗝️ **Pourquoi les sessions décident de votre mise à l'échelle** : [`session-storage.md`](./session-storage.md)
 - 📖 [Lexique général](../lexique.md) du framework.

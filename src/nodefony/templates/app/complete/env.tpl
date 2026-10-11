@@ -32,3 +32,7 @@
 # Appelant MACHINE du même realm (client <%= it.appName %>-machine) — pour
 # `npx nodefony app:partner:call --issuer keycloak` :
 # NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret + "\n" %>
+# Ce Keycloak sert le certificat de développement : l'application le reconnaît
+# d'office. Un Keycloak signé par l'autorité de TON entreprise : déclare-la
+# (fichier PEM, chemin relatif à l'application ou absolu) :
+# NF_TLS_CA_FILE=certs/autorite-entreprise.pem

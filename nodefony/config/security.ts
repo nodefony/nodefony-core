@@ -166,6 +166,9 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
           ? {
               keycloak: {
                 issuer: ctx.env.NF_KEYCLOAK_ISSUER,
+                // Kubernetes : adresse INTERNE où lire les métadonnées ; le
+                // navigateur et l'`iss` restent sur NF_KEYCLOAK_ISSUER.
+                discoveryUrl: ctx.env.NF_KEYCLOAK_DISCOVERY_URL,
                 clientId: ctx.env.NF_KEYCLOAK_CLIENT_ID,
                 clientSecret: ctx.env.NF_KEYCLOAK_CLIENT_SECRET,
                 redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/keycloak/callback`,

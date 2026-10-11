@@ -32,6 +32,11 @@ export const httpConfig = (ctx: ConfigContext<typeof env>) =>
     // certification ; la génération reste un confort de DÉVELOPPEMENT.
     // (Re)génération / inspection manuelle : `nodefony certificates [--force]`.
     certificates: {
+      // Autorité à reconnaître pour les appels SORTANTS (Keycloak interne,
+      // autorité d'entreprise) — la CA de développement l'est d'office.
+      ...(ctx.env.NF_TLS_CA_FILE
+        ? { extraCaFiles: [ctx.env.NF_TLS_CA_FILE] }
+        : {}),
       // PROD : décommenter pour fournir le vrai certificat (fail-fast si absent).
       // strategy: "explicit",
       // key: ctx.env.TLS_KEY, cert: ctx.env.TLS_CERT, ca: ctx.env.TLS_CA,

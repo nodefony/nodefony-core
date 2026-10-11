@@ -36,7 +36,7 @@
 #  SOMMAIRE — cherche une variable par son nom (Ctrl+F) ou par son thème :
 #
 #   1. Réseau et processus
-#        NF_PORT, PORT, NF_PORT_HTTPS, NF_BIND_ALL, NF_WORKERS
+#        NF_PORT, PORT, NF_PORT_HTTPS, NF_BIND_ALL, NF_TLS_CA_FILE, NF_WORKERS
 #   2. Journaux
 #        NF_LOG_DRIVER
 #   3. Framework : déploiement
@@ -109,6 +109,24 @@
 # @placement=platform
 # @default=false
 # NF_BIND_ALL=false
+
+
+# ─── Autorité de certification à reconnaître ────────────────────────────────
+#
+# Le fichier PEM d'une autorité de certification que l'application doit
+# reconnaître pour ses appels sortants : celle de ton entreprise, ou celle qui
+# a signé le certificat d'un Keycloak interne. Chemin absolu, ou relatif à la
+# racine de l'application ; un fichier peut contenir toute une chaîne.
+#
+# Inutile pour l'autorité de développement de Nodefony, reconnue d'office.
+# Remplace NODE_EXTRA_CA_CERTS, et s'écrit pareil sous Windows. Fichier
+# introuvable = l'application refuse de démarrer.
+#
+# @optional
+# @placement=platform
+# @default=aucun
+# @example=certs/autorite-entreprise.pem
+# NF_TLS_CA_FILE=
 
 
 # ─── Nombre de processus en production ──────────────────────────────────────

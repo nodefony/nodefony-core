@@ -88,6 +88,19 @@ export const env = defineEnv({
     description:
       "En développement, l'application n'écoute que ta propre machine. true l'ouvre à toutes les interfaces — pour l'atteindre depuis un conteneur Docker (banc de proxy inverse), un téléphone ou un autre poste — et fait confiance aux en-têtes d'un proxy local.\nLaisse false sinon : le serveur de développement expose des outils d'administration.",
   }),
+  /**
+   * Autorité de certification que l'application ajoute aux siennes pour ses
+   * appels SORTANTS (`http.certificates.extraCaFiles`).
+   */
+  NF_TLS_CA_FILE: envString({
+    optional: true,
+    section: "Réseau et processus",
+    title: "Autorité de certification à reconnaître",
+    description:
+      "Le fichier PEM d'une autorité de certification que l'application doit reconnaître pour ses appels sortants : celle de ton entreprise, ou celle qui a signé le certificat d'un Keycloak interne. Chemin absolu, ou relatif à la racine de l'application ; un fichier peut contenir toute une chaîne.\nInutile pour l'autorité de développement de Nodefony, reconnue d'office. Remplace NODE_EXTRA_CA_CERTS, et s'écrit pareil sous Windows. Fichier introuvable = l'application refuse de démarrer.",
+    example: "certs/autorite-entreprise.pem",
+    sensitive: false,
+  }),
 
   // ── Infra déclarée (modèle « infra déclarée » — cf docs/guides/configuration.md) ──
   /**
@@ -476,6 +489,16 @@ export const env = defineEnv({
     sensitive: false,
   }),
 
+  NF_KEYCLOAK_DISCOVERY_URL: envString({
+    optional: true,
+    section: "Connexion Keycloak",
+    title: "Keycloak : adresse interne",
+    description:
+      "Seulement si l'application ne joint pas Keycloak par l'adresse du realm (NF_KEYCLOAK_ISSUER) — en Kubernetes, par son service interne. L'adresse COMPLÈTE du document de configuration du realm, en http ou https.\nLe navigateur part toujours vers NF_KEYCLOAK_ISSUER, et Keycloak doit toujours s'annoncer sous ce nom : seul le chemin du serveur vers Keycloak change. Côté Keycloak : --hostname-backchannel-dynamic=true.",
+    example:
+      "http://keycloak.sso:8080/realms/nodefony/.well-known/openid-configuration",
+    sensitive: false,
+  }),
   NF_KEYCLOAK_CLIENT_ID: envString({
     optional: true,
     section: "Connexion Keycloak",

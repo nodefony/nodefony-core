@@ -86,8 +86,10 @@ function networkFailure(
   if (code !== null && /CERT|SIGNATURE|TLS/u.test(code)) {
     return new CallFailure(
       `${target} : certificat refusé (${code}).`,
-      "fais confiance à l'autorité de développement, puis relance :\n" +
-        "    export NODE_EXTRA_CA_CERTS=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem",
+      // L'autorité de DÉVELOPPEMENT est reconnue d'office ; celle-ci est une
+      // autre (autorité d'entreprise, Keycloak interne).
+      "déclare l'autorité qui l'a signé dans .env, puis relance :\n" +
+        "    NF_TLS_CA_FILE=<chemin du fichier PEM de l'autorité>",
     );
   }
   return new CallFailure(
@@ -224,6 +226,8 @@ class PartnerCallCommand extends Command {
       // une URL recopiée, qui survivrait au déménagement du realm.
       const tokens = await requestClientCredentialsToken({
         issuer,
+        // Adresse INTERNE où lire les métadonnées (cluster), si elle diffère.
+        discoveryUrl: env.NF_KEYCLOAK_DISCOVERY_URL,
         clientId: MACHINE_CLIENT_ID,
         clientSecret: secret,
         resource,
@@ -286,8 +290,8 @@ class PartnerCallCommand extends Command {
     if (response.status === 503) {
       throw new CallFailure(
         `${url.origin} n'a pas pu vérifier le jeton (503).`,
-        "le SERVEUR joint-il Keycloak ? démarre-le avec NODE_EXTRA_CA_CERTS " +
-          "(nodefony/config/certificates/ca/nodefony-root-ca.crt.pem)",
+        "le SERVEUR joint-il Keycloak ? son diagnostic le dit :\n" +
+          "    npx nodefony security:oauth:doctor",
       );
     }
     return { status: response.status, body };
