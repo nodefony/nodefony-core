@@ -1,7 +1,6 @@
 import {
   Component,
-<% if (it.complete) { %>  computed,
-<% } %>  OnDestroy,
+  OnDestroy,
   OnInit,
   VERSION,
   ViewEncapsulation,
@@ -18,10 +17,8 @@ import {
   injectNodefonyChannelData,
   injectNodefonyLogin,
   injectNodefonyState,
-  type NodefonyLoginState,
-  type NodefonyLoginError,
-  type LoginErrorKind,
 } from "nodefony/angular";
+import { loginPagePath } from "nodefony/client";
 <% } %>import { NODEFONY_LOGO } from "../brand";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
@@ -49,32 +46,6 @@ interface LiveEvent {
   pid: number;
 }
 
-/** Le texte de chaque sorte d'échec — une entrée par sorte, exigée par le type. */
-const LOGIN_ERRORS: Record<LoginErrorKind, (error: NodefonyLoginError) => string> = {
-  credentials: (e) => e.message || "identifiants invalides",
-  throttled: (e) =>
-    `trop d'essais — réessaie dans ${Math.max(1, Math.ceil(((e.retryAt ?? 0) - Date.now()) / 1000))} s`,
-  network: () => "serveur injoignable",
-  server: (e) => `échec : ${e.message || String(e.status)}`,
-  cancelled: () => "passkey annulée",
-  unsupported: () => "passkey non prise en charge par ce navigateur",
-};
-
-/**
- * Ce que l'écran dit du déroulé de connexion. Les RÈGLES (étapes, second
- * facteur, blocage, fournisseurs) vivent dans le framework ; le TEXTE est à
- * l'application. Un refus d'identifiants relaie le message uniforme du
- * serveur : le préciser dirait à un inconnu si le compte existe.
- */
-function loginMessage(state: NodefonyLoginState, notice: string | null): string | null {
-  const err = state.error;
-  if (err === null) {
-    return state.step === "authenticated" && state.user
-      ? `session ouverte — ${state.user.username}`
-      : notice;
-  }
-  return LOGIN_ERRORS[err.kind](err);
-}
 <% } %>
 /**
  * Page d'accueil de l'app — vitrine AUTONOME (zéro dépendance UI) :
@@ -201,46 +172,24 @@ function loginMessage(state: NodefonyLoginState, notice: string | null): string 
             (<code>^/api</code>, session → anonymous, jamais bloquante) et
             <code>secure</code> (<code>^/api/secure</code>, session SEULE —
             pattern plus spécifique, il gagne le match ; sans session le
-            firewall répond 401). Connecte-toi : le compte <code>admin</code> a
-            pour mot de passe <code>nodefony-dev-42</code> en développement, et celui de
-            <code>NF_ADMIN_PASSWORD</code> en production — où il est EXIGÉ, car
-            une application ne naît jamais en ligne avec un secret connu. Alors
-            la carte 1 bascule sur
-            <code>GET /api/secure/hello</code> → « Bonjour admin ».
+            firewall répond 401). « Se connecter » mène à la page de connexion
+            du framework, qui te ramène ici (<code>?from=</code>) : le compte
+            <code>admin</code> a pour mot de passe <code>nodefony-dev-42</code>
+            en développement, et celui de <code>NF_ADMIN_PASSWORD</code> en
+            production — où il est EXIGÉ, car une application ne naît jamais en
+            ligne avec un secret connu. Alors la carte 1 bascule sur
+            <code>GET /api/secure/hello</code> → « Bonjour admin ». La pastille
+            vient de <code>injectNodefonyLogin</code> (<code>nodefony/angular</code>).
           </p>
-          @if (data()?.who && data()?.who !== "anonyme") {
-            <span style="margin-right:8px">connecté — <strong>{{ data()?.who }}</strong></span>
+          @if (login.state().step === "authenticated" && login.state().user; as user) {
+            <span class="nf-session" data-open>connecté — <strong>{{ user.username }}</strong></span>
             <button (click)="doLogout()">Se déconnecter</button>
-          } @else if (login.state().step === "mfa") {
-            <input
-              #code
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              aria-label="code à usage unique"
-              (keydown.enter)="doMfa(code.value)"
-            />
-            <button [disabled]="login.state().pending" (click)="doMfa(code.value)">Valider le code</button>
-            <button (click)="login.flow.back()">Annuler</button>
           } @else {
-            <input #user value="admin" autocomplete="username" aria-label="utilisateur" />
-            <input
-              #pass
-              type="password"
-              value="nodefony-dev-42"
-              autocomplete="current-password"
-              aria-label="mot de passe"
-              (keydown.enter)="doLogin(user.value, pass.value)"
-            />
-            <button [disabled]="login.state().pending" (click)="doLogin(user.value, pass.value)">Se connecter</button>
-            @if (login.state().passkeyAvailable) {
-              <button [disabled]="login.state().pending" (click)="doPasskey()">Passkey</button>
-            }
-            @for (p of login.state().providers ?? []; track p.name) {
-              <button (click)="login.flow.startProvider(p.name)">{{ p.label }}</button>
-            }
+            <span class="nf-session">anonyme</span>
+            <a class="nf-action" [href]="loginHref">Se connecter</a>
           }
-          @if (message(); as m) {
-            <p class="nf-dim" role="status">{{ m }}</p>
+          @if (notice(); as n) {
+            <p class="nf-dim" role="status">{{ n }}</p>
           }
         </div>
 <% } %>
@@ -306,11 +255,12 @@ export class AppComponent implements OnInit, OnDestroy {
   error = signal<string | null>(null);
   count = signal(0);
 <% if (it.complete) { %>  notice = signal<string | null>(null);
-  // Le déroulé de connexion du FRAMEWORK : étapes, second facteur (TOTP),
-  // blocage après trop d'essais, fournisseurs (Keycloak…), passkey. Aucun
-  // `fetch` vers les routes de session n'est écrit à la main.
+  // La session vit dans un cookie HttpOnly que la page ne lit pas : la LIAISON
+  // du framework la reprend (`me()`) et en tient l'état — c'est la pastille de
+  // la carte 2. Se connecter se fait sur la page du framework (`/login`), qui
+  // ramène ici.
   readonly login = injectNodefonyLogin();
-  message = computed(() => loginMessage(this.login.state(), this.notice()));
+  readonly loginHref = loginPagePath(location.pathname + location.search);
   secureData = signal<SecureData | null>(null);
   // Les deux lignes qui suivent s'abonnent ET rendent l'abonnement à la
   // destruction du composant — sans une ligne de `ngOnDestroy`. L'abonnement
@@ -356,26 +306,6 @@ export class AppComponent implements OnInit, OnDestroy {
       });
   }
 <% if (it.complete) { %>
-  // Session BFF du framework (cookie opaque HttpOnly — le front ne voit
-  // jamais de token) : le même déroulé que la console /nodefony.
-  #afterLogin(next: NodefonyLoginState) {
-    if (next.step !== "authenticated") return;
-    this.notice.set(null);
-    this.refreshHello();
-  }
-
-  async doLogin(username: string, password: string) {
-    this.#afterLogin(await this.login.flow.login(username, password));
-  }
-
-  async doMfa(code: string) {
-    this.#afterLogin(await this.login.flow.submitMfaCode(code));
-  }
-
-  async doPasskey() {
-    this.#afterLogin(await this.login.flow.loginWithPasskey());
-  }
-
   async doLogout() {
     // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
     // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
@@ -390,9 +320,8 @@ export class AppComponent implements OnInit, OnDestroy {
 <% } %>
   ngOnInit() {
     this.refreshHello();
-<% if (it.complete) { %>    // Les boutons des fournisseurs (Keycloak, Google…) : c'est le serveur qui
-    // dit lesquels sont configurés.
-    void this.login.flow.loadProviders();
+<% if (it.complete) { %>    // Reprend la session ouverte, ici ou au retour de la page de connexion.
+    void this.login.flow.me();
 
     // Rien à câbler ici : l'abonnement a été pris à la construction du
     // composant, et la connexion est ouverte par `provideNodefony` (main.ts),

@@ -159,6 +159,43 @@ app-root {
 .nf-card button:hover {
   background: #0a79d6;
 }
+/* Un lien qui AGIT (aller se connecter) a l'allure du bouton : plus spécifique
+   que la règle `a` plus bas, il garde son blanc sur bleu (5,75:1) dans les
+   deux thèmes. */
+.nf-card a.nf-action {
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 6px;
+  background: #0067ba;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.nf-card a.nf-action:hover {
+  background: #0a79d6;
+}
+/* Pastille de session : l'état que tient la liaison du front. Le point dit
+   ouvert ou non ; le texte le dit aussi, la couleur n'est jamais seule. */
+.nf-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--nf-border);
+  font-size: 14px;
+}
+.nf-session::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nf-dim);
+}
+.nf-session[data-open]::before {
+  background: #2ea043;
+}
 .nf-dim {
   color: var(--nf-dim);
   font-size: 14px;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { <% if (it.complete) { %>computed, <% } %>onMounted, onUnmounted, ref, version as vueVersion } from "vue";
+import { onMounted, onUnmounted, ref, version as vueVersion } from "vue";
 <% if (it.complete) { %>// FAÇADE temps réel isomorphe du framework — reconnexion, re-subscribe, état :
 // gérés par le client. Aucun `new WebSocket` à la main. Subpath `nodefony/vue` :
 // les COMPOSABLES du framework, de minces enveloppes sur le socle agnostique
@@ -10,10 +10,8 @@ import {
   useNodefonyChannelData,
   useNodefonyLogin,
   useNodefonyState,
-  type NodefonyLoginState,
-  type NodefonyLoginError,
-  type LoginErrorKind,
 } from "nodefony/vue";
+import { loginPagePath } from "nodefony/client";
 <% } %>import { NODEFONY_LOGO } from "./brand";
 // Mise en page et palette de la démonstration — feuille PARTAGÉE par les trois
 // vitrines ; `accent.css` n'y ajoute que la couleur du framework.
@@ -66,14 +64,13 @@ const pingMs = ref<number | null>(null);
 const wsLog = ref<string[]>([]);
 let ws: WebSocket | null = null;
 <% } %>
-<% if (it.complete) { %>const username = ref("admin");
-const password = ref("nodefony-dev-42");
-const mfaCode = ref("");
-const notice = ref<string | null>(null);
-// Le déroulé de connexion du FRAMEWORK : étapes, second facteur (TOTP),
-// blocage après trop d'essais, fournisseurs (Keycloak…), passkey. Aucun
-// `fetch` vers les routes de session n'est écrit à la main.
+<% if (it.complete) { %>const notice = ref<string | null>(null);
+// La session vit dans un cookie HttpOnly que la page ne lit pas : la LIAISON
+// du framework la reprend (`me()`) et en tient l'état — c'est la pastille de
+// la carte 2. Se connecter se fait sur la page du framework (`/login`), qui
+// ramène ici.
 const { state: login, flow } = useNodefonyLogin();
+const loginHref = loginPagePath(location.pathname + location.search);
 const secureData = ref<SecureData | null>(null);
 <% } %>
 // Rappelé après login/logout : la zone firewall `main` (^/api) résout
@@ -105,18 +102,6 @@ const refreshHello = () =>
       error.value = e instanceof Error ? e.message : String(e);
     });
 <% if (it.complete) { %>
-// Session BFF du framework (cookie opaque HttpOnly — le front ne voit
-// jamais de token) : le même déroulé que la console /nodefony.
-const afterLogin = (next: NodefonyLoginState) => {
-  if (next.step !== "authenticated") return;
-  mfaCode.value = "";
-  notice.value = null;
-  refreshHello();
-};
-const doLogin = async () => afterLogin(await flow.login(username.value, password.value));
-const doMfa = async () => afterLogin(await flow.submitMfaCode(mfaCode.value));
-const doPasskey = async () => afterLogin(await flow.loginWithPasskey());
-
 const doLogout = async () => {
   // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
   // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
@@ -128,39 +113,11 @@ const doLogout = async () => {
   notice.value = "session fermée";
   refreshHello();
 };
-
-/** Le texte de chaque sorte d'échec — une entrée par sorte, exigée par le type. */
-const LOGIN_ERRORS: Record<LoginErrorKind, (error: NodefonyLoginError) => string> = {
-  credentials: (e) => e.message || "identifiants invalides",
-  throttled: (e) =>
-    `trop d'essais — réessaie dans ${Math.max(1, Math.ceil(((e.retryAt ?? 0) - Date.now()) / 1000))} s`,
-  network: () => "serveur injoignable",
-  server: (e) => `échec : ${e.message || String(e.status)}`,
-  cancelled: () => "passkey annulée",
-  unsupported: () => "passkey non prise en charge par ce navigateur",
-};
-
-/**
- * Ce que l'écran dit du déroulé. Les RÈGLES vivent dans le framework ; le
- * TEXTE est à l'application. Un refus d'identifiants relaie le message
- * uniforme du serveur : le préciser dirait à un inconnu si le compte existe.
- */
-const loginMessage = computed((): string | null => {
-  const state = login.value;
-  const err = state.error;
-  if (err === null) {
-    return state.step === "authenticated" && state.user
-      ? `session ouverte — ${state.user.username}`
-      : notice.value;
-  }
-  return LOGIN_ERRORS[err.kind](err);
-});
 <% } %>
 onMounted(() => {
   refreshHello();
-<% if (it.complete) { %>  // Les boutons des fournisseurs (Keycloak, Google…) : c'est le serveur qui
-  // dit lesquels sont configurés.
-  void flow.loadProviders();
+<% if (it.complete) { %>  // Reprend la session ouverte, ici ou au retour de la page de connexion.
+  void flow.me();
 
   // Rien à brancher ici pour le temps réel : les composables l'ont fait au
   // `setup`, et le défont à la mort du composant. Ce qui reste dans ce hook
@@ -325,47 +282,24 @@ const doSay = () =>
           (<code>^/api</code>, session → anonymous, jamais bloquante) et
           <code>secure</code> (<code>^/api/secure</code>, session SEULE —
           pattern plus spécifique, il gagne le match ; sans session le
-          firewall répond 401). Connecte-toi : le compte <code>admin</code> a
-          pour mot de passe <code>nodefony-dev-42</code> en développement, et celui de
-          <code>NF_ADMIN_PASSWORD</code> en production — où il est EXIGÉ, car une
-          application ne naît jamais en ligne avec un secret connu. Alors la
-          carte 1 bascule sur
-          <code>GET /api/secure/hello</code> → « Bonjour admin ».
+          firewall répond 401). « Se connecter » mène à la page de connexion du
+          framework, qui te ramène ici (<code>?from=</code>) : le compte
+          <code>admin</code> a pour mot de passe <code>nodefony-dev-42</code> en
+          développement, et celui de <code>NF_ADMIN_PASSWORD</code> en production —
+          où il est EXIGÉ, car une application ne naît jamais en ligne avec un
+          secret connu. Alors la carte 1 bascule sur
+          <code>GET /api/secure/hello</code> → « Bonjour admin ». La pastille
+          vient de <code>useNodefonyLogin</code> (<code>nodefony/vue</code>).
         </p>
-        <template v-if="data?.who && data.who !== 'anonyme'">
-          <span style="margin-right: 8px">connecté — <strong>{{ data.who }}</strong></span>
+        <template v-if="login.step === 'authenticated' && login.user">
+          <span class="nf-session" data-open>connecté — <strong>{{ login.user.username }}</strong></span>
           <button @click="doLogout">Se déconnecter</button>
         </template>
-        <template v-else-if="login.step === 'mfa'">
-          <input
-            v-model="mfaCode"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            aria-label="code à usage unique"
-            autofocus
-            @keydown.enter="doMfa"
-          />
-          <button :disabled="login.pending" @click="doMfa">Valider le code</button>
-          <button @click="flow.back()">Annuler</button>
-        </template>
         <template v-else>
-          <input v-model="username" autocomplete="username" aria-label="utilisateur" />
-          <input
-            v-model="password"
-            type="password"
-            autocomplete="current-password"
-            aria-label="mot de passe"
-            @keydown.enter="doLogin"
-          />
-          <button :disabled="login.pending" @click="doLogin">Se connecter</button>
-          <button v-if="login.passkeyAvailable" :disabled="login.pending" @click="doPasskey">
-            Passkey
-          </button>
-          <button v-for="p in login.providers ?? []" :key="p.name" @click="flow.startProvider(p.name)">
-            {{ p.label }}
-          </button>
+          <span class="nf-session">anonyme</span>
+          <a class="nf-action" :href="loginHref">Se connecter</a>
         </template>
-        <p v-if="loginMessage" class="nf-dim" role="status">{{ loginMessage }}</p>
+        <p v-if="notice" class="nf-dim" role="status">{{ notice }}</p>
       </div>
 <% } %>
 <% if (it.complete) { %>      <div class="nf-card">

@@ -67,7 +67,7 @@ la personnaliser là où c'est sans risque : les textes, les couleurs, le conten
   la page (`AuthFlow.describeLoginPage()`, `authFlow.ts:470`), le second la rend
   (`buildLoginPageView()`, `loginPage.ts:163`) et la sert (`LoginPageController`,
   `LoginPageController.ts:102`). Le contrat entre les deux, `ILoginPageDescription`, vit au cœur
-  (`authRoutes.ts:236`).
+  (`authRoutes.ts:252`).
 - **Tout passe par du texte échappé** : aucune valeur de la configuration ni de la requête n'entre
   dans le balisage autrement que par `<%= %>`. L'image du panneau passe par votre feuille de style,
   jamais par une adresse injectée dans le HTML.

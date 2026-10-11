@@ -680,9 +680,25 @@ if (state.step === "mfa") {
 }
 ```
 
-Les pages générées par `nodefony create app --preset complete` (les quatre fronts) sont écrites
-ainsi : un compte avec code TOTP s'y connecte, et les boutons des fournisseurs configurés y
-apparaissent sans une ligne de plus.
+Une page qui n'a pas besoin de SON formulaire renvoie à la page de connexion du framework, et
+garde la liaison pour dire l'état de la session. C'est ainsi que sont écrites les pages générées
+par `nodefony create app --preset complete` (les quatre fronts) :
+
+```tsx ignore
+import { useNodefonyLogin } from "nodefony/react";
+import { loginPagePath } from "nodefony/client";
+
+const { state, flow } = useNodefonyLogin();
+useEffect(() => void flow.me(), []); // reprend la session, au retour de /login aussi
+return state.user ? (
+  <button onClick={() => void flow.logout()}>Se déconnecter</button>
+) : (
+  <a href={loginPagePath(location.pathname + location.search)}>Se connecter</a>
+);
+```
+
+`loginPagePath(from?, page?)` compose `/login?from=…` (`/` ne voyage pas) ; `page` suit une page
+de connexion déplacée (`security.loginPage.path`), que le navigateur ne peut pas deviner.
 
 ## 🧠 `NodefonyKernel` — le noyau client, et ses quatre liaisons
 

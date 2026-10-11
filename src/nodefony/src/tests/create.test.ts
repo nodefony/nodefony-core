@@ -3557,6 +3557,76 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
+    it("vitrines complete : se connecter = la page du framework ; la pastille = la LIAISON du front", () => {
+      // Chaque vitrine portait son propre formulaire (identifiant, mot de passe,
+      // code, passkey, fournisseurs) : quatre copies d'un écran que le framework
+      // sert désormais lui-même (`/login`), et quatre façons de diverger. Ce qui
+      // reste dans la page est ce qu'elle seule peut faire : dire l'état de la
+      // session par SA liaison — sans quoi plus rien n'exercerait
+      // `nodefony/vue|svelte|angular` côté connexion.
+      const fronts = [
+        [
+          "react",
+          "useNodefonyLogin()",
+          path.join("frontend", "src", "App.tsx"),
+        ],
+        ["vue", "useNodefonyLogin()", path.join("frontend", "src", "App.vue")],
+        [
+          "angular",
+          "injectNodefonyLogin()",
+          path.join("frontend", "src", "app", "app.component.ts"),
+        ],
+        [
+          "svelte",
+          "nodefonyLogin()",
+          path.join("frontend", "src", "App.svelte"),
+        ],
+      ] as const;
+      for (const [front, binding, page] of fronts) {
+        const dest = path.join(tmp, `login-${front}`);
+        scaffold(dest, {
+          name: `login-${front}`,
+          preset: "complete",
+          frontend: front,
+        });
+        const src = readFileSync(path.join(dest, page), "utf8");
+        assert.include(
+          src,
+          binding,
+          `${front} : la pastille vient de la liaison`,
+        );
+        assert.include(
+          src,
+          ".me()",
+          `${front} : la session est reprise au montage`,
+        );
+        assert.include(
+          src,
+          "loginPagePath(location.pathname + location.search)",
+          `${front} : le lien porte la page courante, composé par le cœur`,
+        );
+        assert.include(
+          src,
+          '"nf-session"',
+          `${front} : la pastille de session`,
+        );
+        // Le formulaire en ligne ne revient pas par la bande.
+        for (const gone of [
+          ".login(",
+          "submitMfaCode(",
+          "loginWithPasskey(",
+          "startProvider(",
+          'nodefony-dev-42"',
+        ]) {
+          assert.notInclude(
+            src,
+            gone,
+            `${front} : ${gone} ne doit plus figurer`,
+          );
+        }
+      }
+    });
+
     it("vue : SFC + plugin ; angular : composant + tsconfig.app.json", () => {
       const vdest = path.join(tmp, "vapp");
       scaffold(vdest, { name: "vapp", frontend: "vue" });

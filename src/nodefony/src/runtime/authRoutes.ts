@@ -119,6 +119,24 @@ export const INSECURE_TRANSPORT_MESSAGE = "Credentials must be sent over HTTPS";
 export const LOGIN_PAGE_PATH = "/login";
 
 /**
+ * Adresse de la page de connexion qui ramène à `from` une fois connecté — le
+ * lien « Se connecter » d'une page applicative.
+ *
+ * `/` ne voyage pas : c'est déjà la destination par défaut de la page. La
+ * page revalide `from` (chemin local seulement) avant de s'en servir.
+ *
+ * @param from - page où revenir après la connexion, en général la page courante
+ * @param page - chemin de la page de connexion, quand l'application l'a déplacé
+ *   (`security.loginPage.path`)
+ * @returns `page`, suivi de `?from=` quand il y a une destination à porter
+ */
+export function loginPagePath(from?: string, page = LOGIN_PAGE_PATH): string {
+  return from && from !== "/"
+    ? `${page}?from=${encodeURIComponent(from)}`
+    : page;
+}
+
+/**
  * Modes de mise en page de la page de connexion par défaut.
  *
  * Le balisage ne change jamais : le mode se pose sur `<body data-layout>` et

@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { safeRedirectPath } from "../runtime/safeRedirect";
-import { LOGIN_PAGE_PATH, oauth2AuthorizePath } from "../runtime/authRoutes";
+import {
+  LOGIN_PAGE_PATH,
+  loginPagePath,
+  oauth2AuthorizePath,
+} from "../runtime/authRoutes";
 
 /**
  * La garde anti-redirection ouverte (CWE-601) : tout ce qui n'est pas un
@@ -78,5 +82,22 @@ describe("oauth2AuthorizePath — page de retour", () => {
 describe("LOGIN_PAGE_PATH", () => {
   it("est un chemin local que la garde accepte", () => {
     expect(safeRedirectPath(LOGIN_PAGE_PATH)).toBe(LOGIN_PAGE_PATH);
+  });
+});
+
+describe("loginPagePath — lien « Se connecter » d'une page", () => {
+  it("porte la page courante en `from`, encodée", () => {
+    expect(loginPagePath("/admin?tab=2")).toBe(
+      `${LOGIN_PAGE_PATH}?from=%2Fadmin%3Ftab%3D2`,
+    );
+  });
+
+  it("n'ajoute rien pour `/` ni sans destination", () => {
+    expect(loginPagePath("/")).toBe(LOGIN_PAGE_PATH);
+    expect(loginPagePath()).toBe(LOGIN_PAGE_PATH);
+  });
+
+  it("suit une page de connexion déplacée", () => {
+    expect(loginPagePath("/x", "/connexion")).toBe("/connexion?from=%2Fx");
   });
 });
