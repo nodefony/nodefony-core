@@ -358,7 +358,7 @@ l'axe de filtrage principal de la console. L'**action** est une chaîne **ouvert
 <!-- prettier-ignore -->
 | Catégorie | Ce qu'elle trace | Actions réellement émises par le framework |
 | --- | --- | --- |
-| `auth` | authentification, chaîne du firewall | `auth.failure` · `auth.unverifiable` · `auth.throttled` · `auth.denied` · `login.success` · `login.failure` · `login.throttled` · `login.mfa_required` · `user.totp_disabled` · `user.password_change_self` (par `@nodefony/user`) |
+| `auth` | authentification, chaîne du firewall | `auth.failure` · `auth.unverifiable` · `auth.throttled` · `auth.denied` · `login.success` · `login.failure` · `login.throttled` · `login.mfa_required` · `user.totp_enabled` · `user.totp_disabled` · `user.password_change_self` (par `@nodefony/user`) |
 | `authz` | autorisation (voters, `@IsGranted`), administration des comptes | `access.denied` · `user.created` · `user.updated` · `user.password_changed` · `user.deleted` (ces quatre-là par `@nodefony/user`) |
 | `token` | jetons longue durée et clés d'API | `token.issued` · `token.reuse_detected` · `apikey.created` · `apikey.revoked` |
 | `session` | cycle de vie de session | `logout` · `session.revoked` (révocation depuis l'administration, par `@nodefony/http`) |

@@ -23,11 +23,14 @@ interface ITotpManager {
     userId: string,
     account: string,
   ): Promise<{ secretBase32: string; otpauthUri: string }>;
+  // `context` : la requête du titulaire — le service l'audite (IP, navigateur,
+  // identifiant de requête). Le contrôleur ne journalise rien lui-même.
   confirmEnrollment(
     userId: string,
     code: string,
+    context?: unknown,
   ): Promise<{ recoveryCodes: string[] }>;
-  disable(userId: string): Promise<void>;
+  disable(userId: string, context?: unknown): Promise<void>;
   status(userId: string): Promise<{
     enabled: boolean;
     pending: boolean;
@@ -93,7 +96,7 @@ class TotpController extends SecurityApiController {
     // refus métier, jamais un échec d'envoi maquillé en « code invalide ».
     let activation: { recoveryCodes: string[] };
     try {
-      activation = await svc.confirmEnrollment(subject, code);
+      activation = await svc.confirmEnrollment(subject, code, this.context);
     } catch {
       // Code faux, enrôlement absent ou déjà confirmé — message uniforme (le
       // détail métier ne franchit pas la frontière HTTP).
@@ -112,7 +115,7 @@ class TotpController extends SecurityApiController {
     if (subject === null) {
       return this.renderJson({ error: "Unauthorized" }, 401);
     }
-    await svc.disable(subject);
+    await svc.disable(subject, this.context);
     return this.renderJson({ ok: true });
   }
 

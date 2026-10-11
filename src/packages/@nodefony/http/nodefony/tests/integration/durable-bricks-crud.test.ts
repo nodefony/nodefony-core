@@ -39,6 +39,7 @@ const CONFIRM = "/nodefony/security/api/totp/confirm";
 const DISABLE = "/nodefony/security/api/totp/disable";
 const STATUS = "/nodefony/security/api/totp/status";
 const TOTP_LIST = "/nodefony/security/api/totp/list";
+const AUDIT = "/nodefony/security/api/audit/events";
 const WEBHOOKS = "/nodefony/security/api/webhooks";
 // Cible des endpoints webhook. Elle n'est JAMAIS jointe par ces cas : on y
 // éprouve le MAGASIN (créer, relire, modifier, supprimer), pas la livraison.
@@ -132,6 +133,36 @@ async function totpStatus(cookie: string): Promise<{
   return res.body as { enabled?: boolean };
 }
 
+/**
+ * L'événement d'audit qu'a laissé UNE requête précise : retrouvé par son
+ * identifiant de requête (`x-request-id`), pas par l'ordre du journal — d'autres
+ * passes y écrivent en même temps. L'écriture du journal peut suivre la réponse
+ * de quelques millisecondes : on relit brièvement plutôt que de conclure trop tôt.
+ */
+async function auditOf(
+  cookie: string,
+  action: string,
+  res: Res,
+): Promise<Record<string, unknown> | undefined> {
+  const requestId = res.headers["x-request-id"];
+  expect(requestId, "réponse sans x-request-id").to.be.a("string");
+  for (let i = 0; i < 10; i++) {
+    const page = await get(`${AUDIT}?action=${action}&limit=50`, cookie);
+    expect(page.status, JSON.stringify(page.body)).to.equal(200);
+    const body = page.body as {
+      items?: unknown[];
+      result?: { items?: unknown[] };
+    };
+    const items = (body.result?.items ?? body.items ?? []) as Array<
+      Record<string, unknown>
+    >;
+    const found = items.find((e) => e.requestId === requestId);
+    if (found) return found;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return undefined;
+}
+
 describe("briques durables — le cycle ENTIER par les vraies routes", () => {
   let admin = "";
 
@@ -189,6 +220,18 @@ describe("briques durables — le cycle ENTIER par les vraies routes", () => {
       expect(recoveryCodes, "codes de récupération absents").to.be.an("array");
       expect(recoveryCodes!.length).to.be.greaterThan(0);
 
+      // ── TRACER : activer son second facteur est un geste de sécurité. Le
+      //    journal doit dire QUI, sur QUEL compte, et depuis QUELLE requête —
+      //    sans quoi un facteur posé à l'insu du titulaire ne se retrouve pas.
+      const enabledEvent = await auditOf(admin, "user.totp_enabled", confirmed);
+      expect(
+        enabledEvent,
+        "l'activation du 2FA n'a laissé aucune trace d'audit",
+      ).to.not.equal(undefined);
+      expect(enabledEvent!.actor).to.equal("admin");
+      expect(enabledEvent!.resource).to.equal("admin");
+      expect(enabledEvent!.outcome).to.equal("success");
+
       // ── RELIRE : c'est ici, et seulement ici, que la persistance se prouve.
       const actif = await totpStatus(admin);
       expect(actif.enabled, "secret non relu après écriture").to.equal(true);
@@ -218,6 +261,17 @@ describe("briques durables — le cycle ENTIER par les vraies routes", () => {
       // ── SUPPRIMER.
       const disabled = await post(DISABLE, admin);
       expect(disabled.status, JSON.stringify(disabled.body)).to.equal(200);
+      const disabledEvent = await auditOf(
+        admin,
+        "user.totp_disabled",
+        disabled,
+      );
+      expect(
+        disabledEvent,
+        "la désactivation du 2FA par son titulaire n'a laissé aucune trace",
+      ).to.not.equal(undefined);
+      expect(disabledEvent!.actor).to.equal("admin");
+      expect(disabledEvent!.resource).to.equal("admin");
 
       // ── CONSTATER L'ABSENCE : un store qui ne supprime pas rendrait ce
       //    dernier appel identique au précédent.

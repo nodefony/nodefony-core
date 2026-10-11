@@ -28,6 +28,8 @@ import {
   listTotpStores,
 } from "../src/totp/totpSecretStoreRegistry";
 import { deriveTotpKey, generateEphemeralKey } from "../src/totp/totpCipher";
+import { recordAudit } from "../src/audit/recordAudit";
+import { readAuditContext } from "../src/audit/readAuditContext";
 import {
   type ITotpDeps,
   type ITotpEnrollment,
@@ -259,9 +261,39 @@ class TotpService extends Service {
     return beginTotpEnrollment(this.#ensureReady(), userId, account);
   }
 
-  /** Confirme l'enrôlement par un 1ᵉʳ code → active + codes de récupération clairs. */
-  confirmEnrollment(userId: string, code: string): Promise<ITotpActivation> {
-    return confirmTotpEnrollment(this.#ensureReady(), userId, code);
+  /**
+   * Confirme l'enrôlement par un 1ᵉʳ code → active + codes de récupération clairs.
+   *
+   * Activer un second facteur est un geste de SÉCURITÉ : il est audité ici
+   * (`user.totp_enabled`), avec la requête qui l'a porté — sans trace, un facteur
+   * posé à l'insu du titulaire ne se retrouve pas.
+   *
+   * @param userId - compte dont on active le 2FA (le porteur de la session).
+   * @param code - premier code de l'application d'authentification.
+   * @param context - contexte de la requête (IP, navigateur, identifiant de
+   *   requête) recopié dans l'événement d'audit ; absent, l'événement part sans.
+   * @returns les codes de récupération, affichés une seule fois.
+   * @throws quand le code est faux, l'enrôlement absent ou déjà confirmé.
+   */
+  async confirmEnrollment(
+    userId: string,
+    code: string,
+    context?: unknown,
+  ): Promise<ITotpActivation> {
+    const activation = await confirmTotpEnrollment(
+      this.#ensureReady(),
+      userId,
+      code,
+    );
+    recordAudit(this.container, {
+      category: "auth",
+      action: "user.totp_enabled",
+      outcome: "success",
+      actor: userId,
+      resource: userId,
+      ...readAuditContext(context),
+    });
+    return activation;
   }
 
   /** Vérifie un second facteur au login (code TOTP ou code de récupération). */
@@ -269,9 +301,30 @@ class TotpService extends Service {
     return verifyTotpLogin(this.#ensureReady(), userId, code);
   }
 
-  /** Désactive le 2FA d'un utilisateur. */
-  disable(userId: string): Promise<void> {
-    return disableTotp(this.#ensureReady(), userId);
+  /**
+   * Désactive le 2FA d'un utilisateur.
+   *
+   * Avec un `context`, c'est le TITULAIRE qui retire son facteur (porte
+   * libre-service) : le geste est audité ici (`user.totp_disabled`). Sans
+   * contexte, l'appelant porte lui-même l'audit — le plan d'administration le
+   * fait avec l'identité de l'administrateur (`viaAdmin`), qu'ici on ignore.
+   * Un seul événement par geste, jamais deux.
+   *
+   * @param userId - compte dont on retire le 2FA.
+   * @param context - contexte de la requête du titulaire (audit libre-service).
+   */
+  async disable(userId: string, context?: unknown): Promise<void> {
+    await disableTotp(this.#ensureReady(), userId);
+    if (context === undefined) return;
+    recordAudit(this.container, {
+      category: "auth",
+      action: "user.totp_disabled",
+      outcome: "success",
+      actor: userId,
+      resource: userId,
+      metadata: { viaAdmin: false },
+      ...readAuditContext(context),
+    });
   }
 
   /** État 2FA d'un utilisateur (absent / pending / activé + codes restants). */

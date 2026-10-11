@@ -190,7 +190,7 @@ export default defineConfig<typeof env>((ctx) => ({
 
 ### 3. Les endpoints sont FOURNIS — tu n'écris aucun controller
 
-`mountTotpRoutes()` (`TotpController.ts:154`) monte quatre routes self-service dès que
+`mountTotpRoutes()` (`TotpController.ts:165`) monte quatre routes self-service dès que
 `@nodefony/security` est chargé (le service `totp` est alors toujours enregistré). 2FA désactivé, ou
 service non initialisé : elles répondent `503 2FA unavailable` :
 
@@ -202,7 +202,7 @@ service non initialisé : elles répondent `503 2FA unavailable` :
 | `GET /nodefony/security/api/totp/status`   | —          | `{ enabled, pending, recoveryCodesRemaining }` |
 
 Et côté login, deux routes du flux de session BFF (`mountSessionAuthRoutes()`,
-`SessionAuthController.ts:199`) :
+`SessionAuthController.ts:214`) :
 
 | Route                                         | Corps                    | Réponse                                    |
 | --------------------------------------------- | ------------------------ | ------------------------------------------ |
@@ -218,7 +218,7 @@ une réponse inattendue (erreur `server`), jamais comme un écran de code.
 > [!WARNING]
 > Les routes `totp/*` **n'ont pas** `bypassFirewall` (`TotpController.ts:52`) : elles vivent dans la
 > zone data plane et exigent une session BFF. Le sujet est **toujours** l'utilisateur courant, lu
-> depuis la session (`TotpController.#currentSubject()`, `TotpController.ts:142`) — jamais un
+> depuis la session (`TotpController.#currentSubject()`, `TotpController.ts:149`) — jamais un
 > paramètre : on n'active ni ne désactive le 2FA d'autrui (anti-IDOR).
 
 ### 4. Ce qu'on observe
@@ -308,7 +308,7 @@ Ce que le code garantit à chaque étape :
 
 > [!TIP]
 > Le HTTP ne laisse jamais fuir le détail : code faux, enrôlement absent, ou déjà confirmé donnent
-> tous le **même** `400 Invalid or expired code` (`TotpController.confirm()`, `TotpController.ts:78`).
+> tous le **même** `400 Invalid or expired code` (`TotpController.confirm()`, `TotpController.ts:82`).
 > La cause fine reste côté serveur.
 
 ### La vérification au login
@@ -499,7 +499,7 @@ Le second facteur validé au login ne dit rien de **qui est devant l'écran dix 
 redemande le code : c'est le _sudo mode_.
 
 Nodefony fournit le step-up **de login** ; la re-vérification en cours de session, elle, se compose
-dans ton controller à partir du service public `TotpService.verifyLogin()` (`totp.ts:269`) :
+dans ton controller à partir du service public `TotpService.verifyLogin()` (`totp.ts:300`) :
 
 ```typescript
 import { controller, Controller, Post } from "@nodefony/framework";
@@ -652,12 +652,12 @@ Tout est exporté depuis `@nodefony/security` — signatures complètes dans `.a
 | `isEnabled()` (`totp.ts:254`)         | 2FA opérationnel (activé en config **et** boot réussi).      |
 | `beginEnrollment()` (`totp.ts:259`)   | Démarre l'enrôlement → secret + URI `otpauth://`, 1×.        |
 | `confirmEnrollment()` (`totp.ts:264`) | Confirme par un 1ᵉʳ code → active + codes de récupération.   |
-| `verifyLogin()` (`totp.ts:269`)       | Vérifie un code TOTP **ou** de récupération. Ne lève jamais. |
-| `disable()` (`totp.ts:274`)           | Retire secret et codes.                                      |
-| `status()` (`totp.ts:279`)            | `{ enabled, pending, recoveryCodesRemaining }`.              |
-| `isEnabledFor()` (`totp.ts:306`)      | Raccourci du flux de login (`false` si le 2FA est inerte).   |
-| `listPage()` (`totp.ts:290`)          | Page d'enrôlements (data plane admin).                       |
-| `countEnrollments()` (`totp.ts:301`)  | Compte filtré, sans énumération.                             |
+| `verifyLogin()` (`totp.ts:300`)       | Vérifie un code TOTP **ou** de récupération. Ne lève jamais. |
+| `disable()` (`totp.ts:316`)           | Retire secret et codes.                                      |
+| `status()` (`totp.ts:331`)            | `{ enabled, pending, recoveryCodesRemaining }`.              |
+| `isEnabledFor()` (`totp.ts:358`)      | Raccourci du flux de login (`false` si le 2FA est inerte).   |
+| `listPage()` (`totp.ts:342`)          | Page d'enrôlements (data plane admin).                       |
+| `countEnrollments()` (`totp.ts:353`)  | Compte filtré, sans énumération.                             |
 
 **Les opérations pures**, si tu veux le 2FA **sans** le service (test, script, autre transport) —
 elles prennent leurs dépendances en argument : `beginTotpEnrollment()`, `confirmTotpEnrollment()`,
@@ -751,27 +751,29 @@ Le data plane admin correspondant, gardé par `ROLE_NODEFONY_ADMIN` :
 L'admin peut **désactiver**, jamais **activer** pour autrui : le secret se scanne sur l'appareil de
 l'utilisateur, lui seul peut l'armer.
 
-Côté journal d'audit, quatre actions tracent le cycle : `login.mfa_required` (`authFlow.ts:177`),
+Côté journal d'audit, cinq actions tracent le cycle : `login.mfa_required` (`authFlow.ts:177`),
 `login.success` avec `reason: "totp"` ou `"recovery"` (`authFlow.ts:232`), `login.failure` avec
-`reason: "mfa_invalid"` (`authFlow.ts:291`), et `user.totp_disabled` côté admin
-(`SecurityAdminApi.ts:735`).
+`reason: "mfa_invalid"` (`authFlow.ts:291`), `user.totp_enabled` quand le titulaire active son
+facteur (`totp.ts:290`), et `user.totp_disabled` — par le titulaire (`totp.ts:321`,
+`viaAdmin: false`) ou par un administrateur (`SecurityAdminApi.ts:769`, `viaAdmin: true`). Les
+deux gestes du titulaire portent l'IP, le navigateur et l'identifiant de la requête.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                          | Cause (dans le code)                                                 | Correction                                                         |
-| ------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 2FA inactif en production, `CRITIC` au boot       | `totp.encryptionKey` absente — fail-closed (`totp.ts:220`)           | `npx nodefony security:secrets`, puis câbler `ctx.env.NF_TOTP_KEY` |
-| Tous les secrets illisibles après déploiement     | Clé éphémère (dev) ou `TOTP_DERIVATION` modifié                      | Clé **stable** partagée ; ne jamais toucher au contexte HKDF       |
-| Secrets perdus à chaque redémarrage               | Store résolu en `memory` (aucun adapter durable chargé)              | Charger `@nodefony/drizzle` ou déclarer `NF_DATABASE_URL`          |
-| Code « juste » systématiquement refusé            | Horloge décalée de plus d'un pas (fenêtre = ±30 s)                   | Synchroniser NTP serveur **et** téléphone                          |
-| Le QR est scanné mais aucun code ne passe         | `digits`/`algorithm` non standard, ignorés par l'app                 | Rester en `SHA1` / 6 chiffres                                      |
-| `202` au login au lieu de `200`                   | Comportement **attendu** : second facteur requis                     | Enchaîner sur `POST …/auth/login/totp`                             |
-| `401` sur `…/auth/me` juste après le mot de passe | L'identité n'est posée qu'après le 2ᵉ facteur (`authFlow.ts:170`)    | Terminer le step-up                                                |
-| `429` pendant la saisie du code                   | Throttle NIST dans `AuthFlow.completeMfaLogin()` (`authFlow.ts:297`) | Respecter `Retry-After` — attendu sous attaque                     |
-| `503 2FA unavailable` sur `…/totp/*`              | Service absent ou `isEnabled()` faux (`TotpController.ts:21`)        | Vérifier `totp.enabled` + la clé + les logs de boot                |
-| Utilisateur bloqué, plus aucun code               | Codes de récupération épuisés                                        | Reset admin via `…/users/{id}/totp/disable`, puis ré-enrôlement    |
-| Même code accepté deux fois                       | Impossible — anti-rejeu `lastUsedStep` (`totpOperations.ts:173`)     | —                                                                  |
-| Code de récupération réutilisable                 | Impossible — retiré du stock à l'usage (`totpOperations.ts:186`)     | Régénérer un lot en ré-enrôlant si le stock est bas                |
+| Symptôme                                                      | Cause (dans le code)                                                 | Correction                                                         |
+| ------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 2FA inactif en production, `CRITIC` au boot                   | `totp.encryptionKey` absente — fail-closed (`totp.ts:220`)           | `npx nodefony security:secrets`, puis câbler `ctx.env.NF_TOTP_KEY` |
+| Tous les secrets illisibles après déploiement                 | Clé éphémère (dev) ou `TOTP_DERIVATION` modifié                      | Clé **stable** partagée ; ne jamais toucher au contexte HKDF       |
+| Secrets perdus à chaque redémarrage                           | Store résolu en `memory` (aucun adapter durable chargé)              | Charger `@nodefony/drizzle` ou déclarer `NF_DATABASE_URL`          |
+| Code « juste » systématiquement refusé                        | Horloge décalée de plus d'un pas (fenêtre = ±30 s)                   | Synchroniser NTP serveur **et** téléphone                          |
+| Le QR est scanné mais aucun code ne passe                     | `digits`/`algorithm` non standard, ignorés par l'app                 | Rester en `SHA1` / 6 chiffres                                      |
+| `202` au login au lieu de `200`                               | Comportement **attendu** : second facteur requis                     | Enchaîner sur `POST …/auth/login/totp`                             |
+| `…/auth/me` rend `{ user: null }` juste après le mot de passe | L'identité n'est posée qu'après le 2ᵉ facteur (`authFlow.ts:170`)    | Terminer le step-up                                                |
+| `429` pendant la saisie du code                               | Throttle NIST dans `AuthFlow.completeMfaLogin()` (`authFlow.ts:297`) | Respecter `Retry-After` — attendu sous attaque                     |
+| `503 2FA unavailable` sur `…/totp/*`                          | Service absent ou `isEnabled()` faux (`TotpController.ts:21`)        | Vérifier `totp.enabled` + la clé + les logs de boot                |
+| Utilisateur bloqué, plus aucun code                           | Codes de récupération épuisés                                        | Reset admin via `…/users/{id}/totp/disable`, puis ré-enrôlement    |
+| Même code accepté deux fois                                   | Impossible — anti-rejeu `lastUsedStep` (`totpOperations.ts:173`)     | —                                                                  |
+| Code de récupération réutilisable                             | Impossible — retiré du stock à l'usage (`totpOperations.ts:186`)     | Régénérer un lot en ré-enrôlant si le stock est bas                |
 
 ## 🧪 Tests & couverture
 
