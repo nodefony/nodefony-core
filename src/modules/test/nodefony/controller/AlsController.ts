@@ -73,10 +73,9 @@ function readAlsAfterCleaned(ctx: { cleaned: boolean }, key: string): void {
   setTimeout(() => step(2000), 0);
 }
 
-/** Pose une identité comme le fait le pare-feu (`user`, `userId`, `token`). */
+/** Pose une identité comme le fait le pare-feu (`user` au contrat `IRequestUser`, `token`). */
 function setFirewallIdentity(id: string): void {
-  RequestContext.set("user", { id });
-  RequestContext.set("userId", id);
+  RequestContext.set("user", { id, identifier: id, roles: [] });
   RequestContext.set("token", { user: id });
 }
 

@@ -75,7 +75,7 @@ Trois idées portent tout le reste :
 | `X-Request-Id`   | En-tête HTTP de **convention** (de-facto, non normalisé) portant le `requestId` : le client peut l'imposer, le serveur le réfléchit. |
 | Corrélation      | Relier des lignes de log éparses à la **même** requête via une clé partagée (`requestId`, `pid`).                                    |
 | ALS              | _AsyncLocalStorage_ : mémoire Node attachée au contexte d'exécution async — propage `requestId` sans le passer en argument.          |
-| `RequestContext` | Façade Nodefony au-dessus de l'ALS : `getRequestId()`, `getUser()`, `getUserId()`, `traceparent`.                                    |
+| `RequestContext` | Façade Nodefony au-dessus de l'ALS : `getRequestId()`, `getAuthenticatedUser()`, `getUserId()`, `traceparent`.                       |
 | `Pdu`            | _Process Data Unit_ : une entrée de log structurée (RFC 5424). Porte `requestId` + `pid`.                                            |
 | Syslog           | Le hub de logs du cœur (ring buffer + drivers). Reçoit chaque `Pdu` — **page distincte**.                                            |
 | `traceparent`    | En-tête **W3C Trace Context** : `version-traceId-spanId-flags`. Corrèle une requête à travers plusieurs services.                    |

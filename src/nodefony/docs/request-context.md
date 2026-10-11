@@ -263,11 +263,11 @@ graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 | `getUser()`              | `RequestContext.ts:254` | l'utilisateur posé par le firewall, BRUT — anonyme compris, typé `unknown`                     | `undefined` |
 | `getAuthenticatedUser()` | `RequestContext.ts:273` | l'utilisateur CONNECTÉ (`IRequestUser`), ou `null` — la règle unique de « qui est connecté ? » | `null`      |
 | `isAnonymous()`          | `RequestContext.ts:292` | `true` quand le jeton posé est celui d'un anonyme                                              | `false`     |
-| `getUserId()`            | `RequestContext.ts:309` | son identifiant sous forme de chaîne                                                           | `undefined` |
+| `getUserId()`            | `RequestContext.ts:316` | l'`id` de l'utilisateur CONNECTÉ, dérivé de `getAuthenticatedUser()` — `null` pour l'anonyme   | `null`      |
 | `getContext<T>()`        | `RequestContext.ts:310` | le contexte transport HTTP/WS, générique                                                       | `undefined` |
 | `getScope()`             | `RequestContext.ts:342` | le scope DI de la requête, s'il est encore ouvert                                              | `undefined` |
 | `requireScope()`         | `RequestContext.ts:350` | le même scope, ou une erreur qui nomme la cause                                                | **lève**    |
-| `set(clé, valeur)`       | `RequestContext.ts:400` | mute le payload **en place**, sans rouvrir de bulle                                            | **no-op**   |
+| `set(clé, valeur)`       | `RequestContext.ts:406` | mute le payload **en place**, sans rouvrir de bulle                                            | **no-op**   |
 | `isProfiling()`          | `RequestContext.ts:415` | `true` si un buffer de profilage est actif                                                     | `false`     |
 | `pushQuery(query)`       | `RequestContext.ts:425` | ajoute une requête mesurée au buffer                                                           | **no-op**   |
 | `release(store)`         | `RequestContext.ts:381` | vide un store dont l'unité de travail est finie                                                | —           |
@@ -282,20 +282,20 @@ graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 `RequestContextPayload` (`RequestContext.ts:78`) déclare toutes ses clés ; il n'accepte aucune clé
 arbitraire. Chaque couche y dépose ce qui la concerne, parmi les clés ci-dessous.
 
-| Clé               | Posée par                          | À quoi elle sert                                                            |
-| ----------------- | ---------------------------------- | --------------------------------------------------------------------------- |
-| `requestId`       | le serveur HTTP/WS                 | corrélation des logs, en-tête de réponse, suivi de requête                  |
-| `scheme`          | le serveur HTTP/WS                 | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
-| `traceparent`     | le serveur HTTP/WS                 | trace distribuée W3C, honorée si le client l'envoie                         |
-| `user` / `userId` | le firewall après auth             | identité résolue — `firewall.ts:972`                                        |
-| `token`           | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:845`        |
-| `context`         | le serveur HTTP/WS                 | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
-| `scope`           | le serveur HTTP/WS, le pont WS-RPC | scope DI de la requête — le lire par `getScope()` (`RequestContext.ts:321`) |
-| `queries`         | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:98`)                 |
-| `invocation`      | le pont WS-RPC                     | profil de **la trame** en cours (phases + requêtes ORM)                     |
-| `body`            | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
-| `idempotencyKey`  | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:712`)                                |
-| `renderSink`      | le pont WS-RPC                     | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
+| Clé              | Posée par                          | À quoi elle sert                                                            |
+| ---------------- | ---------------------------------- | --------------------------------------------------------------------------- |
+| `requestId`      | le serveur HTTP/WS                 | corrélation des logs, en-tête de réponse, suivi de requête                  |
+| `scheme`         | le serveur HTTP/WS                 | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
+| `traceparent`    | le serveur HTTP/WS                 | trace distribuée W3C, honorée si le client l'envoie                         |
+| `user`           | le firewall après auth             | identité résolue — `firewall.ts:972`                                        |
+| `token`          | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:845`        |
+| `context`        | le serveur HTTP/WS                 | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
+| `scope`          | le serveur HTTP/WS, le pont WS-RPC | scope DI de la requête — le lire par `getScope()` (`RequestContext.ts:321`) |
+| `queries`        | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:98`)                 |
+| `invocation`     | le pont WS-RPC                     | profil de **la trame** en cours (phases + requêtes ORM)                     |
+| `body`           | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
+| `idempotencyKey` | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:712`)                                |
+| `renderSink`     | le pont WS-RPC                     | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
 
 > [!NOTE]
 > **Ajouter une clé.** Un module qui a besoin de la sienne l'ajoute au type — dans le cœur, ou par
@@ -410,7 +410,7 @@ VIDE donc ce store à la fin de chaque unité de travail (`RequestContext.releas
 | -------------------------------------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------- |
 | `getRequestId()`, `scheme`, `traceparent`                                              | la valeur de la requête            | les journaux tardifs restent corrélés                                                  |
 | `getScope()`                                                                           | `undefined` — le scope est refermé | une écriture n'y aurait plus de propriétaire                                           |
-| `getUser()`, `getUserId()`, `token`                                                    | `undefined`                        | une décision prise plus tard le serait sur une identité périmée                        |
+| `getUser()`, `token` (et `getUserId()`, qui rend alors `null`)                         | `undefined`                        | une décision prise plus tard le serait sur une identité périmée                        |
 | `context`, `queries`, `body`, `resolver`, `renderSink`, `invocation`, `idempotencyKey` | `undefined`                        | le transport, le corps et le profil d'une requête finie n'ont plus de lecteur légitime |
 
 La liste des clés vidées est **écrite**, pas parcourue : le store vit sur le chemin de chaque
@@ -447,8 +447,8 @@ Deux règles d'usage complètent ce contrat :
   les champs déjà connus, pas enrichi au fil de l'eau.
 - **Le buffer ORM est `null` en production.** Pas de tableau alloué « au cas où » ; l'absence de la
   clé suffit à éteindre toute la chaîne de mesure.
-- **Les raccourcis ne réallouent rien** : `getRequestId()`, `getUser()`, `getUserId()` sont une
-  lecture de store suivie d'un accès de propriété.
+- **Les raccourcis ne réallouent rien** : `getRequestId()`, `getUser()` sont une lecture de store
+  suivie d'un accès de propriété ; `getUserId()` y ajoute la garde du jeton, sans allocation.
 
 Sur les chiffres, la page reste factuelle : la TSDoc du code annonce **~50-100 ns** par `run()` sur
 Node 22+ pour l'entrée dans le scope (`RequestContext.ts:232`), et le même ordre de grandeur pour la
@@ -509,7 +509,7 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | `getRequestId()` vaut `undefined` dans un écouteur / une minuterie | le rappel se déclenche dans un tick postérieur, hors bulle                                 | `AsyncResource.bind(fn)` **au branchement**, pas à l'appel                           |
 | Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux                   | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
-| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:400`)                      | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
+| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:406`)                      | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
 | `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall              | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
 | `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                      | `getAuthenticatedUser()` (typé `IRequestUser`), ou `this.user` dans un contrôleur    |
 | Un visiteur anonyme compté comme connecté                          | décision prise sur `getUser()`, qui rend aussi l'anonyme (`anon.`)                         | décider avec `getAuthenticatedUser()` : `null` pour l'anonyme                        |

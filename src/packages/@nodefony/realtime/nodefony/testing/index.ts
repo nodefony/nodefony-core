@@ -279,7 +279,6 @@ export function createRealtimeHarness<C extends RealtimeController>(
           requestId: "realtime-harness",
           token: identity,
           user: identity.getAttribute("user"),
-          userId: identity.getUserIdentifier(),
         };
 
   const feed = async (frame: Record<string, unknown> | null): Promise<void> => {

@@ -237,7 +237,7 @@ RequestContext.run({ requestId, scheme, user }, async () => {
   /* tout le pipeline */
 });
 RequestContext.get(); // payload | undefined
-RequestContext.getUserId(); // string | undefined  (rempli par security P6)
+RequestContext.getUserId(); // string | null — `getAuthenticatedUser()?.id`, l'anonyme rend null
 RequestContext.getScope(); // IScope | undefined — le scope DI de LA requête (fermé → undefined)
 RequestContext.requireScope(); // IScope, ou lève en nommant la cause (hors requête / sans scope / fermé)
 RequestContext.pushQuery({ sql, durationMs }); // no-op si !isProfiling() (gratuit en prod)
@@ -628,7 +628,7 @@ l'instance `Cmd` en **dernier** arg). `addOption` `:365` / `addArgument` `:382` 
 | `run`                   | `static <T>(payload, fn): T`                                   | `:175`          |
 | `get`                   | `static (): RequestContextPayload \| undefined`                | `:180`          |
 | `getRequestId`          | `static (): string \| undefined`                               | `:186`          |
-| `getUser` / `getUserId` | `static (): unknown / string \| undefined`                     | `:191` / `:205` |
+| `getUser` / `getUserId` | `static (): unknown / string \| null`                          | `:254` / `:316` |
 | `getContext<T>`         | `static (): T \| undefined`                                    | `:200`          |
 | `getScope`              | `static (): IScope \| undefined` (scope refermé → `undefined`) | `:232`          |
 | `requireScope`          | `static (): IScope` — lève en nommant la cause                 | `:246`          |

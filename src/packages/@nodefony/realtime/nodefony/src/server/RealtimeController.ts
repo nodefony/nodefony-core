@@ -1218,7 +1218,6 @@ export abstract class RealtimeController<
         scheme: ctx.scheme,
         token,
         user: token.getAttribute("user"),
-        userId: token.getUserIdentifier(),
         // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
         context: ctx,
         // Le résolveur de CET appel : un contrôleur singleton y lit la route

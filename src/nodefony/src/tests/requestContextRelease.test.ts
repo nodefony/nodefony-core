@@ -31,7 +31,7 @@ function declaredKeys(): string[] {
 describe("RequestContext.release() — le magasin d'une unité de travail finie (#571)", () => {
   it("lit au moins les clés d'identité dans le type (le banc lit ce qu'il croit lire)", () => {
     const keys = declaredKeys();
-    expect(keys).to.include.members(["requestId", "user", "userId", "scope"]);
+    expect(keys).to.include.members(["requestId", "user", "token", "scope"]);
   });
 
   it("vide chaque clé déclarée hors corrélation et scope, jeton du pare-feu compris", () => {

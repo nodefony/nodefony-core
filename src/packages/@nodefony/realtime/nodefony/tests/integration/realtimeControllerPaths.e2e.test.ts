@@ -392,7 +392,9 @@ const mkToken = (auth: boolean): IRealtimeToken => ({
   // public `IRealtimeToken.getAttribute`, qu'un double de test doit épouser.
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getAttribute: <T = unknown>(k: string): T | undefined =>
-    k === "user" ? ({ id: "u" } as T) : undefined,
+    k === "user"
+      ? ({ id: "u-id", identifier: "u", roles: ["ROLE_USER"] } as T)
+      : undefined,
 });
 
 async function connect(
@@ -865,15 +867,16 @@ describe("RealtimeController E2E — pont api.request : identité après l'appel
     );
     // Pendant l'appel : l'identité est là — le décor est authentifié.
     expect(during).to.deep.equal({
-      user: { id: "u" },
-      userId: "u",
+      user: { id: "u-id", identifier: "u", roles: ["ROLE_USER"] },
+      // L'`id` du principal, pas son identifiant de connexion.
+      userId: "u-id",
       token: true,
       requestId: "rid-test",
     });
     const after = await detachedRead;
     expect(after).to.deep.equal({
       user: undefined,
-      userId: undefined,
+      userId: null,
       token: false,
       // La corrélation survit : les journaux tardifs restent rattachés.
       requestId: "rid-test",

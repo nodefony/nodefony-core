@@ -35,10 +35,25 @@ describe("RequestContext (AsyncLocalStorage façade)", () => {
   it("set() mute le store courant — visible via get()", () => {
     RequestContext.run({ requestId: "r" }, () => {
       RequestContext.set("user", { id: "u-7" });
-      RequestContext.set("userId", "u-7");
       expect((RequestContext.getUser() as { id: string }).id).to.equal("u-7");
-      expect(RequestContext.getUserId()).to.equal("u-7");
     });
+  });
+
+  it("🔴 getUserId() rend l'`id` du principal AUTHENTIFIÉ, dérivé du jeton", () => {
+    const user = { id: "u-7", identifier: "alice", roles: ["ROLE_USER"] };
+    RequestContext.run(
+      { requestId: "r", user, token: { isAuthenticated: () => true } },
+      () => expect(RequestContext.getUserId()).to.equal("u-7"),
+    );
+    // Sans jeton, personne ne l'a authentifié : pas d'id, même avec un `user`.
+    RequestContext.run({ requestId: "r", user }, () =>
+      expect(RequestContext.getUserId()).to.equal(null),
+    );
+    // L'anonyme n'a pas d'id à rendre.
+    RequestContext.run(
+      { requestId: "r", user, token: { isAuthenticated: () => false } },
+      () => expect(RequestContext.getUserId()).to.equal(null),
+    );
   });
 
   it("set() hors scope est un no-op (pas d'exception)", () => {

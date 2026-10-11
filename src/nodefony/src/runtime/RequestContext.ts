@@ -78,8 +78,6 @@ function isAnonymousToken(token: unknown): boolean {
 export interface RequestContextPayload {
   requestId: string;
   scheme?: string | undefined;
-  /** Set by the security firewall after `afterAuth` (P6). */
-  userId?: string | undefined;
   /** Set by the security firewall after `afterAuth` (P6). IUser instance. */
   user?: unknown;
   /** W3C traceparent header for OpenTelemetry compatibility (P2.7). */
@@ -305,9 +303,18 @@ class RequestContext {
     return this.get()?.context as T | undefined;
   }
 
-  /** Shortcut — returns the current userId (P6) or `undefined`. */
-  static getUserId(): string | undefined {
-    return this.get()?.userId;
+  /**
+   * Rend l'`id` de l'utilisateur AUTHENTIFIÉ de l'unité de travail, ou `null`.
+   *
+   * Dérivé de {@link getAuthenticatedUser}, jamais lu dans une clé à part : une
+   * valeur posée à la main par chaque transport finit par diverger (le pont
+   * temps réel y mettait l'identifiant, le HTTP rien). L'anonyme rend `null`.
+   *
+   * @returns l'`id` du principal, ou `null` sans jeton authentifié
+   * @throws TypeError si le jeton porte un utilisateur hors contrat `IRequestUser`
+   */
+  static getUserId(): string | null {
+    return this.getAuthenticatedUser()?.id ?? null;
   }
 
   /**
@@ -382,7 +389,6 @@ class RequestContext {
     // Écriture seulement si la clé porte une valeur : affecter une clé
     // absente l'ajouterait, et changerait la forme de l'objet.
     if (store.user !== undefined) store.user = undefined;
-    if (store.userId !== undefined) store.userId = undefined;
     if (store.token !== undefined) store.token = undefined;
     if (store.context !== undefined) store.context = undefined;
     if (store.queries !== undefined) store.queries = undefined;
@@ -395,7 +401,7 @@ class RequestContext {
 
   /**
    * Mutate the current payload in place. No-op outside a scope.
-   * Used by security after login to inject `user`/`userId` without re-running.
+   * Used by security after login to inject `user`/`token` without re-running.
    */
   static set<K extends keyof RequestContextPayload>(
     key: K,

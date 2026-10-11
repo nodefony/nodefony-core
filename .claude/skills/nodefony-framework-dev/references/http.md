@@ -336,7 +336,7 @@ singleton stateless, **zéro alloc per-request** au nominal) :
 
 - `DefaultRequestLogger` — format multi-champ legacy (`URL : … FROM : … ID : <uuid>`).
 - `PrettyRequestLogger` — 1 ligne human dev (`GET 200 /api 12.3ms 127.0.0.1 [a1b2c3d4]`, ANSI, requestId tronqué 8).
-- `JsonAuditLogger` — 1 PDU JSON canonique/req (`msgid="audit"`) : `{ts, requestId, userId, type, scheme, method, url, status, durationMs, remoteAddress, host, userAgent, hasAuthorization, hasCookie, phases?, error?, protocol?}`. Flags `hasAuthorization`/`hasCookie` = booléens (**valeurs jamais loggées**). Sampling via `sampleRate` (≥400/erreurs toujours loggés). Erreur enrichie : `{name, message, code?, errorType?, stack?, cause?}` (cause récursive, `maxCauseDepth` 5, stack si `NODE_ENV !== "production"`).
+- `JsonAuditLogger` — 1 PDU JSON canonique/req (`msgid="audit"`) : `{ts, requestId, userIdentifier, type, scheme, method, url, status, durationMs, remoteAddress, host, userAgent, hasAuthorization, hasCookie, phases?, error?, protocol?}`. Flags `hasAuthorization`/`hasCookie` = booléens (**valeurs jamais loggées**). Sampling via `sampleRate` (≥400/erreurs toujours loggés). Erreur enrichie : `{name, message, code?, errorType?, stack?, cause?}` (cause récursive, `maxCauseDepth` 5, stack si `NODE_ENV !== "production"`).
 
 `severityFromStatus(s)` exporté : 2xx/3xx→INFO, 404/405→WARNING, 5xx→ERROR.
 
@@ -452,8 +452,8 @@ ws@8 n'a **aucun keep-alive natif**. Helper `service/servers/wsHeartbeat.ts` :
 
 `RequestContext` (core `nodefony`, `src/runtime/RequestContext.ts`) : AsyncLocalStorage lazy (1 instance
 partagée, créée au 1er `.run()`). API : `run(payload, fn)` (propage le retour de `fn` → `return await RequestContext.run(...)`),
-`get()`, `getRequestId()`, `getUser()`, `getUserId()`, `set(key, value)`. Payload open-shape
-`{requestId, scheme?, userId?, user?, traceparent?, …}`. Wrap dans `handleHttp` (après createContext, avant
+`get()`, `getRequestId()`, `getUser()` (brut), `getAuthenticatedUser()`, `getUserId()` (dérivé), `set(key, value)`. Payload FERMÉ
+`{requestId, scheme?, user?, token?, traceparent?, …}`. Wrap dans `handleHttp` (après createContext, avant
 parse) et `handleWebsocket` (avant onConnect). ~50-100 ns/req. **Le teardown lit `ctx.profilerQueries` sur
 le context, pas l'ALS** (teardown hors bulle).
 
