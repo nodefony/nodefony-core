@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T19:21:31.780Z",
+  "generatedAt": "2026-10-11T19:46:49.466Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -46,10 +46,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 110,
+      "closed": 111,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 39,
+      "open": 38,
       "title": "10.0.0-beta"
     },
     {
@@ -2610,8 +2610,8 @@
       "number": 582,
       "title": "feat(security): répondre 200 sans session à la route d'identité",
       "url": "https://github.com/nodefony/nodefony-core/issues/582",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
