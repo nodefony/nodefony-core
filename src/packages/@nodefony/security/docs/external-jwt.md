@@ -89,7 +89,7 @@ normalisés (RFC 8414 / OpenID), et le pare-feu accepte désormais un `Authoriza
 Un `sub` n'est unique que **dans l'espace de son émetteur** (OIDC Core §2). L'identité est donc la
 paire `(émetteur, sujet)`, jamais le sujet seul.
 
-En mode `prefixed` (`config.ts:662-666`), l'identifiant cherché localement est `<issuer>#<sub>` : deux émetteurs ne peuvent
+En mode `prefixed` (`config.ts:723-727`), l'identifiant cherché localement est `<issuer>#<sub>` : deux émetteurs ne peuvent
 pas se disputer un compte, et surtout **aucun sujet étranger ne peut tomber par hasard sur un
 identifiant local existant**. En mode `subject`, le `sub` est cherché tel quel — dans un annuaire où
 l'utilisateur choisit son identifiant, quelqu'un peut alors se présenter avec `sub: "admin"` et être
@@ -164,6 +164,36 @@ areas: {
   },
 }
 ```
+
+## Côté appelant — le jeton d'un programme
+
+Un script, un service partenaire ou un agent obtient son jeton **en son propre nom** par le flux
+`client_credentials` (RFC 6749 §4.4) : pas d'utilisateur, pas de navigateur, un client confidentiel
+et son secret. Le framework le porte, pour qu'aucun appelant ne recopie la plomberie OAuth :
+
+```ts
+import { requestClientCredentialsToken } from "@nodefony/security";
+
+const tokens = await requestClientCredentialsToken({
+  issuer: "https://sso.example.com/realms/acme", // le point de jeton en est DÉCOUVERT (RFC 8414)
+  clientId: "acme-machine",
+  clientSecret: process.env.NF_KEYCLOAK_MACHINE_SECRET ?? "",
+  resource: "https://app.example/api/partner", // audience visée (RFC 8707), facultative
+});
+await fetch("https://app.example/api/partner/whoami", {
+  headers: { Authorization: `Bearer ${tokens.accessToken()}` },
+});
+```
+
+- Le secret vide est refusé **avant** tout appel, en nommant le client : la cause réelle est une
+  variable absente, pas un `invalid_client`.
+- Un refus garde son code normalisé et son statut (`OAuth2RequestError`) : Keycloak rend
+  `unauthorized_client` en 401 sur un secret faux.
+- L'authentification du client est la MÊME que celle de l'échange de code (`postTokenRequest`,
+  `oauth2Client.ts`) : `client_secret_basic` par défaut, `client_secret_post` sur déclaration.
+- Le `sub` d'un compte de service Keycloak est un UUID tiré à la création du realm : il ne se sème
+  pas dans un compte local. La zone qui reçoit cet appelant déclare donc
+  `subjectPolicy: "ephemeral"` (§ « Une politique PAR ZONE »).
 
 ## Ce que l'application publie d'elle-même
 

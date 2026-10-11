@@ -222,6 +222,11 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   prennent un OBJET, et `additionalParameters` y verse ce qui n'est pas encore livré (`resource` RFC 8707,
   `nonce`) sans rupture ; une clé du protocole y est REFUSÉE en la nommant. `clientAuthMethod` REQUIS
   (`client_secret_basic` | `client_secret_post` | `none`) — plus de déduction sur la vacuité du secret.
+  `postTokenRequest(ITokenEndpointClient, body)` = SEULE implémentation de l'authentification client +
+  lecture de réponse (échange de code ET `client_credentials`). `requestClientCredentialsToken({ issuer,
+clientId, clientSecret, clientAuthMethod?, scopes?, resource? })` (`src/oauth/clientCredentials.ts`,
+  RFC 6749 §4.4) : découverte RFC 8414 → grant ; secret vide refusé AVANT réseau ; `none` exclu du type.
+  Keycloak : `sub` du compte de service = UUID tiré à l'import ⇒ zone réceptrice en `ephemeral`.
   (POST form, Basic RFC 6749 §2.3.1 percent-encodé
   AVANT base64 ; `none` ⇒ `client_id` seul dans le corps, `client_secret_post` ⇒ les deux ;
   `Accept: application/json` sinon

@@ -400,75 +400,110 @@ export class OAuth2Client {
     if (request.codeVerifier !== null) {
       body.set("code_verifier", request.codeVerifier);
     }
-    const headers: Record<string, string> = {
-      "Content-Type": "application/x-www-form-urlencoded",
-      // GitHub rend du `x-www-form-urlencoded` tant qu'on ne réclame pas du JSON.
-      Accept: "application/json",
-      "User-Agent": "nodefony",
-    };
-    // Ce que le fournisseur a DÉCLARÉ, jamais ce qu'on devine de la longueur du
-    // secret. Les trois branches sont exclusives : un serveur strict refuse un
-    // client qui s'authentifie deux fois (RFC 6749 §2.3).
-    switch (this.#options.clientAuthMethod) {
-      case "client_secret_basic":
-        headers.Authorization = `Basic ${this.#basicCredentials()}`;
-        break;
-      case "client_secret_post":
-        // L'identité ET le secret dans le corps (RFC 6749 §2.3.1, second alinéa).
-        // La RFC la déconseille au profit de Basic, mais l'autorise, et des
-        // serveurs l'exigent — ils l'annoncent dans leurs métadonnées.
-        body.set("client_id", this.#options.clientId);
-        body.set("client_secret", this.#options.clientSecret);
-        break;
-      case "none":
-        // Client public : aucune authentification, l'identité seule (RFC 6749
-        // §4.1.3, et RFC 9700 §2.1 pour un client public sous PKCE).
-        body.set("client_id", this.#options.clientId);
-        break;
-    }
+    return postTokenRequest(this.#options, body);
+  }
+}
 
-    const call = this.#options.fetch ?? globalThis.fetch;
-    const response = await call(this.#options.tokenEndpoint, {
-      method: "POST",
-      headers,
-      body: body.toString(),
-      // Une redirection est refusée : un POST redirigé est rejoué en GET sans son
-      // corps, et l'en-tête `Authorization` porte le secret client.
-      redirect: "error",
-      signal: AbortSignal.timeout(
-        this.#options.timeoutMs ?? TOKEN_REQUEST_TIMEOUT_MS,
-      ),
-    });
-    const data = await readJsonObjectBounded(
-      response,
-      MAX_TOKEN_RESPONSE_BYTES,
-      `point de jeton (HTTP ${response.status})`,
+/** Ce qu'il faut savoir du client pour parler au point de jeton. */
+export interface ITokenEndpointClient {
+  /** Point de jeton (RFC 6749 §3.2). */
+  readonly tokenEndpoint: string;
+  /** Identifiant client délivré par le serveur d'autorisation. */
+  readonly clientId: string;
+  /** Secret client — vide seulement pour `none`. */
+  readonly clientSecret: string;
+  /** Comment le client s'authentifie (RFC 6749 §2.3). */
+  readonly clientAuthMethod: OAuth2ClientAuthMethod;
+  /** Implémentation de `fetch` (banc sans réseau). */
+  readonly fetch?: typeof globalThis.fetch | undefined;
+  /** Délai d'attente, en millisecondes. */
+  readonly timeoutMs?: number | undefined;
+}
+
+/**
+ * Présente une requête au point de jeton et rend les jetons (RFC 6749 §5.1).
+ *
+ * SEULE implémentation de l'authentification du client et de la lecture de la
+ * réponse : l'échange de code et le flux `client_credentials` y passent tous
+ * deux, pour qu'une règle (méthode déclarée, redirection refusée, réponse
+ * bornée, refus lu sur `error`) ne diverge jamais entre deux flux.
+ *
+ * @param client - point de jeton et identité du client.
+ * @param body - corps de la requête, `grant_type` compris ; l'identité du
+ *   client y est ajoutée selon la méthode déclarée.
+ * @throws OAuth2RequestError - le serveur a refusé, en nommant la cause (RFC 6749 §5.2).
+ * @throws Error - réponse inintelligible, hors gabarit, ou serveur injoignable.
+ */
+export async function postTokenRequest(
+  client: ITokenEndpointClient,
+  body: URLSearchParams,
+): Promise<OAuth2Tokens> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/x-www-form-urlencoded",
+    // GitHub rend du `x-www-form-urlencoded` tant qu'on ne réclame pas du JSON.
+    Accept: "application/json",
+    "User-Agent": "nodefony",
+  };
+  // Ce que le fournisseur a DÉCLARÉ, jamais ce qu'on devine de la longueur du
+  // secret. Les trois branches sont exclusives : un serveur strict refuse un
+  // client qui s'authentifie deux fois (RFC 6749 §2.3).
+  switch (client.clientAuthMethod) {
+    case "client_secret_basic":
+      headers.Authorization = `Basic ${basicCredentials(client)}`;
+      break;
+    case "client_secret_post":
+      // L'identité ET le secret dans le corps (RFC 6749 §2.3.1, second alinéa).
+      // La RFC la déconseille au profit de Basic, mais l'autorise, et des
+      // serveurs l'exigent — ils l'annoncent dans leurs métadonnées.
+      body.set("client_id", client.clientId);
+      body.set("client_secret", client.clientSecret);
+      break;
+    case "none":
+      // Client public : aucune authentification, l'identité seule (RFC 6749
+      // §4.1.3, et RFC 9700 §2.1 pour un client public sous PKCE).
+      body.set("client_id", client.clientId);
+      break;
+  }
+
+  const call = client.fetch ?? globalThis.fetch;
+  const response = await call(client.tokenEndpoint, {
+    method: "POST",
+    headers,
+    body: body.toString(),
+    // Une redirection est refusée : un POST redirigé est rejoué en GET sans son
+    // corps, et l'en-tête `Authorization` porte le secret client.
+    redirect: "error",
+    signal: AbortSignal.timeout(client.timeoutMs ?? TOKEN_REQUEST_TIMEOUT_MS),
+  });
+  const data = await readJsonObjectBounded(
+    response,
+    MAX_TOKEN_RESPONSE_BYTES,
+    `point de jeton (HTTP ${response.status})`,
+  );
+  // Un refus se lit sur le champ `error`, pas sur le statut : GitHub rend 200
+  // sur un code déjà consommé.
+  if (typeof data.error === "string") {
+    throw new OAuth2RequestError(
+      data.error,
+      typeof data.error_description === "string"
+        ? data.error_description
+        : null,
+      response.status,
     );
-    // Un refus se lit sur le champ `error`, pas sur le statut : GitHub rend 200
-    // sur un code déjà consommé.
-    if (typeof data.error === "string") {
-      throw new OAuth2RequestError(
-        data.error,
-        typeof data.error_description === "string"
-          ? data.error_description
-          : null,
-        response.status,
-      );
-    }
-    if (!response.ok) {
-      throw new Error(`Point de jeton en échec (HTTP ${response.status}).`);
-    }
-    return new OAuth2Tokens(data);
   }
+  if (!response.ok) {
+    throw new Error(`Point de jeton en échec (HTTP ${response.status}).`);
+  }
+  return new OAuth2Tokens(data);
+}
 
-  // L'authentification `client_secret_basic` encode chaque moitié en
-  // `application/x-www-form-urlencoded` AVANT le base64 (RFC 6749 §2.3.1 et son
-  // annexe B) — sans quoi un secret contenant `:` ou `+` casse l'analyse côté
-  // serveur. Ce n'est PAS `encodeURIComponent` (RFC 3986) : l'espace devient `+`,
-  // et `~` est échappé.
-  #basicCredentials(): string {
-    const id = formUrlencode(this.#options.clientId);
-    const secret = formUrlencode(this.#options.clientSecret);
-    return Buffer.from(`${id}:${secret}`, "utf8").toString("base64");
-  }
+// L'authentification `client_secret_basic` encode chaque moitié en
+// `application/x-www-form-urlencoded` AVANT le base64 (RFC 6749 §2.3.1 et son
+// annexe B) — sans quoi un secret contenant `:` ou `+` casse l'analyse côté
+// serveur. Ce n'est PAS `encodeURIComponent` (RFC 3986) : l'espace devient `+`,
+// et `~` est échappé.
+function basicCredentials(client: ITokenEndpointClient): string {
+  const id = formUrlencode(client.clientId);
+  const secret = formUrlencode(client.clientSecret);
+  return Buffer.from(`${id}:${secret}`, "utf8").toString("base64");
 }

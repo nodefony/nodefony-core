@@ -324,6 +324,9 @@ export {
 } from "./nodefony/src/oauth/oauth2Client";
 export type { IOAuth2ClientOptions } from "./nodefony/src/oauth/oauth2Client";
 export { discoverAuthorizationServer } from "./nodefony/src/oauth/metadata";
+// Jeton d'un PROGRAMME en son nom (RFC 6749 §4.4) — script, partenaire, agent.
+export { requestClientCredentialsToken } from "./nodefony/src/oauth/clientCredentials";
+export type { IClientCredentialsRequest } from "./nodefony/src/oauth/clientCredentials";
 // Diagnostic sans connexion humaine — le même que `security:oauth:doctor`,
 // `doctor --live` et l'endpoint `security/oauth/diagnosis`.
 export { diagnoseOAuthProvider } from "./nodefony/src/oauth/providerDiagnosis";
