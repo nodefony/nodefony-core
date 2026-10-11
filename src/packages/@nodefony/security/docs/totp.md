@@ -190,7 +190,7 @@ export default defineConfig<typeof env>((ctx) => ({
 
 ### 3. Les endpoints sont FOURNIS — tu n'écris aucun controller
 
-`mountTotpRoutes()` (`TotpController.ts:165`) monte quatre routes self-service dès que
+`mountTotpRoutes()` (`TotpController.ts:161`) monte quatre routes self-service dès que
 `@nodefony/security` est chargé (le service `totp` est alors toujours enregistré). 2FA désactivé, ou
 service non initialisé : elles répondent `503 2FA unavailable` :
 
@@ -218,7 +218,7 @@ une réponse inattendue (erreur `server`), jamais comme un écran de code.
 > [!WARNING]
 > Les routes `totp/*` **n'ont pas** `bypassFirewall` (`TotpController.ts:52`) : elles vivent dans la
 > zone data plane et exigent une session BFF. Le sujet est **toujours** l'utilisateur courant, lu
-> depuis la session (`TotpController.#currentSubject()`, `TotpController.ts:149`) — jamais un
+> depuis la session (`TotpController.#currentSubject()`, `TotpController.ts:145`) — jamais un
 > paramètre : on n'active ni ne désactive le 2FA d'autrui (anti-IDOR).
 
 ### 4. Ce qu'on observe
