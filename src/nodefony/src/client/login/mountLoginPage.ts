@@ -113,6 +113,12 @@ export function mountLoginPage(
   );
   const passkey = doc.querySelector<HTMLElement>("[data-passkey]");
   if (passkey !== null) passkey.hidden = !login.getState().passkeyAvailable;
+  // Passkey seule proposée, et ce navigateur ne sait pas la faire : sans ce
+  // message, la carte resterait sans aucun moyen d'agir ni d'explication.
+  const stranded =
+    passkey?.hidden === true &&
+    doc.querySelector('form[data-step="identifier"]') === null &&
+    doc.querySelector("[data-alt] a") === null;
 
   let shownStep: LoginStep | null = null;
   let shownError: NodefonyLoginError | null = null;
@@ -311,6 +317,7 @@ export function mountLoginPage(
   doc.addEventListener("paste", onOtpPaste);
   const unsubscribe = login.subscribe(render);
   render(login.getState());
+  if (stranded) alert("—", messages.unsupported);
 
   return () => {
     left = true;

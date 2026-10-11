@@ -65,9 +65,9 @@ la personnaliser là où c'est sans risque : les textes, les couleurs, le conten
 
 - **Configuration dans `@nodefony/security`, rendu dans `@nodefony/framework`** : le premier décrit
   la page (`AuthFlow.describeLoginPage()`, `authFlow.ts:470`), le second la rend
-  (`buildLoginPageView()`, `loginPage.ts:163`) et la sert (`LoginPageController`,
+  (`buildLoginPageView()`, `loginPage.ts:189`) et la sert (`LoginPageController`,
   `LoginPageController.ts:102`). Le contrat entre les deux, `ILoginPageDescription`, vit au cœur
-  (`authRoutes.ts:252`).
+  (`authRoutes.ts:262`).
 - **Tout passe par du texte échappé** : aucune valeur de la configuration ni de la requête n'entre
   dans le balisage autrement que par `<%= %>`. L'image du panneau passe par votre feuille de style,
   jamais par une adresse injectée dans le HTML.
@@ -143,7 +143,7 @@ bouton prend son libellé (`oauth2.providers.<nom>.label`) et, si vous la régle
 
 Par défaut, quand des fournisseurs sont proposés, leurs boutons passent avant le formulaire : la
 plupart des comptes d'une entreprise sont ceux de son annuaire. `providersFirst: false` inverse
-l'ordre (`loginPage.ts:190`).
+l'ordre (`loginPage.ts:217`).
 
 ### Situation 4 — votre propre page
 
@@ -151,6 +151,26 @@ l'ordre (`loginPage.ts:190`).
 page, construite sur `NodefonyLogin` (voir la doc du client du cœur). Les redirections continuent
 d'y mener. `template` (un gabarit `.eta` qui remplace celui du framework) existe aussi, en dernier
 recours : un gabarit copié ne suit plus les évolutions du balisage.
+
+### Ce que la carte propose — tous les cas
+
+La carte se compose de trois moyens, chacun décidé par un réglage différent : le formulaire
+(`loginPage.password`), la passkey (`passkeys.enabled`, service WebAuthn prêt) et les
+fournisseurs (ceux qui répondent). `describeLoginPage()` les relit à chaque affichage.
+
+| Moyens proposés            | La carte montre                                                              |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| mot de passe               | le formulaire                                                                |
+| mot de passe + passkey     | le formulaire, « ou », le bouton « Passkey / empreinte digitale »            |
+| mot de passe + fournisseur | le formulaire, « ou », les boutons des fournisseurs                          |
+| passkey seule              | le bouton passkey ; si le navigateur ne sait pas la faire, un message le dit |
+| fournisseurs (± passkey)   | les boutons, sans formulaire                                                 |
+| **aucun**                  | un message « aucun moyen de connexion », et un WARNING au démarrage          |
+
+Le bouton passkey est rendu MASQUÉ : c'est le script de la page qui le montre, après avoir
+constaté que le navigateur sait faire WebAuthn. Un écran de connexion à vous lit le même état par
+`GET /nodefony/security/api/webauthn/status` (`WEBAUTHN_STATUS_PATH`, `{ enabled }`), pour ne
+pas proposer un bouton dont la cérémonie répondrait `503`.
 
 ## 🎨 Habillages — neuf apparences, un seul balisage
 
@@ -211,7 +231,7 @@ couleurs et leur mise en page.
 
 **Comparer sans redémarrer** : en développement, `/login?skin=dots` sert la page sous un autre
 habillage, et `&layout=card` force la mise en page — le temps d'une requête, sur vos vrais
-réglages. En production ces paramètres sont ignorés (`loginPage.ts:121`) : la page servie est
+réglages. En production ces paramètres sont ignorés (`loginPage.ts:169`) : la page servie est
 celle de la configuration, et rien d'autre.
 
 ## 🏗️ Architecture interne
@@ -234,7 +254,7 @@ sequenceDiagram
   exigerait d'être connecté pour se connecter.
 - **Les fournisseurs sont relus à chaque requête** : l'un d'eux peut tomber ou revenir pendant que
   le serveur tourne, et un bouton qui mène à une erreur est retiré de l'offre.
-- **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts:151`) : une adresse
+- **La destination `?from=`** repasse par `safeRedirectPath` (`loginPage.ts:193`) : une adresse
   hors de l'origine retombe sur `/`.
 - **Les boutons de fournisseur portent `from` et `back`** : `back` désigne cette page, si bien que
   le « Retour » du fournisseur et un échec y ramènent, destination comprise, quel que soit
@@ -283,7 +303,7 @@ nommant, au lieu d'être ignorée.
 ## ⚡ Performance & mémoire
 
 - Le gabarit est compilé **une fois par processus**, et un échec de chargement n'est pas mémorisé
-  (`keepSuccess()`, `loginPage.ts:94`) : la page ne reste pas en 500 après une correction.
+  (`keepSuccess()`, `loginPage.ts:112`) : la page ne reste pas en 500 après une correction.
 - Feuille et script sont servis en statique, versionnés par leur empreinte (`?v=`) : le navigateur
   les garde en cache jusqu'au prochain changement. Le script pèse 4 Ko.
 

@@ -52,9 +52,9 @@ flowchart LR
 ```
 
 Le défi vit **hors du service**, en session BFF, posé par le controller
-(`WebAuthnController.registerOptions()`, `WebAuthnController.ts:113`). Chaque `verify*` reçoit
+(`WebAuthnController.registerOptions()`, `WebAuthnController.ts:122`). Chaque `verify*` reçoit
 l'`expectedChallenge` qu'il a émis, et le controller **l'invalide dès sa lecture**
-(`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:281`) : un défi ne sert qu'une fois.
+(`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:290`) : un défi ne sert qu'une fois.
 
 ## 📖 Lexique
 
@@ -90,7 +90,7 @@ Quatre failles fermées **par construction** :
 2. **Fuite de base** — le serveur ne stocke que des clés **publiques** (`IWebAuthnCredential.publicKey`,
    `IWebAuthnCredential.ts:16`). Une base volée ne donne aucun accès.
 3. **Rejeu** — le défi est à usage unique, invalidé en session dès sa lecture
-   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:281`).
+   (`WebAuthnController.#takeChallenge()`, `WebAuthnController.ts:290`).
 4. **Clonage d'authenticator** — le `signCount` doit croître ; une régression signale une copie
    (`IWebAuthnCredential.signCount`, `IWebAuthnCredential.ts:22`).
 
@@ -114,7 +114,7 @@ Trois partis pris assumés :
 - **Le stockage est pluggable** (`IWebAuthnCredentialStore`, `IWebAuthnCredentialStore.ts:75`) :
   mémoire par défaut, ORM ou Redis en production, avec le **même banc de contrat** pour tous.
 - **Les endpoints sont fournis**, pas à réécrire (`mountWebAuthnRoutes()`,
-  `WebAuthnController.ts:314`) : c'est là que vivent les gardes délicates (session du défi, usage
+  `WebAuthnController.ts:323`) : c'est là que vivent les gardes délicates (session du défi, usage
   unique, messages uniformes, anti-IDOR).
 
 ## 🚀 Démarrage rapide
@@ -155,7 +155,7 @@ export default defineConfig(() => ({
 ### 2. Les endpoints BFF sont FOURNIS
 
 Dès que `@nodefony/security` est chargé, le framework monte six routes
-(`mountWebAuthnRoutes()`, `WebAuthnController.ts:314`) :
+(`mountWebAuthnRoutes()`, `WebAuthnController.ts:323`) :
 
 | Route (`POST` sauf mention)                        | Rôle                                          | Firewall                  |
 | -------------------------------------------------- | --------------------------------------------- | ------------------------- |
@@ -167,10 +167,10 @@ Dès que `@nodefony/security` est chargé, le framework monte six routes
 | `DELETE …/webauthn/credentials/{id}`               | Révoquer **sa** passkey                       | zone protégée             |
 
 > [!IMPORTANT]
-> Les quatre routes de cérémonie sont `bypassFirewall: true` (`WebAuthnController.ts:365`) : elles
+> Les quatre routes de cérémonie sont `bypassFirewall: true` (`WebAuthnController.ts:384`) : elles
 > **sont** le mécanisme d'authentification — les protéger exigerait d'être déjà connecté pour se
 > connecter. Le contrôle d'accès de `register/*` est fait **dans le controller**
-> (`flow.me()` → 401, `WebAuthnController.ts:119`). Les deux routes self-service, elles, restent dans
+> (`flow.me()` → 401, `WebAuthnController.ts:128`). Les deux routes self-service, elles, restent dans
 > la zone protégée (`security.webauthn.credentials.list`, `WebAuthnController.ts:314`).
 
 ### 3. Ce que TU écris : l'appel navigateur
@@ -514,7 +514,7 @@ explicite, `IWebAuthnCredentialStore` n'a pas de maintenance (`IWebAuthnCredenti
 **`nickname` est
 stocké et rendu, jamais écrit par le framework** — aucune API publique ne le renseigne, le champ
 existe pour une UX « renommer cet appareil » côté application ; **`userId` est l'identifiant
-applicatif** (`me.username`, figé à l'enrôlement, `WebAuthnController.ts:109`) — renommer un compte
+applicatif** (`me.username`, figé à l'enrôlement, `WebAuthnController.ts:28`) — renommer un compte
 orphelinise donc ses passkeys.
 
 ## 🧩 Backends de stockage — quatre enregistrés, et comment brancher le tien
@@ -678,18 +678,18 @@ requête. Le code en tire trois conséquences.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                             | Cause (dans le code)                                                       | Correction                                                |
-| ---------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `409` à l'enrôlement                                 | Plafond `passkeys.maxPerUser` atteint (`webAuthn.ts:355`)                  | Retirer un appareil, ou relever `maxPerUser`              |
-| `400 No challenge` au `verify`                       | Défi absent : déjà consommé, ou pas de cookie renvoyé                      | Un défi = un `verify` ; envoyer le cookie (`credentials`) |
-| `401` systématique en production                     | Origine hors liste blanche, ou `rpId` ≠ domaine servi                      | Renseigner `passkeys.origins` + `rpId` enregistrable      |
-| Passkey KO en dev sur `127.0.0.1`                    | Une IP n'est pas un `rpId` valide → repli `localhost`                      | Accéder par `https://localhost:<port>`                    |
-| Passkeys d'un sous-domaine inutilisables sur l'autre | `rpId` unique, résolu au boot, pas de résolution par `Host`                | Choisir un `rpId` parent commun (`example.com`)           |
-| Login refusé après restauration d'une sauvegarde     | `signCount` régressif → clone suspecté (§6.1.1)                            | Comportement voulu — ré-enrôler l'appareil                |
-| Tout le monde verrouillé dehors après un déploiement | `store` resté en `memory` : credentials volatils (`webAuthn.ts:183`)       | Déclarer une infra durable ; le `WARNING` boot le disait  |
-| `503 WebAuthn unavailable`                           | `passkeys.enabled: false` ou boot du service échoué                        | Activer `passkeys` ; vérifier le store configuré          |
-| `total` absent du listing admin                      | Backend curseur (Redis) → `countCredentials()` rend `-1`                   | Paginer par `nextCursor`, ne pas afficher de total        |
-| Passkeys orphelines après renommage d'un compte      | `userId` = `me.username` figé à l'enrôlement (`WebAuthnController.ts:109`) | Ne pas renommer, ou ré-enrôler après renommage            |
+| Symptôme                                             | Cause (dans le code)                                                      | Correction                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `409` à l'enrôlement                                 | Plafond `passkeys.maxPerUser` atteint (`webAuthn.ts:355`)                 | Retirer un appareil, ou relever `maxPerUser`              |
+| `400 No challenge` au `verify`                       | Défi absent : déjà consommé, ou pas de cookie renvoyé                     | Un défi = un `verify` ; envoyer le cookie (`credentials`) |
+| `401` systématique en production                     | Origine hors liste blanche, ou `rpId` ≠ domaine servi                     | Renseigner `passkeys.origins` + `rpId` enregistrable      |
+| Passkey KO en dev sur `127.0.0.1`                    | Une IP n'est pas un `rpId` valide → repli `localhost`                     | Accéder par `https://localhost:<port>`                    |
+| Passkeys d'un sous-domaine inutilisables sur l'autre | `rpId` unique, résolu au boot, pas de résolution par `Host`               | Choisir un `rpId` parent commun (`example.com`)           |
+| Login refusé après restauration d'une sauvegarde     | `signCount` régressif → clone suspecté (§6.1.1)                           | Comportement voulu — ré-enrôler l'appareil                |
+| Tout le monde verrouillé dehors après un déploiement | `store` resté en `memory` : credentials volatils (`webAuthn.ts:183`)      | Déclarer une infra durable ; le `WARNING` boot le disait  |
+| `503 WebAuthn unavailable`                           | `passkeys.enabled: false` ou boot du service échoué                       | Activer `passkeys` ; vérifier le store configuré          |
+| `total` absent du listing admin                      | Backend curseur (Redis) → `countCredentials()` rend `-1`                  | Paginer par `nextCursor`, ne pas afficher de total        |
+| Passkeys orphelines après renommage d'un compte      | `userId` = `me.username` figé à l'enrôlement (`WebAuthnController.ts:28`) | Ne pas renommer, ou ré-enrôler après renommage            |
 
 ## 🧪 Tests & couverture
 

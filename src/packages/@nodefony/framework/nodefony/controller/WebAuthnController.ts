@@ -1,4 +1,4 @@
-import { WEBAUTHN_API_BASE, type Module } from "nodefony";
+import { WEBAUTHN_API_BASE, WEBAUTHN_STATUS_PATH, type Module } from "nodefony";
 import type { ContextType, HTTPMethod } from "@nodefony/http";
 import Router from "../service/router";
 import SecurityApiController from "../src/SecurityApiController";
@@ -107,6 +107,15 @@ let mounted = false;
 class WebAuthnController extends SecurityApiController {
   constructor(context: ContextType) {
     super("WebAuthnController", context);
+  }
+
+  /**
+   * Dit si la connexion par passkey répondra : `{ enabled }`, toujours `200`.
+   * Un écran de connexion le lit pour ne pas proposer un bouton dont la
+   * cérémonie répondrait `503` (passkeys coupées).
+   */
+  status() {
+    return this.renderJson({ enabled: this.#service() !== null });
   }
 
   /** Défi d'enregistrement — l'utilisateur connecté ajoute un passkey. */
@@ -333,6 +342,8 @@ export function mountWebAuthnRoutes(frameworkModule: Module): void {
       "registerVerify",
       true,
     ],
+    // État : public, comme la connexion qu'il annonce ; ne révèle qu'un réglage.
+    ["security.webauthn.status", WEBAUTHN_STATUS_PATH, "GET", "status", true],
     [
       "security.webauthn.login.options",
       `${base}/login/options`,

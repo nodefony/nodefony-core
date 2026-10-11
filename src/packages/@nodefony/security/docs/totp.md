@@ -346,7 +346,7 @@ Trois propriétés à retenir de `AuthFlow.completeMfaLogin()` (`authFlow.ts:297
    (`authFlow.ts:283`), posée par le login, **consommée** avant l'ouverture de session
    (`authFlow.ts:301`).
 2. **Le code à 6 chiffres est throttlé** comme un mot de passe — même backoff partagé
-   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:626`) : 10⁶ combinaisons se forcent brute en
+   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:630`) : 10⁶ combinaisons se forcent brute en
    quelques minutes sans lui. Trop de tentatives → `429` + `Retry-After`.
 3. **Un échec ne détruit pas le défi** — l'utilisateur qui s'est trompé de chiffre ressaisit ; il
    n'a pas à refaire son mot de passe.

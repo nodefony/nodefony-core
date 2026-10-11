@@ -10,10 +10,15 @@ import { securityConfigSchema } from "../../nodefony/config/config";
  * ce paquet (ADR-0015).
  */
 
-function buildFlow(options: unknown, oauth2?: unknown): AuthFlow {
+function buildFlow(
+  options: unknown,
+  oauth2?: unknown,
+  webauthn?: unknown,
+): AuthFlow {
   const container = new Container();
   container.set("kernel", { container, once() {} });
   if (oauth2 !== undefined) container.set("oauth2", oauth2);
+  if (webauthn !== undefined) container.set("webauthn", webauthn);
   return new AuthFlow({
     container,
     notificationsCenter: false,
@@ -90,6 +95,7 @@ describe("AuthFlow.describeLoginPage", () => {
       skin: "frontispiece",
       layout: "split",
       password: true,
+      passkey: false,
       providers: [],
     });
   });
@@ -125,6 +131,7 @@ describe("AuthFlow.describeLoginPage", () => {
       skin: "frontispiece",
       layout: "card",
       password: false,
+      passkey: false,
       providers: [],
     });
   });
@@ -162,6 +169,15 @@ describe("AuthFlow.describeLoginPage", () => {
       }).success,
       false,
     );
+  });
+
+  it("🔴 passkey : proposée seulement quand le service WebAuthn répondra, relue à chaque appel", () => {
+    let enabled = true;
+    const flow = buildFlow({}, undefined, { isEnabled: () => enabled });
+    assert.equal(flow.describeLoginPage()?.passkey, true);
+    enabled = false;
+    assert.equal(flow.describeLoginPage()?.passkey, false);
+    assert.equal(buildFlow({}).describeLoginPage()?.passkey, false);
   });
 
   it("fournisseurs relus à chaque appel, réduits au contrat {name, label, icon}", () => {

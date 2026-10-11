@@ -48,6 +48,14 @@ export const WEBAUTHN_LOGIN_OPTIONS_PATH = `${WEBAUTHN_API_BASE}/login/options`;
 /** Vérification de la passkey : `POST` avec `{response}` → ouvre la session. */
 export const WEBAUTHN_LOGIN_VERIFY_PATH = `${WEBAUTHN_API_BASE}/login/verify`;
 
+/**
+ * État de la connexion par passkey : `GET` → `{ enabled: boolean }`, toujours
+ * `200` quand le service existe. Les cérémonies répondent `503` quand les
+ * passkeys sont coupées ; cette route permet à un écran de connexion de ne pas
+ * proposer un bouton voué à cet échec.
+ */
+export const WEBAUTHN_STATUS_PATH = `${WEBAUTHN_API_BASE}/status`;
+
 /** Fournisseurs de connexion configurés : `GET` → `{ providers: {name, label}[] }`. */
 export const OAUTH2_PROVIDERS_PATH = `${OAUTH2_API_BASE}/providers`;
 
@@ -281,6 +289,12 @@ export interface ILoginPageDescription {
   readonly layout: LoginPageLayout;
   /** Le formulaire identifiant et mot de passe est-il proposé ? */
   readonly password: boolean;
+  /**
+   * La connexion par passkey est-elle proposée ? Vrai quand `passkeys.enabled`
+   * et que le service WebAuthn est prêt ; le navigateur peut encore ne pas la
+   * savoir faire, ce que le script de la page constate.
+   */
+  readonly passkey: boolean;
   /** Fournisseurs à proposer, dans l'ordre de la configuration. */
   readonly providers: readonly ILoginPageProvider[];
 }

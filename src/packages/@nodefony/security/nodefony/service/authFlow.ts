@@ -494,6 +494,10 @@ class AuthFlow extends Service {
       skin: page.skin,
       layout: page.layout ?? LOGIN_PAGE_SKIN_SPECS[page.skin].layout,
       password: page.password,
+      // Relu à chaque appel, comme les fournisseurs : `isEnabled()` dit que
+      // les cérémonies répondront, pas seulement que la clé est posée.
+      passkey:
+        this.get<{ isEnabled(): boolean }>("webauthn")?.isEnabled() ?? false,
       // Copie au contrat : rien d'autre de la configuration d'un fournisseur
       // n'atteint le gabarit.
       providers: offered.map(({ name, label, icon }): ILoginPageProvider => ({

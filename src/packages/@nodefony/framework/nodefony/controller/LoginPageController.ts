@@ -161,6 +161,15 @@ export function mountLoginPage(frameworkModule: Module): void {
     frameworkModule.get<ILoginPageSource>("authFlow")?.describeLoginPage?.() ??
     null;
   if (page === null) return;
+  if (!page.password && !page.passkey && page.providers.length === 0) {
+    // La page s'affiche quand même, avec son message : un fournisseur en
+    // panne au démarrage peut revenir. Mais la configuration seule n'offre
+    // rien, et c'est maintenant qu'il faut le savoir, pas au premier visiteur.
+    frameworkModule.log(
+      `${page.path} : aucun moyen de connexion — loginPage.password à false, passkeys coupées, aucun fournisseur opérationnel`,
+      "WARNING",
+    );
+  }
   Router.createRoute("security.login.page", {
     path: page.path,
     constructor: LoginPageController,

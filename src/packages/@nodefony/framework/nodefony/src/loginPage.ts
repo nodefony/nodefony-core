@@ -45,9 +45,18 @@ export interface ILoginPageView {
   readonly backdrop: boolean;
   /** Thème imposé par `?theme=`, `null` = celui du système. */
   readonly theme: "light" | "dark" | null;
-  /** Fournisseurs avant le formulaire (au moins un fournisseur proposé). */
+  /** Fournisseurs et passkey avant le formulaire (au moins l'un des deux proposé). */
   readonly ssoFirst: boolean;
   readonly password: boolean;
+  /** Bouton passkey rendu (masqué tant que le script n'a pas constaté le navigateur). */
+  readonly passkey: boolean;
+  /**
+   * Aucun moyen de connexion : ni formulaire, ni passkey, ni fournisseur
+   * opérationnel. La page le dit au lieu de rendre une carte vide.
+   */
+  readonly empty: boolean;
+  /** Ligne sous le titre : celle de la configuration, sinon déduite des moyens proposés. */
+  readonly lead: string;
   readonly providers: readonly ILoginPageViewProvider[];
   /** Destination après connexion, déjà passée par `safeRedirectPath`. */
   readonly from: string;
@@ -118,6 +127,23 @@ export const LOGIN_PAGE_ASSET_FILES = {
 
 const DEFAULT_TITLE = "Se connecter";
 
+/** Annonce d'une page sans aucun moyen de connexion. */
+export const LOGIN_PAGE_EMPTY_NOTICE =
+  "Aucun moyen de connexion n'est disponible pour le moment. Prévenez l'administrateur du site.";
+
+/**
+ * Ligne sous le titre, déduite des moyens proposés quand la configuration n'en
+ * donne pas : elle annonce ce que la carte contient, jamais autre chose.
+ */
+function leadFor(password: boolean, passkey: boolean, sso: boolean): string {
+  if (password && sso) return "Compte de l'organisation ou identifiant local";
+  if (password && passkey) return "Identifiant et mot de passe, ou passkey";
+  if (password) return "Identifiant et mot de passe";
+  if (sso) return "Avec le compte de votre organisation";
+  if (passkey) return "Avec votre passkey";
+  return "Aucun moyen de connexion disponible";
+}
+
 /** Annonce d'un retour du fournisseur sans connexion, hors annulation. */
 const PROVIDER_FAILED_NOTICE =
   "La connexion par le fournisseur n'a pas abouti. Réessayez, ou choisissez une autre méthode.";
@@ -173,6 +199,7 @@ export function buildLoginPageView(
   const providerFrom = from === "/" ? undefined : from;
   const { skin, layout } = resolveSkin(page, request);
   const skinFile = loginPageSkinFile(skin);
+  const sso = page.providers.length > 0;
   return {
     brand: page.title ?? request.projectName,
     title: page.heading ?? DEFAULT_TITLE,
@@ -187,8 +214,11 @@ export function buildLoginPageView(
       request.theme === "light" || request.theme === "dark"
         ? request.theme
         : null,
-    ssoFirst: page.providersFirst && page.providers.length > 0,
+    ssoFirst: page.providersFirst && (sso || page.passkey),
     password: page.password,
+    passkey: page.passkey,
+    empty: !page.password && !page.passkey && !sso,
+    lead: page.subtitle ?? leadFor(page.password, page.passkey, sso),
     providers: page.providers.map(({ name, label, icon }) => ({
       label,
       // `back` = cette page : un « Retour » chez le fournisseur ramène ici,
@@ -219,7 +249,9 @@ export function buildLoginPageView(
  *
  * En chaîne dans le code : un `.eta` posé à côté ne serait pas publié
  * (`files` du paquet = `dist`, `docs`). Compilé une fois par processus.
- * Tout passe par `<%= %>` (échappé) ; aucune sortie brute.
+ * Tout passe par `<%= %>` (échappé) ; aucune sortie brute. L'icône
+ * d'empreinte (`i-finger`) reprend `IconFingerprint` de Tabler Icons (MIT),
+ * celle du bouton de Studio : les deux écrans montrent le même geste.
  */
 export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
 <html lang="fr"<% if (it.theme) { %> data-theme="<%= it.theme %>"<% } %>>
@@ -247,6 +279,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></symbol>
       <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="3.8" /><path d="M10.8 12.2 19.5 3.5M16.5 6.5l2.5 2.5M14 9l2 2" /></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></symbol>
+      <symbol id="i-finger" viewBox="0 0 24 24"><path d="M18.9 7a8 8 0 0 1 1.1 5v1a6 6 0 0 0 .8 3" /><path d="M8 11a4 4 0 0 1 8 0v1a10 10 0 0 0 2 6" /><path d="M12 11v2a14 14 0 0 0 2.5 8" /><path d="M8 15a18 18 0 0 0 1.8 6" /><path d="M4.9 19a22 22 0 0 1-.9-7v-1a8 8 0 0 1 12-6.95" /></symbol>
       <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8-7.5 9.5-4.3-1.5-7.5-4.9-7.5-9.5V6z" /></symbol>
       <symbol id="m-github" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" /></symbol>
     </svg>
@@ -389,7 +422,7 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
           <div class="nf-head">
             <div class="nf-brand"><img class="nf-logo" src="<%= it.logo %>" alt="" /><%= it.brand %></div>
             <h1 id="nf-title"><%= it.title %></h1>
-            <p class="nf-sub" id="nf-sub"><% if (it.subtitle) { %><%= it.subtitle %><% } else if (it.password && it.providers.length > 0) { %>Compte de l'organisation ou identifiant local<% } else if (it.password) { %>Identifiant et mot de passe<% } else { %>Avec le compte de votre organisation<% } %></p>
+            <p class="nf-sub" id="nf-sub"><%= it.lead %></p>
           </div>
 <% if (it.password) { %>
           <ol class="nf-steps" aria-label="Étapes">
@@ -435,6 +468,8 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
               <p class="nf-hint">Le code affiché par votre application d'authentification.</p>
               <button class="nf-btn primary" type="submit">Vérifier</button>
             </form>
+<% } %>
+<% if (it.password || it.passkey) { %>
             <div data-step="authenticated" hidden>
               <div class="nf-done" role="status">
                 <span class="ring" aria-hidden="true"><svg class="nf-icon"><use href="#i-check" /></svg></span>
@@ -443,20 +478,23 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
               </div>
             </div>
 <% } %>
-<% if (it.providers.length > 0) { %>
+<% if (it.providers.length > 0 || it.passkey) { %>
             <div data-alt>
 <% if (it.password) { %>
               <div class="nf-or">ou</div>
 <% } %>
               <div class="nf-alt">
+<% if (it.passkey) { %>
+                <button type="button" class="nf-btn span" data-passkey hidden><svg class="nf-icon" aria-hidden="true"><use href="#i-finger" /></svg>Passkey / empreinte digitale</button>
+<% } %>
 <% it.providers.forEach(function (provider) { %>
                 <a class="nf-btn" href="<%= provider.href %>"><% if (provider.image) { %><img class="nf-icon" src="<%= provider.image %>" alt="" /><% } else { %><svg class="<%= provider.icon === 'm-github' ? 'nf-mark' : 'nf-icon' %>" aria-hidden="true"><use href="#<%= provider.icon %>" /></svg><% } %><%= provider.label %></a>
 <% }) %>
               </div>
             </div>
 <% } %>
-            <div class="nf-message" aria-live="polite" data-message><% if (it.notice) { %><p class="nf-alert" role="alert"><span class="code">SSO</span><span><%= it.notice %></span></p><% } %></div>
-<% if (it.password) { %>
+            <div class="nf-message" aria-live="polite" data-message><% if (it.empty) { %><p class="nf-alert" role="alert"><span class="code">—</span><span>${LOGIN_PAGE_EMPTY_NOTICE}</span></p><% } else if (it.notice) { %><p class="nf-alert" role="alert"><span class="code">SSO</span><span><%= it.notice %></span></p><% } %></div>
+<% if (it.password || it.passkey) { %>
             <noscript><p class="nf-hint">Cette page a besoin de JavaScript pour vous connecter.</p></noscript>
 <% } %>
           </div>

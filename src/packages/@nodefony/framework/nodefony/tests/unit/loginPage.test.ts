@@ -14,6 +14,7 @@ import {
   LOGIN_PAGE_TEMPLATE,
   buildLoginPageView,
   keepSuccess,
+  LOGIN_PAGE_EMPTY_NOTICE,
   type ILoginPageRequest,
 } from "../../src/loginPage.js";
 import { NodefonyLogin } from "../../../../../../nodefony/src/client/auth/NodefonyLogin.js";
@@ -33,6 +34,7 @@ const PAGE: ILoginPageDescription = {
   skin: "frontispiece",
   layout: "split",
   password: true,
+  passkey: false,
   providers: [
     { name: "keycloak", label: "Compte entreprise", icon: null },
     { name: "github", label: "GitHub", icon: null },
@@ -169,6 +171,169 @@ describe("page de connexion — gabarit rendu", () => {
     const doc = render({ ...PAGE, providers: [] }, REQUEST);
     expect(doc.querySelector("[data-alt]")).toBeNull();
     expect(doc.body.hasAttribute("data-sso-first")).toBe(false);
+  });
+
+  // 🔴 Toutes les combinaisons de moyens : mot de passe (P), passkey (K),
+  // fournisseurs (N). Chaque ligne dit ce que la carte DOIT montrer — un cas
+  // oublié a déjà laissé la passkey hors de la page, et une carte vide sans
+  // un mot quand rien n'était configuré.
+  const KEYCLOAK = [{ name: "keycloak", label: "Keycloak", icon: null }];
+  const CASES: Array<{
+    name: string;
+    password: boolean;
+    passkey: boolean;
+    providers: ILoginPageDescription["providers"];
+    form: boolean;
+    passkeyButton: boolean;
+    links: number;
+    or: boolean;
+    lead: string;
+    empty: boolean;
+  }> = [
+    {
+      name: "P",
+      password: true,
+      passkey: false,
+      providers: [],
+      form: true,
+      passkeyButton: false,
+      links: 0,
+      or: false,
+      lead: "Identifiant et mot de passe",
+      empty: false,
+    },
+    {
+      name: "P+K",
+      password: true,
+      passkey: true,
+      providers: [],
+      form: true,
+      passkeyButton: true,
+      links: 0,
+      or: true,
+      lead: "Identifiant et mot de passe, ou passkey",
+      empty: false,
+    },
+    {
+      name: "P+N",
+      password: true,
+      passkey: false,
+      providers: KEYCLOAK,
+      form: true,
+      passkeyButton: false,
+      links: 1,
+      or: true,
+      lead: "Compte de l'organisation ou identifiant local",
+      empty: false,
+    },
+    {
+      name: "P+K+N",
+      password: true,
+      passkey: true,
+      providers: KEYCLOAK,
+      form: true,
+      passkeyButton: true,
+      links: 1,
+      or: true,
+      lead: "Compte de l'organisation ou identifiant local",
+      empty: false,
+    },
+    {
+      name: "K",
+      password: false,
+      passkey: true,
+      providers: [],
+      form: false,
+      passkeyButton: true,
+      links: 0,
+      or: false,
+      lead: "Avec votre passkey",
+      empty: false,
+    },
+    {
+      name: "N",
+      password: false,
+      passkey: false,
+      providers: KEYCLOAK,
+      form: false,
+      passkeyButton: false,
+      links: 1,
+      or: false,
+      lead: "Avec le compte de votre organisation",
+      empty: false,
+    },
+    {
+      name: "K+N",
+      password: false,
+      passkey: true,
+      providers: KEYCLOAK,
+      form: false,
+      passkeyButton: true,
+      links: 1,
+      or: false,
+      lead: "Avec le compte de votre organisation",
+      empty: false,
+    },
+    {
+      name: "aucun",
+      password: false,
+      passkey: false,
+      providers: [],
+      form: false,
+      passkeyButton: false,
+      links: 0,
+      or: false,
+      lead: "Aucun moyen de connexion disponible",
+      empty: true,
+    },
+  ];
+  for (const c of CASES) {
+    it(`🔴 moyens ${c.name} : formulaire ${c.form}, passkey ${c.passkeyButton}, ${c.links} fournisseur(s), « ou » ${c.or}`, () => {
+      const doc = render(
+        {
+          ...PAGE,
+          password: c.password,
+          passkey: c.passkey,
+          providers: c.providers,
+        },
+        REQUEST,
+      );
+      expect(doc.querySelector('form[data-step="identifier"]') !== null).toBe(
+        c.form,
+      );
+      const passkey = doc.querySelector<HTMLElement>("[data-passkey]");
+      expect(passkey !== null).toBe(c.passkeyButton);
+      // Masqué au rendu : seul le script, qui constate le navigateur, le montre.
+      if (passkey !== null) expect(passkey.hidden).toBe(true);
+      expect(doc.querySelectorAll(".nf-alt a")).toHaveLength(c.links);
+      expect(doc.querySelector(".nf-or") !== null).toBe(c.or);
+      expect(doc.getElementById("nf-sub")?.textContent).toBe(c.lead);
+      // Une connexion qui passe par le script a son étape « connecté ».
+      expect(doc.querySelector('[data-step="authenticated"]') !== null).toBe(
+        c.password || c.passkey,
+      );
+      expect(doc.querySelector("[data-message]")?.textContent ?? "").toBe(
+        c.empty ? `—${LOGIN_PAGE_EMPTY_NOTICE}` : "",
+      );
+    });
+  }
+
+  it("aucun moyen : ce message passe avant l'échec d'un fournisseur", () => {
+    const doc = render(
+      { ...PAGE, password: false, passkey: false, providers: [] },
+      { ...REQUEST, reason: "server_error" },
+    );
+    expect(doc.querySelector("[data-message]")?.textContent).toBe(
+      `—${LOGIN_PAGE_EMPTY_NOTICE}`,
+    );
+  });
+
+  it("passkey sans fournisseur : `providersFirst` la place avant le formulaire", () => {
+    const doc = render(
+      { ...PAGE, password: true, passkey: true, providers: [] },
+      REQUEST,
+    );
+    expect(doc.body.hasAttribute("data-sso-first")).toBe(true);
   });
 
   it("par défaut : « Se connecter », vitrine Nodefony, pied de page, aucune feuille de l'application", () => {
@@ -420,6 +585,86 @@ describe("page de connexion — contrat avec le script du cœur", () => {
       expect(
         document.querySelectorAll('[data-step="mfa"] .nf-otp input'),
       ).toHaveLength(6);
+    } finally {
+      unmount();
+    }
+  });
+});
+
+describe("page de connexion — passkey, avec le vrai script", () => {
+  const mount = (page: ILoginPageDescription, login: NodefonyLogin) => {
+    const rendered = render(page);
+    document.documentElement.replaceWith(
+      document.importNode(rendered.documentElement, true),
+    );
+    const navigate = vi.fn();
+    return { navigate, unmount: mountLoginPage(document, { login, navigate }) };
+  };
+
+  it("🔴 navigateur capable : le bouton se montre, et un clic ouvre la session puis va vers `from`", async () => {
+    const calls: string[] = [];
+    const fetch = ((input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : "requête";
+      calls.push(url);
+      const body = url.endsWith("/options")
+        ? { challenge: "c" }
+        : { user: { id: 1, username: "admin", roles: [] } };
+      return Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }) as typeof globalThis.fetch;
+    const { navigate, unmount } = mount(
+      { ...PAGE, password: false, passkey: true, providers: [] },
+      new NodefonyLogin({
+        fetch,
+        passkey: { sign: () => Promise.resolve({ id: "cred" }) },
+      }),
+    );
+    try {
+      const button = document.querySelector<HTMLElement>("[data-passkey]");
+      expect(button?.hidden).toBe(false);
+      button?.click();
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+      expect(calls).toEqual([
+        "/nodefony/security/api/webauthn/login/options",
+        "/nodefony/security/api/webauthn/login/verify",
+      ]);
+      expect(navigate).toHaveBeenCalledWith("/admin/users?tab=2");
+    } finally {
+      unmount();
+    }
+  });
+
+  it("🔴 navigateur incapable et passkey seule : bouton masqué ET la page le dit", () => {
+    const { unmount } = mount(
+      { ...PAGE, password: false, passkey: true, providers: [] },
+      new NodefonyLogin({ passkey: null }),
+    );
+    try {
+      expect(
+        document.querySelector<HTMLElement>("[data-passkey]")?.hidden,
+      ).toBe(true);
+      expect(document.querySelector("[data-message]")?.textContent).toContain(
+        "Ce navigateur ne sait pas se connecter",
+      );
+    } finally {
+      unmount();
+    }
+  });
+
+  it("navigateur incapable mais d'autres moyens : bouton masqué, aucun message", () => {
+    const { unmount } = mount(
+      { ...PAGE, password: true, passkey: true },
+      new NodefonyLogin({ passkey: null }),
+    );
+    try {
+      expect(
+        document.querySelector<HTMLElement>("[data-passkey]")?.hidden,
+      ).toBe(true);
+      expect(document.querySelector("[data-message]")?.textContent).toBe("");
     } finally {
       unmount();
     }

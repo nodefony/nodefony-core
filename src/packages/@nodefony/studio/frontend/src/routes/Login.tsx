@@ -34,7 +34,11 @@ import {
   type ProviderIconComponent,
 } from "../components/ProviderIcon";
 import { useNavigate, useLocation } from "react-router";
-import { OAUTH2_CANCELLED_REASON, oauth2AuthorizePath } from "nodefony";
+import {
+  OAUTH2_CANCELLED_REASON,
+  WEBAUTHN_STATUS_PATH,
+  oauth2AuthorizePath,
+} from "nodefony";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { type ConnectionStep } from "../components/ConnectionStepper";
 import { useAuth, useConnection, useStore } from "../stores";
@@ -241,6 +245,7 @@ function classifyError(e: unknown, phaseStep: ConnectionStep): ClassifiedError {
 function AltLoginMethods({
   social,
   onSocial,
+  passkey,
   onPasskey,
   busy,
   disabled,
@@ -248,6 +253,8 @@ function AltLoginMethods({
 }: {
   social: SocialProvider[];
   onSocial: (provider: string) => void;
+  /** Passkeys actives côté serveur : sinon le bouton mènerait à un 503. */
+  passkey: boolean;
   onPasskey: () => void;
   busy: boolean;
   disabled: boolean;
@@ -261,6 +268,9 @@ function AltLoginMethods({
   // application enregistre elle-même — Keycloak, un OIDC d'entreprise.
   // `exclude` retire le mode déjà mis en avant (action primaire du rebonjour).
   const visible = social.filter((p) => p.name !== exclude);
+  const showPasskey = passkey && exclude !== "passkey";
+  // Rien à proposer : pas de « ou » suivi du vide.
+  if (visible.length === 0 && !showPasskey) return null;
   return (
     <>
       <Divider label="ou" labelPosition="center" my={4} />
@@ -279,7 +289,7 @@ function AltLoginMethods({
           </Button>
         );
       })}
-      {exclude !== "passkey" && (
+      {showPasskey && (
         <Button
           size="md"
           fullWidth
@@ -293,9 +303,11 @@ function AltLoginMethods({
         </Button>
       )}
       <Text size="xs" c="dimmed" ta="center">
-        {visible.length > 0
+        {visible.length > 0 && showPasskey
           ? "Connexion via un fournisseur externe (OAuth 2.0) ou sans mot de passe (WebAuthn / FIDO2)."
-          : "Connexion sans mot de passe (WebAuthn / FIDO2) — biométrie ou clé de sécurité."}
+          : visible.length > 0
+            ? "Connexion via un fournisseur externe (OAuth 2.0)."
+            : "Connexion sans mot de passe (WebAuthn / FIDO2) — biométrie ou clé de sécurité."}
       </Text>
     </>
   );
@@ -374,6 +386,25 @@ export const Login = observer(() => {
       .get("/health")
       .then(() => alive && setServerUp(true))
       .catch(() => alive && setServerUp(false));
+    return () => {
+      alive = false;
+    };
+  }, [store]);
+
+  // Passkeys actives côté serveur ? `null` tant que la réponse n'est pas
+  // arrivée. Échec ou service absent = coupées : un bouton qui répondrait 503
+  // ne s'affiche pas.
+  const [passkeyEnabled, setPasskeyEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void store.api
+      .getAbsolute<{ enabled?: unknown } | null>(WEBAUTHN_STATUS_PATH)
+      .then((r) => {
+        if (alive) setPasskeyEnabled(r?.enabled === true);
+      })
+      .catch(() => {
+        if (alive) setPasskeyEnabled(false);
+      });
     return () => {
       alive = false;
     };
@@ -681,7 +712,10 @@ export const Login = observer(() => {
   // Keycloak, la seconde arrive après le premier rendu. Se tromper ici affiche
   // un champ mot de passe à un compte qui n'en possède aucun.
   const isSocialReturn = isSocialMethod(returningMethod);
-  const isPasskeyReturn = returningMethod === "passkey";
+  // Passkeys coupées depuis la dernière visite : retour au mot de passe. Tant
+  // que la réponse manque (`null`), le rebonjour garde la passkey en avant.
+  const isPasskeyReturn =
+    returningMethod === "passkey" && passkeyEnabled !== false;
   const returnChip = loginMethodChip(returningMethod, social);
   const ReturnIcon = returnChip.Icon;
   // Champ mot de passe : par défaut (compte mot de passe) ; À LA DEMANDE pour un
@@ -911,6 +945,7 @@ export const Login = observer(() => {
                 <AltLoginMethods
                   social={social}
                   onSocial={startSocialLogin}
+                  passkey={passkeyEnabled === true}
                   onPasskey={() => void runPasskeyFlow()}
                   busy={busy}
                   disabled={throttled}
@@ -1047,6 +1082,7 @@ export const Login = observer(() => {
               <AltLoginMethods
                 social={social}
                 onSocial={startSocialLogin}
+                passkey={passkeyEnabled === true}
                 onPasskey={() => void runPasskeyFlow()}
                 busy={busy}
                 disabled={throttled}
