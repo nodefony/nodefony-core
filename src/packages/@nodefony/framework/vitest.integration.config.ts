@@ -19,7 +19,9 @@ export default defineConfig({
   test: {
     // Dossier temporaire propre à la passe, contrôlé et supprimé au teardown
     // (scripts/test/vitest/tmp-guard.ts) : un test qui ne nettoie pas fait échouer la passe.
-    globalSetup: tmpGuard(),
+    // + sonde du mode du serveur (route publique /livez) → NF_TEST_ENV, la
+    // même que @nodefony/http : un banc dev-only se lit en production autrement.
+    globalSetup: tmpGuard(r("../http/nodefony/tests/probeServerEnv.global.ts")),
     ...transformCache,
     globals: true,
     include: ["nodefony/tests/integration/**/*.test.ts"],

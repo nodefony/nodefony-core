@@ -13,6 +13,10 @@
  */
 import { expect } from "vitest";
 import https from "node:https";
+// Mode du serveur visé, sondé une fois par le globalSetup partagé avec
+// @nodefony/http (`probeServerEnv`) : le job « production » de la CI tape un
+// serveur où l'aperçu `?skin=` n'existe pas.
+import { IS_PROD_TARGET } from "../../../../http/nodefony/tests/helpers/targetEnv";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 const TIMEOUT = 10_000;
@@ -113,10 +117,13 @@ describe("page de connexion par défaut — servie derrière une zone fermée", 
     }
   });
 
-  it("🔴 chaque habillage : sa feuille est PUBLIÉE et servie (aperçu `?skin=` du développement)", async () => {
-    // Le serveur de banc tourne en développement : `?skin=` y est lu. La
-    // feuille vient du `dist/login/skins/` bâti — la copie du build est
+  it("🔴 chaque habillage : sa feuille est PUBLIÉE et servie ; l'aperçu `?skin=` n'existe qu'en développement", async () => {
+    // La feuille vient du `dist/login/skins/` bâti — la copie du build est
     // éprouvée ici, sur l'artefact servi, pas sur la source.
+    const configured = attr(
+      (await get("/login")).body,
+      /<body[^>]*data-skin="([^"]+)"/u,
+    );
     for (const skin of [
       "ledger",
       "horizon",
@@ -128,9 +135,17 @@ describe("page de connexion par défaut — servie derrière une zone fermée", 
       "photo-card",
     ]) {
       const page = await get(`/login?skin=${skin}`);
-      expect(attr(page.body, /<body[^>]*data-skin="([^"]+)"/u), skin).toBe(
-        skin,
-      );
+      const shown = attr(page.body, /<body[^>]*data-skin="([^"]+)"/u);
+      if (IS_PROD_TARGET) {
+        // En production, la requête ne choisit pas l'apparence : la page reste
+        // celle de la configuration, et la feuille reste servie à qui l'a réglée.
+        expect(shown, skin).toBe(configured);
+        const res = await get(`/nodefony/security/login/skins/${skin}.css`);
+        expect(res.status, skin).toBe(200);
+        expect(String(res.headers["content-type"]), skin).toContain("text/css");
+        continue;
+      }
+      expect(shown, skin).toBe(skin);
       const href = attr(
         page.body,
         /<link rel="stylesheet" href="(\/nodefony\/security\/login\/skins\/[^"]+)"/u,
