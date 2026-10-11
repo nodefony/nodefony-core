@@ -564,6 +564,12 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
 ## Behaviors
 
 - `areas: {}` (défaut) → firewall = no-op (perf max). Zone protégée + anonyme → 401.
+- `areas.<z>.entryPoint` (chemin de l'origine, refusé au boot sinon) : anonyme SANS preuve qui NAVIGUE
+  (`GET`/`HEAD`, `Accept` text/html, `Sec-Fetch-Mode` navigate ou absent, contexte qui a `redirect`) →
+  `302 <entryPoint>?from=<chemin>` (`src/entryPoint.ts`, `loginPagePath` + `safeRedirectPath` du cœur), pas de
+  défi. API/fetch/POST/WS → 401 inchangé. Toujours un refus : audit `auth.denied/no_credentials` + l'erreur
+  remonte (`onAuthFailure`) ; http `onError` envoie tel quel un 401 dont la réponse est `isRedirect`. Requête
+  sur l'`entryPoint` lui-même → 401 (pas de boucle). Banc : `framework/…/integration/entry-point.test.ts`.
 - `authenticators` = schéma OUVERT (`z.string()`) → plugins (apikey/ldap) sans éditer le core ; validés au runtime.
 - En-têtes = **natif** (pas helmet). JWT = jose **(J4 ✅, EdDSA)**, OAuth = client interne (0 dep), bcrypt = `@nodefony/user`.
 - **CSRF GLOBAL** (J5) : appliqué à TOUTE requête mutante (zone ou non) — défense gratuite sur GET (court-circuit

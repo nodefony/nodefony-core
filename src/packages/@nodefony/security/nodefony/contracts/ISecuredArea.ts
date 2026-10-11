@@ -55,6 +55,15 @@ export interface ISecuredArea extends ISecurityZone {
   readonly resource?: string | undefined;
 
   /**
+   * Page de connexion vers laquelle le pare-feu conduit un visiteur anonyme
+   * qui NAVIGUE (`302` vers `<entryPoint>?from=<chemin demandé>`), au lieu du
+   * `401`. Un appel d'API, un POST ou un WebSocket gardent leur `401` : un
+   * client qui attend du JSON casserait sur une page HTML. Omis = `401` pour
+   * tous. Chemin de l'origine, vérifié au boot.
+   */
+  readonly entryPoint?: string | undefined;
+
+  /**
    * Zone valable AUSSI pour le WebSocket (frames `api.request` + `subscribe`),
    * pas seulement HTTP. Défaut `true` (Zero Trust : une zone protégée ferme TOUS
    * ses transports) ; `false` = opt-out explicite (zone strictement HTTP). Le

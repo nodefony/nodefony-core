@@ -116,8 +116,14 @@ const areaSchema = z.strictObject({
     ),
   entryPoint: z
     .string()
+    .refine((value) => safeRedirectPath(value, "") === value, {
+      message:
+        "entryPoint doit être un chemin de CETTE origine (`/login`), jamais une adresse externe",
+    })
     .optional()
-    .describe("Route de login/redirect si non authentifié."),
+    .describe(
+      "Page de connexion vers laquelle conduire un visiteur anonyme qui NAVIGUE (GET ou HEAD, `Accept: text/html`, `Sec-Fetch-Mode: navigate` s'il est présent) : 302 vers `<entryPoint>?from=<chemin demandé>`, et la page de connexion ramène au chemin demandé. Tout le reste — appel d'API, `fetch`, POST, WebSocket — garde son 401 et son `WWW-Authenticate`. Le refus reste journalisé (`auth.denied`). Absent (défaut) : 401 pour tous.",
+    ),
   host: z
     .string()
     .optional()

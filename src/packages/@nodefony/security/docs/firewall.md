@@ -52,10 +52,10 @@ flowchart TD
   AU -->|succès| OK["user + token dans l'ALS → contrôleur"]
 ```
 
-`Firewall.isSecure()` (`firewall.ts:791`) rattache la requête à une **zone** via
-`Firewall.matchPath()` (`firewall.ts:782`) ; `Firewall.handleSecurity()` (`firewall.ts:824`) décide.
+`Firewall.isSecure()` (`firewall.ts:792`) rattache la requête à une **zone** via
+`Firewall.matchPath()` (`firewall.ts:783`) ; `Firewall.handleSecurity()` (`firewall.ts:825`) décide.
 Les zones sont triées par **spécificité** dans `#build()` — `list.sort` par longueur de motif :
-le plus long gagne, pas le premier déclaré (`firewall.ts:257`).
+le plus long gagne, pas le premier déclaré (`firewall.ts:258`).
 
 ## 📖 Lexique
 
@@ -74,7 +74,7 @@ le plus long gagne, pas le premier déclaré (`firewall.ts:257`).
 ### Dans une app `nodefony create app`, le firewall est DÉJÀ actif
 
 Le scaffold déclare trois zones (`main`, `secure`, `machine`) dans `nodefony/config/security.ts`, importé par `nodefony.config.ts` ; en voici deux — c'est la forme canonique (un **objet par
-nom**, validé Zod au boot : `areas: z.record(...)`, `config.ts:1182-1183`) :
+nom**, validé Zod au boot : `areas: z.record(...)`, `config.ts:1188-1189`) :
 
 ```typescript
 // nodefony/config/security.ts (extrait généré par `nodefony create app`)
@@ -182,6 +182,39 @@ Authorization: Bearer eyJhbGciOiJFZERTQS␣…␣.␣…␣.␣…        # un J
 Authorization: Bearer nf_9a2c…                           # une clé API (préfixe nf_)
 ```
 
+### Protéger des pages : conduire le visiteur à la connexion (`entryPoint`)
+
+Sans réglage, un visiteur anonyme qui ouvre une page protégée reçoit un `401` brut.
+`entryPoint` lui donne la page de connexion à la place :
+
+```typescript
+use("@nodefony/security", {
+  areas: {
+    pages: {
+      pattern: "^/compte(/|$)",
+      authenticators: ["session"],
+      entryPoint: "/login", // la page de connexion du framework (loginPage.path)
+    },
+  },
+});
+```
+
+| La requête refusée                                                           | Réponse                              |
+| ---------------------------------------------------------------------------- | ------------------------------------ |
+| `GET`/`HEAD`, `Accept: text/html`, `Sec-Fetch-Mode: navigate` ou absent      | `302` → `/login?from=%2Fcompte`      |
+| appel d'API (`Accept: application/json`), `fetch()` (`Sec-Fetch-Mode: cors`) | `401` + `WWW-Authenticate`, inchangé |
+| `POST`, `PUT`, `DELETE`…, WebSocket                                          | refus inchangé                       |
+
+- La page de connexion ramène au chemin demandé (`from`, requête comprise) une fois connecté.
+  `from` passe par `safeRedirectPath`, la garde anti-redirection ouverte du cœur.
+- C'est toujours un **refus** : l'audit enregistre `auth.denied` / `no_credentials`, et le hook
+  `onAuthFailure` se déclenche, comme pour un `401`.
+- `entryPoint` doit être un chemin de l'origine : une adresse externe (`https://…`, `//…`) est
+  refusée au démarrage.
+- La page de connexion elle-même n'est jamais redirigée vers elle-même : si elle tombe dans la
+  zone, sa requête garde son `401`.
+- Absent (le défaut), tous les clients reçoivent le `401`.
+
 ## 🔐 Les authenticators intégrés
 
 Tous respectent le **même contrat** (`IAuthenticator`) : `supports(context)` (test bon marché : la
@@ -280,7 +313,7 @@ Sans lui, zone protégée + aucune preuve = 401.
 
 Il promeut en jeton realtime **toute** identité que le firewall a résolue — session BFF comme jeton
 porteur (JWT, clé d'API). **Enregistré automatiquement** par `Firewall.#wireRealtime()` au
-handshake des zones protégées `realtime` (`firewall.ts:301`).
+handshake des zones protégées `realtime` (`firewall.ts:302`).
 
 - **Perf : il ne relit pas la base.** Handshake et frames tournent dans la même bulle ALS —
   l'identité déjà posée est réutilisée, 2 lectures base économisées par connexion
@@ -320,7 +353,7 @@ laisser chercher pourquoi `context.session` est nul.
 ## ⚙️ Ordre et modes (`mode: "first"` vs `"all"`)
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:1230`). Le `mode` dit comment la parcourir. Trois situations concrètes :
+(`firewall.ts:1236`). Le `mode` dit comment la parcourir. Trois situations concrètes :
 
 ### Situation 1 — humains ET machines sur la même API (`first`, le mode courant)
 
@@ -342,7 +375,7 @@ Ce qui se passe, requête par requête :
 | --- | --- | --- |
 | le cookie de session | `session` | identifié, `apikey` jamais consulté |
 | `Authorization: Bearer nf_…` | `apikey` | identifié (session ne matche pas, on passe) |
-| une clé **révoquée** `nf_…` | `apikey` | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:1230`) |
+| une clé **révoquée** `nf_…` | `apikey` | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:1236`) |
 | rien | aucun | **401** (Zero Trust) |
 
 ### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)
@@ -373,11 +406,11 @@ danger: {
 
 Le client doit présenter **les deux preuves** dans la même requête (cookie + `Authorization:
 Basic …`). Une seule manque → 401. Le **dernier** token de la chaîne porte l'identité
-(`firewall.ts:1305`) — ici la preuve mot de passe, la plus fraîche.
+(`firewall.ts:1311`) — ici la preuve mot de passe, la plus fraîche.
 
 > [!TIP]
 > Un nom d'authenticator inconnu en config **fait échouer le boot** —
-> `Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:467`) : jamais de zone
+> `Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:468`) : jamais de zone
 > « protégée » silencieusement ouverte à cause d'une faute de frappe.
 
 ## 🧑‍⚖️ Autorisation — rôles, scopes, voters (« as-tu le droit ? »)
@@ -513,34 +546,34 @@ scopes, métier), un même jury, combinables.
 
 ## 🔌 HTTP et WebSocket — le même firewall
 
-`Firewall.#wireRealtime()` (`firewall.ts:300`) câble, pour toute zone protégée `realtime !== false`
-(opt-out, `firewall.ts:277`), le `FirewallRealtimeAuthenticator` au handshake (`firewall.ts:312`)
-**et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:360`). Même résolution de zone que HTTP.
+`Firewall.#wireRealtime()` (`firewall.ts:301`) câble, pour toute zone protégée `realtime !== false`
+(opt-out, `firewall.ts:278`), le `FirewallRealtimeAuthenticator` au handshake (`firewall.ts:313`)
+**et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:361`). Même résolution de zone que HTTP.
 Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setChallenge()`,
-`firewall.ts:1309`) : le **code de fermeture** suffit.
+`firewall.ts:1357`) : le **code de fermeture** suffit.
 
 ## 🛡️ En-têtes de sécurité, CSRF, CORS
 
-- **`Firewall.applySecurityHeaders()`** (`firewall.ts:1146`) : CSP, Referrer-Policy, COOP/COEP/CORP
-  au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:1075`) :
+- **`Firewall.applySecurityHeaders()`** (`firewall.ts:1152`) : CSP, Referrer-Policy, COOP/COEP/CORP
+  au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:1081`) :
   alloué seulement si une directive en a besoin.
-- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:1036`) : Fetch Metadata
-  (`Sec-Fetch-Site`) + garde `Origin` (`firewall.ts:971`), puis double-submit `x-csrf-token` ≡
-  cookie + HMAC (`firewall.ts:627`).
-- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:1092`).
+- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:1042`) : Fetch Metadata
+  (`Sec-Fetch-Site`) + garde `Origin` (`firewall.ts:977`), puis double-submit `x-csrf-token` ≡
+  cookie + HMAC (`firewall.ts:628`).
+- **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:1098`).
 
 ## 📜 Normes appliquées
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 9110 §11    | `Firewall.#setChallenge()` (`firewall.ts:1309`)        |
+| Challenge d'auth (401) | RFC 9110 §11    | `Firewall.#setChallenge()` (`firewall.ts:1357`)        |
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |
-| Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:837-840`)            |
+| Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:838-841`)            |
 | Backoff de login       | NIST SP 800-63B | `UserPasswordAuthenticator.ts:43-46,101-104`           |
-| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:1036`)          |
-| Modèle                 | Zero Trust      | `firewall.ts:818-833` (aucune preuve → 401)            |
+| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:1042`)          |
+| Modèle                 | Zero Trust      | `firewall.ts:819-834` (aucune preuve → 401)            |
 
 ## ⚡ Performance & mémoire
 

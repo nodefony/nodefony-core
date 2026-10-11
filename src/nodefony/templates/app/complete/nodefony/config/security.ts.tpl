@@ -167,6 +167,20 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
      *
      * - Protéger plus large : élargis le pattern (ex. `"^/(api|compte)"`).
      *
+     * - Protéger des PAGES vues dans un navigateur : une zone à part, avec
+     *   `entryPoint`. Un visiteur anonyme qui OUVRE la page est conduit à la page
+     *   de connexion (302 vers `/login?from=/compte`, qui le ramène ici une fois
+     *   connecté) ; un appel d'API, un POST ou un WebSocket gardent leur 401 — un
+     *   client qui attend du JSON casserait sur une page HTML.
+     *
+     *   ```ts
+     *   pages: {
+     *     pattern: "^/compte(/|$)",
+     *     authenticators: ["session"],
+     *     entryPoint: "/login",
+     *   },
+     *   ```
+     *
      * Le firewall trie par longueur de pattern : `/api/secure/*` tombe donc
      * dans `secure`, sans `anonymous` → 401 avant ton controller. Essaie
      * `GET /api/secure/hello`.

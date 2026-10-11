@@ -47,6 +47,14 @@ export default {
           "^/(login$|nodefony/security/login/|nodefony/test/login-guarded$)",
         authenticators: ["session"],
       },
+      // #548 — une PAGE protégée qui conduit le visiteur anonyme à la page de
+      // connexion (`entryPoint`) quand il navigue ; 401 pour tout autre client.
+      // Banc : `framework/nodefony/tests/integration/entry-point.test.ts`.
+      "test-pages": {
+        pattern: "^/nodefony/test/page-guarded$",
+        authenticators: ["session"],
+        entryPoint: "/login",
+      },
       // dossier = préfixe = nom de zone : capture les routes de `secure/`.
       // mode "first" : session BFF (cookie, J3) OU Basic (RFC 7617) — la
       // session est tentée d'abord (cookie repris AVANT le firewall) ; sans

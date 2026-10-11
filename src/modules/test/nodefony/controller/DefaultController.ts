@@ -151,6 +151,17 @@ class DefaultController extends Controller {
     return this.renderJson({ ok: true });
   }
 
+  // Témoin de la zone `test-pages` (#548) : une page protégée dont la zone
+  // porte `entryPoint`. GET + WEBSOCKET : le banc vérifie aussi que la socket
+  // garde son refus au lieu d'être « redirigée ».
+  @route("page-guarded", {
+    path: "/page-guarded",
+    requirements: { methods: ["GET", "HEAD", "POST", "WEBSOCKET"] },
+  })
+  pageGuarded() {
+    return this.renderJson({ ok: true });
+  }
+
   @route("index2", { path: "/index2" })
   index2() {
     throw new Error("myError", 502);

@@ -14,6 +14,7 @@ import type { ContextType, ISecurityTrace } from "@nodefony/http";
 import { encoderFromConfig } from "@nodefony/user";
 
 import { SecuredArea } from "../src/SecuredArea";
+import { entryPointLocation } from "../src/entryPoint";
 import { LoginThrottler } from "../src/throttle/LoginThrottler";
 import {
   CredentialTransportPolicy,
@@ -900,8 +901,13 @@ class Firewall extends Service implements IFirewall {
 
     // Zero Trust : aucune preuve présentée dans une zone protégée → 401. Refus
     // par POLITIQUE (zone fermée), pas un échec de preuve → outcome `denied`.
+    // Une NAVIGATION vers une zone qui porte `entryPoint` est conduite à la page
+    // de connexion (302) au lieu du défi — c'est toujours un refus : même audit,
+    // même erreur, donc même `onAuthFailure`.
     if (token === null) {
-      this.#setChallenge(context, area);
+      if (!this.#redirectToEntryPoint(context, area)) {
+        this.#setChallenge(context, area);
+      }
       this.#recordAuth(
         context,
         area,
@@ -1305,6 +1311,35 @@ class Firewall extends Service implements IFirewall {
       token = authenticated; // mode "all" : le dernier porte l'identité
     }
     return token;
+  }
+
+  /**
+   * Pose la redirection vers la page de connexion de la zone, quand la requête
+   * refusée est la navigation d'un navigateur. Cold path (refus seulement).
+   *
+   * La réponse est seulement MARQUÉE (`302` + `Location`) : le refus continue
+   * de remonter, et http rend une réponse déjà redirigée telle quelle au lieu
+   * d'un 401. Capability check : un contexte sans `redirect` (WebSocket) garde
+   * son refus.
+   *
+   * @returns `true` si la redirection est posée
+   */
+  #redirectToEntryPoint(context: ContextType, area: ISecuredArea): boolean {
+    if (area.entryPoint === undefined || !("redirect" in context)) return false;
+    const request = context.request;
+    const header = (name: "accept" | "sec-fetch-mode"): string | undefined => {
+      const value: unknown = request.headers[name];
+      return typeof value === "string" ? value : undefined;
+    };
+    const location = entryPointLocation(area.entryPoint, {
+      method: request.method,
+      accept: header("accept"),
+      fetchMode: header("sec-fetch-mode"),
+      path: request.url.pathname + request.url.search,
+    });
+    if (location === null) return false;
+    context.redirect(location, 302);
+    return true;
   }
 
   // Pose le challenge WWW-Authenticate (RFC 9110 §11 : tout 401 DOIT en porter un)

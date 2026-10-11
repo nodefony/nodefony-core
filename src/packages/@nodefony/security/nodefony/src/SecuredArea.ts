@@ -20,6 +20,7 @@ export class SecuredArea implements ISecuredArea {
   readonly host?: string | undefined;
   readonly realtime: boolean;
   readonly resource?: string | undefined;
+  readonly entryPoint?: string | undefined;
   /**
    * Rôles exigés par défaut dans la zone, ou `null` quand elle n'en exige
    * aucun. `null` plutôt qu'un tableau vide : le hot path teste une référence,
@@ -43,6 +44,7 @@ export class SecuredArea implements ISecuredArea {
     this.#hostKey = config.host ? config.host.toLowerCase() : null;
     this.realtime = config.realtime;
     this.resource = config.resource;
+    this.entryPoint = config.entryPoint;
     this.roles = config.roles.length > 0 ? config.roles : null;
   }
 

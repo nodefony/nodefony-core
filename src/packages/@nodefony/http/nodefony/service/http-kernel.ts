@@ -991,6 +991,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // Chaîne de `if` plutôt qu'un `switch (true)` : même aiguillage, mais un
     // discriminant littéral n'a pas de sens pour le contrôle d'exhaustivité.
     if (context instanceof HttpContext) {
+      // Un refus d'authentification dont la réponse est DÉJÀ redirigée est
+      // répondu : le pare-feu conduit une navigation anonyme vers la page de
+      // connexion de sa zone (`entryPoint`) puis laisse remonter le refus, pour
+      // que `onAuthFailure` et le journal le voient. Le rendre en 401
+      // écraserait le 302. Limité au 401 : toute autre erreur levée après une
+      // redirection reste rendue comme une erreur.
+      if (context.isRedirect && (error as { code?: unknown }).code === 401) {
+        if (!(context.finished || context.sended)) await context.send();
+        return context;
+      }
       const result = this.errorRenderer.renderHttp(error, context);
       // Mirror result back onto error so callers / logs see normalised code.
       if (error instanceof HttpError || error instanceof nodefonyError) {
