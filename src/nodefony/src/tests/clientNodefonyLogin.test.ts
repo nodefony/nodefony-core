@@ -31,7 +31,7 @@ interface Reponse {
 }
 type Route = (corps: unknown) => Reponse | "coupure";
 
-const ADMIN = { id: 1, username: "admin", roles: ["ROLE_ADMIN"] };
+const ADMIN = { id: 1, identifier: "admin", roles: ["ROLE_ADMIN"] };
 
 /** Serveur simulé : une table `MÉTHODE chemin → réponse`, et le journal des appels. */
 function serveur(routes: Record<string, Route>) {
@@ -97,7 +97,7 @@ describe("NodefonyLogin — étapes", () => {
       pending: false,
       error: null,
     });
-    expect(fin.user?.username).toBe("admin");
+    expect(fin.user?.identifier).toBe("admin");
     expect(srv.appels[0]!.corps).toEqual({
       username: "admin",
       password: "secret",
@@ -370,7 +370,7 @@ describe("NodefonyLogin — échecs classés", () => {
     const srv = serveur({
       [`POST ${AUTH_LOGIN_PATH}`]: () => ({
         status: 200,
-        body: { user: { id: 1, username: "admin" } },
+        body: { user: { id: 1, identifier: "admin" } },
       }),
     });
     const flow = new NodefonyLogin({ fetch: srv.fetch, passkey: null });
@@ -502,7 +502,7 @@ describe("NodefonyLogin — fournisseurs, session, abonnement", () => {
       }).fetch,
       passkey: null,
     });
-    expect((await ouverte.me())?.username).toBe("admin");
+    expect((await ouverte.me())?.identifier).toBe("admin");
     expect(ouverte.getState().step).toBe("authenticated");
 
     const fermee = new NodefonyLogin({

@@ -55,11 +55,11 @@ function spyService(asks: Ask[], enrolled: Record<string, string[]>) {
 }
 
 /** `AuthFlow` doublé — `me()` décide si l'appelant est déjà authentifié. */
-function spyFlow(me: { username: string } | null) {
+function spyFlow(me: { identifier: string } | null) {
   return {
     ensureSession: async () => null,
     me: async () => me,
-    establishSessionFor: async () => ({ username: "alice" }),
+    establishSessionFor: async () => ({ identifier: "alice" }),
   };
 }
 
@@ -85,7 +85,7 @@ function makeContext(
 function makeController(
   asks: Ask[],
   post: Record<string, unknown>,
-  me: { username: string } | null,
+  me: { identifier: string } | null,
 ): WebAuthnController {
   const context = makeContext(
     {
@@ -151,7 +151,7 @@ describe("WebAuthn login/options — anti-énumération (W3C L3, credential ID p
       asks,
       { username: "admin" },
       {
-        username: "alice",
+        identifier: "alice",
       },
     ).loginOptions()) as unknown as Record<string, unknown>;
 

@@ -59,7 +59,7 @@ const PENDING_MFA_KEY = "mfa:pending";
  */
 export interface ISafeUser {
   id: string;
-  username: string;
+  identifier: string;
   roles: string[];
 }
 
@@ -650,7 +650,7 @@ class AuthFlow extends Service {
 function toSafeUser(user: IUser): ISafeUser {
   return {
     id: user.id,
-    username: user.identifier,
+    identifier: user.identifier,
     roles: [...user.roles],
   };
 }

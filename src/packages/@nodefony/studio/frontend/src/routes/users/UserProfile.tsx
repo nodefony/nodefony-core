@@ -398,7 +398,7 @@ export const UserProfile = observer(() => {
   const [savingRoles, setSavingRoles] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
 
-  const isSelf = !!data && auth.user?.username === data.identifier;
+  const isSelf = !!data && auth.user?.identifier === data.identifier;
 
   const patchUser = async (
     patch: { roles?: string[]; enabled?: boolean; locked?: boolean },

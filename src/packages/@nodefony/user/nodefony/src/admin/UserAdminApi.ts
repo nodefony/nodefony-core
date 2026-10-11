@@ -140,16 +140,9 @@ export function toUserSummary(user: IUser): IUserSummary {
 /** Identité de l'admin appelant (id pour comparer self, label pour l'audit). */
 function adminActor(user: unknown): { id: string | null; label: string } {
   if (user && typeof user === "object") {
-    const u = user as {
-      id?: unknown;
-      identifier?: unknown;
-      username?: unknown;
-    };
+    const u = user as { id?: unknown; identifier?: unknown };
     const id = typeof u.id === "string" ? u.id : null;
-    const label =
-      (typeof u.username === "string" && u.username) ||
-      (typeof u.identifier === "string" && u.identifier) ||
-      "admin";
+    const label = (typeof u.identifier === "string" && u.identifier) || "admin";
     return { id, label };
   }
   return { id: null, label: "admin" };

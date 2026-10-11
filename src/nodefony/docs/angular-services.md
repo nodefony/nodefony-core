@@ -276,7 +276,7 @@ import { injectNodefonyLogin } from "nodefony/angular";
   selector: "app-login",
   template: `
     @if (login.state().step === "authenticated") {
-      <p>Bonjour {{ login.state().user?.username }}</p>
+      <p>Bonjour {{ login.state().user?.identifier }}</p>
     } @else if (login.state().step === "mfa") {
       <input #code autocomplete="one-time-code" />
       <button (click)="login.flow.submitMfaCode(code.value)">Valider</button>

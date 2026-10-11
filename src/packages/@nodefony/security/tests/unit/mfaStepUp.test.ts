@@ -128,7 +128,7 @@ describe("AuthFlow step-up 2FA — login", () => {
     const outcome = await flow.login(asCtx(ctx), "alice", "pw");
     assert.equal(outcome.status, "authenticated");
     assert.equal(
-      outcome.status === "authenticated" && outcome.user.username,
+      outcome.status === "authenticated" && outcome.user.identifier,
       "alice",
     );
     assert.equal(ctx.session!.user, "alice");
@@ -177,7 +177,7 @@ describe("AuthFlow step-up 2FA — completeMfaLogin", () => {
   it("bon code → session ouverte (identité établie), PENDING consommé", async () => {
     const { flow, ctx } = await pending();
     const user = await flow.completeMfaLogin(asCtx(ctx), "123456");
-    assert.equal(user.username, "alice");
+    assert.equal(user.identifier, "alice");
     assert.equal(ctx.session!.user, "alice"); // session établie
     assert.equal(ctx.session!.get(PENDING), null); // défi consommé
   });

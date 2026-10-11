@@ -113,8 +113,7 @@ function pageParams(query: Readonly<Record<string, string | string[]>>): {
  */
 function adminActor(user: unknown): string {
   if (user && typeof user === "object") {
-    const u = user as { username?: unknown; identifier?: unknown };
-    if (typeof u.username === "string" && u.username) return u.username;
+    const u = user as { identifier?: unknown };
     if (typeof u.identifier === "string" && u.identifier) return u.identifier;
   }
   return "admin";

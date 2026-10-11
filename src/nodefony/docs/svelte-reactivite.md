@@ -258,7 +258,7 @@ elle fait suivre l'abonnement.
 </script>
 
 {#if login.state.current.step === "authenticated"}
-  <p>Bonjour {login.state.current.user?.username}</p>
+  <p>Bonjour {login.state.current.user?.identifier}</p>
 {:else if login.state.current.step === "mfa"}
   <input bind:value={code} autocomplete="one-time-code" />
   <button onclick={() => login.flow.submitMfaCode(code)}>Valider</button>

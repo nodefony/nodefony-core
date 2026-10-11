@@ -54,12 +54,8 @@ export function createTestAdminApi(): IAdminApi {
 /** Identifiant lisible de l'IUser sans coupler le module au contrat `IUser`. */
 function identifierOf(user: unknown): string | null {
   if (user && typeof user === "object") {
-    const u = user as {
-      username?: unknown;
-      identifier?: unknown;
-      id?: unknown;
-    };
-    for (const v of [u.username, u.identifier, u.id]) {
+    const u = user as { identifier?: unknown; id?: unknown };
+    for (const v of [u.identifier, u.id]) {
       if (typeof v === "string" && v) return v;
     }
   }

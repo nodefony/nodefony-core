@@ -436,7 +436,7 @@ function actorLabel(user: unknown): string | null {
   if (!user || typeof user !== "object") return null;
   const u = user as {
     getUserIdentifier?: () => string;
-    username?: string;
+    identifier?: string;
     email?: string;
     // Identifiant quelconque (nombre, chaîne, ObjectId Mongo…) : seul son
     // `toString()` compte ici.
@@ -449,7 +449,7 @@ function actorLabel(user: unknown): string | null {
       // identité illisible → retomber sur les champs simples ci-dessous.
     }
   }
-  return u.username ?? u.email ?? (u.id != null ? String(u.id) : null);
+  return u.identifier ?? u.email ?? (u.id != null ? String(u.id) : null);
 }
 
 /**

@@ -19,7 +19,7 @@ import { BigMetric } from "./_kit";
 /** Projection légère de l'identité (miroir de la réponse `/auth/me`). */
 interface MeResponse {
   /** `roles` peut manquer d'une réponse d'une version antérieure du serveur. */
-  user: { id: number | string; username: string; roles?: string[] };
+  user: { id: number | string; identifier: string; roles?: string[] };
 }
 
 // ───────────────────────────── account.profile ─────────────────────────
@@ -35,7 +35,7 @@ function ProfileBody({ source }: WidgetRenderProps<MeResponse>) {
         </ThemeIcon>
         <div style={{ minWidth: 0 }}>
           <Text fw={700} size="lg" truncate>
-            {u.username}
+            {u.identifier}
           </Text>
           <Text size="xs" c="dimmed">
             ID {String(u.id)}

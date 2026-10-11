@@ -55,7 +55,7 @@ export interface IWebAuthnSession {
 
 /** Vue minimale du flux de session BFF (`authFlow`) consommée ici. */
 export interface IWebAuthnBffFlow {
-  me(context: ContextType): Promise<{ username: string } | null>;
+  me(context: ContextType): Promise<{ identifier: string } | null>;
   /**
    * @param reason - facteur d'authentification journalisé par l'audit
    *   (`"webauthn"` ici). Omis, il retombe sur `"federated"`, qui ne distingue
@@ -128,8 +128,8 @@ class WebAuthnController extends SecurityApiController {
     const me = await flow.me(this.context as ContextType);
     if (!me) return this.renderJson({ error: "Unauthorized" }, 401);
     const options = await svc.generateRegistrationOptions({
-      id: me.username,
-      name: me.username,
+      id: me.identifier,
+      name: me.identifier,
     });
     const session = await flow.ensureSession(this.context as ContextType);
     session?.set(REG_CHALLENGE, options.challenge);
@@ -149,7 +149,7 @@ class WebAuthnController extends SecurityApiController {
       const credential = await svc.verifyRegistration(
         this.#body().response,
         challenge,
-        me.username,
+        me.identifier,
         this.#origin(),
       );
       return await this.renderJson({
@@ -184,7 +184,7 @@ class WebAuthnController extends SecurityApiController {
       return this.renderJson({ error: "WebAuthn unavailable" }, 503);
     }
     const me = await flow.me(this.context as ContextType);
-    const options = await svc.generateAuthenticationOptions(me?.username);
+    const options = await svc.generateAuthenticationOptions(me?.identifier);
     // Démarre une session MÊME déconnecté → porte le challenge anti-replay
     // jusqu'à la vérification (sinon « No challenge » au login).
     const session = await flow.ensureSession(this.context as ContextType);
@@ -228,7 +228,7 @@ class WebAuthnController extends SecurityApiController {
     }
     const me = await flow.me(this.context as ContextType);
     if (!me) return this.renderJson({ error: "Unauthorized" }, 401);
-    const creds = await svc.listUserCredentials(me.username);
+    const creds = await svc.listUserCredentials(me.identifier);
     return this.renderJson({
       credentials: creds.map((c) => ({
         id: c.id,
@@ -252,7 +252,7 @@ class WebAuthnController extends SecurityApiController {
     if (typeof id !== "string" || id.length === 0) {
       return this.renderJson({ error: "Not found" }, 404);
     }
-    const ok = await svc.removeUserCredential(me.username, id);
+    const ok = await svc.removeUserCredential(me.identifier, id);
     if (!ok) {
       return this.renderJson({ error: "Not found" }, 404);
     }

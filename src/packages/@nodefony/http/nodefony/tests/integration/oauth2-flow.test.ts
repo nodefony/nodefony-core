@@ -123,10 +123,10 @@ describe("OAuth2 social login — flux BFF (P6 J9)", () => {
     const sessionCookie = sessionCookieOf(cb) ?? cookie;
     const me = await get(ME, { cookie: sessionCookie });
     expect(me.status, "me authentifié").to.equal(200);
-    // /me enveloppe la projection publique : { user: { id, username, roles } }.
-    const u = (me.body as { user?: { username?: string; roles?: string[] } })
+    // /me enveloppe la projection publique : { user: { id, identifier, roles } }.
+    const u = (me.body as { user?: { identifier?: string; roles?: string[] } })
       .user;
-    expect(u?.username).to.equal("oauth-user@test.local");
+    expect(u?.identifier).to.equal("oauth-user@test.local");
     expect(u?.roles, "rôle par défaut OAuth").to.deep.equal(["ROLE_USER"]);
   });
 
@@ -145,12 +145,12 @@ describe("OAuth2 social login — flux BFF (P6 J9)", () => {
 
     expect(meA.status).to.equal(200);
     expect(meB.status).to.equal(200);
-    const userA = (meA.body as { user?: { username?: string } }).user;
-    const userB = (meB.body as { user?: { username?: string } }).user;
+    const userA = (meA.body as { user?: { identifier?: string } }).user;
+    const userB = (meB.body as { user?: { identifier?: string } }).user;
     // Même identifiant → le 2ᵉ login a RETROUVÉ le compte créé au 1ᵉʳ (le lien
     // social est bien persisté ; pas de nouveau provisioning, pas de doublon).
-    expect(userA?.username).to.equal("oauth-user@test.local");
-    expect(userB?.username).to.equal(userA?.username);
+    expect(userA?.identifier).to.equal("oauth-user@test.local");
+    expect(userB?.identifier).to.equal(userA?.identifier);
   });
 
   it("4. state invalide → 302 failureRedirect (anti-CSRF)", async () => {

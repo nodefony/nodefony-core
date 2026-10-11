@@ -353,7 +353,7 @@ function LiveCard() {
           {login.step === "authenticated" && login.user ? (
             <>
               <span className="nf-session" data-open="">
-                connecté — <strong>{login.user.username}</strong>
+                connecté — <strong>{login.user.identifier}</strong>
               </span>
               <button onClick={() => void doLogout()}>Se déconnecter</button>
             </>

@@ -127,9 +127,9 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
   it("login valide → 200 {user} (jamais de hash) + cookie de session HttpOnly", async () => {
     const res = await login("admin", "secret-de-dev-42");
     expect(res.status).to.equal(200);
-    const user = (res.body as { user: { username: string; roles: string[] } })
+    const user = (res.body as { user: { identifier: string; roles: string[] } })
       .user;
-    expect(user.username).to.equal("admin");
+    expect(user.identifier).to.equal("admin");
     expect(user.roles).to.include("ROLE_ADMIN");
     expect(JSON.stringify(res.body)).to.not.match(/\$argon2|\$2[aby]\$/);
     const setCookie = res.headers["set-cookie"];
@@ -144,9 +144,9 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     expect(cookie).to.be.a("string");
     const me = await get(`${AUTH}/me`, { cookie: cookie! });
     expect(me.status).to.equal(200);
-    expect((me.body as { user: { username: string } }).user.username).to.equal(
-      "user",
-    );
+    expect(
+      (me.body as { user: { identifier: string } }).user.identifier,
+    ).to.equal("user");
     const anonymous = await get(`${AUTH}/me`);
     expect(anonymous.status).to.equal(401);
   });

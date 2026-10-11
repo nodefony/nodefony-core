@@ -45,7 +45,8 @@ export type LoginErrorKind =
 /** Identité rendue par le serveur une fois la session ouverte. */
 export interface NodefonyLoginUser {
   readonly id: number | string;
-  readonly username: string;
+  /** Identifiant de connexion (login, e-mail, sujet fédéré) — le même que `IUser.identifier`. */
+  readonly identifier: string;
   readonly email?: string;
   readonly roles: readonly string[];
   readonly [field: string]: unknown;
@@ -185,14 +186,14 @@ function serverMessage(body: unknown): string {
 
 /**
  * L'identité rendue par le serveur a-t-elle la forme promise ? Vérifiée, pas
- * supposée : une réponse sans `username` ni `roles` n'ouvre pas l'état
+ * supposée : une réponse sans `identifier` ni `roles` n'ouvre pas l'état
  * `authenticated`, elle est classée comme une réponse inattendue.
  */
 function isLoginUser(value: unknown): value is NodefonyLoginUser {
   const id = field(value, "id");
   return (
     (typeof id === "string" || typeof id === "number") &&
-    typeof field(value, "username") === "string" &&
+    typeof field(value, "identifier") === "string" &&
     Array.isArray(field(value, "roles"))
   );
 }
@@ -578,7 +579,7 @@ export class NodefonyLogin {
   #authenticated(user: NodefonyLoginUser): NodefonyLoginState {
     return this.#set({
       step: "authenticated",
-      identifier: user.username,
+      identifier: user.identifier,
       pending: false,
       user,
       mfaMethods: [],

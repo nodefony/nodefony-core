@@ -500,7 +500,7 @@ describe("injectNodefonyLogin — Angular", () => {
     await login.flow.login("admin", "secret");
     expect(login.state().step).toBe("mfa");
     await login.flow.submitMfaCode("123456");
-    expect(login.state().user?.username).toBe("admin");
+    expect(login.state().user?.identifier).toBe("admin");
 
     arreter();
     login.flow.back();

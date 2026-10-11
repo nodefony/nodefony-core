@@ -225,7 +225,7 @@ const code = ref("");
 
 <template>
   <p v-if="state.step === 'authenticated'">
-    Bonjour {{ state.user?.username }}
+    Bonjour {{ state.user?.identifier }}
   </p>
   <form
     v-else-if="state.step === 'mfa'"

@@ -182,7 +182,7 @@ interface LiveEvent {
             vient de <code>injectNodefonyLogin</code> (<code>nodefony/angular</code>).
           </p>
           @if (login.state().step === "authenticated" && login.state().user; as user) {
-            <span class="nf-session" data-open>connecté — <strong>{{ user.username }}</strong></span>
+            <span class="nf-session" data-open>connecté — <strong>{{ user.identifier }}</strong></span>
             <button (click)="doLogout()">Se déconnecter</button>
           } @else {
             <span class="nf-session">anonyme</span>

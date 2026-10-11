@@ -522,9 +522,9 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
 
       const me = await app(ME, { cookie: cookieHeader(jar) });
       expect(me.status, "session BFF ouverte").toBe(200);
-      const user = (JSON.parse(me.text) as { user?: { username?: string } })
+      const user = (JSON.parse(me.text) as { user?: { identifier?: string } })
         .user;
-      expect(user?.username, "compte provisionné depuis l'ID token").toBe(
+      expect(user?.identifier, "compte provisionné depuis l'ID token").toBe(
         realmUser().email,
       );
     });
@@ -541,7 +541,7 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
       collectCookies(cb, jar);
       const me = await app(ME, { cookie: cookieHeader(jar) });
       const sessionUser = (
-        JSON.parse(me.text) as { user?: { id?: unknown; username?: string } }
+        JSON.parse(me.text) as { user?: { id?: unknown; identifier?: string } }
       ).user;
       expect(sessionUser?.id, "session ouverte").toBeDefined();
 
@@ -561,7 +561,7 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         identifier?: string;
       };
       expect(apiUser.identifier, "même identifiant").toBe(
-        sessionUser?.username,
+        sessionUser?.identifier,
       );
       expect(apiUser.id, "même compte local").toBe(sessionUser?.id);
     });

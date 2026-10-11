@@ -292,7 +292,7 @@ const doSay = () =>
           vient de <code>useNodefonyLogin</code> (<code>nodefony/vue</code>).
         </p>
         <template v-if="login.step === 'authenticated' && login.user">
-          <span class="nf-session" data-open>connecté — <strong>{{ login.user.username }}</strong></span>
+          <span class="nf-session" data-open>connecté — <strong>{{ login.user.identifier }}</strong></span>
           <button @click="doLogout">Se déconnecter</button>
         </template>
         <template v-else>

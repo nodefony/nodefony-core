@@ -74,7 +74,7 @@ export const Users = observer(() => {
   const store = useStore();
   const auth = useAuth();
   const notifications = useNotifications();
-  const currentUser = auth.user?.username ?? null;
+  const currentUser = auth.user?.identifier ?? null;
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
 

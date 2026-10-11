@@ -49,7 +49,7 @@ describe("useNodefonyLogin — React", () => {
     await act(() => flow.submitMfaCode("123456"));
     expect(vus.at(-1)!.state).toMatchObject({
       step: "authenticated",
-      user: { username: "admin" },
+      user: { identifier: "admin" },
     });
     expect(new Set(vus.map((v) => v.flow)).size).toBe(1);
     expect(banc.calls).toHaveLength(2);

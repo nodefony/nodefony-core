@@ -5,7 +5,7 @@ import SecurityApiController from "../src/SecurityApiController";
 
 /** Vue minimale de l'utilisateur courant (`authFlow.me`) — anti-IDOR. */
 interface ISafeUserLike {
-  username: string;
+  identifier: string;
 }
 
 /** Vue locale du flux de session BFF (service `authFlow`, posé par security). */
@@ -143,7 +143,7 @@ class TotpController extends SecurityApiController {
     const flow = this.#flow();
     if (!flow) return null;
     const me = await flow.me(this.context as ContextType);
-    return me && typeof me.username === "string" ? me.username : null;
+    return me && typeof me.identifier === "string" ? me.identifier : null;
   }
 }
 

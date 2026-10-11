@@ -341,7 +341,7 @@ function reqP(
     params,
     query: {},
     body,
-    user: { username: "admin1" },
+    user: { identifier: "admin1" },
     roles: ["ROLE_NODEFONY_ADMIN"],
   };
 }
@@ -352,7 +352,7 @@ function reqQ(query: Record<string, string>): IAdminRequest {
     params: {},
     query,
     body: null,
-    user: { username: "admin1" },
+    user: { identifier: "admin1" },
     roles: ["ROLE_NODEFONY_ADMIN"],
   };
 }

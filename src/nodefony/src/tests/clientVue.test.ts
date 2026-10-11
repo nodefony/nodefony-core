@@ -400,7 +400,7 @@ describe("useNodefonyLogin — Vue", () => {
     await flow.login("admin", "secret");
     expect(state.value.step).toBe("mfa");
     await flow.submitMfaCode("123456");
-    expect(state.value.user?.username).toBe("admin");
+    expect(state.value.user?.identifier).toBe("admin");
 
     portee.stop();
     flow.back();

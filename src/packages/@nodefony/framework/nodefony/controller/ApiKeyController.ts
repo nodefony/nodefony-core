@@ -6,11 +6,11 @@ import { collectDeclaredApiScopes } from "../src/scopeCatalog";
 
 /**
  * Vue MINIMALE de l'utilisateur courant exposée par `authFlow.me` (P6 J3) — on ne
- * lit que l'identifiant (= `IUser.identifier`, porté par `username`), qui devient
+ * lit que l'identifiant (= `IUser.identifier`), qui devient
  * le `subjectId` de la clé (cohérent avec le `sub` d'un JWT).
  */
 interface ISafeUserLike {
-  username: string;
+  identifier: string;
 }
 
 /** Vue locale du flux de session BFF (service `authFlow`, posé par security). */
@@ -159,7 +159,7 @@ class ApiKeyController extends SecurityApiController {
     const flow = this.#flow();
     if (!flow) return null;
     const me = await flow.me(this.context as ContextType);
-    return me && typeof me.username === "string" ? me.username : null;
+    return me && typeof me.identifier === "string" ? me.identifier : null;
   }
 
   // 400 → message de validation (input, jamais un secret) ; 409 → plafond ;

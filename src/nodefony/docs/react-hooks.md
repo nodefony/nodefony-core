@@ -578,7 +578,7 @@ export function Login() {
   const [code, setCode] = useState("");
 
   if (state.step === "authenticated")
-    return <p>Bonjour {state.user?.username}</p>;
+    return <p>Bonjour {state.user?.identifier}</p>;
   if (state.step === "mfa") {
     return (
       <form

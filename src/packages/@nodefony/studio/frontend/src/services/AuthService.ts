@@ -20,7 +20,7 @@ import type { ApiClient } from "./ApiClient";
 
 export interface AuthUser {
   id: number | string;
-  username: string;
+  identifier: string;
   email?: string;
   roles: string[];
   currentRole?: string;

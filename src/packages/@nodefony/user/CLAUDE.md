@@ -29,8 +29,10 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
   pas à voir le credential ; security tape sur un contrat typé → zéro `any`/downcast. C'est LA pièce
   de symbiose user↔security.
 - **`AnonymousUser` = singleton gelé** (`anonymousUser`) + tableau de rôles partagé gelé : zéro
-  allocation par requête non authentifiée (hot path). `@CurrentUser` retourne `IUser | AnonymousUser`,
-  jamais `null` (Zero Trust : un visiteur EST un utilisateur anonyme).
+  allocation par requête non authentifiée (hot path). Il vit dans l'ALS de la requête (Zero
+  Trust : un visiteur EST un utilisateur anonyme), mais `@CurrentUser`, `this.user` et
+  `authenticatedUser()` ne le rendent PAS : la règle « qui est connecté ? » est celle du cœur
+  (`RequestContext.getAuthenticatedUser`, qui part du jeton).
 - **Champs anti-migration** sur `BaseUser` : `socialProviders: Array<{provider,providerId,createdAt}>`
   (JSON, **pas** de colonnes `googleId/githubId`), `metadata: Record<string,unknown>` (PAS `any`),
   `currentRole` (profil actif session, P5.11), `password?: string` (nullable = 100% OAuth possible).

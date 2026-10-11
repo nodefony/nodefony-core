@@ -221,7 +221,7 @@ function req(
     params,
     query,
     body,
-    user: { username: "admin1" },
+    user: { identifier: "admin1" },
     roles: ["ROLE_NODEFONY_ADMIN"],
   };
 }

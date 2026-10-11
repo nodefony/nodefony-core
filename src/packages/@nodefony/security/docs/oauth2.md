@@ -269,7 +269,7 @@ curl -si -b /tmp/jar -c /tmp/jar \
 
 # 3) L'identité est résolue comme après un login classique
 curl -s -b /tmp/jar http://localhost:5151/nodefony/security/api/auth/me
-# {"user":{"username":"jane@example.com","roles":["ROLE_USER"]}}
+# {"user":{"id":"…","identifier":"jane@example.com","roles":["ROLE_USER"]}}
 
 # 4) Ce que l'UI de login interroge pour n'afficher que des boutons vivants
 curl -s http://localhost:5151/nodefony/security/api/oauth2/providers

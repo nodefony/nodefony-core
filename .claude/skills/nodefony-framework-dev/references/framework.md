@@ -470,7 +470,7 @@ une route, on déclare une garde ; on ne retire pas celle de la zone.
 Logique normative **partagée** = `nodefony/src/idempotency.ts` : `evaluateIdempotency(opts) →
 IdempotencyVerdict` (`execute`|`guarded{key}`|`replay{response}`|`reject{status,message}`) +
 `resolveIdempotencyKey(alsKey, header)` (ALS > header, borne `IDEMPOTENCY_KEY_MAX=255`) +
-`resolveIdentity(user)` (username/identifier/id, fallback `getUserId()`, `null`=pas de cache) +
+`resolveIdentity()` (`identifier` de `RequestContext.getAuthenticatedUser()`, l'anonyme n'a pas d'identité, `null`=pas de cache) +
 `computeFingerprint(parts)` (SHA-256) + `isMutationMethod(m)` (POST/PUT/PATCH/DELETE). `requiredEffective
 = required || isWs` (WS toujours strict).
 

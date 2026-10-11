@@ -39,7 +39,7 @@ export function loginFetchBench(): ILoginFetchBench {
       const body = typeof init.body === "string" ? init.body : "{}";
       const code = (JSON.parse(body) as { code?: string }).code;
       return code === "123456"
-        ? json(200, { user: { id: 1, username: "admin", roles: [] } })
+        ? json(200, { user: { id: 1, identifier: "admin", roles: [] } })
         : json(401, { error: "Invalid credentials" });
     }
     return json(404, { error: "Not Found" });

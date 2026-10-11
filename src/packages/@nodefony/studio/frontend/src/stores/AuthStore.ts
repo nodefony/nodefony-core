@@ -80,7 +80,7 @@ export class AuthStore {
   }
 
   get displayName(): string {
-    return this.user?.username ?? "guest";
+    return this.user?.identifier ?? "guest";
   }
 
   /** Rôles de l'utilisateur courant (projection serveur), sinon tableau vide. */
@@ -116,7 +116,7 @@ export class AuthStore {
         this.status = "authenticated";
         this.error = null;
       });
-      rememberUser(user.username); // social/passkey inclus (résolu via /auth/me)
+      rememberUser(user.identifier); // social/passkey inclus (résolu via /auth/me)
       // Mode social posé avant la redirection pleine page → promu UNIQUEMENT ici
       // (sur succès) → une annulation côté fournisseur ne fausse pas le mode affiché.
       try {
@@ -158,7 +158,7 @@ export class AuthStore {
         this.user = result.user;
         this.status = "authenticated";
       });
-      rememberUser(result.user.username);
+      rememberUser(result.user.identifier);
       rememberMethod("password");
       return "authenticated";
     } catch (e) {
@@ -185,7 +185,7 @@ export class AuthStore {
         this.status = "authenticated";
         this.mfaPending = false;
       });
-      rememberUser(user.username);
+      rememberUser(user.identifier);
       rememberMethod("password");
     } catch (e) {
       runInAction(() => {
@@ -218,7 +218,7 @@ export class AuthStore {
         this.user = user;
         this.status = "authenticated";
       });
-      rememberUser(user.username);
+      rememberUser(user.identifier);
       rememberMethod("passkey");
     } catch (e) {
       runInAction(() => {

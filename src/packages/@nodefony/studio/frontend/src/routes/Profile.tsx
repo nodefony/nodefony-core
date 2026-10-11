@@ -73,7 +73,7 @@ export const Profile = observer(() => {
   );
   const { data, loading, error, reload } = useResource(fetcher);
 
-  const identifier = data?.identifier ?? auth.user?.username ?? "—";
+  const identifier = data?.identifier ?? auth.user?.identifier ?? "—";
   const roles = data?.roles ?? auth.roles;
   const currentRole = data?.currentRole ?? null;
   const social = data?.socialProviders ?? [];

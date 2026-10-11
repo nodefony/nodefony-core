@@ -77,7 +77,7 @@ export const Sessions = observer(() => {
   const store = useStore();
   const auth = useAuth();
   const notifications = useNotifications();
-  const currentUser = auth.user?.username ?? null;
+  const currentUser = auth.user?.identifier ?? null;
   const isAdmin = hasRole(auth.roles, ADMIN_ROLE);
   const canMine = currentUser !== null;
 

@@ -30,7 +30,7 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   verifier → `regenerateId()` INCONDITIONNEL + `storage.destroy(oldId)` (anti-fixation OWASP) +
   `save(identifier)`. Session stocke l'IDENTIFIANT seul ; me/SessionAuthenticator re-fetch provider
   à CHAQUE requête (`resolveSessionIdentity` — rôles frais, révocation immédiate). `ISafeUser`
-  projection {id, username, roles} — JAMAIS l'entité (hash).
+  projection {id, identifier, roles} — JAMAIS l'entité (hash).
 - `SessionAuthenticator` ("session", J3) : supports = `context.session?.user` non vide (session
   reprise par le pipeline AVANT firewall) ; pas de `challenge()` (401 nu, pas de popup).
 - Endpoints HTTP : `SessionAuthController` (@nodefony/framework) `/nodefony/security/api/auth/

@@ -66,7 +66,7 @@ describe("routes de session — aucune réponse en cache partagé", () => {
   it("🔴 `me` avec session : l'identité part en `no-store`", async () => {
     const res = await call("GET", `${AUTH}/me`, { cookie: await session() });
     expect(res.status).toBe(200);
-    expect(res.body).toContain('"username":"user"');
+    expect(res.body).toContain('"identifier":"user"');
     expect(res.headers["cache-control"]).toBe("no-store");
   });
 

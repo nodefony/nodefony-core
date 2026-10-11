@@ -300,7 +300,7 @@
         vient de <code>nodefonyLogin</code> (<code>nodefony/svelte</code>).
       </p>
       {#if login.state.current.step === "authenticated" && login.state.current.user}
-        <span class="nf-session" data-open>connecté — <strong>{login.state.current.user.username}</strong></span>
+        <span class="nf-session" data-open>connecté — <strong>{login.state.current.user.identifier}</strong></span>
         <button onclick={doLogout}>Se déconnecter</button>
       {:else}
         <span class="nf-session">anonyme</span>

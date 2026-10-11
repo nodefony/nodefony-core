@@ -598,7 +598,7 @@ describe("page de connexion — contrat avec le script du cœur", () => {
       calls.push(typeof input === "string" ? input : "requête");
       return Promise.resolve(
         new Response(
-          JSON.stringify({ user: { id: 1, username: "admin", roles: [] } }),
+          JSON.stringify({ user: { id: 1, identifier: "admin", roles: [] } }),
           {
             status: 200,
             headers: { "content-type": "application/json" },
@@ -668,7 +668,7 @@ describe("page de connexion — passkey, avec le vrai script", () => {
       calls.push(url);
       const body = url.endsWith("/options")
         ? { challenge: "c" }
-        : { user: { id: 1, username: "admin", roles: [] } };
+        : { user: { id: 1, identifier: "admin", roles: [] } };
       return Promise.resolve(
         new Response(JSON.stringify(body), {
           status: 200,
