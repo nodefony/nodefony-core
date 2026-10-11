@@ -392,9 +392,9 @@ Tu n'ouvres jamais un scope toi-même dans une application : le pipeline le fait
 
 - **HTTP** : ouvert à l'entrée de chaque requête par `HttpKernel.handle()` (`enterScope`, `http-kernel.ts:827`),
   refermé au démontage **après** les hooks `onAfterResponse` et `onFinish`
-  dans `HttpKernel.releaseHttpContext()` (`leaveScope`, `http-kernel.ts:1425`) — y compris quand un hook
-  lève (`failTeardownHttp()`, `http-kernel.ts:1447`).
-- **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:1936`),
+  dans `HttpKernel.releaseHttpContext()` (`leaveScope`, `http-kernel.ts:1435`) — y compris quand un hook
+  lève (`failTeardownHttp()`, `http-kernel.ts:1457`).
+- **WebSocket** : ouvert au handshake par `HttpKernel.onWebsocketRequest()` (`enterScope`, `http-kernel.ts:1946`),
   refermé à la fermeture de la socket.
 - Le pipeline y pose `context` (`set("context")`, `Context.ts:311`) puis `controller` (`Resolver.ts:396`). Le
   `resolver` n'y est **pas** : c'est un champ du contexte (`context.resolver`).

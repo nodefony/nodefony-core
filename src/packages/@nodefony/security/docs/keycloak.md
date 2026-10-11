@@ -533,7 +533,7 @@ keycloak: {
 - **Rôles de plateforme (`ROLE_NODEFONY_*`) refusés par défaut.** Ils ouvrent la console
   d'administration, la génération de code, les secrets : les faire venir de Keycloak fait de
   l'administrateur du realm un administrateur de l'instance. La table qui en contient un refuse
-  le démarrage (`config.ts:1181`) — sauf `allowPlatformRoles: true` ÉCRIT sur le fournisseur, que
+  le démarrage (`config.ts:1187`) — sauf `allowPlatformRoles: true` ÉCRIT sur le fournisseur, que
   chaque démarrage rappelle par un avertissement. Sinon, ce rôle se donne à la main
   (`security:user:add --admin`, console d'administration).
 

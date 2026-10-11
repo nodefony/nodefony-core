@@ -489,7 +489,7 @@ to be below 50`. Rien n'avait régressé — la fonction visée n'a aucune expre
   la SONDE, jamais sur le titre de la tâche.
 - `[1× — 2026-07-30f]` **Un commentaire de test dit ce qu'il ATTEND ; seul le code dit ce qu'il
   FAIT.** Soupçon de brèche CSWSH (`realtime.csrf.checkOrigin.enabled=false` par défaut) : faux.
-  Le socle `http-kernel.ts:1586` valide l'Origin de tout handshake, same-origin, close 1008. La
+  Le socle `http-kernel.ts:1596` valide l'Origin de tout handshake, same-origin, close 1008. La
   conclusion « brèche » aurait produit une tâche de banc exigeant une protection inutile.
 - `[1× — 2026-07-30e]` 🔴 **Un daemon de dev qui tourne RÉÉCRIT l'artefact qu'on s'apprête à
   mesurer.** Un `nodefony-dev-supervisor` vieux de 2 h 16 rebâtissait le core à chaque `Edit` : ma

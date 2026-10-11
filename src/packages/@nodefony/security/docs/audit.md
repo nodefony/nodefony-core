@@ -135,7 +135,7 @@ lourds s'enregistrent depuis **leur** module. Un
 ## 🚀 Démarrage rapide
 
 Dans une app générée par `nodefony create app`, l'audit est **déjà actif** (`enabled: true` par
-défaut, `config.ts:751`) sur le store que résout `auto` : la base SQLite locale de l'application
+défaut, `config.ts:757`) sur le store que résout `auto` : la base SQLite locale de l'application
 générée, la mémoire seulement si aucun ORM n'est chargé. Voici le parcours complet : configurer, émettre,
 relire.
 
@@ -383,15 +383,15 @@ Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non auto
 ### `auth` — la chaîne d'authentification
 
 Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recordAuth()`
-(`firewall.ts:983`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
+(`firewall.ts:989`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
 
-- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:818`) ;
-- `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:807`) ;
+- `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:819`) ;
+- `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:808`) ;
 - `auth.unverifiable` — le vérificateur de jetons est indisponible : réponse 503, sans défi
-  (`firewall.ts:812`) ;
+  (`firewall.ts:813`) ;
 - `auth.denied` / `no_credentials` — Zero Trust : rien n'a été présenté sur une zone protégée
-  (`firewall.ts:822`) ;
-- `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts:850`).
+  (`firewall.ts:823`) ;
+- `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts:851`).
 
 Le parcours de login BFF émet en parallèle son propre vocabulaire depuis `AuthFlow` :
 `login.failure` sur identité inconnue (`authFlow.ts:125`) ou mot de passe faux (`authFlow.ts:153`),
@@ -416,7 +416,7 @@ Un seul événement, mais c'est le plus parlant : `access.denied`, émis par le 
 
 ### `ws` — le verrou de frame WebSocket
 
-`frame.denied` est émis par le rapporteur branché sur le verrou de frame (`firewall.ts:307`) quand une
+`frame.denied` est émis par le rapporteur branché sur le verrou de frame (`firewall.ts:308`) quand une
 socket tente un `api.request` vers une zone protégée ou s'abonne à un canal interdit. La frame ne
 porte ni IP ni `requestId` — acteur et cible suffisent.
 
@@ -466,7 +466,7 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:983`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:378`).
+(`firewall.ts:989`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:379`).
 Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:333`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et
@@ -491,8 +491,8 @@ jamais faire tomber ce qu'on supervise.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `auditSchema` (`config.ts:910`), rattaché à la racine sous la clé `audit`
-(`config.ts:1423`).
+Table dérivée du schéma Zod `auditSchema` (`config.ts:916`), rattaché à la racine sous la clé `audit`
+(`config.ts:1429`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
@@ -552,7 +552,7 @@ Quatre pièces, quatre responsabilités :
   **`append` est la seule écriture** : ni `update`, ni `delete` ciblé. L'immuabilité EST la garantie
   d'audit.
 - **`createAuditBridge()`** (`auditBridge.ts:53`) — le pont vers le canal WS `nodefony:audit`
-  (`auditBridge.ts:8`), enregistré comme canal **système** par le firewall (`firewall.ts:387`) et donc
+  (`auditBridge.ts:8`), enregistré comme canal **système** par le firewall (`firewall.ts:388`) et donc
   gardé par le plancher `security:` → `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:106`).
 
 ### La lecture paginée — pourquoi un curseur et pas un décalage
@@ -665,14 +665,14 @@ Deux autres propriétés de sécurité valent d'être connues :
 
 | Exigence                                  | Norme                             | Comment le code s'y conforme                                                      |
 | ----------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------- |
-| Journaliser les échecs d'authentification | OWASP Logging Cheat Sheet         | `auth.failure`/`auth.throttled`/`auth.denied` (`firewall.ts:710`)                 |
+| Journaliser les échecs d'authentification | OWASP Logging Cheat Sheet         | `auth.failure`/`auth.throttled`/`auth.denied` (`firewall.ts:711`)                 |
 | Journaliser les refus d'autorisation      | OWASP A09:2021                    | `access.denied` sur tout refus du jury (`authorization.ts:130`)                   |
 | Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts:49`)                                 |
 | Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts:61`) |
 | Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts:48`)                |
-| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:939`)                       |
+| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:945`)                       |
 | Détection de rejeu de jeton               | RFC 9700 §4.14                    | `token.reuse_detected` + coupure de famille (`tokenService.ts:585`)               |
-| Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:941`)                   |
+| Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:947`)                   |
 
 ## 📡 Observabilité — Studio
 

@@ -397,7 +397,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 
 - Enregistré par le module drizzle (`drizzle/nodefony/registerStores.ts:261`).
 - Élu par `store:"auto"` dès qu'une infra database SQL est déclarée ; sinon sqlite local si drizzle
-  est chargé (`config.ts:446-451`).
+  est chargé (`config.ts:452-457`).
 - Pagination **offset + total** (helper `paginate()` d'orm-core) ; e2e sur PostgreSQL et MySQL réels.
 
 ### `mongoose` — MongoDB
@@ -465,33 +465,33 @@ un futur worker cron — poser alors `gcIntervalS: 0` (`tokenService.ts:338`).
 
 ## ⚙️ Configuration
 
-Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:367-443`) et `tokenStoreSchema`
-(`config.ts:444-476`), défauts inclus.
+Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:373-449`) et `tokenStoreSchema`
+(`config.ts:450-482`), défauts inclus.
 
 ### `jwt.*`
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
 | --- | --- | --- | --- |
-| `enabled` | boolean | `true` | Active signature + refresh (`config.ts:369`) |
+| `enabled` | boolean | `true` | Active signature + refresh (`config.ts:375`) |
 | `alg` | `EdDSA` \| `RS256` | `EdDSA` | `RS256` = slot non câblé (`jwtRuntime.ts:21`) |
-| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts:371`) |
-| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:376`) |
-| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:381`) |
+| `accessTtlS` | number (s) | `900` | TTL de l'access token — 15 min (`config.ts:377`) |
+| `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:382`) |
+| `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:387`) |
 | `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
-| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:397`) |
+| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:403`) |
 | `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
-| `keystore.keySetJson` | string? | — | JWK Set privé partagé par tous les process (`NF_JWT_KEYSET`) — SECRET, forme vérifiée au démarrage (`security/nodefony/config/config.ts:405`) |
-| `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600, création exclusive — dev, ou serveur unique à disque persistant (`config.ts:428`) |
+| `keystore.keySetJson` | string? | — | JWK Set privé partagé par tous les process (`NF_JWT_KEYSET`) — SECRET, forme vérifiée au démarrage (`security/nodefony/config/config.ts:411`) |
+| `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600, création exclusive — dev, ou serveur unique à disque persistant (`config.ts:434`) |
 
 ### `tokenStore.*`
 
 | Option                 | Type       | Défaut   | Effet                                                                                 |
 | ---------------------- | ---------- | -------- | ------------------------------------------------------------------------------------- |
-| `store`                | string     | `"auto"` | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:446-451`)    |
-| `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts:452`) |
-| `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts:460`)              |
-| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:466`)              |
+| `store`                | string     | `"auto"` | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:452-457`)    |
+| `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts:458`) |
+| `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts:466`)              |
+| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:472`)              |
 
 ## 📜 Normes appliquées
 

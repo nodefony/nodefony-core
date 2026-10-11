@@ -399,7 +399,7 @@ Capte les attributs `ROLE_*` (`RoleVoter.supports()`, `RoleVoter.ts:25-27`) et v
   default-DENY du jury qui ferme, pas ce voter. C'est aussi ce qui rend l'OR
   (`@IsGranted(["A","B"])`) possible.
 - La hiérarchie est lue **en lazy** depuis le container — clé `roleHierarchy`
-  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:209`).
+  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:210`).
 - Sync par nature → `Promise.resolve`, pas de wrapper `async` inutile (`RoleVoter.ts:36-38`).
 
 #### Deux échelles de rôles — plateforme et organisation
@@ -519,7 +519,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
   et `IRealtimeToken` (WS) (`authorization.ts:119-122`).
 - **Le verrou de frame** (canaux realtime) applique son RBAC par canal avec la **même
   hiérarchie** : `satisfies()` (`frameAuthorizer.ts:290`) délègue à `Firewall.hasRole()`
-  (`firewall.ts:520`) — les rôles exigés par un canal héritent comme partout ailleurs.
+  (`firewall.ts:521`) — les rôles exigés par un canal héritent comme partout ailleurs.
 
 ## 📜 Normes appliquées
 

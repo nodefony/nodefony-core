@@ -287,8 +287,8 @@ arbitraire. Chaque couche y dépose ce qui la concerne, parmi les clés ci-desso
 | `requestId`      | le serveur HTTP/WS                 | corrélation des logs, en-tête de réponse, suivi de requête                  |
 | `scheme`         | le serveur HTTP/WS                 | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
 | `traceparent`    | le serveur HTTP/WS                 | trace distribuée W3C, honorée si le client l'envoie                         |
-| `user`           | le firewall après auth             | identité résolue — `firewall.ts:972`                                        |
-| `token`          | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:845`        |
+| `user`           | le firewall après auth             | identité résolue — `firewall.ts:978`                                        |
+| `token`          | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:846`        |
 | `context`        | le serveur HTTP/WS                 | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
 | `scope`          | le serveur HTTP/WS, le pont WS-RPC | scope DI de la requête — le lire par `getScope()` (`RequestContext.ts:321`) |
 | `queries`        | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:98`)                 |
@@ -321,8 +321,8 @@ qui ouvre quoi.
 <!-- prettier-ignore -->
 | Transport | Ouverte par | Ce que la bulle couvre |
 | --- | --- | --- |
-| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1522`) | CORS, routage, firewall, ton action, rendu |
-| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1953`) | poignée de main, firewall, **et toutes les trames** |
+| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1532`) | CORS, routage, firewall, ton action, rendu |
+| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1963`) | poignée de main, firewall, **et toutes les trames** |
 | WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:1070`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:545`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
@@ -347,7 +347,7 @@ problème par construction.
 C'est l'usage le plus subtil du payload, et le patron à copier pour tout observateur.
 
 Le serveur alloue `queries` (`RequestContext.ts:98`) **uniquement quand le profiler est actif**,
-c'est-à-dire en développement (`http-kernel.ts:1366`). En production, la clé est simplement absente.
+c'est-à-dire en développement (`http-kernel.ts:1376`). En production, la clé est simplement absente.
 Cette absence **est** le signal : les adapters ORM n'ont aucun réglage à lire.
 
 ```mermaid
@@ -389,7 +389,7 @@ Ce que ça implique concrètement :
 - **Entre requêtes** : aucun partage. La bulle de A est invisible depuis B, même si A et B
   s'entrelacent sur des dizaines de `await`.
 - **À l'intérieur d'une requête** : le payload est **un seul objet, partagé par référence**. C'est
-  ce qui permet au firewall d'appeler `set("user", …)` en milieu de pipeline (`firewall.ts:919`) et
+  ce qui permet au firewall d'appeler `set("user", …)` en milieu de pipeline (`firewall.ts:925`) et
   de rendre l'identité visible à tout ce qui tourne déjà dans la même bulle, sans rien rouvrir.
 - **Après `run()`** : la bulle est refermée. `get()` rend de nouveau `undefined` — pas la valeur
   précédente.
@@ -465,8 +465,8 @@ chaîne, par le gate mémoire du pipeline (skill `nodefony-check-memory-health`)
 
 ## 🔐 Sécurité — l'identité vit dans la bulle
 
-Après authentification, le firewall dépose dans le payload l'utilisateur (`firewall.ts:628`) **et le
-jeton complet** — rôles, périmètres, attributs (`firewall.ts:632`). Quatre conséquences à assumer.
+Après authentification, le firewall dépose dans le payload l'utilisateur (`firewall.ts:629`) **et le
+jeton complet** — rôles, périmètres, attributs (`firewall.ts:633`). Quatre conséquences à assumer.
 
 1. **Tout ce qui tourne dans la bulle peut lire l'identité.** Y compris du code que tu appelles sans
    l'avoir écrit. C'est la contrepartie de la commodité : le payload n'est pas un coffre-fort. On y

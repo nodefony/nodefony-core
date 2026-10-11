@@ -271,7 +271,7 @@ choisir comment leurs mots de passe sont rangés, créer un compte et le retrouv
 
 L'encodeur ne se configure pas dans ce module : il est **dérivé de la config sécurité**, parce que
 c'est une politique de sécurité. Le firewall lit la section `encoders` et pose le service
-`passwordEncoder` dans le container (`service/firewall.ts:414`).
+`passwordEncoder` dans le container (`service/firewall.ts:415`).
 
 ```typescript
 // nodefony.config.ts — extrait du manifeste `modules`
@@ -289,7 +289,7 @@ use("@nodefony/security", {
 
 > [!NOTE]
 > Sans section `encoders`, le défaut du schéma Zod est **déjà** un Argon2id sûr
-> (`security/nodefony/config/config.ts:1374`). Tu ne déclares cette section que pour ajouter un format
+> (`security/nodefony/config/config.ts:1380`). Tu ne déclares cette section que pour ajouter un format
 > legacy, ou pour ajuster les coûts.
 
 ### 2. Déclarer le service `users` (`nodefony/security/provisionUsers.ts`)
@@ -631,7 +631,7 @@ Des coûts **supérieurs** ne déclenchent rien — on ne rétrograde jamais une
 
 ### Le tableau des paramètres
 
-Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:1374`) — la source
+Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:1380`) — la source
 unique des bornes et des défauts.
 
 | Option        | Type                     | Défaut     | Bornes    | Effet                                            |

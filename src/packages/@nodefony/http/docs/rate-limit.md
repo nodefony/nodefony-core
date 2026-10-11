@@ -55,7 +55,7 @@ flowchart TD
 Trois idées à retenir :
 
 1. **La clé est l'IP, pas l'utilisateur.** On borne du **trafic**, pas des identités. L'IP est
-   résolue exactement comme pour les logs et l'audit (`resolveForwarded()`, `http-kernel.ts:1142`) —
+   résolue exactement comme pour les logs et l'audit (`resolveForwarded()`, `http-kernel.ts:1152`) —
    non falsifiable tant que `trustProxy` n'accorde pas sa confiance à un proxy.
 2. **Le verdict porte tout.** Un seul appel `hit(key)` (`IRateLimitStore.ts:79`) rend un
    `RateLimitVerdict` (`IRateLimitStore.ts:20`) qui contient déjà limite, restant, reset et
@@ -118,7 +118,7 @@ court intervalle (`MemoryRateLimitStore.ts:29`). Acceptable pour une défense de
 _sliding window_ viendrait en option si le besoin s'en fait sentir.
 
 **Refoulé avant toute allocation.** Le verdict est rendu **avant** le contexte, la portée DI et l'ALS
-(`http-kernel.ts:1141`) : un flood coûte un `Map.get` et rien d'autre. Le contrat `hit()` est
+(`http-kernel.ts:1151`) : un flood coûte un `Map.get` et rien d'autre. Le contrat `hit()` est
 **synchrone** à dessein (`IRateLimitStore.ts:8`) — aucune `Promise`, aucune microtask sur le chemin de
 chaque requête.
 
@@ -178,8 +178,8 @@ X-RateLimit-Reset: 1753082460
 Retry-After: 42
 ```
 
-- `X-RateLimit-Remaining` : requêtes restantes dans la fenêtre (`http-kernel.ts:1151`).
-- `X-RateLimit-Reset` : **epoch en secondes** de la fin de fenêtre (`http-kernel.ts:1151`).
+- `X-RateLimit-Remaining` : requêtes restantes dans la fenêtre (`http-kernel.ts:1161`).
+- `X-RateLimit-Reset` : **epoch en secondes** de la fin de fenêtre (`http-kernel.ts:1161`).
 - `Retry-After` (sur le `429` seulement) : secondes à attendre, **jamais 0** — un `Retry-After: 0`
   relancerait un client bien élevé immédiatement (`MemoryRateLimitStore.ts:80`).
 
@@ -206,9 +206,9 @@ Autour de ce cœur, le kernel orchestre le cycle de vie :
 - **Construction / reconfiguration** : `configureRateLimit()` (`http-kernel.ts:485`) instancie le store
   depuis la config (`windowMs = windowS × 1000`, `http-kernel.ts:454`) et arme un `GcScheduler`
   (`http-kernel.ts:490`) qui **purge les fenêtres expirées** hors du chemin chaud.
-- **Émission HTTP** : sous le quota, les en-têtes `X-RateLimit-*` sont posés (`http-kernel.ts:1151`) et
-  la requête continue ; au-delà, `Retry-After` (`http-kernel.ts:1158`) puis `writeHead(429)`
-  (`http-kernel.ts:1163`) — corps vide, on ne journalise pas chaque rejet (amplificateur sous flood).
+- **Émission HTTP** : sous le quota, les en-têtes `X-RateLimit-*` sont posés (`http-kernel.ts:1161`) et
+  la requête continue ; au-delà, `Retry-After` (`http-kernel.ts:1168`) puis `writeHead(429)`
+  (`http-kernel.ts:1173`) — corps vide, on ne journalise pas chaque rejet (amplificateur sous flood).
 - **Borne mémoire** : au cap `maxTracked`, le store purge les expirées puis évince en **FIFO**
   (`#evict`, `MemoryRateLimitStore.ts:169`) — la mémoire ne dérive jamais.
 
@@ -242,19 +242,19 @@ Et un réglage **séparé**, propre au WebSocket, à la racine du module :
 Un WebSocket ne peut **pas** recevoir un `429` : au moment où le rate-limit décide, le `101 Switching
 Protocols` est déjà parti sur le fil (émis par la bibliothèque `ws`). Le refoulement se fait donc par
 une **fermeture RFC 6455 `1013 Try Again Later`**, décidée dans `onWebsocketRequest()`
-(`http-kernel.ts:1933`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
+(`http-kernel.ts:1943`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
 
 Deux plafonds distincts, tous deux par IP forwarded-aware :
 
 | Plafond                | Ce qu'il borne                                 | Source de config        | Refus                                                      |
 | ---------------------- | ---------------------------------------------- | ----------------------- | ---------------------------------------------------------- |
 | Débit de handshakes    | Ouvertures/seconde (le **même** compteur HTTP) | `rateLimit`             | close `1013` (`http-kernel.ts:459`)                        |
-| Connexions simultanées | Sockets **ouvertes** en même temps par IP      | `wsMaxConnectionsPerIp` | close `1013` — `tryAcquire` refuse (`http-kernel.ts:2209`) |
+| Connexions simultanées | Sockets **ouvertes** en même temps par IP      | `wsMaxConnectionsPerIp` | close `1013` — `tryAcquire` refuse (`http-kernel.ts:2219`) |
 
 Le cap concurrent est porté par un compteur dédié, `WsConnectionCounter` (`WsConnectionCounter.ts:18`) :
 `tryAcquire(ip)` (`WsConnectionCounter.ts:33`) réserve un créneau à l'upgrade, `release(ip)`
 (`WsConnectionCounter.ts:45`) le rend à la fermeture — branché sur `ws.once("close", …)`
-(`http-kernel.ts:1887`), donc jamais de fuite de compteur, même sur un `terminate` de heartbeat.
+(`http-kernel.ts:1897`), donc jamais de fuite de compteur, même sur un `terminate` de heartbeat.
 
 > [!WARNING]
 > `wsMaxConnectionsPerIp` a une **portée par process** (1 pod) : il ne voit que le trafic de son propre
@@ -280,14 +280,14 @@ Un adapter doit fournir : `hit(key)` (verdict de fenêtre), `gc()` (purge), `lis
 
 | Domaine                            | Norme            | Ancrage                                           |
 | ---------------------------------- | ---------------- | ------------------------------------------------- |
-| `429 Too Many Requests`            | RFC 6585 §4      | `writeHead(429)` (`http-kernel.ts:1163`)          |
-| `Retry-After` (delta-seconds)      | RFC 9110 §10.2.3 | en-tête posé sur le `429` (`http-kernel.ts:1158`) |
-| IP cliente derrière proxy          | RFC 7239         | `resolveForwarded()` (`http-kernel.ts:1142`)      |
-| WebSocket — close `1013` Try Again | RFC 6455 §7.4.1  | refus d'upgrade (`http-kernel.ts:1378`)           |
+| `429 Too Many Requests`            | RFC 6585 §4      | `writeHead(429)` (`http-kernel.ts:1173`)          |
+| `Retry-After` (delta-seconds)      | RFC 9110 §10.2.3 | en-tête posé sur le `429` (`http-kernel.ts:1168`) |
+| IP cliente derrière proxy          | RFC 7239         | `resolveForwarded()` (`http-kernel.ts:1152`)      |
+| WebSocket — close `1013` Try Again | RFC 6455 §7.4.1  | refus d'upgrade (`http-kernel.ts:1388`)           |
 
 > [!NOTE]
 > Les en-têtes émis sont la famille **de facto** `X-RateLimit-Limit/Remaining/Reset`
-> (`http-kernel.ts:1098`), largement déployée et lue par les clients. Le brouillon IETF
+> (`http-kernel.ts:1108`), largement déployée et lue par les clients. Le brouillon IETF
 > `draft-ietf-httpapi-ratelimit-headers` (en-têtes `RateLimit` / `RateLimit-Policy`) n'est **pas** encore
 > émis — une évolution possible, pas une régression : rien ne le promet aujourd'hui.
 
@@ -303,7 +303,7 @@ Les choix visibles dans le code :
 - **0 alloc pour une IP connue** : la fenêtre expirée se réinitialise **en place**, pas de nouvel objet.
 - **Rejet avant allocation** : un flood est refoulé avant le contexte / la portée DI / l'ALS
   (`http-kernel.ts:860`) → un attaquant paie une recherche de hachage, pas un pipeline complet.
-- **Résolution d'IP seulement si un limiteur est armé** côté WS (`http-kernel.ts:1368`).
+- **Résolution d'IP seulement si un limiteur est armé** côté WS (`http-kernel.ts:1378`).
 - **Mémoire bornée** : `maxTracked` + éviction FIFO ; purge périodique `unref` hors hot-path.
 
 Rejouer la pression sous charge : skill `nodefony-load-test`. Gate mémoire avant tout commit touchant le
@@ -329,7 +329,7 @@ Le data plane admin expose **qui martèle** via `createHttpAdminApi()` (`HttpAdm
 | Le rate-limit « ne fait rien »                         | Désactivé par défaut (opt-in)                                             | `rateLimit.enabled: true` dans `use("@nodefony/http", …)`                              |
 | Toutes les IP derrière le proxy comptent comme **une** | `trustProxy: false` → l'IP vue est celle du proxy, pas du client          | Régler `trustProxy` sur l'IP/CIDR du proxy — voir [Serveurs](servers.md)               |
 | Un burst laisse passer près de `2 × max`               | Limite **assumée** de la fenêtre fixe (pic à cheval sur deux fenêtres)    | Réduire `windowS`, ou attendre l'option _sliding window_                               |
-| Un WebSocket ne reçoit jamais de `429`                 | Le `101` est déjà émis — impossible de renvoyer un code HTTP              | Attendu : le refus WS est une fermeture `1013` (`http-kernel.ts:1378`)                 |
+| Un WebSocket ne reçoit jamais de `429`                 | Le `101` est déjà émis — impossible de renvoyer un code HTTP              | Attendu : le refus WS est une fermeture `1013` (`http-kernel.ts:1388`)                 |
 | `wsMaxConnectionsPerIp` semble inefficace en cluster   | Portée **par process** — chaque pod compte pour lui                       | Déléguer le cap global/IP à l'ingress (nginx `limit_conn`, HAProxy)                    |
 | Confusion avec le lockout de login                     | `security.rateLimit` = backoff NIST **par identifiant**, brique distincte | Ce sont deux étages différents — cf [@nodefony/security](../../security/docs/index.md) |
 | Une IP « fantôme » n'est jamais comptée                | `resolveForwarded()` renvoie `null` (aucun socket fiable)                 | Attendu : on ne compte jamais sous une clé `null` (qui deviendrait un DoS)             |

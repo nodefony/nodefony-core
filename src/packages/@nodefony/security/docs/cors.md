@@ -103,13 +103,13 @@ Trois conséquences que beaucoup de développeurs découvrent trop tard :
 `Cors` (`cors.ts:33`) est une classe **pure et synchrone** : elle ne touche ni au réseau, ni à la
 requête — elle prend une origine et renvoie la table des en-têtes à poser, ou `null`. Elle est
 instanciée **une seule fois au boot** par le firewall, si et seulement si la section est activée
-(`firewall.ts:239-240`). Conséquence directe : la politique est **testable sans serveur**, et son coût par
+(`firewall.ts:240-241`). Conséquence directe : la politique est **testable sans serveur**, et son coût par
 requête se réduit à une lecture de `Set` (voir Performance).
 
 Trois invariants de sécurité, tenus par construction :
 
 - **Jamais `*` avec credentials.** La combinaison est **rejetée au boot** par un `refine` Zod
-  (`config.ts:156-159`) — le navigateur la refuserait de toute façon. Défense en profondeur : même
+  (`config.ts:162-165`) — le navigateur la refuserait de toute façon. Défense en profondeur : même
   instanciée à la main avec cette combinaison, `Cors.#allowOrigin()` **reflète l'origine** au lieu
   d'émettre `*` (`cors.ts:58`).
 - **Reflet d'origine ⇒ `Vary: Origin`.** Dès que la valeur `Allow-Origin` n'est pas `*`, la politique
@@ -204,8 +204,8 @@ curl -si http://localhost:5151/api/articles -H 'Origin: https://evil.com'
 
 ## ⚙️ Configuration et mises en situation
 
-La section `cors` de la config du module (`corsSchema`, `config.ts:139` ; branchée à la racine en
-`config.ts:1137`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
+La section `cors` de la config du module (`corsSchema`, `config.ts:145` ; branchée à la racine en
+`config.ts:1143`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
@@ -242,7 +242,7 @@ cors: {
 | `Origin: https://app.example.com:8443`   | rien — le **port** fait partie de l'origine, match exact                             |
 | `Origin: https://sub.app.example.com`    | rien — un sous-domaine n'est **pas** couvert par le parent                           |
 | `Origin: http://app.example.com`         | rien — le **scheme** fait partie de l'origine (downgrade refusé)                     |
-| aucun `Origin` (même origine, ou `curl`) | rien — la requête suit le pipeline normal (`firewall.ts:1013`)                       |
+| aucun `Origin` (même origine, ou `curl`) | rien — la requête suit le pipeline normal (`firewall.ts:1019`)                       |
 
 ### Situation 2 — une API publique en lecture seule (le joker `*`)
 
@@ -273,7 +273,7 @@ cors: { origins: ["https://app.example.com", "https://admin.example.com"], crede
 
 > [!WARNING]
 > `origins: ["*"]` **avec** `credentials: true` est rejeté par le schéma Zod au démarrage
-> (`config.ts:156-159`), avec un message qui dit quoi faire. La raison n'est pas cosmétique : cette
+> (`config.ts:162-165`), avec un message qui dit quoi faire. La raison n'est pas cosmétique : cette
 > combinaison, si un serveur la contournait en reflétant chaque origine, laisserait **tout site du
 > web** lire les réponses authentifiées de tes utilisateurs. Ne « corrige » jamais cette erreur en
 > reflétant l'origine reçue sans la valider.
@@ -322,23 +322,23 @@ sequenceDiagram
   R-->>B: 200 + Access-Control-*
 ```
 
-`Firewall.handleCors()` (`firewall.ts:1092`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1522`), à la ligne `http-kernel.ts:1522` — **avant le routing**. La raison est
+`Firewall.handleCors()` (`firewall.ts:1098`) est appelé **en tête de** `HttpKernel.handleHttp()`
+(`http-kernel.ts:1532`), à la ligne `http-kernel.ts:1532` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.
 
-Quatre sorties en no-op, dans cet ordre (`firewall.ts:1007`) :
+Quatre sorties en no-op, dans cet ordre (`firewall.ts:1013`) :
 
 1. CORS désactivé ⇒ `#cors` est `null`, retour immédiat ;
-2. pas d'en-tête `Origin` ⇒ requête same-origin ou client non-navigateur (`firewall.ts:1013`) ;
+2. pas d'en-tête `Origin` ⇒ requête same-origin ou client non-navigateur (`firewall.ts:1019`) ;
 3. la réponse n'expose pas `setHeader` ⇒ c'est un **WebSocket**, il n'y a pas d'en-tête HTTP à poser
-   (`firewall.ts:93`) ;
+   (`firewall.ts:94`) ;
 4. origine hors allowlist ⇒ la table est `null`, aucun en-tête n'est posé — mais un preflight reste
-   court-circuité en 204 (`firewall.ts:1032`).
+   court-circuité en 204 (`firewall.ts:1038`).
 
 **La détection du preflight est stricte** : méthode `OPTIONS` **et** présence de
-`Access-Control-Request-Method` (`firewall.ts:1048-1050`). Un `OPTIONS` nu — celui d'un client qui interroge
+`Access-Control-Request-Method` (`firewall.ts:1054-1056`). Un `OPTIONS` nu — celui d'un client qui interroge
 les méthodes supportées d'une route — est donc traité comme une requête réelle et continue le pipeline.
 
 ### Ce que chaque moment pose
@@ -354,7 +354,7 @@ Deux nuances utiles :
   `Access-Control-Request-Headers` du client (`cors.ts:78`). Ce que tu déclares est ce qui est annoncé,
   point. Un en-tête custom non déclaré fait échouer le preflight côté navigateur.
 - **Les fichiers statiques sont couverts.** `handleCors` s'exécute avant le fallback `serve-static`
-  (`http-kernel.ts:1630`) : une police ou une image servie cross-origin reçoit les mêmes en-têtes que
+  (`http-kernel.ts:1640`) : une police ou une image servie cross-origin reçoit les mêmes en-têtes que
   tes routes.
 
 Le contrat est publié dans l'interface du firewall (`IFirewall.ts:35`) : `number | undefined` — `204`
@@ -371,12 +371,12 @@ Trois briques voisines, souvent confondues. Une seule ligne chacune :
 | **[En-têtes](./headers.md)** (CSP, COOP) | ce que la **page** a le droit de faire | dans le navigateur     | XSS, injection, fenêtres croisées    |
 
 Les deux premières se parlent. Au boot, la liste des origines de confiance CSRF est l'**union** de
-`csrf.trustedOrigins` et de `cors.origins` (`firewall.ts:639`) : ce que tu autorises explicitement en
+`csrf.trustedOrigins` et de `cors.origins` (`firewall.ts:640`) : ce que tu autorises explicitement en
 CORS ne peut pas être, au même instant, traité comme une tentative CSRF.
 
 L'inverse n'est pas vrai, et c'est délibéré : `csrf.trustedOrigins` déclare un **alias de domaine**
 légitime de ton app (une façade multi-domaine) sans pour autant exposer tes réponses au JS de cette
-origine (`config.ts:188`). Ajouter une origine à `cors.origins` est **plus** permissif que l'ajouter à
+origine (`config.ts:194`). Ajouter une origine à `cors.origins` est **plus** permissif que l'ajouter à
 `csrf.trustedOrigins`.
 
 ## 🔌 Et le WebSocket ?
@@ -384,7 +384,7 @@ origine (`config.ts:188`). Ajouter une origine à `cors.origins` est **plus** pe
 **Les navigateurs n'appliquent pas CORS aux WebSockets.** Une page tierce peut ouvrir un
 `new WebSocket("wss://api.example.com/…")` et le handshake partira **avec le cookie de session de la
 victime** : c'est le CSWSH. C'est pourquoi `handleCors` s'arrête net sur un contexte WS
-(`firewall.ts:1092`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
+(`firewall.ts:1098`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
 
 La garde équivalente vit dans le transport : `HttpKernel.checkWebsocketOrigin()`
 (`http-kernel.ts:712`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
@@ -405,8 +405,8 @@ Deux réglages distincts, parce que deux mécanismes navigateur distincts.
 | Sujet                             | Norme                       | Comment le code s'y conforme                                                |
 | --------------------------------- | --------------------------- | --------------------------------------------------------------------------- |
 | Protocole CORS                    | Fetch Standard (WHATWG)     | `Cors` (`cors.ts:33`) — preflight vs requête réelle séparés                 |
-| Preflight sans credentials        | Fetch Standard              | court-circuit en 204 avant auth/routing (`firewall.ts:1032`)                |
-| `*` incompatible avec credentials | Fetch Standard · OWASP CORS | rejet au boot (`config.ts:156-159`) + reflet défensif (`cors.ts:58`)        |
+| Preflight sans credentials        | Fetch Standard              | court-circuit en 204 avant auth/routing (`firewall.ts:1038`)                |
+| `*` incompatible avec credentials | Fetch Standard · OWASP CORS | rejet au boot (`config.ts:162-165`) + reflet défensif (`cors.ts:58`)        |
 | Correction de cache               | RFC 9110 (`Vary`)           | `Vary: Origin` dès que l'origine est reflétée (`cors.ts:81`, `cors.ts:94`)  |
 | Comparaison d'origines            | RFC 6454 (Web Origin)       | match **exact** `scheme://host:port` — `Cors.#allowOrigin()` (`cors.ts:57`) |
 | Anti-CSWSH                        | OWASP WSTG-CLNT-10          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)                  |
@@ -419,18 +419,18 @@ ne reste à l'exécution qu'un `Set.has()` sur l'origine.
 
 Le coût par requête est donc :
 
-- **0 pour une requête same-origin** — pas d'en-tête `Origin`, sortie immédiate (`firewall.ts:1013`) ;
-- **0 pour un WebSocket** — sortie sur l'absence de `setHeader` (`firewall.ts:93`) ;
-- **0 si la section est désactivée** — `#cors` reste `null`, aucun objet n'est alloué (`firewall.ts:183`) ;
+- **0 pour une requête same-origin** — pas d'en-tête `Origin`, sortie immédiate (`firewall.ts:1019`) ;
+- **0 pour un WebSocket** — sortie sur l'absence de `setHeader` (`firewall.ts:94`) ;
+- **0 si la section est désactivée** — `#cors` reste `null`, aucun objet n'est alloué (`firewall.ts:184`) ;
 - **une petite table d'en-têtes** allouée uniquement pour une requête cross-origin autorisée. Une
   origine refusée n'alloue rien du tout (retour `null` avant construction de la table, `cors.ts:74`).
 
 ## 📡 Observabilité — Studio
 
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
-`Firewall.describe()` (`firewall.ts:587`), qui délègue à `Firewall.#describeDefenses()`
-(`firewall.ts:642`). La projection CORS y expose `origins`, `credentials`, `methods`,
-`allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:644`) — aucun secret ne transite par
+`Firewall.describe()` (`firewall.ts:588`), qui délègue à `Firewall.#describeDefenses()`
+(`firewall.ts:643`). La projection CORS y expose `origins`, `credentials`, `methods`,
+`allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:645`) — aucun secret ne transite par
 cette surface.
 
 - **Data plane** : `GET /nodefony/security/api/firewall` (`SecurityAdminApi.ts:328`), protégé
@@ -447,7 +447,7 @@ secondes les « pourtant j'ai bien mis l'origine ».
 
 | Symptôme                                                  | Cause                                                                                  | Correction                                                                                |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Le boot échoue sur la config CORS                         | `origins:["*"]` **et** `credentials:true` (`config.ts:156-159`)                        | Lister les origines, ou passer `credentials:false`                                        |
+| Le boot échoue sur la config CORS                         | `origins:["*"]` **et** `credentials:true` (`config.ts:162-165`)                        | Lister les origines, ou passer `credentials:false`                                        |
 | Requête bloquée alors que l'origine « est » dans la liste | Match **exact** : port, scheme ou sous-domaine divergent                               | Écrire l'origine complète `scheme://host:port`, une entrée par variante                   |
 | `curl` fonctionne, le navigateur non                      | CORS s'applique dans le navigateur, pas au serveur                                     | Normal — reproduire avec un `Origin` explicite (`curl -H 'Origin: …'`)                    |
 | Cookie non envoyé malgré `credentials:true`               | Opt-in serveur seul : le client n'a pas `credentials: "include"`                       | Activer les deux côtés (et un cookie `SameSite=None; Secure` en cross-site)               |

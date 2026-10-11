@@ -275,7 +275,7 @@ sequenceDiagram
   FIXE dans la zone de message ; une annulation n'en affiche aucun. La raison reçue n'est jamais
   recopiée dans la page.
 
-## ⚙️ Configuration (schéma Zod `loginPageSchema`, `config.ts:980`)
+## ⚙️ Configuration (schéma Zod `loginPageSchema`, `config.ts:986`)
 
 <!-- prettier-ignore -->
 | Option | Type · défaut | Effet |
@@ -286,17 +286,17 @@ sequenceDiagram
 | `logo` | string · logo Nodefony | Adresse du logo (chemin servi, ou URL autorisée par la CSP). |
 | `heading` | string · « Se connecter » | Titre de la carte et de l'onglet. |
 | `subtitle` | string · déduit | Ligne sous le titre ; par défaut, déduite des moyens proposés. |
-| `stylesheet` | string · — | Feuille chargée après `login.css` et l'habillage (`config.ts:1018`). |
-| `skin` | un des neuf · `frontispiece` | Habillage (`config.ts:1075`) — voir « Habillages ». |
-| `layout` | `split` · `card` · `bare` · celle de l'habillage | Mise en page : panneau et formulaire, carte centrée, formulaire seul (`config.ts:1081`). |
-| `hero` | `{ heading, text? }` · `false` · vitrine | Contenu du panneau (`config.ts:1045`) ; une clé inconnue est refusée au démarrage. |
-| `providersFirst` | boolean · `true` | Fournisseurs avant le formulaire (`config.ts:1039`). |
-| `footer` | boolean · `true` | Protections de la session et « Propulsé par Nodefony » (`config.ts:1061`). |
+| `stylesheet` | string · — | Feuille chargée après `login.css` et l'habillage (`config.ts:1024`). |
+| `skin` | un des neuf · `frontispiece` | Habillage (`config.ts:1081`) — voir « Habillages ». |
+| `layout` | `split` · `card` · `bare` · celle de l'habillage | Mise en page : panneau et formulaire, carte centrée, formulaire seul (`config.ts:1087`). |
+| `hero` | `{ heading, text? }` · `false` · vitrine | Contenu du panneau (`config.ts:1051`) ; une clé inconnue est refusée au démarrage. |
+| `providersFirst` | boolean · `true` | Fournisseurs avant le formulaire (`config.ts:1045`). |
+| `footer` | boolean · `true` | Protections de la session et « Propulsé par Nodefony » (`config.ts:1067`). |
 | `password` | boolean · `true` | `false` = fournisseurs seulement. |
 | `previewPicker` | boolean · `false` | En **développement** seulement : un sélecteur d'habillage et de mise en page posé dans un coin, qui recharge avec `?skin=` / `?layout=`. Sans effet en production. |
 | `previewHook` | chemin · — | Avec `previewPicker`, en **développement** : chemin de l'application prévenu en `POST` (`{ skin, layout }`, même origine) AVANT chaque rechargement de l'aperçu — pour qu'un tiers suive l'habillage choisi (le thème d'un Keycloak de développement). Un échec n'empêche pas le rechargement ; une autre origine est refusée au démarrage. |
 | `template` | string · — | Gabarit `.eta` de remplacement — dernier recours. |
-| `oauth2.providers.<nom>.icon` | string · icône du framework | Image du bouton du fournisseur (`config.ts:1237`). |
+| `oauth2.providers.<nom>.icon` | string · icône du framework | Image du bouton du fournisseur (`config.ts:1243`). |
 
 Toute la section est en `z.strictObject` : une clé mal orthographiée interrompt le démarrage en la
 nommant, au lieu d'être ignorée.

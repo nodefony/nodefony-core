@@ -550,7 +550,7 @@ scopes, métier), un même jury, combinables.
 (opt-out, `firewall.ts:278`), le `FirewallRealtimeAuthenticator` au handshake (`firewall.ts:313`)
 **et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:361`). Même résolution de zone que HTTP.
 Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setChallenge()`,
-`firewall.ts:1357`) : le **code de fermeture** suffit.
+`firewall.ts:1345`) : le **code de fermeture** suffit.
 
 ## 🛡️ En-têtes de sécurité, CSRF, CORS
 
@@ -566,7 +566,7 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 9110 §11    | `Firewall.#setChallenge()` (`firewall.ts:1357`)        |
+| Challenge d'auth (401) | RFC 9110 §11    | `Firewall.#setChallenge()` (`firewall.ts:1345`)        |
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |
