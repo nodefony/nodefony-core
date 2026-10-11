@@ -684,6 +684,15 @@ describe("parseActions — le « = » des sélecteurs CSS n'est pas un séparate
     ]);
   });
 
+  it("`choisir` porte une valeur, comme `saisir` — cible libellé ou sélecteur", () => {
+    expect(
+      parseActions("choisir:Habillage=dots|choisir:select[name=layout]=card"),
+    ).toEqual([
+      { verb: "choisir", target: "Habillage", value: "dots" },
+      { verb: "choisir", target: "select[name=layout]", value: "card" },
+    ]);
+  });
+
   it("prend `clic` par défaut quand aucun verbe n'est écrit", () => {
     expect(parseActions("Se connecter")).toEqual([
       { verb: "clic", target: "Se connecter", value: "" },

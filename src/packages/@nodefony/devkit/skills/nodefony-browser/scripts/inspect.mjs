@@ -24,7 +24,7 @@
  * `@env` NF_BROWSER_PASSWORD mot de passe associé
  * `@env` NF_BROWSER_ACTIONS séquence d'interactions AVANT mesure, séparées par `|` —
  *                        `verbe:cible[=valeur]` : clic (défaut), double, droit, survol,
- *                        saisir, touche, voir, defiler, attendre. Un écran qui se déplie
+ *                        saisir, choisir, touche, voir, defiler, attendre. Un écran qui se déplie
  *                        au clic n'existe pas tant qu'on ne l'a pas ouvert.
  * `@env` NF_BROWSER_FULLPAGE 1 = capture la page ENTIÈRE (défaut : la fenêtre)
  * `@env` NF_BROWSER_PROBES sélecteurs CSS à sonder, séparés par des virgules (`libellé=sélecteur`)
@@ -75,6 +75,7 @@ const EXPECT = process.argv[3] ?? process.env.NF_BROWSER_EXPECT ?? "";
  * | `droit`    | clic droit — ouvre un menu contextuel applicatif          |
  * | `survol`   | survol : révèle une infobulle, un menu déroulant          |
  * | `saisir`   | remplit un champ (`saisir:Nom=mon-app`)                   |
+ * | `choisir`  | choisit une option d'une liste (`choisir:Habillage=dots`) |
  * | `touche`   | frappe une touche (`touche:Enter`, `touche:Escape`)       |
  * | `voir`     | amène dans la vue SANS cliquer                            |
  * | `defiler`  | fait défiler de N pixels (`defiler:600`), page ou conteneur |
@@ -317,7 +318,13 @@ for (const { verb, target, value } of ACTIONS) {
     else if (verb === "droit") await locator.click({ button: "right" });
     else if (verb === "survol") await locator.hover();
     else if (verb === "saisir") await locator.fill(value);
-    else if (verb === "touche") await locator.press(value || "Enter");
+    // `choisir` : la cible peut être le `<label>` qui ENVELOPPE la liste —
+    // Playwright reporte alors le choix sur son contrôle. La valeur est celle
+    // de l'option (`value`), sinon son libellé.
+    else if (verb === "choisir") {
+      const chosen = await locator.selectOption(value);
+      if (chosen.length === 0) throw new Error(`option « ${value} » absente`);
+    } else if (verb === "touche") await locator.press(value || "Enter");
     else if (verb === "voir") await locator.scrollIntoViewIfNeeded();
     // `attendre` : le `waitFor` ci-dessus EST l'action.
   } catch {
