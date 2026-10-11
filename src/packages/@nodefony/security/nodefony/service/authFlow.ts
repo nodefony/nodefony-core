@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  RequestContext,
   LOGIN_PAGE_SKIN_SPECS,
   MFA_METHOD_TOTP,
   SESSION_AMR_KEY,
@@ -437,7 +436,7 @@ class AuthFlow extends Service {
     }
     // Dans une zone, le pare-feu a DÉJÀ relu ce compte pour cette requête (mêmes
     // contrôles) : le réutiliser évite une seconde lecture en base.
-    const current = requestUser(RequestContext.getUser(), identifier);
+    const current = requestUser(identifier);
     if (current !== null) {
       return toSafeUser(current);
     }

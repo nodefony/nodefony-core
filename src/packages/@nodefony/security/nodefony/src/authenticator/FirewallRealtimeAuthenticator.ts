@@ -1,5 +1,5 @@
 import { Nodefony, RequestContext } from "nodefony";
-import { anonymousUser } from "@nodefony/user";
+import { authenticatedUser } from "@nodefony/user";
 import type { IUser } from "@nodefony/user";
 import { AuthenticationError } from "../../errors/AuthenticationError";
 import type { IToken } from "../../contracts/IToken";
@@ -78,7 +78,7 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
 
   /** Une identité authentifiée a-t-elle été résolue (par le firewall) au handshake ? */
   supports(_handshake: IRealtimeHandshake): boolean {
-    return isAuthenticatedUser(RequestContext.getUser());
+    return authenticatedUser() !== null;
   }
 
   /**
@@ -89,8 +89,8 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
    *   filet défensif fail-closed → le hub ferme la socket en 4001).
    */
   async authenticate(_handshake: IRealtimeHandshake): Promise<IRealtimeToken> {
-    const user = RequestContext.getUser();
-    if (!isAuthenticatedUser(user)) {
+    const user = authenticatedUser();
+    if (user === null) {
       // `async` → rejet de la Promise (pas un throw sync) : honore le contrat
       // `Promise<IRealtimeToken>` et le `await … catch` du hub au handshake.
       throw new AuthenticationError("Invalid realtime session");
@@ -120,8 +120,8 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
    *   ne peut pas le prouver.
    */
   currentRevalidator(): ((nowMs?: number) => Promise<boolean>) | null {
-    const user = RequestContext.getUser();
-    if (!isAuthenticatedUser(user)) return null;
+    const user = authenticatedUser();
+    if (user === null) return null;
     const issued = readFirewallToken();
     return this.#revalidatorFor(user, issued, issuedType(issued));
   }
@@ -309,20 +309,6 @@ function buildSessionRevalidator(identifier: string): () => Promise<boolean> {
       return false;
     }
   };
-}
-
-/**
- * Vrai si `user` est un utilisateur AUTHENTIFIÉ (≠ anonyme). Le firewall pose
- * `token.getUser()` dans l'ALS : soit l'`IUser` réel, soit `anonymousUser`
- * (singleton). Tout ce qui n'est pas l'anonyme et porte un `identifier` est
- * une identité valide.
- */
-function isAuthenticatedUser(user: unknown): user is IUser {
-  return (
-    !!user &&
-    user !== anonymousUser &&
-    typeof (user as IUser).identifier === "string"
-  );
 }
 
 export default FirewallRealtimeAuthenticator;

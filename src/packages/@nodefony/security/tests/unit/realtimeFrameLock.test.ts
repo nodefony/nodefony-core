@@ -3,11 +3,13 @@ import { describe, it } from "vitest";
 import { Container, Event, RequestContext } from "nodefony";
 import type { Module } from "nodefony";
 import type { ContextType } from "@nodefony/http";
-import { anonymousUser } from "@nodefony/user";
+import { BaseUser, anonymousUser } from "@nodefony/user";
 import type { IUser } from "@nodefony/user";
 import { Firewall } from "../../nodefony/service/firewall";
 import { FirewallRealtimeAuthenticator } from "../../nodefony/src/authenticator/FirewallRealtimeAuthenticator";
 import { UserRealtimeToken } from "../../nodefony/src/realtime/UserRealtimeToken";
+import { UserToken } from "../../nodefony/src/token/UserToken";
+import { AnonymousToken } from "../../nodefony/src/token/AnonymousToken";
 import {
   buildFrameAuthorizer,
   DEFAULT_SYSTEM_RULES,
@@ -39,13 +41,22 @@ const HANDSHAKE: IRealtimeHandshake = {
   protocols: [],
 };
 
-const fakeUser = {
+const fakeUser: IUser = new BaseUser({
+  id: "u-alice",
   identifier: "alice",
   roles: ["ROLE_ADMIN", "ROLE_USER"],
-} as unknown as IUser;
+});
 
-function withUser<T>(user: unknown, fn: () => T): T {
-  return RequestContext.run({ requestId: "t-rt", user }, fn);
+/**
+ * Bulle ALS telle que le pare-feu la laisse : l'utilisateur ET son jeton —
+ * anonyme pour l'anonyme d'une zone `anonymous`, de session sinon.
+ */
+function withUser<T>(user: IUser, fn: () => T): T {
+  const token =
+    user === anonymousUser
+      ? new AnonymousToken()
+      : new UserToken("session").promote(user);
+  return RequestContext.run({ requestId: "t-rt", user, token }, fn);
 }
 
 const AUTH_TOKEN: IRealtimeToken = {
@@ -801,10 +812,11 @@ describe("FirewallRealtimeAuthenticator — re-validation Zero Trust du token (i
     };
   }
 
-  const adminUser = {
+  const adminUser: IUser = new BaseUser({
+    id: "u-admin",
     identifier: "admin",
     roles: ["ROLE_NODEFONY_ADMIN"],
-  } as unknown as IUser;
+  });
 
   // Promeut l'identité (ALS) en token realtime via l'authenticator réel, avec une
   // session de handshake injectée dans le contexte ALS (comme le pipeline http).
@@ -817,6 +829,7 @@ describe("FirewallRealtimeAuthenticator — re-validation Zero Trust du token (i
       {
         requestId: "test",
         user: adminUser,
+        token: new UserToken("session").promote(adminUser),
         context: sessionId ? { session: { id: sessionId, storage } } : {},
       },
       () => auth.authenticate({} as IRealtimeHandshake),

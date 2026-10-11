@@ -3,6 +3,7 @@ import { describe, it } from "vitest";
 import { ACCESS_TOKEN_VERIFIER, RequestContext } from "nodefony";
 import type { Container, IAccessPrincipal } from "nodefony";
 import type { ContextType } from "@nodefony/http";
+import { BaseUser } from "@nodefony/user";
 import type { IUser } from "@nodefony/user";
 import { ExternalJwtAuthenticator } from "../../nodefony/src/authenticator/ExternalJwtAuthenticator";
 import { FirewallRealtimeAuthenticator } from "../../nodefony/src/authenticator/FirewallRealtimeAuthenticator";
@@ -39,10 +40,11 @@ const HANDSHAKE: IRealtimeHandshake = {
   protocols: [],
 };
 
-const alice = {
+const alice: IUser = new BaseUser({
+  id: "u-alice",
   identifier: "alice",
   roles: ["ROLE_ADMIN", "ROLE_USER"],
-} as unknown as IUser;
+});
 
 /** Session BFF re-lisible : le contrat minimal que lit le revalidateur. */
 function sessionCtx(id: string, stored: { user?: unknown } | null) {
@@ -66,7 +68,13 @@ function bearerToken(
 
 /** Exécute `fn` dans une bulle ALS telle que le firewall la laisse au handshake. */
 function inScope<T>(payload: Record<string, unknown>, fn: () => T): T {
-  return RequestContext.run({ requestId: "t-rev", ...payload }, fn);
+  // Le firewall pose TOUJOURS un jeton avec l'utilisateur ; un cas sans jeton
+  // explicite reçoit celui d'une zone de session.
+  const token =
+    "token" in payload
+      ? payload.token
+      : new UserToken("session").promote(alice);
+  return RequestContext.run({ requestId: "t-rev", ...payload, token }, fn);
 }
 
 const NOW = 1_800_000_000_000; // epoch ms fixe — aucune horloge réelle dans un test
@@ -254,16 +262,27 @@ describe("Identité realtime — le mode prime sur la présence d'une session", 
     assert.equal(await token.isValid?.(NOW), true);
   });
 
-  it("sans jeton en ALS, on retombe sur le contrat de session (compat)", async () => {
-    // Aucun token posé (zone historique) → l'identité est traitée comme une
-    // session : c'est le mode le plus strict, donc le repli sûr.
+  it("🔴 sans jeton en ALS, aucune identité n'est promue : refus (fail-closed)", async () => {
+    // Un `user` posé sans jeton n'a été authentifié par personne (le pare-feu
+    // pose toujours les deux) : la garde du cœur ne le reconnaît pas.
     const auth = new FirewallRealtimeAuthenticator();
-    const token = await inScope(
-      { user: alice, context: sessionCtx("sess-1", { user: "alice" }) },
-      () => auth.authenticate(HANDSHAKE),
+    await assert.rejects(
+      inScope(
+        {
+          user: alice,
+          token: undefined,
+          context: sessionCtx("sess-1", { user: "alice" }),
+        },
+        () => auth.authenticate(HANDSHAKE),
+      ),
+      /Invalid realtime session/,
     );
-    assert.equal(token.type, "session");
-    assert.equal(await token.isValid?.(), true);
+    assert.equal(
+      inScope({ user: alice, token: undefined }, () =>
+        auth.supports(HANDSHAKE),
+      ),
+      false,
+    );
   });
 });
 

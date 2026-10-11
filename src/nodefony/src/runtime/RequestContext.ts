@@ -260,12 +260,27 @@ class RequestContext {
    * pare-feu, ou anonyme (jeton non authentifié). Une page publique qui veut
    * savoir qui la visite se place sous une zone `["session", "anonymous"]`.
    *
+   * C'est la SEULE règle de « qui est connecté ? » : `this.user`, `@nodefony/user`
+   * (`authenticatedUser`, `requestUser`), le realtime et l'idempotence
+   * l'appellent. Elle part du JETON, que le pare-feu (ou le pont realtime) pose
+   * avec l'utilisateur : un `user` sans jeton n'a été authentifié par personne.
+   *
    * @returns l'utilisateur connecté, ou `null`
+   * @throws TypeError quand un jeton authentifié porte un utilisateur sans
+   *   `id`, `identifier` ou `roles` — un authentificateur qui viole le contrat
+   *   ne doit pas se faire passer, sans un mot, pour un visiteur anonyme.
    */
   static getAuthenticatedUser(): IRequestUser | null {
     const store = this.get();
-    if (store === undefined || isAnonymousToken(store.token)) return null;
-    return isRequestUser(store.user) ? store.user : null;
+    if (store?.token == null || isAnonymousToken(store.token)) return null;
+    const user = store.user;
+    if (user == null) return null;
+    if (!isRequestUser(user)) {
+      throw new TypeError(
+        "RequestContext: le jeton authentifié porte un utilisateur sans id, identifier ou roles — l'authentificateur viole le contrat IRequestUser",
+      );
+    }
+    return user;
   }
 
   /**

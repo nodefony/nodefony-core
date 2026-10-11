@@ -574,7 +574,7 @@ requête — un service, un écouteur, une fonction utilitaire.
 | `RequestContext.requireScope()` | le scope ouvert, ou **lève** en nommant la cause | le code qui n'a pas de sens hors d'une requête |
 
 `getScope()` (`RequestContext.ts:321`) rend `undefined` dans trois cas, et `requireScope()`
-(`RequestContext.ts:335`) les **distingue** dans son message, parce que chacun appelle un geste
+(`RequestContext.ts:356`) les **distingue** dans son message, parce que chacun appelle un geste
 différent :
 
 1. **aucune requête en cours** — démarrage, commande en ligne, minuterie armée hors requête ;

@@ -262,13 +262,29 @@ describe("RequestContext.getAuthenticatedUser — « qui est connecté ? »", ()
     );
   });
 
-  it("une valeur qui n'a pas la forme d'un utilisateur : null, jamais un objet mal typé", () => {
+  it("🔴 un utilisateur SANS jeton n'a été authentifié par personne : null", () => {
+    RequestContext.run({ requestId: "r", user: admin }, () => {
+      expect(RequestContext.getUser()).to.equal(admin);
+      expect(RequestContext.getAuthenticatedUser()).to.equal(null);
+    });
+  });
+
+  it("🔴 un jeton authentifié qui porte un utilisateur mal formé lève, au lieu de passer pour un anonyme", () => {
     RequestContext.run(
       { requestId: "r", user: { identifier: "x" }, token: token(true) },
       () => {
-        expect(RequestContext.getAuthenticatedUser()).to.equal(null);
+        expect(() => RequestContext.getAuthenticatedUser()).to.throw(
+          TypeError,
+          /IRequestUser/,
+        );
       },
     );
+  });
+
+  it("un jeton authentifié sans utilisateur : null", () => {
+    RequestContext.run({ requestId: "r", token: token(true) }, () => {
+      expect(RequestContext.getAuthenticatedUser()).to.equal(null);
+    });
   });
 });
 

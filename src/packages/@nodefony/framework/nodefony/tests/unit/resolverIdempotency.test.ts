@@ -143,6 +143,17 @@ async function caught(call: () => unknown): Promise<{ code?: number } | null> {
   }
 }
 
+/**
+ * Requête que le pare-feu a authentifiée : l'utilisateur ET son jeton, posés
+ * ensemble dans l'ALS (seule forme que la garde du cœur reconnaît).
+ */
+function authed(identifier: string) {
+  return {
+    user: { id: `u-${identifier}`, identifier, roles: ["ROLE_USER"] },
+    token: { isAuthenticated: () => true },
+  };
+}
+
 describe("Resolver — seam @Idempotent userland (callController)", () => {
   beforeEach(() => {
     execCount = 0;
@@ -151,7 +162,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
   it("strict mutation without key → 400, action never runs", async () => {
     const r = makeResolver({ action: "create", store: makeStore() });
     const err = await RequestContext.run(
-      { requestId: "t", user: { username: "alice" } },
+      { requestId: "t", ...authed("alice") },
       () => caught(() => r.callController()),
     );
     expect(err?.code).to.equal(400);
@@ -161,7 +172,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
   it("fresh key → executes once, returns the value", async () => {
     const r = makeResolver({ action: "create", store: makeStore() });
     const out = await RequestContext.run(
-      { requestId: "t", user: { username: "alice" }, idempotencyKey: "k1" },
+      { requestId: "t", ...authed("alice"), idempotencyKey: "k1" },
       () => r.callController(),
     );
     expect(execCount).to.equal(1);
@@ -172,7 +183,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     const store = makeStore();
     const call = () =>
       RequestContext.run(
-        { requestId: "t", user: { username: "alice" }, idempotencyKey: "k1" },
+        { requestId: "t", ...authed("alice"), idempotencyKey: "k1" },
         () => makeResolver({ action: "create", store }).callController(),
       );
     expect(await call()).to.deep.equal({ created: true, n: 1 });
@@ -186,7 +197,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     await RequestContext.run(
       {
         requestId: "t",
-        user: { username: "alice" },
+        ...authed("alice"),
         idempotencyKey: "k1",
         body: { a: 1 },
       },
@@ -196,7 +207,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     const err = await RequestContext.run(
       {
         requestId: "t",
-        user: { username: "alice" },
+        ...authed("alice"),
         idempotencyKey: "k1",
         body: { a: 2 },
       },
@@ -212,11 +223,11 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
   it("scopes the cache by identity — Bob's same key does NOT replay Alice's", async () => {
     const store = makeStore();
     await RequestContext.run(
-      { requestId: "t", user: { username: "alice" }, idempotencyKey: "k1" },
+      { requestId: "t", ...authed("alice"), idempotencyKey: "k1" },
       () => makeResolver({ action: "create", store }).callController(),
     );
     const bob = await RequestContext.run(
-      { requestId: "t", user: { username: "bob" }, idempotencyKey: "k1" },
+      { requestId: "t", ...authed("bob"), idempotencyKey: "k1" },
       () => makeResolver({ action: "create", store }).callController(),
     );
     // Bob exécute sa PROPRE mutation (anti-IDOR sur le cache).
@@ -224,10 +235,30 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     expect(bob).to.deep.equal({ created: true, n: 2 });
   });
 
+  it("🔴 deux visiteurs ANONYMES avec la même clé ne partagent pas le cache", async () => {
+    // L'anonyme d'une zone `anonymous` : utilisateur posé, jeton NON authentifié.
+    // Son `identifier` ("anon.") est le même pour tous — s'en servir comme
+    // identité rejouait au second visiteur la réponse du premier.
+    const anonymous = {
+      user: { id: "anonymous", identifier: "anon.", roles: ["ROLE_ANONYMOUS"] },
+      token: { isAuthenticated: () => false },
+    };
+    const store = makeStore();
+    const call = () =>
+      RequestContext.run(
+        { requestId: "t", ...anonymous, idempotencyKey: "k1" },
+        () => makeResolver({ action: "create", store }).callController(),
+      );
+    await call();
+    const second = await call();
+    expect(execCount).to.equal(2);
+    expect(second).to.deep.equal({ created: true, n: 2 });
+  });
+
   it("soft mode without key → executes (no 400)", async () => {
     const r = makeResolver({ action: "soft", store: makeStore() });
     const out = await RequestContext.run(
-      { requestId: "t", user: { username: "alice" } },
+      { requestId: "t", ...authed("alice") },
       () => r.callController(),
     );
     expect(execCount).to.equal(1);
@@ -241,7 +272,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
       store: makeStore(),
     });
     const out = await RequestContext.run(
-      { requestId: "t", user: { username: "alice" } },
+      { requestId: "t", ...authed("alice") },
       () => r.callController(),
     );
     expect(execCount).to.equal(1);
@@ -257,7 +288,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
       RequestContext.run(
         {
           requestId: "t",
-          user: { username: "alice" },
+          ...authed("alice"),
           idempotencyKey: "kws",
           body: { name: "via-socket" }, // corps de frame posé par le pont (ALS)
         },
@@ -287,7 +318,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     (r.context as unknown as { type: string }).type = "websocket";
     r.methodOverride = "POST";
     const err = await RequestContext.run(
-      { requestId: "t", user: { username: "alice" } },
+      { requestId: "t", ...authed("alice") },
       () => caught(() => r.callController()),
     );
     expect(err?.code).to.equal(400);
@@ -337,7 +368,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
     };
     const call = () =>
       RequestContext.run(
-        { requestId: "t", user: { username: "alice" }, idempotencyKey: "k9" },
+        { requestId: "t", ...authed("alice"), idempotencyKey: "k9" },
         () => makeResolver({ action: "circular", store }).callController(),
       );
     const first = (await call()) as { name: string };
@@ -351,7 +382,7 @@ describe("Resolver — seam @Idempotent userland (callController)", () => {
   it("no store registered → executes (degrade, no dedup)", async () => {
     const call = () =>
       RequestContext.run(
-        { requestId: "t", user: { username: "alice" }, idempotencyKey: "k1" },
+        { requestId: "t", ...authed("alice"), idempotencyKey: "k1" },
         () => makeResolver({ action: "create" }).callController(),
       );
     await call();

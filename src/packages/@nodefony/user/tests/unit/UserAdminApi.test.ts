@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { RequestContext } from "nodefony";
 import {
   createUserAdminApi,
   toUserSummary,
@@ -840,12 +841,23 @@ describe("UserAdminApi — me : une seule lecture du compte par requête", () =>
       },
     };
     const api = createUserAdminApi(container(counted));
-    // `user` = l'objet que le pare-feu a chargé et vérifié pour cette requête.
-    const get = await call(api, "GET", "me", { user: alice });
-    const post = await call(api, "POST", "me/profile", {
+    // `user` = l'objet que le pare-feu a chargé et vérifié pour cette requête ;
+    // il le pose dans l'ALS AVEC son jeton (sans jeton, personne ne l'a
+    // authentifié et le compte est relu).
+    const firewall = {
+      requestId: "r",
       user: alice,
-      body: { displayName: "Alice" },
-    });
+      token: { isAuthenticated: () => true },
+    };
+    const get = await RequestContext.run(firewall, () =>
+      call(api, "GET", "me", { user: alice }),
+    );
+    const post = await RequestContext.run(firewall, () =>
+      call(api, "POST", "me/profile", {
+        user: alice,
+        body: { displayName: "Alice" },
+      }),
+    );
     assert.equal(get.status, 200);
     assert.equal((get.body as IUserSummary).identifier, "alice@x");
     assert.equal(post.status, 200);

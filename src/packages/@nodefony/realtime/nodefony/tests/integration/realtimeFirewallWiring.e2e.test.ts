@@ -13,7 +13,7 @@ import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 // Le VRAI Firewall de @nodefony/security (source) — c'est SON `#wireRealtime` qui
 // câble le hub. AUCUN frameAuthorizer posé à la main : on prouve la chaîne RÉELLE
 // firewall → hub → client. security ⊥ realtime au runtime ; un TEST relie les deux.
-import { Firewall } from "../../../../security/index.js";
+import { Firewall, UserToken } from "../../../../security/index.js";
 import { NodefonySocket } from "../../../../../../nodefony/src/client/realtime/NodefonySocket.js";
 import {
   TransportState,
@@ -220,8 +220,13 @@ async function connectAs(user: IUser | null): Promise<NodefonySocket> {
   await client.connect(); // branche pumpClient, transport OPEN (PAS de handshake)
   await flush();
   // Handshake DANS l'ALS (ce que fait HttpKernel.handleWebsocket en prod).
+  // Le pare-feu pose l'utilisateur ET son jeton (`firewall.ts`) : un `user`
+  // seul n'est authentifié par personne pour la garde du cœur.
   await RequestContext.run(
-    { requestId: "t-ws", user: user ?? undefined },
+    {
+      requestId: "t-ws",
+      ...(user ? { user, token: new UserToken("session").promote(user) } : {}),
+    },
     async () => {
       rt.feed(null);
       await flush();

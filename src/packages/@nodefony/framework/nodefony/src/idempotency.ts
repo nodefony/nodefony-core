@@ -86,32 +86,21 @@ export function resolveIdempotencyKey(
 
 /**
  * Identité stable pour **scoper** le cache d'idempotence (anti-IDOR : un
- * utilisateur ne doit jamais rejouer la clé d'un autre). Dérivée de l'utilisateur
- * (`username` / `identifier` / `id`, sans coupler le framework au contrat `IUser`),
- * avec fallback sur l'`userId` de l'ALS. `null` = pas d'identité fiable → l'appelant
- * n'utilise PAS le cache (jamais de partage cross-identité).
+ * utilisateur ne doit jamais rejouer la clé d'un autre) : l'`identifier` de
+ * l'utilisateur AUTHENTIFIÉ de la requête. `null` = pas d'identité fiable →
+ * l'appelant n'utilise PAS le cache (jamais de partage cross-identité).
  *
- * ⚠️ Doit renvoyer la MÊME valeur quel que soit le transport pour un même compte
- * (sinon une mutation tentée en WS puis rejouée en HTTP ne dédoublonnerait pas).
- * D'où la dérivation de `request.user` (posé UNIFORMÉMENT dans l'ALS par les deux
- * transports), et NON de `getUserId()` seul (le firewall HTTP ne le pose pas
- * toujours — vécu S4).
+ * La décision « authentifié ? » est celle du cœur
+ * (`RequestContext.getAuthenticatedUser`) : l'anonyme d'une zone `anonymous`
+ * rend `null`. Lire l'`identifier` de l'utilisateur BRUT faisait partager à
+ * tous les visiteurs anonymes la même identité (`anon.`), donc le même cache.
+ *
+ * Même valeur quel que soit le transport pour un même compte : le pare-feu HTTP
+ * et le pont realtime posent tous deux le jeton et l'utilisateur dans l'ALS —
+ * une mutation tentée en WS puis rejouée en HTTP se dédoublonne.
  */
-export function resolveIdentity(user: unknown): string | null {
-  if (user && typeof user === "object") {
-    const o = user as {
-      username?: unknown;
-      identifier?: unknown;
-      id?: unknown;
-    };
-    for (const v of [o.username, o.identifier, o.id]) {
-      if (typeof v === "string" && v) {
-        return v;
-      }
-    }
-  }
-  const uid = RequestContext.getUserId();
-  return typeof uid === "string" && uid ? uid : null;
+export function resolveIdentity(): string | null {
+  return RequestContext.getAuthenticatedUser()?.identifier ?? null;
 }
 
 /**

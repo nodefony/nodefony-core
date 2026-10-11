@@ -153,20 +153,15 @@ export class InvoiceService extends Service {
     // bulle de LA requête en cours. `undefined` si on appelle hors requête.
     const requestId = RequestContext.getRequestId() ?? "hors-requête";
 
-    // `user` est posé par le firewall APRÈS authentification. Typé `unknown`
-    // par le cœur (il ne connaît pas les types de la sécurité) → on rétrécit.
-    const user = RequestContext.getUser() as { username?: string } | undefined;
-
-    this.log(
-      `[${requestId}] ${user?.username ?? "anonyme"} paie ${ref}`,
-      "INFO",
-    );
-
-    // Raccourci quand seul l'identifiant compte (audit, clé d'idempotence).
-    const userId: string | undefined = RequestContext.getUserId();
-    if (userId === undefined) {
-      this.log("paiement anonyme — aucune zone n'a authentifié", "WARNING");
+    // « Qui est connecté ? » : l'utilisateur AUTHENTIFIÉ par le firewall
+    // (`id`, `identifier`, `roles`), ou `null` — hors zone, ou anonyme d'une
+    // zone `anonymous`. C'est la seule règle ; ne pas la refaire sur getUser().
+    const user = RequestContext.getAuthenticatedUser();
+    if (user === null) {
+      this.log(`[${requestId}] paiement anonyme de ${ref}`, "WARNING");
+      return;
     }
+    this.log(`[${requestId}] ${user.identifier} paie ${ref}`, "INFO");
   }
 }
 ```
@@ -257,23 +252,25 @@ rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md
 
 ## 🧰 API publique
 
-Douze membres statiques, tous sûrs hors bulle sauf `requireScope()`, qui lève exprès. Les signatures exactes vivent dans le
+Quatorze membres statiques, tous sûrs hors bulle sauf `requireScope()`, qui lève exprès. Les signatures exactes vivent dans le
 graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 
-| Appel              | Ancre                   | Rend / fait                                          | Hors bulle  |
-| ------------------ | ----------------------- | ---------------------------------------------------- | ----------- |
-| `run(payload, fn)` | `RequestContext.ts:232` | ouvre une bulle et **renvoie ce que renvoie `fn`**   | —           |
-| `get()`            | `RequestContext.ts:237` | le payload entier (objet **mutable**, par référence) | `undefined` |
-| `getRequestId()`   | `RequestContext.ts:243` | l'identifiant de corrélation                         | `undefined` |
-| `getUser()`        | `RequestContext.ts:254` | l'utilisateur authentifié, typé `unknown`            | `undefined` |
-| `getUserId()`      | `RequestContext.ts:294` | son identifiant sous forme de chaîne                 | `undefined` |
-| `getContext<T>()`  | `RequestContext.ts:289` | le contexte transport HTTP/WS, générique             | `undefined` |
-| `getScope()`       | `RequestContext.ts:321` | le scope DI de la requête, s'il est encore ouvert    | `undefined` |
-| `requireScope()`   | `RequestContext.ts:335` | le même scope, ou une erreur qui nomme la cause      | **lève**    |
-| `set(clé, valeur)` | `RequestContext.ts:385` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |
-| `isProfiling()`    | `RequestContext.ts:400` | `true` si un buffer de profilage est actif           | `false`     |
-| `pushQuery(query)` | `RequestContext.ts:410` | ajoute une requête mesurée au buffer                 | **no-op**   |
-| `release(store)`   | `RequestContext.ts:366` | vide un store dont l'unité de travail est finie      | —           |
+| Appel                    | Ancre                   | Rend / fait                                                                                    | Hors bulle  |
+| ------------------------ | ----------------------- | ---------------------------------------------------------------------------------------------- | ----------- |
+| `run(payload, fn)`       | `RequestContext.ts:232` | ouvre une bulle et **renvoie ce que renvoie `fn`**                                             | —           |
+| `get()`                  | `RequestContext.ts:237` | le payload entier (objet **mutable**, par référence)                                           | `undefined` |
+| `getRequestId()`         | `RequestContext.ts:243` | l'identifiant de corrélation                                                                   | `undefined` |
+| `getUser()`              | `RequestContext.ts:254` | l'utilisateur posé par le firewall, BRUT — anonyme compris, typé `unknown`                     | `undefined` |
+| `getAuthenticatedUser()` | `RequestContext.ts:273` | l'utilisateur CONNECTÉ (`IRequestUser`), ou `null` — la règle unique de « qui est connecté ? » | `null`      |
+| `isAnonymous()`          | `RequestContext.ts:298` | `true` quand le jeton posé est celui d'un anonyme                                              | `false`     |
+| `getUserId()`            | `RequestContext.ts:315` | son identifiant sous forme de chaîne                                                           | `undefined` |
+| `getContext<T>()`        | `RequestContext.ts:310` | le contexte transport HTTP/WS, générique                                                       | `undefined` |
+| `getScope()`             | `RequestContext.ts:342` | le scope DI de la requête, s'il est encore ouvert                                              | `undefined` |
+| `requireScope()`         | `RequestContext.ts:356` | le même scope, ou une erreur qui nomme la cause                                                | **lève**    |
+| `set(clé, valeur)`       | `RequestContext.ts:406` | mute le payload **en place**, sans rouvrir de bulle                                            | **no-op**   |
+| `isProfiling()`          | `RequestContext.ts:421` | `true` si un buffer de profilage est actif                                                     | `false`     |
+| `pushQuery(query)`       | `RequestContext.ts:431` | ajoute une requête mesurée au buffer                                                           | **no-op**   |
+| `release(store)`         | `RequestContext.ts:387` | vide un store dont l'unité de travail est finie                                                | —           |
 
 > [!IMPORTANT]
 > `set()` hors bulle ne **lève pas** — il ne fait rien. C'est délibéré (le même code doit tourner en
@@ -364,8 +361,8 @@ flowchart LR
 
 Deux lectures possibles, et elles ne sont **pas** équivalentes :
 
-- `RequestContext.isProfiling()` (`RequestContext.ts:400`) + `RequestContext.pushQuery()`
-  (`RequestContext.ts:410`) — le chemin simple, quand tout se passe dans la bulle.
+- `RequestContext.isProfiling()` (`RequestContext.ts:421`) + `RequestContext.pushQuery()`
+  (`RequestContext.ts:431`) — le chemin simple, quand tout se passe dans la bulle.
 - **capturer la référence** du buffer une fois (`RequestContext.get()?.queries`) puis pousser
   dedans — le chemin **robuste**, celui des adapters livrés : `DrizzleRepository.#prof()`
   (`DrizzleRepository.ts:489`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:115`).
@@ -475,7 +472,12 @@ jeton complet** — rôles, périmètres, attributs (`firewall.ts:632`). Quatre 
    l'avoir écrit. C'est la contrepartie de la commodité : le payload n'est pas un coffre-fort. On y
    met une identité **déjà vérifiée**, jamais un authentifiant (mot de passe, secret brut).
 2. **Lire l'identité n'est pas autoriser.** `getUser()` rend `unknown` : c'est un transport, pas une
-   décision. L'autorisation passe par le firewall et ses décorateurs, qui lisent le **jeton**
+   décision — il rend aussi l'anonyme d'une zone `anonymous`. Pour savoir QUI est connecté, une
+   seule règle : `getAuthenticatedUser()` (`RequestContext.ts:273`). Elle part du **jeton** — un
+   utilisateur posé sans jeton n'a été authentifié par personne — et elle **lève** quand un jeton
+   authentifié porte un utilisateur sans `id`, `identifier` ou `roles` (authentificateur qui viole
+   le contrat) au lieu de le faire passer, sans un mot, pour un anonyme. `this.user` d'un contrôleur,
+   `@nodefony/user` (`authenticatedUser`, `requestUser`), le realtime et l'idempotence l'appellent. L'autorisation passe par le firewall et ses décorateurs, qui lisent le **jeton**
    (`Resolver.ts:849`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
 3. **Une identité de WebSocket peut vieillir.** La bulle de connexion porte l'identité captée à la
    poignée de main, et la connexion peut durer des heures — alors que la session, elle, peut être
@@ -507,9 +509,10 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | `getRequestId()` vaut `undefined` dans un écouteur / une minuterie | le rappel se déclenche dans un tick postérieur, hors bulle                                 | `AsyncResource.bind(fn)` **au branchement**, pas à l'appel                           |
 | Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux                   | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
-| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:385`)                      | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
+| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:406`)                      | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
 | `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall              | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
-| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                      | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1308`)         |
+| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                      | `getAuthenticatedUser()` (typé `IRequestUser`), ou `this.user` dans un contrôleur    |
+| Un visiteur anonyme compté comme connecté                          | décision prise sur `getUser()`, qui rend aussi l'anonyme (`anon.`)                         | décider avec `getAuthenticatedUser()` : `null` pour l'anonyme                        |
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:400`)      | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
 | Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                       | déjà traité pour les contextes (`Context.ts:244`) ; pour ton code, `run()` à nouveau |
 | Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                                | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |

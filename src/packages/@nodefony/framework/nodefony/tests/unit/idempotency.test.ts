@@ -8,6 +8,7 @@ import {
   evaluateIdempotency,
   IDEMPOTENCY_KEY_MAX,
 } from "../../src/idempotency.js";
+import { RequestContext } from "nodefony";
 import type {
   IIdempotencyStore,
   IdempotencyOutcome,
@@ -74,17 +75,35 @@ describe("idempotency — resolveIdempotencyKey", () => {
 });
 
 describe("idempotency — resolveIdentity", () => {
-  it("derives from username > identifier > id", () => {
-    expect(
-      resolveIdentity({ username: "u", identifier: "i", id: "x" }),
-    ).to.equal("u");
-    expect(resolveIdentity({ identifier: "i", id: "x" })).to.equal("i");
-    expect(resolveIdentity({ id: "x" })).to.equal("x");
+  const token = (authenticated: boolean) => ({
+    isAuthenticated: () => authenticated,
   });
-  it("returns null for a non-object / empty user (no ALS identity)", () => {
-    expect(resolveIdentity(null)).to.equal(null);
-    expect(resolveIdentity("nope")).to.equal(null);
-    expect(resolveIdentity({})).to.equal(null);
+  const alice = { id: "u-1", identifier: "alice", roles: ["ROLE_USER"] };
+
+  it("rend l'identifier de l'utilisateur AUTHENTIFIÉ de la requête", () => {
+    RequestContext.run(
+      { requestId: "r", user: alice, token: token(true) },
+      () => {
+        expect(resolveIdentity()).to.equal("alice");
+      },
+    );
+  });
+
+  it("🔴 l'anonyme d'une zone `anonymous` n'a PAS d'identité : deux visiteurs ne partagent jamais le cache", () => {
+    const anonymous = { id: "anonymous", identifier: "anon.", roles: [] };
+    RequestContext.run(
+      { requestId: "r", user: anonymous, token: token(false) },
+      () => {
+        expect(resolveIdentity()).to.equal(null);
+      },
+    );
+  });
+
+  it("null hors requête, ou sans jeton (personne n'a authentifié)", () => {
+    expect(resolveIdentity()).to.equal(null);
+    RequestContext.run({ requestId: "r", user: alice }, () => {
+      expect(resolveIdentity()).to.equal(null);
+    });
   });
 });
 

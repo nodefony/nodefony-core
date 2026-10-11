@@ -160,7 +160,7 @@ class AdminApiController extends Controller {
     const store = this.get<IIdempotencyStore>("idempotencyStore");
     const verdict = await evaluateIdempotency({
       store,
-      identity: resolveIdentity(request.user),
+      identity: resolveIdentity(),
       clientKey: request.idempotencyKey,
       fingerprint: computeFingerprint([
         adminRoute.name,

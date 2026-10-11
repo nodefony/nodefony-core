@@ -53,7 +53,7 @@ stateDiagram-v2
 ```
 
 Les quatre verdicts du store et leur traduction, décidés par `evaluateIdempotency()`
-(`idempotency.ts:142`) :
+(`idempotency.ts:131`) :
 
 - **fresh** → tu détiens la réservation : exécute l'action, puis **obligatoirement** `complete(clé,
 réponse)` (succès) ou `abort(clé)` (échec). Verdict rendu : `guarded`.
@@ -98,7 +98,7 @@ Sans ce ticket, trois choses cassent :
    donc il **doit** retenter ; c'est au serveur de rendre le retry inoffensif.
 2. **IDOR sur le cache** — si la clé stockée était la clé brute du client, il suffirait de deviner
    `order-42` pour lire la **réponse mémorisée d'un autre utilisateur**. Nodefony stocke
-   `JSON.stringify([identité, cléClient])` (`idempotency.ts:182`) : l'anti-IDOR n'est pas un contrôle
+   `JSON.stringify([identité, cléClient])` (`idempotency.ts:171`) : l'anti-IDOR n'est pas un contrôle
    ajouté, il est **structurel**, encodé dans la clé de cache. Le JSON sert de frontière non ambiguë
    (aucun séparateur magique qui pourrait entrer en collision).
 3. **DoS du cache** — une clé arbitrairement longue, ou un flot de clés uniques, remplirait la
@@ -114,7 +114,7 @@ Sans ce ticket, trois choses cassent :
 ## La vision Nodefony
 
 Le constat de conception qui compte : la sémantique IETF (quels statuts, quel scope, quelle
-empreinte) est décidée dans **un helper pur**, `evaluateIdempotency()` (`idempotency.ts:142`), qui ne
+empreinte) est décidée dans **un helper pur**, `evaluateIdempotency()` (`idempotency.ts:131`), qui ne
 connaît **aucun transport**. Il rend un verdict neutre (`IdempotencyVerdict`, `idempotency.ts:50`)
 que **deux** appelants traduisent dans leur monde :
 
@@ -304,12 +304,14 @@ sequenceDiagram
    comparaison, flux normal, **zéro** lookup de store et zéro allocation.
 2. **No-op sur méthode sûre.** Une action `GET` sous une classe `@Idempotent` repart directement en
    exécution (`Resolver.ts:688`).
-3. **Empreinte du payload.** `computeFingerprint()` (`idempotency.ts:123`) hache
+3. **Empreinte du payload.** `computeFingerprint()` (`idempotency.ts:112`) hache
    `[nom de route, params de route, corps]` (`Resolver.ts:497`). Le corps vient de l'ALS (pont WS) ou
    du body HTTP parsé.
-4. **Identité.** `resolveIdentity()` (`idempotency.ts:100`) dérive l'identité de `request.user`
-   (`username` → `identifier` → `id`), avec repli sur l'`userId` de l'ALS. **`null` = pas de cache** :
-   le verdict devient `execute` (`idempotency.ts:176`) — jamais de partage cross-identité.
+4. **Identité.** `resolveIdentity()` (`idempotency.ts:102`) rend l'`identifier` de l'utilisateur
+   AUTHENTIFIÉ de la requête (`RequestContext.getAuthenticatedUser()`, la règle unique du cœur).
+   L'anonyme d'une zone `anonymous` n'a pas d'identité : tous les visiteurs anonymes partagent le
+   même `identifier`, ils partageraient donc le même cache. **`null` = pas de cache** : le verdict
+   devient `execute` — jamais de partage cross-identité.
 5. **Réservation.** `store.begin()` compose la clé scopée et tranche.
 6. **Mémorisation.** En succès, `complete(clé, {status, body})` où `status` est le code de réponse
    courant et `body` la **valeur retournée** par l'action (`Resolver.ts:717`). En erreur,
@@ -554,8 +556,8 @@ cycle. La porte est appliquée par le Resolver.
 | `size`                    |     ✅      | Nombre d'entrées vivantes, **sync best-effort** (`src/nodefony/src/types/IIdempotencyStore.ts:159`).            |
 
 Les helpers du seam sont exportés et réutilisables : `isMutationMethod()` (`idempotency.ts:28`),
-`resolveIdempotencyKey()` (`idempotency.ts:68`), `resolveIdentity()` (`idempotency.ts:100`),
-`computeFingerprint()` (`idempotency.ts:123`), `evaluateIdempotency()` (`idempotency.ts:142`).
+`resolveIdempotencyKey()` (`idempotency.ts:68`), `resolveIdentity()` (`idempotency.ts:102`),
+`computeFingerprint()` (`idempotency.ts:112`), `evaluateIdempotency()` (`idempotency.ts:131`).
 
 ### `listPage` — capacités RÉELLES par store
 
@@ -636,9 +638,9 @@ pour l'affichage Studio, `idempotencyStoreRegistry.ts:81`).
 <!-- prettier-ignore -->
 | Sujet | Norme | Ancrage |
 | --- | --- | --- |
-| En-tête `Idempotency-Key`, statuts, rejeu | `draft-ietf-httpapi-idempotency-key-header-06` | `evaluateIdempotency()` (`idempotency.ts:142`) |
+| En-tête `Idempotency-Key`, statuts, rejeu | `draft-ietf-httpapi-idempotency-key-header-06` | `evaluateIdempotency()` (`idempotency.ts:131`) |
 | Clé réutilisée avec un autre payload → 422 | draft §2.2 / §2.7 | `idempotency.ts:189` |
-| Exécution concurrente identique → 409 | draft §2.6 | `idempotency.ts:197` |
+| Exécution concurrente identique → 409 | draft §2.6 | `idempotency.ts:186` |
 | Clé requise absente → 400 | draft §2.7 | `idempotency.ts:165` |
 | Méthodes non sûres = mutations | RFC 9110 §9.2.1 | `MUTATION_METHODS` (`idempotency.ts:25`) |
 | Sémantique du 422 | RFC 9110 §15.5.21 | `IdempotencyVerdict` (`idempotency.ts:50`) |

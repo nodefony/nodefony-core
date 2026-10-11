@@ -762,8 +762,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
         // L'utilisateur que le pare-feu a chargé pour CETTE requête — le relire
         // coûterait un aller-retour en base pour rien (cf `requestUser`).
         const me =
-          requestUser(request.user, principal) ??
-          (await users.findByIdentifier(principal));
+          requestUser(principal) ?? (await users.findByIdentifier(principal));
         if (!me) return { status: 404, body: { error: "not found" } };
         return toUserSummary(me);
       },
@@ -897,8 +896,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
         // L'utilisateur que le pare-feu a chargé pour CETTE requête — le relire
         // coûterait un aller-retour en base pour rien (cf `requestUser`).
         const me =
-          requestUser(request.user, principal) ??
-          (await users.findByIdentifier(principal));
+          requestUser(principal) ?? (await users.findByIdentifier(principal));
         if (!me) return { status: 404, body: { error: "not found" } };
         const parsed = validateProfilePatch(request.body ?? {});
         if (!parsed.ok) {

@@ -720,7 +720,7 @@ class Resolver implements IResolver {
       IIdempotencyStore | undefined;
     const verdict = await evaluateIdempotency({
       store,
-      identity: resolveIdentity(als?.user),
+      identity: resolveIdentity(),
       clientKey: resolveIdempotencyKey(
         als?.idempotencyKey,
         httpReq?.headers?.["idempotency-key"],
