@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T17:57:22.441Z",
+  "generatedAt": "2026-10-11T19:21:31.780Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,6 +32,13 @@
       "title": "outillage-agents"
     },
     {
+      "closed": 0,
+      "dueOn": null,
+      "number": 9,
+      "open": 1,
+      "title": "13.0.0"
+    },
+    {
       "closed": 158,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
@@ -39,7 +46,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 109,
+      "closed": 110,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 39,
@@ -257,6 +264,34 @@
       "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 1,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 583,
+      "title": "feat(security): authentifier par certificat client sur carte à puce",
+      "url": "https://github.com/nodefony/nodefony-core/issues/583",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "13.0.0",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 1,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 584,
+      "title": "feat(client): proposer les passkeys dans le champ identifiant",
+      "url": "https://github.com/nodefony/nodefony-core/issues/584",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "11.0.0",
+      "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 1,
       "debut": null,
@@ -2572,6 +2607,22 @@
       "labels": []
     },
     {
+      "number": 582,
+      "title": "feat(security): répondre 200 sans session à la route d'identité",
+      "url": "https://github.com/nodefony/nodefony-core/issues/582",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.95,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 524,
       "title": "feat(security): lier un compte existant à Keycloak et exporter les comptes",
       "url": "https://github.com/nodefony/nodefony-core/issues/524",
@@ -2653,8 +2704,8 @@
       "number": 549,
       "title": "refactor(studio): passer la connexion de la console sur le déroulé partagé",
       "url": "https://github.com/nodefony/nodefony-core/issues/549",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,

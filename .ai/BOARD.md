@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-10-11 17:57** (UTC).
+> Empreinte prise le **2026-10-11 19:21** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,12 +21,13 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 74% | 109 | 39 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███████░░░` 74% | 110 | 39 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 98% | 135 | 3 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 13% | 5 | 35 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 5 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `█░░░░░░░░░` 8% | 1 | 11 | — |
+| **13.0.0** | ![13.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/9?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 1 | — |
 | **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `███████░░░` 67% | 4 | 2 | — |
 
 ## ➡️ Le prochain dans l'ordre
@@ -39,6 +40,22 @@ Ordre 3.93 · P1 — figé à la création · 11.5 j · jalon 10.0.0-beta · fri
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
+
+## Jalon 13.0.0 — 1 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 1 | P2 — décision | 3 | — | #583 | feat(security): authentifier par certificat client sur carte à puce |
+
+## Jalon 11.0.0 — 5 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 1 | P2 — décision | 1 | — | #584 | feat(client): proposer les passkeys dans le champ identifiant |
+| 162 | P3 — fin de cycle | 1 | — | #242 | feat(core): instruire le besoin de transports TCP, UDP et Unix |
+| 163 | P3 — fin de cycle | 1 | — | #243 | feat(realtime): servir le bus par Kafka pour la retention |
+| 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
+| 165 | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
 
 ## Jalon outillage-agents — 2 ouverts
 
@@ -54,8 +71,8 @@ Ordre 3.93 · P1 — figé à la création · 11.5 j · jalon 10.0.0-beta · fri
 | 3.93 | P1 — figé à la création | 11.5 | 2026-10-13 → 10-15 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 3.935 | P1 — figé à la création | 1 | — | #544 | feat(security): ajouter une commande d'exemple qui appelle l'API par jeton |
 | 3.94 | P1 — figé à la création | 1 | — | #521 | feat(security): joindre Keycloak par un certificat ou une adresse interne |
+| 3.95 | P1 — figé à la création | 0.5 | — | #582 | feat(security): répondre 200 sans session à la route d'identité |
 | 3.96 | P2 — décision | 1 | — | #525 | test(security): compléter les bancs Keycloak réels |
-| 3.98 | P2 — décision | 1 | — | #549 | refactor(studio): passer la connexion de la console sur le déroulé partagé |
 | 3.985 | P1 — figé à la création | 2 | — | #579 | feat(devkit): enseigner la connexion aux agents, prouvé par un banc |
 | 4.001 | P2 — décision | 1 | — | #555 | feat(studio): montrer en direct la contre-pression du temps réel |
 | 4.002 | P2 — décision | 1 | — | #556 | feat(studio): suivre en direct le transcript d'un agent de code |
@@ -171,15 +188,6 @@ Ordre 3.93 · P1 — figé à la création · 11.5 j · jalon 10.0.0-beta · fri
 | 58 | P1 — figé à la création | 1 | — | #513 | feat(scaffold): mettre les apps générées en quarantaine de 3 jours |
 | 59 | P1 — figé à la création | 1 | 2026-11-18 → 11-18 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 60 | P3 — fin de cycle | 1 | 2026-11-19 → 11-19 | #27 | chore(release): publier les paquets de la version 10 sur npm |
-
-## Jalon 11.0.0 — 4 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 162 | P3 — fin de cycle | 1 | — | #242 | feat(core): instruire le besoin de transports TCP, UDP et Unix |
-| 163 | P3 — fin de cycle | 1 | — | #243 | feat(realtime): servir le bus par Kafka pour la retention |
-| 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
-| 165 | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
 
 ## Jalon 12.0.0 — 11 ouverts
 
