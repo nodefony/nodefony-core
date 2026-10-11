@@ -71,6 +71,9 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 - **IPC** (detect: IPC) — _Inter-Process Communication_ : le canal de messages entre deux processus Node lancés l'un par l'autre (`process.send` / `child.send`), distinct de leurs sorties texte.
 - **écran alternatif** (detect: écran alternatif) — le second écran d'un terminal, celui qu'ouvrent les programmes plein écran (`less`, `vim`) : ce qui s'y affiche n'entre pas dans l'historique, et l'écran d'avant revient intact à la sortie.
 - **mode brut** (detect: mode brut) — le réglage du terminal où chaque touche arrive au programme dès qu'elle est frappée, sans attendre Entrée ; Ctrl+C n'y envoie plus de signal, c'est le programme qui le reçoit comme une touche.
+- **mTLS** (detect: mTLS|TLS mutuel|certificat client) — _TLS mutuel_ : pendant la négociation TLS, le serveur demande aussi un certificat au client, qui le présente avec la clé privée correspondante — par exemple depuis une carte à puce.
+- **PKCS#11** (detect: PKCS#11|PKCS 11) — l'interface standard par laquelle un navigateur ou un système parle à une carte à puce (le pilote de la carte) ; Windows passe aussi par son propre magasin de certificats.
+- **OCSP / CRL** (detect: OCSP|CRL) — les deux moyens de savoir si un certificat a été révoqué (carte perdue, agent parti) : interroger l'autorité en ligne (OCSP), ou télécharger sa liste de révocation (CRL).
 
 ## Anglicismes — l'équivalent à employer
 
