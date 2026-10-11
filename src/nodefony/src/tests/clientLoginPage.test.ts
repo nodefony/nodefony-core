@@ -28,6 +28,7 @@ const PAGE = `
   <button class="nf-btn primary" type="submit">Continuer</button>
 </form>
 <form data-step="password" hidden>
+  <input name="username" autocomplete="username" hidden readonly />
   <div class="nf-account"><span class="nf-avatar"></span><span class="who"></span>
     <button type="button" class="nf-link" data-go="identifier">Changer</button></div>
   <div class="nf-input"><input id="nf-password" name="password" type="password" />
@@ -112,6 +113,11 @@ describe("page de connexion — le déroulé sur le balisage", () => {
     );
     expect($('[data-tab="identifier"]').classList.contains("done")).toBe(true);
     expect($(".nf-account .who").textContent).toBe("admin");
+    // Le gestionnaire de mots de passe lit le compte dans le formulaire du mot de passe.
+    expect(
+      $as('[data-step="password"] input[name="username"]', HTMLInputElement)
+        .value,
+    ).toBe("admin");
     expect($(".nf-account .nf-avatar").textContent).toBe("A");
 
     $as("#nf-password", HTMLInputElement).value = "secret";

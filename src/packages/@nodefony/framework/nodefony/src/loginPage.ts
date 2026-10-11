@@ -500,6 +500,9 @@ export const LOGIN_PAGE_TEMPLATE = `<!doctype html>
               <button class="nf-btn primary" type="submit">Continuer<svg class="nf-icon" aria-hidden="true"><use href="#i-arrow" /></svg></button>
             </form>
             <form data-step="password" hidden>
+              <!-- Compte de l'étape précédente, masqué : le gestionnaire de mots de passe
+                   associe le mot de passe à CE compte (HTML, jeton « username »). -->
+              <input name="username" autocomplete="username" hidden readonly tabindex="-1" />
               <div class="nf-account">
                 <span class="nf-avatar" aria-hidden="true"></span><span class="who"></span>
                 <button type="button" class="nf-link" data-go="identifier">Changer</button>

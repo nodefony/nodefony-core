@@ -204,6 +204,12 @@ export function mountLoginPage(
         state.step === "mfa" ? messages.mfaSubtitle : subtitleDefault;
     for (const who of doc.querySelectorAll<HTMLElement>(".nf-account .who"))
       who.textContent = state.identifier;
+    // Le champ masqué de l'étape mot de passe porte le compte : sans lui, le
+    // gestionnaire de mots de passe ne sait pas à quel compte rattacher le secret.
+    for (const account of doc.querySelectorAll<HTMLInputElement>(
+      '[data-step="password"] input[name="username"]',
+    ))
+      account.value = state.identifier;
     for (const avatar of doc.querySelectorAll<HTMLElement>(
       ".nf-account .nf-avatar",
     ))

@@ -811,6 +811,10 @@ export const Login = observer(() => {
                   placeholder="admin"
                   leftSection={<IconUser size={16} />}
                   autoComplete="username"
+                  // Un identifiant n'est pas une phrase : ni majuscule imposée
+                  // par le clavier mobile, ni correcteur.
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={identifier}
                   onChange={(e) => {
                     setIdentifier(e.currentTarget.value);
@@ -889,6 +893,18 @@ export const Login = observer(() => {
                   })}
                 >
                   <Stack gap="md">
+                    {/* Compte affiché plus haut, en champ masqué : le gestionnaire
+                        de mots de passe rattache le secret à CE compte (HTML,
+                        jeton « username »). */}
+                    <input
+                      type="text"
+                      name="username"
+                      autoComplete="username"
+                      value={flow.identifier}
+                      readOnly
+                      hidden
+                      tabIndex={-1}
+                    />
                     <PasswordInput
                       {...pwProps}
                       ref={pwRef}
