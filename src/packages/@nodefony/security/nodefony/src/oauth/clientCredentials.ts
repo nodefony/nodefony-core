@@ -32,6 +32,8 @@ export interface IClientCredentialsRequest {
    * par un mapper déclaré sur le client.
    */
   readonly resource?: string;
+  /** Adresse où lire les métadonnées, si elle diffère de l'émetteur (cf `IDiscoveryOptions`). */
+  readonly discoveryUrl?: string | undefined;
   /** Implémentation de `fetch` (banc sans réseau). */
   readonly fetch?: typeof globalThis.fetch;
   /** Délai d'attente de CHAQUE requête (découverte, puis jeton), en millisecondes. */
@@ -66,6 +68,7 @@ export async function requestClientCredentialsToken(
     );
   }
   const server = await discoverAuthorizationServer(request.issuer, {
+    discoveryUrl: request.discoveryUrl,
     ...(request.fetch ? { fetch: request.fetch } : {}),
     ...(request.timeoutMs !== undefined
       ? { timeoutMs: request.timeoutMs }

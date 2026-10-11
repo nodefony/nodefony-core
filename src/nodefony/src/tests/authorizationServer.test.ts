@@ -5,6 +5,9 @@ import {
   canonicalIssuer,
   extractScopes,
   issuerMetadataUrls,
+  isBackChannelTransportAllowed,
+  metadataCandidateUrls,
+  parseDiscoveryUrl,
   validateIssuerMetadata,
   JWKS_PATH,
 } from "../oauth/authorizationServer";
@@ -246,5 +249,96 @@ describe("⭐ la boucle : ce qu'on publie est ce qu'un lecteur cherche", () => {
       issuer: "https://app.example/tenant1",
     });
     assert.equal(new URL(doc.jwks_uri).pathname, JWKS_PATH);
+  });
+});
+
+/**
+ * `discoveryUrl` — lire le document ailleurs que chez l'émetteur (service
+ * interne d'un cluster), SANS relâcher l'égalité de l'émetteur (RFC 8414 §3.3).
+ */
+describe("authorizationServer — adresse de découverte déclarée", () => {
+  const PUBLIC = "https://sso.example.com/realms/app";
+  const INTERNAL =
+    "http://keycloak.sso:8080/realms/app/.well-known/openid-configuration";
+
+  it("l'adresse déclarée REMPLACE les points bien connus, et elle seule", () => {
+    assert.deepEqual(metadataCandidateUrls(PUBLIC, INTERNAL), [INTERNAL]);
+    assert.deepEqual(metadataCandidateUrls(PUBLIC), issuerMetadataUrls(PUBLIC));
+  });
+
+  it("refuse une adresse qui n'est pas http(s), ou qui porte identifiants ou fragment", () => {
+    assert.throws(() => parseDiscoveryUrl("keycloak:8080"), /http ou https/);
+    assert.throws(() => parseDiscoveryUrl("pas une url"), /pas une URL/);
+    assert.throws(
+      () => parseDiscoveryUrl("http://u:p@keycloak.sso:8080/x"),
+      /identifiants/,
+    );
+    assert.throws(
+      () => parseDiscoveryUrl("http://keycloak.sso:8080/x#f"),
+      /fragment/,
+    );
+  });
+
+  it("le document lu à l'adresse interne doit TOUJOURS se déclarer de l'émetteur public", () => {
+    assert.throws(
+      () =>
+        validateIssuerMetadata(
+          {
+            issuer: "https://keycloak.sso:8443/realms/app",
+            jwks_uri: "http://keycloak.sso:8080/realms/app/certs",
+          },
+          PUBLIC,
+          INTERNAL,
+        ),
+      /égalité/,
+    );
+  });
+
+  it("jwks_uri en http admis sur l'origine EXACTE de l'adresse déclarée", () => {
+    const keys =
+      "http://keycloak.sso:8080/realms/app/protocol/openid-connect/certs";
+    assert.equal(
+      validateIssuerMetadata(
+        { issuer: PUBLIC, jwks_uri: keys },
+        PUBLIC,
+        INTERNAL,
+      ).jwksUri,
+      keys,
+    );
+  });
+
+  it("jwks_uri en http refusé sur une AUTRE origine — port compris", () => {
+    for (const keys of [
+      "http://ailleurs.sso:8080/certs",
+      "http://keycloak.sso:9090/certs",
+    ]) {
+      assert.throws(
+        () =>
+          validateIssuerMetadata(
+            { issuer: PUBLIC, jwks_uri: keys },
+            PUBLIC,
+            INTERNAL,
+          ),
+        /origine de discoveryUrl/,
+      );
+    }
+  });
+
+  it("transport serveur à serveur : https toujours, http seulement sur l'origine déclarée", () => {
+    assert.equal(
+      isBackChannelTransportAllowed(new URL("https://x.example/t")),
+      true,
+    );
+    assert.equal(
+      isBackChannelTransportAllowed(new URL("http://keycloak.sso:8080/t")),
+      false,
+    );
+    assert.equal(
+      isBackChannelTransportAllowed(
+        new URL("http://keycloak.sso:8080/t"),
+        INTERNAL,
+      ),
+      true,
+    );
   });
 });

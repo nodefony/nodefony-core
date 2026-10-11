@@ -121,7 +121,7 @@ Trois partis pris assumés :
 
 ### 1. Les passkeys sont déjà actives — la config utile
 
-`passkeys.enabled` vaut `true` par défaut (`config.ts:1439`). Ce que tu déclares vraiment, c'est **ton
+`passkeys.enabled` vaut `true` par défaut (`config.ts:1460`). Ce que tu déclares vraiment, c'est **ton
 domaine** : sans `rpId`, le service prend le domaine de l'app, et bascule sur `localhost` si c'est une
 adresse IP (un navigateur refuse une IP comme `rpId`, `webAuthn.ts:141`).
 
@@ -354,7 +354,7 @@ exactement les porteurs à risque de verrouillage.
 ## ⚙️ Configuration
 
 Table dérivée du schéma Zod `passkeysSchema` (`config.ts:528`), monté sous la clé `passkeys`
-(`config.ts:1439`).
+(`config.ts:1460`).
 
 | Option                    | Type                                       | Défaut       | Effet                                                                          |
 | ------------------------- | ------------------------------------------ | ------------ | ------------------------------------------------------------------------------ |

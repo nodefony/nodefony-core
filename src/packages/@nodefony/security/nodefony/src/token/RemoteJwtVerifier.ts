@@ -1,8 +1,9 @@
 import type * as Jose from "jose";
 import {
   canonicalIssuer,
+  metadataCandidateUrls,
   extractScopes,
-  issuerMetadataUrls,
+  parseDiscoveryUrl,
   validateIssuerMetadata,
   type IAccessPrincipal,
 } from "nodefony";
@@ -28,6 +29,13 @@ export interface ITrustedIssuer {
    * découvert.
    */
   jwksUri?: string | undefined;
+  /**
+   * Adresse où lire les métadonnées quand elle diffère de l'émetteur (service
+   * interne d'un cluster). Le document doit toujours se déclarer de `issuer` ;
+   * le `jwks_uri` peut alors être en `http` sur l'origine exacte de cette
+   * adresse (`isBackChannelTransportAllowed`, cœur).
+   */
+  discoveryUrl?: string | undefined;
   /**
    * Jeu de clés fourni LOCALEMENT — aucune requête, aucune découverte.
    *
@@ -169,8 +177,8 @@ export class RemoteJwtVerifier {
 
   /**
    * @param options - émetteurs de confiance et réglages réseau
-   * @throws Error si un émetteur est invalide, dupliqué, ou déclare un
-   *         algorithme à secret partagé
+   * @throws Error si un émetteur est invalide, dupliqué, déclare un
+   *         algorithme à secret partagé ou une `discoveryUrl` invalide
    */
   constructor(options: IRemoteJwtVerifierOptions) {
     this.#options = options;
@@ -185,6 +193,11 @@ export class RemoteJwtVerifier {
         );
       }
       assertAsymmetric(issuer, trusted.algorithms);
+      // Une adresse de découverte invalide refuse la configuration ICI, pas au
+      // premier jeton — où elle passerait pour une panne de l'émetteur.
+      if (trusted.discoveryUrl !== undefined) {
+        parseDiscoveryUrl(trusted.discoveryUrl);
+      }
       this.#issuers.set(issuer, { ...trusted, issuer });
     }
   }
@@ -356,7 +369,7 @@ export class RemoteJwtVerifier {
         getKey: jose.createLocalJWKSet(await trusted.localJwks()),
       };
     }
-    const jwksUri = trusted.jwksUri ?? (await this.#discover(trusted.issuer));
+    const jwksUri = trusted.jwksUri ?? (await this.#discover(trusted));
     const options: Jose.RemoteJWKSetOptions = {
       timeoutDuration: this.#options.timeoutMs ?? 5_000,
       cooldownDuration: this.#options.cooldownMs ?? 30_000,
@@ -383,11 +396,12 @@ export class RemoteJwtVerifier {
    * « meilleure réponse que rien » : il est écarté comme s'il n'avait pas
    * répondu, et la recherche continue.
    */
-  async #discover(issuer: string): Promise<string> {
+  async #discover(trusted: ITrustedIssuer): Promise<string> {
+    const { issuer, discoveryUrl } = trusted;
     const doFetch = this.#options.fetch ?? globalThis.fetch;
     const timeout = this.#options.timeoutMs ?? 5_000;
     const failures: string[] = [];
-    for (const url of issuerMetadataUrls(issuer)) {
+    for (const url of metadataCandidateUrls(issuer, discoveryUrl)) {
       try {
         const response = await doFetch(url, {
           signal: AbortSignal.timeout(timeout),
@@ -398,7 +412,11 @@ export class RemoteJwtVerifier {
           failures.push(`${url} → HTTP ${response.status}`);
           continue;
         }
-        const metadata = validateIssuerMetadata(await response.json(), issuer);
+        const metadata = validateIssuerMetadata(
+          await response.json(),
+          issuer,
+          discoveryUrl,
+        );
         this.#audit(
           `émetteur « ${issuer} » découvert : clés sur ${metadata.jwksUri}.`,
         );

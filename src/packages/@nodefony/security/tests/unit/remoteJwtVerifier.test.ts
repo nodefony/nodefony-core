@@ -534,3 +534,67 @@ describe("RemoteJwtVerifier — les clés LOCALES, sans aucune requête", () => 
     assert.equal(await verifier.verify(token, RESOURCE), null);
   });
 });
+
+describe("RemoteJwtVerifier — adresse de découverte déclarée (`discoveryUrl`)", () => {
+  const INTERNAL =
+    "http://keycloak.sso:8080/realms/nodefony/.well-known/openid-configuration";
+  const INTERNAL_JWKS = "http://keycloak.sso:8080/realms/nodefony/certs";
+
+  it("lit les métadonnées à l'adresse interne et accepte le jeton de l'émetteur PUBLIC", async () => {
+    const issuer = await fakeIssuer();
+    const net = fakeNet({
+      [INTERNAL]: { issuer: ISSUER, jwks_uri: INTERNAL_JWKS },
+      [INTERNAL_JWKS]: issuer.jwks,
+    });
+    const verifier = new RemoteJwtVerifier({
+      issuers: [
+        { issuer: ISSUER, discoveryUrl: INTERNAL, algorithms: ["ES256"] },
+      ],
+      fetch: net.fetch,
+    });
+    const principal = await verifier.verify(
+      await issuer.sign({ sub: "x" }),
+      RESOURCE,
+    );
+    assert.equal(principal?.issuer, ISSUER);
+    assert.deepEqual(net.urls, [INTERNAL, INTERNAL_JWKS]);
+  });
+
+  it("un document interne qui se déclare d'un AUTRE émetteur est une panne, jamais un jeton accepté", async () => {
+    const issuer = await fakeIssuer();
+    const net = fakeNet({
+      [INTERNAL]: {
+        issuer: "https://autre.example/realms/nodefony",
+        jwks_uri: INTERNAL_JWKS,
+      },
+      [INTERNAL_JWKS]: issuer.jwks,
+    });
+    const verifier = new RemoteJwtVerifier({
+      issuers: [
+        { issuer: ISSUER, discoveryUrl: INTERNAL, algorithms: ["ES256"] },
+      ],
+      fetch: net.fetch,
+    });
+    await assert.rejects(
+      verifier.verify(await issuer.sign({ sub: "x" }), RESOURCE),
+      /découverte impossible/,
+    );
+    assert.ok(!net.urls.includes(INTERNAL_JWKS));
+  });
+
+  it("une adresse de découverte invalide refuse la configuration au démarrage", () => {
+    assert.throws(
+      () =>
+        new RemoteJwtVerifier({
+          issuers: [
+            {
+              issuer: ISSUER,
+              discoveryUrl: "keycloak.sso:8080",
+              algorithms: ["ES256"],
+            },
+          ],
+        }),
+      /http ou https/,
+    );
+  });
+});

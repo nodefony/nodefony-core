@@ -1,6 +1,7 @@
 import {
   canonicalIssuer,
-  issuerMetadataUrls,
+  isBackChannelTransportAllowed,
+  metadataCandidateUrls,
   validateIssuerMetadata,
 } from "nodefony";
 import { readJsonObjectBounded } from "./httpJson";
@@ -81,6 +82,16 @@ export interface IDiscoveryOptions {
   readonly fetch?: typeof globalThis.fetch;
   /** Délai d'attente par URL candidate, en millisecondes. */
   readonly timeoutMs?: number;
+  /**
+   * Adresse où LIRE le document, quand elle diffère de l'émetteur — le service
+   * interne d'un cluster (`http://keycloak.sso:8080/realms/x/.well-known/openid-configuration`).
+   *
+   * @remarks Seul le lieu de lecture change : le document doit toujours se
+   * déclarer de l'émetteur attendu (RFC 8414 §3.3). Les points de serveur à
+   * serveur (jeton, clés) peuvent alors être en `http` sur l'origine exacte de
+   * cette adresse ; ceux vers lesquels le navigateur est envoyé restent en `https`.
+   */
+  readonly discoveryUrl?: string | undefined;
 }
 
 /**
@@ -125,6 +136,7 @@ function requireEndpoint(
   document: Record<string, unknown>,
   field: string,
   issuer: string,
+  backChannelOf?: string,
 ): string {
   const value = document[field];
   if (typeof value !== "string" || value.length === 0) {
@@ -140,9 +152,18 @@ function requireEndpoint(
       `métadonnées de « ${issuer} » : « ${field} » n'est pas une URL.`,
     );
   }
-  if (url.protocol !== "https:") {
+  // `backChannelOf` n'est passé que pour un point appelé de serveur à
+  // serveur : un point vers lequel le NAVIGATEUR est envoyé reste en https.
+  const allowed =
+    backChannelOf === undefined
+      ? url.protocol === "https:"
+      : isBackChannelTransportAllowed(url, backChannelOf);
+  if (!allowed) {
     throw new Error(
-      `métadonnées de « ${issuer} » : « ${field} » doit être en https.`,
+      `métadonnées de « ${issuer} » : « ${field} » doit être en https` +
+        (backChannelOf === undefined
+          ? "."
+          : ` (ou en http sur l'origine de discoveryUrl « ${backChannelOf} »).`),
     );
   }
   return value;
@@ -173,7 +194,7 @@ function optionalEndpoint(
  * d'entrée — la même attaque que le paramètre `iss` couvre au retour (RFC 9207).
  *
  * @param rawIssuer - identifiant d'émetteur tel qu'écrit en configuration.
- * @param options - transport injectable et délai d'attente.
+ * @param options - transport injectable, délai d'attente, adresse de découverte.
  * @returns Les points d'entrée, prêts pour `OAuth2Client`.
  * @throws Error - émetteur mal formé, document introuvable, incomplet, ou `issuer` discordant.
  */
@@ -183,7 +204,8 @@ export async function discoverAuthorizationServer(
 ): Promise<IDiscoveredAuthorizationServer> {
   const issuer = canonicalIssuer(rawIssuer);
   const failures: string[] = [];
-  for (const candidate of issuerMetadataUrls(issuer)) {
+  const discoveryUrl = options.discoveryUrl;
+  for (const candidate of metadataCandidateUrls(issuer, discoveryUrl)) {
     let document: Record<string, unknown>;
     try {
       document = await fetchMetadataDocument(candidate, options);
@@ -193,7 +215,7 @@ export async function discoverAuthorizationServer(
     }
     // Le document a répondu : à partir d'ici toute anomalie est FATALE — se
     // rabattre sur l'URL suivante masquerait un document hostile derrière un 404.
-    const identity = validateIssuerMetadata(document, issuer);
+    const identity = validateIssuerMetadata(document, issuer, discoveryUrl);
     const methods = document.code_challenge_methods_supported;
     const idTokenAlgs = document.id_token_signing_alg_values_supported;
     return {
@@ -204,7 +226,12 @@ export async function discoverAuthorizationServer(
         "authorization_endpoint",
         issuer,
       ),
-      tokenEndpoint: requireEndpoint(document, "token_endpoint", issuer),
+      tokenEndpoint: requireEndpoint(
+        document,
+        "token_endpoint",
+        issuer,
+        discoveryUrl,
+      ),
       codeChallengeMethodsSupported: Array.isArray(methods)
         ? methods.filter((m): m is string => typeof m === "string")
         : null,

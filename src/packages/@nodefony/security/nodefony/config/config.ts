@@ -4,6 +4,7 @@ import {
   LOGIN_PAGE_LAYOUTS,
   LOGIN_PAGE_PATH,
   LOGIN_PAGE_SKINS,
+  parseDiscoveryUrl,
   safeRedirectPath,
 } from "nodefony";
 import { parseKeySet } from "../src/token/JwtKeystore";
@@ -688,6 +689,24 @@ const remoteJwtAlgSchema = z.enum([
   "Ed25519",
 ]);
 
+// Adresse où LIRE les métadonnées d'un émetteur quand elle diffère de lui
+// (service interne d'un cluster). Une seule déclaration pour le fournisseur
+// de connexion et l'émetteur de confiance du serveur de ressource.
+const discoveryUrlSchema = z
+  .string()
+  .refine((value) => {
+    try {
+      parseDiscoveryUrl(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }, "adresse http(s) complète du document attendue, sans identifiants ni fragment")
+  .optional()
+  .describe(
+    "Adresse COMPLÈTE où lire le document de métadonnées, quand l'application ne joint pas l'émetteur par son adresse publique — en Kubernetes, le service interne : « http://keycloak.sso:8080/realms/app/.well-known/openid-configuration ». Seul le lieu de lecture change : le document doit toujours se déclarer de `issuer` (RFC 8414 §3.3), sinon refus. Les points appelés de serveur à serveur (jeton, clés) peuvent alors être en http sur l'origine exacte de cette adresse ; le point d'autorisation, où le navigateur est envoyé, reste en https. Keycloak publie ses points internes avec `--hostname-backchannel-dynamic=true`. Omis = découverte sur l'émetteur.",
+  );
+
 const trustedIssuerSchema = z.strictObject({
   issuer: z
     .string()
@@ -695,6 +714,7 @@ const trustedIssuerSchema = z.strictObject({
     .describe(
       "Identifiant de l'émetteur (claim `iss`), en https, sans requête ni fragment (RFC 8414 §2) — ex. « https://auth.example.com/realms/mon-royaume ». C'est une ALLOWLIST : un jeton dont l'`iss` n'est pas ici est refusé avant toute requête sortante.",
     ),
+  discoveryUrl: discoveryUrlSchema,
   jwksUri: z
     .string()
     .optional()
@@ -1179,6 +1199,7 @@ const oauthProviderSchema = z
       .describe(
         "Émetteur OIDC self-hosted (Keycloak : URL du realm, ex. https://kc.example/realms/app). REQUIS pour keycloak ; ignoré par les fournisseurs à endpoints fixes (Google/GitHub).",
       ),
+    discoveryUrl: discoveryUrlSchema,
     scopes: z
       .array(z.string())
       .default([])

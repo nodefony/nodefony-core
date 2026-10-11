@@ -476,7 +476,7 @@ points d'entrée sont demandés à l'émetteur, une seule fois par processus, au
 bien connues (§3.1 : insertion oauth → insertion oidc → ajout oidc) et l'égalité stricte du §3.3
 vivent dans le cœur (`nodefony` → `src/oauth/authorizationServer.ts`), qui s'en sert aussi pour
 PUBLIER nos propres métadonnées. `metadata.ts` n'ajoute que le transport : requête bornée, sans
-redirection suivie, avec un délai d'attente (`discoverAuthorizationServer()`, `metadata.ts:180`).
+redirection suivie, avec un délai d'attente (`discoverAuthorizationServer()`, `metadata.ts:201`).
 
 Deux refus valent d'être connus. Un document dont l'`issuer` diffère de celui demandé est rejeté
 **sans se rabattre** sur l'URL suivante — se rabattre masquerait un document hostile derrière un 404.
@@ -536,25 +536,25 @@ que le mapping du profil. Exemple sans réseau dans le dépôt :
 
 ## ⚙️ Configuration
 
-Schéma Zod `oauth2Schema` (`config.ts:1336`), branché sur la section `oauth2` de la config du module
-(`config.ts:1451`). Table dérivée du schéma — les défauts sont ceux du code.
+Schéma Zod `oauth2Schema` (`config.ts:1357`), branché sur la section `oauth2` de la config du module
+(`config.ts:1472`). Table dérivée du schéma — les défauts sont ceux du code.
 
 | Option            | Type                 | Défaut                      | Effet                                                                                                                                      |
 | ----------------- | -------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `enabled`         | booléen              | `true`                      | Coupe le social login : `authorize`/`callback` rendent 503.                                                                                |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]`             | Rôles du Shadow User **à la création** (`config.ts:1212`).                                                                                 |
-| `allowSignup`     | booléen              | `true`                      | `false` = compte préexistant lié exigé (`config.ts:1350`).                                                                                 |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]`             | Rôles du Shadow User **à la création** (`config.ts:1233`).                                                                                 |
+| `allowSignup`     | booléen              | `true`                      | `false` = compte préexistant lié exigé (`config.ts:1371`).                                                                                 |
 | `successRedirect` | chemin               | `/`                         | Où revient l'utilisateur après succès, quand la page de départ n'a pas donné `from`.                                                       |
 | `failureRedirect` | chemin               | `loginPage.path` (`/login`) | Où il revient après échec, quand la page de départ n'a pas donné `back`. Omis = la page de connexion, qu'il suit si elle change de chemin. |
-| `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1366`).                                                                                                   |
+| `providers`       | dictionnaire par nom | `{}`                        | Fournisseurs activés (`config.ts:1387`).                                                                                                   |
 
-Par fournisseur (`oauthProviderSchema`, `config.ts:1149`) :
+Par fournisseur (`oauthProviderSchema`, `config.ts:1169`) :
 
 <!-- prettier-ignore -->
 | Option | Requis | Effet |
 | --- | :---: | --- |
 | `clientId` / `clientSecret` | ✅ | Identifiants délivrés par l'IdP. Secrets : par `env.ts`, jamais journalisés. |
-| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:1170`). |
+| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:1190`). |
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
 | `clientAuthMethod` |  | Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). Omis = `client_secret_basic`, ce que la RFC demande de préférer. Poser `client_secret_post` quand le serveur l'EXIGE — il le publie dans `token_endpoint_auth_methods_supported`. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
@@ -672,13 +672,13 @@ ou détruire les sessions), pas chez le fournisseur.
 | ------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Flux Authorization Code               | RFC 6749                               | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:99`)                    |
 | PKCE                                  | RFC 7636                               | `usesPkce` (`IOAuthProvider.ts:72`) · `oidc.ts:104-111`                                  |
-| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:280`) · `oauth2Schema` (`config.ts:1336`)                    |
+| Sécurité OAuth (BCP 2.1)              | RFC 9700                               | `OAuth2Service` (`oauth2.ts:280`) · `oauth2Schema` (`config.ts:1357`)                    |
 | Anti-mix-up (`iss`)                   | RFC 9207                               | `issuerPolicy` (`IOAuthProvider.ts:79`) · `oauth2.ts:402-408`                            |
-| Callback en correspondance exacte     | RFC 9700 §4                            | `redirectUri` (`config.ts:1170`)                                                         |
+| Callback en correspondance exacte     | RFC 9700 §4                            | `redirectUri` (`config.ts:1190`)                                                         |
 | Claims d'identité OIDC                | OpenID Connect Core                    | `fetchProfile()` du helper OIDC (`oidc.ts:205-220`)                                      |
 | ID token consommé en code flow        | OIDC Core §3.1.3.7                     | `assertIdTokenClaims()` (`oidc.ts:143`)                                                  |
 | Anti-fixation de session              | OWASP Session Management               | `session.regenerateId()` au login (`authFlow.ts:388`)                                    |
-| Déconnexion initiée par l'application | OpenID Connect RP-Initiated Logout 1.0 | `createLogoutURL` (`oidc.ts:224`) · `end_session_endpoint` découvert (`metadata.ts:215`) |
+| Déconnexion initiée par l'application | OpenID Connect RP-Initiated Logout 1.0 | `createLogoutURL` (`oidc.ts:224`) · `end_session_endpoint` découvert (`metadata.ts:242`) |
 | Déconnexion par le fournisseur        | OpenID Connect Back-Channel Logout 1.0 | `verifyLogoutToken` (`oidc.ts:240`) · `backchannelLogout()` (`oauth2.ts:638`)            |
 
 Flux **exclus** par posture 2.1, et donc absents du code : `implicit` (jeton en fragment d'URL) et

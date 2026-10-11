@@ -148,3 +148,40 @@ describe("requestClientCredentialsToken — RFC 6749 §4.4", () => {
     assert.equal(seen.length, 0);
   });
 });
+
+describe("requestClientCredentialsToken — adresse de découverte déclarée", () => {
+  it("découvre ET demande le jeton par le service interne, émetteur public inchangé", async () => {
+    const internal = "http://keycloak.sso:8080";
+    const discovery = `${internal}/realms/app/.well-known/openid-configuration`;
+    const seen: string[] = [];
+    const fetch = ((url: string) => {
+      seen.push(url);
+      const body =
+        url === discovery
+          ? {
+              issuer: ISSUER,
+              authorization_endpoint: "https://idp.test/realms/app/auth",
+              token_endpoint: `${internal}/realms/app/token`,
+              jwks_uri: `${internal}/realms/app/certs`,
+            }
+          : url === `${internal}/realms/app/token`
+            ? { access_token: "at-int", token_type: "Bearer" }
+            : null;
+      return Promise.resolve(
+        new Response(JSON.stringify(body ?? {}), {
+          status: body === null ? 404 : 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    }) as unknown as typeof globalThis.fetch;
+    const tokens = await requestClientCredentialsToken({
+      issuer: ISSUER,
+      discoveryUrl: discovery,
+      clientId: "app-machine",
+      clientSecret: "s",
+      fetch,
+    });
+    assert.equal(tokens.accessToken(), "at-int");
+    assert.deepEqual(seen, [discovery, `${internal}/realms/app/token`]);
+  });
+});

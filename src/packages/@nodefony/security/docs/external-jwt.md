@@ -33,7 +33,7 @@ Accepter un émetteur ne veut pas dire lui remettre les clés. Deux décisions r
 sont elles qui font la différence entre « intégrer un annuaire » et « en faire l'unique autorité
 d'accès » :
 
-1. **La liste des émetteurs acceptés** est une allowlist (`config.ts:672-677`). Un jeton dont l'`iss` n'y figure pas est
+1. **La liste des émetteurs acceptés** est une allowlist (`trustedIssuerSchema`, `config.ts:710`). Un jeton dont l'`iss` n'y figure pas est
    refusé **avant toute requête sortante** — l'application ne va pas interroger un émetteur inconnu.
 2. **Le sujet du jeton ne devient pas d'office un utilisateur** (`config.ts:678-683`). Par défaut, il
    doit correspondre à un compte local. Un annuaire d'entreprise vaut pour des milliers de personnes : les accepter

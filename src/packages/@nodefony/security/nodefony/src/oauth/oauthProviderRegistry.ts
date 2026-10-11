@@ -50,6 +50,11 @@ export interface IOAuthProviderContext {
    * l'émetteur est connu d'avance (Google) ou qui n'en publient pas (GitHub).
    */
   readonly issuer?: string | undefined;
+  /**
+   * Adresse où lire les métadonnées de l'émetteur quand elle diffère de lui
+   * (service interne d'un cluster) — cf `IDiscoveryOptions.discoveryUrl`.
+   */
+  readonly discoveryUrl?: string | undefined;
 }
 
 /**

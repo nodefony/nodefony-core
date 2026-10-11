@@ -459,7 +459,7 @@ La saisie est tolérante — casse et tirets ignorés à la normalisation (`totp
 
 ## ⚙️ Configuration et mises en situation
 
-La section `totp` du schéma Zod (`config.ts:1440`) — validée au boot, donc une valeur hors bornes
+La section `totp` du schéma Zod (`config.ts:1461`) — validée au boot, donc une valeur hors bornes
 échoue **au démarrage**, pas au premier login :
 
 | Option          | Type                         | Défaut | Effet                                                           |

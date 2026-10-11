@@ -451,6 +451,49 @@ describe("createDiscoveredOidcProvider (fournisseur décrit par son seul émette
     );
   });
 
+  // Kubernetes : la configuration porte l'adresse INTERNE, l'émetteur reste
+  // public — et c'est le CONTEXTE (config de l'application) qui l'apporte.
+  it("`discoveryUrl` du contexte : découverte ET échange de code par le service interne", async () => {
+    const internal = "http://idp.internal:8080";
+    const discovery = `${internal}/.well-known/openid-configuration`;
+    const seen: string[] = [];
+    const inner = serve({
+      [discovery]: { ...metadata, token_endpoint: `${internal}/token` },
+      [`${internal}/token`]: {
+        access_token: "at",
+        token_type: "Bearer",
+        id_token: idToken({
+          iss: ISSUER,
+          aud: ctx.clientId,
+          exp: Math.floor(Date.now() / 1000) + 600,
+          sub: "k-1",
+        }),
+      },
+    });
+    const fetch = ((url: string, init?: RequestInit) => {
+      seen.push(url);
+      return inner(url, init);
+    }) as unknown as typeof globalThis.fetch;
+    const provider = await createDiscoveredOidcProvider(
+      "keycloak",
+      { ...ctx, issuer: ISSUER, discoveryUrl: discovery },
+      { fetch },
+    );
+    assert.equal(provider.issuerPolicy?.issuer, ISSUER);
+    // Le navigateur part vers l'adresse PUBLIQUE.
+    const url = provider.createAuthorizationURL({
+      state: "st",
+      codeVerifier: VERIFIER,
+      scopes: ["openid"],
+    });
+    assert.equal(url.origin, ISSUER);
+    await provider.validateAuthorizationCode({
+      code: "c",
+      codeVerifier: VERIFIER,
+    });
+    assert.deepEqual(seen, [discovery, `${internal}/token`]);
+  });
+
   it("aucun émetteur (ni argument ni config) → refus au montage", async () => {
     await assert.rejects(
       () => createDiscoveredOidcProvider("keycloak", ctx),

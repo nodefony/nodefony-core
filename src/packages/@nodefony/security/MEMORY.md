@@ -141,8 +141,10 @@ Consomme `@nodefony/user`. Coupling http→security = **type-only** (`Firewall`/
   `jwksUri`** → la DÉCOUVERTE est réellement exercée), et un jeton émis par
   `/nodefony/security/api/token` entre par une zone `external-jwt`. Bancs live :
   `http/external-jwt-e2e.test.ts` (succès, 6) + `http/external-jwt.test.ts` (panne, 6).
-  ⚠️ Le processus se joint en https : il doit faire confiance à la CA de dev
-  (`NODE_EXTRA_CA_CERTS`, posé par `start.sh`) — sinon la découverte échoue et la zone rend **503**.
+  ⚠️ Le processus se joint en https : la CA de dev est posée parmi ses ancres par le service
+  certificates de http (`addDefaultCaCertificate`, dev seulement, console comprise) ; une autorité
+  d'ENTREPRISE passe par `http.certificates.extraCaFiles` (`NF_TLS_CA_FILE`). Sans confiance, la
+  découverte échoue et la zone rend **503**.
   L'audience exigée par la zone vaut `https://localhost:5152` parce que `jwt.audiences` vide ⇒
   `[issuer]` (`resolveJwtRuntime`) : elle SUIT l'émetteur, elle ne se choisit pas.
 - `JwtKeystore` (Ed25519) : source PRIORISÉE env (`keystore.keySetJson` ← `NF_JWT_KEYSET` de l'app) →
@@ -251,7 +253,15 @@ clientId, clientSecret, clientAuthMethod?, scopes?, resource? })` (`src/oauth/cl
   — la même implémentation PUBLIE nos métadonnées et LIT celles d'autrui. metadata.ts n'ajoute que le
   transport. `issuer` discordant ⇒ REFUS **sans repli** sur l'URL suivante ; émetteur `http` refusé
   PARTOUT (injecter `fetch` pour tester, pas affaiblir la règle) ; `code_challenge_methods_supported`
-  sans `S256` ⇒ refus. Type rendu = `IDiscoveredAuthorizationServer` (à NE PAS confondre avec
+  sans `S256` ⇒ refus.
+  **`discoveryUrl`** (fournisseur `oauth2.providers.<p>`, émetteur `resourceServer.issuers[]`,
+  `requestClientCredentialsToken`) : LIEU de lecture seul (`metadataCandidateUrls`, cœur) — l'égalité
+  §3.3 ne bouge pas. `http` admis UNIQUEMENT pour `token_endpoint` + `jwks_uri` sur l'origine EXACTE de
+  `discoveryUrl` (`isBackChannelTransportAllowed`, cœur) ; `authorization_endpoint`/`end_session_endpoint`
+  (navigateur) restent https. Validée au boot (Zod `discoveryUrlSchema` + ctor `RemoteJwtVerifier`).
+  Cas réel = Keycloak `KC_HOSTNAME` (URL) + `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true` (constaté 26.8 :
+  jeton/clés/userinfo suivent l'adresse interrogée, autorisation/déconnexion restent publiques).
+  Type rendu = `IDiscoveredAuthorizationServer` (à NE PAS confondre avec
   `IAuthorizationServerMetadata` du cœur, qui décrit le document PUBLIÉ). Registry pluggable
   `registerOAuthProvider` (fabrique **sync ou async** — découvrir = construire) — builtins
   **google/keycloak/oidc/github** : les trois premiers via `createDiscoveredOidcProvider` (émetteur seul,

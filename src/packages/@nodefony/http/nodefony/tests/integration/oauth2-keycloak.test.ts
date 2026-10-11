@@ -36,6 +36,7 @@ import { fileURLToPath } from "node:url";
 import {
   createDiscoveredOidcProvider,
   diagnoseOAuthProvider,
+  discoverAuthorizationServer,
   generateCodeVerifier,
   generateState,
   OAuth2RequestError,
@@ -975,6 +976,60 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
           kindOf(d, "discovery")?.message,
         ).toBe("issuer-mismatch");
         expect(kindOf(d, "token")?.status).toBe("skipped");
+      });
+    });
+
+    // #521 — Kubernetes : l'application joint le serveur par une AUTRE adresse
+    // que son émetteur. Ici, le même Keycloak lu par son IP annonce toujours
+    // son émetteur `localhost` (KC_HOSTNAME) : c'est le cas réel, sans cluster.
+    describe("adresse de découverte ≠ émetteur (#521)", () => {
+      const byIp = (): string => {
+        const url = new URL(ISSUER);
+        expect(isIP(url.hostname), "émetteur nommé, pas une IP").toBe(0);
+        url.hostname = "127.0.0.1";
+        return `${url.href.replace(/\/$/, "")}/.well-known/openid-configuration`;
+      };
+
+      it("sans `discoveryUrl`, viser l'IP échoue : le document se déclare de l'émetteur nommé", async () => {
+        const ip = new URL(ISSUER);
+        ip.hostname = "127.0.0.1";
+        await expect(
+          discoverAuthorizationServer(ip.href, {
+            fetch: caFetch,
+            timeoutMs: TIMEOUT,
+          }),
+        ).rejects.toThrow(/égalité/);
+      });
+
+      it("avec `discoveryUrl` sur l'IP, la découverte aboutit et le jeton machine s'obtient", async () => {
+        const discoveryUrl = byIp();
+        const server = await discoverAuthorizationServer(ISSUER, {
+          fetch: caFetch,
+          timeoutMs: TIMEOUT,
+          discoveryUrl,
+        });
+        expect(server.issuer).toBe(new URL(ISSUER).href.replace(/\/$/, ""));
+        const tokens = await requestClientCredentialsToken({
+          issuer: ISSUER,
+          discoveryUrl,
+          clientId: MACHINE_CLIENT_ID,
+          clientSecret: realmClientSecret(MACHINE_CLIENT_ID),
+          resource: PARTNER_RESOURCE,
+          fetch: caFetch,
+          timeoutMs: TIMEOUT,
+        });
+        expect(tokens.accessToken().length).toBeGreaterThan(0);
+      });
+
+      it("la même adresse pour un émetteur RÉELLEMENT différent est refusée", async () => {
+        const other = `${new URL(ISSUER).origin}/realms/un-autre-realm`;
+        await expect(
+          discoverAuthorizationServer(other, {
+            fetch: caFetch,
+            timeoutMs: TIMEOUT,
+            discoveryUrl: byIp(),
+          }),
+        ).rejects.toThrow(/égalité/);
       });
     });
   },

@@ -167,6 +167,86 @@ export function issuerMetadataUrls(issuer: string): string[] {
 }
 
 /**
+ * Valide une adresse de découverte déclarée (`discoveryUrl`) — l'endroit où LIRE
+ * le document de métadonnées quand il diffère de l'émetteur.
+ *
+ * Le cas d'usage : en Kubernetes, l'application joint son serveur
+ * d'autorisation par le service interne (`http://keycloak.sso:8080/…`), alors
+ * que l'émetteur annoncé est l'adresse publique. L'adresse est écrite par
+ * l'opérateur — jamais lue dans un jeton ni dans un document — et seul `http`
+ * ou `https` est admis.
+ *
+ * @param value - adresse complète du document (`…/.well-known/openid-configuration`)
+ * @returns l'URL analysée
+ * @throws Error si l'adresse n'est pas une URL http(s) sans identifiants ni fragment
+ */
+export function parseDiscoveryUrl(value: string): URL {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`discoveryUrl « ${value} » n'est pas une URL.`);
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error(`discoveryUrl « ${value} » : http ou https attendu.`);
+  }
+  if (url.username !== "" || url.password !== "" || url.hash !== "") {
+    throw new Error(
+      `discoveryUrl « ${value} » : ni identifiants ni fragment dans l'adresse.`,
+    );
+  }
+  return url;
+}
+
+/**
+ * Les URL où lire les métadonnées d'un émetteur : l'adresse déclarée SEULE
+ * quand il y en a une, sinon les points bien connus dans l'ordre normatif.
+ *
+ * Seul le LIEU de lecture change avec `discoveryUrl` : le document lu reste
+ * confronté à l'émetteur attendu par {@link validateIssuerMetadata}, à
+ * l'identique (RFC 8414 §3.3).
+ *
+ * @param issuer - émetteur déjà normalisé par {@link canonicalIssuer}
+ * @param discoveryUrl - adresse déclarée du document, ou rien
+ * @returns les URL à essayer, dans l'ordre
+ * @throws Error si `discoveryUrl` est invalide (cf {@link parseDiscoveryUrl})
+ */
+export function metadataCandidateUrls(
+  issuer: string,
+  discoveryUrl?: string,
+): string[] {
+  return discoveryUrl === undefined
+    ? issuerMetadataUrls(issuer)
+    : [parseDiscoveryUrl(discoveryUrl).href];
+}
+
+/**
+ * Dit si un point d'entrée DE SERVEUR À SERVEUR (jeton, jeu de clés) publié dans
+ * un document de métadonnées peut être appelé par son transport.
+ *
+ * `https` toujours. `http` seulement sur l'origine EXACTE de la `discoveryUrl`
+ * déclarée : l'opérateur a déjà choisi de joindre ce serveur par cette adresse
+ * en clair (réseau interne d'un cluster), et un serveur derrière son service
+ * interne publie ses points de jeton et de clés sur cette même origine
+ * (Keycloak : `hostname-backchannel-dynamic`). Hors de cette origine, un `http`
+ * serait une adresse que personne n'a écrite. Un point vers lequel le
+ * NAVIGATEUR est envoyé (autorisation, déconnexion) n'est jamais concerné :
+ * il reste en `https`.
+ *
+ * @param endpoint - point d'entrée lu dans le document
+ * @param discoveryUrl - adresse déclarée du document, ou rien
+ * @returns `true` si l'appel est permis
+ */
+export function isBackChannelTransportAllowed(
+  endpoint: URL,
+  discoveryUrl?: string,
+): boolean {
+  if (endpoint.protocol === "https:") return true;
+  if (discoveryUrl === undefined || endpoint.protocol !== "http:") return false;
+  return endpoint.origin === parseDiscoveryUrl(discoveryUrl).origin;
+}
+
+/**
  * Refus d'un document de métadonnées qui se déclare d'un AUTRE émetteur que
  * celui interrogé (RFC 8414 §3.3, OpenID Connect Discovery §4.3).
  *
@@ -211,8 +291,12 @@ export class IssuerMismatchError extends Error {
  * compte est en amont — le document vient d'un émetteur déclaré en
  * configuration, jamais d'une valeur lue dans un jeton.
  *
+ * Avec une `discoveryUrl` déclarée, le `jwks_uri` peut aussi être en `http` sur
+ * l'origine exacte de cette adresse ({@link isBackChannelTransportAllowed}).
+ *
  * @param document - le document tel que reçu (JSON déjà analysé)
  * @param expectedIssuer - émetteur canonique utilisé pour composer l'URL
+ * @param discoveryUrl - adresse déclarée où le document a été lu, ou rien
  * @returns les deux champs retenus
  * @throws IssuerMismatchError si le document se déclare d'un autre émetteur
  * @throws Error si le document ne peut pas être utilisé pour une autre raison
@@ -220,6 +304,7 @@ export class IssuerMismatchError extends Error {
 export function validateIssuerMetadata(
   document: unknown,
   expectedIssuer: string,
+  discoveryUrl?: string,
 ): IIssuerMetadata {
   if (typeof document !== "object" || document === null) {
     throw new Error("métadonnées d'émetteur : document JSON attendu.");
@@ -255,9 +340,12 @@ export function validateIssuerMetadata(
       `métadonnées d'émetteur : \`jwks_uri\` « ${jwksUri} » n'est pas une URL.`,
     );
   }
-  if (keys.protocol !== "https:") {
+  if (!isBackChannelTransportAllowed(keys, discoveryUrl)) {
     throw new Error(
-      `métadonnées d'émetteur : \`jwks_uri\` « ${jwksUri} » doit être en https.`,
+      `métadonnées d'émetteur : \`jwks_uri\` « ${jwksUri} » doit être en https` +
+        (discoveryUrl === undefined
+          ? "."
+          : ` (ou en http sur l'origine de discoveryUrl « ${discoveryUrl} »).`),
     );
   }
   return { issuer: declared, jwksUri: keys.href };

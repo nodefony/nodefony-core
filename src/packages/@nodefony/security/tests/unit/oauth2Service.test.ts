@@ -14,7 +14,9 @@ import {
   KEYCLOAK_THEME_PARAMETER,
   registerOAuthProvider,
   withKeycloakThemeHint,
+  type IOAuthProviderContext,
 } from "../../nodefony/src/oauth/oauthProviderRegistry";
+import { defineSecurityConfig } from "../../nodefony/config/defineModuleConfig";
 import {
   OAuth2Tokens,
   type IAuthorizationRequest,
@@ -555,6 +557,63 @@ describe("OAuth2Service — émetteur vérifié au démarrage (#270)", () => {
     boot();
     assert.equal(svc.isEnabled(), true);
     assert.equal(built, 0);
+  });
+
+  // La configuration de l'application porte l'adresse INTERNE (Kubernetes) :
+  // elle doit atteindre la fabrique du fournisseur, sinon la découverte part
+  // vers l'émetteur public, que le pod ne joint pas.
+  it("`discoveryUrl` de la configuration atteint la fabrique du fournisseur", async () => {
+    const contexts: IOAuthProviderContext[] = [];
+    registerOAuthProvider("test-discovery", (ctx) => {
+      contexts.push(ctx);
+      return fakeProvider;
+    });
+    const { svc, boot } = buildService(
+      {
+        oauth2: {
+          enabled: true,
+          providers: {
+            "test-discovery": {
+              clientId: "id",
+              clientSecret: "sec",
+              redirectUri: "https://app/cb",
+              issuer: "https://sso.example.com/realms/app",
+              discoveryUrl:
+                "http://keycloak.sso:8080/realms/app/.well-known/openid-configuration",
+            },
+          },
+        },
+      },
+      makeUsers(),
+      { servers: true },
+    );
+    boot();
+    await new Promise((r) => setImmediate(r));
+    assert.equal(svc.isEnabled(), true);
+    assert.equal(
+      contexts[0]?.discoveryUrl,
+      "http://keycloak.sso:8080/realms/app/.well-known/openid-configuration",
+    );
+  });
+
+  it("`discoveryUrl` invalide → refus de la configuration au démarrage", () => {
+    assert.throws(
+      () =>
+        defineSecurityConfig({
+          oauth2: {
+            enabled: true,
+            providers: {
+              x: {
+                clientId: "id",
+                clientSecret: "sec",
+                redirectUri: "https://app/cb",
+                discoveryUrl: "keycloak.sso:8080/x",
+              },
+            },
+          },
+        }),
+      /discoveryUrl/,
+    );
   });
 
   it("émetteur INJOIGNABLE → le boot passe, le bouton disparaît puis revient", async () => {

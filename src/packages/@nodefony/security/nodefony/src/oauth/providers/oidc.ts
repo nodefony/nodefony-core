@@ -275,7 +275,10 @@ export async function createDiscoveredOidcProvider(
       `OAuth provider "${name}" : config "issuer" requise (URL de l'émetteur OIDC).`,
     );
   }
-  const metadata = await discoverAuthorizationServer(effectiveIssuer, options);
+  const metadata = await discoverAuthorizationServer(effectiveIssuer, {
+    ...options,
+    discoveryUrl: options.discoveryUrl ?? ctx.discoveryUrl,
+  });
   // Une liste annoncée SANS S256 est une information positive du serveur : lui
   // envoyer quand même un `code_challenge` donnerait l'illusion de PKCE.
   if (

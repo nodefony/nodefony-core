@@ -863,6 +863,7 @@ class OAuth2Service extends Service {
       clientAuthMethod: cfg.clientAuthMethod,
       redirectUri: cfg.redirectUri,
       issuer: cfg.issuer,
+      discoveryUrl: cfg.discoveryUrl,
     });
     const scopes = cfg.scopes.length > 0 ? cfg.scopes : provider.defaultScopes;
     return { provider, scopes };

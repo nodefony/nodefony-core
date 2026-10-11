@@ -235,3 +235,85 @@ describe("discoverAuthorizationServer", () => {
     );
   });
 });
+
+/**
+ * `discoveryUrl` — l'application joint le serveur par son service INTERNE
+ * (Kubernetes), l'émetteur reste l'adresse PUBLIQUE. Seul le lieu de lecture
+ * change ; l'égalité de l'émetteur (RFC 8414 §3.3) ne bouge pas.
+ */
+describe("discoverAuthorizationServer — adresse de découverte déclarée", () => {
+  const INTERNAL =
+    "http://keycloak.sso:8080/realms/app/.well-known/openid-configuration";
+  /** Ce que publie un Keycloak `hostname-backchannel-dynamic` interrogé en interne. */
+  function internalDocument(overrides: Record<string, unknown> = {}): unknown {
+    return document({
+      token_endpoint: "http://keycloak.sso:8080/realms/app/token",
+      jwks_uri: "http://keycloak.sso:8080/realms/app/certs",
+      ...overrides,
+    });
+  }
+
+  it("lit le document à l'adresse déclarée SEULE, et rend les points internes", async () => {
+    const { fetch, seen } = serve({ [INTERNAL]: internalDocument() });
+    const metadata = await discoverAuthorizationServer(ISSUER, {
+      fetch,
+      discoveryUrl: INTERNAL,
+    });
+    assert.deepEqual(seen, [INTERNAL]);
+    assert.equal(metadata.issuer, ISSUER);
+    assert.equal(
+      metadata.tokenEndpoint,
+      "http://keycloak.sso:8080/realms/app/token",
+    );
+    assert.equal(metadata.jwksUri, "http://keycloak.sso:8080/realms/app/certs");
+    // Le navigateur, lui, part toujours vers l'adresse publique.
+    assert.equal(
+      metadata.authorizationEndpoint,
+      "https://idp.test/realms/app/auth",
+    );
+  });
+
+  it("un document qui se déclare d'un AUTRE émetteur est refusé, adresse déclarée ou pas", async () => {
+    const { fetch } = serve({
+      [INTERNAL]: internalDocument({ issuer: "https://autre.test/realms/app" }),
+    });
+    await assert.rejects(
+      discoverAuthorizationServer(ISSUER, { fetch, discoveryUrl: INTERNAL }),
+      /égalité/,
+    );
+  });
+
+  it("un point de jeton en http HORS de l'origine déclarée est refusé", async () => {
+    const { fetch } = serve({
+      [INTERNAL]: internalDocument({
+        token_endpoint: "http://ailleurs.sso:8080/token",
+      }),
+    });
+    await assert.rejects(
+      discoverAuthorizationServer(ISSUER, { fetch, discoveryUrl: INTERNAL }),
+      /token_endpoint.*origine de discoveryUrl/,
+    );
+  });
+
+  it("le point d'autorisation (navigateur) reste en https, même sur l'origine déclarée", async () => {
+    const { fetch } = serve({
+      [INTERNAL]: internalDocument({
+        authorization_endpoint: "http://keycloak.sso:8080/realms/app/auth",
+      }),
+    });
+    await assert.rejects(
+      discoverAuthorizationServer(ISSUER, { fetch, discoveryUrl: INTERNAL }),
+      /authorization_endpoint.*https\./,
+    );
+  });
+
+  it("sans adresse déclarée, un point de jeton en http reste refusé", async () => {
+    const { fetch } = serve({
+      [CANDIDATES[0]!]: document({ token_endpoint: "http://idp.test/token" }),
+    });
+    await assert.rejects(
+      discoverAuthorizationServer(ISSUER, { fetch }),
+      /token_endpoint.*https\./,
+    );
+  });
+});
