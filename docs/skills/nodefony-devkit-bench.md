@@ -5,7 +5,7 @@ lang: fr
 audience: [developer]
 topic: skills
 status: stable
-updated: 2026-10-05
+updated: 2026-10-11
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -74,7 +74,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/banc-decouvrabilite.md` | Banc de découvrabilité — l'agent trouve-t-il ? | 223 |
 | `references/banc-premiere-impression.md` | Banc de première impression — ce qu'un agent conclut du dépôt sans y entrer | 100 |
 | `references/banc-schema-etudes-de-cas.md` | Banc de schéma — études de cas | 48 |
-| `references/banc-verite.md` | Banc de vérité — le code généré tient-il debout ? | 211 |
+| `references/banc-verite.md` | Banc de vérité — le code généré tient-il debout ? | 216 |
 | `references/methode-de-mesure.md` | Méthode de mesure — ce que le banc devkit a appris sur lui-même | 87 |
 | `references/tache-zero.md` | La TÂCHE 0 du banc de découvrabilité — l'agent crée l'application | 226 |
 
@@ -98,7 +98,7 @@ script, donc toujours à jour après régénération.
 | `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un agent pour s'en apercevoir. | `--allow-empty` `--format` | — |
 | `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` | — |
 | `scripts/suivre-run.mjs` | Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport. | `--timeline` `--tout` | `NF_DEVKIT_BENCH_AGENT` `RACINE_RUNS` |
-| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--auth` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--exact` `--force` `--from-database` `--frontend` `--index` `--inject` `--json` `--jwt-keyset` `--keep` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--preset` `--repack` `--role` `--scope` `--service` `--ttl` `--unique` `--wait` `--workspace` `--workspaces` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `MODULE` `MODULE_PKG` `PASCAL_MODULE` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
+| `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--auth` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--exact` `--force` `--from-database` `--frontend` `--index` `--inject` `--issuer` `--json` `--jwt-keyset` `--keep` `--link` `--module` `--name` `--no` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--preset` `--repack` `--role` `--scope` `--service` `--ttl` `--unique` `--wait` `--workspace` `--workspaces` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `MODULE` `MODULE_PKG` `PASCAL_MODULE` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
 | `scripts/verify-runtime.mjs` | Banc de CONFORMITÉ de l'application générée — « ce qui a été câblé tient-il les promesses du framework ? » | `--config` `--etage` `--keep` `--link` `--reporter` | `APP` |
 
 **Invocation telle que documentée dans chaque script :**

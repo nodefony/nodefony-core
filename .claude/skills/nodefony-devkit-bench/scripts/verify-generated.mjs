@@ -1856,6 +1856,73 @@ step(
 );
 
 step(
+  "la commande d'exemple APPELLE l'API partenaire avec un jeton (#544)",
+  "`app:partner:call` est livrée pour être lancée : un jeton émis par l'app doit " +
+    "ouvrir `/api/partner`, et un émetteur non configuré doit SORTIR en échec en nommant le geste.",
+  () => {
+    // En DÉVELOPPEMENT, et ce n'est pas un détail : le gabarit n'inscrit
+    // l'audience `partner` dans `jwt.audiences` qu'hors production (une
+    // application qui émet les jetons de ses partenaires l'y ajoute
+    // elle-même). En production, l'émission rendrait `invalid_target` — par
+    // décision du gabarit, pas par défaut de la commande.
+    run(process.execPath, [BIN, "development", "--detach"], APP, {
+      NODE_ENV: "development",
+    });
+    try {
+      const out = run(
+        process.execPath,
+        [BIN, "app:partner:call", "--json"],
+        APP,
+        { NODE_ENV: "development" },
+      );
+      // `--json` : une ligne, `{ status, body }`. La sortie peut porter des
+      // lignes de journal sur l'erreur standard, que `run` mêle : on prend la
+      // DERNIÈRE ligne qui commence par `{`.
+      const ligne = out.split("\n").findLast((l) => l.startsWith("{"));
+      const answer = ligne ? JSON.parse(ligne) : null;
+      if (answer?.status !== 200) {
+        throw new Error(
+          `l'API partenaire n'a pas rendu 200 — sortie :\n${out}`,
+        );
+      }
+      const attendu = `https://localhost:${PORTS.NF_PORT_HTTPS}`;
+      if (
+        answer.body?.identifier !== "admin" ||
+        answer.body?.issuer !== attendu
+      ) {
+        throw new Error(
+          `identité inattendue — attendu admin émis par ${attendu}, reçu ${JSON.stringify(answer.body)}`,
+        );
+      }
+      // L'échec DIT : Keycloak non configuré dans ce décor, la commande doit
+      // sortir non nul en NOMMANT les variables — jamais une pile, jamais 0.
+      const kc = spawnSync(
+        process.execPath,
+        [BIN, "app:partner:call", "--issuer", "keycloak"],
+        {
+          cwd: APP,
+          encoding: "utf8",
+          timeout: 600_000,
+          env: envDecor(PORTS, { NODE_ENV: "development" }),
+        },
+      );
+      const dit = `${kc.stdout ?? ""}${kc.stderr ?? ""}`;
+      if (kc.status === 0 || !dit.includes("NF_KEYCLOAK_ISSUER")) {
+        throw new Error(
+          `--issuer keycloak sans configuration : code ${kc.status}, la variable manquante n'est pas nommée — sortie :\n${dit}`,
+        );
+      }
+    } finally {
+      spawnSync(process.execPath, [BIN, "stop"], {
+        cwd: APP,
+        encoding: "utf8",
+        env: envDecor(PORTS),
+      });
+    }
+  },
+);
+
+step(
   "l'app se laisse INSPECTER sans ouvrir de port",
   "`inspect` doit rendre un flux JSON pur, même si un serveur occupe déjà les ports.",
   () => {

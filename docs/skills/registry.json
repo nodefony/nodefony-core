@@ -3588,6 +3588,10 @@
                 "help": ""
               },
               {
+                "flag": "--issuer",
+                "help": ""
+              },
+              {
                 "flag": "--json",
                 "help": ""
               },

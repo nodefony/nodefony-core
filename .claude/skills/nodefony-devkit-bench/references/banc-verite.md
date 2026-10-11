@@ -154,7 +154,12 @@ Les étapes, dans l'ordre, et ce que chacune protège :
 15. **production** — l'app démarre dans le mode qu'aucune autre étape n'exerce,
     et sert DEUX routes : celle de l'application et celle d'un MODULE — un module
     qui se charge sans monter ses routes rendait 404 sans un mot ;
-16. **inspection** — l'application se laisse lire sans ouvrir de port.
+16. **la commande d'exemple appelle l'API partenaire** — l'app démarre en
+    DÉVELOPPEMENT (le gabarit n'inscrit l'audience `partner` qu'hors
+    production), `app:partner:call --json` doit rendre 200 pour `admin`, émis
+    par l'application elle-même ; puis `--issuer keycloak`, sans Keycloak
+    configuré, doit sortir NON NUL en nommant la variable manquante ;
+17. **inspection** — l'application se laisse lire sans ouvrir de port.
 
 > **Le trou n'était pas dans le banc d'agent, il était ici.** Sur les sept types
 > de `create`, ce script n'en exerçait que trois — `app`, `module`, `entity` ;
