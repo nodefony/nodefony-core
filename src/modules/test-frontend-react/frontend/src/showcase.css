@@ -647,6 +647,13 @@ section {
   cursor: pointer;
 }
 
+/* « Se connecter » est un LIEN vers la page du framework : même pastille que
+   les boutons de la barre. */
+a.bascule {
+  display: inline-block;
+  text-decoration: none;
+}
+
 .bascule:hover {
   color: var(--fg);
   border-color: var(--accent);
@@ -745,6 +752,14 @@ section {
   border-left: 4px solid #c2410c;
   border-radius: 8px;
   background: var(--card);
+}
+
+/* Le lien du refus suit le TEXTE, pas l'accent : l'accent de React (cyan clair)
+   tombait à 1,6:1 sur la carte. Le soulignement dit qu'il s'agit d'un lien. */
+.refus a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .journal {

@@ -8,6 +8,7 @@
   import {
     nodefony,
     nodefonyChannel,
+    nodefonyLogin,
     nodefonySnapshot,
     nodefonySse,
     nodefonyState,
@@ -17,6 +18,7 @@
     installErrorCapture,
     installRequestIdProvider,
     installSyslogUplink,
+    loginPagePath,
     Syslog,
     withRequestId,
     type SocketSnapshot,
@@ -199,6 +201,22 @@
     barVisible = debugbar()?.isVisible() ?? false;
   };
 
+  // La session de l'application, dans la barre — tenue par la LIAISON de
+  // connexion du framework, qui la reprend au montage (`me()`) : la session vit
+  // dans un cookie HttpOnly que la page ne lit pas. Se connecter se fait sur la
+  // page du framework (`/login`), qui ramène ici par `?from=`.
+  const login = nodefonyLogin();
+  const loginHref = loginPagePath(location.pathname + location.search);
+  onMount(() => {
+    void login.flow.me();
+  });
+  const logout = async (): Promise<void> => {
+    // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
+    // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
+    const providerLogout = await login.flow.logout();
+    if (providerLogout !== null) location.assign(providerLogout);
+  };
+
   const send = (): void => {
     const said = text.trim();
     if (!said) return;
@@ -359,6 +377,18 @@
           </p>
         </div>
       </span>
+      {#if login.state.current.step === "authenticated" && login.state.current.user}
+        <span class="sonde">
+          <span class="dot dot--on"></span>
+          connecté — <b>{login.state.current.user.identifier}</b>
+        </span>
+        <button class="bascule" onclick={() => void logout()}>
+          Se déconnecter
+        </button>
+      {:else}
+        <span class="sonde"><span class="dot"></span>anonyme</span>
+        <a class="bascule" href={loginHref}>Se connecter</a>
+      {/if}
       <button
         class="bascule"
         aria-pressed={barVisible}
@@ -581,8 +611,8 @@ $effect(() =&gt; nodefonyChannel("live:salon", (m) =&gt; …))</code
         <p class="refus" role="status">
           Le serveur a refusé le flux : le journal d'exploitation est réservé à
           l'administration.
-          <a href="/nodefony/login">Connectez-vous à la console</a> dans ce
-          navigateur, puis revenez ici.
+          <a href={loginHref}>Connectez-vous avec un compte d'administration</a> : la page de
+          connexion vous ramène ici.
         </p>
       {/if}
 

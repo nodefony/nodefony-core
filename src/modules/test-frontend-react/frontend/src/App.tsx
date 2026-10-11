@@ -8,6 +8,7 @@ import {
   installErrorCapture,
   installRequestIdProvider,
   installSyslogUplink,
+  loginPagePath,
   observeSnapshot,
   Syslog,
   withRequestId,
@@ -17,6 +18,7 @@ import {
   NodefonyProvider,
   useNodefony,
   useNodefonyChannel,
+  useNodefonyLogin,
   useNodefonySse,
   useNodefonyState,
 } from "nodefony/react";
@@ -346,8 +348,10 @@ function SseSection() {
         <p className="refus" role="status">
           Le serveur a refusé le flux : le journal d'exploitation est réservé à
           l'administration.{" "}
-          <a href="/nodefony/login">Connectez-vous à la console</a> dans ce
-          navigateur, puis revenez ici.
+          <a href={loginPagePath(location.pathname + location.search)}>
+            Connectez-vous avec un compte d'administration
+          </a>{" "}
+          : la page de connexion vous ramène ici.
         </p>
       ) : null}
 
@@ -708,6 +712,7 @@ function ToolsBar() {
           </p>
         </div>
       </span>
+      <SessionChip />
       <button
         className="bascule"
         aria-pressed={barVisible}
@@ -719,6 +724,51 @@ function ToolsBar() {
         Barre de debug
       </button>
     </div>
+  );
+}
+
+/**
+ * La session de l'application, dans la barre — tenue par la LIAISON de
+ * connexion du framework, qui la reprend au montage (`me()`) : la session vit
+ * dans un cookie HttpOnly que la page ne lit pas. Se connecter se fait sur la
+ * page du framework (`/login`), qui ramène ici par `?from=`.
+ */
+function SessionChip() {
+  const { state: login, flow } = useNodefonyLogin();
+  useEffect(() => {
+    void flow.me();
+  }, [flow]);
+
+  const logout = async () => {
+    // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
+    // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
+    const providerLogout = await flow.logout();
+    if (providerLogout !== null) location.assign(providerLogout);
+  };
+
+  return login.step === "authenticated" && login.user ? (
+    <>
+      <span className="sonde">
+        <span className="dot dot--on" />
+        connecté — <b>{login.user.identifier}</b>
+      </span>
+      <button className="bascule" onClick={() => void logout()}>
+        Se déconnecter
+      </button>
+    </>
+  ) : (
+    <>
+      <span className="sonde">
+        <span className="dot" />
+        anonyme
+      </span>
+      <a
+        className="bascule"
+        href={loginPagePath(location.pathname + location.search)}
+      >
+        Se connecter
+      </a>
+    </>
   );
 }
 

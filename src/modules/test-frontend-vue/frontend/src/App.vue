@@ -11,6 +11,7 @@ import {
   installErrorCapture,
   installRequestIdProvider,
   installSyslogUplink,
+  loginPagePath,
   Syslog,
   withRequestId,
   type SocketSnapshot,
@@ -23,6 +24,7 @@ import {
 import {
   useNodefony,
   useNodefonyChannel,
+  useNodefonyLogin,
   useNodefonySnapshot,
   useNodefonySse,
   useNodefonyState,
@@ -256,6 +258,22 @@ const toggleBar = (): void => {
   barVisible.value = debugbar()?.isVisible() ?? false;
 };
 
+// La session de l'application, dans la barre — tenue par la LIAISON de
+// connexion du framework, qui la reprend au montage (`me()`) : la session vit
+// dans un cookie HttpOnly que la page ne lit pas. Se connecter se fait sur la
+// page du framework (`/login`), qui ramène ici par `?from=`.
+const { state: login, flow } = useNodefonyLogin();
+const loginHref = loginPagePath(location.pathname + location.search);
+onMounted(() => {
+  void flow.me();
+});
+const logout = async (): Promise<void> => {
+  // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
+  // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
+  const providerLogout = await flow.logout();
+  if (providerLogout !== null) location.assign(providerLogout);
+};
+
 const send = (): void => {
   const said = text.value.trim();
   if (!said) return;
@@ -369,6 +387,17 @@ onUnmounted(() => {
             </p>
           </div>
         </span>
+        <template v-if="login.step === 'authenticated' && login.user">
+          <span class="sonde">
+            <span class="dot dot--on" />
+            connecté — <b>{{ login.user.identifier }}</b>
+          </span>
+          <button class="bascule" @click="logout">Se déconnecter</button>
+        </template>
+        <template v-else>
+          <span class="sonde"><span class="dot" />anonyme</span>
+          <a class="bascule" :href="loginHref">Se connecter</a>
+        </template>
         <button class="bascule" :aria-pressed="barVisible" @click="toggleBar">
           Barre de debug
         </button>
@@ -598,8 +627,10 @@ useNodefonyChannel("live:salon", (m) =&gt; …)</code></pre>
         <p v-if="refused" class="refus" role="status">
           Le serveur a refusé le flux : le journal d'exploitation est réservé à
           l'administration.
-          <a href="/nodefony/login">Connectez-vous à la console</a> dans ce
-          navigateur, puis revenez ici.
+          <a :href="loginHref"
+            >Connectez-vous avec un compte d'administration</a
+          >
+          : la page de connexion vous ramène ici.
         </p>
 
         <ol class="journal">

@@ -13,6 +13,7 @@ import {
   installErrorCapture,
   installRequestIdProvider,
   installSyslogUplink,
+  loginPagePath,
   Syslog,
   withRequestId,
 } from "nodefony/client";
@@ -28,6 +29,7 @@ import {
 import {
   injectNodefony,
   injectNodefonyChannel,
+  injectNodefonyLogin,
   injectNodefonySnapshot,
   injectNodefonySse,
   injectNodefonyState,
@@ -193,6 +195,19 @@ const FRONTS = [
               </p>
             </div>
           </span>
+          @if (
+            login.state().step === "authenticated" && login.state().user;
+            as user
+          ) {
+            <span class="sonde">
+              <span class="dot dot--on"></span>
+              connecté — <b>{{ user.identifier }}</b>
+            </span>
+            <button class="bascule" (click)="logout()">Se déconnecter</button>
+          } @else {
+            <span class="sonde"><span class="dot"></span>anonyme</span>
+            <a class="bascule" [href]="loginHref">Se connecter</a>
+          }
           <button
             class="bascule"
             [attr.aria-pressed]="barVisible()"
@@ -429,8 +444,10 @@ const FRONTS = [
             <p class="refus" role="status">
               Le serveur a refusé le flux : le journal d'exploitation est
               réservé à l'administration.
-              <a href="/nodefony/login">Connectez-vous à la console</a> dans ce
-              navigateur, puis revenez ici.
+              <a [href]="loginHref"
+                >Connectez-vous avec un compte d'administration</a
+              >
+              : la page de connexion vous ramène ici.
             </p>
           }
 
@@ -607,6 +624,12 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly parSocket = signal<string | null>(null);
   readonly vue = injectNodefonySnapshot();
   readonly barVisible = signal(debugbar()?.isVisible() ?? false);
+  // La session de l'application, dans la barre — tenue par la LIAISON de
+  // connexion du framework, qui la reprend au montage (`me()`) : la session vit
+  // dans un cookie HttpOnly que la page ne lit pas. Se connecter se fait sur la
+  // page du framework (`/login`), qui ramène ici par `?from=`.
+  readonly login = injectNodefonyLogin();
+  readonly loginHref = loginPagePath(location.pathname + location.search);
   /** L'extrait montré à l'écran — le code que CETTE page exécute vraiment. */
   readonly excerpt = `provideNodefony({ url: "/api/live/realtime" })  // main.ts
 
@@ -804,6 +827,13 @@ installSyslogUplink({ syslog, publisher: socket })`;
     this.barVisible.set(debugbar()?.isVisible() ?? false);
   }
 
+  async logout(): Promise<void> {
+    // Une session ouverte chez un fournisseur (Keycloak…) se ferme AUSSI chez
+    // lui : le serveur rend son adresse de déconnexion, qu'il faut suivre.
+    const providerLogout = await this.login.flow.logout();
+    if (providerLogout !== null) location.assign(providerLogout);
+  }
+
   toggle(): void {
     if (this.liveState() === "connected") this.nodefony.disconnect();
     else this.nodefony.connect().catch(() => {}); // l'échec se lit dans l'état
@@ -814,6 +844,7 @@ installSyslogUplink({ syslog, publisher: socket })`;
     // Le temps réel — connexion, abonnement, ré-abonnement à la reconnexion,
     // libération — appartient à la liaison et aux providers.
     void this.pollApi();
+    void this.login.flow.me();
     this.timer = setInterval(() => void this.pollApi(), 1000);
   }
 
