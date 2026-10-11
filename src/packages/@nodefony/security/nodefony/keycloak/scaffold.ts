@@ -33,6 +33,18 @@ export const APP_KEYCLOAK_REALM_FILE = "docker/keycloak/import/realm.json";
 export const APP_KEYCLOAK_THEMES_DIR = "docker/keycloak/themes";
 export const APP_KEYCLOAK_THEME_DIR = `${APP_KEYCLOAK_THEMES_DIR}/${KEYCLOAK_THEME_NAME}`;
 
+/** Fichier de configuration de sécurité d'une application générée. */
+const APP_SECURITY_CONFIG_FILE = "nodefony/config/security.ts";
+
+/**
+ * Ressource de l'API partenaire d'une application neuve en développement :
+ * ce que rend `partnerResource()` du gabarit `complete` sans `NF_JWT_ISSUER`
+ * ni `NF_PORT_HTTPS` — le port HTTPS par défaut, comme les URL de retour du
+ * realm. Deux paquets, une valeur : le test de contribution compare le
+ * gabarit rendu à cette constante.
+ */
+export const APP_PARTNER_DEV_RESOURCE = "https://localhost:5152/api/partner";
+
 /** Les types de thème que le realm sait déclarer, et la clé qui les porte. */
 const THEME_TYPES = ["login", "account", "email", "admin"] as const;
 type TThemeType = (typeof THEME_TYPES)[number];
@@ -127,21 +139,23 @@ export function devMachineSecret(appName: string): string {
 /**
  * Ce que dit la configuration rendue par le gabarit `security.ts` d'une app
  * neuve : client `<app>`, URL de retour sur les deux ports de développement,
- * rôle client `admin` (`roleMapping: { admin: "ROLE_ADMIN" }`). AUCUNE
- * audience : l'app née n'a pas de zone `external-jwt` ; sa zone posée,
- * `security:keycloak:realm --write` ajoute le mapper.
+ * rôle client `admin` (`roleMapping: { admin: "ROLE_ADMIN" }`), et les
+ * audiences des zones `external-jwt` que la configuration rendue déclare.
  *
  * @param appName - nom de l'application (= realm = identifiant de client)
  * @param themes - types de thème à déclarer
  * @param ids - `sub` des comptes de démonstration, FIXÉS dans le fichier :
  *   laissés à Keycloak, ils changent à chaque réimport et la connexion
  *   suivante est refusée (identifiant déjà lié à un autre `sub`)
+ * @param audiences - ressources que les jetons du realm doivent porter
+ *   (mapper sur les deux clients) ; vide = aucune zone ne les accepte
  * @returns l'entrée du constructeur de realm
  */
 export function appDevRealmInput(
   appName: string,
   themes: readonly TThemeType[],
   ids: { readonly user: string; readonly admin: string },
+  audiences: readonly string[] = [],
 ): IKeycloakRealmInput {
   const callback = "/nodefony/security/api/oauth2/keycloak/callback";
   return {
@@ -161,7 +175,7 @@ export function appDevRealmInput(
     ],
     backchannelLogoutUrl:
       "http://host.docker.internal:5151/nodefony/security/api/oauth2/keycloak/backchannel-logout",
-    audiences: [],
+    audiences,
     clientRoles: [
       {
         name: "admin",
@@ -217,6 +231,23 @@ function mountsKeycloak(context: IAppContributionContext): boolean {
 }
 
 /**
+ * Les audiences que la configuration RENDUE de l'application déclare. Le
+ * gabarit `complete` ouvre la zone `partner` (`jwt` + `external-jwt`) : sans
+ * son audience dans le realm, le jeton du client machine y est refusé dès le
+ * premier essai, et `security:keycloak:realm --check` trouve le realm né en
+ * désaccord avec la configuration.
+ *
+ * @param context - contexte de contribution
+ * @returns les ressources à inscrire dans les jetons du realm
+ */
+function renderedAudiences(context: IAppContributionContext): string[] {
+  const security = context.read(APP_SECURITY_CONFIG_FILE);
+  return security?.includes("partnerResource(") === true
+    ? [APP_PARTNER_DEV_RESOURCE]
+    : [];
+}
+
+/**
  * Recopie les thèmes livrés dans l'application — `nodefony` et ses thèmes
  * d'habillage —, fichier par fichier, sans jamais remplacer un fichier présent.
  *
@@ -239,10 +270,12 @@ export function contributeKeycloak(context: IAppContributionContext): void {
   // est celui de l'application (`security:keycloak:realm --write` le fait
   // évoluer depuis sa configuration), le contexte le garde et le rapporte.
   const realm = buildKeycloakRealm(
-    appDevRealmInput(context.appName, themes, {
-      user: randomUUID(),
-      admin: randomUUID(),
-    }),
+    appDevRealmInput(
+      context.appName,
+      themes,
+      { user: randomUUID(), admin: randomUUID() },
+      renderedAudiences(context),
+    ),
   );
   context.write(APP_KEYCLOAK_REALM_FILE, renderKeycloakRealm(realm));
   copyKeycloakTheme(context);

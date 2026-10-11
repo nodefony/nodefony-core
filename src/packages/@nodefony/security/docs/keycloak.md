@@ -263,10 +263,12 @@ lui, en a un de test — Mailpit (`--profile keycloak`, interface `http://localh
    (`$env:NODE_EXTRA_CA_CERTS = "…"` en PowerShell, `set NODE_EXTRA_CA_CERTS=…` en `cmd`).
 
 Le realm généré porte aussi, comme celui du dépôt, un client **machine** `<app>-machine` (compte de
-service, `client_credentials`). Il ne porte **aucune audience** : l'application née n'a pas de zone
-qui accepte les jetons du realm. Quand tu en ouvres une (section « Le jeton Keycloak sur ton API »,
-plus bas), `npx nodefony security:keycloak:realm --write` ajoute le mapper qui inscrit sa `resource`
-dans les jetons.
+service, `client_credentials`). Ses jetons portent l'audience de la zone `partner` que le gabarit
+`complete` ouvre (`https://localhost:5152/api/partner`) : `npx nodefony app:partner:call --issuer
+keycloak` obtient un jeton et appelle `GET /api/partner/whoami` dès le premier démarrage. Quand tu
+ouvres une autre zone (section « Le jeton Keycloak sur ton API », plus bas),
+`npx nodefony security:keycloak:realm --write` ajoute le mapper qui inscrit sa `resource` dans les
+jetons.
 
 Le port de Keycloak (8444) se change par `KEYCLOAK_PORT` au `up` — l'émetteur suit, donc
 `NF_KEYCLOAK_ISSUER` aussi. En production, le décor ne sert plus : les trois variables pointent

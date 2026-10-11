@@ -13,6 +13,7 @@ import { assert } from "chai";
 import { createAppContributionContext, runScaffold } from "nodefony";
 import {
   APP_KEYCLOAK_REALM_FILE,
+  APP_PARTNER_DEV_RESOURCE,
   APP_KEYCLOAK_THEME_DIR,
   APP_KEYCLOAK_THEMES_DIR,
   devClientSecret,
@@ -256,10 +257,8 @@ describe("contribution Keycloak de @nodefony/security", () => {
     // Deux realms, UN constructeur (`buildKeycloakRealm`) : le banc Keycloak
     // réel joue celui du dépôt. Ce qu'il porte (client machine, PKCE, pas de
     // front-channel, canal arrière) existe dans celui de l'app. L'AUDIENCE,
-    // elle, dérive des zones `external-jwt` (#520) : l'app née n'en a pas,
-    // donc pas de mapper — `security:keycloak:realm --write` le pose quand la
-    // zone arrive. Une audience écrite d'avance ne valait que si l'utilisateur
-    // choisissait exactement cette ressource.
+    // elle, dérive des zones `external-jwt` (#520) : celles du dépôt et de
+    // l'app diffèrent, elle est donc comparée à part (test suivant).
     type Client = {
       clientId: string;
       standardFlowEnabled?: boolean;
@@ -301,13 +300,6 @@ describe("contribution Keycloak de @nodefony/security", () => {
       lire(dossierKeycloak(), "docker", "keycloak", "import", "realm.json"),
     ) as { clients: Client[] };
     assert.deepEqual(forme(genere.clients), forme(depot.clients));
-    for (const c of genere.clients) {
-      assert.notInclude(
-        (c.protocolMappers ?? []).map((m) => m.protocolMapper),
-        "oidc-audience-mapper",
-        `${c.clientId} : aucune zone external-jwt, donc aucune audience`,
-      );
-    }
     // Le front-channel exige une page que l'app n'a pas : back-channel seul.
     for (const c of [...depot.clients, ...genere.clients]) {
       assert.notStrictEqual(c.frontchannelLogout, true, c.clientId);
@@ -321,6 +313,40 @@ describe("contribution Keycloak de @nodefony/security", () => {
         /\/nodefony\/security\/api\/oauth2\/keycloak\/backchannel-logout$/,
         c.clientId,
       );
+    }
+  });
+
+  it("le realm né porte l'audience de la zone `partner` que le gabarit ouvre (#544)", () => {
+    const dest = dossierKeycloak();
+    // Le gabarit rendu calcule la ressource : `https://localhost:<port>` +
+    // `/api/partner`, port HTTPS par défaut 5152 — la valeur de la constante.
+    const security = lire(dest, "nodefony", "config", "security.ts");
+    assert.include(security, "`${publicBaseUrl(e)}/api/partner`");
+    assert.include(security, "`https://localhost:${e.NF_PORT_HTTPS ?? 5152}`");
+    assert.include(security, "resource: partnerResource(ctx.env)");
+    assert.strictEqual(
+      APP_PARTNER_DEV_RESOURCE,
+      "https://localhost:5152/api/partner",
+    );
+    const realm = JSON.parse(
+      lire(dest, "docker", "keycloak", "import", "realm.json"),
+    ) as {
+      clients: {
+        clientId: string;
+        protocolMappers?: {
+          protocolMapper: string;
+          config: Record<string, string>;
+        }[];
+      }[];
+    };
+    // Les DEUX clients : le navigateur (jeton de la personne connectée) et
+    // la machine (`client_credentials`, `app:partner:call --issuer keycloak`).
+    for (const clientId of ["kcapp", "kcapp-machine"]) {
+      const client = realm.clients.find((c) => c.clientId === clientId);
+      const audiences = (client?.protocolMappers ?? [])
+        .filter((m) => m.protocolMapper === "oidc-audience-mapper")
+        .map((m) => m.config["included.custom.audience"]);
+      assert.deepEqual(audiences, [APP_PARTNER_DEV_RESOURCE], clientId);
     }
   });
 
