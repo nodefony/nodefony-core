@@ -124,6 +124,7 @@ const zone = (entryPoint?: string): SecuredArea =>
     stateless: false,
     mode: "first",
     roles: [],
+    realtime: true,
     authenticators: ["session"],
     ...(entryPoint === undefined ? {} : { entryPoint }),
   } as ISecurityAreaConfig);
