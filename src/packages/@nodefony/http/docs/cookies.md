@@ -255,9 +255,9 @@ constructeur de `Cookie` (`cookie.ts:130`).
 
 | Besoin                         | Appel                                                 | Où                                       |
 | ------------------------------ | ----------------------------------------------------- | ---------------------------------------- |
-| Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:698`) |
+| Lire un cookie entrant         | `context.getRequestCookies("nom")` → `Cookie \| null` | `getRequestCookies()` (`Context.ts:706`) |
 | Lire tous les cookies entrants | `context.cookies` → `Record<string, Cookie>`          | `cookies` (`Context.ts:193`)             |
-| Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:709`)         |
+| Écrire un cookie sortant       | `context.setCookie(new Cookie(…))`                    | `setCookie()` (`Context.ts:717`)         |
 | Supprimer un cookie sortant    | `response.deleteCookieByName("nom")`                  | `http/Response.ts:233`                   |
 
 Côté réponse HTTP, `addCookie()` (`http/Response.ts:215`) enregistre le cookie, et `setCookies()`
@@ -269,7 +269,7 @@ boucle de `setHeader` (qui écraserait tout sauf le dernier). Pour expirer un co
 
 `cookiesParser(context)` (`cookie.ts:87`) lit l'en-tête `Cookie:` (via la bibliothèque `cookie`,
 `parser()` `cookie.ts:50`), crée un `Cookie` par entrée et l'ajoute au contexte avec `addRequestCookie()`
-(`Context.ts:688`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
+(`Context.ts:696`). Il est déclenché automatiquement par le pipeline : `parseCookies()` est appelé à
 l'initialisation du contexte HTTP (`HttpContext.ts:255`) **et** WebSocket (`WebsocketContext.ts:170`).
 
 ### Côté WebSocket — lecture oui, écriture non

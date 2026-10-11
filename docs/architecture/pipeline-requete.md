@@ -106,7 +106,7 @@ développeur finit par se poser :
 `HttpContext` (`HttpContext.ts:82`) et `WebsocketContext` (`WebsocketContext.ts:83`) héritent de la
 **même** base `Context` (`Context.ts:158`). Cette base porte tout ce qui définit « une requête en
 cours » : `requestId`, `session`, `user`, `resolver`, `sessionIntent`, le nonce CSP, les jetons CSRF,
-le `traceparent` et la trace de décision du firewall (`Context.ts:260`).
+le `traceparent` et la trace de décision du firewall (`Context.ts:268`).
 
 Conséquence directe : un contrôleur ne sait pas — et n'a pas besoin de savoir — sur quel transport il
 répond. HTTP/1.1, TLS, HTTP/2 et WebSocket convergent tous vers `router.resolve(context)` puis vers la
@@ -502,10 +502,10 @@ l'observabilité seulement, jamais sur le fil (la socket est déjà morte, `http
 Le besoin : dans un fichier de logs qui mélange 200 requêtes concurrentes, retrouver **les lignes
 d'une seule**. La clé est le `requestId`, et tu n'as rien à câbler.
 
-À la construction du contexte, `requestId` reçoit un UUID (`Context.ts:244`). Il est ensuite :
+À la construction du contexte, `requestId` reçoit un UUID (`Context.ts:252`). Il est ensuite :
 
 1. **propagé** à tout l'asynchrone via la bulle ALS (`http-kernel.ts:1151`) ;
-2. **posé sur chaque ligne de log** émise pendant la requête (`Context.log()`, `Context.ts:535`) ;
+2. **posé sur chaque ligne de log** émise pendant la requête (`Context.log()`, `Context.ts:545`) ;
 3. **réfléchi au client** dans l'en-tête `x-request-id` de la réponse (`Response.ts:567`) ;
 4. **stable pour toute une connexion** WebSocket, handshake et trames compris.
 
@@ -581,7 +581,7 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
   (`Context.ts:192`), le signal d'abandon qu'au premier accès (`Context.ts:402`), la liste des hooks
   d'après-réponse qu'au premier enregistrement (`Context.ts:367`).
 - **Chronométrage désactivé par défaut en production** : sans lui, `phases` est un tableau gelé
-  partagé et `phaseStart`/`phaseEnd` sont des no-ops (`Context.ts:435`).
+  partagé et `phaseStart`/`phaseEnd` sont des no-ops (`Context.ts:446`).
 - **Le délai d'inactivité est armé par socket, pas par requête** —
   `HttpContext.setTimeout()` (`HttpContext.ts:364`) : en keep-alive, ré-armer un minuteur à chaque
   requête coûtait pour une valeur constante.

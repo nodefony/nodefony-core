@@ -373,7 +373,7 @@ danger: {
 
 Le client doit présenter **les deux preuves** dans la même requête (cookie + `Authorization:
 Basic …`). Une seule manque → 401. Le **dernier** token de la chaîne porte l'identité
-(`firewall.ts:1199`) — ici la preuve mot de passe, la plus fraîche.
+(`firewall.ts:1305`) — ici la preuve mot de passe, la plus fraîche.
 
 > [!TIP]
 > Un nom d'authenticator inconnu en config **fait échouer le boot** —

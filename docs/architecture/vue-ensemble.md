@@ -143,9 +143,9 @@ deux portes.
 
 Ce que ça change concrètement : **une** session, **un** modèle de droits, **un** identifiant de
 requête tracé, **un** journal — que l'appel arrive en HTTP/1.1, en HTTP/2 ou par une trame WebSocket.
-Ce que porte `Context` pour les deux transports : `router` (`Context.ts:219`), `resolver`
-(`Context.ts:220`), `session` (`Context.ts:196`), `user` (`Context.ts:198`), la décision du firewall
-(`Context.ts:198`), le `requestId` (`Context.ts:244`) et le nonce CSP paresseux (`Context.ts:244`).
+Ce que porte `Context` pour les deux transports : `router` (`Context.ts:227`), `resolver`
+(`Context.ts:228`), `session` (`Context.ts:196`), `user` (`Context.ts:198`), la décision du firewall
+(`Context.ts:198`), le `requestId` (`Context.ts:252`) et le nonce CSP paresseux (`Context.ts:252`).
 
 ## 🚀 Démarrage rapide
 

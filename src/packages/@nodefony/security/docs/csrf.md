@@ -300,9 +300,11 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
    (`Context.ts:241-243`).
 3. `Firewall.enforceCsrf()` (`firewall.ts:1036`) fait les trois rôles : **émission** du token sur
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si
-   `@CsrfProtect`. Les routes `bypassFirewall` (callbacks OAuth) sont exemptées
-   (`firewall.ts:1000-1003`), les `@CsrfExempt` sortent après la barrière méthode sûre
-   (`firewall.ts:1017`).
+   `@CsrfProtect`. Seules les `@CsrfExempt` sortent, après la barrière méthode sûre
+   (`firewall.ts:1056`). Une route `bypassFirewall` n'est **pas** exemptée : le bypass retire
+   l'authentification, pas la provenance — les routes de connexion sont en bypass, et c'est là
+   qu'un formulaire tiers ouvrirait une session sur le compte de l'attaquant (login CSRF,
+   CWE-352, `firewall.ts:1029`).
 4. `HttpContext.writeHead()` matérialise `context.csrfToken` en cookie `csrf-token` — flush groupé
    avec le cookie de session (`HttpContext.ts:636-655`).
 
