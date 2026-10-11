@@ -166,7 +166,8 @@ export function proxyMountProblems(
           `\`secure: false\` refusé vers « ${target.hostname} » : sans vérification ` +
           "de certificat, n'importe qui sur le chemin réseau se fait passer pour " +
           "l'amont. Réservé à la boucle locale — sinon, fournir l'autorité de " +
-          "certification de l'amont au processus (NODE_EXTRA_CA_CERTS)",
+          "certification de l'amont au processus (`http.certificates.extraCaFiles`, " +
+          "ou NODE_EXTRA_CA_CERTS)",
       });
     }
   }

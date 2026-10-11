@@ -1,6 +1,6 @@
 /// <reference types="node" />
-import { expect } from "vitest";
-import { type Module } from "nodefony";
+import { afterEach, beforeEach, expect } from "vitest";
+import { BootConfigurationError, type Module } from "nodefony";
 import { generateKeyPairSync, X509Certificate } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -9,6 +9,9 @@ import tls from "node:tls";
 import type { AddressInfo } from "node:net";
 import Certificate, {
   addDefaultCaCertificate,
+  splitPemCertificates,
+  trustCaFile,
+  trustOutboundAuthorities,
   type IRsaKeyPair,
   type ITlsTrustStore,
 } from "../../service/certificates.js";
@@ -519,6 +522,127 @@ describe("certificates — la CA de développement devient une ancre du processu
       // `connection: close` évite qu'un échec précédent soit réutilisé.
       const res = await fetch(url, { headers: { connection: "close" } });
       expect(await res.text()).to.equal("ok");
+    } finally {
+      tls.setDefaultCACertificates(before);
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+});
+
+describe("certificates — autorités sortantes déclarées (`extraCaFiles`)", () => {
+  function fakeStore(): ITlsTrustStore & { list: string[] } {
+    const store = {
+      list: ["SYSTEME"],
+      getCACertificates: () => [...store.list],
+      setDefaultCACertificates: (certs: ReadonlyArray<string>) => {
+        store.list = [...certs];
+      },
+    };
+    return store;
+  }
+
+  /** Un certificat auto-signé réel, PEM, et sa clé — de quoi servir en https. */
+  async function selfSigned(): Promise<{ pem: string; key: string }> {
+    const c = makeCert({ san: { dns: ["localhost"], ip: ["127.0.0.1"] } });
+    const keys = await c.generateKeys();
+    c.keysPair = keys;
+    return {
+      pem: (await c.createCertificate()).toString(),
+      key: keys.privateKey.export({ type: "pkcs1", format: "pem" }),
+    };
+  }
+
+  let dir = "";
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), "nf-extraca-"));
+  });
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("découpe un fichier PEM en ses certificats, texte autour ignoré", async () => {
+    const a = (await selfSigned()).pem;
+    const b = (await selfSigned()).pem;
+    const parts = splitPemCertificates(`# chaîne\n${a}\nbruit\n${b}`);
+    expect(parts).to.have.length(2);
+    expect(parts[0]).to.equal(a.trim());
+  });
+
+  it("une chaîne en UN fichier : chaque certificat devient une ancre, et un second passage n'ajoute rien", async () => {
+    const a = (await selfSigned()).pem;
+    const b = (await selfSigned()).pem;
+    await fs.writeFile(path.join(dir, "chaine.pem"), `${a}\n${b}`);
+    const store = fakeStore();
+    // Chemin RELATIF à la racine de l'application.
+    const first = await trustCaFile("chaine.pem", dir, store);
+    expect(first).to.deep.equal({
+      file: path.join(dir, "chaine.pem"),
+      added: 2,
+      present: 0,
+    });
+    expect(store.list).to.have.length(3);
+    const second = await trustCaFile("chaine.pem", dir, store);
+    expect([second.added, second.present]).to.deep.equal([0, 2]);
+  });
+
+  it("fichier absent → refus au démarrage qui nomme le chemin", async () => {
+    const error = await trustCaFile("absent.pem", dir, fakeStore()).catch(
+      (e: unknown) => e as Error,
+    );
+    expect(BootConfigurationError.is(error)).to.equal(true);
+    expect((error as Error).message).to.include(path.join(dir, "absent.pem"));
+    expect((error as Error).message).to.include("ENOENT");
+  });
+
+  it("fichier sans certificat → refus au démarrage", async () => {
+    await fs.writeFile(path.join(dir, "vide.pem"), "pas un certificat");
+    const error = await trustCaFile("vide.pem", dir, fakeStore()).catch(
+      (e: unknown) => e as Error,
+    );
+    expect(BootConfigurationError.is(error)).to.equal(true);
+    expect((error as Error).message).to.include("aucun certificat PEM");
+  });
+
+  // Une autorité DEMANDÉE qui ne s'applique pas ne se tait pas : chaque requête
+  // sortante échouerait plus tard, loin de sa cause.
+  it("Node incapable d'élargir ses ancres → refus qui donne le repli NODE_EXTRA_CA_CERTS", async () => {
+    await fs.writeFile(path.join(dir, "ca.pem"), (await selfSigned()).pem);
+    const error = await trustCaFile("ca.pem", dir, {}).catch(
+      (e: unknown) => e as Error,
+    );
+    expect(BootConfigurationError.is(error)).to.equal(true);
+    expect((error as Error).message).to.include("NODE_EXTRA_CA_CERTS=");
+  });
+
+  // La preuve qui compte : la configuration SEULE — ni variable de processus,
+  // ni syntaxe de shell — rend joignable un serveur signé par une autorité
+  // étrangère à l'application, par un vrai `fetch` au contrôle TLS actif.
+  it("le démarrage du module rend joignable un serveur signé par l'autorité déclarée", async () => {
+    const { pem, key } = await selfSigned();
+    await fs.writeFile(path.join(dir, "entreprise.pem"), pem);
+    const https = await import("node:https");
+    const server = https.createServer({ key, cert: pem }, (_req, res) =>
+      res.end("ok"),
+    );
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const before = tls.getCACertificates("default");
+    const journal: string[] = [];
+    try {
+      const { port } = server.address() as AddressInfo;
+      const url = `https://localhost:${port}/`;
+      const refused = await fetch(url).then(
+        () => null,
+        (e: unknown) => (e as { cause?: { code?: string } }).cause?.code ?? "?",
+      );
+      expect(refused).to.equal("DEPTH_ZERO_SELF_SIGNED_CERT");
+      await trustOutboundAuthorities(["entreprise.pem"], dir, (m) =>
+        journal.push(m),
+      );
+      const res = await fetch(url, { headers: { connection: "close" } });
+      expect(await res.text()).to.equal("ok");
+      expect(journal.join("\n")).to.include("1 ajoutée(s)");
     } finally {
       tls.setDefaultCACertificates(before);
       await new Promise((resolve) => server.close(resolve));

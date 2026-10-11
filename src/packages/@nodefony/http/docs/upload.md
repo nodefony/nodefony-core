@@ -126,7 +126,7 @@ champs texte restent en mémoire. C'est ce qui rend un endpoint d'upload public 
 **métadonnée** (`filename`), pas dans le chemin.
 
 **Deux budgets, secure-by-default.** Le corps non-multipart est plafonné à **1 MiB** par défaut
-(`maxBodySize`, `http/nodefony/config/config.ts:1192`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
+(`maxBodySize`, `http/nodefony/config/config.ts:1208`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
 multipart, lui, a ses propres bornes busboy (par fichier, cumul, nombre) qui coupent le flux et
 nettoient les temporaires déjà posés au moindre dépassement (`context/http/Request.ts:481`).
 
@@ -286,7 +286,7 @@ Deux rideaux, tous deux `runtimeMutable` (éditable à chaud) : un **pré-check*
 qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:479`), puis un **compteur
 en streaming** qui coupe le socket si le corps déborde sans `Content-Length` honnête — chunked ou
 menteur (`Parser.write()`, `context/http/parser.ts:33`, dépassement `context/http/parser.ts:33`).
-Champ `maxBodySize` du schéma : `config/config.ts:1192`.
+Champ `maxBodySize` du schéma : `config/config.ts:1208`.
 
 **Par requête** : `maxBodySize` et les limites `upload.*` (hors `uploadDir`) sont sur la liste blanche
 du calque de configuration — une application peut les changer pour une requête

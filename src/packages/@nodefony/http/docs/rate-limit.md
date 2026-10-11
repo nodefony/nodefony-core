@@ -106,7 +106,7 @@ Trois choix structurent l'implémentation, et chacun est un compromis assumé.
 
 **Désactivé par défaut — opt-in explicite.** En cloud-native, le plafond par IP est souvent mieux placé
 à l'**ingress/gateway** (il voit tout le trafic, tous les pods, et rejette avant le coût TLS). Le module
-laisse donc `rateLimit` désarmé par défaut (`config.ts:1231`) : `null` tant qu'on ne l'active pas → **0
+laisse donc `rateLimit` désarmé par défaut (`config.ts:1247`) : `null` tant qu'on ne l'active pas → **0
 coût** sur le chemin chaud. On l'active quand on n'a **pas** d'edge devant soi (bare-metal, VPS), ou en
 défense en profondeur.
 
@@ -214,15 +214,15 @@ Autour de ce cœur, le kernel orchestre le cycle de vie :
 
 ## ⚙️ Configuration
 
-Table dérivée de `rateLimitSchema` (`config.ts:868`). Tout est optionnel : ce sont les défauts du
+Table dérivée de `rateLimitSchema` (`config.ts:889`). Tout est optionnel : ce sont les défauts du
 schéma, écrits ici pour les montrer.
 
 | Option        | Type         | Défaut    | Effet                                                                            | Chaud |
 | ------------- | ------------ | --------- | -------------------------------------------------------------------------------- | ----- |
-| `enabled`     | bool         | `false`   | Arme le rate-limit (HTTP **et** handshakes WS, même compteur) (`config.ts:870`). | oui   |
-| `windowS`     | int (s)      | `60`      | Largeur de la fenêtre fixe ; le compteur par IP repart à zéro (`config.ts:881`). | oui   |
-| `max`         | int          | `300`     | Requêtes/IP/fenêtre ; au-delà `429` + `Retry-After` (`config.ts:892`).           | oui   |
-| `maxTracked`  | int (≥ 1000) | `100 000` | Borne mémoire : IP suivies ; au cap, purge puis éviction FIFO (`config.ts:904`). | non   |
+| `enabled`     | bool         | `false`   | Arme le rate-limit (HTTP **et** handshakes WS, même compteur) (`config.ts:891`). | oui   |
+| `windowS`     | int (s)      | `60`      | Largeur de la fenêtre fixe ; le compteur par IP repart à zéro (`config.ts:902`). | oui   |
+| `max`         | int          | `300`     | Requêtes/IP/fenêtre ; au-delà `429` + `Retry-After` (`config.ts:913`).           | oui   |
+| `maxTracked`  | int (≥ 1000) | `100 000` | Borne mémoire : IP suivies ; au cap, purge puis éviction FIFO (`config.ts:925`). | non   |
 | `gcIntervalS` | int (s)      | `300`     | Intervalle du balayage de purge des fenêtres expirées, hors hot-path.            | non   |
 | `gcJitter`    | bool         | `true`    | Étale le tick GC d'un jitter aléatoire (anti-thundering-herd multi-pod).         | non   |
 
@@ -230,7 +230,7 @@ Et un réglage **séparé**, propre au WebSocket, à la racine du module :
 
 | Option                  | Type          | Défaut | Effet                                                                                               | Chaud |
 | ----------------------- | ------------- | ------ | --------------------------------------------------------------------------------------------------- | ----- |
-| `wsMaxConnectionsPerIp` | int \| `null` | `null` | Cap de connexions WS **concurrentes** par IP ; au-delà, upgrade fermé en `1013` (`config.ts:1234`). | oui   |
+| `wsMaxConnectionsPerIp` | int \| `null` | `null` | Cap de connexions WS **concurrentes** par IP ; au-delà, upgrade fermé en `1013` (`config.ts:1250`). | oui   |
 
 > [!TIP]
 > `max: 300` sur `windowS: 60` = **5 req/s soutenu** par IP, avec des rafales tolérées jusqu'à 300 d'un

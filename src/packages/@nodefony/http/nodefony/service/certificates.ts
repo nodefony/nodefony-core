@@ -1,4 +1,10 @@
-import { Service, Module, Container, extend } from "nodefony";
+import {
+  BootConfigurationError,
+  Service,
+  Module,
+  Container,
+  extend,
+} from "nodefony";
 import fs from "node:fs/promises";
 import path, { resolve } from "node:path";
 import { execFile } from "node:child_process";
@@ -74,6 +80,129 @@ export function addDefaultCaCertificate(
   }
   setDefaultCACertificates([...current, pem]);
   return "added";
+}
+
+const PEM_CERTIFICATE =
+  /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g;
+
+/**
+ * Découpe un fichier PEM en ses certificats — une chaîne d'entreprise est
+ * souvent livrée en un seul fichier (racine + intermédiaires).
+ *
+ * Chaque certificat est ajouté SÉPARÉMENT : c'est ce qui rend l'ajout
+ * idempotent certificat par certificat, la liste par défaut du processus
+ * n'étant faite que de certificats isolés.
+ *
+ * @param pem - contenu d'un fichier PEM (un ou plusieurs certificats)
+ * @returns les certificats, dans l'ordre du fichier ; vide s'il n'y en a aucun
+ */
+export function splitPemCertificates(pem: string): string[] {
+  return pem.match(PEM_CERTIFICATE) ?? [];
+}
+
+/** Bilan de {@link trustCaFile}. */
+export interface ICaFileTrust {
+  /** Fichier lu, chemin absolu. */
+  readonly file: string;
+  /** Certificats ajoutés aux ancres du processus. */
+  readonly added: number;
+  /** Certificats déjà de confiance. */
+  readonly present: number;
+}
+
+/**
+ * Ajoute les autorités d'un fichier PEM aux ancres TLS du processus
+ * (`certificates.extraCaFiles`) — l'équivalent, porté par l'APPLICATION, de
+ * `NODE_EXTRA_CA_CERTS`.
+ *
+ * `NODE_EXTRA_CA_CERTS` n'est lu qu'au lancement de Node, et se pose dans la
+ * syntaxe du shell — `VAR=… npm run dev` n'existe pas sous Windows. Une autorité
+ * d'entreprise (Keycloak interne, proxy sortant qui ré-signe) se déclare donc
+ * dans la configuration, et sert à TOUTES les requêtes sortantes du processus :
+ * découverte OpenID, point de jeton, jeu de clés, appels d'administration.
+ *
+ * @param file - chemin du fichier, absolu ou relatif à `root`
+ * @param root - racine de l'application
+ * @param store - accès aux ancres ; `node:tls` par défaut
+ * @returns le bilan de l'ajout
+ * @throws BootConfigurationError - fichier illisible, sans certificat, ou Node
+ *         incapable d'élargir ses ancres en cours d'exécution
+ */
+export async function trustCaFile(
+  file: string,
+  root: string,
+  store: ITlsTrustStore = tls,
+): Promise<ICaFileTrust> {
+  const absolute = path.resolve(root, file);
+  let content: string;
+  try {
+    content = await fs.readFile(absolute, "utf8");
+  } catch (error) {
+    // Le code système (ENOENT, EACCES) dit la cause en un mot ; à défaut, le message.
+    const code: unknown =
+      error instanceof Error && "code" in error ? error.code : undefined;
+    const reason =
+      typeof code === "string"
+        ? code
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    throw new BootConfigurationError(
+      `http.certificates.extraCaFiles : « ${absolute} » est illisible (${reason}).`,
+    );
+  }
+  const certificates = splitPemCertificates(content);
+  if (certificates.length === 0) {
+    throw new BootConfigurationError(
+      `http.certificates.extraCaFiles : « ${absolute} » ne contient aucun ` +
+        "certificat PEM (-----BEGIN CERTIFICATE-----).",
+    );
+  }
+  let added = 0;
+  let present = 0;
+  for (const pem of certificates) {
+    const verdict = addDefaultCaCertificate(pem, store);
+    if (verdict === "unsupported") {
+      // Une autorité DEMANDÉE qui ne s'applique pas rendrait chaque requête
+      // sortante « fetch failed » bien plus tard, loin de sa cause.
+      throw new BootConfigurationError(
+        "http.certificates.extraCaFiles : ce Node ne sait pas élargir ses " +
+          "ancres TLS en cours d'exécution (tls.setDefaultCACertificates, " +
+          `Node ≥ 24.5). Mettre Node à jour, ou lancer avec NODE_EXTRA_CA_CERTS=${absolute}.`,
+      );
+    }
+    if (verdict === "added") added += 1;
+    else present += 1;
+  }
+  return { file: absolute, added, present };
+}
+
+/**
+ * Ajoute aux ancres TLS du processus les autorités déclarées
+ * (`certificates.extraCaFiles`), au plus tôt : appelé à l'enregistrement du
+ * module, avant tout service — toute requête sortante, commande console
+ * comprise, les trouve en place.
+ *
+ * La CA de DÉVELOPPEMENT n'y figure pas : le service de certificats la pose
+ * lui-même ({@link Certificate.generateServerCertificates}).
+ *
+ * @param files - `certificates.extraCaFiles`
+ * @param root - racine de l'application
+ * @param log - journal du module
+ * @throws BootConfigurationError - cf {@link trustCaFile}
+ */
+export async function trustOutboundAuthorities(
+  files: readonly string[],
+  root: string,
+  log: (message: string, severity: "INFO") => void,
+): Promise<void> {
+  for (const file of files) {
+    const trust = await trustCaFile(file, root);
+    log(
+      `autorité sortante ${trust.file} : ${trust.added} ajoutée(s), ${trust.present} déjà présente(s)`,
+      "INFO",
+    );
+  }
 }
 
 /** Paire de clés RSA du certificat auto-signé. */

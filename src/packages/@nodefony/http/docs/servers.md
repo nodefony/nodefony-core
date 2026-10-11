@@ -409,7 +409,7 @@ C'est la distinction la plus utile de cette page, et celle qu'on rate le plus so
 | Question                                  | Où ça se règle                 | Source                                                    |
 | ----------------------------------------- | ------------------------------ | --------------------------------------------------------- |
 | **Quels** serveurs, sur **quels ports** ? | `servers` (config d'app)       | `serversSchema` (`src/nodefony/src/config/schema.ts:149`) |
-| **Comment** ces serveurs se comportent ?  | `use("@nodefony/http", { … })` | `httpConfigSchema` (`config.ts:1155`)                     |
+| **Comment** ces serveurs se comportent ?  | `use("@nodefony/http", { … })` | `httpConfigSchema` (`config.ts:1171`)                     |
 
 Autrement dit : la **topologie** est une propriété du déploiement (elle change entre le poste du dev,
 la CI et le cluster) ; le **réglage** est une propriété de l'application.
@@ -460,16 +460,16 @@ Depuis `http2Schema` (`config.ts:353`), appliqué seulement si défini
 
 ### Niveau 2 — WebSocket (`websocket` et `websocketSecure`)
 
-Depuis `websocketSchema` (`config.ts:521`). Les deux sections partagent la forme et les défauts ; le WSS
-lit `websocketSecure` (`config.ts:1224`).
+Depuis `websocketSchema` (`config.ts:535`). Les deux sections partagent la forme et les défauts ; le WSS
+lit `websocketSecure` (`config.ts:1240`).
 
 | Option                   | Type                | Défaut  | Effet                                                                              |
 | ------------------------ | ------------------- | ------- | ---------------------------------------------------------------------------------- |
 | `keepaliveInterval`      | ms                  | `20000` | Intervalle des pings — détecte les connexions zombies.                             |
 | `keepaliveGracePeriod`   | ms                  | `10000` | Délai de grâce après un ping sans réponse avant fermeture.                         |
 | `closeTimeout`           | ms                  | `5000`  | Délai de fermeture propre avant destruction de la socket.                          |
-| `maxPayload`             | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts:543`).       |
-| `allowedOrigins`         | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts:552`).              |
+| `maxPayload`             | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts:561`).       |
+| `allowedOrigins`         | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts:570`).              |
 | `perMessageDeflate`      | bool \| objet       | `false` | Compression RFC 7692. Désactivée par défaut : coût CPU/RAM + risque de _zip bomb_. |
 | `skipUTF8Validation`     | bool                | `false` | Désactive la validation UTF-8 des frames texte (RFC 6455 §8.1). À laisser `false`. |
 | `autoPong`               | bool                | `true`  | Répond automatiquement aux pings entrants (RFC 6455 §5.5.2-3). À laisser `true`.   |
@@ -549,12 +549,12 @@ serveur qui, lui, écoute très bien.
 **Générer un certificat est un confort de développement, pas une fonction de production.** Nodefony
 n'est pas une autorité de certification : en production, on fournit un vrai certificat (Let's Encrypt,
 ingress k8s, reverse-proxy). Le service crie un avertissement si ce n'est pas le cas
-(`Certificate.resolveStrategy()`, `certificates.ts:456`).
+(`Certificate.resolveStrategy()`, `certificates.ts:577`).
 
 ### Les quatre stratégies
 
 Réglées par `certificates.strategy` (`certificatesSchema`, `config.ts:479`), résolues par
-`Certificate.resolveStrategy()` (`certificates.ts:456`).
+`Certificate.resolveStrategy()` (`certificates.ts:577`).
 
 | Stratégie       | Quand l'utiliser                            | Ce qui se passe                                                             |
 | --------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
@@ -584,13 +584,38 @@ export default defineConfig(() => ({
 > [!TIP]
 > Pour un HTTPS de développement **sans avertissement navigateur** (indispensable au HMR cross-origin
 > et au WSS) : `brew install mkcert nss && mkcert -install`. Nodefony le détecte tout seul, sinon il
-> l'annonce et retombe sur l'auto-signé (`certificates.ts:398`).
+> l'annonce et retombe sur l'auto-signé (`certificates.ts:602`).
 
 ### Ce que le chemin `explicit` évite
 
 Aucune génération : le certificat fourni est lu tel quel (`certificates.ts:330`). La génération de
 l'auto-signé, elle, n'emploie que `node:crypto` (`x509.ts`) — aucune dépendance cryptographique
 tierce n'est installée avec `@nodefony/http`.
+
+### Autorités sortantes — `extraCaFiles`
+
+Les certificats ci-dessus sont ceux que l'application **présente**. L'inverse compte autant :
+quand l'application **appelle** un autre service en `https` (Keycloak, une API partenaire, l'amont
+du proxy inverse), elle n'accepte que les certificats signés par une autorité qu'elle connaît. Une
+autorité publique ne demande rien, et celle de développement de Nodefony est reconnue d'office ;
+une autorité **d'entreprise** se déclare :
+
+```typescript ignore
+use("@nodefony/http", {
+  certificates: {
+    // Fichiers PEM, absolus ou relatifs à la racine de l'application.
+    // Un fichier peut porter une chaîne entière (racine + intermédiaires).
+    extraCaFiles: ["certs/autorite-entreprise.pem"],
+  },
+});
+```
+
+Le gabarit d'application la lit dans `NF_TLS_CA_FILE`. Les autorités sont ajoutées à celles du
+processus à l'enregistrement du module, avant tout service — donc aussi pour une commande en ligne
+(`Http.onKernelRegister()`, `index.ts:104` ; `trustCaFile()`, `certificates.ts:131`). Un fichier
+introuvable ou sans certificat **interrompt le démarrage** en nommant le chemin (code 78), plutôt
+qu'un `fetch failed` loin de sa cause. C'est l'équivalent de `NODE_EXTRA_CA_CERTS`, porté par la
+configuration : rien à poser au lancement, et la même écriture sous Windows.
 
 ### Conformité de l'auto-signé
 
@@ -600,7 +625,7 @@ invalid »). Celui de Nodefony respecte les règles qui comptent :
 | Exigence                                | Norme                | Mise en œuvre                                             |
 | --------------------------------------- | -------------------- | --------------------------------------------------------- |
 | Signature SHA-256, **jamais** SHA-1     | RFC 5280, CA/B Forum | `selfSigned.hash` par défaut `sha256` (`config.ts:400`)   |
-| Numéro de série aléatoire 128 bits      | RFC 5280 §4.1.2.2    | `Certificate.generateSerialHex()` (`certificates.ts:314`) |
+| Numéro de série aléatoire 128 bits      | RFC 5280 §4.1.2.2    | `Certificate.generateSerialHex()` (`certificates.ts:435`) |
 | Le SAN fait foi, pas le CN              | RFC 9525             | SAN dérivé du kernel si non fourni (`config.ts:444`)      |
 | `notBefore` reculé (décalage d'horloge) | pratique             | `selfSigned.backdateMinutes`, défaut 5 (`config.ts:415`)  |
 | Clé privée non lisible par tous         | hygiène              | `privateKeyMode` `0600` (`config.ts:499`)                 |
@@ -608,7 +633,7 @@ invalid »). Celui de Nodefony respecte les règles qui comptent :
 ### Régénération automatique
 
 Un certificat présent sur disque n'est pas forcément **adéquat**. `Certificate.isCertAdequate()`
-(`certificates.ts:622`) le régénère s'il est expiré, s'il est signé en SHA-1, ou si son SAN ne couvre
+(`certificates.ts:743`) le régénère s'il est expiré, s'il est signé en SHA-1, ou si son SAN ne couvre
 plus les noms requis — le dernier cas est celui qui sauve : changer le domaine d'écoute sans ce
 contrôle laisserait un certificat obsolète en place indéfiniment.
 
@@ -676,7 +701,7 @@ rate-limit**. Un kubelet qui reçoit un `429` croit le pod mort → cascade de r
 
 | Option          | Type   | Défaut    | Effet                                                                  |
 | --------------- | ------ | --------- | ---------------------------------------------------------------------- |
-| `enabled`       | bool   | `true`    | Expose les probes (`healthSchema`, `config.ts:948`).                   |
+| `enabled`       | bool   | `true`    | Expose les probes (`healthSchema`, `config.ts:961`).                   |
 | `livenessPath`  | string | `/livez`  | Chemin de la sonde de vie (`livenessProbe.httpGet.path` k8s).          |
 | `readinessPath` | string | `/readyz` | Chemin de la sonde de disponibilité.                                   |
 | `shutdownDelay` | ms     | `0`       | Délai entre la bascule `503` et le début du drain (propagation du LB). |
@@ -802,7 +827,7 @@ est impossible → la connexion est fermée en **1013 « Try Again Later »**
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :
-`wsMaxConnectionsPerIp` (`config.ts:1234`). En cloud-native, laisser `null` et déléguer à l'edge —
+`wsMaxConnectionsPerIp` (`config.ts:1250`). En cloud-native, laisser `null` et déléguer à l'edge —
 nginx `limit_conn`, HAProxy `sc_conn_cur` — qui voit tout le trafic, rejette avant le coût du
 descripteur et du TLS, et couvre tous les pods. Ne l'activer que sur une machine sans ingress.
 
@@ -852,12 +877,12 @@ demande le backplane realtime.
 | En-têtes trop volumineux → 431        | RFC 6585 §5        | `handleClientError()` (`clientError.ts:15`)                                 |
 | WebSocket — protocole                 | RFC 6455           | `ws@8` + options (`config.ts:496`)                                          |
 | WebSocket — Close 1001 « Going Away » | RFC 6455 §7.4.1    | `Websocket.terminate()` (`server-websocket.ts:121`)                         |
-| WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:543`)                                              |
-| WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:623`)                                      |
-| WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:567`)                                       |
+| WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:561`)                                              |
+| WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:641`)                                      |
+| WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:585`)                                       |
 | CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:712`)                  |
 | En-têtes forwarded                    | RFC 7239           | `resolveForwarded()` (`forwarded.ts:253`)                                   |
-| Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:314`)                   |
+| Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:435`)                   |
 | Certificat — identité par le SAN      | RFC 9525           | `sanSchema` (`config.ts:446`)                                               |
 
 ## ⚠️ Pièges (symptôme → cause → correction)
@@ -898,7 +923,7 @@ l'origine du transport.
 
 `proxy:generate` mérite un mot : la configuration nginx/HAProxy est **dérivée** des domaines de
 confiance, des ports effectifs et des dossiers statiques montés — donc elle ne diverge pas du code. Le
-résumé de certificat vient de `Certificate.describe()` (`certificates.ts:844`), source unique partagée
+résumé de certificat vient de `Certificate.describe()` (`certificates.ts:965`), source unique partagée
 par la commande, le boot et un futur écran d'administration.
 
 **Runtime.** `nodefony status` et `nodefony stop` lisent les ports effectifs publiés au boot ; ils

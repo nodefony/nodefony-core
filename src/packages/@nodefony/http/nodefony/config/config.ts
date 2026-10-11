@@ -511,6 +511,19 @@ const certificatesSchema = z
           "lecture/écriture owner uniquement). Une clé TLS ne doit JAMAIS être " +
           "world-readable.",
       }),
+    extraCaFiles: z
+      .array(z.string().min(1))
+      .default([])
+      .describe(
+        "Autorités de certification supplémentaires pour les requêtes SORTANTES " +
+          "du processus (découverte OpenID, jeton, jeu de clés, API tierces) : " +
+          "fichiers PEM, absolus ou relatifs à la racine de l'application, un " +
+          "fichier pouvant porter une chaîne entière. L'équivalent porté par " +
+          "l'application de NODE_EXTRA_CA_CERTS — sans syntaxe de shell, donc " +
+          "identique sous Windows. Fichier illisible ou sans certificat = refus " +
+          "au démarrage. La CA de développement générée par Nodefony n'a pas " +
+          "besoin d'y figurer.",
+      ),
     san: sanSchema.default(() => sanSchema.parse({})),
     dev: certDevSchema.default(() => certDevSchema.parse({})),
     selfSigned: selfSignedSchema.default(() => selfSignedSchema.parse({})),
@@ -1061,7 +1074,8 @@ const proxyMountSchema = z
       .describe(
         "Vérifie le certificat d'une cible https. `false` n'est accepté que " +
           "vers la boucle locale (`127.0.0.0/8`, `localhost`, `::1`) ; ailleurs, " +
-          "fournir l'autorité de l'amont (`NODE_EXTRA_CA_CERTS`).",
+          "fournir l'autorité de l'amont (`certificates.extraCaFiles`, ou " +
+          "`NODE_EXTRA_CA_CERTS`).",
       ),
   })
   .describe(

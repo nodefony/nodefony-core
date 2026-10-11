@@ -217,7 +217,7 @@ via: 1.1 nodefony-3f9a1c2e
 ## ⚙️ Configuration
 
 Section `proxy` de `use("@nodefony/http", { … })`, schéma Zod strict : une clé inconnue interrompt le
-démarrage en la nommant (`proxySchema`, `config.ts:1068`).
+démarrage en la nommant (`proxySchema`, `config.ts:1085`).
 
 | Option             | Type     | Défaut  | Effet                                                                                                                                                         |
 | ------------------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -226,7 +226,7 @@ démarrage en la nommant (`proxySchema`, `config.ts:1068`).
 | `maxSockets`       | entier   | `256`   | Connexions simultanées vers UN amont (pool dédié par montage) ; au-delà, les requêtes attendent. Borne aussi les tunnels WebSocket, hors pool : au-delà, 503. |
 | `mounts`           | `record` | `{}`    | Préfixe → montage. Préfixe le plus long d'abord.                                                                                                              |
 
-Chaque montage (`proxyMountSchema`, `config.ts:998`) :
+Chaque montage (`proxyMountSchema`, `config.ts:1013`) :
 
 | Option         | Type       | Défaut            | Effet                                                                                                                        |
 | -------------- | ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -430,8 +430,8 @@ une connexion à usage unique, sans recréer de pool que personne ne fermerait.
 - **Chaîne de confiance** : `Forwarded`, `X-Forwarded-*` et `X-Real-IP` d'un client direct sont
   écartés ; seul un pair `trustProxy` les prolonge.
 - **Certificat vérifié** vers une cible `https` ; `secure: false` n'est accepté que vers
-  `127.0.0.0/8`, `localhost` ou `::1`. Ailleurs, fournir l'autorité de l'amont
-  (`NODE_EXTRA_CA_CERTS`).
+  `127.0.0.0/8`, `localhost` ou `::1`. Ailleurs, déclarer l'autorité de l'amont
+  (`certificates.extraCaFiles`, voir [servers](servers.md#autorités-sortantes--extracafiles)).
 - **Corps d'erreur muets** : `Bad Gateway`, `Gateway Timeout`, `Loop Detected` — aucun détail
   interne (adresse, pile) ne part vers le client.
 

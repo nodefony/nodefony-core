@@ -114,7 +114,7 @@ défaut** dans Nodefony :
 
 - **Vol du cookie (hijacking).** Un script injecté (XSS) ou un réseau en clair capte le cookie et
   rejoue la session. → `HttpOnly` et `Secure` sont à `true` par défaut (`sessionCookieSchema`,
-  `config.ts:752-755`), et le nom du cookie prend le préfixe `__Host-` dès que le transport est TLS
+  `config.ts:769`), et le nom du cookie prend le préfixe `__Host-` dès que le transport est TLS
   (`Context.getSessionCookieName()`, `Context.ts:757`).
 - **Fixation.** L'attaquant pose lui-même un identifiant dans le navigateur de la victime, attend
   qu'elle se connecte, puis réutilise **le même** identifiant. → double défense : `strictMode` rejette
@@ -278,15 +278,15 @@ faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:757`).
 
 ## ⚙️ Configuration
 
-Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:790`) et son sous-schéma
-`sessionCookieSchema` (`config.ts:756`).
+Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:803`) et son sous-schéma
+`sessionCookieSchema` (`config.ts:769`).
 
 | Option              | Type    | Défaut       | Effet                                                                                    |
 | ------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------- |
 | `store`             | string  | `"auto"`     | Backend de persistance — voir la résolution ci-dessous (`config.ts:795`).                |
 | `name`              | string  | `"nodefony"` | Nom du cookie, préfixé `__Host-` selon `cookie.hostPrefix` (`config.ts:770`).            |
 | `strictMode`        | bool    | `true`       | Un identifiant inconnu du store est rejeté → session neuve (anti-fixation).              |
-| `idleTimeoutS`      | int ≥ 0 | `1800`       | Inactivité max (30 min). `0` = pas d'expiration par inactivité (`config.ts:823`).        |
+| `idleTimeoutS`      | int ≥ 0 | `1800`       | Inactivité max (30 min). `0` = pas d'expiration par inactivité (`config.ts:844`).        |
 | `absoluteTimeoutS`  | int ≥ 0 | `43200`      | Âge max depuis la création (12 h), **jamais** prolongé. `0` = désactivé.                 |
 | `gcIntervalS`       | int ≥ 0 | `600`        | Période de purge des sessions expirées, hors requête. `0` = timer désarmé.               |
 | `gcJitter`          | bool    | `true`       | Décale le départ du GC par process (anti _thundering herd_ sur un store partagé).        |
@@ -572,7 +572,7 @@ Trois barrières superposées :
 
 | Menace                            | Défense                                           | Ancrage                                            |
 | --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
-| Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:756`)            |
+| Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:769`)            |
 | Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:757`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `cookieDefaultSettings` (`cookie.ts:39`)           |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:197`)              |
@@ -644,7 +644,7 @@ Trois règles de conception se dégagent du contrat, et méritent d'être respec
 | ----------------------------- | ------------------------- | ----------------------------------------------------------------------------- |
 | Attributs et préfixes cookie  | RFC 6265bis §4.1.3        | `__Host-` impose `Secure` + `Path=/`, interdit `Domain` (`cookie.ts:386-403`) |
 | Nom du cookie selon transport | RFC 6265bis / OWASP       | `getSessionCookieName()` (`Context.ts:757`)                                   |
-| Idle timeout                  | NIST SP 800-63B-4 / OWASP | défaut 1800 s, glissant par `touch` (`config.ts:831`)                         |
+| Idle timeout                  | NIST SP 800-63B-4 / OWASP | défaut 1800 s, glissant par `touch` (`config.ts:844`)                         |
 | Absolute timeout              | NIST SP 800-63B-4 / OWASP | défaut 43200 s, jamais prolongé (`config.ts:808`)                             |
 | Identifiant de session        | OWASP Session Management  | 32 octets CSPRNG, opaque (`session.ts:226`)                                   |
 | Identifiant hors URL          | OWASP Session Management  | cookie uniquement — jamais de réécriture d'URL (`session.ts:20-26`)           |

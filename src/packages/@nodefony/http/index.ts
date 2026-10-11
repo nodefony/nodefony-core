@@ -27,7 +27,9 @@ import certificatesCommand from "./nodefony/command/certificatesCommand";
 import proxyGenerateCommand from "./nodefony/command/proxyGenerateCommand";
 import assetsPublishCommand from "./nodefony/command/assetsPublishCommand";
 import SessionsService from "./nodefony/service/sessions/sessions-service";
-import Certificate from "./nodefony/service/certificates";
+import Certificate, {
+  trustOutboundAuthorities,
+} from "./nodefony/service/certificates";
 import Context from "./nodefony/src/context/Context";
 import Session from "./nodefony/src/session/session";
 import HttpError from "./nodefony/src/errors/httpError";
@@ -108,7 +110,15 @@ class Http extends Module<IHttpConfig> {
     // écrite. Attraper pour ré-emballer, c'est perdre l'information.
     // Sans config déclarée, le module peut n'avoir reçu aucune section.
     const input = this.options as IHttpConfigInput | undefined;
-    this.options = defineHttpConfig(input ?? {}, this.kernel);
+    const options: IHttpConfig = defineHttpConfig(input ?? {}, this.kernel);
+    this.options = options;
+    // Autorités sortantes déclarées, posées avant tout service : la première
+    // requête sortante (découverte OpenID, jeton) les trouve en place.
+    await trustOutboundAuthorities(
+      options.certificates.extraCaFiles,
+      this.kernel?.path ?? process.cwd(),
+      (message, severity) => this.log(message, severity),
+    );
     return this;
   }
 
