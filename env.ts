@@ -494,6 +494,17 @@ export const env = defineEnv({
       "Le secret de ce client, copié depuis la console Keycloak (onglet « Credentials » du client).",
   }),
 
+  // Secret de l'appelant MACHINE (`nodefony-machine`, compte de service, flux
+  // `client_credentials`). Lu par la seule commande `app:partner:call` —
+  // jamais par le serveur, qui VÉRIFIE les jetons sans connaître ce secret.
+  NF_KEYCLOAK_MACHINE_SECRET: envString({
+    optional: true,
+    section: "Connexion Keycloak",
+    title: "Keycloak : secret de l'appelant machine",
+    description:
+      "Le secret du client nodefony-machine, qui obtient un jeton au nom d'un programme (script, service partenaire), sans utilisateur. Lu par la commande app:partner:call, jamais par le serveur.",
+  }),
+
   // Compte ADMINISTRATEUR du Keycloak de développement (realm `master`) : il
   // sert seulement à poser le thème de connexion qui suit l'habillage de
   // /login (`security:keycloak:realm --apply`, sélecteur d'aperçu). La config

@@ -17,6 +17,26 @@ import type { ConfigContext } from "nodefony";
 import type { ISecurityConfigInput } from "@nodefony/security";
 import type { env } from "../../env";
 
+/** Les variables dont dépendent les adresses publiques ci-dessous. */
+type IPublicUrlEnv = Pick<typeof env, "NF_JWT_ISSUER" | "NF_PORT_HTTPS">;
+
+/**
+ * L'adresse publique de l'application : `NF_JWT_ISSUER` quand il est posé
+ * (en production, l'URL que voient les clients), sinon le serveur local.
+ */
+export const publicBaseUrl = (e: IPublicUrlEnv): string =>
+  e.NF_JWT_ISSUER ?? `https://localhost:${e.NF_PORT_HTTPS ?? 5152}`;
+
+/**
+ * La ressource de l'API partenaire (RFC 8707) : l'audience que doit porter un
+ * jeton présenté sur `/api/partner`, qu'il vienne de cette application ou de
+ * Keycloak. UNE définition, lue par la zone `partner`, `jwt.audiences`,
+ * l'audience Keycloak ET la commande `app:partner:call` : une audience
+ * recopiée finit par différer, et le seul symptôme est un 401.
+ */
+export const partnerResource = (e: IPublicUrlEnv): string =>
+  `${publicBaseUrl(e)}/api/partner`;
+
 /**
  * Redirections et rôles communs à tous les fournisseurs OAuth de CETTE app.
  *
@@ -61,6 +81,32 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
       "app-pages": {
         pattern: "^/(app)?$",
         authenticators: ["session", "anonymous"],
+      },
+      // Programme qui présente un JETON d'accès — signé par cette application
+      // OU par Keycloak (flux `client_credentials`, client `nodefony-machine`).
+      // Essai de bout en bout : `npx nodefony app:partner:call`
+      // (nodefony/command/PartnerCallCommand.ts). Patron du gabarit `complete`.
+      //
+      // Les deux authenticators s'aiguillent sur l'émetteur du jeton (`iss`) :
+      // leur ordre ne décide de rien. Chacun contrôle l'audience à sa façon —
+      // `jwt` contre `jwt.audiences`, `external-jwt` contre `resource` —, d'où
+      // la même valeur aux deux endroits, tirée de `partnerResource`.
+      //
+      // ⚠️ Le realm Keycloak n'est émetteur de confiance que par le module
+      // `test` (`resourceServer.issuers`, cf son config.ts : `extend` fusionne
+      // les tableaux case par case, une entrée posée ici serait écrasée). Sans
+      // les modules de développement, seule la voie `--issuer nodefony` ouvre.
+      partner: {
+        pattern: "^/api/partner",
+        authenticators: ["jwt", "external-jwt"],
+        stateless: true,
+        resource: partnerResource(ctx.env),
+        // L'appelant Keycloak n'a PAS de compte ici : son `sub` est le compte
+        // de service du realm. `ephemeral` l'accepte le temps de la requête,
+        // avec les seuls rôles ci-dessous. La politique vaut pour CETTE zone :
+        // `test-keycloak` garde `require` (le défaut) et refuse ce même jeton.
+        subjectPolicy: "ephemeral",
+        ephemeralRoles: ["ROLE_PARTNER"],
       },
     },
     loginPage: {
@@ -149,7 +195,12 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
                 // TOUTES les zones external-jwt — dont `test-foreign-audience`,
                 // qui existe pour refuser un jeton délivré pour un autre service.
                 // Lue par `security:keycloak:realm`, qui en écrit les mappers.
-                audiences: ["https://localhost:5152/nodefony/test/keycloak"],
+                // `partner` : l'API partenaire de CETTE application (zone
+                // `partner` ci-dessus), ouverte à l'appelant machine.
+                audiences: [
+                  "https://localhost:5152/nodefony/test/keycloak",
+                  partnerResource(ctx.env),
+                ],
                 ...oauthPerProvider,
               },
             }
@@ -254,6 +305,10 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
             // `Host`.
             "http://localhost:5151/nodefony/mcp",
             "https://localhost:5152/nodefony/mcp",
+            // L'API partenaire (zone `partner`) : sans elle,
+            // `app:partner:call --issuer nodefony` se voit refuser son jeton
+            // (`invalid_target`).
+            partnerResource(ctx.env),
           ],
     },
     // 2FA TOTP (P6) — secret 2FA chiffré au repos (AES-256-GCM). Clé prod via

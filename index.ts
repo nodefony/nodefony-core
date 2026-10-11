@@ -4,6 +4,8 @@ import { entities } from "@nodefony/orm-core";
 import config from "./nodefony.config";
 import AppController from "./nodefony/controllers/AppController";
 import indexController from "./nodefony/controllers/indexController";
+import PartnerController from "./nodefony/controllers/PartnerController";
+import PartnerCallCommand from "./nodefony/command/PartnerCallCommand";
 // NB : les entités framework (User, session, tokens, audit, passkeys, webhooks,
 // idempotence) et leurs stores sont AUTO-ENREGISTRÉS par leurs modules adapters
 // (drizzle/mongoose/redis) sur la variante du DIALECTE configuré — l'app n'a plus
@@ -31,7 +33,7 @@ import { AppUserEntity } from "./nodefony/entity/User";
  */
 export { env } from "./env";
 
-@controllers([AppController, indexController])
+@controllers([AppController, indexController, PartnerController])
 // La table `User` n'est inscrite que sur une infra SQL (ou sans infra). Sur
 // MongoDB, une table SQL n'aurait aucun connecteur pour la servir — Drizzle n'y
 // ouvre pas de `default` — et le démarrage signalerait une entité orpheline. Ce
@@ -47,6 +49,8 @@ class App extends Module {
    */
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
+    // Commande d'exemple : un programme qui appelle l'API avec un jeton.
+    this.addCommand(PartnerCallCommand);
   }
 
   /**

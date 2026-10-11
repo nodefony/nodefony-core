@@ -56,6 +56,17 @@
             "id.token.claim": "false",
             "introspection.token.claim": "true"
           }
+        },
+        {
+          "name": "audience-nodefony-api-2",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "https://localhost:5152/api/partner",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
         }
       ],
       "description": "Console d'administration du framework Nodefony — supervision, sécurité et données, en développement."
@@ -79,6 +90,17 @@
           "protocolMapper": "oidc-audience-mapper",
           "config": {
             "included.custom.audience": "https://localhost:5152/nodefony/test/keycloak",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audience-nodefony-api-2",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "https://localhost:5152/api/partner",
             "access.token.claim": "true",
             "id.token.claim": "false",
             "introspection.token.claim": "true"

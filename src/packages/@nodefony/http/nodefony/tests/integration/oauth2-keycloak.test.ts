@@ -21,7 +21,10 @@
  *     l'application, qui détruit la session ; un jeton forgé est refusé ;
  *  5. rôles (#519) : `bob`, porteur du rôle client `admin`, obtient ROLE_ADMIN
  *     par session ET par jeton ; le rôle retiré dans le realm disparaît au
- *     login suivant ; un rôle donné à la main dans l'application survit.
+ *     login suivant ; un rôle donné à la main dans l'application survit ;
+ *  6. appelant machine (#544) : un jeton `client_credentials` ouvre la zone
+ *     `partner` (`ephemeral`) et est refusé par `test-keycloak` (`require`) ;
+ *     un jeton signé par l'application ouvre la même zone.
  */
 import { describe, expect, it } from "vitest";
 import https from "node:https";
@@ -36,6 +39,7 @@ import {
   generateCodeVerifier,
   generateState,
   OAuth2RequestError,
+  requestClientCredentialsToken,
 } from "@nodefony/security";
 import type { IOAuthProvider } from "@nodefony/security";
 
@@ -75,6 +79,12 @@ const OAUTH = "/nodefony/security/api/oauth2/keycloak";
 const ME = "/nodefony/security/api/auth/me";
 const LOGOUT = "/nodefony/security/api/auth/logout";
 const API = "/nodefony/test/keycloak/whoami";
+/** L'API partenaire de l'application (zone `partner`, `nodefony/config/security.ts`). */
+const PARTNER = "/api/partner/whoami";
+/** Sa ressource (RFC 8707) — `partnerResource()` de l'app, en développement. */
+const PARTNER_RESOURCE = "https://localhost:5152/api/partner";
+/** L'appelant machine du realm (compte de service, `client_credentials`). */
+const MACHINE_CLIENT_ID = "nodefony-machine";
 /** URL de redirection enregistrée sur le client du realm (jamais suivie ici). */
 const REDIRECT_URI = `https://localhost:5152${OAUTH}/callback`;
 const TIMEOUT = 15_000;
@@ -215,6 +225,38 @@ function realmUser(username?: string): {
   const password = u?.credentials.find((c) => c.type === "password")?.value;
   if (!u || !password) throw new Error("realm sans utilisateur à mot de passe");
   return { username: u.username, password, email: u.email };
+}
+
+/** Le secret d'un client du realm importé — le fichier fait foi, comme pour les comptes. */
+function realmClientSecret(clientId: string): string {
+  const realm = JSON.parse(readFileSync(REALM_FILE, "utf8")) as {
+    clients: Array<{ clientId: string; secret?: string }>;
+  };
+  const secret = realm.clients.find((c) => c.clientId === clientId)?.secret;
+  if (!secret) throw new Error(`realm sans secret pour le client ${clientId}`);
+  return secret;
+}
+
+/** Les claims d'un JWS compact, lus SANS vérification — pour décrire le décor. */
+function claimsOf(jws: string): Record<string, unknown> {
+  const payload = jws.split(".")[1] ?? "";
+  return JSON.parse(Buffer.from(payload, "base64url").toString()) as Record<
+    string,
+    unknown
+  >;
+}
+
+/** Jeton du client machine, obtenu chez Keycloak par le client du framework. */
+async function machineToken(): Promise<string> {
+  const tokens = await requestClientCredentialsToken({
+    issuer: ISSUER,
+    clientId: MACHINE_CLIENT_ID,
+    clientSecret: realmClientSecret(MACHINE_CLIENT_ID),
+    resource: PARTNER_RESOURCE,
+    fetch: caFetch,
+    timeoutMs: TIMEOUT,
+  });
+  return tokens.accessToken();
 }
 
 /**
@@ -806,6 +848,70 @@ describe.skipIf(!ISSUER || !CLIENT_ID || !CLIENT_SECRET)(
         OAuth2RequestError,
       );
       expect((refused as OAuth2RequestError).code).toBe("invalid_grant");
+    });
+
+    describe("appelant machine (#544) — une politique de sujet PAR ZONE", () => {
+      // Le même jeton `client_credentials` frappe deux zones `external-jwt` du
+      // même émetteur. `partner` (app) l'accepte sans compte local
+      // (`subjectPolicy: "ephemeral"`) ; `test-keycloak` (module test) garde le
+      // défaut `require` et le refuse. Le jeton porte les DEUX audiences (mappers
+      // du realm) : le refus ne tient donc qu'à la politique de la zone.
+      it("jeton client_credentials → 200 sur `partner`, identité éphémère nommée par l'émetteur", async () => {
+        const token = await machineToken();
+        const res = await app(PARTNER, { authorization: `Bearer ${token}` });
+        expect(res.status, `zone partner (${res.text})`).toBe(200);
+        const body = JSON.parse(res.text) as {
+          identifier: string;
+          roles: string[];
+          issuer: string;
+        };
+        expect(body.issuer, "émetteur Keycloak").toBe(ISSUER);
+        expect(body.identifier, "sujet préfixé par son émetteur").toBe(
+          `${ISSUER}#${String(claimsOf(token).sub)}`,
+        );
+        expect(body.roles, "les seuls ephemeralRoles de la zone").toEqual([
+          "ROLE_PARTNER",
+        ]);
+      });
+
+      it("le MÊME jeton → 401 sur `test-keycloak` (require) : aucun compte local", async () => {
+        const token = await machineToken();
+        const aud = claimsOf(token).aud;
+        expect(
+          Array.isArray(aud) ? aud : [aud],
+          "le jeton porte aussi l'audience de test-keycloak — le refus n'est pas une affaire d'audience",
+        ).toContain("https://localhost:5152/nodefony/test/keycloak");
+        const res = await app(API, { authorization: `Bearer ${token}` });
+        expect(res.status, `zone test-keycloak (${res.text})`).toBe(401);
+      });
+
+      it("jeton signé par l'application → 200 sur la MÊME zone, compte local", async () => {
+        const issued = await send({
+          url: new URL(
+            `https://localhost:${APP.port}/nodefony/security/api/token`,
+          ),
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            username: "admin",
+            password: "secret-de-dev-42",
+            resource: PARTNER_RESOURCE,
+          }),
+        });
+        expect(issued.status, `émission (${issued.text})`).toBe(200);
+        const token = (JSON.parse(issued.text) as { access_token: string })
+          .access_token;
+        const res = await app(PARTNER, { authorization: `Bearer ${token}` });
+        expect(res.status, `zone partner (${res.text})`).toBe(200);
+        const body = JSON.parse(res.text) as {
+          identifier: string;
+          issuer: string;
+        };
+        expect(body.identifier, "compte local").toBe("admin");
+        expect(body.issuer, "émetteur : l'application").toBe(
+          "https://localhost:5152",
+        );
+      });
     });
 
     describe("diagnostic sans connexion (#520) — les verdicts que Keycloak rend VRAIMENT", () => {
