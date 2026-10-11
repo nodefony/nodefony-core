@@ -34,25 +34,21 @@ import {
   type ProviderIconComponent,
 } from "../components/ProviderIcon";
 import { useNavigate, useLocation } from "react-router";
-import {
-  OAUTH2_CANCELLED_REASON,
-  WEBAUTHN_STATUS_PATH,
-  oauth2AuthorizePath,
-} from "nodefony";
+import { OAUTH2_CANCELLED_REASON, WEBAUTHN_STATUS_PATH } from "nodefony";
+import type {
+  NodefonyLoginError,
+  NodefonyLoginProvider,
+} from "nodefony/client";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { type ConnectionStep } from "../components/ConnectionStepper";
 import { useAuth, useConnection, useStore } from "../stores";
+import { ApiError } from "../services/ApiClient";
 import { validateTotpCode } from "./profile/totpModel";
-import {
-  LAST_METHOD_KEY,
-  LAST_USER_KEY,
-  PENDING_METHOD_KEY,
-} from "../stores/AuthStore";
+import { LAST_METHOD_KEY } from "../stores/AuthStore";
 
-// `LAST_USER_KEY` est défini dans AuthStore (source de vérité du dernier compte
-// connecté — mis à jour aussi après login social/passkey, pas seulement mot de passe).
-/** Cooldown par défaut (s) si le serveur n'indique pas de `Retry-After` sur un 429. */
-const DEFAULT_THROTTLE_S = 30;
+// Le DÉROULÉ (étapes, second facteur, blocage après trop d'essais, classement
+// des échecs, fournisseurs, passkey) appartient à `NodefonyLogin`, porté par
+// `AuthStore`. Cet écran ne fait que le PEINDRE et dire chaque échec en mots.
 
 /** Libellé affiché sur le bouton pendant chaque étape de la connexion. */
 const STEP_LABEL: Record<ConnectionStep, string> = {
@@ -62,9 +58,6 @@ const STEP_LABEL: Record<ConnectionStep, string> = {
   realtime: "Connexion temps réel…",
   done: "Prêt",
 };
-
-/** Un fournisseur de connexion, tel que le SERVEUR le présente. */
-type SocialProvider = { name: string; label: string };
 
 /**
  * Icônes des marques que l'on sait dessiner. Cette table ne DÉCIDE rien : elle
@@ -92,48 +85,12 @@ function isSocialMethod(method: string): boolean {
   return method !== "" && method !== "password" && method !== "passkey";
 }
 
-/**
- * Démarre un flux social : navigation PLEINE PAGE vers `/authorize` (302 → le
- * fournisseur). JAMAIS un `fetch` — le navigateur doit suivre les redirections
- * cross-origin et laisser le serveur poser le cookie de session au callback.
- */
-function startSocialLogin(provider: string): void {
-  // Mémorise le mode AVANT la redirection pleine page (le composant Login ne
-  // repasse pas) → consommé au retour authentifié pour l'icône/action « rebonjour ».
-  try {
-    localStorage.setItem(PENDING_METHOD_KEY, provider);
-  } catch {
-    /* localStorage indisponible (mode privé) — non bloquant */
-  }
-  // Le thème RENDU (clair ou sombre, attribut que Mantine pose sur <html>)
-  // part avec la demande : l'écran du fournisseur peut le reprendre — Keycloak
-  // le fait, les autres ne le reçoivent pas (le serveur filtre).
-  const scheme = document.documentElement.getAttribute(
-    "data-mantine-color-scheme",
-  );
-  const theme =
-    scheme === "light" || scheme === "dark" ? `&theme=${scheme}` : "";
-  // `back` = cet écran : le « Retour » du fournisseur et un échec ramènent
-  // ici, et non sur la page de connexion par défaut de l'application.
-  window.location.assign(
-    `${oauth2AuthorizePath(provider, undefined, "/nodefony/login")}${theme}`,
-  );
-}
-
 /** Destination posée par `AuthGuard` dans l'état de navigation, sinon `undefined`. */
 function stateFrom(state: unknown): string | undefined {
   if (typeof state !== "object" || state === null || !("from" in state)) {
     return undefined;
   }
   return typeof state.from === "string" ? state.from : undefined;
-}
-
-function readLastUser(): string {
-  try {
-    return localStorage.getItem(LAST_USER_KEY) ?? "";
-  } catch {
-    return "";
-  }
 }
 
 function readLastMethod(): string {
@@ -151,7 +108,7 @@ function readLastMethod(): string {
  */
 function loginMethodChip(
   method: string,
-  providers: SocialProvider[],
+  providers: readonly NodefonyLoginProvider[],
 ): {
   Icon: ProviderIconComponent;
   label: string;
@@ -169,68 +126,61 @@ function loginMethodChip(
   return { Icon: IconUser, label: "Compte" };
 }
 
-/** Lit un délai de ré-essai (s) depuis le corps d'erreur d'un 429, si présent. */
-function retryAfterSeconds(e: unknown): number | null {
-  const body = (e as { body?: unknown } | null)?.body;
-  if (body && typeof body === "object") {
-    const b = body as {
-      retryAfter?: unknown;
-      error?: { retryAfter?: unknown };
-    };
-    const v = b.retryAfter ?? b.error?.retryAfter;
-    if (typeof v === "number" && v > 0) return Math.ceil(v);
-  }
-  return null;
+/** Catégorie d'une alerte : décide de son icône et de sa couleur. */
+type AlertKind = "credentials" | "network" | "server" | "unknown";
+
+/** Message d'une erreur propre à l'écran (saisie vide, retour de fournisseur). */
+interface ILocalError {
+  kind: AlertKind;
+  message: string;
 }
 
-type ErrKind = "credentials" | "throttle" | "network" | "server" | "unknown";
-interface ClassifiedError {
-  kind: ErrKind;
-  message: string;
-  retryAfter?: number;
-}
+const NETWORK_MESSAGE =
+  "Impossible de joindre le serveur. Vérifiez votre connexion réseau.";
+const SERVER_MESSAGE =
+  "Le serveur a rencontré une erreur. Réessayez dans un instant.";
 
 /**
- * Classe une erreur de connexion en catégorie ACTIONNABLE (best practice UX +
- * sécu). Distingue : throttle (429), réseau (aucun statut HTTP = fetch échoué),
- * serveur (5xx), identifiants (401/403 à l'auth → message GÉNÉRIQUE anti-
- * énumération), et inconnu.
+ * Dit en mots un échec classé par le déroulé. Le classement est au cœur ; il
+ * ne reste ici que la phrase. Les refus restent GÉNÉRIQUES (anti-énumération) ;
+ * une erreur locale sans réponse du serveur (`status` nul) porte son propre
+ * message — celui de l'agent de passkey, par exemple.
+ *
+ * @returns `null` pour ce qui ne s'annonce pas en alerte : l'annulation d'une
+ *   invite (geste de l'utilisateur), le blocage (il a son compte à rebours)
  */
-function classifyError(e: unknown, phaseStep: ConnectionStep): ClassifiedError {
-  const status = (e as { status?: number } | null)?.status;
-  if (status === 429) {
-    return {
-      kind: "throttle",
-      message: "",
-      retryAfter: retryAfterSeconds(e) ?? DEFAULT_THROTTLE_S,
-    };
+function describeFlowError(
+  error: NodefonyLoginError,
+  step: string,
+): ILocalError | null {
+  switch (error.kind) {
+    case "cancelled":
+    case "throttled":
+      return null;
+    case "credentials":
+      return {
+        kind: "credentials",
+        message:
+          step === "mfa"
+            ? "Code incorrect ou expiré. Réessayez avec le code courant."
+            : "Identifiant ou mot de passe incorrect.",
+      };
+    case "network":
+      return { kind: "network", message: NETWORK_MESSAGE };
+    case "unsupported":
+      return {
+        kind: "unknown",
+        message: "Ce navigateur ne sait pas utiliser de passkey.",
+      };
+    case "server":
+      return {
+        kind: "server",
+        message:
+          error.status === null && error.message !== ""
+            ? error.message
+            : SERVER_MESSAGE,
+      };
   }
-  if (status === undefined) {
-    return {
-      kind: "network",
-      message:
-        "Impossible de joindre le serveur. Vérifiez votre connexion réseau.",
-    };
-  }
-  if (status >= 500) {
-    return {
-      kind: "server",
-      message: "Le serveur a rencontré une erreur. Réessayez dans un instant.",
-    };
-  }
-  if (phaseStep === "auth" && (status === 401 || status === 403)) {
-    return {
-      kind: "credentials",
-      message: "Identifiant ou mot de passe incorrect.",
-    };
-  }
-  return {
-    kind: "unknown",
-    message:
-      e instanceof Error && e.message
-        ? e.message
-        : "Une erreur est survenue. Réessayez.",
-  };
 }
 
 /**
@@ -251,7 +201,7 @@ function AltLoginMethods({
   disabled,
   exclude,
 }: {
-  social: SocialProvider[];
+  social: readonly NodefonyLoginProvider[];
   onSocial: (provider: string) => void;
   /** Passkeys actives côté serveur : sinon le bouton mènerait à un 503. */
   passkey: boolean;
@@ -335,14 +285,13 @@ export const Login = observer(() => {
   const conn = useConnection();
   const store = useStore();
 
-  const lastUser = useMemo(readLastUser, []);
+  const flow = auth.flowState;
+  const phase = auth.formStep;
   const lastMethod = useMemo(readLastMethod, []);
-  const initialUser = lastUser || (import.meta.env.DEV ? "admin" : "");
 
-  const [phase, setPhase] = useState<"identifier" | "password" | "totp">(
-    lastUser ? "password" : "identifier",
+  const [identifier, setIdentifier] = useState(
+    () => flow.identifier || (import.meta.env.DEV ? "admin" : ""),
   );
-  const [identifier, setIdentifier] = useState(initialUser);
   // Dès que « Changer » est cliqué (on quitte le compte mémorisé), le « rebonjour »
   // method-aware laisse place au login mot de passe classique — sinon un login mdp
   // resterait piégé derrière le bouton social/passkey du dernier mode.
@@ -355,26 +304,33 @@ export const Login = observer(() => {
   const [code, setCode] = useState("");
   const [useRecovery, setUseRecovery] = useState(false);
 
+  // Étapes PROPRES à Studio autour du déroulé : sonde du serveur avant, profil
+  // et temps réel après. `busy` les couvre ; le déroulé dit `pending` pour SA
+  // requête.
   const [step, setStep] = useState<ConnectionStep>("ping");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errKind, setErrKind] = useState<ErrKind | null>(null);
+  const working = busy || flow.pending;
+  const [localError, setLocalError] = useState<ILocalError | null>(null);
+  // Échec du déroulé que l'utilisateur a « effacé » en retapant : l'état du
+  // déroulé ne se modifie pas d'ici, on retient seulement lequel ne plus montrer.
+  const [dismissed, setDismissed] = useState<NodefonyLoginError | null>(null);
 
-  // Throttle (429) : on bloque le ré-essai jusqu'à `cooldownUntil`. Un interval
-  // ne tourne QUE pendant le cooldown (countdown), jamais en permanence.
-  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  // Blocage (429) : l'échéance est celle du déroulé — qui refuse lui-même toute
+  // action d'ici là. Un interval ne tourne QUE pendant le compte à rebours.
+  const retryAt = flow.error?.kind === "throttled" ? flow.error.retryAt : null;
   const [, forceTick] = useState(0);
   useEffect(() => {
-    if (cooldownUntil === null) return;
+    if (retryAt === null) return;
     const id = window.setInterval(() => {
-      if (Date.now() >= cooldownUntil) setCooldownUntil(null);
-      else forceTick((n) => n + 1);
+      if (Date.now() >= retryAt) window.clearInterval(id);
+      forceTick((n) => n + 1);
     }, 500);
     return () => window.clearInterval(id);
-  }, [cooldownUntil]);
-  const cooldownLeft = cooldownUntil
-    ? Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000))
-    : 0;
+  }, [retryAt]);
+  const cooldownLeft =
+    retryAt === null
+      ? 0
+      : Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
   const throttled = cooldownLeft > 0;
 
   // Liveness publique : ping `/health` au montage (route bypassFirewall — Zero
@@ -393,7 +349,8 @@ export const Login = observer(() => {
 
   // Passkeys actives côté serveur ? `null` tant que la réponse n'est pas
   // arrivée. Échec ou service absent = coupées : un bouton qui répondrait 503
-  // ne s'affiche pas.
+  // ne s'affiche pas. (Le déroulé dit si le NAVIGATEUR sait signer ; le
+  // serveur seul sait si le service tourne.)
   const [passkeyEnabled, setPasskeyEnabled] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
@@ -409,36 +366,14 @@ export const Login = observer(() => {
       alive = false;
     };
   }, [store]);
+  const passkeyOffered = passkeyEnabled === true && flow.passkeyAvailable;
 
-  // Fournisseurs sociaux activés (OAuth 2.0), découverts côté serveur : l'UI
-  // n'affiche QUE des boutons opérationnels (0 bouton mort). Échec/absence du
-  // service = liste vide (non bloquant — login classique + Passkey restent).
-  const [social, setSocial] = useState<SocialProvider[]>([]);
+  // Fournisseurs configurés, découverts par le déroulé : l'UI n'affiche QUE des
+  // boutons opérationnels. Échec = liste vide (login classique + passkey restent).
   useEffect(() => {
-    let alive = true;
-    void store.api
-      .getAbsolute<{ providers?: (SocialProvider | null)[] } | null>(
-        "/nodefony/security/api/oauth2/providers",
-      )
-      .then((r) => {
-        if (!alive) return;
-        // Une entrée sans nom ne mène nulle part : `/authorize` l'attend. On la
-        // laisse tomber plutôt que de peindre un bouton qui ne peut pas cliquer.
-        const received = Array.isArray(r?.providers) ? r.providers : [];
-        setSocial(
-          received.filter(
-            (p): p is SocialProvider =>
-              typeof p?.name === "string" && p.name !== "",
-          ),
-        );
-      })
-      .catch(() => {
-        /* social login indisponible → pas de boutons (non bloquant) */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [store]);
+    auth.loadProviders();
+  }, [auth]);
+  const social = flow.providers ?? [];
 
   // Session DÉJÀ ouverte (ici, ou sur la page de connexion par défaut : même
   // cookie) → l'écran de connexion n'a rien à proposer, on file à la console.
@@ -465,8 +400,10 @@ export const Login = observer(() => {
       (reason !== null || query.get("error") === "oauth") &&
       reason !== OAUTH2_CANCELLED_REASON
     ) {
-      setErrKind("credentials");
-      setError("La connexion via le fournisseur externe a échoué. Réessayez.");
+      setLocalError({
+        kind: "credentials",
+        message: "La connexion via le fournisseur externe a échoué. Réessayez.",
+      });
     }
   }, [loc.search]);
 
@@ -477,42 +414,38 @@ export const Login = observer(() => {
   // la ZONE RÉSERVÉE (comme les erreurs d'auth) → 0 mouvement.
   const passwordForm = useForm({ initialValues: { password: "" } });
 
-  // Autofocus sur le champ pertinent (y compris APRÈS une erreur : `busy`
+  // Autofocus sur le champ pertinent (y compris APRÈS une erreur : `working`
   // repasse false → on refocalise le champ pour re-saisir sans clic).
   useEffect(() => {
-    if (busy) return;
+    if (working) return;
     if (phase === "identifier") idRef.current?.focus();
-    else pwRef.current?.focus();
-  }, [phase, busy]);
+    else if (phase === "password") pwRef.current?.focus();
+  }, [phase, working]);
 
   const clearError = (): void => {
-    if (error) setError(null);
-    if (errKind) setErrKind(null);
+    if (localError) setLocalError(null);
+    if (flow.error !== null && flow.error !== dismissed) {
+      setDismissed(flow.error);
+    }
   };
 
   // Étape 1 → 2 : AUCUN appel serveur (anti-énumération).
   const goToPassword = (): void => {
-    const id = identifier.trim();
-    if (!id) {
-      setErrKind("unknown");
-      setError("Identifiant requis.");
+    if (!identifier.trim()) {
+      setLocalError({ kind: "unknown", message: "Identifiant requis." });
       idRef.current?.focus();
       return;
     }
-    try {
-      localStorage.setItem(LAST_USER_KEY, id);
-    } catch {
-      /* localStorage indispo (mode privé) — non bloquant */
-    }
     clearError();
-    setPhase("password");
+    auth.submitIdentifier(identifier);
   };
 
   const backToIdentifier = (): void => {
     clearError();
     passwordForm.reset();
     setForcePassword(true); // on quitte le compte mémorisé → login mot de passe classique
-    setPhase("identifier");
+    setIdentifier(flow.identifier);
+    auth.changeAccount();
   };
 
   // Fin de connexion COMMUNE (après auth réussie, mot de passe OU 2ᵉ facteur) :
@@ -530,89 +463,66 @@ export const Login = observer(() => {
     void navigate(deepLink ? from : auth.homePath, { replace: true });
   };
 
-  // Route une erreur classée vers la zone réservée (throttle → countdown).
-  const applyError = (e: unknown, phaseStep: ConnectionStep): void => {
-    const c = classifyError(e, phaseStep);
-    if (c.kind === "throttle") {
-      setCooldownUntil(
-        Date.now() + (c.retryAfter ?? DEFAULT_THROTTLE_S) * 1000,
-      );
-      setErrKind("throttle");
-      setError(null);
-    } else {
-      setErrKind(c.kind);
-      setError(c.message);
-    }
-  };
-
   const runFlow = async (password: string): Promise<void> => {
     setBusy(true);
     clearError();
-    let phaseStep: ConnectionStep = "ping";
     try {
-      phaseStep = "ping";
+      // Sonde propre à Studio : un serveur absent se dit AVANT d'envoyer le
+      // mot de passe, et le bouton nomme l'étape.
       setStep("ping");
-      await store.api.get("/health");
-
-      phaseStep = "auth";
-      setStep("auth");
-      const outcome = await auth.login({
-        username: identifier.trim(),
-        password,
-      });
-      // 2FA : mot de passe validé mais session NON ouverte → on bascule sur la
-      // saisie du code (le `finally` repasse `busy` à false).
-      if (outcome === "mfa_required") {
-        setCode("");
-        setUseRecovery(false);
-        setPhase("totp");
+      try {
+        await store.api.get("/health");
+      } catch (e) {
+        setLocalError(
+          e instanceof ApiError && e.status >= 500
+            ? { kind: "server", message: SERVER_MESSAGE }
+            : { kind: "network", message: NETWORK_MESSAGE },
+        );
         return;
       }
-
-      phaseStep = "user";
-      await completeAndRedirect();
-    } catch (e) {
-      applyError(e, phaseStep);
+      setStep("auth");
+      const state = await auth.submitPassword(password);
+      if (state.step === "mfa") {
+        // 2FA : mot de passe validé mais session NON ouverte → saisie du code.
+        setCode("");
+        setUseRecovery(false);
+        return;
+      }
+      if (state.step === "authenticated") await completeAndRedirect();
     } finally {
       setBusy(false);
     }
   };
 
   // Vérifie le 2ᵉ facteur (code TOTP ou code de récupération) puis enchaîne la
-  // fin de connexion. Sur échec, on reste en phase `totp` (ressaisie possible) —
+  // fin de connexion. Sur échec, on reste à l'étape `mfa` (ressaisie possible) —
   // le défi serveur n'est consommé qu'au succès.
   const runMfaFlow = async (value: string): Promise<void> => {
-    if (busy || throttled) return;
+    if (working || throttled) return;
     setBusy(true);
     clearError();
     try {
       setStep("auth");
-      await auth.completeMfa(value);
-      await completeAndRedirect();
-    } catch (e) {
-      if ((e as { status?: number } | null)?.status === 429) {
-        applyError(e, "auth");
-      } else {
-        setErrKind("credentials");
-        setError("Code incorrect ou expiré. Réessayez avec le code courant.");
-        setCode("");
-      }
+      const state = await auth.completeMfa(value);
+      if (state.step === "authenticated") await completeAndRedirect();
+      else if (state.error?.kind !== "throttled") setCode("");
     } finally {
       setBusy(false);
     }
   };
 
-  // Connexion par passkey/empreinte (WebAuthn J9). L'annulation de l'invite
-  // biométrique (NotAllowedError/AbortError) est SILENCIEUSE — pas une erreur.
+  // Connexion par passkey/empreinte. L'annulation de l'invite est classée
+  // `cancelled` par le déroulé, et reste SILENCIEUSE — pas une erreur.
   const runPasskeyFlow = async (): Promise<void> => {
-    if (busy || throttled) return;
+    if (working || throttled) return;
     setBusy(true);
     clearError();
     try {
       setStep("auth");
       // Aucun identifiant transmis : le défi est découvrable et le navigateur
       // propose les passkeys du site (le serveur refuse tout ciblage anonyme).
-      await auth.loginWithPasskey();
+      const state = await auth.loginWithPasskey();
+      if (state.step !== "authenticated") return;
       setStep("realtime");
       await conn.connect();
       setStep("done");
@@ -620,34 +530,6 @@ export const Login = observer(() => {
       const deepLink =
         from && from !== "/nodefony" && from !== "/nodefony/login";
       void navigate(deepLink ? from : auth.homePath, { replace: true });
-    } catch (e) {
-      if (
-        e instanceof Error &&
-        (e.name === "NotAllowedError" || e.name === "AbortError")
-      ) {
-        return; // l'utilisateur a fermé/annulé l'invite — état inchangé
-      }
-      // WebAuthn refuse une IP comme rpId (ex. 127.0.0.1) → SecurityError. Ce
-      // n'est PAS une panne réseau : message dédié (sinon classifyError l'étiquette
-      // « réseau », trompeur).
-      if (e instanceof Error && e.name === "SecurityError") {
-        setErrKind("unknown");
-        setError(
-          "Passkey indisponible sur cette adresse. Ouvre Studio via https://localhost:5152 — les passkeys n'acceptent pas une IP comme 127.0.0.1.",
-        );
-        return;
-      }
-      const c = classifyError(e, "auth");
-      if (c.kind === "throttle") {
-        setCooldownUntil(
-          Date.now() + (c.retryAfter ?? DEFAULT_THROTTLE_S) * 1000,
-        );
-        setErrKind("throttle");
-        setError(null);
-      } else {
-        setErrKind(c.kind);
-        setError(c.message);
-      }
     } finally {
       setBusy(false);
     }
@@ -666,6 +548,14 @@ export const Login = observer(() => {
         ? "Serveur en ligne"
         : "Serveur injoignable";
 
+  // L'échec à montrer : celui de l'écran d'abord (saisie, retour de
+  // fournisseur), sinon celui du déroulé tant qu'il n'a pas été effacé.
+  const shown =
+    localError ??
+    (flow.error !== null && flow.error !== dismissed
+      ? describeFlowError(flow.error, phase)
+      : null);
+
   // Métadonnées de l'alerte selon la catégorie d'erreur (icône/couleur/titre).
   const alert = throttled
     ? {
@@ -674,29 +564,24 @@ export const Login = observer(() => {
         title: "Trop de tentatives",
         body: `Pour votre sécurité, patientez ${cooldownLeft}s avant un nouvel essai.`,
       }
-    : error
+    : shown
       ? {
-          color:
-            errKind === "network"
-              ? "orange"
-              : errKind === "server"
-                ? "red"
-                : "red",
+          color: shown.kind === "network" ? "orange" : "red",
           icon:
-            errKind === "network" ? (
+            shown.kind === "network" ? (
               <IconWifiOff size={16} />
-            ) : errKind === "server" ? (
+            ) : shown.kind === "server" ? (
               <IconAlertTriangle size={16} />
             ) : (
               <IconAlertCircle size={16} />
             ),
           title:
-            errKind === "network"
+            shown.kind === "network"
               ? "Connexion impossible"
-              : errKind === "server"
+              : shown.kind === "server"
                 ? "Erreur serveur"
                 : "Connexion échouée",
-          body: error,
+          body: shown.message,
         }
       : null;
 
@@ -773,7 +658,7 @@ export const Login = observer(() => {
               </Group>
             )}
           </Box>
-          {phase === "totp" ? (
+          {phase === "mfa" ? (
             /* ── 2ᵉ facteur : code TOTP (ou code de récupération) ── */
             <Stack gap="md">
               <Group gap="sm" wrap="nowrap">
@@ -798,8 +683,7 @@ export const Login = observer(() => {
                     const v = code.trim();
                     const err = validateTotpCode(v);
                     if (err) {
-                      setErrKind("unknown");
-                      setError(err);
+                      setLocalError({ kind: "unknown", message: err });
                       return;
                     }
                     void runMfaFlow(v);
@@ -812,7 +696,7 @@ export const Login = observer(() => {
                       placeholder="XXXXX-XXXXX"
                       autoComplete="one-time-code"
                       value={code}
-                      disabled={busy}
+                      disabled={working}
                       onChange={(e) => {
                         setCode(e.currentTarget.value);
                         clearError();
@@ -823,11 +707,13 @@ export const Login = observer(() => {
                       size="md"
                       fullWidth
                       color="brand"
-                      loading={busy}
+                      loading={working}
                       disabled={throttled}
-                      leftSection={busy ? undefined : <IconLogin size={18} />}
+                      leftSection={
+                        working ? undefined : <IconLogin size={18} />
+                      }
                     >
-                      {busy
+                      {working
                         ? STEP_LABEL[step]
                         : throttled
                           ? `Réessayez dans ${cooldownLeft}s`
@@ -851,10 +737,10 @@ export const Login = observer(() => {
                       styles={{ input: { textAlign: "center" } }}
                       aria-label="Code à 6 chiffres"
                       value={code}
-                      disabled={busy}
+                      disabled={working}
                       onChange={setCode}
                       onComplete={(v) => {
-                        if (!busy && !throttled) void runMfaFlow(v);
+                        if (!working && !throttled) void runMfaFlow(v);
                       }}
                     />
                   </Group>
@@ -862,14 +748,14 @@ export const Login = observer(() => {
                     fullWidth
                     size="md"
                     color="brand"
-                    loading={busy}
+                    loading={working}
                     disabled={throttled || code.length !== 6}
-                    leftSection={busy ? undefined : <IconLogin size={18} />}
+                    leftSection={working ? undefined : <IconLogin size={18} />}
                     onClick={() => {
-                      if (!busy && !throttled) void runMfaFlow(code);
+                      if (!working && !throttled) void runMfaFlow(code);
                     }}
                   >
-                    {busy
+                    {working
                       ? STEP_LABEL[step]
                       : throttled
                         ? `Réessayez dans ${cooldownLeft}s`
@@ -899,11 +785,10 @@ export const Login = observer(() => {
                   size="xs"
                   c="dimmed"
                   onClick={() => {
-                    auth.cancelMfa();
+                    clearError();
                     setCode("");
                     setUseRecovery(false);
-                    clearError();
-                    setPhase(lastUser ? "password" : "identifier");
+                    auth.cancelMfa();
                   }}
                 >
                   Annuler
@@ -944,10 +829,10 @@ export const Login = observer(() => {
 
                 <AltLoginMethods
                   social={social}
-                  onSocial={startSocialLogin}
-                  passkey={passkeyEnabled === true}
+                  onSocial={(name) => auth.startProvider(name)}
+                  passkey={passkeyOffered}
                   onPasskey={() => void runPasskeyFlow()}
-                  busy={busy}
+                  busy={working}
                   disabled={throttled}
                 />
               </Stack>
@@ -968,7 +853,7 @@ export const Login = observer(() => {
                     </ThemeIcon>
                     <div style={{ minWidth: 0 }}>
                       <Text size="sm" fw={600} truncate>
-                        {identifier}
+                        {flow.identifier}
                       </Text>
                       <Text size="xs" c="dimmed">
                         {returnChip.label}
@@ -979,7 +864,7 @@ export const Login = observer(() => {
                     variant="subtle"
                     size="xs"
                     onClick={backToIdentifier}
-                    disabled={busy}
+                    disabled={working}
                   >
                     Changer
                   </Button>
@@ -991,10 +876,12 @@ export const Login = observer(() => {
                    → champ + « Se connecter ». */
                 <form
                   onSubmit={passwordForm.onSubmit((v) => {
-                    if (busy || throttled) return;
+                    if (working || throttled) return;
                     if (!v.password) {
-                      setErrKind("unknown");
-                      setError("Mot de passe requis.");
+                      setLocalError({
+                        kind: "unknown",
+                        message: "Mot de passe requis.",
+                      });
                       pwRef.current?.focus();
                       return;
                     }
@@ -1010,7 +897,7 @@ export const Login = observer(() => {
                       placeholder="••••••••"
                       leftSection={<IconLock size={16} />}
                       autoComplete="current-password"
-                      disabled={busy}
+                      disabled={working}
                       onChange={(ev) => {
                         // Même geste que `pwProps.onChange` (typé `any` par Mantine) :
                         // `getInputProps` appelle `setFieldValue(…, { forceUpdate: false })`.
@@ -1027,11 +914,13 @@ export const Login = observer(() => {
                       size="md"
                       fullWidth
                       color="brand"
-                      loading={busy}
+                      loading={working}
                       disabled={throttled}
-                      leftSection={busy ? undefined : <IconLogin size={18} />}
+                      leftSection={
+                        working ? undefined : <IconLogin size={18} />
+                      }
                     >
-                      {busy
+                      {working
                         ? STEP_LABEL[step]
                         : throttled
                           ? `Réessayez dans ${cooldownLeft}s`
@@ -1047,7 +936,7 @@ export const Login = observer(() => {
                     size="md"
                     fullWidth
                     color="brand"
-                    loading={busy}
+                    loading={working}
                     disabled={throttled}
                     leftSection={<IconFingerprint size={18} />}
                     onClick={() => void runPasskeyFlow()}
@@ -1070,10 +959,10 @@ export const Login = observer(() => {
                   size="md"
                   fullWidth
                   color="brand"
-                  loading={busy}
+                  loading={working}
                   disabled={throttled}
                   leftSection={<ReturnIcon size={18} />}
-                  onClick={() => startSocialLogin(returningMethod)}
+                  onClick={() => auth.startProvider(returningMethod)}
                 >
                   {socialLabel}
                 </Button>
@@ -1081,10 +970,10 @@ export const Login = observer(() => {
 
               <AltLoginMethods
                 social={social}
-                onSocial={startSocialLogin}
-                passkey={passkeyEnabled === true}
+                onSocial={(name) => auth.startProvider(name)}
+                passkey={passkeyOffered}
                 onPasskey={() => void runPasskeyFlow()}
-                busy={busy}
+                busy={working}
                 disabled={throttled}
                 exclude={showPasswordField ? undefined : returningMethod}
               />

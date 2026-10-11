@@ -385,8 +385,16 @@ key={user.id}`), PAS un retry (`useResource` ne retry pas). Lire « X / Y reques
   (`<Box mih={N}>`) ; **JAMAIS** d'erreur inline Mantine (`error=` + `validate` du `useForm` **poussent** le form →
   retirer `validate`, valider à la main dans `onSubmit`, router le message vers la zone) ; (b) zone EN HAUT (près du
   regard) ; (c) le centrage vertical reste sans saut car la réserve garde la hauteur constante.
-- **Erreurs CLASSÉES** : `classifyError(e, step)` → credentials (message générique = anti-énumération) / réseau / serveur
-  / throttle 429 non réessayable (countdown + `Retry-After`). `role="alert"` (WCAG 3.3.1), s'efface à la frappe.
+- **Le DÉROULÉ de connexion n'est pas à Studio** : `AuthStore` possède un `NodefonyLogin` (`nodefony/client`) et
+  observe son état (`flowState`, `formStep`, `mfaPending` dérivé). Les échecs arrivent CLASSÉS par le cœur
+  (`credentials` / `network` / `server` / `throttled` + `retryAt` / `cancelled` / `unsupported`) ; `Login.tsx` ne fait
+  que les dire en mots (`describeFlowError`, refus générique = anti-énumération). Ne JAMAIS y recoder un classement,
+  un délai de 429 ou un appel `/auth/*` : une seconde copie des règles diverge sans bruit. Ce qui reste à Studio :
+  sonde `/health`, état des passkeys côté serveur (`WEBAUTHN_STATUS_PATH`), mémoires `localStorage`, navigation
+  après connexion, thème vers le fournisseur (option `navigate`), agent passkey `@simplewebauthn/browser`.
+- Un échec du déroulé ne se modifie pas depuis l'écran : « effacé à la frappe » = l'écran retient LEQUEL ne plus
+  montrer (`dismissed`, identité d'objet). Le 429 n'est jamais effacé (compte à rebours sur `retryAt`).
+  `role="alert"` (WCAG 3.3.1).
 - **Identifier-first SÛR** : étape 1 = **0 appel serveur** (anti-énumération OWASP) ; « rebonjour » (mémorise le dernier
   user → démarre à l'étape mot de passe). Méthodes alternatives (SSO/Passkey) = bloc partagé rendu aux 2 étapes.
 - **Écran VITRINE → mini-cahier des charges VISUEL validé AVANT** (structure + erreurs + responsive + ce qui doit/ne

@@ -112,7 +112,7 @@ src/packages/@nodefony/studio/
     ├── components/ui/   UI kit : PageHeader, PageLayout/StickyTabsList, DataGrid, DataState, StatCard,
     │                    KpiCard, DocHint(+presets), JsonViewer/Json*, MiniChart, FlowGraph, ConfigLayout…
     ├── stores/          MobX : Root, Auth, Connection, Ui, Admin, Notification, Profiler
-    ├── services/        ApiClient (BFF + pont socket), AuthService, NodefonySocket (← Core nodefony)
+    ├── services/        ApiClient (BFF + pont socket), AuthService (enregistrement passkey seul), NodefonySocket (← Core nodefony)
     ├── routes/<feat>/   pages éclatées : <feat>Model.ts (types miroir, 0 JSX) · <feat>Format.tsx · <Comp>.tsx
     ├── realtime/twin/   Jumeau Vivant (twinSchemas, TwinMap, Twin.tsx) · workspace/ (bureau composable + blocks/)
     └── auth/            roles.ts (isomorphe nodefony/roles), VIEW_ROLES, RoleGuard/RoleGuardOutlet

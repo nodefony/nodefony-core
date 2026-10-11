@@ -107,10 +107,12 @@ navigateur joint **seul** à chaque requête. Conséquences, non négociables :
   **jamais** d'en-tête `Authorization` manuel.
 - L'identité courante se relit **toujours** au serveur (`GET /…/auth/me`) au montage de l'app : c'est le
   cookie (invisible au JS) qui décide, pas un état local. `401` ⇒ non connecté (état normal, pas erreur).
-- Flux d'auth standard (façade `AuthService`, endpoints `/nodefony/security/api/auth/*`) :
-  `login` → soit `{user}` (session ouverte), soit `202 {mfaRequired}` (2ᵉ facteur attendu, **aucune
-  session** tant qu'il n'est pas validé : Zero Trust) ; `login/totp` (2FA) ; `me` ; `logout`
-  (idempotent). Passkey/WebAuthn = même résultat (cookie `HttpOnly`) sans mot de passe.
+- Flux d'auth standard = le déroulé partagé **`NodefonyLogin`** (`nodefony/client`, liaisons
+  `nodefony/{react,vue,svelte,angular}`), jamais des appels `/nodefony/security/api/auth/*` écrits à la
+  main : `login` → soit `{user}` (session ouverte), soit `202 {mfaRequired}` (2ᵉ facteur attendu,
+  **aucune session** tant qu'il n'est pas validé : Zero Trust) ; `login/totp` (2FA) ; `me` ; `logout`
+  (idempotent). Passkey/WebAuthn = même résultat (cookie `HttpOnly`) sans mot de passe. Studio en est
+  le premier consommateur (`AuthStore` le possède, `Login.tsx` le peint).
 
 > Le « rebonjour » du login (dernier identifiant/méthode) peut vivre en `localStorage` car c'est un
 > **username seul**, jamais un secret. Tout ce qui touche à l'identité réelle reste serveur.

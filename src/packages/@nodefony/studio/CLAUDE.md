@@ -52,7 +52,7 @@ src/packages/@nodefony/studio/
     └── src/
         ├── main.tsx · App.tsx · theme.ts (thème figé, surfaces de la barre de debug) · layouts/navConfig.ts (nav data-driven)
         ├── stores/   ← MobX : Auth, Connection, Ui, Chat, Root
-        ├── services/ ← ApiClient (JWT), AuthService, NodefonySocket (importé du Core isomorphe `nodefony` — PAS de package @nodefony/client séparé, P13.3 supprimé)
+        ├── services/ ← ApiClient (session BFF), AuthService (enregistrement passkey seul — la connexion = `NodefonyLogin` porté par `AuthStore`), NodefonySocket (importé du Core isomorphe `nodefony` — PAS de package @nodefony/client séparé, P13.3 supprimé)
         ├── layouts/  ← AuthLayout, AdminLayout (sidebar v2 : rail + groupes repliables + filtre + groupe Data plane auto), navConfig
         ├── routes/   ← Login (stepper 4 étapes), Dashboard, Logs, Chat, stubs
         ├── components/ ← AuthGuard, ConnectionStepper/Drawer, StubPage
