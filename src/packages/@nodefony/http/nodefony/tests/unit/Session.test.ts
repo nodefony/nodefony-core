@@ -196,6 +196,24 @@ describe("Session — unit tests", () => {
       expect(s.dirty).to.equal(false);
       expect(s.saved).to.equal(true);
     });
+
+    it("🔴 save(user) retient le principal : un set() puis save() suivant garde user", async () => {
+      // Login puis écriture de session dans la MÊME requête : la sauvegarde de
+      // fin de requête n'a pas l'utilisateur en argument et ne doit pas
+      // réécrire le blob en anonyme.
+      const storage = makeStorage();
+      const s = new Session(
+        "s",
+        defaultOpts,
+        makeManager("migrate", storage) as any,
+      );
+      s.set("k", "v");
+      await s.save("alice@acme.io");
+      s.set("from", "/account");
+      await s.save();
+      const stored = await storage.read(s.id);
+      expect(stored.user).to.equal("alice@acme.io");
+    });
   });
 
   describe("readOnly", () => {

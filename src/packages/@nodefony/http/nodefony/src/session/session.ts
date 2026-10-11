@@ -274,8 +274,11 @@ class Session implements ISession {
    * `onSaveSession`.
    *
    * @param user - principal authentifié (string) lié au blob ; défaut courant.
+   *   Fourni, il DEVIENT le principal de la session : une sauvegarde suivante,
+   *   dans la même requête, le garde sans qu'on le lui redonne.
    */
   async save(user?: string): Promise<this> {
+    if (user !== undefined) this.user = user;
     if (this.readOnly) {
       // Lecture seule : jamais de write storage. Une mutation tentée sur une
       // session readOnly est une erreur d'usage → on la signale sans persister.

@@ -227,11 +227,9 @@ class AuthFlow extends Service {
       return { status: "mfa_required", methods: MFA_METHODS };
     }
 
+    // La session retient son principal (`Session.save(identifier)`) : rien à
+    // reposer sur le contexte ni dans l'ALS, qu'aucun lecteur ne consulte ici.
     await this.#openSession(context, user.identifier, "password");
-    // Principal de la requête courante : string sur le contexte (lié au blob
-    // par `saveSession`), objet riche dans l'ALS (logs/audit).
-    context.user = user.identifier;
-    RequestContext.set("user", user);
     recordAudit(this.container, {
       category: "auth",
       action: "login.success",
@@ -265,9 +263,9 @@ class AuthFlow extends Service {
       throw new AuthenticationError(INVALID_CREDENTIALS);
     }
     const user = await resolveSessionIdentity(this.#resolveUsers(), identifier);
+    // La session retient son principal (`Session.save(identifier)`), comme
+    // pour `login` : la sauvegarde de fin de requête le garde.
     await this.#openSession(context, user.identifier, reason);
-    context.user = user.identifier;
-    RequestContext.set("user", user);
     // Ouverture de session sur preuve EXTERNE (passkey/OAuth/2FA/magic link).
     // Le facteur vient de l'appelant : `webauthn` (WebAuthnController) et `oauth`
     // (OAuth2Controller) le passent ; un appelant qui l'omet est journalisé

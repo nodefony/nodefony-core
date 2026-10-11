@@ -80,3 +80,37 @@ describe("BaseUser", () => {
     assert.strictEqual(u.socialProviders.length, 2);
   });
 });
+
+describe("BaseUser — sérialisation", () => {
+  it("🔴 JSON.stringify ne publie jamais le hash du mot de passe", () => {
+    const user = new BaseUser({
+      id: "u-1",
+      identifier: "alice@acme.io",
+      roles: ["ROLE_USER"],
+      password: "$argon2id$v=19$hash-secret",
+    });
+    const json = JSON.stringify({ user });
+    assert.equal(json.includes("password"), false);
+    assert.equal(json.includes("hash-secret"), false);
+    // Le hash reste lisible par le code serveur qui en a besoin.
+    assert.equal(user.password, "$argon2id$v=19$hash-secret");
+  });
+
+  it("la forme sérialisée garde l'identité et les rôles", () => {
+    const parsed: unknown = JSON.parse(
+      JSON.stringify(
+        new BaseUser({ id: "u-2", identifier: "bob", roles: ["ROLE_ADMIN"] }),
+      ),
+    );
+    assert.deepEqual(parsed, {
+      id: "u-2",
+      identifier: "bob",
+      roles: ["ROLE_ADMIN"],
+      enabled: true,
+      locked: false,
+      currentRole: null,
+      socialProviders: [],
+      metadata: {},
+    });
+  });
+});

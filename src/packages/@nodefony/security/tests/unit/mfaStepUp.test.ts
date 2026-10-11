@@ -132,7 +132,9 @@ describe("AuthFlow step-up 2FA — login", () => {
       "alice",
     );
     assert.equal(ctx.session!.user, "alice");
-    assert.equal(ctx.user, "alice");
+    // Le principal vit dans la session ; le login ne réécrit plus le contexte
+    // (seul le pare-feu le pose, aux requêtes suivantes).
+    assert.equal(ctx.user, null);
   });
 
   it("service totp absent → authenticated (aucun coût 2FA)", async () => {

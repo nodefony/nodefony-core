@@ -81,6 +81,29 @@ export class BaseUser implements IPasswordAuthenticatedUser {
   }
 
   /**
+   * Forme sérialisée de l'utilisateur, SANS le hash du mot de passe.
+   *
+   * L'objet est celui que le pare-feu pose pour la requête et qu'un contrôleur
+   * lit par `this.user` : un `renderJson({ user: this.user })` ou une vue qui
+   * le sérialise publierait sinon le hash. Rien n'est alloué tant que l'objet
+   * n'est pas sérialisé.
+   *
+   * @returns les champs publics du compte
+   */
+  toJSON(): Omit<IBaseUserOptions, "password"> {
+    return {
+      id: this.id,
+      identifier: this.identifier,
+      roles: this.roles,
+      enabled: this.enabled,
+      locked: this.locked,
+      currentRole: this.currentRole,
+      socialProviders: this.socialProviders,
+      metadata: this.metadata,
+    };
+  }
+
+  /**
    * Ajoute un rôle s'il n'est pas déjà présent (idempotent).
    *
    * @param role - rôle à accorder.
