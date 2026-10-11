@@ -234,9 +234,9 @@ export async function loginWithPasskey(
 }
 ```
 
-Référence vivante dans le dépôt : Studio fait exactement ces deux appels —
-`AuthService.loginWithPasskey()` (`AuthService.ts:111`) et `AuthService.registerPasskey()`
-(`AuthService.ts:143`).
+Référence vivante dans le dépôt : la connexion passe par le déroulé partagé
+`NodefonyLogin.loginWithPasskey()` (`NodefonyLogin.ts:409`, `nodefony/client`), que Studio
+emploie tel quel ; l'enrôlement est `AuthService.registerPasskey()` (`AuthService.ts:36`).
 
 ### 4. Ce qu'on observe
 
@@ -642,7 +642,7 @@ doit afficher « passkeys désactivées », pas un 503 (`SecurityAdminApi.ts:532
 backend sans comptage (Redis).
 
 Côté UI, l'écran **Profil** (`/nodefony/profile`) de Studio porte l'enrôlement self-service et l'écran de login le bouton
-passkey (`AuthStore.loginWithPasskey()`, `AuthStore.ts:212`).
+passkey (`AuthStore.loginWithPasskey()`, `AuthStore.ts:316`, qui délègue au déroulé partagé).
 
 ## 📜 Normes appliquées
 
