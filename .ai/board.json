@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T15:13:22.324Z",
+  "generatedAt": "2026-10-11T16:58:32.368Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 107,
+      "closed": 108,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 40,
@@ -2432,6 +2432,22 @@
       ]
     },
     {
+      "number": 581,
+      "title": "fix(http): répondre quand une erreur suit une redirection",
+      "url": "https://github.com/nodefony/nodefony-core/issues/581",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 3.9,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
       "number": 551,
       "title": "fix(mcp): ne plus renvoyer le message brut d'un outil qui échoue",
       "url": "https://github.com/nodefony/nodefony-core/issues/551",
@@ -2621,8 +2637,8 @@
       "number": 548,
       "title": "fix(security): conduire un visiteur anonyme à la page de connexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/548",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
