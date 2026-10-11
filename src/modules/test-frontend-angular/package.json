@@ -37,7 +37,7 @@
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
-    "@types/node": "26.6.4",
+    "@types/node": "26.6.5",
     "nodefony": "*"
   },
   "license": "Apache-2.0"

@@ -73,13 +73,13 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // développement et MEURT en production — `Cannot find package
   // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
   "@node-rs/argon2": "^2.2.2",
-  "@types/node": "^26.6.4",
+  "@types/node": "^26.6.5",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
   oxlint: "^1.87.0",
   // Les règles TYPÉES d'oxlint (`typeAware` du gabarit `.oxlintrc.json`) :
   // sans ce paquet, `npm run lint` sort en erreur « Failed to find tsgolint ».
-  "oxlint-tsgolint": "^7.0.2003",
-  prettier: "^3.9.9",
+  "oxlint-tsgolint": "^7.0.2004",
+  prettier: "^3.9.10",
   rolldown: "^1.2.13",
   typescript: "^6.0.3",
   vitest: "^5.0.3",
@@ -96,7 +96,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@types/react": "^19.3.0",
   "@types/react-dom": "^19.3.0",
   vue: "^3.5.43",
-  "@vitejs/plugin-vue": "^6.0.9",
+  "@vitejs/plugin-vue": "^6.0.10",
   svelte: "^5.57.2",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
   // 🔴 Angular BORNÉ à la mineure (tilde, pas caret) : le plugin Vite

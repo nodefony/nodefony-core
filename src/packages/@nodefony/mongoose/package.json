@@ -60,7 +60,7 @@
     "@nodefony/orm-core": "^10.0.0-beta.2",
     "@nodefony/security": "^10.0.0-beta.2",
     "@nodefony/user": "^10.0.0-beta.2",
-    "@types/node": "26.6.4",
+    "@types/node": "26.6.5",
     "mongodb-memory-server": "11.3.0",
     "nodefony": "^10.0.0-beta.2",
     "vitest": "5.0.3"
