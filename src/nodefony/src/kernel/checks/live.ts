@@ -45,6 +45,7 @@ export const LIVE_FAMILIES = [
   "migrations",
   "firewall",
   "oauth",
+  "delivered",
   "gating",
 ] as const;
 
@@ -58,6 +59,9 @@ export interface ILiveFinding {
     | "firewall-config-invalid"
     | "firewall-zone-open-to-signup"
     | "oauth-provider-failed"
+    | "delivered-copy-outdated"
+    | "delivered-copy-missing"
+    | "delivered-contribution-failed"
     | "service-lost";
   /**
    * La phrase du PRODUCTEUR, telle qu'il l'a écrite.
@@ -453,6 +457,171 @@ async function checkOAuth(
   return { findings, execution: { ran: true } };
 }
 
+/** Le geste qui rafraîchit les copies intactes — celui que la commande nomme. */
+export const DELIVERED_UPDATE_ACTION = "nodefony scaffold:sync --update";
+
+/** Combien de chemins un constat nomme avant de résumer le reste. */
+const DELIVERED_NAMED = 3;
+
+/**
+ * Les chaînes d'une liste d'un rapport — rien d'autre n'y est lu.
+ *
+ * @param report - un rapport de contribution, tel que le producteur le rend
+ * @param key - la liste à lire
+ * @returns les chemins, ou `[]` si la liste manque
+ */
+function stringsAt(report: unknown, key: string): string[] {
+  const list = isBag(report) ? report[key] : undefined;
+  return Array.isArray(list)
+    ? list.filter((p): p is string => typeof p === "string")
+    : [];
+}
+
+/** « 1 copie intacte », « 3 copies intactes ». */
+function countedCopies(n: number, adjective: string): string {
+  const s = n > 1 ? "s" : "";
+  return `${String(n)} copie${s} ${adjective}${s}`;
+}
+
+/** Les premiers chemins nommés, le reste compté. */
+function namedPaths(paths: string[]): string {
+  const named = paths.slice(0, DELIVERED_NAMED).join(", ");
+  const rest = paths.length - DELIVERED_NAMED;
+  return rest > 0
+    ? `${named} et ${String(rest)} autre${rest > 1 ? "s" : ""}`
+    : named;
+}
+
+/**
+ * Les fichiers que les paquets installés ont livrés à l'application — le thème
+ * Keycloak de `@nodefony/security`, entre autres — et qui sont restés en retard
+ * sur la version installée.
+ *
+ * LU, jamais recalculé : le plan vient de l'endpoint `kernel/scaffold`, le
+ * même que la console d'administration, qui appelle la même fonction que
+ * `scaffold:sync --update --dry-run` (`runAppContributions`). Deux
+ * manquements, que la même commande répare : une copie INTACTE en retard (le
+ * paquet a changé, la copie que l'application monte ne l'a pas suivi) et un
+ * fichier livré ABSENT (un habillage ajouté par une version plus récente). Une
+ * copie RETOUCHÉE (`modified`) appartient à l'application — jamais signalée,
+ * comme un thème qui n'est pas celui du framework.
+ *
+ * Le plan IMPORTE les modules de contribution : c'est de l'outillage de
+ * développement, et le producteur le refuse ailleurs — refus rendu tel quel,
+ * en famille non contrôlée.
+ */
+async function checkDelivered(
+  broker: IAdminBrokerLike | undefined,
+  caller: IAdminCaller,
+): Promise<{ findings: ILiveFinding[]; execution: IExecution }> {
+  const read = await callAdminEndpoint(
+    broker,
+    {
+      namespace: "kernel",
+      path: "scaffold",
+      label: "fichiers livrés par les paquets",
+    },
+    caller,
+  );
+
+  if (!read.ok) {
+    if (read.reason === "producer-missing")
+      return {
+        findings: [],
+        execution: {
+          ran: false,
+          reason:
+            "le plan d'administration du kernel n'est pas chargé — les " +
+            "fichiers livrés par les paquets ne peuvent pas être constatés",
+          short: "sans plan",
+          notApplicable: true,
+        },
+      };
+    // Le refus du producteur dit POURQUOI (hors développement) : sa phrase
+    // passe avant la reformulation générique de la porte.
+    return {
+      findings: [],
+      execution: {
+        ran: false,
+        reason: readString(read.body, "error") ?? read.message,
+        short: "non lisible",
+        ...(read.reason === "endpoint-missing"
+          ? { unlock: "vérifie la version de @nodefony/framework" }
+          : {}),
+      },
+    };
+  }
+
+  const reports = isBag(read.data) ? read.data.reports : undefined;
+  if (!Array.isArray(reports))
+    return {
+      findings: [],
+      execution: {
+        ran: false,
+        reason:
+          "le plan d'administration a répondu sans liste de contributions — " +
+          "format inattendu, rien ne peut en être conclu",
+        short: "format inattendu",
+      },
+    };
+  if (reports.length === 0)
+    return {
+      findings: [],
+      execution: {
+        ran: false,
+        reason:
+          "aucun paquet installé ne livre de fichiers à l'application — " +
+          "il n'y a pas de copie à comparer",
+        short: "aucun contributeur",
+        notApplicable: true,
+      },
+    };
+
+  const findings: ILiveFinding[] = [];
+  for (const report of reports) {
+    const name = readString(report, "packageName") ?? "?";
+    const error = readString(report, "error");
+    if (error) {
+      findings.push({
+        kind: "delivered-contribution-failed",
+        message: `${name} — la contribution a échoué : ${error}`,
+        action: "nodefony scaffold:sync --dry-run",
+        source: "kernel/scaffold",
+      });
+      continue;
+    }
+    // 🔴 Le plan est celui de `--update` : une copie intacte en retard y est
+    // rangée sous `updated` (« serait rafraîchie »), JAMAIS sous `outdated`,
+    // qui ne se remplit que sans `--update`. Lire `outdated` seul ne trouvait
+    // donc rien sur une application réelle — vu en éprouvant la famille sur
+    // une app liée, pendant que le décor de test, qui posait `outdated`,
+    // restait vert. Les deux listes sont lues : le constat ne dépend plus du
+    // mode dans lequel le producteur calcule son plan.
+    const stale = new Set([
+      ...stringsAt(report, "updated"),
+      ...stringsAt(report, "outdated"),
+    ]);
+    if (stale.size > 0)
+      findings.push({
+        kind: "delivered-copy-outdated",
+        message: `${name} — ${countedCopies(stale.size, "intacte")} en retard sur la version installée : ${namedPaths([...stale])}`,
+        action: DELIVERED_UPDATE_ACTION,
+        source: "kernel/scaffold",
+      });
+    // Un fichier que le paquet livre et que l'application n'a pas — le cas
+    // d'un habillage ajouté par une version plus récente du paquet.
+    const missing = stringsAt(report, "written");
+    if (missing.length > 0)
+      findings.push({
+        kind: "delivered-copy-missing",
+        message: `${name} — ${countedCopies(missing.length, "absente")} de l'application : ${namedPaths(missing)}`,
+        action: DELIVERED_UPDATE_ACTION,
+        source: "kernel/scaffold",
+      });
+  }
+  return { findings, execution: { ran: true } };
+}
+
 /**
  * Interroge l'application démarrée, et rend ce qu'elle SAIT d'elle-même.
  *
@@ -470,10 +639,11 @@ export async function collectLiveReport(
   caller: IAdminCaller,
   target: ITargetContext | null = null,
 ): Promise<ILiveResult> {
-  const [migrations, firewall, oauth, gating] = await Promise.all([
+  const [migrations, firewall, oauth, delivered, gating] = await Promise.all([
     checkMigrations(broker, caller),
     checkFirewall(broker, caller),
     checkOAuth(broker, caller),
+    checkDelivered(broker, caller),
     checkTargetEnv(broker, caller, target),
   ]);
   return {
@@ -481,6 +651,7 @@ export async function collectLiveReport(
       ...migrations.findings,
       ...firewall.findings,
       ...oauth.findings,
+      ...delivered.findings,
       ...gating.findings,
     ],
     ...(gating.gated.length > 0 ? { gatedModules: gating.gated } : {}),
@@ -488,6 +659,7 @@ export async function collectLiveReport(
       migrations: migrations.execution,
       firewall: firewall.execution,
       oauth: oauth.execution,
+      delivered: delivered.execution,
       gating: gating.execution,
     },
   };

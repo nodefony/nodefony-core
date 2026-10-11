@@ -183,6 +183,14 @@ npx nodefony scaffold:sync --update   # après un npm update : rafraîchit le th
 Un fichier du thème retouché par l'application n'est jamais remplacé : il est signalé, et pour
 reprendre la version du paquet on le supprime avant de relancer.
 
+Rien ne prévient au démarrage qu'un `npm update` a laissé le thème en arrière : la page de
+connexion de Keycloak garde simplement l'ancienne apparence. C'est `nodefony doctor --live` qui
+le dit, famille « Fichiers livrés par les paquets » — une copie intacte en retard, ou un fichier
+livré absent (un habillage ajouté par la nouvelle version), avec le geste
+`nodefony scaffold:sync --update`. Une copie retouchée n'y est jamais signalée. Le diagnostic lit
+le même plan que la console d'administration (`GET /nodefony/kernel/api/scaffold`), donc en
+développement seulement ; ailleurs la famille est rendue « non contrôlée », avec sa raison.
+
 Le thème couvre les **cinq types** de Keycloak, chacun hérité du thème de Keycloak qu'il habille
 (seuls le logo, les couleurs et quelques textes sont posés — les pages restent celles de
 Keycloak, donc justes à chaque mise à jour) :

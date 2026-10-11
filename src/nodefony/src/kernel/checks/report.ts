@@ -144,6 +144,8 @@ export type DoctorFamily =
   | "firewall"
   /** Étage 2 — le branchement de chaque fournisseur OAuth (réseau). */
   | "oauth"
+  /** Étage 2 — les copies livrées par les paquets, restées en retard. */
+  | "delivered"
   /** Étage 2 — ce que l'environnement VISÉ fera disparaître (`--env`). */
   | "gating"
   /** Étage 3 — les scripts que le projet DÉCLARE, réellement lancés (`--deep`). */
@@ -172,6 +174,7 @@ export const TITLES: Record<DoctorFamily, string> = {
   migrations: "Migrations de schéma",
   firewall: "Cohérence du firewall",
   oauth: "Fournisseurs OAuth",
+  delivered: "Fichiers livrés par les paquets",
   gating: "Écart avec l'environnement visé",
   verify: "Gardes du projet, LANCÉES",
   outdated: "Paquets en retard",
@@ -201,6 +204,7 @@ export const FAMILIES: readonly DoctorFamily[] = [
   "migrations",
   "firewall",
   "oauth",
+  "delivered",
   "gating",
   // L'étage 3 après l'étage 2 : il LANCE des commandes, donc il coûte des
   // secondes là où tout le reste coûte des millisecondes. Ce qui est cher se

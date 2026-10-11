@@ -726,6 +726,7 @@ describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
           migrations: { ran: true },
           firewall: { ran: true },
           oauth: { ran: true },
+          delivered: { ran: true },
           gating: { ran: true },
         },
       },

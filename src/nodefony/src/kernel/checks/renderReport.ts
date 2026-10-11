@@ -981,6 +981,13 @@ function renderSummary(
             ) + " en échec"
           : "émetteur, URL de retour et secret acceptés",
     },
+    delivered: {
+      n: deliveredFindings(report).length,
+      text:
+        deliveredFindings(report).length > 0
+          ? `${pluralize(deliveredFindings(report).length, "écart")} avec les paquets installés`
+          : "copies à jour de la version installée",
+    },
     gating: {
       n: manquementsLive(report, "service-lost").length,
       text:
@@ -1033,6 +1040,22 @@ function manquementsLive(
   kind: ILiveFinding["kind"],
 ): ILiveFinding[] {
   return (report.live?.findings ?? []).filter((f) => f.kind === kind);
+}
+
+/**
+ * Les constats de la famille « fichiers livrés » — copie en retard, copie
+ * absente, contribution en échec : les trois espèces qu'elle rend.
+ *
+ * @param report - le rapport complet.
+ * @returns les constats, dans l'ordre du producteur.
+ */
+function deliveredFindings(report: IDoctorReport): ILiveFinding[] {
+  return (report.live?.findings ?? []).filter(
+    (f) =>
+      f.kind === "delivered-copy-outdated" ||
+      f.kind === "delivered-copy-missing" ||
+      f.kind === "delivered-contribution-failed",
+  );
 }
 
 /** Au-delà, la liste cesse d'informer et devient un mur — le reste se demande. */
@@ -1226,6 +1249,12 @@ function findingGroups(
     {
       title: TITLES.oauth,
       items: manquementsLive(report, "oauth-provider-failed").map((f) => ({
+        message: f.action ? `${f.message}\n  → ${f.action}` : f.message,
+      })),
+    },
+    {
+      title: TITLES.delivered,
+      items: deliveredFindings(report).map((f) => ({
         message: f.action ? `${f.message}\n  → ${f.action}` : f.message,
       })),
     },

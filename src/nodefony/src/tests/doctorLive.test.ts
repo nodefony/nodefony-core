@@ -11,15 +11,28 @@
  * pas un quitus.** Une application sans ORM ne « n'a pas de problème de
  * migration » — on ne lui a pas demandé, et ça doit se lire dans le rapport.
  */
-import { describe, it } from "vitest";
+import { afterAll, describe, it } from "vitest";
 import { assert } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import {
   collectLiveReport,
+  DELIVERED_UPDATE_ACTION,
   liveNotRun,
   LIVE_FAMILIES,
 } from "../kernel/checks/live";
+import {
+  runAppContributions,
+  type IAppContributionReport,
+} from "../cli/contributions";
 import { attachLive, type IDoctorReport } from "../kernel/checks/runDoctor";
 import { countFindings, skippedChecks } from "../kernel/checks/report";
 import { renderReport } from "../kernel/checks/renderReport";
@@ -400,86 +413,87 @@ describe("doctor --live — les fournisseurs OAuth (#520)", () => {
   });
 });
 
-describe("doctor --live — la greffe sur le rapport statique", () => {
-  /** Un rapport statique minimal, tel que la lecture pure le produit. */
-  const statique = (): IDoctorReport => ({
-    root: "/app",
-    appName: "app",
-    scanned: 1,
+/** Un rapport statique minimal, tel que la lecture pure le produit. */
+const statique = (): IDoctorReport => ({
+  root: "/app",
+  appName: "app",
+  scanned: 1,
+  findings: [],
+  wiring: { scanned: 1, findings: [] },
+  readiness: {
     findings: [],
-    wiring: { scanned: 1, findings: [] },
-    readiness: {
-      findings: [],
-      catalogUnreadable: false,
-      portsProbed: [],
-      portsShifting: [],
-      infraProbed: 0,
-      trackedUnknown: null,
+    catalogUnreadable: false,
+    portsProbed: [],
+    portsShifting: [],
+    infraProbed: 0,
+    trackedUnknown: null,
+  },
+  freshness: { findings: [], notComparable: false },
+  // Le décor de surface : rien d'ouvert, rien à contredire. Il est EXPLICITE
+  // parce que le rapport le porte — un champ absent faisait lever le compteur
+  // de manquements, et le test accusait la mise en page.
+  surface: {
+    findings: [],
+    openings: [],
+    scanned: 1,
+    dialect: "sqlite" as const,
+    dialectFrom: "défaut du connecteur",
+    entitiesScanned: 0,
+  },
+  guards: {
+    findings: [],
+    armed: 5,
+    armedNames: ["typecheck", "lint --deny-warnings", "verify"],
+    linterUnreadable: false,
+    manifestUnreadable: false,
+  },
+  lastBoots: [],
+  exceptions: 0,
+  // L'étage profond n'est pas exercé par ce décor : `null` le DIT.
+  deep: null,
+  execution: {
+    freshness: { ran: true },
+    readiness: { ran: true },
+    envCatalog: { ran: true },
+    nodeSecurity: { ran: true },
+    envTracked: { ran: true },
+    // Étage 3 : ce décor n'exerce pas `--deep`, et son absence se DIT — un
+    // contrôle non lancé rendu en vert serait le seul mensonge que ce
+    // rapport ne doit jamais faire. Le `unlock` est celui que le PRODUIT
+    // pose : un décor qui l'omet éprouverait un rapport imaginaire.
+    verify: {
+      ran: false,
+      reason:
+        "les gardes du projet n'ont pas été LANCÉES — seule leur présence a " +
+        "été constatée",
+      short: "non demandé",
+      unlock: "nodefony doctor --deep",
     },
-    freshness: { findings: [], notComparable: false },
-    // Le décor de surface : rien d'ouvert, rien à contredire. Il est EXPLICITE
-    // parce que le rapport le porte — un champ absent faisait lever le compteur
-    // de manquements, et le test accusait la mise en page.
-    surface: {
-      findings: [],
-      openings: [],
-      scanned: 1,
-      dialect: "sqlite" as const,
-      dialectFrom: "défaut du connecteur",
-      entitiesScanned: 0,
+    outdated: {
+      ran: false,
+      reason:
+        "le registre npm n'a pas été interrogé — c'est du réseau, et il ne " +
+        "se paie que sur demande",
+      short: "non demandé",
+      unlock: "nodefony doctor --deep",
     },
-    guards: {
-      findings: [],
-      armed: 5,
-      armedNames: ["typecheck", "lint --deny-warnings", "verify"],
-      linterUnreadable: false,
-      manifestUnreadable: false,
-    },
-    lastBoots: [],
-    exceptions: 0,
-    // L'étage profond n'est pas exercé par ce décor : `null` le DIT.
-    deep: null,
-    execution: {
-      freshness: { ran: true },
-      readiness: { ran: true },
-      envCatalog: { ran: true },
-      nodeSecurity: { ran: true },
-      envTracked: { ran: true },
-      // Étage 3 : ce décor n'exerce pas `--deep`, et son absence se DIT — un
-      // contrôle non lancé rendu en vert serait le seul mensonge que ce
-      // rapport ne doit jamais faire. Le `unlock` est celui que le PRODUIT
-      // pose : un décor qui l'omet éprouverait un rapport imaginaire.
-      verify: {
-        ran: false,
-        reason:
-          "les gardes du projet n'ont pas été LANCÉES — seule leur présence a " +
-          "été constatée",
-        short: "non demandé",
-        unlock: "nodefony doctor --deep",
-      },
-      outdated: {
-        ran: false,
-        reason:
-          "le registre npm n'a pas été interrogé — c'est du réseau, et il ne " +
-          "se paie que sur demande",
-        short: "non demandé",
-        unlock: "nodefony doctor --deep",
-      },
-      deps: { ran: true },
-      wiring: { ran: true },
-      surface: { ran: true },
-      guards: { ran: true },
-      dialect: { ran: true },
-      migrations: { ran: false, reason: "non demandé", short: "non demandé" },
-      firewall: { ran: false, reason: "non demandé", short: "non demandé" },
-      oauth: { ran: false, reason: "non demandé", short: "non demandé" },
-      gating: { ran: false, reason: "non demandé", short: "non demandé" },
-    },
-    // 🔴 Pas de `as unknown as` : il ANNULE le typecheck, et c'est lui qui a
-    // laissé ce décor incomplet quand une famille est née — le rendu tombait
-    // alors sur un `undefined.findings`, et le test accusait le rendu.
-  });
+    deps: { ran: true },
+    wiring: { ran: true },
+    surface: { ran: true },
+    guards: { ran: true },
+    dialect: { ran: true },
+    migrations: { ran: false, reason: "non demandé", short: "non demandé" },
+    firewall: { ran: false, reason: "non demandé", short: "non demandé" },
+    oauth: { ran: false, reason: "non demandé", short: "non demandé" },
+    delivered: { ran: false, reason: "non demandé", short: "non demandé" },
+    gating: { ran: false, reason: "non demandé", short: "non demandé" },
+  },
+  // 🔴 Pas de `as unknown as` : il ANNULE le typecheck, et c'est lui qui a
+  // laissé ce décor incomplet quand une famille est née — le rendu tombait
+  // alors sur un `undefined.findings`, et le test accusait le rendu.
+});
 
+describe("doctor --live — la greffe sur le rapport statique", () => {
   it("🔴 la greffe REMPLACE les familles ayant tourné, elle ne s'ajoute pas à côté", async () => {
     const live = await lire(brokerDe(migrationsSaines, firewallSain));
     const greffe = attachLive(statique(), live);
@@ -592,5 +606,254 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
     for (const c of etage3) {
       assert.equal(c.unlock, "nodefony doctor --deep");
     }
+  });
+});
+
+/**
+ * Le plan de `scaffold:sync --update`, tel que l'endpoint `kernel/scaffold` le
+ * rend. Les rapports sont TYPÉS sur le contrat du cœur
+ * (`IAppContributionReport`) : un champ renommé casse le typecheck de ce
+ * décor, au lieu de le laisser parler une langue que le produit a quittée.
+ */
+const planLivre = (...reports: IAppContributionReport[]): IAdminApi =>
+  producteur("kernel", "scaffold", { dryRun: true, reports, totals: {} });
+
+/** Un rapport de contribution, champs par défaut vides. */
+const contribution = (
+  partiel: Partial<IAppContributionReport>,
+): IAppContributionReport => ({
+  packageName: "@nodefony/security",
+  written: [],
+  kept: [],
+  updated: [],
+  outdated: [],
+  modified: [],
+  error: null,
+  ...partiel,
+});
+
+const THEME = "docker/keycloak/themes/nodefony/login";
+
+describe("doctor --live — les fichiers livrés par les paquets (#268)", () => {
+  it("🔴 l'endpoint lu est celui que le plan du kernel sert VRAIMENT", () => {
+    const api = path.resolve(
+      import.meta.dirname,
+      "../../../packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+    );
+    if (!existsSync(api)) {
+      console.warn(
+        "SAUTÉ — @nodefony/framework n'est pas dans cet arbre : l'endpoint " +
+          "« kernel/scaffold » n'a PAS été confronté à sa source.",
+      );
+      return;
+    }
+    const texte = readFileSync(api, "utf8");
+    assert.include(texte, 'path: "scaffold"');
+    // Le plan, pas l'écriture : `dryRun` ET `update` à vrai — sinon les
+    // copies en retard ne seraient pas calculées comme `--update` les verrait.
+    assert.include(texte, "runAppContributions(REPO_ROOT, true, true)");
+  });
+
+  // 🔴 Le décor de ce cas n'est PAS écrit à la main : il sort de la VRAIE
+  // `runAppContributions`, jouée comme l'endpoint la joue (simulation de
+  // `--update`). Le décor écrit posait la copie en retard sous `outdated` ;
+  // le producteur la range sous `updated` dans ce mode, et le contrôle, qui
+  // lisait `outdated`, était vert sur le décor et muet sur une vraie app.
+  const decors: string[] = [];
+  afterAll(() => {
+    for (const d of decors) rmSync(d, { recursive: true, force: true });
+  });
+
+  /** Une application et un paquet contributeur qui livre `theme/` par copie suivie. */
+  const appLivree = (): { app: string; theme: string } => {
+    const app = mkdtempSync(path.join(os.tmpdir(), "nf-delivered-"));
+    decors.push(app);
+    writeFileSync(path.join(app, "package.json"), '{ "name": "app" }');
+    const pkg = path.join(app, "node_modules", "@nodefony", "fake");
+    const theme = path.join(pkg, "theme");
+    mkdirSync(theme, { recursive: true });
+    writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({
+        name: "@nodefony/fake",
+        version: "1.0.0",
+        nodefony: { contribute: "./contribute.mjs" },
+      }),
+    );
+    writeFileSync(
+      path.join(pkg, "contribute.mjs"),
+      'import path from "node:path";\n' +
+        "export function contribute(ctx) {\n" +
+        '  ctx.copyTree(path.join(import.meta.dirname, "theme"), "docker/theme");\n' +
+        "}\n",
+    );
+    return { app, theme };
+  };
+
+  it("⭐ sur le VRAI plan : copie intacte en retard et copie absente signalées, copie retouchée jamais", async () => {
+    const { app, theme } = appLivree();
+    // Livraison 1, posée pour de vrai : le registre de provenance naît.
+    writeFileSync(path.join(theme, "a.css"), "v1-a");
+    writeFileSync(path.join(theme, "b.css"), "v1-b");
+    await runAppContributions(app);
+    assert.isTrue(existsSync(path.join(app, "scaffold.lock.json")));
+    // Livraison 2 : le paquet change a et b, et ajoute c ; l'application a
+    // retouché b — elle est à elle.
+    writeFileSync(path.join(theme, "a.css"), "v2-a");
+    writeFileSync(path.join(theme, "b.css"), "v2-b");
+    writeFileSync(path.join(theme, "c.css"), "v2-c");
+    writeFileSync(path.join(app, "docker", "theme", "b.css"), "à moi");
+
+    const reports = await runAppContributions(app, true, true);
+    const live = await lire(brokerDe(planLivre(...reports)));
+
+    assert.isTrue(live.execution.delivered.ran);
+    const retard = live.findings.find(
+      (x) => x.kind === "delivered-copy-outdated",
+    );
+    assert.equal(
+      retard?.message,
+      "@nodefony/fake — 1 copie intacte en retard sur la version installée : " +
+        "docker/theme/a.css",
+    );
+    assert.equal(retard?.action, DELIVERED_UPDATE_ACTION);
+    assert.equal(retard?.source, "kernel/scaffold");
+    const absente = live.findings.find(
+      (x) => x.kind === "delivered-copy-missing",
+    );
+    assert.equal(
+      absente?.message,
+      "@nodefony/fake — 1 copie absente de l'application : docker/theme/c.css",
+    );
+    assert.notInclude(
+      live.findings.map((f) => f.message).join("\n"),
+      "b.css",
+      "une copie retouchée appartient à l'application",
+    );
+    assert.lengthOf(live.findings, 2);
+
+    // Le geste proposé referme les deux constats.
+    await runAppContributions(app, false, true);
+    const apres = await lire(
+      brokerDe(planLivre(...(await runAppContributions(app, true, true)))),
+    );
+    assert.deepEqual(apres.findings, []);
+    assert.equal(
+      readFileSync(path.join(app, "docker", "theme", "b.css"), "utf8"),
+      "à moi",
+    );
+  });
+
+  it("le plan calculé SANS --update (copies sous `outdated`) est lu aussi", async () => {
+    const live = await lire(
+      brokerDe(
+        planLivre(
+          contribution({
+            kept: [`${THEME}/login.ftl`],
+            outdated: [`${THEME}/login.ftl`],
+          }),
+        ),
+      ),
+    );
+    const f = live.findings.find((x) => x.kind === "delivered-copy-outdated");
+    assert.include(f?.message ?? "", `${THEME}/login.ftl`);
+  });
+
+  it("au-delà de trois chemins, le reste est COMPTÉ, pas déroulé", async () => {
+    const fichiers = ["a", "b", "c", "d", "e"].map((n) => `${THEME}/${n}.css`);
+    const live = await lire(
+      brokerDe(planLivre(contribution({ updated: fichiers }))),
+    );
+    const f = live.findings.find((x) => x.kind === "delivered-copy-outdated");
+    assert.match(f?.message ?? "", /c\.css et 2 autres$/u);
+    assert.notInclude(f?.message ?? "", "d.css");
+  });
+
+  it("🔴 une copie RETOUCHÉE appartient à l'application : jamais signalée", async () => {
+    const live = await lire(
+      brokerDe(
+        planLivre(
+          contribution({
+            kept: [`${THEME}/login.ftl`],
+            modified: [`${THEME}/login.ftl`],
+          }),
+        ),
+      ),
+    );
+    assert.isTrue(live.execution.delivered.ran);
+    assert.deepEqual(live.findings, []);
+  });
+
+  it("une contribution en échec est un manquement — rien n'a pu être comparé pour ce paquet", async () => {
+    const live = await lire(
+      brokerDe(
+        planLivre(
+          contribution({ error: "contribute.js n'exporte pas « contribute »" }),
+          contribution({ packageName: "@app/blog" }),
+        ),
+      ),
+    );
+    assert.lengthOf(live.findings, 1);
+    const [f] = live.findings;
+    assert.equal(f?.kind, "delivered-contribution-failed");
+    assert.include(f?.message ?? "", "@nodefony/security");
+    assert.include(f?.message ?? "", "n'exporte pas");
+  });
+
+  it("aucun contributeur : NON CONTRÔLÉ, pas « tout est à jour »", async () => {
+    const live = await lire(brokerDe(planLivre()));
+    assert.isFalse(live.execution.delivered.ran);
+    assert.isTrue(live.execution.delivered.notApplicable);
+    assert.equal(live.execution.delivered.short, "aucun contributeur");
+  });
+
+  it("🔴 hors développement, le REFUS du producteur est rendu avec SA raison", async () => {
+    const refus = {
+      adminNamespace: "kernel",
+      adminDescriptor: () => ({ name: "kernel", title: "kernel" }),
+      adminEndpoints: (): IAdminEndpoint[] => [
+        {
+          path: "scaffold",
+          method: "GET",
+          handler: () => ({
+            status: 403,
+            body: { error: "scaffold:sync is disabled outside development" },
+          }),
+        },
+      ],
+    } as unknown as IAdminApi;
+    const live = await lire(brokerDe(refus));
+    assert.isFalse(live.execution.delivered.ran);
+    assert.isUndefined(live.execution.delivered.notApplicable);
+    assert.equal(
+      live.execution.delivered.reason,
+      "scaffold:sync is disabled outside development",
+    );
+  });
+
+  it("sans plan du kernel : non applicable, et les autres familles ne s'en ressentent pas", async () => {
+    const live = await lire(brokerDe(migrationsSaines, firewallSain));
+    assert.isFalse(live.execution.delivered.ran);
+    assert.isTrue(live.execution.delivered.notApplicable);
+    assert.isTrue(live.execution.migrations.ran);
+    assert.isTrue(live.execution.firewall.ran);
+  });
+
+  it("le rapport rendu NOMME la famille, le constat et le geste", async () => {
+    const live = await lire(
+      brokerDe(planLivre(contribution({ updated: [`${THEME}/login.ftl`] }))),
+    );
+    const rapport = attachLive(statique(), live);
+    // Un manquement, pas une information : il pèse sur le code de sortie.
+    assert.equal(countFindings(rapport), 1);
+    const texte = renderReport(rapport, {
+      width: 100,
+      color: false,
+      now: Date.now(),
+      strict: false,
+    }).join("\n");
+    assert.include(texte, "Fichiers livrés par les paquets");
+    assert.include(texte, `${THEME}/login.ftl`);
+    assert.include(texte, `▸ ${DELIVERED_UPDATE_ACTION}`);
   });
 });

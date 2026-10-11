@@ -364,7 +364,12 @@ dépend pas, et noierait le rapport sous le journal du Kernel.
 
 ⚠️ **`--live` SORT du fast-path** — c'est tout son sujet. L'étage 2 interroge l'APPLICATION
 (`kernel/checks/live.ts`) : verdict des migrations (`orm/migrations`) et cohérence des zones
-(`security/firewall`, champ `configValid`), deux vérités qui ne sont dans AUCUN fichier. La
+(`security/firewall`, champ `configValid`), deux vérités qui ne sont dans AUCUN fichier.
+Famille « Fichiers livrés par les paquets » (`delivered`) : lit le plan `kernel/scaffold`
+(simulation de `scaffold:sync --update` — une copie intacte en retard y est sous `updated`,
+JAMAIS sous `outdated`, d'où la lecture des deux) ; copie en retard et fichier livré absent sont
+des manquements, copie retouchée (`modified`) jamais. Hors développement le producteur refuse
+(403) : famille non contrôlée, sa raison rendue. La
 commande boote donc, en `kernelEvent: "onPostReady"` — pas `onReady`, qui passerait avant
 l'écouteur qui peuple le plan d'administration — et **aucun port ne s'ouvre** (profil console).
 Rien n'y est recalculé : `summary` et `nextActions[0].command` du producteur sont rendus TELS
