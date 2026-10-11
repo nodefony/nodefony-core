@@ -327,13 +327,13 @@ function readSecurity(ctx: ProfilableContext): ProfileSecurity | undefined {
  * résolu vit dans l'ALS (`RequestContext`), qui n'est plus lisible au teardown
  * où `collect()` s'exécute. Sans le repli sur la trace, une requête pleinement
  * authentifiée (rôles compris) s'afficherait « anonyme ».
+ *
+ * `context.user` est l'IDENTIFIANT du principal (une chaîne posée par
+ * l'authentificateur de session), jamais un objet.
  */
 function readUser(ctx: ProfilableContext): string | null {
   const u = (ctx as { user?: unknown }).user;
-  if (u && typeof u === "object") {
-    const username = (u as { username?: unknown }).username;
-    if (typeof username === "string") return username;
-  }
+  if (typeof u === "string" && u.length > 0) return u;
   return ctx.securityTrace?.user ?? null;
 }
 

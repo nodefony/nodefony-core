@@ -5,12 +5,7 @@ import { route, controller, Controller, UseSession } from "@nodefony/framework";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";
 import { loginPagePath } from "nodefony";
-
-/** Ce que la déconnexion demande au déroulé de session de security. */
-interface ISessionFlow {
-  logout(context: ContextType): Promise<void>;
-  logoutWithProvider?(context: ContextType): Promise<{ logoutUrl?: string }>;
-}
+import type { AuthFlow } from "@nodefony/security";
 
 /**
  * Bundle standalone de la debug bar (`nodefony/debugbar.js` = build core), lu
@@ -70,16 +65,14 @@ class AppController extends Controller {
     const flow = this.#flow();
     const context = this.context as ContextType;
     let target = "/";
-    if (flow?.logoutWithProvider) {
+    if (flow) {
       target = (await flow.logoutWithProvider(context)).logoutUrl ?? "/";
-    } else if (flow) {
-      await flow.logout(context);
     }
     this.redirect(target, 303);
   }
 
-  #flow(): ISessionFlow | null {
-    return this.get<ISessionFlow>("authFlow") ?? null;
+  #flow(): AuthFlow | null {
+    return this.get<AuthFlow>("authFlow") ?? null;
   }
 
   // Sert le bundle standalone de la debug bar pour la page d'accueil (rendue

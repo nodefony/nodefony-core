@@ -78,13 +78,13 @@ import type { ContextType } from "@nodefony/http";
 
   @route("<%= it.kebab %>-index", { path: "<%= it.indexPath %>", method: "GET" })
   // `@CurrentUser()` injecte l'utilisateur posé dans l'ALS par le firewall.
-  // `identifier` = identifiant fonctionnel ; l'anonyme est un VRAI user
-  // (AnonymousUser, identifier "anon."), jamais null en zone firewall.
+  // `identifier` = identifiant fonctionnel ; un visiteur NON authentifié
+  // (anonyme compris) donne `undefined` — même règle que `this.user`.
   async index(@CurrentUser() user?: <% if (it.hasSecurity) { %>IUser<% } else { %>{ identifier?: string }<% } %>) {
     const identifier = user?.identifier;
     // Condition nommée : TypeScript en garde le rétrécissement, `identifier`
     // est une chaîne dans la branche vraie — aucun `!` à affirmer.
-    const authenticated = !!identifier && identifier !== "anon.";
+    const authenticated = !!identifier;
     return this.renderJson({
       hello: "<%= it.helloName %>",
       pid: process.pid,

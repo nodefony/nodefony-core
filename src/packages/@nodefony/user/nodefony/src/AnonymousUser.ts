@@ -12,8 +12,9 @@ Object.freeze(ANONYMOUS_ROLES);
  * Utilisateur **non authentifié** — implémente {@link IUser} sans credential.
  *
  * Permet de typer le contexte de sécurité sans `null` (Zero Trust : un visiteur
- * est un utilisateur anonyme, pas une absence d'utilisateur). `@CurrentUser`
- * retourne `IUser | AnonymousUser`, jamais `null`. Sans état mutable : un
+ * est un utilisateur anonyme, pas une absence d'utilisateur). Il vit dans
+ * l'ALS de la requête ; `@CurrentUser` et `this.user` ne le rendent PAS (ils
+ * donnent `undefined` / `null` à un visiteur non authentifié). Sans état mutable : un
  * {@link anonymousUser} singleton est réutilisé pour éviter toute allocation par
  * requête.
  */

@@ -124,8 +124,8 @@ class BlogController extends Controller {
 
   @route("blog-index", { path: "", method: "GET" })
   async index(@CurrentUser() user?: IUser) {
-    // L'anonyme est un VRAI utilisateur (identifiant "anon."), jamais null.
-    const authenticated = !!user?.identifier && user.identifier !== "anon.";
+    // Un visiteur non authentifié (anonyme compris) donne `undefined`.
+    const authenticated = !!user?.identifier;
     return this.renderJson({
       hello: "blog",
       pid: process.pid,

@@ -229,4 +229,29 @@ describe("Profiler — unit", () => {
       expect(s.outcome).to.equal("public");
     });
   });
+
+  describe("user — l'identité de la requête", () => {
+    it("🔴 lit l'identifiant posé sur le contexte (une chaîne)", () => {
+      const p = new Profiler();
+      p.collect(ctx({ user: "alice@acme.io" }));
+      expect(p.get("req-1")!.user).to.equal("alice@acme.io");
+    });
+
+    it("se replie sur la trace du firewall quand le contexte n'en porte pas", () => {
+      const p = new Profiler();
+      p.collect(
+        ctx({
+          user: null,
+          securityTrace: {
+            authenticator: "jwt",
+            outcome: "granted",
+            reason: null,
+            roles: ["ROLE_USER"],
+            user: "bob",
+          },
+        }),
+      );
+      expect(p.get("req-1")!.user).to.equal("bob");
+    });
+  });
 });
