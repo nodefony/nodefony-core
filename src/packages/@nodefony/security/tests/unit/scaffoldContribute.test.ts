@@ -16,6 +16,7 @@ import {
   APP_KEYCLOAK_THEME_DIR,
   APP_KEYCLOAK_THEMES_DIR,
   devClientSecret,
+  devMachineSecret,
   keycloakThemeSource,
   keycloakThemesSource,
 } from "../../nodefony/keycloak/scaffold";
@@ -193,6 +194,10 @@ describe("contribution Keycloak de @nodefony/security", () => {
     assert.include(
       lire(dossierKeycloak(), ".env"),
       `# NF_KEYCLOAK_CLIENT_SECRET=${devClientSecret("kcapp")}\n`,
+    );
+    assert.include(
+      lire(dossierKeycloak(), ".env"),
+      `# NF_KEYCLOAK_MACHINE_SECRET=${devMachineSecret("kcapp")}\n`,
     );
   });
 

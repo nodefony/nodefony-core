@@ -1959,6 +1959,8 @@ function dispatchScaffold(
     // test de ce paquet). Secret PUBLIC par nature : décor de développement.
     keycloak: {
       clientSecret: `${String(answers.name)}-dev-keycloak-secret`,
+      // L'appelant machine (`<app>-machine`) : même règle, `devMachineSecret`.
+      machineSecret: `${String(answers.name)}-machine-dev-secret`,
     },
   };
   // autoEscape false : on génère du CODE, pas du HTML — l'échappement des

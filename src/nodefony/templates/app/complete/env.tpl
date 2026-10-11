@@ -28,4 +28,7 @@
 # (marche à suivre complète : .env.example, section Keycloak) :
 # NF_KEYCLOAK_ISSUER=https://localhost:8444/realms/<%= it.appName + "\n" %>
 # NF_KEYCLOAK_CLIENT_ID=<%= it.appName + "\n" %>
-# NF_KEYCLOAK_CLIENT_SECRET=<%= it.keycloak.clientSecret %>
+# NF_KEYCLOAK_CLIENT_SECRET=<%= it.keycloak.clientSecret + "\n" %>
+# Appelant MACHINE du même realm (client <%= it.appName %>-machine) — pour
+# `npx nodefony app:partner:call --issuer keycloak` :
+# NF_KEYCLOAK_MACHINE_SECRET=<%= it.keycloak.machineSecret + "\n" %>

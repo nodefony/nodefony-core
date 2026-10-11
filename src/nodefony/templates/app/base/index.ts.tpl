@@ -9,6 +9,8 @@ import AppBannerService from "./nodefony/service/AppBannerService";
 <% } %>import config from "./nodefony.config";
 import HelloController from "./nodefony/controllers/HelloController";
 <% if (it.complete) { %>import LiveController from "./nodefony/controllers/LiveController";
+import PartnerController from "./nodefony/controllers/PartnerController";
+import PartnerCallCommand from "./nodefony/command/PartnerCallCommand";
 <% } %><% if (it.front) { %>import AppController from "./nodefony/controllers/AppController";
 <% } else { %>import HomeController from "./nodefony/controllers/HomeController";
 <% } %><% if (it.complete) { %>import { entities } from "@nodefony/orm-core";
@@ -36,11 +38,21 @@ export { env } from "./env";
 <% if (it.complete) { %>@entities([UserEntity])
 @services([AppInfoService, AppBannerService])
 <% } else { %>@services([<%= it.exampleService %>Service])
-<% } %>@controllers([HelloController<% if (it.complete) { %>, LiveController<% } %><% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
-class App extends Module {
+<% } %><% if (it.complete) { %>@controllers([
+  HelloController,
+  LiveController,
+  PartnerController,
+  <% if (it.front) { %>AppController<% } else { %>HomeController<% } %>,
+])
+<% } else { %>@controllers([HelloController<% if (it.front) { %>, AppController<% } else { %>, HomeController<% } %>])
+<% } %>class App extends Module {
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
-  }
+<% if (it.complete) { %>    // Commande d'exemple : un programme qui appelle l'API avec un jeton.
+    // Une commande se déclare ICI, après `super` — comme celles que
+    // `npx nodefony create command` ajoute.
+    this.addCommand(PartnerCallCommand);
+<% } %>  }
 
   /**
    * Publie le schéma de la configuration de l'application : c'est ce qui rend

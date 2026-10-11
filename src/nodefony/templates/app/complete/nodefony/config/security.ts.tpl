@@ -21,6 +21,26 @@ import type { ConfigContext } from "nodefony";
 import type { ISecurityConfigInput } from "@nodefony/security";
 import type { env } from "../../env";
 
+/** Les variables dont dépendent les adresses publiques ci-dessous. */
+type IPublicUrlEnv = Pick<typeof env, "NF_JWT_ISSUER" | "NF_PORT_HTTPS">;
+
+/**
+ * L'adresse publique de l'application : `NF_JWT_ISSUER` quand il est posé
+ * (en production, l'URL que voient les clients), sinon le serveur local.
+ */
+export const publicBaseUrl = (e: IPublicUrlEnv): string =>
+  e.NF_JWT_ISSUER ?? `https://localhost:${e.NF_PORT_HTTPS ?? 5152}`;
+
+/**
+ * La ressource de l'API partenaire (RFC 8707) : l'audience que doit porter un
+ * jeton présenté sur `/api/partner`, qu'il vienne de cette application ou de
+ * Keycloak. UNE définition, lue par la zone `partner` ci-dessous ET par la
+ * commande `app:partner:call` : une audience recopiée finit par différer, et
+ * le seul symptôme est un 401.
+ */
+export const partnerResource = (e: IPublicUrlEnv): string =>
+  `${publicBaseUrl(e)}/api/partner`;
+
 /** La configuration de `@nodefony/security` pour cette application. */
 export const securityConfig = (ctx: ConfigContext<typeof env>) =>
   ({
@@ -65,6 +85,11 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
             `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}`,
             `http://localhost:${ctx.env.NF_PORT ?? 5151}/nodefony/mcp`,
             `https://localhost:${ctx.env.NF_PORT_HTTPS ?? 5152}/nodefony/mcp`,
+            // L'API partenaire (zone `partner`) : sans elle, `app:partner:call
+            // --issuer nodefony` se voit refuser son jeton (`invalid_target`).
+            // En production, l'ajouter à la liste si l'application émet
+            // elle-même les jetons de ses partenaires.
+            partnerResource(ctx.env),
           ],
       keystore: {
         keySetJson: ctx.env.NF_JWT_KEYSET,
@@ -116,6 +141,15 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
                   : {}),
               },
             },
+          },
+          // Les jetons de Keycloak ouvrent aussi l'API : le realm devient un
+          // émetteur de CONFIANCE pour les zones `external-jwt` (ici `partner`).
+          // Se connecter par Keycloak et lui confier l'accès à l'API sont deux
+          // décisions distinctes — la seconde s'écrit ici, jamais par défaut.
+          resourceServer: {
+            issuers: [
+              { issuer: ctx.env.NF_KEYCLOAK_ISSUER, algorithms: ["RS256"] },
+            ],
           },
         }
       : {}),
@@ -265,6 +299,28 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
         pattern: "^/api/machine",
         authenticators: ["apikey"], // PAS "session" — ce client n'a pas de cookie
         stateless: true, // false ⇒ l'app ouvre une session qu'il ne renverra jamais
+      },
+      // Programme qui présente un JETON d'accès — signé par cette application
+      // OU par Keycloak (flux `client_credentials`). Essai de bout en bout :
+      // `npx nodefony app:partner:call` (nodefony/command/PartnerCallCommand.ts).
+      //
+      // Les deux authenticators s'aiguillent sur l'émetteur du jeton (`iss`) :
+      // leur ordre ne décide de rien. Chacun contrôle l'audience à sa façon —
+      // `jwt` contre `jwt.audiences`, `external-jwt` contre `resource` —, d'où
+      // la même valeur aux deux endroits, tirée de `partnerResource`.
+      partner: {
+        pattern: "^/api/partner",
+        authenticators: ["jwt", "external-jwt"],
+        stateless: true,
+        resource: partnerResource(ctx.env),
+        // L'appelant Keycloak n'a PAS de compte ici : son `sub` est le compte
+        // de service du realm, tiré à l'import. `ephemeral` l'accepte le temps
+        // de la requête, avec les seuls rôles ci-dessous. La politique vaut
+        // pour CETTE zone : ailleurs, un jeton tiers exige toujours un compte
+        // local (`require`, le défaut). Un jeton signé par l'application, lui,
+        // désigne toujours un compte existant.
+        subjectPolicy: "ephemeral",
+        ephemeralRoles: ["ROLE_PARTNER"],
       },
     },
 

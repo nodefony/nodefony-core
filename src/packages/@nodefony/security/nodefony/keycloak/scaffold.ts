@@ -111,6 +111,20 @@ export function devClientSecret(appName: string): string {
 }
 
 /**
+ * Le secret de l'appelant machine (`<app>-machine`) dans le décor de
+ * développement d'une app.
+ *
+ * ⚠️ Même règle que le gabarit `.env` du cœur (`keycloak.machineSecret` dans
+ * `engine.ts`), comparée par le même test que {@link devClientSecret}.
+ *
+ * @param appName - nom de l'application
+ * @returns le secret, PUBLIC par nature (écrit dans le realm versionné)
+ */
+export function devMachineSecret(appName: string): string {
+  return `${appName}-machine-dev-secret`;
+}
+
+/**
  * Ce que dit la configuration rendue par le gabarit `security.ts` d'une app
  * neuve : client `<app>`, URL de retour sur les deux ports de développement,
  * rôle client `admin` (`roleMapping: { admin: "ROLE_ADMIN" }`). AUCUNE
@@ -158,7 +172,7 @@ export function appDevRealmInput(
     realmRoles: [],
     machine: {
       clientId: `${appName}-machine`,
-      secret: `${appName}-machine-dev-secret`,
+      secret: devMachineSecret(appName),
       name: `${appName} — appelant machine (compte de service)`,
       description:
         "Appelant machine : obtient un jeton d'accès par client_credentials, sans utilisateur. Secret PUBLIC, jamais en production.",

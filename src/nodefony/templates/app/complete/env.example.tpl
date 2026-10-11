@@ -49,7 +49,8 @@
 #        NF_JWT_ISSUER, NF_JWT_KEYSET
 #   7. Connexion Keycloak
 #        NF_KEYCLOAK_ISSUER, NF_KEYCLOAK_CLIENT_ID, NF_KEYCLOAK_CLIENT_SECRET,
-#        NF_KEYCLOAK_ADMIN_USERNAME, NF_KEYCLOAK_ADMIN_PASSWORD
+#        NF_KEYCLOAK_MACHINE_SECRET, NF_KEYCLOAK_ADMIN_USERNAME,
+#        NF_KEYCLOAK_ADMIN_PASSWORD
 #   8. Connexion externe : réglage commun
 #        NF_OAUTH_REDIRECT_BASE
 #   9. Framework : déploiement
@@ -350,6 +351,19 @@
 # @placement=secrets
 # @default=aucun
 # NF_KEYCLOAK_CLIENT_SECRET=
+
+
+# ─── Keycloak : secret de l'appelant machine ────────────────────────────────
+#
+# Le secret du client <%= it.appName %>-machine, qui obtient un jeton au nom d'un
+# programme (script, service partenaire), sans utilisateur. Lu par la commande
+# app:partner:call, jamais par le serveur.
+#
+# @optional
+# @sensitive
+# @placement=secrets
+# @default=aucun
+# NF_KEYCLOAK_MACHINE_SECRET=
 
 
 # ─── Keycloak : administrateur (développement) ──────────────────────────────
