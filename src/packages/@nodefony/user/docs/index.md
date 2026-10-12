@@ -468,7 +468,7 @@ lieu au seul moment où le mot de passe en clair existe côté serveur, un login
 ### L'ordre des vérifications
 
 `locked` → `disabled` → `no_password` → `bad_credentials`. Cet ordre est fixé
-(`UserService.ts:270`), mais il n'est pas observable de l'extérieur : la valeur de retour est `null`
+(`UserService.ts:483`), mais il n'est pas observable de l'extérieur : la valeur de retour est `null`
 dans tous les cas, et la raison précise part dans l'événement `onAuthenticationFailure` — donc dans
 l'audit serveur, jamais dans la réponse.
 
@@ -533,14 +533,14 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 | Appel                                | Ce qu'il fait                                                 | Ancre                |
 | ------------------------------------ | ------------------------------------------------------------- | -------------------- |
 | `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:194` |
-| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:287` |
-| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:325` |
+| `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:308` |
+| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:346` |
 | `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:372` |
-| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:448` |
+| `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:469` |
 | `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:506` |
 | `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:522` |
-| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:536` |
-| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:557` |
+| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:557` |
+| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:578` |
 | `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:170` |
 
 **La distinction à retenir** : `loadUserByOAuth()` **lit** (et lève si le lien est inconnu) ;
@@ -1013,7 +1013,7 @@ Une erreur d'administration ne doit pas fermer la porte définitivement. Cinq ga
 | supprimer ou désactiver le dernier admin actif | 409                                         |
 
 Le comptage passe par `countActiveAdmins()`, un `COUNT` natif au store — jamais un chargement complet
-en mémoire (`UserService.ts:325`).
+en mémoire (`UserService.ts:346`).
 
 ### Cascade de révocation
 

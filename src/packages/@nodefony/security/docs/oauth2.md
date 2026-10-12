@@ -350,7 +350,7 @@ compte externe : le _Shadow User_. C'est cette ligne qui porte l'identifiant, le
 actif/verrouillé — donc **tout** ce dont l'autorisation a besoin.
 
 Le contrat s'appelle `IOAuthUserProvisioner` (`IOAuthUserProvisioner.ts:61`) ; l'implémentation par
-défaut est `UserService.provisionOAuthUser()` (`UserService.ts:557`), en **find-or-create** :
+défaut est `UserService.provisionOAuthUser()` (`UserService.ts:578`), en **find-or-create** :
 
 | Situation au retour du fournisseur       | Comportement                                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------------ |
@@ -742,7 +742,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | « provisioning indisponible »                        | `users` n'implémente pas la capability (`oauth2.ts:863-871`)                                             | Implémenter `provisionOAuthUser()` sur le service `users`                       |
 | Profil connu refusé                                  | `allowSignup: false` sans lien préexistant (`UserService.ts:574`)                                        | Activer `allowSignup` ou lier le compte au préalable                            |
 | Doublon de compte pour un utilisateur existant       | Aucune liaison auto par e-mail (choix de sécurité)                                                       | Rattacher explicitement, utilisateur connecté                                   |
-| Rôle attendu absent après re-login                   | Rôles posés à la **création** seulement (`provisionOAuthUser`, `UserService.ts:557`), sauf `roleMapping` | Modifier les rôles en base, ou déclarer `roleMapping` ([Keycloak](keycloak.md)) |
+| Rôle attendu absent après re-login                   | Rôles posés à la **création** seulement (`provisionOAuthUser`, `UserService.ts:578`), sauf `roleMapping` | Modifier les rôles en base, ou déclarer `roleMapping` ([Keycloak](keycloak.md)) |
 | Jeton du fournisseur introuvable côté application    | `IOAuthProfile` n'en porte aucun, par choix (`IOAuthUserProvisioner.ts:8-10`)                            | Le capturer dans son propre `fetchProfile()` et le stocker soi-même             |
 | Keycloak : « Some clients have not been logged out » | Canal arrière injoignable, ou client en _Front channel logout_ ON                                        | Adresse joignable par Keycloak ; _Front channel logout_ OFF                     |
 | Canal arrière : `0 session(s) fermée(s)` au journal  | Session ouverte avant la mise en place de l'index fédéré, ou `sid` différent                             | Se reconnecter ; vérifier _Backchannel logout session required_                 |
