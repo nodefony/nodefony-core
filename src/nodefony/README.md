@@ -17,6 +17,13 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 ---
 
+> **A note on language.** Nodefony is written by a French-speaking author. The **code** —
+> identifiers, public API, types — is in English, because it travels: npm, editor autocompletion,
+> search. The **prose** — documentation, agent skills, messages — is in French, the language in
+> which the author explains the _why_ most precisely. Coding agents read it without difficulty;
+> human readers may not, and translating the framework's texts is planned
+> ([#378](https://github.com/nodefony/nodefony-core/issues/378)).
+
 > **Ce paquet est le CŒUR du framework** — noyau, injection de dépendances, modules, journalisation,
 > interface en ligne de commande. Il s'installe rarement seul : une application le reçoit par
 > `npm create nodefony@beta`, et les autres paquets (`@nodefony/http`, `@nodefony/framework`,

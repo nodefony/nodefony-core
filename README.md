@@ -17,6 +17,13 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 
 ---
 
+> **A note on language.** Nodefony is written by a French-speaking author. The **code** —
+> identifiers, public API, types — is in English, because it travels: npm, editor autocompletion,
+> search. The **prose** — documentation, agent skills, messages — is in French, the language in
+> which the author explains the _why_ most precisely. Coding agents read it without difficulty;
+> human readers may not, and translating the framework's texts is planned
+> ([#378](https://github.com/nodefony/nodefony-core/issues/378)).
+
 > **Pourquoi pas NestJS ?** Même modèle — injection, décorateurs, modules — avec une différence de
 > structure : le WebSocket est un transport de la même route, de la même session et du même
 > pare-feu, pas une passerelle à côté. Et l'application se décrit à un agent — générateurs
