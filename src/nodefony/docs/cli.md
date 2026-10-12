@@ -324,7 +324,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 
 `create` prend un **type** en argument — **sept** (`app | module | controller | service | front |
 entity | command`, `CREATE_TYPES`, `create.ts:61`) — et route vers un moteur de scaffold unique
-(`runCreateCommand()`, `create.ts:1228`) :
+(`runCreateCommand()`, `create.ts:1276`) :
 
 ```bash
 nodefony create app mon-app --preset complete --frontend react   # nouveau projet

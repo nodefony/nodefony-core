@@ -303,8 +303,14 @@ NF_JWT_KEYSET: envString({
 La notice se termine par les **réglages du framework** — les variables que Nodefony lit lui-même
 et qu'on peut poser (nombre de workers, délai de démarrage, pilote du backplane…), en deux
 sections : « Framework : déploiement » et « Framework : poste et diagnostic ». Ils viennent de la
-liste des variables réservées (`config/reservedEnv.ts`) ; seuls ceux des modules que déclare le
+liste des variables réservées du CŒUR (`config/reservedEnv.ts`) ; seuls ceux des modules que déclare le
 manifeste apparaissent, et une variable que `env.ts` déclare garde sa propre déclaration.
+
+Suivent les **réglages des modules** : les noms courts que chaque module déclare sur un champ de
+son schéma (`.meta({ env: "NF_REDIS_HOST" })`), une section par module. Ils ne sont recopiés nulle
+part : la notice les lit dans le schéma, que le module désigne dans son `package.json`
+(`"nodefony": { "configSchema": "./dist/…" }`). Une application neuve les reçoit après
+l'installation des paquets, `create app` relançant `nodefony env --example` à ce moment-là.
 
 Le texte vient de la déclaration : `section`, `title` (le bandeau), `description` (un `\n` sépare deux
 paragraphes, le repli à 78 colonnes est automatique ; une ligne qui commence par des espaces

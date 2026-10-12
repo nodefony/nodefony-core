@@ -456,7 +456,7 @@ muet ne l'est pas. Voici ce que le code fait réellement, moment par moment.
 ### Moment 1 — Redis est absent au démarrage
 
 Le module est déclaré non critique (`index.ts:36`), et l'initialisation du service est **bornée dans
-le temps** : `Kernel.guardInitialize()` (`Kernel.ts:4223`) enveloppe l'appel dans un délai maximal de
+le temps** : `Kernel.guardInitialize()` (`Kernel.ts:4289`) enveloppe l'appel dans un délai maximal de
 démarrage. Un `init()` qui pend ne gèle donc pas le boot ; l'échec est agrégé au rapport de démarrage,
 qui fait dire « démarrage DÉGRADÉ » au superviseur au lieu de mentir sur un état sain.
 
@@ -467,7 +467,7 @@ schéma vaut `0`, c'est-à-dire **illimité** : avec ce réglage, `connect()` ne
 tant que Redis ne répond pas.
 
 D'où un garde-fou spécifique au développement : `applyResilienceDefaults()`
-(`defineModuleConfig.ts:65`) borne les tentatives à un nombre fini **hors production**, quand
+(`defineModuleConfig.ts:52`) borne les tentatives à un nombre fini **hors production**, quand
 l'application ne l'a pas fixé elle-même. Sans lui, démarrer sans Redis faisait pendre le boot au lieu
 d'échouer proprement.
 

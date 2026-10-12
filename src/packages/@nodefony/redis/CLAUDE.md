@@ -25,7 +25,7 @@ d'autres couches — il ne contient aucune logique métier.
 | **RESP3 (v6)** | RESP3 = protocole par défaut v6 (assumé : set/get/pub/sub inchangés côté API). `maintNotifications: "disabled"` forcé (Redis OSS, pas Enterprise → déterministe). Fallback si souci pub/sub : `RESP: 2`. |
 | **Fermeture (v6)** | `client.close()` (graceful, drain) — `quit()`/`QUIT` dépréciés. `destroy()` = forcé (non utilisé). |
 | **Config** | Source de vérité = `nodefony/config/config.ts` (Zod). Builder `defineRedisConfig` valide + applique l'env + gèle. Style realtime. |
-| **Env layering** | `REDIS_URL` / `NF_REDIS_HOST` / `NF_REDIS_PORT` / `NF_REDIS_PASSWORD` appliqués APRÈS le parse (schéma reste pur, déterministe, JSON Schema). |
+| **Env layering** | `NF_REDIS_URL`/`REDIS_URL` (infra) appliquée APRÈS le parse, dans le builder. Les noms courts (`NF_REDIS_HOST`…) se DÉCLARENT sur le champ (`.meta({ env })`) et sont posés par le Kernel AVANT la validation — ne jamais les relire dans le builder. |
 | **3 connexions** | `main` (commandes/storage), `publish`, `subscribe`. Raison : un client abonné ne peut plus émettre de commandes (protocole Redis). |
 | **reconnect** | Politique déclarative (`baseMs`/`maxMs`/`maxRetries`) → fonction `reconnectStrategy` construite au runtime (Zod ne sérialise pas). |
 | **Pas de `cci-vm`** | Défaut `localhost:6379` ; jamais d'hôte d'infra hardcodé. Aligné `docker/docker-compose.yml`. |

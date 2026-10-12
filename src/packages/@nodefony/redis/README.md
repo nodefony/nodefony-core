@@ -58,9 +58,13 @@ export default {
 | `NF_REDIS_URL`           | URL complète `redis[s]://…` — **la forme qui l'emporte** |
 | `REDIS_URL`              | même effet, alias posé par les hébergeurs — lu en SECOND |
 | `NF_REDIS_HOST`          | hôte du serveur                                          |
-| `NF_REDIS_PORT`          | port (validé)                                            |
+| `NF_REDIS_PORT`          | port — une valeur fausse arrête le démarrage             |
 | `NF_REDIS_PASSWORD`      | mot de passe (jamais committé)                           |
 | `NF_REDIS_KEY_NAMESPACE` | cloison des clés de cette application (prioritaire)      |
+
+Les quatre noms courts sont déclarés dans le schéma (`.meta({ env })`) et acceptent la forme
+`_FILE` pour un secret monté (`NF_REDIS_PASSWORD_FILE=/run/secrets/redis`). `npx nodefony env`
+les montre, posés ou non.
 
 Si les deux URL sont posées, **`NF_REDIS_URL` gagne** : c'est votre réglage, il passe
 devant celui que la plateforme d'hébergement a injecté.

@@ -468,6 +468,83 @@ de développement en marche. Même donnée côté web : l'onglet **Configuration
 
 ## Surcharger en déploiement — Docker / variables d'env
 
+### Pour commencer — régler un module sans ouvrir son code
+
+Un module, c'est un appareil livré avec ses réglages d'usine : Redis se connecte à `localhost`,
+sur le port `6379`. Tu ne modifies **jamais** les fichiers du module pour changer ça. Tu as trois
+boutons, de l'extérieur :
+
+| Bouton                    | Exemple — l'hôte Redis                                                                                       | Pour qui, quand                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| **1. Le code de l'app**   | `use("@nodefony/redis", { globalOptions: { socket: { host: "redis.interne" } } })` dans `nodefony.config.ts` | le développeur — ce qui ne change pas d'un déploiement à l'autre |
+| **2. Le nom court `NF_`** | `NF_REDIS_HOST=redis.interne`                                                                                | l'exploitant — le contrat de PRODUCTION                          |
+| **3. La forme `NF__`**    | `NF__REDIS__GLOBALOPTIONS__SOCKET__HOST=redis.interne`                                                       | les bancs, le diagnostic, le dépannage ponctuel                  |
+
+**Le nom court** (`NF_REDIS_HOST`) n'existe que si l'auteur du module l'a prévu. C'est un nom
+**stable et documenté** : l'auteur s'engage à ne pas le casser. C'est celui qu'on pose dans un
+`.env`, un Secret Kubernetes, les valeurs Helm, l'`environment:` d'un `compose.yaml`.
+
+**La forme `NF__`** marche pour **n'importe quelle** clé de **n'importe quel** module, sans que
+personne ne la déclare : chaque `__` descend d'un niveau dans la configuration. C'est sa force, et
+c'est aussi sa limite : son nom suit la structure INTERNE du module. Si l'auteur renomme
+`globalOptions`, la variable ne vise plus rien. Le démarrage le signale, mais le réglage est perdu.
+D'où la règle : **en production durable, le nom court ; la forme `NF__` pour faire varier un
+réglage dans un banc, ou pour dépanner tout de suite**. Une équipe qui pose une `NF__` en
+production depuis des mois a trouvé un réglage qui mérite un nom court : demande-le au module.
+
+**Un secret se monte en fichier.** En production, un mot de passe n'est pas écrit dans une
+variable mais monté par l'orchestrateur (Docker secrets, Kubernetes). Ajoute `_FILE` au nom court :
+
+```bash
+NF_REDIS_PASSWORD_FILE=/run/secrets/redis-password   # le contenu du fichier devient la valeur
+```
+
+Poser `NF_REDIS_PASSWORD` **et** `NF_REDIS_PASSWORD_FILE` arrête le démarrage : deux valeurs pour
+un seul secret, c'est une erreur, pas un choix.
+
+**Nom court ET `NF__` sur le même réglage** (`NF_REDIS_HOST` et
+`NF__REDIS__GLOBALOPTIONS__SOCKET__HOST`) : deux valeurs pour un seul réglage.
+
+| Mode          | Ce qui se passe                                                                |
+| ------------- | ------------------------------------------------------------------------------ |
+| production    | démarrage **refusé** (code 78), le message nomme les deux variables            |
+| développement | `NF__` **l'emporte**, et un avertissement le dit en nommant les deux variables |
+
+Pourquoi deux règles : en production, on ne devine pas laquelle l'exploitant voulait. En
+développement, c'est le geste normal d'un banc — le `.env` pose le nom court, la mesure fait varier
+le réglage en `NF__` le temps d'un essai.
+
+**Une valeur fausse arrête le démarrage**, en nommant la variable : `NF_REDIS_PORT=abc` est refusé,
+jamais ignoré. Une variable **vide** (`NF_REDIS_HOST=` dans un `.env`) vaut absente.
+
+**Voir ce qui est réellement appliqué** : `npx nodefony env`. La commande ne démarre pas
+l'application, elle répond donc même quand celle-ci ne démarre plus. Elle range chaque variable
+selon d'où elle vient (terminal, `.env`), montre les noms courts que proposent tes modules (posés ou
+non, avec leur défaut), et signale en dernier ce que personne ne lit — une faute de frappe, le plus
+souvent. `--json` rend le même rapport pour un script.
+
+#### Côté auteur de module — donner un nom court à un réglage
+
+Un module a toujours **deux** fichiers de configuration, créés par `nodefony create module` :
+
+| Fichier                                 | Rôle                                                                        |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| `nodefony/config/config.ts`             | le schéma : quels réglages existent, leurs défauts — LE fichier qu'on édite |
+| `nodefony/config/defineModuleConfig.ts` | la machinerie (valide, gèle) — on n'y touche presque jamais                 |
+
+Donner un nom court à un réglage tient en **une** déclaration, sur le champ, dans `config.ts` :
+
+```ts
+host: z.string().min(1).default("localhost")
+  .describe("Hôte du serveur Redis.")
+  .meta({ env: "NF_REDIS_HOST" }),   // ← le seul geste
+```
+
+Rien d'autre à écrire : le démarrage applique la variable (`applyEnvShortcuts()`,
+`src/nodefony/src/config/envShortcuts.ts:103`), `nodefony env` la reconnaît et `.env.example` la
+décrit, avec la description et le défaut du schéma. `.meta()` se place **en dernier** dans la
+chaîne. Le nom suit la forme `NF_<MODULE>_<RÉGLAGE>`.
+
 > ✅ **Livré** ([ADR-0006](../adr/0006-configuration-unifiee-env-override.md)). Catalogue `env.ts`, override générique `NF__*` et secrets `*_FILE` sont opérationnels : résolus **1× au boot**, validés par le schéma Zod du module (chemin/valeur invalide → boot rejeté, jamais de surcharge silencieuse).
 
 Deux façons d'agir par l'environnement, rôles **distincts** :
@@ -496,7 +573,8 @@ NF_WEBHOOK_KEY_FILE=/run/secrets/webhook_key             # secret depuis un fich
 Une valeur invalide fait **échouer le boot** avec un message nommant la variable (jamais de fallback
 silencieux). Un segment mal orthographié (module, app, ou chemin) déclenche un **« vouliez-vous dire
 X ? »** façon git, avec les clés disponibles. Non-chevauchement : un champ qui a une variable dédiée au
-catalogue n'est pas aussi piloté par `NF__*` (la variable nommée fait foi).
+catalogue de l'APPLICATION (`env.ts`) n'est pas aussi piloté par `NF__*` (la variable nommée fait
+foi). Le nom court d'un MODULE suit sa propre règle — voir « Pour commencer » plus haut.
 
 > **Limite assumée pour `NF__APP__*`** : seuls les champs qui ont un **défaut framework** (`domain`,
 > `servers.*`, `log.*`) sont surchargeables génériquement. Un champ app **opt-in sans défaut**

@@ -314,7 +314,7 @@ laissez-passer.
 - **Endpoint public** : `public: true` (`IAdminApi.ts:175`) → le RBAC du broker est court-circuité
   (`role === ""`, `adminRbac.ts:26`). À réserver aux sondes cloud-native (liveness/readiness) et à
   placer hors d'une zone fermée — sinon le firewall verrouille en amont. Exemple réel :
-  `GET /nodefony/kernel/api/livez` (`KernelAdminApi.ts:615`), sorti de `nodefony-admin` par la zone
+  `GET /nodefony/kernel/api/livez` (`KernelAdminApi.ts:513`), sorti de `nodefony-admin` par la zone
   publique `nodefony-liveness` (`config.ts:132`).
 - **Endpoint qui reçoit un mot de passe** : `credentials: true` (`IAdminApi.ts:189`). En
   production, une requête arrivée en clair est refusée en **403 avant le rôle et le handler**
@@ -369,7 +369,7 @@ sont enregistrés au `onKernelReady` du framework :
 
 | Namespace   | Producteur                                            | Rôle                                              |
 | ----------- | ----------------------------------------------------- | ------------------------------------------------- |
-| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:628`)      | modules, process, uptime, `livez`                 |
+| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:646`)      | modules, process, uptime, `livez`                 |
 | `framework` | `createFrameworkAdminApi` (`FrameworkAdminApi.ts:86`) | dump du Router + **catalogue** + Playground (dev) |
 | `syslog`    | `createSyslogAdminApi` (`SyslogAdminApi.ts:95`)       | viewer de logs (dev)                              |
 

@@ -18,7 +18,7 @@ Accès Redis générique. Module = fournisseur de connexions + client brut. 0 lo
 
 - Source: `config/config.ts`. Défauts: `enabled=true`, `localhost:6379`, family 0, connectTimeout 5000, tls false, reconnect `{baseMs:100,maxMs:10000,maxRetries:0}`.
 - 3 connexions défaut: `main`/`publish`/`subscribe`. database 0.
-- Env (dans builder, après parse): `REDIS_URL`>host/port/auth, `NF_REDIS_HOST`, `NF_REDIS_PORT` (validé), `NF_REDIS_PASSWORD`.
+- Env : `NF_REDIS_URL`/`REDIS_URL` (infra, `resolveInfra`, posée dans le builder après parse) > host/port/auth. Noms courts `NF_REDIS_HOST`/`_PORT`/`_PASSWORD`/`_KEY_NAMESPACE` = `.meta({ env })` sur le champ (`config.ts`), posés par le KERNEL avant validation (`applyEnvShortcuts`), `_FILE` accepté ; port faux → boot refusé. Le builder ne lit PLUS ces 4 variables. Découverte sans boot : `package.json#nodefony.configSchema` → `nodefony/config/configSchema.ts` (feuille : zod + schéma). `keyNamespace` porte `secret: false` (le nom contient KEY).
 - Surcharge app: clé `module-redis`.
 
 ## Behaviors

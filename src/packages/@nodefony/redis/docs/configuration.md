@@ -64,7 +64,7 @@ flowchart TD
 Deux résolutions distinctes, souvent confondues :
 
 1. **La configuration du module** est résolue **une fois**, au démarrage, par `defineRedisConfig()`
-   (`defineModuleConfig.ts:98`). Le résultat est **gelé** — plus personne ne le modifie ensuite.
+   (`defineModuleConfig.ts:85`). Le résultat est **gelé** — plus personne ne le modifie ensuite.
 2. **Les options d'un client** sont assemblées **par connexion**, au moment de l'ouverture, par
    `buildClientOptions()` (`buildClientOptions.ts:45`). C'est là que `url` écrase l'hôte, et que la
    surcharge d'une connexion se pose par-dessus le socket global.
@@ -125,7 +125,7 @@ options ». Il possède **un schéma Zod commenté**, et tout en dérive :
   pendant d'entrée `IRedisConfigInput` (`IRedisConfig.ts:17`), où tout champ portant un défaut devient
   optionnel.
 - **Le texte d'aide** vit dans les `.describe()` du schéma, ce qui permet à
-  `redisConfigJsonSchema()` (`defineModuleConfig.ts:121`) de publier un JSON Schema **documenté** que
+  `redisConfigJsonSchema()` (`defineModuleConfig.ts:101`) de publier un JSON Schema **documenté** que
   Studio transforme en formulaire.
 - **Les champs sensibles se déclarent** : `url` et `password` portent un `.meta({ secret: true })`
   (`config.ts:187`), ce qui les fait masquer là où la configuration est affichée.
@@ -142,7 +142,7 @@ troisième fichier de configuration, dans un module Nodefony, est un signal d'al
 
 > [!NOTE]
 > La configuration du module est **immuable après le démarrage** : `defineRedisConfig()` rend un objet
-> gelé (`defineModuleConfig.ts:103`). Changer de serveur Redis suppose donc un redémarrage — aucune
+> gelé (`defineModuleConfig.ts:85`). Changer de serveur Redis suppose donc un redémarrage — aucune
 > clé n'est modifiable à chaud.
 
 ## 🚀 Démarrage rapide
@@ -393,16 +393,28 @@ connections: {
 
 ### Les cinq variables lues
 
-Toutes sont appliquées **après** la validation, par `applyEnvOverrides()`
-(`defineModuleConfig.ts:23`).
+Deux mécanismes, et un seul endroit chacun :
 
-| Variable                        | Ce qu'elle vise             | Comportement                                                                                        |
-| ------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------- |
-| `NF_REDIS_URL` (ou `REDIS_URL`) | `url`                       | Résolue par `resolveInfra()` (`infra.ts:134`) ; `NF_REDIS_URL` l'emporte sur l'alias de plateforme. |
-| `NF_REDIS_HOST`                 | `globalOptions.socket.host` | Posée telle quelle, sans validation supplémentaire.                                                 |
-| `NF_REDIS_PORT`                 | `globalOptions.socket.port` | **Ignorée en silence** si ce n'est pas un entier de `1` à `65535`.                                  |
-| `NF_REDIS_PASSWORD`             | `globalOptions.password`    | Le seul chemin recommandé pour le secret : jamais dans un fichier versionné.                        |
-| `NF_REDIS_KEY_NAMESPACE`        | `keyNamespace`              | Prioritaire sur la config ; cloison de déploiement.                                                 |
+- **`NF_REDIS_URL`** (alias de plateforme `REDIS_URL`) est une variable d'**infrastructure** : résolue
+  par `resolveInfra()` (`infra.ts:134`) et posée sur `url` par `applyEnvOverrides()`
+  (`defineModuleConfig.ts:23`), après la validation.
+- Les **quatre noms courts** sont DÉCLARÉS sur leur champ dans le schéma — `.meta({ env: "NF_REDIS_HOST" })`
+  (`config.ts:90`). Le Kernel les pose avant la validation, par `applyEnvShortcuts()`
+  (`envShortcuts.ts:103`) ; le schéma les valide donc comme une valeur de l'application.
+
+| Variable                        | Ce qu'elle vise             | Comportement                                                                                          |
+| ------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `NF_REDIS_URL` (ou `REDIS_URL`) | `url`                       | Résolue par `resolveInfra()` ; `NF_REDIS_URL` l'emporte sur l'alias de plateforme.                    |
+| `NF_REDIS_HOST`                 | `globalOptions.socket.host` | Validée par le schéma (chaîne non vide).                                                              |
+| `NF_REDIS_PORT`                 | `globalOptions.socket.port` | Validée par le schéma : hors `1..65535`, ou pas un entier, le **démarrage est refusé**.               |
+| `NF_REDIS_PASSWORD`             | `globalOptions.password`    | Le seul chemin recommandé pour le secret. Monté en fichier : `NF_REDIS_PASSWORD_FILE=/run/secrets/…`. |
+| `NF_REDIS_KEY_NAMESPACE`        | `keyNamespace`              | Cloison de déploiement, prioritaire sur la config. Pas un secret (déclaré `secret: false`).           |
+
+Chaque nom court accepte aussi la forme `_FILE` (secret monté par Docker ou Kubernetes) ; poser la
+variable ET son `_FILE` arrête le démarrage. Une variable vide vaut absente. Le même réglage visé par
+un nom court et par `NF__REDIS__…` est refusé en production, et tranché en faveur de `NF__` (avec un
+avertissement) en développement — règle commune à tous les modules, décrite dans le guide
+[configuration](../../../../../docs/guides/configuration.md).
 
 `REDIS_URL` est accepté comme **alias de plateforme** parce que c'est le nom que posent la plupart des
 hébergeurs. Quand les deux existent, la variable préfixée gagne — le préfixe `NF_` sert précisément à
@@ -410,20 +422,18 @@ reprendre la main sur une variable imposée par l'environnement d'hébergement.
 
 ### L'ordre, prouvé par le code
 
-`defineRedisConfig()` (`defineModuleConfig.ts:98`) exécute quatre gestes, toujours dans le même
-ordre :
-
-1. `redisConfigSchema.parse(entrée)` — les défauts comblent ce que l'application n'a pas dit, et la
-   validation refuse ce qui est hors bornes.
-2. `applyResilienceDefaults()` (`defineModuleConfig.ts:65`) — le garde-fou de reconnexion, qui
+1. Le **Kernel** pose les noms courts (`NF_REDIS_HOST`…) puis les surcharges `NF__REDIS__…` sur la
+   configuration de l'application, avant toute validation.
+2. `defineRedisConfig()` (`defineModuleConfig.ts:85`) valide — les défauts comblent ce que personne
+   n'a dit, la validation refuse ce qui est hors bornes, d'où qu'il vienne.
+3. `applyResilienceDefaults()` (`defineModuleConfig.ts:52`) — le garde-fou de reconnexion, qui
    inspecte l'entrée **brute** pour savoir si l'application s'est prononcée.
-3. `applyEnvOverrides()` (`defineModuleConfig.ts:23`) — l'environnement écrase ce qu'il nomme.
-4. `Object.freeze` — plus rien ne bouge.
+4. `applyEnvOverrides()` (`defineModuleConfig.ts:23`) — l'URL d'infrastructure écrase `url`.
+5. `Object.freeze` — plus rien ne bouge.
 
 D'où la règle, dans cet ordre croissant d'autorité : **défauts du schéma → configuration de
 l'application → environnement**. Le comportement est verrouillé par les tests unitaires
-(`config.test.ts:56` pour l'hôte, le port et le mot de passe ; `config.test.ts:72` pour le port
-invalide ignoré).
+(`config.test.ts` : les noms courts déclarés, posés puis validés, et le port invalide REFUSÉ).
 
 > [!IMPORTANT]
 > L'environnement gagne **même contre une valeur explicite de l'application**. Une `url` écrite dans
@@ -495,8 +505,8 @@ définitivement.
 **Hors production, ce réglage fait pendre le démarrage.** Avec des tentatives illimitées, la première
 ouverture ne rend jamais la main tant que Redis ne répond pas ; la file d'attente hors ligne du client
 retient les commandes, et un démarrage sans serveur se transforme en attente infinie plutôt qu'en
-échec lisible. D'où `applyResilienceDefaults()` (`defineModuleConfig.ts:65`), qui borne les tentatives
-à `DEV_DEFAULT_MAX_RETRIES` (`defineModuleConfig.ts:52`) — cinq — quand, et seulement quand,
+échec lisible. D'où `applyResilienceDefaults()` (`defineModuleConfig.ts:52`), qui borne les tentatives
+à `DEV_DEFAULT_MAX_RETRIES` (`defineModuleConfig.ts:32`) — cinq — quand, et seulement quand,
 l'application ne s'est pas prononcée.
 
 | `NODE_ENV`                          | L'application fixe `maxRetries` ? | Valeur effective                    |
@@ -699,15 +709,15 @@ faire avant une mise en production.
 | --- | --- | --- |
 | Le démarrage échoue avec `configuration invalide — <chemin>` | Clé inconnue (faute de frappe) : le schéma est strict | Corriger l'orthographe d'après les tables ci-dessus |
 | L'hôte configuré est ignoré | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts:45`) ne pose plus host/port | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL |
-| `NF_REDIS_PORT` semble sans effet | Valeur non entière ou hors `1..65535` : `applyEnvOverrides()` (`defineModuleConfig.ts:24`) l'ignore | Corriger la valeur — l'ignorance est silencieuse par conception |
+| Le démarrage échoue en nommant `NF_REDIS_PORT` | Valeur non entière ou hors `1..65535` : le schéma la refuse | Corriger la valeur — un port faux n'est plus ignoré, il arrête le démarrage |
 | Toutes les connexions atterrissent sur la même base | L'URL porte un chemin (`…/2`) qui écrase le `database` de chaque connexion | Déclarer l'URL sans chemin et laisser `database` cloisonner |
-| Le démarrage pend, sans erreur, sans Redis | Tentatives illimitées : la première ouverture ne rend pas la main | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts:65`)) ; sinon fixer une valeur finie |
+| Le démarrage pend, sans erreur, sans Redis | Tentatives illimitées : la première ouverture ne rend pas la main | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts:52`)) ; sinon fixer une valeur finie |
 | Erreur `NOAUTH` alors que le mot de passe est configuré | L'URL porte des identifiants qui recouvrent `NF_REDIS_PASSWORD` | Ne pas mélanger : l'URL **ou** hôte + mot de passe |
 | Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts:297`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout |
 | Une surcharge de connexion ramène le port à `6379` | Un schéma partiel qui réappliquerait ses défauts — d'où `socketOverrideSchema` (`config.ts:133`) sans défaut | Ne poser que les champs voulus ; les autres héritent du socket global |
 | Le module démarre mais n'ouvre rien | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:123`)) | Le réactiver, ou retirer le module du manifeste |
 | Le formulaire Studio annonce `maxRetries: 0` en développement | Le JSON Schema décrit le schéma, pas la superposition d'exécution | Lire la configuration effective du service |
-| Une valeur changée à chaud ne prend pas | La configuration est **gelée** après le démarrage (`defineRedisConfig()` (`defineModuleConfig.ts:103`)) | Redémarrer le process |
+| Une valeur changée à chaud ne prend pas | La configuration est **gelée** après le démarrage (`defineRedisConfig()` (`defineModuleConfig.ts:85`)) | Redémarrer le process |
 
 ## 📡 Observabilité — Studio
 

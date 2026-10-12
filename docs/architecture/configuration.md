@@ -77,6 +77,7 @@ service, jamais validé, absent en production.
 | **Infra déclarée**   | Les URLs de base/cache lues de l'environnement, qui pilotent les stores en `"auto"`.                         |
 | **Provenance**       | L'origine d'une valeur résolue : défaut, projet, ou environnement. Affichée par Studio.                      |
 | **`runtimeMutable`** | Métadonnée de champ : sa valeur est relue à l'usage, donc modifiable sans redémarrer.                        |
+| **`env`**            | Métadonnée de champ : le NOM COURT qui le règle (`.meta({ env: "NF_REDIS_HOST" })`) — posé par le Kernel.    |
 | **12-factor**        | La discipline « la config vit dans l'environnement, le code est identique partout ».                         |
 
 ## Qu'est-ce qu'on appelle « la configuration »
@@ -109,7 +110,7 @@ Quatre partis pris, tous vérifiables dans le code :
 
 - **`defineConfig()` ne retourne pas une config, mais un descripteur** (`defineConfig.ts:178`) : une
   marque privée (`CONFIG_DESCRIPTOR`, `defineConfig.ts:149`) et une seule méthode, `resolve(ctx)`,
-  appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:2315`). Ta config
+  appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:2393`). Ta config
   **connaît donc son environnement** au moment où elle est calculée.
 - **Le par-environnement passe par `ctx`, jamais par un fichier parallèle** (`ConfigContext`,
   `types.ts:376`). Un `config.prod.ts` séparé diverge silencieusement ; une expression ternaire, non.
@@ -118,7 +119,7 @@ Quatre partis pris, tous vérifiables dans le code :
   du framework te parvient sans que tu ne réécrives rien.
 - **Le boot est fail-closed.** `validateAppConfig()` (`schema.ts:377`) agrège les erreurs Zod avec le
   chemin fautif ; l'échec devient un diagnostic présenté puis une sortie dédiée
-  (`Kernel.bootConfigError()`, `Kernel.ts:2434`).
+  (`Kernel.bootConfigError()`, `Kernel.ts:2512`).
 
 > [!IMPORTANT]
 > Un fichier de config ne doit **jamais** déréférencer le kernel au moment de son import
@@ -306,7 +307,7 @@ absente mais que `NF_X_FILE` pointe un fichier (secret Docker, `Secret` Kubernet
 
 Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathLooksSecret()`,
 `envOverride.ts:417`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
-(`Kernel.ts:2417`).
+(`Kernel.ts:2483`).
 
 Le fichier `.env` est chargé **avant** le boot par `loadEnv()` (`loadEnv.ts:170`) — le seul fichier
 lu : les valeurs du poste, jamais commité ; sa notice `.env.example` n'est jamais chargée, et la
@@ -387,13 +388,13 @@ export default defineConfig((ctx) => ({
 | `production`     | `production`     | `0.0.0.0`       | aucun      |
 | (absent)         | `production`     | `0.0.0.0`       | aucun      |
 
-Deux détails qui comptent : `dev` est normalisé en `development` (`Kernel.ts:2141`), et **l'absence**
+Deux détails qui comptent : `dev` est normalisé en `development` (`Kernel.ts:2219`), et **l'absence**
 de `NODE_ENV` est traitée comme `production` — le défaut est le régime le plus prudent, jamais le plus
 bavard.
 
 > [!TIP]
 > `ctx` porte **deux** axes distincts. `runtimeEnv` est le mode moteur (`NODE_ENV`) ; `appEnv` est un
-> axe de déploiement libre (`APP_ENV`/`NF_ENV`, `Kernel.ts:2547`). Un pré-production tourne
+> axe de déploiement libre (`APP_ENV`/`NF_ENV`, `Kernel.ts:2625`). Un pré-production tourne
 > « comme la production » (`isProd` vrai) tout en se distinguant par `ctx.appEnv === "staging"`.
 > C'est ce qui évite le faux dilemme « soit c'est prod, soit ça ne l'est pas ».
 
@@ -521,7 +522,7 @@ Au-delà de la description, un champ porte des **marqueurs opt-in** décrits par
 | `reserved`       | prévu, non lu en runtime                        | Studio grise le champ                                                |
 
 Ces marqueurs vivent dans le `.meta()` **natif** de Zod. Le cœur ne fournit aucun helper : il augmente
-le registre global de Zod (`GlobalMeta`, `configMeta.ts:54`), si bien que `.meta({ secret: true })`
+le registre global de Zod (`GlobalMeta`, `configMeta.ts:61`), si bien que `.meta({ secret: true })`
 est typé partout — dans le cœur, dans les modules **et** dans les applications. `z.toJSONSchema()`
 les recopie tels quels, ce qui les rend lisibles par Studio sans code d'interface écrit à la main.
 
@@ -567,13 +568,13 @@ Les points de passage, dans l'ordre du code :
 
 1. **`loadEnv()`** (`loadEnv.ts:170`) peuple `process.env` avant tout Kernel — les configs de modules
    lisent l'environnement au boot, il doit donc déjà être là.
-2. **`Kernel.buildConfigContext()`** (`Kernel.ts:2131`) fabrique `ctx`. Le catalogue `env` exporté par
+2. **`Kernel.buildConfigContext()`** (`Kernel.ts:2209`) fabrique `ctx`. Le catalogue `env` exporté par
    l'app y est branché (`Kernel.ts:1219`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
-3. **`descriptor.resolve(ctx)`** (`Kernel.ts:4509`) enchaîne merge, overrides `NF__APP__*` et
+3. **`descriptor.resolve(ctx)`** (`Kernel.ts:4584`) enchaîne merge, overrides `NF__APP__*` et
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
    est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:106`)
-   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2417`).
+   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2483`).
 5. **Les modules suivent la même mécanique, un cran plus tard** : chargement dans l'ordre du manifeste
    et deep-merge de la config `use()` sur leurs défauts (`Kernel.loadModulesFromManifest()`,
    `Kernel.ts:1794`), puis overrides inter-modules `module-<nom>`
@@ -592,15 +593,15 @@ s'y branchent via `resolveAutoStore()` (`infra.ts:297`).
 La doctrine est explicite : `auto` ne choisit que parmi les backends **réellement enregistrés**, et
 tout repli est **annoncé**, jamais silencieux. Une valeur explicite ne passe jamais par `auto`. La
 résolution effective de chaque brique est enregistrée au boot (`Kernel.registerStoreResolution()`,
-`Kernel.ts:2216`) — donc consultable après coup, plutôt que devinée.
+`Kernel.ts:2282`) — donc consultable après coup, plutôt que devinée.
 
 ### Quand la config est invalide — le boot s'arrête proprement
 
 Une config cassée n'est pas récupérable : le framework ne peut pas deviner tes ports ni tes modules.
-`Kernel.bootConfigError()` (`Kernel.ts:2434`) en fait un échec **soigné** plutôt qu'une trace brute :
+`Kernel.bootConfigError()` (`Kernel.ts:2512`) en fait un échec **soigné** plutôt qu'une trace brute :
 
 - un diagnostic lisible : titre, cause, champ Zod nommé, **et les valeurs par défaut du framework**
-  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2474`) ;
+  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2540`) ;
 - pas de pile d'appels — c'est une faute de configuration, pas un bogue du framework ;
 - un **code de sortie dédié** — `err.exitCode = SysExit.CONFIG`, soit `EX_CONFIG` (78)
   (`Kernel.ts:1549`) — pour qu'un orchestrateur
@@ -670,7 +671,7 @@ précisément l'objectif du modèle « résoudre puis figer ».
 
 | Symptôme                                               | Cause (dans le code)                                                 | Correction                                                                        |
 | ------------------------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2559`)                            |
+| Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2625`)                            |
 | `NF__APP__X=…` sans effet, avec « vouliez-vous dire »  | Le chemin n'existe pas dans les défauts (`applyResolvedPath` refuse) | Déclarer la clé dans `nodefony.config.ts` (`envOverride.ts:300`)                  |
 | Le champ ciblé refuse la valeur d'un `envEnum`         | `as const` oublié → l'union littérale est élargie en `string`        | `envEnum([...] as const, …)`                                                      |
 | `NF__…__ENABLED=false` interprété comme vrai           | Attendu d'une coercion naïve — ce n'est pas le cas ici               | Rien à faire : `coerceEnvValue()` est explicite (`envOverride.ts:59`)             |

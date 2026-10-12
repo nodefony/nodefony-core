@@ -288,7 +288,7 @@ avance la tête (`CircularBuffer.ts:32`), `toArray()` restitue l'ordre FIFO du p
 
 - Capacité par défaut **100** (`defaultSettings`, `Syslog.ts:343`) ; le Kernel la porte à **2000 en
   développement** pour qu'une requête complète tienne dans la fenêtre malgré le bruit
-  (`maxStack` résolu au boot, `Kernel.ts:2909`).
+  (`maxStack` résolu au boot, `Kernel.ts:2975`).
 - Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:793`) reconstruit le buffer
   en préservant les Pdu existants.
 - Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:758`) : les compteurs de
@@ -345,7 +345,7 @@ n'intervient **que** sur le défaut — une valeur explicite est toujours respec
 
 ### Le debug ciblé — relever la verbosité sans redéployer
 
-En production, le seuil global est posé à `INFO` par le Kernel (`Kernel.ts:2982`). Trois leviers
+En production, le seuil global est posé à `INFO` par le Kernel (`Kernel.ts:3063`). Trois leviers
 permettent de rouvrir le robinet **sans redémarrer**, du plus opérationnel au plus fin :
 
 1. **Au lancement** — `NF__DEBUG` : `*` lève la gate globale, `FIREWALL` passe ce module en `DEBUG`,
@@ -574,14 +574,14 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2853`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2919`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En
 production, c'est strictement ce qui est demandé.
 
 Si le driver configuré n'est pas enregistré, le Kernel **ne plante pas** : il retombe sur `memory`
-et l'annonce par un `WARNING` (`Kernel.ts:4306`) — le principe « pas de dégradation silencieuse ».
+et l'annonce par un `WARNING` (`Kernel.ts:4385`) — le principe « pas de dégradation silencieuse ».
 
 ## 🧰 API publique
 
@@ -770,7 +770,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:184`)                    |
 | Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:367`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
-| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2989`)           |
+| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:3067`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |
 | JSON Lines                 | JSONL            | `FileTransport` format `json`                          |
 | API de requête Loki        | LogQL            | `createLokiLogDriver()` (`LokiLogDriver.ts:86`)        |
