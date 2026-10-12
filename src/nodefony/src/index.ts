@@ -206,6 +206,7 @@ export type {
   JsonRpcPeerOptions,
   FrameAuditReason,
 } from "./realtime/JsonRpcPeer";
+export { IDENTITY_REFRESH_CLOSE_CODE } from "./realtime/closeCodes";
 export { TransportState } from "./realtime/IRealtimeTransport";
 export type {
   IRealtimeTransport,
@@ -406,8 +407,12 @@ export type { IGcSchedulerOptions } from "./runtime/GcScheduler";
 export {
   RevocationWatch,
   REVOCATION_REVALIDATE_MS,
+  IDENTITY_CHANGED_EVENT,
 } from "./runtime/RevocationWatch";
-export type { IRevocationPolicy } from "./runtime/RevocationWatch";
+export type {
+  IRevocationPolicy,
+  IIdentityChangedEvent,
+} from "./runtime/RevocationWatch";
 
 // ─── Decorators ───────────────────────────────────────────────────────────────
 export {

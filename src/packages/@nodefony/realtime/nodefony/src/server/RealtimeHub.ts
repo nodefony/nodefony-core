@@ -1,4 +1,5 @@
 import {
+  IDENTITY_REFRESH_CLOSE_CODE,
   JsonRpcPeer,
   NODEFONY_CHANNEL_NAMESPACE,
   RevocationWatch,
@@ -273,6 +274,11 @@ export class RealtimeHub {
   readonly #revocation = new RevocationWatch<IRevocableConnection>({
     isValid: (entry) => entry.token.isValid?.(),
     revoke: (entry) => entry.close(4001, "session revoked"),
+    identityOf: (entry) => entry.token.getUserIdentifier(),
+    // Droits changés, identité vivante : code RECONNECTABLE — le client revient
+    // aussitôt avec son identité à jour (4001 l'arrêterait).
+    refresh: (entry) =>
+      entry.close(IDENTITY_REFRESH_CLOSE_CODE, "identity changed"),
   });
 
   // Backplane cross-process (P13). `null` par défaut = mono-process (Loopback implicite,
@@ -808,6 +814,19 @@ export class RealtimeHub {
    */
   revalidateRevocable(): Promise<void> {
     return this.#revocation.revalidate();
+  }
+
+  /**
+   * Ferme tout de suite les connexions qui ont figé cette identité — ses droits
+   * ont changé (`IDENTITY_CHANGED_EVENT`). Code {@link IDENTITY_REFRESH_CLOSE_CODE},
+   * reconnectable : le client revient avec ses rôles frais. Le registre est
+   * celui des flux SSE — une règle, deux transports.
+   *
+   * @param identifier - identifiant de connexion de l'identité changée.
+   * @returns le nombre de connexions fermées.
+   */
+  refreshIdentity(identifier: string): number {
+    return this.#revocation.refreshIdentity(identifier);
   }
 
   /**

@@ -10,6 +10,26 @@
  */
 export const REVOCATION_REVALIDATE_MS = 30_000;
 
+/**
+ * Événement kernel — les droits d'une identité ont changé (ses rôles, par
+ * exemple), sans qu'elle soit morte. Une connexion longue a FIGÉ cette
+ * identité à l'ouverture : elle doit se fermer pour que le client se
+ * reconnecte avec l'identité à jour. Re-lire la base à chaque tick pour le
+ * détecter coûterait une lecture par connexion ; l'événement ne coûte rien
+ * tant que rien ne change. Charge utile : {@link IIdentityChangedEvent}.
+ *
+ * Défini au cœur parce que ses abonnés (`@nodefony/http` pour les flux SSE,
+ * `@nodefony/realtime` pour les sockets) ne dépendent pas du paquet qui
+ * l'émet (`@nodefony/user`).
+ */
+export const IDENTITY_CHANGED_EVENT = "onIdentityChanged";
+
+/** Charge utile de {@link IDENTITY_CHANGED_EVENT}. */
+export interface IIdentityChangedEvent {
+  /** Identifiant de connexion de l'identité dont les droits ont changé. */
+  readonly identifier: string;
+}
+
 /** Ce que le registre sait faire d'une entrée — fourni par son propriétaire. */
 export interface IRevocationPolicy<T> {
   /**
@@ -19,6 +39,17 @@ export interface IRevocationPolicy<T> {
   isValid(entry: T): Promise<boolean> | boolean | undefined;
   /** Ferme la connexion de l'entrée — appelée une fois, l'entrée déjà retirée. */
   revoke(entry: T): void;
+  /**
+   * Identifiant de connexion de l'identité figée par l'entrée — `undefined` si
+   * elle n'en porte pas. Sans cette méthode, {@link RevocationWatch.refreshIdentity}
+   * ne ferme rien.
+   */
+  identityOf?(entry: T): string | undefined;
+  /**
+   * Ferme l'entrée pour que son client se RECONNECTE avec une identité à jour —
+   * à distinguer de `revoke`, qui signifie « identité morte ». Absent : `revoke`.
+   */
+  refresh?(entry: T): void;
   /** Période du tick, en ms. Défaut : {@link REVOCATION_REVALIDATE_MS}. */
   periodMs?: number;
 }
@@ -97,6 +128,33 @@ export class RevocationWatch<T> {
         /* connexion déjà fermée : son propre nettoyage finira le travail */
       }
     }
+  }
+
+  /**
+   * Ferme, tout de suite, les entrées qui ont figé cette identité — ses droits
+   * ont changé ({@link IDENTITY_CHANGED_EVENT}). L'entrée est retirée AVANT sa
+   * fermeture, comme à la révocation.
+   *
+   * @param identifier - identifiant de connexion de l'identité changée.
+   * @returns le nombre d'entrées fermées.
+   */
+  refreshIdentity(identifier: string): number {
+    const policy = this.#policy;
+    if (this.#entries === null || policy.identityOf === undefined) return 0;
+    let closed = 0;
+    for (const entry of Array.from(this.#entries)) {
+      if (policy.identityOf(entry) !== identifier) continue;
+      this.unregister(entry);
+      closed += 1;
+      try {
+        // Appel en MÉTHODE : une politique qui lit `this` le garde.
+        if (policy.refresh) policy.refresh(entry);
+        else policy.revoke(entry);
+      } catch {
+        /* connexion déjà fermée : son propre nettoyage finira le travail */
+      }
+    }
+    return closed;
   }
 }
 

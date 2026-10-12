@@ -20,7 +20,14 @@
  *  - README.md  — usage humain
  *  - docs/      — doc dev vulgarisée
  */
-import { Kernel, Module, services, withTimeout } from "nodefony";
+import {
+  IDENTITY_CHANGED_EVENT,
+  Kernel,
+  Module,
+  services,
+  withTimeout,
+} from "nodefony";
+import type { IIdentityChangedEvent } from "nodefony";
 import defaultConfig from "./nodefony/config/config";
 import {
   buildRealtimeConfig,
@@ -258,6 +265,12 @@ class Realtime extends Module<IRealtimeConfig> {
     ) {
       broker.register(createRealtimeAdminApi());
     }
+    // Droits d'une identité changés (rôles) : ses sockets, qui les ont figés au
+    // handshake, se ferment pour se reconnecter à jour. Un écouteur pour la vie
+    // du kernel, posé une fois ; émetteur : `UserService` (@nodefony/user).
+    this.kernel?.on(IDENTITY_CHANGED_EVENT, (event: IIdentityChangedEvent) => {
+      getRealtimeHub().refreshIdentity(event.identifier);
+    });
     await this.#wireBackplane();
     // Sonde pod (cluster worker) — différée ici pour lire `cluster.probe.enabled`
     // (config indisponible dans le callback `onCluster` du constructeur).

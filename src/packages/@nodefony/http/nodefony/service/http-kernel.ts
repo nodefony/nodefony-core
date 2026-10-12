@@ -17,8 +17,13 @@ import {
   thenMaybe,
   finallyMaybe,
   RevocationWatch,
+  IDENTITY_CHANGED_EVENT,
 } from "nodefony";
-import type { MaybePromise, RequestContextPayload } from "nodefony";
+import type {
+  IIdentityChangedEvent,
+  MaybePromise,
+  RequestContextPayload,
+} from "nodefony";
 import type { IRouteResolver, IRequestRouter } from "../interfaces/IRouting";
 import HttpError from "../src/errors/httpError";
 import {
@@ -390,6 +395,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // Pré-calcul des security headers une fois au boot — defaults dans
     // `config/config.ts` (`securityHeaders`). Évite alloc + concat par requête.
     this.computeSecurityHeaderCaches();
+    // Droits d'une identité changés (rôles) : ses flux SSE, qui les ont figés
+    // à l'ouverture, se ferment — `EventSource` se reconnecte à jour. Un
+    // écouteur pour la vie du kernel (même durée que ce service) ; sans flux
+    // ouvert, l'appel ne fait rien. Émetteur : `UserService` (@nodefony/user).
+    this.kernel?.on(IDENTITY_CHANGED_EVENT, (event: IIdentityChangedEvent) => {
+      this.#streams?.refreshIdentity(event.identifier);
+    });
   }
 
   /**
@@ -2286,6 +2298,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     (this.#streams ??= new RevocationWatch<SseStream>({
       isValid: (entry) => entry.revalidate(),
       revoke: (entry) => void entry.close(),
+      // Droits changés : la même fermeture — `EventSource` se reconnecte seul,
+      // avec l'identité à jour.
+      identityOf: (entry) => entry.identifier ?? undefined,
     })).register(stream);
   }
 

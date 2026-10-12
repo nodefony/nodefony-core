@@ -1,7 +1,7 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
 import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
-import { countFacets } from "nodefony";
-import type { IPage, PartialInput } from "nodefony";
+import { countFacets, IDENTITY_CHANGED_EVENT } from "nodefony";
+import type { IIdentityChangedEvent, IPage, PartialInput } from "nodefony";
 import { USER_FACETS, type IUserCounts } from "../src/userFilters";
 import type {
   IUser,
@@ -134,6 +134,15 @@ export interface IUserRevokedEvent {
   reason: "deleted" | "disabled" | "locked" | "password_changed";
 }
 
+/** Mêmes rôles, dans n'importe quel ordre. */
+function sameRoles(a: readonly string[], b: readonly string[]): boolean {
+  const left = new Set(a);
+  const right = new Set(b);
+  if (left.size !== right.size) return false;
+  for (const role of right) if (!left.has(role)) return false;
+  return true;
+}
+
 /**
  * Ce qui, dans une mise à jour, coupe les accès en cours du compte — ou `null`.
  * `enabled`/`locked` sont des champs de PERSISTANCE, absents du contrat `IUser`
@@ -205,7 +214,9 @@ export class UserService
   }
 
   /**
-   * Met à jour un compte (CRUD hérité). Un geste qui coupe ses accès émet
+   * Met à jour un compte (CRUD hérité). Un changement de RÔLES émet
+   * `IDENTITY_CHANGED_EVENT` (cœur) : les connexions longues qui ont figé
+   * l'identité se ferment pour se reconnecter à jour. Un geste qui coupe ses accès émet
    * {@link USER_REVOKED_EVENT} et en attend la cascade — ses sessions et ses
    * jetons tombent avant le retour : désactivation (`enabled: false`),
    * verrouillage (`locked: true`), ou hash de mot de passe écrit directement
@@ -219,10 +230,24 @@ export class UserService
     criteria: Criteria<IPasswordAuthenticatedUser>,
     data: PartialInput<IPasswordAuthenticatedUser>,
   ): Promise<IPasswordAuthenticatedUser | null> {
+    // Rôles visés : lire l'AVANT, pour ne signaler qu'un vrai changement. Une
+    // lecture de plus, seulement quand la mise à jour porte `roles`.
+    // COPIE, jamais une référence : un dépôt qui met à jour SUR PLACE (le dépôt
+    // en mémoire) rendrait l'avant identique à l'après.
+    const before =
+      data.roles !== undefined ? await this.findOne(criteria) : null;
+    const rolesBefore = before === null ? null : [...before.roles];
     const updated = await super.updateOne(criteria, data);
     if (updated === null) return null;
     const reason = revocationReason(data);
-    if (reason !== null) await this.#revoke(updated, reason);
+    if (reason !== null) {
+      await this.#revoke(updated, reason);
+    } else if (rolesBefore !== null && !sameRoles(rolesBefore, updated.roles)) {
+      // Identité vivante, droits changés : les connexions longues qui l'ont
+      // figée (sockets, flux SSE) se ferment et se reconnectent à jour.
+      const event: IIdentityChangedEvent = { identifier: updated.identifier };
+      await this.#emit(IDENTITY_CHANGED_EVENT, event);
+    }
     return updated;
   }
 

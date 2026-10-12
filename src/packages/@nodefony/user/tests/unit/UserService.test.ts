@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { Criteria, ITransaction } from "@nodefony/orm-core";
-import { Container, Event } from "nodefony";
+import { Container, Event, IDENTITY_CHANGED_EVENT } from "nodefony";
+import type { IIdentityChangedEvent } from "nodefony";
 import {
   Argon2idEncoder,
   BaseUser,
@@ -725,5 +726,50 @@ describe("UserService — l'identifiant est IMMUABLE (#589)", () => {
       { identifier: "bob", roles: ["ROLE_EDITOR"] },
     );
     assert.deepEqual(same?.roles, ["ROLE_EDITOR"]);
+  });
+});
+
+describe("UserService — rôles changés : l'identité figée des connexions longues vieillit (#591)", () => {
+  function onKernel() {
+    const kernel = new Event();
+    const ctn = new Container();
+    ctn.set("kernel", kernel);
+    const service = new UserService(
+      new MemoryUserRepo(),
+      new BcryptEncoder(FAST),
+      ctn,
+    );
+    const changed: IIdentityChangedEvent[] = [];
+    kernel.on(IDENTITY_CHANGED_EVENT, (e: IIdentityChangedEvent) =>
+      changed.push(e),
+    );
+    return { service, changed };
+  }
+
+  it("🔴 retirer un rôle émet onIdentityChanged, sous l'identifiant", async () => {
+    const { service, changed } = onKernel();
+    const bob = await service.createUser({
+      identifier: "bob",
+      roles: ["ROLE_USER", "ROLE_NODEFONY_ADMIN"],
+    });
+    await service.updateOne({ id: bob.id }, { roles: ["ROLE_USER"] });
+    assert.deepEqual(changed, [{ identifier: "bob" }]);
+  });
+
+  it("mêmes rôles (dans un autre ordre) → rien ; désactivation → la révocation, pas ceci", async () => {
+    const { service, changed } = onKernel();
+    const bob = await service.createUser({
+      identifier: "bob",
+      roles: ["ROLE_USER", "ROLE_EDITOR"],
+    });
+    await service.updateOne(
+      { id: bob.id },
+      { roles: ["ROLE_EDITOR", "ROLE_USER"] },
+    );
+    // `enabled` est un champ de persistance, absent du contrat `IUser` : même
+    // forme que le patch du plan d'administration.
+    const disable: { enabled: boolean; roles?: string[] } = { enabled: false };
+    await service.updateOne({ id: bob.id }, disable);
+    assert.deepEqual(changed, []);
   });
 });

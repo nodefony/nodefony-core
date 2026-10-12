@@ -4,6 +4,7 @@ import type http2 from "node:http2";
 import type HttpContext from "./HttpContext";
 import Http2Response from "../http2/Response";
 import HttpError from "../../errors/httpError";
+import { RequestContext } from "nodefony";
 
 /**
  * Le flux d'événements serveur (SSE) d'une réponse HTTP — `text/event-stream`.
@@ -144,6 +145,8 @@ interface ISseSettings {
   maxDuration: number | false;
   /** Revalidateur de l'identité du flux — `null` pour un anonyme. */
   revalidate: (() => Promise<boolean>) | null;
+  /** Identifiant de connexion de l'identité qui ouvre le flux — `null` anonyme. */
+  identifier: string | null;
 }
 
 /** Préfixe chaque ligne d'un texte par `prefix` — `data: ` ou `: `. */
@@ -168,6 +171,14 @@ export class SseStream {
   readonly #stallTimeout: number | false;
   readonly #maxEventBytes: number;
   readonly #revalidate: (() => Promise<boolean>) | null;
+  /**
+   * Identifiant de connexion de l'identité qui a ouvert le flux (`null` pour
+   * un anonyme) — le registre de révocation ferme par lui les flux d'une
+   * identité dont les droits ont changé.
+   *
+   * @internal
+   */
+  readonly identifier: string | null;
   #closed = false;
   #heartbeat: ReturnType<typeof setInterval> | null = null;
   /** Coupure d'un client qui ne lit plus — armée seulement sous pression. */
@@ -203,6 +214,7 @@ export class SseStream {
     this.#stallTimeout = settings.stallTimeout;
     this.#maxEventBytes = settings.maxEventBytes;
     this.#revalidate = settings.revalidate;
+    this.identifier = settings.identifier;
     response.on("close", this.#onResponseClose);
     const heartbeat = settings.heartbeat;
     if (settings.maxDuration !== false) {
@@ -449,12 +461,17 @@ export function openSseStream(
   }
   // Lu dans la bulle de la requête, là où le pare-feu a posé l'identité.
   const revalidate = kernel?.firewall?.currentRevalidator?.() ?? null;
+  const identifier =
+    revalidate === null
+      ? null
+      : (RequestContext.getAuthenticatedUser()?.identifier ?? null);
   const settings: ISseSettings = {
     heartbeat: options.heartbeat ?? SSE_HEARTBEAT_MS,
     stallTimeout: options.stallTimeout ?? SSE_STALL_TIMEOUT_MS,
     maxEventBytes,
     maxDuration: options.maxDuration ?? false,
     revalidate,
+    identifier,
   };
   // Pris AVANT toute attente : l'action ne doit plus pouvoir répondre autrement.
   context.sended = true;

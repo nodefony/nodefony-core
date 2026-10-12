@@ -27,6 +27,7 @@ import https from "node:https";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import WebSocket from "ws";
 
 const HTTPS_BASE = {
   hostname: "localhost",
@@ -38,6 +39,10 @@ const ME = "/nodefony/user/api/me";
 const SECURITY = "/nodefony/security/api";
 const KEYS = `${SECURITY}/keys`;
 const WHOAMI = "/nodefony/test/m2m/whoami";
+// Socket de la console d'administration : identité de session, figée au handshake.
+const STUDIO_SOCKET = "/nodefony/studio/api/realtime";
+/** Code privé « droits mis à jour, reconnecte-toi » (`IDENTITY_REFRESH_CLOSE_CODE`). */
+const IDENTITY_REFRESH = 4005;
 // …/framework/nodefony/tests/integration → racine du dépôt (= l'application).
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -139,6 +144,8 @@ const PROBES = {
   cliPassword: "lifecycle-cli-password",
   disabled: "lifecycle-disabled",
   locked: "lifecycle-locked",
+  demoted: "lifecycle-demoted",
+  witness: "lifecycle-witness",
   deleted: "lifecycle-deleted",
 } as const;
 const PASSWORD = "lifecycle-secret-ancien-1";
@@ -303,5 +310,106 @@ describe("Cycle de vie du compte — les accès en cours suivent le geste (#589)
     const deleted = await req("DELETE", `${USERS}/${access.id}`, auth());
     expect(deleted.status).to.equal(200);
     await expectAccessCut(access, "suppression");
+  });
+});
+
+/** Une socket de Studio ouverte : attend l'accueil, expose sa fermeture. */
+interface ISocketProbe {
+  closed: Promise<number>;
+  isOpen: () => boolean;
+  close: () => void;
+}
+
+function openStudioSocket(cookie: string): Promise<ISocketProbe> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`wss://localhost:5152${STUDIO_SOCKET}`, {
+      rejectUnauthorized: false,
+      headers: { cookie, origin: "https://localhost:5152" },
+    });
+    let welcomed = false;
+    const closed = new Promise<number>((done) => {
+      ws.once("close", (code: number) => done(code));
+    });
+    const timer = setTimeout(() => {
+      ws.terminate();
+      reject(new Error("accueil de la socket : rien après 10 s"));
+    }, 10_000);
+    ws.on("error", (e) => {
+      clearTimeout(timer);
+      if (!welcomed) reject(e);
+    });
+    void closed.then((code) => {
+      clearTimeout(timer);
+      if (!welcomed) reject(new Error(`fermée avant l'accueil (code ${code})`));
+    });
+    ws.on("message", (data: Buffer) => {
+      if (welcomed) return;
+      const frame = JSON.parse(String(data)) as { method?: unknown };
+      if (frame.method !== "realtime:welcome") return;
+      welcomed = true;
+      clearTimeout(timer);
+      resolve({
+        closed,
+        isOpen: () => ws.readyState === WebSocket.OPEN,
+        close: () => ws.close(),
+      });
+    });
+  });
+}
+
+/** `p`, ou un rejet qui nomme ce qui n'est pas arrivé dans les `ms` impartis. */
+function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, fail) => {
+    timer = setTimeout(
+      () => fail(new Error(`${what} : rien après ${ms} ms`)),
+      ms,
+    );
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
+describe("Rôles retirés — la socket qui les a figés se reconnecte à jour (#591)", () => {
+  /** Compte sonde administrateur, connecté : rend son id et son cookie. */
+  async function adminProbe(
+    probe: string,
+  ): Promise<{ id: string; cookie: string }> {
+    const stale = await probeId(probe);
+    if (stale) await req("DELETE", `${USERS}/${stale}`, auth());
+    const created = await req("POST", USERS, auth(), {
+      identifier: probe,
+      plainPassword: PASSWORD,
+      roles: ["ROLE_USER", "ROLE_NODEFONY_ADMIN"],
+    });
+    expect(created.status, "création du compte sonde").to.equal(201);
+    const logged = await login(probe, PASSWORD);
+    expect(logged.status, "login de la sonde").to.equal(200);
+    return {
+      id: (created.body as { id: string }).id,
+      cookie: sessionCookie(logged),
+    };
+  }
+
+  it("🔴 l'admin retire un rôle → la socket du compte se ferme en 4005 SANS attendre le tick ; celle d'un autre survit", async () => {
+    const demoted = await adminProbe(PROBES.demoted);
+    const witness = await adminProbe(PROBES.witness);
+    const doomed = await openStudioSocket(demoted.cookie);
+    const kept = await openStudioSocket(witness.cookie);
+    try {
+      const patched = await req("PATCH", `${USERS}/${demoted.id}`, auth(), {
+        roles: ["ROLE_USER"],
+      });
+      expect(patched.status).to.equal(200);
+      // Bien en deçà du tick de revalidation (30 s) : c'est l'événement qui
+      // ferme, pas le minuteur.
+      const code = await within(doomed.closed, 5_000, "fermeture de la socket");
+      expect(code, "reconnectable, pas 4001").to.equal(IDENTITY_REFRESH);
+      expect(kept.isOpen(), "la socket d'un autre compte survit").to.equal(
+        true,
+      );
+    } finally {
+      doomed.close();
+      kept.close();
+    }
   });
 });

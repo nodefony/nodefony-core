@@ -29,7 +29,7 @@ const SKIPPED_DIRS = new Set(["node_modules", "dist", "tests", "frontend"]);
 
 /** Une émission DIRECTE d'un événement de cycle de vie, par constante ou par nom. */
 const DIRECT_EMISSION =
-  /\.(?:fire|emit|fireAsync|emitAsync|emitAsyncGuarded)\(\s*(?:USER_CREATED_EVENT|USER_REVOKED_EVENT|["'`]onUser(?:Created|Revoked)["'`])/u;
+  /\.(?:fire|emit|fireAsync|emitAsync|emitAsyncGuarded)\(\s*(?:USER_CREATED_EVENT|USER_REVOKED_EVENT|IDENTITY_CHANGED_EVENT|["'`]on(?:UserCreated|UserRevoked|IdentityChanged)["'`])/u;
 
 interface ISourceFile {
   /** Chemin relatif à la racine, séparateurs `/` (il voyage dans un message). */
@@ -84,17 +84,19 @@ describe("Cycle de vie du compte — un SEUL émetteur (#589)", () => {
         source:
           "const a = 1;\n" +
           "await this.kernel?.fireAsync(USER_REVOKED_EVENT, { id });\n" +
-          'kernel.emit("onUserCreated", e);',
+          'kernel.emit("onUserCreated", e);\n' +
+          "kernel.fire(IDENTITY_CHANGED_EVENT, { identifier });",
       },
       { file: "ok.ts", source: "await this.#emit(USER_REVOKED_EVENT, e);" },
     ]);
     assert.deepEqual(found, [
       "security/command/x.ts:2",
       "security/command/x.ts:3",
+      "security/command/x.ts:4",
     ]);
   });
 
-  it("🔴 aucun code de production n'émet onUserCreated/onUserRevoked en direct", () => {
+  it("🔴 aucun code de production n'émet onUserCreated/onUserRevoked/onIdentityChanged en direct", () => {
     const files: ISourceFile[] = [];
     for (const root of ROOTS) collectSources(root, files);
     // Garde anti-suite creuse : un chemin devenu faux lirait zéro fichier.

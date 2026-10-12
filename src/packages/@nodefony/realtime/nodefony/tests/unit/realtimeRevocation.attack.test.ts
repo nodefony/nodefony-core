@@ -5,6 +5,7 @@ import {
   type IRevocableConnection,
 } from "../../src/server/RealtimeHub";
 import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
+import { IDENTITY_REFRESH_CLOSE_CODE } from "nodefony";
 
 /**
  * Phase 0.6 — REVUE TOTALE realtime, F4 : révocation asymétrique (blue « B »).
@@ -118,5 +119,29 @@ describe("0.6 F4 — hub : re-validation périodique des sockets révocables (bl
     await hub.revalidateRevocable();
     assert.equal(live.closes.length, 0);
     assert.equal(dead.closes.length, 1);
+  });
+});
+
+describe("hub : droits d'une identité changés → ses sockets se reconnectent (#591)", () => {
+  function conn(hub: RealtimeHub, who: string) {
+    const closes: Array<{ code: number; reason: string }> = [];
+    const entry: IRevocableConnection = {
+      token: { ...sessionToken(true), getUserIdentifier: () => who },
+      close: (code, reason) => closes.push({ code, reason }),
+    };
+    hub.registerRevocable(entry);
+    return { entry, closes };
+  }
+
+  it("🔴 `refreshIdentity` ferme les sockets de l'identité en 4005 (reconnectable), pas les autres", () => {
+    const hub = new RealtimeHub();
+    const boss = conn(hub, "boss");
+    const other = conn(hub, "alice");
+    assert.equal(hub.refreshIdentity("boss"), 1);
+    assert.deepEqual(boss.closes, [
+      { code: IDENTITY_REFRESH_CLOSE_CODE, reason: "identity changed" },
+    ]);
+    assert.deepEqual(other.closes, []);
+    hub.unregisterRevocable(other.entry);
   });
 });

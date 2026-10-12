@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import { IDENTITY_REFRESH_CLOSE_CODE } from "../realtime/closeCodes";
 import {
   closeCodeToNotice,
   deniedToNotice,
@@ -145,5 +146,18 @@ describe("NodefonySocket — isReconnectableCloseCode (respect sémantique RFC 6
   it("code absent ou inconnu → true (anormal → on retente)", () => {
     expect(isReconnectableCloseCode(undefined)).to.equal(true);
     expect(isReconnectableCloseCode(3001)).to.equal(true);
+  });
+});
+
+describe("NodefonySocket — 4005, droits mis à jour (#591)", () => {
+  it("🔴 RECONNECTABLE : l'identité est vivante, seule sa version figée a vieilli", () => {
+    expect(isReconnectableCloseCode(IDENTITY_REFRESH_CLOSE_CODE)).to.equal(
+      true,
+    );
+  });
+
+  it("notice d'information, pas d'erreur", () => {
+    const notice = closeCodeToNotice(IDENTITY_REFRESH_CLOSE_CODE, "");
+    expect(notice?.level).to.equal("info");
   });
 });

@@ -105,3 +105,56 @@ describe("RevocationWatch", () => {
     expect(w.size).to.equal(0);
   });
 });
+
+describe("RevocationWatch.refreshIdentity — droits changés (#591)", () => {
+  interface IConn {
+    who: string;
+    refreshed: number;
+    revoked: number;
+  }
+  const conn = (who: string): IConn => ({ who, refreshed: 0, revoked: 0 });
+
+  it("🔴 ferme TOUT DE SUITE les connexions de l'identité, par `refresh`, et elles seules", () => {
+    const w = new RevocationWatch<IConn>({
+      isValid: () => true,
+      revoke: (c) => void c.revoked++,
+      identityOf: (c) => c.who,
+      refresh: (c) => void c.refreshed++,
+    });
+    const a = conn("boss");
+    const b = conn("boss");
+    const other = conn("alice");
+    for (const c of [a, b, other]) w.register(c);
+    expect(w.refreshIdentity("boss")).to.equal(2);
+    expect([a.refreshed, b.refreshed, other.refreshed]).to.deep.equal([
+      1, 1, 0,
+    ]);
+    expect(a.revoked, "refresh, pas revoke : l'identité est vivante").to.equal(
+      0,
+    );
+    expect(w.size, "retirées du registre").to.equal(1);
+    expect(w.refreshIdentity("boss"), "jamais deux fermetures").to.equal(0);
+    w.unregister(other);
+  });
+
+  it("sans `refresh`, c'est `revoke` qui ferme ; sans `identityOf`, rien", () => {
+    const withRevoke = new RevocationWatch<IConn>({
+      isValid: () => true,
+      revoke: (c) => void c.revoked++,
+      identityOf: (c) => c.who,
+    });
+    const a = conn("boss");
+    withRevoke.register(a);
+    withRevoke.refreshIdentity("boss");
+    expect(a.revoked).to.equal(1);
+
+    const blind = new RevocationWatch<IConn>({
+      isValid: () => true,
+      revoke: (c) => void c.revoked++,
+    });
+    const b = conn("boss");
+    blind.register(b);
+    expect(blind.refreshIdentity("boss")).to.equal(0);
+    blind.unregister(b);
+  });
+});

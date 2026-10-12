@@ -8,6 +8,7 @@
  */
 
 import type { IRealtimeDenied } from "../../realtime/RealtimeEventMap";
+import { IDENTITY_REFRESH_CLOSE_CODE } from "../../realtime/closeCodes";
 
 // Contrat de protocole isomorphe (le serveur émet `realtime:denied` avec CE type).
 // Re-exporté ici pour la DX client (consommé par `deniedToNotice` + `onDenied`).
@@ -135,6 +136,12 @@ export function closeCodeToNotice(
       // Code privé Nodefony (toWsCloseCode) : 4xx applicatif (404…).
       level = "error";
       message = "Ressource temps réel introuvable";
+      break;
+    case IDENTITY_REFRESH_CLOSE_CODE:
+      // Droits de l'identité changés (rôles) : fermeture pour reconnexion,
+      // RECONNECTABLE — l'identité est vivante, seule sa version figée a vieilli.
+      level = "info";
+      message = "Droits mis à jour — reconnexion temps réel";
       break;
     case undefined:
     default:
