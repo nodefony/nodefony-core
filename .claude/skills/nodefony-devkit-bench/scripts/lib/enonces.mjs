@@ -293,3 +293,23 @@ export const CORPS_VIREMENT = Object.freeze({
   amount: 100,
   to: "FR7630006000011234567890189",
 });
+
+/**
+ * Tâche « un script appelle l'API protégée » — la route réservée aux
+ * programmes. Sous `^/api/machine` : la zone `machine` du gabarit `complete`
+ * (clé d'API, aucune session) la couvre sans rien déclarer.
+ */
+export const ROUTE_RAPPORT_MACHINE = "/api/machine/health-report";
+
+/**
+ * Même tâche — le script que la tâche planifiée lance. En TypeScript, lancé par
+ * `node` (typage effacé) : les sondes par fichier ne lisent que `.ts`, `.json`
+ * et `.md`, un `.mjs` leur serait invisible.
+ */
+export const SCRIPT_RAPPORT = "scripts/health-report.ts";
+
+/** Même tâche — où le script trouve l'adresse de l'application. */
+export const VAR_URL_RAPPORT = "NF_REPORT_URL";
+
+/** Même tâche — où le script trouve la clé d'API qui l'authentifie. */
+export const VAR_CLE_RAPPORT = "NF_REPORT_API_KEY";

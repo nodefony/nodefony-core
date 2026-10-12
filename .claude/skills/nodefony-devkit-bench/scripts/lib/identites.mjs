@@ -247,6 +247,40 @@ export const ouvrirSession = async (identite) => {
   return { jar };
 };
 
+/** Chemin d'émission d'une clé d'API — celui du framework, jamais un raccourci. */
+export const EMISSION_CLE = "/nodefony/security/api/keys";
+
+/**
+ * Émet une clé d'API par le chemin PRÉVU, au nom de la session fournie.
+ *
+ * Deux juges en ont besoin — l'un pour frapper la zone machine, l'autre pour la
+ * REMETTRE au script de l'agent. Recopiée, la lecture de la réponse divergerait
+ * au premier changement de forme, et le juge en retard accuserait le décor.
+ *
+ * @param {CookieJar} jar - une session autorisée à émettre (administration).
+ * @param {string} nom - le libellé de la clé.
+ * @returns {Promise<{cle: string}|{echec: string}>} la clé, ou le motif.
+ */
+export const emettreCle = async (jar, nom) => {
+  const r = await request("POST", EMISSION_CLE, jar, {
+    body: { name: nom },
+    csrfToken: jar.csrfToken(),
+  });
+  if (r.error) return { echec: r.error };
+  let cle = null;
+  if (r.status === 201) {
+    try {
+      cle = JSON.parse(r.body || "{}").token ?? null;
+    } catch {
+      cle = null;
+    }
+  }
+  if (typeof cle === "string" && cle.length > 0) return { cle };
+  return {
+    echec: `POST ${EMISSION_CLE} rend ${r.status} et aucune clé exploitable. Corps : ${(r.body ?? "").slice(0, 160)}`,
+  };
+};
+
 /**
  * Établit les deux identités, ou termine le juge sur une cause de DÉCOR.
  *

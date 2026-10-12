@@ -48,11 +48,15 @@
  * @output une ligne `CAUSE=<nom> — <explication>` puis sortie du code ci-dessus
  */
 import { CookieJar, request, ensurePortFree, exit } from "./http-probe.mjs";
-import { ADMIN, estRefus, estSucces, ouvrirSession } from "./identites.mjs";
+import {
+  ADMIN,
+  EMISSION_CLE,
+  emettreCle,
+  estRefus,
+  estSucces,
+  ouvrirSession,
+} from "./identites.mjs";
 import { REPERE_ZONE_PROTEGEE, ROUTE_MACHINE } from "./enonces.mjs";
-
-/** Chemin d'émission d'une clé — celui du framework, jamais un raccourci. */
-const EMISSION = "/nodefony/security/api/keys";
 
 /**
  * Un cookie de SESSION a été posé ?
@@ -91,23 +95,16 @@ const main = async () => {
     );
   }
 
-  const emise = await request("POST", EMISSION, admin.jar, {
-    body: { name: "bench-m2m" },
-    csrfToken: admin.jar.csrfToken(),
-  });
-  const cle =
-    emise.status === 201
-      ? (JSON.parse(emise.body || "{}").token ?? null)
-      : null;
-  if (!cle) {
+  const emise = await emettreCle(admin.jar, "bench-m2m");
+  if (!emise.cle) {
     exit(
       9,
-      `CAUSE=emission-de-cle-impossible — POST ${EMISSION} rend ${emise.status} ` +
-        `et aucune clé exploitable. Les clés d'API sont-elles activées dans ce ` +
-        `décor ? C'est le banc qui n'a pas su se fournir, pas l'agent qui a mal ` +
-        `travaillé. Corps : ${(emise.body ?? "").slice(0, 160)}`,
+      `CAUSE=emission-de-cle-impossible — ${emise.echec}. Les clés d'API ` +
+        `sont-elles activées dans ce décor (${EMISSION_CLE}) ? C'est le banc qui ` +
+        `n'a pas su se fournir, pas l'agent qui a mal travaillé.`,
     );
   }
+  const cle = emise.cle;
 
   // ─── 1. La clé ouvre la route ──────────────────────────────────────────
   const avecCle = await request("POST", ROUTE_MACHINE, new CookieJar(), {

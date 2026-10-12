@@ -1786,6 +1786,91 @@ const SAMPLES = {
     },
   },
 
+  // ── T41 — un script appelle l'API protégée ────────────────────────────────
+  "41 :: a lu la doc des clés d'API": {
+    pass: {
+      transcript: `{"command":"cat node_modules/@nodefony/security/docs/api-keys.md"}`,
+    },
+    fail: { transcript: `{"command":"npm run build"}` },
+  },
+  "41 :: la clé voyage en Authorization: Bearer — observation": {
+    pass: {
+      content:
+        "const r = await fetch(url, { headers: { authorization: `Bearer ${key}` } });",
+    },
+    fail: {
+      content: 'const r = await fetch(url, { headers: { "x-api-key": key } });',
+    },
+  },
+  "41 :: aucune connexion par la route de login": {
+    // Sonde INVERSÉE : le `pass` présente sa clé, le `fail` poste le formulaire.
+    pass: {
+      addedTs: "  headers: { authorization: `Bearer ${key}` },",
+    },
+    fail: {
+      addedTs:
+        '  await fetch(`${url}/nodefony/security/api/auth/login`, { method: "POST" });',
+    },
+    extra: [
+      {
+        label: "refuse la constante de la route de login",
+        matter: { addedTs: `import { AUTH_LOGIN_PATH } from "nodefony";` },
+        expect: false,
+      },
+    ],
+  },
+  "41 :: aucun cookie de session dans le script": {
+    pass: {
+      content:
+        "const r = await fetch(url, { headers: { authorization: `Bearer ${key}` } });",
+    },
+    fail: {
+      content: 'const sid = login.headers.get("set-cookie");',
+    },
+    extra: [
+      {
+        label: "refuse le cookie rejoué",
+        matter: {
+          contentByFile: {
+            "scripts/health-report.ts":
+              "await fetch(url, { headers: { cookie: sid } });",
+          },
+        },
+        expect: false,
+      },
+      {
+        label: "refuse getSetCookie",
+        matter: {
+          contentByFile: {
+            "scripts/health-report.ts":
+              "const [sid] = r.headers.getSetCookie();",
+          },
+        },
+        expect: false,
+      },
+      {
+        // Le mot dans un commentaire n'est pas un geste : seul l'en-tête
+        // nommé, ou l'accès au cookie, en est un.
+        label: "tolère le mot dans un commentaire",
+        matter: {
+          contentByFile: {
+            "scripts/health-report.ts":
+              "// aucune session, aucun cookie : la clé suffit",
+          },
+        },
+        expect: true,
+      },
+    ],
+  },
+  "41 :: aucune brique de sécurité éteinte en configuration": {
+    pass: {
+      addedTs: "  headers: { authorization: `Bearer ${key}` },",
+    },
+    fail: {
+      added: `    use("@nodefony/security", { apiKeys: { enabled: false } }),`,
+    },
+  },
+
   "34 :: aucune brique de sécurité éteinte en configuration": {
     pass: {
       added: `    use("@nodefony/drizzle", { connectors: { default: { ddl: "none" } } }),`,

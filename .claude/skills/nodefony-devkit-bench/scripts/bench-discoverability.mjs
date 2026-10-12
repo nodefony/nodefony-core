@@ -119,8 +119,12 @@ import {
   ROUTE_FACTURATION,
   ROUTE_IMPORT,
   ROUTE_MACHINE,
+  ROUTE_RAPPORT_MACHINE,
   ROUTE_SYNTHESE,
   ROUTE_VIREMENT,
+  SCRIPT_RAPPORT,
+  VAR_CLE_RAPPORT,
+  VAR_URL_RAPPORT,
 } from "./lib/enonces.mjs";
 import {
   ENTITE as ENTITE_MIGREE,
@@ -795,6 +799,13 @@ const JUGE_LOGIN_RETURN = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-login-return.mjs",
+);
+
+/** Juge « un script s'authentifie par une clé, jamais par le formulaire ». */
+const JUGE_SCRIPT_API = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-script-api.mjs",
 );
 
 /** Juge « deux facteurs et une connexion récente pour l'action sensible ». */
@@ -4784,6 +4795,80 @@ export const TASKS = [
             `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `NODE_ENV=development npx --no-install nodefony inspect routes --json > .nf-routes.json 2>/dev/null; ` +
             `node ${JUGE_STEP_UP}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      { kind: "gate", name: "npm test vert dans l'app", cmd: ["npm", "test"] },
+    ],
+  },
+  {
+    id: 41,
+    name: "un script appelle l'API protégée",
+    // Le juge émet la clé avec la session « admin » : la prémisse se constate
+    // AVANT de payer l'agent.
+    premisseIdentiteAdmin: true,
+    // Une machine ne remplit JAMAIS le formulaire : elle présente une clé
+    // (`Authorization: Bearer`, RFC 6750) sur une zone qui l'attend — la zone
+    // `machine` du gabarit couvre `^/api/machine` sans rien déclarer. Le
+    // contournement naturel d'un agent qui ne trouve pas la clé est de créer
+    // un compte, de poster sur la route de connexion et de rejouer le cookie :
+    // un mot de passe dans une tâche planifiée, et une session ouverte chaque
+    // nuit. Le juge émet la clé, la remet au script par l'environnement, et le
+    // relance avec une clé fausse — un script qui sort en succès quand on le
+    // refuse ne surveille rien.
+    //
+    // Aucun `prepare` : la route et le script sont à créer.
+    prompt:
+      "Une tâche planifiée doit relever chaque nuit l'état de cette application, sans " +
+      `personne devant. Ajoute une route GET ${ROUTE_RAPPORT_MACHINE}, réservée aux ` +
+      'programmes, qui répond en JSON { "ok": true } (un appel sans preuve d\'identité est ' +
+      `refusé), et un script ${SCRIPT_RAPPORT}, lancé par \`node ${SCRIPT_RAPPORT}\`, qui ` +
+      "l'appelle et affiche la réponse : il sort en 0 si l'appel a réussi, en 1 sinon. Le " +
+      `script trouve l'adresse de l'application dans ${VAR_URL_RAPPORT}, et la clé d'API qui ` +
+      `l'authentifie, émise par l'application, dans ${VAR_CLE_RAPPORT}. Termine en prouvant ` +
+      "que les tests de l'app passent.",
+    probes: [
+      sondeLecture("a lu la doc des clés d'API", /api-keys\.md|ApiKey|apikey/u),
+      {
+        // OBSERVÉE : la forme normée de la présentation. Un en-tête maison
+        // (`x-api-key`) échoue au juge, qui dit alors pourquoi.
+        kind: "code",
+        name: "la clé voyage en Authorization: Bearer — observation",
+        pattern: /Bearer/u,
+        file: SCRIPT_RAPPORT,
+        observe: true,
+      },
+      {
+        // JUGÉ. Le formulaire de connexion appelé par un programme : un mot de
+        // passe dans une tâche planifiée, une session ouverte à chaque passage.
+        kind: "code",
+        name: "aucune connexion par la route de login",
+        pattern: /\/api\/auth\/login|AUTH_LOGIN(?:_TOTP)?_PATH/u,
+        where: "addedTs",
+        invert: true,
+      },
+      {
+        // JUGÉ. Un cookie manipulé par le script trahit une session rejouée.
+        // `cookie:` sans espace : la clé d'objet (prettier n'en met pas), pas
+        // le mot d'un commentaire en français (« aucun cookie : … »).
+        kind: "code",
+        name: "aucun cookie de session dans le script",
+        pattern:
+          /["'`](?:set-)?cookie["'`]|\bcookie:|\.cookie\b|getSetCookie|credentials\s*:\s*["'`]include/iu,
+        file: SCRIPT_RAPPORT,
+        invert: true,
+      },
+      INTERRUPTEUR_DE_SECURITE,
+      {
+        kind: "gate",
+        name: "anonyme refusé, la clé ouvre, le script aboutit avec elle et échoue sans",
+        cmd: [
+          "sh",
+          "-c",
+          `node ${JUGE_SCRIPT_API} --check-port-free || exit 5; ` +
+            `npm run build >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_SCRIPT_API}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
       },

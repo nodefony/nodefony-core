@@ -401,6 +401,15 @@ export const IMPUTATIONS = Object.freeze({
   // l'agent y soit pour quelque chose.
   "second-facteur-inoperant": INDETERMINE,
   "aucune-reponse-mfa": INDETERMINE,
+
+  // ─── Un script appelle l'API protégée (tâche 41) ─────────────────────────
+  "script-absent": AGENT,
+  // Le script reçoit une clé valide et un environnement minimal : son échec
+  // est le sien.
+  "script-echoue": AGENT,
+  // Refusé, il sort en succès : l'ordonnanceur croit le relevé fait.
+  "script-ne-verifie-rien": AGENT,
+  "script-sans-fin": AGENT,
   // Le juge n'a pas pu se munir du jeton anti-rejeu : un 403 ne dit alors rien
   // du logiciel produit, il dit que l'instrument est parti sans son jeton.
   // Accuser ici reviendrait à reprocher à l'agent d'avoir protégé sa route —

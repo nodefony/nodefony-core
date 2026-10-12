@@ -103,6 +103,7 @@ const LOT_ATTENDU = new Set([
   "lib/gate-role-hierarchy.selftest.mjs",
   "lib/gate-route-param.selftest.mjs",
   "lib/gate-routes-count.selftest.mjs",
+  "lib/gate-script-api.selftest.mjs",
   "lib/gate-secure-route.selftest.mjs",
   "lib/gate-session-csrf.selftest.mjs",
   "lib/gate-step-up.selftest.mjs",

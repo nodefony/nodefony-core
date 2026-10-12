@@ -2985,6 +2985,10 @@
                 "help": ""
               },
               {
+                "name": "JUGE_SCRIPT_API",
+                "help": ""
+              },
+              {
                 "name": "JUGE_SECURE",
                 "help": ""
               },
@@ -3129,6 +3133,10 @@
                 "help": ""
               },
               {
+                "name": "ROUTE_RAPPORT_MACHINE",
+                "help": ""
+              },
+              {
                 "name": "ROUTE_SYNTHESE",
                 "help": ""
               },
@@ -3141,7 +3149,19 @@
                 "help": ""
               },
               {
+                "name": "SCRIPT_RAPPORT",
+                "help": ""
+              },
+              {
                 "name": "TITRE_SEME",
+                "help": ""
+              },
+              {
+                "name": "VAR_CLE_RAPPORT",
+                "help": ""
+              },
+              {
+                "name": "VAR_URL_RAPPORT",
                 "help": ""
               }
             ],
