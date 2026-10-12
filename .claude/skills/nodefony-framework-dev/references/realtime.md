@@ -385,7 +385,7 @@ Tout est exporté depuis `@nodefony/realtime` (`rt/index.ts`), sauf les briques 
 
 ### 2.2 `RealtimeHub` — broker singleton
 
-`rt/nodefony/src/server/RealtimeHub.ts:1413`. **1 pod = 1 process = 1 hub** (singleton lazy `getRealtimeHub()` `:706`). Consommé directement par les controllers/admin/WS handlers ; userland passe par `RealtimeService`.
+`rt/nodefony/src/server/RealtimeHub.ts:1413`. **1 pod = 1 process = 1 hub** (singleton lazy `getRealtimeHub()` `:1413`). Consommé directement par les controllers/admin/WS handlers ; userland passe par `RealtimeService`.
 
 **Cœur fan-out / pub-sub** :
 
@@ -455,7 +455,7 @@ plateforme :
 
 ### 2.4 `ServerRealtimeSocket` — handle serveur
 
-`rt/nodefony/src/server/ServerRealtimeSocket.ts:43`. `implements IRealtimeSocket` au-dessus du hub : un **service back** tient UN handle comme une page front. Fabrique `serverSocket<Emit, Listen, Actions>()` `:223`.
+`rt/nodefony/src/server/ServerRealtimeSocket.ts:43`. `implements IRealtimeSocket` au-dessus du hub : un **service back** tient UN handle comme une page front. Fabrique `serverSocket<Emit, Listen, Actions>()` `:243`.
 
 - `publish(channel, payload)` `:56` — fan-out hub (+ backplane si broadcast). **Cas d'usage principal.**
 - `subscribe`/`unsubscribe` `:68/:81` — le service ÉCOUTE (ref-compté). Au 1ᵉʳ abonné, pose une **écoute passive** (`hub.listen`, `:77`) : le service reçoit ce qui passe **sans ouvrir le canal**. Un canal tenu par de seuls écouteurs est `passif` — la 1ʳᵉ connexion cliente qui le demande fait rejouer la fabrique du controller, qui seule décide de son existence.
@@ -522,8 +522,8 @@ interface IBackplane {
 Drivers (chacun porte `static readonly driver`) :
 
 - `LoopbackBackplane` `rt/.../backplane/LoopbackBackplane.ts:24` — `driver="loopback"`, no-op (aucun pair).
-- `ClusterBackplane` `rt/.../backplane/ClusterBackplane.ts:89` — `driver="cluster"`, IPC worker→master-gateway (`processIpcTransport` `:45`). `crossPod:false` (workers d'un même pod). Anti-echo `:134`.
-- `RedisBackplane` `rt/.../backplane/RedisBackplane.ts:219` — `driver="redis"`, pub/sub cross-pod. `crossPod:true`. Helpers : `createRedisServiceTransport(publisher, subscriber)` (`:100`, **seul** point couplé à `redis`, couplage **structurel** sans import) · `resolveRedisChannel(ns)` → `nodefony:realtime:<ns>` (`:31`) · `REDIS_RT_CHANNEL` (`:20`). Seams : `IRedisBackplaneTransport` (`:42`), `IRedisPublisher`/`IRedisSubscriber` (typage structurel).
+- `ClusterBackplane` `rt/.../backplane/ClusterBackplane.ts:89` — `driver="cluster"`, IPC worker→master-gateway (`processIpcTransport` `:45`). `crossPod:false` (workers d'un même pod). Anti-echo `:154`.
+- `RedisBackplane` `rt/.../backplane/RedisBackplane.ts:219` — `driver="redis"`, pub/sub cross-pod. `crossPod:true`. Helpers : `createRedisServiceTransport(publisher, subscriber)` (`:137`, **seul** point couplé à `redis`, couplage **structurel** sans import) · `resolveRedisChannel(ns)` → `nodefony:realtime:<ns>` (`:31`) · `REDIS_RT_CHANNEL` (`:20`). Seams : `IRedisBackplaneTransport` (`:42`), `IRedisPublisher`/`IRedisSubscriber` (typage structurel).
 
 Registre `rt/nodefony/src/backplane/backplaneRegistry.ts` (sélection ouverte, **0 `if` sur noms en dur**) : `registerBackplaneDriver(name, factory: BackplaneFactory)` `:55` · `getBackplaneDriver(name)` `:63` · `listBackplaneDrivers()` `:68`. `BackplaneFactory = (ctx: IBackplaneFactoryContext) => IBackplane | null | Promise<...>` (`:44`) ; `null` = driver inactif dans ce contexte → hub local. Userland : `registerBackplaneDriver("nats", …)` + `driver: "nats"`. `resolveBackplaneOriginId()` (`rt/.../backplane/originId.ts:24`) = `(NF_POD_NAME ?? hostname()):pid` (fallback `randomUUID()`).
 
@@ -582,7 +582,7 @@ Backplane custom userland (NATS…) hors schéma sérialisable : `defineRealtime
 
 ## 3. Internals (mécanique)
 
-**Pub/sub par canal (canaux PARTAGÉS, ref-compté)** — `RealtimeHub` tient `Map<channel, ChannelState>` (lazy `null`, `RealtimeHub.ts:119`). `ChannelState = { dispose, sinks: Set<ChannelSink>, messages, forward }` (`:76`). Au **1ᵉʳ** abonné : sink ajouté → `factory(channel, publishFn)` crée **UN** provider (ticker/listener) → son `dispose` mémorisé. Abonnés suivants = juste un sink de plus (`subscribe:199`). Au **dernier** `unsubscribe` : `dispose()` + suppression du canal (`:244-251`). **Dédup par nom de canal** : 1 provider par nom par pod — `subscribe` sur un canal existant n'appelle JAMAIS `factory` (il ajoute un sink). Conséquence : 1 effet de bord (enrich/ticker/drill) par canal, pas par abonné. `#fanout` (`:293`) incrémente la sonde puis appelle chaque sink dans un `try/catch` isolé (une conn fautive ne casse pas la diffusion).
+**Pub/sub par canal (canaux PARTAGÉS, ref-compté)** — `RealtimeHub` tient `Map<channel, ChannelState>` (lazy `null`, `RealtimeHub.ts:119`). `ChannelState = { dispose, sinks: Set<ChannelSink>, messages, forward }` (`:173`). Au **1ᵉʳ** abonné : sink ajouté → `factory(channel, publishFn)` crée **UN** provider (ticker/listener) → son `dispose` mémorisé. Abonnés suivants = juste un sink de plus (`subscribe:199`). Au **dernier** `unsubscribe` : `dispose()` + suppression du canal (`:480-485`). **Dédup par nom de canal** : 1 provider par nom par pod — `subscribe` sur un canal existant n'appelle JAMAIS `factory` (il ajoute un sink). Conséquence : 1 effet de bord (enrich/ticker/drill) par canal, pas par abonné. `#fanout` (`:626`) incrémente la sonde puis appelle chaque sink dans un `try/catch` isolé (une conn fautive ne casse pas la diffusion).
 
 **Anti-boucle backplane = 2 barrières + `originId`** (`IBackplane.ts:17`, `RealtimeHub.ts:266`) :
 

@@ -525,7 +525,7 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 onBoot onReady onServersReady onPostReady onTerminate=1<<10`.
 
 `kernel/CliKernel.ts:70` — **`class CliKernel extends Cli`** (⚠️ PAS `Kernel`). Le `Kernel` est instancié à part et lié à
-`cliKernel.kernel`. Ctor `(environment?)` `:86`. `start(options?)` `:158` crée le Kernel + ajoute les built-ins +
+`cliKernel.kernel`. `constructor(environment?)` `:142`. `start(options?)` `:231` crée le Kernel + ajoute les built-ins +
 `parseAsync`. `setRunProfile(profile)` `:504` (`{servers,lifetime,interactive}`, recopié dans `kernel.runProfile` à
 `onStart`). `addCommand` `:518` · `initSyslog` `:568` · `terminate` `:637` (délègue à `kernel.terminate` si présent).
 
@@ -577,7 +577,7 @@ sur le **constructeur**), `@Inject("name")` (propriété → `inject:properties`
 
 ### `Syslog` / `Pdu`
 
-`syslog/Syslog.ts:628` — `class Syslog extends Event implements ISyslog`. Ring buffer `CircularBuffer<Pdu>` (`:273`, FIFO O(1)).
+`syslog/Syslog.ts:621` — `class Syslog extends Event implements ISyslog`. Ring buffer `CircularBuffer<Pdu>` (`:623`, FIFO O(1)).
 
 - `log(payload, severity?, moduleName?, msg?): Pdu` `:925` · raccourcis `error`/`warn`/`info`/`debug`/`trace` `:1132`+ ·
   `print(...args)` `:1152` / `logMultiple(sev, ...args)` `:1157`.
@@ -596,7 +596,7 @@ sur le **constructeur**), `@Inject("name")` (propriété → `inject:properties`
 
 ### `Cli` / `Command`
 
-`Cli.ts:103` — `class Cli extends Service` (wrapper Commander). Surcharges ctor `:133-146`.
+`Cli.ts:212` — `class Cli extends Service` (wrapper Commander). Surcharges du `constructor` `:260-273`.
 
 - `addCommand(Ctor)` `:540` · `hasCommand` `:546` / `getCommand` `:553` · `parse`/`parseAsync` `:462`/`:469`.
 - `setCommandVersion(v)` `:518` (⚠️ throw si rappelé — le ctor ajoute déjà `-v`) · `setCommandOption` `:507` · `setCommand` `:529`.
@@ -604,7 +604,7 @@ sur le **constructeur**), `@Inject("name")` (propriété → `inject:properties`
   `showBanner` `:335` · `handleSignals()` `:225` (idempotent : 1ᵉʳ signal draine, 2ᵉ force `exit`) · `terminate` `:680`.
 
 `command/Command.ts:62` — `class Command extends Service`. Ctor `(name, description, cli, options?)` `:93`. Enregistre son
-action dans Commander au ctor. `onKernelStart?(...args)` `:72` (hook pré-boot). `setEvents()` `:130` (guard `eventsRegistered`,
+action dans Commander au ctor. `onKernelStart?(...args)` `:150` (hook pré-boot). `setEvents()` `:217` (guard `eventsRegistered`,
 idempotent). Chaîne standalone : `action()` `:222` → `run()` `:247` → `generate()` `:277` (à override ; ⚠️ Commander passe
 l'instance `Cmd` en **dernier** arg). `addOption` `:365` / `addArgument` `:382` / `alias` `:292`. `kernelEvent` défaut `"onRegister"`.
 
@@ -754,6 +754,6 @@ Les deux symboles **EXISTENT** (le faux négatif d'un audit antérieur venait d'
 - **`FileClass.from()`** — `static async from(...)` à `FileClass.ts:116`. Fabrique **asynchrone** (I/O non bloquante via
   `stat()` `:130`), à utiliser dans tout pipeline ; le constructeur `new FileClass()` `:89` reste **synchrone** (`lstatSync`).
 - **`getFileAsync()`** — `async getFileAsync(file): Promise<FileClass>` à **`@nodefony/framework` `Controller.ts:739`** (délègue à
-  `FileClass.from`). Son jumeau **synchrone `getFile()` `:418` est `@deprecated`** (« Bloque l'event-loop via `fs.lstatSync` »).
+  `FileClass.from`). Son jumeau **synchrone `getFile()` `:756` est `@deprecated`** (« Bloque l'event-loop via `fs.lstatSync` »).
   Interface miroir : `IController.ts:65-68` (`getFile` deprecated + `getFileAsync`). ⚠️ `getFileAsync` vit dans `framework`,
   pas dans le core — mais le verdict demandé est : **il existe bien** (pas de méthode nommée `n`).

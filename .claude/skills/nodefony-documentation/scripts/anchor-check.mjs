@@ -195,6 +195,7 @@ function anchorsOfLine(line, mdLine, decalage) {
       endS,
       index: m.index,
       label: `${parent[1]}:${startS}${endS ? `-${endS}` : ""}`,
+      short: true,
     });
   }
   return out.sort((x, y) => x.index - y.index);
@@ -520,6 +521,15 @@ for (const md of args) {
           };
         }
       }
+      // Le fichier d'une ancre courte est SUPPOSÉ (celui de l'ancre longue
+      // d'avant) : l'auteur vise parfois le fichier implicite de sa section.
+      // Une ligne absente, ou un symbole que ce fichier ne connaît pas, réfute
+      // la supposition — on ne juge pas, et le bilan la compte non contrôlée.
+      if (a.short && (best.kind === "LINE_OUT" || best.kind === "INDECIS")) {
+        orphans++;
+        total--;
+        continue;
+      }
       if (best.kind !== "OK") {
         pageProblems.push({
           kind: best.kind,
@@ -570,8 +580,8 @@ if (ind) {
 }
 if (orphans) {
   console.log(
-    `   (${orphans} ancre(s) courte(s) \`:N\` NON contrôlée(s) : aucune ancre longue avant elle sur la ligne,\n` +
-      `    donc aucun fichier à ouvrir. Écrire le chemin en entier pour qu'elle soit vérifiée.)`,
+    `   (${orphans} ancre(s) courte(s) \`:N\` NON contrôlée(s) : leur fichier n'est pas écrit, et celui de\n` +
+      `    l'ancre longue d'avant ne la confirme pas. Écrire le chemin en entier pour qu'elle soit vérifiée.)`,
   );
 }
 if (su) {

@@ -464,7 +464,7 @@ Savepoints driver-dépendants (no-op possible : Mongo).
 (`ormRegistry.register(this.name, this)`, `Orm.ts:44` — possible car `name` arrive de `Service`, dispo
 tôt). `connect()` = **template method** (`Orm.ts:118`) → appelle l'abstrait `onConnect()` (`Orm.ts:364`)
 puis `fire("onOrmReady", this)` (`Orm.ts:66`). Abstraits à implémenter : `onConnect`, `disconnect`
-(`:77`), `isConnected` (`:80`), `getRepository` (`:87`), `transaction` (`:94`), `getNativeConnection`
+(`:367`), `isConnected` (`:80`), `getRepository` (`:374`), `transaction` (`:381`), `getNativeConnection`
 (`:97`). `describeEntity` par défaut renvoie `[]` (`Orm.ts:396`, relations seules) → surchargé par
 l'adapter.
 
@@ -526,13 +526,13 @@ Exports : `DrizzleOrm`, `DrizzleRepository`, `DrizzleTransaction` (+ types `Driz
 
 **`DrizzleOrm extends Orm`** — `drizzle/nodefony/src/orm-core/DrizzleOrm.ts:80`. Schema-as-code
 (`entity.schema` EST une table Drizzle `sqliteTable(...)`). DDL dérivé via `getTableConfig()`
-(`DrizzleOrm.ts:154`, dev/test ; **prod = `drizzle-kit`**). `getRepository(name)` (`:327`) →
-`new DrizzleRepository(db, table, relations, connector)` (`:339`). `transaction` (`:350`) →
+(`DrizzleOrm.ts:664`, dev/test ; **prod = `drizzle-kit`**). `getRepository(name)` (`:1693`) →
+`new DrizzleRepository(db, table, relations, connector)` (`:1718`). `transaction` (`:350`) →
 `new DrizzleTransaction(db, client)` (`:359`). `getNativeConnection<DrizzleDb>()` (`:370`).
 `describeConnection()` (`:468`). `get dialect` (`:114`).
 
 **`DrizzleRepository<T>`** (`DrizzleRepository.ts:177`, même dossier que l'ORM Drizzle). **Ctor**
-`(db, table, relations, connector="default")` (`:92`). `#where(criteria)` traduit en `eq/and/gt/inArray/
+`(db, table, relations, connector="default")` (`:260`). `#where(criteria)` traduit en `eq/and/gt/inArray/
 like` (`:186`). `#populate` = eager-load **manuel**, 1 requête `IN(...)` par relation (`:249`). Sortie
 = **cast `rows as T[]`** (`:320` — schema-as-code : la ligne EST l'entité, pas de remap générique).
 Verbes : `createMany` (`:341`), `updateOne` (`:354`), `upsert` (`:375`, `onConflictDoUpdate`+RETURNING),
@@ -547,7 +547,7 @@ Verbes : `createMany` (`:341`), `updateOne` (`:354`), `upsert` (`:375`, `onConfl
 
 Exports : `MongooseOrm`, `MongooseRepository`, `MongooseTransaction`.
 
-**`MongooseOrm extends Orm`** — `mongoose/nodefony/src/orm-core/MongooseOrm.ts:43`. `onConnect()` (`:72`)
+**`MongooseOrm extends Orm`** — `mongoose/nodefony/src/orm-core/MongooseOrm.ts:43`. `onConnect()` (`:138`)
 = `mongoose.createConnection(uri, options?)` (`:74` — **connexion isolée**, PAS le singleton global →
 multi-ORM) puis compile schémas/modèles depuis `entityRegistry` (`connection.model(...)` `:154`,
 `entity.model = model` `:159`). `getRepository(name)` (`:179`) → `new MongooseRepository(model, this.name)`
@@ -635,7 +635,7 @@ PG** ; **reste** `user` (⚠️ `findBySocialProvider` `json_each` SQLite → `j
 **Résolution lazy du driver**
 
 - Drizzle `#db`/`#tables` = `null` jusqu'à `onConnect` (`DrizzleOrm.ts:795`/`:92`), remis `null` à
-  `disconnect` (`:316`). `pg` chargé **lazily** (`await import("pg")` dans `#connectPostgres`, jamais
+  `disconnect` (`:1656`). `pg` chargé **lazily** (`await import("pg")` dans `#connectPostgres`, jamais
   au top-level : un déploiement SQLite n'a pas `pg`).
 - Stores branchés (idempotence/token) prennent un **résolveur** `() => Db | null` (garde `isConnected()`)
   → tolère l'ordre de boot (framework résout le store à `onKernelBoot`, l'ORM connecte à `onBoot`) **et**

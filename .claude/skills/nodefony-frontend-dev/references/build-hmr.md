@@ -165,7 +165,7 @@ Source unique des balises = `TemplateHelper` (`src/template/TemplateHelper.ts`).
   meta/polices/externals), **retire** le `<script type=module src=…entry…>` source (non
   résolvable hors dev server Vite), et injecte les tags au marqueur **`<!--nodefony:frontend-->`**
   sinon avant `</head>` (`TemplateHelper.ts:82`/`injectIntoHtml:105`/`FRONTEND_MARKER:23`). Pas
-  d'`index.html` → coquille minimale `<div id="root">` générée (`:88-99`).
+  d'`index.html` → coquille minimale `<div id="root">` générée (`:137-147`).
 - **`assetUrl(p)`** : préfixe `p` par `assetBaseUrl` (CDN) si configuré, sinon identité ; URLs
   absolues inchangées (`FrontendService.ts:114`).
 
@@ -299,7 +299,7 @@ port de Vite (SPA-fallback HTML) : l'ouvrir par Nodefony.
 ### 4.3 Prod — build + manifest + statiques
 
 **Build** : `FrontendService.build({force?})` (`FrontendService.ts:634`) importe `vite` à la demande
-(`:527`) et appelle `vite.build()` **par entry** (boucle `:535`) — chaque bundle a son propre
+(`:640`) et appelle `vite.build()` **par entry** (boucle sur `this.entries`, `:670`) — chaque bundle a son propre
 `root`/`outDir`/`base`/`manifest` (multi-module + isolation Angular). `ViteBuilder.buildViteConfig`
 (`src/builders/ViteBuilder.ts:95`) pose `base = assetBaseUrl + publicPath` **seulement en production**
 (`:79-80`) et `build.manifest: true`. Le résultat est `IFrontendBuildResult` :

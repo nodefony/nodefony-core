@@ -66,7 +66,9 @@ function definitionLines(lines, sym) {
     new RegExp(`^\\s*(export\\s+)?interface\\s+${esc}\\b`),
     new RegExp(`^\\s*(export\\s+)?(async\\s+)?function\\s+${esc}\\b`),
     new RegExp(`^\\s*(export\\s+)?(declare\\s+)?const\\s+${esc}\\b`),
-    new RegExp(`^\\s*(export\\s+)?type\\s+${esc}\\b`),
+    // `= ` ou `<` exigés : `  type X,` dans un `import { … }` n'est pas sa
+    // déclaration — vécu, une ancre recalée sur la ligne 2 d'un fichier.
+    new RegExp(`^\\s*(export\\s+)?type\\s+${esc}\\s*[=<]`),
     new RegExp(`^\\s*(export\\s+)?enum\\s+${esc}\\b`),
     // méthode / accesseur / champ privé d'une classe
     new RegExp(
@@ -131,7 +133,7 @@ const ANY_ANCHOR_RE =
 /** Nom nu d'un identifiant cité : `Hub.publish()` → `publish`. */
 function bareName(text) {
   return text
-    .replace(/\(.*$/, "")
+    .replace(/[<(].*$/, "") // arguments ET génériques : `f<A, B>()` → `f`
     .split(".")
     .pop()
     ?.replace(/[^A-Za-z0-9_#]/g, "");

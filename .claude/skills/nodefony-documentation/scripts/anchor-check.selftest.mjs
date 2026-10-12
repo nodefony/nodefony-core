@@ -126,6 +126,19 @@ try {
       ["SUSPECT deco.ts:9"],
       "une citation coupée par prettier reste UNE phrase : sa dérive se voit",
     ],
+    // Mais le fichier d'une ancre courte est SUPPOSÉ : l'auteur vise parfois le
+    // fichier implicite de la section. Si le fichier supposé ne connaît pas le
+    // symbole, ou n'a pas cette ligne, on ne juge pas — non contrôlée.
+    [
+      "`Alpha()` (`deco.ts:9`) puis `ingestWelcome` (`:957`)",
+      [],
+      "une ancre COURTE qui vise un autre fichier n'est pas jugée",
+    ],
+    [
+      "`Alpha()` (`deco.ts:9`) puis `ingestWelcome` (`:40`)",
+      [],
+      "une ancre COURTE dont le symbole est inconnu du fichier supposé n'est pas jugée",
+    ],
     // Même famille : un NOUVEL item de liste n'est pas la suite de la ligne du
     // dessus — prettier ne coupe pas entre deux puces.
     [

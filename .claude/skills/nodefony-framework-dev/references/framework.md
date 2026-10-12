@@ -313,7 +313,7 @@ Nom de route = `admin.<ns>.<method>.<path>`. `Router.setController(AdminApiContr
 `hasOwnProperty("module")` (idempotent).
 
 **`AdminApiController.dispatch(...args)`** (`nodefony/controller/AdminApiController.ts:65`) — 1 controller
-pour N endpoints. `runAdmin()` (`:86`) transport-agnostique : `broker.resolve(route.name)` → `buildRequest`
+pour N endpoints. `runAdmin()` (`:106`) transport-agnostique : `broker.resolve(route.name)` → `buildRequest`
 (Context→`IAdminRequest`, params zippés depuis `route.variables`, body via ALS du pont WS sinon
 `queryPost`) → **RBAC** `isAdminGranted(roles, role)` (`src/adminRbac.ts`, fail-closed, 403 si rôle
 absent ; `role===""`=public) → **idempotencyGate** → `handler` → `normalize`. Rendu : **HTTP** =

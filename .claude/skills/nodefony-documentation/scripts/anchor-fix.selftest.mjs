@@ -47,6 +47,11 @@ try {
   declare(140, "export class ProgressBar extends LiveLine {");
   declare(170, "export class RealtimeHub {");
   declare(180, "  publish(channel: string): void {");
+  // Un `import { type X }` n'est PAS une déclaration de `X` : la ligne 2 du
+  // fichier l'importe, la classe vit plus bas.
+  declare(2, "  type ISink,");
+  declare(150, "export function serverSocket<E, L>(): ISink {");
+  declare(160, "export interface ISink {");
   fs.writeFileSync(path.join(root, "src", "progress.ts"), code.join("\n"));
 
   // Les ancres d'AVANT : chacune décalée, toutes vers une zone vide.
@@ -81,6 +86,8 @@ try {
     "La barre `src/progress.ts:140` (`ProgressBar`) hérite du socle `src/progress.ts:14` (`LiveLine`).",
     "",
     "Le socle `src/progress.ts:60` (`LiveLine`), le tourniquet `:50` (`Spinner`).",
+    "",
+    "`implements ISink` au-dessus. Fabrique `serverSocket<Emit, Listen>()` `src/progress.ts:60`.",
     "",
     "- `Spinner` est ailleurs.",
     "- Le dessin `src/progress.ts:45` puis `renderBar` plus loin.",
@@ -149,8 +156,13 @@ try {
       .join(",");
   expect("une ancre COURTE `:N` se recale aussi", shortOf(6), "60,100");
   expect(
+    "un nom générique `f<A, B>()` reste `f`, et un `import { type X }` n'est pas sa déclaration",
+    anchorsOf(8),
+    "150",
+  );
+  expect(
     "le symbole de la puce du DESSUS ne recale pas l'ancre",
-    anchorsOf(9),
+    anchorsOf(11),
     "20",
   );
 } finally {
